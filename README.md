@@ -16,20 +16,26 @@ satchel, and title.
 
 ## Run
 
-Needs **Python 3.11+** and nothing else (stdlib only). From the project folder:
+Needs **Python 3.11+** and nothing else (stdlib only — no `pip install`, no build).
 
-**Windows** (PowerShell or CMD)
-```
-python server.py
-```
+### Easiest: double-click a launcher
 
-**macOS / Linux**
-```
-python3 server.py
-```
+| OS | Double-click | Notes |
+|----|--------------|-------|
+| **Windows** | `start.bat` | Finds Python (or sends you to python.org if it's missing) and starts the game. |
+| **macOS** | `start.command` | Opens in Terminal. First time, macOS may block it — **right-click → Open** once, or run `chmod +x start.command`. |
+| **Linux** | `start.sh` | Also frees the port from a previous run. |
 
-The server starts and your browser opens to the game automatically. If it
-doesn't, go to http://localhost:8777. Stop it with `Ctrl+C`.
+Each one checks for Python, starts the server, and your browser opens to the
+game automatically. Close the window (or `Ctrl+C`) to stop it.
+
+### Or run it by hand
+
+**Windows** (PowerShell or CMD): `python server.py`
+**macOS / Linux**: `python3 server.py`
+
+The server starts and your browser opens automatically. If it doesn't, go to
+http://localhost:8777. Stop it with `Ctrl+C`.
 
 - Pick a different port: `python server.py 9000`
 - Don't auto-open the browser: set `ARCANUM_NO_OPEN=1` first
