@@ -1,0 +1,59 @@
+# ARCANUM — spell-sigil tuning
+# Every knob the cast animation (castSigil in app.js) and its sound use.
+# Edit and refresh the page; no rebuild. Any key you delete (or the whole
+# file) falls back to the same defaults baked into app.js.
+# Key names are spelled out in full — no abbreviations.
+# Note: the cast obeys the study's particle preference — if particles are
+# off in TRIM THE WICK, neither the sigil nor its sound plays.
+
+[letters]
+minimum = 3         # letters per successful cast
+maximum = 6
+scale = 28          # px per grid unit; letters stand ~6x this tall
+spacing = 0.3       # grid units between motes along a stroke (smaller = denser)
+
+[palette]           # one hue rolled per mote, between these two
+hue_minimum = 200       # sky-blue
+hue_maximum = 320       # magenta
+saturation = 85         # %
+saturation_miscast = 30 # a miscast starts at `saturation`, then greys to this as it falls
+
+[motes]
+size_minimum = 4    # px
+size_maximum = 6
+dot_size = 10       # the heavy lone-point strokes
+glow = 3            # colored self-glow radius, x mote size
+
+[charge]
+total_milliseconds = 4000  # whole life of the cast; release lands at total_milliseconds * release_fraction
+release_fraction = 0.75    # 4000 x 0.75 = the 3-second mark
+poses_minimum = 18         # strained poses per mote through the hold
+poses_maximum = 22
+shake = 7                  # px of extra throw at full charge (escalates from ~2)
+grow = 0.25                # extra mote scale at full charge
+
+[halo]              # the white glow behind each mote
+size = 6            # x mote size
+peak_opacity = 1.0  # brightness at the moment of release
+
+[burst]
+distance_minimum = 160  # px each mote flies at release
+distance_maximum = 400
+shards = 2              # smaller pieces each mote breaks into mid-flight
+shard_size = 0.45       # x parent mote size
+
+[sound]
+enabled = true
+volume = 100          # %
+charge_hertz_from = 110  # the rising bind starts here...
+charge_hertz_to = 440    # ...and climbs to here at release
+shimmer = 0.5            # sparkle density through the charge, 0 to 1
+burst_gain = 0.6        # the release whoomph
+miscast = true          # play a sound on a failed cast at all
+
+[fail]                # cast-fail.mp3, played on a MISCAST: the letter charges
+charge_milliseconds = 900  # a MISCAST charges this long (stalling ~60% of the way), then breaks
+start = 0             # skip this many seconds of the clip's silent attack so the fail is heard at once
+tail = 1.1            # keep playing this many seconds past the break (total ≈ charge_milliseconds/1000 + this)
+gain = 2.0            # loudness of the fail sound, x [sound] volume (the clip is a quiet recording)
+fade = 0.3            # fade the tail out over the last this-many seconds, so it doesn't cut hard

@@ -1,0 +1,102 @@
+[[lessons]]
+id = "s08-l04"
+title = "Failure containment — one bad page can't kill the batch"
+body = '''
+
+<p>Task.WhenAll has a gotcha: if any task faults, awaiting it throws (the FIRST exception) — and your other four perfectly good results are awkward to reach. For a batch where partial success is fine — exactly Verisearch — the professional pattern is <strong>make each task catch its own failure and return an outcome object</strong>:</p>
+<pre><code><span class="k">public record</span> ScrapeOutcome(<span class="k">string</span> Url, List&lt;ScrapedParagraph&gt; Blocks,
+                             <span class="k">bool</span> Ok, <span class="k">string</span>? Error, <span class="k">double</span> Seconds);
+
+<span class="k">async</span> Task&lt;ScrapeOutcome&gt; ScrapeOneAsync(<span class="k">string</span> url, CancellationToken ct)
+{
+    <span class="k">var</span> sw = System.Diagnostics.Stopwatch.StartNew();
+    <span class="k">try</span>
+    {
+        <span class="k">var</span> blocks = <span class="k">await</span> scraper.ScrapeAsync(url, ct);
+        <span class="k">return new</span>(url, blocks, <span class="k">true</span>, <span class="k">null</span>, sw.Elapsed.TotalSeconds);
+    }
+    <span class="k">catch</span> (Exception ex)     <span class="c">// contain EVERYTHING — this task must not fault the batch</span>
+    {
+        <span class="k">return new</span>(url, [], <span class="k">false</span>, ex.Message, sw.Elapsed.TotalSeconds);
+    }
+}</code></pre>
+<p>Now WhenAll <em>cannot</em> throw from a bad page — every task completes successfully, carrying its own verdict:</p>
+<pre><code><span class="k">var</span> outcomes = <span class="k">await</span> Task.WhenAll(urls.Select(u =&gt; ScrapeOneAsync(u, token)).ToList());
+
+<span class="k">foreach</span> (<span class="k">var</span> o <span class="k">in</span> outcomes)
+    Console.WriteLine(o.Ok
+        ? <span class="s">$"  [OK]   {o.Url,-40} {o.Blocks.Count,4} blocks  {o.Seconds:F1}s"</span>
+        : <span class="s">$"  [FAIL] {o.Url,-40} {o.Error}"</span>);
+
+<span class="k">var</span> usable = outcomes.Where(o =&gt; o.Ok).ToList();   <span class="c">// pipeline continues with survivors</span></code></pre>
+<p>(That <code>{o.Url,-40}</code> is alignment formatting — pads to 40 chars, minus = left-align. Free table neatness.)</p>
+<p>And the Stopwatch gives you the per-source timing for the milestone output — plus the satisfying "1.5s parallel vs 5.3s sequential" line: sum the individual Seconds and compare to the wall-clock max.</p>
+<div class="callout">"Catch (Exception) is bad practice!" — usually. At a CONTAINMENT BOUNDARY, where the failure is recorded and reported, it's exactly right. The sin is swallowing exceptions silently, not catching them broadly.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Exception filters</strong> — catch conditionally without catching-and-rethrowing: <code>catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.TooManyRequests)</code> — the when-clause runs BEFORE the catch commits.</p>
+<p><strong>Retry with backoff</strong> — the polite recovery for transient failures (one retry, growing delay):</p>
+<pre><code>for (int attempt = 1; attempt <= 2; attempt++)
+{
+    try { return await FetchAsync(url, ct); }
+    catch (HttpRequestException) when (attempt < 2)
+    {
+        await Task.Delay(500 * attempt, ct);   <span class="c">// 500ms, then give up</span>
+    }
+}</code></pre>
+<p><strong>Reporting partial success honestly:</strong> "4/5 sources, 1 timed out" in the output beats both silent absence and a wall of stack trace. The outcome record carries exactly what the report needs.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"HttpClient guidelines\" (lifetime & sockets)"
+url = "https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/http/httpclient-guidelines"
+essential = true
+
+[[lessons.exercises]]
+id = "s08-l04-e1"
+type = "mc"
+points = 25
+prompt = "With the outcome-object pattern, what happens to Task.WhenAll when one page 404s?"
+choices = ["It throws HttpRequestException", "Nothing — every task completes normally; the 404 travels inside its outcome object", "It cancels the other tasks", "It returns null for that slot"]
+answer = 1
+hint = "The exception is caught INSIDE the task, converted to data."
+
+[[lessons.exercises]]
+id = "s08-l04-e2"
+type = "mc"
+points = 20
+prompt = "Without the pattern — tasks that throw directly — awaiting Task.WhenAll when 2 of 5 fault…"
+choices = ["throws an exception (you must dig for the rest); successful results are awkward to reach", "returns the 3 good results", "returns all 5 with nulls", "blocks forever"]
+answer = 0
+hint = "This is exactly why the outcome pattern exists."
+
+[[lessons.exercises]]
+id = "s08-l04-e3"
+type = "mc"
+points = 20
+prompt = "Which class measures the per-source elapsed time?"
+choices = ["DateTime.Now subtraction (fine but drift-prone)", "System.Diagnostics.Stopwatch", "Task.Timer", "TimeSpan.Count"]
+answer = 1
+hint = "StartNew(), .Elapsed — purpose-built for this."
+
+[[lessons.exercises]]
+id = "s08-l04-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "The containment wrapper — exceptions become data at this boundary. Twice."
+code = '''
+try
+{
+    var blocks = await scraper.ScrapeAsync(url, ct);
+    return new ScrapeOutcome(url, blocks, true, null);
+}
+catch (Exception ex)
+{
+    return new ScrapeOutcome(url, [], false, ex.Message);
+}'''
+
+[[lessons.exercises]]
+id = "s08-l04-w1"
+type = "write"
+points = 38
+prompt = "Containment lab: write <code>async Task&lt;string&gt; Attempt(int n)</code> that throws <code>new Exception(\"dead\")</code> when n==2, else returns \"ok\" (after a tiny Delay). Run n=1,2,3 through a wrapper that catches per-task, WhenAll them, and print <code>&lt;okCount&gt; ok &lt;failCount&gt; failed</code>."
+expect = "2 ok 1 failed"
+hint = "Wrapper returns bool (or a tiny record). outcomes.Count(o => o) and the inverse."

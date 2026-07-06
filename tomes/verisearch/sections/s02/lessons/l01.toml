@@ -1,0 +1,97 @@
+[[lessons]]
+id = "s02-l01"
+title = "if / else — choices, and the marks that feed them"
+body = '''
+
+<p>An <code>if</code> works a block only when a condition holds <code>true</code>:</p>
+<pre><code><span class="k">if</span> (score &gt;= 8.0)
+{
+    Console.WriteLine(<span class="s">"trusted source"</span>);
+}
+<span class="k">else if</span> (score &gt;= 4.0)
+{
+    Console.WriteLine(<span class="s">"use with caution"</span>);
+}
+<span class="k">else</span>
+{
+    Console.WriteLine(<span class="s">"unverified — flag it"</span>);
+}</code></pre>
+<p>The weighing marks: <code>==</code> equal, <code>!=</code> not equal, <code>&lt;</code> <code>&gt;</code> <code>&lt;=</code> <code>&gt;=</code>. Each yields a <code>bool</code>.</p>
+<p>The binding marks join bools together:</p>
+<pre><code>a &amp;&amp; b    <span class="c">// AND — both must hold</span>
+a || b    <span class="c">// OR  — at least one holds</span>
+!a        <span class="c">// NOT — turns it over</span></code></pre>
+<p><code>&amp;&amp;</code> and <code>||</code> <strong>short-circuit</strong>: if <code>a</code> is false, <code>a &amp;&amp; b</code> never so much as glances at <code>b</code>. That is why this is safe even when <code>line</code> is empty:</p>
+<pre><code><span class="k">if</span> (line.Length &gt; 0 &amp;&amp; line[0] == <span class="s">'?'</span>) { ... }  <span class="c">// the second test is skipped when empty</span></code></pre>
+<div class="callout">The classic snare: <code>=</code> fills a vessel, <code>==</code> weighs two things. C# spares you — <code>if (x = 5)</code> will not forge, for an int is not a bool. Be grateful; those who write C have no such mercy.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>The ternary mark</strong> — an if/else that IS a value: <code>string label = score &gt;= 6 ? "trusted" : "sketchy";</code> Use it for simple picks; if you find yourself nesting ternaries, reach for a switch expression instead.</p>
+<p><strong>Weighing doubles:</strong> floating-point arithmetic is approximate — <code>0.1 + 0.2 == 0.3</code> is FALSE. Weigh with a tolerance: <code>Math.Abs(a - b) &lt; 0.0001</code>. (Ints and decimals weigh exactly.)</p>
+<p><strong>The law of braces:</strong> C# custom sets <code>{</code> on its own line. Single-statement ifs may go unbraced, but one famous Apple security wound ("goto fail") came from exactly that — in this tome, everything is braced.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Selection statements (if, else, switch)\""
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/statements/selection-statements"
+essential = true
+
+[[lessons.exercises]]
+id = "s02-l01-e1"
+type = "mc"
+points = 15
+prompt = "Which mark means logical AND?"
+choices = ["&", "&&", "and", "+"]
+answer = 1
+hint = "Two of them, side by side."
+
+[[lessons.exercises]]
+id = "s02-l01-e2"
+type = "mc"
+points = 20
+prompt = "What does this utter when <code>trust = 6.5</code>?"
+code = '''
+if (trust >= 8.0)
+    Console.WriteLine("A");
+else if (trust >= 4.0)
+    Console.WriteLine("B");
+else
+    Console.WriteLine("C");'''
+choices = ["A", "B", "C", "B and then C"]
+answer = 1
+hint = "Only the FIRST branch that matches is walked; the rest are passed by."
+
+[[lessons.exercises]]
+id = "s02-l01-e3"
+type = "mc"
+points = 25
+prompt = "Why is <code>line.Length &gt; 0 &amp;&amp; line[0] == '?'</code> safe for an empty string, while <code>line[0] == '?' &amp;&amp; line.Length &gt; 0</code> collapses?"
+choices = ["It isn't safe — both crash", "&& evaluates left-to-right and stops early when the left side is false", "Length is always checked first regardless of order", "line[0] returns null for empty strings"]
+answer = 1
+hint = "Short-circuiting. Order matters."
+
+[[lessons.exercises]]
+id = "s02-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "The full if / else-if / else ladder — twice, until its shape is beneath thought."
+code = '''
+if (score >= 8.0)
+{
+    Console.WriteLine("trusted source");
+}
+else if (score >= 4.0)
+{
+    Console.WriteLine("use with caution");
+}
+else
+{
+    Console.WriteLine("unverified");
+}'''
+
+[[lessons.exercises]]
+id = "s02-l01-w1"
+type = "write"
+points = 32
+prompt = "Hear one whole number by whisper. Utter <code>high</code> if it is 7 or more, <code>mid</code> if 4–6, <code>low</code> otherwise."
+stdin = "7"
+expect = "high"
+hint = "int n = int.Parse(Console.ReadLine() ?? \"0\"); then the ladder."

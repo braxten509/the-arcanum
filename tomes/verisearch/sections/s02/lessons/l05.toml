@@ -1,0 +1,87 @@
+[[lessons]]
+id = "s02-l05"
+title = "Dictionary<TKey, TValue> — the instant concordance"
+body = '''
+
+<p>A <code>Dictionary</code> binds keys to values with near-instant finding. The tome's whole ledger of trust is one of these — domain → score:</p>
+<pre><code>Dictionary&lt;<span class="k">string</span>, <span class="k">double</span>&gt; trust = <span class="k">new</span>()
+{
+    [<span class="s">"nist.gov"</span>] = 9.5,
+    [<span class="s">"ietf.org"</span>] = 9.5,
+    [<span class="s">"medium.com"</span>] = 2.0,
+};
+
+trust[<span class="s">"owasp.org"</span>] = 8.0;               <span class="c">// add anew or write over</span>
+Console.WriteLine(trust[<span class="s">"nist.gov"</span>]);    <span class="c">// 9.5</span></code></pre>
+<p>Reading a key that is not written there <strong>throws</strong> (<code>KeyNotFoundException</code>). Two safe rites:</p>
+<pre><code><span class="k">if</span> (trust.ContainsKey(domain))
+    Console.WriteLine(trust[domain]);      <span class="c">// rite 1: look first (two findings)</span>
+
+<span class="k">if</span> (trust.TryGetValue(domain, <span class="k">out double</span> score))
+    Console.WriteLine(score);              <span class="c">// rite 2: one finding — favored</span>
+<span class="k">else</span>
+    Console.WriteLine(<span class="s">"unknown domain — default 1.0"</span>);</code></pre>
+<p>Walking a dictionary yields key/value pairs:</p>
+<pre><code><span class="k">foreach</span> (<span class="k">var</span> pair <span class="k">in</span> trust)
+    Console.WriteLine(<span class="s">$"{pair.Key} → {pair.Value}"</span>);</code></pre>
+<div class="callout">Keys stand alone. Writing <code>trust["nist.gov"] = 3.0</code> silently replaces 9.5 — but <code>trust.Add("nist.gov", 3.0)</code> throws, for the key already stands. Know which rite you are performing.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>GetValueOrDefault</strong> — the third safe reading, often the cleanest: <code>double score = trust.GetValueOrDefault(domain, 1.0);</code> — yields 1.0 for unknown domains, no if required.</p>
+<p><strong>Walking the parts:</strong> <code>foreach (var key in trust.Keys)</code>, <code>foreach (var v in trust.Values)</code>, or unbind the pairs outright: <code>foreach (var (domain, score) in trust)</code>.</p>
+<p><strong>The choosing of keys matters:</strong> keys are weighed with Equals/GetHashCode — strings and ints make perfect keys; changeable objects make dreadful ones. Case-blind string keys: <code>new Dictionary&lt;string,double&gt;(StringComparer.OrdinalIgnoreCase)</code> — handy when "NIST.gov" and "nist.gov" must strike the same entry.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Dictionary<TKey,TValue>\""
+url = "https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.dictionary-2"
+essential = true
+
+[[lessons.exercises]]
+id = "s02-l05-e1"
+type = "mc"
+points = 20
+prompt = "<code>trust[\"unknown.example\"]</code> where the key is not written…"
+choices = ["returns null", "returns 0.0", "throws KeyNotFoundException", "adds the key with a default value"]
+answer = 2
+hint = "Reading and writing behave differently for missing keys."
+
+[[lessons.exercises]]
+id = "s02-l05-e2"
+type = "text"
+points = 25
+prompt = "Which Dictionary calling finds a key AND tells you whether it stood written, in a single stroke? (method name only)"
+answer = "TryGetValue"
+accept = ["trygetvalue()", ".trygetvalue"]
+hint = "It uses an out parameter for the value."
+
+[[lessons.exercises]]
+id = "s02-l05-e3"
+type = "mc"
+points = 20
+prompt = "The best vessel for binding question words (\"what\", \"how\", \"why\") to question kinds?"
+choices = ["List<string>", "Dictionary<string, string>", "string[]", "int"]
+answer = 1
+hint = "You want finding-by-word, not a place-numbered vessel."
+
+[[lessons.exercises]]
+id = "s02-l05-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "The TryGetValue shape — one finding, no exception, twice."
+code = '''
+if (trust.TryGetValue(domain, out double score))
+{
+    Console.WriteLine(score);
+}
+else
+{
+    Console.WriteLine("unknown domain");
+}'''
+
+[[lessons.exercises]]
+id = "s02-l05-w1"
+type = "write"
+points = 34
+prompt = "Bind a Dictionary&lt;string,int&gt; with nist.gov→9, ietf.org→9, medium.com→2. Hear a domain by whisper and utter its score — or <code>unknown</code> if it is not in the ledger."
+stdin = "nist.gov"
+expect = "9"
+hint = "Initializer form + TryGetValue (or GetValueOrDefault with a sentinel)."

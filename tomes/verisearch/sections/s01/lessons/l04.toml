@@ -1,0 +1,74 @@
+[[lessons]]
+id = "s01-l04"
+title = "Speaking through the stone — console I/O"
+body = '''
+
+<p>The Liber Veritatis is a conversation: the seeker asks, the tome answers. Three callings cover most of the stone's work:</p>
+<pre><code>Console.WriteLine(<span class="s">"a whole line, then a new one"</span>);
+Console.Write(<span class="s">"no new line — "</span>);          <span class="c">// the quill stays on this line</span>
+<span class="k">string</span>? input = Console.ReadLine();       <span class="c">// wait for the seeker, hear one line</span></code></pre>
+<p>Mark the <code>string?</code> — the <code>?</code> means "may be null". <code>ReadLine</code> returns <code>null</code> when the voice is cut off (Ctrl+D). Ward it:</p>
+<pre><code>Console.Write(<span class="s">"&gt; "</span>);
+<span class="k">string</span> query = Console.ReadLine() ?? <span class="s">""</span>;   <span class="c">// ?? means "if null, take this instead"</span></code></pre>
+<p>The classic prompt pattern you will work into this chapter's Great Working:</p>
+<pre><code>Console.Write(<span class="s">"&gt; "</span>);                  <span class="c">// show the prompt, no new line</span>
+<span class="k">string</span> line = Console.ReadLine() ?? <span class="s">""</span>;
+Console.WriteLine(<span class="s">$"You asked: \"{line}\""</span>);</code></pre>
+<p>Two escape marks worth knowing inside strings: <code>\"</code> sets a literal quote within a string, <code>\n</code> is a new line.</p>
+<div class="callout">On the desk's speaking stone, your working cannot wait for live typing — set your test lines in the WHISPER box (separate lines with \n). Example: <code>what is TLS?\nquit</code></div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Escape marks</strong> inside ordinary strings: <code>\n</code> new line, <code>\t</code> tab, <code>\"</code> quote, <code>\\</code> a literal backslash. When a string brims with backslashes (Windows paths, regex), use a <em>verbatim string</em>: <code>@"C:\Users\mage"</code> — nothing escapes inside it, <code>""</code> for a quote.</p>
+<p><strong>Hearing numbers:</strong> <code>Console.ReadLine()</code> ALWAYS returns text. To gain a number, parse it: <code>int n = int.Parse(Console.ReadLine() ?? "0");</code> — or the crash-proof <code>int.TryParse(input, out int n)</code>.</p>
+<p><strong>A whispered voice:</strong> when input is fed in from elsewhere (like the desk's WHISPER box, or <code>echo hi | ./tool</code>), each ReadLine consumes one line and returns <code>null</code> when the lines run dry. That is why the <code>?? "quit"</code> ward is not paranoia — it is what the silence looks like.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Console class\" reference"
+url = "https://learn.microsoft.com/en-us/dotnet/api/system.console"
+essential = false
+
+[[lessons.exercises]]
+id = "s01-l04-e1"
+type = "text"
+points = 20
+prompt = "Which calling hears one line of the seeker's voice from the console? (just the method name, no parentheses needed)"
+answer = "Console.ReadLine"
+accept = ["readline", "console.readline()", "readline()"]
+hint = "It returns a string? and waits for Enter."
+
+[[lessons.exercises]]
+id = "s01-l04-e2"
+type = "mc"
+points = 20
+prompt = "What divides <code>Console.Write</code> from <code>Console.WriteLine</code>?"
+choices = ["Write is for numbers, WriteLine for text", "WriteLine adds a newline at the end; Write doesn't", "Write is asynchronous", "WriteLine can only print string literals"]
+answer = 1
+hint = "One of them leaves the quill on the same line — perfect for prompts."
+
+[[lessons.exercises]]
+id = "s01-l04-e3"
+type = "fill"
+points = 25
+prompt = "Complete the rune: if ReadLine returns null, fall back to an empty string."
+code = "string query = Console.ReadLine() ____ \"\";"
+answer = "??"
+hint = "The null-coalescing operator. Two characters."
+
+[[lessons.exercises]]
+id = "s01-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "The prompt-hear-ward line. Twice. You will inscribe this shape a thousand times."
+code = '''
+Console.Write("> ");
+string line = Console.ReadLine() ?? "";'''
+
+[[lessons.exercises]]
+id = "s01-l04-w1"
+type = "write"
+points = 32
+prompt = "Your working receives one line by whisper: a visitor's name. Hear it (utter no prompt!) and speak exactly two lines: <code>WHO KNOCKS: &lt;name&gt;</code> then <code>the door opens</code>."
+stdin = "THORNE"
+expect = '''
+WHO KNOCKS: THORNE
+the door opens'''
+hint = "string name = Console.ReadLine() ?? \"\"; then two WriteLines (or one with \\n)."

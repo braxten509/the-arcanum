@@ -1,0 +1,98 @@
+[[lessons]]
+id = "s03-l04"
+title = "Enums — a fixed set of named choices"
+body = '''
+
+<p>Some values come from a closed list: a source is Standards-tier or Government-tier or Community-tier… never "banana". An <code>enum</code> encodes that:</p>
+<pre><code><span class="k">public enum</span> SourceTier
+{
+    Standards,      <span class="c">// = 0 under the hood</span>
+    Government,     <span class="c">// = 1</span>
+    VendorDocs,     <span class="c">// = 2</span>
+    Publication,
+    Community,
+    Unverified
+}</code></pre>
+<pre><code>SourceTier tier = SourceTier.Government;
+
+<span class="k">if</span> (tier == SourceTier.Standards || tier == SourceTier.Government)
+    Console.WriteLine(<span class="s">"high trust"</span>);
+
+Console.WriteLine(tier);              <span class="c">// prints "Government" — the NAME, readable</span></code></pre>
+<p>Enums love switch expressions — and the compiler warns you if you forget a case:</p>
+<pre><code><span class="k">double</span> baseScore = tier <span class="k">switch</span>
+{
+    SourceTier.Standards  =&gt; 9.5,
+    SourceTier.Government =&gt; 9.0,
+    SourceTier.VendorDocs =&gt; 8.0,
+    SourceTier.Publication =&gt; 6.0,
+    SourceTier.Community  =&gt; 5.0,
+    SourceTier.Unverified =&gt; 2.0,
+    _ =&gt; 1.0
+};</code></pre>
+<p>Parsing text into an enum (you'll need this when loading the YAML trust config in Chapter V):</p>
+<pre><code><span class="k">var</span> tier = Enum.Parse&lt;SourceTier&gt;(<span class="s">"Government"</span>);          <span class="c">// throws on garbage</span>
+<span class="k">bool</span> ok = Enum.TryParse&lt;SourceTier&gt;(input, <span class="k">out var</span> t);    <span class="c">// safe version</span></code></pre>
+<div class="callout">Why not strings? <code>"Goverment"</code> (typo) compiles fine and breaks at 2am. <code>SourceTier.Goverment</code> doesn't compile. Enums move bugs from runtime to compile time — the whole point of types.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Under the hood</strong> each member is an integer (0, 1, 2… by default). Cast both ways: <code>(int)SourceTier.VendorDocs</code> → 2, <code>(SourceTier)2</code> → VendorDocs. You can pin values: <code>enum Http { Ok = 200, NotFound = 404 }</code>.</p>
+<p><strong>Enumerate an enum:</strong> <code>Enum.GetValues&lt;SourceTier&gt;()</code> gives every member — handy for help text and validation messages.</p>
+<p><strong>Watch the cast trap:</strong> <code>(SourceTier)999</code> compiles and produces a nonsense value — enums aren't range-checked. Validate external input with <code>Enum.TryParse</code> + <code>Enum.IsDefined</code>.</p>
+<p><strong>[Flags]</strong> enums pack multiple options into one value with bitwise OR (<code>FileAccess.Read | FileAccess.Write</code>) — recognize the pattern; you won't need to build one for Verisearch.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Enumeration types\""
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/enum"
+essential = true
+
+[[lessons.exercises]]
+id = "s03-l04-e1"
+type = "mc"
+points = 20
+prompt = "Why use <code>enum SourceTier</code> instead of plain strings like <code>\"Standards\"</code>?"
+choices = ["Enums use less disk space", "Typos in enum names fail at compile time instead of silently at runtime", "Strings can't be compared in C#", "Enums are required for switch statements"]
+answer = 1
+hint = "Think about where the bug shows up: compiler or 2am."
+
+[[lessons.exercises]]
+id = "s03-l04-e2"
+type = "mc"
+points = 20
+prompt = "What does <code>Console.WriteLine(SourceTier.Community)</code> print?"
+choices = ["4", "Community", "SourceTier", "True"]
+answer = 1
+hint = "Enums print their name, which makes logs readable."
+
+[[lessons.exercises]]
+id = "s03-l04-e3"
+type = "text"
+points = 25
+prompt = "Which method safely converts the string \"Standards\" to a SourceTier without throwing on bad input? (method name only)"
+answer = "Enum.TryParse"
+accept = ["tryparse", "enum.tryparse<sourcetier>"]
+hint = "Same Try- pattern as int.TryParse."
+
+[[lessons.exercises]]
+id = "s03-l04-d1"
+type = "type"
+points = 12
+prompt = "Enum + exhaustive switch expression — the pairing that makes tiers safe. Once."
+code = '''
+public enum SourceTier { Standards, Government, Community, Unverified }
+
+double baseScore = tier switch
+{
+    SourceTier.Standards => 9.5,
+    SourceTier.Government => 9.0,
+    SourceTier.Community => 5.0,
+    SourceTier.Unverified => 2.0,
+    _ => 1.0
+};'''
+
+[[lessons.exercises]]
+id = "s03-l04-w1"
+type = "write"
+points = 34
+prompt = "Declare that same <code>SourceTier</code> enum. Read a tier NAME from STDIN, <code>Enum.TryParse</code> it, and print its base score as an int via a switch expression (Standards 9, Government 9, Community 5, Unverified 2). Unparseable input prints <code>bad tier</code>."
+stdin = "Government"
+expect = "9"
+hint = "Enum.TryParse<SourceTier>(input, out var t) — then switch on t."

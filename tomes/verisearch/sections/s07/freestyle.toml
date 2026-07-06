@@ -1,0 +1,36 @@
+[freestyle]
+title = "THE WORKING: The Scales of Trust"
+brief = "The judgment core: a <code>TrustEngine</code> that turns raw <code>SearchResult</code>s plus your Chapter V trust database into a re-ranked, deduplicated, filtered list.<ul><li>Extract the domain from each URL (Uri class); look up its TrustProfile (unknown → Unverified default)</li><li>Compute a final score via an <strong>extension method</strong> <code>ComputeTrust(this TrustProfile)</code> (base score + at least two modifiers, capped at 10)</li><li>Attach scores, <code>DistinctBy</code> URL, filter below config's min_trust, order descending, take max_sources</li><li>A <code>rank</code> demo command showing before/after like the milestone — plus a per-tier <code>GroupBy</code> summary line</li></ul>THORNE wants LINQ pipelines, not nested foreach pyramids."
+reward = 450
+packages = []
+xray = "THORNE's traps: a result list with the same URL twice (DistinctBy or bust), a URL like \"not a url\" (new Uri throws — did you catch it?), and a domain absent from the trust DB (TryGetValue or GetValueOrDefault, not indexer). He counts your foreach loops — more than one where LINQ obviously fits costs style points. Secret bonus: naming the pipeline steps with intermediate variables instead of one 8-line chain."
+
+[freestyle.badge]
+id = "badge-s07"
+name = "KEEPER OF THE SCALES"
+desc = "The tome now ranks the world by who deserves belief, not who shouts loudest."
+
+[[freestyle.rubric]]
+criterion = "Compiles & correct ranking"
+weight = 20
+desc = "Demo shows ietf.org beating medium.com regardless of search order."
+
+[[freestyle.rubric]]
+criterion = "Extension method design"
+weight = 20
+desc = "Proper static class/this-param; modifiers sensible; capped; unit-testable shape."
+
+[[freestyle.rubric]]
+criterion = "LINQ fluency"
+weight = 25
+desc = "Pipeline uses Where/OrderByDescending/DistinctBy/Take/GroupBy appropriately; no foreach-and-temp-list where LINQ fits."
+
+[[freestyle.rubric]]
+criterion = "Lazy-evaluation awareness"
+weight = 15
+desc = "ToList at boundaries; no accidental multiple enumeration of expensive steps."
+
+[[freestyle.rubric]]
+criterion = "Robustness & readability"
+weight = 20
+desc = "Bad URLs handled (Uri can throw); unknown domains defaulted; clear names; engine in its own file."

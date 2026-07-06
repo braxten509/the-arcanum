@@ -1,0 +1,89 @@
+[[lessons]]
+id = "s03-l02"
+title = "Properties, constructors & object initializers"
+body = '''
+
+<p>Public fields work, but C# convention is <strong>properties</strong> — field-like syntax with control over reading and writing:</p>
+<pre><code><span class="k">public class</span> TrustProfile
+{
+    <span class="k">public string</span> Domain { <span class="k">get</span>; <span class="k">init</span>; } = <span class="s">""</span>;  <span class="c">// init: set once at creation, then read-only</span>
+    <span class="k">public double</span> BaseScore { <span class="k">get</span>; <span class="k">init</span>; }
+    <span class="k">public int</span> ReferenceCount { <span class="k">get</span>; <span class="k">set</span>; }     <span class="c">// set: mutable forever</span>
+
+    <span class="c">// computed property — no storage, evaluated on read</span>
+    <span class="k">public bool</span> IsTrusted =&gt; BaseScore &gt;= 6.0;
+}</code></pre>
+<p>Accessor cheat-sheet: <code>{ get; set; }</code> read/write · <code>{ get; init; }</code> write only during construction · <code>=&gt; expr</code> computed each read.</p>
+<p>A <strong>constructor</strong> runs at <code>new</code> time and forces required data in:</p>
+<pre><code><span class="k">public class</span> TrustProfile
+{
+    <span class="k">public string</span> Domain { <span class="k">get</span>; }
+    <span class="k">public double</span> BaseScore { <span class="k">get</span>; }
+
+    <span class="k">public</span> TrustProfile(<span class="k">string</span> domain, <span class="k">double</span> baseScore)   <span class="c">// same name as class, no return type</span>
+    {
+        Domain = domain;
+        BaseScore = baseScore;
+    }
+}
+<span class="k">var</span> p = <span class="k">new</span> TrustProfile(<span class="s">"nist.gov"</span>, 9.5);</code></pre>
+<p><strong>Object initializer</strong> syntax sets properties inline at creation — great with <code>init</code>:</p>
+<pre><code><span class="k">var</span> p = <span class="k">new</span> TrustProfile { Domain = <span class="s">"nist.gov"</span>, BaseScore = 9.5 };</code></pre><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>required</strong> — make callers provide a property with no constructor boilerplate: <code>public required string Domain { get; init; }</code>. Forgetting it at creation is a compile error.</p>
+<p><strong>Constructor overloading:</strong> a class can offer several constructors with different parameters; one can call another with <code>: this(...)</code> to avoid duplication.</p>
+<p><strong>Validation belongs in constructors:</strong> <code>if (baseScore is &lt; 0 or &gt; 10) throw new ArgumentOutOfRangeException(nameof(baseScore));</code> — an object that CAN'T be created invalid never needs re-checking downstream. That idea (make illegal states unrepresentable) is half of good type design.</p>
+<p><strong>Expression-bodied everything:</strong> one-liner methods and properties read best as arrows: <code>public override string ToString() =&gt; $"{Domain}: {BaseScore}";</code></p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Properties\""
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/properties"
+essential = true
+
+[[lessons.exercises]]
+id = "s03-l02-e1"
+type = "mc"
+points = 20
+prompt = "<code>public double Score { get; init; }</code> means…"
+choices = ["Score can never be set at all", "Score can be set only when the object is created, then it's read-only", "Score can be changed at any time", "Score is computed from other properties"]
+answer = 1
+hint = "init = initialization-time only."
+
+[[lessons.exercises]]
+id = "s03-l02-e2"
+type = "mc"
+points = 20
+prompt = "Which is true about constructors?"
+choices = ["They're named Build() by convention", "They have the same name as the class and no return type", "They must return the new object with 'return this;'", "Each class may have at most one"]
+answer = 1
+hint = "public TrustProfile(...) { }"
+
+[[lessons.exercises]]
+id = "s03-l02-e3"
+type = "fill"
+points = 25
+prompt = "Fill the blank to make a computed property: IsTrusted is true when BaseScore ≥ 6.0."
+code = "public bool IsTrusted ____ BaseScore >= 6.0;"
+answer = "=>"
+hint = "The fat arrow — expression-bodied member."
+
+[[lessons.exercises]]
+id = "s03-l02-d1"
+type = "type"
+points = 14
+prompt = "Properties three ways — settable, init-only, computed. Once, precisely."
+code = '''
+public class TrustProfile
+{
+    public string Domain { get; init; } = "";
+    public int ReferenceCount { get; set; }
+    public bool IsTrusted => BaseScore >= 6.0;
+    public double BaseScore { get; init; }
+}'''
+
+[[lessons.exercises]]
+id = "s03-l02-w1"
+type = "write"
+points = 34
+prompt = "Build a <code>TrustProfile</code> class with a constructor taking (string domain, double baseScore), exposing both as read-only properties, plus computed <code>bool IsTrusted =&gt; BaseScore &gt;= 6.0;</code>. Create one for nist.gov / 9.5 and print <code>&lt;Domain&gt; trusted: &lt;IsTrusted&gt;</code>."
+expect = "nist.gov trusted: True"
+hint = "Constructor assigns to get-only properties. Print with interpolation — bool prints as True."

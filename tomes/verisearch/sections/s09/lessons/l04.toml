@@ -1,0 +1,89 @@
+[[lessons]]
+id = "s09-l04"
+title = "Defensive parsing — when the model gets chatty"
+body = '''
+
+<p>You demanded "ONLY a JSON array." The model replies:</p>
+<pre><code>Sure! Based on my analysis, the relevant paragraphs are:
+[142, 143, 144]
+Let me know if you need anything else!</code></pre>
+<p>Welcome to production LLM engineering. The defense-in-depth ladder:</p>
+<p><strong>Layer 1 — extract, then parse.</strong> Don't parse the whole reply; find the array inside it:</p>
+<pre><code><span class="k">int</span> start = response.IndexOf(<span class="s">'['</span>);
+<span class="k">int</span> end = response.LastIndexOf(<span class="s">']'</span>);
+<span class="k">if</span> (start &gt;= 0 &amp;&amp; end &gt; start)
+{
+    <span class="k">string</span> jsonSlice = response[start..(end + 1)];    <span class="c">// range syntax: substring</span>
+    <span class="k">try</span>
+    {
+        indices = JsonSerializer.Deserialize&lt;List&lt;<span class="k">int</span>&gt;&gt;(jsonSlice) ?? [];
+    }
+    <span class="k">catch</span> (JsonException) { <span class="c">/* fall through to layer 3 */</span> }
+}</code></pre>
+<p><strong>Layer 2 — validate the contents.</strong> Parsed ≠ sane. Models invent index 900 on a 150-paragraph page:</p>
+<pre><code>indices = indices.Where(i =&gt; i &gt;= 0 &amp;&amp; i &lt; blocks.Count).Distinct().Take(5).ToList();</code></pre>
+<p><strong>Layer 3 — retry once, firmer.</strong> Unparseable? One retry with "Your previous response was not valid JSON. Respond with ONLY the JSON array." (One. Retry loops against a confused model waste minutes.)</p>
+<p><strong>Layer 4 — the deterministic fallback.</strong> LLM offline or still garbage? Degrade to keyword scoring — worse, but NEVER zero results:</p>
+<pre><code>List&lt;<span class="k">int</span>&gt; KeywordFallback(List&lt;ScrapedParagraph&gt; blocks, <span class="k">string</span>[] keywords) =&gt;
+    blocks
+        .Select(b =&gt; (b.Index, Score: keywords.Count(k =&gt; b.Text.Contains(k, StringComparison.OrdinalIgnoreCase))))
+        .Where(x =&gt; x.Score &gt; 0)
+        .OrderByDescending(x =&gt; x.Score)
+        .Take(3)
+        .Select(x =&gt; x.Index)
+        .ToList();</code></pre>
+<div class="callout">This four-layer shape — extract, validate, retry once, deterministic fallback — is how every serious LLM integration is built, from CLI tools to trading systems. Learn it here, reuse it forever.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>JsonDocument</strong> — the parse-without-classes alternative: <code>using var doc = JsonDocument.Parse(slice);</code> then walk <code>doc.RootElement.EnumerateArray()</code>. Handy when you only need to peek, not deserialize.</p>
+<p><strong>Log the raw response</strong> (verbose mode) every time parsing fails — debugging a misbehaving model without its actual output is guesswork. One <code>File.AppendAllText("llm.log", raw)</code> in the failure path pays for itself the first week.</p>
+<p><strong>Regex fallback for the truly cursed:</strong> when a model returns "paragraphs 3, 17 and 42 look relevant" with no brackets at all, <code>Regex.Matches(response, @"\d+")</code> salvages candidate numbers — run them through the same range-validation and you've recovered gracefully from total format collapse.</p></div>'''
+
+[[lessons.readings]]
+label = "OllamaSharp — full docs index"
+url = "https://github.com/awaescher/OllamaSharp/blob/main/index.md"
+essential = false
+
+[[lessons.exercises]]
+id = "s09-l04-e1"
+type = "mc"
+points = 25
+prompt = "First move when the model wraps its JSON in friendly chatter?"
+choices = ["Deserialize the whole response and hope", "Slice from the first '[' to the last ']' and parse that", "Ask the model to apologize", "Switch models"]
+answer = 1
+hint = "IndexOf and LastIndexOf are your knife."
+
+[[lessons.exercises]]
+id = "s09-l04-e2"
+type = "mc"
+points = 25
+prompt = "The model returns <code>[3, 900, 3, -1]</code> for a 150-paragraph page. After proper validation you keep…"
+choices = ["[3, 900, 3, -1]", "[3, 900]", "[3]", "[] — reject everything if any index is bad"]
+answer = 2
+hint = "In-range filter + Distinct. Salvage the good, drop the junk."
+
+[[lessons.exercises]]
+id = "s09-l04-e3"
+type = "mc"
+points = 20
+prompt = "Why must the final fallback be deterministic (keyword matching) rather than another LLM call?"
+choices = ["Keyword matching is more accurate", "The fallback must work when the LLM itself is the thing that's broken or offline", "LLMs can't be called twice", "JSON forbids it"]
+answer = 1
+hint = "A fallback that shares the primary's failure mode isn't a fallback."
+
+[[lessons.exercises]]
+id = "s09-l04-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "The bracket-slice extraction — first '[' to last ']'. Twice."
+code = '''
+int start = response.IndexOf('[');
+int end = response.LastIndexOf(']');
+string slice = response[start..(end + 1)];'''
+
+[[lessons.exercises]]
+id = "s09-l04-w1"
+type = "write"
+points = 40
+prompt = "The flagship lab — defensive parsing, full ladder. Add <code>using System.Text.Json;</code>. Given <code>string response = \"Sure! The relevant ones are [3, 900, 3, -1] hope that helps!\";</code> — slice the brackets, Deserialize to List&lt;int&gt;, validate against a 150-paragraph page (in-range, Distinct), and print the surviving indices space-joined."
+expect = "3"
+hint = "Slice → Deserialize<List<int>> → .Where(i => i >= 0 && i < 150).Distinct() → Join. 900 and -1 die, the duplicate 3 collapses."

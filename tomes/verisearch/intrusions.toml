@@ -1,0 +1,207 @@
+# Hex-defense intrusion bank — was [[progression.intrusionTiers]] in tome.toml.
+# Same shape; the engine reads [[tiers]] here and restores it as progression.intrusionTiers.
+
+[[tiers]]
+min = 0
+time = 90
+bounty = 60
+
+[[tiers.pool]]
+t = "THE COUNTERSIGN"
+brief = "A rival mimics our secret countersign at the door. Compute the true key from its factors and speak it."
+starter = '''
+int a = 7;
+int b = 6;
+// print exactly:  KEY <a times b>   (compute it, don't hardcode)
+'''
+expect = "KEY 42"
+
+[[tiers.pool]]
+t = "THE THREEFOLD AVOWAL"
+brief = "The doorward demands your avowal — three lines, spoken exactly, or the hex walks in wearing your face."
+starter = '''
+// print these three lines:
+//   THE CANDLE BURNS
+//   THE DOOR IS WARDED
+//   THE HEX IS TURNED
+'''
+expect = '''
+THE CANDLE BURNS
+THE DOOR IS WARDED
+THE HEX IS TURNED'''
+
+[[tiers.pool]]
+t = "THE SUNDERED NAME"
+brief = "The hex has torn your true name into fragments. Rebind them with string interpolation before it claims the name for itself."
+starter = '''
+string truename = "wraith";
+int circle = 9;
+// print exactly:  I AM wraith OF THE 9TH CIRCLE
+'''
+expect = "I AM wraith OF THE 9TH CIRCLE"
+
+[[tiers]]
+min = 2
+time = 100
+bounty = 90
+
+[[tiers.pool]]
+t = "THE FIVE GATES"
+brief = "The rival's sending seeks an unwatched gate. Walk all five with a loop and call each one open first."
+starter = '''
+for (int p = 1; p <= 5; p++)
+{
+    // print:  PORT 800<p> OPEN
+}
+'''
+expect = '''
+PORT 8001 OPEN
+PORT 8002 OPEN
+PORT 8003 OPEN
+PORT 8004 OPEN
+PORT 8005 OPEN'''
+
+[[tiers.pool]]
+t = "THE LOUDEST ECHO"
+brief = "Somewhere in the noise rings the rival's own voice. Track the strongest echo and name its strength."
+starter = '''
+int[] pings = { 41, 7, 96, 12, 55 };
+// loop over pings, track the highest value, print:  PEAK <value>
+'''
+expect = "PEAK 96"
+
+[[tiers.pool]]
+t = "THE TWIN CHANNELS"
+brief = "Only the even-numbered channels are warded as ours. Test each and declare it SAFE or HOSTILE."
+starter = '''
+int[] chans = { 3, 8, 11, 14 };
+// for each: print  <chan> SAFE  if even, else  <chan> HOSTILE
+'''
+expect = '''
+3 HOSTILE
+8 SAFE
+11 HOSTILE
+14 SAFE'''
+
+[[tiers]]
+min = 3
+time = 110
+bounty = 120
+
+[[tiers.pool]]
+t = "ORDER OF PRECEDENCE"
+brief = "The stolen roll of agents must be ranked by circle before the rival ranks them first."
+starter = '''
+var agents = new List<Agent> { new("raven", 3), new("nyx", 9), new("wraith", 5) };
+// OrderByDescending by Lvl, print each as  name:lvl
+record Agent(string Name, int Lvl);
+'''
+expect = '''
+nyx:9
+wraith:5
+raven:3'''
+
+[[tiers.pool]]
+t = "SIFT THE WHISPERS"
+brief = "Most of these whispers are decoys. Anything over a hundred is a true voice — keep only those."
+starter = '''
+int[] pings = { 12, 340, 87, 501, 99, 275 };
+// LINQ Where: keep pings over 100, print each on its own line
+'''
+expect = '''
+340
+501
+275'''
+
+[[tiers.pool]]
+t = "WEIGH THE BUNDLE"
+brief = "The warded bundle must be weighed whole, or the seal will not take."
+starter = '''
+var sizes = new List<int> { 128, 64, 256, 32 };
+// LINQ Sum, print:  TOTAL <sum> BYTES
+'''
+expect = "TOTAL 480 BYTES"
+
+[[tiers]]
+min = 7
+time = 120
+bounty = 160
+
+[[tiers.pool]]
+t = "CENSUS OF TONGUES"
+brief = "The hex speaks in several tongues at once. Take a census, loudest tongue first."
+starter = '''
+string[] log = { "tcp", "udp", "tcp", "icmp", "tcp", "udp" };
+// GroupBy protocol, order by count descending, print each:  <proto> <count>
+'''
+expect = '''
+tcp 3
+udp 2
+icmp 1'''
+
+[[tiers.pool]]
+t = "THE FOLDED SIGIL"
+brief = "Fold the sending into its single-rune sigil before the rival forges one of their own."
+starter = '''
+int[] packet = { 0x1F, 0x2A, 0x07, 0x33 };
+// Aggregate with XOR (^), print:  CHECKSUM <value>
+'''
+expect = "CHECKSUM 1"
+
+[[tiers.pool]]
+t = "NAMES REVERSED AND RAISED"
+brief = "Your allies' names are spoken aloud in the hex. Scramble each — raised high and read backward — and bind them with pipes."
+starter = '''
+string[] leak = { "raven", "nyx" };
+// Select: uppercase + reverse each (new string(s.Reverse().ToArray())), then string.Join with |
+// print the joined result
+'''
+expect = "NEVAR|XYN"
+
+[[tiers]]
+min = 8
+time = 120
+bounty = 200
+
+[[tiers.pool]]
+t = "THREE LOCKS AT ONCE"
+brief = "Three locks, one sandglass. Undo them concurrently — one after another is too slow, and the hex knows it."
+starter = '''
+var frags = new[] { "atad", "ruoy", "sruo" };
+// await Task.WhenAll over Decrypt(frag), print each result on its own line
+async Task<string> Decrypt(string s)
+{
+    await Task.Delay(20);
+    return new string(s.Reverse().ToArray());
+}
+'''
+expect = '''
+data
+your
+ours'''
+
+[[tiers.pool]]
+t = "THE MEASURED CLOSING"
+brief = "The great doors must close in measured counts — rushed, they shatter; the delays are part of the rite."
+starter = '''
+// print T-3, T-2, T-1 with  await Task.Delay(50)  between each, then:  LOCKDOWN COMPLETE
+'''
+expect = '''
+T-3
+T-2
+T-1
+LOCKDOWN COMPLETE'''
+
+[[tiers.pool]]
+t = "TWO SPELLS ABREAST"
+brief = "Loose both counter-workings at once and report the moment each lands."
+starter = '''
+var t1 = Task.Run(async () => { await Task.Delay(30); return "PURGE OK"; });
+var t2 = Task.Run(async () => { await Task.Delay(10); return "MASK OK"; });
+// await both, print t1's result then t2's result, then:  ALL CLEAR
+'''
+expect = '''
+PURGE OK
+MASK OK
+ALL CLEAR'''
+

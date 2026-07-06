@@ -1,0 +1,85 @@
+[[lessons]]
+id = "s06-l03"
+title = "Cleaning the catch — junk removal & text hygiene"
+body = '''
+
+<p>Raw extraction gives you navbars saying "Home | About | Contact" as paragraph #3. Clean in this order:</p>
+<p><strong>1. Remove junk subtrees BEFORE extracting.</strong> Deleting an element removes all its descendants from future queries:</p>
+<pre><code><span class="k">foreach</span> (<span class="k">var</span> junk <span class="k">in</span> doc.QuerySelectorAll(<span class="s">"script, style, nav, header, footer, aside, noscript"</span>).ToList())
+    junk.Remove();</code></pre>
+<p>(The <code>.ToList()</code> matters — you can't remove elements while iterating the live collection.)</p>
+<p><strong>2. Extract with type + cleanup.</strong> Whitespace in HTML collapses; your text should too:</p>
+<pre><code><span class="k">var</span> paragraphs = <span class="k">new</span> List&lt;ScrapedParagraph&gt;();
+<span class="k">int</span> index = 0;
+<span class="k">foreach</span> (<span class="k">var</span> el <span class="k">in</span> doc.QuerySelectorAll(<span class="s">"h1, h2, h3, p, pre, li, blockquote"</span>))
+{
+    <span class="k">string</span> text = Regex.Replace(el.TextContent, <span class="s">@"\s+"</span>, <span class="s">" "</span>).Trim();
+    <span class="k">if</span> (text.Length &lt; 30 &amp;&amp; el.TagName != <span class="s">"H1"</span>) <span class="k">continue</span>;   <span class="c">// drop crumbs ("Read more", "×")</span>
+
+    ContentType type = el.TagName <span class="k">switch</span>
+    {
+        <span class="s">"PRE"</span> =&gt; ContentType.Code,
+        <span class="s">"H1"</span> <span class="k">or</span> <span class="s">"H2"</span> <span class="k">or</span> <span class="s">"H3"</span> =&gt; ContentType.Heading,
+        <span class="s">"LI"</span> =&gt; ContentType.ListItem,
+        <span class="s">"BLOCKQUOTE"</span> =&gt; ContentType.BlockQuote,
+        _ =&gt; ContentType.Paragraph
+    };
+    paragraphs.Add(<span class="k">new</span> ScrapedParagraph(index++, text, type, text.Length));
+}</code></pre>
+<p>One exception to whitespace collapsing: inside <code>&lt;pre&gt;</code> blocks, whitespace IS the content (indentation!). Skip the regex for Code blocks.</p>
+<div class="callout">Verisearch's promise is VERBATIM quotes. Cleaning may collapse whitespace, but never rewrite words. The Index on each paragraph is how the LLM will point at content later — stable numbering is sacred.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Invisible characters that ruin verbatim quotes:</strong> non-breaking spaces (<code>\u00A0</code> — looks like a space, isn't one), zero-width spaces, smart quotes. Normalize NBSP early: <code>text.Replace('\u00A0', ' ')</code>. HTML entities (<code>&amp;amp;</code>) are already decoded by AngleSharp's TextContent — one thing you get free.</p>
+<p><strong>Crumb heuristics that work in practice:</strong> length &lt; 30 chars AND not a heading · link-density (an element whose text is mostly inside &lt;a&gt; tags is navigation) · all-caps short strings ("READ MORE"). Verisearch ships with the length rule; the others are upgrades if a site's junk leaks through.</p>
+<p><strong>Preserving code blocks:</strong> for <code>&lt;pre&gt;</code>, take <code>TextContent</code> raw — no regex, no trim beyond outer newlines. A quote of code with mangled indentation is NOT verbatim.</p></div>'''
+
+[[lessons.readings]]
+label = "ScrapingDog — 5 Best C# HTML parsers (landscape)"
+url = "https://www.scrapingdog.com/blog/csharp-html-parser/"
+essential = false
+
+[[lessons.exercises]]
+id = "s06-l03-e1"
+type = "mc"
+points = 25
+prompt = "Why call <code>.ToList()</code> before removing elements in that loop?"
+choices = ["Remove() only exists on List", "You can't safely mutate the live query collection while iterating it — snapshot first", "It's faster", "Pure style preference"]
+answer = 1
+hint = "Modifying a collection you're foreach-ing over is a classic runtime error."
+
+[[lessons.exercises]]
+id = "s06-l03-e2"
+type = "mc"
+points = 20
+prompt = "<code>Regex.Replace(text, @\"\\s+\", \" \")</code> does what?"
+choices = ["removes all spaces", "collapses any run of whitespace (spaces, tabs, newlines) into a single space", "replaces words with spaces", "escapes special characters"]
+answer = 1
+hint = "\\s+ = one or more whitespace characters."
+
+[[lessons.exercises]]
+id = "s06-l03-e3"
+type = "mc"
+points = 25
+prompt = "Why should <code>&lt;pre&gt;</code> (Code) blocks skip whitespace collapsing?"
+choices = ["pre blocks are always empty", "Regex doesn't work on code", "In code, indentation and line breaks ARE meaningful content", "They should be collapsed too"]
+answer = 2
+hint = "Collapse a Python snippet's whitespace and see what survives."
+
+[[lessons.exercises]]
+id = "s06-l03-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "The junk-removal sweep with its crucial .ToList(). Twice."
+code = '''
+foreach (var junk in doc.QuerySelectorAll("script, style, nav, footer").ToList())
+{
+    junk.Remove();
+}'''
+
+[[lessons.exercises]]
+id = "s06-l03-w1"
+type = "write"
+points = 34
+prompt = "Whitespace hygiene lab: add <code>using System.Text.RegularExpressions;</code>. Given <code>string raw = \"  the   tls\\n\\thandshake   protocol  \";</code> collapse every whitespace run to a single space, trim the ends, and print the result."
+expect = "the tls handshake protocol"
+hint = "Regex.Replace(raw, @\"\\s+\", \" \").Trim()"

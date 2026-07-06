@@ -1,0 +1,89 @@
+[[lessons]]
+id = "s10-l02"
+title = "Widgets — tables, panels, rules"
+body = '''
+
+<p>Three widgets carry Verisearch's whole report. Build the object, then <code>AnsiConsole.Write(it)</code>:</p>
+<p><strong>Rule</strong> — the section divider from the design sketch:</p>
+<pre><code>AnsiConsole.Write(<span class="k">new</span> Rule(<span class="s">"[green]SOURCE 1: ietf.org (Trust: 9.5/10)[/]"</span>).LeftJustified());
+<span class="c">// ─── SOURCE 1: ietf.org (Trust: 9.5/10) ─────────────────────</span></code></pre>
+<p><strong>Panel</strong> — the box around each verbatim quote:</p>
+<pre><code><span class="k">var</span> panel = <span class="k">new</span> Panel(Markup.Escape(quote.ExactText))
+{
+    Header = <span class="k">new</span> PanelHeader(<span class="s">$"[dim]¶ {quote.ParagraphIndex} · {quote.Type}[/]"</span>),
+    Border = BoxBorder.Rounded,
+    Padding = <span class="k">new</span> Padding(1, 0, 1, 0),
+};
+AnsiConsole.Write(panel);</code></pre>
+<p><strong>Table</strong> — the trust summary:</p>
+<pre><code><span class="k">var</span> table = <span class="k">new</span> Table().Border(TableBorder.Rounded);
+table.AddColumn(<span class="s">"#"</span>);
+table.AddColumn(<span class="s">"Domain"</span>);
+table.AddColumn(<span class="k">new</span> TableColumn(<span class="s">"Trust"</span>).RightAligned());   <span class="c">// numbers right-align. always.</span>
+table.AddColumn(<span class="s">"Tier"</span>);
+
+<span class="k">int</span> i = 1;
+<span class="k">foreach</span> (<span class="k">var</span> s <span class="k">in</span> sources.OrderByDescending(x =&gt; x.Trust))
+    table.AddRow(<span class="s">$"{i++}"</span>, Markup.Escape(s.Domain), TrustMarkup(s.Trust), s.Tier.ToString());
+
+AnsiConsole.Write(table);</code></pre>
+<p>Spinners for the wait ("Scraping 5 pages…") — <code>Status</code> wraps your async work:</p>
+<pre><code><span class="k">await</span> AnsiConsole.Status().StartAsync(<span class="s">"Scraping sources..."</span>, <span class="k">async</span> ctx =&gt;
+{
+    ctx.Status(<span class="s">"Searching..."</span>);   <span class="c">// update the line as phases change</span>
+    <span class="k">await</span> RunPipeline();
+});</code></pre>
+<div class="callout">Design discipline (THORNE agrees with the design skill here): one accent color, color = meaning, numbers right-aligned and consistently formatted, no rainbow soup. A report you can read at 3am is the deliverable.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>More widgets when you need them:</strong> <code>Tree</code> (hierarchies — source → quotes), <code>Grid</code> (layout without table borders), <code>BarChart</code> (trust scores as bars — a fun --stats flag), <code>FigletText</code> (giant banner letters — resist overuse).</p>
+<p><strong>Column control:</strong> <code>new TableColumn("Trust").RightAligned().Width(8)</code>; <code>table.Expand()</code> fills terminal width; <code>Border(TableBorder.Rounded | Minimal | None)</code> sets the ruling style.</p>
+<p><strong>Live displays beyond Status:</strong> <code>AnsiConsole.Progress()</code> renders per-task progress bars — five scraping sources each with their own bar is a natural Chapter XI flourish.</p></div>'''
+
+[[lessons.readings]]
+label = "Spectre.Console — widgets (tables, panels)"
+url = "https://spectreconsole.net/widgets/table"
+essential = true
+
+[[lessons.readings]]
+label = "Spectre.Console — live displays & status"
+url = "https://spectreconsole.net/live/status"
+essential = false
+
+[[lessons.exercises]]
+id = "s10-l02-e1"
+type = "mc"
+points = 20
+prompt = "Which widget draws the <code>─── SOURCE 1 ───</code> section divider?"
+choices = ["Panel", "Rule", "Table", "Divider"]
+answer = 1
+hint = "Also a good name for how THORNE grades."
+
+[[lessons.exercises]]
+id = "s10-l02-e2"
+type = "mc"
+points = 20
+prompt = "Best widget for displaying a verbatim quote with a small header?"
+choices = ["Table with one cell", "Rule", "Panel with a PanelHeader", "MarkupLine with dashes"]
+answer = 2
+hint = "It's literally a box with an optional title."
+
+[[lessons.exercises]]
+id = "s10-l02-e3"
+type = "mc"
+points = 20
+prompt = "Numeric columns in a table should be…"
+choices = ["left-aligned like text", "centered for symmetry", "right-aligned so magnitudes line up", "hidden unless verbose"]
+answer = 2
+hint = "9.5 over 10.0 over 2.0 — the decimal points should stack."
+
+[[lessons.exercises]]
+id = "s10-l02-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Build-a-table — columns, aligned numbers, a row, render. Twice."
+code = '''
+var table = new Table().Border(TableBorder.Rounded);
+table.AddColumn("Domain");
+table.AddColumn(new TableColumn("Trust").RightAligned());
+table.AddRow("ietf.org", "9.5");
+AnsiConsole.Write(table);'''

@@ -1,0 +1,81 @@
+# Hex-defense intrusion bank — was [[progression.intrusionTiers]] in tome.toml.
+# Same shape; the engine reads [[tiers]] here and restores it as progression.intrusionTiers.
+
+[[tiers]]
+min = 0
+time = 90
+bounty = 50
+
+[[tiers.pool]]
+t = "THE EGG-THIEF'S RIDDLE"
+brief = "An egg-thief raps the terrarium glass with a riddle of multiplication. Answer with the computed number or lose a clutch."
+starter = '''
+clutch = 4
+eggs_per = 6
+# print exactly:  CLUTCH 24   (compute it from the variables, don't hardcode)
+'''
+expect = "CLUTCH 24"
+
+[[tiers.pool]]
+t = "THE THREEFOLD HISS"
+brief = "A rival serpent calls a challenge through the wall. The old answer is three lines, hissed exactly."
+starter = '''
+# print these three lines:
+#   THE EGG IS WARM
+#   THE COIL IS WOUND
+#   THE FANG IS MINE
+'''
+expect = '''
+THE EGG IS WARM
+THE COIL IS WOUND
+THE FANG IS MINE'''
+
+[[tiers.pool]]
+t = "THE NAME UNSWALLOWED"
+brief = "A hex tries to swallow your familiar's name whole. Weave name and rings into one true sentence before it does."
+starter = '''
+name = "Ssevrin"
+rings = 7
+# print exactly:  Ssevrin OF THE 7 RINGS   (use an f-string)
+'''
+expect = "Ssevrin OF THE 7 RINGS"
+
+[[tiers]]
+min = 2
+time = 100
+bounty = 80
+
+[[tiers.pool]]
+t = "FRIEND OR FOOD"
+brief = "Something warm-blooded is at the door. The old test decides it: smaller than the threshold eats, at or above it flees."
+starter = '''
+weight = 12
+threshold = 20
+# if weight is under threshold print  FOOD  else print  FRIEND
+'''
+expect = "FOOD"
+
+[[tiers.pool]]
+t = "THE THIRD DOOR"
+brief = "Three doors, one safe. The codex says: judge the omen number and speak the door it opens."
+starter = '''
+omen = 9
+# if omen is under 5 print  DOOR ONE
+# elif omen is under 10 print  DOOR TWO
+# else print  DOOR THREE
+'''
+expect = "DOOR TWO"
+
+[[tiers.pool]]
+t = "VENOM MEASURED TWICE"
+brief = "A poisoner has swapped one vial. The true dose is drops times potency — declare it WEAK under 50, else POTENT."
+starter = '''
+drops = 6
+potency = 9
+# compute dose = drops * potency, print  DOSE 54  on one line
+# then print  POTENT  if dose is 50 or more, else  WEAK
+'''
+expect = '''
+DOSE 54
+POTENT'''
+

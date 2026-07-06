@@ -1,0 +1,86 @@
+[[lessons]]
+id = "s11-l01"
+title = "Interfaces — contracts before concretions"
+body = '''
+
+<p>An <code>interface</code> declares WHAT something does, with no HOW:</p>
+<pre><code><span class="k">public interface</span> ISearchClient
+{
+    Task&lt;List&lt;SearchResult&gt;&gt; SearchAsync(<span class="k">string</span> query, CancellationToken ct = <span class="k">default</span>);
+}
+
+<span class="k">public class</span> SearxngClient : ISearchClient { ... }   <span class="c">// the real one</span>
+<span class="k">public class</span> MockSearchClient : ISearchClient { ... } <span class="c">// fixtures for tests/demos</span></code></pre>
+<p>Code that depends on <code>ISearchClient</code> works with either. That's the point — the pipeline shouldn't know or care whether results came from SearXNG or a JSON fixture:</p>
+<pre><code><span class="k">public class</span> Pipeline
+{
+    <span class="k">private readonly</span> ISearchClient _search;      <span class="c">// depends on the CONTRACT</span>
+    <span class="k">public</span> Pipeline(ISearchClient search) =&gt; _search = search;
+}</code></pre>
+<p>Where interfaces pay for Verisearch (and where they don't):</p>
+<ul>
+<li><code>ISearchClient</code> — real vs mock. YES.</li>
+<li><code>IRelevanceScanner</code> — LLM vs keyword fallback as two implementations of one contract. ELEGANT.</li>
+<li><code>IPageScraper</code> — testing the pipeline without the network. YES.</li>
+<li>An interface for ReportRenderer with exactly one implementation forever? Skip it. Interfaces are for real seams, not ceremony. Add one when a second implementation or a test needs it — not "just in case".</li>
+</ul>
+<div class="callout">Naming convention: interfaces start with I. The compiler doesn't care; every C# developer's eyes do.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Explicit implementation</strong> hides an interface member from the class's normal surface: <code>Task&lt;...&gt; ISearchClient.SearchAsync(...)</code> — callable only through the interface reference. Rare, but you'll see it in libraries.</p>
+<p><strong>Default interface methods</strong> (C# 8+): interfaces CAN carry method bodies — mostly for evolving published APIs without breaking implementers. For your own code, prefer keeping interfaces pure contracts.</p>
+<p><strong>Interface segregation</strong> in one line: many small interfaces beat one giant one — a component that only needs <code>SearchAsync</code> shouldn't depend on a 12-method mega-contract. ISearchClient with ONE method is by design, not laziness.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Interfaces\""
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/types/interfaces"
+essential = true
+
+[[lessons.exercises]]
+id = "s11-l01-e1"
+type = "mc"
+points = 20
+prompt = "An interface contains…"
+choices = ["method implementations only", "method signatures — the contract, not the implementation", "only properties", "static data"]
+answer = 1
+hint = "WHAT, not HOW."
+
+[[lessons.exercises]]
+id = "s11-l01-e2"
+type = "mc"
+points = 25
+prompt = "Your Chapter IX design already fits an interface beautifully. Which pair are two implementations of one natural contract?"
+choices = ["SearchResult and VerbatimQuote", "LLM relevance scanning and keyword-fallback scanning", "Program.cs and the csproj", "Panel and Table"]
+answer = 1
+hint = "Same inputs, same outputs, different brains."
+
+[[lessons.exercises]]
+id = "s11-l01-e3"
+type = "mc"
+points = 20
+prompt = "When should you NOT create an interface?"
+choices = ["When two implementations exist", "When tests need to fake the dependency", "When there's exactly one implementation and no test seam needed — ceremony without value", "When the class does I/O"]
+answer = 2
+hint = "Even THORNE's laziness has principles. Interfaces are for seams."
+
+[[lessons.exercises]]
+id = "s11-l01-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Contract + implementation header — the seam shape. Twice."
+code = '''
+public interface ISearchClient
+{
+    Task<List<SearchResult>> SearchAsync(string query, CancellationToken ct = default);
+}
+
+public class MockSearchClient : ISearchClient'''
+
+[[lessons.exercises]]
+id = "s11-l01-w1"
+type = "write"
+points = 38
+prompt = "Polymorphism lab: define <code>interface IScanner { string Scan(); }</code> with two implementations — <code>LlamaScanner</code> returning \"llama: [1]\" and <code>KeywordScanner</code> returning \"keyword: [2]\". Put one of each in a <code>List&lt;IScanner&gt;</code>, loop, and print each Scan() result."
+expect = '''
+llama: [1]
+keyword: [2]'''
+hint = "The loop only knows IScanner — that's the whole point. Types after top-level code."

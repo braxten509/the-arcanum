@@ -1,0 +1,91 @@
+# ARCANUM — cast-burst particle tuning
+# The motes thrown when you press CAST on a trial (multiple choice, writing drills,
+# short answers): a radial spray on a correct answer, a falling fade on a miss.
+# The full drawn sigil (inscriptions, the workbench run, spell duels) is tuned
+# separately in sigil.toml.
+#
+# Edit and refresh the page; no rebuild. Delete any key (or the whole file) to fall
+# back to the defaults baked into app.js. Key names are spelled out in full.
+# NOTE: colors MUST be quoted — the # is part of the hex, not a comment.
+
+[cast]                  # a correct answer: motes blast out in every direction
+count = 140             # how many motes
+colors = ["#7c3aed", "#4f46e5", "#a21caf", "#c026d3", "#d946ef"]   # one rolled at random per mote
+size = [3.5, 12]        # mote size range, px (minimum, maximum)
+mode = "radial"         # "radial" = burst outward | "fall" = rain down | omit = upward fan
+distance = [40, 300]    # px each mote flies from the button's heart (radial mode)
+glow = 1                # 1 = soft glowing dot, 0 = hard-edged chip
+round = 1               # 1 = round, 0 = square (only matters when glow = 0)
+start_opacity = 1       # starting opacity, fades to 0 over its lifetime
+lifetime_milliseconds = 1500   # how long each mote lives
+easing = "cubic-bezier(.1,.75,.3,1)"
+
+[miscast]               # a wrong answer: motes sink and fade, the working coming apart
+count = 45
+colors = ["#8b6fb0", "#6f6a94", "#a98a6b", "#7d6f86"]             # dimmed, ashen arcane
+size = [3, 6.5]
+mode = "fall"
+spread = 40             # px of horizontal scatter (fall / fan modes)
+rise = 26               # px of vertical throw before drift (fall = downward)
+drift = 52              # extra downward drift, px (fall mode)
+glow = 1
+round = 1
+start_opacity = 0.9
+lifetime_milliseconds = 1000
+easing = "cubic-bezier(.35,.02,.7,1)"
+
+# ----------------------------------------------------------------------------
+# TAP-ON-MATERIAL bursts: the motes thrown when you tap a surface (not a CAST).
+# These have no "mode" — they use the upward fan: motes lift by `rise`, scatter by
+# `spread`, then `drift` pushes them down (positive) or further up (negative), so a
+# positive drift makes chips FALL and a negative one makes dust/glints RISE.
+# Values below are the baked defaults; edit and refresh, or delete a key/section
+# to fall back. (var(--…) colors follow the active theme.)
+
+[pick]                  # a multiple-choice option is marked — an enchanted glint that rises
+count = 7
+colors = ["var(--ac-dim)", "#e3c059"]
+size = [2, 4]
+rise = 30
+spread = 30
+drift = -14             # negative → the glint floats upward
+glow = 1
+round = 1
+lifetime_milliseconds = 620
+easing = "cubic-bezier(.2,.6,.3,1)"
+
+[click]                 # a fingertip on the parchment — disturbed dust
+count = 5
+colors = ["#fff8e2", "var(--bg3)", "var(--line-hi)"]
+size = [1.5, 3.5]
+rise = 16
+spread = 34
+drift = 8
+glow = 0
+round = 1
+lifetime_milliseconds = 720
+easing = "cubic-bezier(.2,.6,.3,1)"
+
+[wood]                  # a knuckle on the wooden desk (and the header strip) — chips that fall
+count = 6
+colors = ["#8a5a24", "#6b4413", "#3d2b17"]
+size = [1.5, 3.5]
+rise = 8
+spread = 26
+drift = 34              # positive → chips fall
+glow = 0
+round = 0             # 0 = hard-edged square chip
+lifetime_milliseconds = 560
+easing = "cubic-bezier(.4,0,.7,1)"
+
+[stone]                 # a tap on the speaking stone — pale granite chips struck off the slab
+count = 8
+colors = ["#b9b9c0", "#8f8f98", "#6f6f76"]
+size = [1.5, 3.5]
+rise = 10
+spread = 30
+drift = 40
+glow = 0
+round = 0
+lifetime_milliseconds = 600
+easing = "cubic-bezier(.4,0,.7,1)"

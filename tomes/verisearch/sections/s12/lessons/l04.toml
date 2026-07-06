@@ -1,0 +1,80 @@
+[[lessons]]
+id = "s12-l04"
+title = "README & --help — the tool's first impression"
+body = '''
+
+<p>Nobody reads source before deciding whether your tool is worth 90 seconds. Two artifacts do all the convincing:</p>
+<p><strong>The README skeleton that works</strong> (in this order — the pitch before the plumbing):</p>
+<pre><code># Verisearch
+One paragraph: what it does and WHY it exists (verbatim quotes,
+trust-ranked sources, zero paraphrasing — the anti-hallucination search).
+
+## Example                      ← SHOW the output before anything else
+$ verisearch <span class="s">"What does RFC 8446 say about session resumption?"</span>
+[the actual formatted report, pasted]
+
+## Install                      ← copy-pasteable, tested on a clean machine
+## Usage                        ← the flags table
+## Configuration                ← ~/.verisearch/config.yaml annotated
+## How it works                 ← 5 bullets: search → trust → scrape → scan → report
+## Requirements & limitations   ← honest: SearXNG needed, Ollama optional (fallback)</code></pre>
+<p><strong><code>--help</code> that respects the reader</strong> — Spectre.Console.Cli generates the frame from your attributes; you supply the words:</p>
+<pre><code>[Description(<span class="s">"Search the web and return VERBATIM quotes from trusted sources."</span>)]
+<span class="k">public class</span> SearchCommand ...
+
+[CommandOption(<span class="s">"-t|--min-trust"</span>)]
+[Description(<span class="s">"Minimum trust score 0-10 a source must have (default: 3.0)"</span>)]
+<span class="k">public double</span> MinTrust { <span class="k">get</span>; <span class="k">set</span>; } = 3.0;</code></pre>
+<p>Description quality bar: every option says what it does, its range, and its default. "Sets the minimum trust" is filler; the version above answers the three questions the user actually has.</p>
+<div class="callout">Honesty is a feature: the README's limitations section ("requires a SearXNG instance; LLM scan degrades to keyword matching without Ollama") builds more trust than any adjective. You built a tool about source honesty — its docs should model it.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>/// doc comments</strong> — the tooltip text future-you reads in the editor:</p>
+<pre><code>/// &lt;summary&gt;Re-ranks raw results by computed trust score, highest first.&lt;/summary&gt;
+/// &lt;param name="raw"&gt;Unfiltered results straight from the search engine.&lt;/param&gt;
+public List&lt;SearchResult&gt; Rank(List&lt;SearchResult&gt; raw)</code></pre>
+<p>Write them on PUBLIC surface (the pipeline, the clients); skip them on privates where the name should suffice.</p>
+<p><strong>Changelog discipline:</strong> a <code>CHANGELOG.md</code> with Added/Changed/Fixed per version (keepachangelog.com format) — thirty seconds per release, priceless at "wait, when did --min-trust change default?"</p>
+<p><strong>The last word — you built a TOOL, not a tutorial:</strong> the README's job is to let a stranger succeed in 90 seconds; the tests' job is to let YOU change code without fear; the published binary's job is to not need you standing next to it. That's the definition of done.</p></div>'''
+
+[[lessons.readings]]
+label = "Make a README — the classic guide"
+url = "https://www.makeareadme.com/"
+essential = false
+
+[[lessons.exercises]]
+id = "s12-l04-e1"
+type = "mc"
+points = 20
+prompt = "What should a README show FIRST after the one-paragraph pitch?"
+choices = ["The license text", "A real usage example with actual output", "The full API reference", "Contributor guidelines"]
+answer = 1
+hint = "Show the payoff before the plumbing."
+
+[[lessons.exercises]]
+id = "s12-l04-e2"
+type = "mc"
+points = 20
+prompt = "A good --help description for an option answers…"
+choices = ["who wrote it", "what it does, its valid range, and its default", "when it was added", "why C# is great"]
+answer = 1
+hint = "The user's three questions."
+
+[[lessons.exercises]]
+id = "s12-l04-e3"
+type = "mc"
+points = 20
+prompt = "Documenting that Verisearch NEEDS SearXNG and degrades without Ollama is…"
+choices = ["bad marketing — hide it", "honest limitation docs that build trust and save users' time", "only needed for paid tools", "a security leak"]
+answer = 1
+hint = "The tool is literally about source honesty."
+
+[[lessons.exercises]]
+id = "s12-l04-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "A doc comment + described option — the polish grammar. Twice, then go ship Verisearch."
+code = '''
+/// <summary>Search the web and return verbatim quotes from trusted sources.</summary>
+[CommandOption("-t|--min-trust")]
+[Description("Minimum trust score 0-10 a source must have (default: 3.0)")]
+public double MinTrust { get; set; } = 3.0;'''

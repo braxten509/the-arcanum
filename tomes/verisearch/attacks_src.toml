@@ -1,0 +1,893 @@
+# Reference solutions for verisearch's SPELL DUEL bank (C#, this tome's language).
+# tools/gen_attacks.py runs each `solution` through this tome's runtime, slices the
+# stdout into the cumulative stages, and writes attacks.toml.
+# Regenerate:  python3 tools/gen_attacks.py verisearch   (server running)
+
+[[challenge]]
+tier = 1
+title = "THE NAME-FORGING"
+starter = '''
+string name = "vael";
+int ward = 12;
+int leyline = 7;
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Forge the sigil block. Print exactly three lines: «SIGIL vael @ WARD 12», «LEYLINE THREAD 7», «BINDING SOUGHT» — woven from the variables with interpolation, values not hardcoded.",
+  "Compute the seal key: ward * leyline + name.Length. Append «KEY 88» (computed) and «BINDING GRANTED».",
+  "Append the key's parity («PARITY ODD» or «PARITY EVEN»), the rite tag «RITE <ward><leyline>» (digits joined), then «SEAL SET».",
+]
+solution = '''
+string name = "vael";
+int ward = 12;
+int leyline = 7;
+Console.WriteLine($"SIGIL {name} @ WARD {ward}");
+Console.WriteLine($"LEYLINE THREAD {leyline}");
+Console.WriteLine("BINDING SOUGHT");
+int key = ward * leyline + name.Length;
+Console.WriteLine($"KEY {key}");
+Console.WriteLine("BINDING GRANTED");
+Console.WriteLine(key % 2 == 0 ? "PARITY EVEN" : "PARITY ODD");
+Console.WriteLine($"RITE {ward}{leyline}");
+Console.WriteLine("SEAL SET");
+'''
+cuts = [3, 5, 8]
+
+[[challenge]]
+tier = 1
+title = "THE NUMBERED LOCK"
+starter = '''
+int glyphs = 4735;
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Split the 4-glyph ward into its digits using / and % arithmetic (no strings). Print each on its own line as «GLYPH <d>», the thousandfold glyph first.",
+  "Append «SUM <sum of glyphs>» and «PRODUCT <product of glyphs>» — computed, not hardcoded.",
+  "Append «REVERSED <ward reversed>» (4735 → 5374) then «LOCK SPRUNG».",
+]
+solution = '''
+int glyphs = 4735;
+int d1 = glyphs / 1000;
+int d2 = glyphs / 100 % 10;
+int d3 = glyphs / 10 % 10;
+int d4 = glyphs % 10;
+Console.WriteLine($"GLYPH {d1}");
+Console.WriteLine($"GLYPH {d2}");
+Console.WriteLine($"GLYPH {d3}");
+Console.WriteLine($"GLYPH {d4}");
+Console.WriteLine($"SUM {d1 + d2 + d3 + d4}");
+Console.WriteLine($"PRODUCT {d1 * d2 * d3 * d4}");
+Console.WriteLine($"REVERSED {d4}{d3}{d2}{d1}");
+Console.WriteLine("LOCK SPRUNG");
+'''
+cuts = [4, 6, 8]
+
+[[challenge]]
+tier = 2
+title = "THE WARDEN'S LEDGER"
+starter = '''
+int[] motes = { 512, 1400, 64, 2048, 128, 900 };
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Scan the ward's ledger. For each wisp print «WISP <n> <weight> <FLAG>» — n is 1-based, FLAG is BANE if weight > 1000 else CALM. Then print «WARD SCANNED».",
+  "Append the tally «BANE <count> / <total>» and «BANISHED <sum of bane weights>».",
+  "Append «PEAK <largest bane weight>» (computed), then the verdict: «PORTENT RED» if 3+ banes, «PORTENT AMBER» if 1-2, else «PORTENT GREEN».",
+]
+solution = '''
+int[] motes = { 512, 1400, 64, 2048, 128, 900 };
+int bane = 0, banished = 0, peak = 0;
+for (int i = 0; i < motes.Length; i++)
+{
+    bool foul = motes[i] > 1000;
+    Console.WriteLine($"WISP {i + 1} {motes[i]} {(foul ? "BANE" : "CALM")}");
+    if (foul) { bane++; banished += motes[i]; if (motes[i] > peak) peak = motes[i]; }
+}
+Console.WriteLine("WARD SCANNED");
+Console.WriteLine($"BANE {bane} / {motes.Length}");
+Console.WriteLine($"BANISHED {banished}");
+Console.WriteLine($"PEAK {peak}");
+Console.WriteLine(bane >= 3 ? "PORTENT RED" : bane >= 1 ? "PORTENT AMBER" : "PORTENT GREEN");
+'''
+cuts = [7, 9, 11]
+
+[[challenge]]
+tier = 2
+title = "THE LATTICE SWEEP"
+starter = '''
+// The scrying lattice is 4x4. The mote at row r, column c burns at r * c (both 1-based).
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Sweep the 4x4 lattice with nested loops. For each row r print «ROW <r>: <v1> <v2> <v3> <v4>» where each mote is r*c, then print «SWEEP DONE».",
+  "Append «DIAGONAL <sum of motes where r == c>» and «TOTAL <sum of all motes>».",
+  "Append one line per row: «ROW <r> BRIGHT» if that row's sum > 20, else «ROW <r> DIM».",
+]
+solution = '''
+int diag = 0, total = 0;
+int[] rowSum = new int[5];
+for (int r = 1; r <= 4; r++)
+{
+    string line = $"ROW {r}:";
+    for (int c = 1; c <= 4; c++)
+    {
+        int v = r * c;
+        line += $" {v}";
+        total += v;
+        rowSum[r] += v;
+        if (r == c) diag += v;
+    }
+    Console.WriteLine(line);
+}
+Console.WriteLine("SWEEP DONE");
+Console.WriteLine($"DIAGONAL {diag}");
+Console.WriteLine($"TOTAL {total}");
+for (int r = 1; r <= 4; r++)
+    Console.WriteLine(rowSum[r] > 20 ? $"ROW {r} BRIGHT" : $"ROW {r} DIM");
+'''
+cuts = [5, 7, 11]
+
+[[challenge]]
+tier = 3
+title = "THE ROLL OF ADEPTS"
+starter = '''
+var adepts = new List<Adept> {
+    new("orin", 9, 42), new("vesper", 3, 17), new("sable", 5, 88), new("wren", 7, 5),
+};
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Adept(string Name, int Circle, int Rites);
+'''
+briefs = [
+  "Print the roll: one line per adept «ADEPT <name> C<circle> R<rites>», then «ROLL 4 ADEPTS» (count computed).",
+  "Might = Circle * 10 + Rites. Append «FOREMOST <name> <might>» for the highest and «MEAN CIRCLE <integer average>».",
+  "Rank each adept by circle — 8+ ARCHMAGE, 5+ ADEPT, else NOVICE. Append one line per adept: «<name> <RANK>».",
+]
+solution = '''
+var adepts = new List<Adept> {
+    new("orin", 9, 42), new("vesper", 3, 17), new("sable", 5, 88), new("wren", 7, 5),
+};
+foreach (var a in adepts)
+    Console.WriteLine($"ADEPT {a.Name} C{a.Circle} R{a.Rites}");
+Console.WriteLine($"ROLL {adepts.Count} ADEPTS");
+Adept top = adepts[0];
+int circleSum = 0;
+foreach (var a in adepts)
+{
+    if (a.Circle * 10 + a.Rites > top.Circle * 10 + top.Rites) top = a;
+    circleSum += a.Circle;
+}
+Console.WriteLine($"FOREMOST {top.Name} {top.Circle * 10 + top.Rites}");
+Console.WriteLine($"MEAN CIRCLE {circleSum / adepts.Count}");
+foreach (var a in adepts)
+    Console.WriteLine($"{a.Name} {(a.Circle >= 8 ? "ARCHMAGE" : a.Circle >= 5 ? "ADEPT" : "NOVICE")}");
+
+record Adept(string Name, int Circle, int Rites);
+'''
+cuts = [5, 7, 11]
+
+[[challenge]]
+tier = 3
+title = "THE RITE OF AUDIT"
+starter = '''
+int[] omens = { 3, 8, 1, 9, 5, 2 };
+// Peril of an omen: 8+ = Dire, 4-7 = Stirring, otherwise Calm.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+enum Peril { Calm, Stirring, Dire }
+'''
+briefs = [
+  "Map each omen to its Peril (8+ Dire, 4+ Stirring, else Calm) using the enum, and print «OMEN <c> <PERIL>» in caps (hint: ToString().ToUpper()).",
+  "Append the counts: «CALM <n>», «STIRRING <n>», «DIRE <n>».",
+  "Append «GRAVEST <highest omen>» and the verdict: «AUDIT FAILED» if 2+ omens are Dire, else «AUDIT PASSED».",
+]
+solution = '''
+int[] omens = { 3, 8, 1, 9, 5, 2 };
+int calm = 0, stirring = 0, dire = 0, max = 0;
+foreach (int c in omens)
+{
+    Peril p = c >= 8 ? Peril.Dire : c >= 4 ? Peril.Stirring : Peril.Calm;
+    Console.WriteLine($"OMEN {c} {p.ToString().ToUpper()}");
+    if (p == Peril.Dire) dire++; else if (p == Peril.Stirring) stirring++; else calm++;
+    if (c > max) max = c;
+}
+Console.WriteLine($"CALM {calm}");
+Console.WriteLine($"STIRRING {stirring}");
+Console.WriteLine($"DIRE {dire}");
+Console.WriteLine($"GRAVEST {max}");
+Console.WriteLine(dire >= 2 ? "AUDIT FAILED" : "AUDIT PASSED");
+
+enum Peril { Calm, Stirring, Dire }
+'''
+cuts = [6, 9, 11]
+
+[[challenge]]
+tier = 4
+title = "THE SEALED PARCELS"
+starter = '''
+using System.Text.Json;
+
+string manifest = """
+[
+  {"id": 1, "ward": "rune", "weight": 512},
+  {"id": 2, "ward": "ash", "weight": 2048},
+  {"id": 3, "ward": "rune", "weight": 128},
+  {"id": 4, "ward": "salt", "weight": 4096}
+]
+""";
+// JsonSerializer.Deserialize<List<Parcel>>(manifest) — property names match case-sensitively.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Parcel(int id, string ward, int weight);
+'''
+briefs = [
+  "Decode the sealed manifest into List<Parcel>. Print «PARCEL <id> <ward> <weight>» per parcel, then «DECODED 4 PARCELS» (count computed).",
+  "Append «RUNE WEIGHT <sum of rune-warded weights>» and «HEAVIEST <id> <ward>» for the largest parcel.",
+  "Seal the summary «new { count = <count>, weight = <sum of all weights> }» with JsonSerializer and print the JSON, then «MANIFEST SEALED».",
+]
+solution = '''
+using System.Text.Json;
+
+string manifest = """
+[
+  {"id": 1, "ward": "rune", "weight": 512},
+  {"id": 2, "ward": "ash", "weight": 2048},
+  {"id": 3, "ward": "rune", "weight": 128},
+  {"id": 4, "ward": "salt", "weight": 4096}
+]
+""";
+var parcels = JsonSerializer.Deserialize<List<Parcel>>(manifest)!;
+foreach (var p in parcels)
+    Console.WriteLine($"PARCEL {p.id} {p.ward} {p.weight}");
+Console.WriteLine($"DECODED {parcels.Count} PARCELS");
+int rune = 0, weight = 0;
+Parcel big = parcels[0];
+foreach (var p in parcels)
+{
+    if (p.ward == "rune") rune += p.weight;
+    weight += p.weight;
+    if (p.weight > big.weight) big = p;
+}
+Console.WriteLine($"RUNE WEIGHT {rune}");
+Console.WriteLine($"HEAVIEST {big.id} {big.ward}");
+var summary = new { count = parcels.Count, weight = weight };
+Console.WriteLine(JsonSerializer.Serialize(summary));
+Console.WriteLine("MANIFEST SEALED");
+
+record Parcel(int id, string ward, int weight);
+'''
+cuts = [5, 7, 9]
+
+[[challenge]]
+tier = 4
+title = "THE STOLEN CHARTER"
+starter = '''
+using System.Text.Json;
+
+string charter = """
+{"spire": {"name": "spire-7", "gate": 8443, "warded": true}, "circle": ["vael", "morda", "wren"], "seals": 5}
+""";
+// JsonDocument.Parse(charter).RootElement — GetProperty / GetString / GetInt32 / GetBoolean / EnumerateArray.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Walk the stolen charter with JsonDocument. Print «SPIRE spire-7», «GATE 8443», «SEALS 5» — all read from the parchment, never hardcoded.",
+  "Enumerate the circle array: «MEMBER <name>» per entry, then «CIRCLE <count>».",
+  "Append the verdicts: «WARD SET» if spire.warded is true (else «WARD BROKEN»), «GATE HIGH» if gate >= 8000 (else «GATE LOW»), then «CHARTER READ».",
+]
+solution = '''
+using System.Text.Json;
+
+string charter = """
+{"spire": {"name": "spire-7", "gate": 8443, "warded": true}, "circle": ["vael", "morda", "wren"], "seals": 5}
+""";
+var root = JsonDocument.Parse(charter).RootElement;
+var spire = root.GetProperty("spire");
+Console.WriteLine($"SPIRE {spire.GetProperty("name").GetString()}");
+Console.WriteLine($"GATE {spire.GetProperty("gate").GetInt32()}");
+Console.WriteLine($"SEALS {root.GetProperty("seals").GetInt32()}");
+int members = 0;
+foreach (var m in root.GetProperty("circle").EnumerateArray())
+{
+    Console.WriteLine($"MEMBER {m.GetString()}");
+    members++;
+}
+Console.WriteLine($"CIRCLE {members}");
+Console.WriteLine(spire.GetProperty("warded").GetBoolean() ? "WARD SET" : "WARD BROKEN");
+Console.WriteLine(spire.GetProperty("gate").GetInt32() >= 8000 ? "GATE HIGH" : "GATE LOW");
+Console.WriteLine("CHARTER READ");
+'''
+cuts = [3, 7, 10]
+
+[[challenge]]
+tier = 5
+title = "THE HIDDEN CACHE"
+starter = '''
+string path = "cache.rune";
+string[] runes = { "name=vael", "ward=12", "bound=true" };
+// File.WriteAllLines / File.ReadAllLines / File.AppendAllText — the working directory is writable.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Inscribe the runes onto the cache stone, read them back FROM DISK, print each recovered line as «RUNE <line>», then «STORED 3 RUNES» (count from the stone, not the array).",
+  "Parse each recovered key=value rune (Split on '=') and append «BOUND <key> = <value>» per line.",
+  "Inscribe one more rune «seal=true» onto the stone, re-read it, print «RUNES NOW <count>» then «CACHE SEALED».",
+]
+solution = '''
+string path = "cache.rune";
+string[] runes = { "name=vael", "ward=12", "bound=true" };
+File.WriteAllLines(path, runes);
+string[] got = File.ReadAllLines(path);
+foreach (string line in got)
+    Console.WriteLine($"RUNE {line}");
+Console.WriteLine($"STORED {got.Length} RUNES");
+foreach (string line in got)
+{
+    string[] kv = line.Split('=');
+    Console.WriteLine($"BOUND {kv[0]} = {kv[1]}");
+}
+File.AppendAllText(path, "seal=true\n");
+Console.WriteLine($"RUNES NOW {File.ReadAllLines(path).Length}");
+Console.WriteLine("CACHE SEALED");
+'''
+cuts = [4, 7, 9]
+
+[[challenge]]
+tier = 5
+title = "THE SCOURED CHRONICLE"
+starter = '''
+string path = "chronicle.log";
+string[] entries = {
+    "MARK the candle lit", "WHISPER a draft stirs", "MARK the ward holds", "WHISPER dust settles", "OMEN the glass cracks 91",
+};
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Inscribe the entries into the chronicle, read it back, and print «KEEP <line>» for every line that does NOT start with WHISPER, then «SCANNED 5» (total lines read).",
+  "Overwrite the chronicle with only the kept lines. Append «SCOURED <removed count>» and «CHRONICLE <line count>» re-read from disk.",
+  "Find the OMEN line in the scoured chronicle and print «PORTENT <text after 'OMEN '>», then «SCOUR COMPLETE».",
+]
+solution = '''
+string path = "chronicle.log";
+string[] entries = {
+    "MARK the candle lit", "WHISPER a draft stirs", "MARK the ward holds", "WHISPER dust settles", "OMEN the glass cracks 91",
+};
+File.WriteAllLines(path, entries);
+string[] all = File.ReadAllLines(path);
+var kept = new List<string>();
+foreach (string line in all)
+{
+    if (!line.StartsWith("WHISPER"))
+    {
+        Console.WriteLine($"KEEP {line}");
+        kept.Add(line);
+    }
+}
+Console.WriteLine($"SCANNED {all.Length}");
+File.WriteAllLines(path, kept);
+Console.WriteLine($"SCOURED {all.Length - kept.Count}");
+Console.WriteLine($"CHRONICLE {File.ReadAllLines(path).Length}");
+foreach (string line in File.ReadAllLines(path))
+    if (line.StartsWith("OMEN "))
+        Console.WriteLine($"PORTENT {line.Substring(5)}");
+Console.WriteLine("SCOUR COMPLETE");
+'''
+cuts = [4, 6, 8]
+
+[[challenge]]
+tier = 6
+title = "THE MIRROR'S GLEANING"
+starter = '''
+string vision = "<html><head><title>THE OBSIDIAN MIRROR</title></head><body>"
+    + "<a href=\"/relics/emberglass.rune\">emberglass</a>"
+    + "<a href=\"/relics/nightshade.rune\">nightshade</a>"
+    + "<p>a decoy vision</p><a href=\"/leave\">leave</a></body></html>";
+// IndexOf / Substring / Split are enough — no parser library needed.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Scry the mirror's page. Extract the <title> text with IndexOf/Substring and print «TITLE <text>», then count the wardlinks and print «LINKS <n>».",
+  "Extract every href value and print «HREF <value>» in page order.",
+  "For hrefs under /relics/, print «RELIC <NAME>» (name without path or .rune extension, uppercased), then «GLEANING DONE».",
+]
+solution = '''
+string vision = "<html><head><title>THE OBSIDIAN MIRROR</title></head><body>"
+    + "<a href=\"/relics/emberglass.rune\">emberglass</a>"
+    + "<a href=\"/relics/nightshade.rune\">nightshade</a>"
+    + "<p>a decoy vision</p><a href=\"/leave\">leave</a></body></html>";
+int ts = vision.IndexOf("<title>") + 7;
+int te = vision.IndexOf("</title>");
+Console.WriteLine($"TITLE {vision.Substring(ts, te - ts)}");
+var hrefs = new List<string>();
+int pos = 0;
+while ((pos = vision.IndexOf("href=\"", pos)) != -1)
+{
+    pos += 6;
+    int end = vision.IndexOf('"', pos);
+    hrefs.Add(vision.Substring(pos, end - pos));
+}
+Console.WriteLine($"LINKS {hrefs.Count}");
+foreach (string h in hrefs)
+    Console.WriteLine($"HREF {h}");
+foreach (string h in hrefs)
+{
+    if (h.StartsWith("/relics/"))
+    {
+        string relic = h.Substring(8).Replace(".rune", "");
+        Console.WriteLine($"RELIC {relic.ToUpper()}");
+    }
+}
+Console.WriteLine("GLEANING DONE");
+'''
+cuts = [2, 5, 8]
+
+[[challenge]]
+tier = 6
+title = "THE HARVEST OF MARKS"
+starter = '''
+string charm = "<ward><rune>a</rune><rune>b</rune><seal>c</seal><ward><rune>d</rune></ward></ward>";
+// Split on '<'; closing marks start with '/'; the text sits after the '>'.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Harvest the opening marks. Count each mark type (ignore closing marks) and print «<mark> <count>» in order of first appearance (ward first).",
+  "Append «TOTAL MARKS <sum of counts>» and «UNIQUE <distinct mark count>».",
+  "Harvest the text woven between marks in order and print «WOVEN <joined>» (e.g. abcd), then «HARVEST DONE».",
+]
+solution = '''
+string charm = "<ward><rune>a</rune><rune>b</rune><seal>c</seal><ward><rune>d</rune></ward></ward>";
+var counts = new Dictionary<string, int>();
+string woven = "";
+foreach (string chunk in charm.Split('<'))
+{
+    if (chunk == "") continue;
+    int gt = chunk.IndexOf('>');
+    if (!chunk.StartsWith("/"))
+    {
+        string mark = chunk.Substring(0, gt);
+        counts[mark] = counts.GetValueOrDefault(mark) + 1;
+    }
+    if (gt + 1 < chunk.Length) woven += chunk.Substring(gt + 1);
+}
+foreach (var kv in counts)
+    Console.WriteLine($"{kv.Key} {kv.Value}");
+int total = 0;
+foreach (var kv in counts) total += kv.Value;
+Console.WriteLine($"TOTAL MARKS {total}");
+Console.WriteLine($"UNIQUE {counts.Count}");
+Console.WriteLine($"WOVEN {woven}");
+Console.WriteLine("HARVEST DONE");
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 7
+title = "THE SORTING OF VOICES"
+starter = '''
+var voices = new List<Voice> {
+    new("ember", 72, "ash"), new("frost", 15, "salt"), new("gale", 91, "ash"),
+    new("tide", 44, "bone"), new("shade", 88, "salt"), new("stone", 8, "ash"),
+};
+// LINQ territory: Where / OrderByDescending / GroupBy / Aggregate.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Voice(string Name, int Clarity, string Tongue);
+'''
+briefs = [
+  "Sort the voices with LINQ: those with Clarity >= 40, clearest first — print «VOICE <name> <clarity>» each, then «SORTED <kept> / <total>».",
+  "GroupBy tongue over ALL voices, groups ordered by count descending: «TONGUE <tongue> <count>» each.",
+  "Append «MEAN CLARITY <integer avg over all>», «CHORD <XOR of all clarities>» (Aggregate), then «SORTING DONE».",
+]
+solution = '''
+var voices = new List<Voice> {
+    new("ember", 72, "ash"), new("frost", 15, "salt"), new("gale", 91, "ash"),
+    new("tide", 44, "bone"), new("shade", 88, "salt"), new("stone", 8, "ash"),
+};
+var clear = voices.Where(v => v.Clarity >= 40).OrderByDescending(v => v.Clarity).ToList();
+foreach (var v in clear)
+    Console.WriteLine($"VOICE {v.Name} {v.Clarity}");
+Console.WriteLine($"SORTED {clear.Count} / {voices.Count}");
+foreach (var g in voices.GroupBy(v => v.Tongue).OrderByDescending(g => g.Count()))
+    Console.WriteLine($"TONGUE {g.Key} {g.Count()}");
+Console.WriteLine($"MEAN CLARITY {(int)voices.Average(v => v.Clarity)}");
+Console.WriteLine($"CHORD {voices.Aggregate(0, (acc, v) => acc ^ v.Clarity)}");
+Console.WriteLine("SORTING DONE");
+
+record Voice(string Name, int Clarity, string Tongue);
+'''
+cuts = [5, 8, 11]
+
+[[challenge]]
+tier = 7
+title = "THE BOUNTY BOARD"
+starter = '''
+var contracts = new List<Contract> {
+    new("grave-owl", 900), new("ashen-wyrm", 2400), new("fen-shade", 600), new("mire-moth", 1500),
+};
+// OrderByDescending / Sum / Average / Func<Contract, bool> predicates.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Contract(string Quarry, int Reward);
+'''
+briefs = [
+  "Rank the board: order by reward descending and print «<rank>. <quarry> <reward>c» (rank 1-based), then «BOARD 4 CONTRACTS».",
+  "Append «PURSE <total>c» and «MEAN <integer average>c».",
+  "Define a Func<Contract, bool> for rewards >= 1200; print «PRIME <quarry>» for each match in ranked order, then «BOARD SEALED».",
+]
+solution = '''
+var contracts = new List<Contract> {
+    new("grave-owl", 900), new("ashen-wyrm", 2400), new("fen-shade", 600), new("mire-moth", 1500),
+};
+var ranked = contracts.OrderByDescending(c => c.Reward).ToList();
+for (int i = 0; i < ranked.Count; i++)
+    Console.WriteLine($"{i + 1}. {ranked[i].Quarry} {ranked[i].Reward}c");
+Console.WriteLine($"BOARD {contracts.Count} CONTRACTS");
+Console.WriteLine($"PURSE {contracts.Sum(c => c.Reward)}c");
+Console.WriteLine($"MEAN {(int)contracts.Average(c => c.Reward)}c");
+Func<Contract, bool> prime = c => c.Reward >= 1200;
+foreach (var c in ranked.Where(prime))
+    Console.WriteLine($"PRIME {c.Quarry}");
+Console.WriteLine("BOARD SEALED");
+
+record Contract(string Quarry, int Reward);
+'''
+cuts = [5, 7, 10]
+
+[[challenge]]
+tier = 8
+title = "THE FOURFOLD SIEVE"
+starter = '''
+var wells = new[] { "well-3", "well-1", "well-7", "well-4" };
+
+// Scry them CONCURRENTLY — Task.WhenAll, not one-by-one awaits.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+async Task<int> Scry(string well)
+{
+    await Task.Delay(30);
+    return 700 + (well[^1] - '0');
+}
+'''
+briefs = [
+  "Scry all four wells at once with Task.WhenAll (readings return in cast order). Print «<well> <depth>» each, then «SCRIED 4 WELLS».",
+  "Append «SHALLOWEST <well> <depth>» and «MEAN <integer average>».",
+  "Wells under 705 are clear: print «CLEAR <well>» sorted by depth ascending, then «SIEVE DONE».",
+]
+solution = '''
+var wells = new[] { "well-3", "well-1", "well-7", "well-4" };
+var depths = await Task.WhenAll(wells.Select(Scry));
+for (int i = 0; i < wells.Length; i++)
+    Console.WriteLine($"{wells[i]} {depths[i]}");
+Console.WriteLine($"SCRIED {wells.Length} WELLS");
+int low = 0;
+for (int i = 0; i < depths.Length; i++)
+    if (depths[i] < depths[low]) low = i;
+Console.WriteLine($"SHALLOWEST {wells[low]} {depths[low]}");
+Console.WriteLine($"MEAN {(int)depths.Average()}");
+foreach (var (well, d) in wells.Zip(depths).Where(p => p.Second < 705).OrderBy(p => p.Second))
+    Console.WriteLine($"CLEAR {well}");
+Console.WriteLine("SIEVE DONE");
+
+async Task<int> Scry(string well)
+{
+    await Task.Delay(30);
+    return 700 + (well[^1] - '0');
+}
+'''
+cuts = [5, 7, 11]
+
+[[challenge]]
+tier = 8
+title = "THE RELAY OF COURIERS"
+starter = '''
+// Ride returns "waystone-<n> reached" after a short delay.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+async Task<string> Ride(int n)
+{
+    await Task.Delay(20);
+    return $"waystone-{n} reached";
+}
+'''
+briefs = [
+  "Send couriers to waystones 1-3 SEQUENTIALLY (await each before the next) printing «RIDE <result>» per waystone, then «ROAD OPEN».",
+  "Send couriers to waystones 4-6 CONCURRENTLY with Task.WhenAll; print «SWIFT <result>» each in order, then «SWIFT DONE».",
+  "Append «WAYSTONES 6» (computed from your two phases, not hardcoded) and «RELAY SEALED».",
+]
+solution = '''
+int stones = 0;
+for (int n = 1; n <= 3; n++)
+{
+    Console.WriteLine($"RIDE {await Ride(n)}");
+    stones++;
+}
+Console.WriteLine("ROAD OPEN");
+var swift = await Task.WhenAll(Ride(4), Ride(5), Ride(6));
+foreach (string r in swift)
+{
+    Console.WriteLine($"SWIFT {r}");
+    stones++;
+}
+Console.WriteLine("SWIFT DONE");
+Console.WriteLine($"WAYSTONES {stones}");
+Console.WriteLine("RELAY SEALED");
+
+async Task<string> Ride(int n)
+{
+    await Task.Delay(20);
+    return $"waystone-{n} reached";
+}
+'''
+cuts = [4, 8, 10]
+
+[[challenge]]
+tier = 9
+title = "THE ORACLE'S RANKING"
+starter = '''
+string query = "shadow ward flame";
+string[] verses = {
+    "the ward holds against flame",
+    "shadow creeps past the ward",
+    "the sky is clear tonight",
+    "flame ward shadow all three bound",
+};
+// Score = how many query words appear in the verse (Split + Contains).
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Consult the oracle: score each verse = count of query words it holds (split both on spaces). Print «VERSE <n> SCORE <s>» (1-based), then «SCORED 4 VERSES».",
+  "Rank verses by score descending (ties: lower number first): «RANK <r> VERSE <n>» each.",
+  "Verses scoring 2+ ring true. Append «TRUE <count>», «HOLLOW <count>», then «ORACLE DONE».",
+]
+solution = '''
+string query = "shadow ward flame";
+string[] verses = {
+    "the ward holds against flame",
+    "shadow creeps past the ward",
+    "the sky is clear tonight",
+    "flame ward shadow all three bound",
+};
+string[] qw = query.Split(' ');
+int[] scores = new int[verses.Length];
+for (int i = 0; i < verses.Length; i++)
+{
+    var vw = verses[i].Split(' ');
+    foreach (string w in qw)
+        if (vw.Contains(w)) scores[i]++;
+    Console.WriteLine($"VERSE {i + 1} SCORE {scores[i]}");
+}
+Console.WriteLine($"SCORED {verses.Length} VERSES");
+var order = Enumerable.Range(0, verses.Length).OrderByDescending(i => scores[i]).ThenBy(i => i).ToList();
+for (int r = 0; r < order.Count; r++)
+    Console.WriteLine($"RANK {r + 1} VERSE {order[r] + 1}");
+Console.WriteLine($"TRUE {scores.Count(s => s >= 2)}");
+Console.WriteLine($"HOLLOW {scores.Count(s => s < 2)}");
+Console.WriteLine("ORACLE DONE");
+'''
+cuts = [5, 9, 12]
+
+[[challenge]]
+tier = 9
+title = "THE WEIGHING OF WORDS"
+starter = '''
+string prophecy = "The Pale Wyrm wakes at dusk";
+string[] accounts = {
+    "pale wyrm seen at dusk",
+    "wyrm sleeps all winter",
+    "the pale wyrm wakes at dusk indeed",
+};
+// Normalize with ToLower, split on spaces, count DISTINCT prophecy words each account holds.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Weigh the accounts: lowercase the prophecy, split into words; for each account count how many DISTINCT prophecy words it holds. Print «ACCOUNT <n> MATCH <m>», then «WEIGHED 3».",
+  "Trust = matched * 100 / <prophecy word count> (integer math). Append «TRUST <n> <pct>%» per account.",
+  "Verdicts: 80%+ TRUE, 50%+ PARTIAL, else FALSE. Append «ACCOUNT <n> <VERDICT>» each, then «WEIGHING DONE».",
+]
+solution = '''
+string prophecy = "The Pale Wyrm wakes at dusk";
+string[] accounts = {
+    "pale wyrm seen at dusk",
+    "wyrm sleeps all winter",
+    "the pale wyrm wakes at dusk indeed",
+};
+string[] pw = prophecy.ToLower().Split(' ');
+int[] match = new int[accounts.Length];
+for (int i = 0; i < accounts.Length; i++)
+{
+    var aw = accounts[i].ToLower().Split(' ');
+    match[i] = pw.Distinct().Count(w => aw.Contains(w));
+    Console.WriteLine($"ACCOUNT {i + 1} MATCH {match[i]}");
+}
+Console.WriteLine($"WEIGHED {accounts.Length}");
+int[] trust = new int[accounts.Length];
+for (int i = 0; i < accounts.Length; i++)
+{
+    trust[i] = match[i] * 100 / pw.Length;
+    Console.WriteLine($"TRUST {i + 1} {trust[i]}%");
+}
+for (int i = 0; i < accounts.Length; i++)
+    Console.WriteLine($"ACCOUNT {i + 1} {(trust[i] >= 80 ? "TRUE" : trust[i] >= 50 ? "PARTIAL" : "FALSE")}");
+Console.WriteLine("WEIGHING DONE");
+'''
+cuts = [4, 7, 11]
+
+[[challenge]]
+tier = 10
+title = "THE WAR TABLE"
+starter = '''
+var hexes = new List<Hex> {
+    new("vael", "east-spire", 3), new("morda", "old-vault", 1), new("sable", "deep-well", 5),
+};
+// Pipe-separated table rows: | cell | cell | cell |
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Hex(string Caster, string Target, int Fury);
+'''
+briefs = [
+  "Set the war table. Print the header «| CASTER | TARGET | FURY |» then one row per hex «| <caster> | <target> | <fury> |» in list order.",
+  "Append the totals row «| TOTAL | <n> HEXES | <fury sum> |» — computed.",
+  "Re-print the hexes sorted by fury descending with a rating instead of the number (5+ DIRE, 2+ STIRRING, else FAINT): «| <caster> | <target> | <RATING> |», then «WAR TABLE SET».",
+]
+solution = '''
+var hexes = new List<Hex> {
+    new("vael", "east-spire", 3), new("morda", "old-vault", 1), new("sable", "deep-well", 5),
+};
+Console.WriteLine("| CASTER | TARGET | FURY |");
+foreach (var h in hexes)
+    Console.WriteLine($"| {h.Caster} | {h.Target} | {h.Fury} |");
+Console.WriteLine($"| TOTAL | {hexes.Count} HEXES | {hexes.Sum(h => h.Fury)} |");
+foreach (var h in hexes.OrderByDescending(h => h.Fury))
+    Console.WriteLine($"| {h.Caster} | {h.Target} | {(h.Fury >= 5 ? "DIRE" : h.Fury >= 2 ? "STIRRING" : "FAINT")} |");
+Console.WriteLine("WAR TABLE SET");
+
+record Hex(string Caster, string Target, int Fury);
+'''
+cuts = [4, 5, 9]
+
+[[challenge]]
+tier = 10
+title = "THE BOARD OF STANDINGS"
+starter = '''
+var wards = new (string Name, int Strain)[] { ("veil", 62), ("hearth", 91), ("threshold", 17) };
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Render the board: «== BOARD OF STANDINGS ==», then «| <ward> | <strain>% |» per ward in order.",
+  "Append «PEAK <ward> <strain>%» for the highest strain and «MEAN <integer average>%».",
+  "Append «FAILING <ward>» for every ward at 90%+ strain, then «== END ==».",
+]
+solution = '''
+var wards = new (string Name, int Strain)[] { ("veil", 62), ("hearth", 91), ("threshold", 17) };
+Console.WriteLine("== BOARD OF STANDINGS ==");
+foreach (var w in wards)
+    Console.WriteLine($"| {w.Name} | {w.Strain}% |");
+var peak = wards.OrderByDescending(w => w.Strain).First();
+Console.WriteLine($"PEAK {peak.Name} {peak.Strain}%");
+Console.WriteLine($"MEAN {(int)wards.Average(w => w.Strain)}%");
+foreach (var w in wards)
+    if (w.Strain >= 90) Console.WriteLine($"FAILING {w.Name}");
+Console.WriteLine("== END ==");
+'''
+cuts = [4, 6, 8]
+
+[[challenge]]
+tier = 11
+title = "THE UNBROKEN CHAIN"
+starter = '''
+using System.Text.Json;
+
+string feed = """
+[
+  {"name": "east-spire", "open": true, "peril": 8},
+  {"name": "old-vault", "open": false, "peril": 3},
+  {"name": "deep-well", "open": true, "peril": 9},
+  {"name": "north-gate", "open": true, "peril": 2}
+]
+""";
+// Full working: deserialize -> filter -> sort -> stone -> reckoning.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Ward(string name, bool open, int peril);
+'''
+briefs = [
+  "Forge the chain: deserialize the feed, keep open wards, sort by peril descending. Print «WARD <name> PERIL <peril>» each, then «CHAIN <count> WARDS».",
+  "Inscribe the wards to chain.rune as «<name>:<peril>» lines, read the file back, print «BOUND <line>» per line, then «STONE OK».",
+  "Append «PERIL SUM <sum over wards>», the call («SEAL NOW» if any ward peril >= 9 else «SEAL HOLD»), then «CHAIN COMPLETE».",
+]
+solution = '''
+using System.Text.Json;
+
+string feed = """
+[
+  {"name": "east-spire", "open": true, "peril": 8},
+  {"name": "old-vault", "open": false, "peril": 3},
+  {"name": "deep-well", "open": true, "peril": 9},
+  {"name": "north-gate", "open": true, "peril": 2}
+]
+""";
+var wards = JsonSerializer.Deserialize<List<Ward>>(feed)!;
+var chosen = wards.Where(w => w.open).OrderByDescending(w => w.peril).ToList();
+foreach (var w in chosen)
+    Console.WriteLine($"WARD {w.name} PERIL {w.peril}");
+Console.WriteLine($"CHAIN {chosen.Count} WARDS");
+File.WriteAllLines("chain.rune", chosen.Select(w => $"{w.name}:{w.peril}"));
+foreach (string line in File.ReadAllLines("chain.rune"))
+    Console.WriteLine($"BOUND {line}");
+Console.WriteLine("STONE OK");
+Console.WriteLine($"PERIL SUM {chosen.Sum(w => w.peril)}");
+Console.WriteLine(chosen.Any(w => w.peril >= 9) ? "SEAL NOW" : "SEAL HOLD");
+Console.WriteLine("CHAIN COMPLETE");
+
+record Ward(string name, bool open, int peril);
+'''
+cuts = [4, 8, 11]
+
+[[challenge]]
+tier = 11
+title = "THE FINAL RITE"
+starter = '''
+using System.Text.Json;
+
+string rite = """
+{"minPower": 50, "sigils": [
+  {"name": "emberglass", "power": 72},
+  {"name": "dead-rune", "power": 12},
+  {"name": "core-ward", "power": 95},
+  {"name": "mist-gate", "power": 50}
+]}
+""";
+// Read -> gather -> bind concurrently -> chord. Everything you've got.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+async Task<string> Bind(string name)
+{
+    await Task.Delay(25);
+    return $"{name} bound";
+}
+
+record Sigil(string name, int power);
+'''
+briefs = [
+  "Read the rite (JsonDocument or records — your call). Gather sigils with power >= minPower: print «GATHERED <name> <power>» each in order, then «RITE <gathered> / <total>».",
+  "Bind the gathered sigils ALL AT ONCE (Task.WhenAll): print «>> <result>» each in order, then «ALL BOUND».",
+  "Append «CHORD <XOR of gathered powers>», «KEYSTONE <strongest gathered name>», then «RITE COMPLETE».",
+]
+solution = '''
+using System.Text.Json;
+
+string rite = """
+{"minPower": 50, "sigils": [
+  {"name": "emberglass", "power": 72},
+  {"name": "dead-rune", "power": 12},
+  {"name": "core-ward", "power": 95},
+  {"name": "mist-gate", "power": 50}
+]}
+""";
+var root = JsonDocument.Parse(rite).RootElement;
+int min = root.GetProperty("minPower").GetInt32();
+var all = new List<Sigil>();
+foreach (var s in root.GetProperty("sigils").EnumerateArray())
+    all.Add(new Sigil(s.GetProperty("name").GetString()!, s.GetProperty("power").GetInt32()));
+var gathered = all.Where(s => s.power >= min).ToList();
+foreach (var s in gathered)
+    Console.WriteLine($"GATHERED {s.name} {s.power}");
+Console.WriteLine($"RITE {gathered.Count} / {all.Count}");
+var results = await Task.WhenAll(gathered.Select(s => Bind(s.name)));
+foreach (string r in results)
+    Console.WriteLine($">> {r}");
+Console.WriteLine("ALL BOUND");
+Console.WriteLine($"CHORD {gathered.Aggregate(0, (a, s) => a ^ s.power)}");
+Console.WriteLine($"KEYSTONE {gathered.OrderByDescending(s => s.power).First().name}");
+Console.WriteLine("RITE COMPLETE");
+
+async Task<string> Bind(string name)
+{
+    await Task.Delay(25);
+    return $"{name} bound";
+}
+
+record Sigil(string name, int power);
+'''
+cuts = [4, 8, 11]
+

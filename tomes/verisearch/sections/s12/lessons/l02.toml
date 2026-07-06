@@ -1,0 +1,77 @@
+[[lessons]]
+id = "s12-l02"
+title = "What to test — the high-value targets"
+body = '''
+
+<p>You will not test everything; test where bugs COST. The tome doc names Verisearch's big three, and each is pure logic you already isolated (thank Chapter XI's architecture):</p>
+<p><strong>1. Trust scoring</strong> — pure math, zero I/O, perfect first target:</p>
+<ul>
+<li>known domain → its configured score; unknown → Unverified default</li>
+<li>modifiers apply and CAP at 10; ranking orders ietf above medium regardless of input order</li>
+</ul>
+<p><strong>2. LLM output parsing</strong> — your Chapter IX ladder, fed the three personalities as strings:</p>
+<pre><code>[Theory]
+[InlineData(<span class="s">"[1, 2, 3]"</span>, 3)]                                <span class="c">// clean</span>
+[InlineData(<span class="s">"Sure! Here you go: [1, 2] Hope that helps!"</span>, 2)] <span class="c">// chatty</span>
+[InlineData(<span class="s">"[900, -1, 1, 1]"</span>, 1)]                          <span class="c">// liar (150-block page)</span>
+[InlineData(<span class="s">"no brackets at all"</span>, 0)]                       <span class="c">// broken → empty, not throw</span>
+<span class="k">public void</span> ParseIndices_SurvivesModelPersonalities(<span class="k">string</span> raw, <span class="k">int</span> expected)
+    =&gt; Assert.Equal(expected, ResponseParser.ParseIndices(raw, blockCount: 150).Count);</code></pre>
+<p><strong>3. HTML extraction</strong> — feed AngleSharp fixture HTML strings (no network!): junk removal, pre-block whitespace preservation, crumb filtering, stable numbering.</p>
+<p>What NOT to unit test: that HttpClient does HTTP, that Spectre draws boxes, that YamlDotNet parses YAML. Those are their authors' tests. YOUR logic at the seams is yours.</p>
+<p>Notice the enabling pattern: every one of these tests works because the logic takes VALUES in and returns VALUES out — no network, no disk, no globals. Code that's annoying to test is usually badly factored; the pain is diagnostic.</p>
+<div class="callout">Deterministic tests only: no live network, no real LLM, no sleeps. A test that fails when the wifi's down isn't a test, it's a weather report.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Test double taxonomy</strong> (interview-proof): <em>stub</em> — returns canned data (your MockSearchClient) · <em>fake</em> — working lightweight implementation (in-memory "database") · <em>mock</em> — records calls so you can assert "was this called with X?" (libraries like Moq/NSubstitute generate these). Verisearch's needs are 95% stubs.</p>
+<p><strong>Coverage is a flashlight, not a grade:</strong> 100% line coverage with weak assertions proves nothing; 60% coverage of trust math, parsing, and extraction with sharp assertions catches real regressions. Test where bugs COST, assert what must be TRUE.</p>
+<p><strong>AAA discipline:</strong> one Arrange, one Act, focused Asserts. A test asserting twelve unrelated things fails as a riddle; three tests asserting one thing each fail as documentation.</p></div>'''
+readings = []
+
+[[lessons.exercises]]
+id = "s12-l02-e1"
+type = "mc"
+points = 25
+prompt = "Best FIRST test target in Verisearch and why?"
+choices = ["The full pipeline over live network — maximum coverage", "Trust scoring — pure logic, no I/O, deterministic, high blast radius", "Spectre table rendering pixels", "Whether Ollama is installed"]
+answer = 1
+hint = "Pure functions test themselves practically."
+
+[[lessons.exercises]]
+id = "s12-l02-e2"
+type = "mc"
+points = 25
+prompt = "Your parse test hits the real Ollama server. What's wrong?"
+choices = ["Nothing — realism is good", "Nondeterministic + environment-dependent: it tests the weather, not your parser. Feed it fixed strings instead", "Ollama forbids testing", "It should hit the search API too"]
+answer = 1
+hint = "The parser takes a string. Hand it strings."
+
+[[lessons.exercises]]
+id = "s12-l02-e3"
+type = "mc"
+points = 20
+prompt = "\"Code that's hard to unit test is usually…\""
+choices = ["fast", "badly factored — tangled I/O and logic; the pain is diagnostic", "well encapsulated", "written in C#"]
+answer = 1
+hint = "Chapter XI's architecture is what MAKES this op easy."
+
+[[lessons.exercises]]
+id = "s12-l02-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "A Theory with its InlineData rows — one body, many cases. Twice."
+code = '''
+[Theory]
+[InlineData("[1, 2, 3]", 3)]
+[InlineData("no brackets", 0)]
+public void ParseIndices_Survives(string raw, int expected)
+{
+    Assert.Equal(expected, ResponseParser.ParseIndices(raw, 150).Count);
+}'''
+
+[[lessons.exercises]]
+id = "s12-l02-w1"
+type = "write"
+points = 38
+prompt = "Table-driven testing lab: define <code>bool IsTrusted(int s) =&gt; s &gt;= 6;</code> and a cases array of (input, expected) tuples: (9,true),(6,true),(5,false),(0,false). Loop the cases, count passes where IsTrusted(input)==expected, and print <code>4/4 green</code>."
+expect = "4/4 green"
+hint = "var cases = new (int n, bool want)[] { ... }; foreach + counter. This IS what [Theory] automates."

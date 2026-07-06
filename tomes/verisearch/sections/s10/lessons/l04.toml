@@ -1,0 +1,86 @@
+[[lessons]]
+id = "s10-l04"
+title = "Composing the report — the Verisearch design sketch"
+body = '''
+
+<p>Formatting logic scattered through pipeline code rots fast. Put the whole report behind one class with one job:</p>
+<pre><code><span class="k">public class</span> ReportRenderer
+{
+    <span class="k">public void</span> Render(<span class="k">string</span> query, List&lt;VerbatimQuote&gt; quotes, List&lt;SourceSummary&gt; sources, <span class="k">bool</span> verbose)
+    {
+        <span class="c">// 1. header rule with the query</span>
+        <span class="c">// 2. group quotes by source, ordered by trust desc</span>
+        <span class="c">// 3. per source: Rule (domain + colored trust) → Panel per quote</span>
+        <span class="c">// 4. trust summary Table</span>
+        <span class="c">// 5. verbose? timing/debug lines in [dim][/]</span>
+    }
+}</code></pre>
+<p>The target, from the original design sketch:</p>
+<pre><code>─── SOURCE 1: datatracker.ietf.org (Trust: 9.5/10) ───────────
+╭─ ¶ 142 · Paragraph ─────────────────────────────────────────╮
+│ A client MUST NOT offer to negotiate...                     │
+╰──────────────────────────────────────────────────────────────╯
+─── TRUST SUMMARY ────────────────────────────────────────────
+╭───┬───────────────────────┬───────┬────────────╮
+│ # │ Domain                │ Trust │ Tier       │
+├───┼───────────────────────┼───────┼────────────┤
+│ 1 │ datatracker.ietf.org  │  9.5  │ Standards  │
+╰───┴───────────────────────┴───────┴────────────╯</code></pre>
+<p>Craft details that separate an A from a C:</p>
+<ul>
+<li><strong>Empty state</strong> — zero quotes found is a DESIGNED screen ("no sources met min_trust 3.0 — try --min-trust 1"), not blank output.</li>
+<li><strong>Escape everything scraped</strong> — quotes, titles, domains. One weird page shouldn't corrupt your layout.</li>
+<li><strong>Verbose gating</strong> — <code>--verbose</code> adds [dim] timing/decision lines; default output stays clean.</li>
+<li><strong>Grouping</strong> — quotes grouped under their source rule (GroupBy from Chapter VII), sources ordered by trust.</li>
+</ul><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Truncating long quotes for layout</strong> without lying: show the first ~400 chars with a dim <code>[…truncated, ¶142 in full at source]</code> marker — truncation is a RENDERING choice; the VerbatimQuote record keeps the full text. Never trim the data to fit the view.</p>
+<p><strong>Terminal width awareness:</strong> <code>Console.WindowWidth</code> (guard it — throws when output is redirected!). Spectre widgets handle wrapping themselves; your own manual formatting is where width bugs live.</p>
+<p><strong>The renderer test trick:</strong> because ReportRenderer takes plain data (PipelineResult), you can unit test it by rendering to a recording console (<code>AnsiConsole.Record()</code> / <code>ExportText()</code>) and asserting on the text — Chapter XII ammunition.</p></div>'''
+
+[[lessons.readings]]
+label = "Spectre.Console — GitHub (examples gallery)"
+url = "https://github.com/spectreconsole/spectre.console"
+essential = false
+
+[[lessons.exercises]]
+id = "s10-l04-e1"
+type = "mc"
+points = 20
+prompt = "Why isolate rendering in a ReportRenderer class instead of sprinkling AnsiConsole calls through the pipeline?"
+choices = ["Spectre only works in one file", "One place owns the look — pipeline stays testable, format changes touch one class", "It compiles faster", "Static methods can't print"]
+answer = 1
+hint = "Separation of concerns: computing results vs presenting them."
+
+[[lessons.exercises]]
+id = "s10-l04-e2"
+type = "mc"
+points = 25
+prompt = "Verisearch finds zero quotes above min_trust. The machineht output is…"
+choices = ["nothing — empty is empty", "a stack trace", "a designed empty state explaining why and suggesting --min-trust adjustments", "fabricated results so the report isn't empty"]
+answer = 2
+hint = "Empty states are designed, not defaulted. (Your game follows the same rule.)"
+
+[[lessons.exercises]]
+id = "s10-l04-e3"
+type = "mc"
+points = 20
+prompt = "Which Chapter VII operator groups quotes under their source for the report?"
+choices = ["Distinct", "Zip", "GroupBy", "Aggregate"]
+answer = 2
+hint = "Bucket by source URL/domain."
+
+[[lessons.exercises]]
+id = "s10-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Padded columns by hand — the alignment idiom Spectre automates. Twice."
+code = "Console.WriteLine($\"{o.Url,-40} {o.Blocks.Count,4} blocks {o.Seconds,5:F1}s\");"
+
+[[lessons.exercises]]
+id = "s10-l04-w1"
+type = "write"
+points = 32
+prompt = "Empty-state lab: given <code>var quotes = new List&lt;string&gt;();</code> — if it's empty print exactly <code>no sources met min_trust 3.0 — try --min-trust 1</code>, otherwise print the quotes. (Designed empties are a habit, not a feature.)"
+expect = "no sources met min_trust 3.0 — try --min-trust 1"
+hint = "if (quotes.Count == 0) — the em-dash — is in the target, copy it carefully."

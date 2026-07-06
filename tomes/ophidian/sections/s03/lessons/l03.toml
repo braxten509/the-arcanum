@@ -1,0 +1,49 @@
+[[lessons]]
+id = "s03-l03"
+title = "Walking the coils — for over a list"
+body = '''
+
+<p>Where <code>while</code> repeats <em>until</em>, <code>for</code> walks <em>along</em> — one pass per item, the item handed to you by name:</p>
+<pre><code>hoard = [<span class="s">"mouse"</span>, <span class="s">"egg"</span>, <span class="s">"beetle"</span>]
+<span class="k">for</span> prey <span class="k">in</span> hoard:
+    <span class="k">print</span>(<span class="s">f"I keep the {prey}."</span>)</code></pre>
+<p>Three items, three lines, and <code>prey</code> is rebound to each in turn. No index, no counter, no off-by-one — the walk manages itself. This is the recitation the raw <code>print(hoard)</code> was too rude for.</p>
+<p><code>for</code> also walks a <strong>range</strong> of numbers when there is no list, only a count:</p>
+<pre><code><span class="k">for</span> i <span class="k">in</span> range(3):
+    <span class="k">print</span>(<span class="s">f"shed {i}"</span>)    <span class="c"># shed 0, shed 1, shed 2 — range stops BEFORE its bound</span></code></pre>
+<p>Choose by intent: walking things — <code>for</code> over the list. Waiting for a word — <code>while</code>. Counting a fixed number of passes — <code>for … in range(n)</code>.</p>
+<div class="callout">Changing a list <em>while</em> for-walking it (appending or removing mid-walk) makes the serpent eat its own tail — skipped items, endless growth. Finish the walk, then change the hoard.</div><div class="field-notes"><div class="fn-head">FIELD NOTES // IN VYSSA'S HAND</div>
+<p><strong>Numbered recitation:</strong> <code>for i, prey in enumerate(hoard, 1):</code> hands you position and item together — <code>print(f"{i}. {prey}")</code> makes the hoard a proper inventory. The 1 starts the count at one for human eyes.</p>
+<p><strong>Walking a string</strong> works too — <code>for ch in "sss":</code> visits each letter. Everything walkable is called an <em>iterable</em>; you now own the word.</p>
+<p><strong>range's three forms:</strong> <code>range(n)</code> is 0..n-1; <code>range(a, b)</code> is a..b-1; <code>range(a, b, step)</code> skips. <code>range(3, 0, -1)</code> counts 3, 2, 1 — yesterday's countdown in one line.</p></div>'''
+
+[[lessons.exercises]]
+id = "s03-l03-e1"
+type = "mc"
+points = 15
+prompt = "<code>for prey in hoard:</code> — what is <code>prey</code> on each pass?"
+choices = ["The position number of the item", "The list itself, shrinking by one", "Always the first item, three times", "The current item, rebound each pass"]
+answer = 3
+hint = "No indexes anywhere — the walk hands you the thing itself."
+explain = "for rebinds the loop name to each element in turn; positions only appear if you ask enumerate for them."
+
+[[lessons.exercises]]
+id = "s03-l03-e2"
+type = "fill"
+points = 22
+prompt = "Fill the single missing word of the recitation walk."
+code = "for prey ____ hoard:\n    print(prey)"
+answer = "in"
+hint = "The same word the membership taste-test uses."
+
+[[lessons.exercises]]
+id = "s03-l03-w1"
+type = "write"
+points = 35
+prompt = "The remembering rehearsal — input and hoard together. Read TWO offerings from the keyboard (the whisper gives <code>moss</code> then <code>fern</code>), append both to an empty hoard, then print <code>REMEMBERED 2</code> (from <code>len</code>) followed by each item on its own line via a <code>for</code> walk."
+stdin = "moss\nfern"
+expect = '''
+REMEMBERED 2
+moss
+fern'''
+hint = "hoard = [] · two input()/append rounds (or a for _ in range(2) loop) · print the len line · for item in hoard: print(item)."

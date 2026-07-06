@@ -1,0 +1,86 @@
+[[lessons]]
+id = "s01-l01"
+title = "The Forge — .NET, dotnet, and how C# comes alive"
+body = '''
+
+<p>C# is the tongue. <strong>.NET</strong> is the Forge that gives it life: a compiler, a runtime, and a vast library of ready-made workings. The Forge already stands on this machine — the desk's scroll leans on it every time you CAST THE SPELL.</p>
+<p>The implement you will live with is a single word of command: <code>dotnet</code>.</p>
+<pre><code>$ dotnet new console -n Verisearch   <span class="c">// raise a new console working</span>
+$ cd Verisearch
+$ dotnet run                         <span class="c">// forge + cast in one breath</span></code></pre>
+<p>What happens when you cast it:</p>
+<ol>
+<li>The <strong>compiler</strong> transmutes your <code>.cs</code> leaves into IL (intermediate language) inside a <code>.dll</code>.</li>
+<li>The <strong>runtime</strong> (CLR) takes that IL and quickens it into true machine words as it executes.</li>
+</ol>
+<p>Two leaves matter in a fresh working:</p>
+<ul>
+<li><code>Program.cs</code> — your runes. The casting begins here.</li>
+<li><code>Verisearch.csproj</code> — the working's charter: which .NET it answers to, which reagents it depends on. XML, rarely touched by hand.</li>
+</ul>
+<div class="callout">The compiler is your first line of defense against your own hand. If it refuses to forge, nothing runs. Read its complaints top to bottom — the FIRST is usually the true wound; the rest are echoes of it.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>build vs run:</strong> <code>dotnet build</code> only forges (into <code>bin/</code>); <code>dotnet run</code> forges if needed, then casts. The <code>obj/</code> folder is forge-slag — both are regrown at will; never edit or ship them.</p>
+<p><strong>csproj anatomy</strong> — the whole charter is usually just this:</p>
+<pre><code>&lt;Project Sdk="Microsoft.NET.Sdk"&gt;
+  &lt;PropertyGroup&gt;
+    &lt;OutputType&gt;Exe&lt;/OutputType&gt;
+    &lt;TargetFramework&gt;net10.0&lt;/TargetFramework&gt;   <span class="c">// which .NET you forge against</span>
+    &lt;ImplicitUsings&gt;enable&lt;/ImplicitUsings&gt;        <span class="c">// auto-imports System, Linq, etc.</span>
+    &lt;Nullable&gt;enable&lt;/Nullable&gt;                    <span class="c">// the compiler watches null for you</span>
+  &lt;/PropertyGroup&gt;
+&lt;/Project&gt;</code></pre>
+<p><strong>Reading the Forge's complaints:</strong> the form is <code>Program.cs(12,5): error CS1002: ; expected</code> — leaf(line,column), a code you can search the mortal library for, and the message. Mend the FIRST complaint, forge again; later ones are often its echoes.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Write your first code using C#\""
+url = "https://learn.microsoft.com/en-us/training/paths/get-started-c-sharp-part-1/"
+essential = true
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Tour of C#\""
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/tour-of-csharp/overview"
+essential = true
+
+[[lessons.exercises]]
+id = "s01-l01-e1"
+type = "mc"
+points = 15
+prompt = "Which word of command raises a brand-new console working named <code>Verisearch</code>?"
+choices = ["dotnet build Verisearch", "dotnet new console -n Verisearch", "dotnet create --console Verisearch", "csharp init Verisearch"]
+answer = 1
+hint = "The template kind is \"console\" and -n names it."
+explain = "dotnet new <template> -n <name> raises new workings."
+
+[[lessons.exercises]]
+id = "s01-l01-e2"
+type = "mc"
+points = 15
+prompt = "<code>dotnet run</code> does what?"
+choices = ["Only forges the working", "Only casts a previously forged binary", "Forges the working if needed, then casts it", "Sends your runes away to Microsoft"]
+answer = 2
+hint = "It's the forge-and-go command you'll speak hundreds of times."
+
+[[lessons.exercises]]
+id = "s01-l01-e3"
+type = "text"
+points = 20
+prompt = "Name the leaf where a C# console working's casting begins (the file, not the folder)."
+answer = "Program.cs"
+accept = ["program.cs"]
+hint = "It's the .cs leaf the template lays out for you."
+
+[[lessons.exercises]]
+id = "s01-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Copy the one-line incantation below, twice, until your hand knows it without your eyes. (Ctrl+Enter submits.)"
+code = "Console.WriteLine(\"Verisearch v0.1\");"
+
+[[lessons.exercises]]
+id = "s01-l01-w1"
+type = "write"
+points = 30
+prompt = "Your first INSCRIPTION — this truly passes through the Forge. Write a complete incantation whose utterance is exactly the target below."
+expect = "Verisearch v0.1"
+hint = "One Console.WriteLine with exactly that text in quotes."

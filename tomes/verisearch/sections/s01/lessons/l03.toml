@@ -1,0 +1,92 @@
+[[lessons]]
+id = "s01-l03"
+title = "Vessels & their natures — the four types you'll use constantly"
+body = '''
+
+<p>C# is <strong>statically typed</strong>: every vessel (variable) has a nature, fixed at forging time. The compiler uses these natures to catch your errors before the spell is ever cast — that is a gift, not a chore.</p>
+<pre><code><span class="k">string</span> query = <span class="s">"TLS 1.3 cipher suites"</span>;  <span class="c">// text</span>
+<span class="k">int</span> maxSources = 5;                       <span class="c">// whole numbers</span>
+<span class="k">double</span> trustScore = 9.5;                  <span class="c">// numbers with a fractional part</span>
+<span class="k">bool</span> isTrusted = <span class="k">true</span>;                    <span class="c">// true/false</span></code></pre>
+<p><code>var</code> lets the compiler divine the nature from the right-hand side. The vessel is still strongly typed — <code>var</code> is shorthand, not wild magic:</p>
+<pre><code><span class="k">var</span> engine = <span class="s">"searxng"</span>;   <span class="c">// engine is a string, forever</span>
+engine = 42;               <span class="c">// FORGE REFUSES — an int cannot fill a string vessel</span></code></pre>
+<p><strong>String interpolation</strong> is how you weave values into text — set <code>$</code> before the quote and <code>{expressions}</code> within:</p>
+<pre><code><span class="k">string</span> domain = <span class="s">"ietf.org"</span>;
+<span class="k">double</span> score = 9.5;
+Console.WriteLine(<span class="s">$"[{domain}] trust: {score}/10"</span>);
+<span class="c">// utters: [ietf.org] trust: 9.5/10</span></code></pre>
+<p>Turning text into numbers (a seeker's input is ALWAYS text):</p>
+<pre><code><span class="k">int</span> n = <span class="k">int</span>.Parse(<span class="s">"42"</span>);            <span class="c">// throws if it is not a number</span>
+<span class="k">bool</span> ok = <span class="k">int</span>.TryParse(<span class="s">"42"</span>, <span class="k">out int</span> m);  <span class="c">// safe: ok=false on nonsense</span></code></pre><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>The rest of the numeric family:</strong> <code>long</code> (vast whole numbers), <code>decimal</code> (coin — exact decimal arithmetic, use it for anything financial), <code>float</code> (a smaller, faster double, rarely needed), <code>char</code> (ONE character, single quotes: <code>'A'</code>).</p>
+<p><strong>Value vs reference natures — the great divide:</strong> value natures (<code>int</code>, <code>double</code>, <code>bool</code>, <code>char</code>, structs, enums) copy their substance on assignment; reference natures (<code>string</code>, arrays, <code>List</code>, classes) copy a <em>pointer</em> to shared substance. This one distinction explains half of C#'s behavior — it returns in Chapter III.</p>
+<p><strong>Conversions:</strong> widening happens silently (<code>int → double</code>, nothing lost); narrowing demands an explicit cast: <code>int n = (int)9.7;</code> → 9 (it truncates, it does not round). <code>const double MinTrust = 3.0;</code> declares a value that may never change — use it for numbers that would otherwise be nameless.</p>
+<p><strong>Interpolation flourishes:</strong> format marks follow a colon — <code>{score:F1}</code> one decimal, <code>{n:N0}</code> thousands separators, <code>{p:P0}</code> percent. Alignment: <code>{name,-20}</code> pads to 20, left-aligned.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"The C# type system\""
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/types/"
+essential = false
+
+[[lessons.exercises]]
+id = "s01-l03-e1"
+type = "text"
+points = 20
+prompt = "Which nature would you choose to hold a trust score like <code>7.25</code>? (one word)"
+answer = "double"
+accept = ["decimal", "float"]
+hint = "It carries a fractional part. The lesson used this nature for trustScore."
+
+[[lessons.exercises]]
+id = "s01-l03-e2"
+type = "fill"
+points = 25
+prompt = "Complete the rune so this utters <code>target: nist.gov</code> by string interpolation."
+code = '''
+string domain = "nist.gov";
+Console.WriteLine(____"target: {domain}");'''
+answer = "$"
+hint = "One character, set just before the opening quote."
+
+[[lessons.exercises]]
+id = "s01-l03-e3"
+type = "mc"
+points = 20
+prompt = "What does this utter?"
+code = '''
+var count = 3;
+var label = "sources";
+Console.WriteLine($"{count} {label} found");'''
+choices = ["{count} {label} found", "3 sources found", "count label found", "It doesn't compile — var can't be interpolated"]
+answer = 1
+hint = "Interpolation replaces each {expression} with its value."
+
+[[lessons.exercises]]
+id = "s01-l03-e4"
+type = "mc"
+points = 20
+prompt = "Why favor <code>int.TryParse(input, out int n)</code> over <code>int.Parse(input)</code> for a seeker's input?"
+choices = ["TryParse is faster", "Parse only works on constants", "TryParse returns false on bad input instead of crashing the program", "There is no difference"]
+answer = 2
+hint = "Seekers write nonsense. What does Parse do when they do?"
+
+[[lessons.exercises]]
+id = "s01-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Copy this block of declarations twice — declaring-and-filling a vessel must become reflex."
+code = '''
+string domain = "ietf.org";
+int maxSources = 5;
+double trustScore = 9.5;
+bool isTrusted = true;'''
+
+[[lessons.exercises]]
+id = "s01-l03-w1"
+type = "write"
+points = 30
+prompt = "Declare a string <code>domain</code> = \"nist.gov\", an int <code>score</code> = 9, and a bool <code>trusted</code> = true. Utter them with ONE interpolated WriteLine to match the target exactly."
+expect = "target nist.gov scored 9 of 10, trusted: True"
+hint = "$\"target {domain} scored {score} of 10, trusted: {trusted}\" — mark that C# utters bools as True/False, capitalized."

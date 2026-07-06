@@ -1,0 +1,36 @@
+[freestyle]
+title = "THE WORKING: The Binding of the Tome"
+brief = "The milestone run, end to end: <code>verisearch \"What does RFC 8446 say about session resumption?\"</code> → search → trust filter → parallel scrape → relevance scan → verbatim quotes → war-paint report.<ul><li>Interfaces for the seams that earn them (ISearchClient, IPageScraper, IRelevanceScanner); constructor injection everywhere</li><li>A composition root in Program.cs sharing ONE HttpClient</li><li>A Pipeline orchestrator returning a PipelineResult record (no printing!)</li><li>Early-exit reasoned empties; one CancellationToken through the whole run</li><li>The full resilience ladder — including honest disclosure of any degradation in the report</li><li>Mock implementations keep it demoable offline</li></ul>"
+reward = 700
+packages = []
+xray = "THORNE greps for 'new SearxngClient' and friends OUTSIDE Program.cs — any hit fails the DI check. He counts HttpClient constructions (must be exactly one). He kills components one at a time and reads the output: each failure must name itself (which stage, what happened, what he should try). Architecture tell he loves: PipelineResult containing enough data that a JSON renderer could replace the Spectre one without touching Pipeline."
+
+[freestyle.badge]
+id = "badge-s11"
+name = "BINDER OF THE TOME"
+desc = "Every rite, one spine. The artifact is REAL now."
+
+[[freestyle.rubric]]
+criterion = "End-to-end run works"
+weight = 25
+desc = "The milestone query (mock or live) produces the complete formatted report."
+
+[[freestyle.rubric]]
+criterion = "Architecture"
+weight = 25
+desc = "Interfaces at real seams only; constructor injection; composition root; pipeline/renderer separation."
+
+[[freestyle.rubric]]
+criterion = "Resilience ladder"
+weight = 25
+desc = "Each rung degrades correctly and VISIBLY; fatal cases exit nonzero with clear messages."
+
+[[freestyle.rubric]]
+criterion = "Orchestrator quality"
+weight = 15
+desc = "RunAsync reads as a story; stages explicit; PipelineResult carries everything the renderer needs."
+
+[[freestyle.rubric]]
+criterion = "Code hygiene"
+weight = 10
+desc = "Consistent naming/files; no dead code; the composition root is the only place with concrete wiring."

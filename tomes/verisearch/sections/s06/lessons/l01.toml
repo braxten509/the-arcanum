@@ -1,0 +1,80 @@
+[[lessons]]
+id = "s06-l01"
+title = "The DOM — how a page is actually structured"
+body = '''
+
+<p>HTML isn't text — it's a <strong>tree</strong>. The browser (and AngleSharp) parses markup into the DOM: Document Object Model. Every tag becomes an <em>element node</em> with attributes and children:</p>
+<pre><code>&lt;html&gt;
+  &lt;body&gt;
+    &lt;nav&gt;menu junk&lt;/nav&gt;
+    &lt;article&gt;
+      &lt;h1&gt;RFC 8446&lt;/h1&gt;
+      &lt;p class=<span class="s">"intro"</span>&gt;The TLS protocol...&lt;/p&gt;
+      &lt;pre&gt;&lt;code&gt;cipher list&lt;/code&gt;&lt;/pre&gt;
+    &lt;/article&gt;
+    &lt;footer&gt;copyright junk&lt;/footer&gt;
+  &lt;/body&gt;
+&lt;/html&gt;</code></pre>
+<p>Vocabulary that maps directly to AngleSharp API:</p>
+<ul>
+<li><strong>Element</strong> — a node like <code>&lt;p&gt;</code>; has a <code>TagName</code>, attributes, children.</li>
+<li><strong>Attribute</strong> — <code>class="intro"</code>, <code>href="..."</code>; read with <code>GetAttribute("href")</code>.</li>
+<li><strong>TextContent</strong> — all text inside an element, tags stripped, descendants included.</li>
+<li><strong>Parent / children / siblings</strong> — tree navigation.</li>
+</ul>
+<p>The content you want for Verisearch lives in a handful of tags: <code>&lt;p&gt;</code> paragraphs, <code>&lt;h1&gt;–&lt;h6&gt;</code> headings, <code>&lt;pre&gt;</code>/<code>&lt;code&gt;</code> code blocks, <code>&lt;li&gt;</code> list items, <code>&lt;blockquote&gt;</code> quotes, <code>&lt;table&gt;</code> tables. The junk lives in <code>&lt;script&gt;</code>, <code>&lt;style&gt;</code>, <code>&lt;nav&gt;</code>, <code>&lt;header&gt;</code>, <code>&lt;footer&gt;</code>, <code>&lt;aside&gt;</code>. Your scraper is a bouncer: content in, junk out.</p>
+<div class="callout">Notice how these tags map onto your Chapter III <code>ContentType</code> enum (Paragraph, Code, Heading, ListItem, BlockQuote…). That wasn't an accident.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>id vs class semantics:</strong> an <code>id</code> is unique per page (<code>#main</code> — one element); a <code>class</code> is a reusable label (<code>.intro</code> — many elements). Scrapers mostly select by TAG because content sites vary their classes wildly but everyone uses <code>&lt;p&gt;</code>.</p>
+<p><strong>Semantic containers</strong> are your treasure map: <code>&lt;article&gt;</code> and <code>&lt;main&gt;</code> usually wrap the real content — when present, <code>QuerySelectorAll("article p")</code> beats page-wide <code>"p"</code> by skipping sidebars for free.</p>
+<p><strong>Attributes worth harvesting:</strong> <code>href</code> on links (follow-up URLs), <code>datetime</code> on <code>&lt;time&gt;</code> (publication dates for trust modifiers later).</p></div>'''
+
+[[lessons.readings]]
+label = "MDN — Introduction to the DOM"
+url = "https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model/Introduction"
+essential = false
+
+[[lessons.exercises]]
+id = "s06-l01-e1"
+type = "mc"
+points = 15
+prompt = "The DOM is best described as…"
+choices = ["a long string of HTML text", "a tree of element nodes parsed from the markup", "a database of websites", "a CSS framework"]
+answer = 1
+hint = "Parents, children, siblings…"
+
+[[lessons.exercises]]
+id = "s06-l01-e2"
+type = "mc"
+points = 20
+prompt = "Which property gives you the readable text inside an element with all tags stripped?"
+choices = ["InnerHtml", "TextContent", "OuterHtml", "TagName"]
+answer = 1
+hint = "InnerHtml keeps the tags; you want just the words."
+
+[[lessons.exercises]]
+id = "s06-l01-e3"
+type = "mc"
+points = 20
+prompt = "Which set is ALL junk for Verisearch's purposes?"
+choices = ["p, pre, blockquote", "h1, li, table", "script, style, nav, footer", "article, main, section"]
+answer = 2
+hint = "Code-for-the-browser and page chrome, not content."
+
+[[lessons.exercises]]
+id = "s06-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "The two query calls and the junk-tag list — the scraper's vocabulary. Twice."
+code = '''
+var first = doc.QuerySelector("article h1");
+var blocks = doc.QuerySelectorAll("p, pre, blockquote");
+var junk = doc.QuerySelectorAll("script, style, nav, footer");'''
+
+[[lessons.exercises]]
+id = "s06-l01-w1"
+type = "write"
+points = 30
+prompt = "String warm-up for scraping: given <code>string html = \"&lt;p&gt;one&lt;/p&gt;&lt;div&gt;x&lt;/div&gt;&lt;p&gt;two&lt;/p&gt;&lt;p&gt;three&lt;/p&gt;\";</code> count how many <code>&lt;p&gt;</code> opening tags it contains (Split on the tag, or walk with IndexOf) and print just the number."
+expect = "3"
+hint = "html.Split(\"<p>\").Length - 1 is the lazy correct answer."

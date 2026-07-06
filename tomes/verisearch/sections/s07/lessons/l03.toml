@@ -1,0 +1,93 @@
+[[lessons]]
+id = "s07-l03"
+title = "Extension methods — teach old types new verbs"
+body = '''
+
+<p>An <strong>extension method</strong> is a static method that <em>calls like an instance method</em> on the type of its first parameter — marked with <code>this</code>:</p>
+<pre><code><span class="k">public static class</span> TrustExtensions
+{
+    <span class="c">// extends TrustProfile — note the 'this' on the first parameter</span>
+    <span class="k">public static double</span> ComputeTrust(<span class="k">this</span> TrustProfile p)
+    {
+        <span class="k">double</span> score = p.BaseScore;
+        <span class="k">if</span> (p.IsFirstParty) score += 0.5;
+        score += Math.Min(p.ReferenceCount * 0.1, 1.0);   <span class="c">// citations help, capped</span>
+        <span class="k">return</span> Math.Min(score, 10.0);
+    }
+}
+
+<span class="c">// now every TrustProfile has this verb:</span>
+<span class="k">double</span> t = profile.ComputeTrust();      <span class="c">// reads like it was born there</span></code></pre>
+<p>Rules: the class must be <code>static</code>, the method must be <code>static</code>, first param gets <code>this</code>. That's it. The compiler rewrites <code>profile.ComputeTrust()</code> to <code>TrustExtensions.ComputeTrust(profile)</code> — pure sugar, but sugar that makes pipelines readable.</p>
+<p>You've been using them all along — <strong>every LINQ method is an extension method</strong> on <code>IEnumerable&lt;T&gt;</code>. Which means you can add your own chainable pipeline steps:</p>
+<pre><code><span class="k">public static</span> IEnumerable&lt;SearchResult&gt; WhereTrusted(
+    <span class="k">this</span> IEnumerable&lt;SearchResult&gt; results, <span class="k">double</span> minTrust)
+    =&gt; results.Where(r =&gt; r.Trust &gt;= minTrust);
+
+<span class="c">// and now your pipeline speaks Verisearch:</span>
+<span class="k">var</span> top = rawResults.WhereTrusted(3.0).OrderByDescending(r =&gt; r.Trust).Take(5);</code></pre>
+<div class="callout">Use extension methods for verbs that belong to the DATA, not to some manager class. <code>profile.ComputeTrust()</code> beats <code>TrustManager.Compute(profile)</code> — no manager needed.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Resolution rules:</strong> a REAL instance method always beats an extension with the same name; extensions are found only if their namespace is <code>using</code>-imported. If IntelliSense can't see your extension, check the namespace import first.</p>
+<p><strong>Extending interfaces</strong> is the power move: extend <code>IEnumerable&lt;SearchResult&gt;</code> and EVERY sequence of results — arrays, Lists, live queries — gets your verb. That's how LINQ itself works.</p>
+<p><strong>When NOT to:</strong> if the method needs private state of the class, it belongs INSIDE the class. Extensions are for verbs composed from the type's public surface.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Extension methods\""
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/extension-methods"
+essential = true
+
+[[lessons.exercises]]
+id = "s07-l03-e1"
+type = "fill"
+points = 25
+prompt = "Fill the blank that makes this an extension method on TrustProfile."
+code = '''
+public static double ComputeTrust(____ TrustProfile p)
+{
+    return p.BaseScore;
+}'''
+answer = "this"
+hint = "One keyword before the first parameter's type."
+
+[[lessons.exercises]]
+id = "s07-l03-e2"
+type = "mc"
+points = 20
+prompt = "Extension methods must be declared…"
+choices = ["inside the class they extend", "as static methods in a static class", "with the 'extends' keyword", "in Program.cs only"]
+answer = 1
+hint = "static class, static method, this-param."
+
+[[lessons.exercises]]
+id = "s07-l03-e3"
+type = "mc"
+points = 20
+prompt = "Where/Select/OrderBy are actually…"
+choices = ["compiler keywords", "instance methods of List<T>", "extension methods on IEnumerable<T>", "SQL statements"]
+answer = 2
+hint = "That's why ANY enumerable — arrays, Lists, query results — has them."
+
+[[lessons.exercises]]
+id = "s07-l03-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "The full extension shape — static class, static method, this-param. Twice."
+code = '''
+public static class TrustExtensions
+{
+    public static double ComputeTrust(this TrustProfile p)
+    {
+        return Math.Min(p.BaseScore + p.ReferenceCount * 0.1, 10.0);
+    }
+}'''
+
+[[lessons.exercises]]
+id = "s07-l03-w1"
+type = "write"
+points = 34
+prompt = "Write an extension method <code>bool IsTrusted(this int score)</code> returning score ≥ 6, in a static class after your top-level code. Print <code>9.IsTrusted()</code> and <code>2.IsTrusted()</code> on separate lines."
+expect = '''
+True
+False'''
+hint = "Yes, you can extend int. Console.WriteLine(9.IsTrusted());"

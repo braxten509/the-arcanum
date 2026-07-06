@@ -1,0 +1,87 @@
+[[lessons]]
+id = "s03-l05"
+title = "First LINQ — Where, Select, OrderBy"
+body = '''
+
+<p>LINQ (Language Integrated Query) lets you filter/transform/sort collections by <em>describing what you want</em> instead of writing loops. Three verbs get you far:</p>
+<pre><code><span class="k">using</span> System.Linq;   <span class="c">// usually auto-imported via implicit usings</span>
+
+List&lt;SearchResult&gt; results = GetResults();
+
+<span class="c">// WHERE — keep only matching items</span>
+<span class="k">var</span> trusted = results.Where(r =&gt; r.Trust &gt;= 6.0);
+
+<span class="c">// SELECT — transform each item into something else</span>
+<span class="k">var</span> urls = results.Select(r =&gt; r.Url);
+
+<span class="c">// ORDERBY / ORDERBYDESCENDING — sort</span>
+<span class="k">var</span> ranked = results.OrderByDescending(r =&gt; r.Trust);
+
+<span class="c">// chain them — reads like a sentence</span>
+<span class="k">var</span> top5 = results
+    .Where(r =&gt; r.Trust &gt;= 3.0)
+    .OrderByDescending(r =&gt; r.Trust)
+    .Take(5)
+    .ToList();</code></pre>
+<p>The <code>r =&gt; r.Trust &gt;= 6.0</code> syntax is a <strong>lambda</strong> — a tiny inline function: "given r, return whether r.Trust ≥ 6.0". Deep dive comes in Chapter VII; for now read <code>=&gt;</code> as "goes to".</p>
+<p><code>.ToList()</code> materializes the query into a real List. Until then it's a <em>description</em> of work, not results — remember that detail; it matters in Chapter VII.</p>
+<div class="callout">If you're writing a foreach whose only job is to fill another list with filtered/transformed items — that's LINQ. One line, no mutable temp list, nothing to get wrong.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Method syntax vs query syntax:</strong> everything you've seen is method syntax. The same query can be written SQL-style — <code>from r in results where r.Trust &gt;= 6 orderby r.Trust descending select r.Url</code> — compiles to identical calls. Read both; write method syntax (the ecosystem's default).</p>
+<p><strong>Order your chain for work-shedding:</strong> <code>Where</code> BEFORE <code>OrderBy</code> — filter 100 down to 10, then sort 10. Sorting first sorts 90 items you're about to throw away.</p>
+<p><strong>Quick one-liners</strong> you'll reach for constantly: <code>.Any()</code> "is there at least one?", <code>.Count(r =&gt; r.Trust &gt; 6)</code> conditional count, <code>.First()</code> / <code>.FirstOrDefault()</code>, <code>.Take(5)</code> / <code>.Skip(5)</code>, <code>.Select((r, i) =&gt; $"{i}: {r.Url}")</code> — Select's overload with the index.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — LINQ intro video (C# Advanced ep. 1)"
+url = "https://learn.microsoft.com/en-us/shows/c-advanced/introduction-to-language-integrated-query-linq--c-advanced-1-of-8"
+essential = false
+
+[[lessons.exercises]]
+id = "s03-l05-e1"
+type = "mc"
+points = 20
+prompt = "Which LINQ method FILTERS a collection down to matching items?"
+choices = ["Select", "Where", "OrderBy", "Filter"]
+answer = 1
+hint = "SQL veterans already know."
+
+[[lessons.exercises]]
+id = "s03-l05-e2"
+type = "mc"
+points = 25
+prompt = "What does this produce?"
+code = '''
+var scores = new List<double> { 2.0, 9.5, 6.0, 8.0 };
+var result = scores.Where(s => s >= 6.0).OrderByDescending(s => s).ToList();'''
+choices = ["[6.0, 8.0, 9.5]", "[9.5, 8.0, 6.0]", "[2.0, 6.0, 8.0, 9.5]", "[9.5, 8.0, 6.0, 2.0]"]
+answer = 1
+hint = "Filter first (drops 2.0), then sort high-to-low."
+
+[[lessons.exercises]]
+id = "s03-l05-e3"
+type = "fill"
+points = 25
+prompt = "Fill the blank to pull just the domains out of a list of results (transform each item)."
+code = "var domains = results.____(r => r.Domain).ToList();"
+answer = "Select"
+hint = "Transform-each-item is not Where."
+
+[[lessons.exercises]]
+id = "s03-l05-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "The filter-sort-take pipeline — Verisearch's core move. Twice."
+code = '''
+var top = results
+    .Where(r => r.Trust >= 3.0)
+    .OrderByDescending(r => r.Trust)
+    .Take(5)
+    .ToList();'''
+
+[[lessons.exercises]]
+id = "s03-l05-w1"
+type = "write"
+points = 34
+prompt = "Given <code>var scores = new List&lt;int&gt; { 2, 9, 6, 8, 1 };</code> — keep scores ≥ 6, sort them descending, and print them space-joined on one line."
+expect = "9 8 6"
+hint = "string.Join(\" \", scores.Where(...).OrderByDescending(s => s))"

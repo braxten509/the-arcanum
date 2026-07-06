@@ -1,0 +1,60 @@
+[[lessons]]
+id = "s03-l01"
+title = "The coil that holds — while"
+body = '''
+
+<p><code>while</code> repeats its indented body for as long as its condition tastes true — checked <em>before</em> every pass:</p>
+<pre><code>rings = 3
+<span class="k">while</span> rings > 0:
+    <span class="k">print</span>(<span class="s">f"COIL {rings}"</span>)
+    rings = rings - 1
+<span class="k">print</span>(<span class="s">"STRIKE"</span>)</code></pre>
+<p>Three coils, then the strike. The body <strong>must move the condition toward false</strong> — forget the <code>rings = rings - 1</code> and the serpent coils forever (Ctrl+C is the keeper's hook that hauls it out).</p>
+<p>The shape you will use most is the <strong>listening loop</strong> — wait for words until the parting word arrives:</p>
+<pre><code>word = <span class="s">""</span>
+<span class="k">while</span> word != <span class="s">"farewell"</span>:
+    word = <span class="k">input</span>(<span class="s">"> "</span>)</code></pre>
+<div class="callout">An infinite loop is not always a wound — the Familiar's final form is <code>while True:</code> with a <code>break</code> when the parting word lands. <code>break</code> snaps out of the nearest loop instantly, mid-body.</div><div class="field-notes"><div class="fn-head">FIELD NOTES // IN VYSSA'S HAND</div>
+<p><strong>break's quiet sibling:</strong> <code>continue</code> abandons this pass and returns to the condition — the idiom for ignoring an empty line: <code>if word == "": continue</code>.</p>
+<p><strong>Shorthand for the shrinking ring:</strong> <code>rings -= 1</code> is <code>rings = rings - 1</code>; likewise <code>+=</code>, <code>*=</code>. You will read these everywhere; write them once comfortable.</p>
+<p><strong>The guarded supper, promised in Coil II:</strong> inside a loop, <code>try: n = int(word)</code> / <code>except ValueError: print("that is not a number")</code> lets the Familiar flinch and keep listening instead of dying. Worth using in your Working's remember-count if you extend it.</p></div>'''
+
+[[lessons.readings]]
+label = "Python docs — while statements (first steps)"
+url = "https://docs.python.org/3/tutorial/introduction.html#first-steps-towards-programming"
+
+[[lessons.exercises]]
+id = "s03-l01-e1"
+type = "mc"
+points = 15
+prompt = "When does a <code>while</code> loop check its condition?"
+choices = ["Once, before the first pass only", "After each pass, like do-while", "Before every pass, including the first", "Only when break is reached"]
+answer = 2
+hint = "If the condition is false at the very start, the body never runs at all."
+explain = "The test runs before every iteration — so a while loop can run zero times."
+
+[[lessons.exercises]]
+id = "s03-l01-e2"
+type = "fill"
+points = 22
+prompt = "The listening loop endures until the parting word. Fill the blank (the word itself, in its quotes)."
+code = "word = \"\"\nwhile word != ____:\n    word = input(\"> \")"
+answer = "\"farewell\""
+accept = ["'farewell'", "farewell"]
+hint = "The Familiar's dismissal — quoted, since it is a string."
+
+[[lessons.exercises]]
+id = "s03-l01-w1"
+type = "write"
+points = 32
+prompt = "The strike drill. Starting from <code>n = 3</code>, loop a countdown that prints <code>COIL 3</code>, <code>COIL 2</code>, <code>COIL 1</code>, then <code>STRIKE</code> after the loop — the numbers must come from the loop variable."
+starter = '''
+n = 3
+# print COIL 3 / COIL 2 / COIL 1 via the loop, then STRIKE
+'''
+expect = '''
+COIL 3
+COIL 2
+COIL 1
+STRIKE'''
+hint = "while n > 0: print an f-string with n, decrement; the STRIKE print sits unindented after the loop."

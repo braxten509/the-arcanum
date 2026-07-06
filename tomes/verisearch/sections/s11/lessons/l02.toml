@@ -1,0 +1,108 @@
+[[lessons]]
+id = "s11-l02"
+title = "Dependency injection — wiring without hard-wiring"
+body = '''
+
+<p><strong>DI in one sentence: classes receive their dependencies through constructors instead of new-ing them internally.</strong></p>
+<pre><code><span class="c">// hard-wired: Pipeline builds its own parts — can't test, can't swap</span>
+<span class="k">public class</span> Pipeline
+{
+    <span class="k">private readonly</span> SearxngClient _search = <span class="k">new</span>(<span class="s">"http://localhost:8080"</span>);  <span class="c">// ✗</span>
+}
+
+<span class="c">// injected: parts come in from outside — swap, mock, reconfigure freely</span>
+<span class="k">public class</span> Pipeline
+{
+    <span class="k">private readonly</span> ISearchClient _search;
+    <span class="k">private readonly</span> TrustEngine _trust;
+    <span class="k">private readonly</span> IPageScraper _scraper;
+    <span class="k">private readonly</span> IRelevanceScanner _scanner;
+
+    <span class="k">public</span> Pipeline(ISearchClient search, TrustEngine trust,
+                    IPageScraper scraper, IRelevanceScanner scanner)
+    {
+        _search = search; _trust = trust; _scraper = scraper; _scanner = scanner;
+    }
+}</code></pre>
+<p>Someone still has to build the object graph. For a CLI tool, the honest answer is <strong>manual composition</strong> — a dozen lines at startup called the <em>composition root</em>:</p>
+<pre><code><span class="c">// Program.cs — the composition root: the ONE place that knows concrete types</span>
+<span class="k">var</span> config  = ConfigLoader.Load();
+<span class="k">var</span> http    = <span class="k">new</span> HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+<span class="k">var</span> search  = <span class="k">new</span> SearxngClient(http, config);
+<span class="k">var</span> trust   = <span class="k">new</span> TrustEngine(config);
+<span class="k">var</span> scraper = <span class="k">new</span> PageScraper(http);
+<span class="k">var</span> scanner = <span class="k">new</span> RelevanceScanner(config);
+<span class="k">var</span> pipeline = <span class="k">new</span> Pipeline(search, trust, scraper, scanner);</code></pre>
+<p>The framework version (<code>Microsoft.Extensions.DependencyInjection</code>) automates this with a service container — worth knowing it exists (ASP.NET runs on it), overkill for a five-object CLI. Manual composition IS dependency injection.</p>
+<div class="callout">Spot the bonus: ONE HttpClient flows into both network classes. DI made the Chapter IV lifetime rule structural instead of accidental.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Lifetime vocabulary</strong> (matters the moment you touch ASP.NET): <em>singleton</em> — one instance forever (your HttpClient, config) · <em>transient</em> — fresh instance per request · <em>scoped</em> — one per unit-of-work. Your manual composition root makes everything a singleton, which is exactly right for a CLI run.</p>
+<p><strong>The container version</strong>, so it's not alien later:</p>
+<pre><code>var services = new ServiceCollection();
+services.AddSingleton&lt;ISearchClient, SearxngClient&gt;();
+services.AddSingleton&lt;Pipeline&gt;();
+var provider = services.BuildServiceProvider();
+var pipeline = provider.GetRequiredService&lt;Pipeline&gt;();   <span class="c">// builds the whole graph</span></code></pre>
+<p>Same wiring you wrote by hand, resolved automatically. Worth adopting at roughly the ten-dependency mark.</p>
+<p><strong>Why testers love DI:</strong> <code>new Pipeline(new FakeSearch(), ...)</code> in a unit test — no network, no config, pure logic under test. Chapter XII cashes this in.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Dependency injection in .NET\""
+url = "https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection"
+essential = true
+
+[[lessons.readings]]
+label = ".NET application architecture guide"
+url = "https://learn.microsoft.com/en-us/dotnet/architecture/modern-web-apps-azure/common-web-application-architectures"
+essential = false
+
+[[lessons.exercises]]
+id = "s11-l02-e1"
+type = "mc"
+points = 25
+prompt = "The core mechanic of constructor injection is…"
+choices = ["classes create their own dependencies with new", "dependencies arrive as constructor parameters; the class never news them up itself", "all classes are static", "dependencies are global variables"]
+answer = 1
+hint = "Receive, don't create."
+
+[[lessons.exercises]]
+id = "s11-l02-e2"
+type = "text"
+points = 25
+prompt = "What's the name for the single startup location that knows all concrete types and wires the object graph? (two words)"
+answer = "composition root"
+accept = ["the composition root", "compositionroot"]
+hint = "Composition ____. Where everything gets composed."
+
+[[lessons.exercises]]
+id = "s11-l02-e3"
+type = "mc"
+points = 20
+prompt = "Why does DI make the one-HttpClient rule easier to keep?"
+choices = ["HttpClient requires DI", "One instance is created at the root and handed to every class that needs it", "DI disables sockets", "It doesn't"]
+answer = 1
+hint = "Single creation point → single instance, structurally."
+
+[[lessons.exercises]]
+id = "s11-l02-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Constructor injection — deps in, fields readonly. Twice."
+code = '''
+public class Pipeline
+{
+    private readonly ISearchClient _search;
+
+    public Pipeline(ISearchClient search)
+    {
+        _search = search;
+    }
+}'''
+
+[[lessons.exercises]]
+id = "s11-l02-w1"
+type = "write"
+points = 38
+prompt = "Composition lab: define <code>interface ISearch { string Run(); }</code>, a <code>MockSearch</code> returning \"3 results\", and a <code>Pipeline</code> class that takes ISearch via constructor and has <code>Report()</code> printing <code>pipeline: &lt;search.Run()&gt;</code>. Compose at the root and call Report()."
+expect = "pipeline: 3 results"
+hint = "new Pipeline(new MockSearch()).Report(); — the one place concrete types appear."

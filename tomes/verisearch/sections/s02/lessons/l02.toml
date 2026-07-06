@@ -1,0 +1,113 @@
+[[lessons]]
+id = "s02-l02"
+title = "switch — statements, expressions, and the reading of patterns"
+body = '''
+
+<p>When one value must be held against many possibilities, <code>switch</code> outshines a ladder of ifs. The elder <strong>statement</strong> form:</p>
+<pre><code><span class="k">switch</span> (command)
+{
+    <span class="k">case</span> <span class="s">"quit"</span>:
+    <span class="k">case</span> <span class="s">"exit"</span>:              <span class="c">// two cases, one handling</span>
+        running = <span class="k">false</span>;
+        <span class="k">break</span>;
+    <span class="k">case</span> <span class="s">"help"</span>:
+        ShowHelp();
+        <span class="k">break</span>;
+    <span class="k">default</span>:                  <span class="c">// nothing matched</span>
+        Console.WriteLine(<span class="s">"unknown command"</span>);
+        <span class="k">break</span>;
+}</code></pre>
+<p>Modern C# adds the <strong>switch expression</strong> — it <em>yields a value</em>, wields <code>=&gt;</code>, and takes <code>_</code> as the catch-all. This is the form the tome's diviner wants:</p>
+<pre><code><span class="k">string</span> type = firstWord <span class="k">switch</span>
+{
+    <span class="s">"what"</span> <span class="k">or</span> <span class="s">"which"</span> =&gt; <span class="s">"Factual lookup"</span>,
+    <span class="s">"how"</span>              =&gt; <span class="s">"Procedural"</span>,
+    <span class="s">"why"</span>              =&gt; <span class="s">"Explanation"</span>,
+    <span class="s">"define"</span>           =&gt; <span class="s">"Definition"</span>,
+    _                  =&gt; <span class="s">"General"</span>
+};</code></pre>
+<p>Patterns reach beyond exact values — you may match ranges and conditions:</p>
+<pre><code><span class="k">string</span> tier = score <span class="k">switch</span>
+{
+    &gt;= 9.0 =&gt; <span class="s">"Standards"</span>,
+    &gt;= 6.0 =&gt; <span class="s">"Community"</span>,
+    _      =&gt; <span class="s">"Unverified"</span>
+};</code></pre>
+<div class="callout">This chapter's seal literally reads "can wield switch <em>expressions</em>, not merely statements." THORNE will search your sifter for one.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>when guards</strong> lay conditions upon any pattern arm: <code>{ Length: &gt; 100 } when text.Contains("RFC") =&gt; ...</code>. Bind patterns with <code>and</code>/<code>or</code>/<code>not</code>: <code>&gt;= 4.0 and &lt; 8.0 =&gt; "mid"</code>.</p>
+<p><strong>Exhaustiveness:</strong> if a switch expression may receive a value no arm matches, the compiler WARNS you — and at casting time it throws <code>SwitchExpressionException</code>. The <code>_</code> arm is your net; always weave one unless you match a closed enum whole.</p>
+<p><strong>Statement vs expression — the choosing:</strong> must you RUN different runes per case? Statement. Must you PICK a value per case? Expression. The tome's divining picks values → expression.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"switch expression\""
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/switch-expression"
+essential = true
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Pattern matching overview\""
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/functional/pattern-matching"
+essential = false
+
+[[lessons.exercises]]
+id = "s02-l02-e1"
+type = "text"
+points = 20
+prompt = "In a switch <em>expression</em>, which pattern serves as the default/catch-all case? (one character)"
+answer = "_"
+accept = ["underscore", "discard"]
+hint = "It's called the discard pattern."
+
+[[lessons.exercises]]
+id = "s02-l02-e2"
+type = "mc"
+points = 20
+prompt = "What does <code>type</code> become?"
+code = '''
+string firstWord = "how";
+string type = firstWord switch
+{
+    "what" or "which" => "Factual",
+    "how" => "Procedural",
+    _ => "General"
+};'''
+choices = ["Factual", "Procedural", "General", "how"]
+answer = 1
+hint = "Hold the value against each arm, top to bottom."
+
+[[lessons.exercises]]
+id = "s02-l02-e3"
+type = "fill"
+points = 25
+prompt = "Complete the rune: match any score of 9.0 or higher."
+code = '''
+string tier = score switch
+{
+    ____ 9.0 => "Standards",
+    _ => "Other"
+};'''
+answer = ">="
+hint = "A relational pattern — the same mark you'd wield in an if."
+
+[[lessons.exercises]]
+id = "s02-l02-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "The switch expression shape — arms, fat arrows, discard. Twice."
+code = '''
+string type = firstWord switch
+{
+    "what" or "which" => "Factual",
+    "how" => "Procedural",
+    "why" => "Explanation",
+    _ => "General"
+};'''
+
+[[lessons.exercises]]
+id = "s02-l02-w1"
+type = "write"
+points = 32
+prompt = "Hear one word by whisper and divine its kind with a switch EXPRESSION: \"how\"→Procedural, \"what\"→Factual, \"why\"→Explanation, anything else→General. Utter the divination."
+stdin = "how"
+expect = "Procedural"
+hint = "Hear the word, pass it through the switch expression, WriteLine the result."

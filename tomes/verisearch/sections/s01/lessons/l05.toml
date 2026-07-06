@@ -1,0 +1,87 @@
+[[lessons]]
+id = "s01-l05"
+title = "The listening loop — repeat until 'quit'"
+body = '''
+
+<p>A vestibule is a loop: <strong>R</strong>ead a line, <strong>E</strong>valuate it, <strong>P</strong>rint an answer, <strong>L</strong>oop. You have not formally studied loops yet (that is Chapter II) — but today you need only one pattern:</p>
+<pre><code><span class="k">while</span> (<span class="k">true</span>)                       <span class="c">// repeat until the end of days...</span>
+{
+    Console.Write(<span class="s">"&gt; "</span>);
+    <span class="k">string</span> line = Console.ReadLine() ?? <span class="s">"quit"</span>;
+
+    <span class="k">if</span> (line == <span class="s">"quit"</span>)           <span class="c">// ...or until the seeker takes their leave</span>
+    {
+        Console.WriteLine(<span class="s">"Goodbye!"</span>);
+        <span class="k">break</span>;                     <span class="c">// break = leave the loop NOW</span>
+    }
+
+    Console.WriteLine(<span class="s">$"You asked: \"{line}\""</span>);
+}</code></pre>
+<ul>
+<li><code>while (true)</code> — the condition holds forever, so the loop turns until something breaks it.</li>
+<li><code>if (line == "quit")</code> — <code>==</code> weighs strings by their text in C#. (Not every tongue is so kind.)</li>
+<li><code>break</code> — leaves the nearest loop at once.</li>
+</ul>
+<p>Polish that earns favor with THORNE: strip stray spaces with <code>line.Trim()</code>, accept <code>QUIT</code> and <code>Quit</code> via <code>line.ToLower()</code>, and let empty lines pass unremarked (<code>if (line == "") continue;</code> — <code>continue</code> skips to the loop's next turn).</p>
+<div class="callout">This very skeleton is the tome's entryway for the next eleven chapters. Everything you forge later — search, harvesting, weighing — hangs from this loop.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Culture-safe casing:</strong> THORNE's favorite nitpick — <code>ToLower()</code> obeys the machine's locale (the Turkish 'I' is infamous for breaking it). For comparisons, declare your intent instead: <code>line.Equals("quit", StringComparison.OrdinalIgnoreCase)</code>. The same wisdom holds for Contains/StartsWith — each accepts a <code>StringComparison</code>.</p>
+<p><strong>Guard clauses:</strong> deal with the strange cases first and step aside early — <code>if (line == "") continue;</code> — rather than nesting the happy path in ever-deeper ifs. Flat runes read; nested runes hide.</p>
+<p><strong>while vs do-while:</strong> <code>while</code> tests before the first turn (it may run zero times); <code>do { } while (cond);</code> tests after (it always runs once). Listening loops are naturally <code>while (true)</code> + <code>break</code> — the leaving-condition lives mid-body, after the hearing.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Iteration statements\""
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/statements/iteration-statements"
+essential = false
+
+[[lessons.exercises]]
+id = "s01-l05-e1"
+type = "text"
+points = 20
+prompt = "Which keyword leaves the nearest enclosing loop at once?"
+answer = "break"
+hint = "Five letters. The escape hatch."
+
+[[lessons.exercises]]
+id = "s01-l05-e2"
+type = "mc"
+points = 20
+prompt = "In C#, <code>line == \"quit\"</code> where line is a string…"
+choices = ["compares memory addresses, so it's usually false", "compares the actual text content of the strings", "only works for single-character strings", "doesn't compile — strings need .Equals()"]
+answer = 1
+hint = "C# overloads == for strings to do the sane thing."
+
+[[lessons.exercises]]
+id = "s01-l05-e3"
+type = "mc"
+points = 25
+prompt = "The seeker writes <code>\"  QUIT  \"</code> (stray spaces, capitals). Which expression rightly hears it as a leave-taking?"
+choices = ["line == \"quit\"", "line.Trim() == \"QUIT!\"", "line.Trim().ToLower() == \"quit\"", "line.ToLower() == \" quit \""]
+answer = 2
+hint = "First strip the spaces, then quiet the case."
+
+[[lessons.exercises]]
+id = "s01-l05-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "The culture-safe leave-taking check — copy it twice and thank yourself in Chapter XII."
+code = '''
+if (line.Trim().Equals("quit", StringComparison.OrdinalIgnoreCase))
+{
+    break;
+}'''
+
+[[lessons.exercises]]
+id = "s01-l05-w1"
+type = "write"
+points = 35
+prompt = "A small listening loop: hear lines by whisper until \"quit\" arrives. Echo every other line as <code>&gt; &lt;line&gt;</code>. When quit comes, speak <code>goodbye</code> and rest."
+stdin = '''
+alpha
+beta
+quit'''
+expect = '''
+> alpha
+> beta
+goodbye'''
+hint = "while(true) { var l = Console.ReadLine() ?? \"quit\"; if quit → print goodbye, break; else WriteLine($\"> {l}\"); }"

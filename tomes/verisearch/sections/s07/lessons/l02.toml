@@ -1,0 +1,101 @@
+[[lessons]]
+id = "s07-l02"
+title = "The LINQ arsenal — GroupBy, Distinct, Aggregate, Zip"
+body = '''
+
+<p>Beyond Where/Select/OrderBy, four seekers do the heavy analytical lifting:</p>
+<p><strong>GroupBy</strong> — bucket items by a key. Each group has a <code>.Key</code> and is itself enumerable:</p>
+<pre><code><span class="k">var</span> byTier = profiles.GroupBy(p =&gt; p.Tier);
+<span class="k">foreach</span> (<span class="k">var</span> g <span class="k">in</span> byTier)
+    Console.WriteLine(<span class="s">$"{g.Key}: {g.Count()} domains, avg {g.Average(p =&gt; p.BaseScore):F1}"</span>);
+<span class="c">// Government: 4 domains, avg 9.1</span></code></pre>
+<p><strong>Distinct / DistinctBy</strong> — dedupe. Search engines return the same URL twice constantly:</p>
+<pre><code><span class="k">var</span> unique = results.DistinctBy(r =&gt; r.Url);   <span class="c">// first hit wins per URL</span></code></pre>
+<p><strong>Aggregate</strong> — fold everything into one value, carrying an accumulator:</p>
+<pre><code><span class="k">double</span> product = scores.Aggregate(1.0, (acc, s) =&gt; acc * s);
+<span class="c">// like Sum, but you define the combining step. Use for anything "cumulative".</span></code></pre>
+<p><strong>Zip</strong> — pair up two sequences element-by-element:</p>
+<pre><code><span class="k">var</span> ranked = urls.Zip(scores, (u, s) =&gt; <span class="s">$"{u} → {s}"</span>);</code></pre>
+<p>And the aggregation shorthands you'll reach for daily: <code>Count(pred)</code>, <code>Sum(sel)</code>, <code>Average(sel)</code>, <code>Min/Max(sel)</code>, <code>Any(pred)</code> (at least one?), <code>All(pred)</code> (every one?), <code>First/FirstOrDefault(pred)</code>.</p>
+<div class="callout"><code>First</code> on an empty sequence THROWS. <code>FirstOrDefault</code> returns null/default. In pipeline code that eats real-world data, OrDefault is almost always what you meant.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>SelectMany</strong> — flatten a list of lists: 5 pages each yielding a List of quotes → one flat quote stream: <code>outcomes.SelectMany(o =&gt; o.Quotes)</code>. You WILL need this in Chapter XI.</p>
+<p><strong>ThenBy</strong> — tie-breakers: <code>.OrderByDescending(r =&gt; r.Trust).ThenBy(r =&gt; r.Url)</code> — equal trust sorts alphabetically. LINQ's OrderBy is <em>stable</em>: equal keys keep their original relative order.</p>
+<p><strong>Chunk(n)</strong> — split into batches of n (paginating paragraphs for prompt size limits). <strong>ToDictionary / ToHashSet</strong> — materialize into lookup structures: <code>profiles.ToDictionary(p =&gt; p.Domain)</code> is your Chapter V bridge in one call.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Working with LINQ\" tutorial"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/tutorials/working-with-linq"
+essential = true
+
+[[lessons.readings]]
+label = "Microsoft Learn — LINQ overview"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/linq/"
+essential = true
+
+[[lessons.readings]]
+label = "Codecademy — Lists and LINQ course"
+url = "https://www.codecademy.com/learn/learn-c-sharp-lists-and-linq"
+essential = false
+
+[[lessons.exercises]]
+id = "s07-l02-e1"
+type = "fill"
+points = 25
+prompt = "Fill the blank to deduplicate search results by URL."
+code = "var unique = results.____(r => r.Url).ToList();"
+answer = "DistinctBy"
+accept = ["distinctby"]
+hint = "Distinct's picky sibling — dedupe BY a key."
+
+[[lessons.exercises]]
+id = "s07-l02-e2"
+type = "mc"
+points = 25
+prompt = "What does this produce?"
+code = '''
+var nums = new[] { 2, 3, 4 };
+var result = nums.Aggregate(1, (acc, n) => acc * n);'''
+choices = ["9", "24", "10", "1"]
+answer = 1
+hint = "1*2=2, 2*3=6, 6*4=…"
+
+[[lessons.exercises]]
+id = "s07-l02-e3"
+type = "mc"
+points = 20
+prompt = "<code>results.First(r =&gt; r.Trust &gt; 9)</code> when nothing matches…"
+choices = ["returns null", "returns a default SearchResult", "throws InvalidOperationException", "returns the highest-trust result instead"]
+answer = 2
+hint = "This is why FirstOrDefault exists."
+
+[[lessons.exercises]]
+id = "s07-l02-e4"
+type = "mc"
+points = 20
+prompt = "You want \"how many results per engine\". Which operator starts that query?"
+choices = ["Distinct", "GroupBy", "Zip", "OrderBy"]
+answer = 1
+hint = "Bucket first, count each bucket second."
+
+[[lessons.exercises]]
+id = "s07-l02-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "GroupBy with per-group aggregates — the analytics shape. Twice."
+code = '''
+foreach (var g in profiles.GroupBy(p => p.Tier))
+{
+    Console.WriteLine($"{g.Key}: {g.Count()} domains");
+}'''
+
+[[lessons.exercises]]
+id = "s07-l02-w1"
+type = "write"
+points = 36
+prompt = "Given <code>var words = new List&lt;string&gt; { \"tls\", \"rfc\", \"nist\", \"handshake\" };</code> group by word LENGTH, order groups by key ascending, and print each as <code>&lt;length&gt;:&lt;count&gt;</code> on its own line."
+expect = '''
+3:2
+4:1
+9:1'''
+hint = "words.GroupBy(w => w.Length).OrderBy(g => g.Key) then $\"{g.Key}:{g.Count()}\"."

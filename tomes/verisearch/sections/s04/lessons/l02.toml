@@ -1,0 +1,80 @@
+[[lessons]]
+id = "s04-l02"
+title = "async/await — waiting without freezing"
+body = '''
+
+<p>A web request takes ~100–2000ms — an eternity for a CPU. Synchronous code would just sit there, blocked. <strong>Async</strong> code says: "start this, give me a <code>Task</code> (an IOU for the result), and I'll <code>await</code> it when I need the value."</p>
+<pre><code><span class="k">async</span> Task&lt;<span class="k">string</span>&gt; FetchTitleAsync(HttpClient http)
+{
+    <span class="k">string</span> html = <span class="k">await</span> http.GetStringAsync(<span class="s">"https://example.com"</span>);
+    <span class="k">return</span> html.Substring(0, 50);
+}</code></pre>
+<p>The rules — learn these cold, they carry you to Chapter VIII:</p>
+<ul>
+<li><code>await</code> unwraps a Task: <code>Task&lt;string&gt;</code> → <code>string</code>. Execution pauses <em>here</em> (without blocking the thread) until the result arrives.</li>
+<li>Any method that uses <code>await</code> must be marked <code>async</code>.</li>
+<li>An async method returns <code>Task</code> (no value) or <code>Task&lt;T&gt;</code> (value of type T).</li>
+<li>Naming convention: async methods end in <code>Async</code>.</li>
+<li>It's turtles all the way up: your callers await you, their callers await them. Top-level statements can use <code>await</code> directly — main is already async.</li>
+</ul>
+<pre><code><span class="c">// Program.cs — this just works with top-level statements:</span>
+<span class="k">var</span> http = <span class="k">new</span> HttpClient();
+<span class="k">string</span> body = <span class="k">await</span> http.GetStringAsync(<span class="s">"https://example.com"</span>);
+Console.WriteLine(body.Length);</code></pre>
+<div class="callout">Two sins THORNE never forgives: <code>.Result</code> or <code>.Wait()</code> on a Task (blocks, can deadlock — just await), and <code>async void</code> (uncatchable exceptions — always return Task).</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>What actually happens at await:</strong> the method is sliced at each await into continuations. When the awaited Task completes, the method RESUMES after that point. That's why async doesn't block: between slices, the thread does other work.</p>
+<p><strong>async all the way up:</strong> your Main is already async with top-level statements. If some method can't be async, don't block with <code>.Result</code> — refactor the caller instead.</p>
+<p><strong>Exceptions in tasks</strong> are stored, then re-thrown when awaited — so try/catch around an await works exactly like sync code. (Old-style <code>.Wait()</code>/<code>.Result</code> wrap them in AggregateException — one more reason to just await.)</p>
+<p><strong>ValueTask</strong> exists as a lighter Task for hot paths that usually complete synchronously — recognize it in library signatures; you won't need to write one.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Asynchronous programming overview\""
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/asynchronous-programming/"
+essential = true
+
+[[lessons.exercises]]
+id = "s04-l02-e1"
+type = "mc"
+points = 20
+prompt = "An async method that returns a string value should have which return type?"
+choices = ["string", "Task", "Task<string>", "async<string>"]
+answer = 2
+hint = "Task of what?"
+
+[[lessons.exercises]]
+id = "s04-l02-e2"
+type = "text"
+points = 20
+prompt = "Which keyword pauses execution until a Task completes and unwraps its result?"
+answer = "await"
+hint = "Five letters, pairs with async."
+
+[[lessons.exercises]]
+id = "s04-l02-e3"
+type = "mc"
+points = 25
+prompt = "Why is <code>var html = http.GetStringAsync(url).Result;</code> considered a bug?"
+choices = ["Result is misspelled", "It blocks the thread and can deadlock; the async chain should use await instead", "It returns a Task instead of a string", "GetStringAsync doesn't exist"]
+answer = 1
+hint = "Blocking on async is the classic deadlock recipe."
+
+[[lessons.exercises]]
+id = "s04-l02-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "The async method signature-and-await shape. Twice — the grammar must be automatic before Chapter VIII."
+code = '''
+async Task<string> FetchTitleAsync(HttpClient http)
+{
+    string html = await http.GetStringAsync(url);
+    return html[..50];
+}'''
+
+[[lessons.exercises]]
+id = "s04-l02-w1"
+type = "write"
+points = 34
+prompt = "Write an async method <code>Task&lt;string&gt; ConnectAsync()</code> that awaits <code>Task.Delay(10)</code> then returns \"the far road opens\". Await it from top-level code and utter the result. (Top-level runes can use await directly.)"
+expect = "the far road opens"
+hint = "Console.WriteLine(await ConnectAsync()); — method declaration goes after top-level statements."

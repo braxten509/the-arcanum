@@ -1,0 +1,84 @@
+[[lessons]]
+id = "s10-l01"
+title = "AnsiConsole & markup — color as information"
+body = '''
+
+<p><code>dotnet add package Spectre.Console</code>. The entry point is <code>AnsiConsole</code>, and its markup syntax is BBCode-style square brackets:</p>
+<pre><code><span class="k">using</span> Spectre.Console;
+
+AnsiConsole.MarkupLine(<span class="s">"[green]trusted[/] · [yellow]caution[/] · [red]unverified[/]"</span>);
+AnsiConsole.MarkupLine(<span class="s">"[bold underline]SOURCE 1[/] [dim]— ietf.org[/]"</span>);
+AnsiConsole.MarkupLine(<span class="s">"[green3_1 on grey11]themed like your rig[/]"</span>);</code></pre>
+<p>Color should CARRY MEANING, not decorate. Verisearch's convention — the trust traffic light:</p>
+<pre><code><span class="k">static string</span> TrustMarkup(<span class="k">double</span> score) =&gt; score <span class="k">switch</span>
+{
+    &gt;= 7.0 =&gt; <span class="s">$"[green]{score:F1}/10[/]"</span>,
+    &gt;= 4.0 =&gt; <span class="s">$"[yellow]{score:F1}/10[/]"</span>,
+    _      =&gt; <span class="s">$"[red]{score:F1}/10[/]"</span>
+};</code></pre>
+<p>(<code>{score:F1}</code> is numeric formatting — F1 = one decimal place. Also handy: <code>{n:N0}</code> thousands separators, <code>{p:P0}</code> percentages.)</p>
+<p><strong>The injection trap:</strong> scraped text goes into your output. What if a page title contains <code>[red]</code>? Markup breaks — or lies. Escape ALL untrusted text:</p>
+<pre><code>AnsiConsole.MarkupLine(<span class="s">$"title: {Markup.Escape(result.Title)}"</span>);
+<span class="c">// or use interpolation-safe: AnsiConsole.MarkupLineInterpolated($"title: {result.Title}");</span></code></pre>
+<p>Same lesson as SQL injection and XSS, in miniature: <em>data and markup must never mix unescaped</em>. Scraped titles are attacker-controlled input to your terminal.</p><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Style vocabulary:</strong> <code>[bold]</code> <code>[dim]</code> <code>[italic]</code> <code>[underline]</code> <code>[strikethrough]</code>, colors by name (<code>[green]</code>, 256-color names like <code>[green3_1]</code>) or hex <code>[#4cc38a]</code>, backgrounds via <code>on</code>: <code>[white on red]</code>. Stack them space-separated; close ANY run with <code>[/]</code>.</p>
+<p><strong>Manual escaping:</strong> markup-significant brackets double: <code>[[</code> renders [, <code>]]</code> renders ]. That's literally all Markup.Escape does — but call the method, don't hand-roll it in six places.</p>
+<p><strong>Terminal detection:</strong> Spectre auto-degrades on dumb terminals and honors the <code>NO_COLOR</code> convention. Never encode meaning ONLY in color — the trust score prints the number too, which is also your accessibility story.</p></div>'''
+
+[[lessons.readings]]
+label = "Spectre.Console — official docs"
+url = "https://spectreconsole.net/"
+essential = true
+
+[[lessons.readings]]
+label = "Spectre.Console — markup reference"
+url = "https://spectreconsole.net/markup"
+essential = true
+
+[[lessons.exercises]]
+id = "s10-l01-e1"
+type = "mc"
+points = 20
+prompt = "Spectre markup for green bold text:"
+choices = ["<green><b>text</b></green>", "[green bold]text[/]", "{green,bold}text{/}", "\\green\\bold text"]
+answer = 1
+hint = "Square brackets, space-separated styles, [/] to close."
+
+[[lessons.exercises]]
+id = "s10-l01-e2"
+type = "mc"
+points = 25
+prompt = "Why must scraped page titles pass through <code>Markup.Escape</code> before MarkupLine?"
+choices = ["It makes them render faster", "A title containing [red] or [ would break or spoof your markup — untrusted data can't mix with markup", "Spectre requires all strings escaped", "It translates them to English"]
+answer = 1
+hint = "Terminal-grade injection. Same disease as XSS."
+
+[[lessons.exercises]]
+id = "s10-l01-e3"
+type = "text"
+points = 20
+prompt = "What does <code>$\"{9.4567:F1}\"</code> produce?"
+answer = "9.5"
+hint = "F1 = fixed-point, one decimal, rounded."
+
+[[lessons.exercises]]
+id = "s10-l01-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "The traffic-light helper — switch expression meets markup. Twice."
+code = '''
+static string TrustMarkup(double score) => score switch
+{
+    >= 7.0 => $"[green]{score:F1}/10[/]",
+    >= 4.0 => $"[yellow]{score:F1}/10[/]",
+    _ => $"[red]{score:F1}/10[/]"
+};'''
+
+[[lessons.exercises]]
+id = "s10-l01-w1"
+type = "write"
+points = 32
+prompt = "Escape lab (plain string ops — no Spectre needed here): given <code>string title = \"[red]INJECTED[/]\";</code> escape it the Spectre way — double every [ and ] — and print the escaped result."
+expect = "[[red]]INJECTED[[/]]"
+hint = "title.Replace(\"[\", \"[[\").Replace(\"]\", \"]]\")"

@@ -1,0 +1,93 @@
+[[lessons]]
+id = "s01-l02"
+title = "The shape of an incantation — top-level statements & namespaces"
+body = '''
+
+<p>The old masters made you raise a class and a <code>Main</code> method just to utter one line. Modern C# lets <code>Program.cs</code> begin casting from its first rune — these are <strong>top-level statements</strong>:</p>
+<pre><code><span class="c">// Program.cs — this IS a complete incantation</span>
+Console.WriteLine(<span class="s">"Verisearch v0.1"</span>);</code></pre>
+<p>Behind the veil the compiler still writes the elder form. You will meet it in other wizards' work, so learn its face:</p>
+<pre><code><span class="k">namespace</span> Verisearch;
+
+<span class="k">class</span> Program
+{
+    <span class="k">static void</span> Main(<span class="k">string</span>[] args)
+    {
+        Console.WriteLine(<span class="s">"Verisearch v0.1"</span>);
+    }
+}</code></pre>
+<ul>
+<li><strong>namespace</strong> — a drawer for the names of things. <code>Console</code> truly dwells in the <code>System</code> namespace.</li>
+<li><strong>using</strong> — opens a drawer so you may call its contents by short name. Modern workings open the common drawers for you (<code>System</code>, <code>System.Collections.Generic</code>, <code>System.Linq</code>…) via <em>implicit usings</em> — that is why plain <code>Console.WriteLine</code> answers.</li>
+<li><strong>statement</strong> — one instruction, sealed with <code>;</code>. <strong>Block</strong> — statements bound together by <code>{ }</code>.</li>
+</ul>
+<div class="callout">Semicolons and braces are not negotiable. The compiler does not guess. Drop a <code>;</code> and the complaint may point at the NEXT line — look one line up.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Comments:</strong> <code>// to the line's end</code> and <code>/* a bound passage */</code>. Comments explain WHY, not what — <code>// increment i</code> above <code>i++</code> is scribble.</p>
+<p><strong>Case sensitivity:</strong> <code>Console</code>, <code>console</code>, and <code>CONSOLE</code> are three different names; only the first exists. Most novice "it does not exist" complaints are casing.</p>
+<p><strong>The law of names:</strong> letters/digits/underscore, never beginning with a digit, never a keyword. The conventions every guild follows: <code>PascalCase</code> for types/methods/properties, <code>camelCase</code> for locals and parameters.</p>
+<p><strong>What the compiler writes for you:</strong> your top-level statements literally become a hidden <code>Main(string[] args)</code> — the <code>args</code> variable is even at hand in top-level runes. One leaf per working may use top-level statements; every other leaf holds types.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"C# for Beginners\" video series (ep. 1–5)"
+url = "https://learn.microsoft.com/en-us/shows/csharp-for-beginners/"
+essential = true
+
+[[lessons.readings]]
+label = "freeCodeCamp — C# Tutorial for Beginners (YouTube)"
+url = "https://www.youtube.com/watch?v=Yx5HtKNy26k"
+essential = false
+
+[[lessons.exercises]]
+id = "s01-l02-e1"
+type = "mc"
+points = 15
+prompt = "What are \"top-level statements\"?"
+choices = ["Statements that can only appear at the top of a method", "Code written directly in Program.cs without an explicit class or Main method", "Comments that describe the program", "Statements that run with administrator privileges"]
+answer = 1
+hint = "Modern Program.cs begins casting from its first line."
+
+[[lessons.exercises]]
+id = "s01-l02-e2"
+type = "text"
+points = 20
+prompt = "Which keyword opens a namespace so you may call its types by short name? (one word)"
+answer = "using"
+hint = "It appears at the top of leaves: ____ System.Text;"
+
+[[lessons.exercises]]
+id = "s01-l02-e3"
+type = "mc"
+points = 20
+prompt = "This inscription is refused by the Forge. Why?"
+code = '''
+Console.WriteLine("consulting the tomes")
+Console.WriteLine("done");'''
+choices = ["\"consulting the tomes\" contains a space", "The first line is missing its semicolon", "WriteLine must be lowercase", "You can't call WriteLine twice"]
+answer = 1
+hint = "Every statement must be sealed with the same character."
+
+[[lessons.exercises]]
+id = "s01-l02-d1"
+type = "type"
+points = 12
+prompt = "Copy the elder explicit form once — you will know its face in every older grimoire and codebase."
+code = '''
+namespace Verisearch;
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        Console.WriteLine("Verisearch v0.1");
+    }
+}'''
+
+[[lessons.exercises]]
+id = "s01-l02-w1"
+type = "write"
+points = 30
+prompt = "Write an incantation that utters these two lines, in this order."
+expect = '''
+the candle is lit
+the tome lies open'''
+hint = "Two WriteLine calls. Order of statements = order of utterance."

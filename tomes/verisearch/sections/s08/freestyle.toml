@@ -1,0 +1,36 @@
+[freestyle]
+title = "THE WORKING: The Conjured Servants"
+brief = "Upgrade the scraper pipeline: given the top trusted URLs from your Chapter VII engine, scrape them ALL in parallel.<ul><li>Each source runs through a containment wrapper returning a <code>ScrapeOutcome</code> record (url, blocks, ok, error, seconds — Stopwatch-timed)</li><li>Fan out with <code>Task.WhenAll</code> (started via materialized Select — no await-in-loop!)</li><li>Guard the whole batch with a <code>CancellationTokenSource.CancelAfter</code> timeout; the CancellationToken threads through your scraper's signatures</li><li>Print the milestone-style per-source report: aligned columns, a parallel-vs-sequential time comparison, and the surviving block total</li></ul>"
+reward = 500
+packages = []
+xray = "THORNE times your run with a stopwatch of his own: if 3 slow-ish pages take 3x a single page, he knows your \"parallel\" is a sequential loop in a trench coat — the instant F on the concurrency criterion. He feeds one guaranteed-dead URL (connection refused) and one glacial URL to test containment + timeout separately. Style check: does ScrapeOneAsync take CancellationToken as its LAST parameter with a default?"
+
+[freestyle.badge]
+id = "badge-s08"
+name = "MASTER OF MANY HANDS"
+desc = "Five errands run at once, and not one servant loosed unbound."
+
+[[freestyle.rubric]]
+criterion = "Compiles & parallel demo works"
+weight = 20
+desc = "Multiple URLs scraped concurrently; report renders; total ≈ slowest not sum."
+
+[[freestyle.rubric]]
+criterion = "True concurrency"
+weight = 25
+desc = "No await-inside-foreach for the batch; tasks materialized before WhenAll."
+
+[[freestyle.rubric]]
+criterion = "Failure containment"
+weight = 25
+desc = "A dead URL in the batch yields [FAIL] row + full results from the rest. No unhandled exceptions."
+
+[[freestyle.rubric]]
+criterion = "Cancellation & timeouts"
+weight = 15
+desc = "CTS.CancelAfter wired through; canceled ops reported as timeouts, not crashes."
+
+[[freestyle.rubric]]
+criterion = "Report quality & readability"
+weight = 15
+desc = "Aligned columns, timing comparison, clean code structure."

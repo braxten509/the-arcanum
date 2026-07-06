@@ -1,0 +1,36 @@
+[freestyle]
+title = "THE WORKING: The Binding of the Spirit"
+brief = "Build <code>RelevanceScanner</code>: given a page's <code>List&lt;ScrapedParagraph&gt;</code> and the user's query, return the indices of relevant paragraphs — LLM-first, defensively parsed, gracefully degrading. The full ladder:<ul><li>Numbered + truncated prompt with format demand, example, and empty-case</li><li>Streaming consumption (await foreach) OR documented non-streaming choice</li><li>Bracket-slice extraction + JsonException handling</li><li>Index validation (in-range, Distinct, capped); one firm retry</li><li>Keyword fallback so <strong>everything works with Ollama completely absent</strong></li><li>Convert winning indices to <code>VerbatimQuote</code> records (Chapter III) carrying source URL + trust score</li><li>Shell command <code>ask &lt;question&gt;</code> runs search → rank → scrape → scan → prints quotes with their indices</li><li>Install OllamaSharp via PACKAGES</li></ul>"
+reward = 550
+packages = ["OllamaSharp"]
+xray = "THORNE simulates three model personalities against your parser: Chatty (JSON buried in prose), Liar (indices out of range + duplicates), and Dead (connection refused). All three must yield usable output. He diffs your final quotes against the scraped source text — ONE altered character in a \"verbatim\" quote and the integrity criterion zeroes. He also checks the retry counter: zero retries is fragile, unlimited is a hang; the answer is one."
+
+[freestyle.badge]
+id = "badge-s09"
+name = "SPIRIT-BINDER"
+desc = "Bound a spirit to a pointing finger. It may choose truth but never invent it."
+
+[[freestyle.rubric]]
+criterion = "Compiles & works WITHOUT Ollama"
+weight = 20
+desc = "The keyword fallback path delivers end-to-end results on a bare machine."
+
+[[freestyle.rubric]]
+criterion = "Prompt quality"
+weight = 15
+desc = "All five contract features present in a raw string literal."
+
+[[freestyle.rubric]]
+criterion = "Defensive parsing ladder"
+weight = 25
+desc = "Extract → validate → retry-once → fallback, each layer actually reachable."
+
+[[freestyle.rubric]]
+criterion = "Verbatim integrity"
+weight = 20
+desc = "Quotes are byte-identical to scraped text; indices map correctly; no paraphrasing anywhere."
+
+[[freestyle.rubric]]
+criterion = "Integration & readability"
+weight = 20
+desc = "ask command runs search→rank→scrape→scan cleanly; scanner isolated; honest console reporting of which layer answered."

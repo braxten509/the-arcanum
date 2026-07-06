@@ -1,0 +1,87 @@
+[[lessons]]
+id = "s07-l01"
+title = "Lambdas & delegates — functions are values"
+body = '''
+
+<p>In C#, a function can be stored in a variable, passed as an argument, and called later. The types that hold them are <strong>delegates</strong>, and the three built-in families cover nearly everything:</p>
+<pre><code><span class="c">// Func&lt;in..., out&gt; — takes args, RETURNS a value (last type param = return type)</span>
+Func&lt;<span class="k">double</span>, <span class="k">double</span>&gt; boost = score =&gt; score * 1.1;
+Func&lt;<span class="k">string</span>, <span class="k">int</span>, <span class="k">bool</span>&gt; longerThan = (text, n) =&gt; text.Length &gt; n;
+
+<span class="c">// Action&lt;in...&gt; — takes args, returns NOTHING (side effects)</span>
+Action&lt;<span class="k">string</span>&gt; log = msg =&gt; Console.WriteLine(<span class="s">$"[trust] {msg}"</span>);
+
+<span class="c">// Predicate&lt;T&gt; — takes T, returns bool (mostly legacy; Func&lt;T,bool&gt; preferred)</span>
+Predicate&lt;<span class="k">int</span>&gt; isPositive = n =&gt; n &gt; 0;
+
+Console.WriteLine(boost(9.0));          <span class="c">// 9.9 — call it like any method</span>
+log(<span class="s">"engine online"</span>);</code></pre>
+<p>Lambda anatomy: <code>(parameters) =&gt; expression-or-block</code>.</p>
+<pre><code>x =&gt; x * 2                        <span class="c">// one param, expression body</span>
+(a, b) =&gt; a + b                   <span class="c">// two params need parens</span>
+x =&gt; { <span class="k">var</span> y = x * 2; <span class="k">return</span> y; } <span class="c">// block body needs return</span></code></pre>
+<p>Why this matters: every LINQ method is just a method that takes a <code>Func</code>. <code>Where(r =&gt; r.Trust &gt; 3)</code> means "here's the test, run it per element." And your trust engine can accept scoring rules AS PARAMETERS:</p>
+<pre><code><span class="k">double</span> Score(TrustProfile p, Func&lt;TrustProfile, <span class="k">double</span>&gt;[] rules)
+    =&gt; rules.Sum(rule =&gt; rule(p));    <span class="c">// each rule contributes points</span></code></pre>
+<p>Lambdas also <strong>capture</strong> variables from the surrounding scope (a "closure"):</p>
+<pre><code><span class="k">double</span> minTrust = config.MinTrust;
+<span class="k">var</span> keep = results.Where(r =&gt; r.Trust &gt;= minTrust);   <span class="c">// lambda sees minTrust</span></code></pre><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>The loop-capture trap</strong> — the classic closure bug: lambdas created in a loop all capture the SAME variable in old C# <code>for</code> loops. Modern <code>foreach</code> gives each iteration a fresh variable, so <code>foreach (var u in urls) tasks.Add(Scrape(u));</code> is safe — but if a captured value must be frozen, copy it to a local first.</p>
+<p><strong>Method groups:</strong> when a lambda just forwards to a method — <code>list.Where(x =&gt; IsTrusted(x))</code> — you can pass the method name directly: <code>list.Where(IsTrusted)</code>. Cleaner, same behavior.</p>
+<p><strong>Static lambdas:</strong> <code>static x =&gt; x * 2</code> — the compiler guarantees no capture, no allocation. A micro-optimization to recognize, not chase.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Lambda expressions\""
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/seekers/lambda-expressions"
+essential = true
+
+[[lessons.exercises]]
+id = "s07-l01-e1"
+type = "mc"
+points = 20
+prompt = "Which delegate type fits: takes a TrustProfile, returns a double?"
+choices = ["Action<TrustProfile>", "Func<TrustProfile, double>", "Func<double, TrustProfile>", "Predicate<TrustProfile>"]
+answer = 1
+hint = "In Func, the LAST type parameter is the return type."
+
+[[lessons.exercises]]
+id = "s07-l01-e2"
+type = "mc"
+points = 20
+prompt = "The key difference between Func and Action:"
+choices = ["Func is faster", "Action returns a value, Func doesn't", "Func returns a value, Action returns void", "Action can't take parameters"]
+answer = 2
+hint = "Action = side effects only."
+
+[[lessons.exercises]]
+id = "s07-l01-e3"
+type = "mc"
+points = 25
+prompt = "What does <code>f(4)</code> return?"
+code = '''
+int factor = 3;
+Func<int, int> f = x => x * factor;
+factor = 10;
+Console.WriteLine(f(4));'''
+choices = ["12", "40", "4", "Compile error — factor can't change"]
+answer = 1
+hint = "Closures capture the VARIABLE, not a snapshot of its value."
+
+[[lessons.exercises]]
+id = "s07-l01-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "One Func, one Action, one call each. Twice — delegate syntax must be automatic before the LINQ arsenal."
+code = '''
+Func<double, double> boost = score => score * 1.1;
+Action<string> log = msg => Console.WriteLine($"[trust] {msg}");
+log($"boosted: {boost(9.0)}");'''
+
+[[lessons.exercises]]
+id = "s07-l01-w1"
+type = "write"
+points = 32
+prompt = "Declare <code>Func&lt;int, int&gt; overclock = x =&gt; x * 2;</code> and print the result of applying it TWICE to 3 (function composition by nesting the calls)."
+expect = "12"
+hint = "Console.WriteLine(overclock(overclock(3)));"

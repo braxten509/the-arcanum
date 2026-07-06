@@ -1,0 +1,422 @@
+# C# / .NET — complete engine config. The one generic runtime (runtimes/generic.py)
+# executes these commands; nothing dotnet-specific exists in Python. A tome's
+# [runtime] table overrides any key here.
+language = "C#"
+entryFile = "Program.cs"
+newFileExt = ".cs"
+editorLang = "csharp"
+runLabel = "dotnet run"
+packages = true
+
+runCommand = ["dotnet", "run", "--project", "{dir}"]
+snippetRunCommand = ["dotnet", "run", "--no-build", "--project", "{dir}"]
+buildCommand = ["dotnet", "build", "--nologo", "-v", "q"]
+scaffoldCommand = ["dotnet", "new", "console", "-n", "{project}", "-o", "{dir}", "--force"]
+packageCommand = ["dotnet", "add", "{dir}", "package", "{package}"]
+projectFile = "{project}.csproj"
+codeExt = [".cs", ".csproj", ".yaml", ".yml", ".json", ".md"]
+# MSBuild diagnostic lines: Program.cs(12,5): error CS1002: ; expected [proj.csproj]
+diagRegex = '^(?P<file>.+?)\((?P<line>\d+),(?P<col>\d+)\): (?P<sev>error|warning) (?P<code>\w+): (?P<msg>.*?)(?: \[.+\])?$'
+
+# Editor completions (keywords, snippets, dot-members) — served to the client via
+# TOME.runtime and rendered by the generic provider in web/editor.js. Ported verbatim
+# from the hand-written provider that used to live in editor.js; csharp is now just
+# another TOML language.
+[completions]
+keywords = [
+  "public", "private", "static", "void", "int", "string", "bool", "double", "var", "new",
+  "return", "if", "else", "for", "foreach", "while", "do", "switch", "case", "break",
+  "continue", "class", "record", "enum", "struct", "interface", "namespace", "using",
+  "try", "catch", "finally", "throw", "async", "await", "null", "true", "false", "this",
+  "readonly", "const", "out", "ref", "in", "is", "as", "get", "set", "init", "when",
+  "where", "select", "from",
+]
+snippets = [
+  ["cw", "Console.WriteLine — print a line", "Console.WriteLine($1);$0"],
+  ["cr", "Console.ReadLine — read input", "Console.ReadLine()"],
+  ["if", "if block", "if ($1)\n{\n\t$0\n}"],
+  ["for", "for loop", "for (int ${1:i} = 0; $1 < ${2:count}; $1++)\n{\n\t$0\n}"],
+  ["foreach", "foreach loop", "foreach (var ${1:item} in ${2:collection})\n{\n\t$0\n}"],
+  ["while", "while loop", "while ($1)\n{\n\t$0\n}"],
+  ["switche", "switch expression", "var ${1:result} = ${2:value} switch\n{\n\t${3:pattern} => $4,\n\t_ => $5\n};$0"],
+  ["trycatch", "try/catch block", "try\n{\n\t$1\n}\ncatch (${2:Exception} ex)\n{\n\t${3:Console.WriteLine(ex.Message);}\n}$0"],
+  ["class", "class declaration", "public class ${1:Name}\n{\n\t$0\n}"],
+  ["record", "positional record", "public record ${1:Name}(${2:string Prop});$0"],
+  ["enum", "enum declaration", "public enum ${1:Name}\n{\n\t$0\n}"],
+  ["prop", "auto property", "public ${1:string} ${2:Name} { get; set; }$0"],
+  ["method", "method", "public ${1:void} ${2:Name}($3)\n{\n\t$0\n}"],
+  ["asyncm", "async method", "public async Task${1:<string>} ${2:Name}Async($3)\n{\n\t$0\n}"],
+  ["list", "new List<T>", "List<${1:string}> ${2:items} = new();$0"],
+  ["dict", "new Dictionary", "Dictionary<${1:string}, ${2:int}> ${3:map} = new();$0"],
+  ["interp", "interpolated string", '\$"${1:text} {${2:value}}"$0'],
+]
+# ordered rhs-regex -> member key, for `variable.` completions (first match wins)
+types = [
+  ['^\$?"', "str"],
+  ['ReadLine\(\)', "str"],
+  ['^new\s+List', "list"],
+  ['^new\s+Dictionary', "dict"],
+  ['\.Split\(', "array"],
+  ['\.ToArray\(\)', "array"],
+  ['\.ToList\(\)', "list"],
+]
+# ordered declared-type-regex -> member key: `List<string> xs = …` types xs outright
+declTypes = [
+  ['\[\]$', "array"],
+  ["^string$", "str"],
+  ["^List<", "list"],
+  ["^Dictionary<", "dict"],
+  ["^HttpClient$", "HttpClient"],
+  ["^StringBuilder$", "StringBuilder"],
+  ["^Random$", "Random"],
+  ["^CancellationTokenSource$", "CancellationTokenSource"],
+  ["^IDocument$", "IDocument"],
+  ["^IElement$", "IElement"],
+  ["^OllamaApiClient$", "OllamaApiClient"],
+]
+# user-declared types: enums complete their values, positional records their params,
+# classes their public methods/properties; ctorRegex maps `new Verse(` back to the type
+enumRegex = '\benum\s+(\w+)\s*\{([^}]*)\}'
+recordRegex = '\brecord\s+(\w+)\s*\(([^)]*)\)'
+classRegex = '(?:class|record|struct)\s+(\w+)[^{]*\{([\s\S]*?)\n\}'
+methodRegex = 'public\s+(?:static\s+)?(?:async\s+)?[\w<>\[\],?\s]+?\s(\w+)\s*\('
+propRegex = 'public\s+(?:static\s+)?(?:readonly\s+)?[\w<>\[\],?]+\s+(\w+)\s*\{\s*get'
+ctorRegex = 'new\s+(\w+)\s*\('
+# instance keys share the LINQ surface; "linq" is also the guess for unknown receivers
+memberExtends = { list = "linq", dict = "linq", array = "linq" }
+fallback = "linq"
+internalKeys = ["str", "list", "dict", "array", "linq"]
+
+# member tuples: [label, kind(m|p|f), detail, insertText] — $1/$0 are snippet stops
+[completions.members]
+str = [
+  ["Length", "p", "int — number of characters", "Length"],
+  ["ToUpper()", "m", "string", "ToUpper()"],
+  ["ToLower()", "m", "string", "ToLower()"],
+  ["Trim()", "m", "string — strip whitespace both ends", "Trim()"],
+  ["TrimStart()", "m", "string", "TrimStart()"],
+  ["TrimEnd()", "m", "string", "TrimEnd()"],
+  ["Split()", "m", "string[] Split(char separator)", "Split('$1')$0"],
+  ["Contains()", "m", "bool Contains(string value)", "Contains($1)$0"],
+  ["StartsWith()", "m", "bool StartsWith(string value)", "StartsWith($1)$0"],
+  ["EndsWith()", "m", "bool EndsWith(string value)", "EndsWith($1)$0"],
+  ["Replace()", "m", "string Replace(string old, string new)", "Replace($1, $2)$0"],
+  ["Substring()", "m", "string Substring(int start, int length)", "Substring($1)$0"],
+  ["IndexOf()", "m", "int IndexOf(string value) — -1 if missing", "IndexOf($1)$0"],
+  ["PadLeft()", "m", "string PadLeft(int width)", "PadLeft($1)$0"],
+  ["PadRight()", "m", "string PadRight(int width)", "PadRight($1)$0"],
+  ["ToCharArray()", "m", "char[]", "ToCharArray()"],
+  ["ToString()", "m", "string — text representation", "ToString()"],
+  ["Equals()", "m", "bool Equals(object other)", "Equals($1)$0"],
+  ["GetHashCode()", "m", "int", "GetHashCode()"],
+  ["GetType()", "m", "Type — runtime type", "GetType()"],
+]
+list = [
+  ["Count", "p", "int — number of elements", "Count"],
+  ["Add()", "m", "void Add(T item)", "Add($1)$0"],
+  ["AddRange()", "m", "void AddRange(IEnumerable<T> items)", "AddRange($1)$0"],
+  ["Remove()", "m", "bool Remove(T item)", "Remove($1)$0"],
+  ["RemoveAt()", "m", "void RemoveAt(int index)", "RemoveAt($1)$0"],
+  ["Contains()", "m", "bool Contains(T item)", "Contains($1)$0"],
+  ["IndexOf()", "m", "int IndexOf(T item)", "IndexOf($1)$0"],
+  ["Insert()", "m", "void Insert(int index, T item)", "Insert($1, $2)$0"],
+  ["Clear()", "m", "void — remove everything", "Clear()"],
+  ["Sort()", "m", "void — in-place sort", "Sort()"],
+  ["Reverse()", "m", "void — in-place reverse", "Reverse()"],
+  ["ForEach()", "m", "void ForEach(Action<T> action)", "ForEach($1)$0"],
+]
+dict = [
+  ["Count", "p", "int", "Count"],
+  ["Keys", "p", "KeyCollection", "Keys"],
+  ["Values", "p", "ValueCollection", "Values"],
+  ["Add()", "m", "void Add(TKey key, TValue value)", "Add($1, $2)$0"],
+  ["ContainsKey()", "m", "bool ContainsKey(TKey key)", "ContainsKey($1)$0"],
+  ["TryGetValue()", "m", "bool TryGetValue(TKey key, out TValue value)", "TryGetValue($1, out var $2)$0"],
+  ["Remove()", "m", "bool Remove(TKey key)", "Remove($1)$0"],
+  ["Clear()", "m", "void", "Clear()"],
+]
+array = [
+  ["Length", "p", "int", "Length"],
+]
+linq = [
+  ["Where()", "m", "IEnumerable<T> Where(Func<T,bool> predicate)", "Where($1 => $2)$0"],
+  ["Select()", "m", "IEnumerable<R> Select(Func<T,R> selector)", "Select($1 => $2)$0"],
+  ["OrderBy()", "m", "IOrderedEnumerable<T> OrderBy(keySelector)", "OrderBy($1 => $2)$0"],
+  ["OrderByDescending()", "m", "IOrderedEnumerable<T>", "OrderByDescending($1 => $2)$0"],
+  ["ThenBy()", "m", "IOrderedEnumerable<T>", "ThenBy($1 => $2)$0"],
+  ["GroupBy()", "m", "IEnumerable<IGrouping<K,T>>", "GroupBy($1 => $2)$0"],
+  ["First()", "m", "T — throws if empty", "First()"],
+  ["FirstOrDefault()", "m", "T? — default if empty", "FirstOrDefault()"],
+  ["Any()", "m", "bool — any elements (or matching)", "Any($1)$0"],
+  ["All()", "m", "bool All(predicate)", "All($1 => $2)$0"],
+  ["Count()", "m", "int Count() or Count(predicate)", "Count($1)$0"],
+  ["Sum()", "m", "numeric sum", "Sum($1)$0"],
+  ["Average()", "m", "double", "Average($1)$0"],
+  ["Min()", "m", "T", "Min($1)$0"],
+  ["Max()", "m", "T", "Max($1)$0"],
+  ["Distinct()", "m", "IEnumerable<T> — unique values", "Distinct()"],
+  ["Take()", "m", "IEnumerable<T> Take(int n)", "Take($1)$0"],
+  ["Skip()", "m", "IEnumerable<T> Skip(int n)", "Skip($1)$0"],
+  ["Zip()", "m", "pairwise combine two sequences", "Zip($1)$0"],
+  ["Aggregate()", "m", "T Aggregate(func) — fold/reduce", "Aggregate(($1, $2) => $3)$0"],
+  ["ToList()", "m", "List<T> — materialize now", "ToList()"],
+  ["ToArray()", "m", "T[]", "ToArray()"],
+  ["ToDictionary()", "m", "Dictionary<K,V>", "ToDictionary($1 => $2)$0"],
+  ["ToString()", "m", "string — text representation", "ToString()"],
+  ["Equals()", "m", "bool Equals(object other)", "Equals($1)$0"],
+  ["GetHashCode()", "m", "int", "GetHashCode()"],
+  ["GetType()", "m", "Type — runtime type", "GetType()"],
+]
+Console = [
+  ["WriteLine()", "m", "void WriteLine(string value)", "WriteLine($1)$0"],
+  ["Write()", "m", "void Write(string value) — no newline", "Write($1)$0"],
+  ["ReadLine()", "m", "string? — read one line of input", "ReadLine()"],
+  ["ReadKey()", "m", "ConsoleKeyInfo", "ReadKey()"],
+  ["Clear()", "m", "void — clear the terminal", "Clear()"],
+  ["ForegroundColor", "p", "ConsoleColor", "ForegroundColor"],
+  ["BackgroundColor", "p", "ConsoleColor", "BackgroundColor"],
+  ["ResetColor()", "m", "void", "ResetColor()"],
+]
+Math = [
+  ["Abs()", "m", "absolute value", "Abs($1)$0"],
+  ["Max()", "m", "larger of two", "Max($1, $2)$0"],
+  ["Min()", "m", "smaller of two", "Min($1, $2)$0"],
+  ["Round()", "m", "round to nearest", "Round($1)$0"],
+  ["Floor()", "m", "round down", "Floor($1)$0"],
+  ["Ceiling()", "m", "round up", "Ceiling($1)$0"],
+  ["Pow()", "m", "double Pow(x, y)", "Pow($1, $2)$0"],
+  ["Sqrt()", "m", "double", "Sqrt($1)$0"],
+  ["PI", "p", "3.14159…", "PI"],
+]
+Convert = [
+  ["ToInt32()", "m", "int — from string/double/etc", "ToInt32($1)$0"],
+  ["ToDouble()", "m", "double", "ToDouble($1)$0"],
+  ["ToBoolean()", "m", "bool", "ToBoolean($1)$0"],
+  ["ToString()", "m", "string", "ToString($1)$0"],
+]
+int = [
+  ["Parse()", "m", "int Parse(string s) — throws on bad input", "Parse($1)$0"],
+  ["TryParse()", "m", "bool TryParse(string s, out int result)", "TryParse($1, out var $2)$0"],
+  ["MaxValue", "p", "2147483647", "MaxValue"],
+  ["MinValue", "p", "-2147483648", "MinValue"],
+]
+double = [
+  ["Parse()", "m", "double Parse(string s)", "Parse($1)$0"],
+  ["TryParse()", "m", "bool TryParse(string, out double)", "TryParse($1, out var $2)$0"],
+]
+string = [
+  ["Join()", "m", "string Join(string separator, IEnumerable values)", "Join($1, $2)$0"],
+  ["IsNullOrEmpty()", "m", "bool", "IsNullOrEmpty($1)$0"],
+  ["IsNullOrWhiteSpace()", "m", "bool", "IsNullOrWhiteSpace($1)$0"],
+  ["Concat()", "m", "string", "Concat($1)$0"],
+  ["Empty", "p", '""', "Empty"],
+]
+File = [
+  ["ReadAllText()", "m", "string ReadAllText(string path)", "ReadAllText($1)$0"],
+  ["WriteAllText()", "m", "void WriteAllText(string path, string contents)", "WriteAllText($1, $2)$0"],
+  ["ReadAllLines()", "m", "string[] — one entry per line", "ReadAllLines($1)$0"],
+  ["AppendAllText()", "m", "void", "AppendAllText($1, $2)$0"],
+  ["Exists()", "m", "bool Exists(string path)", "Exists($1)$0"],
+  ["ReadAllTextAsync()", "m", "Task<string>", "ReadAllTextAsync($1)$0"],
+]
+Directory = [
+  ["CreateDirectory()", "m", "DirectoryInfo — mkdir -p", "CreateDirectory($1)$0"],
+  ["Exists()", "m", "bool", "Exists($1)$0"],
+  ["GetFiles()", "m", "string[]", "GetFiles($1)$0"],
+]
+Path = [
+  ["Combine()", "m", "string — join path segments safely", "Combine($1, $2)$0"],
+  ["GetFileName()", "m", "string", "GetFileName($1)$0"],
+  ["GetDirectoryName()", "m", "string?", "GetDirectoryName($1)$0"],
+  ["GetExtension()", "m", "string", "GetExtension($1)$0"],
+]
+Environment = [
+  ["GetFolderPath()", "m", "string — e.g. UserProfile for ~", "GetFolderPath(Environment.SpecialFolder.$1)$0"],
+  ["Exit()", "m", "void Exit(int code)", "Exit($1)$0"],
+  ["NewLine", "p", "string — platform line ending", "NewLine"],
+]
+Task = [
+  ["WhenAll()", "m", "Task WhenAll(params Task[]) — run in parallel", "WhenAll($1)$0"],
+  ["WhenAny()", "m", "Task<Task> — first to finish", "WhenAny($1)$0"],
+  ["Delay()", "m", "Task Delay(int ms) — async sleep", "Delay($1)$0"],
+  ["Run()", "m", "Task Run(Action) — offload to thread pool", "Run(() => $1)$0"],
+  ["FromResult()", "m", "Task<T> — already-completed task", "FromResult($1)$0"],
+  ["Result", "p", "T — blocks! prefer await", "Result"],
+  ["IsCompleted", "p", "bool", "IsCompleted"],
+  ["IsFaulted", "p", "bool", "IsFaulted"],
+  ["Status", "p", "TaskStatus", "Status"],
+]
+JsonSerializer = [
+  ["Deserialize()", "m", "T? Deserialize<T>(string json)", "Deserialize<$1>($2)$0"],
+  ["Serialize()", "m", "string Serialize(object value)", "Serialize($1)$0"],
+]
+DateTime = [
+  ["Now", "p", "DateTime — local now", "Now"],
+  ["UtcNow", "p", "DateTime", "UtcNow"],
+  ["Today", "p", "DateTime", "Today"],
+  ["Parse()", "m", "DateTime Parse(string)", "Parse($1)$0"],
+]
+Regex = [
+  ["IsMatch()", "m", "bool IsMatch(string input, string pattern)", "IsMatch($1, $2)$0"],
+  ["Match()", "m", "Match", "Match($1, $2)$0"],
+  ["Matches()", "m", "MatchCollection", "Matches($1, $2)$0"],
+  ["Replace()", "m", "string", "Replace($1, $2, $3)$0"],
+]
+StringComparison = [
+  ["Ordinal", "f", "StringComparison.Ordinal", "Ordinal"],
+  ["OrdinalIgnoreCase", "f", "StringComparison.OrdinalIgnoreCase", "OrdinalIgnoreCase"],
+  ["CurrentCulture", "f", "StringComparison.CurrentCulture", "CurrentCulture"],
+  ["CurrentCultureIgnoreCase", "f", "StringComparison.CurrentCultureIgnoreCase", "CurrentCultureIgnoreCase"],
+  ["InvariantCulture", "f", "StringComparison.InvariantCulture", "InvariantCulture"],
+  ["InvariantCultureIgnoreCase", "f", "StringComparison.InvariantCultureIgnoreCase", "InvariantCultureIgnoreCase"],
+]
+StringSplitOptions = [
+  ["None", "f", "StringSplitOptions.None", "None"],
+  ["RemoveEmptyEntries", "f", "StringSplitOptions.RemoveEmptyEntries", "RemoveEmptyEntries"],
+  ["TrimEntries", "f", "StringSplitOptions.TrimEntries", "TrimEntries"],
+]
+ConsoleColor = [
+  ["Black", "f", "ConsoleColor.Black", "Black"],
+  ["DarkBlue", "f", "ConsoleColor.DarkBlue", "DarkBlue"],
+  ["DarkGreen", "f", "ConsoleColor.DarkGreen", "DarkGreen"],
+  ["DarkCyan", "f", "ConsoleColor.DarkCyan", "DarkCyan"],
+  ["DarkRed", "f", "ConsoleColor.DarkRed", "DarkRed"],
+  ["DarkMagenta", "f", "ConsoleColor.DarkMagenta", "DarkMagenta"],
+  ["DarkYellow", "f", "ConsoleColor.DarkYellow", "DarkYellow"],
+  ["Gray", "f", "ConsoleColor.Gray", "Gray"],
+  ["DarkGray", "f", "ConsoleColor.DarkGray", "DarkGray"],
+  ["Blue", "f", "ConsoleColor.Blue", "Blue"],
+  ["Green", "f", "ConsoleColor.Green", "Green"],
+  ["Cyan", "f", "ConsoleColor.Cyan", "Cyan"],
+  ["Red", "f", "ConsoleColor.Red", "Red"],
+  ["Magenta", "f", "ConsoleColor.Magenta", "Magenta"],
+  ["Yellow", "f", "ConsoleColor.Yellow", "Yellow"],
+  ["White", "f", "ConsoleColor.White", "White"],
+]
+SpecialFolder = [
+  ["UserProfile", "f", "Environment.SpecialFolder.UserProfile", "UserProfile"],
+  ["Desktop", "f", "Environment.SpecialFolder.Desktop", "Desktop"],
+  ["MyDocuments", "f", "Environment.SpecialFolder.MyDocuments", "MyDocuments"],
+  ["ApplicationData", "f", "Environment.SpecialFolder.ApplicationData", "ApplicationData"],
+  ["LocalApplicationData", "f", "Environment.SpecialFolder.LocalApplicationData", "LocalApplicationData"],
+]
+DayOfWeek = [
+  ["Sunday", "f", "DayOfWeek.Sunday", "Sunday"],
+  ["Monday", "f", "DayOfWeek.Monday", "Monday"],
+  ["Tuesday", "f", "DayOfWeek.Tuesday", "Tuesday"],
+  ["Wednesday", "f", "DayOfWeek.Wednesday", "Wednesday"],
+  ["Thursday", "f", "DayOfWeek.Thursday", "Thursday"],
+  ["Friday", "f", "DayOfWeek.Friday", "Friday"],
+  ["Saturday", "f", "DayOfWeek.Saturday", "Saturday"],
+]
+TaskStatus = [
+  ["Created", "f", "TaskStatus.Created", "Created"],
+  ["Running", "f", "TaskStatus.Running", "Running"],
+  ["RanToCompletion", "f", "TaskStatus.RanToCompletion", "RanToCompletion"],
+  ["Faulted", "f", "TaskStatus.Faulted", "Faulted"],
+  ["Canceled", "f", "TaskStatus.Canceled", "Canceled"],
+]
+HttpStatusCode = [
+  ["OK", "f", "HttpStatusCode.OK", "OK"],
+  ["Created", "f", "HttpStatusCode.Created", "Created"],
+  ["NoContent", "f", "HttpStatusCode.NoContent", "NoContent"],
+  ["BadRequest", "f", "HttpStatusCode.BadRequest", "BadRequest"],
+  ["Unauthorized", "f", "HttpStatusCode.Unauthorized", "Unauthorized"],
+  ["Forbidden", "f", "HttpStatusCode.Forbidden", "Forbidden"],
+  ["NotFound", "f", "HttpStatusCode.NotFound", "NotFound"],
+  ["InternalServerError", "f", "HttpStatusCode.InternalServerError", "InternalServerError"],
+]
+AnsiConsole = [
+  ["WriteLine()", "m", "Spectre: markup-free write", "WriteLine($1)$0"],
+  ["MarkupLine()", "m", "Spectre: [green]markup[/] write", "MarkupLine($1)$0"],
+  ["Write()", "m", "Spectre: render a widget (Table, Panel…)", "Write($1)$0"],
+  ["Ask()", "m", "Spectre: T Ask<T>(string prompt)", "Ask<$1>($2)$0"],
+  ["Status()", "m", "Spectre: spinner while working", "Status()"],
+]
+HttpClient = [
+  ["GetAsync()", "m", "Task<HttpResponseMessage> GetAsync(string url)", "GetAsync($1)$0"],
+  ["GetStringAsync()", "m", "Task<string> GetStringAsync(string url)", "GetStringAsync($1)$0"],
+  ["GetFromJsonAsync()", "m", "Task<T?> GetFromJsonAsync<T>(string url)", "GetFromJsonAsync<$1>($2)$0"],
+  ["PostAsync()", "m", "Task<HttpResponseMessage>", "PostAsync($1, $2)$0"],
+  ["BaseAddress", "p", "Uri?", "BaseAddress"],
+  ["Timeout", "p", "TimeSpan", "Timeout"],
+  ["DefaultRequestHeaders", "p", "headers", "DefaultRequestHeaders"],
+]
+StringBuilder = [
+  ["Append()", "m", "StringBuilder", "Append($1)$0"],
+  ["AppendLine()", "m", "StringBuilder", "AppendLine($1)$0"],
+  ["ToString()", "m", "string — final result", "ToString()"],
+  ["Length", "p", "int", "Length"],
+]
+Random = [
+  ["Next()", "m", "int Next(int min, int max) — max exclusive", "Next($1, $2)$0"],
+  ["NextDouble()", "m", "double 0.0–1.0", "NextDouble()"],
+]
+CancellationTokenSource = [
+  ["Token", "p", "CancellationToken", "Token"],
+  ["Cancel()", "m", "void", "Cancel()"],
+  ["CancelAfter()", "m", "void CancelAfter(int ms)", "CancelAfter($1)$0"],
+]
+IDocument = [
+  ["QuerySelector()", "m", "IElement? — first CSS match", "QuerySelector($1)$0"],
+  ["QuerySelectorAll()", "m", "IHtmlCollection<IElement> — all CSS matches", "QuerySelectorAll($1)$0"],
+  ["Title", "p", "string?", "Title"],
+  ["Body", "p", "IHtmlElement?", "Body"],
+]
+IElement = [
+  ["TextContent", "p", "string — all inner text", "TextContent"],
+  ["InnerHtml", "p", "string", "InnerHtml"],
+  ["TagName", "p", "string", "TagName"],
+  ["QuerySelector()", "m", "IElement?", "QuerySelector($1)$0"],
+  ["QuerySelectorAll()", "m", "IHtmlCollection<IElement>", "QuerySelectorAll($1)$0"],
+  ["GetAttribute()", "m", "string? GetAttribute(string name)", "GetAttribute($1)$0"],
+  ["Remove()", "m", "void — delete from the tree", "Remove()"],
+]
+OllamaApiClient = [
+  ["ChatAsync()", "m", "stream chat responses", "ChatAsync($1)$0"],
+  ["GenerateAsync()", "m", "stream a completion", "GenerateAsync($1)$0"],
+  ["SelectedModel", "p", "string", "SelectedModel"],
+]
+
+# method name -> member key: resolves call chains (input.Trim().ToLower().) and
+# assignments whose rhs ends in a call (var parts = line.Split(',') -> array)
+[completions.returns]
+Trim = "str"
+TrimStart = "str"
+TrimEnd = "str"
+ToUpper = "str"
+ToLower = "str"
+Replace = "str"
+Substring = "str"
+PadLeft = "str"
+PadRight = "str"
+ToString = "str"
+ReadLine = "str"
+Join = "str"
+Concat = "str"
+ReadAllText = "str"
+GetStringAsync = "str"
+Split = "array"
+ToCharArray = "array"
+ToArray = "array"
+ReadAllLines = "array"
+GetFiles = "array"
+ToList = "list"
+Where = "list"
+Select = "list"
+OrderBy = "list"
+OrderByDescending = "list"
+ThenBy = "list"
+GroupBy = "list"
+Distinct = "list"
+Take = "list"
+Skip = "list"
+Zip = "list"
+
+# instance-receiver members that are really statics: accepting one rewrites
+# `myVar.IsNull…` into `string.IsNullOrEmpty(myVar)` ({recv} = the receiver text)
+[completions.staticRewrites]
+str = [
+  ["IsNullOrEmpty()", "bool — static: becomes string.IsNullOrEmpty(x)", "string.IsNullOrEmpty({recv})"],
+  ["IsNullOrWhiteSpace()", "bool — static: becomes string.IsNullOrWhiteSpace(x)", "string.IsNullOrWhiteSpace({recv})"],
+]

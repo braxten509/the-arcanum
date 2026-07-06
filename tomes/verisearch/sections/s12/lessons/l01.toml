@@ -1,0 +1,99 @@
+[[lessons]]
+id = "s12-l01"
+title = "xUnit — proof, not hope"
+body = '''
+
+<p>A unit test is a tiny program that calls your code and asserts what MUST be true. xUnit is the de facto .NET test framework. Setup (a test project beside your main one):</p>
+<pre><code>$ dotnet new xunit -n Verisearch.Tests
+$ dotnet add Verisearch.Tests reference Verisearch
+$ dotnet test              <span class="c"># builds + runs every test, red/green report</span></code></pre>
+<p>Anatomy — <code>[Fact]</code> for single cases, Arrange/Act/Assert inside:</p>
+<pre><code><span class="k">using</span> Xunit;
+
+<span class="k">public class</span> TrustEngineTests
+{
+    [Fact]
+    <span class="k">public void</span> UnknownDomain_GetsUnverifiedDefault()
+    {
+        <span class="k">var</span> engine = <span class="k">new</span> TrustEngine(TestConfig());          <span class="c">// arrange</span>
+        <span class="k">var</span> profile = engine.ProfileFor(<span class="s">"nobody-knows.example"</span>); <span class="c">// act</span>
+        Assert.Equal(SourceTier.Unverified, profile.Tier);    <span class="c">// assert</span>
+    }
+}</code></pre>
+<p><code>[Theory]</code> runs one test body against many inputs — perfect for scoring rules:</p>
+<pre><code>[Theory]
+[InlineData(9.5, <span class="s">"green"</span>)]
+[InlineData(5.0, <span class="s">"yellow"</span>)]
+[InlineData(2.0, <span class="s">"red"</span>)]
+<span class="k">public void</span> TrustColor_MatchesTier(<span class="k">double</span> score, <span class="k">string</span> expected)
+    =&gt; Assert.Contains(expected, ReportRenderer.TrustMarkup(score));</code></pre>
+<p>Assertion vocabulary: <code>Assert.Equal(expected, actual)</code>, <code>Assert.True/False</code>, <code>Assert.Contains</code>, <code>Assert.Empty/NotEmpty</code>, <code>Assert.Throws&lt;T&gt;(() =&gt; ...)</code> — yes, you assert that bad input THROWS the machineht thing.</p>
+<div class="callout">Test naming that survives 3am: <code>Thing_Condition_Expectation</code>. When <code>UnknownDomain_GetsUnverifiedDefault</code> goes red, the failure report IS the bug description.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Test lifecycle:</strong> xUnit creates a NEW instance of the test class for EVERY test — instance fields are per-test, the constructor is your setup, <code>IDisposable.Dispose</code> is teardown. No [SetUp] attributes like other frameworks; the constructor IS the setup.</p>
+<p><strong>Async tests are natural:</strong> <code>[Fact] public async Task Scan_HandlesEmpty() { ... await ... }</code> — the runner awaits them.</p>
+<p><strong>Failure output:</strong> Assert.Equal prints expected vs actual on failure — which is why Equal(expected, actual) argument ORDER matters; swap them and every failure message lies to you.</p></div>'''
+
+[[lessons.readings]]
+label = "xUnit — getting started (v3, command line)"
+url = "https://xunit.net/docs/getting-started/netcore/cmdline"
+essential = true
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Unit testing C# with xUnit\""
+url = "https://learn.microsoft.com/en-us/dotnet/core/testing/unit-testing-csharp-with-xunit"
+essential = true
+
+[[lessons.readings]]
+label = "LinkedIn Learning — C# Unit Testing with xUnit"
+url = "https://www.linkedin.com/learning/c-sharp-unit-testing-with-xunit"
+essential = false
+
+[[lessons.exercises]]
+id = "s12-l01-e1"
+type = "mc"
+points = 20
+prompt = "<code>[Fact]</code> vs <code>[Theory]</code>:"
+choices = ["Fact is deprecated", "Fact = one fixed case; Theory = same test body fed multiple InlineData inputs", "Theory tests are skipped in CI", "Facts can't use Assert"]
+answer = 1
+hint = "Theories are parameterized."
+
+[[lessons.exercises]]
+id = "s12-l01-e2"
+type = "text"
+points = 20
+prompt = "Which command builds and runs the whole test suite?"
+answer = "dotnet test"
+accept = ["dotnet test."]
+hint = "Two words."
+
+[[lessons.exercises]]
+id = "s12-l01-e3"
+type = "mc"
+points = 25
+prompt = "How do you assert that parsing garbage LLM output throws JsonException?"
+choices = ["try/catch with a bool flag", "Assert.Throws<JsonException>(() => Parse(garbage))", "Assert.Equal(JsonException, Parse(garbage))", "You can't test exceptions"]
+answer = 1
+hint = "There's a dedicated assertion that takes a lambda."
+
+[[lessons.exercises]]
+id = "s12-l01-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "A complete Fact — Arrange, Act, Assert. Twice."
+code = '''
+[Fact]
+public void UnknownDomain_GetsUnverifiedDefault()
+{
+    var engine = new TrustEngine(TestConfig());
+    var profile = engine.ProfileFor("nobody.example");
+    Assert.Equal(SourceTier.Unverified, profile.Tier);
+}'''
+
+[[lessons.exercises]]
+id = "s12-l01-w1"
+type = "write"
+points = 36
+prompt = "Build the machinery yourself once: write <code>static void AssertEqual(int expected, int actual)</code> that throws <code>new Exception($\"expected {expected} got {actual}\")</code> on mismatch. Run two passing assertions (2+2==4, 10/2==5), then print <code>2 passed</code>."
+expect = "2 passed"
+hint = "Two calls that don't throw, then one WriteLine. Congratulations, you've written 10% of xUnit."

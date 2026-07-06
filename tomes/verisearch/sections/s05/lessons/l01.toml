@@ -1,0 +1,93 @@
+[[lessons]]
+id = "s05-l01"
+title = "Files — read, write, check"
+body = '''
+
+<p>The <code>File</code> static class covers 90% of file work in one-liners:</p>
+<pre><code><span class="c">// write (creates or overwrites)</span>
+File.WriteAllText(<span class="s">"notes.txt"</span>, <span class="s">"trust nist.gov = 9.5"</span>);
+
+<span class="c">// read the whole thing</span>
+<span class="k">string</span> content = File.ReadAllText(<span class="s">"notes.txt"</span>);
+
+<span class="c">// read as lines</span>
+<span class="k">string</span>[] lines = File.ReadAllLines(<span class="s">"notes.txt"</span>);
+
+<span class="c">// append without clobbering</span>
+File.AppendAllText(<span class="s">"log.txt"</span>, <span class="s">$"[{DateTime.Now}] query ran\n"</span>);
+
+<span class="c">// look before you leap</span>
+<span class="k">if</span> (File.Exists(<span class="s">"config.yaml"</span>)) { ... }
+<span class="k">if</span> (Directory.Exists(<span class="s">"/home/op/.verisearch"</span>)) { ... }
+Directory.CreateDirectory(<span class="s">"/home/op/.verisearch"</span>);   <span class="c">// mkdir -p: no error if it exists</span></code></pre>
+<p>Async variants exist for all of them (<code>ReadAllTextAsync</code>…) — use them inside async code.</p>
+<p>What throws: reading a file that doesn't exist (<code>FileNotFoundException</code>), a folder that doesn't exist in the write path (<code>DirectoryNotFoundException</code>), permissions (<code>UnauthorizedAccessException</code>). The pattern:</p>
+<pre><code><span class="k">try</span>
+{
+    <span class="k">string</span> yaml = File.ReadAllText(configPath);
+}
+<span class="k">catch</span> (FileNotFoundException)
+{
+    Console.WriteLine(<span class="s">"no config found — writing defaults"</span>);
+    WriteDefaultConfig(configPath);
+}</code></pre>
+<div class="callout"><code>File.Exists</code> then <code>ReadAllText</code> has a microscopic race window (file deleted in between). For config loading it's fine — just know that try/catch is the airtight version.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Encoding:</strong> File methods default to UTF-8 — correct for config and virtually everything modern. If a scraped file ever looks like <code>Ã©</code> soup, that's an encoding mismatch.</p>
+<p><strong>Relative paths resolve against the CURRENT WORKING DIRECTORY</strong> — which is wherever the user ran your tool from, not where the exe lives. That's exactly why config belongs at an absolute, computed path like <code>~/.verisearch</code>. (The exe's own folder, if you need it: <code>AppContext.BaseDirectory</code>.)</p>
+<p><strong>Streams exist</strong> below the one-liners: <code>File.OpenRead</code>/<code>StreamReader</code> process gigabyte files line-by-line without loading them whole. Verisearch's configs are tiny — one-liners are correct here; just know the basement exists.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"File and stream I/O\""
+url = "https://learn.microsoft.com/en-us/dotnet/standard/io/"
+essential = true
+
+[[lessons.exercises]]
+id = "s05-l01-e1"
+type = "mc"
+points = 15
+prompt = "<code>File.WriteAllText(path, text)</code> on a file that already exists…"
+choices = ["throws an exception", "appends to it", "overwrites it completely", "creates a backup first"]
+answer = 2
+hint = "Append has its own method."
+
+[[lessons.exercises]]
+id = "s05-l01-e2"
+type = "text"
+points = 20
+prompt = "Which Directory method creates a folder AND all missing parents, without erroring if it already exists?"
+answer = "CreateDirectory"
+accept = ["directory.createdirectory", "createdirectory()"]
+hint = "The .NET equivalent of mkdir -p."
+
+[[lessons.exercises]]
+id = "s05-l01-e3"
+type = "mc"
+points = 20
+prompt = "Reading a nonexistent file with <code>File.ReadAllText</code> throws…"
+choices = ["NullReferenceException", "FileNotFoundException", "IOException only on Windows", "nothing — returns empty string"]
+answer = 1
+hint = "Exactly what it says on the tin."
+
+[[lessons.exercises]]
+id = "s05-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "The read-or-create-defaults shape. Twice."
+code = '''
+try
+{
+    string yaml = File.ReadAllText(configPath);
+}
+catch (FileNotFoundException)
+{
+    WriteDefaultConfig(configPath);
+}'''
+
+[[lessons.exercises]]
+id = "s05-l01-w1"
+type = "write"
+points = 34
+prompt = "Full write-then-read round trip: write the text <code>max_sources: 5</code> to a temp file (<code>Path.GetTempFileName()</code>), read it back, print <code>reloaded: &lt;contents&gt;</code>, then delete the file with <code>File.Delete</code>."
+expect = "reloaded: max_sources: 5"
+hint = "var p = Path.GetTempFileName(); WriteAllText; ReadAllText; WriteLine; Delete."

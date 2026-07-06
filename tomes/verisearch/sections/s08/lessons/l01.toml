@@ -1,0 +1,77 @@
+[[lessons]]
+id = "s08-l01"
+title = "Tasks under the hood — what await actually does"
+body = '''
+
+<p>A <code>Task</code> is a promise-shaped object: "work is in flight; here's a handle to its eventual result (or its exception)." Crucial mental model — <strong>I/O-bound tasks don't use a thread while waiting</strong>. When you await an HTTP response, no thread sits blocked; the OS notifies .NET when bytes arrive and your method <em>resumes</em>.</p>
+<pre><code>Task&lt;<span class="k">string</span>&gt; download = http.GetStringAsync(url);   <span class="c">// work STARTS here</span>
+Console.WriteLine(<span class="s">"request in flight..."</span>);          <span class="c">// runs immediately — not blocked!</span>
+<span class="k">string</span> html = <span class="k">await</span> download;                       <span class="c">// suspend HERE until done</span></code></pre>
+<p>That gap between starting and awaiting is the whole trick of concurrency: <strong>start several, then await them</strong>.</p>
+<p>A Task can be in flight, completed with a value, <em>faulted</em> (holds an exception), or <em>canceled</em>. Awaiting a faulted task re-throws its exception at the await site — errors flow naturally into your try/catch.</p>
+<p>States you can inspect (rarely needed, good to know): <code>IsCompleted</code>, <code>IsFaulted</code>, <code>IsCanceled</code>, <code>Status</code>.</p>
+<p>One more member of the family: <code>Task.Delay(ms)</code> — the async sleep. Never <code>Thread.Sleep</code> in async code; it blocks the thread instead of yielding it.</p>
+<div class="callout">CPU-bound work (heavy math, parsing megabytes) is different: THAT needs a thread, and <code>Task.Run(() =&gt; ...)</code> moves it to the thread pool. Verisearch is almost entirely I/O-bound — network waits — so async/await without Task.Run is the machineht shape.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>The thread pool</strong> is a set of pre-warmed worker threads .NET manages for you. <code>Task.Run(work)</code> queues CPU work onto it; async I/O uses NO thread while waiting (the OS signals completion). Rule: I/O → async/await; heavy CPU → Task.Run; never Task.Run around something already async.</p>
+<p><strong>Console apps have no SynchronizationContext</strong> — continuations resume on any pool thread. This is why you may see <code>ConfigureAwait(false)</code> in library code: it's an opt-out of context capture that matters in UI apps; in your console tool it's a no-op you can ignore.</p>
+<p><strong>AggregateException</strong> is what <code>.Wait()</code>/<code>.Result</code> wrap failures in — awaiting unwraps to the real exception. One more reason the blocking calls are banned.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Async scenarios\""
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/asynchronous-programming/async-scenarios"
+essential = true
+
+[[lessons.readings]]
+label = "Microsoft Learn — Async/Await/Tasks video (C# Advanced ep. 5)"
+url = "https://learn.microsoft.com/en-us/shows/c-advanced/introduction-to-async-await-and-tasks--c-advanced-5-of-8"
+essential = true
+
+[[lessons.exercises]]
+id = "s08-l01-e1"
+type = "mc"
+points = 25
+prompt = "While a program awaits an HTTP response, the thread that started the request is…"
+choices = ["blocked, spinning until bytes arrive", "free — no thread is consumed waiting on I/O; the method resumes on completion", "destroyed and recreated", "converted to a background thread"]
+answer = 1
+hint = "This is THE difference between async waiting and blocking."
+
+[[lessons.exercises]]
+id = "s08-l01-e2"
+type = "mc"
+points = 25
+prompt = "In this code, when does the download START?"
+code = '''
+var t = http.GetStringAsync(url);   // line 1
+DoSomethingElse();                   // line 2
+string html = await t;               // line 3'''
+choices = ["Line 1 — calling the method starts the work", "Line 3 — await starts it", "Only when the result is used", "Line 2"]
+answer = 0
+hint = "await doesn't start work; it waits for work already in flight."
+
+[[lessons.exercises]]
+id = "s08-l01-e3"
+type = "mc"
+points = 20
+prompt = "The async equivalent of Thread.Sleep(1000) is…"
+choices = ["Task.Wait(1000)", "await Task.Delay(1000)", "Thread.SleepAsync(1000)", "await 1000"]
+answer = 1
+hint = "Delay yields the thread; Sleep hogs it."
+
+[[lessons.exercises]]
+id = "s08-l01-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Start-then-await — the two-line trick all concurrency hangs on. Twice."
+code = '''
+Task<string> download = http.GetStringAsync(url);
+DoOtherWorkWhileItFlies();
+string html = await download;'''
+
+[[lessons.exercises]]
+id = "s08-l01-w1"
+type = "write"
+points = 36
+prompt = "Prove concurrency with a stopwatch: start TWO <code>Task.Delay(100)</code> tasks (store both, no await yet), then await both. If <code>System.Diagnostics.Stopwatch</code> shows under 180ms total, print <code>parallel confirmed</code>, else <code>sequential detected</code>."
+expect = "parallel confirmed"
+hint = "var sw = Stopwatch.StartNew(); var t1 = Task.Delay(100); var t2 = Task.Delay(100); await t1; await t2; check sw.ElapsedMilliseconds."

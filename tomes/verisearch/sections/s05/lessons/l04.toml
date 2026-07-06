@@ -1,0 +1,77 @@
+[[lessons]]
+id = "s05-l04"
+title = "Defaults, validation & the self-healing config"
+body = '''
+
+<p>Professional tools follow one rule: <strong>first run must work</strong>. Nobody hand-writes a config before trying your tool. The load sequence:</p>
+<pre><code>LoadConfig():
+  1. dir  = home + .verisearch          → Directory.CreateDirectory (harmless if exists)
+  2. path = dir + config.yaml
+  3. if !File.Exists(path)              → write a default config (with comments!), tell the user
+  4. try Deserialize                    → on YamlException: show the error + line, fall back to defaults
+  5. validate values                    → clamp/repair: max_sources &lt;= 0? use 5. min_trust &gt; 10? use 3.
+  6. return a config that is ALWAYS usable</code></pre>
+<p>Validation after parse — trust nothing:</p>
+<pre><code><span class="k">if</span> (cfg.MaxSources &lt; 1 || cfg.MaxSources &gt; 20)
+{
+    Console.WriteLine(<span class="s">$"config: max_sources={cfg.MaxSources} is nonsense — using 5"</span>);
+    cfg.MaxSources = 5;
+}
+<span class="k">foreach</span> (<span class="k">var</span> d <span class="k">in</span> cfg.DomainTrust)
+    <span class="k">if</span> (!Enum.TryParse&lt;SourceTier&gt;(d.Tier, <span class="k">out</span> _))
+        Console.WriteLine(<span class="s">$"config: unknown tier '{d.Tier}' for {d.Domain}"</span>);</code></pre>
+<p>Finally, convert the raw config rows into your Chapter III model — a <code>Dictionary&lt;string, TrustProfile&gt;</code> keyed by domain for O(1) lookups during scoring. Config shape (easy to edit) and runtime shape (fast to query) are allowed to differ; the loader is the bridge.</p>
+<div class="callout">Write the default YAML with comments explaining every field. Your config file is documentation that happens to parse.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Clamping cleanly:</strong> <code>cfg.MaxSources = Math.Clamp(cfg.MaxSources, 1, 20);</code> — one line replaces the if-ladder when you don't need a custom warning per bound.</p>
+<p><strong>Fail-fast vs self-heal — the actual rule:</strong> heal what has an obvious safe default (counts, thresholds, missing file). Fail fast on what doesn't (an unparseable trust database the user clearly hand-edited — silently ignoring THEIR data is worse than stopping). When you heal, always SAY so; silent repair teaches users their config is ignored.</p>
+<p><strong>Layered config precedence</strong> (Chapter X completes this): built-in defaults &lt; config file &lt; command-line flags. Each layer overrides the last; the loader owns the bottom two.</p></div>'''
+readings = []
+
+[[lessons.exercises]]
+id = "s05-l04-e1"
+type = "mc"
+points = 20
+prompt = "First run, no config file exists. The professional move is…"
+choices = ["crash with FileNotFoundException so the user knows", "silently run with built-in defaults and write nothing", "write a commented default config to disk, tell the user, and continue", "prompt the user to type the whole config interactively"]
+answer = 2
+hint = "First run must work AND leave something editable behind."
+
+[[lessons.exercises]]
+id = "s05-l04-e2"
+type = "mc"
+points = 25
+prompt = "Config loads with <code>max_sources: -3</code>. Best handling?"
+choices = ["Use it — the user knows best", "Crash: invalid config is a fatal error", "Warn, replace with a sane default, continue running", "Round it up to 0"]
+answer = 2
+hint = "Self-healing beats self-destructing for a CLI tool."
+
+[[lessons.exercises]]
+id = "s05-l04-e3"
+type = "mc"
+points = 20
+prompt = "Why convert the config's List of domain entries into a Dictionary keyed by domain at load time?"
+choices = ["YAML can't store lists", "Trust lookups during scoring become O(1) instead of scanning a list per URL", "Dictionaries serialize smaller", "Records require it"]
+answer = 1
+hint = "How many times will you look up a domain per search?"
+
+[[lessons.exercises]]
+id = "s05-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "The warn-and-repair pattern. Twice."
+code = '''
+if (cfg.MaxSources < 1 || cfg.MaxSources > 20)
+{
+    Console.WriteLine($"config: max_sources={cfg.MaxSources} is nonsense — using 5");
+    cfg.MaxSources = 5;
+}'''
+
+[[lessons.exercises]]
+id = "s05-l04-w1"
+type = "write"
+points = 32
+prompt = "Read an int from STDIN as a proposed max_sources. If it's outside 1–20, print <code>repaired to 5</code>; otherwise print <code>accepted &lt;n&gt;</code>."
+stdin = "-3"
+expect = "repaired to 5"
+hint = "Parse, range-check, two branches."

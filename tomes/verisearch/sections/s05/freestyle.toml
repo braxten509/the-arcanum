@@ -1,0 +1,36 @@
+[freestyle]
+title = "THE WORKING: The Ledger of Trust"
+brief = "Give Verisearch its memory: a <code>ConfigLoader</code> class.<ul><li>Finds <code>~/.verisearch/config.yaml</code> portably (GetFolderPath + Path.Combine)</li><li>Creates a commented default config on first run</li><li>Deserializes with YamlDotNet (snake_case convention); survives malformed YAML with a helpful message</li><li>Validates/repairs values; exposes the domain trust data as a <code>Dictionary&lt;string, TrustProfile&gt;</code></li><li>Wire it into the shell: print how many domains loaded on startup; add a <code>trust &lt;domain&gt;</code> command reporting a domain's score/tier (unknown domain → sensible default, not a crash)</li><li>Install YamlDotNet via the PACKAGES button</li></ul>"
+reward = 350
+packages = ["YamlDotNet"]
+xray = "THORNE will mentally delete your config file and re-run: does first-run work AND produce a file with comments? He greps for \"~\" inside string literals (instant deduction) and for GetFolderPath (required). Sneaky check: does your default YAML actually round-trip through your own deserializer — snake_case in the file, convention in the builder? Mismatch = the bug he sees weekly in prod."
+
+[freestyle.badge]
+id = "badge-s05"
+name = "KEEPER OF THE LEDGER"
+desc = "The tome reads its charter from disk and mends its own ledger."
+
+[[freestyle.rubric]]
+criterion = "Compiles & runs first-time"
+weight = 20
+desc = "Fresh machine simulation: no config → default written → tool works."
+
+[[freestyle.rubric]]
+criterion = "Path & file hygiene"
+weight = 20
+desc = "GetFolderPath/Path.Combine, CreateDirectory, exists-checks or exception handling."
+
+[[freestyle.rubric]]
+criterion = "YAML round-trip"
+weight = 20
+desc = "Default config written is valid YAML that the loader itself can re-read; naming convention right."
+
+[[freestyle.rubric]]
+criterion = "Resilience & validation"
+weight = 20
+desc = "Mangled YAML and nonsense values produce warnings + defaults, never a stack trace."
+
+[[freestyle.rubric]]
+criterion = "Model integration & readability"
+weight = 20
+desc = "Dictionary<string,TrustProfile> bridge; trust command works; loader in its own file."

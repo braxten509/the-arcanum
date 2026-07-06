@@ -1,0 +1,1028 @@
+# SPELL DUEL challenge bank. Difficulty = tier order (1..N).
+# Each stage's `expect` is the COMPLETE required stdout at that stage; demands strictly
+# append lines — stages[n].expect == stages[n-1].expect + new lines, never edits.
+# Machine-generated from attacks_src.toml by tools/gen_attacks.py — regenerate, don't hand-edit.
+
+# ---- difficulty 1
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE NAME-FORGING"
+starter = '''
+string name = "vael";
+int ward = 12;
+int leyline = 7;
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Forge the sigil block. Print exactly three lines: «SIGIL vael @ WARD 12», «LEYLINE THREAD 7», «BINDING SOUGHT» — woven from the variables with interpolation, values not hardcoded."
+expect = '''
+SIGIL vael @ WARD 12
+LEYLINE THREAD 7
+BINDING SOUGHT'''
+
+[[tiers.pool.stages]]
+brief = "Compute the seal key: ward * leyline + name.Length. Append «KEY 88» (computed) and «BINDING GRANTED»."
+expect = '''
+SIGIL vael @ WARD 12
+LEYLINE THREAD 7
+BINDING SOUGHT
+KEY 88
+BINDING GRANTED'''
+
+[[tiers.pool.stages]]
+brief = "Append the key's parity («PARITY ODD» or «PARITY EVEN»), the rite tag «RITE <ward><leyline>» (digits joined), then «SEAL SET»."
+expect = '''
+SIGIL vael @ WARD 12
+LEYLINE THREAD 7
+BINDING SOUGHT
+KEY 88
+BINDING GRANTED
+PARITY EVEN
+RITE 127
+SEAL SET'''
+
+[[tiers.pool]]
+t = "THE NUMBERED LOCK"
+starter = '''
+int glyphs = 4735;
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Split the 4-glyph ward into its digits using / and % arithmetic (no strings). Print each on its own line as «GLYPH <d>», the thousandfold glyph first."
+expect = '''
+GLYPH 4
+GLYPH 7
+GLYPH 3
+GLYPH 5'''
+
+[[tiers.pool.stages]]
+brief = "Append «SUM <sum of glyphs>» and «PRODUCT <product of glyphs>» — computed, not hardcoded."
+expect = '''
+GLYPH 4
+GLYPH 7
+GLYPH 3
+GLYPH 5
+SUM 19
+PRODUCT 420'''
+
+[[tiers.pool.stages]]
+brief = "Append «REVERSED <ward reversed>» (4735 → 5374) then «LOCK SPRUNG»."
+expect = '''
+GLYPH 4
+GLYPH 7
+GLYPH 3
+GLYPH 5
+SUM 19
+PRODUCT 420
+REVERSED 5374
+LOCK SPRUNG'''
+
+# ---- difficulty 2
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE WARDEN'S LEDGER"
+starter = '''
+int[] motes = { 512, 1400, 64, 2048, 128, 900 };
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Scan the ward's ledger. For each wisp print «WISP <n> <weight> <FLAG>» — n is 1-based, FLAG is BANE if weight > 1000 else CALM. Then print «WARD SCANNED»."
+expect = '''
+WISP 1 512 CALM
+WISP 2 1400 BANE
+WISP 3 64 CALM
+WISP 4 2048 BANE
+WISP 5 128 CALM
+WISP 6 900 CALM
+WARD SCANNED'''
+
+[[tiers.pool.stages]]
+brief = "Append the tally «BANE <count> / <total>» and «BANISHED <sum of bane weights>»."
+expect = '''
+WISP 1 512 CALM
+WISP 2 1400 BANE
+WISP 3 64 CALM
+WISP 4 2048 BANE
+WISP 5 128 CALM
+WISP 6 900 CALM
+WARD SCANNED
+BANE 2 / 6
+BANISHED 3448'''
+
+[[tiers.pool.stages]]
+brief = "Append «PEAK <largest bane weight>» (computed), then the verdict: «PORTENT RED» if 3+ banes, «PORTENT AMBER» if 1-2, else «PORTENT GREEN»."
+expect = '''
+WISP 1 512 CALM
+WISP 2 1400 BANE
+WISP 3 64 CALM
+WISP 4 2048 BANE
+WISP 5 128 CALM
+WISP 6 900 CALM
+WARD SCANNED
+BANE 2 / 6
+BANISHED 3448
+PEAK 2048
+PORTENT AMBER'''
+
+[[tiers.pool]]
+t = "THE LATTICE SWEEP"
+starter = '''
+// The scrying lattice is 4x4. The mote at row r, column c burns at r * c (both 1-based).
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Sweep the 4x4 lattice with nested loops. For each row r print «ROW <r>: <v1> <v2> <v3> <v4>» where each mote is r*c, then print «SWEEP DONE»."
+expect = '''
+ROW 1: 1 2 3 4
+ROW 2: 2 4 6 8
+ROW 3: 3 6 9 12
+ROW 4: 4 8 12 16
+SWEEP DONE'''
+
+[[tiers.pool.stages]]
+brief = "Append «DIAGONAL <sum of motes where r == c>» and «TOTAL <sum of all motes>»."
+expect = '''
+ROW 1: 1 2 3 4
+ROW 2: 2 4 6 8
+ROW 3: 3 6 9 12
+ROW 4: 4 8 12 16
+SWEEP DONE
+DIAGONAL 30
+TOTAL 100'''
+
+[[tiers.pool.stages]]
+brief = "Append one line per row: «ROW <r> BRIGHT» if that row's sum > 20, else «ROW <r> DIM»."
+expect = '''
+ROW 1: 1 2 3 4
+ROW 2: 2 4 6 8
+ROW 3: 3 6 9 12
+ROW 4: 4 8 12 16
+SWEEP DONE
+DIAGONAL 30
+TOTAL 100
+ROW 1 DIM
+ROW 2 DIM
+ROW 3 BRIGHT
+ROW 4 BRIGHT'''
+
+# ---- difficulty 3
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE ROLL OF ADEPTS"
+starter = '''
+var adepts = new List<Adept> {
+    new("orin", 9, 42), new("vesper", 3, 17), new("sable", 5, 88), new("wren", 7, 5),
+};
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Adept(string Name, int Circle, int Rites);
+'''
+
+[[tiers.pool.stages]]
+brief = "Print the roll: one line per adept «ADEPT <name> C<circle> R<rites>», then «ROLL 4 ADEPTS» (count computed)."
+expect = '''
+ADEPT orin C9 R42
+ADEPT vesper C3 R17
+ADEPT sable C5 R88
+ADEPT wren C7 R5
+ROLL 4 ADEPTS'''
+
+[[tiers.pool.stages]]
+brief = "Might = Circle * 10 + Rites. Append «FOREMOST <name> <might>» for the highest and «MEAN CIRCLE <integer average>»."
+expect = '''
+ADEPT orin C9 R42
+ADEPT vesper C3 R17
+ADEPT sable C5 R88
+ADEPT wren C7 R5
+ROLL 4 ADEPTS
+FOREMOST sable 138
+MEAN CIRCLE 6'''
+
+[[tiers.pool.stages]]
+brief = "Rank each adept by circle — 8+ ARCHMAGE, 5+ ADEPT, else NOVICE. Append one line per adept: «<name> <RANK>»."
+expect = '''
+ADEPT orin C9 R42
+ADEPT vesper C3 R17
+ADEPT sable C5 R88
+ADEPT wren C7 R5
+ROLL 4 ADEPTS
+FOREMOST sable 138
+MEAN CIRCLE 6
+orin ARCHMAGE
+vesper NOVICE
+sable ADEPT
+wren ADEPT'''
+
+[[tiers.pool]]
+t = "THE RITE OF AUDIT"
+starter = '''
+int[] omens = { 3, 8, 1, 9, 5, 2 };
+// Peril of an omen: 8+ = Dire, 4-7 = Stirring, otherwise Calm.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+enum Peril { Calm, Stirring, Dire }
+'''
+
+[[tiers.pool.stages]]
+brief = "Map each omen to its Peril (8+ Dire, 4+ Stirring, else Calm) using the enum, and print «OMEN <c> <PERIL>» in caps (hint: ToString().ToUpper())."
+expect = '''
+OMEN 3 CALM
+OMEN 8 DIRE
+OMEN 1 CALM
+OMEN 9 DIRE
+OMEN 5 STIRRING
+OMEN 2 CALM'''
+
+[[tiers.pool.stages]]
+brief = "Append the counts: «CALM <n>», «STIRRING <n>», «DIRE <n>»."
+expect = '''
+OMEN 3 CALM
+OMEN 8 DIRE
+OMEN 1 CALM
+OMEN 9 DIRE
+OMEN 5 STIRRING
+OMEN 2 CALM
+CALM 3
+STIRRING 1
+DIRE 2'''
+
+[[tiers.pool.stages]]
+brief = "Append «GRAVEST <highest omen>» and the verdict: «AUDIT FAILED» if 2+ omens are Dire, else «AUDIT PASSED»."
+expect = '''
+OMEN 3 CALM
+OMEN 8 DIRE
+OMEN 1 CALM
+OMEN 9 DIRE
+OMEN 5 STIRRING
+OMEN 2 CALM
+CALM 3
+STIRRING 1
+DIRE 2
+GRAVEST 9
+AUDIT FAILED'''
+
+# ---- difficulty 4
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE SEALED PARCELS"
+starter = '''
+using System.Text.Json;
+
+string manifest = """
+[
+  {"id": 1, "ward": "rune", "weight": 512},
+  {"id": 2, "ward": "ash", "weight": 2048},
+  {"id": 3, "ward": "rune", "weight": 128},
+  {"id": 4, "ward": "salt", "weight": 4096}
+]
+""";
+// JsonSerializer.Deserialize<List<Parcel>>(manifest) — property names match case-sensitively.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Parcel(int id, string ward, int weight);
+'''
+
+[[tiers.pool.stages]]
+brief = "Decode the sealed manifest into List<Parcel>. Print «PARCEL <id> <ward> <weight>» per parcel, then «DECODED 4 PARCELS» (count computed)."
+expect = '''
+PARCEL 1 rune 512
+PARCEL 2 ash 2048
+PARCEL 3 rune 128
+PARCEL 4 salt 4096
+DECODED 4 PARCELS'''
+
+[[tiers.pool.stages]]
+brief = "Append «RUNE WEIGHT <sum of rune-warded weights>» and «HEAVIEST <id> <ward>» for the largest parcel."
+expect = '''
+PARCEL 1 rune 512
+PARCEL 2 ash 2048
+PARCEL 3 rune 128
+PARCEL 4 salt 4096
+DECODED 4 PARCELS
+RUNE WEIGHT 640
+HEAVIEST 4 salt'''
+
+[[tiers.pool.stages]]
+brief = "Seal the summary «new { count = <count>, weight = <sum of all weights> }» with JsonSerializer and print the JSON, then «MANIFEST SEALED»."
+expect = '''
+PARCEL 1 rune 512
+PARCEL 2 ash 2048
+PARCEL 3 rune 128
+PARCEL 4 salt 4096
+DECODED 4 PARCELS
+RUNE WEIGHT 640
+HEAVIEST 4 salt
+{"count":4,"weight":6784}
+MANIFEST SEALED'''
+
+[[tiers.pool]]
+t = "THE STOLEN CHARTER"
+starter = '''
+using System.Text.Json;
+
+string charter = """
+{"spire": {"name": "spire-7", "gate": 8443, "warded": true}, "circle": ["vael", "morda", "wren"], "seals": 5}
+""";
+// JsonDocument.Parse(charter).RootElement — GetProperty / GetString / GetInt32 / GetBoolean / EnumerateArray.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Walk the stolen charter with JsonDocument. Print «SPIRE spire-7», «GATE 8443», «SEALS 5» — all read from the parchment, never hardcoded."
+expect = '''
+SPIRE spire-7
+GATE 8443
+SEALS 5'''
+
+[[tiers.pool.stages]]
+brief = "Enumerate the circle array: «MEMBER <name>» per entry, then «CIRCLE <count>»."
+expect = '''
+SPIRE spire-7
+GATE 8443
+SEALS 5
+MEMBER vael
+MEMBER morda
+MEMBER wren
+CIRCLE 3'''
+
+[[tiers.pool.stages]]
+brief = "Append the verdicts: «WARD SET» if spire.warded is true (else «WARD BROKEN»), «GATE HIGH» if gate >= 8000 (else «GATE LOW»), then «CHARTER READ»."
+expect = '''
+SPIRE spire-7
+GATE 8443
+SEALS 5
+MEMBER vael
+MEMBER morda
+MEMBER wren
+CIRCLE 3
+WARD SET
+GATE HIGH
+CHARTER READ'''
+
+# ---- difficulty 5
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE HIDDEN CACHE"
+starter = '''
+string path = "cache.rune";
+string[] runes = { "name=vael", "ward=12", "bound=true" };
+// File.WriteAllLines / File.ReadAllLines / File.AppendAllText — the working directory is writable.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Inscribe the runes onto the cache stone, read them back FROM DISK, print each recovered line as «RUNE <line>», then «STORED 3 RUNES» (count from the stone, not the array)."
+expect = '''
+RUNE name=vael
+RUNE ward=12
+RUNE bound=true
+STORED 3 RUNES'''
+
+[[tiers.pool.stages]]
+brief = "Parse each recovered key=value rune (Split on '=') and append «BOUND <key> = <value>» per line."
+expect = '''
+RUNE name=vael
+RUNE ward=12
+RUNE bound=true
+STORED 3 RUNES
+BOUND name = vael
+BOUND ward = 12
+BOUND bound = true'''
+
+[[tiers.pool.stages]]
+brief = "Inscribe one more rune «seal=true» onto the stone, re-read it, print «RUNES NOW <count>» then «CACHE SEALED»."
+expect = '''
+RUNE name=vael
+RUNE ward=12
+RUNE bound=true
+STORED 3 RUNES
+BOUND name = vael
+BOUND ward = 12
+BOUND bound = true
+RUNES NOW 4
+CACHE SEALED'''
+
+[[tiers.pool]]
+t = "THE SCOURED CHRONICLE"
+starter = '''
+string path = "chronicle.log";
+string[] entries = {
+    "MARK the candle lit", "WHISPER a draft stirs", "MARK the ward holds", "WHISPER dust settles", "OMEN the glass cracks 91",
+};
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Inscribe the entries into the chronicle, read it back, and print «KEEP <line>» for every line that does NOT start with WHISPER, then «SCANNED 5» (total lines read)."
+expect = '''
+KEEP MARK the candle lit
+KEEP MARK the ward holds
+KEEP OMEN the glass cracks 91
+SCANNED 5'''
+
+[[tiers.pool.stages]]
+brief = "Overwrite the chronicle with only the kept lines. Append «SCOURED <removed count>» and «CHRONICLE <line count>» re-read from disk."
+expect = '''
+KEEP MARK the candle lit
+KEEP MARK the ward holds
+KEEP OMEN the glass cracks 91
+SCANNED 5
+SCOURED 2
+CHRONICLE 3'''
+
+[[tiers.pool.stages]]
+brief = "Find the OMEN line in the scoured chronicle and print «PORTENT <text after 'OMEN '>», then «SCOUR COMPLETE»."
+expect = '''
+KEEP MARK the candle lit
+KEEP MARK the ward holds
+KEEP OMEN the glass cracks 91
+SCANNED 5
+SCOURED 2
+CHRONICLE 3
+PORTENT the glass cracks 91
+SCOUR COMPLETE'''
+
+# ---- difficulty 6
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE MIRROR'S GLEANING"
+starter = '''
+string vision = "<html><head><title>THE OBSIDIAN MIRROR</title></head><body>"
+    + "<a href=\"/relics/emberglass.rune\">emberglass</a>"
+    + "<a href=\"/relics/nightshade.rune\">nightshade</a>"
+    + "<p>a decoy vision</p><a href=\"/leave\">leave</a></body></html>";
+// IndexOf / Substring / Split are enough — no parser library needed.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Scry the mirror's page. Extract the <title> text with IndexOf/Substring and print «TITLE <text>», then count the wardlinks and print «LINKS <n>»."
+expect = '''
+TITLE THE OBSIDIAN MIRROR
+LINKS 3'''
+
+[[tiers.pool.stages]]
+brief = "Extract every href value and print «HREF <value>» in page order."
+expect = '''
+TITLE THE OBSIDIAN MIRROR
+LINKS 3
+HREF /relics/emberglass.rune
+HREF /relics/nightshade.rune
+HREF /leave'''
+
+[[tiers.pool.stages]]
+brief = "For hrefs under /relics/, print «RELIC <NAME>» (name without path or .rune extension, uppercased), then «GLEANING DONE»."
+expect = '''
+TITLE THE OBSIDIAN MIRROR
+LINKS 3
+HREF /relics/emberglass.rune
+HREF /relics/nightshade.rune
+HREF /leave
+RELIC EMBERGLASS
+RELIC NIGHTSHADE
+GLEANING DONE'''
+
+[[tiers.pool]]
+t = "THE HARVEST OF MARKS"
+starter = '''
+string charm = "<ward><rune>a</rune><rune>b</rune><seal>c</seal><ward><rune>d</rune></ward></ward>";
+// Split on '<'; closing marks start with '/'; the text sits after the '>'.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Harvest the opening marks. Count each mark type (ignore closing marks) and print «<mark> <count>» in order of first appearance (ward first)."
+expect = '''
+ward 2
+rune 3
+seal 1'''
+
+[[tiers.pool.stages]]
+brief = "Append «TOTAL MARKS <sum of counts>» and «UNIQUE <distinct mark count>»."
+expect = '''
+ward 2
+rune 3
+seal 1
+TOTAL MARKS 6
+UNIQUE 3'''
+
+[[tiers.pool.stages]]
+brief = "Harvest the text woven between marks in order and print «WOVEN <joined>» (e.g. abcd), then «HARVEST DONE»."
+expect = '''
+ward 2
+rune 3
+seal 1
+TOTAL MARKS 6
+UNIQUE 3
+WOVEN abcd
+HARVEST DONE'''
+
+# ---- difficulty 7
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE SORTING OF VOICES"
+starter = '''
+var voices = new List<Voice> {
+    new("ember", 72, "ash"), new("frost", 15, "salt"), new("gale", 91, "ash"),
+    new("tide", 44, "bone"), new("shade", 88, "salt"), new("stone", 8, "ash"),
+};
+// LINQ territory: Where / OrderByDescending / GroupBy / Aggregate.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Voice(string Name, int Clarity, string Tongue);
+'''
+
+[[tiers.pool.stages]]
+brief = "Sort the voices with LINQ: those with Clarity >= 40, clearest first — print «VOICE <name> <clarity>» each, then «SORTED <kept> / <total>»."
+expect = '''
+VOICE gale 91
+VOICE shade 88
+VOICE ember 72
+VOICE tide 44
+SORTED 4 / 6'''
+
+[[tiers.pool.stages]]
+brief = "GroupBy tongue over ALL voices, groups ordered by count descending: «TONGUE <tongue> <count>» each."
+expect = '''
+VOICE gale 91
+VOICE shade 88
+VOICE ember 72
+VOICE tide 44
+SORTED 4 / 6
+TONGUE ash 3
+TONGUE salt 2
+TONGUE bone 1'''
+
+[[tiers.pool.stages]]
+brief = "Append «MEAN CLARITY <integer avg over all>», «CHORD <XOR of all clarities>» (Aggregate), then «SORTING DONE»."
+expect = '''
+VOICE gale 91
+VOICE shade 88
+VOICE ember 72
+VOICE tide 44
+SORTED 4 / 6
+TONGUE ash 3
+TONGUE salt 2
+TONGUE bone 1
+MEAN CLARITY 53
+CHORD 96
+SORTING DONE'''
+
+[[tiers.pool]]
+t = "THE BOUNTY BOARD"
+starter = '''
+var contracts = new List<Contract> {
+    new("grave-owl", 900), new("ashen-wyrm", 2400), new("fen-shade", 600), new("mire-moth", 1500),
+};
+// OrderByDescending / Sum / Average / Func<Contract, bool> predicates.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Contract(string Quarry, int Reward);
+'''
+
+[[tiers.pool.stages]]
+brief = "Rank the board: order by reward descending and print «<rank>. <quarry> <reward>c» (rank 1-based), then «BOARD 4 CONTRACTS»."
+expect = '''
+1. ashen-wyrm 2400c
+2. mire-moth 1500c
+3. grave-owl 900c
+4. fen-shade 600c
+BOARD 4 CONTRACTS'''
+
+[[tiers.pool.stages]]
+brief = "Append «PURSE <total>c» and «MEAN <integer average>c»."
+expect = '''
+1. ashen-wyrm 2400c
+2. mire-moth 1500c
+3. grave-owl 900c
+4. fen-shade 600c
+BOARD 4 CONTRACTS
+PURSE 5400c
+MEAN 1350c'''
+
+[[tiers.pool.stages]]
+brief = "Define a Func<Contract, bool> for rewards >= 1200; print «PRIME <quarry>» for each match in ranked order, then «BOARD SEALED»."
+expect = '''
+1. ashen-wyrm 2400c
+2. mire-moth 1500c
+3. grave-owl 900c
+4. fen-shade 600c
+BOARD 4 CONTRACTS
+PURSE 5400c
+MEAN 1350c
+PRIME ashen-wyrm
+PRIME mire-moth
+BOARD SEALED'''
+
+# ---- difficulty 8
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE FOURFOLD SIEVE"
+starter = '''
+var wells = new[] { "well-3", "well-1", "well-7", "well-4" };
+
+// Scry them CONCURRENTLY — Task.WhenAll, not one-by-one awaits.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+async Task<int> Scry(string well)
+{
+    await Task.Delay(30);
+    return 700 + (well[^1] - '0');
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Scry all four wells at once with Task.WhenAll (readings return in cast order). Print «<well> <depth>» each, then «SCRIED 4 WELLS»."
+expect = '''
+well-3 703
+well-1 701
+well-7 707
+well-4 704
+SCRIED 4 WELLS'''
+
+[[tiers.pool.stages]]
+brief = "Append «SHALLOWEST <well> <depth>» and «MEAN <integer average>»."
+expect = '''
+well-3 703
+well-1 701
+well-7 707
+well-4 704
+SCRIED 4 WELLS
+SHALLOWEST well-1 701
+MEAN 703'''
+
+[[tiers.pool.stages]]
+brief = "Wells under 705 are clear: print «CLEAR <well>» sorted by depth ascending, then «SIEVE DONE»."
+expect = '''
+well-3 703
+well-1 701
+well-7 707
+well-4 704
+SCRIED 4 WELLS
+SHALLOWEST well-1 701
+MEAN 703
+CLEAR well-1
+CLEAR well-3
+CLEAR well-4
+SIEVE DONE'''
+
+[[tiers.pool]]
+t = "THE RELAY OF COURIERS"
+starter = '''
+// Ride returns "waystone-<n> reached" after a short delay.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+async Task<string> Ride(int n)
+{
+    await Task.Delay(20);
+    return $"waystone-{n} reached";
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Send couriers to waystones 1-3 SEQUENTIALLY (await each before the next) printing «RIDE <result>» per waystone, then «ROAD OPEN»."
+expect = '''
+RIDE waystone-1 reached
+RIDE waystone-2 reached
+RIDE waystone-3 reached
+ROAD OPEN'''
+
+[[tiers.pool.stages]]
+brief = "Send couriers to waystones 4-6 CONCURRENTLY with Task.WhenAll; print «SWIFT <result>» each in order, then «SWIFT DONE»."
+expect = '''
+RIDE waystone-1 reached
+RIDE waystone-2 reached
+RIDE waystone-3 reached
+ROAD OPEN
+SWIFT waystone-4 reached
+SWIFT waystone-5 reached
+SWIFT waystone-6 reached
+SWIFT DONE'''
+
+[[tiers.pool.stages]]
+brief = "Append «WAYSTONES 6» (computed from your two phases, not hardcoded) and «RELAY SEALED»."
+expect = '''
+RIDE waystone-1 reached
+RIDE waystone-2 reached
+RIDE waystone-3 reached
+ROAD OPEN
+SWIFT waystone-4 reached
+SWIFT waystone-5 reached
+SWIFT waystone-6 reached
+SWIFT DONE
+WAYSTONES 6
+RELAY SEALED'''
+
+# ---- difficulty 9
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE ORACLE'S RANKING"
+starter = '''
+string query = "shadow ward flame";
+string[] verses = {
+    "the ward holds against flame",
+    "shadow creeps past the ward",
+    "the sky is clear tonight",
+    "flame ward shadow all three bound",
+};
+// Score = how many query words appear in the verse (Split + Contains).
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Consult the oracle: score each verse = count of query words it holds (split both on spaces). Print «VERSE <n> SCORE <s>» (1-based), then «SCORED 4 VERSES»."
+expect = '''
+VERSE 1 SCORE 2
+VERSE 2 SCORE 2
+VERSE 3 SCORE 0
+VERSE 4 SCORE 3
+SCORED 4 VERSES'''
+
+[[tiers.pool.stages]]
+brief = "Rank verses by score descending (ties: lower number first): «RANK <r> VERSE <n>» each."
+expect = '''
+VERSE 1 SCORE 2
+VERSE 2 SCORE 2
+VERSE 3 SCORE 0
+VERSE 4 SCORE 3
+SCORED 4 VERSES
+RANK 1 VERSE 4
+RANK 2 VERSE 1
+RANK 3 VERSE 2
+RANK 4 VERSE 3'''
+
+[[tiers.pool.stages]]
+brief = "Verses scoring 2+ ring true. Append «TRUE <count>», «HOLLOW <count>», then «ORACLE DONE»."
+expect = '''
+VERSE 1 SCORE 2
+VERSE 2 SCORE 2
+VERSE 3 SCORE 0
+VERSE 4 SCORE 3
+SCORED 4 VERSES
+RANK 1 VERSE 4
+RANK 2 VERSE 1
+RANK 3 VERSE 2
+RANK 4 VERSE 3
+TRUE 3
+HOLLOW 1
+ORACLE DONE'''
+
+[[tiers.pool]]
+t = "THE WEIGHING OF WORDS"
+starter = '''
+string prophecy = "The Pale Wyrm wakes at dusk";
+string[] accounts = {
+    "pale wyrm seen at dusk",
+    "wyrm sleeps all winter",
+    "the pale wyrm wakes at dusk indeed",
+};
+// Normalize with ToLower, split on spaces, count DISTINCT prophecy words each account holds.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Weigh the accounts: lowercase the prophecy, split into words; for each account count how many DISTINCT prophecy words it holds. Print «ACCOUNT <n> MATCH <m>», then «WEIGHED 3»."
+expect = '''
+ACCOUNT 1 MATCH 4
+ACCOUNT 2 MATCH 1
+ACCOUNT 3 MATCH 6
+WEIGHED 3'''
+
+[[tiers.pool.stages]]
+brief = "Trust = matched * 100 / <prophecy word count> (integer math). Append «TRUST <n> <pct>%» per account."
+expect = '''
+ACCOUNT 1 MATCH 4
+ACCOUNT 2 MATCH 1
+ACCOUNT 3 MATCH 6
+WEIGHED 3
+TRUST 1 66%
+TRUST 2 16%
+TRUST 3 100%'''
+
+[[tiers.pool.stages]]
+brief = "Verdicts: 80%+ TRUE, 50%+ PARTIAL, else FALSE. Append «ACCOUNT <n> <VERDICT>» each, then «WEIGHING DONE»."
+expect = '''
+ACCOUNT 1 MATCH 4
+ACCOUNT 2 MATCH 1
+ACCOUNT 3 MATCH 6
+WEIGHED 3
+TRUST 1 66%
+TRUST 2 16%
+TRUST 3 100%
+ACCOUNT 1 PARTIAL
+ACCOUNT 2 FALSE
+ACCOUNT 3 TRUE
+WEIGHING DONE'''
+
+# ---- difficulty 10
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE WAR TABLE"
+starter = '''
+var hexes = new List<Hex> {
+    new("vael", "east-spire", 3), new("morda", "old-vault", 1), new("sable", "deep-well", 5),
+};
+// Pipe-separated table rows: | cell | cell | cell |
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Hex(string Caster, string Target, int Fury);
+'''
+
+[[tiers.pool.stages]]
+brief = "Set the war table. Print the header «| CASTER | TARGET | FURY |» then one row per hex «| <caster> | <target> | <fury> |» in list order."
+expect = '''
+| CASTER | TARGET | FURY |
+| vael | east-spire | 3 |
+| morda | old-vault | 1 |
+| sable | deep-well | 5 |'''
+
+[[tiers.pool.stages]]
+brief = "Append the totals row «| TOTAL | <n> HEXES | <fury sum> |» — computed."
+expect = '''
+| CASTER | TARGET | FURY |
+| vael | east-spire | 3 |
+| morda | old-vault | 1 |
+| sable | deep-well | 5 |
+| TOTAL | 3 HEXES | 9 |'''
+
+[[tiers.pool.stages]]
+brief = "Re-print the hexes sorted by fury descending with a rating instead of the number (5+ DIRE, 2+ STIRRING, else FAINT): «| <caster> | <target> | <RATING> |», then «WAR TABLE SET»."
+expect = '''
+| CASTER | TARGET | FURY |
+| vael | east-spire | 3 |
+| morda | old-vault | 1 |
+| sable | deep-well | 5 |
+| TOTAL | 3 HEXES | 9 |
+| sable | deep-well | DIRE |
+| vael | east-spire | STIRRING |
+| morda | old-vault | FAINT |
+WAR TABLE SET'''
+
+[[tiers.pool]]
+t = "THE BOARD OF STANDINGS"
+starter = '''
+var wards = new (string Name, int Strain)[] { ("veil", 62), ("hearth", 91), ("threshold", 17) };
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Render the board: «== BOARD OF STANDINGS ==», then «| <ward> | <strain>% |» per ward in order."
+expect = '''
+== BOARD OF STANDINGS ==
+| veil | 62% |
+| hearth | 91% |
+| threshold | 17% |'''
+
+[[tiers.pool.stages]]
+brief = "Append «PEAK <ward> <strain>%» for the highest strain and «MEAN <integer average>%»."
+expect = '''
+== BOARD OF STANDINGS ==
+| veil | 62% |
+| hearth | 91% |
+| threshold | 17% |
+PEAK hearth 91%
+MEAN 56%'''
+
+[[tiers.pool.stages]]
+brief = "Append «FAILING <ward>» for every ward at 90%+ strain, then «== END ==»."
+expect = '''
+== BOARD OF STANDINGS ==
+| veil | 62% |
+| hearth | 91% |
+| threshold | 17% |
+PEAK hearth 91%
+MEAN 56%
+FAILING hearth
+== END =='''
+
+# ---- difficulty 11
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE UNBROKEN CHAIN"
+starter = '''
+using System.Text.Json;
+
+string feed = """
+[
+  {"name": "east-spire", "open": true, "peril": 8},
+  {"name": "old-vault", "open": false, "peril": 3},
+  {"name": "deep-well", "open": true, "peril": 9},
+  {"name": "north-gate", "open": true, "peril": 2}
+]
+""";
+// Full working: deserialize -> filter -> sort -> stone -> reckoning.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Ward(string name, bool open, int peril);
+'''
+
+[[tiers.pool.stages]]
+brief = "Forge the chain: deserialize the feed, keep open wards, sort by peril descending. Print «WARD <name> PERIL <peril>» each, then «CHAIN <count> WARDS»."
+expect = '''
+WARD deep-well PERIL 9
+WARD east-spire PERIL 8
+WARD north-gate PERIL 2
+CHAIN 3 WARDS'''
+
+[[tiers.pool.stages]]
+brief = "Inscribe the wards to chain.rune as «<name>:<peril>» lines, read the file back, print «BOUND <line>» per line, then «STONE OK»."
+expect = '''
+WARD deep-well PERIL 9
+WARD east-spire PERIL 8
+WARD north-gate PERIL 2
+CHAIN 3 WARDS
+BOUND deep-well:9
+BOUND east-spire:8
+BOUND north-gate:2
+STONE OK'''
+
+[[tiers.pool.stages]]
+brief = "Append «PERIL SUM <sum over wards>», the call («SEAL NOW» if any ward peril >= 9 else «SEAL HOLD»), then «CHAIN COMPLETE»."
+expect = '''
+WARD deep-well PERIL 9
+WARD east-spire PERIL 8
+WARD north-gate PERIL 2
+CHAIN 3 WARDS
+BOUND deep-well:9
+BOUND east-spire:8
+BOUND north-gate:2
+STONE OK
+PERIL SUM 19
+SEAL NOW
+CHAIN COMPLETE'''
+
+[[tiers.pool]]
+t = "THE FINAL RITE"
+starter = '''
+using System.Text.Json;
+
+string rite = """
+{"minPower": 50, "sigils": [
+  {"name": "emberglass", "power": 72},
+  {"name": "dead-rune", "power": 12},
+  {"name": "core-ward", "power": 95},
+  {"name": "mist-gate", "power": 50}
+]}
+""";
+// Read -> gather -> bind concurrently -> chord. Everything you've got.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+async Task<string> Bind(string name)
+{
+    await Task.Delay(25);
+    return $"{name} bound";
+}
+
+record Sigil(string name, int power);
+'''
+
+[[tiers.pool.stages]]
+brief = "Read the rite (JsonDocument or records — your call). Gather sigils with power >= minPower: print «GATHERED <name> <power>» each in order, then «RITE <gathered> / <total>»."
+expect = '''
+GATHERED emberglass 72
+GATHERED core-ward 95
+GATHERED mist-gate 50
+RITE 3 / 4'''
+
+[[tiers.pool.stages]]
+brief = "Bind the gathered sigils ALL AT ONCE (Task.WhenAll): print «>> <result>» each in order, then «ALL BOUND»."
+expect = '''
+GATHERED emberglass 72
+GATHERED core-ward 95
+GATHERED mist-gate 50
+RITE 3 / 4
+>> emberglass bound
+>> core-ward bound
+>> mist-gate bound
+ALL BOUND'''
+
+[[tiers.pool.stages]]
+brief = "Append «CHORD <XOR of gathered powers>», «KEYSTONE <strongest gathered name>», then «RITE COMPLETE»."
+expect = '''
+GATHERED emberglass 72
+GATHERED core-ward 95
+GATHERED mist-gate 50
+RITE 3 / 4
+>> emberglass bound
+>> core-ward bound
+>> mist-gate bound
+ALL BOUND
+CHORD 37
+KEYSTONE core-ward
+RITE COMPLETE'''
+

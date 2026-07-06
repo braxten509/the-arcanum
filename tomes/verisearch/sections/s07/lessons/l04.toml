@@ -1,0 +1,91 @@
+[[lessons]]
+id = "s07-l04"
+title = "Lazy evaluation — LINQ's hidden foot-gun"
+body = '''
+
+<p>A LINQ query is a <strong>description of work, not the work</strong>. Nothing runs until something enumerates it:</p>
+<pre><code><span class="k">var</span> q = results.Where(r =&gt; { Console.WriteLine(<span class="s">$"testing {r.Url}"</span>); <span class="k">return</span> r.Trust &gt; 3; });
+Console.WriteLine(<span class="s">"query built"</span>);
+<span class="c">// output so far: "query built" — the Where has NOT run!</span>
+
+<span class="k">foreach</span> (<span class="k">var</span> r <span class="k">in</span> q) { }        <span class="c">// NOW "testing ..." prints — enumeration triggers it</span></code></pre>
+<p>Consequence #1 — <strong>multiple enumeration</strong> re-runs the whole pipeline:</p>
+<pre><code><span class="k">var</span> trusted = results.Where(ExpensiveTrustCheck);
+Console.WriteLine(trusted.Count());       <span class="c">// runs every check</span>
+<span class="k">foreach</span> (<span class="k">var</span> r <span class="k">in</span> trusted) Print(r);      <span class="c">// runs every check AGAIN</span></code></pre>
+<p>Fix: materialize once with <code>.ToList()</code> when you'll use results more than once, or when you want the work to happen NOW (e.g., inside a try/catch — a lazy query throws where it's <em>enumerated</em>, not where it's <em>written</em>).</p>
+<p>Consequence #2 — <strong>captured variables evaluate late</strong>:</p>
+<pre><code><span class="k">double</span> min = 3.0;
+<span class="k">var</span> q2 = results.Where(r =&gt; r.Trust &gt;= min);
+min = 9.0;
+<span class="k">var</span> list = q2.ToList();     <span class="c">// filters with 9.0, not 3.0 — the lambda reads min at RUN time</span></code></pre>
+<p>Consequence #3 — laziness is a <em>feature</em> for big data: <code>File.ReadLines(path).Where(...).First()</code> stops reading the file at the first match. Eager <code>ReadAllLines</code> would slurp gigabytes.</p>
+<div class="callout">Rule of thumb for Verisearch: INSIDE a pipeline method, stay lazy (return IEnumerable). At the BOUNDARY — returning results to a caller, storing to a field, crossing a try/catch — ToList().</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>yield return — build your own lazy sequences:</strong></p>
+<pre><code>IEnumerable&lt;string&gt; ReadQuotes(string path)
+{
+    foreach (var line in File.ReadLines(path))   <span class="c">// itself lazy!</span>
+    {
+        if (line.StartsWith("&gt;")) yield return line;
+    }
+}</code></pre>
+<p>The method body doesn't run until enumerated, produces one element at a time, and can bail early for free — <code>ReadQuotes(p).First()</code> reads only as far as the first match. This is the machinery UNDER LINQ; now the lazy behavior from this lesson should feel inevitable rather than surprising.</p>
+<p><strong>Detecting multiple enumeration:</strong> if a debugger hit inside your Where lambda fires twice as often as expected, you enumerated twice. Materialize at boundaries; profile before optimizing further.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Deferred execution\""
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/linq/get-started/deferred-execution-lazy-evaluation"
+essential = true
+
+[[lessons.exercises]]
+id = "s07-l04-e1"
+type = "mc"
+points = 25
+prompt = "When does the Where lambda actually execute?"
+code = '''
+var q = results.Where(r => r.Trust > 3);
+// (A) right here
+var list = q.ToList();
+// (B) right here'''
+choices = ["At point A — when the query is defined", "At point B — when ToList enumerates it", "At compile time", "Never"]
+answer = 1
+hint = "Queries are recipes. ToList is the cooking."
+
+[[lessons.exercises]]
+id = "s07-l04-e2"
+type = "mc"
+points = 25
+prompt = "Calling <code>.Count()</code> and then foreach-ing the same un-materialized Where query…"
+choices = ["uses a cached result the second time", "throws InvalidOperationException", "executes the filtering work twice", "is a compile error"]
+answer = 2
+hint = "Each enumeration replays the pipeline from scratch."
+
+[[lessons.exercises]]
+id = "s07-l04-e3"
+type = "text"
+points = 20
+prompt = "Which method call forces a lazy query to execute immediately and store results in a list? (method name)"
+answer = "ToList"
+accept = ["tolist()", ".tolist"]
+hint = "Materialize now."
+
+[[lessons.exercises]]
+id = "s07-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "The boundary rule in code — lazy inside, ToList at the edge. Twice."
+code = '''
+var trusted = results.Where(r => r.Trust >= min);
+var final = trusted.OrderByDescending(r => r.Trust).ToList();'''
+
+[[lessons.exercises]]
+id = "s07-l04-w1"
+type = "write"
+points = 36
+prompt = "Write an iterator method <code>IEnumerable&lt;string&gt; Scans()</code> that yield-returns \"scan 1\", \"scan 2\", \"scan 3\". Foreach it and print each value."
+expect = '''
+scan 1
+scan 2
+scan 3'''
+hint = "Three yield return statements (or a loop). Method after top-level code."

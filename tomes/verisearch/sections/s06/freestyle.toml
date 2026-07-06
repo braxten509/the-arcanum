@@ -1,0 +1,36 @@
+[freestyle]
+title = "THE WORKING: The Gleaning Rite"
+brief = "Build <code>PageScraper</code>: given a URL, return clean content blocks.<ul><li>Fetch the HTML (your shared HttpClient, custom User-Agent, timeout) and parse with AngleSharp</li><li>Strip junk elements; return <code>List&lt;ScrapedParagraph&gt;</code> — numbered, typed (your ContentType enum via a switch expression), whitespace-cleaned (except inside Code blocks), crumbs filtered</li><li>Handle dead links/timeouts/non-HTML gracefully: empty list plus a logged warning</li><li>Shell command <code>scrape &lt;url&gt;</code> prints the milestone-style output (index, tag, first ~70 chars, then a total count)</li><li>Basic robots.txt check and a Task.Delay rate limit</li><li>Install AngleSharp via PACKAGES</li></ul>"
+reward = 450
+packages = ["AngleSharp"]
+xray = "THORNE feeds your scraper three traps: a URL that 404s (wants: warning + empty list), a page whose only h1 is inside <nav> (did you remove junk BEFORE extracting?), and a <pre> block with indented code (did the regex mangle it?). He also checks whether ScrapeAsync could ever throw instead of returning empty — an unhandled exception from a bad URL is his favorite deduction in this op."
+
+[freestyle.badge]
+id = "badge-s06"
+name = "GLEANER OF FIELDS"
+desc = "Gleaned clean grain from the web's wild and weedy fields."
+
+[[freestyle.rubric]]
+criterion = "Compiles & scrapes a real page"
+weight = 20
+desc = "scrape https://example.com produces sane numbered blocks."
+
+[[freestyle.rubric]]
+criterion = "DOM handling"
+weight = 25
+desc = "Junk removal before extraction, correct selectors, TextContent usage, null-safety."
+
+[[freestyle.rubric]]
+criterion = "Cleaning correctness"
+weight = 20
+desc = "Whitespace collapsing with the pre-block exception; crumb filter; verbatim words preserved."
+
+[[freestyle.rubric]]
+criterion = "Resilience & etiquette"
+weight = 20
+desc = "Timeouts/404s handled; robots.txt checked; delay present; honest User-Agent."
+
+[[freestyle.rubric]]
+criterion = "Model & structure"
+weight = 15
+desc = "Returns your ScrapedParagraph records; scraper isolated in its own file."

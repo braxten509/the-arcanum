@@ -1,0 +1,117 @@
+[[lessons]]
+id = "s10-l03"
+title = "Spectre.Console.Cli — real flags, typed settings"
+body = '''
+
+<p>Verisearch's destiny is <code>verisearch "question" --max-sources 3 --min-trust 5</code> — not an interactive menu. <code>Spectre.Console.Cli</code> (separate package) parses argv into typed settings classes:</p>
+<pre><code><span class="k">using</span> Spectre.Console.Cli;
+
+<span class="k">public class</span> SearchSettings : CommandSettings
+{
+    [CommandArgument(0, <span class="s">"&lt;query&gt;"</span>)]              <span class="c">// required positional</span>
+    <span class="k">public string</span> Query { <span class="k">get</span>; <span class="k">set</span>; } = <span class="s">""</span>;
+
+    [CommandOption(<span class="s">"-m|--max-sources"</span>)]
+    <span class="k">public int</span> MaxSources { <span class="k">get</span>; <span class="k">set</span>; } = 5;
+
+    [CommandOption(<span class="s">"-t|--min-trust"</span>)]
+    <span class="k">public double</span> MinTrust { <span class="k">get</span>; <span class="k">set</span>; } = 3.0;
+
+    [CommandOption(<span class="s">"-v|--verbose"</span>)]
+    <span class="k">public bool</span> Verbose { <span class="k">get</span>; <span class="k">set</span>; }
+}
+
+<span class="k">public class</span> SearchCommand : AsyncCommand&lt;SearchSettings&gt;
+{
+    <span class="k">public override async</span> Task&lt;<span class="k">int</span>&gt; ExecuteAsync(CommandContext ctx, SearchSettings s)
+    {
+        <span class="k">await</span> RunPipeline(s.Query, s.MaxSources, s.MinTrust, s.Verbose);
+        <span class="k">return</span> 0;      <span class="c">// exit code: 0 = success, nonzero = failure (scripts depend on this)</span>
+    }
+}</code></pre>
+<p>Wire it in Program.cs:</p>
+<pre><code><span class="k">var</span> app = <span class="k">new</span> CommandApp&lt;SearchCommand&gt;();   <span class="c">// default command</span>
+<span class="k">return await</span> app.RunAsync(args);</code></pre>
+<p>What you get free: <code>--help</code> generated from your attributes, type conversion ("abc" for an int option → clean error, not a crash), validation hooks, and subcommands if you later want <code>verisearch config</code>.</p>
+<p>Angle brackets <code>&lt;query&gt;</code> mean required; square <code>[query]</code> would mean optional. Command-line convention, enforced by the parser.</p>
+<div class="callout">Settings defaults + config file + flags = three layers. Precedence rule real tools use: flags beat config file, config file beats built-in defaults. Your ConfigLoader (Chapter V) supplies the middle layer.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Settings validation hook:</strong> override <code>Validate()</code> in your settings class — <code>return MinTrust is &lt; 0 or &gt; 10 ? ValidationResult.Error("min-trust must be 0-10") : ValidationResult.Success();</code> — the parser prints your message and exits nonzero for free.</p>
+<p><strong>Subcommands</strong> when the tool grows: <code>app.Configure(c =&gt; { c.AddCommand&lt;SearchCommand&gt;("search"); c.AddCommand&lt;ConfigCommand&gt;("config"); });</code> — <code>verisearch config show</code> and friends.</p>
+<p><strong>args still exists:</strong> Spectre.Cli consumes the same <code>string[] args</code> your hidden Main receives — it's a parser on top, not magic. Understanding the layer under your tools is the theme of this whole course.</p></div>'''
+
+[[lessons.readings]]
+label = "Spectre.Console.Cli — quick start"
+url = "https://spectreconsole.net/cli/tutorials/quick-start-your-first-cli-app/"
+essential = true
+
+[[lessons.readings]]
+label = "Spectre.Console.Cli — getting started"
+url = "https://spectreconsole.net/cli/getting-started"
+essential = true
+
+[[lessons.readings]]
+label = "Attribute & parameter reference"
+url = "https://spectreconsole.net/cli/reference/attribute-and-parameter-reference/"
+essential = false
+
+[[lessons.readings]]
+label = "DarthPedro — Starting with Spectre.Console.Cli"
+url = "https://darthpedro.net/2020/12/10/lesson-1-1-starting-with-spectre-cli/"
+essential = false
+
+[[lessons.exercises]]
+id = "s10-l03-e1"
+type = "mc"
+points = 20
+prompt = "In <code>[CommandArgument(0, \"&lt;query&gt;\")]</code>, the angle brackets signify…"
+choices = ["an HTML tag", "the argument is required", "the argument is optional", "a generic type"]
+answer = 1
+hint = "Square brackets would make it optional. CLI convention."
+
+[[lessons.exercises]]
+id = "s10-l03-e2"
+type = "fill"
+points = 25
+prompt = "Fill the attribute so both <code>-t 5</code> and <code>--min-trust 5</code> work."
+code = '''
+[CommandOption("____")]
+public double MinTrust { get; set; } = 3.0;'''
+answer = "-t|--min-trust"
+accept = ["-t|--min-trust "]
+hint = "Short form, pipe, long form."
+
+[[lessons.exercises]]
+id = "s10-l03-e3"
+type = "mc"
+points = 20
+prompt = "Why return an exit code (0 vs nonzero) from ExecuteAsync?"
+choices = ["Spectre requires it to render", "Shell scripts and CI pipelines branch on exit codes — it's the CLI success contract", "It sets the process priority", "Purely decorative"]
+answer = 1
+hint = "somecommand && echo ok — what does && test?"
+
+[[lessons.exercises]]
+id = "s10-l03-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "The typed-settings shape — argument + two options with defaults. Twice."
+code = '''
+public class SearchSettings : CommandSettings
+{
+    [CommandArgument(0, "<query>")]
+    public string Query { get; set; } = "";
+
+    [CommandOption("-m|--max-sources")]
+    public int MaxSources { get; set; } = 5;
+
+    [CommandOption("-v|--verbose")]
+    public bool Verbose { get; set; }
+}'''
+
+[[lessons.exercises]]
+id = "s10-l03-w1"
+type = "write"
+points = 34
+prompt = "Flag-parsing-from-first-principles lab: given <code>var args = new[] { \"--max-sources\", \"3\", \"--min-trust\", \"5\" };</code> walk the array in pairs and print <code>max=3 trust=5</code>. (This is what Spectre does under the hood, minus 4,000 edge cases.)"
+expect = "max=3 trust=5"
+hint = "Loop i += 2, switch on args[i], parse args[i+1] into two locals, print once."

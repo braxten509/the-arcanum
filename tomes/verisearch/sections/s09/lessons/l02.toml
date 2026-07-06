@@ -1,0 +1,95 @@
+[[lessons]]
+id = "s09-l02"
+title = "OllamaSharp — chat and streaming from C#"
+body = '''
+
+<p><code>dotnet add package OllamaSharp</code>. The client wraps every Ollama endpoint:</p>
+<pre><code><span class="k">using</span> OllamaSharp;
+
+<span class="k">var</span> ollama = <span class="k">new</span> OllamaApiClient(<span class="s">"http://localhost:11434"</span>)
+{
+    SelectedModel = config.OllamaModel     <span class="c">// "llama3" from your YAML</span>
+};</code></pre>
+<p>Ollama <strong>streams</strong> responses token-by-token (that typewriter effect). OllamaSharp exposes that as an async stream you consume with <code>await foreach</code>:</p>
+<pre><code><span class="k">var</span> full = <span class="k">new</span> System.Text.StringBuilder();
+<span class="k">await foreach</span> (<span class="k">var</span> chunk <span class="k">in</span> ollama.GenerateAsync(prompt))
+{
+    Console.Write(chunk?.Response);        <span class="c">// live progress for the user</span>
+    full.Append(chunk?.Response);          <span class="c">// accumulate the real payload</span>
+}
+<span class="k">string</span> answer = full.ToString();</code></pre>
+<p><code>await foreach</code> is new syntax for you: it iterates an <code>IAsyncEnumerable&lt;T&gt;</code> — a sequence where each element ARRIVES asynchronously. Same loop body, await built into every step.</p>
+<p>Connection hygiene — Ollama might not be running. Probe before depending on it:</p>
+<pre><code><span class="k">try</span>
+{
+    <span class="k">var</span> models = <span class="k">await</span> ollama.ListLocalModelsAsync();
+    <span class="k">if</span> (!models.Any(m =&gt; m.Name.StartsWith(config.OllamaModel)))
+        Console.WriteLine(<span class="s">$"model {config.OllamaModel} not pulled — falling back"</span>);
+}
+<span class="k">catch</span> (HttpRequestException)
+{
+    Console.WriteLine(<span class="s">"Ollama offline — keyword fallback engaged"</span>);
+}</code></pre><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Generate vs chat:</strong> <code>GenerateAsync</code> is one-shot prompt→completion (perfect for the scanner); <code>ChatAsync</code> maintains a message history with roles. The roles: <code>system</code> (standing orders — "you are a relevance filter"), <code>user</code> (the request), <code>assistant</code> (the model's prior replies).</p>
+<p><strong>IAsyncEnumerable</strong> — the type behind <code>await foreach</code> — is just "a sequence where each MoveNext may await". You can write your own with <code>async IAsyncEnumerable&lt;T&gt;</code> + yield return; cancellation flows via <code>[EnumeratorCancellation]</code>. Recognize it; OllamaSharp writes it for you.</p>
+<p><strong>Timeouts for LLM calls:</strong> a wedged local model can hang forever — the same CancellationTokenSource discipline from Chapter VIII applies. LLM calls are just slow HTTP.</p></div>'''
+
+[[lessons.readings]]
+label = "OllamaSharp — GitHub README"
+url = "https://github.com/awaescher/OllamaSharp"
+essential = true
+
+[[lessons.readings]]
+label = "OllamaSharp — Getting Started"
+url = "https://github.com/awaescher/OllamaSharp/blob/main/docs/getting-started.md"
+essential = true
+
+[[lessons.readings]]
+label = "Microsoft.Extensions.AI announcement (multi-provider abstraction)"
+url = "https://devblogs.microsoft.com/dotnet/introducing-microsoft-extensions-ai-preview/"
+essential = false
+
+[[lessons.exercises]]
+id = "s09-l02-e1"
+type = "fill"
+points = 25
+prompt = "Fill the blank to consume a streaming response."
+code = '''
+await ____ (var chunk in ollama.GenerateAsync(prompt))
+{
+    full.Append(chunk?.Response);
+}'''
+answer = "foreach"
+hint = "A familiar loop keyword, now with await in front."
+
+[[lessons.exercises]]
+id = "s09-l02-e2"
+type = "mc"
+points = 20
+prompt = "Why accumulate chunks in a StringBuilder while streaming?"
+choices = ["Console.Write requires it", "Each chunk is only a token or two — the parseable payload is the concatenation", "StringBuilder validates JSON", "Chunks arrive out of order"]
+answer = 1
+hint = "You show pieces live AND keep the whole for parsing."
+
+[[lessons.exercises]]
+id = "s09-l02-e3"
+type = "mc"
+points = 20
+prompt = "Ollama isn't running when Verisearch calls it. Your code should…"
+choices = ["crash with the raw HttpRequestException", "retry every second forever", "catch it and engage a non-LLM fallback (e.g., keyword matching)", "silently return zero results"]
+answer = 2
+hint = "The tome doc: everything before Chapter IX works WITHOUT AI. Keep it that way."
+
+[[lessons.exercises]]
+id = "s09-l02-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Stream-and-accumulate — show progress live, keep the payload. Twice."
+code = '''
+var full = new StringBuilder();
+await foreach (var chunk in ollama.GenerateAsync(prompt))
+{
+    Console.Write(chunk?.Response);
+    full.Append(chunk?.Response);
+}'''

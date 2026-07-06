@@ -1,0 +1,75 @@
+# THE OPHIDIAN DEN — the serpent house after dark. Companion skin to the
+# ophidian tome (platform-level: appears in TRIM THE WICK for every tome).
+# NOTE: top-level keys (css) must come before [vars].
+id = "ophidian-den"
+name = "THE OPHIDIAN DEN"
+desc = "The serpent house after dark: green glass, sliding scales, one warm heat-lamp."
+
+css = '''
+/* ---- keyframes & motion guard live at top level (they cannot nest) ---- */
+@keyframes den-breathe {
+  0%, 100% { opacity: .55; }
+  50%      { opacity: .9; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body[data-theme="ophidian-den"] #tablelight::after { animation: none; }
+}
+
+body[data-theme="ophidian-den"] {
+  /* engine knobs */
+  --rad: 7px;
+
+  /* the terrarium: faint scale lattice over the glass, one heat lamp breathing */
+  & #tablelight {
+    background:
+      radial-gradient(ellipse 60% 45% at 72% 0%, rgba(160, 235, 110, .10), transparent 65%),
+      repeating-radial-gradient(circle at 50% -20vh, transparent 0 26px, rgba(120, 190, 80, .022) 26px 28px),
+      radial-gradient(ellipse at 50% 110%, rgba(0, 0, 0, .55), transparent 60%);
+  }
+  & #tablelight::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse 40% 30% at 72% 0%, rgba(var(--candle), .12), transparent 70%);
+    animation: den-breathe 7s ease-in-out infinite;
+  }
+
+  /* headings hiss a little wider */
+  & .logo { letter-spacing: .34em; }
+  & h2 { letter-spacing: .12em; }
+
+  /* controls: rounded river-stone buttons with a scale-edge highlight */
+  & .btn {
+    border-radius: var(--rad);
+    box-shadow: inset 0 1px 0 rgba(200, 255, 160, .06);
+  }
+  & .btn:hover { box-shadow: inset 0 1px 0 rgba(200, 255, 160, .12); }
+
+  /* panels sit like glass tanks: hairline green rim, deeper shadow */
+  & #parchment, & .modal {
+    border-color: color-mix(in oklab, var(--line-hi), #7cc95e 18%);
+    box-shadow: 0 24px 60px -24px rgba(0, 0, 0, .85), inset 0 0 0 1px rgba(140, 210, 90, .05);
+  }
+
+  /* toasts and tooltips molt to the den's colors via vars; just soften their corners */
+  & .toast, & #tip { border-radius: var(--rad); }
+}
+'''
+
+[vars]
+bg0 = "#0a1208"
+bg1 = "#18231a"
+bg2 = "#1f2d20"
+bg3 = "#273828"
+line = "#33452f"
+line-hi = "#486044"
+tx = "#d2ddc4"
+tx-dim = "#96a689"
+tx-faint = "#68785e"
+ac = "#9fdc6a"
+ac-dim = "#6da046"
+ac-bg = "rgba(159, 220, 106, .10)"
+warn = "#d0aa5e"
+bad = "#d06a52"
+info = "#72aec9"
+slab = "#0c130b"
+slab-tx = "#cfe0ba"
+candle = "170, 255, 120"

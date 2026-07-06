@@ -1,0 +1,77 @@
+[[lessons]]
+id = "s06-l04"
+title = "Scraping etiquette — robots.txt, rate limits, honest headers"
+body = '''
+
+<p>A scraper without manners gets IP-banned — or worse, becomes someone else's outage. Verisearch is a QUIET tool: it reads a handful of pages per query. Keep it polite:</p>
+<p><strong>1. robots.txt</strong> — every site's ground rules live at <code>https://site.com/robots.txt</code>:</p>
+<pre><code>User-agent: *
+Disallow: /admin/
+Disallow: /search
+Crawl-delay: 2</code></pre>
+<p>Minimal honest check: fetch it, find the <code>User-agent: *</code> section, and skip URLs whose path starts with a <code>Disallow:</code> prefix. A full parser is overkill for five URLs — but checking at all puts you ahead of most.</p>
+<p><strong>2. Identify yourself.</strong> Anonymous blank user-agents look like attacks:</p>
+<pre><code>http.DefaultRequestHeaders.UserAgent.ParseAdd(<span class="s">"Verisearch/1.0 (research tool)"</span>);</code></pre>
+<p><strong>3. Rate limit.</strong> Hammering a server with N instant requests is how tools get banned. A polite delay between requests to the <em>same host</em>:</p>
+<pre><code><span class="k">await</span> Task.Delay(1000);   <span class="c">// 1s of manners</span></code></pre>
+<p><strong>4. Fail quietly and move on.</strong> Dead link? 403? Timeout? Log it, skip it, continue with the other sources. One bad URL must never kill the run — Verisearch always has 4 more sources.</p>
+<div class="callout">Legal/ethical line for this project: public pages, tiny volume, verbatim quotes WITH attribution (that's the whole point of the tool). What crosses lines: ignoring robots.txt at scale, hammering servers, and scraping content behind logins/paywalls.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>robots.txt matching rules</strong> (the two that matter): rules are PATH PREFIXES (<code>Disallow: /search</code> blocks /search and /search/anything), and an empty <code>Disallow:</code> means "everything allowed". <code>Allow:</code> lines can carve exceptions out of a Disallow — full parsers pick the longest matching rule; your five-URL tool can just respect Disallows.</p>
+<p><strong>HTTP 429 Too Many Requests</strong> is the server explicitly telling you to slow down — it often carries a <code>Retry-After</code> header (seconds). Honoring it isn't optional if you see one; that's the last warning before a ban.</p>
+<p><strong>Cache what you fetch:</strong> robots.txt per host should be fetched ONCE per run, not per URL — a little Dictionary&lt;host, rules&gt; is plenty.</p></div>'''
+
+[[lessons.readings]]
+label = "ZenRows — Web scraping in C#: best practices"
+url = "https://www.zenrows.com/blog/web-scraping-in-c"
+essential = false
+
+[[lessons.readings]]
+label = "Google — robots.txt spec intro"
+url = "https://developers.google.com/search/docs/crawling-indexing/robots/intro"
+essential = false
+
+[[lessons.exercises]]
+id = "s06-l04-e1"
+type = "text"
+points = 20
+prompt = "At what path does every site publish its crawler rules? (starts with a slash)"
+answer = "/robots.txt"
+accept = ["robots.txt"]
+hint = "It's a .txt file at the site root."
+
+[[lessons.exercises]]
+id = "s06-l04-e2"
+type = "mc"
+points = 20
+prompt = "One of your 5 source URLs times out. Verisearch should…"
+choices = ["crash — data integrity matters", "retry forever", "log it, skip it, and continue with the other 4 sources", "switch to a VPN"]
+answer = 2
+hint = "One dead source shouldn't kill a five-source run."
+
+[[lessons.exercises]]
+id = "s06-l04-e3"
+type = "mc"
+points = 20
+prompt = "Why set a custom User-Agent like \"Verisearch/1.0\"?"
+choices = ["It makes requests faster", "It's honest identification — anonymous scrapers look hostile and get blocked", "It's required by HTTP", "It bypasses paywalls"]
+answer = 1
+hint = "Etiquette, transparency, and fewer 403s."
+
+[[lessons.exercises]]
+id = "s06-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Identify + pace — the two etiquette lines. Twice."
+code = '''
+http.DefaultRequestHeaders.UserAgent.ParseAdd("Verisearch/1.0 (research tool)");
+await Task.Delay(1000);'''
+
+[[lessons.exercises]]
+id = "s06-l04-w1"
+type = "write"
+points = 34
+prompt = "robots.txt logic lab: given <code>var disallowed = new List&lt;string&gt; { \"/admin\", \"/search\" };</code> read a URL PATH from STDIN and print <code>blocked</code> if it starts with any disallowed prefix, else <code>allowed</code>."
+stdin = "/search/results?q=tls"
+expect = "blocked"
+hint = "disallowed.Any(d => path.StartsWith(d)) — LINQ meets etiquette."

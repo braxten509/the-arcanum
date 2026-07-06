@@ -1,0 +1,36 @@
+[freestyle]
+title = "THE WORKING: The Far-Speaking Rite"
+brief = "Wire your shell to a search backend.<ul><li>A <code>SearchClient</code> class with an async method returning <code>List&lt;SearchResult&gt;</code> (your Chapter III record)</li><li>Targets a SearXNG-style JSON API (<code>/search?q=...&amp;format=json</code>) using one shared HttpClient</li><li>Escapes the query; deserializes with records + case-insensitive options</li><li>Handles HTTP/JSON/timeout failures gracefully</li><li>Prints numbered results like the milestone</li><li><strong>No live SearXNG?</strong> Include a mock mode: when the base URL is \"mock\" (or the request fails), load results from a local JSON string/file so the pipeline still demos</li></ul>THORNE grades structure and error handling, not whether your ISP was nice."
+reward = 350
+packages = []
+xray = "THORNE's hidden tests: he reads whether HttpClient is created once (field/static) or inside the method (deduction). He checks the catch blocks actually differ in message (a single catch(Exception) swallowing everything loses points). Mock mode earns full \"runs\" credit ONLY if it exercises the same Deserialize path as the real one — hardcoding List<SearchResult> objects skips the JSON plumbing he's grading."
+
+[freestyle.badge]
+id = "badge-s04"
+name = "FAR-SPEAKER"
+desc = "The tome speaks with the wider world — and survives being lied to."
+
+[[freestyle.rubric]]
+criterion = "Compiles & runs (mock mode counts)"
+weight = 20
+desc = "Builds clean; a search command produces ranked output even without a live backend."
+
+[[freestyle.rubric]]
+criterion = "Async correctness"
+weight = 20
+desc = "async/await used properly end-to-end; no .Result/.Wait(); Task<List<SearchResult>> signatures."
+
+[[freestyle.rubric]]
+criterion = "HTTP hygiene"
+weight = 20
+desc = "Single reused HttpClient, timeout set, query escaped, status handling."
+
+[[freestyle.rubric]]
+criterion = "JSON handling"
+weight = 20
+desc = "Record DTOs, casing handled, null-safe, JsonException caught."
+
+[[freestyle.rubric]]
+criterion = "Structure & readability"
+weight = 20
+desc = "SearchClient in its own file; mapping from DTO to your SearchResult record; clean output."

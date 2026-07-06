@@ -1,0 +1,90 @@
+[[lessons]]
+id = "s11-l03"
+title = "The orchestrator — one method that tells the story"
+body = '''
+
+<p>The pipeline method should read like the mission briefing. A reader who knows NOTHING about the internals should follow the flow:</p>
+<pre><code><span class="k">public async</span> Task&lt;PipelineResult&gt; RunAsync(<span class="k">string</span> query, CancellationToken ct = <span class="k">default</span>)
+{
+    <span class="c">// 1. SEARCH</span>
+    <span class="k">var</span> raw = <span class="k">await</span> _search.SearchAsync(query, ct);
+    <span class="k">if</span> (raw.Count == 0) <span class="k">return</span> PipelineResult.Empty(<span class="s">"search returned nothing"</span>);
+
+    <span class="c">// 2. TRUST RANK</span>
+    <span class="k">var</span> ranked = _trust.Rank(raw);
+
+    <span class="c">// 3. PARALLEL SCRAPE (Chapter VIII containment — failures become data)</span>
+    <span class="k">var</span> outcomes = <span class="k">await</span> ScrapeAllAsync(ranked, ct);
+    <span class="k">var</span> alive = outcomes.Where(o =&gt; o.Ok).ToList();
+    <span class="k">if</span> (alive.Count == 0) <span class="k">return</span> PipelineResult.Empty(<span class="s">"all sources failed"</span>);
+
+    <span class="c">// 4. RELEVANCE SCAN per source</span>
+    <span class="k">var</span> quotes = <span class="k">new</span> List&lt;VerbatimQuote&gt;();
+    <span class="k">foreach</span> (<span class="k">var</span> src <span class="k">in</span> alive)
+        quotes.AddRange(<span class="k">await</span> _scanner.ScanAsync(src, query, ct));
+
+    <span class="k">return new</span> PipelineResult(quotes, outcomes, ranked);
+}</code></pre>
+<p>Principles at work:</p>
+<ul>
+<li><strong>Stage boundaries are explicit.</strong> Each phase gets its data from the previous phase's output — no hidden shared state between stages.</li>
+<li><strong>Early exits for empty.</strong> Each stage asks "can the next stage even run?" and returns a REASONED empty result — which the renderer turns into that designed empty state.</li>
+<li><strong>The result is a record</strong>, not console output. The orchestrator computes; the renderer presents. You could bolt a web UI onto PipelineResult without touching this method.</li>
+<li><strong>One CancellationToken rides the whole run.</strong> Ctrl+C or the 30s deadline cancels everything at once.</li>
+</ul>
+<div class="callout">If a method needs comments like "// 1. SEARCH" it should be SHORT — each phase one or two lines, details pushed into the components. An orchestrator that's 200 lines long isn't orchestrating; it's doing everyone's job.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Result objects vs exceptions for FLOW:</strong> exceptions are for failures; "search found nothing" is not a failure, it's a result. Encoding it as <code>PipelineResult.Empty(reason)</code> keeps the happy path readable and the renderer informed. Exceptions-as-control-flow is the C# equivalent of goto with better marketing.</p>
+<p><strong>Method size heuristic:</strong> an orchestrator should fit on one screen (~30 lines). If a stage grows a second responsibility, extract it — <code>ScrapeAllAsync</code> exists precisely because fan-out + containment is its own job.</p>
+<p><strong>Static factory helpers</strong> read well on result types: <code>PipelineResult.Empty(string reason)</code> is a static method returning a pre-shaped instance — clearer than a constructor with mystery nulls.</p></div>'''
+readings = []
+
+[[lessons.exercises]]
+id = "s11-l03-e1"
+type = "mc"
+points = 25
+prompt = "Why does RunAsync return a PipelineResult record instead of printing directly?"
+choices = ["Console printing is slow", "Compute and presentation stay separated — testable pipeline, swappable frontends", "Records print themselves", "Async methods can't print"]
+answer = 1
+hint = "The renderer owns the face. The pipeline owns the facts."
+
+[[lessons.exercises]]
+id = "s11-l03-e2"
+type = "mc"
+points = 20
+prompt = "Search returns zero results. The orchestrator should…"
+choices = ["throw NoResultsException", "continue — later stages can handle empty lists", "return early with a reasoned empty result the renderer can explain", "retry the search forever"]
+answer = 2
+hint = "Early exit + a reason string = the designed empty state."
+
+[[lessons.exercises]]
+id = "s11-l03-e3"
+type = "mc"
+points = 20
+prompt = "What rides through every stage of the run for coordinated shutdown?"
+choices = ["a global bool", "the CancellationToken", "an exception", "Thread.Abort"]
+answer = 1
+hint = "Chapter VIII's plug, threaded end to end."
+
+[[lessons.exercises]]
+id = "s11-l03-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Stage-with-early-exit — the orchestrator's sentence structure. Twice."
+code = '''
+var raw = await _search.SearchAsync(query, ct);
+if (raw.Count == 0)
+{
+    return PipelineResult.Empty("search returned nothing");
+}
+var ranked = _trust.Rank(raw);'''
+
+[[lessons.exercises]]
+id = "s11-l03-w1"
+type = "write"
+points = 36
+prompt = "Early-exit lab: write <code>string RunPipeline(List&lt;string&gt; results)</code> — empty input returns \"empty: search returned nothing\", otherwise \"ok: N sources\". Call it twice: once with an empty list, once with a list of 3 strings; print both returns."
+expect = '''
+empty: search returned nothing
+ok: 3 sources'''
+hint = "Guard clause first, happy path after. Two calls, two WriteLines."

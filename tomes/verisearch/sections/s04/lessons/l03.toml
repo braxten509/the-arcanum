@@ -1,0 +1,99 @@
+[[lessons]]
+id = "s04-l03"
+title = "HttpClient — GET requests done right"
+body = '''
+
+<p><code>HttpClient</code> is your wire to the web. The two calls you'll use constantly:</p>
+<pre><code><span class="k">var</span> http = <span class="k">new</span> HttpClient();
+http.Timeout = TimeSpan.FromSeconds(10);       <span class="c">// never wait forever</span>
+
+<span class="c">// simple: URL → body string (throws on network failure)</span>
+<span class="k">string</span> body = <span class="k">await</span> http.GetStringAsync(url);
+
+<span class="c">// full control: inspect the status code first</span>
+HttpResponseMessage resp = <span class="k">await</span> http.GetAsync(url);
+<span class="k">if</span> (resp.IsSuccessStatusCode)                  <span class="c">// 200-299</span>
+{
+    <span class="k">string</span> json = <span class="k">await</span> resp.Content.ReadAsStringAsync();
+}
+<span class="k">else</span>
+{
+    Console.WriteLine(<span class="s">$"HTTP {(int)resp.StatusCode} from {url}"</span>);   <span class="c">// 404, 500, ...</span>
+}</code></pre>
+<p>What can go wrong — and does, constantly:</p>
+<pre><code><span class="k">try</span>
+{
+    <span class="k">string</span> body = <span class="k">await</span> http.GetStringAsync(url);
+}
+<span class="k">catch</span> (HttpRequestException ex)      <span class="c">// DNS failure, refused connection, non-2xx from GetStringAsync</span>
+{
+    Console.WriteLine(<span class="s">$"request failed: {ex.Message}"</span>);
+}
+<span class="k">catch</span> (TaskCanceledException)        <span class="c">// timeout</span>
+{
+    Console.WriteLine(<span class="s">"timed out"</span>);
+}</code></pre>
+<p><strong>The one lifetime rule:</strong> create ONE <code>HttpClient</code> and reuse it for the whole program. New-ing one per request leaks sockets and eventually starves the OS. (Chapter VIII goes deeper.)</p>
+<p>Building URLs with query strings — escape user input, always:</p>
+<pre><code><span class="k">string</span> q = Uri.EscapeDataString(userQuery);   <span class="c">// "tls 1.3?" → "tls%201.3%3F"</span>
+<span class="k">string</span> url = <span class="s">$"http://localhost:8080/search?q={q}&amp;format=json"</span>;</code></pre><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Status code families:</strong> 2xx success · 3xx redirect (HttpClient follows most automatically) · 4xx you messed up (404 not found, 403 forbidden, 429 slow down) · 5xx they messed up. <code>resp.EnsureSuccessStatusCode()</code> throws on any non-2xx — the quick version of the if-check.</p>
+<p><strong>Headers you'll actually set:</strong> <code>http.DefaultRequestHeaders.UserAgent.ParseAdd("Verisearch/1.0")</code> once at startup; per-request headers go on an <code>HttpRequestMessage</code> if you ever need them.</p>
+<p><strong>POST in one line</strong> (for later): <code>await http.PostAsJsonAsync(url, myObject)</code> — serializes and sends. The GetFromJsonAsync/PostAsJsonAsync family (namespace <code>System.Net.Http.Json</code>) fuses HTTP + JSON and skips manual Deserialize entirely.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Make HTTP requests with HttpClient\""
+url = "https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/http/httpclient"
+essential = true
+
+[[lessons.readings]]
+label = "Microsoft Learn — console web API client tutorial"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/tutorials/console-webapiclient"
+essential = true
+
+[[lessons.exercises]]
+id = "s04-l03-e1"
+type = "mc"
+points = 20
+prompt = "How many HttpClient instances should a typical console app create?"
+choices = ["One per request, disposed immediately", "One, reused for the app's lifetime", "One per URL", "Zero — HttpClient is static"]
+answer = 1
+hint = "Socket exhaustion is the punishment for the wrong answer."
+
+[[lessons.exercises]]
+id = "s04-l03-e2"
+type = "text"
+points = 20
+prompt = "Which HttpResponseMessage property is true for any 2xx status code? (property name)"
+answer = "IsSuccessStatusCode"
+accept = ["issuccessstatuscode", ".issuccessstatuscode"]
+hint = "if (resp.____) { ... }"
+
+[[lessons.exercises]]
+id = "s04-l03-e3"
+type = "mc"
+points = 25
+prompt = "The user's query is <code>C# && rust?</code>. Before putting it in a URL query string you should…"
+choices = ["trust it — browsers handle everything", "wrap it in single quotes", "pass it through Uri.EscapeDataString", "remove all punctuation"]
+answer = 2
+hint = "# & ? all mean something special in URLs."
+
+[[lessons.exercises]]
+id = "s04-l03-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "The status-checked GET — the shape every scraper call takes. Twice."
+code = '''
+HttpResponseMessage resp = await http.GetAsync(url);
+if (resp.IsSuccessStatusCode)
+{
+    string body = await resp.Content.ReadAsStringAsync();
+}'''
+
+[[lessons.exercises]]
+id = "s04-l03-d2"
+type = "type"
+points = 12
+prompt = "The escape line that keeps user queries from detonating your URLs. Once."
+code = "string url = $\"http://localhost:8080/search?q={Uri.EscapeDataString(query)}&format=json\";"

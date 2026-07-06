@@ -1,0 +1,88 @@
+[[lessons]]
+id = "s11-l04"
+title = "Graceful degradation — the resilience ladder"
+body = '''
+
+<p>Verisearch's quality bar: <strong>every failure below "the machine is on fire" degrades the result instead of killing the run.</strong> Walk the ladder:</p>
+<table style="width:100%;border-collapse:collapse;font-size:12.5px">
+<tr><td style="padding:6px;border-bottom:1px solid var(--line)"><b>Failure</b></td><td style="padding:6px;border-bottom:1px solid var(--line)"><b>Response</b></td></tr>
+<tr><td style="padding:6px;border-bottom:1px solid var(--line)">Config file mangled</td><td style="padding:6px;border-bottom:1px solid var(--line)">warn + defaults (Chapter V)</td></tr>
+<tr><td style="padding:6px;border-bottom:1px solid var(--line)">Search API down</td><td style="padding:6px;border-bottom:1px solid var(--line)">clear message + nonzero exit — this one IS fatal, nothing downstream can run</td></tr>
+<tr><td style="padding:6px;border-bottom:1px solid var(--line)">2 of 5 pages dead</td><td style="padding:6px;border-bottom:1px solid var(--line)">[FAIL] rows, proceed with 3 (Chapter VIII)</td></tr>
+<tr><td style="padding:6px;border-bottom:1px solid var(--line)">LLM down/garbage</td><td style="padding:6px;border-bottom:1px solid var(--line)">keyword fallback, report says so honestly (Chapter IX)</td></tr>
+<tr><td style="padding:6px;border-bottom:1px solid var(--line)">Zero quotes survive</td><td style="padding:6px;border-bottom:1px solid var(--line)">designed empty state + tuning suggestions (Chapter X)</td></tr>
+</table>
+<p>Implementation notes:</p>
+<ul>
+<li><strong>Catch at boundaries, not everywhere.</strong> Components throw honestly; the orchestrator's stage transitions decide what each failure means. try/catch confetti sprinkled through every method hides bugs.</li>
+<li><strong>Degradation must be VISIBLE.</strong> If the keyword fallback answered, the report says <code>[dim]relevance: keyword fallback (LLM offline)[/]</code>. Silent degradation is lying with extra steps.</li>
+<li><strong>Fatal means fatal.</strong> When nothing downstream can possibly run, exit nonzero with one clear sentence. Limping on to print an empty report wastes the user's time.</li>
+</ul>
+<p>End-to-end testing this by hand (Chapter XII automates some of it): unplug SearXNG → clear fatal message? Feed a dead URL → [FAIL] row? Stop Ollama → fallback note in the report? Set min_trust to 99 → designed empty state? That checklist IS your integration test suite, run manually.</p><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Circuit breaker</strong> — the name for "stop calling a thing that keeps failing": after N consecutive failures, skip the call entirely for a cooldown window. Ollama down? After the first failed probe, don't re-probe per-source — remember and fall back for the rest of the run.</p>
+<p><strong>Health checks up front:</strong> probing dependencies at startup (search reachable? model pulled?) converts mid-run surprises into clean preflight warnings. One probe each, cached for the run.</p>
+<p><strong>The degradation ladder is a TEST PLAN:</strong> every rung is a manual test you can run today and an automated test in Chapter XII. Resilience you haven't tested is a rumor.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Logging in .NET\" (for the verbose trail)"
+url = "https://learn.microsoft.com/en-us/dotnet/core/extensions/logging"
+essential = false
+
+[[lessons.readings]]
+label = "Serilog — structured logging (optional upgrade)"
+url = "https://github.com/serilog/serilog"
+essential = false
+
+[[lessons.exercises]]
+id = "s11-l04-e1"
+type = "mc"
+points = 25
+prompt = "Which failure is legitimately FATAL for a search tool?"
+choices = ["One source URL 404s", "The LLM is offline", "The search backend is unreachable — nothing downstream can produce results", "A page has weird encoding"]
+answer = 2
+hint = "Can ANY later stage still do useful work?"
+
+[[lessons.exercises]]
+id = "s11-l04-e2"
+type = "mc"
+points = 25
+prompt = "The keyword fallback answered instead of the LLM. The report should…"
+choices = ["say nothing — results are results", "disclose it (e.g., a dim 'keyword fallback' note) — silent degradation misleads the user about quality", "refuse to render", "apologize in red capitals"]
+answer = 1
+hint = "Degrade loudly enough to be honest, quietly enough to stay readable."
+
+[[lessons.exercises]]
+id = "s11-l04-e3"
+type = "mc"
+points = 20
+prompt = "\"Catch at boundaries\" means…"
+choices = ["wrap every single method body in try/catch", "never catch anything", "components throw honestly; the orchestrator's stage transitions translate failures into degradation decisions", "catch only in Main"]
+answer = 2
+hint = "The orchestrator is where 'what does this failure MEAN' gets decided."
+
+[[lessons.exercises]]
+id = "s11-l04-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Primary-with-fallback — degrade loudly, continue quietly. Twice."
+code = '''
+try
+{
+    indices = await _llm.ScanAsync(blocks, query, ct);
+}
+catch (HttpRequestException)
+{
+    Console.WriteLine("[dim]relevance: keyword fallback (LLM offline)[/]");
+    indices = KeywordFallback(blocks, keywords);
+}'''
+
+[[lessons.exercises]]
+id = "s11-l04-w1"
+type = "write"
+points = 36
+prompt = "Fallback lab: write <code>string Primary()</code> that throws <code>new Exception(\"LLM offline\")</code>, and <code>string Fallback()</code> returning \"keyword scan\". Call Primary in a try/catch; on failure print <code>degraded: &lt;exception message&gt;</code> then print the fallback's result."
+expect = '''
+degraded: LLM offline
+keyword scan'''
+hint = "catch (Exception ex) { WriteLine($\"degraded: {ex.Message}\"); WriteLine(Fallback()); }"

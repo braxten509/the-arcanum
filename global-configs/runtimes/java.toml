@@ -1,0 +1,262 @@
+# Java — complete engine config. The one generic runtime (runtimes/generic.py)
+# executes these commands; nothing java-specific exists in the engine. A tome's
+# [runtime] table overrides any key here (tomes/runebound-1165 layers a Gradle
+# workspace on top of this file, for example).
+language = "Java"
+entryFile = "Main.java"
+newFileExt = ".java"
+editorLang = "java"
+runLabel = "javac Main.java && java Main"
+packages = false
+starterCode = """
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("hello");
+    }
+}
+"""
+
+# compile-then-run one file; the appended path lands in $1, the class name is its basename
+command = ["bash", "-lc", 'javac "$1" && java -cp "$(dirname "$1")" "$(basename "${1%.java}")"', "_"]
+# syntax check: compile to a throwaway dir; exit 0 = clean
+checkCommand = ["bash", "-lc", 'javac -d "$(mktemp -d)" "$1"', "_"]
+diagRegex = '^(?P<file>.*\.java):(?P<line>\d+): (?P<sev>error|warning): (?P<msg>.*)$'
+
+# Editor completions (keywords, snippets, dot-members) — served to the client via
+# TOME.runtime and rendered by the generic provider in web/editor.js. Monaco ships
+# its own java tokenizer, so no [syntax] table is needed.
+[completions]
+keywords = [
+  "public", "private", "protected", "static", "final", "void", "class", "interface",
+  "enum", "extends", "implements", "import", "package", "new", "return", "if", "else",
+  "for", "while", "do", "switch", "case", "default", "break", "continue", "try",
+  "catch", "finally", "throw", "throws", "this", "super", "null", "true", "false",
+  "instanceof", "abstract", "int", "long", "double", "float", "boolean", "char",
+  "byte", "short", "String", "System", "Math", "Integer", "Double", "Boolean",
+  "Character", "Objects", "Arrays", "Scanner", "StringBuilder",
+]
+snippets = [
+  ["main", "main method", "public static void main(String[] args) {\n\t$0\n}"],
+  ["sout", "print a line", "System.out.println($1);$0"],
+  ["souf", "formatted print", "System.out.printf(\"${1:%d}%n\", ${2:value});$0"],
+  ["for", "indexed for loop", "for (int ${1:i} = 0; $1 < ${2:count}; $1++) {\n\t$0\n}"],
+  ["fore", "for-each loop", "for (${1:String} ${2:item} : ${3:items}) {\n\t$0\n}"],
+  ["while", "while loop", "while ($1) {\n\t$0\n}"],
+  ["if", "if block", "if ($1) {\n\t$0\n}"],
+  ["ifelse", "if / else", "if ($1) {\n\t$2\n} else {\n\t$0\n}"],
+  ["tryc", "try / catch", "try {\n\t$1\n} catch (${2:Exception} e) {\n\t$0\n}"],
+  ["class", "class definition", "public class ${1:Name} {\n\t$0\n}"],
+  ["method", "method definition", "public ${1:void} ${2:name}($3) {\n\t$0\n}"],
+  ["scan", "read a line from stdin", "Scanner ${1:scanner} = new Scanner(System.in);\nString ${2:line} = $1.nextLine();$0"],
+  ["psfs", "string constant", "public static final String ${1:NAME} = \"$2\";$0"],
+]
+# ordered rhs-regex -> member key, for `variable.` completions (first match wins)
+types = [
+  ["^\"", "str"],
+  ["^new\\s+Scanner", "Scanner"],
+  ["^new\\s+StringBuilder", "StringBuilder"],
+  ["^(new\\s+(Array|Linked)List|Arrays\\.asList)", "list"],
+  ["^new\\s+(Hash|Tree|LinkedHash)Map", "map"],
+  ["^new\\s+(Hash|Tree|LinkedHash)Set", "set"],
+  ["^(new\\s+\\w+\\[|\\{)", "array"],
+]
+# ordered declared-type-regex -> member key: `String line = …` types line outright
+declTypes = [
+  ['\[\]$', "array"],
+  ["^String$", "str"],
+  ["^Scanner$", "Scanner"],
+  ["^StringBuilder$", "StringBuilder"],
+  ["^(ArrayList|LinkedList|List)<", "list"],
+  ["^(HashMap|TreeMap|LinkedHashMap|Map)<", "map"],
+  ["^(HashSet|TreeSet|LinkedHashSet|Set)<", "set"],
+]
+# user enums complete their values (Rune. -> SHARD, STONE …)
+enumRegex = '\benum\s+(\w+)[^{]*\{([^;{}]*)'
+# lowercase instance keys are wiring, not receivers a student would type
+internalKeys = ["str", "printstream", "list", "map", "set", "array", "stream"]
+# user-declared classes: classRegex groups = (name, body) — the body runs to the
+# first column-0 closing brace; methodRegex/propRegex run over the body;
+# ctorRegex maps `new RuneAnchor(` back to the class → `a = new RuneAnchor()` completes a.
+classRegex = 'class\s+(\w+)[^\n{]*\{\n([\s\S]*?)\n\}'
+methodRegex = '(?:public|private|protected)[\w<>\[\], ]*?\s(\w+)\s*\('
+propRegex = '(?:public|private|protected)\s+(?:static\s+)?(?:final\s+)?[\w<>\[\]]+\s+(\w+)\s*[;=]'
+ctorRegex = 'new\s+(\w+)\s*\('
+
+# member tuples: [label, kind(m|p|f), detail, insertText] — $1/$0 are snippet stops
+[completions.members]
+str = [
+  ["length()", "m", "int — character count", "length()"],
+  ["charAt()", "m", "char charAt(index)", "charAt($1)$0"],
+  ["substring()", "m", "String substring(begin) or (begin, end)", "substring($1)$0"],
+  ["indexOf()", "m", "int indexOf(sub) — -1 if missing", "indexOf($1)$0"],
+  ["contains()", "m", "boolean contains(sub)", "contains($1)$0"],
+  ["startsWith()", "m", "boolean startsWith(prefix)", "startsWith($1)$0"],
+  ["endsWith()", "m", "boolean endsWith(suffix)", "endsWith($1)$0"],
+  ["equals()", "m", "boolean equals(other) — NEVER == for strings", "equals($1)$0"],
+  ["equalsIgnoreCase()", "m", "boolean — case-blind equals", "equalsIgnoreCase($1)$0"],
+  ["toLowerCase()", "m", "String — lowercase copy", "toLowerCase()"],
+  ["toUpperCase()", "m", "String — uppercase copy", "toUpperCase()"],
+  ["trim()", "m", "String — whitespace stripped from both ends", "trim()"],
+  ["isEmpty()", "m", "boolean — length() == 0", "isEmpty()"],
+  ["split()", "m", "String[] split(regex) — or split(regex, limit)", "split($1)$0"],
+  ["replace()", "m", "String replace(old, new) — literal", "replace($1, $2)$0"],
+  ["replaceAll()", "m", "String replaceAll(regex, replacement)", "replaceAll($1, $2)$0"],
+  ["matches()", "m", "boolean matches(regex) — whole string", "matches($1)$0"],
+  ["compareTo()", "m", "int — lexicographic order", "compareTo($1)$0"],
+  ["toCharArray()", "m", "char[] — one char per cell", "toCharArray()"],
+]
+String = [
+  ["join()", "m", "String join(delimiter, elements…)", "join($1, $2)$0"],
+  ["format()", "m", "String format(fmt, args…) — %s %d %f", "format($1, $2)$0"],
+  ["valueOf()", "m", "String valueOf(anything)", "valueOf($1)$0"],
+]
+System = [
+  ["out", "f", "PrintStream — println / print / printf", "out"],
+  ["err", "f", "PrintStream — the error stream", "err"],
+  ["in", "f", "InputStream — wrap in a Scanner to read", "in"],
+  ["lineSeparator()", "m", "String — platform newline", "lineSeparator()"],
+  ["currentTimeMillis()", "m", "long — epoch milliseconds", "currentTimeMillis()"],
+  ["exit()", "m", "exit(status) — 0 = success", "exit($1)$0"],
+]
+printstream = [
+  ["println()", "m", "print a line (newline appended)", "println($1)$0"],
+  ["print()", "m", "print without a newline", "print($1)$0"],
+  ["printf()", "m", "printf(fmt, args…) — %s %d %f, %n newline", "printf($1, $2)$0"],
+]
+Math = [
+  ["abs()", "m", "int|double abs(x)", "abs($1)$0"],
+  ["max()", "m", "max(a, b)", "max($1, $2)$0"],
+  ["min()", "m", "min(a, b)", "min($1, $2)$0"],
+  ["pow()", "m", "double pow(base, exponent)", "pow($1, $2)$0"],
+  ["sqrt()", "m", "double sqrt(x)", "sqrt($1)$0"],
+  ["floor()", "m", "double — round down", "floor($1)$0"],
+  ["ceil()", "m", "double — round up", "ceil($1)$0"],
+  ["round()", "m", "long round(x) — nearest", "round($1)$0"],
+  ["random()", "m", "double 0.0–1.0", "random()"],
+  ["PI", "f", "3.14159…", "PI"],
+]
+Integer = [
+  ["parseInt()", "m", "int parseInt(text) — NumberFormatException on junk", "parseInt($1)$0"],
+  ["valueOf()", "m", "Integer valueOf(text or int)", "valueOf($1)$0"],
+  ["toString()", "m", "String toString(int)", "toString($1)$0"],
+  ["MAX_VALUE", "f", "2147483647", "MAX_VALUE"],
+  ["MIN_VALUE", "f", "-2147483648", "MIN_VALUE"],
+]
+Double = [
+  ["parseDouble()", "m", "double parseDouble(text)", "parseDouble($1)$0"],
+  ["valueOf()", "m", "Double valueOf(text or double)", "valueOf($1)$0"],
+]
+Boolean = [
+  ["parseBoolean()", "m", "boolean parseBoolean(text) — true only for \"true\"", "parseBoolean($1)$0"],
+]
+Character = [
+  ["isDigit()", "m", "boolean isDigit(ch)", "isDigit($1)$0"],
+  ["isLetter()", "m", "boolean isLetter(ch)", "isLetter($1)$0"],
+  ["isWhitespace()", "m", "boolean isWhitespace(ch)", "isWhitespace($1)$0"],
+  ["toLowerCase()", "m", "char toLowerCase(ch)", "toLowerCase($1)$0"],
+  ["toUpperCase()", "m", "char toUpperCase(ch)", "toUpperCase($1)$0"],
+]
+Objects = [
+  ["equals()", "m", "boolean equals(a, b) — null-safe", "equals($1, $2)$0"],
+  ["hash()", "m", "int hash(fields…) — for hashCode()", "hash($1)$0"],
+  ["requireNonNull()", "m", "T requireNonNull(obj) — throws on null", "requireNonNull($1)$0"],
+  ["toString()", "m", "String toString(obj, defaultIfNull)", "toString($1)$0"],
+]
+Arrays = [
+  ["asList()", "m", "List asList(items…) — fixed-size view", "asList($1)$0"],
+  ["sort()", "m", "sort(array) — in place", "sort($1)$0"],
+  ["toString()", "m", "String toString(array) — printable form", "toString($1)$0"],
+  ["fill()", "m", "fill(array, value)", "fill($1, $2)$0"],
+  ["copyOf()", "m", "copyOf(array, newLength)", "copyOf($1, $2)$0"],
+  ["stream()", "m", "Stream over the array", "stream($1)$0"],
+]
+Scanner = [
+  ["nextLine()", "m", "String — the rest of the line", "nextLine()"],
+  ["next()", "m", "String — the next whitespace-separated token", "next()"],
+  ["nextInt()", "m", "int — leaves the newline unread", "nextInt()"],
+  ["nextDouble()", "m", "double", "nextDouble()"],
+  ["hasNextLine()", "m", "boolean — loop until EOF", "hasNextLine()"],
+  ["hasNextInt()", "m", "boolean", "hasNextInt()"],
+  ["hasNext()", "m", "boolean", "hasNext()"],
+  ["close()", "m", "release the stream", "close()"],
+]
+StringBuilder = [
+  ["append()", "m", "StringBuilder append(anything) — chainable", "append($1)$0"],
+  ["toString()", "m", "String — the built text", "toString()"],
+  ["length()", "m", "int", "length()"],
+  ["insert()", "m", "StringBuilder insert(index, value)", "insert($1, $2)$0"],
+  ["reverse()", "m", "StringBuilder — in place", "reverse()"],
+  ["deleteCharAt()", "m", "StringBuilder deleteCharAt(index)", "deleteCharAt($1)$0"],
+]
+list = [
+  ["add()", "m", "boolean add(item) — append", "add($1)$0"],
+  ["get()", "m", "item get(index)", "get($1)$0"],
+  ["set()", "m", "set(index, item)", "set($1, $2)$0"],
+  ["remove()", "m", "remove(index or object)", "remove($1)$0"],
+  ["size()", "m", "int — element count", "size()"],
+  ["contains()", "m", "boolean contains(item)", "contains($1)$0"],
+  ["indexOf()", "m", "int indexOf(item) — -1 if missing", "indexOf($1)$0"],
+  ["isEmpty()", "m", "boolean", "isEmpty()"],
+  ["clear()", "m", "remove everything", "clear()"],
+  ["stream()", "m", "Stream over the elements", "stream()"],
+]
+map = [
+  ["put()", "m", "put(key, value)", "put($1, $2)$0"],
+  ["get()", "m", "value get(key) — null if missing", "get($1)$0"],
+  ["getOrDefault()", "m", "value getOrDefault(key, default)", "getOrDefault($1, $2)$0"],
+  ["containsKey()", "m", "boolean containsKey(key)", "containsKey($1)$0"],
+  ["remove()", "m", "remove(key)", "remove($1)$0"],
+  ["size()", "m", "int — entry count", "size()"],
+  ["keySet()", "m", "Set of keys", "keySet()"],
+  ["values()", "m", "Collection of values", "values()"],
+  ["entrySet()", "m", "Set of Map.Entry — for (Map.Entry<K,V> e : m.entrySet())", "entrySet()"],
+  ["isEmpty()", "m", "boolean", "isEmpty()"],
+]
+set = [
+  ["add()", "m", "boolean add(item) — false if already present", "add($1)$0"],
+  ["contains()", "m", "boolean contains(item)", "contains($1)$0"],
+  ["remove()", "m", "boolean remove(item)", "remove($1)$0"],
+  ["size()", "m", "int — element count", "size()"],
+  ["isEmpty()", "m", "boolean", "isEmpty()"],
+  ["clear()", "m", "remove everything", "clear()"],
+]
+array = [
+  ["length", "p", "int — element count (a field, not a method)", "length"],
+]
+stream = [
+  ["filter()", "m", "Stream filter(predicate) — keep matches", "filter($1)$0"],
+  ["map()", "m", "Stream map(function) — transform each", "map($1)$0"],
+  ["collect()", "m", "collect(Collectors.toList())", "collect($1)$0"],
+  ["forEach()", "m", "forEach(action)", "forEach($1)$0"],
+  ["count()", "m", "long — element count", "count()"],
+]
+
+# method/field name -> member key: resolves call chains (line.trim().toLowerCase().)
+# and assignments whose rhs ends in a call (String[] parts = line.split(",") -> array)
+[completions.returns]
+out = "printstream"
+err = "printstream"
+nextLine = "str"
+next = "str"
+toLowerCase = "str"
+toUpperCase = "str"
+trim = "str"
+substring = "str"
+replace = "str"
+replaceAll = "str"
+join = "str"
+format = "str"
+valueOf = "str"
+toString = "str"
+lineSeparator = "str"
+split = "array"
+toCharArray = "array"
+asList = "list"
+keySet = "set"
+entrySet = "set"
+append = "StringBuilder"
+insert = "StringBuilder"
+reverse = "StringBuilder"
+stream = "stream"
+filter = "stream"
+map = "stream"

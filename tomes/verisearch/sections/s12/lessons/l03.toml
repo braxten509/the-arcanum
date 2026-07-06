@@ -1,0 +1,70 @@
+[[lessons]]
+id = "s12-l03"
+title = "dotnet publish — the single-file executable"
+body = '''
+
+<p><code>dotnet run</code> requires the SDK. Your users have nothing. <code>publish</code> bundles your app + the .NET runtime into one file that runs on a bare machine:</p>
+<pre><code>$ dotnet publish -c Release -r linux-x64 --self-contained \
+    -p:PublishSingleFile=true -p:PublishTrimmed=true
+
+<span class="c"># output lands in bin/Release/net*/linux-x64/publish/Verisearch  ← one executable</span></code></pre>
+<p>Decoding the flags:</p>
+<ul>
+<li><code>-c Release</code> — optimized build, no debug baggage (Debug is the default; shipping Debug is amateur hour).</li>
+<li><code>-r linux-x64</code> — the runtime identifier (RID). One publish per target: <code>win-x64</code>, <code>osx-arm64</code>, <code>linux-x64</code>…</li>
+<li><code>--self-contained</code> — embed the runtime (~60-80MB, runs anywhere) vs <code>--no-self-contained</code> (small, needs .NET installed).</li>
+<li><code>-p:PublishSingleFile=true</code> — one file instead of a directory spray.</li>
+<li><code>-p:PublishTrimmed=true</code> — strip unused framework code (~½ the size). <strong>Caveat:</strong> trimming can break reflection-based libraries — YamlDotNet and System.Text.Json lean on reflection. Rule: trim, then TEST THE PUBLISHED BINARY; if it breaks, untrim or add trimmer hints.</li>
+</ul>
+<p>The reflection-proof alternative for System.Text.Json — source-generated serialization — exists when you want trimming AND JSON; file that away for later.</p>
+<pre><code>$ ./publish/Verisearch <span class="s">"test query"</span> --max-sources 3   <span class="c"># THE test that counts:</span>
+<span class="c"># the published binary, not dotnet run, on a path with no SDK</span></code></pre>
+<div class="callout">Ship checklist: version in the banner (<code>--version</code>), exit codes honest, config auto-creates on first run (Chapter V pays off here — a fresh machine has no ~/.verisearch).</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>The RID catalog you'll actually use:</strong> <code>linux-x64</code>, <code>win-x64</code>, <code>osx-x64</code> (Intel Mac), <code>osx-arm64</code> (Apple Silicon), <code>linux-arm64</code> (Pi/ARM servers). A release script is just the same publish command in a loop over RIDs.</p>
+<p><strong>Version stamping:</strong> add <code>&lt;Version&gt;1.0.0&lt;/Version&gt;</code> to the csproj PropertyGroup; read it at runtime via <code>Assembly.GetExecutingAssembly().GetName().Version</code> for the --version banner — one source of truth.</p>
+<p><strong>ReadyToRun</strong> (<code>-p:PublishReadyToRun=true</code>) pre-JITs for faster startup at a size cost; full <strong>Native AOT</strong> compiles to pure native (fastest, smallest start, most reflection restrictions). Ladder: normal publish → R2R if startup matters → AOT when you've earned the fight with reflection.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"dotnet publish\""
+url = "https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-publish"
+essential = true
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Single-file deployment\""
+url = "https://learn.microsoft.com/en-us/dotnet/core/deploying/single-file"
+essential = false
+
+[[lessons.exercises]]
+id = "s12-l03-e1"
+type = "mc"
+points = 20
+prompt = "<code>--self-contained</code> means…"
+choices = ["the code has no dependencies", "the .NET runtime is bundled in — target machines need nothing installed", "it only runs in containers", "the file is encrypted"]
+answer = 1
+hint = "Trade ~70MB for 'works on a bare machine'."
+
+[[lessons.exercises]]
+id = "s12-l03-e2"
+type = "fill"
+points = 25
+prompt = "Fill the runtime identifier for 64-bit Windows."
+code = "$ dotnet publish -c Release -r ____ --self-contained"
+answer = "win-x64"
+hint = "os-arch format. Windows, x64."
+
+[[lessons.exercises]]
+id = "s12-l03-e3"
+type = "mc"
+points = 25
+prompt = "After publishing with PublishTrimmed=true, YamlDotNet config loading crashes — but dotnet run works fine. Why?"
+choices = ["YAML doesn't work in Release mode", "Trimming stripped reflection-reached code the trimmer couldn't see was needed", "The RID is wrong", "Single files can't read disks"]
+answer = 1
+hint = "Reflection is invisible to static analysis. Test the PUBLISHED binary."
+
+[[lessons.exercises]]
+id = "s12-l03-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "The ship command. Twice — you'll type it from memory at the end of every project for years."
+code = "dotnet publish -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true"

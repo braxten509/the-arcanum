@@ -1,0 +1,83 @@
+# ARCANUM — the study's sounds
+# Every hardcoded number GhostAudio (web/audio.js) used to bury in code.
+# Edit and refresh the page; no rebuild. Any key you delete (or the whole
+# file) falls back to the same defaults baked into audio.js.
+# Key names are spelled out in full — no abbreviations.
+
+[sound_effects]
+volume = 100          # master trim for all one-shot sound effects, %. 100 = the baked 0.16 bus gain
+
+[sample_gain]         # playback gain of the recorded one-shots (clips are peak-normalized)
+cast_release = 1.8      # the spell-cast release hit (a full charge lands)
+spell_hit_release = 1.3 # the release on a quick trial, no build-up
+hex = 1.2               # a rival's incoming hex — PEAK gain it swells up to (was 1.6; 1.2 = 75%)
+hex_fade_seconds = 0.9  # incoming hex fades in from silence over this many seconds, so it swells
+                        # rather than jump-scaring. 0 = instant (the old blast).
+stroke = 0.4            # a pen-stroke recording per keypress (pen key profile)
+
+[ambience]            # the hearthfire bed + low room tone
+lowpass_hertz = 4200      # the whole ambience bus is rolled off above this
+fade_seconds = 0.6        # candle fade in/out time constant, seconds
+room_gain = 0.05          # loudness of the low room tone under the crackle
+room_lowpass_hertz = 260  # the room tone is heavily muffled below this
+wobble_hertz = 0.17       # slow warmth wobble rate, like flamelight
+wobble_depth = 0.02       # how deep the wobble swings the room gain
+
+[keys]
+# the pen-stroke recordings picked at random per press (pen key profile).
+# drop more stroke-N.mp3 in sounds/ and list them here.
+stroke_files = ["stroke-1.mp3", "stroke-2.mp3", "stroke-3.mp3", "stroke-4.mp3", "stroke-5.mp3", "stroke-6.mp3", "stroke-7.mp3"]
+
+# Per-profile writing-implement synth. Uncomment a section to override; the
+# values shown ARE the baked defaults. frequency=center hz, jitter=random hz
+# added, gain=level, duration=length seconds, resonance=bandpass Q,
+# deep_frequency=center hz for space/enter.
+# [keys.quill]          # a sharp nib on vellum
+# frequency = 2600
+# jitter = 1400
+# gain = 0.9
+# duration = 0.03
+# resonance = 0.8
+# deep_frequency = 1100
+# [keys.scribe]         # a heavy reed pen
+# frequency = 700
+# jitter = 240
+# gain = 2.0
+# duration = 0.07
+# resonance = 0.8
+# deep_frequency = 400
+# [keys.chalk]          # soft slate chalk
+# frequency = 1300
+# jitter = 500
+# gain = 0.6
+# duration = 0.05
+# resonance = 0.6
+# deep_frequency = 650
+
+[sound_files]
+# REPLACE any synthesized sound with your own recording: drop a file into sounds/
+# and name it here. Leave a value as "" (or delete the line) to keep the built-in
+# synthesized voice. Every synthesized one-shot in the study is listed — nothing
+# is hidden. Master SFX volume (above) still applies; files play whole.
+tick = ""             # the little quill tick when you switch sound on
+buy = ""              # coins dropped into the pouch (a purchase)
+badge = ""            # the tower bell answering a new badge
+grade = ""            # the harp that answers a passing Great Working
+boot = ""             # the candle catching as the study wakes
+alarm = ""            # a low bell toll (also the fallback if the hex file is missing)
+hex = ""              # a rival's incoming hex / duel opening (defaults to sounds/hex-incoming.mp3)
+click = ""            # a fingertip on the parchment
+pick = ""             # marking a multiple-choice answer
+wood = ""             # a knuckle on the wooden desk (and the header strip)
+stone = ""            # a fingertip on the speaking stone (the terminal)
+saved = ""            # the quill scratching as the workbench saves
+page = ""             # a page turning (opening a desk object)
+orb = ""              # ringing the Oracle's crystal
+candle = ""           # a breath stirring the candle flame
+peddler = ""          # the peddler's coin pouch shifting
+
+# Not listed here (already recordings, not synthesized — change them differently):
+#   the drawn spell-cast  → replace sounds/cast-charge.mp3 / cast-release.mp3 / cast-fail.mp3
+#   the incoming-hex sound → set `hex` above, or replace sounds/hex-incoming.mp3
+#   keyclick / typing      → pick the "pen" key profile in TRIM THE WICK and list
+#                            your recordings under [keys] stroke_files above

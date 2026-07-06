@@ -1,0 +1,208 @@
+# Python — complete engine config. The one generic runtime (runtimes/generic.py)
+# executes these commands; nothing python-specific exists in the engine. A tome's
+# [runtime] table overrides any key here.
+language = "Python"
+entryFile = "main.py"
+newFileExt = ".py"
+editorLang = "python"
+runLabel = "python3 main.py"
+packages = false
+starterCode = "# Your program. Run it to see the output.\nprint(\"hello\")\n"
+
+command = ["python3"]
+# syntax check: parse the file without running it; the traceback's last frame carries the error
+checkCommand = ["python3", "-c", "import ast,sys; ast.parse(open(sys.argv[1],encoding='utf-8').read(), sys.argv[1])"]
+diagRegex = '^  File "[^"]*", line (?P<line>\d+)\n(?:    [^\n]*\n)*?(?P<msg>\w*(?:Error|Warning)\b[^\n]*)$'
+
+# Editor completions (keywords, snippets, dot-members) — served to the client via
+# TOME.runtime and rendered by the generic provider in web/editor.js.
+[completions]
+keywords = [
+  "def", "return", "if", "elif", "else", "for", "while", "in", "not", "and", "or", "is",
+  "None", "True", "False", "import", "from", "as", "class", "try", "except", "finally",
+  "raise", "with", "pass", "break", "continue", "lambda", "global", "del",
+  "print", "input", "len", "range", "int", "str", "float", "bool", "list", "dict", "set",
+  "tuple", "sum", "min", "max", "abs", "round", "sorted", "reversed", "enumerate", "zip",
+  "open", "type", "isinstance",
+]
+snippets = [
+  ["def", "function definition", "def ${1:name}($2):\n\t$0"],
+  ["if", "if block", "if $1:\n\t$0"],
+  ["ifelse", "if / else", "if $1:\n\t$2\nelse:\n\t$0"],
+  ["for", "for loop", "for ${1:item} in ${2:items}:\n\t$0"],
+  ["forr", "for over range", "for ${1:i} in range(${2:count}):\n\t$0"],
+  ["while", "while loop", "while $1:\n\t$0"],
+  ["tryex", "try / except", "try:\n\t$1\nexcept ${2:Exception} as e:\n\t$0"],
+  ["class", "class definition", "class ${1:Name}:\n\tdef __init__(self$2):\n\t\t$0"],
+  ["ifmain", "entry-point guard", "if __name__ == \"__main__\":\n\t$0"],
+  ["inpint", "read an int from input", "int(input($1))$0"],
+  ["fstr", "f-string", "f\"${1:text} {${2:value}}\"$0"],
+  ["listcomp", "list comprehension", "[${1:x} for $1 in ${2:items}]$0"],
+]
+# ordered rhs-regex -> member key, for `variable.` completions (first match wins)
+types = [
+  ["\\.split\\(", "list"],
+  ["^(\\[|list\\(|sorted\\()", "list"],
+  ["^set\\(", "set"],
+  ["^(\\{|dict\\()", "dict"],
+  ["^(f?[\"']|str\\(|input\\()", "str"],
+]
+# user-declared classes: classRegex groups = (name, body); methodRegex runs over the body;
+# ctorRegex maps an assignment rhs like `Dog(` back to the class → `d = Dog()` completes d.
+classRegex = '^class\s+(\w+)[^\n]*:\n((?:[ \t]+[^\n]*\n?|[ \t]*\n)*)'
+methodRegex = 'def\s+(\w+)'
+ctorRegex = '^(\w+)\s*\('
+
+# member tuples: [label, kind(m|p|f), detail, insertText] — $1/$0 are snippet stops
+[completions.members]
+str = [
+  ["upper()", "m", "str — uppercase copy", "upper()"],
+  ["lower()", "m", "str — lowercase copy", "lower()"],
+  ["strip()", "m", "str — whitespace removed from both ends", "strip()"],
+  ["lstrip()", "m", "str — whitespace removed from the left", "lstrip()"],
+  ["rstrip()", "m", "str — whitespace removed from the right", "rstrip()"],
+  ["capitalize()", "m", "str — first letter up, rest down", "capitalize()"],
+  ["splitlines()", "m", "list[str] — one entry per line", "splitlines()"],
+  ["index()", "m", "int index(sub) — like find() but raises if missing", "index($1)$0"],
+  ["ljust()", "m", "str ljust(width) — pad on the right", "ljust($1)$0"],
+  ["rjust()", "m", "str rjust(width) — pad on the left", "rjust($1)$0"],
+  ["isspace()", "m", "bool — all whitespace", "isspace()"],
+  ["isupper()", "m", "bool", "isupper()"],
+  ["islower()", "m", "bool", "islower()"],
+  ["split()", "m", "list[str] split(sep) — sep defaults to whitespace", "split($1)$0"],
+  ["join()", "m", "str join(iterable) — glue items with this string", "join($1)$0"],
+  ["replace()", "m", "str replace(old, new)", "replace($1, $2)$0"],
+  ["startswith()", "m", "bool startswith(prefix)", "startswith($1)$0"],
+  ["endswith()", "m", "bool endswith(suffix)", "endswith($1)$0"],
+  ["find()", "m", "int find(sub) — -1 if missing", "find($1)$0"],
+  ["count()", "m", "int count(sub)", "count($1)$0"],
+  ["format()", "m", "str format(*args) — prefer f-strings", "format($1)$0"],
+  ["isdigit()", "m", "bool — all characters are digits", "isdigit()"],
+  ["isalpha()", "m", "bool — all characters are letters", "isalpha()"],
+  ["title()", "m", "str — Title Case copy", "title()"],
+  ["zfill()", "m", "str zfill(width) — pad with leading zeros", "zfill($1)$0"],
+]
+list = [
+  ["append()", "m", "None append(item) — add to the end", "append($1)$0"],
+  ["extend()", "m", "None extend(iterable)", "extend($1)$0"],
+  ["insert()", "m", "None insert(index, item)", "insert($1, $2)$0"],
+  ["remove()", "m", "None remove(item) — first occurrence", "remove($1)$0"],
+  ["pop()", "m", "item pop(index=-1)", "pop($1)$0"],
+  ["index()", "m", "int index(item) — raises if missing", "index($1)$0"],
+  ["count()", "m", "int count(item)", "count($1)$0"],
+  ["sort()", "m", "None — in-place sort", "sort()"],
+  ["reverse()", "m", "None — in-place reverse", "reverse()"],
+  ["clear()", "m", "None — remove everything", "clear()"],
+  ["copy()", "m", "list — shallow copy", "copy()"],
+]
+dict = [
+  ["keys()", "m", "view of keys", "keys()"],
+  ["values()", "m", "view of values", "values()"],
+  ["items()", "m", "view of (key, value) pairs", "items()"],
+  ["get()", "m", "value get(key, default=None) — no KeyError", "get($1)$0"],
+  ["pop()", "m", "value pop(key)", "pop($1)$0"],
+  ["update()", "m", "None update(other_dict)", "update($1)$0"],
+  ["setdefault()", "m", "value setdefault(key, default)", "setdefault($1, $2)$0"],
+  ["clear()", "m", "None", "clear()"],
+]
+math = [
+  ["sqrt()", "m", "float sqrt(x)", "sqrt($1)$0"],
+  ["floor()", "m", "int — round down", "floor($1)$0"],
+  ["ceil()", "m", "int — round up", "ceil($1)$0"],
+  ["pow()", "m", "float pow(x, y)", "pow($1, $2)$0"],
+  ["fabs()", "m", "float — absolute value", "fabs($1)$0"],
+  ["log()", "m", "float log(x, base=e)", "log($1)$0"],
+  ["gcd()", "m", "int gcd(a, b)", "gcd($1, $2)$0"],
+  ["sin()", "m", "float sin(radians)", "sin($1)$0"],
+  ["cos()", "m", "float cos(radians)", "cos($1)$0"],
+  ["pi", "f", "3.14159…", "pi"],
+  ["e", "f", "2.71828…", "e"],
+  ["inf", "f", "floating-point infinity", "inf"],
+]
+random = [
+  ["randint()", "m", "int randint(a, b) — both ends inclusive", "randint($1, $2)$0"],
+  ["random()", "m", "float 0.0–1.0", "random()"],
+  ["choice()", "m", "item choice(sequence)", "choice($1)$0"],
+  ["shuffle()", "m", "None shuffle(list) — in place", "shuffle($1)$0"],
+  ["uniform()", "m", "float uniform(a, b)", "uniform($1, $2)$0"],
+  ["sample()", "m", "list sample(population, k)", "sample($1, $2)$0"],
+  ["seed()", "m", "None seed(n) — reproducible runs", "seed($1)$0"],
+]
+set = [
+  ["add()", "m", "None add(item)", "add($1)$0"],
+  ["remove()", "m", "None remove(item) — raises if missing", "remove($1)$0"],
+  ["discard()", "m", "None discard(item) — no error if missing", "discard($1)$0"],
+  ["union()", "m", "set union(other) — also a | b", "union($1)$0"],
+  ["intersection()", "m", "set intersection(other) — also a & b", "intersection($1)$0"],
+  ["difference()", "m", "set difference(other) — also a - b", "difference($1)$0"],
+  ["issubset()", "m", "bool issubset(other)", "issubset($1)$0"],
+  ["pop()", "m", "arbitrary item, removed", "pop()"],
+  ["clear()", "m", "None", "clear()"],
+]
+json = [
+  ["dumps()", "m", "str dumps(obj, indent=None) — object → JSON text", "dumps($1)$0"],
+  ["loads()", "m", "obj loads(text) — JSON text → object", "loads($1)$0"],
+  ["dump()", "m", "dump(obj, file)", "dump($1, $2)$0"],
+  ["load()", "m", "obj load(file)", "load($1)$0"],
+]
+re = [
+  ["search()", "m", "Match|None search(pattern, text) — first match anywhere", "search($1, $2)$0"],
+  ["match()", "m", "Match|None match(pattern, text) — anchored at the start", "match($1, $2)$0"],
+  ["findall()", "m", "list findall(pattern, text)", "findall($1, $2)$0"],
+  ["sub()", "m", "str sub(pattern, replacement, text)", "sub($1, $2, $3)$0"],
+  ["split()", "m", "list split(pattern, text)", "split($1, $2)$0"],
+  ["compile()", "m", "Pattern compile(pattern)", "compile($1)$0"],
+]
+os = [
+  ["getcwd()", "m", "str — current working directory", "getcwd()"],
+  ["listdir()", "m", "list[str] listdir(path='.')", "listdir($1)$0"],
+  ["makedirs()", "m", "makedirs(path, exist_ok=False)", "makedirs($1)$0"],
+  ["remove()", "m", "remove(path) — delete a file", "remove($1)$0"],
+  ["rename()", "m", "rename(src, dst)", "rename($1, $2)$0"],
+  ["environ", "f", "mapping of environment variables", "environ"],
+  ["path", "p", "os.path — join(), exists(), basename(), splitext()…", "path"],
+  ["sep", "f", "path separator ('/' here)", "sep"],
+]
+sys = [
+  ["argv", "f", "list[str] — command-line arguments (argv[0] is the script)", "argv"],
+  ["exit()", "m", "exit(code=0)", "exit($1)$0"],
+  ["stdin", "f", "standard input stream", "stdin"],
+  ["stdout", "f", "standard output stream", "stdout"],
+  ["path", "f", "module search paths", "path"],
+]
+time = [
+  ["time()", "m", "float — seconds since the epoch", "time()"],
+  ["sleep()", "m", "sleep(seconds)", "sleep($1)$0"],
+  ["monotonic()", "m", "float — for measuring durations", "monotonic()"],
+  ["strftime()", "m", "str strftime(format) — e.g. '%H:%M:%S'", "strftime($1)$0"],
+]
+
+# method/function name -> member key: resolves call chains (text.upper().strip().)
+# and assignments whose rhs ends in a call (parts = text.split(",") -> list)
+[completions.returns]
+upper = "str"
+lower = "str"
+strip = "str"
+lstrip = "str"
+rstrip = "str"
+title = "str"
+capitalize = "str"
+replace = "str"
+format = "str"
+zfill = "str"
+join = "str"
+ljust = "str"
+rjust = "str"
+input = "str"
+str = "str"
+split = "list"
+splitlines = "list"
+findall = "list"
+sorted = "list"
+list = "list"
+keys = "list"
+values = "list"
+items = "list"
+copy = "list"
+dict = "dict"
+set = "set"

@@ -1,0 +1,100 @@
+[[lessons]]
+id = "s02-l03"
+title = "Loops — for, foreach, while"
+body = '''
+
+<p>Three loops, three labors:</p>
+<p><strong>foreach</strong> — "for every thing in this vessel." Your draft horse:</p>
+<pre><code><span class="k">string</span>[] keywords = { <span class="s">"tls"</span>, <span class="s">"1.3"</span>, <span class="s">"cipher"</span> };
+<span class="k">foreach</span> (<span class="k">string</span> kw <span class="k">in</span> keywords)
+{
+    Console.WriteLine(<span class="s">$"keyword: {kw}"</span>);
+}</code></pre>
+<p><strong>for</strong> — when you need the index or a tally:</p>
+<pre><code><span class="k">for</span> (<span class="k">int</span> i = 0; i &lt; keywords.Length; i++)
+{
+    Console.WriteLine(<span class="s">$"[{i}] {keywords[i]}"</span>);   <span class="c">// [0] tls, [1] 1.3, ...</span>
+}</code></pre>
+<p>Its anatomy: <code>for (begin; hold-while; after-each-turn)</code>. Indexes begin at <strong>0</strong>; the last true index is <code>Length - 1</code> — hence <code>i &lt; Length</code>, never <code>&lt;=</code>.</p>
+<p><strong>while</strong> — loop for as long as a condition holds. You already wielded <code>while (true)</code> for the listening loop.</p>
+<p>Loop governance: <code>break</code> leaves the loop; <code>continue</code> leaps straight to the next turn:</p>
+<pre><code><span class="k">foreach</span> (<span class="k">var</span> word <span class="k">in</span> words)
+{
+    <span class="k">if</span> (word.Length &lt; 3) <span class="k">continue</span>;   <span class="c">// pass over the chaff-words</span>
+    ProcessKeyword(word);
+}</code></pre>
+<div class="callout">Off-by-one wounds are the first loop injury in every tongue. <code>i &lt;= Length</code> walks one step past the page's edge and throws IndexOutOfRangeException at casting time.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Common loop figures</strong> you should know at a glance:</p>
+<pre><code>int sum = 0;                          <span class="c">// gather</span>
+foreach (var n in nums) sum += n;
+
+int best = int.MinValue;              <span class="c">// find the greatest</span>
+foreach (var n in nums) if (n > best) best = n;</code></pre>
+<p><strong>Nested loops</strong> multiply: an outer loop of 5 scrolls with an inner loop of 100 passages works the body 500 times. <code>break</code> leaves only the INNER loop.</p>
+<p><strong>Scope:</strong> a vessel declared inside a loop's body is born and dies each turn; the tally <code>i</code> in <code>for (int i...)</code> lives only within that loop.</p>
+<p><strong>Compound filling:</strong> <code>+=</code> <code>-=</code> <code>*=</code> and the counting pair <code>i++</code> / <code>i--</code>.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Iteration statements\""
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/statements/iteration-statements"
+essential = true
+
+[[lessons.exercises]]
+id = "s02-l03-e1"
+type = "mc"
+points = 20
+prompt = "An array has <code>Length == 4</code>. Which indexes are true?"
+choices = ["1, 2, 3, 4", "0, 1, 2, 3", "0, 1, 2, 3, 4", "Any positive number"]
+answer = 1
+hint = "Zero-based. First is 0, last is Length - 1."
+
+[[lessons.exercises]]
+id = "s02-l03-e2"
+type = "text"
+points = 20
+prompt = "Which keyword passes over the rest of the current loop turn and leaps to the next one?"
+answer = "continue"
+hint = "break leaves; this one merely skips ahead."
+
+[[lessons.exercises]]
+id = "s02-l03-e3"
+type = "mc"
+points = 25
+prompt = "What does this loop utter?"
+code = '''
+string[] words = { "the", "tls", "handshake" };
+foreach (var w in words)
+{
+    if (w.Length < 4) continue;
+    Console.WriteLine(w);
+}'''
+choices = ["the tls handshake", "handshake", "the tls", "tls handshake"]
+answer = 1
+hint = "\"the\" and \"tls\" both have length 3."
+
+[[lessons.exercises]]
+id = "s02-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "The indexed for loop — the tally shape must live in your hand. Twice."
+code = '''
+for (int i = 0; i < keywords.Length; i++)
+{
+    Console.WriteLine($"[{i}] {keywords[i]}");
+}'''
+
+[[lessons.exercises]]
+id = "s02-l03-w1"
+type = "write"
+points = 32
+prompt = "Utter the numbers 1 through 10, one per line — but PASS OVER multiples of 3 using <code>continue</code>."
+expect = '''
+1
+2
+4
+5
+7
+8
+10'''
+hint = "for 1..10, if (i % 3 == 0) continue; — % is the remainder mark."

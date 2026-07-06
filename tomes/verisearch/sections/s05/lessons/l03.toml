@@ -1,0 +1,104 @@
+[[lessons]]
+id = "s05-l03"
+title = "YamlDotNet — config humans can edit"
+body = '''
+
+<p>JSON is fussy for hand-edited config (no comments!). YAML is the standard for tool config, and <code>YamlDotNet</code> is the .NET parser (<code>dotnet add package YamlDotNet</code>). Target file:</p>
+<pre><code><span class="c"># ~/.verisearch/config.yaml</span>
+searxng_url: <span class="s">"http://localhost:8080"</span>
+max_sources: 5
+min_trust: 3.0
+
+domain_trust:
+  - domain: <span class="s">"nist.gov"</span>
+    tier: <span class="s">"Government"</span>
+    base_score: 9.5
+  - domain: <span class="s">"medium.com"</span>
+    tier: <span class="s">"Unverified"</span>
+    base_score: 2.0</code></pre>
+<p>Model it with classes (YamlDotNet wants settable properties — use classes with <code>get; set;</code>, not positional records), then deserialize:</p>
+<pre><code><span class="k">using</span> YamlDotNet.Serialization;
+<span class="k">using</span> YamlDotNet.Serialization.NamingConventions;
+
+<span class="k">public class</span> VerisearchConfig
+{
+    <span class="k">public string</span> SearxngUrl { <span class="k">get</span>; <span class="k">set</span>; } = <span class="s">"http://localhost:8080"</span>;
+    <span class="k">public int</span> MaxSources { <span class="k">get</span>; <span class="k">set</span>; } = 5;
+    <span class="k">public double</span> MinTrust { <span class="k">get</span>; <span class="k">set</span>; } = 3.0;
+    <span class="k">public</span> List&lt;DomainTrustEntry&gt; DomainTrust { <span class="k">get</span>; <span class="k">set</span>; } = <span class="k">new</span>();
+}
+
+<span class="k">var</span> deserializer = <span class="k">new</span> DeserializerBuilder()
+    .WithNamingConvention(UnderscoredNamingConvention.Instance)   <span class="c">// max_sources → MaxSources</span>
+    .Build();
+
+VerisearchConfig cfg = deserializer.Deserialize&lt;VerisearchConfig&gt;(yamlText);</code></pre>
+<p>The naming convention line is the magic: YAML's <code>snake_case</code> maps onto C#'s <code>PascalCase</code>. Writing YAML back out is the mirror image with <code>SerializerBuilder</code>.</p>
+<p>Malformed YAML throws <code>YamlException</code> with a line/column — catch it and tell the user where their file broke.</p><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>YAML syntax you must read fluently:</strong> indentation IS structure (spaces only, never tabs) · <code>key: value</code> maps · <code>- item</code> lists · a list of maps is <code>- domain: x</code> then aligned keys under it · <code>#</code> comments · quotes optional except for tricky strings ("yes"/"no"/"3.0" unquoted can surprise you — quote strings that look like other types).</p>
+<p><strong>Serializing back out:</strong> <code>new SerializerBuilder().WithNamingConvention(UnderscoredNamingConvention.Instance).Build().Serialize(cfg)</code> — same convention BOTH directions or your default-config writer and loader disagree (THORNE's favorite trap in this chapter's Great Working).</p>
+<p><strong>Why not JSON for config?</strong> No comments, trailing-comma landmines, noisy quotes. JSON is for machines talking to machines; YAML is for files humans edit. (Verisearch uses both — each where it belongs.)</p></div>'''
+
+[[lessons.readings]]
+label = "YamlDotNet — GitHub README & wiki"
+url = "https://github.com/aaubry/YamlDotNet"
+essential = true
+
+[[lessons.readings]]
+label = "Microsoft Learn — \"Options pattern\" (heavier alternative)"
+url = "https://learn.microsoft.com/en-us/dotnet/core/extensions/options"
+essential = false
+
+[[lessons.exercises]]
+id = "s05-l03-e1"
+type = "mc"
+points = 20
+prompt = "Why does the lesson use classes with <code>get; set;</code> for config instead of positional records?"
+choices = ["Records can't hold lists", "YamlDotNet populates objects via settable properties after construction", "Classes parse faster", "YAML requires inheritance"]
+answer = 1
+hint = "The deserializer creates the object empty, then fills it property by property."
+
+[[lessons.exercises]]
+id = "s05-l03-e2"
+type = "fill"
+points = 25
+prompt = "Fill the blank so <code>base_score</code> in YAML maps to <code>BaseScore</code> in C#."
+code = '''
+var deserializer = new DeserializerBuilder()
+    .WithNamingConvention(____NamingConvention.Instance)
+    .Build();'''
+answer = "Underscored"
+accept = ["underscored"]
+hint = "snake_case is also called ____ case in YamlDotNet."
+
+[[lessons.exercises]]
+id = "s05-l03-e3"
+type = "mc"
+points = 20
+prompt = "A user mangles their YAML indentation. Deserialize will…"
+choices = ["silently return defaults", "throw a YamlException that includes line/column info", "fix the indentation automatically", "return null"]
+answer = 1
+hint = "Catch it and point the user at the line."
+
+[[lessons.exercises]]
+id = "s05-l03-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "The deserializer build — convention line included. Twice, because forgetting it costs an hour."
+code = '''
+var deserializer = new DeserializerBuilder()
+    .WithNamingConvention(UnderscoredNamingConvention.Instance)
+    .Build();
+var cfg = deserializer.Deserialize<VerisearchConfig>(yamlText);'''
+
+[[lessons.exercises]]
+id = "s05-l03-d2"
+type = "type"
+points = 12
+prompt = "Type this YAML fragment exactly — two-space indentation, dash placement, the works. Reading YAML fluently means having written some."
+code = '''
+domain_trust:
+  - domain: "nist.gov"
+    tier: "Government"
+    base_score: 9.5'''
