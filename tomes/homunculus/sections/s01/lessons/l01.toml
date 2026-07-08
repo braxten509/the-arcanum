@@ -40,6 +40,7 @@ choices = [
 answer = 1
 whyWrong = "A driver version number and a working compute path are two different checks — an up-to-date driver can still leave the runtime blind to the card, and a stale one can still pass this exact test."
 explain = "ROCm's PyTorch build reuses the <code>torch.cuda</code> namespace for HIP, so the name is a historical accident, not a sign CUDA is present — there is no CUDA on this box at all."
+hint = "The function name's <code>cuda</code> prefix is a ROCm layout choice, not genuine CUDA — the check proves the HIP backend can route to a compute device under that inherited namespace, regardless of driver version."
 
 [[lessons.exercises]]
 id = "s01-l01-e3"
@@ -54,6 +55,7 @@ choices = [
 ]
 answer = 0
 whyWrong = "llama.cpp and Ollama never touch gradients — they convert and run already-trained weights. Training is transformers loading the base and peft wrapping it with a LoRA adapter; serving is downstream of that, not the same step."
+hint = "One side touches gradients and adapters; the other only converts and runs already-trained weights — the lesson's paragraph on the serving toolchain names that boundary explicitly."
 
 [[lessons.exercises]]
 id = "s01-l01-e4"
@@ -72,7 +74,7 @@ prompt = "A bench check has a <code>required</code> list of five tools and an <c
 starter = '''required = ["rocm", "pytorch", "peft", "llama.cpp", "ollama"]
 installed = {"rocm", "pytorch", "llama.cpp"}
 
-# TODO: build a list of the names in `required` that are NOT in `installed`,
+# build a list of the names in `required` that are NOT in `installed`,
 # keeping the order they appear in `required`, then print:
 #   MISSING: <comma-separated names>
 missing = []

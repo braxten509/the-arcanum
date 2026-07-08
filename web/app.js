@@ -509,10 +509,14 @@
       // "restart from" picker: defaults to the auto-detected phase, but lets the operator force
       // an earlier one (it re-runs from the pages on disk; at/before phase 3 it re-authors every
       // section — the way to redo a section that failed but got skipped on resume).
-      const phaseOpts = FORGE_PHASE_NAMES.map((nm, i) => i >= 1
-        ? `<option value="${i}"${i === resume.phase ? " selected" : ""}>phase ${i} — ${esc(nm)}</option>` : "").join("");
+      // Default is "continue" (value 0 = no override → server auto-resumes and KEEPS phase-3
+      // section progress). Picking an explicit phase forces a redo from there (wipes the done-set
+      // at/before phase 3) — so it never re-runs finished sections unless you ask it to.
+      const phaseOpts = `<option value="0" selected>continue where it left off (phase ${resume.phase})</option>`
+        + FORGE_PHASE_NAMES.map((nm, i) => i >= 1
+          ? `<option value="${i}">redo from phase ${i} — ${esc(nm)}</option>` : "").join("");
       $("h2", root).insertAdjacentHTML("afterend",
-        `<p class="dim" style="font-size:12px;margin:2px 0 12px">Resuming <b>${esc(resume.name)}</b> from <select id="fg-fromphase" style="display:inline-flex;vertical-align:middle;min-width:190px">${phaseOpts}</select> — earlier is a forced redo. Review or change the models below, then continue.</p>`);
+        `<p class="dim" style="font-size:12px;margin:2px 0 12px">Resuming <b>${esc(resume.name)}</b> — <select id="fg-fromphase" style="display:inline-flex;vertical-align:middle;min-width:190px">${phaseOpts}</select>. Redoing at/before phase 3 re-authors every section. Review or change the models below, then continue.</p>`);
       enhanceSelect($("#fg-fromphase", root));   // themed dropdown, like every other select in the app
     }
     const depth = $("#fg-depth", root), depthVal = $("#fg-depth-val", root);
@@ -749,7 +753,7 @@
         const snap = { split: splitOn, sections: $("#fg-sections", root).value,
                        quality: qual.value, configure: conf.checked };
         for (const [n, k] of Object.entries(K)) snap[n] = { prov: k.prov.value, model: k.model.value, eff: k.eff.value };
-        const fromPhase = resume ? parseInt(($("#fg-fromphase", root) || {}).value || resume.phase, 10) : 0;
+        const fromPhase = resume ? parseInt(($("#fg-fromphase", root) || {}).value || "0", 10) : 0;
         const payload = resume
           ? { id: resume.id, runners, sectionsSplit: splitOn, bindery: snap, fromPhase }
           : { concept, prior_knowledge: $("#fg-prior", root).value.trim(),

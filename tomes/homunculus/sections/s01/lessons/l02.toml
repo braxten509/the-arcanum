@@ -31,6 +31,7 @@ choices = [
 answer = 0
 whyWrong = "Driver age is a separate axis from wheel-to-target matching — you can have the newest driver on earth and still run a binary compiled for a target string your card doesn't share."
 explain = "gfx1201 is the 9070 XT's real target string; a wheel's precompiled-target list is the actual compatibility contract, not the driver version or PyTorch's general ROCm support (which does cover this card)."
+hint = "The card's own gfx identifier is gfx1201, and the lesson lists exactly which three targets that specific wheel's binaries were built for."
 
 [[lessons.exercises]]
 id = "s01-l02-e2"
@@ -65,6 +66,7 @@ choices = [
 answer = 2
 whyWrong = "Reinstalling a Python package can't fix a fault that lives one layer down, at the driver/runtime boundary — if the OS-level tool can't see the card, no PyTorch reinstall changes that."
 explain = "PyTorch's device check can only report what the runtime beneath it already sees; when both fail together, the fault is upstream of Python, so that's where you look first."
+hint = "The callout box in this lesson states the rule directly: confirm the metal with rocm-smi before you blame the framework."
 
 [[lessons.exercises]]
 id = "s01-l02-e5"
@@ -81,7 +83,7 @@ prompt = "A kernel launches 4 warps; each RDNA wavefront (this card's actual wid
 starter = '''warps = 4
 wavefront = 32  # this card's real wavefront width, from the lesson
 
-# TODO: compute the total lanes (warps * wavefront) and print:
+# compute the total lanes (warps * wavefront) and print:
 #   LANES 128
 lanes = 0
 print(f"LANES {lanes}")

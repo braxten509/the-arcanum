@@ -42,6 +42,7 @@ choices = [
 answer = 3
 whyWrong = "Swapping which library 'runs the loop' versus 'loads data' is the single most common mix-up here — trl owns the loop, datasets owns the rows it feeds in, and neither one does the other's job."
 explain = "Each library keeps to exactly one responsibility: architecture/weights (transformers), data shaping (datasets), adapter wrapping (peft), the loop itself (trl), device placement (accelerate)."
+hint = "The lesson's FIELD NOTES break it down: a shape error is datasets, a device error is accelerate, an adapter that won't attach is peft, and the training loop itself is trl."
 
 [[lessons.exercises]]
 id = "s01-l03-e2"
@@ -72,7 +73,7 @@ prompt = "Given a dict mapping five pipeline stage names to their correct order,
 starter = '''order_index = {"train": 0, "merge": 1, "convert": 2, "quantize": 3, "serve": 4}
 stages = ["quantize", "train", "serve", "merge", "convert"]
 
-# TODO: sort `stages` using each name's value in order_index, then print:
+# sort `stages` using each name's value in order_index, then print:
 #   PIPELINE: train -> merge -> convert -> quantize -> serve
 ordered = stages
 print("PIPELINE: " + " -> ".join(ordered))

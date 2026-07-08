@@ -1,0 +1,109 @@
+[[lessons]]
+id = "s06-l02"
+title = "Judging the Voice"
+body = '''
+<p>The held-out mirror from the first rite answers "did the bind change anything?" — the base-model side-by-side comparison that partitions the output into a before and an after. This rite answers the harder question: "did it change in the right direction?" A binder can shift the output away from the base model in countless ways, and most of them are degradation — the adapter could learn to capitalize every sentence, or insert a boilerplate sign-off, or repeat the prompt verbatim before answering. The proving rite needs an actual metric: a way to count, however approximately, how close the adapted output is to the artificer's real writing style.</p>
+<p><strong>Surface overlap — n-gram precision.</strong> The simplest metric splits both the reference text (a sample of the artificer's genuine, untrained writing — something the bind never saw) and the generated output into overlapping word n-grams (sequences of 1, 2, or 3 consecutive words) and measures what fraction of the generated n-grams also appear in the reference. This catches lexical habits — specific phrases, transition words, the kind of clause structure the artificer favors — but it is a surface-level signal: it measures word choice, not meaning. A generated answer that uses all the right transition words but makes no sense still scores high on n-gram overlap. The BLEU score the NLP literature uses is an n-gram precision variant with a brevity penalty; ROUGE-L is a recall-oriented counterpart that measures the longest common subsequence. Both are cheap to compute and give a rough first pass on lexical style shift.</p>
+<p><strong>Semantic distance — embeddings.</strong> The deeper metric translates the reference text and the generated output into vectors — dense floating-point arrays produced by a sentence-embedding model like <code>sentence-transformers/all-MiniLM-L6-v2</code> — and measures the cosine angle between them. Cosine similarity (dot product of two normalized vectors, range [-1, 1]) captures whether the two texts mean roughly the same thing in roughly the same register, even if the exact words differ. A high cosine similarity (>0.85) on a style-appropriate prompt suggests the adapter is producing the right kind of answer; a low score on a straightforward prompt suggests the bind veered the model off course. The embedding model itself is a separate, lightweight model — a few hundred megabytes — that runs on the same GPU without competing with the 7B base for VRAM, since it loads and embeds after the generation pass, not during it.</p>
+<p>The combination gives the artificer a two-layer readout: the n-gram overlap says "the words look right," and the semantic distance says "the meaning stays on track." Neither is a final verdict — human judgment on a handful of prompts still carries the real decision — but together they catch the two most common bind failures (lexically wrong and semantically wrong) before the artificer spends an afternoon reading generated output line by line.</p>
+<pre><code><span class="k">from</span> sentence_transformers <span class="k">import</span> SentenceTransformer
+<span class="k">from</span> sklearn.metrics.pairwise <span class="k">import</span> cosine_similarity
+
+embedder = SentenceTransformer(<span class="s">"all-MiniLM-L6-v2"</span>)
+ref_embedding = embedder.encode(reference_text)
+gen_embedding = embedder.encode(generated_output)
+sim = cosine_similarity([ref_embedding], [gen_embedding])[0][0]
+<span class="k">print</span>(<span class="s">"cosine similarity:"</span>, sim)</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE REFERENCE TEXT IS NOT THE TRAINING DATA</div>
+<p>The reference text used for n-gram and embedding comparison must be fresh — writing samples from the same artificer that never entered the training set. If the reference and the training data overlap, the metric measures memorization of the training corpus, not style transfer to new topics. The safe practice: reserve a small set of the artificer's notes — 3–5 pages of genuinely new writing on topics the training set did not cover — as the reference corpus for evaluation. They were never tokenized, never fed to the SFTTrainer, and never entered the LLM in any form except as the comparison target during evaluation. The fourth rite's curation pass already taught the discipline of splitting at the record level; this is the same habit applied to the reference text: hold it out before you measure.</p></div>
+'''
+body_words = 510
+
+[[lessons.readings]]
+label = "Sentence-Transformers: computing embeddings for text similarity"
+url = "https://www.sbert.net/docs/usage/semantic_textual_similarity.html"
+
+[[lessons.exercises]]
+id = "s06-l02-e1"
+type = "mc"
+points = 20
+prompt = "Per this rite, why is high n-gram overlap between the generated output and the reference text not sufficient proof that the bind is working correctly?"
+choices = [
+  "N-gram overlap requires the input prompt to be at least 100 tokens long, and the typical held-out prompt from the first rite is too short to produce a meaningful score — the metric returns zero for inputs under that threshold",
+  "N-gram overlap measures surface word-choice patterns — specific phrases and transition words — not whether the output actually makes sense or stays on topic; a generated text that strings together the right vocabulary but says nothing coherent can score high on overlap while being useless as an answer",
+  "N-gram overlap is a semantic measure that requires a GPU-accelerated embedding model, and sentence-transformers is not compatible with the AMD ROCm stack the first rite installed",
+  "N-gram overlap is an exact-match metric that penalizes any synonym replacement — if the generated output uses 'however' instead of 'but,' which both appear in the reference, the score drops to zero because the n-grams don't match"
+]
+answer = 0
+whyWrong = "N-gram overlap is a surface lexical measure, not a semantic one — it counts matching word sequences, not meaning. It does not require a minimum input length, it is not a semantic measure (the embedding model handles that), and synonym mismatches reduce the score but do not zero it. The real limitation: surface overlap is blind to coherence — a text that uses the right vocabulary but says nothing sensible still scores high."
+hint = "The lesson says n-gram overlap 'catches lexical habits' but is 'a surface-level signal: it measures word choice, not meaning.' The correct choice identifies a coherent-sounding but meaningless output as the metric's blind spot."
+explain = "N-gram precision measures whether the generated text uses the same multi-word chunks as the reference — it's a proxy for stylistic similarity, not for correctness. A generated paragraph that uses all the right filler phrases ('in other words,' 'the key insight is,' 'to put it differently') but says nothing true will ace the n-gram test and fail every other test, which is why the lesson pairs it with semantic similarity as a second, independent check."
+
+[[lessons.exercises]]
+id = "s06-l02-e2"
+type = "text"
+points = 18
+prompt = "What light-weight sentence-embedding model does the lesson recommend for computing the cosine similarity between reference text and generated output — the model loaded via <code>SentenceTransformer()</code>?"
+answer = "all-MiniLM-L6-v2"
+accept = ["all-MiniLM-L6-v2", "sentence-transformers/all-MiniLM-L6-v2", "MiniLM", "all-minilm-l6-v2"]
+hint = "It's the model name passed to SentenceTransformer in the lesson's code block — a compact embedding model that runs without competing with the 7B base for VRAM."
+
+[[lessons.exercises]]
+id = "s06-l02-e3"
+type = "type"
+points = 12
+reps = 2
+code = '''from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
+
+embedder = SentenceTransformer("all-MiniLM-L6-v2")
+ref_embedding = embedder.encode(reference_text)
+gen_embedding = embedder.encode(generated_output)
+sim = cosine_similarity([ref_embedding], [gen_embedding])[0][0]
+print("cosine similarity:", sim)'''
+
+[[lessons.exercises]]
+id = "s06-l02-e4"
+type = "mc"
+points = 20
+prompt = "Per this rite, what is the cosine similarity between two identical texts — both are the same document, embedded with the same model?"
+choices = [
+  "0.0 — cosine similarity measures difference, not sameness, so identical vectors have zero angular separation but cosine returns 0 for identical inputs to avoid a divide-by-zero in the dot product",
+  "0.5 — the embedding model adds random noise to prevent memorization, so even identical inputs produce slightly different vectors whose cosine is approximately 0.5",
+  "1.0 — the dot product of a normalized vector with itself is 1.0, and cosine similarity on identical vectors produces exactly that",
+  "Depends on the embedding model's dimensionality — a 384-dim model produces cosine 384, and higher-dimensional models produce proportionally higher values"
+]
+answer = 2
+whyWrong = "Cosine similarity = (A·B) / (||A|| × ||B||). For A=B, this is (A·A) / (||A||²) = 1.0 regardless of dimension. Embeddings are deterministic (no noise), the metric does not return 0 as a safety measure, and the dimensionality cancels out in the normalization — the value is bounded to [-1,1] for any vector length."
+hint = "Cosine similarity is the dot product of two unit-length vectors. The dot product of a normalized vector with itself equals 1.0 — the angle between a vector and itself is zero degrees, and cos(0) = 1.0."
+explain = "Cosine similarity = (A · B) / (||A|| × ||B||). When A = B, this becomes (A · A) / (||A||²) = 1.0, regardless of the embedding dimension. This is the geometric intuition: two identical vectors point in exactly the same direction, so the angle between them is zero."
+
+[[lessons.exercises]]
+id = "s06-l02-e5"
+type = "fill"
+points = 20
+prompt = "Fill the name of the metric from the lesson — the recall-oriented variant that measures the longest common subsequence between the reference and generated texts, a counterpart to BLEU's precision-focused approach."
+code = '''# Two common n-gram evaluation metrics for text generation:
+# BLEU  — precision-oriented (what fraction of generated n-grams match?)
+# ____ — recall-oriented (how much of the reference does the output cover?)
+# Both are surface-level and do not measure semantic correctness directly.'''
+answer = "ROUGE-L"
+accept = ["ROUGE-L", "rouge-l", "ROUGE", "rouge", "rougeL"]
+hint = "The lesson mentions this metric right after BLEU — it's described as 'a recall-oriented counterpart that measures the longest common subsequence.'"
+
+[[lessons.exercises]]
+id = "s06-l02-e6"
+type = "write"
+points = 35
+prompt = "Given a reference text of 5 sentences and a generated output of 4 sentences, compute the Jaccard similarity between the two sets of words (case-insensitive, punctuation stripped). Print <code>JACCARD &lt;v&gt;</code> rounded to 3 decimal places — computed from the data, not hardcoded. The reference is <code>\"The bind shifts style. It preserves meaning. The adapter is small. Style is lexical. Meaning is semantic.\"</code> and the generated output is <code>\"The bind shifts style well. Style is very lexical. The adapter stays small. Meaning stays semantic.\"</code>"
+starter = '''reference = "The bind shifts style. It preserves meaning. The adapter is small. Style is lexical. Meaning is semantic."
+generated = "The bind shifts style well. Style is very lexical. The adapter stays small. Meaning stays semantic."
+
+# TODO: tokenize both texts into sets of lowercase words (strip punctuation).
+# Jaccard = |intersection| / |union|
+# Print JACCARD <value> rounded to 3 decimal places.
+
+print("JACCARD 0.000")
+'''
+expect = "JACCARD 0.667"
+hint = "Reference word set (unique, lowercase): {the, bind, shifts, style, it, preserves, meaning, adapter, is, small, lexical, semantic} = 12. Generated word set: {the, bind, shifts, style, well, is, very, lexical, adapter, stays, small, meaning, semantic} = 13. Intersection: {the, bind, shifts, style, is, lexical, adapter, small, meaning, semantic} = 10. Jaccard = 10 / (12 + 13 - 10) = 10 / 15 ≈ 0.667. Use f'JACCARD {jaccard:.3f}'."

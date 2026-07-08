@@ -26,6 +26,7 @@ choices = [
 answer = 0
 whyWrong = "Chat template use, answer length, and context length are each governed by separate settings entirely — temperature only reshapes how the next token is chosen from the probability distribution, and at 0 that reshaping collapses to always taking the top pick."
 explain = "Temperature scales the probability distribution before sampling; at exactly 0 there is no randomness left, so the same prompt always produces the same output."
+hint = "The lesson says at temperature=0, sampling collapses to always picking the single highest-probability token — no chat template change, no context-length doubling, no forced answer length."
 
 [[lessons.exercises]]
 id = "s02-l04-e2"
@@ -59,6 +60,7 @@ choices = [
 answer = 2
 whyWrong = "Context length governs how much conversation the model can hold, not looping behavior; cranking temperature to 2.0 mostly adds incoherent noise rather than fixing the loop; and swapping to a base model removes the instruct training that made the reply coherent at all."
 explain = "Repetition penalty exists for exactly this failure — it directly downweights recently-produced tokens, breaking the loop at its source instead of just adding unrelated randomness."
+hint = "The lesson names repetition penalty as the third, blunter knob: it downweights tokens the model has already produced recently, which is the direct fix for a model stuck looping the same phrase."
 
 [[lessons.exercises]]
 id = "s02-l04-e5"
@@ -67,7 +69,7 @@ points = 30
 prompt = "Given a sampling settings dict, print <code>DETERMINISTIC</code> if <code>temperature</code> is exactly 0, otherwise print <code>STOCHASTIC top_p=0.9</code> using the dict's own <code>top_p</code> value — computed from the dict, not hardcoded."
 starter = '''settings = {"temperature": 0.7, "top_p": 0.9}
 
-# TODO: if settings["temperature"] == 0, print:
+# if settings["temperature"] == 0, print:
 #   DETERMINISTIC
 # otherwise print:
 #   STOCHASTIC top_p=<the dict's top_p value>
