@@ -1,0 +1,109 @@
+[[lessons]]
+id = "s10-l01"
+title = "The Smith's Bench — extending CreativeTabs"
+body = '''
+<p>Ironwork heaped into vanilla's BUILDING_BLOCKS tab is no better than scrap. A smith's bench gathers every piece in one place. Forge 1.12.2 lets you make your own bench by extending <code>CreativeTabs</code>:</p>
+<pre><code><span class="k">public class</span> IronwrightTab <span class="k">extends</span> CreativeTabs {
+    <span class="k">public static final</span> IronwrightTab INSTANCE = <span class="k">new</span> IronwrightTab();
+
+    <span class="k">public</span> IronwrightTab() {
+        <span class="k">super</span>(<span class="s">"ironwright"</span>);     <span class="c">// the tab's internal name</span>
+    }
+
+    <span class="k">@Override</span>
+    <span class="k">public</span> ItemStack getTabIconItem() {
+        <span class="k">return</span> <span class="k">new</span> ItemStack(ModItems.IRON);  <span class="c">// the icon shown on the tab</span>
+    }
+}</code></pre>
+<p>Three things to read. The <code>super("ironwright")</code> call registers the tab under the internal label <code>ironwright</code>. <code>getTabIconItem</code> returns the <code>ItemStack</code> drawn on the tab button (here the iron ingot) — override it to pick your icon. The visible name comes from the lang key <code>itemGroup.ironwright=Ironwright</code> in <code>assets/ironwright/lang/en_us.lang</code>. A single static <code>INSTANCE</code> is the tab — Forge 1.12.2 has no registry event for tabs; you construct the singleton and reference it from each item's <code>setCreativeTab(IronwrightTab.INSTANCE)</code>.</p>
+<p>The tab appears in the creative inventory among the vanilla tabs; every item and block that called <code>setCreativeTab(IronwrightTab.INSTANCE)</code> lands there. One bench, every piece.</p>
+<div class="callout"><strong>Orrick says:</strong> Forge 1.12.2 has no <code>RegistryEvent.Register&lt;CreativeTabs&gt;</code> — you construct the tab and hold it in a static field. (1.13+ added a registry event for tabs; 1.12.2 did not.) The <code>INSTANCE</code> singleton is the 1.12.2 way.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // getTabIconItem RETURNS AN ITEMSTACK, NOT AN ITEM</div>
+<p><code>getTabIconItem</code> returns an <code>ItemStack</code> (an Item plus a count and metadata), not a bare <code>Item</code> — because the icon can be a specific variant (e.g. a particular wool colour). <code>new ItemStack(ModItems.IRON)</code> wraps the registered item field in a one-item stack. The tab button renders that stack at its icon. If <code>getTabIconItem</code> returns an empty stack, the tab shows a blank button — a common silent miss.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Minecraft Forge 1.12.x — Creative Tabs"
+url = "https://docs.minecraftforge.net/en/1.12.x/creativetab/"
+
+[[lessons.exercises]]
+id = "s10-l01-e1"
+type = "mc"
+points = 15
+prompt = "How do you make a custom creative tab in Forge 1.12.2 — is there a registry event for it?"
+choices = ["subscribe to RegistryEvent.Register<CreativeTabs>", "extend CreativeTabs, construct a static INSTANCE singleton, and call setCreativeTab on each item — 1.12.2 has no registry event for tabs", "annotate a class with @CreativeTab", "call Minecraft.addTab(...)"]
+answer = 1
+whyWrong = "1.12.2 has no RegistryEvent.Register<CreativeTabs> (that came in 1.13+); you extend CreativeTabs, hold a static INSTANCE, and setCreativeTab on each item. There is no @CreativeTab annotation and no Minecraft.addTab call. The singleton-extend pattern is the 1.12.2 way."
+hint = "Think about whether 1.12.2 has a registry event for tabs — and if not, how do you hold the tab instance?"
+explain = "Extend CreativeTabs, override getTabIconItem, hold a static INSTANCE, add itemGroup.ironwright to en_us.lang for the visible name, and pass the INSTANCE to each setCreativeTab. No registry event in 1.12.2."
+
+[[lessons.exercises]]
+id = "s10-l01-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the method that returns the ItemStack drawn on the tab button (override it to pick your icon)."
+code = '''public class IronwrightTab extends CreativeTabs {
+    @Override
+    public ItemStack ____() {
+        return new ItemStack(ModItems.IRON);
+    }
+}'''
+answer = "getTabIconItem"
+whyWrong = "getTabIconItem returns the tab's icon ItemStack in 1.12.2; createIcon is a newer-version method, getTranslatedTabLabel handles the label key, and setIcon is not a method. The 1.12.2 tab-icon override is getTabIconItem."
+hint = "It starts with getTab and ends with Item — the 1.12.2 method whose return value is the tab's icon ItemStack."
+
+[[lessons.exercises]]
+id = "s10-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the IronwrightTab constructor and getTabIconItem exactly — the super call, the INSTANCE, and the icon override."
+code = '''public static final IronwrightTab INSTANCE = new IronwrightTab();
+
+public IronwrightTab() {
+    super("ironwright");
+}
+
+@Override
+public ItemStack getTabIconItem() {
+    return new ItemStack(ModItems.IRON);
+}'''
+
+[[lessons.exercises]]
+id = "s10-l01-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of the tab-icon override. The starter has a mock <code>Item</code> class, a mock <code>ItemStack</code> wrapper, and a mock <code>CreativeTabs</code> class whose <code>getTabIconItem()</code> returns <code>null</code>. Add a subclass <code>IronwrightTab extends CreativeTabs</code> with an <code>@Override</code> <code>getTabIconItem()</code> that returns <code>new ItemStack(new Item(\"iron\"))</code>, then in <code>main</code> construct <code>IronwrightTab tab = new IronwrightTab();</code> and print <code>icon:</code> plus <code>tab.getTabIconItem().getItem().getName()</code>. The expected output is exactly <code>icon:iron</code>."
+starter = '''public class Ironwright {
+    static class Item {
+        private String name;
+        public Item(String n) { name = n; }
+        public String getName() { return name; }
+    }
+    static class ItemStack {
+        private Item item;
+        public ItemStack(Item item) { this.item = item; }
+        public Item getItem() { return item; }
+    }
+    static class CreativeTabs {
+        public ItemStack getTabIconItem() { return null; }
+    }
+    static class IronwrightTab extends CreativeTabs {
+        // apprentice — @Override getTabIconItem to return new ItemStack(new Item("iron"))
+    }
+
+    public static void main(String[] args) {
+        // apprentice — construct IronwrightTab, print "icon:" + tab.getTabIconItem().getItem().getName()
+    }
+}'''
+expect = '''
+icon:iron'''
+hint = "In IronwrightTab: @Override public ItemStack getTabIconItem() { return new ItemStack(new Item(\"iron\")); }. In main: IronwrightTab tab = new IronwrightTab(); System.out.println(\"icon:\" + tab.getTabIconItem().getItem().getName());"
+
+[[lessons.exercises]]
+id = "s10-l01-t1"
+type = "text"
+points = 20
+prompt = "What does getTabIconItem return — a bare Item, or the thing that wraps an Item with a count and metadata? (Type the class name.)"
+answer = "ItemStack"
+hint = "It is Item + Stack — the wrapper that holds an Item plus count and metadata; getTabIconItem returns one, not a bare Item."

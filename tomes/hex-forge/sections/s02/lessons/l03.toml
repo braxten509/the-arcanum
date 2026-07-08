@@ -1,0 +1,121 @@
+[[lessons]]
+id = "s02-l03"
+title = "Reading the Marks — Flags"
+body = '''
+<p>Every hammer strike leaves a mark. When <code>add</code>, <code>sub</code>, <code>imul</code>, or <code>idiv</code> finishes, the CPU sets <strong>flags</strong> — single-bit markers in the RFLAGS register that describe the result. You never set flags directly; they are a byproduct of arithmetic and logic. But you will read them constantly through conditional jumps.</p>
+
+<p>The four flags that matter most:</p>
+<table style="width:100%">
+<tr><td><strong>ZF</strong> — Zero Flag</td><td>Set (=1) when the result is exactly zero. Cleared (=0) when non-zero. The single most tested flag.</td></tr>
+<tr><td><strong>SF</strong> — Sign Flag</td><td>Set when the result's most-significant bit is 1 — which, in signed interpretation, means negative. Equal to bit 63 of the result.</td></tr>
+<tr><td><strong>CF</strong> — Carry Flag</td><td>Set when unsigned addition overflows past 64 bits, or unsigned subtraction borrows. Think of it as "the 65th bit" of an unsigned operation.</td></tr>
+<tr><td><strong>OF</strong> — Overflow Flag</td><td>Set when signed addition/subtraction overflows — i.e. the result cannot fit in 64 bits with the correct sign. Two positives summing to a negative, or two negatives summing to a positive.</td></tr>
+</table>
+
+<p>Consider these operations and the flags they set:</p>
+<pre><code><span class="k">mov</span> rax, 5
+<span class="k">sub</span> rax, 5         <span class="c">; result = 0 → ZF=1, SF=0, CF=0, OF=0</span>
+
+<span class="k">mov</span> rax, 0
+<span class="k">sub</span> rax, 1         <span class="c">; result = -1 (0xFFFFFFFFFFFFFFFF) → ZF=0, SF=1, CF=1, OF=0</span>
+
+<span class="k">mov</span> rax, 0x7FFFFFFFFFFFFFFF  <span class="c">; largest positive signed 64-bit</span>
+<span class="k">add</span> rax, 1                    <span class="c">; result = 0x8000000000000000 → ZF=0, SF=1, OF=1</span></code></pre>
+
+<p>Flags are sticky — they stay set until the next flag-setting instruction overwrites them. <code>mov</code>, <code>push</code>, <code>pop</code>, <code>lea</code>, and <code>jmp</code> do NOT change flags. <code>add</code>, <code>sub</code>, <code>imul</code>, <code>idiv</code>, <code>cmp</code>, <code>test</code>, <code>xor</code>, <code>and</code>, <code>or</code>, <code>inc</code>, <code>dec</code> all DO set at least some flags.</p>
+
+<p>You'll learn to act on flags with conditional jumps in the next forge op. For now, internalise that every arithmetic result carries a set of marks — and those marks are the ONLY way the CPU can make a decision. There is no "if" built into the silicon; there are only flags, and instructions that branch when a flag is lit.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // INC/DEC AND THE CARRY FLAG</div>
+<p><code>inc</code> and <code>dec</code> set OF, SF, ZF, AF, and PF — but deliberately leave CF unchanged. This is a historical design choice: it lets you increment a loop counter inside a multi-precision addition without disturbing the carry chain. If you need to test the carry after incrementing, follow <code>inc</code> with a separate flag-setting instruction. Also note: the OF after <code>inc</code> can be set if you overflow the signed range of the register width — <code>inc</code> on the largest positive signed value wraps to the most negative.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s02-l03-e1"
+type = "mc"
+points = 15
+prompt = "After <code>mov rax, 10</code> then <code>sub rax, 15</code>, which flags are set?"
+choices = [
+  "ZF=1, SF=0 — the result is zero",
+  "SF=0, OF=1 — signed overflow occurred going from positive to negative",
+  "ZF=1, CF=1 — the result is zero and a borrow occurred",
+  "SF=1, CF=1 — the result is negative and unsigned borrow occurred"
+]
+answer = 3
+whyWrong = "10 - 15 = -5, which is non-zero (ZF=0), negative (SF=1), and requires a borrow in unsigned arithmetic (CF=1). No signed overflow occurs because 10 - 15 = -5 fits in a signed 64-bit register."
+hint = "Subtract 15 from 10. Is the result zero? Negative? Does unsigned subtraction need to borrow?"
+explain = "-5 in two's complement has bit 63 set (SF=1). Unsigned 10 - 15 wraps around to 2^64-5, which means a borrow occurred (CF=1). The result is not zero (ZF=0). No signed overflow because -5 fits in 64 bits."
+
+[[lessons.exercises]]
+id = "s02-l03-e2"
+type = "fill"
+points = 20
+prompt = "Which flag is set when the result of an operation is exactly zero?"
+code = '''
+mov  rax, 7
+sub  rax, 7
+; now ____ = 1 (the flag is set)
+'''
+answer = "ZF"
+accept = ["zf", "Zero Flag", "zero flag"]
+hint = "Two letters. Z stands for Zero. The flag that says 'the result was nothing.'"
+explain = "ZF — the Zero Flag — is set whenever an arithmetic or logical operation produces a result of exactly zero. It is the most commonly tested flag because comparison (cmp) subtracts and sets flags based on the difference — if the values are equal, the difference is zero and ZF=1."
+
+[[lessons.exercises]]
+id = "s02-l03-e3"
+type = "type"
+points = 12
+prompt = "Retype these flag-setting chains, paying attention to which flags each sets."
+code = '''
+mov  rax, 0
+sub  rax, 1        ; SF=1, ZF=0, CF=1
+
+mov  rax, 7
+sub  rax, 7        ; ZF=1, SF=0, CF=0
+
+xor  rax, rax      ; ZF=1, SF=0, CF=0, OF=0 (xor always clears CF and OF)
+'''
+reps = 2
+
+[[lessons.exercises]]
+id = "s02-l03-e4"
+type = "mc"
+points = 15
+prompt = "After <code>mov rax, 0x7FFFFFFFFFFFFFFF</code> followed by <code>add rax, 1</code>, what is the state of SF and OF?"
+choices = [
+  "SF=0, OF=0 — the addition was in range and the result is positive",
+  "SF=1, OF=0 — the result is negative but within signed range",
+  "SF=1, OF=1 — signed overflow: a positive add produced a negative (bit 63 is now 1)",
+  "SF=0, OF=1 — overflow set but the result appears positive"
+]
+answer = 2
+whyWrong = "0x7FFFFFFFFFFFFFFF + 1 = 0x8000000000000000, which is the most negative signed 64-bit integer (-2é³). Bit 63 flipped from 0 to 1, producing SF=1. Two positive operands produced a negative result — that IS signed overflow, so OF=1. This is the classic overflow pattern."
+hint = "The largest positive signed 64-bit value plus one wraps to the most negative value. Bit 63 flips from 0 to 1."
+explain = "Signed overflow (OF) occurs when the sign bit changes in a way that contradicts the sign of the operands: pos + pos → neg, or neg + neg → pos. Here, two positive values (0x7FFFFFFFFFFFFFFF and 1) summed to a negative (bit 63 set), so OF=1."
+
+[[lessons.exercises]]
+id = "s02-l03-w1"
+type = "write"
+points = 30
+prompt = "Print the largest positive signed 64-bit value plus 1 — and observe the wraparound. Set rax to 0x7FFFFFFFFFFFFFFF (the max signed positive), add 1, and print the resulting value. You cannot use db strings for the output — you must compute the LAST hex digit of the result and print it. Hint: 0x8000000000000000 ends in... 0. Print '0' and a newline."
+starter = '''
+section .text
+    global _start
+
+_start:
+    ; rax = 0x7FFFFFFFFFFFFFFF, then add 1
+    mov rax, 0x7FFFFFFFFFFFFFFF
+    
+
+    ; The result is 0x8000000000000000. Its last hex digit is zero.
+    ; Print that ASCII digit followed by a newline.
+    ; You need sys_write — rax=1, rdi=1, rsi=<addr>, rdx=2.
+    
+
+section .data
+outbuf: db 0, 10
+outbuf_len equ $ - outbuf
+'''
+expect = '''
+0'''
+hint = "add rax, 1. The result wraps to the most negative value but you don't need to inspect it — the lab already tells you the last hex digit. Just set up sys_write to print the outbuf. The real lesson is internalising that add on 0x7FFFFFFFFFFFFFFF + 1 = 0x8000000000000000, which sets SF=1 and OF=1."

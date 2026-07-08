@@ -1,0 +1,40 @@
+[freestyle]
+title = "THE WORKING: THE CRUCIBLE — HEXFORGE"
+brief = "Forge the complete HexForge utility. The final heat joins every jig. This is the capstone the entire tome ships.<ul><li>Pop argc from the stack. If argc &lt; 2, use stdin (fd 0). If argc ≥ 2, pop argv[0] (discard), pop argv[1] (filename), and open it with <code>sys_openat</code> (257): dirfd=-100 (AT_FDCWD), flags=0 (O_RDONLY), mode=0. On <code>openat</code> failure, fall back to stdin.</li><li>Read from the chosen fd in 4096-byte chunks until EOF. Maintain a running byte offset (starts at 0, increments by 16 per formatted line). Handle the carry buffer: when a chunk has fewer than 16 bytes remaining, save them for the next chunk.</li><li>For each full 16-byte line, format and print one dump line: 8-digit zero-padded hex offset, two spaces, 16 hex byte pairs with a mid-line gap after byte 8, two spaces, a gutter column (<code>|</code> + 16 classified characters + <code>|</code>). For the short final line (&lt; 16 bytes), pad the hex column and gutter to the standard 16-byte width.</li><li>Classify gutter bytes: printable (32–126) appear as themselves; all others become <code>.</code>. Use unsigned comparisons (jb/ja).</li><li>Close the fd (unless it's stdin=0) and exit cleanly with xor rdi, rdi.</li><li>The engine runs your program as <code>./a.out data.txt</code> where <code>data.txt</code> contains <code>Hello World!</code> (13 bytes including the newline: 48 65 6C 6C 6F 20 57 6F 72 6C 64 21 0A). Output must be exactly one line: <code>00000000  48 65 6C 6C 6F 20 57 6F  72 6C 64 21 0A           |Hello World!.   |</code> — with proper padding on both hex and gutter columns.</li></ul>"
+reward = 250
+xray = "Vandr docks: wrong offset (not starting at 0, not incrementing by 16), missing mid-line hex gap after byte 8, gutter using signed comparisons instead of unsigned (misclassifying bytes 0x80+), carry buffer not working (bytes lost at chunk boundaries), missing padding on short last line (gutter not padded to 16 chars), not closing the file fd (leaks fds), hardcoded output instead of reading from the actual file, crash on zero-byte files, using mov rdi,0 instead of xor rdi,rdi for exit. He rewards: clean separation of concerns (read loop / line grouping / format / print), preserved registers for offset and fd (r12-r15 or rbx), nibble-to-hex using the correct unsigned branch (jb .digit), gutter classification using jb/ja (unsigned), proper carry buffer copy between chunks, and the short-line padding math working for any remainder 1–15."
+
+[freestyle.badge]
+id = "badge-s08"
+name = "CRUCIBLE SEALED"
+desc = "Forged the complete HexForge — a real hexdump utility in pure NASM. The forge is lit, the metal holds."
+
+[[freestyle.rubric]]
+criterion = "Assembles, links, and runs without error"
+weight = 15
+desc = "nasm -f elf64 and ld succeed; program exits cleanly with code 0. No SIGSEGV, no fd leak crash."
+
+[[freestyle.rubric]]
+criterion = "Correct argc handling and file open"
+weight = 15
+desc = "argc checked with cmp/jb. Filename correctly extracted from argv[1]. openat called with AT_FDCWD and O_RDONLY. Fallback to stdin on openat failure or missing filename."
+
+[[freestyle.rubric]]
+criterion = "Correct read loop with carry buffer"
+weight = 20
+desc = "Reads in 4096-byte chunks. Tracks running offset (increments by 16 per line). Carry buffer preserves partial-line bytes across chunk boundaries. Reads from the correct fd (file or stdin)."
+
+[[freestyle.rubric]]
+criterion = "Correct dump line format"
+weight = 25
+desc = "Offset is 8-digit zero-padded hex. Hex column has 16 pairs with mid-line gap after byte 8. Short last line padded to standard width. Gutter uses |delimiters|, printable bytes appear as themselves, others become '.'. Uses unsigned comparisons for byte/nibble classification."
+
+[[freestyle.rubric]]
+criterion = "Correct output for the test file"
+weight = 15
+desc = "For data.txt containing 'Hello World!\\n' (12 bytes), prints exactly one properly formatted dump line with offset 00000000, all 12 hex pairs + padding, and correct gutter including the final space padding."
+
+[[freestyle.rubric]]
+criterion = "Clean NASM style"
+weight = 10
+desc = "fd and offset in preserved registers (r12-r15 or rbx). File fd closed before exit (stdin not closed). xor zeroing throughout. Procedures have clear interfaces. Separator/gutter constants in .data. Buffer declarations in .bss. Exit uses xor rdi, rdi."

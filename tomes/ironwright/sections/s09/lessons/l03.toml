@@ -1,0 +1,81 @@
+[[lessons]]
+id = "s09-l03"
+title = "The Block's Map — blockstate JSON"
+body = '''
+<p>The blockstate JSON is the map from each <code>IBlockState</code> variant to the model that renders it. It lives at <code>assets/ironwright/blockstates/&lt;name&gt;.json</code> — a different folder from the item models. For a single-state block like <code>BlockMetal</code>, the map has one variant (the empty string, meaning "no properties set") pointing at one model:</p>
+<pre><code>{
+  <span class="s">"variants"</span>: {
+    <span class="s">""</span>: {
+      <span class="s">"model"</span>: <span class="s">"ironwright:starsteel_block"</span>
+    }
+  }
+}</code></pre>
+<p>Read it as: "for the variant with no properties (the empty key <code>""</code>), render the model <code>ironwright:starsteel_block</code>". That model is a block model JSON (next lesson) at <code>assets/ironwright/models/block/starsteel_block.json</code>. The blockstate JSON is the router; the block model JSON is the shape; the texture is the skin. Three files per block, each at a fixed path.</p>
+<p>For a block WITH properties (a facing furnace, say), the <code>variants</code> object grows: <code>"facing=north"</code>, <code>"facing=south"</code>, and so on, each pointing at its own model or a rotated variant of one. Your <code>BlockMetal</code> has no properties, so one empty-key variant covers it.</p>
+<div class="callout"><strong>Orrick says:</strong> Three folders, three files, one block: <code>blockstates/&lt;name&gt;.json</code> (the map), <code>models/block/&lt;name&gt;.json</code> (the shape), <code>textures/blocks/&lt;name&gt;.png</code> (the skin). Miss one and the block shows the missing-texture purple or the wrong shape. The paths are fixed by convention.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE EMPTY-KEY VARIANT</div>
+<p>The empty string <code>""</code> as a variant key means "the default state, no properties set". A block with a <code>variant</code> property (like stone's <code>variant=granite</code>) would use <code>"variant=granite"</code> as the key. The key is the property=value pairs joined by commas; with no properties, the key is empty. Get the key wrong and the renderer finds no matching variant and falls back to missing.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s09-l03-e1"
+type = "mc"
+points = 15
+prompt = "What does the blockstate JSON at <code>assets/ironwright/blockstates/starsteel_block.json</code> do?"
+choices = ["it is the block's texture", "it maps each IBlockState variant to the model that renders it", "it sets the block's registry name", "it is the block's loot table"]
+answer = 1
+whyWrong = "The blockstate JSON maps each IBlockState variant to its model (the router); the texture is the PNG, the registry name is setRegistryName, the loot table is a different file. The blockstate JSON is the variant-to-model map."
+hint = "Think about what 'variants' means — what does each variant point at?"
+explain = "The blockstate JSON routes each variant to a model. For a single-state block, one empty-key variant points at the one block model."
+
+[[lessons.exercises]]
+id = "s09-l03-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the key under which a single-state block's one variant is listed (the key meaning 'no properties set')."
+code = '''{
+  "variants": {
+    "____": { "model": "ironwright:starsteel_block" }
+  }
+}'''
+answer = '""'
+whyWrong = "The empty string is the variant key for a no-property block (no property=value pairs to join); 'default' is not the convention, 'normal' is some mods' custom but not the standard, 'all' is a cube_all model reference not a variant key. The no-property key is the empty string."
+hint = "It is the empty string — the variant key when there are no property=value pairs to write."
+
+[[lessons.exercises]]
+id = "s09-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the blockstate JSON exactly — the variants object, the empty-string key, and the model it points at."
+code = '''{
+  "variants": {
+    "": {
+      "model": "ironwright:starsteel_block"
+    }
+  }
+}'''
+
+[[lessons.exercises]]
+id = "s09-l03-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of the blockstate JSON line. The starter sets <code>String modid = \"ironwright\";</code> and <code>String name = \"starsteel_block\";</code>. Print exactly <code>{\"variants\":{\"\":{\"model\":\"ironwright:starsteel_block\"}}}</code> by joining literals with <code>modid</code> and <code>name</code> so the model value is <code>&lt;modid&gt;:&lt;name&gt;</code>. Read modid and name from the variables."
+starter = '''public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright";
+        String name = "starsteel_block";
+        // apprentice — print the blockstate JSON with model = "<modid>:<name>"
+    }
+}'''
+expect = '''
+{"variants":{"":{"model":"ironwright:starsteel_block"}}}'''
+hint = "System.out.println(\"{\\\"variants\\\":{\\\"\\\":{\\\"model\\\":\\\"\" + modid + \":\" + name + \"\\\"}}}\");"
+
+[[lessons.exercises]]
+id = "s09-l03-t1"
+type = "text"
+points = 20
+prompt = "Type the path (from the resources root) of the blockstate JSON for a block whose registry name is starsteel_block."
+answer = "assets/ironwright/blockstates/starsteel_block.json"
+hint = "It is assets/<modid>/blockstates/<name>.json — note the folder is blockstates (plural), different from models/block."

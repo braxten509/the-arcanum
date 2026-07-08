@@ -1,0 +1,76 @@
+[[lessons]]
+id = "s08-l04"
+title = "Reading the Source — The Meta-Skill"
+body = '''
+<p>The final lesson of the final bearing is not about a Python feature. It is about how to find the answer yourself when the docs do not cover it. The Mastery 4 target includes "read unfamiliar source to answer what the docs don't" — and you have been practising this skill since s01 with every "Consult the volumes" pointer. Now it is explicit.</p>
+<p><strong>Where to look:</strong></p>
+<ul>
+<li><strong>Stdlib source:</strong> <code>Lib/&lt;module&gt;.py</code> in your Python installation. Every stdlib module is written in Python (with optional C accelerators in <code>Modules/</code>). Open it in your editor, read the class definitions, read the function docstrings, read the <code>__all__</code> export list.</li>
+<li><strong>CPython C source:</strong> The <code>Objects/</code> and <code>Modules/</code> directories in the CPython source tree (<code>github.com/python/cpython</code>). C accelerators like <code>collections._counter</code> live here, but look in <code>Lib/</code> first — the pure-Python version is often there as the fallback.</li>
+<li><strong>PEPs:</strong> Python Enhancement Proposals document every significant language change. PEP 255 introduced generators, PEP 380 introduced <code>yield from</code>, PEP 557 introduced <code>dataclasses</code>, PEP 585 introduced <code>list[str]</code> syntax. Search <code>peps.python.org</code>.</li>
+<li><strong>The <code>inspect</code> module:</strong> When you need to understand a live object — its source file, its signature, its closure variables — <code>inspect.getsource()</code>, <code>inspect.signature()</code>, and <code>inspect.getclosurevars()</code> are the chart-keeper's spyglass.</li>
+</ul>
+<pre><code><span class="kn">import</span> <span class="nn">inspect</span>
+
+<span class="c"># Find where a function is defined, in what file, at what line</span>
+<span class="k">print</span>(inspect.getfile(dataclasses.dataclass))
+<span class="c"># /usr/lib/python3.11/dataclasses.py</span>
+
+<span class="c"># Get the source code of a function</span>
+<span class="k">print</span>(inspect.getsource(dataclasses._process_class))</code></pre>
+<p><strong>What to look for:</strong> When you encounter an unfamiliar dunder, stdlib class, or error message:</p>
+<ol>
+<li>Read the traceback — the last entry tells you which line and which module raised it.</li>
+<li>Open that module's source and search for the class or function name.</li>
+<li>Read the docstring and the first 30 lines of the implementation — the parameter names and early guard clauses tell you what the author expected as input.</li>
+<li>Look at the test suite (<code>Lib/test/test_&lt;module&gt;.py</code>) for examples of edge-case behaviour.</li>
+</ol>
+<p><strong>The stdlib is not magic.</strong> Every decorator, context manager, and descriptor you have built in this course is implemented the same way the stdlib implements its own. <code>@functools.wraps</code> is a decorator that calls <code>update_wrapper</code>. <code>@contextmanager</code> wraps a generator in a class with <code>__enter__</code> and <code>__exit__</code>. <code>@property</code> is a data descriptor implemented in C. Nothing in Python is inaccessible — it is all in the volumes on the chart-room shelf.</p>
+<div class="callout"><strong>Consult the volumes:</strong> Start with what you already use. Open <code>Lib/dataclasses.py</code> and read the <code>dataclass</code> function — the one you have been annotating since s02. It is under 800 lines, and every line is Python you understand. Then open <code>Lib/contextlib.py</code> and find <code>_GeneratorContextManager</code>. Then <code>Lib/functools.py</code> and read <code>wraps</code>. By the end of an afternoon you will have read the core of the language's most important decorators — and you will know where to look next time.</div>
+'''
+
+[[lessons.exercises]]
+id = "s08-l04-e1"
+type = "fill"
+points = 20
+prompt = "Fill the blank to get the source code of a function using the inspect module:"
+code = '''import inspect
+import dataclasses
+source = inspect.____(dataclasses.dataclass)'''
+answer = "getsource"
+hint = "The function name is 'get' + 'source' — it returns the source code as a string."
+
+[[lessons.exercises]]
+id = "s08-l04-e2"
+type = "mc"
+points = 15
+prompt = "Where is the pure-Python implementation of a stdlib module typically found?"
+choices = ["Lib/<module>.py in your Python installation", "In a hidden .so file on disk", "In a downloadable package on PyPI", "In the PEP document for that module"]
+answer = 0
+whyWrong = "Every stdlib module has a pure-Python reference implementation in <code>Lib/&lt;module&gt;.py</code> (or <code>Lib/&lt;module&gt;/__init__.py</code> for packages). Even modules with C accelerators keep the Python version as the fallback. The C version lives in <code>Modules/</code> but only overrides specific functions."
+hint = "In the CPython source tree, which directory holds the Python standard library?"
+explain = "Stdlib source lives in Lib/<module>.py — the Python reference implementation is always available."
+
+[[lessons.exercises]]
+id = "s08-l04-e3"
+type = "text"
+points = 20
+prompt = "What function from the <code>inspect</code> module returns the filename where a function is defined?"
+answer = "getfile"
+accept = ["inspect.getfile"]
+hint = "It is 'get' + 'file' — it tells you which file on disk defines the given object."
+
+[[lessons.exercises]]
+id = "s08-l04-w1"
+type = "write"
+points = 30
+prompt = "Use <code>inspect.getfile()</code> to find the file path where <code>json.dump</code> is defined, then print the result."
+starter = '''
+import inspect
+import json
+
+# your code here
+'''
+expect = '''...
+'''
+hint = "Pass the function object json.dump to inspect.getfile() and print the result."

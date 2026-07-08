@@ -1,0 +1,89 @@
+[[lessons]]
+id = "s12-l02"
+title = "Worked Example — a Custom Tool Tier"
+body = '''
+<p>Here is the research method on a real feature: a custom tool tier. Step 1 — Search Everywhere for <code>ItemPickaxe</code> and open it. You find <code>ItemPickaxe extends ItemTool</code>, and its constructor takes a <code>ToolMaterial</code>. Step 2 — open <code>ToolMaterial</code> (the Structure pane): it is an enum with constants <code>WOOD</code>, <code>STONE</code>, <code>IRON</code>, <code>DIAMOND</code>, <code>GOLD</code>, each carrying a harvest level, a max uses (durability), an efficiency, an attack damage, and an enchantability. Step 3 — Find Usages on <code>ToolMaterial.IRON</code> to see how vanilla constructs an iron pickaxe.</p>
+<pre><code><span class="c">// a custom tool material — read ToolMaterial's constructor to build your own</span>
+<span class="k">public static final</span> ToolMaterial STARSTEEL = EnumHelper.addToolMaterial(
+    <span class="s">"STARSTEEL"</span>, <span class="s">3</span>, <span class="s">1024</span>, <span class="s">8.0f</span>, <span class="s">3.0f</span>, <span class="s">15</span>);
+<span class="c">// harvestLevel 3 (mines diamond tier), 1024 uses, 8.0 efficiency, 3.0 attack, 15 enchantability</span>
+
+<span class="k">public class</span> ItemStarsteelPickaxe <span class="k">extends</span> ItemPickaxe {
+    <span class="k">public</span> ItemStarsteelPickaxe() {
+        <span class="k">super</span>(STARSTEEL);
+        setRegistryName(Ironwright.MODID, <span class="s">"starsteel_pickaxe"</span>);
+        setUnlocalizedName(Ironwright.MODID + <span class="s">".starsteel_pickaxe"</span>);
+        setCreativeTab(IronwrightTab.INSTANCE);
+    }
+}</code></pre>
+<p>Forge's <code>EnumHelper.addToolMaterial(name, harvestLevel, maxUses, efficiency, attackDamage, enchantability)</code> adds a new <code>ToolMaterial</code> constant at runtime — the 1.12.2 way to make a custom tier (you cannot normally add enum constants; <code>EnumHelper</code> does the reflection for you). Then <code>ItemStarsteelPickaxe extends ItemPickaxe</code> passes <code>STARSTEEL</code> to <code>super</code>. Register, model, name, bench — the same pipeline as ItemIngot. The research method took you from "I want a tool" to a working pickaxe in seven steps, all by reading the old marks.</p>
+<div class="callout"><strong>Orrick says:</strong> The harvest level is what the tool can mine: 0 (wood/gold — stone), 1 (stone — iron), 2 (iron — diamond), 3 (diamond — obsidian). A starsteel pickaxe at level 3 mines everything a diamond pickaxe can, with 1024 uses instead of 1561. Pick the level to match the tier you want.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // EnumHelper — ADDING ENUM CONSTANTS</div>
+<p>Java enums are closed — you cannot add constants after compile. Forge's <code>EnumHelper</code> uses reflection to inject new <code>ToolMaterial</code>, <code>ItemTier</code>, <code>ArmorMaterial</code>, <code>EnumAction</code> constants at runtime, so mods can define custom tiers. Call <code>EnumHelper.addToolMaterial</code> in <code>preInit</code> (before you construct the tool that uses it), and the constant exists for the rest of the game. It is the one place the forge breaks Java's enum rule.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s12-l02-e1"
+type = "mc"
+points = 15
+prompt = "A custom pickaxe class extends which Minecraft class — the one you find by opening ItemPickaxe in step 1 of the research method?"
+choices = ["Item", "ItemPickaxe (which itself extends ItemTool)", "ToolMaterial", "ItemSword"]
+answer = 1
+whyWrong = "A custom pickaxe extends ItemPickaxe (which extends ItemTool) and passes a ToolMaterial to super; extending Item directly skips the pickaxe behaviour, ToolMaterial is the data not the class, and ItemSword is for swords. The research method's step-1 parent for a pickaxe is ItemPickaxe."
+hint = "Step 1 opened ItemPickaxe — so your custom pickaxe extends which class?"
+explain = "extends ItemPickaxe. Read ItemPickaxe's constructor (it takes a ToolMaterial), pass your custom material to super, and the pickaxe behaviour is inherited."
+
+[[lessons.exercises]]
+id = "s12-l02-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the Forge helper that adds a new ToolMaterial constant at runtime (since Java enums are otherwise closed)."
+code = '''public static final ToolMaterial STARSTEEL = ____.addToolMaterial(
+    "STARSTEEL", 3, 1024, 8.0f, 3.0f, 15);'''
+answer = "EnumHelper"
+whyWrong = "EnumHelper.addToolMaterial adds a runtime enum constant; ToolMaterial is the enum itself (not a helper), ForgeHelper is not real, EnumAdder is not real. The reflection helper for new enum constants is EnumHelper."
+hint = "It is Enum + Helper — the Forge class that injects new ToolMaterial/ArmorMaterial constants at runtime."
+
+[[lessons.exercises]]
+id = "s12-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the ItemStarsteelPickaxe constructor exactly — the super call with STARSTEEL, the registry and unlocalized names, and the creative tab."
+code = '''public ItemStarsteelPickaxe() {
+    super(STARSTEEL);
+    setRegistryName(Ironwright.MODID, "starsteel_pickaxe");
+    setUnlocalizedName(Ironwright.MODID + ".starsteel_pickaxe");
+    setCreativeTab(IronwrightTab.INSTANCE);
+}'''
+
+[[lessons.exercises]]
+id = "s12-l02-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of a custom tool material. The starter has a <code>ToolMaterial</code> enum whose constants take <code>(String name, int harvestLevel, int maxUses)</code> — <code>WOOD(0, 59)</code>, <code>STONE(1, 131)</code>, <code>IRON(2, 250)</code>, <code>DIAMOND(3, 1561)</code> — with <code>getHarvestLevel()</code> and <code>getMaxUses()</code> getters. In <code>main</code>, print <code>DIAMOND 3 1561</code> by joining <code>ToolMaterial.DIAMOND.name()</code>, a space, its harvest level, a space, and its max uses. Read all three from the enum constant; do not type 3 or 1561 in the print."
+starter = '''public class Ironwright {
+    enum ToolMaterial {
+        WOOD(0, 59), STONE(1, 131), IRON(2, 250), DIAMOND(3, 1561);
+        private final int harvestLevel;
+        private final int maxUses;
+        ToolMaterial(int h, int m) { this.harvestLevel = h; this.maxUses = m; }
+        public int getHarvestLevel() { return harvestLevel; }
+        public int getMaxUses() { return maxUses; }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — print ToolMaterial.DIAMOND.name() + " " + harvestLevel + " " + maxUses
+    }
+}'''
+expect = '''
+DIAMOND 3 1561'''
+hint = "System.out.println(ToolMaterial.DIAMOND.name() + \" \" + ToolMaterial.DIAMOND.getHarvestLevel() + \" \" + ToolMaterial.DIAMOND.getMaxUses());"
+
+[[lessons.exercises]]
+id = "s12-l02-t1"
+type = "text"
+points = 20
+prompt = "On a ToolMaterial, what does the harvest level number mean — what decides what a tool can mine? (One short phrase: it sets the ____.)"
+answer = "mining tier"
+hint = "It is the tier the tool can mine — level 3 mines what diamond can. (harvest level / mining tier.)"

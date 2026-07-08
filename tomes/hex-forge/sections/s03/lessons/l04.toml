@@ -1,0 +1,145 @@
+[[lessons]]
+id = "s03-l04"
+title = "Looping the Alloy — atoi & itoa in a Loop"
+body = '''
+<p>The atoi and itoa patterns from the last forge op were written longhand — one block per digit. Now that the bellows can pump repeatedly, we compress them into loops. A loop-driven atoi processes a string of any length (within 64-bit range) in six instructions.</p>
+
+<p><strong>atoi loop:</strong></p>
+<pre><code><span class="c">; Input: rsi = pointer to ASCII digit string, rcx = byte count</span>
+<span class="c">; Output: rax = integer value</span>
+<span class="k">xor</span> rax, rax            <span class="c">; accumulator = 0</span>
+
+.parse_loop:
+    <span class="k">imul</span> rax, 10          <span class="c">; shift accumulator left one decimal place</span>
+    <span class="k">movzx</span> rdx, <span class="k">byte</span> [rsi] <span class="c">; load next ASCII byte (zero-extended)</span>
+    <span class="k">sub</span> rdx, <span class="s">'0'</span>         <span class="c">; strip ASCII offset → 0–9</span>
+    <span class="k">add</span> rax, rdx           <span class="c">; accumulate the digit</span>
+    <span class="k">inc</span> rsi                <span class="c">; advance pointer</span>
+    <span class="k">dec</span> rcx                <span class="c">; one fewer byte</span>
+    <span class="k">jnz</span> .parse_loop       <span class="c">; continue while rcx > 0</span></code></pre>
+
+<p>Five instructions in the body, one jump. Feed it the string "4294967295" and 10 iterations later rax holds four billion. The only limit is 64-bit overflow — beyond 18,446,744,073,709,551,615 the multiply-by-10 wraps.</p>
+
+<p><strong>itoa loop:</strong> the divide-by-10, push-digits pattern from s02-l05 was already a loop — the <code>.convert</code> label with <code>jnz</code> at the end. Combine it with a pop-and-print loop for a complete number-to-stdout pipeline:</p>
+
+<pre><code><span class="c">; Phase 1: push digits (as in s02-l05)</span>
+<span class="k">xor</span> ecx, ecx
+<span class="k">mov</span> ebx, 10
+.convert:
+    <span class="k">xor</span> edx, edx
+    <span class="k">div</span> ebx
+    <span class="k">add</span> dl, <span class="s">'0'</span>
+    <span class="k">push</span> rdx
+    <span class="k">inc</span> ecx
+    <span class="k">test</span> eax, eax
+    <span class="k">jnz</span> .convert
+
+<span class="c">; Phase 2: pop and write each digit to a buffer</span>
+<span class="k">mov</span> rdi, outbuf        <span class="c">; destination buffer</span>
+<span class="k">mov</span> r8, rcx            <span class="c">; save digit count</span>
+.pop_loop:
+    <span class="k">pop</span> rax               <span class="c">; get a digit (ready to pop)</span>
+    <span class="k">mov</span> [rdi], al         <span class="c">; write one byte</span>
+    <span class="k">inc</span> rdi
+    <span class="k">dec</span> ecx
+    <span class="k">jnz</span> .pop_loop
+<span class="c">; r8 holds digit count for sys_write's rdx</span></code></pre>
+
+<p>Two loops, one conversion. The first loop runs division forward (least-significant digit first) and pushes. The second loop pops (most-significant digit first) and writes to the buffer. Together they turn a register into printable output in under twenty instructions.</p>
+
+<div class="callout"><p>When the input spans multiple bytes — a string, a buffer from sys_read — the loop form of atoi is the ONLY practical form. Nobody hand-unrolls against a 4096-byte input. The counted-loop pattern you learned in the last lesson is the mechanism that reads every byte of a real file in HexForge.</p></div>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // OVERFLOW GUARDS IN atoi</div>
+<p>A production atoi must detect overflow. Before <code>imul rax, 10</code>, check whether rax > 0x1999999999999999 (which is (2é⁴-1)/10 ≈ 1.8e18). If so, the multiply will overflow. For HexForge, all offsets and byte counts are well under this limit, so the guard is unnecessary. But when you write a general-purpose atoi for untrusted input, the guard is mandatory — the CPU does not trap on integer overflow; it silently wraps.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s03-l04-e1"
+type = "mc"
+points = 15
+prompt = "In the loop-driven atoi, the instruction <code>imul rax, 10</code> comes BEFORE loading the next digit. Why?"
+choices = [
+  "To prepare rax for the decimal shift — multiply accumulator by 10, then add the new digit in the ones place, correctly building the number left to right",
+  "Because imul is faster when placed at the start of the loop body",
+  "To set flags that the movzx instruction can use",
+  "It doesn't matter — imul could go anywhere in the loop and the result would be the same"
+]
+answer = 0
+whyWrong = "If you add the digit first and then multiply, the first digit gets multiplied by 10 an extra time (e.g. parsing '12' would give 20, not 12). The order is load-bearing: multiply first (shift left), then add (fill the ones place). imul sets flags but movzx doesn't read them."
+hint = "Think about parsing '12'. If you add '2' first (rax=2) then multiply by 10 (rax=20), you get 20. If you multiply first (rax=0*10=0) then add '1' (rax=1), the sequence is correct: 0→1→10→12."
+explain = "The atoi works by maintaining the invariant: at the start of each iteration, rax holds the value of all digits parsed so far. Multiplying by 10 shifts those digits left, making room for the next digit in the ones place. Adding the new digit completes the decimal number. This is the same algorithm as <code>n = n * 10 + digit</code> in any high-level language."
+
+[[lessons.exercises]]
+id = "s03-l04-e2"
+type = "fill"
+points = 20
+prompt = "Fill the instruction that advances the string pointer to the next byte. Without this, the loop reads the same byte forever."
+code = '''
+.parse:
+    imul  rax, 10
+    movzx rdx, byte [rsi]
+    sub   rdx, '0'
+    add   rax, rdx
+    ____  rsi             ; point to the next character
+    dec   rcx
+    jnz   .parse
+'''
+answer = "inc"
+hint = "Three letters — increment. You need to advance to rsi+1."
+explain = "<code>inc rsi</code> moves the pointer forward by one byte. Without it, every iteration reads the same first character — parsing '123' would result in 111. Combined with <code>dec rcx / jnz</code>, the loop advances through exactly rcx bytes."
+
+[[lessons.exercises]]
+id = "s03-l04-e3"
+type = "text"
+points = 20
+prompt = "In the itoa pop-loop, digits are popped from the stack and written to a buffer. Why does popping produce digits in the correct reading order — most significant first?"
+answer = "because push puts least significant first and pop reverses the order"
+accept = ["stack is LIFO", "last in first out", "LIFO stack", "push reversed the division order so pop returns correct order"]
+hint = "Recall the stack property from s02-l05. 'Last in, first out.'"
+explain = "Division produces remainders in order: 4, then 8, then 7 (for 784). Each remainder is pushed onto the stack. The stack is LIFO — 4 is at the bottom, 7 at the top. Popping yields 7, 8, 4 — the correct reading order. The stack naturally reverses the sequence produced by division."
+
+[[lessons.exercises]]
+id = "s03-l04-w1"
+type = "write"
+points = 30
+prompt = "Loop-parse and loop-print. Parse the string <code>\"9472\"</code> into rax using the loop-driven atoi (not hand-unrolled — you must use <code>dec/jnz</code>). Then add 128 to the result (9472 + 128 = 9600) and print the new value using the full itoa pipeline (divide loop → push → pop-to-buffer → print). The starter provides the input string, the byte count, and an output buffer. Your job is the two loops."
+starter = '''
+section .text
+    global _start
+
+_start:
+    ; atoi loop: parse input_str (length in rcx) into rax
+    mov rsi, input_str
+    mov rcx, input_len
+    xor rax, rax
+.atoi_loop:
+    imul rax, 10
+    movzx rdx, byte [rsi]
+    sub rdx, '0'
+    add rax, rdx
+    inc rsi
+    dec rcx
+    jnz .atoi_loop
+
+    ; Now add 128
+    
+
+    ; itoa: convert rax to digits, store in outbuf
+    ; Phase 1: divide-by-10, push digits with xor edx,edx / div ebx
+    
+
+    ; Phase 2: pop digits into outbuf
+    
+
+    ; Print outbuf (you must compute the length = digit count + 1 for newline)
+    
+
+section .data
+input_str: db "9472"
+input_len equ $ - input_str
+outbuf: times 20 db 0
+newline: db 10
+'''
+expect = '''
+9600'''
+hint = "After atoi loop: add rax, 128. For itoa: xor ecx,ecx / mov ebx,10 / .cvt: xor edx,edx / div ebx / add dl,'0' / push rdx / inc ecx / test eax,eax / jnz .cvt. Then: mov rdi,outbuf / mov r8,rcx (save count) / .pop: pop rax / mov [rdi],al / inc rdi / dec ecx / jnz .pop. Print with rsi=outbuf, rdx=r8 (digit count). Then second sys_write for newline: rsi=newline, rdx=1."

@@ -1,0 +1,106 @@
+[[lessons]]
+id = "s01-l04"
+title = "Leaving Clean"
+body = '''
+<p>A smith who drops hot metal on the floor as he walks out leaves scale behind. A program that does not call <code>sys_exit</code> does the same — the CPU runs off the end of your code into whatever bytes follow, executing garbage as instructions until it hits an invalid opcode or an unmapped page. That crash is a flaw in the weld, and Vandr counts it.</p>
+
+<p><code>sys_exit</code> — call number 60 — is the cleanest way out:</p>
+<pre><code><span class="k">mov</span> rax, 60        <span class="c">; sys_exit gate</span>
+<span class="k">xor</span> rdi, rdi       <span class="c">; exit code 0 — "no error"</span>
+<span class="k">syscall</span>             <span class="c">; the forge closes</span></code></pre>
+
+<p><strong>Why <code>xor rdi, rdi</code> and not <code>mov rdi, 0</code>?</strong> Both set rdi to zero. But <code>xor rdi, rdi</code> is two bytes in machine code. <code>mov rdi, 0</code> is seven bytes — it encodes the full 64-bit immediate into the instruction stream. Two bytes of code is three and a half cycles shorter to fetch from memory. In a tight loop, that matters. In an exit path it does not — but Vandr approves of the habit. (And <code>xor edi, edi</code> — the 32-bit form — zeroes the upper 32 bits of rdi automatically, so it still zeroes all 64 bits while encoding even more compactly.)</p>
+
+<p>The exit code in <code>rdi</code> is returned to the calling process — your shell. Convention:</p>
+<ul>
+<li><code>0</code> — success, no flaw.</li>
+<li><code>1</code> — generic error.</li>
+<li>Any non-zero — something went wrong; the shell's <code>$?</code> variable captures it.</li>
+</ul>
+
+<p>A program that exits with code 0 but printed the wrong output is still a failed forging — the grader reads stdout, not the exit code. But a program that printed the right output and then crashed (no exit, or exit 139 for SIGSEGV) is also failed — the forge is judged by both the mark it leaves AND whether it closes cleanly.</p>
+
+<p>The full lifecycle of a bare-metal NASM program:</p>
+<ol>
+<li><strong>Entry:</strong> the kernel sets up a fresh address space, loads the ELF segments, sets <code>rsp</code> to the top of the stack (with argc/argv/envp pushed above), and jumps to <code>_start</code>.</li>
+<li><strong>Body:</strong> your instructions run — moves, arithmetic, syscalls — until the work is done.</li>
+<li><strong>Exit:</strong> <code>sys_exit</code> tears down the address space, closes any open file descriptors, and returns the exit code. The kernel reclaims every byte of memory; there is no leak because the whole forge is dismantled.</li>
+</ol>
+
+<p>You have now lit the forge, named the anvils, spoken through the air-gate, and learned to leave clean. The smallest complete NASM program is behind you — and it runs on real metal. Next: turning raw digit bytes into numbers the CPU can strike.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHAT HAPPENS WITHOUT SYS_EXIT</div>
+<p>If <code>_start</code> reaches its last instruction and the CPU fetches the next byte, it executes whatever sits in memory at that address — typically zeroes (which decode as <code>add [rax], al</code>), old data, or unmapped pages. The program eventually crashes with SIGSEGV (signal 11, exit code 139 from the shell's perspective). The kernel cleans up either way — memory is always reclaimed on process death — but the crash is visible: the shell prints "Segmentation fault", and the grader sees a non-zero exit code. A program that deliberately omits <code>sys_exit</code> is a program that relies on the kernel to catch its fall — and Vandr does not grade trips, only clean walks.</p>
+
+<p>There is one valid reason to omit <code>sys_exit</code>: a tiny program that uses <code>sys_exit_group</code> (call 231) instead, which terminates all threads in a process — but that's for multi-threaded programs we are not forging. In a single-threaded bare-metal program, <code>sys_exit</code> is the correct and only gate.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s01-l04-e1"
+type = "text"
+points = 20
+prompt = "If a NASM program prints the correct output but crashes after printing (no <code>sys_exit</code>), what does the grader see? Answer with the two words Vandr would use to reject it."
+answer = "flawed weld"
+accept = ["Flawed weld", "bad weld", "broken weld"]
+hint = "Vandr calls a crash a specific forge failure — two words, about the join between instructions."
+explain = "A crash after correct output is still a failed forging — the grader sees a non-zero exit code (139 for SIGSEGV) and docks the compile-and-run criterion. The output was right but the forge did not close cleanly."
+
+[[lessons.exercises]]
+id = "s01-l04-e2"
+type = "mc"
+points = 15
+prompt = "Why does Vandr prefer <code>xor rdi, rdi</code> over <code>mov rdi, 0</code> for setting the exit code?"
+choices = [
+  "mov rdi, 0 might set rdi to a non-zero value on some CPUs",
+  "xor rdi, rdi also sets the zero flag, which sys_exit requires",
+  "mov rdi, 0 is not a valid x86-64 instruction",
+  "xor rdi, rdi uses fewer instruction bytes and fetches faster from memory"
+]
+answer = 3
+whyWrong = "mov rdi, 0 is valid — it's just larger (7 bytes vs 2). sys_exit ignores flags entirely. The xor instruction encodes more compactly: two bytes that zero the register and run faster through the instruction cache than a seven-byte immediate mov."
+hint = "It's about the size of the machine-code encoding, not about correctness or flags."
+explain = "<code>xor rdi, rdi</code> assembles to <code>48 31 ff</code> — three bytes. <code>mov rdi, 0</code> assembles to <code>48 c7 c7 00 00 00 00</code> — seven bytes. Both work identically, but compact code runs faster through the CPU's instruction cache. For exit paths this doesn't matter — the program is ending — but the habit of writing compact zeroing carries into loops and hot paths where it does matter."
+
+[[lessons.exercises]]
+id = "s01-l04-e3"
+type = "fill"
+points = 20
+prompt = "Fill the syscall number for exit. This is the gate the kernel tears down the forge through."
+code = '''
+mov rax, ____        ; sys_exit gate
+xor rdi, rdi         ; exit code 0
+syscall
+'''
+answer = "60"
+hint = "The number Vandr calls 'the exit gate' — it's 60 in decimal, not hex."
+explain = "Syscall 60 is <code>sys_exit</code> on x86-64 Linux. This number is fixed by the kernel ABI and documented in <code>/usr/include/asm/unistd_64.h</code>. If you used 1 instead, you'd call <code>sys_write</code> with rdi=0 (stdin) as the fd — which is invalid for write, so nothing would print and the program would loop or crash."
+
+[[lessons.exercises]]
+id = "s01-l04-w1"
+type = "write"
+points = 35
+prompt = "Forge a program that prints <code>CRUCIBLE</code> on one line, then prints <code>QUENCHED</code> on the next line, and exits cleanly with code 0. You must have TWO separate sys_write calls (one per line), each with its own string and computed length. Use <code>xor rdi, rdi</code> (not <code>mov rdi, 0</code>) for the exit code. The two strings must each end with a newline (byte 10)."
+starter = '''
+section .text
+    global _start
+
+_start:
+    ; First sys_write — print the first line
+    
+
+    ; Second sys_write — print the second line
+    
+
+    ; Exit cleanly with xor rdi, rdi
+    
+
+section .data
+line1: db 'C', 'R', 'U', 'C', 'I', 'B', 'L', 'E', 10
+line1_len equ $ - line1
+line2: db 'Q', 'U', 'E', 'N', 'C', 'H', 'E', 'D', 10
+line2_len equ $ - line2
+'''
+expect = '''
+CRUCIBLE
+QUENCHED'''
+hint = "Each sys_write needs its own four mov instructions (rax=1, rdi=1, rsi=<label>, rdx=<len_label>) followed by syscall. The starter provides the data and lengths — you set the registers twice and strike syscall twice."

@@ -44,6 +44,7 @@ points = 25
 prompt = "Why call <code>.ToList()</code> before removing elements in that loop?"
 choices = ["Remove() only exists on List", "You can't safely mutate the live query collection while iterating it — snapshot first", "It's faster", "Pure style preference"]
 answer = 1
+whyWrong = "It’s not speed or a List-only method — you can’t mutate the live query while iterating it, so ToList() snapshots it first."
 hint = "Modifying a collection you're foreach-ing over is a classic runtime error."
 
 [[lessons.exercises]]
@@ -51,8 +52,9 @@ id = "s06-l03-e2"
 type = "mc"
 points = 20
 prompt = "<code>Regex.Replace(text, @\"\\s+\", \" \")</code> does what?"
-choices = ["removes all spaces", "collapses any run of whitespace (spaces, tabs, newlines) into a single space", "replaces words with spaces", "escapes special characters"]
-answer = 1
+choices = ["removes all spaces", "replaces words with spaces", "collapses any run of whitespace (spaces, tabs, newlines) into a single space", "escapes special characters"]
+answer = 2
+whyWrong = "\\s+ matches runs of any whitespace and replaces them with a single space — it doesn’t delete all spaces or escape characters."
 hint = "\\s+ = one or more whitespace characters."
 
 [[lessons.exercises]]
@@ -60,8 +62,9 @@ id = "s06-l03-e3"
 type = "mc"
 points = 25
 prompt = "Why should <code>&lt;pre&gt;</code> (Code) blocks skip whitespace collapsing?"
-choices = ["pre blocks are always empty", "Regex doesn't work on code", "In code, indentation and line breaks ARE meaningful content", "They should be collapsed too"]
-answer = 2
+choices = ["pre blocks are always empty", "Regex doesn't work on code", "They should be collapsed too", "In code, indentation and line breaks ARE meaningful content"]
+answer = 3
+whyWrong = "pre blocks aren’t empty and regex works fine on them — you skip collapsing because in code the indentation and line breaks are meaningful content."
 hint = "Collapse a Python snippet's whitespace and see what survives."
 
 [[lessons.exercises]]

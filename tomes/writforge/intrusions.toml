@@ -1,0 +1,261 @@
+# Hex-defense intrusion bank — the rival scribes' hexes arrive at the
+# scriptorium while the apprentice studies. Same shape as
+# [[progression.intrusionTiers]]; the engine reads [[tiers]] here and
+# restores it as progression.intrusionTiers (tome_layout.py).
+#
+# Each tier gates by `min` (sections passed before it can fire); each
+# [[tiers.pool]] is one stdout challenge the scribe must counter under the
+# sandglass. Briefs are one sentence of scriptorium fiction + the starter
+# comments state the exact required output. Always computed values, never
+# hardcodable — the starter's variables force it.
+#
+# Voice: Master Scrivener's scriptorium. Titles, briefs, and every printed
+# token carry the scribe's tongue (ink, glyphs, parchment, sign-marks,
+# pattern-glyphs, re-inking, the shelf, the ledger).
+
+# ---- Tier I — the first ink (fires from the first canto; min=0)
+[[tiers]]
+min = 0
+time = 90
+bounty = 50
+
+[[tiers.pool]]
+t = "THE INK COUNT"
+brief = "A rival scribe splashes ink across your first page. Add the two measures and speak the true sum."
+starter = '''
+use v5.36;
+
+my $iron = 8;
+my $copper = 6;
+# say exactly:  INK <$iron + $copper>
+'''
+expect = "INK 14"
+
+[[tiers.pool]]
+t = "THE SCRIBE'S LINE"
+brief = "A hex blots out the scribe's own name. Weave the name and the verse number into one line, drawn from the variables."
+starter = '''
+use v5.36;
+
+my $scribe = "Aelric";
+my $verse  = 7;
+# say exactly:  <scribe> transcribed verse <verse>
+'''
+expect = "Aelric transcribed verse 7"
+
+[[tiers.pool]]
+t = "THE SIGN-MARK CHECK"
+brief = "The sign-marks are tampered with. Multiply the three values and speak the true product."
+starter = '''
+use v5.36;
+
+my $leaves = 4;
+my $lines  = 12;
+my $copies = 3;
+# say exactly:  SIGN <$leaves * $lines * $copies>
+'''
+expect = "SIGN 144"
+
+# ---- Tier II — the branching quill (fires once two cantos are passed; min=2)
+[[tiers]]
+min = 2
+time = 100
+bounty = 80
+
+[[tiers.pool]]
+t = "THE CLASSIFYING QUILL"
+brief = "A rival hex garbles the manuscript's headers. Read the given line and speak its true kind — heading, body, or blank."
+starter = '''
+use v5.36;
+
+my $line = "## Chapter II";
+# if $line begins with "#" say:  HEADING
+# else if $line is empty say:   BLANK
+# else say:                     BODY
+'''
+expect = "HEADING"
+
+[[tiers.pool]]
+t = "THE COUNTING STANZA"
+brief = "The hex miscounts the cantos. Loop the given count and call each line out in order."
+starter = '''
+use v5.36;
+
+my $stanzas = 4;
+# for i = 1..$stanzas, say each on its own line:  CANTO <i>
+'''
+expect = '''
+CANTO 1
+CANTO 2
+CANTO 3
+CANTO 4'''
+
+[[tiers.pool]]
+t = "THE SUB-SCRIBE"
+brief = "A rival scrambles the scribe's glyph-pattern. Write a sub that doubles the given number and call it — the workbench must hear the result."
+starter = '''
+use v5.36;
+
+sub double_glyph {
+    my ($n) = @_;
+    return $n * 2;
+}
+
+my $glyph = 7;
+# say exactly:  GLYPH <double_glyph($glyph)>
+'''
+expect = "GLYPH 14"
+
+# ---- Tier III — the shelf & the ledger (fires once four cantos are passed; min=4)
+[[tiers]]
+min = 4
+time = 110
+bounty = 110
+
+[[tiers.pool]]
+t = "THE SHELF WALK"
+brief = "A hex scatters the shelf. Walk the array of leaves and speak each one's name, in order."
+starter = '''
+use v5.36;
+
+my @leaves = qw(oak ash yew birch);
+# for each leaf, say on its own line:  LEAF <leaf>
+'''
+expect = '''
+LEAF oak
+LEAF ash
+LEAF yew
+LEAF birch'''
+
+[[tiers.pool]]
+t = "THE LEDGER LOOKUP"
+brief = "The rival scribe unkeys the ledger. Look up the given word and speak its true count."
+starter = '''
+use v5.36;
+
+my %ledger = (
+    ink    => 42,
+    glyph  => 17,
+    script => 8,
+);
+
+my $word = "glyph";
+# say exactly:  COUNT <ledger{$word}>
+'''
+expect = "COUNT 17"
+
+[[tiers.pool]]
+t = "THE WORD TALLY"
+brief = "A hex scrambles the shelf count. Walk the array, tally each word in a hash, and speak every word with its count, one per line, sorted by the word."
+starter = '''
+use v5.36;
+
+my @words = qw(ink glyph ink script glyph ink);
+# count each word with a hash, then for each word in sorted order,
+# say on its own line:  <word> <count>
+'''
+expect = '''
+glyph 2
+ink 3
+script 1'''
+
+# ---- Tier IV — the pattern-glyph & the re-inking (fires once six cantos are passed; min=6)
+[[tiers]]
+min = 6
+time = 120
+bounty = 140
+
+[[tiers.pool]]
+t = "THE PATTERN-GLYPH"
+brief = "A rival scratches false marks over the manuscript. Match the given line against the heading pattern-glyph and speak whether it matched."
+starter = '''
+use v5.36;
+
+my $line = "### The Binding Rite";
+# if $line matches /^#+/ say:  HEADING MATCH
+# else say:                   NO HEADING
+'''
+expect = "HEADING MATCH"
+
+[[tiers.pool]]
+t = "THE RE-INKING TASK"
+brief = "The hex stains the manuscript's asterisks. Use substitution to re-ink every **bold** mark into [B]...[B] tags and say the result."
+starter = '''
+use v5.36;
+
+my $text = "The **sign** of the **glyph** stands.";
+# substitute **...** → [B]...[B] with s///g
+# say the transformed $text
+'''
+expect = "The [B]sign[B] of the [B]glyph[B] stands."
+
+[[tiers.pool]]
+t = "THE LINK CAPTURE"
+brief = "The rival tears the link in two. Use a capture pattern to pull the label and the destination apart, then say each piece."
+starter = '''
+use v5.36;
+
+my $markup = '[scribes](http://writforge.org)';
+# using capture groups in a match, extract the label and the url,
+# then say on separate lines:  LABEL <label>
+#                               URL <url>
+'''
+expect = '''
+LABEL scribes
+URL http://writforge.org'''
+
+# ---- Tier V — the deep parchment & the final weave (fires once seven cantos are passed; min=7)
+[[tiers]]
+min = 7
+time = 120
+bounty = 170
+
+[[tiers.pool]]
+t = "THE DEEP PARCHMENT"
+brief = "A hex splits the page ledger in two. Walk the parallel title and word-count arrays, then speak each page on one line."
+starter = '''
+use v5.36;
+
+my @titles = ("Prologue", "Chapter I", "Epilogue");
+my @words  = (240, 510, 130);
+
+# walk the arrays by index; say on each line:  PAGE <title> <words>w
+'''
+expect = '''
+PAGE Prologue 240w
+PAGE Chapter I 510w
+PAGE Epilogue 130w'''
+
+[[tiers.pool]]
+t = "THE SLUG FORGE"
+brief = "The rival flattens the titles into nonsense. Transform a title into a slug — lowercase, spaces to hyphens, strip non-word characters — and say it."
+starter = '''
+use v5.36;
+
+my $title = "The Binding Rite: Part II";
+# lc the title, replace non-word chars and spaces with hyphens,
+# collapse multiple hyphens into one, say exactly:  SLUG <slug>
+'''
+expect = "SLUG the-binding-rite-part-ii"
+
+[[tiers.pool]]
+t = "THE INDEX WEAVE"
+brief = "The final hex scatters the index. Sort the hash by value descending and speak the top three entries."
+starter = '''
+use v5.36;
+
+my %counts = (
+    glyph    => 23,
+    ink      => 47,
+    script   => 8,
+    scribe   => 31,
+    codex    => 15,
+);
+
+# sort keys by value descending, take the top 3,
+# for each say on its own line:  <key> <value>
+'''
+expect = '''
+ink 47
+scribe 31
+glyph 23'''

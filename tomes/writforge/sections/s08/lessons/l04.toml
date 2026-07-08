@@ -1,0 +1,115 @@
+[[lessons]]
+id = "s08-l04"
+title = "Rendering the Index"
+body = '''
+<p>The chapter pages are not enough on their own. Writforge also needs a map of the whole shelf, and that map should be derived from the same page records that produced the pages. The index is just another rendering pass: take the records, decide on an order, and flatten them into navigation lines only after the data is still easy to inspect.</p>
+<p><code>map</code> is the obvious tool for the job because it turns each page record into one <code>&lt;li&gt;</code> string. <code>sort</code> can sit in front of it when the book wants alphabetical order instead of file order. That is the shape of the renderer's work here: keep records structured until the last practical moment, then turn them into HTML lines and join them once the list is ready.</p>
+<p>The index renderer should stay separate from the per-page renderer. One helper knows how to wrap a single manuscript page. Another knows how to build a shelf view from many records. When those helpers remain distinct, a later change to the nav list does not risk breaking every chapter page. The code gets smaller, not larger, because each function owns one job.</p>
+<p>That is also why the index should be derived instead of handwritten. If the page records already know their slugs and titles, the index does not need a second copy of that information. Duplicating the list invites drift: one page gets renamed, the page file changes, and the shelf view quietly falls out of sync. A renderer that consumes the records avoids that problem.</p>
+<p>The final section of Writforge will spend a lot of time moving between those two levels: page and shelf, record and HTML, nested data and printed output. The index page is the simplest place to practice that transition because it has no markup mystery. The only real question is which title links to which slug, and the answer should come straight from the page records the parser already returned.</p>
+<pre><code>my @items = map {
+    sprintf '&lt;li&gt;&lt;a href="%s.html"&gt;%s&lt;/a&gt;&lt;/li&gt;', $_-&gt;{slug}, $_-&gt;{title}
+} sort { $a-&gt;{title} cmp $b-&gt;{title} } @$pages;
+say for @items;</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE INDEX SHELF</div>
+<p><strong>Sort note.</strong> Decide the order before you flatten the records. Once the data is strings, you can still sort, but you have lost the extra structure the renderer may want.</p>
+<p><strong>Link note.</strong> The link target should come from the page's slug, not from its display title. The title is for people; the slug is for the generated filename.</p>
+<p><strong>Boundary note.</strong> One renderer can build chapter pages, and another can build the shelf index. Keeping those responsibilities apart makes the whole tool easier to reason about.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perldoc: functions/map"
+url = "https://perldoc.perl.org/functions/map"
+
+[[lessons.readings]]
+label = "perldoc: functions/sort"
+url = "https://perldoc.perl.org/functions/sort"
+
+[[lessons.exercises]]
+id = "s08-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "<p>Retype the index-building snippet exactly. Keep the sort before the map.</p>"
+code = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my @items = map {
+    sprintf '<li><a href="%s.html">%s</a></li>', $_->{slug}, $_->{title}
+} sort { $a->{title} cmp $b->{title} } @$pages;
+say for @items;
+'''
+
+[[lessons.exercises]]
+id = "s08-l04-e1"
+type = "mc"
+points = 18
+prompt = "<p>After <code>map</code> turns page records into nav lines, what does the result look like?</p>"
+choices = ["An array of HTML strings.", "A hashref with one key per page.", "A filehandle.", "A single page record."]
+answer = 0
+whyWrong = "You are confusing a transformed list with a record, a hash table, or an IO object. <code>map</code> here produces one string per page."
+hint = "The renderer is still holding a list of lines at this point."
+explain = "<code>map</code> transforms each page record into one HTML string, so the result is a list of strings."
+
+[[lessons.exercises]]
+id = "s08-l04-e2"
+type = "fill"
+points = 21
+prompt = "<p>Restore the comparison operator that sorts page records by title.</p>"
+code = 'sort { $a->{title} ____ $b->{title} } @$pages'
+answer = "cmp"
+hint = "The blank is the string comparison used for titles."
+whyWrong = "You are reaching for numeric comparison or some other operator that does not order labels correctly. Title order is lexical, so the sort needs <code>cmp</code>."
+
+[[lessons.exercises]]
+id = "s08-l04-e3"
+type = "text"
+points = 18
+prompt = "<p>Why keep the index entries as records until the end instead of concatenating the strings immediately?</p>"
+answer = "because the renderer may still need to sort inspect and reuse titles and hrefs before flattening them"
+accept = ["because the renderer may still need to sort, inspect, and reuse titles and hrefs before flattening them", "because the records still need sorting and reuse before flattening", "so the renderer can inspect the titles and hrefs before joining"]
+hint = "Think about whether the data is easier to change before or after it becomes one long string."
+whyWrong = "You are flattening too early. Once the index becomes one string, the renderer loses the separate title and href fields that made the sort and link step simple."
+
+[[lessons.exercises]]
+id = "s08-l04-e4"
+type = "mc"
+points = 18
+prompt = "<p>Which field should the index page use for the link target when it links to <code>preface.html</code>?</p>"
+choices = ["title", "blocks", "source", "slug"]
+answer = 3
+whyWrong = "You are mixing the display title, the block list, and the source path with the generated filename. The slug is the stable piece that belongs in the link target."
+hint = "The link target should match the generated file name, not the heading text."
+explain = "The slug is the clean filename stem, so the index should link to the slugged HTML page."
+
+[[lessons.exercises]]
+id = "s08-l04-w1"
+type = "write"
+points = 33
+prompt = "<p>The starter gives you three page records out of order. Sort them by title, render a small HTML index into <code>build/index.html</code>, print the same lines to STDOUT, and finish with <code>INDEX 3</code>.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my $pages = [
+    { slug => "afterword", title => "Afterword" },
+    { slug => "preface", title => "Preface" },
+    { slug => "appendix", title => "Appendix" },
+];
+
+mkdir "build" unless -d "build";
+open my $out, '>', "build/index.html" or die $!;
+
+# Task: sort the records by title, render the list items, write the index to both STDOUT and $out, and finish with "INDEX 3".
+'''
+expect = '''
+<!doctype html>
+<title>Writforge</title>
+<ul>
+<li><a href="appendix.html">Appendix</a></li>
+<li><a href="afterword.html">Afterword</a></li>
+<li><a href="preface.html">Preface</a></li>
+</ul>
+INDEX 3'''
+hint = "Sort the page records before you map them, and reuse each record's slug for the href while printing the same lines to both destinations."

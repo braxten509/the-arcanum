@@ -1,0 +1,109 @@
+[[lessons]]
+id = "s03-l04"
+title = "The Night's Walk"
+body = '''
+<p>Vaelith runs a finger down the page, stopping at each entry. <strong>"A ledger is meant to be read — every line, one after another. The Astrarium must walk its own records."</strong></p>
+
+<p>A <code>for</code> loop over a list visits each element in order:</p>
+<pre><code>events <span class="k">=</span> [<span class="s">"METEOR"</span>, <span class="s">"FLARE"</span>, <span class="s">"SENSOR"</span>]
+<span class="k">for</span> event <span class="ow">in</span> events:
+    <span class="k">print</span>(<span class="s">f"Processing: {event}"</span>)</code></pre>
+<p>This pattern — <code>for item in list:</code> — is the most common way to process a collection in Python. The loop variable (<code>event</code>) takes each value from the list in sequence. You never need an index counter; the list itself drives the iteration.</p>
+
+<p>When you need both the element and its position, use <strong><code>enumerate()</code></strong>:</p>
+<pre><code><span class="k">for</span> i, event <span class="ow">in</span> <span class="nb">enumerate</span>(events):
+    <span class="k">print</span>(<span class="s">f"[{i}] {event}"</span>)</code></pre>
+<p>This prints <code>[0] METEOR</code>, <code>[1] FLARE</code>, <code>[2] SENSOR</code>. The <code>i</code> receives the current index and <code>event</code> receives the value — Python unpacks the tuple that <code>enumerate()</code> yields.</p>
+
+<p>You can also combine iteration with the classification skills from the last chapter. The Astrarium's for loop can examine each event and decide what it is:</p>
+<pre><code>lines <span class="k">=</span> [<span class="s">"ERROR: timeout"</span>, <span class="s">"INFO: meteor"</span>, <span class="s">"WARN: drift"</span>]
+<span class="k">for</span> line <span class="ow">in</span> lines:
+    <span class="k">if</span> <span class="s">"ERROR"</span> <span class="ow">in</span> line:
+        <span class="k">print</span>(<span class="s">"CRITICAL"</span>)
+    <span class="k">elif</span> <span class="s">"WARN"</span> <span class="ow">in</span> line:
+        <span class="k">print</span>(<span class="s">"CAUTION"</span>)
+    <span class="k">else</span>:
+        <span class="k">print</span>(<span class="s">"ROUTINE"</span>)</code></pre>
+<p>The <code>for</code> loop provides the structure; the <code>if/elif/else</code> from the previous chapter provides the decision. Together they let the Astrarium read its own ledger and produce a report.</p>
+
+<p>The <code>in</code> and <code>not in</code> operators also work directly on lists to test membership:</p>
+<pre><code>events <span class="k">=</span> [<span class="s">"METEOR"</span>, <span class="s">"FLARE"</span>, <span class="s">"SENSOR"</span>]
+<span class="k">if</span> <span class="s">"FLARE"</span> <span class="ow">in</span> events:
+    <span class="k">print</span>(<span class="s">"Flare detected in records"</span>)</code></pre>
+<p>Membership testing with <code>in</code> on a list checks each element in order until it finds a match. For small ledgers this is instant; for large collections, a <strong>set</strong> (coming in Lesson 6) is much faster.</p>
+
+<div class="callout">"<strong>Vaelith's rule:</strong> prefer iterating directly over the list rather than indexing with a counter. The loop variable names the element and the code reads like natural language: 'for each event in events, do this.'"</div>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // Modifying While Iterating</div>
+<p>Never add or remove elements from a list while iterating over it with <code>for</code>. If you need to filter, build a <em>new</em> list with a comprehension or <code>append</code> in a loop. If you must mutate during iteration, iterate over a copy: <code>for e in events[:]:</code> (the slice creates the copy). This is one of the most common list-related bugs in early Python code — the Astrarium always writes to a fresh list rather than carving up the one it is reading.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python docs — for statements"
+url = "https://docs.python.org/3/tutorial/controlflow.html#for-statements"
+
+[[lessons.readings]]
+label = "Python docs — enumerate()"
+url = "https://docs.python.org/3/library/functions.html#enumerate"
+
+[[lessons.exercises]]
+id = "s03-l04-e1"
+type = "mc"
+points = 15
+prompt = "Given <code>events = [\"METEOR\", \"FLARE\", \"SENSOR\"]</code>, which loop correctly prints each event on its own line?"
+choices = [
+    "for event in events: print(event)",
+    "for events in event: print(events)",
+    "for i in range(events): print(i)",
+    "while event in events: print(event)"
+]
+answer = 0
+whyWrong = "range(events) would cause a TypeError because range() expects an integer, not a list. The third option has the variable names swapped — 'for events in event' is backwards and would fail. 'while event in events' uses a while loop with an undefined variable 'event' and would produce no output or an error."
+hint = "Vaelith's rule says to iterate directly over the list. The pattern is 'for [element_variable] in [list_name]:'."
+explain = "for event in events: iterates over each element, binding the variable 'event' to each item in sequence. This is the standard Python pattern for iterating a list."
+
+[[lessons.exercises]]
+id = "s03-l04-e2"
+type = "fill"
+points = 20
+prompt = "The Astrarium has a list of observation lines and needs to walk through each one. Fill the blank with the correct loop variable and list reference."
+code = '''lines = [
+    "ERROR: timeout",
+    "INFO: meteor shower",
+    "WARN: battery low",
+]
+for ____ in lines:
+    print(f"Read: {line}")'''
+answer = "line"
+hint = "The loop variable names the element being processed in each iteration. Vaelith says to name it what the iteration is about — here, each item is a single log line."
+explain = "'for line in lines:' iterates over the list, binding each element to the variable 'line' in turn. The variable name 'line' describes what each element represents."
+
+[[lessons.exercises]]
+id = "s03-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this enumerate pattern exactly. (Ctrl+Enter submits.)"
+code = '''events = ["METEOR", "FLARE", "SENSOR"]
+for i, e in enumerate(events):
+    print(f"[{i}] {e}")'''
+
+[[lessons.exercises]]
+id = "s03-l04-w1"
+type = "write"
+points = 30
+prompt = "The starter has a list of log lines. Write a <code>for</code> loop that classifies each line using the <code>if/elif/else</code> pattern from Chapter II: check for <code>\"ERROR\"</code> first, then <code>\"WARN\"</code>, else classify as <code>\"INFO\"</code>. For each line, print the classification keyword only, one per line."
+expect = '''ERROR
+INFO
+WARN
+INFO'''
+starter = '''# ASTRARIUM — Walk and Classify the Ledger
+lines = [
+    "ERROR: azimuth mount timeout",
+    "INFO: routine meteor survey",
+    "WARN: sensor drift on channel 7",
+    "INFO: background radiation check",
+]
+# TODO: iterate lines and classify each as ERROR/WARN/INFO,
+# printing only the classification keyword each time'''
+hint = "Use <code>for line in lines:</code>. Inside the loop, check <code>if \"ERROR\" in line:</code> (print \"ERROR\"), <code>elif \"WARN\" in line:</code> (print \"WARN\"), <code>else:</code> (print \"INFO\"). This is the classifier from s02-l05 applied to an in-memory list."

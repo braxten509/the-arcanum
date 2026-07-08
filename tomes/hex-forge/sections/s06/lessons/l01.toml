@@ -1,0 +1,111 @@
+[[lessons]]
+id = "s06-l01"
+title = "Sorting the Ore — Byte Classification"
+body = '''
+<p>Every byte is a number between 0 and 255. What that number <em>means</em> — a printable letter, a control code, high-bit set — is classification. HexForge's ASCII gutter column depends on knowing which bytes are readable and which are slag.</p>
+
+<p>The ASCII table divides into ranges:</p>
+<table style="width:100%">
+<tr><td><strong>Range</strong></td><td><strong>Hex</strong></td><td><strong>Meaning</strong></td></tr>
+<tr><td>0–31</td><td>0x00–0x1F</td><td>Control characters (NUL, TAB, LF, CR, ESC…)</td></tr>
+<tr><td>32–126</td><td>0x20–0x7E</td><td>Printable characters (space, letters, digits, punctuation)</td></tr>
+<tr><td>127</td><td>0x7F</td><td>DEL (delete — technically a control char)</td></tr>
+<tr><td>128–255</td><td>0x80–0xFF</td><td>Extended ASCII / high-bit set (non-standard)</td></tr>
+</table>
+
+<p>The test for "is printable" is a two-ended comparison:</p>
+<pre><code><span class="c">; al = byte to test</span>
+<span class="k">cmp</span> al, 32             <span class="c">; check lower bound — space (0x20)</span>
+<span class="k">jb</span> .not_printable     <span class="c">; unsigned: below 32 → not printable</span>
+<span class="k">cmp</span> al, 126            <span class="c">; check upper bound — tilde (0x7E)</span>
+<span class="k">ja</span> .not_printable     <span class="c">; unsigned: above 126 → not printable</span>
+<span class="c">; printable — al is 32–126</span></code></pre>
+
+<p>Notice: <code>jb</code> (jump if below) and <code>ja</code> (jump if above) are UNSIGNED comparisons. Byte values are naturally unsigned — a byte at 0xFF (255) is the largest possible byte, not -1. Using signed jumps (<code>jl</code>, <code>jg</code>) on byte ranges would misclassify values 128–255 as "less than 32" (since they appear negative in signed interpretation). Always use <strong>unsigned branch mnemonics (jb, ja, jbe, jae)</strong> when comparing bytes as raw values.</p>
+
+<p>The 128–255 range — bytes with the high bit set — have no standard printable meaning. In the canonical <code>hexdump -C</code> output, these are rendered as <code>.</code> alongside control characters. HexForge follows the same rule: only bytes 32–126 (inclusive) pass the printable test.</p>
+
+<p>Common control characters you'll encounter in real files:</p>
+<ul>
+<li><code>0x00</code> — NUL (string terminator in C, filler in binary)</li>
+<li><code>0x09</code> — TAB (horizontal tab)</li>
+<li><code>0x0A</code> — LF (line feed / newline on Unix)</li>
+<li><code>0x0D</code> — CR (carriage return)</li>
+<li><code>0x1B</code> — ESC (escape sequences)</li>
+</ul>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SIGNED vs UNSIGNED BYTE COMPARISONS — THE COMMON FLAW</div>
+<p>This is the trap that catches smiths who learned comparisons on signed integers in s03. A byte in <code>al</code> with value 0x90 (144) is positive when viewed as unsigned 8-bit. When viewed as signed 8-bit, 0x90 = -112. After <code>cmp al, 32</code>: unsigned comparison says 144 &gt; 32 (CF=0, ZF=0 — no borrow, non-zero). Signed comparison says -112 &lt; 32 (SF!=OF — sign flag differs from overflow flag). Using <code>jl</code> instead of <code>jb</code> would send 0x90 down the 'not printable' path — misclassified. The fix is mechanical: when operands represent raw bytes (0–255), always use the unsigned branch family (jb, ja, jbe, jae). When operands represent mathematical quantities that can be negative, use the signed family (jl, jg, jle, jge).</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s06-l01-e1"
+type = "mc"
+points = 15
+prompt = "Why must byte-classification comparisons use unsigned jumps (jb/ja) rather than signed jumps (jl/jg)?"
+choices = [
+  "The CPU only supports unsigned comparisons for 8-bit operands",
+  "Signed jumps are slower on bytes — unsigned jumps are optimised for 8-bit operations",
+  "Byte values 128–255 have the high bit set and appear negative in signed interpretation — jl would misclassify them as below any positive threshold",
+  "NASM requires unsigned mnemonics when the destination is an 8-bit register"
+]
+answer = 2
+whyWrong = "The CPU supports both signed and unsigned jumps on all operand sizes. Neither is inherently faster for bytes. NASM has no such requirement. The issue is semantic: a byte 0x80 (128 unsigned) is -128 signed. cmp 0x80, 32 → unsigned: 128 > 32 (jb does not jump); signed: -128 < 32 (jl DOES jump — wrong)."
+hint = "What does 0x80 look like when the CPU's sign flag reads bit 7?"
+explain = "Bit 7 is the sign bit for 8-bit values. Bytes 128–255 have bit 7 set, making them 'negative' in signed interpretation. <code>cmp al, 32</code> followed by <code>jl .below</code> would branch for byte 0x80 (144 unsigned → -112 signed, which IS less than 32). <code>jb .below</code> correctly treats 144 as greater than 32 since it only looks at the carry flag."
+
+[[lessons.exercises]]
+id = "s06-l01-e2"
+type = "fill"
+points = 20
+prompt = "Fill the unsigned jump that branches when al is below the printable threshold of 32."
+code = '''
+cmp  al, 32
+____ .not_printable    ; unsigned: al < 32 ?
+'''
+answer = "jb"
+hint = "Two letters — jump if below. The unsigned 'less than' test."
+explain = "<code>jb</code> (jump if below) tests CF=1, which means the subtraction <code>al - 32</code> required a borrow — i.e. al &lt; 32 in unsigned terms. This correctly classifies bytes 0–31 as non-printable."
+
+[[lessons.exercises]]
+id = "s06-l01-e3"
+type = "text"
+points = 20
+prompt = "Is the byte 0x7F (DEL) classified as printable by the test <code>cmp al, 32 / jb</code> followed by <code>cmp al, 126 / ja</code>? Answer yes or no, and state why."
+answer = "no"
+accept = ["No", "no, 127 > 126", "no because 127 is above 126"]
+hint = "0x7F = 127. Compare against the upper bound of 126."
+explain = "No. 0x7F = 127. After <code>cmp al, 126</code> followed by <code>ja .not_printable</code>: 127 &gt; 126, so ja jumps — the byte is classified as non-printable. The DEL character (127) is traditionally a control code, so this is correct behavior for a canonical hexdump."
+
+[[lessons.exercises]]
+id = "s06-l01-w1"
+type = "write"
+points = 30
+prompt = "Classify a hardcoded byte. A byte value is stored in <code>.data</code> as <code>db 65</code> (which is ASCII 'A'). Check if it is printable (32–126). If printable, print <code>PRINT</code>. If not, print <code>CTRL</code>. Use unsigned jumps (jb, ja). Since 65 is in range, output must be <code>PRINT</code>."
+starter = '''
+section .text
+    global _start
+
+_start:
+    mov al, [test_byte]   ; load the byte
+    cmp al, 32
+    jb .ctrl
+    cmp al, 126
+    ja .ctrl
+    ; printable
+    
+
+.ctrl:
+    ; not printable
+    
+
+section .data
+test_byte: db 65    ; ASCII 'A'
+msg_print: db 'P', 'R', 'I', 'N', 'T', 10
+msg_print_len equ $ - msg_print
+msg_ctrl: db 'C', 'T', 'R', 'L', 10
+msg_ctrl_len equ $ - msg_ctrl
+'''
+expect = '''
+PRINT'''
+hint = "After the two comparisons, if neither jump fires, execution falls through to the printable path. Print msg_print with sys_write. Add jmp .done after the printable path so you don't fall into .ctrl. At .done, exit."

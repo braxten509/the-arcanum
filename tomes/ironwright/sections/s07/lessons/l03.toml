@@ -1,0 +1,87 @@
+[[lessons]]
+id = "s07-l03"
+title = "The Two Hands — @SidedProxy & CommonProxy/ClientProxy"
+body = '''
+<p>A forge has two hands. The server hand holds the world's truth — block states, inventories, game logic. The client hand holds the eye — rendering, models, textures. Code that renders must not run on a dedicated server (it has no screen, and the rendering classes are not even there). <code>@SidedProxy</code> is how the mod picks the right hand for the side it is running on.</p>
+<pre><code><span class="k">@SidedProxy</span>(clientSide = <span class="s">"com.ironwright.client.ClientProxy"</span>,
+               serverSide = <span class="s">"com.ironwright.CommonProxy"</span>)
+<span class="k">public static</span> CommonProxy proxy;
+
+<span class="k">public class</span> CommonProxy {
+    <span class="k">public void</span> preInit() { <span class="c">// shared setup</span> }
+}
+<span class="k">public class</span> ClientProxy <span class="k">extends</span> CommonProxy {
+    <span class="k">@Override</span> <span class="k">public void</span> preInit() {
+        <span class="k">super</span>.preInit();
+        <span class="c">// client-only: ModelLoader.setCustomModelResourceLocation(...)</span>
+    }
+}</code></pre>
+<p>Forge reads <code>@SidedProxy</code> and assigns <code>proxy</code> an instance of <code>ClientProxy</code> on the client, <code>CommonProxy</code> on the dedicated server. You call <code>proxy.preInit()</code> and the right body runs for the side — the client registers models, the server skips them. The common class holds shared logic; the client subclass overrides to add rendering. One call site, two behaviours — polymorphism again, side-chosen by Forge.</p>
+<p>The client-only code (anything touching <code>ModelLoader</code>, <code>Minecraft.getMinecraft()</code>, rendering) lives <em>only</em> in <code>ClientProxy</code> or in <code>@SideOnly(Side.CLIENT)</code>-marked methods. Put it in common code and a dedicated server crashes with a <code>NoClassDefFoundError</code> the moment it loads.</p>
+<div class="callout"><strong>Orrick says:</strong> The two hands share a wrist (CommonProxy) and the client hand adds fingers (ClientProxy). Code to the wrist — <code>proxy.preInit()</code> — and let the side pick the hand. Never call <code>Minecraft.getMinecraft()</code> from common code.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // 1.12.2 USES SideOnly, NOT Dist.CLIENT</div>
+<p>Minecraft 1.12.2 predates Forge's <code>Dist</code> enum — the side annotation here is <code>@SideOnly(Side.CLIENT)</code> from <code>net.minecraftforge.fml.relauncher.SideOnly</code>, with <code>Side.CLIENT</code> / <code>Side.SERVER</code>. Newer Forge (1.14+) renamed it to <code>@OnlyIn(Dist.CLIENT)</code>. The 1.12.2 tutorials online use <code>SideOnly</code>; that is the correct form for this tome.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s07-l03-e1"
+type = "mc"
+points = 15
+prompt = "Why must rendering code (model registration, <code>Minecraft.getMinecraft()</code>) live in <code>ClientProxy</code>, not in <code>CommonProxy</code>?"
+choices = ["because the client is faster", "because the client side is always first", "because CommonProxy cannot have methods", "because a dedicated server has no rendering classes — loading them in common code crashes the server with NoClassDefFoundError"]
+answer = 3
+whyWrong = "A dedicated server lacks the client-only rendering classes, so common code that touches Minecraft.getMinecraft() or ModelLoader crashes the server with NoClassDefFoundError; speed is irrelevant, CommonProxy can have methods, and load order is not the issue. Sides exist because the server is missing the client's classes."
+hint = "Think about what classes a dedicated server is missing — and what happens when common code references them."
+explain = "Rendering classes live only on the client. ClientProxy holds them so the server never loads them; CommonProxy holds only shared logic."
+
+[[lessons.exercises]]
+id = "s07-l03-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the annotation that tells Forge which proxy class to instantiate on each side."
+code = '''____(clientSide = "com.ironwright.client.ClientProxy",
+       serverSide = "com.ironwright.CommonProxy")
+public static CommonProxy proxy;'''
+answer = "@SidedProxy"
+whyWrong = "@SidedProxy picks the proxy by side; @Mod marks the class, @Instance marks the singleton, @SideOnly marks a method client/server-only. The proxy-selection annotation is @SidedProxy."
+hint = "It is the @ annotation named for sides + proxy — @Sided + Proxy."
+
+[[lessons.exercises]]
+id = "s07-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the proxy hierarchy exactly — CommonProxy with preInit, and ClientProxy overriding it to call super then add client work."
+code = '''public class CommonProxy {
+    public void preInit() { }
+}
+public class ClientProxy extends CommonProxy {
+    @Override
+    public void preInit() {
+        super.preInit();
+    }
+}'''
+
+[[lessons.exercises]]
+id = "s07-l03-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of the @SidedProxy annotation string. The starter sets <code>String client = \"com.ironwright.client.ClientProxy\";</code> and <code>String server = \"com.ironwright.CommonProxy\";</code>. Print exactly <code>@SidedProxy(clientSide = \"com.ironwright.client.ClientProxy\", serverSide = \"com.ironwright.CommonProxy\")</code> by joining literals and the two variables. Read both class names from the variables."
+starter = '''public class Ironwright {
+    public static void main(String[] args) {
+        String client = "com.ironwright.client.ClientProxy";
+        String server = "com.ironwright.CommonProxy";
+        // apprentice — print @SidedProxy(clientSide = "<client>", serverSide = "<server>")
+    }
+}'''
+expect = '''
+@SidedProxy(clientSide = "com.ironwright.client.ClientProxy", serverSide = "com.ironwright.CommonProxy")'''
+hint = "System.out.println(\"@SidedProxy(clientSide = \\\"\" + client + \"\\\", serverSide = \\\"\" + server + \"\\\")\"); — escape inner quotes with \\\"."
+
+[[lessons.exercises]]
+id = "s07-l03-t1"
+type = "text"
+points = 20
+prompt = "In Forge 1.12.2, what is the side annotation (not the newer Dist.CLIENT)? Type the annotation plus its client value, as it would mark a client-only method."
+answer = "@SideOnly(Side.CLIENT)"
+hint = "It is @SideOnly from net.minecraftforge.fml.relauncher, with Side.CLIENT — the 1.12.2 form (newer Forge uses @OnlyIn(Dist.CLIENT))."

@@ -1,0 +1,90 @@
+[[lessons]]
+id = "s01-l02"
+title = "The ROCm Reality: Your Card's True Name"
+body = '''
+<p>Every AMD card answers to an internal target name, and the 9070 XT's is <strong>gfx1201</strong> — the RDNA4 line. That string is not trivia; it is the exact key ROCm, PyTorch, and every downstream wheel use to decide whether they were built for your silicon. When a library's precompiled binary was cut for a different target, you do not get a clean refusal — you get a crash three layers deep, in a kernel call, in the middle of an otherwise-fine script.</p>
+<p>This is the sharpest edge of the AMD path: <strong>bitsandbytes</strong>, the library most 4-bit tutorials assume, ships precompiled ROCm binaries only for a short list of targets — <code>gfx90a</code>, <code>gfx942</code>, <code>gfx1100</code> — and <code>gfx1201</code> is not on it. A tutorial written for an Instinct data-center card or an RDNA3 7900 XTX will not simply run here. This course will not pretend otherwise: the 4-bit path this vessel needs gets its own honest treatment later, once you've earned the VRAM math to judge the alternatives.</p>
+<p>There is an older escape hatch worth knowing even though the 9070 XT no longer strictly needs it: <span class="k">HSA_OVERRIDE_GFX_VERSION</span>, an environment variable that tells the ROCm runtime to treat your card as a different, already-supported target. It exists because ROCm's official target list always lags a card's release, and a fresh chip sometimes has to borrow a nearby target's compiled kernels until real support lands.</p>
+<pre><code><span class="k">export</span> HSA_OVERRIDE_GFX_VERSION=11.0.0
+python3 -c "<span class="k">import</span> torch; print(torch.cuda.get_device_name(0))"</code></pre>
+<p>The other quiet trap is <strong>wavefront width</strong>. Instinct-class CDNA cards execute in <strong>Wave64</strong> — 64 lanes moving together — and a large share of hand-tuned ROCm kernels assume that width. RDNA-generation consumer cards, the 9070 XT included, execute in <strong>Wave32</strong>. A kernel tuned for Wave64 does not fail loudly on Wave32 hardware; it just runs correctly but slower, or in the worst case, mis-schedules work. Knowing which wavefront your bench actually runs is how you tell "this is just slow" from "this is silently wrong."</p>
+<div class="callout">Debug bottom-up, not top-down: if <code>rocm-smi</code> at the OS level cannot see the card, no Python-level fix will make PyTorch see it either. Confirm the metal before you blame the framework.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY THE TARGET STRING MATTERS TWICE</div>
+<p>The gfx string does double duty: it decides whether ROCm's own runtime recognizes the card, and separately whether each Python wheel you install shipped a matching compiled kernel for it. A card can pass the first check and fail the second — ROCm sees the 9070 XT fine, but a specific wheel (bitsandbytes today, something else next month) was never built for <code>gfx1201</code> at all. Treat every new library as its own compatibility question, not a single pass/fail gate for "does ROCm work."</p></div>
+'''
+
+[[lessons.readings]]
+label = "ROCm compatibility matrix"
+url = "https://rocm.docs.amd.com/en/latest/compatibility/compatibility-matrix.html"
+
+[[lessons.exercises]]
+id = "s01-l02-e1"
+type = "mc"
+points = 20
+prompt = "A fresh ROCm install still fails to run a <code>bitsandbytes</code> wheel that lists <code>gfx1100</code> as one of its precompiled targets, on a 9070 XT. Why?"
+choices = [
+  "gfx1201 is not among that wheel's precompiled targets (gfx90a/gfx942/gfx1100), so the binary was built for different hardware",
+  "The GPU driver is too old to run any ROCm software at all",
+  "PyTorch itself does not support ROCm yet",
+  "bitsandbytes never runs on AMD hardware under any configuration",
+]
+answer = 0
+whyWrong = "Driver age is a separate axis from wheel-to-target matching — you can have the newest driver on earth and still run a binary compiled for a target string your card doesn't share."
+explain = "gfx1201 is the 9070 XT's real target string; a wheel's precompiled-target list is the actual compatibility contract, not the driver version or PyTorch's general ROCm support (which does cover this card)."
+
+[[lessons.exercises]]
+id = "s01-l02-e2"
+type = "fill"
+points = 20
+prompt = "Fill the missing environment variable name from the override command shown in the lesson."
+code = '''export ____=11.0.0
+python3 -c "import torch; print(torch.cuda.get_device_name(0))"'''
+answer = "HSA_OVERRIDE_GFX_VERSION"
+hint = "It's the variable that tells the ROCm runtime to treat your card as a different, already-supported target."
+
+[[lessons.exercises]]
+id = "s01-l02-e3"
+type = "text"
+points = 15
+prompt = "What wavefront width do RDNA-generation consumer cards like the 9070 XT execute in, as opposed to the Wave64 many CDNA/Instinct-tuned kernels assume?"
+answer = "Wave32"
+accept = ["wave32", "32"]
+hint = "It's named directly in the lesson's paragraph on wavefront width — half of the Instinct-class figure."
+
+[[lessons.exercises]]
+id = "s01-l02-e4"
+type = "mc"
+points = 20
+prompt = "<code>rocm-smi</code> shows no GPU at all, and a PyTorch device check also fails. What is the correct debugging order?"
+choices = [
+  "Reinstall PyTorch first — a Python-level error means the Python layer is where the fault lives",
+  "Switch to the CUDA build of PyTorch, since ROCm support is unrelated to AMD cards",
+  "Confirm the card is visible at the OS/driver level with <code>rocm-smi</code> before touching any Python-level fix",
+  "Assume the downloaded model file is corrupted, since a torch failure must be about weights",
+]
+answer = 2
+whyWrong = "Reinstalling a Python package can't fix a fault that lives one layer down, at the driver/runtime boundary — if the OS-level tool can't see the card, no PyTorch reinstall changes that."
+explain = "PyTorch's device check can only report what the runtime beneath it already sees; when both fail together, the fault is upstream of Python, so that's where you look first."
+
+[[lessons.exercises]]
+id = "s01-l02-e5"
+type = "type"
+points = 12
+prompt = "Retype the OS-level command that lists your card's product name directly from ROCm's tooling, independent of any Python process."
+code = "rocm-smi --showproductname"
+
+[[lessons.exercises]]
+id = "s01-l02-e6"
+type = "write"
+points = 30
+prompt = "A kernel launches 4 warps; each RDNA wavefront (this card's actual width, from the lesson) is 32 lanes wide. Compute the total lane count and print exactly: <code>LANES 128</code> — computed from the given values, not hardcoded."
+starter = '''warps = 4
+wavefront = 32  # this card's real wavefront width, from the lesson
+
+# TODO: compute the total lanes (warps * wavefront) and print:
+#   LANES 128
+lanes = 0
+print(f"LANES {lanes}")
+'''
+expect = "LANES 128"
+hint = "Total lanes is warps multiplied by the wavefront width — both variables are already named for you above."

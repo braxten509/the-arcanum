@@ -1,0 +1,115 @@
+[[lessons]]
+id = "s06-l05"
+title = "Raising the Gutter Column"
+body = '''
+<p>The gutter column is not a single classification — it is a 16-character string built by looping over a line of bytes, classifying each one, and writing the result to an output buffer. This lesson assembles the classify → store loop that HexForge runs once per dump line.</p>
+
+<p>The full gutter-building loop:</p>
+<pre><code><span class="c">; Input: rsi = source bytes (up to 16), rcx = byte count (1–16)</span>
+<span class="c">; Output: rdi = output buffer, filled with gutter characters</span>
+build_gutter:
+    <span class="k">push</span> rcx                <span class="c">; save original count for padding</span>
+
+.gutter_loop:
+    <span class="k">movzx</span> eax, <span class="k">byte</span> [rsi] <span class="c">; load source byte</span>
+    <span class="k">call</span> classify_gutter   <span class="c">; classify: al = char or '.'</span>
+    <span class="k">mov</span> [rdi], al          <span class="c">; write to gutter output</span>
+    <span class="k">inc</span> rsi
+    <span class="k">inc</span> rdi
+    <span class="k">dec</span> rcx
+    <span class="k">jnz</span> .gutter_loop
+
+    <span class="c">; Pad remaining positions (if line had &lt; 16 bytes) with spaces</span>
+    <span class="k">pop</span> rcx                 <span class="c">; rcx = original count</span>
+    <span class="k">mov</span> rax, 16
+    <span class="k">sub</span> rax, rcx            <span class="c">; padding needed = 16 - count</span>
+    <span class="k">mov</span> rcx, rax
+
+.pad_loop:
+    <span class="k">mov</span> <span class="k">byte</span> [rdi], <span class="s">' '</span>     <span class="c">; space pad</span>
+    <span class="k">inc</span> rdi
+    <span class="k">dec</span> rcx
+    <span class="k">jnz</span> .pad_loop
+    <span class="k">ret</span></code></pre>
+
+<p>This routine handles both full 16-byte lines and the short final line. For a full line, the pad loop runs 0 times (16 - 16 = 0). For a 5-byte final line, the gutter loop processes 5 bytes, then the pad loop writes 11 spaces — keeping the gutter column exactly 16 characters wide regardless of input length.</p>
+
+<p>With this, HexForge has all the components it needs for the gutter: <code>classify_gutter</code> (single byte → char or '.'), <code>build_gutter</code> (byte buffer → 16-char gutter string), and the pad logic (short lines → fixed width). Combined with <code>print_byte_hex</code> from the last lesson and <code>itoa_print</code> from s05, the capstone in s08 has everything needed to produce a full dump line.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE GUTTER AND UNICODE — WHY THIS IS ASCII-ONLY</div>
+<p>A canonical <code>hexdump -C</code> shows raw bytes — it does not decode UTF-8, interpret escape sequences, or render emoji. A byte is a byte. If your input file contains UTF-8 encoded text (e.g. <code>c3 a9</code> for 'é'), the hex columns show <code>c3 a9</code> and the gutter shows <code>..</code> (both bytes have the high bit set, so both are non-printable). This is correct and intentional: the tool shows what is ON DISK, not what a terminal would render. HexForge follows this convention exactly.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s06-l05-e1"
+type = "mc"
+points = 15
+prompt = "Why does <code>build_gutter</code> pad short lines with spaces instead of leaving the gutter buffer partially filled?"
+choices = [
+  "NASM requires all buffers to be exactly 16 bytes for alignment reasons",
+  "A fixed-width gutter column ensures dump lines align vertically — the gutter always occupies the same screen width regardless of input length",
+  "sys_write rejects buffers shorter than 16 bytes",
+  "The padding is a security measure — uninitialised buffer bytes could leak memory contents"
+]
+answer = 1
+whyWrong = "NASM has no such alignment requirement; sys_write accepts any length. The security concern is real (uninitialised buffer bytes WOULD leak data), but the primary reason is output formatting: every dump line must have the same visual width for the gutter column so the hex and ASCII columns align across all lines. Padding serves both purposes — alignment AND leak prevention."
+hint = "Think about what a hexdump looks like — do the gutter columns line up across different lines?"
+explain = "The canonical hexdump format has a uniform gutter width (16 characters) so every line aligns in columns. If short lines were left ragged, the gutter would shift left/right and break the visual grid. Padding to 16 characters ensures every dump line is the same width, regardless of whether it's a full 16-byte line or the final short line."
+
+[[lessons.exercises]]
+id = "s06-l05-e2"
+type = "text"
+points = 20
+prompt = "If a dump line has only 11 bytes (the final line of a 27-byte file), how many space characters does <code>build_gutter</code> write in the padding loop?"
+answer = "5"
+accept = ["five", "5 spaces"]
+hint = "16 - 11. The gutter must always be 16 characters wide."
+explain = "16 - 11 = 5. The gutter loop processes the 11 real bytes, then the pad loop writes 5 spaces to fill the remaining positions. The gutter column is always 16 characters wide — 11 chars (or dots) + 5 spaces."
+
+[[lessons.exercises]]
+id = "s06-l05-e3"
+type = "type"
+points = 12
+prompt = "Retype the gutter classification loop. This is the inner loop that runs 16 times per dump line."
+code = '''
+; rsi = source bytes, rdi = gutter output, rcx = count
+.gutter_loop:
+    movzx eax, byte [rsi]
+    call  classify_gutter
+    mov   [rdi], al
+    inc   rsi
+    inc   rdi
+    dec   rcx
+    jnz   .gutter_loop
+'''
+
+[[lessons.exercises]]
+id = "s06-l05-w1"
+type = "write"
+points = 35
+prompt = "Build the full gutter for a line. An 8-byte array holds: 72 (H), 101 (e), 108 (l), 108 (l), 111 (o), 10 (LF), 0 (NUL), 33 (!). Build the gutter string (classify each byte, pad to 16 with spaces). Print the full 16-character gutter. The printable bytes pass through; LF, NUL become dots; the remaining 8 positions are spaces. Output: <code>Hello..!        </code> (that's 'H','e','l','l','o','.', '.','!' then 8 spaces — count them: 8 chars + 8 spaces = 16)."
+starter = '''
+section .text
+    global _start
+
+_start:
+    mov rsi, test_bytes
+    mov rdi, gutter_out
+    mov rcx, 8
+    ; Classification loop: 8 iterations of load/classify/store
+    
+
+    ; Padding: 16 - 8 = 8 spaces
+    
+
+    ; Print gutter_out (16 bytes) with newline
+    
+
+section .data
+test_bytes: db 72, 101, 108, 108, 111, 10, 0, 33
+gutter_out: times 16 db 0
+newline: db 10
+'''
+expect = '''
+Hello..!        '''
+hint = "Classification loop: movzx eax,byte[rsi] / cmp al,32 / jb .dot / cmp al,126 / ja .dot / jmp .store / .dot: mov al,'.' / .store: mov [rdi],al / inc rsi / inc rdi / dec rcx / jnz. Pad loop: mov rcx,8 / .pad: mov byte[rdi],' ' / inc rdi / dec rcx / jnz. Print rsi=gutter_out, rdx=16. H,e,l,l,o are printable → appear verbatim. 10 (LF) → dot. 0 (NUL) → dot. 33 (!) → printable."

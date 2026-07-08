@@ -1,0 +1,96 @@
+[[lessons]]
+id = "s02-l03"
+title = "Naming a Helper"
+body = '''
+<p>Repeated branches deserve a name. A subroutine turns the classifier into a reusable sentence. The caller hands in one line; the helper hands back one label. That split is the right shape for this chapter because it keeps the decision logic in one place and leaves printing to the caller.</p>
+<p>Use <code>sub</code> to name the helper, <code>shift</code> to pull the first argument off the subroutine's argument pile, and <code>return</code> to send the chosen label back. The function should not print directly unless printing is the whole point. Here, the whole point is classification, so the helper should answer with data. That makes the same helper usable for printing now and counting later.</p>
+<p>The value of that split is easier to see on a real page. A helper that returns <code>BLANK</code>, <code>HEAD</code>, or <code>TEXT</code> can be called from a loop, from a test, or from another helper without changing its body. That is how a small script grows into a trustworthy one. The code below keeps the lines plain on purpose so the control flow remains visible while the call site stays tidy.</p>
+<pre><code><span class="k">sub</span> <span class="s">classify_line</span> {
+    <span class="k">my</span> <span class="s">$line</span> = <span class="k">shift</span>;
+    <span class="k">if</span> (<span class="s">$line</span> <span class="k">eq</span> <span class="s">""</span>) {
+        <span class="k">return</span> <span class="s">"BLANK"</span>;
+    }
+    <span class="k">if</span> (<span class="k">substr</span>(<span class="s">$line</span>, <span class="s">0</span>, <span class="s">1</span>) <span class="k">eq</span> <span class="s">"#"</span>) {
+        <span class="k">return</span> <span class="s">"HEAD"</span>;
+    }
+    <span class="k">return</span> <span class="s">"TEXT"</span>;
+}</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE HELPER'S HINGE</div>
+<p><strong>Argument note.</strong> <code>shift</code> reads the first argument from <code>@_</code>. You do not need array lessons to use that pattern inside a subroutine; just know that the helper receives its values in order.</p>
+<p><strong>Return note.</strong> <code>return</code> exits the subroutine immediately. That is useful here because only one label should leave the helper.</p>
+<p><strong>Reuse note.</strong> A helper that returns a label is easier to count, print, or compare than a helper that writes directly to output. Keep the side effects at the call site when you can.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perlsub: subroutines"
+url = "https://perldoc.perl.org/perlsub"
+
+[[lessons.exercises]]
+id = "s02-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "<p>Retype the helper exactly. Keep the three return paths in the same order.</p>"
+code = '''
+sub classify_line {
+    my $line = shift;
+    if ($line eq "") {
+        return "BLANK";
+    }
+    if (substr($line, 0, 1) eq "#") {
+        return "HEAD";
+    }
+    return "TEXT";
+}
+'''
+
+[[lessons.exercises]]
+id = "s02-l03-e1"
+type = "fill"
+points = 20
+prompt = "<p>Restore the keyword that sends the final label back to the caller.</p>"
+code = 'if (substr($line, 0, 1) eq "#") { ____ "HEAD"; }'
+answer = "return"
+hint = "The helper needs to hand the label back, not just evaluate it."
+whyWrong = "You are leaving a bare string expression in place, which computes a value but never returns it to the caller."
+
+[[lessons.exercises]]
+id = "s02-l03-e2"
+type = "mc"
+points = 15
+prompt = "<p>What does <code>shift</code> do at the top of <code>classify_line</code>?</p>"
+choices = ["It deletes the current line from the source file.", "It takes the first argument from the subroutine's argument list.", "It changes <code>elsif</code> into <code>else</code>.", "It turns a scalar into an array."]
+answer = 1
+whyWrong = "You are treating <code>shift</code> like file editing or type conversion, but inside this helper it simply retrieves the first argument."
+hint = "Think about the first value the caller passed in."
+explain = "The helper receives its inputs through <code>@_</code>, and <code>shift</code> pulls the first one off that list."
+
+[[lessons.exercises]]
+id = "s02-l03-w1"
+type = "write"
+points = 30
+prompt = "<p>Finish <code>classify_line</code> so it returns <code>BLANK</code>, <code>HEAD</code>, or <code>TEXT</code> for the three starter lines, then print the three labels.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+sub classify_line {
+    my $line = shift;
+
+    # Task: return BLANK, HEAD, or TEXT
+    return "Task";
+}
+
+my $first = "";
+my $second = "# Preface";
+my $third = "A paragraph";
+
+say classify_line($first);
+say classify_line($second);
+say classify_line($third);
+'''
+expect = '''
+BLANK
+HEAD
+TEXT'''
+hint = "Replace the sample return value with the same blank/header/text logic you already practiced."

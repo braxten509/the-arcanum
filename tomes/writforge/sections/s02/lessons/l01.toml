@@ -1,0 +1,103 @@
+[[lessons]]
+id = "s02-l01"
+title = "The First Gate"
+body = '''
+<p>A manuscript line is a small witness. It either says nothing, wears a leading hash, or stands as ordinary prose. Before loops and helpers appear, the scribe must learn the first judgment: one branch for blank, one for heading, one for everything else. That order matters. If you ask about the header before you ask whether the line is empty, you can still be correct, but this lesson keeps the logic readable by naming the emptiness first and the leading mark second.</p>
+<p>Use <code>if</code> for the first gate, <code>elsif</code> for the next gate, and <code>else</code> for the fallback. The comparison for text should be <code>eq</code>, not <code>==</code>, because these labels are words, not counts. To spot a heading, inspect just the first character with <code>substr($line, 0, 1)</code>. The whole line does not need to be scanned yet; a header is a line that begins with <code>#</code>, and the classifier can say that much without ceremony.</p>
+<p>The point is not to worship the word <code>if</code>. The point is to teach the page to answer one question at a time. A blank line becomes <code>BLANK</code>. A line that begins with the heading mark becomes <code>HEAD</code>. Everything else becomes <code>TEXT</code>. Later sections will replace these toy samples with fuller manuscript work, but the branching shape will survive unchanged. One clean chain now will save many bad guesses later.</p>
+<pre><code><span class="k">my</span> <span class="s">$line</span> = <span class="s">"# Preface"</span>;
+<span class="k">if</span> (<span class="s">$line</span> <span class="k">eq</span> <span class="s">""</span>) {
+    <span class="k">say</span> <span class="s">"BLANK"</span>;
+} <span class="k">elsif</span> (<span class="k">substr</span>(<span class="s">$line</span>, <span class="s">0</span>, <span class="s">1</span>) <span class="k">eq</span> <span class="s">"#"</span>) {
+    <span class="k">say</span> <span class="s">"HEAD"</span>;
+} <span class="k">else</span> {
+    <span class="k">say</span> <span class="s">"TEXT"</span>;
+}</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE FIRST CUT</div>
+<p><strong>Comparison note.</strong> <code>eq</code> compares words and punctuation as text; <code>==</code> asks Perl to treat the values as numbers. The blank-line test here is textual.</p>
+<p><strong>Whitespace note.</strong> An empty string is not the same thing as a line containing spaces. This lesson only names the empty string; later canto work can decide how to trim more stubborn lines.</p>
+<p><strong>Inspection note.</strong> <code>substr($line, 0, 1)</code> looks at the first glyph and stops. That is enough to identify a heading without teaching pattern work too early.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perlsyn: conditionals and blocks"
+url = "https://perldoc.perl.org/perlsyn"
+
+[[lessons.exercises]]
+id = "s02-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "<p>Retype the classifier exactly. Keep the order blank, header, then text.</p>"
+code = '''
+my $line = "# Preface";
+if ($line eq "") {
+    say "BLANK";
+} elsif (substr($line, 0, 1) eq "#") {
+    say "HEAD";
+} else {
+    say "TEXT";
+}
+'''
+
+[[lessons.exercises]]
+id = "s02-l01-e1"
+type = "mc"
+points = 15
+prompt = "<p>Which condition spots a header line in this lesson?</p>"
+choices = ["<code>$line eq \"#\"</code>", "<code>length($line) &gt; 0</code>", "<code>substr($line, 0, 1) eq \"#\"</code>", "<code>$_ eq \"#\"</code>"]
+answer = 2
+whyWrong = "You are checking the whole line, its length, or the default topic, but the lesson only needs the first character of <code>$line</code> to identify a header."
+hint = "The header check only needs the first mark, not the whole line."
+explain = "A heading begins with <code>#</code>, so this lesson inspects the first character with <code>substr</code> and compares that single glyph as text."
+
+[[lessons.exercises]]
+id = "s02-l01-e2"
+type = "fill"
+points = 20
+prompt = "<p>Restore the chain keyword that keeps the blank test attached to the first <code>if</code>.</p>"
+code = 'if ($line eq "") { say "BLANK"; } ____ (substr($line, 0, 1) eq "#") { say "HEAD"; }'
+answer = "elsif"
+hint = "The missing word extends the same decision tree instead of starting a fresh one."
+whyWrong = "Starting a new <code>if</code> would abandon the first branch instead of continuing the same choice."
+
+[[lessons.exercises]]
+id = "s02-l01-e3"
+type = "text"
+points = 20
+prompt = "<p>If <code>$line</code> is empty, what label does the code print?</p>"
+answer = "BLANK"
+hint = "The first branch handles the empty string before the heading test gets a turn."
+whyWrong = "You are naming the variable's value with the wrong label; the empty-string branch prints the word <code>BLANK</code>."
+
+[[lessons.exercises]]
+id = "s02-l01-e4"
+type = "mc"
+points = 15
+prompt = "<p>Why should the blank-line test use <code>eq</code> instead of <code>==</code>?</p>"
+choices = ["<code>eq</code> compares text while <code>==</code> compares numbers.", "<code>==</code> is the text operator and <code>eq</code> only works for counts.", "<code>eq</code> automatically trims whitespace before comparing.", "<code>==</code> is the operator that prints the label."]
+answer = 0
+whyWrong = "You are treating the comparison operators like interchangeable symbols. In Perl, <code>eq</code> compares text and <code>==</code> compares numbers."
+hint = "These labels are words, not counts."
+explain = "The branch is comparing text values, so <code>eq</code> is the correct operator here."
+
+[[lessons.exercises]]
+id = "s02-l01-w1"
+type = "write"
+points = 30
+prompt = "<p>Use the three starter scalars and print exactly these three lines, one per line:</p><ul><li><code>BLANK</code></li><li><code>HEAD</code></li><li><code>TEXT</code></li></ul>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my $first = "";
+my $second = "# Preface";
+my $third = "A paragraph";
+
+# Task: print one label for each starter scalar.
+'''
+expect = '''
+BLANK
+HEAD
+TEXT'''
+hint = "Do the same blank/header/text check for each starter scalar, in order."

@@ -1,0 +1,71 @@
+[[lessons]]
+id = "s06-l02"
+title = "The Smith's Bench — IntelliJ IDEA"
+body = '''
+<p>The anvil is set; now the bench. <strong>IntelliJ IDEA</strong> is the smith's bench — the IDE in which you will read the old marks, write your ironwork, and fire the coals. Install the Community edition (free) or the Ultimate edition; both work for Forge 1.12.2.</p>
+<p>Once installed, you do not "create a new project" — you <strong>import</strong> the Forge MDK folder as a Gradle project. IntelliJ reads <code>build.gradle</code>, runs the bellows (Gradle) to download Forge and Minecraft, and indexes the decompiled source so <code>Go to Class</code> and <code>Find Usages</code> work. This indexing takes minutes the first time; let it finish before you strike.</p>
+<p>The bench has three panes you will live in: the <strong>Project pane</strong> (left) shows the file tree; the <strong>editor</strong> (centre) shows the file you are writing; the <strong>Structure pane</strong> (left, below Project) lists the open class's fields and methods — a fast way to scan what an Item or a Block carries without scrolling. At the bottom, the <strong>Run</strong> and <strong>Build</strong> output windows show what the bellows and the coals print.</p>
+<p>A <strong>run configuration</strong> is a saved way to run the project. After importing, Forge's <code>genIntellijRuns</code> task (next lesson) creates a <code>runClient</code> configuration — pick it and the green arrow fires the coals.</p>
+<div class="callout"><strong>Orrick says:</strong> Eclipse and VS Code will also work, but the tome walks the IntelliJ path — its Minecraft/Forge navigation is the most walked. If you choose another bench, translate the shortcuts; the concepts are the same.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY IMPORT, NOT NEW</div>
+<p>The Forge MDK folder already has <code>build.gradle</code>, <code>gradlew</code>, and the source tree. "New Project" would build a fresh empty Gradle project and ignore the MDK's pinned Forge version and mappings. Importing the existing folder keeps the Forge setup the MDK shipped. The same rule applies whenever you clone a Gradle project: import the folder, never re-scaffold it.</p></div>
+'''
+
+[[lessons.readings]]
+label = "IntelliJ IDEA Download"
+url = "https://www.jetbrains.com/idea/download/"
+
+[[lessons.exercises]]
+id = "s06-l02-e1"
+type = "mc"
+points = 15
+prompt = "You have a Forge MDK folder with <code>build.gradle</code>. How do you open it in IntelliJ for Forge 1.12.2 development?"
+choices = ["File → New → Project, and choose Java", "drag the folder onto the IntelliJ icon only", "open the build.gradle as a text file and retype it into a new project", "import the folder as a Gradle project so IntelliJ reads build.gradle and runs the Forge setup"]
+answer = 3
+whyWrong = "You import the existing folder as a Gradle project so IntelliJ runs the MDK's pinned Forge setup; New Project would build a fresh empty project that ignores the MDK, retyping build.gradle loses the Forge config, and drag-and-drop is not the workflow. The MDK is imported, not recreated."
+hint = "The folder already has a build.gradle — so do you create new, or import the existing Gradle project?"
+explain = "Import the MDK folder as a Gradle project. IntelliJ reads build.gradle, runs Gradle to fetch Forge and Minecraft, and indexes the decompiled source."
+
+[[lessons.exercises]]
+id = "s06-l02-t1"
+type = "text"
+points = 20
+prompt = "Type the name of the IntelliJ pane that lists the open class's fields and methods (a fast scan of what a class carries without scrolling)."
+answer = "Structure"
+hint = "It is the ten-letter English word for 'the layout of parts' — the pane that shows a class's members as a list."
+
+[[lessons.exercises]]
+id = "s06-l02-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the saved run configuration the next lesson's genIntellijRuns task creates — the one whose green arrow fires the coals (boots the dev Minecraft client)."
+code = 'Run configuration: ____  // boots the development Minecraft client'
+answer = "runClient"
+hint = "It is run + Client — the Gradle task and run configuration that boots the dev Minecraft."
+
+[[lessons.exercises]]
+id = "s06-l02-e2"
+type = "mc"
+points = 15
+prompt = "IntelliJ is still indexing a freshly imported Forge project. You open <code>net.minecraft.item.Item</code> and hit Go to Class for another class, but navigation is slow and Find Usages returns nothing. What is happening?"
+choices = ["the project is broken — re-import", "Forge does not allow navigation", "indexing has not finished; Find Usages and Go to Class need the index, so wait for it to complete", "you need to delete the .gradle folder"]
+answer = 2
+whyWrong = "Find Usages and Go to Class depend on IntelliJ's index, which is still building; wait for the progress bar to finish (minutes on first import), not re-import or delete .gradle. The project is fine; the index is incomplete."
+hint = "Think about what Find Usages and Go to Class need that is still being built on first import."
+explain = "The index maps every class, method, and usage. Until it finishes, navigation is incomplete or slow. Wait it out; the next import is fast (the index is cached)."
+
+[[lessons.exercises]]
+id = "s06-l02-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of run-config label building. The starter sets <code>String mod = \"Ironwright\";</code> and <code>String mc = \"1.12.2\";</code>. Print <code>runClient [Ironwright @ 1.12.2]</code> by joining the literal <code>\"runClient [\"</code>, <code>mod</code>, <code>\" @ \"</code>, <code>mc</code>, and <code>\"]\"</code>. Read mod and mc from the variables; do not type the words in the print."
+starter = '''public class Ironwright {
+    public static void main(String[] args) {
+        String mod = "Ironwright";
+        String mc = "1.12.2";
+        // apprentice — print "runClient [" + mod + " @ " + mc + "]"
+    }
+}'''
+expect = '''
+runClient [Ironwright @ 1.12.2]'''
+hint = "System.out.println(\"runClient [\" + mod + \" @ \" + mc + \"]\"); — join the five pieces with +."

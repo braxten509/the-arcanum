@@ -1,0 +1,125 @@
+[[lessons]]
+id = "s01-l03"
+title = "Through the Air-Gate"
+body = '''
+<p>The forge floor is built, the anvils are named — now the bellows must pump air through the gate. Every interaction between your program and the world outside passes through <code>syscall</code>: a single instruction that opens the kernel's air-gate. No library, no handshake — just the five registers set and the gate struck.</p>
+
+<p>A <strong>file descriptor</strong> is a number the kernel uses to track an open channel. Three are already open when <code>_start</code> fires:</p>
+<table style="width:100%"><tr><td><strong>fd</strong></td><td>0</td><td>1</td><td>2</td></tr><tr><td><strong>name</strong></td><td>stdin</td><td>stdout</td><td>stderr</td></tr><tr><td><strong>direction</strong></td><td>read</td><td>write</td><td>write</td></tr></table>
+
+<p><code>sys_write</code> — call number 1 — sends bytes through a writeable fd. The full contract:</p>
+<pre><code><span class="k">mov</span> rax, 1          <span class="c">; sys_write = 1</span>
+<span class="k">mov</span> rdi, 1          <span class="c">; fd 1 = stdout</span>
+<span class="k">mov</span> rsi, msg        <span class="c">; address of the bytes</span>
+<span class="k">mov</span> rdx, msg_len    <span class="c">; how many bytes to write</span>
+<span class="k">syscall</span>              <span class="c">; strike the gate</span></code></pre>
+
+<p><code>rdx</code> must be the <em>exact</em> number of bytes you want printed — no null terminator, no trailing newline unless you put one in the data. If you set <code>rdx</code> to 10 but your string is only 5 bytes, the kernel prints 5 bytes of string plus 5 bytes of whatever follows in memory — slag on the page.</p>
+
+<p>How do you know the length? Declare it. NASM's <code>equ</code> computes a value at assemble time:</p>
+<pre><code><span class="k">section</span> .data
+msg: <span class="k">db</span> <span class="s">"FORGE LIT"</span>, 10   <span class="c">; the string, then a newline (ASCII 10)</span>
+msg_len <span class="k">equ</span> $ - msg       <span class="c">; current position ($) minus start of msg = byte count</span></code></pre>
+
+<p><code>$</code> is the assembler's "current position" counter. <code>$ - msg</code> computes the number of bytes between the label <code>msg</code> and wherever <code>$</code> sits — exactly the length of the data you declared. The <code>db</code> directive ("define byte") lays raw bytes into the output. A string in quotes becomes ASCII bytes; a bare number like <code>10</code> is the newline character.</p>
+
+<p>Common output escapes:</p>
+<ul>
+<li><code>10</code> — line feed (newline, <code>\n</code>)</li>
+<li><code>0</code> — null byte (not printable, but used as a C string terminator — we rarely need it)</li>
+<li><code>0x0a</code> — same as 10, in hex (NASM accepts <code>0x</code> prefix)</li>
+</ul>
+
+<p>Put it together: declare a string with <code>db</code>, compute its length with <code>equ $ - label</code>, set the four syscall registers, and strike. The bytes appear on the speaking stone. No <code>printf</code>, no library — raw alloy through the gate.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE $ TOKEN AND WHY IT WORKS</div>
+<p><code>$</code> is not a runtime value — it is evaluated by NASM during assembly. At every point in the source, <code>$</code> equals the byte offset from the start of the current section. Because labels are also section-relative offsets, <code>$ - msg</code> subtracts two assemble-time numbers to get a constant. That constant becomes the value of <code>msg_len</code> via <code>equ</code>. The runtime never computes the length — it was baked into the instruction as an immediate. This is why you cannot <code>equ</code> a runtime-computed value; <code>equ</code> runs once, before the program ever executes.</p>
+
+<p>If you want the string length to include the trailing newline, put <code>msg_len equ $ - msg</code> AFTER the <code>db</code> line. If you want the length without the newline, put the <code>equ</code> BEFORE the newline byte. <code>$</code> measures exactly where it sits.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s01-l03-e1"
+type = "mc"
+points = 15
+prompt = "You write <code>db \"HELLO\", 10</code> followed by <code>LEN equ $ - msg</code>. What value does <code>LEN</code> hold?"
+choices = [
+  "5 — only the visible characters count",
+  "7 — NASM adds a null terminator automatically",
+  "0 — equ runs at runtime, not assembly time",
+  "6 — five letters plus the newline byte at position $"
+]
+answer = 3
+whyWrong = "The newline byte 10 is data just like the letters — $ sits after all six bytes, so $ - msg = 6. NASM never adds a null terminator — that's a C compiler convention. equ is evaluated during assembly, not runtime, so it cannot be zero."
+hint = "Count every byte between the label and where $ sits — including escape codes."
+explain = "Each letter is 1 byte. The <code>, 10</code> is a separate byte — the newline. Six bytes total. If you wanted 5, you would put <code>LEN equ $ - msg</code> on the line BEFORE the <code>, 10</code> — then $ would sit at offset 5."
+
+[[lessons.exercises]]
+id = "s01-l03-e2"
+type = "text"
+points = 20
+prompt = "If you set <code>rdx</code> to a number larger than the actual bytes in your buffer, what does the kernel write? Give the one-word description Vandr would use."
+answer = "slag"
+accept = ["Slag", "garbage", "junk"]
+hint = "Vandr has a specific forge term for the worthless material mixed into good ore — what follows your string in memory."
+explain = "The kernel writes exactly rdx bytes starting at rsi — it does not stop at null, line-end, or any boundary. Bytes beyond your declared data are whatever happened to sit in memory at link time: slag."
+
+[[lessons.exercises]]
+id = "s01-l03-e3"
+type = "fill"
+points = 20
+prompt = "Complete the directive that computes the string length at assembly time."
+code = '''
+msg:     db "FORGE", 10
+msg_len  ____  $ - msg
+'''
+answer = "equ"
+hint = "Three letters — it stands for 'equate'. Sets a symbol to an assemble-time constant."
+explain = "<code>equ</code> defines a symbolic constant. Unlike a label (which marks an address), <code>equ</code> gives a name to a pure number. At every use of <code>msg_len</code>, NASM substitutes the constant value 6 directly into the instruction."
+
+[[lessons.exercises]]
+id = "s01-l03-e4"
+type = "type"
+points = 12
+prompt = "Retype this string-declaration pattern. The <code>db</code> line, the <code>equ</code> line, and the register setup must match exactly."
+code = '''
+section .data
+greeting: db "FORGE LIT", 10
+greeting_len equ $ - greeting
+
+section .text
+    global _start
+_start:
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, greeting
+    mov rdx, greeting_len
+    syscall
+    mov rax, 60
+    xor rdi, rdi
+    syscall
+'''
+
+[[lessons.exercises]]
+id = "s01-l03-w1"
+type = "write"
+points = 30
+prompt = "Print the phrase <code>FORGE LIT</code> followed by a newline, using <code>equ</code> to compute the length. Do NOT hardcode the number 10 in rdx — use the equ symbol. Your program must declare the string in <code>.data</code>, compute its length, set up sys_write with the computed length, and exit cleanly."
+starter = '''
+section .text
+    global _start
+
+_start:
+    ; Set up sys_write with rax=1, rdi=1, rsi=greeting, rdx=greeting_len
+    
+
+    ; Exit cleanly
+    
+
+section .data
+greeting: db 'F', 'O', 'R', 'G', 'E', ' ', 'L', 'I', 'T', 10
+; Compute greeting_len with equ here
+'''
+expect = '''
+FORGE LIT'''
+hint = "After the db line, add: greeting_len equ $ - greeting. Then mov rdx, greeting_len — not a hardcoded number. The label for the string is 'greeting'."

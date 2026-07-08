@@ -67,8 +67,9 @@ id = "s09-l02-e2"
 type = "mc"
 points = 20
 prompt = "Why accumulate chunks in a StringBuilder while streaming?"
-choices = ["Console.Write requires it", "Each chunk is only a token or two — the parseable payload is the concatenation", "StringBuilder validates JSON", "Chunks arrive out of order"]
-answer = 1
+choices = ["Each chunk is only a token or two — the parseable payload is the concatenation", "Console.Write requires it", "StringBuilder validates JSON", "Chunks arrive out of order"]
+answer = 0
+whyWrong = "StringBuilder doesn’t validate JSON and chunks arrive in order — you accumulate because each streamed chunk is a fragment and only the concatenation is parseable."
 hint = "You show pieces live AND keep the whole for parsing."
 
 [[lessons.exercises]]
@@ -76,8 +77,9 @@ id = "s09-l02-e3"
 type = "mc"
 points = 20
 prompt = "Ollama isn't running when Verisearch calls it. Your code should…"
-choices = ["crash with the raw HttpRequestException", "retry every second forever", "catch it and engage a non-LLM fallback (e.g., keyword matching)", "silently return zero results"]
-answer = 2
+choices = ["crash with the raw HttpRequestException", "catch it and engage a non-LLM fallback (e.g., keyword matching)", "retry every second forever", "silently return zero results"]
+answer = 1
+whyWrong = "Don’t crash on the raw exception or retry forever — catch the connection failure and switch to a non-LLM fallback like keyword matching."
 hint = "The tome doc: everything before Chapter IX works WITHOUT AI. Keep it that way."
 
 [[lessons.exercises]]

@@ -1,0 +1,76 @@
+[[lessons]]
+id = "s04-l04"
+title = "The Smith's Address — Packages & Imports"
+body = '''
+<p>A class needs an address. A <strong>package</strong> is a namespace — a folder of related classes, named in reverse-domain style. <code>java.util.Scanner</code> lives in the <code>java.util</code> package; your mod's classes will live in <code>com.ironwright</code>.</p>
+<pre><code><span class="k">package</span> com.ironwright;
+
+<span class="k">import</span> java.util.Scanner;
+
+<span class="k">public class</span> Ironwright {
+    <span class="k">public static void</span> main(String[] args) {
+        <span class="c">// ... read with a Scanner exactly as in Forgework I ...</span>
+    }
+}</code></pre>
+<p>The <code>package</code> line must be the first line of the file (before imports, before the class) — it declares where this class lives. The <code>import</code> lines name the classes you want to use by their short name; without <code>import java.util.Scanner</code> you must write the <strong>fully-qualified name</strong> <code>java.util.Scanner</code> every time. An import is a convenience, not a dependency pull — it just lets you say <code>Scanner</code> instead of <code>java.util.Scanner</code>.</p>
+<p>The package name maps to a folder path: <code>com.ironwright</code> means the file lives at <code>com/ironwright/Ironwright.java</code>. When the mod lands in Forgework VII, your classes move from the flat folder into <code>src/main/java/com/ironwright/</code>, and every file gains <code>package com.ironwright;</code> as its first line. The address and the folder must agree, or <code>javac</code> cannot find the class.</p>
+<div class="callout"><strong>Orrick says:</strong> <code>java.lang</code> is imported automatically — <code>String</code>, <code>System</code>, <code>Object</code> need no import. Everything else (<code>Scanner</code>, <code>List</code>, <code>ArrayList</code>, <code>Map</code>) you must import or spell out fully.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY REVERSE-DOMAIN</div>
+<p>Package names start with the reversed domain so two smiths never collide: <code>com.ironwright.Ironwright</code> and <code>net.minecraft.item.Item</code> cannot clash because their prefixes differ. The mod's id <code>ironwright</code> and its package <code>com.ironwright</code> share letters on purpose — one name, one spelling, the whole tome round.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s04-l04-e1"
+type = "mc"
+points = 15
+prompt = "Which package is imported automatically in every Java file — so <code>String</code>, <code>System</code>, and <code>Object</code> need no import line?"
+choices = ["java.util", "java.io", "java.lang", "com.ironwright"]
+answer = 2
+whyWrong = "java.lang is implicitly imported (String, System, Object, Math live there); java.util needs import (Scanner, List), java.io needs import (streams), com.ironwright is your own package. The implicit one is java.lang."
+hint = "It is the package whose name means 'the language itself' — String and System live there, no import needed."
+explain = "java.lang is auto-imported. Every other package (java.util, java.io, your own) needs an import or a fully-qualified name."
+
+[[lessons.exercises]]
+id = "s04-l04-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the fully-qualified name of Scanner — the address you must write when there is no import line."
+code = '____ in = new ____(System.in);'
+answer = "java.util.Scanner"
+whyWrong = "The fully-qualified name is java.util.Scanner (package.Class); util.Scanner alone is missing the java prefix, System.Scanner is wrong, and Scanner alone only works with an import. Without import, spell the whole address."
+hint = "It is package . Class — the java sub-package util holds Scanner."
+
+[[lessons.exercises]]
+id = "s04-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the package and import header exactly — the package first, then the import, then the class line."
+code = '''package com.ironwright;
+
+import java.util.Scanner;
+
+public class Ironwright {'''
+
+[[lessons.exercises]]
+id = "s04-l04-w1"
+type = "write"
+points = 30
+prompt = "There is NO import line in the starter. Read one line from stdin (the engine pipes <code>forge iron</code>) using Scanner's <strong>fully-qualified name</strong> — <code>java.util.Scanner in = new java.util.Scanner(System.in);</code> — and print <code>READ forge iron</code>. Do not add an import; spell the full address."
+starter = '''public class Ironwright {
+    public static void main(String[] args) {
+        // apprentice — declare java.util.Scanner in = new java.util.Scanner(System.in); read a line, print "READ " + it
+    }
+}'''
+expect = '''
+READ forge iron'''
+hint = "java.util.Scanner in = new java.util.Scanner(System.in); String line = in.nextLine(); System.out.println(\"READ \" + line);"
+stdin = "forge iron"
+
+[[lessons.exercises]]
+id = "s04-l04-t1"
+type = "text"
+points = 20
+prompt = "Type the package line that would sit at the top of the mod's Ironwright.java (the mod's root package, reverse-domain style). End with a semicolon."
+answer = "package com.ironwright;"
+hint = "It is the package keyword, then the reverse-domain root package of this mod (com dot ironwright), then a semicolon."

@@ -1,0 +1,85 @@
+[[lessons]]
+id = "s02-l02"
+title = "Two Voices: Base and Instruct"
+body = '''
+<p>The last rite glossed over a distinction it can no longer skip: every model family the registry lists usually ships in two temperaments. A <strong>base</strong> model was trained on raw text to predict the next token, nothing more — hand it a question and it may just as easily continue it with another question, or drift into an unrelated paragraph, because "answer the user" was never a training objective. An <strong>instruct</strong> model started from that same base and was further trained on conversation-shaped examples until it learned that a message wrapped a certain way expects a reply, not a continuation.</p>
+<p>That "wrapped a certain way" is the <strong>chat template</strong> — a fixed set of role markers and separators the instruct training baked in as the shape of "this is a turn, this is who's speaking, this is where you answer." Ollama's <code>Modelfile</code> stores this template alongside the GGUF and applies it automatically, which is why <code>ollama run</code> on an instruct model already behaves like a conversation. Hand that same raw prompt text to a base model, or to an instruct model with the template stripped out, and the wrapper's control disappears — the model has no reason to stop at a tidy answer and will often keep generating past where a person would have stopped talking.</p>
+<pre><code><span class="k">messages</span> = [
+    {"role": "system", "content": "You are terse."},
+    {"role": "user", "content": "Name the format."},
+]</code></pre>
+<p>In Python, the Hugging Face <code>transformers</code> library exposes this same idea as <code>tokenizer.apply_chat_template(messages, ...)</code> — it takes a list of role/content dicts like the one above and renders them into whatever exact string that specific model's training expects, special tokens included. Every model family's template differs in its literal markers, but the shape above — a list of role-tagged turns — is the input every chat template starts from, Ollama's and Hugging Face's alike.</p>
+<div class="callout">"The model ignored my instructions" is very often "the prompt never reached the model in the shape its training expects" — check the template before you blame the weights.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY THIS COURSE CARES NOW, NOT LATER</div>
+<p>This is not a side note you can skip past. Every rite from here to the fine-tune itself depends on getting a model's exact chat template right — training on mismatched formatting is one of the most common ways a fine-tune quietly fails to learn anything useful, because the model is being shown a shape its base training never used. Get comfortable reading and reasoning about templates now, while the stakes are just a chat reply, not a wasted training run.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s02-l02-e1"
+type = "mc"
+points = 20
+prompt = "You send a tidy, single-question prompt straight to a raw base model with no chat template applied. What is the most likely result?"
+choices = [
+  "The base model refuses to answer for safety reasons",
+  "The base model answers exactly as an instruct model would, since both were trained on the same text",
+  "The base model may continue the text past a clean answer, or drift into unrelated content, since predicting the next token was its only objective",
+  "The base model automatically detects the missing template and reformats the prompt itself",
+]
+answer = 2
+whyWrong = "Refusal behavior and template self-correction are both instruct-side training a base model never received, and 'trained on the same text' ignores that only the instruct pass taught the model conversation shape — the base model has no built-in notion of a tidy answer to stop at."
+explain = "A base model's only objective was next-token prediction, so nothing in its training tells it to stop at a clean, single answer — it will happily keep generating past where a conversational reply would end."
+
+[[lessons.exercises]]
+id = "s02-l02-e2"
+type = "mc"
+points = 20
+prompt = "What does a model's chat template actually store, per the Modelfile discussion in the last rite and this one?"
+choices = [
+  "The model's raw parameter weights in a compressed form",
+  "A list of every prompt the model was trained on, for retrieval later",
+  "The quantization level the GGUF was converted at",
+  "The role markers, separators, and turn structure that instruct training taught the model to expect, so a wrapped prompt is read as conversation rather than continued as plain text",
+]
+answer = 3
+whyWrong = "Weights, training-prompt logs, and quantization level are each a different concept the tome covers elsewhere — none of them is what a chat template actually encodes, which is purely the shape a conversational turn takes."
+explain = "The template is structural, not content: it's the fixed markers (who's speaking, where a turn starts and ends) that let the model recognize 'this is a message expecting a reply' at all."
+
+[[lessons.exercises]]
+id = "s02-l02-e3"
+type = "text"
+points = 15
+prompt = "What is the name of the Hugging Face transformers tokenizer method that renders a list of role/content message dicts into the exact string a specific model's chat training expects?"
+answer = "apply_chat_template"
+accept = ["apply_chat_template()", "tokenizer.apply_chat_template"]
+hint = "It's named directly in the lesson body, right after the example messages list."
+
+[[lessons.exercises]]
+id = "s02-l02-e4"
+type = "fill"
+points = 20
+prompt = "Fill the missing role name from the messages list shown earlier in this rite — the entry that sets the model's overall behavior before the user speaks."
+code = '''messages = [
+    {"role": "____", "content": "You are terse."},
+    {"role": "user", "content": "Name the format."},
+]'''
+answer = "system"
+hint = "It's the role that sets behavior for the whole conversation, distinct from the user's own turn below it."
+
+[[lessons.exercises]]
+id = "s02-l02-e5"
+type = "write"
+points = 30
+prompt = "Given the messages list below, render a naive transcript by printing one line per message as <code>ROLE: content</code> with the role uppercased — computed from the list, not hardcoded. Expected output:<br><code>SYSTEM: You are terse.</code><br><code>USER: Name the format.</code>"
+starter = '''messages = [
+    {"role": "system", "content": "You are terse."},
+    {"role": "user", "content": "Name the format."},
+]
+
+# TODO: for each message, print:
+#   <ROLE UPPERCASE>: <content>
+for m in messages:
+    print("TODO")
+'''
+expect = '''SYSTEM: You are terse.
+USER: Name the format.'''
+hint = "Use m['role'].upper() and m['content'] inside an f-string, one print per message in list order."

@@ -1,0 +1,126 @@
+[[lessons]]
+id = "s06-l02"
+title = "The Gutter Mechanic"
+body = '''
+<p>HexForge's ASCII gutter — the rightmost column of a canonical dump — replaces every non-printable byte with a single dot <code>.</code>. This is not just cosmetic; it tells the eye where readable text begins and ends in a binary stream. Implementing it is a three-instruction decision.</p>
+
+<p>The gutter rule: for each byte in the current 16-byte line, if the byte is printable (32–126), write the byte itself. Otherwise, write <code>'.'</code> (ASCII 46).</p>
+
+<pre><code><span class="c">; Input: al = byte to classify. Output: al = character to write in the gutter.</span>
+classify_gutter:
+    <span class="k">cmp</span> al, 32
+    <span class="k">jb</span> .dot               <span class="c">; below space → non-printable</span>
+    <span class="k">cmp</span> al, 126
+    <span class="k">ja</span> .dot               <span class="c">; above tilde → non-printable</span>
+    <span class="k">ret</span>                     <span class="c">; printable — al unchanged, return it</span>
+.dot:
+    <span class="k">mov</span> al, <span class="s">'.'</span>           <span class="c">; replace with dot (ASCII 46)</span>
+    <span class="k">ret</span></code></pre>
+
+<p>Used in a byte-walking loop:</p>
+<pre><code><span class="c">; For each byte in a 16-byte chunk:</span>
+    <span class="k">movzx</span> eax, <span class="k">byte</span> [rsi] <span class="c">; load byte</span>
+    <span class="k">call</span> classify_gutter   <span class="c">; al now holds either the byte or '.'</span>
+    <span class="k">mov</span> [rdi], al          <span class="c">; write to gutter output buffer</span>
+    <span class="k">inc</span> rsi
+    <span class="k">inc</span> rdi
+    <span class="c">; ... loop 16 times ...</span></code></pre>
+
+<p>The gutter is always exactly 16 characters wide — one per input byte in the line. If a line has fewer than 16 bytes (the last line of a file), the remaining gutter positions are typically filled with spaces or left blank. HexForge pads short lines so every dump line has a uniform gutter width.</p>
+
+<p>A critical subtlety: the byte 0x20 (space) IS printable (it's ASCII 32, the space character). In the gutter, it renders as a literal space — which can be hard to distinguish from padding. This is correct behavior: <code>hexdump -C</code> does the same. The distinction between a space character in the data and blank padding is visible in the hex columns to the left, where the byte's hex value (20) appears.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE '|' DELIMITER — hexdump -C CONVENTION</div>
+<p>The canonical <code>hexdump -C</code> output wraps the gutter column in vertical bars: <code>|printable text.|</code>. This makes the gutter boundaries unambiguous. HexForge may adopt this convention in the capstone, but the core mechanic — classify each byte as printable or dot — is independent of the framing characters. The delimiter is purely cosmetic; the classification logic is the load-bearing part.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s06-l02-e1"
+type = "mc"
+points = 15
+prompt = "What does <code>classify_gutter</code> return in al when the input byte is 0x41 (ASCII 'A')?"
+choices = [
+  "0x41 (unchanged) — 'A' is in the printable range 32–126",
+  "0x2E (the dot character) — all bytes are replaced for consistency",
+  "0x00 — the procedure clears al for printable bytes",
+  "0x7A — 'A' is remapped to lowercase"
+]
+answer = 0
+whyWrong = "0x41 (65) is between 32 and 126 — it passes both checks. The procedure returns with al unchanged (printable bytes keep their identity). Only non-printable bytes (0–31, 127–255) are replaced with '.'. The procedure does not case-convert or clear the register."
+hint = "Is 'A' (ASCII 65) between 32 and 126? What does the procedure do when both comparisons pass?"
+explain = "When al is printable (32–126), <code>classify_gutter</code> returns immediately after the second <code>cmp al, 126 / ja .dot</code> falls through. The <code>ret</code> fires with al still holding the original byte. Only when <code>jb .dot</code> or <code>ja .dot</code> triggers does al get overwritten with '.' (0x2E)."
+
+[[lessons.exercises]]
+id = "s06-l02-e2"
+type = "fill"
+points = 20
+prompt = "Fill the replacement character. This is what non-printable bytes become in the gutter."
+code = '''
+.dot:
+    mov  al, ____        ; ASCII code for the dot character
+    ret
+'''
+answer = "'.'"
+accept = ["'.'", "46", "0x2E"]
+hint = "A single character in quotes — the punctuation mark that dots the gutter."
+explain = "<code>mov al, '.'</code> loads the ASCII value 46 (0x2E) into al. NASM accepts character literals in single quotes. This is the canonical non-printable replacement used by <code>hexdump -C</code> and nearly every hex-dump tool."
+
+[[lessons.exercises]]
+id = "s06-l02-e3"
+type = "type"
+points = 12
+prompt = "Retype the classify_gutter procedure. Three instructions that decide a byte's gutter fate."
+code = '''
+classify_gutter:
+    cmp  al, 32
+    jb   .dot
+    cmp  al, 126
+    ja   .dot
+    ret
+.dot:
+    mov  al, '.'
+    ret
+'''
+
+[[lessons.exercises]]
+id = "s06-l02-w1"
+type = "write"
+points = 30
+prompt = "Classify an array. A 5-byte array in <code>.data</code> holds: 65 (A), 10 (LF), 66 (B), 0 (NUL), 67 (C). Loop over all 5 bytes, classify each with <code>classify_gutter</code>, and store the result in an output buffer. Print the 5-character gutter string. Output must be <code>A.B.C</code> — A and B and C are printable (appear as themselves), LF and NUL become dots."
+starter = '''
+section .text
+    global _start
+
+_start:
+    mov rsi, test_bytes
+    mov rdi, outbuf
+    mov rcx, 5
+.loop:
+    movzx eax, byte [rsi]
+    call classify_gutter   ; al = byte or '.'
+    mov [rdi], al
+    inc rsi
+    inc rdi
+    dec rcx
+    jnz .loop
+    ; Print outbuf (5 bytes) with print_string or sys_write
+    
+
+classify_gutter:
+    cmp al, 32
+    jb .dot
+    cmp al, 126
+    ja .dot
+    ret
+.dot:
+    mov al, '.'
+    ret
+
+section .data
+test_bytes: db 65, 10, 66, 0, 67
+outbuf: times 16 db 0
+newline: db 10
+'''
+expect = '''
+A.B.C'''
+hint = "The loop loads each byte, calls classify_gutter, stores the result. After the loop, sys_write with rsi=outbuf, rdx=5. The bytes: 65='A' (printable), 10=LF (dot), 66='B' (printable), 0=NUL (dot), 67='C' (printable). Result: 'A', '.', 'B', '.', 'C'."

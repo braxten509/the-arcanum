@@ -1,0 +1,76 @@
+[[lessons]]
+id = "s03-l05"
+title = "Packs of Words"
+body = '''
+<p>A list of names can be packed without quotes when the tokens are simple. <code>qw()</code> builds a list from words separated by spaces, and it is a good fit for short labels like <code>BLANK</code>, <code>HEAD</code>, and <code>TEXT</code>. That is better than a string full of punctuation when the items are just names. The array still behaves like any other array once the list is stored: index it, count it, walk it, and compare it by position.</p>
+<p>This is also the chapter where context stops being folklore and becomes a tool. <code>@labels</code> in list context is the whole set. <code>scalar @labels</code> is the count. The last element is not a mystery if you know the array's end. Later freestyles will keep stacks of lines and tags in memory before anything touches disk, so the apprentice needs the habit now: be explicit about whether you want one item or many. The code should not make the reader infer your intent.</p>
+<p>A short list made with <code>qw()</code> is easy to scan because the punctuation disappears and the items line up as plain words. That is good for labels and tokens, but not for values that need quotes or spaces inside them. The habit here is not about saving keystrokes. It is about choosing the representation that matches the job. Once the page grows into a real manuscript ledger, that habit keeps the name lists readable.</p>
+<p>Pack the words when the names are short and plain. Unpack them when you need to speak to a single slot or to the count. That is the practical use of context in this chapter. The script is not guessing what you wanted; you are declaring it. When the manuscript tool graduates to full pages, the same habit will keep section names, headings, and line labels from colliding in one overworked scalar.</p>
+<pre><code><span class="k">my</span> <span class="s">@labels</span> = <span class="k">qw</span>(<span class="s">BLANK</span> <span class="s">HEAD</span> <span class="s">TEXT</span>);
+<span class="k">say</span> <span class="k">scalar</span> <span class="s">@labels</span>;
+<span class="k">say</span> <span class="s">$labels</span>[<span class="s">-1</span>];</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE WORD PACKS</div>
+<p><strong><code>qw()</code> note.</strong> It is a compact way to write a short list of plain words. Use it for labels and tokens, not for values that need interpolation or punctuation.</p>
+<p><strong>Count note.</strong> <code>scalar @labels</code> is the explicit form when you want the number of elements. That reads better than pretending the array itself is already a number.</p>
+<p><strong>Tail note.</strong> A negative index reaches from the end of the array. It is a useful shorthand when the last label is the one that matters most.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perldata: context and list values"
+url = "https://perldoc.perl.org/perldata"
+
+[[lessons.exercises]]
+id = "s03-l05-e1"
+type = "mc"
+points = 15
+prompt = "<p>What does <code>qw(BLANK HEAD TEXT)</code> build?</p>"
+choices = ["A single string with spaces only.", "An array reference.", "A hash of the words.", "A list of bare words that becomes the array values."]
+answer = 3
+whyWrong = "You are treating <code>qw()</code> like it made one banner string or a reference. It actually supplies multiple list items."
+hint = "The result is a list, not one glued-together string."
+explain = "<code>qw()</code> is a compact way to write a list of plain words for an array."
+
+[[lessons.exercises]]
+id = "s03-l05-e2"
+type = "fill"
+points = 20
+prompt = "<p>Restore the keyword that turns the array into a count in this lesson.</p>"
+code = 'say ____ @labels;'
+answer = "scalar"
+hint = "The missing word makes the array report its size instead of its items."
+whyWrong = "You are leaving the array in list context, so Perl would try to print the elements instead of the number."
+
+[[lessons.exercises]]
+id = "s03-l05-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "<p>Retype the packed list example exactly. Keep the words in the same order and the tail access intact.</p>"
+code = '''
+my @labels = qw(BLANK HEAD TEXT);
+for my $label (@labels) {
+    say $label;
+}
+say scalar @labels;
+'''
+
+[[lessons.exercises]]
+id = "s03-l05-w1"
+type = "write"
+points = 30
+prompt = "<p>Using the starter <code>qw()</code> list, print each label on its own line with a 1-based number in front of it, then print <code>COUNT 3</code>.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my @labels = qw(BLANK HEAD TEXT);
+my $index = 1;
+
+# Task: print each label as `N LABEL`, then print COUNT 3.
+'''
+expect = '''
+1 BLANK
+2 HEAD
+3 TEXT
+COUNT 3'''
+hint = "Walk the array in order, print the running number with each label, and finish by counting the labels explicitly."

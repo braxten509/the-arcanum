@@ -1,0 +1,35 @@
+[freestyle]
+title = "THE WORKING: The Cast Stone Block"
+brief = "Apprentice, cast the metal into stone — a block the world can hold and the player can place. <code>BlockMetal</code> plus its <code>ItemBlock</code> must be placeable in-world and textured. Build:<ul><li><code>src/main/java/com/ironwright/block/BlockMetal.java</code> — <code>extends Block</code>; a constructor taking the block's name that calls <code>super(Material.IRON)</code>, <code>setRegistryName(Ironwright.MODID, name)</code>, <code>setUnlocalizedName(Ironwright.MODID + \".\" + name)</code>, <code>setHardness(5.0f)</code>, <code>setResistance(10.0f)</code>, and <code>setCreativeTab(CreativeTabs.BUILDING_BLOCKS)</code>.</li><li><code>src/main/java/com/ironwright/ModBlocks.java</code> — <code>@Mod.EventBusSubscriber(modid = Ironwright.MODID)</code> with a <code>public static final BlockMetal STARSTEEL_BLOCK</code>, a <code>@SubscribeEvent static void registerBlocks(RegistryEvent.Register&lt;Block&gt;)</code> registering that field, and a <code>@SubscribeEvent static void registerItemBlocks(RegistryEvent.Register&lt;Item&gt;)</code> registering an <code>ItemBlock</code> wrapping that same field with the same registry name.</li><li>A <code>ModelRegistryEvent</code> handler binding the ItemBlock's model via <code>ModelLoader.setCustomModelResourceLocation</code> with the <code>inventory</code> variant.</li><li><code>src/main/resources/assets/ironwright/blockstates/starsteel_block.json</code> — one empty-key variant pointing at <code>ironwright:starsteel_block</code>.</li><li><code>src/main/resources/assets/ironwright/models/block/starsteel_block.json</code> — <code>parent</code> <code>block/cube_all</code>, <code>all</code> <code>ironwright:blocks/starsteel_block</code>.</li><li><code>src/main/resources/assets/ironwright/models/item/starsteel_block.json</code> — <code>{ \"parent\": \"ironwright:block/starsteel_block\" }</code>.</li><li>A 16×16 PNG at <code>src/main/resources/assets/ironwright/textures/blocks/starsteel_block.png</code>.</li><li>A <code>en_us.lang</code> line <code>tile.ironwright.starsteel_block.name=Starsteel Block</code>.</li></ul>"
+reward = 250
+xray = "Orrick docks for a block registered without its ItemBlock (placeable by /setblock but absent from the inventory), a blockstate JSON whose model path does not match the block model file, a missing item-block model so the inventory icon is the missing-texture purple, or a Material that does not match the substance. He gives style credit for the block and ItemBlock sharing a registry name, @Override on any override, one class per file, and Allman braces."
+
+[freestyle.badge]
+id = "badge-s09"
+name = "THE CAST STONE"
+desc = "Cast the metal into stone — a BlockMetal with its ItemBlock, placeable in the world and textured in the inventory."
+
+[[freestyle.rubric]]
+criterion = "BlockMetal class is correct"
+weight = 20
+desc = "BlockMetal extends Block; the constructor calls super(Material.IRON), setRegistryName(Ironwright.MODID, name) (yielding ironwright:<name>), setUnlocalizedName(Ironwright.MODID + \".\" + name), setHardness(5.0f), setResistance(10.0f), and setCreativeTab(CreativeTabs.BUILDING_BLOCKS); the class lives at com/ironwright/block/BlockMetal.java with the matching package line."
+
+[[freestyle.rubric]]
+criterion = "Block & ItemBlock registration"
+weight = 25
+desc = "ModBlocks carries @Mod.EventBusSubscriber(modid = Ironwright.MODID); it defines public static final BlockMetal STARSTEEL_BLOCK; a @SubscribeEvent registerBlocks(RegistryEvent.Register<Block>) registers that field; a @SubscribeEvent registerItemBlocks(RegistryEvent.Register<Item>) registers an ItemBlock wrapping that same block with the SAME registry name (so the item places the block)."
+
+[[freestyle.rubric]]
+criterion = "Blockstate, models & texture"
+weight = 25
+desc = "assets/ironwright/blockstates/starsteel_block.json has one empty-key variant pointing at ironwright:starsteel_block; assets/ironwright/models/block/starsteel_block.json has parent block/cube_all and all ironwright:blocks/starsteel_block; assets/ironwright/models/item/starsteel_block.json inherits ironwright:block/starsteel_block; a 16x16 PNG exists at assets/ironwright/textures/blocks/starsteel_block.png; a ModelRegistryEvent handler binds the ItemBlock model with the inventory variant."
+
+[[freestyle.rubric]]
+criterion = "Name & .lang"
+weight = 10
+desc = "assets/ironwright/lang/en_us.lang has tile.ironwright.starsteel_block.name=Starsteel Block (1.12.2 block keys use the tile. prefix), matching the unlocalized name."
+
+[[freestyle.rubric]]
+criterion = "Build, run & clean style"
+weight = 20
+desc = "./gradlew build succeeds; ./gradlew runClient shows the starsteel block placeable in-world and textured in the inventory (no missing-texture purple); @Override on any override; one public class per .java file named for the class; Allman braces; 4-space indent; MODID is the single source for every resource location."

@@ -1,0 +1,88 @@
+[[lessons]]
+id = "s10-l03"
+title = "Binding Metal to Form — 1.12.2 Recipe JSON"
+body = '''
+<p>A recipe binds raw metal into worked form. In 1.12.2, recipes are JSON files in <code>assets/ironwright/recipes/</code> — one file per recipe. Two shapes: <strong>shaped</strong> (a pattern in a grid) and <strong>shapeless</strong> (a bag of ingredients). A shaped recipe for a starsteel block from 9 starsteel ingots:</p>
+<pre><code>{
+  <span class="s">"type"</span>: <span class="s">"minecraft:crafting_shaped"</span>,
+  <span class="s">"pattern"</span>: [
+    <span class="s">"III"</span>,
+    <span class="s">"III"</span>,
+    <span class="s">"III"</span>
+  ],
+  <span class="s">"key"</span>: {
+    <span class="s">"I"</span>: { <span class="s">"item"</span>: <span class="s">"ironwright:starsteel"</span> }
+  },
+  <span class="s">"result"</span>: { <span class="s">"item"</span>: <span class="s">"ironwright:starsteel_block"</span>, <span class="s">"count"</span>: <span class="s">1</span> }
+}</code></pre>
+<p>The <code>pattern</code> is a 3-line grid; each letter is a key into the <code>key</code> object (here <code>I</code> = one starsteel ingot). The <code>result</code> names the output item and a count. A space in the pattern means an empty grid slot. Shapeless recipes drop the <code>pattern</code> and <code>key</code> for an <code>ingredients</code> list. The recipe file lives at <code>assets/ironwright/recipes/starsteel_block.json</code>. In 1.12.2, vanilla and mod recipe JSONs are loaded from the assets tree; the later <code>data/</code> datapack layout is not this version.</p>
+<p>The item ids in a recipe are registry names (<code>ironwright:starsteel</code>) — the same string as the <code>setRegistryName</code>. Get the id wrong and the recipe silently fails to match (no output, no error).</p>
+<div class="callout"><strong>Orrick says:</strong> Recipes live under <code>assets/&lt;modid&gt;/recipes/</code> in Minecraft 1.12.2. The <code>data/&lt;modid&gt;/recipes/</code> path belongs to later datapack-era Minecraft. Put a 1.12.2 recipe in <code>data</code> and this old forge will never find it.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // 1.12.2 INTRODUCED JSON RECIPES</div>
+<p>Before 1.12.2, recipes were added in code with <code>GameRegistry.addShapedRecipe(...)</code>. 1.12.2 moved crafting recipes to JSON — the predecessor of 1.13's data packs, but still stored under <code>assets</code>. The JSON form means recipes are files, not Java code, and the same format vanilla's own recipes use. You write them as files; Forge loads them at boot.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s10-l03-e1"
+type = "mc"
+points = 15
+prompt = "Where do recipe JSON files live in a 1.12.2 mod — the assets folder or the later data folder?"
+choices = ["assets/ironwright/recipes/", "data/ironwright/recipes/ — the 1.13+ datapack-era path", "src/main/java/com/ironwright/recipes/", "assets/ironwright/models/recipes/"]
+answer = 0
+whyWrong = "Minecraft 1.12.2 loads recipe JSONs from assets/<modid>/recipes/. The data/<modid>/recipes/ path belongs to later datapack-era Minecraft, code-side recipes are older style, and models/recipes is not a path. The 1.12.2 path is assets."
+hint = "Recipes are what the server knows, not what the client renders — which root folder holds server data?"
+explain = "assets/<modid>/recipes/. Minecraft 1.12.2 crafting recipes are JSON, but they still live under assets. The data folder arrives later with datapacks."
+
+[[lessons.exercises]]
+id = "s10-l03-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the JSON key whose value names the recipe's output item and count (the thing the crafting produces)."
+code = '''{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["III","III","III"],
+  "key": { "I": { "item": "ironwright:starsteel" } },
+  "____": { "item": "ironwright:starsteel_block", "count": 1 }
+}'''
+answer = "result"
+whyWrong = "result names the output (item + count); output is not the JSON key, key maps pattern letters to ingredients, pattern is the grid. The recipe's output object is result."
+hint = "It is the six-letter English word for 'the outcome' — the JSON key holding the output item and count."
+
+[[lessons.exercises]]
+id = "s10-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the shaped recipe's pattern and key exactly — the 3x3 grid of I's and the key mapping I to a starsteel ingot."
+code = '''"pattern": [
+  "III",
+  "III",
+  "III"
+],
+"key": {
+  "I": { "item": "ironwright:starsteel" }
+}'''
+
+[[lessons.exercises]]
+id = "s10-l03-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of the recipe result object. The starter sets <code>String modid = \"ironwright\";</code> and <code>String name = \"starsteel_block\";</code>. Print exactly <code>{\"item\":\"ironwright:starsteel_block\",\"count\":1}</code> by joining literals with <code>modid</code> and <code>name</code> so the item value is <code>&lt;modid&gt;:&lt;name&gt;</code>. Read modid and name from the variables."
+starter = '''public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright";
+        String name = "starsteel_block";
+        // apprentice — print {"item":"<modid>:<name>","count":1} with the inner quotes escaped
+    }
+}'''
+expect = '''
+{"item":"ironwright:starsteel_block","count":1}'''
+hint = "System.out.println(\"{\\\"item\\\":\\\"\" + modid + \":\" + name + \"\\\",\\\"count\\\":1}\");"
+
+[[lessons.exercises]]
+id = "s10-l03-t1"
+type = "text"
+points = 20
+prompt = "What does a space character in a shaped-recipe pattern mean? (One short phrase.)"
+answer = "an empty grid slot"
+hint = "It is the slot in the crafting grid that holds no item — the space is the blank."

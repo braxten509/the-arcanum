@@ -1,0 +1,69 @@
+[[lessons]]
+id = "s10-l04"
+title = "Reading the Recipe Format — IRecipe & Reconnaissance"
+body = '''
+<p>Before you write your own recipe, read the masters'. Minecraft's own recipe JSONs live in the decompiled source under <code>assets/minecraft/recipes/</code> — open them in IntelliJ to see the exact shape vanilla uses. The interface behind them is <code>net.minecraft.item.crafting.IRecipe</code>, the contract every recipe implements.</p>
+<pre><code>{
+  <span class="s">"type"</span>: <span class="s">"minecraft:crafting_shapeless"</span>,
+  <span class="s">"ingredients"</span>: [
+    { <span class="s">"item"</span>: <span class="s">"ironwright:copper"</span> },
+    { <span class="s">"item"</span>: <span class="s">"ironwright:iron"</span> }
+  ],
+  <span class="s">"result"</span>: { <span class="s">"item"</span>: <span class="s">"ironwright:starsteel"</span>, <span class="s">"count"</span>: <span class="s">1</span> }
+}</code></pre>
+<p>A <strong>shapeless</strong> recipe drops <code>pattern</code>/<code>key</code> for an <code>ingredients</code> list — the order does not matter, only the counts. The <code>type</code> names the recipe type: <code>minecraft:crafting_shaped</code>, <code>minecraft:crafting_shapeless</code>, <code>minecraft:smelting</code> (furnace). The result is the same object as a shaped recipe. Read three or four vanilla recipe JSONs (torch, stick, bread) and the shape becomes a reflex.</p>
+<p><code>IRecipe</code> is the interface Forge's recipe registry stores; the JSON loader builds <code>IRecipe</code> implementations from your files at boot. You rarely implement <code>IRecipe</code> yourself unless you need a custom recipe TYPE (a new machine, a conditional match) — for standard crafting and smelting, the JSON is enough, and the loader does the implementing.</p>
+<div class="callout"><strong>Orrick says:</strong> Smelting recipes in 1.12.2 are NOT JSON — they are <code>GameRegistry.addSmelting(input, output, xp)</code> in your <code>init</code> handler. JSON smelting came in 1.14. For this tome's furnace recipes, use the code call; for crafting, use the JSON files. The two channels coexist in 1.12.2.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // FINDING VANILLA'S RECIPES</div>
+<p>Search Everywhere (Shift+Shift) for <code>torch.json</code> in the decompiled source, or navigate to <code>assets/minecraft/recipes/</code> in the external libraries. Vanilla's recipe JSONs are the canonical examples — copy a vanilla recipe's structure, swap the ids to yours, and you have a working recipe. The old marks' recipes are the template; your ironwork fills the ids.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s10-l04-e1"
+type = "mc"
+points = 15
+prompt = "In Forge 1.12.2, how do you add a <em>smelting</em> recipe (furnace input → output)?"
+choices = ["a JSON file in assets/ironwright/recipes/ with type minecraft:smelting", "GameRegistry.addSmelting(input, output, xp) in your init handler — 1.12.2 smelting is code, not JSON", "a @SubscribeEvent on SmeltingEvent", "setSmelting on the Item"]
+answer = 1
+whyWrong = "1.12.2 smelting recipes are added with GameRegistry.addSmelting(input, output, xp) in init — JSON smelting came in 1.14; there is no SmeltingEvent, and setSmelting is not a method. Crafting is JSON; smelting is code, in 1.12.2."
+hint = "Think about whether 1.12.2 smelting is JSON or code — and which GameRegistry method adds it."
+explain = "GameRegistry.addSmelting(input, output, xp) in init. 1.12.2's smelting channel is code; the crafting channel is JSON. The two coexist."
+
+[[lessons.exercises]]
+id = "s10-l04-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the recipe type string for a shapeless crafting recipe (the value of the JSON 'type' key)."
+code = '''{
+  "type": "minecraft:____",
+  "ingredients": [ { "item": "ironwright:copper" } ],
+  "result": { "item": "ironwright:starsteel", "count": 1 }
+}'''
+answer = "crafting_shapeless"
+whyWrong = "crafting_shapeless is the shapeless type; crafting_shaped needs pattern/key, smelting is code in 1.12.2, crafting is not a complete type. The shapeless type is minecraft:crafting_shapeless."
+hint = "It is crafting + shapeless — the type for an order-independent crafting recipe."
+
+[[lessons.exercises]]
+id = "s10-l04-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of the shapeless recipe JSON line. The starter sets <code>String modid = \"ironwright\";</code>, <code>String ingredient = \"copper\";</code>, and <code>String result = \"starsteel\";</code>. Print exactly <code>{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"item\":\"ironwright:copper\"}],\"result\":{\"item\":\"ironwright:starsteel\",\"count\":1}}</code> by joining literals with the three variables so the ingredient item is <code>&lt;modid&gt;:&lt;ingredient&gt;</code> and the result item is <code>&lt;modid&gt;:&lt;result&gt;</code>. Read all three from the variables."
+starter = '''public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright";
+        String ingredient = "copper";
+        String result = "starsteel";
+        // apprentice — print the shapeless recipe JSON with ingredient <modid>:<ingredient> and result <modid>:<result>
+    }
+}'''
+expect = '''
+{"type":"minecraft:crafting_shapeless","ingredients":[{"item":"ironwright:copper"}],"result":{"item":"ironwright:starsteel","count":1}}'''
+hint = "System.out.println(\"{\\\"type\\\":\\\"minecraft:crafting_shapeless\\\",\\\"ingredients\\\":[{\\\"item\\\":\\\"\" + modid + \":\" + ingredient + \"\\\"}],\\\"result\\\":{\\\"item\\\":\\\"\" + modid + \":\" + result + \"\\\",\\\"count\\\":1}}\");"
+
+[[lessons.exercises]]
+id = "s10-l04-t1"
+type = "text"
+points = 20
+prompt = "Type the fully-qualified interface name that every Minecraft recipe implements (the contract behind the JSON loader). (net.minecraft.item.crafting.____)"
+answer = "net.minecraft.item.crafting.IRecipe"
+hint = "It is the net.minecraft.item.crafting package, interface I + Recipe."

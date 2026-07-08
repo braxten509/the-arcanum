@@ -1,0 +1,99 @@
+[[lessons]]
+id = "s06-l02"
+title = "@contextmanager — The Short Bell Ring"
+body = '''
+<p>Writing a class with <code>__enter__</code> and <code>__exit__</code> is the right approach for a reusable context manager that holds state between entry and exit. But for a single-use manager — something that just sets up and tears down — the <code>@contextmanager</code> decorator is more concise. It turns a generator function into a context manager: the code before <code>yield</code> is <code>__enter__</code>, the <code>yield</code> produces the value bound to <code>as</code>, and the code after <code>yield</code> is <code>__exit__</code>.</p>
+<pre><code><span class="kn">from</span> <span class="nn">contextlib</span> <span class="kn">import</span> <span class="n">contextmanager</span>
+
+<span class="nd">@contextmanager</span>
+<span class="k">def</span> <span class="nf">timed</span><span class="p">(</span><span class="n">label</span>: <span class="nb">str</span> <span class="o">=</span> <span class="s">"block"</span><span class="p">):</span>
+    <span class="n">start</span> = <span class="n">time</span>.<span class="n">time</span>()
+    <span class="k">print</span>(<span class="sa">f</span><span class="s">"[{label}] start"</span>)
+    <span class="k">try</span>:
+        <span class="k">yield</span>                    <span class="c"># __enter__ returns None — use 'as target' for a value</span>
+    <span class="k">finally</span>:
+        <span class="n">elapsed</span> = <span class="n">time</span>.<span class="n">time</span>() - <span class="n">start</span>
+        <span class="k">print</span>(<span class="sa">f</span><span class="s">"[{label}] end — {elapsed:.3f}s"</span>)</code></pre>
+<p>The generator must have exactly one <code>yield</code>. If the body raises, the exception is propagated through the <code>yield</code> in the generator, and the <code>finally</code> block runs just as in any generator cleanup. The decorator handles <code>__enter__</code> and <code>__exit__</code> automatically:</p>
+<pre><code><span class="k">with</span> <span class="n">timed</span>(<span class="s">"parse"</span>):
+    <span class="n">records</span> = <span class="nb">list</span>(<span class="n">parse_logs</span>(<span class="n">path</span>))</code></pre>
+<p><strong>Yielding a value</strong> makes it available as the <code>as</code> target:</p>
+<pre><code><span class="nd">@contextmanager</span>
+<span class="k">def</span> <span class="nf">open_log</span><span class="p">(</span><span class="n">path</span>: <span class="nb">str</span><span class="p">):</span>
+    <span class="n">f</span> = <span class="nb">open</span>(<span class="n">path</span>)
+    <span class="k">try</span>:
+        <span class="k">yield</span> <span class="n">f</span>                  <span class="c"># the 'as' target gets this</span>
+    <span class="k">finally</span>:
+        <span class="n">f</span>.<span class="n">close</span>()</code></pre>
+<p>The <code>try/finally</code> inside the generator is essential: it ensures cleanup runs even if the <code>with</code> block raises an exception. Without it, the generator stops at the exception site and the cleanup code after <code>yield</code> never executes.</p>
+<p><strong>When to use the class form vs the decorator form:</strong> Use the class form when the context manager stores state between entry and exit (like <code>Timer</code> with its <code>start</code> attribute), or when you need to inspect exception details in <code>__exit__</code>. Use the decorator form for simple setup/teardown that does not need to hold state beyond the try/finally.</p>
+<div class="callout"><strong>Consult the volumes:</strong> The <code>@contextmanager</code> implementation is in <code>Lib/contextlib.py</code> — it wraps the generator in a helper class (<code>_GeneratorContextManager</code>) that implements the protocol. Reading its source shows exactly how the <code>yield</code> value becomes the <code>as</code> target and how exceptions are forwarded.</div>
+'''
+
+[[lessons.exercises]]
+id = "s06-l02-e1"
+type = "mc"
+points = 15
+prompt = "How many <code>yield</code> statements can a <code>@contextmanager</code> generator have?"
+choices = ["Exactly 1", "0 or 1", "Any number", "At least 2"]
+answer = 0
+whyWrong = "A @contextmanager generator must have exactly one yield. Zero yields means the generator never suspends (entering raises StopIteration). Multiple yields would mean the manager re-enters, which is not how the protocol works — __exit__ would need to call next() again, and there is no mechanism for that."
+hint = "Each context manager represents one setup-work-teardown cycle. How many suspension points does that need?"
+explain = "Exactly one yield — it separates the __enter__ code from the __exit__ code."
+
+[[lessons.exercises]]
+id = "s06-l02-e2"
+type = "text"
+points = 20
+prompt = "What keyword ensures cleanup runs even if the <code>with</code> block raises an exception inside a <code>@contextmanager</code> generator?"
+answer = "finally"
+accept = ["finally"]
+hint = "It is the block that always executes, whether an exception occurred or not."
+
+[[lessons.exercises]]
+id = "s06-l02-e3"
+type = "fill"
+points = 20
+prompt = "Fill the blank so the contextmanager generator yields a default value:"
+code = '''@contextmanager
+def greeting():
+    print("enter")
+    ____ "hello"
+    print("exit")'''
+answer = "yield"
+hint = "The keyword that suspends the generator and sends a value to the caller."
+
+[[lessons.exercises]]
+id = "s06-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this @contextmanager pattern:"
+code = '''from contextlib import contextmanager
+
+@contextmanager
+def managed():
+    try:
+        yield "value"
+    finally:
+        print("cleanup")'''
+
+[[lessons.exercises]]
+id = "s06-l02-w1"
+type = "write"
+points = 35
+prompt = "Use <code>@contextmanager</code> to write a context manager <code>notify(msg)</code> that prints <code>START: {msg}</code> on entry and <code>END: {msg}</code> on exit (runs even on exception). Use a try/finally. Test it: <code>with notify(\"test\"): print(\"working\")</code>."
+starter = '''
+from contextlib import contextmanager
+
+@contextmanager
+def notify(msg):
+    # your code here
+
+with notify("test"):
+    print("working")
+'''
+expect = '''START: test
+working
+END: test'''
+hint = "Print before yield in a try block, yield, then print in finally."

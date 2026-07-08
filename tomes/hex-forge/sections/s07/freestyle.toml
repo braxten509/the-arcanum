@@ -1,0 +1,35 @@
+[freestyle]
+title = "THE WORKING: PRY THE VAULT"
+brief = "Forge a program that opens a named file, reads it, and counts its bytes — with a working fallback to stdin — proving the reconnaissance gate has been found and the vault opens.<ul><li>Pop argc from the stack. If argc &lt; 2, use fd 0 (stdin). If argc ≥ 2, pop argv[0] (discard), pop argv[1] (filename), and open it with <code>sys_openat</code> (257): dirfd=-100 (AT_FDCWD), flags=0 (O_RDONLY), mode=0.</li><li>If <code>openat</code> fails (rax negative), fall back to stdin — print a warning <code>NF</code> (not found) on stderr (fd 2) before reading stdin. If it succeeds, use the returned fd.</li><li>Read from the chosen fd in 256-byte chunks until EOF. Count total bytes. Close the fd (unless it's stdin=0).</li><li>Print the total byte count on stdout using itoa.</li><li>The engine runs your program as <code>./a.out data.txt</code> where <code>data.txt</code> contains <code>FILE CONTENT HERE</code> (17 bytes). Output must be <code>17</code>. Your program must read from the FILE, not stdin.</li></ul>"
+reward = 200
+xray = "Vandr docks: reading from fd 0 (stdin) regardless of argc (ignoring the filename), not popping argc/argv correctly (getting the wrong stack offset), not closing the opened fd, using wrong openat flags (O_WRONLY instead of O_RDONLY=0), not checking openat return for errors, hardcoded byte count instead of computing it. He rewards: correct argc check with jb, proper openat register setup, fd preserved in a register that survives the read loop (r12-r15 or rbx), stdin fallback working when argc < 2, and the fd closed before exit."
+
+[freestyle.badge]
+id = "badge-s07"
+name = "VAULT PRIED"
+desc = "Opened a file by name, fell back to stdin when needed — the reconnaissance gate stands open."
+
+[[freestyle.rubric]]
+criterion = "Assembles, links, and runs without error"
+weight = 20
+desc = "nasm -f elf64 and ld succeed; program exits cleanly with code 0."
+
+[[freestyle.rubric]]
+criterion = "Correct argc detection and file open"
+weight = 25
+desc = "argc checked with cmp/jb; argv[1] correctly extracted with pops; openat called with correct registers and AT_FDCWD. Handles openat failure (falls back to stdin)."
+
+[[freestyle.rubric]]
+criterion = "Correct byte count from file"
+weight = 25
+desc = "Prints 17 — the exact byte count of data.txt read through the opened fd, not stdin. Count is accumulated across 256-byte read chunks."
+
+[[freestyle.rubric]]
+criterion = "Stdin fallback works"
+weight = 15
+desc = "When argc < 2, fd 0 (stdin) is used. The read loop works identically on either fd. Stdin fd is not closed."
+
+[[freestyle.rubric]]
+criterion = "Clean NASM style"
+weight = 15
+desc = "Open fd stored in preserved register (r12-r15 or rbx). Fd closed before exit (if not stdin). Read loop counter in preserved register. xor zeroing throughout. No hardcoded byte count — computed from sys_read return values."

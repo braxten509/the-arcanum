@@ -1,0 +1,35 @@
+[freestyle]
+title = "THE WORKING: QUENCH THE GUTTER"
+brief = "Forge a program that reads bytes from a static array, classifies each byte, builds both hex and gutter columns, and prints one complete dump line — proving the quenching and tempering holds.<ul><li>Declare a 12-byte array in <code>.data</code>: <code>db 0x48, 0x65, 0x78, 0x46, 0x6F, 0x72, 0x67, 0x65, 0x00, 0x0A, 0xFF, 0x21</code> (spells \"HexForge\" then NUL, LF, 0xFF, '!').</li><li>Print each byte as two hex characters with a space between bytes. The hex column must be: <code>48 65 78 46 6F 72 67 65 00 0A FF 21</code> followed by enough spaces to pad to the standard 16-byte hex width (16 * 3 = 48 characters with the trailing spaces).</li><li>Print the gutter column: classify each byte — printable bytes appear as themselves, non-printable become <code>.</code>. Pad to 16 characters with spaces. The gutter for this array must be: <code>HexForge...!    </code> (H e x F o r g e '.' '.' '.' '!' then 4 spaces = 16 chars).</li><li>Output format: hex column, then two spaces, then gutter column, then newline. Example: <code>48 65 78 46 6F 72 67 65 00 0A FF 21                           HexForge...!    </code> (pad the hex column to 48 chars with trailing spaces, then 2 spaces separator, then 16-char gutter).</li><li>Use procedures: <code>print_byte_hex</code> and <code>classify_gutter</code> must be separate callable routines. The main loop calls both for each byte.</li></ul>"
+reward = 200
+xray = "Vandr docks: wrong hex conversion (missing leading zero for bytes < 0x10), unsigned jump instead of signed for nibble classification (nibbles are 0-15 unsigned), missing padding to 16 characters in either column, misclassified bytes (0xFF or 0x00 should be '.' not the raw byte), hardcoded output instead of computing from the array, wrong column order (hex before gutter, not the reverse). He rewards: clean nibble extraction (shr 4 for high, and 0x0F for low), correct hex digit mapping with the branch for 0-9 vs A-F, each procedure doing one job, and two separate loops (one for hex, one for gutter) or one loop building both columns."
+
+[freestyle.badge]
+id = "badge-s06"
+name = "GUTTER TEMPERED"
+desc = "Classified raw bytes and built both hex and gutter columns — the quench holds, the temper is true."
+
+[[freestyle.rubric]]
+criterion = "Assembles, links, and runs without error"
+weight = 20
+desc = "nasm -f elf64 and ld succeed; program exits cleanly."
+
+[[freestyle.rubric]]
+criterion = "Correct hex column output"
+weight = 25
+desc = "Each of the 12 bytes appears as two uppercase hex characters with a space between. Single-digit hex values (0x0A) show as '0A' with leading zero. Padded to 48-character width."
+
+[[freestyle.rubric]]
+criterion = "Correct gutter column output"
+weight = 25
+desc = "Printable bytes (0x48,0x65,0x78,0x46,0x6F,0x72,0x67,0x65,0x21) appear as themselves. Non-printable (0x00,0x0A,0xFF) appear as '.'. Padded to 16 characters with spaces."
+
+[[freestyle.rubric]]
+criterion = "Procedural decomposition"
+weight = 15
+desc = "Separate procedures for byte-to-hex and byte-to-gutter. Main loop calls each for every byte (or builds both columns in one pass with inlined logic — both acceptable if clean)."
+
+[[freestyle.rubric]]
+criterion = "Clean NASM style"
+weight = 15
+desc = "Hex uses unsigned branch (jb .digit) for nibble-to-ASCII. Gutter uses unsigned branches (jb/ja) for byte classification. Buffer padding handles short lines correctly. xor zeroing throughout."

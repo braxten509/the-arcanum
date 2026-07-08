@@ -66,6 +66,7 @@ points = 20
 prompt = "Your JSON has <code>\"title\"</code> but your record property is <code>Title</code>. Without extra options, what happens on deserialize?"
 choices = ["Works fine — matching is always case-insensitive", "Title ends up null/empty because default matching is case-SENSITIVE", "JsonException is thrown", "The program won't compile"]
 answer = 1
+whyWrong = "Default System.Text.Json matching is case-SENSITIVE, so ‘title’ won’t map to ‘Title’ and the property stays null — it doesn’t auto-match, throw, or fail to compile."
 hint = "This is why PropertyNameCaseInsensitive exists."
 
 [[lessons.exercises]]
@@ -75,6 +76,7 @@ points = 20
 prompt = "The API returned an HTML error page and you called Deserialize on it. What happens?"
 choices = ["Returns null quietly", "Returns an empty object", "Throws JsonException — catch it", "The HTML is parsed as best-effort JSON"]
 answer = 2
+whyWrong = "Deserializing HTML as JSON doesn’t quietly return null/empty or best-effort parse — it throws JsonException, which you should catch."
 hint = "HTML starts with < — not valid JSON."
 
 [[lessons.exercises]]

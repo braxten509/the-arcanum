@@ -42,6 +42,7 @@ points = 20
 prompt = "Which LINQ method FILTERS a collection down to matching items?"
 choices = ["Select", "Where", "OrderBy", "Filter"]
 answer = 1
+whyWrong = "Select transforms and OrderBy sorts; ‘Filter’ isn’t a LINQ method — Where is what keeps only matching items."
 hint = "SQL veterans already know."
 
 [[lessons.exercises]]
@@ -52,8 +53,9 @@ prompt = "What does this produce?"
 code = '''
 var scores = new List<double> { 2.0, 9.5, 6.0, 8.0 };
 var result = scores.Where(s => s >= 6.0).OrderByDescending(s => s).ToList();'''
-choices = ["[6.0, 8.0, 9.5]", "[9.5, 8.0, 6.0]", "[2.0, 6.0, 8.0, 9.5]", "[9.5, 8.0, 6.0, 2.0]"]
-answer = 1
+choices = ["[6.0, 8.0, 9.5]", "[2.0, 6.0, 8.0, 9.5]", "[9.5, 8.0, 6.0]", "[9.5, 8.0, 6.0, 2.0]"]
+answer = 2
+whyWrong = "Trace the query: it filters then orders descending, yielding [9.5, 8.0, 6.0] — the other options skip either the filter or the sort."
 hint = "Filter first (drops 2.0), then sort high-to-low."
 
 [[lessons.exercises]]

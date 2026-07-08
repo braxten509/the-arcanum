@@ -1,0 +1,341 @@
+# Hex-defense intrusion bank — the rivals' hexes arrive at the forge while the
+# apprentice studies. Same shape as [[progression.intrusionTiers]]; the engine reads
+# [[tiers]] here and restores it as progression.intrusionTiers (tome_layout.py).
+#
+# Each tier gates by `min` (sections passed before it can fire); each [[tiers.pool]]
+# is one stdout challenge the apprentice must counter under the sandglass. Briefs are
+# one sentence of forge fiction + the starter comments state the exact required output.
+# Always computed values, never hardcodable — the starter's variables force it. Every
+# starter is a single-file `public class Ironwright` that compiles and runs as given
+# (it prints nothing until the apprentice strikes); the engine runs it in its scratch
+# dir through [runtime].command, never in the workspace.
+
+# ---- Tier I — the first spark (fires from the first lesson)
+[[tiers]]
+min = 0
+time = 90
+bounty = 50
+
+[[tiers.pool]]
+t = "THE COLD ANVIL"
+brief = "A rival slips past the cold anvil while you gather your first embers. Add the metals' worth and speak the true sum."
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        int iron = 8;
+        int copper = 6;
+        // print exactly:  EMBER <iron + copper>
+    }
+}
+'''
+expect = "EMBER 14"
+
+[[tiers.pool]]
+t = "FIRST SPARK"
+brief = "The spark-catcher's hex blots out the first flame. Name the metal and its worth in one breath, woven from the variables."
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String metal = "iron";
+        int value = 8;
+        // print exactly:  <metal> burns at <value>em
+    }
+}
+'''
+expect = "iron burns at 8em"
+
+[[tiers.pool]]
+t = "THE INGOT'S WEIGHT"
+brief = "A hex weighs the load false. Multiply ingots by their per-piece worth and print the true burden."
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        int ingots = 7;
+        int per = 8;
+        // print exactly:  LOAD <ingots * per>em
+    }
+}
+'''
+expect = "LOAD 56em"
+
+# ---- Tier II — flow & methods, the ingot shaped (fires once two forgeworks are passed)
+[[tiers]]
+min = 2
+time = 100
+bounty = 80
+
+[[tiers.pool]]
+t = "STRIKE THE INGOT"
+brief = "The rival counts your hammer-blows wrong. Loop the strikes and call each one out in order."
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        int strikes = 3;
+        // for i = 1..strikes, print each on its own line:  STRIKE <i>
+    }
+}
+'''
+expect = '''
+STRIKE 1
+STRIKE 2
+STRIKE 3'''
+
+[[tiers.pool]]
+t = "THE FORGE COMMAND"
+brief = "A hex garbles the apprentice's command. Read the spoken word and dispatch the right reply, or name it an unknown rite."
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String cmd = "value";
+        String metal = "iron";
+        int value = 8;
+        // if cmd is "value" print:  <metal> @ <value>em
+        // else if cmd is "list"   print:  <metal> <value>
+        // else                    print:  unknown rite
+    }
+}
+'''
+expect = "iron @ 8em"
+
+[[tiers.pool]]
+t = "THE SMITH'S TALLY"
+brief = "The heat-tally is scattered by the hex. Walk the heats and call each one doubled, or the forge reads cold."
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        int[] heats = { 2, 5, 3 };
+        // for each heat h, print on its own line:  <h> -> <h * 2>
+    }
+}
+'''
+expect = '''
+2 -> 4
+5 -> 10
+3 -> 6'''
+
+# ---- Tier III — contracts & collections (fires once four forgeworks are passed)
+[[tiers]]
+min = 4
+time = 110
+bounty = 110
+
+[[tiers.pool]]
+t = "THE INGOT ROLL"
+brief = "The rival smears the registry roll. Walk the array of ingots and speak each one's name and worth, in order."
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        Ingot[] roll = { new Ingot("iron", 8), new Ingot("copper", 6), new Ingot("starsteel", 20) };
+        // for each, print on its own line:  <name> @ <value>em
+    }
+}
+class Ingot {
+    String name;
+    int value;
+    Ingot(String name, int value) { this.name = name; this.value = value; }
+}
+'''
+expect = '''
+iron @ 8em
+copper @ 6em
+starsteel @ 20em'''
+
+[[tiers.pool]]
+t = "THE METAL ENUM"
+brief = "The hex confuses the metals' natures. Read the enum and speak each metal's worth and melt point."
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        // for each Metal, print on its own line:  <name> <value>em <melt>C
+    }
+}
+enum Metal {
+    IRON(8, 1500), COPPER(6, 1085), STARSTEEL(20, 2200);
+    int value, melt;
+    Metal(int value, int melt) { this.value = value; this.melt = melt; }
+}
+'''
+expect = '''
+IRON 8em 1500C
+COPPER 6em 1085C
+STARSTEEL 20em 2200C'''
+
+[[tiers.pool]]
+t = "THE REGISTRY"
+brief = "The binding rite's registry is unkeyed by the hex. Bind each metal to its worth and walk the keys in the order they were struck."
+starter = '''
+import java.util.*;
+public class Ironwright {
+    public static void main(String[] args) {
+        Map<String, Integer> reg = new LinkedHashMap<>();
+        reg.put("iron", 8);
+        reg.put("copper", 6);
+        reg.put("starsteel", 20);
+        // for each key in insertion order, print on its own line:  <key> <value>em
+    }
+}
+'''
+expect = '''
+iron 8em
+copper 6em
+starsteel 20em'''
+
+# ---- Tier IV — the binding & the old marks (fires once six forgeworks are passed)
+[[tiers]]
+min = 6
+time = 120
+bounty = 140
+
+[[tiers.pool]]
+t = "THE BINDING ORDER"
+brief = "A hex reorders the binding rite. Call the three lifecycle rites in the forge's true order, or the mod binds crooked."
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        // Call the three rites below in the Forge lifecycle order:
+        //   preInit, then init, then postInit.
+    }
+    static void preInit() { System.out.println("preInit"); }
+    static void init() { System.out.println("init"); }
+    static void postInit() { System.out.println("postInit"); }
+}
+'''
+expect = '''
+preInit
+init
+postInit'''
+
+[[tiers.pool]]
+t = "TRANSLATING THE OLD MARKS"
+brief = "The rival scratches the old masters' stamps over the decompiled source. Look up the true (MCP) name for the given SRG mark and speak it."
+starter = '''
+import java.util.*;
+public class Ironwright {
+    public static void main(String[] args) {
+        Map<String, String> mcp = new HashMap<>();
+        mcp.put("field_7777_a", "maxStackSize");
+        mcp.put("func_1111_b", "getUnlocalizedName");
+        String srg = "field_7777_a";
+        // print the translated (MCP) name for srg:  MARK <mcp name>
+    }
+}
+'''
+expect = "MARK maxStackSize"
+
+[[tiers.pool]]
+t = "THE TWO HANDS"
+brief = "The hex swaps the smith's hands. Read which side is speaking and answer with its true role — the client renders, the server holds the world."
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String side = "CLIENT";
+        // if side is "CLIENT" print:  render the ironwork
+        // else if side is "SERVER"   print:  hold the world data
+        // else                       print:  share the binding
+    }
+}
+'''
+expect = "render the ironwork"
+
+# ---- Tier V — the iron-bound item & the cast stone (fires once eight forgeworks are passed)
+[[tiers]]
+min = 8
+time = 120
+bounty = 170
+
+[[tiers.pool]]
+t = "THE BINDING RITE"
+brief = "A rival disrupts the registry event. Walk the items the rite must bind and speak each registry name, or none of them take."
+starter = '''
+import java.util.*;
+public class Ironwright {
+    public static void main(String[] args) {
+        List<String> items = Arrays.asList("ironwright:ingot", "ironwright:ingot_copper");
+        // for each item, print on its own line:  REGISTER <item>
+    }
+}
+'''
+expect = '''
+REGISTER ironwright:ingot
+REGISTER ironwright:ingot_copper'''
+
+[[tiers.pool]]
+t = "THE MODEL JSON"
+brief = "The hex corrupts the item's model JSON. Weave the parent and the layer0 texture path from the modid and item, and print the true JSON."
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright";
+        String item = "ingot";
+        // print the item model JSON exactly:
+        //   { "parent":"item/generated", "textures":{ "layer0":"<modid>:items/<item>" } }
+    }
+}
+'''
+expect = '{ "parent":"item/generated", "textures":{ "layer0":"ironwright:items/ingot" } }'
+
+[[tiers.pool]]
+t = "THE BLOCKSTATE"
+brief = "The cast stone's blockstate is blurred by the hex. Forge the variants JSON from the modid and block name, and print it true."
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright";
+        String block = "metal";
+        // print the blockstate JSON exactly:
+        //   { "variants":{ "normal":{ "model":"<modid>:<block>" } } }
+    }
+}
+'''
+expect = '{ "variants":{ "normal":{ "model":"ironwright:metal" } } }'
+
+# ---- Tier VI — the world answers, the smith-wright's eye (fires once ten forgeworks are passed)
+[[tiers]]
+min = 10
+time = 130
+bounty = 200
+
+[[tiers.pool]]
+t = "THE WORLD ANSWERS"
+brief = "The rival hurls an event the forge must answer. Read which family the event belongs to and speak the right reply, or the world stays silent."
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String event = "BlockEvent.BreakEvent";
+        // if event starts with "BlockEvent"     print:  the cast stone answers
+        // else if it starts with "PlayerInteract" print:  the hand answers
+        // else                                  print:  silence
+    }
+}
+'''
+expect = "the cast stone answers"
+
+[[tiers.pool]]
+t = "THE HAND AND THE FACE"
+brief = "A hex turns the smith's hand and the block's face to nonsense. Bind the given hand to the given facing in one line, exactly."
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String hand = "MAIN_HAND";
+        String facing = "NORTH";
+        // print exactly:  <hand> strikes <facing>
+    }
+}
+'''
+expect = "MAIN_HAND strikes NORTH"
+
+[[tiers.pool]]
+t = "THE SMITH-WRIGHT'S EYE"
+brief = "The old masters' decompiled marks are scattered before you. Split the source on ';', keep only the field lines (a field has no '('), and speak each field's name — the last token of the line."
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String src = "public int maxStackSize; public String unlocalizedName; public void onCreated(){}";
+        // Split on ';'. A field part has no '('. For each field, print on its own line:  MARK <name>
+        // (the name is the last token of the part, split on whitespace)
+    }
+}
+'''
+expect = '''
+MARK maxStackSize
+MARK unlocalizedName'''

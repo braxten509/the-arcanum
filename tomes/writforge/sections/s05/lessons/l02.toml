@@ -1,0 +1,86 @@
+[[lessons]]
+id = "s05-l02"
+title = "Marks in the Dust"
+body = '''
+<p>A regex is not only for words; it can also read the small marks that make manuscript lines different from one another. A digit in a chapter label, a literal dot in a file name, a space tucked after a hash, or an underscore in an archive key all matter when the scribe wants to separate one line shape from another. Perl gives those shapes to you with metacharacters and character classes, and the trick is to use the narrowest one that tells the truth.</p>
+<p>The dot is the easiest trap. A bare <code>.</code> means almost any character, so the chapter name <code>v1.2</code> must use <code>\.</code> if the dot itself is part of the text. Likewise, <code>\d</code> asks for digits, <code>\w</code> asks for word characters, and <code>\s</code> asks for whitespace. Those backslashed classes are not guesses. They are the grammar of the mark. They let the script notice that <code># Chapter 12</code> carries a number, while <code># Appendix</code> does not.</p>
+<p>Keep the earlier chapters in the room while you learn this. Arrays still carry the sample lines, and hashes still record what the scanner found. Regex matching only tells you whether a line has the shape you want. It does not tally the result by itself. If the ledger needs to know how many numbered headings appeared, the pattern has to feed a count, just as the hash chapter taught.</p>
+<p>Do not overreach with the first class. If you need any digit at all, use <code>\d</code>. If you need a literal dot, escape it. If you need to know whether a line includes space in the middle, reach for <code>\s</code>. The apprentice does not win points for cleverness. The apprentice wins points for the right class on the right mark, with no extra noise in the pattern.</p>
+<pre><code><span class="k">if</span> (<span class="s">$line</span> =~ /<span class="s">\d</span>/) {
+    <span class="k">say</span> <span class="s">"HAS DIGIT"</span>;
+}</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // MARKS IN THE DUST</div>
+<p><strong>Dot note.</strong> A bare <code>.</code> is greedy in spirit: it matches almost anything. Use <code>\.</code> when the manuscript really means a period.</p>
+<p><strong>Class note.</strong> <code>\d</code>, <code>\w</code>, and <code>\s</code> are the most useful first classes because they describe number, word, and spacing without inventing extra logic.</p>
+<p><strong>Ledger note.</strong> The class only answers whether the mark is present. If later chapters need a total, feed the result into a counter or hash as before.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perldoc: perlrequick"
+url = "https://perldoc.perl.org/perlrequick"
+
+[[lessons.exercises]]
+id = "s05-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "<p>Retype the digit check exactly. Keep the regex class and the output line intact.</p>"
+code = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my $line = "# Chapter 12";
+if ($line =~ /\d/) {
+    say "HAS DIGIT";
+}
+'''
+
+[[lessons.exercises]]
+id = "s05-l02-e1"
+type = "fill"
+points = 20
+prompt = "<p>Restore the class that asks whether the line contains whitespace.</p>"
+code = 'if ($line =~ /____/) { say "SPACE"; }'
+answer = "\\s"
+hint = "The blank is the backslashed class that matches spacing, not letters or digits."
+whyWrong = "You are looking for word characters or numbers when the prompt is specifically about whitespace. The chapter needs the spacing class."
+
+[[lessons.exercises]]
+id = "s05-l02-e2"
+type = "mc"
+points = 15
+prompt = "<p>Which pattern keeps the period literal in <code>v1.2</code>?</p>"
+choices = ["<code>/v1.2/</code>", "<code>/v1[.]2/</code>", "<code>/v1.*2/</code>", "<code>/v1\\.2/</code>"]
+answer = 3
+whyWrong = "You are letting the dot act as a wildcard, or you are using a verbose character class or a greedy tail. The prompt asked for the literal period character."
+hint = "The dot in the manuscript version string is part of the text, not a wildcard."
+explain = "Escaping the dot with <code>\\.</code> makes the pattern read the period as a literal character."
+
+[[lessons.exercises]]
+id = "s05-l02-e3"
+type = "text"
+points = 20
+prompt = "<p>What does <code>\\w</code> match in this chapter's patterns?</p>"
+answer = "a word character"
+accept = ["word characters", "a letter, digit, or underscore", "letters digits and underscore"]
+hint = "It is the class for the letters-and-digits side of a manuscript token."
+whyWrong = "You are naming punctuation or spacing when this class is the one Perl uses for word-like characters."
+
+[[lessons.exercises]]
+id = "s05-l02-w1"
+type = "write"
+points = 30
+prompt = "<p>Using the starter scraps, count how many lines contain at least one digit and print <code>DIGIT LINES 2</code>. The answer must come from matching the sample lines, not from a hardcoded print.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my @lines = ("# Chapter 12", "# Appendix", "Plain prose", "Appendix 2024");
+my $digit_lines = 0;
+
+# Task: count the lines that contain at least one digit.
+# Print `DIGIT LINES N`.
+'''
+expect = '''
+DIGIT LINES 2'''
+hint = "Search each line with a digit class and count the two scraps that carry numbers."

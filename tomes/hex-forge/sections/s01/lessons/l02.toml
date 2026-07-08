@@ -1,0 +1,96 @@
+[[lessons]]
+id = "s01-l02"
+title = "The Anvil Register"
+body = '''
+<p>Every smith has an anvil. In our forge, the anvils are <strong>registers</strong> — sixteen named slots inside the CPU, each holding 64 bits of alloy. They hold no address, consume no memory, and are the fastest surface the machine owns.</p>
+
+<p>The x86-64 anvil set:</p>
+<ul>
+<li><strong>General-purpose:</strong> <code>rax</code>, <code>rbx</code>, <code>rcx</code>, <code>rdx</code>, <code>rsi</code>, <code>rdi</code>, <code>rbp</code>, <code>rsp</code>, <code>r8</code> through <code>r15</code></li>
+<li><strong>Syscall role:</strong> <code>rax</code> always holds the gate number. <code>rdi</code>, <code>rsi</code>, <code>rdx</code>, <code>r10</code>, <code>r8</code>, <code>r9</code> carry the arguments — first through sixth, in that order.</li>
+<li><strong>Sub-registers:</strong> you can address the low 32 bits (<code>eax</code>, <code>edi</code>), low 16 bits (<code>ax</code>, <code>di</code>), or low 8 bits (<code>al</code>, <code>dil</code>) of the same anvil. Writing to a sub-register zeroes the upper bits — or not, depending on the width; see the field notes.</li>
+</ul>
+
+<p>The <code>mov</code> instruction copies ore between anvils or loads a constant number — an <strong>immediate</strong> — directly into one:</p>
+<pre><code><span class="k">mov</span> rax, 60        <span class="c">; load immediate 60 into rax</span>
+<span class="k">mov</span> rdi, rsi       <span class="c">; copy rsi's value into rdi</span>
+<span class="k">mov</span> rdx, 5         <span class="c">; length 5 into rdx</span></code></pre>
+
+<p>Immediates are the raw numbers etched into the instruction itself — they travel with the code, not from memory. A register-to-register <code>mov</code> is faster than loading from memory, and an immediate <code>mov</code> is the fastest way to assign a known constant. But each register has no name the assembler stores — they are the slots, and only <code>mov</code> (and arithmetic) can change what they contain.</p>
+
+<p>The syscall gate reads six arguments from fixed anvils, never from memory:</p>
+<table style="width:100%"><tr><td><strong>arg</strong></td><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td></tr><tr><td><strong>register</strong></td><td><code>rdi</code></td><td><code>rsi</code></td><td><code>rdx</code></td><td><code>r10</code></td><td><code>r8</code></td><td><code>r9</code></td></tr></table>
+
+<p>For the calls you know so far: <code>sys_write</code> (1) takes fd in <code>rdi</code>, buffer address in <code>rsi</code>, and byte count in <code>rdx</code>. <code>sys_exit</code> (60) takes only the exit code in <code>rdi</code> — the rest are ignored. <code>rax</code> carries the call number, every time.</p>
+
+<p>A register is just a number — 64 ones and zeroes. What that number means depends on how you strike it: an address, a count, a character code, a flag mask. The forge does not distinguish; only the instruction you choose gives the number its meaning.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SUB-REGISTER ZEROING RULES</div>
+<p>Writing to a 32-bit sub-register (<code>mov eax, 60</code>) always zeroes the upper 32 bits of the full 64-bit register. Writing to 16-bit (<code>mov ax, 60</code>) or 8-bit (<code>mov al, 60</code>) leaves the upper bits untouched. This means <code>xor eax, eax</code> is the canonical way to zero all 64 bits of <code>rax</code> in a compact 2-byte encoding — and it is faster than <code>mov rax, 0</code>. The 8-bit sub-registers of <code>r8</code>–<code>r15</code> are accessed with a <code>b</code> suffix: <code>r8b</code>, <code>r9b</code>, etc. The 16-bit versions use <code>w</code>: <code>r8w</code>, <code>r9w</code>. The 32-bit versions use <code>d</code>: <code>r8d</code>, <code>r9d</code>. For registers <code>rdi</code>/<code>rsi</code>/<code>rbp</code>/<code>rsp</code>, the low 8 bits are <code>dil</code>, <code>sil</code>, <code>bpl</code>, <code>spl</code> — a newer encoding added with x86-64.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s01-l02-e1"
+type = "mc"
+points = 15
+prompt = "When the kernel enters a <code>syscall</code>, which register does it read FIRST to decide which operation to perform?"
+choices = [
+  "rdi — it always holds the first argument to every function",
+  "rsi — it points to the buffer, and the kernel must know the data location first",
+  "rax — the syscall number is the gate-key, read from rax before any argument register",
+  "rsp — the kernel inspects the stack pointer to validate the call"
+]
+answer = 2
+whyWrong = "The kernel reads rax first because without the syscall number it cannot interpret the other registers. rdi holds argument 1 — but only after the kernel has identified which call it is. rsi holds argument 2. rsp is not consulted at all for syscall dispatch."
+hint = "Every syscall starts with the same register — the one Vandr calls the gate-key. Which register carries the call number 1 for write, 60 for exit?"
+explain = "rax is the syscall dispatcher. When the CPU hits <code>syscall</code>, the kernel reads rax to index its syscall table. Only after identifying the call does it look at rdi, rsi, rdx, r10, r8, and r9 for arguments. Writing the wrong value to rax sends the kernel to the wrong gate — and the arguments in rdi/rsi/rdx will be interpreted under the wrong operation's rules."
+
+[[lessons.exercises]]
+id = "s01-l02-e2"
+type = "fill"
+points = 20
+prompt = "The register that holds the second argument to any syscall is always the same. Fill its name."
+code = '''
+mov ____, msg        ; arg 2 — buffer address for sys_write
+'''
+answer = "rsi"
+hint = "It's the register paired with rdi — source index. R for register, then two letters."
+explain = "The syscall ABI fixes argument-to-register mapping: rdi=arg1, rsi=arg2, rdx=arg3, r10=arg4, r8=arg5, r9=arg6. For sys_write, arg2 is the buffer address — the bytes to print."
+
+[[lessons.exercises]]
+id = "s01-l02-e3"
+type = "type"
+points = 12
+prompt = "Type these register moves exactly. Each line loads a known value into a specific anvil."
+code = '''
+mov rax, 1         ; sys_write gate key
+mov rdi, 1         ; stdout file descriptor
+mov rsi, msg       ; buffer address
+mov rdx, 6         ; byte count
+mov rax, 60        ; sys_exit gate key
+xor rdi, rdi       ; exit code 0
+'''
+hint = "No hint needed — retype exactly what is shown."
+
+[[lessons.exercises]]
+id = "s01-l02-w1"
+type = "write"
+points = 30
+prompt = "Copy and modify. Take the <code>FORGE</code> program from the last lab. Change it to print <code>ANVIL</code> (five letters) and exit. You must use the correct register for each of the four sys_write arguments (rax, rdi, rsi, rdx) and the two sys_exit registers (rax, rdi). Get one register wrong and the forge is cold."
+starter = '''
+section .text
+    global _start
+
+_start:
+    ; Print 5 bytes — set up sys_write with the right registers
+    
+
+    ; Exit cleanly
+    
+
+section .data
+msg: db 'A', 'N', 'V', 'I', 'L'
+'''
+expect = '''
+ANVIL'''
+hint = "Four mov instructions before the first syscall: rax=1 (the gate), rdi=1 (stdout), rsi=msg (what to print), rdx=5 (how many bytes). Then syscall. Then mov rax,60 / xor rdi,rdi / syscall for exit."

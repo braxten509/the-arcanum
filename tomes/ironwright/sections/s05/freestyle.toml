@@ -1,0 +1,35 @@
+[freestyle]
+title = "THE WORKING: The Forgeable Contract"
+brief = "Apprentice, refactor the ironwork onto its contracts. The data model gains an interface, a generic registry, and an enum. Build:<ul><li><code>Forgeable.java</code> — an interface declaring <code>int forgeValue()</code> and <code>String forgeName()</code>.</li><li><code>Metal.java</code> — refactored from a class into an <code>enum</code> with constants <code>IRON(8, 1500)</code>, <code>COPPER(6, 1085)</code>, <code>STARSTEEL(20, 2200)</code>, a constructor, and getters for <code>value</code> and <code>meltPoint</code>.</li><li><code>Ingot.java</code> — <code>implements Forgeable</code> (<code>forgeValue</code> returns value, <code>forgeName</code> returns name, both <code>@Override</code>); keeps its <code>toString</code>/<code>equals</code> from Forgework IV.</li><li><code>Registry.java</code> — generic <code>Registry&lt;T extends Forgeable&gt;</code> backed by a <code>Map&lt;String, T&gt;</code>, with <code>register(String key, T)</code>, <code>get(String)</code>, <code>size()</code>, and <code>listAll()</code> printing every entry's <code>forgeName</code> + <code>\" @ \"</code> + <code>forgeValue</code> + <code>\"em\"</code>.</li><li><code>Ironwright.java</code> — at startup, build a <code>Registry&lt;Ingot&gt;</code> and register the three ingots keyed by name. On <code>list</code>, call <code>listAll()</code>. On <code>value &lt;metal&gt;</code>, resolve the name through <code>Metal.valueOf(name.toUpperCase())</code> and print <code>value &lt;n&gt;</code> from the enum (or <code>UNKNOWN &lt;metal&gt;</code> if the name is not a constant). <code>quit</code> and unknown commands behave as before.</li></ul>"
+reward = 225
+xray = "Orrick docks for a Registry with no type bound (so it cannot call forgeName), Metal left as a class instead of an enum, Ingot's Forgeable methods missing @Override, or listAll printing hardcoded strings instead of calling the interface methods. He gives style credit for the generic bound, one class per file, @Override on every override, and Allman braces."
+
+[freestyle.badge]
+id = "badge-s05"
+name = "THE FORGEABLE CONTRACT"
+desc = "Reforged the registry onto a contract — generic, map-backed, and open to every Forgeable thing."
+
+[[freestyle.rubric]]
+criterion = "Compiles & runs"
+weight = 20
+desc = "javac *.java succeeds and java Ironwright runs without crashing on a sequence of piped commands (list, value copper, value tin, quit)."
+
+[[freestyle.rubric]]
+criterion = "Forgeable interface & Ingot implements it"
+weight = 20
+desc = "Forgeable declares forgeValue and forgeName with no bodies; Ingot implements Forgeable with @Override on both, returning value and name respectively."
+
+[[freestyle.rubric]]
+criterion = "Metal is a correct enum"
+weight = 20
+desc = "Metal is an enum (not a class) with IRON, COPPER, STARSTEEL constants carrying (value, meltPoint); the constructor is private by default and runs once per constant; getValue and getMeltPoint return the right values; Metal.valueOf resolves a name to its constant."
+
+[[freestyle.rubric]]
+criterion = "Registry is generic & map-backed"
+weight = 20
+desc = "Registry<T extends Forgeable> is backed by a Map<String, T>; register/get/size/listAll all work; the bound lets listAll call forgeName/forgeValue on each entry; the same Registry class holds Ingot and could hold any Forgeable."
+
+[[freestyle.rubric]]
+criterion = "CLI wiring & clean style"
+weight = 20
+desc = "list calls the generic registry's listAll; value resolves the name through Metal.valueOf (uppercased) and prints value <n> or UNKNOWN <metal>; one public class per .java file named for the class; @Override on every override; PascalCase classes, camelCase methods, UPPER_SNAKE constants; Allman braces; 4-space indent."

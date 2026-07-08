@@ -1,0 +1,121 @@
+[[lessons]]
+id = "s05-l01"
+title = "The Jig — call and ret"
+body = '''
+<p>A smith who forges every tool from scratch with no jig wastes half his heat on setup. A <strong>procedure</strong> — a reusable block of instructions you can strike from anywhere — is the jig of assembly. The <code>call</code> and <code>ret</code> instructions are the mechanism.</p>
+
+<p><code>call label</code> does two things atomically: pushes the address of the NEXT instruction (the return address) onto the stack, then jumps to <code>label</code>. <code>ret</code> pops that address off the stack and jumps to it — returning to exactly where the call came from:</p>
+
+<pre><code>_start:
+    <span class="k">call</span> my_proc          <span class="c">; push return_addr, jmp my_proc</span>
+    <span class="c">; execution resumes HERE after ret</span>
+    <span class="k">call</span> my_proc          <span class="c">; call it again — same return mechanism</span>
+    <span class="k">mov</span> rax, 60
+    <span class="k">xor</span> rdi, rdi
+    <span class="k">syscall</span>
+
+my_proc:
+    <span class="c">; body of the procedure</span>
+    <span class="k">ret</span>                    <span class="c">; pop return address, jmp to it</span></code></pre>
+
+<p>The stack grows <strong>downward</strong> — toward lower addresses. <code>call</code> subtracts 8 from rsp and writes the 8-byte return address at <code>[rsp]</code>. <code>ret</code> reads 8 bytes from <code>[rsp]</code>, adds 8 to rsp, and jumps. The stack pointer rsp always points to the last thing pushed.</p>
+
+<p>The critical rule: <strong>the stack must be exactly as you found it when ret fires.</strong> If a procedure pushes data and forgets to pop it, <code>ret</code> reads the wrong value — a mangled return address — and the CPU jumps into the void. This is a stack imbalance and it crashes your program with SIGSEGV.</p>
+
+<p>Simplest valid procedure — print a fixed string:</p>
+<pre><code>print_prompt:
+    <span class="k">mov</span> rax, 1
+    <span class="k">mov</span> rdi, 1
+    <span class="k">mov</span> rsi, prompt_str
+    <span class="k">mov</span> rdx, prompt_len
+    <span class="k">syscall</span>
+    <span class="k">ret</span></code></pre>
+
+<p>Notice: this procedure clobbers rax, rdi, rsi, and rdx. After <code>ret</code>, those registers hold syscall return values, not what they held before the call. The caller must either save them or not care. This tension — who saves what — is the core of the calling convention, the subject of the next two lessons.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // call vs jmp — WHY THE STACK?</div>
+<p><code>jmp label</code> transfers control with no way back. <code>call</code> records the return point so <code>ret</code> can find it. The stack is the natural place: it grows and shrinks in LIFO order, which perfectly matches the nested call structure (A calls B, which calls C, which returns to B, which returns to A). The CPU has dedicated hardware — the <code>call</code>/<code>ret</code> pair — that uses rsp and the stack to track return addresses. This is not a convention; it is baked into the instruction set.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s05-l01-e1"
+type = "mc"
+points = 15
+prompt = "What happens if a procedure pushes a value on the stack and then executes <code>ret</code> without popping it first?"
+choices = [
+  "ret ignores the extra data and still returns correctly — the stack grows automatically",
+  "ret pops the pushed value as the return address, jumping to a wrong location — usually causing SIGSEGV",
+  "NASM detects the imbalance at assembly time and emits a warning",
+  "The CPU detects the stack mismatch and raises an exception before ret executes"
+]
+answer = 1
+whyWrong = "ret blindly pops whatever is at [rsp] as the return address. If you pushed extra data, that data gets interpreted as an address and the CPU jumps there — almost always invalid memory, causing a crash. NASM cannot detect this at assembly time (it's a runtime behavior). The CPU has no stack-frame validation — ret just reads rsp."
+hint = "ret pops 8 bytes from the stack and jumps to that address. What if the top of the stack isn't the return address?"
+explain = "The stack is LIFO: call pushes return address, then your push adds data on top. ret pops the top — your data — and treats it as an address. The correct pattern is to pop everything you pushed before ret. Stack imbalance is the single most common crash in hand-written assembly."
+
+[[lessons.exercises]]
+id = "s05-l01-e2"
+type = "fill"
+points = 20
+prompt = "Complete the instruction that returns to the caller. It pops the return address off the stack and jumps to it."
+code = '''
+my_proc:
+    mov  rax, 1
+    syscall
+    ____                ; go back to caller
+'''
+answer = "ret"
+hint = "Three letters — the complementary instruction to call. It pops the stack and jumps."
+explain = "<code>ret</code> pops the 8-byte return address that <code>call</code> pushed and jumps to it. Every procedure that was entered via <code>call</code> must end with <code>ret</code> (or a syscall that terminates the program)."
+
+[[lessons.exercises]]
+id = "s05-l01-e3"
+type = "type"
+points = 12
+prompt = "Retype the call/ret pattern. Call a procedure twice — it must return to the correct spot each time."
+code = '''
+_start:
+    call  print_x
+    call  print_x       ; second call — must return here too
+    mov   rax, 60
+    xor   rdi, rdi
+    syscall
+
+print_x:
+    mov   rax, 1
+    mov   rdi, 1
+    mov   rsi, x_char
+    mov   rdx, 2
+    syscall
+    ret
+'''
+reps = 1
+
+[[lessons.exercises]]
+id = "s05-l01-w1"
+type = "write"
+points = 30
+prompt = "Forge a reusable print procedure. Write a procedure called <code>print_greeting</code> that prints the string <code>HELLO FROM JIG</code> followed by a newline. Call it TWICE from <code>_start</code>. The output must be the greeting repeated on two separate lines. The procedure must use <code>ret</code> to return after each call — both calls must work correctly."
+starter = '''
+section .text
+    global _start
+
+_start:
+    call print_greeting
+    call print_greeting
+    ; Exit
+    
+
+print_greeting:
+    ; Print the greeting string + newline
+    ; Return with ret
+    
+
+section .data
+greeting: db 'H', 'E', 'L', 'L', 'O', ' ', 'F', 'R', 'O', 'M', ' ', 'J', 'I', 'G', 10
+greeting_len equ $ - greeting
+'''
+expect = '''
+HELLO FROM JIG
+HELLO FROM JIG'''
+hint = "print_greeting: mov rax,1 / mov rdi,1 / mov rsi,greeting / mov rdx,greeting_len / syscall / ret. _start: call print_greeting / call print_greeting / mov rax,60 / xor rdi,rdi / syscall."

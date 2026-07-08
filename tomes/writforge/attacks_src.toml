@@ -1,0 +1,593 @@
+# Reference solutions for WRITFORGE's SPELL DUEL bank (Perl 5, this tome's language).
+# tools/gen_attacks.py runs each `solution` through this tome's runtime via
+# /api/runsnippet, slices the verified stdout into the cumulative per-stage `expect`
+# blocks, and writes generated/attacks.toml. Regenerate:
+#   python3 tools/gen_attacks.py writforge   (server running)
+# Never hand-edit generated/attacks.toml.
+#
+# Every solution is a single-file Perl script (matching [runtime].entryFile =
+# writforge.pl, so `perl writforge.pl` runs it). Minigames never enter the
+# Writforge workspace — they run plain Perl in the engine's scratch dir.
+#
+# Tier N unlocks after N sections are passed, so a tier's demands stay within the
+# concepts taught by that point in the syllabus. Each challenge has exactly 3 stages
+# (matching [progression].attackStages = [0, 60, 120]); each stage strictly APPENDS
+# lines — stages[n].expect == stages[n-1].expect + new lines, never edits.
+#
+# Voice: Master Scrivener's scriptorium — rivals come to the desk, not the wizard's
+# tower. Titles, briefs, and every printed token carry the scribe's tongue (ink,
+# glyph, parchment, sign-mark, pattern-glyph, re-ink, the shelf, the ledger, codex).
+# No magic/mana cant, no borrowed wizard-arc titles.
+
+# ---- Tier 1 — the first ink (scalars, interpolation, operators)
+[[challenge]]
+tier = 1
+title = "THE COLD PARCHMENT"
+starter = '''
+use v5.36;
+
+my $iron = 8;
+my $copper = 6;
+my $gold = 20;
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Strike the first sign-mark. Say «INK iron @ 8», «INK copper @ 6», «INK gold @ 20» — woven from the variables, values not hardcoded.",
+  "Append «TOTAL <iron+copper+gold>» and «SPREAD <gold-iron>» — both computed from the scalars.",
+  "Append «LABEL gold» from the gold scalar's name in the prompt and «PARCHMENT SET».",
+]
+solution = '''
+use v5.36;
+
+my $iron = 8;
+my $copper = 6;
+my $gold = 20;
+say "INK iron \@ $iron";
+say "INK copper \@ $copper";
+say "INK gold \@ $gold";
+my $total = $iron + $copper + $gold;
+say "TOTAL $total";
+my $spread = $gold - $iron;
+say "SPREAD $spread";
+say "LABEL gold";
+say "PARCHMENT SET";
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 1
+title = "THE INK FOUNTAIN"
+starter = '''
+use v5.36;
+
+my $word = "scriptorium";
+my $count = 7;
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Measure the word. Say «WORD $word» and «LENGTH <length of $word>» — computed from the variable.",
+  "Append «COPIES $count» and «SHELVES <length * count>» (letters across all copies, computed).",
+  "Append «MARK <word>-<count>» using string joining, then «INK FOUNTAIN READY».",
+]
+solution = '''
+use v5.36;
+
+my $word = "scriptorium";
+my $count = 7;
+say "WORD $word";
+my $len = length($word);
+say "LENGTH $len";
+say "COPIES $count";
+my $shelves = $len * $count;
+say "SHELVES $shelves";
+my $mark = $word . "-" . $count;
+say "MARK $mark";
+say "INK FOUNTAIN READY";
+'''
+cuts = [2, 4, 6]
+
+[[challenge]]
+tier = 1
+title = "THE SIGN-MARK TALLY"
+starter = '''
+use v5.36;
+
+my $quills = 5;
+my $leaves = 8;
+my $verses = 3;
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Count the tools. Say «QUILLS $quills», «LEAVES $leaves», «VERSES $verses» from the variables.",
+  "Append «SCRIPTS <quills * leaves * verses>» (the total glyph-work, computed).",
+  "Append «STOCK <quills+leaves+verses>» and «GLYPHS READY».",
+]
+solution = '''
+use v5.36;
+
+my $quills = 5;
+my $leaves = 8;
+my $verses = 3;
+say "QUILLS $quills";
+say "LEAVES $leaves";
+say "VERSES $verses";
+my $scripts = $quills * $leaves * $verses;
+say "SCRIPTS $scripts";
+my $stock = $quills + $leaves + $verses;
+say "STOCK $stock";
+say "GLYPHS READY";
+'''
+cuts = [3, 4, 6]
+
+# ---- Tier 2 — the branching quill (control flow, subroutines, arrays)
+[[challenge]]
+tier = 2
+title = "THE CLASSIFYING LENS"
+starter = '''
+use v5.36;
+
+my $first  = "# Prologue";
+my $second = "";
+my $third  = "The scribe set down his quill.";
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Classify $first. Say «LINE 1 HEADING» or «LINE 1 BLANK» or «LINE 1 BODY» — if it starts with '#' it is a heading, if empty it is blank, else body.",
+  "Append the classification for the second line: «LINE 2» and its kind.",
+  "Append the classification for the third line: «LINE 3» and its kind, then «LENS COMPLETE».",
+]
+solution = '''
+use v5.36;
+
+my $first  = "# Prologue";
+my $second = "";
+my $third  = "The scribe set down his quill.";
+if (substr($first, 0, 1) eq "#") {
+    say "LINE 1 HEADING";
+} elsif ($first eq "") {
+    say "LINE 1 BLANK";
+} else {
+    say "LINE 1 BODY";
+}
+if (substr($second, 0, 1) eq "#") {
+    say "LINE 2 HEADING";
+} elsif ($second eq "") {
+    say "LINE 2 BLANK";
+} else {
+    say "LINE 2 BODY";
+}
+if (substr($third, 0, 1) eq "#") {
+    say "LINE 3 HEADING";
+} elsif ($third eq "") {
+    say "LINE 3 BLANK";
+} else {
+    say "LINE 3 BODY";
+}
+say "LENS COMPLETE";
+'''
+cuts = [1, 2, 4]
+
+[[challenge]]
+tier = 2
+title = "THE CALLIGRAPHY LOOP"
+starter = '''
+use v5.36;
+
+my $stanzas = 4;
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Loop the first two stanzas. Say «CANTO 1» and «CANTO 2».",
+  "Append the remaining stanzas: «CANTO 3» and «CANTO 4».",
+  "Append «CANTOS 4» from the count scalar and «CALLIGRAPHY DONE».",
+]
+solution = '''
+use v5.36;
+
+my $stanzas = 4;
+for my $i (1 .. $stanzas) {
+    say "CANTO $i";
+}
+say "CANTOS $stanzas";
+say "CALLIGRAPHY DONE";
+'''
+cuts = [2, 4, 6]
+
+[[challenge]]
+tier = 2
+title = "THE SCRIBE'S HELPER"
+starter = '''
+use v5.36;
+
+sub ink_cost {
+    my ($leaves, $rate) = @_;
+    return $leaves * $rate;
+}
+
+my $leaves = 12;
+my $rate   = 3;
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Call the helper. Say «COST <ink_cost($leaves, $rate)>sp» and «RATE ${rate}sp/leaf» — computed.",
+  "Append «DOUBLE <ink_cost($leaves * 2, $rate)>sp» (double the leaves, same rate, computed).",
+  "Append «TRIPLE <ink_cost($leaves * 3, $rate)>sp» and «HELPER SEALED».",
+]
+solution = '''
+use v5.36;
+
+sub ink_cost {
+    my ($leaves, $rate) = @_;
+    return $leaves * $rate;
+}
+
+my $leaves = 12;
+my $rate   = 3;
+say "COST " . ink_cost($leaves, $rate) . "sp";
+say "RATE ${rate}sp/leaf";
+say "DOUBLE " . ink_cost($leaves * 2, $rate) . "sp";
+say "TRIPLE " . ink_cost($leaves * 3, $rate) . "sp";
+say "HELPER SEALED";
+'''
+cuts = [2, 3, 5]
+
+# ---- Tier 3 — the shelf rows (arrays, ordered walking, scalar/list context)
+[[challenge]]
+tier = 3
+title = "THE SHELF AUDIT"
+starter = '''
+use v5.36;
+
+my @titles = qw(Prologue Chapter_I Epilogue);
+my @counts = (240, 510, 130);
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Walk the paired shelves. For each pair, say «PAGE <title> <count>w» on its own line.",
+  "Append «TOTAL <sum of all counts>w» — computed from the array.",
+  "Append «LONGEST <title of the page with the most words>» and «AUDIT COMPLETE».",
+]
+solution = '''
+use v5.36;
+
+my @titles = qw(Prologue Chapter_I Epilogue);
+my @counts = (240, 510, 130);
+my $total = 0;
+my $max = 0;
+my $longest = "";
+for my $i (0 .. $#titles) {
+    say "PAGE $titles[$i] $counts[$i]w";
+    $total += $counts[$i];
+    if ($counts[$i] > $max) {
+        $max = $counts[$i];
+        $longest = $titles[$i];
+    }
+}
+say "TOTAL ${total}w";
+say "LONGEST $longest";
+say "AUDIT COMPLETE";
+'''
+cuts = [3, 4, 6]
+
+[[challenge]]
+tier = 3
+title = "THE LEDGER WALK"
+starter = '''
+use v5.36;
+
+my @names  = qw(ink glyph script codex quill);
+my @values = (42, 17, 8, 31, 55);
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Walk the paired arrays in order. For each entry, say «<name> <value>sp» on its own line.",
+  "Append «SUPPLY <total sum of all values>sp» — computed from the values array.",
+  "Append «DEAREST <name with highest value>» and «<that value>sp» (computed) and «LEDGER SEALED».",
+]
+solution = '''
+use v5.36;
+
+my @names  = qw(ink glyph script codex quill);
+my @values = (42, 17, 8, 31, 55);
+my $total = 0;
+my $max_name = "";
+my $max_val = 0;
+for my $i (0 .. $#names) {
+    say "$names[$i] $values[$i]sp";
+    $total += $values[$i];
+    if ($values[$i] > $max_val) {
+        $max_val = $values[$i];
+        $max_name = $names[$i];
+    }
+}
+say "SUPPLY ${total}sp";
+say "DEAREST $max_name";
+say "${max_val}sp";
+say "LEDGER SEALED";
+'''
+cuts = [5, 6, 9]
+
+[[challenge]]
+tier = 3
+title = "THE CODEX COUNT"
+starter = '''
+use v5.36;
+
+my @words = qw(ink glyph ink codex script glyph ink);
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Walk the words in order. For each one, say «WORD <position> <word>» on its own line.",
+  "Append «ENTRIES <count of words>» and «FIRST <first word>» — both read from the array.",
+  "Append the computed counts «INK <n>», «GLYPH <n>», «SCRIPT <n>», «CODEX <n>», then «CODEX COUNT SEALED».",
+]
+solution = '''
+use v5.36;
+
+my @words = qw(ink glyph ink codex script glyph ink);
+my ($ink, $glyph, $script, $codex) = (0, 0, 0, 0);
+for my $i (0 .. $#words) {
+    my $word = $words[$i];
+    say "WORD " . ($i + 1) . " $word";
+    if ($word eq "ink") {
+        $ink++;
+    } elsif ($word eq "glyph") {
+        $glyph++;
+    } elsif ($word eq "script") {
+        $script++;
+    } elsif ($word eq "codex") {
+        $codex++;
+    }
+}
+say "ENTRIES " . scalar(@words);
+say "FIRST $words[0]";
+say "INK $ink";
+say "GLYPH $glyph";
+say "SCRIPT $script";
+say "CODEX $codex";
+say "CODEX COUNT SEALED";
+'''
+cuts = [7, 9, 14]
+
+# ---- Tier 4 — the named ledger (hashes, lookup tables, sorted keys)
+[[challenge]]
+tier = 4
+title = "THE COUNTING LEDGER"
+starter = '''
+use v5.36;
+
+my @kinds = qw(HEAD TEXT HEAD BLANK TEXT);
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Count the kinds with a hash. Say each tally in sorted key order: «<kind> <count>».",
+  "Append «TOTAL <total rows>» and «KINDS <number of hash keys>» — both computed.",
+  "Append «DOMINANT <kind with highest count>» and «LEDGER SEALED».",
+]
+solution = '''
+use v5.36;
+
+my @kinds = qw(HEAD TEXT HEAD BLANK TEXT);
+my %counts;
+for my $kind (@kinds) {
+    ++$counts{$kind};
+}
+for my $kind (sort keys %counts) {
+    say "$kind $counts{$kind}";
+}
+my $total = scalar @kinds;
+say "TOTAL $total";
+say "KINDS " . scalar(keys %counts);
+say "DOMINANT HEAD";
+say "LEDGER SEALED";
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 4
+title = "THE LOOKUP PRESS"
+starter = '''
+use v5.36;
+
+my %titles = (
+    preface  => "Preface",
+    appendix => "Appendix",
+    addendum => "Addendum",
+);
+my @order = qw(addendum preface appendix);
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Walk @order and look up each title. Say «<id> => <title>» on its own line.",
+  "Append «FOUND 3» and «FIRST addendum» — computed from the order array.",
+  "Append «HAS glossary» or «MISSING glossary», then «MISSING body», then «LOOKUP SEALED».",
+]
+solution = '''
+use v5.36;
+
+my %titles = (
+    preface  => "Preface",
+    appendix => "Appendix",
+    addendum => "Addendum",
+);
+my @order = qw(addendum preface appendix);
+for my $id (@order) {
+    say "$id => $titles{$id}";
+}
+say "FOUND " . scalar @order;
+say "FIRST $order[0]";
+say exists $titles{glossary} ? "HAS glossary" : "MISSING glossary";
+say exists $titles{body} ? "HAS body" : "MISSING body";
+say "LOOKUP SEALED";
+'''
+cuts = [3, 5, 8]
+
+[[challenge]]
+tier = 4
+title = "THE INDEX LEDGER"
+starter = '''
+use v5.36;
+
+my %counts = (
+    glyph  => 23,
+    ink    => 47,
+    script => 8,
+    scribe => 31,
+    codex  => 15,
+);
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Walk the hash in sorted key order. Say «<key> <value>» on each line.",
+  "Append «TOTAL <sum of values>» and «TOP <key with highest value>» — computed.",
+  "Append the keys whose values are above 20, one per line in sorted order, then «INDEX SEALED».",
+]
+solution = '''
+use v5.36;
+
+my %counts = (
+    glyph  => 23,
+    ink    => 47,
+    script => 8,
+    scribe => 31,
+    codex  => 15,
+);
+my $total = 0;
+my $top = "";
+my $top_val = 0;
+for my $key (sort keys %counts) {
+    say "$key $counts{$key}";
+    $total += $counts{$key};
+    if ($counts{$key} > $top_val) {
+        $top_val = $counts{$key};
+        $top = $key;
+    }
+}
+say "TOTAL $total";
+say "TOP $top";
+for my $key (sort keys %counts) {
+    if ($counts{$key} > 20) {
+        say $key;
+    }
+}
+say "INDEX SEALED";
+'''
+cuts = [5, 7, 11]
+
+# ---- Tier 5 — the pattern-glyph (regex matching only; no substitution or references)
+[[challenge]]
+tier = 5
+title = "THE PATTERN-GLYPH LENS"
+starter = '''
+use v5.36;
+
+my @lines = ("# Writforge", "", "**bold**, *italic*, plain.", "## The Binding", "[home](index)");
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Walk the lines and classify each by pattern: heading, blank, bold, link, or body. Say the classification and the line when present.",
+  "Append «MATCHES <total classified lines>» — computed from the loop.",
+  "Append «H <n> B <n> D <n> K <n> L <n>» for Heading, Blank, bolD, body Kind, and Link, then «PATTERN SEALED».",
+]
+solution = '''
+use v5.36;
+
+my @lines = ("# Writforge", "", "**bold**, *italic*, plain.", "## The Binding", "[home](index)");
+my ($h, $b, $d, $k, $l) = (0, 0, 0, 0, 0);
+for my $line (@lines) {
+    if ($line =~ /^#/) {
+        say "HEADING: $line";
+        $h++;
+    } elsif ($line =~ /^\s*$/) {
+        say "BLANK";
+        $b++;
+    } elsif ($line =~ /\*\*/) {
+        say "BOLD: $line";
+        $d++;
+    } elsif ($line =~ /\[/) {
+        say "LINK: $line";
+        $l++;
+    } else {
+        say "BODY: $line";
+        $k++;
+    }
+}
+my $total = $h + $b + $d + $k + $l;
+say "MATCHES $total";
+say "H $h B $b D $d K $k L $l";
+say "PATTERN SEALED";
+'''
+cuts = [5, 6, 8]
+
+[[challenge]]
+tier = 5
+title = "THE HEADING SCRY"
+starter = '''
+use v5.36;
+
+my @lines = ("# Prologue", "Some body text.", "## Chapter I", "", "### Appendix", "More body.", "# Epilogue");
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Walk the lines. Say «HEADING», «BLANK», or «BODY» for each line using regex matching.",
+  "Append «HEADINGS <count>» — computed from the regex branches.",
+  "Append «BLANKS <count>», «BODY <count>», and «SCRY SEALED».",
+]
+solution = '''
+use v5.36;
+
+my @lines = ("# Prologue", "Some body text.", "## Chapter I", "", "### Appendix", "More body.", "# Epilogue");
+my ($headings, $blanks, $body) = (0, 0, 0);
+for my $line (@lines) {
+    if ($line =~ /^#/) {
+        say "HEADING";
+        $headings++;
+    } elsif ($line =~ /^\s*$/) {
+        say "BLANK";
+        $blanks++;
+    } else {
+        say "BODY";
+        $body++;
+    }
+}
+say "HEADINGS $headings";
+say "BLANKS $blanks";
+say "BODY $body";
+say "SCRY SEALED";
+'''
+cuts = [7, 8, 11]
+
+[[challenge]]
+tier = 5
+title = "THE LINK SHAPE"
+starter = '''
+use v5.36;
+
+my @lines = ("[home](index.html)", "plain text", "[codex](codex.html)", "# Heading", "");
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Walk the lines. For each line, say «LINK <n>» if it has markdown link shape, otherwise «NO LINK <n>».",
+  "Append «LINKS <count>» — computed from the regex matches.",
+  "Append «NONLINKS <count>» and «LINK SCAN SEALED».",
+]
+solution = '''
+use v5.36;
+
+my @lines = ("[home](index.html)", "plain text", "[codex](codex.html)", "# Heading", "");
+my ($links, $nonlinks) = (0, 0);
+for my $i (0 .. $#lines) {
+    my $n = $i + 1;
+    if ($lines[$i] =~ /^\[[^\]]+\]\([^)]+\)$/) {
+        say "LINK $n";
+        $links++;
+    } else {
+        say "NO LINK $n";
+        $nonlinks++;
+    }
+}
+say "LINKS $links";
+say "NONLINKS $nonlinks";
+say "LINK SCAN SEALED";
+'''
+cuts = [5, 6, 8]

@@ -1,0 +1,91 @@
+[[lessons]]
+id = "s06-l01"
+title = "The Rewrite Knife"
+body = '''
+<p>Regex matching taught the scribe how to see the mark. Substitution teaches the next move: cut the mark away and lay down a different face in its place. In Perl that is <code>s///</code>, and it does both jobs in one motion. The left side still finds the shape, but the right side writes the new ink. That is the bridge between detection and rendering, which is why this chapter matters to the tool and not just to the language.</p>
+<p>The simplest useful rewrite is a heading. The scanner sees <code># Preface</code>, the substitution captures the words after the hash, and the replacement wraps those words in a tag. The old regex chapter still does the detecting. The new step is that the capture group gives the replacement a place to keep the manuscript text while the outer symbols change. No part of the page needs to be guessed back from memory.</p>
+<p>Capture groups are numbered from left to right by their opening parentheses. That numbering is not decoration; it is the contract between the pattern and the replacement. When the first capture holds the heading words, <code>$1</code> can reuse them. If a later chapter asks for two pieces of a match, the second pair of parentheses becomes <code>$2</code>. The text stays in order because the pattern recorded it in order.</p>
+<p>Do not make the apprentice think substitution is only a fancier print statement. The point is that the manuscript still flows through the pipeline with the same words intact. The structure changes, not the story. That distinction is what lets the renderer later build HTML around the prose instead of flattening the prose into banners.</p>
+<pre><code><span class="k">my</span> <span class="s">$line</span> = <span class="s">"# Preface"</span>;
+<span class="s">$line</span> =~ s/^#\s+(.*)$/&lt;h1&gt;<span class="s">$1</span>&lt;/h1&gt;/;
+<span class="k">say</span> <span class="s">$line</span>;</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE REWRITE KNIFE</div>
+<p><strong>Operator note.</strong> The same string can be matched and rewritten in one statement. That is why <code>s///</code> is the proper tool when the scanner is ready to act, not just observe.</p>
+<p><strong>Capture note.</strong> Parentheses are numbered by their opening order, so the first meaningful chunk of the heading becomes <code>$1</code>. The replacement reads that slot directly.</p>
+<p><strong>Pipeline note.</strong> Keep the matched words, change the wrapper. Later chapters still need the text itself, and the whole point of markup is that the words survive the styling.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perldoc: perlop"
+url = "https://perldoc.perl.org/perlop"
+
+[[lessons.exercises]]
+id = "s06-l01-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "<p>Retype the heading rewrite exactly. Keep the capture group and the HTML wrapper intact.</p>"
+code = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my $line = "# Preface";
+$line =~ s/^#\s+(.*)$/<h1>$1</h1>/;
+say $line;
+'''
+
+[[lessons.exercises]]
+id = "s06-l01-e1"
+type = "fill"
+points = 22
+prompt = "<p>Restore the capture reference that keeps the heading words inside the new tag.</p>"
+code = 'my $line = "# Preface"; $line =~ s/^#\s+(.*)$/<h1>____</h1>/;'
+answer = "$1"
+hint = "The blank is the first capture, not the hash, the anchor, or the whole match."
+whyWrong = "You are dropping the manuscript words or replacing them with a literal tag fragment. This rewrite only works if the captured heading text is carried into the replacement."
+
+[[lessons.exercises]]
+id = "s06-l01-e2"
+type = "mc"
+points = 18
+prompt = "<p>In the worked rewrite, which piece keeps the heading text instead of throwing it away?</p>"
+choices = ["<code>^</code>", "<code>\\s+</code>", "<code>(.*)</code>", "<code>&lt;h1&gt;</code>"]
+answer = 2
+whyWrong = "You are mistaking the anchor, the spacing rule, or the wrapper for the part that preserves the words. Only the capture group feeds the original heading text back into the replacement."
+hint = "It is the part in parentheses, not the part that only describes where the match starts."
+explain = "The capture group stores the heading words so the replacement can reuse them as `$1`."
+
+[[lessons.exercises]]
+id = "s06-l01-e3"
+type = "text"
+points = 17
+prompt = "<p>What is the job of the parentheses in the heading rewrite?</p>"
+answer = "they keep the heading words for reuse"
+accept = ["keep the heading words for reuse", "preserve the heading text for the replacement", "store the captured words"]
+hint = "Think about what the replacement needs to survive after the outer symbols change."
+whyWrong = "You are describing a plain match or a visual wrapper. The parentheses matter because they preserve the text so the replacement can print it again."
+
+[[lessons.exercises]]
+id = "s06-l01-w1"
+type = "write"
+points = 30
+prompt = "<p>Using the starter array, rewrite every heading line of the form <code># Title</code> into <code>&lt;h1&gt;Title&lt;/h1&gt;</code>, leave the paragraph line unchanged, print each line, and finish with <code>HEADINGS 2</code>. The counts must come from the starter data.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my @lines = ("# Preface", "A paragraph", "# Addendum");
+my $headings = 0;
+
+for my $line (@lines) {
+    # Task: rewrite heading lines in place, print each line, and count the ones you changed.
+}
+
+say "HEADINGS $headings";
+'''
+expect = '''
+<h1>Preface</h1>
+A paragraph
+<h1>Addendum</h1>
+HEADINGS 2'''
+hint = "Walk the array, test each line with the heading shape from the lesson, and let the capture group supply the title text."

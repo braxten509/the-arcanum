@@ -1,0 +1,84 @@
+[[lessons]]
+id = "s07-l01"
+title = "The Binding Rite — @Mod & @Mod.Instance"
+body = '''
+<p>The <code>@Mod</code> annotation is the binding rite — it binds a class to the forge's master as a mod. Forgework VI showed the trivial form; now you write the real one and learn what else the binding carries.</p>
+<pre><code><span class="k">package</span> com.ironwright;
+
+<span class="k">import</span> net.minecraftforge.fml.common.Mod;
+
+@Mod(modid = Ironwright.MODID, name = <span class="s">"Ironwright"</span>, version = <span class="s">"0.1.0"</span>)
+<span class="k">public class</span> Ironwright {
+    <span class="k">public static final</span> String MODID = <span class="s">"ironwright"</span>;
+
+    <span class="k">@Mod.Instance</span>
+    <span class="k">public static</span> Ironwright instance;
+}</code></pre>
+<p>Three things to read. The <code>modid</code> is the mod's machine name — lowercase, matching <code>archivesBaseName</code> and the resource domain; here it pulls from the <code>MODID</code> constant so there is one spelling, not two. <code>name</code> is the human name shown on the Mods screen; <code>version</code> is your mod's version string. <code>@Mod.Instance</code> marks a static field Forge fills with the mod's singleton instance after construction — the one object through which other code can reach your mod. You do not <code>new</code> it; Forge does, then hands it back.</p>
+<p>The <code>@Mod</code> class is the mod's front door in the forge — the place the lifecycle methods hang (next lesson) and the place proxies wire (the lesson after). It carries the <code>MODID</code> constant every other class references, so a thousand resource paths can say <code>ironwright:iron</code> without retyping the string.</p>
+<div class="callout"><strong>Orrick says:</strong> Pull <code>modid</code> from the <code>MODID</code> constant — <code>@Mod(modid = Ironwright.MODID, ...)</code> — so the annotation and the resource domain can never drift. A modid typo is the commonest silent break: the mod loads, but no texture, no recipe, no localization finds it.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE REAL ARTIFACT TAKES INPUT BY EVENT</div>
+<p>The <code>@Mod</code> class has no <code>main</code>, no <code>Scanner</code>, no command loop. The Ironwright CLI you built in ops I–V took input by stdin; the mod takes input by GUI click, by packet, and by the forge's events. From here on, the single-file labs drill the adjacent Java (String building, parsing, method dispatch) while the real input channel is the event bus — Forgework XI. A lab that prints a line is rehearsal; the mod listens, it does not read.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Minecraft Forge 1.12.x — Mod Annotations"
+url = "https://docs.minecraftforge.net/en/1.12.x/conventions/structuring/"
+
+[[lessons.exercises]]
+id = "s07-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the @Mod header exactly — the annotation pulling modid from the MODID constant, the class line, and the MODID constant."
+code = '''@Mod(modid = Ironwright.MODID, name = "Ironwright", version = "0.1.0")
+public class Ironwright {
+    public static final String MODID = "ironwright";
+}'''
+
+[[lessons.exercises]]
+id = "s07-l01-e1"
+type = "mc"
+points = 15
+prompt = "After Forge loads your <code>@Mod</code> class, which event does it later fire so you can register your <code>ItemIngot</code>?"
+choices = ["the @Mod.Instance fill", "setupDecompWorkspace", "runClient", "RegistryEvent.Register<Item> — the binding rite for items (previewed by your generic Registry in Forgework V)"]
+answer = 3
+whyWrong = "RegistryEvent.Register<Item> is the event Forge fires so you register items (the shape you previewed with the generic Registry<T> in Forgework V); @Mod.Instance fills the singleton, runClient boots the client (not registration), and setupDecompWorkspace is the dev-setup task. Item registration is a registry event, taught in Forgework VIII."
+hint = "Think back to the generic Registry<T> and IForgeRegistryEntry in Forgework V — what Forge event does the real item registration go through?"
+explain = "RegistryEvent.Register<Item> fires after the @Mod class loads. You subscribe to it and call registry.register(new ItemIngot(...)) — Forgework VIII."
+
+[[lessons.exercises]]
+id = "s07-l01-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the annotation that marks a static field Forge fills with the mod's singleton instance after construction."
+code = '''@Mod.Instance
+public ____ Ironwright instance;'''
+answer = "static"
+whyWrong = "The instance field is static (Forge fills one class-level singleton); final would forbid Forge assigning it, private would hide it from other code, public is its visibility not its class-level-ness. The field is public static."
+hint = "It is the six-letter keyword meaning 'one for the class' — the same one main carries. Forge fills one class-level field."
+
+[[lessons.exercises]]
+id = "s07-l01-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of the @Mod annotation string. The starter sets <code>String modid = \"ironwright\";</code>, <code>String name = \"Ironwright\";</code>, <code>String version = \"0.1.0\";</code>. Print exactly <code>@Mod(modid = \"ironwright\", name = \"Ironwright\", version = \"0.1.0\")</code> by joining the literals and the three variables. Read the three values from the variables — do not type ironwright/Ironwright/0.1.0 in the print."
+starter = '''public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright";
+        String name = "Ironwright";
+        String version = "0.1.0";
+        // apprentice — print @Mod(modid = "<modid>", name = "<name>", version = "<version>")
+    }
+}'''
+expect = '''
+@Mod(modid = "ironwright", name = "Ironwright", version = "0.1.0")'''
+hint = "System.out.println(\"@Mod(modid = \\\"\" + modid + \"\\\", name = \\\"\" + name + \"\\\", version = \\\"\" + version + \"\\\")\"); — escape each inner quote with \\\"."
+
+[[lessons.exercises]]
+id = "s07-l01-t1"
+type = "text"
+points = 20
+prompt = "Why does this lesson pull modid from the MODID constant instead of writing the string \"ironwright\" directly in the annotation? (One short sentence: to keep which two things in sync?)"
+answer = "so the modid and the resource domain stay one spelling"
+hint = "If MODID is the single source, the annotation and every resource path (ironwright:iron) share it — what two things does that keep in sync?"

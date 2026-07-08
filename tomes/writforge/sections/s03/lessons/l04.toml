@@ -1,0 +1,87 @@
+[[lessons]]
+id = "s03-l04"
+title = "Sift and Sort"
+body = '''
+<p>Some pages need trimming before they are useful. <code>grep</code> selects the elements that match a test. <code>map</code> reshapes each surviving element. <code>sort</code> orders the result. Those three are list tools, not magic dust. <code>grep</code> asks "keep this one or not?"; <code>map</code> asks "what should this become?"; <code>sort</code> asks "which comes first?" If a line is blank, <code>grep</code> can drop it. If a line is a heading, <code>map</code> can decorate it. If you need alphabetical order, <code>sort</code> arranges the list after the filter has done its work.</p>
+<p>Do not use <code>map</code> just to throw the values away. Perlstyle is blunt about that: a list tool should earn its keep. When the job is side effects and nothing else, <code>foreach</code> is the cleaner hammer. Here we care about transformation. That is why the array operations stay distinct: <code>grep</code> keeps only the headings, <code>sort</code> puts them in order, and <code>map</code> can add a prefix or reshape the lines before the next chapter turns them into HTML tags.</p>
+<p>The trap here is to confuse selection with decoration. <code>grep</code> decides who gets in. <code>sort</code> decides the order. <code>map</code> decides the new shape. If you keep those decisions separate, the next chapter can convert the resulting list into tags or links without rewriting the filter. If you blend them together, every later stage has to untangle a mess that the first pass could have kept clean.</p>
+<p>This chapter is about selection more than invention. The lines already exist. The trick is to choose the right ones, keep the order you want, and reshape them into something the later writer can use. A clean filter is not a flourish; it is a promise that the manuscript page only carries forward the lines that earned their place.</p>
+<pre><code><span class="k">my</span> <span class="s">@samples</span> = (<span class="s">""</span>, <span class="s">"# Introduction"</span>, <span class="s">"Some prose"</span>, <span class="s">"# Appendix"</span>);
+<span class="k">my</span> <span class="s">@heads</span> = <span class="k">sort</span> <span class="k">grep</span> { <span class="k">substr</span>(<span class="s">$_</span>, <span class="s">0</span>, <span class="s">1</span>) <span class="k">eq</span> <span class="s">"#"</span> } <span class="s">@samples</span>;
+<span class="k">for</span> <span class="k">my</span> <span class="s">$head</span> (<span class="s">@heads</span>) {
+    <span class="k">say</span> <span class="s">$head</span>;
+}</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE SIEVE</div>
+<p><strong>Filter note.</strong> <code>grep</code> keeps the elements that pass the test and discards the rest. That makes it a precise way to isolate heading lines before anything else happens.</p>
+<p><strong>Order note.</strong> <code>sort</code> on plain strings uses lexical order. If the lines begin with the same mark, the visible text decides which comes first.</p>
+<p><strong>Transform note.</strong> <code>map</code> returns a new list. If you do not need a new list, use <code>foreach</code> instead of pretending the result does not matter.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perlfunc: grep, map, and sort"
+url = "https://perldoc.perl.org/perlfunc"
+
+[[lessons.exercises]]
+id = "s03-l04-e1"
+type = "fill"
+points = 20
+prompt = "<p>Restore the list operator that keeps only headings from the sample lines.</p>"
+code = 'my @heads = ____ { substr($_, 0, 1) eq "#" } @samples;'
+answer = "grep"
+hint = "The missing word selects matching elements before sorting happens."
+whyWrong = "You are reaching for a transformer or an ordering step, but this blank needs the selector that filters the array."
+
+[[lessons.exercises]]
+id = "s03-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "<p>Retype the filter-and-order example exactly. Keep the order of <code>grep</code> and <code>sort</code> unchanged.</p>"
+code = '''
+my @samples = ("", "# Introduction", "Some prose", "# Appendix");
+my @heads = sort grep { substr($_, 0, 1) eq "#" } @samples;
+for my $head (@heads) {
+    say $head;
+}
+'''
+
+[[lessons.exercises]]
+id = "s03-l04-e2"
+type = "mc"
+points = 15
+prompt = "<p>Which operator keeps only the lines that start with <code>#</code>?</p>"
+choices = ["<code>map</code>", "<code>grep</code>", "<code>sort</code>", "<code>push</code>"]
+answer = 1
+whyWrong = "You are picking a transformer, an ordering step, or an array mutator when the task is to filter the list down to matching lines."
+hint = "This operator returns only the elements that pass the test."
+explain = "<code>grep</code> keeps the matching lines and drops the rest."
+
+[[lessons.exercises]]
+id = "s03-l04-w1"
+type = "write"
+points = 30
+prompt = "<p>Start from the given array. Keep only the heading lines, sort them, print each heading on its own line, and finish with <code>HEADS 2</code>.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my @samples = ("", "# Introduction", "Some prose", "# Appendix");
+
+# Task: build an array of only the heading lines, sort it, print each heading, and print the count.
+'''
+expect = '''
+# Appendix
+# Introduction
+HEADS 2'''
+hint = "Filter first, sort second, and use the sample array itself to decide which lines survive."
+
+[[lessons.exercises]]
+id = "s03-l04-e3"
+type = "mc"
+points = 15
+prompt = "<p>What does <code>map</code> do in this lesson?</p>"
+choices = ["It removes nonmatching lines.", "It orders the headings alphabetically.", "It transforms each surviving element into a new value.", "It adds a new line to the front of the array."]
+answer = 2
+whyWrong = "You are confusing transformation with filtering, ordering, or array mutation. <code>map</code> keeps the list shape and changes each element's value."
+hint = "The result of <code>map</code> is a new list made from the old one."
+explain = "<code>map</code> reshapes each element into a new value; it does not filter or sort by itself."

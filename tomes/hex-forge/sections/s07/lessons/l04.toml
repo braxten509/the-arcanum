@@ -1,0 +1,123 @@
+[[lessons]]
+id = "s07-l04"
+title = "Reading from the Vault"
+body = '''
+<p>Once the file is open, reading from it uses the same <code>sys_read</code> you learned in s04-l03. The only difference: the fd in rdi is the one returned by <code>openat</code>, not the constant 0 (stdin). The read-loop pattern is identical.</p>
+
+<pre><code><span class="c">; r12 = file descriptor from openat</span>
+.read_loop:
+    <span class="k">mov</span> rax, 0             <span class="c">; sys_read</span>
+    <span class="k">mov</span> rdi, r12            <span class="c">; fd = opened file</span>
+    <span class="k">mov</span> rsi, buffer
+    <span class="k">mov</span> rdx, 4096           <span class="c">; read up to 4096 bytes</span>
+    <span class="k">syscall</span>
+    <span class="k">test</span> rax, rax
+    <span class="k">jz</span> .eof                 <span class="c">; EOF — no more bytes</span>
+    <span class="k">js</span> .error               <span class="c">; negative — read error</span>
+
+    <span class="c">; rax = bytes read. Process them.</span>
+    <span class="k">mov</span> rcx, rax            <span class="c">; count for the processing loop</span>
+    <span class="k">mov</span> rsi, buffer         <span class="c">; reset pointer</span>
+.process:
+    <span class="k">movzx</span> rdx, <span class="k">byte</span> [rsi] <span class="c">; load one byte</span>
+    <span class="c">; --- do something with rdx (hex format, gutter classify) ---</span>
+    <span class="k">inc</span> rsi
+    <span class="k">dec</span> rcx
+    <span class="k">jnz</span> .process
+
+    <span class="k">jmp</span> .read_loop          <span class="c">; next chunk</span>
+
+.eof:
+    <span class="c">; Done — close the file, print final output, exit</span></code></pre>
+
+<p>This is a three-level loop structure: outer (read chunks from file), middle (group 16-byte lines from each chunk), inner (format each byte on the current line). For this lesson, we focus on the outer loop — reading chunks from a specific fd and accumulating the total byte count.</p>
+
+<p>A pattern you'll need in the capstone: tracking the <strong>file offset.</strong> HexForge's first column is the byte offset of the current line. The offset starts at 0 and increments by the number of bytes actually read in each chunk. Since <code>sys_read</code> reads sequentially, the offset is simply the cumulative sum of <code>rax</code> return values — the same pattern you used to count total bytes in s04-l05.</p>
+
+<p>The fd remains valid until you close it. You can read from it as many times as needed — the kernel maintains a file-position cursor that advances with each read. Seeking (changing the cursor position) requires <code>sys_lseek</code> (8), but HexForge never seeks — it reads linearly from start to finish, exactly like <code>hexdump -C</code>.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // READING FROM STDIN vs A FILE — THE KERNEL'S VIEW</div>
+<p>To the kernel, all file descriptors are equal. fd 0 (stdin), fd 1 (stdout), and fd 3+ (opened files) all support the same <code>sys_read</code>/<code>sys_write</code> operations. The only difference is what backs the fd: stdin might be a terminal (line-buffered), a pipe (streaming), or a redirected file (full file); an opened file is always a regular file (seekable, EOF at end). This uniformity is the genius of the Unix fd model — your read loop works on any fd without knowing its origin. HexForge exploits this: the same loop reads from stdin OR an opened file, selected by whether argv[1] was given.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s07-l04-e1"
+type = "mc"
+points = 15
+prompt = "In HexForge's read loop, the running file offset is tracked by accumulating <code>sys_read</code> return values. Why can we sum the return values instead of calling <code>sys_lseek</code>?"
+choices = [
+  "sys_read returns the new file offset, not the byte count",
+  "The kernel maintains sequential read position automatically — each sys_read advances the cursor by exactly the number of bytes returned, so the cumulative sum of return values equals the current offset",
+  "Files opened with O_RDONLY cannot be seeked — the offset must be tracked manually",
+  "sys_lseek doesn't work on regular files — it's only for devices"
+]
+answer = 1
+whyWrong = "sys_read returns the byte count, not the offset. Regular files opened with O_RDONLY CAN be seeked — lseek works fine. The simpler approach: since you read sequentially, the cumulative sum of bytes read IS the current file position. No sys_lseek call is needed unless you need to jump backward or forward."
+hint = "If you read 100 bytes and rax returns 100, the cursor is now at byte 100. Next read starts at 100."
+explain = "The kernel's file-position cursor starts at 0 and advances by exactly the number of bytes successfully read. If <code>sys_read</code> returns 372, the cursor moves to byte 372. The next <code>sys_read</code> starts there. So maintaining <code>offset += rax</code> after each read gives the current position without a separate syscall."
+
+[[lessons.exercises]]
+id = "s07-l04-e2"
+type = "text"
+points = 20
+prompt = "A file opened with <code>sys_openat</code> returns fd 4. How does <code>sys_read(4, buffer, 4096)</code> know to return bytes from THAT file and not stdin or some other open fd?"
+answer = "the kernel tracks which file each fd points to"
+accept = ["the kernel maps fds to open file descriptions", "the fd table", "the kernel's file descriptor table maps the fd number to the open file"]
+hint = "The fd number is an index into a per-process table. The kernel uses it to find the open file description."
+explain = "The kernel maintains a per-process file descriptor table. Each fd number (0, 1, 2, 3, 4, ...) points to an open file description containing the inode, file position, access mode, and flags. When you call <code>sys_read(4, ...)</code>, the kernel looks up fd 4 in this table and reads from whatever file it references."
+
+[[lessons.exercises]]
+id = "s07-l04-e3"
+type = "fill"
+points = 20
+prompt = "Fill the system call that returns resources to the kernel. Always close what you open."
+code = '''
+mov  rax, ____        ; sys_close
+mov  rdi, r12         ; fd to close
+syscall
+'''
+answer = "3"
+hint = "A single digit — the syscall right after read (0) and write (1). Think: what comes after open?"
+explain = "Syscall 3 is <code>sys_close</code>. It releases the file descriptor back to the kernel so it can be reused. While the kernel closes all fds on process exit, explicitly closing fds you've finished with is good practice — especially in long-running programs."
+
+[[lessons.exercises]]
+id = "s07-l04-w1"
+type = "write"
+points = 30
+prompt = "Read and measure a file. Pop argv[1] (the filename <code>data.txt</code>), open it with <code>openat</code>, read its entire contents in 128-byte chunks until EOF, count the total bytes, close the file, and print the total. The engine creates <code>data.txt</code> with content <code>HELLO FROM FILE</code> (15 bytes). Output: <code>15</code>."
+starter = '''
+section .text
+    global _start
+
+_start:
+    ; Pop argc, check >= 2
+    pop rax
+    cmp rax, 2
+    jb .fail
+    pop rdi           ; argv[0]
+    pop rdi           ; argv[1] = filename
+
+    ; Save filename pointer, call openat
+    
+
+    ; Read loop: 128-byte chunks, accumulate count in r13
+    
+
+    ; Close file, print total bytes, exit
+    
+
+.fail:
+    ; Print 0 and exit
+    
+
+section .bss
+buffer: resb 128
+
+section .data
+newline: db 10
+outbuf: times 20 db 0
+zero_msg: db "0"
+'''
+expect = '''
+15'''
+hint = "openat: mov r8,rdi (save filename) / mov rax,257 / mov rdi,-100 / mov rsi,r8 / mov rdx,0 / mov r10,0 / syscall / test rax,rax / js .fail / mov r12,rax (fd). Read loop: xor r13,r13 / .loop: mov rax,0 / mov rdi,r12 / mov rsi,buffer / mov rdx,128 / syscall / test rax,rax / jz .done / add r13,rax / jmp .loop. .done: mov rax,3 / mov rdi,r12 / syscall. Then itoa r13 and print."

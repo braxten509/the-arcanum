@@ -1,0 +1,35 @@
+[freestyle]
+title = "THE WORKING: CUT THE JIGS"
+brief = "Forge a suite of three reusable procedures that HexForge will call in the capstone — proving the workshop of jigs holds under load.<ul><li>Write <code>print_string</code>: takes buffer address in rdi, byte count in rsi, prints via sys_write. Returns nothing. Must remap registers for the kernel's syscall ABI.</li><li>Write <code>print_newline</code>: prints a single newline character (byte 10). Must call <code>print_string</code> internally (do not inline the syscall). Saves any caller-saved registers it needs across the nested call.</li><li>Write <code>itoa_print</code>: takes an unsigned integer in rdi, converts it to decimal ASCII using the div-ebx-push-pop pattern, then prints the digits by calling <code>print_string</code>. Returns nothing.</li><li>From <code>_start</code>: call <code>itoa_print</code> with the value 9371, call <code>print_newline</code>, call <code>itoa_print</code> with the value 248, call <code>print_newline</code>. Output: <code>9371\\n248\\n</code>.</li><li>Every procedure must follow the System V AMD64 ABI: arguments in rdi/rsi, return in rax. Callee-saved registers must be preserved if used. <code>print_newline</code> must save rdi/rsi across its call to <code>print_string</code>.</li></ul>"
+reward = 200
+xray = "Vandr docks: inlining sys_write in procedures that should delegate to print_string (the brief demands call, not inlining), forgetting to save rdi/rsi across nested calls in print_newline, itoa_print using a static buffer without a frame (races with print_string's buffer), hardcoded output instead of converting rdi, missing newlines, stack imbalance (push without matching pop). He rewards: clean register remapping in print_string, itoa using div ebx (32-bit) correctly, print_newline saving and restoring caller-saved registers across the inner call, and each procedure doing exactly one job."
+
+[freestyle.badge]
+id = "badge-s05"
+name = "JIG CUT"
+desc = "Forged reusable procedures — the workshop of jigs that will shape HexForge's capstone."
+
+[[freestyle.rubric]]
+criterion = "Assembles, links, and runs without error"
+weight = 20
+desc = "nasm -f elf64 and ld succeed; program exits cleanly; no stack imbalance crashes."
+
+[[freestyle.rubric]]
+criterion = "Correct output for both values"
+weight = 25
+desc = "Prints 9371 on line 1 and 248 on line 2 — both computed from the arguments passed to itoa_print, not hardcoded."
+
+[[freestyle.rubric]]
+criterion = "ABI compliance and register discipline"
+weight = 25
+desc = "All procedures follow System V AMD64: arguments in rdi/rsi, ret for return. print_newline saves caller-saved regs across its call to print_string. No callee-saved register is clobbered without save/restore."
+
+[[freestyle.rubric]]
+criterion = "Proper procedure delegation"
+weight = 15
+desc = "print_newline calls print_string (does not inline sys_write). itoa_print calls print_string (does not inline sys_write). print_string is the single sys_write wrapper."
+
+[[freestyle.rubric]]
+criterion = "Clean NASM style"
+weight = 15
+desc = "itoa_print uses div ebx (32-bit) and a local buffer (on stack or .bss). xor zeroing throughout. Labels use lowercase underscore. Stack frames (push rbp) where needed for local storage."

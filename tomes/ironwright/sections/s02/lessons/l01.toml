@@ -1,0 +1,85 @@
+[[lessons]]
+id = "s02-l01"
+title = "The Conditional Eye — if, else, and String equals"
+body = '''
+<p>A smith who cannot tell iron from slag strikes blindly. Java's <code>if</code> is the conditional eye: it tests a boolean and runs a block only when the test is true.</p>
+<pre><code>String command = in.nextLine();
+<span class="k">if</span> (command.equals(<span class="s">"quit"</span>)) {
+    System.out.println(<span class="s">"IRONWRIGHT // forge cold"</span>);
+} <span class="k">else if</span> (command.equals(<span class="s">"list"</span>)) {
+    System.out.println(<span class="s">"forge is empty"</span>);
+} <span class="k">else</span> {
+    System.out.println(<span class="s">"UNKNOWN "</span> + command);
+}</code></pre>
+<p>The condition inside the parentheses must be a <code>boolean</code> — a comparison (<code>ingots &gt; 0</code>) or a method call that returns one. <code>else if</code> chains a second test; <code>else</code> catches everything that slipped past. The braces <code>{ }</code> mark the block each branch runs; with them you can put any number of statements in a branch, without them only the very next statement belongs to the branch.</p>
+<p>Notice <code>command.equals("quit")</code>, not <code>command == "quit"</code>. For Strings, <code>==</code> asks "are these the same object in memory?" — almost never what you mean. <code>.equals</code> asks "do these two pieces of text say the same thing?" — the smith's question. Burn this in now: <strong>compare Strings with <code>.equals</code>, never with <code>==</code></strong>. Forgework IV returns to <code>equals</code> as a method you write yourself; here you only need to call it.</p>
+<div class="callout"><strong>Orrick says:</strong> The condition is a question with a yes/no answer. <code>if (ingots = 8)</code> is not a question — it is an assignment, and the compiler will shout at you. One <code>=</code> assigns; two <code>==</code> compare.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ELSE IF IS JUST NESTED ELSE</div>
+<p><code>else if</code> is not a special keyword — it is an <code>else</code> whose single statement happens to be another <code>if</code>. So the chain tests each branch in order and stops at the first true one; if none match, the trailing <code>else</code> runs. That makes the order matter: put the specific cases before the general ones, or the general swallows them.</p></div>
+'''
+
+[[lessons.readings]]
+label = "The Java Tutorials — The if-then and if-then-else Statements"
+url = "https://docs.oracle.com/javase/tutorial/java/nutsandbolts/if.html"
+
+[[lessons.exercises]]
+id = "s02-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the command dispatch exactly — the equals check, the else-if, and the else fallback."
+code = '''if (command.equals("quit")) {
+    System.out.println("IRONWRIGHT // forge cold");
+} else if (command.equals("list")) {
+    System.out.println("forge is empty");
+} else {
+    System.out.println("UNKNOWN " + command);
+}'''
+
+[[lessons.exercises]]
+id = "s02-l01-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the method that compares two Strings by their text (not by identity)."
+code = 'if (command.____("quit")) { System.out.println("cold"); }'
+answer = "equals"
+whyWrong = "equals compares the text of two Strings; == compares object identity (almost never what you want for text); compareTo returns an int ordering, not a boolean; length returns a count. The condition needs a boolean, so equals is the call."
+hint = "It is the method named for the question 'are these equal?' — called on the String with the other String in parentheses."
+
+[[lessons.exercises]]
+id = "s02-l01-e1"
+type = "mc"
+points = 15
+prompt = "A novice writes <code>if (command == \"forge\")</code> to test a String read from stdin, and it fails even when the typed word is forge. Why?"
+choices = ["== on Strings compares object identity, not text, so two separate String objects with the same letters are not ==", "the if keyword requires a number, not a boolean", "String literals cannot contain the word forge", "System.in never produces a String equal to forge"]
+answer = 0
+whyWrong = "== asks whether the two sides are the same object; a String read from stdin and a literal are different objects, so == is false even with matching text. The other options misstate how if and String work. Use .equals to compare text."
+hint = "Think about what == actually compares for objects — and that the typed String and the literal are two different objects."
+explain = "For objects, == is reference equality. command.equals(\"forge\") compares characters; that is the correct test."
+
+[[lessons.exercises]]
+id = "s02-l01-w1"
+type = "write"
+points = 30
+prompt = "Read one command from stdin (the engine pipes <code>list</code>). If it equals <code>quit</code>, print <code>IRONWRIGHT // forge cold</code>; if it equals <code>list</code>, print <code>forge is empty</code>; otherwise print <code>UNKNOWN</code> plus the command (e.g. <code>UNKNOWN list</code>). Use .equals for the String tests."
+starter = '''import java.util.Scanner;
+
+public class Ironwright {
+    public static void main(String[] args) {
+        Scanner in = new Scanner(System.in);
+        String command = in.nextLine();
+        // apprentice — dispatch on command with if/else-if/else using .equals
+    }
+}'''
+expect = '''
+forge is empty'''
+hint = "Three branches: if (command.equals(\"quit\")) ... else if (command.equals(\"list\")) ... else ..."
+stdin = "list"
+
+[[lessons.exercises]]
+id = "s02-l01-t1"
+type = "text"
+points = 20
+prompt = "Type the keyword that introduces the final catch-all branch — the one with no condition, used after all the if and else-if tests fail."
+answer = "else"
+hint = "It is three letters short for 'otherwise' — the branch that runs when nothing else matched."

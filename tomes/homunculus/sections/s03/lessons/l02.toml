@@ -1,0 +1,81 @@
+[[lessons]]
+id = "s03-l02"
+title = "The GGUF Ladder"
+body = '''
+<p>The last rite's math used clean bytes-per-parameter numbers — 4, 2, 1, 0.5 — as if quantization only ever lands on a whole-byte boundary. GGUF, the format llama.cpp converts to and Ollama serves from, mostly doesn't. Its quant names encode a specific bit-width and a specific bucketing strategy, and reading them correctly is how you predict a model's real VRAM cost before you ever download it.</p>
+<p>The legacy names are the simplest: <code>q8_0</code> quantizes every weight to 8 bits with one scale factor per fixed-size block of weights; <code>q4_0</code> does the same at 4 bits per weight. The <code>_0</code> suffix marks the oldest, plainest bucketing scheme — one scale, no per-weight nuance. The newer <strong>K-quants</strong> — <code>q4_K_M</code>, <code>q5_K_S</code>, <code>q3_K_L</code> — spend a variable number of bits per weight depending on which layer and which role that weight plays, because not every weight matters equally to output quality. A <code>q4_K_M</code> file is not exactly 4 bits per weight; it averages out closer to <strong>4.5 bits</strong>, spending a little extra where it buys back the most accuracy. The letter suffix (<code>_S</code>/<code>_M</code>/<code>_L</code>) is llama.cpp's own small/medium/large tradeoff within that same bit-width family — more bits spent on the sensitive layers as you go from S to L.</p>
+<pre><code><span class="k">quant_bits</span> = {
+    "q8_0": 8.0,
+    "q4_0": 4.0,
+    "q4_K_M": 4.5,
+    "q3_K_S": 3.4,
+}</code></pre>
+<p>The formula from the last rite still applies — <code>size_gb = params_b * bits / 8</code> — you just plug in the K-quant's real average instead of assuming a clean whole number. An 8B model at <code>q4_K_M</code> is <code>8 * 4.5 / 8</code> ≈ 4.5 GB, not the 4 GB a naive "it says 4-bit" read would suggest. That half a gigabyte of difference is exactly the kind of gap that turns "fits comfortably" into "barely fits" once the KV cache and an adapter join the budget in the rites ahead.</p>
+<div class="callout">A quant name is not a promise of quality on its own — <code>q2_K</code> exists and will run, but pushing bits-per-weight that low measurably degrades output on anything but the largest base models. Smaller isn't free; it trades accuracy you may need back later.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY K-QUANTS BEAT A FLAT BIT-WIDTH</div>
+<p>The insight behind K-quants is that a transformer's weights are not equally sensitive to error — attention projections and early layers tend to punish aggressive quantization harder than later feed-forward blocks. A flat <code>q4_0</code> spends the same 4 bits everywhere regardless; a <code>q4_K_M</code> spends closer to 5–6 bits on the layers that matter most and less on the ones that tolerate it, landing at a better quality-per-byte than the legacy scheme at a similar average size. This is also why two models both labeled "4-bit" are not interchangeable numbers — always read the exact quant string, never round it to "4-bit" in your head.</p></div>
+'''
+
+[[lessons.readings]]
+label = "llama.cpp quantization overview"
+url = "https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md"
+
+[[lessons.exercises]]
+id = "s03-l02-e1"
+type = "mc"
+points = 20
+prompt = "Why does a <code>q4_K_M</code> GGUF land closer to 4.5 bits per weight on average, rather than exactly 4?"
+choices = [
+  "It's a labeling error in llama.cpp's naming scheme with no technical cause",
+  "It stores the model twice, once at 4-bit and once at full precision, then averages the file size",
+  "The K stands for 'kilobyte-aligned', which pads the file size upward with no effect on precision",
+  "It spends a variable bit budget per layer, giving sensitive layers a few extra bits back rather than quantizing every weight identically",
+]
+answer = 3
+whyWrong = "There's no naming error, no duplicate storage, and no kilobyte-padding scheme at work — the extra fraction of a bit comes from a real design choice: spending more bits on the layers most sensitive to quantization error and fewer on the ones that tolerate it."
+explain = "K-quants vary bits per weight by layer sensitivity, which is exactly why the average lands above the flat bit-width the name suggests — the lesson's field notes name attention/early layers as the ones that get the extra bits."
+
+[[lessons.exercises]]
+id = "s03-l02-e2"
+type = "text"
+points = 15
+prompt = "In a GGUF quant name like <code>q4_0</code>, what does the trailing <code>_0</code> specifically mark, as opposed to a K-quant suffix like <code>_K_M</code>?"
+answer = "the oldest, plainest bucketing scheme with one scale factor per block"
+accept = ["legacy quantization", "the legacy scheme", "one scale per block, no per-weight nuance", "the old flat quantization scheme"]
+hint = "It's described in the lesson's second paragraph, contrasted directly against the newer K-quant family's variable bit spend."
+
+[[lessons.exercises]]
+id = "s03-l02-e3"
+type = "fill"
+points = 20
+prompt = "Fill the missing average bits-per-weight value for <code>q4_K_M</code>, as given in the lesson's quant_bits table."
+code = '''quant_bits = {
+    "q8_0": 8.0,
+    "q4_0": 4.0,
+    "q4_K_M": ____,
+    "q3_K_S": 3.4,
+}'''
+answer = "4.5"
+hint = "It's the number the lesson uses in its worked 8B-model example: 8 * 4.5 / 8 ≈ 4.5 GB."
+
+[[lessons.exercises]]
+id = "s03-l02-e4"
+type = "write"
+points = 30
+prompt = "Given <code>params_b = 8</code> and the quant_bits dict below, compute the size in GB for the <code>\"q3_K_S\"</code> entry using <code>size_gb = params_b * bits / 8</code>, and print exactly: <code>SIZE 3.4 GB</code> — computed from the dict, not hardcoded."
+starter = '''params_b = 8
+quant_bits = {
+    "q8_0": 8.0,
+    "q4_0": 4.0,
+    "q4_K_M": 4.5,
+    "q3_K_S": 3.4,
+}
+
+# TODO: look up quant_bits["q3_K_S"], compute size_gb = params_b * bits / 8,
+# then print:
+#   SIZE 3.4 GB
+size_gb = 0
+print(f"SIZE {size_gb} GB")
+'''
+expect = "SIZE 3.4 GB"
+hint = "Pull the bits value with quant_bits[\"q3_K_S\"], then size_gb = params_b * bits / 8 — format the result with one decimal place."

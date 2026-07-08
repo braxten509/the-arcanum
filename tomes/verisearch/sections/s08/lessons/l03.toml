@@ -42,6 +42,7 @@ points = 20
 prompt = "Which object actually TRIGGERS cancellation?"
 choices = ["CancellationToken", "CancellationTokenSource", "TaskCanceledException", "Task.Cancel()"]
 answer = 1
+whyWrong = "The token only OBSERVES cancellation and the exception/‘Task.Cancel’ aren’t the trigger — CancellationTokenSource.Cancel() fires it."
 hint = "The token is read-only; the ____ has .Cancel()."
 
 [[lessons.exercises]]
@@ -61,8 +62,9 @@ id = "s08-l03-e3"
 type = "mc"
 points = 20
 prompt = "A canceled operation surfaces as…"
-choices = ["a null return value", "an OperationCanceledException at the await", "a bool return of false", "silent completion with partial data"]
-answer = 1
+choices = ["a null return value", "a bool return of false", "an OperationCanceledException at the await", "silent completion with partial data"]
+answer = 2
+whyWrong = "Cancellation isn’t a null/false return or a silent finish — it surfaces as an OperationCanceledException thrown at the await."
 hint = "Cancellation travels the same rails as errors."
 
 [[lessons.exercises]]

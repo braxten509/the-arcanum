@@ -1,0 +1,117 @@
+[[lessons]]
+id = "s01-l01"
+title = "The Forge Floor"
+body = '''
+<p>A forge does not light itself. Three things must stand before the first hammer falls: a <strong>floor</strong> to hold the work, a <strong>sign</strong> for the linker to find, and a <strong>way to leave</strong> when the work is done.</p>
+
+<p>NASM speaks a lean tongue. A <strong>semicolon</strong> starts a comment — the rest of the line is for your eyes, not the assembler. A <strong>colon</strong> ends a label: a name that marks a spot in the ore. A <strong>period</strong> begins a directive — an instruction for the assembler, not for the CPU.</p>
+
+<p>The entrance is always <code>_start</code>. The linker <code>ld</code> searches every <code>.o</code> file for that name. If it cannot find <code>_start</code>, the forge stays dark: the linker refuses to strike. Declare it <strong>global</strong> so the linker can see it across the object-file boundary.</p>
+
+<p>Two sections stand guard:</p>
+<ul>
+<li><code>section .text</code> — the floor. Every CPU instruction lives here.</li>
+<li><code>section .data</code> — the ore shelf. Initialised constants (strings, numbers) sit here, ready to be loaded into registers.</li>
+</ul>
+
+<p>The assemble→link→run cycle is three strikes:</p>
+<ol>
+<li><code>nasm -f elf64 main.asm</code> — turns your text into an object file (<code>main.o</code>). Syntax errors are caught here.</li>
+<li><code>ld main.o -o a.out</code> — binds the object into a runnable executable. A missing <code>_start</code> is caught here.</li>
+<li><code>./a.out</code> — the forge breathes. The CPU runs your instructions in order from <code>_start</code> downward.</li>
+</ol>
+
+<p>Every program must exit cleanly. <code>sys_exit</code> — syscall number 60 — tells the kernel the work is done. Set <code>rax</code> to 60, <code>rdi</code> to 0 (meaning "no flaw"), and strike <code>syscall</code>.</p>
+
+<p>Before the exit you may speak. <code>sys_write</code> — syscall 1 — prints bytes to a file descriptor. Set <code>rax</code> to 1 (the gate), <code>rdi</code> to 1 (stdout — the speaking stone), <code>rsi</code> to the address of your string, <code>rdx</code> to its length in bytes, then <code>syscall</code>.</p>
+
+<p>Write the smallest working NASM program: one text section, one entry, one string spoken, one clean exit. That program already proves the forge is lit — the assembler, linker, and kernel all agreed your metal was sound.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY <code>-f elf64</code> AND NOT <code>-f bin</code></div>
+<p>The <code>-f elf64</code> flag tells NASM to produce an ELF64 object file — the format Linux understands. Bin format (<code>-f bin</code>) is raw machine code with no metadata, used for boot sectors and firmware. The linker <code>ld</code> needs ELF headers to resolve labels, combine sections, and set the entry point. Without <code>-f elf64</code>, <code>ld</code> cannot read the object at all. The <code>-lc</code> flag (link against libc) is deliberately absent — this course forges bare metal, no standard library. If your program calls <code>printf</code> instead of <code>sys_write</code>, it needs <code>-lc</code> and a <code>main</code> symbol — which is a different forge entirely, not ours.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s01-l01-e1"
+type = "mc"
+points = 15
+prompt = "Which NASM section holds the CPU's executable instructions — the forge floor?"
+choices = [
+  "section .data",
+  "section .bss",
+  "section .rodata",
+  "section .text"
+]
+answer = 3
+whyWrong = "The other three hold data — initialised (.data), uninitialised (.bss), or read-only (.rodata). Only .text carries the executable code the CPU will strike."
+hint = "The section named after what programmers write — the text of the program."
+explain = "`.text` is where every instruction lives. `.data` holds initialised bytes (strings, constant numbers). `.bss` reserves uninitialised space (buffers). `.rodata` is for read-only constants — present on some platforms but not required in our bare-metal forge."
+
+[[lessons.exercises]]
+id = "s01-l01-e2"
+type = "text"
+points = 20
+prompt = "The linker <code>ld</code> needs to find the program's starting point. Write the NASM directive (one word) that exports a label so the linker can see it."
+answer = "global"
+hint = "The directive sits on its own line before the label. It begins with 'g' — what word makes a label visible to the linker?"
+explain = "Without <code>global _start</code>, <code>ld</code> reports <code>undefined reference to _start</code>. The directive tells the assembler to include the label in the object file's symbol table so the linker can resolve it."
+
+[[lessons.exercises]]
+id = "s01-l01-e3"
+type = "fill"
+points = 20
+prompt = "Complete the entry-point label. The linker searches for this exact name."
+code = '''
+        global ____
+____:
+'''
+answer = "_start"
+hint = "Both blanks are the same label — the one the linker looks for by default. It begins with an underscore."
+explain = "The label <code>_start</code> is the default entry symbol for the Linux ELF linker. If you wrote <code>main</code> instead, <code>ld</code> would need <code>-e main</code> to find it — and <code>main</code> expects libc to have set up <code>argc</code> and <code>argv</code> first."
+
+[[lessons.exercises]]
+id = "s01-l01-d1"
+type = "type"
+points = 12
+prompt = "Retype this working NASM skeleton. Every character counts — nails, not glue."
+code = '''
+section .text
+    global _start
+
+_start:
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, msg
+    mov rdx, 5
+    syscall
+
+    mov rax, 60
+    xor rdi, rdi
+    syscall
+
+section .data
+msg: db "FORGE"
+'''
+
+[[lessons.exercises]]
+id = "s01-l01-w1"
+type = "write"
+points = 30
+prompt = "Strike your first spark. Write a NASM program that prints the word <code>SPARK</code> and exits cleanly. The forge assembles with <code>nasm -f elf64</code>, links with <code>ld</code>, and runs the result. You need: <code>section .text</code>, <code>global _start</code>, <code>_start:</code>, a <code>sys_write</code> to stdout (rax=1, rdi=1, rsi=msg, rdx=5), a <code>sys_exit</code> (rax=60, rdi=0), and a <code>.data</code> section with the string."
+starter = '''
+section .text
+    global _start
+
+_start:
+    ; Write the five ore bytes to stdout — set rax, rdi, rsi, rdx, then syscall
+    
+
+    ; Exit cleanly — set rax=60, rdi=0, then syscall
+    
+
+section .data
+msg: db 'S', 'P', 'A', 'R', 'K'
+'''
+expect = '''
+SPARK'''
+hint = "The starter has the exit skeleton. Add the four mov instructions for sys_write — rax=1, rdi=1, rsi=msg, rdx=5 — and a syscall above the exit."

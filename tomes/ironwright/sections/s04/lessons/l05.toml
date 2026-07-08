@@ -1,0 +1,80 @@
+[[lessons]]
+id = "s04-l05"
+title = "Reading the Old Marks — net.minecraft.item.Item"
+body = '''
+<p>Now you put the smith-wright's eye to its first real mark. Open IntelliJ (you will set it up in Forgework VI) and find <code>net.minecraft.item.Item</code> — the parent of every item in the block-world, the class your <code>ItemIngot</code> will extend.</p>
+<p>The tools of reconnaissance: <strong>Go to Class</strong> (Ctrl+N / Ctrl+N) jumps straight to a class by name — type <code>Item</code> and pick <code>net.minecraft.item.Item</code>. The <strong>Structure</strong> pane lists every field and method on the class — scan it to see what an Item carries (a max stack size, a registry name, a creative tab). <strong>Find Usages</strong> (Alt+F7) shows everywhere a field or method is used — how the game itself calls <code>getItemStackLimit</code>, say. <strong>Search Everywhere</strong> (Shift+Shift) rummages the whole codebase when you do not yet know the exact name.</p>
+<p>What you read is not the masters' original stamps. Minecraft ships obfuscated names (<code>field_77699_b</code>, <code>func_77650_f</code>) — the <strong>old marks</strong>. Forge's MCP mappings <strong>translate</strong> them into human-readable names (<code>maxStackSize</code>, <code>getItemStackLimit</code>). The decompiled source you read is the translated form; the SRG→MCP step (run in <code>setupDecompWorkspace</code>) is the translating. You read the translated marks; the obfuscated originals live only in the binary jar.</p>
+<p>The hierarchy tells you what an Item <em>is</em>: <code>Item</code> extends <code>Object</code> (with a Forge interface mixed in — Forgework V). Every method Item defines is a method your <code>ItemIngot</code> inherits and may override. The smith-wright's eye reads the parent to know what the child can become.</p>
+<div class="callout"><strong>Orrick says:</strong> Never guess an override. Open the parent, read its methods, copy the signature exactly, mark it <code>@Override</code>. The compiler will not forgive a misread mark.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // OBFUSCATED VERSUS MCP NAMES</div>
+<p>The same field has three names: <strong>Notch</strong> (the original obfuscated, <code>field_77699_b</code>), <strong>SRG</strong> (a stable intermediate id), and <strong>MCP</strong> (the human name, <code>maxStackSize</code>). You write code against the MCP name; Forge re-maps it at runtime. When a tutorial online uses <code>field_77699_b</code>, it is showing the SRG name — translate it to <code>maxStackSize</code> in your head.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Minecraft Forge 1.12.x Documentation"
+url = "https://docs.minecraftforge.net/en/1.12.x/"
+
+[[lessons.exercises]]
+id = "s04-l05-e1"
+type = "mc"
+points = 15
+prompt = "You want to jump straight to <code>net.minecraft.item.Item</code> in IntelliJ without drilling through folders. Which tool does that?"
+choices = ["Go to Class (Ctrl+N)", "Find Usages (Alt+F7)", "Search Everywhere (Shift+Shift)", "the Structure pane"]
+answer = 0
+whyWrong = "Go to Class jumps to a class by name; Find Usages shows where a member is used (not a class jump); Search Everywhere is broader and less direct; the Structure pane lists one class's members but does not navigate to a class. The direct class-by-name jump is Go to Class."
+hint = "It is the navigate-by-class-name shortcut — Ctrl+N, the fastest way to a known class."
+explain = "Go to Class (Ctrl+N) opens a class by name. Find Usages and Search Everywhere answer different questions; Structure reads one open class."
+
+[[lessons.exercises]]
+id = "s04-l05-t1"
+type = "text"
+points = 20
+prompt = "Type the fully-qualified class name of Minecraft's Item — the parent class your ItemIngot will extend. (package.path.ClassName)"
+answer = "net.minecraft.item.Item"
+hint = "It is the net.minecraft.item package, class Item — the address you would type into Go to Class."
+
+[[lessons.exercises]]
+id = "s04-l05-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the human-readable MCP name. The obfuscated SRG field <code>field_77699_b</code> on Item translates (via the MCP mappings) to the field that caps how many items stack together — its name is ____."
+code = '''// field_77699_b  --MCP-->  ____
+// the field that limits how many of an item fit in one stack'''
+answer = "maxStackSize"
+whyWrong = "field_77699_b maps to maxStackSize (the stack-size cap); getItemStackLimit is a method not the field, registryName is a Forge-added field not on vanilla Item, stackSize is an ItemStack field not Item's. The translated field name is maxStackSize."
+hint = "It is the field that sets the maximum stack size — three words run together, camelCase, 'max' + 'stack' + 'size'."
+
+[[lessons.exercises]]
+id = "s04-l05-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of the inheritance you just read: the starter has a mock <code>Item</code> class (a <code>registryName</code> field + getter) and an <code>ItemIngot extends Item</code> whose constructor already calls <code>super(registryName)</code>. In <code>main</code>, construct <code>ItemIngot ingot = new ItemIngot(\"ironwright:iron\");</code> and print <code>registered </code> plus <code>ingot.getRegistryName()</code> (inherited from Item). Do not type the string <code>ironwright:iron</code> in the print."
+starter = '''public class Ironwright {
+    static class Item {
+        private String registryName;
+        public Item(String registryName) { this.registryName = registryName; }
+        public String getRegistryName() { return registryName; }
+    }
+    static class ItemIngot extends Item {
+        public ItemIngot(String registryName) { super(registryName); }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — construct new ItemIngot("ironwright:iron") and print "registered " + its registry name
+    }
+}'''
+expect = '''
+registered ironwright:iron'''
+hint = "In ItemIngot: public ItemIngot(String registryName) { super(registryName); }. In main: ItemIngot ingot = new ItemIngot(\"ironwright:iron\"); println(\"registered \" + ingot.getRegistryName());"
+
+[[lessons.exercises]]
+id = "s04-l05-e2"
+type = "mc"
+points = 15
+prompt = "The decompiled Minecraft source you read shows <code>maxStackSize</code>, but the shipped jar's bytecode has <code>field_77699_b</code>. What is the relationship?"
+choices = ["maxStackSize is the human MCP name; field_77699_b is the obfuscated SRG name for the same field — MCP mappings translate between them", "they are unrelated fields", "maxStackSize is Forge's replacement field", "field_77699_b is a method, not a field"]
+answer = 0
+whyWrong = "They are the same field under two names: field_77699_b is the obfuscated SRG name, maxStackSize the human MCP name. Forge's setupDecompWorkspace applies the SRG→MCP mapping so you read maxStackSize and write code against it; Forge re-maps at runtime. It is not a replacement field, and it is a field not a method."
+hint = "Think about what the MCP mappings do — they translate one name into the other for the same underlying field."
+explain = "One field, three names (Notch/SRG/MCP). You code against maxStackSize; the mapping bridges your code to the obfuscated runtime."

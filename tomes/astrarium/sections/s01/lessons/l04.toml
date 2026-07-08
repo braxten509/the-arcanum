@@ -1,0 +1,107 @@
+[[lessons]]
+id = "s01-l04"
+title = "The Ledger's Arithmetic"
+body = '''
+<p>The ledger demands totals. Averages. The difference between one watch and the next. Vaelith taps the figures on the page. <strong>"Numbers are the ink the Astrarium writes in."</strong></p>
+
+<p>Python has two main numeric types: <code>int</code> for whole numbers and <code>float</code> for numbers with a decimal point. The basic operations work the way you expect:</p>
+<pre><code>watch_1 <span class="k">=</span> <span class="mi">12</span>
+watch_2 <span class="k">=</span> <span class="mi">7</span>
+total <span class="k">=</span> watch_1 <span class="o">+</span> watch_2            <span class="c"># 19</span>
+difference <span class="k">=</span> watch_1 <span class="o">-</span> watch_2       <span class="c"># 5</span>
+per_watch <span class="k">=</span> total <span class="o">/</span> <span class="mi">2</span>              <span class="c"># 9.5 (float)</span></code></pre>
+
+<p>A few operators the Astrarium relies on daily:</p>
+<pre><code><span class="o">*</span>  <span class="c"># multiplication:    3 * 4 = 12</span>
+<span class="o">/</span>  <span class="c"># float division:   22 / 7 = 3.1428</span>
+<span class="o">//</span> <span class="c"># floor division:   22 // 7 = 3 (discards remainder)</span>
+<span class="o">%</span>  <span class="c"># modulo (remainder): 22 % 7 = 1</span>
+<span class="o">**</span> <span class="c"># exponentiation:    2 ** 10 = 1024</span></code></pre>
+<p>The <strong>floor division</strong> <code>//</code> and <strong>modulo</strong> <code>%</code> are especially useful: <code>//</code> tells you how many whole groups fit, and <code>%</code> tells you what's left over. An observer recording 150 events in groups of 8 writes <code>18</code> full groups with <code>6</code> leftover.</p>
+
+<p>Type conversion bridges the gap between what <code>input()</code> gives you and what arithmetic needs:</p>
+<pre><code>raw <span class="k">=</span> <span class="k">input</span>()               <span class="c"># user types "12" → raw is "12" (str)</span>
+count <span class="k">=</span> <span class="nb">int</span>(raw)              <span class="c"># count is 12 (int)</span>
+<span class="k">print</span>(<span class="s">f"Double: {count * 2}"</span>) <span class="c"># Double: 24</span></code></pre>
+<p><code>float()</code> works the same way, converting strings like <code>"3.14"</code> into decimal numbers.</p>
+
+<p>Python follows standard operator precedence: <code>**</code> first, then <code>*</code>/<code>/</code>/<code>//</code>/<code>%</code>, then <code>+</code>/<code>-</code>. Use parentheses to make the order explicit — the Astrarium's calculations must be unambiguous:</p>
+<pre><code>result <span class="k">=</span> (watch_1 <span class="o">+</span> watch_2 <span class="o">+</span> watch_3) <span class="o">/</span> <span class="mi">3</span></code></pre>
+
+<div class="callout">"<strong>Vaelith's rule:</strong> when converting input, wrap the input() call directly: <code>count = int(input())</code>. One line, one type, no intermediate variable wasted."</div>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // Floating-Point Precision</div>
+<p>Floats are approximations — <code>0.1 + 0.2</code> yields <code>0.30000000000000004</code>, not <code>0.3</code>. This is not a Python bug; it is how IEEE 754 floating-point works in every language. The Astrarium handles this with <code>round()</code> and format specifiers like <code>:.2f</code>, which displays <code>0.30</code> without changing the underlying value. For exact decimal arithmetic (rare in a log reader), Python has the <code>decimal</code> module.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python docs — numeric types"
+url = "https://docs.python.org/3/library/stdtypes.html#numeric-types-int-float-complex"
+
+[[lessons.exercises]]
+id = "s01-l04-e1"
+type = "mc"
+points = 15
+prompt = "An observer logs 22 events across 7 hours. What does <code>22 // 7</code> evaluate to?"
+choices = [
+  "3.142",
+  "1",
+  "7",
+  "3"
+]
+answer = 3
+whyWrong = "3.142 is the result of float division (22 / 7), not floor division. 1 is the remainder (22 % 7), not the quotient. 7 is the divisor, not the result. Floor division // drops the fractional part, giving the whole number of complete hours."
+hint = "Floor division // divides and discards the remainder — it answers 'how many whole groups fit?'"
+explain = "22 // 7 = 3 — the floor division discards the fractional part. The remainder is 22 % 7 = 1."
+
+[[lessons.exercises]]
+id = "s01-l04-e2"
+type = "fill"
+points = 20
+prompt = "Three watches reported these counts. What expression completes the total?"
+code = 'watch_1 = 12\nwatch_2 = 7\nwatch_3 = 3\ntotal = watch_1 + watch_2 + ____'
+answer = "watch_3"
+hint = "The variable that holds the third watch's count is already defined — use its name."
+explain = "watch_3 holds the third watch's count (3). Adding it to the other two gives the full total."
+
+[[lessons.exercises]]
+id = "s01-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this arithmetic line exactly. (Ctrl+Enter submits.)"
+code = 'total = (watch_1 + watch_2 + watch_3) // 3'
+
+[[lessons.exercises]]
+id = "s01-l04-e3"
+type = "fill"
+points = 20
+prompt = "The Astrarium reads a string from input and needs it as an integer. What function goes in the blank?"
+code = 'count_str = "5"\ncount = ____(count_str)'
+answer = "int"
+hint = "The function that converts a string to a whole number has the same name as the type it produces."
+explain = "int() converts a string (or float) to an integer, so the Astrarium can do arithmetic with it."
+
+[[lessons.exercises]]
+id = "s01-l04-e4"
+type = "text"
+points = 20
+prompt = "What operator in Python raises a number to a power — for example, <code>2 ____ 10</code> to get 1024?"
+answer = "**"
+accept = ["exponentiation", "pow"]
+hint = "It is a two-character operator found between the base and the exponent."
+explain = "** is Python's exponentiation operator. 2 ** 10 equals 1024."
+
+[[lessons.exercises]]
+id = "s01-l04-w1"
+type = "write"
+points = 30
+prompt = "Three watches reported these observation counts. Use the variables to compute the total and the average (as a float), then print exactly:<br><code>Total: 22</code><br><code>Average: 7.3</code>"
+expect = '''Total: 22
+Average: 7.3'''
+starter = '''# ASTRARIUM — Compute Nightly Stats
+watch_1 = 12
+watch_2 = 7
+watch_3 = 3
+# TODO: compute total and average, then print them with f-strings'''
+hint = "Sum all three variables for total. Divide total by 3 for the average, then use :.1f to round to one decimal place."

@@ -1,0 +1,102 @@
+[[lessons]]
+id = "s04-l03"
+title = "Parameterised Decorators — The Sextant's Adjustable Glass"
+body = '''
+<p>A simple decorator takes one argument: the function. But Sextant's plugin registry needs <code>@handler(level=\"ERROR\")</code> — a decorator that takes arguments. This is a closure that returns a decorator: the outer function captures the arguments, the middle function receives the decorated function, and the innermost wrapper replaces it.</p>
+<pre><code><span class="k">def</span> <span class="nf">handler</span><span class="p">(</span><span class="n">level</span>: <span class="nb">str</span> <span class="o">=</span> <span class="s">"INFO"</span><span class="p">)</span> <span class="o">-></span> <span class="n">Callable</span>:
+    <span class="k">def</span> <span class="nf">decorator</span><span class="p">(</span><span class="n">func</span>: <span class="n">Callable</span><span class="p">)</span> <span class="o">-></span> <span class="n">Callable</span>:
+        <span class="nd">@wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">wrapper</span><span class="p">(</span><span class="n">record</span>: <span class="n">LogRecord</span><span class="p">)</span> <span class="o">-></span> <span class="nb">str</span> | <span class="kc">None</span>:
+            <span class="k">if</span> record.level != level:
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="k">return</span> <span class="n">func</span>(record)
+        wrapper.level = level          <span class="c"># attach for registry filtering</span>
+        <span class="k">return</span> wrapper
+    <span class="k">return</span> <span class="n">decorator</span></code></pre>
+<p>Using it:</p>
+<pre><code><span class="nd">@handler</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="s">"ERROR"</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">alert_on_error</span><span class="p">(</span><span class="n">record</span>: <span class="n">LogRecord</span><span class="p">)</span> <span class="o">-></span> <span class="nb">str</span> | <span class="kc">None</span>:
+    <span class="k">return</span> <span class="sa">f</span><span class="s">"[ALERT] {record.message}"</span></code></pre>
+<p>What happens at import time:</p>
+<p>1. Python sees <code>@handler(level=\"ERROR\")</code> — it evaluates the expression <code>handler(level=\"ERROR\")</code> which returns the <code>decorator</code> function (a closure that has <code>level=\"ERROR\"</code> captured).</p>
+<p>2. Python then calls <code>decorator(alert_on_error)</code> which registers the function and returns the <code>wrapper</code> closure.</p>
+<p>3. The name <code>alert_on_error</code> is rebound to the wrapper. Any code calling <code>alert_on_error(record)</code> now calls the wrapper, which checks the level and delegates to the original function.</p>
+<p>For a registry, we add one more step — the decorator appends <code>wrapper</code> to a global list:</p>
+<pre><code>_REGISTRY: <span class="nb">list</span>[<span class="n">Callable</span>] = []
+
+<span class="k">def</span> <span class="nf">handler</span><span class="p">(</span><span class="n">level</span>: <span class="nb">str</span> <span class="o">=</span> <span class="s">"INFO"</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">decorator</span><span class="p">(</span><span class="n">func</span>):
+        <span class="nd">@wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">wrapper</span><span class="p">(</span><span class="n">record</span>):
+            <span class="k">if</span> record.level == level:
+                <span class="k">return</span> <span class="n">func</span>(record)
+            <span class="k">return</span> <span class="kc">None</span>
+        wrapper.level = level
+        _REGISTRY.append(wrapper)     <span class="c"># auto-register by import side-effect</span>
+        <span class="k">return</span> wrapper
+    <span class="k">return</span> <span class="n">decorator</span></code></pre>
+<p>Now any module that imports <code>handler</code> and decorates a function automatically adds it to <code>_REGISTRY</code>. Adding a new handler means writing the function and the decorator — no other file changes.</p>
+<div class="callout"><strong>Consult the volumes:</strong> PEP 318 (Decorators for Functions and Methods) and PEP 3129 (Class Decorators) document the syntax proposal. The <code>inspect</code> module's <code>signature()</code> function can introspect a decorated function's original signature through the <code>__wrapped__</code> attribute set by <code>wraps</code>.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DECORATOR VS WRAPPER VS PARTIAL</div>
+<p>A decorator is a function that takes a callable and returns a callable. A wrapper is the inner callable that replaces the original. <code>functools.partial</code> is neither — it creates a new callable with bound arguments. Confusing them leads to bugs: a partial applied where a decorator is expected silently produces a callable with the wrong signature. Use <code>inspect.signature()</code> to debug.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s04-l03-e1"
+type = "mc"
+points = 15
+prompt = "A parameterised decorator like <code>@handler(level='ERROR')</code> needs how many nested function levels?"
+choices = ["1 — the decorator itself", "2 — the outer and the wrapper", "3 — the parameter capturer, the decorator, and the wrapper", "4 — plus a nested class"]
+answer = 2
+whyWrong = "Three levels: the outermost captures parameters (<code>handler(level)</code>), the middle receives the function (<code>decorator(func)</code>), the innermost replaces it (<code>wrapper(*args)</code>). Fewer than three means you cannot capture parameters; more is unnecessary complexity."
+hint = "Count the levels: one for the argument, one for the function, one for the replacement."
+explain = "Three levels: parameter capture, decorator, and wrapper. Each level adds one layer of closure."
+
+[[lessons.exercises]]
+id = "s04-l03-e2"
+type = "fill"
+points = 20
+prompt = "Fill the blank in the middle function of a parameterised decorator:"
+code = '''def repeat(n):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            for _ in range(n):
+                func(*args, **kwargs)
+        ____ decorator'''
+answer = "return"
+hint = "The outer function must return the decorator; the decorator must return the wrapper."
+
+[[lessons.exercises]]
+id = "s04-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this parameterised decorator skeleton:"
+code = '''def handler(level="INFO"):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator'''
+
+[[lessons.exercises]]
+id = "s04-l03-w1"
+type = "write"
+points = 35
+prompt = "Write a parameterised decorator <code>@prefix(marker)</code> that prepends the given marker string to the return value of the decorated function. Apply <code>@prefix(\">>> \")</code> to a function <code>get_msg()</code> that returns <code>\"hello\"</code>. Call it and print the result."
+starter = '''
+from functools import wraps
+
+def prefix(marker):
+    # your code here
+
+@prefix(">>> ")
+def get_msg():
+    return "hello"
+
+print(get_msg())
+'''
+expect = '''>>> hello'''
+hint = "The outermost function captures marker, returns a decorator that captures func, returns a wrapper that calls func and prepends marker."

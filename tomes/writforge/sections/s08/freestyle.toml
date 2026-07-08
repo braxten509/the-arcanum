@@ -1,0 +1,35 @@
+[freestyle]
+title = "THE WORKING: THE COMPLETE SCRIPTORIUM"
+brief = "Refit Writforge into its final working form.<ul><li>accept <code>-s</code> and <code>-o</code> flags for the source shelf and the build directory, falling back to <code>manuscripts/</code> and <code>build/</code> when the flags are omitted</li><li>read every regular <code>.txt</code> manuscript under the chosen source shelf, skip subdirectories, and write one matching <code>.html</code> page into the chosen output directory for each manuscript</li><li>generate <code>index.html</code> in the same output directory from the same page records and keep the page order and links correct</li><li>in the browser workbench, run the default paths directly and test flag behavior by temporarily seeding <code>@ARGV</code> before <code>getopts</code>, as taught in the switchboard lesson</li><li>finish with the exact summary line <code>WRITTEN 3</code></li></ul>"
+reward = 150
+xray = "The grader docks scripts that hardcode the page list, flatten page records into anonymous strings too early, forget to add the module directory to @INC, read the subdirectory as if it were a manuscript, or skip the final close on the output handles. It rewards a real shelf walk, a clean split between parser and renderer helpers, flags handled at the top, and an index page that is derived from the same page records as the chapter pages."
+
+[freestyle.badge]
+id = "badge-s08"
+name = "LAST SHEET"
+desc = "Split the shelf into module-shaped parts and bound the whole site together."
+
+[[freestyle.rubric]]
+criterion = "Compiles & runs"
+weight = 20
+desc = "The final script launches cleanly and finishes without crashing on the provided shelf."
+
+[[freestyle.rubric]]
+criterion = "Builds the pages"
+weight = 25
+desc = "Every regular `.txt` manuscript under the chosen source shelf becomes one `.html` page in the chosen output directory."
+
+[[freestyle.rubric]]
+criterion = "Generates the index"
+weight = 25
+desc = "The solution writes `index.html` in the chosen output directory from the same page records, with correct links and preserved order."
+
+[[freestyle.rubric]]
+criterion = "Uses flags and modules"
+weight = 20
+desc = "The script honors `-s`/`-o`, keeps parser and renderer responsibilities separate, and loads helper code through the module path instead of stuffing everything into one monolith."
+
+[[freestyle.rubric]]
+criterion = "Perl style & layout"
+weight = 10
+desc = "Uses `use v5.36;`, lexical `my` variables, `package Writforge::...` names, 4-space indentation, and lowercase builtins like `say` and `print` with one statement per line."

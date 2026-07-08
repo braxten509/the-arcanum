@@ -1,0 +1,35 @@
+[freestyle]
+title = "THE WORKING: The Iron-Bound Item"
+brief = "Apprentice, forge the first real ironwork — an item the block-world can hold. <code>ItemIngot</code> must appear in the creative inventory with a texture and a name. Build:<ul><li><code>src/main/java/com/ironwright/item/ItemIngot.java</code> — <code>extends Item</code>; a constructor taking the ingot's name that calls <code>setRegistryName(Ironwright.MODID, name)</code> (yielding <code>ironwright:&lt;name&gt;</code>), <code>setUnlocalizedName(Ironwright.MODID + \".\" + name)</code>, and <code>setCreativeTab(CreativeTabs.MATERIALS)</code> for now (Forgework X swaps in IronwrightTab); an <code>@Override</code> of <code>getItemStackLimit()</code> returning <code>16</code>.</li><li><code>src/main/java/com/ironwright/ModItems.java</code> — <code>@Mod.EventBusSubscriber(modid = Ironwright.MODID)</code> with <code>public static final ItemIngot IRON/COPPER/STARSTEEL</code> fields and a <code>@SubscribeEvent static void registerItems(RegistryEvent.Register&lt;Item&gt;)</code> registering those three fields in order.</li><li>A <code>ModelRegistryEvent</code> handler (in <code>ModItems</code> or <code>ClientProxy</code>) that calls <code>ModelLoader.setCustomModelResourceLocation(item, 0, new ModelResourceLocation(new ResourceLocation(Ironwright.MODID, name), \"inventory\"))</code> for each registered field.</li><li>Three model JSON files at <code>src/main/resources/assets/ironwright/models/item/{iron,copper,starsteel}.json</code>, each with <code>parent</code> <code>item/generated</code> and <code>layer0</code> pointing at <code>ironwright:items/&lt;name&gt;</code>.</li><li>Three 16×16 PNG textures at <code>src/main/resources/assets/ironwright/textures/items/{iron,copper,starsteel}.png</code>.</li><li><code>src/main/resources/assets/ironwright/lang/en_us.lang</code> with <code>item.ironwright.iron.name=Iron Ingot</code>, <code>item.ironwright.copper.name=Copper Ingot</code>, <code>item.ironwright.starsteel.name=Starsteel Ingot</code>.</li></ul>"
+reward = 250
+xray = "Orrick docks for an item with no registry name (register throws), a model JSON whose layer0 path does not match the texture file, a .lang key that does not match the unlocalized name, or a model handler missing so the item shows the missing-texture purple. He gives style credit for @Override on getItemStackLimit, the MODID-pulled resource locations, one class per file, and Allman braces."
+
+[freestyle.badge]
+id = "badge-s08"
+name = "THE IRON-BOUND ITEM"
+desc = "Forged ItemIngot — the mod's first real content, visible in the creative inventory with models, textures, and names."
+
+[[freestyle.rubric]]
+criterion = "ItemIngot class is correct"
+weight = 25
+desc = "ItemIngot extends Item; the constructor calls setRegistryName(Ironwright.MODID, name) (yielding ironwright:<name>), setUnlocalizedName(Ironwright.MODID + \".\" + name), and setCreativeTab(CreativeTabs.MATERIALS); an @Override of getItemStackLimit() returns 16; the class lives at com/ironwright/item/ItemIngot.java with the matching package line."
+
+[[freestyle.rubric]]
+criterion = "Item registration is correct"
+weight = 20
+desc = "ModItems carries @Mod.EventBusSubscriber(modid = Ironwright.MODID); it defines public static final ItemIngot IRON, COPPER, and STARSTEEL; a @SubscribeEvent static registerItems(RegistryEvent.Register<Item>) registers those exact fields via event.getRegistry().register(...); each item has a registry name set so registration does not throw and later code can reference the registered objects."
+
+[[freestyle.rubric]]
+criterion = "Models & textures are correct"
+weight = 20
+desc = "A ModelRegistryEvent @SubscribeEvent handler binds each item's model via ModelLoader.setCustomModelResourceLocation(item, 0, new ModelResourceLocation(new ResourceLocation(Ironwright.MODID, name), \"inventory\")); three model JSON files exist at assets/ironwright/models/item/<name>.json with parent item/generated and layer0 ironwright:items/<name>; three 16x16 PNG textures exist at assets/ironwright/textures/items/<name>.png."
+
+[[freestyle.rubric]]
+criterion = "Names & .lang are correct"
+weight = 15
+desc = "setUnlocalizedName is called in the constructor; assets/ironwright/lang/en_us.lang has item.ironwright.iron.name=Iron Ingot, item.ironwright.copper.name=Copper Ingot, item.ironwright.starsteel.name=Starsteel Ingot (1.12.2 .lang format, not .json); keys match the unlocalized names."
+
+[[freestyle.rubric]]
+criterion = "Build, run & clean style"
+weight = 20
+desc = "./gradlew build succeeds; ./gradlew runClient shows the three ingots in the CreativeTabs.MATERIALS tab with their textures and human names (no missing-texture purple); @Override on getItemStackLimit; one public class per .java file named for the class; Allman braces; 4-space indent; the MODID constant is the single source for every resource location."

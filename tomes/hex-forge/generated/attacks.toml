@@ -1,0 +1,805 @@
+# SPELL DUEL challenge bank. Difficulty = tier order (1..N).
+# Each stage's `expect` is the COMPLETE required stdout at that stage; demands strictly
+# append lines — stages[n].expect == stages[n-1].expect + new lines, never edits.
+# Machine-generated from attacks_src.toml by tools/gen_attacks.py — regenerate, don't hand-edit.
+
+# ---- difficulty 1
+[[tiers]]
+
+[[tiers.pool]]
+t = "COLD COUNTER"
+starter = '''
+section .data
+l1: db "MARK SET", 10        ; stage 1 prints exactly: MARK SET
+l2: db "FORGE LIT", 10       ; stage 2 then appends: FORGE LIT
+l3: db "ANVIL DRESSED", 10  ; stage 3 then appends: ANVIL DRESSED
+section .text
+    global _start
+_start:
+    ; three sys_write strikes, then sys_exit
+'''
+
+[[tiers.pool.stages]]
+brief = "Strike the first mark and hold it."
+expect = "MARK SET"
+
+[[tiers.pool.stages]]
+brief = "The rival arms a second demand — light the forge."
+expect = '''
+MARK SET
+FORGE LIT'''
+
+[[tiers.pool.stages]]
+brief = "A third hex lands — dress the anvil and hold all three."
+expect = '''
+MARK SET
+FORGE LIT
+ANVIL DRESSED'''
+
+[[tiers.pool]]
+t = "THREE SPARKS"
+starter = '''
+section .data
+l1: db "SPARK ONE", 10   ; stage 1: SPARK ONE
+l2: db "SPARK TWO", 10   ; stage 2: SPARK TWO
+l3: db "SPARK THREE", 10 ; stage 3: SPARK THREE
+section .text
+    global _start
+_start:
+'''
+
+[[tiers.pool.stages]]
+brief = "Catch the first spark before it dies."
+expect = "SPARK ONE"
+
+[[tiers.pool.stages]]
+brief = "A second spark lands — hold it too."
+expect = '''
+SPARK ONE
+SPARK TWO'''
+
+[[tiers.pool.stages]]
+brief = "The third spark seals the strike — hold the chain."
+expect = '''
+SPARK ONE
+SPARK TWO
+SPARK THREE'''
+
+[[tiers.pool]]
+t = "GATE TRIAD"
+starter = '''
+section .data
+l1: db "BELL AIR", 10    ; stage 1: BELL AIR
+l2: db "BELL STONE", 10  ; stage 2: BELL STONE
+l3: db "BELL IRON", 10   ; stage 3: BELL IRON
+section .text
+    global _start
+_start:
+'''
+
+[[tiers.pool.stages]]
+brief = "Ring the air bell."
+expect = "BELL AIR"
+
+[[tiers.pool.stages]]
+brief = "Ring the stone bell."
+expect = '''
+BELL AIR
+BELL STONE'''
+
+[[tiers.pool.stages]]
+brief = "Ring the iron bell — keep all three ringing."
+expect = '''
+BELL AIR
+BELL STONE
+BELL IRON'''
+
+# ---- difficulty 2
+[[tiers]]
+
+[[tiers.pool]]
+t = "ADD THE HEAPS"
+starter = '''
+section .data
+a equ 48   ; stage 1: HEAP A 48
+b equ 23   ; stage 2: HEAP B 23
+           ; stage 3: SUM 71   (a + b, computed)
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; print "HEAP A ",a, "HEAP B ",b, "SUM ",a+b
+'''
+
+[[tiers.pool.stages]]
+brief = "Weigh the first heap and mark its count."
+expect = "HEAP A 48"
+
+[[tiers.pool.stages]]
+brief = "Weigh the second heap and append its count."
+expect = '''
+HEAP A 48
+HEAP B 23'''
+
+[[tiers.pool.stages]]
+brief = "Forge both heaps together — print the true sum, computed."
+expect = '''
+HEAP A 48
+HEAP B 23
+SUM 71'''
+
+[[tiers.pool]]
+t = "MELT THE PAIR"
+starter = '''
+section .data
+a equ 9    ; stage 1: A 9
+b equ 8    ; stage 2: B 8
+           ; stage 3: PROD 72   (a * b, computed)
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+'''
+
+[[tiers.pool.stages]]
+brief = "Pin the first ingot's weigh."
+expect = "A 9"
+
+[[tiers.pool.stages]]
+brief = "Pin the second ingot's weigh."
+expect = '''
+A 9
+B 8'''
+
+[[tiers.pool.stages]]
+brief = "Melt the two together — print their product, computed."
+expect = '''
+A 9
+B 8
+PROD 72'''
+
+[[tiers.pool]]
+t = "WEIGH THE SLAB"
+starter = '''
+section .data
+a equ 150  ; stage 1: HI 150
+b equ 140  ; stage 2: LO 140
+           ; stage 3: DIFF 10   (a - b, computed)
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+'''
+
+[[tiers.pool.stages]]
+brief = "Lay the heavier slab and mark it."
+expect = "HI 150"
+
+[[tiers.pool.stages]]
+brief = "Lay the lighter slab and append it."
+expect = '''
+HI 150
+LO 140'''
+
+[[tiers.pool.stages]]
+brief = "Take the difference — print the true margin, computed."
+expect = '''
+HI 150
+LO 140
+DIFF 10'''
+
+# ---- difficulty 3
+[[tiers]]
+
+[[tiers.pool]]
+t = "BELL TRIAD"
+starter = '''
+section .data
+pre: db "STRIKE "      ; stage 1: STRIKE 1
+plen equ $-pre         ; stage 2: STRIKE 2
+nl_c: db 10            ; stage 3: STRIKE 3
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; r12 = 1..3 ; loop and print STRIKE <i> each pass
+'''
+
+[[tiers.pool.stages]]
+brief = "The bell swings once — strike and mark it."
+expect = "STRIKE 1"
+
+[[tiers.pool.stages]]
+brief = "The bell swings twice — strike and append."
+expect = '''
+STRIKE 1
+STRIKE 2'''
+
+[[tiers.pool.stages]]
+brief = "The bell swings a third time — keep the chain."
+expect = '''
+STRIKE 1
+STRIKE 2
+STRIKE 3'''
+
+[[tiers.pool]]
+t = "GATE GAUGE"
+starter = '''
+section .data
+v equ 55            ; stage 1: READ 55
+                     ; stage 2: OPEN     (v >= 40)
+                     ; stage 3: HOT      (v >= 50)
+open: db "OPEN", 10
+hot:  db "HOT", 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; print READ <v>; if v>=40 print OPEN; if v>=50 print HOT
+'''
+
+[[tiers.pool.stages]]
+brief = "Read the gauge and mark its value."
+expect = "READ 55"
+
+[[tiers.pool.stages]]
+brief = "If the gauge reads forty or more, open the gate."
+expect = '''
+READ 55
+OPEN'''
+
+[[tiers.pool.stages]]
+brief = "If it reads fifty or more, stamp the heat warning too."
+expect = '''
+READ 55
+OPEN
+HOT'''
+
+[[tiers.pool]]
+t = "DOWSE DOWN"
+starter = '''
+section .data
+pre: db "DOWSE "    ; stage 1: DOWSE 3
+nl_c: db 10         ; stage 2: DOWSE 2
+                    ; stage 3: DOWSE 1
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; r12 = 3 ; loop while r12 >= 1 ; print ; dec
+'''
+
+[[tiers.pool.stages]]
+brief = "Strike the dowsing rod three times — mark it."
+expect = "DOWSE 3"
+
+[[tiers.pool.stages]]
+brief = "Two strikes left — append the count."
+expect = '''
+DOWSE 3
+DOWSE 2'''
+
+[[tiers.pool.stages]]
+brief = "One strike left — keep the descending chain."
+expect = '''
+DOWSE 3
+DOWSE 2
+DOWSE 1'''
+
+# ---- difficulty 4
+[[tiers]]
+
+[[tiers.pool]]
+t = "ORE BENCH"
+starter = '''
+section .data
+ore: db 10, 20, 15   ; stage 1: ORE 10
+                    ; stage 2: ORE 20
+                    ; stage 3: ORE 15
+pre: db "ORE "
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; walk ore byte by byte ; print "ORE " + each byte value
+'''
+
+[[tiers.pool.stages]]
+brief = "Pull the first ore byte off the bench and mark it."
+expect = "ORE 10"
+
+[[tiers.pool.stages]]
+brief = "Pull the next ore byte and append it."
+expect = '''
+ORE 10
+ORE 20'''
+
+[[tiers.pool.stages]]
+brief = "Pull the third byte — keep the full sample."
+expect = '''
+ORE 10
+ORE 20
+ORE 15'''
+
+[[tiers.pool]]
+t = "TWO ORE SUM"
+starter = '''
+section .data
+ore: db 5, 5         ; stage 1: ORE 5
+                    ; stage 2: ORE 5
+                    ; stage 3: SUM 10   (ore bytes added, computed)
+pre: db "ORE "
+pre2: db "SUM "
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; print each byte, then print the computed total
+'''
+
+[[tiers.pool.stages]]
+brief = "Weigh the first ore byte."
+expect = "ORE 5"
+
+[[tiers.pool.stages]]
+brief = "Weigh the second ore byte."
+expect = '''
+ORE 5
+ORE 5'''
+
+[[tiers.pool.stages]]
+brief = "Add both bytes — print the true total, computed."
+expect = '''
+ORE 5
+ORE 5
+SUM 10'''
+
+[[tiers.pool]]
+t = "RICH SEAM"
+starter = '''
+section .data
+ore: db 4, 9, 1     ; stage 1: MIN 1
+                   ; stage 2: MAX 9
+                   ; stage 3: SPR 8   (max - min, computed)
+pre1: db "MIN "
+pre2: db "MAX "
+pre3: db "SPR "
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; one pass: track min (rbx) and max (r12) ; print MIN, MAX, SPR=max-min
+'''
+
+[[tiers.pool.stages]]
+brief = "Find the leanest ore in the seam and mark it."
+expect = "MIN 1"
+
+[[tiers.pool.stages]]
+brief = "Find the richest ore and append it."
+expect = '''
+MIN 1
+MAX 9'''
+
+[[tiers.pool.stages]]
+brief = "The spread is rich minus lean — print it, computed."
+expect = '''
+MIN 1
+MAX 9
+SPR 8'''
+
+# ---- difficulty 5
+[[tiers]]
+
+[[tiers.pool]]
+t = "TONG ROUTINE"
+starter = '''
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; define a proc ward(n) that prints "WARD n" (arg in rdi per the ABI)
+    ; stage 1: WARD 7 ; stage 2: WARD 7 ; stage 3: WBL 14   (7+7, computed)
+'''
+
+[[tiers.pool.stages]]
+brief = "Forge a ward jig that prints WARD and its argument; call it with seven."
+expect = "WARD 7"
+
+[[tiers.pool.stages]]
+brief = "Strike the same ward a second time."
+expect = '''
+WARD 7
+WARD 7'''
+
+[[tiers.pool.stages]]
+brief = "Twin the two wards — print their combined weight, computed."
+expect = '''
+WARD 7
+WARD 7
+WBL 14'''
+
+[[tiers.pool]]
+t = "JIG LADDER"
+starter = '''
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; proc inc(n) returns n+1 in rax ; start v=10
+    ; stage 1: STEP 11 ; stage 2: STEP 12 ; stage 3: STEP 13
+'''
+
+[[tiers.pool.stages]]
+brief = "Lay a base of ten; forge inc to climb one rung — mark eleven."
+expect = "STEP 11"
+
+[[tiers.pool.stages]]
+brief = "Climb again — append twelve."
+expect = '''
+STEP 11
+STEP 12'''
+
+[[tiers.pool.stages]]
+brief = "Climb a third time — keep the ladder of three."
+expect = '''
+STEP 11
+STEP 12
+STEP 13'''
+
+[[tiers.pool]]
+t = "TWO TONGS"
+starter = '''
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; reuse the ward jig ; call ward(3), ward(9) ; print SUM 12
+    ; stage 1: WARD 3 ; stage 2: WARD 9 ; stage 3: SUM 12   (3+9, computed)
+'''
+
+[[tiers.pool.stages]]
+brief = "Call the ward jig with three and mark it."
+expect = "WARD 3"
+
+[[tiers.pool.stages]]
+brief = "Call the ward jig with nine and append it."
+expect = '''
+WARD 3
+WARD 9'''
+
+[[tiers.pool.stages]]
+brief = "Weigh both wards — print their true sum, computed."
+expect = '''
+WARD 3
+WARD 9
+SUM 12'''
+
+# ---- difficulty 6
+[[tiers]]
+
+[[tiers.pool]]
+t = "GUTTER READ"
+starter = '''
+section .data
+row: db 0x41, 0x07, 0x42  ; stage 1: GUT A
+                          ; stage 2: GUT .
+                          ; stage 3: GUT B
+section .bss
+obuf: resb 8
+section .text
+    global _start
+_start:
+    ; classify each byte 32..126 printable else '.' ; print "GUT <c>"
+'''
+
+[[tiers.pool.stages]]
+brief = "Dress the first byte for the gutter and print it."
+expect = "GUT A"
+
+[[tiers.pool.stages]]
+brief = "The second byte is slag — print it as a dot."
+expect = '''
+GUT A
+GUT .'''
+
+[[tiers.pool.stages]]
+brief = "The third byte reads true — keep the gutter chain."
+expect = '''
+GUT A
+GUT .
+GUT B'''
+
+[[tiers.pool]]
+t = "PRINTABLE TRIAGE"
+starter = '''
+section .data
+row: db 90, 7, 120   ; stage 1: KEEP Z
+                    ; stage 2: SLAG
+                    ; stage 3: KEEP x
+section .bss
+obuf: resb 8
+section .text
+    global _start
+_start:
+    ; for each byte: printable -> "KEEP <c>" else "SLAG"
+'''
+
+[[tiers.pool.stages]]
+brief = "Inspect the first byte — keep it if printable."
+expect = "KEEP Z"
+
+[[tiers.pool.stages]]
+brief = "Inspect the second — slag if it is not printable."
+expect = '''
+KEEP Z
+SLAG'''
+
+[[tiers.pool.stages]]
+brief = "Inspect the third — keep the full verdict chain."
+expect = '''
+KEEP Z
+SLAG
+KEEP x'''
+
+[[tiers.pool]]
+t = "STRING WALK"
+starter = '''
+section .data
+s: db "key", 0     ; stage 1: CHR k
+                  ; stage 2: CHR e
+                  ; stage 3: CHR y
+section .bss
+obuf: resb 8
+section .text
+    global _start
+_start:
+    ; walk s until the null tally ; print "CHR <c>" each step
+'''
+
+[[tiers.pool.stages]]
+brief = "Walk the string to its first letter and print it."
+expect = "CHR k"
+
+[[tiers.pool.stages]]
+brief = "Walk to the next letter and append it."
+expect = '''
+CHR k
+CHR e'''
+
+[[tiers.pool.stages]]
+brief = "Walk to the last — keep the whole string walked."
+expect = '''
+CHR k
+CHR e
+CHR y'''
+
+# ---- difficulty 7
+[[tiers]]
+
+[[tiers.pool]]
+t = "FULL BENCH"
+starter = '''
+section .data
+ore: db 7, 3        ; stage 1: SUM 10
+                   ; stage 2: PROD 21
+                   ; stage 3: MAX 7
+pre1: db "SUM "
+pre2: db "PROD "
+pre3: db "MAX "
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; one pass: sum (rbx), prod (r12), max (r13) over the two bytes
+'''
+
+[[tiers.pool.stages]]
+brief = "Sum the bench's two ore bytes and mark it."
+expect = "SUM 10"
+
+[[tiers.pool.stages]]
+brief = "Multiply the two bytes — append the product, computed."
+expect = '''
+SUM 10
+PROD 21'''
+
+[[tiers.pool.stages]]
+brief = "Keep the richer byte — append the max, computed."
+expect = '''
+SUM 10
+PROD 21
+MAX 7'''
+
+[[tiers.pool]]
+t = "SORTED ORE"
+starter = '''
+section .data
+ore: db 5, 2, 9     ; stage 1: LO 2
+                   ; stage 2: MID 5
+                   ; stage 3: HI 9
+pre1: db "LO "
+pre2: db "MID "
+pre3: db "HI "
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; find min(median)/mid/max of three bytes via cmp
+'''
+
+[[tiers.pool.stages]]
+brief = "Find the leanest of three ore bytes and mark it."
+expect = "LO 2"
+
+[[tiers.pool.stages]]
+brief = "Find the middle byte and append it."
+expect = '''
+LO 2
+MID 5'''
+
+[[tiers.pool.stages]]
+brief = "Find the richest byte — keep the sorted chain."
+expect = '''
+LO 2
+MID 5
+HI 9'''
+
+[[tiers.pool]]
+t = "BELL & GATE"
+starter = '''
+section .data
+odd: db "ODD "      ; stage 1: ODD 1
+even: db "EVEN "    ; stage 2: EVEN 2
+                    ; stage 3: ODD 3
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; r12 = 1..3 ; test the low bit ; print ODD/EVEN then the count
+'''
+
+[[tiers.pool.stages]]
+brief = "Strike one — the count is odd; mark it."
+expect = "ODD 1"
+
+[[tiers.pool.stages]]
+brief = "Strike two — the count is even; append it."
+expect = '''
+ODD 1
+EVEN 2'''
+
+[[tiers.pool.stages]]
+brief = "Strike three — odd again; keep the parity chain."
+expect = '''
+ODD 1
+EVEN 2
+ODD 3'''
+
+# ---- difficulty 8
+[[tiers]]
+
+[[tiers.pool]]
+t = "HEX LINE"
+starter = '''
+section .data
+data: db 0x41, 0x0a, 0x42   ; stage 1: 00000000  41  A
+                           ; stage 2: 00000001  0a  .
+                           ; stage 3: 00000002  42  B
+section .text
+    global _start
+_start:
+    ; for each byte print: <8-hex offset>  <2-hex byte>  <gutter char>
+'''
+
+[[tiers.pool.stages]]
+brief = "Strike the first byte into a canonical line — offset, hex, gutter."
+expect = "00000000  41  A"
+
+[[tiers.pool.stages]]
+brief = "The next byte arms — append its line."
+expect = '''
+00000000  41  A
+00000001  0a  .'''
+
+[[tiers.pool.stages]]
+brief = "The last byte seals the dump — keep the full ledger."
+expect = '''
+00000000  41  A
+00000001  0a  .
+00000002  42  B'''
+
+[[tiers.pool]]
+t = "HEX LEDGER"
+starter = '''
+section .data
+data: db 0x48, 0x49, 0x21   ; stage 1: 00000000  48  H
+                           ; stage 2: 00000001  49  I
+                           ; stage 3: 00000002  21  !
+section .text
+    global _start
+_start:
+'''
+
+[[tiers.pool.stages]]
+brief = "Inscribe the first byte of the ledger."
+expect = "00000000  48  H"
+
+[[tiers.pool.stages]]
+brief = "Inscribe the second byte — append its line."
+expect = '''
+00000000  48  H
+00000001  49  I'''
+
+[[tiers.pool.stages]]
+brief = "Inscribe the third — keep the ledger whole."
+expect = '''
+00000000  48  H
+00000001  49  I
+00000002  21  !'''
+
+[[tiers.pool]]
+t = "GUTTER LEDGER"
+starter = '''
+section .data
+data: db 0x0a, 0x41, 0x07   ; stage 1: 00000000  0a  .
+                           ; stage 2: 00000001  41  A
+                           ; stage 3: 00000002  07  .
+section .text
+    global _start
+_start:
+'''
+
+[[tiers.pool.stages]]
+brief = "Lead with the slag byte — its gutter line is a dot."
+expect = "00000000  0a  ."
+
+[[tiers.pool.stages]]
+brief = "The next byte reads true — append its line."
+expect = '''
+00000000  0a  .
+00000001  41  A'''
+
+[[tiers.pool.stages]]
+brief = "The last is slag again — keep the three-line ledger."
+expect = '''
+00000000  0a  .
+00000001  41  A
+00000002  07  .'''
+

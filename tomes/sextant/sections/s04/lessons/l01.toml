@@ -1,0 +1,88 @@
+[[lessons]]
+id = "s04-l01"
+title = "First-Class Functions & the Captain's Sealed Log"
+body = '''
+<p>In Python, functions are objects. You can assign them to variables, store them in lists, pass them as arguments to other functions, and return them as values. This is what "functions are first-class" means, and it is the foundation of decorators, closures, and the plugin registry that powers Sextant's extensibility.</p>
+<pre><code><span class="k">def</span> <span class="nf">greet</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s">"Greetings, {name}!"</span>
+
+<span class="c"># Assign to a variable — the function object is the value</span>
+say_hello = greet
+<span class="k">print</span>(say_hello(<span class="s">"navigator"</span>))  <span class="c"># "Greetings, navigator!"</span>
+
+<span class="c"># Store in a list — call it by index</span>
+handlers = [greet, str.upper]
+<span class="k">print</span>(handlers[<span class="mi">0</span>](<span class="s">"Aldren"</span>))</code></pre>
+<p>A <strong>closure</strong> is a function that captures variables from the enclosing scope — a sealed envelope containing both the function's code and the environment it was defined in. The closure remembers the values of those variables even after the outer function has returned.</p>
+<pre><code><span class="k">def</span> <span class="nf">make_prefixer</span><span class="p">(</span><span class="n">prefix</span>: <span class="nb">str</span><span class="p">)</span> <span class="o">-></span> <span class="n">Callable</span>[[<span class="nb">str</span>], <span class="nb">str</span>]:
+    <span class="k">def</span> <span class="nf">prefixer</span><span class="p">(</span><span class="n">message</span>: <span class="nb">str</span><span class="p">)</span> <span class="o">-></span> <span class="nb">str</span>:
+        <span class="k">return</span> <span class="sa">f</span><span class="s">"[{prefix}] {message}"</span>
+    <span class="k">return</span> <span class="n">prefixer</span>
+
+add_warn = make_prefixer(<span class="s">"WARN"</span>)
+add_info = make_prefixer(<span class="s">"INFO"</span>)
+<span class="k">print</span>(add_warn(<span class="s">"Disk full"</span>))      <span class="c"># "[WARN] Disk full"</span>
+<span class="k">print</span>(add_info(<span class="s">"Connected"</span>))     <span class="c"># "[INFO] Connected"</span></code></pre>
+<p>Each call to <code>make_prefixer</code> creates a new closure with its own <code>prefix</code>. The <code>prefixer</code> function seals <code>prefix</code> into its scope and carries it wherever it goes. This is not a copy of the string — it is a reference to the enclosing function's variable, preserved by the closure mechanism.</p>
+<p>Every decorator in the next lesson is a closure. The outer function takes a parameter (or the decorated function itself), the inner function wraps the original with new behaviour, and the closure binds the two together.</p>
+<div class="callout"><strong>Consult the volumes:</strong> A closure's captured variables are stored in the function's <code>__closure__</code> attribute — a tuple of <code>cell</code> objects. Read the <code>inspect</code> module's <code>getclosurevars()</code> to inspect them at runtime. The CPython implementation is in <code>Objects/funcobject.c</code> under <code>func_new_closure</code>.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // LAMBDA CLOSURES & LATE BINDING</div>
+<p>A classic pitfall: <code>funcs = [lambda: i for i in range(5)]</code> — each lambda closes over the same variable <code>i</code>, not its value at creation time. All five return 4. The fix is <code>lambda i=i: i</code> making the default argument capture the current value. This is the most common closure bug in Python and appears in every interview for a reason.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s04-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this closure that creates a multiplier:"
+code = '''def make_mult(n):
+    def mult(x):
+        return x * n
+    return mult
+double = make_mult(2)'''
+
+[[lessons.exercises]]
+id = "s04-l01-e1"
+type = "mc"
+points = 15
+prompt = "What is a <strong>closure</strong> in Python?"
+choices = ["A function defined inside a class", "A try block with finally", "A way to close files automatically", "A function that captures variables from its enclosing scope"]
+answer = 3
+whyWrong = "A closure specifically captures variables from the enclosing lexical scope — it 'closes over' them. This is distinct from methods (functions in a class), exception handling (try/finally), or context managers (with blocks)."
+hint = "The name comes from the idea of 'closing over' free variables from the outer scope."
+explain = "A closure is a function that retains access to variables from the scope in which it was defined, even after that scope has exited."
+
+[[lessons.exercises]]
+id = "s04-l01-e2"
+type = "fill"
+points = 20
+prompt = "Fill the blank so the closure captures <code>unit</code>:"
+code = '''def make_label(unit):
+    def label(value):
+        return f"{value} {unit}"
+    ____ label'''
+answer = "return"
+hint = "The closure is returned from the outer function so it can be used outside."
+
+[[lessons.exercises]]
+id = "s04-l01-w1"
+type = "write"
+points = 30
+prompt = "Write a function <code>make_counter()</code> that returns a closure. The closure should take no arguments, and each call should return an incremented integer starting from 1. Call it three times and print each result on its own line."
+starter = '''
+def make_counter():
+    count = 0
+    def counter():
+        # your code here
+    return counter
+
+c = make_counter()
+print(c())
+print(c())
+print(c())
+'''
+expect = '''1
+2
+3'''
+hint = "Use <code>nonlocal count</code> inside the closure to modify the outer variable."

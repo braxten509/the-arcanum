@@ -1,0 +1,71 @@
+[[lessons]]
+id = "s08-l01"
+title = "Module Layout — A Ship with Compartments"
+body = '''
+<p>A single <code>sextant.py</code> file with 800 lines is not a tool; it is a heap. Python packages — directories with <code>__init__.py</code> — split code into modules that each own one concern: the data model lives in <code>models.py</code>, parsing in <code>parser.py</code>, the decorator registry in <code>registry.py</code>, output formatting in <code>reporters.py</code>, and the CLI entry point in <code>main.py</code>. An <code>__init__.py</code> re-exports the public surface so callers write <code>from sextant import LogRecord</code>, not <code>from sextant.models import LogRecord</code>.</p>
+<pre><code><span class="c"># Directory structure:</span>
+<span class="c"># sextant/</span>
+<span class="c">#   __init__.py        — re-exports public API</span>
+<span class="c">#   models.py          — LogRecord, LogParseError</span>
+<span class="c">#   parser.py          — parse_log, read_logs</span>
+<span class="c">#   registry.py        — handler, run_handlers, _REGISTRY</span>
+<span class="c">#   reporters.py       — TextReporter, JsonReporter, CsvReporter</span>
+<span class="c"># main.py              — argparse + dispatch</span></code></pre>
+<p>The <code>__init__.py</code> file makes <code>sextant/</code> a package. It can be empty (the directory is still a package), but the convention is to import the names that form the public API:</p>
+<pre><code><span class="c"># sextant/__init__.py</span>
+<span class="kn">from</span> <span class="nn">.models</span> <span class="kn">import</span> <span class="n">LogRecord</span>, <span class="n">LogParseError</span>
+<span class="kn">from</span> <span class="nn">.parser</span> <span class="kn">import</span> <span class="n">parse_log</span>, <span class="n">read_logs</span>
+<span class="kn">from</span> <span class="nn">.registry</span> <span class="kn">import</span> <span class="n">handler</span>, <span class="n">run_handlers</span></code></pre>
+<p>Relative imports (<code>from .models import ...</code>) are the standard for intra-package imports. They are explicit about the relationship between modules and survive directory renames better than absolute imports.</p>
+<p><strong>Circular imports</strong> are the hazard of splitting code into modules. If <code>models.py</code> imports from <code>parser.py</code> and <code>parser.py</code> imports from <code>models.py</code>, neither module finishes loading. The fix is usually to extract the shared dependency into a third module or to use late imports inside a function instead of at the top of the file.</p>
+<pre><code><span class="c"># In parser.py — late import avoids circular dependency at load time</span>
+<span class="k">def</span> <span class="nf">parse_log</span><span class="p">(</span><span class="n">line</span>: <span class="nb">str</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">.models</span> <span class="kn">import</span> <span class="n">LogRecord</span>   <span class="c"># imported only when the function is called</span>
+    <span class="o">...</span></code></pre>
+<div class="callout"><strong>Consult the volumes:</strong> The Python import system is documented in the language reference under "The import system". <code>Lib/importlib/__init__.py</code> is the reference implementation. PEP 328 (relative imports) and PEP 420 (implicit namespace packages) cover the modern import semantics.</div>
+'''
+
+[[lessons.exercises]]
+id = "s08-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this __init__.py that re-exports from submodules:"
+code = '''from .models import LogRecord
+from .parser import parse_log
+from .registry import handler'''
+
+[[lessons.exercises]]
+id = "s08-l01-e1"
+type = "mc"
+points = 15
+prompt = "What is a <strong>circular import</strong> and how do you fix it?"
+choices = ["When two modules import each other; fix with a late import inside a function", "When a module imports itself; fix by renaming the module", "When a package has no __init__.py; fix by creating one", "When an import fails silently; fix by using absolute imports"]
+answer = 0
+whyWrong = "A circular import occurs when module A imports from module B and module B imports from module A (directly or transitively). Python raises ImportError because one module is still being initialised. The fix is to defer the import into a function body so it runs after both modules are loaded."
+hint = "Imagine models imports from parser, and parser imports from models — what happens at load time?"
+explain = "Two modules importing each other causes a circular import; the fix is a late import inside a function."
+
+[[lessons.exercises]]
+id = "s08-l01-e2"
+type = "fill"
+points = 20
+prompt = "Fill the blank to do a relative import from the sister module <code>models</code>:"
+code = '''from ____ import LogRecord'''
+answer = ".models"
+hint = "A relative import uses a dot to refer to 'this package'."
+
+[[lessons.exercises]]
+id = "s08-l01-w1"
+type = "write"
+points = 30
+prompt = "This exercise cannot run a full package in the browser workbench. Instead, write a single Python script that defines a function <code>add(a, b)</code> in the global scope, and uses the <code>if __name__ == \"__main__\"</code> guard to call <code>print(add(3, 4))</code> when run as a script. Print the result."
+starter = '''
+def add(a, b):
+    return a + b
+
+if __name__ == "__main__":
+    print(add(3, 4))
+'''
+expect = '''7'''
+hint = "The guard ensures the code only runs when the script is executed, not when imported."

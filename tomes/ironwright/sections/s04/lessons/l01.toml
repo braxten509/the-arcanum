@@ -1,0 +1,101 @@
+[[lessons]]
+id = "s04-l01"
+title = "The Anvil's Children — extends & super"
+body = '''
+<p>Every piece descends from an older pattern. Java's <code>extends</code> says one class is a kind of another — it inherits the parent's fields and methods without rewriting them. The child keeps everything the parent has and adds its own.</p>
+<pre><code><span class="k">public class</span> Ingot {                  <span class="c">// the parent — forged in Forgework III</span>
+    <span class="k">private</span> String name;
+    <span class="k">private int</span> value;
+    <span class="c">// constructor sets this.name / this.value; getName/getValue return them</span>
+}
+
+<span class="k">public class</span> IngotMetal <span class="k">extends</span> Ingot {
+    <span class="k">private</span> String metalName;
+    <span class="k">public</span> IngotMetal(String name, <span class="k">int</span> value, String metalName) {
+        <span class="k">super</span>(name, value);          <span class="c">// call the parent's constructor</span>
+        <span class="k">this</span>.metalName = metalName;
+    }
+    <span class="k">public</span> String getMetalName() { <span class="k">return</span> metalName; }
+}</code></pre>
+<p>An <code>IngotMetal</code> <em>is an</em> Ingot, so it has <code>getName()</code> and <code>getValue()</code> for free, plus its own <code>getMetalName()</code>. <code>super(name, value)</code> must be the first line of the child's constructor — it calls the parent's constructor to set up the inherited fields. Forget it and the compiler refuses the forging: "implicit super constructor is undefined".</p>
+<p>Java allows <strong>single inheritance</strong>: a class extends exactly one parent. You cannot be two things at once by <code>extends</code>. (Interfaces — Forgework V — are how you promise multiple behaviours to one class.) Every class you write implicitly extends <code>Object</code> when you write no <code>extends</code>, which is why every object has <code>toString</code> and <code>equals</code> — the next lesson writes them.</p>
+<div class="callout"><strong>Orrick says:</strong> An IngotMetal can be stored in an <code>Ingot</code> variable: <code>Ingot i = new IngotMetal("starsteel", 20, "iron");</code>. The variable's type is the pattern; the object is the richer copy. You will meet this again as polymorphism.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE REAL HIERARCHY YOU WILL READ</div>
+<p>Minecraft's <code>net.minecraft.item.Item</code> is the parent of every item in the game, and your <code>ItemIngot</code> will <code>extends Item</code> exactly as <code>IngotMetal extends Ingot</code> here. Open Item in IntelliJ (Forgework VI) and its ancestor <code>net.minecraft.item.Item</code> shows the same shape: parent fields, parent constructors, child overrides. The old marks use the same law of extends your Ingot does.</p></div>
+'''
+
+[[lessons.readings]]
+label = "The Java Tutorials — Inheritance"
+url = "https://docs.oracle.com/javase/tutorial/java/IandI/subclasses.html"
+
+[[lessons.exercises]]
+id = "s04-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the IngotMetal constructor exactly — the super call first, then the child's own field."
+code = '''public IngotMetal(String name, int value, String metalName) {
+    super(name, value);
+    this.metalName = metalName;
+}'''
+
+[[lessons.exercises]]
+id = "s04-l01-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the keyword that calls the parent class's constructor — it must be the first line of a child constructor."
+code = '''public IngotMetal(String name, int value, String metalName) {
+    ____(name, value);
+    this.metalName = metalName;
+}'''
+answer = "super"
+whyWrong = "super(name, value) calls the Ingot constructor to set up the inherited fields; this refers to the current object (wrong here, name/value belong to the parent), parent is not Java's keyword, base is not Java's keyword. The parent-constructor call is super."
+hint = "It is the five-letter Latin word Java uses for 'the parent' — also a keyword."
+
+[[lessons.exercises]]
+id = "s04-l01-e1"
+type = "mc"
+points = 15
+prompt = "An <code>IngotMetal</code> object is constructed. Which methods can you call on it?"
+choices = ["only getMetalName", "only getName and getValue (the parent's)", "getName, getValue, and getMetalName (inherited plus its own)", "none — IngotMetal has no methods unless redeclared"]
+answer = 2
+whyWrong = "A subclass inherits the parent's methods and adds its own, so IngotMetal has getName/getValue (from Ingot) and getMetalName (its own). Inheritance does not hide the parent's methods, and you do not redeclare them."
+hint = "Inheritance keeps the parent's methods and adds the child's — so the object has both sets."
+explain = "An IngotMetal is an Ingot plus more. Call any inherited or self-declared method on it."
+
+[[lessons.exercises]]
+id = "s04-l01-w1"
+type = "write"
+points = 30
+prompt = "The Ingot and IngotMetal classes are in the starter (constructor already calls super). In <code>main</code>, construct <code>IngotMetal im = new IngotMetal(\"starsteel\", 20, \"iron\");</code> and print <code>starsteel is iron-based @ 20em</code> by joining <code>im.getName()</code>, <code>\" is \"</code>, <code>im.getMetalName()</code>, <code>\"-based @ \"</code>, <code>im.getValue()</code>, and <code>\"em\"</code>. Read every value from the object."
+starter = '''public class Ironwright {
+    static class Ingot {
+        private String name; private int value;
+        public Ingot(String name, int value) { this.name = name; this.value = value; }
+        public String getName() { return name; }
+        public int getValue() { return value; }
+    }
+    static class IngotMetal extends Ingot {
+        private String metalName;
+        public IngotMetal(String name, int value, String metalName) {
+            super(name, value);
+            this.metalName = metalName;
+        }
+        public String getMetalName() { return metalName; }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — construct an IngotMetal and print its name, base metal, and value as described above
+    }
+}'''
+expect = '''
+starsteel is iron-based @ 20em'''
+hint = "IngotMetal im = new IngotMetal(\"starsteel\", 20, \"iron\"); then println(im.getName() + \" is \" + im.getMetalName() + \"-based @ \" + im.getValue() + \"em\");"
+
+[[lessons.exercises]]
+id = "s04-l01-t1"
+type = "text"
+points = 20
+prompt = "Type the keyword that declares one class as a kind of another (a child of Ingot, say)."
+answer = "extends"
+hint = "It is the seven-letter English word meaning 'is a kind of' — also the Java inheritance keyword."

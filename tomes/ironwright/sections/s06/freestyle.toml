@@ -1,0 +1,30 @@
+[freestyle]
+title = "THE WORKING: The Dev Forge"
+brief = "Apprentice, light the forge. Stand up the real Forge 1.12.2 dev environment in your <code>Ironwright</code> folder and prove a trivial <code>@Mod</code> loads. The harness builds with <code>./gradlew build</code> and runs with <code>./gradlew runClient</code>; the grader checks the build and the binding. Build:<ul><li>Download the Forge 1.12.2 MDK into the Ironwright folder (the version pinned to <code>1.12.2-14.23.5.2859</code>).</li><li>Edit <code>build.gradle</code> so <code>group = \"com.ironwright\"</code>, <code>archivesBaseName = \"ironwright\"</code>, <code>version = \"0.1.0\"</code>, and <code>mappings = \"stable_39\"</code>.</li><li>Run <code>./gradlew setupDecompWorkspace</code> then <code>./gradlew genIntellijRuns</code>.</li><li>Add <code>src/main/java/com/ironwright/Ironwright.java</code>: <code>package com.ironwright;</code>, a <code>@Mod(modid = \"ironwright\", name = \"Ironwright\", version = \"0.1.0\")</code> class, and a <code>public static final String MODID = \"ironwright\";</code>. Lifecycle methods come in Forgework VII; this forgework only proves the mod class is discovered and the dev client boots.</li><li>Run <code>./gradlew build</code> — it must succeed. Then <code>./gradlew runClient</code> — the dev Minecraft client boots with Ironwright on the Mods screen.</li></ul>"
+reward = 225
+xray = "Orrick docks for a modid that does not match archivesBaseName, a missing package line, a missing MODID constant, or a build.gradle still carrying the MDK's example group/version. He gives style credit for the MODID constant matching the modid, the package matching the folder path, and Allman braces."
+
+[freestyle.badge]
+id = "badge-s06"
+name = "THE DEV FORGE"
+desc = "Lit the forge — JDK 8, the Forge MDK, and a trivial @Mod that loads in the dev Minecraft client."
+
+[[freestyle.rubric]]
+criterion = "build.gradle identity is correct"
+weight = 30
+desc = "group is com.ironwright, archivesBaseName is ironwright, version is 0.1.0, minecraft version is 1.12.2-14.23.5.2859, mappings is stable_39; the MDK's example group/version are replaced."
+
+[[freestyle.rubric]]
+criterion = "@Mod class loads"
+weight = 30
+desc = "src/main/java/com/ironwright/Ironwright.java declares package com.ironwright; the class carries @Mod(modid = \"ironwright\", name = \"Ironwright\", version = \"0.1.0\"); a public static final String MODID = \"ironwright\"; the class is discovered by Forge and appears on the Mods screen when runClient boots."
+
+[[freestyle.rubric]]
+criterion = "Build succeeds"
+weight = 20
+desc = "./gradlew build completes without errors; setupDecompWorkspace and genIntellijRuns have been run (the .gradle/ and run/ folders exist); the mod compiles against the decompiled Forge/Minecraft source."
+
+[[freestyle.rubric]]
+criterion = "Clean Java style & wiring"
+weight = 20
+desc = "One public class per .java file named for the class; the package line matches the folder path (com/ironwright/Ironwright.java); MODID matches the @Mod modid; @Override on any override; Allman braces; 4-space indent; imports tidy."

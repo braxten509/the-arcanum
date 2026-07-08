@@ -1,0 +1,106 @@
+[[lessons]]
+id = "s07-l04"
+title = "Write the Page"
+body = '''
+<p>Writing the page is the other half of file I/O, and it feels different from reading because now the script commits to a destination. The mode string flips to <code>'&gt;'</code>, the output filehandle gets its own lexical name, and <code>print</code> writes through that handle instead of to the screen. <code>print {$out}</code> is not ceremony for its own sake; it makes the target handle obvious when several handles exist in the same block.</p>
+<p>The output path usually comes from the source path. In Writforge that means turning <code>chapter.txt</code> into <code>chapter.html</code> before the file is opened. The earlier substitution canto already taught the scribe how to rewrite a string while keeping the meaningful text intact, so this chapter can borrow that same habit for filenames. The content rewrite and the path rewrite are cousins, not the same job.</p>
+<p>Once the loop has emitted the transformed lines, <code>close</code> is where the buffer finally lands. If the disk is full or the path was not writable, this is the moment Perl can still complain. A chapter about persistence has to take that seriously. A file that was never closed is only a promise. A file that was closed cleanly is a page the next chapter can trust.</p>
+<p>That is the shape Writforge needs now: read a manuscript, rewrite its lines, build the destination filename, print the rendered HTML to the output handle, and close both ends without losing the original prose. The following canto will still refactor and organize that work, but this chapter must prove that the filesystem part itself is already sound.</p>
+<pre><code><span class="k">open</span> <span class="k">my</span> <span class="s">$out</span>, <span class="s">'&gt;'</span>, <span class="s">$html</span> <span class="k">or</span> <span class="k">die</span> <span class="s">$!</span>;
+<span class="k">print</span> {<span class="s">$out</span>} <span class="s">$body</span>;
+<span class="k">close</span> <span class="s">$out</span> <span class="k">or</span> <span class="k">die</span> <span class="s">$!</span>;</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE PAGE GATE</div>
+<p><strong>Target note.</strong> The mode string changes the direction of the gate. <code>'&gt;'</code> creates or replaces a destination file rather than reading an existing one.</p>
+<p><strong>Handle note.</strong> The brace form of <code>print</code> is the clearest choice when more than one filehandle might be in play.</p>
+<p><strong>Closure note.</strong> A clean <code>close</code> is how buffered output becomes a real page on disk.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perldoc: functions/print"
+url = "https://perldoc.perl.org/functions/print"
+
+[[lessons.exercises]]
+id = "s07-l04-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "<p>Retype the output-handle scaffold exactly. Keep the write mode and the close in place.</p>"
+code = '''
+#!/usr/bin/env perl
+use v5.36;
+
+open my $out, '>', $html or die $!;
+print {$out} $body;
+close $out or die $!;
+'''
+
+[[lessons.exercises]]
+id = "s07-l04-e1"
+type = "fill"
+points = 22
+prompt = "<p>Restore the filehandle name that makes <code>print</code> write to the output file instead of the screen.</p>"
+code = 'print {____} $body;'
+answer = "$out"
+hint = "The blank is the lexical output handle from the lesson, not the body text."
+whyWrong = "You are swapping the payload for the destination. The braces must hold the filehandle so the rendered page goes to disk."
+
+[[lessons.exercises]]
+id = "s07-l04-e2"
+type = "mc"
+points = 18
+prompt = "<p>What does opening with <code>'&gt;'</code> do in this chapter?</p>"
+choices = ["It reads the existing manuscript.", "It creates or overwrites the destination file.", "It appends the new page to the old one without touching it.", "It reads until EOF and prints to STDOUT."]
+answer = 1
+whyWrong = "You are confusing the write gate with read mode, append mode, or standard output. <code>'&gt;'</code> is the write-and-replace direction."
+hint = "This is the mode that sends the rendered page outward to disk."
+explain = "The write mode creates the output file if needed and overwrites the old contents if it already exists."
+
+[[lessons.exercises]]
+id = "s07-l04-e3"
+type = "text"
+points = 17
+prompt = "<p>Why close the output handle after the page has been printed?</p>"
+answer = "to flush buffered bytes to disk and surface write errors"
+accept = ["flush buffered bytes to disk and surface write errors", "make sure the page is really on disk", "let perl report any close failure"]
+hint = "A written page is only real after the handle closes cleanly."
+whyWrong = "You are treating the print call as the final word. Buffered output can still fail or remain unwritten until the handle is closed."
+
+[[lessons.exercises]]
+id = "s07-l04-e4"
+type = "mc"
+points = 18
+prompt = "<p>Before <code>print {$out}</code> writes the rendered line, which earlier operator keeps the captured words while changing the wrapper?</p>"
+choices = ["<code>s///</code>", "<code>open</code>", "<code>close</code>", "<code>warn</code>"]
+answer = 0
+whyWrong = "You are confusing the earlier text rewrite with file opening, file closing, or error reporting. The capture-preserving render step comes from substitution."
+hint = "This is the operator from the rewrite chapter, not the file chapter."
+explain = "<code>s///</code> is the rewrite operator that keeps the captured manuscript text while changing its wrapper."
+
+[[lessons.exercises]]
+id = "s07-l04-w1"
+type = "write"
+points = 30
+ prompt = "<p>The starter manuscript at <code>manuscripts/preface.txt</code> contains one heading, one bold span, and one link. Read it, use the <code>split</code>/<code>join</code> slug trick from s06 to derive <code>preface.html</code> from <code>preface.txt</code>, apply the heading, bold, italic, and link rewrites from the earlier cantos, print the rendered HTML lines to STDOUT, write the same lines to <code>build/preface.html</code>, and finish with <code>WROTE preface.html</code>. The file output and the screen output must match the starter content.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my $src = "manuscripts/preface.txt";
+my $dest = "build/preface.html";
+mkdir "manuscripts";
+mkdir "build";
+
+open my $seed, '>', $src or die $!;
+print {$seed} "# Preface\nThis is **red** ink.\n[Read more](https://example.test)\n";
+close $seed or die $!;
+
+my $written = 0;
+
+# Task: read the source file, use the s06 split/join slug trick to derive $dest, render each line to HTML, print it, write it to $dest, and finish with "WROTE preface.html".
+'''
+expect = '''
+<h1>Preface</h1>
+<p>This is <strong>red</strong> ink.</p>
+<p><a href="https://example.test">Read more</a></p>
+WROTE preface.html'''
+hint = "Use the s06 transforms while streaming the source file, and send each rendered line to both STDOUT and the destination handle."

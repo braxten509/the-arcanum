@@ -1,0 +1,93 @@
+[[lessons]]
+id = "s11-l01"
+title = "The World Answers — MinecraftForge.EVENT_BUS & @SubscribeEvent"
+body = '''
+<p>A mod that sits silent is a dead casting. The world must answer the hammer. <code>MinecraftForge.EVENT_BUS</code> is the channel: when a block breaks, a player right-clicks, or a mob dies, Forge fires an event on the bus, and every subscribed handler runs. You register a handler and the world calls your code.</p>
+<pre><code><span class="k">@Mod.EventBusSubscriber</span>(modid = Ironwright.MODID)
+<span class="k">public class</span> ModEvents {
+    <span class="k">@SubscribeEvent</span>
+    <span class="k">public static void</span> onBlockBreak(BlockEvent.BreakEvent event) {
+        System.out.println(<span class="s">"broke: "</span> + event.getState().getBlock());
+    }
+}</code></pre>
+<p><code>@Mod.EventBusSubscriber</code> auto-registers the class's static <code>@SubscribeEvent</code> methods on <code>MinecraftForge.EVENT_BUS</code> — the same bus your registry handlers from Forgework VIII ride. <code>@SubscribeEvent</code> marks each handler; its parameter type (<code>BlockEvent.BreakEvent</code>) decides which events call it. Forge inspects the parameter type and dispatches matching events — write the handler for the event you want, and Forge calls it.</p>
+<p>A handler can set <code>@SubscribeEvent(priority = EventPriority.HIGH)</code> to run before lower-priority handlers, and call <code>event.setCanceled(true)</code> on <code>@Cancelable</code> events to prevent the action (cancel a block break, say). Priority and cancellation are how mods cooperate — or compete — on the same event.</p>
+<div class="callout"><strong>Orrick says:</strong> The parameter type IS the subscription. A method <code>onBlockBreak(BlockEvent.BreakEvent event)</code> receives break events and nothing else. To handle a different event, write a different handler with a different parameter type — do not branch inside one handler on the event's class.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CANCELABLE AND HASRESULT</div>
+<p>Only events marked <code>@Cancelable</code> can be canceled with <code>event.setCanceled(true)</code> — canceling a non-cancelable event throws. Only events with <code>@HasResult</code> let you call <code>event.setResult(Result.DENY)</code> to override the outcome. Read the event class's annotations in IntelliJ before you cancel or set a result; the annotation tells you whether the lever exists. The smith-wright's eye again.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Minecraft Forge 1.12.x — Events Reference"
+url = "https://docs.minecraftforge.net/en/1.12.x/events/reference/"
+
+[[lessons.exercises]]
+id = "s11-l01-e1"
+type = "mc"
+points = 15
+prompt = "What decides which events a <code>@SubscribeEvent</code> handler receives?"
+choices = ["the handler's name", "the handler's parameter type (e.g. BlockEvent.BreakEvent)", "the @SubscribeEvent annotation alone", "the method's priority"]
+answer = 1
+whyWrong = "Forge dispatches by the handler's parameter type — onBlockBreak(BlockEvent.BreakEvent) receives break events and nothing else; the name is free-form, @SubscribeEvent only marks it as a handler, and priority orders handlers for the same event but does not select which. The parameter type is the subscription."
+hint = "Look at the handler signature — what in it names the event being handled?"
+explain = "The parameter type is the subscription. Write one handler per event type; Forge calls the handlers whose parameter matches the fired event."
+
+[[lessons.exercises]]
+id = "s11-l01-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the annotation that marks a method as an event handler (the one each onBlockBreak / onPlayerInteract handler carries)."
+code = '''@Mod.EventBusSubscriber(modid = Ironwright.MODID)
+public class ModEvents {
+    ____ public static void onBlockBreak(BlockEvent.BreakEvent event) { ... }
+}'''
+answer = "@SubscribeEvent"
+whyWrong = "@SubscribeEvent marks an event handler; @EventHandler is the legacy lifecycle annotation, @Override is for parent methods, @Listener is not Forge's. The event-handler annotation is @SubscribeEvent (same one you used for registry events in Forgework VIII)."
+hint = "It is the @ annotation named for subscribing to an event — the same one registry handlers carry."
+
+[[lessons.exercises]]
+id = "s11-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the onBlockBreak handler exactly — the @SubscribeEvent, the static signature, and the print of the broken block."
+code = '''@SubscribeEvent
+public static void onBlockBreak(BlockEvent.BreakEvent event) {
+    System.out.println("broke: " + event.getState().getBlock());
+}'''
+
+[[lessons.exercises]]
+id = "s11-l01-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of the event-dispatch shape. The starter has a mock <code>BlockBreakEvent</code> class (with a <code>getBlock()</code> method returning <code>\"iron_ore\"</code>), a mock <code>EventBus</code> with a <code>post(event)</code> method that takes a java.util.function.Consumer of the event and runs it, and a mock <code>ModEvents</code> with a static <code>onBlockBreak(BlockBreakEvent)</code> that is currently empty. In <code>main</code>, build <code>EventBus bus = new EventBus();</code>, register the handler by calling <code>bus.subscribe(ModEvents::onBlockBreak)</code>, then <code>bus.post(new BlockBreakEvent());</code> — the handler should print <code>broke: iron_ore</code>. Fill the handler body to print <code>broke: </code> plus <code>event.getBlock()</code>."
+starter = '''public class Ironwright {
+    static class BlockBreakEvent {
+        public String getBlock() { return "iron_ore"; }
+    }
+    static class EventBus {
+        private java.util.function.Consumer<BlockBreakEvent> handler;
+        public void subscribe(java.util.function.Consumer<BlockBreakEvent> h) { this.handler = h; }
+        public void post(BlockBreakEvent e) { if (handler != null) handler.accept(e); }
+    }
+    static class ModEvents {
+        public static void onBlockBreak(BlockBreakEvent event) {
+            // apprentice — print "broke: " + event.getBlock()
+        }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — build an EventBus, subscribe ModEvents::onBlockBreak, post a new BlockBreakEvent
+    }
+}'''
+expect = '''
+broke: iron_ore'''
+hint = "In ModEvents.onBlockBreak: System.out.println(\"broke: \" + event.getBlock());. In main: EventBus bus = new EventBus(); bus.subscribe(ModEvents::onBlockBreak); bus.post(new BlockBreakEvent());"
+
+[[lessons.exercises]]
+id = "s11-l01-t1"
+type = "text"
+points = 20
+prompt = "Type the Forge field that holds the event bus gameplay and registry events fire on (the one @Mod.EventBusSubscriber subscribes to). (Class.field form.)"
+answer = "MinecraftForge.EVENT_BUS"
+hint = "It is the MinecraftForge class's EVENT_BUS field — the static bus every @SubscribeEvent handler rides."

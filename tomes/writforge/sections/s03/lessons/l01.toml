@@ -1,0 +1,95 @@
+[[lessons]]
+id = "s03-l01"
+title = "The First Ledger"
+body = '''
+<p>An array is a shelf with numbered slots. The first slot is <code>0</code>, not <code>1</code>. That off-by-one is the first thing the apprentice must pin to the board. The line classifier from the previous canto still exists, but now the script can keep several manuscript lines in one ordered ledger instead of one line at a time. Use <code>@samples</code> for the whole shelf and <code>$samples[0]</code> for one tray on it.</p>
+<p>Perl asks you to choose the context on purpose. In list context, <code>@samples</code> is all the samples. In scalar context, the same name becomes the count. That is why <code>scalar @samples</code> is worth spelling out when the number matters. A clean ledger does not make the reader guess whether you wanted the pile or the count. It tells them. If you want the first line, say so with an index. If you want the count, ask for the count.</p>
+<p>Do not let the syntax blur the job. The <code>@</code> sigil names the whole ordered collection; the <code>$</code> sigil names one element inside it. That split will matter again when the script starts moving lines around by the ends and then walking them one by one. For now, the apprentice only needs to know that the ledger has a front, a middle, and a size, and Perl gives each of those a different expression on purpose.</p>
+<p>The ledger becomes useful the moment the scribe stops treating the shelf as a banner. A banner has no addressable slots. An array does. That means the script can name a precise line, replace one slot later, or compare the front and the tail without repainting the whole page. The next chapter will move those slots around by the ends; this one merely teaches the apprentice to respect the shape of the shelf first.</p>
+<pre><code><span class="k">my</span> <span class="s">@samples</span> = (<span class="s">"# Preface"</span>, <span class="s">""</span>, <span class="s">"A paragraph"</span>, <span class="s">"# Addendum"</span>);
+<span class="k">say</span> <span class="s">$samples</span>[<span class="s">0</span>];
+<span class="k">say</span> <span class="s">$samples</span>[<span class="s">3</span>];
+<span class="k">say</span> <span class="k">scalar</span> <span class="s">@samples</span>;</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE FIRST LEDGER</div>
+<p><strong>Array note.</strong> <code>@samples</code> in double quotes would join elements with spaces. This chapter wants the writer to choose between plural and singular explicitly instead of relying on interpolation.</p>
+<p><strong>Index note.</strong> The first element is <code>$samples[0]</code>. The last element will matter later, but this lesson only needs the front and the count.</p>
+<p><strong>Context note.</strong> <code>scalar</code> is not a new container; it changes the context of the array expression that follows. Spelling it out keeps the count from hiding inside list syntax.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perldata: arrays and context"
+url = "https://perldoc.perl.org/perldata"
+
+[[lessons.exercises]]
+id = "s03-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "<p>Retype the ledger example exactly. Keep the array literal, the first and last index access, and the explicit count.</p>"
+code = '''
+my @samples = ("# Preface", "", "A paragraph", "# Addendum");
+say $samples[0];
+say $samples[3];
+say scalar @samples;
+'''
+
+[[lessons.exercises]]
+id = "s03-l01-e1"
+type = "mc"
+points = 15
+prompt = "<p>Which line prints the number of sample lines without printing the lines themselves?</p>"
+choices = ["<code>say scalar @samples;</code>", "<code>say @samples;</code>", "<code>say $#samples;</code>", "<code>say $samples[0];</code>"]
+answer = 0
+whyWrong = "You are mixing count, joined list output, the last index, and the first element. Only <code>scalar @samples</code> asks for the total."
+hint = "The count is not the first element and not the last index."
+explain = "In scalar context an array becomes its length, so <code>scalar @samples</code> is the count."
+
+[[lessons.exercises]]
+id = "s03-l01-e2"
+type = "fill"
+points = 20
+prompt = "<p>Restore the word that makes <code>@samples</code> become a count.</p>"
+code = 'say ____ @samples;'
+answer = "scalar"
+hint = "The missing word changes the array from plural items into one number."
+whyWrong = "You are leaving the array in list context, where Perl wants the items themselves instead of the count."
+
+[[lessons.exercises]]
+id = "s03-l01-e3"
+type = "text"
+points = 20
+prompt = "<p>Which index holds <code># Preface</code> in the array from the code block?</p>"
+answer = "0"
+accept = ["zero"]
+hint = "Perl arrays start at zero, so the opening line sits in the first slot."
+whyWrong = "You are counting like a human and skipping the zero slot. The first element lives at index 0."
+
+[[lessons.exercises]]
+id = "s03-l01-e4"
+type = "mc"
+points = 15
+prompt = "<p>Which expression gives you the last element's index, not the count?</p>"
+choices = ["<code>say $samples[0];</code>", "<code>say $#samples;</code>", "<code>say scalar @samples;</code>", "<code>say @samples;</code>"]
+answer = 1
+whyWrong = "You are looking at the first slot, the count, or a joined list, but the last index is the special <code>#</code> form."
+hint = "The last index is one less than the count."
+explain = "The count and the last index are different in Perl; <code>$#samples</code> names the final slot."
+
+[[lessons.exercises]]
+id = "s03-l01-w1"
+type = "write"
+points = 30
+prompt = "<p>Using the starter array, print <code>COUNT 4</code>, <code>FIRST # Preface</code>, and <code>LAST # Addendum</code>, one line per output. Compute those lines from <code>@samples</code>; do not hardcode the three answers.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my @samples = ("# Preface", "", "A paragraph", "# Addendum");
+
+# Task: print COUNT, FIRST, and LAST from @samples.
+'''
+expect = '''
+COUNT 4
+FIRST # Preface
+LAST # Addendum'''
+hint = "Use <code>scalar @samples</code> for the count and the bracketed indices for the ends."

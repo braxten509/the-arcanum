@@ -101,14 +101,43 @@ gradingLines = [
   "TODO: another one...",
 ]
 
-# --- the peddler's shop (reflavor every name/desc to this course's world) ------
+# --- the peddler's shop -------------------------------------------------------
+# Every tome stocks these FIVE engine power-ups. The mechanic is fixed by `id`;
+# reflavor name/desc/cost/ico to this course's world (validator requires all 5,
+# each filled). oracle is an optional 6th (needs an [runtime] oracle model).
+[[shop]]
+id = "firewall"                    # engine mechanic: while charged, a wrong answer costs no credits
+kind = "consumable"
+name = "TODO WARD OF ABSORPTION"
+cost = 450
+desc = "TODO: one flavorful sentence that also explains the mechanic."
+ico = "shield"
+charges = 5
+
+[[shop]]
+id = "x2"                          # engine mechanic: next 20 correct answers pay double (count engine-fixed — no charges key)
+kind = "consumable"
+name = "TODO CATALYST"
+cost = 600
+desc = "TODO: reflavor."
+ico = "zap"
+
 [[shop]]
 id = "skip"                        # engine mechanic: solves one trial at full points
 kind = "consumable"
 name = "TODO SCROLL OF REVELATION"
 cost = 700
-desc = "TODO: one flavorful sentence that also explains the mechanic."
+desc = "TODO: reflavor."
 ico = "scroll"
+
+[[shop]]
+id = "vpn"                         # engine mechanic: deflects one incoming hex per charge
+kind = "consumable"
+name = "TODO CLOAK OF UNSEEING"
+cost = 800
+desc = "TODO: reflavor."
+ico = "cloak"
+charges = 3
 
 [[shop]]
 id = "xray"                        # engine mechanic: reveals the grader's private xray notes
@@ -125,7 +154,6 @@ name = "TODO ALTERNATE PALETTE"
 cost = 2200
 theme = "alt"                      # unlocks the [[themes]] id "alt" below
 desc = "TODO: reflavor."
-ico = "ink"
 
 # --- badges (register ONLY engine-granted ids here; per-chapter badges live in sections)
 [[badges]]
@@ -246,7 +274,8 @@ type = "mc"
 points = 15
 prompt = "TODO: a multiple-choice question?"
 choices = ["TODO correct answer", "TODO distractor", "TODO distractor", "TODO distractor"]
-answer = 0                         # 0-based index of the correct choice
+answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
+whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
 hint = "TODO: an exercise-specific hint."
 explain = "TODO: shown after solving."
 

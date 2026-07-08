@@ -1,0 +1,35 @@
+[freestyle]
+title = "THE WORKING: The Smith-Wright's Eye"
+brief = "Apprentice, the master's final commission. Choose ONE feature from the capstone menu and forge it by reading the old marks unaided — no tutorial walkthrough, just the four reconnaissance tools and the source. Then document the trail in <code>RESEARCH.md</code>. Pick from:<ul><li>Custom Tool or Armor tier (read ItemPickaxe / ItemArmor, ToolMaterial / ArmorMaterial, EnumHelper).</li><li>Custom Ore + world-gen (read BlockOre, WorldGenMinable, IWorldGenerator, GameRegistry.registerWorldGenerator).</li><li>Food (read ItemFood, Item.appendPotionToTooltip).</li><li>TileEntity with inventory (read TileEntity, IInventory, BlockContainer).</li><li>Custom Entity (read Entity, EntityEntry, EntityRegistry.registerModEntity).</li><li>GUI / Container (read GuiContainer, Container, NetworkRegistry).</li><li>Capability (read Capability, CapabilityManager, AttachCapabilitiesEvent).</li><li>Command (read CommandBase, ClientCommandHandler / server CommandHandler, IGameProfile...).</li></ul>For whichever you pick, the research method is the same: find the parent class, read its constructors/fields, Find Usages, write the subclass mirroring the pattern, register/model/name/bench as in Forgeworks VIII–X, build, fire the coals, verify, and document. Deliver:<ul><li>The feature itself — registered, modeled, named, and visible/working in <code>./gradlew runClient</code>.</li><li><code>RESEARCH.md</code> at the project root — a source-map naming each class you opened, the field/method you read, where you read it (file or Find Usages), and what you did with it (override, constructor arg, registry call), plus a Verify section recording <code>./gradlew build</code> succeeding and <code>runClient</code> showing the feature working.</li></ul>"
+reward = 300
+xray = "Orrick docks for a feature copied from a tutorial with no RESEARCH.md (no evidence you read the source), a source-map with guessed field names that do not exist on the cited classes, a feature that compiles but does not work in runClient, or a feature that ignores the existing mod (no IronwrightTab, hardcoded modid). He gives style credit for @Override on every override, one class per file, a markdown source-map with a Verify section, and the MODID constant as the single source."
+
+[freestyle.badge]
+id = "badge-s12"
+name = "THE SMITH-WRIGHT'S EYE"
+desc = "Chose a feature, reconnoitred it unaided through the old marks, forged it, and wrote the source-map — the skill to teach yourself what comes next."
+
+[[freestyle.rubric]]
+criterion = "Feature chosen & working"
+weight = 30
+desc = "One feature from the menu is implemented (Tool/Armor tier, Ore+worldgen, Food, TileEntity/inventory, Entity, GUI/Container, Capability, or Command); it compiles with ./gradlew build and works in ./gradlew runClient (the player can see/use it in-game)."
+
+[[freestyle.rubric]]
+criterion = "Reconnaissance is honest (RESEARCH.md source-map)"
+weight = 25
+desc = "RESEARCH.md documents a real source-map: for each class touched, it names the class, the field/method read, where it was read (file or Find Usages), and what was done with it (override / constructor arg / registry call); the cited classes and fields are real (they exist in the decompiled source — no guessed names); the trail is reproducible by another smith."
+
+[[freestyle.rubric]]
+criterion = "Integration with the existing mod"
+weight = 20
+desc = "The feature is registered/modeled/named/benched using the patterns from Forgeworks VII–X: it goes through the right RegistryEvent, uses the MODID constant for resource locations, lands in IronwrightTab where it is an item/block, and fits the @Mod skeleton without duplicating registration."
+
+[[freestyle.rubric]]
+criterion = "Verify section is real"
+weight = 10
+desc = "RESEARCH.md's Verify section records ./gradlew build succeeding and ./gradlew runClient showing the specific in-game behaviour that proves the feature works (e.g. 'starsteel pickaxe in the Ironwright tab, mines obsidian, 1024 uses')."
+
+[[freestyle.rubric]]
+criterion = "Clean style"
+weight = 15
+desc = "@Override on every overridden method; one public class per .java file named for the class; Allman braces; 4-space indent; RESEARCH.md is well-formed markdown; the MODID constant is the single source for every resource location and the @Mod/@EventBusSubscriber modid."

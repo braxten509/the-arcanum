@@ -1,0 +1,81 @@
+[[lessons]]
+id = "s01-l03"
+title = "The Stack Above the Metal"
+body = '''
+<p>ROCm and PyTorch give you a card that computes. Everything above that layer is the Hugging Face stack, and each library in it has exactly one job — confusing their jobs is how a working bench still fails to train anything. <strong>transformers</strong> loads a base model's architecture and weights. <strong>datasets</strong> loads and shapes your training examples into the rows a trainer expects. <strong>peft</strong> wraps a loaded model with a LoRA adapter — the small, trainable delta this course spends its middle rites on. <strong>trl</strong> supplies the actual training loop, its <code>SFTTrainer</code>, that reads your shaped dataset and updates the adapter's weights. <strong>accelerate</strong> sits underneath all of them, deciding which device each tensor lives on — on a single-GPU bench like yours, its job is small, but it is still the thing quietly making device placement correct.</p>
+<p>Downstream of training sits a second, separate toolchain, and its job is not to train anything — it exists purely to turn a finished set of weights into something you can talk to locally. <strong>llama.cpp</strong> converts and quantizes a merged model into GGUF, the single-file format from the first lesson. <strong>Ollama</strong> then loads that GGUF and serves it as a local chat process, configured by a <code>Modelfile</code> — a small text file naming the base GGUF, the chat template, and the system prompt the served model should carry.</p>
+<p>None of this lives inside this tome's engine. The homunculus you build is a real external project, in your own folder, run by your own tools — this course only teaches you what to install and verify. That project needs one marker file the engine can recognize as "a real Python project lives here":</p>
+<pre><code>[runtime]
+name = "python"
+externalWorkspace = true
+projectFile = "____"</code></pre>
+<p>Lay the project out plainly from the start — a data folder for your distilled notes, a source folder for training and serving scripts, and the marker file at the root:</p>
+<pre><code>my-homunculus/
+  pyproject.toml
+  src/
+    train.py
+  data/</code></pre>
+<div class="callout">If a rite ever asks you to run something "in the workbench," that means your own external project and editor — not a sandbox standing in for the real one.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ONE JOB PER TOOL</div>
+<p>When something breaks later, resist the urge to blame "the training step" as one lump. Ask which single-job tool actually owns the failure: a shape error is almost always <code>datasets</code>; a device error is almost always <code>accelerate</code>; an adapter that won't attach is almost always a <code>peft</code> config mismatch; a loop that never starts is <code>trl</code>. Naming the tool narrows the fix before you've read a single line of traceback.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Hugging Face transformers docs"
+url = "https://huggingface.co/docs/transformers/index"
+
+[[lessons.readings]]
+label = "Ollama Modelfile reference"
+url = "https://github.com/ollama/ollama/blob/main/docs/modelfile.md"
+
+[[lessons.exercises]]
+id = "s01-l03-e1"
+type = "mc"
+points = 20
+prompt = "Which pairing correctly matches each Hugging Face library to its one job in the training half of the stack?"
+choices = [
+  "datasets runs the training loop; trl only stores files on disk",
+  "peft downloads the base model's weights; transformers only defines the LoRA config",
+  "accelerate quantizes the model to GGUF; llama.cpp only loads checkpoints into memory",
+  "trl's SFTTrainer runs the supervised fine-tune loop; datasets loads and shapes the JSONL; peft wraps the base model with a LoRA adapter; accelerate handles device placement",
+]
+answer = 3
+whyWrong = "Swapping which library 'runs the loop' versus 'loads data' is the single most common mix-up here — trl owns the loop, datasets owns the rows it feeds in, and neither one does the other's job."
+explain = "Each library keeps to exactly one responsibility: architecture/weights (transformers), data shaping (datasets), adapter wrapping (peft), the loop itself (trl), device placement (accelerate)."
+
+[[lessons.exercises]]
+id = "s01-l03-e2"
+type = "text"
+points = 15
+prompt = "What file does Ollama read to define a served model's base GGUF, chat template, and system prompt?"
+answer = "Modelfile"
+accept = ["a modelfile"]
+hint = "It's named directly in the lesson's paragraph about the serving side of the stack, right after GGUF is mentioned."
+
+[[lessons.exercises]]
+id = "s01-l03-e3"
+type = "fill"
+points = 20
+prompt = "Fill the missing key from the runtime snippet shown in the lesson — the file that marks this as a real external Python project."
+code = '''[runtime]
+name = "python"
+externalWorkspace = true
+projectFile = "____"'''
+answer = "pyproject.toml"
+hint = "It's the standard Python project marker file named in the lesson's folder layout, sitting at the project root next to src/ and data/."
+
+[[lessons.exercises]]
+id = "s01-l03-e4"
+type = "write"
+points = 30
+prompt = "Given a dict mapping five pipeline stage names to their correct order, and a shuffled list of those same stages, sort the shuffled list into the correct order and print exactly: <code>PIPELINE: train -> merge -> convert -> quantize -> serve</code>."
+starter = '''order_index = {"train": 0, "merge": 1, "convert": 2, "quantize": 3, "serve": 4}
+stages = ["quantize", "train", "serve", "merge", "convert"]
+
+# TODO: sort `stages` using each name's value in order_index, then print:
+#   PIPELINE: train -> merge -> convert -> quantize -> serve
+ordered = stages
+print("PIPELINE: " + " -> ".join(ordered))
+'''
+expect = "PIPELINE: train -> merge -> convert -> quantize -> serve"
+hint = "Python's sort takes a key function — use order_index.get on each stage name rather than sorting the strings alphabetically."

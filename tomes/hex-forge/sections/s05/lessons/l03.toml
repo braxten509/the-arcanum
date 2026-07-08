@@ -1,0 +1,147 @@
+[[lessons]]
+id = "s05-l03"
+title = "The ABI Contract"
+body = '''
+<p>A procedure is useless if the caller and callee disagree about where arguments live and which registers survive. The <strong>System V AMD64 ABI</strong> (Application Binary Interface) is the contract every procedure on Linux x86-64 follows. Break it and your jigs crack.</p>
+
+<p>The ABI divides registers into two camps:</p>
+
+<table style="width:100%">
+<tr><td><strong>Caller-saved (volatile)</strong></td><td><strong>Callee-saved (non-volatile)</strong></td></tr>
+<tr><td>rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11</td><td>rbx, rbp, r12, r13, r14, r15</td></tr>
+<tr><td colspan="2">The CALLER must save these before a call if it needs them afterward.</td><td colspan="2">The CALLEE must save these before using them and restore before ret.</td></tr>
+</table>
+
+<p>Argument passing — first six integer/pointer arguments go in registers, left to right:</p>
+
+<table style="width:100%">
+<tr><td><strong>Arg</strong></td><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td></tr>
+<tr><td><strong>Register</strong></td><td><code>rdi</code></td><td><code>rsi</code></td><td><code>rdx</code></td><td><code>rcx</code></td><td><code>r8</code></td><td><code>r9</code></td></tr>
+</table>
+
+<p>Return value: in <code>rax</code> (and <code>rdx</code> for a 128-bit return).</p>
+
+<p>Notice: these are the SAME register assignments as the syscall ABI you learned in s01 — but rcx replaces r10 as arg4, and the syscall number goes in rax. The kernel's convention is a slight variant of the user-space one. This is deliberate: it makes syscall wrappers trivial (just move args to the right registers and <code>syscall</code>).</p>
+
+<p>Example — a procedure that adds two numbers:</p>
+<pre><code><span class="c">; int add_two(int a, int b) — a in rdi, b in rsi, return in rax</span>
+add_two:
+    <span class="k">mov</span> rax, rdi           <span class="c">; rax = a</span>
+    <span class="k">add</span> rax, rsi           <span class="c">; rax = a + b</span>
+    <span class="k">ret</span>
+
+<span class="c">; Caller:</span>
+    <span class="k">mov</span> rdi, 100           <span class="c">; first arg = 100</span>
+    <span class="k">mov</span> rsi, 50            <span class="c">; second arg = 50</span>
+    <span class="k">call</span> add_two
+    <span class="c">; rax = 150</span></code></pre>
+
+<p>Which registers a procedure must preserve depends on its role. A leaf procedure (one that calls nothing else) only needs to preserve callee-saved registers it actually uses. A non-leaf procedure (one that calls other procedures) must also preserve its OWN return address and any caller-saved registers it needs after the nested call returns. The typical pattern:</p>
+<pre><code>outer_proc:
+    <span class="k">push</span> rbp                <span class="c">; callee-saved — must preserve</span>
+    <span class="k">push</span> rbx                <span class="c">; callee-saved</span>
+    <span class="c">; save any caller-saved regs WE need across the nested call</span>
+    <span class="k">push</span> rdi                <span class="c">; we need rdi after the inner call</span>
+    <span class="c">; ... body, including call inner_proc ...</span>
+    <span class="k">pop</span> rdi                 <span class="c">; restore in reverse order</span>
+    <span class="k">pop</span> rbx
+    <span class="k">pop</span> rbp
+    <span class="k">ret</span></code></pre>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // RED ZONE — THE 128 BYTES BELOW RSP</div>
+<p>The AMD64 ABI defines a 128-byte "red zone" below rsp that signal handlers will not touch. Leaf procedures (those that call no other procedures) can use this space as scratch memory without adjusting rsp — just access <code>[rsp - 8]</code> through <code>[rsp - 128]</code>. This is a performance optimisation that avoids stack-pointer arithmetic. Non-leaf procedures cannot use the red zone because a <code>call</code> instruction writes the return address at <code>[rsp]</code>, overwriting anything in the red zone. HexForge's procedures are small enough that the red zone is useful; just never use it in a procedure that calls anything else.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s05-l03-e1"
+type = "mc"
+points = 15
+prompt = "You write a procedure that calls <code>sys_read</code>. After the syscall, you need the value of <code>rsi</code> (which held the buffer address). Do you need to save rsi before the syscall?"
+choices = [
+  "No — syscall preserves rsi, and the kernel never touches it",
+  "Yes — the kernel clobbers all argument registers during syscall",
+  "No — rsi is callee-saved, so the kernel must preserve it",
+  "Yes — the kernel uses rsi internally and may overwrite it"
+]
+answer = 0
+whyWrong = "The kernel preserves rdi, rsi, rdx, r10, r8, r9 — all argument registers except rcx and r11 (which hold return RIP and RFLAGS). rsi is safe across syscall. It is NOT callee-saved in user-space, but the kernel's convention is different: it preserves everything except rax (return), rcx, and r11."
+hint = "Recall s04-l05's field notes: which registers does syscall clobber?"
+explain = "The kernel's syscall convention preserves rdi, rsi, rdx, r10, r8, r9, rbx, rbp, r12–r15. It only clobbers rax (return value), rcx (saved RIP), and r11 (saved RFLAGS). This is more caller-friendly than the user-space ABI and is specifically designed so wrapper functions don't need to save arguments."
+
+[[lessons.exercises]]
+id = "s05-l03-e2"
+type = "mc"
+points = 15
+prompt = "Under the System V AMD64 calling convention, which register holds the THIRD integer argument to a procedure?"
+choices = [
+  "rcx — it is the fourth register in the conventional ordering rdi, rsi, rdx, rcx, r8, r9",
+  "rdx — argument 3 goes to rdx (rdi=1, rsi=2, rdx=3)",
+  "r8 — arguments skip rcx and go rdi, rsi, rdx, r8, r9",
+  "r10 — the same as the syscall convention where r10 is arg4"
+]
+answer = 1
+whyWrong = "The user-space ABI order is rdi, rsi, rdx, rcx, r8, r9. So arg3 → rdx. rcx is arg4. r8 is arg5. r10 is NOT in the user-space argument list (it is in the kernel's syscall list, replacing rcx). The kernel uses r10 instead of rcx because syscall clobbers rcx."
+hint = "Count: first=rdi, second=rsi, third=...? It's the next register in the natural sequence."
+explain = "The register order for user-space calls is: rdi (1), rsi (2), rdx (3), rcx (4), r8 (5), r9 (6). Arguments beyond 6 are passed on the stack. This is different from the kernel's syscall convention, which uses r10 instead of rcx for arg4 (because syscall clobbers rcx)."
+
+[[lessons.exercises]]
+id = "s05-l03-e3"
+type = "fill"
+points = 20
+prompt = "Complete the register setup to call a procedure that takes a buffer pointer (arg1) and a length (arg2)."
+code = '''
+mov  ____, buffer      ; arg 1: buffer address
+mov  ____, 64          ; arg 2: byte count
+call process_buf
+'''
+answer = "rdi, rsi"
+accept = ["rdi / rsi", "rdi then rsi"]
+hint = "Two registers: first the destination index, then the source index. Think of the sys_write pattern from s01."
+explain = "rdi holds the first argument (the buffer address — 'destination' for data flowing in), rsi holds the second (the byte count — 'source' of the length). This is the same register assignment used by <code>sys_write</code> in s01-l03: rdi=fd, rsi=buffer, rdx=count."
+
+[[lessons.exercises]]
+id = "s05-l03-e4"
+type = "type"
+points = 12
+prompt = "Retype the ABI-compliant procedure call. Arguments in rdi/rsi, return in rax, callee-saved registers preserved."
+code = '''
+; int multiply(int a, int b) — rdi=a, rsi=b, return rax=a*b
+multiply:
+    imul rax, rdi, rsi       ; rax = a * b
+    ret
+
+; Caller:
+    mov  rdi, 7
+    mov  rsi, 6
+    call multiply
+    ; rax = 42
+'''
+
+[[lessons.exercises]]
+id = "s05-l03-w1"
+type = "write"
+points = 30
+prompt = "Write a two-argument procedure. Create <code>power_of</code> that takes a base in rdi and an exponent in rsi, and returns base^exponent in rax (only handle exponent=2 for now: multiply the base by itself). Call it with base=12, exponent=2. Print the result (144) using itoa. The procedure must be ABI-compliant: rd=first arg, rsi=second, return in rax."
+starter = '''
+section .text
+    global _start
+
+_start:
+    mov rdi, 12          ; base
+    mov rsi, 2           ; exponent
+    call power_of
+    ; rax = 144. Print with itoa.
+    
+
+power_of:
+    ; Compute rdi ^ rsi (for exponent=2: rdi * rdi)
+    ; Return result in rax
+    
+
+section .data
+newline: db 10
+outbuf: times 20 db 0
+'''
+expect = '''
+144'''
+hint = "power_of: mov rax, rdi / imul rax, rdi / ret. (rdi * rdi = 144). After call, itoa on rax: xor ecx,ecx / mov ebx,10 / .cvt: xor edx,edx / div ebx / add dl,'0' / push rdx / inc ecx / test eax,eax / jnz .cvt. Pop to outbuf. Print with sys_write."

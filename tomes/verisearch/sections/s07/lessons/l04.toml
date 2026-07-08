@@ -47,8 +47,9 @@ var q = results.Where(r => r.Trust > 3);
 // (A) right here
 var list = q.ToList();
 // (B) right here'''
-choices = ["At point A — when the query is defined", "At point B — when ToList enumerates it", "At compile time", "Never"]
-answer = 1
+choices = ["At point A — when the query is defined", "At compile time", "At point B — when ToList enumerates it", "Never"]
+answer = 2
+whyWrong = "LINQ is lazy: the Where lambda doesn’t run when defined or at compile time — it runs when ToList enumerates the query."
 hint = "Queries are recipes. ToList is the cooking."
 
 [[lessons.exercises]]
@@ -56,8 +57,9 @@ id = "s07-l04-e2"
 type = "mc"
 points = 25
 prompt = "Calling <code>.Count()</code> and then foreach-ing the same un-materialized Where query…"
-choices = ["uses a cached result the second time", "throws InvalidOperationException", "executes the filtering work twice", "is a compile error"]
-answer = 2
+choices = ["uses a cached result the second time", "throws InvalidOperationException", "is a compile error", "executes the filtering work twice"]
+answer = 3
+whyWrong = "An un-materialized query re-executes on each enumeration, so Count() then foreach filters twice — call ToList() once to cache it."
 hint = "Each enumeration replays the pipeline from scratch."
 
 [[lessons.exercises]]

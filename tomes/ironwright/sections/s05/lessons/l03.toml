@@ -1,0 +1,83 @@
+[[lessons]]
+id = "s05-l03"
+title = "One Pattern, Any Metal — Generics &lt;T&gt;"
+body = '''
+<p>A registry that holds only Ingots is a narrow tool; a registry that holds anything is a broad one — but only if the compiler still knows what "anything" is. <strong>Generics</strong> let you write one class that works for any type, while the compiler still checks each use.</p>
+<pre><code><span class="k">public class</span> Holder&lt;T&gt; {
+    <span class="k">private</span> T value;
+    <span class="k">public void</span> set(T value) { <span class="k">this</span>.value = value; }
+    <span class="k">public</span> T get() { <span class="k">return</span> value; }
+}
+
+Holder&lt;String&gt; name = <span class="k">new</span> Holder&lt;&gt;();
+name.set(<span class="s">"copper"</span>);
+Holder&lt;Integer&gt; val = <span class="k">new</span> Holder&lt;&gt;();
+val.set(<span class="s">6</span>);</code></pre>
+<p>The <code>&lt;T&gt;</code> is a <strong>type parameter</strong> — a placeholder for whatever type you fill in when you use the class. <code>Holder&lt;String&gt;</code> fills <code>T</code> with <code>String</code>, so <code>set</code> takes a String and <code>get</code> returns one. <code>Holder&lt;Integer&gt;</code> fills <code>T</code> with <code>Integer</code>. The compiler refuses <code>name.set(6)</code> — 6 is not a String — so a type error is caught at compile time, not at runtime. (Note: <code>Integer</code> is the object wrapper for <code>int</code>; generics require object types, so you cannot write <code>Holder&lt;int&gt;</code>.)</p>
+<p>The diamond <code>new Holder&lt;&gt;()</code> lets the compiler infer the type from the variable's declaration — you write <code>&lt;&gt;</code> instead of repeating <code>&lt;String&gt;</code>. This is the tool that turns the fixed <code>Registry</code> of Forgework III into a generic <code>Registry&lt;T&gt;</code> that holds ingots, blocks, or anything — the last lesson of this forgework does exactly that.</p>
+<div class="callout"><strong>Orrick says:</strong> Generics are the smith's jig — one shape, sized to the work. You write the class once; the compiler stamps a type-checked copy for each use. The alternative (a class holding <code>Object</code>) needs casts everywhere and fails at runtime; generics fail at compile, where the smith can fix them.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // IForgeRegistryEntry&lt;T&gt;</div>
+<p>Minecraft's <code>IForgeRegistryEntry&lt;T&gt;</code> uses generics so the <code>setRegistryName</code> method returns the type of the thing registering — <code>ItemIngot</code>'s call returns <code>ItemIngot</code>, not <code>Object</code>, so you can chain <code>new ItemIngot().setRegistryName("iron").setUnlocalizedName("iron_ingot")</code> fluently. The <code>T</code> is "the type of this registrable thing". You will meet it in Forgework VIII; here it is the shape you are learning to read.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s05-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the generic Holder class exactly — the type parameter &lt;T&gt;, the field of type T, and the get/set methods."
+code = '''public class Holder<T> {
+    private T value;
+    public void set(T value) { this.value = value; }
+    public T get() { return value; }
+}'''
+
+[[lessons.exercises]]
+id = "s05-l03-e1"
+type = "mc"
+points = 15
+prompt = "You declare <code>Holder&lt;String&gt; h = new Holder&lt;&gt;();</code> and then write <code>h.set(6);</code>. What happens?"
+choices = ["compiles and stores 6 as a String", "compiles and stores null", "compile error: set expects a String but 6 is an int", "runtime error when get is called"]
+answer = 2
+whyWrong = "Generics are enforced at compile time: Holder<String>'s set takes a String, so h.set(6) is a compile error (6 is an int, not a String). That is the whole point — type errors caught before the program runs, not at runtime."
+hint = "When is a generic type mismatch caught — at compile time or runtime? And what type does set expect here?"
+explain = "Compile-time error. The compiler knows h holds Strings, so set(int) is rejected. No cast, no runtime surprise."
+
+[[lessons.exercises]]
+id = "s05-l03-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the type argument that makes this Holder hold a String (the type you write in the angle brackets)."
+code = 'Holder<____> name = new Holder<>();'
+answer = "String"
+whyWrong = "String fills the type parameter T so set/get work on Strings; Integer would make it hold numbers, T is the placeholder not a real type, Object defeats the type checking. The brief asks for a String holder."
+hint = "It is the type whose name begins with a capital S — the text type from Forgework I."
+
+[[lessons.exercises]]
+id = "s05-l03-w1"
+type = "write"
+points = 30
+prompt = "The Holder&lt;T&gt; class is in the starter. In <code>main</code>, build <code>Holder&lt;String&gt; name = new Holder&lt;&gt;();</code> and <code>Holder&lt;Integer&gt; val = new Holder&lt;&gt;();</code>, set the name to <code>\"copper\"</code> and the value to <code>6</code>, then print two lines: <code>copper</code> (from <code>name.get()</code>) and <code>6</code> (from <code>val.get()</code>)."
+starter = '''public class Ironwright {
+    static class Holder<T> {
+        private T value;
+        public void set(T value) { this.value = value; }
+        public T get() { return value; }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — build a Holder<String> and a Holder<Integer>, set copper/6, print each get()
+    }
+}'''
+expect = '''
+copper
+6'''
+hint = "Holder<String> name = new Holder<>(); name.set(\"copper\"); Holder<Integer> val = new Holder<>(); val.set(6); then two println calls on name.get() and val.get()."
+
+[[lessons.exercises]]
+id = "s05-l03-t1"
+type = "text"
+points = 20
+prompt = "Why must you write <code>Holder&lt;Integer&gt;</code> and not <code>Holder&lt;int&gt;</code>? (One short sentence: generics require what kind of type?)"
+answer = "Generics require object types, not primitives"
+hint = "int is a primitive; generics only accept object (reference) types — and Integer is int's wrapper class."

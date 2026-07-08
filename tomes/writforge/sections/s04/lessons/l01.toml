@@ -1,0 +1,93 @@
+[[lessons]]
+id = "s04-l01"
+title = "The Counting Drawer"
+body = '''
+<p>An array tells the story in order. A hash tells you how many times a name appears without making you walk the whole shelf again. That is the first discipline of this canto: keep the ordered list from the last chapter intact, but stop pretending the page only needs positions. When the script wants to know how often <code>HEAD</code> appears, <code>%seen</code> is the drawer, and <code>$seen{HEAD}</code> is one slot inside it.</p>
+<p>The counting idiom is short because the job is short. Start with an empty hash, walk the labels, and increment the slot for the current label. Perl does not ask you to prebuild the key or fill every bucket with zero. The first time you touch <code>$seen{$label}</code>, the slot is treated as zero and then raised to one. That is not a loophole; it is the ordinary way counters stay readable. The hash is not a row of fixed bins. It is a name table that grows only where the data demands it.</p>
+<p>Use the hash when the question is "how many?" and the array when the question is "in what order?" The two data structures are not rivals. They are different tools for different kinds of truth. The manuscript lines still sit in an array. The hash only summarizes them after the fact. That summary is what the index page will need later: not a scroll of every line, but a compact count of what sort of lines the scroll held.</p>
+<p>Do not overcomplicate the first count. A tally hash wants clear keys, not clever tricks. If the line label is the key, the value is the count. If the page later needs a report, sort the keys when you print them. The storage itself does not have to be sorted to be correct. That separation keeps the ledger honest: gather in any order, display in the order the human asked for.</p>
+<pre><code><span class="k">my</span> <span class="s">@labels</span> = <span class="k">qw</span>(<span class="s">HEAD</span> <span class="s">TEXT</span> <span class="s">HEAD</span> <span class="s">BLANK</span>);
+<span class="k">my</span> <span class="s">%seen</span>;
+<span class="k">foreach</span> <span class="k">my</span> <span class="s">$label</span> (<span class="s">@labels</span>) {
+    ++<span class="s">$seen</span>{<span class="s">$label</span>};
+}
+<span class="k">say</span> <span class="s">$seen</span>{<span class="s">HEAD</span>};</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE COUNTING DRAWER</div>
+<p><strong>Autovivification note.</strong> A missing hash slot is treated as empty enough to increment. That is why the first <code>++$seen{$label}</code> works without a prefilled zero.</p>
+<p><strong>Sigil note.</strong> The whole drawer is <code>%seen</code>. One count is <code>$seen{HEAD}</code>. Confusing the two makes the report unreadable and the code wrong.</p>
+<p><strong>Order note.</strong> Counting does not need order, but the report will. Store first, sort when you print. That habit keeps later output stable.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perlvar: hashes"
+url = "https://perldoc.perl.org/perlvar"
+
+[[lessons.exercises]]
+id = "s04-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "<p>Retype the tally example exactly. Keep the array of labels, the empty hash, the loop, and the single summary line.</p>"
+code = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my @labels = qw(HEAD TEXT HEAD BLANK);
+my %seen;
+foreach my $label (@labels) {
+    ++$seen{$label};
+}
+say $seen{HEAD};
+'''
+
+[[lessons.exercises]]
+id = "s04-l01-e1"
+type = "fill"
+points = 20
+prompt = "<p>Restore the operator that turns a missing hash slot into a count of one on the first pass.</p>"
+code = '____$seen{$label};'
+answer = "++"
+hint = "The missing token is the part that raises the slot after Perl treats it as zero."
+whyWrong = "You are leaving the hash slot untouched. A counter only moves forward when the increment operator is there."
+
+[[lessons.exercises]]
+id = "s04-l01-e2"
+type = "mc"
+points = 15
+prompt = "<p>What happens the first time you run <code>++$seen{HEAD}</code> on an empty hash?</p>"
+choices = ["It refuses because the key was not declared.", "It stores <code>1</code> in the <code>HEAD</code> slot.", "It turns the hash into an array.", "It stores the text <code>HEAD</code> as the value."]
+answer = 1
+whyWrong = "You are treating a hash counter like a declared variable table with prefilled values. Perl instead starts the missing slot at zero and increments it."
+hint = "A missing count key begins as empty enough to increase."
+explain = "The counter slot starts at zero conceptually, then the increment makes it one."
+
+[[lessons.exercises]]
+id = "s04-l01-e3"
+type = "text"
+points = 20
+prompt = "<p>Which sigil names the whole tally table, not one counted slot?</p>"
+answer = "%"
+accept = ["percent", "hash"]
+hint = "The same sigil that marks a hash in Perl appears in the variable name for the whole table."
+
+[[lessons.exercises]]
+id = "s04-l01-w1"
+type = "write"
+points = 30
+prompt = "<p>Using the starter labels, count them with a hash and print the totals in sorted key order, then finish with <code>TOTAL 4</code>.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my @labels = qw(HEAD TEXT HEAD BLANK);
+my %seen;
+
+# Task: count the labels and print each tally as `NAME N`.
+# Keep the report sorted by name and end with `TOTAL 4`.
+'''
+expect = '''
+BLANK 1
+HEAD 2
+TEXT 1
+TOTAL 4'''
+hint = "Walk the labels, increment the matching hash slot, then print the keys in sorted order."

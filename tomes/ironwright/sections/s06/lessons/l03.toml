@@ -1,0 +1,75 @@
+[[lessons]]
+id = "s06-l03"
+title = "The Forge's Own Manuals — the MDK & setupDecompWorkspace"
+body = '''
+<p>The forge's manuals are the <strong>Forge MDK</strong> — the Mod Development Kit, a zip you download for 1.12.2 (the version pinned to <code>1.12.2-14.23.5.2859</code>, the last stable Forge for that Minecraft). Extract it into your <code>Ironwright</code> working folder; it ships <code>build.gradle</code>, the <code>gradlew</code> wrapper, and a stub <code>src/main/java</code> tree. This is the forge the rest of the tome fires.</p>
+<p>From the MDK folder, run one task that does the heavy translating:</p>
+<pre><code>./gradlew setupDecompWorkspace</code></pre>
+<p><code>setupDecompWorkspace</code> downloads the Minecraft client jar, patches it with Forge, <strong>decompiles</strong> the bytecode into readable Java, and applies the MCP mappings — translating the obfuscated <strong>SRG</strong> names (<code>field_77699_b</code>) into human <strong>MCP</strong> names (<code>maxStackSize</code>). The result is the source tree IntelliJ indexes: the old marks, translated. This step takes minutes and pulls hundreds of megabytes; let it finish once.</p>
+<p>Then a second task wires the bench:</p>
+<pre><code>./gradlew genIntellijRuns</code></pre>
+<p><code>genIntellijRuns</code> creates the <code>runClient</code> and <code>runServer</code> run configurations in IntelliJ (for Eclipse, the task is <code>genEclipseRuns</code>; for VS Code you run <code>runClient</code> from the Gradle pane). After it, the green arrow fires the coals.</p>
+<p>Both tasks run through the Gradle wrapper <code>./gradlew</code> — never a global <code>gradle</code>. The wrapper pins the exact Gradle version the MDK needs; a mismatched global Gradle breaks the build in ways that take hours to trace.</p>
+<div class="callout"><strong>Orrick says:</strong> If <code>setupDecompWorkspace</code> fails with a Java version error, your <code>JAVA_HOME</code> points at the wrong JDK. Go back to Forgework VI lesson I; point it at eight. The fix is never to "try a newer Forge".</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE .GRADLE FOLDER</div>
+<p>The tasks cache their downloads in a hidden <code>.gradle/</code> folder in your project (and a global <code>~/.gradle</code>). The validator and the engine both exclude <code>.gradle/</code> from the workspace's required files — it is build cache, not source. Never commit it; never delete it mid-build; a clean re-run after deleting it re-downloads everything.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Minecraft Forge 1.12.2 MDK download (files.minecraftforge.net)"
+url = "https://files.minecraftforge.net/maven/net/minecraftforge/forge/index_1.12.2.html"
+
+[[lessons.exercises]]
+id = "s06-l03-e1"
+type = "mc"
+points = 15
+prompt = "What does <code>./gradlew setupDecompWorkspace</code> actually do to the Minecraft jar?"
+choices = ["it compiles your mod into a jar", "it builds the Gradle wrapper", "it launches the dev Minecraft client", "it downloads Minecraft, patches it with Forge, decompiles the bytecode to Java, and applies MCP mappings (SRG to human names)"]
+answer = 3
+whyWrong = "setupDecompWorkspace downloads, patches, decompiles, and maps Minecraft to human-readable source; building your mod is 'build', launching the client is 'runClient', and the wrapper ships pre-built. The decompile-and-map step is the one that makes the old marks readable."
+hint = "The task name has 'Decomp' in it — what does decompiling the Minecraft jar produce, and what mappings step follows?"
+explain = "It decompiles the obfuscated jar into Java source and applies SRG→MCP mappings, producing the translated old marks IntelliJ indexes."
+
+[[lessons.exercises]]
+id = "s06-l03-t1"
+type = "text"
+points = 20
+prompt = "Type the Gradle task that creates the runClient and runServer run configurations in IntelliJ (the one you run after setupDecompWorkspace)."
+answer = "genIntellijRuns"
+hint = "It is gen + IntelliJ + Runs — the task that generates IntelliJ's run configurations."
+
+[[lessons.exercises]]
+id = "s06-l03-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the obfuscated SRG name's human MCP equivalent — the field on Item that caps stack size. The mapping is <code>field_77699_b -&gt; ____</code>."
+code = '// field_77699_b  --SRG->MCP-->  ____'
+answer = "maxStackSize"
+whyWrong = "field_77699_b maps to maxStackSize; getItemStackLimit is a method not the field, registryName is Forge-added not vanilla, stackSize is on ItemStack. The human field name is maxStackSize (as in Forgework IV)."
+hint = "It is the field you met in Forgework IV — max + Stack + Size, camelCase."
+
+[[lessons.exercises]]
+id = "s06-l03-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of the mapping translation. The starter sets <code>String mapping = \"field_77699_b=maxStackSize\";</code>. Split on <code>\"=\"</code>, take the second part (index 1), and print <code>maxStackSize</code> — the human MCP name. Do not type maxStackSize in the print; pull it from the mapping string."
+starter = '''public class Ironwright {
+    public static void main(String[] args) {
+        String mapping = "field_77699_b=maxStackSize";
+        // apprentice — split on "=", take index 1, print it
+    }
+}'''
+expect = '''
+maxStackSize'''
+hint = "String[] parts = mapping.split(\"=\"); System.out.println(parts[1]); — split on the equals sign, the MCP name is the right side."
+
+[[lessons.exercises]]
+id = "s06-l03-e2"
+type = "mc"
+points = 15
+prompt = "A novice has a global Gradle 8 installed and runs <code>gradle setupDecompWorkspace</code> (no <code>./</code>) in the MDK folder. The build fails oddly. What went wrong?"
+choices = ["nothing — gradle and ./gradlew are the same", "setupDecompWorkspace requires internet", "the global Gradle version may not match the one the MDK's wrapper pins, so the build breaks; always use ./gradlew", "the MDK folder must be renamed first"]
+answer = 2
+whyWrong = "The wrapper (./gradlew) pins the exact Gradle version the MDK needs; a global gradle of a different version breaks the build in hard-to-trace ways. Always use ./gradlew. The two are not the same, internet is needed but not the cause, and no rename is required."
+hint = "Compare ./gradlew (the wrapper) to a global gradle — what does the wrapper guarantee that the global one does not?"
+explain = "The wrapper downloads and uses the Gradle version declared in gradle-wrapper.properties. A global gradle may be newer or older and break the MDK's scripts. Always ./gradlew."

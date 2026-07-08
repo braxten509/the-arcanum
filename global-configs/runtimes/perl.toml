@@ -1,0 +1,96 @@
+language = "Perl"
+entryFile = "writforge.pl"
+newFileExt = ".pl"
+editorLang = "perl"
+command = ["perl", "{file}"]
+checkCommand = ["perl", "-c", "{file}"]
+diagRegex = '^(?P<msg>.*) at (?P<file>.+) line (?P<line>\d+).$'
+starterCode = '''
+#!/usr/bin/env perl
+use v5.36;
+
+say "Writforge awaits the scribe.";
+'''
+
+[completions]
+keywords = ["my", "our", "local", "sub", "if", "else", "elsif", "unless", "while", "for", "foreach", "return", "next", "last", "redo", "use", "require", "package", "print", "say", "warn", "die", "open", "close", "chomp", "length", "substr", "split", "join", "map", "grep", "sort", "keys", "values", "each", "exists", "delete", "defined", "undef", "push", "pop", "shift", "unshift", "lc", "uc", "mkdir", "glob", "Getopt::Std", "Exporter"]
+snippets = [
+    ["if", "branch on a condition", "if (${1:condition}) {\n    $0\n}"],
+    ["if/elsif/else", "three-way branch", "if (${1:condition}) {\n    $0\n} elsif (${2:other}) {\n    \n} else {\n    \n}"],
+    ["while", "repeat while true", "while (${1:condition}) {\n    $0\n}"],
+    ["for index", "count-controlled loop", "for (my \\$i = 0; \\$i < ${1:count}; \\$i++) {\n    $0\n}"],
+    ["foreach", "walk a list", "foreach my \\$${1:item} (@${2:items}) {\n    $0\n}"],
+    ["sub", "named helper", "sub ${1:name} {\n    my (${2:\\$arg}) = @_;\n    $0\n}"],
+    ["open read", "open a file for reading", "open my \\$${1:in}, '<', ${2:\\$path} or die \\$!;\nwhile (my \\$line = <\\$${1:in}>) {\n    chomp \\$line;\n    $0\n}\nclose \\$${1:in} or die \\$!;"],
+    ["open write", "open a file for writing", "open my \\$${1:out}, '>', ${2:\\$path} or die \\$!;\nprint {\\$${1:out}} ${3:\\$body};\nclose \\$${1:out} or die \\$!;"],
+    ["package", "module package skeleton", "package ${1:Writforge::Parser};\nuse v5.36;\nuse Exporter 'import';\nour @EXPORT_OK = qw(${2:parse_page});\n\nsub ${2:parse_page} {\n    $0\n}\n\n1;"],
+    ["getopts", "parse -s and -o flags", "use Getopt::Std;\nour (\\$opt_s, \\$opt_o);\ngetopts('s:o:');\nmy \\$source = \\$opt_s // 'manuscripts';\nmy \\$outdir = \\$opt_o // 'build';"]
+]
+types = [
+    ["^\\s*[\"']", "scalar"],
+    ["^\\s*qw\\s*\\(", "array"],
+    ["^\\s*\\(", "array"],
+    ["^\\s*\\[", "arrayref"],
+    ["^\\s*\\{", "hashref"],
+    ["^\\s*split\\b", "array"],
+    ["^\\s*sort\\b", "array"],
+    ["^\\s*grep\\b", "array"],
+    ["^\\s*map\\b", "array"],
+    ["^\\s*keys\\b", "array"],
+    ["^\\s*values\\b", "array"],
+    ["^\\s*lc\\b", "scalar"],
+    ["^\\s*uc\\b", "scalar"],
+    ["^\\s*join\\b", "scalar"]
+]
+classRegex = '^package\\s+([A-Za-z_][A-Za-z0-9_:]*)\\s*;([\\s\\S]*?)(?:\\n1;|$)'
+methodRegex = 'sub\\s+([A-Za-z_][A-Za-z0-9_]*)'
+propRegex = 'our\\s+[@%$]([A-Za-z_][A-Za-z0-9_]*)'
+ctorRegex = '^\\s*([A-Za-z_][A-Za-z0-9_:]*)->new\\b'
+memberExtends = { arrayref = "array", hashref = "hash" }
+fallback = "scalar"
+internalKeys = ["scalar", "array", "hash", "arrayref", "hashref", "filehandle"]
+
+[completions.members]
+scalar = [
+    ["length", "f", "builtin — character count", "length(${1:\\$value})"],
+    ["substr", "f", "builtin — slice text", "substr(${1:\\$value}, ${2:0}, ${3:1})"],
+    ["lc", "f", "builtin — lowercase copy", "lc(${1:\\$value})"],
+    ["uc", "f", "builtin — uppercase copy", "uc(${1:\\$value})"],
+    ["chomp", "f", "builtin — remove record separator", "chomp(${1:\\$value})"]
+]
+array = [
+    ["push", "f", "builtin — append values", "push @${1:array}, ${2:\\$value}"],
+    ["pop", "f", "builtin — remove last value", "pop @${1:array}"],
+    ["shift", "f", "builtin — remove first value", "shift @${1:array}"],
+    ["unshift", "f", "builtin — prepend values", "unshift @${1:array}, ${2:\\$value}"],
+    ["sort", "f", "builtin — ordered list", "sort @${1:array}"],
+    ["grep", "f", "builtin — filter list", "grep { ${1:test} } @${2:array}"],
+    ["map", "f", "builtin — transform list", "map { ${1:expr} } @${2:array}"],
+    ["scalar", "f", "builtin — list count", "scalar @${1:array}"]
+]
+hash = [
+    ["keys", "f", "builtin — hash keys", "keys %${1:hash}"],
+    ["values", "f", "builtin — hash values", "values %${1:hash}"],
+    ["exists", "f", "builtin — key presence", "exists \\$${1:hash}{${2:key}}"],
+    ["delete", "f", "builtin — remove key", "delete \\$${1:hash}{${2:key}}"],
+    ["each", "f", "builtin — next key/value pair", "each %${1:hash}"]
+]
+filehandle = [
+    ["print", "f", "write to handle", "print {\\$${1:out}} ${2:\\$text};"],
+    ["close", "f", "close handle and check errors", "close \\$${1:fh} or die \\$!;"],
+    ["chomp", "f", "trim a line read from handle", "chomp(${1:\\$line})"]
+]
+
+[completions.returns]
+split = "array"
+sort = "array"
+grep = "array"
+map = "array"
+keys = "array"
+values = "array"
+lc = "scalar"
+uc = "scalar"
+join = "scalar"
+substr = "scalar"
+length = "scalar"
+open = "filehandle"

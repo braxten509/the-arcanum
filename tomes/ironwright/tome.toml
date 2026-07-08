@@ -1,0 +1,115 @@
+# ARCANUM tome manifest — IRONWRIGHT
+# Forge 1.12.2 mod: a metallurgy mod that smelts custom metal into ingots,
+# casts it into blocks, benches it into a creative tab with recipes, and
+# makes the world answer the hammer. 12 forgeworks from the coals up.
+
+[meta]
+id = "ironwright"          # harness renames to ironwright
+name = "Ironwright"
+description = "Build IRONWRIGHT — a Forge 1.12.2 mod that smelts a custom metal into ingots, casts it into blocks, benches it into a creative tab with recipes, and makes the world answer the hammer. 12 forgeworks from Java zero to a running mod that reads native classes."
+author = "The Arcanum"
+version = "0.1.0"
+favicon = "⚒"
+
+[runtime]
+name = "java"
+project = "Ironwright"
+language = "Java 8"
+externalWorkspace = true
+entryFile = "Ironwright.java"
+starterCode = """
+public class Ironwright {
+    public static void main(String[] args) {
+        System.out.println("IRONWRIGHT // forge ready");
+    }
+}
+"""
+projectFile = "build.gradle"
+codeExt = [".java"]
+excludeDirs = ["build/", ".gradle/", "run/", "out/", "logs/", ".idea/"]
+buildCommand = ["bash", "-lc", "if [ -f ./gradlew ]; then bash ./gradlew build; else mkdir -p out && javac -d out *.java; fi"]
+runCommand = ["bash", "-lc", "if [ -f ./gradlew ]; then bash ./gradlew runClient; else java -cp out Ironwright; fi"]
+
+[content]
+sections = ["s01", "s02", "s03", "s04", "s05", "s06", "s07", "s08", "s09", "s10", "s11", "s12"]
+
+[defaults]
+theme = "smithlight"
+
+[defaults.ai]
+oracle = "llama3.1:8b"
+grader = "qwen2.5:14b"
+graderKind = "claude-cli"
+graderModel = "claude-opus-4-8"
+
+[economy]
+ranks = [
+  [0,    "COLD ANVIL"],
+  [400,  "BELLOWS-TENDER"],
+  [900,  "INGOT-SHAPER"],
+  [1500, "CAST-WRIGHT"],
+  [2200, "BENCH MASTER"],
+  [3000, "BINDER OF RITES"],
+  [4000, "SMITH-WRIGHT"],
+  [5500, "IRONWROUGHT"],
+]
+hintCost = 75
+oracleCost = 10
+attemptMultipliers = [1, 0.6, 0.3]
+comboStep = 0.05
+comboCap = 0.5
+sRankMultiplier = 1.5
+attackStakePerDiff = 20
+attackWinPerDiff = 15
+
+[narrative]
+objective = "Build IRONWRIGHT — a Forge 1.12.2 mod that smelts a custom metal into ingots, casts it into blocks, benches it into a creative tab with recipes, and makes the world answer the hammer. Learn Java from the coals up, and learn to read Minecraft's native classes — the old marks — so you can teach yourself what comes next."
+title = "ARCANUM // THE IRONWRIGHT"
+logo = "THE IRONWRIGHT"
+opsLabel = "FORGEWORKS"
+graderPersona = "Orrick"
+studentTerm = "apprentice"
+currency = "ember"
+currencyShort = "em"
+gradeScale = "S|A|B|C|D|F"
+bootLines = [
+  "The forge is cold, apprentice.",
+  "But the coals are not yet dead — only sleeping.",
+  "You have been given the old smith's commission: to stand up a Great Working — a mod for the block-world, forged in the tongue of the old masters.",
+  "It will know metal and stone. It will bind itself to the world with the forge's own rites, and the world will answer the hammer.",
+  "I am Orrick. I have worked the old marks since before you drew breath.",
+  "I will teach you the bellows and the binding. The rest — reading the old marks themselves — you will learn as every smith does, by the light of your own fires.",
+  "There are {N} forgeworks ahead. Each one adds a new piece to the ironwork.",
+  "By the last, you will have forged a real mod that fires the coals and rings in the world.",
+  "Strike the first spark. The iron waits for no one.",
+  "And mind the fire — a smith who watches the embers learns faster than one who stares at the bellows.",
+]
+gradingLines = [
+  "Orrick examines your work by the forge-light...",
+  "He turns your ironwork over in gnarled hands.",
+  "The old smith reads your marks in silence.",
+  "He strikes the metal once, twice — listening to the ring.",
+  "The master smith weighs your forging against the pattern.",
+  "He tests the temper of your work with a critical eye.",
+  "Orrick reads your methods with a smith's practised gaze.",
+  "He nods slowly, reaching for his marking iron.",
+]
+completeText = '''
+The forge is hot, apprentice — and the ironwork is yours.
+IRONWRIGHT stands: a mod that fires the coals, smelts its metal, casts its stone, benches its ironwork, and makes the world answer the hammer.
+You learned the tongue of the old smiths from the first spark. You learned to read the old marks — the masters' stamps, obfuscated and translated — and to teach yourself what no lesson reached.
+The smith-wright's eye is yours now. Every feature you will ever forge begins with the same strike: open the parent class, read its marks, and strike.
+The forge is yours. Go forge.
+— Orrick, master smithwright
+'''
+
+[progression]
+attackTime = 180
+attackStages = [0, 60, 120]
+blackIceThreshold = 10
+blackIcePerDiffCap = 2
+
+[progression.earnedTheme]
+id = "stariron"
+name = "STARIRON"
+desc = "Proof you answered every rival who came to the forge."

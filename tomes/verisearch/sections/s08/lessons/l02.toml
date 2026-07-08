@@ -49,8 +49,9 @@ id = "s08-l02-e1"
 type = "mc"
 points = 25
 prompt = "Five pages take 1.2s, 0.9s, 1.5s, 0.7s, 1.1s. Total time with Task.WhenAll ≈"
-choices = ["5.4s — the sum", "1.5s — the slowest", "0.7s — the fastest", "1.08s — the average"]
-answer = 1
+choices = ["5.4s — the sum", "1.08s — the average", "0.7s — the fastest", "1.5s — the slowest"]
+answer = 3
+whyWrong = "WhenAll runs them concurrently, so total time is the SLOWEST task (1.5s), not the sum, average, or fastest."
 hint = "Parallel cost = max, sequential cost = sum."
 
 [[lessons.exercises]]
@@ -58,8 +59,9 @@ id = "s08-l02-e2"
 type = "mc"
 points = 25
 prompt = "Why is <code>foreach (var u in urls) results.Add(await Scrape(u));</code> NOT parallel?"
-choices = ["foreach can't contain await", "Each await pauses the loop until that scrape finishes before starting the next", "It is parallel — this is fine", "results.Add isn't thread-safe"]
-answer = 1
+choices = ["Each await pauses the loop until that scrape finishes before starting the next", "foreach can't contain await", "It is parallel — this is fine", "results.Add isn't thread-safe"]
+answer = 0
+whyWrong = "It’s valid code, but awaiting inside the loop pauses until each scrape finishes before starting the next — collect the Tasks and WhenAll them for real parallelism."
 hint = "Start-all-then-await-all vs start-one-await-one."
 
 [[lessons.exercises]]

@@ -1,0 +1,80 @@
+[[lessons]]
+id = "s07-l02"
+title = "Walking the Decks — pathlib"
+body = '''
+<p>The <code>pathlib</code> module treats file paths as objects with methods, not as strings to concatenate. A <code>Path</code> object knows its parent, its filename, its stem (name without extension), its suffix, and whether it is a file or directory — and it provides methods for reading, writing, and walking the filesystem.</p>
+<pre><code><span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+
+log_dir = Path(<span class="s">"/var/logs"</span>)
+<span class="k">for</span> p <span class="ow">in</span> log_dir.rglob(<span class="s">"*.log"</span>):    <span class="c"># recursive glob — all .log files in every subdir</span>
+    <span class="k">print</span>(p.name)                     <span class="c"># just the filename</span>
+    <span class="k">print</span>(p.stem)                     <span class="c"># filename without extension</span>
+    <span class="k">print</span>(p.parent)                   <span class="c"># the containing directory</span>
+    <span class="k">print</span>(p.stat().st_size)            <span class="c"># file size in bytes</span></code></pre>
+<p><code>rglob</code> is the most important method for Sextant: it walks the entire directory tree recursively, matching the pattern against every file. <code>rglob(\"*.log\")</code> finds every <code>.log</code> file in <code>log_dir</code> and all its subdirectories. This is the replacement for <code>os.walk()</code> or <code>glob.glob()</code> — more readable and more Pythonic.</p>
+<pre><code><span class="c"># Reading a file through pathlib — cleaner than manual open/close</span>
+content = Path(<span class="s">"syslog"</span>).read_text()        <span class="c"># whole file as string (small files only!)</span>
+lines = Path(<span class="s">"syslog"</span>).read_text().splitlines()
+
+<span class="c"># Writing</span>
+Path(<span class="s">"report.txt"</span>).write_text(report)</code></pre>
+<p><strong>Relative vs absolute paths:</strong> <code>Path</code> works with both. <code>Path(\"logs/current\")</code> is relative to the current working directory. <code>Path(\"/var/logs\")</code> is absolute. <code>Path.home()</code> returns the user's home directory. <code>Path.cwd()</code> returns the current working directory.</p>
+<p><strong>Path operations return paths, not strings:</strong></p>
+<pre><code>logs = Path(<span class="s">"logs"</span>)
+today = logs / <span class="s">"2025-07-07"</span>       <span class="c"># / operator joins paths — no string concat</span>
+first_log = today / <span class="s">"syslog.log"</span>
+<span class="k">print</span>(first_log.exists())            <span class="c"># True or False</span>
+<span class="k">print</span>(first_log.is_file())           <span class="c"># True</span></code></pre>
+<p>The <code>/</code> operator is pathlib's killer feature: it reads as "append this component to that path" and handles platform-specific separators automatically. No more <code>os.path.join()</code> or f-string paths that break on Windows.</p>
+<p><strong>Context manager support:</strong> Path objects support <code>with open(p) as f:</code> seamlessly. Combined with <code>rglob</code>, this is the full Sextant walk pattern:</p>
+<pre><code>log_dir = Path(<span class="n">sys</span>.<span class="n">argv</span>[<span class="mi">1</span>])
+<span class="k">for</span> path <span class="ow">in</span> log_dir.rglob(<span class="s">"*.log"</span>):
+    <span class="k">with</span> <span class="nb">open</span>(path) <span class="k">as</span> <span class="n">f</span>:
+        <span class="k">for</span> line <span class="ow">in</span> f:
+            <span class="k">yield</span> parse(line)</code></pre>
+<div class="callout"><strong>Consult the volumes:</strong> <code>pathlib</code> is implemented in <code>Lib/pathlib.py</code> — a pure-Python module that repurposes <code>os</code> and <code>os.path</code> under a clean object interface. The pure-Python implementation is instructive: it shows how to wrap a module's functions in a class hierarchy.</div>
+'''
+
+[[lessons.exercises]]
+id = "s07-l02-e1"
+type = "text"
+points = 20
+prompt = "What <code>pathlib.Path</code> method recursively finds all files matching a glob pattern?"
+answer = "rglob"
+accept = ["Path.rglob", "pathlib.Path.rglob"]
+hint = "It is the recursive version of the standard library's glob function, starting with 'r'."
+
+[[lessons.exercises]]
+id = "s07-l02-e2"
+type = "fill"
+points = 20
+prompt = "Fill the blank to join paths using the pathlib operator:"
+code = '''from pathlib import Path
+base = Path("logs")
+full = base ____ "today.log"'''
+answer = "/"
+hint = "It is a single character operator — the same one that separates path components on the filesystem."
+
+[[lessons.exercises]]
+id = "s07-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this pathlib directory walk:"
+code = '''from pathlib import Path
+for p in Path("logs").rglob("*.log"):
+    with open(p) as f:
+        print(p.name, f.readline().strip())'''
+
+[[lessons.exercises]]
+id = "s07-l02-w1"
+type = "write"
+points = 30
+prompt = "Write a script that uses <code>pathlib.Path</code> to write a file named <code>\"test.txt\"</code> with the content <code>\"hello pathlib\"</code> using <code>write_text()</code>, then reads it back with <code>read_text()</code> and prints the result."
+starter = '''
+from pathlib import Path
+
+# your code here
+'''
+expect = '''hello pathlib'''
+hint = "Use Path('test.txt').write_text(...) to write, then .read_text() to read and print."

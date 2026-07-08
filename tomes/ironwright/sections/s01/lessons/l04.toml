@@ -1,0 +1,63 @@
+[[lessons]]
+id = "s01-l04"
+title = "Striking the Metal — Operators"
+body = '''
+<p>The hammer has more than one stroke. Java's operators compute, compare, and decide — and the apprentice who confuses them strikes crooked metal.</p>
+<p><strong>Arithmetic</strong> looks as you expect: <code>+ - * /</code>, plus <code>%</code> for the remainder after division. One trap: <code>int / int</code> is whole-number division — <code>7 / 2</code> is <code>3</code>, not <code>3.5</code>; the fraction is struck away, not rounded. <code>7 % 2</code> is <code>1</code>, the leftover. The remainder operator is how a smith asks "is this even?" — <code>n % 2 == 0</code> means n is even.</p>
+<pre><code><span class="k">int</span> ironValue = <span class="s">8</span>;
+<span class="k">int</span> total = ironValue * <span class="s">3</span>;  <span class="c">// 24</span>
+<span class="k">int</span> leftover = <span class="s">7</span> % <span class="s">2</span>;   <span class="c">// 1</span></code></pre>
+<p><strong>Comparison</strong> operators ask a question and answer <code>true</code> or <code>false</code>: <code>==</code> (equal), <code>!=</code> (not equal), <code>&lt;</code> <code>&gt;</code> <code>&lt;=</code> <code>&gt;=</code>. Note the <em>double</em> equals: <code>=</code> assigns, <code>==</code> compares. Mixing them is the first bad habit the compiler catches — <code>if (ingots = 8)</code> is not a question.</p>
+<p><strong>Logical</strong> operators join booleans: <code>&amp;&amp;</code> (both must be true), <code>||</code> (either true), <code>!</code> (flips true to false). To ask "is the forge hot AND stocked?" you write <code>forgeHot &amp;&amp; ingots &gt; 0</code>.</p>
+<div class="callout"><strong>Orrick says:</strong> <code>==</code> compares primitives fine, but never use <code>==</code> on Strings — it asks "are these the same object?", not "the same text?". String equality comes in Forgework IV; for now, compare numbers.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // OPERATOR PRECEDENCE</div>
+<p><code>*</code> and <code>/</code> and <code>%</code> bind tighter than <code>+</code> and <code>-</code>, so <code>3 + 4 * 6</code> is <code>27</code>, not <code>42</code>. When in doubt, parenthesise — <code>(3 + 4) * 6</code> is <code>42</code>. Parentheses cost nothing and tell the next smith exactly what you meant.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s01-l04-e1"
+type = "mc"
+points = 15
+prompt = "What is the value of <code>7 / 2</code> when both operands are <code>int</code>?"
+choices = ["3.5", "1", "4", "3"]
+answer = 3
+whyWrong = "int division throws away the fraction, so 7 / 2 is 3 (not 3.5 — that needs a double operand; not 4 — that would be rounding up; not 1 — that is 7 % 2)."
+hint = "Whole-number division strikes away the fractional part; it does not round."
+explain = "int / int yields int; 7 / 2 truncates to 3. To get 3.5, make one operand a double: 7 / 2.0."
+
+[[lessons.exercises]]
+id = "s01-l04-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the operator that gives the remainder after division — the smith's 'is it even?' test uses it."
+code = 'int leftover = 7 ____ 2;  // leftover is 1'
+answer = "%"
+whyWrong = "% is the remainder operator; 7 % 2 is 1. / would give 3 (quotient), * would give 14, - would give 5. Remainder is the leftover after division."
+hint = "It is the same symbol mod maths uses for modulo."
+
+[[lessons.exercises]]
+id = "s01-l04-w1"
+type = "write"
+points = 30
+prompt = "Iron is worth <code>8</code> embers each, copper <code>6</code> embers each. The forge holds <code>3</code> iron ingots and <code>4</code> copper ingots. Compute the total ember value (<code>3 * 8 + 4 * 6</code>) and print exactly <code>TOTAL 48</code> from the variables — do not type 48 in the print."
+starter = '''public class Ironwright {
+    public static void main(String[] args) {
+        int ironValue = 8;
+        int copperValue = 6;
+        int ironCount = 3;
+        int copperCount = 4;
+        // apprentice — compute total = ironValue*ironCount + copperValue*copperCount
+        // apprentice — print "TOTAL " + total
+    }
+}'''
+expect = '''
+TOTAL 48'''
+hint = "Declare int total = ironValue * ironCount + copperValue * copperCount; then println(\"TOTAL \" + total)."
+
+[[lessons.exercises]]
+id = "s01-l04-t1"
+type = "text"
+points = 20
+prompt = "Type the operator that asks 'is a equal to b?' — the one with two characters, used inside a condition. (Not assignment.)"
+answer = "=="
+hint = "Assignment is one =; comparison is the same character doubled."

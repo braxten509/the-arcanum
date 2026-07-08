@@ -1,0 +1,83 @@
+[[lessons]]
+id = "s04-l04"
+title = "Stacking & functools Power Tools"
+body = '''
+<p>Decorators stack. Each <code>@</code> line wraps the function in another layer, and the layers apply bottom-up (nearest the function definition applies first):</p>
+<pre><code><span class="nd">@timed</span>
+<span class="nd">@logged</span>
+<span class="nd">@handler</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="s">"ERROR"</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">alert</span><span class="p">(</span><span class="n">record</span><span class="p">):</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s">"[ALERT] {record.message}"</span>
+
+<span class="c"># Equivalent to:</span>
+alert = timed(logged(handler(level=<span class="s">"ERROR"</span>)(alert)))</code></pre>
+<p>The innermost decorator (<code>handler</code>) registers and wraps the original, then <code>logged</code> wraps that, then <code>timed</code> wraps that. Calling <code>alert(record)</code> goes through all three layers before reaching the original body — and all three <code>@wraps</code> calls pass the metadata back through the chain so the final function looks like <code>alert</code>, not <code>wrapper</code>.</p>
+<p><strong>functools.partial</strong> is a decorator-adjacent tool that freezes some arguments of a function, producing a new callable with fewer parameters:</p>
+<pre><code><span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
+
+<span class="k">def</span> <span class="nf">log_format</span><span class="p">(</span><span class="n">level</span>, <span class="n">message</span>, <span class="n">source</span><span class="p">):</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s">"[{level}] {message} ({source})"</span>
+
+error_log = partial(log_format, <span class="s">"ERROR"</span>)
+<span class="k">print</span>(error_log(<span class="s">"Disk full"</span>, <span class="s">"kernel"</span>))  <span class="c"># "[ERROR] Disk full (kernel)"</span></code></pre>
+<p><strong>functools.lru_cache</strong> is a decorator that memorises return values for a given set of arguments — essential when a function is called repeatedly with the same inputs:</p>
+<pre><code><span class="nd">@lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">128</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">resolve_source</span><span class="p">(</span><span class="n">path</span>: <span class="nb">str</span><span class="p">)</span> <span class="o">-></span> <span class="nb">str</span>:
+    <span class="k">return</span> path.split(<span class="s">"/"</span>)[-<span class="mi">1</span>]</code></pre>
+<p>With <code>lru_cache</code>, the same path is resolved exactly once — subsequent calls return the cached result in O(1). This is invaluable when processing millions of log lines that reference the same sources repeatedly.</p>
+<pre><code><span class="k">print</span>(resolve_source.cache_info())
+<span class="c"># CacheInfo(hits=999, misses=1, maxsize=128, currsize=1)</span></code></pre>
+<p>The cache has methods (<code>cache_clear()</code>, <code>cache_info()</code>) attached to the decorated function. Use <code>maxsize=None</code> for an unbounded cache only when you know the input space is small — otherwise memory grows without bound.</p>
+<div class="callout"><strong>Consult the volumes:</strong> The <code>functools</code> module is <code>Lib/functools.py</code> — pure Python except for <code>lru_cache</code>'s C accelerator in <code>Modules/_functoolsmodule.c</code>. <code>partial</code> is a C type whose source is educational: it shows how Python implements partial application at the C level.</div>
+'''
+
+[[lessons.exercises]]
+id = "s04-l04-e1"
+type = "mc"
+points = 15
+prompt = "When decorators are stacked, which order do they apply?"
+choices = ["Top-down — the decorator nearest the @ line applies first", "Bottom-up — the decorator nearest the function applies first", "Reverse alphabetical order by name", "Alphabetical order by name"]
+answer = 1
+whyWrong = "Decorator application is bottom-up (nearest the function def first). The <code>@decorator</code> syntax is syntactic sugar for <code>func = decorator(func)</code>, so the lowest decorator wraps the original function, then the one above wraps that result."
+hint = "Think about the desugared form: which decorator wraps the original function directly?"
+explain = "Decorators apply bottom-up: the one closest to the function definition wraps the original, then higher ones wrap that result."
+
+[[lessons.exercises]]
+id = "s04-l04-e2"
+type = "text"
+points = 20
+prompt = "What <code>functools</code> tool freezes some arguments of a function, returning a smaller callable?"
+answer = "partial"
+accept = ["functools.partial"]
+hint = "Its name is the opposite of 'complete' — it creates a version with some arguments already supplied."
+
+[[lessons.exercises]]
+id = "s04-l04-e3"
+type = "fill"
+points = 20
+prompt = "Fill the blank to use lru_cache with a maxsize of 256:"
+code = '''from functools import lru_cache
+
+____(maxsize=256)
+def expensive(x):
+    return x ** x'''
+answer = "@lru_cache"
+accept = ["@lru_cache"]
+hint = "The decorator syntax applies the cache wrapping before the function is even defined."
+
+[[lessons.exercises]]
+id = "s04-l04-w1"
+type = "write"
+points = 35
+prompt = "Write a function <code>mult(a, b)</code> that returns <code>a * b</code>. Use <code>functools.partial</code> to create <code>double = partial(mult, 2)</code>. Then call <code>double(5)</code> and print the result."
+starter = '''
+from functools import partial
+
+def mult(a, b):
+    return a * b
+
+double = partial(mult, 2)
+print(double(5))
+'''
+expect = '''10'''
+hint = "partial(mult, 2) freezes the first argument to 2, so calling double(5) is equivalent to mult(2, 5)."

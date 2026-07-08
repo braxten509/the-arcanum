@@ -1,0 +1,103 @@
+[[lessons]]
+id = "s02-l03"
+title = "The Repeating Watch"
+body = '''
+<p>A log file may hold dozens of entries. Vaelith taps the stack. <strong>"The Astrarium cannot stop to ask for permission on every line. It must walk through each observation on its own."</strong></p>
+
+<p>A <code>for</code> loop iterates over a sequence, running its body once per element:</p>
+<pre><code><span class="k">for</span> hour <span class="ow">in</span> <span class="nb">range</span>(<span class="mi">3</span>):
+    <span class="k">print</span>(<span class="s">f"Watch {hour + 1}"</span>)</code></pre>
+<p>This prints <code>Watch 1</code>, <code>Watch 2</code>, <code>Watch 3</code>. The variable <code>hour</code> takes each value from the sequence in turn. The name <code>hour</code> is your choice — the Astrarium uses descriptive names so the code reads like a logbook.</p>
+
+<p>The workhorse for numeric iteration is <code>range()</code>, which generates a sequence of integers:</p>
+<pre><code><span class="nb">range</span>(<span class="mi">5</span>)              <span class="c"># 0, 1, 2, 3, 4         — stop value only</span>
+<span class="nb">range</span>(<span class="mi">1</span>, <span class="mi">5</span>)          <span class="c"># 1, 2, 3, 4            — start, stop</span>
+<span class="nb">range</span>(<span class="mi">1</span>, <span class="mi">10</span>, <span class="mi">2</span>)      <span class="c"># 1, 3, 5, 7, 9         — start, stop, step</span></code></pre>
+<p><code>range(stop)</code> counts from 0 up to but not including <code>stop</code>. <code>range(start, stop)</code> gives a custom starting point. <code>range(start, stop, step)</code> jumps by the step value. All three are exclusive at the end — the stop value is never included.</p>
+
+<p>You can also iterate directly over a string, character by character:</p>
+<pre><code>line <span class="k">=</span> <span class="s">"ERROR"</span>
+<span class="k">for</span> ch <span class="ow">in</span> line:
+    <span class="k">print</span>(ch)</code></pre>
+<p>This prints <code>E</code>, then <code>R</code>, then <code>R</code>, then <code>O</code>, then <code>R</code> — each on its own line. Later sections will show how to loop over lists of log lines, but the same <code>for x in sequence</code> pattern applies to every iterable type.</p>
+
+<p>When the loop variable itself is not needed — you just want to repeat an action N times — the convention is to use <code>_</code> as the variable name:</p>
+<pre><code><span class="k">for</span> _ <span class="ow">in</span> <span class="nb">range</span>(<span class="mi">3</span>):
+    <span class="k">print</span>(<span class="s">"Reading..."</span>)</code></pre>
+<p>This signals to other readers: the count matters, the specific value does not.</p>
+
+<div class="callout">"<strong>Vaelith's rule:</strong> name the loop variable what the iteration is <em>about</em>. If you are counting watches, call it <code>watch</code>. If you are scanning log lines, call it <code>line</code>. A meaningful name is worth a page of comments."</div>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // Range is Lazy</div>
+<p><code>range()</code> does not build a list in memory — it produces each number on demand. This means <code>range(1000000)</code> uses the same small amount of memory as <code>range(5)</code>. The values are computed as the loop asks for them, making <code>range</code> safe for large iteration counts. You can confirm this with <code>print(type(range(5)))</code> — it prints <code>class range</code>, not <code>class list</code>.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python docs — for loops"
+url = "https://docs.python.org/3/tutorial/controlflow.html#for-statements"
+
+[[lessons.readings]]
+label = "Python docs — range()"
+url = "https://docs.python.org/3/library/stdtypes.html#range"
+
+[[lessons.exercises]]
+id = "s02-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this for loop over a range exactly. (Ctrl+Enter submits.)"
+code = '''for i in range(5):
+    print(f"Entry {i}")'''
+
+[[lessons.exercises]]
+id = "s02-l03-e1"
+type = "fill"
+points = 20
+prompt = "The Astrarium should print 7 watch reports numbered 0 through 6. What argument goes in the blank?"
+code = '''for watch in range(____):
+    print(f"Watch {watch} report ready")'''
+answer = "7"
+hint = "Vaelith's loop counts from 0 up to but not including the stop value. To get 0 through 6 (seven numbers), the argument is the count of desired iterations."
+explain = "range(7) produces 0, 1, 2, 3, 4, 5, 6 — exactly seven numbers. The stop value is exclusive."
+
+[[lessons.exercises]]
+id = "s02-l03-e2"
+type = "mc"
+points = 15
+prompt = "What sequence of numbers does <code>range(3)</code> produce?"
+choices = [
+    "0, 1, 2",
+    "1, 2, 3",
+    "0, 1, 2, 3",
+    "1, 2"
+]
+answer = 0
+whyWrong = "1, 2, 3 would be produced by range(1, 4), not range(3). 0, 1, 2, 3 includes the stop value, which range() excludes. 1, 2 skips zero and stops early — range(1, 3) would do that. range(3) starts at zero and stops before reaching 3, giving 0, 1, 2."
+hint = "Vaelith's rule: range(stop) always starts at 0 and excludes the stop value. How many numbers come before 3?"
+explain = "range(3) yields 0, 1, 2 — three numbers, starting at 0 and stopping before 3."
+
+[[lessons.exercises]]
+id = "s02-l03-e3"
+type = "text"
+points = 20
+prompt = "What Python construct would you use to iterate over each character of a string variable named <code>log_line</code>, one character at a time?"
+answer = "for ch in log_line:"
+accept = ["for c in log_line:", "for char in log_line:", "for character in log_line:", "for _ in log_line:"]
+hint = "Vaelith showed that strings are sequences — the same for...in pattern that works with range() also works with any sequence."
+explain = "for ch in log_line: iterates over each character. You can name the loop variable anything meaningful — ch, c, or char are all common choices."
+
+[[lessons.exercises]]
+id = "s02-l03-w1"
+type = "write"
+points = 30
+prompt = "Read an integer N from <code>input()</code>, then compute the sum of the first N positive integers (1 through N inclusive). Print the result as <code>Total: [sum]</code>."
+expect = '''Total: 55'''
+stdin = "10"
+starter = '''# ASTRARIUM — Sum First N Integers
+# Read N from input, sum the integers 1 through N,
+# and print the result.
+n = int(input())
+total = 0
+# TODO: use a for loop over range() to sum 1..n,
+# then print the total with an f-string'''
+hint = "Use <code>range(1, n + 1)</code> to iterate from 1 through n inclusive. Add each number to total inside the loop, then print outside the loop."

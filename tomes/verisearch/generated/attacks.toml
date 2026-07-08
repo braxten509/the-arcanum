@@ -80,6 +80,46 @@ PRODUCT 420
 REVERSED 5374
 LOCK SPRUNG'''
 
+[[tiers.pool]]
+t = "THE TALLY OF COINS"
+starter = '''
+int copper = 9;
+int silver = 4;
+int gold = 6;
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Weigh the purse. From the coins print «PURSE COPPER 9», «PURSE SILVER 4», «PURSE GOLD 6» by interpolation, then «COUNT SOUGHT» — values not hardcoded."
+expect = '''
+PURSE COPPER 9
+PURSE SILVER 4
+PURSE GOLD 6
+COUNT SOUGHT'''
+
+[[tiers.pool.stages]]
+brief = "Append «TOTAL <copper+silver+gold>» and «WEIGHT <copper·1 + silver·5 + gold·25>», both computed."
+expect = '''
+PURSE COPPER 9
+PURSE SILVER 4
+PURSE GOLD 6
+COUNT SOUGHT
+TOTAL 19
+WEIGHT 179'''
+
+[[tiers.pool.stages]]
+brief = "Append the weight's parity («PARITY ODD»/«PARITY EVEN»), the mint mark «MINT <copper><silver><gold>» (digits joined), then «PURSE SEALED»."
+expect = '''
+PURSE COPPER 9
+PURSE SILVER 4
+PURSE GOLD 6
+COUNT SOUGHT
+TOTAL 19
+WEIGHT 179
+PARITY ODD
+MINT 946
+PURSE SEALED'''
+
 # ---- difficulty 2
 [[tiers]]
 
@@ -170,6 +210,50 @@ ROW 1 DIM
 ROW 2 DIM
 ROW 3 BRIGHT
 ROW 4 BRIGHT'''
+
+[[tiers.pool]]
+t = "THE CANDLE WATCH"
+starter = '''
+int[] candles = { 30, 5, 18, 42, 9 };
+// A candle burning under 10 is GUTTERING.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Keep the watch. For each candle print «CANDLE <n> <time> <STATE>» — n is 1-based, STATE is GUTTERING if time < 10 else STEADY. Then «WATCH SET»."
+expect = '''
+CANDLE 1 30 STEADY
+CANDLE 2 5 GUTTERING
+CANDLE 3 18 STEADY
+CANDLE 4 42 STEADY
+CANDLE 5 9 GUTTERING
+WATCH SET'''
+
+[[tiers.pool.stages]]
+brief = "Append «STEADY <count>» and «LONGEST <largest time>»."
+expect = '''
+CANDLE 1 30 STEADY
+CANDLE 2 5 GUTTERING
+CANDLE 3 18 STEADY
+CANDLE 4 42 STEADY
+CANDLE 5 9 GUTTERING
+WATCH SET
+STEADY 3
+LONGEST 42'''
+
+[[tiers.pool.stages]]
+brief = "Append «BURN <sum of all times>», then the verdict «WATCH ENDS BRIGHT» if the burn exceeds 60, else «WATCH ENDS DIM»."
+expect = '''
+CANDLE 1 30 STEADY
+CANDLE 2 5 GUTTERING
+CANDLE 3 18 STEADY
+CANDLE 4 42 STEADY
+CANDLE 5 9 GUTTERING
+WATCH SET
+STEADY 3
+LONGEST 42
+BURN 104
+WATCH ENDS BRIGHT'''
 
 # ---- difficulty 3
 [[tiers]]
@@ -267,6 +351,53 @@ STIRRING 1
 DIRE 2
 GRAVEST 9
 AUDIT FAILED'''
+
+[[tiers.pool]]
+t = "THE CONCLAVE VOTE"
+starter = '''
+var motions = new List<Motion> {
+    new("seal-gate", 5, 2), new("raise-ward", 3, 4), new("banish-shade", 6, 6), new("open-vault", 1, 7),
+};
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Motion(string Name, int Aye, int Nay);
+'''
+
+[[tiers.pool.stages]]
+brief = "Read the roll: per motion print «MOTION <name> <aye>-<nay> <RESULT>» — RESULT is PASSED if aye > nay, TIED if equal, else FAILED. Then «CONCLAVE 4 MOTIONS» (count computed)."
+expect = '''
+MOTION seal-gate 5-2 PASSED
+MOTION raise-ward 3-4 FAILED
+MOTION banish-shade 6-6 TIED
+MOTION open-vault 1-7 FAILED
+CONCLAVE 4 MOTIONS'''
+
+[[tiers.pool.stages]]
+brief = "Append «CARRIED <count passed>» and «STRONGEST <name of the widest aye-minus-nay margin>»."
+expect = '''
+MOTION seal-gate 5-2 PASSED
+MOTION raise-ward 3-4 FAILED
+MOTION banish-shade 6-6 TIED
+MOTION open-vault 1-7 FAILED
+CONCLAVE 4 MOTIONS
+CARRIED 1
+STRONGEST seal-gate'''
+
+[[tiers.pool.stages]]
+brief = "Turnout is aye+nay. Append one line per motion «<name> QUORUM» if turnout >= 8 else «<name> THIN», then «VOTE CLOSED»."
+expect = '''
+MOTION seal-gate 5-2 PASSED
+MOTION raise-ward 3-4 FAILED
+MOTION banish-shade 6-6 TIED
+MOTION open-vault 1-7 FAILED
+CONCLAVE 4 MOTIONS
+CARRIED 1
+STRONGEST seal-gate
+seal-gate THIN
+raise-ward THIN
+banish-shade QUORUM
+open-vault QUORUM
+VOTE CLOSED'''
 
 # ---- difficulty 4
 [[tiers]]
@@ -367,6 +498,58 @@ WARD SET
 GATE HIGH
 CHARTER READ'''
 
+[[tiers.pool]]
+t = "THE TITHE ROLL"
+starter = '''
+using System.Text.Json;
+
+string roll = """
+[
+  {"house": "emberfell", "tithe": 120, "paid": true},
+  {"house": "greymoor", "tithe": 300, "paid": false},
+  {"house": "ashford", "tithe": 90, "paid": true},
+  {"house": "duskwane", "tithe": 250, "paid": false}
+]
+""";
+// JsonSerializer.Deserialize<List<Tithe>>(roll) — names match case-sensitively.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Tithe(string house, int tithe, bool paid);
+'''
+
+[[tiers.pool.stages]]
+brief = "Decode the roll into List<Tithe>. Print «TITHE <house> <tithe> <PAID/OWED>» per house, then «ROLL 4 HOUSES» (count computed)."
+expect = '''
+TITHE emberfell 120 PAID
+TITHE greymoor 300 OWED
+TITHE ashford 90 PAID
+TITHE duskwane 250 OWED
+ROLL 4 HOUSES'''
+
+[[tiers.pool.stages]]
+brief = "Append «COLLECTED <sum of paid tithes>» and «OWED <sum of unpaid tithes>»."
+expect = '''
+TITHE emberfell 120 PAID
+TITHE greymoor 300 OWED
+TITHE ashford 90 PAID
+TITHE duskwane 250 OWED
+ROLL 4 HOUSES
+COLLECTED 210
+OWED 550'''
+
+[[tiers.pool.stages]]
+brief = "Seal a summary «new { houses, collected, owed }» with JsonSerializer, print the JSON, then «TITHE SEALED»."
+expect = '''
+TITHE emberfell 120 PAID
+TITHE greymoor 300 OWED
+TITHE ashford 90 PAID
+TITHE duskwane 250 OWED
+ROLL 4 HOUSES
+COLLECTED 210
+OWED 550
+{"houses":4,"collected":210,"owed":550}
+TITHE SEALED'''
+
 # ---- difficulty 5
 [[tiers]]
 
@@ -451,6 +634,54 @@ CHRONICLE 3
 PORTENT the glass cracks 91
 SCOUR COMPLETE'''
 
+[[tiers.pool]]
+t = "THE WARDING SLATE"
+starter = '''
+string path = "slate.rune";
+string[] wards = { "gate:8", "vault:3", "spire:9", "well:5" };
+// File.WriteAllLines / ReadAllLines / AppendAllText; Split(':') and int.Parse.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Inscribe the wards on the slate, read them back FROM DISK, print «WARD <line>» per recovered line, then «SLATE 4 WARDS» (count from the stone)."
+expect = '''
+WARD gate:8
+WARD vault:3
+WARD spire:9
+WARD well:5
+SLATE 4 WARDS'''
+
+[[tiers.pool.stages]]
+brief = "Parse each name:strength rune (Split on ':', int.Parse the strength). Append «BOUND <name> <strength>» per line, then «TOTAL <sum of strengths>»."
+expect = '''
+WARD gate:8
+WARD vault:3
+WARD spire:9
+WARD well:5
+SLATE 4 WARDS
+BOUND gate 8
+BOUND vault 3
+BOUND spire 9
+BOUND well 5
+TOTAL 25'''
+
+[[tiers.pool.stages]]
+brief = "Inscribe one more rune «seal:1», re-read the slate, print «WARDS NOW <count>» then «SLATE SEALED»."
+expect = '''
+WARD gate:8
+WARD vault:3
+WARD spire:9
+WARD well:5
+SLATE 4 WARDS
+BOUND gate 8
+BOUND vault 3
+BOUND spire 9
+BOUND well 5
+TOTAL 25
+WARDS NOW 5
+SLATE SEALED'''
+
 # ---- difficulty 6
 [[tiers]]
 
@@ -526,6 +757,43 @@ TOTAL MARKS 6
 UNIQUE 3
 WOVEN abcd
 HARVEST DONE'''
+
+[[tiers.pool]]
+t = "THE CIPHERED WRIT"
+starter = '''
+string writ = "BEGIN|name=vael;rank=archmage;wards=7;tongue=ash|END trailing dust";
+// IndexOf / Substring / Split — no parser library.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Cut the body between «BEGIN|» and «|END» with IndexOf/Substring. Print «BODY <text>», then split the body on ';' and print «FIELDS <n>»."
+expect = '''
+BODY name=vael;rank=archmage;wards=7;tongue=ash
+FIELDS 4'''
+
+[[tiers.pool.stages]]
+brief = "For each field, split on '=' and print «FIELD <key> = <value>» in order."
+expect = '''
+BODY name=vael;rank=archmage;wards=7;tongue=ash
+FIELDS 4
+FIELD name = vael
+FIELD rank = archmage
+FIELD wards = 7
+FIELD tongue = ash'''
+
+[[tiers.pool.stages]]
+brief = "Append «RANK <rank value uppercased>» and «WARDS <wards value>», then «WRIT READ»."
+expect = '''
+BODY name=vael;rank=archmage;wards=7;tongue=ash
+FIELDS 4
+FIELD name = vael
+FIELD rank = archmage
+FIELD wards = 7
+FIELD tongue = ash
+RANK ARCHMAGE
+WARDS 7
+WRIT READ'''
 
 # ---- difficulty 7
 [[tiers]]
@@ -624,6 +892,52 @@ MEAN 1350c
 PRIME ashen-wyrm
 PRIME mire-moth
 BOARD SEALED'''
+
+[[tiers.pool]]
+t = "THE MUSTER ROLL"
+starter = '''
+var levies = new List<Levy> {
+    new("pikes", 40, "foot"), new("archers", 25, "foot"), new("lancers", 12, "horse"),
+    new("scouts", 8, "horse"), new("rams", 6, "siege"),
+};
+// LINQ: Where / OrderByDescending / GroupBy / Sum / Average.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Levy(string Name, int Count, string Arm);
+'''
+
+[[tiers.pool.stages]]
+brief = "Muster the strong levies (Count >= 10), largest first. Print «LEVY <name> <count>» each, then «MUSTERED <kept> / <total>»."
+expect = '''
+LEVY pikes 40
+LEVY archers 25
+LEVY lancers 12
+MUSTERED 3 / 5'''
+
+[[tiers.pool.stages]]
+brief = "GroupBy Arm over ALL levies, groups ordered by total count descending: «ARM <arm> <sum of counts>» each."
+expect = '''
+LEVY pikes 40
+LEVY archers 25
+LEVY lancers 12
+MUSTERED 3 / 5
+ARM foot 65
+ARM horse 20
+ARM siege 6'''
+
+[[tiers.pool.stages]]
+brief = "Append «HOST <total count over all>» and «MEAN <integer average count>», then «MUSTER DONE»."
+expect = '''
+LEVY pikes 40
+LEVY archers 25
+LEVY lancers 12
+MUSTERED 3 / 5
+ARM foot 65
+ARM horse 20
+ARM siege 6
+HOST 91
+MEAN 18
+MUSTER DONE'''
 
 # ---- difficulty 8
 [[tiers]]
@@ -724,6 +1038,55 @@ SWIFT waystone-6 reached
 SWIFT DONE
 WAYSTONES 6
 RELAY SEALED'''
+
+[[tiers.pool]]
+t = "THE SCATTERED SUMMONS"
+starter = '''
+var beacons = new[] { "north", "east", "south", "west" };
+
+// Light them CONCURRENTLY — Task.WhenAll, not one-by-one awaits.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+async Task<int> Light(string b)
+{
+    await Task.Delay(25);
+    return 100 + b.Length;
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Light all four beacons at once with Task.WhenAll (heats return in cast order). Print «BEACON <name> <heat>» each, then «LIT 4 BEACONS»."
+expect = '''
+BEACON north 105
+BEACON east 104
+BEACON south 105
+BEACON west 104
+LIT 4 BEACONS'''
+
+[[tiers.pool.stages]]
+brief = "Append «BRIGHTEST <name> <heat>» for the greatest heat and «TOTAL HEAT <sum>»."
+expect = '''
+BEACON north 105
+BEACON east 104
+BEACON south 105
+BEACON west 104
+LIT 4 BEACONS
+BRIGHTEST north 105
+TOTAL HEAT 418'''
+
+[[tiers.pool.stages]]
+brief = "Beacons at heat 105 or more are strong: print «STRONG <name>» in cast order, then «SUMMONS DONE»."
+expect = '''
+BEACON north 105
+BEACON east 104
+BEACON south 105
+BEACON west 104
+LIT 4 BEACONS
+BRIGHTEST north 105
+TOTAL HEAT 418
+STRONG north
+STRONG south
+SUMMONS DONE'''
 
 # ---- difficulty 9
 [[tiers]]
@@ -827,6 +1190,52 @@ ACCOUNT 2 FALSE
 ACCOUNT 3 TRUE
 WEIGHING DONE'''
 
+[[tiers.pool]]
+t = "THE TOLL OF NAMES"
+starter = '''
+string[] wanted = { "iron", "shadow", "flame" };
+string[] scrolls = {
+    "iron and flame forge the blade",
+    "the shadow flame consumes iron",
+    "a quiet meadow at dawn",
+};
+// Score = how many wanted words a scroll holds (Split + Contains); LINQ for the ranking.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Toll each scroll: its score is the count of wanted words it holds (split on spaces). Print «SCROLL <n> SCORE <s>» (1-based), then «TOLLED 3 SCROLLS»."
+expect = '''
+SCROLL 1 SCORE 2
+SCROLL 2 SCORE 3
+SCROLL 3 SCORE 0
+TOLLED 3 SCROLLS'''
+
+[[tiers.pool.stages]]
+brief = "Rank scrolls by score descending (ties: lower number first): «RANK <r> SCROLL <n>» each."
+expect = '''
+SCROLL 1 SCORE 2
+SCROLL 2 SCORE 3
+SCROLL 3 SCORE 0
+TOLLED 3 SCROLLS
+RANK 1 SCROLL 2
+RANK 2 SCROLL 1
+RANK 3 SCROLL 3'''
+
+[[tiers.pool.stages]]
+brief = "Append «BEST SCROLL <n> SCORE <s>» for the top scroll, «BARREN <count of score 0>», then «TOLL DONE»."
+expect = '''
+SCROLL 1 SCORE 2
+SCROLL 2 SCORE 3
+SCROLL 3 SCORE 0
+TOLLED 3 SCROLLS
+RANK 1 SCROLL 2
+RANK 2 SCROLL 1
+RANK 3 SCROLL 3
+BEST SCROLL 2 SCORE 3
+BARREN 1
+TOLL DONE'''
+
 # ---- difficulty 10
 [[tiers]]
 
@@ -908,6 +1317,48 @@ PEAK hearth 91%
 MEAN 56%
 FAILING hearth
 == END =='''
+
+[[tiers.pool]]
+t = "THE LEDGER OF SIEGES"
+starter = '''
+var sieges = new List<Siege> {
+    new("east-spire", 12, 4), new("old-vault", 30, 1), new("deep-well", 8, 9),
+};
+// Pipe-separated rows: | cell | cell | cell |
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Siege(string Hold, int Walls, int Rams);
+'''
+
+[[tiers.pool.stages]]
+brief = "Set the ledger. Print the header «| HOLD | WALLS | RAMS |» then one row per siege «| <hold> | <walls> | <rams> |» in list order."
+expect = '''
+| HOLD | WALLS | RAMS |
+| east-spire | 12 | 4 |
+| old-vault | 30 | 1 |
+| deep-well | 8 | 9 |'''
+
+[[tiers.pool.stages]]
+brief = "Append the totals row «| TOTAL | <sum walls> | <sum rams> |» — computed."
+expect = '''
+| HOLD | WALLS | RAMS |
+| east-spire | 12 | 4 |
+| old-vault | 30 | 1 |
+| deep-well | 8 | 9 |
+| TOTAL | 50 | 14 |'''
+
+[[tiers.pool.stages]]
+brief = "Re-print sieges ordered by breach (rams·10 − walls) descending, verdict instead of numbers: «| <hold> | FALLS |» if rams·10 > walls else «| <hold> | HOLDS |», then «SIEGE LEDGER SET»."
+expect = '''
+| HOLD | WALLS | RAMS |
+| east-spire | 12 | 4 |
+| old-vault | 30 | 1 |
+| deep-well | 8 | 9 |
+| TOTAL | 50 | 14 |
+| deep-well | FALLS |
+| east-spire | FALLS |
+| old-vault | HOLDS |
+SIEGE LEDGER SET'''
 
 # ---- difficulty 11
 [[tiers]]
@@ -1025,4 +1476,66 @@ ALL BOUND
 CHORD 37
 KEYSTONE core-ward
 RITE COMPLETE'''
+
+[[tiers.pool]]
+t = "THE GRAND RECKONING"
+starter = '''
+using System.Text.Json;
+
+string archive = """
+[
+  {"name": "ember-seal", "power": 60, "active": true},
+  {"name": "frost-seal", "power": 20, "active": false},
+  {"name": "storm-seal", "power": 95, "active": true},
+  {"name": "dust-seal", "power": 40, "active": true}
+]
+""";
+// Deserialize -> filter -> sort -> invoke concurrently -> stone -> reckon.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+async Task<string> Invoke(string name)
+{
+    await Task.Delay(20);
+    return $"{name} answers";
+}
+
+record Seal(string name, int power, bool active);
+'''
+
+[[tiers.pool.stages]]
+brief = "Forge the reckoning: deserialize the archive, keep active seals, sort by power descending. Print «SEAL <name> <power>» each, then «RECKONING <kept> / <total>»."
+expect = '''
+SEAL storm-seal 95
+SEAL ember-seal 60
+SEAL dust-seal 40
+RECKONING 3 / 4'''
+
+[[tiers.pool.stages]]
+brief = "Invoke the kept seals ALL AT ONCE (Task.WhenAll): print «>> <result>» each in order, then «ALL ANSWER»."
+expect = '''
+SEAL storm-seal 95
+SEAL ember-seal 60
+SEAL dust-seal 40
+RECKONING 3 / 4
+>> storm-seal answers
+>> ember-seal answers
+>> dust-seal answers
+ALL ANSWER'''
+
+[[tiers.pool.stages]]
+brief = "Inscribe the kept seals to reckoning.rune as «<name>:<power>», read the stone back printing «BOUND <line>» each, then «POWER SUM <sum>» and «RECKONING COMPLETE»."
+expect = '''
+SEAL storm-seal 95
+SEAL ember-seal 60
+SEAL dust-seal 40
+RECKONING 3 / 4
+>> storm-seal answers
+>> ember-seal answers
+>> dust-seal answers
+ALL ANSWER
+BOUND storm-seal:95
+BOUND ember-seal:60
+BOUND dust-seal:40
+POWER SUM 195
+RECKONING COMPLETE'''
 

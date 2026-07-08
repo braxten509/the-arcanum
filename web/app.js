@@ -16,6 +16,14 @@
   // (a tome that omits a table gets these minimal defaults, never another course's content)
   let RANKS = [[0, "APPRENTICE"]];
   let SHOP = [];
+  // the five engine power-ups, generic flavor — a tome overrides these by id (see applyTomeConfig)
+  const DEFAULT_CONSUMABLES = [
+    { id: "firewall", kind: "consumable", name: "WARD OF ABSORPTION", cost: 450, charges: 5, ico: "shield", desc: "While it holds a charge, a wrong answer costs you no credits." },
+    { id: "x2", kind: "consumable", name: "DOUBLING CATALYST", cost: 600, ico: "zap", desc: "Your next 20 correct answers pay double credits." },
+    { id: "skip", kind: "consumable", name: "SCROLL OF REVELATION", cost: 700, ico: "scroll", desc: "Instantly solves one trial at full points." },
+    { id: "vpn", kind: "consumable", name: "CLOAK OF UNSEEING", cost: 800, charges: 3, ico: "cloak", desc: "Deflects one incoming hex per charge." },
+    { id: "xray", kind: "consumable", name: "SCRYING LENS", cost: 500, ico: "eye", desc: "Reveals the grader's private notes for one Great Working." },
+  ];
   let HINT_COST = 75;
   let ORACLE_COST = 10;
   let ATTEMPT_MULT = [1, 0.6, 0.3], COMBO_STEP = 0.05, COMBO_CAP = 0.5, SRANK_MULT = 1.5;
@@ -27,7 +35,14 @@
   function applyTomeConfig() {
     const j = window.TOME || {}, e = j.economy || {}, n = j.narrative || {}, p = j.progression || {};
     if (e.ranks) RANKS = e.ranks;
-    if (j.shop) SHOP = j.shop;
+    // the five engine power-ups always exist (mechanics never break); a tome reflavors them by id,
+    // and any it omits fall back to these generic defaults. oracle stays opt-in (needs a mentor model).
+    const shop = Array.isArray(j.shop) ? j.shop.slice() : [];
+    const have = new Set(shop.filter((s2) => s2.kind === "consumable").map((s2) => s2.id));
+    const themeAt = shop.findIndex((s2) => s2.kind === "theme");          // keep defaults among the consumables, before themes
+    DEFAULT_CONSUMABLES.forEach((d) => { if (!have.has(d.id)) shop.splice(themeAt < 0 ? shop.length : themeAt, 0, { ...d }); });
+    shop.forEach((s2) => { if (s2.id === "x2") s2.charges = 20; });        // x2 charge count is engine-fixed at 20 (tome-proof) — a tome's own value is ignored
+    SHOP = shop;
     if (e.hintCost != null) HINT_COST = e.hintCost;
     if (e.oracleCost != null) ORACLE_COST = e.oracleCost;
     if (e.attemptMultipliers) ATTEMPT_MULT = e.attemptMultipliers;
@@ -52,7 +67,7 @@
   const persona = () => (J().narrative && J().narrative.graderPersona) || "THE MAGISTER";
   // the tower's name plate: names the grader ACTUALLY selected in settings, not the
   // tome's flavor text — "OPUS 4.8 // MAGISTER THORNE", "QWEN3:14B // MAGISTER THORNE"
-  const GRADER_KIND_NAME = { "claude-cli": "CLAUDE", "gemini-cli": "GEMINI", "codex-cli": "CODEX", anthropic: "ANTHROPIC", openai: "OPENAI", ollama: "OLLAMA", other: "A CUSTOM SCRIBE" };
+  const GRADER_KIND_NAME = { "claude-cli": "CLAUDE", "antigravity-cli": "ANTIGRAVITY", "codex-cli": "CODEX", anthropic: "ANTHROPIC", openai: "OPENAI", ollama: "OLLAMA", other: "A CUSTOM SCRIBE" };
   function graderTitle() {
     const m = ((S && S.ai && S.ai.graderModel) || "").replace(/^claude-/, "").replace(/-(\d+)-(\d+)$/, " $1.$2").replace(/-/g, " ");
     const who = (m || GRADER_KIND_NAME[S && S.ai && S.ai.graderKind] || "THE TOWER").toUpperCase();
@@ -72,12 +87,14 @@
     const r = J().runtime || {};
     return r.runLabel || (r.command ? [...r.command, r.entryFile || ""].join(" ").trim() : "dotnet run");
   };
-  // external-editor mode: the student builds in their OWN IDE at a folder they choose,
-  // and CAST/PRESENT operate on that folder. Author-forced via [runtime] workspaceDir,
-  // or student opt-in via S.workspace (read at call time — S is set after boot).
-  const externalByAuthor = () => !!(J().runtime && J().runtime.workspaceDir);
+  // external-editor mode: the student builds in their OWN IDE at a folder THEY choose,
+  // and CAST/PRESENT operate on that folder. A course can REQUIRE external mode via
+  // [runtime] externalWorkspace = true (a real toolchain, e.g. a Gradle mod), but the
+  // folder is always the student's — the tome never hardwires a path. Any tome can also
+  // be switched to external mode by the student via S.workspace (read after boot).
+  const externalByAuthor = () => !!(J().runtime && J().runtime.externalWorkspace);
   const externalMode = () => externalByAuthor() || !!(S && S.workspace && S.workspace.enabled);
-  const externalDir = () => (J().runtime && J().runtime.workspaceDir) || (S && S.workspace && S.workspace.dir) || "";
+  const externalDir = () => (S && S.workspace && S.workspace.dir) || "";
   // the files a fresh project needs (entry file, plus a project marker like a .csproj) —
   // for the workbench file list and for seeding a student's own folder. `location` is set
   // only when the file must live in a specific subdirectory of the project.
@@ -117,8 +134,8 @@
       audio: { ambience: true, sfx: true, volume: 42, wind: 42, keys: { profile: "quill", vol: 100 }, ui: 100 },
       pen: { trials: true, drill: true }, // handwritten font on the surfaces you type into
 
-      ai: { oracle: dai.oracle || "llama3.1:8b", grader: dai.grader || "qwen2.5:14b", graderKind: dai.graderKind || "claude-cli", graderModel: dai.graderModel || "claude-opus-4-8", graderCommand: dai.graderCommand || "", keys: { anthropic: "", openai: "" } },
-      badges: {}, stats: { correct: 0, wrong: 0, runs: 0, subs: 0, streak: 0, bestStreak: 0, intrusionW: 0, intrusionL: 0, atkW: 0, atkL: 0, atkWins: {} },
+      ai: { oracle: dai.oracle || "llama3.1:8b", oracleKind: dai.oracleKind || "ollama", grader: dai.grader || "qwen2.5:14b", graderKind: dai.graderKind || "claude-cli", graderModel: dai.graderModel || "claude-opus-4-8", graderCommand: dai.graderCommand || "", keys: { anthropic: "", openai: "" } },
+      badges: {}, stats: { correct: 0, wrong: 0, runs: 0, subs: 0, streak: 0, bestStreak: 0, intrusionW: 0, intrusionL: 0, atkW: 0, atkL: 0, atkWins: {}, reviews: 0 },
       buffers: {}, nav: { view: "home", sec: null, lesson: null },
       workspace: { enabled: false, dir: "" }, // student opt-in: build in your own editor at this dir instead of the built-in workbench
     };
@@ -220,7 +237,7 @@
     terminal: '<rect x="1.5" y="2.5" width="13" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M4 6l2.5 2L4 10M8 10.5h4" fill="none" stroke="currentColor" stroke-width="1.3"/>',
     quill: '<path d="M13.5 2.5c-4 .5-7.5 2.5-9 6l-1.5 4.5 4.5-1.5c3.5-1.5 5.5-5 6-9z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M3.5 12.5L9 7" stroke="currentColor" stroke-width="1.2"/>',
     scroll: '<path d="M4.5 2.5h8a1.5 1.5 0 0 1 0 3h-1v7.5a1.5 1.5 0 0 1-3 0V4a1.5 1.5 0 0 0-1.5-1.5H4.5a1.5 1.5 0 0 0 0 3h1" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M10 13.5H3.5a1.5 1.5 0 0 1 0-3H8" fill="none" stroke="currentColor" stroke-width="1.3"/>',
-    cloak: '<path d="M8 1.5c-3 1.5-4.5 4-4.5 7.5v5.5l2.5-1.5 2 1.5 2-1.5 2.5 1.5V9c0-3.5-1.5-6-4.5-7.5z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 1.5v6" stroke="currentColor" stroke-width="1.1"/>',
+    cloak: '<path d="M8 1.5c-3 1.5-4.5 4-4.5 7.5v5.5l2.5-1.5 2 1.5 2-1.5 2.5 1.5V9c0-3.5-1.5-6-4.5-7.5z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M5 0.9h6" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>',
     coin: '<circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 4.8l.9 1.8 2 .3-1.4 1.4.3 2L8 9.4l-1.8.9.3-2L5.1 6.9l2-.3z" fill="none" stroke="currentColor" stroke-width="1"/>',
     flame: '<path d="M8 1.5c.5 2.5 3.8 3.7 3.8 7a3.8 3.8 0 0 1-7.6 0c0-1.6.8-2.6 1.6-3.6.1 1 .5 1.7 1.2 2.1C7 5.2 7.2 3.2 8 1.5z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>',
     bell: '<path d="M8 1.5c2.6 0 4 1.8 4 4.2 0 2.8 1 3.7 1.8 4.4H2.2C3 9.4 4 8.5 4 5.7c0-2.4 1.4-4.2 4-4.2z" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M6.5 12.5a1.5 1.5 0 0 0 3 0" fill="none" stroke="currentColor" stroke-width="1.3"/>',
@@ -229,7 +246,27 @@
     seal: '<circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="2.2" fill="none" stroke="currentColor" stroke-width="1.2"/>',
     ink: '<path d="M5 2.5h6v3l1.5 2v6h-9v-6L5 5.5z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M5 5.5h6" stroke="currentColor" stroke-width="1.2"/>',
   };
-  const ico = (name, cls) => `<svg viewBox="0 0 16 16" class="ico ${cls || ""}">${ICONS[name] || ""}</svg>`;
+  // coin faces a palette may pick (themes.toml / skin.toml: coin = "<name>").
+  // All sit inside the same r5.5 circle as the default star so they swap cleanly.
+  const COIN_ICONS = {
+    star: ICONS.coin,
+    rune: '<circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6.8 4.8v6.4M6.8 5.6l2.7 1.6M6.8 8.2l2.7 1.6" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>',
+    gem: '<path d="M5 2.5h6L13.5 6 8 13.5 2.5 6z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M2.5 6h11M5 2.5L8 6l3-3.5M8 6v7.5" fill="none" stroke="currentColor" stroke-width="1"/>',
+    holed: '<circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="6.2" y="6.2" width="3.6" height="3.6" fill="none" stroke="currentColor" stroke-width="1.1"/>',
+    serpent: '<circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5.4 10.3c1.7 1 3.2.2 3.1-.9-.1-1-1.9-1-1.9-2.1 0-1 1.4-1.5 2.9-.7" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="10.1" cy="6.2" r=".7" fill="currentColor"/>',
+    sun: '<circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="1.8" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M8 4.4v-1M8 12.6v-1M4.4 8h-1M12.6 8h-1M5.5 5.5l-.7-.7M11.2 11.2l-.7-.7M10.5 5.5l.7-.7M4.8 11.2l.7-.7" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>',
+    bolt: '<circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8.8 4.4L6.4 8.4h1.7L7 11.6l3-4.2H8.3l1.4-3z" fill="none" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>',
+    eye: '<circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M4.8 8c.9-1.4 2-2.1 3.2-2.1S10.3 6.6 11.2 8c-.9 1.4-2 2.1-3.2 2.1S5.7 9.4 4.8 8z" fill="none" stroke="currentColor" stroke-width="1"/><circle cx="8" cy="8" r=".9" fill="currentColor"/>',
+  };
+  // the active palette (tome theme or global skin) may name its coin face
+  const coinGlyph = () => {
+    const id = document.body.dataset.theme;
+    const bank = [...((window.TOME && window.TOME.themes) || []), ...((window.TOME && window.TOME.skins) || [])];
+    const t = bank.find((x) => x.id === id);
+    return (t && COIN_ICONS[t.coin]) || ICONS.coin;
+  };
+  const refreshCoins = () => document.querySelectorAll("svg.ico-coin").forEach((el) => { el.innerHTML = coinGlyph(); });
+  const ico = (name, cls) => `<svg viewBox="0 0 16 16" class="ico ${name === "coin" ? "ico-coin " : ""}${cls || ""}">${(name === "coin" ? coinGlyph() : ICONS[name]) || ""}</svg>`;
 
   function toast(html, kind) {
     const t = document.createElement("div");
@@ -269,6 +306,10 @@
     (el.firstElementChild || el).addEventListener("animationend", finish, { once: true });
     setTimeout(finish, 300);
   }
+  // every range slider fills ink left of the thumb — paint its --fill (0-100%) from the value.
+  // Live drags are caught by a delegated listener (setup); this seeds the initial fill on render.
+  const paintRange = (el) => el.style.setProperty("--fill", (el.value - el.min) / (el.max - el.min) * 100 + "%");
+
   function modal(html, actions) {
     const root = $("#modal-root");
     root.innerHTML = `<div class="modal-back"><div class="modal">${html}<div class="modal-actions"></div></div></div>`;
@@ -280,12 +321,15 @@
       act.appendChild(b);
     }
     $(".modal-back", root).addEventListener("click", (e) => { if (e.target.classList.contains("modal-back")) closeModal(); });
+    root.querySelectorAll('input[type="range"]').forEach(paintRange);   // seed every slider's fill
   }
 
   function showTomePicker() {
     const list = window.TOMES_LIST || [];
     const active = window.__ACTIVE_TOME;
-    const rows = list.map((j) => `
+    // drafts (unfinished builds) never sit beside real tomes — they live in the
+    // bindery's "Unfinished workings" chooser (forgeEntry) until finished or discarded
+    const rows = list.filter((j) => !j.draft).map((j) => `
       <button class="tome-row${j.id === active ? " active" : ""}" data-tome="${esc(j.id)}"${j.id === active ? " disabled" : ""}>
         <div class="jr-top"><span class="jr-name">${esc(j.name || j.id)}</span>
           <span class="jr-tag num">${esc(j.runtime || "")}${j.sectionCount != null ? " · " + j.sectionCount + " chapters" : ""}</span></div>
@@ -294,9 +338,16 @@
       </button>`).join("");
     modal(`<h2>THE SHELF OF TOMES</h2>
       <p class="dim" style="font-size:12px;margin:2px 0 12px">Taking down another tome clears the desk and opens it. Each tome keeps its own progress, purse, and title.</p>
-      <div class="tome-list">${rows || '<p class="dim">The shelf is bare. Place a tome folder in /tomes and look again.</p>'}</div>`,
+      <div class="tome-list">
+        <button class="tome-row forge" id="tome-forge">
+          <div class="jr-top"><span class="jr-name">＋ FORGE A NEW TOME</span><span class="jr-tag num">the bindery</span></div>
+          <div class="jr-desc dim">Name a course you wish existed; the bindery writes it, chapter by chapter, while you study.</div>
+        </button>
+        <div id="forge-active" style="display:contents"></div>
+        ${rows || '<p class="dim">The shelf is bare. Place a tome folder in /tomes and look again.</p>'}</div>`,
       [["LEAVE THE SHELF", "quiet", null]]);
-    document.querySelectorAll("#modal-root .tome-row").forEach((b) => {
+    $("#tome-forge").onclick = () => closeModal(forgeEntry);
+    document.querySelectorAll("#modal-root .tome-row[data-tome]").forEach((b) => {
       b.onclick = () => {
         const id = b.dataset.tome;
         if (id === window.__ACTIVE_TOME) return;
@@ -304,6 +355,643 @@
         location.reload();
       };
     });
+    // any tome still on the bindery's anvil gets a live row that reopens its progress
+    fetchActiveBuilds().then((builds) => {
+      const slot = $("#forge-active");
+      if (!slot || !builds.length) return;
+      slot.innerHTML = builds.map((b) => `
+        <button class="tome-row forging" data-job="${esc(b.id)}">
+          <div class="jr-top"><span class="jr-name">${esc(b.name || "Untitled")}</span><span class="jr-tag num">being forged</span></div>
+          <div class="jr-desc">Phase ${b.phase} / 9 — ${esc(b.phaseTitle || "")}</div>
+        </button>`).join("");
+      slot.querySelectorAll("[data-job]").forEach((el) => {
+        el.onclick = () => { const id = el.dataset.job; closeModal(() => openBuildOverlay(id)); };
+      });
+    });
+  }
+
+  // ------------------------------------------------------------ the bindery (forge a new tome)
+  // POST /api/buildtome starts tools/build_tome.py on the server; the overlay below polls it.
+  // Leaving the overlay never stops the build — the shelf and localStorage.buildJob reattach.
+  const FORGE_PHASES = ["Gate", "Concept & arc", "Skeleton & voice", "Sections", "Minigames",
+    "Economy pass", "Cosmetics", "Validate", "Student review"];
+  let forgeOverlay = null; // the one live progress overlay (null when none)
+  let forgePoll = 0;       // its status poller — always cleared before the overlay is dropped
+
+  async function fetchActiveBuilds() {
+    try { return (await (await fetch("/api/buildtome/active")).json()).jobs || []; }
+    catch { return []; }
+  }
+
+  const FORGE_PHASE_NAMES = ["Gate", "Concept & arc", "Skeleton & voice", "Sections",
+    "Minigames", "Economy", "Cosmetics", "Validate", "Student review"];
+
+  // "Forge a new tome": if the bindery left any tome mid-forge, offer to resume (or discard)
+  // one first; otherwise go straight to the bindery.
+  function forgeEntry() {
+    fetch("/api/buildtome/resumable").then((r) => r.json()).then((d) => {
+      const workings = (d && d.workings) || [];
+      workings.length ? showResumeChooser(workings) : showForgeModal();
+    }).catch(() => showForgeModal());
+  }
+
+  function showResumeChooser(workings) {
+    const row = (w) => `
+      <div class="tome-row resume-row">
+        <button class="resume-pick" data-id="${esc(w.id)}">
+          <div class="jr-top"><span class="jr-name">${esc(w.name)}</span>
+            <span class="jr-tag num">phase ${w.phase} · ${esc(FORGE_PHASE_NAMES[w.phase] || "")}</span></div>
+          <div class="jr-desc dim">${esc(w.concept || "(no concept recorded)")}</div>
+        </button>
+        <button class="resume-trash" data-id="${esc(w.id)}" aria-label="Discard this working entirely" title="Discard this working entirely">🗑</button>
+      </div>`;
+    modal(`<h2>UNFINISHED WORKINGS</h2>
+      <p class="dim" style="font-size:12px;margin:2px 0 12px">The bindery left these tomes mid-forge. Resume one to review its models and continue where it stopped, or discard it. Starting a new tome leaves them untouched.</p>
+      <div class="tome-list">${workings.map(row).join("")}</div>`,
+      [["START A NEW TOME", "", () => showForgeModal()], ["NOT TODAY", "quiet", null]]);
+    const root = $("#modal-root");
+    root.querySelectorAll(".resume-pick").forEach((b) => {
+      b.onclick = () => {
+        const w = workings.find((x) => x.id === b.dataset.id);
+        closeModal(() => showForgeModal(w));
+      };
+    });
+    root.querySelectorAll(".resume-trash").forEach((b) => {
+      b.onclick = async (e) => {
+        e.stopPropagation();
+        b.disabled = true;
+        try {
+          const res = await fetch("/api/buildtome/discard", { method: "POST",
+            headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: b.dataset.id }) });
+          const d = await res.json();
+          if (!d.ok) throw new Error(d.error || "discard failed");
+          const left = workings.filter((x) => x.id !== b.dataset.id);
+          closeModal(() => (left.length ? showResumeChooser(left) : showForgeModal()));
+        } catch (err) {
+          b.disabled = false;
+          toast("Could not discard: " + esc(String(err.message || err)), "bad");
+        }
+      };
+    });
+  }
+
+  // `resume` (optional) = a working from /api/buildtome/resumable: pre-fills the pickers with
+  // the models that build used, locks the concept, and continues from where it stopped.
+  function showForgeModal(resume) {
+    // a dial's label + a hover/focus tooltip carrying its guidance, so the modal stays compact
+    const fhead = (lbl, tip, up) => `<div class="forge-lbl"><label>${lbl}</label>` +
+      `<button type="button" class="forge-help${up ? " forge-help--up" : ""}" aria-label="What this hand does">i<span class="forge-tip">${tip}</span></button></div>`;
+    const providersTip = "Providers: Claude / Antigravity / Codex (their own logins), OpenCode CLI (OpenCode Go + FREE models), and Local (your ollama models, run through opencode). The EFFORT box appears only when the chosen model supports one — Claude/Codex on every model, OpenCode per model (only some Go/free models have a variant), Antigravity and Local none.";
+    modal(`<h2>THE BINDERY<button type="button" class="forge-help" aria-label="How the model pickers work">i<span class="forge-tip">${providersTip}</span></button></h2>
+      <p class="dim" style="font-size:12px;margin:2px 0 16px">Describe the course you wish existed. The bindery names it, chooses the tools it needs, then drafts, writes, and reviews the whole tome — it takes a good while, and you may leave and return as it works.</p>
+      <div class="forge-field"><label for="fg-concept">COURSE CONCEPT</label>
+        <textarea id="fg-concept" rows="4" placeholder="What should this tome teach? What does the student build by the end?"></textarea></div>
+      <div class="forge-field"><label for="fg-prior">PRIOR KNOWLEDGE</label>
+        <input type="text" id="fg-prior" placeholder="what the student can already do (languages / tools)"></div>
+      <div class="forge-field"><label>TOOLING</label>
+        <div class="forge-tooling">
+          <label class="forge-check"><input type="checkbox" id="fg-tool-internal" checked> Internal <i class="dim">— in-browser only</i></label>
+          <label class="forge-check"><input type="checkbox" id="fg-tool-external"> External <i class="dim">— real tools taught</i></label>
+        </div>
+        <div class="faint" style="font-size:11px;font-style:italic">both = internal &amp; external tools available; the bindery picks which workbenches run externally</div></div>
+      <div class="forge-field">${fhead("BREADTH", "How much of the topic's surface makes the section list — <b>1</b> = the one tight path to the objective · <b>10</b> = the whole territory, side-paths included.")}
+        <div class="forge-depth"><input type="range" id="fg-breadth" min="1" max="10" step="1" value="5">
+          <span class="forge-depth-val num" id="fg-breadth-val">5</span></div></div>
+      <div class="forge-field">${fhead("LESSON DEPTH", "How deep each lesson digs — <b>1</b> = just use it · <b>10</b> = internals, edge cases, why it works.")}
+        <div class="forge-depth"><input type="range" id="fg-depth" min="1" max="10" step="1" value="5">
+          <span class="forge-depth-val num" id="fg-depth-val">5</span></div></div>
+      <div class="forge-field">${fhead("MASTERY", "Where the course ENDS — each tick writes concrete sample objectives into the build plan. <b>1</b> acquainted: read, follow &amp; tweak examples · <b>2</b> functional: everyday basics unaided · <b>3</b> capable: real problems, real choices (recursion, data-structure tradeoffs) · <b>4</b> advanced: idioms &amp; internals · <b>5</b> expert: the deep end.")}
+        <div class="forge-depth"><input type="range" id="fg-mastery" min="1" max="5" step="1" value="3">
+          <span class="forge-depth-val num" id="fg-mastery-val">3</span></div></div>
+      <div class="forge-field fq-wait" id="fg-purse">${fhead("THE PURSE", "Five preconfigured mixes of models, cheapest competent hands on the left, the best mix (no wasted effort) on the right. Tick <b>Configure</b> to unlock the hands below and pick models yourself — the slider's picks stay as a starting point. Untick it and the slider takes over again, overwriting your picks. Tiers that use the claude/codex/antigravity logins leave a hand untouched if that CLI isn't installed.")}
+        <div class="forge-quality">
+          <label class="forge-check" style="margin:0;flex:0 0 auto"><input type="checkbox" id="fg-configure" disabled> Configure</label>
+          <span class="fq-word">CHEAP</span>
+          <input type="range" id="fg-quality" min="1" max="5" step="1" value="3" disabled>
+          <span class="fq-word">QUALITY</span>
+        </div></div>
+      <div id="fg-hands">
+      <div class="forge-field">${fhead("THE DRAFTER", "The cheap hand — lays the scaffold: the skeleton, the economy, the cosmetics &amp; the validation pass. The checker guards its work, so spend little here. <b>Effort:</b> low — mechanical scaffolding the validator already guards; high is wasted here.")}
+        <div class="forge-ai-row">
+          <select id="fg-drafter-prov" class="cfg-select" style="flex:0 0 auto;width:172px"><option value="">PICK A MODEL</option></select>
+          <select id="fg-drafter-model" class="cfg-select" style="flex:1 1 auto;min-width:0" disabled><option value="">—</option></select>
+          <select id="fg-drafter-eff" class="cfg-select" style="flex:0 0 auto;width:104px" disabled><option value="">—</option></select>
+        </div></div>
+      <div class="forge-field">${fhead("THE WRITER", "The costly hand — writes what actually teaches: the arc, the lessons &amp; the minigames. This is where the tome lives or dies, so spend here. <b>Effort:</b> medium is the sweet spot for authoring; go high only to make the concept/arc pass reason harder. Low risks shallow lessons and validator retries.")}
+        <div class="forge-ai-row">
+          <select id="fg-writer-prov" class="cfg-select" style="flex:0 0 auto;width:172px"><option value="">DRAFTER MODEL</option></select>
+          <select id="fg-writer-model" class="cfg-select" style="flex:1 1 auto;min-width:0" disabled><option value="">—</option></select>
+          <select id="fg-writer-eff" class="cfg-select" style="flex:0 0 auto;width:104px" disabled><option value="">—</option></select>
+        </div></div>
+      <div class="forge-field">${fhead('THE SECTIONS HAND <span style="font-weight:400;font-style:italic;letter-spacing:0">— phase 3 only</span>', "Sections is the biggest, most cache-heavy phase. <b>Off:</b> a curated shortlist vetted for quality + cheap cache reads. <b>Split by section:</b> each section gets its own worker so context never piles up — pick ANY model without the cache blow-up (a whole-tome reconcile pass still runs at the end for consistency). Overrides the writer for phase 3 only. <b>Effort:</b> medium — bulk authoring; high mostly buys slow think-time, low risks validator retries.")}
+        <label class="forge-split-toggle"><input type="checkbox" id="fg-split"> split by section</label>
+        <div class="forge-ai-row" id="fg-sec-curated">
+          <select id="fg-sections" class="cfg-select" style="flex:1 1 auto;min-width:0"><option value="">WRITER MODEL</option></select>
+        </div>
+        <div class="forge-ai-row" id="fg-sec-any" style="display:none">
+          <select id="fg-sec-prov" class="cfg-select" style="flex:0 0 auto;width:172px"><option value="">PICK A MODEL</option></select>
+          <select id="fg-sec-model" class="cfg-select" style="flex:1 1 auto;min-width:0" disabled><option value="">—</option></select>
+          <select id="fg-sec-eff" class="cfg-select" style="flex:0 0 auto;width:104px" disabled><option value="">—</option></select>
+        </div></div>
+      <div class="forge-field">${fhead("THE REVIEWER", "Independent eyes — reads the finished tome cover to cover as a first-time student and fills the gaps (the final review). A model DIFFERENT from the writer here catches what the writer cannot see in its own work. <b>Effort:</b> medium–high — spotting cross-section gaps is genuinely reasoning-work.", true)}
+        <div class="forge-ai-row">
+          <select id="fg-reviewer-prov" class="cfg-select" style="flex:0 0 auto;width:172px"><option value="">WRITER MODEL</option></select>
+          <select id="fg-reviewer-model" class="cfg-select" style="flex:1 1 auto;min-width:0" disabled><option value="">—</option></select>
+          <select id="fg-reviewer-eff" class="cfg-select" style="flex:0 0 auto;width:104px" disabled><option value="">—</option></select>
+        </div></div>
+      </div>`,
+      [["NOT TODAY", "quiet", null]]);
+    const root = $("#modal-root");
+    $(".modal", root).classList.add("forge-modal");   // roomier dialog for the three-box rows
+    if (resume) {
+      const c = $("#fg-concept", root);
+      c.value = resume.concept || ""; c.readOnly = true;   // concept is fixed once a working exists
+      // "restart from" picker: defaults to the auto-detected phase, but lets the operator force
+      // an earlier one (it re-runs from the pages on disk; at/before phase 3 it re-authors every
+      // section — the way to redo a section that failed but got skipped on resume).
+      const phaseOpts = FORGE_PHASE_NAMES.map((nm, i) => i >= 1
+        ? `<option value="${i}"${i === resume.phase ? " selected" : ""}>phase ${i} — ${esc(nm)}</option>` : "").join("");
+      $("h2", root).insertAdjacentHTML("afterend",
+        `<p class="dim" style="font-size:12px;margin:2px 0 12px">Resuming <b>${esc(resume.name)}</b> from <select id="fg-fromphase" style="display:inline-flex;vertical-align:middle;min-width:190px">${phaseOpts}</select> — earlier is a forced redo. Review or change the models below, then continue.</p>`);
+      enhanceSelect($("#fg-fromphase", root));   // themed dropdown, like every other select in the app
+    }
+    const depth = $("#fg-depth", root), depthVal = $("#fg-depth-val", root);
+    depth.oninput = () => { depthVal.textContent = depth.value; };  // --fill is handled globally (paintRange + the live listener)
+    const breadth = $("#fg-breadth", root), breadthVal = $("#fg-breadth-val", root);
+    breadth.oninput = () => { breadthVal.textContent = breadth.value; };
+    const mastery = $("#fg-mastery", root), masteryVal = $("#fg-mastery-val", root);
+    mastery.oninput = () => { masteryVal.textContent = mastery.value; };
+    if (resume) {
+      // Phase 0 already ran: everything the gate consumed (concept → mastery) is fixed.
+      // Show the working's real answers, grayed — only the model hands stay live.
+      const g = resume.gate || {};
+      const prior = $("#fg-prior", root);
+      prior.value = g.prior_knowledge || "";
+      $("#fg-tool-internal", root).checked = g.tooling === "internal" || g.tooling === "both";
+      $("#fg-tool-external", root).checked = g.tooling === "external" || g.tooling === "both";
+      const setDial = (el, valEl, v) => {
+        if (v && !isNaN(+v)) { el.value = +v; valEl.textContent = el.value; paintRange(el); }
+      };
+      setDial(breadth, breadthVal, g.breadth);
+      setDial(depth, depthVal, g.depth);
+      setDial(mastery, masteryVal, g.mastery);
+      for (const el of [$("#fg-concept", root), prior, $("#fg-tool-internal", root),
+                        breadth, depth, mastery]) {
+        el.closest(".forge-field").classList.add("forge-locked");
+      }
+    }
+    // Each knob is a [PROVIDER][MODEL][EFFORT] cascade fed by /api/models `bindery`
+    // ([{id,label,kind,models:[[id,label,tag],…],efforts,installed}]). Pick a provider, its
+    // models fill the middle box; the effort box enables only for providers that take one
+    // (claude, codex). enhanceSelect's MutationObserver repaints the styled control when we
+    // rewrite <option>s on provider change, so re-enhancing isn't needed.
+    const knob = (n) => ({ prov: $(`#fg-${n}-prov`, root), model: $(`#fg-${n}-model`, root), eff: $(`#fg-${n}-eff`, root) });
+    const K = { drafter: knob("drafter"), writer: knob("writer"), reviewer: knob("reviewer"), sec: knob("sec") };
+    let BINDERY = [];
+    // Phase 3 (Sections) is the biggest, most cache-heavy phase, so its dial offers only a
+    // curated shortlist — strong authoring models with cheap cache reads (per the GLM cost
+    // post-mortem). All opencode-go, so one kind; filtered to those actually served. [id, label, note]
+    const PHASE3_RECOMMENDED = [
+      ["opencode-go/deepseek-v4-pro", "DeepSeek V4 Pro", "best value · cache ≈ free · pro tier"],
+      ["opencode-go/qwen3.7-plus",    "Qwen3.7 Plus",    "strong · low cost"],
+      ["opencode-go/minimax-m3",      "MiniMax M3",      "capable · low cost"],
+      ["opencode-go/kimi-k2.6",       "Kimi K2.6",       "strong coder · mid cost"],
+      ["opencode-go/glm-5.2",         "GLM 5.2",         "high quality · pricey cache"],
+    ];
+    const secSel = $("#fg-sections", root);
+    // THE PURSE — CHEAP↔QUALITY slider. Tiers come from harness.toml [quality.*] via
+    // /api/models; each is a per-phase runner map applied to the hand knobs. Configure
+    // unticked → the slider owns the knobs (hands locked); ticked → knobs free, slider held.
+    const qual = $("#fg-quality", root), conf = $("#fg-configure", root);
+    let QUALITY = [];
+    // Effort is PER-MODEL (row is [id,label,tag,efforts]): some OpenCode models expose a
+    // reasoning variant, most don't; claude/codex expose their CLI's levels on every model.
+    // So the effort box follows the selected MODEL, not the provider.
+    const fillEffort = (k) => {
+      const p = BINDERY.find((x) => x.id === k.prov.value);
+      const m = p && (p.models || []).find((mm) => mm[0] === k.model.value);
+      const levels = (m && m[3]) || [];
+      k.eff.innerHTML = levels.length
+        ? `<option value="">DEFAULT</option>` + levels.map((l) => `<option value="${esc(l)}">${esc(l.toUpperCase())}</option>`).join("")
+        : `<option value="">—</option>`;
+      k.eff.disabled = !levels.length;
+    };
+    const fillKnob = (k) => {
+      const p = BINDERY.find((x) => x.id === k.prov.value);
+      const models = (p && p.models) || [];
+      k.model.innerHTML = models.length
+        ? models.map(([v, l, tag]) => `<option value="${esc(v)}"${tag ? ` data-suffix="— ${esc(tag)}"` : ""}>${esc(l)}</option>`).join("")
+        : `<option value="">${p ? "(no models found)" : "—"}</option>`;
+      k.model.disabled = !models.length;
+      fillEffort(k);   // effort follows the now-selected (first) model
+    };
+    for (const k of Object.values(K)) {
+      k.prov.addEventListener("change", () => fillKnob(k));
+      k.model.addEventListener("change", () => fillEffort(k));
+    }
+    // Remember the three picks across opens (localStorage). `restoring` suppresses the save
+    // while we replay a saved pick, so the intermediate provider-change (which resets model)
+    // doesn't clobber it.
+    const SAVE_KEY = "binderyRunners";
+    let restoring = false;
+    const persist = () => {
+      if (restoring) return;
+      const snap = { sections: secSel.value, split: $("#fg-split", root).checked,
+                     quality: qual.value, configure: conf.checked };
+      for (const [n, k] of Object.entries(K)) snap[n] = { prov: k.prov.value, model: k.model.value, eff: k.eff.value };
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify(snap)); } catch (e) { /* private mode */ }
+    };
+    const has = (sel, v) => [...sel.options].some((o) => o.value === v);
+    const restoreKnob = (k, s) => {
+      if (!s || !s.prov || !has(k.prov, s.prov)) return;
+      k.prov.value = s.prov;
+      k.prov.dispatchEvent(new Event("change"));          // → fillKnob repopulates model+eff; buttons repaint
+      if (s.model && has(k.model, s.model)) { k.model.value = s.model; k.model.dispatchEvent(new Event("change")); }
+      if (s.eff && has(k.eff, s.eff)) { k.eff.value = s.eff; k.eff.dispatchEvent(new Event("change")); }
+    };
+    // Apply one tier pick {kind, model, effort} to a knob. A provider that isn't installed
+    // (login CLI absent) leaves the knob untouched — tick Configure and fill it by hand.
+    const applyPick = (k, p) => {
+      if (!p || !has(k.prov, p.kind)) return;
+      k.prov.value = p.kind; k.prov.dispatchEvent(new Event("change"));
+      if (has(k.model, p.model)) { k.model.value = p.model; k.model.dispatchEvent(new Event("change")); }
+      if (p.effort && has(k.eff, p.effort)) { k.eff.value = p.effort; k.eff.dispatchEvent(new Event("change")); }
+    };
+    const applyTier = () => {
+      const t = QUALITY[qual.value - 1]; if (!t) return;
+      const ph = t.phases || {};
+      restoring = true;                                  // one persist at the end, not per knob
+      applyPick(K.drafter, ph.default);
+      applyPick(K.writer, ph["1"]);                      // "1" and "4" share the writer knob
+      applyPick(K.reviewer, ph["8"]);
+      $("#fg-split", root).checked = !!t.split; toggleSplit();
+      if (t.split) applyPick(K.sec, ph["3"]);
+      else if (ph["3"] && has(secSel, ph["3"].model)) { secSel.value = ph["3"].model; secSel.dispatchEvent(new Event("change")); }
+      restoring = false; persist();
+    };
+    const syncPurse = () => {
+      qual.disabled = conf.checked;
+      $("#fg-hands", root).classList.toggle("fq-locked", !conf.checked && QUALITY.length > 0);
+      paintRange(qual);   // programmatic value changes don't fire the delegated input repaint
+      if (!conf.checked && QUALITY.length) applyTier();  // unticking overwrites with the tier
+    };
+    // While /api/models + the saved picks load, gray every box out and say "Loading…" — an
+    // empty "—" box during the async gap reads as broken. Originals restored the instant the
+    // fill runs (each select keeps its placeholder options in dataset.orig).
+    const pickers = [secSel, ...Object.values(K).flatMap((k) => [k.prov, k.model, k.eff])];
+    const setLoading = (on) => {
+      for (const s of pickers) {
+        if (on) {
+          if (s.dataset.orig == null) s.dataset.orig = s.innerHTML;
+          s.innerHTML = '<option value="">Loading…</option>';
+          s.disabled = true;
+        } else if (s.dataset.orig != null) {
+          s.innerHTML = s.dataset.orig; delete s.dataset.orig; s.disabled = false;
+        }
+      }
+    };
+    setLoading(true);
+    fetch("/api/models").then((r) => r.json()).then((d) => {
+      setLoading(false);   // restore placeholders + re-enable; fillKnob re-disables model/eff as needed
+      BINDERY = (d.bindery || []).filter((p) => p.installed !== false);
+      const provOpts = BINDERY.map((p) => `<option value="${esc(p.id)}">${esc(p.label)}</option>`).join("");
+      for (const k of Object.values(K)) { k.prov.insertAdjacentHTML("beforeend", provOpts); fillKnob(k); }
+      // Sections dial: only the recommended models opencode actually serves right now.
+      const oc = BINDERY.find((p) => p.kind === "opencode-cli");
+      const served = new Set((oc ? oc.models : []).map((m) => m[0]));
+      secSel.insertAdjacentHTML("beforeend", PHASE3_RECOMMENDED
+        .filter(([id]) => served.has(id))
+        .map(([id, label, note]) => `<option value="${esc(id)}">${esc(label)} — ${esc(note)}</option>`).join(""));
+      QUALITY = d.quality || [];
+      // the purse renders grayed from the first paint (no pop-in); tiers arriving ungray
+      // it and snap the slider to the saved tier — no tiers at all hides it entirely
+      if (QUALITY.length) { $("#fg-purse", root).classList.remove("fq-wait"); conf.disabled = false; }
+      else $("#fg-purse", root).style.display = "none";
+      restoring = true;
+      // Resume pre-fills from the working's saved models; a fresh forge from the last-used set.
+      let saved = resume ? (resume.bindery || {}) : {};
+      if (!resume) { try { saved = JSON.parse(localStorage.getItem(SAVE_KEY) || "{}"); } catch (e) { /* ignore */ } }
+      // No tiers served → the purse stays hidden and the hands are always free (as before).
+      // A resume snapshot from before the purse existed carries no `configure` — treat it as
+      // configured so the models the working actually used show, not the slider's picks.
+      conf.checked = !QUALITY.length || !!saved.configure || (!!resume && saved.configure === undefined);
+      if (saved.quality >= 1 && saved.quality <= QUALITY.length) qual.value = saved.quality;
+      if (conf.checked) {   // hand-picked models restore; otherwise the slider re-derives them
+        for (const [n, k] of Object.entries(K)) restoreKnob(k, saved[n]);
+        if (saved.sections && [...secSel.options].some((o) => o.value === saved.sections)) {
+          secSel.value = saved.sections; secSel.dispatchEvent(new Event("change"));
+        }
+        if (saved.split) { $("#fg-split", root).checked = true; toggleSplit(); }
+      }
+      restoring = false;
+      syncPurse();
+    }).catch(() => { setLoading(false); toast("Could not reach the bindery's model list — is the server up?", "bad"); });
+    for (const k of Object.values(K)) [k.prov, k.model, k.eff].forEach(enhanceSelect);
+    for (const k of Object.values(K)) [k.prov, k.model, k.eff].forEach((s) => s.addEventListener("change", persist));
+    enhanceSelect(secSel); secSel.addEventListener("change", persist);
+    // Split-by-section toggle: off → curated shortlist; on → full any-model cascade.
+    const splitBox = $("#fg-split", root);
+    const toggleSplit = () => {
+      const on = splitBox.checked;
+      $("#fg-sec-curated", root).style.display = on ? "none" : "";
+      $("#fg-sec-any", root).style.display = on ? "" : "none";
+    };
+    splitBox.addEventListener("change", () => { toggleSplit(); persist(); });
+    toggleSplit();
+    qual.addEventListener("input", () => { if (!conf.checked) applyTier(); });
+    conf.addEventListener("change", syncPurse);
+    const readKnob = (k) => {
+      const p = BINDERY.find((x) => x.id === k.prov.value);
+      if (!p || !k.model.value) return null;
+      const o = { kind: p.kind, model: k.model.value };
+      if (k.eff.value) o.effort = k.eff.value;
+      return o;
+    };
+    const begin = document.createElement("button");
+    begin.className = "btn"; begin.textContent = resume ? "CONTINUE THE WORKING" : "BEGIN THE WORKING";
+    begin.onclick = async () => {
+      const concept = $("#fg-concept", root).value.trim();
+      if (!resume && !concept) { toast("The bindery needs at least a <b>concept</b>.", "warn"); return; }
+      const ti = $("#fg-tool-internal", root).checked, te = $("#fg-tool-external", root).checked;
+      if (!resume && !ti && !te) { toast("Pick at least one <b>tooling</b> mode — internal, external, or both.", "warn"); return; }
+      const tooling = ti && te ? "both" : te ? "external" : "internal";
+      // The drafter drives the structural phases (2, 5, 6, 7) and there is no house default,
+      // so it must be chosen or those phases would have no runner.
+      if (!readKnob(K.drafter)) { toast("Pick a <b>drafter</b> model — it drives the structural phases (there is no house default).", "warn"); return; }
+      begin.disabled = true; begin.textContent = "KINDLING THE FORGE...";
+      try {
+        const runners = {};
+        // Three hands: DRAFTER = the cheap default for the structural phases the validator
+        // backstops (2 skeleton, 5 economy, 6 cosmetics, 7 validate). WRITER = the authoring
+        // phases that decide teaching quality (1 arc, 3 sections, 4 minigames). REVIEWER =
+        // phase 8, the final student read-through — independent eyes on the finished tome.
+        // Fallbacks: an empty WRITER drops to the drafter's model; an empty REVIEWER
+        // defaults to the WRITER's model, so review still gets the costly hand (just not
+        // independent) unless you pick a distinct reviewer.
+        const WRITER_PHASES = ["1", "3", "4"];
+        const drafter = readKnob(K.drafter), writer = readKnob(K.writer), reviewer = readKnob(K.reviewer);
+        if (drafter) runners.default = drafter;
+        if (writer) {
+          for (const p of WRITER_PHASES) runners[p] = writer;
+          runners["8"] = writer;  // reviewer defaults to the writer...
+        }
+        if (reviewer) runners["8"] = reviewer;  // ...unless a distinct reviewer is chosen
+        const splitOn = $("#fg-split", root).checked;   // Sections dial overrides the writer for phase 3
+        if (splitOn) {
+          const sec = readKnob(K.sec);           // split mode: any model — context stays small per section
+          if (sec) runners["3"] = sec;
+        } else {
+          const sections = $("#fg-sections", root).value;  // single session: curated shortlist only
+          if (sections) runners["3"] = { kind: "opencode-cli", model: sections };
+        }
+        // snapshot the picks so a future resume of this tome can pre-fill them (same shape as
+        // the localStorage restore path); the server stores it in the build's launch.json.
+        const snap = { split: splitOn, sections: $("#fg-sections", root).value,
+                       quality: qual.value, configure: conf.checked };
+        for (const [n, k] of Object.entries(K)) snap[n] = { prov: k.prov.value, model: k.model.value, eff: k.eff.value };
+        const fromPhase = resume ? parseInt(($("#fg-fromphase", root) || {}).value || resume.phase, 10) : 0;
+        const payload = resume
+          ? { id: resume.id, runners, sectionsSplit: splitOn, bindery: snap, fromPhase }
+          : { concept, prior_knowledge: $("#fg-prior", root).value.trim(),
+              depth: depth.value, breadth: breadth.value, mastery: mastery.value,
+              tooling, runners, sectionsSplit: splitOn, bindery: snap };
+        const r = await fetch(resume ? "/api/buildtome/resume" : "/api/buildtome", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await r.json();
+        if (!data.ok) throw new Error(data.error || "the bindery did not answer");
+        localStorage.setItem("buildJob", data.jobId);
+        closeModal(() => openBuildOverlay(data.jobId));
+      } catch (err) {
+        begin.disabled = false; begin.textContent = resume ? "CONTINUE THE WORKING" : "BEGIN THE WORKING";
+        toast("The bindery could not begin: " + esc(String(err.message || err)), "bad");
+      }
+    };
+    $(".modal-actions", root).appendChild(begin);
+  }
+
+  // A build worker died and the harness (build_tome --ask-on-death) is blocked on a runner
+  // choice. Show a [PROVIDER][MODEL][EFFORT] picker over the forge card; POST the pick to
+  // /api/buildtome/runner and the working resumes from disk. One box per pause (idempotent).
+  function showRunnerDeath(overlay, jobId, info) {
+    const gate = !!info.gate;   // a phase exhausted its gate retries (vs. a runner that died)
+    const detail = gate
+      ? `phase <b>${info.phase}</b> failed its gates (${esc(info.reason || "retries used")})`
+      : `runner <b>${esc(info.dead || "?")}</b> died on <b>phase ${info.phase}</b> (${esc(info.reason || "no exit")})`;
+    let box = overlay.querySelector(".runner-death");
+    if (box) { const d = box.querySelector(".rd-detail"); if (d) d.innerHTML = detail; return; }
+    box = document.createElement("div");
+    box.className = "runner-death";
+    box.innerHTML = `<div class="grade-card rd-card">
+      <div class="faint" style="font-size:11px;letter-spacing:.2em">THE BINDERY // ${gate ? "THE GATES HELD FAST" : "A HAND HAS FALTERED"}</div>
+      <h2 style="margin:8px 0 4px;font-family:var(--arch)">${gate ? "This phase would not pass" : "A runner has died"}</h2>
+      <p class="rd-detail dim" style="font-size:12.5px;margin:0 0 6px">${detail}</p>
+      ${gate ? `<div class="forge-log num" style="height:auto;max-height:150px;margin:0 0 10px">${esc(info.report || "")}</div>` : ""}
+      <p class="dim" style="font-size:12px;margin:0 0 14px">${gate
+        ? "Give it more tries, and/or hand it to a different model — either way it resumes this phase from the pages already on disk."
+        : "Choose the hand that takes up the quill — the working resumes from where it left off on disk."}</p>
+      <div class="forge-ai-row">
+        <select class="cfg-select rd-prov" style="flex:0 0 auto;width:172px"></select>
+        <select class="cfg-select rd-model" style="flex:1 1 auto;min-width:0" disabled><option value="">—</option></select>
+        <select class="cfg-select rd-eff" style="flex:0 0 auto;width:104px" disabled><option value="">—</option></select>
+      </div>
+      ${gate ? `<label class="dim" style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12.5px">MORE RETRIES <input class="cfg-select rd-retries" type="number" min="1" max="20" value="3" style="width:76px"></label>` : ""}
+      <div class="modal-actions" style="margin-top:16px">
+        <button class="btn danger rd-abort">${gate ? "GIVE UP ON THIS TOME" : "ABANDON THE WORKING"}</button>
+        <button class="btn rd-resume"${gate ? "" : " disabled"}>${gate ? "RETRY THIS PHASE" : "RESUME THE WORKING"}</button>
+      </div></div>`;
+    overlay.appendChild(box);
+    const prov = box.querySelector(".rd-prov"), model = box.querySelector(".rd-model"),
+          eff = box.querySelector(".rd-eff"), resume = box.querySelector(".rd-resume"),
+          retriesEl = box.querySelector(".rd-retries");
+    let BINDERY = [];
+    const fillEff = () => {
+      const p = BINDERY.find((x) => x.id === prov.value);
+      const m = p && (p.models || []).find((mm) => mm[0] === model.value);
+      const lv = (m && m[3]) || [];
+      eff.innerHTML = lv.length
+        ? `<option value="">DEFAULT</option>` + lv.map((l) => `<option value="${esc(l)}">${esc(l.toUpperCase())}</option>`).join("")
+        : `<option value="">—</option>`;
+      eff.disabled = !lv.length;
+    };
+    const fillModel = () => {
+      const p = BINDERY.find((x) => x.id === prov.value);
+      const ms = (p && p.models) || [];
+      // gate pause: a leading blank keeps THIS phase's current model and only adds retries
+      const keep = gate ? `<option value="">— keep this phase's model —</option>` : "";
+      const opts = ms.length
+        ? ms.map(([v, l, tag]) => `<option value="${esc(v)}"${tag ? ` data-suffix="— ${esc(tag)}"` : ""}>${esc(l)}</option>`).join("")
+        : "";
+      model.innerHTML = (keep + opts) || `<option value="">—</option>`;
+      model.disabled = !ms.length && !gate;
+      resume.disabled = gate ? false : !ms.length;
+      if (gate) model.value = "";  // default to keep-current
+      fillEff();
+    };
+    prov.addEventListener("change", fillModel);
+    model.addEventListener("change", fillEff);
+    fetch("/api/models").then((r) => r.json()).then((d) => {
+      BINDERY = (d.bindery || []).filter((p) => p.installed !== false);
+      prov.innerHTML = BINDERY.map((p) => `<option value="${esc(p.id)}">${esc(p.label)}</option>`).join("");
+      fillModel();
+      try {  // default the provider to the writer pick they used at launch, if it's still offered
+        const w = (JSON.parse(localStorage.getItem("binderyRunners") || "{}")).writer;
+        if (w && w.prov && [...prov.options].some((o) => o.value === w.prov)) {
+          prov.value = w.prov; fillModel();
+          if (!gate && w.model && [...model.options].some((o) => o.value === w.model)) { model.value = w.model; fillEff(); }
+        }
+      } catch (e) { /* ignore */ }
+    }).catch(() => {});
+    [prov, model, eff].forEach(enhanceSelect);
+    resume.onclick = async () => {
+      const p = BINDERY.find((x) => x.id === prov.value);
+      const switching = !!(p && model.value);        // a model chosen (gate: blank = keep current)
+      if (!gate && !switching) return;               // a death MUST pick a replacement runner
+      const retries = gate ? Math.max(1, parseInt((retriesEl && retriesEl.value) || "1", 10) || 1) : 0;
+      resume.disabled = true; resume.textContent = "TAKING UP THE QUILL...";
+      try {
+        await fetch("/api/buildtome/runner", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: jobId,
+            kind: switching ? p.kind : "", model: switching ? model.value : "",
+            effort: switching ? (eff.value || "") : "", retries }) });
+      } catch { /* the next poll re-shows the box if the harness is still waiting */ }
+      box.remove();  // next poll shows the resumed phase (awaitingRunner gone)
+    };
+    box.querySelector(".rd-abort").onclick = async () => {
+      try { await fetch("/api/buildtome/cancel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: jobId }) }); } catch { /* poll reports the state */ }
+      box.remove();
+    };
+  }
+
+  function openBuildOverlay(jobId) {
+    if (forgeOverlay) {
+      if (forgeOverlay.dataset.job === jobId) { forgeOverlay.classList.remove("hidden"); return; }
+      clearInterval(forgePoll); forgeOverlay.remove(); forgeOverlay = null; // stale overlay for another job
+    }
+    const overlay = document.createElement("div");
+    overlay.className = "grade-overlay";
+    overlay.dataset.job = jobId;
+    overlay.innerHTML = `<div class="grade-card">
+      <div class="faint" style="font-size:11px;letter-spacing:.2em">THE BINDERY // A TOME IS BEING FORGED</div>
+      <div style="font-family:var(--arch);font-size:20px;margin:10px 0 2px" id="fp-name"></div>
+      <div id="fp-phase">reattaching to the working…</div>
+      <div class="forge-phases">${FORGE_PHASES.map((t, i) => `
+        <div class="forge-phase" data-ph="${i}"><span class="num">${i}</span><span>${esc(t)}</span><span class="fp-mark num"></span></div>`).join("")}</div>
+      <div class="forge-log num" id="fp-log"></div>
+      <div class="dim" style="margin-top:12px;font-size:12px;font-style:italic">a full tome takes a long while — leave, and the bindery works on; the shelf remembers it.</div>
+      <div class="modal-actions">
+        <button class="btn danger" id="fp-cancel">ABANDON THE WORKING</button>
+        <button class="btn quiet" id="fp-leave">LEAVE THE BINDERY (work continues)</button>
+      </div></div>`;
+    document.body.appendChild(overlay);
+    forgeOverlay = overlay;
+    $("#fp-leave", overlay).onclick = () => overlay.classList.add("hidden");
+
+    const cbtn = $("#fp-cancel", overlay);
+    let armed = 0; // two-step: a stray click must not douse an hour of work
+    cbtn.onclick = async () => {
+      if (!armed) {
+        cbtn.textContent = "CLICK AGAIN TO ABANDON";
+        armed = setTimeout(() => { armed = 0; cbtn.textContent = "ABANDON THE WORKING"; }, 4000);
+        return;
+      }
+      clearTimeout(armed);
+      cbtn.disabled = true; cbtn.textContent = "DOUSING THE FORGE...";
+      try {
+        await fetch("/api/buildtome/cancel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: jobId }) });
+      } catch { /* the poll below will report whatever state remains */ }
+      tick(); // observe the cancelled state now rather than on the next 3s beat
+    };
+
+    // Active-phase line: "Phase 3 / 9 — Sections … — 3/8 — gpt-5.4-mini @high — 12m 04s".
+    // sections (X/Y) appears only in split phase 3; runner drops its CLI prefix; the clock
+    // is time-in-phase from the server's phaseStartedAt, repainted every second below.
+    let lastSt = null;
+    const phaseLine = (st) => {
+      let s = `Phase ${st.phase} / ${st.totalPhases || 9} — ${st.phaseTitle || "…"}`;
+      if (st.sections) s += ` — ${st.sections}`;
+      if (st.runner) s += ` — ${st.runner.replace(/^(?:claude|codex|antigravity|opencode)-cli\s+/, "")}`;
+      if (st.phaseStartedAt) {
+        const sec = Math.max(0, Math.round(Date.now() / 1000 - st.phaseStartedAt));
+        s += ` — ${Math.floor(sec / 60)}m ${String(sec % 60).padStart(2, "0")}s`;
+      }
+      return s;
+    };
+    function paint(st) {
+      lastSt = st;
+      $("#fp-name", overlay).textContent = st.name || "Untitled";
+      $("#fp-phase", overlay).textContent = phaseLine(st);
+      overlay.querySelectorAll(".forge-phase").forEach((row) => {
+        const i = +row.dataset.ph;
+        row.classList.toggle("done", i < st.phase);
+        row.classList.toggle("now", i === st.phase);
+        $(".fp-mark", row).textContent = i < st.phase ? "✓" : i === st.phase ? "…" : "";
+      });
+      const log = $("#fp-log", overlay);
+      if (log.textContent !== (st.logtail || "")) {
+        log.textContent = st.logtail || "";
+        log.scrollTop = log.scrollHeight;
+      }
+    }
+
+    function finish(st) {
+      overlay.classList.remove("hidden"); // surfaces the verdict even if they had left
+      const card = $(".grade-card", overlay);
+      const close = () => { forgeOverlay = null; dropOverlay(overlay); };
+      if (st.status === "done") {
+        sfx("grade");
+        card.innerHTML = `<div class="grading-anim">
+          <div class="faint" style="font-size:11px;letter-spacing:.2em">THE BINDERY // THE WORK IS DONE</div>
+          <div style="font-family:var(--arch);font-size:22px;margin:14px 0 6px">${esc(st.name || st.tome || "")}</div>
+          <p class="dim" style="font-size:13px;margin:0 0 6px">Nine phases, written and reviewed. The tome stands bound upon the shelf.</p>
+          <div class="modal-actions" style="justify-content:center">
+            <button class="btn quiet" id="fp-later">LEAVE IT ON THE SHELF</button>
+            <button class="btn" id="fp-open">OPEN IT ON THE DESK</button>
+          </div></div>`;
+        $("#fp-open", card).onclick = () => { localStorage.setItem("activeTome", st.tome); location.reload(); };
+        $("#fp-later", card).onclick = close;
+      } else if (st.status === "cancelled") {
+        card.innerHTML = `<div class="faint" style="font-size:11px;letter-spacing:.2em">THE BINDERY // THE WORKING WAS ABANDONED</div>
+          <h2 style="margin:8px 0 6px">The forge is doused</h2>
+          <p class="dim" style="font-size:12.5px">Whatever pages were already struck remain in <span class="num">tomes/${esc(st.tome || "")}</span> and <span class="num">.tome-build/</span> — inspect or delete them at your leisure.</p>
+          <div class="modal-actions"><button class="btn quiet" id="fp-close">SO BE IT</button></div>`;
+        $("#fp-close", card).onclick = close;
+      } else { // "error", or "unknown" (the candle was relit and the record lost)
+        const lost = st.status === "unknown";
+        card.innerHTML = `<div class="faint" style="font-size:11px;letter-spacing:.2em">THE BINDERY // ${lost ? "THE RECORD IS LOST" : "THE WORKING FAILED"}</div>
+          <h2 style="margin:8px 0 6px">${lost ? "The candle was relit" : esc(st.name || "The tome") + " would not bind"}</h2>
+          ${lost ? '<p class="dim" style="font-size:12.5px">The desk was restarted and no longer holds this working’s record. If it finished, its tome waits in /tomes.</p>'
+        : `<div class="forge-log num" style="height:auto;max-height:180px">${esc(st.error || st.logtail || "no record of the failure")}</div>
+          <p class="dim" style="font-size:12.5px;margin-top:12px">Its partial pages remain in <span class="num">tomes/${esc(st.tome || "")}</span> and <span class="num">.tome-build/</span> — resume by hand with <span class="num">tools/build_tome.py --from-phase</span>, or delete them.</p>`}
+          <div class="modal-actions"><button class="btn quiet" id="fp-close">SO BE IT</button></div>`;
+        $("#fp-close", card).onclick = close;
+      }
+    }
+
+    async function tick() {
+      let st;
+      try { st = await (await fetch("/api/buildtome/status?id=" + encodeURIComponent(jobId))).json(); } catch { return; }
+      if (st.status === "running") {
+        paint(st);
+        if (st.awaitingRunner) {                          // a worker died; the harness is waiting on us
+          overlay.classList.remove("hidden");             // surface it even if they'd left the bindery
+          showRunnerDeath(overlay, jobId, st.awaitingRunner);
+        } else { const b = overlay.querySelector(".runner-death"); if (b) b.remove(); }
+        return;
+      }
+      { const b = overlay.querySelector(".runner-death"); if (b) b.remove(); }
+      clearInterval(forgePoll);
+      if (localStorage.getItem("buildJob") === jobId) localStorage.removeItem("buildJob");
+      finish(st);
+    }
+    // one interval: poll the server every 3rd beat, tick the phase clock on the others
+    let beat = 0;
+    forgePoll = setInterval(() => {
+      if (++beat % 3 === 0) tick();
+      else if (lastSt) $("#fp-phase", overlay).textContent = phaseLine(lastSt);
+    }, 1000);
+    tick();
   }
 
   // ------------------------------------------------------------ economy
@@ -345,6 +1033,7 @@
     toast(`${ico("seal")} SIGIL PRESSED // <b>${esc(name)}</b>`, "warn");
     if (window.GhostAudio && S.audio.sfx) window.GhostAudio.sfx("badge");
     save();
+    if (S.nav && S.nav.view === "home") renderHome(); // the ledger shows sigils live
   }
 
   function attemptMultiplier(a) { return ATTEMPT_MULT[Math.min(a, ATTEMPT_MULT.length - 1)]; }
@@ -461,6 +1150,7 @@
                 : `<span class="dim">The highest title. Even the candle bows a little.</span>`}
             </div>
           </div>
+          <div class="stat-row"><span>TITLES EARNED</span><b class="num">${RANKS.filter((x) => S.earned >= x[0]).length} / ${RANKS.length}</b></div>
           <div class="stat-row"><span>${coin().toUpperCase()} IN YOUR PURSE</span><b class="num">${S.credits}</b></div>
           <div class="stat-row"><span>LIFETIME EARNED</span><b class="num">${S.earned}</b></div>
           <div class="stat-row"><span>TRIALS PASSED</span><b class="num">${Object.values(S.ex).filter((e) => e.ok).length}</b></div>
@@ -470,6 +1160,7 @@
           <div class="stat-row"><span>CHAPTERS SEALED</span><b class="num">${window.SECTIONS.filter(sectionPassed).length} / ${window.SECTIONS.length}</b></div>
           <div class="stat-row"><span>HEXES BROKEN</span><b class="num">${S.stats.intrusionW || 0} / ${(S.stats.intrusionW || 0) + (S.stats.intrusionL || 0)}</b></div>
           <div class="stat-row"><span>DUELS WON</span><b class="num">${S.stats.atkW || 0} / ${(S.stats.atkW || 0) + (S.stats.atkL || 0)}</b></div>
+          <div class="stat-row"><span>REVIEWS RE-FORGED</span><b class="num">${S.stats.reviews || 0}</b></div>
           ${EARNED_THEME ? `<div class="stat-row"><span>${esc(EARNED_THEME.name)} PROGRESS</span><b class="num">${S.themes[EARNED_THEME.id] ? "WON" : atkQualifying() + " / " + BLACKICE_N}</b></div>` : ""}
           ${nextSec ? `
           <div class="continue-strip">
@@ -510,6 +1201,7 @@
 
     v.innerHTML = `
       <div class="crumb"><button data-nav="home">LEDGER</button> / ${esc(sec.codename)}</div>
+      ${reviewBanner()}
       <div class="sec-head">
         <div class="sec-codename">${esc(sec.codename)}</div>
         <h1>${esc(sec.title)}</h1>
@@ -546,6 +1238,7 @@
       </div>`;
     v.querySelectorAll("[data-lesson]").forEach((b) => (b.onclick = () => go("lesson", sid, b.dataset.lesson)));
     $("[data-nav=home]", v).onclick = () => go("home");
+    wireReview(v);
     const fsBtn = $("#btn-fs", v);
     if (fsBtn && fsOpen) fsBtn.onclick = () => go("freestyle", sid);
   }
@@ -674,6 +1367,7 @@
           body: JSON.stringify({
             question: q,
             model: S.ai.oracle,
+            kind: S.ai.oracleKind || "ollama",
             language: langName(),
             context: detail + (selection ? `\n\nTHE STUDENT HIGHLIGHTED THIS TEXT (their question likely refers to it):\n${selection.slice(0, 2000)}` : ""),
           }),
@@ -706,6 +1400,161 @@
     modal(`<h2>THE ORACLE'S NOTES</h2>
       <div style="max-height:60vh;overflow-y:auto">${rows || '<p class="dim">The pages are blank. Consult the Oracle and its answers will be copied down here.</p>'}</div>`,
       [["SET THE NOTES DOWN", "quiet"]]);
+  }
+
+  // ------------------------------------------------------------ the Binder
+  // ask a headless AI agent (server-side CLI) to make a small change to this
+  // course — guided by course-configuration-guide.md; validated after.
+  // The [PROVIDER][MODEL][EFFORT] cascade is the bindery's, fed by /api/models.
+  let binderPoll = null;   // one watcher at a time, even across bench visits
+  function showBinder() {
+    modal(`<h2>THE BINDER</h2>
+      <p class="dim">Name one small flaw in this tome — a typo, a wrong color, a price, a missing line —
+      and the Binder's spirit will re-ink the page. It edits the course itself, so be specific.</p>
+      <textarea id="binder-q" rows="3" style="width:100%" placeholder="e.g. the s02-l03 hint has a typo · make the signature theme's accent more copper · rename the SLAG SHIELD to CINDER WARD"></textarea>
+      <div class="forge-field" style="margin-top:10px"><label>THE BINDER'S HAND</label>
+        <div class="forge-ai-row">
+          <select id="bd-prov" class="cfg-select" style="flex:0 0 auto;width:172px"><option value="">PICK A MODEL</option></select>
+          <select id="bd-model" class="cfg-select" style="flex:1 1 auto;min-width:0" disabled><option value="">—</option></select>
+          <select id="bd-eff" class="cfg-select" style="flex:0 0 auto;width:104px" disabled><option value="">—</option></select>
+        </div></div>
+      <div id="binder-a" class="hidden" style="margin-top:12px;padding:12px;border:1px solid var(--line-hi);border-left:2px solid var(--ac-dim);border-radius:3px;font-size:12.5px;white-space:pre-wrap;max-height:45vh;overflow-y:auto"></div>`,
+      [["LEAVE THE BENCH", "quiet"]]);
+    const root = $("#modal-root");
+    $(".modal", root).classList.add("wide");   // room for the validator's report and the button row
+    const k = { prov: $("#bd-prov", root), model: $("#bd-model", root), eff: $("#bd-eff", root) };
+    let BINDERY = [];
+    const fillEffort = () => {   // effort follows the selected MODEL (row is [id,label,tag,efforts])
+      const p = BINDERY.find((x) => x.id === k.prov.value);
+      const m = p && (p.models || []).find((mm) => mm[0] === k.model.value);
+      const levels = (m && m[3]) || [];
+      k.eff.innerHTML = levels.length
+        ? `<option value="">DEFAULT</option>` + levels.map((l) => `<option value="${esc(l)}">${esc(l.toUpperCase())}</option>`).join("")
+        : `<option value="">—</option>`;
+      k.eff.disabled = !levels.length;
+    };
+    const fillModels = () => {
+      const p = BINDERY.find((x) => x.id === k.prov.value);
+      const models = (p && p.models) || [];
+      k.model.innerHTML = models.length
+        ? models.map(([v, l, tag]) => `<option value="${esc(v)}"${tag ? ` data-suffix="— ${esc(tag)}"` : ""}>${esc(l)}</option>`).join("")
+        : `<option value="">${p ? "(no models found)" : "—"}</option>`;
+      k.model.disabled = !models.length;
+      fillEffort();
+    };
+    const BD_SAVE = "binderRunner";
+    let restoring = false;
+    const persist = () => {
+      if (restoring) return;
+      try { localStorage.setItem(BD_SAVE, JSON.stringify({ prov: k.prov.value, model: k.model.value, eff: k.eff.value })); } catch (e) { /* private mode */ }
+    };
+    k.prov.addEventListener("change", fillModels);
+    k.model.addEventListener("change", fillEffort);
+    [k.prov, k.model, k.eff].forEach((s) => { enhanceSelect(s); s.addEventListener("change", persist); });
+    fetch("/api/models").then((r) => r.json()).then((d) => {
+      BINDERY = (d.bindery || []).filter((p) => p.installed !== false);
+      k.prov.insertAdjacentHTML("beforeend", BINDERY.map((p) => `<option value="${esc(p.id)}">${esc(p.label)}</option>`).join(""));
+      const has = (sel, v) => [...sel.options].some((o) => o.value === v);
+      let s = {}; try { s = JSON.parse(localStorage.getItem(BD_SAVE) || "{}"); } catch (e) { /* ignore */ }
+      restoring = true;
+      if (s.prov && has(k.prov, s.prov)) {
+        k.prov.value = s.prov; k.prov.dispatchEvent(new Event("change"));
+        if (s.model && has(k.model, s.model)) { k.model.value = s.model; k.model.dispatchEvent(new Event("change")); }
+        if (s.eff && has(k.eff, s.eff)) { k.eff.value = s.eff; k.eff.dispatchEvent(new Event("change")); }
+      }
+      restoring = false;
+    }).catch(() => { toast("Could not reach the model list — is the server up?", "bad"); });
+    const actions = $("#modal-root .modal-actions");
+    const out = $("#binder-a", root);
+    const sendBtn = document.createElement("button");
+    sendBtn.className = "btn"; sendBtn.textContent = "SEND TO THE BINDER";
+    const idle = () => {
+      sendBtn.disabled = false; sendBtn.textContent = "SEND TO THE BINDER";
+      $("#binder-q").disabled = false;
+      actions.querySelectorAll(".binder-cancel").forEach((b) => b.remove());
+    };
+    // watch one server-side job. The job outlives this dialog — leaving the bench
+    // never stops the Binder; reopening reattaches via /api/amend/current.
+    const watch = (jobId) => {
+      sendBtn.disabled = true; sendBtn.textContent = "THE BINDER WORKS...";
+      $("#binder-q").disabled = true;
+      out.classList.remove("hidden");
+      actions.querySelectorAll(".binder-extra, .binder-cancel").forEach((b) => b.remove());
+      const cx = document.createElement("button");
+      cx.className = "btn quiet binder-cancel"; cx.textContent = "STAY THE QUILL";
+      cx.title = "Cancel this amendment";
+      cx.onclick = async () => {
+        cx.disabled = true;
+        out.textContent = "snuffing the quill...";
+        try {
+          const r = await (await fetch("/api/amend/cancel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: jobId }) })).json();
+          if (!r.ok) throw new Error(r.error || "the server would not stay the quill");
+        } catch (e) {
+          toast("Could not cancel: " + esc(String(e.message || e)) + " — if the server predates this button, restart it.", "bad");
+          out.textContent = "the binder works on...";
+          cx.disabled = false;
+        }
+      };
+      actions.prepend(cx);
+      clearInterval(binderPoll);
+      binderPoll = setInterval(async () => {
+        let st;
+        try { st = await (await fetch("/api/amend/status?id=" + encodeURIComponent(jobId))).json(); } catch { return; }
+        if (st.status === "running") return;
+        clearInterval(binderPoll);
+        idle();
+        if (st.status === "done") {
+          out.textContent = (st.summary || "(the binder said nothing)")
+            + (st.validatorOk === false ? "\n\n⚠ THE CANDLE FINDS FLAWS:\n" + (st.validator || "") : "");
+          const rb = document.createElement("button");
+          rb.className = "btn binder-extra"; rb.textContent = "RE-OPEN THE TOME";
+          rb.onclick = () => location.reload();
+          actions.prepend(rb);
+          if (st.validatorOk === false && st.validator) {
+            const fx = document.createElement("button");
+            fx.className = "btn binder-extra"; fx.textContent = "MEND THE FLAWS";
+            fx.onclick = () => {
+              $("#binder-q").value = "Fix every ERROR and WARN the validator reports below. Address each one; do not skip any.\n\n" + st.validator;
+              sendBtn.onclick();
+            };
+            actions.prepend(fx);
+          }
+        } else if (st.status === "cancelled") {
+          out.textContent = "THE QUILL IS STAYED — the amendment was cancelled. A half-inked edit may remain; ask the Binder again if the page looks wrong.";
+        } else {
+          out.textContent = "THE QUILL SNAPPED — " + (st.error || "unknown error");
+        }
+      }, 2500);
+    };
+    sendBtn.onclick = async () => {
+      const q = $("#binder-q").value.trim();
+      if (!q) return;
+      const p = BINDERY.find((x) => x.id === k.prov.value);
+      if (!p || !k.model.value) { toast("Pick the Binder's <b>model</b> first.", "warn"); return; }
+      out.classList.remove("hidden");
+      out.textContent = "the quill is dipped...";
+      try {
+        const r = await (await fetch("/api/amend", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ request: q, kind: p.kind, model: k.model.value, effort: k.eff.value || undefined }),
+        })).json();
+        if (!r.ok) throw new Error(r.error || "the binder did not answer");
+        if (r.existing) out.textContent = "the Binder is already at work on this tome — watching that job...";
+        watch(r.jobId);
+      } catch (err) {
+        out.textContent = "server error: " + err;
+      }
+    };
+    actions.prepend(sendBtn);
+    // a job begun on an earlier visit is still inking — reattach to it
+    fetch("/api/amend/current").then((r) => r.json()).then((d) => {
+      if (!d.jobId) return;
+      const q = $("#binder-q");
+      if (q && !q.value) q.value = d.request || "";
+      out.textContent = "the Binder is already at work on this tome — watching that job...";
+      watch(d.jobId);
+    }).catch(() => { /* no reattach; the bench still works */ });
+    setTimeout(() => { const f = $("#binder-q"); if (f) f.focus(); }, 50);
   }
 
   // ------------------------------------------------------------ code book
@@ -812,7 +1661,73 @@
 
   const EX_LABEL = { mc: "CHOOSE WISELY", fill: "COMPLETE THE RUNE", text: "SPEAK THE WORD", type: "COPYING DRILL", write: "INSCRIPTION" };
 
-  function exerciseEl(e, idx, redo) {
+  // ------------------------------------------------------------ SPACED REVIEW
+  // Retrieval practice of already-solved recall items, resurfaced on a Leitner
+  // schedule keyed to lessons completed (a self-paced course's natural clock, not
+  // the wall). type/write are no-decay skill drills already, so review covers only
+  // mc/fill/text. A hit pushes the item further out; a miss brings it right back.
+  const REVIEWABLE = new Set(["mc", "fill", "text"]);
+  const REVIEW_STEPS = [1, 2, 4, 8, 16]; // Leitner intervals, in lessons-completed units
+  const lessonsCompleted = () => window.SECTIONS.reduce((n, s) => n + s.lessons.filter(lessonDone).length, 0);
+  function scheduleReview(st, ok) {
+    st.box = ok ? Math.min((st.box || 1) + 1, REVIEW_STEPS.length) : 1;
+    st.due = lessonsCompleted() + REVIEW_STEPS[st.box - 1];
+  }
+  function reviewDue() {
+    const clock = lessonsCompleted(), out = [];
+    for (const sec of window.SECTIONS)
+      for (const l of sec.lessons)
+        for (const e of (l.exercises || [])) {
+          if (!REVIEWABLE.has(e.type)) continue;
+          const st = S.ex[e.id];
+          if (st && st.ok && st.due != null && st.due <= clock) out.push({ e, st });
+        }
+    return out.sort((a, b) => a.st.due - b.st.due);
+  }
+  // a banner shown wherever review is due; caller wires #btn-review to startReview
+  function reviewBanner() {
+    const n = reviewDue().length;
+    if (!n) return "";
+    return `<div id="review-cta" style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin:0 0 18px;padding:13px 16px;border:1px solid var(--line-hi);border-radius:var(--rad);background:var(--ac-bg)">
+      <div><b>${ico("bell")} SPACED REVIEW</b> <span class="dim" style="font-size:12.5px">${n} concept${n > 1 ? "s you have" : " you have"} learned ${n > 1 ? "are" : "is"} due to be re-forged — quick recall keeps them from fading.</span></div>
+      <button class="btn" id="btn-review">${ico("scroll")} BEGIN REVIEW (${n})</button></div>`;
+  }
+  function wireReview(v) { const b = $("#btn-review", v); if (b) b.onclick = startReview; }
+
+  function startReview() {
+    const due = reviewDue().slice(0, 8); // a short round; the rest surface next time
+    if (!due.length) { toast("Nothing is due for review — your seals hold.", "ok"); return; }
+    const graded = new Set(); // grade each item once per round, on its first outcome
+    const overlay = document.createElement("div");
+    overlay.className = "grade-overlay review-overlay";
+    overlay.innerHTML = `<div class="grade-card" style="max-width:780px;width:min(780px,94vw);max-height:88vh;display:flex;flex-direction:column">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+        <div>
+          <div class="faint" style="font-size:11px;letter-spacing:.2em">✦ SPACED REVIEW // RE-FORGE WHAT YOU HAVE LEARNED</div>
+          <h2 style="margin:6px 0 0">THE MASTER CALLS BACK OLD LESSONS</h2>
+          <div class="dim" style="font-size:12.5px;margin-top:4px">Answer from memory. No coin, no penalty — recall is its own rent. <span id="rv-count" class="num"></span></div>
+        </div>
+        <button class="btn quiet" id="rv-close">CLOSE</button>
+      </div>
+      <div class="review-scroll" style="overflow:auto;margin-top:14px;flex:1;display:flex;flex-direction:column;gap:14px"></div>`;
+    const scroll = $(".review-scroll", overlay);
+    const updateCount = () => { const c = $("#rv-count", overlay); if (c) c.textContent = `${graded.size}/${due.length} re-forged`; };
+    due.forEach(({ e, st }, i) => {
+      scroll.appendChild(exerciseEl(e, i, true, (ok) => {
+        if (graded.has(e.id)) return;
+        graded.add(e.id);
+        scheduleReview(st, ok);
+        S.stats.reviews = (S.stats.reviews || 0) + 1;
+        save(); updateCount();
+        if (graded.size >= due.length) toast("Review complete — the old seals are re-forged.", "ok");
+      }));
+    });
+    updateCount();
+    document.body.appendChild(overlay);
+    $("#rv-close", overlay).onclick = () => overlay.remove();
+  }
+
+  function exerciseEl(e, idx, redo, onReview) {
     const st = S.ex[e.id] || (S.ex[e.id] = { a: 0, ok: false, pts: 0, hint: false, reps: 0 });
     if (st.reps === undefined) st.reps = 0;
     redo = !!redo && st.ok; // recast-for-sport: a passed trial made interactive again — transient, touches no state
@@ -835,6 +1750,7 @@
         <div class="ex-input"></div>
       </div>
       <div class="ex-hint hidden"></div>
+      <div class="ex-why hidden"></div>
       <div class="ex-foot">
         <span class="ex-verdict"></span>
         <span style="display:flex;gap:8px">
@@ -910,7 +1826,8 @@
       if (redo) { // for sport: the seal already stands — full flourish, no coin, no stats, no save
         castFeedback(true);
         verdict.className = "ex-verdict ok";
-        verdict.textContent = "THE SEAL HOLDS — A CLEAN RECAST";
+        verdict.textContent = onReview ? "RECALLED CLEAN — the seal is re-forged" : "THE SEAL HOLDS — A CLEAN RECAST";
+        if (onReview) onReview(true);
         return;
       }
       const bonus = noDecay ? 0 : comboBonus();
@@ -919,6 +1836,7 @@
       const pts = Math.round(e.points * liveMult * (1 + bonus) * (S.inv.x2 > 0 ? 2 : 1));
       if (S.inv.x2 > 0) S.inv.x2--;
       st.ok = true; st.pts = pts; S.stats.correct++;
+      if (REVIEWABLE.has(e.type)) scheduleReview(st, true); // enroll this recall item in spaced review
       if (!noDecay) {
         S.stats.streak++;
         S.stats.bestStreak = Math.max(S.stats.bestStreak || 0, S.stats.streak);
@@ -934,7 +1852,9 @@
       if (redo) { // for sport: no penalty, no stats — the original seal is untouched
         castFeedback(false);
         verdict.className = "ex-verdict no";
-        verdict.textContent = msg || "NOT QUITE — BUT YOUR SEAL ALREADY STANDS; RECAST AT LEISURE";
+        verdict.textContent = msg || (onReview ? "FADED — study it once more; it will come back around" : "NOT QUITE — BUT YOUR SEAL ALREADY STANDS; RECAST AT LEISURE");
+        if (e.whyWrong) { const w = $(".ex-why", wrap); if (w) { w.classList.remove("hidden"); w.textContent = "WHY IT FAILED :: " + e.whyWrong; } }
+        if (onReview) onReview(false);
         return;
       }
       S.stats.wrong++;
@@ -953,6 +1873,11 @@
         verdict.className = "ex-verdict no";
         verdict.textContent = `THE SPELL FIZZLES — now worth ${Math.round(e.points * attemptMultiplier(st.a))}${gp()}`;
         $(".ex-pts", wrap).textContent = `WORTH ${Math.round(e.points * attemptMultiplier(st.a))}${gp()} (diminished)`;
+      }
+      // elaborated feedback: turn the mistake into a micro-lesson (author-supplied)
+      if (e.whyWrong) {
+        const w = $(".ex-why", wrap);
+        if (w) { w.classList.remove("hidden"); w.textContent = "WHY IT FAILED :: " + e.whyWrong; }
       }
       save();
     }
@@ -1095,6 +2020,7 @@
 
     v.innerHTML = `
       <div id="fs-wrap">
+        ${reviewBanner()}
         <div class="fs-top">
           <div>
             <span class="crumb" style="margin:0"><button data-nav="sec">${esc(sec.codename)}</button> / THE GREAT WORKING</span>
@@ -1103,9 +2029,9 @@
           <div class="fs-actions">
             ${best ? `<span class="tag ac num">BEST: ${esc(best.grade)} ${best.total}/100</span>` : ""}
             ${externalMode()
-              ? `<button class="btn quiet" id="b-openext" title="Open ${esc(externalDir())} in your file explorer">${ico("file")} OPEN IN FILE EXPLORER</button>` + (externalByAuthor()
-                  ? `<span class="tag" title="${esc(externalDir())}">YOUR OWN PROJECT</span>`
-                  : `<button class="btn quiet" id="b-extern" title="${esc(externalDir())}">${ico("quill")} EDITOR PATH</button>`)
+              ? (externalDir()
+                  ? `<button class="btn quiet" id="b-openext" title="Open ${esc(externalDir())} in your file explorer">${ico("file")} OPEN IN FILE EXPLORER</button><button class="btn quiet" id="b-extern" title="${esc(externalDir())}">${ico("quill")} EDITOR PATH</button>`
+                  : `<button class="btn" id="b-extern">${ico("file")} CHOOSE PROJECT FOLDER</button>`)
               : `<button class="btn quiet" id="b-extern">${ico("file")} USE MY OWN EDITOR</button>`}
             ${!externalMode() && (J().runtime && J().runtime.packages) !== false ? `<button class="btn quiet" id="b-pkg">${ico("pkg")} REAGENTS</button>` : ""}
             ${!externalMode() ? `<button class="btn quiet" id="b-save">${ico("quill")} BLOT THE PAGE</button>` : ""}
@@ -1118,19 +2044,28 @@
             ${externalMode() ? `
             <div id="ext-panel">
               <div class="ext-head">${ico("file")} YOU'RE EDITING IN YOUR OWN EDITOR</div>
-              <div class="ext-grid${externalByAuthor() ? " solo" : ""}">
+              <div class="ext-grid${externalByAuthor() || !externalDir() ? " solo" : ""}">
                 <div class="ext-main">
+                  ${externalDir() ? `
                   <p>Open and build this project in your own IDE (IntelliJ, VS Code, and so on):</p>
                   <div class="ext-dir"><code>${esc(externalDir())}</code></div>
                   <p><b>CAST THE SPELL</b> runs that folder via <code>${esc(runLabel())}</code>, and <b>PRESENT TO ${esc(persona())}</b> sends the whole folder for judgement. Both read your folder directly — the workbench never edits or resets it. Save in your own editor before you cast or present.</p>
-                  ${externalByAuthor()
-                    ? `<p class="dim">This course is built around your own project, so it has no built-in editor — follow the tome's setup lessons to prepare the folder.</p>`
-                    : `<div class="ext-buttons">
-                        <button class="btn quiet" id="b-seed">${ico("file")} PLACE STARTER FILES</button>
-                        <button class="btn quiet" id="b-builtin">${ico("quill")} SWITCH BACK TO THE BUILT-IN EDITOR</button>
-                      </div>`}
+                  <div class="ext-buttons">
+                    ${externalByAuthor() ? "" : `<button class="btn quiet" id="b-seed">${ico("file")} PLACE STARTER FILES</button>`}
+                    <button class="btn quiet" id="b-extern2">${ico("quill")} CHANGE FOLDER</button>
+                    ${externalByAuthor() ? "" : `<button class="btn quiet" id="b-builtin">${ico("quill")} SWITCH BACK TO THE BUILT-IN EDITOR</button>`}
+                  </div>`
+                  : `
+                  <p>${externalByAuthor()
+                      ? "This course is built in your own project — there is no built-in editor. Follow the setup lessons to create the project folder, then point the workbench at it:"
+                      : "Point the workbench at a folder you build in with your own IDE (IntelliJ, VS Code, a real project):"}</p>
+                  <div class="ext-buttons">
+                    <button class="btn" id="b-choose">${ico("file")} CHOOSE PROJECT FOLDER</button>
+                    ${externalByAuthor() ? "" : `<button class="btn quiet" id="b-builtin">${ico("quill")} USE THE BUILT-IN EDITOR INSTEAD</button>`}
+                  </div>
+                  <p class="dim">An absolute path to a folder that already exists. The engine only reads it — it never edits, scaffolds, or resets your project.</p>`}
                 </div>
-                ${externalByAuthor() ? "" : `
+                ${externalByAuthor() || !externalDir() ? "" : `
                 <div class="ext-files">
                   <h4>THIS PROJECT NEEDS</h4>
                   <ul class="sf-grid">
@@ -1174,6 +2109,7 @@
       </div>`;
 
     $("[data-nav=sec]", v).onclick = () => go("section", sid);
+    wireReview(v);
 
     // xray
     const bx = $("#b-xray", v);
@@ -1190,10 +2126,15 @@
       if (ed) { ed.dispose(); ed = null; }
       for (const m of Object.values(models)) m.dispose();
       models = {}; activeFile = null;
-      $("#b-run", v).onclick = runProject;
-      $("#b-submit", v).onclick = submitForGrading;
+      // a required-external course starts with no folder chosen — CAST/PRESENT
+      // must send the student to pick one, never run against the scaffolded dir.
+      const needFolder = () => { if (externalDir()) return false; toast("Choose your project folder first.", "warn"); externalEditorModal(sid); return true; };
+      $("#b-run", v).onclick = () => { if (!needFolder()) runProject(); };
+      $("#b-submit", v).onclick = () => { if (!needFolder()) submitForGrading(); };
       $("#b-clear", v).onclick = () => { $("#term-out").textContent = ""; };
       const be = $("#b-extern", v); if (be) be.onclick = () => externalEditorModal(sid);
+      const be2 = $("#b-extern2", v); if (be2) be2.onclick = () => externalEditorModal(sid);
+      const bc = $("#b-choose", v); if (bc) bc.onclick = () => externalEditorModal(sid);
       const bo = $("#b-openext", v); if (bo) bo.onclick = () => openExternalFolder(externalDir());
       const bs = $("#b-seed", v); if (bs) bs.onclick = () => seedWorkspace(externalDir(), "");
       const bb = $("#b-builtin", v); if (bb) bb.onclick = () => {
@@ -1981,7 +2922,7 @@
           const invCount = item.kind === "consumable" ? (S.inv[item.id] || 0) : 0;
           const active = item.kind === "theme" && S.theme === item.theme;
           return `<div class="shop-item" style="--i:${i}">
-            ${ico(item.ico, "s-ico")}
+            ${ico(item.kind === "theme" ? "ink" : item.ico, "s-ico")}
             <span class="s-name">${item.name}</span>
             ${item.kind === "theme"
               ? (owned
@@ -1993,7 +2934,7 @@
           </div>`;
         }).join("")}
         ${EARNED_THEME ? `<div class="shop-item" style="--i:${SHOP.length};${S.themes[EARNED_THEME.id] ? "" : "opacity:.55"}">
-          ${ico(S.themes[EARNED_THEME.id] ? "swatch" : "lock", "s-ico")}
+          ${ico(S.themes[EARNED_THEME.id] ? "ink" : "lock", "s-ico")}
           <span class="s-name">${esc(EARNED_THEME.name)}</span>
           ${S.themes[EARNED_THEME.id]
             ? `<button class="btn ${S.theme === EARNED_THEME.id ? "quiet" : "ghost"}" data-equip="${esc(EARNED_THEME.id)}" ${S.theme === EARNED_THEME.id ? "disabled" : ""}>${S.theme === EARNED_THEME.id ? "IN USE" : "USE THIS INK"}</button>`
@@ -2019,6 +2960,7 @@
       S.theme = b.dataset.equip;
       document.body.dataset.theme = S.theme;
       window.GhostEditor.setTheme(S.theme);
+      refreshCoins();
       save(); renderShop();
     }));
   }
@@ -2052,7 +2994,9 @@
         const px = document.createElement("div");
         px.className = "pop-particle";
         const sz = 2 + Math.round(Math.random() * 2);
-        px.style.cssText = `left:${r.left + Math.random() * r.width}px;top:${r.top + Math.random() * r.height}px;width:${sz}px;height:${sz}px;background:${cols[k % cols.length]}`;
+        // opacity:0 until its animation begins — rows dissolve bottom-up, and a top-row
+        // particle otherwise sits visible-but-frozen through its whole stagger delay
+        px.style.cssText = `left:${r.left + Math.random() * r.width}px;top:${r.top + Math.random() * r.height}px;width:${sz}px;height:${sz}px;background:${cols[k % cols.length]};opacity:0`;
         document.body.appendChild(px);
         const dx = (Math.random() - 0.25) * 44; // biased right — the wipe travels left→right
         const dy = (Math.random() - 0.65) * 38; // biased up
@@ -2414,6 +3358,7 @@
       const o = sel.options[sel.selectedIndex];
       btn.textContent = o ? o.text : "";
       if (o && o.dataset.suffix) btn.append(Object.assign(document.createElement("i"), { className: "dim", textContent: o.dataset.suffix }));
+      btn.disabled = sel.disabled; // the observer repaints when sel.disabled toggles
     };
     paint();
     sel.addEventListener("change", paint);
@@ -2581,7 +3526,7 @@
         <span class="dim" style="font-size:12px;width:130px">PROVIDER</span>
         <select id="as-gkind" class="cfg-select" style="flex:1">
           <option value="claude-cli">CLAUDE CLI — your subscription login, no key</option>
-          <option value="gemini-cli">GEMINI CLI — your Google login, no key</option>
+          <option value="antigravity-cli">ANTIGRAVITY CLI — your Google login, no key</option>
           <option value="codex-cli">CODEX CLI — your ChatGPT login, no key</option>
           <option value="anthropic">ANTHROPIC API — needs API key</option>
           <option value="openai">OPENAI API — needs API key</option>
@@ -2606,7 +3551,7 @@
         <input type="text" id="as-gcmd" class="cfg-select" style="flex:1" placeholder="e.g. codex exec -" spellcheck="false">
       </div>
       <div class="dim" style="font-size:11px;margin-top:6px" id="as-gcmd-help">Any AI CLI that reads a prompt on stdin and prints the answer. The judgement prompt is piped to its stdin; the JSON verdict is read from stdout. Example: <code>codex exec -</code> or <code>ollama run llama3.1</code>.</div>
-      <div class="faint" style="font-size:11px;letter-spacing:.14em;margin-top:16px">SPIRITS DWELLING IN THIS MACHINE (OLLAMA)</div>
+      <div class="faint" style="font-size:11px;letter-spacing:.14em;margin-top:16px">SPIRITS IN YOUR SERVICE (ORACLE &amp; STAND-IN)</div>
       <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
         <span class="dim" style="font-size:12px;width:130px">THE ORACLE</span>
         <select id="as-oracle" class="cfg-select" style="flex:1"></select>
@@ -2623,6 +3568,7 @@
       S.theme = themeSel.value;
       document.body.dataset.theme = S.theme;
       window.GhostEditor.setTheme(S.theme);
+      refreshCoins();
       save();
     };
     const previewKeys = () => ["v", "e", "r", " ", "Enter"].forEach((key, i) => setTimeout(() => GhostAudio.keyclick(key), i * 90));
@@ -2666,17 +3612,13 @@
       save();
     };
     // main grader: provider select + model combo / key / custom command
-    const GRADER_DEFAULTS = { "claude-cli": "claude-opus-4-8", "gemini-cli": "gemini-2.5-pro", "codex-cli": "", anthropic: "claude-opus-4-8", openai: "gpt-5.1", ollama: S.ai.grader, other: "" };
-    // curated current models per provider; "Custom…" always lets you type any id, so a
-    // model newer than this list is one keystroke away. ollama's list comes in live below.
-    const MODELS_BY_KIND = {
-      "claude-cli": ["claude-opus-4-8", "claude-opus-4-7", "claude-sonnet-5", "claude-haiku-4-5", "claude-fable-5"],
-      "anthropic":  ["claude-opus-4-8", "claude-opus-4-7", "claude-sonnet-5", "claude-haiku-4-5", "claude-fable-5"],
-      "gemini-cli": ["gemini-2.5-pro", "gemini-2.5-flash"],
-      "codex-cli":  ["gpt-5.5", "gpt-5.1-codex", "gpt-5.1", "o3"],
-      "openai":     ["gpt-5.1", "gpt-5", "gpt-4.1", "o3"],
-    };
+    const GRADER_DEFAULTS = { "claude-cli": "claude-opus-4-8", "antigravity-cli": "Gemini 3.1 Pro (High)", "codex-cli": "", anthropic: "claude-opus-4-8", openai: "gpt-5.1", ollama: S.ai.grader, other: "" };
+    // per-provider model lists come from /api/models — ollama and agy enumerated live,
+    // claude/codex from the server's curated lists (those CLIs can't enumerate).
+    // "Custom…" always lets you type any id, so a newer model is one keystroke away.
     const CUSTOM = "__custom__";
+    const TOME_AI = (window.TOME && window.TOME.defaults && window.TOME.defaults.ai) || {};
+    let PROVIDERS = {};
     let ollamaModels = [];
     const gkind = $("#as-gkind", root), gmodelSel = $("#as-gmodel", root), gkey = $("#as-gkey", root);
     const gmodelRow = $("#as-gmodel-row", root), gkeyRow = $("#as-gkey-row", root);
@@ -2689,10 +3631,12 @@
       const kind = S.ai.graderKind, saved = S.ai.graderModel || "";
       const opts = [];
       if (kind === "codex-cli") opts.push(["", "(default — your codex config)"]);
-      for (const m of (kind === "ollama" ? ollamaModels : MODELS_BY_KIND[kind] || [])) opts.push([m, m]);
+      for (const m of (kind === "ollama" ? ollamaModels : PROVIDERS[kind] || [])) opts.push([m, m]);
       const known = opts.some(([v]) => v === saved);
       opts.push([CUSTOM, "Custom…"]);
-      gmodelSel.innerHTML = opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("");
+      const defModel = kind === (TOME_AI.graderKind || "claude-cli") ? TOME_AI.graderModel : null;
+      gmodelSel.innerHTML = opts.map(([v, l]) =>
+        `<option value="${esc(v)}"${v && v === defModel ? ' data-suffix="— tome default"' : ""}>${esc(l)}</option>`).join("");
       gmodelSel.value = known ? saved : CUSTOM;
       const isCustom = gmodelSel.value === CUSTOM;
       gcustomRow.style.display = isCustom ? "flex" : "none";
@@ -2725,26 +3669,59 @@
     gkey.onchange = () => { S.ai.keys[S.ai.graderKind] = gkey.value.trim(); save(); };
     gcmd.onchange = () => { S.ai.graderCommand = gcmd.value.trim(); save(); };
     paintGrader();
+    // The census-fed pickers (MODEL / ORACLE / STAND-IN) gray out and say Loading…
+    // until /api/models answers — no snapping into shape mid-look.
+    const censusSels = [gmodelSel, $("#as-oracle", root), $("#as-grader", root)];
+    const setCensusLoading = (on, msg) => {
+      for (const s of censusSels) {
+        if (on) { s.innerHTML = `<option value="">${esc(msg || "Loading…")}</option>`; }
+        s.disabled = !!on;
+      }
+    };
+    setCensusLoading(true);
     root.querySelectorAll("select.cfg-select").forEach(enhanceSelect);
 
-    // AI model pickers, filled from whatever Ollama has installed
+    // AI model pickers, filled from the server's model census: ollama and agy live,
+    // claude/codex curated server-side. The ORACLE may dwell in any installed login
+    // CLI or a local ollama spirit; the STAND-IN JUDGE stays local by design — it is
+    // the fallback for when the tower is dark.
     fetch("/api/models").then((r) => r.json()).then((d) => {
       const list = d.models || [];
+      const inst = d.installed || {};
+      PROVIDERS = d.providers || {};
       ollamaModels = list.map((m) => m.name);
-      if (S.ai.graderKind === "ollama") fillModelOptions();  // main grader on ollama gets the live list
-      for (const [id, key] of [["#as-oracle", "oracle"], ["#as-grader", "grader"]]) {
-        const sel = $(id, root);
-        if (!sel) return;
-        const names = list.map((m) => m.name);
-        if (!names.includes(S.ai[key])) names.unshift(S.ai[key]); // keep saved value even if uninstalled
-        sel.innerHTML = names.map((n) => {
-          const m = list.find((x) => x.name === n);
-          return `<option value="${esc(n)}"${n === S.ai[key] ? " selected" : ""}>${esc(n)}${m ? ` — ${m.gb} GB` : " (not installed)"}</option>`;
-        }).join("");
-        sel.onchange = () => { S.ai[key] = sel.value; save(); };
+      setCensusLoading(false);   // the fills below replace the Loading… placeholders
+      if (S.ai.graderKind !== "other") fillModelOptions();  // repaint with the live census
+      // THE ORACLE — option values encode "kind:model" (kind ids never contain ':')
+      const CLI_TAGS = { "claude-cli": "claude cli", "antigravity-cli": "antigravity cli", "codex-cli": "codex cli" };
+      const osel = $("#as-oracle", root);
+      const cur = `${S.ai.oracleKind || "ollama"}:${S.ai.oracle}`;
+      const defO = `${TOME_AI.oracleKind || "ollama"}:${TOME_AI.oracle || ""}`;
+      const oopts = list.map((m) => [`ollama:${m.name}`, m.name, `${m.gb} GB`]);
+      for (const [kind, tag] of Object.entries(CLI_TAGS)) {
+        if (!inst[kind]) continue; // an absent CLI cannot answer — don't offer its spirits
+        for (const m of PROVIDERS[kind] || []) oopts.push([`${kind}:${m}`, m, tag]);
       }
+      if (!oopts.some(([v]) => v === cur)) oopts.unshift([cur, S.ai.oracle, "(not installed)"]);
+      osel.innerHTML = oopts.map(([v, l, tag]) =>
+        `<option value="${esc(v)}" data-suffix="${esc(`— ${tag}${v === defO ? " · tome default" : ""}`)}"${v === cur ? " selected" : ""}>${esc(l)}</option>`).join("");
+      osel.onchange = () => {
+        const v = osel.value, i = v.indexOf(":");
+        S.ai.oracleKind = v.slice(0, i);
+        S.ai.oracle = v.slice(i + 1);
+        save();
+      };
+      // THE STAND-IN JUDGE — local ollama models only
+      const gsel = $("#as-grader", root);
+      const names = list.map((m) => m.name);
+      if (!names.includes(S.ai.grader)) names.unshift(S.ai.grader); // keep saved value even if uninstalled
+      gsel.innerHTML = names.map((n) => {
+        const m = list.find((x) => x.name === n);
+        return `<option value="${esc(n)}"${n === S.ai.grader ? " selected" : ""}>${esc(n)}${m ? ` — ${m.gb} GB` : " (not installed)"}</option>`;
+      }).join("");
+      gsel.onchange = () => { S.ai.grader = gsel.value; save(); };
       if (!d.ok) toast("Could not reach Ollama for the model list.", "warn");
-    }).catch(() => {});
+    }).catch(() => setCensusLoading(true, "model list unreachable"));
   }
 
   // ------------------------------------------------------------ boot
@@ -2780,6 +3757,7 @@
     applyTomeConfig();
     await loadState();
     document.body.dataset.theme = S.theme || (window.TOME.defaults && window.TOME.defaults.theme) || "vellum";
+    refreshCoins();   // the HUD purse is inked in index.html; re-ink it for the active palette
     window.GhostEditor.boot(() => {
       const out = {};
       for (const [p2, m] of Object.entries(models)) out[p2] = m.getValue();
@@ -2792,6 +3770,7 @@
     bAsk.onpointerdown = () => { askSel = grabSelection(); };
     bAsk.onclick = () => { const c = oracleContext(); askOracle(c.label, c.detail, askSel); };
     $("#obj-notes").onclick = showOracleLog;
+    $("#obj-quill").onclick = showBinder;
     $("#obj-grimoire").onclick = showCodeBook;
     $("#obj-satchel").onclick = () => go("shop");
     $("#obj-letter").onclick = () => go("home");
@@ -2866,13 +3845,19 @@
         const r = t.closest(".b-check, #b-run").getBoundingClientRect();
         lastCastAt = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
       }
-      else if (t.closest("#term")) kind = "stone";          // the speaking stone: a mineral tap, chips fly
+      else if (t.closest("#term, .forge-log")) kind = "stone"; // the speaking stone & the forge log box: a mineral tap, chips fly
       else if (t.closest("#parchment")) kind = "click";     // anywhere on the parchment
-      else if (t.closest("button")) { kind = "click"; material = false; } // HUD/modal buttons: tick only (before the wood catch, so the header bar's buttons don't knock)
+      else if (t.closest(".modal, .grade-card")) kind = "click"; // a parchment card (bindery / forge / grade) — dust like the page, buttons included
+      else if (t.closest("button")) { kind = "click"; material = false; } // HUD buttons OUTSIDE parchment: tick only (before the wood catch, so the header bar's buttons don't knock)
       else if (t.closest("#table, #hud")) kind = "wood";    // the wooden desk — incl. the header strip above the parchment (title + empty space)
       else return;
       sfx(kind);
       if (material) burst(e.clientX, e.clientY, kind);
+    });
+
+    // keep every slider's ink fill in sync as it's dragged (one listener covers all sliders, anywhere)
+    document.addEventListener("input", (e) => {
+      if (e.target.matches && e.target.matches('input[type="range"]')) paintRange(e.target);
     });
 
     // Ctrl+S saves the workbench instead of opening the browser dialog
@@ -2928,6 +3913,22 @@
       if (!rtOk) toast(`THE FORGE IS COLD: ${rtName} was not found — CAST THE SPELL will fail.`, "warn");
       if (!h.claude) toast("THE TOWER IS DARK: claude CLI not found — the Magister cannot judge.", "warn");
     } catch { /* server just started; fine */ }
+
+    // a tome may still be on the bindery's anvil from a previous visit — offer the way back
+    fetchActiveBuilds().then(async (builds) => {
+      const hint = localStorage.getItem("buildJob");
+      if (builds.length) {
+        const b = builds.find((x) => x.id === hint) || builds[0];
+        toast(`The bindery is still forging <b>${esc(b.name || b.tome)}</b> — Phase ${b.phase}/9. The shelf of tomes holds its progress.`, "warn");
+      } else if (hint) {
+        try {
+          const st = await (await fetch("/api/buildtome/status?id=" + encodeURIComponent(hint))).json();
+          if (st.status === "done") toast(`The bindery finished <b>${esc(st.name || st.tome || "your tome")}</b> — it waits on the shelf.`, "warn");
+          else if (st.status === "error") toast("The last working in the bindery failed — its partial pages remain in /tomes.", "bad");
+        } catch { /* server unreachable; the shelf will tell them later */ }
+        localStorage.removeItem("buildJob");
+      }
+    });
   }
 
   init();

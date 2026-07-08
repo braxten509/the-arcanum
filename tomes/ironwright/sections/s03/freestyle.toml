@@ -1,0 +1,30 @@
+[freestyle]
+title = "THE WORKING: The Metal Domain"
+brief = "Apprentice, give the forge its ironwork. Add a real data model to the Ironwright project and wire the CLI's <code>list</code> and <code>value</code> commands to it. Build:<ul><li><code>Metal.java</code> — public class <code>Metal</code>, private fields <code>name</code>, <code>value</code>, <code>meltPoint</code>, a constructor taking all three, and a getter for each.</li><li><code>Registry.java</code> — holds ingots, with <code>register(Ingot)</code>, <code>find(String name)</code> returning the ingot or null, and a <code>listAll()</code> that prints every registered ingot as <code>name @ valueem</code> (one per line).</li><li><code>Ironwright.java</code> — the CLI. At startup it registers three ingots: <code>iron</code> (value 8), <code>copper</code> (value 6), <code>starsteel</code> (value 20). On <code>list</code> it calls <code>listAll()</code>; on <code>value &lt;metal&gt;</code> it looks the ingot up and prints <code>value &lt;n&gt;</code>, or <code>UNKNOWN &lt;metal&gt;</code> if not found; <code>quit</code> and unknown commands behave as in Forgework II.</li></ul>"
+reward = 200
+xray = "Orrick docks for fields left public (a data class must encapsulate), a Registry that returns a found ingot but the CLI hardcodes the value instead of reading getValue(), a find that loops past size into null slots, or all four classes crammed into one file. He gives style credit for one public class per .java file named for the class, camelCase methods, Allman braces, and 4-space indent."
+
+[freestyle.badge]
+id = "badge-s03"
+name = "THE METAL DOMAIN"
+desc = "Forged the Ingot, Metal, and Registry — the ironwork the whole mod will carry."
+
+[[freestyle.rubric]]
+criterion = "Compiles & runs"
+weight = 25
+desc = "javac *.java succeeds with no errors and java Ironwright runs without crashing on a sequence of piped commands ending in quit."
+
+[[freestyle.rubric]]
+criterion = "Data classes are correct"
+weight = 25
+desc = "Metal and Ingot have private fields, constructors that use this, and public getters; the three pinned metals (iron 8, copper 6, starsteel 20) are constructed with the right values; no field is reached directly from outside its class."
+
+[[freestyle.rubric]]
+criterion = "Registry & CLI wiring"
+weight = 30
+desc = "Registry.register adds, find returns the named ingot or null without reading past size, listAll prints every registered ingot as name @ valueem; the CLI seeds the three ingots at startup, list calls listAll, value looks up and prints value <n> or UNKNOWN <metal>, and String comparisons use .equals."
+
+[[freestyle.rubric]]
+criterion = "Clean Java style"
+weight = 20
+desc = "One public class per .java file, each file named for its class (Metal.java, Registry.java, Ironwright.java); PascalCase class names, camelCase methods and locals, UPPER_SNAKE for any constants; Allman braces; 4-space indentation; private fields exposed only through getters."

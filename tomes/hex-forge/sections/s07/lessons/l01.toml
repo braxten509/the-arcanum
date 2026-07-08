@@ -1,0 +1,107 @@
+[[lessons]]
+id = "s07-l01"
+title = "The Stack at _start — argc and argv"
+body = '''
+<p>The kernel does not call <code>_start</code> empty-handed. It leaves three things on the stack before jumping to your code: the argument count, an array of pointers to argument strings, and an array of pointers to environment strings. Learning to read them is the reconnaissance that separates a forge from a toy.</p>
+
+<p>The stack layout at <code>_start</code> (rsp points to the top of this structure):</p>
+<pre><code>Higher addresses ↑   (pushed first)
+[rsp + 0]  = argc          (8 bytes — the argument count)
+[rsp + 8]  = argv[0]       (8 bytes — pointer to program name string)
+[rsp + 16] = argv[1]       (8 bytes — pointer to first argument string)
+[rsp + 24] = argv[2]       (8 bytes — pointer to second argument string)
+...
+[rsp + 8*argc] = 0         (8 bytes — NULL sentinel after last argv entry)
+[rsp + 8*argc + 8] = envp[0]  (start of environment pointers)
+...
+Terminated by another NULL sentinel.</code></pre>
+
+<p>To access argv[1] (the filename HexForge should dump):</p>
+<pre><code><span class="k">pop</span> rax                 <span class="c">; rax = argc</span>
+<span class="k">cmp</span> rax, 2             <span class="c">; do we have a filename argument?</span>
+<span class="k">jb</span> .no_file            <span class="c">; argc < 2 → only program name, no filename</span>
+<span class="k">mov</span> rdi, [rsp + 8]     <span class="c">; rdi = argv[1] — pointer to filename string</span>
+<span class="c">; rdi now points to a null-terminated path string</span></code></pre>
+
+<p>The arithmetic: after <code>pop rax</code> (which reads argc and increments rsp by 8), <code>[rsp]</code> is argv[0], <code>[rsp + 8]</code> is argv[1]. Each argv entry is an 8-byte pointer on x86-64. The filename string is null-terminated — you can pass it directly to <code>strlen</code> (from s06) or to <code>sys_openat</code> (this op).</p>
+
+<p>A more thorough approach — pop argc, then pop argv[0] (the program name, which we discard), leaving argv[1] at <code>[rsp]</code>:</p>
+<pre><code><span class="k">pop</span> rcx                 <span class="c">; rcx = argc</span>
+<span class="k">pop</span> rdi                 <span class="c">; rdi = argv[0] (program name — discard)</span>
+<span class="k">pop</span> rdi                 <span class="c">; rdi = argv[1] (the filename we want)</span></code></pre>
+
+<p>Three pops and the filename pointer is in rdi, ready for <code>openat</code>. This is simpler than offset arithmetic and self-documents: "pop past the first two."</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE ENVIRONMENT POINTERS AND AUXV</div>
+<p>After the envp array (terminated by NULL) comes the auxiliary vector (auxv) — an array of type/value pairs the kernel uses to pass system information (page size, uid, AT_ENTRY, AT_PHDR, etc.). The auxv is terminated by an entry with type=0 (AT_NULL). The full stack layout is: argc, argv[0..argc-1], NULL, envp[0..n], NULL, auxv[0..m], AT_NULL. HexForge does not need the environment or auxv, but knowing the layout prevents accidentally reading envp[0] as argv[argc] — the NULL sentinel after argv is the boundary marker.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s07-l01-e1"
+type = "mc"
+points = 15
+prompt = "If argc is 3 (program name + two arguments), how many 8-byte entries are on the stack between the argc value and the NULL sentinel that terminates argv?"
+choices = [
+  "3 — one for each argv entry including the program name",
+  "2 — only the user-supplied arguments count, not the program name",
+  "4 — argc, then the three pointers, then NULL",
+  "1 — argc is the only fixed-size entry; argv is variable-length"
+]
+answer = 0
+whyWrong = "argv includes the program name as argv[0]. With argc=3, there are 3 entries: argv[0] (program name), argv[1], argv[2]. Then the NULL sentinel at position argv[3]. The question asks about entries BETWEEN argc and NULL — those are the 3 argv pointers. argc itself is separate."
+hint = "argc counts ALL arguments including argv[0] (the program name). So argc=3 means 3 string pointers follow argc."
+explain = "argv[0] through argv[argc-1] are the argc entries. Then argv[argc] = NULL. For argc=3: three 8-byte pointers (argv[0], argv[1], argv[2]) sit between the argc value and the NULL terminator."
+
+[[lessons.exercises]]
+id = "s07-l01-e2"
+type = "fill"
+points = 20
+prompt = "After popping argc and argv[0], argv[1] sits at the top of the stack. Complete the pop to grab the filename."
+code = '''
+pop  rcx              ; rcx = argc
+pop  rdi              ; rdi = argv[0] (program name)
+____ ____             ; rdi = argv[1] (filename)
+'''
+answer = "pop rdi"
+accept = ["pop  rdi"]
+hint = "Pop the next 8 bytes off the stack into rdi — replacing the program name pointer with the filename pointer."
+explain = "Each <code>pop</code> reads 8 bytes from [rsp] and increments rsp by 8. After popping argc and argv[0], rsp points to argv[1]. <code>pop rdi</code> loads the filename pointer into rdi — exactly where <code>openat</code> expects it."
+
+[[lessons.exercises]]
+id = "s07-l01-e3"
+type = "type"
+points = 12
+prompt = "Retype the argc/argv extraction. Three pops and you have the filename ready."
+code = '''
+_start:
+    pop  rcx           ; argc
+    cmp  rcx, 2
+    jb   .fallback     ; no filename given
+    pop  rdi           ; argv[0] — discard
+    pop  rdi           ; argv[1] — the filename
+    ; rdi now points to the file path string
+'''
+
+[[lessons.exercises]]
+id = "s07-l01-w1"
+type = "write"
+points = 30
+prompt = "Read argc and print it. Pop argc from the stack, convert it to ASCII, and print it. The engine runs your program as <code>./a.out test.txt</code> (argc=2). Output: <code>2</code>. Do not hardcode — pop argc from [rsp] and convert the value you found there."
+starter = '''
+section .text
+    global _start
+
+_start:
+    ; Pop argc from the stack
+    
+
+    ; Print argc using itoa
+    
+
+section .data
+newline: db 10
+outbuf: times 20 db 0
+'''
+expect = '''
+2'''
+hint = "pop rax (argc=2). Then itoa-push: xor ecx,ecx / mov ebx,10 / .cvt: xor edx,edx / div ebx / add dl,'0' / push rdx / inc ecx / test eax,eax / jnz .cvt. Pop to outbuf. Print with newline."

@@ -1,0 +1,99 @@
+[[lessons]]
+id = "s07-l01"
+title = "The Locked Door"
+body = '''
+<p>Regex can name a shape, and substitution can redraw it, but neither one leaves the desk. File I/O is the moment Writforge starts touching the real shelf. The script opens a path, asks the operating system for a handle, and only then begins to read. That is why the line is written as <code>open my $in, '&lt;', $path or die $!</code>: the handle, the mode, and the path are all named, and the failure path stays attached to the attempt.</p>
+<p>Notice the split between the handle and the file path. The handle is a lexical scalar, usually <code>$in</code> or <code>$fh</code>, because the script uses it like a private key. The path can be a longer string that points at the manuscript on disk. Once the handle is open, the read loop can pull lines with <code>&lt;$in&gt;</code>, and each line arrives exactly once in source order. That is the same discipline the array chapter taught, only now the collection lives on disk instead of in memory.</p>
+<p><code>close</code> matters even after a read finishes cleanly. It releases the handle, and on the write side it is the moment buffered bytes finally have to become real. If the scribe forgets it, the script may still look done while the file is only half committed. That is not a cosmetic mistake; it is a lost page. Writforge needs the habit now because later cantos will write multiple HTML files and must know when each one is truly complete.</p>
+<p>Use <code>die</code> when the manuscript is required and the open fails. The point is not to be dramatic. The point is to stop pretending a missing file is a recoverable state when the chapter clearly cannot continue without it. The error text from <code>$!</code> gives the host's reason, which is more useful than a vague complaint from the script itself.</p>
+<pre><code><span class="k">my</span> <span class="s">$path</span> = <span class="s">"manuscripts/preface.txt"</span>;
+<span class="k">open</span> <span class="k">my</span> <span class="s">$in</span>, <span class="s">'&lt;'</span>, <span class="s">$path</span> <span class="k">or</span> <span class="k">die</span> <span class="s">$!</span>;
+<span class="k">while</span> (<span class="k">my</span> <span class="s">$line</span> = &lt;<span class="s">$in</span>&gt;) {
+    <span class="k">chomp</span> <span class="s">$line</span>;
+    <span class="k">say</span> <span class="s">$line</span>;
+}
+<span class="k">close</span> <span class="s">$in</span> <span class="k">or</span> <span class="k">die</span> <span class="s">$!</span>;</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE LOCKED DOOR</div>
+<p><strong>Mode note.</strong> The three pieces of <code>open</code> are separate on purpose: handle, mode, path. The chapter reads better when the role of each part stays visible.</p>
+<p><strong>Error note.</strong> <code>$!</code> is not a creative message; it is the operating system's complaint. That is the line the student should learn to trust when a path is wrong.</p>
+<p><strong>Completion note.</strong> On the write side, a successful <code>close</code> is part of the job. The script is not finished until the handle is released cleanly.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perldoc: perlopentut"
+url = "https://perldoc.perl.org/perlopentut"
+
+[[lessons.exercises]]
+id = "s07-l01-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "<p>Retype the open/read/close scaffold exactly. Keep the lexical handle and the error path intact.</p>"
+code = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my $path = "manuscripts/preface.txt";
+open my $in, '<', $path or die $!;
+while (my $line = <$in>) {
+    chomp $line;
+    say $line;
+}
+close $in or die $!;
+'''
+
+[[lessons.exercises]]
+id = "s07-l01-e1"
+type = "fill"
+points = 22
+prompt = "<p>Restore the mode string that opens the manuscript for reading.</p>"
+code = 'open my $in, ____, $path or die $!;'
+answer = "<"
+hint = "The blank is the read mode, not the write mode or the append mode."
+whyWrong = "You are choosing a direction that does not match the lesson's read path. This open call needs the read flag so the manuscript can be scanned, not overwritten."
+
+[[lessons.exercises]]
+id = "s07-l01-e2"
+type = "mc"
+points = 18
+prompt = "<p>What does <code>die $!</code> do in the open line from this lesson?</p>"
+choices = ["It converts the file into HTML.", "It reports the system error and stops when open fails.", "It trims the newline from each read line.", "It makes the handle lexical."]
+answer = 1
+whyWrong = "You are mixing file-open failure handling with content conversion, newline cleanup, or variable scope. <code>$!</code> belongs to the operating system error from the failed file operation."
+hint = "It is the failure branch attached to the open call."
+explain = "<code>die $!</code> stops the script and reports the system reason if the file cannot be opened."
+
+[[lessons.exercises]]
+id = "s07-l01-e3"
+type = "text"
+points = 17
+prompt = "<p>Why keep <code>close $in</code> in the script even after the read loop reached EOF?</p>"
+answer = "to release the handle and catch buffered i/o errors"
+accept = ["release the handle and catch buffered i/o errors", "flush the file and surface close errors", "make sure the handle is actually closed"]
+hint = "The read loop finishing is not the same thing as the handle being released."
+whyWrong = "You are treating end-of-file as the same moment as a clean close. The script still needs to release the handle and let Perl report any buffered write or close failure."
+
+[[lessons.exercises]]
+id = "s07-l01-w1"
+type = "write"
+points = 30
+prompt = "<p>The starter manuscript at <code>manuscripts/preface.txt</code> contains exactly two lines: <code>First page line one</code> and <code>First page line two</code>. Open it for reading, print each line unchanged, count the lines you read, and finish with <code>LINES 2</code>. The count must come from the file, not from a hardcoded literal.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my $source = "manuscripts/preface.txt";
+mkdir "manuscripts" unless -d "manuscripts";
+open my $seed, '>', $source or die $!;
+print {$seed} "First page line one\nFirst page line two\n";
+close $seed or die $!;
+
+my $count = 0;
+
+# Task: open $source for reading, print each line unchanged, count the lines, and finish with "LINES 2".
+'''
+expect = '''
+First page line one
+First page line two
+LINES 2'''
+hint = "Open the source path for reading, loop over each line with a lexical filehandle, and only then print the summary."

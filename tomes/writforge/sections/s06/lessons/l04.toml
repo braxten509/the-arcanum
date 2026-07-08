@@ -1,0 +1,108 @@
+[[lessons]]
+id = "s06-l04"
+title = "Normalize the Title"
+body = '''
+<p>After the renderer knows how to rewrite tags, it still needs tidy labels for later navigation and display. That is where <code>split</code>, <code>join</code>, <code>lc</code>, <code>uc</code>, and <code>tr///</code> step in. They do not detect markup. They normalize the text that sits around the markup so the manuscript can be named, indexed, and sorted without changing the wording the reader sees.</p>
+<p><code>split</code> breaks a title into words when spacing is uneven or when a line carries several blanks. <code>join</code> knits the pieces back together with a new separator. <code>lc</code> and <code>uc</code> handle case, which is useful when the same heading needs one form for display and another for a stable identifier. <code>tr///</code> is the blunt knife in the drawer: it swaps characters one for one, so it is ideal when a space simply needs to become a dash.</p>
+<p>The trick is to keep the original title and the normalized title as separate tools. One is for the page. The other is for the path, the anchor, or the ledger key. Earlier chapters already taught the scribe to keep arrays in order and hashes keyed by meaning. This chapter extends that habit by giving each title both its public face and its working face.</p>
+<p>Use the gentlest normalization that tells the truth. If the source has only spacing noise, <code>split</code> and <code>join</code> may be clearer than a clever chain of substitutions. If all you need is a simple character swap, <code>tr///</code> is direct and easy to read. The apprentice does not earn points for using the fanciest tool; the apprentice earns points for using the right one and leaving the text legible.</p>
+<pre><code><span class="k">my</span> <span class="s">$title</span> = <span class="s">"Red   Ink Notes"</span>;
+<span class="k">my</span> <span class="s">@parts</span> = split /\s+/, <span class="s">$title</span>;
+<span class="k">my</span> <span class="s">$slug</span> = join <span class="s">"-"</span>, <span class="s">@parts</span>;
+<span class="k">my</span> <span class="s">$banner</span> = uc <span class="s">$title</span>;
+<span class="k">my</span> <span class="s">$soft</span> = lc <span class="s">$title</span>;
+<span class="s">$soft</span> =~ tr/ /-/;
+</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // NORMALIZE THE TITLE</div>
+<p><strong>Separation note.</strong> Keep the display title and the slug in different scalars. A renderer that destroys the original wording just to make an id has already gone too far.</p>
+<p><strong>Transliteration note.</strong> <code>tr///</code> is not regex matching. It swaps characters positionally, which makes it perfect for a plain space-to-dash rewrite.</p>
+<p><strong>Spacing note.</strong> <code>split /\s+/, $title</code> is a cleaner answer when repeated spaces should collapse to one separator before the parts are joined again.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perldoc: perlfunc"
+url = "https://perldoc.perl.org/perlfunc"
+
+[[lessons.exercises]]
+id = "s06-l04-e1"
+type = "fill"
+points = 22
+prompt = "<p>Restore the function that breaks the title into words on whitespace.</p>"
+code = 'my @parts = ____ /\s+/, $title;'
+answer = "split"
+hint = "The blank is the built-in that cuts the title apart before the join puts it back together."
+whyWrong = "You are trying to concatenate or uppercase the title instead of splitting it into word pieces first."
+
+[[lessons.exercises]]
+id = "s06-l04-e2"
+type = "text"
+points = 16
+prompt = "<p>What is <code>tr/ /-/</code> doing in the slug helper?</p>"
+answer = "replacing spaces with hyphens"
+accept = ["swap spaces for hyphens", "changing spaces to dashes", "transliterating spaces into hyphens"]
+hint = "It is a character-for-character swap, not a pattern match."
+whyWrong = "You are describing regex matching or a delete step. Transliteration only swaps the specified characters."
+
+[[lessons.exercises]]
+id = "s06-l04-e3"
+type = "mc"
+points = 18
+prompt = "<p>What does <code>join \"-\"</code> do with the parts from <code>split</code>?</p>"
+choices = ["It combines them with hyphens.", "It lowercases every part.", "It splits the title again.", "It deletes the spaces without replacement."]
+answer = 0
+whyWrong = "You are mixing up joining, case conversion, re-splitting, and deletion. The join step only stitches the list back together with the chosen separator."
+hint = "It is the reverse of the split step, using a new separator."
+explain = "<code>join</code> rebuilds the word list into one string with the separator you choose."
+
+[[lessons.exercises]]
+id = "s06-l04-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "<p>Retype the slug helper exactly. Keep the split, join, and case conversion intact.</p>"
+code = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my $title = "Red   Ink Notes";
+my @parts = split /\s+/, $title;
+my $slug = join "-", @parts;
+my $banner = uc $title;
+my $soft = lc $title;
+$soft =~ tr/ /-/;
+'''
+
+[[lessons.exercises]]
+id = "s06-l04-e4"
+type = "text"
+points = 17
+prompt = "<p>Why keep the original title in one scalar and the slug in another?</p>"
+answer = "so the display name and the navigation id can differ"
+accept = ["display name and navigation id can differ", "to keep the readable title separate from the slug", "so one stays for the page and one stays for the path"]
+hint = "One form is for the reader, the other is for the machine."
+whyWrong = "You are collapsing two jobs into one variable. The whole point of normalization here is to keep the public title and the working id separate."
+
+[[lessons.exercises]]
+id = "s06-l04-w1"
+type = "write"
+points = 30
+prompt = "<p>Using the starter titles, print one line per title in the form <code>UPPERCASE TITLE -&gt; slug</code>. Convert the title to all caps for the left side and to a lower-case hyphen slug for the right side, then finish with <code>SLUGS 3</code>. The three output lines must come from the starter list.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my @titles = ("Red Ink Notes", "Quiet Margin", "Two Pages");
+my $slugs = 0;
+
+for my $title (@titles) {
+    # Task: print the uppercase title, an arrow, and the normalized slug.
+}
+
+say "SLUGS $slugs";
+'''
+expect = '''
+RED INK NOTES -> red-ink-notes
+QUIET MARGIN -> quiet-margin
+TWO PAGES -> two-pages
+SLUGS 3'''
+hint = "Use uppercase for the left side, lower-case plus a hyphen separator for the right side, and count each title you normalize."

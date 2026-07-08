@@ -1,0 +1,140 @@
+[[lessons]]
+id = "s07-l05"
+title = "The Fallback — When the Vault Stays Shut"
+body = '''
+<p>Not every run of HexForge will have a filename. The student — or a pipe, or a redirect — may provide bytes on stdin with no argv[1]. A tool that crashes when given no arguments is a toy. A tool that detects the missing argument and reads stdin instead is a utility.</p>
+
+<p>The fallback logic: check argc. If argc &lt; 2, use fd 0 (stdin) for the read loop. If argc ≥ 2, open argv[1] and use the resulting fd instead.</p>
+
+<pre><code>_start:
+    <span class="k">pop</span> rcx                 <span class="c">; rcx = argc</span>
+    <span class="k">cmp</span> rcx, 2
+    <span class="k">jb</span> .use_stdin           <span class="c">; argc < 2 → no filename given</span>
+
+    <span class="c">; Has filename — pop past argv[0], get argv[1]</span>
+    <span class="k">pop</span> rdi                 <span class="c">; argv[0] = program name (discard)</span>
+    <span class="k">pop</span> rdi                 <span class="c">; argv[1] = filename</span>
+
+    <span class="c">; Open the file</span>
+    <span class="k">mov</span> rax, 257
+    <span class="k">mov</span> rsi, rdi            <span class="c">; path → rsi</span>
+    <span class="k">mov</span> rdi, -100           <span class="c">; AT_FDCWD</span>
+    <span class="k">mov</span> rdx, 0
+    <span class="k">mov</span> r10, 0
+    <span class="k">syscall</span>
+
+    <span class="k">test</span> rax, rax
+    <span class="k">js</span> .error               <span class="c">; openat failed</span>
+    <span class="k">mov</span> r12, rax            <span class="c">; r12 = file fd</span>
+    <span class="k">jmp</span> .read_loop
+
+.use_stdin:
+    <span class="k">mov</span> r12, 0              <span class="c">; r12 = stdin fd</span>
+    <span class="c">; fall through to .read_loop</span>
+
+.read_loop:
+    <span class="c">; Read from fd r12 (0 for stdin, 3+ for file)</span>
+    <span class="c">; ... identical for both paths ...</span></code></pre>
+
+<p>Notice the elegance: after the decision point, the rest of the program is identical. <code>r12</code> holds the input fd — 0 for stdin, 3+ for a file — and the read loop does not care which it is. The fd abstraction absorbs the difference.</p>
+
+<p>This pattern — branch once at the top, unify afterward — is the standard architecture for command-line tools that accept optional file arguments. It appears in <code>cat</code>, <code>grep</code>, <code>wc</code>, and every Unix filter. HexForge follows the same lineage: one branch, one fd, one pipeline.</p>
+
+<p>The fallback also means HexForge works in a pipeline:</p>
+<pre><code>echo "hello" | ./hex-forge          # reads stdin — no filename
+./hex-forge /bin/ls                 # reads a named file</code></pre>
+
+<p>Both invocations are valid. The tool responds to how it is called — a mark of genuine utility.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // STILL CLOSE THE FD — BUT NOT STDIN</div>
+<p>When the input is stdin (fd 0), do NOT close it with <code>sys_close</code>. fd 0 belongs to the shell, not your program — closing it is allowed but leaves the fd table with a hole, and any subsequent <code>openat</code> will reuse fd 0 (since the kernel allocates the lowest available fd). This can cause subtle bugs where <code>sys_read(0, ...)</code> reads from a different file. When the input is an opened file (fd 3+), always close it — you opened it, you own it. The rule: close what openat gave you, never close 0/1/2.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s07-l05-e1"
+type = "mc"
+points = 15
+prompt = "Why does HexForge check <code>argc < 2</code> rather than <code>argc == 1</code> for the stdin fallback?"
+choices = [
+  "argc == 1 would miss the case where argv[1] is an empty string",
+  "argc < 2 handles both 'no arguments' (argc=1) and edge cases like 'argc=0' — it's a defensive unsigned comparison that catches any missing filename",
+  "argc < 2 is faster because it uses unsigned comparison (jb) which the CPU predicts better",
+  "argc == 1 fails when the program name contains spaces"
+]
+answer = 1
+whyWrong = "Empty string argv[1] is still a valid pointer — argc would be 2. Performance is irrelevant here. Program name spaces don't affect argc count. The defensive check handles argc=1 (normal no-args case) and argc=0 (possible but rare — some exec variants). Using jb is the idiomatic pattern for 'do we lack a filename?'."
+hint = "If argc could be 0 (unusual but possible), would argc == 1 still trigger the fallback?"
+explain = "<code>cmp rcx, 2</code> followed by <code>jb .use_stdin</code> branches when argc is 0 or 1. argc=1 is the normal case (just the program name). argc=0 is possible if the program was invoked with an empty argument list via <code>execve</code>. The check is defensive — it falls back to stdin whenever a filename is definitely absent."
+
+[[lessons.exercises]]
+id = "s07-l05-e2"
+type = "text"
+points = 20
+prompt = "After the argc check routes to <code>.use_stdin</code>, what single register holds the fd that the read loop will use — and what is its value?"
+answer = "r12, 0"
+accept = ["r12 = 0", "r12 holds 0"]
+hint = "The fallback path sets a register to fd 0 (stdin). Which register was used for the fd in the read loop pattern?"
+explain = "The pattern uses r12 to hold the active input fd. <code>.use_stdin</code> sets <code>mov r12, 0</code> (stdin). <code>.file_opened</code> sets <code>mov r12, rax</code> (the fd from openat). The read loop references <code>rdi, r12</code> regardless — the rest of the program is identical."
+
+[[lessons.exercises]]
+id = "s07-l05-e3"
+type = "fill"
+points = 22
+prompt = "Fill the decision instruction. If argc is less than 2, there is no filename — fall back to stdin."
+code = '''
+pop  rcx              ; rcx = argc
+cmp  rcx, 2
+____ .use_stdin       ; no filename given
+'''
+answer = "jb"
+hint = "Two letters — jump if below. Unsigned comparison: jump if rcx < 2."
+explain = "<code>jb</code> (jump if below) tests CF=1, set when <code>argc - 2</code> requires a borrow — i.e. argc=0 or argc=1. Since argc is always non-negative, signed/unsigned makes no difference here, but <code>jb</code> is the conventional choice for count comparisons."
+
+[[lessons.exercises]]
+id = "s07-l05-w1"
+type = "write"
+points = 35
+prompt = "Forge the fallback. Your program must: pop argc from the stack. If argc < 2, read from stdin (fd 0). If argc >= 2, pop argv[0], pop argv[1], open that file with openat, and read from the opened fd. In BOTH cases, read all input in 256-byte chunks, count the total bytes, and print the count. The engine runs your program as <code>./a.out</code> (no arguments) and pipes <code>STDIN TEST</code> (10 bytes) into stdin. Output: <code>10</code>. Your program must correctly detect argc=1 and use stdin — it should NOT crash."
+starter = '''
+section .text
+    global _start
+
+_start:
+    pop rcx              ; argc
+    cmp rcx, 2
+    jb .use_stdin
+    ; Has filename — open it
+    pop rdi              ; argv[0]
+    pop rdi              ; argv[1] = filename
+    ; openat...
+    
+
+.use_stdin:
+    mov r12, 0           ; fd = stdin
+    jmp .read_loop
+
+.file_opened:
+    mov r12, rax         ; fd from openat
+
+.read_loop:
+    ; Read 256-byte chunks from fd r12, count bytes in r13
+    
+
+.done:
+    ; Close fd if it's not 0 (stdin)
+    
+
+    ; Print total byte count (r13) using itoa
+    
+
+section .bss
+buffer: resb 256
+
+section .data
+newline: db 10
+outbuf: times 20 db 0
+'''
+stdin = "STDIN TEST"
+expect = '''
+10'''
+hint = "After jb .use_stdin: pop rdi (argv[0]) / pop rdi (argv[1]) / mov rsi,rdi / mov rdi,-100 / mov rdx,0 / mov r10,0 / mov rax,257 / syscall / test rax,rax / js .use_stdin (if open fails, fallback) / jmp .file_opened. Read loop: xor r13,r13 / .loop: mov rax,0 / mov rdi,r12 / mov rsi,buffer / mov rdx,256 / syscall / test rax,rax / jz .done / add r13,rax / jmp .loop. Then print r13."

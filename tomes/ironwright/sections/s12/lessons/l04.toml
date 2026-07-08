@@ -1,0 +1,72 @@
+[[lessons]]
+id = "s12-l04"
+title = "The Source-Map — RESEARCH.md & the Implement-Verify Loop"
+body = '''
+<p>The last strike of the capstone is the source-map. <code>RESEARCH.md</code> sits beside your chosen feature and records the trail you followed through the old marks — the classes you opened, the fields you read, the usages you copied, the overrides you wrote. It is the proof you read the marks, not guessed; the capstone rubric grades it alongside the working feature.</p>
+<pre><code><span class="c"># RESEARCH.md — Starsteel Pickaxe</span>
+
+## Source-map
+- **Parent class**: net.minecraft.item.ItemPickaxe (extends ItemTool)
+  - read: constructor takes ToolMaterial (ItemPickaxe.java)
+  - usage: vanilla constructs with ToolMaterial.IRON (Find Usages → 3 sites)
+- **ToolMaterial**: net.minecraft.item.Item.ToolMaterial (enum)
+  - read: constants carry (harvestLevel, maxUses, efficiency, attackDamage, enchantability)
+  - added STARSTEEL via EnumHelper.addToolMaterial("STARSTEEL", 3, 1024, 8.0f, 3.0f, 15)
+- **Override**: none (constructor only — super(STARSTEEL) supplies the behaviour)
+
+## Verify
+- ./gradlew build — succeeds
+- runClient — starsteel pickaxe in the Ironwright tab; mines obsidian (harvest level 3); 1024 uses</code></pre>
+<p>A good source-map entry names the class, the field or method you read, where you read it (the file, Find Usages), and what you did with it (an override, a constructor argument, a registry call). Write it as you go — open a class, add a line; write an override, add a line. By the time the feature works, the source-map is full and the trail is reproducible.</p>
+<p>The implement-verify loop closes the research method: build, fire the coals, check the feature in-game, fix, repeat. A feature that compiles but does not work in-game is not done; <code>runClient</code> is the verifier. Document the verify step in RESEARCH.md too — what you saw that proved it works.</p>
+<div class="callout"><strong>Orrick says:</strong> The source-map is not bureaucracy — it is how you learn. Writing "read ItemPickaxe's constructor, it takes ToolMaterial" forces you to actually read it. The apprentice who skips the source-map skips the lesson; the one who writes it carries the skill forever.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // GRADE THE NAVIGATION, NOT JUST THE FEATURE</div>
+<p>The capstone rubric weights source-navigation as much as the working feature — a feature that works but was copied from a tutorial without reading the source scores lower than a feature that works AND is backed by a full source-map. The requester asked for "the skill to learn by myself how to do things"; the source-map is the evidence of that skill. Forge the feature; write the map.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s12-l04-e1"
+type = "mc"
+points = 15
+prompt = "What does a good RESEARCH.md source-map entry name — the four things the rubric looks for?"
+choices = ["the feature's name only", "the class you opened, the field/method you read, where you read it (file/Find Usages), and what you did with it (override/constructor arg/registry call)", "the build output", "the .lang entries"]
+answer = 1
+whyWrong = "A source-map entry names the class, the field/method read, where it was read (file or Find Usages), and what you did with it (override, constructor arg, registry call); the feature name is the title not the entry, build output and .lang are not the source-map. The four-part entry is the trail through the old marks."
+hint = "Think about the trail — class, what you read on it, where you read it, and what you did with what you read."
+explain = "Each entry: class → field/method → source (file/Find Usages) → your action. The four parts reproduce the research trail for the next smith."
+
+[[lessons.exercises]]
+id = "s12-l04-t1"
+type = "text"
+points = 20
+prompt = "Type the two-command implement-verify loop the capstone closes with — the build check and the in-game verifier (two commands, separated by ' then ')."
+answer = "./gradlew build then ./gradlew runClient"
+hint = "It is the build command, then ' then ', then the run command that fires the coals to verify in-game."
+
+[[lessons.exercises]]
+id = "s12-l04-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the Forge helper you record in RESEARCH.md when you add a custom ToolMaterial (the reflection helper from Forgework XII lesson II)."
+code = '''- **ToolMaterial**: ... (enum)
+  - added STARSTEEL via ____.addToolMaterial("STARSTEEL", 3, 1024, 8.0f, 3.0f, 15)'''
+answer = "EnumHelper"
+whyWrong = "EnumHelper.addToolMaterial adds the runtime enum constant; ToolMaterial is the enum itself (not the helper), GameRegistry is for world-gen and recipes, ForgeRegistries is for lookups. The helper recorded in the source-map is EnumHelper."
+hint = "It is the Enum + Helper class that adds new ToolMaterial constants — the same one from lesson II."
+
+[[lessons.exercises]]
+id = "s12-l04-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of a RESEARCH.md source-map line. The starter sets <code>String cls = \"ItemPickaxe\";</code>, <code>String read = \"constructor takes ToolMaterial\";</code>, and <code>String did = \"super(STARSTEEL)\";</code>. Print exactly <code>- [ItemPickaxe] read: constructor takes ToolMaterial; did: super(STARSTEEL)</code> by joining <code>\"- [\"</code>, <code>cls</code>, <code>\"] read: \"</code>, <code>read</code>, <code>\"; did: \"</code>, and <code>did</code>. Read cls, read, and did from the variables."
+starter = '''public class Ironwright {
+    public static void main(String[] args) {
+        String cls = "ItemPickaxe";
+        String read = "constructor takes ToolMaterial";
+        String did = "super(STARSTEEL)";
+        // apprentice — print "- [<cls>] read: <read>; did: <did>"
+    }
+}'''
+expect = '''
+- [ItemPickaxe] read: constructor takes ToolMaterial; did: super(STARSTEEL)'''
+hint = "System.out.println(\"- [\" + cls + \"] read: \" + read + \"; did: \" + did);"

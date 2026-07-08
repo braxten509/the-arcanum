@@ -1,0 +1,91 @@
+[[lessons]]
+id = "s06-l02"
+title = "Two Captures, One Spine"
+body = '''
+<p>Some manuscript marks carry two different pieces of information. A link has the label the reader should see and the destination the browser should follow. A capture group can hold each piece without mixing them together. That is why this lesson moves from the single heading rewrite to a pair of captures: the pattern sees both sides of the mark, and the replacement gives each side its own job.</p>
+<p>The common shape in Writforge is the familiar markdown-style link, such as <code>[Read more](https://example.test)</code>. The first capture keeps the visible label, the second keeps the URL. When the replacement lays down an HTML anchor, the label belongs between the opening and closing tags while the destination belongs in <code>href</code>. If those slots are swapped, the page still builds but the reader lands in the wrong place.</p>
+<p>This is a good place to remember that capture order is not rhetorical. It is positional. The first opening parenthesis becomes <code>$1</code>, the second becomes <code>$2</code>, and the replacement reads them in exactly that order. The regex chapter already taught the scribe how to spot the line shape; this chapter is only giving the shape a new costume while keeping both pieces of meaning intact.</p>
+<p>Do not let the rewrite flatten the source text into a generic link banner. A renderer that preserves only the URL or only the label has already lost half the manuscript. The output needs both the words and the path, because the finished HTML is supposed to read like a page, not like a note scribbled on the margin.</p>
+<pre><code><span class="k">my</span> <span class="s">$line</span> = <span class="s">"[Read more](https://example.test)"</span>;
+<span class="s">$line</span> =~ s/\[([^\]]+)\]\(([^)]+)\)/&lt;a href="<span class="s">$2</span>"&gt;<span class="s">$1</span>&lt;/a&gt;/;
+<span class="k">say</span> <span class="s">$line</span>;</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TWO CAPTURES, ONE SPINE</div>
+<p><strong>Order note.</strong> The first set of parentheses is the label, the second is the destination. Keep that order straight and the replacement becomes mechanical instead of mysterious.</p>
+<p><strong>Anchor note.</strong> The brackets and parens in the pattern are literal punctuation, not regex grouping by accident. They have to be escaped so the scanner sees the manuscript syntax instead of a control character.</p>
+<p><strong>Future note.</strong> Later chapters will process many lines at once, but the capture slots still work the same way. A link is just another shape that must survive the rewrite.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perldoc: perlre"
+url = "https://perldoc.perl.org/perlre"
+
+[[lessons.exercises]]
+id = "s06-l02-e1"
+type = "mc"
+points = 18
+prompt = "<p>In <code>[label](url)</code>, which capture group should go into <code>href</code>?</p>"
+choices = ["<code>$1</code>", "<code>$2</code>", "<code>^</code>", "<code>\\s+</code>"]
+answer = 1
+whyWrong = "You are putting the visible label into the destination slot or confusing the pattern with an anchor. The URL is the second capture, so the replacement needs $2 there."
+hint = "The destination comes after the label in the markdown shape."
+explain = "The first capture is the label; the second capture is the URL."
+
+[[lessons.exercises]]
+id = "s06-l02-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "<p>Retype the link rewrite exactly. Keep both captures and both HTML attributes.</p>"
+code = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my $line = "[Read more](https://example.test)";
+$line =~ s/\[([^\]]+)\]\(([^)]+)\)/<a href="$2">$1</a>/;
+say $line;
+'''
+
+[[lessons.exercises]]
+id = "s06-l02-e2"
+type = "fill"
+points = 22
+prompt = "<p>Restore the capture reference that puts the URL into the anchor's <code>href</code>.</p>"
+code = 'my $line = "[Read more](https://example.test)"; $line =~ s/\[([^\]]+)\]\(([^)]+)\)/<a href="____">$1</a>/;'
+answer = "$2"
+hint = "The blank is the second capture, the one that keeps the link target."
+whyWrong = "You are using the label where the destination belongs. The URL lives in the second capture, so the anchor must read $2."
+
+[[lessons.exercises]]
+id = "s06-l02-e3"
+type = "text"
+points = 17
+prompt = "<p>What does the first capture hold in <code>[Read more](https://example.test)</code>?</p>"
+answer = "Read more"
+accept = ["the label read more", "the link label", "the visible label"]
+hint = "It is the text the reader sees, not the URL."
+whyWrong = "You are answering with the destination or with a generic link name. The first capture keeps the visible label inside the brackets."
+
+[[lessons.exercises]]
+id = "s06-l02-w1"
+type = "write"
+points = 30
+prompt = "<p>Using the starter lines, convert every markdown-style link into an HTML anchor with capture groups, print each transformed line, and finish with <code>LINKS 2</code>. Preserve both labels and destinations from the starter data.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my @lines = ("[Read more](https://example.test)", "Plain prose", "[Archive](https://archive.example)");
+my $links = 0;
+
+for my $line (@lines) {
+    # Task: rewrite any markdown-style link into <a href="...">...</a>, print each line, and count the ones you changed.
+}
+
+say "LINKS $links";
+'''
+expect = '''
+<a href="https://example.test">Read more</a>
+Plain prose
+<a href="https://archive.example">Archive</a>
+LINKS 2'''
+hint = "Use the pair of captures from the lesson, and only increment the counter when the line really contained a link."

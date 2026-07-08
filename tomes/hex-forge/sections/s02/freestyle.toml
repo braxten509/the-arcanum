@@ -1,0 +1,30 @@
+[freestyle]
+title = "THE WORKING: DRAW THE INGOT"
+brief = "Forge a program that parses two decimal strings into integers, performs arithmetic on them, and prints the result — all without libc. A complete round-trip of the integer forge.<ul><li>Parse the string <code>\"123\"</code> and the string <code>\"456\"</code> into registers using the atoi pattern (multiply-by-10, strip ASCII, add).</li><li>Add the two values and print the sum (579) using the itoa pattern (divide-by-10, push digits, pop-and-print).</li><li>Also compute the product (123 * 456 = 56088) and print it on a new line after the sum.</li><li>Use <code>equ $ - label</code> for at least one string length. Use <code>xor rdx, rdx</code> before every <code>idiv</code>/<code>div</code>. Use <code>xor rdi, rdi</code> for the exit code.</li><li>Output must be exactly two lines: <code>579</code> then <code>56088</code> — each followed by a newline.</li></ul>"
+reward = 180
+xray = "Vandr docks: stale rdx before division (the most common flaw), hardcoded output instead of computed values, wrong order of operations in atoi (must multiply by 10 before adding the next digit, not after), non-digit characters left in the parse buffer, missing newlines, output in wrong order. He rewards: clean atoi loop structure (imul rax,10 / movzx / sub / add / inc), itoa push/pop pattern with div ebx, compact xor-zeroing, and a buffer that holds the full output before printing."
+
+[freestyle.badge]
+id = "badge-s02"
+name = "INGOT DRAWN"
+desc = "Parsed raw digit ore and hammered it back into clean alloy — the integer forge is lit."
+
+[[freestyle.rubric]]
+criterion = "Assembles, links, and runs without error"
+weight = 25
+desc = "nasm -f elf64 and ld succeed; program exits with code 0; no SIGFPE from bad division."
+
+[[freestyle.rubric]]
+criterion = "Correct sum and product output"
+weight = 30
+desc = "Prints 579 on line 1 and 56088 on line 2 — both computed from the parsed strings, not hardcoded."
+
+[[freestyle.rubric]]
+criterion = "Correct atoi and itoa patterns"
+weight = 25
+desc = "atoi uses imul-by-10 + movzx + sub '0' + add per digit. itoa uses div ebx + push/pop or buffer reversal. rdx is zeroed before every division."
+
+[[freestyle.rubric]]
+criterion = "Clean NASM style"
+weight = 20
+desc = "Strings in .data, lengths from equ $ - label where used. xor rdi, rdi for exit. Register zeroing is compact (xor edx, edx rather than mov edx, 0). Labels are lowercase underscore. Division uses the 32-bit form (div ebx) when values fit."

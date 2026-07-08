@@ -1,0 +1,86 @@
+[[lessons]]
+id = "s02-l03"
+title = "The Many-Branch — switch"
+body = '''
+<p>When a single value chooses among many branches, <code>switch</code> is the cleaner forge. It jumps to the <code>case</code> that matches and runs from there.</p>
+<pre><code>String metal = in.nextLine();
+<span class="k">switch</span> (metal) {
+    <span class="k">case</span> <span class="s">"iron"</span>:
+        System.out.println(<span class="s">"value 8"</span>);
+        <span class="k">break</span>;
+    <span class="k">case</span> <span class="s">"copper"</span>:
+        System.out.println(<span class="s">"value 6"</span>);
+        <span class="k">break</span>;
+    <span class="k">case</span> <span class="s">"starsteel"</span>:
+        System.out.println(<span class="s">"value 20"</span>);
+        <span class="k">break</span>;
+    <span class="k">default</span>:
+        System.out.println(<span class="s">"UNKNOWN "</span> + metal);
+}</code></pre>
+<p>The value in <code>switch (...)</code> is matched against each <code>case</code> label. Java 8 lets you switch on <code>int</code>, <code>char</code>, <code>String</code>, and enums (you will meet enums in Forgework V). <code>break</code> ends the branch — without it, execution <em>falls through</em> into the next case, which is sometimes useful but usually a bug. <code>default</code> catches every value no case matched, like the <code>else</code> of an if-chain.</p>
+<p>Use <code>switch</code> when you dispatch one value to many known cases; use <code>if</code> chains when the tests are different conditions (<code>ingots &gt; 0</code>, <code>command.equals("quit")</code>, <code>forgeHot</code>). A switch on a String with three cases reads cleaner than a three-branch if-chain; the same logic on five unrelated booleans reads worse.</p>
+<div class="callout"><strong>Orrick says:</strong> Forget the <code>break</code> and the next case runs too — silently. The compiler does not warn you. Make <code>break</code> a reflex, or one day you will sell copper for the price of starsteel.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHEN SWITCH BEATS IF</div>
+<p>switch is O(1)-ish for dense int keys (the compiler can build a jump table), but for a handful of String cases it is a clarity tool, not a speed one. Never switch on a value you have not compared with <code>.equals</code> semantics at least once in your head — switch on Strings uses equals internally, so it is the safe dispatch the if-chain had to spell out.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s02-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the switch exactly — the case labels, the break after each, and the default."
+code = '''switch (metal) {
+    case "iron":
+        System.out.println("value 8");
+        break;
+    case "copper":
+        System.out.println("value 6");
+        break;
+    default:
+        System.out.println("UNKNOWN " + metal);
+}'''
+
+[[lessons.exercises]]
+id = "s02-l03-e1"
+type = "mc"
+points = 15
+prompt = "A smith removes every <code>break</code> from a switch and runs it with <code>metal = \"iron\"</code>. What happens?"
+choices = ["only the iron case prints", "the switch does not compile without breaks", "execution falls through: iron prints, then copper prints, then default prints", "only the default prints"]
+answer = 2
+whyWrong = "Without break, execution falls through every following case in order: iron runs, then copper runs, then default runs. The switch still compiles; breaks are optional. That fall-through is the classic silent bug."
+hint = "Think about what switch does when a case finishes and there is no break to stop it."
+explain = "switch without break falls through to the next case. Put break at the end of each case unless you deliberately want fall-through."
+
+[[lessons.exercises]]
+id = "s02-l03-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the keyword that catches every value no case label matched — the switch's 'else'."
+code = '''switch (metal) {
+    case "iron": System.out.println("value 8"); break;
+    ____:
+        System.out.println("UNKNOWN " + metal);
+}'''
+answer = "default"
+whyWrong = "default is the catch-all label in a switch; else belongs to if, case introduces a label, break leaves the switch. The fallback branch is default."
+hint = "It is the same word C# and Java share for the switch's catch-all — seven letters."
+
+[[lessons.exercises]]
+id = "s02-l03-w1"
+type = "write"
+points = 30
+prompt = "Read one metal name from stdin (the engine pipes <code>copper</code>). Switch on it: <code>iron</code> prints <code>value 8</code>, <code>copper</code> prints <code>value 6</code>, <code>starsteel</code> prints <code>value 20</code>, anything else prints <code>UNKNOWN</code> plus the name. Remember the break after each case."
+starter = '''import java.util.Scanner;
+
+public class Ironwright {
+    public static void main(String[] args) {
+        Scanner in = new Scanner(System.in);
+        String metal = in.nextLine();
+        // apprentice — switch on metal, print the right value, break each case, default for unknown
+    }
+}'''
+expect = '''
+value 6'''
+hint = "switch (metal) { case \"copper\": System.out.println(\"value 6\"); break; ... default: ... }"
+stdin = "copper"

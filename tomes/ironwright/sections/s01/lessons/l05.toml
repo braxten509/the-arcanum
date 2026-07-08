@@ -1,0 +1,84 @@
+[[lessons]]
+id = "s01-l05"
+title = "The Front Door — the Ironwright CLI Seed"
+body = '''
+<p>Every forge needs a front door. The <code>Ironwright</code> seed is the front door of the whole Great Working: a program that greets the apprentice, reads one command, and answers. Everything you build for the next five forgeworks grows from this one file.</p>
+<pre><code><span class="k">public class</span> Ironwright {
+    <span class="k">public static void</span> main(String[] args) {
+        System.out.println(<span class="s">"IRONWRIGHT // forge ready"</span>);
+        Scanner in = <span class="k">new</span> Scanner(System.in);
+        String command = in.nextLine();
+        System.out.println(<span class="s">"COMMAND "</span> + command);
+    }
+}</code></pre>
+<p>You have now met every piece: <code>System.out.println</code> to mark the line, <code>String</code> for text, <code>Scanner</code> wired to <code>System.in</code> to listen, <code>+</code> to join, and <code>main</code> as the door the runtime enters. In Forgework II you will hang a loop on this door so it reads command after command until <code>quit</code>; for now, one command is enough to prove the forge answers.</p>
+<p>Here is the road ahead, apprentice. The block-world itself — Minecraft — is written in this same Java. Its classes live in packages like <code>net.minecraft.item.Item</code> and <code>net.minecraft.block.Block</code>: the <strong>old marks</strong>, the masters' stamps. Later you will open them in IntelliJ and read them as plainly as you read this file. Every mod is a smith reaching into those marks and bolting on new ironwork. The CLI seed is your hand; reading the old marks is your eye. Both skills you will forge, forgework by forgework.</p>
+<div class="callout"><strong>Orrick says:</strong> One file, one class, the file named for the class. <code>Ironwright.java</code> holds <code>public class Ironwright</code>. That is the law of Java, and the forge keeps it.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY A CLI BEFORE A MOD</div>
+<p>A Forge mod is event-driven: it has no <code>main</code>, no <code>Scanner</code>, no command loop. So why build a CLI first? Because the mod's data — ingots, metals, a registry — is plain Java, and the CLI is the fastest way to prove that data works before you bind it to the forge. Ops I–V forge the iron; op VI lights the forge. The real artifact takes input by GUI and event, not stdin — a note you will hear again.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s01-l05-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the seed's front door exactly — the greet, the Scanner, the read, and the echo."
+code = '''public class Ironwright {
+    public static void main(String[] args) {
+        System.out.println("IRONWRIGHT // forge ready");
+        Scanner in = new Scanner(System.in);
+        String command = in.nextLine();
+        System.out.println("COMMAND " + command);
+    }
+}'''
+
+[[lessons.exercises]]
+id = "s01-l05-e1"
+type = "mc"
+points = 15
+prompt = "The lesson calls <code>net.minecraft.item.Item</code> and <code>net.minecraft.block.Block</code> 'the old marks'. What are they, concretely?"
+choices = ["Java classes from Minecraft itself that you will read in IntelliJ", "Forge annotations you must put on your mod", "the names of your own mod's items and blocks", "Gradle build tasks"]
+answer = 0
+whyWrong = "They are Minecraft's own Java classes (the decompiled source you study); Forge annotations are things like @Mod, your mod's items are classes you write (ItemIngot), and Gradle tasks are build steps — none of those are the old marks."
+hint = "The old marks are the masters' stamps — code that already exists in the block-world."
+explain = "Minecraft is a Java program; net.minecraft.* are its packages. Reading them is the reconnaissance skill the requester asked for — taught from Forgework VI on."
+
+[[lessons.exercises]]
+id = "s01-l05-w1"
+type = "write"
+points = 30
+prompt = "Stand up the seed. It must print <code>IRONWRIGHT // forge ready</code>, then read one line from stdin (the engine pipes <code>forge iron</code>), then print <code>COMMAND forge iron</code> by joining <code>\"COMMAND \"</code> with the line it read. The greet line is already in the starter; you write the read and the echo."
+starter = '''import java.util.Scanner;
+
+public class Ironwright {
+    public static void main(String[] args) {
+        System.out.println("IRONWRIGHT // forge ready");
+        Scanner in = new Scanner(System.in);
+        // apprentice — read one line into a String, then print "COMMAND " + that line
+    }
+}'''
+expect = '''
+IRONWRIGHT // forge ready
+COMMAND forge iron'''
+hint = "String command = in.nextLine(); then System.out.println(\"COMMAND \" + command);"
+stdin = "forge iron"
+
+[[lessons.exercises]]
+id = "s01-l05-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the method that reads one whole line from the Scanner (you met it in the previous lesson — same tool, here in the seed)."
+code = '''Scanner in = new Scanner(System.in);
+String command = in.____();'''
+answer = "nextLine"
+whyWrong = "nextLine reads the whole line; next reads one word, nextInt reads a number, hasNextLine returns a boolean. A command like 'forge iron' has spaces, so you need the whole line."
+hint = "It is next plus the word for a line — the same call you used to read a command."
+
+[[lessons.exercises]]
+id = "s01-l05-t1"
+type = "text"
+points = 20
+prompt = "What must the file name be for a <code>public class Ironwright</code>? (Type the file name including the extension.)"
+answer = "Ironwright.java"
+hint = "Java's law: the public class's name, plus .java — exactly, case included."

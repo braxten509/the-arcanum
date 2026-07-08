@@ -1,0 +1,78 @@
+[[lessons]]
+id = "s05-l06"
+title = "The Adapter Artifact"
+body = '''
+<p>Five rites built toward one moment: <code>trainer.train()</code> completes, and the binder holds a trained adapter — the seam that shifts the vessel toward the artificer's voice. This final pre-evaluation rite teaches what that artifact actually is, how to preserve it, and how to check that it survived the bind intact before handing it to the proving rite ahead.</p>
+<p>The trained adapter is a small set of <strong>.safetensors</strong> files — one or two, depending on the checkpointing config — containing the learned A and B matrices for every targeted layer, plus a small <code>adapter_config.json</code> that records the <code>LoraConfig</code> that produced them. The whole directory is typically 10–100 MB for rank 8–32 on a 7B model — the same size the first rite's parameter math predicted. The saving is one call: <code>model.save_pretrained("./my-adapter")</code> on the PEFT-wrapped model, which writes the adapter weights (not the frozen base — those are never modified, so saving them would be a multi-gigabyte waste). Reloading is symmetrical: <code>PeftModel.from_pretrained(base_model, "./my-adapter")</code>, which reattaches the adapter to the same (or a newly loaded) frozen base.</p>
+<pre><code><span class="c"># After training completes — save the bind:</span>
+model.save_pretrained(<span class="s">"./my-adapter"</span>)
+tokenizer.save_pretrained(<span class="s">"./my-adapter"</span>)
+
+<span class="c"># Later — load the bind onto a fresh base:</span>
+<span class="k">from</span> peft <span class="k">import</span> PeftModel
+loaded = PeftModel.from_pretrained(base_model, <span class="s">"./my-adapter"</span>)
+
+<span class="c"># The adapter directory contains:</span>
+<span class="c">#   adapter_config.json   — r, alpha, target_modules, etc.</span>
+<span class="c">#   adapter_model.safetensors — the trained A and B matrices</span></code></pre>
+<p>The adapter can live in two states. <strong>Standalone</strong> (the default): the adapter weights sit alongside the frozen base, contributing their delta during every forward pass — fast to load, fast to swap (change adapters by swapping the safetensors directory, no base reload needed), and small on disk. <strong>Merged</strong>: <code>model.merge_and_unload()</code> folds the adapter's learned delta into the base weights themselves, producing a single, un-quantized model with no adapter layers — the adapter's correction is baked permanently into the weights. Merging is the path to the sealing rite ahead (which converts to GGUF for Ollama serving), because llama.cpp's converter reads full model weights, not PEFT adapter layers. The trade-off: a merged model is the full base size (~14 GB at 16-bit) and cannot be un-adapted — the correction is permanent.</p>
+<p>The sanity check before the proving rite evaluates the bind is a single generation call on a prompt the adapter should have learned. Load the adapter, run a simple <code>model.generate</code> on a prompt from the training set's own style (not an exact training record — that tests memorization, not learning), and read the output. It should sound approximately like the corpus — not word-for-word, not perfectly, but <em>in the right register</em>. If the output is indistinguishable from the frozen base, the adapter didn't learn — rank too low, alpha too weak, or the training run failed silently. If the output recites a training record verbatim, the adapter memorized — rank too high, epochs too many, or the learning rate too aggressive. The evaluation rite's job is to quantify these judgments; this check's job is to confirm the adapter is not dead on arrival before handing it to the quantifier.</p>
+<div class="callout">The <code>merge_and_unload</code> path produces a full-precision (float16/bfloat16) model — not a 4-bit one. The quantization that the third rite applied was only for training; after merging, the adapter's corrections are baked into full-precision weights, and the model must be re-quantized (the sealing rite's job) before it can be served efficiently. The memory-budget section's VRAM math applies at serving time too: a merged-but-unquantized 7B model at 16-bit needs ~14 GB just to load, leaving almost nothing for context — the GGUF conversion and re-quantization in the sealing rite are not optional steps.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ADAPTER VERSIONING — THE ARTIFACT YOU RE-TRAIN</div>
+<p>The tenth rite's automation depends on a convention the artificer establishes here: name the adapter directory after the training run's configuration, not the model. <code>./adapters/r16-a32-lr2e4-ep1</code> is a self-documenting name — it encodes the knobs the fourth rite taught, and a later re-run with a different config (say, <code>r32-a64-lr1e4-ep2</code>) produces a sibling directory rather than overwriting the first attempt. The date is secondary (a git tag handles chronology), but the config is primary — it is how the artificer answers "what made this adapter sound like that?" three months later, which is exactly the expert judgment the final rite demands.</p></div>
+'''
+body_words = 530
+
+[[lessons.exercises]]
+id = "s05-l06-e1"
+type = "mc"
+points = 20
+prompt = "Per this rite, what does <code>model.save_pretrained(\"./my-adapter\")</code> actually write to disk for a PEFT-wrapped QLoRA model?"
+choices = [
+  "The full 14 GB base model weights plus the adapter, stored as a single merged safetensors file — the same output as merge_and_unload()",
+  "The adapter weights serialized as a Python pickle file, which preserves the exact gradient state for resuming training later",
+  "Only the trained adapter weights (A and B matrices) and the adapter_config.json — the frozen base weights are never modified during training, so saving them would waste gigabytes for no gain",
+  "The tokenizer, the training arguments, and the loss log — but not the adapter weights themselves, which are stored in-memory only until the merge step",
+]
+answer = 2
+whyWrong = "save_pretrained on a PEFT model writes only the adapter (not the frozen base, which is unchanged — saving the base again would be ~14 GB of duplicate data). It writes safetensors (not pickle, which is a security risk the lesson explicitly notes), and it always includes the adapter weights — a PEFT model with no saved weights is a config file with nothing to load."
+hint = "The lesson says 'save_pretrained writes the adapter weights (not the frozen base — those are never modified, so saving them would be a multi-gigabyte waste).' The correct choice names the adapter-only safetensors output."
+explain = "The PEFT wrapper's save_pretrained is adapter-aware: it only serializes the trainable layers (A and B matrices + the config), skipping the frozen base entirely. The resulting directory is 10–100 MB, not 14 GB — exactly the delta the binding rite produced."
+
+[[lessons.exercises]]
+id = "s05-l06-e2"
+type = "text"
+points = 18
+prompt = "What PEFT class's <code>.from_pretrained()</code> method reattaches a saved adapter to a base model — the loading counterpart to <code>model.save_pretrained()</code>?"
+answer = "PeftModel"
+accept = ["peft.PeftModel", "PeftModel"]
+hint = "It's the class imported in the lesson's second code block — the one called with from_pretrained(base_model, './my-adapter')."
+
+[[lessons.exercises]]
+id = "s05-l06-e3"
+type = "fill"
+points = 20
+prompt = "Fill the missing method call from the lesson — the one that folds the adapter's learned delta into the base weights permanently, producing a single model with no adapter layers, which is the prerequisite for the GGUF conversion in the sealing rite ahead."
+code = '''from peft import PeftModel
+
+model = PeftModel.from_pretrained(base_model, "./my-adapter")
+merged = model.____()'''
+answer = "merge_and_unload"
+accept = ["merge_and_unload"]
+hint = "The lesson's 'Merged' paragraph names this method — the one that produces a full-precision model by baking the adapter correction into the base weights, as opposed to keeping them separate."
+
+[[lessons.exercises]]
+id = "s05-l06-e4"
+type = "write"
+points = 32
+prompt = "Given <code>adapter_params</code> (the number of trainable float16 parameters in the adapter) and <code>bytes_per_param = 2</code> (float16 = 2 bytes), compute the approximate safetensors file size in MB (1 MB = 1,000,000 bytes). Print <code>ADAPTER SIZE &lt;n&gt; MB</code> — computed from the variables, not hardcoded."
+starter = '''adapter_params = 524288  # from the first rite's parameter math
+bytes_per_param = 2       # float16 = 2 bytes per value
+
+# TODO: file_size_bytes = adapter_params * bytes_per_param
+# file_size_mb = file_size_bytes / 1_000_000
+# Print ADAPTER SIZE <file_size_mb> MB (round to 2 decimal places)
+print("ADAPTER SIZE 0.00 MB")
+'''
+expect = "ADAPTER SIZE 1.05 MB"
+hint = "file_size_bytes = 524288 * 2 = 1_048_576 bytes. file_size_mb = 1_048_576 / 1_000_000 ≈ 1.0486, which rounds to 1.05 MB. Use f'ADAPTER SIZE {file_size_mb:.2f} MB'."

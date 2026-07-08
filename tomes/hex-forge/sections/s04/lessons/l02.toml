@@ -1,0 +1,120 @@
+[[lessons]]
+id = "s04-l02"
+title = "Touching the Ore — Addressing Modes"
+body = '''
+<p>A register holds a value. Memory holds many values, each at a numbered slot — an address. To touch memory, you must tell the CPU which slot and how wide the touch. NASM's addressing syntax is the tongs that grip the ore.</p>
+
+<p><strong>Direct addressing</strong> — the address is a label known at assembly time:</p>
+<pre><code><span class="k">mov</span> rax, [my_var]       <span class="c">; load 8 bytes from address my_var into rax</span>
+<span class="k">mov</span> [my_var], rcx       <span class="c">; store 8 bytes from rcx into my_var</span>
+<span class="k">mov</span> al, [my_var]        <span class="c">; load 1 byte (size implied by al)</span></code></pre>
+
+<p>The square brackets <code>[]</code> mean "the contents of memory at." Without brackets, you get the address itself (a constant). With brackets, you get the value stored there.</p>
+
+<p><strong>Indirect addressing</strong> — the address lives in a register:</p>
+<pre><code><span class="k">mov</span> rsi, buffer        <span class="c">; rsi = address of buffer</span>
+<span class="k">mov</span> al, [rsi]          <span class="c">; load byte at address in rsi</span>
+<span class="k">mov</span> [rsi], cl          <span class="c">; store byte at address in rsi</span></code></pre>
+
+<p>This is how you walk a buffer — keep the address in a register and increment it to move forward. It is also how <code>sys_write</code> finds your string: <code>mov rsi, msg</code> puts the address into rsi, and the kernel reads bytes starting from <code>[rsi]</code>.</p>
+
+<p><strong>Indexed addressing</strong> — base register + index register, each optionally scaled:</p>
+<pre><code><span class="k">mov</span> al, [rbx + rcx]         <span class="c">; byte at address rbx + rcx</span>
+<span class="k">mov</span> rax, [buffer + rcx*8]   <span class="c">; 8-byte element at index rcx (rcx * 8 offset from buffer)</span>
+<span class="k">mov</span> dx, [rsi + rcx*2]       <span class="c">; 2-byte word at rsi + rcx*2</span></code></pre>
+
+<p>The scale factor can be 1, 2, 4, or 8 — matching the element size. This is the CPU's built-in array indexing: <code>[base + index*scale]</code> computes the effective address in one instruction with no extra arithmetic.</p>
+
+<p><strong>Displacement addressing</strong> — a fixed offset added to a register:</p>
+<pre><code><span class="k">mov</span> al, [rsi + 5]       <span class="c">; byte at rsi + 5 (skip 5 bytes)</span>
+<span class="k">mov</span> rax, [rbp - 8]      <span class="c">; 8 bytes at rbp - 8 (common in stack frame access)</span></code></pre>
+
+<p>All forms combine: <code>[base + index*scale + displacement]</code> is a single addressing mode the CPU computes in the address-generation stage, adding zero latency to the instruction:</p>
+<pre><code><span class="k">mov</span> al, [rsi + rcx*1 + 16]   <span class="c">; byte at offset rcx + 16 from rsi</span></code></pre>
+
+<p>The <code>lea</code> (Load Effective Address) instruction computes an address WITHOUT touching memory — it just does the arithmetic and stores the result in a register:</p>
+<pre><code><span class="k">lea</span> rax, [rbx + rcx*4]     <span class="c">; rax = rbx + rcx*4 — pure arithmetic, no load</span>
+<span class="k">lea</span> rsi, [buffer + 8]      <span class="c">; rsi = address of buffer + 8</span></code></pre>
+
+<p><code>lea</code> is often used for fast multiply-and-add — <code>lea rax, [rax + rax*4]</code> computes <code>rax * 5</code> in one instruction without touching the multiplier circuit.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SIZE AMBIGUITY AND OPERAND-SIZE OVERRIDES</div>
+<p>When the assembler cannot infer the operand size from the registers, you must specify it: <code>mov byte [rsi], 0</code>, <code>mov word [rsi], 0</code>, <code>mov dword [rsi], 0</code>, <code>mov qword [rsi], 0</code>. The <code>inc byte [rsi]</code> pattern also needs the size. If NASM errors with "operation size not specified," add the size keyword. This occurs most often with memory-to-immediate moves where the destination is just a bare address with no register to imply width.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s04-l02-e1"
+type = "mc"
+points = 15
+prompt = "What is the difference between <code>mov rax, buffer</code> and <code>mov rax, [buffer]</code>?"
+choices = [
+  "mov rax, buffer loads the address of buffer; mov rax, [buffer] loads the 8-byte VALUE stored at that address",
+  "Both load the same thing — the brackets are optional in NASM",
+  "mov rax, buffer loads 8 bytes from memory; mov rax, [buffer] loads only 1 byte",
+  "mov rax, buffer is illegal — NASM requires brackets for all memory accesses"
+]
+answer = 0
+whyWrong = "Without brackets, buffer is treated as an immediate constant — its address. With brackets, the CPU reads 8 bytes from that address. Both are legal NASM; the distinction is load-bearing. In Intel syntax (NASM), brackets always mean 'dereference.'"
+hint = "Brackets in NASM mean 'contents of memory at this address.' Without them, you get the address itself."
+explain = "<code>mov rax, buffer</code> loads the constant address of the label buffer into rax — e.g. 0x402000. <code>mov rax, [buffer]</code> tells the CPU to read 8 bytes starting at that address — the VALUE stored there. One gives you the pointer, the other gives you the pointee."
+
+[[lessons.exercises]]
+id = "s04-l02-e2"
+type = "fill"
+points = 20
+prompt = "Complete the indexed load. Load a byte from buffer at offset rcx — rcx is the index."
+code = '''
+mov  rsi, buffer
+mov  al, [rsi ____ ____]     ; load byte at buffer[rcx]
+'''
+answer = "+ rcx"
+accept = ["+rcx", "+ rcx*1"]
+hint = "Plus-sign, then the index register. The scale defaults to 1 for byte addressing."
+explain = "<code>[rsi + rcx]</code> computes the effective address rsi + rcx and loads one byte (implied by the 8-bit destination <code>al</code>). This is equivalent to <code>buffer[rcx]</code> in C."
+
+[[lessons.exercises]]
+id = "s04-l02-e3"
+type = "type"
+points = 12
+prompt = "Retype these addressing forms. Each line exercises a different addressing mode."
+code = '''
+mov  al, [buffer]            ; direct
+mov  al, [rsi]               ; indirect
+mov  al, [rsi + 4]           ; indirect + displacement
+mov  al, [rsi + rcx]         ; indexed (scale 1)
+mov  al, [rsi + rcx*2]       ; indexed with scale 2
+mov  al, [rsi + rcx*2 + 8]   ; indexed + displacement
+lea  rax, [rsi + rcx*4]      ; load effective address (no memory touch)
+'''
+
+[[lessons.exercises]]
+id = "s04-l02-w1"
+type = "write"
+points = 30
+prompt = "Sum bytes at offsets. A small array of five bytes sits in <code>.data</code>: 10, 20, 30, 40, 50. Compute the sum of ALL five bytes using a loop with indexed addressing (<code>[rsi + rcx]</code>). Print the total (150) using itoa. Use <code>movzx</code> for byte loads — the bytes are unsigned values."
+starter = '''
+section .text
+    global _start
+
+_start:
+    mov rsi, array
+    xor rcx, rcx          ; index
+    xor rax, rax          ; accumulator for sum
+.loop:
+    movzx rdx, byte [rsi + rcx]   ; load byte at offset rcx
+    add rax, rdx
+    inc rcx
+    cmp rcx, 5
+    jne .loop              ; rcx < 5 → continue
+
+    ; rax = 150. Use itoa to convert and print.
+    
+
+section .data
+array: db 10, 20, 30, 40, 50
+outbuf: times 10 db 0
+newline: db 10
+'''
+expect = '''
+150'''
+hint = "The loop adds bytes at array[0] through array[4]. After 5 iterations rax=150. itoa: xor ecx,ecx / mov ebx,10 / .cvt: xor edx,edx / div ebx / add dl,'0' / push rdx / inc ecx / test eax,eax / jnz .cvt. Then pop digits into outbuf and print."

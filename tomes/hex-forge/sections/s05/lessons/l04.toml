@@ -1,0 +1,138 @@
+[[lessons]]
+id = "s05-l04"
+title = "The Frame — Stack Frames with rbp"
+body = '''
+<p>A single push/pop saves one register. A procedure that needs several local variables — a buffer, a saved return value, two counters — needs a systematic way to allocate and address stack space. The <strong>stack frame</strong> is that system, anchored by the <strong>base pointer</strong> rbp.</p>
+
+<p>The pattern: at procedure entry, save the caller's rbp, set rbp to the current rsp, then subtract from rsp to make room for locals. At exit, restore rsp from rbp, then pop rbp:</p>
+
+<pre><code>my_proc:
+    <span class="k">push</span> rbp                <span class="c">; save caller's frame pointer</span>
+    <span class="k">mov</span> rbp, rsp            <span class="c">; establish our frame — rbp = base</span>
+    <span class="k">sub</span> rsp, 32             <span class="c">; allocate 32 bytes of local storage</span>
+
+    <span class="c">; Access locals at negative offsets from rbp:</span>
+    <span class="k">mov</span> <span class="k">qword</span> [rbp - 8], rax   <span class="c">; local var at rbp-8 (8 bytes)</span>
+    <span class="k">mov</span> <span class="k">qword</span> [rbp - 16], rbx  <span class="c">; local var at rbp-16</span>
+    <span class="k">mov</span> <span class="k">byte</span> [rbp - 17], 0     <span class="c">; a single byte local at rbp-17</span>
+
+    <span class="c">; Access incoming arguments at positive offsets from rbp:</span>
+    <span class="c">; (arguments beyond the 6th are on the stack above the return address)</span>
+    <span class="k">mov</span> rax, [rbp + 16]     <span class="c">; 7th argument (if any)</span>
+
+    <span class="c">; Epilogue</span>
+    <span class="k">mov</span> rsp, rbp            <span class="c">; deallocate locals — restore rsp</span>
+    <span class="k">pop</span> rbp                 <span class="c">; restore caller's frame pointer</span>
+    <span class="k">ret</span></code></pre>
+
+<p>After <code>mov rbp, rsp</code>, the frame looks like this (stack grows downward):</p>
+<pre><code>Higher addresses ↑
+[rbp + 16]    — 7th+ arguments (beyond the 6 register args)
+[rbp + 8]     — return address (pushed by call)
+[rbp]         — saved caller's rbp (pushed by push rbp)
+[rbp - 8]     — first local variable
+[rbp - 16]    — second local variable
+...
+[rsp]         — current stack top (after sub rsp, N)
+Lower addresses ↓</code></pre>
+
+<p>For HexForge, the full frame setup is often unnecessary — most procedures use at most two or three registers and don't need local variables beyond what registers can hold. But the frame discipline becomes essential in the orchestration chapter (s08), where the dump-line formatter needs buffer space for hex characters and must preserve state across nested calls.</p>
+
+<p>Simpler alternative — the <strong>leaf procedure</strong> that uses only caller-saved registers and needs no frame:</p>
+<pre><code><span class="c">; No push rbp, no sub rsp — this procedure is a leaf</span>
+simple_proc:
+    <span class="k">mov</span> rax, rdi
+    <span class="k">add</span> rax, rsi
+    <span class="k">ret</span></code></pre>
+
+<p>Know both patterns. Use a frame when you need local stack storage or call other procedures. Skip it when you don't — fewer instructions, less scale.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ENTER AND LEAVE — THE FORGOTTEN INSTRUCTIONS</div>
+<p>x86 has <code>enter</code> and <code>leave</code> instructions that set up and tear down stack frames in one line. <code>enter 32, 0</code> is equivalent to <code>push rbp; mov rbp, rsp; sub rsp, 32</code>. <code>leave</code> is <code>mov rsp, rbp; pop rbp</code>. On modern CPUs, <code>enter</code> is microcoded and SLOWER than the manual sequence — sometimes by a factor of 10 on deeply pipelined cores. <code>leave</code> is fine. Vandr uses the manual prologue/epilogue in performance-sensitive code and only tolerates <code>enter</code> in code-size-constrained environments (boot sectors, shellcode). For HexForge: manual prologue, <code>leave</code> or manual epilogue — both are acceptable.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s05-l04-e1"
+type = "mc"
+points = 15
+prompt = "In a standard stack frame, where does the return address sit relative to rbp after the prologue (push rbp / mov rbp, rsp)?"
+choices = [
+  "At [rbp] — it's the first thing pushed after the frame is set up",
+  "At [rbp + 8] — call pushed it before push rbp, so it's 8 bytes above the saved rbp",
+  "At [rbp - 8] — it's below the frame pointer in stack space",
+  "In rax — the return address is passed by register, not the stack"
+]
+answer = 1
+whyWrong = "The sequence is: call pushes return address (at [rsp]), then push rbp saves the old frame pointer (at [rsp], return address now at [rsp+8]), then mov rbp,rsp sets rbp to point to the saved old rbp. So: [rbp] = old rbp, [rbp+8] = return address."
+hint = "Trace the stack: call pushes return addr, push rbp pushes old frame ptr. rbp = rsp after push rbp. Where's the return address?"
+explain = "After <code>call</code>, [rsp] = return address. After <code>push rbp</code>, [rsp] = old rbp, [rsp+8] = return address. After <code>mov rbp, rsp</code>, [rbp] = old rbp, [rbp+8] = return address. Arguments beyond the 6th would be at [rbp+16] and above."
+
+[[lessons.exercises]]
+id = "s05-l04-e2"
+type = "fill"
+points = 20
+prompt = "Complete the prologue that establishes a stack frame. Save the old base pointer and set rbp."
+code = '''
+my_proc:
+    ____ rbp            ; save caller's frame pointer
+    mov  rbp, rsp       ; establish our frame
+    sub  rsp, 16        ; room for two local qwords
+'''
+answer = "push"
+hint = "Four letters — the instruction that saves a register on the stack."
+explain = "<code>push rbp</code> saves the caller's base pointer on the stack at [rsp-8] and decrements rsp. Then <code>mov rbp, rsp</code> sets rbp to point to this saved value. This is the standard System V prologue for non-leaf procedures."
+
+[[lessons.exercises]]
+id = "s05-l04-e3"
+type = "type"
+points = 12
+prompt = "Retype the full stack-frame lifecycle: prologue, use, epilogue."
+code = '''
+my_proc:
+    push rbp
+    mov  rbp, rsp
+    sub  rsp, 24          ; 24 bytes of locals
+
+    mov  qword [rbp - 8], 42   ; local var 1
+    mov  qword [rbp - 16], 99  ; local var 2
+
+    mov  rsp, rbp          ; deallocate locals
+    pop  rbp               ; restore caller's frame
+    ret
+'''
+reps = 1
+
+[[lessons.exercises]]
+id = "s05-l04-w1"
+type = "write"
+points = 30
+prompt = "Use a stack frame for local storage. Write a procedure <code>sum_and_product</code> that takes two arguments (a in rdi, b in rsi). Compute a+b (store as local) and a*b (store as local). Then load both locals into rax and rdx, add them together, and return the grand total in rax. Call with a=7, b=5. (7+5=12, 7*5=35, 12+35=47). Print 47. You must use a proper stack frame with push rbp / mov rbp,rsp / sub rsp for locals."
+starter = '''
+section .text
+    global _start
+
+_start:
+    mov rdi, 7
+    mov rsi, 5
+    call sum_and_product
+    ; rax = 47. Print with itoa.
+    
+
+sum_and_product:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 16           ; two qword locals
+    ; Compute a+b, store at [rbp-8]
+    ; Compute a*b, store at [rbp-16]
+    ; Load both, add, return in rax
+    mov rsp, rbp
+    pop rbp
+    ret
+
+section .data
+newline: db 10
+outbuf: times 20 db 0
+'''
+expect = '''
+47'''
+hint = "sum_and_product body: mov rax, rdi / add rax, rsi / mov [rbp-8], rax (sum=12). mov rax, rdi / imul rax, rsi / mov [rbp-16], rax (product=35). mov rax, [rbp-8] / add rax, [rbp-16] (12+35=47). ret returns rax=47. Then itoa and print."

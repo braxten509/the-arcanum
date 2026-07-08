@@ -1,0 +1,72 @@
+[[lessons]]
+id = "s02-l01"
+title = "The First Breath"
+body = '''
+<p>The bench from the last rite proved the metal works. This rite proves something different: that a vessel — a model — can actually be summoned into it and made to answer. Waking a model is not a single click; it is a chain of its own, and the fastest link to pull first is <strong>Ollama</strong>, the serving tool your last rite already installed to load a <code>Modelfile</code> and speak GGUF.</p>
+<p>Two commands do almost everything at this stage. <code>ollama pull &lt;name&gt;</code> fetches a model's GGUF weights and its <code>Modelfile</code> from Ollama's own registry and stores them locally — no chat happens yet. <code>ollama run &lt;name&gt;</code> pulls first if the weights aren't already local, then drops you into an interactive chat loop against that vessel. The distinction matters once you start scripting: a build step should <code>pull</code> explicitly and fail loudly if the download breaks, rather than silently blocking the first <code>run</code> a user tries.</p>
+<pre><code><span class="k">ollama</span> pull llama3.1
+<span class="k">ollama</span> run llama3.1</code></pre>
+<p>Once a model is local, <code>ollama list</code> shows every vessel currently bound to your machine — name, size on disk, and how long since it was last touched. Read that list like a ledger, not a curiosity: each entry is disk space and, later, a candidate base for your own fine-tune. A name with no tag after the colon defaults to whatever Ollama's library calls its primary build for that family — usually the instruction-tuned one, a distinction the next rite digs into properly.</p>
+<p>This is deliberately the shallow end. You are not yet asking whether the answer was any good, or whether the sampling settings were sane, or whether the chat template was honored — those are the next three rites. Right now the only question is whether the chain from registry to local GGUF to a running local process actually completes, end to end, on your own bench.</p>
+<div class="callout">A model that never finished downloading and a model that downloaded but won't load are two different failures with two different fixes — <code>ollama list</code> tells you which one you're looking at before you start guessing.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE REGISTRY IS NOT THE ONLY SOURCE</div>
+<p>Ollama's own registry is the fast path, but it is not the only source of vessels — Hugging Face hosts the far larger catalog, including bases with no Ollama listing at all. Later rites pull straight from Hugging Face with <code>transformers</code> when a fine-tune needs a model Ollama's library doesn't carry, and convert the result back to GGUF yourself with the llama.cpp tooling this course already installed. Treat Ollama's registry as a curated convenience, not the whole territory.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Ollama quickstart"
+url = "https://docs.ollama.com/quickstart"
+
+[[lessons.exercises]]
+id = "s02-l01-e1"
+type = "mc"
+points = 15
+prompt = "What is the actual difference between <code>ollama pull llama3.1</code> and <code>ollama run llama3.1</code> on a machine with nothing local yet?"
+choices = [
+  "pull only checks the registry for updates; run is required to download anything at all",
+  "pull downloads the weights and Modelfile and stops there; run downloads them too if missing, then opens an interactive chat",
+  "pull and run are identical aliases for the same download-and-chat operation",
+  "pull downloads the GGUF; run separately re-quantizes it before chatting",
+]
+answer = 1
+whyWrong = "They are not identical — run adds an interactive chat loop pull never opens on its own, and pull does not silently do nothing if the weights aren't cached; it fetches them."
+explain = "pull is the fetch-only step, useful in a build script that wants to fail loudly on a broken download; run folds a pull-if-missing into the start of an interactive session, which is convenient by hand but hides a failed fetch behind the chat prompt."
+
+[[lessons.exercises]]
+id = "s02-l01-e2"
+type = "text"
+points = 15
+prompt = "Which Ollama command lists every model currently bound locally to your machine, with its size and last-used time?"
+answer = "ollama list"
+accept = ["ollama list"]
+hint = "It's the ledger command named directly in the lesson, right after the pull/run pair."
+
+[[lessons.exercises]]
+id = "s02-l01-e3"
+type = "fill"
+points = 20
+prompt = "Fill the missing command from the two-line sequence shown in the lesson that fetches a model, then opens a chat against it."
+code = '''ollama ____ llama3.1
+ollama run llama3.1'''
+answer = "pull"
+hint = "It's the fetch-only step that stores the GGUF and Modelfile locally without opening a chat."
+
+[[lessons.exercises]]
+id = "s02-l01-e4"
+type = "write"
+points = 30
+prompt = "A local registry ledger holds four models as (name, size_gb) tuples. Count how many have <code>instruct</code> in their name and print exactly: <code>INSTRUCT COUNT: 2</code> — computed from the data, not hardcoded."
+starter = '''models = [
+    ("llama3.1:8b-instruct-q4_0", 4.7),
+    ("llama3.1:8b-text-q4_0", 4.7),
+    ("gemma2:9b-instruct-q4_0", 5.4),
+    ("mistral:7b", 4.1),
+]
+
+# TODO: count how many names in `models` contain "instruct", then print:
+#   INSTRUCT COUNT: <count>
+count = 0
+print(f"INSTRUCT COUNT: {count}")
+'''
+expect = "INSTRUCT COUNT: 2"
+hint = "Loop over `models`, check `\"instruct\" in name` on each tuple's first element, and tally the matches."

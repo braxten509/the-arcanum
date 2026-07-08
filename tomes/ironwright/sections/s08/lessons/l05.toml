@@ -1,0 +1,80 @@
+[[lessons]]
+id = "s08-l05"
+title = "Reading Item to Choose Overrides — Reconnaissance"
+body = '''
+<p>What should your <code>ItemIngot</code> override on <code>Item</code>? The answer is in the old marks. Open <code>net.minecraft.item.Item</code> in IntelliJ (Go to Class, type <code>Item</code>) and read its methods with the smith-wright's eye: the <strong>Structure</strong> pane lists them; <strong>Find Usages</strong> on any one shows how the game itself calls it.</p>
+<p>Common overrides for a custom item:</p>
+<ul>
+<li><code>getItemStackLimit()</code> — the max stack size (default 64; an ingot might cap at 16).</li>
+<li><code>addInformation(ItemStack, World, List&lt;String&gt;, ITooltipFlag)</code> — the tooltip lines (add "worth 8 embers" under the name).</li>
+<li><code>onItemRightClick(World, EntityPlayer, EnumHand)</code> — what happens when the player right-clicks (Forgework XI territory).</li>
+<li><code>getRarity(ItemStack)</code> — the name colour (white, yellow, etc.).</li>
+</ul>
+<p>For each one you override, copy the parent's signature exactly — open Item, read the method line, paste it into <code>ItemIngot</code>, mark it <code>@Override</code>, and write the new body. The compiler checks the signature against the parent; <code>@Override</code> turns a mistype into a clear error instead of a silent overload. Never guess a signature from memory; the old marks are the source.</p>
+<p>This is the reconnaissance the requester asked for — the skill that lets you teach yourself the next feature. Every method you consider begins with "open the parent, read the method". The four tools (Go to Class, Find Usages, Search Everywhere, Structure) are the smith-wright's eye; from here on you use them in every forgework.</p>
+<div class="callout"><strong>Orrick says:</strong> Before you override, ask Find Usages "where does the game call this?" A method the game never calls is not worth overriding. A method it calls in twenty places is load-bearing — override carefully, and call <code>super</code> if you only want to add to the behaviour.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // super IN OVERRIDES</div>
+<p>When you override to <em>add</em> behaviour (a tooltip, a sound) rather than replace it, call <code>super.addInformation(...)</code> first, then append to the list the parent filled. When you override to <em>replace</em> (a stack limit of 16 instead of 64), do not call super — you return your own value. The choice between "add" and "replace" is the smith's; the parent's source (and Find Usages) tells you which the game expects.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s08-l05-e1"
+type = "mc"
+points = 15
+prompt = "You want to list every method on <code>net.minecraft.item.Item</code> before deciding which to override on <code>ItemIngot</code>. Which IntelliJ pane shows them without scrolling the class body?"
+choices = ["the Structure pane", "Find Usages", "the Run window", "the Project pane"]
+answer = 0
+whyWrong = "The Structure pane lists the open class's fields and methods as a compact list; Find Usages shows callers of one member, the Run window shows runtime output, and the Project pane shows the file tree. To scan a class's methods, open Structure."
+hint = "It is the pane named for a class's layout — the one that lists fields and methods of the open class."
+explain = "Structure pane: a class's members as a list. Scan it to choose overrides without scrolling Item's whole body."
+
+[[lessons.exercises]]
+id = "s08-l05-t1"
+type = "text"
+points = 20
+prompt = "Type the Item method you would override to cap an ingot's stack size at 16 instead of the default 64. (Method name only, no parameters.)"
+answer = "getItemStackLimit"
+hint = "It is get + Item + Stack + Limit — the method Item defines for the max stack size."
+
+[[lessons.exercises]]
+id = "s08-l05-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the annotation that checks your override's signature matches the parent Item method — so a mistyped name becomes a compile error, not a silent overload."
+code = '''____
+public int getItemStackLimit() { return 16; }'''
+answer = "@Override"
+whyWrong = "@Override checks the signature against a parent method; @SubscribeEvent is for event handlers, @EventHandler is the legacy lifecycle annotation, @SideOnly marks side. The override-checking annotation is @Override."
+hint = "It is the eight-character @ annotation named for replacing a parent method — the same one you used on toString in Forgework IV."
+
+[[lessons.exercises]]
+id = "s08-l05-e2"
+type = "mc"
+points = 15
+prompt = "You override <code>addInformation</code> to ADD a tooltip line under the name, not replace the parent's tooltip. What must your override do?"
+choices = ["return a new list", "call super.addInformation(...) first, then append to the list the parent filled", "do not call super and return your own list", "call setUnlocalizedName"]
+answer = 1
+whyWrong = "To add to behaviour, call super.addInformation(...) first so the parent's lines land in the list, then append yours; returning a new list or skipping super would discard the parent's tooltip, and setUnlocalizedName is about names not tooltips. Add means super first."
+hint = "Add means keep the parent's work — so call which method first, then append?"
+explain = "Call super.addInformation(...) to let the parent fill the list, then add your line. Skipping super replaces; calling super adds. The parent's source shows which the game expects."
+
+[[lessons.exercises]]
+id = "s08-l05-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of overriding a reconnoitred method. The starter has a mock <code>Item</code> with <code>getMaxStackSize()</code> returning 64, and an <code>ItemIngot extends Item</code> with no override. Add an <code>@Override</code> <code>getMaxStackSize()</code> to <code>ItemIngot</code> returning <code>16</code>, then in <code>main</code> construct <code>ItemIngot ingot = new ItemIngot();</code> and print <code>STACK </code> plus <code>ingot.getMaxStackSize()</code>. The expected output is exactly <code>STACK 16</code>."
+starter = '''public class Ironwright {
+    static class Item {
+        public int getMaxStackSize() { return 64; }
+    }
+    static class ItemIngot extends Item {
+        // apprentice — @Override getMaxStackSize to return 16
+    }
+
+    public static void main(String[] args) {
+        // apprentice — construct an ItemIngot, print "STACK " + its getMaxStackSize()
+    }
+}'''
+expect = '''
+STACK 16'''
+hint = "In ItemIngot: @Override public int getMaxStackSize() { return 16; }. In main: ItemIngot ingot = new ItemIngot(); System.out.println(\"STACK \" + ingot.getMaxStackSize());"

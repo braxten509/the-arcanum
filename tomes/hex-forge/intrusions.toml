@@ -1,0 +1,355 @@
+# HEX-DEFENSE intrusion bank for hex-forge.
+# Voice: Foreman Vandr. Tiers gate by `min` (sections passed) and pick one
+# challenge from `pool`, scoring by exact stdout `expect`. Author here, not in
+# tome.toml — the engine folds `tiers` back into progression.intrusionTiers.
+
+[[tiers]]
+min = 0
+time = 90
+bounty = 50
+
+[[tiers.pool]]
+t = "COLD ANVIL"
+brief = "A rival slab sits cold on the bench. Strike one clean mark through sys_write and leave by sys_exit."
+starter = '''
+section .data
+mark: db "CRUCIBLE OPEN", 10   ; print exactly: CRUCIBLE OPEN
+mlen equ $-mark
+section .text
+    global _start
+_start:
+    ; dress the anvil: rax=1 rdi=1 rsi=&mark rdx=mlen, syscall, then exit
+'''
+expect = "CRUCIBLE OPEN"
+
+[[tiers.pool]]
+t = "TALLY STAMP"
+brief = "The foreman's bench keeps a tally. Stamp the first ingot count through the air-gate."
+starter = '''
+section .data
+stamp: db "INGOT 0", 10       ; print exactly: INGOT 0
+slen equ $-stamp
+section .text
+    global _start
+_start:
+    ; write the stamp, then exit clean
+'''
+expect = "INGOT 0"
+
+[[tiers.pool]]
+t = "SPARK GATE"
+brief = "The first heat is the cheapest. Light the forge with one fixed spark of text."
+starter = '''
+section .data
+spark: db "FORGE LIT", 10     ; print exactly: FORGE LIT
+klen equ $-spark
+section .text
+    global _start
+_start:
+    ; one sys_write, one sys_exit — no more
+'''
+expect = "FORGE LIT"
+
+[[tiers]]
+min = 1
+time = 90
+bounty = 60
+
+[[tiers.pool]]
+t = "ORE COUNT"
+brief = "Two ore heaps wait on the bench. Add them as alloy and print SUM <total>."
+starter = '''
+section .data
+a equ 37   ; first heap
+b equ 29   ; second heap
+pre: db "SUM "            ; print exactly: SUM 66  (a+b, computed)
+plen equ $-pre
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; print "SUM ", then a+b as decimal, then newline
+'''
+expect = "SUM 66"
+
+[[tiers.pool]]
+t = "THE ALLOY"
+brief = "Forge two ingots into one. Multiply the weighs and print PROD <product>."
+starter = '''
+section .data
+a equ 12   ; first ingot
+b equ 12   ; second ingot
+pre: db "PROD "          ; print exactly: PROD 144  (a*b, computed)
+plen equ $-pre
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; print "PROD ", then a*b, then newline
+'''
+expect = "PROD 144"
+
+[[tiers.pool]]
+t = "SCALE WEIGHT"
+brief = "Two slabs on the scale; one is heavier. Subtract and print DIFF <result>."
+starter = '''
+section .data
+a equ 200   ; heavier slab
+b equ 7     ; lighter slab
+pre: db "DIFF "         ; print exactly: DIFF 193  (a-b, computed)
+plen equ $-pre
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; print "DIFF ", then a-b, then newline
+'''
+expect = "DIFF 193"
+
+[[tiers]]
+min = 2
+time = 90
+bounty = 75
+
+[[tiers.pool]]
+t = "THE BELL"
+brief = "The bell swings n times. Loop from 1 to n and print BELL <i> each strike."
+starter = '''
+section .data
+n equ 5                 ; print exactly:
+pre: db "BELL "         ;   BELL 1 / BELL 2 / BELL 3 / BELL 4 / BELL 5
+plen equ $-pre
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; r12 = counter 1..n, loop and print each
+'''
+expect = '''
+BELL 1
+BELL 2
+BELL 3
+BELL 4
+BELL 5'''
+
+[[tiers.pool]]
+t = "GATE OR SHUT"
+brief = "A gauge reads v. Open the gate if v is at least 40, else shut it."
+starter = '''
+section .data
+v equ 42                ; print exactly: OPEN   (v >= 40 ? OPEN : SHUT)
+open: db "OPEN", 10
+shut: db "SHUT", 10
+section .text
+    global _start
+_start:
+    ; cmp v, 40 ; jump to the right label
+'''
+expect = "OPEN"
+
+[[tiers.pool]]
+t = "DOWSE TO TEN"
+brief = "Count the dowsing strikes down from n to 1. Print DOWSE <i> each pass."
+starter = '''
+section .data
+n equ 4                 ; print exactly:
+pre: db "DOWSE "        ;   DOWSE 4 / DOWSE 3 / DOWSE 2 / DOWSE 1
+plen equ $-pre
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; r12 = n ; loop while r12 >= 1 ; print ; dec
+'''
+expect = '''
+DOWSE 4
+DOWSE 3
+DOWSE 2
+DOWSE 1'''
+
+[[tiers]]
+min = 3
+time = 90
+bounty = 90
+
+[[tiers.pool]]
+t = "ORE SAMPLE"
+brief = "A sample of ore bytes sits in .data. Sum every byte and print SUM <total>."
+starter = '''
+section .data
+ore: db 8, 4, 2         ; print exactly: SUM 14   (sum of bytes, computed)
+olen equ $-ore
+pre: db "SUM "
+plen equ $-pre
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; rbx = 0 sum ; rsi = ore ; loop olen bytes adding each byte
+'''
+expect = "SUM 14"
+
+[[tiers.pool]]
+t = "HIGH ORE"
+brief = "Grade each ore byte and keep the richest. Print MAX <highest>."
+starter = '''
+section .data
+ore: db 3, 9, 6, 2      ; print exactly: MAX 9    (max byte, computed)
+olen equ $-ore
+pre: db "MAX "
+plen equ $-pre
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; rbx = max ; walk ore ; cmp each byte, keep greater
+'''
+expect = "MAX 9"
+
+[[tiers.pool]]
+t = "BYTE COUNT"
+brief = "An unmarked run of bytes lies on the bench. Count them by address and print N <count>."
+starter = '''
+section .data
+run: db 1, 1, 1, 1, 1   ; print exactly: N 5   (byte count, computed)
+rlen equ $-run
+pre: db "N "
+plen equ $-pre
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; walk the run pointer to run+rlen, counting bytes
+'''
+expect = "N 5"
+
+[[tiers]]
+min = 5
+time = 90
+bounty = 110
+
+[[tiers.pool]]
+t = "THE GUTTER"
+brief = "Dress a byte run for the ASCII gutter: print each byte, controls as a dot."
+starter = '''
+section .data
+row: db 72, 73, 33, 10  ; print exactly: HI!.   (H I ! .)
+rlen equ $-row
+section .bss
+gut: resb 32
+section .text
+    global _start
+_start:
+    ; for each byte: if 32..126 print it else '.' ; write gut then newline
+'''
+expect = "HI!."
+
+[[tiers.pool]]
+t = "PRINTABLE?"
+brief = "A rival slips slag among the ore. Print only the printable bytes as a string."
+starter = '''
+section .data
+row: db 65, 31, 122, 7, 90  ; print exactly: AzZ   (keep only 32..126)
+rlen equ $-row
+section .bss
+out: resb 32
+section .text
+    global _start
+_start:
+    ; walk row ; copy printable bytes into out ; print them + newline
+'''
+expect = "AzZ"
+
+[[tiers.pool]]
+t = "STRING LEN"
+brief = "A string ends at a null tally. Walk it and print LEN <length>."
+starter = '''
+section .data
+s: db "anvil", 0        ; print exactly: LEN 5   (strlen, computed)
+pre: db "LEN "
+plen equ $-pre
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; walk s until byte 0 ; count ; print "LEN " + count
+'''
+expect = "LEN 5"
+
+[[tiers]]
+min = 7
+time = 90
+bounty = 140
+
+[[tiers.pool]]
+t = "HEX STAMP"
+brief = "Strike one ore byte into two hex digits. Print the byte's hex mark, lower-case."
+starter = '''
+section .data
+ore: db 0x3c            ; print exactly: 3c   (lower-case hex of the byte)
+section .bss
+hexc: resb 2
+nl_c: db 10
+section .text
+    global _start
+_start:
+    ; load ore, split two nibbles, map 0-9/a-f, write
+'''
+expect = "3c"
+
+[[tiers.pool]]
+t = "OFFSET MARK"
+brief = "Every dump line begins with an offset. Print the value as eight hex digits."
+starter = '''
+section .data
+off equ 255             ; print exactly: 000000ff   (8-digit lower-case hex)
+section .bss
+hexbuf: resb 8
+nl_c: db 10
+section .text
+    global _start
+_start:
+    ; roll nibbles off rax, map each, write into hexbuf, then print
+'''
+expect = "000000ff"
+
+[[tiers.pool]]
+t = "GUTTER MARK"
+brief = "Print the ASCII gutter of a byte run: printable bytes as-is, controls as a dot."
+starter = '''
+section .data
+row: db 0x41, 0x07, 0x42   ; print exactly: A.B   (A .  B)
+rlen equ $-row
+section .bss
+gut: resb 32
+section .text
+    global _start
+_start:
+    ; classify each byte 32..126 printable else '.' ; print gut + newline
+'''
+expect = "A.B"
+

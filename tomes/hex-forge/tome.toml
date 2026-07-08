@@ -1,0 +1,91 @@
+# ARCANUM tome manifest — scaffolded by tools/new_tome.py.
+# Replace every TODO, then run:  python3 tools/validate_tome.py tomes/untitled-1
+# Read TOME-AUTHORING.md before filling this in — every key here is documented there.
+
+[meta]
+id = "hex-forge"                       # MUST equal the folder name
+name = "HexForge - Bare-Metal x86-64"
+description = "Forge HexForge over 8 chapters: a pure NASM hexdump utility that reads real bytes and prints offsets, hex columns, and an ASCII gutter."
+author = "The Arcanum"
+version = "0.1.0"
+favicon = ">~"
+
+[runtime]
+name = "nasm"                # a global-configs/runtimes/<name>.toml id
+project = "HexForge"
+language = "x86-64 Assembly (NASM)"
+# packages = false                 # true only for dotnet/NuGet tomes
+# workspaceDir = "/abs/path"       # ONLY for courses whose build lives in the player's
+                                   # own external tools; must be absolute. Omit otherwise.
+# starterCode inherits from the language TOML; override it here if you want a
+# different first-run entry file:
+# starterCode = '''
+# TODO: the entry file's first contents
+# '''
+
+[content]
+sections = ["s01", "s02", "s03", "s04", "s05", "s06", "s07", "s08"]
+# OPTIONAL duel bank → generated/attacks.toml (the engine default). Do NOT hand-write it:
+# author attacks_src.toml, then run  python3 tools/gen_attacks.py untitled-1
+
+[defaults]
+theme = "signature"                # a [[themes]] id below (this tome's own default look)
+
+[defaults.ai]
+oracle = "llama3.1:8b"
+grader = "qwen2.5:14b"
+graderKind = "claude-cli"
+graderModel = "claude-opus-4-8"
+
+[economy]
+# Balanced against 3,229 exercise points + 1,550 freestyle face rewards + 525 intrusion tier bounties.
+ranks = [[0, "RAW ORE"], [450, "SPARK HAND"], [950, "ANVIL KEEPER"], [1500, "BELLOW MASTER"], [2100, "JIG CUTTER"], [2750, "TEMPERED SMITH"], [3450, "CRUCIBLE FOREMAN"], [4200, "AIR-GATE WARDEN"], [4950, "HEXFORGE MASTER"], [5400, "CRUCIBLE NAME"]]
+hintCost = 60
+oracleCost = 15
+attemptMultipliers = [1, 0.6, 0.3]
+comboStep = 0.05
+comboCap = 0.5
+sRankMultiplier = 1.5
+attackStakePerDiff = 20
+attackWinPerDiff = 20
+
+[narrative]
+objective = "Forge HexForge, a real no-libc NASM hexdump utility. It must read stdin or a named file, group bytes into 16-byte lines, print offsets, hex bytes, and a printable-ASCII gutter."
+title = "ARCANUM // CRUCIBLE"
+logo = ">&h_;"
+opsLabel = "FORGE OPS"
+graderPersona = "Foreman Vandr"     # the mentor's codename; role-played by the grader
+studentTerm = "apprentice"
+currency = "ingot"
+currencyShort = "ig"
+gradeScale = "S|A|B|C|D|F"
+bootLines = [
+  "Operation Crucible is lit.",
+  "{N} forge ops stand between raw ore and a tool that cuts real bytes.",
+  "I am Foreman Vandr. I do not grade tin plate.",
+  "Your workbench is NASM, ld, and the Linux syscall gate. Nothing softer.",
+  "Bytes are ore. Registers are anvils and tongs. The stack is the tally-stick.",
+  "Before you strike, find the gate. Read the table, then set the register.",
+  "HexForge will print offsets, hex columns, and the ASCII gutter from real input.",
+  "Dress the anvil, apprentice. Scale costs cycles.",
+]
+gradingLines = [
+  "Vandr checks the weld.",
+  "The anvil rings; bad registers do not hide.",
+  "Reading the syscall gate marks on the steel.",
+  "Counting scale in the hot path.",
+  "Testing whether the jig holds under real metal.",
+  "Quenching the output against the brief.",
+  "No tin plate passes the foreman's bench.",
+]
+completeText = "HexForge is tempered. It reads real ore and leaves a clean mark."
+
+[progression.earnedTheme]
+id = "black-iron"
+name = "BLACK-IRON TEMPER"
+desc = "Proof that enough duel work held under heat to earn the midnight vellum."
+
+# --- the peddler's shop -------------------------------------------------------
+# Every tome stocks these FIVE engine power-ups. The mechanic is fixed by `id`;
+# reflavor name/desc/cost/ico to this course's world (validator requires all 5,
+# each filled). oracle is an optional 6th (needs an [runtime] oracle model).

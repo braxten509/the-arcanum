@@ -1,0 +1,74 @@
+[[lessons]]
+id = "s01-l02"
+title = "Joining the Ink"
+body = '''
+<p>A scalar is enough for a label, but a real script quickly needs to join pieces without hand-waving. Perl gives you two clear moves in this chapter. Double quotes can interpolate the current value of a scalar directly into the text, and the dot operator can stitch separate string fragments together in the order you wrote them. Both are ordinary tools; use the one that says what you mean.</p>
+<p>The important rule is the one beginners try to skip: <code>.</code> is not a decorative plus sign. It joins strings. If the space belongs in the result, you must spell the space yourself. If the slashes belong in the result, you must spell the slashes yourself. Perl will not guess the punctuation the way a careless writer would.</p>
+<p>That is why the same banner can be written in a few different ways. You can keep the pieces in scalars and assemble them with concatenation, or you can interpolate a single scalar into a double-quoted line once the combined text is ready. Both forms are legal. The point of the exercise is not to worship one glyph; it is to know which glyph fits the material in front of you. A script that names its pieces clearly is easier to revise when the text changes later.</p>
+<p>One more thing keeps the work honest: concatenation does not repair bad data. If you need a space, write a space. If you need a slash, write a slash. That discipline is what makes the next sections easier, because the banner you build now is already composed from pieces, not from a giant opaque blob you will regret later.</p>
+<pre><code>my $left = "CODEX";
+my $right = "WRITFORGE";
+my $banner = $left . " // " . $right;
+say $banner;</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // STRINGS THAT STAY STRAIGHT</div>
+<p><strong>Spacing note.</strong> The space around <code>.</code> is for the human reader; the operator itself does the joining. The spaces inside the quoted fragments are part of the data.</p>
+<p><strong>Coercion note.</strong> <code>+</code> is a numeric operator. If text looks numeric, Perl may try to treat it as a number instead of joining it. That is why this chapter keeps the dot in the workbench.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Perl operators"
+url = "https://perldoc.perl.org/perlop"
+
+[[lessons.exercises]]
+id = "s01-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "<p>Retype the concatenation example exactly. The two string parts and the separator must stay in the same order.</p>"
+code = '''
+my $left = "CODEX";
+my $right = "WRITFORGE";
+my $banner = $left . " // " . $right;
+say $banner;
+'''
+
+[[lessons.exercises]]
+id = "s01-l02-e1"
+type = "mc"
+points = 15
+prompt = "<p>Which expression produces <code>CODEX // WRITFORGE</code> from <code>$left</code> and <code>$right</code>?</p>"
+choices = ["$left + \" // \" + $right;", "$left . $right;", "\"CODEX // \" . $right;", "$left . \" // \" . $right;"]
+answer = 3
+whyWrong = "You either treated `+` like a text joiner or forgot to insert the separator yourself. Perl will not invent the slashes or the spaces."
+hint = "The string joiner here is the dot operator, and the separator belongs inside the quoted fragment."
+explain = "The correct expression keeps the left piece, the separator, and the right piece in that order, joined with `.`."
+
+[[lessons.exercises]]
+id = "s01-l02-e2"
+type = "fill"
+points = 20
+prompt = "<p>Restore the operator that glues the banner label to the finished text.</p>"
+code = 'say "BANNER: " ____ $banner;'
+answer = "."
+hint = "This chapter's string joiner is the same character shown in the lesson's code block."
+whyWrong = "A plus sign would push Perl toward numeric math, and a bare string would not join anything at all."
+
+[[lessons.exercises]]
+id = "s01-l02-w1"
+type = "write"
+points = 30
+prompt = "<p>Build the banner from the starter scalars and print exactly one line: <code>BANNER: CODEX // WRITFORGE</code>.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my $left = "CODEX";
+my $right = "WRITFORGE";
+my $prefix = "BANNER:";
+
+# Print exactly:
+# BANNER: CODEX // WRITFORGE
+'''
+expect = '''
+BANNER: CODEX // WRITFORGE'''
+hint = "Use the starter scalars; the output needs both a label and the joined banner text."

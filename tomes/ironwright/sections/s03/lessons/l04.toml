@@ -1,0 +1,103 @@
+[[lessons]]
+id = "s03-l04"
+title = "The Domain Model — Ingot & Metal"
+body = '''
+<p>Now you forge the real ironwork of the data model — the same kinds of objects the mod will carry. An <code>Ingot</code> has a name and an ember value; a <code>Metal</code> adds a melting point. Three metals anchor the whole tome:</p>
+<pre><code>Metal iron     = <span class="k">new</span> Metal(<span class="s">"iron"</span>,     <span class="s">8</span>, <span class="s">1500</span>);
+Metal copper   = <span class="k">new</span> Metal(<span class="s">"copper"</span>,   <span class="s">6</span>, <span class="s">1085</span>);
+Metal starsteel = <span class="k">new</span> Metal(<span class="s">"starsteel"</span>, <span class="s">20</span>, <span class="s">2200</span>);</code></pre>
+<p>The <code>Metal</code> class is a plain data class: private fields <code>name</code>, <code>value</code>, <code>meltPoint</code>; a constructor that takes all three; getters for each. It carries no behaviour yet — it is the raw material a registry (next lesson) and a mod item (Forgework VIII) will build on. The ingot's value is its ember worth; the melt point is the temperature at which it liquifies.</p>
+<pre><code><span class="k">public class</span> Metal {
+    <span class="k">private</span> String name;
+    <span class="k">private int</span> value;
+    <span class="k">private int</span> meltPoint;
+    <span class="k">public</span> Metal(String name, <span class="k">int</span> value, <span class="k">int</span> meltPoint) {
+        <span class="k">this</span>.name = name; <span class="k">this</span>.value = value; <span class="k">this</span>.meltPoint = meltPoint;
+    }
+    <span class="c">// getName(), getValue(), getMeltPoint() — standard getters, one per field</span>
+}</code></pre>
+<p>This is the shape of every data class you will write: fields private, constructor sets them, getters expose them. The mod's <code>ItemIngot</code> will wrap exactly this kind of object — the plain domain model moves into the mod in Forgework VII, and the forge binds it to a real Minecraft item in Forgework VIII.</p>
+<div class="callout"><strong>Orrick says:</strong> Keep data classes boring. Fields, constructor, getters, nothing else. Behaviour belongs on the things that act; data belongs on the things that are. A Metal that also smelts itself is a Metal doing two jobs.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY THE VALUES ARE PINNED</div>
+<p>Iron 8, copper 6, starsteel 20 — these numbers recur across every forgework so a later exercise reaching back to an earlier one is self-contained. When the mod's recipe JSON costs 3 iron ingots, you can compute 3 * 8 = 24 embers without surprise. Lock the domain data early; the whole tome leans on it.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s03-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the three Metals exactly — the pinned domain data the whole tome reuses."
+code = '''Metal iron = new Metal("iron", 8, 1500);
+Metal copper = new Metal("copper", 6, 1085);
+Metal starsteel = new Metal("starsteel", 20, 2200);'''
+
+[[lessons.exercises]]
+id = "s03-l04-e1"
+type = "mc"
+points = 15
+prompt = "The <code>Metal</code> class has fields <code>name</code>, <code>value</code>, <code>meltPoint</code>, all private. How does code outside the Metal class read an object's melt point?"
+choices = ["through the public getMeltPoint() method", "by writing m.meltPoint directly", "through the constructor", "it cannot be read at all"]
+answer = 0
+whyWrong = "private fields are read through public getters — m.getMeltPoint(); reaching straight to m.meltPoint from outside the class is exactly what private forbids; the constructor writes the field but is not a reader; 'cannot be read' ignores the getter. Encapsulation exposes fields through methods."
+hint = "The fields are private — so what public method hands the value back out?"
+explain = "Private fields are accessed via public getters. m.getMeltPoint() returns the field; m.meltPoint would be a compile error from outside the class."
+
+[[lessons.exercises]]
+id = "s03-l04-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the field the constructor assigns from the third parameter — the temperature at which the metal liquifies."
+code = '''public Metal(String name, int value, int meltPoint) {
+    this.name = name;
+    this.value = value;
+    this.____ = meltPoint;
+}'''
+answer = "meltPoint"
+whyWrong = "The third parameter meltPoint is assigned to the field this.meltPoint; name and value are the other two fields. The blank is the field name matching the parameter."
+hint = "The field has the same name as the third parameter — read what this. points to."
+
+[[lessons.exercises]]
+id = "s03-l04-w1"
+type = "write"
+points = 30
+prompt = "The Metal class is in the starter. In <code>main</code>, construct <code>Metal starsteel = new Metal(\"starsteel\", 20, 2200);</code> and print one line: <code>starsteel @ 20em melts 2200</code> — joining <code>getName()</code>, <code>\" @ \"</code>, <code>getValue()</code>, <code>\"em melts \"</code>, and <code>getMeltPoint()</code>. Read every value from the object; do not type the digits in the print."
+starter = '''public class Ironwright {
+    static class Metal {
+        private String name;
+        private int value;
+        private int meltPoint;
+        public Metal(String name, int value, int meltPoint) {
+            this.name = name; this.value = value; this.meltPoint = meltPoint;
+        }
+        public String getName() { return name; }
+        public int getValue() { return value; }
+        public int getMeltPoint() { return meltPoint; }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — construct starsteel and print its name, value, and melt point as described above
+    }
+}'''
+expect = '''
+starsteel @ 20em melts 2200'''
+hint = "Metal starsteel = new Metal(\"starsteel\", 20, 2200); then println(starsteel.getName() + \" @ \" + starsteel.getValue() + \"em melts \" + starsteel.getMeltPoint());"
+
+[[lessons.exercises]]
+id = "s03-l04-t1"
+type = "text"
+points = 20
+prompt = "Type the ember value of a copper ingot — the pinned domain number used across the whole tome."
+answer = "6"
+hint = "Copper is the cheaper of the two base metals — its value is a single digit under 10."
+
+[[lessons.exercises]]
+id = "s03-l04-e2"
+type = "mc"
+points = 15
+prompt = "Why does this lesson keep the <code>Metal</code> class boring — only fields, constructor, getters, no smelting logic?"
+choices = ["because behaviour belongs on actors, and a data class should only hold data", "to keep the class small enough to compile", "because Java forbids methods on a class with private fields", "so the class can be final"]
+answer = 0
+whyWrong = "A data class holds data; behaviour (smelting, registering) belongs on the things that act (a forge, a registry). Java allows methods on any class; final is unrelated; and size is not the reason. Single responsibility is the principle."
+hint = "Think about the single-responsibility idea — what does a Metal do versus what a Metal is?"
+explain = "One class, one job. Metal is the data; a registry or a forge holds the behaviour that acts on it. Mixing them couples data to logic that changes for different reasons."

@@ -1,0 +1,150 @@
+[[lessons]]
+id = "s04-l03"
+title = "The In-Gate — sys_read"
+body = '''
+<p>Printing is one half of the air-gate. The other half — reading input — is <code>sys_read</code>, call number 0. It pulls real bytes from the outside world into your buffer, where your code can inspect and shape them.</p>
+
+<pre><code><span class="k">mov</span> rax, 0             <span class="c">; sys_read = 0</span>
+<span class="k">mov</span> rdi, 0             <span class="c">; fd 0 = stdin</span>
+<span class="k">mov</span> rsi, buffer        <span class="c">; where to write the bytes</span>
+<span class="k">mov</span> rdx, buf_size      <span class="c">; maximum bytes to read</span>
+<span class="k">syscall</span>                 <span class="c">; rax = bytes actually read, or negative on error</span></code></pre>
+
+<p>After <code>sys_read</code> returns, <strong>rax holds the number of bytes actually read</strong> — never more than rdx, often less. If the input stream ends (EOF, the user presses Ctrl+D), <code>sys_read</code> returns 0. If an error occurs, rax holds a negative error code (e.g. -9 for EBADF — bad file descriptor).</p>
+
+<p>The read buffer MUST live in writable memory — typically <code>.bss</code>:</p>
+<pre><code><span class="k">section</span> .bss
+buffer: <span class="k">resb</span> 4096       <span class="c">; 4 KB read buffer — plenty for one line or a small file</span></code></pre>
+
+<p>A correct read-then-print loop is the simplest "real" program — it reads from stdin and echoes to stdout until EOF:</p>
+<pre><code><span class="k">section</span> .text
+    <span class="k">global</span> _start
+
+_start:
+.read:
+    <span class="c">; sys_read(0, buffer, 4096)</span>
+    <span class="k">mov</span> rax, 0
+    <span class="k">mov</span> rdi, 0
+    <span class="k">mov</span> rsi, buffer
+    <span class="k">mov</span> rdx, 4096
+    <span class="k">syscall</span>
+
+    <span class="c">; rax = bytes read. If 0, we're done (EOF). If negative, error.</span>
+    <span class="k">test</span> rax, rax
+    <span class="k">jz</span> .done               <span class="c">; EOF — finish</span>
+
+    <span class="c">; sys_write(1, buffer, rax) — write exactly what we read</span>
+    <span class="k">mov</span> rdx, rax           <span class="c">; byte count from sys_read</span>
+    <span class="k">mov</span> rax, 1             <span class="c">; sys_write</span>
+    <span class="k">mov</span> rdi, 1             <span class="c">; stdout</span>
+    <span class="c">; rsi still points to buffer</span>
+    <span class="k">syscall</span>
+
+    <span class="k">jmp</span> .read              <span class="c">; go read more</span>
+
+.done:
+    <span class="k">mov</span> rax, 60
+    <span class="k">xor</span> rdi, rdi
+    <span class="k">syscall</span></code></pre>
+
+<p>Notice the order: read, test for zero, use rax as the write count, loop. The value returned by <code>sys_read</code> in rax is exactly the number of bytes that need to be written — so <code>mov rdx, rax</code> sets up the write count without recomputing it. This is the load-bearing pattern that HexForge's file-reading loop uses: read into a buffer, inspect the bytes, format them, print one dump line, repeat.</p>
+
+<p>When writing a non-echo program that PROCESSES the input, the read count also tells you where valid data ends. A 4096-byte buffer might hold only 17 bytes after a read — bytes 18 through 4095 in the buffer are stale (whatever the kernel left from a previous mapping). Always loop over exactly <code>rax</code> bytes, not the full buffer.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // STDIN, PIPES, AND THE READ RETURN VALUE</div>
+<p>When stdin is a terminal, <code>sys_read</code> typically returns after one line (up to the newline). When stdin is a pipe or redirected file, <code>sys_read</code> fills the buffer as much as possible. A zero return means EOF — the writer closed its end. A negative return is an error: -EINTR (-4) means a signal interrupted the read (just retry), -EAGAIN (-11) means the fd is non-blocking and has no data yet. Most bare-metal programs ignore these subtleties — read until zero, exit. For HexForge, we rely on the in-browser engine piping bytes directly; stdin behaves like a regular file, filling the buffer on each read until EOF returns 0.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s04-l03-e1"
+type = "mc"
+points = 15
+prompt = "After <code>sys_read</code> returns, rax holds -9. What does this mean?"
+choices = [
+  "9 bytes were read successfully — the sign bit was set by mistake",
+  "EOF was reached — negative values signal end-of-file in Linux",
+  "An error occurred — -9 is the negated errno value EBADF, meaning the file descriptor is invalid",
+  "The syscall was interrupted by a signal — retrying will succeed"
+]
+answer = 2
+whyWrong = "Linux syscalls return a negated errno value on error. -9 is -EBADF (bad file descriptor). EOF returns 0, not negative. EINTR is -4. 9 bytes read would return positive 9."
+hint = "Negative return from a Linux syscall = error. The absolute value is the errno code."
+explain = "The Linux syscall convention: on success, rax holds the positive return value (bytes read). On error, rax holds -errno. EBADF = 9, so -9 means 'bad file descriptor' — likely you set rdi to a closed or invalid fd."
+
+[[lessons.exercises]]
+id = "s04-l03-e2"
+type = "text"
+points = 20
+prompt = "You call <code>sys_read</code> with rdx=4096 but the input is only the 5-byte string <code>\"hello\"</code> (no newline, stdin closed after). What value does rax hold after the read?"
+answer = "5"
+accept = ["5 bytes"]
+hint = "rax gets the number of bytes actually read, not the requested maximum."
+explain = "<code>sys_read</code> reads up to rdx bytes. If fewer bytes are available (5 in the pipe, then EOF), it returns 5. A subsequent read would return 0 (EOF). The rdx value is a cap, not a demand."
+
+[[lessons.exercises]]
+id = "s04-l03-e3"
+type = "fill"
+points = 20
+prompt = "Fill the syscall number for reading input. This is the in-gate, the counterpart to sys_write=1."
+code = '''
+mov  rax, ____        ; sys_read — pull bytes from fd into buffer
+mov  rdi, 0           ; stdin
+mov  rsi, buffer
+mov  rdx, 4096
+syscall
+'''
+answer = "0"
+hint = "Write is 1, exit is 60. Read is the simplest number — the zeroth gate."
+explain = "Syscall 0 is <code>sys_read</code> on x86-64 Linux. The numbering is: 0=read, 1=write, 2=open (the old one), 3=close, 60=exit. Read is the very first entry in the syscall table."
+
+[[lessons.exercises]]
+id = "s04-l03-e4"
+type = "type"
+points = 12
+prompt = "Retype the read-then-echo loop. This is the simplest real program that touches both gates."
+code = '''
+read_loop:
+    mov  rax, 0
+    mov  rdi, 0
+    mov  rsi, buffer
+    mov  rdx, 4096
+    syscall
+    test rax, rax
+    jz   .done
+    mov  rdx, rax
+    mov  rax, 1
+    mov  rdi, 1
+    syscall
+    jmp  read_loop
+.done:
+    mov  rax, 60
+    xor  rdi, rdi
+    syscall
+'''
+
+[[lessons.exercises]]
+id = "s04-l03-w1"
+type = "write"
+points = 30
+prompt = "Build a basic echo program that reads from stdin and writes to stdout. The program must: read up to 256 bytes from stdin into a buffer, write exactly the bytes it read back to stdout, then exit. The engine will pipe the string <code>ECHO TEST</code> followed by a newline into your program's stdin. Your output must match the input exactly."
+starter = '''
+section .text
+    global _start
+
+_start:
+    ; sys_read(0, buffer, 256)
+    
+
+    ; sys_write(1, buffer, rax) — rax = bytes read
+    
+
+    ; Exit
+    
+
+section .bss
+buffer: resb 256
+'''
+stdin = "ECHO TEST\n"
+expect = '''
+ECHO TEST'''
+hint = "One read, one write. After sys_read, rax = number of bytes read. Move it to rdx for sys_write. rsi already points to buffer. Don't loop — just one read/write cycle since the input fits in 256 bytes. But the sys_read for stdin may include the newline — the expect includes it."

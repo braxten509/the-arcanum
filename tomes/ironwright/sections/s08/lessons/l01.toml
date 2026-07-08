@@ -1,0 +1,98 @@
+[[lessons]]
+id = "s08-l01"
+title = "The Binding Rite for Items — RegistryEvent.Register&lt;Item&gt;"
+body = '''
+<p>The first real ironwork is an item the block-world can hold. In Forge 1.12.2 you do not add items to a list — you subscribe to a registry event and register into the registry Forge hands you. This is the binding rite for items, the shape you previewed with the generic <code>Registry&lt;T&gt;</code> in Forgework V.</p>
+<pre><code><span class="k">@Mod.EventBusSubscriber</span>(modid = Ironwright.MODID)
+<span class="k">public class</span> ModItems {
+    <span class="k">public static final</span> ItemIngot IRON = <span class="k">new</span> ItemIngot(<span class="s">"iron"</span>);
+    <span class="k">public static final</span> ItemIngot COPPER = <span class="k">new</span> ItemIngot(<span class="s">"copper"</span>);
+    <span class="k">public static final</span> ItemIngot STARSTEEL = <span class="k">new</span> ItemIngot(<span class="s">"starsteel"</span>);
+
+    <span class="k">@SubscribeEvent</span>
+    <span class="k">public static void</span> registerItems(RegistryEvent.Register&lt;Item&gt; event) {
+        event.getRegistry().register(IRON);
+        event.getRegistry().register(COPPER);
+        event.getRegistry().register(STARSTEEL);
+    }
+}</code></pre>
+<p>Three marks to read. <code>@Mod.EventBusSubscriber</code> tells Forge "this class has event handlers for the mod's event bus — register them automatically" (no manual <code>MinecraftForge.EVENT_BUS.register(this)</code> needed). <code>@SubscribeEvent</code> marks the method as an event handler. <code>RegistryEvent.Register&lt;Item&gt;</code> is the event Forge fires when the item registry opens; <code>event.getRegistry()</code> hands you the <code>IForgeRegistry&lt;Item&gt;</code> and you call <code>register</code> on it for each item. The method is <code>static</code> because <code>@EventBusSubscriber</code> works with static handlers.</p>
+<p>Each item you register must have a registry name set (next lessons) or the call throws. The static fields matter: later code needs a stable reference to the exact registered object — <code>ModItems.IRON</code> for a creative-tab icon, <code>ModItems.STARSTEEL</code> for a custom drop. Do not call <code>new ItemIngot("iron")</code> again somewhere else; that would make a second item object the registry does not know. The order in which the three fields register sets their order in the creative inventory — iron, copper, starsteel, in that line.</p>
+<div class="callout"><strong>Orrick says:</strong> The registry event fires once, during <code>preInit</code>'s registry phase. Miss it and your item never exists. <code>@EventBusSubscriber</code> is how you hang a handler without touching the <code>@Mod</code> class — keep registration in its own <code>ModItems</code> class, not cluttering the binding.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE EVENT BUS VS THE LIFECYCLE</div>
+<p>In 1.12.2, registry events (<code>RegistryEvent.Register</code>, <code>ModelRegistryEvent</code>) AND gameplay events (block breaks, player interactions — Forgework XI) all fire on <code>MinecraftForge.EVENT_BUS</code>. <code>@Mod.EventBusSubscriber</code> subscribes your static <code>@SubscribeEvent</code> handlers to that one bus automatically. The lifecycle (<code>preInit</code>/<code>init</code>/<code>postInit</code>) is a separate mechanism — <code>@Mod.EventHandler</code> methods Forge calls directly, not bus events. So: registration and gameplay ride the bus; lifecycle rides the annotation. Forgework XI meets the gameplay half of the same bus.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Minecraft Forge 1.12.x — Events"
+url = "https://docs.minecraftforge.net/en/1.12.x/events/intro/"
+
+[[lessons.exercises]]
+id = "s08-l01-e1"
+type = "mc"
+points = 15
+prompt = "Which event does Forge 1.12.2 fire so you can register your <code>ItemIngot</code> into the item registry?"
+choices = ["ModelRegistryEvent", "FMLPreInitializationEvent", "PlayerInteractEvent", "RegistryEvent.Register<Item>"]
+answer = 3
+whyWrong = "RegistryEvent.Register<Item> is the event that opens the item registry for registration; ModelRegistryEvent is for models (later lesson), PlayerInteractEvent is gameplay (Forgework XI), and FMLPreInitializationEvent is the lifecycle stage (not the registry event itself). Item registration goes through RegistryEvent.Register<Item>."
+hint = "Think back to the generic Registry<T> in Forgework V — what Forge event does the real item registration go through?"
+explain = "RegistryEvent.Register<Item> fires on the MOD event bus during preInit's registry phase. Subscribe with @SubscribeEvent and call event.getRegistry().register(...)."
+
+[[lessons.exercises]]
+id = "s08-l01-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the annotation that marks a method as an event handler (the one registerItems carries alongside @Mod.EventBusSubscriber)."
+code = '''@Mod.EventBusSubscriber(modid = Ironwright.MODID)
+public class ModItems {
+    ____ public static void registerItems(RegistryEvent.Register<Item> event) { ... }
+}'''
+answer = "@SubscribeEvent"
+whyWrong = "@SubscribeEvent marks a method as an event handler; @EventHandler is the legacy lifecycle annotation, @Override is for parent methods, @Listener is not Forge's. Forge's event-handler annotation is @SubscribeEvent."
+hint = "It is the @ annotation named for subscribing to an event — @Subscribe + Event."
+
+[[lessons.exercises]]
+id = "s08-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the registerItems handler exactly — the @SubscribeEvent, the static signature, and three register calls using the already-built fields."
+code = '''@SubscribeEvent
+public static void registerItems(RegistryEvent.Register<Item> event) {
+    event.getRegistry().register(IRON);
+    event.getRegistry().register(COPPER);
+    event.getRegistry().register(STARSTEEL);
+}'''
+
+[[lessons.exercises]]
+id = "s08-l01-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of the registry-event pattern. The starter has a mock <code>Item</code> class and a mock <code>ItemRegistry</code> with a <code>register(Item)</code> method and a <code>size()</code> method. In <code>main</code>, build <code>ItemRegistry reg = new ItemRegistry();</code>, register three items — <code>new Item(\"iron\")</code>, <code>new Item(\"copper\")</code>, <code>new Item(\"starsteel\")</code> — then print <code>REGISTERED </code> plus <code>reg.size()</code>. The expected output is exactly <code>REGISTERED 3</code>; read the count from size(), do not type 3."
+starter = '''public class Ironwright {
+    static class Item {
+        private String name;
+        public Item(String name) { this.name = name; }
+        public String getName() { return name; }
+    }
+    static class ItemRegistry {
+        private int count = 0;
+        public void register(Item item) { count++; }
+        public int size() { return count; }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — build an ItemRegistry, register 3 items, print "REGISTERED " + reg.size()
+    }
+}'''
+expect = '''
+REGISTERED 3'''
+hint = "ItemRegistry reg = new ItemRegistry(); reg.register(new Item(\"iron\")); ... System.out.println(\"REGISTERED \" + reg.size());"
+
+[[lessons.exercises]]
+id = "s08-l01-t1"
+type = "text"
+points = 20
+prompt = "Type the annotation that tells Forge 'this class has event handlers for the mod's event bus — register them automatically' (so you do not call MinecraftForge.EVENT_BUS.register by hand)."
+answer = "@Mod.EventBusSubscriber"
+hint = "It is @Mod dot EventBusSubscriber — the auto-register annotation for a class of static event handlers."

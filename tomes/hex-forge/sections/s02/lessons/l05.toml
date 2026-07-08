@@ -1,0 +1,139 @@
+[[lessons]]
+id = "s02-l05"
+title = "Hammering the Alloy — itoa"
+body = '''
+<p>You have drawn ore into a register. Now you must hammer it back out — turn an integer into ASCII digits that <code>sys_write</code> can print. The algorithm is the reverse of <code>atoi</code>: repeatedly divide by 10, collect remainders as digits, then write them in reverse order.</p>
+
+<p>For the number 784:</p>
+<pre><code>784 / 10 → quotient 78, remainder 4  (last digit)
+ 78 / 10 → quotient  7, remainder 8
+  7 / 10 → quotient  0, remainder 7  (first digit)
+; quotient is zero → stop. Digits collected: 4, 8, 7 — reverse to get "784"</code></pre>
+
+<p>Each remainder (0–9) needs 48 added to become ASCII — the reverse of the <code>sub '0'</code> from <code>atoi</code>. The code:</p>
+<pre><code><span class="c">; Input: rax = number to print. Output: digits on the stack, count in rcx.</span>
+
+<span class="k">xor</span> ecx, ecx            <span class="c">; digit counter = 0</span>
+<span class="k">mov</span> ebx, 10             <span class="c">; divisor</span>
+
+.convert:
+    <span class="k">xor</span> edx, edx          <span class="c">; zero rdx before division</span>
+    <span class="k">div</span> ebx               <span class="c">; unsigned: rax=quotient, edx=remainder</span>
+    <span class="k">add</span> dl, <span class="s">'0'</span>         <span class="c">; remainder → ASCII digit</span>
+    <span class="k">push</span> rdx              <span class="c">; push the digit (we only need dl but push full rdx for alignment)</span>
+    <span class="k">inc</span> ecx               <span class="c">; count++</span>
+    <span class="k">test</span> eax, eax          <span class="c">; is quotient zero?</span>
+    <span class="k">jnz</span> .convert          <span class="c">; if not, loop again</span>
+
+<span class="c">; Now pop digits off the stack (they come out in correct order) and write them</span>
+.print:
+    <span class="k">pop</span> rax               <span class="c">; get a digit from the stack</span>
+    <span class="k">mov</span> [rsi], al         <span class="c">; store one byte into output buffer</span>
+    <span class="k">inc</span> rsi               <span class="c">; advance buffer pointer</span>
+    <span class="k">dec</span> ecx               <span class="c">; one fewer digit remaining</span>
+    <span class="k">jnz</span> .print</code></pre>
+
+<p>This routine uses <code>div ebx</code> — unsigned division of edx:eax by ebx. The 32-bit form is faster and fully adequate for numbers under 2³¹ (two billion). The quotient lands in eax, remainder in edx. <code>test eax, eax</code> sets ZF when eax is zero — a compact way to check "are we done dividing?".</p>
+
+<p>The stack trick solves the reversal problem: digits emerge from division in reverse (least-significant first), so you push each digit as you produce it. When you pop, the last digit pushed (the most-significant) comes out first. The stack acts as a natural reverser — no extra buffer, no second pass.</p>
+
+<p>Two details to get right: <strong>push full rdx, not dl.</strong> The stack must stay 8-byte aligned, and <code>push</code> always pushes 8 bytes on x86-64. Pushing <code>dl</code> (one byte) is not a valid instruction anyway. And <strong>handle zero specially:</strong> the loop above never executes the conversion body when rax=0 (since ecx stays 0 and nothing is pushed), so a zero input produces no output. Guard with a check: if rax is zero, write a single <code>'0'</code> and be done.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DIV vs IDIV — WHY UNSIGNED HERE</div>
+<p><code>div</code> (unsigned divide) is used for itoa because ASCII digit values are always non-negative — there is no signed interpretation of a digit character. Using <code>idiv</code> on a negative number produces a negative remainder (e.g. -7), and adding <code>'0'</code> to a negative remainder does not yield a printable digit. If your routine must handle negative input, strip the sign first, remember it, convert the absolute value, and prepend a <code>'-'</code> at the end. For HexForge, all offsets and counts are non-negative, so <code>div</code> is the correct choice.</p>
+</div>
+'''
+
+[[lessons.exercises]]
+id = "s02-l05-e1"
+type = "mc"
+points = 15
+prompt = "Why does the itoa routine push digits onto the stack instead of writing them directly to a buffer?"
+choices = [
+  "The stack is faster than memory — push/pop are single-cycle instructions",
+  "NASM requires digits to pass through the stack before they can be written to memory",
+  "Division produces digits in reverse order (least significant first); pushing and popping reverses them back into the correct reading order",
+  "The stack preserves the digits in case sys_write fails"
+]
+answer = 2
+whyWrong = "The push/pop sequence is NOT faster than a direct write — it's about ordering, not speed. NASM has no such requirement. The stack does not protect against syscall failure. Division naturally produces the last digit first; the stack's LIFO property reverses the sequence so the most-significant digit appears first in the output."
+hint = "Division gives you 4, then 8, then 7 for 784. But you want to print '7', '8', '4' — in what order does a stack return items?"
+explain = "Stack is Last-In-First-Out. By pushing each digit as it's produced (4 first, 7 last), popping yields 7 first, then 8, then 4 — the correct reading order. This is the standard itoa pattern in assembly."
+
+[[lessons.exercises]]
+id = "s02-l05-e2"
+type = "fill"
+points = 20
+prompt = "Complete the line that converts a numeric remainder (0-9) into an ASCII digit."
+code = '''
+xor  edx, edx
+div  ebx            ; edx = remainder (0-9)
+add  ____, '0'      ; convert to ASCII
+push rdx
+'''
+answer = "dl"
+hint = "The remainder is in edx. To convert just the low byte, you add '0' to this 8-bit register."
+explain = "After <code>div ebx</code>, the remainder is in edx but only the low 8 bits (dl) hold the actual digit value (0-9). Adding '0' (48) to dl converts it to the ASCII character. If you added '0' to edx directly, the upper 24 bits of the register remain unchanged — harmless in this case because they're ignored when storing, but masking to just dl is cleaner."
+
+[[lessons.exercises]]
+id = "s02-l05-e3"
+type = "type"
+points = 12
+prompt = "Retype the itoa conversion loop — the heart of the number-printing routine."
+code = '''
+; Input: eax = number. Output: digits pushed, ecx = count.
+xor  ecx, ecx
+mov  ebx, 10
+.convert:
+    xor  edx, edx
+    div  ebx
+    add  dl, '0'
+    push rdx
+    inc  ecx
+    test eax, eax
+    jnz  .convert
+'''
+
+[[lessons.exercises]]
+id = "s02-l05-e4"
+type = "text"
+points = 20
+prompt = "The itoa conversion loop uses <code>div ebx</code> (unsigned divide). Why must it be unsigned — what would happen if you used <code>idiv ebx</code> on a negative number like -7?"
+answer = "remainder would be negative"
+accept = ["the remainder would be negative", "it would produce a negative remainder", "add '0' would not produce a printable digit"]
+hint = "Think about what happens when you add '0' to a negative remainder. What 'digit' would that produce?"
+explain = "<code>idiv</code> preserves the sign: -7 / 10 = quotient 0, remainder -7. Adding '0' to -7 gives 41, which is ASCII ')' — not a digit. The unsigned <code>div</code> treats the dividend as an unsigned value, so remainders are always 0–9, and adding '0' always produces '0'–'9'."
+
+[[lessons.exercises]]
+id = "s02-l05-w1"
+type = "write"
+points = 35
+prompt = "Forge a complete number printer. Parse the string <code>\"847\"</code> into rax using the atoi pattern from the last lesson (three explicit digit blocks). Then use the itoa pattern from this lesson to convert the result back to ASCII digits and print them. Store the output digits in a buffer in <code>.data</code> (no stack popping to sys_write — pop digits into a buffer, then print the buffer). The output must be the three characters <code>847</code> followed by a newline. You are proving the round-trip: string → integer → string."
+starter = '''
+section .text
+    global _start
+
+_start:
+    ; atoi: parse the three-byte input_str into rax
+    mov rsi, input_str
+    
+
+    ; itoa: convert rax back to digits, store in outbuf
+    ; Use ecx as digit counter, ebx=10, push digits, then pop into outbuf
+    
+
+    ; print outbuf with sys_write (rsi=outbuf, rdx=outbuf_len)
+    
+
+    ; Exit cleanly
+    
+
+section .data
+input_str: db '8', '4', '7', 0
+outbuf: times 20 db 0
+outbuf_nl: db 10
+outbuf_len equ 4   ; 3 digits + newline
+'''
+expect = '''
+847'''
+hint = "atoi: xor rax,rax; then 3x: imul rax,10 / movzx rcx,byte[rsi] / sub rcx,'0' / add rax,rcx / inc rsi. itoa: xor ecx,ecx / mov ebx,10 / .loop: xor edx,edx / div ebx / add dl,'0' / push rdx / inc ecx / test eax,eax / jnz .loop. Then: mov rdi,outbuf; .poploop: pop rax / mov [rdi],al / inc rdi / dec ecx / jnz .poploop. Print rsi=outbuf, rdx=4 (3 digits + newline from outbuf_nl which is already db 10). Wait — you need 3 digits + newline. The outbuf has 3 digits, outbuf_nl is a separate byte. Better: print outbuf with length 3, then rsi=outbuf_nl with length 1 — two sys_write calls. Or use the starter's outbuf_len=4 if you set outbuf[3]=10."

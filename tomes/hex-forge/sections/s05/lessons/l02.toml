@@ -1,0 +1,106 @@
+[[lessons]]
+id = "s05-l02"
+title = "The Tally-Stick — The Stack"
+body = '''
+<p>Every smith keeps a tally-stick — a notched rod that records how many blows have fallen. The stack is the CPU's tally-stick: a region of memory that grows and shrinks, recording return addresses, saved registers, and local data.</p>
+
+<p><code>push</code> decrements rsp by 8, then writes a 64-bit value at <code>[rsp]</code>. <code>pop</code> reads 8 bytes from <code>[rsp]</code>, then increments rsp by 8:</p>
+<pre><code><span class="k">push</span> rax               <span class="c">; rsp -= 8; [rsp] = rax</span>
+<span class="k">push</span> rbx               <span class="c">; rsp -= 8; [rsp] = rbx</span>
+<span class="c">; ... use rax and rbx freely ...</span>
+<span class="k">pop</span> rbx                <span class="c">; rbx = [rsp]; rsp += 8</span>
+<span class="k">pop</span> rax                <span class="c">; rax = [rsp]; rsp += 8</span></code></pre>
+
+<p>Push and pop mirror: the last value pushed is the first popped. This makes the stack perfect for saving registers before a procedure call and restoring them after.</p>
+
+<p><strong>Stack alignment:</strong> the System V AMD64 ABI requires the stack to be 16-byte aligned at the point of a <code>call</code> instruction. This means rsp must be a multiple of 16 just before <code>call</code> executes. The kernel enters <code>_start</code> with rsp already 16-byte aligned (plus 8, because the return address from <code>_start</code> doesn't exist — but the initial stack pointer is set correctly by the kernel).</p>
+
+<p>When you push and pop in pairs, alignment is preserved — each push/pop is 8 bytes, and doing them in pairs keeps rsp at the original alignment. Problems arise when you push an odd number of values: rsp shifts by 8 and loses the 16-byte alignment. The fix is to adjust rsp manually before calling another procedure or a syscall that requires alignment (which, practically, most don't — but the SIMD instructions do, and the general rule is to keep it aligned):</p>
+<pre><code><span class="k">sub</span> rsp, 8             <span class="c">; re-align after an odd number of pushes</span>
+<span class="c">; ... aligned operations ...</span>
+<span class="k">add</span> rsp, 8             <span class="c">; restore</span></code></pre>
+
+<p>For HexForge's purposes — pure integer code, no SIMD, no external library calls — stack alignment is less critical. But forming the habit now prevents mysterious crashes when you later add floating-point or call C libraries.</p>
+
+<p>Beyond <code>push</code>/<code>pop</code>, you can address any stack location with <code>[rsp + offset]</code> or <code>[rbp - offset]</code>. This is how procedures create local variables — by subtracting from rsp to make room, then addressing into that space. The frame pointer rbp makes this systematic; that is the next lesson's subject.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // PUSH/POP ARE NOT THE ONLY WAY TO TOUCH THE STACK</div>
+<p><code>push</code> and <code>pop</code> are just shorthand for manual rsp adjustment + memory access. <code>push rax</code> is equivalent to <code>sub rsp, 8</code> followed by <code>mov [rsp], rax</code>. <code>pop rax</code> is <code>mov rax, [rsp]</code> followed by <code>add rsp, 8</code>. The manual forms let you allocate many slots at once (<code>sub rsp, 64</code> reserves room for eight 8-byte values) and address them by offset. Most procedures allocate stack space once at entry and deallocate once at exit, rather than pushing and popping individual items.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s05-l02-e1"
+type = "mc"
+points = 15
+prompt = "You push rax (value 10), then push rbx (value 20), then pop rcx. What value does rcx hold?"
+choices = [
+  "10 — the first value pushed is the first popped (FIFO)",
+  "0 — pop clears the register before loading",
+  "Undefined — you can only pop into the same register you pushed from",
+  "20 — the last value pushed (20 from rbx) sits on top of the stack and is the first popped"
+]
+answer = 3
+whyWrong = "The stack is LIFO, not FIFO. rbx (20) was pushed last, so it sits at [rsp]. Pop reads from [rsp] — which is 20. You can pop into any register; the stack does not track which register pushed a value. The value 10 is still on the stack, beneath 20 — a second pop would retrieve it."
+hint = "Last in, first out. Which value was pushed last?"
+explain = "The stack grows downward. After push rax, [rsp] = 10 and rsp decreased by 8. After push rbx, [rsp] = 20 (the new top). pop rcx reads 20 from the top. The value 10 is still at [rsp+8]. Stack discipline requires popping in reverse order."
+
+[[lessons.exercises]]
+id = "s05-l02-e2"
+type = "text"
+points = 20
+prompt = "If rsp is 0x7FFF0000 (which is already 16-byte aligned), and you execute a single <code>push rax</code>, what is rsp now? Write the hex value."
+answer = "0x7FFEFFF8"
+accept = ["7FFEFFF8", "0x7ffefff8"]
+hint = "push subtracts 8 from rsp. 0x7FFF0000 - 8 = ?"
+explain = "<code>push</code> decrements rsp by 8 before writing. 0x7FFF0000 - 8 = 0x7FFEFFF8. Notice: 0x7FFEFFF8 mod 16 = 8 — the stack is no longer 16-byte aligned after an odd number of pushes. One more push (or pop) would restore alignment."
+
+[[lessons.exercises]]
+id = "s05-l02-e3"
+type = "type"
+points = 12
+prompt = "Retype the save/restore pattern. Push before use, pop after — the tally-stick keeps the marks."
+code = '''
+my_proc:
+    push rbx            ; save rbx
+    push r12            ; save r12
+    ; --- use rbx and r12 freely ---
+    mov  rbx, 100
+    mov  r12, 200
+    ; --- restore in reverse order ---
+    pop  r12
+    pop  rbx
+    ret
+'''
+
+[[lessons.exercises]]
+id = "s05-l02-w1"
+type = "write"
+points = 30
+prompt = "Save and restore. Write a procedure <code>add_five</code> that takes a value in rax, adds 5 to it, and returns the result in rax. Inside the procedure, save rbx on the stack (push/pop), use rbx as a temporary (mov rbx, 5 / add rax, rbx), and restore rbx before ret. Call it with rax=10 from _start, then print the returned value (15) using itoa. Output: <code>15</code>."
+starter = '''
+section .text
+    global _start
+
+_start:
+    mov rax, 10
+    call add_five
+    ; rax = 15. Print with itoa.
+    
+
+add_five:
+    ; Save rbx on the stack
+    push rbx
+    ; Add 5 to rax using rbx as temporary
+    mov rbx, 5
+    add rax, rbx
+    ; Restore rbx
+    pop rbx
+    ret
+
+section .data
+newline: db 10
+outbuf: times 20 db 0
+'''
+expect = '''
+15'''
+hint = "After call add_five, rax=15. itoa uses rax (the value to print): xor ecx,ecx / mov ebx,10 / .cvt: xor edx,edx / div ebx / add dl,'0' / push rdx / inc ecx / test eax,eax / jnz .cvt. Then pop into outbuf and print."

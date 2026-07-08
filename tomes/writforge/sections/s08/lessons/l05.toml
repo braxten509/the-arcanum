@@ -1,0 +1,115 @@
+[[lessons]]
+id = "s08-l05"
+title = "The Whole Shelf Comes Through"
+body = '''
+<p>This is the section where the separate habits finally meet. The parser returns structured page records. The renderer turns those records into HTML. The top-level script stays small enough to read because it only coordinates the shelf walk, the page writes, and the index write. Writforge is done when those roles stop fighting each other and start passing clean data down the line.</p>
+<p>The practical order is still familiar from s07. Open the shelf, inspect each path, skip the subdirectory, and only then hand the manuscript to the parser. But now the parser's output is richer than a string, so the renderer can reuse the same record to write the chapter page and to build the shelf index. That shared record is the thread that ties the whole book together.</p>
+<p>This is also where <code>@INC</code> and the package boundary matter in a real way. The top-level script should not own every helper in a giant block. It should load the parser and renderer from the module path, pass in the chosen source and build directories, and get back page records and HTML lines. The final code becomes easier to test because each helper returns data instead of speaking directly to the console whenever possible.</p>
+<p>Keep the old caution from the earlier cantos: use <code>die</code> when the shelf itself is broken, and use <code>warn</code> when a single page can be skipped without ruining the run. A final build is allowed to be strict, but it should still be honest about which errors stop the whole tool and which ones only remove one manuscript from the batch.</p>
+<p>By now the shape should be familiar enough to trust. Walk the source shelf once, build records once, render pages once, and render the index from the same records. That keeps the project deterministic and keeps the final HTML tied to the manuscripts that produced it. The final section is not asking for new tricks so much as a clean handoff between the tricks already learned.</p>
+<pre><code>my $pages = parse_shelf($source_dir);
+for my $page (@$pages) {
+    my $html = render_page($page);
+    write_page($build_dir, $page, $html);
+}
+write_index($build_dir, render_index($pages));</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE WHOLE SHELF</div>
+<p><strong>Orchestration note.</strong> The top-level script should coordinate the helpers, not duplicate their work. If the parser already produced page records, do not parse the same file twice downstream.</p>
+<p><strong>Error note.</strong> Fatal shelf problems deserve <code>die</code>. A single malformed manuscript can often be skipped with <code>warn</code> if the rest of the shelf still renders cleanly.</p>
+<p><strong>Closure note.</strong> The last section still respects filehandles. A page is only really written when the handle closes without complaint.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perldoc: perlmod"
+url = "https://perldoc.perl.org/perlmod"
+
+[[lessons.readings]]
+label = "perldoc: perlfunc"
+url = "https://perldoc.perl.org/perlfunc"
+
+[[lessons.exercises]]
+id = "s08-l05-e1"
+type = "mc"
+points = 18
+prompt = "<p>Which helper should own the HTML wrapper around one manuscript page?</p>"
+choices = ["The parser.", "The renderer.", "The option parser.", "The file walker."]
+answer = 1
+whyWrong = "You are mixing up extraction, formatting, flags, and directory traversal. The renderer owns the wrapper because it turns page records into HTML."
+hint = "The helper that turns data into HTML should own the wrapper."
+explain = "The renderer formats the page record into markup, so it should own the HTML wrapper."
+
+[[lessons.exercises]]
+id = "s08-l05-e2"
+type = "text"
+points = 18
+prompt = "<p>Why must the top-level script hand structured page records to the renderer instead of raw line arrays?</p>"
+answer = "because the renderer needs metadata like title and slug along with the ordered content"
+accept = ["because the renderer needs metadata like title and slug along with the ordered content", "the renderer needs title slug and ordered content", "raw lines do not carry the page metadata"]
+hint = "Think about which fields the renderer needs that plain text does not carry."
+whyWrong = "You are trying to feed the renderer only the prose. It also needs the page metadata that the parser already assembled."
+
+[[lessons.exercises]]
+id = "s08-l05-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "<p>Retype the coordinator stub exactly. Keep the page loop and the final index call in place.</p>"
+code = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my $pages = parse_shelf($source_dir);
+for my $page (@$pages) {
+    my $html = render_page($page);
+    write_page($build_dir, $page, $html);
+}
+write_index($build_dir, render_index($pages));
+'''
+
+[[lessons.exercises]]
+id = "s08-l05-e3"
+type = "fill"
+points = 22
+prompt = "<p>Restore the helper that returns the structured shelf data for the renderer.</p>"
+code = 'my $pages = ____($source_dir);'
+answer = "parse_shelf"
+hint = "The blank is the parser helper that turns a shelf into page records."
+whyWrong = "You are naming the wrong layer of the pipeline. The parser builds the page records; the renderer only consumes them."
+
+[[lessons.exercises]]
+id = "s08-l05-w1"
+type = "write"
+points = 34
+prompt = "<p>The starter shelf contains three manuscripts and one drafts directory. Walk only the regular <code>.txt</code> files, render each manuscript to <code>build/&lt;slug&gt;.html</code>, write <code>build/index.html</code> from the same page records, print one <code>PAGE &lt;slug&gt;.html</code> line for each page in sorted title order, then print <code>INDEX 3</code> and finish with exactly <code>DONE: 3</code>.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my $source = "manuscripts";
+my $build  = "build";
+
+mkdir $source unless -d $source;
+mkdir $build unless -d $build;
+mkdir "$source/drafts" unless -d "$source/drafts";
+
+open my $one, '>', "$source/preface.txt" or die $!;
+print {$one} "# Preface\nThis is **red** ink.\n[Read more](https://example.test/preface)\n";
+close $one or die $!;
+
+open my $two, '>', "$source/appendix.txt" or die $!;
+print {$two} "# Appendix\nAn *italic* note.\n";
+close $two or die $!;
+
+open my $three, '>', "$source/afterword.txt" or die $!;
+print {$three} "# Afterword\nLast line.\n";
+close $three or die $!;
+
+# Task: walk only the regular .txt manuscripts in $source, render each to $build/<slug>.html, write build/index.html from the same page records, print PAGE lines in sorted title order, then INDEX 3 and DONE: 3.
+'''
+expect = '''
+PAGE afterword.html
+PAGE appendix.html
+PAGE preface.html
+INDEX 3
+DONE: 3'''
+hint = "Build one page record per kept .txt file, sort the records by title for the printed proof and index, and make the DONE count come from the pages you actually wrote."

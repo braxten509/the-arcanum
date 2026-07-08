@@ -40,6 +40,7 @@ points = 15
 prompt = "Which mark means logical AND?"
 choices = ["&", "&&", "and", "+"]
 answer = 1
+whyWrong = "Single ‘&’ is the bitwise operator and ‘and’/‘+’ aren’t boolean operators — ‘&&’ is logical AND with short-circuiting."
 hint = "Two of them, side by side."
 
 [[lessons.exercises]]
@@ -54,8 +55,9 @@ else if (trust >= 4.0)
     Console.WriteLine("B");
 else
     Console.WriteLine("C");'''
-choices = ["A", "B", "C", "B and then C"]
-answer = 1
+choices = ["A", "C", "B", "B and then C"]
+answer = 2
+whyWrong = "This is a grade-band chain: 6.5 lands in the B range, so it prints B once — a matched branch stops the chain, so C never runs."
 hint = "Only the FIRST branch that matches is walked; the rest are passed by."
 
 [[lessons.exercises]]
@@ -63,8 +65,9 @@ id = "s02-l01-e3"
 type = "mc"
 points = 25
 prompt = "Why is <code>line.Length &gt; 0 &amp;&amp; line[0] == '?'</code> safe for an empty string, while <code>line[0] == '?' &amp;&amp; line.Length &gt; 0</code> collapses?"
-choices = ["It isn't safe — both crash", "&& evaluates left-to-right and stops early when the left side is false", "Length is always checked first regardless of order", "line[0] returns null for empty strings"]
-answer = 1
+choices = ["It isn't safe — both crash", "line[0] returns null for empty strings", "Length is always checked first regardless of order", "&& evaluates left-to-right and stops early when the left side is false"]
+answer = 3
+whyWrong = "Both orders would crash if both sides always ran; && evaluates left-to-right and skips the right side when the left is false, so testing Length>0 first guards line[0]."
 hint = "Short-circuiting. Order matters."
 
 [[lessons.exercises]]

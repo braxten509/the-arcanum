@@ -1,0 +1,35 @@
+[freestyle]
+title = "THE WORKING: The Smith's Bench"
+brief = "Apprentice, gather the ironwork on one bench and make it craftable. Build the Ironwright creative tab, seat every piece on it, and write the recipe JSONs that bind raw metal into worked form. Build:<ul><li><code>src/main/java/com/ironwright/tab/IronwrightTab.java</code> — <code>extends CreativeTabs</code>; a <code>public static final IronwrightTab INSTANCE = new IronwrightTab();</code>; a constructor calling <code>super(\"ironwright\")</code>; an <code>@Override</code> <code>getTabIconItem()</code> returning <code>new ItemStack(ModItems.IRON)</code> (or a registry lookup of the iron ingot); and a lang line <code>itemGroup.ironwright=Ironwright</code> for the visible tab name.</li><li>Swap <code>ItemIngot</code> and <code>BlockMetal</code> constructors to call <code>setCreativeTab(IronwrightTab.INSTANCE)</code> instead of <code>CreativeTabs.MATERIALS</code> / <code>CreativeTabs.BUILDING_BLOCKS</code>.</li><li><code>src/main/resources/assets/ironwright/recipes/starsteel_block.json</code> — a <strong>shaped</strong> recipe: a 3×3 grid of <code>I</code> (9 starsteel ingots) producing 1 <code>ironwright:starsteel_block</code>.</li><li><code>src/main/resources/assets/ironwright/recipes/starsteel.json</code> — a <strong>shapeless</strong> recipe: 1 <code>ironwright:iron</code> + 1 <code>ironwright:copper</code> producing 1 <code>ironwright:starsteel</code>.</li></ul>"
+reward = 250
+xray = "Orrick docks for a tab whose getTabIconItem returns null (blank button), a missing itemGroup.ironwright lang line, an item still set to CreativeTabs.MATERIALS instead of IronwrightTab.INSTANCE, a recipe JSON in the later data folder instead of 1.12.2's assets folder, or a recipe whose item id does not match a setRegistryName. He gives style credit for @Override on getTabIconItem, the INSTANCE singleton, one class per file, and Allman braces."
+
+[freestyle.badge]
+id = "badge-s10"
+name = "THE SMITH'S BENCH"
+desc = "Gathered the ironwork on one bench and bound it with recipes — the mod's contents organised and craftable."
+
+[[freestyle.rubric]]
+criterion = "IronwrightTab is correct"
+weight = 25
+desc = "IronwrightTab extends CreativeTabs; a public static final IronwrightTab INSTANCE singleton; the constructor calls super(\"ironwright\"); @Override getTabIconItem() returns new ItemStack(ModItems.IRON) (not null); assets/ironwright/lang/en_us.lang includes itemGroup.ironwright=Ironwright; the class lives at com/ironwright/tab/IronwrightTab.java with the matching package line."
+
+[[freestyle.rubric]]
+criterion = "All items & blocks are benched"
+weight = 20
+desc = "ItemIngot's and BlockMetal's constructors call setCreativeTab(IronwrightTab.INSTANCE) (replacing CreativeTabs.MATERIALS / CreativeTabs.BUILDING_BLOCKS); every registered item and block lands in the Ironwright tab."
+
+[[freestyle.rubric]]
+criterion = "Recipes are correct"
+weight = 25
+desc = "assets/ironwright/recipes/starsteel_block.json is a shaped recipe (type minecraft:crafting_shaped) with a 3x3 pattern of I, key I = ironwright:starsteel, result ironwright:starsteel_block count 1; assets/ironwright/recipes/starsteel.json is a shapeless recipe (type minecraft:crafting_shapeless) with ingredients ironwright:iron and ironwright:copper, result ironwright:starsteel count 1; both are valid JSON with correct item ids matching the setRegistryName values."
+
+[[freestyle.rubric]]
+criterion = "Build & run"
+weight = 15
+desc = "./gradlew build succeeds; ./gradlew runClient shows the Ironwright tab in the creative inventory holding the three ingots and the starsteel block; crafting 9 starsteel ingots yields a starsteel block and crafting iron + copper yields starsteel."
+
+[[freestyle.rubric]]
+criterion = "Clean style"
+weight = 15
+desc = "@Override on getTabIconItem; one public class per .java file named for the class; the INSTANCE singleton is the single tab reference; Allman braces; 4-space indent; MODID is the single source for every resource location and recipe id."

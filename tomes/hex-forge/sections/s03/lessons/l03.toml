@@ -1,0 +1,139 @@
+[[lessons]]
+id = "s03-l03"
+title = "Counted Blows — Loops"
+body = '''
+<p>A smith who strikes once and walks away produces no tool. Repeated work — loops — are what shape ore into form. In NASM, a loop is a label, a body, a condition test, and a conditional jump back to the top.</p>
+
+<p>The canonical counted loop uses <code>dec</code> (decrement) and <code>jnz</code> (jump if not zero):</p>
+<pre><code><span class="k">mov</span> rcx, 10          <span class="c">; counter = 10</span>
+.loop:
+    <span class="c">; body executes 10 times</span>
+    <span class="k">dec</span> rcx            <span class="c">; counter--</span>
+    <span class="k">jnz</span> .loop          <span class="c">; if counter != 0, loop again</span>
+<span class="c">; rcx is now 0</span></code></pre>
+
+<p><code>dec rcx</code> decrements by 1 AND sets ZF — if the result is zero, ZF=1 and <code>jnz</code> does not jump, ending the loop. This is the most compact counted-loop pattern on x86-64.</p>
+
+<p>The <code>loop</code> instruction does the same in one line, but with a catch:</p>
+<pre><code><span class="k">mov</span> rcx, 10
+.loop:
+    <span class="c">; body</span>
+    <span class="k">loop</span> .loop          <span class="c">; rcx--; if rcx != 0, jump to .loop</span></code></pre>
+
+<p>The catch: <code>loop</code> only takes a short (8-bit signed) displacement, and on modern CPUs it is actually <strong>slower</strong> than the <code>dec/jnz</code> pair — the CPU decodes <code>loop</code> as a microcoded instruction while <code>dec/jnz</code> are simple, fast operations that the branch predictor handles well. Vandr never uses <code>loop</code> in hot paths. Know it exists, use <code>dec/jnz</code>.</p>
+
+<p>Looping over a string — the pattern that makes atoi and string printing loop-driven instead of hand-unrolled:</p>
+<pre><code><span class="k">mov</span> rsi, my_string    <span class="c">; pointer to the string</span>
+<span class="k">mov</span> rcx, string_len   <span class="c">; byte count</span>
+.loop:
+    <span class="k">movzx</span> rax, <span class="k">byte</span> [rsi]   <span class="c">; load one byte</span>
+    <span class="c">; process the byte in al</span>
+    <span class="k">inc</span> rsi                <span class="c">; advance pointer</span>
+    <span class="k">dec</span> rcx                <span class="c">; one fewer byte remaining</span>
+    <span class="k">jnz</span> .loop              <span class="c">; continue until count hits 0</span></code></pre>
+
+<p>This pattern — pointer in rsi, count in rcx, <code>movzx</code> to load, <code>inc</code> to advance, <code>dec/jnz</code> to loop — is the workhorse of every byte-processing routine in HexForge. You will use it to parse digits, classify bytes, and build output lines.</p>
+
+<p>A loop that processes a null-terminated string (C-string convention) doesn't need a count — it just scans until it hits a zero byte:</p>
+<pre><code><span class="k">mov</span> rsi, my_string
+.scan:
+    <span class="k">mov</span> al, [rsi]
+    <span class="k">test</span> al, al          <span class="c">; is it zero?</span>
+    <span class="k">jz</span> .done             <span class="c">; yes — end of string</span>
+    <span class="c">; process al</span>
+    <span class="k">inc</span> rsi
+    <span class="k">jmp</span> .scan
+.done:</code></pre>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE LOOP INSTRUCTION AND WHY IT'S SLOW</div>
+<p><code>loop</code> was fast on the 8086 in 1978 — it combined decrement and branch into one microcoded instruction that saved fetch bandwidth on a machine with a 6-byte prefetch queue. Modern x86-64 CPUs decode <code>loop</code> into multiple micro-ops — effectively the same work as <code>dec/jnz</code> but with worse branch-prediction behaviour because the predictor has less history on a combined instruction. The <code>dec/jnz</code> pair is 100% predictable for counted loops: the predictor quickly learns "this branch is taken N-1 times, then not taken once." Use <code>loop</code> only when every byte of code size matters more than speed (boot sectors, extreme embedded) — never in HexForge.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s03-l03-e1"
+type = "mc"
+points = 15
+prompt = "Why is <code>dec rcx / jnz .loop</code> preferred over <code>loop .loop</code> in modern NASM code?"
+choices = [
+  "The loop instruction doesn't exist in x86-64 — it was removed",
+  "loop requires an extra operand specifying the count register",
+  "dec/jnz is faster on modern CPUs because loop is microcoded and the branch predictor handles dec/jnz better",
+  "dec/jnz can only loop a maximum of 128 times, while loop is unlimited"
+]
+answer = 2
+whyWrong = "loop still exists in x86-64 — it's just slow. It doesn't require extra operands. Both dec/jnz and loop can handle any count that fits in rcx (64 bits). The performance difference comes from CPU microarchitecture: dec and jnz are simple, single-micro-op instructions that the branch predictor excels at."
+hint = "Think about how the CPU's pipeline and branch predictor interact with each instruction."
+explain = "<code>dec</code> and <code>jnz</code> are each single-micro-op instructions. The branch predictor can learn the 'taken N-1 times, not taken once' pattern and achieve near-perfect prediction. <code>loop</code> is a microcoded instruction that decomposes into multiple micro-ops and has less predictable behavior."
+
+[[lessons.exercises]]
+id = "s03-l03-e2"
+type = "fill"
+points = 20
+prompt = "Fill the missing instruction. After dec, ZF is set if rcx reaches zero — the branch fires when rcx drops FROM 1 to 0, ending the loop."
+code = '''
+mov  rcx, 5
+.loop:
+    inc  rax
+    ____ rcx
+    jnz  .loop
+'''
+answer = "dec"
+hint = "Three letters — the opposite of inc. Decrements by 1 and sets flags."
+explain = "<code>dec rcx</code> subtracts 1 from rcx and sets ZF if the result is zero. When rcx goes from 1 to 0, ZF=1, so <code>jnz</code> does not jump and the loop ends after 5 iterations. If you used <code>sub rcx, 1</code> it would also work but be one byte larger."
+
+[[lessons.exercises]]
+id = "s03-l03-e3"
+type = "type"
+points = 12
+prompt = "Retype the counted-loop pattern — the foundation of every repeated strike."
+code = '''
+mov  rcx, 10
+xor  rax, rax
+.loop:
+    add  rax, 1         ; body: increment accumulator
+    dec  rcx
+    jnz  .loop
+; rax now holds 10
+'''
+
+[[lessons.exercises]]
+id = "s03-l03-w1"
+type = "write"
+points = 30
+prompt = "Count to five. Use a <code>dec/jnz</code> loop to print the digits <code>5 4 3 2 1</code> each on its own line. You cannot write five separate print blocks — one print block, called five times by a loop. The counter starts at 5 and decrements. Each iteration converts the counter to ASCII (add '0'), stores it in a buffer, and prints it with a newline. After the loop, print <code>FORGE</code> on its own line to prove the program didn't crash at the end."
+starter = '''
+section .text
+    global _start
+
+_start:
+    mov rcx, 5            ; counter
+.loop_top:
+    ; Convert rcx (a digit 1-5) to ASCII
+    ; Store the ASCII byte at 'digit_buf'
+    ; Print digit_buf (1 byte) + newline
+    
+
+    
+    dec rcx
+    jnz .loop_top
+
+    ; Print "FORGE" + newline after the loop
+    
+
+    ; Exit
+    
+
+section .data
+digit_buf: db 0, 10
+digit_buf_len equ $ - digit_buf
+msg_done: db "FORGE", 10
+msg_done_len equ $ - msg_done
+'''
+expect = '''
+5
+4
+3
+2
+1
+FORGE'''
+hint = "Inside the loop: mov [digit_buf], cl / add byte [digit_buf], '0' — store the count as ASCII. Then sys_write with rsi=digit_buf, rdx=2. After the loop, sys_write rsi=msg_done, rdx=6. Make sure rcx doesn't get clobbered by syscall — syscall preserves rcx (the kernel saves/restores it), so it's safe to keep your counter in rcx."

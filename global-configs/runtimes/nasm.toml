@@ -1,0 +1,73 @@
+# NASM x86-64 Assembly — complete engine config.
+# Assembled with nasm, linked with ld, run directly on Linux.
+language = "x86-64 Assembly (NASM)"
+entryFile = "main.asm"
+newFileExt = ".asm"
+editorLang = "nasm"
+runLabel = "nasm -f elf64 main.asm && ld main.o -o a.out && ./a.out"
+
+# The command assembles, links, and runs one .asm file.
+# {file} placeholder is substituted with the path.
+# $0 inside bash -c is the first positional arg = the file path.
+command = ["bash", "-c", "nasm -f elf64 \"$0\" -o \"$0.o\" 2>&1 && ld \"$0.o\" -o \"$0.bin\" && \"$0.bin\"; EC=$?; rm -f \"$0.o\" \"$0.bin\"; exit $EC"]
+
+# Syntax check: assemble only, send object to /dev/null
+checkCommand = ["bash", "-c", "nasm -f elf64 \"$0\" -o /dev/null 2>&1 || true"]
+
+# NASM diagnostic regex — captures line numbers from nasm errors
+diagRegex = '^(?P<file>[^:]+):(?P<line>\d+): (?P<sev>error|warning): (?P<msg>.*)$'
+
+starterCode = '''
+section .text
+    global _start
+
+_start:
+    mov rax, 60         ; sys_exit
+    xor rdi, rdi        ; exit code 0
+    syscall
+'''
+
+codeExt = [".asm"]
+
+# Editor completions for NASM assembly
+[completions]
+keywords = [
+  "mov", "add", "sub", "imul", "idiv", "inc", "dec", "neg",
+  "xor", "or", "and", "not", "shl", "shr", "sar",
+  "push", "pop",
+  "cmp", "test",
+  "jmp", "je", "jne", "jg", "jge", "jl", "jle", "jz", "jnz", "ja", "jb", "jae", "jbe",
+  "call", "ret",
+  "syscall",
+  "lea",
+  "nop",
+  "section", "global", "extern",
+  "db", "dw", "dd", "dq", "equ", "resb", "resw", "resd", "resq", "times",
+  "rax", "rbx", "rcx", "rdx",
+  "rsi", "rdi", "rbp", "rsp",
+  "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
+  "eax", "ebx", "ecx", "edx",
+  "esi", "edi", "ebp", "esp",
+  "ax", "bx", "cx", "dx",
+  "si", "di",
+  "al", "bl", "cl", "dl",
+  "sil", "dil",
+  "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d",
+  "r8w", "r9w", "r10w", "r11w", "r12w", "r13w", "r14w", "r15w",
+  "_start", "sys_read", "sys_write", "sys_exit",
+  "byte", "word", "dword", "qword",
+]
+snippets = [
+  ["_start", "entry-point label", "_start:\n${1}\n    mov rax, 60\n    xor rdi, rdi\n    syscall"],
+  ["section", "section directive", "section .${1:text}"],
+  ["mov", "move value", "mov ${1:dest}, ${2:src}"],
+  ["add", "add", "add ${1:dest}, ${2:src}"],
+  ["sub", "subtract", "sub ${1:dest}, ${2:src}"],
+  ["push", "push onto stack", "push ${1:reg}"],
+  ["pop", "pop from stack", "pop ${1:reg}"],
+  ["xor", "xor / zero", "xor ${1:reg}, ${2:reg}"],
+  ["cmp-jmp", "compare and jump", "cmp ${1:reg}, ${2:val}\n    je ${3:label}"],
+  ["syscall-write", "sys_write boilerplate", "mov rax, 1        ; sys_write\nmov rdi, 1        ; stdout\nmov rsi, ${1:buf}   ; buffer\nmov rdx, ${2:len}   ; length\nsyscall"],
+  ["syscall-read", "sys_read boilerplate", "mov rax, 0        ; sys_read\nmov rdi, 0        ; stdin\nmov rsi, ${1:buf}   ; buffer\nmov rdx, ${2:len}   ; max bytes\nsyscall"],
+  ["itoa-init", "itoa skeleton", "xor ecx, ecx         ; digit count\nmov ebx, 10          ; divisor\n.convert:\n    xor edx, edx\n    div ebx\n    add dl, '0'\n    push rdx\n    inc ecx\n    test eax, eax\n    jnz .convert"],
+]

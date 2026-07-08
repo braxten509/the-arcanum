@@ -1,0 +1,71 @@
+[[lessons]]
+id = "s07-l02"
+title = "The Lifecycle — preInit, init, postInit"
+body = '''
+<p>Forge calls your mod in three stages, each a method marked <code>@Mod.EventHandler</code> taking a different event type. The order is fixed: <code>preInit</code>, then <code>init</code>, then <code>postInit</code>.</p>
+<pre><code><span class="k">@Mod.EventHandler</span>
+<span class="k">public void</span> preInit(FMLPreInitializationEvent event) {
+    <span class="c">// registry, config, the earliest setup</span>
+}
+
+@Mod.EventHandler
+<span class="k">public void</span> init(FMLInitializationEvent event) {
+    <span class="c">// proxies, world-gen, things that need the registries filled</span>
+}
+
+@Mod.EventHandler
+<span class="k">public void</span> postInit(FMLPostInitializationEvent event) {
+    <span class="c">// cross-mod compatibility, late wiring</span>
+}</code></pre>
+<p><code>preInit</code> (taking <code>FMLPreInitializationEvent</code>) is where the mod declares what it will register — items, blocks, configs. <code>init</code> (taking <code>FMLInitializationEvent</code>) is where work that needs the registries filled happens — proxy wiring, world-gen hooks. <code>postInit</code> (taking <code>FMLPostInitializationEvent</code>) is the late stage for cross-mod compatibility. Forge calls each once, in order, on the right side. Each method takes the matching event type as its parameter — the type is how Forge picks which stage a handler belongs to.</p>
+<p>You do not call these methods — Forge does, when the lifecycle reaches each stage. Your job is to write the body for each and mark it <code>@Mod.EventHandler</code> with the right event parameter. A handler with the wrong event type runs in the wrong stage, or not at all.</p>
+<div class="callout"><strong>Orrick says:</strong> Register in <code>preInit</code>, wire in <code>init</code>, talk to other mods in <code>postInit</code>. Forgetting the order is a real bug — registering an item in <code>postInit</code> is too late; the registry already closed.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY THREE STAGES, NOT ONE</div>
+<p>The split exists because mods load in dependency order. A mod that adds a new metal must register it in <code>preInit</code> so a mod that adds recipes for that metal can find it in <code>init</code> or <code>postInit</code>. If everything ran in one stage, you could not depend on another mod's items being ready. The lifecycle is the forge's promise about what is available when.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s07-l02-e1"
+type = "mc"
+points = 15
+prompt = "A smith registers <code>ItemIngot</code> in a <code>@Mod.EventHandler</code> method taking <code>FMLPostInitializationEvent</code>. What goes wrong?"
+choices = ["nothing — any stage can register", "the mod loads twice", "the method does not compile", "the item registers too late: the item registry closes after preInit, so a postInit registration is dropped"]
+answer = 3
+whyWrong = "Item registration belongs in preInit (RegistryEvent.Register<Item>, which fires during that stage); by postInit the registry is closed and a registration is too late. The method compiles; it just runs at the wrong stage. The lifecycle order is the forge's contract."
+hint = "Think about WHEN each registry is open — and which stage Item registration belongs in."
+explain = "Registries open early and close before postInit. Register items in preInit (via RegistryEvent.Register<Item>); use init/postInit for work that needs filled registries."
+
+[[lessons.exercises]]
+id = "s07-l02-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the annotation that marks a method as a Forge lifecycle handler (the one preInit, init, and postInit all carry)."
+code = '''____
+public void preInit(FMLPreInitializationEvent event) { ... }'''
+answer = "@Mod.EventHandler"
+whyWrong = "@Mod.EventHandler marks a lifecycle handler; @Mod marks the class, @Instance marks the singleton field, @Override is for parent-method overrides not Forge events. The lifecycle-handler annotation is @Mod.EventHandler."
+hint = "It is the @Mod annotation for handling an event — @Mod dot EventHandler."
+
+[[lessons.exercises]]
+id = "s07-l02-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of the lifecycle order. Print the three stage names in the order Forge calls them, one per line: <code>preInit</code>, <code>init</code>, <code>postInit</code>. Three lines, in that order."
+starter = '''public class Ironwright {
+    public static void main(String[] args) {
+        // apprentice — print preInit, then init, then postInit, one per line
+    }
+}'''
+expect = '''
+preInit
+init
+postInit'''
+hint = "Three System.out.println calls in order: \"preInit\", \"init\", \"postInit\"."
+
+[[lessons.exercises]]
+id = "s07-l02-t1"
+type = "text"
+points = 20
+prompt = "Type the fully-qualified event-class name taken by the preInit handler (the one in net.minecraftforge.fml.common.event)."
+answer = "net.minecraftforge.fml.common.event.FMLPreInitializationEvent"
+hint = "It is the net.minecraftforge.fml.common.event package, class FML + Pre + Initialization + Event."

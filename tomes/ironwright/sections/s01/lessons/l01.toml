@@ -1,0 +1,86 @@
+[[lessons]]
+id = "s01-l01"
+title = "The First Spark — Variables & Primitive Types"
+body = '''
+<p>Apprentice. The block-world is written in a tongue called Java, and every forge begins with a single spark: a program that does one thing and says it did. Here is the whole of it.</p>
+<pre><code><span class="k">public class</span> Ironwright {
+    <span class="k">public static void</span> main(String[] args) {
+        System.out.println(<span class="s">"strike the first spark"</span>);
+    }
+}</code></pre>
+<p>Two tools turn this text into a running program. <code>javac Ironwright.java</code> compiles the source into bytecode (a <code>.class</code> file); <code>java Ironwright</code> runs it. The class name and the file name must match exactly — <code>public class Ironwright</code> lives in <code>Ironwright.java</code>, no exceptions. The <code>main</code> method is the door the runtime enters; everything starts there.</p>
+<p>A <strong>variable</strong> is a named slot that holds one kind of thing. You declare its type, then its name, then give it a value with <code>=</code>:</p>
+<pre><code><span class="k">int</span> ingots = <span class="s">8</span>;
+<span class="k">double</span> meltPoint = <span class="s">1500.0</span>;
+<span class="k">boolean</span> forgeHot = <span class="k">true</span>;
+<span class="k">char</span> grade = <span class="s">'A'</span>;</code></pre>
+<p>Java's <strong>primitive types</strong> are the raw metals: <code>int</code> for whole numbers, <code>double</code> for decimals, <code>boolean</code> for true/false, <code>char</code> for a single letter in single quotes. A type is a contract — once a slot is <code>int</code>, it never holds <code>"copper"</code>. That strictness is the smith's discipline: the compiler refuses sloppy work before it ever fires.</p>
+<div class="callout"><strong>Orrick says:</strong> <code>=</code> is assignment, not equality. Read <code>ingots = 8</code> as "ingots becomes 8". Equality — "is ingots equal to 8?" — comes later, and it is a different operator.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE OLD IRON</div>
+<p>This tome builds a Forge 1.12.2 mod, and Minecraft 1.12.2 runs on exactly Java 8 — not 9, not 17. Later you will install a JDK 8 and the Forge MDK; for now you only need any <code>javac</code>/<code>java</code> on your bench to strike these first sparks. The Oracle Java SE 8 docs (linked below) are the master's manual for every primitive type and operator you will meet.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Oracle Java SE 8 Documentation (the old iron you will install in Forgework VI)"
+url = "https://docs.oracle.com/javase/8/docs/api/"
+
+[[lessons.readings]]
+label = "The Java Tutorials — Variables"
+url = "https://docs.oracle.com/javase/tutorial/java/nutsandbolts/variables.html"
+
+[[lessons.exercises]]
+id = "s01-l01-e1"
+type = "mc"
+points = 15
+prompt = "Which primitive type should hold the melting point <code>1500.5</code> — a value with a fractional part?"
+choices = ["int", "boolean", "double", "char"]
+answer = 2
+whyWrong = "double is the type for decimal values; int stores whole numbers only and would chop off the .5; boolean holds only true/false; char holds one letter."
+hint = "Fractions need a floating-point type, not a whole-number one."
+explain = "double is a 64-bit floating-point type; int would silently truncate 1500.5 to 1500."
+
+[[lessons.exercises]]
+id = "s01-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the whole first spark exactly — the program the forge runs."
+code = '''public class Ironwright {
+    public static void main(String[] args) {
+        System.out.println("IRONWRIGHT // forge ready");
+    }
+}'''
+
+[[lessons.exercises]]
+id = "s01-l01-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the primitive type that holds a whole-number count of ingots."
+code = '____ ingots = 8;'
+answer = "int"
+whyWrong = "int is the whole-number type; double is for decimals, boolean for true/false, char for one letter. A count is a whole number."
+hint = "Counts of things have no fractional part — pick the whole-number type."
+
+[[lessons.exercises]]
+id = "s01-l01-w1"
+type = "write"
+points = 30
+prompt = "The forge holds <code>8</code> iron ingots and <code>6</code> copper ingots. Declare an <code>int iron = 8;</code> and <code>int copper = 6;</code>, then print exactly <code>iron 8 copper 6</code> by printing each variable's value (not by retyping the digits)."
+starter = '''public class Ironwright {
+    public static void main(String[] args) {
+        int iron = 8;
+        int copper = 6;
+        // apprentice — print both variables on one line, labelled iron and copper
+    }
+}'''
+expect = '''
+iron 8 copper 6'''
+hint = "System.out.println can take several values joined with + : println(\"iron \" + iron + \" copper \" + copper)."
+
+[[lessons.exercises]]
+id = "s01-l01-e2"
+type = "text"
+points = 20
+prompt = "What command compiles a <code>.java</code> source file into bytecode? (Type the bare command name.)"
+answer = "javac"
+hint = "It is the compiler — its name is java with a c glued on the end."

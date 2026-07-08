@@ -40,6 +40,7 @@ points = 25
 prompt = "Which failure is legitimately FATAL for a search tool?"
 choices = ["One source URL 404s", "The LLM is offline", "The search backend is unreachable — nothing downstream can produce results", "A page has weird encoding"]
 answer = 2
+whyWrong = "A single 404, an offline LLM, or odd encoding are all survivable — an unreachable search backend is fatal because nothing downstream can produce results."
 hint = "Can ANY later stage still do useful work?"
 
 [[lessons.exercises]]
@@ -47,8 +48,9 @@ id = "s11-l04-e2"
 type = "mc"
 points = 25
 prompt = "The keyword fallback answered instead of the LLM. The report should…"
-choices = ["say nothing — results are results", "disclose it (e.g., a dim 'keyword fallback' note) — silent degradation misleads the user about quality", "refuse to render", "apologize in red capitals"]
-answer = 1
+choices = ["say nothing — results are results", "apologize in red capitals", "refuse to render", "disclose it (e.g., a dim 'keyword fallback' note) — silent degradation misleads the user about quality"]
+answer = 3
+whyWrong = "Staying silent or apologizing loudly both mislead — disclose the keyword fallback with a dim note so the user knows the result quality changed."
 hint = "Degrade loudly enough to be honest, quietly enough to stay readable."
 
 [[lessons.exercises]]
@@ -56,8 +58,9 @@ id = "s11-l04-e3"
 type = "mc"
 points = 20
 prompt = "\"Catch at boundaries\" means…"
-choices = ["wrap every single method body in try/catch", "never catch anything", "components throw honestly; the orchestrator's stage transitions translate failures into degradation decisions", "catch only in Main"]
-answer = 2
+choices = ["components throw honestly; the orchestrator's stage transitions translate failures into degradation decisions", "never catch anything", "wrap every single method body in try/catch", "catch only in Main"]
+answer = 0
+whyWrong = "It doesn’t mean never catching or wrapping every method — components throw honestly and the orchestrator’s stage boundaries translate those failures into degradation decisions."
 hint = "The orchestrator is where 'what does this failure MEAN' gets decided."
 
 [[lessons.exercises]]

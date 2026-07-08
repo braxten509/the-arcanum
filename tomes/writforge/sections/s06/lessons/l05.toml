@@ -1,0 +1,111 @@
+[[lessons]]
+id = "s06-l05"
+title = "The First Render Pass"
+body = '''
+<p>Now the chapter can assemble the whole first pass of the renderer. Regex still decides what kind of line the scribe has in hand, but substitution performs the actual costume change. A heading line becomes a heading tag. A body line keeps its words while inline emphasis, strong text, and links are rewritten in place. The manuscript remains in order because the array still walks it one line at a time.</p>
+<p>The order of the transforms matters. The heading branch should fire before the paragraph branch, because a heading needs only one wrapper and no inline paragraph cage. Inside the paragraph branch, the more specific bold rewrite should happen before italic markup so the double asterisks do not get torn into single asterisks by accident. That is not a fancy trick. It is just careful sequencing, which is the real skill behind most clean text pipelines.</p>
+<p>This lesson reaches backward on purpose. The s05 heading test decides whether a line is a heading or ordinary prose, and the s03 array still keeps the manuscript in source order. The s06 substitutions then dress that same line in HTML. Earlier chapters taught the scribe to read shape, count collections, and preserve order. This one finally lets those skills produce the visible page.</p>
+<p>Keep the transformation narrow. The renderer is supposed to change markup, not invent content. If the line says <code>A *quiet* margin.</code>, the output should still say <code>quiet</code>. If the line says <code>[Read more](...)</code>, the label and the destination should both survive. That is why captures and flags are the center of the chapter rather than a footnote.</p>
+<pre><code><span class="k">for</span> <span class="k">my</span> <span class="s">$line</span> (<span class="s">@lines</span>) {
+    <span class="k">if</span> (<span class="s">$line</span> =~ /^#\s+(.*)$/) {
+        <span class="s">$line</span> = <span class="s">"&lt;h1&gt;$1&lt;/h1&gt;"</span>;
+    } <span class="k">else</span> {
+        <span class="s">$line</span> =~ s/\*\*([^*]+)\*\*/&lt;strong&gt;<span class="s">$1</span>&lt;/strong&gt;/g;
+        <span class="s">$line</span> =~ s/\*([^*]+)\*/&lt;em&gt;<span class="s">$1</span>&lt;/em&gt;/g;
+        <span class="s">$line</span> =~ s/\[([^\]]+)\]\(([^)]+)\)/&lt;a href="<span class="s">$2</span>"&gt;<span class="s">$1</span>&lt;/a&gt;/g;
+        <span class="s">$line</span> = <span class="s">"&lt;p&gt;$line&lt;/p&gt;"</span>;
+    }
+    <span class="k">say</span> <span class="s">$line</span>;
+}</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE FIRST RENDER PASS</div>
+<p><strong>Branch note.</strong> The heading test still comes from the regex chapter. Substitution only changes the line after that decision has already been made.</p>
+<p><strong>Order note.</strong> Bold before italic is the safer sequence when both markers may appear in the same body line. Keep the more specific pattern from being broken apart by the more general one.</p>
+<p><strong>Scope note.</strong> The first render pass stays in memory. File I/O comes later, so this chapter only proves that the transformation rules themselves are sound.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perldoc: perlop"
+url = "https://perldoc.perl.org/perlop"
+
+[[lessons.exercises]]
+id = "s06-l05-e1"
+type = "mc"
+points = 18
+prompt = "<p>Why does the renderer still start with the s05 heading test before the substitutions?</p>"
+choices = ["Because the line shape decides whether the line becomes a heading or a paragraph.", "Because the substitutions need to delete the array.", "Because the hash from s04 must lowercase every token first.", "Because the link rewrite only works on empty lines."]
+answer = 0
+whyWrong = "You are mixing unrelated chapters or assuming the wrong input shape. The heading test is still the gate that decides which wrapper the line gets before any inline rewrites happen."
+hint = "The old regex chapter still chooses the branch."
+explain = "Regex detection comes first; substitution only changes the chosen line."
+
+[[lessons.exercises]]
+id = "s06-l05-e2"
+type = "text"
+points = 16
+prompt = "<p>What should survive the inline rewrite when a line contains <code>*quiet*</code> or <code>[Read more](...)</code>?</p>"
+answer = "the original words inside the new tags"
+accept = ["the original words", "the label and destination", "the manuscript text inside the wrapper"]
+hint = "The renderer changes the frame, not the prose."
+whyWrong = "You are answering with only the markup or only the URL. The rewrite must preserve the source words inside the new HTML."
+
+[[lessons.exercises]]
+id = "s06-l05-e3"
+type = "fill"
+points = 22
+prompt = "<p>Restore the flag that makes both bold spans change in one pass.</p>"
+code = 'my $line = "Ink **red** and **blue**"; $line =~ s/\*\*([^*]+)\*\*/<strong>$1</strong>/____;'
+answer = "g"
+hint = "The blank is the repeat-pass flag, the same one from the earlier global rewrite lesson."
+whyWrong = "You are letting the substitution stop after the first match. The chapter needs the same string scanned until no bold span remains."
+
+[[lessons.exercises]]
+id = "s06-l05-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "<p>Retype the full render loop exactly. Keep the heading branch, the inline rewrites, and the paragraph wrapper intact.</p>"
+code = '''
+#!/usr/bin/env perl
+use v5.36;
+
+for my $line (@lines) {
+    if ($line =~ /^#\s+(.*)$/) {
+        $line = "<h1>$1</h1>";
+    } else {
+        $line =~ s/\*\*([^*]+)\*\*/<strong>$1</strong>/g;
+        $line =~ s/\*([^*]+)\*/<em>$1</em>/g;
+        $line =~ s/\[([^\]]+)\]\(([^)]+)\)/<a href="$2">$1</a>/g;
+        $line = "<p>$line</p>";
+    }
+    say $line;
+}
+'''
+
+[[lessons.exercises]]
+id = "s06-l05-w1"
+type = "write"
+points = 30
+prompt = "<p>Using the starter manuscript, render each line into HTML, print every transformed line, and finish with <code>RENDERED 5</code>. The starter already contains two headings, one bold span, one italic span, and one link, so the code must use the line shape and the capture groups to produce the exact output.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my @lines = (
+    "# Preface",
+    "This is **red** ink.",
+    "A *quiet* margin.",
+    "[Read more](https://example.test)",
+    "# Appendix",
+);
+my $rendered = 0;
+
+# Task: render each line to HTML and count the lines you emitted.
+'''
+expect = '''
+<h1>Preface</h1>
+<p>This is <strong>red</strong> ink.</p>
+<p>A <em>quiet</em> margin.</p>
+<p><a href="https://example.test">Read more</a></p>
+<h1>Appendix</h1>
+RENDERED 5'''
+hint = "Use the regex branch from s05, the capture-based rewrites from this chapter, and keep the five starter lines in order."

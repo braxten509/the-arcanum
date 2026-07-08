@@ -1,0 +1,116 @@
+[[lessons]]
+id = "s06-l03"
+title = "Measuring the Ore — strlen"
+body = '''
+<p>Sometimes you know a string's length at assembly time (<code>equ $ - label</code>). Sometimes you don't — you receive a pointer from <code>sys_read</code>, a C-style null-terminated string from argv, or a buffer whose length was just computed. In those cases you need <strong>strlen</strong>: a procedure that scans memory until it finds a terminator and returns the count.</p>
+
+<p>The null-terminated variant — scan until byte 0:</p>
+<pre><code><span class="c">; Input: rdi = pointer to null-terminated string</span>
+<span class="c">; Output: rax = length (not including the null)</span>
+strlen:
+    <span class="k">xor</span> rax, rax            <span class="c">; counter = 0</span>
+.scan:
+    <span class="k">cmp</span> <span class="k">byte</span> [rdi + rax], 0  <span class="c">; is this byte the null terminator?</span>
+    <span class="k">je</span> .done                <span class="c">; yes — we're done</span>
+    <span class="k">inc</span> rax                 <span class="c">; count++</span>
+    <span class="k">jmp</span> .scan
+.done:
+    <span class="k">ret</span>                     <span class="c">; rax = length</span></code></pre>
+
+<p>This uses indexed addressing — <code>[rdi + rax]</code> — where rdi is the base and rax is both the counter AND the offset. As rax increments, the effective address marches forward through the string. When the byte at that address is zero, the count in rax is exactly the string length.</p>
+
+<p>A counted variant — stop after <code>max_len</code> bytes regardless of null:</p>
+<pre><code><span class="c">; Input: rdi = pointer, rsi = max_len</span>
+<span class="c">; Output: rax = length (stopped by null or max_len, whichever comes first)</span>
+strlen_safe:
+    <span class="k">xor</span> rax, rax
+.scan:
+    <span class="k">cmp</span> rax, rsi             <span class="c">; hit max_len?</span>
+    <span class="k">jae</span> .done               <span class="c">; yes — stop (unsigned: counts are never negative)</span>
+    <span class="k">cmp</span> <span class="k">byte</span> [rdi + rax], 0
+    <span class="k">je</span> .done
+    <span class="k">inc</span> rax
+    <span class="k">jmp</span> .scan
+.done:
+    <span class="k">ret</span></code></pre>
+
+<p>Why the safe variant? A raw <code>strlen</code> handed a pointer to a non-null-terminated buffer (like a fixed-size <code>.bss</code> region or a partial <code>sys_read</code> result) will scan until it finds a zero byte — potentially thousands of bytes past the valid data. The safe variant bounds the scan to <code>max_len</code> and is essential when working with untrusted or partial input.</p>
+
+<p>For HexForge, strlen is used to process argv[1] (the filename from the command line) in s07. The kernel null-terminates each argv string, so the raw variant works there — but the safe variant is the right habit for buffer processing.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // REPNE SCASB — THE HARDWARE STRING SCAN</div>
+<p>x86 has a family of string instructions: <code>repne scasb</code> scans memory for a byte in al, decrementing rcx each step. It is the hardware implementation of strlen: set al=0, rdi=string, rcx=-1 (max unsigned), then <code>repne scasb</code>. When it stops, the length is <code>(-1 - rcx - 1)</code>. On modern CPUs this is about the same speed as the manual loop — sometimes faster (it uses dedicated string-scan microcode), sometimes slower (high overhead on short strings). For clarity and consistency, HexForge uses the manual loop. Know the string instructions exist; use them when micro-optimising, not before.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s06-l03-e1"
+type = "mc"
+points = 15
+prompt = "What happens if <code>strlen</code> (the unbounded variant) is called on a pointer to a buffer that contains no zero byte?"
+choices = [
+  "strlen returns immediately with rax=0 — it can detect non-null-terminated buffers",
+  "NASM inserts a guard zero byte after every .data section, so strlen always terminates safely",
+  "strlen detects the .bss or .data section boundary and stops automatically",
+  "strlen scans forward until it finds a zero byte — potentially reading past the valid data, into other memory regions, until it crashes or finds a zero"
+]
+answer = 3
+whyWrong = "strlen has no bounds checking — it reads byte after byte, incrementing the offset, until it hits a zero. If no zero exists within the buffer's valid pages, it eventually reads an unmapped page and crashes with SIGSEGV. NASM does NOT insert guard bytes. Memory sections have no runtime boundaries the CPU enforces."
+hint = "What stops the scanning loop? Only one thing: cmp byte [rdi+rax], 0 / je .done."
+explain = "The unbounded strlen reads memory starting at rdi until it encounters a zero byte. If the buffer is not null-terminated, the scan continues past the valid data — through other variables, the stack, or into unmapped memory. A safe strlen with a max_len parameter is the defense against this."
+
+[[lessons.exercises]]
+id = "s06-l03-e2"
+type = "text"
+points = 20
+prompt = "In the strlen loop, the instruction <code>cmp byte [rdi + rax], 0</code> uses indexed addressing. What two registers are combined to form the effective address?"
+answer = "rdi and rax"
+accept = ["rdi, rax", "rdi + rax"]
+hint = "The base register (where the string starts) and the offset register (which increments each iteration)."
+explain = "rdi holds the base address of the string. rax holds the current offset (also the running count). The effective address <code>[rdi + rax]</code> computes rdi + rax without modifying either register — the CPU's address-generation unit does the addition in parallel with the load. This is faster than <code>inc rdi</code> because rdi stays pointing to the start."
+
+[[lessons.exercises]]
+id = "s06-l03-e3"
+type = "fill"
+points = 20
+prompt = "Fill the size specifier — without it, NASM doesn't know how many bytes to compare."
+code = '''
+cmp  ____ [rdi + rax], 0   ; compare one byte against zero
+je   .done
+'''
+answer = "byte"
+hint = "Four letters — the smallest addressable unit."
+explain = "<code>cmp byte [rdi + rax], 0</code> tells NASM to compare exactly one byte from memory against the immediate 0. Without <code>byte</code>, NASM cannot infer the operand size because neither the memory reference nor the immediate carries a size hint. This is a common assembly error."
+
+[[lessons.exercises]]
+id = "s06-l03-w1"
+type = "write"
+points = 30
+prompt = "Forge strlen and measure a string. Write <code>strlen</code> that scans a null-terminated string (pointer in rdi) and returns the length in rax. Use indexed addressing (<code>[rdi + rax]</code>). Call it on the string <code>\"HexForge\"</code> (which is null-terminated with db 0). Print the length using itoa. Output: <code>8</code> (H-e-x-F-o-r-g-e = 8 characters, null not counted)."
+starter = '''
+section .text
+    global _start
+
+_start:
+    mov rdi, test_str
+    call strlen
+    ; rax = 8. Print with itoa.
+    
+
+strlen:
+    xor rax, rax
+.scan:
+    cmp byte [rdi + rax], 0
+    je .done
+    inc rax
+    jmp .scan
+.done:
+    ret
+
+section .data
+test_str: db "HexForge", 0
+newline: db 10
+outbuf: times 20 db 0
+'''
+expect = '''
+8'''
+hint = "strlen returns 8 in rax. itoa: xor ecx,ecx / mov ebx,10 / .cvt: xor edx,edx / div ebx / add dl,'0' / push rdx / inc ecx / test eax,eax / jnz .cvt. Pop digits to outbuf. Print outbuf (digit count bytes) + newline."

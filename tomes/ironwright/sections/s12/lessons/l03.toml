@@ -1,0 +1,86 @@
+[[lessons]]
+id = "s12-l03"
+title = "Worked Example — a Custom Ore & World-Gen"
+body = '''
+<p>A second worked example: a custom ore that generates underground. Step 1 — open <code>BlockOre</code> (or <code>Block</code>); an ore is just a block with <code>Material.ROCK</code> and a harvest level. Step 2 — Search Everywhere for "world gen" and find <code>WorldGenMinable</code>: it is the class that places a vein of a block in a chunk. Step 3 — Find Usages on <code>WorldGenMinable</code> to see how vanilla's own ore gen calls it.</p>
+<pre><code><span class="c">// the ore block — same pipeline as BlockMetal (Forgework IX)</span>
+<span class="k">public class</span> BlockStarsteelOre <span class="k">extends</span> Block {
+    <span class="k">public</span> BlockStarsteelOre() {
+        <span class="k">super</span>(Material.ROCK);
+        setRegistryName(Ironwright.MODID, <span class="s">"starsteel_ore"</span>);
+        setUnlocalizedName(Ironwright.MODID + <span class="s">".starsteel_ore"</span>);
+        setHardness(<span class="s">3.0f</span>);
+        setHarvestLevel(<span class="s">"pickaxe"</span>, <span class="s">2</span>);   <span class="c">// needs an iron pickaxe</span>
+        setCreativeTab(IronwrightTab.INSTANCE);
+    }
+}
+
+<span class="c">// the world-gen — places veins during chunk generation</span>
+WorldGenMinable gen = <span class="k">new</span> WorldGenMinable(
+    ModBlocks.STARSTEEL_ORE.getDefaultState(), <span class="s">8</span>);  <span class="c">// vein size 8</span>
+<span class="k">for</span> (<span class="k">int</span> i = <span class="s">0</span>; i &lt; <span class="s">8</span>; i++) {                  <span class="c">// 8 veins per chunk</span>
+    gen.generate(world, rand, chunkPos.add(rand.nextInt(<span class="s">16</span>), rand.nextInt(<span class="s">40</span>) + <span class="s">4</span>, rand.nextInt(<span class="s">16</span>)));
+}</code></pre>
+<p><code>WorldGenMinable(blockState, veinSize)</code> builds a generator that places a vein of up to <code>veinSize</code> blocks of the given state. The for-loop runs it <code>8</code> times per chunk at random positions — 8 veins, each up to 8 blocks, between Y=4 and Y=44 (the <code>rand.nextInt(40) + 4</code>). Register the ore block like BlockMetal; hook the gen into chunk generation (Forge's <code>oreGenEvent</code> or <code>IWorldGenerator</code>) so it runs for every new chunk. The research method took you from "I want an ore" to a generating vein, again by reading the old marks.</p>
+<div class="callout"><strong>Orrick says:</strong> <code>setHarvestLevel("pickaxe", 2)</code> ties the block to a tool type and tier — a pickaxe of level 2 (iron) or better mines it and gets the drop. Match the harvest level to the ore's tier: a starsteel ore at level 2 needs an iron pickaxe; at level 3 it needs diamond. The harvest level is the mining contract.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // IWorldGenerator — THE GEN HOOK</div>
+<p>Forge's <code>IWorldGenerator</code> interface is the hook for custom world-gen: implement <code>generate(Random, int chunkX, int chunkZ, World, IChunkGenerator, IChunkProvider)</code>, register it with <code>GameRegistry.registerWorldGenerator(this, weight)</code>, and Forge calls it for every new chunk. The <code>weight</code> orders your gen against other mods'. Inside, branch on <code>world.provider.getDimensionType()</code> to gen only in the overworld (not the Nether or End). The research method's step 3 — Find Usages on IWorldGenerator — shows vanilla's own gen patterns.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s12-l03-e1"
+type = "mc"
+points = 15
+prompt = "Which class places a vein of a block in a chunk during world generation — the one you find by Search Everywhere for 'world gen'?"
+choices = ["WorldGenMinable", "BlockOre", "ChunkEvent", "OreDictionary"]
+answer = 0
+whyWrong = "WorldGenMinable is the class that places a vein of a block in a chunk; BlockOre is the ore block itself (not the gen), ChunkEvent is an event (not the gen class), OreDictionary is for ore-tag registration. The vein-placing class is WorldGenMinable."
+hint = "It is World + Gen + Minable — the class that generates a vein (a minable deposit) of a block."
+explain = "new WorldGenMinable(blockState, veinSize) builds a vein generator; call generate(world, rand, pos) to place one vein. Loop it per chunk for multiple veins."
+
+[[lessons.exercises]]
+id = "s12-l03-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the Block method that ties a block to a tool type and tier (so a pickaxe of level 2 or better mines it and gets the drop)."
+code = '''public BlockStarsteelOre() {
+    super(Material.ROCK);
+    setRegistryName(Ironwright.MODID, "starsteel_ore");
+    ____("pickaxe", 2);
+}'''
+answer = "setHarvestLevel"
+whyWrong = "setHarvestLevel(tool, level) ties the block to a tool type and tier; setHardness sets mining time, setResistance sets blast resistance, setToolClass is the legacy call. The tool-and-tier contract is setHarvestLevel."
+hint = "It is set + Harvest + Level — the method that sets the tool type and mining level a block requires."
+
+[[lessons.exercises]]
+id = "s12-l03-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of the per-chunk vein loop. The starter has a mock <code>WorldGenMinable</code> class whose <code>generate()</code> increments a static counter, and a mock <code>OreGen</code> with an empty <code>generateChunk(int veins)</code>. In <code>main</code>, build <code>OreGen gen = new OreGen();</code>, call <code>gen.generateChunk(8)</code>, then print <code>VEINS </code> plus <code>WorldGenMinable.veinCount()</code>. Fill <code>generateChunk</code> to call <code>WorldGenMinable.generate()</code> the given number of times. The expected output is exactly <code>VEINS 8</code>; read the count from veinCount(), do not type 8 in the print."
+starter = '''public class Ironwright {
+    static class WorldGenMinable {
+        private static int count = 0;
+        public static void generate() { count++; }
+        public static int veinCount() { return count; }
+    }
+    static class OreGen {
+        public void generateChunk(int veins) {
+            // apprentice — call WorldGenMinable.generate() 'veins' times
+        }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — build OreGen, generateChunk(8), print "VEINS " + WorldGenMinable.veinCount()
+    }
+}'''
+expect = '''
+VEINS 8'''
+hint = "In generateChunk: for (int i = 0; i < veins; i++) WorldGenMinable.generate();. In main: OreGen gen = new OreGen(); gen.generateChunk(8); System.out.println(\"VEINS \" + WorldGenMinable.veinCount());"
+
+[[lessons.exercises]]
+id = "s12-l03-t1"
+type = "text"
+points = 20
+prompt = "Type the Forge interface you implement and register with GameRegistry.registerWorldGenerator to run custom world-gen for every new chunk. (Interface name, starts with I.)"
+answer = "IWorldGenerator"
+hint = "It is I + World + Generator — the Forge interface for custom world generation, registered with GameRegistry."

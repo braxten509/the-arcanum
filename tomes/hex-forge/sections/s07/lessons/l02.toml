@@ -1,0 +1,127 @@
+[[lessons]]
+id = "s07-l02"
+title = "Finding the Gate — Syscall Reconnaissance"
+body = '''
+<p>Vandr does not hand you syscall numbers. A smith who memorises one table is a smith who cannot open the next gate. This lesson teaches the reconnaissance: where the numbers live, how to read them, and how to verify you have the right gate before you strike.</p>
+
+<p>The canonical source for Linux x86-64 syscall numbers is the kernel header <code>/usr/include/asm/unistd_64.h</code> (or <code>/usr/include/x86_64-linux-gnu/asm/unistd_64.h</code> on Debian derivatives). Every syscall is a <code>#define __NR_name number</code> line:</p>
+
+<pre><code>#define __NR_read 0
+#define __NR_write 1
+#define __NR_open 2
+#define __NR_close 3
+#define __NR_openat 257
+#define __NR_exit 60</code></pre>
+
+<p>For HexForge, you need these gates:</p>
+<table style="width:100%">
+<tr><td><strong>Operation</strong></td><td><strong>Syscall</strong></td><td><strong>Number</strong></td><td><strong>Arguments</strong></td></tr>
+<tr><td>Read bytes</td><td><code>sys_read</code></td><td>0</td><td>rdi=fd, rsi=buf, rdx=count</td></tr>
+<tr><td>Write bytes</td><td><code>sys_write</code></td><td>1</td><td>rdi=fd, rsi=buf, rdx=count</td></tr>
+<tr><td>Open file</td><td><code>sys_openat</code></td><td>257</td><td>rdi=dirfd, rsi=path, rdx=flags, r10=mode</td></tr>
+<tr><td>Close file</td><td><code>sys_close</code></td><td>3</td><td>rdi=fd</td></tr>
+<tr><td>Exit process</td><td><code>sys_exit</code></td><td>60</td><td>rdi=code</td></tr>
+</table>
+
+<p><strong>Why <code>sys_openat</code> (257) and not <code>sys_open</code> (2)?</strong> The old <code>open</code> (syscall 2) still exists, but modern Linux programs use <code>openat</code> (257). The difference: <code>open</code> interprets relative paths from the process's current working directory; <code>openat</code> takes a directory file descriptor as the first argument. When <code>dirfd</code> is <code>AT_FDCWD</code> (-100), <code>openat</code> behaves identically to <code>open</code> — it resolves relative paths from the CWD. This is what HexForge does.</p>
+
+<p>The flags argument (rdx for <code>openat</code>) is a bitmask. The most common flags:</p>
+<table style="width:100%">
+<tr><td><strong>Flag</strong></td><td><strong>Value</strong></td><td><strong>Meaning</strong></td></tr>
+<tr><td><code>O_RDONLY</code></td><td>0</td><td>Read-only (the default — open for reading)</td></tr>
+<tr><td><code>O_WRONLY</code></td><td>1</td><td>Write-only</td></tr>
+<tr><td><code>O_RDWR</code></td><td>2</td><td>Read and write</td></tr>
+</table>
+
+<p>For HexForge, which only reads files: <code>mov rdx, 0</code> (O_RDONLY). The mode argument (r10) is ignored when not creating a file, so set it to 0.</p>
+
+<p>How to find these numbers without the internet — the reconnaissance drill:</p>
+<ol>
+<li>Check <code>/usr/include/asm/unistd_64.h</code> for the syscall numbers.</li>
+<li>Check <code>/usr/include/asm-generic/fcntl.h</code> or <code>/usr/include/fcntl.h</code> for the flag constants (or <code>man 2 openat</code>).</li>
+<li>Cross-reference with <code>man 2 syscall</code> for the per-architecture register assignments (rax=number, rdi=arg1, etc.).</li>
+</ol>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // AT_FDCWD — THE MAGIC -100</div>
+<p><code>AT_FDCWD</code> is defined as -100 (0xFFFFFF9C in 32-bit, sign-extended to 64-bit). When passed as the dirfd argument to <code>openat</code>, the kernel resolves relative paths from the process's current working directory — exactly as the old <code>open</code> syscall did. The advantage of <code>openat</code> is that you CAN pass a real directory fd to anchor path resolution, which prevents time-of-check-to-time-of-use (TOCTOU) races. For HexForge, the CWD is where the engine runs, so <code>AT_FDCWD</code> is correct and simple. In NASM: <code>mov rdi, -100</code> or <code>mov rdi, 0xFFFFFF9C</code>.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s07-l02-e1"
+type = "mc"
+points = 15
+prompt = "Why does HexForge use <code>sys_openat</code> (257) instead of <code>sys_open</code> (2)?"
+choices = [
+  "sys_open was removed from the Linux kernel — only openat remains",
+  "openat is faster because it bypasses the VFS layer",
+  "openat is the modern syscall — it takes a directory fd for anchored path resolution, and with AT_FDCWD (-100) it behaves identically to open",
+  "sys_open requires root privileges; openat works for unprivileged users"
+]
+answer = 2
+whyWrong = "sys_open (2) still exists — the kernel keeps it for backward compatibility. Neither is faster; both go through the VFS. Neither requires root. The difference is architectural: openat accepts a dirfd to anchor relative paths, which prevents symlink races (TOCTOU). For CWD-relative opens with AT_FDCWD, openat is functionally identical to open."
+hint = "The 'at' suffix is the key — it means 'relative to a directory fd.' What happens when that fd is AT_FDCWD?"
+explain = "<code>openat</code> is the modern, race-free syscall. When dirfd = AT_FDCWD (-100), it resolves paths from the current working directory — identical to the old <code>open</code>. But when dirfd is a real file descriptor, path resolution starts from that directory, preventing symlink races. All modern Linux software uses <code>openat</code>."
+
+[[lessons.exercises]]
+id = "s07-l02-e2"
+type = "text"
+points = 20
+prompt = "Where on a Linux system do you find the canonical list of x86-64 syscall numbers? Give the exact file path."
+answer = "/usr/include/asm/unistd_64.h"
+accept = ["/usr/include/x86_64-linux-gnu/asm/unistd_64.h"]
+hint = "It's in /usr/include, under an asm directory, and the filename contains 'unistd' and '64'."
+explain = "The kernel exports syscall numbers through this header. Each line defines <code>__NR_&lt;name&gt;</code> with the corresponding number. This file is architecture-specific — <code>unistd_32.h</code> exists for 32-bit x86, and different architectures (ARM, RISC-V) have their own directories."
+
+[[lessons.exercises]]
+id = "s07-l02-e3"
+type = "fill"
+points = 20
+prompt = "Fill the constant for the current-working-directory file descriptor. Pass this as dirfd to openat for regular relative-path opens."
+code = '''
+mov  rdi, ____        ; AT_FDCWD — resolve path from CWD
+mov  rsi, filename    ; path string
+mov  rdx, 0           ; O_RDONLY
+mov  r10, 0           ; mode (ignored)
+mov  rax, 257         ; sys_openat
+syscall
+'''
+answer = "-100"
+accept = ["-100", "0xFFFFFF9C"]
+hint = "A negative number — the special sentinel value that means 'use the process's current working directory.'"
+explain = "<code>AT_FDCWD</code> is -100 (decimal). When passed as the dirfd, the kernel treats relative paths as starting from the process's current working directory. This is the standard way to open files by path in modern Linux."
+
+[[lessons.exercises]]
+id = "s07-l02-w1"
+type = "write"
+points = 30
+prompt = "Print all the syscall numbers HexForge needs. Use <code>db</code> strings and <code>equ</code> lengths — print a table of the five syscalls (read=0, write=1, close=3, exit=60, openat=257) one per line, each preceded by its name and an equals sign. Output: <code>READ=0\\nWRITE=1\\nCLOSE=3\\nEXIT=60\\nOPENAT=257\\n</code>. Do NOT hardcode the output — you ARE allowed to hardcode since this is a reference table, but you must use sys_write properly. Just print the prepared strings."
+starter = '''
+section .text
+    global _start
+
+_start:
+    ; Print the five syscall table lines
+    
+
+    ; Exit
+    
+
+section .data
+l1: db "READ=", "0", 10
+l1_len equ $ - l1
+l2: db "WRITE=", "1", 10
+l2_len equ $ - l2
+l3: db "CLOSE=", "3", 10
+l3_len equ $ - l3
+l4: db "EXIT=", "60", 10
+l4_len equ $ - l4
+l5: db "OPENAT=", "257", 10
+l5_len equ $ - l5
+'''
+expect = '''
+READ=0
+WRITE=1
+CLOSE=3
+EXIT=60
+OPENAT=257'''
+hint = "Five separate sys_write calls (or one print_string procedure called five times). Each prints one line using its db string and equ length. This is a straightforward print exercise — the real value is memorising the syscall numbers by writing them out."

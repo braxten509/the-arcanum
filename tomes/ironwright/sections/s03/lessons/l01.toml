@@ -1,0 +1,100 @@
+[[lessons]]
+id = "s03-l01"
+title = "The Shape of a Thing — Classes, Fields & Constructors"
+body = '''
+<p>An int is a single slot. An ingot is many slots bolted together: a name, a value, a weight. A Java <strong>class</strong> is the shape of a thing — the pattern that names its slots and says how a copy is struck.</p>
+<pre><code><span class="k">public class</span> Ingot {
+    <span class="k">private</span> String name;
+    <span class="k">private int</span> value;
+
+    <span class="k">public</span> Ingot(String name, <span class="k">int</span> value) {
+        <span class="k">this</span>.name = name;
+        <span class="k">this</span>.value = value;
+    }
+
+    <span class="k">public</span> String getName() { <span class="k">return</span> name; }
+    <span class="k">public int</span> getValue() { <span class="k">return</span> value; }
+}</code></pre>
+<p>The <strong>fields</strong> <code>name</code> and <code>value</code> are the slots — each copy of an Ingot carries its own. They are <code>private</code>: only code inside this class touches them directly, a discipline called <em>encapsulation</em>. The <strong>constructor</strong> <code>public Ingot(String name, int value)</code> runs when a copy is struck — it takes the inputs and assigns them to the fields. <code>this</code> means "this copy I am building": <code>this.name = name</code> reads "set <em>this</em> ingot's name field to the name I was handed". The <strong>getters</strong> <code>getName</code> and <code>getValue</code> hand the private fields back out to the rest of the program.</p>
+<p>Notice the constructor has no return type and is named exactly after the class — <code>Ingot</code>. A method named <code>ingot</code> would be a different thing; the constructor carries the class's name and capitalisation.</p>
+<div class="callout"><strong>Orrick says:</strong> <code>this</code> is how you tell a field apart from a parameter that shares its name. Without <code>this</code>, <code>name = name</code> assigns the parameter to itself — a no-op that leaves the field null. The smith marks what belongs to the copy.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // PRIVATE IS A PROMISE</div>
+<p><code>private</code> is not a security fence — it is a promise to the next smith: "talk to this object through its methods, not its fields". If you later change <code>value</code> from an int to a double, every call to <code>getValue()</code> still works; code that reached straight to <code>.value</code> would break. Encapsulation is how a class changes underneath without breaking the surface.</p></div>
+'''
+
+[[lessons.readings]]
+label = "The Java Tutorials — Classes and Objects"
+url = "https://docs.oracle.com/javase/tutorial/java/javaOO/classes.html"
+
+[[lessons.exercises]]
+id = "s03-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the Ingot class exactly — the two private fields, the constructor that uses this, and the two getters."
+code = '''public class Ingot {
+    private String name;
+    private int value;
+
+    public Ingot(String name, int value) {
+        this.name = name;
+        this.value = value;
+    }
+
+    public String getName() { return name; }
+    public int getValue() { return value; }
+}'''
+
+[[lessons.exercises]]
+id = "s03-l01-e1"
+type = "mc"
+points = 15
+prompt = "A novice writes <code>name = name;</code> inside the Ingot constructor (no <code>this</code>). What happens?"
+choices = ["the parameter is assigned to itself; the field stays null", "the field is set correctly", "the code does not compile", "the field becomes the empty string"]
+answer = 0
+whyWrong = "Without this, name resolves to the nearest scope — the parameter — so the statement assigns the parameter to itself and the field name is never touched (stays null). this.name = name is the fix. The code compiles, which is what makes it a silent bug."
+hint = "Think about which 'name' the bare word refers to inside the constructor — the parameter or the field?"
+explain = "Bare name is the parameter (nearest scope). this.name is the field. Omit this and you assign the parameter to itself, leaving the field null."
+
+[[lessons.exercises]]
+id = "s03-l01-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the keyword that means 'this copy I am building' — used to tell a field apart from a same-named parameter."
+code = '''public Ingot(String name, int value) {
+    ____.name = name;
+    this.value = value;
+}'''
+answer = "this"
+whyWrong = "this refers to the current object being constructed, so this.name is the field; new builds an object but is not used inside the constructor; super calls the parent (no parent here); self is not Java's keyword. The field/parameter clash is resolved by this."
+hint = "It is the four-letter English word meaning 'this very copy' — also a Java keyword."
+
+[[lessons.exercises]]
+id = "s03-l01-w1"
+type = "write"
+points = 30
+prompt = "The Ingot class is provided in the starter (constructor + getters). In <code>main</code>, construct <code>Ingot copper = new Ingot(\"copper\", 6);</code> and print <code>copper @ 6em</code> by joining <code>copper.getName()</code>, <code>\" @ \"</code>, <code>copper.getValue()</code>, and <code>\"em\"</code>. Do not type the digits 6 in the print — read them from the object."
+starter = '''public class Ironwright {
+    static class Ingot {
+        private String name;
+        private int value;
+        public Ingot(String name, int value) { this.name = name; this.value = value; }
+        public String getName() { return name; }
+        public int getValue() { return value; }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — construct Ingot copper = new Ingot("copper", 6); then print copper @ 6em
+    }
+}'''
+expect = '''
+copper @ 6em'''
+hint = "Ingot copper = new Ingot(\"copper\", 6); then System.out.println(copper.getName() + \" @ \" + copper.getValue() + \"em\");"
+
+[[lessons.exercises]]
+id = "s03-l01-t1"
+type = "text"
+points = 20
+prompt = "What must a constructor be named? (Describe the rule in one short phrase, or type the exact name for the Ingot class.)"
+answer = "Ingot"
+hint = "A constructor carries the class's name exactly — same capitalisation. For the Ingot class that is...?"

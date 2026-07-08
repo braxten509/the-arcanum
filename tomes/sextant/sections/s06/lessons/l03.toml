@@ -1,0 +1,96 @@
+[[lessons]]
+id = "s06-l03"
+title = "Exception Discipline — try/except/else/finally"
+body = '''
+<p>Python's exception-handling statement has four clauses, each with a distinct role. Learning when each fires — and more importantly, which code belongs in which clause — is the mark of an experienced navigator.</p>
+<pre><code><span class="k">try</span>:
+    <span class="n">result</span> = <span class="n">risky_operation</span>()       <span class="c"># the code that might fail</span>
+<span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span>:
+    <span class="n">log</span>(<span class="sa">f</span><span class="s">"bad value: {e}"</span>)            <span class="c"># handle one specific type of failure</span>
+<span class="k">except</span> (IOError, OSError):
+    <span class="n">log</span>(<span class="s">"IO problem"</span>)                  <span class="c"># handle multiple related types</span>
+<span class="k">else</span>:
+    <span class="n">log</span>(<span class="sa">f</span><span class="s">"success: {result}"</span>)         <span class="c"># runs only when NO exception was raised</span>
+<span class="k">finally</span>:
+    <span class="n">cleanup</span>()                            <span class="c"># ALWAYS runs: success, failure, or early return</span></code></pre>
+<p>The <code>else</code> clause is the most underused and most valuable. It separates the exceptional path from the success path, making the code read as "try this risky thing; if it fails, handle it here; if it succeeds, process the result here." Without <code>else</code>, you must either put the success code inside the <code>try</code> block (where it could also raise and be caught by the same <code>except</code>) or use a flag variable — both are worse.</p>
+<pre><code><span class="c"># Without 'else' — fragile or cluttered</span>
+<span class="k">try</span>:
+    <span class="n">f</span> = <span class="nb">open</span>(<span class="n">path</span>)
+    <span class="n">data</span> = <span class="n">f</span>.<span class="n">read</span>()      <span class="c"># If this raises IOError, is it an open failure or a read failure?</span>
+<span class="k">except</span> IOError:
+    <span class="k">return</span> <span class="kc">None</span>
+
+<span class="c"># With 'else' — each failure type has its own handler</span>
+<span class="k">try</span>:
+    <span class="n">f</span> = <span class="nb">open</span>(<span class="n">path</span>)
+<span class="k">except</span> IOError:
+    <span class="k">return</span> <span class="kc">None</span>
+<span class="k">else</span>:
+    <span class="k">with</span> <span class="n">f</span>:              <span class="c"># f is definitely open — read is a separate operation</span>
+        <span class="k">return</span> <span class="n">f</span>.<span class="n">read</span>()</code></pre>
+<p><strong>Exception hierarchies</strong> matter. Catch specific exceptions — <code>except FileNotFoundError</code> — not <code>except Exception</code>. A bare <code>except:</code> catches <code>KeyboardInterrupt</code> and <code>SystemExit</code> too, which is almost never what you want. The safest pattern is:</p>
+<pre><code><span class="k">try</span>:
+    <span class="n">process_line</span>(<span class="n">line</span>)
+<span class="k">except</span> <span class="ne">ValueError</span>:
+    <span class="k">print</span>(<span class="sa">f</span><span class="s">"skipping bad line: {line}"</span>)   <span class="c"># known failure mode</span>
+<span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span>:
+    <span class="k">print</span>(<span class="sa">f</span><span class="s">"unexpected error: {e}"</span>)       <span class="c"># catch-all for unknown failures</span></code></pre>
+<div class="callout"><strong>Consult the volumes:</strong> The <code>exceptions</code> module (<code>Lib/exceptions.py</code>) defines the full hierarchy. Every built-in exception inherits from <code>BaseException</code> — read the tree to know which to catch and which to let through.</div>
+'''
+
+[[lessons.exercises]]
+id = "s06-l03-e1"
+type = "mc"
+points = 15
+prompt = "When does the <code>else</code> clause of a <code>try</code> block execute?"
+choices = ["When an exception was caught by except", "Always, regardless of exceptions", "Only when finally completes without error", "When no exception was raised in the try block"]
+answer = 3
+whyWrong = "The <code>else</code> clause is the success path — it runs only when the <code>try</code> block completed without raising. This is distinct from <code>finally</code> (always) and from the code after the entire try/except/finally structure."
+hint = "Think of 'else' as the counterpart to 'except': one handles failure, the other handles success."
+explain = "The else clause runs only when the try block finishes without an exception being raised."
+
+[[lessons.exercises]]
+id = "s06-l03-e2"
+type = "text"
+points = 20
+prompt = "What two built-in exceptions does a bare <code>except:</code> clause catch that <code>except Exception:</code> does not?"
+answer = "KeyboardInterrupt, SystemExit"
+accept = ["KeyboardInterrupt and SystemExit", "SystemExit, KeyboardInterrupt", "KeyboardInterrupt, SystemExit"]
+hint = "Think about what the user pressing Ctrl+C raises, and what sys.exit() raises."
+
+[[lessons.exercises]]
+id = "s06-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this try/except/else/finally pattern:"
+code = '''try:
+    result = risky()
+except ValueError:
+    print("bad value")
+else:
+    print(f"got: {result}")
+finally:
+    cleanup()'''
+
+[[lessons.exercises]]
+id = "s06-l03-w1"
+type = "write"
+points = 35
+prompt = "Write a function <code>safe_divide(a, b)</code> that uses try/except/else. Try to compute <code>a / b</code>. Catch <code>ZeroDivisionError</code> and print <code>\"cannot divide by zero\"</code>. In the else clause, print <code>f\"result: {result}\"</code>. Call it twice: <code>safe_divide(10, 2)</code> and <code>safe_divide(5, 0)</code>."
+starter = '''
+def safe_divide(a, b):
+    try:
+        result = a / b
+    except ZeroDivisionError:
+        print("cannot divide by zero")
+    else:
+        print(f"result: {result}")
+
+safe_divide(10, 2)
+safe_divide(5, 0)
+'''
+expect = '''result: 5.0
+cannot divide by zero'''
+hint = "Put the division in try, the ZeroDivisionError handler in except, and the success print in else."

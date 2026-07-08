@@ -1,0 +1,93 @@
+[[lessons]]
+id = "s01-l03"
+title = "The Star Chart"
+body = '''
+<p>A raw observation has all the pieces, but the Astrarium must present them clearly. Vaelith traces a finger across a chart. <strong>"A record that cannot be read is no record at all."</strong></p>
+
+<p>An <strong>f-string</strong> — formatted string literal — lets you embed expressions directly inside a string. Prefix the opening quote with <code>f</code> and wrap each expression in curly braces:</p>
+<pre><code>event <span class="k">=</span> <span class="s">"METEOR_SHOWER"</span>
+count <span class="k">=</span> <span class="mi">12</span>
+<span class="k">print</span>(<span class="s">f"Event: {event} | Count: {count}"</span>)</code></pre>
+<p>This prints: <code>Event: METEOR_SHOWER | Count: 12</code>. The braces are replaced by the variable's value at runtime.</p>
+
+<p>F-strings accept any Python expression inside the braces — not only variable names:</p>
+<pre><code>hour <span class="k">=</span> <span class="mi">22</span>
+minute <span class="k">=</span> <span class="mi">4</span>
+<span class="k">print</span>(<span class="s">f"Logged at {hour}:{minute:02d}"</span>)    <span class="c"># 22:04</span>
+<span class="k">print</span>(<span class="s">f"Total: {12 + 7 + 3}"</span>)                <span class="c"># Total: 22</span></code></pre>
+<p>The <code>:02d</code> after <code>minute</code> is a <strong>format specifier</strong> — it pads the number to two digits with a leading zero. Without it, <code>4</code> prints as <code>4</code> instead of the two-digit <code>04</code> that a clock expects.</p>
+
+<p>You can also align text and control decimal places. The Astrarium will use these for its severity and event-count tables:</p>
+<pre><code>severity <span class="k">=</span> <span class="s">"ERROR"</span>
+prob <span class="k">=</span> <span class="mf">0.08333</span>
+<span class="k">print</span>(<span class="s">f"{severity:&gt;8} {prob:.1%}"</span>)          <span class="c">#    ERROR 8.3%</span></code></pre>
+
+<p>F-strings are the modern Python way to build strings from data — more readable than the older <code>%</code> formatting or <code>.format()</code> method, and faster too. Every formatted report in the Astrarium will use them.</p>
+
+<div class="callout">"<strong>Vaelith's rule:</strong> if a string contains a <code>{</code> that shouldn't be evaluated, double it: <code>{{literal}}</code> prints <code>{literal}</code>. Useful when the Astrarium needs to show raw log syntax."</div>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // Format Specifier Reference</div>
+<p>The full specifier syntax is <code>:[[fill]align][sign][#][0][width][grouping][.precision][type]</code>. The most useful for the Astrarium: <code>:&lt;10</code> left-align in 10 chars, <code>:&gt;10</code> right-align, <code>:^10</code> center, <code>:.2f</code> two decimal places, <code>:,</code> thousand separators. These turn <code>1234567</code> into <code>1,234,567.00</code> in a single specifier.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python docs — f-strings"
+url = "https://docs.python.org/3/reference/lexical_analysis.html#f-strings"
+
+[[lessons.exercises]]
+id = "s01-l03-e1"
+type = "fill"
+points = 20
+prompt = "Vaelith defines an event name and wants to print it inside a string. What goes in the blank?"
+code = 'event = "FLARE"\nprint(f"Event: {____}")'
+answer = "event"
+hint = "The blank is the variable whose value will be substituted into the string."
+explain = "Inside an f-string's curly braces, you write the variable name whose value should appear at that position."
+
+[[lessons.exercises]]
+id = "s01-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this f-string line exactly. (Ctrl+Enter submits.)"
+code = 'print(f"Observation logged at {22:02d}:{4:02d}")'
+
+[[lessons.exercises]]
+id = "s01-l03-e2"
+type = "mc"
+points = 15
+prompt = "Given <code>event = \"METEOR_SHOWER\"</code>, which f-string correctly prints <code>Event: METEOR_SHOWER</code>?"
+choices = [
+  '"Event: {event}"',
+  'f"Event: event"',
+  'f"Event: {event}"',
+  'f"Event: {Event}"'
+]
+answer = 2
+whyWrong = "Choice 1 is a plain string — without the f prefix, braces print literally. Choice 2 has the f prefix but missing braces — the variable name prints as text. Choice 4 capitalizes the variable name, which Python treats as a different (undefined) name."
+hint = "The f prefix goes right before the opening quote, and the variable name must be inside curly braces, spelled exactly as it was defined."
+explain = "f\"Event: {event}\" — the f makes it a formatted string, and {event} substitutes the variable's value."
+
+[[lessons.exercises]]
+id = "s01-l03-e3"
+type = "text"
+points = 20
+prompt = "What single character must immediately precede the opening quote to turn a regular string into an f-string?"
+answer = "f"
+accept = ["F"]
+hint = "Vaelith places it right before the quote — it's the prefix that tells Python to evaluate the braces."
+explain = "The letter f (or F) before the opening quote activates f-string formatting. Without it, {braces} print literally."
+
+[[lessons.exercises]]
+id = "s01-l03-w1"
+type = "write"
+points = 30
+prompt = "The night's observation data is set. Print exactly one formatted line:<br><code>22:04 | METEOR_SHOWER | Count: 12</code><br>Use the three variables already defined — build the output with a single f-string, not multiple print() calls."
+expect = '''22:04 | METEOR_SHOWER | Count: 12'''
+starter = '''# ASTRARIUM — Format Observation
+event = "METEOR_SHOWER"
+count = 12
+hour = 22
+minute = 4
+# TODO: print a single formatted line using an f-string'''
+hint = "Use one f-string with all three pieces. The hour and minute should render as 22 and 04 (two digits)."

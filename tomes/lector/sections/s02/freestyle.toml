@@ -1,0 +1,37 @@
+[freestyle]
+title = "THE WORKING: The Leaf Reader"
+brief = '''<p>Lector can count posts. Now it must read them. Extend the skeleton to load every <code>.post</code> file into memory and print a one-line summary of what it found.</p>
+<ul>
+  <li>Read every <code>.post</code> file from the <code>--posts</code> directory into a <code>std::vector&lt;std::string&gt;</code>.</li>
+  <li>Store each file's <strong>entire content</strong> as one string in the vector.</li>
+  <li>After reading all files, print a one-line summary for each post: <code>[N] filename — B bytes</code> where <code>N</code> is the 1-based index and <code>B</code> is the content length in bytes (use <code>.size()</code> or <code>.length()</code>).</li>
+  <li>If no <code>.post</code> files are found, print exactly <code>No posts found.</code> and exit cleanly.</li>
+  <li>Use <code>std::ifstream</code> to read each file; read the entire file content into a <code>std::string</code>.</li>
+</ul>'''
+reward = 175
+xray = "The grader docks points for: not reading every <code>.post</code> file into the vector; printing the count only instead of per-file summaries; hardcoding output instead of computing from actual file contents and sizes; using C-style file I/O (<code>fopen</code> / <code>fread</code>) instead of <code>std::ifstream</code>; missing the <code>No posts found.</code> edge case; crashing on an empty or non-existent directory. It gives style credit for: <code>snake_case</code> variable naming, Allman brace style, <code>const</code>-correctness (variables that never change after init), using <code>std::vector</code> for storage, clean includes (no <code>#include &lt;bits/stdc++.h&gt;</code>), and handling the empty-directory case gracefully."
+
+[freestyle.badge]
+id = "badge-s02"
+name = "LEAF READER"
+desc = "Made Lector read its first posts — content stored, summaries printed."
+
+[[freestyle.rubric]]
+criterion = "Compiles & runs"
+weight = 30
+desc = "Build succeeds; runs without crashing on a valid <code>--posts</code> directory, handles missing <code>--posts</code> gracefully."
+
+[[freestyle.rubric]]
+criterion = "Reads post content & stores in vector"
+weight = 30
+desc = "Every <code>.post</code> file in the given directory is read into a <code>std::vector&lt;std::string&gt;</code> using <code>std::ifstream</code>. Each element holds one file's full content."
+
+[[freestyle.rubric]]
+criterion = "Prints one-line summaries"
+weight = 25
+desc = "Prints <code>[N] filename — B bytes</code> for each post, with the real 1-based index and real byte length from <code>.size()</code>. Prints <code>No posts found.</code> when the directory contains no <code>.post</code> files."
+
+[[freestyle.rubric]]
+criterion = "Clean style"
+weight = 15
+desc = "Follows C++ conventions: <code>snake_case</code> for variables and functions, PascalCase for type names, Allman brace style (braces on their own line), <code>const</code>-correctness where values do not change after initialization. No <code>using namespace std;</code> in global scope."

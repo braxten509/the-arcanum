@@ -1,0 +1,69 @@
+[[lessons]]
+id = "s06-l06"
+title = "The Smith-Wright's Eye — Reconnaissance in Earnest"
+body = '''
+<p>The forge is lit; now the eye. Reconnaissance — reading the old marks — is the skill the requester asked for, and from here on every forgework leans on it. Four tools do most of the work in IntelliJ:</p>
+<ul>
+<li><strong>Go to Class</strong> (Ctrl+N) — jump to a class by name. Type <code>Item</code> and pick <code>net.minecraft.item.Item</code>. The fastest way to a known mark.</li>
+<li><strong>Find Usages</strong> (Alt+F7) — every place a field, method, or class is used. Ask "where does the game call <code>getItemStackLimit</code>?" and it lists every call site.</li>
+<li><strong>Search Everywhere</strong> (Shift+Shift) — rummage the whole codebase when you do not know the exact name. Type "stack" and see every class, method, and file that matches.</li>
+<li><strong>Structure</strong> pane — the open class's fields and methods as a list, so you scan what a class carries without scrolling the body.</li>
+</ul>
+<p>The decompiled <code>net.minecraft</code> packages are now your library: <code>net.minecraft.item</code> (Item, ItemStack), <code>net.minecraft.block</code> (Block, Material), <code>net.minecraft.creativetab</code> (CreativeTabs), <code>net.minecraftforge.event</code> (every event the world answers the hammer with). You do not memorise these — you find them with the four tools, read what they carry, and copy the signatures you need to override.</p>
+<p>Remember the three names. A field in the bytecode is <strong>Notch</strong>-obfuscated (<code>a</code>, <code>b</code>); the stable intermediate id is <strong>SRG</strong> (<code>field_77699_b</code>); the human name you read is <strong>MCP</strong> (<code>maxStackSize</code>). You write code against the MCP name; Forge re-maps it to SRG at runtime. When a tutorial online uses the SRG name, translate it in your head to the MCP name your mappings set uses.</p>
+<div class="callout"><strong>Orrick says:</strong> The smith-wright's eye is not a shortcut — it is the whole second half of the craft. Every feature you will add from Forgework VII on begins with "open the parent class, read its methods". Practise the four tools until they are reflex.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // FIND USAGES IS THE TEACHER</div>
+<p>When you do not know how to use a class, <code>Find Usages</code> on its methods shows you how the game itself uses them — real call sites, real arguments, real patterns. Reading vanilla's usages of <code>Item.getItemById</code> teaches you the method faster than any doc. The old marks are the masters' lessons; Find Usages is how you sit beside them.</p></div>
+'''
+
+[[lessons.readings]]
+label = "IntelliJ IDEA — Navigation shortcuts (the smith-wright's eye)"
+url = "https://www.jetbrains.com/help/idea/navigation-in-intellij-idea.html"
+
+[[lessons.exercises]]
+id = "s06-l06-e1"
+type = "mc"
+points = 15
+prompt = "You want to know everywhere the game calls <code>Item.getItemStackLimit</code>. Which IntelliJ tool answers that exact question?"
+choices = ["Go to Class (Ctrl+N)", "the Structure pane", "Search Everywhere (Shift+Shift)", "Find Usages (Alt+F7)"]
+answer = 3
+whyWrong = "Find Usages lists every call site of a method; Go to Class jumps to the method's declaration (not its callers), Search Everywhere rummages by name (not call sites), and Structure lists one class's members. 'Where is this called?' is Find Usages."
+hint = "The question is 'where is this method used?' — which tool lists every call site?"
+explain = "Find Usages (Alt+F7) on a method or field lists every call site. It is how you learn a method by watching the game use it."
+
+[[lessons.exercises]]
+id = "s06-l06-t1"
+type = "text"
+points = 20
+prompt = "Type the IntelliJ shortcut's name (three words, the tool you use to jump straight to net.minecraft.item.Item by typing its class name)."
+answer = "Go to Class"
+hint = "It is Go + to + Class — the Ctrl+N navigation that opens a class by name."
+
+[[lessons.exercises]]
+id = "s06-l06-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the human MCP name for the SRG id <code>field_77699_b</code> on Item — the field that caps stack size (you met it in Forgework IV)."
+code = '// SRG field_77699_b  --MCP-->  ____'
+answer = "maxStackSize"
+whyWrong = "field_77699_b maps to maxStackSize (the stack-size cap); getItemStackLimit is a method not the field, stackSize is on ItemStack, registryName is Forge-added. The MCP field name is maxStackSize — recurring across the tome."
+hint = "It is the three-word camelCase field from Forgework IV — max + Stack + Size."
+
+[[lessons.exercises]]
+id = "s06-l06-e2"
+type = "mc"
+points = 15
+prompt = "You are looking for a method whose name you cannot quite remember — something about 'register' and 'item'. Which tool rummages the whole codebase by fragment?"
+choices = ["Go to Class", "Find Usages", "Search Everywhere (Shift+Shift)", "Structure"]
+answer = 2
+whyWrong = "Search Everywhere rummages by fragment across classes, methods, files, and settings; Go to Class needs a class name, Find Usages needs a selected member, Structure reads one open class. When you do not know the exact name, Search Everywhere is the net you cast."
+hint = "It is the broadest search — Shift+Shift, rummaging everywhere, for when you do not know the exact name."
+explain = "Search Everywhere (Shift+Shift) matches fragments across the whole codebase. Start broad, then narrow with Go to Class and Find Usages."
+
+[[lessons.exercises]]
+id = "s06-l06-t2"
+type = "text"
+points = 20
+prompt = "Name the three name-layers a Minecraft field carries, in order from the obfuscated original to the human readable one. (Three words, separated by slashes — the first letters N / S / M.)"
+answer = "Notch/SRG/MCP"
+hint = "N is the original obfuscated author's name; S is the stable intermediate id (field_77699_b); M is the human name (maxStackSize)."

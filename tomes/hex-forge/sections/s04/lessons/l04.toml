@@ -1,0 +1,127 @@
+[[lessons]]
+id = "s04-l04"
+title = "Walking the Ore — Buffer Scanning"
+body = '''
+<p>Reading bytes is the first strike. Inspecting them one by one is where the tool takes shape. A buffer-scanning loop walks every byte from <code>sys_read</code> and tests each one against a condition — counting, classifying, or transforming as it goes.</p>
+
+<p>The pattern: pointer in rsi, count in rcx, load a byte with <code>movzx</code>, process it, advance, decrement, loop:</p>
+<pre><code><span class="c">; rsi = buffer, rcx = bytes_read (from sys_read's rax return)</span>
+
+<span class="k">xor</span> r8, r8              <span class="c">; accumulator (e.g. sum, count of matches)</span>
+
+.scan:
+    <span class="k">movzx</span> rax, <span class="k">byte</span> [rsi] <span class="c">; load one byte, zero-extended</span>
+    <span class="c">; --- process the byte in rax ---</span>
+    <span class="k">inc</span> rsi                <span class="c">; advance pointer</span>
+    <span class="k">dec</span> rcx                <span class="c">; one fewer byte</span>
+    <span class="k">jnz</span> .scan              <span class="c">; continue while rcx > 0</span></code></pre>
+
+<p>Examples of what goes in the "process" slot:</p>
+
+<p><strong>Count newlines:</strong></p>
+<pre><code><span class="k">cmp</span> al, 10             <span class="c">; newline?</span>
+<span class="k">jne</span> .not_nl
+<span class="k">inc</span> r8                 <span class="c">; count it</span>
+.not_nl:</code></pre>
+
+<p><strong>Sum all bytes:</strong> </p>
+<pre><code><span class="k">add</span> r8, rax            <span class="c">; unsigned addition — one byte value into accumulator</span></code></pre>
+
+<p><strong>Find the minimum byte:</strong></p>
+<pre><code><span class="k">cmp</span> al, r8b
+<span class="k">jae</span> .not_smaller       <span class="c">; unsigned comparison — byte values are 0-255</span>
+<span class="k">mov</span> r8b, al            <span class="c">; new minimum</span>
+.not_smaller:</code></pre>
+
+<p>A critical pattern for HexForge: <strong>partial buffer processing.</strong> HexForge operates on 16-byte lines. A single <code>sys_read</code> might return 50 bytes — three full lines (48 bytes) plus 2 leftover bytes. The scanning loop must process 16-byte chunks, and the leftover bytes must be carried forward to the next read. That pattern — maintaining state between reads — is the orchestration challenge of the capstone forge op. For now, the fundamentals: walk a buffer, count everything, print a statistic.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // READING PAST THE VALID DATA</div>
+<p>After <code>sys_read</code>, only the first <code>rax</code> bytes of the buffer are valid. Bytes beyond that are whatever the kernel left from a previous use of that memory page — could be zeroes, could be your own program's code from a prior run, could be anything. A buffer-scanning loop must stop after <code>rax</code> iterations. If you loop over the full buffer (e.g. always 4096 bytes), you process stale data and produce wrong results. The loop counter MUST come from the <code>sys_read</code> return value. This is a common flaw: <code>mov rcx, 4096</code> instead of <code>mov rcx, rax</code> after the read.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s04-l04-e1"
+type = "mc"
+points = 15
+prompt = "After <code>sys_read</code> returns 17, why must the scanning loop use <code>mov rcx, rax</code> (17 iterations) rather than <code>mov rcx, 4096</code> (the full buffer size)?"
+choices = [
+  "The full buffer size would waste CPU time — the program is correct either way, just slower",
+  "sys_read marks bytes beyond the read count as invalid memory, and touching them causes SIGSEGV",
+  "Bytes 18-4096 in the buffer hold stale data from a previous mapping — looping over them produces wrong results",
+  "NASM inserts a guard byte after the valid data that would crash the loop"
+]
+answer = 2
+whyWrong = "It's not just wasted time — it's WRONG data. Bytes beyond the read count are uninitialised, not marked invalid (they're ordinary writable memory). NASM adds no guard byte. The kernel sets up the BSS page once; bytes the read didn't fill retain their previous content from the zero-fill or a prior use of that memory from a previous program."
+hint = "What's in memory at byte 18 if only 17 bytes were read there?"
+explain = "The kernel only writes to the first N bytes of the buffer. The rest of the buffer still holds whatever was there before — typically zeroes from BSS initialisation, but also possibly stale data if the buffer was reused across multiple reads. Processing those bytes gives incorrect statistics or output."
+
+[[lessons.exercises]]
+id = "s04-l04-e2"
+type = "fill"
+points = 20
+prompt = "Complete the byte-load instruction with the correct size specifier. This loop walks a buffer one byte at a time."
+code = '''
+mov  rsi, buffer
+mov  rcx, byte_count
+.scan:
+    movzx rax, ____ [rsi]    ; load exactly one byte from the buffer
+    add   r8, rax            ; sum into accumulator
+    inc   rsi
+    dec   rcx
+    jnz   .scan
+'''
+answer = "byte"
+hint = "Four letters — the size specifier for a single byte. Without it, movzx doesn't know how many bytes to load."
+explain = "<code>movzx rax, byte [rsi]</code> is required because the source is a bare address with no register to imply size. Moving to rax (64-bit) with movzx means the source must be smaller — but HOW much smaller? 'byte' tells NASM to load one byte and zero-extend it to 64 bits."
+
+[[lessons.exercises]]
+id = "s04-l04-e3"
+type = "type"
+points = 12
+prompt = "Retype the buffer-scanning loop. This pattern processes every byte in a buffer exactly once."
+code = '''
+mov  rsi, buffer
+mov  rcx, buf_len
+xor  r8, r8
+.scan:
+    movzx rax, byte [rsi]
+    add   r8, rax           ; sum all bytes
+    inc   rsi
+    dec   rcx
+    jnz   .scan
+; rax = last byte, r8 = sum
+'''
+
+[[lessons.exercises]]
+id = "s04-l04-w1"
+type = "write"
+points = 30
+prompt = "Sum the input. Read up to 256 bytes from stdin into a buffer. Then scan every byte and compute the total sum (as an unsigned 64-bit value). Print the sum on its own line followed by a newline. The engine pipes the string <code>ABC</code> (three bytes: 65, 66, 67) into stdin. The sum is 198. Print <code>198</code>."
+starter = '''
+section .text
+    global _start
+
+_start:
+    ; Read up to 256 bytes from stdin into buffer
+    
+
+    ; Save bytes_read from rax into rcx
+    
+
+    ; Scan loop: sum every byte into r8
+    
+
+    ; r8 holds the sum. Use itoa to convert and print r8.
+    
+
+section .bss
+buffer: resb 256
+
+section .data
+newline: db 10
+outbuf: times 20 db 0
+'''
+stdin = "ABC"
+expect = '''
+198'''
+hint = "After sys_read: mov rcx, rax / mov rsi, buffer / xor r8, r8. Scan loop: movzx rax, byte [rsi] / add r8, rax / inc rsi / dec rcx / jnz .scan. Then itoa on r8 (65+66+67=198). Push digits, pop to outbuf, print with newline."

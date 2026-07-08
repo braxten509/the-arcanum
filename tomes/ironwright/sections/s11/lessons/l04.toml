@@ -1,0 +1,66 @@
+[[lessons]]
+id = "s11-l04"
+title = "Finding the Right Event — Reconnaissance in net.minecraftforge.event"
+body = '''
+<p>Forge fires hundreds of events; you will not memorise them. The smith-wright's eye finds the right one. Open <code>net.minecraftforge.event</code> in IntelliJ (Search Everywhere, type <code>Event</code>) and read the package tree: <code>net.minecraftforge.event.entity</code> (entity events), <code>net.minecraftforge.event.entity.player</code> (player events), <code>net.minecraftforge.event.world</code> (world events), <code>net.minecraftforge.event.block</code> (block events). Each leaf is a class you can subscribe to.</p>
+<p>For each event you consider, read three things: the class's <strong>fields</strong> (what context it carries — position, player, state), the <strong>@Cancelable</strong> / <strong>@HasResult</strong> annotations (whether you can cancel or set its result), and the <strong>Find Usages</strong> of the event (how vanilla and other mods use it — the patterns to copy). The event class IS the documentation; Forge's events are documented by their fields and annotations, not a separate manual.</p>
+<p>When you do not know the event name, search by what you want to react to: type "break", "right click", "drop", "death" into Search Everywhere and read the matching class names. The event name describes the moment; the class body describes the context. Match the moment, read the context, write the handler.</p>
+<div class="callout"><strong>Orrick says:</strong> Before you write a handler, Find Usages on the event class. If vanilla itself uses it (say, for the spawn-egg's right-click), you have a working pattern to copy. If no one uses it, it may fire at a moment you do not expect — read the firing site in the source.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE EVENT HIERARCHY IS A TREE</div>
+<p>Forge's <code>Event</code> base class has subclasses (<code>EntityEvent</code>, <code>BlockEvent</code>, <code>PlayerEvent</code>...) which themselves have subclasses (<code>BlockEvent.BreakEvent</code>, <code>PlayerInteractEvent.RightClickBlock</code>). Subscribing to a parent event catches all its children — subscribe to <code>BlockEvent</code> and you get break, place, harvest, and neighbor-notify events in one handler. Usually you want the specific child; the parent is for cross-cutting logic. The tree is the inheritance you learned in Forgework IV, applied to events.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Minecraft Forge 1.12.x — Event Types (net.minecraftforge.event)"
+url = "https://docs.minecraftforge.net/en/1.12.x/events/"
+
+[[lessons.exercises]]
+id = "s11-l04-e1"
+type = "mc"
+points = 15
+prompt = "You want to react to a mob's death by adding a custom drop, but you do not know the event's name. What is the fastest way to find it?"
+choices = ["guess from the Forge docs you memorised", "Search Everywhere (Shift+Shift) for 'drop' or 'death' in net.minecraftforge.event, then read the matching event class's fields", "subscribe to every event and print which fires", "ask the Oracle consumable"]
+answer = 1
+whyWrong = "Search Everywhere by keyword ('drop', 'death') in the event package, then read the matching class's fields and @Cancelable annotation; guessing is unreliable, subscribing to every event is wasteful and noisy, and the Oracle is a hint consumable not a recon tool. Reconnaissance finds the event."
+hint = "Think about the broadest search tool — the one you cast when you do not know the exact name."
+explain = "Search Everywhere by keyword, read the event class's fields and annotations. Find Usages on the chosen event shows how vanilla uses it — a pattern to copy."
+
+[[lessons.exercises]]
+id = "s11-l04-t1"
+type = "text"
+points = 20
+prompt = "Type the package that holds Forge's gameplay events (the root under net.minecraftforge.event that you Search Everywhere in)."
+answer = "net.minecraftforge.event"
+hint = "It is net.minecraftforge dot event — the root package Forge's event classes live under."
+
+[[lessons.exercises]]
+id = "s11-l04-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the annotation that marks an event as cancelable (so event.setCanceled(true) is legal on it — without the annotation, canceling throws)."
+code = '''@____
+public static class BreakEvent extends BlockEvent { ... }'''
+answer = "Cancelable"
+whyWrong = "Cancelable marks an event as cancelable (setCanceled is legal); HasResult marks events with a result override, SubscribeEvent marks handlers, SideOnly marks side. The cancelable annotation is @Cancelable."
+hint = "It is the @ annotation named for 'can be canceled' — Cancelable (one word, capital C)."
+
+[[lessons.exercises]]
+id = "s11-l04-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of event reconnaissance by lookup. The starter has a <code>java.util.Map&lt;String, String&gt;</code> mapping behavior keywords to event class names, pre-filled with <code>break -&gt; BlockEvent.BreakEvent</code>, <code>drop -&gt; LivingDropsEvent</code>, <code>right-click -&gt; PlayerInteractEvent.RightClickBlock</code>. In <code>main</code>, look up the key <code>\"drop\"</code> and print <code>EVENT </code> plus the value. The expected output is exactly <code>EVENT LivingDropsEvent</code> — read the value from the map, do not type LivingDropsEvent in the print."
+starter = '''import java.util.Map;
+import java.util.HashMap;
+
+public class Ironwright {
+    public static void main(String[] args) {
+        Map<String, String> eventFor = new HashMap<>();
+        eventFor.put("break", "BlockEvent.BreakEvent");
+        eventFor.put("drop", "LivingDropsEvent");
+        eventFor.put("right-click", "PlayerInteractEvent.RightClickBlock");
+        // apprentice — look up "drop", print "EVENT " + the value
+    }
+}'''
+expect = '''
+EVENT LivingDropsEvent'''
+hint = "String name = eventFor.get(\"drop\"); System.out.println(\"EVENT \" + name);"

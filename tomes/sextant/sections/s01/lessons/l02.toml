@@ -1,0 +1,81 @@
+[[lessons]]
+id = "s01-l02"
+title = "Control Flow & the Navigator's Branch"
+body = '''
+<p>A chart is not a list of observations — it is a sequence of decisions. Python's control flow is the helmsman's hand on the tiller: conditions steer left or right, loops hold a course until the horizon changes, and functions name a manoeuvre so you can call it by name wherever needed.</p>
+<pre><code><span class="c"># Conditions: if the bearing is clear, we sail</span>
+visibility = <span class="s">"clear"</span>
+<span class="k">if</span> visibility == <span class="s">"clear"</span>:
+    <span class="k">print</span>(<span class="s">"Take the sighting."</span>)
+<span class="k">elif</span> visibility == <span class="s">"fog"</span>:
+    <span class="k">print</span>(<span class="s">"Wait for the glass to clear."</span>)
+<span class="k">else</span>:
+    <span class="k">print</span>(<span class="s">"Consult the almanac for an alternate method."</span>)</code></pre>
+<p>Python's <code>if/elif/else</code> is the straightest chart: each condition is evaluated in order, and the first true branch runs. There is no <code>switch</code> in the language — a fact that surprises newcomers from other vessels. You reach for <code>if/elif</code> chains, or for a dict dispatch when the branches grow many.</p>
+<pre><code><span class="c"># A dict dispatch — cleaner than a long if/elif chain</span>
+level_handlers = {
+    <span class="s">"INFO"</span>: <span class="k">lambda</span> msg: <span class="s">f"[i] {msg}"</span>,
+    <span class="s">"WARN"</span>: <span class="k">lambda</span> msg: <span class="s">f"[!] {msg}"</span>,
+    <span class="s">"ERROR"</span>: <span class="k">lambda</span> msg: <span class="s">f"[x] {msg}"</span>,
+}
+line = <span class="s">"INFO Connection established"</span>
+level, _, msg = line.partition(<span class="s">" "</span>)
+<span class="k">print</span>(level_handlers[level](msg))</code></pre>
+<p><strong>Loops</strong> are where Python's readability shines. A <code>for</code> loop iterates directly over any iterable — no index variable, no <code>len()</code> call, no off-by-one trap:</p>
+<pre><code>log_lines = [<span class="s">"INFO start"</span>, <span class="s">"WARN timeout"</span>, <span class="s">"INFO end"</span>]
+<span class="k">for</span> line <span class="ow">in</span> log_lines:
+    <span class="k">if</span> <span class="s">"WARN"</span> <span class="ow">in</span> line:
+        <span class="k">print</span>(<span class="s">f"Flagged: {line}"</span>)</code></pre>
+<p>The <code>in</code> operator here does double duty: it tests substring membership on a string and, in a <code>for</code> loop header, draws the next element from the iterable. This deliberate overloading is part of Python's design: common operations read the same way.</p>
+<div class="callout"><strong>Consult the volumes:</strong> The <code>for</code> loop's machinery lives in the iteration protocol — <code>__iter__</code> and <code>__next__</code> — documented in the <code>collections.abc</code> module. When you write <code>for x in y</code>, Python calls <code>iter(y)</code> once, then <code>next()</code> on the iterator until <code>StopIteration</code> is raised. This is the load-bearing knowledge for s03's generators.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DEFINED IN THE DOCK</div>
+<p>Functions are charts you draw once and consult many times. A <code>def</code> block names a sequence of operations, binds it to a variable in the current scope, and makes it callable from anywhere that scope reaches:</p>
+<pre><code><span class="k">def</span> <span class="nf">parse_line</span>(<span class="n">line</span>: <span class="nb">str</span>) <span class="o">-></span> <span class="nb">list</span>[<span class="nb">str</span>]:
+    <span class="k">return</span> line.strip().split()</code></pre>
+<p>The type annotations (<code>line: str</code>, <code>-> list[str]</code>) are hints for the navigator and the editor — Python itself ignores them at runtime. But your grader (and future you) reads them as documentation of what the function expects and returns. Use them from the first bearing.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s01-l02-e1"
+type = "fill"
+points = 20
+prompt = "Fill the blank to complete a condition that prints 'Storm warning' when <code>wind_speed</code> exceeds 60:"
+code = '''wind_speed = 75
+____ wind_speed > 60:
+    print("Storm warning")'''
+answer = "if"
+hint = "The keyword that starts a conditional branch is a very short word — two letters."
+
+[[lessons.exercises]]
+id = "s01-l02-e2"
+type = "mc"
+points = 15
+prompt = "What does <code>range(3)</code> produce when used in a <code>for</code> loop?"
+choices = ["[0, 1, 2, 3]", "[1, 2, 3]", "[0, 1, 2]", "0, 1, 2"]
+answer = 2
+whyWrong = "<code>range(3)</code> produces values 0, 1, and 2 — it stops before the argument. Option 0 includes 3 (range is exclusive), option 1 starts at 1 instead of 0, and option 3 forgets that <code>range</code> returns an iterable, not a bare sequence."
+hint = "A Python <code>range</code> starts at 0 by default and excludes the stop value."
+explain = "<code>range(3)</code> generates the sequence 0, 1, 2 — it starts at 0 and stops <em>before</em> 3."
+
+[[lessons.exercises]]
+id = "s01-l02-e3"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this function that greets by name:"
+code = '''def greet(name):
+    print(f"Ahoy, {name}!")'''
+
+[[lessons.exercises]]
+id = "s01-l02-w1"
+type = "write"
+points = 30
+prompt = "Write a Python script that defines a function <code>classify_line</code> taking one string argument <code>line</code>. If the line contains <code>\"ERROR\"</code>, print <code>\"[CRITICAL]\"</code>. If it contains <code>\"WARN\"</code>, print <code>\"[FLAG]\"</code>. Otherwise print <code>\"[OK]\"</code>. Then call it with the line <code>\"ERROR Disk full\"</code>."
+starter = '''
+def classify_line(line):
+    # your code here
+
+classify_line("ERROR Disk full")
+'''
+expect = '''[CRITICAL]'''
+hint = "Use the <code>in</code> operator to check substring membership: <code>if \"ERROR\" in line:</code>"

@@ -1,0 +1,94 @@
+[[lessons]]
+id = "s02-l02"
+title = "The Repeating Pass"
+body = '''
+<p>One line is a clue. Three lines are a habit. Once the classifier exists, the scribe can run it again and again without copying the branch tree by hand. That is the purpose of a loop here: not speed, not drama, just the discipline of repeating the same judgment on the next sample line.</p>
+<p>Use <code>foreach</code> when the samples are already written down. Use <code>while</code> when the loop continues until a counter or condition changes. This chapter needs both shapes because the project will eventually read lines from real files, but not yet. For now the sample lines live in the script itself, so a short <code>foreach</code> over a list literal reads clearly and keeps the example in view. A <code>while</code> loop still matters because it teaches the counter that must move or the page will spin forever.</p>
+<p>The count form is especially important for this section because it shows how easy it is to make a trap. If the counter does not change, the test never becomes false. That is not a Perl trick; it is a logic mistake. The cure is simple: keep the increment visible, keep the branch inside the loop honest, and let each pass do one small thing before the next pass begins. <code>for</code> is the third sibling in this family, the compact count-controlled form when the init, test, and update belong on one line.</p>
+<pre><code><span class="k">my</span> <span class="s">$count</span> = <span class="s">0</span>;
+<span class="k">while</span> (<span class="s">$count</span> <span class="k">&lt;</span> <span class="s">3</span>) {
+    <span class="k">say</span> <span class="s">$count</span>;
+    <span class="s">$count</span> = <span class="s">$count</span> <span class="k">+</span> <span class="s">1</span>;
+}
+
+<span class="k">foreach</span> <span class="k">my</span> <span class="s">$line</span> (<span class="s">""</span>, <span class="s">"# Preface"</span>, <span class="s">"A paragraph"</span>) {
+    <span class="c"># branch and print the label for each sample line</span>
+}</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE SECOND PASS</div>
+<p><strong>Loop note.</strong> <code>foreach my $line (...)</code> keeps each sample local to that pass. Reusing the same variable name across passes is fine because the loop hands it a fresh value each time.</p>
+<p><strong>Counter note.</strong> A <code>while</code> loop without an increment is a lantern with no wick. The condition may look wise and still never change.</p>
+<p><strong>Shape note.</strong> <code>for</code> and <code>foreach</code> are cousins in Perl. The former reads best when the count is the point; the latter reads best when the collection itself is the point.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perlsyn: loops"
+url = "https://perldoc.perl.org/perlsyn"
+
+[[lessons.exercises]]
+id = "s02-l02-e1"
+type = "mc"
+points = 15
+prompt = "<p>Which loop is the cleanest fit when the three sample lines are already written down in the script?</p>"
+choices = ["<code>if</code>", "<code>while</code>", "<code>sub</code>", "<code>foreach</code>"]
+answer = 3
+whyWrong = "You picked a branch or a counter loop, but this lesson already has the sample values in a literal list, so <code>foreach</code> is the direct fit."
+hint = "The loop should visit each sample string once, in order."
+explain = "<code>foreach</code> walks the list of sample lines one by one, which is exactly what this lesson needs."
+
+[[lessons.exercises]]
+id = "s02-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "<p>Retype the looped classifier exactly. Keep the list order and the branch order unchanged.</p>"
+code = '''
+foreach my $line ("", "# Preface", "A paragraph") {
+    if ($line eq "") {
+        say "BLANK";
+    } elsif (substr($line, 0, 1) eq "#") {
+        say "HEAD";
+    } else {
+        say "TEXT";
+    }
+}
+'''
+
+[[lessons.exercises]]
+id = "s02-l02-e2"
+type = "fill"
+points = 20
+prompt = "<p>Restore the missing arithmetic sign so the counter advances.</p>"
+code = 'my $count = 0; while ($count ____ 3) { $count = $count + 1; }'
+answer = "<"
+hint = "The counter must stay below the limit for the loop to keep going."
+whyWrong = "Without the less-than test, the loop stops being a count gate and becomes the wrong shape entirely."
+
+[[lessons.exercises]]
+id = "s02-l02-e3"
+type = "text"
+points = 20
+prompt = "<p>What happens if a <code>while</code> loop's counter never changes?</p>"
+answer = "infinite loop"
+accept = ["it never ends", "it runs forever"]
+hint = "Think about a condition that never becomes false."
+whyWrong = "You are describing a loop that is supposed to stop, but the counter never moves, so the stop condition never arrives."
+
+[[lessons.exercises]]
+id = "s02-l02-w1"
+type = "write"
+points = 30
+prompt = "<p>Use the starter loop to print the labels for the three sample lines in order: <code>BLANK</code>, <code>HEAD</code>, <code>TEXT</code>.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+# Task: use the loop below to print the labels for each sample line.
+foreach my $line ("", "# Preface", "A paragraph") {
+    # Task: branch on $line and print BLANK, HEAD, or TEXT
+}
+'''
+expect = '''
+BLANK
+HEAD
+TEXT'''
+hint = "The sample lines are already in the loop; add the branch body that prints one label per pass."

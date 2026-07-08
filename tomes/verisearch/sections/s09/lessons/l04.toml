@@ -49,6 +49,7 @@ points = 25
 prompt = "First move when the model wraps its JSON in friendly chatter?"
 choices = ["Deserialize the whole response and hope", "Slice from the first '[' to the last ']' and parse that", "Ask the model to apologize", "Switch models"]
 answer = 1
+whyWrong = "Don’t deserialize the chatty whole response or switch models — slice from the first ‘[’ to the last ‘]’ and parse that."
 hint = "IndexOf and LastIndexOf are your knife."
 
 [[lessons.exercises]]
@@ -58,6 +59,7 @@ points = 25
 prompt = "The model returns <code>[3, 900, 3, -1]</code> for a 150-paragraph page. After proper validation you keep…"
 choices = ["[3, 900, 3, -1]", "[3, 900]", "[3]", "[] — reject everything if any index is bad"]
 answer = 2
+whyWrong = "Validate each index against the 150-paragraph range and dedupe: 900 and -1 are out of range and the duplicate 3 collapses, leaving [3] — you neither keep bad indices nor reject everything."
 hint = "In-range filter + Distinct. Salvage the good, drop the junk."
 
 [[lessons.exercises]]
@@ -65,8 +67,9 @@ id = "s09-l04-e3"
 type = "mc"
 points = 20
 prompt = "Why must the final fallback be deterministic (keyword matching) rather than another LLM call?"
-choices = ["Keyword matching is more accurate", "The fallback must work when the LLM itself is the thing that's broken or offline", "LLMs can't be called twice", "JSON forbids it"]
-answer = 1
+choices = ["Keyword matching is more accurate", "JSON forbids it", "LLMs can't be called twice", "The fallback must work when the LLM itself is the thing that's broken or offline"]
+answer = 3
+whyWrong = "The fallback isn’t about accuracy or call limits — it must work when the LLM itself is offline or broken, so it can’t be another LLM call."
 hint = "A fallback that shares the primary's failure mode isn't a fallback."
 
 [[lessons.exercises]]

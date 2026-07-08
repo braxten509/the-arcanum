@@ -1,0 +1,88 @@
+[[lessons]]
+id = "s04-l05"
+title = "The Curation Pass"
+body = '''
+<p>Three rites built the vessel-shape: JSONL records, the chat template, and the loss mask. What still sits in those records is whatever the first rite's extraction grabbed — raw, unfiltered, including material a model should never see. This final pre-bind rite is the <strong>curation pass</strong>: check every record for quality, for duplication, and for secrets, because a fine-tune amplifies whatever you feed it, and bad data survives the bind far longer than you expect.</p>
+<p>The pass runs three checks, in order, and none may be skipped. First, <strong>deduplication</strong>: near-identical records waste the adapter's limited capacity on repeated patterns the model already saw. A Jaccard similarity (size of token overlap divided by size of token union) above roughly 0.8 on the assistant's text alone catches most duplicates without a full embedding pipeline. Second, <strong>PII removal</strong>: email addresses (<code>[\w.+-]+@[\w-]+\.[a-z]{2,}</code>), API keys (long runs of base64-like characters), phone patterns, and anything that looks credential-shaped must be stripped or the entire record discarded — the vessel is a talking machine, not a vault, and once a secret is in the weights, no prompt or system-message ward can reliably pull it back out.</p>
+<pre><code><span class="k">import</span> re
+PIIS = {
+    <span class="s">"email"</span>: re.compile(<span class="s">r'[\w.+-]+@[\w-]+\.[a-z]{2,}'</span>),
+    <span class="s">"apikey"</span>: re.compile(<span class="s">r'[A-Za-z0-9+/]{32,}={0,2}'</span>),
+}
+<span class="k">for</span> record <span class="k">in</span> records:
+    full_text = <span class="s">""</span>.join(m[<span class="s">"content"</span>] <span class="k">for</span> m <span class="k">in</span> record[<span class="s">"messages"</span>])
+    flagged = {name: pat.findall(full_text) <span class="k">for</span> name, pat <span class="k">in</span> PIIS.items()}</code></pre>
+<p>Third, <strong>assistant-response quality</strong>: a record whose assistant turn is one word ("Yes."), a bare URL with no explanation, or a direct copy of the user's own phrasing teaches almost nothing — the bind sees a low-effort pattern and learns to produce low-effort responses. A minimum assistant word count of roughly 15–20 words per record is a reasonable gate for a personal dataset where the goal is to capture how you actually explain things, not to mimic a FAQ entry. The three checks together are the reconnaissance habit the binding rite depends on: every record that passes them is worth training on, and everything that fails is removed before the binder ever sees it, the same way the memory-budget rite's final check kept bad base-model choices from reaching a real training run.</p>
+<div class="callout">A dataset passes validation and still fails curation — validation checks that the JSONL parses and the template matches; curation checks that the <em>content</em> is worth training on. The former is a machine check; the latter requires the artificer to actually read what they're about to bake into the vessel's weights.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CURATION AS A SEPARATE TOOL, NOT A TRAINING FLAG</div>
+<p>The first rite's discipline — one job per tool — applies here with extra force. Write a standalone <code>curate.py</code> script that reads a raw JSONL, applies all three checks, and writes a cleaned JSONL, entirely separate from the training script. This keeps the binder focused on the bind and the curator focused on the content, and it means you can iterate on curation (tighten the Jaccard threshold, add a new PII pattern) without re-running the entire binding pipeline. The toolchain rite's lesson that the whole pipeline is a chain of single-purpose tools, not one monolithic script, earns its keep hardest right here — a curation step buried inside a training loop gets skipped when the run is urgent, and the cost of that skip is bad data baked into the finished familiar.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s04-l05-e1"
+type = "mc"
+points = 20
+prompt = "Per this rite, why must near-duplicate records be removed before the binding run, not during training?"
+choices = [
+  "The trainer's GPU cannot process duplicate records at all — it throws an error on repeated token sequences",
+  "A near-duplicate wastes the LoRA adapter's limited trainable capacity on a pattern the model already learned from the first copy, squeezing out genuinely distinct examples the student could have spent the bind's tight parameter budget on instead",
+  "Duplicate records cause the KV cache from the memory-budget section to grow faster than the card can handle",
+  "Near-duplicates corrupt the model's quantized base weights, forcing a re-download of the GGUF file",
+]
+answer = 1
+whyWrong = "The GPU processes duplicates fine without error, the KV cache is unrelated to deduplication, and duplicate training data does not corrupt the frozen base weights (which are never updated during QLoRA). The real cost is the adapter's limited parameter budget — every near-duplicate pair eats capacity on a repeated signal the model already learned from the first one, leaving less room for the genuinely distinct examples that actually improve the familiar."
+hint = "The lesson says 'near-identical records waste the adapter's limited capacity' — the correct answer names the LoRA adapter's tight parameter budget as the resource that duplicates consume, not the GPU, the KV cache, or the base weights (which are frozen and never updated)."
+explain = "The LoRA adapter has a fixed tiny parameter count (~0.1-0.2% of the base). Repeated patterns spend that budget on redundancy instead of variety — and on a small personal dataset, every wasted record is a lost opportunity to teach the model something genuinely new about the artificer's voice."
+
+[[lessons.exercises]]
+id = "s04-l05-e2"
+type = "text"
+points = 18
+prompt = "What similarity measure does the lesson suggest for catching near-duplicate records using only the assistant's text — the size of token overlap divided by the size of the token union?"
+answer = "Jaccard similarity"
+accept = ["jaccard", "the jaccard similarity", "jaccard index"]
+hint = "It's named in the first curation check — 'deduplication' — where the formula and the threshold (~0.8) are both given."
+
+[[lessons.exercises]]
+id = "s04-l05-e3"
+type = "mc"
+points = 20
+prompt = "Per this rite, what is the specific risk of keeping a training record whose assistant turn contains only a bare URL with no explanation?"
+choices = [
+  "The URL will trigger the loss mask from the last rite, so the assistant tokens will be ignored anyway",
+  "The model learns to produce bare URLs as complete responses — a low-effort pattern that teaches the familiar to answer with a link instead of the explanatory style the artificer's notes actually demonstrate",
+  "The training run will fail because the URL contains characters the tokenizer cannot encode",
+  "Nothing — a single URL-only record is too small for the adapter to learn anything from, so it has no effect either way",
+]
+answer = 1
+whyWrong = "The loss mask only ignores user tokens, never assistant tokens (which are exactly what we want the model to learn); tokenizers handle URLs fine; and even a single record matters in a small personal dataset where every sample counts. The real risk is behavioral: the model sees 'answer with a bare URL' as a legitimate response pattern and reproduces it for prompts that deserved an explanation."
+hint = "The third curation check in the lesson is 'assistant-response quality' — it says a bare URL with no explanation teaches the model to produce bare URLs as answers. The correct choice captures a behavioral consequence (the model learns a low-effort pattern), not a technical failure (crash, ignore, no effect)."
+explain = "The third curation check — assistant-response quality — specifically calls out bare URLs and single-word answers: the bind amplifies whatever it sees, and a data-void example teaches the model that a data-void response is correct."
+
+[[lessons.exercises]]
+id = "s04-l05-e4"
+type = "fill"
+points = 20
+prompt = "Fill the missing PII pattern from the lesson — the regex that catches long runs of base64-like characters, a common shape for API keys."
+code = '''PIIS = {
+    "email": re.compile(r'[\w.+-]+@[\w-]+\.[a-z]{2,}'),
+    "apikey": re.compile(____),
+}'''
+answer = "r'[A-Za-z0-9+/]{32,}={0,2}'"
+accept = ["r'[A-Za-z0-9+/]{32,}={0,2}'"]
+hint = "It's the second regex pattern in the lesson's <code>PIIS</code> dict — it matches 32 or more base64 characters, optionally followed by up to two padding equals signs."
+
+[[lessons.exercises]]
+id = "s04-l05-e5"
+type = "write"
+points = 35
+prompt = "Given <code>samples</code> (a list of ints — assistant word counts for each record) and <code>min_words = 15</code>, count how many samples have at least 15 words. Print <code>KEPT &lt;n&gt;/&lt;total&gt;</code> — computed from the list, not hardcoded."
+starter = '''samples = [3, 42, 18, 7, 156, 11, 29, 1]
+min_words = 15
+
+# TODO: count how many entries in samples are >= min_words.
+# Print: KEPT <kept>/<total>
+print("KEPT 0/8")
+'''
+expect = "KEPT 4/8"
+hint = "Use sum(1 for s in samples if s >= min_words) to count qualifying records, and len(samples) for the total — then print with f-string."

@@ -1,0 +1,1201 @@
+# SPELL DUEL challenge bank. Difficulty = tier order (1..N).
+# Each stage's `expect` is the COMPLETE required stdout at that stage; demands strictly
+# append lines — stages[n].expect == stages[n-1].expect + new lines, never edits.
+# Machine-generated from attacks_src.toml by tools/gen_attacks.py — regenerate, don't hand-edit.
+
+# ---- difficulty 1
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE COLD ANVIL"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        int iron = 8, copper = 6, starsteel = 20;
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Strike the first marking. Print «INGOT iron @ 8em», «INGOT copper @ 6em», «INGOT starsteel @ 20em» — woven from the variables, values not hardcoded."
+expect = '''
+INGOT iron @ 8em
+INGOT copper @ 6em
+INGOT starsteel @ 20em'''
+
+[[tiers.pool.stages]]
+brief = "Append «TOTAL <iron+copper+starsteel>em» and «COUNT 3 INGOTS» — the count from the array of metals, computed."
+expect = '''
+INGOT iron @ 8em
+INGOT copper @ 6em
+INGOT starsteel @ 20em
+TOTAL 34em
+COUNT 3 INGOTS'''
+
+[[tiers.pool.stages]]
+brief = "Append «DEAREST <name of the highest-value metal>» (computed) and «ANVIL SET»."
+expect = '''
+INGOT iron @ 8em
+INGOT copper @ 6em
+INGOT starsteel @ 20em
+TOTAL 34em
+COUNT 3 INGOTS
+DEAREST starsteel
+ANVIL SET'''
+
+[[tiers.pool]]
+t = "THE BELLOWS' BREATH"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        int coals = 12, breath = 7;
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Report the forge's breath. Print «COALS 12» and «BREATH 7» from the variables, then «FORGE BREATHING»."
+expect = '''
+COALS 12
+BREATH 7
+FORGE BREATHING'''
+
+[[tiers.pool.stages]]
+brief = "Append «HEAT <coals * breath>» (computed) and «SPARK <coals + breath>»."
+expect = '''
+COALS 12
+BREATH 7
+FORGE BREATHING
+HEAT 84
+SPARK 19'''
+
+[[tiers.pool.stages]]
+brief = "Append the heat's parity («PARITY EVEN» or «PARITY ODD») and «BELLOWS READY»."
+expect = '''
+COALS 12
+BREATH 7
+FORGE BREATHING
+HEAT 84
+SPARK 19
+PARITY EVEN
+BELLOWS READY'''
+
+[[tiers.pool]]
+t = "THE INGOT'S STAMP"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String metal = "iron";
+        int value = 8, melt = 1500;
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Stamp the ingot. Print «STAMP iron @ 8em» and «MELT 1500C» from the variables, then «INGOT NAMED»."
+expect = '''
+STAMP iron @ 8em
+MELT 1500C
+INGOT NAMED'''
+
+[[tiers.pool.stages]]
+brief = "Append «MARK <metal><value>» (e.g. iron8) and «TEMPER <melt - value>» (computed)."
+expect = '''
+STAMP iron @ 8em
+MELT 1500C
+INGOT NAMED
+MARK iron8
+TEMPER 1492'''
+
+[[tiers.pool.stages]]
+brief = "Append «FORGEABLE true» if value < melt else «FORGEABLE false», then «STAMP SET»."
+expect = '''
+STAMP iron @ 8em
+MELT 1500C
+INGOT NAMED
+MARK iron8
+TEMPER 1492
+FORGEABLE true
+STAMP SET'''
+
+# ---- difficulty 2
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE BELLOWS' CYCLE"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        int[] heats = { 3, 7, 2, 9 };
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Pump the bellows over each heat. Print «PUMP <n> <h>» (1-based n) per heat, then «CYCLE 4» (count from the array, computed)."
+expect = '''
+PUMP 1 3
+PUMP 2 7
+PUMP 3 2
+PUMP 4 9
+CYCLE 4'''
+
+[[tiers.pool.stages]]
+brief = "Append «HOTTEST <max heat>» and «MEAN <sum/count, integer division>»."
+expect = '''
+PUMP 1 3
+PUMP 2 7
+PUMP 3 2
+PUMP 4 9
+CYCLE 4
+HOTTEST 9
+MEAN 5'''
+
+[[tiers.pool.stages]]
+brief = "Append «READY <count of heats >= 5>» and «BELLOWS DONE»."
+expect = '''
+PUMP 1 3
+PUMP 2 7
+PUMP 3 2
+PUMP 4 9
+CYCLE 4
+HOTTEST 9
+MEAN 5
+READY 2
+BELLOWS DONE'''
+
+[[tiers.pool]]
+t = "THE FORGE DISPATCH"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String[] commands = { "forge iron", "value copper", "list", "quit" };
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Read the command roll. For each print «CMD <command>», then «ROLL 4» (count computed)."
+expect = '''
+CMD forge iron
+CMD value copper
+CMD list
+CMD quit
+ROLL 4'''
+
+[[tiers.pool.stages]]
+brief = "Append «FORGE <count of commands starting with forge>» and «VALUE <count starting with value>»."
+expect = '''
+CMD forge iron
+CMD value copper
+CMD list
+CMD quit
+ROLL 4
+FORGE 1
+VALUE 1'''
+
+[[tiers.pool.stages]]
+brief = "Append «KNOWN <count of commands that are forge, value, or list>» and «DISPATCH DONE»."
+expect = '''
+CMD forge iron
+CMD value copper
+CMD list
+CMD quit
+ROLL 4
+FORGE 1
+VALUE 1
+KNOWN 3
+DISPATCH DONE'''
+
+[[tiers.pool]]
+t = "THE SMITH'S METHOD"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        int[] bars = { 4, 6, 8 };
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+    static int temper(int n) { return n * 3 - 2; }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "For each bar call temper(n) and print «BAR <n> -> <tempered>», then «STRUCK 3» (count from the array, computed)."
+expect = '''
+BAR 4 -> 10
+BAR 6 -> 16
+BAR 8 -> 22
+STRUCK 3'''
+
+[[tiers.pool.stages]]
+brief = "Append «TOTAL <sum of tempered values>» and «PEAK <max tempered value>»."
+expect = '''
+BAR 4 -> 10
+BAR 6 -> 16
+BAR 8 -> 22
+STRUCK 3
+TOTAL 48
+PEAK 22'''
+
+[[tiers.pool.stages]]
+brief = "Append «EVEN <count of tempered values that are even>» and «METHOD DONE»."
+expect = '''
+BAR 4 -> 10
+BAR 6 -> 16
+BAR 8 -> 22
+STRUCK 3
+TOTAL 48
+PEAK 22
+EVEN 3
+METHOD DONE'''
+
+# ---- difficulty 3
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE INGOT FOUND"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        Ingot[] batch = { new Ingot("iron", 8), new Ingot("copper", 6), new Ingot("starsteel", 20) };
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+class Ingot {
+    String name;
+    int value;
+    Ingot(String name, int value) { this.name = name; this.value = value; }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Read the batch. Print «INGOT <name> <value>em» per ingot, then «BATCH 3» (count from the array, computed)."
+expect = '''
+INGOT iron 8em
+INGOT copper 6em
+INGOT starsteel 20em
+BATCH 3'''
+
+[[tiers.pool.stages]]
+brief = "Append «PURSE <sum of values>em» and «DEAREST <name of the highest-value ingot>»."
+expect = '''
+INGOT iron 8em
+INGOT copper 6em
+INGOT starsteel 20em
+BATCH 3
+PURSE 34em
+DEAREST starsteel'''
+
+[[tiers.pool.stages]]
+brief = "Append «MEAN <sum/count, integer division>em» and «BATCH SEALED»."
+expect = '''
+INGOT iron 8em
+INGOT copper 6em
+INGOT starsteel 20em
+BATCH 3
+PURSE 34em
+DEAREST starsteel
+MEAN 11em
+BATCH SEALED'''
+
+[[tiers.pool]]
+t = "THE REGISTRY'S FIRST KEY"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        Ingot[] reg = { new Ingot("iron", 8), new Ingot("copper", 6), new Ingot("starsteel", 20) };
+        String query = "copper";
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+class Ingot {
+    String name;
+    int value;
+    Ingot(String name, int value) { this.name = name; this.value = value; }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "List the registry. Print «REG <name> <value>em» per ingot, then «KEYS 3» (count from the array, computed)."
+expect = '''
+REG iron 8em
+REG copper 6em
+REG starsteel 20em
+KEYS 3'''
+
+[[tiers.pool.stages]]
+brief = "Find the queried ingot (query = \"copper\") by name. Append «FOUND <name> @ <value>em» reading the value from the array, not the literal."
+expect = '''
+REG iron 8em
+REG copper 6em
+REG starsteel 20em
+KEYS 3
+FOUND copper @ 6em'''
+
+[[tiers.pool.stages]]
+brief = "Append «OTHERS <count of ingots whose name is not the query>» and «REGISTRY SET»."
+expect = '''
+REG iron 8em
+REG copper 6em
+REG starsteel 20em
+KEYS 3
+FOUND copper @ 6em
+OTHERS 2
+REGISTRY SET'''
+
+[[tiers.pool]]
+t = "THE STATIC MARK"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+class Forge {
+    static int count = 0;
+    int id;
+    Forge(int id) { this.id = id; count++; }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Open the forge three times. Construct three Forge marks (ids 1, 2, 3) and print «MARK <id>» each, then «OPEN <Forge.count>» (the shared counter, computed)."
+expect = '''
+MARK 1
+MARK 2
+MARK 3
+OPEN 3'''
+
+[[tiers.pool.stages]]
+brief = "Append «LAST <id of the last mark>» and «SUM <sum of the ids>»."
+expect = '''
+MARK 1
+MARK 2
+MARK 3
+OPEN 3
+LAST 3
+SUM 6'''
+
+[[tiers.pool.stages]]
+brief = "Append «STATIC <Forge.count>» (read from the class, not a literal) and «FORGE OPENED»."
+expect = '''
+MARK 1
+MARK 2
+MARK 3
+OPEN 3
+LAST 3
+SUM 6
+STATIC 3
+FORGE OPENED'''
+
+# ---- difficulty 4
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE ANVIL'S CHILDREN"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        Ingot[] batch = {
+            new Ingot("iron", 8),
+            new IngotAlloy("starsteel", 20, new String[]{"iron", "coal"}),
+            new Ingot("copper", 6)
+        };
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+class Ingot {
+    String name;
+    int value;
+    Ingot(String name, int value) { this.name = name; this.value = value; }
+    public String toString() { return name + " @ " + value + "em"; }
+}
+class IngotAlloy extends Ingot {
+    String[] parts;
+    IngotAlloy(String name, int value, String[] parts) { super(name, value); this.parts = parts; }
+    public String toString() { return super.toString() + " (" + String.join("+", parts) + ")"; }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Read the batch polymorphically. Print each ingot's toString (one line per ingot), then «BATCH 3» (count from the array, computed)."
+expect = '''
+iron @ 8em
+starsteel @ 20em (iron+coal)
+copper @ 6em
+BATCH 3'''
+
+[[tiers.pool.stages]]
+brief = "Append «ALLOYS <count of IngotAlloy, use instanceof>» and «PURE <count of plain Ingot that are not alloys>»."
+expect = '''
+iron @ 8em
+starsteel @ 20em (iron+coal)
+copper @ 6em
+BATCH 3
+ALLOYS 1
+PURE 2'''
+
+[[tiers.pool.stages]]
+brief = "Append «HEAVIEST <toString of the highest-value ingot>» and «ANVIL DONE»."
+expect = '''
+iron @ 8em
+starsteel @ 20em (iron+coal)
+copper @ 6em
+BATCH 3
+ALLOYS 1
+PURE 2
+HEAVIEST starsteel @ 20em (iron+coal)
+ANVIL DONE'''
+
+[[tiers.pool]]
+t = "THE EQUAL MARK"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        Ingot a = new Ingot("iron", 8), b = new Ingot("iron", 8), c = new Ingot("copper", 6);
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+class Ingot {
+    String name;
+    int value;
+    Ingot(String name, int value) { this.name = name; this.value = value; }
+    public boolean equals(Object o) {
+        if (!(o instanceof Ingot)) return false;
+        Ingot i = (Ingot) o;
+        return name.equals(i.name) && value == i.value;
+    }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Test the ingots' equality. Print «a == b <true/false>» (reference equality), «a.equals(b) <true/false>», «a.equals(c) <true/false>» — computed, not hardcoded."
+expect = '''
+a == b false
+a.equals(b) true
+a.equals(c) false'''
+
+[[tiers.pool.stages]]
+brief = "Append «SAME <count of pairs where equals is true, among a-b, a-c, b-c>» and «DIFF <count where equals is false>»."
+expect = '''
+a == b false
+a.equals(b) true
+a.equals(c) false
+SAME 1
+DIFF 2'''
+
+[[tiers.pool.stages]]
+brief = "Append «MATCH a b» if a.equals(b) else «MISMATCH a b», then «EQUAL MARK SET»."
+expect = '''
+a == b false
+a.equals(b) true
+a.equals(c) false
+SAME 1
+DIFF 2
+MATCH a b
+EQUAL MARK SET'''
+
+[[tiers.pool]]
+t = "THE PACKAGE PATH"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String[] classes = {
+            "net.minecraft.item.Item",
+            "net.minecraft.block.Block",
+            "com.ironwright.item.Item"
+        };
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "For each class print its simple name (the text after the last '.') as «SIMPLE <name>», then «CLASSES 3» (count from the array, computed)."
+expect = '''
+SIMPLE Item
+SIMPLE Block
+SIMPLE Item
+CLASSES 3'''
+
+[[tiers.pool.stages]]
+brief = "Append «MOD <count of classes under com.ironwright>» and «VANILLA <count under net.minecraft>»."
+expect = '''
+SIMPLE Item
+SIMPLE Block
+SIMPLE Item
+CLASSES 3
+MOD 1
+VANILLA 2'''
+
+[[tiers.pool.stages]]
+brief = "Append «SHARED <count of classes whose simple name also appears in another class>» (the two Item classes share their simple name), then «PATHS DONE»."
+expect = '''
+SIMPLE Item
+SIMPLE Block
+SIMPLE Item
+CLASSES 3
+MOD 1
+VANILLA 2
+SHARED 2
+PATHS DONE'''
+
+# ---- difficulty 5
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE FORGEABLE CONTRACT"
+starter = '''
+import java.util.*;
+public class Ironwright {
+    public static void main(String[] args) {
+        List<Forgeable> batch = new ArrayList<>(Arrays.asList(
+            new Ingot("iron", 8), new Ingot("copper", 6), new Ingot("starsteel", 20)));
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+interface Forgeable { int forgeValue(); String forgeName(); }
+class Ingot implements Forgeable {
+    String name; int value;
+    Ingot(String n, int v) { name = n; value = v; }
+    public int forgeValue() { return value; }
+    public String forgeName() { return name; }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Read the batch through the contract. Print «FORGE <forgeName()> <forgeValue()>em» per item, then «BATCH 3» (count from the list, computed)."
+expect = '''
+FORGE iron 8em
+FORGE copper 6em
+FORGE starsteel 20em
+BATCH 3'''
+
+[[tiers.pool.stages]]
+brief = "Append «TOTAL <sum of forgeValue()>em» and «DEAREST <forgeName() of the highest-value item>»."
+expect = '''
+FORGE iron 8em
+FORGE copper 6em
+FORGE starsteel 20em
+BATCH 3
+TOTAL 34em
+DEAREST starsteel'''
+
+[[tiers.pool.stages]]
+brief = "Append «MEAN <sum/count, integer division>em» and «CONTRACT SET»."
+expect = '''
+FORGE iron 8em
+FORGE copper 6em
+FORGE starsteel 20em
+BATCH 3
+TOTAL 34em
+DEAREST starsteel
+MEAN 11em
+CONTRACT SET'''
+
+[[tiers.pool]]
+t = "THE METAL ENUM"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+enum Metal {
+    IRON(8, 1500), COPPER(6, 1085), STARSTEEL(20, 2200);
+    int value, melt;
+    Metal(int value, int melt) { this.value = value; this.melt = melt; }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Read the metal roll. Print «METAL <name> <value>em <melt>C» per metal, then «ROLL 3» (count from values(), computed)."
+expect = '''
+METAL IRON 8em 1500C
+METAL COPPER 6em 1085C
+METAL STARSTEEL 20em 2200C
+ROLL 3'''
+
+[[tiers.pool.stages]]
+brief = "Append «HOTTEST <name of the highest melt>» and «DEAREST <name of the highest value>»."
+expect = '''
+METAL IRON 8em 1500C
+METAL COPPER 6em 1085C
+METAL STARSTEEL 20em 2200C
+ROLL 3
+HOTTEST STARSTEEL
+DEAREST STARSTEEL'''
+
+[[tiers.pool.stages]]
+brief = "Append «FORGEABLE <count of metals with melt >= 1500>» and «ENUM SET»."
+expect = '''
+METAL IRON 8em 1500C
+METAL COPPER 6em 1085C
+METAL STARSTEEL 20em 2200C
+ROLL 3
+HOTTEST STARSTEEL
+DEAREST STARSTEEL
+FORGEABLE 2
+ENUM SET'''
+
+[[tiers.pool]]
+t = "THE GENERIC REGISTRY"
+starter = '''
+import java.util.*;
+public class Ironwright {
+    public static void main(String[] args) {
+        Registry<Ingot> reg = new Registry<>();
+        // Register iron->8, copper->6, starsteel->20, then answer the demands.
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+class Ingot { String name; int value; Ingot(String n, int v) { name = n; value = v; } }
+class Registry<T> {
+    Map<String, T> items = new LinkedHashMap<>();
+    void register(String k, T v) { items.put(k, v); }
+    T get(String k) { return items.get(k); }
+    int size() { return items.size(); }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Register three ingots (iron->8, copper->6, starsteel->20) and print «REG <key> <value>em» per key in insertion order, then «SIZE 3» (from size(), computed)."
+expect = '''
+REG iron 8em
+REG copper 6em
+REG starsteel 20em
+SIZE 3'''
+
+[[tiers.pool.stages]]
+brief = "Append «LOOKUP iron <value from get(\"iron\")>em» and «LOOKUP starsteel <value from get(\"starsteel\")>em» — read via get(), not literals."
+expect = '''
+REG iron 8em
+REG copper 6em
+REG starsteel 20em
+SIZE 3
+LOOKUP iron 8em
+LOOKUP starsteel 20em'''
+
+[[tiers.pool.stages]]
+brief = "Append «KEYS <size()>» and «REGISTRY SEALED»."
+expect = '''
+REG iron 8em
+REG copper 6em
+REG starsteel 20em
+SIZE 3
+LOOKUP iron 8em
+LOOKUP starsteel 20em
+KEYS 3
+REGISTRY SEALED'''
+
+# ---- difficulty 6
+[[tiers]]
+
+[[tiers.pool]]
+t = "TRANSLATING THE OLD MARKS"
+starter = '''
+import java.util.*;
+public class Ironwright {
+    public static void main(String[] args) {
+        Map<String, String> mcp = new LinkedHashMap<>();
+        mcp.put("field_7777_a", "maxStackSize");
+        mcp.put("func_1111_b", "getUnlocalizedName");
+        mcp.put("field_8888_c", "unlocalizedName");
+        String[] srgs = { "field_7777_a", "func_1111_b", "field_8888_c" };
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Translate the old marks. For each SRG name print «<srg> -> <mcp name>» using the map, then «MARKS 3» (count from the array, computed)."
+expect = '''
+field_7777_a -> maxStackSize
+func_1111_b -> getUnlocalizedName
+field_8888_c -> unlocalizedName
+MARKS 3'''
+
+[[tiers.pool.stages]]
+brief = "Append «FIELDS <count of srgs starting with 'field'>» and «FUNCS <count starting with 'func'>»."
+expect = '''
+field_7777_a -> maxStackSize
+func_1111_b -> getUnlocalizedName
+field_8888_c -> unlocalizedName
+MARKS 3
+FIELDS 2
+FUNCS 1'''
+
+[[tiers.pool.stages]]
+brief = "Append «LONGEST <longest translated name>» (computed) and «TRANSLATION DONE»."
+expect = '''
+field_7777_a -> maxStackSize
+func_1111_b -> getUnlocalizedName
+field_8888_c -> unlocalizedName
+MARKS 3
+FIELDS 2
+FUNCS 1
+LONGEST getUnlocalizedName
+TRANSLATION DONE'''
+
+[[tiers.pool]]
+t = "THE SMITH-WRIGHT'S EYE"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String src = "public int maxStackSize;public String unlocalizedName;public void onCreated(){}";
+        // A field part has no '('. THE FIRST STRIKE is set. Further demands may arm.
+    }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Read the old marks. Split the source on ';' and print «FIELD <name>» for each part with no '(' (the name is the last whitespace-separated token), then «READ <field count>» (computed)."
+expect = '''
+FIELD maxStackSize
+FIELD unlocalizedName
+READ 2'''
+
+[[tiers.pool.stages]]
+brief = "Append «METHODS <count of parts with '('>» and «MEMBERS <total parts>»."
+expect = '''
+FIELD maxStackSize
+FIELD unlocalizedName
+READ 2
+METHODS 1
+MEMBERS 3'''
+
+[[tiers.pool.stages]]
+brief = "Append «HAS maxStackSize <true/false>» (does any field equal maxStackSize) and «EYE DONE»."
+expect = '''
+FIELD maxStackSize
+FIELD unlocalizedName
+READ 2
+METHODS 1
+MEMBERS 3
+HAS maxStackSize true
+EYE DONE'''
+
+[[tiers.pool]]
+t = "THE DEV FORGE OPENS"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String[] steps = { "install jdk8", "download forge mdk", "setupDecompWorkspace", "genIntellijRuns", "runClient" };
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Run the setup steps in order. Print «STEP <n> <step>» (1-based n) per step, then «STEPS 5» (count from the array, computed)."
+expect = '''
+STEP 1 install jdk8
+STEP 2 download forge mdk
+STEP 3 setupDecompWorkspace
+STEP 4 genIntellijRuns
+STEP 5 runClient
+STEPS 5'''
+
+[[tiers.pool.stages]]
+brief = "Append «PREP <count of steps before runClient>» (computed) and «FIRE <the last step>»."
+expect = '''
+STEP 1 install jdk8
+STEP 2 download forge mdk
+STEP 3 setupDecompWorkspace
+STEP 4 genIntellijRuns
+STEP 5 runClient
+STEPS 5
+PREP 4
+FIRE runClient'''
+
+[[tiers.pool.stages]]
+brief = "Append «BENCH <true/false>» (does genIntellijRuns appear — the smith's bench is set) and «FORGE OPEN»."
+expect = '''
+STEP 1 install jdk8
+STEP 2 download forge mdk
+STEP 3 setupDecompWorkspace
+STEP 4 genIntellijRuns
+STEP 5 runClient
+STEPS 5
+PREP 4
+FIRE runClient
+BENCH true
+FORGE OPEN'''
+
+# ---- difficulty 7
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE BINDING RITE"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        // The @Mod lifecycle fires in a fixed order.
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+    static void preInit() { System.out.println("preInit"); }
+    static void init() { System.out.println("init"); }
+    static void postInit() { System.out.println("postInit"); }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Bind the mod. Call the lifecycle rites in Forge order (preInit, init, postInit) so each prints its name, then «BINDING 3 RITES» (count of rites, computed)."
+expect = '''
+preInit
+init
+postInit
+BINDING 3 RITES'''
+
+[[tiers.pool.stages]]
+brief = "Append «SIDES 2» (the two hands of the smith) and «PROXY common» (the common proxy loads first)."
+expect = '''
+preInit
+init
+postInit
+BINDING 3 RITES
+SIDES 2
+PROXY common'''
+
+[[tiers.pool.stages]]
+brief = "Append «LIFECYCLE SET» and «MOD BOUND»."
+expect = '''
+preInit
+init
+postInit
+BINDING 3 RITES
+SIDES 2
+PROXY common
+LIFECYCLE SET
+MOD BOUND'''
+
+[[tiers.pool]]
+t = "THE TWO HANDS"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String[] sides = { "CLIENT", "SERVER", "COMMON" };
+        // CLIENT renders, SERVER holds, COMMON shares.
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Speak for each side. Print «HAND <side> <role>» — role is RENDER for CLIENT, HOLD for SERVER, SHARE for COMMON. Then «HANDS 3» (count from the array, computed)."
+expect = '''
+HAND CLIENT RENDER
+HAND SERVER HOLD
+HAND COMMON SHARE
+HANDS 3'''
+
+[[tiers.pool.stages]]
+brief = "Append «CLIENT <true/false>» (is CLIENT among the sides) and «SERVER <true/false>»."
+expect = '''
+HAND CLIENT RENDER
+HAND SERVER HOLD
+HAND COMMON SHARE
+HANDS 3
+CLIENT true
+SERVER true'''
+
+[[tiers.pool.stages]]
+brief = "Append «BOUND <count>» and «PROXIES SET»."
+expect = '''
+HAND CLIENT RENDER
+HAND SERVER HOLD
+HAND COMMON SHARE
+HANDS 3
+CLIENT true
+SERVER true
+BOUND 3
+PROXIES SET'''
+
+[[tiers.pool]]
+t = "THE MCMOD INSCRIPTION"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright", name = "Ironwright", version = "0.1.0";
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Inscribe the modinfo. Print «MODID ironwright», «NAME Ironwright», «VERSION 0.1.0» from the variables, then «INFO 3» (count computed)."
+expect = '''
+MODID ironwright
+NAME Ironwright
+VERSION 0.1.0
+INFO 3'''
+
+[[tiers.pool.stages]]
+brief = "Append the mcmod.info line: «{ \"modid\":\"ironwright\", \"name\":\"Ironwright\", \"version\":\"0.1.0\" }» woven from the variables."
+expect = '''
+MODID ironwright
+NAME Ironwright
+VERSION 0.1.0
+INFO 3
+{ "modid":"ironwright", "name":"Ironwright", "version":"0.1.0" }'''
+
+[[tiers.pool.stages]]
+brief = "Append «INSCRIBED true» and «MCMOD SET»."
+expect = '''
+MODID ironwright
+NAME Ironwright
+VERSION 0.1.0
+INFO 3
+{ "modid":"ironwright", "name":"Ironwright", "version":"0.1.0" }
+INSCRIBED true
+MCMOD SET'''
+
+# ---- difficulty 8
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE BINDING RITE OF ITEMS"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String[] items = { "ingot", "ingot_copper", "ingot_starsteel" };
+        String modid = "ironwright";
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Perform the binding rite. For each item print «REGISTER <modid>:<item>» (the registry name), then «RITE 3» (count from the array, computed)."
+expect = '''
+REGISTER ironwright:ingot
+REGISTER ironwright:ingot_copper
+REGISTER ironwright:ingot_starsteel
+RITE 3'''
+
+[[tiers.pool.stages]]
+brief = "Append «NAMES <count>» and «FIRST <modid>:<first item>»."
+expect = '''
+REGISTER ironwright:ingot
+REGISTER ironwright:ingot_copper
+REGISTER ironwright:ingot_starsteel
+RITE 3
+NAMES 3
+FIRST ironwright:ingot'''
+
+[[tiers.pool.stages]]
+brief = "Append «RITE COMPLETE» and «ITEMS BOUND»."
+expect = '''
+REGISTER ironwright:ingot
+REGISTER ironwright:ingot_copper
+REGISTER ironwright:ingot_starsteel
+RITE 3
+NAMES 3
+FIRST ironwright:ingot
+RITE COMPLETE
+ITEMS BOUND'''
+
+[[tiers.pool]]
+t = "THE MODEL JSON"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright", item = "ingot";
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Forge the item model. Print the JSON: «{ \"parent\":\"item/generated\", \"textures\":{ \"layer0\":\"ironwright:items/ingot\" } }» woven from modid and item, then «MODEL 1»."
+expect = '''
+{ "parent":"item/generated", "textures":{ "layer0":"ironwright:items/ingot" } }
+MODEL 1'''
+
+[[tiers.pool.stages]]
+brief = "Append «PATH <modid>:items/<item>» and «PARENT item/generated»."
+expect = '''
+{ "parent":"item/generated", "textures":{ "layer0":"ironwright:items/ingot" } }
+MODEL 1
+PATH ironwright:items/ingot
+PARENT item/generated'''
+
+[[tiers.pool.stages]]
+brief = "Append «MODEL SET» and «JSON DONE»."
+expect = '''
+{ "parent":"item/generated", "textures":{ "layer0":"ironwright:items/ingot" } }
+MODEL 1
+PATH ironwright:items/ingot
+PARENT item/generated
+MODEL SET
+JSON DONE'''
+
+[[tiers.pool]]
+t = "THE LANG INSCRIPTION"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright";
+        String[] items = { "ingot", "ingot_copper" };
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Inscribe the lang file. For each item print «item.<modid>.<item>.name=<Title>» where Title is the item with its first letter uppercased (ingot -> Ingot), then «LANG 2» (count from the array, computed)."
+expect = '''
+item.ironwright.ingot.name=Ingot
+item.ironwright.ingot_copper.name=Ingot_copper
+LANG 2'''
+
+[[tiers.pool.stages]]
+brief = "Append «FIRST <the first lang line>» and «KEYS 2»."
+expect = '''
+item.ironwright.ingot.name=Ingot
+item.ironwright.ingot_copper.name=Ingot_copper
+LANG 2
+FIRST item.ironwright.ingot.name=Ingot
+KEYS 2'''
+
+[[tiers.pool.stages]]
+brief = "Append «LANG SET» and «NAMED»."
+expect = '''
+item.ironwright.ingot.name=Ingot
+item.ironwright.ingot_copper.name=Ingot_copper
+LANG 2
+FIRST item.ironwright.ingot.name=Ingot
+KEYS 2
+LANG SET
+NAMED'''
+
+# ---- difficulty 9
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE CAST STONE"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String[] blocks = { "metal", "metal_copper" };
+        String modid = "ironwright";
+        // Each block gets a matching ItemBlock. THE FIRST STRIKE is set.
+    }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Cast the stone. For each block print «BLOCK <modid>:<block>» then «ITEMBLOCK <modid>:<block>» (one ItemBlock per block), then «CAST 2» (block count, computed)."
+expect = '''
+BLOCK ironwright:metal
+ITEMBLOCK ironwright:metal
+BLOCK ironwright:metal_copper
+ITEMBLOCK ironwright:metal_copper
+CAST 2'''
+
+[[tiers.pool.stages]]
+brief = "Append «REGISTRATIONS <2 * block count>» (a block + its ItemBlock each) and «BLOCKS <count>»."
+expect = '''
+BLOCK ironwright:metal
+ITEMBLOCK ironwright:metal
+BLOCK ironwright:metal_copper
+ITEMBLOCK ironwright:metal_copper
+CAST 2
+REGISTRATIONS 4
+BLOCKS 2'''
+
+[[tiers.pool.stages]]
+brief = "Append «CAST DONE» and «STONE SET»."
+expect = '''
+BLOCK ironwright:metal
+ITEMBLOCK ironwright:metal
+BLOCK ironwright:metal_copper
+ITEMBLOCK ironwright:metal_copper
+CAST 2
+REGISTRATIONS 4
+BLOCKS 2
+CAST DONE
+STONE SET'''
+
+[[tiers.pool]]
+t = "THE BLOCKSTATE JSON"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright", block = "metal";
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Forge the blockstate. Print the JSON: «{ \"variants\":{ \"normal\":{ \"model\":\"ironwright:metal\" } } }» woven from modid and block, then «BLOCKSTATE 1»."
+expect = '''
+{ "variants":{ "normal":{ "model":"ironwright:metal" } } }
+BLOCKSTATE 1'''
+
+[[tiers.pool.stages]]
+brief = "Append «MODEL <modid>:<block>» and «VARIANT normal»."
+expect = '''
+{ "variants":{ "normal":{ "model":"ironwright:metal" } } }
+BLOCKSTATE 1
+MODEL ironwright:metal
+VARIANT normal'''
+
+[[tiers.pool.stages]]
+brief = "Append «BLOCKSTATE SET» and «JSON DONE»."
+expect = '''
+{ "variants":{ "normal":{ "model":"ironwright:metal" } } }
+BLOCKSTATE 1
+MODEL ironwright:metal
+VARIANT normal
+BLOCKSTATE SET
+JSON DONE'''
+
+[[tiers.pool]]
+t = "THE MATERIAL'S NATURE"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String[] materials = { "IRON", "ROCK", "WOOD" };
+        // IRON and ROCK are SOLID; WOOD is BURNABLE.
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+
+[[tiers.pool.stages]]
+brief = "Read the materials. For each print «MATERIAL <name> <trait>» — trait is SOLID for IRON and ROCK, BURNABLE for WOOD, then «MATERIALS 3» (count from the array, computed)."
+expect = '''
+MATERIAL IRON SOLID
+MATERIAL ROCK SOLID
+MATERIAL WOOD BURNABLE
+MATERIALS 3'''
+
+[[tiers.pool.stages]]
+brief = "Append «SOLID <count of SOLID>» and «BURNABLE <count of BURNABLE>»."
+expect = '''
+MATERIAL IRON SOLID
+MATERIAL ROCK SOLID
+MATERIAL WOOD BURNABLE
+MATERIALS 3
+SOLID 2
+BURNABLE 1'''
+
+[[tiers.pool.stages]]
+brief = "Append «NATURE SET» and «CAST READY»."
+expect = '''
+MATERIAL IRON SOLID
+MATERIAL ROCK SOLID
+MATERIAL WOOD BURNABLE
+MATERIALS 3
+SOLID 2
+BURNABLE 1
+NATURE SET
+CAST READY'''
+

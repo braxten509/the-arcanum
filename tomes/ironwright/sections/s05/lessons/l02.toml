@@ -1,0 +1,70 @@
+[[lessons]]
+id = "s05-l02"
+title = "Many Shapes, One Hand — Polymorphism"
+body = '''
+<p>Polymorphism is the smith's one hand holding many tools. A variable typed as a parent or interface can hold any subclass that satisfies it — and the right method runs for whichever object is actually in the hand.</p>
+<pre><code>Forgeable f = <span class="k">new</span> Ingot(<span class="s">"starsteel"</span>, <span class="s">20</span>);
+System.out.println(f.forgeName() + <span class="s">" "</span> + f.forgeValue());  <span class="c">// starsteel 20</span></code></pre>
+<p>The variable <code>f</code> is typed as <code>Forgeable</code>, but the object is an <code>Ingot</code>. The compiler lets you call only <code>forgeName</code> and <code>forgeValue</code> on <code>f</code> — those are the contract. The actual method that runs is <code>Ingot</code>'s override, decided at runtime by the object's real class, not the variable's type. That is polymorphism: one call site, many possible behaviours.</p>
+<p>To reach a method that is on <code>Ingot</code> but not on <code>Forgeable</code> (say <code>getValue</code>), you must <strong>cast</strong> — tell the compiler "I know this Forgeable is really an Ingot":</p>
+<pre><code>Ingot ingot = (Ingot) f;
+System.out.println(ingot.getValue());</code></pre>
+<p>A cast to the wrong type throws <code>ClassCastException</code> at runtime. Guard with <code>instanceof</code> first: <code>if (f instanceof Ingot) { Ingot ingot = (Ingot) f; ... }</code>. The smith checks the metal before he grips it.</p>
+<div class="callout"><strong>Orrick says:</strong> Polymorphism is why the registry can hold <code>Forgeable</code> references and never care whether each one is an Ingot, an IngotAlloy, or something you add next week. Code written to the contract keeps working for every new implementer.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY THE MOD LIVES ON THIS</div>
+<p>Every Forge registry is a polymorphic collection: <code>RegistryEvent.Register&lt;Item&gt;</code> hands you a collection of <code>Item</code> references, and your <code>ItemIngot</code> (a subclass) sits among vanilla items as one of them. The event bus calls <code>register</code> on each without knowing the concrete class. The whole mod is the smith's hand holding many tools — polymorphism is not a nicety, it is the shape the forge is built on.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s05-l02-e1"
+type = "mc"
+points = 15
+prompt = "Given <code>Forgeable f = new Ingot(\"starsteel\", 20);</code>, which methods can you call on <code>f</code> without a cast?"
+choices = ["only forgeName and forgeValue (the interface's methods)", "getValue and getName (Ingot's methods)", "all of Ingot's methods plus Forgeable's", "none — f has no methods"]
+answer = 0
+whyWrong = "The variable's type is Forgeable, so the compiler allows only the interface's methods (forgeName, forgeValue); Ingot's extra methods (getValue) need a cast. The object is an Ingot but the compiler types the call against the declared type."
+hint = "The compiler checks calls against the variable's declared type, not the object's real class — so which type's methods are visible?"
+explain = "Call against the declared type (Forgeable). To reach Ingot-only methods, cast (Ingot) f. The runtime still dispatches to Ingot's override of forgeValue."
+
+[[lessons.exercises]]
+id = "s05-l02-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the operator that checks an object's real type before a cast — 'is this Forgeable actually an Ingot?'"
+code = '''Forgeable f = new Ingot("starsteel", 20);
+if (f ____ Ingot) {
+    Ingot ingot = (Ingot) f;
+}'''
+answer = "instanceof"
+whyWrong = "instanceof tests the object's runtime type and returns a boolean; typeof is not Java's keyword, is is not Java's keyword, equals compares values not type. The type-check operator is instanceof."
+hint = "It is instance + of — the Java operator that returns true if the object is of the given type."
+
+[[lessons.exercises]]
+id = "s05-l02-w1"
+type = "write"
+points = 30
+prompt = "The starter has Forgeable and Ingot (which implements it). In <code>main</code>, store an Ingot in a <code>Forgeable f</code> variable: <code>Forgeable f = new Ingot(\"starsteel\", 20);</code>. Print <code>starsteel 20</code> by joining <code>f.forgeName()</code>, a space, and <code>f.forgeValue()</code> — calling the interface methods on the interface-typed variable."
+starter = '''public class Ironwright {
+    interface Forgeable { int forgeValue(); String forgeName(); }
+    static class Ingot implements Forgeable {
+        private String name; private int value;
+        public Ingot(String name, int value) { this.name = name; this.value = value; }
+        @Override public int forgeValue() { return value; }
+        @Override public String forgeName() { return name; }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — Forgeable f = new Ingot("starsteel", 20); print forgeName + " " + forgeValue
+    }
+}'''
+expect = '''
+starsteel 20'''
+hint = "Forgeable f = new Ingot(\"starsteel\", 20); System.out.println(f.forgeName() + \" \" + f.forgeValue());"
+
+[[lessons.exercises]]
+id = "s05-l02-t1"
+type = "text"
+points = 20
+prompt = "Type the exception thrown at runtime when you cast an object to a type it is not (e.g. casting a String to an Ingot). (Short class name, no package.)"
+answer = "ClassCastException"
+hint = "It is Class plus Cast plus Exception — the runtime complaint about a bad cast."

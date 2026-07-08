@@ -1,0 +1,40 @@
+[freestyle]
+title = "THE WORKING: The Branching Stars"
+brief = '''
+<p>The first log is raw — a stream of observation lines with no classification. Vaelith slides it across the desk. <strong>"The Astrarium must read each line and know its temper before it can chart the night."</strong></p>
+<ul>
+  <li>Read lines one by one using a loop that continues until the observer enters <code>END</code> on a line by itself</li>
+  <li>For each line, classify it by checking the text: if it contains <code>"ERROR"</code>, prefix with <code>ERROR: </code>; elif it contains <code>"WARN"</code>, prefix with <code>WARN: </code>; else prefix with <code>INFO: </code></li>
+  <li>Print each classified line on its own output line</li>
+  <li>After the loop ends, print three summary lines: <code>ERROR: [count]</code>, <code>WARN: [count]</code>, <code>INFO: [count]</code>, where each count is how many lines of that severity were read</li>
+  <li>The <code>END</code> sentinel line itself must not be classified or counted</li>
+  <li>Edge case: an empty input line (blank) should still be classified as <code>INFO:</code> and counted</li>
+</ul>
+'''
+reward = 160
+xray = "The grader watches for the loop continuing until END, correct if/elif/else order (ERROR checked first, then WARN, else INFO), every line producing exactly its prefixed counterpart, the sentinel line being excluded from counts and classification, blank lines still classified and counted as INFO, and the three summary lines printed with exact labels and correct totals. Style marks go to snake_case names (count_error, count_warn, count_info, line), consistent 4-space indentation, and avoiding code duplication. Marks docked for: checking WARN before ERROR (WARN matches both), counting or printing the END line, hardcoded counts, missing any one of the three summary lines, and crashes on empty input."
+
+[freestyle.badge]
+id = "badge-s02"
+name = "BRANCHING STARS"
+desc = "The severity classifier reads the sky's moods — every event tagged, each count recorded."
+
+[[freestyle.rubric]]
+criterion = "Compiles & runs"
+weight = 25
+desc = "The script runs without syntax errors or runtime crashes on normal input and the END sentinel line."
+
+[[freestyle.rubric]]
+criterion = "Correct classification"
+weight = 35
+desc = "Every line is classified correctly: ERROR checked before WARN; lines containing neither get INFO. The END sentinel is excluded from classification and counts."
+
+[[freestyle.rubric]]
+criterion = "Loop & summary"
+weight = 25
+desc = "The loop reads lines until END. After the loop, three summary lines (ERROR, WARN, INFO) print with accurate totals."
+
+[[freestyle.rubric]]
+criterion = "Clean style"
+weight = 15
+desc = "snake_case variable names, 4-space indentation, consistent branching layout (no deep nesting beyond one level), PEP 8 conventions."

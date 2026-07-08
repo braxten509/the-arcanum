@@ -1,0 +1,91 @@
+[[lessons]]
+id = "s03-l02"
+title = "The Hinge Ends"
+body = '''
+<p>A ledger also needs hands at both ends. <code>push</code> adds to the tail; <code>pop</code> removes from the tail. <code>shift</code> removes from the head; <code>unshift</code> adds to the head. The names are verbs, and the verbs tell the truth. A novice often memorizes them as four unrelated tokens; do not. Think queue and stack. The page moves as a line of slips might move on a desk.</p>
+<p>The important thing is that the operations return the line they remove. That means you can pull a line off the front, inspect it, and place it back somewhere else if the order changes. This is exactly the kind of motion later sections need when the manuscript grows from toy samples into real files. For now the array stays in memory, but the discipline is the same: make the move explicit and keep the order visible.</p>
+<p>A beginner mistake is to rebuild the whole array every time one line changes. That is slower to read than the operation itself and it hides the intent. If the front must go away, <code>shift</code> says so. If the end must grow, <code>push</code> says so. The reader sees the motion, not a pile of reassignment noise. That clarity becomes valuable when the array is carrying real manuscript lines instead of practice slips.</p>
+<p>There is also a practical habit here. If you are adding a new line after the existing notes, use the tail and keep the front untouched. If you are promoting a line to the front, use <code>unshift</code> rather than rebuilding the whole array by hand. The code should say which end it is touching. That makes the intent readable when the script comes back later to count, sort, or print what remains.</p>
+<pre><code><span class="k">my</span> <span class="s">@drafts</span> = (<span class="s">"Preface"</span>, <span class="s">"Body"</span>);
+<span class="k">push</span> <span class="s">@drafts</span>, <span class="s">"Addendum"</span>;
+<span class="k">unshift</span> <span class="s">@drafts</span>, <span class="s">"Title Page"</span>;
+<span class="k">my</span> <span class="s">$first</span> = <span class="k">shift</span> <span class="s">@drafts</span>;
+<span class="k">my</span> <span class="s">$last</span> = <span class="k">pop</span> <span class="s">@drafts</span>;</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE HINGE ENDS</div>
+<p><strong>Direction note.</strong> <code>push</code> and <code>pop</code> work on the back end of the array; <code>shift</code> and <code>unshift</code> work on the front end. The pairings matter more than the names do by themselves.</p>
+<p><strong>Return note.</strong> The removal operators hand back the element they took away. That is why the call can both change the array and still let the caller print or inspect the removed line.</p>
+<p><strong>Queue note.</strong> If the first draft should be read next, reach for <code>shift</code>. If a new slip belongs at the top of the stack, reach for <code>unshift</code>.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perlfunc: push, pop, shift, and unshift"
+url = "https://perldoc.perl.org/perlfunc"
+
+[[lessons.exercises]]
+id = "s03-l02-e1"
+type = "mc"
+points = 15
+prompt = "<p>Which function removes and returns the first manuscript line?</p>"
+choices = ["<code>push</code>", "<code>pop</code>", "<code>shift</code>", "<code>unshift</code>"]
+answer = 2
+whyWrong = "You are aiming at the wrong end or trying to add instead of remove. <code>shift</code> takes the front element away and returns it."
+hint = "Think about the front of the array, not the back."
+explain = "<code>shift</code> removes and returns the first element in the array."
+
+[[lessons.exercises]]
+id = "s03-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "<p>Retype the end-moving example exactly. Keep the array order and the four end operations in place.</p>"
+code = '''
+my @drafts = ("Preface", "Body");
+push @drafts, "Addendum";
+unshift @drafts, "Title Page";
+my $first = shift @drafts;
+my $last = pop @drafts;
+say $first;
+say $last;
+'''
+
+[[lessons.exercises]]
+id = "s03-l02-e2"
+type = "fill"
+points = 20
+prompt = "<p>Restore the verb that adds a new line to the back of the array.</p>"
+code = '____ @drafts, "Addendum";'
+answer = "push"
+hint = "The missing word touches the tail, not the head."
+whyWrong = "You are trying to move the front or remove something, but this line needs the operator that appends to the end."
+
+[[lessons.exercises]]
+id = "s03-l02-e3"
+type = "text"
+points = 20
+prompt = "<p>Which end does <code>unshift</code> change?</p>"
+answer = "the front of the array"
+accept = ["front", "the head", "the beginning"]
+hint = "The name pairs with <code>shift</code>, but the added element goes in front."
+whyWrong = "You are pointing at the tail. <code>unshift</code> works on the head, not the back."
+
+[[lessons.exercises]]
+id = "s03-l02-w1"
+type = "write"
+points = 30
+prompt = '''
+<p>Rotate the starter draft list left by one step. Move the first element to the back, then print the final order one item per line, prefixed with "DRAFT: ". The expected output is:</p><pre><code>DRAFT: Body
+DRAFT: Appendix
+DRAFT: Preface</code></pre>'''
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my @drafts = ("Preface", "Body", "Appendix");
+
+# Task: rotate the list left once and print each element prefixed with the requested string.
+'''
+expect = '''
+DRAFT: Body
+DRAFT: Appendix
+DRAFT: Preface'''
+hint = "Pull the first element off with <code>shift</code>, put it back with <code>push</code>, and then walk the array in order."

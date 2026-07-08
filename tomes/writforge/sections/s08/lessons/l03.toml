@@ -1,0 +1,101 @@
+[[lessons]]
+id = "s08-l03"
+title = "One Switchboard for the Shelf"
+body = '''
+<p>The parser can be clean and the renderer can be clean, but Writforge still needs one place to read the knobs the user turned. That place is the top of the script. <code>Getopt::Std</code> pulls named switches out of <code>@ARGV</code>, leaving the rest of the command line alone for any later path handling. The result is a small switchboard instead of a pile of ad hoc conditionals.</p>
+<p><code>getopts('s:o:')</code> tells Perl that <code>-s</code> and <code>-o</code> both expect values. In this course those flags steer the source shelf and the build directory, so the rest of the pipeline can stay agnostic. If a flag is omitted, the defaults still need to work, which is why the code usually falls back with <code>//</code> rather than guessing from the current working directory.</p>
+<p>The important habit here is location. Parse the flags once, right at the top, then hand the chosen directories to helpers. Do not scatter option reads through the renderer or the module code. Those lower layers should care about page records and HTML strings, not about how the user spelled the command line. That separation keeps the tool easier to extend when the final section ties the shelf together.</p>
+<p>This chapter also keeps the earlier file tests alive. A source shelf can contain a real manuscript, a subdirectory, and some noise. The flags choose where to look, but <code>-f</code> and <code>-d</code> still decide which paths count as pages. The command line picks the room; the filesystem still decides what is furniture and what is a page.</p>
+<p>That distinction matters in the final build because the same shelf can be called from a script, from a test fixture, or from a small run on the student machine. The switchboard should not assume a particular directory tree beyond the values the user passed. The file tests then make the run honest by refusing to treat a folder like a manuscript.</p>
+<p>The browser workbench has no separate command-line box; it runs the project with the default command. To test the flag path inside the lesson, seed <code>@ARGV</code> in the starter before <code>getopts</code>, as the lab below does. For the final Working, keep the real <code>getopts</code> code and defaults in the script; the default run proves the common case, and the flag parser remains ready for a real command line.</p>
+<pre><code>use Getopt::Std;
+
+our ($opt_s, $opt_o);
+getopts('s:o:');
+
+my $source = $opt_s // 'manuscripts';
+my $outdir = $opt_o // 'build';</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE SWITCHBOARD</div>
+<p><strong>Parsing note.</strong> Option parsing belongs at the top of the script so the rest of the code can work with plain directory names instead of command-line noise.</p>
+<p><strong>Default note.</strong> A real default keeps the common case short. The option only matters when the caller wants to override the shelf or the build directory.</p>
+<p><strong>Filesystem note.</strong> Flags do not replace file tests. They only decide which shelf the file tests should inspect.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perldoc: Getopt::Std"
+url = "https://perldoc.perl.org/Getopt%3A%3AStd"
+
+[[lessons.exercises]]
+id = "s08-l03-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "<p>Retype the option-parsing scaffold exactly.</p>"
+code = '''
+#!/usr/bin/env perl
+use v5.36;
+use Getopt::Std;
+
+our ($opt_s, $opt_o);
+getopts('s:o:');
+
+my $source = $opt_s // 'manuscripts';
+my $outdir = $opt_o // 'build';
+'''
+
+[[lessons.exercises]]
+id = "s08-l03-e1"
+type = "fill"
+points = 24
+prompt = "<p>Restore the option string that tells Perl <code>-s</code> and <code>-o</code> both expect values.</p>"
+code = 'getopts(____);'
+answer = "s:o:"
+hint = "The blank is the exact option signature from the lesson."
+whyWrong = "You are leaving out one of the flags or its value marker. The switchboard needs both option letters and both colons."
+
+[[lessons.exercises]]
+id = "s08-l03-e2"
+type = "mc"
+points = 18
+prompt = "<p>After <code>getopts('s:o:')</code> consumes the switches, what should remain in <code>@ARGV</code>?</p>"
+choices = ["Nothing, always.", "The file handles you opened.", "The leftover non-option paths.", "The option string itself."]
+answer = 2
+whyWrong = "You are treating option parsing like a total wipe. <code>getopts</code> only consumes the switches it knows about; non-option arguments can still stay behind."
+hint = "Only the flags are parsed away here."
+explain = "<code>getopts</code> pulls out the named options and leaves non-option arguments available for later use."
+
+[[lessons.exercises]]
+id = "s08-l03-w1"
+type = "write"
+points = 30
+prompt = "<p>The starter already seeds the source and build directories, plus a subdirectory that must not count. Read the options, count only the regular <code>.txt</code> manuscripts in the chosen source shelf, and print exactly <code>ROUTE manuscripts -&gt; build (2 files)</code>.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+use Getopt::Std;
+
+@ARGV = ('-s', 'manuscripts', '-o', 'build');
+
+our ($opt_s, $opt_o);
+getopts('s:o:');
+
+my $source = $opt_s // 'manuscripts';
+my $outdir = $opt_o // 'build';
+
+mkdir $source unless -d $source;
+mkdir $outdir unless -d $outdir;
+mkdir "$source/drafts" unless -d "$source/drafts";
+
+open my $seed1, '>', "$source/preface.txt" or die $!;
+print {$seed1} "# Preface\n";
+close $seed1 or die $!;
+
+open my $seed2, '>', "$source/appendix.txt" or die $!;
+print {$seed2} "# Appendix\n";
+close $seed2 or die $!;
+
+# Task: count the regular .txt files in $source and print exactly: ROUTE manuscripts -> build (2 files)
+'''
+expect = '''
+ROUTE manuscripts -> build (2 files)'''
+hint = "Use the parsed source directory, ignore the drafts subdirectory with -d, and count only the .txt files that are real regular files."

@@ -54,8 +54,9 @@ id = "s08-l04-e1"
 type = "mc"
 points = 25
 prompt = "With the outcome-object pattern, what happens to Task.WhenAll when one page 404s?"
-choices = ["It throws HttpRequestException", "Nothing — every task completes normally; the 404 travels inside its outcome object", "It cancels the other tasks", "It returns null for that slot"]
-answer = 1
+choices = ["It throws HttpRequestException", "It returns null for that slot", "It cancels the other tasks", "Nothing — every task completes normally; the 404 travels inside its outcome object"]
+answer = 3
+whyWrong = "With the outcome-object pattern the task doesn’t throw or cancel siblings — every task completes normally and the 404 rides inside its result object."
 hint = "The exception is caught INSIDE the task, converted to data."
 
 [[lessons.exercises]]
@@ -65,6 +66,7 @@ points = 20
 prompt = "Without the pattern — tasks that throw directly — awaiting Task.WhenAll when 2 of 5 fault…"
 choices = ["throws an exception (you must dig for the rest); successful results are awkward to reach", "returns the 3 good results", "returns all 5 with nulls", "blocks forever"]
 answer = 0
+whyWrong = "When faulted tasks throw directly, awaiting WhenAll throws (surfacing just one exception) and the good results are awkward to recover — the outcome pattern exists to avoid exactly this."
 hint = "This is exactly why the outcome pattern exists."
 
 [[lessons.exercises]]
@@ -74,6 +76,7 @@ points = 20
 prompt = "Which class measures the per-source elapsed time?"
 choices = ["DateTime.Now subtraction (fine but drift-prone)", "System.Diagnostics.Stopwatch", "Task.Timer", "TimeSpan.Count"]
 answer = 1
+whyWrong = "DateTime subtraction drifts and ‘Task.Timer’/‘TimeSpan.Count’ aren’t real — System.Diagnostics.Stopwatch measures elapsed time precisely."
 hint = "StartNew(), .Elapsed — purpose-built for this."
 
 [[lessons.exercises]]

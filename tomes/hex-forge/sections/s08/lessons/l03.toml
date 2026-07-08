@@ -1,0 +1,84 @@
+[[lessons]]
+id = "s08-l03"
+title = "The Edge Cases — Short Lines, Zero Bytes, and Overflow"
+body = '''
+<p>A tool that works on the happy path and crashes on edge cases is tin plate. HexForge must handle: the short last line (fewer than 16 bytes), the zero-byte file (produce no output, exit cleanly), large offsets (beyond 32 bits), and every byte value from 0x00 to 0xFF without crashing or misformatting.</p>
+
+<p><strong>Short last line:</strong> after EOF, the carry buffer may hold 1–15 bytes. The format must adapt. The hex column still shows <code>XX</code> for each byte present, but pads the missing positions with spaces. The gutter still runs 16 characters wide (the present bytes classified, the rest spaces). The offset still prints for the line. Example with 5 bytes at offset 32 (0x20):</p>
+<pre><code>00000020  48 65 6C 6C 6F                                    |Hello           |</code></pre>
+
+<p>After the 5th hex pair, the remaining 11 hex positions are padded with spaces (3 chars each = 33 spaces). The gutter shows 5 classified characters + 11 spaces = 16 characters between the pipes.</p>
+
+<p><strong>Zero-byte file:</strong> <code>sys_read</code> returns 0 immediately (EOF on first read). No carry to flush, no lines to print. The program simply closes the fd (if not stdin) and exits with code 0. Output: nothing — exactly like <code>hexdump -C /dev/null</code> produces no output.</p>
+
+<p><strong>Large offsets:</strong> a file larger than 4 GB produces offsets beyond 0xFFFFFFFF. The offset formatter must handle 8 hex digits (32 bits) or more. At 8 digits, offsets up to 4 GB are displayable. Beyond that, 9+ digits exceed the 80-column format — but HexForge targets educational use on typical files well under 4 GB. For correctness, format 8 digits with wrap-around at 0x100000000 (the offset simply wraps — the dump remains valid for the lower 32 bits of position).</p>
+
+<p><strong>All byte values:</strong> the hex formatter must handle 0x00 through 0xFF without producing codes outside 0–9/A–F. The gutter classifier must handle every byte — 0x00–0x1F (control), 0x20–0x7E (printable), 0x7F (DEL), 0x80–0xFF (high-bit) — and produce either the byte itself or <code>.</code>. Test with extremes: 0x00 → '00' and '.', 0xFF → 'FF' and '.', 0x7E → '7E' and '~'.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE HEX COLUMN PADDING MATH</div>
+<p>For a short line of N bytes (N &lt; 16): the hex column needs N * 3 characters (two hex digits + one space per byte). The remaining (16 - N) * 3 positions are spaces. But the mid-line gap between byte 8 and 9 shifts: if N ≤ 8, the mid-line gap doesn't appear (no 9th byte to separate from). The correct padding is: write N hex pairs with trailing spaces, then (16 - N) * 3 spaces for the absent bytes. If N &gt; 8, the extra mid-line space still appears after byte 8, and only (16 - N) * 3 padding spaces follow. The canonical <code>hexdump -C</code> uses this rule.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s08-l03-e1"
+type = "mc"
+points = 15
+prompt = "What should HexForge output when given a zero-byte file?"
+choices = [
+  "A single line showing the first (empty) dump line with offset 00000000 and all spaces",
+  "Nothing — the first sys_read returns 0 (EOF), no lines are formatted, and the program exits cleanly with no output",
+  "An error message 'empty file' on stderr",
+  "A single line showing only the offset 00000000 with no hex or gutter data"
+]
+answer = 1
+whyWrong = "With zero bytes, the first sys_read returns 0 immediately. The read loop exits, no carry buffer has data to flush, and the program exits. This is the correct behavior — matching hexdump -C /dev/null. Printing a line with all spaces would be misleading (it looks like a line of NUL bytes). Error messages are appropriate for open failures, not empty files."
+hint = "What happens in the read loop when sys_read returns 0 on the first call?"
+explain = "The outer read loop calls sys_read once. rax=0 (EOF). <code>test rax, rax / jz .flush_last</code> jumps to the flush handler. The carry buffer is empty (no bytes were ever read), so <code>test r14, r14 / jz .done</code> jumps to .done. No output is produced. The program exits cleanly."
+
+[[lessons.exercises]]
+id = "s08-l03-e2"
+type = "text"
+points = 20
+prompt = "After processing a 35-byte file, how many dump lines should HexForge print? (16 × 2 = 32 for full lines, plus the remaining bytes.)"
+answer = "3"
+accept = ["3 lines", "three"]
+hint = "35 / 16 = 2 full lines (32 bytes). The remaining 3 bytes form a short last line."
+explain = "35 bytes: 2 full 16-byte lines (32 bytes), plus 3 leftover bytes = 3 dump lines total. The third line shows only 3 hex pairs and 3 gutter characters, padded to full width. The offset for line 3 is 0x20 (32 in hex)."
+
+[[lessons.exercises]]
+id = "s08-l03-e3"
+type = "fill"
+points = 20
+prompt = "Fill the byte value that is classified as printable by the gutter test (<code>cmp al,32 / jb</code> and <code>cmp al,126 / ja</code>) but appears as nothing visible — a blank in the gutter column."
+code = '''
+The byte 0x____ is printable (ASCII 32) but renders as a space — indistinguishable from gutter padding.
+'''
+answer = "20"
+accept = ["0x20"]
+hint = "What ASCII character is at position 32? It's visible only by its absence."
+explain = "0x20 is the space character (ASCII 32). It IS printable (32 ≤ 32 ≤ 126), so <code>classify_gutter</code> returns it unchanged. In the gutter column, it appears as a space — visually identical to the padding spaces. The hex column to its left confirms it's a real 0x20 byte, not padding."
+
+[[lessons.exercises]]
+id = "s08-l03-w1"
+type = "write"
+points = 30
+prompt = "Handle a short array and print the complete dump. A 10-byte array holds: <code>db \"TEST\", 10, 0, 0xFF, '!', '@', '#'</code>. Print the full dump of these 10 bytes — one line, 10 hex pairs, 10 gutter characters, padded to standard width. Offset must be 00000000. Output the single line exactly: <code>00000000  54 45 53 54 0A 00 FF 21  40 23                    |TEST...!@#      |</code>."
+starter = '''
+section .text
+    global _start
+
+_start:
+    ; Build one dump line from the 10-byte array at test_bytes
+    ; Offset = 0 (00000000)
+    ; Hex: 10 bytes (first 8, mid-gap after byte 8, then 2 more, then 6*3=18 padding spaces)
+    ; Gutter: 10 classified chars, then 6 spaces, pipes on both ends
+    ; Print and exit
+    
+
+section .data
+test_bytes: db "TEST", 10, 0, 0xFF, '!', '@', '#'
+line_buf: times 128 db 0
+'''
+expect = '''
+00000000  54 45 53 54 0A 00 FF 21  40 23                    |TEST...!@#      |'''
+hint = "Format offset (0 → 00000000) + '  '. Then 10 hex pairs: first 8 (bytes 0-7), mid-gap space, next 2 (bytes 8-9). Then spaces for the remaining 6 absent bytes (6*3=18 spaces). Then '  '. Gutter: '|', 10 classified chars (T E S T '.' '.' '.' '!' '@' '#'), 6 spaces, '|'. Newline. Length = 81 chars (with newline)."

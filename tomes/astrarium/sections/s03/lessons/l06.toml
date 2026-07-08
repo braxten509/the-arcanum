@@ -1,0 +1,122 @@
+[[lessons]]
+id = "s03-l06"
+title = "Immutable Scrolls and Unique Stars"
+body = '''
+<p>Vaelith sets down two objects: a sealed scroll and a pouch of star-chips. <strong>"Some records must never change — sealed, fixed, placed beyond editing. Others must be gathered so each unique star appears only once. Python gives us both."</strong></p>
+
+<p>A <strong>tuple</strong> is an ordered, immutable sequence written with parentheses. Once created, it cannot be changed — no <code>append()</code>, no <code>pop()</code>, no item reassignment:</p>
+<pre><code>coords <span class="k">=</span> (<span class="mi">12</span>, <span class="mi">34</span>)    <span class="c"># a fixed coordinate pair</span>
+<span class="k">print</span>(coords[<span class="mi">0</span>])     <span class="c"># 12 — reading works</span>
+coords[<span class="mi">0</span>] <span class="k">=</span> <span class="mi">99</span>       <span class="c"># TypeError: tuple does not support assignment</span></code></pre>
+<p>Tuples are for fixed records: coordinates, function return values, configuration constants. They signal to other authors (and to yourself) that this data should never be mutated. Indexing, slicing, <code>len()</code>, and <code>for</code> iteration all work exactly as with lists.</p>
+
+<p>A single-element tuple requires a trailing comma — otherwise the parentheses are just grouping:</p>
+<pre><code>single <span class="k">=</span> (<span class="mi">42</span>,)          <span class="c"># tuple with one element</span>
+not_tuple <span class="k">=</span> (<span class="mi">42</span>)      <span class="c"># just the integer 42</span></code></pre>
+
+<p>A <strong>set</strong> is an unordered collection with no duplicate elements, written with curly braces:</p>
+<pre><code>severities <span class="k">=</span> {<span class="s">"INFO"</span>, <span class="s">"WARN"</span>, <span class="s">"ERROR"</span>}</code></pre>
+<p>Duplicate values are silently discarded — adding <code>"ERROR"</code> a second time leaves the set unchanged. This makes sets the perfect tool for the Astrarium's dedup task: find every unique severity level across all observations.</p>
+
+<p>Build a set from a list with the <code>set()</code> constructor, and turn it back into a list with <code>list()</code>:</p>
+<pre><code>events <span class="k">=</span> [<span class="s">"INFO"</span>, <span class="s">"ERROR"</span>, <span class="s">"WARN"</span>, <span class="s">"INFO"</span>, <span class="s">"ERROR"</span>]
+unique <span class="k">=</span> <span class="nb">set</span>(events)             <span class="c"># {"INFO", "WARN", "ERROR"}</span>
+sorted_unique <span class="k">=</span> <span class="nb">sorted</span>(unique)   <span class="c"># ["ERROR", "INFO", "WARN"]</span></code></pre>
+
+<p>Sets support fast membership testing and mathematical operations:</p>
+<pre><code>warnings <span class="k">=</span> {<span class="s">"WARN"</span>, <span class="s">"ERROR"}</span>
+<span class="k">print</span>(<span class="s">"ERROR"</span> <span class="ow">in</span> warnings)   <span class="c"># True — instant, even on huge sets</span>
+<span class="k">print</span>(warnings <span class="o">|</span> {<span class="s">"INFO"</span>})     <span class="c"># union: {"WARN", "ERROR", "INFO"}</span>
+<span class="k">print</span>(warnings <span class="o">&</span> {<span class="s">"INFO"</span>, <span class="s">"ERROR"</span>})  <span class="c"># intersection: {"ERROR"}</span></code></pre>
+<p>The <code>in</code> operator on a set is O(1) — constant time regardless of size — compared to O(n) on a list. For large ledgers, this speed difference is dramatic.</p>
+
+<div class="callout">"<strong>Vaelith's rule:</strong> use a tuple when the data belongs together and should not be split — a coordinate, a record, a return pair. Use a set when you need to know what exists without caring how many times it appeared."</div>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // The Empty Set Trap</div>
+<p>An empty set is <code>set()</code>, not <code>{}</code> — the latter creates an empty dictionary, a different type entirely. <code>type({})</code> is <code>class dict</code>, and calling <code>.add()</code> on it raises <code>AttributeError</code>. This is one of Python's most common gotchas: the curly-brace syntax for sets reuses the dictionary delimiter, so the language needs a different way to spell "empty set." Always use <code>set()</code> to start an empty set, and then <code>.add()</code> items to it.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python docs — tuples"
+url = "https://docs.python.org/3/tutorial/datastructures.html#tuples-and-sequences"
+
+[[lessons.readings]]
+label = "Python docs — sets"
+url = "https://docs.python.org/3/tutorial/datastructures.html#sets"
+
+[[lessons.exercises]]
+id = "s03-l06-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this tuple creation and access exactly. (Ctrl+Enter submits.)"
+code = '''coords = (12, 34)
+print(coords[0])'''
+
+[[lessons.exercises]]
+id = "s03-l06-e1"
+type = "mc"
+points = 15
+prompt = "What happens when you try <code>my_tuple[0] = 99</code> on a tuple created as <code>my_tuple = (1, 2, 3)</code>?"
+choices = [
+    "A TypeError — tuples do not support item assignment",
+    "The value at index 0 changes to 99 silently",
+    "A new tuple is created with the changed value",
+    "The program crashes with an IndexError"
+]
+answer = 0
+whyWrong = "Option two is what would happen with a list, not a tuple — tuples are immutable. Option three describes a different operation (creating a new tuple from an old one via concatenation or slicing). IndexError would occur only if index 0 did not exist, which is not the case here."
+hint = "Vaelith said a tuple is a 'sealed scroll' — once created, it cannot be changed. Attempting to assign to an element violates that immutability."
+explain = "Tuples are immutable. Attempting to assign to an element raises TypeError: 'tuple' object does not support item assignment."
+
+[[lessons.exercises]]
+id = "s03-l06-e2"
+type = "fill"
+points = 20
+prompt = "The Astrarium found these three severity levels in its log: <code>\"INFO\"</code>, <code>\"WARN\"</code>, <code>\"ERROR\"</code>. Create a set literal with all three:"
+code = '''severities = {____}'''
+answer = '"INFO", "WARN", "ERROR"'
+accept = ['"ERROR", "INFO", "WARN"', '"WARN", "ERROR", "INFO"', '"INFO","WARN","ERROR"']
+hint = "Sets use curly braces, just like a list uses square brackets. Separate each severity string with commas."
+explain = 'The set literal {"INFO", "WARN", "ERROR"} creates a set with those three strings. Order does not matter in a set — they will be stored unordered.'
+
+[[lessons.exercises]]
+id = "s03-l06-e3"
+type = "text"
+points = 20
+prompt = "What is the key difference between a list and a set regarding <strong>duplicate values</strong>?"
+answer = "A list allows duplicates; a set does not"
+accept = ["lists allow duplicates, sets do not", "lists can have duplicates, sets cannot", "sets reject duplicates, lists keep them"]
+hint = "Vaelith said a set gathers items so 'each unique star appears only once.' Lists have no such restriction."
+explain = "Lists are ordered sequences that can contain any number of duplicates. Sets are unordered collections that automatically discard duplicate values — each element appears at most once."
+
+[[lessons.exercises]]
+id = "s03-l06-e4"
+type = "mc"
+points = 15
+prompt = "After running <code>unique = set([1, 1, 2, 3, 3, 3])</code>, what does <code>len(unique)</code> return?"
+choices = [
+    "6 — the set keeps everything from the list",
+    "3 — the set removes all duplicates, leaving {1, 2, 3}",
+    "0 — set() always returns an empty collection",
+    "1 — only the first element is kept"
+]
+answer = 1
+whyWrong = "The set does not keep all 6 elements — it removes duplicates. set() with a list argument converts the list to a set, which is not empty. The set keeps one copy of each distinct value, not just the first element."
+hint = "Vaelith said a set automatically discards duplicates. Count how many distinct numbers are in [1, 1, 2, 3, 3, 3]."
+explain = "set([1, 1, 2, 3, 3, 3]) produces {1, 2, 3} — three unique elements. The duplicate values are discarded. This is the primary use of sets: deduplication."
+
+[[lessons.exercises]]
+id = "s03-l06-w1"
+type = "write"
+points = 30
+prompt = "The starter contains a list of event names, some repeated across the night. Use a <strong>set</strong> to remove duplicates, then convert the set to a <strong>sorted</strong> list and print each unique event on its own line in alphabetical order."
+expect = '''COSMIC_RAY
+FLARE
+METEOR
+SENSOR
+SATELLITE'''
+starter = '''# ASTRARIUM — Dedup the Night's Events
+events = ["METEOR", "FLARE", "METEOR", "SENSOR", "FLARE", "COSMIC_RAY", "SATELLITE"]
+# TODO: dedup with set(), sort, and print each unique event'''
+hint = "Use <code>unique_events = set(events)</code> to remove duplicates, then <code>sorted_events = sorted(unique_events)</code> to get alphabetical order. Iterate with <code>for e in sorted_events: print(e)</code>."

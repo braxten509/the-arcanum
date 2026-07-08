@@ -1,0 +1,146 @@
+[[lessons]]
+id = "s08-l02"
+title = "Dressing the Line — Format One Dump Row"
+body = '''
+<p>A single dump line is the atom of HexForge's output. It has three columns: the offset, the hex bytes, and the ASCII gutter. This lesson forges the full line formatter.</p>
+
+<p>Canonical format: <code>00000000  48 65 78 46 6F 72 67 65  00 0A FF 21 00 00 00 00  |HexForge...!....|</code></p>
+
+<p>Breaking it down:</p>
+<ol>
+<li><strong>Offset (8 hex digits):</strong> the running byte offset, zero-padded to 8 characters. Use the itoa pattern but with base 16 and uppercase letters.</li>
+<li><strong>Separator:</strong> two spaces.</li>
+<li><strong>Hex column (16 bytes × 3 chars = 48 chars):</strong> each byte as two hex digits + a trailing space. After the 8th byte, an extra space (the mid-line gap). Total: 8×3 + 1 + 8×3 = 49 characters.</li>
+<li><strong>Separator:</strong> two spaces.</li>
+<li><strong>Gutter column:</strong> a pipe <code>|</code>, 16 classified characters (printable or dot), a pipe <code>|</code>. Total: 18 characters.</li>
+</ol>
+
+<p>Formatting the offset in hex (base 16, not 10):</p>
+<pre><code><span class="c">; Input: rax = offset. Output: 8 hex digits stored at [rdi].</span>
+format_offset:
+    <span class="k">mov</span> rcx, 8               <span class="c">; 8 hex digits</span>
+    <span class="k">add</span> rdi, 7               <span class="c">; start from the rightmost position</span>
+.digit_loop:
+    <span class="k">mov</span> rdx, rax
+    <span class="k">and</span> rdx, 0x0F            <span class="c">; isolate low nibble</span>
+    <span class="k">cmp</span> dl, 10
+    <span class="k">jb</span> .dec
+    <span class="k">add</span> dl, <span class="s">'A'</span> - 10
+    <span class="k">jmp</span> .store
+.dec:
+    <span class="k">add</span> dl, <span class="s">'0'</span>
+.store:
+    <span class="k">mov</span> [rdi], dl
+    <span class="k">dec</span> rdi
+    <span class="k">shr</span> rax, 4               <span class="c">; next nibble</span>
+    <span class="k">dec</span> rcx
+    <span class="k">jnz</span> .digit_loop
+    <span class="k">ret</span></code></pre>
+
+<p>This writes from right to left: isolate the low nibble, convert to ASCII, store, shift the value right by 4 bits, repeat 8 times. The result is the offset printed in the correct left-to-right order.</p>
+
+<p>For the hex column, reuse the <code>print_byte_hex</code> concept from s06-l04 — convert each byte to two hex digits, append a space, and after byte 8 insert an extra space for the mid-line visual gap. The gutter column reuses <code>classify_gutter</code> from s06-l02.</p>
+
+<p>The full line-formatting procedure:</p>
+<pre><code>format_line:
+    <span class="c">; rsi = source bytes (exactly 16), r13 = offset, rdi = output buffer</span>
+    <span class="k">call</span> format_offset      <span class="c">; 8 chars</span>
+    <span class="k">call</span> append_spaces, 2  <span class="c">; "  "</span>
+    <span class="k">call</span> format_hex_column <span class="c">; 49 chars</span>
+    <span class="k">call</span> append_spaces, 2  <span class="c">; "  "</span>
+    <span class="k">call</span> format_gutter     <span class="c">; 18 chars  (|...|)</span>
+    <span class="k">mov</span> <span class="k">byte</span> [rdi], 10       <span class="c">; newline</span>
+    <span class="k">ret</span></code></pre>
+
+<p>Each sub-procedure appends to the output buffer and advances rdi. The total line length is 8 + 2 + 49 + 2 + 18 + 1 = 80 characters — the width of a classic terminal.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE 80-COLUMN TERMINAL AND HEXDUMP WIDTH</div>
+<p>A canonical <code>hexdump -C</code> line fits in 80 columns. This is not an accident — it's designed for the classic VT100 terminal width. The breakdown: 8 (offset) + 2 (space) + 48 (hex chars) + 1 (mid-gap space) + 2 (space) + 2 (pipes) + 16 (gutter chars) + 1 (newline) = 80. If your terminal is wider, the dump still reads correctly; narrower terminals may wrap, but the format is fixed. HexForge targets 80 columns.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s08-l02-e1"
+type = "mc"
+points = 15
+prompt = "Why does format_offset write digits from right to left (starting at rdi+7 and decrementing rdi)?"
+choices = [
+  "Because rdi is constrained to move in 8-byte aligned increments for performance",
+  "Because extracting the low nibble and shifting right produces digits in least-significant-first order — writing right-to-left naturally reverses them into the correct reading order without a stack",
+  "Because NASM requires digit output to be written in reverse for hex formatting",
+  "Because sys_write expects output buffers to be filled from the end"
+]
+answer = 1
+whyWrong = "rdi moves one byte at a time — there's no alignment constraint. NASM has no such requirement. sys_write reads from the start of the buffer. The algorithm extracts digits in reverse (low nibble first), so right-to-left writing places each digit in its correct final position without needing a stack or second pass."
+hint = "If you extract the offset 0x0000002A one nibble at a time, what order do you get the digits? Starting from the right."
+explain = "The extraction loop isolates the low nibble first: y/x0000002A gives 'A', then '2', then '0' repeated. Writing from right to left: 'A' at position 7, '2' at position 6, '0' at positions 5 down to 0. The result reads left-to-right as 0000002A. No stack reversal is needed — the destination pointer does the reversing."
+
+[[lessons.exercises]]
+id = "s08-l02-e2"
+type = "fill"
+points = 20
+prompt = "Fill the mid-line gap character. After the 8th hex byte, this single character creates the visual split between the two 8-byte halves."
+code = '''
+mov  byte [rdi], ____   ; extra space between byte 8 and byte 9
+inc  rdi
+'''
+answer = "' '"
+accept = ["' '", "32", "0x20"]
+hint = "A space character — the same delimiter that separates every hex byte. Just one extra."
+explain = "The canonical hexdump format adds one extra space between the 8th and 9th bytes of each line. This splits the 16-byte row into two visual groups of 8, making it easier to count bytes by eye. The space character is ASCII 32 (0x20)."
+
+[[lessons.exercises]]
+id = "s08-l02-e3"
+type = "type"
+points = 12
+prompt = "Retype the right-to-left hex offset formatter. This pattern writes digits in reverse to avoid a stack."
+code = '''
+; rax = offset, rdi = output buffer (8 bytes reserved ahead)
+format_offset:
+    mov  rcx, 8
+    add  rdi, 7           ; start at rightmost position
+.loop:
+    mov  rdx, rax
+    and  rdx, 0x0F        ; low nibble
+    cmp  dl, 10
+    jb   .dec
+    add  dl, 'A' - 10
+    jmp  .store
+.dec:
+    add  dl, '0'
+.store:
+    mov  [rdi], dl
+    dec  rdi
+    shr  rax, 4
+    dec  rcx
+    jnz  .loop
+    ret
+'''
+
+[[lessons.exercises]]
+id = "s08-l02-w1"
+type = "write"
+points = 30
+prompt = "Format one complete dump line from a hardcoded 16-byte array. The array holds: <code>db \"Hello World! \", 0x00, 0xFF, 0x7F</code> (that's \"Hello World! \" — note the trailing space — followed by three non-printable bytes). Print one complete formatted dump line with: 8-digit hex offset (starting at 00000000), hex column with mid-line gap, and gutter column with pipe delimiters. Output must be exactly: <code>00000000  48 65 6C 6C 6F 20 57 6F  72 6C 64 21 20 00 FF 7F  |Hello World! ...|</code> with no trailing spaces before the newline."
+starter = '''
+section .text
+    global _start
+
+_start:
+    ; Point rsi to the test bytes
+    ; Format offset 0 (rax=0) → 8 hex chars in line_buf
+    ; Append "  " (2 spaces)
+    ; Format hex column — 16 bytes with mid-line gap
+    ; Append "  " (2 spaces)
+    ; Format gutter — "|" + 16 classified chars + "|"
+    ; Append newline
+    ; Print line_buf (80 chars)
+    ; Exit
+    
+
+section .data
+test_bytes: db "Hello World! ", 0x00, 0xFF, 0x7F
+line_buf: times 128 db 0
+'''
+expect = '''
+00000000  48 65 6C 6C 6F 20 57 6F  72 6C 64 21 20 00 FF 7F  |Hello World! ...|'''
+hint = "Build the line: 1) Offset: rax=0, format 8 hex chars with the right-to-left loop. 2) mov word[rdi],'  ' (two spaces) / add rdi,2. 3) Hex: loop 16 times, for each byte call print_byte_hex (shr/and nibbles), append space. After byte 8, append extra space. 4) Two spaces separator. 5) '|' pipe, 16 bytes classified (gutter), '|' pipe. 6) Newline. Print with length = rdi - line_buf."

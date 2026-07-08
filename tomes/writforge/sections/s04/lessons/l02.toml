@@ -1,0 +1,113 @@
+[[lessons]]
+id = "s04-l02"
+title = "Keys and Ledger Bins"
+body = '''
+<p>A hash is not a shelf you walk in sequence. It is a lookup ledger. You ask for a key, and Perl returns the value sitting behind that key. That is why a manuscript index wants hashes for names, slugs, and titles. The array from the last chapter still matters, but only as a chosen display order. The hash is the thing that knows what each name means.</p>
+<p>Use <code>exists</code> when you need to know whether a key is present before you ask for its value. Use <code>keys</code> when you want the set of stored names. Use <code>values</code> when you want the stored data itself. Use <code>each</code> when you want to walk the pairs one by one, but remember that <code>each</code> carries an internal iterator. It is a reader, not a sorter, and it does not promise the same order every time you run the program.</p>
+<p>The important habit is to separate lookup from presentation. A hash can answer a question without being printed in the answer's final order. That is good. It means the script can keep the archive metadata in the shape that is easiest to query, then sort the keys only when the page needs a human-friendly report. The data structure serves the question, not the other way around.</p>
+<p>That matters for the future index page because the index page is both a lookup table and a display. It needs the raw data fast, but it also needs a stable order for the reader. A hash handles the first half. An array, or a sorted list of hash keys, handles the second. The apprentice should not confuse them. If you ask a hash to be an ordered shelf, it will only look mysterious. If you use it as a map, it will do the work cleanly.</p>
+<pre><code><span class="k">my</span> <span class="s">%pages</span> = (
+    <span class="s">preface</span>  =&gt; <span class="s">"Preface"</span>,
+    <span class="s">addendum</span> =&gt; <span class="s">"Addendum"</span>,
+    <span class="s">appendix</span> =&gt; <span class="s">"Appendix"</span>,
+);
+<span class="k">for</span> <span class="k">my</span> <span class="s">$id</span> (<span class="k">sort</span> <span class="k">keys</span> <span class="s">%pages</span>) {
+    <span class="k">say</span> <span class="s">"$id =&gt; $pages{$id}"</span>;
+}</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE LEDGER BINS</div>
+<p><strong><code>exists</code> note.</strong> It checks whether a key is present without caring what value sits there. That distinction matters if a legitimate value might be false or empty.</p>
+<p><strong><code>each</code> note.</strong> The iterator advances as you use it. Reach for it when you want a scan, not when you need repeatable output order.</p>
+<p><strong>Presentation note.</strong> <code>sort keys %pages</code> is a display choice, not a storage choice. Keep those jobs separate and the index page stays sane.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perlfunc: exists, keys, values, and each"
+url = "https://perldoc.perl.org/perlfunc"
+
+[[lessons.exercises]]
+id = "s04-l02-e1"
+type = "mc"
+points = 15
+prompt = "<p>Which built-in answers whether an archive id exists before you look up its title?</p>"
+choices = ["<code>exists</code>", "<code>defined</code>", "<code>keys</code>", "<code>pop</code>"]
+answer = 0
+whyWrong = "You are mixing presence checks with value checks, key listing, or an array operator. Only <code>exists</code> asks whether the hash slot is there."
+hint = "The test is about presence, not about the shape of the value."
+explain = "<code>exists</code> checks for a key without forcing you to read the value first."
+
+[[lessons.exercises]]
+id = "s04-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "<p>Retype the ordered lookup example exactly. Keep the hash entries and the sorted key walk intact.</p>"
+code = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my %pages = (
+    preface  => "Preface",
+    addendum => "Addendum",
+    appendix => "Appendix",
+);
+for my $id (sort keys %pages) {
+    say "$id => $pages{$id}";
+}
+'''
+
+[[lessons.exercises]]
+id = "s04-l02-e2"
+type = "fill"
+points = 20
+prompt = "<p>Restore the word that turns the hash into a list of names before sorting them.</p>"
+code = 'for my $id (sort ____ %pages) { say $id; }'
+answer = "keys"
+hint = "The blank supplies the hash's names, not its stored values."
+whyWrong = "You are aiming at the values or at the whole hash expression when the report needs the key list first."
+
+[[lessons.exercises]]
+id = "s04-l02-e3"
+type = "text"
+points = 20
+prompt = "<p>What does <code>values %pages</code> give you in this lesson's hash?</p>"
+answer = "the stored page titles"
+accept = ["the page titles", "the stored titles", "the values"]
+hint = "These are the words on the right-hand side of the hash entries."
+whyWrong = "You are naming the keys or the whole table, but <code>values</code> returns the data behind those keys."
+
+[[lessons.exercises]]
+id = "s04-l02-e4"
+type = "mc"
+points = 15
+prompt = "<p>Why does <code>each %pages</code> need care in a report loop?</p>"
+choices = ["It sorts the keys automatically.", "It returns one pair at a time and advances an internal iterator.", "It turns hash keys into array indices.", "It deletes the entry it visits."]
+answer = 1
+whyWrong = "You are treating <code>each</code> like a sorter, a converter, or a mutator. It is only an iterator over the hash pairs."
+hint = "This helper scans the hash, but it does not promise a stable order."
+explain = "<code>each</code> walks the pairs one by one and keeps track of where it is."
+
+[[lessons.exercises]]
+id = "s04-l02-w1"
+type = "write"
+points = 30
+prompt = "<p>Use the starter archive to print each wanted page in order. Existing ids print as <code>id title</code>; missing ids print <code>id MISSING</code>. End with <code>FOUND 2</code>.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my %pages = (
+    preface  => "Preface",
+    appendix => "Appendix",
+    glossary => "Glossary",
+);
+my @want = qw(preface body appendix);
+
+# Task: print each wanted id with its title when it exists.
+# Print `id MISSING` for a missing one and count the found entries.
+'''
+expect = '''
+preface Preface
+body MISSING
+appendix Appendix
+FOUND 2'''
+hint = "Walk the wanted ids in the order they appear, test each with <code>exists</code>, and count the ones that are present."

@@ -1,0 +1,86 @@
+[[lessons]]
+id = "s09-l01"
+title = "The Cast Stone — RegistryEvent.Register&lt;Block&gt; & ItemBlock"
+body = '''
+<p>A block is two things: a <code>Block</code> (the thing that lives in the world) and an <code>ItemBlock</code> (the item form that sits in the inventory and places the block on right-click). Register the block in the block registry and the ItemBlock in the item registry, or the block exists in the world but cannot be held.</p>
+<pre><code><span class="k">@SubscribeEvent</span>
+<span class="k">public static void</span> registerBlocks(RegistryEvent.Register&lt;Block&gt; event) {
+    event.getRegistry().register(ModBlocks.STARSTEEL_BLOCK);
+}
+
+@SubscribeEvent
+<span class="k">public static void</span> registerItemBlocks(RegistryEvent.Register&lt;Item&gt; event) {
+    event.getRegistry().register(
+        <span class="k">new</span> ItemBlock(ModBlocks.STARSTEEL_BLOCK)
+            .setRegistryName(ModBlocks.STARSTEEL_BLOCK.getRegistryName()));
+}</code></pre>
+<p>The block handler is the same shape as the item handler from Forgework VIII, just <code>RegistryEvent.Register&lt;Block&gt;</code>. Keep a stable <code>public static final BlockMetal STARSTEEL_BLOCK = new BlockMetal("starsteel_block")</code> field in <code>ModBlocks</code>, then register that field. The <code>ItemBlock</code> wraps the same <code>Block</code> object so it can be an item; you give it the block's registry name (a block and its ItemBlock must share the registry name — the game links them that way). The law is: block in the block registry, ItemBlock in the item registry, same name.</p>
+<p>Forget the ItemBlock and the block places fine from <code>/setblock</code> but never appears in the creative inventory — a common silent miss. Forget the block and the ItemBlock has nothing to place.</p>
+<div class="callout"><strong>Orrick says:</strong> A block and its ItemBlock share the registry name — <code>ironwright:starsteel_block</code> for both. That shared name is how the game knows the item places that block. Drift the names and right-clicking the item places nothing.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // FORGEREGISTRIES — LOOKING UP A BLOCK</div>
+<p><code>ForgeRegistries.BLOCKS.getValue(resourceLocation)</code> looks up an already-registered block by name — used here to fetch the block when registering its ItemBlock in a separate handler. It works because the block registry fires and closes before the item registry opens. In a single handler that registers both, you keep the block in a field instead of looking it up. Either way, the ItemBlock needs the Block object.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Minecraft Forge 1.12.x — Blocks"
+url = "https://docs.minecraftforge.net/en/1.12.x/blocks/"
+
+[[lessons.exercises]]
+id = "s09-l01-e1"
+type = "mc"
+points = 15
+prompt = "A smith registers a <code>BlockMetal</code> in the block registry but forgets to register its <code>ItemBlock</code> in the item registry. What is the symptom?"
+choices = ["the block does not exist at all", "the block exists in the world (placeable by /setblock) but never appears in the creative inventory, because it has no item form", "the game crashes on launch", "the block renders as a missing texture"]
+answer = 1
+whyWrong = "Without an ItemBlock the block still exists in the world (setblock works) but has no item form, so it never shows in the creative inventory and cannot be held; the block does exist, the game does not crash, and the missing-texture is a model problem not a registration one. The ItemBlock is the inventory form."
+hint = "Think about what an ItemBlock gives a block — its presence in which screen?"
+explain = "ItemBlock is the item form of a block. Without it the block is world-only; with it the block appears in the creative inventory and can be placed by right-click."
+
+[[lessons.exercises]]
+id = "s09-l01-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the class that wraps a Block so it can be held in the inventory and placed on right-click."
+code = '''Block block = ...;
+event.getRegistry().register(new ____(block).setRegistryName(block.getRegistryName()));'''
+answer = "ItemBlock"
+whyWrong = "ItemBlock wraps a Block as an item; Item is the parent (too general), ItemStack is a stack of an item (not a wrapper), BlockItem is the 1.13+ name (1.12.2 uses ItemBlock). The 1.12.2 block-as-item wrapper is ItemBlock."
+hint = "It is Item + Block — the 1.12.2 class that wraps a Block so it can be an Item."
+
+[[lessons.exercises]]
+id = "s09-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the block-registration handler exactly — the @SubscribeEvent, the static signature, and the register call using the ModBlocks field."
+code = '''@SubscribeEvent
+public static void registerBlocks(RegistryEvent.Register<Block> event) {
+    event.getRegistry().register(ModBlocks.STARSTEEL_BLOCK);
+}'''
+
+[[lessons.exercises]]
+id = "s09-l01-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of the block + ItemBlock pair. The starter has a mock <code>Block</code> class, a mock <code>ItemBlock</code> class whose constructor takes a Block, a <code>BlockRegistry</code> and an <code>ItemRegistry</code> (each with <code>register</code> and <code>size</code>). In <code>main</code>, register one Block in the BlockRegistry and one ItemBlock (wrapping that block) in the ItemRegistry, then print <code>BLOCKS 1 ITEMS 1</code> using the two registries' <code>size()</code> methods. Read both counts from size(); do not type 1 in the print."
+starter = '''public class Ironwright {
+    static class Block { private String name; public Block(String n){name=n;} public String getName(){return name;} }
+    static class ItemBlock { public ItemBlock(Block b){} }
+    static class BlockRegistry { private int c=0; public void register(Block b){c++;} public int size(){return c;} }
+    static class ItemRegistry { private int c=0; public void register(ItemBlock i){c++;} public int size(){return c;} }
+
+    public static void main(String[] args) {
+        // apprentice — register a Block and an ItemBlock wrapping it, print "BLOCKS " + blockReg.size() + " ITEMS " + itemReg.size()
+    }
+}'''
+expect = '''
+BLOCKS 1 ITEMS 1'''
+hint = "BlockRegistry br = new BlockRegistry(); ItemRegistry ir = new ItemRegistry(); Block b = new Block(\"starsteel_block\"); br.register(b); ir.register(new ItemBlock(b)); println(\"BLOCKS \" + br.size() + \" ITEMS \" + ir.size());"
+
+[[lessons.exercises]]
+id = "s09-l01-t1"
+type = "text"
+points = 20
+prompt = "A block and its ItemBlock must share what — the string that links the item form to the world form? (One phrase: the shared ____.)"
+answer = "registry name"
+hint = "It is the name set with setRegistryName — the same string for the Block and its ItemBlock, so the game links them."

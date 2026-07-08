@@ -1,0 +1,98 @@
+[[lessons]]
+id = "s01-l03"
+title = "Reading the Apprentice's Words — Scanner & stdin"
+body = '''
+<p>A forge that only shouts and never listens is no forge at all. The Ironwright CLI must read what the apprentice types. Java's <code>Scanner</code> is the tool — it pulls tokens out of an input stream, one at a time.</p>
+<pre><code><span class="k">import</span> java.util.Scanner;
+
+<span class="k">public class</span> Ironwright {
+    <span class="k">public static void</span> main(String[] args) {
+        Scanner in = <span class="k">new</span> Scanner(System.in);
+        String command = in.nextLine();
+        System.out.println(<span class="s">"you said: "</span> + command);
+    }
+}</code></pre>
+<p>Three load-bearing pieces. <code>import java.util.Scanner;</code> sits above the class — Scanner lives in <code>java.util</code>, and you must name its package before you use it. <code>new Scanner(System.in)</code> builds a reader wired to standard input (the keyboard, or a piped file when the engine feeds your program). <code>in.nextLine()</code> reads one whole line up to the Enter key and hands it back as a String.</p>
+<p>For a single word, <code>in.next()</code> stops at the first space. For a number, <code>in.nextInt()</code> reads an int. To loop until input runs out, guard with <code>in.hasNextLine()</code> — it returns <code>true</code> while a line remains. When you read a number with <code>nextInt()</code> and then a line with <code>nextLine()</code>, remember the newline the number left behind: <code>nextInt</code> does not consume it, so a follow-up <code>nextLine</code> often returns an empty string. The smith reads carefully.</p>
+<div class="callout"><strong>Orrick says:</strong> The lab engine pipes your <code>stdin</code> field into the program as if the apprentice typed it. Write <code>stdin</code> with one command per line; your Scanner reads them in order.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SCANNER IS A CLASS</div>
+<p>Scanner begins with a capital S, like String — it is a class, not a primitive. You build one with <code>new</code> and call methods on it with a dot: <code>in.nextLine()</code> means "call nextLine on the object in". That dot-call is the shape of every method call you will write from here on; Forgework II names it properly.</p></div>
+'''
+
+[[lessons.readings]]
+label = "The Java Tutorials — The Scanner Class"
+url = "https://docs.oracle.com/javase/tutorial/java/data/scanfor.html"
+
+[[lessons.exercises]]
+id = "s01-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the reading skeleton exactly — the import, the Scanner wired to System.in, and one line read."
+code = '''import java.util.Scanner;
+
+public class Ironwright {
+    public static void main(String[] args) {
+        Scanner in = new Scanner(System.in);
+        String command = in.nextLine();
+    }
+}'''
+
+[[lessons.exercises]]
+id = "s01-l03-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the method that reads one whole line (up to Enter) as a String."
+code = '''Scanner in = new Scanner(System.in);
+String command = in.____();'''
+answer = "nextLine"
+whyWrong = "nextLine reads the whole line; next reads only one whitespace-delimited word; nextInt reads a number, not text; hasNextLine returns a boolean, not the text itself."
+hint = "It is next plus the word for a line of text."
+
+[[lessons.exercises]]
+id = "s01-l03-e1"
+type = "mc"
+points = 15
+prompt = "What does <code>System.in</code> represent when you build <code>new Scanner(System.in)</code>?"
+choices = ["the standard input stream (keyboard or piped data)", "the compiled .class file", "a String literal to print", "the class named System"]
+answer = 0
+whyWrong = "System.in is the standard input stream the Scanner reads from; the .class file is irrelevant, a String literal is output not input, and System is the class but System.in is its input field."
+hint = "It is the input counterpart to System.out — what the program reads from."
+explain = "System.in is an InputStream; Scanner wraps it to read tokens. System.out is the output stream; both live on the System class."
+
+[[lessons.exercises]]
+id = "s01-l03-w1"
+type = "write"
+points = 30
+prompt = "Read one line from stdin (the engine pipes <code>forge iron</code>) and print it back exactly as <code>you said: forge iron</code>. Use a Scanner wired to System.in."
+starter = '''import java.util.Scanner;
+
+public class Ironwright {
+    public static void main(String[] args) {
+        Scanner in = new Scanner(System.in);
+        // apprentice — read one line and print "you said: " followed by it
+    }
+}'''
+expect = '''
+you said: forge iron'''
+hint = "Read with in.nextLine(), then join: println(\"you said: \" + line)."
+stdin = "forge iron"
+
+[[lessons.exercises]]
+id = "s01-l03-t1"
+type = "text"
+points = 20
+prompt = "What import line must sit above the class to use Scanner? (Type the full statement, ending with a semicolon.)"
+answer = "import java.util.Scanner;"
+hint = "Scanner lives in the java.util package; an import names package.Class and ends with ;"
+
+[[lessons.exercises]]
+id = "s01-l03-e2"
+type = "mc"
+points = 15
+prompt = "You call <code>in.nextInt()</code> then immediately <code>in.nextLine()</code>, and the second call returns an empty string. Why?"
+choices = ["nextInt throws on a missing number", "Scanner cannot read numbers and text in one program", "nextInt leaves the Enter key unconsumed, so nextLine reads the rest of that empty line", "nextLine always returns empty after nextInt"]
+answer = 2
+whyWrong = "nextInt consumes the digits but not the trailing newline; nextLine then reads up to that leftover newline, yielding empty. The fix is a throwaway nextLine after nextInt. The other options misstate Scanner's capabilities."
+hint = "Think about which character ends a number line — and whether nextInt eats it."
+explain = "nextInt stops at the non-digit (the newline); nextLine reads to the next newline, which is already the current line's end, so it returns empty. Discard it with an extra nextLine before reading real text."

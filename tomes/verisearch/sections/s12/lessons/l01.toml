@@ -55,6 +55,7 @@ points = 20
 prompt = "<code>[Fact]</code> vs <code>[Theory]</code>:"
 choices = ["Fact is deprecated", "Fact = one fixed case; Theory = same test body fed multiple InlineData inputs", "Theory tests are skipped in CI", "Facts can't use Assert"]
 answer = 1
+whyWrong = "Neither is deprecated or skipped — [Fact] is a single fixed case and [Theory] runs the same body over multiple InlineData inputs."
 hint = "Theories are parameterized."
 
 [[lessons.exercises]]
@@ -71,8 +72,9 @@ id = "s12-l01-e3"
 type = "mc"
 points = 25
 prompt = "How do you assert that parsing garbage LLM output throws JsonException?"
-choices = ["try/catch with a bool flag", "Assert.Throws<JsonException>(() => Parse(garbage))", "Assert.Equal(JsonException, Parse(garbage))", "You can't test exceptions"]
-answer = 1
+choices = ["try/catch with a bool flag", "Assert.Equal(JsonException, Parse(garbage))", "Assert.Throws<JsonException>(() => Parse(garbage))", "You can't test exceptions"]
+answer = 2
+whyWrong = "A try/catch bool or an equality check won’t assert an exception — Assert.Throws<JsonException>(() => Parse(garbage)) does, and exceptions are absolutely testable."
 hint = "There's a dedicated assertion that takes a lambda."
 
 [[lessons.exercises]]

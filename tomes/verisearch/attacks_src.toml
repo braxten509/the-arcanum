@@ -891,3 +891,455 @@ record Sigil(string name, int power);
 '''
 cuts = [4, 8, 11]
 
+
+[[challenge]]
+tier = 1
+title = "THE TALLY OF COINS"
+starter = '''
+int copper = 9;
+int silver = 4;
+int gold = 6;
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Weigh the purse. From the coins print «PURSE COPPER 9», «PURSE SILVER 4», «PURSE GOLD 6» by interpolation, then «COUNT SOUGHT» — values not hardcoded.",
+  "Append «TOTAL <copper+silver+gold>» and «WEIGHT <copper·1 + silver·5 + gold·25>», both computed.",
+  "Append the weight's parity («PARITY ODD»/«PARITY EVEN»), the mint mark «MINT <copper><silver><gold>» (digits joined), then «PURSE SEALED».",
+]
+solution = '''
+int copper = 9;
+int silver = 4;
+int gold = 6;
+Console.WriteLine($"PURSE COPPER {copper}");
+Console.WriteLine($"PURSE SILVER {silver}");
+Console.WriteLine($"PURSE GOLD {gold}");
+Console.WriteLine("COUNT SOUGHT");
+int total = copper + silver + gold;
+int weight = copper * 1 + silver * 5 + gold * 25;
+Console.WriteLine($"TOTAL {total}");
+Console.WriteLine($"WEIGHT {weight}");
+Console.WriteLine(weight % 2 == 0 ? "PARITY EVEN" : "PARITY ODD");
+Console.WriteLine($"MINT {copper}{silver}{gold}");
+Console.WriteLine("PURSE SEALED");
+'''
+cuts = [4, 6, 9]
+
+[[challenge]]
+tier = 2
+title = "THE CANDLE WATCH"
+starter = '''
+int[] candles = { 30, 5, 18, 42, 9 };
+// A candle burning under 10 is GUTTERING.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Keep the watch. For each candle print «CANDLE <n> <time> <STATE>» — n is 1-based, STATE is GUTTERING if time < 10 else STEADY. Then «WATCH SET».",
+  "Append «STEADY <count>» and «LONGEST <largest time>».",
+  "Append «BURN <sum of all times>», then the verdict «WATCH ENDS BRIGHT» if the burn exceeds 60, else «WATCH ENDS DIM».",
+]
+solution = '''
+int[] candles = { 30, 5, 18, 42, 9 };
+int steady = 0, longest = 0, burn = 0;
+for (int i = 0; i < candles.Length; i++)
+{
+    bool low = candles[i] < 10;
+    Console.WriteLine($"CANDLE {i + 1} {candles[i]} {(low ? "GUTTERING" : "STEADY")}");
+    if (!low) steady++;
+    if (candles[i] > longest) longest = candles[i];
+    burn += candles[i];
+}
+Console.WriteLine("WATCH SET");
+Console.WriteLine($"STEADY {steady}");
+Console.WriteLine($"LONGEST {longest}");
+Console.WriteLine($"BURN {burn}");
+Console.WriteLine(burn > 60 ? "WATCH ENDS BRIGHT" : "WATCH ENDS DIM");
+'''
+cuts = [6, 8, 10]
+
+[[challenge]]
+tier = 3
+title = "THE CONCLAVE VOTE"
+starter = '''
+var motions = new List<Motion> {
+    new("seal-gate", 5, 2), new("raise-ward", 3, 4), new("banish-shade", 6, 6), new("open-vault", 1, 7),
+};
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Motion(string Name, int Aye, int Nay);
+'''
+briefs = [
+  "Read the roll: per motion print «MOTION <name> <aye>-<nay> <RESULT>» — RESULT is PASSED if aye > nay, TIED if equal, else FAILED. Then «CONCLAVE 4 MOTIONS» (count computed).",
+  "Append «CARRIED <count passed>» and «STRONGEST <name of the widest aye-minus-nay margin>».",
+  "Turnout is aye+nay. Append one line per motion «<name> QUORUM» if turnout >= 8 else «<name> THIN», then «VOTE CLOSED».",
+]
+solution = '''
+var motions = new List<Motion> {
+    new("seal-gate", 5, 2), new("raise-ward", 3, 4), new("banish-shade", 6, 6), new("open-vault", 1, 7),
+};
+foreach (var m in motions)
+{
+    string r = m.Aye > m.Nay ? "PASSED" : m.Aye == m.Nay ? "TIED" : "FAILED";
+    Console.WriteLine($"MOTION {m.Name} {m.Aye}-{m.Nay} {r}");
+}
+Console.WriteLine($"CONCLAVE {motions.Count} MOTIONS");
+int carried = 0;
+Motion top = motions[0];
+foreach (var m in motions)
+{
+    if (m.Aye > m.Nay) carried++;
+    if (m.Aye - m.Nay > top.Aye - top.Nay) top = m;
+}
+Console.WriteLine($"CARRIED {carried}");
+Console.WriteLine($"STRONGEST {top.Name}");
+foreach (var m in motions)
+    Console.WriteLine($"{m.Name} {(m.Aye + m.Nay >= 8 ? "QUORUM" : "THIN")}");
+Console.WriteLine("VOTE CLOSED");
+
+record Motion(string Name, int Aye, int Nay);
+'''
+cuts = [5, 7, 12]
+
+[[challenge]]
+tier = 4
+title = "THE TITHE ROLL"
+starter = '''
+using System.Text.Json;
+
+string roll = """
+[
+  {"house": "emberfell", "tithe": 120, "paid": true},
+  {"house": "greymoor", "tithe": 300, "paid": false},
+  {"house": "ashford", "tithe": 90, "paid": true},
+  {"house": "duskwane", "tithe": 250, "paid": false}
+]
+""";
+// JsonSerializer.Deserialize<List<Tithe>>(roll) — names match case-sensitively.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Tithe(string house, int tithe, bool paid);
+'''
+briefs = [
+  "Decode the roll into List<Tithe>. Print «TITHE <house> <tithe> <PAID/OWED>» per house, then «ROLL 4 HOUSES» (count computed).",
+  "Append «COLLECTED <sum of paid tithes>» and «OWED <sum of unpaid tithes>».",
+  "Seal a summary «new { houses, collected, owed }» with JsonSerializer, print the JSON, then «TITHE SEALED».",
+]
+solution = '''
+using System.Text.Json;
+
+string roll = """
+[
+  {"house": "emberfell", "tithe": 120, "paid": true},
+  {"house": "greymoor", "tithe": 300, "paid": false},
+  {"house": "ashford", "tithe": 90, "paid": true},
+  {"house": "duskwane", "tithe": 250, "paid": false}
+]
+""";
+var tithes = JsonSerializer.Deserialize<List<Tithe>>(roll)!;
+foreach (var t in tithes)
+    Console.WriteLine($"TITHE {t.house} {t.tithe} {(t.paid ? "PAID" : "OWED")}");
+Console.WriteLine($"ROLL {tithes.Count} HOUSES");
+int collected = 0, owed = 0;
+foreach (var t in tithes)
+    if (t.paid) collected += t.tithe; else owed += t.tithe;
+Console.WriteLine($"COLLECTED {collected}");
+Console.WriteLine($"OWED {owed}");
+var summary = new { houses = tithes.Count, collected = collected, owed = owed };
+Console.WriteLine(JsonSerializer.Serialize(summary));
+Console.WriteLine("TITHE SEALED");
+
+record Tithe(string house, int tithe, bool paid);
+'''
+cuts = [5, 7, 9]
+
+[[challenge]]
+tier = 5
+title = "THE WARDING SLATE"
+starter = '''
+string path = "slate.rune";
+string[] wards = { "gate:8", "vault:3", "spire:9", "well:5" };
+// File.WriteAllLines / ReadAllLines / AppendAllText; Split(':') and int.Parse.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Inscribe the wards on the slate, read them back FROM DISK, print «WARD <line>» per recovered line, then «SLATE 4 WARDS» (count from the stone).",
+  "Parse each name:strength rune (Split on ':', int.Parse the strength). Append «BOUND <name> <strength>» per line, then «TOTAL <sum of strengths>».",
+  "Inscribe one more rune «seal:1», re-read the slate, print «WARDS NOW <count>» then «SLATE SEALED».",
+]
+solution = '''
+string path = "slate.rune";
+string[] wards = { "gate:8", "vault:3", "spire:9", "well:5" };
+File.WriteAllLines(path, wards);
+string[] got = File.ReadAllLines(path);
+foreach (string line in got)
+    Console.WriteLine($"WARD {line}");
+Console.WriteLine($"SLATE {got.Length} WARDS");
+int total = 0;
+foreach (string line in got)
+{
+    string[] kv = line.Split(':');
+    int s = int.Parse(kv[1]);
+    total += s;
+    Console.WriteLine($"BOUND {kv[0]} {s}");
+}
+Console.WriteLine($"TOTAL {total}");
+File.AppendAllText(path, "seal:1\n");
+Console.WriteLine($"WARDS NOW {File.ReadAllLines(path).Length}");
+Console.WriteLine("SLATE SEALED");
+'''
+cuts = [5, 10, 12]
+
+[[challenge]]
+tier = 6
+title = "THE CIPHERED WRIT"
+starter = '''
+string writ = "BEGIN|name=vael;rank=archmage;wards=7;tongue=ash|END trailing dust";
+// IndexOf / Substring / Split — no parser library.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Cut the body between «BEGIN|» and «|END» with IndexOf/Substring. Print «BODY <text>», then split the body on ';' and print «FIELDS <n>».",
+  "For each field, split on '=' and print «FIELD <key> = <value>» in order.",
+  "Append «RANK <rank value uppercased>» and «WARDS <wards value>», then «WRIT READ».",
+]
+solution = '''
+string writ = "BEGIN|name=vael;rank=archmage;wards=7;tongue=ash|END trailing dust";
+int bs = writ.IndexOf("BEGIN|") + 6;
+int be = writ.IndexOf("|END");
+string body = writ.Substring(bs, be - bs);
+Console.WriteLine($"BODY {body}");
+string[] fields = body.Split(';');
+Console.WriteLine($"FIELDS {fields.Length}");
+string rank = "", wards = "";
+foreach (string f in fields)
+{
+    string[] kv = f.Split('=');
+    Console.WriteLine($"FIELD {kv[0]} = {kv[1]}");
+    if (kv[0] == "rank") rank = kv[1];
+    if (kv[0] == "wards") wards = kv[1];
+}
+Console.WriteLine($"RANK {rank.ToUpper()}");
+Console.WriteLine($"WARDS {wards}");
+Console.WriteLine("WRIT READ");
+'''
+cuts = [2, 6, 9]
+
+[[challenge]]
+tier = 7
+title = "THE MUSTER ROLL"
+starter = '''
+var levies = new List<Levy> {
+    new("pikes", 40, "foot"), new("archers", 25, "foot"), new("lancers", 12, "horse"),
+    new("scouts", 8, "horse"), new("rams", 6, "siege"),
+};
+// LINQ: Where / OrderByDescending / GroupBy / Sum / Average.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Levy(string Name, int Count, string Arm);
+'''
+briefs = [
+  "Muster the strong levies (Count >= 10), largest first. Print «LEVY <name> <count>» each, then «MUSTERED <kept> / <total>».",
+  "GroupBy Arm over ALL levies, groups ordered by total count descending: «ARM <arm> <sum of counts>» each.",
+  "Append «HOST <total count over all>» and «MEAN <integer average count>», then «MUSTER DONE».",
+]
+solution = '''
+var levies = new List<Levy> {
+    new("pikes", 40, "foot"), new("archers", 25, "foot"), new("lancers", 12, "horse"),
+    new("scouts", 8, "horse"), new("rams", 6, "siege"),
+};
+var strong = levies.Where(l => l.Count >= 10).OrderByDescending(l => l.Count).ToList();
+foreach (var l in strong)
+    Console.WriteLine($"LEVY {l.Name} {l.Count}");
+Console.WriteLine($"MUSTERED {strong.Count} / {levies.Count}");
+foreach (var g in levies.GroupBy(l => l.Arm).OrderByDescending(g => g.Sum(l => l.Count)))
+    Console.WriteLine($"ARM {g.Key} {g.Sum(l => l.Count)}");
+Console.WriteLine($"HOST {levies.Sum(l => l.Count)}");
+Console.WriteLine($"MEAN {(int)levies.Average(l => l.Count)}");
+Console.WriteLine("MUSTER DONE");
+
+record Levy(string Name, int Count, string Arm);
+'''
+cuts = [4, 7, 10]
+
+[[challenge]]
+tier = 8
+title = "THE SCATTERED SUMMONS"
+starter = '''
+var beacons = new[] { "north", "east", "south", "west" };
+
+// Light them CONCURRENTLY — Task.WhenAll, not one-by-one awaits.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+async Task<int> Light(string b)
+{
+    await Task.Delay(25);
+    return 100 + b.Length;
+}
+'''
+briefs = [
+  "Light all four beacons at once with Task.WhenAll (heats return in cast order). Print «BEACON <name> <heat>» each, then «LIT 4 BEACONS».",
+  "Append «BRIGHTEST <name> <heat>» for the greatest heat and «TOTAL HEAT <sum>».",
+  "Beacons at heat 105 or more are strong: print «STRONG <name>» in cast order, then «SUMMONS DONE».",
+]
+solution = '''
+var beacons = new[] { "north", "east", "south", "west" };
+var heats = await Task.WhenAll(beacons.Select(Light));
+for (int i = 0; i < beacons.Length; i++)
+    Console.WriteLine($"BEACON {beacons[i]} {heats[i]}");
+Console.WriteLine($"LIT {beacons.Length} BEACONS");
+int hi = 0;
+for (int i = 0; i < heats.Length; i++)
+    if (heats[i] > heats[hi]) hi = i;
+Console.WriteLine($"BRIGHTEST {beacons[hi]} {heats[hi]}");
+Console.WriteLine($"TOTAL HEAT {heats.Sum()}");
+for (int i = 0; i < beacons.Length; i++)
+    if (heats[i] >= 105) Console.WriteLine($"STRONG {beacons[i]}");
+Console.WriteLine("SUMMONS DONE");
+
+async Task<int> Light(string b)
+{
+    await Task.Delay(25);
+    return 100 + b.Length;
+}
+'''
+cuts = [5, 7, 10]
+
+[[challenge]]
+tier = 9
+title = "THE TOLL OF NAMES"
+starter = '''
+string[] wanted = { "iron", "shadow", "flame" };
+string[] scrolls = {
+    "iron and flame forge the blade",
+    "the shadow flame consumes iron",
+    "a quiet meadow at dawn",
+};
+// Score = how many wanted words a scroll holds (Split + Contains); LINQ for the ranking.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+briefs = [
+  "Toll each scroll: its score is the count of wanted words it holds (split on spaces). Print «SCROLL <n> SCORE <s>» (1-based), then «TOLLED 3 SCROLLS».",
+  "Rank scrolls by score descending (ties: lower number first): «RANK <r> SCROLL <n>» each.",
+  "Append «BEST SCROLL <n> SCORE <s>» for the top scroll, «BARREN <count of score 0>», then «TOLL DONE».",
+]
+solution = '''
+string[] wanted = { "iron", "shadow", "flame" };
+string[] scrolls = {
+    "iron and flame forge the blade",
+    "the shadow flame consumes iron",
+    "a quiet meadow at dawn",
+};
+int[] scores = new int[scrolls.Length];
+for (int i = 0; i < scrolls.Length; i++)
+{
+    var words = scrolls[i].Split(' ');
+    scores[i] = wanted.Count(w => words.Contains(w));
+    Console.WriteLine($"SCROLL {i + 1} SCORE {scores[i]}");
+}
+Console.WriteLine($"TOLLED {scrolls.Length} SCROLLS");
+var order = Enumerable.Range(0, scrolls.Length).OrderByDescending(i => scores[i]).ThenBy(i => i).ToList();
+for (int r = 0; r < order.Count; r++)
+    Console.WriteLine($"RANK {r + 1} SCROLL {order[r] + 1}");
+Console.WriteLine($"BEST SCROLL {order[0] + 1} SCORE {scores[order[0]]}");
+Console.WriteLine($"BARREN {scores.Count(s => s == 0)}");
+Console.WriteLine("TOLL DONE");
+'''
+cuts = [4, 7, 10]
+
+[[challenge]]
+tier = 10
+title = "THE LEDGER OF SIEGES"
+starter = '''
+var sieges = new List<Siege> {
+    new("east-spire", 12, 4), new("old-vault", 30, 1), new("deep-well", 8, 9),
+};
+// Pipe-separated rows: | cell | cell | cell |
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Siege(string Hold, int Walls, int Rams);
+'''
+briefs = [
+  "Set the ledger. Print the header «| HOLD | WALLS | RAMS |» then one row per siege «| <hold> | <walls> | <rams> |» in list order.",
+  "Append the totals row «| TOTAL | <sum walls> | <sum rams> |» — computed.",
+  "Re-print sieges ordered by breach (rams·10 − walls) descending, verdict instead of numbers: «| <hold> | FALLS |» if rams·10 > walls else «| <hold> | HOLDS |», then «SIEGE LEDGER SET».",
+]
+solution = '''
+var sieges = new List<Siege> {
+    new("east-spire", 12, 4), new("old-vault", 30, 1), new("deep-well", 8, 9),
+};
+Console.WriteLine("| HOLD | WALLS | RAMS |");
+foreach (var s in sieges)
+    Console.WriteLine($"| {s.Hold} | {s.Walls} | {s.Rams} |");
+Console.WriteLine($"| TOTAL | {sieges.Sum(s => s.Walls)} | {sieges.Sum(s => s.Rams)} |");
+foreach (var s in sieges.OrderByDescending(s => s.Rams * 10 - s.Walls))
+    Console.WriteLine($"| {s.Hold} | {(s.Rams * 10 > s.Walls ? "FALLS" : "HOLDS")} |");
+Console.WriteLine("SIEGE LEDGER SET");
+
+record Siege(string Hold, int Walls, int Rams);
+'''
+cuts = [4, 5, 9]
+
+[[challenge]]
+tier = 11
+title = "THE GRAND RECKONING"
+starter = '''
+using System.Text.Json;
+
+string archive = """
+[
+  {"name": "ember-seal", "power": 60, "active": true},
+  {"name": "frost-seal", "power": 20, "active": false},
+  {"name": "storm-seal", "power": 95, "active": true},
+  {"name": "dust-seal", "power": 40, "active": true}
+]
+""";
+// Deserialize -> filter -> sort -> invoke concurrently -> stone -> reckon.
+// THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+async Task<string> Invoke(string name)
+{
+    await Task.Delay(20);
+    return $"{name} answers";
+}
+
+record Seal(string name, int power, bool active);
+'''
+briefs = [
+  "Forge the reckoning: deserialize the archive, keep active seals, sort by power descending. Print «SEAL <name> <power>» each, then «RECKONING <kept> / <total>».",
+  "Invoke the kept seals ALL AT ONCE (Task.WhenAll): print «>> <result>» each in order, then «ALL ANSWER».",
+  "Inscribe the kept seals to reckoning.rune as «<name>:<power>», read the stone back printing «BOUND <line>» each, then «POWER SUM <sum>» and «RECKONING COMPLETE».",
+]
+solution = '''
+using System.Text.Json;
+
+string archive = """
+[
+  {"name": "ember-seal", "power": 60, "active": true},
+  {"name": "frost-seal", "power": 20, "active": false},
+  {"name": "storm-seal", "power": 95, "active": true},
+  {"name": "dust-seal", "power": 40, "active": true}
+]
+""";
+var seals = JsonSerializer.Deserialize<List<Seal>>(archive)!;
+var live = seals.Where(s => s.active).OrderByDescending(s => s.power).ToList();
+foreach (var s in live)
+    Console.WriteLine($"SEAL {s.name} {s.power}");
+Console.WriteLine($"RECKONING {live.Count} / {seals.Count}");
+var answers = await Task.WhenAll(live.Select(s => Invoke(s.name)));
+foreach (string a in answers)
+    Console.WriteLine($">> {a}");
+Console.WriteLine("ALL ANSWER");
+File.WriteAllLines("reckoning.rune", live.Select(s => $"{s.name}:{s.power}"));
+foreach (string line in File.ReadAllLines("reckoning.rune"))
+    Console.WriteLine($"BOUND {line}");
+Console.WriteLine($"POWER SUM {live.Sum(s => s.power)}");
+Console.WriteLine("RECKONING COMPLETE");
+
+async Task<string> Invoke(string name)
+{
+    await Task.Delay(20);
+    return $"{name} answers";
+}
+
+record Seal(string name, int power, bool active);
+'''
+cuts = [4, 8, 13]

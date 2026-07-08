@@ -1,0 +1,64 @@
+[[lessons]]
+id = "s08-l04"
+title = "The Item's Names — setRegistryName, setUnlocalizedName & .lang"
+body = '''
+<p>An item carries two names. The <strong>registry name</strong> is the machine name Forge and the world use to find it — a <code>ResourceLocation</code> like <code>ironwright:iron</code>, set with <code>setRegistryName</code>. The <strong>unlocalized name</strong> is a translation key the game looks up in a <code>.lang</code> file to show the player a human name — set with <code>setUnlocalizedName</code> and resolved at display time.</p>
+<pre><code><span class="k">public</span> ItemIngot(String name) {
+    setRegistryName(Ironwright.MODID, name);       <span class="c">// ironwright:iron — the machine name</span>
+    setUnlocalizedName(Ironwright.MODID + <span class="s">"."</span> + name);
+    setCreativeTab(IronwrightTab.INSTANCE);  <span class="c">// Forgework X</span>
+}</code></pre>
+<p>The two-argument <code>setRegistryName(Ironwright.MODID, name)</code> is explicit: the namespace is always <code>ironwright</code>, and the path is the item name. <code>setUnlocalizedName(Ironwright.MODID + "." + name)</code> makes the translation key <code>item.ironwright.iron.name</code> — <code>item.</code> + the unlocalized name + <code>.name</code>. Then the <code>.lang</code> file at <code>assets/ironwright/lang/en_us.lang</code> provides the human text:</p>
+<pre><code>item.ironwright.iron.name=Iron Ingot
+item.ironwright.copper.name=Copper Ingot
+item.ironwright.starsteel.name=Starsteel Ingot</code></pre>
+<p>The split exists so the same mod ships many languages: <code>en_us.lang</code> for English, <code>de_de.lang</code> for German, each mapping the same keys to different text. The registry name never changes (the world depends on it); the display name changes per language (the player reads it). Confuse them and your item shows as <code>item.iron.name</code> literally — the missing-translation tell.</p>
+<div class="callout"><strong>Orrick says:</strong> The registry name is forever — never change it after release, or saved worlds lose the item. The unlocalized name and the .lang text can change any time. The machine name is the smith's stamp; the display name is the label on the shelf.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // 1.12.2 USES .lang, NOT .json</div>
+<p>Minecraft 1.12.2 uses the legacy <code>.lang</code> format — key=value lines, plain text, no JSON. Minecraft 1.13+ switched to <code>en_us.json</code>. For this tome, the file is <code>assets/ironwright/lang/en_us.lang</code>, and each line is <code>key=value</code> with no quotes. A 1.13-style JSON lang file will not parse in 1.12.2.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s08-l04-e1"
+type = "mc"
+points = 15
+prompt = "What is the difference between an item's registry name and its unlocalized name?"
+choices = ["they are the same string", "the registry name is the machine name the world uses (ironwright:iron); the unlocalized name is a translation key the .lang file resolves to a human display name", "the unlocalized name is set first", "the registry name is shown to the player"]
+answer = 1
+whyWrong = "The registry name (ironwright:iron) is the machine identifier the world and Forge use; the unlocalized name is a translation key the .lang file maps to the player's language. The display name comes from .lang, not the registry name; the two are not the same string."
+hint = "One is the machine identifier (Forge and saved worlds); the other is a key the .lang file resolves to the player's language."
+explain = "setRegistryName gives the machine name (never change it post-release); setUnlocalizedName gives the translation key the .lang file resolves to a per-language display name."
+
+[[lessons.exercises]]
+id = "s08-l04-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the .lang key prefix the game builds from an item's unlocalized name — for <code>ironwright.iron</code> the key is <code>____.ironwright.iron.name</code>."
+code = '____.ironwright.iron.name=Iron Ingot'
+answer = "item"
+whyWrong = "item is the prefix for item translation keys (item.<unlocal>.name); tile is for blocks (1.12.2 block keys use tile.), entity is for entities, itemGroup is for creative tabs. An item's key starts with item."
+hint = "It is the four-letter word for the thing this is — the same word as the type. (Blocks in 1.12.2 use tile. instead.)"
+
+[[lessons.exercises]]
+id = "s08-l04-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of the .lang line. The starter sets <code>String key = \"item.ironwright.iron\";</code> and <code>String display = \"Iron Ingot\";</code>. Print exactly <code>item.ironwright.iron.name=Iron Ingot</code> by joining <code>key</code>, <code>\".name=\"</code>, and <code>display</code>. Read key and display from the variables; do not type the words in the print."
+starter = '''public class Ironwright {
+    public static void main(String[] args) {
+        String key = "item.ironwright.iron";
+        String display = "Iron Ingot";
+        // apprentice — print key + ".name=" + display
+    }
+}'''
+expect = '''
+item.ironwright.iron.name=Iron Ingot'''
+hint = "System.out.println(key + \".name=\" + display);"
+
+[[lessons.exercises]]
+id = "s08-l04-t1"
+type = "text"
+points = 20
+prompt = "Type the path (from the resources root) of the English language file for this mod (Minecraft 1.12.2 uses the .lang format, not .json)."
+answer = "assets/ironwright/lang/en_us.lang"
+hint = "It is assets/<modid>/lang/en_us.lang — the 1.12.2 language file (lowercase en_us, .lang extension)."

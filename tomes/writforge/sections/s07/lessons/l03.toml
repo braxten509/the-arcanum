@@ -1,0 +1,119 @@
+[[lessons]]
+id = "s07-l03"
+title = "The Shelf Test"
+body = '''
+<p>Before a path becomes a manuscript, Writforge needs to know whether the shelf item is real. Perl's file tests do that job. <code>-e</code> says something exists at the path. <code>-f</code> narrows that to a regular file. <code>-d</code> names a directory instead of a file. Those tests are not decorative; they prevent the renderer from trying to read a folder like a page or overwriting the wrong kind of path on the way out.</p>
+<p>This is where the chapter separates filesystem facts from name-shape facts. A regex can decide whether a string ends in <code>.txt</code>, but only <code>-f</code> can prove the path is a regular file on disk. Both checks are useful, and they answer different questions. In a shelf walk, the script often uses both: a filename pattern to recognize manuscripts and a file test to reject directories, broken links, and other junk that looks friendly but is not safe to open.</p>
+<p>The shelf still has to be enumerated before it can be tested. For this tome, use <code>glob "$source/*"</code> when you need the immediate entries under a manuscript directory. <code>glob</code> gives the script a list of path strings; it does not prove those paths are safe pages. That is why the next lines still skip directories with <code>-d</code>, require regular files with <code>-f</code>, and then apply the <code>.txt</code> suffix check. Enumeration, file testing, and name matching are three separate moves.</p>
+<p><code>warn</code> belongs here when the scribe wants to skip a bad path and keep going. <code>die</code> stays reserved for conditions that make the whole run useless, such as a missing source directory or an output root the script cannot create. That distinction keeps the batch tool practical. It reports the shelf oddities the apprentice can fix later, but it stops when the job itself is impossible.</p>
+<p>Remember the earlier chapter on regex matching: the shelf walk can first ask <code>glob</code> for entries like <code>manuscripts/chapter01.txt</code>, then filter the names with a pattern, then ask the filesystem whether the surviving string actually points at a file. In other words, <code>glob</code> finds candidates, the pattern decides whether the name looks right, and the file tests decide whether the path is real. Writforge needs all three judgments before it trusts any page.</p>
+<pre><code><span class="k">for</span> <span class="k">my</span> <span class="s">$path</span> (<span class="s">@candidates</span>) {
+    <span class="k">next</span> <span class="k">if</span> <span class="s">-d</span> <span class="s">$path</span>;
+    <span class="k">next</span> <span class="k">unless</span> <span class="s">-f</span> <span class="s">$path</span>;
+    <span class="k">next</span> <span class="k">unless</span> <span class="s">$path</span> =~ /<span class="s">\.txt</span>$/;
+    <span class="k">say</span> <span class="s">$path</span>;
+}</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE SHELF TEST</div>
+<p><strong>Filesystem note.</strong> <code>-f</code> and <code>-d</code> are facts about the path on disk, not about the spelling of the string.</p>
+<p><strong>Recovery note.</strong> Use <code>warn</code> when the run can continue. Use <code>die</code> when the run cannot honestly finish at all.</p>
+<p><strong>Pattern note.</strong> A regex suffix check can narrow the list first, but it cannot prove the shelf item is a regular file.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perldoc: perlfunc"
+url = "https://perldoc.perl.org/perlfunc"
+
+[[lessons.exercises]]
+id = "s07-l03-e1"
+type = "fill"
+points = 22
+prompt = "<p>Restore the file test that proves the candidate path is a regular file before the script opens it.</p>"
+code = 'next unless ____ $path;'
+answer = "-f"
+hint = "The blank is the regular-file test, not the existence test or the directory test."
+whyWrong = "You are checking the wrong kind of filesystem fact. This chapter needs the regular-file test so the renderer does not try to treat a directory like a manuscript."
+
+[[lessons.exercises]]
+id = "s07-l03-e2"
+type = "mc"
+points = 18
+prompt = "<p>Which test identifies a directory instead of a regular file?</p>"
+choices = ["<code>-e</code>", "<code>-f</code>", "<code>-d</code>", "<code>-r</code>"]
+answer = 2
+whyWrong = "You are mixing existence, regular-file checks, and readability with the directory test. <code>-d</code> is the one that names a directory."
+hint = "This is the test that says the path is a shelf, not a page."
+explain = "<code>-d</code> returns true for directories."
+
+[[lessons.exercises]]
+id = "s07-l03-e3"
+type = "text"
+points = 17
+prompt = "<p>Why keep the regex suffix check and <code>-f</code> separate in the shelf walk?</p>"
+answer = "because one checks the name shape and the other checks the filesystem object"
+accept = ["one checks the name shape and the other checks the filesystem object", "regex sees the filename and -f proves the path is a real file", "they answer different questions about the same path"]
+hint = "The spelling of the path and the object on disk are not the same thing."
+whyWrong = "You are collapsing the string test and the filesystem test into one idea. The name can look right while the path is still not a real file."
+
+[[lessons.exercises]]
+id = "s07-l03-e4"
+type = "mc"
+points = 18
+prompt = "<p>A missing source directory makes the whole run useless. Which branch should the script use?</p>"
+choices = ["<code>warn</code>", "<code>next</code>", "<code>chomp</code>", "<code>die</code>"]
+answer = 3
+whyWrong = "You are treating a fatal setup problem like a skippable nuisance or a text cleanup step. A missing source directory stops the run, so the script should die."
+hint = "This is the branch for a condition the rest of the chapter cannot recover from."
+explain = "<code>die</code> is the right choice when the source shelf itself is missing."
+
+[[lessons.exercises]]
+id = "s07-l03-e5"
+type = "type"
+points = 13
+reps = 2
+prompt = "<p>Retype the shelf guard exactly. Keep the directory skip, the regular-file test, and the <code>.txt</code> suffix check in place.</p>"
+code = '''
+#!/usr/bin/env perl
+use v5.36;
+
+for my $path (@candidates) {
+    next if -d $path;
+    next unless -f $path;
+    next unless $path =~ /\.txt$/;
+    say $path;
+}
+'''
+
+[[lessons.exercises]]
+id = "s07-l03-w1"
+type = "write"
+points = 30
+prompt = "<p>The starter shelf contains one subdirectory, two manuscript files, and one non-manuscript note. Use <code>glob &quot;$source/*&quot;</code> to enumerate the shelf, skip directories, keep only regular <code>.txt</code> files, and reuse the s05 regex habit for the <code>.txt</code> suffix check. This is the same separation habit as the earlier <code>classify_line</code> helper: decide the kind first, then count what survives. Print the kept paths in sorted order and finish with <code>KEEP 2</code>. The count must come from the shelf walk, not from a hardcoded list.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my $source = "manuscripts";
+mkdir $source unless -d $source;
+mkdir "$source/drafts" unless -d "$source/drafts";
+
+open my $a, '>', "$source/preface.txt" or die $!;
+print {$a} "# Preface\n";
+close $a or die $!;
+
+open my $b, '>', "$source/appendix.txt" or die $!;
+print {$b} "# Appendix\n";
+close $b or die $!;
+
+open my $n, '>', "$source/readme.md" or die $!;
+print {$n} "not a manuscript\n";
+close $n or die $!;
+
+my $kept = 0;
+
+# Task: enumerate the shelf with glob, keep only regular .txt files, print them sorted, and count them.
+'''
+expect = '''
+manuscripts/appendix.txt
+manuscripts/preface.txt
+KEEP 2'''
+hint = "Start with sorted glob \"$source/*\", skip the drafts directory with -d, require -f, and use the s05-style suffix regex before counting."

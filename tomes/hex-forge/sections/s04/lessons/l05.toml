@@ -1,0 +1,129 @@
+[[lessons]]
+id = "s04-l05"
+title = "Echo the Ore — Read-Loop Pipeline"
+body = '''
+<p>The read-buffer-write pattern from s04-l03 was a single pass — read once, write once. Real HexForge reads until the input is exhausted, processing one chunk at a time. This lesson marries the read loop from s04-l03 with the buffer-scanning loop from s04-l04 into a full pipeline.</p>
+
+<p>The outer loop reads chunks; the inner loop scans them. Together they handle files of ANY size with a fixed 256-byte buffer:</p>
+<pre><code><span class="c">; Outer loop: read chunks until EOF</span>
+.read_chunk:
+    <span class="k">mov</span> rax, 0             <span class="c">; sys_read</span>
+    <span class="k">mov</span> rdi, 0             <span class="c">; stdin</span>
+    <span class="k">mov</span> rsi, buffer
+    <span class="k">mov</span> rdx, 256
+    <span class="k">syscall</span>
+
+    <span class="k">test</span> rax, rax
+    <span class="k">jz</span> .done                <span class="c">; EOF — finish</span>
+
+    <span class="c">; Save count and scan this chunk</span>
+    <span class="k">mov</span> rcx, rax            <span class="c">; bytes in this chunk</span>
+    <span class="k">mov</span> rsi, buffer         <span class="c">; reset pointer to start of buffer</span>
+
+.scan_loop:
+    <span class="k">movzx</span> rdx, <span class="k">byte</span> [rsi] <span class="c">; load one byte</span>
+    <span class="c">; --- do something with this byte ---</span>
+    <span class="k">inc</span> rsi
+    <span class="k">dec</span> rcx
+    <span class="k">jnz</span> .scan_loop
+
+    <span class="k">jmp</span> .read_chunk          <span class="c">; get the next chunk</span>
+
+.done:
+    <span class="k">mov</span> rax, 60
+    <span class="k">xor</span> rdi, rdi
+    <span class="k">syscall</span></code></pre>
+
+<p>This handles a 10-byte file: one read, one scan loop, EOF. A 10,000-byte file: 40 reads (256 bytes each), 40 scan loops, EOF. The buffer stays the same size — only the loop repeats.</p>
+
+<p>Key realisation: <strong>registers are precious across the outer loop.</strong> Each <code>sys_read</code> clobbers rax (return value) and rcx (the kernel saves/restores rcx and r11, but your code may have modified them). If you're tracking a running total, a line counter, or a byte offset, keep those values in call-preserved registers or spill them to memory. For now, store them in registers that <code>syscall</code> does not touch: r12–r15, rbx, rbp. Or simply keep them in memory — a counter in <code>.bss</code> survives syscalls trivially.</p>
+
+<p>In the capstone, the outer loop reads file chunks, the middle layer groups bytes into 16-byte lines, and the inner loop formats each byte as two hex characters. Three nested concerns, one flat assembly program — but the principles are the same: read chunks, scan bytes, accumulate state.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SYSCALL CLOBBER LIST</div>
+<p><code>syscall</code> clobbers rcx (saved RIP) and r11 (saved RFLAGS). It also modifies rax (return value). All other registers — rbx, rbp, rsp, r12–r15, rdi, rsi, rdx, r8, r9, r10 — are PRESERVED by the kernel. This is the System V AMD64 ABI's kernel-call convention and is distinct from the function-call convention (which marks rdi, rsi, rdx, rcx, r8, r9, r10, r11 as caller-saved). When writing a loop that calls syscall repeatedly, keep counters in r12–r15 or rbx — they survive the gate intact.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s04-l05-e1"
+type = "mc"
+points = 15
+prompt = "Which registers does <code>syscall</code> NOT preserve across the kernel transition?"
+choices = [
+  "rcx and r11 — the kernel uses them to save the return RIP and RFLAGS",
+  "rax and rdi — the syscall number and first argument are consumed",
+  "All general-purpose registers are clobbered by syscall",
+  "rdi, rsi, rdx — the argument registers are zeroed after the call"
+]
+answer = 0
+whyWrong = "rax is modified (return value), not just consumed — but rdi, rsi, rdx are preserved. The kernel only clobbers rcx (holds the return RIP) and r11 (holds the saved RFLAGS). All other registers survive. The argument registers are NOT zeroed — they keep their values."
+hint = "Think about what the CPU needs to save to return from the kernel. RIP goes where? RFLAGS goes where?"
+explain = "The <code>syscall</code> instruction saves RIP into rcx and RFLAGS into r11 before entering the kernel. The kernel restores them on <code>sysret</code>. This is architectural — not a convention. If you need those values across a syscall, save them first. All other registers (including the argument registers rdi, rsi, rdx, r10, r8, r9) are untouched by the kernel."
+
+[[lessons.exercises]]
+id = "s04-l05-e2"
+type = "text"
+points = 20
+prompt = "You want to keep a running byte-offset counter that survives <code>syscall</code>. Name a general-purpose register (not rsp) that is safe to use because the kernel never touches it."
+answer = "r12"
+accept = ["rbx", "r13", "r14", "r15", "rbp"]
+hint = "The registers rbx, rbp, and r12-r15 are preserved across syscall. Pick any one."
+explain = "r12–r15, rbx, and rbp are all preserved by the kernel. Any of them can hold a counter that survives repeated <code>syscall</code> instructions without being saved and restored. rsp is also preserved but using it for anything other than the stack pointer is a recipe for disaster."
+
+[[lessons.exercises]]
+id = "s04-l05-e3"
+type = "fill"
+points = 20
+prompt = "Fill the jump condition that exits the read loop when input is exhausted. sys_read returns 0 for EOF."
+code = '''
+.read:
+    mov  rax, 0
+    mov  rdi, 0
+    mov  rsi, buffer
+    mov  rdx, 256
+    syscall
+    test rax, rax
+    ____ .done           ; no more input — finish
+'''
+answer = "jz"
+accept = ["je"]
+hint = "Two letters — jump if zero. The opposite of jnz."
+explain = "<code>test rax, rax</code> sets ZF=1 when rax is 0. <code>jz .done</code> jumps to .done when EOF is reached (sys_read returns 0). This is the canonical EOF check — the same pattern used in every read-loop in the course."
+
+[[lessons.exercises]]
+id = "s04-l05-w1"
+type = "write"
+points = 30
+prompt = "Count the input bytes and print the total. Read stdin in 64-byte chunks until EOF. Count every byte read by accumulating the return values of <code>sys_read</code>. After EOF, print the total byte count. The engine pipes <code>HELLOFORGE</code> (10 bytes) into stdin. Output: <code>10</code> followed by a newline."
+starter = '''
+section .text
+    global _start
+
+_start:
+    xor r12, r12          ; running byte counter (preserved across syscall)
+.read_loop:
+    mov rax, 0
+    mov rdi, 0
+    mov rsi, buffer
+    mov rdx, 64
+    syscall
+    test rax, rax
+    jz .done              ; EOF
+    ; Add bytes_read to r12
+    add r12, rax
+    jmp .read_loop
+.done:
+    ; r12 holds total bytes. Use itoa to print it.
+    
+
+section .bss
+buffer: resb 64
+
+section .data
+newline: db 10
+outbuf: times 20 db 0
+'''
+stdin = "HELLOFORGE"
+expect = '''
+10'''
+hint = "The outer loop reads 64-byte chunks. With 10 bytes of input, one read gets all 10, returns 10, next read returns 0. r12 accumulates 10. After the loop, itoa r12: mov rax, r12 / then the usual div ebx loop → push → pop to outbuf → print with newline."

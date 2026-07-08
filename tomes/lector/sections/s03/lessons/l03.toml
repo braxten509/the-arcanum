@@ -1,0 +1,80 @@
+[[lessons]]
+id = "s03-l03"
+title = "Shared Ink"
+body = '''
+<p>Sometimes an object has multiple keepers. The token buffer needs to be read by the parser and preserved for the renderer. Two modules, one resource. <code>std::unique_ptr</code> cannot do this — it demands a single owner. <code>std::shared_ptr</code> does not.</p>
+<p><code>std::shared_ptr&lt;std::string&gt; p = std::make_shared&lt;std::string&gt;(&quot;Hello&quot;);</code> — allocates the string and a control block in one heap allocation. The control block holds a reference count. <code>std::shared_ptr&lt;std::string&gt; q = p;</code> — the count is now 2. <code>p</code> and <code>q</code> point to the same string. Neither is the owner. The object lives as long as any shared_ptr points to it.</p>
+<p>When a shared_ptr is destroyed, the reference count decrements. When the count reaches zero, the object is deleted. The last shared_ptr to leave scope calls <code>delete</code>. This is automatic, cooperative ownership. Every holder extends the object's life.</p>
+<p>The cost is real. A <code>shared_ptr</code> is twice the size of a raw pointer (the object pointer plus the control block pointer). The control block allocation is separate (or merged via <code>make_shared</code>). Atomic increments and decrements on the reference count add runtime overhead — small but measurable. <code>unique_ptr</code> has zero overhead. Prefer <code>unique_ptr</code> by default. Reach for <code>shared_ptr</code> only when ownership is genuinely shared.</p>
+<p><code>std::weak_ptr</code> is an observer. It holds a reference to the control block without incrementing the count. <code>weak_ptr.lock()</code> returns a <code>shared_ptr</code> if the object still exists, or null if it was deleted. This breaks circular references — two objects that each hold a shared_ptr to the other never free themselves.</p>
+<p>Copying a shared_ptr is cheap — it increments an integer. Moving a shared_ptr is cheaper — the count does not change. Use <code>std::move</code> to transfer shared ownership without touching the atomics.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // make_shared vs shared_ptr(new T)</div>
+<p><code>std::make_shared&lt;T&gt;(args)</code> allocates the object and the control block in a single heap region — one allocation, better cache locality. <code>std::shared_ptr&lt;T&gt;(new T(args))</code> does two allocations: one for the object, one for the control block. The single-allocation form is faster. It also eliminates a leak if <code>new T</code> succeeds but the shared_ptr constructor (which allocates the control block) throws. Always prefer <code>make_shared</code>.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s03-l03-e1"
+type = "fill"
+points = 20
+prompt = "Complete the code to create a <code>std::shared_ptr</code> that shares ownership of a string with <code>p</code>."
+code = '''auto p = std::make_shared<std::string>("ink");
+auto q = ____;'''
+answer = "p"
+accept = ["std::shared_ptr<std::string>(p)", "shared_ptr<string>(p)"]
+hint = "<code>std::shared_ptr</code> supports copy construction. The new shared_ptr points to the same object and increments the reference count."
+explain = "<code>auto q = p;</code> copies the shared_ptr. Both <code>p</code> and <code>q</code> now manage the same string. The control block's reference count becomes 2. The string is destroyed only when both <code>p</code> and <code>q</code> leave scope."
+
+[[lessons.exercises]]
+id = "s03-l03-e2"
+type = "mc"
+points = 22
+prompt = "How does <code>std::shared_ptr</code> know when to delete the object it manages?"
+choices = [
+    "The operating system sends a signal when every referencing variable has been assigned a new value",
+    "A garbage collector thread periodically scans the heap for unreferenced objects — shared_ptr uses the same GC as Java",
+    "A reference count stored in a control block on the heap — the object is freed when the count reaches zero",
+    "The programmer must call <code>should_delete()</code> manually — shared_ptr provides the mechanism but not the policy"
+]
+answer = 2
+whyWrong = "C++ has no built-in garbage collector. The reference count is the entire mechanism. Each shared_ptr constructor increments it, each destructor decrements it. When the count reaches zero, the destructor calls <code>delete</code>. The count lives in a heap-allocated control block, not in the OS or a GC thread."
+hint = "Think about what information must be shared among all copies of a shared_ptr. Where does that information live — on the stack, on the heap, or somewhere else?"
+explain = "<code>std::shared_ptr</code> maintains a reference count in a dynamically-allocated control block. Every copy increments it. Every destructor decrements it. When it reaches zero, the destructor calls <code>delete</code> on the managed object. The atomic operations on this count are thread-safe."
+
+[[lessons.exercises]]
+id = "s03-l03-e3"
+type = "fill"
+points = 20
+prompt = "Complete the line to create a <code>shared_ptr</code> using the allocation-efficient form that merges the object and control block into one heap region."
+code = '''auto p = std::____<std::string>("Shared ink");'''
+answer = "make_shared"
+hint = "The function name mirrors <code>make_unique</code> from the previous lesson but uses the shared-pointer prefix. It performs one heap allocation instead of two."
+explain = "<code>std::make_shared&lt;std::string&gt;(\"Shared ink\")</code> allocates the string and the reference-count control block in a single heap allocation. This is faster and more cache-friendly than <code>std::shared_ptr&lt;std::string&gt;(new std::string(\"Shared ink\"))</code>, which does two allocations."
+
+[[lessons.exercises]]
+id = "s03-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this code that copies a shared_ptr and observes the shared lifetime. Both pointers see the same object."
+code = '''auto p = std::make_shared<int>(100);
+auto q = p;
+std::cout << *p << " " << *q << std::endl;'''
+
+[[lessons.exercises]]
+id = "s03-l03-w1"
+type = "write"
+points = 32
+prompt = "Write a program that creates a <code>std::shared_ptr&lt;int&gt;</code> using <code>std::make_shared</code> with value 7. Create a second shared_ptr that shares ownership via copy. Then create a third shared_ptr that takes ownership by <b>moving</b> from the second (using <code>std::move</code>). After each creation, print the value through the pointer that still owns or shares access. Print the values on separate lines: through the first pointer, then through the third (after the move). The moved-from second pointer should not be dereferenced."
+starter = '''#include <iostream>
+#include <memory>
+
+int main() {
+    auto p = std::make_shared<int>(7);
+    // TODO: copy p to q
+    // TODO: move q to r
+    // TODO: print *p on one line, then *r on the next
+    return 0;
+}'''
+expect = '''7
+7'''
+hint = "Copy with <code>auto q = p;</code>. Move with <code>auto r = std::move(q);</code>. After the move, <code>q</code> is null but <code>p</code> and <code>r</code> both point to the same int. Print <code>*p</code> and <code>*r</code> on separate lines."

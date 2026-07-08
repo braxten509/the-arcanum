@@ -1,0 +1,126 @@
+[[lessons]]
+id = "s03-l01"
+title = "The Touchstone — cmp and test"
+body = '''
+<p>A smith does not strike blind. Before the hammer falls, the touchstone tells whether the alloy is ready. <code>cmp</code> and <code>test</code> are the CPU's touchstones: they set flags without modifying any destination register.</p>
+
+<p><code>cmp left, right</code> computes <code>left - right</code> and sets flags based on the result — but <strong>throws away the difference.</strong> Only the flags survive:</p>
+<pre><code><span class="k">mov</span> rax, 10
+<span class="k">cmp</span> rax, 10        <span class="c">; 10 - 10 = 0 → ZF=1 (equal)</span>
+<span class="k">cmp</span> rax, 5         <span class="c">; 10 - 5 = 5  → ZF=0, SF=0, CF=0 (rax > 5, unsigned)</span>
+<span class="k">cmp</span> rax, 20        <span class="c">; 10 - 20 = -10 → ZF=0, SF=1, CF=1 (rax < 20, unsigned)</span></code></pre>
+
+<p>After <code>cmp</code>, these flag combinations answer every comparison you need:</p>
+<table style="width:100%">
+<tr><td><strong>Condition</strong></td><td><strong>Flags after cmp A, B</strong></td><td><strong>Jump mnemonic</strong></td></tr>
+<tr><td>A == B</td><td>ZF=1</td><td>je / jz</td></tr>
+<tr><td>A != B</td><td>ZF=0</td><td>jne / jnz</td></tr>
+<tr><td>A &lt; B (signed)</td><td>SF != OF</td><td>jl / jnge</td></tr>
+<tr><td>A &lt;= B (signed)</td><td>ZF=1 or SF != OF</td><td>jle / jng</td></tr>
+<tr><td>A &gt; B (signed)</td><td>ZF=0 and SF == OF</td><td>jg / jnle</td></tr>
+<tr><td>A &gt;= B (signed)</td><td>SF == OF</td><td>jge / jnl</td></tr>
+<tr><td>A &lt; B (unsigned)</td><td>CF=1</td><td>jb / jnae / jc</td></tr>
+<tr><td>A &gt; B (unsigned)</td><td>CF=0 and ZF=0</td><td>ja / jnbe</td></tr>
+</table>
+
+<p>Every mnemonic has an alias — <code>je</code> and <code>jz</code> are the same opcode, just named differently. Pick the one that reads naturally for what you're testing: <code>je</code> after a comparison, <code>jz</code> after a <code>test</code> or arithmetic result.</p>
+
+<p><code>test left, right</code> computes <code>left AND right</code> and sets flags — again, throws away the result. Its primary use is checking whether a register is zero:</p>
+<pre><code><span class="k">test</span> rax, rax       <span class="c">; ZF=1 if rax==0, ZF=0 if rax!=0</span>
+<span class="k">test</span> al, al         <span class="c">; same test on the low byte — still sets ZF</span></code></pre>
+
+<p><code>test reg, reg</code> is preferred over <code>cmp reg, 0</code> because it encodes in fewer bytes. The AND of a register with itself is always the register's value — so the only flag that matters is ZF: set if the register is zero.</p>
+
+<p>Also useful: <code>test al, 0x80</code> checks whether bit 7 is set — useful for testing the sign of a byte without a full comparison. More on bit-testing in the byte-classification forge op.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SIGNED vs UNSIGNED — WHEN IT MATTERS</div>
+<p>The flags are the same bits regardless of whether you interpret operands as signed or unsigned. The difference is which flag combination you check. After <code>cmp rax, rbx</code> with rax=1 and rbx=0xFFFFFFFFFFFFFFFF (-1 unsigned, but 2é⁴-1): unsigned comparison says 1 &lt; 2é⁴-1, so CF=1, ja does not jump. Signed comparison says 1 &gt; -1, so SF==OF, jg DOES jump. The same cmp, the same flags — you just look at different bits depending on what meaning you assigned to the numbers. The CPU itself is agnostic.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s03-l01-e1"
+type = "mc"
+points = 15
+prompt = "After <code>mov rax, 7</code> followed by <code>cmp rax, 7</code>, which flag is set?"
+choices = [
+  "SF (Sign Flag) — the result is negative",
+  "CF (Carry Flag) — a borrow occurred",
+  "ZF (Zero Flag) — the values are equal, so the difference is zero",
+  "OF (Overflow Flag) — signed subtraction overflowed"
+]
+answer = 2
+whyWrong = "7 - 7 = 0, which is non-negative (SF=0), requires no borrow (CF=0), and cannot overflow (OF=0). Only ZF is set because the difference is exactly zero — the values are equal."
+hint = "cmp subtracts. 7 minus 7 is 0. Which flag says 'the result was zero'?"
+explain = "When <code>cmp</code> subtracts two equal values, the result is zero and ZF=1. This is the fundamental mechanism behind every equality test in assembly: subtract, check ZF, branch if set."
+
+[[lessons.exercises]]
+id = "s03-l01-e2"
+type = "text"
+points = 20
+prompt = "What is the difference between <code>cmp rax, 0</code> and <code>test rax, rax</code>? Answer with the one practical advantage Vandr would cite."
+answer = "test encodes in fewer bytes"
+accept = ["fewer bytes", "smaller encoding", "more compact", "shorter instruction", "uses less code size"]
+hint = "Both set ZF the same way. Vandr always chooses the instruction that takes less space."
+explain = "<code>test rax, rax</code> is 3 bytes; <code>cmp rax, 0</code> is 4 bytes (or 7 for the 64-bit immediate form). Both set ZF identically. The byte savings compound across a large codebase — Vandr counts every byte of scale."
+
+[[lessons.exercises]]
+id = "s03-l01-e3"
+type = "fill"
+points = 20
+prompt = "Complete the comparison. After this, ZF=1 means rcx holds the value 10."
+code = '''
+____ rcx, 10       ; set ZF if rcx equals 10
+'''
+answer = "cmp"
+hint = "Three letters. The instruction that subtracts without storing the result."
+explain = "<code>cmp rcx, 10</code> computes rcx - 10, sets flags, discards the result. If rcx is 10, the difference is 0 and ZF=1."
+
+[[lessons.exercises]]
+id = "s03-l01-e4"
+type = "type"
+points = 12
+prompt = "Retype these flag-setting patterns. The comments state which flags are set and why."
+code = '''
+mov  rax, 5
+cmp  rax, 5        ; ZF=1 (equal)
+cmp  rax, 3        ; ZF=0, CF=0 (rax > 3 unsigned)
+cmp  rax, 8        ; ZF=0, CF=1 (rax < 8 unsigned)
+
+test rax, rax      ; ZF=0 (rax != 0)
+xor  rax, rax
+test rax, rax      ; ZF=1 (rax == 0)
+'''
+reps = 2
+
+[[lessons.exercises]]
+id = "s03-l01-w1"
+type = "write"
+points = 30
+prompt = "Test the touchstone. Load rax with 42, then use <code>cmp</code> against a threshold of 50. Use conditional jumps (which you just met in the lesson table — pick the right mnemonic) to print: <code>BELOW</code> if rax < 50, or <code>ABOVE</code> otherwise. Since 42 is below 50, the output must be <code>BELOW</code>. Use two separate code paths with labels, one jump, and one sys_write call — the program must branch, not always print the same thing."
+starter = '''
+section .text
+    global _start
+
+_start:
+    mov rax, 42
+    cmp rax, 50
+    ; If rax < 50 (signed), jump to .below
+    ; Otherwise, print "ABOVE" and exit
+
+.above:
+    ; Print the high-path label, then exit
+    
+
+.below:
+    ; Print the low-path label, then exit
+    
+
+section .data
+msg_below: db 'B', 'E', 'L', 'O', 'W', 10
+msg_below_len equ $ - msg_below
+msg_above: db 'A', 'B', 'O', 'V', 'E', 10
+msg_above_len equ $ - msg_above
+'''
+expect = '''
+BELOW'''
+hint = "42 < 50, so the signed 'less than' jump should fire. Use jl .below (jump if less). If 42 >= 50, execution falls through to .above. Make sure .above falls through to exit if jumped over — or use jmp to skip .below from .above."

@@ -1,0 +1,80 @@
+[[lessons]]
+id = "s08-l03"
+title = "The Item's Look — Model JSON & Texture"
+body = '''
+<p>The model JSON tells the renderer what to draw; the texture is the picture it draws. For a flat item (an ingot), the model inherits Minecraft's <code>item/generated</code> parent and points one texture layer at your PNG:</p>
+<pre><code>{
+  <span class="s">"parent"</span>: <span class="s">"item/generated"</span>,
+  <span class="s">"textures"</span>: {
+    <span class="s">"layer0"</span>: <span class="s">"ironwright:items/iron"</span>
+  }
+}</code></pre>
+<p>This file lives at <code>assets/ironwright/models/item/iron.json</code> (the path the resource location <code>ironwright:iron</code> resolves to). The <code>parent</code> <code>item/generated</code> is Minecraft's built-in model for a flat 2D item — it handles the rendering math; you only supply the texture. <code>layer0</code> is the texture key the parent expects; its value <code>ironwright:items/iron</code> points at <code>assets/ironwright/textures/items/iron.png</code>.</p>
+<p>The texture itself is a <strong>16×16 pixel PNG</strong> (the block-world's texture unit). You draw it in any image editor — a grey ingot shape on a transparent background, say. Save it as <code>iron.png</code> in <code>assets/ironwright/textures/items/</code>. Transparency works: the empty pixels stay empty in-game.</p>
+<div class="callout"><strong>Orrick says:</strong> The texture path's middle segment (<code>items/</code>) tells the game it is an item texture; block textures use <code>blocks/</code>. Mismatch them and the renderer hunts in the wrong folder and falls back to the missing-texture purple. The folder name is part of the path.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // item/generated VS item/handheld</div>
+<p><code>item/generated</code> renders the texture flat, as held in the inventory. <code>item/handheld</code> applies a slight rotation so the item sits in the hand like a tool. An ingot uses <code>item/generated</code>; a pickaxe would use <code>item/handheld</code> (with <code>item/handheld</code> as parent and the same <code>layer0</code>). The parent is the inheritance of models — your model <code>extends</code> Minecraft's, overriding only the texture.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s08-l03-e1"
+type = "mc"
+points = 15
+prompt = "A flat item like an ingot uses which model <code>parent</code> — the built-in that handles the 2D rendering math?"
+choices = ["item/generated", "block/cube_all", "item/handheld", "minecraft:stone"]
+answer = 0
+whyWrong = "item/generated is the parent for flat 2D items (an ingot); item/handheld is for tools (a pickaxe) that sit in the hand with rotation; block/cube_all is for cube blocks (Forgework IX); minecraft:stone is a specific block model. A flat ingot uses item/generated."
+hint = "It is the parent named for being flat/generated — item slash generated. (handheld is for tools; cube_all is for blocks.)"
+explain = "item/generated renders the texture flat. Your model inherits it and supplies only layer0 — the parent does the rendering math."
+
+[[lessons.exercises]]
+id = "s08-l03-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the texture key the item/generated parent expects you to set (the one pointing at your PNG)."
+code = '''{
+  "parent": "item/generated",
+  "textures": {
+    "____": "ironwright:items/iron"
+  }
+}'''
+answer = "layer0"
+whyWrong = "layer0 is the texture key item/generated reads; layer1 is a second layer (not used for a single-texture item), all is a block key (cube_all), particle is for block-breaking particles. The flat-item texture key is layer0."
+hint = "It is layer + the digit zero — the first (and here only) texture layer the parent renders."
+
+[[lessons.exercises]]
+id = "s08-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the whole model JSON exactly — the parent, the textures object, and the layer0 pointing at the iron texture."
+code = '''{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "ironwright:items/iron"
+  }
+}'''
+
+[[lessons.exercises]]
+id = "s08-l03-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of the model JSON line. The starter sets <code>String modid = \"ironwright\";</code> and <code>String name = \"iron\";</code>. Print exactly <code>{\"parent\":\"item/generated\",\"textures\":{\"layer0\":\"ironwright:items/iron\"}}</code> by joining literals with <code>modid</code> and <code>name</code> so the layer0 value is <code>&lt;modid&gt;:items/&lt;name&gt;</code>. Read modid and name from the variables."
+starter = '''public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright";
+        String name = "iron";
+        // apprentice — print the model JSON with layer0 = "<modid>:items/<name>"
+    }
+}'''
+expect = '''
+{"parent":"item/generated","textures":{"layer0":"ironwright:items/iron"}}'''
+hint = "System.out.println(\"{\\\"parent\\\":\\\"item/generated\\\",\\\"textures\\\":{\\\"layer0\\\":\\\"\" + modid + \":items/\" + name + \"\\\"}}\");"
+
+[[lessons.exercises]]
+id = "s08-l03-t1"
+type = "text"
+points = 20
+prompt = "What pixel dimension must an item texture PNG be? (Type the dimension as N×N — the block-world's texture unit.)"
+answer = "16x16"
+hint = "It is the block-world's standard texture unit — sixteen by sixteen pixels."

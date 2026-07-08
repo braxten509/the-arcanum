@@ -1,0 +1,75 @@
+[[lessons]]
+id = "s10-l02"
+title = "Benching the Ironwork — setCreativeTab"
+body = '''
+<p>The bench exists; now put the ironwork on it. Each item and block calls <code>setCreativeTab(IronwrightTab.INSTANCE)</code> in its constructor, and it lands in your tab. Swap the <code>CreativeTabs.MATERIALS</code> from Forgework VIII and the <code>CreativeTabs.BUILDING_BLOCKS</code> from Forgework IX for your own bench:</p>
+<pre><code><span class="c">// in ItemIngot's constructor (was CreativeTabs.MATERIALS):</span>
+setCreativeTab(IronwrightTab.INSTANCE);
+
+<span class="c">// in BlockMetal's constructor (was CreativeTabs.BUILDING_BLOCKS):</span>
+setCreativeTab(IronwrightTab.INSTANCE);</code></pre>
+<p>One line per class, in the constructor, after the registry and unlocalized names. After the swap, the three ingots and the starsteel block all appear under the Ironwright tab in the creative inventory — gathered in one place, not scattered across vanilla's tabs. The tab is the smith's bench; <code>setCreativeTab</code> is how a piece takes its seat.</p>
+<p>An item with no <code>setCreativeTab</code> call never appears in any creative tab — it exists (you can <code>/give</code> it) but is invisible to a browsing player. Every item and block the player should find needs the call.</p>
+<div class="callout"><strong>Orrick says:</strong> Call <code>setCreativeTab</code> in the constructor, once, right after the names. Setting it later (in a registry handler, say) is too late for some tooling — the tab is read when the item is constructed. One line, one place.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // HIDDEN ITEMS</div>
+<p>Some items you do NOT want in the creative tab — a debug item, an internal component. For those, skip <code>setCreativeTab</code> (the item is give-only) or call <code>setCreativeTab(null)</code> after construction to hide an item that would otherwise inherit a tab. Most of your ironwork takes the bench; the few that should not, do not call it.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s10-l02-e1"
+type = "mc"
+points = 15
+prompt = "An <code>ItemIngot</code> is registered and modeled, but its constructor never calls <code>setCreativeTab</code>. What is the symptom?"
+choices = ["the item does not exist", "the item exists (giveable by /give) but never appears in any creative tab — invisible to a browsing player", "the game crashes", "the item has no texture"]
+answer = 1
+whyWrong = "Without setCreativeTab the item still exists and is giveable, but it is not in any creative tab, so a browsing player never sees it; it does not cease to exist, the game does not crash, and the texture is a separate (model) concern. setCreativeTab is the inventory-visibility call."
+hint = "Think about what setCreativeTab gives an item — presence in which screen?"
+explain = "setCreativeTab puts the item in a creative tab. Skip it and the item is give-only, never browsed. One call in the constructor makes it visible."
+
+[[lessons.exercises]]
+id = "s10-l02-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the method that puts an item or block into a creative tab (called in the constructor, after the names)."
+code = '''public ItemIngot(String name) {
+    setRegistryName(Ironwright.MODID, name);
+    setUnlocalizedName(Ironwright.MODID + "." + name);
+    ____(IronwrightTab.INSTANCE);
+}'''
+answer = "setCreativeTab"
+whyWrong = "setCreativeTab assigns the item to a tab; setTab is not the method, setIcon is not real, setTabName is not a method. The tab-assignment call is setCreativeTab."
+hint = "It is set + Creative + Tab — the method that seats an item on its bench."
+
+[[lessons.exercises]]
+id = "s10-l02-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of benching items. The starter has a mock <code>Tab</code> class with an <code>addItem(Item)</code> method and a <code>count()</code> method, and a mock <code>Item</code> with a <code>setCreativeTab(Tab)</code> method that calls <code>tab.addItem(this)</code>. In <code>main</code>, build <code>Tab bench = new Tab();</code>, construct three items — <code>new Item(\"iron\")</code>, <code>new Item(\"copper\")</code>, <code>new Item(\"starsteel\")</code> — call <code>setCreativeTab(bench)</code> on each, then print <code>TAB </code> plus <code>bench.count()</code>. The expected output is exactly <code>TAB 3</code>; read the count from count(), do not type 3."
+starter = '''public class Ironwright {
+    static class Tab {
+        private int c = 0;
+        public void addItem(Item i) { c++; }
+        public int count() { return c; }
+    }
+    static class Item {
+        private String name;
+        private Tab tab;
+        public Item(String n) { name = n; }
+        public void setCreativeTab(Tab t) { this.tab = t; t.addItem(this); }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — build a Tab, construct 3 Items, setCreativeTab(bench) on each, print "TAB " + bench.count()
+    }
+}'''
+expect = '''
+TAB 3'''
+hint = "Tab bench = new Tab(); then for each: Item iron = new Item(\"iron\"); iron.setCreativeTab(bench); ... System.out.println(\"TAB \" + bench.count());"
+
+[[lessons.exercises]]
+id = "s10-l02-t1"
+type = "text"
+points = 20
+prompt = "Where in an item's code should setCreativeTab be called? (One short phrase: in which method, after what?)"
+answer = "in the constructor, after the names"
+hint = "It is one line in the constructor — right after setRegistryName and setUnlocalizedName."

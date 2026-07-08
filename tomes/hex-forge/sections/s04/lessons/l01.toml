@@ -1,0 +1,114 @@
+[[lessons]]
+id = "s04-l01"
+title = "The Casting Floor — .data and .bss"
+body = '''
+<p>A smith needs somewhere to place the ore before striking. In NASM, that surface is memory — divided into two vats: <code>section .data</code> for known alloy, and <code>section .bss</code> for empty space reserved before the hammer falls.</p>
+
+<p><code>section .data</code> holds <strong>initialised</strong> bytes — values known at assembly time and baked into the executable:</p>
+<pre><code><span class="k">section</span> .data
+signature:   <span class="k">db</span> <span class="s">"HexForge"</span>, 0    <span class="c">; string + null terminator — Define Byte</span>
+version:     <span class="k">dw</span> 1                     <span class="c">; 16-bit word (2 bytes)</span>
+max_offset:  <span class="k">dd</span> 0xFFFFFFFF            <span class="c">; 32-bit doubleword (4 bytes)</span>
+base_addr:   <span class="k">dq</span> 0x400000              <span class="c">; 64-bit quadword (8 bytes)</span></code></pre>
+
+<table style="width:100%">
+<tr><td><strong>Directive</strong></td><td><strong>Name</strong></td><td><strong>Size</strong></td></tr>
+<tr><td><code>db</code></td><td>Define Byte</td><td>1 byte</td></tr>
+<tr><td><code>dw</code></td><td>Define Word</td><td>2 bytes</td></tr>
+<tr><td><code>dd</code></td><td>Define Doubleword</td><td>4 bytes</td></tr>
+<tr><td><code>dq</code></td><td>Define Quadword</td><td>8 bytes</td></tr>
+</table>
+
+<p><code>section .bss</code> (Block Started by Symbol) holds <strong>uninitialised</strong> space — reserved at link time, zero-filled by the kernel at load. The executable does not carry these bytes; it only records how many to allocate:</p>
+<pre><code><span class="k">section</span> .bss
+byte_buf:    <span class="k">resb</span> 4096          <span class="c">; reserve 4096 bytes</span>
+word_buf:    <span class="k">resw</span> 10            <span class="c">; reserve 10 words (20 bytes)</span>
+dword_buf:   <span class="k">resd</span> 8             <span class="c">; reserve 8 doublewords (32 bytes)</span>
+qword_buf:   <span class="k">resq</span> 4             <span class="c">; reserve 4 quadwords (32 bytes)</span></code></pre>
+
+<p>Why two sections? <code>.data</code> is part of the executable file — it takes space on disk. <code>.bss</code> is NOT in the file — the kernel maps zero-filled pages at load time. For a 64 KB buffer, <code>.data</code> would add 64 KB to the executable; <code>.bss</code> adds zero bytes. Always put large buffers in <code>.bss</code>.</p>
+
+<p>The difference is also <strong>load-bearing for HexForge:</strong> the input buffer that holds bytes read from a file or stdin must live in <code>.bss</code> — it is modified at runtime by <code>sys_read</code>, and its initial content does not matter. The output strings (prompts, format headers) live in <code>.data</code> — they are constants, never modified.</p>
+
+<p><code>times</code> repeats a data declaration:</p>
+<pre><code><span class="k">times</span> 16 <span class="k">db</span> 0            <span class="c">; 16 zero bytes — equivalent to resb 16 in .bss</span>
+<span class="k">times</span> 8  <span class="k">dw</span> 0x9090        <span class="c">; 8 NOP words (common in shellcode padding)</span></code></pre>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // BSS ZEROING IS A KERNEL PROMISE</div>
+<p>The Linux kernel zeroes BSS pages before handing control to <code>_start</code>. You can rely on every <code>resb</code> byte being zero at program entry. This is not true for stack memory or heap memory (if you had a heap) — those hold whatever the previous owner left. The zero-fill guarantee makes <code>.bss</code> the correct home for counters, accumulators, and buffers that must start clean. Also: <code>.bss</code> cannot contain initialised data — <code>resb 10</code> is valid, <code>db 0,0,0</code> in .bss is not. NASM will error if you put <code>db</code>/<code>dw</code>/<code>dd</code>/<code>dq</code> inside <code>section .bss</code>.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s04-l01-e1"
+type = "mc"
+points = 15
+prompt = "Why should a large input buffer (e.g. 4096 bytes) live in <code>section .bss</code> rather than <code>section .data</code>?"
+choices = [
+  "BSS access is faster — the kernel maps it into CPU cache at load time",
+  "BSS memory can be freed with sys_free, while .data memory is permanent",
+  "Data section bytes must be manually zeroed; BSS bytes are automatically initialised to known values",
+  "BSS is not stored in the executable file — the kernel allocates zero-filled pages at load time, keeping the binary small"
+]
+answer = 3
+whyWrong = "BSS is not inherently faster — both .data and .bss live in the same virtual address space. There is no sys_free for either. .data bytes DO carry initial values — that's the point. The key difference is disk footprint: 4096 bytes in .data adds 4 KB to the binary; in .bss it adds a single allocation record."
+hint = "Think about what goes into the ELF file on disk vs. what the kernel sets up at load time."
+explain = "BSS occupies no space in the executable file. The ELF header records its size, and the kernel maps anonymous zero-filled pages to cover it at load time. For a 64 KB buffer, this saves 64 KB of binary size. The kernel also guarantees those pages are zeroed — no manual memset needed."
+
+[[lessons.exercises]]
+id = "s04-l01-e2"
+type = "text"
+points = 20
+prompt = "Write the NASM directive that reserves 256 bytes of uninitialised space named <code>buffer</code> in the BSS section."
+answer = "resb 256"
+accept = ["buffer: resb 256", "resb 256 ; buffer"]
+hint = "Four letters — 'reserve byte'. The label goes before it, colon optional."
+explain = "<code>buffer: resb 256</code> inside <code>section .bss</code> reserves 256 bytes of zero-initialised memory. The label <code>buffer</code> becomes the address of the first byte. At runtime, all 256 bytes start at zero."
+
+[[lessons.exercises]]
+id = "s04-l01-e3"
+type = "fill"
+points = 20
+prompt = "Complete the directive that stores a 64-bit address constant in the data section."
+code = '''
+section .data
+default_ptr: ____ 0x400000
+'''
+answer = "dq"
+hint = "Two letters — Define Quadword. The 8-byte directive."
+explain = "<code>dq</code> stores 8 bytes (64 bits). An address like 0x400000 fits in 64 bits. If you used <code>dd</code> (4 bytes), the upper 32 bits of the address would be truncated — a bug that only manifests when addresses exceed 4 GB."
+
+[[lessons.exercises]]
+id = "s04-l01-w1"
+type = "write"
+points = 30
+prompt = "Declare and use both sections. Create a <code>.data</code> string <code>\"INPUT:\"</code> followed by a space (7 bytes total, no newline). Create a <code>.bss</code> buffer <code>resb</code> 16 bytes named <code>scratch</code>. Print the string <code>INPUT: </code>, then print the first byte of <code>scratch</code> (which is zero because .bss is zero-filled) as a digit — it should print <code>0</code>. Output: <code>INPUT: 0</code> followed by a newline."
+starter = '''
+section .text
+    global _start
+
+_start:
+    ; Print the .data string "INPUT: "
+    
+
+    ; Load the first byte of scratch (it should be 0 from BSS)
+    ; Convert it to ASCII digit and store in outbuf
+    
+
+    ; Print outbuf + newline
+    
+
+    ; Exit
+    
+
+section .data
+prompt_str: db "INPUT: "
+prompt_len equ $ - prompt_str
+outbuf: db 0, 10
+outbuf_len equ $ - outbuf
+
+section .bss
+scratch: resb 16
+'''
+expect = '''
+INPUT: 0'''
+hint = "After printing prompt_str, do: mov al, [scratch] / add al, '0' / mov [outbuf], al. Then sys_write outbuf (2 bytes). Since BSS is zero-filled, [scratch] reads as 0, add '0' gives '0' (ASCII 48). Print to confirm the kernel's zeroing guarantee."

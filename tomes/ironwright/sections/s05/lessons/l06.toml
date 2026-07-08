@@ -1,0 +1,84 @@
+[[lessons]]
+id = "s05-l06"
+title = "The Named Metals — Enums"
+body = '''
+<p>Iron, copper, starsteel — a fixed set of metals, each with a value and a melt point. When the set of valid values is closed and known, Java's <code>enum</code> is the right tool: a class with a fixed list of instances, one per value.</p>
+<pre><code><span class="k">public enum</span> Metal {
+    IRON(<span class="s">8</span>, <span class="s">1500</span>),
+    COPPER(<span class="s">6</span>, <span class="s">1085</span>),
+    STARSTEEL(<span class="s">20</span>, <span class="s">2200</span>);
+
+    <span class="k">private final int</span> value;
+    <span class="k">private final int</span> meltPoint;
+
+    Metal(<span class="k">int</span> value, <span class="k">int</span> meltPoint) {
+        <span class="k">this</span>.value = value;
+        <span class="k">this</span>.meltPoint = meltPoint;
+    }
+    <span class="k">public int</span> getValue() { <span class="k">return</span> value; }
+    <span class="k">public int</span> getMeltPoint() { <span class="k">return</span> meltPoint; }
+}</code></pre>
+<p>The constants <code>IRON</code>, <code>COPPER</code>, <code>STARSTEEL</code> are the only instances that ever exist — written uppercase by convention, separated by commas, ended with a semicolon before the fields. The constructor runs once per constant (you do not call <code>new</code>); each constant carries its own field values. Access them as <code>Metal.COPPER.getValue()</code> — 6. <code>Metal.values()</code> returns the array of all constants; <code>Metal.valueOf("IRON")</code> returns <code>Metal.IRON</code> (and throws <code>IllegalArgumentException</code> for a name that is not a constant).</p>
+<p>An enum is a class with extras: it can have fields, methods, and constructors (private by default — you never call them outside the enum). You can <code>switch</code> on an enum without qualifying the case labels (<code>case IRON:</code> not <code>case Metal.IRON:</code>). Because the set is closed, the compiler can warn you about an unhandled case — a switch no constant matches.</p>
+<div class="callout"><strong>Orrick says:</strong> Use an enum when the set of values is fixed and known up front. Use a class when new values appear at runtime (a Registry of player-forged ingots, say). The Metals are eternal; the ingots are struck and struck again.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ENUMS IN THE MOD</div>
+<p>Minecraft is full of enums: <code>EnumFacing</code> (DOWN, UP, NORTH, SOUTH, WEST, EAST), <code>EnumHand</code> (MAIN_HAND, OFF_HAND), <code>BlockStone.EnumType</code>. Forge events hand you these and you switch on them. The Metal enum you write here is the rehearsal — fixed values, each carrying data, switched on by name.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s05-l06-e1"
+type = "mc"
+points = 15
+prompt = "After the enum above is defined, how do you get the ember value of copper?"
+choices = ["new Metal(\"copper\").getValue()", "Metal.getValue(\"copper\")", "Metal.COPPER.getValue()", "COPPER.value"]
+answer = 2
+whyWrong = "Enum constants are accessed as Metal.COPPER (the class name dot the constant), and getValue() is called on that instance; you never call new on an enum, Metal.getValue is not static, and COPPER.value reaches a private field from outside. The constant is a static instance — Metal.COPPER."
+hint = "Think about how you refer to an enum constant — and whose getValue you call."
+explain = "Metal.COPPER is the one copper instance; .getValue() returns 6. Enum constants are static fields on the enum class."
+
+[[lessons.exercises]]
+id = "s05-l06-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the enum constant for starsteel (uppercase, as enum constants are written)."
+code = '''public enum Metal {
+    IRON(8, 1500),
+    COPPER(6, 1085),
+    ____(20, 2200);
+}'''
+answer = "STARSTEEL"
+whyWrong = "STARSTEEL is the constant named in the domain model; starsteel (lowercase) violates the UPPER_CASE enum convention and would not match valueOf('STARSTEEL'), Starsteel mixes case. The constant is uppercase."
+hint = "It is the metal's name in uppercase — the alloy worth 20 embers."
+
+[[lessons.exercises]]
+id = "s05-l06-w1"
+type = "write"
+points = 30
+prompt = "The <code>Metal</code> enum is in the starter. In <code>main</code>, print one line for <code>Metal.COPPER</code> joining <code>Metal.COPPER.name()</code>, a space, <code>Metal.COPPER.getValue()</code>, a space, and <code>Metal.COPPER.getMeltPoint()</code>. The expected output is exactly <code>COPPER 6 1085</code>."
+starter = '''public class Ironwright {
+    enum Metal {
+        IRON(8, 1500),
+        COPPER(6, 1085),
+        STARSTEEL(20, 2200);
+        private final int value;
+        private final int meltPoint;
+        Metal(int value, int meltPoint) { this.value = value; this.meltPoint = meltPoint; }
+        public int getValue() { return value; }
+        public int getMeltPoint() { return meltPoint; }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — print Metal.COPPER.name() + " " + getValue() + " " + getMeltPoint()
+    }
+}'''
+expect = '''
+COPPER 6 1085'''
+hint = "System.out.println(Metal.COPPER.name() + \" \" + Metal.COPPER.getValue() + \" \" + Metal.COPPER.getMeltPoint());"
+
+[[lessons.exercises]]
+id = "s05-l06-t1"
+type = "text"
+points = 20
+prompt = "Type the static method that returns an array of every constant in an enum (e.g. calling Metal.____() gives [IRON, COPPER, STARSTEEL])."
+answer = "values"
+hint = "It is the six-letter plural English word — the method that hands back all enum constants as an array."

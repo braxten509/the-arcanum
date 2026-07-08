@@ -1,0 +1,610 @@
+# SPELL DUEL challenge bank. Difficulty = tier order (1..N).
+# Each stage's `expect` is the COMPLETE required stdout at that stage; demands strictly
+# append lines — stages[n].expect == stages[n-1].expect + new lines, never edits.
+# Machine-generated from attacks_src.toml by tools/gen_attacks.py — regenerate, don't hand-edit.
+
+# ---- difficulty 1
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE COLD PARCHMENT"
+starter = '''
+use v5.36;
+
+my $iron = 8;
+my $copper = 6;
+my $gold = 20;
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Strike the first sign-mark. Say «INK iron @ 8», «INK copper @ 6», «INK gold @ 20» — woven from the variables, values not hardcoded."
+expect = '''
+INK iron @ 8
+INK copper @ 6
+INK gold @ 20'''
+
+[[tiers.pool.stages]]
+brief = "Append «TOTAL <iron+copper+gold>» and «SPREAD <gold-iron>» — both computed from the scalars."
+expect = '''
+INK iron @ 8
+INK copper @ 6
+INK gold @ 20
+TOTAL 34
+SPREAD 12'''
+
+[[tiers.pool.stages]]
+brief = "Append «LABEL gold» from the gold scalar's name in the prompt and «PARCHMENT SET»."
+expect = '''
+INK iron @ 8
+INK copper @ 6
+INK gold @ 20
+TOTAL 34
+SPREAD 12
+LABEL gold
+PARCHMENT SET'''
+
+[[tiers.pool]]
+t = "THE INK FOUNTAIN"
+starter = '''
+use v5.36;
+
+my $word = "scriptorium";
+my $count = 7;
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Measure the word. Say «WORD $word» and «LENGTH <length of $word>» — computed from the variable."
+expect = '''
+WORD scriptorium
+LENGTH 11'''
+
+[[tiers.pool.stages]]
+brief = "Append «COPIES $count» and «SHELVES <length * count>» (letters across all copies, computed)."
+expect = '''
+WORD scriptorium
+LENGTH 11
+COPIES 7
+SHELVES 77'''
+
+[[tiers.pool.stages]]
+brief = "Append «MARK <word>-<count>» using string joining, then «INK FOUNTAIN READY»."
+expect = '''
+WORD scriptorium
+LENGTH 11
+COPIES 7
+SHELVES 77
+MARK scriptorium-7
+INK FOUNTAIN READY'''
+
+[[tiers.pool]]
+t = "THE SIGN-MARK TALLY"
+starter = '''
+use v5.36;
+
+my $quills = 5;
+my $leaves = 8;
+my $verses = 3;
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Count the tools. Say «QUILLS $quills», «LEAVES $leaves», «VERSES $verses» from the variables."
+expect = '''
+QUILLS 5
+LEAVES 8
+VERSES 3'''
+
+[[tiers.pool.stages]]
+brief = "Append «SCRIPTS <quills * leaves * verses>» (the total glyph-work, computed)."
+expect = '''
+QUILLS 5
+LEAVES 8
+VERSES 3
+SCRIPTS 120'''
+
+[[tiers.pool.stages]]
+brief = "Append «STOCK <quills+leaves+verses>» and «GLYPHS READY»."
+expect = '''
+QUILLS 5
+LEAVES 8
+VERSES 3
+SCRIPTS 120
+STOCK 16
+GLYPHS READY'''
+
+# ---- difficulty 2
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE CLASSIFYING LENS"
+starter = '''
+use v5.36;
+
+my $first  = "# Prologue";
+my $second = "";
+my $third  = "The scribe set down his quill.";
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Classify $first. Say «LINE 1 HEADING» or «LINE 1 BLANK» or «LINE 1 BODY» — if it starts with '#' it is a heading, if empty it is blank, else body."
+expect = "LINE 1 HEADING"
+
+[[tiers.pool.stages]]
+brief = "Append the classification for the second line: «LINE 2» and its kind."
+expect = '''
+LINE 1 HEADING
+LINE 2 BLANK'''
+
+[[tiers.pool.stages]]
+brief = "Append the classification for the third line: «LINE 3» and its kind, then «LENS COMPLETE»."
+expect = '''
+LINE 1 HEADING
+LINE 2 BLANK
+LINE 3 BODY
+LENS COMPLETE'''
+
+[[tiers.pool]]
+t = "THE CALLIGRAPHY LOOP"
+starter = '''
+use v5.36;
+
+my $stanzas = 4;
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Loop the first two stanzas. Say «CANTO 1» and «CANTO 2»."
+expect = '''
+CANTO 1
+CANTO 2'''
+
+[[tiers.pool.stages]]
+brief = "Append the remaining stanzas: «CANTO 3» and «CANTO 4»."
+expect = '''
+CANTO 1
+CANTO 2
+CANTO 3
+CANTO 4'''
+
+[[tiers.pool.stages]]
+brief = "Append «CANTOS 4» from the count scalar and «CALLIGRAPHY DONE»."
+expect = '''
+CANTO 1
+CANTO 2
+CANTO 3
+CANTO 4
+CANTOS 4
+CALLIGRAPHY DONE'''
+
+[[tiers.pool]]
+t = "THE SCRIBE'S HELPER"
+starter = '''
+use v5.36;
+
+sub ink_cost {
+    my ($leaves, $rate) = @_;
+    return $leaves * $rate;
+}
+
+my $leaves = 12;
+my $rate   = 3;
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Call the helper. Say «COST <ink_cost($leaves, $rate)>sp» and «RATE ${rate}sp/leaf» — computed."
+expect = '''
+COST 36sp
+RATE 3sp/leaf'''
+
+[[tiers.pool.stages]]
+brief = "Append «DOUBLE <ink_cost($leaves * 2, $rate)>sp» (double the leaves, same rate, computed)."
+expect = '''
+COST 36sp
+RATE 3sp/leaf
+DOUBLE 72sp'''
+
+[[tiers.pool.stages]]
+brief = "Append «TRIPLE <ink_cost($leaves * 3, $rate)>sp» and «HELPER SEALED»."
+expect = '''
+COST 36sp
+RATE 3sp/leaf
+DOUBLE 72sp
+TRIPLE 108sp
+HELPER SEALED'''
+
+# ---- difficulty 3
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE SHELF AUDIT"
+starter = '''
+use v5.36;
+
+my @titles = qw(Prologue Chapter_I Epilogue);
+my @counts = (240, 510, 130);
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Walk the paired shelves. For each pair, say «PAGE <title> <count>w» on its own line."
+expect = '''
+PAGE Prologue 240w
+PAGE Chapter_I 510w
+PAGE Epilogue 130w'''
+
+[[tiers.pool.stages]]
+brief = "Append «TOTAL <sum of all counts>w» — computed from the array."
+expect = '''
+PAGE Prologue 240w
+PAGE Chapter_I 510w
+PAGE Epilogue 130w
+TOTAL 880w'''
+
+[[tiers.pool.stages]]
+brief = "Append «LONGEST <title of the page with the most words>» and «AUDIT COMPLETE»."
+expect = '''
+PAGE Prologue 240w
+PAGE Chapter_I 510w
+PAGE Epilogue 130w
+TOTAL 880w
+LONGEST Chapter_I
+AUDIT COMPLETE'''
+
+[[tiers.pool]]
+t = "THE LEDGER WALK"
+starter = '''
+use v5.36;
+
+my @names  = qw(ink glyph script codex quill);
+my @values = (42, 17, 8, 31, 55);
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Walk the paired arrays in order. For each entry, say «<name> <value>sp» on its own line."
+expect = '''
+ink 42sp
+glyph 17sp
+script 8sp
+codex 31sp
+quill 55sp'''
+
+[[tiers.pool.stages]]
+brief = "Append «SUPPLY <total sum of all values>sp» — computed from the values array."
+expect = '''
+ink 42sp
+glyph 17sp
+script 8sp
+codex 31sp
+quill 55sp
+SUPPLY 153sp'''
+
+[[tiers.pool.stages]]
+brief = "Append «DEAREST <name with highest value>» and «<that value>sp» (computed) and «LEDGER SEALED»."
+expect = '''
+ink 42sp
+glyph 17sp
+script 8sp
+codex 31sp
+quill 55sp
+SUPPLY 153sp
+DEAREST quill
+55sp
+LEDGER SEALED'''
+
+[[tiers.pool]]
+t = "THE CODEX COUNT"
+starter = '''
+use v5.36;
+
+my @words = qw(ink glyph ink codex script glyph ink);
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Walk the words in order. For each one, say «WORD <position> <word>» on its own line."
+expect = '''
+WORD 1 ink
+WORD 2 glyph
+WORD 3 ink
+WORD 4 codex
+WORD 5 script
+WORD 6 glyph
+WORD 7 ink'''
+
+[[tiers.pool.stages]]
+brief = "Append «ENTRIES <count of words>» and «FIRST <first word>» — both read from the array."
+expect = '''
+WORD 1 ink
+WORD 2 glyph
+WORD 3 ink
+WORD 4 codex
+WORD 5 script
+WORD 6 glyph
+WORD 7 ink
+ENTRIES 7
+FIRST ink'''
+
+[[tiers.pool.stages]]
+brief = "Append the computed counts «INK <n>», «GLYPH <n>», «SCRIPT <n>», «CODEX <n>», then «CODEX COUNT SEALED»."
+expect = '''
+WORD 1 ink
+WORD 2 glyph
+WORD 3 ink
+WORD 4 codex
+WORD 5 script
+WORD 6 glyph
+WORD 7 ink
+ENTRIES 7
+FIRST ink
+INK 3
+GLYPH 2
+SCRIPT 1
+CODEX 1
+CODEX COUNT SEALED'''
+
+# ---- difficulty 4
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE COUNTING LEDGER"
+starter = '''
+use v5.36;
+
+my @kinds = qw(HEAD TEXT HEAD BLANK TEXT);
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Count the kinds with a hash. Say each tally in sorted key order: «<kind> <count>»."
+expect = '''
+BLANK 1
+HEAD 2
+TEXT 2'''
+
+[[tiers.pool.stages]]
+brief = "Append «TOTAL <total rows>» and «KINDS <number of hash keys>» — both computed."
+expect = '''
+BLANK 1
+HEAD 2
+TEXT 2
+TOTAL 5
+KINDS 3'''
+
+[[tiers.pool.stages]]
+brief = "Append «DOMINANT <kind with highest count>» and «LEDGER SEALED»."
+expect = '''
+BLANK 1
+HEAD 2
+TEXT 2
+TOTAL 5
+KINDS 3
+DOMINANT HEAD
+LEDGER SEALED'''
+
+[[tiers.pool]]
+t = "THE LOOKUP PRESS"
+starter = '''
+use v5.36;
+
+my %titles = (
+    preface  => "Preface",
+    appendix => "Appendix",
+    addendum => "Addendum",
+);
+my @order = qw(addendum preface appendix);
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Walk @order and look up each title. Say «<id> => <title>» on its own line."
+expect = '''
+addendum => Addendum
+preface => Preface
+appendix => Appendix'''
+
+[[tiers.pool.stages]]
+brief = "Append «FOUND 3» and «FIRST addendum» — computed from the order array."
+expect = '''
+addendum => Addendum
+preface => Preface
+appendix => Appendix
+FOUND 3
+FIRST addendum'''
+
+[[tiers.pool.stages]]
+brief = "Append «HAS glossary» or «MISSING glossary», then «MISSING body», then «LOOKUP SEALED»."
+expect = '''
+addendum => Addendum
+preface => Preface
+appendix => Appendix
+FOUND 3
+FIRST addendum
+MISSING glossary
+MISSING body
+LOOKUP SEALED'''
+
+[[tiers.pool]]
+t = "THE INDEX LEDGER"
+starter = '''
+use v5.36;
+
+my %counts = (
+    glyph  => 23,
+    ink    => 47,
+    script => 8,
+    scribe => 31,
+    codex  => 15,
+);
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Walk the hash in sorted key order. Say «<key> <value>» on each line."
+expect = '''
+codex 15
+glyph 23
+ink 47
+scribe 31
+script 8'''
+
+[[tiers.pool.stages]]
+brief = "Append «TOTAL <sum of values>» and «TOP <key with highest value>» — computed."
+expect = '''
+codex 15
+glyph 23
+ink 47
+scribe 31
+script 8
+TOTAL 124
+TOP ink'''
+
+[[tiers.pool.stages]]
+brief = "Append the keys whose values are above 20, one per line in sorted order, then «INDEX SEALED»."
+expect = '''
+codex 15
+glyph 23
+ink 47
+scribe 31
+script 8
+TOTAL 124
+TOP ink
+glyph
+ink
+scribe
+INDEX SEALED'''
+
+# ---- difficulty 5
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE PATTERN-GLYPH LENS"
+starter = '''
+use v5.36;
+
+my @lines = ("# Writforge", "", "**bold**, *italic*, plain.", "## The Binding", "[home](index)");
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Walk the lines and classify each by pattern: heading, blank, bold, link, or body. Say the classification and the line when present."
+expect = '''
+HEADING: # Writforge
+BLANK
+BOLD: **bold**, *italic*, plain.
+HEADING: ## The Binding
+LINK: [home](index)'''
+
+[[tiers.pool.stages]]
+brief = "Append «MATCHES <total classified lines>» — computed from the loop."
+expect = '''
+HEADING: # Writforge
+BLANK
+BOLD: **bold**, *italic*, plain.
+HEADING: ## The Binding
+LINK: [home](index)
+MATCHES 5'''
+
+[[tiers.pool.stages]]
+brief = "Append «H <n> B <n> D <n> K <n> L <n>» for Heading, Blank, bolD, body Kind, and Link, then «PATTERN SEALED»."
+expect = '''
+HEADING: # Writforge
+BLANK
+BOLD: **bold**, *italic*, plain.
+HEADING: ## The Binding
+LINK: [home](index)
+MATCHES 5
+H 2 B 1 D 1 K 0 L 1
+PATTERN SEALED'''
+
+[[tiers.pool]]
+t = "THE HEADING SCRY"
+starter = '''
+use v5.36;
+
+my @lines = ("# Prologue", "Some body text.", "## Chapter I", "", "### Appendix", "More body.", "# Epilogue");
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Walk the lines. Say «HEADING», «BLANK», or «BODY» for each line using regex matching."
+expect = '''
+HEADING
+BODY
+HEADING
+BLANK
+HEADING
+BODY
+HEADING'''
+
+[[tiers.pool.stages]]
+brief = "Append «HEADINGS <count>» — computed from the regex branches."
+expect = '''
+HEADING
+BODY
+HEADING
+BLANK
+HEADING
+BODY
+HEADING
+HEADINGS 4'''
+
+[[tiers.pool.stages]]
+brief = "Append «BLANKS <count>», «BODY <count>», and «SCRY SEALED»."
+expect = '''
+HEADING
+BODY
+HEADING
+BLANK
+HEADING
+BODY
+HEADING
+HEADINGS 4
+BLANKS 1
+BODY 2
+SCRY SEALED'''
+
+[[tiers.pool]]
+t = "THE LINK SHAPE"
+starter = '''
+use v5.36;
+
+my @lines = ("[home](index.html)", "plain text", "[codex](codex.html)", "# Heading", "");
+# THE FIRST BINDING is set. Further demands may arm as the glass runs.
+'''
+
+[[tiers.pool.stages]]
+brief = "Walk the lines. For each line, say «LINK <n>» if it has markdown link shape, otherwise «NO LINK <n>»."
+expect = '''
+LINK 1
+NO LINK 2
+LINK 3
+NO LINK 4
+NO LINK 5'''
+
+[[tiers.pool.stages]]
+brief = "Append «LINKS <count>» — computed from the regex matches."
+expect = '''
+LINK 1
+NO LINK 2
+LINK 3
+NO LINK 4
+NO LINK 5
+LINKS 2'''
+
+[[tiers.pool.stages]]
+brief = "Append «NONLINKS <count>» and «LINK SCAN SEALED»."
+expect = '''
+LINK 1
+NO LINK 2
+LINK 3
+NO LINK 4
+NO LINK 5
+LINKS 2
+NONLINKS 3
+LINK SCAN SEALED'''
+

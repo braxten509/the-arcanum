@@ -1,0 +1,125 @@
+[[lessons]]
+id = "s08-l02"
+title = "Packages with a Doorway"
+body = '''
+<p>Once Writforge starts carrying structured page records, the next problem is not syntax but shape. A single script can grow messy quickly, so the parser and renderer need their own names. In Perl, that means <code>package</code> gives the code a namespace, and the file that holds it should live where the namespace says it lives, such as <code>lib/Writforge/Parser.pm</code>.</p>
+<p>The file does not become a module by magic. It becomes one because it ends with <code>1;</code>, which tells <code>require</code> that loading succeeded. If the package also wants to offer selected helpers to the rest of the program, <code>Exporter</code> can publish only the names you choose through <code>@EXPORT_OK</code>. That keeps main code from importing everything just because it could.</p>
+<p><code>@INC</code> is the search shelf Perl walks when it looks for a module. A course like this usually adds <code>lib</code> to that shelf with <code>use lib 'lib';</code>, then loads the helper package from there. That is the clean version of the story: the top-level script orchestrates, the module parses, and the renderer transforms. Each role has one job.</p>
+<p>The split is worth learning early because it makes the eventual file layout feel obvious rather than arbitrary. Once the apprentice sees how a namespace names its file and how the search path reaches it, the move from one-file practice to real modules is much less dramatic. The code stops pretending that file names and package names are unrelated.</p>
+<p>Writforge benefits from that split even before the files are physically split on disk. A parser function can return a page record or a list of titles, and the renderer can accept those records without knowing which directory they came from. The apprentice should get used to naming the boundary now, because the final build is easier to understand when the code is already thinking in modules.</p>
+<pre><code>package Writforge::Parser;
+use v5.36;
+use Exporter 'import';
+
+our @EXPORT_OK = qw(parse_page);
+
+sub parse_page ($path) {
+    return { path =&gt; $path };
+}
+
+1;</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // PACKAGE DOORWAYS</div>
+<p><strong>Load note.</strong> A package name and a file path should agree on purpose. When they do, <code>use lib</code> and <code>@INC</code> become predictable instead of magical.</p>
+<p><strong>Export note.</strong> <code>@EXPORT_OK</code> is a permission list, not an obligation. It lets the caller ask for only the helpers it actually needs.</p>
+<p><strong>Boundary note.</strong> Even when the code still lives in one file during a lab, think in package-sized responsibilities now. The later split will be less painful.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perldoc: Exporter"
+url = "https://perldoc.perl.org/Exporter"
+
+[[lessons.readings]]
+label = "perldoc: perlmod"
+url = "https://perldoc.perl.org/perlmod"
+
+[[lessons.exercises]]
+id = "s08-l02-e1"
+type = "mc"
+points = 18
+prompt = "<p>What does the trailing <code>1;</code> do at the end of a module file?</p>"
+choices = ["It exports every sub automatically.", "It adds the file to <code>@INC</code>.", "It signals that the module loaded successfully.", "It turns the package into a hash."]
+answer = 2
+whyWrong = "You are confusing load success with exporting, search paths, or data structure conversion. The final true value is the module's load acknowledgement."
+hint = "The last expression in a module needs to evaluate true."
+explain = "A true final value tells Perl that the module loaded cleanly."
+
+[[lessons.exercises]]
+id = "s08-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "<p>Retype the minimal parser module exactly as written in the lesson.</p>"
+code = '''
+#!/usr/bin/env perl
+use v5.36;
+
+package Writforge::Parser;
+use v5.36;
+use Exporter 'import';
+
+our @EXPORT_OK = qw(parse_page);
+
+sub parse_page ($path) {
+    return { path => $path };
+}
+
+1;
+'''
+
+[[lessons.exercises]]
+id = "s08-l02-e2"
+type = "fill"
+points = 22
+prompt = "<p>Restore the export list that lets the parser publish only the helper the caller asked for.</p>"
+code = 'our ____ = qw(parse_page);'
+answer = "@EXPORT_OK"
+hint = "The blank is the array that names the module's optional exports."
+whyWrong = "You are reaching for the function name instead of the permission list. <code>@EXPORT_OK</code> is what controls which names can be imported."
+
+[[lessons.exercises]]
+id = "s08-l02-e3"
+type = "text"
+points = 18
+prompt = "<p>Why keep parser and renderer in separate packages instead of leaving every helper in <code>main</code>?</p>"
+answer = "because the parser should build page records while the renderer turns those records into html"
+accept = ["because the parser builds page records while the renderer turns them into html", "to keep parsing and rendering responsibilities separate", "so main only orchestrates"]
+hint = "Think about which responsibility belongs to each layer of the pipeline."
+whyWrong = "You are letting orchestration, parsing, and rendering blur together. The point of packages is to give each role a narrow job."
+
+[[lessons.exercises]]
+id = "s08-l02-w1"
+type = "write"
+points = 30
+prompt = "<p>The real project will keep this helper under <code>lib/Writforge/Parser.pm</code>, but this lab keeps the package inline so the one-file runtime can execute it. Fill the helper so it returns an arrayref of titles, print each title prefixed with \"- \", and finish with exactly <code>FOUND 2</code>.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+package Writforge::Parser;
+use v5.36;
+use Exporter 'import';
+
+our @EXPORT_OK = qw(page_titles);
+
+sub page_titles ($pages) {
+    return [];
+}
+
+1;
+
+package main;
+
+my @pages = (
+    { title => "Preface", slug => "preface" },
+    { title => "Appendix", slug => "appendix" },
+);
+
+my $titles = Writforge::Parser::page_titles(\@pages);
+
+# Task: print each title prefixed with "- ", then print the summary line requested.
+'''
+expect = '''
+- Preface
+- Appendix
+FOUND 2'''
+hint = "Walk the page array, collect just the titles into a new arrayref, and print the resulting list before the summary."

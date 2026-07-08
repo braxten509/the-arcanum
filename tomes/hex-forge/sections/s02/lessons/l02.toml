@@ -1,0 +1,102 @@
+[[lessons]]
+id = "s02-l02"
+title = "The Dividing Edge — idiv"
+body = '''
+<p>Division is the trickiest hammer swing in the entire forge — not because it is hard to understand, but because <code>idiv</code> reads its operands from <strong>fixed registers</strong> whether you like it or not.</p>
+
+<p>The <code>idiv</code> instruction divides the value in <code>rdx:rax</code> (a 128-bit combined dividend across two registers) by a single operand — a register or memory divisor. Result:</p>
+<ul>
+<li><strong>Quotient</strong> → stored in <code>rax</code></li>
+<li><strong>Remainder</strong> → stored in <code>rdx</code></li>
+</ul>
+
+<p>The divisor is the ONLY operand you write. Everything else is fixed:</p>
+<pre><code><span class="k">mov</span> rax, 100       <span class="c">; dividend (low 64 bits)</span>
+<span class="k">xor</span> rdx, rdx       <span class="c">; zero rdx — no high bits in the dividend</span>
+<span class="k">mov</span> rcx, 7         <span class="c">; divisor</span>
+<span class="k">idiv</span> rcx            <span class="c">; rax = 14 (quotient), rdx = 2 (remainder)</span></code></pre>
+
+<div class="callout"><p><strong>Always zero or sign-extend rdx before idiv.</strong> The CPU divides the FULL 128-bit rdx:rax by the divisor. If rdx holds stale bits from an earlier operation, your dividend is wrong and the result is wrong. This is the single most common flaw in forged-integer code.</p></div>
+
+<p>Before <code>idiv</code>, prepare rdx based on what kind of division you want:</p>
+<ul>
+<li><strong>Unsigned division of a positive value:</strong> <code>xor rdx, rdx</code> — zero the high 64 bits.</li>
+<li><strong>Signed division:</strong> <code>cqo</code> — sign-extend rax into rdx:rax. If rax is positive, rdx becomes 0; if rax is negative, rdx becomes all 1s (-1).</li>
+</ul>
+
+<p><code>cqo</code> (Convert Quadword to Octword) is a one-byte instruction that reads the sign bit of rax and fills all 64 bits of rdx with it. For positive numbers it acts exactly like <code>xor rdx, rdx</code>. For negative numbers it sets rdx to -1 so the full 128-bit value correctly represents the negative number in two's complement.</p>
+
+<p>After <code>idiv</code>, both rax and rdx are overwritten — the original dividend is lost. If you need the original value later, save it in another register or on the stack. And if the divisor is zero, <code>idiv</code> raises a divide-by-zero exception (SIGFPE) that crashes your program — the forge has no soft landing for that one.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // 32-BIT DIVISION IS OFTEN ENOUGH</div>
+<p>Dividing 64-bit numbers with <code>idiv rcx</code> (64-bit divisor) can be slow — the divider circuit in the CPU scales with operand width. If your numbers fit in 32 bits, use the 32-bit form: <code>mov eax, dividend</code>, <code>xor edx, edx</code>, <code>idiv ecx</code> (32-bit divisor). The quotient lands in <code>eax</code> (and zeroes the upper 32 bits of rax), remainder in <code>edx</code>. This is faster and still produces correct results for values under 2³¹. Our <code>atoi</code> / <code>itoa</code> routines operate on small values and rarely need the full 64-bit width.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s02-l02-e1"
+type = "mc"
+points = 15
+prompt = "What happens if you forget to zero <code>rdx</code> before <code>idiv</code>?"
+choices = [
+  "idiv ignores rdx for small divisors, so nothing bad happens",
+  "rdx is automatically cleared by idiv before the division",
+  "NASM emits a warning and refuses to assemble",
+  "The CPU divides rdx:rax combined — stale bits in rdx pollute the dividend, producing a wrong quotient"
+]
+answer = 3
+whyWrong = "The CPU always divides the full 128-bit rdx:rax by the divisor. Stale bits in rdx produce a completely different dividend. idiv does NOT clear rdx — you must do it. NASM never warns about runtime bugs."
+hint = "The dividend spans two registers: rdx (high 64) and rax (low 64). If rdx is dirty..."
+explain = "<code>idiv</code> reads the combined 128-bit value <code>rdx << 64 | rax</code>. If rdx holds leftover bits from a previous operation, the dividend can be astronomically large — and the quotient may not fit in 64 bits, causing a divide-overflow exception (also SIGFPE)."
+
+[[lessons.exercises]]
+id = "s02-l02-e2"
+type = "text"
+points = 20
+prompt = "After executing <code>mov rax, 50</code>, <code>xor rdx, rdx</code>, <code>mov rcx, 8</code>, <code>idiv rcx</code> — which register holds the remainder, and what is its value?"
+answer = "rdx, 2"
+accept = ["rdx 2", "rdx=2", "rdx holds 2"]
+hint = "Two pieces of information: which register (3 letters) and what number is in it. 50/8 = 6 remainder 2."
+explain = "rax gets the quotient (6), rdx gets the remainder (2). 50 = 8 * 6 + 2. Both registers are overwritten by <code>idiv</code>."
+
+[[lessons.exercises]]
+id = "s02-l02-e3"
+type = "fill"
+points = 20
+prompt = "Fill the instruction that sign-extends rax into rdx before signed division."
+code = '''
+mov  rax, -42
+____                ; sign-extend rax into rdx:rax
+mov  rcx, 5
+idiv rcx
+'''
+answer = "cqo"
+hint = "Three letters — Convert Quadword to Octword. It reads rax's sign bit and fills rdx."
+explain = "<code>cqo</code> sign-extends rax into rdx. For -42, rdx becomes all 1s (meaning -1 in two's complement), so rdx:rax correctly represents -42 as a 128-bit signed value. The result: rax = -8, rdx = -2 (since -42 = 5 * (-8) + (-2))."
+
+[[lessons.exercises]]
+id = "s02-l02-w1"
+type = "write"
+points = 30
+prompt = "Divide and print the remainder. Set rax=93, divide by 7, and print the remainder as a single ASCII digit followed by a newline. You must <code>xor rdx, rdx</code> before <code>idiv</code>. The output must be computed from idiv's register — do NOT hardcode the answer."
+starter = '''
+section .text
+    global _start
+
+_start:
+    ; rax = 93, zero rdx, divide by 7
+    
+
+    ; rdx now holds the remainder (0-6). Convert to ASCII by adding '0' (48) to dl.
+    ; Store the result at 'digit' in .data, then sys_write it + newline.
+    
+
+    ; Exit cleanly
+    
+
+section .data
+digit: db 0, 10
+digit_len equ $ - digit
+'''
+expect = '''
+2'''
+hint = "93 / 7 = 13 remainder 2. After idiv, rdx=2. Add '0' (48) to dl to get ASCII '2' (50), store it with mov [digit], dl. Then sys_write with rsi=digit, rdx=2."

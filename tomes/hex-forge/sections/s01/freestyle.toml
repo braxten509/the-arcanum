@@ -1,0 +1,30 @@
+[freestyle]
+title = "THE WORKING: LIGHT THE FORGE"
+brief = "Strike the forge's signature for the first time. The working must assemble with <code>nasm -f elf64</code>, link with <code>ld</code>, and run cleanly.<ul><li>Print exactly three lines: <code>ARCANUM // CRUCIBLE</code>, then <code>HexForge v0.0</code>, then <code>FORGE LIT</code> — each followed by a newline.</li><li>Every string must live in <code>section .data</code>, with its length computed by <code>equ $ - label</code> — no hardcoded length numbers in rdx.</li><li>Use <code>xor rdi, rdi</code> (not <code>mov rdi, 0</code>) to set the exit code.</li><li>All three lines must appear in the output in the exact order above, with no extra blank lines or stray characters.</li></ul>"
+reward = 160
+xray = "Vandr docks: hardcoded lengths in rdx instead of equ symbols, missing or extra newlines, mov rdi,0 instead of xor rdi,rdi, missing global _start. He rewards: clean register setup order (rax, rdi, rsi, rdx), compact zeroing, one equ symbol per string, and the strings in .data not .text."
+
+[freestyle.badge]
+id = "badge-s01"
+name = "FIRST SPARK"
+desc = "Struck the first working program — the forge is lit and the anvil rings true."
+
+[[freestyle.rubric]]
+criterion = "Assembles, links, and runs without error"
+weight = 30
+desc = "nasm -f elf64 and ld both succeed; the program exits with code 0 (no crash, no SIGSEGV)."
+
+[[freestyle.rubric]]
+criterion = "Outputs the three required lines exactly"
+weight = 35
+desc = "Prints ARCANUM // CRUCIBLE, HexForge v0.0, FORGE LIT — each followed by one newline, in order, with no extra characters or blank lines."
+
+[[freestyle.rubric]]
+criterion = "Uses equ for all string lengths"
+weight = 20
+desc = "Every rdx value comes from an equ $ - label symbol; no hardcoded immediate length like mov rdx, 17."
+
+[[freestyle.rubric]]
+criterion = "Clean NASM style"
+weight = 15
+desc = "Strings live in section .data, not .text. Exit code uses xor rdi, rdi. Register setup follows a consistent order (rax, rdi, rsi, rdx). Labels follow the lowercase underscore convention (snake_case)."

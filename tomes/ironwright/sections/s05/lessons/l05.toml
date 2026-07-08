@@ -1,0 +1,95 @@
+[[lessons]]
+id = "s05-l05"
+title = "The Ledger by Name — Map & HashMap"
+body = '''
+<p>A <code>List</code> finds an element by walking it; a <code>Map</code> finds one by name in one step. A <code>Map</code> is a ledger of key→value pairs — look up the key, get the value. <code>HashMap</code> is the common implementation.</p>
+<pre><code><span class="k">import</span> java.util.Map;
+<span class="k">import</span> java.util.HashMap;
+
+Map&lt;String, Ingot&gt; byName = <span class="k">new</span> HashMap&lt;&gt;();
+byName.put(<span class="s">"iron"</span>, <span class="k">new</span> Ingot(<span class="s">"iron"</span>, <span class="s">8</span>));
+byName.put(<span class="s">"copper"</span>, <span class="k">new</span> Ingot(<span class="s">"copper"</span>, <span class="s">6</span>));
+byName.put(<span class="s">"starsteel"</span>, <span class="k">new</span> Ingot(<span class="s">"starsteel"</span>, <span class="s">20</span>));
+
+Ingot found = byName.get(<span class="s">"copper"</span>);     <span class="c">// the copper ingot</span>
+Ingot missing = byName.get(<span class="s">"tin"</span>);       <span class="c">// null — no such key</span>
+
+<span class="k">if</span> (byName.containsKey(<span class="s">"iron"</span>)) { ... }   <span class="c">// true</span>
+
+<span class="k">for</span> (String key : byName.keySet()) {            <span class="c">// walk every key</span>
+    System.out.println(key + <span class="s">" -&gt; "</span> + byName.get(key));
+}</code></pre>
+<p><code>put(key, value)</code> adds or replaces an entry; <code>get(key)</code> returns the value or <code>null</code> if the key is absent (no exception — the smith checks for null); <code>containsKey(key)</code> asks "is this key in the ledger?"; <code>keySet()</code> hands back the set of keys to walk. Two type parameters this time: <code>Map&lt;String, Ingot&gt;</code> — the key type and the value type.</p>
+<p>This is the structure the generic <code>Registry&lt;T&gt;</code> will use internally — a <code>Map&lt;String, T&gt;</code> keyed by registry name, so <code>find("copper")</code> is one <code>get</code> instead of a loop. The array-and-loop registry of Forgework III becomes a map-and-lookup here.</p>
+<div class="callout"><strong>Orrick says:</strong> A <code>Map</code> key is a <code>String</code> or any object — but if you use a class as a key, its <code>equals</code> and <code>hashCode</code> must agree (equal objects hash equal), or the map loses entries. This is why you overrode <code>equals</code> alongside <code>hashCode</code> in Forgework IV. For String keys you are safe — String already does both.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // HASHMAP IS NOT ORDERED</div>
+<p><code>HashMap</code> does not keep insertion order — walking <code>keySet()</code> may visit keys in any order. If you need order, use <code>LinkedHashMap</code> (insertion order) or <code>TreeMap</code> (sorted by key). For a registry looked up only by name, order does not matter and <code>HashMap</code> is fastest; for the CLI's <code>list</code> command, sort the keys before printing so the output is stable.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s05-l05-e1"
+type = "mc"
+points = 15
+prompt = "A <code>Map&lt;String, Ingot&gt;</code> has no entry for key <code>\"tin\"</code>. What does <code>byName.get(\"tin\")</code> return?"
+choices = ["it throws a NoSuchElementException", "the iron entry (the first one)", "an empty Ingot", "null"]
+answer = 3
+whyWrong = "Map.get returns null for an absent key (no exception); NoSuchElementException is what Scanner-like structures throw, not Map; an empty Ingot is not returned; and the first entry is not a fallback. Check for null or use containsKey first."
+hint = "Think about Map.get's contract for a missing key — does it throw, or return a sentinel?"
+explain = "get returns null for absent keys. Guard with containsKey or a null check before calling methods on the result."
+
+[[lessons.exercises]]
+id = "s05-l05-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the Map method that adds (or replaces) an entry — it takes a key and a value."
+code = '''Map<String, Ingot> byName = new HashMap<>();
+byName.____("copper", new Ingot("copper", 6));'''
+answer = "put"
+whyWrong = "put(key, value) adds or replaces a Map entry; add is for Lists, set is for Lists (replace at index), insert is not a Map method. The Map add-or-replace method is put."
+hint = "It is the three-letter English word meaning 'place into the ledger' — also the Map method."
+
+[[lessons.exercises]]
+id = "s05-l05-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the map build and the keySet walk exactly — the two imports, two put calls, and the for-each over keySet."
+code = '''import java.util.Map;
+import java.util.HashMap;
+
+Map<String, Ingot> byName = new HashMap<>();
+byName.put("iron", new Ingot("iron", 8));
+for (String key : byName.keySet()) {
+    System.out.println(key + " -> " + byName.get(key));
+}'''
+
+[[lessons.exercises]]
+id = "s05-l05-w1"
+type = "write"
+points = 30
+prompt = "The Ingot class (with toString returning <code>name + \" @ \" + value + \"em\"</code>) is in the starter. In <code>main</code>, build a <code>Map&lt;String, Ingot&gt; byName = new HashMap&lt;&gt;();</code>, <code>put</code> three entries keyed by name — <code>iron</code> (value 8), <code>copper</code> (value 6), <code>starsteel</code> (value 20) — then <code>get</code> the <code>copper</code> entry and print it. The expected output is exactly <code>copper @ 6em</code> (the Ingot's toString)."
+starter = '''import java.util.Map;
+import java.util.HashMap;
+
+public class Ironwright {
+    static class Ingot {
+        private String name; private int value;
+        public Ingot(String name, int value) { this.name = name; this.value = value; }
+        @Override public String toString() { return name + " @ " + value + "em"; }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — build Map<String,Ingot>, put 3 keyed by name, get "copper", print it
+    }
+}'''
+expect = '''
+copper @ 6em'''
+hint = "Map<String, Ingot> byName = new HashMap<>(); byName.put(\"copper\", new Ingot(\"copper\", 6)); ... System.out.println(byName.get(\"copper\"));"
+
+[[lessons.exercises]]
+id = "s05-l05-t1"
+type = "text"
+points = 20
+prompt = "Type the Map method that returns true if a key is present in the map (the guard you call before get, to avoid a null)."
+answer = "containsKey"
+hint = "It is contains plus Key — the boolean check for 'is this key in the map?'"

@@ -1,0 +1,84 @@
+[[lessons]]
+id = "s01-l03"
+title = "Lists, Dicts & the Chart-Room's Ledger"
+body = '''
+<p>A log file is a list of lines. A report is a dict of counters. Python's two workhorse collections — the list and the dict — are the shelves and pigeonholes of the chart-room: you reach for them constantly, and the quality of your tool depends on how well you know their grain.</p>
+<pre><code><span class="c"># A list is an ordered sequence — the log as it came in</span>
+log = [
+    <span class="s">"2025-07-07 14:30:00 INFO Connected"</span>,
+    <span class="s">"2025-07-07 14:30:05 WARN Timeout"</span>,
+    <span class="s">"2025-07-07 14:30:10 ERROR Disk full"</span>,
+]
+<span class="k">print</span>(log[0])      <span class="c"># first line</span>
+<span class="k">print</span>(log[-1])     <span class="c"># last line — negative indices count from the end</span></code></pre>
+<p>Lists are the most flexible vessel Python offers. They hold any type, grow and shrink at either end (though the left end costs O(n) — use <code>collections.deque</code> for that), and support slicing to take a contiguous sample of the record.</p>
+<pre><code>first_three = log[:3]         <span class="c"># [log[0], log[1], log[2]]</span>
+recent = log[-5:]             <span class="c"># last five entries — the watch-keeper's attention</span>
+every_other = log[::2]        <span class="c"># all entries at even indices</span></code></pre>
+<p><strong>Dicts</strong> are the chart-room's cross-reference table. Each key maps to a value, and Python's hash table finds it in O(1) on average — faster than scanning a list, and the foundation of every aggregator you will build in Sextant.</p>
+<pre><code><span class="c"># A dict of counter tallies — one per log level</span>
+counts = {}
+counts[<span class="s">"INFO"</span>] = 14
+counts[<span class="s">"WARN"</span>] = 3
+counts[<span class="s">"ERROR"</span>] = 1
+<span class="c"># Or build it from a list of pairs</span>
+pairs = [(<span class="s">"INFO"</span>, 14), (<span class="s">"WARN"</span>, 3)]
+counts = <span class="nb">dict</span>(pairs)</code></pre>
+<p><strong>Comprehensions</strong> are Python's most idiomatic way to build one collection from another. A list comprehension is a for-loop wrapped in square brackets that reads as a mathematical set — and it is faster than an equivalent <code>for</code> loop with <code>.append()</code>.</p>
+<pre><code><span class="c"># List comprehension: keep only ERROR lines</span>
+errors = [line <span class="k">for</span> line <span class="ow">in</span> log <span class="k">if</span> <span class="s">"ERROR"</span> <span class="ow">in</span> line]
+<span class="c"># Dict comprehension: level -> uppercase level</span>
+levels = {<span class="s">"INFO"</span>, <span class="s">"WARN"</span>, <span class="s">"ERROR"</span>}
+upper = {lvl: lvl.upper() <span class="k">for</span> lvl <span class="ow">in</span> levels}</code></pre>
+<p>The comprehension is not a special feature; it is just syntax that wraps the iteration protocol. Everything you can do in a <code>for</code> loop you can do in a comprehension, and the comprehension signals to the reader: "I am building a new collection from an existing one, without side effects."</p>
+<div class="callout"><strong>Consult the volumes:</strong> <code>dict</code> is implemented as a hash table in CPython (<code>Objects/dictobject.c</code> in the source tree). Since Python 3.6, dicts preserve insertion order — a property that was an implementation detail in 3.6 and a language guarantee in 3.7. The <code>collections.OrderedDict</code> class exists for the rare case where you need order-sensitive equality or explicit reordering.</div>
+'''
+
+[[lessons.exercises]]
+id = "s01-l03-e1"
+type = "mc"
+points = 15
+prompt = "What does <code>log[-1]</code> return if <code>log = ['a', 'b', 'c']</code>?"
+choices = ["'a'", "'b'", "'c'", "IndexError"]
+answer = 2
+whyWrong = "In Python, negative indices count from the end of the sequence. <code>[-1]</code> is the last element (<code>'c'</code>), <code>[-2]</code> is <code>'b'</code>, and so on. It never raises an error unless the list is empty."
+hint = "Count backward from the end: <code>-1</code> is the last item, <code>-2</code> is second-last, and so on."
+explain = "Negative indexing is a Python convenience: <code>seq[-1]</code> always returns the last element of the sequence."
+
+[[lessons.exercises]]
+id = "s01-l03-e2"
+type = "text"
+points = 20
+prompt = "What keyword do you use inside a list comprehension to filter elements?"
+answer = "if"
+hint = "It is a two-letter conditional keyword you already met in control-flow contexts."
+
+[[lessons.exercises]]
+id = "s01-l03-e3"
+type = "fill"
+points = 20
+prompt = "Fill the blank to create a dict that maps days to the number 30:"
+code = "days_in_month = ____"
+answer = '{"jan": 31, "feb": 28}'
+accept = ["{\"jan\": 31, \"feb\": 28}", "{'jan': 31, 'feb': 28}"]
+hint = "A dict literal uses curly braces, colons between keys and values, and commas between pairs."
+
+[[lessons.exercises]]
+id = "s01-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this list comprehension that extracts ERROR lines:"
+code = '''errors = [line for line in log_lines if "ERROR" in line]'''
+
+[[lessons.exercises]]
+id = "s01-l03-w1"
+type = "write"
+points = 35
+prompt = "Write a script that starts with a list <code>readings = [\"INFO init\", \"ERROR crash\", \"WARN retry\", \"INFO done\"]</code>. Use a dict comprehension to build a dict named <code>counts</code> that maps each word (<code>\"INFO\"</code>, <code>\"ERROR\"</code>, <code>\"WARN\"</code>) to the number of lines containing that word. Then print <code>counts</code>."
+starter = '''
+readings = ["INFO init", "ERROR crash", "WARN retry", "INFO done"]
+# build and print counts
+'''
+expect = '''{'INFO': 2, 'ERROR': 1, 'WARN': 1}'''
+hint = "You can count each level by iterating over the lines, splitting each one, and incrementing a tally in a plain dict before converting."

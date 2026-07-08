@@ -1,0 +1,152 @@
+[[lessons]]
+id = "s03-l02"
+title = "The Jump Family"
+body = '''
+<p>A conditional jump reads the flags and either leaps to a label or falls through to the next instruction. The full family numbers over thirty mnemonics, but they all boil down to checking one or two flag bits. Master these and you master branching.</p>
+
+<table style="width:100%">
+<tr><td><strong>Mnemonic</strong></td><td><strong>Aliases</strong></td><td><strong>Jumps when</strong></td><td><strong>Signed or Unsigned</strong></td></tr>
+<tr><td><code>je</code></td><td>jz</td><td>ZF=1 (equal / zero)</td><td>either</td></tr>
+<tr><td><code>jne</code></td><td>jnz</td><td>ZF=0 (not equal / not zero)</td><td>either</td></tr>
+<tr><td><code>jg</code></td><td>jnle</td><td>ZF=0 and SF==OF (greater, signed)</td><td>signed</td></tr>
+<tr><td><code>jge</code></td><td>jnl</td><td>SF==OF (greater or equal, signed)</td><td>signed</td></tr>
+<tr><td><code>jl</code></td><td>jnge</td><td>SF!=OF (less, signed)</td><td>signed</td></tr>
+<tr><td><code>jle</code></td><td>jng</td><td>ZF=1 or SF!=OF (less or equal, signed)</td><td>signed</td></tr>
+<tr><td><code>ja</code></td><td>jnbe</td><td>CF=0 and ZF=0 (above, unsigned)</td><td>unsigned</td></tr>
+<tr><td><code>jb</code></td><td>jnae, jc</td><td>CF=1 (below, unsigned)</td><td>unsigned</td></tr>
+<tr><td><code>jae</code></td><td>jnb, jnc</td><td>CF=0 (above or equal, unsigned)</td><td>unsigned</td></tr>
+<tr><td><code>jbe</code></td><td>jna</td><td>CF=1 or ZF=1 (below or equal, unsigned)</td><td>unsigned</td></tr>
+</table>
+
+<p>The unsigned family uses spatial language: <strong>above / below.</strong> The signed family uses magnitude language: <strong>greater / less.</strong> This distinction is the single most reliable way to pick the right jump: if you're comparing addresses, sizes, or counts (all unsigned by nature), use above/below. If you're comparing signed integers that can be negative, use greater/less.</p>
+
+<p>The unconditional <code>jmp</code> always takes the branch — no flags consulted. Use it to skip over code blocks or create infinite loops.</p>
+
+<p>Common patterns:</p>
+<pre><code><span class="c">; if (rax == 0) goto .zero_case</span>
+<span class="k">test</span> rax, rax
+<span class="k">jz</span> .zero_case
+
+<span class="c">; if (rcx >= 10) goto .done</span>
+<span class="k">cmp</span> rcx, 10
+<span class="k">jge</span> .done
+
+<span class="c">; if (rbx <= 0xFF) goto .small  (unsigned)</span>
+<span class="k">cmp</span> rbx, 0xFF
+<span class="k">jbe</span> .small
+
+<span class="c">; if-else: one of two paths</span>
+<span class="k">cmp</span> rax, rbx
+<span class="k">jg</span> .greater
+<span class="c">; less-or-equal path here</span>
+<span class="k">jmp</span> .end
+.greater:
+<span class="c">; greater path here</span>
+.end:</code></pre>
+
+<p>After <code>cmp</code>, the signed compare mnemonics match the mathematical inequality you'd write in C: <code>jg</code> for <code>&gt;</code>, <code>jl</code> for <code>&lt;</code>, <code>jge</code> for <code>&gt;=</code>, <code>jle</code> for <code>&lt;=</code>. The unsigned ones are just as regular: <code>ja</code> for unsigned <code>&gt;</code>, <code>jb</code> for unsigned <code>&lt;</code>. Pick one family and stick to it — mixing signed and unsigned jumps on the same <code>cmp</code> produces nonsense.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // JUMPS AND THE INSTRUCTION CACHE</div>
+<p>All conditional jumps on x86-64 are <strong>short</strong> (1-byte signed offset, ±127 bytes from the instruction after the jump). The assembler automatically picks the shortest encoding. An unconditional <code>jmp</code> can be near (4-byte offset) if the target is far. The CPU's branch predictor guesses whether a conditional jump will be taken before the flags are even computed — and when it guesses wrong, the pipeline flushes, costing 15–20 cycles. For hot loops, arrange the common case as the fall-through path (no jump taken) and the uncommon case as the branch (jump taken). The predictor learns this pattern, but starting with the common-path-as-fall-through is a free win.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s03-l02-e1"
+type = "mc"
+points = 15
+prompt = "You are comparing two memory addresses (both unsigned values). After <code>cmp rax, rbx</code>, which jump mnemonic should you use to branch when rax has the higher address?"
+choices = [
+  "jg — 'jump if greater' works for all comparisons including addresses",
+  "je — addresses cannot be 'greater,' only equal or not",
+  "jb — 'jump if below' tests unsigned less-than, the opposite of what we want",
+  "ja — 'jump if above' is the unsigned greater-than test, correct for addresses"
+]
+answer = 3
+whyWrong = "jg tests SIGNED comparison. For addresses near the top of the 64-bit space (bit 63 set), jg treats them as negative and jumps the wrong way. ja correctly compares the full 64-bit values as unsigned quantities. jb is the opposite direction."
+hint = "Addresses span the full 64-bit space — unsigned. Which family uses a/b (above/below)?"
+explain = "Memory addresses are unsigned — an address of 0xFFFFFFFFFFFFFFFF is a high address, not a negative number. <code>ja</code> (jump if above) tests CF=0 and ZF=0 after cmp, which means rax > rbx when both are treated as unsigned. <code>jg</code> would treat 0xFFFFFFFFFFFFFFFF as -1 and jump the wrong way."
+
+[[lessons.exercises]]
+id = "s03-l02-e2"
+type = "text"
+points = 20
+prompt = "After <code>cmp rax, 0</code>, two different jump mnemonics both jump when rax is zero. Name BOTH."
+answer = "je, jz"
+accept = ["je and jz", "jz, je", "jz and je", "je jz", "jz je"]
+hint = "One is 'jump if equal,' the other 'jump if zero.' They are the same opcode."
+explain = "<code>je</code> (jump if equal) and <code>jz</code> (jump if zero) are aliases for the same instruction — both test ZF=1. Use <code>je</code> after cmp, <code>jz</code> after test/arithmetic."
+
+[[lessons.exercises]]
+id = "s03-l02-e3"
+type = "mc"
+points = 15
+prompt = "After <code>cmp rax, rbx</code>, when does <code>jbe</code> (jump if below or equal, unsigned) trigger?"
+choices = [
+  "When rax > rbx — jbe is the unsigned greater-than test",
+  "When rax < rbx — jbe tests only the carry flag",
+  "It always jumps — jbe is unconditional",
+  "When CF=1 or ZF=1 — meaning rax <= rbx in unsigned comparison"
+]
+answer = 3
+whyWrong = "jbe means 'below or equal' — below means unsigned less-than (CF=1), equal means ZF=1. It's the opposite of ja (which requires CF=0 AND ZF=0). It's conditional, not unconditional."
+hint = "CF=1 means borrow (unsigned less-than). ZF=1 means equal. jbe triggers when EITHER is true."
+explain = "<code>jbe</code> (which is also <code>jna</code> — jump if not above) tests CF=1 OR ZF=1. This covers both 'rax is strictly below rbx' (CF=1) and 'rax equals rbx' (ZF=1). Combined: rax ≤ rbx in unsigned terms."
+
+[[lessons.exercises]]
+id = "s03-l02-e4"
+type = "fill"
+points = 20
+prompt = "Complete the signed greater-than-or-equal jump. This branch fires when rax >= 100."
+code = '''
+cmp  rax, 100
+____ .big_enough
+'''
+answer = "jge"
+hint = "Three letters — jump if greater or equal. The signed counterpart to jae."
+explain = "<code>jge</code> tests SF == OF. After <code>cmp A, B</code>, if A ≥ B as signed values, SF and OF will be equal (both 0 or both 1). This is the signed counterpart of <code>jae</code> (unsigned above-or-equal)."
+
+[[lessons.exercises]]
+id = "s03-l02-w1"
+type = "write"
+points = 30
+prompt = "Classify a number. Load rax with 75. Compare it against two thresholds: 0 and 100. If rax < 0, print <code>NEGATIVE</code>. If rax is between 0 and 100 inclusive, print <code>IN RANGE</code>. If rax > 100, print <code>OVER</code>. Use <code>cmp</code> and the correct signed conditional jumps. 75 should produce <code>IN RANGE</code>. Your code must have three distinct code paths (three labels) and must branch — not fall through to print the same thing regardless of rax's value."
+starter = '''
+section .text
+    global _start
+
+_start:
+    mov rax, 75
+    ; First check: is rax < 0?
+    cmp rax, 0
+    ; jump to .negative if signed less-than
+    
+
+    ; Check: is rax > 100?
+    cmp rax, 100
+    ; jump to .over if signed greater-than
+    
+
+    ; Otherwise, in range:
+.in_range:
+    ; Print the middle-path label and exit
+    
+
+.negative:
+    ; Print the below-zero label and exit
+    
+
+.over:
+    ; Print the over-limit label and exit
+    
+
+section .data
+msg_neg: db 'N', 'E', 'G', 'A', 'T', 'I', 'V', 'E', 10
+msg_neg_len equ $ - msg_neg
+msg_ok: db 'I', 'N', ' ', 'R', 'A', 'N', 'G', 'E', 10
+msg_ok_len equ $ - msg_ok
+msg_over: db 'O', 'V', 'E', 'R', 10
+msg_over_len equ $ - msg_over
+'''
+expect = '''
+IN RANGE'''
+hint = "jl .negative after the first cmp. jg .over after the second cmp. If neither jump fires, execution falls through to .in_range. At the end of .in_range, use jmp to skip .negative and .over — or put exit code at each path."

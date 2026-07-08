@@ -1,0 +1,77 @@
+[[lessons]]
+id = "s06-l04"
+title = "The Bellows — build.gradle Anatomy"
+body = '''
+<p>Gradle is the bellows — the build tool that feeds air to the forge. Its config file, <code>build.gradle</code>, sits at the root of the MDK and declares what the forge breathes: which Minecraft, which Forge, which mappings, which mod identity. The file is written in Groovy (a JVM scripting language), not Java — but you read it like a list of named blocks.</p>
+<pre><code><span class="c">// build.gradle (Forge 1.12.2 MDK) — the load-bearing blocks:</span>
+minecraft {
+    version = <span class="s">"1.12.2-14.23.5.2859"</span>
+    runDir = <span class="s">"run"</span>
+    mappings = <span class="s">"stable_39"</span>     <span class="c">// the MCP mapping channel/version</span>
+}
+
+group = <span class="s">"com.ironwright"</span>            <span class="c">// your mod's package root</span>
+archivesBaseName = <span class="s">"ironwright"</span>      <span class="c">// the output jar's name</span>
+version = <span class="s">"0.1.0"</span>                  <span class="c">// your mod's version</span></code></pre>
+<p>The <code>minecraft {}</code> block pins the Forge version (<code>1.12.2-14.23.5.2859</code>), the run directory (<code>run/</code>, where the dev client boots), and the <strong>mappings</strong> — the MCP channel and version (<code>stable_39</code> is the stable 1.12.2 mapping set). Change the mappings and the decompiled names change; keep <code>stable_39</code> for this tome. The <code>group</code> is your mod's package root (<code>com.ironwright</code> — one name, one spelling); <code>archivesBaseName</code> names the built jar (<code>ironwright-0.1.0.jar</code>); <code>version</code> is your mod's version string.</p>
+<p>Forge's own dependencies and the <code>buildscript {}</code> block at the top wire the Forge Gradle plugin. You rarely edit that block; you edit <code>minecraft</code>, <code>group</code>, <code>archivesBaseName</code>, and <code>version</code> to make the MDK yours.</p>
+<div class="callout"><strong>Orrick says:</strong> The mod id <code>ironwright</code>, the package <code>com.ironwright</code>, and the <code>archivesBaseName</code> share letters on purpose — one name, every derived form from the same letters. Drift between them and the registry, the resources, and the jar all disagree.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // MAPPINGS CHANNELS</div>
+<p>The <code>mappings</code> field picks a mapping set: <code>stable_39</code> (the last stable 1.12.2 set, used by this tome), <code>snapshot_20170624</code>, or a custom date. Different mappings give different human names for the same SRG field — a tutorial written against <code>snapshot_20170624</code> may call a field by a name <code>stable_39</code> does not recognise. Pick one mapping set for the whole project and stick to it; mixing mappings across tutorials is a common source of 'cannot find symbol' errors.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s06-l04-e1"
+type = "mc"
+points = 15
+prompt = "In the Forge 1.12.2 <code>build.gradle</code>, what does the <code>minecraft { mappings = \"stable_39\" }</code> line set?"
+choices = ["which Minecraft version to run", "the output jar's name", "which Forge version to download", "which MCP mapping set translates the decompiled SRG names to human names"]
+answer = 3
+whyWrong = "mappings picks the MCP mapping channel/version that translates SRG names to human names; the Minecraft/Forge version is the 'version' line in minecraft{}, the jar name is archivesBaseName. Different mapping sets give different human names for the same field."
+hint = "Think about what 'mappings' means in the SRG→MCP translating you met in Forgework IV and VI lesson III."
+explain = "mappings = stable_39 selects the stable_39 MCP set. Change it and the decompiled field/method names change with it."
+
+[[lessons.exercises]]
+id = "s06-l04-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the mod's package root — the group declared in build.gradle (the reverse-domain root this tome uses)."
+code = 'group = "____"'
+answer = "com.ironwright"
+whyWrong = "com.ironwright is the mod's package root (one name, one spelling — the same letters as the mod id ironwright); net.minecraft is Minecraft's package, com.example is the MDK placeholder, org.ironwright is not the chosen root. The group matches the package."
+hint = "It is the reverse-domain root you met in Forgework IV — com dot the mod id."
+
+[[lessons.exercises]]
+id = "s06-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the minecraft block exactly — the version, runDir, and mappings lines."
+code = '''minecraft {
+    version = "1.12.2-14.23.5.2859"
+    runDir = "run"
+    mappings = "stable_39"
+}'''
+
+[[lessons.exercises]]
+id = "s06-l04-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of Gradle-line parsing. The starter sets <code>String line = \"archivesBaseName = \\\"ironwright\\\"\";</code> — a build.gradle-style assignment with the value in quotes. Extract the value between the double quotes and print <code>MODID ironwright</code> by joining <code>\"MODID \"</code> with the extracted value. Do not type ironwright in the print; pull it from the line."
+starter = '''public class Ironwright {
+    public static void main(String[] args) {
+        String line = "archivesBaseName = \"ironwright\"";
+        // apprentice — find the substring between the first and second double-quote, print "MODID " + it
+    }
+}'''
+expect = '''
+MODID ironwright'''
+hint = "int a = line.indexOf('\"') + 1; int b = line.indexOf('\"', a); String name = line.substring(a, b); then println(\"MODID \" + name)."
+
+[[lessons.exercises]]
+id = "s06-l04-t1"
+type = "text"
+points = 20
+prompt = "In which language is build.gradle written? (One word — the JVM scripting language, not Java.)"
+answer = "Groovy"
+hint = "It is the six-letter name of the JVM scripting language — Gradle's DSL is built on it."

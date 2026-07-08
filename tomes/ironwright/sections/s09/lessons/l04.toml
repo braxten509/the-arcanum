@@ -1,0 +1,67 @@
+[[lessons]]
+id = "s09-l04"
+title = "The Block's Shape & Skin — Models and Reading Block"
+body = '''
+<p>Two more JSON files finish the block. The <strong>block model</strong> (<code>assets/ironwright/models/block/&lt;name&gt;.json</code>) gives the shape — for a simple cube, inherit Minecraft's <code>block/cube_all</code> and point one texture key <code>all</code> at your PNG:</p>
+<pre><code>{
+  <span class="s">"parent"</span>: <span class="s">"block/cube_all"</span>,
+  <span class="s">"textures"</span>: {
+    <span class="s">"all"</span>: <span class="s">"ironwright:blocks/starsteel_block"</span>
+  }
+}</code></pre>
+<p>The <strong>item-block model</strong> (<code>assets/ironwright/models/item/&lt;name&gt;.json</code>) is what shows in the inventory — for a block, it usually just inherits the block model so the icon is the cube: <code>{ "parent": "ironwright:block/starsteel_block" }</code>. One line, pointing at the block model you just wrote. So a single block ships: the blockstate JSON (the map), the block model JSON (the shape), the item-block model JSON (the inventory icon), and the texture PNG — four files.</p>
+<p>Before you write <code>BlockMetal</code>, reconnoitre. Open <code>net.minecraft.block.Block</code> in IntelliJ (Go to Class) and read its constructor (<code>super(Material)</code> — the material is required), its <code>setHardness</code>/<code>setResistance</code> methods, and the <code>Material</code> class's constants (<code>IRON</code>, <code>ROCK</code>, <code>WOOD</code>). Open <code>net.minecraft.block.state.IBlockState</code> and see how a state carries properties. The four reconnaissance tools (Go to Class, Find Usages, Search Everywhere, Structure) are how you choose what to override and what Material to pick — do not guess, read.</p>
+<div class="callout"><strong>Orrick says:</strong> A cube block uses <code>block/cube_all</code> and the <code>all</code> texture key (all six faces the same). A block with different top/side/bottom faces uses <code>block/cube_bottom_top</code> and the <code>top</code>, <code>side</code>, <code>bottom</code> keys. Match the parent to the shape; the texture keys come from the parent.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // cube_all VS cube_normal</div>
+<p>Minecraft ships a family of cube parents: <code>block/cube_all</code> (all six faces one texture), <code>block/cube_bottom_top</code> (top, side, bottom differ), <code>block/cube_column</code> (ends differ from sides, for pillars). Each expects different texture keys (<code>all</code>, or <code>top</code>/<code>side</code>/<code>bottom</code>, or <code>end</code>/<code>side</code>). Read the parent model's JSON in IntelliJ to see which keys it pulls — the parent's <code>textures</code> element names the keys your override must supply.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s09-l04-e1"
+type = "mc"
+points = 15
+prompt = "A simple cube block whose six faces share one texture uses which block-model <code>parent</code> and which texture key?"
+choices = ["block/cube_column with end/side", "block/cube_all with the all key", "item/generated with layer0", "block/cube_bottom_top with top/side/bottom"]
+answer = 1
+whyWrong = "block/cube_all renders all six faces with one texture (the all key); cube_column is for pillars (end/side), item/generated is for flat items (layer0), and cube_bottom_top is for blocks whose top differs from sides (top/side/bottom). A same-face cube uses cube_all + all."
+hint = "It is the parent named for 'all faces the same' — block/cube_all, with the all texture key."
+explain = "block/cube_all + the all key renders a cube with one texture on every face. The parent determines the texture keys you must supply."
+
+[[lessons.exercises]]
+id = "s09-l04-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the texture key the block/cube_all parent expects — the one that paints all six faces the same."
+code = '''{
+  "parent": "block/cube_all",
+  "textures": {
+    "____": "ironwright:blocks/starsteel_block"
+  }
+}'''
+answer = "all"
+whyWrong = "all is the cube_all texture key (all six faces); layer0 is for item/generated, top/side/bottom are for cube_bottom_top, end/side are for cube_column. The cube_all key is all."
+hint = "It is the three-letter word meaning 'every face' — the texture key cube_all reads."
+
+[[lessons.exercises]]
+id = "s09-l04-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of the block model JSON line. The starter sets <code>String modid = \"ironwright\";</code> and <code>String name = \"starsteel_block\";</code>. Print exactly <code>{\"parent\":\"block/cube_all\",\"textures\":{\"all\":\"ironwright:blocks/starsteel_block\"}}</code> by joining literals with <code>modid</code> and <code>name</code> so the texture value is <code>&lt;modid&gt;:blocks/&lt;name&gt;</code>. Read modid and name from the variables."
+starter = '''public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright";
+        String name = "starsteel_block";
+        // apprentice — print the block model JSON with all = "<modid>:blocks/<name>"
+    }
+}'''
+expect = '''
+{"parent":"block/cube_all","textures":{"all":"ironwright:blocks/starsteel_block"}}'''
+hint = "System.out.println(\"{\\\"parent\\\":\\\"block/cube_all\\\",\\\"textures\\\":{\\\"all\\\":\\\"\" + modid + \":blocks/\" + name + \"\\\"}}\");"
+
+[[lessons.exercises]]
+id = "s09-l04-t1"
+type = "text"
+points = 20
+prompt = "Type the one-line item-block model JSON for the starsteel_block — the file at assets/ironwright/models/item/starsteel_block.json that makes the inventory icon inherit the block model. (Print it as the JSON object on one line.)"
+answer = '{"parent":"ironwright:block/starsteel_block"}'
+hint = "It is {\"parent\":\"ironwright:block/starsteel_block\"} — the item-block model inherits the block model so the icon is the cube."

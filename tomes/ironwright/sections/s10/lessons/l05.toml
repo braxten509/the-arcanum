@@ -1,0 +1,66 @@
+[[lessons]]
+id = "s10-l05"
+title = "The Bench Assembled — Organising the Ironwork"
+body = '''
+<p>The bench is built and every piece takes its seat. Open the creative inventory, click the Ironwright tab, and the ironwork is gathered: the three ingots, the starsteel block, in the order you registered them. The mod now has substance — items the player can hold, a block the player can place, a bench that gathers them, and a recipe that binds raw metal into worked form.</p>
+<p>The order of items in a creative tab is the registration order — the order you called <code>event.getRegistry().register(...)</code> in the <code>RegistryEvent.Register&lt;Item&gt;</code> handler. Iron, copper, starsteel, then the starsteel block's ItemBlock — the line you wrote in Forgework VIII and IX becomes the order on the bench. To reorder, reorder the register calls.</p>
+<p>This is the cumulative state of the mod so far: a <code>@Mod</code> skeleton (VII) with proxies and lifecycle, an <code>ItemIngot</code> with model and texture (VIII), a <code>BlockMetal</code> with blockstate and models (IX), and now an <code>IronwrightTab</code> holding them plus a recipe JSON binding them. Each forgework added one capability; together they are a working metallurgy mod — minus the world answering the hammer, which is Forgework XI.</p>
+<div class="callout"><strong>Orrick says:</strong> A mod with items and blocks but no tab and no recipe is half-forged — the player can give themselves pieces but cannot find them or craft them. The bench and the recipe are what make the ironwork a craft, not a cheat.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // REORDERING THE BENCH</div>
+<p>To sort the tab differently (alphabetical, by value, by tier), either reorder the register calls, or override <code>CreativeTabs.displayAllRelevantItems(List&lt;ItemStack&gt;)</code> in your <code>IronwrightTab</code> to sort the list Forge fills. The override is the cleaner way for many items — you add the items in registration order, then sort once for display. The register-call order stays stable (the world depends on it); only the display order changes.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s10-l05-e1"
+type = "mc"
+points = 15
+prompt = "What determines the order of items in a Forge 1.12.2 creative tab?"
+choices = ["alphabetical order of the registry names", "the order you called event.getRegistry().register(...) in the RegistryEvent.Register<Item> handler", "the order of the .lang entries", "a random order Forge chooses"]
+answer = 1
+whyWrong = "Creative-tab order is the registration order — the order of register() calls in RegistryEvent.Register<Item>; it is not alphabetical, not the .lang order, and not random. To reorder the tab, reorder the register calls (or override displayAllRelevantItems to sort)."
+hint = "Think about where the tab gets its item list — and in what order that list is built."
+explain = "Registration order. The register() calls fill the tab in sequence; reorder them (or override displayAllRelevantItems) to reorder the bench."
+
+[[lessons.exercises]]
+id = "s10-l05-t1"
+type = "text"
+points = 20
+prompt = "Type the CreativeTabs method you would override in IronwrightTab to sort the displayed item list yourself (the method Forge fills with the tab's relevant ItemStacks)."
+answer = "displayAllRelevantItems"
+hint = "It is display + All + Relevant + Items — the method that receives the List<ItemStack> Forge populates, which you can sort."
+
+[[lessons.exercises]]
+id = "s10-l05-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the folder under <code>assets/ironwright/</code> where 1.12.2 recipe JSON files live."
+code = 'src/main/resources/assets/ironwright/____/starsteel_block.json'
+answer = "recipes"
+whyWrong = "recipes is the folder for recipe JSON in assets/<modid>/ in Minecraft 1.12.2; blockstates is for block model routing, models is for rendered shapes, loot_tables is not the crafting-recipe folder. Recipe JSONs live in assets/<modid>/recipes/ in this old forge."
+hint = "It is the seven-letter plural — the folder under assets/ironwright/ that holds 1.12.2 recipe JSON files."
+
+[[lessons.exercises]]
+id = "s10-l05-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of listing the bench. The starter has a mock <code>Tab</code> class that holds a <code>List&lt;String&gt;</code> of item names, with an <code>add(String)</code> method and a <code>list()</code> method that returns the list. In <code>main</code>, build a <code>Tab</code>, add four names in order — <code>iron</code>, <code>copper</code>, <code>starsteel</code>, <code>starsteel_block</code> — then walk the list and print each name on its own line. The expected output is four lines in that order."
+starter = '''import java.util.List;
+import java.util.ArrayList;
+
+public class Ironwright {
+    static class Tab {
+        private List<String> items = new ArrayList<>();
+        public void add(String name) { items.add(name); }
+        public List<String> list() { return items; }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — build a Tab, add iron/copper/starsteel/starsteel_block, for-each print each
+    }
+}'''
+expect = '''
+iron
+copper
+starsteel
+starsteel_block'''
+hint = "Tab bench = new Tab(); bench.add(\"iron\"); ... for (String name : bench.list()) System.out.println(name);"

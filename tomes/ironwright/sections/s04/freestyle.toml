@@ -1,0 +1,35 @@
+[freestyle]
+title = "THE WORKING: The Anvil's Children"
+brief = "Apprentice, give the ironwork a lineage. Extend the data model with a real ingot hierarchy and let the CLI speak it. Build:<ul><li>Refactor <code>Ingot.java</code> — override <code>toString</code> to return <code>name @ valueem</code>, and override <code>equals(Object)</code> to compare name and value (with <code>instanceof</code>, a cast, and <code>@Override</code> on both).</li><li><code>IngotMetal.java</code> — extends Ingot, adds a <code>metalName</code> field (the ore it came from) with a getter; constructor calls <code>super</code> first.</li><li><code>IngotAlloy.java</code> — extends Ingot, adds a <code>String[] components</code> field (the metals it is forged from) with a getter; constructor calls <code>super</code> first.</li><li><code>Ironwright.java</code> — at startup register three ingots: <code>iron</code> as an IngotMetal from <code>iron-ore</code> (value 8), <code>copper</code> as an IngotMetal from <code>copper-ore</code> (value 6), <code>starsteel</code> as an IngotAlloy of <code>[\"iron\", \"copper\"]</code> (value 20). On <code>list</code>, print each ingot's <code>toString()</code> (the alloy and the metal both show their inherited form). On <code>describe &lt;metal&gt;</code>, print the subclass-specific detail (the ore for a metal, the components for an alloy). <code>quit</code> and unknown commands behave as before.</li></ul>"
+reward = 200
+xray = "Orrick docks for equals(Ingot) instead of equals(Object) (an overload, not an override — @Override would catch it), a missing super call in a subclass constructor, hardcoded list output instead of calling toString on each ingot, or instanceof skipped so equals crashes on a null. He gives style credit for @Override on every override, one class per file, Allman braces, and camelCase."
+
+[freestyle.badge]
+id = "badge-s04"
+name = "THE ANVIL'S CHILDREN"
+desc = "Forged the ingot hierarchy — metal and alloy descend from Ingot, and the CLI speaks their lineage."
+
+[[freestyle.rubric]]
+criterion = "Compiles & runs"
+weight = 20
+desc = "javac *.java succeeds and java Ironwright runs without crashing on a sequence of piped commands (list, describe starsteel, quit)."
+
+[[freestyle.rubric]]
+criterion = "Ingot overrides toString & equals"
+weight = 20
+desc = "Ingot.toString returns name + \" @ \" + value + \"em\"; Ingot.equals(Object) checks instanceof, casts to Ingot, and compares name (with .equals) and value (with ==); both carry @Override; equals is not the overload equals(Ingot)."
+
+[[freestyle.rubric]]
+criterion = "IngotMetal & IngotAlloy are correct"
+weight = 20
+desc = "Both extend Ingot; their constructors call super(name, value) as the first line; IngotMetal adds metalName with a getter; IngotAlloy adds String[] components with a getter; no parent field is redeclared."
+
+[[freestyle.rubric]]
+criterion = "CLI uses polymorphism"
+weight = 25
+desc = "The registry holds Ingot references to subclass objects; list prints each ingot via toString (so the inherited form shows for every child); describe reads the subclass-specific getter; the three pinned ingots are seeded with the exact values and component data the brief specifies."
+
+[[freestyle.rubric]]
+criterion = "Clean Java style"
+weight = 15
+desc = "One public class per .java file named for the class; @Override on every overridden method; PascalCase classes, camelCase methods and locals, UPPER_SNAKE for any constants; Allman braces; 4-space indentation."

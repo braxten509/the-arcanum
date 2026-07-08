@@ -1,0 +1,95 @@
+[[lessons]]
+id = "s05-l03"
+title = "__slots__, __getattr__ & Performance Trade-Offs"
+body = '''
+<p>Every Python object stores its attributes in a <code>__dict__</code> — a hash table that maps field names to values. This is flexible (you can add attributes on the fly) but wasteful: a dataclass with 4 fields allocates a dict with capacity for far more entries. <code>__slots__</code> tells Python to store attributes in a fixed-size array instead, cutting memory usage significantly.</p>
+<pre><code><span class="k">class</span> <span class="nc">LogRecord</span>:
+    <span class="vm">__slots__</span> = (<span class="s">"ts"</span>, <span class="s">"level"</span>, <span class="s">"message"</span>, <span class="s">"source"</span>)
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span>, <span class="n">ts</span>, <span class="n">level</span>, <span class="n">message</span>, <span class="n">source</span><span class="p">):</span>
+        <span class="bp">self</span>.<span class="n">ts</span> = <span class="n">ts</span>
+        <span class="bp">self</span>.<span class="n">level</span> = <span class="n">level</span>
+        <span class="bp">self</span>.<span class="n">message</span> = <span class="n">message</span>
+        <span class="bp">self</span>.<span class="n">source</span> = <span class="n">source</span></code></pre>
+<p>With <code>__slots__</code>, the class has no <code>__dict__</code> — trying to assign an attribute not in <code>__slots__</code> raises <code>AttributeError</code>. This is a feature: it makes the class shape rigid, preventing typos like <code>record.mesage</code> from silently creating a new attribute instead of raising an error. The trade-off is that you cannot dynamically add attributes, which is rarely a problem for a data record whose shape is fixed.</p>
+<p><strong>__getattr__</strong> and <strong>__getattribute__</strong> are lower-level hooks for intercepting attribute access across all fields:</p>
+<ul>
+<li><code>__getattribute__</code> is called on <strong>every</strong> attribute access, unconditionally. It is the most powerful hook and the most dangerous — implement it only when you truly need to intercept every access, and call <code>super().__getattribute__()</code> for default behaviour.</li>
+<li><code>__getattr__</code> is called only when normal attribute lookup fails (when the attribute is not found via the standard mechanism). It is safer and more common for providing dynamic fallbacks.</li>
+</ul>
+<pre><code><span class="k">class</span> <span class="nc">FriendlyRecord</span>:
+    <span class="k">def</span> <span class="nf">__getattr__</span><span class="p">(</span><span class="bp">self</span>, <span class="n">name</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">name</span>.<span class="n">startswith</span>(<span class="s">"has_"</span><span class="p">):</span>
+            field = name[<span class="mi">4</span>:]
+            <span class="k">return</span> <span class="nb">getattr</span>(<span class="bp">self</span>, field, <span class="kc">None</span>) <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">raise</span> <span class="ne">AttributeError</span>(<span class="sa">f</span><span class="s">"{name} not found"</span>)</code></pre>
+<p><strong>Performance considerations:</strong> <code>__getattribute__</code> adds overhead to <em>every</em> attribute access — use it sparingly. <code>__slots__</code> speeds up attribute access by replacing dict lookup with array indexing, and reduces memory by roughly the size of the dict plus its spare capacity. For a million <code>LogRecord</code> instances, <code>__slots__</code> can save hundreds of megabytes.</p>
+<div class="callout"><strong>Consult the volumes:</strong> The Python docs' "Data Model" chapter covers <code>__getattribute__</code>, <code>__getattr__</code>, <code>__setattr__</code>, and <code>__delattr__</code> in detail. <code>__slots__</code> is documented in the "Classes" chapter. The CPython implementation is in <code>Objects/typeobject.c</code> — slot access is handled by <code>type_getattro</code> and friends.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SLOTS WITH DATACLASSES</div>
+<p>Python 3.10+ supports <code>@dataclass(slots=True)</code> which combines the dataclass generation with <code>__slots__</code> — the generated class has no <code>__dict__</code> and each instance is more compact. Before 3.10, you must either manually add <code>__slots__</code> after the decorator (which dataclass overrides) or use a third-party library like <code>attrs</code>. Check <code>sys.version_info</code> before relying on <code>slots=True</code> in production code.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s05-l03-e1"
+type = "mc"
+points = 15
+prompt = "What does declaring <code>__slots__</code> on a class prevent?"
+choices = ["Adding new attributes to instances that are not in __slots__", "Inheriting from the class", "Defining __init__", "Using the class with @dataclass"]
+answer = 0
+whyWrong = "__slots__ removes the instance __dict__ and stores attributes in a compact array. Any attempt to assign an attribute not listed in __slots__ raises AttributeError. This is a feature for fixing object shapes and saving memory."
+hint = "Think about what disappears from each instance when __slots__ is used — a dictionary."
+explain = "__slots__ prevents adding attributes not listed in its tuple by removing the instance __dict__."
+
+[[lessons.exercises]]
+id = "s05-l03-e2"
+type = "fill"
+points = 20
+prompt = "Fill the blank to declare slots for fields x and y:"
+code = '''class Point:
+    ____ = ("x", "y")'''
+answer = "__slots__"
+hint = "The name of the class variable starts with two underscores, ends with two underscores, and is plural."
+
+[[lessons.exercises]]
+id = "s05-l03-e3"
+type = "mc"
+points = 15
+prompt = "How does <code>__getattr__</code> differ from <code>__getattribute__</code>?"
+choices = ["__getattr__ is only called when normal lookup fails; __getattribute__ is called on every access", "__getattr__ is called on every access; __getattribute__ is only called when lookup fails", "They are the same method with different names", "Neither works with __slots__"]
+answer = 0
+whyWrong = "__getattribute__ intercepts every attribute access unconditionally. __getattr__ is the fallback — it runs only after __getattribute__ (or the default lookup) has raised AttributeError. This makes __getattr__ safer for providing dynamic attributes."
+hint = "One is called 'before' regular lookup, the other 'after' it fails."
+explain = "__getattribute__ is called on every attribute access; __getattr__ is called only when the normal lookup fails."
+
+[[lessons.exercises]]
+id = "s05-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this __slots__ class:"
+code = '''class Point:
+    __slots__ = ("x", "y")
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y'''
+
+[[lessons.exercises]]
+id = "s05-l03-w1"
+type = "write"
+points = 35
+prompt = "Write a class <code>Ship</code> with <code>__slots__ = (\"name\", \"speed\")</code>. Add an <code>__init__</code> that sets both fields. Add a <code>__getattr__</code> that returns <code>\"unknown\"</code> for any attribute access that fails. Create <code>Ship(\"Endeavour\", 8.5)</code> and print its <code>name</code> and <code>cargo</code> (which does not exist)."
+starter = '''
+class Ship:
+    __slots__ = ("name", "speed")
+
+    def __init__(self, name, speed):
+        self.name = name
+        self.speed = speed
+
+s = Ship("Endeavour", 8.5)
+print(s.name)
+print(s.cargo)
+'''
+expect = '''Endeavour
+unknown'''
+hint = "__getattr__ is called only when normal lookup fails, so s.cargo will trigger it and return 'unknown'. Add __getattr__ that returns 'unknown' for any attribute."

@@ -1,0 +1,88 @@
+[[lessons]]
+id = "s04-l03"
+title = "The Empty Slot"
+body = '''
+<p>A counter hash begins empty and still behaves correctly. That is the part novice scribes often mistrust. They want to fill the drawer with zeroes before the work starts. Perl does not require that. If the code says <code>++$counts{$kind}</code>, the missing slot is treated as empty enough to rise by one. The first pass makes the slot real. The next pass makes it larger. That is the whole trick.</p>
+<p>Autovivification is the useful name for that behavior, but the apprentice does not need the name before the pattern. What matters is the practical effect: the tally is born when it is first touched. That keeps the code short and keeps the report honest. If a label never appears, there is no entry for it. If it appears three times, the hash will say so without any special casing. The data itself decides which keys exist.</p>
+<p>This is also the chapter where <code>exists</code> and <code>delete</code> earn their keep. <code>exists</code> answers whether a tally is present at all. <code>delete</code> removes one entry when a stale count should not stay on the page. Use the pair with care. A zero count and a missing count are not the same thing. If the page needs to distinguish "never seen" from "seen, then cleared," the hash gives you that choice.</p>
+<p>For the index ledger, the lesson is simple. Count the line kinds in one pass, then print the summary in sorted key order. The source array remains the source of truth. The hash is the summary. That division is what lets later chapters build HTML from the raw lines while still printing a compact index of what the manuscript contained.</p>
+<pre><code><span class="k">my</span> <span class="s">@kinds</span> = <span class="k">qw</span>(<span class="s">HEAD</span> <span class="s">TEXT</span> <span class="s">HEAD</span> <span class="s">BLANK</span> <span class="s">TEXT</span> <span class="s">HEAD</span>);
+<span class="k">my</span> <span class="s">%counts</span>;
+<span class="k">foreach</span> <span class="k">my</span> <span class="s">$kind</span> (<span class="s">@kinds</span>) {
+    ++<span class="s">$counts</span>{<span class="s">$kind</span>};
+}
+<span class="k">for</span> <span class="k">my</span> <span class="s">$kind</span> (<span class="k">sort</span> <span class="k">keys</span> <span class="s">%counts</span>) {
+    <span class="k">say</span> <span class="s">"$kind $counts{$kind}"</span>;
+}</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE EMPTY SLOT</div>
+<p><strong>Zero note.</strong> A counter can start absent and still reach one on its first increment. Do not waste code writing zeroes the program will never read.</p>
+<p><strong>Presence note.</strong> <code>exists</code> tells you whether the key is there. It does not tell you whether the value is meaningful; that is a different question.</p>
+<p><strong>Cleanup note.</strong> <code>delete</code> removes the key itself. It is useful when a stale ledger entry would be more misleading than helpful.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perlfunc: delete and exists"
+url = "https://perldoc.perl.org/perlfunc"
+
+[[lessons.exercises]]
+id = "s04-l03-e1"
+type = "fill"
+points = 20
+prompt = "<p>Restore the operator that increments a missing counter entry on the first pass.</p>"
+code = '____$counts{$kind};'
+answer = "++"
+hint = "The blank is the small operator that raises the slot after Perl treats it as empty."
+whyWrong = "You are leaving the count at zero. A tally only moves when the increment is present."
+
+[[lessons.exercises]]
+id = "s04-l03-e2"
+type = "mc"
+points = 15
+prompt = "<p>Why does the empty <code>%counts</code> hash still work in the loop?</p>"
+choices = ["Because Perl preloads every key with zero.", "Because <code>sort</code> fills in the missing entries.", "Because the first <code>++</code> autovivifies the missing slot.", "Because hashes cannot be empty in Perl."]
+answer = 2
+whyWrong = "You are inventing prefilled keys or blaming <code>sort</code>. The hash grows the slot at the moment the counter is incremented."
+hint = "The first touch makes the tally entry real."
+explain = "The increment operator creates the count slot on demand and bumps it to one."
+
+[[lessons.exercises]]
+id = "s04-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "<p>Retype the frequency table example exactly. Keep the source array, the hash, and the sorted report in place.</p>"
+code = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my @kinds = qw(HEAD TEXT HEAD BLANK TEXT HEAD);
+my %counts;
+foreach my $kind (@kinds) {
+    ++$counts{$kind};
+}
+for my $kind (sort keys %counts) {
+    say "$kind $counts{$kind}";
+}
+'''
+
+[[lessons.exercises]]
+id = "s04-l03-w1"
+type = "write"
+points = 30
+prompt = "<p>Using the starter kinds, count them with a hash and print the sorted summary. Finish with <code>TOTAL 6</code>.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my @kinds = qw(HEAD TEXT HEAD BLANK TEXT HEAD);
+my %counts;
+
+# Task: count each kind and print `NAME N` for the sorted keys.
+# The last line must be `TOTAL 6`.
+'''
+expect = '''
+BLANK 1
+HEAD 3
+TEXT 2
+TOTAL 6'''
+hint = "Walk the array, increment the matching hash slot, then print the keys from <code>sort keys %counts</code>."

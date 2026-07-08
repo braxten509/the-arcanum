@@ -1,0 +1,93 @@
+[[lessons]]
+id = "s12-l01"
+title = "The Smith-Wright's Eye — the Capstone & the Research Method"
+body = '''
+<p>The master's final lesson: no lesson. You have the bellows and the binding; now you choose your own ironwork and forge it by reading the old marks unaided. The capstone menu of real mod features:</p>
+<ul>
+<li><strong>Custom Tool / Armor tier</strong> — a new pickaxe material (mining level, durability, speed).</li>
+<li><strong>Custom Ore + world-gen</strong> — a block that generates underground like iron ore.</li>
+<li><strong>Food</strong> — an item the player eats (hunger, saturation, effects).</li>
+<li><strong>TileEntity / Inventory</strong> — a block that holds items (a chest-like forge).</li>
+<li><strong>Custom Entity</strong> — a mob or projectile of your own.</li>
+<li><strong>GUI / Container</strong> — a screen the player interacts with.</li>
+<li><strong>Capability</strong> — attach custom data to a player or item.</li>
+<li><strong>Command</strong> — a <code>/ironwright</code> chat command.</li>
+</ul>
+<p>Whatever you pick, the research method is the same — the smith-wright's eye at its fullest:</p>
+<ol>
+<li><strong>Find the parent class.</strong> Search Everywhere for the thing you want to extend (<code>ItemPickaxe</code> for a tool, <code>BlockOre</code> for an ore, <code>ItemFood</code> for food). Open it.</li>
+<li><strong>Read its constructors and fields.</strong> The Structure pane lists them; the constructor's parameters tell you what the parent needs.</li>
+<li><strong>Find Usages on the parent.</strong> See how vanilla constructs and registers it — the pattern to copy.</li>
+<li><strong>Write the subclass</strong> mirroring the pattern, with your values and <code>@Override</code> on the methods you change.</li>
+<li><strong>Register, model, name</strong> as you did in Forgeworks VIII–X.</li>
+<li><strong>Build, fire the coals, verify</strong> — <code>./gradlew build</code> then <code>runClient</code>; check the feature works in-game.</li>
+<li><strong>Document the source-map</strong> in <code>RESEARCH.md</code> (next lessons) so the next smith can follow your trail.</li>
+</ol>
+<div class="callout"><strong>Orrick says:</strong> This is the craft the requester asked for — the skill to teach yourself what comes next. Every feature you will ever add begins with steps 1–3. Practise them on the capstone until they are reflex; the rest of your modding life is this loop.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // RESEARCH.MD IS THE GRADED ARTIFACT</div>
+<p>The capstone grades not just the working feature but the <code>RESEARCH.md</code> note you write beside it — the source-map of which classes you opened, which fields you read, which usages you copied, and which overrides you wrote. A feature with no RESEARCH.md is half-forged; the source-map is proof you read the marks, not guessed. The rubric rewards correct source-navigation as much as the working feature.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Minecraft Forge 1.12.x — Documentation Home"
+url = "https://docs.minecraftforge.net/en/1.12.x/"
+
+[[lessons.exercises]]
+id = "s12-l01-e1"
+type = "mc"
+points = 15
+prompt = "You pick the custom Tool tier from the capstone menu. What is the FIRST step of the research method?"
+choices = ["write the subclass and fix the errors", "find the parent class (Search Everywhere for ItemPickaxe / ItemTool) and open it", "register the tool and fire the coals", "write RESEARCH.md"]
+answer = 1
+whyWrong = "Step 1 is to find and open the parent class (ItemPickaxe / ItemTool) — you cannot write a correct subclass without reading what it extends; writing first leads to guessed signatures, registration comes after the subclass exists, and RESEARCH.md is the last step. Reconnaissance before forging."
+hint = "Think about the order — what must you read before you can write a correct subclass?"
+explain = "Find the parent first (Search Everywhere, open it). Then read its constructors/fields, Find Usages, write the subclass mirroring the pattern, register, verify, document."
+
+[[lessons.exercises]]
+id = "s12-l01-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the IntelliJ tool you use to SEE how vanilla constructs and registers a class — the patterns to copy (Alt+F7 on the parent class or a member)."
+code = '''Step 3: ____ on the parent class to see how vanilla uses it — the construction and registration patterns to copy.'''
+answer = "Find Usages"
+whyWrong = "Find Usages lists every use site of a class or member (the patterns to copy); Go to Class jumps to a declaration, Search Everywhere rummages by fragment, Structure lists one class's members. Step 3 — see the usages — is Find Usages."
+hint = "It is the tool that lists every place a class or member is used — Find + Usages."
+
+[[lessons.exercises]]
+id = "s12-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the research loop's first three steps exactly — find, read, find usages."
+code = '''1. Find the parent class (Search Everywhere) and open it.
+2. Read its constructors and fields (Structure pane).
+3. Find Usages on the parent (Alt+F7) — the pattern to copy.'''
+
+[[lessons.exercises]]
+id = "s12-l01-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of the source-map lookup. The starter builds a <code>java.util.Map&lt;String, String&gt;</code> mapping class names to their purpose, pre-filled with <code>ItemPickaxe -&gt; the parent for pickaxes</code>, <code>BlockOre -&gt; the parent for ores</code>, <code>ItemFood -&gt; the parent for food</code>. In <code>main</code>, look up <code>\"BlockOre\"</code> and print <code>BlockOre: the parent for ores</code> by joining the key, <code>\": \"</code>, and the value. Read the value from the map; do not type the purpose in the print."
+starter = '''import java.util.Map;
+import java.util.HashMap;
+
+public class Ironwright {
+    public static void main(String[] args) {
+        Map<String, String> purpose = new HashMap<>();
+        purpose.put("ItemPickaxe", "the parent for pickaxes");
+        purpose.put("BlockOre", "the parent for ores");
+        purpose.put("ItemFood", "the parent for food");
+        // apprentice — look up "BlockOre", print "BlockOre: " + the value
+    }
+}'''
+expect = '''
+BlockOre: the parent for ores'''
+hint = "String v = purpose.get(\"BlockOre\"); System.out.println(\"BlockOre: \" + v);"
+
+[[lessons.exercises]]
+id = "s12-l01-t1"
+type = "text"
+points = 20
+prompt = "Type the filename of the graded source-map note you write beside the capstone feature (the markdown file documenting which classes you opened and which overrides you wrote)."
+answer = "RESEARCH.md"
+hint = "It is RESEARCH + .md — the source-map note the capstone rubric grades alongside the working feature."

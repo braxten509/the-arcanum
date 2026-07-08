@@ -1,0 +1,35 @@
+[freestyle]
+title = "THE WORKING: OPEN THE BELLOWS"
+brief = "Forge a program that loops over a string of digits, computes a running total, and branches on comparisons — proving the bellows pump and the touchstone reads true.<ul><li>Parse the digit string <code>\"357\"</code> into rax using the LOOP-DRIVEN atoi pattern (imul rax,10 / movzx / sub / add / inc / dec/jnz). No hand-unrolled digit blocks.</li><li>Parse a second digit string <code>\"142\"</code> into rbx using the same loop pattern (separate loop, separate accumulator).</li><li>Compare rax and rbx. Print whichever string is lexicographically appropriate: if rax > rbx, print <code>FIRST</code>. If rax &lt; rbx, print <code>SECOND</code>. If equal, print <code>EQUAL</code>. Use signed comparison jumps (jg/jl/je). 357 > 142, so the output must be <code>FIRST</code>.</li><li>After the comparison, also print the PRODUCT of the two values (357 * 142 = 50694) on a new line, using the full itoa pipeline (divide loop → push → pop-to-buffer → print).</li><li>The output must be exactly two lines: <code>FIRST</code> then <code>50694</code> — each followed by a newline.</li></ul>"
+reward = 180
+xray = "Vandr docks: hand-unrolled atoi instead of a loop (the brief demands dec/jnz), wrong comparison direction (357 > 142, not the reverse — signed jg vs jl), stale rdx before idiv/div, missing newlines, output in wrong order, comparison prints wrong text, product not computed from the parsed values. He rewards: clean atoi loop, rdx zeroed before division, correct signed jump selection, compact itoa with div ebx, and a buffer that holds the product digits."
+
+[freestyle.badge]
+id = "badge-s03"
+name = "BELLOWS OPENED"
+desc = "Looped over raw ore, compared values with the touchstone, and printed the truth — control flow is forged."
+
+[[freestyle.rubric]]
+criterion = "Assembles, links, and runs without error"
+weight = 20
+desc = "nasm -f elf64 and ld succeed; program exits cleanly with code 0."
+
+[[freestyle.rubric]]
+criterion = "Loop-driven atoi for both strings"
+weight = 25
+desc = "Both '357' and '142' are parsed with dec/jnz loops (not hand-unrolled). Each uses its own accumulator register."
+
+[[freestyle.rubric]]
+criterion = "Correct comparison and output"
+weight = 25
+desc = "Prints FIRST on line 1 (357 > 142 with signed jg), and 50694 on line 2 computed from the parsed values."
+
+[[freestyle.rubric]]
+criterion = "Correct itoa pipeline"
+weight = 15
+desc = "Product (50694) is converted via div ebx loop → push → pop-to-buffer pattern. rdx zeroed before every division."
+
+[[freestyle.rubric]]
+criterion = "Clean NASM style"
+weight = 15
+desc = "Strings in .data, lengths from equ. xor for zeroing. dec/jnz not loop instruction. Separate labels for each code path (comparison branches). Labels are lowercase with underscore."

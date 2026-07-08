@@ -1,0 +1,86 @@
+[[lessons]]
+id = "s01-l01"
+title = "The Forge and the Quill"
+body = '''
+<p>The quill has three chambers. Preprocessor, compiler, linker. Each does one job and each job has its own failure mode.</p>
+<p>The preprocessor runs first. It is not C++ — it is a text engine. It obeys <code>#include</code> (paste that file here), <code>#define</code> (replace this word with that), <code>#ifdef</code> (keep or discard this block). When the preprocessor finishes, your source file is fully expanded. No directives remain.</p>
+<p>The compiler receives the expanded source — one translation unit per <code>.cpp</code> file plus everything it <code>#include</code>d. It parses the language, checks types, and produces an object file (<code>.o</code> file). A single syntax error stops the whole translation unit.</p>
+<p>The linker collects every object file and resolves symbols. A function declared but never defined produces an <strong>undefined reference</strong> error here — not in the compiler. A function defined twice (in two <code>.cpp</code> files) produces a <strong>multiple definition</strong> error.</p>
+<p>Know which stage your error belongs to. A missing header means the preprocessor could not find the file. A syntax error means the compiler could not parse a construct. An undefined reference means the linker could not find a definition.</p>
+<p>The command is <code>g++</code> followed by the source file. One file, one command, one executable for this inscription. Larger works use many translation units compiled separately and linked together. Makefiles, CMake — those come later. For now the pattern is write, compile, run. Learn to read the error report the compiler sends back. The line number, the column, the message — each part tells you where the quill slipped.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // Separate Compilation</div>
+<p>Separate compilation is why C++ builds are fast after the first one: only changed <code>.cpp</code> files recompile. Unchanged <code>.o</code> files skip straight to linking. This is why headers matter — changing a header may force recompilation of every <code>.cpp</code> that includes it. The trade-off is build time against encapsulation. Forward declarations inside a <code>.cpp</code> file can break circular dependencies without a header.</p></div>
+'''
+
+[[lessons.readings]]
+label = "GCC compilation stages"
+url = "https://gcc.gnu.org/onlinedocs/gcc/Overall-Options.html"
+
+[[lessons.exercises]]
+id = "s01-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this program exactly. This is the smallest working C++ sigil — a main that prints to the vellum."
+code = '''#include <iostream>
+
+int main() {
+    std::cout << "Lector starting" << std::endl;
+    return 0;
+}'''
+
+[[lessons.exercises]]
+id = "s01-l01-e2"
+type = "mc"
+points = 20
+prompt = "Which stage of the C++ toolchain processes <code>#include</code> directives?"
+choices = [
+    "Lexical analysis — the compiler reads tokens one by one and encounters the directive",
+    "Preprocessing — the preprocessor expands <code>#include</code> by pasting the header's contents into the source",
+    "Linking — the assembler resolves the included file's symbols",
+    "Parsing — the compiler builds the AST and needs the included declarations to complete its tree"
+]
+answer = 1
+whyWrong = "Lexical analysis runs <em>after</em> preprocessing, so the <code>#include</code> directive is already gone by then. Lexing sees tokens, not directives."
+hint = "Think about which stage runs first — before any C++ syntax is even parsed."
+explain = "The preprocessor handles all <code>#</code> directives (include, define, ifdef) as pure text operations. They run before the compiler proper sees a single token. The compiler never encounters an <code>#include</code> line; it receives the already-merged source."
+
+[[lessons.exercises]]
+id = "s01-l01-e3"
+type = "fill"
+points = 20
+prompt = "Complete the statement about how C++ compiles."
+code = '''Each <code>.cpp</code> file plus all of its <code>#include</code>d headers forms a single ____.'''
+answer = "translation unit"
+hint = "The term describes the unit of work the compiler processes at one time."
+explain = "A translation unit is the preprocessed source of one .cpp plus every header it includes. The compiler compiles each translation unit independently into one .o file."
+
+[[lessons.exercises]]
+id = "s01-l01-e4"
+type = "text"
+points = 20
+prompt = "You wrote a function declaration in a header but forgot to write its definition in any <code>.cpp</code> file. The compiler compiles fine. What kind of error do you get, and at which stage?"
+answer = "undefined reference at link time"
+accept = [
+    "undefined reference",
+    "linker error undefined reference",
+    "linking error undefined reference",
+    "undefined reference during linking",
+    "linker undefined reference"
+]
+hint = "The compiler trusts the declaration and produces an object file with an unresolved symbol. Something downstream resolves those symbols."
+explain = "The compiler sees the declaration and treats it as a promise. It generates a reference to the symbol. The linker is the one that must find a definition for every reference. If it cannot, it issues 'undefined reference'."
+
+[[lessons.exercises]]
+id = "s01-l01-w1"
+type = "write"
+points = 30
+prompt = "Write a complete C++ program that prints exactly <code>Lector — 0 posts</code>. The starter provides <code>main</code> with a comment where your code goes."
+starter = '''#include <iostream>
+
+int main() {
+    // TODO: print "Lector — 0 posts" to stdout
+    return 0;
+}'''
+expect = "Lector — 0 posts"
+hint = "Use <code>std::cout</code> and the <code>&lt;&lt;</code> operator. Remember the <code>std::endl</code> to end the line."

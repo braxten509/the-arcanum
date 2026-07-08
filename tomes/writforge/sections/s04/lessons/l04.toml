@@ -1,0 +1,105 @@
+[[lessons]]
+id = "s04-l04"
+title = "The Index Page"
+body = '''
+<p>This is where the ordered list and the lookup table meet. The array chooses the display order. The hash supplies the title for each id. If the index page is going to read like a real ledger, the script has to keep those jobs separate. The array should not pretend to know the titles, and the hash should not pretend to know the preferred order. Each structure carries the part of the truth it is good at carrying.</p>
+<p>The future index page will do exactly this work. It will walk an order list, ask a title hash for the matching name, and print the result in a shape a reader can scan. That means no sorting the display list just because the titles live in a hash. If the manuscript wants a curated order, the array owns it. If the manuscript wants the title for <code>appendix</code>, the hash owns that. The two answers together make the report useful.</p>
+<p>That same split also protects the code from stale entries. Before the script prints a line, it can test <code>exists</code> and avoid inventing a title that is not in the table. If a draft is removed, <code>delete</code> can cleanly erase it from the hash without disturbing the order array. Those are different kinds of changes. Do not blur them. A good ledger changes the lookup table and the print order for different reasons, not the same reason.</p>
+<p>When the chapter turns into HTML later, the same discipline will matter again. The line order will come from the source manuscript. The labels and titles will come from hashes. The page will be easier to maintain because each job stayed narrow from the start. That is the real use of a hash in this course: not just counting, but giving names a clean place to live so the page can be assembled without guesswork.</p>
+<pre><code><span class="k">my</span> <span class="s">@order</span> = <span class="k">qw</span>(<span class="s">preface</span> <span class="s">glossary</span> <span class="s">appendix</span>);
+<span class="k">my</span> <span class="s">%titles</span> = (
+    <span class="s">preface</span>  =&gt; <span class="s">"Preface"</span>,
+    <span class="s">glossary</span> =&gt; <span class="s">"Glossary"</span>,
+    <span class="s">appendix</span> =&gt; <span class="s">"Appendix"</span>,
+);
+<span class="k">for</span> <span class="k">my</span> <span class="s">$id</span> (<span class="s">@order</span>) {
+    <span class="k">say</span> <span class="s">"$id: $titles{$id}"</span>;
+}</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE INDEX PAGE</div>
+<p><strong>Order note.</strong> The array chooses the human-facing sequence. The hash only answers the lookup. Keep that line bright and the report stays readable.</p>
+<p><strong>Stale-entry note.</strong> <code>delete</code> removes the key without rewriting the rest of the table. It is the clean way to retire a title that should no longer appear.</p>
+<p><strong>Audit note.</strong> A hash is a map, not a promise of display order. Use the array when the page needs a curated sequence and the hash when the page needs a name.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perldata: hashes and arrays"
+url = "https://perldoc.perl.org/perldata"
+
+[[lessons.exercises]]
+id = "s04-l04-e1"
+type = "mc"
+points = 15
+prompt = "<p>Which pairing is the cleanest division of labor for the index page?</p>"
+choices = ["<code>@order</code> holds titles and <code>%titles</code> holds the lookup order.", "<code>each %titles</code> sorts the ledger for you.", "<code>@order</code> replaces the hash because hashes cannot look anything up.", "<code>@order</code> holds the print order while <code>%titles</code> maps ids to titles."]
+answer = 3
+whyWrong = "You are swapping the roles or asking <code>each</code> to do sorting work it never promised. The array owns order; the hash owns lookup."
+hint = "The array decides sequence, the hash decides what each id means."
+explain = "The report stays readable when the order list and the title map stay separate."
+
+[[lessons.exercises]]
+id = "s04-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "<p>Retype the index walk exactly. Keep the order array and the title hash separated.</p>"
+code = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my @order = qw(preface glossary appendix);
+my %titles = (
+    preface  => "Preface",
+    glossary => "Glossary",
+    appendix => "Appendix",
+);
+for my $id (@order) {
+    say "$id: $titles{$id}";
+}
+'''
+
+[[lessons.exercises]]
+id = "s04-l04-e2"
+type = "fill"
+points = 20
+prompt = "<p>Restore the word that lets the script walk the hash keys in a stable display order.</p>"
+code = 'for my $id (sort ____ %titles) { say $id; }'
+answer = "keys"
+hint = "The missing word gives the names of the hash entries, not the titles."
+whyWrong = "You are reaching for the values or the whole table when the output needs the list of keys first."
+
+[[lessons.exercises]]
+id = "s04-l04-w1"
+type = "write"
+points = 30
+prompt = "<p>Use the starter order list and title hash to print the index in the given order, one line per entry, and finish with <code>INDEX 3</code>.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my @order = qw(addendum preface appendix);
+my %titles = (
+    preface  => "Preface",
+    addendum => "Addendum",
+    appendix => "Appendix",
+);
+
+# Task: print each id and its title in the order listed above.
+# The last line must be `INDEX 3`.
+'''
+expect = '''
+addendum Addendum
+preface Preface
+appendix Appendix
+INDEX 3'''
+hint = "Walk <code>@order</code> as written, look up each title in <code>%titles</code>, and count the entries you printed."
+
+[[lessons.exercises]]
+id = "s04-l04-e3"
+type = "mc"
+points = 15
+prompt = "<p>If a draft title should be removed from <code>%titles</code>, which operator erases the key/value pair entirely?</p>"
+choices = ["<code>delete</code>", "<code>shift</code>", "<code>pop</code>", "<code>exists</code>"]
+answer = 0
+whyWrong = "You are picking array operators or the presence check instead of the hash operation that actually removes the stored entry."
+hint = "This is the hash operation that retires a key, not one that inspects it."
+explain = "<code>delete</code> removes the hash entry so it no longer appears in later lookups."

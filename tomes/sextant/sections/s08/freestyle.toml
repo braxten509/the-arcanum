@@ -1,0 +1,25 @@
+[freestyle]
+title = "THE WORKING: JOINING THE SECTIONS"
+brief = "<p>Deliver the finished <code>python -m sextant</code> CLI. The tool must:</p><ul><li>Restructure into a package: <code>sextant/__init__.py</code> (exports the public API), <code>sextant/models.py</code> (LogRecord, LogParseError), <code>sextant/parser.py</code> (parse_log, read_logs), <code>sextant/registry.py</code> (handler decorator, run_handlers), <code>sextant/reporters.py</code> (text/json/csv output), <code>main.py</code> (the entry point)</li><li>Use <code>argparse</code> with subcommands: <code>summary</code> (per-level and per-source totals with <code>Counter.most_common()</code>), <code>tail</code> (last N records with error highlighting), and <code>export</code> (output in <code>--format text|json|csv</code>)</li><li>Implement the <code>if __name__ == \"__main__\"</code> guard so the package is both importable and <code>python -m sextant</code>-runnable</li><li>Use <code>json.dump()</code> for JSON output (<code>indent=2</code>), <code>csv.writer</code> for CSV, and formatted plain text for <code>text</code> format</li><li>Handle <code>--plugin</code> flag to filter by a specific handler level</li><li>Test end-to-end: <code>python main.py logs/ --format text</code></li></ul><p>The final instrument. All eight bearings combine into one command a real operator would reach for.</p>"
+reward = 250
+xray = "The grader docks points for: using sys.argv directly instead of argparse; not splitting into subcommands; missing __init__.py that exports clean public API; JSON output that is not valid JSON (use json.dump); CSV that does not use csv.writer; missing the if __name__ guard. He gives style credit for: clean module separation with no circular imports; argparse with help text in the course voice; the __init__.py re-exporting only the public surface; the entry-point file being minimal (parse args and call the coordinator)."
+
+[freestyle.badge]
+id = "badge-s08"
+name = "FULL SEXTANT"
+desc = "The instrument is whole — Sextant reads real logs and reports in text, JSON, or CSV."
+
+[[freestyle.rubric]]
+criterion = "Compiles & runs"
+weight = 35
+desc = "Build succeeds; python -m sextant works end-to-end on a real log directory."
+
+[[freestyle.rubric]]
+criterion = "Meets the brief"
+weight = 40
+desc = "Every requirement in the checklist is present and correct (subcommands, format flags, multi-file package)."
+
+[[freestyle.rubric]]
+criterion = "Clean style"
+weight = 25
+desc = "PEP 8: snake_case, 4-space indent, no mutable globals, __init__.py package layout, if __name__ guard."

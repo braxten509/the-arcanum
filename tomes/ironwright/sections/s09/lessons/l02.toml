@@ -1,0 +1,73 @@
+[[lessons]]
+id = "s09-l02"
+title = "What the Block Is Made Of — Material & IBlockState"
+body = '''
+<p>A block is more than a name — it has substance. <code>Material</code> defines what a block is made of: how hard it is, what tool mines it, whether it conducts redstone, whether it flammable. <code>BlockMetal</code> takes a <code>Material</code> in its constructor (usually <code>Material.IRON</code> for a metal block) and inherits the material's behaviour.</p>
+<pre><code><span class="k">public class</span> BlockMetal <span class="k">extends</span> Block {
+    <span class="k">public</span> BlockMetal(String name) {
+        <span class="k">super</span>(Material.IRON);            <span class="c">// the substance — hard, mined by pickaxe</span>
+        setRegistryName(Ironwright.MODID, name);
+        setUnlocalizedName(Ironwright.MODID + <span class="s">"."</span> + name);
+        setHardness(<span class="s">5.0f</span>);            <span class="c">// how long it takes to mine</span>
+        setResistance(<span class="s">10.0f</span>);          <span class="c">// blast resistance</span>
+        setCreativeTab(CreativeTabs.BUILDING_BLOCKS);
+    }
+}</code></pre>
+<p><code>Material.IRON</code> makes the block need a pickaxe to mine and drop anything; <code>Material.ROCK</code> is the stone family; <code>Material.WOOD</code> is wood (flammable, axe-felled). <code>setHardness</code> sets mining time, <code>setResistance</code> blast resistance. Pick the Material that matches the substance — a metal block is <code>Material.IRON</code>, not <code>Material.WOOD</code>.</p>
+<p>An <code>IBlockState</code> is a block plus its property values. A plain <code>BlockMetal</code> has no properties (it is one state), but a block with a <code>direction</code> property has many states (facing north, south, east, west) — each an <code>IBlockState</code>. The blockstate JSON (next lesson) maps each state to a model. For now, your <code>BlockMetal</code> is a single-state block; its blockstate JSON lists one variant.</p>
+<div class="callout"><strong>Orrick says:</strong> The <code>Material</code> decides the tool that mines the block and whether it drops. A block you want mined by pickaxe but give <code>Material.WOOD</code> will be mined by axe and drop nothing. Match the substance to the material; the rest of the behaviour follows.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // IBlockState AND PROPERTIES</div>
+<p>Properties (<code>PropertyDirection</code>, <code>PropertyBool</code>) turn one Block class into many states. A furnace has a <code>FACING</code> property (4 states) and a <code>LIT</code> property (on/off), so one <code>BlockFurnace</code> class has 8 <code>IBlockState</code>s. The blockstate JSON maps each combination to a model. Your <code>BlockMetal</code> has no properties — one state, one model — so its blockstate JSON has one <code>variant</code> entry. When you add a facing property later, the JSON grows to four.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s09-l02-e1"
+type = "mc"
+points = 15
+prompt = "What does a block's <code>Material</code> (e.g. <code>Material.IRON</code>) determine?"
+choices = ["the block's texture", "the substance behaviour — what tool mines it, whether it conducts redstone, whether it is flammable, what it drops", "the block's registry name", "the block's model JSON path"]
+answer = 1
+whyWrong = "Material sets the substance behaviour (mining tool, redstone, flammability, drops); the texture is the model JSON's layer0, the registry name is setRegistryName, and the model path is the resource location. Material is the substance, not the look or the name."
+hint = "Think about what 'substance' means — what tool mines it, what it drops. That is Material's job."
+explain = "Material.IRON makes a pickaxe mine it and drop its drops; Material.WOOD would make an axe mine it. The material is the substance; hardness and resistance refine it."
+
+[[lessons.exercises]]
+id = "s09-l02-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the Material a cast-metal block should use — the substance that needs a pickaxe to mine and drops its drops."
+code = '''public BlockMetal(String name) {
+    super(____.IRON);
+}'''
+answer = "Material"
+whyWrong = "Material.IRON is the pickaxe-mined metal substance; Block is the class not a material, IBlockState is a state not a substance, Metal is your enum not Minecraft's. The 1.12.2 substance enum is Material."
+hint = "It is the six-letter class name — Material — whose IRON value makes a block pickaxe-mined."
+
+[[lessons.exercises]]
+id = "s09-l02-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of the block-material label. The starter has a mock <code>Material</code> enum (<code>IRON</code>, <code>ROCK</code>, <code>WOOD</code>) and a mock <code>Block</code> whose constructor takes a <code>Material</code> and stores it, with a <code>getMaterial()</code> getter. In <code>main</code>, construct <code>Block b = new Block(Material.IRON);</code> and print <code>block:IRON</code> by joining <code>\"block:\"</code> with <code>b.getMaterial().name()</code>. Read the material name from the enum; do not type IRON in the print."
+starter = '''public class Ironwright {
+    enum Material { IRON, ROCK, WOOD }
+    static class Block {
+        private Material material;
+        public Block(Material m) { this.material = m; }
+        public Material getMaterial() { return material; }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — construct new Block(Material.IRON), print "block:" + its material name
+    }
+}'''
+expect = '''
+block:IRON'''
+hint = "Block b = new Block(Material.IRON); System.out.println(\"block:\" + b.getMaterial().name());"
+
+[[lessons.exercises]]
+id = "s09-l02-t1"
+type = "text"
+points = 20
+prompt = "Type the interface name for a block plus its property values — the object the blockstate JSON maps each variant of to a model. (One word, starts with I.)"
+answer = "IBlockState"
+hint = "It is I + Block + State — the interface representing one combination of a block and its property values."

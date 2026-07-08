@@ -43,8 +43,9 @@ id = "s11-l03-e1"
 type = "mc"
 points = 25
 prompt = "Why does RunAsync return a PipelineResult record instead of printing directly?"
-choices = ["Console printing is slow", "Compute and presentation stay separated — testable pipeline, swappable frontends", "Records print themselves", "Async methods can't print"]
-answer = 1
+choices = ["Console printing is slow", "Async methods can't print", "Records print themselves", "Compute and presentation stay separated — testable pipeline, swappable frontends"]
+answer = 3
+whyWrong = "It’s not about print speed or records printing themselves — returning a result record separates computation from presentation, so the pipeline is testable and the frontend swappable."
 hint = "The renderer owns the face. The pipeline owns the facts."
 
 [[lessons.exercises]]
@@ -52,8 +53,9 @@ id = "s11-l03-e2"
 type = "mc"
 points = 20
 prompt = "Search returns zero results. The orchestrator should…"
-choices = ["throw NoResultsException", "continue — later stages can handle empty lists", "return early with a reasoned empty result the renderer can explain", "retry the search forever"]
-answer = 2
+choices = ["return early with a reasoned empty result the renderer can explain", "continue — later stages can handle empty lists", "throw NoResultsException", "retry the search forever"]
+answer = 0
+whyWrong = "Continuing, throwing, or retrying all mishandle a legitimate zero-result — return early with a reasoned empty result the renderer can explain."
 hint = "Early exit + a reason string = the designed empty state."
 
 [[lessons.exercises]]
@@ -63,6 +65,7 @@ points = 20
 prompt = "What rides through every stage of the run for coordinated shutdown?"
 choices = ["a global bool", "the CancellationToken", "an exception", "Thread.Abort"]
 answer = 1
+whyWrong = "A global bool or exception won’t coordinate shutdown and Thread.Abort is unsafe — the CancellationToken threaded through every stage does."
 hint = "Chapter VIII's plug, threaded end to end."
 
 [[lessons.exercises]]

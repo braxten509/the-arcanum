@@ -1,0 +1,99 @@
+[[lessons]]
+id = "s05-l07"
+title = "The Generic Registry — Forging the Real Shape"
+body = '''
+<p>Everything in this forgework assembles now: the <code>Forgeable</code> contract, generics, the <code>Map</code>, the <code>Metal</code> enum. The Forgework III registry — a fixed array of Ingots — refactors into a generic <code>Registry&lt;T&gt;</code> backed by a map, holding anything that satisfies a contract.</p>
+<pre><code><span class="k">public class</span> Registry&lt;T <span class="k">extends</span> Forgeable&gt; {
+    <span class="k">private</span> Map&lt;String, T&gt; entries = <span class="k">new</span> HashMap&lt;&gt;();
+
+    <span class="k">public void</span> register(String key, T item) { entries.put(key, item); }
+    <span class="k">public</span> T get(String key) { <span class="k">return</span> entries.get(key); }
+    <span class="k">public int</span> size() { <span class="k">return</span> entries.size(); }
+}
+
+Registry&lt;Ingot&gt; ingots = <span class="k">new</span> Registry&lt;&gt;();
+ingots.register(<span class="s">"iron"</span>, <span class="k">new</span> Ingot(<span class="s">"iron"</span>, <span class="s">8</span>));
+ingots.register(<span class="s">"copper"</span>, <span class="k">new</span> Ingot(<span class="s">"copper"</span>, <span class="s">6</span>));
+ingots.register(<span class="s">"starsteel"</span>, <span class="k">new</span> Ingot(<span class="s">"starsteel"</span>, <span class="s">20</span>));
+
+Ingot found = ingots.get(<span class="s">"copper"</span>);   <span class="c">// the copper ingot — one map lookup</span>
+<span class="k">int</span> count = ingots.size();          <span class="c">// 3</span></code></pre>
+<p>The bound <code>&lt;T extends Forgeable&gt;</code> says "T can be any type that implements Forgeable" — so the registry holds Ingots, or any future Forgeable class, and the compiler still checks the contract. <code>register</code> puts by key; <code>get</code> is one map lookup instead of the Forgework III loop; <code>size</code> delegates to the map. The fixed array and its overflow are gone.</p>
+<p>This is the plain-Java mirror of Minecraft's own registry. <code>RegistryEvent.Register&lt;Item&gt;</code> hands the mod a registry of Items; <code>IForgeRegistryEntry&lt;T&gt;</code> is the contract every registrable thing implements; <code>setRegistryName</code> is the key. When you register <code>ItemIngot</code> in Forgework VIII, you will recognise the shape: one contract, a map keyed by name, register then look up. The old marks use the same forging you just rehearsed.</p>
+<div class="callout"><strong>Orrick says:</strong> The bound <code>&lt;T extends Forgeable&gt;</code> is not decoration — it lets <code>Registry</code> call <code>forgeName()</code> on its items (it knows T is Forgeable). Without the bound, T is just Object, and the contract is unreachable.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // FROM HERE TO THE MOD'S REGISTRY</div>
+<p>The mod's registry differs in one detail: it is keyed by <code>ResourceLocation</code> (<code>"ironwright:iron"</code> — a namespace plus a path), not a bare String. The shape is identical: <code>registry.register(new ItemIngot().setRegistryName("ironwright:iron"))</code> puts the item under its key, and the game looks it up by that key forever after. You will write that line in Forgework VIII; here you wrote its skeleton.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s05-l07-e1"
+type = "mc"
+points = 15
+prompt = "Why is <code>Registry</code> declared <code>Registry&lt;T extends Forgeable&gt;</code> rather than <code>Registry&lt;T&gt;</code>?"
+choices = ["so the registry can call Forgeable methods (like forgeName) on its items, and only Forgeable types may be stored", "so T can only be a String", "so the registry can hold primitives", "because generics require a bound"]
+answer = 0
+whyWrong = "The bound lets Registry treat T as a Forgeable (calling forgeName/forgeValue) and restricts what you can store to Forgeable types; String-bound is wrong, primitives are never allowed in generics, and generics do not require a bound. The bound is about the contract, not a technical requirement."
+hint = "Think about what the bound lets the Registry DO with its items — and what it prevents from being stored."
+explain = "T extends Forgeable means every T carries the contract, so Registry can call forgeName() and the compiler rejects non-Forgeable types at registration."
+
+[[lessons.exercises]]
+id = "s05-l07-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the type bound keyword that constrains T to a Forgeable (the same keyword used for class inheritance)."
+code = '''public class Registry<T ____ Forgeable> {
+    private Map<String, T> entries = new HashMap<>();
+}'''
+answer = "extends"
+whyWrong = "extends is the bound keyword in generics (T extends Forgeable), even for interfaces — implements is not used in type bounds; super is for lower bounds (advanced); implements is for classes. A type bound uses extends."
+hint = "It is the seven-letter keyword — in generics, the same word used for class inheritance sets an upper bound."
+
+[[lessons.exercises]]
+id = "s05-l07-w1"
+type = "write"
+points = 30
+prompt = "The Forgeable interface, Ingot (implements Forgeable with toString returning <code>name + \" @ \" + value + \"em\"</code>), and generic <code>Registry&lt;T extends Forgeable&gt;</code> are in the starter. In <code>main</code>, build <code>Registry&lt;Ingot&gt; reg = new Registry&lt;&gt;();</code>, register three ingots keyed <code>iron</code> (8), <code>copper</code> (6), <code>starsteel</code> (20), then <code>reg.get(\"copper\")</code> and print it. The expected output is exactly <code>copper @ 6em</code>."
+starter = '''import java.util.Map;
+import java.util.HashMap;
+
+public class Ironwright {
+    interface Forgeable { int forgeValue(); String forgeName(); }
+    static class Ingot implements Forgeable {
+        private String name; private int value;
+        public Ingot(String name, int value) { this.name = name; this.value = value; }
+        @Override public int forgeValue() { return value; }
+        @Override public String forgeName() { return name; }
+        @Override public String toString() { return name + " @ " + value + "em"; }
+    }
+    static class Registry<T extends Forgeable> {
+        private Map<String, T> entries = new HashMap<>();
+        public void register(String key, T item) { entries.put(key, item); }
+        public T get(String key) { return entries.get(key); }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — build Registry<Ingot>, register 3, get "copper", print it
+    }
+}'''
+expect = '''
+copper @ 6em'''
+hint = "Registry<Ingot> reg = new Registry<>(); reg.register(\"copper\", new Ingot(\"copper\", 6)); ... System.out.println(reg.get(\"copper\"));"
+
+[[lessons.exercises]]
+id = "s05-l07-t1"
+type = "text"
+points = 20
+prompt = "Type the Forge interface your Registry previews — the one every registrable Minecraft item implements (fully-qualified name, the &lt;T&gt; included)."
+answer = "net.minecraftforge.registries.IForgeRegistryEntry<T>"
+hint = "It lives in net.minecraftforge.registries — I + Forge + Registry + Entry, with a type parameter T."
+
+[[lessons.exercises]]
+id = "s05-l07-e2"
+type = "mc"
+points = 15
+prompt = "The Forgework III registry found an ingot by looping the array; the generic registry finds one by <code>entries.get(key)</code>. What is the practical gain?"
+choices = ["the registry can hold more than 16 items", "it can store primitives", "it uses less memory", "a lookup is one map access instead of a loop, and the registry accepts any Forgeable type, not just Ingot"]
+answer = 3
+whyWrong = "A map lookup is O(1) versus the loop's O(n), and the bound lets the registry hold any Forgeable, not only Ingot; the >16 gain is true but secondary; memory is not the point; primitives are never allowed in generics. The two real gains are speed and type-flexibility."
+hint = "Two gains — one about how fast a lookup is, one about what types the registry can hold. Which option names both?"
+explain = "Map.get is constant-time; the bound opens the registry to every Forgeable. Both come from swapping the array for a generic map."

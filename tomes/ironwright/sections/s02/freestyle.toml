@@ -1,0 +1,30 @@
+[freestyle]
+title = "THE WORKING: The Command Loop"
+brief = "Apprentice, the front door now must listen. Grow <code>Ironwright.java</code> so it reads commands in a loop until <code>quit</code> and dispatches each to a method. The commands:<ul><li><code>forge &lt;metal&gt;</code> — print <code>FORGED &lt;metal&gt;</code> (for example <code>FORGED iron</code>).</li><li><code>value &lt;metal&gt;</code> — print <code>value &lt;n&gt;</code> where n is 8 for iron, 6 for copper, 20 for starsteel, 0 for anything else (use a <code>static int metalValue(String)</code> method).</li><li><code>list</code> — print <code>forge is empty</code> (the registry comes in Forgework III).</li><li><code>quit</code> — print <code>IRONWRIGHT // forge cold</code> and stop the loop.</li><li>Anything else — print <code>UNKNOWN &lt;command&gt;</code>.</li></ul>"
+reward = 175
+xray = "Orrick docks for a loop that never exits (no quit break or hasNextLine guard), String compares with == instead of .equals, a metalValue method that misses a return path, or all logic crammed into main with no method. He gives style credit for a named dispatch method, Allman braces, and 4-space indent."
+
+[freestyle.badge]
+id = "badge-s02"
+name = "THE LISTENING FORGE"
+desc = "Hung a loop on the front door — the forge now reads commands and answers each."
+
+[[freestyle.rubric]]
+criterion = "Compiles & runs"
+weight = 25
+desc = "javac Ironwright.java succeeds and java Ironwright runs without crashing on several piped commands ending in quit."
+
+[[freestyle.rubric]]
+criterion = "Command loop runs until quit"
+weight = 30
+desc = "A while loop reads commands from stdin (guarded by hasNextLine or broken on quit); it processes every command in order and stops cleanly after quit, printing IRONWRIGHT // forge cold as the last line."
+
+[[freestyle.rubric]]
+criterion = "Dispatch is correct"
+weight = 25
+desc = "forge/value/list/quit/unknown each behave exactly as the brief specifies; value uses the metalValue method returning 8/6/20/0; String comparisons use .equals, not ==."
+
+[[freestyle.rubric]]
+criterion = "Clean Java style"
+weight = 20
+desc = "A named static method (metalValue and/or a dispatch method) rather than all logic in main; camelCase for methods and locals; Allman braces (opening brace on its own line); 4-space indentation; import java.util.Scanner above the class."

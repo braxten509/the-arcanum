@@ -1,0 +1,116 @@
+[[lessons]]
+id = "s03-l03"
+title = "Walking the Row"
+body = '''
+<p>A <code>foreach</code> loop is how a scribe walks a shelf without changing the order of the books. The loop visits each element in turn, and <code>my $line</code> keeps the sample local to that pass. This is the place to reuse the helper from the last chapter. <code>classify_line</code> still knows how to name a line; the array now supplies many lines in sequence.</p>
+<p>That split matters. The helper decides what a line is. The array decides which lines exist. The loop decides when each line is handed to the helper. Each job stays narrow. If you fold all three jobs into one swamp of <code>if</code> statements, you lose the shape of the work. Use the array to preserve order, use <code>foreach</code> to walk it, and let the helper return a label. The caller can print the label or count it.</p>
+<p>The earlier chapter taught a single line at a time. This one teaches the same judgment across a collection. That is the bridge the project needs before the page can gather real manuscript lines from a file. A loop that respects order and a helper that returns a label are both reusable tools. Put them together and the script can say not just what one line is, but what each line is as it passes by in sequence.</p>
+<p>Because <code>foreach</code> visits every element in order, it is the right tool for turning a stored list into a stream of labels. The script can print each label now and count the same labels later without changing the source array. That is the bridge from single-line practice to manuscript passes. The helper stays narrow, the loop stays honest, and the data stays in one place while the caller decides what to do with the result.</p>
+<pre><code><span class="k">my</span> <span class="s">@samples</span> = (<span class="s">""</span>, <span class="s">"# Preface"</span>, <span class="s">"A paragraph"</span>, <span class="s">"# Addendum"</span>);
+<span class="k">foreach</span> <span class="k">my</span> <span class="s">$line</span> (<span class="s">@samples</span>) {
+    <span class="k">say</span> <span class="k">classify_line</span>(<span class="s">$line</span>);
+}</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE WALKING ROW</div>
+<p><strong>Loop note.</strong> <code>foreach my $line (@samples)</code> keeps the sample name local to the pass. The array keeps its own order; the loop does not scramble it.</p>
+<p><strong>Reuse note.</strong> The helper from the previous canto stays useful because it returns a label instead of printing one. That makes it easier to count headers in the same pass.</p>
+<p><strong>Shape note.</strong> Separate storage from classification. The array owns the lines, the helper owns the judgment, and the caller owns the output.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perlsyn: foreach loops"
+url = "https://perldoc.perl.org/perlsyn"
+
+[[lessons.exercises]]
+id = "s03-l03-e1"
+type = "text"
+points = 20
+prompt = "<p>When <code>foreach my $line (@samples)</code> runs, does it keep the original order or scramble it?</p>"
+answer = "it keeps the original order"
+accept = ["same order", "original order", "keeps the original order"]
+hint = "A <code>foreach</code> loop walks the list as it already sits."
+whyWrong = "You are thinking of sorting or shuffling. <code>foreach</code> visits the elements in the order the array already has."
+
+[[lessons.exercises]]
+id = "s03-l03-e2"
+type = "mc"
+points = 15
+prompt = "<p>Which loop form is the clearest fit when the lines are already stored in an array?</p>"
+choices = ["<code>if</code>", "<code>while</code>", "<code>sub</code>", "<code>foreach</code>"]
+answer = 3
+whyWrong = "You are choosing a branch, a counter loop, or a definition block when the work is simply to visit each element in turn."
+hint = "The loop should walk the array one element at a time."
+explain = "<code>foreach</code> is the direct way to walk an existing list in order."
+
+[[lessons.exercises]]
+id = "s03-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "<p>Retype the looped classifier exactly. Keep the array literal and the helper call unchanged.</p>"
+code = '''
+my @samples = ("", "# Preface", "A paragraph", "# Addendum");
+foreach my $line (@samples) {
+    say classify_line($line);
+}
+'''
+
+[[lessons.exercises]]
+id = "s03-l03-e3"
+type = "fill"
+points = 20
+prompt = "<p>Restore the keyword that makes the loop variable lexical inside the pass.</p>"
+code = 'foreach ____ $line (@samples) { say classify_line($line); }'
+answer = "my"
+hint = "The loop should own its sample name for the duration of each pass."
+whyWrong = "You are leaving the loop variable floating without a lexical declaration. <code>my</code> keeps the sample local to the pass."
+
+[[lessons.exercises]]
+id = "s03-l03-e4"
+type = "mc"
+points = 15
+prompt = "<p>Why call <code>classify_line</code> inside the loop instead of building one giant string first?</p>"
+choices = ["It keeps storage, iteration, and classification separate, so the same array can be reused for counting or printing later.", "Because <code>foreach</code> only works when the array is empty.", "Because <code>classify_line</code> needs the array to be sorted first.", "Because the loop variable must be global."]
+answer = 0
+whyWrong = "You are collapsing separate jobs into one pile or inventing a requirement the helper does not have. The array should stay reusable, and the helper should stay focused on naming one line."
+hint = "The array, the loop, and the helper each have a different job."
+explain = "Keeping the helper separate makes the same array useful for later counting and printing."
+
+[[lessons.exercises]]
+id = "s03-l03-w1"
+type = "write"
+points = 30
+prompt = "<p>The starter already carries the <code>classify_line</code> helper from the last canto. Use the array to print the four labels in order and increment <code>$headers</code> only when the helper returns <code>HEAD</code>, then let the final line print <code>HEADERS 2</code>.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+sub classify_line {
+    my $line = shift;
+
+    if ($line eq "") {
+        return "BLANK";
+    }
+    if (substr($line, 0, 1) eq "#") {
+        return "HEAD";
+    }
+    return "TEXT";
+}
+
+my @samples = ("", "# Preface", "A paragraph", "# Addendum");
+my $headers = 0;
+
+foreach my $line (@samples) {
+    my $kind = classify_line($line);
+
+    # Task: print the label and count the header lines.
+}
+
+say "HEADERS $headers";
+'''
+expect = '''
+BLANK
+HEAD
+TEXT
+HEAD
+HEADERS 2'''
+hint = "Print the returned label for each sample, and bump the counter only when that label is HEAD."

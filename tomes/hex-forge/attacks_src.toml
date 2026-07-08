@@ -1,0 +1,1881 @@
+# SPELL DUEL reference solutions for hex-forge — authored in NASM, in the
+# forge voice. Run:  python3 tools/gen_attacks.py hex-forge  (server up) to slice
+# each `solution` into generated/attacks.toml. NOTE: the shipped nasm runtime's
+# `command` omits `./` before the binary, so runsnip cannot execute today; the
+# generated/attacks.toml below was hand-authored from these locally-verified
+# solutions (nasm -f elf64 + ld + ./bin) — regenerate once the runtime is fixed.
+
+[[challenge]]
+tier = 1
+title = "COLD COUNTER"
+starter = '''
+section .data
+l1: db "MARK SET", 10        ; stage 1 prints exactly: MARK SET
+l2: db "FORGE LIT", 10       ; stage 2 then appends: FORGE LIT
+l3: db "ANVIL DRESSED", 10  ; stage 3 then appends: ANVIL DRESSED
+section .text
+    global _start
+_start:
+    ; three sys_write strikes, then sys_exit
+'''
+briefs = ["Strike the first mark and hold it.", "The rival arms a second demand — light the forge.", "A third hex lands — dress the anvil and hold all three."]
+solution = '''
+section .data
+l1: db "MARK SET", 10
+l2: db "FORGE LIT", 10
+l3: db "ANVIL DRESSED", 10
+section .text
+    global _start
+_start:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel l1]
+    mov rdx, 9
+    syscall
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel l2]
+    mov rdx, 10
+    syscall
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel l3]
+    mov rdx, 14
+    syscall
+    mov rax, 60
+    xor rdi, rdi
+    syscall'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 1
+title = "THREE SPARKS"
+starter = '''
+section .data
+l1: db "SPARK ONE", 10   ; stage 1: SPARK ONE
+l2: db "SPARK TWO", 10   ; stage 2: SPARK TWO
+l3: db "SPARK THREE", 10 ; stage 3: SPARK THREE
+section .text
+    global _start
+_start:
+'''
+briefs = ["Catch the first spark before it dies.", "A second spark lands — hold it too.", "The third spark seals the strike — hold the chain."]
+solution = '''
+section .data
+l1: db "SPARK ONE", 10
+l2: db "SPARK TWO", 10
+l3: db "SPARK THREE", 10
+section .text
+    global _start
+_start:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel l1]
+    mov rdx, 10
+    syscall
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel l2]
+    mov rdx, 10
+    syscall
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel l3]
+    mov rdx, 12
+    syscall
+    mov rax, 60
+    xor rdi, rdi
+    syscall'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 1
+title = "GATE TRIAD"
+starter = '''
+section .data
+l1: db "BELL AIR", 10    ; stage 1: BELL AIR
+l2: db "BELL STONE", 10  ; stage 2: BELL STONE
+l3: db "BELL IRON", 10   ; stage 3: BELL IRON
+section .text
+    global _start
+_start:
+'''
+briefs = ["Ring the air bell.", "Ring the stone bell.", "Ring the iron bell — keep all three ringing."]
+solution = '''
+section .data
+l1: db "BELL AIR", 10
+l2: db "BELL STONE", 10
+l3: db "BELL IRON", 10
+section .text
+    global _start
+_start:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel l1]
+    mov rdx, 9
+    syscall
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel l2]
+    mov rdx, 11
+    syscall
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel l3]
+    mov rdx, 10
+    syscall
+    mov rax, 60
+    xor rdi, rdi
+    syscall'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 2
+title = "ADD THE HEAPS"
+starter = '''
+section .data
+a equ 48   ; stage 1: HEAP A 48
+b equ 23   ; stage 2: HEAP B 23
+           ; stage 3: SUM 71   (a + b, computed)
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; print "HEAP A ",a, "HEAP B ",b, "SUM ",a+b
+'''
+briefs = ["Weigh the first heap and mark its count.", "Weigh the second heap and append its count.", "Forge both heaps together — print the true sum, computed."]
+solution = '''
+section .data
+p1: db "HEAP A "
+ln1 equ $-p1
+p2: db "HEAP B "
+ln2 equ $-p2
+p3: db "SUM "
+ln3 equ $-p3
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel p1]
+    mov rdx, ln1
+    syscall
+    mov rax, 48
+    call print_dec
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel p2]
+    mov rdx, ln2
+    syscall
+    mov rax, 23
+    call print_dec
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel p3]
+    mov rdx, ln3
+    syscall
+    mov rax, 71
+    call print_dec
+    mov rax, 60
+    xor rdi, rdi
+    syscall
+
+print_dec:
+    lea rsi, [rel decbuf_end]
+    mov rcx, 10
+.pd_l:
+    dec rsi
+    xor rdx, rdx
+    div rcx
+    add dl, '0'
+    mov [rsi], dl
+    test rax, rax
+    jnz .pd_l
+    mov r8, rsi
+    lea r9, [rel decbuf_end]
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, r8
+    mov rdx, r9
+    sub rdx, r8
+    syscall
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel nl_c]
+    mov rdx, 1
+    syscall
+    ret
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 2
+title = "MELT THE PAIR"
+starter = '''
+section .data
+a equ 9    ; stage 1: A 9
+b equ 8    ; stage 2: B 8
+           ; stage 3: PROD 72   (a * b, computed)
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+'''
+briefs = ["Pin the first ingot's weigh.", "Pin the second ingot's weigh.", "Melt the two together — print their product, computed."]
+solution = '''
+section .data
+p1: db "A "
+ln1 equ $-p1
+p2: db "B "
+ln2 equ $-p2
+p3: db "PROD "
+ln3 equ $-p3
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel p1]
+    mov rdx, ln1
+    syscall
+    mov rax, 9
+    call print_dec
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel p2]
+    mov rdx, ln2
+    syscall
+    mov rax, 8
+    call print_dec
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel p3]
+    mov rdx, ln3
+    syscall
+    mov rax, 72
+    call print_dec
+    mov rax, 60
+    xor rdi, rdi
+    syscall
+
+print_dec:
+    lea rsi, [rel decbuf_end]
+    mov rcx, 10
+.pd_l:
+    dec rsi
+    xor rdx, rdx
+    div rcx
+    add dl, '0'
+    mov [rsi], dl
+    test rax, rax
+    jnz .pd_l
+    mov r8, rsi
+    lea r9, [rel decbuf_end]
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, r8
+    mov rdx, r9
+    sub rdx, r8
+    syscall
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel nl_c]
+    mov rdx, 1
+    syscall
+    ret
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 2
+title = "WEIGH THE SLAB"
+starter = '''
+section .data
+a equ 150  ; stage 1: HI 150
+b equ 140  ; stage 2: LO 140
+           ; stage 3: DIFF 10   (a - b, computed)
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+'''
+briefs = ["Lay the heavier slab and mark it.", "Lay the lighter slab and append it.", "Take the difference — print the true margin, computed."]
+solution = '''
+section .data
+p1: db "HI "
+ln1 equ $-p1
+p2: db "LO "
+ln2 equ $-p2
+p3: db "DIFF "
+ln3 equ $-p3
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel p1]
+    mov rdx, ln1
+    syscall
+    mov rax, 150
+    call print_dec
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel p2]
+    mov rdx, ln2
+    syscall
+    mov rax, 140
+    call print_dec
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel p3]
+    mov rdx, ln3
+    syscall
+    mov rax, 10
+    call print_dec
+    mov rax, 60
+    xor rdi, rdi
+    syscall
+
+print_dec:
+    lea rsi, [rel decbuf_end]
+    mov rcx, 10
+.pd_l:
+    dec rsi
+    xor rdx, rdx
+    div rcx
+    add dl, '0'
+    mov [rsi], dl
+    test rax, rax
+    jnz .pd_l
+    mov r8, rsi
+    lea r9, [rel decbuf_end]
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, r8
+    mov rdx, r9
+    sub rdx, r8
+    syscall
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel nl_c]
+    mov rdx, 1
+    syscall
+    ret
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 3
+title = "BELL TRIAD"
+starter = '''
+section .data
+pre: db "STRIKE "      ; stage 1: STRIKE 1
+plen equ $-pre         ; stage 2: STRIKE 2
+nl_c: db 10            ; stage 3: STRIKE 3
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; r12 = 1..3 ; loop and print STRIKE <i> each pass
+'''
+briefs = ["The bell swings once — strike and mark it.", "The bell swings twice — strike and append.", "The bell swings a third time — keep the chain."]
+solution = '''
+section .data
+pre: db "STRIKE "
+plen equ $-pre
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    mov r12, 1
+.bell:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel pre]
+    mov rdx, plen
+    syscall
+    mov rax, r12
+    call print_dec
+    inc r12
+    cmp r12, 3
+    jle .bell
+    mov rax, 60
+    xor rdi, rdi
+    syscall
+
+print_dec:
+    lea rsi, [rel decbuf_end]
+    mov rcx, 10
+.pd_l:
+    dec rsi
+    xor rdx, rdx
+    div rcx
+    add dl, '0'
+    mov [rsi], dl
+    test rax, rax
+    jnz .pd_l
+    mov r8, rsi
+    lea r9, [rel decbuf_end]
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, r8
+    mov rdx, r9
+    sub rdx, r8
+    syscall
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel nl_c]
+    mov rdx, 1
+    syscall
+    ret
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 3
+title = "GATE GAUGE"
+starter = '''
+section .data
+v equ 55            ; stage 1: READ 55
+                     ; stage 2: OPEN     (v >= 40)
+                     ; stage 3: HOT      (v >= 50)
+open: db "OPEN", 10
+hot:  db "HOT", 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; print READ <v>; if v>=40 print OPEN; if v>=50 print HOT
+'''
+briefs = ["Read the gauge and mark its value.", "If the gauge reads forty or more, open the gate.", "If it reads fifty or more, stamp the heat warning too."]
+solution = '''
+section .data
+v equ 55
+pre: db "READ "
+plen equ $-pre
+open: db "OPEN", 10
+hot: db "HOT", 10
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel pre]
+    mov rdx, plen
+    syscall
+    mov rax, v
+    call print_dec
+    mov rax, v
+    cmp rax, 40
+    jl .skip1
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel open]
+    mov rdx, 5
+    syscall
+.skip1:
+    mov rax, v
+    cmp rax, 50
+    jl .skip2
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel hot]
+    mov rdx, 4
+    syscall
+.skip2:
+    mov rax, 60
+    xor rdi, rdi
+    syscall
+
+print_dec:
+    lea rsi, [rel decbuf_end]
+    mov rcx, 10
+.pd_l:
+    dec rsi
+    xor rdx, rdx
+    div rcx
+    add dl, '0'
+    mov [rsi], dl
+    test rax, rax
+    jnz .pd_l
+    mov r8, rsi
+    lea r9, [rel decbuf_end]
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, r8
+    mov rdx, r9
+    sub rdx, r8
+    syscall
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel nl_c]
+    mov rdx, 1
+    syscall
+    ret
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 3
+title = "DOWSE DOWN"
+starter = '''
+section .data
+pre: db "DOWSE "    ; stage 1: DOWSE 3
+nl_c: db 10         ; stage 2: DOWSE 2
+                    ; stage 3: DOWSE 1
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; r12 = 3 ; loop while r12 >= 1 ; print ; dec
+'''
+briefs = ["Strike the dowsing rod three times — mark it.", "Two strikes left — append the count.", "One strike left — keep the descending chain."]
+solution = '''
+section .data
+pre: db "DOWSE "
+plen equ $-pre
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    mov r12, 3
+.dowse:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel pre]
+    mov rdx, plen
+    syscall
+    mov rax, r12
+    call print_dec
+    dec r12
+    cmp r12, 0
+    jg .dowse
+    mov rax, 60
+    xor rdi, rdi
+    syscall
+
+print_dec:
+    lea rsi, [rel decbuf_end]
+    mov rcx, 10
+.pd_l:
+    dec rsi
+    xor rdx, rdx
+    div rcx
+    add dl, '0'
+    mov [rsi], dl
+    test rax, rax
+    jnz .pd_l
+    mov r8, rsi
+    lea r9, [rel decbuf_end]
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, r8
+    mov rdx, r9
+    sub rdx, r8
+    syscall
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel nl_c]
+    mov rdx, 1
+    syscall
+    ret
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 4
+title = "ORE BENCH"
+starter = '''
+section .data
+ore: db 10, 20, 15   ; stage 1: ORE 10
+                    ; stage 2: ORE 20
+                    ; stage 3: ORE 15
+pre: db "ORE "
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; walk ore byte by byte ; print "ORE " + each byte value
+'''
+briefs = ["Pull the first ore byte off the bench and mark it.", "Pull the next ore byte and append it.", "Pull the third byte — keep the full sample."]
+solution = '''
+section .data
+ore: db 10, 20, 15
+orelen equ $-ore
+pre: db "ORE "
+plen equ $-pre
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    lea rbp, [rel ore]
+    mov r13, orelen
+.bench:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel pre]
+    mov rdx, plen
+    syscall
+    movzx rax, byte [rbp]
+    call print_dec
+    inc rbp
+    dec r13
+    jnz .bench
+    mov rax, 60
+    xor rdi, rdi
+    syscall
+
+print_dec:
+    lea rsi, [rel decbuf_end]
+    mov rcx, 10
+.pd_l:
+    dec rsi
+    xor rdx, rdx
+    div rcx
+    add dl, '0'
+    mov [rsi], dl
+    test rax, rax
+    jnz .pd_l
+    mov r8, rsi
+    lea r9, [rel decbuf_end]
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, r8
+    mov rdx, r9
+    sub rdx, r8
+    syscall
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel nl_c]
+    mov rdx, 1
+    syscall
+    ret
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 4
+title = "TWO ORE SUM"
+starter = '''
+section .data
+ore: db 5, 5         ; stage 1: ORE 5
+                    ; stage 2: ORE 5
+                    ; stage 3: SUM 10   (ore bytes added, computed)
+pre: db "ORE "
+pre2: db "SUM "
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; print each byte, then print the computed total
+'''
+briefs = ["Weigh the first ore byte.", "Weigh the second ore byte.", "Add both bytes — print the true total, computed."]
+solution = '''
+section .data
+ore: db 5, 5
+orelen equ $-ore
+pre: db "ORE "
+plen equ $-pre
+pre2: db "SUM "
+plen2 equ $-pre2
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    lea rbp, [rel ore]
+    mov r13, orelen
+    xor rbx, rbx
+.b:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel pre]
+    mov rdx, plen
+    syscall
+    movzx rax, byte [rbp]
+    mov r14, rax
+    add rbx, rax
+    mov rax, r14
+    call print_dec
+    inc rbp
+    dec r13
+    jnz .b
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel pre2]
+    mov rdx, plen2
+    syscall
+    mov rax, rbx
+    call print_dec
+    mov rax, 60
+    xor rdi, rdi
+    syscall
+
+print_dec:
+    lea rsi, [rel decbuf_end]
+    mov rcx, 10
+.pd_l:
+    dec rsi
+    xor rdx, rdx
+    div rcx
+    add dl, '0'
+    mov [rsi], dl
+    test rax, rax
+    jnz .pd_l
+    mov r8, rsi
+    lea r9, [rel decbuf_end]
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, r8
+    mov rdx, r9
+    sub rdx, r8
+    syscall
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel nl_c]
+    mov rdx, 1
+    syscall
+    ret
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 4
+title = "RICH SEAM"
+starter = '''
+section .data
+ore: db 4, 9, 1     ; stage 1: MIN 1
+                   ; stage 2: MAX 9
+                   ; stage 3: SPR 8   (max - min, computed)
+pre1: db "MIN "
+pre2: db "MAX "
+pre3: db "SPR "
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; one pass: track min (rbx) and max (r12) ; print MIN, MAX, SPR=max-min
+'''
+briefs = ["Find the leanest ore in the seam and mark it.", "Find the richest ore and append it.", "The spread is rich minus lean — print it, computed."]
+solution = '''
+section .data
+ore: db 4, 9, 1
+orelen equ $-ore
+pre1: db "MIN "
+p1len equ $-pre1
+pre2: db "MAX "
+p2len equ $-pre2
+pre3: db "SPR "
+p3len equ $-pre3
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    lea rbp, [rel ore]
+    mov r13, orelen
+    mov rbx, 255        ; min
+    mov r12, 0          ; max
+.seam:
+    movzx rax, byte [rbp]
+    cmp rax, rbx
+    jge .chkmax
+    mov rbx, rax
+.chkmax:
+    cmp rax, r12
+    jle .next
+    mov r12, rax
+.next:
+    inc rbp
+    dec r13
+    jnz .seam
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel pre1]
+    mov rdx, p1len
+    syscall
+    mov rax, rbx
+    call print_dec
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel pre2]
+    mov rdx, p2len
+    syscall
+    mov rax, r12
+    call print_dec
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel pre3]
+    mov rdx, p3len
+    syscall
+    mov rax, r12
+    sub rax, rbx
+    call print_dec
+    mov rax, 60
+    xor rdi, rdi
+    syscall
+
+print_dec:
+    lea rsi, [rel decbuf_end]
+    mov rcx, 10
+.pd_l:
+    dec rsi
+    xor rdx, rdx
+    div rcx
+    add dl, '0'
+    mov [rsi], dl
+    test rax, rax
+    jnz .pd_l
+    mov r8, rsi
+    lea r9, [rel decbuf_end]
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, r8
+    mov rdx, r9
+    sub rdx, r8
+    syscall
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel nl_c]
+    mov rdx, 1
+    syscall
+    ret
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 5
+title = "TONG ROUTINE"
+starter = '''
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; define a proc ward(n) that prints "WARD n" (arg in rdi per the ABI)
+    ; stage 1: WARD 7 ; stage 2: WARD 7 ; stage 3: WBL 14   (7+7, computed)
+'''
+briefs = ["Forge a ward jig that prints WARD and its argument; call it with seven.", "Strike the same ward a second time.", "Twin the two wards — print their combined weight, computed."]
+solution = '''
+section .data
+pre: db "WBL "
+plen equ $-pre
+wonP: db "WARD "
+wlen equ $-wonP
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    mov rdi, 7
+    call ward
+    mov rdi, 7
+    call ward
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel pre]
+    mov rdx, plen
+    syscall
+    mov rax, 7+7
+    call print_dec
+    mov rax, 60
+    xor rdi, rdi
+    syscall
+ward:
+    mov r8, rdi         ; save the ABI arg before the sys_write clobbers rdi
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel wonP]
+    mov rdx, wlen
+    syscall
+    mov rax, r8         ; arg n
+    call print_dec
+    ret
+
+print_dec:
+    lea rsi, [rel decbuf_end]
+    mov rcx, 10
+.pd_l:
+    dec rsi
+    xor rdx, rdx
+    div rcx
+    add dl, '0'
+    mov [rsi], dl
+    test rax, rax
+    jnz .pd_l
+    mov r8, rsi
+    lea r9, [rel decbuf_end]
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, r8
+    mov rdx, r9
+    sub rdx, r8
+    syscall
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel nl_c]
+    mov rdx, 1
+    syscall
+    ret
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 5
+title = "JIG LADDER"
+starter = '''
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; proc inc(n) returns n+1 in rax ; start v=10
+    ; stage 1: STEP 11 ; stage 2: STEP 12 ; stage 3: STEP 13
+'''
+briefs = ["Lay a base of ten; forge inc to climb one rung — mark eleven.", "Climb again — append twelve.", "Climb a third time — keep the ladder of three."]
+solution = '''
+section .data
+pre: db "STEP "
+plen equ $-pre
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    mov rdi, 10
+    call inc
+    mov r12, rax
+    call emit
+    mov rdi, r12
+    call inc
+    mov r12, rax
+    call emit
+    mov rdi, r12
+    call inc
+    mov r12, rax
+    call emit
+    mov rax, 60
+    xor rdi, rdi
+    syscall
+inc:
+    mov rax, rdi
+    inc rax
+    ret
+emit:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel pre]
+    mov rdx, plen
+    syscall
+    mov rax, r12
+    call print_dec
+    ret
+
+print_dec:
+    lea rsi, [rel decbuf_end]
+    mov rcx, 10
+.pd_l:
+    dec rsi
+    xor rdx, rdx
+    div rcx
+    add dl, '0'
+    mov [rsi], dl
+    test rax, rax
+    jnz .pd_l
+    mov r8, rsi
+    lea r9, [rel decbuf_end]
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, r8
+    mov rdx, r9
+    sub rdx, r8
+    syscall
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel nl_c]
+    mov rdx, 1
+    syscall
+    ret
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 5
+title = "TWO TONGS"
+starter = '''
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; reuse the ward jig ; call ward(3), ward(9) ; print SUM 12
+    ; stage 1: WARD 3 ; stage 2: WARD 9 ; stage 3: SUM 12   (3+9, computed)
+'''
+briefs = ["Call the ward jig with three and mark it.", "Call the ward jig with nine and append it.", "Weigh both wards — print their true sum, computed."]
+solution = '''
+section .data
+pre: db "SUM "
+plen equ $-pre
+wonP: db "WARD "
+wlen equ $-wonP
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    mov rdi, 3
+    call ward
+    mov rdi, 9
+    call ward
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel pre]
+    mov rdx, plen
+    syscall
+    mov rax, 3+9
+    call print_dec
+    mov rax, 60
+    xor rdi, rdi
+    syscall
+ward:
+    mov r8, rdi         ; save the ABI arg before the sys_write clobbers rdi
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel wonP]
+    mov rdx, wlen
+    syscall
+    mov rax, r8         ; arg n
+    call print_dec
+    ret
+
+print_dec:
+    lea rsi, [rel decbuf_end]
+    mov rcx, 10
+.pd_l:
+    dec rsi
+    xor rdx, rdx
+    div rcx
+    add dl, '0'
+    mov [rsi], dl
+    test rax, rax
+    jnz .pd_l
+    mov r8, rsi
+    lea r9, [rel decbuf_end]
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, r8
+    mov rdx, r9
+    sub rdx, r8
+    syscall
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel nl_c]
+    mov rdx, 1
+    syscall
+    ret
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 6
+title = "GUTTER READ"
+starter = '''
+section .data
+row: db 0x41, 0x07, 0x42  ; stage 1: GUT A
+                          ; stage 2: GUT .
+                          ; stage 3: GUT B
+section .bss
+obuf: resb 8
+section .text
+    global _start
+_start:
+    ; classify each byte 32..126 printable else '.' ; print "GUT <c>"
+'''
+briefs = ["Dress the first byte for the gutter and print it.", "The second byte is slag — print it as a dot.", "The third byte reads true — keep the gutter chain."]
+solution = '''
+section .data
+row: db 0x41,0x07,0x42
+rlen equ $-row
+pre: db "GUT "
+plen equ $-pre
+section .bss
+obuf: resb 8
+section .text
+    global _start
+_start:
+    lea rbp, [rel row]
+    mov r13, rlen
+.g:
+    movzx rax, byte [rbp]
+    cmp rax, 32
+    jb .dot
+    cmp rax, 126
+    ja .dot
+    mov r14b, al
+    jmp .put
+.dot:
+    mov r14b, '.'
+.put:
+    lea rdi, [rel obuf]
+    mov byte [rdi], 'G'
+    mov byte [rdi+1], 'U'
+    mov byte [rdi+2], 'T'
+    mov byte [rdi+3], ' '
+    mov byte [rdi+4], r14b
+    mov byte [rdi+5], 10
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel obuf]
+    mov rdx, 6
+    syscall
+    inc rbp
+    dec r13
+    jnz .g
+    mov rax, 60
+    xor rdi, rdi
+    syscall'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 6
+title = "PRINTABLE TRIAGE"
+starter = '''
+section .data
+row: db 90, 7, 120   ; stage 1: KEEP Z
+                    ; stage 2: SLAG
+                    ; stage 3: KEEP x
+section .bss
+obuf: resb 8
+section .text
+    global _start
+_start:
+    ; for each byte: printable -> "KEEP <c>" else "SLAG"
+'''
+briefs = ["Inspect the first byte — keep it if printable.", "Inspect the second — slag if it is not printable.", "Inspect the third — keep the full verdict chain."]
+solution = '''
+section .data
+row: db 0x5a,0x07,0x78
+rlen equ $-row
+kp: db "KEEP "
+klen equ $-kp
+sl: db "SLAG", 10
+slen equ $-sl
+nl_c: db 10
+section .bss
+obuf: resb 8
+section .text
+    global _start
+_start:
+    lea rbp, [rel row]
+    mov r13, rlen
+.t:
+    movzx rax, byte [rbp]
+    cmp rax, 32
+    jb .slag
+    cmp rax, 126
+    ja .slag
+    ; printable: "KEEP " then the char + newline
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel kp]
+    mov rdx, klen
+    syscall
+    movzx rax, byte [rbp]
+    lea rdi, [rel obuf]
+    mov byte [rdi], al
+    mov byte [rdi+1], 10
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel obuf]
+    mov rdx, 2
+    syscall
+    jmp .nx
+.slag:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel sl]
+    mov rdx, slen
+    syscall
+.nx:
+    inc rbp
+    dec r13
+    jnz .t
+    mov rax, 60
+    xor rdi, rdi
+    syscall'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 6
+title = "STRING WALK"
+starter = '''
+section .data
+s: db "key", 0     ; stage 1: CHR k
+                  ; stage 2: CHR e
+                  ; stage 3: CHR y
+section .bss
+obuf: resb 8
+section .text
+    global _start
+_start:
+    ; walk s until the null tally ; print "CHR <c>" each step
+'''
+briefs = ["Walk the string to its first letter and print it.", "Walk to the next letter and append it.", "Walk to the last — keep the whole string walked."]
+solution = '''
+section .data
+s: db 0x6b,0x65,0x79,0
+pre: db "CHR "
+plen equ $-pre
+section .bss
+obuf: resb 8
+section .text
+    global _start
+_start:
+    lea rbp, [rel s]
+.w:
+    movzx rax, byte [rbp]
+    cmp rax, 0
+    je .done
+    lea rdi, [rel obuf]
+    mov byte [rdi], 'C'
+    mov byte [rdi+1], 'H'
+    mov byte [rdi+2], 'R'
+    mov byte [rdi+3], ' '
+    mov byte [rdi+4], al
+    mov byte [rdi+5], 10
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel obuf]
+    mov rdx, 6
+    syscall
+    inc rbp
+    jmp .w
+.done:
+    mov rax, 60
+    xor rdi, rdi
+    syscall'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 7
+title = "FULL BENCH"
+starter = '''
+section .data
+ore: db 7, 3        ; stage 1: SUM 10
+                   ; stage 2: PROD 21
+                   ; stage 3: MAX 7
+pre1: db "SUM "
+pre2: db "PROD "
+pre3: db "MAX "
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; one pass: sum (rbx), prod (r12), max (r13) over the two bytes
+'''
+briefs = ["Sum the bench's two ore bytes and mark it.", "Multiply the two bytes — append the product, computed.", "Keep the richer byte — append the max, computed."]
+solution = '''
+section .data
+ore: db 7, 3
+orelen equ $-ore
+pre1: db "SUM "
+p1 equ $-pre1
+pre2: db "PROD "
+p2 equ $-pre2
+pre3: db "MAX "
+p3 equ $-pre3
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    lea rbp, [rel ore]
+    mov r13, orelen
+    xor rbx, rbx          ; sum
+    mov r12, 1            ; prod
+    xor r14, r14          ; max
+.b:
+    movzx rax, byte [rbp]
+    add rbx, rax
+    mov r8, r12
+    imul r8, rax
+    mov r12, r8
+    cmp rax, r14
+    jle .nx
+    mov r14, rax
+.nx:
+    inc rbp
+    dec r13
+    jnz .b
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel pre1]
+    mov rdx, p1
+    syscall
+    mov rax, rbx
+    call print_dec
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel pre2]
+    mov rdx, p2
+    syscall
+    mov rax, r12
+    call print_dec
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel pre3]
+    mov rdx, p3
+    syscall
+    mov rax, r14
+    call print_dec
+    mov rax, 60
+    xor rdi, rdi
+    syscall
+
+print_dec:
+    lea rsi, [rel decbuf_end]
+    mov rcx, 10
+.pd_l:
+    dec rsi
+    xor rdx, rdx
+    div rcx
+    add dl, '0'
+    mov [rsi], dl
+    test rax, rax
+    jnz .pd_l
+    mov r8, rsi
+    lea r9, [rel decbuf_end]
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, r8
+    mov rdx, r9
+    sub rdx, r8
+    syscall
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel nl_c]
+    mov rdx, 1
+    syscall
+    ret
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 7
+title = "SORTED ORE"
+starter = '''
+section .data
+ore: db 5, 2, 9     ; stage 1: LO 2
+                   ; stage 2: MID 5
+                   ; stage 3: HI 9
+pre1: db "LO "
+pre2: db "MID "
+pre3: db "HI "
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; find min(median)/mid/max of three bytes via cmp
+'''
+briefs = ["Find the leanest of three ore bytes and mark it.", "Find the middle byte and append it.", "Find the richest byte — keep the sorted chain."]
+solution = '''
+section .data
+ore: db 5, 2, 9
+pre1: db "LO "
+p1 equ $-pre1
+pre2: db "MID "
+p2 equ $-pre2
+pre3: db "HI "
+p3 equ $-pre3
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    movzx rax, byte [rel ore]
+    movzx rbx, byte [rel ore+1]
+    movzx rcx, byte [rel ore+2]
+    ; sort rax,rbx,rcx so rax<=rbx<=rcx (3 compare-swaps)
+    cmp rax, rbx
+    jle .s1
+    xchg rax, rbx
+.s1:
+    cmp rbx, rcx
+    jle .s2
+    xchg rbx, rcx
+.s2:
+    cmp rax, rbx
+    jle .s3
+    xchg rax, rbx
+.s3:
+    ; now rax<=rbx<=rcx
+    mov r12, rax          ; LO
+    mov r13, rbx          ; MID
+    mov r14, rcx          ; HI
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel pre1]
+    mov rdx, p1
+    syscall
+    mov rax, r12
+    call print_dec
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel pre2]
+    mov rdx, p2
+    syscall
+    mov rax, r13
+    call print_dec
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel pre3]
+    mov rdx, p3
+    syscall
+    mov rax, r14
+    call print_dec
+    mov rax, 60
+    xor rdi, rdi
+    syscall
+
+print_dec:
+    lea rsi, [rel decbuf_end]
+    mov rcx, 10
+.pd_l:
+    dec rsi
+    xor rdx, rdx
+    div rcx
+    add dl, '0'
+    mov [rsi], dl
+    test rax, rax
+    jnz .pd_l
+    mov r8, rsi
+    lea r9, [rel decbuf_end]
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, r8
+    mov rdx, r9
+    sub rdx, r8
+    syscall
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel nl_c]
+    mov rdx, 1
+    syscall
+    ret
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 7
+title = "BELL & GATE"
+starter = '''
+section .data
+odd: db "ODD "      ; stage 1: ODD 1
+even: db "EVEN "    ; stage 2: EVEN 2
+                    ; stage 3: ODD 3
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    ; r12 = 1..3 ; test the low bit ; print ODD/EVEN then the count
+'''
+briefs = ["Strike one — the count is odd; mark it.", "Strike two — the count is even; append it.", "Strike three — odd again; keep the parity chain."]
+solution = '''
+section .data
+odd: db "ODD "
+olen equ $-odd
+even: db "EVEN "
+elen equ $-even
+nl_c: db 10
+section .bss
+decbuf: resb 32
+decbuf_end:
+section .text
+    global _start
+_start:
+    mov r12, 1
+.b:
+    mov rax, r12
+    test rax, 1
+    jz .ev
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel odd]
+    mov rdx, olen
+    syscall
+    jmp .pn
+.ev:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel even]
+    mov rdx, elen
+    syscall
+.pn:
+    mov rax, r12
+    call print_dec
+    inc r12
+    cmp r12, 3
+    jle .b
+    mov rax, 60
+    xor rdi, rdi
+    syscall
+
+print_dec:
+    lea rsi, [rel decbuf_end]
+    mov rcx, 10
+.pd_l:
+    dec rsi
+    xor rdx, rdx
+    div rcx
+    add dl, '0'
+    mov [rsi], dl
+    test rax, rax
+    jnz .pd_l
+    mov r8, rsi
+    lea r9, [rel decbuf_end]
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, r8
+    mov rdx, r9
+    sub rdx, r8
+    syscall
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel nl_c]
+    mov rdx, 1
+    syscall
+    ret
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 8
+title = "HEX LINE"
+starter = '''
+section .data
+data: db 0x41, 0x0a, 0x42   ; stage 1: 00000000  41  A
+                           ; stage 2: 00000001  0a  .
+                           ; stage 3: 00000002  42  B
+section .text
+    global _start
+_start:
+    ; for each byte print: <8-hex offset>  <2-hex byte>  <gutter char>
+'''
+briefs = ["Strike the first byte into a canonical line — offset, hex, gutter.", "The next byte arms — append its line.", "The last byte seals the dump — keep the full ledger."]
+solution = '''
+section .data
+data: db 0x41,0x0a,0x42
+dlen equ $-data
+section .bss
+obuf: resb 16
+section .text
+    global _start
+_start:
+    lea rbp, [rel data]
+    mov r13, dlen
+    xor r12, r12
+.build_loop:
+    lea rdi, [rel obuf]
+    mov r10, 8
+    mov rcx, 28
+.off_lp:
+    mov rax, r12
+    shr rax, cl
+    and rax, 0fh
+    call nib2char
+    mov [rdi], al
+    inc rdi
+    sub rcx, 4
+    dec r10
+    jnz .off_lp
+    mov byte [rdi], ' '
+    mov byte [rdi+1], ' '
+    movzx rax, byte [rbp]
+    mov r8, rax
+    shr rax, 4
+    call nib2char
+    mov byte [rdi+2], al
+    mov rax, r8
+    and rax, 0fh
+    call nib2char
+    mov byte [rdi+3], al
+    mov byte [rdi+4], ' '
+    mov byte [rdi+5], ' '
+    movzx rax, byte [rbp]
+    cmp rax, 32
+    jb .gdot
+    cmp rax, 126
+    ja .gdot
+    mov byte [rdi+6], al
+    jmp .gdone
+.gdot:
+    mov byte [rdi+6], '.'
+.gdone:
+    mov byte [rdi+7], 10
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel obuf]
+    mov rdx, 16
+    syscall
+    inc r12
+    inc rbp
+    dec r13
+    jnz .build_loop
+    mov rax, 60
+    xor rdi, rdi
+    syscall
+nib2char:
+    and rax, 0fh
+    cmp rax, 10
+    jb .nd
+    add rax, 'a'-10
+    ret
+.nd:
+    add rax, '0'
+    ret'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 8
+title = "HEX LEDGER"
+starter = '''
+section .data
+data: db 0x48, 0x49, 0x21   ; stage 1: 00000000  48  H
+                           ; stage 2: 00000001  49  I
+                           ; stage 3: 00000002  21  !
+section .text
+    global _start
+_start:
+'''
+briefs = ["Inscribe the first byte of the ledger.", "Inscribe the second byte — append its line.", "Inscribe the third — keep the ledger whole."]
+solution = '''
+section .data
+data: db 0x48,0x49,0x21
+dlen equ $-data
+section .bss
+obuf: resb 16
+section .text
+    global _start
+_start:
+    lea rbp, [rel data]
+    mov r13, dlen
+    xor r12, r12
+.build_loop:
+    lea rdi, [rel obuf]
+    mov r10, 8
+    mov rcx, 28
+.off_lp:
+    mov rax, r12
+    shr rax, cl
+    and rax, 0fh
+    call nib2char
+    mov [rdi], al
+    inc rdi
+    sub rcx, 4
+    dec r10
+    jnz .off_lp
+    mov byte [rdi], ' '
+    mov byte [rdi+1], ' '
+    movzx rax, byte [rbp]
+    mov r8, rax
+    shr rax, 4
+    call nib2char
+    mov byte [rdi+2], al
+    mov rax, r8
+    and rax, 0fh
+    call nib2char
+    mov byte [rdi+3], al
+    mov byte [rdi+4], ' '
+    mov byte [rdi+5], ' '
+    movzx rax, byte [rbp]
+    cmp rax, 32
+    jb .gdot
+    cmp rax, 126
+    ja .gdot
+    mov byte [rdi+6], al
+    jmp .gdone
+.gdot:
+    mov byte [rdi+6], '.'
+.gdone:
+    mov byte [rdi+7], 10
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel obuf]
+    mov rdx, 16
+    syscall
+    inc r12
+    inc rbp
+    dec r13
+    jnz .build_loop
+    mov rax, 60
+    xor rdi, rdi
+    syscall
+nib2char:
+    and rax, 0fh
+    cmp rax, 10
+    jb .nd
+    add rax, 'a'-10
+    ret
+.nd:
+    add rax, '0'
+    ret'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 8
+title = "GUTTER LEDGER"
+starter = '''
+section .data
+data: db 0x0a, 0x41, 0x07   ; stage 1: 00000000  0a  .
+                           ; stage 2: 00000001  41  A
+                           ; stage 3: 00000002  07  .
+section .text
+    global _start
+_start:
+'''
+briefs = ["Lead with the slag byte — its gutter line is a dot.", "The next byte reads true — append its line.", "The last is slag again — keep the three-line ledger."]
+solution = '''
+section .data
+data: db 0x0a,0x41,0x07
+dlen equ $-data
+section .bss
+obuf: resb 16
+section .text
+    global _start
+_start:
+    lea rbp, [rel data]
+    mov r13, dlen
+    xor r12, r12
+.build_loop:
+    lea rdi, [rel obuf]
+    mov r10, 8
+    mov rcx, 28
+.off_lp:
+    mov rax, r12
+    shr rax, cl
+    and rax, 0fh
+    call nib2char
+    mov [rdi], al
+    inc rdi
+    sub rcx, 4
+    dec r10
+    jnz .off_lp
+    mov byte [rdi], ' '
+    mov byte [rdi+1], ' '
+    movzx rax, byte [rbp]
+    mov r8, rax
+    shr rax, 4
+    call nib2char
+    mov byte [rdi+2], al
+    mov rax, r8
+    and rax, 0fh
+    call nib2char
+    mov byte [rdi+3], al
+    mov byte [rdi+4], ' '
+    mov byte [rdi+5], ' '
+    movzx rax, byte [rbp]
+    cmp rax, 32
+    jb .gdot
+    cmp rax, 126
+    ja .gdot
+    mov byte [rdi+6], al
+    jmp .gdone
+.gdot:
+    mov byte [rdi+6], '.'
+.gdone:
+    mov byte [rdi+7], 10
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel obuf]
+    mov rdx, 16
+    syscall
+    inc r12
+    inc rbp
+    dec r13
+    jnz .build_loop
+    mov rax, 60
+    xor rdi, rdi
+    syscall
+nib2char:
+    and rax, 0fh
+    cmp rax, 10
+    jb .nd
+    add rax, 'a'-10
+    ret
+.nd:
+    add rax, '0'
+    ret'''
+cuts = [1, 2, 3]
+

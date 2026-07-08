@@ -32,8 +32,9 @@ id = "s05-l04-e1"
 type = "mc"
 points = 20
 prompt = "First run, no config file exists. The professional move is…"
-choices = ["crash with FileNotFoundException so the user knows", "silently run with built-in defaults and write nothing", "write a commented default config to disk, tell the user, and continue", "prompt the user to type the whole config interactively"]
-answer = 2
+choices = ["crash with FileNotFoundException so the user knows", "write a commented default config to disk, tell the user, and continue", "silently run with built-in defaults and write nothing", "prompt the user to type the whole config interactively"]
+answer = 1
+whyWrong = "Crashing or silently using hidden defaults both fail the user — the professional move writes a commented default file, tells the user, and keeps running."
 hint = "First run must work AND leave something editable behind."
 
 [[lessons.exercises]]
@@ -43,6 +44,7 @@ points = 25
 prompt = "Config loads with <code>max_sources: -3</code>. Best handling?"
 choices = ["Use it — the user knows best", "Crash: invalid config is a fatal error", "Warn, replace with a sane default, continue running", "Round it up to 0"]
 answer = 2
+whyWrong = "Neither trusting a bad value nor crashing suits a recoverable config error — warn, substitute a sane default, and continue."
 hint = "Self-healing beats self-destructing for a CLI tool."
 
 [[lessons.exercises]]
@@ -50,8 +52,9 @@ id = "s05-l04-e3"
 type = "mc"
 points = 20
 prompt = "Why convert the config's List of domain entries into a Dictionary keyed by domain at load time?"
-choices = ["YAML can't store lists", "Trust lookups during scoring become O(1) instead of scanning a list per URL", "Dictionaries serialize smaller", "Records require it"]
-answer = 1
+choices = ["YAML can't store lists", "Records require it", "Dictionaries serialize smaller", "Trust lookups during scoring become O(1) instead of scanning a list per URL"]
+answer = 3
+whyWrong = "YAML stores lists fine and it’s not about serialization size — keying by domain turns per-URL trust lookups into O(1) instead of scanning the list each time."
 hint = "How many times will you look up a domain per search?"
 
 [[lessons.exercises]]

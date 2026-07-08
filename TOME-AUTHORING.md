@@ -11,6 +11,30 @@
 
 ---
 
+## 0. START HERE — read before generating anything
+
+This document is a REFERENCE, not a script to dump straight into output. Work in
+phases (§6), pulling in each section as its phase needs it. If you are driving this
+with a tool, keep TOME-AUTHORING.md as the reference and follow `TOME-WORKFLOW.md`
+for the order to work in.
+
+### 🚦 HARD GATE — ask three questions FIRST, then WAIT for the answers
+
+Before designing ANYTHING — before a single file, id, or section arc — ask the
+requester at least **three** clarifying questions (§6 step 0 lists them; the three
+that most change the design are prior knowledge, scope/depth, and toolchain) and
+**WAIT for their real answers.** Scaffold nothing and generate no TOML until they
+have answered.
+
+This gate is absolute and overrides every other instruction, including any run
+mode. **Even in an autonomous / automode run, STOP and ask — you are able to
+interrupt automode, so interrupt it and put the questions to the user.** Never
+answer the questions on the user's behalf, never assume defaults to keep moving,
+never proceed unanswered. A tome produced without the user's own answers is a
+failed run, no matter what mode requested it.
+
+---
+
 ## 1. What you are building
 
 A tome is one folder. The engine is 100% content-neutral: it renders whatever
@@ -113,7 +137,7 @@ tome's `[runtime]` table overrides key-by-key (`{language TOML} ∪ {your [runti
 your value winning). A typical tome sets only `name` and `project` and inherits the
 rest; override `starterCode` (or any other key) when the default is wrong for this
 course. The full key set — including the compile/run/diagnostics keys not listed
-above, and the optional `workspaceDir` (§5) — is documented in §5 and, canonically,
+above, and the optional `externalWorkspace` (§5) — is documented in §5 and, canonically,
 in the module docstring at the top of `runtimes/generic.py`.
 
 ### `[content]` (required)
@@ -142,9 +166,11 @@ theme = "shedskin"      # a [[themes]] id below — the tome's OWN signature
                         # but wastes the tome's identity.)
 
 [defaults.ai]
-oracle = "llama3.1:8b"           # local Ollama model for the ORACLE mentor
+oracle = "llama3.1:8b"           # the ORACLE mentor's model (an Ollama tag by default)
+# oracleKind = "ollama"          # optional: where the ORACLE dwells — "ollama" (default)
+                                 # | "claude-cli" | "antigravity-cli" | "codex-cli"
 grader = "qwen2.5:14b"           # local fallback grading model
-graderKind = "claude-cli"        # "claude-cli" | "gemini-cli" | "codex-cli" | "anthropic"
+graderKind = "claude-cli"        # "claude-cli" | "antigravity-cli" | "codex-cli" | "anthropic"
                                  # | "openai" | "ollama" | "other"
 graderModel = "claude-opus-4-8"  # model for the main grader
 # graderCommand = "codex exec -" # kind="other" only: a shell command; the grading
@@ -183,8 +209,8 @@ ladder in §2's shop). Rank thresholds should spread evenly across that total.
 | `name` | ALL-CAPS themed label — **reflavor per course** (see below), e.g. `"WARD OF ABSORPTION (5 CHARGES)"` |
 | `cost` | credits |
 | `desc` | one flavorful sentence that also explains the mechanic, in the course's voice |
-| `ico` | icon id — full set: `save zap star chip eye bulb shield swatch file award upload pkg book x arrow terminal lock quill scroll cloak coin flame bell orb wand seal ink` |
-| `charges` | consumables only: how many uses per purchase (omit = 1) |
+| `ico` | icon id, **consumables only** — theme items ignore any `ico` and always render the inkwell automatically, so don't set one. Full set: `save zap star chip eye bulb shield swatch file award upload pkg book x arrow terminal lock quill scroll cloak coin flame bell orb wand seal ink` |
+| `charges` | consumables only: how many uses per purchase (omit = 1). **Exception: `x2` is engine-fixed at 20 charges — don't set it (any value is ignored), and balance the economy assuming each `x2` purchase buys 20 double-credit answers** |
 | `theme` | kind=theme only: the `[[themes]]` id it unlocks |
 
 **Consumable mechanics are a FIXED vocabulary of six engine abilities — the `id`
@@ -197,13 +223,24 @@ subject; a consumable id the engine doesn't recognize renders in the shop but
 | `id` | mechanic (fixed) | example reflavors |
 |---|---|---|
 | `firewall` | absorbs wrong answers — no point decay while charged | `WARD OF ABSORPTION`, `SEGV GUARD` (a systems-language course), `TYPE CHECKER` (a typed-lang course) |
-| `x2` | next N correct answers pay double credits | `OVERCLOCK x2`, `PIPELINE BURST`, `CACHE HIT` |
+| `x2` | next 20 correct answers pay double credits (count engine-fixed at 20 — don't set `charges`) | `OVERCLOCK x2`, `PIPELINE BURST`, `CACHE HIT` |
 | `skip` | instantly solves one trial at full points | `SCROLL OF REVELATION`, `NOP SLED`, `CHEAT SHEET` |
 | `vpn` | deflects one incoming hex-defense hit per charge | `CLOAK OF UNSEEING`, `TRAP HANDLER`, `SANDBOX` |
 | `xray` | reveals the grader's private `xray` notes for one Great Working | `SCRYING LENS`, `DISASSEMBLY PEEK` |
 | `oracle` | grants one ORACLE (AI mentor) question | `ORACLE QUERY`, `MENTOR PING` |
 
-Stock 3–6 of these (a short/econ-light course can skip `firewall`/`vpn`/`oracle`).
+Stock all **five** required power-ups — `firewall`, `x2`, `skip`, `vpn`, `xray` — each
+with its own filled-in `name`, `desc`, `cost`, and `ico` (the validator errors on a
+missing or blank one). `oracle` is an optional 6th (it needs a `[runtime]` oracle model).
+
+**How to modify a power-up:** the engine ships a generic default for each of the five
+(in `web/app.js`'s `DEFAULT_CONSUMABLES` — flavorless English, so mechanics never break
+mid-build). You **override** a default by declaring a `[[shop]]` entry with that `id` in
+the tome's `shop.toml`: your `name`/`desc`/`cost`/`ico` (and `charges`) replace the
+default's, field for field. That per-tome `shop.toml` is the *only* place power-ups are
+edited — you never touch the engine defaults, and a finished tome always carries its own
+reflavored five rather than leaning on them. `x2`'s charge count is engine-fixed at 20 —
+don't set it; give `firewall`/`vpn` a `charges` of 2+.
 Reusing the same six names verbatim across every course is a review failure — the
 mechanics repeat, the flavor must not. (If a course genuinely needs a *new*
 mechanic, that's an engine change, not a TOML one — request it separately.)
@@ -228,6 +265,19 @@ their own names — those need no registry entry; register ONLY the six ids abov
   whole point: opening another tome changes the *coloring and lighting* of the
   desk, never the desk itself. The parchment-and-candlelight staging is the
   platform's constant.
+- **Palette-only is necessary but not sufficient — you can abandon the study with
+  the 18 vars alone.** Pushing `bg0` to `#000000` and the accents to neon makes a
+  neon-on-black terminal: no CSS was added, but the candlelit desk is gone, and
+  that restaging is a *skin's* job, forbidden here. Keep the material: `bg0` is
+  the table **wood** (a timber/earth tone — dark is fine, pure-black void is not);
+  `bg1`–`bg3` are **parchment** (tinted paper still legible as paper, even a deep
+  "night vellum" — not a black screen); `candle` is a warm-ish **glow**, never a
+  neon replacement. Recolor the study boldly; do not turn it into something else.
+  The validator measures this on `bg1`: paper is warm (hue 10–95°) or near-neutral,
+  and a *cool* hue may carry at most a whisper of tint (≤10% chroma — the shipped
+  night palettes run 6–7%). A saturated purple/blue/green page is dyed paper, not
+  parchment; a "Void and Gold" identity belongs in `bg0`, the panels, and the
+  accents — never in the page itself.
 - Themes are **exclusive to their tome**. They live in this file, ship only
   with this tome, and never appear in another tome's palette picker. Every
   tome MUST bring at least one signature theme of its own.
@@ -240,6 +290,12 @@ their own names — those need no registry entry; register ONLY the six ids abov
   direct, separate request — never as part of tome generation.
 - Every tome gets the global skins automatically, so do **not** re-create
   Sepia Vellum (or anything near it) inside a tome — author fresh palettes.
+  **This is now measured, not advised:** the scaffold's placeholder palette IS
+  Sepia Vellum's values, and a past run shipped it renamed as its "signature"
+  — a byte-for-byte replica. The validator computes each palette's color
+  distance from the global vellum palette (and from this tome's other
+  palettes) and hard-gates a near-copy; replace ALL 18 vars with a palette
+  designed for this course.
 
 ```toml
 [[themes]]
@@ -247,6 +303,10 @@ id = "shedskin"
 name = "Shed Skin"      # label in the TRIM THE WICK palette picker
 light = true            # parchment palettes are light-based (keys Monaco to its vs base)
 # earned = true         # optional: unlockable ONLY via the duel minigame (not sold)
+coin = "serpent"        # optional: the coin icon's face while this palette is equipped —
+                        # star (default) | rune | gem | holed | serpent | sun | bolt | eye
+                        # (pick the face that fits the tome's currency fiction; unknown
+                        # names are a validator ERROR)
 
 [themes.vars]      # CSS custom properties — ALL 18 required.
                    # (Values annotated with what each var paints; pick your own.)
@@ -269,7 +329,9 @@ slab = "#27272b"   # the speaking stone (terminal) surface — STONE, not wood: 
                    # grey-led mineral tone (may lean warm or cool with the palette,
                    # but grey must dominate; never reuse bg0's timber browns)
 slab-tx = "#e3d3ac"# the speaking stone's glowing script
-candle = "255, 172, 66"  # "r, g, b" of the study's candlelight
+candle = "255, 172, 66"  # a bare "r, g, b" triple, NOT hex/rgb() — it is used as
+                         # rgba(var(--candle), …); "#39ff14" makes rgba(#39ff14, …),
+                         # invalid CSS, and the candlelight glow vanishes (validator ERROR)
 ```
 Injected as `body[data-theme="<id>"]` and mirrored into the Monaco editor theme —
 one source of truth. Provide: 1 signature default palette (the `[defaults].theme`),
@@ -294,7 +356,7 @@ tint, the accent ink, and the candle color between palettes — a cold blue-lit
 | `graderLabel` | tolerated but NOT rendered — the tower name-plate is derived live as `<selected grader model> // graderPersona`, so it always names the model actually grading. Omit this key |
 | `graderPersona` | the mentor's codename; used in the grading prompt AND the UI (including the tower name-plate) |
 | `studentTerm` | what the mentor calls the player (`"apprentice"`, `"novice"`) |
-| `currency` | the coin's long name (default `"coin"` — e.g. `"gold"`) |
+| `currency` | the coin's long name (default `"coin"` — e.g. `"gold"`). The coin's *icon* is per-palette: `coin = "<face>"` on a `[[themes]]` entry (§ `[[themes]]`) |
 | `currencyShort` | its suffix on amounts (default `"gp"` — renders as `400gp`) |
 | `gradeScale` | `"S\|A\|B\|C\|D\|F"` (keep this scale; the engine's thresholds assume it) |
 | `bootLines` | array of lines written by candlelight on first load. `{N}` is replaced with the chapter count. 8–12 lines; establish the fiction, the mentor, and the commission |
@@ -389,7 +451,17 @@ Common fields: `id` (convention `"<sid>-l<NN>-e<N>"`, drills `-d<N>`, labs `-w<N
 ids must be unique per tome — they key saved progress), `type`, `points`,
 `prompt` (HTML), `hint` (revealed for `hintCost` credits — every exercise should
 have one, except `type` drills: the code to retype is already displayed, so a
-hint would be dead weight; every shipped tome omits them there).
+hint would be dead weight; every shipped tome omits them there), and optional
+`whyWrong` — **elaborated feedback shown the moment the student answers wrong**
+(recall items only: `mc`/`fill`/`text`). One or two sentences naming the specific
+misconception the wrong answer betrays and correcting it ("You picked the client
+side — but world data only exists on the server; the client holds a copy it must
+be *told* about."). This is the highest-value feedback channel there is: a miss
+becomes a micro-lesson instead of a dead end. **REQUIRED on every `mc` — a validator
+ERROR without it** (an `mc`'s distractors always have a diagnosable cause, so there
+is no excuse to omit it); strongly recommended on `fill`/`text` wherever the wrong
+answer has a diagnosable cause. It also fires in the spaced REVIEW round, so it keeps
+teaching long after the first attempt.
 
 | `type` | extra fields | behavior |
 |---|---|---|
@@ -422,23 +494,102 @@ These are hard requirements, checked in review:**
   by printing a string literal is acceptable only in section 1.
 - Vary `starter` code per lab: set up the exercise's actual data/scenario. One
   starter skeleton cloned into every lab teaches nothing.
-- Use `stdin`: once input reading is taught, piped-input labs must appear **and
-  keep appearing across the remaining sections** — not all clustered in the one
-  section that teaches it. A CLI-building course with zero stdin labs, or one that
-  demos input once and never revisits it, is broken.
+- Use `stdin` **when the program under study actually reads input.** For a course
+  whose end product reads stdin (a CLI, a REPL, a filter), once input reading is
+  taught piped-input labs must appear **and keep appearing across the remaining
+  sections** — not clustered in the one section that teaches it; such a course with
+  zero stdin labs, or one that demos input once and never revisits it, is broken.
+  But `stdin` is the lab harness's ONLY input channel, so do not mistake it for a
+  universal requirement: a course whose end product takes input another way — a GUI
+  app, an event-driven mod (Forge/SMAPI), a library, a game script — never reads
+  `System.in` in the real artifact. There, stdin labs are a **fundamentals-practice
+  vehicle** (parsing, branching, looping over variable data), not a model of how the
+  product ingests input. Keep them if they drill genuine language skills, frame them
+  in the course's domain (parse a registry name, classify resource paths), and add a
+  one-line lesson note that the real artifact takes input by GUI/event/packet — so
+  students don't form the wrong mental model. Judge stdin coverage by whether the
+  *product* reads input, not by a fixed quota.
 - The mc/fill/text exercises within a lesson must have DIFFERENT answers testing
   different facets — never one answer word rubber-stamped across all three types.
 - `fill` blanks are real code from the lesson with one token removed — never an
   invented pseudo-trace like `CONTRACT = ____`.
 - Hints are exercise-specific (name the instruction, operand, or line) — never a
   recycled generic sentence. 180 exercises should have ~180 distinct hints.
-- Vary structure: 3–8 lessons per section (sized by the material, hard cap 8),
-  4–6 exercises per lesson, in differing mixes and orders. A uniform grid (same
-  counts, same types, same order in every lesson) reads as machine-generated and
-  bores students.
-- Spread mc `answer` indices roughly evenly across positions 0–3.
+- Vary structure — the single most common AI tell, so treat it as a hard rule.
+  Do NOT emit the same shape in every section: 3 lessons × 4 exercises in a fixed
+  `mc … write` order repeated down the whole tome is a review failure even when
+  each exercise is individually good. Lesson counts must genuinely differ section
+  to section (some 3, some 5–6, sized to the material, hard cap 8), exercise counts
+  too (some 4, some 5–6), and the type order must differ. After drafting, list your
+  per-section lesson counts and per-lesson exercise counts; if they are all
+  identical you built the grid — go vary it. (`validate_tome.py` WARNs when every
+  section shares one shape.)
+- Spread mc `answer` indices across 0–3 — and CHECK it before shipping. Every
+  answer on the same index — above all every answer = `0`, the value an AI drifts
+  to by default — is an automatic fail: it makes the correct choice guessable and
+  screams machine-authored. After each section, tally its mc answer indices and
+  rewrite choices until 0/1/2/3 are each used a comparable number of times across
+  the tome. (`validate_tome.py` WARNs on a single fixed index.)
 - Write every lesson body fresh — no sentence may appear verbatim in more than one
   lesson.
+
+### Learning design — sequence exercises so they actually teach
+
+The anti-template rules keep a course from being *boring*; these make it *stick*.
+They encode what the research on learning is most sure of — **retrieval practice
+and spaced/interleaved practice** are the two highest-impact study techniques, and
+**worked examples** are the best-known way to keep novices from drowning in
+cognitive load. Apply all four:
+
+- **Interleave — don't only test the concept a lesson just taught.** The weakest
+  habit of an AI author is a course where every exercise quizzes the current lesson
+  and nothing older. Deliberately fold earlier concepts back into later sections: a
+  section-8 lab that still exercises the section-3 data model, an `mc` in section 6
+  that contrasts a section-2 idea with a new one. Concepts stay cumulative (never
+  test what hasn't been taught), but reach *backward* often.
+- **The engine now resurfaces solved exercises in spaced REVIEW rounds** (a
+  Leitner queue keyed to how many sections the student has completed, shown before
+  a freestyle unlocks). Two authoring consequences: (a) write each exercise to
+  **stand on its own** — no "using the value from the exercise above" or "as we
+  just saw", because it may reappear ten sections later out of context; (b) this is
+  free spaced retrieval of *your* material at no extra content cost, so it is worth
+  making each item a clean, self-contained test of one idea.
+- **Fade worked examples into problems (novice-heavy courses especially).** For a
+  concept a student meets for the first time, a fully worked example beats throwing
+  them a blank editor — the advantage only reverses once they have some skill. Use
+  the exercise types as a fading ladder within a lesson: `type` (copy a correct,
+  complete example) → `fill` (the same code with one load-bearing token blanked) →
+  `write` (build it from scratch). Don't jump lesson prose straight to a from-zero
+  lab for a brand-new idea.
+- **Drill what the labs physically can't run.** A `write` lab runs ONE plain file,
+  so it can never exercise framework/API concepts — a Forge registry, a client vs.
+  server side, an event lifecycle, a GUI callback. In a framework course the
+  hardest, most-explained material is exactly the material labs can't touch, so it
+  gets practiced least unless you compensate: cover those concepts with `mc`/`text`
+  recall drills (which side runs this? what is the registry name for X? when does
+  this event fire?). Recall-drilling the un-labbable concepts is not optional in a
+  framework/mod course — it is the only practice channel they have.
+- **Ask "why", not just "what".** Self-explanation is a cheap, well-supported
+  booster. Use the `explain` field on `mc` items, and phrase some prompts as a
+  reason rather than a lookup ("why must this be `@OnlyIn(CLIENT)`?" over "what does
+  this annotation do?").
+- **Make `mc` distractors diagnostic, then correct them.** Every wrong `mc` choice
+  must be a **plausible misconception a real learner holds** — an off-by-one, a
+  swapped client/server side, a confused operator, the almost-right API name — never
+  random filler or a joke option. A distractor that nobody would pick tests nothing;
+  a distractor that encodes a specific mistake means the *wrong* answer is
+  informative. Pair this with `whyWrong` (above): the distractors set the trap, the
+  `whyWrong` explains why it sprang. Together they turn multiple-choice from
+  recognition-guessing into real diagnosis.
+- **"Thorough" means no coverage gaps, NOT more words.** Do not pad lessons to feel
+  complete — a 600-word lesson that teaches one idea cleanly beats a 1,200-word one
+  that buries it (extra words are extraneous cognitive load). The thoroughness that
+  IS mandatory is *coverage*: no exercise, `write` lab, intrusion, duel, or
+  freestyle requirement may depend on a concept, method, or identifier that no
+  lesson in this section or an earlier one actually taught. Testing something you
+  never explained is the most common way an AI-authored course silently breaks
+  learning. Before shipping a section, walk every exercise and rubric line and
+  confirm its prerequisite was taught first.
 
 ### `[freestyle]` — the graded capstone (required per section)
 ```toml
@@ -736,36 +887,39 @@ authoring a language, prove it:** add a few scenarios to
 `tools/test_completions.js` (it stubs Monaco and drives the real provider with
 your TOML) and run `node tools/test_completions.js`.
 
-### `workspaceDir` — a project the player builds with their own external tools (optional)
+### `externalWorkspace` — a project the player builds with their own external tools (optional)
 
 Most tomes run and grade code the engine scaffolds inside `save/`. Set `[runtime]
-workspaceDir` **only** when the course teaches a real external toolchain and the
-build must live in the player's own project instead:
+externalWorkspace = true` **only** when the course teaches a real external
+toolchain and the build must live in the player's own project instead:
 
-> **Student-selectable too.** Setting `workspaceDir` here *forces* external mode
-> for the course (there is no built-in editor). But the student can ALSO opt into
-> external mode themselves on ANY tome — the workbench's **USE MY OWN EDITOR**
-> control points the same run/grade/diagnostics machinery at a folder they build
-> in their own IDE (stored per-tome in their save, not in the tome). Author
-> `workspaceDir` always wins over a student choice. Set it here when the course is
-> *designed* around an external toolchain (a Gradle mod, a Papyrus project);
-> otherwise leave it unset and let students opt in only if they want to.
+> **The tome NEVER hardwires the location — the student always chooses it.**
+> `externalWorkspace = true` *requires* external mode for the course (there is no
+> built-in editor); on first entry to a Great Working the player is prompted to
+> **CHOOSE PROJECT FOLDER** and points the run/grade/diagnostics machinery at a
+> folder they built in their own IDE (stored per-tome in their save, not in the
+> tome). The student can ALSO opt into external mode themselves on ANY tome via
+> the workbench's **USE MY OWN EDITOR** control. The difference is only whether
+> external mode is forced: the folder is the player's decision either way. Set
+> `externalWorkspace` when the course is *designed* around an external toolchain
+> (a Gradle mod, a Papyrus project); otherwise leave it unset and let students opt
+> in only if they want to. (The old `workspaceDir` absolute-path key is removed —
+> a course must not decide where a player's project lives.)
 
 ```toml
 [runtime]
 name = "dotnet"
-workspaceDir = "/home/you/projects/MyBuild"   # ABSOLUTE path (a leading ~ is expanded)
+externalWorkspace = true   # REQUIRE external mode; the player picks the folder
 ```
-- The path **MUST be absolute** — the server rejects a relative one.
-- Runs, diagnostics, and grading operate on that directory. `/api/scaffold`
-  **refuses to touch it**, and the engine **never resets it** — the player's tools
-  own it entirely.
+- Runs, diagnostics, and grading operate on the folder the player chose.
+  `/api/scaffold` **refuses to touch it**, and the engine **never resets it** —
+  the player's tools own it entirely.
 - Grading collects at most **400** files, skipping dot-dirs, `node_modules`,
   `__pycache__`, `venv`, `bin`, `obj`, `build`, `out`, `target`, plus any
   `[runtime] excludeDirs`. Binary assets are not collected.
 
-**The recipe is `workspaceDir` + `[runtime]` overrides — nothing more.** Because
-this tome's `[runtime]` table overrides every engine key (`runCommand`,
+**The recipe is `externalWorkspace` + `[runtime]` overrides — nothing more.**
+Because this tome's `[runtime]` table overrides every engine key (`runCommand`,
 `buildCommand`, `checkCommand`, `diagRegex`, `codeExt`, `excludeDirs`,
 `projectFile`), any toolchain drivable from a CLI works — and GUI-only tools (an
 IDE, a game editor) work too, because grading only **reads** the workspace files;
@@ -775,7 +929,7 @@ the engine never launches the tool.
 intrusion, and duel snippet still runs in the engine's scratch dir through
 `command`/`snippetRunCommand` — and when `buildCommand` is set, it runs FIRST,
 cwd = that scratch dir, before every snippet (it also feeds the lab editor's
-squiggles). Two consequences for a `workspaceDir` tome:
+squiggles). Two consequences for an `externalWorkspace` tome:
 1. It still needs a `command` that compiles/runs ONE plain file of the language,
    or every minigame in the tome is dead.
 2. A project-only `buildCommand` such as `["./gradlew", "build"]` fails in the
@@ -786,23 +940,23 @@ squiggles). Two consequences for a `workspaceDir` tome:
 A few shapes:
 - **A Java mod (Gradle):** `name = "java"` (the shipped language file brings
   single-file compile-run, syntax checks, and editor completions), plus
-  `workspaceDir`, the conditional `buildCommand` above, and a javac `diagRegex`.
-  `tomes/runebound-1165/tome.toml` is the complete worked example — its
+  `externalWorkspace = true`, the conditional `buildCommand` above, and a javac
+  `diagRegex`. `tomes/waymark/tome.toml` is the complete worked example — its
   `command` override pins `-source 8 -target 8`, and its `snippetRunCommand =
   ["java", "-cp", "{dir}", "Main"]` runs the class the scratch-dir build
   already compiled.
 - **A Stardew Valley SMAPI mod (C#):** the `dotnet` runtime already covers it —
-  just add `workspaceDir`.
+  just add `externalWorkspace = true`.
 - **Skyrim Papyrus scripts:** `buildCommand` = the Papyrus compiler, a matching
   `diagRegex`, and `codeExt = [".psc"]`.
 - **An Odin project built by real tooling** (not the built-in per-file compile):
-  `name = "odin"`, `workspaceDir`, and `runCommand = ["odin", "run", "."]`.
+  `name = "odin"`, `externalWorkspace = true`, and `runCommand = ["odin", "run", "."]`.
 
 When there is no CLI build at all, **omit `buildCommand`** — the AI grader still
 grades the collected source/text files, so set `codeExt` to the text formats that
 matter (source, configs, notes); binary assets are never collected.
 
-**A tome that uses `workspaceDir` MUST tell the player which external tools to
+**A tome that uses `externalWorkspace` MUST tell the player which external tools to
 install.** State them in the first lesson (and each freestyle brief that needs
 them) with resource links. Mark a resource **optional** when solid official docs
 exist online that the player can follow to install/set up; mark it **mandatory**
@@ -813,10 +967,12 @@ from — and in that case the tome's own lessons MUST carry the install/setup st
 
 ## 6. Generation procedure — follow in order
 
-0. **Ask three questions FIRST — mandatory, never skip.** Before designing
-   anything, ask the requester at least THREE clarifying questions and wait for
-   the answers; the answers reshape every later step. Pick the three that most
-   change the design, e.g.:
+0. **Ask three questions FIRST — mandatory, never skip (see the §0 HARD GATE).**
+   Before designing anything, ask the requester at least THREE clarifying questions
+   and wait for the answers; the answers reshape every later step. This holds in
+   EVERY run mode: even under autonomous/automode, interrupt the run and ask — never
+   answer on the user's behalf, assume defaults, or proceed unanswered. Pick the
+   three that most change the design, e.g.:
    - Prior knowledge: "Do you already know <language>, or is this course also
      your first <language>?" (decides whether early ops teach the language or
      only the domain — a Minecraft-mod tome for a Java veteran skips Java
@@ -824,7 +980,7 @@ from — and in that case the tome's own lessons MUST carry the install/setup st
    - Scope & depth: "Quick focused mini-course or thorough from-zero coverage?"
      (drives section count and lesson density)
    - Toolchain: "Work inside the engine's own workbench, or in your real
-     external project/IDE (`workspaceDir`, §5)?" — and for externals, which
+     external project/IDE (`externalWorkspace`, §5)?" — and for externals, which
      exact tool versions
    A fourth (fiction/theme taste) is welcome; zero questions is a review
    failure.
@@ -834,12 +990,18 @@ from — and in that case the tome's own lessons MUST carry the install/setup st
    term), and a distinctive visual identity (signature accent hue).
    **One name, one spelling.** Fix the project's name here and derive every
    other form from it mechanically: display name `Runebound` → machine id
-   `runebound` (the EXACT lowercase of the display name), caps branding
-   `RUNEBOUND`, matching workspace, package, and artifact names. Never drop or
-   add letters between forms — an id that isn't the display name lowercased
-   reads as a typo in every prompt and path it appears in, and any exercise
-   that computes the id by normalizing the display name will expect the wrong
-   string. Then decide
+   `runebound`; a word boundary in the name (camelCase or a space) becomes a
+   hyphen, so `ManaWeaver` → `mana-weaver`. Caps branding `RUNEBOUND`, matching
+   workspace, package, and artifact names. Never drop or add letters between
+   forms — an id that isn't derived from the display name reads as a typo in
+   every prompt and path it appears in, and any exercise that computes the id
+   by normalizing the display name will expect the wrong string.
+   **The id NEVER comes from the requester's phrasing.** A past run shipped a
+   tome whose folder was the user's request sentence (`teach-me-how-to-make`)
+   instead of the project's name — the id is derived from the name fixed in
+   this step, nothing else. Under the harness you never create OR rename the
+   folder: it is scaffolded as `untitled` after Phase 0, and the harness renames
+   it (folder AND `meta.id`) from `[runtime] project` after Phase 2. Then decide
    the op arc **backwards from the finished tool**: what capability does each op
    add? The number of ops is however many that arc needs (§2 `[content]`) — not a
    fixed target.
@@ -862,7 +1024,10 @@ from — and in that case the tome's own lessons MUST carry the install/setup st
    tints, accent inks, and candle colors (18 vars each, one `earned`), shop
    entries wiring themes + the engine consumables **reflavored to this course's
    world** (name/desc/ico). Themes only — never a skin; the global SEPIA VELLUM
-   and OPHIDIAN DEN skins join this tome's palette picker automatically.
+   and OPHIDIAN DEN skins join this tome's palette picker automatically. Every
+   palette must be measurably distinct from Sepia Vellum AND from this tome's
+   other palettes (the validator computes the color distance — the scaffold's
+   placeholder vars are vellum's, so keeping them is an instant fail).
 7. **Validate** against the checklist below.
 
 ## 7. Validate before you ship, then run the checklist
@@ -879,7 +1044,20 @@ python3 tools/validate_tome.py tomes/<id>
 It machine-checks this spec: TOML parses; `meta.id` equals the folder name; runtime
 resolves; ids are unique; every palette carries all 18 inks; rubric weights sum to
 100; every `write` lab has a non-empty `expect`; attack stages obey the append
-invariant; and more. **Fix every `ERROR` — a tome that still emits one is not
+invariant; and more. It also gates *content* floors: lesson bodies clear a word
+floor (§3's 300–600-word range), bootLines/gradingLines hit their counts,
+field-notes coverage and mc answer-index balance are measured, an `earned = true`
+palette must be granted by `[progression.earnedTheme]`, an `externalWorkspace`
+tome must link its toolchain in the first section, and the tome id must be the
+kebab-case of the project name (`ManaWeaver` → `mana-weaver`). It also audits the
+*artifact*: every file must belong to the layout contract (a nested tome folder,
+backups, or scratch files ERROR), the badge bank must define every engine-granted
+id (the `grantBadge` literals in web/app.js), the earned theme must not be sold in
+the shop, attack starters must have balanced braces, `generated/attacks.toml` must
+match `attacks_src.toml`, readings need http(s) urls, and leftover TODO/FIXME text
+or a dyed (non-parchment) `bg1` page color is a hard-gate `content` WARN
+(`--strict` fails on those — the Phase 7 bar).
+**Fix every `ERROR` — a tome that still emits one is not
 done.** `WARN` lines are advisory (e.g. a consumable id outside the six engine
 mechanics). The checker enforces *structure*, not *content* — the human-judgement
 items below (voice, anti-template variety, balance) are still yours to run:
@@ -901,7 +1079,8 @@ items below (voice, anti-template variety, balance) are still yours to run:
 - [ ] All 18 theme vars present in every palette (incl. `slab`, `slab-tx`, `candle`)
 - [ ] Themes only: every palette is a `[[themes]]` entry in this tome (in `themes.toml`,
       or inline in `tome.toml`) — nothing added under `skins/`, no structural CSS anywhere, and no palette
-      re-creates the global Sepia Vellum
+      re-creates the global Sepia Vellum or clones another of this tome's palettes
+      (the validator measures both distances)
 - [ ] Distinctive identity: the 3–5 palettes differ in paper tint, accent ink,
       and candle color; a palette wouldn't be mistaken for another course's
 - [ ] Consumables reflavored: `name`/`desc` fit this course's world, not copied
@@ -914,10 +1093,12 @@ items below (voice, anti-template variety, balance) are still yours to run:
 - [ ] Economy: top rank ≈ total earnable; nothing unaffordable or trivially cheap
 - [ ] Voice: bootLines, gradingLines, briefs, shop descs, badge descs all speak
       in the same persona
-- [ ] One spelling: the machine id is the exact lowercase of the display name;
-      caps branding, namespaces, translation keys, and artifact names all use
-      the same letters — and every exercise/duel that DERIVES the id from a
-      display string actually computes the id the rest of the tome uses
+- [ ] One spelling: the machine id is the kebab-case of the project name
+      (`ManaWeaver` → `mana-weaver`), never the requester's phrasing, and no
+      `untitled` scaffold name survives to ship; caps branding, namespaces,
+      translation keys, and artifact names all use the same letters — and every
+      exercise/duel that DERIVES the id from a display string actually computes
+      the id the rest of the tome uses
 - [ ] Anti-template audit: no two `write` exercises share a prompt stem or starter;
       every lab prompt names its concrete inputs; `stdin` labs appear AND recur
       across later sections (not clustered in one); no lesson where mc/fill/text

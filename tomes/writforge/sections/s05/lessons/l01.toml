@@ -1,0 +1,97 @@
+[[lessons]]
+id = "s05-l01"
+title = "The Match Lantern"
+body = '''
+<p>A manuscript line does not need to be rewritten to be examined. The first discipline of this canto is to hold the line still and ask whether it carries the mark you want. Perl does that with <code>=~</code> on the left and a pattern between slashes on the right. The line stays in the same form; the regex is only a lantern. If the scribe wants to know whether <code># Preface</code> appears inside a sample line, the search is a match, not a replacement, and it should feel like a lantern sweeping a shelf rather than a chisel cutting wood.</p>
+<p>That is why the old habits from earlier cantos matter here. The array still holds the manuscript lines in order, and the hash from the last chapter can still count what the regex finds. Regex matching does not replace those tools. It gives them sight. A line can be stored in <code>@lines</code>, matched with <code>=~ /# Preface/</code>, and tallied in <code>%seen</code> without any one of those jobs pretending to be the others. Keep the jobs separate and the script stays readable.</p>
+<p>Do not confuse the pattern with ordinary string comparison. <code>eq</code> asks whether two strings are the same. <code>=~</code> asks whether a pattern fits the string. That difference matters the instant the manuscript stops being a single fixed word and becomes a family of lines that share a shape. A heading may begin with a hash and a space, but the rest of the line can vary. Regex matching lets the script hold that variation without losing the rule.</p>
+<p>For this first look, keep the pattern plain. Exact literal text is enough. Later cantos will add punctuation classes, anchors, and quantifiers. Right now the apprentice only needs to learn that the line lives on one side of the operator and the pattern on the other. The scanner is not transforming anything yet. It is learning how to see.</p>
+<pre><code><span class="k">if</span> (<span class="s">$line</span> =~ /<span class="s"># Preface</span>/) {
+    <span class="k">say</span> <span class="s">"HIT"</span>;
+}</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE MATCH LANTERN</div>
+<p><strong>Operator note.</strong> <code>=~</code> binds the current string to the pattern test. It does not change the string unless a later chapter asks it to.</p>
+<p><strong>Literal note.</strong> A plain pattern like <code>/# Preface/</code> is already useful when the manuscript line carries a fixed phrase. Save the fancier anchors for when the pattern needs tighter bounds.</p>
+<p><strong>Ledger note.</strong> The previous hash chapter still matters here because the match results can be counted. Detection first, summary second.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perldoc: perlretut"
+url = "https://perldoc.perl.org/perlretut"
+
+[[lessons.exercises]]
+id = "s05-l01-e1"
+type = "fill"
+points = 15
+prompt = "<p>Restore the operator that asks Perl whether the manuscript line matches the heading pattern.</p>"
+code = 'if ($line ____ /# Preface/) { say "HIT"; }'
+answer = "=~"
+hint = "The blank is the match operator between the line and the pattern."
+whyWrong = "You are leaving the line as an ordinary scalar comparison or skipping the pattern test entirely. This lesson needs the regex operator, not a string equality check."
+
+[[lessons.exercises]]
+id = "s05-l01-e2"
+type = "mc"
+points = 20
+prompt = "<p>Reaching back to our <code>classify_line</code> helper from Section 2, how do we increment a hash counter when the line matches our regex?</p>"
+choices = ["<code>$counts{\"matches\"}++ if $line =~ /# Preface/;</code>", "<code>push @counts, /# Preface/;</code>", "<code>$counts = /# Preface/;</code>", "<code>%counts =~ /# Preface/;</code>"]
+answer = 0
+whyWrong = "You must use the hash syntax `$hash{key}` from Section 4 and increment it when the regex match operator `=~` succeeds."
+hint = "Combine the hash increment `++` with the conditional `=~` match."
+explain = "We use the hash element syntax to tally matches, combining Section 4's hashes with Section 5's match operator."
+
+[[lessons.exercises]]
+id = "s05-l01-e3"
+type = "text"
+points = 20
+prompt = "<p>What does <code>/# Preface/</code> match in this lesson?</p>"
+answer = "a line containing `# Preface`"
+accept = ["any line containing `# Preface`", "a manuscript line containing `# Preface`"]
+hint = "The pattern is looking for that exact phrase anywhere in the line."
+whyWrong = "You are narrowing the pattern to one exact full line or widening it into a generic word search. This prompt is only about spotting the phrase inside a line."
+
+[[lessons.exercises]]
+id = "s05-l01-e4"
+type = "mc"
+points = 12
+prompt = "<p>Which pattern is the one shown in the worked example when the scribe only needs to spot the phrase inside a line?</p>"
+choices = ["<code>/# Preface/</code>", "<code>/^# Preface$/</code>", "<code>/#.*Preface/</code>", "<code>/Preface$/</code>"]
+answer = 0
+whyWrong = "You are reaching for anchors or a broader wildcard pattern when the first lesson only needs the exact phrase search shown in the sample."
+hint = "The worked example uses the plain literal pattern, not a bounded or greedy variant."
+explain = "The literal phrase pattern is enough for a quick line scan at this stage."
+
+[[lessons.exercises]]
+id = "s05-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "<p>Retype the exact match example. Keep the line, the pattern, and the output untouched.</p>"
+code = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my $line = "# Preface";
+if ($line =~ /# Preface/) {
+    say "HIT";
+}
+'''
+
+[[lessons.exercises]]
+id = "s05-l01-w1"
+type = "write"
+points = 30
+prompt = "<p>Using the starter lines, count how many of them contain <code># Preface</code> and print <code>MATCHES 2</code>. The starter array is the source of truth; do not hardcode the answer.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my @lines = ("# Preface", "A paragraph", "# Preface", "# Addendum");
+my $matches = 0;
+
+# Task: count the lines that contain `# Preface`.
+# Print `MATCHES N` after the loop.
+'''
+expect = '''
+MATCHES 2'''
+hint = "Walk the array and increment the counter only when the line matches the exact phrase from the prompt."

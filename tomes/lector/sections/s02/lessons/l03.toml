@@ -1,0 +1,88 @@
+[[lessons]]
+id = "s02-l03"
+title = "Strings: Ancient and Scripted"
+body = '''
+<p>Two string systems live in C++. The ancient one and the modern one. Lector reads posts — files full of characters — so you must know both.</p>
+<p>The ancient system: <code>const char*</code>. An array of characters ending at a null terminator (<code>'\0'</code>). <code>const char* name = "Lector";</code> — a pointer to the first character. The <code>const</code> (per the Clockwise Rule from s02-l02) means the characters are immutable through this pointer.</p>
+<p><code>strlen(name)</code> counts characters until it hits <code>'\0'</code>. <code>strcmp(a, b)</code> compares two C-strings, returning negative, zero, or positive. These live in <code>&lt;cstring&gt;</code>. They are fast. They are also foot-guns: one missing null terminator and <code>strlen</code> walks off into unallocated memory.</p>
+<p>The modern system: <code>std::string</code>. From <code>&lt;string&gt;</code>. It manages its own memory — grows, shrinks, copies. No null terminator to maintain. No buffer to overflow.</p>
+<p><code>std::string s = "Lector";</code> — length is <code>s.length()</code> or <code>s.size()</code>. Concatenation: <code>s + " v2"</code>. Comparison: <code>s == "Lector"</code>. Conversion back to the ancient form: <code>s.c_str()</code> returns <code>const char*</code> for C APIs.</p>
+<p>Inside every member function, <code>this</code> is a pointer to the object that invoked it. <code>void Post::print() { std::cout &lt;&lt; this-&gt;title; }</code>. You never declare it. The compiler provides it. Under the Clockwise Rule, <code>this</code> is <code>Post* const</code> — the pointer cannot be reassigned, but the object it points to can be modified (unless the function is const-qualified).</p>
+<p>Use <code>this</code> when a parameter has the same name as a member, or when you need the address of the object. Most of the time you do not need it — unqualified member names resolve to <code>this-&gt;</code> automatically.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // The Small String Optimization</div>
+<p><code>std::string</code> does not always allocate on the heap. Most implementations store short strings — typically 15 to 22 characters — directly inside the string object. No allocation, no free. This is called the Small String Optimization (SSO). It is why passing small strings by value is not as expensive as you might expect, though const-ref is still the default.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s02-l03-e1"
+type = "text"
+points = 22
+prompt = "What does <code>strlen(&quot;abc\\0def&quot;)</code> return? Write only the number."
+answer = "3"
+accept = ["3"]
+hint = "<code>strlen</code> counts characters until it encounters the first <code>\\0</code> character — it does not count past it, even if more data follows in memory."
+explain = "The string literal <code>\"abc\\0def\"</code> contains a null terminator after the third character. <code>strlen</code> stops at the first <code>\\0</code> it finds, so it returns 3. The characters after the null are never reached."
+
+[[lessons.exercises]]
+id = "s02-l03-e2"
+type = "fill"
+points = 22
+prompt = "Complete the member function so it uses the <code>this</code> pointer to access the member <code>title</code>."
+code = '''class Post {
+    std::string title;
+public:
+    void print() {
+        std::cout << ____->title;
+    }
+};'''
+answer = "this"
+hint = "Every member function has a hidden pointer to the calling object. Its name is always one word — the same word used to refer to the current instance."
+explain = "The keyword <code>this</code> is a pointer to the object on which the member function was called. <code>this->title</code> accesses the <code>title</code> member of that object. The -> operator dereferences the pointer and accesses the member."
+
+[[lessons.exercises]]
+id = "s02-l03-e3"
+type = "mc"
+points = 22
+prompt = "Which is a key advantage of <code>std::string</code> over a C-string (<code>const char*</code>)?"
+choices = [
+    "<code>std::string</code> can only store printable ASCII characters, which prevents encoding errors",
+    "<code>std::string</code> is always faster than C-string operations for any string length",
+    "<code>std::string</code> does not require an <code>#include</code> directive — it is a built-in type",
+    "<code>std::string</code> manages its own memory and prevents buffer overflows caused by manual null-terminator handling"
+]
+answer = 3
+whyWrong = "<code>std::string</code> is not always faster — C-string operations can be faster for short, fixed-length buffers. The real advantage is safety: no manual <code>strcpy</code> or <code>sprintf</code>, no off-by-one null terminator bugs."
+hint = "Think about what the C-string programmer must do manually that the <code>std::string</code> user does not. Which class of bugs just disappears?"
+explain = "<code>std::string</code> grows and shrinks automatically, manages its own heap memory, and eliminates the buffer-overflow bugs that plague manual C-string manipulation with <code>strcpy</code>, <code>sprintf</code>, and forgotten null terminators."
+
+[[lessons.exercises]]
+id = "s02-l03-e4"
+type = "fill"
+points = 22
+prompt = "Complete the call to a C-style function that expects a <code>const char*</code>."
+code = '''std::string title = "Lector";
+print_raw(title.____);'''
+answer = "c_str()"
+hint = "The method that converts a <code>std::string</code> to a <code>const char*</code> has a name that abbreviates 'C string'. It ends with parentheses."
+explain = "<code>c_str()</code> returns a <code>const char*</code> pointing to the string's internal null-terminated buffer. This is how you pass a <code>std::string</code> to any C API or function that expects <code>const char*</code>. The pointer is valid until the string is modified or destroyed."
+
+[[lessons.exercises]]
+id = "s02-l03-w1"
+type = "write"
+points = 32
+prompt = "Write a function <code>describe</code> that takes two <code>const char*</code> parameters — a title and an author — and returns a <code>std::string</code> formatted as <code>&quot;TITLE by AUTHOR&quot;</code>. In <code>main</code>, call it with <code>&quot;Lector&quot;</code> (title) and <code>&quot;Magister Kael&quot;</code> (author) and print the result."
+starter = '''#include <iostream>
+#include <string>
+
+// TODO: write describe(title, author) here
+// It takes two const char* parameters
+// Returns a std::string formatted "TITLE by AUTHOR"
+
+int main() {
+    // TODO: call describe("Lector", "Magister Kael")
+    // and print the result
+    std::cout << "TODO" << std::endl;
+    return 0;
+}'''
+expect = "Lector by Magister Kael"
+hint = "The function signature is <code>std::string describe(const char* title, const char* author)</code>. Use <code>+</code> to concatenate: convert at least one operand to <code>std::string</code> first, then <code>title + std::string(\" by \") + author</code> works."

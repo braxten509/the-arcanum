@@ -1,0 +1,125 @@
+[[lessons]]
+id = "s05-l05"
+title = "Forging the First Jig — A Print Procedure"
+body = '''
+<p>HexForge needs three reusable procedures to function: one to print a byte as two hex characters, one to print a string of known length, and one to convert an integer to decimal. This lesson forges the simplest: <strong>print_string</strong> — a procedure that prints a buffer given its address and length.</p>
+
+<p>Designing a good procedure interface:</p>
+<ul>
+<li><strong>Input:</strong> rdi = address of the string, rsi = byte count (following the ABI: first two arguments).</li>
+<li><strong>Output:</strong> nothing (void procedure).</li>
+<li><strong>Clobbers:</strong> rax, rdi, rsi, rdx (caller-saved — they are used for the syscall). The caller must not expect these to survive.</li>
+<li><strong>Preserves:</strong> all callee-saved registers (rbx, rbp, r12–r15) — though this simple version touches none of them.</li>
+</ul>
+
+<pre><code>print_string:
+    <span class="c">; rdi = buffer address, rsi = byte count</span>
+    <span class="k">mov</span> rax, 1             <span class="c">; sys_write</span>
+    <span class="k">mov</span> rdx, rsi           <span class="c">; byte count (arg2 → rdx for syscall)</span>
+    <span class="k">mov</span> rsi, rdi           <span class="c">; buffer address (arg1 → rsi for syscall)</span>
+    <span class="k">mov</span> rdi, 1             <span class="c">; stdout</span>
+    <span class="k">syscall</span>
+    <span class="k">ret</span></code></pre>
+
+<p>Notice the register shuffle: the ABI puts the buffer in rdi and the count in rsi, but <code>sys_write</code> wants the buffer in rsi and the count in rdx. The procedure does a quick remap: rdi (buffer) → rsi, rsi (count) → rdx. This is common in syscall wrappers — the user ABI and the kernel ABI use slightly different register assignments, so you swap them.</p>
+
+<p>Using the procedure:</p>
+<pre><code>    <span class="k">mov</span> rdi, msg           <span class="c">; arg1: address</span>
+    <span class="k">mov</span> rsi, msg_len       <span class="c">; arg2: length</span>
+    <span class="k">call</span> print_string</code></pre>
+
+<p>Now every place you would have written a four-line sys_write setup, you write two movs and a call. For a program that prints five different strings, that's 15 fewer lines and one canonical place to change if the printing mechanism ever needs adjustment.</p>
+
+<p><strong>print_byte_hex</strong> — the second jig HexForge needs — takes a byte in dil and writes two hex characters ('0'–'9', 'A'–'F') to a buffer. You'll forge that in the next lesson after learning about nibble extraction. The pattern is: isolate high nibble (shift right 4), map 0–15 to ASCII hex, store; isolate low nibble (mask with 0x0F), map to ASCII hex, store.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ONE PURPOSE PER JIG</div>
+<p>A procedure should do exactly one thing. <code>print_string</code> prints bytes — it does not compute lengths, parse digits, or classify characters. If you need a length, compute it before the call. If you need a newline appended, call <code>print_string</code> with a newline buffer separately or create a <code>print_line</code> wrapper that calls <code>print_string</code> then prints a newline. This discipline — single responsibility — keeps jigs small, testable, and composable. HexForge's final orchestration in s08 will call many such small procedures in sequence to produce each dump line.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s05-l05-e1"
+type = "mc"
+points = 15
+prompt = "In the <code>print_string</code> procedure, why do the arguments need to be shuffled from rdi/rsi to rsi/rdx before <code>syscall</code>?"
+choices = [
+  "The user-space ABI and the kernel syscall ABI use different argument registers — the kernel expects buffer in rsi and count in rdx, while user code passes them in rdi and rsi",
+  "sys_write requires arguments to be in alphabetical order by register name",
+  "NASM cannot pass more than one argument in the same register set without shuffling",
+  "The shuffle is unnecessary — you could put the arguments in rsi and rdx from the start and still follow the ABI"
+]
+answer = 0
+whyWrong = "You COULD put arguments in rsi and rdx from the start, but then your procedure wouldn't follow the standard user-space ABI where the first two arguments go in rdi, rsi. Other code expecting the standard calling convention would break. The shuffle adapts between the two conventions — the user-space ABI and the kernel's register assignments."
+hint = "Compare the user ABI argument order (rdi, rsi, rdx, rcx, r8, r9) to the syscall register assignments for sys_write (rdi=fd, rsi=buf, rdx=count)."
+explain = "The user ABI passes buf in rdi (arg1) and count in rsi (arg2). sys_write expects buf in rsi and count in rdx. So: rdi→rsi (buf), rsi→rdx (count), and rdi=1 (stdout fd). This is a register remap, not a computation — pure mov instructions."
+
+[[lessons.exercises]]
+id = "s05-l05-e2"
+type = "fill"
+points = 20
+prompt = "Fill the call to print_string with the correct arguments. The string lives at label 'header' with length 7."
+code = '''
+mov  rdi, ____         ; arg1: string address
+mov  rsi, ____         ; arg2: byte count
+call print_string
+'''
+answer = "header, 7"
+accept = ["header / 7"]
+hint = "First blank: the label name (the address). Second blank: a number (the length)."
+explain = "rdi takes the address of the string (the label <code>header</code>), rsi takes the byte count (7). After the call, <code>print_string</code> remaps these to the sys_write registers and fires the syscall."
+
+[[lessons.exercises]]
+id = "s05-l05-e3"
+type = "type"
+points = 12
+prompt = "Retype the print_string procedure and its call site. This is the first reusable jig in the HexForge toolbox."
+code = '''
+print_string:
+    ; rdi = buf, rsi = len
+    mov  rax, 1           ; sys_write
+    mov  rdx, rsi         ; count → rdx
+    mov  rsi, rdi         ; buf → rsi
+    mov  rdi, 1           ; stdout
+    syscall
+    ret
+
+; Usage:
+    mov  rdi, msg
+    mov  rsi, msg_len
+    call print_string
+'''
+
+[[lessons.exercises]]
+id = "s05-l05-w1"
+type = "write"
+points = 30
+prompt = "Forge <code>print_string</code> and use it. Write the procedure that prints a buffer given its address (rdi) and length (rsi). Then call it THREE times from _start to print three separate strings: <code>FORGE</code>, <code>THE</code>, <code>JIG</code> — each followed by a space (not a newline — print the space as part of each string). Output: <code>FORGE THE JIG </code>. The trailing space is intentional."
+starter = '''
+section .text
+    global _start
+
+_start:
+    ; Call print_string three times with the three strings
+    
+
+    
+
+    
+
+    ; Exit
+    
+
+print_string:
+    ; rdi = buf, rsi = len — print via sys_write
+    
+
+section .data
+s1: db "FORGE "
+s1_len equ $ - s1
+s2: db "THE "
+s2_len equ $ - s2
+s3: db "JIG "
+s3_len equ $ - s3
+'''
+expect = '''
+FORGE THE JIG '''
+hint = "print_string: mov rax,1 / mov rdx,rsi / mov rsi,rdi / mov rdi,1 / syscall / ret. Call it: mov rdi,s1 / mov rsi,s1_len / call print_string. Repeat for s2, s3. Exit after third call."

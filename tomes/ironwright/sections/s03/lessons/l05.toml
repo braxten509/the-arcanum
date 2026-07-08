@@ -1,0 +1,91 @@
+[[lessons]]
+id = "s03-l05"
+title = "Holding the Ironwork — the Registry"
+body = '''
+<p>A forge heaps scrap unless it keeps a ledger. The <code>Registry</code> is the ledger: it holds every ingot you have struck and hands one back by name when you ask. Here is a first cut, built on an <strong>array</strong> — a fixed row of slots of the same type, indexed from zero.</p>
+<pre><code><span class="k">public class</span> Registry {
+    <span class="k">private</span> Ingot[] slots = <span class="k">new</span> Ingot[<span class="s">16</span>];
+    <span class="k">private int</span> size = <span class="s">0</span>;
+
+    <span class="k">public void</span> register(Ingot ingot) {
+        slots[size] = ingot;
+        size++;
+    }
+
+    <span class="k">public</span> Ingot find(String name) {
+        <span class="k">for</span> (<span class="k">int</span> i = <span class="s">0</span>; i &lt; size; i++) {
+            <span class="k">if</span> (slots[i].getName().equals(name)) <span class="k">return</span> slots[i];
+        }
+        <span class="k">return</span> <span class="k">null</span>;
+    }
+}</code></pre>
+<p><code>new Ingot[16]</code> strikes a row of 16 empty slots; <code>size</code> counts how many are filled. <code>register</code> drops the next ingot at index <code>size</code> and ticks the count. <code>find</code> walks the filled slots with a <code>for</code> loop and returns the first whose name matches — or <code>null</code> if none does. The loop bound <code>i &lt; size</code> (not <code>slots.length</code>) is what keeps <code>find</code> from reading the empty slots and tripping on <code>null</code>.</p>
+<p>This is the seed of the mod's own registry — the place where every <code>ItemIngot</code> and <code>BlockMetal</code> will live once the forge binds them. Forgework V refactors it into a generic <code>Registry&lt;T&gt;</code> backed by a <code>Map</code>, and Forgework VIII binds it to Minecraft's <code>RegistryEvent.Register&lt;Item&gt;</code>. The shape — register, then look up by name — is already here.</p>
+<div class="callout"><strong>Orrick says:</strong> The array's <code>length</code> is 16 from the moment you strike it; <code>size</code> is how many you have filled. Loop to <code>size</code>, not <code>length</code>, or you will read empty slots and the forge will throw.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // FIXED ROWS VS GROWING LISTS</div>
+<p>An array is a fixed row — 16 slots means 16, no more. Forging past the end throws <code>ArrayIndexOutOfBoundsException</code>. A <code>List</code> (Forgework V) grows as you add, which is why the real registry will swap the array for a list. For now the fixed row teaches the shape without the machinery.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s03-l05-e1"
+type = "mc"
+points = 15
+prompt = "Why does <code>find</code> loop with <code>i &lt; size</code> rather than <code>i &lt; slots.length</code>?"
+choices = ["because length is not a real field on arrays", "because size and length are always equal", "because looping to length would be too slow", "because slots.length is 16 (the row's capacity) but only the first 'size' slots are filled — the rest are null"]
+answer = 3
+whyWrong = "slots.length is the fixed capacity (16); size is how many are filled. Looping to length would read empty (null) slots and call getName() on null, throwing. size and length are equal only when the row is full. length is a real field on arrays."
+hint = "Think about what sits in slots[size..length-1] — and what happens when find calls getName() on one of those."
+explain = "Bound the loop to size so find only touches filled slots. Reading past size hits null and a NullPointerException follows."
+
+[[lessons.exercises]]
+id = "s03-l05-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the value find returns when no ingot's name matches — the sentinel meaning 'not found'."
+code = '''public Ingot find(String name) {
+    for (int i = 0; i < size; i++) {
+        if (slots[i].getName().equals(name)) return slots[i];
+    }
+    return ____;
+}'''
+answer = "null"
+whyWrong = "null is the no-object reference, the standard 'not found' sentinel; 0 is an int not an Ingot; -1 is for int indices; empty string is a String not an Ingot. find returns an Ingot reference, so the empty answer is null."
+hint = "It is the four-letter literal meaning 'no object' — the same one that throws if you call a method on it."
+
+[[lessons.exercises]]
+id = "s03-l05-w1"
+type = "write"
+points = 30
+prompt = "The Registry and Ingot classes are in the starter. In <code>main</code>: build a <code>Registry reg = new Registry();</code>, register three ingots — <code>new Ingot(\"iron\", 8)</code>, <code>new Ingot(\"copper\", 6)</code>, <code>new Ingot(\"starsteel\", 20)</code> — then <code>Ingot found = reg.find(\"copper\");</code> and print <code>FOUND copper @ 6em</code> using <code>found.getName()</code> and <code>found.getValue()</code>."
+starter = '''public class Ironwright {
+    static class Ingot {
+        private String name; private int value;
+        public Ingot(String name, int value) { this.name = name; this.value = value; }
+        public String getName() { return name; }
+        public int getValue() { return value; }
+    }
+    static class Registry {
+        private Ingot[] slots = new Ingot[16];
+        private int size = 0;
+        public void register(Ingot ingot) { slots[size] = ingot; size++; }
+        public Ingot find(String name) {
+            for (int i = 0; i < size; i++) if (slots[i].getName().equals(name)) return slots[i];
+            return null;
+        }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — build reg, register 3 ingots, find copper, print the found ingot labelled FOUND
+    }
+}'''
+expect = '''
+FOUND copper @ 6em'''
+hint = "Registry reg = new Registry(); reg.register(new Ingot(\"iron\",8)); ... Ingot found = reg.find(\"copper\"); println(\"FOUND \" + found.getName() + \" @ \" + found.getValue() + \"em\");"
+
+[[lessons.exercises]]
+id = "s03-l05-t1"
+type = "text"
+points = 20
+prompt = "Type the name of the exception Java throws when you read or write an array slot past its end (e.g. slot 16 of a 16-long row). (Full class name without package, or the short name.)"
+answer = "ArrayIndexOutOfBoundsException"
+hint = "It is Array plus Index plus OutOf plus Bounds plus Exception — five words run together."

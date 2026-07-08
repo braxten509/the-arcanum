@@ -1,0 +1,73 @@
+[[lessons]]
+id = "s01-l02"
+title = "The Printed Line — String & println"
+body = '''
+<p>A smith who cannot mark his work cannot sell it. In Java, text is a <code>String</code> — a run of characters wrapped in double quotes — and the line you print to the console is the forge's voice.</p>
+<pre><code>System.out.println(<span class="s">"IRONWRIGHT // forge ready"</span>);</code></pre>
+<p><code>System.out</code> is the standard output stream (the anvil's face); <code>println</code> prints one line and moves to the next. <code>print</code> does the same without the trailing newline — useful when you build a line piece by piece. A <code>String</code> literal is anything between the quotes; the quotes themselves are not part of the text.</p>
+<p>You join text with <code>+</code>, the concatenation operator. When one side of <code>+</code> is a String, Java turns the other side into text and bolts them together:</p>
+<pre><code><span class="k">int</span> value = <span class="s">8</span>;
+System.out.println(<span class="s">"iron @ "</span> + value + <span class="s">"em"</span>);  <span class="c">// iron @ 8em</span></code></pre>
+<p>Notice the spaces live inside the literals — <code>"iron @ "</code> carries its own trailing space, because Java bolts exactly what you give it, nothing more. A missing space is the most common crooked mark on a first print.</p>
+<p>To put a double quote inside a String, escape it with a backslash: <code>\"</code>. To put a newline inside a literal, use <code>\n</code>. Most of the time you do not need either — <code>println</code> already ends the line for you.</p>
+<div class="callout"><strong>Orrick says:</strong> <code>println</code> takes exactly one argument. To print several things on one line, join them with <code>+</code> into a single String first. <code>println("a", "b")</code> does not compile.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // STRING IS NOT A PRIMITIVE</div>
+<p>String begins with a capital S; int, double, boolean, char do not. That capital is the tell: String is a <em>class</em> (a real object with methods you will meet in Forgework III), while the lowercase four are primitives (raw values, no methods). For now treat String as "the text type" — the distinction pays off later.</p></div>
+'''
+
+[[lessons.readings]]
+label = "The Java Tutorials — Numbers and Strings"
+url = "https://docs.oracle.com/javase/tutorial/java/data/strings.html"
+
+[[lessons.exercises]]
+id = "s01-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this concatenation exactly — joining a label and a value into one line."
+code = 'System.out.println("iron @ " + value + "em");'
+
+[[lessons.exercises]]
+id = "s01-l02-e1"
+type = "mc"
+points = 15
+prompt = "What does <code>System.out.print</code> do, that <code>System.out.println</code> does NOT?"
+choices = ["prints an extra blank line", "prints two values at once", "prints only numbers, not text", "prints without appending a newline"]
+answer = 3
+whyWrong = "print writes the text with no trailing newline, so the next print continues on the same line; println appends a newline. The other options describe things neither method does."
+hint = "The ln in println stands for 'line' — print lacks it."
+explain = "print writes raw text; println writes text then a line terminator. Build multi-part lines by chaining print, or join with + and call println once."
+
+[[lessons.exercises]]
+id = "s01-l02-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the operator that joins a String and a number into one printed line."
+code = 'System.out.println("copper @ " ____ value + "em");'
+answer = "+"
+whyWrong = "+ is Java's concatenation operator when a String is involved; = would be assignment, & is bitwise, , is not valid here. Joining text uses +."
+hint = "It is the same symbol as addition — when one side is a String, Java bolts instead of adds."
+
+[[lessons.exercises]]
+id = "s01-l02-w1"
+type = "write"
+points = 30
+prompt = "An ingot named <code>copper</code> is worth <code>6</code> embers. Build the line from a String literal <code>\"copper\"</code> and an <code>int value = 6;</code>, and print exactly <code>copper @ 6em</code>. Mind the spaces — they live inside the literals."
+starter = '''public class Ironwright {
+    public static void main(String[] args) {
+        String name = "copper";
+        int value = 6;
+        // apprentice — join name and value into one labelled line as described above
+    }
+}'''
+expect = '''
+copper @ 6em'''
+hint = "Join with + and put the spaces and \"em\" inside the literal: println(name + \" @ \" + value + \"em\")."
+
+[[lessons.exercises]]
+id = "s01-l02-t1"
+type = "text"
+points = 20
+prompt = "Type the exact method name (no parentheses, no class) that prints one line of text and then moves to the next line."
+answer = "println"
+hint = "It is print with two extra letters that stand for 'line'."

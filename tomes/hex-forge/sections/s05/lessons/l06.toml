@@ -1,0 +1,136 @@
+[[lessons]]
+id = "s05-l06"
+title = "Jigs Calling Jigs"
+body = '''
+<p>A single procedure is a jig. Procedures that call each other are a workshop. The challenge in a workshop is that each jig may need registers that another jig clobbers — and without discipline, your values vanish mid-strike.</p>
+
+<p>Consider a <code>print_line</code> procedure that prints a string, then prints a newline. It wants to call <code>print_string</code> twice — once for the string, once for the newline byte:</p>
+
+<pre><code>print_line:
+    <span class="c">; rdi = string address, rsi = string length</span>
+    <span class="k">push</span> rdi                <span class="c">; SAVE the string address — call clobbers rdi</span>
+    <span class="k">push</span> rsi                <span class="c">; SAVE the length — call clobbers rsi</span>
+
+    <span class="k">call</span> print_string       <span class="c">; print the string — clobbers rdi, rsi, rax, rdx</span>
+
+    <span class="k">mov</span> rdi, newline_char   <span class="c">; address of a single newline byte</span>
+    <span class="k">mov</span> rsi, 1              <span class="c">; length = 1</span>
+    <span class="k">call</span> print_string       <span class="c">; print the newline</span>
+
+    <span class="k">pop</span> rsi                 <span class="c">; RESTORE in reverse order</span>
+    <span class="k">pop</span> rdi
+    <span class="k">ret</span></code></pre>
+
+<p>Notice: <code>print_line</code> saved rdi and rsi before calling <code>print_string</code>, even though it doesn't need them after the second call. Why? Because the ABI says rdi and rsi are caller-saved — the caller cannot expect them to survive. <code>print_string</code> modifies them (setting them up for sys_write), so <code>print_line</code> must save them if it wants to restore the original arguments for the caller's benefit.</p>
+
+<p>The rules for a procedure that calls other procedures:</p>
+<ol>
+<li><strong>Save callee-saved registers you use.</strong> If you touch rbx, rbp, r12–r15, save them first (push in prologue, pop in epilogue).</li>
+<li><strong>Save caller-saved registers you need across a nested call.</strong> If you have a value in rdi, rsi, rdx, rcx, r8–r11 that you need after calling another procedure, save it before the call and restore after.</li>
+<li><strong>Stack alignment.</strong> Ensure rsp is 16-byte aligned at each <code>call</code> instruction. If you pushed an odd number of registers, add or subtract 8 from rsp to re-align before the call.</li>
+</ol>
+
+<p>HexForge's capstone orchestration is a workshop of four or five such jigs: <code>print_byte_hex</code>, <code>print_string</code>, <code>print_gutter</code>, <code>format_line</code>, and the main loop. Each calls others; each preserves what it must. The discipline you learn here — save before call, restore after, never assume a register survived — is the difference between a jig that holds and one that shatters on the third strike.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE SHADOW STACK — HARDWARE RETURN-ADDRESS PROTECTION</div>
+<p>Modern x86-64 CPUs have a feature called Shadow Stack (CET — Control-flow Enforcement Technology). The CPU maintains a second, hardware-managed stack of return addresses that is not accessible to normal code. When <code>ret</code> executes, the CPU compares the return address from the regular stack against the shadow stack's copy. If they differ (because of a buffer overflow or stack corruption), the CPU raises an exception. This is a hardware mitigation against ROP (Return-Oriented Programming) attacks. For HexForge, running on your own machine, this is transparent — but it reinforces why stack discipline matters: the hardware itself now checks your work.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s05-l06-e1"
+type = "mc"
+points = 15
+prompt = "Procedure A calls procedure B. Procedure A has a value in rdi it needs after B returns. What must A do?"
+choices = [
+  "Save rdi before the call (push rdi) and restore it after (pop rdi) — rdi is caller-saved, so B may clobber it",
+  "Nothing — rdi is callee-saved, so B must preserve it for A",
+  "Move the value to rax — rax is the only register guaranteed to survive a call",
+  "Use the red zone below rsp — it's immune to procedure calls"
+]
+answer = 0
+whyWrong = "rdi is caller-saved — B is allowed to overwrite it. rax is ALSO caller-saved AND is the return value register — B will almost certainly clobber it. The red zone is only valid for leaf procedures, and a call writes the return address at [rsp], which is inside the red zone. You must manually save any caller-saved register you need."
+hint = "Look at the caller-saved list: rax, rcx, rdx, rsi, rdi, r8-r11. rdi is on it."
+explain = "The caller-saved (volatile) registers — rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11 — may be freely modified by any called procedure. If the caller needs their values after the call, it must save them (push) before and restore (pop) after. Only rbx, rbp, r12–r15 are callee-saved and guaranteed to survive."
+
+[[lessons.exercises]]
+id = "s05-l06-e2"
+type = "fill"
+points = 20
+prompt = "Fill the register save and restore. This procedure calls print_string and needs rdi preserved."
+code = '''
+my_proc:
+    ____ rdi            ; save arg before nested call
+    call print_string
+    ____ rdi            ; restore after
+    ret
+'''
+answer = "push, pop"
+accept = ["push / pop"]
+hint = "First blank: save to stack. Second blank: restore from stack."
+explain = "<code>push rdi</code> saves rdi on the stack. <code>call print_string</code> may clobber rdi (it does — print_string sets rdi=1 for stdout). <code>pop rdi</code> restores the original value. The pops and pushes must balance in reverse order."
+
+[[lessons.exercises]]
+id = "s05-l06-e3"
+type = "text"
+points = 20
+prompt = "Procedure <code>outer</code> uses rbx (callee-saved). Procedure <code>inner</code> also uses rbx (callee-saved). If <code>outer</code> calls <code>inner</code>, and both save/restore rbx correctly, does <code>outer</code>'s rbx value survive through the call to <code>inner</code>?"
+answer = "yes"
+accept = ["Yes", "yes, because inner saves and restores it"]
+hint = "If inner pushes rbx on entry and pops it on exit, what does outer see after the call?"
+explain = "Yes. <code>inner</code> pushes rbx in its prologue and pops it in its epilogue. From <code>outer</code>'s perspective, rbx is unchanged after <code>call inner</code> returns — that's the definition of callee-saved. Each procedure's save/restore is independent; they nest correctly because of LIFO stack ordering."
+
+[[lessons.exercises]]
+id = "s05-l06-w1"
+type = "write"
+points = 35
+prompt = "Build a two-level call chain. Write <code>print_colon</code> that prints a single colon character <code>:</code> using <code>print_string</code>. Then write <code>print_tag</code> that calls <code>print_string</code> to print a given string, then calls <code>print_colon</code> to append a colon. From <code>_start</code>, call <code>print_tag</code> with the string <code>\"VALUE\"</code> (length 5). Output must be <code>VALUE:</code>. print_tag must save rdi/rsi before the nested call to print_colon because print_string clobbers them."
+starter = '''
+section .text
+    global _start
+
+_start:
+    mov rdi, tag_str
+    mov rsi, tag_len
+    call print_tag
+    ; Exit
+    
+
+print_tag:
+    ; Save rdi, rsi — print_string will clobber them
+    
+
+    call print_string    ; print the tag string
+    
+    ; Now print a colon — set rdi=<colon addr>, rsi=1
+    
+
+    call print_colon
+    
+    ; Restore rdi, rsi
+    
+
+    ret
+
+print_colon:
+    ; Print colon character using print_string
+    mov rdi, colon_char
+    mov rsi, 1
+    call print_string
+    ret
+
+print_string:
+    mov rax, 1
+    mov rdx, rsi
+    mov rsi, rdi
+    mov rdi, 1
+    syscall
+    ret
+
+section .data
+tag_str: db "VALUE"
+tag_len equ $ - tag_str
+colon_char: db ":"
+'''
+expect = '''
+VALUE:'''
+hint = "print_tag: push rdi / push rsi / call print_string / mov rdi,colon_char / mov rsi,1 / call print_colon / pop rsi / pop rdi / ret. print_colon already sets rdi=colon_char, rsi=1 and calls print_string. The push/pop in print_tag ensures the original rdi/rsi survive across both nested calls."

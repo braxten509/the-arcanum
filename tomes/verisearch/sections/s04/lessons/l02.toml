@@ -37,8 +37,9 @@ id = "s04-l02-e1"
 type = "mc"
 points = 20
 prompt = "An async method that returns a string value should have which return type?"
-choices = ["string", "Task", "Task<string>", "async<string>"]
-answer = 2
+choices = ["string", "Task<string>", "Task", "async<string>"]
+answer = 1
+whyWrong = "An async method that yields a value returns Task<string> — bare ‘string’ isn’t awaitable, ‘Task’ carries no value, and ‘async<string>’ isn’t a type."
 hint = "Task of what?"
 
 [[lessons.exercises]]
@@ -54,8 +55,9 @@ id = "s04-l02-e3"
 type = "mc"
 points = 25
 prompt = "Why is <code>var html = http.GetStringAsync(url).Result;</code> considered a bug?"
-choices = ["Result is misspelled", "It blocks the thread and can deadlock; the async chain should use await instead", "It returns a Task instead of a string", "GetStringAsync doesn't exist"]
-answer = 1
+choices = ["Result is misspelled", "It returns a Task instead of a string", "It blocks the thread and can deadlock; the async chain should use await instead", "GetStringAsync doesn't exist"]
+answer = 2
+whyWrong = "It’s not a typo or wrong return type — .Result synchronously blocks the thread and can deadlock; await the call so the thread is freed."
 hint = "Blocking on async is the classic deadlock recipe."
 
 [[lessons.exercises]]

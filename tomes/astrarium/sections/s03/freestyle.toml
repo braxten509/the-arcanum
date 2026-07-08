@@ -1,0 +1,48 @@
+[freestyle]
+title = "THE WORKING: The Collected Horizon"
+brief = '''
+<p>The night's observations arrive as a stream of lines — each one an event, some urgent, some routine. Vaelith opens the ledger to a fresh page. <strong>"Read every line. Hold them all in memory. Then show me which severities the night brought — not how many, just which ones appeared."</strong></p>
+<ul>
+  <li>Read lines from <code>input()</code> one by one until the sentinel line <code>END</code> is entered on its own</li>
+  <li>Store every observation line in a <strong>list</strong> (the ledger)</li>
+  <li>After the loop, build a <strong>set</strong> of all unique severity levels: for each stored line, check whether it contains <code>"ERROR"</code> (first), then <code>"WARN"</code> (second), else classify as <code>INFO</code>, and <code>.add()</code> that keyword to the set</li>
+  <li>Print <code>=== LEDGER ===</code></li>
+  <li>Print each stored line in order, one per line</li>
+  <li>Print <code>=== SEVERITIES ===</code></li>
+  <li>Print the unique severity levels from the set, one per line, in <strong>sorted</strong> alphabetical order</li>
+  <li>Print <code>Total: [count]</code> where count is the number of events stored (not counting the <code>END</code> sentinel)</li>
+  <li>The <code>END</code> sentinel must not be added to the list, classified, or counted</li>
+</ul>
+'''
+reward = 170
+xray = "The grader checks that lines are read until END and stored in a list, that the END line is excluded from both the list and the count, that the set of severities is correctly populated (ERROR before WARN before INFO, matching the same order from s02), that the set is sorted before printing so output is deterministic, that the === LEDGER === and === SEVERITIES === headers are present in the right order, and that the total count is correct. Style marks go to snake_case variable names (ledger, severities, total, line), 4-space indentation, list/set use without unnecessary indexing, and PEP 8 conventions. Marks docked for: including END in the ledger or count, missing either header line, hardcoded severities instead of computing them, printing the set unsorted (unstable order), or crashing on empty input (just END)."
+
+[freestyle.badge]
+id = "badge-s03"
+name = "COLLECTED HORIZON"
+desc = "Built the in-memory ledger — every event held, every severity known at a glance."
+
+[[freestyle.rubric]]
+criterion = "Compiles & runs"
+weight = 25
+desc = "The script runs without syntax errors or runtime crashes on normal input and the END sentinel."
+
+[[freestyle.rubric]]
+criterion = "Ledger construction"
+weight = 30
+desc = "Lines are read until END, stored in a list, and the sentinel is excluded from both the list and the count. Output includes the full ledger in order under the === LEDGER === header."
+
+[[freestyle.rubric]]
+criterion = "Severity classification & set"
+weight = 20
+desc = "Each stored line is classified (ERROR before WARN before INFO), added to a set for deduplication, and the unique severities are printed sorted under the === SEVERITIES === header."
+
+[[freestyle.rubric]]
+criterion = "Correct output format"
+weight = 10
+desc = "Output matches the specified format: === LEDGER ===, one line per event, === SEVERITIES ===, one sorted severity per line, Total: [count]."
+
+[[freestyle.rubric]]
+criterion = "Clean style"
+weight = 15
+desc = "snake_case variable names, 4-space indentation, appropriate use of list and set (no unnecessary indexing), PEP 8 conventions."

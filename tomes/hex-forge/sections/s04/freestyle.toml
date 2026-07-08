@@ -1,0 +1,35 @@
+[freestyle]
+title = "THE WORKING: CAST THE BUFFER"
+brief = "Forge a program that reads input until EOF, counts newlines, and reports the tally — proving the casting pit can hold real ore and the scanner can walk it.<ul><li>Read stdin in 256-byte chunks in a loop until <code>sys_read</code> returns 0 (EOF).</li><li>Scan every byte of every chunk. Count bytes that equal 10 (the newline character) using a running counter in a register preserved across syscalls (r12-r15, rbx, or rbp).</li><li>After EOF, print the newline count on its own line using the itoa pipeline (div ebx → push → pop-to-buffer → print).</li><li>The engine pipes this text into stdin: <code>line1\nline2\nline3\n</code> — five lines (three with text, one with only a newline... wait, count carefully: \"line1<NL>line2<NL>line3<NL>\" has 3 newlines). The output must be the number 3.</li></ul>"
+reward = 180
+xray = "Vandr docks: scanning the full buffer instead of only bytes_read bytes (counting stale data), using a clobbered register for the counter (rax or rcx across syscalls), cmp/jne instead of cmp/je for newline detection (missing newlines), hardcoded output instead of computed count, no EOF check (infinite loop). He rewards: counter in r12-r15 or rbx, scan loop bounded by rax return from sys_read, clean newline detection (cmp al, 10 / jne), and itoa with div ebx."
+
+[freestyle.badge]
+id = "badge-s04"
+name = "BUFFER CAST"
+desc = "Read real ore from stdin, walked every byte, and reported the truth — the casting pit holds."
+
+[[freestyle.rubric]]
+criterion = "Assembles, links, and runs without error"
+weight = 20
+desc = "nasm -f elf64 and ld succeed; program exits cleanly with code 0."
+
+[[freestyle.rubric]]
+criterion = "Correct newline count"
+weight = 30
+desc = "Prints 3 (the number of newline bytes in the piped input: line1\\nline2\\nline3\\n). Must be computed from the input, not hardcoded."
+
+[[freestyle.rubric]]
+criterion = "Read loop with EOF detection"
+weight = 25
+desc = "Loops on sys_read with test rax,rax / jz until EOF. Reads in 256-byte chunks. Counter survives across syscalls."
+
+[[freestyle.rubric]]
+criterion = "Correct buffer scanning"
+weight = 15
+desc = "Scan loop iterates exactly bytes_read times per chunk (mov rcx,rax). Newlines detected with cmp al,10. movzx used for byte loads."
+
+[[freestyle.rubric]]
+criterion = "Clean NASM style"
+weight = 10
+desc = "Buffer in .bss (resb 256). Counter in preserved register (r12-r15 or rbx). itoa uses div ebx (32-bit) when values fit. xor zeroing throughout."

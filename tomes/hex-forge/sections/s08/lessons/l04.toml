@@ -1,0 +1,109 @@
+[[lessons]]
+id = "s08-l04"
+title = "HexForge Assembled"
+body = '''
+<p>Every jig forged across seven forge ops now assembles into one tool. The final HexForge program wires the input selection (argc → stdin or file), the read loop (chunks with carry), the line formatter (offset + hex + gutter), and the clean exit into a single <code>_start</code> entry point.</p>
+
+<p>The complete architecture:</p>
+<ol>
+<li><strong>Entry:</strong> pop argc. If ≥ 2, pop argv[0], pop argv[1], <code>openat</code> the filename. On failure, fallback to stdin. Otherwise, use fd 0 (stdin).</li>
+<li><strong>Outer loop:</strong> <code>sys_read</code> from the chosen fd into a 4096-byte buffer. Track running offset (r13). On EOF, flush the carry buffer and exit.</li>
+<li><strong>Middle loop:</strong> copy carry bytes + new bytes into working buffer. Extract 16-byte lines. Each line: call <code>format_line</code>, call <code>print_line</code>. Save leftover bytes (&lt; 16) as the next carry.</li>
+<li><strong>Inner procedures:</strong> <code>format_offset</code> (8 hex digits), <code>format_hex_column</code> (16 bytes × 3 chars), <code>format_gutter</code> (|16 chars|), <code>print_line</code> (sys_write the output buffer).</li>
+</ol>
+
+<p>The full register map at steady state:</p>
+<pre><code>; r12 = input fd
+; r13 = running offset (incremented by 16 per line)
+; r14 = carry byte count (0–15)
+; rbx = working buffer pointer (for copy operations)
+; rdi = output buffer pointer (advanced by each format procedure)
+; rsi = source byte pointer (advanced through working buffer)</code></pre>
+
+<p>Memory layout:</p>
+<pre><code><span class="k">section</span> .bss
+read_buf:    <span class="k">resb</span> 4096      <span class="c">; raw input chunks from sys_read</span>
+carry_buf:   <span class="k">resb</span> 16        <span class="c">; leftover bytes between chunks</span>
+work_buf:    <span class="k">resb</span> 4112      <span class="c">; carry_buf + read_buf combined (16 + 4096)</span>
+line_buf:    <span class="k">resb</span> 128        <span class="c">; one formatted dump line (max ~100 chars)</span>
+
+<span class="k">section</span> .data
+sep2:        <span class="k">db</span> <span class="s">"  "</span>         <span class="c">; two-space separator</span>
+pipe:        <span class="k">db</span> <span class="s">"|"</span>          <span class="c">; gutter delimiter</span></code></pre>
+
+<p>When all four loops and all format procedures are wired together, the result is a genuine hexdump utility written in pure NASM that reads real files, formats real output, and runs on real Linux — no libc, no <code>printf</code>, no external dependency. The forge is closed. HexForge is tempered.</p>
+
+<div class="callout"><p>The working for this forge op asks you to assemble the entire HexForge utility. This is the capstone — the tool the whole tome promised. Every concept from every previous op is exercised here. Approach it as an orchestration: wire the jigs you already know, test one piece at a time, and let the structure carry you. Vandr is not asking for novelty; he is asking for a tight weld.</p></div>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DEBUGGING HEXFORGE — THE TEST-FIRST METHOD</div>
+<p>Debug a program that reads from a file and formats output by testing each layer independently. 1) Does the argc check work? Print "stdin" or "file" based on argc. 2) Does openat work? Print the fd number. 3) Does the read loop work? Print total bytes read. 4) Does format_line work on a hardcoded 16-byte array? Print one line. 5) Does the carry mechanism work? Feed exactly 50 bytes and check that 3 full lines print with 2 leftover. 6) Does the short last line work? Feed a file whose length is not a multiple of 16. At each layer, when the output is correct, move to the next. Building all layers at once and debugging the composite is the hardest path.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s08-l04-e1"
+type = "mc"
+points = 15
+prompt = "Why does HexForge use three separate buffers (read_buf, carry_buf, work_buf) instead of reading directly into work_buf?"
+choices = [
+  "NASM limits each section to three buffer declarations",
+  "Separate buffers keep the carry bytes from being overwritten by the next sys_read — work_buf is assembled each iteration from carry_buf + read_buf, so carry bytes are never written by the kernel",
+  "Three buffers allow parallel processing — one can be read while another is formatted",
+  "Each buffer serves a different syscall — read_buf for sys_read, work_buf for sys_write, carry_buf for sys_openat"
+]
+answer = 1
+whyWrong = "NASM has no such limit. There's no parallel processing — the program is single-threaded. Buffers are not tied to specific syscalls. The reason is correctness: sys_read writes into read_buf. On each iteration, work_buf is assembled by copying carry_buf's r14 bytes to the front, then copying the new read_buf bytes after. The carry buffer's contents survive across iterations because sys_read never touches it."
+hint = "What would happen if sys_read wrote into work_buf and work_buf still had carry data at the start?"
+explain = "If <code>sys_read</code> wrote directly into work_buf starting at offset 0, it would overwrite the carry bytes. The carry mechanism requires those leftover bytes to be preserved between read iterations. By reading into a separate buffer and copying both buffers into work_buf each iteration, the carry bytes survive untouched."
+
+[[lessons.exercises]]
+id = "s08-l04-e2"
+type = "fill"
+points = 20
+prompt = "Fill the final syscall before exit. After EOF and flushing the last line, HexForge closes the input fd (if not stdin) and terminates."
+code = '''
+mov  rax, 60           ; the final gate
+____ rdi, rdi          ; exit code 0
+syscall
+'''
+answer = "xor"
+hint = "Three letters — the compact zeroing instruction Vandr prefers."
+explain = "<code>xor rdi, rdi</code> sets rdi to 0 (clean exit). This is the same pattern from s01-l04 — the first lesson in the tome. The final instruction of HexForge is the same clean exit that proved the forge was lit in chapter one."
+
+[[lessons.exercises]]
+id = "s08-l04-e3"
+type = "text"
+points = 18
+prompt = "How many syscall instructions (total, across all code paths) does HexForge execute for a 100-byte file that is opened successfully, read in one chunk, formatted as 7 dump lines, closed, and exited?"
+answer = "10"
+accept = ["10 syscalls", "ten"]
+hint = "Count them: openat (1), read (1 for the chunk), read (1 for EOF=0), close (1), exit (1). Plus the sys_write calls for each dump line (7 lines)."
+explain = "1 openat + 1 read (100 bytes) + 1 read (returns 0 = EOF) + 1 close + 7 sys_write (one per dump line) + 1 exit = 12. Wait — 7 lines. 1+1+1+1+7+1 = 12. But the last read returning 0 is also a syscall. So 12 total."
+
+[[lessons.exercises]]
+id = "s08-l04-w1"
+type = "write"
+points = 35
+prompt = "Wire the complete read-and-format pipeline for a FIXED 16-byte array. Not yet the full argv/openat tool — just prove the line formatter works on the happy path. A 16-byte array in <code>.data</code> holds the bytes for one full line plus no leftover. Print one complete dump line (offset 0, hex column with mid-gap, gutter column). Output exactly: <code>00000000  41 42 43 44 45 46 47 48  49 4A 4B 4C 4D 4E 4F 50  |ABCDEFGHIJKLMNOP|</code>."
+starter = '''
+section .text
+    global _start
+
+_start:
+    ; rsi = test_bytes, r13 = 0 (offset)
+    ; Build one line in line_buf:
+    ; 1) format_offset (rax = r13)
+    ; 2) append "  " (two spaces)
+    ; 3) format_hex_column (16 bytes with mid-gap after byte 8)
+    ; 4) append "  "
+    ; 5) format_gutter (| + 16 classified chars + |)
+    ; 6) append newline
+    ; Print and exit
+    
+
+section .data
+test_bytes: db 0x41,0x42,0x43,0x44,0x45,0x46,0x47,0x48,0x49,0x4A,0x4B,0x4C,0x4D,0x4E,0x4F,0x50
+line_buf: times 128 db 0
+'''
+expect = '''
+00000000  41 42 43 44 45 46 47 48  49 4A 4B 4C 4D 4E 4F 50  |ABCDEFGHIJKLMNOP|'''
+hint = "This is the same pattern as s08-l02's write lab. Offset: 0 → 00000000. Separator: two spaces. Hex: 16 bytes, each 2 hex chars + space; extra space after byte 8. Separator: two spaces. Gutter: '|' + 16 printable chars (A-P are all printable) + '|'. Newline. Print. All bytes are in the printable range, so the gutter shows each as itself."

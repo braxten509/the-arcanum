@@ -1,0 +1,101 @@
+[[lessons]]
+id = "s04-l02"
+title = "Overriding the Old Marks — Object, toString & equals"
+body = '''
+<p>Every class you write descends from <code>Object</code> — even when you write no <code>extends</code>. <code>Object</code> hands every object a few methods, and two you will <strong>override</strong> (redeclare with your own behaviour) on nearly every data class: <code>toString</code> and <code>equals</code>.</p>
+<pre><code><span class="k">public class</span> Ingot {
+    <span class="k">private</span> String name;
+    <span class="k">private int</span> value;
+    <span class="c">// ... constructor and getters ...</span>
+
+    <span class="k">@Override</span>
+    <span class="k">public</span> String toString() { <span class="k">return</span> name + <span class="s">" @ "</span> + value + <span class="s">"em"</span>; }
+
+    <span class="k">@Override</span>
+    <span class="k">public boolean</span> equals(Object other) {
+        <span class="k">if</span> (!(other <span class="k">instanceof</span> Ingot)) <span class="k">return</span> <span class="k">false</span>;
+        Ingot o = (Ingot) other;
+        <span class="k">return</span> o.name.equals(<span class="k">this</span>.name) &amp;&amp; o.value == <span class="k">this</span>.value;
+    }
+}</code></pre>
+<p><code>toString</code> is what <code>System.out.println(ingot)</code> prints — without your override it prints <code>Ingot@1b6d3586</code> (the class name plus a hash), useless to a smith. Your override returns the readable form. <code>@Override</code> is a check: it tells the compiler "I intend to override a parent method" — if you mistype the name (<code>tostring</code>), the compiler catches it. The annotation is optional but the smith writes it always.</p>
+<p><code>equals</code> is the method you have been <em>calling</em> on Strings since Forgework II; now you write it. The signature must be <code>equals(Object)</code> — not <code>equals(Ingot)</code> — or you overload instead of override, and your method never gets called. The cast <code>(Ingot) other</code> is how you reach <code>Ingot</code>'s fields after confirming the object really is one. Compare fields with <code>.equals</code> for Strings and <code>==</code> for primitives.</p>
+<div class="callout"><strong>Orrick says:</strong> If you override <code>equals</code>, override <code>hashCode</code> too — equal objects must hash equal, or a <code>HashMap</code> loses them (Forgework V). For now know the pair travels together.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY EQUALS(OBJECT), NOT EQUALS(INGOT)</div>
+<p>Writing <code>boolean equals(Ingot o)</code> does not override Object's <code>equals(Object)</code> — it adds a second method. When a HashMap calls <code>equals(Object)</code> on your Ingot, it still runs Object's version (reference identity), not yours. The <code>@Override</code> annotation would catch this: it errors on <code>equals(Ingot)</code> because no parent has that signature. Always take <code>Object</code>, check <code>instanceof</code>, then cast.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s04-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the toString override exactly — the @Override annotation and the readable form it returns."
+code = '''@Override
+public String toString() {
+    return name + " @ " + value + "em";
+}'''
+
+[[lessons.exercises]]
+id = "s04-l02-e1"
+type = "mc"
+points = 15
+prompt = "You write <code>System.out.println(copper)</code> where <code>copper</code> is an <code>Ingot</code> with no <code>toString</code> override. What prints?"
+choices = ["copper @ 6em", "the readable form", "something like Ingot@1b6d3586 — the class name plus a hash", "nothing"]
+answer = 2
+whyWrong = "Without an override, Object's toString runs and prints className@hash (e.g. Ingot@1b6d3586); the readable form only appears once you override toString; nothing would print only if the call were absent. Override toString on every data class."
+hint = "What does Object's default toString return — the readable data, or a class-plus-hash code?"
+explain = "Object.toString returns getClass().getName() + '@' + Integer.toHexString(hashCode()). Override it to give the smith's readable form."
+
+[[lessons.exercises]]
+id = "s04-l02-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the annotation that tells the compiler 'I intend to override a parent method' — it catches a mistyped name like tostring."
+code = '''____
+public String toString() { return name + " @ " + value + "em"; }'''
+answer = "@Override"
+whyWrong = "@Override marks an intentional override so the compiler checks the signature matches a parent method; @Deprecated and @SuppressWarnings are other annotations but do not check overriding; @Ingot is not real. The check-on-override annotation is @Override."
+hint = "It is the annotation named for the act of replacing a parent method — eight characters starting with @O."
+
+[[lessons.exercises]]
+id = "s04-l02-w1"
+type = "write"
+points = 30
+prompt = "The starter has an Ingot class with NO toString override, and a main that does <code>System.out.println(copper)</code>. Add a <code>toString</code> override to Ingot returning <code>name + \" @ \" + value + \"em\"</code> (with <code>@Override</code>), so printing the copper ingot produces exactly <code>copper @ 6em</code>. Do not change main — let println call your toString."
+starter = '''public class Ironwright {
+    static class Ingot {
+        private String name; private int value;
+        public Ingot(String name, int value) { this.name = name; this.value = value; }
+        public String getName() { return name; }
+        public int getValue() { return value; }
+        // apprentice — override toString to return name + " @ " + value + "em"
+    }
+
+    public static void main(String[] args) {
+        Ingot copper = new Ingot("copper", 6);
+        System.out.println(copper);
+    }
+}'''
+expect = '''
+copper @ 6em'''
+hint = "Add @Override public String toString() { return name + \" @ \" + value + \"em\"; } inside the Ingot class. println(copper) calls it automatically."
+
+[[lessons.exercises]]
+id = "s04-l02-t1"
+type = "text"
+points = 20
+prompt = "Type the exact signature an equals override must use to actually override Object's method — the parameter type is the whole point. (Include return type, name, and parameter; e.g. ret name(param).)"
+answer = "boolean equals(Object other)"
+hint = "The parameter type is Object — the root class — not your own class. Take Object, check instanceof, then cast."
+
+[[lessons.exercises]]
+id = "s04-l02-e2"
+type = "mc"
+points = 15
+prompt = "A smith writes <code>boolean equals(Ingot o)</code> on the Ingot class and marks it <code>@Override</code>. What does the compiler do?"
+choices = ["compiles fine — it overrides Object equals", "it overrides equals but only for Ingot arguments", "errors: no parent method has the signature equals(Ingot), so this is an overload, not an override", "it deletes Object's equals"]
+answer = 2
+whyWrong = "@Override checks that a parent has a matching signature; Object.equals takes Object, not Ingot, so equals(Ingot) is a new overload and @Override errors. The fix is equals(Object other) plus an instanceof check and a cast. This is exactly the bug the annotation catches."
+hint = "Think about what signature Object.equals has — and whether equals(Ingot) matches it."
+explain = "equals(Ingot) does not match Object.equals(Object). @Override refuses to compile, pointing at the mismatch — which is why you always write the annotation."

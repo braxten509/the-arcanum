@@ -1,0 +1,119 @@
+[[lessons]]
+id = "s08-l01"
+title = "Page Records, Not Loose Lines"
+body = '''
+<p>File I/O gave Writforge persistence; references give it shape. A page is no longer just a stream of lines. It becomes a record with named fields, and the ordered content inside that record stays ordered because it lives in an arrayref. That split matters: the renderer can ask for the title by name and still walk the blocks in sequence without flattening anything.</p>
+<p>Perl's reference syntax is blunt on purpose. A hashref stores labels like <code>title</code> and <code>slug</code>. An arrayref stores the ordered blocks or chapters that belong to that page. When you need to reach through the reference, you say so explicitly with <code>-&gt;</code>, and then index with <code>[]</code> or key with <code>{}</code>. The scalar itself is still just a scalar until you dereference it.</p>
+<p>This section leans on the same habit from s07: gather the source from disk, then hand later code a tidy structure instead of raw noise. The parser should return one page record at a time, or one arrayref of page records, so the renderer can stay ignorant of where the lines came from. Once the records exist, other code can sort them, filter them, count them, or hand them to a module without copying the page text around by hand.</p>
+<p>That shift also makes the final refactor less frightening. A page record can travel through a package boundary, through a function call, or through an index builder without losing its shape. The code that consumes the record does not have to know whether it was assembled from a file, from a test fixture, or from a previous helper. The reference is the contract.</p>
+<p>Nested data is not an academic luxury here. A manuscript can have a title, a slug, a list of blocks, and each block can itself carry a kind and some text. That is a hashref holding an arrayref of hashrefs, and it reads naturally once the apprentice stops trying to force every page into a flat list. The moment the structure fits the problem, the rest of the pipeline gets quieter.</p>
+<pre><code>my $page = {
+    slug =&gt; "preface",
+    title =&gt; "Preface",
+    blocks =&gt; [
+        { kind =&gt; "heading", text =&gt; "Preface" },
+        { kind =&gt; "paragraph", text =&gt; "First page line one" },
+    ],
+};
+say $page-&gt;{blocks}[0]{kind};</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // PAGE RECORDS</div>
+<p><strong>Arrow note.</strong> Use <code>-&gt;</code> whenever the thing on the left is a reference. The arrow keeps the dereference visible and keeps the code readable when the nesting gets deeper.</p>
+<p><strong>Shape note.</strong> A hashref gives the record names. An arrayref gives the record order. Writforge needs both at once, so the data should mirror that split.</p>
+<p><strong>Pipeline note.</strong> Return records from the parser and let the renderer turn them into HTML later. That separation will matter even more once the code leaves the single-file stage.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perldoc: perlref"
+url = "https://perldoc.perl.org/perlref"
+
+[[lessons.exercises]]
+id = "s08-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "<p>Retype the nested page record exactly. Keep the arrow access intact.</p>"
+code = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my $page = {
+    slug => "preface",
+    title => "Preface",
+    blocks => [
+        { kind => "heading", text => "Preface" },
+        { kind => "paragraph", text => "First page line one" },
+    ],
+};
+
+say $page->{blocks}[1]{text};
+'''
+
+[[lessons.exercises]]
+id = "s08-l01-e1"
+type = "fill"
+points = 22
+prompt = "<p>Restore the dereference arrow that reaches from the page record to its block list.</p>"
+code = 'my $kind = $page____{blocks}[0]{kind};'
+answer = "->"
+hint = "The blank sits where the reference arrow belongs."
+whyWrong = "You are treating the hashref as if it were already a hash. The arrow is what tells Perl to step through the reference before the key lookup."
+
+[[lessons.exercises]]
+id = "s08-l01-e2"
+type = "mc"
+points = 18
+prompt = "<p>Reaching back to our <code>classify_line</code> helper from Section 2, if we want to print a nested block to an open filehandle <code>$out</code>, what is the syntax?</p>"
+choices = ["<code>print $out $page-&gt;{blocks}[0]{text};</code>", "<code>print {$out} $page-&gt;{blocks}[0]{text};</code>", "<code>print &gt;$out $page-&gt;{blocks}[0]{text};</code>", "<code>print $page-&gt;{blocks}[0]{text} -&gt; $out;</code>"]
+answer = 1
+whyWrong = "You must use the safe filehandle block from Section 7 alongside the reference arrow from Section 8."
+hint = "Remember the curly braces around the filehandle from Section 7."
+explain = "Combining Section 7's safe filehandle block <code>{$out}</code> with Section 8's dereference arrow safely prints the data."
+
+[[lessons.exercises]]
+id = "s08-l01-e3"
+type = "text"
+points = 18
+prompt = "<p>Why is a flat list of block strings too small for the renderer?</p>"
+answer = "because the renderer needs the page title and the ordered block records together"
+accept = ["because the renderer needs the page title and ordered block records together", "because the renderer needs the title and the ordered blocks", "it would lose the title and the order"]
+hint = "Think about which parts of the manuscript survive if you collapse everything to plain strings."
+whyWrong = "You are assuming the text itself is enough. Writforge also has to keep the title and other page metadata beside the block list."
+
+[[lessons.exercises]]
+id = "s08-l01-w1"
+type = "write"
+points = 30
+prompt = "<p>The starter has two manuscript records already split into nested refs. Turn them into page records with <code>slug</code>, <code>title</code>, and <code>block_count</code>, then print the summaries in source order.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my @manuscripts = (
+    {
+        slug => "preface",
+        title => "Preface",
+        blocks => [
+            { kind => "heading", text => "Preface" },
+            { kind => "paragraph", text => "First page line one" },
+        ],
+    },
+    {
+        slug => "appendix",
+        title => "Appendix",
+        blocks => [
+            { kind => "heading", text => "Appendix" },
+            { kind => "paragraph", text => "Appendix note one" },
+            { kind => "paragraph", text => "Appendix note two" },
+        ],
+    },
+);
+
+my @pages;
+
+# Task: turn each manuscript record into a page record with slug, title, and block_count, then print the summary lines from @pages.
+'''
+expect = '''
+PAGES 2
+preface => 2 blocks
+appendix => 3 blocks'''
+hint = "Build each page as a hashref, count the block array for each record, and print the summaries from the finished @pages list."

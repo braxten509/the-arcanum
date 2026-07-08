@@ -1,0 +1,124 @@
+[[lessons]]
+id = "s02-l04"
+title = "Drawing the Ore — atoi"
+body = '''
+<p>Raw input arrives as ASCII digits — the bytes <code>'1'</code>, <code>'2'</code>, <code>'3'</code> — not the number 123. Before arithmetic can touch them, you must draw the ore out of the characters and into a register. The algorithm is less than fifteen instructions and belongs in every smith's tool-chest.</p>
+
+<p>An ASCII decimal digit <code>d</code> has byte value <code>d + 48</code>. To recover the numeric value, subtract 48 (or <code>'0'</code>, which is 48):</p>
+<pre><code><span class="k">mov</span> al, [rsi]       <span class="c">; load one byte from the string</span>
+<span class="k">sub</span> al, <span class="s">'0'</span>        <span class="c">; al = numeric value (0–9)</span></code></pre>
+
+<p>Now build the number left to right. Each new digit multiplies the accumulated value by 10 and adds the digit:</p>
+<pre><code>; rsi points to the string "123"
+; Result accumulates in rax, starts at 0
+
+<span class="k">xor</span> rax, rax             <span class="c">; accumulator = 0</span>
+
+<span class="c">; digit '1'</span>
+<span class="k">imul</span> rax, 10             <span class="c">; rax = 0 * 10 = 0</span>
+<span class="k">movzx</span> rcx, <span class="k">byte</span> [rsi]  <span class="c">; load '1' (49)</span>
+<span class="k">sub</span> rcx, <span class="s">'0'</span>          <span class="c">; rcx = 1</span>
+<span class="k">add</span> rax, rcx             <span class="c">; rax = 0 + 1 = 1</span>
+<span class="k">inc</span> rsi                  <span class="c">; advance pointer</span>
+
+<span class="c">; digit '2'</span>
+<span class="k">imul</span> rax, 10             <span class="c">; rax = 1 * 10 = 10</span>
+<span class="k">movzx</span> rcx, <span class="k">byte</span> [rsi]  <span class="c">; load '2' (50)</span>
+<span class="k">sub</span> rcx, <span class="s">'0'</span>          <span class="c">; rcx = 2</span>
+<span class="k">add</span> rax, rcx             <span class="c">; rax = 10 + 2 = 12</span>
+<span class="k">inc</span> rsi
+
+<span class="c">; digit '3'</span>
+<span class="k">imul</span> rax, 10             <span class="c">; rax = 12 * 10 = 120</span>
+<span class="k">movzx</span> rcx, <span class="k">byte</span> [rsi]  <span class="c">; load '3' (51)</span>
+<span class="k">sub</span> rcx, <span class="s">'0'</span>          <span class="c">; rcx = 3</span>
+<span class="k">add</span> rax, rcx             <span class="c">; rax = 120 + 3 = 123</span></code></pre>
+
+<p>The loop form compresses this to a handful of lines — you will practise that pattern in the next forge op when conditional jumps arrive. For now, notice the structure: <strong>multiply by 10, load a byte, strip ASCII, add, advance.</strong></p>
+
+<p><code>movzx</code> (move with zero-extend) loads a smaller value into a larger register, filling the upper bits with zero. <code>movzx rcx, byte [rsi]</code> loads one byte from memory into the low 8 bits of rcx and zeroes the upper 56 bits — essential because <code>sub rcx, '0'</code> would otherwise operate on stale upper bits. Without <code>movzx</code>, a byte loaded into cl might leave garbage in the rest of rcx.</p>
+
+<p>A full <code>atoi</code> must also detect non-digit characters (stop on space, newline, or null) and handle the empty-string case. Those guards come with branching — next op. For now, the core pattern is yours: multiply, load, strip, add, advance.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // movzx vs movsx</div>
+<p><code>movzx</code> zero-extends — pads the upper bits with 0. Use it when loading unsigned bytes/words into wider registers. <code>movsx</code> sign-extends — copies the source's sign bit to all upper bits. Use it for signed values. For digit parsing, the byte values 48–57 are all positive, so <code>movzx</code> is correct. Using a plain <code>mov</code> (like <code>mov cl, [rsi]</code>) would leave the upper bits of rcx untouched — if rcx held stale data, <code>sub rcx, '0'</code> might compute a wildly wrong result. The habit: always zero-extend or sign-extend when widening, never leave upper bits to chance.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s02-l04-e1"
+type = "mc"
+points = 15
+prompt = "What does <code>movzx rcx, byte [rsi]</code> do that <code>mov cl, [rsi]</code> does not?"
+choices = [
+  "movzx is faster — it runs in fewer CPU cycles",
+  "movzx automatically subtracts '0' from the loaded byte",
+  "movzx loads two bytes instead of one",
+  "movzx zeroes the upper 56 bits of rcx, while mov cl only touches the low 8 bits, leaving the rest untouched"
+]
+answer = 3
+whyWrong = "movzx is not inherently faster, it does not perform arithmetic, and it still loads one byte. The critical difference is that mov cl leaves garbage in bits 8–63 of rcx. When you later sub rcx, '0', you are subtracting from a register with stale upper bits — producing a wrong number."
+hint = "The 'zx' in movzx stands for 'zero-extend'. What does it fill the upper bytes with?"
+explain = "<code>mov cl, [rsi]</code> writes only the low 8 bits of rcx. The rest retain whatever they held. <code>movzx rcx, byte [rsi]</code> loads one byte and explicitly zeroes bits 8–63. For arithmetic that follows, a clean full-width register is essential."
+
+[[lessons.exercises]]
+id = "s02-l04-e2"
+type = "fill"
+points = 20
+prompt = "To convert ASCII '5' (byte 53) to the integer 5, you subtract this character literal."
+code = '''
+mov  al, '5'
+sub  al, ____        ; al now holds integer 5
+'''
+answer = "'0'"
+accept = ["'0'", "48", "0x30"]
+hint = "The character that represents zero — subtract it to strip the ASCII offset."
+explain = "ASCII digits are encoded as '0'+N: '0'=48, '1'=49, ..., '9'=57. Subtracting '0' (which is 48) from any digit character recovers the numeric value. NASM accepts <code>'0'</code> as a character literal that equals 48."
+
+[[lessons.exercises]]
+id = "s02-l04-e3"
+type = "text"
+points = 20
+prompt = "You parse the string <code>\"56\"</code>. After processing '5', rax holds 5. Before processing '6', what single instruction multiplies rax so that adding 6 produces 56?"
+answer = "imul rax, 10"
+accept = ["imul rax,10", "imul rax, 10"]
+hint = "To shift a decimal number left by one digit, you multiply by 10. Write the full instruction."
+explain = "The pattern: accumulated = accumulated * 10 + digit. If rax = 5, <code>imul rax, 10</code> makes it 50. Then adding 6 gives 56."
+
+[[lessons.exercises]]
+id = "s02-l04-w1"
+type = "write"
+points = 30
+prompt = "Build a manual atoi for the string <code>\"372\"</code>. Process each of the three digits individually (no loops yet — three explicit digit-processing blocks). Compute the integer 372 in rax from the three ASCII characters. Then print the final value by converting it back to '3', '7', '2' — or more practically, print <code>372</code> by mapping the known result rdx=2 (remainder of 372/10) to ASCII, and checking that 372/10=37, 37/10=3, etc. For now, print the last digit (which should be '2') as proof the conversion worked: compute 372 mod 10 = 2, print '2'."
+starter = '''
+section .text
+    global _start
+
+_start:
+    mov rsi, input_str    ; pointer to "372"
+
+    ; Parse first digit: rax = 0*10 + (byte - ASCII zero)
+    xor rax, rax
+    imul rax, 10
+    movzx rcx, byte [rsi]
+    sub rcx, '0'
+    add rax, rcx
+    inc rsi
+
+    ; Parse second digit
+    
+
+    ; Parse third digit
+    
+
+    ; rax now holds 372. Compute last digit: xor rdx,rdx, mov rcx,10, idiv rcx.
+    ; rdx holds the last digit. Convert to ASCII, store, print, exit.
+    
+
+section .data
+input_str: db "372", 0
+output: db 0, 10
+output_len equ $ - output
+'''
+expect = '''
+2'''
+hint = "Repeat the parse block twice more: imul rax,10 / movzx rcx,byte[rsi] / sub rcx,'0' / add rax,rcx / inc rsi. After all three, rax=372. Then xor rdx,rdx / mov rcx,10 / idiv rcx leaves rdx=2. Add '0' to dl, store with mov [output], dl. Print with sys_write."

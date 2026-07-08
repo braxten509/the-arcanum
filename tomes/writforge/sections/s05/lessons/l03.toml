@@ -1,0 +1,89 @@
+[[lessons]]
+id = "s05-l03"
+title = "Anchors at the Margin"
+body = '''
+<p>Some marks in a manuscript matter only when they stand in a particular place. A heading begins at the left edge. A blank line contains nothing but whitespace. A page marker may need to appear at the end of the line and nowhere else. Anchors are the tools that keep a regex from drifting through the page looking for a lucky fit. <code>^</code> guards the start. <code>$</code> guards the end. Together they pin a pattern to the margin.</p>
+<p>The same page also teaches the difference between "one or more" and "zero or more." A heading should have at least one space after the hash, so <code>\s+</code> is the honest choice. A blank line is trickier: it may be completely empty, or it may hold only spaces that the eye ignores. For that reason <code>^\s*$</code> is usually the better blank-line test in a manuscript scanner than <code>^$</code> alone. The pattern says what the human means, not what is easiest to type.</p>
+<p>Word boundaries matter too. <code>\b</code> is not a character; it is a seam between word and non-word characters. That is useful when the scribe wants to find a token without catching the middle of some larger mark. Combined with anchors and quantifiers, it gives the scanner enough precision to tell headings from body text without chewing through the rest of the line.</p>
+<p>Remember the older chapters while you use these symbols. Arrays still provide the sample lines, and hashes still keep the running counts. Regex now decides which bucket a line belongs in. The script is becoming a reader of shapes, but it is still the same ledger underneath.</p>
+<pre><code><span class="k">if</span> ($line =~ /^#\s+/) {
+    <span class="k">say</span> <span class="s">"HEAD"</span>;
+}</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ANCHORS AT THE MARGIN</div>
+<p><strong>Anchor note.</strong> <code>^</code> and <code>$</code> do not consume characters. They say where a pattern is allowed to stand.</p>
+<p><strong>Blank note.</strong> <code>^\s*$</code> treats a spaces-only line as blank. That is the right reading for manuscript cleanup, where the eye ignores those spaces.</p>
+<p><strong>Quantifier note.</strong> <code>+</code> insists on at least one mark. <code>*</code> allows none. The difference is small in code and large in meaning.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perldoc: perlre"
+url = "https://perldoc.perl.org/perlre"
+
+[[lessons.exercises]]
+id = "s05-l03-e1"
+type = "fill"
+points = 20
+prompt = "<p>Restore the anchor that forces the heading pattern to begin at the start of the line.</p>"
+code = 'if ($line =~ /____#\s+/) { say "HEAD"; }'
+answer = "^"
+hint = "The blank is the left-edge anchor, not a literal character from the manuscript."
+whyWrong = "You are trying to match the hash itself or some other literal mark. This pattern needs the start-of-line anchor before the hash."
+
+[[lessons.exercises]]
+id = "s05-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "<p>Retype the blank-line check exactly. Keep the whitespace class and the anchors intact.</p>"
+code = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my $line = "   ";
+if ($line =~ /^\s*$/) {
+    say "BLANK";
+}
+'''
+
+[[lessons.exercises]]
+id = "s05-l03-e2"
+type = "mc"
+points = 15
+prompt = "<p>Which pattern matches a line made only of spaces or nothing at all?</p>"
+choices = ["<code>/^#\\s+/</code>", "<code>/^\\s*$/</code>", "<code>/^\\s+$/</code>", "<code>/\\b/</code>"]
+answer = 1
+whyWrong = "You are mixing headings, a too-strict whitespace test, and a word-boundary seam. The prompt wants the blank-line pattern that allows spaces or no characters."
+hint = "Blank manuscript lines may be empty or spaces-only."
+explain = "<code>^\\s*$</code> matches a line that contains only whitespace, including an empty one."
+
+[[lessons.exercises]]
+id = "s05-l03-e3"
+type = "text"
+points = 20
+prompt = "<p>What does <code>\\b</code> mark in a regex?</p>"
+answer = "a word boundary"
+accept = ["word boundary", "the boundary between word and non-word characters"]
+hint = "It is the seam where a token begins or ends, not a letter or digit itself."
+whyWrong = "You are naming a character class or a literal symbol, but <code>\\b</code> is the boundary around a word."
+
+[[lessons.exercises]]
+id = "s05-l03-w1"
+type = "write"
+points = 30
+prompt = "<p>Using the starter manuscript, classify each line as <code>HEAD</code>, <code>BLANK</code>, or <code>TEXT</code> with regex rules, then print the counts in sorted key order and finish with <code>TOTAL 5</code>. Blank lines include spaces-only lines.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my @lines = ("# Preface", "", "A paragraph", "# Appendix", "Another paragraph");
+my %counts;
+
+# Task: walk the lines, classify each one with regex, and count the buckets.
+# Print `NAME N` for each sorted key, then `TOTAL 5`.
+'''
+expect = '''
+BLANK 1
+HEAD 2
+TEXT 2
+TOTAL 5'''
+hint = "Use anchors for the heading and blank checks, then keep the results in a hash for the report."

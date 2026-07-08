@@ -1,0 +1,112 @@
+[[lessons]]
+id = "s03-l03"
+title = "Shaping the Ledger"
+body = '''
+<p>Vaelith draws a line under the last entry and reaches for ink. <strong>"A ledger that never changes is a dead record. We add entries, remove mistakes, order them by importance. The list must be shaped as the night unfolds."</strong></p>
+
+<p>Lists are <strong>mutable</strong> — their contents can change after creation. The most common tool is <code>append()</code>, which adds one element to the end:</p>
+<pre><code>events <span class="k">=</span> []
+events.<span class="k">append</span>(<span class="s">"METEOR"</span>)
+events.<span class="k">append</span>(<span class="s">"FLARE"</span>)
+<span class="k">print</span>(events)  <span class="c"># ["METEOR", "FLARE"]</span></code></pre>
+<p>This is how the Astrarium will build its ledger line by line as observations arrive — start empty, append each event as it is read.</p>
+
+<p>Other essential list methods:</p>
+<pre><code>events <span class="k">=</span> [<span class="s">"METEOR"</span>, <span class="s">"FLARE"</span>, <span class="s">"SENSOR"</span>]
+events.<span class="k">insert</span>(<span class="mi">1</span>, <span class="s">"COSMIC"</span>)   <span class="c"># insert at index 1: ["METEOR", "COSMIC", "FLARE", "SENSOR"]</span>
+popped <span class="k">=</span> events.<span class="k">pop</span>()            <span class="c"># removes and returns the last element</span>
+events.<span class="k">remove</span>(<span class="s">"METEOR"</span>)        <span class="c"># removes the first occurrence of "METEOR"</span>
+events.<span class="k">sort</span>()                   <span class="c"># sorts in place (ascending)</span>
+events.<span class="k">reverse</span>()                <span class="c"># reverses in place</span></code></pre>
+<p><code>pop()</code> without an argument removes and returns the last element — useful when processing a list as a stack (last in, first out). With an index argument, <code>pop(0)</code> removes and returns the first element, but this is slower because every remaining element shifts left.</p>
+
+<p><strong><code>sort()</code></strong> arranges strings alphabetically and numbers in ascending order. It works <em>in place</em> — it modifies the original list rather than returning a new one. To get a sorted copy without changing the original, use <code>sorted()</code>:</p>
+<pre><code>sorted_events <span class="k">=</span> <span class="nb">sorted</span>(events)   <span class="c"># new sorted list, original untouched</span>
+events.<span class="k">sort</span>()                        <span class="c"># original is now sorted</span></code></pre>
+<p>The difference matters: <code>sorted()</code> works on any iterable (including tuples and sets) and returns a new list; <code>.sort()</code> is a list-only method that modifies in place and returns <code>None</code>.</p>
+
+<p>Discover what a list supports with <code>dir(events)</code> — Python will print every method available. Vaelith recommends reading the official docs for the full list.</p>
+
+<div class="callout">"<strong>Vaelith's rule:</strong> <code>append</code> and <code>pop</code> are the two methods you will use most. Append to build, pop to process. <code>sort()</code> when the order matters for the report."</div>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // In-Place vs. Copy</div>
+<p>A common trap: <code>events = events.sort()</code> sets <code>events</code> to <code>None</code> because <code>.sort()</code> returns <code>None</code>. It modifies the list in place and does not return it. The same applies to <code>.reverse()</code> and <code>.append()</code> — they all return <code>None</code>. Functions that return a new copy (<code>sorted()</code>, slicing) leave the original untouched. Reading method signatures carefully — does this return a new value or modify in place? — prevents entire classes of bugs.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python docs — more on lists"
+url = "https://docs.python.org/3/tutorial/datastructures.html#more-on-lists"
+
+[[lessons.readings]]
+label = "Python docs — sorting"
+url = "https://docs.python.org/3/howto/sorting.html"
+
+[[lessons.exercises]]
+id = "s03-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this list-building pattern exactly. (Ctrl+Enter submits.)"
+code = '''events = []
+events.append("METEOR")
+events.append("FLARE")
+print(events)'''
+
+[[lessons.exercises]]
+id = "s03-l03-e1"
+type = "fill"
+points = 20
+prompt = "The Astrarium reads an event name from input and should add it to the ledger. What method call goes in the blank?"
+code = '''event = input()
+ledger = []
+ledger.____(event)'''
+answer = "append"
+hint = "Vaelith's rule says this is the method you will use most — it adds a single element to the end of a list."
+explain = "list.append(x) adds x to the end of the list. After ledger.append(event), the ledger contains one more element."
+
+[[lessons.exercises]]
+id = "s03-l03-e2"
+type = "mc"
+points = 15
+prompt = "What does <code>events.sort()</code> return?"
+choices = [
+    "None — it sorts the list in place and returns nothing",
+    "A new sorted list",
+    "True if the sort succeeded, False otherwise",
+    "The original list, now sorted"
+]
+answer = 0
+whyWrong = "A new sorted list is what sorted(events) returns, not events.sort(). sort() does not return a boolean — it modifies the list and returns None. The original list is indeed sorted after the call, but the method's return value is None, not the list itself."
+hint = "Vaelith warned about the in-place vs. copy distinction. Methods that modify an object in place usually return None in Python."
+explain = "list.sort() sorts the list in place and returns None. To get a new sorted list without modifying the original, use the built-in sorted() function instead."
+
+[[lessons.exercises]]
+id = "s03-l03-e3"
+type = "text"
+points = 20
+prompt = "The Astrarium's event list is <code>[\"SENSOR\", \"METEOR\", \"FLARE\"]</code>. What single method call would arrange these in alphabetical order, modifying the list in place?"
+answer = "events.sort()"
+accept = ["events.sort(reverse=False)", "events.sort()"]
+hint = "Vaelith showed the method that sorts in place — it is a method on the list object itself, not a built-in function."
+explain = "events.sort() sorts the list in ascending alphabetical order, modifying the list in place. After the call, events is ['FLARE', 'METEOR', 'SENSOR']."
+
+[[lessons.exercises]]
+id = "s03-l03-w1"
+type = "write"
+points = 30
+prompt = "Read event names from input one by one until the sentinel <code>END</code> appears. Store each event in a list. After the loop ends, <strong>sort</strong> the list alphabetically and print each sorted event on its own line."
+expect = '''FLARE
+METEOR
+SENSOR_ANOMALY
+SATELLITE'''
+stdin = '''SENSOR_ANOMALY
+METEOR
+FLARE
+SATELLITE
+END'''
+starter = '''# ASTRARIUM — Sort the Night's Events
+# Read events until END, then sort and print them.
+events = []
+# TODO: while True loop reading until "END",
+# append each event, then sort and print'''
+hint = "Use <code>while True:</code> with <code>line = input()</code> and <code>if line == \"END\": break</code> to build the list (callback to s02-l04). After the loop, call <code>events.sort()</code> and then iterate with <code>for e in events: print(e)</code>."

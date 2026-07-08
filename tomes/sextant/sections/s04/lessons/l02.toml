@@ -1,0 +1,96 @@
+[[lessons]]
+id = "s04-l02"
+title = "Function Decorators — Mounting the Instrument"
+body = '''
+<p>A decorator is a callable that takes a function and returns a function. The <code>@</code> syntax is syntactic sugar for passing the decorated function through the decorator and rebinding the result to the same name.</p>
+<pre><code><span class="c"># What @decorator actually does</span>
+<span class="nd">@logged</span>
+<span class="k">def</span> <span class="nf">parse_line</span><span class="p">(</span><span class="n">line</span>: <span class="nb">str</span><span class="p">)</span> <span class="o">-></span> <span class="n">LogRecord</span> | <span class="kc">None</span>:
+    <span class="o">...</span>
+
+<span class="c"># Is exactly equivalent to:</span>
+<span class="k">def</span> <span class="nf">parse_line</span><span class="p">(</span><span class="n">line</span>: <span class="nb">str</span><span class="p">)</span> <span class="o">-></span> <span class="n">LogRecord</span> | <span class="kc">None</span>:
+    <span class="o">...</span>
+parse_line = logged(parse_line)</code></pre>
+<p>A simple decorator that logs each call to a function:</p>
+<pre><code><span class="k">def</span> <span class="nf">logged</span><span class="p">(</span><span class="n">func</span>: <span class="n">Callable</span><span class="p">)</span> <span class="o">-></span> <span class="n">Callable</span>:
+    <span class="k">def</span> <span class="nf">wrapper</span><span class="p">(</span><span class="o">*</span><span class="n">args</span>, <span class="o">**</span><span class="n">kwargs</span>):
+        <span class="k">print</span>(<span class="sa">f</span><span class="s">"LOG: calling {func.__name__}"</span>)
+        <span class="k">return</span> <span class="n">func</span>(<span class="o">*</span><span class="n">args</span>, <span class="o">**</span><span class="n">kwargs</span>)
+    <span class="k">return</span> <span class="n">wrapper</span></code></pre>
+<p>The <code>wrapper</code> function captures <code>func</code> via closure and replaces it. Anyone calling <code>parse_line("...")</code> actually calls <code>wrapper("...")</code>, which logs and then calls the original <code>parse_line</code>.</p>
+<p>There is a subtle problem: the wrapper has a different name, docstring, and signature than the original function. <code>functools.wraps</code> copies those metadata from the original to the wrapper:</p>
+<pre><code><span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">wraps</span>
+
+<span class="k">def</span> <span class="nf">logged</span><span class="p">(</span><span class="n">func</span>):
+    <span class="nd">@wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">wrapper</span><span class="p">(</span><span class="o">*</span><span class="n">args</span>, <span class="o">**</span><span class="n">kwargs</span>):
+        <span class="k">print</span>(<span class="sa">f</span><span class="s">"LOG: starting {func.__name__}"</span>)
+        <span class="n">result</span> = <span class="n">func</span>(<span class="o">*</span><span class="n">args</span>, <span class="o">**</span><span class="n">kwargs</span>)
+        <span class="k">print</span>(<span class="sa">f</span><span class="s">"LOG: done {func.__name__}"</span>)
+        <span class="k">return</span> <span class="n">result</span>
+    <span class="k">return</span> <span class="n">wrapper</span></code></pre>
+<p>The <code>@wraps(func)</code> decorator (yes, a decorator on a decorator's inner function) copies <code>__name__</code>, <code>__doc__</code>, <code>__module__</code>, <code>__qualname__</code>, and <code>__wrapped__</code> from func to wrapper. Always use it on your decorators — the grader checks for it.</p>
+<div class="callout"><strong>Consult the volumes:</strong> <code>functools.wraps</code> is itself a decorator that uses <code>functools.partial</code> and <code>functools.update_wrapper</code>. Open <code>Lib/functools.py</code> and read the <code>WRAPPER_ASSIGNMENTS</code> tuple — it lists every attribute wraps copies. Understanding this demystifies the whole chain.</div>
+'''
+
+[[lessons.exercises]]
+id = "s04-l02-e1"
+type = "mc"
+points = 15
+prompt = "What does <code>@functools.wraps(func)</code> do?"
+choices = ["Wraps func in a try/except block", "Copies name, docstring, and metadata from func to the wrapper", "Converts func into a class method", "Prevents func from being called more than once"]
+answer = 1
+whyWrong = "wraps is a decorator that copies metadata (__name__, __doc__, etc.) from the decorated function to the wrapper. Without it, a decorated function loses its identity and the grader sees <code>wrapper</code> instead of <code>parse_line</code> in tracebacks."
+hint = "Without this, a decorated function loses its name — the inspector always sees 'wrapper'."
+explain = "@functools.wraps copies __name__, __doc__, and other attributes from the original function to the wrapper function."
+
+[[lessons.exercises]]
+id = "s04-l02-e2"
+type = "fill"
+points = 20
+prompt = "Fill in the blank to write a simple decorator that doubles the return value:"
+code = '''def double(func):
+    def wrapper(*args, **kwargs):
+        return 2 * func(*args, **kwargs)
+    ____ wrapper'''
+answer = "return"
+hint = "The outer function must send the wrapper back to the caller."
+
+[[lessons.exercises]]
+id = "s04-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype a decorator that logs function entry and exit:"
+code = '''from functools import wraps
+
+def logged(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        print(f"calling {func.__name__}")
+        return func(*args, **kwargs)
+    return wrapper'''
+
+[[lessons.exercises]]
+id = "s04-l02-w1"
+type = "write"
+points = 30
+prompt = "Write a decorator <code>@bold</code> that wraps the return value of a function in <code>**</code> markers — if the function returns <code>\"hello\"</code>, the decorated version returns <code>\"**hello**\"</code>. Apply it to a function <code>greet()</code> that returns <code>\"Aldren\"</code> and print the result."
+starter = '''
+from functools import wraps
+
+def bold(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        # your code here
+    return wrapper
+
+@bold
+def greet():
+    return "Aldren"
+
+print(greet())
+'''
+expect = '''**Aldren**'''
+hint = "In the wrapper, call func(*args, **kwargs), wrap the result in '**' markers, and return it."

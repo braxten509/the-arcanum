@@ -1,0 +1,139 @@
+[[lessons]]
+id = "s02-l04"
+title = "The Sentinel's Loop"
+body = '''
+<p>Some readings have no fixed length. The observer feeds entries one by one until the night ends. Vaelith gestures at a bottomless log. <strong>"We cannot count how many entries will come. The Astrarium must keep watching until a sentinel says stop."</strong></p>
+
+<p>A <code>while</code> loop repeats as long as its condition remains <code>True</code>. It is how you loop when you do not know the number of iterations in advance:</p>
+<pre><code>count <span class="k">=</span> <span class="mi">0</span>
+<span class="k">while</span> count <span class="o">&lt;</span> <span class="mi">3</span>:
+    <span class="k">print</span>(<span class="s">f"Observation {count + 1}"</span>)
+    count <span class="k">+=</span> <span class="mi">1</span></code></pre>
+<p>The code above prints three observations. Critically, something inside the loop must change the condition — here <code>count += 1</code> — or the loop runs forever. An infinite loop that never hits I/O will freeze the Astrarium.</p>
+
+<p>The most practical pattern for a live log is reading input until a sentinel value appears:</p>
+<pre><code>line <span class="k">=</span> <span class="k">input</span>()
+<span class="k">while</span> line <span class="o">!=</span> <span class="s">"END"</span>:
+    <span class="k">print</span>(<span class="s">f"Read: {line}"</span>)
+    line <span class="k">=</span> <span class="k">input</span>()</code></pre>
+<p>This reads one line, checks it, processes it if it is not the sentinel, then reads the next. When the user types <code>END</code>, the condition fails and the loop exits. This will be how the Astrarium's classifier consumes a live observation stream.</p>
+
+<p><strong><code>break</code></strong> exits the innermost loop immediately, regardless of the condition:</p>
+<pre><code><span class="k">while</span> <span class="bp">True</span>:
+    line <span class="k">=</span> <span class="k">input</span>()
+    <span class="k">if</span> line <span class="o">==</span> <span class="s">"END"</span>:
+        <span class="k">break</span>
+    <span class="k">print</span>(<span class="s">f"Processed: {line}"</span>)</code></pre>
+<p>The <code>while True</code> idiom with an internal <code>break</code> is common when the exit condition is not naturally at the top of the loop. It avoids duplicating the input call.</p>
+
+<p><strong><code>continue</code></strong> skips the rest of the current iteration and jumps to the next one:</p>
+<pre><code><span class="k">for</span> line <span class="ow">in</span> lines:
+    <span class="k">if</span> <span class="ow">not</span> line:
+        <span class="k">continue</span>
+    <span class="k">print</span>(<span class="s">f"Non-empty: {line}"</span>)</code></pre>
+<p>Any blank line triggers <code>continue</code>, sending the loop back to the next iteration without reaching the <code>print</code>.</p>
+
+<p><strong>The loop-<code>else</code></strong> clause runs after the loop finishes <em>normally</em> — but only if it was not exited by <code>break</code>:</p>
+<pre><code><span class="k">for</span> sev <span class="ow">in</span> <span class="nb">range</span>(<span class="mi">1</span>, <span class="mi">5</span>):
+    <span class="k">if</span> sev <span class="o">==</span> <span class="mi">3</span>:
+        <span class="k">print</span>(<span class="s">"Found severity 3"</span>)
+        <span class="k">break</span>
+<span class="k">else</span>:
+    <span class="k">print</span>(<span class="s">"No severity 3 found"</span>)</code></pre>
+<p>Here the <code>else</code> belongs to the <code>for</code>, not to the <code>if</code>. Because <code>break</code> was hit, the <code>else</code> is skipped. If no severity 3 existed in the range, the loop would exhaust all values and the <code>else</code> would fire. This is useful for search loops: "if you searched everything and found nothing, do this."</p>
+
+<div class="callout">"<strong>Vaelith's rule:</strong> prefer <code>while True</code> with a <code>break</code> for sentinel-driven input — it keeps the read-and-check in one place rather than duplicating the input() call before and inside the loop."</div>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // Else on Loops</div>
+<p>The loop-<code>else</code> surprises many Python authors because <code>else</code> only ever appeared on <code>if</code> in other languages. It fires precisely when the loop terminated by exhaustion — the condition became <code>False</code> (for <code>while</code>) or the iterable was consumed (for <code>for</code>) — and <code>break</code> was not called. A common pattern is validating all entries: the loop <code>breaks</code> on the first invalid entry, and the <code>else</code> runs only if no entry was invalid, confirming the entire batch passed.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python docs — while loops"
+url = "https://docs.python.org/3/reference/compound_stmts.html#while"
+
+[[lessons.readings]]
+label = "Python docs — break, continue, else on loops"
+url = "https://docs.python.org/3/tutorial/controlflow.html#break-and-continue-statements-and-else-clauses-on-loops"
+
+[[lessons.exercises]]
+id = "s02-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this sentinel-driven input loop exactly. (Ctrl+Enter submits.)"
+code = '''while True:
+    line = input()
+    if line == "END":
+        break
+    print(f"Read: {line}")'''
+
+[[lessons.exercises]]
+id = "s02-l04-e1"
+type = "fill"
+points = 20
+prompt = "The Astrarium should keep reading observations until the count reaches 5. What condition goes in the blank?"
+code = '''count = 0
+while ____ < 5:
+    obs = input()
+    count += 1
+    print(f"Observation {count}: {obs}")'''
+answer = "count"
+hint = "The loop variable that tracks how many iterations have occurred is the one that must be compared to the upper bound."
+explain = "The variable 'count' starts at 0 and increases by 1 each iteration. The while condition checks whether it has reached 5 yet."
+
+[[lessons.exercises]]
+id = "s02-l04-e2"
+type = "text"
+points = 20
+prompt = "What keyword immediately exits the innermost loop, regardless of the loop's condition?"
+answer = "break"
+accept = ["break "]
+hint = "Vaelith used this keyword inside a <code>while True</code> loop to stop when the user typed the sentinel word."
+explain = "break jumps out of the innermost enclosing loop entirely. Execution continues at the first statement after the loop body."
+
+[[lessons.exercises]]
+id = "s02-l04-e3"
+type = "mc"
+points = 15
+prompt = "When does a <code>while</code> loop's <code>else</code> clause execute?"
+choices = [
+    "Only if the loop body never ran at all",
+    "Only if <code>break</code> was called at least once",
+    "Always, immediately after every single iteration",
+    "Only when the loop ended normally (its condition became <code>False</code> without hitting <code>break</code>)"
+]
+answer = 3
+whyWrong = "The else does fire even if the body never ran (a while condition that is False initially), but that is not the only case — option A is too narrow. Option B has it exactly backwards: break causes the else to be skipped, not activated. Option C is wrong because else does not run after each iteration; it runs once after the loop finishes without a break."
+hint = "Vaelith used else on a for loop that searched for a target value — the else fired only when the search completed without finding anything, meaning the loop was not interrupted by break."
+explain = "The loop-else runs when the loop terminates normally — the condition becomes False (while) or the iterable is exhausted (for) — and break was not called. If break exits the loop, the else is skipped."
+
+[[lessons.exercises]]
+id = "s02-l04-e4"
+type = "fill"
+points = 20
+prompt = "The Astrarium should skip blank lines during log processing. What statement goes in the blank to jump to the next iteration?"
+code = '''for line in lines:
+    if not line:
+        ____
+    print(f"Processing: {line}")'''
+answer = "continue"
+hint = "Vaelith used the keyword that skips the rest of the current iteration and moves to the next one."
+explain = "continue stops the current iteration immediately and jumps to the next loop cycle. For a for loop, this means the next element in the sequence."
+
+[[lessons.exercises]]
+id = "s02-l04-w1"
+type = "write"
+points = 30
+prompt = "The observer sends event names one per line. Keep reading until the sentinel line <code>END</code> is entered. Count how many total events were read (excluding the sentinel), then print <code>Total events: [count]</code>. Use <code>while True</code> with a <code>break</code>."
+expect = '''Total events: 3'''
+stdin = '''METEOR_SHOWER
+FLARE
+SENSOR_ANOMALY
+END'''
+starter = '''# ASTRARIUM — Sentinel Event Counter
+# Read event names until "END", count them,
+# then print the total.
+count = 0
+# TODO: build the while True loop with break'''
+hint = "Use <code>while True:</code> and <code>line = input()</code> inside. Check <code>if line == \"END\": break</code>, then increment count and optionally print each event."

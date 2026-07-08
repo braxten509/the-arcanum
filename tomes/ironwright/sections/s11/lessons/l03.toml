@@ -1,0 +1,96 @@
+[[lessons]]
+id = "s11-l03"
+title = "The Payload & the Drop — EnumHand, EnumFacing & EntityItem"
+body = '''
+<p>An event hands you the context and the power to change the outcome. The context comes as enums: <code>EnumHand.MAIN_HAND</code> / <code>EnumHand.OFF_HAND</code> for which hand, <code>EnumFacing.DOWN</code> / <code>UP</code> / <code>NORTH</code> / <code>SOUTH</code> / <code>WEST</code> / <code>EAST</code> for which face. The power is the event's lists and the <code>World</code>.</p>
+<pre><code><span class="k">@SubscribeEvent</span>
+<span class="k">public static void</span> onDrops(LivingDropsEvent event) {
+    Entity source = event.getSource().getTrueSource();
+    <span class="k">if</span> (source <span class="k">instanceof</span> EntityPlayer) {
+        EntityPlayer player = (EntityPlayer) source;
+        <span class="k">if</span> (player.world.isRemote) <span class="k">return</span>;
+        ItemStack drop = <span class="k">new</span> ItemStack(ModItems.STARSTEEL);
+        EntityItem entity = <span class="k">new</span> EntityItem(player.world, player.posX, player.posY, player.posZ, drop);
+        event.getDrops().add(entity);    <span class="c">// add a starsteel to the loot</span>
+    }
+}</code></pre>
+<p>A custom drop is an <code>EntityItem</code> — a free-floating item in the world — built from an <code>ItemStack</code> at a position, then either added to a <code>LivingDropsEvent</code>'s drops list (the clean way, merges with the mob's own loot) or spawned directly with <code>world.spawnEntity(entity)</code>. The first way participates in the event's loot pipeline; the second bypasses it. Use the drops list when you can.</p>
+<p><code>World</code> is the world object — it holds block states, entities, and positions. <code>EntityPlayer</code> is the player. Both are passed through events or reachable from them. Treat them as read-mostly: change the world through the event's own mutators (<code>event.getDrops().add(...)</code>, <code>event.setCanceled(true)</code>) rather than directly, so the event's pipeline stays consistent.</p>
+<div class="callout"><strong>Orrick says:</strong> <code>EnumHand</code> and <code>EnumFacing</code> are enums — the fixed-set type from Forgework V. Switch on them without qualifying the case labels (<code>case MAIN_HAND:</code> not <code>case EnumHand.MAIN_HAND:</code>). The event gives you the enum; your switch dispatches on it.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SIDE AWARENESS IN EVENTS</div>
+<p>Some events fire on both sides (client and server), some only on one. <code>BlockEvent.BreakEvent</code> fires only on the server (the server is the authority on block changes); <code>PlayerInteractEvent</code> fires on both. When you touch world-changing data (drops, block states), guard with <code>event.getWorld().isRemote</code> — <code>true</code> means client (do not change world data there), <code>false</code> means server (the authority). A handler that changes world data on the client desyncs the game.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s11-l03-e1"
+type = "mc"
+points = 15
+prompt = "Which enum's values are <code>MAIN_HAND</code> and <code>OFF_HAND</code> — the one <code>PlayerInteractEvent.getHand()</code> returns?"
+choices = ["EnumFacing", "EnumHand", "EnumAction", "EnumBlockRenderSide"]
+answer = 1
+whyWrong = "EnumHand has MAIN_HAND and OFF_HAND; EnumFacing has DOWN/UP/NORTH/SOUTH/WEST/EAST (block faces), EnumAction is for item use animations, EnumBlockRenderSide is not a 1.12.2 enum. The hand enum is EnumHand."
+hint = "It is Enum + Hand — the enum whose two values are the main and off hands."
+explain = "EnumHand.MAIN_HAND / EnumHand.OFF_HAND. event.getHand() returns one; switch on it without qualifying the case labels."
+
+[[lessons.exercises]]
+id = "s11-l03-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the enum whose six values name the faces of a block (DOWN, UP, NORTH, SOUTH, WEST, EAST)."
+code = '''switch (event.getFacing()) {
+    case DOWN: ...;
+    // the enum is ____
+}'''
+answer = "EnumFacing"
+whyWrong = "EnumFacing has the six face values; EnumHand has two hand values, EnumDirection is not the 1.12.2 name, EnumSide is not real. The block-face enum is EnumFacing."
+hint = "It is Enum + Facing — the six-direction enum for block faces (NORTH, SOUTH, etc.)."
+
+[[lessons.exercises]]
+id = "s11-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the custom-drop handler exactly — the source check, safe cast, server guard, EntityItem build, and add to the drops list."
+code = '''Entity source = event.getSource().getTrueSource();
+if (source instanceof EntityPlayer) {
+    EntityPlayer player = (EntityPlayer) source;
+    if (player.world.isRemote) return;
+    ItemStack drop = new ItemStack(ModItems.STARSTEEL);
+    EntityItem entity = new EntityItem(player.world, player.posX, player.posY, player.posZ, drop);
+    event.getDrops().add(entity);
+}'''
+
+[[lessons.exercises]]
+id = "s11-l03-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of adding a custom drop. The starter has a mock <code>LivingDropsEvent</code> whose <code>getDrops()</code> returns a <code>List&lt;String&gt;</code>, and a mock <code>ModEvents</code> with an empty <code>onDrops(LivingDropsEvent)</code>. Fill the handler to add <code>\"starsteel\"</code> to <code>event.getDrops()</code>, then in <code>main</code> build <code>LivingDropsEvent event = new LivingDropsEvent();</code>, call <code>ModEvents.onDrops(event);</code>, and print <code>DROP </code> plus the first element of <code>event.getDrops()</code>. The expected output is exactly <code>DROP starsteel</code>."
+starter = '''import java.util.List;
+import java.util.ArrayList;
+
+public class Ironwright {
+    static class LivingDropsEvent {
+        private List<String> drops = new ArrayList<>();
+        public List<String> getDrops() { return drops; }
+    }
+    static class ModEvents {
+        public static void onDrops(LivingDropsEvent event) {
+            // apprentice — add "starsteel" to event.getDrops()
+        }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — build a LivingDropsEvent, call ModEvents.onDrops(event), print "DROP " + event.getDrops().get(0)
+    }
+}'''
+expect = '''
+DROP starsteel'''
+hint = "In onDrops: event.getDrops().add(\"starsteel\");. In main: LivingDropsEvent event = new LivingDropsEvent(); ModEvents.onDrops(event); System.out.println(\"DROP \" + event.getDrops().get(0));"
+
+[[lessons.exercises]]
+id = "s11-l03-t1"
+type = "text"
+points = 20
+prompt = "What does <code>world.isRemote</code> being true mean — which side are you on, and should you change world data there?"
+answer = "the client side; do not change world data there"
+hint = "isRemote true means the client copy of the world; the server (isRemote false) is the authority. World-changing handlers must check this."

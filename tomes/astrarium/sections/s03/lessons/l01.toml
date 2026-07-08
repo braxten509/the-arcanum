@@ -1,0 +1,102 @@
+[[lessons]]
+id = "s03-l01"
+title = "The Ledger's First Page"
+body = '''
+<p>Vaelith opens a fresh logbook. <strong>"A single observation tells us something. A collection of them tells us the story of the night."</strong> The Astrarium must gather events into one place before it can examine them — and in Python, that place is the <strong>list</strong>.</p>
+
+<p>A list is an ordered, mutable sequence written with square brackets. Items are separated by commas:</p>
+<pre><code>events <span class="k">=</span> [<span class="s">"METEOR_SHOWER"</span>, <span class="s">"FLARE"</span>, <span class="s">"SENSOR_ANOMALY"</span>]</code></pre>
+<p>Lists hold any type — and can mix types in the same list:</p>
+<pre><code>mixed <span class="k">=</span> [<span class="s">"METEOR"</span>, <span class="mi">42</span>, <span class="mf">3.14</span>, <span class="bp">True</span>]</code></pre>
+<p>Each element sits at a numbered <strong>index</strong>. The first element is at index <code>0</code>, not <code>1</code> — Python is zero-indexed. Access any element with square brackets after the list variable:</p>
+<pre><code>events <span class="k">=</span> [<span class="s">"METEOR_SHOWER"</span>, <span class="s">"FLARE"</span>, <span class="s">"SENSOR_ANOMALY"</span>]
+<span class="k">print</span>(events[<span class="mi">0</span>])  <span class="c"># METEOR_SHOWER</span>
+<span class="k">print</span>(events[<span class="mi">2</span>])  <span class="c"># SENSOR_ANOMALY</span></code></pre>
+<p>The number inside the brackets is the offset from the start: <code>[0]</code> is the first item, <code>[1]</code> is the second, and so on. An index that does not exist — <code>events[3]</code> in a three-element list — raises an <code>IndexError</code>, and the Astrarium stops.</p>
+
+<p>The <strong><code>len()</code></strong> function tells you how many elements a list holds:</p>
+<pre><code><span class="k">print</span>(<span class="nb">len</span>(events))  <span class="c"># 3</span></code></pre>
+<p><code>len()</code> works on any sequence — lists, strings, tuples — and is always one more than the largest valid index. If <code>len(events)</code> is <code>3</code>, the valid indices are <code>0</code>, <code>1</code>, and <code>2</code>.</p>
+
+<p>An empty list has no elements but is still a valid list:</p>
+<pre><code>empty_ledger <span class="k">=</span> []
+<span class="k">print</span>(<span class="nb">len</span>(empty_ledger))  <span class="c"># 0</span></code></pre>
+<p>The Astrarium will start each night with an empty ledger and add events as they come in. The building of a list from nothing is the first habit of every Python author.</p>
+
+<div class="callout">"<strong>Vaelith's rule:</strong> zero is the first index. It feels wrong until it feels natural — and then any language that starts at 1 feels wrong instead. Count your positions from zero and your items with <code>len()</code>."</div>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // IndexError — The Boundary</div>
+<p>An <code>IndexError</code> is Python's way of saying "you asked for an element that does not exist." It is one of the most common runtime errors when working with lists. Defend against it by checking the list length before indexing, or by using loops that naturally stay within bounds. A list with <code>n</code> elements has valid indices from <code>0</code> to <code>n - 1</code> inclusive. Index <code>n</code> is always out of range.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python docs — lists"
+url = "https://docs.python.org/3/tutorial/introduction.html#lists"
+
+[[lessons.readings]]
+label = "Python docs — sequence types"
+url = "https://docs.python.org/3/library/stdtypes.html#sequence-types-list-tuple-range"
+
+[[lessons.exercises]]
+id = "s03-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this list creation and element access exactly, indentation included. (Ctrl+Enter submits.)"
+code = '''events = ["METEOR", "FLARE", "SENSOR"]
+print(events[0])'''
+
+[[lessons.exercises]]
+id = "s03-l01-e1"
+type = "mc"
+points = 15
+prompt = "In Python, what index does the <strong>first</strong> element of a list have?"
+choices = [
+    "1",
+    "0",
+    "-1",
+    "It depends on the length of the list"
+]
+answer = 1
+whyWrong = "Index 1 is how many other languages work, but Python is zero-indexed — the first element is at position 0. -1 is the last element, not the first. The first index does not depend on the list length; it is always 0 regardless of how many elements the list holds."
+hint = "Vaelith's rule: count your positions from zero. The first element sits at the very start of the list, offset 0 from the beginning."
+explain = "Python lists are zero-indexed: the first element is always at index 0. Index 1 is the second element, index 2 is the third, and so on."
+
+[[lessons.exercises]]
+id = "s03-l01-e2"
+type = "fill"
+points = 20
+prompt = "The ledger holds four observation codes. What index accesses the third element (<code>\"COSMIC_RAY\"</code>)?"
+code = '''ledger = ["METEOR", "FLARE", "COSMIC_RAY", "SATELLITE"]
+third = ledger[____]'''
+answer = "2"
+hint = "Indices start at 0. The third element is at index 2 (0, 1, 2). Count from zero: METEOR is 0, FLARE is 1, COSMIC_RAY is 2."
+explain = "The third element is at index 2 in a zero-indexed list. ledger[0] is 'METEOR', ledger[1] is 'FLARE', ledger[2] is 'COSMIC_RAY'."
+
+[[lessons.exercises]]
+id = "s03-l01-e3"
+type = "text"
+points = 20
+prompt = "The Astrarium's event list has 7 elements. What is the largest valid index?"
+answer = "6"
+accept = ["six"]
+hint = "If len(events) is 7, the valid indices run from 0 up to one less than the length."
+explain = "A 7-element list has indices 0 through 6. The largest valid index is always len(list) - 1."
+
+[[lessons.exercises]]
+id = "s03-l01-w1"
+type = "write"
+points = 30
+prompt = "Read an integer N from <code>input()</code>, then read N event names (one per line). Store each event name in a list, then print only the <strong>second</strong> event (at index 1) exactly as entered."
+expect = '''FLARE'''
+stdin = '''3
+METEOR
+FLARE
+SENSOR_ANOMALY'''
+starter = '''# ASTRARIUM — Build the Event Ledger
+# Read N, then read N event names into a list.
+# Print the second event (index 1).
+n = int(input())
+events = []
+# TODO: read n lines into events, then print events[1]'''
+hint = "Use a <code>for _ in range(n):</code> loop with <code>events.append(input())</code> to fill the list. Then print events[1] (the second item, not events[0])."

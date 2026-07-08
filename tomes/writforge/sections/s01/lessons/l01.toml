@@ -1,0 +1,102 @@
+[[lessons]]
+id = "s01-l01"
+title = "The File Opens"
+body = '''
+<p>The first page of a Perl script is not a mystery. It is a declaration of intent. The shebang tells the launcher which interpreter should receive the file. <code>use v5.36;</code> locks the syntax to the feature bundle this tome expects and keeps the chapter honest about what language it is speaking. Put both at the top; the interpreter reads from the top.</p>
+<p>From there, use one scalar at a time. A scalar is a single value: one name, one count, one line of ink. The sigil is <code>$</code>, and the lexical declaration is <code>my</code>. When you write <code>my $scribe = "Mara";</code>, you are not building a list, a table, or a future puzzle. You are naming one thing so the next line can use it cleanly.</p>
+<p><code>say</code> is the right first emitter because it gives you the newline without ceremony. That matters when your script is supposed to produce readable lines, not a tangle of half-finished output. Double quotes let scalar values appear inside the string; single quotes leave the characters alone. In this opening chapter, keep the page simple: declare the scalar, print the scalar, and notice how much work Perl lets a single line do when you spell it precisely.</p>
+<p>Keep the declaration close to its use. In Perl, a lexical scalar with <code>my</code> belongs to the smallest scope that needs it, which is why tiny scripts stay readable when each value is introduced before it is consumed. That habit pays off later when the chapter grows beyond one screen; the first script will still read top to bottom instead of forcing the reader to hunt for a name that changed pages ago.</p>
+<pre><code>#!/usr/bin/env perl
+use v5.36;
+
+my $scribe = "Mara";
+my $ink = "cinnabar";
+say "SCRIBE $scribe";
+say "INK $ink";</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE FIRST LIGHT</div>
+<p><strong>Strictness note.</strong> <code>use v5.36;</code> is the bundled way to ask for the modern feature set in this tome. It is not a decorative version stamp.</p>
+<p><strong>Output note.</strong> <code>say</code> appends the line ending for you. That saves noise while the student is still learning what the text itself says.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Perl 5 overview"
+url = "https://perldoc.perl.org/perl"
+
+[[lessons.exercises]]
+id = "s01-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "<p>Retype the exact script below. Keep the blank line between the header and the first scalar.</p>"
+code = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my $ink = "cinnabar";
+say $ink;
+'''
+
+[[lessons.exercises]]
+id = "s01-l01-e1"
+type = "fill"
+points = 20
+prompt = "<p>Restore the output keyword in this line.</p>"
+code = 'my $title = "Writforge"; ____ $title;'
+answer = "say"
+hint = "The missing token is the one that prints a complete line in this chapter."
+whyWrong = "You may be thinking of `print`, but this lesson is using `say` because the newline should come for free."
+
+[[lessons.exercises]]
+id = "s01-l01-e2"
+type = "mc"
+points = 15
+prompt = "<p>Why does this chapter insist on <code>use v5.36;</code> at the top of every script?</p>"
+choices = ["It creates the scalar values used later in the file.", "It turns on the modern Perl feature bundle and the stricter defaults this tome uses.", "It prints the version number before any other output.", "It converts every string into an interpolated double-quoted string."]
+answer = 1
+whyWrong = "You are treating the version line like data or output. It is neither; it selects the language behavior before the rest of the file runs."
+hint = "Look for the line that changes the interpreter's rules, not the line that stores a value."
+explain = "The shebang chooses Perl; `use v5.36;` asks for the 5.36 feature bundle and the stricter defaults this tome relies on."
+
+[[lessons.exercises]]
+id = "s01-l01-e3"
+type = "text"
+points = 20
+prompt = "<p>Which one-character prefix marks a scalar variable name in Perl?</p>"
+answer = "$"
+hint = "It is the mark you see on <code>$scribe</code> and <code>$ink</code>."
+whyWrong = "If you answered `@` or `%`, you jumped ahead to arrays and hashes before this chapter introduced them."
+
+[[lessons.exercises]]
+id = "s01-l01-e4"
+type = "mc"
+points = 15
+prompt = "<p>What is true about <code>say</code> compared with <code>print</code> in this section?</p>"
+choices = ["say adds a newline automatically; print does not.", "print is the only one that can write to standard output.", "say only works after arrays have been introduced.", "print always interpolates variables and say never does."]
+answer = 0
+whyWrong = "You are mixing up output style with output destination. Both can write text; `say` just appends the line ending automatically."
+hint = "The important difference is the newline behavior."
+explain = "`say` and `print` both send text to standard output, but `say` adds the newline for you, which makes it friendlier for early line-by-line scripts."
+
+[[lessons.exercises]]
+id = "s01-l01-w1"
+type = "write"
+points = 30
+prompt = "<p>Use the three scalars already declared to print exactly these three lines:</p><ul><li><code>SCRIBE Mara</code></li><li><code>INK cinnabar</code></li><li><code>LINES 3</code></li></ul>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my $scribe = "Mara";
+my $ink = "cinnabar";
+my $lines = 3;
+
+# Print exactly:
+# SCRIBE Mara
+# INK cinnabar
+# LINES 3
+'''
+expect = '''
+SCRIBE Mara
+INK cinnabar
+LINES 3'''
+hint = "Use the three declared scalars; each line should pair a label with one of them."

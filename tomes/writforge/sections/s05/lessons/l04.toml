@@ -1,0 +1,105 @@
+[[lessons]]
+id = "s05-l04"
+title = "The Pattern Ledger"
+body = '''
+<p>A good scanner does not stop at a single test. It checks the line, decides what shape it has, and sends the result to the right drawer. That is the point where the regex chapter joins the hash chapter again. The pattern says whether a line is a heading, a blank, or ordinary text. The hash remembers how many of each shape appeared. The array from earlier still carries the manuscript in order. None of those tools should steal the other's job.</p>
+<p>That separation becomes especially important when the page gets busy. A hash lookup is exact: you already know the key. A regex is a judge of shape: it can say that many different lines belong to the same class. If the manuscript has a heading today and a different heading tomorrow, the scanner should not need a new rule for each one. A single anchored pattern should handle both if they share the same structure.</p>
+<p>Use alternation only when the line really has more than one accepted shape. A blank line and a heading are different enough to deserve different branches. The scribe should be able to read the code and see the reason for each branch without hunting through a nest of clever tricks. The lesson here is not to make the regex shorter. It is to make the manuscript's rules obvious.</p>
+<p>By now the apprentice has enough pieces to build the line ledger without changing the source text. That is the right habit. Later chapters will substitute tags and produce HTML, but this one must keep the ink intact. Detect first. Count second. Transform later.</p>
+<pre><code><span class="k">if</span> ($line =~ /^#\s+/) {
+    ++$counts{heading};
+} <span class="k">elsif</span> ($line =~ /^\s*$/) {
+    ++$counts{blank};
+} <span class="k">else</span> {
+    ++$counts{text};
+}</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE PATTERN LEDGER</div>
+<p><strong>Branching note.</strong> The regex chooses the bucket; the hash records the count. That division keeps the scanner honest when more shapes arrive later.</p>
+<p><strong>Exactness note.</strong> A hash lookup needs a known key. A regex gives you the key class first and the exact string later, when the chapter turns to conversion.</p>
+<p><strong>Future note.</strong> This chapter only detects. The next one can substitute. Do not jump the apprentice ahead of the ink.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perldoc: perlop"
+url = "https://perldoc.perl.org/perlop"
+
+[[lessons.exercises]]
+id = "s05-l04-e1"
+type = "mc"
+points = 15
+prompt = "<p>Why does <code>^#\\s+</code> work better than a bare <code>#</code> for this chapter's heading scan?</p>"
+choices = ["It requires the hash at the start of the line and at least one space after it.", "It removes the hash before testing the line.", "It matches any line that mentions headings anywhere.", "It turns the line into a capture group."]
+answer = 0
+whyWrong = "You are imagining a text rewrite, a loose substring search, or capture behavior. The heading test is about a specific line shape at the left edge."
+hint = "The pattern is describing where the heading sits and how it starts."
+explain = "Anchoring the pattern keeps the scanner from mistaking an internal hash mark for a heading."
+
+[[lessons.exercises]]
+id = "s05-l04-e2"
+type = "text"
+points = 20
+prompt = "<p>What do you call the <code>|</code> that lets one regex match either a heading or a blank line?</p>"
+answer = "alternation"
+accept = ["the alternation operator", "alternation operator"]
+hint = "It is the branch that says 'this shape or that shape.'"
+whyWrong = "You are naming a pipe character by itself or some other punctuation. In regex work, that bar is the alternation operator."
+
+[[lessons.exercises]]
+id = "s05-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "<p>Retype the blank-branch exactly. Keep the regex test and the counter increment intact.</p>"
+code = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my $line = "   ";
+my %counts;
+if ($line =~ /^\s*$/) {
+    ++$counts{blank};
+}
+'''
+
+[[lessons.exercises]]
+id = "s05-l04-e3"
+type = "fill"
+points = 20
+prompt = "<p>Restore the quantifier that lets a blank line hold any amount of whitespace, including none.</p>"
+code = 'if ($line =~ /^____$/) { ++$counts{blank}; }'
+answer = "\\s*"
+hint = "The blank is the whitespace class with the zero-or-more quantifier."
+whyWrong = "You are forcing at least one space or asking for a different class. A manuscript blank can be truly empty or spaces-only."
+
+[[lessons.exercises]]
+id = "s05-l04-e4"
+type = "mc"
+points = 15
+prompt = "<p>Which pattern matches only a completely empty line, not one that contains spaces?</p>"
+choices = ["<code>/^\\s*$/</code>", "<code>/^\\s+$/</code>", "<code>/^#\\s+$/</code>", "<code>/^$/</code>"]
+answer = 3
+whyWrong = "You are accepting spaces-only lines or heading lines when the question asks for the one pattern that rejects anything but a truly empty line."
+hint = "This one is stricter than the usual blank-line test."
+explain = "<code>^$</code> accepts only the line with no characters at all; spaces make the line non-empty."
+
+[[lessons.exercises]]
+id = "s05-l04-w1"
+type = "write"
+points = 30
+prompt = "<p>Using the starter lines, count the headings, blank lines, and text lines with regex rules. Blank means empty or spaces-only. Print the counts in sorted key order and finish with <code>TOTAL 5</code>.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my @lines = ("# Preface", "   ", "A paragraph", "# Appendix", "");
+my %counts;
+
+# Task: classify each line with regex and count the three buckets.
+# Print the sorted report, then `TOTAL 5`.
+'''
+expect = '''
+BLANK 2
+HEAD 2
+TEXT 1
+TOTAL 5'''
+hint = "Check the heading with a left-edge anchor, the blank with a whitespace-only pattern, and keep the buckets in the hash."

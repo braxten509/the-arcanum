@@ -31,8 +31,9 @@ id = "s08-l01-e1"
 type = "mc"
 points = 25
 prompt = "While a program awaits an HTTP response, the thread that started the request is…"
-choices = ["blocked, spinning until bytes arrive", "free — no thread is consumed waiting on I/O; the method resumes on completion", "destroyed and recreated", "converted to a background thread"]
-answer = 1
+choices = ["free — no thread is consumed waiting on I/O; the method resumes on completion", "blocked, spinning until bytes arrive", "destroyed and recreated", "converted to a background thread"]
+answer = 0
+whyWrong = "Awaiting I/O doesn’t block, destroy, or background the thread — it’s released to do other work and the method resumes when the response arrives."
 hint = "This is THE difference between async waiting and blocking."
 
 [[lessons.exercises]]
@@ -44,8 +45,9 @@ code = '''
 var t = http.GetStringAsync(url);   // line 1
 DoSomethingElse();                   // line 2
 string html = await t;               // line 3'''
-choices = ["Line 1 — calling the method starts the work", "Line 3 — await starts it", "Only when the result is used", "Line 2"]
-answer = 0
+choices = ["Line 3 — await starts it", "Line 1 — calling the method starts the work", "Only when the result is used", "Line 2"]
+answer = 1
+whyWrong = "The download starts when the async method is CALLED, not at the await — await just suspends until the already-running work completes."
 hint = "await doesn't start work; it waits for work already in flight."
 
 [[lessons.exercises]]
@@ -53,8 +55,9 @@ id = "s08-l01-e3"
 type = "mc"
 points = 20
 prompt = "The async equivalent of Thread.Sleep(1000) is…"
-choices = ["Task.Wait(1000)", "await Task.Delay(1000)", "Thread.SleepAsync(1000)", "await 1000"]
-answer = 1
+choices = ["Task.Wait(1000)", "Thread.SleepAsync(1000)", "await Task.Delay(1000)", "await 1000"]
+answer = 2
+whyWrong = "Task.Wait blocks and ‘Thread.SleepAsync’/‘await 1000’ aren’t real — the async, non-blocking pause is await Task.Delay(1000)."
 hint = "Delay yields the thread; Sleep hogs it."
 
 [[lessons.exercises]]

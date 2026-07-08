@@ -1,0 +1,74 @@
+[[lessons]]
+id = "s03-l02"
+title = "The Pattern & the Copy — instance vs static"
+body = '''
+<p>There is the pattern of an ingot, and there is the ingot in your hand. Java draws the same line: <strong>instance</strong> members belong to each copy; <strong>static</strong> members belong to the class itself — one shared, not per-copy.</p>
+<pre><code><span class="k">public class</span> Ingot {
+    <span class="k">private static int</span> count = <span class="s">0</span>;   <span class="c">// shared across ALL ingots</span>
+    <span class="k">private</span> String name;            <span class="c">// each copy has its own</span>
+
+    <span class="k">public</span> Ingot(String name) {
+        <span class="k">this</span>.name = name;
+        count++;                       <span class="c">// every forge-strike ticks the shared tally</span>
+    }
+
+    <span class="k">public static int</span> getCount() { <span class="k">return</span> count; }
+}</code></pre>
+<p>Construct three ingots and <code>Ingot.getCount()</code> returns <code>3</code> — the one shared <code>count</code> ticked for each. Each ingot's <code>name</code> is its own. That is the whole distinction: <code>static</code> = one for the class (call it as <code>Ingot.getCount()</code>, with the class name); instance = one per copy (call it as <code>copper.getName()</code>, on the object).</p>
+<p>A static method cannot see instance fields directly — there is no "this copy" when you call <code>Ingot.getCount()</code>. That is why <code>main</code> is static: before any object exists, the runtime enters through the class. Everything you wanted to touch from <code>main</code> in ops I–II was static for exactly this reason.</p>
+<div class="callout"><strong>Orrick says:</strong> If you find yourself writing <code>static</code> on a field that clearly belongs to each copy (an ingot's name), stop. Static is for things the whole class shares — a counter, a constant, a factory. The smith's tally is shared; the ingot's name is not.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CONSTANTS ARE STATIC FINAL</div>
+<p>A value that never changes and belongs to the class is <code>static final</code> — by convention named in UPPER_SNAKE_CASE. You will see this in the mod: <code>public static final String MODID = "ironwright";</code> is the canonical mod id, one copy, never reassigned. <code>final</code> means "assigned once, never again"; <code>static</code> means "one for the class".</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s03-l02-e1"
+type = "mc"
+points = 15
+prompt = "You call <code>Ingot.getCount()</code> after constructing zero ingots and it returns 0; after constructing two, it returns 2. What does that tell you about <code>count</code>?"
+choices = ["count is an instance field — one per ingot", "count is a parameter", "count is a local variable in the constructor", "count is a static field — one shared tally for the whole class"]
+answer = 3
+whyWrong = "count is static, so a single tally is shared across all Ingot objects and ticks on every construction; an instance field would be 1 on each copy (not 0 then 2), a local would not survive between calls, and a parameter is an input. The rising shared total is the signature of static."
+hint = "The value rises across separate ingots — that only works if they all read the same slot."
+explain = "static means one-per-class. Ingot.getCount() reads the single shared count regardless of which ingot you ask through (you ask through the class name)."
+
+[[lessons.exercises]]
+id = "s03-l02-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the keyword that marks a field as belonging to the class itself (one shared slot), not to each copy."
+code = '''public class Ingot {
+    private ____ int count = 0;
+}'''
+answer = "static"
+whyWrong = "static makes count one-per-class; private controls visibility, final means assigned-once, public controls visibility. A shared tally across all ingots is static."
+hint = "It is the same keyword main carries — six letters, meaning 'belonging to the class as a whole'."
+
+[[lessons.exercises]]
+id = "s03-l02-w1"
+type = "write"
+points = 30
+prompt = "The Ingot class in the starter keeps a <code>static int count</code> that ticks in the constructor. In <code>main</code>, construct three ingots — <code>new Ingot(\"iron\")</code>, <code>new Ingot(\"copper\")</code>, <code>new Ingot(\"starsteel\")</code> — then print <code>COUNT </code> plus <code>Ingot.getCount()</code>. The expected output is exactly <code>COUNT 3</code>; read the number from the static getter, do not type 3 in the print."
+starter = '''public class Ironwright {
+    static class Ingot {
+        private static int count = 0;
+        private String name;
+        public Ingot(String name) { this.name = name; count++; }
+        public static int getCount() { return count; }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — construct three Ingot objects, then print "COUNT " + Ingot.getCount()
+    }
+}'''
+expect = '''
+COUNT 3'''
+hint = "Three new Ingot(...) calls, then System.out.println(\"COUNT \" + Ingot.getCount());"
+
+[[lessons.exercises]]
+id = "s03-l02-t1"
+type = "text"
+points = 20
+prompt = "Type the two keywords (in order, separated by a space) that mark a class-wide constant — assigned once, shared by all copies. (The mod's MODID is declared with these two.)"
+answer = "static final"
+hint = "First: one for the class. Second: assigned once and never again."

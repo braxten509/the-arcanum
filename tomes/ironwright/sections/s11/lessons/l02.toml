@@ -1,0 +1,79 @@
+[[lessons]]
+id = "s11-l02"
+title = "Picking the Right Event — BlockEvent & PlayerInteractEvent"
+body = '''
+<p>The world answers the hammer in many voices; you must pick the right one. Forge fires a different event for each kind of happening, and the event class names what happened. Browse <code>net.minecraftforge.event</code> in IntelliJ (Search Everywhere, type <code>Event</code>) and read the hierarchy:</p>
+<ul>
+<li><code>BlockEvent.BreakEvent</code> — a block is about to be broken (cancelable; you know the player and the position).</li>
+<li><code>BlockEvent.PlaceEvent</code> — a block was just placed.</li>
+<li><code>PlayerInteractEvent.RightClickBlock</code> — the player right-clicked a block (cancelable; you know the hand, the face, the position).</li>
+<li><code>PlayerInteractEvent.LeftClickBlock</code> — the player left-clicked a block (the swing before the break).</li>
+<li><code>LivingDropsEvent</code> — a mob died and is about to drop loot (Forgework XI lesson III uses this for custom drops).</li>
+</ul>
+<pre><code><span class="k">@SubscribeEvent</span>
+<span class="k">public static void</span> onRightClick(PlayerInteractEvent.RightClickBlock event) {
+    <span class="k">if</span> (event.getHand() == EnumHand.MAIN_HAND) {
+        System.out.println(<span class="s">"right-clicked "</span> + event.getPos());
+    }
+}</code></pre>
+<p>Each event hands you the context: <code>event.getPlayer()</code>, <code>event.getPos()</code> (the block position), <code>event.getHand()</code> (MAIN_HAND or OFF_HAND), <code>event.getFacing()</code> (which face was clicked). Read the event class's methods in IntelliJ to see what it carries — the smith-wright's eye on the event itself. Do not guess the field names; read them.</p>
+<div class="callout"><strong>Orrick says:</strong> Right-click and left-click are different events. A swing (left-click) fires <code>LeftClickBlock</code>; the break that follows fires <code>BreakEvent</code>. If you want to react to the click without preventing the break, handle <code>LeftClickBlock</code>; if you want to prevent the break, handle <code>BreakEvent</code> and cancel it. Pick the event whose meaning matches your intent.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE NESTED-CLASS HIERARCHY</div>
+<p>Many Forge events are nested classes: <code>BlockEvent.BreakEvent</code>, <code>PlayerInteractEvent.RightClickBlock</code>. The outer class (<code>BlockEvent</code>, <code>PlayerInteractEvent</code>) is the category; the inner class is the specific moment. Subscribing to the outer class (if it is not abstract) catches ALL events in that category — usually too broad. Subscribe to the specific inner class for the moment you want.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s11-l02-e1"
+type = "mc"
+points = 15
+prompt = "You want a behavior to fire when the player RIGHT-CLICKS a block (not on the break that might follow). Which event do you subscribe to?"
+choices = ["BlockEvent.BreakEvent", "PlayerInteractEvent.RightClickBlock", "LivingDropsEvent", "BlockEvent.PlaceEvent"]
+answer = 1
+whyWrong = "PlayerInteractEvent.RightClickBlock fires on the right-click of a block; BreakEvent is the block-breaking moment (left-click follow-through), LivingDropsEvent is mob death loot, and PlaceEvent is after a block is placed. The right-click event is PlayerInteractEvent.RightClickBlock."
+hint = "It is PlayerInteractEvent dot the right-click variant — RightClick + Block."
+explain = "RightClickBlock fires on the right-click, before any block change. BreakEvent is the break; LeftClickBlock is the swing."
+
+[[lessons.exercises]]
+id = "s11-l02-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the event class that fires when a block is about to be broken (cancelable — cancel it to prevent the break)."
+code = '''@SubscribeEvent
+public static void onBreak(____.BreakEvent event) {
+    if (event.getPlayer().isCreative()) event.setCanceled(true);
+}'''
+answer = "BlockEvent"
+whyWrong = "BlockEvent.BreakEvent is the about-to-break event (cancelable); PlayerInteractEvent is for clicks, PlaceEvent is BlockEvent.PlaceEvent (the inner class needs the outer BlockEvent prefix), LivingDropsEvent is mob loot. The break event's outer class is BlockEvent."
+hint = "It is the outer class of BreakEvent — Block + Event. (The full type is BlockEvent.BreakEvent.)"
+
+[[lessons.exercises]]
+id = "s11-l02-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of reading an event's payload. The starter has a mock <code>RightClickBlock</code> event class with <code>getHand()</code> returning <code>\"MAIN_HAND\"</code> and <code>getPos()</code> returning <code>\"12,64,-3\"</code>, and a mock <code>ModEvents</code> with an empty <code>onRightClick(RightClickBlock)</code>. Fill the handler to print <code>right-click MAIN_HAND @ 12,64,-3</code> by joining <code>\"right-click \"</code>, <code>event.getHand()</code>, <code>\" @ \"</code>, and <code>event.getPos()</code>. In <code>main</code>, call <code>ModEvents.onRightClick(new RightClickBlock());</code>."
+starter = '''public class Ironwright {
+    static class RightClickBlock {
+        public String getHand() { return "MAIN_HAND"; }
+        public String getPos() { return "12,64,-3"; }
+    }
+    static class ModEvents {
+        public static void onRightClick(RightClickBlock event) {
+            // apprentice — print "right-click " + hand + " @ " + pos
+        }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — call ModEvents.onRightClick(new RightClickBlock());
+    }
+}'''
+expect = '''
+right-click MAIN_HAND @ 12,64,-3'''
+hint = "In onRightClick: System.out.println(\"right-click \" + event.getHand() + \" @ \" + event.getPos());. In main: ModEvents.onRightClick(new RightClickBlock());"
+
+[[lessons.exercises]]
+id = "s11-l02-t1"
+type = "text"
+points = 20
+prompt = "Type the Forge event class that fires when a mob dies and is about to drop its loot (the one you would subscribe to for custom drops). (Full class name, net.minecraftforge.event...)"
+answer = "net.minecraftforge.event.entity.living.LivingDropsEvent"
+hint = "It is net.minecraftforge.event.entity.living package, class Living + Drops + Event."

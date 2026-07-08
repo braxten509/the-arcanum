@@ -1,0 +1,25 @@
+[freestyle]
+title = "THE WORKING: THE WATCH-BELL"
+brief = "<p>Wrap the entire Sextant run in a context manager and handle per-file errors gracefully:</p><ul><li>Write a class-based context manager <code>RunTimer</code> that prints <code>WATCH STARTED at {timestamp}</code> on entry and <code>WATCH ENDED — elapsed {seconds}s</code> on exit (use <code>time.time()</code>), even if an exception occurs</li><li>Write a <code>safe_read_logs(path: str) -> Iterator[LogRecord]</code> that wraps each file read in a try/except: on <code>FileNotFoundError</code>, print <code>BEARING OFF — {path} not found</code> and yield nothing (skip the file instead of crashing)</li><li>Write a <code>@contextmanager</code>-based manager <code>partial_report(path: str)</code> that opens a file on entry, yields a list to which lines can be appended, and writes them to disk on exit (even if an exception occurred inside the block)</li><li>In <code>main.py</code>, wrap the whole pipeline in <code>with RunTimer():</code> and read logs with <code>safe_read_logs</code>, collecting report lines into the <code>partial_report</code> context</li></ul>"
+reward = 200
+xray = "The grader docks points for: __exit__ that swallows exceptions without re-raising; not calling __exit__ manually when using @contextmanager's try/finally; RunTimer that does not print elapsed time with a real timestamp; partial_report that does not handle the case where the file is not writable. He gives style credit for: composing managers with ExitStack; custom exception subclasses with clear names; using else on try blocks to separate success-path code from exception-handling code."
+
+[freestyle.badge]
+id = "badge-s06"
+name = "THE WATCH-BELL"
+desc = "The bell rings once at start, once at finish — and never lies about a broken file."
+
+[[freestyle.rubric]]
+criterion = "Compiles & runs"
+weight = 35
+desc = "Build succeeds; runs without crashing on a log directory containing malformed files."
+
+[[freestyle.rubric]]
+criterion = "Meets the brief"
+weight = 40
+desc = "Every requirement in the checklist is present and correct."
+
+[[freestyle.rubric]]
+criterion = "Clean style"
+weight = 25
+desc = "PEP 8: snake_case, 4-space indent, no mutable globals, context managers composed with ExitStack or nesting."

@@ -1,0 +1,74 @@
+[[lessons]]
+id = "s03-l03"
+title = "Striking a Copy — new & Object References"
+body = '''
+<p>The class is the pattern; the object is the forged copy. <code>new</code> is the strike that brings a copy into being — it allocates memory, runs the constructor, and hands back a <strong>reference</strong> (an address pointing at the object).</p>
+<pre><code>Ingot a = <span class="k">new</span> Ingot(<span class="s">"iron"</span>, <span class="s">8</span>);
+Ingot b = <span class="k">new</span> Ingot(<span class="s">"iron"</span>, <span class="s">8</span>);</code></pre>
+<p>Two separate strikes, two separate objects, even though the data inside is identical. The variables <code>a</code> and <code>b</code> are not the ingots — they are references <em>pointing at</em> the ingots. Think of them as the smith's tongs: the tongs are not the metal, they hold the metal.</p>
+<p>Because references are addresses, <code>==</code> on two object variables asks "do these tongs grip the same object?". For <code>a</code> and <code>b</code> above, <code>a == b</code> is <code>false</code> — two separate strikes, two addresses, even with matching data. If you wrote <code>Ingot c = a;</code> then <code>a == c</code> would be <code>true</code>: you did not strike a new copy, you gave <code>c</code> a second pair of tongs gripping the same object as <code>a</code>.</p>
+<p>A reference that points at nothing holds <code>null</code>. Calling a method on <code>null</code> — <code>null.getName()</code> — throws a <code>NullPointerException</code>, the forge's most common explosion. Always strike before you grip.</p>
+<div class="callout"><strong>Orrick says:</strong> To ask "do two ingots hold the same data?" you need <code>.equals</code> — Forgework IV teaches you to write it. For now, remember: <code>==</code> on objects compares tongs, not metal.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY NEW MATTERS FOR THE MOD</div>
+<p>Every item and block in a Forge mod is an object you strike with <code>new</code> before registering it: <code>new ItemIngot("ironwright:iron")</code>. The registry then holds the reference. If two pieces of code each call <code>new</code> for what should be one item, you have two objects where the world expects one — a class of bug the registry exists to prevent. One strike, one reference, held by the registry.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s03-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the two strikes exactly — two Ingot objects with identical data, separate references."
+code = '''Ingot a = new Ingot("iron", 8);
+Ingot b = new Ingot("iron", 8);'''
+
+[[lessons.exercises]]
+id = "s03-l03-e1"
+type = "mc"
+points = 15
+prompt = "After <code>Ingot a = new Ingot(\"iron\", 8); Ingot b = new Ingot(\"iron\", 8);</code>, what is <code>a == b</code>?"
+choices = ["true, because the data matches", "true, because Java caches identical objects", "false, because a and b are two separate objects at different addresses", "the code does not compile"]
+answer = 2
+whyWrong = "== on object references compares identity (same address), not data; a and b were struck separately so they are two objects and == is false. Matching data would need .equals. The code compiles fine — == is legal, it just answers the identity question."
+hint = "Think about what == compares for objects — the tongs (address), not the metal (data)."
+explain = "Two new calls make two objects. a == b is false. To compare data you use .equals, which Forgework IV has you write."
+
+[[lessons.exercises]]
+id = "s03-l03-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the keyword that strikes a new object — allocating it and running its constructor."
+code = 'Ingot a = ____ Ingot("iron", 8);'
+answer = "new"
+whyWrong = "new allocates the object and runs the constructor; create and make are not Java keywords; class declares a type. Striking a copy is new."
+hint = "It is the three-letter English word meaning 'freshly struck' — also the operator that runs the constructor."
+
+[[lessons.exercises]]
+id = "s03-l03-w1"
+type = "write"
+points = 30
+prompt = "Construct <code>Ingot a = new Ingot(\"iron\", 8);</code> and <code>Ingot b = new Ingot(\"iron\", 8);</code> (same data, separate strikes). Print two lines: <code>SAME_REF </code> plus the result of <code>a == b</code>, then <code>SAME_VALUE </code> plus the result of <code>a.getValue() == b.getValue()</code>. Expected output is <code>SAME_REF false</code> then <code>SAME_VALUE true</code>."
+starter = '''public class Ironwright {
+    static class Ingot {
+        private String name;
+        private int value;
+        public Ingot(String name, int value) { this.name = name; this.value = value; }
+        public int getValue() { return value; }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — strike two Ingot objects with the same data, then print SAME_REF (a == b) and SAME_VALUE (a.getValue() == b.getValue())
+    }
+}'''
+expect = '''
+SAME_REF false
+SAME_VALUE true'''
+hint = "Ingot a = new Ingot(\"iron\", 8); Ingot b = new Ingot(\"iron\", 8); then two println calls joining the labels with the boolean expressions."
+
+[[lessons.exercises]]
+id = "s03-l03-t1"
+type = "text"
+points = 20
+prompt = "Type the literal that represents a reference pointing at no object — calling a method on it throws NullPointerException."
+answer = "null"
+hint = "It is the four-letter English word for 'nothing' — also a Java literal."

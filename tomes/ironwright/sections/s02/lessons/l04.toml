@@ -1,0 +1,101 @@
+[[lessons]]
+id = "s02-l04"
+title = "The Named Techniques — Methods & Scope"
+body = '''
+<p>A smith keeps his techniques in the head, not written fresh on every strike. A Java <strong>method</strong> is a named block of code you call by name — define it once, run it many times.</p>
+<pre><code><span class="k">static int</span> metalValue(String metal) {
+    <span class="k">if</span> (metal.equals(<span class="s">"iron"</span>)) <span class="k">return</span> <span class="s">8</span>;
+    <span class="k">if</span> (metal.equals(<span class="s">"copper"</span>)) <span class="k">return</span> <span class="s">6</span>;
+    <span class="k">if</span> (metal.equals(<span class="s">"starsteel"</span>)) <span class="k">return</span> <span class="s">20</span>;
+    <span class="k">return</span> <span class="s">0</span>;
+}
+
+<span class="c">// call it from main:</span>
+<span class="k">int</span> v = metalValue(<span class="s">"copper"</span>);  <span class="c">// v is 6</span></code></pre>
+<p>The signature <code>static int metalValue(String metal)</code> names four things: <code>static</code> (it belongs to the class, no object needed — you will meet objects in Forgework III), the <strong>return type</strong> <code>int</code> (the kind of value it hands back), the <strong>name</strong> <code>metalValue</code>, and the <strong>parameter</strong> <code>String metal</code> (the input it accepts, with its type). <code>return</code> sends a value back and exits the method immediately. A method marked <code>void</code> returns nothing — it just does work, like <code>println</code>.</p>
+<p>When you call <code>metalValue("copper")</code>, the string <code>"copper"</code> is the <strong>argument</strong> — it flows into the parameter <code>metal</code> for that call. <strong>Scope</strong> is where a name is visible: <code>metal</code> exists only inside <code>metalValue</code>; <code>v</code> exists only inside <code>main</code>. A variable declared in one method is invisible to another — the smith's left hand does not see the right hand's ledger unless you pass it across.</p>
+<div class="callout"><strong>Orrick says:</strong> Every non-<code>void</code> method must <code>return</code> a value on every path the code can take. Forget a branch and the compiler refuses the forging — "missing return statement".</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY STATIC FOR NOW</div>
+<p>Every method you write in ops I–V is <code>static</code> because <code>main</code> is static, and a static method can only call other static methods directly (no <code>this</code> yet). When classes and objects arrive in Forgework III, you will drop <code>static</code> for methods that belong to an instance — the difference between the pattern and the forged copy. For now, <code>static</code> means "callable from main".</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s02-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the method exactly — the static signature, the if/return branches, and the final fallback return."
+code = '''static int metalValue(String metal) {
+    if (metal.equals("iron")) return 8;
+    if (metal.equals("copper")) return 6;
+    if (metal.equals("starsteel")) return 20;
+    return 0;
+}'''
+
+[[lessons.exercises]]
+id = "s02-l04-e1"
+type = "mc"
+points = 15
+prompt = "What does the keyword <code>void</code> mean in a method signature like <code>static void greet()</code>?"
+choices = ["the method returns nothing", "the method takes no parameters", "the method is private", "the method can be overridden"]
+answer = 0
+whyWrong = "void is the return type meaning 'no value is returned'; the parameter list () is what says no parameters, private controls visibility, and overriding is an inheritance concept not yet taught. void is only about the return."
+hint = "It is the return type — the English word for 'empty', telling you nothing comes back."
+explain = "A void method does work and returns; a typed method (int, String, ...) must return a value of that type via return."
+
+[[lessons.exercises]]
+id = "s02-l04-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the keyword that sends a value back from a method and exits it immediately."
+code = '''static int metalValue(String metal) {
+    if (metal.equals("iron")) ____ 8;
+    return 0;
+}'''
+answer = "return"
+whyWrong = "return sends the value back and leaves the method; yield is not Java's keyword, break leaves a loop not a method, output is not a keyword. The method is typed int, so it must return an int."
+hint = "It is the English word for handing something back — six letters."
+
+[[lessons.exercises]]
+id = "s02-l04-w1"
+type = "write"
+points = 30
+prompt = "Define a <code>static int metalValue(String metal)</code> method that returns <code>8</code> for iron, <code>6</code> for copper, <code>20</code> for starsteel, and <code>0</code> otherwise. In <code>main</code>, read one metal from stdin (the engine pipes <code>starsteel</code>), call <code>metalValue</code>, and print <code>value </code> plus the result — exactly <code>value 20</code>. The starter returns 0 as a placeholder; replace it with the real branches."
+starter = '''import java.util.Scanner;
+
+public class Ironwright {
+    static int metalValue(String metal) {
+        // apprentice — return 8 for iron, 6 for copper, 20 for starsteel, else 0
+        return 0;
+    }
+
+    public static void main(String[] args) {
+        Scanner in = new Scanner(System.in);
+        String metal = in.nextLine();
+        int v = metalValue(metal);
+        System.out.println("value " + v);
+    }
+}'''
+expect = '''
+value 20'''
+hint = "Inside metalValue, use if (metal.equals(\"starsteel\")) return 20; for each metal, with return 0; at the end."
+stdin = "starsteel"
+
+[[lessons.exercises]]
+id = "s02-l04-t1"
+type = "text"
+points = 20
+prompt = "Type the keyword that marks a method as belonging to the class itself (not to an instance) — the one every method in ops I–V carries so main can call it."
+answer = "static"
+hint = "It is the English word for 'not moving / belonging to the class as a whole' — six letters."
+
+[[lessons.exercises]]
+id = "s02-l04-e2"
+type = "mc"
+points = 15
+prompt = "A parameter <code>String metal</code> is declared in <code>metalValue</code>. Where can the name <code>metal</code> be used?"
+choices = ["only inside the metalValue method", "anywhere in the class", "only inside main", "only after the return statement"]
+answer = 0
+whyWrong = "metal's scope is the method metalValue; main cannot see it, and it is visible throughout metalValue (before and after any return that hasn't fired). Scope is the region where the name lives — here, one method."
+hint = "Think about the rule of scope — a parameter is alive only inside the method that declares it."
+explain = "Parameters are local to their method. To use the value elsewhere, return it or pass it on — that is the boundary the smith keeps between his hands."

@@ -1,0 +1,83 @@
+[[lessons]]
+id = "s02-l02"
+title = "The Cycles of the Hammer — while & for"
+body = '''
+<p>A smith does not strike once. He strikes again and again until the metal takes shape. Java's loops are the hammer's cycles: <code>while</code> repeats a block while a condition holds, <code>for</code> repeats it a counted number of times.</p>
+<pre><code><span class="c">// the command loop: keep reading until input ends</span>
+<span class="k">while</span> (in.hasNextLine()) {
+    String command = in.nextLine();
+    System.out.println(<span class="s">"COMMAND "</span> + command);
+}</code></pre>
+<p>The <code>while</code> test runs before each pass; the moment it is false, the loop ends. <code>in.hasNextLine()</code> is the guard that makes a stdin loop safe — it returns <code>true</code> while a line remains and <code>false</code> at end-of-input, so the loop reads every command and stops cleanly. A <code>while (true)</code> with no escape is an infinite loop: the forge runs until the bellows burst.</p>
+<p><code>for</code> bundles three pieces — init, test, step — between semicolons:</p>
+<pre><code><span class="k">for</span> (<span class="k">int</span> i = <span class="s">0</span>; i &lt; <span class="s">3</span>; i++) {
+    System.out.println(<span class="s">"strike "</span> + i);
+}</code></pre>
+<p>This prints <code>strike 0</code>, <code>strike 1</code>, <code>strike 2</code> — three passes. <code>i++</code> means "add one to i", the increment operator. The test <code>i &lt; 3</code> runs before each pass; the step <code>i++</code> runs after each pass. Use <code>for</code> when you know the count, <code>while</code> when you do not.</p>
+<p><code>break</code> leaves a loop immediately; <code>continue</code> skips to the next pass. The command loop often uses <code>break</code> on <code>quit</code> to leave the cycle early.</p>
+<div class="callout"><strong>Orrick says:</strong> Every loop must have a way out. Either the condition becomes false, or a <code>break</code> fires. A loop with neither is a forge fire no one tends — it burns until you kill the program.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // OFF-BY-ONE</div>
+<p>The most common crooked strike: <code>for (int i = 0; i &lt; 3; i++)</code> runs three times (i is 0, 1, 2), not four. The boundary <code>&lt; 3</code> means "stop when i reaches 3", so 3 itself is never used. Write <code>&lt;=</code> when you want to include the last number, <code>&lt;</code> when you want to stop before it.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s02-l02-e1"
+type = "mc"
+points = 15
+prompt = "How many lines does <code>for (int i = 0; i &lt; 3; i++) { println(\"strike \" + i); }</code> print, and what is the last one?"
+choices = ["3 lines, last is strike 2", "3 lines, last is strike 3", "4 lines, last is strike 3", "2 lines, last is strike 1"]
+answer = 0
+whyWrong = "i starts at 0 and the test is i < 3, so i takes 0, 1, 2 — three passes, last printed strike 2. The < stops before 3; <= 3 would include strike 3 and run four times."
+hint = "i takes the values 0, 1, 2 because the test stops the loop before i reaches 3."
+explain = "Three iterations: 0, 1, 2. The boundary is exclusive (< 3), so i never equals 3 inside the loop."
+
+[[lessons.exercises]]
+id = "s02-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the command loop exactly — the hasNextLine guard, the read, and the echo inside the cycle."
+code = '''while (in.hasNextLine()) {
+    String command = in.nextLine();
+    System.out.println("COMMAND " + command);
+}'''
+
+[[lessons.exercises]]
+id = "s02-l02-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the Scanner method that returns true while another line of input remains — the safe guard for a stdin loop."
+code = '''while (in.____()) {
+    String command = in.nextLine();
+}'''
+answer = "hasNextLine"
+whyWrong = "hasNextLine returns true while a line remains, the right loop guard; nextLine reads a line (and would crash at EOF if used as the guard); next reads one word; hasNextInt checks for a number. A loop guard must be a boolean."
+hint = "It is hasNext plus the word for a line — the boolean partner to nextLine."
+
+[[lessons.exercises]]
+id = "s02-l02-w1"
+type = "write"
+points = 30
+prompt = "Read commands from stdin in a loop until input ends (the engine pipes three lines: <code>forge iron</code>, <code>list</code>, <code>quit</code>). Print each one back as <code>COMMAND &lt;line&gt;</code> on its own line — three lines of output. Use a while loop guarded by hasNextLine."
+starter = '''import java.util.Scanner;
+
+public class Ironwright {
+    public static void main(String[] args) {
+        Scanner in = new Scanner(System.in);
+        // apprentice — loop while in.hasNextLine(), read each line, print "COMMAND " + it
+    }
+}'''
+expect = '''
+COMMAND forge iron
+COMMAND list
+COMMAND quit'''
+hint = "while (in.hasNextLine()) { String c = in.nextLine(); System.out.println(\"COMMAND \" + c); }"
+stdin = "forge iron\nlist\nquit"
+
+[[lessons.exercises]]
+id = "s02-l02-t1"
+type = "text"
+points = 20
+prompt = "Type the keyword that leaves a loop immediately, no matter what the condition says. (Used to break out on 'quit'.)"
+answer = "break"
+hint = "It is the English word for leaving a cycle — five letters."

@@ -1,0 +1,1147 @@
+# Reference solutions for IRONWRIGHT's SPELL DUEL bank (Java 8, this tome's language).
+# tools/gen_attacks.py runs each `solution` through this tome's runtime via
+# /api/runsnippet, slices the verified stdout into the cumulative per-stage `expect`
+# blocks, and writes generated/attacks.toml. Regenerate:  python3 tools/gen_attacks.py
+# ironwright   (server running). Never hand-edit generated/attacks.toml.
+#
+# Every solution is a single-file `public class Ironwright` with a main method (it
+# matches [runtime].entryFile = Ironwright.java, so `javac Ironwright.java && java
+# Ironwright` runs it). Minigames never enter the Forge workspace — they run plain
+# Java in the engine's scratch dir, so even the mod-op tiers (6-9) drill the mod's
+# PATTERNS in plain Java: lifecycle ordering, registry maps, model/blockstate JSON
+# emission, reconnaissance ("reading the old marks" as string parsing). No Forge or
+# Minecraft APIs are available in the scratch dir; none are used.
+#
+# Tier N unlocks after N forgeworks are passed, so a tier's demands stay within the
+# concepts taught by that point in the syllabus. Each challenge has exactly 3 stages
+# (matching [progression].attackStages = [0, 60, 120]); each stage strictly APPENDS
+# lines — stages[n].expect == stages[n-1].expect + new lines, never edits.
+#
+# Voice: Orrick's forge — rivals come to the forge, not the wizard's tower. Titles,
+# briefs, and every printed token carry the smith's tongue (ingot, anvil, belloys,
+# cast stone, the binding, the old marks, the smith-wright's eye). No magic/mana
+# cant, no borrowed wizard-arc titles.
+
+# ---- Tier 1 — the first spark (variables, types, String, println, operators)
+[[challenge]]
+tier = 1
+title = "THE COLD ANVIL"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        int iron = 8, copper = 6, starsteel = 20;
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+briefs = [
+  "Strike the first marking. Print «INGOT iron @ 8em», «INGOT copper @ 6em», «INGOT starsteel @ 20em» — woven from the variables, values not hardcoded.",
+  "Append «TOTAL <iron+copper+starsteel>em» and «COUNT 3 INGOTS» — the count from the array of metals, computed.",
+  "Append «DEAREST <name of the highest-value metal>» (computed) and «ANVIL SET».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        int iron = 8, copper = 6, starsteel = 20;
+        int[] values = { iron, copper, starsteel };
+        String[] names = { "iron", "copper", "starsteel" };
+        for (int i = 0; i < names.length; i++)
+            System.out.println("INGOT " + names[i] + " @ " + values[i] + "em");
+        int total = iron + copper + starsteel;
+        System.out.println("TOTAL " + total + "em");
+        System.out.println("COUNT " + names.length + " INGOTS");
+        int dv = values[0]; String dearest = names[0];
+        for (int i = 1; i < names.length; i++) if (values[i] > dv) { dv = values[i]; dearest = names[i]; }
+        System.out.println("DEAREST " + dearest);
+        System.out.println("ANVIL SET");
+    }
+}
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 1
+title = "THE BELLOWS' BREATH"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        int coals = 12, breath = 7;
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+briefs = [
+  "Report the forge's breath. Print «COALS 12» and «BREATH 7» from the variables, then «FORGE BREATHING».",
+  "Append «HEAT <coals * breath>» (computed) and «SPARK <coals + breath>».",
+  "Append the heat's parity («PARITY EVEN» or «PARITY ODD») and «BELLOWS READY».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        int coals = 12, breath = 7;
+        System.out.println("COALS " + coals);
+        System.out.println("BREATH " + breath);
+        System.out.println("FORGE BREATHING");
+        int heat = coals * breath;
+        System.out.println("HEAT " + heat);
+        System.out.println("SPARK " + (coals + breath));
+        System.out.println(heat % 2 == 0 ? "PARITY EVEN" : "PARITY ODD");
+        System.out.println("BELLOWS READY");
+    }
+}
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 1
+title = "THE INGOT'S STAMP"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String metal = "iron";
+        int value = 8, melt = 1500;
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+briefs = [
+  "Stamp the ingot. Print «STAMP iron @ 8em» and «MELT 1500C» from the variables, then «INGOT NAMED».",
+  "Append «MARK <metal><value>» (e.g. iron8) and «TEMPER <melt - value>» (computed).",
+  "Append «FORGEABLE true» if value < melt else «FORGEABLE false», then «STAMP SET».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String metal = "iron";
+        int value = 8, melt = 1500;
+        System.out.println("STAMP " + metal + " @ " + value + "em");
+        System.out.println("MELT " + melt + "C");
+        System.out.println("INGOT NAMED");
+        System.out.println("MARK " + metal + value);
+        System.out.println("TEMPER " + (melt - value));
+        System.out.println(value < melt ? "FORGEABLE true" : "FORGEABLE false");
+        System.out.println("STAMP SET");
+    }
+}
+'''
+cuts = [3, 5, 7]
+
+# ---- Tier 2 — flow & methods (loops, if/else, while, switch, methods)
+[[challenge]]
+tier = 2
+title = "THE BELLOWS' CYCLE"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        int[] heats = { 3, 7, 2, 9 };
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+briefs = [
+  "Pump the bellows over each heat. Print «PUMP <n> <h>» (1-based n) per heat, then «CYCLE 4» (count from the array, computed).",
+  "Append «HOTTEST <max heat>» and «MEAN <sum/count, integer division>».",
+  "Append «READY <count of heats >= 5>» and «BELLOWS DONE».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        int[] heats = { 3, 7, 2, 9 };
+        int max = 0, sum = 0, ready = 0;
+        for (int i = 0; i < heats.length; i++) {
+            System.out.println("PUMP " + (i + 1) + " " + heats[i]);
+            if (heats[i] > max) max = heats[i];
+            sum += heats[i];
+            if (heats[i] >= 5) ready++;
+        }
+        System.out.println("CYCLE " + heats.length);
+        System.out.println("HOTTEST " + max);
+        System.out.println("MEAN " + (sum / heats.length));
+        System.out.println("READY " + ready);
+        System.out.println("BELLOWS DONE");
+    }
+}
+'''
+cuts = [5, 7, 9]
+
+[[challenge]]
+tier = 2
+title = "THE FORGE DISPATCH"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String[] commands = { "forge iron", "value copper", "list", "quit" };
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+briefs = [
+  "Read the command roll. For each print «CMD <command>», then «ROLL 4» (count computed).",
+  "Append «FORGE <count of commands starting with forge>» and «VALUE <count starting with value>».",
+  "Append «KNOWN <count of commands that are forge, value, or list>» and «DISPATCH DONE».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String[] commands = { "forge iron", "value copper", "list", "quit" };
+        int forge = 0, value = 0, known = 0;
+        for (String c : commands) {
+            System.out.println("CMD " + c);
+            if (c.startsWith("forge")) forge++;
+            if (c.startsWith("value")) value++;
+            if (c.startsWith("forge") || c.startsWith("value") || c.startsWith("list")) known++;
+        }
+        System.out.println("ROLL " + commands.length);
+        System.out.println("FORGE " + forge);
+        System.out.println("VALUE " + value);
+        System.out.println("KNOWN " + known);
+        System.out.println("DISPATCH DONE");
+    }
+}
+'''
+cuts = [5, 7, 9]
+
+[[challenge]]
+tier = 2
+title = "THE SMITH'S METHOD"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        int[] bars = { 4, 6, 8 };
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+    static int temper(int n) { return n * 3 - 2; }
+}
+'''
+briefs = [
+  "For each bar call temper(n) and print «BAR <n> -> <tempered>», then «STRUCK 3» (count from the array, computed).",
+  "Append «TOTAL <sum of tempered values>» and «PEAK <max tempered value>».",
+  "Append «EVEN <count of tempered values that are even>» and «METHOD DONE».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        int[] bars = { 4, 6, 8 };
+        int total = 0, peak = 0, even = 0;
+        for (int n : bars) {
+            int t = temper(n);
+            System.out.println("BAR " + n + " -> " + t);
+            total += t;
+            if (t > peak) peak = t;
+            if (t % 2 == 0) even++;
+        }
+        System.out.println("STRUCK " + bars.length);
+        System.out.println("TOTAL " + total);
+        System.out.println("PEAK " + peak);
+        System.out.println("EVEN " + even);
+        System.out.println("METHOD DONE");
+    }
+    static int temper(int n) { return n * 3 - 2; }
+}
+'''
+cuts = [4, 6, 8]
+
+# ---- Tier 3 — shaping the ingot (classes, fields, constructors, this, new)
+[[challenge]]
+tier = 3
+title = "THE INGOT FOUND"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        Ingot[] batch = { new Ingot("iron", 8), new Ingot("copper", 6), new Ingot("starsteel", 20) };
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+class Ingot {
+    String name;
+    int value;
+    Ingot(String name, int value) { this.name = name; this.value = value; }
+}
+'''
+briefs = [
+  "Read the batch. Print «INGOT <name> <value>em» per ingot, then «BATCH 3» (count from the array, computed).",
+  "Append «PURSE <sum of values>em» and «DEAREST <name of the highest-value ingot>».",
+  "Append «MEAN <sum/count, integer division>em» and «BATCH SEALED».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        Ingot[] batch = { new Ingot("iron", 8), new Ingot("copper", 6), new Ingot("starsteel", 20) };
+        int sum = 0, max = 0;
+        String dearest = "";
+        for (Ingot g : batch) {
+            System.out.println("INGOT " + g.name + " " + g.value + "em");
+            sum += g.value;
+            if (g.value > max) { max = g.value; dearest = g.name; }
+        }
+        System.out.println("BATCH " + batch.length);
+        System.out.println("PURSE " + sum + "em");
+        System.out.println("DEAREST " + dearest);
+        System.out.println("MEAN " + (sum / batch.length) + "em");
+        System.out.println("BATCH SEALED");
+    }
+}
+class Ingot {
+    String name;
+    int value;
+    Ingot(String name, int value) { this.name = name; this.value = value; }
+}
+'''
+cuts = [4, 6, 8]
+
+[[challenge]]
+tier = 3
+title = "THE REGISTRY'S FIRST KEY"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        Ingot[] reg = { new Ingot("iron", 8), new Ingot("copper", 6), new Ingot("starsteel", 20) };
+        String query = "copper";
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+class Ingot {
+    String name;
+    int value;
+    Ingot(String name, int value) { this.name = name; this.value = value; }
+}
+'''
+briefs = [
+  "List the registry. Print «REG <name> <value>em» per ingot, then «KEYS 3» (count from the array, computed).",
+  "Find the queried ingot (query = \"copper\") by name. Append «FOUND <name> @ <value>em» reading the value from the array, not the literal.",
+  "Append «OTHERS <count of ingots whose name is not the query>» and «REGISTRY SET».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        Ingot[] reg = { new Ingot("iron", 8), new Ingot("copper", 6), new Ingot("starsteel", 20) };
+        String query = "copper";
+        for (Ingot g : reg) System.out.println("REG " + g.name + " " + g.value + "em");
+        System.out.println("KEYS " + reg.length);
+        Ingot found = null;
+        for (Ingot g : reg) if (g.name.equals(query)) { found = g; break; }
+        System.out.println("FOUND " + found.name + " @ " + found.value + "em");
+        int others = 0;
+        for (Ingot g : reg) if (!g.name.equals(query)) others++;
+        System.out.println("OTHERS " + others);
+        System.out.println("REGISTRY SET");
+    }
+}
+class Ingot {
+    String name;
+    int value;
+    Ingot(String name, int value) { this.name = name; this.value = value; }
+}
+'''
+cuts = [4, 5, 7]
+
+[[challenge]]
+tier = 3
+title = "THE STATIC MARK"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+class Forge {
+    static int count = 0;
+    int id;
+    Forge(int id) { this.id = id; count++; }
+}
+'''
+briefs = [
+  "Open the forge three times. Construct three Forge marks (ids 1, 2, 3) and print «MARK <id>» each, then «OPEN <Forge.count>» (the shared counter, computed).",
+  "Append «LAST <id of the last mark>» and «SUM <sum of the ids>».",
+  "Append «STATIC <Forge.count>» (read from the class, not a literal) and «FORGE OPENED».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        Forge a = new Forge(1), b = new Forge(2), c = new Forge(3);
+        System.out.println("MARK " + a.id);
+        System.out.println("MARK " + b.id);
+        System.out.println("MARK " + c.id);
+        System.out.println("OPEN " + Forge.count);
+        System.out.println("LAST " + c.id);
+        System.out.println("SUM " + (a.id + b.id + c.id));
+        System.out.println("STATIC " + Forge.count);
+        System.out.println("FORGE OPENED");
+    }
+}
+class Forge {
+    static int count = 0;
+    int id;
+    Forge(int id) { this.id = id; count++; }
+}
+'''
+cuts = [4, 6, 8]
+
+# ---- Tier 4 — the anvil's children (inheritance, toString/equals, packages)
+[[challenge]]
+tier = 4
+title = "THE ANVIL'S CHILDREN"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        Ingot[] batch = {
+            new Ingot("iron", 8),
+            new IngotAlloy("starsteel", 20, new String[]{"iron", "coal"}),
+            new Ingot("copper", 6)
+        };
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+class Ingot {
+    String name;
+    int value;
+    Ingot(String name, int value) { this.name = name; this.value = value; }
+    public String toString() { return name + " @ " + value + "em"; }
+}
+class IngotAlloy extends Ingot {
+    String[] parts;
+    IngotAlloy(String name, int value, String[] parts) { super(name, value); this.parts = parts; }
+    public String toString() { return super.toString() + " (" + String.join("+", parts) + ")"; }
+}
+'''
+briefs = [
+  "Read the batch polymorphically. Print each ingot's toString (one line per ingot), then «BATCH 3» (count from the array, computed).",
+  "Append «ALLOYS <count of IngotAlloy, use instanceof>» and «PURE <count of plain Ingot that are not alloys>».",
+  "Append «HEAVIEST <toString of the highest-value ingot>» and «ANVIL DONE».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        Ingot[] batch = {
+            new Ingot("iron", 8),
+            new IngotAlloy("starsteel", 20, new String[]{"iron", "coal"}),
+            new Ingot("copper", 6)
+        };
+        for (Ingot g : batch) System.out.println(g);
+        System.out.println("BATCH " + batch.length);
+        int alloys = 0, pure = 0;
+        for (Ingot g : batch) { if (g instanceof IngotAlloy) alloys++; else pure++; }
+        System.out.println("ALLOYS " + alloys);
+        System.out.println("PURE " + pure);
+        Ingot heavy = batch[0];
+        for (Ingot g : batch) if (g.value > heavy.value) heavy = g;
+        System.out.println("HEAVIEST " + heavy);
+        System.out.println("ANVIL DONE");
+    }
+}
+class Ingot {
+    String name;
+    int value;
+    Ingot(String name, int value) { this.name = name; this.value = value; }
+    public String toString() { return name + " @ " + value + "em"; }
+}
+class IngotAlloy extends Ingot {
+    String[] parts;
+    IngotAlloy(String name, int value, String[] parts) { super(name, value); this.parts = parts; }
+    public String toString() { return super.toString() + " (" + String.join("+", parts) + ")"; }
+}
+'''
+cuts = [4, 6, 8]
+
+[[challenge]]
+tier = 4
+title = "THE EQUAL MARK"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        Ingot a = new Ingot("iron", 8), b = new Ingot("iron", 8), c = new Ingot("copper", 6);
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+class Ingot {
+    String name;
+    int value;
+    Ingot(String name, int value) { this.name = name; this.value = value; }
+    public boolean equals(Object o) {
+        if (!(o instanceof Ingot)) return false;
+        Ingot i = (Ingot) o;
+        return name.equals(i.name) && value == i.value;
+    }
+}
+'''
+briefs = [
+  "Test the ingots' equality. Print «a == b <true/false>» (reference equality), «a.equals(b) <true/false>», «a.equals(c) <true/false>» — computed, not hardcoded.",
+  "Append «SAME <count of pairs where equals is true, among a-b, a-c, b-c>» and «DIFF <count where equals is false>».",
+  "Append «MATCH a b» if a.equals(b) else «MISMATCH a b», then «EQUAL MARK SET».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        Ingot a = new Ingot("iron", 8), b = new Ingot("iron", 8), c = new Ingot("copper", 6);
+        System.out.println("a == b " + (a == b));
+        System.out.println("a.equals(b) " + (a.equals(b)));
+        System.out.println("a.equals(c) " + (a.equals(c)));
+        int same = 0, diff = 0;
+        if (a.equals(b)) same++; else diff++;
+        if (a.equals(c)) same++; else diff++;
+        if (b.equals(c)) same++; else diff++;
+        System.out.println("SAME " + same);
+        System.out.println("DIFF " + diff);
+        System.out.println(a.equals(b) ? "MATCH a b" : "MISMATCH a b");
+        System.out.println("EQUAL MARK SET");
+    }
+}
+class Ingot {
+    String name;
+    int value;
+    Ingot(String name, int value) { this.name = name; this.value = value; }
+    public boolean equals(Object o) {
+        if (!(o instanceof Ingot)) return false;
+        Ingot i = (Ingot) o;
+        return name.equals(i.name) && value == i.value;
+    }
+}
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 4
+title = "THE PACKAGE PATH"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String[] classes = {
+            "net.minecraft.item.Item",
+            "net.minecraft.block.Block",
+            "com.ironwright.item.Item"
+        };
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+briefs = [
+  "For each class print its simple name (the text after the last '.') as «SIMPLE <name>», then «CLASSES 3» (count from the array, computed).",
+  "Append «MOD <count of classes under com.ironwright>» and «VANILLA <count under net.minecraft>».",
+  "Append «SHARED <count of classes whose simple name also appears in another class>» (the two Item classes share their simple name), then «PATHS DONE».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String[] classes = { "net.minecraft.item.Item", "net.minecraft.block.Block", "com.ironwright.item.Item" };
+        for (String cls : classes) System.out.println("SIMPLE " + cls.substring(cls.lastIndexOf('.') + 1));
+        System.out.println("CLASSES " + classes.length);
+        int mod = 0, vanilla = 0;
+        for (String cls : classes) {
+            if (cls.startsWith("com.ironwright")) mod++;
+            if (cls.startsWith("net.minecraft")) vanilla++;
+        }
+        System.out.println("MOD " + mod);
+        System.out.println("VANILLA " + vanilla);
+        int shared = 0;
+        for (int i = 0; i < classes.length; i++)
+            for (int j = 0; j < classes.length; j++)
+                if (i != j && simple(classes[i]).equals(simple(classes[j]))) { shared++; break; }
+        System.out.println("SHARED " + shared);
+        System.out.println("PATHS DONE");
+    }
+    static String simple(String cls) { return cls.substring(cls.lastIndexOf('.') + 1); }
+}
+'''
+cuts = [4, 6, 8]
+
+# ---- Tier 5 — contracts & collections (interfaces, generics, List/Map, enums)
+[[challenge]]
+tier = 5
+title = "THE FORGEABLE CONTRACT"
+starter = '''
+import java.util.*;
+public class Ironwright {
+    public static void main(String[] args) {
+        List<Forgeable> batch = new ArrayList<>(Arrays.asList(
+            new Ingot("iron", 8), new Ingot("copper", 6), new Ingot("starsteel", 20)));
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+interface Forgeable { int forgeValue(); String forgeName(); }
+class Ingot implements Forgeable {
+    String name; int value;
+    Ingot(String n, int v) { name = n; value = v; }
+    public int forgeValue() { return value; }
+    public String forgeName() { return name; }
+}
+'''
+briefs = [
+  "Read the batch through the contract. Print «FORGE <forgeName()> <forgeValue()>em» per item, then «BATCH 3» (count from the list, computed).",
+  "Append «TOTAL <sum of forgeValue()>em» and «DEAREST <forgeName() of the highest-value item>».",
+  "Append «MEAN <sum/count, integer division>em» and «CONTRACT SET».",
+]
+solution = '''
+import java.util.*;
+public class Ironwright {
+    public static void main(String[] args) {
+        List<Forgeable> batch = new ArrayList<>(Arrays.asList(
+            new Ingot("iron", 8), new Ingot("copper", 6), new Ingot("starsteel", 20)));
+        for (Forgeable f : batch) System.out.println("FORGE " + f.forgeName() + " " + f.forgeValue() + "em");
+        System.out.println("BATCH " + batch.size());
+        int sum = 0, max = 0;
+        String dearest = "";
+        for (Forgeable f : batch) {
+            sum += f.forgeValue();
+            if (f.forgeValue() > max) { max = f.forgeValue(); dearest = f.forgeName(); }
+        }
+        System.out.println("TOTAL " + sum + "em");
+        System.out.println("DEAREST " + dearest);
+        System.out.println("MEAN " + (sum / batch.size()) + "em");
+        System.out.println("CONTRACT SET");
+    }
+}
+interface Forgeable { int forgeValue(); String forgeName(); }
+class Ingot implements Forgeable {
+    String name; int value;
+    Ingot(String n, int v) { name = n; value = v; }
+    public int forgeValue() { return value; }
+    public String forgeName() { return name; }
+}
+'''
+cuts = [4, 6, 8]
+
+[[challenge]]
+tier = 5
+title = "THE METAL ENUM"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+enum Metal {
+    IRON(8, 1500), COPPER(6, 1085), STARSTEEL(20, 2200);
+    int value, melt;
+    Metal(int value, int melt) { this.value = value; this.melt = melt; }
+}
+'''
+briefs = [
+  "Read the metal roll. Print «METAL <name> <value>em <melt>C» per metal, then «ROLL 3» (count from values(), computed).",
+  "Append «HOTTEST <name of the highest melt>» and «DEAREST <name of the highest value>».",
+  "Append «FORGEABLE <count of metals with melt >= 1500>» and «ENUM SET».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        Metal[] metals = Metal.values();
+        for (Metal m : metals) System.out.println("METAL " + m + " " + m.value + "em " + m.melt + "C");
+        System.out.println("ROLL " + metals.length);
+        Metal hottest = metals[0], dearest = metals[0];
+        for (Metal m : metals) {
+            if (m.melt > hottest.melt) hottest = m;
+            if (m.value > dearest.value) dearest = m;
+        }
+        System.out.println("HOTTEST " + hottest);
+        System.out.println("DEAREST " + dearest);
+        int forgeable = 0;
+        for (Metal m : metals) if (m.melt >= 1500) forgeable++;
+        System.out.println("FORGEABLE " + forgeable);
+        System.out.println("ENUM SET");
+    }
+}
+enum Metal {
+    IRON(8, 1500), COPPER(6, 1085), STARSTEEL(20, 2200);
+    int value, melt;
+    Metal(int value, int melt) { this.value = value; this.melt = melt; }
+}
+'''
+cuts = [4, 6, 8]
+
+[[challenge]]
+tier = 5
+title = "THE GENERIC REGISTRY"
+starter = '''
+import java.util.*;
+public class Ironwright {
+    public static void main(String[] args) {
+        Registry<Ingot> reg = new Registry<>();
+        // Register iron->8, copper->6, starsteel->20, then answer the demands.
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+class Ingot { String name; int value; Ingot(String n, int v) { name = n; value = v; } }
+class Registry<T> {
+    Map<String, T> items = new LinkedHashMap<>();
+    void register(String k, T v) { items.put(k, v); }
+    T get(String k) { return items.get(k); }
+    int size() { return items.size(); }
+}
+'''
+briefs = [
+  "Register three ingots (iron->8, copper->6, starsteel->20) and print «REG <key> <value>em» per key in insertion order, then «SIZE 3» (from size(), computed).",
+  "Append «LOOKUP iron <value from get(\"iron\")>em» and «LOOKUP starsteel <value from get(\"starsteel\")>em» — read via get(), not literals.",
+  "Append «KEYS <size()>» and «REGISTRY SEALED».",
+]
+solution = '''
+import java.util.*;
+public class Ironwright {
+    public static void main(String[] args) {
+        Registry<Ingot> reg = new Registry<>();
+        reg.register("iron", new Ingot("iron", 8));
+        reg.register("copper", new Ingot("copper", 6));
+        reg.register("starsteel", new Ingot("starsteel", 20));
+        for (String k : reg.items.keySet()) System.out.println("REG " + k + " " + reg.items.get(k).value + "em");
+        System.out.println("SIZE " + reg.size());
+        System.out.println("LOOKUP iron " + reg.get("iron").value + "em");
+        System.out.println("LOOKUP starsteel " + reg.get("starsteel").value + "em");
+        System.out.println("KEYS " + reg.size());
+        System.out.println("REGISTRY SEALED");
+    }
+}
+class Ingot { String name; int value; Ingot(String n, int v) { name = n; value = v; } }
+class Registry<T> {
+    Map<String, T> items = new LinkedHashMap<>();
+    void register(String k, T v) { items.put(k, v); }
+    T get(String k) { return items.get(k); }
+    int size() { return items.size(); }
+}
+'''
+cuts = [4, 6, 8]
+
+# ---- Tier 6 — the dev forge & reconnaissance (parsing the old marks, MCP, toolchain)
+[[challenge]]
+tier = 6
+title = "TRANSLATING THE OLD MARKS"
+starter = '''
+import java.util.*;
+public class Ironwright {
+    public static void main(String[] args) {
+        Map<String, String> mcp = new LinkedHashMap<>();
+        mcp.put("field_7777_a", "maxStackSize");
+        mcp.put("func_1111_b", "getUnlocalizedName");
+        mcp.put("field_8888_c", "unlocalizedName");
+        String[] srgs = { "field_7777_a", "func_1111_b", "field_8888_c" };
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+briefs = [
+  "Translate the old marks. For each SRG name print «<srg> -> <mcp name>» using the map, then «MARKS 3» (count from the array, computed).",
+  "Append «FIELDS <count of srgs starting with 'field'>» and «FUNCS <count starting with 'func'>».",
+  "Append «LONGEST <longest translated name>» (computed) and «TRANSLATION DONE».",
+]
+solution = '''
+import java.util.*;
+public class Ironwright {
+    public static void main(String[] args) {
+        Map<String, String> mcp = new LinkedHashMap<>();
+        mcp.put("field_7777_a", "maxStackSize");
+        mcp.put("func_1111_b", "getUnlocalizedName");
+        mcp.put("field_8888_c", "unlocalizedName");
+        String[] srgs = { "field_7777_a", "func_1111_b", "field_8888_c" };
+        for (String s : srgs) System.out.println(s + " -> " + mcp.get(s));
+        System.out.println("MARKS " + srgs.length);
+        int fields = 0, funcs = 0;
+        for (String s : srgs) {
+            if (s.startsWith("field")) fields++;
+            if (s.startsWith("func")) funcs++;
+        }
+        System.out.println("FIELDS " + fields);
+        System.out.println("FUNCS " + funcs);
+        String longest = "";
+        for (String s : srgs) if (mcp.get(s).length() > longest.length()) longest = mcp.get(s);
+        System.out.println("LONGEST " + longest);
+        System.out.println("TRANSLATION DONE");
+    }
+}
+'''
+cuts = [4, 6, 8]
+
+[[challenge]]
+tier = 6
+title = "THE SMITH-WRIGHT'S EYE"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String src = "public int maxStackSize;public String unlocalizedName;public void onCreated(){}";
+        // A field part has no '('. THE FIRST STRIKE is set. Further demands may arm.
+    }
+}
+'''
+briefs = [
+  "Read the old marks. Split the source on ';' and print «FIELD <name>» for each part with no '(' (the name is the last whitespace-separated token), then «READ <field count>» (computed).",
+  "Append «METHODS <count of parts with '('>» and «MEMBERS <total parts>».",
+  "Append «HAS maxStackSize <true/false>» (does any field equal maxStackSize) and «EYE DONE».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String src = "public int maxStackSize;public String unlocalizedName;public void onCreated(){}";
+        String[] parts = src.split(";");
+        int fields = 0, methods = 0;
+        boolean hasMax = false;
+        for (String p : parts) {
+            if (p.indexOf('(') < 0) {
+                String[] toks = p.trim().split(" ");
+                String name = toks[toks.length - 1];
+                System.out.println("FIELD " + name);
+                fields++;
+                if (name.equals("maxStackSize")) hasMax = true;
+            } else methods++;
+        }
+        System.out.println("READ " + fields);
+        System.out.println("METHODS " + methods);
+        System.out.println("MEMBERS " + parts.length);
+        System.out.println("HAS maxStackSize " + hasMax);
+        System.out.println("EYE DONE");
+    }
+}
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 6
+title = "THE DEV FORGE OPENS"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String[] steps = { "install jdk8", "download forge mdk", "setupDecompWorkspace", "genIntellijRuns", "runClient" };
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+briefs = [
+  "Run the setup steps in order. Print «STEP <n> <step>» (1-based n) per step, then «STEPS 5» (count from the array, computed).",
+  "Append «PREP <count of steps before runClient>» (computed) and «FIRE <the last step>».",
+  "Append «BENCH <true/false>» (does genIntellijRuns appear — the smith's bench is set) and «FORGE OPEN».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String[] steps = { "install jdk8", "download forge mdk", "setupDecompWorkspace", "genIntellijRuns", "runClient" };
+        for (int i = 0; i < steps.length; i++) System.out.println("STEP " + (i + 1) + " " + steps[i]);
+        System.out.println("STEPS " + steps.length);
+        int prep = 0;
+        for (String s : steps) if (!s.equals("runClient")) prep++;
+        System.out.println("PREP " + prep);
+        System.out.println("FIRE " + steps[steps.length - 1]);
+        boolean bench = false;
+        for (String s : steps) if (s.equals("genIntellijRuns")) bench = true;
+        System.out.println("BENCH " + bench);
+        System.out.println("FORGE OPEN");
+    }
+}
+'''
+cuts = [6, 8, 10]
+
+# ---- Tier 7 — the binding (@Mod lifecycle, proxies, mcmod.info)
+[[challenge]]
+tier = 7
+title = "THE BINDING RITE"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        // The @Mod lifecycle fires in a fixed order.
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+    static void preInit() { System.out.println("preInit"); }
+    static void init() { System.out.println("init"); }
+    static void postInit() { System.out.println("postInit"); }
+}
+'''
+briefs = [
+  "Bind the mod. Call the lifecycle rites in Forge order (preInit, init, postInit) so each prints its name, then «BINDING 3 RITES» (count of rites, computed).",
+  "Append «SIDES 2» (the two hands of the smith) and «PROXY common» (the common proxy loads first).",
+  "Append «LIFECYCLE SET» and «MOD BOUND».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        preInit();
+        init();
+        postInit();
+        System.out.println("BINDING 3 RITES");
+        System.out.println("SIDES 2");
+        System.out.println("PROXY common");
+        System.out.println("LIFECYCLE SET");
+        System.out.println("MOD BOUND");
+    }
+    static void preInit() { System.out.println("preInit"); }
+    static void init() { System.out.println("init"); }
+    static void postInit() { System.out.println("postInit"); }
+}
+'''
+cuts = [4, 6, 8]
+
+[[challenge]]
+tier = 7
+title = "THE TWO HANDS"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String[] sides = { "CLIENT", "SERVER", "COMMON" };
+        // CLIENT renders, SERVER holds, COMMON shares.
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+briefs = [
+  "Speak for each side. Print «HAND <side> <role>» — role is RENDER for CLIENT, HOLD for SERVER, SHARE for COMMON. Then «HANDS 3» (count from the array, computed).",
+  "Append «CLIENT <true/false>» (is CLIENT among the sides) and «SERVER <true/false>».",
+  "Append «BOUND <count>» and «PROXIES SET».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String[] sides = { "CLIENT", "SERVER", "COMMON" };
+        for (String s : sides) {
+            String role;
+            if (s.equals("CLIENT")) role = "RENDER";
+            else if (s.equals("SERVER")) role = "HOLD";
+            else role = "SHARE";
+            System.out.println("HAND " + s + " " + role);
+        }
+        System.out.println("HANDS " + sides.length);
+        boolean client = false, server = false;
+        for (String s : sides) {
+            if (s.equals("CLIENT")) client = true;
+            if (s.equals("SERVER")) server = true;
+        }
+        System.out.println("CLIENT " + client);
+        System.out.println("SERVER " + server);
+        System.out.println("BOUND " + sides.length);
+        System.out.println("PROXIES SET");
+    }
+}
+'''
+cuts = [4, 6, 8]
+
+[[challenge]]
+tier = 7
+title = "THE MCMOD INSCRIPTION"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright", name = "Ironwright", version = "0.1.0";
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+briefs = [
+  "Inscribe the modinfo. Print «MODID ironwright», «NAME Ironwright», «VERSION 0.1.0» from the variables, then «INFO 3» (count computed).",
+  "Append the mcmod.info line: «{ \"modid\":\"ironwright\", \"name\":\"Ironwright\", \"version\":\"0.1.0\" }» woven from the variables.",
+  "Append «INSCRIBED true» and «MCMOD SET».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright", name = "Ironwright", version = "0.1.0";
+        System.out.println("MODID " + modid);
+        System.out.println("NAME " + name);
+        System.out.println("VERSION " + version);
+        System.out.println("INFO 3");
+        System.out.println("{ \"modid\":\"" + modid + "\", \"name\":\"" + name + "\", \"version\":\"" + version + "\" }");
+        System.out.println("INSCRIBED true");
+        System.out.println("MCMOD SET");
+    }
+}
+'''
+cuts = [4, 5, 7]
+
+# ---- Tier 8 — the iron-bound item (RegistryEvent.Register<Item>, model JSON, .lang)
+[[challenge]]
+tier = 8
+title = "THE BINDING RITE OF ITEMS"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String[] items = { "ingot", "ingot_copper", "ingot_starsteel" };
+        String modid = "ironwright";
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+briefs = [
+  "Perform the binding rite. For each item print «REGISTER <modid>:<item>» (the registry name), then «RITE 3» (count from the array, computed).",
+  "Append «NAMES <count>» and «FIRST <modid>:<first item>».",
+  "Append «RITE COMPLETE» and «ITEMS BOUND».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String[] items = { "ingot", "ingot_copper", "ingot_starsteel" };
+        String modid = "ironwright";
+        for (String it : items) System.out.println("REGISTER " + modid + ":" + it);
+        System.out.println("RITE " + items.length);
+        System.out.println("NAMES " + items.length);
+        System.out.println("FIRST " + modid + ":" + items[0]);
+        System.out.println("RITE COMPLETE");
+        System.out.println("ITEMS BOUND");
+    }
+}
+'''
+cuts = [4, 6, 8]
+
+[[challenge]]
+tier = 8
+title = "THE MODEL JSON"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright", item = "ingot";
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+briefs = [
+  "Forge the item model. Print the JSON: «{ \"parent\":\"item/generated\", \"textures\":{ \"layer0\":\"ironwright:items/ingot\" } }» woven from modid and item, then «MODEL 1».",
+  "Append «PATH <modid>:items/<item>» and «PARENT item/generated».",
+  "Append «MODEL SET» and «JSON DONE».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright", item = "ingot";
+        System.out.println("{ \"parent\":\"item/generated\", \"textures\":{ \"layer0\":\"" + modid + ":items/" + item + "\" } }");
+        System.out.println("MODEL 1");
+        System.out.println("PATH " + modid + ":items/" + item);
+        System.out.println("PARENT item/generated");
+        System.out.println("MODEL SET");
+        System.out.println("JSON DONE");
+    }
+}
+'''
+cuts = [2, 4, 6]
+
+[[challenge]]
+tier = 8
+title = "THE LANG INSCRIPTION"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright";
+        String[] items = { "ingot", "ingot_copper" };
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+briefs = [
+  "Inscribe the lang file. For each item print «item.<modid>.<item>.name=<Title>» where Title is the item with its first letter uppercased (ingot -> Ingot), then «LANG 2» (count from the array, computed).",
+  "Append «FIRST <the first lang line>» and «KEYS 2».",
+  "Append «LANG SET» and «NAMED».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright";
+        String[] items = { "ingot", "ingot_copper" };
+        for (String it : items) {
+            String title = it.substring(0, 1).toUpperCase() + it.substring(1);
+            System.out.println("item." + modid + "." + it + ".name=" + title);
+        }
+        System.out.println("LANG " + items.length);
+        String firstTitle = items[0].substring(0, 1).toUpperCase() + items[0].substring(1);
+        System.out.println("FIRST item." + modid + "." + items[0] + ".name=" + firstTitle);
+        System.out.println("KEYS " + items.length);
+        System.out.println("LANG SET");
+        System.out.println("NAMED");
+    }
+}
+'''
+cuts = [3, 5, 7]
+
+# ---- Tier 9 — the cast stone (RegistryEvent.Register<Block>, ItemBlock, blockstate, Material)
+[[challenge]]
+tier = 9
+title = "THE CAST STONE"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String[] blocks = { "metal", "metal_copper" };
+        String modid = "ironwright";
+        // Each block gets a matching ItemBlock. THE FIRST STRIKE is set.
+    }
+}
+'''
+briefs = [
+  "Cast the stone. For each block print «BLOCK <modid>:<block>» then «ITEMBLOCK <modid>:<block>» (one ItemBlock per block), then «CAST 2» (block count, computed).",
+  "Append «REGISTRATIONS <2 * block count>» (a block + its ItemBlock each) and «BLOCKS <count>».",
+  "Append «CAST DONE» and «STONE SET».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String[] blocks = { "metal", "metal_copper" };
+        String modid = "ironwright";
+        for (String b : blocks) {
+            System.out.println("BLOCK " + modid + ":" + b);
+            System.out.println("ITEMBLOCK " + modid + ":" + b);
+        }
+        System.out.println("CAST " + blocks.length);
+        System.out.println("REGISTRATIONS " + (2 * blocks.length));
+        System.out.println("BLOCKS " + blocks.length);
+        System.out.println("CAST DONE");
+        System.out.println("STONE SET");
+    }
+}
+'''
+cuts = [5, 7, 9]
+
+[[challenge]]
+tier = 9
+title = "THE BLOCKSTATE JSON"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright", block = "metal";
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+briefs = [
+  "Forge the blockstate. Print the JSON: «{ \"variants\":{ \"normal\":{ \"model\":\"ironwright:metal\" } } }» woven from modid and block, then «BLOCKSTATE 1».",
+  "Append «MODEL <modid>:<block>» and «VARIANT normal».",
+  "Append «BLOCKSTATE SET» and «JSON DONE».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright", block = "metal";
+        System.out.println("{ \"variants\":{ \"normal\":{ \"model\":\"" + modid + ":" + block + "\" } } }");
+        System.out.println("BLOCKSTATE 1");
+        System.out.println("MODEL " + modid + ":" + block);
+        System.out.println("VARIANT normal");
+        System.out.println("BLOCKSTATE SET");
+        System.out.println("JSON DONE");
+    }
+}
+'''
+cuts = [2, 4, 6]
+
+[[challenge]]
+tier = 9
+title = "THE MATERIAL'S NATURE"
+starter = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String[] materials = { "IRON", "ROCK", "WOOD" };
+        // IRON and ROCK are SOLID; WOOD is BURNABLE.
+        // THE FIRST STRIKE is set. Further demands may arm as the glass runs.
+    }
+}
+'''
+briefs = [
+  "Read the materials. For each print «MATERIAL <name> <trait>» — trait is SOLID for IRON and ROCK, BURNABLE for WOOD, then «MATERIALS 3» (count from the array, computed).",
+  "Append «SOLID <count of SOLID>» and «BURNABLE <count of BURNABLE>».",
+  "Append «NATURE SET» and «CAST READY».",
+]
+solution = '''
+public class Ironwright {
+    public static void main(String[] args) {
+        String[] materials = { "IRON", "ROCK", "WOOD" };
+        int solid = 0, burnable = 0;
+        for (String m : materials) {
+            String trait;
+            if (m.equals("WOOD")) { trait = "BURNABLE"; burnable++; }
+            else { trait = "SOLID"; solid++; }
+            System.out.println("MATERIAL " + m + " " + trait);
+        }
+        System.out.println("MATERIALS " + materials.length);
+        System.out.println("SOLID " + solid);
+        System.out.println("BURNABLE " + burnable);
+        System.out.println("NATURE SET");
+        System.out.println("CAST READY");
+    }
+}
+'''
+cuts = [4, 6, 8]

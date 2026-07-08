@@ -1,0 +1,64 @@
+[[lessons]]
+id = "s06-l01"
+title = "The Old Iron — Installing JDK 8"
+body = '''
+<p>Before the forge, the iron. Minecraft 1.12.2 runs on exactly <strong>Java 8</strong> — not 9, not 11, not 17. Forge 1.12.2's toolchain refuses to compile against a newer JDK, so the first strike of this forgework is to install a JDK 8 and prove it runs.</p>
+<p>The <strong>JDK</strong> (Java Development Kit) is the smith's full kit — <code>javac</code> (the compiler) plus <code>java</code> (the runtime) plus the standard library. The <strong>JRE</strong> (Java Runtime Environment) is only the runtime — enough to run programs, not to build them. You need the JDK, because you will compile. Download a JDK 8 (Oracle JDK 8 or AdoptOpenJDK 8 / Temurin 8), install it, and confirm:</p>
+<pre><code>java -version
+<span class="c"># should print something like:</span>
+<span class="c"># java version "1.8.0_241"</span>
+<span class="c"># Java(TM) SE Runtime Environment (build 1.8.0_241-b07)</span></code></pre>
+<p>The version string <code>1.8.0_241</code> is Java 8 — the <code>1.8</code> is the old numbering (Java 8 internally is 1.8; Java 9 dropped the <code>1.</code> prefix). If <code>java -version</code> prints <code>17</code> or <code>11</code>, your default JDK is too new; you must point <code>JAVA_HOME</code> at the JDK 8 install and put its <code>bin</code> on your PATH, or the next lesson's Forge setup will fail.</p>
+<p>This is the fragile, version-specific step the tome promised to carry. A novice searching "install Java" today lands on Java 21, which will not work for 1.12.2. You need eight, and eight only.</p>
+<div class="callout"><strong>Orrick says:</strong> The block-world is old iron. Forge 1.12.2 was built for Java 8 and never updated. Fight the toolchain and it will fight back for hours; install eight and the rest of this forgework strikes clean.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // JAVA_HOME AND THE PATH</div>
+<p><code>JAVA_HOME</code> is an environment variable pointing at the JDK install directory (e.g. <code>C:\Program Files\Java\jdk1.8.0_241</code> or <code>/Library/Java/JavaVirtualMachines/jdk1.8.0_241.jdk/Contents/Home</code>). Gradle reads it to pick which <code>javac</code> runs. The <code>bin</code> folder under <code>JAVA_HOME</code> holds <code>java</code> and <code>javac</code>; putting it on your PATH makes <code>java -version</code> print the eight you installed. On macOS, <code>/usr/libexec/java_home -v 1.8</code> prints the JDK 8 home even when newer JDKs are installed.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Adoptium / Temurin JDK 8 downloads (free, long-term)"
+url = "https://adoptium.net/temurin/releases/?version=8"
+
+[[lessons.exercises]]
+id = "s06-l01-e1"
+type = "mc"
+points = 15
+prompt = "Why does this tome insist on JDK 8 specifically, not 'the latest Java'?"
+choices = ["because Java 8 is the fastest version", "because Java 8 is the only free version", "because Minecraft 1.12.2 and Forge 1.12.2 were built for Java 8 and the toolchain refuses newer JDKs", "because newer Java cannot run javac"]
+answer = 2
+whyWrong = "MC 1.12.2 and Forge 1.12.2 target Java 8; the Forge MDK's build scripts and decompiler fail on newer JDKs. Speed is not the reason, Java 8 is not the only free version (Temurin 17 is free too), and newer Java does run javac. It is a version-pinning constraint of the old codebase."
+hint = "Think about what version the old codebase was built for — and what happens if you point a newer toolchain at it."
+explain = "Forge 1.12.2's Gradle scripts and the MCP decompiler expect Java 8. A newer JDK breaks setupDecompWorkspace. Install eight, point JAVA_HOME at it."
+
+[[lessons.exercises]]
+id = "s06-l01-t1"
+type = "text"
+points = 20
+prompt = "Type the shell command that prints the installed Java version (the one this lesson uses to confirm JDK 8 is the default)."
+answer = "java -version"
+hint = "It is java, a space, a flag meaning 'show the version' — a single dash and the word version."
+
+[[lessons.exercises]]
+id = "s06-l01-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the environment variable Gradle reads to find the JDK install directory (the one you point at JDK 8)."
+code = '____=/Library/Java/JavaVirtualMachines/jdk1.8.0_241.jdk/Contents/Home'
+answer = "JAVA_HOME"
+whyWrong = "JAVA_HOME points Gradle at the JDK install; PATH lists executable folders, CLASSPATH is for runtime classes, JAVAC_HOME is not standard. The JDK-location variable is JAVA_HOME."
+hint = "It is JAVA plus an underscore plus HOME — the variable that names where the JDK lives."
+
+[[lessons.exercises]]
+id = "s06-l01-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of version parsing. The starter sets <code>String version = \"1.8.0_241\";</code>. Split on <code>\".\"</code>, take the second part (index 1, the <code>\"8\"</code>), and print <code>JAVA 8</code> by joining <code>\"JAVA \"</code> with that part. Do not type 8 in the print — pull it from the version string."
+starter = '''public class Ironwright {
+    public static void main(String[] args) {
+        String version = "1.8.0_241";
+        // apprentice — split on ".", take index 1, print "JAVA " + that part
+    }
+}'''
+expect = '''
+JAVA 8'''
+hint = "String[] parts = version.split(\".\"); — note split takes a regex, so use split(\"\\\\.\") to match a literal dot. Then parts[1] is \"8\"."

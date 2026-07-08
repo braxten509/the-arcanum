@@ -1,0 +1,82 @@
+[[lessons]]
+id = "s02-l03"
+title = "Type Hints — The Chart's Legend"
+body = '''
+<p>A function annotation like <code>def parse(line: str) -> LogRecord | None</code> is a promise the function makes to the caller: give me a string and I will give you either a <code>LogRecord</code> or <code>None</code>. Python does not enforce this promise at runtime — you can return an integer from a function annotated <code>-> str</code> and the interpreter will not complain — but the grader, the editor, and your future self will read the annotation as authoritative documentation.</p>
+<pre><code><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>, <span class="n">List</span>
+
+<span class="k">def</span> <span class="nf">load_lines</span><span class="p">(</span><span class="n">path</span>: <span class="nb">str</span><span class="p">)</span> <span class="o">-></span> <span class="n">List</span>[<span class="nb">str</span>]:
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span>:
+        <span class="k">return</span> <span class="n">f</span>.read().splitlines()
+
+<span class="k">def</span> <span class="nf">find_level</span><span class="p">(</span><span class="n">records</span>: <span class="nb">list</span>[<span class="s">"LogRecord"</span>], level: <span class="nb">str</span><span class="p">)</span> <span class="o">-></span> <span class="nb">list</span>[<span class="s">"LogRecord"</span>]:
+    <span class="k">return</span> [r <span class="k">for</span> r <span class="ow">in</span> records <span class="k">if</span> r.level == level]</code></pre>
+<p>The <code>typing</code> module provides the vocabulary for generic containers: <code>List[T]</code>, <code>Dict[K, V]</code>, <code>Set[T]</code>, <code>Tuple[T, ...]</code>. Since Python 3.9 you can use the lowercase builtins — <code>list[str]</code>, <code>dict[str, int]</code> — directly without importing from <code>typing</code>. The older capitalized forms still work but the lowercase style is the modern choice.</p>
+<p><strong>Optional</strong> and <strong>Union</strong> handle the case where a value might be absent. <code>Optional[X]</code> is shorthand for <code>Union[X, None]</code>, and since Python 3.10 you can write <code>str | None</code> instead — a pipe syntax that mirrors how you think about types.</p>
+<pre><code><span class="k">def</span> <span class="nf">parse_log</span><span class="p">(</span><span class="n">line</span>: <span class="nb">str</span><span class="p">)</span> <span class="o">-></span> <span class="n">LogRecord</span> | <span class="kc">None</span>:
+    <span class="n">parts</span> = <span class="n">line</span>.strip().split(maxsplit=<span class="mi">3</span>)
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> &lt; <span class="mi">4</span>:
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">LogRecord</span>(<span class="o">*</span><span class="n">parts</span>)</code></pre>
+<p>The return type <code>LogRecord | None</code> tells the caller to check for <code>None</code> before using the result. This is more honest than raising an exception for an expected condition — short lines are a routine occurrence in a log directory, not an extraordinary failure.</p>
+<div class="callout"><strong>Consult the volumes:</strong> The <code>typing</code> module is the official catalog. For structural subtyping (a concept that will matter in s04's decorator registry), read <code>typing.Protocol</code> — it is Python's answer to "if it walks like a duck, it is a duck, and the type checker should know it."</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // STRING ANNOTATIONS & FORWARD REFERENCES</div>
+<p>When a type hint names a class that is defined later in the file, wrap it in quotes: <code>def parse(line: str) -> "LogRecord"</code>. This is a forward reference — Python postpones evaluating the string until the class exists. A <code>from __future__ import annotations</code> at the top of the file makes all annotations strings automatically, which also speeds up module loading. Some teams use it universally; others find it hides bugs. Decide per-project.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s02-l03-e1"
+type = "mc"
+points = 15
+prompt = "What is the modern (Python 3.9+) way to annotate a function that returns a list of strings?"
+choices = ["List[str]", "list[str]", "list<str>", "array<str>"]
+answer = 1
+whyWrong = "Since Python 3.9, the lowercase builtin generics (<code>list[str]</code>, <code>dict[str, int]</code>) are the standard. <code>List[str]</code> still works but requires a <code>from typing import List</code>. The angle-bracket syntax does not exist in Python."
+hint = "Look at what changed in Python 3.9's type hinting — the builtin collections gained bracket support."
+explain = "Python 3.9+ supports <code>list[str]</code> directly without importing from typing."
+
+[[lessons.exercises]]
+id = "s02-l03-e2"
+type = "text"
+points = 20
+prompt = "What single import from <code>typing</code> replaces <code>Union[X, None]</code>?"
+answer = "Optional"
+accept = ["typing.Optional", "Optional"]
+hint = "It is also the name of a kind of function argument — one you are not required to supply."
+
+[[lessons.exercises]]
+id = "s02-l03-w1"
+type = "write"
+points = 30
+prompt = "Write a function <code>safe_divide(a: float, b: float) -> float | None</code> that returns <code>a / b</code> if b is not zero, and <code>None</code> if b is zero. Call it with <code>safe_divide(10, 2)</code> and print the result."
+starter = '''
+def safe_divide(a: float, b: float) -> float | None:
+    # your code here
+
+result = safe_divide(10, 2)
+print(result)
+'''
+expect = '''5.0'''
+hint = "Check if b == 0 before dividing — if 0 return None, otherwise return the division."
+
+[[lessons.exercises]]
+id = "s02-l03-e3"
+type = "mc"
+points = 15
+prompt = "What happens if you return an <code>int</code> from a function annotated <code>-> str</code>?"
+choices = ["Python raises TypeError", "The return value is silently converted to str", "Nothing — annotations are not enforced at runtime", "The function fails to compile"]
+answer = 2
+whyWrong = "Python type annotations are entirely optional at runtime — they are metadata for type checkers, linters, and editors. The interpreter never checks them, which is both a flexibility and a discipline: the runtime trusts you, so you must trust your tooling."
+hint = "Think about how Python treats annotations — does the interpreter ever check them during execution?"
+explain = "Python does not enforce type hints at runtime; they are hints for static analysis tools and human readers."
+
+[[lessons.exercises]]
+id = "s02-l03-e4"
+type = "fill"
+points = 20
+prompt = "Fill the blank to annotate a function that can return either an int or None:"
+code = '''def find_user(id: str) -> ____:
+    # ... returns int or None'''
+answer = "int | None"
+accept = ["int | None", "Optional[int]"]
+hint = "Use the pipe syntax introduced in Python 3.10 for union types."

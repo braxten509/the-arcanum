@@ -1,0 +1,67 @@
+[[lessons]]
+id = "s08-l02"
+title = "The Item's Face — ModelRegistryEvent & ModelLoader"
+body = '''
+<p>An item registered but model-less shows as a black-and-purple missing texture. The model — the JSON that tells the renderer which texture to draw — is registered in a second event, <code>ModelRegistryEvent</code>, using <code>ModelLoader.setCustomModelResourceLocation</code>.</p>
+<pre><code><span class="k">@SubscribeEvent</span>
+<span class="k">public static void</span> registerModels(ModelRegistryEvent event) {
+    registerModel(ModItems.IRON, <span class="s">"iron"</span>);
+}
+
+<span class="k">private static void</span> registerModel(Item item, String name) {
+    ModelResourceLocation mrl = <span class="k">new</span> ModelResourceLocation(
+        <span class="k">new</span> ResourceLocation(Ironwright.MODID, name), <span class="s">"inventory"</span>);
+    ModelLoader.setCustomModelResourceLocation(item, <span class="s">0</span>, mrl);
+}</code></pre>
+<p>Three things to read. <code>ModelRegistryEvent</code> fires on the MOD bus after the item registry closes — the right moment to bind models. <code>ModelResourceLocation</code> names the model: a <code>ResourceLocation(MODID, name)</code> (here <code>ironwright:iron</code>) plus a variant (<code>"inventory"</code> for items shown in the inventory). <code>ModelLoader.setCustomModelResourceLocation(item, 0, mrl)</code> binds that model to the registered item object at metadata 0 — the default stack. The <code>0</code> is the metadata; an item with no variants is always 0. Use the <code>ModItems</code> fields from the registry lesson so the model binds to the same object you registered.</p>
+<p>Model registration is <strong>client-only</strong>: it touches <code>ModelLoader</code>, which lives on the client. Put the <code>registerModels</code> handler in a <code>@Mod.EventBusSubscriber</code> class, but call <code>ModelLoader</code> only through the client proxy or guard with <code>@SideOnly(Side.CLIENT)</code> where the docs require it. A dedicated server must not load <code>ModelLoader</code>.</p>
+<div class="callout"><strong>Orrick says:</strong> The model JSON's path is fixed by the resource location: <code>ironwright:iron</code> maps to <code>assets/ironwright/models/item/iron.json</code>. Get the path wrong and the renderer falls back to the missing texture, silently. The resource location IS the file path.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY MODELS ARE A SEPARATE EVENT</div>
+<p>Items register before models because models reference the items' registry names. If model registration ran first, it would bind models to names that do not yet exist. The two-phase order — <code>RegistryEvent.Register&lt;Item&gt;</code> then <code>ModelRegistryEvent</code> — is the forge's promise that every item is registered before any model is bound. Get the order wrong (e.g. register a model in preInit by hand) and you race the lifecycle.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s08-l02-e1"
+type = "mc"
+points = 15
+prompt = "Why does model registration happen in <code>ModelRegistryEvent</code>, a separate event after <code>RegistryEvent.Register&lt;Item&gt;</code>, rather than inside the item-registry handler?"
+choices = ["because models are larger than items", "because Forge runs models on the FORGE bus", "because the client has no items", "because models reference the items' registry names, so every item must be registered before any model is bound"]
+answer = 3
+whyWrong = "Models reference registered items by registry name, so the forge fires ModelRegistryEvent only after RegistryEvent.Register<Item> completes — binding a model before the item exists would race the lifecycle. Size is irrelevant, the client has items, and model events run on the MOD bus. The two-phase order is the contract."
+hint = "Think about what a model references — and why binding it before the item exists would be a problem."
+explain = "RegistryEvent.Register<Item> fires first; ModelRegistryEvent fires after, so models bind to names that already exist. The order is the forge's lifecycle promise."
+
+[[lessons.exercises]]
+id = "s08-l02-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the ModelLoader method that binds a ModelResourceLocation to an item at a given metadata."
+code = '''ModelResourceLocation mrl = new ModelResourceLocation(new ResourceLocation(Ironwright.MODID, "iron"), "inventory");
+ModelLoader.____(itemIngot, 0, mrl);'''
+answer = "setCustomModelResourceLocation"
+whyWrong = "setCustomModelResourceLocation binds the model to the item at metadata 0; registerModel is not a ModelLoader method name, setModelLocation is not the 1.12.2 method, register is the registry's method. The ModelLoader binding call is setCustomModelResourceLocation."
+hint = "It is set + Custom + Model + Resource + Location — five words run together, camelCase. The ModelLoader method that binds a model to an item."
+
+[[lessons.exercises]]
+id = "s08-l02-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of the ResourceLocation string. The starter sets <code>String modid = \"ironwright\";</code> and <code>String name = \"iron\";</code>. Print exactly <code>ironwright:iron</code> — the resource location Forge uses to find the model — by joining <code>modid</code>, <code>\":\"</code>, and <code>name</code>. Read both parts from the variables; do not type ironwright or iron in the print."
+starter = '''public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright";
+        String name = "iron";
+        // apprentice — print the ResourceLocation: modid + ":" + name
+    }
+}'''
+expect = '''
+ironwright:iron'''
+hint = "System.out.println(modid + \":\" + name); — the resource location is the mod id, a colon, the name."
+
+[[lessons.exercises]]
+id = "s08-l02-t1"
+type = "text"
+points = 20
+prompt = "Type the path (from the project's resources root) where the model JSON for the resource location <code>ironwright:iron</code> must live — an item model under the mod's assets."
+answer = "assets/ironwright/models/item/iron.json"
+hint = "It is assets/<modid>/models/item/<name>.json — the resource location's path expansion under the assets root."

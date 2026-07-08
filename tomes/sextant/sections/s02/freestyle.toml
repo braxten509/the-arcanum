@@ -1,0 +1,25 @@
+[freestyle]
+title = "THE WORKING: STARS ALIGNED"
+brief = "<p>Upgrade <code>main.py</code> from raw string handling to a typed data model. Sextant now works with <code>LogRecord</code> instances:</p><ul><li>Define a <code>LogRecord</code> dataclass with fields: <code>ts: str</code>, <code>level: str</code>, <code>message: str</code>, <code>source: str</code>, and mark it <code>frozen=True</code></li><li>Add a <code>__post_init__</code> method that validates <code>level</code> is one of <code>INFO</code>, <code>WARN</code>, <code>ERROR</code> — raise a <code>ValueError</code> with a descriptive message if it is not</li><li>Write a <code>parse_log(line: str) -> LogRecord | None</code> function that splits a line by whitespace <strong>with maxsplit=3</strong> (the message may contain spaces) and returns a <code>LogRecord</code>, or <code>None</code> if the line has fewer than 4 parts</li><li>Update the greeting to use <code>LogRecord</code> fields: <code>[BEARING TAKEN] {record.ts} {record.level}: {record.message} (from {record.source})</code></li><li>Test on at least three lines including one invalid line that triggers <code>None</code></li></ul>"
+reward = 160
+xray = "The grader docks points for: missing frozen=True (immutability discipline matters); __post_init__ that catches the wrong exception or forgets to raise; parse_log returning None for short lines but crashing on edge cases; not using maxsplit (lines with spaces in message break otherwise). He gives style credit for: using field() with default_factory where it fits; a clean LogRecord repr; type hints on every function signature."
+
+[freestyle.badge]
+id = "badge-s02"
+name = "STARS ALIGNED"
+desc = "The chart is ruled — LogRecord is a typed dataclass."
+
+[[freestyle.rubric]]
+criterion = "Compiles & runs"
+weight = 35
+desc = "Build succeeds; runs without crashing on a normal log line."
+
+[[freestyle.rubric]]
+criterion = "Meets the brief"
+weight = 40
+desc = "Every requirement in the checklist is present and correct."
+
+[[freestyle.rubric]]
+criterion = "Clean style"
+weight = 25
+desc = "PEP 8: snake_case, 4-space indent, no mutable globals, type hints on function signatures."

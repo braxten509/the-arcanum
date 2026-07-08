@@ -1,0 +1,41 @@
+[freestyle]
+title = "THE WORKING: Token Sight"
+brief = '''<p>Lector can count and read posts. Now it must see the sigils within. Every <code>{{ ... }}</code> block is a directive — the parser's eye must spot them.</p>
+<p>Extend your Lector program to tokenize template directives from a post file. Write from scratch this time — a fresh <code>tokenize.cpp</code> that reads a <code>.post</code> file path from <code>std::cin</code>, scans its content for template directives, and reports each token it finds.</p>
+<ul>
+  <li>Read the file path from <code>std::cin</code> (one line).</li>
+  <li>Open the file with <code>std::ifstream</code> (RAII — the file handle closes itself).</li>
+  <li>Scan the file content character by character (or using <code>std::string::find</code>) for <code>{{</code> markers.</li>
+  <li>For each <code>{{ ... }}</code> block, extract the inner expression (trim leading/trailing whitespace).</li>
+  <li>Store each token expression as a <code>std::unique_ptr&lt;std::string&gt;</code> in a <code>std::vector</code> — the tokens are exclusively owned.</li>
+  <li>After scanning, print each token on its own line, preceded by its 1-based index: <code>1: token_expression</code>.</li>
+  <li>If a <code>{{</code> is opened but never closed with <code>}}</code>, print <code>WARN: unclosed directive at byte N</code> (where N is the position of <code>{{</code> in the file).</li>
+  <li>If no directives are found, print exactly <code>No directives found.</code>.</li>
+</ul>'''
+reward = 200
+xray = "The grader docks points for: not reading the file path from <code>std::cin</code>; not detecting unclosed directives; crashing on an empty file or a file with no <code>{{ }}</code> blocks; using raw <code>new</code>/<code>delete</code> instead of <code>std::make_unique</code>; missing the whitespace-trim requirement; hardcoding token output instead of scanning file content; printing an inaccurate byte position on unclosed directives. It gives style credit for: <code>snake_case</code> naming, Allman braces, <code>const</code>-correctness (marking the file content string as <code>const</code> after reading, marking the token vector as <code>const</code> before printing), using <code>std::unique_ptr</code> for heap-allocated tokens, <code>std::string::find</code> for scanning (or an iterator-based approach), handling the no-directives edge case with a clear message."
+
+[freestyle.badge]
+id = "badge-s03"
+name = "PARSER'S EYE"
+desc = "Lector tokenized its first sigils — the parser sees what the parchment hides."
+
+[[freestyle.rubric]]
+criterion = "Compiles & runs"
+weight = 30
+desc = "Build succeeds; runs without crashing on any well-formed <code>.post</code> file, handles missing-file and empty-file edge cases gracefully."
+
+[[freestyle.rubric]]
+criterion = "Tokenizes correctly"
+weight = 30
+desc = "Finds every <code>{{ ... }}</code> block. Extracts the inner expression with leading/trailing whitespace trimmed. Prints each token with the correct 1-based index and the exact extracted text."
+
+[[freestyle.rubric]]
+criterion = "Error handling & edge cases"
+weight = 25
+desc = "Detects unclosed <code>{{</code> directives and reports the byte position. Prints <code>No directives found.</code> when none exist. Does not crash on empty files, files with only text but no <code>{{ }}</code>, or files with nested-like but unmatched braces."
+
+[[freestyle.rubric]]
+criterion = "Clean style"
+weight = 15
+desc = "Follows C++ conventions: <code>snake_case</code> for variables and functions, PascalCase for type names, Allman brace style. Uses <code>std::unique_ptr</code> for heap-allocated tokens. <code>const</code>-correct: marks strings and vectors that do not change after initialization. No <code>using namespace std;</code>."

@@ -1,0 +1,35 @@
+[freestyle]
+title = "THE WORKING: The World Answers"
+brief = "Apprentice, make the world answer the hammer. Add a real behaviour with an event handler — a custom drop when a mob dies by the player's hand. Build:<ul><li><code>src/main/java/com/ironwright/event/ModEvents.java</code> — <code>@Mod.EventBusSubscriber(modid = Ironwright.MODID)</code> with a <code>@SubscribeEvent public static void onLivingDrops(LivingDropsEvent event)</code> that: stores <code>Entity source = event.getSource().getTrueSource()</code>; checks <code>source instanceof EntityPlayer</code> before casting; guards with <code>!player.world.isRemote</code> (server-side only); builds <code>new EntityItem(player.world, player.posX, player.posY, player.posZ, new ItemStack(ModItems.STARSTEEL))</code> and adds it to <code>event.getDrops()</code>.</li><li>Reconnoitre first: open <code>net.minecraftforge.event.entity.living.LivingDropsEvent</code> in IntelliJ, read its <code>getDrops()</code> and <code>getSource()</code> methods and the <code>@HasResult</code>/<code>@Cancelable</code> annotations, and confirm the field names you use.</li></ul>"
+reward = 250
+xray = "Orrick docks for a handler that changes drops on the client (no isRemote guard — a desync), a cast to EntityPlayer without a instanceof check (a ClassCastException when a non-player kills the mob), a guessed field name that does not exist on LivingDropsEvent, or a non-static handler under @EventBusSubscriber. He gives style credit for the static handler, the side guard, the instanceof check before the cast, and Allman braces."
+
+[freestyle.badge]
+id = "badge-s11"
+name = "THE WORLD ANSWERS"
+desc = "Made the world answer the hammer — an event handler that drops a bonus starsteel ingot when a mob falls to the player."
+
+[[freestyle.rubric]]
+criterion = "Handler subscribes correctly"
+weight = 25
+desc = "ModEvents carries @Mod.EventBusSubscriber(modid = Ironwright.MODID); the onLivingDrops method is static, carries @SubscribeEvent, and takes net.minecraftforge.event.entity.living.LivingDropsEvent as its parameter; the class lives at com/ironwright/event/ModEvents.java with the matching package line."
+
+[[freestyle.rubric]]
+criterion = "Behaviour is correct"
+weight = 30
+desc = "The handler checks the damage source's true source is an EntityPlayer (instanceof before the cast); guards world-changing code with !player.world.isRemote (server-side only); builds an EntityItem from new ItemStack(ModItems.STARSTEEL) at the player's position and adds it to event.getDrops(); the drop is the mod's starsteel ingot."
+
+[[freestyle.rubric]]
+criterion = "Reconnaissance is honest"
+weight = 15
+desc = "The handler uses the actual LivingDropsEvent fields (getDrops, getSource / getTrueSource) as read from the event class — no guessed or invented method names; the @Cancelable/@HasResult annotations on the event were checked before any cancel/result call (none needed here, but the check was done)."
+
+[[freestyle.rubric]]
+criterion = "Build & run"
+weight = 15
+desc = "./gradlew build succeeds; ./gradlew runClient shows a mob killed by the player dropping a bonus Starsteel Ingot alongside its normal loot (the handler fires on the server side, no client desync)."
+
+[[freestyle.rubric]]
+criterion = "Clean style"
+weight = 15
+desc = "The handler is static (required for @EventBusSubscriber); an instanceof check precedes every cast; one public class per .java file named for the class; Allman braces; 4-space indent; MODID is the single source for the @EventBusSubscriber modid."

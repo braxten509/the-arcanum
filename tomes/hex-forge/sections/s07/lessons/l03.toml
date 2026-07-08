@@ -1,0 +1,139 @@
+[[lessons]]
+id = "s07-l03"
+title = "Opening the Vault — sys_openat"
+body = '''
+<p>A file is a sequence of bytes behind a gate. To open the gate, you present the kernel with a path and a flag mask. <code>sys_openat</code> returns a <strong>file descriptor</strong> — a small integer that represents the open file. Every subsequent <code>sys_read</code> or <code>sys_close</code> on that file uses this fd.</p>
+
+<p>The full <code>openat</code> call:</p>
+<pre><code><span class="k">mov</span> rax, 257           <span class="c">; sys_openat</span>
+<span class="k">mov</span> rdi, -100          <span class="c">; AT_FDCWD — resolve path from CWD</span>
+<span class="k">mov</span> rsi, filename      <span class="c">; pointer to null-terminated path string</span>
+<span class="k">mov</span> rdx, 0             <span class="c">; flags: O_RDONLY (read-only)</span>
+<span class="k">mov</span> r10, 0             <span class="c">; mode: ignored when not creating a file</span>
+<span class="k">syscall</span>
+<span class="c">; rax = file descriptor (non-negative) or negative error code</span></code></pre>
+
+<p>On success, rax holds a file descriptor — 3, 4, 5, etc. (0/1/2 are already stdin/stdout/stderr). On failure, rax holds a negative errno value. Common errors:</p>
+<ul>
+<li><code>-2</code> (ENOENT) — file does not exist at the given path.</li>
+<li><code>-13</code> (EACCES) — permission denied.</li>
+<li><code>-21</code> (EISDIR) — path points to a directory, not a file.</li>
+</ul>
+
+<p>After opening, read from the file exactly as you read from stdin — using <code>sys_read</code> with the returned fd:</p>
+<pre><code><span class="c">; Assume rax = 3 (the fd returned by openat)</span>
+<span class="k">mov</span> r12, rax            <span class="c">; save the fd in a preserved register</span>
+
+.read_loop:
+    <span class="k">mov</span> rax, 0             <span class="c">; sys_read</span>
+    <span class="k">mov</span> rdi, r12            <span class="c">; fd = the one we opened</span>
+    <span class="k">mov</span> rsi, buffer
+    <span class="k">mov</span> rdx, 4096
+    <span class="k">syscall</span>
+    <span class="k">test</span> rax, rax
+    <span class="k">jz</span> .eof
+    <span class="c">; process rax bytes from buffer</span>
+    <span class="k">jmp</span> .read_loop
+
+.eof:
+    <span class="k">mov</span> rax, 3             <span class="c">; sys_close</span>
+    <span class="k">mov</span> rdi, r12            <span class="c">; fd to close</span>
+    <span class="k">syscall</span></code></pre>
+
+<p><strong>Always close the fd you opened.</strong> The kernel closes all fds on <code>sys_exit</code>, but a long-running program that leaks file descriptors eventually hits the per-process fd limit (typically 1024) and <code>openat</code> starts returning -24 (EMFILE). For HexForge, which opens one file and exits, the leak is harmless — but the habit matters. Close what you open.</p>
+
+<p>After opening the file fd, you never read from stdin again in that execution path. The file IS the input now. This is the load-bearing decision in the HexForge architecture: the read loop reads from either fd 0 (stdin, when no filename is given) or fd 3+ (the opened file). The rest of the dump pipeline — hex formatting, gutter building, output printing — is identical regardless of the input source.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // O_CLOEXEC — THE FLAG YOU SHOULD ALWAYS SET</div>
+<p>The <code>O_CLOEXEC</code> flag (0x80000) tells the kernel to close this fd automatically if the process calls <code>execve</code> (replaces itself with another program). This prevents fd leaks across exec boundaries — a security concern in multi-process applications. For HexForge, a single-process utility that never calls <code>execve</code>, O_CLOEXEC is unnecessary. But the Linux convention — and Vandr's rule — is to set it: the forge is built to last, not to just run once. The flags become <code>mov rdx, 0x80000</code> (O_RDONLY | O_CLOEXEC).</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s07-l03-e1"
+type = "mc"
+points = 15
+prompt = "After <code>sys_openat</code> succeeds, what value is in rax?"
+choices = [
+  "A non-negative file descriptor (3 or higher) — the handle for subsequent read/write/close calls on this file",
+  "0 — openat returns 0 on success and a negative errno on failure",
+  "The number of bytes available to read from the file",
+  "A pointer to the kernel's internal file structure"
+]
+answer = 0
+whyWrong = "On success, Linux syscalls return a non-negative value. For openat, that's the file descriptor — typically 3 (since 0/1/2 are pre-opened for stdin/stdout/stderr). 0 is success for some syscalls but not openat (fd 0 is stdin). The return is not a byte count or a pointer."
+hint = "What does sys_open return in C? <code>int fd = open(path, O_RDONLY);</code> — fd is a small integer."
+explain = "<code>sys_openat</code> returns the file descriptor as a non-negative integer. The kernel allocates the lowest available fd — typically 3, since 0 (stdin), 1 (stdout), and 2 (stderr) are already open when the process starts. On error, the return value is negative (the negated errno)."
+
+[[lessons.exercises]]
+id = "s07-l03-e2"
+type = "fill"
+points = 20
+prompt = "Fill the flag value for read-only access. This tells the kernel we only want to read the file."
+code = '''
+mov  rdx, ____        ; O_RDONLY — open for reading only
+'''
+answer = "0"
+hint = "A single digit — the simplest flag. O_RDONLY is defined as 0 in the kernel headers."
+explain = "<code>O_RDONLY</code> is 0. The flag values are: O_RDONLY=0, O_WRONLY=1, O_RDWR=2. Since HexForge only reads files, we use 0. Using O_RDWR (2) would also work but signals intent incorrectly — and a file opened on a read-only filesystem with O_RDWR would fail."
+
+[[lessons.exercises]]
+id = "s07-l03-e3"
+type = "type"
+points = 12
+prompt = "Retype the complete file-open sequence. Open, check for error, save fd."
+code = '''
+mov  rax, 257           ; sys_openat
+mov  rdi, -100          ; AT_FDCWD
+mov  rsi, path          ; filename pointer
+mov  rdx, 0             ; O_RDONLY
+mov  r10, 0             ; mode
+syscall
+test rax, rax
+js   .error             ; negative → error
+mov  r12, rax           ; save fd
+'''
+
+[[lessons.exercises]]
+id = "s07-l03-w1"
+type = "write"
+points = 30
+prompt = "Open and close a file. The engine creates a file called <code>test.txt</code> in the workbench with the content <code>OPEN OK</code>. Pop argc/argv from the stack to get the filename (<code>test.txt</code>), open it with <code>openat</code>, check for success (print <code>OK</code> if opened, <code>FAIL</code> if error), close it, and exit. The engine calls your program as <code>./a.out test.txt</code>. Output: <code>OK</code>."
+starter = '''
+section .text
+    global _start
+
+_start:
+    ; Pop argc (should be 2)
+    pop rax
+    cmp rax, 2
+    jb .fail
+    ; Pop argv[0] (program name)
+    pop rdi
+    ; Pop argv[1] (filename)
+    pop rdi
+    ; rdi = filename. Now call openat.
+    
+
+    ; Check result: if negative, go to .fail
+    
+
+    ; Success — save fd, close it, print OK
+    
+
+.fail:
+    ; Print FAIL and exit
+    
+
+.ok:
+    ; Print OK and exit
+    
+
+section .data
+msg_ok: db 'O', 'K', 10
+msg_ok_len equ $ - msg_ok
+msg_fail: db 'F', 'A', 'I', 'L', 10
+msg_fail_len equ $ - msg_fail
+'''
+expect = '''
+OK'''
+hint = "openat: mov rax,257 / rdi=-100 (but rdi already has the filename — save it first, e.g. mov r8,rdi then mov rdi,-100 / mov rsi,r8) — actually rdi has filename, need to rearrange. Better: mov rsi,rdi (filename in rsi), mov rdi,-100 (dirfd), mov rdx,0 (O_RDONLY), mov r10,0 (mode), mov rax,257, syscall. If rax < 0: jmp .fail. Else: mov rdi,rax (fd to close), mov rax,3 (sys_close), syscall. Then jmp .ok."

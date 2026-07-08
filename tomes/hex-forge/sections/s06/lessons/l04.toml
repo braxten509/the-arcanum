@@ -1,0 +1,133 @@
+[[lessons]]
+id = "s06-l04"
+title = "Nibble to Ink — Byte to Hex"
+body = '''
+<p>HexForge's hex columns display each byte as two characters: <code>'0'</code>–<code>'9'</code> and <code>'A'</code>–<code>'F'</code>. Converting a byte to hex is a two-step nibble extraction: split the high 4 bits and low 4 bits, map each to its ASCII hex digit.</p>
+
+<p>A byte is two nibbles:</p>
+<pre><code>Byte 0x4F = 0100 1111
+High nibble = 0100 = 0x4 → '4'
+Low nibble  = 1111 = 0xF → 'F'
+Hex output: "4F"</code></pre>
+
+<p>Extracting nibbles:</p>
+<ul>
+<li><strong>High nibble:</strong> shift right by 4 bits: <code>shr al, 4</code>. The low 4 bits now hold what were the high 4 bits.</li>
+<li><strong>Low nibble:</strong> mask with 0x0F: <code>and al, 0x0F</code>. Clears the high 4 bits, leaving the low 4.</li>
+</ul>
+
+<p>Mapping a nibble (0–15) to ASCII:</p>
+<ul>
+<li>0–9: add <code>'0'</code> (48) → <code>'0'</code>–<code>'9'</code></li>
+<li>10–15: add <code>'A' - 10</code> (55) → <code>'A'</code>–<code>'F'</code></li>
+</ul>
+
+<p>The full <code>print_byte_hex</code> procedure:</p>
+<pre><code><span class="c">; Input: dil = byte to print. Output: two ASCII chars stored at [rsi], rsi advanced by 2.</span>
+print_byte_hex:
+    <span class="k">mov</span> al, dil             <span class="c">; copy the byte</span>
+    <span class="k">shr</span> al, 4              <span class="c">; isolate high nibble</span>
+    <span class="k">call</span> nibble_to_hex     <span class="c">; convert to ASCII</span>
+    <span class="k">mov</span> [rsi], al           <span class="c">; store high hex digit</span>
+    <span class="k">inc</span> rsi
+
+    <span class="k">mov</span> al, dil             <span class="c">; copy the byte again</span>
+    <span class="k">and</span> al, 0x0F            <span class="c">; isolate low nibble</span>
+    <span class="k">call</span> nibble_to_hex
+    <span class="k">mov</span> [rsi], al           <span class="c">; store low hex digit</span>
+    <span class="k">inc</span> rsi
+    <span class="k">ret</span>
+
+nibble_to_hex:
+    <span class="c">; Input: al = nibble (0–15). Output: al = ASCII hex digit.</span>
+    <span class="k">cmp</span> al, 10
+    <span class="k">jb</span> .digit              <span class="c">; 0–9 → add '0'</span>
+    <span class="k">add</span> al, <span class="s">'A'</span> - 10      <span class="c">; 10–15 → add 'A' - 10</span>
+    <span class="k">ret</span>
+.digit:
+    <span class="k">add</span> al, <span class="s">'0'</span>           <span class="c">; 0–9 → add '0'</span>
+    <span class="k">ret</span></code></pre>
+
+<p>The <code>nibble_to_hex</code> helper is called twice — once for each nibble. The distinction: if the nibble is 0–9, we're in decimal digit territory (add 48). If 10–15, we're in letter territory (add 55, which is <code>'A' - 10</code>). The unsigned <code>jb</code> correctly branches for nibbles below 10.</p>
+
+<p>HexForge uses this procedure 16 times per dump line — once per byte. In the capstone orchestration, the main loop walks a 16-byte chunk, calls <code>print_byte_hex</code> for each byte, then inserts a space between the 8th and 9th bytes (the canonical <code>hexdump -C</code> mid-line gap).</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE CODE-SIZE AND SPEED TRADE-OFF</div>
+<p>The <code>nibble_to_hex</code> routine with a branch (cmp/jb) is 10 bytes and takes ~2 cycles when predicted correctly. A branchless version using a lookup table is 8 bytes of code plus 16 bytes of data but runs in constant time: <code>movzx eax, al / mov al, [hex_table + rax]</code>. For HexForge, the branch is fine — the predictor learns quickly because nibbles are uniformly distributed. For cryptographic code that must run in constant time (no data-dependent branches), the lookup table or a conditional-move (<code>cmovb</code>) variant is required. HexForge is a command-line tool, not a crypto primitive; readability wins.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s06-l04-e1"
+type = "mc"
+points = 15
+prompt = "To convert a nibble value 0xC (12) to the ASCII character 'C', what arithmetic must be done?"
+choices = [
+  "Add 48 ('0') — all digits use the same offset from their numeric value",
+  "Subtract 10 and add 'A' — total offset depends on whether the nibble is above 9",
+  "Add 55 ('A' - 10) — nibbles 10-15 map to 'A'-'F', which are 65-70; 12 + 55 = 67 = 'C'",
+  "Use a lookup table — there is no arithmetic mapping for hex letters"
+]
+answer = 2
+whyWrong = "Adding '0' (48) to 12 gives 60, which is ASCII '<'. That works for 0-9 (where '0'+digit = digit's ASCII), but letters start at 'A' (65) — 10 positions after '9' (57). Adding 'A' - 10 (= 55) to 12 gives 67 = 'C'. A lookup table works but is not required — the arithmetic mapping is well-defined."
+hint = "For 0-9, you add '0'. For 10-15, the gap between '9' and 'A' is 7 characters — so the offset changes."
+explain = "The ASCII codes: '0'=48, '1'=49, ..., '9'=57, 'A'=65, 'B'=66, ..., 'F'=70. For nibbles 0-9: nibble + 48 = ASCII digit. For nibbles 10-15: nibble + 55 (= 65 - 10) = ASCII letter. 12 + 55 = 67 = 'C'."
+
+[[lessons.exercises]]
+id = "s06-l04-e2"
+type = "fill"
+points = 20
+prompt = "Fill the bitmask that isolates the low nibble (bits 3–0) of al."
+code = '''
+mov  al, 0x4F
+____ al, 0x0F         ; al = 0x0F (low nibble = 15)
+'''
+answer = "and"
+hint = "Three letters — the bitwise AND instruction. Clears bits where the mask is 0."
+explain = "<code>and al, 0x0F</code> keeps only bits 0–3, zeroing bits 4–7. 0x4F & 0x0F = 0x0F (15). For the high nibble, <code>shr al, 4</code> shifts bits 4–7 down to positions 0–3: 0x4F >> 4 = 0x04."
+
+[[lessons.exercises]]
+id = "s06-l04-e3"
+type = "type"
+points = 12
+prompt = "Retype the nibble-to-hex conversion. This tiny procedure maps a number 0-15 to its ASCII hex character."
+code = '''
+nibble_to_hex:
+    ; al = nibble (0-15)
+    cmp  al, 10
+    jb   .digit
+    add  al, 'A' - 10    ; 10-15 → 'A'-'F'
+    ret
+.digit:
+    add  al, '0'          ; 0-9 → '0'-'9'
+    ret
+'''
+reps = 3
+
+[[lessons.exercises]]
+id = "s06-l04-w1"
+type = "write"
+points = 30
+prompt = "Convert and print a single byte as hex. A byte value 0x7B (123 decimal) sits in <code>.data</code>. Convert it to two hex characters ('7' and 'B') and print them. You must extract both nibbles separately, convert each (using nibble_to_hex logic), and print the result. Call the byte value from <code>.data</code>, don't hardcode. Output: <code>7B</code>."
+starter = '''
+section .text
+    global _start
+
+_start:
+    mov al, [test_byte]    ; load 0x7B
+    ; Extract high nibble: copy to bl, shr al,4, convert, store in outbuf
+    
+
+    ; Extract low nibble: mov al,[test_byte], and al,0x0F, convert, store in outbuf+1
+    
+
+    ; Print outbuf (2 bytes) + newline
+    
+
+section .data
+test_byte: db 0x7B
+outbuf: db 0, 0, 10
+outbuf_len equ $ - outbuf
+'''
+expect = '''
+7B'''
+hint = "High nibble: mov al,[test_byte] / shr al,4 / cmp al,10 / jb .hd / add al,'A'-10 / jmp .hstore / .hd: add al,'0' / .hstore: mov [outbuf],al. Low nibble: mov al,[test_byte] / and al,0x0F / same conversion / mov [outbuf+1],al. Print outbuf with length 3 (2 hex chars + newline)."

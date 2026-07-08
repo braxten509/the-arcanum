@@ -56,8 +56,9 @@ id = "s04-l03-e1"
 type = "mc"
 points = 20
 prompt = "How many HttpClient instances should a typical console app create?"
-choices = ["One per request, disposed immediately", "One, reused for the app's lifetime", "One per URL", "Zero — HttpClient is static"]
-answer = 1
+choices = ["One per request, disposed immediately", "Zero — HttpClient is static", "One per URL", "One, reused for the app's lifetime"]
+answer = 3
+whyWrong = "HttpClient isn’t static and shouldn’t be created per-request (that exhausts sockets) — create one and reuse it for the app’s lifetime."
 hint = "Socket exhaustion is the punishment for the wrong answer."
 
 [[lessons.exercises]]
@@ -74,8 +75,9 @@ id = "s04-l03-e3"
 type = "mc"
 points = 25
 prompt = "The user's query is <code>C# && rust?</code>. Before putting it in a URL query string you should…"
-choices = ["trust it — browsers handle everything", "wrap it in single quotes", "pass it through Uri.EscapeDataString", "remove all punctuation"]
-answer = 2
+choices = ["pass it through Uri.EscapeDataString", "wrap it in single quotes", "trust it — browsers handle everything", "remove all punctuation"]
+answer = 0
+whyWrong = "Quoting or stripping punctuation corrupts the query and raw input can never be trusted in a URL — Uri.EscapeDataString percent-encodes the special characters safely."
 hint = "# & ? all mean something special in URLs."
 
 [[lessons.exercises]]

@@ -1,0 +1,102 @@
+[[lessons]]
+id = "s02-l01"
+title = "The Hammer Falls — add, sub, imul"
+body = '''
+<p>Numbers in a register are just bits — 64 wires carrying charge or not. What turns those bits into alloy is the instruction that strikes them. <code>add</code>, <code>sub</code>, and <code>imul</code> are the three hammers you will swing most often.</p>
+
+<p>Every arithmetic instruction follows the same pattern: <strong>destination first, source second.</strong> The result overwrites the destination register:</p>
+<pre><code><span class="k">add</span> rax, rbx       <span class="c">; rax = rax + rbx</span>
+<span class="k">sub</span> rcx, 5         <span class="c">; rcx = rcx - 5</span>
+<span class="k">imul</span> rdx, 10       <span class="c">; rdx = rdx * 10 (signed multiply by immediate)</span></code></pre>
+
+<p>The source can be a register or an immediate constant. The destination must be a register. You cannot <code>add</code> two memory locations directly — load one into a register first.</p>
+
+<p><code>imul</code> has three forms — a forge with three hammer faces:</p>
+<ol>
+<li><strong>One-operand:</strong> <code>imul rcx</code> — multiplies <code>rax</code> by <code>rcx</code>, storing the 128-bit result across <code>rdx:rax</code> (high 64 bits in rdx, low 64 in rax). Rarely needed unless the product exceeds 64 bits.</li>
+<li><strong>Two-operand:</strong> <code>imul rdx, 10</code> or <code>imul rcx, rax</code> — multiplies the destination by the source, stores result in destination. The everyday form.</li>
+<li><strong>Three-operand:</strong> <code>imul r8, rcx, 10</code> — multiplies source2 by the immediate, stores in destination. <code>r8 = rcx * 10</code>. Cleanest when you want to preserve the original value.</li>
+</ol>
+
+<p><code>add</code> and <code>sub</code> are simpler — always two operands, destination modified:</p>
+<pre><code><span class="k">mov</span> rax, 40        <span class="c">; load ore</span>
+<span class="k">add</span> rax, 7         <span class="c">; rax = 47</span>
+<span class="k">sub</span> rax, 12        <span class="c">; rax = 35</span>
+<span class="k">imul</span> rax, 3        <span class="c">; rax = 105</span></code></pre>
+
+<p>Every arithmetic instruction also sets <strong>flags</strong> — one-bit markers in the RFLAGS register that record whether the result was zero, negative, or overflowed. You will read those flags in the next forge op; for now, know that they are always set, and they cost nothing extra — the hammer leaves a mark whether you look at it or not.</p>
+
+<div class="callout"><p>Always zero-extend when you mean unsigned, sign-extend when you mean signed. Moving a small value into a 64-bit register via <code>mov eax, 5</code> auto-zeroes the upper 32 bits. Moving via <code>mov al, 5</code> does not — high bytes of rax hold whatever they held before. For arithmetic correctness, initialize the full register width you intend to use.</p></div>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SIGNED vs UNSIGNED MULTIPLY</div>
+<p>NASM has <code>mul</code> (unsigned) and <code>imul</code> (signed). For the two-operand and three-operand forms, <code>imul</code> produces identical low-64-bit results for both signed and unsigned operands — the bit pattern is the same. Only the one-operand form (high 64 bits into rdx) differs between signed and unsigned. In practice, use <code>imul</code> for all integer multiplication in user-space programs; <code>mul</code> is needed only when you truly require unsigned overflow semantics for the full 128-bit product.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s02-l01-e1"
+type = "mc"
+points = 15
+prompt = "You execute <code>mov rax, 7</code> followed by <code>add rax, 13</code>. What value is in <code>rax</code>?"
+choices = [
+  "7 — add does not modify rax, it only sets flags",
+  "13 — add replaces the destination with the source operand",
+  "20 — add stores the sum into the destination register rax",
+  "0 — add resets the register to zero before adding"
+]
+answer = 2
+whyWrong = "add always stores rax + source into rax — it modifies the destination. If you thought it only set flags, you confused it with cmp (which subtracts but discards the result). If you thought it replaced rax with 13, you reversed the operand order. If you thought it zeroed first, no arithmetic instruction zeroes a register before operating."
+hint = "The destination register is the first operand — it is both read FROM and written TO."
+explain = "<code>add rax, 13</code> computes rax + 13 and stores the result back in rax. Starting from 7, the result is 20. This is the Intel syntax convention: destination is always the first operand listed."
+
+[[lessons.exercises]]
+id = "s02-l01-e2"
+type = "fill"
+points = 20
+prompt = "Multiply rcx by 10 and store the result back in rcx. Use the two-operand form."
+code = '''
+mov  rcx, 3
+____ rcx, 10       ; rcx = rcx * 10 = 30
+'''
+answer = "imul"
+hint = "Four letters — signed multiply. For rcx * 10, you want the form that modifies the destination register."
+explain = "<code>imul rcx, 10</code> multiplies rcx by the immediate 10 and stores the result in rcx. The two-operand form of imul is the cleanest way to scale a value by a constant."
+
+[[lessons.exercises]]
+id = "s02-l01-e3"
+type = "type"
+points = 12
+prompt = "Retype these arithmetic chains. Each line hammers the alloy one strike further."
+code = '''
+mov  rax, 100
+sub  rax, 25        ; rax = 75
+imul rax, 2         ; rax = 150
+add  rax, 50        ; rax = 200
+sub  rax, 100       ; rax = 100
+'''
+reps = 2
+
+[[lessons.exercises]]
+id = "s02-l01-w1"
+type = "write"
+points = 30
+prompt = "Compute and print. Load the value 150 into <code>rax</code>. Subtract 25. Multiply the result by 3. The final value is your cargo. Print it by converting to ASCII (you know sys_write from the last op — store the final digit as a byte and print exactly one character). The output must be the single digit corresponding to (150 - 25) * 3 / 100 — compute it by hand first to know what digit you need."
+starter = '''
+section .text
+    global _start
+
+_start:
+    ; Compute: (150 - 25) * 3
+    mov rax, 150
+    
+
+    ; Now rax holds the result. Divide by 100 and print one digit.
+    ; (Hint: 375 / 100 leaves the hundreds digit in quotient, remainder 75)
+    
+
+section .data
+digit: db 0, 10   ; one byte for the digit + newline
+digit_len equ $ - digit
+'''
+expect = '''
+3'''
+hint = "150 - 25 = 125. 125 * 3 = 375. 375 / 100 = 3. Store ASCII '3' (byte 51) at the digit label, then sys_write with rsi=digit, rdx=2 (one digit + newline)."

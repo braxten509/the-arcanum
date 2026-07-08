@@ -46,8 +46,9 @@ id = "s01-l05-e2"
 type = "mc"
 points = 20
 prompt = "In C#, <code>line == \"quit\"</code> where line is a string…"
-choices = ["compares memory addresses, so it's usually false", "compares the actual text content of the strings", "only works for single-character strings", "doesn't compile — strings need .Equals()"]
-answer = 1
+choices = ["compares memory addresses, so it's usually false", "doesn't compile — strings need .Equals()", "only works for single-character strings", "compares the actual text content of the strings"]
+answer = 3
+whyWrong = "In C# == on strings compares the actual characters, not memory addresses, and compiles fine without .Equals() — reference-comparison is a Java habit that doesn’t apply here."
 hint = "C# overloads == for strings to do the sane thing."
 
 [[lessons.exercises]]
@@ -55,8 +56,9 @@ id = "s01-l05-e3"
 type = "mc"
 points = 25
 prompt = "The seeker writes <code>\"  QUIT  \"</code> (stray spaces, capitals). Which expression rightly hears it as a leave-taking?"
-choices = ["line == \"quit\"", "line.Trim() == \"QUIT!\"", "line.Trim().ToLower() == \"quit\"", "line.ToLower() == \" quit \""]
-answer = 2
+choices = ["line.Trim().ToLower() == \"quit\"", "line.Trim() == \"QUIT!\"", "line == \"quit\"", "line.ToLower() == \" quit \""]
+answer = 0
+whyWrong = "Raw ‘quit’ fails on capitals/spaces, ToLower alone leaves the spaces, and the ‘QUIT!’ variant adds punctuation — only Trim().ToLower() normalizes both case and surrounding whitespace."
 hint = "First strip the spaces, then quiet the case."
 
 [[lessons.exercises]]

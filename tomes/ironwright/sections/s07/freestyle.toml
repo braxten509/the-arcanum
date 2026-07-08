@@ -1,0 +1,35 @@
+[freestyle]
+title = "THE WORKING: The Binding"
+brief = "Apprentice, bind the ironwork to the forge. Write the full <code>@Mod</code> skeleton with proxies and lifecycle, and move the data model into the mod's package. Build:<ul><li><code>src/main/java/com/ironwright/Ironwright.java</code> — <code>@Mod(modid = Ironwright.MODID, name = \"Ironwright\", version = \"0.1.0\")</code>, a <code>public static final String MODID = \"ironwright\";</code>, a <code>@Mod.Instance</code> static field, a <code>@SidedProxy</code> field pointing at <code>com.ironwright.client.ClientProxy</code> (client) and <code>com.ironwright.CommonProxy</code> (server), and three <code>@Mod.EventHandler</code> methods — <code>preInit(FMLPreInitializationEvent)</code>, <code>init(FMLInitializationEvent)</code>, <code>postInit(FMLPostInitializationEvent)</code> — each calling the matching <code>proxy</code> method and logging <code>IRONWRIGHT &lt;stage&gt;</code>.</li><li><code>src/main/java/com/ironwright/CommonProxy.java</code> — <code>preInit</code>, <code>init</code>, <code>postInit</code> with shared (side-agnostic) logic.</li><li><code>src/main/java/com/ironwright/client/ClientProxy.java</code> — <code>extends CommonProxy</code>, overrides each method to call <code>super</code> then add client-only stubs (a comment marking where <code>ModelLoader.setCustomModelResourceLocation</code> will go in Forgework VIII).</li><li><code>src/main/resources/mcmod.info</code> — a JSON array with one object whose <code>modid</code> is <code>ironwright</code>, <code>name</code> <code>Ironwright</code>, a description, and <code>version</code> <code>0.1.0</code>.</li><li>Move <code>Ingot</code>, <code>Metal</code>, <code>Registry</code>, <code>Forgeable</code> into <code>src/main/java/com/ironwright/</code>, each with <code>package com.ironwright;</code> as its first line and the file path matching the package.</li></ul>"
+reward = 225
+xray = "Orrick docks for a lifecycle method with the wrong event parameter (so it runs in the wrong stage or never), client-only code in CommonProxy, a mcmod.info modid that does not match the @Mod modid, or a moved class whose package line disagrees with its folder path. He gives style credit for @Override on every proxy override, MODID pulled into the @Mod annotation, Allman braces, and one class per file."
+
+[freestyle.badge]
+id = "badge-s07"
+name = "THE BINDING"
+desc = "Bound the ironwork to the forge — the @Mod skeleton with proxies, lifecycle, and the data model moved into com.ironwright."
+
+[[freestyle.rubric]]
+criterion = "@Mod class is correct"
+weight = 25
+desc = "Ironwright.java carries @Mod(modid = Ironwright.MODID, name = \"Ironwright\", version = \"0.1.0\"); a public static final String MODID = \"ironwright\"; a @Mod.Instance static field; a @SidedProxy field; three @Mod.EventHandler methods (preInit/init/postInit) each taking the correct FMLPreInitializationEvent / FMLInitializationEvent / FMLPostInitializationEvent parameter, each calling the proxy and logging IRONWRIGHT <stage>."
+
+[[freestyle.rubric]]
+criterion = "Proxies are correct"
+weight = 25
+desc = "CommonProxy declares preInit/init/postInit with shared logic; ClientProxy extends CommonProxy and overrides each with @Override, calling super then adding a client-only stub; the @SidedProxy annotation points clientSide at ClientProxy and serverSide at CommonProxy; no client-only class (Minecraft, ModelLoader) is referenced in CommonProxy."
+
+[[freestyle.rubric]]
+criterion = "mcmod.info is correct"
+weight = 15
+desc = "src/main/resources/mcmod.info is a valid JSON array with one object whose modid is exactly ironwright (matching @Mod), with name, description, and version fields; no trailing comma, quotes well-formed."
+
+[[freestyle.rubric]]
+criterion = "Package move is correct"
+weight = 15
+desc = "Ingot, Metal, Registry, and Forgeable live under src/main/java/com/ironwright/ (or a sub-package), each file's first line is package com.ironwright[.sub]; the file path matches the package; the data model itself is unchanged from Forgework V."
+
+[[freestyle.rubric]]
+criterion = "Build & clean style"
+weight = 20
+desc = "./gradlew build succeeds; @Override on every proxy override; one public class per .java file named for the class; Allman braces; 4-space indent; imports tidy; the MODID constant is the single source for the modid string."

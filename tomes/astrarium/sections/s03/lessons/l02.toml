@@ -1,0 +1,84 @@
+[[lessons]]
+id = "s03-l02"
+title = "Walking the Ledger Backward"
+body = '''
+<p>Vaelith turns the logbook around and reads from the last entry. <strong>"The newest observation is often the most urgent. Why scroll to the end when Python can reach it directly?"</strong></p>
+
+<p>Python supports <strong>negative indexing</strong> — counting from the end of the sequence instead of the beginning. Index <code>-1</code> is the last element, <code>-2</code> is the second-to-last, and so on:</p>
+<pre><code>events <span class="k">=</span> [<span class="s">"METEOR"</span>, <span class="s">"FLARE"</span>, <span class="s">"SENSOR"</span>]
+<span class="k">print</span>(events[<span class="o">-</span><span class="mi">1</span>])  <span class="c"># SENSOR</span>
+<span class="k">print</span>(events[<span class="o">-</span><span class="mi">2</span>])  <span class="c"># FLARE</span>
+<span class="k">print</span>(events[<span class="o">-</span><span class="mi">3</span>])  <span class="c"># METEOR</span></code></pre>
+<p>Negative indices are a clean way to access the tail of a list without computing <code>len(events) - 1</code> every time. The valid range is <code>-len(events)</code> to <code>-1</code> — go further negative and you get an <code>IndexError</code>.</p>
+
+<p><strong>Slicing</strong> extracts a contiguous subsequence from a list. The syntax is <code>list[start:stop]</code> — it returns a <em>new list</em> containing the elements from index <code>start</code> up to (but not including) <code>stop</code>:</p>
+<pre><code>events <span class="k">=</span> [<span class="s">"METEOR"</span>, <span class="s">"FLARE"</span>, <span class="s">"SENSOR"</span>, <span class="s">"COSMIC"</span>, <span class="s">"SATELLITE"</span>]
+first_three <span class="k">=</span> events[<span class="mi">0</span>:<span class="mi">3</span>]    <span class="c"># ["METEOR", "FLARE", "SENSOR"]</span>
+middle <span class="k">=</span> events[<span class="mi">1</span>:<span class="mi">4</span>]          <span class="c"># ["FLARE", "SENSOR", "COSMIC"]</span></code></pre>
+<p>Either boundary may be omitted. <code>list[:3]</code> takes from the start up to index 3. <code>list[3:]</code> takes from index 3 to the end. A full copy of the list is <code>list[:]</code> — start to end.</p>
+
+<p>A third field, <strong>step</strong>, controls the stride: <code>list[start:stop:step]</code>. A step of <code>2</code> takes every second element. A negative step reverses direction:</p>
+<pre><code><span class="k">print</span>(events[::<span class="mi">2</span>])    <span class="c"># ["METEOR", "SENSOR", "SATELLITE"] — every other</span>
+<span class="k">print</span>(events[::<span class="o">-</span><span class="mi">1</span>])   <span class="c"># whole list reversed</span></code></pre>
+<p>The slice <code>events[::-1]</code> is the idiomatic Python way to reverse a list for iteration without modifying the original. It creates a new list with elements in reverse order.</p>
+
+<div class="callout">"<strong>Vaelith's rule:</strong> when you find yourself writing <code>len(list) - 1</code> to reach the last element, reach for <code>[-1]</code> instead. When you want a portion, think of <code>[:n]</code> for the first n and <code>[-n:]</code> for the last n."</div>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // Slices Create New Lists</div>
+<p>A slice always allocates a new list — it copies the elements. For small ledgers this is instant, but for very large lists (millions of entries) a slice doubles memory usage. When you only need to inspect or iterate a portion without keeping it, use a loop with <code>range()</code> and bounds instead. Slices also work on strings — <code>"OBSERVATION"[:4]</code> yields <code>"OBSE"</code> — because strings are sequences too.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python docs — slicing"
+url = "https://docs.python.org/3/tutorial/introduction.html#strings"
+
+[[lessons.exercises]]
+id = "s03-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this negative indexing and slicing example exactly. (Ctrl+Enter submits.)"
+code = '''events = ["METEOR", "FLARE", "SENSOR"]
+print(events[-1])
+print(events[0:2])'''
+
+[[lessons.exercises]]
+id = "s03-l02-e1"
+type = "mc"
+points = 15
+prompt = "What does <code>events[-1]</code> return given <code>events = [\"METEOR\", \"FLARE\", \"SENSOR\"]</code>?"
+choices = [
+    "An IndexError because -1 is out of range",
+    "The first element: \"METEOR\"",
+    "The last element: \"SENSOR\"",
+    "A new list containing all three elements"
+]
+answer = 2
+whyWrong = "-1 is a valid negative index in Python — it does not cause an IndexError. -1 refers to the last element, not the first (index 0 is the first). events[-1] returns a single element string, not a new list — slicing with : would be needed for a list."
+hint = "Vaelith's negative index counts from the end. The element farthest from the start is the one at position -1."
+explain = "Negative indices count from the end of the list. events[-1] is always the last element, regardless of the list length."
+
+[[lessons.exercises]]
+id = "s03-l02-e2"
+type = "fill"
+points = 20
+prompt = "The night's observations are in a list. Slice the <strong>first two</strong> elements and assign them to <code>first_watch</code>. What slice expression goes in the blank?"
+code = '''observations = ["METEOR", "FLARE", "SENSOR", "COSMIC"]
+first_watch = observations[____]'''
+answer = "0:2"
+accept = [":2"]
+hint = "The slice start is 0 (the first element) and the stop is the index of the first element you do NOT want included. The slice is exclusive at the stop boundary."
+explain = "observations[0:2] or observations[:2] both return a new list with the first two elements: ['METEOR', 'FLARE']. Index 2 (SENSOR) is excluded because the stop is exclusive."
+
+[[lessons.exercises]]
+id = "s03-l02-w1"
+type = "write"
+points = 30
+prompt = "The starter contains a list of five event codes. Use a <strong>slice</strong> to extract the last two events (no matter how many total events there are) and print them each on their own line."
+expect = '''FLARE
+SENSOR_ANOMALY'''
+starter = '''# ASTRARIUM — Slice the Last Watch
+events = ["METEOR", "COSMIC_RAY", "SATELLITE", "FLARE", "SENSOR_ANOMALY"]
+# TODO: slice the last two elements with a negative-start slice
+# and print each on its own line'''
+hint = "Use <code>events[-2:]</code> to get the last two elements. Then iterate with <code>for e in ...:</code> to print each on its own line, or just <code>print(sliced[0])</code> and <code>print(sliced[1])</code>."

@@ -1,0 +1,66 @@
+[[lessons]]
+id = "s06-l05"
+title = "Firing the Coals — runClient & a Trivial @Mod"
+body = '''
+<p>The forge is built; now light it. <code>./gradlew runClient</code> boots the <strong>development Minecraft client</strong> — a real Minecraft 1.12.2 with your mod on the classpath, running from the project's <code>run/</code> directory. The first boot downloads Minecraft assets (sound, textures) and takes minutes; later boots are fast.</p>
+<p>But a mod with no <code>@Mod</code> class loads nothing. Before the coals can show your ironwork, you need the binding rite — a class marked with Forge's <code>@Mod</code> annotation. Here is the trivial version that proves the forge answers:</p>
+<pre><code><span class="k">package</span> com.ironwright;
+
+<span class="k">import</span> net.minecraftforge.common.MinecraftForge;
+<span class="k">import</span> net.minecraftforge.fml.common.Mod;
+
+@Mod(modid = <span class="s">"ironwright"</span>, name = <span class="s">"Ironwright"</span>, version = <span class="s">"0.1.0"</span>)
+<span class="k">public class</span> Ironwright {
+    <span class="c">// the binding rite — Forgework VII fills in lifecycle, proxies, and the MODID constant</span>
+}</code></pre>
+<p>The <code>@Mod(modid = "ironwright", ...)</code> annotation is what tells Forge "this class is a mod; load it". The <code>modid</code> must match the <code>archivesBaseName</code> and the resource domain — one name, one spelling. Put this file at <code>src/main/java/com/ironwright/Ironwright.java</code> (the package path becomes the folder path), run <code>./gradlew runClient</code>, and the dev client boots with your mod on the list. Forgework VII fills in the lifecycle methods and proxies; here you only prove the binding takes.</p>
+<p>Forge logs through its own logger; a trivial <code>@Mod</code> with no lifecycle methods logs nothing of its own, but you can see it in the Mods screen during the dev client.</p>
+<div class="callout"><strong>Orrick says:</strong> <code>runClient</code> is not a unit test — it boots the whole game. Use it to see your work; do not use it to check every line. Compile with <code>./gradlew build</code> first, fire the coals to see the result.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE run/ DIRECTORY</div>
+<p>The dev client boots from <code>run/</code> — a folder Gradle creates with its own <code>saves/</code>, <code>logs/</code>, and a copy of the Minecraft assets. It is a throwaway world; the engine and the validator exclude <code>run/</code> from the workspace's required files. If a boot corrupts it, delete <code>run/</code> and the next <code>runClient</code> rebuilds it. Your mod's source lives in <code>src/main/java/</code>, never in <code>run/</code>.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s06-l05-e1"
+type = "mc"
+points = 15
+prompt = "What does <code>./gradlew runClient</code> boot?"
+choices = ["a unit test runner", "the development Minecraft 1.12.2 client with your mod on the classpath, running from the run/ directory", "the Gradle build", "an IntelliJ indexer"]
+answer = 2
+whyWrong = "runClient boots the real dev Minecraft client with your mod loaded; it is not a test runner, not the build (that is 'build'), and not the indexer. It is the whole game with your ironwork on it — slow but real."
+hint = "Think about what 'firing the coals' means — what runs when you light the forge?"
+explain = "runClient launches the dev Minecraft 1.12.2 client from run/ with the mod on the classpath. It is how you see your work in-game."
+
+[[lessons.exercises]]
+id = "s06-l05-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the modid value — the one string that must match the archivesBaseName, the resource domain, and the package root's last segment."
+code = '''@Mod(modid = "____", name = "Ironwright", version = "0.1.0")'''
+answer = "ironwright"
+whyWrong = "ironwright is the mod id (lowercase, matching archivesBaseName and the resource domain); Ironwright with a capital is the display name not the id, com.ironwright is the package not the id, IRONWRIGHT is the caps branding. The modid is lowercase ironwright."
+hint = "It is the lowercase mod id — the same string as archivesBaseName, used as the resource domain."
+
+[[lessons.exercises]]
+id = "s06-l05-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of the loading-log line Forge would emit. The starter sets <code>String modid = \"ironwright\";</code> and <code>String version = \"0.1.0\";</code>. Print <code>[ironwright/0.1.0] IRONWRIGHT loading</code> by joining <code>\"[\"</code>, <code>modid</code>, <code>\"/\"</code>, <code>version</code>, <code>\"] IRONWRIGHT loading\"</code>. Read modid and version from the variables."
+starter = '''public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright";
+        String version = "0.1.0";
+        // apprentice — print "[<modid>/<version>] IRONWRIGHT loading"
+    }
+}'''
+expect = '''
+[ironwright/0.1.0] IRONWRIGHT loading'''
+hint = "System.out.println(\"[\" + modid + \"/\" + version + \"] IRONWRIGHT loading\");"
+
+[[lessons.exercises]]
+id = "s06-l05-t1"
+type = "text"
+points = 20
+prompt = "Type the path (from the project root) where the dev Minecraft client boots — the directory Gradle creates and the validator excludes."
+answer = "run"
+hint = "It is the three-letter directory named for what the client does — set by runDir in build.gradle."

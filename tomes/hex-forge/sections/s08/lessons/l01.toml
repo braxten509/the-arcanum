@@ -1,0 +1,145 @@
+[[lessons]]
+id = "s08-l01"
+title = "The Orchestration Loop"
+body = '''
+<p>HexForge is not one loop — it is three, nested. The outer loop reads chunks from the input fd. The middle loop extracts 16-byte lines from each chunk, handling the partial-line carry between reads. The inner loop formats each byte of a line into hex and gutter characters. This lesson forges the outer and middle layers.</p>
+
+<p>The state HexForge must carry between outer-loop iterations:</p>
+<pre><code>; r12 = input fd (0 for stdin, 3+ for file)
+; r13 = running byte offset (incremented by bytes read)
+; r14 = carry count from previous chunk (0–15 leftover bytes)
+; r15 → carry buffer (address of leftover bytes in .bss)</code></pre>
+
+<p>The outer loop:</p>
+<pre><code>.read_chunk:
+    <span class="k">mov</span> rax, 0
+    <span class="k">mov</span> rdi, r12            <span class="c">; input fd</span>
+    <span class="k">mov</span> rsi, read_buf
+    <span class="k">mov</span> rdx, 4096
+    <span class="k">syscall</span>
+    <span class="k">test</span> rax, rax
+    <span class="k">jz</span> .flush_last          <span class="c">; EOF — flush any partial line</span>
+
+    <span class="c">; Prepend leftover bytes from the previous chunk</span>
+    <span class="c">; (r14 leftover bytes are in the carry buffer)</span>
+    <span class="k">mov</span> rcx, r14            <span class="c">; carry count</span>
+    <span class="k">test</span> rcx, rcx
+    <span class="k">jz</span> .lines_from_chunk    <span class="c">; no carry — process chunk directly</span>
+    <span class="c">; Copy carry bytes to the front of a working buffer,</span>
+    <span class="c">; then append new bytes from sys_read</span>
+
+.lines_from_chunk:
+    <span class="c">; rsi → start of working buffer (carry + new bytes)</span>
+    <span class="c">; rcx = total bytes available (carry_count + bytes_read)</span>
+
+.line_loop:
+    <span class="k">cmp</span> rcx, 16
+    <span class="k">jb</span> .save_carry           <span class="c">; fewer than 16 bytes left → save for next chunk</span>
+
+    <span class="c">; We have a full line — format it</span>
+    <span class="k">call</span> format_line         <span class="c">; format 16 bytes from [rsi]</span>
+    <span class="k">call</span> print_line          <span class="c">; print the formatted line</span>
+
+    <span class="k">add</span> rsi, 16             <span class="c">; advance source pointer</span>
+    <span class="k">sub</span> rcx, 16             <span class="c">; 16 fewer bytes remaining</span>
+    <span class="k">add</span> r13, 16             <span class="c">; offset += 16</span>
+    <span class="k">jmp</span> .line_loop
+
+.save_carry:
+    <span class="c">; Copy rcx leftover bytes to the carry buffer</span>
+    <span class="k">mov</span> r14, rcx            <span class="c">; save carry count for next chunk</span>
+    <span class="c">; ... copy rcx bytes from [rsi] to carry_buf ...</span>
+    <span class="k">jmp</span> .read_chunk          <span class="c">; get more data</span>
+
+.flush_last:
+    <span class="c">; EOF — if r14 > 0, we have a short final line</span>
+    <span class="k">test</span> r14, r14
+    <span class="k">jz</span> .done
+    <span class="c">; Format and print the short last line (r14 bytes)</span>
+    <span class="k">call</span> format_short_line</code></pre>
+
+<p>The carry buffer solves the chunk-boundary problem: when a <code>sys_read</code> returns 50 bytes, lines 1–3 use 48 bytes (3 full lines), and 2 bytes remain. Those 2 bytes are saved in the carry buffer. On the next <code>sys_read</code>, the carry bytes are prepended to the new chunk, so the line boundary is continuous across reads.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE OFFSET vs THE POSITION</div>
+<p>The running offset printed in the first column of each dump line is the <strong>byte offset from the start of input</strong>, not the file position. After the carry buffer prepends leftover bytes to a new chunk, the offset still increments by 16 per full line — it does not reset. The offset is purely additive: it starts at 0 and grows by the number of bytes formatted, regardless of chunk boundaries. Track it in a 64-bit register (r13) and format it as an 8-digit zero-padded hex number in the output: <code>00000000</code>, <code>00000010</code>, <code>00000020</code>, etc.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s08-l01-e1"
+type = "mc"
+points = 15
+prompt = "A <code>sys_read</code> returns 100 bytes. The carry buffer has 4 bytes from the previous chunk. How many full 16-byte lines can be formatted from this chunk?"
+choices = [
+  "6 — the 4 carry bytes plus 100 new bytes = 104 total, 104 / 16 = 6 lines (96 bytes), 8 leftover",
+  "7 — 100 / 16 = 6.25, rounded up to 7 lines",
+  "6 — only the new 100 bytes count; carry bytes were already processed",
+  "5 — 104 / 16 = 6 with 8 leftover, but the last line can't span a chunk boundary"
+]
+answer = 0
+whyWrong = "Carry bytes represent data from the PREVIOUS chunk that hasn't been formatted yet — they must be prepended to the new bytes. 4 + 100 = 104 total. 104 / 16 = 6 full lines (96 bytes) with 8 bytes leftover for the next carry. Lines CAN span chunk boundaries — that's the whole purpose of the carry buffer."
+hint = "The carry bytes are NOT already formatted — they are waiting for enough bytes to complete a 16-byte line."
+explain = "104 total bytes (4 carry + 100 new). 6 full lines consume 96 bytes. The remaining 8 bytes become the next carry. Without the carry buffer, the chunk boundary would break the 16-byte grouping — the first line of the new chunk would start at a wrong offset."
+
+[[lessons.exercises]]
+id = "s08-l01-e2"
+type = "text"
+points = 20
+prompt = "At EOF, the carry buffer holds 11 bytes (a short final line). What must the program do — print nothing and exit, or format and print the 11 bytes?"
+answer = "format and print the 11 bytes"
+accept = ["format and print", "print them", "format and print the short line"]
+hint = "Every byte of input must appear in the dump. The final line may be shorter than 16 bytes."
+explain = "The short final line must be formatted and printed — otherwise the last 11 bytes of the file would be missing from the dump. The format_line procedure handles short lines by padding the hex column appropriately and padding the gutter column with spaces."
+
+[[lessons.exercises]]
+id = "s08-l01-e3"
+type = "fill"
+points = 20
+prompt = "Fill the comparison that checks whether there are enough bytes for a full dump line."
+code = '''
+cmp  rcx, ____        ; do we have at least 16 bytes?
+jb   .save_carry      ; no — carry them forward
+'''
+answer = "16"
+hint = "A two-digit number — the standard dump line width."
+explain = "Each dump line displays 16 bytes. If fewer than 16 bytes remain in the working buffer, they can't form a full line — they must be saved as carry for the next chunk. If rcx ≥ 16, we have at least one full line to format."
+
+[[lessons.exercises]]
+id = "s08-l01-w1"
+type = "write"
+points = 30
+prompt = "Count lines, not bytes. Read stdin in 64-byte chunks. After each read, count how many full 16-byte lines are in the chunk (byte_count / 16). Accumulate the line count across all chunks. Handle EOF correctly — don't count a final partial line unless it has exactly 16 bytes. Print the total number of full 16-byte lines. The engine pipes 50 bytes (three full lines = 48 bytes + 2 leftover). Output: <code>3</code>."
+starter = '''
+section .text
+    global _start
+
+_start:
+    mov r12, 0           ; stdin fd
+    xor r13, r13          ; line counter
+
+.read_loop:
+    ; Read 64 bytes into buffer
+    
+
+    ; rax = bytes read. test/jz .done
+    
+
+    ; Add (rax / 16) to r13 — count full lines in this chunk
+    
+
+    jmp .read_loop
+
+.done:
+    ; Print r13 (line count) using itoa
+    
+
+section .bss
+buffer: resb 64
+
+section .data
+newline: db 10
+outbuf: times 20 db 0
+'''
+stdin = "AAAAAAAAAAAAAAAABBBBBBBBBBBBBBBBCCCCCCCCCCCCCCCCDD"
+expect = '''
+3'''
+hint = "After sys_read: test rax,rax / jz .done. Then: mov rcx,rax / shr rcx,4 (divide by 16 — fast shift) / add r13,rcx. jmp .read_loop. After .done, itoa r13. 50 bytes → 50/16=3 full lines with 2 leftover bytes (discarded for line counting)."

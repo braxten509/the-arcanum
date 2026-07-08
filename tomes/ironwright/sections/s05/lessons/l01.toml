@@ -1,0 +1,95 @@
+[[lessons]]
+id = "s05-l01"
+title = "The Contract — Interfaces & implements"
+body = '''
+<p>A forge runs on contracts — the shape of a thing matters more than the thing itself. A Java <strong>interface</strong> declares what a thing can do without saying how it does it. A class <strong>implements</strong> an interface by writing the bodies for its methods.</p>
+<pre><code><span class="k">public interface</span> Forgeable {
+    <span class="k">int</span> forgeValue();          <span class="c">// no body — just the promise</span>
+    String forgeName();
+}
+
+<span class="k">public class</span> Ingot <span class="k">implements</span> Forgeable {
+    <span class="k">private</span> String name;
+    <span class="k">private int</span> value;
+    <span class="c">// ... constructor, getters ...</span>
+    <span class="k">@Override</span> <span class="k">public int</span> forgeValue() { <span class="k">return</span> value; }
+    <span class="k">@Override</span> <span class="k">public</span> String forgeName() { <span class="k">return</span> name; }
+}</code></pre>
+<p>An interface's methods have no bodies (until you mark them <code>default</code> — a later refinement). A class that <code>implements</code> it must write every one, or the compiler refuses the forging: "Ingot is not abstract and does not override the abstract method". <code>@Override</code> on each is the smith's habit — it checks you matched the interface's signature exactly.</p>
+<p>Unlike <code>extends</code> (single parent), a class can <code>implements</code> many interfaces, separated by commas. That is how Java gives one object several kinds without multiple inheritance: <code>class ItemIngot extends Item implements Forgeable, IForgeRegistryEntry</code> — one parent, many contracts.</p>
+<div class="callout"><strong>Orrick says:</strong> An interface is a promise. A variable typed as <code>Forgeable f = new Ingot("copper", 6);</code> can call <code>f.forgeValue()</code> and <code>f.forgeName()</code> — and nothing else. The interface wall lets you swap any Forgeable in without the caller knowing it is an Ingot.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE REAL CONTRACT YOU ARE PREVIEWING</div>
+<p>Minecraft's <code>IForgeRegistryEntry&lt;T&gt;</code> is exactly this shape — an interface every registrable item and block implements, with a method to fetch its registry name. Your <code>ItemIngot</code> will implement it through <code>Item</code>. The <code>Forgeable</code> interface you write here is the plain-Java rehearsal: one contract, many implementers, the caller blind to the concrete class.</p></div>
+'''
+
+[[lessons.readings]]
+label = "The Java Tutorials — Interfaces"
+url = "https://docs.oracle.com/javase/tutorial/java/concepts/interface.html"
+
+[[lessons.exercises]]
+id = "s05-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the Forgeable interface exactly — two method signatures, no bodies."
+code = '''public interface Forgeable {
+    int forgeValue();
+    String forgeName();
+}'''
+
+[[lessons.exercises]]
+id = "s05-l01-e1"
+type = "mc"
+points = 15
+prompt = "A class <code>Ingot implements Forgeable</code> but the smith forgets to write <code>forgeName()</code>. What happens?"
+choices = ["the class compiles and forgeName returns null at runtime", "the class is automatically marked abstract", "the interface silently provides a default body", "the compiler errors: Ingot is not abstract and does not override the abstract method forgeName"]
+answer = 3
+whyWrong = "A non-abstract class that implements an interface must override every abstract method or the compiler errors with 'not abstract and does not override'; there is no silent null default, and the class is not auto-abstracted. Implementing is a compile-time promise the compiler enforces."
+hint = "Think about when the promise is enforced — at compile time or runtime — and whether a partial implementation is allowed."
+explain = "The compiler enforces the contract: every abstract method must have a body in a concrete class. Mark the class abstract or write the method."
+
+[[lessons.exercises]]
+id = "s05-l01-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the keyword that declares a class will provide bodies for an interface's methods."
+code = '''public class Ingot ____ Forgeable {
+    @Override public int forgeValue() { return value; }
+}'''
+answer = "implements"
+whyWrong = "implements binds a class to an interface; extends binds to a class (single parent), interface declares the contract itself, with is not Java's keyword. The class-to-interface keyword is implements."
+hint = "It is the ten-letter English word meaning 'provides bodies for' — also the Java interface keyword."
+
+[[lessons.exercises]]
+id = "s05-l01-w1"
+type = "write"
+points = 30
+prompt = "The starter has a <code>Forgeable</code> interface and an <code>Ingot</code> class that does NOT yet implement it. Add <code>implements Forgeable</code> to Ingot and the two methods (<code>forgeValue</code> returns <code>value</code>, <code>forgeName</code> returns <code>name</code>, both <code>@Override</code>). Then in <code>main</code>, construct <code>Ingot copper = new Ingot(\"copper\", 6);</code> and print <code>copper is worth 6em</code> using <code>copper.forgeName()</code> and <code>copper.forgeValue()</code>."
+starter = '''public class Ironwright {
+    interface Forgeable {
+        int forgeValue();
+        String forgeName();
+    }
+    static class Ingot {
+        private String name; private int value;
+        public Ingot(String name, int value) { this.name = name; this.value = value; }
+        public String getName() { return name; }
+        public int getValue() { return value; }
+        // apprentice — make Ingot implement Forgeable: add implements + forgeValue + forgeName
+    }
+
+    public static void main(String[] args) {
+        // apprentice — construct copper, print its forgeName and forgeValue as described above
+    }
+}'''
+expect = '''
+copper is worth 6em'''
+hint = "Change the Ingot class line to 'static class Ingot implements Forgeable' and add @Override public int forgeValue() { return value; } and @Override public String forgeName() { return name; }."
+
+[[lessons.exercises]]
+id = "s05-l01-t1"
+type = "text"
+points = 20
+prompt = "How many interfaces can a single class implement? (One word — the same word that describes how many parents it can extend, but the opposite answer.)"
+answer = "many"
+hint = "extends allows one parent; implements allows how many interfaces (separated by commas)?"

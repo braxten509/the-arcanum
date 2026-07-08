@@ -1,0 +1,118 @@
+[[lessons]]
+id = "s02-l01"
+title = "The Forked Path"
+body = '''
+<p>Vaelith holds up a single log line: <code>22:04 METEOR_SHOWER SEV=3</code>. <strong>"The same line tells different stories depending on what we ask it. A severity of 3 demands action; a severity of 0 is routine. The Astrarium must choose its path."</strong></p>
+
+<p>Python's conditional branches start with <code>if</code>, followed by a condition and a colon. The indented block below runs only if the condition is <code>True</code>:</p>
+<pre><code>sev <span class="k">=</span> <span class="mi">3</span>
+<span class="k">if</span> sev <span class="o">&gt;=</span> <span class="mi">3</span>:
+    <span class="k">print</span>(<span class="s">"High severity — alert the observer."</span>)</code></pre>
+<p>Indentation is the block delimiter — four spaces by convention. Every line at the same indent level belongs to that branch. A misplaced space changes the program's meaning.</p>
+
+<p>Conditions are built with <strong>comparison operators</strong> that test relationships between values:</p>
+<pre><code><span class="o">==</span>  <span class="c"># equal to</span>
+<span class="o">!=</span>  <span class="c"># not equal to</span>
+<span class="o">&lt;</span>   <span class="c"># less than</span>
+<span class="o">&gt;</span>   <span class="c"># greater than</span>
+<span class="o">&lt;=</span>  <span class="c"># less than or equal to</span>
+<span class="o">&gt;=</span>  <span class="c"># greater than or equal to</span></code></pre>
+<p><strong>The single most common mistake:</strong> <code>=</code> assigns, <code>==</code> compares. Writing <code>if sev = 3</code> is a syntax error — the Astrarium will refuse to run.</p>
+
+<p>When a single path is not enough, chain <code>elif</code> (short for "else if") and cap with <code>else</code>:</p>
+<pre><code>sev <span class="k">=</span> <span class="mi">1</span>
+<span class="k">if</span> sev <span class="o">&gt;=</span> <span class="mi">3</span>:
+    <span class="k">print</span>(<span class="s">"HIGH"</span>)
+<span class="k">elif</span> sev <span class="o">&gt;=</span> <span class="mi">1</span>:
+    <span class="k">print</span>(<span class="s">"MEDIUM"</span>)
+<span class="k">else</span>:
+    <span class="k">print</span>(<span class="s">"LOW"</span>)</code></pre>
+<p>The branches are checked in order: the first <code>True</code> condition wins, and the rest are skipped. <code>else</code> catches everything that did not match — it never carries a condition. This ordering is the heart of the severity classifier the Astrarium will use to tag every log line as INFO, WARN, or ERROR.</p>
+
+<p>Conditions can also check whether a substring exists inside a string with <code>in</code>:</p>
+<pre><code>line <span class="k">=</span> <span class="s">"ERROR: sensor timeout"</span>
+<span class="k">if</span> <span class="s">"ERROR"</span> <span class="ow">in</span> line:
+    <span class="k">print</span>(<span class="s">"Flag this entry."</span>)</code></pre>
+<p>The <code>in</code> operator returns <code>True</code> when the left string appears anywhere inside the right string. It is case-sensitive — <code>"error" in "ERROR"</code> is <code>False</code>. This is how the Astrarium will soon decide whether a log line deserves ERROR, WARN, or INFO simply by looking at what words it contains.</p>
+
+<div class="callout">"<strong>Vaelith's rule:</strong> put the most specific branch first. If <code>sev &gt;= 1</code> came before <code>sev &gt;= 3</code>, the HIGH branch would never fire — a severity of 3 always satisfies <code>&gt;= 1</code>. Order from narrowest to widest."</div>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // The Nested Path</div>
+<p>An <code>if</code> may sit inside another <code>if</code> — nesting. This is useful when a second condition matters only after the first is met: for example, if the line contains "ERROR", then check whether its severity exceeds a threshold. Keep nesting to two levels at most; deeper logic signals that the conditions should be combined with <code>and</code> or the code restructured. Python enforces indentation strictly, so each nesting level adds four spaces — a visual depth map that keeps the Astrarium's logic readable.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python docs — if statements"
+url = "https://docs.python.org/3/tutorial/controlflow.html#if-statements"
+
+[[lessons.readings]]
+label = "Python docs — comparison operators"
+url = "https://docs.python.org/3/reference/expressions.html#comparisons"
+
+[[lessons.exercises]]
+id = "s02-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this three-branch severity classifier exactly, indentation included. (Ctrl+Enter submits.)"
+code = '''sev = 2
+if sev >= 3:
+    print("HIGH")
+elif sev >= 1:
+    print("MEDIUM")
+else:
+    print("LOW")'''
+
+[[lessons.exercises]]
+id = "s02-l01-e1"
+type = "fill"
+points = 20
+prompt = "The first watch logged 12 events and the second watch logged 7. Vaelith wants to print a message when the first watch has more events than the second. What comparison operator goes in the blank?"
+code = '''watch_1 = 12
+watch_2 = 7
+if watch_1 ____ watch_2:
+    print("First watch exceeds the second.")'''
+answer = ">"
+hint = "The operator for 'greater than' is a single character — the same symbol used in mathematics for the left side being larger."
+explain = "> is the greater-than operator. 12 > 7 is True, so the indented block executes."
+
+[[lessons.exercises]]
+id = "s02-l01-e2"
+type = "mc"
+points = 15
+prompt = "In Python, what is the difference between <code>=</code> and <code>==</code>?"
+choices = [
+    "They are interchangeable — both compare two values",
+    "= assigns a value to a variable; == compares two values for equality",
+    "== assigns a value to a variable; = compares two values",
+    "Both assign values — = works on integers, == works on strings"
+]
+answer = 1
+whyWrong = "The first option describes == but not = — assignment never compares. The third has the roles exactly reversed, which would cause a syntax error in every if condition. The fourth is wrong because = always assigns regardless of type, and == compares values of any type."
+hint = "One of these appears in conditions like <code>if sev == 3</code>; the other appears in variable assignments like <code>sev = 3</code>. They are not interchangeable."
+explain = "= is the assignment operator — it stores a value into a variable. == is the equality comparison operator — it tests whether two values are equal. Using = where == is expected is the most common syntax mistake new Python authors make."
+
+[[lessons.exercises]]
+id = "s02-l01-e3"
+type = "text"
+points = 20
+prompt = "What Python keyword introduces the fallback branch that runs when no <code>if</code> or <code>elif</code> condition above it was <code>True</code>?"
+answer = "else"
+accept = ["else:"]
+hint = "Vaelith places it at the end of a chain with no condition of its own — it catches everything that the earlier branches did not."
+explain = "else is the unconditional fallback. It never carries a condition. Python executes its block only when every if and elif above it evaluated to False."
+
+[[lessons.exercises]]
+id = "s02-l01-w1"
+type = "write"
+points = 30
+prompt = "The night's observation count is entered by the observer. Read an integer from <code>input()</code>, then classify it into one of three severity bands:<br>Less than 10 → print <code>Severity: LOW</code><br>10 to 49 inclusive → print <code>Severity: MEDIUM</code><br>50 or more → print <code>Severity: HIGH</code>"
+expect = '''Severity: MEDIUM'''
+stdin = "12"
+starter = '''# ASTRARIUM — Classify Observation Count
+# Read an integer from input, then use if/elif/else to
+# classify it and print the severity label.
+raw = input()
+count = int(raw)
+# TODO: build the if/elif/else chain'''
+hint = "Check the highest band first (<code>count >= 50</code>), then the middle band (<code>count >= 10</code>), with else handling the lowest. The <code>in</code> operator is not needed here — use comparison operators on the integer."

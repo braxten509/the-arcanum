@@ -1,0 +1,102 @@
+[[lessons]]
+id = "s02-l05"
+title = "The Classifier's Eye"
+body = '''
+<p>Vaelith places a full page of observations on the desk — a dozen lines, each recording some event the night produced. <strong>"Now we combine everything. Branches to decide, loops to walk, conditions to test. The Astrarium's classifier is its first real tool."</strong></p>
+
+<p>The problem is simple: given a list of log lines, tag each one as <code>INFO</code>, <code>WARN</code>, or <code>ERROR</code> depending on which keyword it contains, then report how many of each appeared. The structure combines a loop to walk the lines with an <code>if/elif/else</code> chain to classify each one:</p>
+<pre><code>lines <span class="k">=</span> [
+    <span class="s">"INFO: meteor shower at 22:04"</span>,
+    <span class="s">"WARN: sensor drift on channel 7"</span>,
+    <span class="s">"ERROR: timeout on azimuth mount"</span>,
+]
+<span class="k">for</span> line <span class="ow">in</span> lines:
+    <span class="k">if</span> <span class="s">"ERROR"</span> <span class="ow">in</span> line:
+        <span class="k">print</span>(<span class="s">f"ERROR: {line}"</span>)
+    <span class="k">elif</span> <span class="s">"WARN"</span> <span class="ow">in</span> line:
+        <span class="k">print</span>(<span class="s">f"WARN: {line}"</span>)
+    <span class="k">else</span>:
+        <span class="k">print</span>(<span class="s">f"INFO: {line}"</span>)</code></pre>
+<p>The order matters critically. If <code>WARN</code> were checked before <code>ERROR</code>, a line containing both keywords — <code>"ERROR: WARN level sensor drift"</code> — would be tagged <code>WARN</code> because the first <code>True</code> branch wins. The checker must also take care with overlapping keywords: <code>"ERROR" in "WARN: ERROR handler triggered"</code> is <code>True</code>, so a line can genuinely match both; the first branch wins, so check ERROR first.</p>
+
+<p>Counting uses variables that increment inside each branch:</p>
+<pre><code>err_count <span class="k">=</span> <span class="mi">0</span>
+warn_count <span class="k">=</span> <span class="mi">0</span>
+info_count <span class="k">=</span> <span class="mi">0</span>
+<span class="k">for</span> line <span class="ow">in</span> lines:
+    <span class="k">if</span> <span class="s">"ERROR"</span> <span class="ow">in</span> line:
+        err_count <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">print</span>(<span class="s">f"ERROR: {line}"</span>)
+    <span class="k">elif</span> <span class="s">"WARN"</span> <span class="ow">in</span> line:
+        warn_count <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">print</span>(<span class="s">f"WARN: {line}"</span>)
+    <span class="k">else</span>:
+        info_count <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">print</span>(<span class="s">f"INFO: {line}"</span>)
+
+<span class="k">print</span>(<span class="s">f"ERROR: {err_count}"</span>)
+<span class="k">print</span>(<span class="s">f"WARN: {warn_count}"</span>)
+<span class="k">print</span>(<span class="s">f"INFO: {info_count}"</span>)</code></pre>
+<p>This is almost exactly the classifier the Astrarium's freestyle requires — a looping reader that classifies each line in real time and produces a final tally. The only difference is that the freestyle reads from the live input stream rather than a prebuilt list, using the sentinel-while pattern from the previous lesson.</p>
+
+<div class="callout">"<strong>Vaelith's rule:</strong> always check the most severe category first. In a log classifier, that means <code>ERROR</code> before <code>WARN</code> before <code>INFO</code>. The most specific (and most important) condition must have the first chance to match."</div>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // The Print Trap</div>
+<p>A common mistake in early classifiers is writing <code>if "ERROR" or "WARN" in line:</code> — this does not do what it looks like. Python evaluates this as <code>if ("ERROR") or ("WARN" in line):</code>. Since a non-empty string is always truthy, <code>"ERROR"</code> alone makes the whole condition <code>True</code> for every line, tagging everything as ERROR. Always spell out both sides: <code>if "ERROR" in line or "WARN" in line:</code>.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python docs — the in operator"
+url = "https://docs.python.org/3/reference/expressions.html#membership-test-operations"
+
+[[lessons.exercises]]
+id = "s02-l05-e1"
+type = "mc"
+points = 15
+prompt = "From the first chapter: what does <code>print("a", "b", sep=":")</code> output?"
+choices = [
+    '"a", "b", sep=":"',
+    "a b",
+    "a:b",
+    "a : b"
+]
+answer = 2
+whyWrong = "The first option shows the raw source code, not the runtime output. The second is the default behavior without sep (space between items). The fourth adds extra spaces around the colon that print() does not insert. sep=\":\" replaces the default space separator with a colon, producing a:b on one line."
+hint = "Vaelith showed in the first night that print() accepts a sep keyword that changes the delimiter between arguments."
+explain = "print() inserts the sep string between its positional arguments. With sep=\":\", the two strings are joined by a colon: \"a:b\"."
+
+[[lessons.exercises]]
+id = "s02-l05-e2"
+type = "fill"
+points = 20
+prompt = "The Astrarium should print 'CRITICAL' only when a line contains 'ERROR' and the severity code is above 7. Write the full condition for the blank:"
+code = '''line = "ERROR: mount failure"
+sev = 9
+if ____:
+    print("CRITICAL")'''
+answer = '"ERROR" in line and sev > 7'
+accept = ['sev > 7 and "ERROR" in line', '"ERROR" in line and sev > 7']
+hint = "Use the <code>in</code> operator to check the string content and <code>></code> to compare the number. Join them with the operator that requires both to be true."
+explain = '"ERROR" in line checks the text, sev > 7 checks the severity. Both must be true for a CRITICAL classification.'
+
+[[lessons.exercises]]
+id = "s02-l05-w1"
+type = "write"
+points = 35
+prompt = "A list of observation lines is provided in the starter. Loop over each line, classify it by keyword (<code>ERROR</code> first, then <code>WARN</code>, else <code>INFO</code>), and print each line prefixed by its severity exactly as shown. After the loop, print the three severity counts in the format shown.<br>The list contains:<br><code>ERROR: timeout on azimuth mount</code><br><code>INFO: meteor shower at 22:04</code><br><code>WARN: sensor drift on channel 7</code><br><code>INFO: routine check complete</code>"
+expect = '''ERROR: ERROR: timeout on azimuth mount
+INFO: INFO: meteor shower at 22:04
+WARN: WARN: sensor drift on channel 7
+INFO: INFO: routine check complete
+ERROR: 1
+WARN: 1
+INFO: 2'''
+starter = '''# ASTRARIUM — Log Classifier
+lines = [
+    "ERROR: timeout on azimuth mount",
+    "INFO: meteor shower at 22:04",
+    "WARN: sensor drift on channel 7",
+    "INFO: routine check complete",
+]
+# TODO: classify each line and print counts'''
+hint = "Use a for loop over the list. Inside, check 'ERROR' in line with if, 'WARN' in line with elif, else INFO. Increment the matching counter and print the prefixed line. After the loop, print each counter with an f-string."

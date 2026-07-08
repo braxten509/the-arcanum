@@ -1,0 +1,109 @@
+[[lessons]]
+id = "s05-l04"
+title = "A Growing Row — List & ArrayList"
+body = '''
+<p>The Forgework III registry used a fixed array of 16 slots and threw if you forged past it. A <code>List</code> is a row that grows as you add — no overflow, no counting. <code>ArrayList</code> is the common implementation.</p>
+<pre><code><span class="k">import</span> java.util.List;
+<span class="k">import</span> java.util.ArrayList;
+
+List&lt;Ingot&gt; ingots = <span class="k">new</span> ArrayList&lt;&gt;();
+ingots.add(<span class="k">new</span> Ingot(<span class="s">"iron"</span>, <span class="s">8</span>));
+ingots.add(<span class="k">new</span> Ingot(<span class="s">"copper"</span>, <span class="s">6</span>));
+ingots.add(<span class="k">new</span> Ingot(<span class="s">"starsteel"</span>, <span class="s">20</span>));
+
+<span class="c">// read by index</span>
+Ingot first = ingots.get(<span class="s">0</span>);          <span class="c">// iron</span>
+<span class="k">int</span> count = ingots.size();           <span class="c">// 3</span>
+
+<span class="c">// walk every element (the for-each loop)</span>
+<span class="k">for</span> (Ingot ingot : ingots) {
+    System.out.println(ingot);
+}</code></pre>
+<p><code>add</code> appends to the end; <code>get(i)</code> reads index <code>i</code> (zero-based, like arrays); <code>size()</code> returns the count (a method, not the <code>length</code> field of arrays). The <strong>for-each</strong> loop <code>for (Ingot ingot : ingots)</code> walks every element without an index — read it as "for each ingot in ingots". The colon means "in".</p>
+<p>You program to the interface <code>List&lt;Ingot&gt;</code> and construct the implementation <code>ArrayList</code> — the same discipline as programming to <code>Forgeable</code>. If you later swap <code>ArrayList</code> for <code>LinkedList</code>, nothing else changes: the variable's type is the contract, not the implementation.</p>
+<div class="callout"><strong>Orrick says:</strong> <code>size()</code> is a method on Lists; <code>length</code> is a field on arrays; <code>length()</code> is a method on Strings. Three ways to count, three different spellings — mix them and the compiler bites.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY LIST REPLACES THE ARRAY</div>
+<p>The Forgework III registry's <code>Ingot[16]</code> had a hard ceiling. <code>ArrayList</code> holds an array internally and grows it (by copying to a bigger one) when it fills — so <code>add</code> never overflows. The generic <code>Registry&lt;T&gt;</code> you write in the last lesson of this forgework will keep its ingots in a <code>List&lt;T&gt;</code>, dropping the 16-slot limit for good.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s05-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the list build and the for-each walk exactly — the two imports, the add calls, and the for-each loop."
+code = '''import java.util.List;
+import java.util.ArrayList;
+
+List<Ingot> ingots = new ArrayList<>();
+ingots.add(new Ingot("iron", 8));
+for (Ingot ingot : ingots) {
+    System.out.println(ingot);
+}'''
+
+[[lessons.exercises]]
+id = "s05-l04-e1"
+type = "mc"
+points = 15
+prompt = "After <code>ingots.add(iron); ingots.add(copper); ingots.add(starsteel);</code>, what does <code>ingots.get(0)</code> return?"
+choices = ["copper (the second added)", "starsteel (the last added)", "iron (the first added — lists are zero-indexed)", "null — get does not work on a List"]
+answer = 2
+whyWrong = "List indices run from 0, so get(0) is the first element added (iron); get(1) is copper; get(2) is starsteel. Lists keep insertion order, and get works on Lists (it is arrays and Lists both that are zero-indexed)."
+hint = "Lists are zero-indexed and keep insertion order — so the first added is at which index?"
+explain = "get(0) is iron. Lists preserve insertion order and index from 0, matching arrays."
+
+[[lessons.exercises]]
+id = "s05-l04-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the List method that returns how many elements are in the list (a method call, not an array's length field)."
+code = '''List<Ingot> ingots = new ArrayList<>();
+ingots.add(new Ingot("iron", 8));
+int count = ingots.____();  // 1'''
+answer = "size"
+whyWrong = "size() is the List method for element count; length is an array field (not a method on List), count() is not a List method, getSize is not the convention. The List count method is size()."
+hint = "It is a four-letter method (with parentheses) — the List counterpart to an array's length field."
+
+[[lessons.exercises]]
+id = "s05-l04-w1"
+type = "write"
+points = 30
+prompt = "The Ingot class (with a <code>toString</code> returning <code>name + \" @ \" + value + \"em\"</code>) is in the starter. In <code>main</code>, build a <code>List&lt;Ingot&gt; ingots = new ArrayList&lt;&gt;();</code>, add three ingots — iron (8), copper (6), starsteel (20) — then walk the list with a for-each loop and print each one. The expected output is three lines: <code>iron @ 8em</code>, <code>copper @ 6em</code>, <code>starsteel @ 20em</code>."
+starter = '''import java.util.List;
+import java.util.ArrayList;
+
+public class Ironwright {
+    static class Ingot {
+        private String name; private int value;
+        public Ingot(String name, int value) { this.name = name; this.value = value; }
+        @Override public String toString() { return name + " @ " + value + "em"; }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — build a List<Ingot>, add iron/copper/starsteel, for-each print each
+    }
+}'''
+expect = '''
+iron @ 8em
+copper @ 6em
+starsteel @ 20em'''
+hint = "List<Ingot> ingots = new ArrayList<>(); add three; then for (Ingot ingot : ingots) System.out.println(ingot);"
+
+[[lessons.exercises]]
+id = "s05-l04-t1"
+type = "text"
+points = 20
+prompt = "Type the two imports a file needs to use <code>List</code> and <code>ArrayList</code> (one per line, each ending with a semicolon)."
+answer = "import java.util.List;\nimport java.util.ArrayList;"
+hint = "Both live in java.util — List is the interface, ArrayList the implementation. Two import lines, java.util dot each."
+
+[[lessons.exercises]]
+id = "s05-l04-e2"
+type = "mc"
+points = 15
+prompt = "A smith writes <code>for (Ingot ingot : ingots) { ... }</code>. Read the loop header aloud — what does the colon mean?"
+choices = ["'in' — for each ingot in ingots", "assignment", "a type declaration", "a method call"]
+answer = 0
+whyWrong = "The colon in a for-each means 'in' — 'for each Ingot ingot in ingots'. It is not assignment (=), not a type declaration, not a method call. The for-each walks the collection without an index."
+hint = "Read the whole header as English — 'for each ingot ... ingots'. The colon is the word that connects them."
+explain = "The for-each colon reads as 'in'. No index, no off-by-one — the loop visits every element once."

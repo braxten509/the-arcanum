@@ -1,0 +1,92 @@
+[[lessons]]
+id = "s07-l02"
+title = "The Walking Handle"
+body = '''
+<p>The moment Writforge learns to read more than one manuscript, the diamond operator enters the room. <code>&lt;&gt;</code> is not a mystery symbol; it is a conveyor belt that takes filenames from <code>@ARGV</code> and yields their lines in order. That means the scribe can launch the script with several source paths and let Perl keep stepping from one file to the next without manual reopen noise. In this course that matters because the real artifact reads from files, not from typed stdin fragments.</p>
+<p>This is also the best place to remind the apprentice that <code>@ARGV</code> is not the content. It is the list of paths the content lives in. <code>&lt;&gt;</code> walks that list and produces lines, while <code>chomp</code> trims the trailing newline from the line that just arrived. If the script needs the filename too, the handle can still be opened explicitly in another branch, but the batch reader is the shortest path when the chapter only needs a stream of text.</p>
+<p>Keep the order promise in mind. The first file's lines arrive before the second file's lines, and the script does not need a separate loop around each manuscript just to preserve that order. That is why this operator is worth learning now: the later renderer will read a shelf of text files and turn them into pages one after another, exactly as the shelf presents them.</p>
+<p>When the student sees <code>&lt;&gt;</code> again in the wild, the useful question is not "what is the symbol" but "which filenames has the script already been handed." In this chapter the answer is simple: the paths come from the command line, and the operator does the walking. Nothing is hidden; the handle is just implicit.</p>
+<pre><code><span class="k">while</span> (<span class="k">my</span> <span class="s">$line</span> = &lt;&gt;) {
+    <span class="k">chomp</span> <span class="s">$line</span>;
+    <span class="k">say</span> <span class="s">$line</span>;
+}</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE WALKING HANDLE</div>
+<p><strong>List note.</strong> <code>@ARGV</code> holds pathnames, not lines. The diamond operator turns that path list into a stream the loop can consume.</p>
+<p><strong>Newline note.</strong> <code>chomp</code> trims only the record separator that arrived from the file. It does not strip ordinary spaces from the rest of the line.</p>
+<p><strong>Order note.</strong> The loop keeps file order intact, which is why batch rendering later can trust the shelf to stay in source order.</p></div>
+'''
+
+[[lessons.readings]]
+label = "perldoc: perlrun"
+url = "https://perldoc.perl.org/perlrun"
+
+[[lessons.exercises]]
+id = "s07-l02-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "<p>Retype the line-walking loop exactly. Keep the diamond operator and the newline trim intact.</p>"
+code = '''
+#!/usr/bin/env perl
+use v5.36;
+
+while (my $line = <>) {
+    chomp $line;
+    say $line;
+}
+'''
+
+[[lessons.exercises]]
+id = "s07-l02-e1"
+type = "fill"
+points = 22
+prompt = "<p>Restore the operator that walks through the filenames already stored in <code>@ARGV</code>.</p>"
+code = 'while (my $line = ____) {'
+answer = "<>"
+hint = "The blank is the diamond that keeps stepping from one file to the next."
+whyWrong = "You are trying to name the input list itself instead of the operator that reads it. This lesson needs the diamond operator, not a second copy of the array."
+
+[[lessons.exercises]]
+id = "s07-l02-e2"
+type = "text"
+points = 17
+prompt = "<p>When <code>&lt;&gt;</code> reaches the end of the first file in <code>@ARGV</code>, what happens next?</p>"
+answer = "it continues with the next filename from @argv"
+accept = ["continues with the next filename from @ARGV", "moves on to the next file in order", "keeps reading the next path automatically"]
+hint = "The operator is a batch reader, not a one-file-only special case."
+whyWrong = "You are treating the first file as if it were the whole job. The diamond operator keeps walking the filename list after one file ends."
+
+[[lessons.exercises]]
+id = "s07-l02-w1"
+type = "write"
+points = 30
+prompt = "<p>The starter already seeds <code>@ARGV</code> with two manuscript files: <code>manuscripts/preface.txt</code> and <code>manuscripts/appendix.txt</code>. Use <code>&lt;&gt;</code> to print all five source lines in order and finish with <code>MERGED 5</code>. The total must come from the loop over the files.</p>"
+starter = '''
+#!/usr/bin/env perl
+use v5.36;
+
+my @paths = ("manuscripts/preface.txt", "manuscripts/appendix.txt");
+@ARGV = @paths;
+
+mkdir "manuscripts" unless -d "manuscripts";
+
+open my $a, '>', $paths[0] or die $!;
+print {$a} "Preface line one\nPreface line two\n";
+close $a or die $!;
+
+open my $b, '>', $paths[1] or die $!;
+print {$b} "Appendix line one\nAppendix line two\nAppendix line three\n";
+close $b or die $!;
+
+my $seen = 0;
+
+# Task: use <> to print each line in order and count the total lines.
+'''
+expect = '''
+Preface line one
+Preface line two
+Appendix line one
+Appendix line two
+Appendix line three
+MERGED 5'''
+hint = "Leave @ARGV alone, walk it with <>, and let the line count fall out of the loop."

@@ -1,0 +1,73 @@
+[[lessons]]
+id = "s04-l03"
+title = "The Smith's Walls — Access Modifiers"
+body = '''
+<p>Not every mark is for every eye. Java's access modifiers draw walls around who can touch a field or call a method. Four levels, from narrowest to widest:</p>
+<ul>
+<li><code>private</code> — only this class. The field is yours; outsiders talk through your methods.</li>
+<li><em>package-private</em> (no modifier) — this class and anything in the same package.</li>
+<li><code>protected</code> — this package <em>plus</em> every subclass, even in another package.</li>
+<li><code>public</code> — anyone, anywhere.</li>
+</ul>
+<pre><code><span class="k">public class</span> Forge {
+    <span class="k">private int</span> heat = <span class="s">0</span>;          <span class="c">// only Forge sees heat directly</span>
+    <span class="k">public void</span> stoke() { heat += <span class="s">10</span>; }   <span class="c">// anyone may stoke</span>
+    <span class="k">public int</span> getHeat() { <span class="k">return</span> heat; } <span class="c">// anyone may read</span>
+    <span class="k">protected int</span> peek() { <span class="k">return</span> heat; } <span class="c">// subclasses + same package</span>
+}</code></pre>
+<p>The default for a data class is the discipline you have already practised: fields <code>private</code>, methods <code>public</code>. <code>protected</code> is the crack in the wall for subclasses — use it when a child genuinely needs a field the outside world should not see (a registry's internal array, say). Package-private is the quiet default: write nothing and you get it. Most fields stay <code>private</code>; most methods go <code>public</code>; <code>protected</code> appears on things designed for subclasses to touch.</p>
+<div class="callout"><strong>Orrick says:</strong> Start every field <code>private</code>. Widen the wall only when a real need forces it — a subclass that must read the field, a test that must set it. A field left public is a door with no lock; the first refactor through it breaks every caller.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // MODIFIERS IN THE MOD</div>
+<p>Forge mods lean on <code>public</code> classes (the engine instantiates them across packages) and <code>protected</code> for fields a subclass of <code>Item</code> or <code>Block</code> legitimately reaches. Your <code>ItemIngot extends Item</code> will call <code>protected</code> methods on Item that a stranger class could not. The wall is not bureaucracy — it is how the forge lets its own children in and keeps strangers out.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s04-l03-e1"
+type = "mc"
+points = 15
+prompt = "A field is declared <code>protected int tally;</code> in class <code>Base</code>. Which code can read <code>tally</code> directly?"
+choices = ["any class, anywhere", "only the Base class itself", "the Base class, other classes in the same package, and every subclass of Base (even in another package)", "only subclasses, never the same package"]
+answer = 2
+whyWrong = "protected means package + subclasses: Base itself, same-package classes, and all subclasses (anywhere) can read tally; public would be anyone, private only Base. protected is the middle wall — wider than private, narrower than public."
+hint = "protected is the middle level — it admits the package and the children, but not the whole world."
+explain = "protected = package-private + subclasses. It is what a parent uses to hand a field to its children without exposing it to strangers."
+
+[[lessons.exercises]]
+id = "s04-l03-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the modifier that restricts a field to its own class only — the tightest wall, the default for every data-class field."
+code = '''public class Ingot {
+    ____ String name;
+}'''
+answer = "private"
+whyWrong = "private restricts to the declaring class; public opens to all, protected admits package + subclasses, and no modifier is package-private. The tightest wall is private."
+hint = "It is the seven-letter English word meaning 'kept to oneself' — also the tightest access modifier."
+
+[[lessons.exercises]]
+id = "s04-l03-w1"
+type = "write"
+points = 30
+prompt = "The starter has a <code>Forge</code> class with a <code>private int heat</code>, a <code>public void stoke()</code> that adds 10, and a <code>public int getHeat()</code>. In <code>main</code>, build <code>Forge f = new Forge();</code>, call <code>f.stoke()</code> five times, then print <code>HEAT </code> plus <code>f.getHeat()</code>. The expected output is exactly <code>HEAT 50</code> — read the number from the getter, do not type 50 in the print."
+starter = '''public class Ironwright {
+    static class Forge {
+        private int heat = 0;
+        public void stoke() { heat += 10; }
+        public int getHeat() { return heat; }
+    }
+
+    public static void main(String[] args) {
+        // apprentice — build a Forge, stoke it five times, print "HEAT " + f.getHeat()
+    }
+}'''
+expect = '''
+HEAT 50'''
+hint = "Forge f = new Forge(); then five f.stoke(); calls, then System.out.println(\"HEAT \" + f.getHeat());"
+
+[[lessons.exercises]]
+id = "s04-l03-t1"
+type = "text"
+points = 20
+prompt = "What access level do you get when you write NO modifier at all on a field (e.g. <code>int size;</code>)? (Two words, hyphenated.)"
+answer = "package-private"
+hint = "It is the quiet default — visible to the same package, hidden from other packages. Two words joined by a hyphen."

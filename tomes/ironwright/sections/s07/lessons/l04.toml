@@ -1,0 +1,70 @@
+[[lessons]]
+id = "s07-l04"
+title = "The Mod's Mark — mcmod.info & the Package Move"
+body = '''
+<p>Two last strikings complete the binding. First, <code>mcmod.info</code> — the JSON metadata file Forge reads to show your mod's name, description, and version on the Mods screen. It lives at <code>src/main/resources/mcmod.info</code> (the resources folder, not the java folder) and is an array of objects, one per mod:</p>
+<pre><code>[
+  {
+    <span class="s">"modid"</span>: <span class="s">"ironwright"</span>,
+    <span class="s">"name"</span>: <span class="s">"Ironwright"</span>,
+    <span class="s">"description"</span>: <span class="s">"A metallurgy mod — ingots, cast blocks, and the world answering the hammer."</span>,
+    <span class="s">"version"</span>: <span class="s">"0.1.0"</span>
+  }
+]</code></pre>
+<p>The <code>modid</code> here must match the <code>@Mod(modid = ...)</code> exactly — Forge links the metadata to the mod by that string. A mismatch means the Mods screen shows your mod with no description. Every other field is display text; only <code>modid</code> is the link.</p>
+<p>Second, the package move. The plain-Java <code>Ingot</code>, <code>Metal</code>, <code>Registry</code>, and <code>Forgeable</code> you forged in ops III–V now move from the flat folder into <code>src/main/java/com/ironwright/</code> — each gains <code>package com.ironwright;</code> as its first line, and the file's path matches the package. The data model is unchanged; only its address changes. From here on, the mod's classes live under <code>com.ironwright</code>, and the <code>@Mod</code> class can use them by their short names because they share a package.</p>
+<div class="callout"><strong>Orrick says:</strong> <code>mcmod.info</code> is JSON, not Java — commas between fields, quotes around strings and keys, no trailing comma. Forge parses it loosely, but a missing quote still hides your description. Validate the JSON by eye before you fire the coals.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // RESOURCES vs JAVA</div>
+<p><code>src/main/java/</code> holds your <code>.java</code> files (compiled by <code>javac</code>). <code>src/main/resources/</code> holds everything that is NOT compiled — <code>mcmod.info</code>, <code>assets/ironwright/textures/</code>, <code>assets/ironwright/models/</code>, <code>assets/ironwright/lang/</code>, and 1.12.2 recipe JSONs under <code>assets/ironwright/recipes/</code>. The later <code>data/</code> datapack tree is not this old forge. The split is the forge's law: code on the java side, resources on the resources side, both under your mod's id.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s07-l04-e1"
+type = "mc"
+points = 15
+prompt = "A mod's <code>mcmod.info</code> has <code>\"modid\": \"Ironwright\"</code> (capital I) but the <code>@Mod</code> annotation has <code>modid = \"ironwright\"</code> (lowercase). What happens on the Mods screen?"
+choices = ["everything is fine — Forge ignores case", "the JSON is rewritten automatically", "the mod fails to load entirely", "the metadata does not link to the mod, so the Mods screen shows the mod with no description"]
+answer = 3
+whyWrong = "Forge links the metadata to the mod by matching the modid string, and case matters, so a capital-I modid in mcmod.info does not link to a lowercase ironwright @Mod — the mod still loads but shows no description; it does not fail to load, Forge does not ignore case, and the JSON is not rewritten. One spelling, every form."
+hint = "Forge links the metadata to the mod by matching the modid string — does case matter in that match?"
+explain = "The modid in mcmod.info must match @Mod(modid) exactly, case included. A mismatch leaves the mod loaded but undescribed on the Mods screen."
+
+[[lessons.exercises]]
+id = "s07-l04-f1"
+type = "fill"
+points = 20
+prompt = "Fill the blank with the JSON key whose value must match the @Mod modid exactly (the link between metadata and mod)."
+code = '''[
+  {
+    "____": "ironwright",
+    "name": "Ironwright"
+  }
+]'''
+answer = "modid"
+whyWrong = "modid is the key Forge matches against @Mod(modid); name is display text, version is display, description is display. Only modid links the metadata to the mod."
+hint = "It is the same key name as the @Mod(modid = ...) field — the machine name, lowercase."
+
+[[lessons.exercises]]
+id = "s07-l04-w1"
+type = "write"
+points = 30
+prompt = "A single-file drill of the mcmod.info one-line JSON. The starter sets <code>String modid = \"ironwright\";</code>, <code>String name = \"Ironwright\";</code>, <code>String version = \"0.1.0\";</code>. Print exactly <code>{\"modid\":\"ironwright\",\"name\":\"Ironwright\",\"version\":\"0.1.0\"}</code> by joining literals and the three variables. Read the three values from the variables — do not type them in the print."
+starter = '''public class Ironwright {
+    public static void main(String[] args) {
+        String modid = "ironwright";
+        String name = "Ironwright";
+        String version = "0.1.0";
+        // apprentice — print {"modid":"<modid>","name":"<name>","version":"<version>"} with the inner quotes escaped
+    }
+}'''
+expect = '''
+{"modid":"ironwright","name":"Ironwright","version":"0.1.0"}'''
+hint = "System.out.println(\"{\\\"modid\\\":\\\"\" + modid + \"\\\",\\\"name\\\":\\\"\" + name + \"\\\",\\\"version\\\":\\\"\" + version + \"\\\"}\"); — escape every inner quote with \\\"."
+
+[[lessons.exercises]]
+id = "s07-l04-t1"
+type = "text"
+points = 20
+prompt = "Type the path (from the project root) where mcmod.info lives — the resources folder, not the java folder."
+answer = "src/main/resources/mcmod.info"
+hint = "It is src/main/resources/ — the resources root — plus the filename mcmod.info."
