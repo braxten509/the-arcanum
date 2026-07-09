@@ -14,8 +14,8 @@ from runtimes import common as rt_common
 from runtimes.common import atomic_write
 
 from .amender import clear_amend_state, load_amend_state, run_amender, save_amend_state
-from .config import (BUILD_DIR, CLI_EFFORTS, GLOBAL_SETTINGS, GLOBAL_STATE_KEYS, ROOT,
-                     TOMES_DIR, amend_procs, jobs, jobs_lock, read_json)
+from .config import (BUILD_DIR, CLI_EFFORTS, GLOBAL_STATE_KEYS, ROOT,
+                     TOMES_DIR, amend_procs, jobs, jobs_lock, read_settings, write_settings)
 from .forge import (BUILD_TOTAL_PHASES, _clear_runner_handshake, _plan_concept,
                     _resume_phase, _runner_args, _save_launch, _write_progress,
                     fresh_tome_id, watch_build)
@@ -170,15 +170,14 @@ def handle(h):
 
 
 def save_state(h, body, jid):
-    # peel the reader-wide settings off into global-configs/settings.json;
+    # peel the reader-wide settings off into global-configs/settings.toml;
     # the tome's save keeps only what is truly its own (palette + progress)
     if isinstance(body, dict):
-        g = read_json(GLOBAL_SETTINGS, {})
+        g = read_settings()
         took = {k: body.pop(k) for k in GLOBAL_STATE_KEYS if k in body}
         if took:
             g.update(took)
-            os.makedirs(os.path.dirname(GLOBAL_SETTINGS), exist_ok=True)
-            atomic_write(GLOBAL_SETTINGS, json.dumps(g, indent=1))
+            write_settings(g)
     p = state_path(jid)
     # never let a fresh default silently erase real progress. if the
     # save on disk has progress and the incoming one doesn't, refuse

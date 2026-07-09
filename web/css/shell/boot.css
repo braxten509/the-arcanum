@@ -1,0 +1,157 @@
+/* --------------------------------------------------------------- candlelight
+   A fixed, non-interactive warm veil over the whole study. It breathes. */
+#tablelight {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  background: radial-gradient(1050px 720px at 11% 7%, rgba(var(--candle), .13), transparent 58%);
+  mix-blend-mode: soft-light;
+  animation: breathe 4.6s ease-in-out infinite;
+}
+
+#tablelight::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 42% 40%, transparent 52%, rgba(10, 4, 0, .42));
+}
+
+@keyframes breathe {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  43% {
+    opacity: .82;
+  }
+
+  51% {
+    opacity: .95;
+  }
+
+  62% {
+    opacity: .85;
+  }
+
+  78% {
+    opacity: .98;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #tablelight {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------- boot
+   The dark study. A candle is struck; the Archmage writes. */
+#boot {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background:
+    radial-gradient(900px 620px at 50% 34%, rgba(var(--candle), .10), transparent 60%),
+    linear-gradient(112deg, #1c1107, #120a04 70%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 34px;
+}
+
+#boot-candle {
+  position: relative;
+  width: 60px;
+  height: 120px;
+}
+
+#boot-candle .bc-wax {
+  position: absolute;
+  bottom: 0;
+  left: 10px;
+  width: 40px;
+  height: 66px;
+  background: linear-gradient(100deg, #efe3c4, #cdb98d 70%, #b9a273);
+  border-radius: 7px 9px 4px 4px;
+}
+
+#boot-candle .bc-wick {
+  position: absolute;
+  bottom: 64px;
+  left: 29px;
+  width: 2px;
+  height: 8px;
+  background: #2c1d0d;
+}
+
+#boot-candle .bc-flame {
+  position: absolute;
+  bottom: 70px;
+  left: 21px;
+  width: 18px;
+  height: 34px;
+  background: radial-gradient(ellipse at 50% 78%, #fff5cf 0 22%, #ffcf6e 46%, #f08c1d 78%, rgba(240, 110, 20, 0) 100%);
+  border-radius: 50% 50% 46% 54% / 64% 64% 36% 36%;
+  filter: blur(.4px);
+  transform-origin: 50% 92%;
+  animation: ignite .9s cubic-bezier(.16, 1, .3, 1) both, sway 2.8s ease-in-out .9s infinite;
+}
+
+@keyframes ignite {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+
+  60% {
+    transform: scale(1.25);
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes sway {
+
+  0%,
+  100% {
+    transform: rotate(-2.4deg) scaleY(1);
+  }
+
+  30% {
+    transform: rotate(2deg) scaleY(1.06);
+  }
+
+  55% {
+    transform: rotate(-1.2deg) scaleY(.97);
+  }
+
+  76% {
+    transform: rotate(2.6deg) scaleY(1.03);
+  }
+}
+
+#boot-text {
+  width: min(680px, 88vw);
+  height: 46vh;
+  margin: 0;
+  overflow: hidden;
+  color: #d9c58e;
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 17px;
+  line-height: 1.9;
+  white-space: pre-wrap;
+}
+
+#boot-skip {
+  position: fixed;
+  bottom: 30px;
+  right: 34px;
+}

@@ -8,8 +8,8 @@ from runtimes import get as get_runtime, names as runtime_names
 
 from .amender import load_amend_state
 from .config import (AGY_BIN, BUILD_DIR, CLAUDE_BIN, CLI_EFFORTS, CLI_MODELS, CODEX_BIN,
-                     GLOBAL_SETTINGS, GLOBAL_STATE_KEYS, MIME, OPENCODE_BIN, ROOT, SKINS_DIR,
-                     TOMES_DIR, WEB, jobs, jobs_lock, read_json, read_toml)
+                     GLOBAL_STATE_KEYS, MIME, OPENCODE_BIN, ROOT, SKINS_DIR,
+                     TOMES_DIR, WEB, jobs, jobs_lock, read_json, read_settings, read_toml)
 from .forge import forge_name, list_workings
 from .models import agy_models, ollama_bindery_models, opencode_models
 from .tomes import (assemble_tome, list_tomes, project_dir, project_name, runtime_for,
@@ -20,7 +20,7 @@ def handle(h):
     path = urllib.parse.urlparse(h.path).path
     if path == "/api/state":
         data = read_json(state_path(h.query_tome()), {})
-        g = read_json(GLOBAL_SETTINGS, {})
+        g = read_settings()
         for k in GLOBAL_STATE_KEYS:   # reader-wide settings override the tome's copy
             if k in g:
                 data[k] = g[k]
@@ -233,7 +233,7 @@ def model_census():
     # ordered cheapest first. Each carries a per-phase runner map the browser applies
     # to the hand knobs; missing/broken TOML just hides the slider.
     try:
-        q = read_toml(os.path.join(ROOT, "harness.toml")).get("quality") or {}
+        q = read_toml(os.path.join(ROOT, "global-configs", "harness.toml")).get("quality") or {}
         out["quality"] = [dict(q[k], id=k) for k in sorted(q)]
     except Exception:
         out["quality"] = []

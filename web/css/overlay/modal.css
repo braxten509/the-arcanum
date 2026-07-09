@@ -1,0 +1,303 @@
+/* ---------------------------------------------------------------- the peddler */
+.shop-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+@media (max-width: 900px) {
+  .shop-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.shop-item {
+  border: 1px solid var(--line);
+  border-radius: var(--rad);
+  background: rgba(255, 250, 232, .28);
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  gap: 8px 14px;
+  align-items: start;
+}
+
+.shop-item .s-ico {
+  width: 26px;
+  height: 26px;
+  color: var(--ac);
+  grid-row: span 2;
+  margin-top: 2px;
+}
+
+.shop-item .s-name {
+  font-family: var(--arch);
+  font-size: 12px;
+  letter-spacing: .05em;
+}
+
+.shop-item .s-desc {
+  grid-column: 2;
+  color: var(--tx-dim);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.shop-item .s-own {
+  grid-column: 2;
+  color: var(--tx-faint);
+  font-size: 11.5px;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.shop-item .btn {
+  grid-row: 1;
+  grid-column: 3;
+}
+
+/* ---------------------------------------------------------------- toasts & modal
+   toasts are scraps of parchment slid onto the table edge */
+#toasts {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toast {
+  min-width: 250px;
+  max-width: 380px;
+  padding: 11px 14px 11px 26px;
+  position: relative;
+  background: linear-gradient(160deg, color-mix(in oklab, var(--bg1), #fff8e2 10%), var(--bg1));
+  border: 1px solid var(--line-hi);
+  border-radius: 3px 5px 3px 6px / 6px 3px 5px 3px;
+  font-size: 13.5px;
+  color: var(--tx);
+  box-shadow: 0 14px 26px -10px rgba(5, 2, 0, .75);
+  transform: rotate(-.4deg);
+  animation: slide-in .3s cubic-bezier(.16, 1, .3, 1);
+}
+
+.toast::before {
+  /* a drop of wax holding the scrap down — green: the default toast is a success */
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 13px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 36% 30%, #6bbf6a, #2f7a3c 72%);
+}
+
+.toast.warn {
+  border-color: var(--warn);
+}
+
+.toast.warn::before {
+  background: radial-gradient(circle at 36% 30%, #d8b055, #96742e 72%);
+}
+
+.toast.bad {
+  border-color: var(--bad);
+}
+
+.toast.bad::before {
+  background: radial-gradient(circle at 36% 30%, #b0533f, #7c2a1c 72%);
+}
+
+.toast b {
+  color: var(--ac);
+}
+
+@keyframes slide-in {
+  from {
+    transform: translateX(30px) rotate(1.2deg);
+    opacity: 0;
+  }
+}
+
+.modal-back {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  background: rgba(14, 7, 2, .68);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal {
+  width: min(580px, 92vw);
+  max-height: 84vh;
+  overflow-y: auto;
+  background:
+    radial-gradient(ellipse 90% 50% at 26% 8%, rgba(255, 248, 224, .5), transparent 60%),
+    linear-gradient(158deg, color-mix(in oklab, var(--bg1), #fff8e2 12%), var(--bg1) 55%, color-mix(in oklab, var(--bg1), #6b4a1a 10%));
+  border: 1px solid rgba(90, 62, 28, .5);
+  border-radius: 5px 9px 6px 10px / 10px 6px 9px 7px;
+  padding: 22px 26px;
+  box-shadow: 0 34px 60px -18px rgba(5, 2, 0, .9);
+}
+
+.modal h2 {
+  margin-top: 0;
+}
+
+.modal.wide {
+  width: min(880px, 94vw);
+}
+
+.modal.forge-modal {
+  width: min(660px, 94vw);
+}
+
+/* the bindery: room for [provider][model][effort] rows */
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+/* the grimoire of learned incantations */
+.cb-scroll {
+  max-height: 62vh;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.cb-op {
+  margin-bottom: 20px;
+}
+
+.cb-op-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-family: var(--arch);
+  font-size: 10.5px;
+  letter-spacing: .18em;
+  color: var(--ac);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line-hi);
+  margin-bottom: 10px;
+}
+
+.cb-lesson {
+  margin-bottom: 14px;
+}
+
+.cb-lesson-title {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.cb-lesson-title .ico {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  color: var(--ac);
+}
+
+.cb-code {
+  margin: 6px 0;
+  padding: 8px 10px;
+  background: rgba(60, 40, 12, .07);
+  border: 1px solid var(--line);
+  border-radius: var(--rad);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+/* reveal cascade for lists */
+.cascade>* {
+  animation: rise .4s cubic-bezier(.16, 1, .3, 1) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+
+@keyframes rise {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+
+.modal-back {
+  animation: fade-in .16s ease both;
+}
+
+.modal {
+  animation: modal-in .28s cubic-bezier(.16, 1, .3, 1);
+}
+
+.modal-back.closing {
+  animation: fade-out .2s ease both;
+}
+
+.modal-back.closing .modal {
+  animation: modal-out .2s cubic-bezier(.4, 0, 1, 1) both;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) rotate(.3deg) scale(.985);
+  }
+}
+
+@keyframes modal-out {
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(.985);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .view:not(.hidden),
+  #view-freestyle:not(.hidden),
+  .modal-back,
+  .modal,
+  .modal-back.closing,
+  .modal-back.closing .modal,
+  .cascade>* {
+    animation-duration: .001s;
+  }
+
+  #candle .c-flame,
+  #candle .c-glow,
+  #obj-orb .o-mist,
+  #obj-wand .w-tip,
+  #obj-wand .w-sp1,
+  #obj-wand .w-sp2 {
+    animation: none;
+  }
+}

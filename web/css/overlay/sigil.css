@@ -1,0 +1,270 @@
+/* spell sigils — castSigil() raises a pillar of light: beams, climbing sparks,
+   curling wisps, and a jagged rune-ring on the ground; pieces are placed once
+   via left/top and animate transform/opacity (+ SVG dash-draw) only (WAAPI) */
+.sigil {
+  position: fixed;
+  z-index: 76;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.sigil>* {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  border-radius: 50%;
+}
+
+.sigil .sigil-beam {
+  border-radius: 999px;
+}
+
+.sigil svg {
+  overflow: visible;
+  border-radius: 0;
+  opacity: 1;
+}
+
+/* ring paths spin about their own center — in circle-space, under the squash */
+.sigil svg * {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* the practice circle — a faint chalk ring by the table's edge; auditions the sigils */
+#practice-circle {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 40;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  cursor: pointer;
+  background: none;
+  border: 1.5px dashed var(--tx-faint);
+  border-radius: 50%;
+  opacity: .35;
+  transition: opacity .25s, transform .6s cubic-bezier(.2, .6, .3, 1), border-color .25s;
+}
+
+#practice-circle::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  border-radius: 50%;
+  background: var(--ac);
+}
+
+#practice-circle:hover,
+#practice-circle:focus-visible {
+  opacity: 1;
+  transform: rotate(120deg);
+  border-color: var(--ac-dim);
+  outline: none;
+}
+
+.cfg-select {
+  background: rgba(255, 250, 232, .35);
+  color: var(--tx);
+  border: 1px solid var(--line-hi);
+  border-radius: 3px;
+  padding: 6px 8px;
+  font-family: var(--fell);
+  font-size: 13px;
+  outline: none;
+}
+
+.cfg-select:focus {
+  border-color: var(--ac-dim);
+}
+
+input.cfg-select {
+  font-family: var(--hand);
+  font-size: 17px;
+  height: auto;
+}
+
+/* ONE vellum slider for the whole app — filled left of the thumb with ink, brightens on hover.
+   Native accent-color rendered inconsistently (white track) and inverted colors on hover.
+   --fill (0-100%) is painted per-slider in JS (paintRange, wired through modal() + a live listener). */
+input[type="range"] {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--ac) 0 var(--fill, 0%), var(--line) var(--fill, 0%) 100%);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--ac) 0 var(--fill, 0%), var(--line) var(--fill, 0%) 100%);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ac);
+  border: 2px solid var(--bg1);
+  box-shadow: 0 0 0 1px var(--line-hi);
+  transition: background .12s ease, box-shadow .12s ease, transform .12s ease;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ac);
+  border: 2px solid var(--bg1);
+  box-shadow: 0 0 0 1px var(--line-hi);
+  transition: background .12s ease, box-shadow .12s ease, transform .12s ease;
+}
+
+input[type="range"]:hover::-webkit-slider-thumb {
+  background: var(--ac-dim);
+  box-shadow: 0 0 0 1px var(--ac-dim);
+}
+
+input[type="range"]:hover::-moz-range-thumb {
+  background: var(--ac-dim);
+  box-shadow: 0 0 0 1px var(--ac-dim);
+}
+
+input[type="range"]:active::-webkit-slider-thumb {
+  transform: scale(.92);
+}
+
+input[type="range"]:active::-moz-range-thumb {
+  transform: scale(.92);
+}
+
+input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 2px var(--ac-dim);
+}
+
+input[type="range"]:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 2px var(--ac-dim);
+}
+
+/* tome switcher — the other tomes on the shelf */
+.tome-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.tome-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  background: rgba(255, 250, 232, .3);
+  border: 1px solid var(--line);
+  border-radius: var(--rad);
+  padding: 11px 13px;
+  color: var(--tx);
+  font: inherit;
+}
+
+.tome-row:hover:not(:disabled) {
+  border-color: var(--ac-dim);
+  background: rgba(255, 250, 232, .5);
+}
+
+.tome-row.active {
+  border-color: var(--ac);
+  background: var(--ac-bg);
+  cursor: default;
+}
+
+.tome-row:disabled {
+  cursor: default;
+}
+
+/* unfinished-workings chooser: a pick button + a trash button share one framed row */
+.tome-row.resume-row {
+  display: flex;
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
+}
+.resume-row .resume-pick {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 11px 13px;
+}
+.resume-row .resume-trash {
+  flex: 0 0 auto;
+  width: 46px;
+  border: none;
+  border-left: 1px solid var(--line);
+  background: none;
+  color: var(--ac-dim);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.resume-row .resume-pick:hover { background: rgba(255, 250, 232, .5); }
+.resume-row .resume-trash:hover { background: rgba(142, 47, 35, .12); color: var(--bad); }
+.resume-row .resume-trash:disabled { opacity: .4; cursor: default; }
+
+.jr-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.jr-name {
+  font-family: var(--arch);
+  font-size: 13px;
+  color: var(--ac);
+}
+
+.jr-tag {
+  font-size: 11px;
+  color: var(--tx-dim);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.jr-desc {
+  font-size: 12.5px;
+  margin: 5px 0 4px;
+  line-height: 1.4;
+}
+
+.jr-foot {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-style: italic;
+}

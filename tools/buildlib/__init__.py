@@ -9,7 +9,7 @@ import os
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 WORKFLOW = os.path.join(REPO, "TOME-WORKFLOW.md")
-CONFIG = os.path.join(REPO, "harness.toml")
+CONFIG = os.path.join(REPO, "global-configs", "harness.toml")
 VALIDATOR = os.path.join(REPO, "tools", "validate_tome.py")
 BUILD_DIR = os.path.join(REPO, ".tome-build")
 

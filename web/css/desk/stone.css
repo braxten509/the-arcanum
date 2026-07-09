@@ -1,0 +1,267 @@
+/* the speaking stone — a slab of dark granite set into the desk */
+#term {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  min-height: 0;
+  border-top: 1px solid rgba(0, 0, 0, .55);
+  background: linear-gradient(170deg, color-mix(in oklab, var(--slab), #fff 5%), var(--slab) 40%);
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, .55);
+}
+
+.term-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  font-family: var(--arch);
+  font-size: 9.5px;
+  letter-spacing: .22em;
+  color: color-mix(in oklab, var(--slab-tx), transparent 40%);
+  border-bottom: 1px solid rgba(255, 255, 255, .07);
+}
+
+#term-out {
+  margin: 0;
+  padding: 10px 14px;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  color: var(--slab-tx);
+}
+
+#term-out .t-err {
+  color: #e08a72;
+}
+
+#term-out .t-ok {
+  color: #8fc9a8;
+}
+
+.term-stdin {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, .4);
+}
+
+.term-stdin .stdin-label {
+  font-family: var(--arch);
+  font-size: 9.5px;
+  letter-spacing: .18em;
+  color: color-mix(in oklab, var(--slab-tx), transparent 30%);
+}
+
+.term-stdin input {
+  flex: 1;
+  height: 28px;
+  font-size: 17px;
+  background: rgba(255, 255, 255, .06);
+  border-color: rgba(255, 255, 255, .14);
+  color: var(--slab-tx);
+}
+
+.term-stdin input:focus {
+  background: rgba(255, 255, 255, .1);
+  border-color: rgba(255, 255, 255, .25);
+}
+
+.term-stdin input::placeholder {
+  color: color-mix(in oklab, var(--slab-tx), transparent 55%);
+}
+
+#fs-right {
+  overflow-y: auto;
+  padding: 16px 18px;
+}
+
+.fs-brief {
+  font-size: 13.5px;
+  margin-top: 4px;
+  line-height: 1.55;
+  color: var(--tx);
+}
+
+.fs-brief ul {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+}
+
+.fs-brief li {
+  position: relative;
+  padding: 5px 0 5px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.fs-brief li::before {
+  content: "✦";
+  position: absolute;
+  left: 0;
+  top: 5px;
+  color: var(--ac);
+  font-size: 10px;
+}
+
+#fs-right h3 {
+  margin-top: 0;
+  font-family: var(--arch);
+  font-weight: 400;
+  font-size: 11px;
+  letter-spacing: .18em;
+  color: var(--tx-faint);
+}
+
+#fs-right .goal {
+  display: flex;
+  gap: 9px;
+  padding: 6px 0;
+  font-size: 13px;
+  color: var(--tx);
+  border-bottom: 1px solid var(--line);
+}
+
+#fs-right .goal .ico {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  margin-top: 3px;
+  color: var(--ac);
+}
+
+.rubric-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 12.5px;
+}
+
+.rubric-table td {
+  padding: 7px 4px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.rubric-table .rw {
+  color: var(--ac);
+  white-space: nowrap;
+  font-family: var(--mono);
+}
+
+.rubric-desc {
+  color: var(--tx-faint);
+  font-size: 11.5px;
+  display: block;
+  margin-top: 2px;
+  font-style: italic;
+}
+
+/* the Magister's judgement */
+.grade-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(14, 7, 2, .82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fade-in .18s ease both;
+}
+
+.grade-overlay.closing {
+  animation: fade-out .2s ease both;
+}
+
+.grade-overlay.closing .grade-card {
+  animation: modal-out .2s cubic-bezier(.4, 0, 1, 1) both;
+}
+
+.grade-card {
+  width: min(700px, 92vw);
+  max-height: 86vh;
+  overflow-y: auto;
+  background:
+    radial-gradient(ellipse 90% 50% at 30% 10%, rgba(255, 248, 224, .5), transparent 60%),
+    linear-gradient(158deg, color-mix(in oklab, var(--bg1), #fff8e2 12%), var(--bg1) 55%, color-mix(in oklab, var(--bg1), #6b4a1a 10%));
+  border: 1px solid rgba(90, 62, 28, .5);
+  border-radius: 5px 9px 6px 10px / 10px 6px 9px 7px;
+  padding: 26px 30px;
+  box-shadow: 0 34px 60px -18px rgba(5, 2, 0, .9);
+  animation: modal-in .28s cubic-bezier(.16, 1, .3, 1);
+  /* no fill: a filling transform breaks Monaco's fixed widgets */
+}
+
+.grade-letter {
+  font-family: var(--arch);
+  font-size: 62px;
+  color: var(--ac);
+  line-height: 1;
+  width: 92px;
+  height: 92px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px double var(--ac-dim);
+  border-radius: 50%;
+  background: var(--ac-bg);
+  transform: rotate(-4deg);
+}
+
+.grade-letter.low {
+  color: var(--bad);
+  border-color: var(--bad);
+  background: rgba(142, 47, 35, .08);
+}
+
+.grade-letter.mid {
+  color: var(--warn);
+  border-color: var(--warn);
+  background: rgba(138, 93, 20, .08);
+}
+
+.crit-row {
+  display: grid;
+  grid-template-columns: 1fr 120px 40px;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.crit-row .meter {
+  margin: 0;
+}
+
+.grade-feedback {
+  margin: 18px 0;
+  padding: 14px;
+  border-left: 2px solid var(--ac-dim);
+  background: rgba(255, 250, 232, .35);
+  color: var(--tx);
+  font-size: 14px;
+  border-radius: var(--rad);
+  font-style: italic;
+}
+
+.grade-rewards {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+
+.grading-anim {
+  text-align: center;
+  padding: 40px 0;
+}
+
+.grading-anim .spinner-line {
+  color: var(--ac);
+  font-size: 14px;
+  letter-spacing: .06em;
+  font-style: italic;
+  animation: pulse 1.4s ease-in-out infinite;
+}

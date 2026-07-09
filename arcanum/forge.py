@@ -11,7 +11,7 @@ import time
 import urllib.parse
 import urllib.request
 
-from .config import BUILD_DIR, CLI_EFFORTS, GLOBAL_SETTINGS, TOMES_DIR, jobs, jobs_lock, read_json
+from .config import BUILD_DIR, CLI_EFFORTS, TOMES_DIR, jobs, jobs_lock, read_settings
 from .tomes import load_manifest, resolve_working_tid
 
 # The harness's banner always starts "> Phase N — …"; the ">" is REQUIRED so a worker
@@ -58,12 +58,12 @@ def forge_name(tid):
 
 
 # ---- Pushover: ping the operator when a build needs them or ends, so they can wander off
-# mid-forge. Creds live in global-configs/settings.json {"pushover": {"token","user"}} — the
+# mid-forge. Creds live in global-configs/settings.toml under [pushover] token/user — the
 # same file as the AI API keys — or PUSHOVER_TOKEN/PUSHOVER_USER in the env. No creds → no-op.
 def _pushover_creds():
     tok, usr = os.environ.get("PUSHOVER_TOKEN"), os.environ.get("PUSHOVER_USER")
     if not (tok and usr):
-        p = read_json(GLOBAL_SETTINGS, {}).get("pushover") or {}
+        p = read_settings().get("pushover") or {}
         tok, usr = tok or p.get("token"), usr or p.get("user")
     return (tok, usr) if tok and usr else None
 

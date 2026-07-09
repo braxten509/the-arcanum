@@ -1192,9 +1192,9 @@ the engine:
    `#obj-orb`, `#obj-grimoire`, `#obj-satchel`, `#obj-letter`, `#obj-wand`,
    `#obj-notes`, `#obj-tomes`), `.op-item`, `.btn`, `.exercise`, `.choice`,
    `.meter`, `.grade-card`, `.shop-item`, `.modal`, `.toast`, `.pop-menu`,
-   `.tome-row`, `#boot`, `#term`… Read `web/style.css` top to bottom — its
-   section comments are the site map. If you think you need new HTML, you're
-   designing a fork, not a skin.
+   `.tome-row`, `#boot`, `#term`… Read `web/css/` in the order `index.html`
+   links it — one file per surface, and the filenames are the site map. If you
+   think you need new HTML, you're designing a fork, not a skin.
 
 3. **Re-declare the engine's knobs, then add your own.** Layout constants are
    CSS vars — override them inside your block: `--ctl-h` (control height),

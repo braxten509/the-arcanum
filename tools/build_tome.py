@@ -10,7 +10,7 @@ it passes. Phase 8 (student review + gap-fill) loops until the student agent wri
 
     python3 tools/build_tome.py <tome-id> [--from-phase N]
 
-Which AI drives each phase is set in harness.toml at the repo root.
+Which AI drives each phase is set in global-configs/harness.toml.
 
 Cross-phase state is the FILESYSTEM: the tome under tomes/<id>/ that each phase mutates,
 plus one plan file at .tome-build/<id>.plan.md carrying the gate answers + arc.

@@ -1,0 +1,218 @@
+/* ARCANUM game engine — the wizard's study. Tomes are tomes; this is the desk they rest on.
+   Boot, wiring, and the ambient life of the study. */
+import "../audio/index.js";  // first: hangs GhostAudio on window before any module below reads it
+import { BOOT_LINES, J, applyTomeConfig } from "./core/config.js";
+import { fetchActiveBuilds, showTomePicker } from "./forge/bindery.js";
+import { showBinder } from "./forge/binder.js";
+import { $, applyPen, esc, paintRange, refreshCoins, sfx, toast } from "./core/dom.js";
+import { initiateAttack, intrusionEligible, startIntrusion } from "./game/duel.js";
+import "./ui/menu.js";
+import { askOracle, grabSelection, oracleContext, paintOracleBtn, showOracleLog } from "./bench/oracle.js";
+import { go, secById } from "./game/progress.js";
+import { showStudySettings } from "./ui/settings.js";
+import { burst, setLastCastAt } from "./game/sigil.js";
+import { S, loadState, save } from "./core/state.js";
+import "./ui/tooltip.js";
+import { showCodeBook } from "./ui/views.js";
+import { models, saveWorkspace } from "./bench/workbench.js";
+
+async function bootSequence() {
+  const boot = $("#boot"), txt = $("#boot-text");
+  boot.classList.remove("hidden");
+  let skip = false;
+  $("#boot-skip").onclick = () => { skip = true; };
+  for (const line of BOOT_LINES) {
+    if (skip) break;
+    for (let i = 0; i <= line.length; i += 2) {
+      if (skip) break;
+      txt.textContent = txt.textContent.split("\n").slice(0, -1).concat(line.slice(0, i)).join("\n");
+      await new Promise((r) => setTimeout(r, 8));
+    }
+    txt.textContent = txt.textContent.split("\n").slice(0, -1).concat(line).join("\n") + "\n";
+    await new Promise((r) => setTimeout(r, skip ? 0 : 120));
+  }
+  await new Promise((r) => setTimeout(r, skip ? 0 : 600));
+  boot.classList.add("hidden");
+  S.booted = true; save();
+}
+
+async function init() {
+  await window.tomeReady;   // the active tome's data must be present before we render
+  applyTomeConfig();
+  await loadState();
+  document.body.dataset.theme = S.theme || (window.TOME.defaults && window.TOME.defaults.theme) || "vellum";
+  refreshCoins();   // the HUD purse is inked in index.html; re-ink it for the active palette
+  window.GhostEditor.boot(() => {
+    const out = {};
+    for (const [p2, m] of Object.entries(models)) out[p2] = m.getValue();
+    return out;
+  });
+
+  // the tools of the study
+  const bAsk = $("#obj-orb");
+  let askSel = "";
+  bAsk.onpointerdown = () => { askSel = grabSelection(); };
+  bAsk.onclick = () => { const c = oracleContext(); askOracle(c.label, c.detail, askSel); };
+  $("#obj-notes").onclick = showOracleLog;
+  $("#obj-quill").onclick = showBinder;
+  $("#obj-grimoire").onclick = showCodeBook;
+  $("#obj-satchel").onclick = () => go("shop");
+  $("#obj-letter").onclick = () => go("home");
+  $("#obj-tomes").onclick = showTomePicker;
+  $("#obj-wand").onclick = initiateAttack;
+  $("#candle").onclick = showStudySettings;
+  $("#hud-settings").onclick = () => { sfx("click"); showStudySettings(); };
+  // brand the spine from the tome narrative
+  const logoEl = $(".logo");
+  if (logoEl && J().narrative && J().narrative.logo) logoEl.textContent = J().narrative.logo;
+  paintOracleBtn();
+  $("#hud-credits-btn").onclick = () => go("shop");
+  $("#hud-rank-btn").onclick = () => go("home");
+
+  // audio: init prefs, start the hearthfire on the first user gesture (autoplay policy)
+  if (window.GhostAudio) {
+    GhostAudio.init(S.audio);
+    const kick = () => { GhostAudio.userGesture(); document.removeEventListener("pointerdown", kick); document.removeEventListener("keydown", kick); };
+    document.addEventListener("pointerdown", kick);
+    document.addEventListener("keydown", kick);
+    // warm the audio stream on the first mouse MOVEMENT, so it's open before the first click
+    const warm = () => { GhostAudio.userGesture(); if (GhostAudio.running()) document.removeEventListener("pointermove", warm); };
+    document.addEventListener("pointermove", warm);
+    const bAmb = $("#hud-ambience"), bSfx = $("#hud-sfx");
+    const paint = () => {
+      bAmb.style.opacity = S.audio.ambience ? "1" : ".35";
+      bSfx.style.opacity = S.audio.sfx ? "1" : ".35";
+      bAmb.title = S.audio.ambience ? "The hearthfire crackles (click to bank it)" : "The hearthfire is banked (click to stoke it)";
+      bSfx.title = S.audio.sfx ? "The study makes its little sounds" : "The study is silent";
+    };
+    bAmb.onclick = () => { S.audio.ambience = !S.audio.ambience; GhostAudio.setAmbience(S.audio.ambience); paint(); save(); };
+    bSfx.onclick = () => { S.audio.sfx = !S.audio.sfx; paint(); save(); if (S.audio.sfx) GhostAudio.sfx("tick"); };
+    paint();
+  }
+
+  applyPen(); // set the handwritten-ink body classes + code-editor font from saved prefs
+
+  // candle embers: the flame sheds warm motes that drift up and die
+  const flameEl = document.querySelector("#candle .c-flame");
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+  setInterval(() => {
+    if (document.hidden || reduced.matches || !flameEl) return;
+    if ($("#parchment").classList.contains("wide")) return; // the desk is swept during the Great Working
+    const r = flameEl.getBoundingClientRect();
+    if (!r.width) return;
+    const em = document.createElement("div");
+    em.className = "ember";
+    const sz = 2 + Math.random() * 2.5;
+    em.style.cssText = `left:${r.left + r.width / 2 + (Math.random() - 0.5) * 10}px;top:${r.top + 4}px;width:${sz}px;height:${sz}px`;
+    document.body.appendChild(em);
+    em.animate(
+      [
+        { transform: "translate(0,0)", opacity: 0.9 },
+        { transform: `translate(${(Math.random() - 0.35) * 46}px, ${-(46 + Math.random() * 80)}px)`, opacity: 0 },
+      ],
+      { duration: 1900 + Math.random() * 1600, easing: "cubic-bezier(.2,.5,.4,1)", fill: "forwards" }
+    ).onfinish = () => em.remove();
+  }, 640);
+
+  // click feedback by region: a multiple-choice pick, a fingertip on the parchment, or a
+  // knock on the wooden desk. mousedown so it lands on press and catches right-clicks (button 2).
+  document.addEventListener("mousedown", (e) => {
+    if (e.button !== 0 && e.button !== 2) return;
+    const t = e.target;
+    if (!t.closest) return;
+    let kind, material = true;
+    const obj = t.closest("[data-sfx]");
+    if (t.closest(".choice")) kind = "pick";              // marking a multiple-choice option
+    else if (obj) { kind = obj.dataset.sfx; material = false; } // a desk object with its own voice
+    else if (t.closest(".b-check, #b-run")) {               // CAST press: no feedback here — the verdict throws the motes and the voice.
+      kind = "cast"; material = false;                      // remember where the button sat, in case the verdict removes it before bursting
+      const r = t.closest(".b-check, #b-run").getBoundingClientRect();
+      setLastCastAt({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+    }
+    else if (t.closest("#term, .forge-log")) kind = "stone"; // the speaking stone & the forge log box: a mineral tap, chips fly
+    else if (t.closest("#parchment")) kind = "click";     // anywhere on the parchment
+    else if (t.closest(".modal, .grade-card")) kind = "click"; // a parchment card (bindery / forge / grade) — dust like the page, buttons included
+    else if (t.closest("button")) { kind = "click"; material = false; } // HUD buttons OUTSIDE parchment: tick only (before the wood catch, so the header bar's buttons don't knock)
+    else if (t.closest("#table, #hud")) kind = "wood";    // the wooden desk — incl. the header strip above the parchment (title + empty space)
+    else return;
+    sfx(kind);
+    if (material) burst(e.clientX, e.clientY, kind);
+  });
+
+  // keep every slider's ink fill in sync as it's dragged (one listener covers all sliders, anywhere)
+  document.addEventListener("input", (e) => {
+    if (e.target.matches && e.target.matches('input[type="range"]')) paintRange(e.target);
+  });
+
+  // Ctrl+S saves the workbench instead of opening the browser dialog
+  document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      if (S.nav.view === "freestyle" && Object.keys(models).length) saveWorkspace(true);
+      else toast("No scroll is unrolled — there is nothing to blot.", "warn");
+    }
+  }, true);
+
+  // typing SFX: one delegated listener covers drill boxes, inputs, and Monaco's inputarea.
+  // capture phase — Monaco stopPropagation()s command keys (Backspace etc.) before they'd bubble here
+  document.addEventListener("keydown", (e) => {
+    if (!S.audio.sfx || !window.GhostAudio) return;
+    const t = e.target;
+    if (!t.matches || !t.matches("textarea, input[type=text]")) return;
+    if (e.key.length === 1 || ["Enter", "Backspace", "Tab", "Delete"].includes(e.key)) GhostAudio.keyclick(e.key);
+  }, true);
+
+  if (!S.booted) await bootSequence();
+  $("#shell").classList.remove("hidden");
+
+  // hex scheduler: one rival's hex per ~10-15 min of visible, active study
+  const intrusionDelay = () => (600 + Math.random() * 300) * 1000;
+  let intrusionNextAt = Date.now() + intrusionDelay();
+  setInterval(() => {
+    if (document.hidden) { intrusionNextAt = Math.max(intrusionNextAt, Date.now() + 60000); return; }
+    if (Date.now() < intrusionNextAt || !intrusionEligible()) return;
+    intrusionNextAt = Date.now() + intrusionDelay();
+    if (S.inv.vpn > 0) {
+      S.inv.vpn--;
+      sfx("tick");
+      toast(`Your CLOAK OF UNSEEING turned a rival's hex aside (${S.inv.vpn} charges left)`, "warn");
+      save();
+      return;
+    }
+    startIntrusion();
+  }, 30000);
+
+  const nav = S.nav || { view: "home" };
+  const validSec = nav.sec && secById(nav.sec);
+  if (nav.view === "lesson" && validSec && validSec.lessons.some((l) => l.id === nav.lesson)) go("lesson", nav.sec, nav.lesson);
+  else if ((nav.view === "section" || nav.view === "freestyle") && validSec) go(nav.view, nav.sec);
+  else if (nav.view === "shop") go("shop");
+  else go("home");
+
+  // health check
+  try {
+    const h = await (await fetch("/api/health")).json();
+    const rtName = (window.TOME.runtime && window.TOME.runtime.name) || "custom";
+    const rtOk = (h.runtimes || {})[rtName];
+    if (!rtOk) toast(`THE FORGE IS COLD: ${rtName} was not found — CAST THE SPELL will fail.`, "warn");
+    if (!h.claude) toast("THE TOWER IS DARK: claude CLI not found — the Magister cannot judge.", "warn");
+  } catch { /* server just started; fine */ }
+
+  // a tome may still be on the bindery's anvil from a previous visit — offer the way back
+  fetchActiveBuilds().then(async (builds) => {
+    const hint = localStorage.getItem("buildJob");
+    if (builds.length) {
+      const b = builds.find((x) => x.id === hint) || builds[0];
+      toast(`The bindery is still forging <b>${esc(b.name || b.tome)}</b> — Phase ${b.phase}/9. The shelf of tomes holds its progress.`, "warn");
+    } else if (hint) {
+      try {
+        const st = await (await fetch("/api/buildtome/status?id=" + encodeURIComponent(hint))).json();
+        if (st.status === "done") toast(`The bindery finished <b>${esc(st.name || st.tome || "your tome")}</b> — it waits on the shelf.`, "warn");
+        else if (st.status === "error") toast("The last working in the bindery failed — its partial pages remain in /tomes.", "bad");
+      } catch { /* server unreachable; the shelf will tell them later */ }
+      localStorage.removeItem("buildJob");
+    }
+  });
+}
+
+init();

@@ -1,0 +1,175 @@
+/* ARCANUM design system — a wizard's study. One parchment, one candle, ink on vellum.
+   Everything is drawn with geometry: gradients, borders, clip-paths. No image assets.
+   Fonts: Uncial Antiqua (archmage display) · IM Fell English (grimoire prose)
+          Caveat (the student's hand) · Fantasque Sans Mono (inscribed code). */
+
+@font-face {
+  font-family: "Uncial Antiqua";
+  src: url("/fonts/uncial-antiqua-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IM Fell English";
+  src: url("/fonts/im-fell-english-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IM Fell English";
+  src: url("/fonts/im-fell-english-latin-400-italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Caveat";
+  src: url("/fonts/caveat-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Caveat";
+  src: url("/fonts/caveat-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Fantasque Sans Mono";
+  src: url("/fonts/FantasqueSansMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Fantasque Sans Mono";
+  src: url("/fonts/FantasqueSansMono-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Fantasque Sans Mono";
+  src: url("/fonts/FantasqueSansMono-Italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+:root {
+  --arch: "Uncial Antiqua", "IM Fell English", serif;
+  /* the archmage's display hand */
+  --fell: "IM Fell English", Georgia, serif;
+  /* grimoire prose */
+  --hand: "Caveat", "Segoe Script", cursive;
+  /* what YOU write */
+  --mono: "Fantasque Sans Mono", ui-monospace, monospace;
+  /* inscribed code */
+  --ctl-h: 34px;
+  --rad: 3px;
+  --hud-h: 52px;
+  --rail-w: 190px;
+}
+
+/* Theme palettes are injected at runtime from the active Tome's [[themes]].
+   This vellum block is the bootstrap default so the loading moment isn't unstyled.
+   Contract: bg0 = the table wood · bg1 = parchment base · bg2/bg3 = parchment panels
+             line/line-hi = ink hairlines · tx* = inks · ac = the sworn accent ink
+             slab/slab-tx = the granite speaking-stone (terminal) — grey-led
+             mineral tones, never the wood browns of bg0 */
+body[data-theme="vellum"] {
+  --bg0: #241609;
+  --bg1: #e7d9b5;
+  --bg2: #ddcda4;
+  --bg3: #d3c092;
+  --line: #b9a67c;
+  --line-hi: #97815a;
+  --tx: #3d2b17;
+  --tx-dim: #6b5638;
+  --tx-faint: #8d7854;
+  --ac: #275d4d;
+  --ac-dim: #3e7a67;
+  --ac-bg: rgba(39, 93, 77, .10);
+  --warn: #8a5d14;
+  --bad: #8e2f23;
+  --info: #3d4d78;
+  --slab: #27272b;
+  --slab-tx: #e3d3ac;
+  --candle: 255, 172, 66;
+  /* rgb of the candlelight, used at many alphas */
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--tx);
+  font-family: var(--fell);
+  font-size: 15.5px;
+  line-height: 1.62;
+  overflow: hidden;
+  /* the tabletop: candle-warmed old oak, drawn in three layers of gradient */
+  background:
+    radial-gradient(1100px 760px at 11% 6%, rgba(var(--candle), .16), transparent 62%),
+    repeating-linear-gradient(0deg, transparent 0 138px, rgba(0, 0, 0, .30) 138px 140px),
+    repeating-linear-gradient(92deg,
+      rgba(0, 0, 0, .10) 0 2px, transparent 2px 9px,
+      rgba(255, 235, 200, .014) 9px 11px, transparent 11px 31px),
+    linear-gradient(112deg,
+      color-mix(in oklab, var(--bg0), #6b4413 16%) 0%,
+      var(--bg0) 46%,
+      color-mix(in oklab, var(--bg0), #000 30%) 100%);
+}
+
+::selection {
+  background: color-mix(in oklab, var(--ac), transparent 68%);
+}
+
+.num {
+  font-family: var(--mono);
+  font-size: .92em;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.ico {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  vertical-align: -2px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-hi) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--line-hi);
+  border-radius: 4px;
+}

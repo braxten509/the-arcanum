@@ -6,6 +6,8 @@ import shutil
 import threading
 import tomllib
 
+from runtimes.common import atomic_write
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root (arcanum/ lives inside it)
 WEB = os.path.join(ROOT, "web")
 TOMES_DIR = os.path.join(ROOT, "tomes")
@@ -75,7 +77,7 @@ OPENCODE_FREE_IDS = [
 # progress stay per-tome. Stored beside the runtimes in global-configs/, split out of
 # each POSTed save and merged back into each GET.
 GLOBAL_STATE_KEYS = ("audio", "pen", "ai")
-GLOBAL_SETTINGS = os.path.join(ROOT, "global-configs", "settings.json")
+GLOBAL_SETTINGS = os.path.join(ROOT, "global-configs", "settings.toml")
 
 MIME = {".html": "text/html", ".js": "text/javascript", ".css": "text/css",
         ".json": "application/json", ".svg": "image/svg+xml", ".woff2": "font/woff2",
@@ -100,6 +102,48 @@ def read_json(path, default):
 def read_toml(path):
     with open(path, "rb") as f:
         return tomllib.load(f)
+
+
+def read_settings():
+    """global-configs/settings.toml — {} before the reader has saved one."""
+    try:
+        return read_toml(GLOBAL_SETTINGS)
+    except (OSError, tomllib.TOMLDecodeError):
+        return {}
+
+
+def _toml_value(v):
+    if isinstance(v, bool):          # before int: bool is an int subclass
+        return "true" if v else "false"
+    if isinstance(v, (int, float)):
+        return repr(v)
+    if isinstance(v, (list, tuple)):
+        return "[" + ", ".join(_toml_value(x) for x in v) + "]"
+    return json.dumps(str(v))        # JSON string escaping == TOML basic-string escaping
+
+
+def dump_toml(d, prefix=""):
+    """Write a dict of scalars/lists/nested dicts as TOML. tomllib reads but cannot write.
+
+    Scalars before sub-tables at every level — that ordering is the whole contract, since
+    any key trailing a [table] header belongs to that table.
+    ponytail: bare keys only, which is all settings.toml ever holds. Quote them if a key
+    ever needs a dot or a space."""
+    out = "".join(f"{k} = {_toml_value(v)}\n" for k, v in d.items() if not isinstance(v, dict))
+    for k, v in d.items():
+        if isinstance(v, dict):
+            out += f"\n[{prefix}{k}]\n" + dump_toml(v, f"{prefix}{k}.")
+    return out
+
+
+SETTINGS_HEADER = ("# global-configs/settings.toml — the reader-wide settings (audio, pen, AI\n"
+                   "# models and keys, Pushover creds). Hand-edit it; the study's settings panel\n"
+                   "# rewrites it on save, keeping your values and dropping your comments.\n")
+
+
+def write_settings(d):
+    os.makedirs(os.path.dirname(GLOBAL_SETTINGS), exist_ok=True)
+    atomic_write(GLOBAL_SETTINGS, SETTINGS_HEADER + dump_toml(d))
 
 
 os.makedirs(CACHE_DIR, exist_ok=True)
