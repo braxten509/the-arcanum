@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """build_tome.py — build a tome ONE PHASE AT A TIME, each in a fresh agent.
 
-Why this exists: a single agent handed the whole TOME-WORKFLOW.md skips phases
-(especially the final student-review pass) and half-reads buried rules. This harness
-runs each phase of TOME-WORKFLOW.md as a SEPARATE headless agent, so no phase can be
+Why this exists: a single agent handed the whole workflow skips phases (especially the
+final student-review pass) and half-reads buried rules. This harness runs each phase
+file in tome-workflow/ as a SEPARATE headless agent, so no phase can be
 skipped and each gets clean, focused context. Between content phases it runs
 validate_tome.py as a hard gate and re-runs the phase (feeding back the errors) until
 it passes. Phase 8 (student review + gap-fill) loops until the student agent writes PASS.
@@ -17,6 +17,7 @@ plus one plan file at .tome-build/<id>.plan.md carrying the gate answers + arc.
 The machinery lives in tools/buildlib/ (see its __init__ for the module map);
 this file is the CLI + the phase loop."""
 import argparse
+import glob
 import os
 import re
 import subprocess
@@ -29,7 +30,7 @@ except ModuleNotFoundError:
     sys.exit("build_tome.py needs Python 3.11+ (tomllib).")
 
 from buildlib import (BUILD_DIR, CONFIG, DEAD_PINGS_DEFAULT, MAX_STUDENT_LOOPS,
-                      PING_INTERVAL_DEFAULT, REPO, WORKFLOW, retries_for)
+                      PING_INTERVAL_DEFAULT, REPO, WORKFLOW_DIR, retries_for)
 from buildlib.liveness import run_agent, preflight_runners
 from buildlib.measure import forecast_line, inventory, measure, plan_shrink_marks, shrinkage, validate
 from buildlib.prompts import build_prompt, do_gate, do_gate_json, read_findings, read_tooling, read_verdict
@@ -54,23 +55,25 @@ def load_config(preset=None):
     return cfg
 
 
-def parse_phases():
-    """Slice TOME-WORKFLOW.md on its '## Phase N — Title' headers.
+PHASE_H1 = re.compile(r"#\s*Phase (\d+)\s*—\s*(.*)")
 
-    Returns [(num, title, body), ...]. The body is the phase's own instructions,
-    verbatim, minus any trailing '---' separator.
+
+def parse_phases():
+    """Read tome-workflow/phase-N-*.md, one file per phase, ordered by N.
+
+    Returns [(num, title, body), ...]: the title comes from each file's `# Phase N — Title`
+    H1, the body is everything after it — the phase's own instructions, verbatim.
     """
-    text = open(WORKFLOW, encoding="utf-8").read()
-    parts = re.split(r"^## Phase (\d+)\s*—\s*(.*)$", text, flags=re.M)
     phases = []
-    for i in range(1, len(parts), 3):  # [pre, num, title, body, num, title, body, ...]
-        num = int(parts[i])
-        title = parts[i + 1].strip()
-        body = re.sub(r"\n+---\s*$", "", parts[i + 2]).strip()
-        phases.append((num, title, body))
+    for path in glob.glob(os.path.join(WORKFLOW_DIR, "phase-*.md")):
+        head, _, body = open(path, encoding="utf-8").read().partition("\n")
+        m = PHASE_H1.fullmatch(head.strip())
+        if not m:
+            sys.exit(f"{path}: first line must be '# Phase N — Title', got {head.strip()!r}")
+        phases.append((int(m.group(1)), m.group(2).strip(), body.strip()))
     if not phases:
-        sys.exit("parsed 0 phases from TOME-WORKFLOW.md — did the '## Phase N —' headers change?")
-    return phases
+        sys.exit(f"parsed 0 phases from {WORKFLOW_DIR}/ — where did the phase-N-*.md files go?")
+    return sorted(phases)
 
 
 def arc_checkpoint(plan_path, interactive, skip):

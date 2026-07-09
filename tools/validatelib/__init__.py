@@ -20,7 +20,7 @@ SKINS_DIR = os.path.join(REPO, "skins")
 
 sys.path.insert(0, REPO)  # for tome_layout (shared split-tome layout, in lockstep with server)
 
-# The 18-ink theme contract (TOME-AUTHORING.md § [[themes]], mirrored in
+# The 18-ink theme contract (tome-authoring/2-tome-toml.md § [[themes]], mirrored in
 # the web css's "Theme palettes are injected" vellum block). Every palette
 # MUST define exactly these.
 THEME_VARS = {
@@ -29,7 +29,7 @@ THEME_VARS = {
     "warn", "bad", "info", "slab", "slab-tx", "candle",
 }
 EXERCISE_TYPES = {"mc", "text", "fill", "type", "write"}
-# Coin faces a palette may pick (the engine's COIN_ICONS; TOME-AUTHORING.md § [[themes]])
+# Coin faces a palette may pick (the engine's COIN_ICONS; tome-authoring/2-tome-toml.md § [[themes]])
 COIN_FACES = {"star", "rune", "gem", "holed", "serpent", "sun", "bolt", "eye"}
 # The six engine consumable mechanics (§ [[shop]]). Any other consumable id
 # renders in the shop but does nothing — a WARN, never an ERROR.
@@ -41,7 +41,7 @@ REQUIRED_CONSUMABLES = {"firewall", "x2", "skip", "vpn", "xray"}
 MULTI_CHARGE = {"firewall", "vpn"}
 META_REQUIRED = ["id", "name", "description", "author", "version", "favicon"]
 ID_RE = re.compile(r"[A-Za-z0-9_-]+")
-# TOME-WORKFLOW Phase 7 treats these WARN classes as hard gates; --strict enforces that.
+# tome-workflow phase 7 treats these WARN classes as hard gates; --strict enforces that.
 HARD_GATE_LABELS = {"anti-template", "content"}
 # scaffolding text that must not survive to a finished tome (TODO/FIXME exact-case —
 # lowercase "todo" appears in honest prose; lorem any case)

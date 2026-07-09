@@ -3,7 +3,7 @@
 You are making a **small, surgical change** to an existing course (a "tome") on
 request — a typo, a wrong color, a price, a missing sentence. This file tells you
 exactly where each knob lives so you touch one file, change one value, and stop.
-For authoring whole courses, that's `TOME-AUTHORING.md` / `TOME-WORKFLOW.md` — not
+For authoring whole courses, that's `tome-authoring/` / `tome-workflow/` — not
 this file, and not your job here.
 
 ## Ground rules (read first)

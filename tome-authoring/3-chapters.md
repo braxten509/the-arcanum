@@ -1,0 +1,259 @@
+# 3. A chapter — `sections/<sid>/` (split) or `sections/<sid>.toml` (flat)
+
+A chapter has three parts. **Split layout:** they live in separate files under
+`sections/<sid>/` — `section.toml` (the keys below), `freestyle.toml` (the `[freestyle]`
+table, §3b), and one `lessons/lNN.toml` per lesson (each holding a `[[lessons]]` block
++ its readings/exercises, §3a), ordered by filename. **Flat layout:** all three parts
+sit in one `sections/<sid>.toml` as `[freestyle]` and repeated `[[lessons]]` tables.
+The engine assembles either into the same chapter — write whichever you prefer.
+
+Chapter keys (`section.toml`, or the top of the flat file):
+```toml
+id = "s01"                          # matches [content].sections and the folder/filename
+codename = "CHAPTER I // THE FIRST FLAME" # heading label
+short = "The First Flame"           # optional: compact label for the contents rail
+title = "C# Basics & the Dev Environment"
+build = "CLI shell skeleton — the tool's front door"  # one line: what this op adds to the build
+brief = "Every tool starts with a heartbeat. …"       # HTML; section intro card
+```
+
+### `[[lessons]]` — 3–8 per section, sized by what the op teaches
+`id` (`"s01-l01"`), `title`, `body` (HTML multiline literal string).
+
+**Let each section's material set its lesson count** — a setup op might need 3,
+a dense op (state + config + events + sides, say) 5 or 6. Never more than 8:
+past that, split the section. Uniform counts across every section read as
+machine-generated (see the anti-template rules below).
+
+**HTML vocabulary for `body`** (styled by the engine — use only these):
+- `<p>`, `<strong>`, `<em>`, `<code>` inline
+- `<pre><code>…</code></pre>` code blocks, with manual token tints:
+  `<span class="k">keyword</span>`, `<span class="s">"string"</span>`,
+  `<span class="c">// comment</span>`
+- `<ul>/<ol>/<li>`
+- `<div class="callout">…</div>` — a highlighted advice box (≤1 per lesson)
+- `<div class="field-notes"><div class="fn-head">FIELD NOTES // …</div>…</div>` —
+  an optional "deeper cut" appendix at the end of the body: edge cases, idioms,
+  and pro details beyond the core lesson. Strongly recommended on every lesson.
+
+Escape literal `<`/`>` in code samples as `&lt;`/`&gt;`. Lessons should be
+300–600 words of body, concrete, code-first, and in the tome's voice.
+
+### `[[lessons.readings]]` — external links
+`label`, `url`. (An `essential` bool is tolerated but not currently rendered.)
+1–2 per lesson, only high-quality official docs/videos. **Every lesson needs at
+least one** — how many and how deep is a judgement call, but zero is not: a
+lesson with no anchor doc is the most common regression in the later, denser
+chapters (validator WARNs on any lesson with zero readings).
+
+### `[[lessons.exercises]]` — 4–6 per lesson, mixed types
+Common fields: `id` (convention `"<sid>-l<NN>-e<N>"`, drills `-d<N>`, labs `-w<N>`;
+ids must be unique per tome — they key saved progress), `type`, `points`,
+`prompt` (HTML), `hint` (revealed for `hintCost` credits — every exercise should
+have one, except `type` drills: the code to retype is already displayed, so a
+hint would be dead weight; every shipped tome omits them there), and optional
+`whyWrong` — **elaborated feedback shown the moment the student answers wrong**
+(recall items only: `mc`/`fill`/`text`). One or two sentences naming the specific
+misconception the wrong answer betrays and correcting it ("You picked the client
+side — but world data only exists on the server; the client holds a copy it must
+be *told* about."). This is the highest-value feedback channel there is: a miss
+becomes a micro-lesson instead of a dead end. **REQUIRED on every `mc` — a validator
+ERROR without it** (an `mc`'s distractors always have a diagnosable cause, so there
+is no excuse to omit it); strongly recommended on `fill`/`text` wherever the wrong
+answer has a diagnosable cause. It also fires in the spaced REVIEW round, so it keeps
+teaching long after the first attempt.
+
+| `type` | extra fields | behavior |
+|---|---|---|
+| `mc` | `choices` (array of strings), `answer` (0-based index), optional `code` (a code block shown above the choices), optional `explain` (shown after solving) | multiple choice |
+| `text` | `answer` (string), optional `accept` (array of alternate correct strings), optional `code` | free-text input. Matching is forgiving: trimmed, lowercased, whitespace collapsed, trailing `;` and surrounding quotes stripped — so `accept` only needs true alternates (synonyms, other valid answers), not case/punctuation variants |
+| `fill` | same as `text` | fill-the-blank; put `____` in the `code` block where the answer goes |
+| `type` | `code` (the text to type), optional `reps` (default 1) | typing drill: retype the code exactly (whitespace-normalized), `reps` times. No point decay |
+| `write` | `expect` (exact required stdout, **must be non-empty**) **or** `expectRe` (JS regex, multiline flag), optional `stdin` (piped input, `\n`-separated), optional `starter` (prefilled editor code) | CODE LAB: a real Monaco editor + the actual runtime. The program must produce the expected output. No point decay |
+
+**Never author an empty-output lab** (`expect = ""`): the runtime reports empty
+stdout as the literal `(no output)`, so an empty target is impossible to satisfy —
+and a program with nothing to print verifies nothing. Every `write` lab prints at
+least one concrete line.
+
+**Output comparison** (labs, drills, intrusions, attacks): line ends are trimmed,
+internal whitespace runs collapse to one space, blank lines drop. Everything else
+is exact — so write `expect` as literal program output, and in prompts always show
+the target output verbatim.
+
+**Points guidance** (with `attemptMultipliers = [1,0.6,0.3]` economics):
+mc/text 15–25 · fill 20–25 · type 12–14 (reps 2) · write 30–35. Escalate slightly
+in later sections.
+
+**Anti-template rules — an AI author's most common failure mode is uniformity.
+These are hard requirements, checked in review:**
+- Every `write` prompt states a CONCRETE task: the specific values, inputs, or
+  transformation ("sum the bytes 3, 5, 7 and print SUM 15" — never "compute any
+  stated values" with no values stated). If the program must compute something,
+  the inputs live in the prompt or the `starter` — an expect that can be satisfied
+  by printing a string literal is acceptable only in section 1.
+- Vary `starter` code per lab: set up the exercise's actual data/scenario. One
+  starter skeleton cloned into every lab teaches nothing.
+- Use `stdin` **when the program under study actually reads input.** For a course
+  whose end product reads stdin (a CLI, a REPL, a filter), once input reading is
+  taught piped-input labs must appear **and keep appearing across the remaining
+  sections** — not clustered in the one section that teaches it; such a course with
+  zero stdin labs, or one that demos input once and never revisits it, is broken.
+  But `stdin` is the lab harness's ONLY input channel, so do not mistake it for a
+  universal requirement: a course whose end product takes input another way — a GUI
+  app, an event-driven mod (Forge/SMAPI), a library, a game script — never reads
+  `System.in` in the real artifact. There, stdin labs are a **fundamentals-practice
+  vehicle** (parsing, branching, looping over variable data), not a model of how the
+  product ingests input. Keep them if they drill genuine language skills, frame them
+  in the course's domain (parse a registry name, classify resource paths), and add a
+  one-line lesson note that the real artifact takes input by GUI/event/packet — so
+  students don't form the wrong mental model. Judge stdin coverage by whether the
+  *product* reads input, not by a fixed quota.
+- The mc/fill/text exercises within a lesson must have DIFFERENT answers testing
+  different facets — never one answer word rubber-stamped across all three types.
+- `fill` blanks are real code from the lesson with one token removed — never an
+  invented pseudo-trace like `CONTRACT = ____`.
+- Hints are exercise-specific (name the instruction, operand, or line) — never a
+  recycled generic sentence. 180 exercises should have ~180 distinct hints.
+- Vary structure — the single most common AI tell, so treat it as a hard rule.
+  Do NOT emit the same shape in every section: 3 lessons × 4 exercises in a fixed
+  `mc … write` order repeated down the whole tome is a review failure even when
+  each exercise is individually good. Lesson counts must genuinely differ section
+  to section (some 3, some 5–6, sized to the material, hard cap 8), exercise counts
+  too (some 4, some 5–6), and the type order must differ. After drafting, list your
+  per-section lesson counts and per-lesson exercise counts; if they are all
+  identical you built the grid — go vary it. (`validate_tome.py` WARNs when every
+  section shares one shape.)
+- Spread mc `answer` indices across 0–3 — and CHECK it before shipping. Every
+  answer on the same index — above all every answer = `0`, the value an AI drifts
+  to by default — is an automatic fail: it makes the correct choice guessable and
+  screams machine-authored. After each section, tally its mc answer indices and
+  rewrite choices until 0/1/2/3 are each used a comparable number of times across
+  the tome. (`validate_tome.py` WARNs on a single fixed index.)
+- Write every lesson body fresh — no sentence may appear verbatim in more than one
+  lesson.
+
+### Learning design — sequence exercises so they actually teach
+
+The anti-template rules keep a course from being *boring*; these make it *stick*.
+They encode what the research on learning is most sure of — **retrieval practice
+and spaced/interleaved practice** are the two highest-impact study techniques, and
+**worked examples** are the best-known way to keep novices from drowning in
+cognitive load. Apply all four:
+
+- **Interleave — don't only test the concept a lesson just taught.** The weakest
+  habit of an AI author is a course where every exercise quizzes the current lesson
+  and nothing older. Deliberately fold earlier concepts back into later sections: a
+  section-8 lab that still exercises the section-3 data model, an `mc` in section 6
+  that contrasts a section-2 idea with a new one. Concepts stay cumulative (never
+  test what hasn't been taught), but reach *backward* often.
+- **The engine now resurfaces solved exercises in spaced REVIEW rounds** (a
+  Leitner queue keyed to how many sections the student has completed, shown before
+  a freestyle unlocks). Two authoring consequences: (a) write each exercise to
+  **stand on its own** — no "using the value from the exercise above" or "as we
+  just saw", because it may reappear ten sections later out of context; (b) this is
+  free spaced retrieval of *your* material at no extra content cost, so it is worth
+  making each item a clean, self-contained test of one idea.
+- **Fade worked examples into problems (novice-heavy courses especially).** For a
+  concept a student meets for the first time, a fully worked example beats throwing
+  them a blank editor — the advantage only reverses once they have some skill. Use
+  the exercise types as a fading ladder within a lesson: `type` (copy a correct,
+  complete example) → `fill` (the same code with one load-bearing token blanked) →
+  `write` (build it from scratch). Don't jump lesson prose straight to a from-zero
+  lab for a brand-new idea.
+- **Drill what the labs physically can't run.** A `write` lab runs ONE plain file,
+  so it can never exercise framework/API concepts — a Forge registry, a client vs.
+  server side, an event lifecycle, a GUI callback. In a framework course the
+  hardest, most-explained material is exactly the material labs can't touch, so it
+  gets practiced least unless you compensate: cover those concepts with `mc`/`text`
+  recall drills (which side runs this? what is the registry name for X? when does
+  this event fire?). Recall-drilling the un-labbable concepts is not optional in a
+  framework/mod course — it is the only practice channel they have.
+- **Ask "why", not just "what".** Self-explanation is a cheap, well-supported
+  booster. Use the `explain` field on `mc` items, and phrase some prompts as a
+  reason rather than a lookup ("why must this be `@OnlyIn(CLIENT)`?" over "what does
+  this annotation do?").
+- **Make `mc` distractors diagnostic, then correct them.** Every wrong `mc` choice
+  must be a **plausible misconception a real learner holds** — an off-by-one, a
+  swapped client/server side, a confused operator, the almost-right API name — never
+  random filler or a joke option. A distractor that nobody would pick tests nothing;
+  a distractor that encodes a specific mistake means the *wrong* answer is
+  informative. Pair this with `whyWrong` (above): the distractors set the trap, the
+  `whyWrong` explains why it sprang. Together they turn multiple-choice from
+  recognition-guessing into real diagnosis.
+- **"Thorough" means no coverage gaps, NOT more words.** Do not pad lessons to feel
+  complete — a 600-word lesson that teaches one idea cleanly beats a 1,200-word one
+  that buries it (extra words are extraneous cognitive load). The thoroughness that
+  IS mandatory is *coverage*: no exercise, `write` lab, intrusion, duel, or
+  freestyle requirement may depend on a concept, method, or identifier that no
+  lesson in this section or an earlier one actually taught. Testing something you
+  never explained is the most common way an AI-authored course silently breaks
+  learning. Before shipping a section, walk every exercise and rubric line and
+  confirm its prerequisite was taught first.
+
+### `[freestyle]` — the graded capstone (required per section)
+```toml
+[freestyle]
+title = "BUILD: The Verisearch Shell"
+brief = "Turn <code>Program.cs</code> into …<ul><li>requirement</li>…</ul>"  # HTML; the <ul> IS the requirements checklist (shown as "IT MUST")
+reward = 200            # pays reward * (score/100), * sRankMultiplier on an S;
+                        # a re-grade pays only the improvement over the previous best
+packages = []           # allowed package installs for this op (dotnet tomes)
+xray = "The grader docks points for: … He gives style credit for …"
+                        # in-fiction "the grader's private notes" — revealed to the
+                        # STUDENT by the scrying-lens consumable. The grader AI never
+                        # reads this text, so it must truthfully describe what the
+                        # rubric already rewards/punishes. Write real, specific
+                        # pitfalls & style bonuses consistent with the rubric.
+
+[freestyle.badge]
+id = "badge-s01"        # convention: badge-<sid>
+name = "FIRST CONTACT"
+desc = "Built the shell — the front door of the whole operation."
+
+[[freestyle.rubric]]    # 4-6 criteria; weights MUST sum to exactly 100
+criterion = "Compiles & runs"
+weight = 25
+desc = "build succeeds; runs without crashing on normal input."
+```
+**Every rubric must include one style/craft criterion (weight 10–20)** whose
+`desc` names the language's actual conventions at the student's current level —
+both NAMING and LAYOUT (e.g. "camelCase locals, PascalCase methods, Allman
+braces" for C#; "snake_case, 4-space indent, no mutable globals" for Python).
+**Research the language's current official/community style guide online while
+authoring** (Microsoft's C# Coding Conventions, PEP 8, gofmt, the Ruby Style
+Guide, …) and encode its load-bearing rules into these descs — the grader AI
+runs WITHOUT web access, so the rubric is the only channel by which researched,
+language-accurate conventions reach it. Rubrics live entirely in the section
+TOMLs, so language-specific rules like brace style belong HERE, per tome —
+the engine only adds one generic rule telling the grader to anchor style
+judgments in the language's official style guide (from its own knowledge) and
+to name each breach with the pattern to follow. This row is how students learn
+good coding patterns, not just working code; be strictest about it in the
+first two sections, where habits form.
+The student's whole workspace is sent to the grader AI with `brief` + `rubric` +
+compiler output. **Grade gates:** ≥60 (D) passes the section and unlocks the next
+op; ≥70 (C) also grants the badge; S multiplies the reward. The freestyle unlocks
+after 70% of the section's exercises are solved.
+
+**Themed briefs vs. exact requirements — read this before writing the `<ul>`.**
+The brief is written in the in-world voice, and the grader is told to read each
+requirement by INTENT and resolve vague wording in the student's favour (it will
+NOT dock points for missing atmospheric flavor). That means: **if a requirement is
+actually strict, state it concretely — the flavor text alone will not be enforced.**
+- Exact output? Put the literal string in `<code>` or quotes: `<code>Verisearch v0.1</code>`, `You asked: "…"`.
+- Exact command/token? Name it: <code>quit</code>, the <code>&gt;</code> prompt.
+- A required edge case? Spell it out: "an empty line must not crash or echo."
+- Only atmospheric ("greets the seeker warmly")? The grader accepts any reasonable take — fine for soft goals, useless as a hard gate.
+Anything that MUST pass to earn the grade belongs in a rubric criterion too; the
+`<ul>` tells the student what to build, the `rubric` is what actually scores it.
+
+**The through-line: one project, built up op by op.** Every section's freestyle
+extends the SAME evolving project (`runtime.project`) — section 1 stands up a
+skeleton, each later section adds one real capability to it, and the final
+section's freestyle ships the complete tool the tome's `description` promised.
+Different courses have different end products (a search CLI, a byte inspector, a
+task tracker, an interpreter…), but within a course it is always ONE codebase
+growing, never a set of disconnected toy exercises. Plan this arc first — decide
+the finished tool, then work backwards to what each op must contribute — and size
+the section count to that arc (§2, `[content]`), not to a target number.

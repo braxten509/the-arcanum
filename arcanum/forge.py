@@ -27,7 +27,7 @@ BUILD_RENAME_RE = re.compile(r"renamed tomes/\S+ -> tomes/(\S+)")
 # / "· section s01 [1/8] already authored — skipping"
 BUILD_SECTION_RE = re.compile(r"^\s*·\s+(?:authoring|resuming|section)\s+s\d+\s+\[(\d+)/(\d+)\]")
 BUILD_RUNNER_RE = re.compile(r"\[runner: ([^\]]+)\]")
-BUILD_TOTAL_PHASES = 9  # TOME-WORKFLOW.md phases 0..8
+BUILD_TOTAL_PHASES = 9  # tome-workflow/ phases 0..8
 
 
 def fresh_tome_id(name):

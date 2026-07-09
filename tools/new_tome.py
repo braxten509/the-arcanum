@@ -32,7 +32,7 @@ def roman(n):
 TOME_TEMPLATE = r"""
 # ARCANUM tome manifest — scaffolded by tools/new_tome.py.
 # Replace every TODO, then run:  python3 tools/validate_tome.py tomes/@@ID@@
-# Read TOME-AUTHORING.md before filling this in — every key here is documented there.
+# Read tome-authoring/2-tome-toml.md before filling this in — every key here is documented there.
 
 [meta]
 id = "@@ID@@"                       # MUST equal the folder name

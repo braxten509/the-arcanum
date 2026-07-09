@@ -262,7 +262,7 @@ def check_content(m, sections_data, label, tooling=None):
     harness run erodes first, because until now nothing failed for them: prose
     depth, field-notes, narrative line counts, toolchain setup, naming drift.
     Language-neutral proxies only — no keyword matching, so non-English tomes
-    aren't penalized. WARNs here are hard gates per TOME-WORKFLOW Phase 7."""
+    aren't penalized. WARNs here are hard gates per tome-workflow phase 7."""
     nar = m.get("narrative", {}) or {}
     nboot = len(nar.get("bootLines", []) or [])
     ngrade = len(nar.get("gradingLines", []) or [])

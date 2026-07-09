@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """validate_tome.py — hold a tome up to the candlelight before you ship it.
 
-Machine-checks one tome folder against the rules in TOME-AUTHORING.md: does the
+Machine-checks one tome folder against the rules in tome-authoring/: does the
 TOML parse, do the ids line up, does every palette carry all 18 inks, do the
 rubric weights sum true. One finding per line; a tome with any ERROR is not done.
 
@@ -106,13 +106,13 @@ def validate(tome_path, run=False, tooling=None):
 
 def main():
     ap = argparse.ArgumentParser(
-        description="Validate one ARCANUM tome folder against TOME-AUTHORING.md.",
+        description="Validate one ARCANUM tome folder against tome-authoring/.",
         epilog="Fix every ERROR before shipping. WARNs are advisory; a tome that "
                "still emits an ERROR is not done.")
     ap.add_argument("tome", help="path to the tome folder, e.g. tomes/verisearch")
     ap.add_argument("--strict", action="store_true",
                     help="also exit 1 on hard-gate WARNs (anti-template/content) — the "
-                         "TOME-WORKFLOW Phase 7 bar; the harness uses this from Phase 7 on")
+                         "tome-workflow phase 7 bar; the harness uses this from Phase 7 on")
     ap.add_argument("--run", action="store_true",
                     help="also EXECUTE every write-lab and intrusion starter through the tome's "
                          "runtime: flags starters that don't compile/run and ones already pre-solved. "

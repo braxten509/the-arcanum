@@ -11,7 +11,9 @@ NOT start other phases; the harness runs those separately.
 Context you share with the other phases (all of it lives on disk):
 - Tome id: {tid}. Its folder ALREADY EXISTS — the harness scaffolded tomes/{tid}/ after
   Phase 0. Put ALL content THERE; never run new_tome.py or create another tome folder.
-- Full authoring reference: TOME-AUTHORING.md — READ the sections THIS phase names below.
+- Full authoring reference: the tome-authoring/ folder, one file per section — `§N` means
+  the file starting with `N-` (so "§3" = tome-authoring/3-chapters.md; its README indexes
+  them all). READ the sections THIS phase names below, and only those.
 - Build plan (the user's gate answers + the arc): {plan}
   READ IT FIRST. Append any durable decision you make (arc, section list, the VOICE) so
   the later phases inherit it — you are not the same agent that runs the next phase.
@@ -62,7 +64,7 @@ You are also the AUDITOR — the last eyes before shipping, with three duties th
 student lens does not cover (a smarter reviewer only does the job it was given, so
 here is the whole job):
 - INVENTORY: list every file under the tome folder (`find tomes/<id> -type f`) and
-  justify each against the layout contract in TOME-AUTHORING.md. A nested folder, a
+  justify each against the layout contract in tome-authoring/7-validate.md. A nested folder, a
   backup copy, or a scratch file is a FAIL, not a shrug.
 - CLAIMS vs DISK: reread the build plan and verify every claim in it against the
   files. A phase that wrote "registered the 6 badges" must have six [[badges]] on

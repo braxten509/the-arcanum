@@ -8,7 +8,7 @@ Shared paths/constants live here."""
 import os
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-WORKFLOW = os.path.join(REPO, "TOME-WORKFLOW.md")
+WORKFLOW_DIR = os.path.join(REPO, "tome-workflow")  # one phase-N-*.md per phase
 CONFIG = os.path.join(REPO, "global-configs", "harness.toml")
 VALIDATOR = os.path.join(REPO, "tools", "validate_tome.py")
 BUILD_DIR = os.path.join(REPO, ".tome-build")
