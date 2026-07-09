@@ -1,9 +1,127 @@
 [[lessons]]
 id = "s07-l01"
-title = "The Shelves and the Search"
+title = "The Quintessence of Text"
 body = '''
-<p>The grimoire is not a pile of embeddings. It is a search ritual with rules: how text is broken into pieces, how those pieces are represented, and how the nearest ones are chosen when the model needs a reference. Bad chunking produces bad retrieval even if the vector store itself is sound.</p>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // SEARCH DISCIPLINE</div>
-<p>Teach the student to compare naive and grounded answers. The model should not be trusted to remember every source detail from the base; the point of the grimoire is to fetch the right slice on demand and let the answer stand on its own evidence.</p></div>
-<!-- TODO: Phase 3 — author exercises and additional lessons. -->
+<div class="callout"><strong>How this chapter's exercises work.</strong> The grey code boxes call real ML libraries (<code>sentence-transformers</code>, <code>faiss</code>) — you run those in your own workspace once the toolchain from the first chapter is installed. The <em>write</em> exercises you solve here, in the tome, hand you the numbers those libraries would produce — the vectors, the similarity scores — and ask you for the <strong>logic around them</strong>: compare the scores, pick the closest, map the winner back to its text. That logic is pure Chapter I–II Python (a loop, a comparison, list indexing), which is the part worth drilling — the embedding call itself is one line you already see above.</div>
+<p>The binding rite pressed a seam onto the frozen vessel; the proving rite judged whether the seam held. Both rites measured their answers with the same tool: an <strong>embedding</strong> — a dense vector of floating-point numbers that represents what a piece of text means, not just what words it contains. The proving rite's voice-judge lesson (the second lesson of the sixth chapter) introduced <code>sentence-transformers/all-MiniLM-L6-v2</code> for measuring style similarity between the artificer's reference text and the homunculus's output. This rite takes the same tool and applies it to a different problem: given a library of reference texts — online style guides, documentation pages, writing samples — find the ones that matter for a particular query and feed them to the homunculus as evidence. That is the heart of a <strong>grimoire</strong>: a search ritual that maps words to vectors and vectors to retrieved pages.</p>
+
+<p>An embedding model takes a string of text and returns a fixed-size array of floats — 384 floats for the MiniLM model the proving rite introduced, 768 for a larger model like <code>all-mpnet-base-v2</code>. Every array has the same length regardless of input length, because the model compresses the meaning into that fixed-dimensional space. Two texts about the same topic produce vectors that point in roughly the same direction — the angle between them is small. Two texts about unrelated topics produce vectors that point in different directions — the angle is large. The <strong>cosine similarity</strong> the proving rite already defined — the dot product of two unit-length vectors — measures exactly that angle. A cosine of 1.0 means identical direction (same meaning); a cosine near 0 means orthogonal (unrelated); a cosine near -1 means opposite direction (semantically opposed — rare with modern embedding models).</p>
+
+<pre><code><span class="k">from</span> sentence_transformers <span class="k">import</span> SentenceTransformer
+<span class="k">import</span> numpy <span class="k">as</span> np
+
+model = SentenceTransformer(<span class="s">"all-MiniLM-L6-v2"</span>)
+
+<span class="c"># Two texts about the same concept — a style guide fragment and a query:</span>
+guide = <span class="s">"Use sentence case for headings. Capitalize only the first word and proper nouns."</span>
+query = <span class="s">"How should I format my Notion headings?"</span>
+
+guide_vec = model.encode(guide)     <span class="c"># → [0.12, -0.34, …, 0.08]  (384 floats)</span>
+query_vec = model.encode(query)
+
+<span class="c"># Cosine similarity — the dot product of two normalized vectors:</span>
+guide_norm = guide_vec / np.linalg.norm(guide_vec)
+query_norm = query_vec / np.linalg.norm(query_vec)
+sim = np.dot(guide_norm, query_norm)
+<span class="k">print</span>(<span class="s">"style-guide similarity:"</span>, sim.round(<span class="k">4</span>))</code></pre>
+
+<p>The embedding model itself is a <strong>separate, compact model</strong> — roughly 90 MB for all-MiniLM-L6-v2 — that loads alongside the base vessel without competing for VRAM. It runs on CPU by default and produces one embedding in tens of milliseconds. The artificer does not need to fine-tune it; the pre-trained embedding space already captures the semantic relationships that matter for retrieval — it knows that "headings" and "titles" are related, that "format" and "style" are connected, and that "Notion" is a writing platform, not a mathematical concept. The proving rite proved that this same embedding model can measure whether a generated answer sounds like the artificer; this rite proves that it can also measure whether a reference page is relevant to a query.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE EMBEDDING SPACE IS A MAP, NOT A DICTIONARY</div>
+<p>Semantic search via embeddings works because the model was trained to place texts with similar meanings near each other in the 384-dimensional space — not because it memorized specific question-answer pairs. A style guide about CSS grid and a query about "two-column layouts" will be close in the embedding space even if they share no words, because the model learned that those concepts are semantically related from its training on billions of sentence pairs. This is the deep advantage of embeddings over keyword search: synonyms, paraphrases, and conceptual connections all survive the vector mapping. The disadvantage is that the model's notion of "similar" is a statistical average of its training data, not a definition — two texts about different things that happen to use the same rare vocabulary may end up close in the embedding space even though they are unrelated. The proving rite already warned about surface metrics misleading the judgment; the same caution applies to retrieval — cosine similarity ranks candidates, it does not guarantee relevance.</p></div>
 '''
+body_words = 530
+
+[[lessons.readings]]
+label = "Sentence-Transformers: computing embeddings for semantic search"
+url = "https://www.sbert.net/examples/applications/semantic-search/README.html"
+
+[[lessons.readings]]
+label = "all-MiniLM-L6-v2 model card — the compact embedder used by this tome"
+url = "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2"
+
+[[lessons.exercises]]
+id = "s07-l01-e1"
+type = "type"
+points = 12
+reps = 2
+code = '''from sentence_transformers import SentenceTransformer
+import numpy as np
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+guide = "Use sentence case for headings. Capitalize only the first word and proper nouns."
+query = "How should I format my Notion headings?"
+
+guide_vec = model.encode(guide)
+query_vec = model.encode(query)
+
+guide_norm = guide_vec / np.linalg.norm(guide_vec)
+query_norm = query_vec / np.linalg.norm(query_vec)
+sim = np.dot(guide_norm, query_norm)
+print("style-guide similarity:", sim.round(4))'''
+
+[[lessons.exercises]]
+id = "s07-l01-e2"
+type = "mc"
+points = 20
+prompt = "Per this rite, why can two texts with no shared vocabulary still produce a high cosine similarity (>0.8)?"
+choices = [
+  "The embedding model was trained to place semantically similar texts near each other in the 384-dimensional vector space — it learned conceptual relationships ('headings' ≈ 'titles,' 'format' ≈ 'style') from billions of sentence pairs, so paraphrases and related concepts produce close vectors even when the exact words differ",
+  "The embedding model hashes all words to integers and compares the integer sequences — two texts with the same integer hash sequence produce similarity 1.0 regardless of vocabulary overlap",
+  "The cosine similarity formula divides by the vector magnitudes, which cancels out any vocabulary difference — two texts about any topic produce the same similarity as long as they have the same number of words",
+  "SentenceTransformers automatically runs the input through a synonym dictionary before encoding — it replaces every word with the closest synonym, so any two texts that roughly describe the same thing produce identical vectors"
+]
+answer = 0
+whyWrong = "Embeddings capture semantic similarity, not keyword overlap — the model was trained on sentence-pair data to learn that different words can mean the same thing. It does not use integer hashing (that would be a bag-of-words model, not an embedding), the cosine formula does not cancel vocabulary differences (different texts produce different vectors with different directions), and there is no synonym dictionary step — the model's weights encode the semantic relationships directly."
+hint = "The lesson's FIELD NOTES section explains this: 'The embedding space is a map, not a dictionary — semantic search works because the model was trained to place texts with similar meanings near each other, not because it memorized specific question-answer pairs.' The correct choice names the model's training on sentence pairs as the reason unrelated vocabularies can produce close vectors."
+explain = "A keyword-based system would miss the connection between 'headings' and 'titles' because they share no letters. An embedding model captures it because during training, it saw millions of examples where different words appeared in the same semantic context — sentences about headings often also mention titles, captions, and labels. The model's weights encode these co-occurrence patterns into the vector geometry: words that appear in the same contexts get pushed toward similar vector directions."
+
+[[lessons.exercises]]
+id = "s07-l01-e3"
+type = "text"
+points = 18
+prompt = "What is the embedding dimensionality of the <code>all-MiniLM-L6-v2</code> model this tome's proving rite introduced and this rite reuses — the number of floats in every output vector regardless of input length?"
+answer = "384"
+accept = ["384", "384-dimensional", "384 floats", "384 dimensions", "384-dim"]
+hint = "The lesson's second paragraph states: '384 floats for the MiniLM model the proving rite introduced.' The proving rite's voice-judge lesson (s06-l02) also used this model — the dimensionality hasn't changed."
+
+[[lessons.exercises]]
+id = "s07-l01-e4"
+type = "fill"
+points = 20
+prompt = "Fill the missing operation in the cosine similarity computation from the lesson — the step that converts a raw embedding vector into a unit-length vector so the dot product measures only the angle, not the magnitude."
+code = '''import numpy as np
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+vec = model.encode("Style guides for Notion headings.")
+
+# Convert to unit-length vector for cosine similarity:
+norm = vec / np.linalg.____(vec)
+
+# Dot product of two unit-length vectors = cosine similarity:
+sim = np.dot(norm, norm)
+print(sim)  # 1.0 — a vector dotted with itself'''
+answer = "norm"
+accept = ["norm"]
+hint = "NumPy's norm function — np.linalg.norm(vec) — returns the Euclidean length (magnitude) of the vector. Dividing the vector by its magnitude produces a unit-length vector pointing in the same direction. The fill is the name of the function that computes this magnitude."
+
+[[lessons.exercises]]
+id = "s07-l01-e5"
+type = "write"
+points = 35
+prompt = "The embedding model has already turned a query and two reference texts into these short vectors (they are unit-length, so cosine similarity is just the dot product). Reference <code>a</code> is a style-guide line about fonts; reference <code>b</code> is about colors. Compute the dot product of the query vector with each reference, and print <code>BEST 1</code> if reference a scores higher, <code>BEST 2</code> if b does — computed from the vectors, not hardcoded."
+starter = '''# These are what model.encode(...) + normalize would return — given to you
+# so the exercise is the *comparison logic*, not the embedding call.
+q = [0.6, 0.8, 0.0]   # query: "what font size for headings?"
+a = [0.8, 0.6, 0.0]   # ref a: about fonts/headings
+b = [0.0, 0.6, 0.8]   # ref b: about colors
+
+# Cosine similarity here is the dot product: sum of q[i]*x[i] over the 3 slots.
+# Compute the dot product q.a and q.b, then print BEST 1 if q.a is larger,
+# else BEST 2.  (A short loop, or sum(q[i]*a[i] for i in range(3)), does it.)
+print("BEST 0")
+'''
+expect = "BEST 1"
+hint = "dot(q, a) = 0.6*0.8 + 0.8*0.6 + 0.0*0.0 = 0.96. dot(q, b) = 0.6*0.0 + 0.8*0.6 + 0.0*0.8 = 0.48. Since 0.96 > 0.48, print 'BEST 1'. Write a small helper: def dot(x, y): return sum(x[i]*y[i] for i in range(len(x)))."

@@ -1,0 +1,107 @@
+[[lessons]]
+id = "s08-l05"
+title = "The Judgment: Choosing Your Ward"
+body = '''
+<p>Four rites assembled the ward-control toolkit: the first mapped the three layers, the second taught the system-prompt lever, the third catalogued the uncensored and abliterated bases, and the fourth combined them into a practical control loop. This final rite of the chapter teaches the artificer to <strong>choose</strong> — to weigh the trade-offs, assess the risks, and arrive at a deliberate, defensible ward configuration for the homunculus. The choice is not theoretical; the eleventh rite will seal the chosen ward into the Modelfile, and once sealed, changing it requires unsealing and re-sealing. This is the decision point.</p>
+
+<p><strong>The alignment spectrum.</strong> The ward is not a binary — a model is not simply "safe" or "unsafe." It sits somewhere on a spectrum from fully restrictive (strict RLHF instruct model, conservative system prompt, low temperature) to fully permissive (uncensored base, no system prompt, high temperature). The spectrum has three practical positions: <strong>tight</strong> (the model refuses anything remotely sensitive — good for public-facing deployment, frustrating for personal use), <strong>moderate</strong> (the model refuses genuinely harmful requests but answers edge-case formatting and style questions — the sweet spot for the homunculus), and <strong>loose</strong> (the model answers everything — useful for creative exploration, risky for anything that might produce harmful output). The homunculus's task — formatting Notion notes, consulting style references, suggesting typographic conventions — is low-risk. The worst-case output from a loose ward is a bad font suggestion, not dangerous instructions. The artificer can afford a moderate-to-loose ward because the risk surface is small.</p>
+
+<p><strong>The alignment tax, priced concretely.</strong> The third rite's FIELD NOTES introduced the concept; this rite names its price. A tight ward costs <strong>usability</strong>: the model refuses formatting-adjacent questions (a query about "dark mode color contrast" may trigger the safety classifier because "dark" is adjacent to harmful-content vocabulary in the alignment training data). A loose ward costs <strong>safety</strong>: the model will answer genuinely harmful queries if asked. For the homunculus, the usability cost of a tight ward is high (the assistant is meant to be used daily for formatting tasks, and spurious refusals break the workflow) and the safety cost of a loose ward is low (the risk surface is limited to document styling). The rational decision is a <strong>moderate-to-loose ward</strong> — a mildly-aligned or uncensored base, a task-specific system prompt that redirects rather than refuses, and moderate inference parameters that don't artificially inflate refusal. This is not a moral statement — it is a cost-benefit calculation specific to this use case. The artificer building a medical-advice assistant would make the opposite choice for the same reason.</p>
+
+<p><strong>The responsibility framework.</strong> "My model, my rules" is the starting point, not the ending point. The artificer's homunculus runs on their own hardware, answers only to them, and produces output only they will read. The responsibility is therefore self-contained: the artificer bears the consequences of every decision the homunculus makes, because there is no downstream user to protect and no deployment surface to secure. This simplifies the decision — the artificer can accept a higher refusal tolerance because the only person who might receive a bad answer is the person who chose the ward. But it does not eliminate the decision: an abliterated base asked "how do I make a pipe bomb" will answer, and the artificer who chose that base is responsible for that answer existing on their hardware. The informed choice — "I know this base will answer harmful queries, and I accept that because the convenience of zero spurious refusals on formatting tasks is worth more to me than the negligible risk of generating harmful text I will never ask for" — is a legitimate position. The uninformed choice — "I picked this base because it had the most downloads on Hugging Face and I didn't read the model card" — is negligence. The difference is the eighth rite's evaluation habit: measure before trusting.</p>
+
+<p><strong>The decision framework, operationalized.</strong> The artificer should document — in a plain-text file in the external workspace the seventh rite established — four choices before proceeding to the sealing rite: (1) which base (name, quant level, alignment level), (2) which system prompt (the full text, not a summary), (3) which inference parameters (temperature, top-p, any repetition penalties), and (4) the refusal rate on the test harness (the number from the sixth rite's instrument). This documentation serves two purposes: it forces the artificer to make the choices explicit rather than drifting into a configuration, and it provides a reversion point — if the sealed homunculus behaves unexpectedly in the twelfth rite's long-term monitoring, the artificer can compare the documented configuration against the current one and identify what changed. The third rite's one-job-per-tool discipline applies here: the ward configuration is a separate artifact from the training data, the adapter weights, and the RAG corpus. It lives in its own file and is versioned independently.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE WARD DECISION MATRIX — THREE QUESTIONS THAT REPLACE A MORAL DEBATE</div>
+<p>The alignment discourse is loud and polarized. The artificer does not need to win a debate; they need to make a concrete choice for a concrete tool. Three questions, answered honestly, collapse the decision space: <strong>Who uses the output?</strong> (just me → looser ward is acceptable; other people → tighter ward is mandatory). <strong>What is the worst plausible output?</strong> (bad font advice → loose ward is fine; dangerous instructions → tight ward is necessary). <strong>What is the cost of a spurious refusal?</strong> (minor annoyance → tight ward is tolerable; breaks my workflow → loose ward is worth the risk). For the homunculus, the answers are: just me, bad font advice, breaks my workflow. The decision follows: moderate-to-loose ward, uncensored or mildly-aligned base, permissive system prompt. The matrix does not produce a "correct" answer — it produces a <strong>documented</strong> answer, and a documented answer can be reviewed, revised, and defended. An undocumented answer is just a default.</p></div>
+'''
+body_words = 570
+
+[[lessons.readings]]
+label = "Ollama Modelfile — sealing system prompts and parameters into a served model"
+url = "https://github.com/ollama/ollama/blob/main/docs/modelfile.md"
+
+[[lessons.readings]]
+label = "Responsible AI deployment — considerations for locally-run models"
+url = "https://arxiv.org/abs/2308.10758"
+
+[[lessons.exercises]]
+id = "s08-l05-e1"
+type = "mc"
+points = 20
+prompt = "Per this rite's decision matrix, what determines whether a loose ward (uncensored base, permissive prompt) is the right choice for a particular model?"
+choices = [
+  "The model's parameter count — models under 10B parameters are safe to run with loose wards because their limited capacity means they cannot generate coherent harmful content; models over 10B require tight wards because their larger capacity enables dangerous output",
+  "The number of downloads on Hugging Face — a model with more than 100,000 downloads has been community-vetted and is safe to use with any ward configuration; a model with fewer downloads has not been tested and requires a tight ward by default",
+  "Who uses the output, what the worst plausible output is, and what a spurious refusal costs — for the homunculus (personal use, worst-case is bad formatting advice, refusal breaks the daily workflow), a moderate-to-loose ward is the rational choice. A different use case with different answers to those three questions would produce a different ward recommendation",
+  "Whether the model was trained by a major lab (OpenAI, Meta, Anthropic) or a community fine-tuner — lab-trained models can safely use loose wards because their base training included implicit safety patterns; community models require tight wards because they lack that safety foundation"
+]
+answer = 2
+whyWrong = "Parameter count is not a safety threshold (7B models can generate perfectly coherent harmful text), download count is a popularity metric, not a safety audit (a widely-downloaded uncensored model has not been 'vetted for safety' — it was vetted for permissiveness), and lab origin doesn't guarantee safety (Meta's Llama base model is completely uncensored before alignment — the lab that trained it is irrelevant to the ward configuration). The correct answer: the three-question matrix (who uses it? what's the worst output? what's the refusal cost?) produces a use-case-specific recommendation. The same model can be the right choice with one ward and the wrong choice with another."
+hint = "The FIELD NOTES section presents a three-question matrix: 'Who uses the output? What is the worst plausible output? What is the cost of a spurious refusal?' The correct choice identifies these three questions as the decision framework and shows how the homunculus's answers (just me, bad font advice, breaks my workflow) lead to a moderate-to-loose ward recommendation."
+explain = "This is the core judgment skill the chapter teaches: ward configuration is use-case-dependent. A model that is dangerous for one use case (public-facing medical advice) is perfectly appropriate for another (personal style assistant). The decision matrix collapses the debate into three factual questions whose answers vary by use case, not by ideology. A documented answer to those three questions is a defensible ward choice."
+
+[[lessons.exercises]]
+id = "s08-l05-e2"
+type = "text"
+points = 18
+prompt = "Per this rite, what four pieces of ward configuration should the artificer document in a plain-text file before proceeding to the sealing rite in the ninth chapter?"
+answer = "which base, which system prompt, which inference parameters, and the refusal rate"
+accept = ["which base, which system prompt, which inference parameters, and the refusal rate", "base, system prompt, inference parameters, and refusal rate", "the base, the system prompt, the inference parameters, and the refusal rate", "base, prompt, parameters, and refusal rate", "base name, system prompt, inference parameters, and refusal rate", "base, system prompt, parameters, and refusal rate"]
+hint = "The lesson lists them explicitly: '(1) which base (name, quant level, alignment level), (2) which system prompt (the full text, not a summary), (3) which inference parameters (temperature, top-p, any repetition penalties), and (4) the refusal rate on the test harness.'"
+
+[[lessons.exercises]]
+id = "s08-l05-e3"
+type = "mc"
+points = 20
+prompt = "Per this rite, what is the practical difference between an informed ward choice and an uninformed one — both may produce a working model, so what distinguishes them?"
+choices = [
+  "An informed choice is one where the base model was downloaded from Hugging Face rather than a third-party mirror — the download source determines whether the model's weights have been tampered with, and a Hugging Face download guarantees the alignment configuration matches the model card",
+  "An informed choice is one where the system prompt was written by a human rather than generated by an LLM — human-written prompts contain implicit safety reasoning that LLM-generated prompts lack, making the ward configuration more robust without additional testing",
+  "An informed choice uses a model with an MMLU benchmark score above 65 — the benchmark score is a proxy for general intelligence, and a model that scores higher on general-knowledge tests is inherently more capable of making safe refusal decisions without explicit ward configuration",
+  "An informed choice is documented — the artificer can name which base, which prompt, which parameters, and what refusal rate they expected, and can compare those expectations against the model's actual behavior. An uninformed choice is a configuration the artificer drifted into without explicit decisions, producing a model whose ward behavior is a surprise rather than a design"
+]
+answer = 3
+whyWrong = "Download source is not a safety guarantee (Hugging Face hosts both aligned and uncensored models, and the model card describes the training — it doesn't enforce any configuration), benchmark scores measure general knowledge, not safety behavior (a model with high MMLU can still be either aligned or uncensored), and prompt authorship is irrelevant to ward quality (a human can write a terrible system prompt just as easily as an LLM can). The real distinction is documentation: an informed choice is explicit and reviewable; an uninformed choice is a default the artificer didn't realize they were making."
+hint = "The lesson says 'The informed choice — I know this base will answer harmful queries, and I accept that because the convenience is worth more to me than the negligible risk — is a legitimate position. The uninformed choice — I picked this base because it had the most downloads — is negligence.' The correct choice identifies documentation and explicit decision-making as the differentiator."
+explain = "This is the same habit the eighth rite's evaluation lesson drilled: measure before trusting. An informed ward choice is one where the artificer tested the ward against real prompts, recorded the refusal rate, and made a conscious trade-off. An uninformed choice is one where the model's refusal behavior is whatever the default happened to be — and the artificer discovers it at runtime when the homunculus unexpectedly refuses (or doesn't refuse) a prompt. The difference is not the ward's quality — both configurations might produce identical refusal rates. The difference is that the informed artificer knows what the rate is and chose it deliberately."
+
+[[lessons.exercises]]
+id = "s08-l05-e4"
+type = "fill"
+points = 20
+prompt = "Fill the missing scoring rule in the ward-decision matrix from the lesson — the condition that assigns the highest score to an uncensored base when the use case is personal and low-risk, matching the lesson's recommendation for the homunculus."
+code = '''def score_base(base, use_case):
+    """Score a base model for a given use case.
+    Higher score = better fit."""
+    score = 0
+    if use_case["risk"] == "low" and base["____"] == "none":
+        score += 3    # uncensored is best for low-risk personal use
+    if base["params"] <= use_case["vram_budget"]:
+        score += 2    # fits in VRAM (fifth rite's budget)
+    if use_case["alignment"] == "loose" and base["alignment"] != "strict":
+        score += 1    # alignment preference match
+    return score'''
+answer = "alignment"
+accept = ["alignment"]
+hint = "The lesson's decision framework evaluates a base by its alignment level: uncensored bases (alignment='none') score highest for low-risk personal use cases. The code checks base['alignment'] — the same field the fifth rite's model-filter lab used to select uncensored bases."
+
+[[lessons.exercises]]
+id = "s08-l05-e5"
+type = "write"
+points = 33
+prompt = "Implement the ward-decision matrix for three candidate bases. Given a use case <code>{\"risk\": \"low\", \"vram_budget\": 9, \"alignment\": \"loose\"}</code> and three base specs, compute a score for each and print <code>BEST &lt;name&gt;</code> for the highest-scoring base. Scoring rules: +3 if alignment is \"none\" AND risk is \"low\", +2 if params_b ≤ vram_budget, +1 if alignment is not \"strict\" AND use-case alignment is \"loose\". Break ties by choosing the first match."
+starter = '''use_case = {"risk": "low", "vram_budget": 9, "alignment": "loose"}
+bases = [
+    {"name": "llama-3.1-8b-instruct",   "params_b": 8, "alignment": "strict"},
+    {"name": "dolphin-2.9-llama-3-8b",  "params_b": 8, "alignment": "none"},
+    {"name": "mistral-7b-v0.3",         "params_b": 7, "alignment": "moderate"},
+]
+
+# Score each base using the three rules from the lesson
+# Print BEST <name> for the highest-scoring base
+
+print("BEST none")
+'''
+expect = "BEST dolphin-2.9-llama-3-8b"
+hint = "Loop over bases. For each: start with score=0. Rule 1: if use_case['risk']=='low' and base['alignment']=='none': score += 3. Rule 2: if base['params_b'] <= use_case['vram_budget']: score += 2. Rule 3: if use_case['alignment']=='loose' and base['alignment']!='strict': score += 1. Example: instruct gets 0+2+0=2, dolphin gets 3+2+1=6, mistral gets 0+2+1=3. Track the name of the best-scoring base — dolphin wins with 6."

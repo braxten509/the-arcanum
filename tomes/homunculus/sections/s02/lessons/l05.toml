@@ -2,14 +2,14 @@
 id = "s02-l05"
 title = "Judging the Summoned"
 body = '''
-<p>You can now wake a vessel, tell base from instruct, read its label, and turn its sampling knobs. What's still missing is the habit that makes all of that useful: judging what came out, on purpose, instead of eyeballing a reply and moving on. This rite closes the section by building that habit, in Python, the way the first rite's smoke test built the habit of naming a failure instead of just noticing one.</p>
+<p>You can now wake a vessel, tell base from instruct, read its label, and turn its sampling knobs. What's still missing is the habit that makes all of that useful: judging what came out, on purpose, instead of eyeballing a reply and moving on. This rite closes the section by building that habit, in Python, the way the third rite's smoke test built the habit of naming a failure instead of just noticing one.</p>
 <p>Recall that smoke test's lesson: "READY" printed by a script that never actually ran the check it claims is a false victory. Judging a model's output has the same trap. "That looked fine" is not a judgment; it names nothing, and it can't be repeated on the next run. A real comparison names the axis: did the instruct model actually follow the system prompt's instruction the base model ignored? Did the reply stay inside the requested format? Did a low-temperature run actually come back identical on a second try?</p>
 <pre><code><span class="k">from</span> transformers <span class="k">import</span> pipeline
 
 pipe = pipeline("text-generation", model="&lt;hf-model-id&gt;", device="cuda")
 out = pipe(messages, max_new_tokens=200, temperature=0.0)</code></pre>
 <p>That's the same <code>transformers</code> pipeline call from the sampling rite, now with a purpose: run it once against a base model's raw completion and once against an instruct model given the exact same prompt through <code>apply_chat_template</code>, and put the two outputs side by side. The base reply usually drifts or continues the prompt; the instruct reply usually answers and stops. Naming that difference, in writing, with the specific place it showed up, is the comparison this section's freestyle grades you on.</p>
-<div class="callout">The GPU your first rite proved was visible is the same GPU this pipeline call runs on — <code>device="cuda"</code> still means the ROCm/HIP path, not literal CUDA, exactly as the bench rite explained.</div>
+<div class="callout">The GPU your third rite proved was visible is the same GPU this pipeline call runs on — <code>device="cuda"</code> still means the ROCm/HIP path, not literal CUDA, exactly as the bench rite explained.</div>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // BUILD THE HABIT BEFORE YOU NEED IT</div>
 <p>Later rites raise the stakes on this exact skill: judging whether a fine-tuned adapter actually "sounds like you" is the same comparison discipline, just against your own held-out prompts instead of a base-versus-instruct pair. An artificer who can only say "the fine-tune feels off" without naming which prompt, which expected trait, and which actual output failed it will struggle to fix anything. Practice naming the specific gap now, while the stakes are only a chat reply.</p></div>
 '''
@@ -27,7 +27,7 @@ choices = [
 ]
 answer = 0
 whyWrong = "Length isn't the issue at all, the judgment problem applies equally to instruct output, and 'gut feeling is sufficient' is exactly the false-victory habit the smoke-test callback in this rite warns against."
-explain = "A real judgment names the specific axis being checked so it can be repeated and verified later — the same discipline the first rite's smoke test demanded of a claimed 'READY'."
+explain = "A real judgment names the specific axis being checked so it can be repeated and verified later — the same discipline the third rite's smoke test demanded of a claimed 'READY'."
 hint = "The lesson says 'that looked fine' names no specific axis (format, instruction-following, determinism) — the problem is lack of specificity, not length or model type, and gut feeling alone is the false-victory trap the smoke-test callback warns about directly."
 
 [[lessons.exercises]]
@@ -43,7 +43,7 @@ hint = "Recall the field notes on the honest failure message: naming the specifi
 id = "s02-l05-e3"
 type = "mc"
 points = 20
-prompt = "On this AMD bench, what does <code>device=\"cuda\"</code> in the pipeline call above actually mean, per the first rite's explanation of the same naming quirk?"
+prompt = "On this AMD bench, what does <code>device=\"cuda\"</code> in the pipeline call above actually mean, per the third rite's explanation of the same naming quirk?"
 choices = [
   "It silently falls back to CPU since there is no CUDA on an AMD card",
   "It requires a separate CUDA install alongside ROCm",
@@ -51,15 +51,15 @@ choices = [
   "It only works if the model was originally trained on an Nvidia GPU",
 ]
 answer = 2
-whyWrong = "There is no silent CPU fallback and no CUDA install required or present on this box, and a model's original training hardware has no bearing on which device string the local runtime accepts — the naming is purely a historical accident in PyTorch's own API, as the first rite explained."
-explain = "PyTorch's ROCm build reuses torch.cuda's namespace for its HIP backend, so device=\"cuda\" strings still route to the AMD GPU on this bench — exactly the same fact the first rite established for torch.cuda.is_available()."
-hint = "The first rite's opening lesson explained this exact naming quirk: the cuda namespace is a historical accident in PyTorch's API, not evidence of literal CUDA on this box — the ROCm build still routes it to the AMD GPU."
+whyWrong = "There is no silent CPU fallback and no CUDA install required or present on this box, and a model's original training hardware has no bearing on which device string the local runtime accepts — the naming is purely a historical accident in PyTorch's own API, as the third rite explained."
+explain = "PyTorch's ROCm build reuses torch.cuda's namespace for its HIP backend, so device=\"cuda\" strings still route to the AMD GPU on this bench — exactly the same fact the third rite established for torch.cuda.is_available()."
+hint = "The third rite's opening lesson explained this exact naming quirk: the cuda namespace is a historical accident in PyTorch's API, not evidence of literal CUDA on this box — the ROCm build still routes it to the AMD GPU."
 
 [[lessons.exercises]]
 id = "s02-l05-e4"
 type = "fill"
 points = 20
-prompt = "Fill the missing method name from the pipeline snippet's companion step — turning the messages list into the exact string the model's chat training expects, as this section's second rite named it."
+prompt = "Fill the missing method name from the pipeline snippet's companion step — turning the messages list into the exact string the model's chat training expects, as this section's fourth rite named it."
 code = '''formatted = tokenizer.____(messages, tokenize=False, add_generation_prompt=True)'''
 answer = "apply_chat_template"
 hint = "It's the same tokenizer method this rite's second lesson introduced for rendering role/content dicts into a model-specific string."

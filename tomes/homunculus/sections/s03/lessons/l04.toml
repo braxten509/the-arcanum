@@ -11,7 +11,7 @@ body = '''
     "adam_v": 4,
 }
 total_per_param = sum(bytes_per_param.values())  <span class="c">// 12</span></code></pre>
-<p>Run that 12 bytes/param against the 8B model from the first rite: <code>8,000,000,000 &times; 12</code> bytes ≈ <strong>96 GB</strong> — six times the 16 GB weight-only figure that already filled the whole card, and this is before the KV-cache-like activation memory a forward/backward pass also needs. A full fine-tune of an 8B model is simply not a 16 GB card's job, full stop; no clever batching or gradient checkpointing closes a 6x gap on its own. This is the wall the rest of this section, and the whole binding rite ahead, is built to route around.</p>
+<p>Run that 12 bytes/param against the 8B model from the third rite: <code>8,000,000,000 &times; 12</code> bytes ≈ <strong>96 GB</strong> — six times the 16 GB weight-only figure that already filled the whole card, and this is before the KV-cache-like activation memory a forward/backward pass also needs. A full fine-tune of an 8B model is simply not a 16 GB card's job, full stop; no clever batching or gradient checkpointing closes a 6x gap on its own. This is the wall the rest of this section, and the whole binding rite ahead, is built to route around.</p>
 <div class="callout">"I can load the model" and "I can train the model" are two different claims that happen to share a number until training enters the picture — always check which one a tutorial is actually demonstrating.</div>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // WHY THE GAP IS ALWAYS ABOUT THIS BIG</div>
 <p>The 12-bytes-per-parameter figure is not specific to this course's model choice — it is the standard cost of full-precision Adam training on fp16 weights, and it shows up in nearly every "why can't I fine-tune a 7B/8B model on a consumer card" answer you'll find online. Some optimizers trade it down (8-bit Adam via bitsandbytes roughly halves the optimizer-state cost; SGD with momentum drops the second Adam moment entirely), but none of them close a 6x gap by themselves. The gap doesn't get patched by a smarter optimizer — it gets routed around by training far fewer parameters in the first place, which is exactly what the next two rites build toward.</p></div>
@@ -31,6 +31,7 @@ choices = [
 answer = 3
 whyWrong = "There's no re-download and no separate weight file for training versus chat — it's the exact same weights either way. The real gap is the extra VRAM line items training adds: gradients and Adam's two tracking values, which is why an 8 GB inference footprint can balloon well past 16 GB once training state joins it."
 explain = "Full fine-tune VRAM is weights + gradients + optimizer state, roughly 12 bytes/param at fp16-Adam versus 2 bytes/param for weights alone — a 6x jump that has nothing to do with the model file changing size."
+hint = "The lesson works out 12 bytes per parameter for training (2 weights + 2 gradients + 4 Adam mean + 4 Adam variance) vs. 2 bytes per parameter for inference (weights only). The 6× gap between 12 and 2 is the entire reason the lesson says a model that chats fine can fail to fine-tune — new line items, not a different weight file."
 
 [[lessons.exercises]]
 id = "s03-l04-e2"
@@ -54,7 +55,8 @@ choices = [
 ]
 answer = 0
 whyWrong = "16 GB is only the weights; doubling to 32 GB ignores two of the four cost components; and 8 GB is smaller than the weights alone, which makes no sense once gradients and optimizer state are added on top rather than replacing anything."
-explain = "8,000,000,000 params × 12 bytes = 96,000,000,000 bytes ≈ 96 GB, six times the 16 GB weight-only number from the first rite — the exact gap the lesson uses to rule out full fine-tuning on this card."
+explain = "8,000,000,000 params × 12 bytes = 96,000,000,000 bytes ≈ 96 GB, six times the 16 GB weight-only number from the third rite — the exact gap the lesson uses to rule out full fine-tuning on this card."
+hint = "Run the lesson's own numbers: 8 billion params × 12 bytes per param (weights + gradients + Adam's two fp32 tracking values). That's 96,000,000,000 bytes ≈ 96 GB. The other choices are either the weight-only figure (16 GB), double it (32 GB), or half it (8 GB) — none accounts for all four components in the 12-bytes-per-param breakdown."
 
 [[lessons.exercises]]
 id = "s03-l04-e4"
@@ -69,7 +71,7 @@ bytes_per_param = {
     "adam_v": 4,
 }
 
-# TODO: sum bytes_per_param's values, multiply by params_b, then print:
+# Implement: sum bytes_per_param's values, multiply by params_b, then print:
 #   FULL FINETUNE 96 GB
 total_gb = 0
 print(f"FULL FINETUNE {total_gb} GB")

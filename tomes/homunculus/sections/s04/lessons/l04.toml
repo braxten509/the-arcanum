@@ -2,7 +2,7 @@
 id = "s04-l04"
 title = "What the Bind Learns"
 body = '''
-<p>Every record in the last two rites has two sides: what the artificer said and what the assitant replied. When the binding rite's <code>SFTTrainer</code> hands a batch of tokenized records to the model for supervised fine-tuning, it computes a cross-entropy loss over every token position in the sequence — unless a position is explicitly marked to be ignored. You can, and you must, tell the trainer: <em>only learn from the assistant's tokens</em>. The user's prompt tokens must contribute nothing to the loss, because teaching the model to generate its own prompts is not the goal — it turns the assistant into a user-role mimic, not a responsive familiar.</p>
+<p>Every record in the last two rites has two sides: what the artificer said and what the assistant replied. When the binding rite's <code>SFTTrainer</code> hands a batch of tokenized records to the model for supervised fine-tuning, it computes a cross-entropy loss over every token position in the sequence — unless a position is explicitly marked to be ignored. You can, and you must, tell the trainer: <em>only learn from the assistant's tokens</em>. The user's prompt tokens must contribute nothing to the loss, because teaching the model to generate its own prompts is not the goal — it turns the assistant into a user-role mimic, not a responsive familiar.</p>
 <p>The mechanism is a parallel <strong>labels</strong> tensor, the same length as the tokenized input IDs. Every position the model should learn from carries the correct next-token ID; every position to ignore carries <code>-100</code>, which PyTorch's <code>CrossEntropyLoss</code> treats as a sentinel meaning "skip this position entirely." The common pattern: tokenize the whole messages list with <code>apply_chat_template(tokenize=True)</code>, produce an identically-shaped labels tensor first filled with <code>-100</code>, then copy the assistant-token span's input IDs into the corresponding label positions. Everything the user typed — the prompt itself, the role markers, the template control tokens the last rite taught — stays at <code>-100</code>.</p>
 <pre><code><span class="k">import</span> torch
 tokenized = tokenizer.apply_chat_template(messages, tokenize=<span class="k">True</span>, return_tensors=<span class="s">"pt"</span>)[0]
@@ -90,10 +90,15 @@ role_spans = [
     [5, 7, "user"],      # tokens 5-6 are user
 ]
 
-# TODO: create a labels list of the same length as token_ids.
-# For each span [start, end, role]:
-#   if role == "assistant": copy token_ids[start:end] into labels[start:end]
-#   else: keep labels[start:end] as -100
+# NEW LIST TOOLS (beyond Chapters I-II):
+#   [-100] * n           -> a list of n copies of -100  (start every position ignored)
+#   labels[start:end] = token_ids[start:end]   -> overwrite a *slice* (a run of
+#                        positions from start up to end) with those values at once
+#
+# Implement: make labels = [-100] * len(token_ids).
+# For each span [start, end, role] in role_spans:
+#   if role == "assistant": labels[start:end] = token_ids[start:end]
+#   else: leave that slice as -100
 # Print: LABELS [-100, -100, -100, 9012, 3456, -100, -100]
 labels = []
 print(f"LABELS {labels}")

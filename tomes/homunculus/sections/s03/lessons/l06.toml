@@ -3,7 +3,7 @@ id = "s03-l06"
 title = "Picking a Base That Fits"
 body = '''
 <p>Five line items now have a formula: quantized base weights, KV cache, full-fine-tune training state, and the QLoRA adapter's much smaller training state. This rite does the one thing the whole section has been building toward — adding them up against the real 16 GB ceiling and deciding, on paper, whether a specific base model and quant level actually leaves room to train, not just to chat.</p>
-<p>The budget has four terms: <strong>base weights</strong> (quant level from the GGUF rite), <strong>KV cache</strong> at your intended context length (the formula from the third rite), <strong>adapter training state</strong> (the QLoRA rite — weights, gradients, and Adam moments, but only for the adapter's tiny parameter count), and <strong>activation memory</strong> from the forward/backward pass, which scales with batch size and sequence length the same way the KV cache does. That last term is the hardest to pin exactly without running the code, so the practiced habit is to budget everything else tightly and leave real headroom — this section's first rite's warning about optimistic floors applies hardest right here.</p>
+<p>The budget has four terms: <strong>base weights</strong> (quant level from the GGUF rite), <strong>KV cache</strong> at your intended context length (the formula from the fifth rite), <strong>adapter training state</strong> (the QLoRA rite — weights, gradients, and Adam moments, but only for the adapter's tiny parameter count), and <strong>activation memory</strong> from the forward/backward pass, which scales with batch size and sequence length the same way the KV cache does. That last term is the hardest to pin exactly without running the code, so the practiced habit is to budget everything else tightly and leave real headroom — this section's third rite's warning about optimistic floors applies hardest right here.</p>
 <pre><code><span class="k">budget_gb</span> = 16
 <span class="k">components_gb</span> = {
     "base_weights": 4.5,   <span class="c">// q4_K_M, 8B</span>
@@ -32,6 +32,7 @@ choices = [
 answer = 1
 whyWrong = "It's not zero, it's not a fixed multiple of the weights, and it very much matters for training (a forward+backward pass is exactly where activations are produced) — the honest reason it's hard to pin is that it depends on batch size and sequence length in ways that are easiest to observe by actually running the code, not by a clean formula."
 explain = "The rite names activation memory as the one term without a clean closed-form estimate here, which is exactly why the budgeting habit leans on headroom rather than a false sense of precision."
+hint = "The lesson says activation memory 'scales with batch size and sequence length the same way the KV cache does, and is the hardest term to pin exactly without running the code.' The key word is 'headroom' — the lesson's advice is to budget the other three terms tightly and leave space for this one, because it resists a clean closed-form estimate."
 
 [[lessons.exercises]]
 id = "s03-l06-e2"
@@ -58,6 +59,7 @@ choices = [
 answer = 2
 whyWrong = "Neither extreme matches the worked numbers — quantization reduces cost, it doesn't erase it, and 12 GB was the full-fine-tune training-state figure from an earlier rite, not this rite's combined budget, which sums to roughly 5 GB across base weights, KV cache, and the adapter."
 explain = "4.5 GB base + 0.5 GB KV cache + 0.1 GB adapter ≈ 5.1 GB of 16 GB — the whole point of the section's chain, versus the 16 GB (or worse, the 96 GB full-fine-tune figure) an unquantized, un-QLoRA'd approach would have demanded."
+hint = "Add the three components from the lesson's worked budget: base_weights (4.5 GB, from the q4_K_M example in the GGUF rite), kv_cache (0.5 GB, from the context-length rite's formula), and adapter (0.1 GB, the QLoRA train state). Together they sum to about 5 GB — roughly a third of the 16 GB card, with 11 GB of headroom left."
 
 [[lessons.exercises]]
 id = "s03-l06-e4"
@@ -65,7 +67,7 @@ type = "text"
 points = 15
 prompt = "Which earlier rite in this section established the formula this rite reuses for the KV-cache line item in the budget?"
 answer = "the cache rite"
-accept = ["the kv cache rite", "the third rite", "the cache that grows while you talk", "the kv cache lesson"]
+accept = ["the kv cache rite", "the fifth rite", "the cache that grows while you talk", "the kv cache lesson"]
 hint = "It's the same rite that introduced the 2 × n_layers × n_kv_heads × head_dim × seq_len × bytes_per_element formula."
 
 [[lessons.exercises]]
@@ -80,7 +82,7 @@ components_gb = {
     "adapter": 0.1,
 }
 
-# TODO: total_gb = sum(components_gb.values())
+# total_gb = sum(components_gb.values())
 # if total_gb <= budget_gb: print "FITS total=<total_gb, 1 decimal> budget=16"
 # else: print "OVER total=<total_gb, 1 decimal> budget=16"
 print("OVER total=0.0 budget=16")

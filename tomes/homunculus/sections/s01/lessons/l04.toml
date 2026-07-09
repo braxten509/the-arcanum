@@ -82,11 +82,15 @@ starter = '''checks = {
     "ollama_ok": False,
 }
 
-# if every value in `checks` is True, print exactly:
+# Walk the dict the Chapter II way and collect the FAILED check names.
+# If nothing failed, print exactly:
 #   READY
-# otherwise print exactly:
+# otherwise print the failed names, in dict order, like:
 #   NOT READY: hf_stack, ollama_ok
-# (the failed names, in dict order)
+failed = []
+for name, ok in checks.items():
+    ...  # if this check is not ok, add `name` to `failed`
+# now: if `failed` is empty -> print READY; else -> print the NOT READY line
 print("READY")
 '''
 expect = "NOT READY: hf_stack, ollama_ok"

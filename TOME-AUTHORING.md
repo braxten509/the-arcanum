@@ -384,7 +384,7 @@ desc = "Proof you answered every rival who came calling."
 min = 0                      # sections passed before this tier can fire
 time = 90                    # seconds to solve
 bounty = 60                  # coin for shattering it
-[[progression.intrusionTiers.pool]]  # 3+ challenges; one is picked at random
+[[progression.intrusionTiers.pool]]  # 5+ challenges; one is picked at random
 t = "THE COUNTERSIGN"           # title
 brief = "A rival mimics our secret countersign. Compute the true key."
 starter = '''
@@ -442,9 +442,12 @@ machine-generated (see the anti-template rules below).
 Escape literal `<`/`>` in code samples as `&lt;`/`&gt;`. Lessons should be
 300–600 words of body, concrete, code-first, and in the tome's voice.
 
-### `[[lessons.readings]]` — optional external links
+### `[[lessons.readings]]` — external links
 `label`, `url`. (An `essential` bool is tolerated but not currently rendered.)
-1–2 per lesson, only high-quality official docs/videos.
+1–2 per lesson, only high-quality official docs/videos. **Every lesson needs at
+least one** — how many and how deep is a judgement call, but zero is not: a
+lesson with no anchor doc is the most common regression in the later, denser
+chapters (validator WARNs on any lesson with zero readings).
 
 ### `[[lessons.exercises]]` — 4–6 per lesson, mixed types
 Common fields: `id` (convention `"<sid>-l<NN>-e<N>"`, drills `-d<N>`, labs `-w<N>`;
@@ -679,7 +682,7 @@ course dresses the same C# concepts in its own.
 
 ```toml
 [[tiers]]              # difficulty = position (tier N unlocks after N sections passed)
-[[tiers.pool]]         # 3+ challenges per tier; one picked at random
+[[tiers.pool]]         # 5+ challenges per tier; one picked at random
 t = "THE NAME-FORGING"
 starter = '''
 string name = "vael";

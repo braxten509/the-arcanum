@@ -8,6 +8,9 @@ this file, and not your job here.
 
 ## Ground rules (read first)
 
+0. **A question is not an edit request.** If the request only asks for information,
+   an explanation, or advice — rather than instructing a change — answer it and make
+   no edits. Don't touch a file just to have something to show for the run.
 1. **Smallest possible edit.** Never rewrite a file to change a line. Never
    restructure, rename, or "improve" things the user didn't ask about.
 2. **Never change ids.** Exercise/lesson/section/theme/badge ids key the player's
@@ -44,7 +47,7 @@ this file, and not your job here.
 | End-of-chapter project brief / grading rubric | `sections/<sid>/freestyle.toml` | `brief` (HTML), `[[rubric]]` (weights MUST sum to 100), `reward`, `[badge]` |
 | A theme color | `themes.toml` | the 18 `[themes.vars]` keys (see below) |
 | Shop item name / price / flavor | `shop.toml` | `[[shop]]` `name`, `cost`, `desc`, `ico` — never change `id` or `kind` (they bind the engine mechanic) |
-| Badge names / art | `badges.toml` | `[[badges]]` `name`, `desc`, `ico` — ids are engine-granted, don't change them |
+| Badge names / art | `badges.toml` | `[[badges]]` `name`, `desc` — ids are engine-granted, don't change them. No `ico` field: the engine always renders a fixed seal icon for badges regardless of TOML content, so don't add one |
 | Hex-defense minigame challenges | `intrusions.toml` | `[[tiers]]` (integer `min` gate) → `[[tiers.pool]]` |
 | Duel minigame challenges | `attacks_src.toml`, then regenerate: `python3 tools/gen_attacks.py <id>` (server must be running) — never hand-edit `generated/attacks.toml` |
 

@@ -1,0 +1,100 @@
+[[lessons]]
+id = "s11-l03"
+title = "The Written Word"
+body = '''
+<p>Strings are the currency of this work: model names, file paths, prompts, chat templates, and the JSON you will one day write are all strings. You met them in quotes; now learn to shape them.</p>
+<p>You may use single or double quotes, as long as they match: <code>'gguf'</code> and <code>"gguf"</code> are the same string. Pick one and be consistent; use the other when your text itself contains a quote: <code>"the model's weights"</code>.</p>
+<h3>Joining strings</h3>
+<p>The clumsy way is the <code>+</code> operator, which glues strings end to end — but only strings. <code>"7" + "B"</code> gives <code>"7B"</code>. Try to glue a number and you get an error, because <code>+</code> means "add" for numbers and "join" for strings, and Python refuses to guess which you meant.</p>
+<pre><code>name = "artificer"
+print("hello " + name)   # hello artificer</code></pre>
+<h3>The f-string — the tool you will actually use</h3>
+<p>Prefix a string with <code>f</code> and you may drop any value straight into it inside <code>{ }</code>. Python replaces each <code>{...}</code> with that value, converting numbers to text for you.</p>
+<pre><code>rank = 8
+base = "qwen2.5"
+print(f"training {base} at rank {rank}")   # training qwen2.5 at rank 8</code></pre>
+<div class="callout">The <code>f</code> must sit immediately before the opening quote: <code>f"..."</code>. Without it, <code>"{rank}"</code> prints the literal braces and the word <code>rank</code> — a real and silent beginner trap. If your output shows curly braces, you forgot the <code>f</code>.</div>
+<h3>Asking a string about itself</h3>
+<p>A string carries <em>methods</em> — rites you call on it with a dot. A few you will reuse constantly:</p>
+<ul>
+<li><code>len("gguf")</code> → <code>4</code> — how many characters (note: <code>len</code> is a plain function, not a dot-method)</li>
+<li><code>"  gguf  ".strip()</code> → <code>"gguf"</code> — trims whitespace from both ends</li>
+<li><code>"gguf".upper()</code> → <code>"GGUF"</code>, and <code>"GGUF".lower()</code> → <code>"gguf"</code></li>
+<li><code>"adapter.safetensors".endswith(".safetensors")</code> → <code>True</code></li>
+</ul>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY f-STRINGS EARN THEIR KEEP</div>
+<p>Every later chapter builds paths and log lines like <code>f"adapters/{today}_rank-{rank}"</code>. Done with <code>+</code>, that line is a wall of quotes and plus-signs where one stray number crashes the run; done with an f-string it reads like the sentence it is. When the course tells you to "build the adapter path from the variables," it means: use an f-string, not a hardcoded name.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python — f-strings (formatted string literals)"
+url = "https://docs.python.org/3/tutorial/inputoutput.html#formatted-string-literals"
+essential = true
+
+[[lessons.readings]]
+label = "String methods reference"
+url = "https://docs.python.org/3/library/stdtypes.html#string-methods"
+
+[[lessons.exercises]]
+id = "s11-l03-e1"
+type = "mc"
+points = 20
+prompt = "Why does <code>print(\"rank \" + 8)</code> raise an error, while <code>print(f\"rank {8}\")</code> works?"
+choices = [
+  "The first is missing a comma",
+  "<code>+</code> will not join a string to a number; the f-string converts the number to text for you",
+  "<code>8</code> must be written <code>8.0</code>",
+  "<code>print</code> only accepts one argument",
+]
+answer = 1
+whyWrong = "It is not a punctuation problem. <code>+</code> between a <code>str</code> and an <code>int</code> is genuinely ambiguous — join or add? — so Python refuses. The f-string has no such ambiguity: everything in <code>{ }</code> is turned into text."
+explain = "<code>+</code> means 'add' for numbers and 'join' for strings; mixing the two gives a TypeError because Python will not guess. Inside an f-string, <code>{8}</code> is automatically rendered as the text <code>8</code>, so no mixing occurs."
+hint = "Think about what <code>+</code> means when a number is on one side and text on the other. The f-string sidesteps that question entirely — how?"
+
+[[lessons.exercises]]
+id = "s11-l03-e2"
+type = "mc"
+points = 18
+prompt = "What does <code>print(\"{rank}\")</code> write when <code>rank = 8</code> — note there is no <code>f</code> before the quote?"
+choices = [
+  "<code>8</code>",
+  "<code>{rank}</code> — literally, braces and all",
+  "<code>rank</code>",
+  "An error about an undefined name",
+]
+answer = 1
+whyWrong = "Without the <code>f</code> prefix, the braces have no special meaning — the string is just those exact characters, so they print verbatim."
+explain = "Only an f-string treats <code>{ }</code> as a slot to fill. A plain string prints its characters literally, so you get <code>{rank}</code>. Seeing curly braces in your output is the tell that you forgot the <code>f</code>."
+hint = "The braces only mean 'insert a value here' inside one specific kind of string. Is this that kind?"
+
+[[lessons.exercises]]
+id = "s11-l03-e3"
+type = "text"
+points = 14
+prompt = "What does <code>len(\"gguf\")</code> return?"
+answer = "4"
+accept = ["four"]
+hint = "<code>len</code> counts the characters in the string. Count the letters in g-g-u-f."
+
+[[lessons.exercises]]
+id = "s11-l03-e4"
+type = "write"
+points = 28
+prompt = "Given <code>base = \"qwen2.5\"</code> and <code>rank = 8</code>, use ONE f-string to print exactly: <code>training qwen2.5 at rank 8</code>."
+starter = '''base = "qwen2.5"
+rank = 8
+# one print, using an f-string
+'''
+expect = "training qwen2.5 at rank 8"
+hint = "<code>print(f\"training {base} at rank {rank}\")</code> — drop each variable into its own pair of braces, and keep the literal words and spaces between them."
+
+[[lessons.exercises]]
+id = "s11-l03-e5"
+type = "write"
+points = 30
+prompt = "A filename arrives with stray spaces: <code>raw = \"  Adapter.SafeTensors  \"</code>. Print it trimmed of the outer spaces and forced to lower case, so the output is exactly <code>adapter.safetensors</code>. Chain the two string methods."
+starter = '''raw = "  Adapter.SafeTensors  "
+# strip the outer whitespace, then lower-case it, then print
+'''
+expect = "adapter.safetensors"
+hint = "Call the methods with dots and chain them: <code>raw.strip().lower()</code>. <code>strip()</code> removes the outer spaces, <code>lower()</code> drops the case; print the result."

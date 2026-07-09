@@ -2,7 +2,7 @@
 id = "s06-l02"
 title = "Judging the Voice"
 body = '''
-<p>The held-out mirror from the first rite answers "did the bind change anything?" — the base-model side-by-side comparison that partitions the output into a before and an after. This rite answers the harder question: "did it change in the right direction?" A binder can shift the output away from the base model in countless ways, and most of them are degradation — the adapter could learn to capitalize every sentence, or insert a boilerplate sign-off, or repeat the prompt verbatim before answering. The proving rite needs an actual metric: a way to count, however approximately, how close the adapted output is to the artificer's real writing style.</p>
+<p>The held-out mirror from the third rite answers "did the bind change anything?" — the base-model side-by-side comparison that partitions the output into a before and an after. This rite answers the harder question: "did it change in the right direction?" A binder can shift the output away from the base model in countless ways, and most of them are degradation — the adapter could learn to capitalize every sentence, or insert a boilerplate sign-off, or repeat the prompt verbatim before answering. The proving rite needs an actual metric: a way to count, however approximately, how close the adapted output is to the artificer's real writing style.</p>
 <p><strong>Surface overlap — n-gram precision.</strong> The simplest metric splits both the reference text (a sample of the artificer's genuine, untrained writing — something the bind never saw) and the generated output into overlapping word n-grams (sequences of 1, 2, or 3 consecutive words) and measures what fraction of the generated n-grams also appear in the reference. This catches lexical habits — specific phrases, transition words, the kind of clause structure the artificer favors — but it is a surface-level signal: it measures word choice, not meaning. A generated answer that uses all the right transition words but makes no sense still scores high on n-gram overlap. The BLEU score the NLP literature uses is an n-gram precision variant with a brevity penalty; ROUGE-L is a recall-oriented counterpart that measures the longest common subsequence. Both are cheap to compute and give a rough first pass on lexical style shift.</p>
 <p><strong>Semantic distance — embeddings.</strong> The deeper metric translates the reference text and the generated output into vectors — dense floating-point arrays produced by a sentence-embedding model like <code>sentence-transformers/all-MiniLM-L6-v2</code> — and measures the cosine angle between them. Cosine similarity (dot product of two normalized vectors, range [-1, 1]) captures whether the two texts mean roughly the same thing in roughly the same register, even if the exact words differ. A high cosine similarity (>0.85) on a style-appropriate prompt suggests the adapter is producing the right kind of answer; a low score on a straightforward prompt suggests the bind veered the model off course. The embedding model itself is a separate, lightweight model — a few hundred megabytes — that runs on the same GPU without competing with the 7B base for VRAM, since it loads and embeds after the generation pass, not during it.</p>
 <p>The combination gives the artificer a two-layer readout: the n-gram overlap says "the words look right," and the semantic distance says "the meaning stays on track." Neither is a final verdict — human judgment on a handful of prompts still carries the real decision — but together they catch the two most common bind failures (lexically wrong and semantically wrong) before the artificer spends an afternoon reading generated output line by line.</p>
@@ -15,7 +15,7 @@ gen_embedding = embedder.encode(generated_output)
 sim = cosine_similarity([ref_embedding], [gen_embedding])[0][0]
 <span class="k">print</span>(<span class="s">"cosine similarity:"</span>, sim)</code></pre>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // THE REFERENCE TEXT IS NOT THE TRAINING DATA</div>
-<p>The reference text used for n-gram and embedding comparison must be fresh — writing samples from the same artificer that never entered the training set. If the reference and the training data overlap, the metric measures memorization of the training corpus, not style transfer to new topics. The safe practice: reserve a small set of the artificer's notes — 3–5 pages of genuinely new writing on topics the training set did not cover — as the reference corpus for evaluation. They were never tokenized, never fed to the SFTTrainer, and never entered the LLM in any form except as the comparison target during evaluation. The fourth rite's curation pass already taught the discipline of splitting at the record level; this is the same habit applied to the reference text: hold it out before you measure.</p></div>
+<p>The reference text used for n-gram and embedding comparison must be fresh — writing samples from the same artificer that never entered the training set. If the reference and the training data overlap, the metric measures memorization of the training corpus, not style transfer to new topics. The safe practice: reserve a small set of the artificer's notes — 3–5 pages of genuinely new writing on topics the training set did not cover — as the reference corpus for evaluation. They were never tokenized, never fed to the SFTTrainer, and never entered the LLM in any form except as the comparison target during evaluation. The sixth rite's curation pass already taught the discipline of splitting at the record level; this is the same habit applied to the reference text: hold it out before you measure.</p></div>
 '''
 body_words = 510
 
@@ -29,9 +29,9 @@ type = "mc"
 points = 20
 prompt = "Per this rite, why is high n-gram overlap between the generated output and the reference text not sufficient proof that the bind is working correctly?"
 choices = [
-  "N-gram overlap requires the input prompt to be at least 100 tokens long, and the typical held-out prompt from the first rite is too short to produce a meaningful score — the metric returns zero for inputs under that threshold",
+  "N-gram overlap requires the input prompt to be at least 100 tokens long, and the typical held-out prompt from the third rite is too short to produce a meaningful score — the metric returns zero for inputs under that threshold",
   "N-gram overlap measures surface word-choice patterns — specific phrases and transition words — not whether the output actually makes sense or stays on topic; a generated text that strings together the right vocabulary but says nothing coherent can score high on overlap while being useless as an answer",
-  "N-gram overlap is a semantic measure that requires a GPU-accelerated embedding model, and sentence-transformers is not compatible with the AMD ROCm stack the first rite installed",
+  "N-gram overlap is a semantic measure that requires a GPU-accelerated embedding model, and sentence-transformers is not compatible with the AMD ROCm stack the third rite installed",
   "N-gram overlap is an exact-match metric that penalizes any synonym replacement — if the generated output uses 'however' instead of 'but,' which both appear in the reference, the score drops to zero because the n-grams don't match"
 ]
 answer = 0
@@ -99,9 +99,13 @@ prompt = "Given a reference text of 5 sentences and a generated output of 4 sent
 starter = '''reference = "The bind shifts style. It preserves meaning. The adapter is small. Style is lexical. Meaning is semantic."
 generated = "The bind shifts style well. Style is very lexical. The adapter stays small. Meaning stays semantic."
 
-# TODO: tokenize both texts into sets of lowercase words (strip punctuation).
-# Jaccard = |intersection| / |union|
-# Print JACCARD <value> rounded to 3 decimal places.
+# Step by step, using the set tools from this chapter's opening note:
+#   1. lower-case each text and drop the periods:  text.lower().replace(".", "")
+#   2. split into words and make a set:            set(cleaned.split())
+#   3. overlap = ref_set & gen_set   (words in both)
+#      union   = ref_set | gen_set   (words in either)
+#   4. jaccard = len(overlap) / len(union)
+# Print JACCARD <value> with :.3f (three decimals).
 
 print("JACCARD 0.000")
 '''

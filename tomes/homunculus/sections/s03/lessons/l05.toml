@@ -31,6 +31,7 @@ choices = [
 answer = 1
 whyWrong = "Frozen weights still occupy real VRAM (as the 4-bit base) and typically still sit on the GPU for the forward pass — freezing doesn't erase them or move them to the CPU, it just removes the gradient and optimizer-state cost that would otherwise apply to every one of their parameters."
 explain = "The 12-bytes-per-parameter figure from the last rite comes entirely from gradients and optimizer state, which only exist for trainable parameters — freeze the base and that cost applies only to the adapter's much smaller parameter count."
+hint = "Recall the last rite's breakdown: the 12 bytes/param came from 2 (weights) + 2 (gradients) + 4 (Adam mean) + 4 (Adam variance). Freezing a parameter removes three of those four line items — gradients and both Adam tracking values — because the frozen weight never gets an update and thus never needs them. The 4-bit base still occupies VRAM as static data, but the triple expense vanishes."
 
 [[lessons.exercises]]
 id = "s03-l05-e2"
@@ -65,6 +66,7 @@ choices = [
 answer = 2
 whyWrong = "It's neither a dead end nor a fully solved problem, and it has nothing to do with Ollama specifically — bitsandbytes is a training-time PyTorch library, not a serving tool. The honest status this rite names is the middle case: experimental gfx1201 wheels exist and work, with a real, named rough edge."
 explain = "This is the exact nuance the rite spends a paragraph on: the old stable build's gap (established at the toolchain rite) has narrowed via the multi-backend-refactor's RDNA4 wheels, but paged optimizers on ROCm still have open bugs worth knowing about before a training run."
+hint = "The lesson explicitly names three things about bitsandbytes on gfx1201: the old stable build lacks it, the multi-backend-refactor ships experimental RDNA4 wheels that include it, and paged optimizers still have documented bugs. That's neither 'completely unsupported' nor 'fully stable' — it's the honest middle case with a real, named caveat."
 
 [[lessons.exercises]]
 id = "s03-l05-e5"
@@ -83,7 +85,7 @@ prompt = "Given <code>adapter_params = 8_000_000</code> and the <code>bytes_per_
 starter = '''adapter_params = 8_000_000
 bytes_per_param = {"weights": 2, "gradients": 2, "adam_m": 4, "adam_v": 4}
 
-# TODO: sum bytes_per_param's values, multiply by adapter_params,
+# Implement: sum bytes_per_param's values, multiply by adapter_params,
 # integer-divide by 1_000_000 to get whole MB, then print:
 #   ADAPTER FOOTPRINT 96 MB
 footprint_mb = 0

@@ -34,6 +34,7 @@ choices = [
 answer = 3
 whyWrong = "There's no naming error, no duplicate storage, and no kilobyte-padding scheme at work — the extra fraction of a bit comes from a real design choice: spending more bits on the layers most sensitive to quantization error and fewer on the ones that tolerate it."
 explain = "K-quants vary bits per weight by layer sensitivity, which is exactly why the average lands above the flat bit-width the name suggests — the lesson's field notes name attention/early layers as the ones that get the extra bits."
+hint = "Read the lesson's field notes: 'a transformer's weights are not equally sensitive to error — attention projections and early layers tend to punish aggressive quantization harder than later feed-forward blocks.' A q4_K_M does not spend the same 4 bits everywhere — it varies the budget per layer, and that variable spend is what pushes the average above 4.0."
 
 [[lessons.exercises]]
 id = "s03-l02-e2"
@@ -71,7 +72,7 @@ quant_bits = {
     "q3_K_S": 3.4,
 }
 
-# TODO: look up quant_bits["q3_K_S"], compute size_gb = params_b * bits / 8,
+# Implement: look up quant_bits["q3_K_S"], compute size_gb = params_b * bits / 8,
 # then print:
 #   SIZE 3.4 GB
 size_gb = 0

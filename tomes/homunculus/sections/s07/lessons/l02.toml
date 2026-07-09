@@ -1,0 +1,119 @@
+[[lessons]]
+id = "s07-l02"
+title = "The Grimoire's Pages"
+body = '''
+<p>The third rite of this chapter taught the embedding — a map from text to a point in a 384-dimensional space. The fourth rite teaches how to break the reference texts into pieces small enough to embed and retrieve independently. An embedding model turns text into a fixed-size vector, but it cannot turn an entire style guide — ten thousand words of CSS rules, formatting conventions, and layout patterns — into a single meaningful vector. The vector that tries to compress a whole book into 384 floats loses every detail; the vector that encodes a single sentence captures one idea with high fidelity. The solution is <strong>chunking</strong>: splitting each reference document into overlapping slices, embedding each slice independently, and retrieving the specific slices that match a query.</p>
+
+<p>A chunk is defined by two numbers: <strong>size</strong> (how many tokens or characters per slice) and <strong>overlap</strong> (how many tokens the adjacent slices share). The size controls the tradeoff between precision and context. A small chunk — 128 tokens, roughly two or three sentences — captures a single idea cleanly. The embedding is focused, and a query about "heading font sizes" will retrieve exactly the chunk that says "Use 24px for headings" and nothing else. But a small chunk may lack the context that makes the idea useful — the chunk says "use 24px" but does not say whether that's for an H1, an H2, or all headings, because that distinction appeared two sentences earlier in the original text and the chunk boundary cut it off.</p>
+
+<p>A large chunk — 512 tokens, roughly a long paragraph — preserves the surrounding context. The embedding captures that "24px for H1, 20px for H2, 16px for body" is a hierarchy, not three unrelated numbers. But a large chunk is noisy: a query about "heading font sizes" retrieves a chunk that also contains material about line spacing, margin widths, and color contrast — information the homunculus does not need and that may distract it from the answer it is supposed to ground in the reference. The chunk-embedding model also averages the meaning across all the words in the chunk, and a 512-token average dilutes the specific signal the query was looking for.</p>
+
+<p><strong>Overlap</strong> is the hedge against the boundary problem. If the artificer splits a style guide into 256-token chunks with zero overlap, a sentence that falls exactly on the boundary between chunk 3 and chunk 4 may be split across both — half the rule in one chunk, half in the other, neither usable. An overlap of 32 tokens (roughly one sentence) means the last sentence of chunk 3 also appears as the first sentence of chunk 4 — a guarantee that no single sentence is eviscerated by a cut. The cost is storage: an overlap of 32 tokens on 256-token chunks increases the total number of chunks by roughly 14% — a small overhead in exchange for retrieval that never loses a sentence to a boundary.</p>
+
+<pre><code><span class="k">def</span> <span class="nf">chunk_text</span>(text, chunk_tokens=<span class="k">256</span>, overlap_tokens=<span class="k">32</span>):
+    <span class="s">"""Split text into overlapping chunks by token count."""</span>
+    tokens = tokenizer.encode(text)
+    chunks = []
+    start = <span class="k">0</span>
+    <span class="k">while</span> start &lt; <span class="k">len</span>(tokens) - overlap_tokens:
+        end = <span class="k">min</span>(start + chunk_tokens, <span class="k">len</span>(tokens))
+        chunk = tokenizer.decode(tokens[start:end], skip_special_tokens=<span class="k">True</span>)
+        chunks.append(chunk)
+        start += (chunk_tokens - overlap_tokens)  <span class="c"># advance by the non-overlapping step</span>
+    <span class="k">return</span> chunks</code></pre>
+
+<p>The tokenizer used for chunking should match the embedding model's tokenizer — the splitting logic must count tokens the same way the embedder will read them, or the "256-token" chunk may actually be 230 tokens (if the embedder's tokenizer compresses differently). For <code>all-MiniLM-L6-v2</code>, <code>AutoTokenizer.from_pretrained("all-MiniLM-L6-v2")</code> returns the correct tokenizer — the same library the sixth rite taught for chat-template formatting, now applied to text splitting instead of instruction/response assembly.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CHUNK SIZE IS A RETRIEVAL KNOB, NOT A FIXED CONSTANT</div>
+<p>The proving rite taught the artificer to sweep hyperparameters (rank, alpha, learning rate) because the best value depends on the data. Chunk size is the same kind of knob — a retrieval hyperparameter. A corpus of dense technical documentation (API references, formal specifications) benefits from larger chunks (384–512 tokens), because a single API description is self-contained and splitting it across multiple chunks fragments the signature from its explanation. A corpus of inline style rules (one- or two-sentence formatting commands) benefits from smaller chunks (128–256 tokens), because each rule is self-contained and neighboring rules are often unrelated — bundling them into a large chunk dilutes the retrieval signal. The artificer should treat chunk size as a tuning parameter, not a default — try 128, 256, and 384 on the actual reference corpus, retrieve on a handful of known-good queries, and read the top-3 results. If the top chunk contains the right answer, the size is working; if the right answer is buried in chunk 7, the size is wrong.</p></div>
+'''
+body_words = 550
+
+[[lessons.readings]]
+label = "LangChain text splitters — chunking strategies for RAG"
+url = "https://python.langchain.com/docs/how_to/#text-splitters"
+
+[[lessons.exercises]]
+id = "s07-l02-e1"
+type = "mc"
+points = 20
+prompt = "Per this rite, what is the specific failure mode of using chunks that are too small (e.g., 64 tokens) for a style guide that describes hierarchical heading rules across multiple sentences?"
+choices = [
+  "The embedding model cannot encode chunks shorter than 128 tokens — the SentenceTransformer library raises a ValueError when encode() receives a string with fewer than 128 tokens",
+  "The FAISS index cannot store vectors from chunks shorter than 128 tokens — the index requires all vectors to have the same dimensionality, and short texts produce shorter vectors from the embedding model",
+  "Small chunks produce embeddings with higher cosine similarity scores across unrelated topics because the vector has fewer dimensions to encode meaning — a 64-token embedding is mathematically noisier than a 256-token embedding",
+  "The chunk loses the surrounding context that connects a specific value (e.g. '24px') to the heading level it applies to (e.g. 'for H1 only') — that distinction appeared in the previous sentence, but the chunk boundary severed it, making the retrieved chunk factually incomplete"
+]
+answer = 3
+whyWrong = "The embedding model always outputs a fixed 384-dim vector regardless of input length — it does not reject short texts, produce shorter vectors, or become mathematically noisier (the fixed-dim compression handles short texts fine). The real failure is context loss: a chunk that cuts a sentence boundary loses the relationship between the claimed value and the condition it depends on, producing a retrieved fact that is technically correct but practically useless because the qualification is missing."
+hint = "The lesson's second paragraph says a small chunk 'may lack the context that makes the idea useful — the chunk says use 24px but does not say whether that's for an H1, an H2, or all headings, because that distinction appeared two sentences earlier and the chunk boundary cut it off.' The correct choice names this context-severing problem."
+explain = "Chunk boundaries are arbitrary cuts through continuous text — they don't respect paragraph structure, section breaks, or semantic units unless the chunker is explicitly designed to do so. When a rule spans two sentences ('Use 24px for H1. Use 20px for H2.') and the chunk cut falls between those sentences, the second chunk contains 'Use 20px for H2' but the reader no longer knows what 'H2' is relative to — the context that established the heading hierarchy was in the previous chunk."
+
+[[lessons.exercises]]
+id = "s07-l02-e2"
+type = "text"
+points = 18
+prompt = "The lesson's chunking function uses two parameters: <code>chunk_tokens</code> and <code>overlap_tokens</code>. What is the purpose of the overlap — the number of tokens shared between adjacent chunks — stated in the lesson?"
+answer = "to prevent sentences from being split across chunk boundaries"
+accept = ["to prevent sentences from being split across chunk boundaries", "to prevent boundary splits", "prevent boundary splits", "to ensure no sentence is cut by a boundary", "prevent a sentence from being eviscerated by a cut", "so no single sentence is eviscerated by a cut"]
+hint = "The lesson says 'a sentence that falls exactly on the boundary between chunk 3 and chunk 4 may be split across both' — overlap guarantees 'no single sentence is eviscerated by a cut.'"
+
+[[lessons.exercises]]
+id = "s07-l02-e3"
+type = "type"
+points = 12
+reps = 2
+code = '''def chunk_text(text, chunk_tokens=256, overlap_tokens=32):
+    """Split text into overlapping chunks by token count."""
+    tokens = tokenizer.encode(text)
+    chunks = []
+    start = 0
+    while start < len(tokens) - overlap_tokens:
+        end = min(start + chunk_tokens, len(tokens))
+        chunk = tokenizer.decode(tokens[start:end], skip_special_tokens=True)
+        chunks.append(chunk)
+        start += (chunk_tokens - overlap_tokens)
+    return chunks'''
+
+[[lessons.exercises]]
+id = "s07-l02-e4"
+type = "fill"
+points = 20
+prompt = "Fill the missing argument in the lesson's chunking loop — the step size that determines how far the window advances between chunks, which the lesson computes as <code>chunk_tokens - overlap_tokens</code>."
+code = '''def chunk_text(text, chunk_tokens=256, overlap_tokens=32):
+    tokens = tokenizer.encode(text)
+    chunks = []
+    ____ = 0
+    while ____ < len(tokens) - overlap_tokens:
+        end = min(____ + chunk_tokens, len(tokens))
+        chunk = tokenizer.decode(tokens[____:end], skip_special_tokens=True)
+        chunks.append(chunk)
+        ____ += (chunk_tokens - overlap_tokens)
+    return chunks'''
+answer = "start"
+accept = ["start"]
+hint = "The variable that tracks the beginning index of each chunk is called 'start' — the chunking loop advances it by (chunk_tokens - overlap_tokens) each iteration. This variable appears in all four blank positions in this fill exercise."
+
+[[lessons.exercises]]
+id = "s07-l02-e5"
+type = "write"
+points = 35
+prompt = "Given a style guide text <code>guide = \"Use 16px for body, 20px for H2, and 24px for H1. Set line-height to 1.5 for body text and 1.2 for headings. Use #333 for all text and #007acc for links.\"</code>, split it into chunks of 6 words with 2 words of overlap between adjacent chunks. Count words (split on spaces), not tokens. Print each chunk on its own line prefixed with <code>CHUNK &lt;n&gt;: </code> — computed from the text, not hardcoded."
+starter = '''guide = "Use 16px for body, 20px for H2, and 24px for H1. Set line-height to 1.5 for body text and 1.2 for headings. Use #333 for all text and #007acc for links."
+
+# Split into words: words = guide.split()
+# Walk through words with a window of size 6, step 4 (6-2 overlap):
+#   chunk = " ".join(words[start:start+6])
+#   Print "CHUNK <n>: " + chunk
+
+print("CHUNK 0: nothing")
+'''
+expect = '''CHUNK 1: Use 16px for body, 20px for
+CHUNK 2: 20px for H2, and 24px for
+CHUNK 3: 24px for H1. Set line-height to
+CHUNK 4: line-height to 1.5 for body text
+CHUNK 5: body text and 1.2 for headings.
+CHUNK 6: for headings. Use #333 for all
+CHUNK 7: for all text and #007acc for
+CHUNK 8: #007acc for links.'''
+hint = "words = guide.split() gives 31 words. Window size = 6, step = 6 - 2 = 4. Loop with start=0; in each iteration end = min(start+6, len(words)), print the chunk, then start += 4. The last chunk is words[28:31] = '#007acc for links.' (only 3 words — the slice automatically handles the partial window). Use enumerate with start=1 for chunk numbering."

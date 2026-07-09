@@ -1,0 +1,102 @@
+[[lessons]]
+id = "s11-l02"
+title = "Names & Vessels"
+body = '''
+<p>A script that can only print fixed words is a parrot. Real work needs to <em>hold</em> a value, name it, and use the name later. That is a <strong>variable</strong>: a name bound to a value.</p>
+<pre><code>gpu_gb = 16
+name = "artificer"
+print(name)     # artificer
+print(gpu_gb)   # 16</code></pre>
+<p>The <code>=</code> is not "equals" in the arithmetic sense — it is <em>assignment</em>. Read it right-to-left: "take the value <code>16</code> and bind it to the name <code>gpu_gb</code>." From then on, writing <code>gpu_gb</code> is the same as writing <code>16</code>, until you assign something else to it.</p>
+<p>Every value has a <strong>type</strong> — the kind of thing it is. Four types carry almost all of the early work:</p>
+<ul>
+<li><code>int</code> — a whole number: <code>16</code>, <code>0</code>, <code>-4</code></li>
+<li><code>float</code> — a number with a decimal point: <code>3.5</code>, <code>16.0</code></li>
+<li><code>str</code> — a string of text: <code>"gguf"</code>, <code>"7B"</code></li>
+<li><code>bool</code> — a truth value: <code>True</code> or <code>False</code> (note the capitals)</li>
+</ul>
+<p>You never declare the type — Python reads it from the value. <code>16</code> is an <code>int</code> because it has no decimal point; <code>"16"</code> is a <code>str</code> because it wears quotes. You can ask the machine directly with the <code>type</code> rite:</p>
+<pre><code>print(type(16))      # &lt;class 'int'&gt;
+print(type("16"))    # &lt;class 'str'&gt;
+print(type(3.5))     # &lt;class 'float'&gt;</code></pre>
+<div class="callout"><code>16</code> and <code>"16"</code> are not the same value. One is a number you can do arithmetic on; the other is text that happens to look like a number. Confusing the two is the single most common beginner error — and it will bite hardest later, when a config file hands you a string <code>"4096"</code> that you meant to treat as a count.</div>
+<p>Choose names that a stranger could read. <code>rank</code>, <code>base_model</code>, and <code>vram_gb</code> tell the next reader what they hold; <code>x</code>, <code>a2</code>, and <code>thing</code> tell them nothing. Names may hold letters, digits, and underscores, but may not begin with a digit, and by strong convention are written <code>lower_snake_case</code>.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // A NAME IS A PROMISE</div>
+<p>When a later rite writes <code>lora_rank = 8</code>, the name is doing half the teaching: it tells you the number is a LoRA rank, not a batch size or a learning rate. Sloppy names in a training script are how an artificer feeds the wrong number to the wrong knob and wastes an hour of GPU time. Name as if the next reader is a tired version of yourself.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python tutorial — Numbers & variables"
+url = "https://docs.python.org/3/tutorial/introduction.html#numbers"
+essential = true
+
+[[lessons.readings]]
+label = "Built-in types (int, float, str, bool)"
+url = "https://docs.python.org/3/library/stdtypes.html"
+
+[[lessons.exercises]]
+id = "s11-l02-e1"
+type = "mc"
+points = 18
+prompt = "What is the type of the value <code>\"16\"</code> (with the quotes)?"
+choices = [
+  "<code>int</code>, because it looks like a whole number",
+  "<code>str</code>, because the quotes make it text",
+  "<code>float</code>, because all numbers are floats",
+  "<code>bool</code>, because it is either there or not",
+]
+answer = 1
+whyWrong = "The quotes decide the type, not the shape of the characters inside. Anything in quotes is a <code>str</code>, even if every character is a digit."
+explain = "<code>\"16\"</code> is text that happens to spell a number. It is a <code>str</code>. The number sixteen with no quotes, <code>16</code>, is an <code>int</code>. They print the same but behave differently under arithmetic."
+hint = "Look at the walls, not the contents. What does wrapping something in quotes always make it?"
+
+[[lessons.exercises]]
+id = "s11-l02-e2"
+type = "mc"
+points = 18
+prompt = "After <code>rank = 8</code> then <code>rank = 16</code>, what does <code>print(rank)</code> write?"
+choices = [
+  "<code>8</code> — the first binding wins",
+  "<code>16</code> — the most recent assignment replaces the old one",
+  "<code>8 16</code> — both are remembered",
+  "An error — you cannot assign a name twice",
+]
+answer = 1
+whyWrong = "Assignment is not a one-time declaration. Each <code>=</code> rebinds the name to a new value, and the name always refers to whatever was assigned most recently."
+explain = "Reassigning simply points the name at a new value. After the second line, <code>rank</code> holds <code>16</code>; the earlier <code>8</code> is gone. Reading a variable always gives its latest value."
+hint = "The machine reads top to bottom and each <code>=</code> rebinds the name. Which binding is the last one it sees before the print?"
+
+[[lessons.exercises]]
+id = "s11-l02-e3"
+type = "text"
+points = 14
+prompt = "Which built-in rite, wrapped around a value like <code>type(3.5)</code>, reports what kind of thing that value is?"
+answer = "type"
+accept = ["type()", "the type function", "type(x)"]
+hint = "It is named for exactly the concept this lesson is about, and it is used three times in the code blocks above."
+
+[[lessons.exercises]]
+id = "s11-l02-e4"
+type = "write"
+points = 26
+prompt = "Bind the base model name <code>\"qwen2.5\"</code> to a variable <code>base</code> and the LoRA rank <code>8</code> to a variable <code>rank</code>, then print each on its own line — <code>base</code> first, <code>rank</code> second. Output must be exactly two lines: <code>qwen2.5</code> then <code>8</code>."
+starter = '''# bind two well-named variables, then print each one.
+# Replace each ... with the right value.
+base = ...   # the model name, a string in quotes
+rank = ...   # the LoRA rank, a whole number, no quotes
+# then two print calls: base first, rank second
+'''
+expect = '''qwen2.5
+8'''
+hint = "Put the string (with quotes) after <code>base =</code> and the whole number (no quotes) after <code>rank =</code>, then two print calls in that order."
+
+[[lessons.exercises]]
+id = "s11-l02-e5"
+type = "write"
+points = 28
+prompt = "A config sets <code>vram_gb = 16</code>. Print a single line reading exactly <code>vram: 16 GB</code>. For now build it by printing the pieces — you will learn a cleaner way next lesson. (Hint: <code>print</code> can take several arguments separated by commas, and joins them with single spaces.)"
+starter = '''vram_gb = 16
+# print:  vram: 16 GB
+'''
+expect = "vram: 16 GB"
+hint = "<code>print(\"vram:\", vram_gb, \"GB\")</code> — print joins comma-separated arguments with one space between each, which gives you exactly the spacing shown."

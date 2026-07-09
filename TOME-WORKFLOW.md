@@ -38,7 +38,11 @@ write that in Phase 2); the HARNESS renames the folder AND `meta.id` to its keba
 after Phase 2 — never `mv`/`cp` the tome directory yourself, in this phase or any other.
 Design the op arc **backwards from the finished tool** — what capability does each op
 add? The section count is an **outcome of that arc, not a target**; do not pad or
-trim to a round number.
+trim to a round number, and there is **no maximum** — add as many chapters as the arc
+needs. Read the plan's **Starting level** block first: if it says the student does not
+already know the course's language/tool, that language's fundamentals and toolchain are
+their **own early chapters** (not assumed, not folded into the build) — a low starting
+level legitimately makes the course longer.
 
 ⚠️ **The end product must be REAL — never simulate away the skill the course is
 about.** The worst failure here is not a short course, it's a *hollow* one: it
@@ -79,6 +83,14 @@ hard they are to teach.
   sized to its fundamentals and toolchain** — the fundamentals are their own chapters,
   not footnotes folded into one small artifact's build.
 
+⚠️ **Calibrate `meta.description`/`bootLines` to the REAL prerequisite, not just
+the language.** "No prior Python required" can be true of the *graded* exercises
+while the *lesson prose* still assumes real-world/domain background (GPU
+internals, ML math, networking) the student is expected to take on faith. If the
+course is honestly "language from zero, domain assumed," say so — a one-clause
+addition ("...some comfort with the idea of GPUs and machine learning will help")
+costs nothing and prevents overselling.
+
 → **Produce:** the ordered section list + one line on what each op contributes.
 
 ## Phase 2 — Skeleton & voice
@@ -89,6 +101,14 @@ runtime → content → **narrative (write the VOICE first — everything else q
 defaults. Set `[content] sections` to your full arc's list and create each further section
 by mirroring `sections/s01/` (`section.toml` + `lessons/l01.toml` + `freestyle.toml`, with
 tome-unique ids) as a green skeleton — Phase 3 authors them one at a time.
+
+⚠️ **Pick a distinct fiction word for each structural level and never reuse
+one across levels.** A past tome called both chapters AND lessons "rites"
+(with lesson numbering resetting per chapter) — ~600+ ambiguous references
+across the prose where a reader can't tell if "Rite III" means chapter 3 or
+lesson 3 of the current chapter. Chapter-level and lesson-level terms
+(`opsLabel` and whatever you call a lesson in prose) must be two different
+words.
 
 → **Produce:** a valid `tome.toml` skeleton.
 
@@ -178,6 +198,15 @@ example), then a `fill` (the same code with one load-bearing token blanked), the
 last — the advantage of a blank editor only appears once the student already has some
 skill. A brand-new idea whose only practice is a from-scratch lab teaches worse.
 
+⚠️ **Never introduce a brand-new language construct only inside an exercise's
+starter/comment.** A past tome taught list-slice assignment nowhere except a
+`write` starter's "NEW LIST TOOLS" comment — the lesson body never mentioned it,
+so the grader silently tested a skill nobody taught. If any exercise (starter,
+mc distractor, fill target) in a lesson uses syntax/API beyond what that lesson's
+own body (or an earlier one) already explained, add a sentence teaching it to the
+body — or its opening callout — BEFORE the exercise, every time, not just for
+the section's headline concept.
+
 ⚠️ **Write labs: the starter sets up the scenario, the STUDENT writes the logic.**
 Two hard rules the validator now enforces (`--run` executes every starter):
 - **Never ship a pre-solved starter.** If the untouched starter already prints the
@@ -193,7 +222,9 @@ Two hard rules the validator now enforces (`--run` executes every starter):
 **ACCEPTANCE FLOOR (the validator hard-gates these at Phase 7 — build to them now, don't
 discover them later):** every section ≥3 lessons (vary 3–8), every lesson ≥4 exercises
 (vary 4–6), every lesson body 300–600 visible words with a FIELD NOTES appendix, every
-`mc` a `whyWrong`, and each section's freestyle a distinct rubric summing to 100.
+lesson ≥1 `[[lessons.readings]]` link (count/depth/`essential` beyond that is a judgement
+call, but zero is never acceptable — this is the floor that erodes first in later chapters),
+every `mc` a `whyWrong`, and each section's freestyle a distinct rubric summing to 100.
 
 **END-OF-PHASE SELF-AUDIT (produce this, in the plan, before you stop).** After the
 last section, tally and paste into the plan file — do not hand-wave it:
@@ -215,7 +246,8 @@ match the syllabus, and the duel bank via `attacks_src.toml` + `python3
 tools/gen_attacks.py <id>` (server up). Both must be in the course's OWN voice.
 Intrusions use `[[tiers]]` with an **integer** `min` and a `[[tiers.pool]]` of stdout
 challenges (never a flat `[[intrusions]]` shape — the engine reads only `tiers`).
-Both banks span the course: **3+ challenges per tier**, and enough tiers that the
+Both banks span the course: **5+ challenges per tier** (fewer makes repeat duels/hexes
+at the same tier feel identical), and enough tiers that the
 later sections still unlock new hexes/duels (the validator WARNs when they don't).
 
 → **Produce:** `intrusions.toml`, `generated/attacks.toml`.

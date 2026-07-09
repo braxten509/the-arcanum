@@ -2,8 +2,106 @@
 id = "s10-l01"
 title = "The Cabinet That Rebuilds Itself"
 body = '''
-<p>The final rite is not a victory lap. It is a maintenance plan. The student has to treat the notes, the adapter, the evaluation set, and the serving config as parts of one living cabinet that can be rebuilt when the corpus grows or the behavior drifts.</p>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // LIVING PIPELINE</div>
-<p>The best endpoint is not a single model snapshot but a defensible system. A maintainer should be able to explain the base choice, the quantization choice, the adapter choice, the RAG choice, and what evidence would make them revisit any of them.</p></div>
-<!-- TODO: Phase 3 — author exercises and additional lessons. -->
+<p>The cabinet holds four families of goods: datasets, adapters, evaluation prompts, and Modelfiles. Every one of them can change — a new batch of notes arrives, a re-tune lands better, a new style guide gets added to the grimoire. The twelfth rite is the discipline of knowing which version of which artifact produced which behaviour, so you can back out a bad change without guessing.</p>
+<div class="callout"><strong>Eleven rites deep, but the code stays gentle.</strong> Every write lab in this capstone hands you the data — a config dict, a pair of scores, a list of steps — and asks you to compute a log entry, a verdict, or a formatted line from it, using the dicts, f-strings, and <code>json.dumps</code> the earlier rites already gave you. Two small idioms recur: <code>enumerate(items, start=1)</code> pairs each item with a 1-based counter for numbered output, and to pull the number out of a string like <code>"curate [4]"</code> you split on the brackets — <code>int(s.split("[")[1].rstrip("]"))</code>. Given data in, computed text out — the same shape as every rite before it.</div>
+
+<p>The first habit: every artifact lives in a plain directory with a date-prefixed name. <code>adapters/2025-01-15_rank-16_lr-2e-4/</code> is not the most elegant naming scheme, but it is the one you can read six months later without opening a metadata file — the date, the LoRA rank, and the learning rate are right in the path. A dataset JSONL gets the same treatment: <code>datasets/2025-01-15_130_records.jsonl</code> tells you when it was cut and roughly how large.</p>
+
+<p>The second habit, and the harder one: a <strong>run log</strong>. A single Markdown file — <code>RUNS.md</code> at the cabinet root — with one section per training run. What base, what quant level, what adapter config, what dataset, what held-out evaluation score, what the serving-time Modelfile looked like, and a one-line verdict from the artificer: "better than the Dec run on style-matching; slightly worse on refusal rate; kept." The habit this rite guards against is "I'll remember what I did" — no artificer remembers six months later which of three adapters with similar loss curves was actually the one that sounded most like them on a specific prompt. Write it down, in plain text, in one place, with the date.</p>
+
+<pre><code><span class="k">import</span> json
+<span class="k">import</span> datetime
+today = datetime.date.today().isoformat()
+artifact_id = <span class="s">f"adapters/{today}_rank-16_lr-2e-4"</span>
+log_entry = {
+    <span class="s">"date"</span>: today,
+    <span class="s">"base"</span>: <span class="s">"dolphin-2.9-llama-3-8b"</span>,
+    <span class="s">"quant"</span>: <span class="s">"q4_k_m"</span>,
+    <span class="s">"adapter"</span>: artifact_id,
+    <span class="s">"eval_score"</span>: 0.73,
+    <span class="s">"verdict"</span>: <span class="s">"kept"</span>,
+}</code></pre>
+
+<p>The ninth rite built a grimoire — a retrieval index over reference material. That index is an artifact too, and it deserves the same dating discipline: the chunk parameters, the embedding model, and the source corpus version all change across rebuilds, and a retrieval regression is almost always a "which version of the index was that run using" question first, then a "why did quality change" question second. The same run-log entry that records the adapter also records the grimoire version, because the served familiar is the sum of its parts and a change to any of them can shift output in ways the loss curve never reports.</p>
+
+<div class="callout">Share one run log for the whole cabinet, not one per artifact. When the eighth rite's proving habit asks "is this version better or worse than the last one," the answer lives in one place — one file that records every run's base, adapter, dataset, grimoire, and verdict.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DATES OVER HASHES FOR A PERSONAL CABINET</div>
+<p>Git commit hashes and model-registry version IDs have their place in collaborative, multi-artificer projects. For a single artificer's evolving cabinet, the date is the signal that matters: when was this cut, what came before it, and what came after. The run log is the timeline; the date-prefixed directory names are the bookmarks. Together they are enough to answer every "which version was that" question a solo maintainer actually asks.</p></div>
 '''
+
+[[lessons.exercises]]
+id = "s10-l01-e1"
+type = "type"
+points = 12
+code = '''import datetime
+today = datetime.date.today().isoformat()
+artifact_id = f"adapters/{today}_rank-16_lr-2e-4"
+log_entry = {
+    "date": today,
+    "base": "dolphin-2.9-llama-3-8b",
+    "quant": "q4_k_m",
+    "adapter": artifact_id,
+    "eval_score": 0.73,
+    "verdict": "kept",
+}'''
+
+[[lessons.exercises]]
+id = "s10-l01-e2"
+type = "mc"
+points = 20
+prompt = "Per this rite, why does the artificer keep a single <code>RUNS.md</code> log file instead of trying to remember which training run used which adapter?"
+choices = [
+  "The log file doubles as a training config file — the SFTTrainer reads RUNS.md directly to reconstruct the exact hyperparameters for a re-run",
+  "No artificer remembers six months later which of three adapters with similar loss curves actually sounded most like them on a specific prompt — the run log records the verdict, the config, and the evaluation score together, so the answer is in one place",
+  "RUNS.md is a required file Ollama reads at serve time to determine which adapter to load — without it, ollama create refuses to build the Modelfile",
+  "The log is primarily for debugging GPU-memory errors — it records the exact VRAM usage per run so the memory-budget section's formulas can be validated after the fact",
+]
+answer = 1
+whyWrong = "RUNS.md is a plain Markdown file the artificer maintains, never consumed by SFTTrainer (which reads its own TrainingArguments JSON), Ollama (which reads only the Modelfile and GGUF metadata), or any automated VRAM-accounting tool. Its real value is human: a single timeline that answers 'which run was that' without relying on memory, six months and a dozen adapter versions later."
+explain = "The lesson's second habit names the run log explicitly as the antidote to 'I'll remember what I did' — the same discipline the eighth rite's proving habit (measure before trusting) applies to artifact history, not just output quality."
+hint = "The lesson warns that 'no artificer remembers six months later which of three adapters with similar loss curves was actually the one that sounded most like them.' The run log is a memory aid, not a config file consumed by any training or serving tool."
+
+[[lessons.exercises]]
+id = "s10-l01-e3"
+type = "text"
+points = 18
+prompt = "Per this rite, what four families of goods inhabit the cabinet that this rite's date-prefixed naming discipline must cover?"
+answer = "datasets, adapters, evaluation prompts, and Modelfiles"
+accept = ["datasets, adapters, eval prompts, modelfiles", "datasets adapters evaluation prompts modelfiles"]
+hint = "They're named in the lesson's very first sentence — the four kinds of artifacts the cabinet holds, all of which can change across training runs."
+
+[[lessons.exercises]]
+id = "s10-l01-e4"
+type = "fill"
+points = 20
+prompt = "Fill the missing identifying information in this run-log entry — the pieces the lesson says every entry must record about a training run."
+code = '''log_entry = {
+    "date": "2025-06-15",
+    "base": "dolphin-2.9-llama-3-8b",
+    "quant": "q4_k_m",
+    "adapter": "adapters/2025-06-15_rank-16_lr-2e-4",
+    "eval_score": ____,
+    "verdict": ____,
+}'''
+answer = "0.73 and kept"
+accept = ["0.73, kept", "0.73 and kept"]
+hint = "The lesson's worked log entry fills those two fields with a float evaluation score (0.73) and a one-word verdict ('kept')."
+
+[[lessons.exercises]]
+id = "s10-l01-e5"
+type = "write"
+points = 35
+prompt = "Given the config data below, build a log-entry dict with keys <code>date, base, quant, adapter, eval_score, verdict</code>, serialize it with <code>json.dumps(entry)</code>, and print the JSON line. Use the given <code>run_date</code> for the date, and build <code>adapter</code> as <code>f\"adapters/{run_date}_rank-{rank}_lr-{lr}\"</code> with the rank and lr values from the config. Print exactly the JSON for this one run — compute the adapter path from the variables, don't hardcode the directory name."
+starter = '''import json
+
+config = {"base": "nous-hermes-2-llama-3-8b", "quant": "q4_k_m", "rank": 16, "lr": "2e-4"}
+eval_score = 0.81
+verdict = "kept"
+run_date = "2025-07-08"   # the dated cabinet directory this run writes to
+
+# Build adapter path from run_date, rank, and lr.
+# Build the full log entry dict and json.dumps it.
+print("{}")
+'''
+expect = '''{"date": "2025-07-08", "base": "nous-hermes-2-llama-3-8b", "quant": "q4_k_m", "adapter": "adapters/2025-07-08_rank-16_lr-2e-4", "eval_score": 0.81, "verdict": "kept"}'''
+hint = "Build adapter = f\"adapters/{run_date}_rank-{config['rank']}_lr-{config['lr']}\". Then entry = {'date': run_date, 'base': config['base'], 'quant': config['quant'], 'adapter': adapter, 'eval_score': eval_score, 'verdict': verdict}. print(json.dumps(entry))."

@@ -1,0 +1,112 @@
+[[lessons]]
+id = "s09-l05"
+title = "RAG & Wards in the Bottle"
+body = '''
+<p>The Modelfile's SYSTEM prompt is the instruction half of the homunculus's serving-time behavior. The retrieval pipeline the ninth rite's grimoire chapter built — embeddings, FAISS index, chunked reference documents — is the context half. They meet at serving time: the retrieval script runs first, returning relevant context from the reference corpus, and that context is injected into the prompt before the homunculus generates its answer. This lesson teaches the integration point — where the grimoire's output enters the vessel's prompt — and why the placement of that context determines whether the model actually grounds its answers in the reference material.</p>
+
+<p>The integration follows a two-stage pattern. <strong>Stage one: retrieval.</strong> The retrieval script the ninth rite built — the one that chunks the style-reference corpus, embeds document fragments with sentence-transformers, indexes them in FAISS, and returns the top-k most relevant chunks for a given query — runs independently before each generation. Its output is a block of text: the retrieved reference passages, labeled with their source document ids, formatted for insertion into a prompt. The script is the same artifact the grimoire chapter's final lab produced; this lesson does not rebuild it, it wires its output into the serving pipeline.</p>
+
+<p><strong>Stage two: prompt assembly.</strong> The retrieved context block is inserted directly into the prompt token sequence — between the system prompt and the user query, in the ChatML format the sixth rite's template lesson established. The full serving-time prompt: <code>&lt;|im_start|&gt;system\n{system prompt}\n\nReference material:\n{retrieved context}&lt;|im_end|&gt;\n&lt;|im_start|&gt;user\n{user query}&lt;|im_end|&gt;\n&lt;|im_start|&gt;assistant\n</code>. The context sits between the system message and the user query for the same reason the system prompt sits at the very beginning of the sequence: the tenth rite's second lesson established that early tokens have the longest reach through the attention layers. Placing the context early — after the role framing but before the question — means every subsequent token the model generates attends to the reference passages. This is a hard constraint, not a soft instruction: the context tokens are physically present in the prompt, so attention to them is compulsory, not probabilistic. The SYSTEM prompt's grounding instruction ("When reference material is provided, ground your answers in it") is the soft complement — it biases the model toward using the context, but the physical presence of the context in the prompt is what makes that bias effective.</p>
+
+<p>Compare the alternative: omitting the context from the prompt and relying solely on the SYSTEM prompt to instruct the model to "consult the grimoire." The model cannot consult anything — it has no access to the FAISS index, no ability to run the retrieval script, no vector store to query. A SYSTEM prompt that says "When reference material is provided" is a promise the prompt must keep: the reference material must arrive in the prompt token sequence before the model begins generating. The ninth rite introduced this pattern as "retrieve-then-generate"; this lesson is the fulfillment: the grimoire's retrieval output is serialized as text and concatenated into the prompt the Ollama TEMPLATE builds. The Modelfile does not change — the TEMPLATE still wraps the system prompt and user query in ChatML — but the serving script wraps the user query with the retrieved context before calling Ollama. The integration lives in the serving script, not the Modelfile; the Modelfile provides the format, the script provides the content.</p>
+
+<p>The artificer should verify the integration before claiming the homunculus is finished. Test with a query whose answer is explicitly in the reference corpus — for example, "What font size should body text use according to the reference?" — and confirm that the model's answer cites the specific value from the reference passages (e.g., "16px") rather than generating a plausible-sounding but ungrounded number. A model that answers "probably 14px to 18px" when the reference says "16px" is not using the context — the context is present in the prompt but the model is ignoring it. The remedy is not a stronger SYSTEM prompt (the model already ignored it) but a review of the retrieval quality: if the top-k chunks are not relevant to the query, the model correctly ignores irrelevant context and generates from its own knowledge instead. The grimoire's precision@k metric — the ninth rite's final lesson drilled its computation — is the diagnostic: fix retrieval before blaming generation.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CONTEXT WINDOW BUDGET — DON'T FILL THE BOTTLE PAST THE RIM</div>
+<p>The retrieved context competes with the system prompt and user query for space in the model's context window — the fifth rite's KV-cache math lesson established that a 7–8B model with a typical 8192-token context window at q4_k_m quantization leaves roughly 7000 tokens for the prompt and response combined after the KV cache is allocated. A system prompt of ~150 tokens, a retrieved context block of ~500 tokens (the top-3 chunks from a typical style-reference corpus), and a user query of ~50 tokens consume ~700 tokens of the prompt budget — leaving ~6300 tokens for the model's response. This is ample for formatting advice. But a reference corpus with long documents can produce context blocks that fill the window: if the retrieval returns a 4000-token passage for every query, the model has only ~3000 tokens for its response, and long multi-turn conversations will exceed the context limit. The ninth rite's chunk-size lesson chose 256-token chunks for this reason — short enough that the top-3 chunks never exceed ~800 tokens total, long enough that each chunk captures a complete formatting rule. The grimoire's chunking discipline and the vessel's context budget are the same equation viewed from opposite ends.</p></div>
+'''
+body_words = 530
+
+[[lessons.readings]]
+label = "Ollama API — programmatic chat completions with context injection"
+url = "https://github.com/ollama/ollama/blob/main/docs/api.md"
+
+[[lessons.readings]]
+label = "RAG integration patterns — prompt construction for retrieval-augmented generation"
+url = "https://www.promptingguide.ai/techniques/rag"
+
+[[lessons.exercises]]
+id = "s09-l05-e1"
+type = "mc"
+points = 20
+prompt = "Per this rite, why is injecting retrieved RAG context directly into the prompt token sequence (between the system message and user query) more reliable than relying solely on a SYSTEM prompt instruction like 'consult the provided reference material'?"
+choices = [
+  "Direct injection forces the model to attend to the context tokens because they are physically present in the input — the attention mechanism processes every input token, and the model cannot ignore evidence that is literally in its prompt. A SYSTEM prompt instruction is a soft constraint: the model may follow it on most queries but ignore it on some, producing ungrounded answers when the instruction fails — the same hard-vs-soft distinction the tenth rite taught between weight modifications (permanent) and prompt instructions (probabilistic)",
+  "Direct injection enables KV-cache reuse — the context tokens are computed once and cached across multiple queries to the same reference corpus, reducing inference latency by 40–60%, while a SYSTEM prompt instruction requires re-tokenizing and re-computing the context for every query",
+  "Direct injection avoids tokenization-related context loss — when context is placed in the SYSTEM prompt as free text, the tokenizer may split reference citations at word boundaries, making the cited values unrecognizable to the attention heads, while direct injection places context tokens immediately before the user query where the tokenizer processes them as a contiguous block",
+  "Direct injection enables multi-turn retrieval — the retrieval script can be called between conversation turns to update the context as the topic changes, while a SYSTEM prompt instruction is fixed at conversation start and cannot respond to topic shifts mid-conversation"
+]
+answer = 0
+whyWrong = "KV-cache reuse is not specific to direct injection — both approaches (injection and SYSTEM-prompt-only) build a prompt with context tokens; the KV-cache behavior is identical because the token sequence is what matters, not how it was constructed. Tokenization does not make context 'unrecognizable' — the tokenizer represents all text faithfully regardless of position; the attention heads process token embeddings, not word boundaries, and context placed in the SYSTEM prompt is processed identically to context placed elsewhere in the sequence. And multi-turn retrieval is available in both patterns — the retrieval script can run before every generation regardless of where the context is placed. The correct answer: hard constraint (physical presence in the prompt) vs. soft constraint (instruction to use context) — the same distinction the tenth rite's ward-control lesson established."
+hint = "The lesson says 'the context tokens are physically present in the prompt, so attention to them is compulsory, not probabilistic,' while 'a SYSTEM prompt instruction is the soft complement.' The correct choice identifies the reliability gap between physically present tokens (attention is mandatory) and instructional prompts (attention is probabilistic)."
+explain = "This is the same hard-constraint-vs-soft-constraint framework the tenth rite established for weight modifications vs. system prompts. A weight modification (merge, abliteration) changes what the model can do — it's a structural change. A prompt instruction changes what the model is asked to do — it's a suggestion. Directly injected context tokens are closer to the structural end: they are input, not instruction, and the model processes input deterministically. A system prompt that says 'use the reference material' without actually providing reference material in the prompt is an instruction without the evidence the instruction refers to — a recipe without ingredients."
+
+[[lessons.exercises]]
+id = "s09-l05-e2"
+type = "text"
+points = 18
+prompt = "Per this rite, what are the two stages of the RAG integration pipeline — the one the grimoire chapter built (embeddings, FAISS, retrieval) and the one this lesson teaches (concatenating the retrieval output into the ChatML prompt before generation)?"
+answer = "retrieval and prompt assembly"
+accept = ["retrieval and prompt assembly", "retrieval, prompt assembly", "retrieval then prompt assembly", "stage one retrieval and stage two prompt assembly", "stage 1 retrieval and stage 2 prompt assembly", "stage one: retrieval; stage two: prompt assembly", "retrieval stage and prompt assembly stage"]
+hint = "The lesson names them: 'Stage one: retrieval. The retrieval script the ninth rite built runs independently.' 'Stage two: prompt assembly. The retrieved context block is inserted directly into the prompt token sequence.'"
+
+[[lessons.exercises]]
+id = "s09-l05-e3"
+type = "fill"
+points = 20
+prompt = "Fill the missing serving-time prompt component — the block that sits between the system message and user query in the ChatML format, carrying the retrieved reference passages the grimoire's FAISS search returned."
+code = '''def build_serving_prompt(system_prompt, query, retrieved_context):
+    """Assemble the ChatML prompt with RAG context."""
+    prompt = "<|im_start|>system\\n"
+    prompt += f"{system_prompt}\\n\\n"
+    prompt += "____\\n"
+    prompt += f"{retrieved_context}<|im_end|>\\n"
+    prompt += f"<|im_start|>user\\n{query}<|im_end|>\\n"
+    prompt += "<|im_start|>assistant\\n"
+    return prompt'''
+answer = "Reference material:"
+accept = ["Reference material:", "reference material:", "Reference material"]
+hint = "The lesson shows the prompt structure as '<|im_start|>system\\n{system prompt}\\n\\nReference material:\\n{retrieved context}<|im_end|>.' The label 'Reference material:' precedes the retrieved context in the prompt — it signals to the model that the following text is external evidence to ground its answer in."
+
+[[lessons.exercises]]
+id = "s09-l05-e4"
+type = "mc"
+points = 20
+prompt = "Per this rite, if the homunculus answers 'probably 14px to 18px' when the reference passage explicitly states 'Use 16px for body text,' what is the most likely root cause — and why should the artificer check retrieval quality before blaming the model or the system prompt?"
+choices = [
+  "The root cause is likely that the top-k retrieved chunks are not relevant to the query — the FAISS index returned passages about headings or color palettes instead of the body-text passage, so the model correctly ignored irrelevant context and generated from its general knowledge. Retrieval quality (measured by precision@k, the metric the ninth rite's final lesson taught) is upstream of generation quality — if the wrong context is injected, no prompting strategy can make the model produce a correct grounded answer",
+  "The root cause is likely a tokenizer mismatch between the retrieval embedding model (e.g., all-MiniLM-L6-v2) and the generation model (Llama-3.1-8B) — the two tokenizers produce different token sequences for the same text, causing the context to be embedded in the prompt using tokens the generation model cannot parse, effectively making the context invisible",
+  "The root cause is likely the SYSTEM prompt's grounding instruction being too weak — the phrase 'ground your answers in it' is too vague, and the model interprets 'it' as referring to its own training data rather than the provided context. A stronger instruction like 'you MUST cite the exact value from the reference material' would force the model to use the context on every query",
+  "The root cause is likely that the serving script is placing the context AFTER the user query in the token sequence — the model generates its answer before attending to the context tokens, so the context arrives too late to influence the generation and is effectively ignored"
+]
+answer = 0
+whyWrong = "Tokenizer mismatch between the embedding model and generation model is not a cause of context invisibility — the context is tokenized by the generation model's tokenizer when it enters the prompt, not the embedding model's tokenizer; the embedding model only runs during retrieval (to compute similarity scores), and the retrieved text is tokenized fresh by the generation model at serving time. While a stronger SYSTEM prompt might help in some cases, it cannot compensate for irrelevant context — the model correctly ignores unrelated passages, and no amount of instruction-following can make it ground an answer in text that doesn't contain the answer. And context placement after the user query is explicitly not the pattern this lesson describes — the lesson states context goes between system and user. The correct answer: retrieval quality (precision@k) is the upstream diagnostic — fix the search before blaming the generation."
+hint = "The lesson says 'if the top-k chunks are not relevant to the query, the model correctly ignores irrelevant context and generates from its own knowledge instead. The grimoire's precision@k metric is the diagnostic: fix retrieval before blaming generation.' The correct choice identifies relevance failure as the root cause and precision@k as the measurement."
+explain = "This is the upstream-diagnosis habit the eighth rite drilled: when a system's output is wrong, measure the quality of each upstream component before adjusting the downstream ones. In the RAG pipeline, the components are retrieval quality (does FAISS return relevant passages?) → context placement (is the context in the right position in the prompt?) → generation quality (does the model use the context?). Most RAG failures are retrieval failures — the model is doing its job (generating plausible text from its input), but its input is wrong. The precision@k metric the ninth rite taught computes exactly this: what fraction of the top-k retrieved chunks are relevant to the query. A precision@k below 0.5 means retrieval is the bottleneck."
+
+[[lessons.exercises]]
+id = "s09-l05-e5"
+type = "write"
+points = 33
+prompt = "Build the serving-time prompt. Given <code>system = \"You are a Notion style assistant.\"</code>, <code>context = \"REF: Use 16px for body text and 24px for headings.\"</code>, and <code>query = \"How should I format my notes?\"</code>, print the complete ChatML prompt with the context block injected between the system message and user query. Use the format from the lesson — compute from the variables, don't hardcode the entire prompt as a single string literal."
+starter = '''system = "You are a Notion style assistant."
+context = "REF: Use 16px for body text and 24px for headings."
+query = "How should I format my notes?"
+
+# Build the ChatML prompt with context injection:
+# <|im_start|>system\n{system}\n\nReference material:\n{context}<|im_end|>
+# <|im_start|>user\n{query}<|im_end|>
+# <|im_start|>assistant\n
+
+print("")
+'''
+expect = '''<|im_start|>system
+You are a Notion style assistant.
+
+Reference material:
+REF: Use 16px for body text and 24px for headings.<|im_end|>
+<|im_start|>user
+How should I format my notes?<|im_end|>
+<|im_start|>assistant
+'''
+hint = "Build the system block: f'<|im_start|>system\\n{system}\\n\\nReference material:\\n{context}<|im_end|>'. Build the user block: f'<|im_start|>user\\n{query}<|im_end|>'. Add the assistant prompt: '<|im_start|>assistant\\n'. Concatenate with newlines and print. Note that the context is placed between the system message and user query — early enough in the prompt to maximize attention influence."

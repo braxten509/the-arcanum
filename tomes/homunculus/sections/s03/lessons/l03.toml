@@ -30,6 +30,7 @@ choices = [
 answer = 0
 whyWrong = "Context length very much affects memory, not just speed; weights are never re-quantized based on conversation length; and the KV cache exists during plain inference too, not only training — a long chat session alone can run a card out of room."
 explain = "The KV cache formula scales directly with seq_len, so every additional token processed adds a fixed amount of VRAM that stays allocated for the life of the conversation — a real, growing cost distinct from the fixed weight size."
+hint = "The lesson opens with the claim 'The KV cache is not fixed; it grows with every token you feed the model.' The KV cache formula multiplies by seq_len — so longer conversation = more tokens = larger cache = more VRAM. The other choices claim context length has no memory cost, which contradicts the entire lesson."
 
 [[lessons.exercises]]
 id = "s03-l03-e2"
@@ -45,6 +46,7 @@ choices = [
 answer = 1
 whyWrong = "It's not a typo — the two head counts are legitimately allowed to differ; all 32 attention heads still run at inference; and the KV head count has no relationship to the quantization bit-width, which is an entirely separate axis covered in the last rite."
 explain = "GQA lets multiple attention heads share a KV head, so a 32/8 split means each KV head serves 4 attention heads — directly shrinking the KV-cache formula's n_kv_heads term without touching n_layers or head_dim."
+hint = "The lesson says 'Several attention heads share one KV head instead of every head keeping its own private key/value pair. A model with 32 attention heads might expose only 8 KV heads — a 4x reduction in cache size.' The word 'share' is the core: grouped = multiple attention heads per KV head, which directly reduces the n_kv_heads term in the cache formula."
 
 [[lessons.exercises]]
 id = "s03-l03-e3"
@@ -75,7 +77,7 @@ head_dim = 128
 seq_len = 4096
 bytes_per_element = 2
 
-# TODO: compute kv_bytes with the formula from the lesson, convert to MB,
+# Implement: compute kv_bytes with the formula from the lesson, convert to MB,
 # round to the nearest whole number, then print:
 #   KV 537 MB
 kv_mb = 0

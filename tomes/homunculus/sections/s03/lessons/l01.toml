@@ -3,6 +3,7 @@ id = "s03-l01"
 title = "How Much Vessel Is Left"
 body = '''
 <p>The last section proved a vessel would wake and answer. This one starts with a harder question: how much of your 16 GB card is actually free once a real model sits in it? The GPU will not negotiate. Overshoot and you get an out-of-memory crash, not a polite warning — so the memory budget has to be worked out on paper before you load anything, not discovered by trial and error.</p>
+<div class="callout"><strong>Fresh off Chapters I-II?</strong> This whole rite is arithmetic — multiply, add, and print — which you already have. Two small new tools appear in the exercises, so meet them here first: <code>sum(d.values())</code> adds up all the numbers stored in a dict, and an f-string can round a number for display with <code>f"{x:.1f}"</code> — that prints <code>7</code> as <code>7.0</code>, one digit after the point. Every calculation below is one of those two tricks wrapped around a multiplication.</div>
 <p>Start with the biggest single number: the weights themselves. A model's size on disk (and in VRAM, roughly) is <strong>parameter count times bytes per parameter</strong>. Full precision (<code>fp32</code>) spends 4 bytes per weight; half precision (<code>fp16</code>/<code>bf16</code>, the usual default) spends 2; 8-bit spends 1; 4-bit spends 0.5. An 8-billion-parameter model at <code>fp16</code> is <code>8,000,000,000 &times; 2</code> bytes — 16 GB, the <em>entire</em> card, before a single token of context or a single byte of training state is loaded. That number alone is why quantization is not an optional optimization on this hardware; it is the price of entry.</p>
 <pre><code><span class="k">params_b</span> = 7        <span class="c">// billions of parameters</span>
 <span class="k">bytes_per_param</span> = 1  <span class="c">// int8</span>
@@ -36,6 +37,7 @@ choices = [
 answer = 2
 whyWrong = "fp16 spends 2 full bytes per weight, not a fraction of one — it is half precision relative to fp32, not a compression scheme, so 8B params at 2 bytes each lands at the full 16 GB the lesson works out, not a smaller fraction of the card."
 explain = "8,000,000,000 params × 2 bytes = 16,000,000,000 bytes ≈ 16 GB — the exact number the lesson uses to show why quantization isn't optional on this card."
+hint = "The lesson works out the math: params_b × bytes_per_param directly. 8 billion × 2 is not 4, not 8, and certainly not under 1 — run the multiplication and the result is the entire 16 GB card, which is exactly why the lesson says quantization is 'not an optional optimization' on this hardware."
 
 [[lessons.exercises]]
 id = "s03-l01-e3"
@@ -65,7 +67,7 @@ prompt = "Given <code>params_b = 7</code> (billions) and <code>bytes_per_param =
 starter = '''params_b = 7
 bytes_per_param = 1
 
-# TODO: compute size_gb = params_b * bytes_per_param, then print:
+# Implement: compute size_gb = params_b * bytes_per_param, then print:
 #   WEIGHTS 7.0 GB
 size_gb = 0
 print(f"WEIGHTS {size_gb} GB")

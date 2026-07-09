@@ -1,0 +1,137 @@
+[[lessons]]
+id = "s07-l05"
+title = "The End-to-End Grimoire"
+body = '''
+<p>Four rites assembled the retrieval pipeline in isolation — the embedding, the chunker, the index, and the formatting ritual. This final rite of the grimoire chapter connects them into a single end-to-end script and teaches the artificer to measure whether it works. The script has one job: accept a list of reference texts and a query, return the top-k most relevant chunks with their similarity scores. The homunculus will later call this script before every generation — the retrieval step that fetches evidence from the reference shelf and feeds it into the prompt template the preceding rite built. The script is a function, not a notebook — the same one-job-per-tool discipline the third rite's toolchain lesson drilled and every subsequent rite reaffirmed.</p>
+
+<p>The complete retrieval function stitches together six operations the previous four rites taught independently: load the embedding model (rite one), chunk the reference texts by token count (rite two), embed every chunk into a 384-dimensional vector and normalize to unit length (rite one), stack the vectors into a 2D float32 matrix (rite three), build an IndexFlatIP with the correct dimensionality and add the matrix (rite three), embed the query, normalize it, reshape to (1, dim), and search for the top-k neighbors (rite three), and finally format the retrieved chunks with their scores for human inspection (rite four). The whole function compresses to roughly 25 lines of Python — less than any single lesson in this chapter — because every operation it calls is a well-defined library API the artificer already understands.</p>
+
+<pre><code><span class="k">def</span> <span class="nf">retrieve</span>(reference_texts, query, model, tokenizer, k=<span class="k">3</span>):
+    <span class="s">"""Chunk, embed, index, and search — the complete retrieval pass."""</span>
+    <span class="c"># 1. Chunk every reference text:</span>
+    chunks = []
+    <span class="k">for</span> text <span class="k">in</span> reference_texts:
+        chunks.extend(chunk_text(text, tokenizer))
+
+    <span class="c"># 2. Embed all chunks + normalize to unit length:</span>
+    vecs = np.array([model.encode(c) <span class="k">for</span> c <span class="k">in</span> chunks], dtype=np.float32)
+    norms = np.linalg.norm(vecs, axis=<span class="k">1</span>, keepdims=<span class="k">True</span>)
+    vecs /= norms                       <span class="c"># normalize in-place</span>
+
+    <span class="c"># 3. Build the FAISS index:</span>
+    index = faiss.IndexFlatIP(vecs.shape[<span class="k">1</span>])
+    index.add(vecs)
+
+    <span class="c"># 4. Embed the query + normalize:</span>
+    q_vec = model.encode(query).astype(np.float32)
+    q_vec /= np.linalg.norm(q_vec)
+    q_vec = q_vec.reshape(<span class="k">1</span>, -1)
+
+    <span class="c"># 5. Search and return:</span>
+    scores, ids = index.search(q_vec, k)
+    <span class="k">return</span> [(chunks[i], scores[<span class="k">0</span>][j]) <span class="k">for</span> j, i <span class="k">in</span> <span class="nb">enumerate</span>(ids[<span class="k">0</span>])]</code></pre>
+
+<p>The retrieval quality is measured with the same rigor the proving rite applied to the binding. <strong>Precision@k</strong> is the fraction of the top-k retrieved chunks that are actually relevant to the query — if k=3 and two of the three chunks contain useful reference material, precision@3 = 2/3 ≈ 0.67. <strong>Recall@k</strong> asks a softer question: of all the relevant chunks in the reference corpus, how many were found in the top-k? A single relevant chunk that appears at position 15 — outside the top-3 — produces recall@3 = 0, even though the chunk is in the index and would have been found at k=15. For the homunculus's reference shelf — a curated set of style guides where every chunk is relevant to some question — precision is the more important metric: the model reads only the top-k chunks, so every irrelevant chunk in the result set wastes context tokens and risks distracting the answer. The artificer should aim for precision@3 ≥ 0.7 on a set of 5–10 known-good test queries — a retrieval pipeline that consistently returns two useful chunks out of three is working well enough to ground answers.</p>
+
+<p>The reference shelf itself must grow beyond the artificer's own notes to fulfill the grimoire's charge: grounding answers in <strong>external style references</strong> — the online style guides, documentation pages, and typographic convention references the artificer admires but did not write. Fetching these references requires a straightforward web request (the <code>requests</code> library or a manual copy-paste of the relevant pages into plain-text files), followed by the same chunk → embed → index pipeline the retrieval function already runs on local notes. The only difference is provenance: a chunk from an external source should carry a URL in its metadata so the homunculus — and the artificer reading the answer — can trace every claim back to its origin. The sealing rite (the ninth chapter) will wire this retrieval step into the homunculus's serving pipeline; for now, the artificer runs it as a standalone script and reads the results with human eyes — the same read-before-trusting habit the proving rite ingrained.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHEN NAIVE RAG FAILS — THE THREE SILENT BREAKAGES</div>
+<p>An end-to-end retrieval pipeline that appears to work on the first query can fail silently on the next three — and the failures are not random, they are diagnostic of specific problems. <strong>Wrong chunk size</strong>: a query about a specific CSS property retrieves a chunk that mentions the property in passing but never explains it — the chunk is too large, and the property's name was diluted by the surrounding text. <strong>Wrong embedding model</strong>: a query about "typographic hierarchy" retrieves chunks about Python class hierarchies — the embedding model is general-purpose and does not understand the domain-specific meaning of "hierarchy" in a typography context; a domain-adapted embedder or a larger model with better semantic resolution is the fix. <strong>Index contamination</strong>: the reference corpus contains near-duplicate chunks (the same style rule appears in three different guides), and all three fill the top-3 — crowding out the actually-different chunks that might contain the answer. The sixth rite's curation discipline applies again: deduplicate the reference corpus before embedding, or the retrieval pipeline will tell the homunculus the same thing three times and miss the one new thing it needed.</p></div>
+'''
+body_words = 560
+
+[[lessons.readings]]
+label = "Evaluating RAG pipelines — precision, recall, and beyond"
+url = "https://docs.ragas.io/"
+
+[[lessons.exercises]]
+id = "s07-l05-e1"
+type = "mc"
+points = 20
+prompt = "Per this rite, what is Precision@3 in the context of RAG retrieval evaluation?"
+choices = [
+  "The average cosine similarity of the top 3 chunks — precision measures how close the vectors are to the query vector, not whether the chunks are actually relevant",
+  "The fraction of the top-3 retrieved chunks that are actually relevant to the query — if k=3 and two chunks contain useful reference material, precision@3 = 2/3 ≈ 0.67; it measures how efficiently the retrieval pipeline uses the context tokens the model will read",
+  "The number of queries for which at least one of the top-3 chunks was relevant — a binary pass/fail metric that counts the retrieval pipeline as succeeding for a query if any of its top-3 results is on-target",
+  "The fraction of the reference corpus that the top-3 chunks represent — if the corpus has 200 chunks and k=3, precision@3 = 3/200 = 1.5%, which measures how selective the retrieval pipeline is"
+]
+answer = 1
+whyWrong = "Precision@k is an information-retrieval metric, not a vector-distance metric (FAISS similarity scores measure vector closeness, not relevance), not a binary query-level pass/fail (that would be a 'success rate' or 'hit rate'), and not a fraction-of-corpus measure (that's coverage, not precision). Precision@k asks: of the k chunks the system retrieved, how many are actually relevant? It's a signal-to-noise measure for the context the model receives — a Precision@3 of 1.0 means every context token is useful; a score of 0.33 means two out of three chunks are noise."
+hint = "The lesson says precision@3 is 'the fraction of the top-k retrieved chunks that are actually relevant to the query' and gives the example 'k=3 and two of the three chunks contain useful reference material, precision@3 = 2/3 ≈ 0.67.' The correct choice defines it as a fraction of relevant chunks in the retrieved set."
+explain = "Precision and recall are the standard information-retrieval metrics. Precision = relevant_retrieved / total_retrieved — it measures purity: are the results on-topic? Recall = relevant_retrieved / total_relevant_in_corpus — it measures coverage: did the system find everything relevant? For RAG, precision is the more critical metric because the model's context window is limited: every irrelevant chunk is a wasted token that could have been a useful chunk. The lesson's target (precision@3 ≥ 0.7) means roughly two out of three retrieved chunks should be useful."
+
+[[lessons.exercises]]
+id = "s07-l05-e2"
+type = "text"
+points = 18
+prompt = "Per this rite, what are the three common silent failure modes of a naive RAG retrieval pipeline — the diagnostic problems the FIELD NOTES section names that cause a pipeline to appear correct on one query but fail on the next?"
+answer = "wrong chunk size, wrong embedding model, and index contamination"
+accept = ["wrong chunk size, wrong embedding model, and index contamination", "wrong chunk size, wrong embedding model, index contamination", "chunk size, embedding model, and index contamination", "wrong chunk size, wrong model, index contamination", "wrong chunk size, wrong embedder, index contamination"]
+hint = "The FIELD NOTES section names three failure modes explicitly: 'Wrong chunk size: a query about a specific CSS property retrieves a chunk that mentions the property in passing,' 'Wrong embedding model: a query about typographic hierarchy retrieves chunks about Python class hierarchies,' and 'Index contamination: the reference corpus contains near-duplicate chunks.'"
+
+[[lessons.exercises]]
+id = "s07-l05-e3"
+type = "mc"
+points = 20
+prompt = "Per this rite, what condition in the reference corpus causes index contamination — the failure mode where the top-3 retrieved chunks all say effectively the same thing?"
+choices = [
+  "The reference corpus contains near-duplicate chunks — the same style rule appearing in multiple sources creates multiple embeddings with near-identical vectors, which crowd the top-k and displace the actually-different relevant chunks; the fix is corpus deduplication before embedding",
+  "The FAISS index has accumulated floating-point rounding errors across multiple add() calls — each addition to the index introduces a small numerical drift that eventually causes the nearest-neighbor search to return random chunks",
+  "The embedding model has been fine-tuned on the reference corpus — the model overfits to the specific vocabulary of the reference texts, causing all chunk embeddings to collapse toward the same region of the vector space",
+  "The chunk overlap parameter is set too high — chunks with 50% or greater overlap produce vectors so similar that the FAISS index cannot distinguish them, returning all overlapping variants as the top-k"
+]
+answer = 0
+whyWrong = "FAISS exact indexes have no floating-point accumulation error (they search by direct computation, not incremental updates), the embedding model is pre-trained and not fine-tuned on the corpus, and high overlap does produce similar vectors but not to the point of indistinguishability — the index can still rank them by small score differences. The real cause is corpus duplication: the same content appears in multiple chunks (from different sources or from overlapping sections of the same source), and the vector for each copy is nearly identical, so they cluster at the top of every relevant search. Deduplication — checking for chunks with cosine similarity > 0.95 and keeping only one — solves it."
+explain = "Index contamination is a data problem, not a numerical one. When one rule appears in three guides, its three chunks embed to near-identical vectors, so a query that matches one matches all three — and they fill the whole top-k, crowding out the different chunk that held the real answer. FAISS is ranking correctly; the fix is upstream: deduplicate near-identical chunks (cosine > 0.95) before they ever enter the index."
+hint = "The lesson's FIELD NOTES says 'the reference corpus contains near-duplicate chunks (the same style rule appears in three different guides), and all three fill the top-3 — crowding out the actually-different chunks that might contain the answer.' The correct choice identifies near-duplicate chunks as the contamination source and deduplication as the fix."
+
+[[lessons.exercises]]
+id = "s07-l05-e4"
+type = "fill"
+points = 20
+prompt = "Fill the missing FAISS search parameter in the end-to-end retrieval function — the argument that controls how many nearest neighbors the index returns, which the lesson sets to a default of 3."
+code = '''def retrieve(reference_texts, query, model, tokenizer, k=3):
+    chunks = []
+    for text in reference_texts:
+        chunks.extend(chunk_text(text, tokenizer))
+
+    vecs = np.array([model.encode(c) for c in chunks], dtype=np.float32)
+    norms = np.linalg.norm(vecs, axis=1, keepdims=True)
+    vecs /= norms
+
+    index = faiss.IndexFlatIP(vecs.shape[1])
+    index.add(vecs)
+
+    q_vec = model.encode(query).astype(np.float32)
+    q_vec /= np.linalg.norm(q_vec)
+    q_vec = q_vec.reshape(1, -1)
+
+    scores, ids = index.search(q_vec, ____)
+    return [(chunks[i], scores[0][j]) for j, i in enumerate(ids[0])]'''
+answer = "k"
+accept = ["k"]
+hint = "The function signature is `def retrieve(reference_texts, query, model, tokenizer, k=3)`. The parameter `k` controls the number of nearest neighbors returned by `index.search(q_vec, k)`. It appears as the second argument to search — the same `k` from the function's parameter list."
+
+[[lessons.exercises]]
+id = "s07-l05-e5"
+type = "write"
+points = 35
+prompt = "Implement a retrieval evaluation: given <code>retrieved = [\"Use 16px font for body.\", \"Line-height should be 1.5.\", \"The color palette uses #333.\"]</code> (top-3 retrieved chunks) and <code>relevant = [\"Use 16px font for body.\", \"Color: #333 text, #007acc links.\"]</code> (actually-relevant chunks), compute and print <code>PRECISION &lt;v&gt;</code> where <code>&lt;v&gt;</code> is the fraction of retrieved chunks that appear in relevant (exact string match), rounded to 2 decimal places."
+starter = '''retrieved = [
+    "Use 16px font for body.",
+    "Line-height should be 1.5.",
+    "The color palette uses #333.",
+]
+relevant = [
+    "Use 16px font for body.",
+    "Color: #333 text, #007acc links.",
+]
+
+# Count how many of the retrieved chunks appear in the relevant set
+# precision = count / len(retrieved)
+# Print PRECISION <value> rounded to 2 decimal places
+
+print("PRECISION 0.00")
+'''
+expect = "PRECISION 0.33"
+hint = "Loop over retrieved chunks: if chunk in relevant, count += 1. precision = count / len(retrieved) = 1 / 3 ≈ 0.3333. Print f'PRECISION {precision:.2f}'. Only 'Use 16px font for body.' matches exactly — the color chunk in retrieved says '#333' while the relevant chunk says '#333 text, #007acc links', so they don't match."

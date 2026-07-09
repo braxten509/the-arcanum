@@ -1,0 +1,105 @@
+[[lessons]]
+id = "s11-l06"
+title = "Naming a Rite"
+body = '''
+<p>You have already <em>called</em> functions — <code>print(...)</code>, <code>len(...)</code>, <code>int(...)</code>. Now you learn to <em>write</em> your own: to name a small piece of work once and invoke it by name wherever you need it. In this cabinet a function is a rite — a bound procedure you can perform on demand.</p>
+<pre><code>def adapter_path(base, rank):
+    return f"adapters/{base}_rank-{rank}"
+
+print(adapter_path("qwen2.5", 8))   # adapters/qwen2.5_rank-8
+print(adapter_path("llama3", 16))   # adapters/llama3_rank-16</code></pre>
+<p>Four parts to read here:</p>
+<ul>
+<li><code>def</code> begins the definition, followed by the rite's name.</li>
+<li><code>(base, rank)</code> are the <strong>parameters</strong> — named slots the caller fills in.</li>
+<li>The colon and indented block are the body, exactly like an <code>if</code>.</li>
+<li><code>return</code> hands a value back to whoever called the rite.</li>
+</ul>
+<p>Defining a function does not run its body — it only teaches the machine the rite. The body runs each time you <em>call</em> it, and each call may pass different <strong>arguments</strong> into the parameters. Above, the one definition serves both a rank-8 and a rank-16 path.</p>
+<h3>return versus print</h3>
+<p>This is the distinction beginners most often blur. <code>print</code> writes text to the terminal and is gone. <code>return</code> hands a value back so the caller can keep working with it — store it, pass it on, compare it. A function that computes should <code>return</code>; only the outermost, human-facing line should <code>print</code>.</p>
+<pre><code>def fits(vram_gb):
+    return vram_gb &gt;= 6          # hands back True or False
+
+if fits(16):                     # the returned value feeds the decision
+    print("load it")</code></pre>
+<div class="callout">A function with no <code>return</code> hands back the special value <code>None</code> — Python's word for "nothing here." If you <code>print</code> inside a function but forget to <code>return</code>, the caller gets <code>None</code>, and a later <code>None</code> where a path or number was expected is a classic crash two steps downstream.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY THE WHOLE COURSE IS FUNCTIONS</div>
+<p>Every real training script is a handful of named rites — build the dataset, load the model, wrap it in an adapter, run one training step — each a function you call in order. Learn to see a wall of code as a short list of well-named rites and the later chapters stop being intimidating: you are only ever reading one small rite at a time.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python tutorial — Defining functions"
+url = "https://docs.python.org/3/tutorial/controlflow.html#defining-functions"
+essential = true
+
+[[lessons.readings]]
+label = "More on defining functions (arguments, return)"
+url = "https://docs.python.org/3/tutorial/controlflow.html#more-on-defining-functions"
+
+[[lessons.exercises]]
+id = "s11-l06-e1"
+type = "type"
+points = 12
+prompt = "Retype the header line that begins the definition of a rite named <code>fits</code> taking one parameter <code>vram_gb</code>. (Include the colon.)"
+code = "def fits(vram_gb):"
+
+[[lessons.exercises]]
+id = "s11-l06-e2"
+type = "mc"
+points = 22
+prompt = "What is the difference between <code>return x</code> and <code>print(x)</code> inside a function?"
+choices = [
+  "Nothing — they both show the value to the caller",
+  "<code>return</code> hands the value back so the caller can use it; <code>print</code> only writes text to the terminal and gives the caller nothing",
+  "<code>print</code> is faster, so it replaces <code>return</code> in real code",
+  "<code>return</code> can only hand back numbers, <code>print</code> only strings",
+]
+answer = 1
+whyWrong = "Printing and returning are not interchangeable. <code>print</code> is a side effect — ink on the terminal — and the caller receives nothing usable. <code>return</code> passes a value back into the program so the next line can act on it."
+explain = "A function that computes a result should <code>return</code> it; the caller can then store it, compare it, or pass it onward. <code>print</code> merely displays and hands back <code>None</code>. Blurring the two is why a value 'vanishes' — it was printed, never returned."
+hint = "Ask which one lets the calling code KEEP the value and do more with it, versus which one just shows it and forgets it."
+
+[[lessons.exercises]]
+id = "s11-l06-e3"
+type = "mc"
+points = 18
+prompt = "You write <code>def greet(name):</code> with a body, but the file prints nothing when run. Why?"
+choices = [
+  "Defining a function does not run its body — you must also CALL it, e.g. <code>greet(\"artificer\")</code>",
+  "Functions cannot contain <code>print</code>",
+  "The parameter must be a number",
+  "You need to write <code>def</code> twice",
+]
+answer = 0
+whyWrong = "A <code>def</code> only teaches the rite; it does not perform it. Nothing in the body runs until the function is called by name with parentheses."
+explain = "Definition and call are separate. <code>def greet(name):</code> stores the rite; <code>greet(\"artificer\")</code> performs it. Without a call, the body never executes and the file appears to do nothing."
+hint = "The lesson stresses that defining is not running. What second step actually performs the rite?"
+
+[[lessons.exercises]]
+id = "s11-l06-e4"
+type = "write"
+points = 32
+prompt = "Define a function <code>adapter_path(base, rank)</code> that RETURNS the string <code>adapters/&lt;base&gt;_rank-&lt;rank&gt;</code> built with an f-string, then print the result of calling it with <code>\"qwen2.5\"</code> and <code>8</code>. Output must be exactly <code>adapters/qwen2.5_rank-8</code>."
+starter = '''def adapter_path(base, rank):
+    # return the path, built with an f-string
+    return
+
+# call it and print what comes back
+'''
+expect = "adapters/qwen2.5_rank-8"
+hint = "Body: <code>return f\"adapters/{base}_rank-{rank}\"</code>. Then at the margin: <code>print(adapter_path(\"qwen2.5\", 8))</code> — print what the call hands back."
+
+[[lessons.exercises]]
+id = "s11-l06-e5"
+type = "write"
+points = 34
+prompt = "Define <code>fits(vram_gb)</code> that RETURNS whether <code>vram_gb</code> is at least 6 (a True/False value, not a print). Then use it in an <code>if</code>: if <code>fits(16)</code>, print <code>load it</code>. The output must be exactly <code>load it</code>."
+starter = '''def fits(vram_gb):
+    # return the True/False result of the comparison
+    return
+
+# use the returned value as the condition of an if
+'''
+expect = "load it"
+hint = "Body: <code>return vram_gb &gt;= 6</code>. Then <code>if fits(16):</code> and an indented <code>print(\"load it\")</code>. The function hands back True, so the branch runs."

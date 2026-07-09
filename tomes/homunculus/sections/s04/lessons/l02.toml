@@ -3,7 +3,7 @@ id = "s04-l02"
 title = "The Shape of Quintessence"
 body = '''
 <p>The last rite gathered raw <code>.md</code> files and filtered for length. Those files are still just prose on a page — a model cannot be trained on them directly. The vessel expects its quintessence in a specific vessel-shape, not as loose text, and the most universal shape in local-training tooling is <strong>JSONL</strong>: one complete JSON object per line, no trailing commas, no outer array bracket, just a clean newline-delimited stream a parser can read one record at a time without loading the entire file into memory.</p>
-<p>Two shapes dominate. The <strong>instruction</strong> shape is a flat triple: <code>{"instruction": "…", "input": "", "output": "…"}</code>, where <code>input</code> is empty for a plain prompt and holds extra context (a paragraph to summarize, a snippet to explain) when the task needs it. The <strong>chat</strong> shape is a <code>messages</code> list of <code>{"role": "…", "content": "…"}</code> dicts, typically alternating user/assistant, optionally led by a system message. The binding rite ahead uses TRL's <code>SFTTrainer</code>, which can accept a Hugging Face <code>Dataset</code> from a JSONL file in either shape — but the chat shape is the one that aligns directly with the chat template the vessel speaks, so it is the shape this fourth rite commits to.</p>
+<p>Two shapes dominate. The <strong>instruction</strong> shape is a flat triple: <code>{"instruction": "…", "input": "", "output": "…"}</code>, where <code>input</code> is empty for a plain prompt and holds extra context (a paragraph to summarize, a snippet to explain) when the task needs it. The <strong>chat</strong> shape is a <code>messages</code> list of <code>{"role": "…", "content": "…"}</code> dicts, typically alternating user/assistant, optionally led by a system message. The binding rite ahead uses TRL's <code>SFTTrainer</code>, which can accept a Hugging Face <code>Dataset</code> from a JSONL file in either shape — but the chat shape is the one that aligns directly with the chat template the vessel speaks, so it is the shape this sixth rite commits to.</p>
 <pre><code><span class="k">import</span> json
 record = {
     <span class="s">"messages"</span>: [
@@ -12,7 +12,7 @@ record = {
     ]
 }
 <span class="k">print</span>(json.dumps(record, ensure_ascii=<span class="k">False</span>))</code></pre>
-<p><code>json.dumps</code> with <code>ensure_ascii=False</code> keeps your actual Unicode notes intact — curly quotes, em-dashes, the stray é in a loan-word. The call to the summoning rite's template vocabulary is deliberate: the second rite taught you to read a model card's <strong>chat template</strong> field, and that is the exact same template the role names in these messages records must match. A record written with <code>"role": "human"</code> heading for a model that expects <code>"role": "user"</code> gets the template wrong before the first token ever reaches training — there will be a whole rite on exactly this hazard ahead.</p>
+<p><code>json.dumps</code> with <code>ensure_ascii=False</code> keeps your actual Unicode notes intact — curly quotes, em-dashes, the stray é in a loan-word. The call to the summoning rite's template vocabulary is deliberate: the fourth rite taught you to read a model card's <strong>chat template</strong> field, and that is the exact same template the role names in these messages records must match. A record written with <code>"role": "human"</code> heading for a model that expects <code>"role": "user"</code> gets the template wrong before the first token ever reaches training — there will be a whole rite on exactly this hazard ahead.</p>
 <div class="callout">JSONL is not the only format a training run can ingest — Parquet, Arrow, and direct Hugging Face Dataset constructions all work — but JSONL is the one a human can read, write, and debug by hand with a text editor, which makes it the right format for a first personal dataset where every record counts.</div>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // json.dumps vs json.dump — THE LINE AND THE FILE</div>
 <p><code>json.dumps</code> returns a string; <code>json.dump</code> writes directly to a file object. When you are assembling JSONL, <code>json.dumps</code> is the one you want, because you control the newline that follows it: open the output file once, then inside a loop write <code>f.write(json.dumps(record, ensure_ascii=False) + "\n")</code> for each record. Calling <code>json.dump</code> inside the loop is an easy, silent error — it writes valid JSON, but as one concatenated blob with no newline separators, which every JSONL parser will choke on.</p></div>
@@ -27,12 +27,12 @@ choices = [
   "JSONL automatically infers the correct loss-masking pattern without any additional work",
   "Markdown files are illegal input to every machine-learning library, while JSONL is the only format any trainer can open",
   "JSONL compresses the notes to a smaller file size than Markdown, which matters for GPU memory",
-  "JSONL separates records by newlines so a parser can stream one record at a time without loading the whole file, and the structured role/content shape feeds directly into the chat template the second rite already taught you to read on a model card",
+  "JSONL separates records by newlines so a parser can stream one record at a time without loading the whole file, and the structured role/content shape feeds directly into the chat template the fourth rite already taught you to read on a model card",
 ]
 answer = 3
 whyWrong = "Markdown is not universally rejected by ML tooling (many pipelines do consume raw text), JSONL is not inherently smaller than Markdown, and it certainly does not auto-infer loss masks — its real advantage is the combination of line-by-line streaming and the structured role/content shape that aligns with the model's expected chat template."
 hint = "The correct answer names both advantages: streaming (one line at a time) and structure (role/content pairs that plug into the chat template) — the other three choices each claim something about JSONL that isn't true (illegal Markdown, compression, auto-masking)."
-explain = "JSONL's newline-delimited structure means a parser reads one record at a time — no loading the whole file, no fragile outer brackets — and the messages shape maps directly to the chat template format the vessel was trained on, which the second rite's model-card lesson specifically taught the artificer to identify."
+explain = "JSONL's newline-delimited structure means a parser reads one record at a time — no loading the whole file, no fragile outer brackets — and the messages shape maps directly to the chat template format the vessel was trained on, which the fourth rite's model-card lesson specifically taught the artificer to identify."
 
 [[lessons.exercises]]
 id = "s04-l02-e2"
@@ -78,7 +78,7 @@ starter = '''import json
 user_text = "explain why we set the LoRA rank at 16, not 64"
 assistant_text = "rank 16 adds ~0.2% of the base model's parameter count as trainable weights. rank 64 would quadruple that for a negligible quality gain on a small personal dataset — the binding rite's first rule is 'the smallest rank that still sounds like you.'"
 
-# TODO: build a record dict with a "messages" list — two dicts,
+# Implement: build a record dict with a "messages" list — two dicts,
 # the first with role "user" and content = user_text,
 # the second with role "assistant" and content = assistant_text.
 # Then json.dumps it with ensure_ascii=False and print the line.

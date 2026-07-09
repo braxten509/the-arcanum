@@ -2,7 +2,7 @@
 id = "s04-l05"
 title = "The Curation Pass"
 body = '''
-<p>Three rites built the vessel-shape: JSONL records, the chat template, and the loss mask. What still sits in those records is whatever the first rite's extraction grabbed — raw, unfiltered, including material a model should never see. This final pre-bind rite is the <strong>curation pass</strong>: check every record for quality, for duplication, and for secrets, because a fine-tune amplifies whatever you feed it, and bad data survives the bind far longer than you expect.</p>
+<p>Three rites built the vessel-shape: JSONL records, the chat template, and the loss mask. What still sits in those records is whatever the third rite's extraction grabbed — raw, unfiltered, including material a model should never see. This final pre-bind rite is the <strong>curation pass</strong>: check every record for quality, for duplication, and for secrets, because a fine-tune amplifies whatever you feed it, and bad data survives the bind far longer than you expect.</p>
 <p>The pass runs three checks, in order, and none may be skipped. First, <strong>deduplication</strong>: near-identical records waste the adapter's limited capacity on repeated patterns the model already saw. A Jaccard similarity (size of token overlap divided by size of token union) above roughly 0.8 on the assistant's text alone catches most duplicates without a full embedding pipeline. Second, <strong>PII removal</strong>: email addresses (<code>[\w.+-]+@[\w-]+\.[a-z]{2,}</code>), API keys (long runs of base64-like characters), phone patterns, and anything that looks credential-shaped must be stripped or the entire record discarded — the vessel is a talking machine, not a vault, and once a secret is in the weights, no prompt or system-message ward can reliably pull it back out.</p>
 <pre><code><span class="k">import</span> re
 PIIS = {
@@ -15,7 +15,7 @@ PIIS = {
 <p>Third, <strong>assistant-response quality</strong>: a record whose assistant turn is one word ("Yes."), a bare URL with no explanation, or a direct copy of the user's own phrasing teaches almost nothing — the bind sees a low-effort pattern and learns to produce low-effort responses. A minimum assistant word count of roughly 15–20 words per record is a reasonable gate for a personal dataset where the goal is to capture how you actually explain things, not to mimic a FAQ entry. The three checks together are the reconnaissance habit the binding rite depends on: every record that passes them is worth training on, and everything that fails is removed before the binder ever sees it, the same way the memory-budget rite's final check kept bad base-model choices from reaching a real training run.</p>
 <div class="callout">A dataset passes validation and still fails curation — validation checks that the JSONL parses and the template matches; curation checks that the <em>content</em> is worth training on. The former is a machine check; the latter requires the artificer to actually read what they're about to bake into the vessel's weights.</div>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // CURATION AS A SEPARATE TOOL, NOT A TRAINING FLAG</div>
-<p>The first rite's discipline — one job per tool — applies here with extra force. Write a standalone <code>curate.py</code> script that reads a raw JSONL, applies all three checks, and writes a cleaned JSONL, entirely separate from the training script. This keeps the binder focused on the bind and the curator focused on the content, and it means you can iterate on curation (tighten the Jaccard threshold, add a new PII pattern) without re-running the entire binding pipeline. The toolchain rite's lesson that the whole pipeline is a chain of single-purpose tools, not one monolithic script, earns its keep hardest right here — a curation step buried inside a training loop gets skipped when the run is urgent, and the cost of that skip is bad data baked into the finished familiar.</p></div>
+<p>The third rite's discipline — one job per tool — applies here with extra force. Write a standalone <code>curate.py</code> script that reads a raw JSONL, applies all three checks, and writes a cleaned JSONL, entirely separate from the training script. This keeps the binder focused on the bind and the curator focused on the content, and it means you can iterate on curation (tighten the Jaccard threshold, add a new PII pattern) without re-running the entire binding pipeline. The toolchain rite's lesson that the whole pipeline is a chain of single-purpose tools, not one monolithic script, earns its keep hardest right here — a curation step buried inside a training loop gets skipped when the run is urgent, and the cost of that skip is bad data baked into the finished familiar.</p></div>
 '''
 
 [[lessons.exercises]]
@@ -80,7 +80,7 @@ prompt = "Given <code>samples</code> (a list of ints — assistant word counts f
 starter = '''samples = [3, 42, 18, 7, 156, 11, 29, 1]
 min_words = 15
 
-# TODO: count how many entries in samples are >= min_words.
+# Implement: count how many entries in samples are >= min_words.
 # Print: KEPT <kept>/<total>
 print("KEPT 0/8")
 '''
