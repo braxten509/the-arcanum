@@ -98,4 +98,14 @@ type = "write"
 points = 36
 prompt = "Build the machinery yourself once: write <code>static void AssertEqual(int expected, int actual)</code> that throws <code>new Exception($\"expected {expected} got {actual}\")</code> on mismatch. Run two passing assertions (2+2==4, 10/2==5), then print <code>2 passed</code>."
 expect = "2 passed"
+solution = '''
+AssertEqual(4, 2 + 2);
+AssertEqual(5, 10 / 2);
+Console.WriteLine("2 passed");
+
+static void AssertEqual(int expected, int actual)
+{
+    if (expected != actual) throw new Exception($"expected {expected} got {actual}");
+}
+'''
 hint = "Two calls that don't throw, then one WriteLine. Congratulations, you've written 10% of xUnit."

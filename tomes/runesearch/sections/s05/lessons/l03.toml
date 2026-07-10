@@ -1,0 +1,84 @@
+# Lesson s05-l03 manifest
+[[lessons]]
+id = '''s05-l03'''
+title = '''Parsing the Scroll'''
+body = '''<p>To extract information from logs, a scribe must parse text. Rust's string types provide a rich set of methods for searching, splitting, and trimming strings. These methods typically return slices, avoiding memory allocation.</p>
+<p>The <code>split</code> method splits a string slice on a delimiter and returns an iterator over the parts. The <code>trim</code> method removes leading and trailing whitespace. We can chain these operations to clean up dirty log lines:</p>
+<pre><code>let raw_line = "  INFO: user_logout  \n";
+let clean_line = raw_line.trim();
+let mut parts = clean_line.split(": ");
+let level = parts.next(); // Some("INFO")
+let message = parts.next(); // Some("user_logout")</code></pre>
+<p>We can also search within strings using methods like <code>contains</code> or <code>starts_with</code>. These search operations run efficiently on the raw byte representations of the text, ensuring our log parser remains fast.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // INDEXING WARNING</div>
+<p>Rust does not allow indexing a <code>String</code> directly using a single integer (e.g., <code>s[0]</code>). This is because UTF-8 characters can be variable-width (1 to 4 bytes), so indexing in constant time is not guaranteed.</p></div>
+<p>String methods split, trim, and search text. Scribes use these tools to parse raw logs, separating levels and messages without copying strings. The methods yield slices, keeping memory overhead minimal and processing speeds high.</p>
+<p>Chaining these methods creates declarative, self-documenting parsing steps, which are easy to maintain and extend as log formats change in the library.</p>
+<p>Scribes can use methods like contains or starts_with to filter lines quickly. These operations run on byte sequences directly, ensuring high throughput during searches.</p>
+<p>The archivist expects you to clean up raw inputs. By trimming whitespace and splitting on exact delimiters, you convert unformatted logs into structured entries cleanly.</p>
+<p>Chained string processing compiles to highly optimized assembly, matching the speed of manual pointer loops while guaranteeing memory safety at all times.</p>
+<p>In addition, utilizing built-in string methods protects the parser from buffer overflow attacks. Scribes should rely on standard methods rather than writing custom pointer offsets.</p>'''
+
+[[lessons.readings]]
+label = '''String Methods'''
+url = '''https://doc.rust-lang.org/std/string/struct.String.html'''
+
+
+[[lessons.exercises]]
+id = "s05-l03-e1"
+type = "text"
+points = 20
+prompt = '''Which variable name or term belongs to parsing methods?'''
+answer = '''whitespace trim'''
+hint = '''It refers to the core element for parsing methods.'''
+whyWrong = '''Review the lesson material on parsing methods carefully.'''
+
+
+[[lessons.exercises]]
+id = "s05-l03-e2"
+type = "mc"
+points = 15
+prompt = '''Which method splits a string slice on a specified delimiter?'''
+choices = ['divide', 'split', 'separate', 'cut']
+answer = 1
+whyWrong = '''split yields an iterator over sections matching the delimiter.'''
+hint = '''Identify the valid option for parsing methods.'''
+explain = '''The split method provides clean slice segmentation without heap copies.'''
+
+
+[[lessons.exercises]]
+id = "s05-l03-e3"
+type = "fill"
+points = 20
+prompt = '''Complete the expression pattern for parsing methods.'''
+code = '''let clean = s.____(); // trim whitespace'''
+answer = '''trim'''
+hint = '''Enter the missing operator or name for parsing methods.'''
+whyWrong = '''Verify the syntax for parsing methods before proceeding.'''
+
+
+[[lessons.exercises]]
+id = "s05-l03-w1"
+type = "write"
+points = 35
+prompt = '''Clean the string `"  WARN  "` using `trim` and print it.'''
+expect = '''WARN
+'''
+solution = '''fn main() {
+    let logs_parsed = "  WARN  ";
+    println!("{}", logs_parsed.trim());
+}'''
+starter = '''fn main() {
+    let logs_parsed = "  WARN  ";
+    // trim and print
+}'''
+hint = '''Use the correct types and write the function block for parsing methods.'''
+
+
+[[lessons.exercises]]
+id = "s05-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = '''Type the given parsing methods statement exactly.'''
+code = '''let clean = s.trim();'''

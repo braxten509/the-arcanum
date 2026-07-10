@@ -7,7 +7,7 @@ body = '''
 <p>When the line carries two bold spans, the render pass should not stop after the first one. The replacement must loop across the line, and the capture group still does the same job it did before: preserve the inner words while the outer markers vanish. The old chapters taught the scribe how to read the shape. This chapter simply asks the same eyes to keep reading until the string has no more of that shape.</p>
 <p>Keep the array and hash habits from the earlier cantos in play. Arrays still hold the manuscript in order, and hashes can still count how many rewrites happened. The flag does not turn a line into a page or a page into a folder. It only makes the rewrite exhaustive for the string currently in the scribe's hand.</p>
 <pre><code><span class="k">my</span> <span class="s">$line</span> = <span class="s">"Ink **red** and **blue**"</span>;
-<span class="s">$line</span> =~ s/\*\*([^*]+)\*\*/&lt;strong&gt;<span class="s">$1</span>&lt;/strong&gt;/g;
+<span class="s">$line</span> =~ s{\*\*([^*]+)\*\*}{&lt;strong&gt;<span class="s">$1</span>&lt;/strong&gt;}g;
 <span class="k">say</span> <span class="s">$line</span>;</code></pre>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // THE GLOBAL PASS</div>
 <p><strong>Coverage note.</strong> <code>g</code> does not change the pattern; it changes how many times the pattern is allowed to fire on the same string.</p>
@@ -45,7 +45,7 @@ id = "s06-l03-e3"
 type = "fill"
 points = 22
 prompt = "<p>Restore the flag that makes the bold rewrite hit both spans in one line.</p>"
-code = 'my $line = "Ink **red** and **blue**"; $line =~ s/\*\*([^*]+)\*\*/<strong>$1</strong>/____;'
+code = 'my $line = "Ink **red** and **blue**"; $line =~ s{\*\*([^*]+)\*\*}{<strong>$1</strong>}____;'
 answer = "g"
 hint = "The blank is the repeat-pass flag from the lesson, not a new pattern."
 whyWrong = "You are leaving the rewrite to stop after the first bold span. The whole point of this pass is to keep scanning the same line."

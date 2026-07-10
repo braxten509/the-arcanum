@@ -31,6 +31,14 @@ key of the language TOML (and equally of a tome's `[runtime]` table):
 | `editorLang` | Monaco language id (any id; an id Monaco doesn't ship gets a generated tokenizer — see `[syntax]`) |
 | `language` | display name, used in grader/oracle prompts |
 | `buildTimeout` / `runTimeout` | seconds for build/scaffold and for project runs |
+| `snippetEntry` | regex: a lesson `<pre><code>` block matching it is a whole program, so §7 builds it. Absent → the language's samples are never compiled |
+| `snippetPrelude` | text prepended to such a block when its first line is missing (Odin's `package main`). Usually unset |
+| `diagIgnore` | regexes for diagnostics that are artifacts of judging a snippet alone: names the prose declared earlier, sibling modules a single-file build cannot see |
+| `snippetFragment` | regex: a block that is NOT a whole program but matches this is a code FRAGMENT — §7 wraps it in `snippetWrap` and compiles it too (failures are hard-gate WARNs, not ERRORs). Blocks matching neither regex (shell transcripts, program output, diagrams) stay unchecked. Requires `snippetWrap`; absent → fragments are never compiled |
+| `snippetWrap` | template containing `{code}`: the scratch shell a fragment is compiled inside (Odin: `"main :: proc() {\n{code}\n}"`) |
+| `snippetHoist` | regex: fragment lines lifted above the wrap before compiling (imports, package headers) |
+| `snippetFragmentSkip` | regex: fragment shapes no wrap can make judgeable (Odin: a `case` list whose `switch` header lives in the prose) — skipped outright |
+| `snippetFragmentIgnore` | extra `diagIgnore`-style regexes applied to fragments only: the cascades a forgiven undeclared name causes downstream (`invalid type` fields, ambiguous overloads on unknown-typed arguments). Whole programs never get these passes |
 
 ```toml
 # global-configs/runtimes/odin.toml — the zero-code language example
@@ -47,10 +55,45 @@ import "core:fmt"
 main :: proc() { fmt.println("hello") }
 '''
 ```
-Any command the host can run works: `["bash"]`, `["deno", "run"]`, `["lua"]`, … A
-tome may declare `command`/`runCommand` (and the other keys) directly in its own
-`[runtime]` table with **no language file at all**. Omit both `checkCommand` and
-`buildCommand` and the course simply has no editor squiggles.
+Any command the host can run works: `["bash"]`, `["deno", "run"]`, `["lua"]`, … The
+engine accepts `command`/`runCommand` (and the other keys) declared directly in a
+tome's `[runtime]` table, but a SHIPPED tome always names a language file: the
+validator hard-fails a `[runtime] name` with no `global-configs/runtimes/<name>.toml`
+(create one — it's zero code), and any runtime command whose binary isn't installed
+on the host. Keep the tome's own `[runtime]` table for tome-specific overrides. Omit
+both `checkCommand` and `buildCommand` and the course simply has no editor squiggles.
+
+### Calibrating `snippetEntry` for a new language
+
+`checkCommand` + `diagRegex` already build a file and parse the result, so the
+validator can compile the lesson's own code samples. The only per-language judgement
+is *which blocks are whole programs* and *which diagnostics don't count*. Same
+procedure every time:
+
+1. Set `snippetEntry` to a regex matching a block that stands alone — Odin needs
+   `main :: proc`, Perl accepts any statement keyword. Add `snippetPrelude` only if
+   the language demands a header the samples omit (Odin's `package main`).
+2. Run `python3 tools/validate_tome.py tomes/<a tome already known good>`.
+3. Every surviving diagnostic is either a **real bug in that tome** or an **artifact**
+   of judging a fragment alone. Fix the first; add the second to `diagIgnore`.
+4. Repeat until the known-good tome reports zero. Only then is the language calibrated.
+
+The same procedure calibrates **fragment checking** (`snippetFragment` +
+`snippetWrap`): pick a fragment regex too narrow to catch transcripts or output
+(odin uses `':=|::|\bfmt\.'`), wrap in the smallest shell that makes a statement
+list legal, and run against a known-good tome. Each surviving diagnostic is a real
+bug, an artifact to name in `snippetFragmentIgnore` (cascades from names the wrap
+forgave: `invalid type`, ambiguous overloads), or an excerpt shape no wrap fixes —
+name that in `snippetFragmentSkip`. Repeat until the known-good tome reports zero.
+
+Two rules keep this honest. **Start narrow.** Lesson bodies also put shell transcripts
+and ASCII diagrams inside `<pre><code>`, and a `snippetEntry` of "any unindented line"
+drags them in as false positives — that is why `python` and `nasm` only accept blocks
+with an obvious entry point, and why `perl` (whose blocks are always code) can accept
+any statement. **Leave it unset when in doubt.** A language with no `snippetEntry` is
+skipped silently, which is strictly better than a check nobody trusts; `java` ships
+that way on purpose, since its samples trail loose statements after a class and extend
+supertypes that live outside the file.
 
 ### `[syntax]` — highlighting for a language Monaco doesn't ship (optional)
 

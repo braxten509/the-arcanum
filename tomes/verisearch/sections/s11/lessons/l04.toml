@@ -88,4 +88,18 @@ prompt = "Fallback lab: write <code>string Primary()</code> that throws <code>ne
 expect = '''
 degraded: LLM offline
 keyword scan'''
+solution = '''
+try
+{
+    Console.WriteLine(Primary());
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"degraded: {ex.Message}");
+    Console.WriteLine(Fallback());
+}
+
+string Primary() => throw new Exception("LLM offline");
+string Fallback() => "keyword scan";
+'''
 hint = "catch (Exception ex) { WriteLine($\"degraded: {ex.Message}\"); WriteLine(Fallback()); }"

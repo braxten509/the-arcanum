@@ -47,7 +47,9 @@ hollow chapters. Re-run **Phase 7**, then send the *revised* tome back through a
 student pass. Loop until the student, having read every chapter, reports no blocking gap.
 (Under the harness this loop is EXTERNAL: each invocation does ONE review + fix round and
 writes its verdict; the harness re-runs the phase, scoped to the findings. Do not nest
-your own loop inside a harness round.)
+your own loop inside a harness round. The harness accepts only the exact one-line verdict
+`PASS`, re-runs strict validation after every revision, and exits nonzero if the review
+cap is reached without a clean pass.)
 
 → **Produce:** the student's per-chapter gap report + the revisions that answer it — a
 tome that doesn't just validate, but actually teaches the thing it promises.

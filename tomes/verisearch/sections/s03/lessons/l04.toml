@@ -97,4 +97,21 @@ points = 34
 prompt = "Declare that same <code>SourceTier</code> enum. Read a tier NAME from STDIN, <code>Enum.TryParse</code> it, and print its base score as an int via a switch expression (Standards 9, Government 9, Community 5, Unverified 2). Unparseable input prints <code>bad tier</code>."
 stdin = "Government"
 expect = "9"
+solution = '''
+string raw = Console.ReadLine() ?? "";
+if (!Enum.TryParse<SourceTier>(raw, out var tier)) Console.WriteLine("bad tier");
+else
+{
+    int score = tier switch
+    {
+        SourceTier.Standards => 9,
+        SourceTier.Government => 9,
+        SourceTier.Community => 5,
+        _ => 2
+    };
+    Console.WriteLine(score);
+}
+
+public enum SourceTier { Standards, Government, Community, Unverified }
+'''
 hint = "Enum.TryParse<SourceTier>(input, out var t) — then switch on t."

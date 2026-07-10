@@ -10,9 +10,9 @@ body = '''
     <span class="k">if</span> (<span class="s">$line</span> =~ /^#\s+(.*)$/) {
         <span class="s">$line</span> = <span class="s">"&lt;h1&gt;$1&lt;/h1&gt;"</span>;
     } <span class="k">else</span> {
-        <span class="s">$line</span> =~ s/\*\*([^*]+)\*\*/&lt;strong&gt;<span class="s">$1</span>&lt;/strong&gt;/g;
-        <span class="s">$line</span> =~ s/\*([^*]+)\*/&lt;em&gt;<span class="s">$1</span>&lt;/em&gt;/g;
-        <span class="s">$line</span> =~ s/\[([^\]]+)\]\(([^)]+)\)/&lt;a href="<span class="s">$2</span>"&gt;<span class="s">$1</span>&lt;/a&gt;/g;
+        <span class="s">$line</span> =~ s{\*\*([^*]+)\*\*}{&lt;strong&gt;<span class="s">$1</span>&lt;/strong&gt;}g;
+        <span class="s">$line</span> =~ s{\*([^*]+)\*}{&lt;em&gt;<span class="s">$1</span>&lt;/em&gt;}g;
+        <span class="s">$line</span> =~ s{\[([^\]]+)\]\(([^)]+)\)}{&lt;a href="<span class="s">$2</span>"&gt;<span class="s">$1</span>&lt;/a&gt;}g;
         <span class="s">$line</span> = <span class="s">"&lt;p&gt;$line&lt;/p&gt;"</span>;
     }
     <span class="k">say</span> <span class="s">$line</span>;
@@ -53,7 +53,7 @@ id = "s06-l05-e3"
 type = "fill"
 points = 22
 prompt = "<p>Restore the flag that makes both bold spans change in one pass.</p>"
-code = 'my $line = "Ink **red** and **blue**"; $line =~ s/\*\*([^*]+)\*\*/<strong>$1</strong>/____;'
+code = 'my $line = "Ink **red** and **blue**"; $line =~ s{\*\*([^*]+)\*\*}{<strong>$1</strong>}____;'
 answer = "g"
 hint = "The blank is the repeat-pass flag, the same one from the earlier global rewrite lesson."
 whyWrong = "You are letting the substitution stop after the first match. The chapter needs the same string scanned until no bold span remains."
@@ -72,9 +72,9 @@ for my $line (@lines) {
     if ($line =~ /^#\s+(.*)$/) {
         $line = "<h1>$1</h1>";
     } else {
-        $line =~ s/\*\*([^*]+)\*\*/<strong>$1</strong>/g;
-        $line =~ s/\*([^*]+)\*/<em>$1</em>/g;
-        $line =~ s/\[([^\]]+)\]\(([^)]+)\)/<a href="$2">$1</a>/g;
+        $line =~ s{\*\*([^*]+)\*\*}{<strong>$1</strong>}g;
+        $line =~ s{\*([^*]+)\*}{<em>$1</em>}g;
+        $line =~ s{\[([^\]]+)\]\(([^)]+)\)}{<a href="$2">$1</a>}g;
         $line = "<p>$line</p>";
     }
     say $line;

@@ -95,4 +95,14 @@ type = "write"
 points = 36
 prompt = "Real JSON round-trip: add <code>using System.Text.Json;</code> at the top. Define record <code>Result(string Url, string Title)</code>. Deserialize the string <code>{\"url\":\"ietf.org\",\"title\":\"RFC 8446\"}</code> (watch the casing!) and print <code>&lt;Title&gt; @ &lt;Url&gt;</code>."
 expect = "RFC 8446 @ ietf.org"
+solution = '''
+using System.Text.Json;
+
+string json = """{"url":"ietf.org","title":"RFC 8446"}""";
+var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+var result = JsonSerializer.Deserialize<Result>(json, options)!;
+Console.WriteLine($"{result.Title} @ {result.Url}");
+
+public record Result(string Url, string Title);
+'''
 hint = "The JSON is lowercase, the record PascalCase — you need PropertyNameCaseInsensitive = true. Escape quotes in the literal or use a raw string \"\"\"...\"\"\"."

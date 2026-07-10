@@ -1,0 +1,78 @@
+# Lesson s09-l03 manifest
+[[lessons]]
+id = '''s09-l03'''
+title = '''Aggregating the Archive'''
+body = '''<p>To report our aggregated log statistics, we must iterate over the key-value pairs stored in our hash map. We can walk through the map using a <code>for</code> loop, which yields references to the keys and values.</p>
+<p>The elements are yielded in an arbitrary order: because of the secure hashing function, the keys are not sorted. Here is how we print the aggregated counts of our log levels:</p>
+<pre><code>for (level, count) in &amp;counts {
+    println!("{}: {} occurrences", level, count);
+}</code></pre>
+<p>If you only need to iterate over the keys, you can call the <code>keys()</code> method. Similarly, the <code>values()</code> method provides an iterator over the values alone. Both yield elements efficiently without copying the map data.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // MAP CAPACITY</div>
+<p>Like vectors, you can create a hash map with a specific starting capacity using <code>HashMap::with_capacity(capacity)</code>. This avoids reallocating memory as you insert large amounts of log entries.</p></div>
+<p>Iterating over hash maps yields key-value pairs in arbitrary order. Scribes loop over references to read map data or consume the map to take ownership of elements. This is ideal for printing statistics.</p>
+<p>Since the hashing function is randomized, order is not guaranteed. If sorting is needed, scribes must collect keys into a vector and sort it.</p>
+<p>Scribes can destruct key-value tuples directly in the loop signature, assigning names to keys and values for clean prints inside loop blocks.</p>
+<p>The archivist prints summary maps at the end of runs. By iterating over error statistics, we output clear summaries of archive health to the CLI users.</p>
+<p>HashMap iteration is efficient, visiting each bucket in memory once, ensuring aggregation prints complete quickly even on large database maps.</p>
+<p>Always verify the iteration context. Using borrowed maps allows printing log summaries without consuming the map container, enabling subsequent analysis. By using references during iteration, you prevent the map from being dropped, allowing the program to perform secondary reports or save the compiled statistics to disk at the end of the run.</p>'''
+
+[[lessons.readings]]
+label = '''Iterating Over Hash Maps'''
+url = '''https://doc.rust-lang.org/book/ch08-03-hash-maps.html#hash-maps-and-ownership'''
+
+
+[[lessons.exercises]]
+id = "s09-l03-e1"
+type = "mc"
+points = 15
+prompt = '''What order does a HashMap iterate over its key-value pairs?'''
+choices = ['insertion order', 'arbitrary order', 'sorted by key', 'reverse order']
+answer = 1
+whyWrong = '''HashMap utilizes secure hashing, meaning order is randomized.'''
+hint = '''Select the option corresponding to aggregations.'''
+explain = '''Iterating keys or values yields entries in unpredictable sequences.'''
+
+
+[[lessons.exercises]]
+id = "s09-l03-e2"
+type = "fill"
+points = 20
+prompt = '''Fill in the blank for this aggregations example.'''
+code = '''for (k, v) in &____ { ... }'''
+answer = '''logs_parsed'''
+hint = '''Supply the correct name for this aggregations slot.'''
+whyWrong = '''Review the lesson text for the required aggregations value.'''
+
+
+[[lessons.exercises]]
+id = "s09-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = '''Type this line exactly to solidify your understanding of aggregations.'''
+code = '''for (k, v) in map.iter() {}'''
+
+
+[[lessons.exercises]]
+id = "s09-l03-w1"
+type = "write"
+points = 35
+prompt = '''Given HashMap `logs_parsed` containing `"k" -> 5`, loop over references and print `k: 5`.'''
+expect = '''k: 5
+'''
+solution = '''use std::collections::HashMap;
+fn main() {
+    let mut logs_parsed = HashMap::new();
+    logs_parsed.insert("k", 5);
+    for (k, v) in &logs_parsed {
+        println!("{}: {}", k, v);
+    }
+}'''
+starter = '''use std::collections::HashMap;
+fn main() {
+    let mut logs_parsed = HashMap::new();
+    logs_parsed.insert("k", 5);
+    // print logs_parsed entries
+}'''
+hint = '''Solve this aggregations challenge based on the examples.'''

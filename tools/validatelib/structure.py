@@ -3,10 +3,40 @@ and the meta/runtime/narrative/economy/shop tables."""
 import glob
 import os
 import re
+import shutil
 
 from . import (CONSUMABLE_IDS, ID_RE, META_REQUIRED, MULTI_CHARGE, PLACEHOLDER_RE,
                REPO, REQUIRED_CONSUMABLES, err, lang_config, load_toml, rel,
                runtime_resolves, warn)
+
+
+def _bare_shop_name(value):
+    return re.sub(r"\s*\(.*?\)\s*$", "", str(value or "")).strip().upper()
+
+
+def _duplicate_consumable_names():
+    """(mechanic id, normalized display name) -> sorted tome ids using it."""
+    owners = {}
+    tomes_dir = os.path.join(REPO, "tomes")
+    try:
+        tids = sorted(os.listdir(tomes_dir))
+    except OSError:
+        return {}
+    for tid in tids:
+        manifest, e = load_toml(os.path.join(tomes_dir, tid, "tome.toml"))
+        if e or not isinstance(manifest, dict):
+            continue
+        shop_path = os.path.join(tomes_dir, tid, "shop.toml")
+        shop_data, se = load_toml(shop_path) if os.path.isfile(shop_path) else (manifest, None)
+        if se or not isinstance(shop_data, dict):
+            continue
+        for item in shop_data.get("shop", []) or []:
+            if not isinstance(item, dict) or item.get("kind") != "consumable":
+                continue
+            key = (item.get("id"), _bare_shop_name(item.get("name")))
+            if key[0] and key[1]:
+                owners.setdefault(key, set()).add(tid)
+    return {key: sorted(tids) for key, tids in owners.items() if len(tids) > 1}
 
 
 def check_layout(tome_path, m):
@@ -150,10 +180,29 @@ def check_runtime(m, tome_id, label):
     if not ID_RE.fullmatch(str(name)):
         err(label, f"[runtime] name {name!r} must match [A-Za-z0-9_-]+")
     merged = {**lang_config(name), **rt}
-    has_cmd = bool(merged.get("command") or merged.get("runCommand"))
-    if not runtime_resolves(name) and not has_cmd:
-        err(label, f"[runtime] name {name!r} has no global-configs/runtimes/{name}.toml "
-                   "and the tome sets neither command nor runCommand — nothing can run")
+    if not runtime_resolves(name):
+        err(label, f"[runtime] name {name!r} has no global-configs/runtimes/{name}.toml — "
+                   "every tome ships on a NAMED runtime file, so the language is reusable "
+                   "and reviewable. CREATE that file now (zero code — command, checkCommand, "
+                   "diagRegex, starterCode…; read tome-authoring/5-runtimes.md and copy the "
+                   "shape of any existing global-configs/runtimes/*.toml), keeping only "
+                   "tome-specific tweaks in this table")
+    if not (merged.get("command") or merged.get("runCommand")):
+        err(label, f"[runtime] {name!r} sets neither command nor runCommand — nothing can run")
+    # The named toolchain must exist on THIS host: a runtime whose binary isn't installed
+    # validates green and then every lab run dies in front of the student.
+    extra = os.pathsep.join(os.path.expanduser(p) for p in
+                            ("~/.local/bin", "~/.cargo/bin", "/usr/local/bin", "/usr/bin"))
+    seen = set()
+    for key in ("command", "runCommand", "buildCommand", "checkCommand", "scaffoldCommand"):
+        v = merged.get(key)
+        exe = v[0] if isinstance(v, list) and v and isinstance(v[0], str) else None
+        if not exe or exe in seen or "{" in exe:
+            continue
+        seen.add(exe)
+        if not shutil.which(exe, path=os.environ.get("PATH", "") + os.pathsep + extra):
+            err(label, f"[runtime] {key} runs {exe!r} but it is not installed on this host — "
+                       "install the toolchain or point the runtime file at one that exists")
     if "workspaceDir" in rt:
         warn(label, "[runtime] workspaceDir is removed — a tome never hardwires the "
                     "project location. Use externalWorkspace = true to REQUIRE external "
@@ -202,14 +251,13 @@ def check_shop(m, theme_ids, earned_granted, label):
         err(label, f"[[shop]] is missing required power-up(s): {sorted(missing)} — every tome stocks "
                    "the five engine consumables (firewall/x2/skip/vpn/xray), each reflavored to its "
                    "world (oracle is an optional 6th)")
+    duplicate_names = _duplicate_consumable_names()
+    current_tid = str((m.get("meta", {}) or {}).get("id") or "?")
     for cid in sorted(REQUIRED_CONSUMABLES & set(consumables)):
         it = consumables[cid]
         for field in ("name", "desc"):
             if not str(it.get(field, "")).strip():
                 err(label, f"[[shop]] power-up {cid!r}: {field} is required — reflavor it to this tome's world")
-        cost = it.get("cost")
-        if not isinstance(cost, (int, float)) or isinstance(cost, bool) or cost <= 0:
-            err(label, f"[[shop]] power-up {cid!r}: cost must be a positive number (its price in credits)")
         if not str(it.get("ico", "")).strip():
             err(label, f"[[shop]] power-up {cid!r}: ico is required — pick an icon id for the shop tile")
         if cid == "x2" and "charges" in it:
@@ -219,6 +267,13 @@ def check_shop(m, theme_ids, earned_granted, label):
             if not isinstance(ch, int) or isinstance(ch, bool) or ch < 2:
                 warn(label, f"[[shop]] power-up {cid!r}: set charges to 2+ — a one-charge ward barely "
                             "helps (reference tomes run firewall=5, vpn=3)")
+        bare = _bare_shop_name(it.get("name"))
+        owners = duplicate_names.get((cid, bare))
+        if owners:
+            others = [tid for tid in owners if tid != current_tid]
+            warn(label, f"[[shop]] power-up {cid!r} reuses the name {bare!r} across tomes "
+                        f"{owners} — the mechanic repeats, but each course needs its own in-world "
+                        f"name. Reflavor it here or in {others}.")
     for item in m.get("shop", []):
         if not isinstance(item, dict):
             err(label, "[[shop]] entries must be tables")
@@ -227,6 +282,10 @@ def check_shop(m, theme_ids, earned_granted, label):
         kind = item.get("kind")
         if not iid:
             err(label, "[[shop]] item is missing id")
+        cost = item.get("cost")
+        if not isinstance(cost, (int, float)) or isinstance(cost, bool) or cost <= 0:
+            err(label, f"[[shop]] {iid!r}: cost must be a positive number — the engine's "
+                       "spend() subtracts it raw, and a missing cost corrupts the purse to NaN")
         if kind not in ("consumable", "theme"):
             warn(label, f"[[shop]] {iid!r}: kind should be \"consumable\" or \"theme\"")
         if kind == "consumable" and iid not in CONSUMABLE_IDS:

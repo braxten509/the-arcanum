@@ -1,0 +1,92 @@
+# Lesson s04-l04 manifest
+[[lessons]]
+id = '''s04-l04'''
+title = '''Enums with Payload'''
+body = '''<p>Rust enums are far more powerful than their counterparts in other languages. We can associate data directly with each enum variant. This allows us to store different types and amounts of data inside different variants of the same enum.</p>
+<p>Consider an enum representing log messages, where some variants carry simple string slices, others carry detailed status codes, and some carry no data at all. We define them by putting the payload type in parentheses after the variant name:</p>
+<pre><code>enum LogEvent {
+    Start,
+    Payload(String),
+    Failure(u32),
+}</code></pre>
+<p>To instantiate an enum variant that has associated data, we pass the data inside parentheses. This design allows us to group varying data formats under a single type, which makes routing and processing logical events clean and structured.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // VARIANT TYPES</div>
+<p>The data associated with an enum variant can be of any type, including primitives, structs, tuples, or even other enums. This is the primary building block for modeling complex domain states in Rust.</p></div>
+<p>Enums with payloads associate data directly with variants. Scribes use them to store different attributes in different event types, grouping them under a single type. This keeps event routing clean and avoids using unsafe union structures.</p>
+<p>By wrapping status codes or messages in enum payloads, you create self-contained events that can be routed and processed efficiently in the search pipeline.</p>
+<p>Scribes can define struct payloads for complex variants, keeping attributes named and typed. This extends enums to act as algebraic data types, providing excellent flexibility.</p>
+<p>The archivist uses algebraic enums to represent parse events. When an error event occurs, the variant carries the file line number and description, simplifying error reporting for CLI users.</p>
+<p>This design combines event identification and event data into a single, type-safe entity, ensuring that data is only accessed when the variant type is verified.</p>
+<p>Always verify the layout of your enum variants. By placing related details directly in the payload, you eliminate external mapping tables and keep state lookups fast.</p>'''
+
+[[lessons.readings]]
+label = '''Associated Enum Data'''
+url = '''https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html#enum-values'''
+
+
+[[lessons.exercises]]
+id = "s04-l04-e1"
+type = "text"
+points = 20
+prompt = '''Which variable name or term belongs to associated enum data?'''
+answer = '''variant payload'''
+hint = '''It refers to the core element for associated enum data.'''
+whyWrong = '''Review the lesson material on associated enum data carefully.'''
+
+
+[[lessons.exercises]]
+id = "s04-l04-e2"
+type = "mc"
+points = 15
+prompt = '''Which feature allows storing custom payloads within enum variants?'''
+choices = ['struct definitions', 'associated data', 'generic types', 'variant pointers']
+answer = 1
+whyWrong = '''Associated data links parameter lists directly to specific variants.'''
+hint = '''Identify the valid option for associated enum data.'''
+explain = '''Rust allows variants to function as functions capturing payloads directly.'''
+
+
+[[lessons.exercises]]
+id = "s04-l04-e3"
+type = "fill"
+points = 20
+prompt = '''Complete the expression pattern for associated enum data.'''
+code = '''enum E { Val(____) }'''
+answer = '''i32'''
+hint = '''Enter the missing operator or name for associated enum data.'''
+whyWrong = '''Verify the syntax for associated enum data before proceeding.'''
+
+
+[[lessons.exercises]]
+id = "s04-l04-w1"
+type = "write"
+points = 35
+prompt = '''Define an enum `Msg` with variant `Code(i32)`. Create an instance with value `200` and pattern match to print `Code: 200`.'''
+expect = '''Code: 200
+'''
+solution = '''enum Msg {
+    Code(i32),
+}
+fn main() {
+    let logs_parsed = Msg::Code(200);
+    match logs_parsed {
+        Msg::Code(val) => println!("Code: {}", val),
+    }
+}'''
+starter = '''enum Msg {
+    Code(i32),
+}
+fn main() {
+    let logs_parsed = Msg::Code(200);
+    // match and print
+}'''
+hint = '''Use the correct types and write the function block for associated enum data.'''
+
+
+[[lessons.exercises]]
+id = "s04-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = '''Type the given associated enum data statement exactly.'''
+code = '''let item = Event::Data(5);'''

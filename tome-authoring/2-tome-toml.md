@@ -284,8 +284,16 @@ int b = 6;
 // print exactly:  KEY <a times b>   (compute it, don't hardcode)
 '''
 expect = "KEY 42"               # exact required stdout (single- or multiline)
+solution = '''
+int a = 7;
+int b = 6;
+// … the full working program. Never shown to the student; the validator RUNS it
+// and errors if its output is not `expect` — proof the challenge is winnable.
+'''
 ```
 Author 4–6 hex tiers spanning the whole course; each tier's challenges must be
 solvable with ONLY the concepts taught by chapter `min`. Briefs are one sentence
 of fiction + the starter comments state the exact required output. **Always demand
 computed values, never hardcodable ones** (the starter's variables force it).
+Every challenge carries a `solution` (§3's write-lab rule) so the validator can
+prove its `expect` is achievable.

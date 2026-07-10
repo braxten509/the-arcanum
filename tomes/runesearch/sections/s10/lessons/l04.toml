@@ -1,0 +1,113 @@
+# Lesson s10-l04 manifest
+[[lessons]]
+id = '''s10-l04'''
+title = '''Sealing the Engine'''
+body = '''<p>We seal our CLI engine by linking arguments, file operations, and searching within the main entry point. We also handle any failures gracefully, ensuring the tool terminates with appropriate exit codes.</p>
+<p>To exit a process with a specific code, we use <code>std::process::exit</code>. A code of 0 signals success, while non-zero codes indicate errors. Let us look at the assembled main function structure:</p>
+<pre><code>use std::env;
+use std::fs;
+use std::process;
+
+fn run_search(log_data: &amp;str, pattern: &amp;str) {
+    for line in log_data.lines() {
+        if line.contains(pattern) {
+            println!("{}", line);
+        }
+    }
+}
+
+fn main() {
+    let args: Vec&lt;String&gt; = env::args().collect();
+    if args.len() &lt; 3 {
+        eprintln!("Error: missing arguments");
+        process::exit(1);
+    }
+    let contents = fs::read_to_string(&amp;args[1]).unwrap_or_else(|err| {
+        eprintln!("Error reading file: {}", err);
+        process::exit(1);
+    });
+    run_search(&amp;contents, &amp;args[2]);
+}</code></pre>
+<p>Your Runesearch CLI engine is complete, scribe. The compilation completes, and the unyielding borrow checker is satisfied. You have built a memory-safe, fast, and robust tool.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // STANDARD ERROR</div>
+<p>Notice the use of <code>eprintln!</code> instead of <code>println!</code>. This macro prints to the standard error stream (stderr) rather than standard output (stdout), allowing users to redirect log results while still seeing error alerts.</p></div>
+<p>Sealing the CLI engine links arguments, file reading, and searching. Scribes use std::process::exit to return status codes, signaling success or failure. This clean integration completes the search program.</p>
+<p>Using standard streams like stdout for matches and stderr for errors allows users to redirect outputs, integrating the tool into command chains.</p>
+<p>Scribes should package initialization steps into separate modules, keeping the main function focused on routing and error reporting loops.</p>
+<p>The archivist celebrates the complete tool. By satisfying the compiler and borrow checkers, you deliver a stable, safe search CLI that secures the library.</p>
+<p>Your search utility represents the unyielding principles of the scriptorium: fast, memory-safe, and robust under all database queries and user configurations.</p>
+<p>By utilizing standard exits, our search tool acts as a load-bearing block. It integrates with shell scripts and parent build harnesses correctly.</p>'''
+
+[[lessons.readings]]
+label = '''Writing a CLI Application'''
+url = '''https://doc.rust-lang.org/book/ch12-00-an-io-project.html'''
+
+
+[[lessons.exercises]]
+id = "s10-l04-e1"
+type = "mc"
+points = 15
+prompt = '''Which exit code traditionally signals a successful process termination?'''
+choices = ['1', '0', '-1', '200']
+answer = 1
+whyWrong = '''A status value of 0 indicates clean exit states across standard platforms.'''
+hint = '''Identify the variant representing process termination.'''
+explain = '''Exit code 0 guarantees command line chains parse termination states as clean.'''
+
+
+[[lessons.exercises]]
+id = "s10-l04-e2"
+type = "text"
+points = 20
+prompt = '''Identify the term for process termination.'''
+answer = '''status code exit'''
+hint = '''Refer to the method name or key element for process termination.'''
+whyWrong = '''Examine the lesson text for the required process termination method.'''
+
+
+[[lessons.exercises]]
+id = "s10-l04-e3"
+type = "fill"
+points = 20
+prompt = '''Complete this snippet to show process termination.'''
+code = '''process::____(code);'''
+answer = '''exit'''
+hint = '''Supply the token to complete the process termination pattern.'''
+whyWrong = '''Verify the spelling of the blanked item for process termination.'''
+
+
+[[lessons.exercises]]
+id = "s10-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = '''Type this snippet exactly to practice process termination.'''
+code = '''std::process::exit(0);'''
+
+
+[[lessons.exercises]]
+id = "s10-l04-e4"
+type = "fill"
+points = 20
+prompt = '''Complete the alternative blank pattern for process termination.'''
+code = '''process::____(code);'''
+answer = '''exit'''
+hint = '''Supply the token for process termination once more.'''
+whyWrong = '''Double check the syntax of the blanked item in process termination.'''
+
+
+[[lessons.exercises]]
+id = "s10-l04-w1"
+type = "write"
+points = 35
+prompt = '''Define a main structure that prints `FINISHED` before exit simulation. Mention `logs_parsed` as a comment.'''
+expect = '''FINISHED
+'''
+solution = '''fn main() {
+    // logs_parsed
+    println!("FINISHED");
+}'''
+starter = '''fn main() {
+    // print FINISHED
+}'''
+hint = '''Translate the process termination requirement into valid code.'''

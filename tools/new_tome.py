@@ -315,6 +315,11 @@ prompt = "TODO: a CONCRETE task — name the exact values and the exact required
 # '''
 expect = '''
 TODO EXACT OUTPUT'''
+# REQUIRED before shipping: a complete program that passes. Never shown to the
+# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
+# solution = '''
+# TODO
+# '''
 hint = "TODO: an exercise-specific hint."
 """
 

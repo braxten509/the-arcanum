@@ -1,0 +1,85 @@
+# Lesson s07-l01 manifest
+[[lessons]]
+id = '''s07-l01'''
+title = '''The Option of Absence'''
+body = '''<p>In many operations, a value might be missing. In older systems, absence was modeled using the dangerous concept of <code>null</code>. In Rust, we use a safer pattern: the built-in <code>Option&lt;T&gt;</code> enum, which represents a value that could be something or nothing.</p>
+<p>The <code>Option&lt;T&gt;</code> enum has two variants: <code>Some(T)</code>, which contains the value of type <code>T</code>, and <code>None</code>, which represents absence. The compiler forces us to handle the possibility of absence before accessing the value, preventing null pointer crashes:</p>
+<pre><code>let possible_id: Option&lt;u32&gt; = Some(42);
+let missing_id: Option&lt;u32&gt; = None;
+
+match possible_id {
+    Some(id) =&gt; println!("ID is: {}", id),
+    None =&gt; println!("No ID found"),
+}</code></pre>
+<p>By forcing explicit handling of the <code>None</code> case, Rust programs achieve higher reliability. We can also use methods like <code>unwrap_or</code> to provide a default value when the option is empty.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // NULL SAFETY</div>
+<p>Because Rust does not have <code>null</code>, you cannot accidentally attempt to use an absent value as if it were valid. The type system separates nullable values (<code>Option&lt;T&gt;</code>) from non-nullable ones (<code>T</code>) entirely.</p></div>
+<p>Option represents the presence or absence of a value. Scribes must handle None cases explicitly, preventing null-pointer errors. By wrapping nullable values in Option, you force safe access patterns at compilation time.</p>
+<p>Methods like unwrap_or supply defaults for missing values, while match blocks route absent fields differently, keeping the CLI tool resilient under missing data.</p>
+<p>Scribes can use Option combinators like map and and_then to transform values inside Option containers without unpacking them, keeping the code clean.</p>
+<p>The archivist rejects unhandled nullable variables. By using Option explicitly, we document which record attributes are optional, clarifying data structures.</p>
+<p>Explicit representation eliminates the classic mistake of null references, ensuring all absent values are handled at compilation.</p>
+<p>Scribes should default to Option for optional command line arguments, such as custom limit thresholds, enabling default fallbacks to be integrated easily. Option is a core primitive that teaches us to design software defensively, ensuring that every possibility of missing data is handled before code deployment.</p>'''
+
+[[lessons.readings]]
+label = '''The Option Enum'''
+url = '''https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html#the-option-enum-and-its-advantages-over-null-values'''
+
+
+[[lessons.exercises]]
+id = "s07-l01-e1"
+type = "text"
+points = 20
+prompt = '''Which variable name or term belongs to option enum?'''
+answer = '''None check'''
+hint = '''It refers to the core element for option enum.'''
+whyWrong = '''Review the lesson material on option enum carefully.'''
+
+
+[[lessons.exercises]]
+id = "s07-l01-e2"
+type = "mc"
+points = 15
+prompt = '''Why does Rust represent nullability using the Option enum?'''
+choices = ['to increase execution speed', 'to minimize file sizes', 'to enforce compile-time safety checks', 'to support dynamic types']
+answer = 2
+whyWrong = '''Explicit cases ensure scribes never forget the missing path.'''
+hint = '''Identify the valid option for option enum.'''
+explain = '''The design shifts null-reference issues into compile-time logic checks.'''
+
+
+[[lessons.exercises]]
+id = "s07-l01-e3"
+type = "fill"
+points = 20
+prompt = '''Complete the expression pattern for option enum.'''
+code = '''let opt: Option<i32> = ____(5);'''
+answer = '''Some'''
+hint = '''Enter the missing operator or name for option enum.'''
+whyWrong = '''Verify the syntax for option enum before proceeding.'''
+
+
+[[lessons.exercises]]
+id = "s07-l01-w1"
+type = "write"
+points = 35
+prompt = '''Declare an Option `logs_parsed` with value `Some(10)`. Unwrap it with a fallback of `0` and print the result.'''
+expect = '''10
+'''
+solution = '''fn main() {
+    let logs_parsed = Some(10);
+    println!("{}", logs_parsed.unwrap_or(0));
+}'''
+starter = '''fn main() {
+    // declare logs_parsed, unwrap_or, print
+}'''
+hint = '''Use the correct types and write the function block for option enum.'''
+
+
+[[lessons.exercises]]
+id = "s07-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = '''Type the given option enum statement exactly.'''
+code = '''let res = val.unwrap_or(0);'''

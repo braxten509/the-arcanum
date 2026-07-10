@@ -461,6 +461,382 @@ Console.WriteLine("HARVEST DONE");
 cuts = [3, 5, 7]
 
 [[challenge]]
+tier = 9
+title = "THE ORACLE'S BROKEN LISTS"
+starter = '''
+using System.Text.Json;
+string[] replies = { "answer [3, 900]", "no list", "[2, 2, -1]" };
+// Extract brackets when present; keep distinct indices in range 0..9.
+'''
+briefs = [
+  "Parse each reply defensively and print «REPLY <n> VALID <count>» for all three.",
+  "Append «SURVIVORS 2» and «REJECTED 3» across all parsed integers.",
+  "Append «FIRST 3» for the first surviving index, then «PARSE COMPLETE».",
+]
+solution = '''
+using System.Text.Json;
+string[] replies = { "answer [3, 900]", "no list", "[2, 2, -1]" };
+var all = new List<int>();
+int rejected = 0;
+for (int i = 0; i < replies.Length; i++)
+{
+    int left = replies[i].IndexOf('['), right = replies[i].LastIndexOf(']');
+    var raw = left >= 0 && right > left ? JsonSerializer.Deserialize<List<int>>(replies[i][left..(right + 1)])! : new List<int>();
+    var valid = raw.Where(index => index >= 0 && index < 10).Distinct().ToList();
+    rejected += raw.Count - valid.Count;
+    all.AddRange(valid);
+    Console.WriteLine($"REPLY {i + 1} VALID {valid.Count}");
+}
+Console.WriteLine($"SURVIVORS {all.Count}");
+Console.WriteLine($"REJECTED {rejected}");
+Console.WriteLine($"FIRST {all[0]}");
+Console.WriteLine("PARSE COMPLETE");
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 9
+title = "THE RELEVANCE WEIGHING"
+starter = '''
+string query = "tls handshake";
+string[] blocks = { "TLS handshake overview", "cooking notes", "handshake cipher TLS" };
+// Score by count of query words found case-insensitively.
+'''
+briefs = [
+  "Print «BLOCK <n> SCORE <score>» for all three blocks.",
+  "Rank the two relevant blocks and append «RANK 1 BLOCK 3», then «RANK 2 BLOCK 1».",
+  "Append «BEST 3 SCORE 2» and «WEIGHING COMPLETE».",
+]
+solution = '''
+string query = "tls handshake";
+string[] blocks = { "TLS handshake overview", "cooking notes", "handshake cipher TLS" };
+string[] terms = query.Split(' ');
+int[] scores = blocks.Select(block => terms.Count(term => block.Contains(term, StringComparison.OrdinalIgnoreCase))).ToArray();
+for (int i = 0; i < blocks.Length; i++) Console.WriteLine($"BLOCK {i + 1} SCORE {scores[i]}");
+var ranked = Enumerable.Range(0, blocks.Length).Where(i => scores[i] > 0).OrderByDescending(i => scores[i]).ThenByDescending(i => i).ToList();
+Console.WriteLine($"RANK 1 BLOCK {ranked[0] + 1}");
+Console.WriteLine($"RANK 2 BLOCK {ranked[1] + 1}");
+Console.WriteLine($"BEST {ranked[0] + 1} SCORE {scores[ranked[0]]}");
+Console.WriteLine("WEIGHING COMPLETE");
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 10
+title = "THE FLAG LEDGER"
+starter = '''
+string[] argv = { "--max-sources", "4", "--min-trust", "6", "--format", "json" };
+// Walk option/value pairs and build the final invocation summary.
+'''
+briefs = [
+  "Print each pair as «FLAG <option> <value>» in argument order.",
+  "Append «FLAGS 3» and «NUMERIC 2».",
+  "Append «RUN max=4 trust=6 format=json» and «FLAGS SET».",
+]
+solution = '''
+string[] argv = { "--max-sources", "4", "--min-trust", "6", "--format", "json" };
+var values = new Dictionary<string, string>();
+for (int i = 0; i < argv.Length; i += 2)
+{
+    values[argv[i]] = argv[i + 1];
+    Console.WriteLine($"FLAG {argv[i]} {argv[i + 1]}");
+}
+Console.WriteLine($"FLAGS {values.Count}");
+Console.WriteLine($"NUMERIC {values.Values.Count(value => int.TryParse(value, out _))}");
+Console.WriteLine($"RUN max={values["--max-sources"]} trust={values["--min-trust"]} format={values["--format"]}");
+Console.WriteLine("FLAGS SET");
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 10
+title = "THE MARKUP QUARANTINE"
+starter = '''
+string[] labels = { "[red]danger[/]", "plain", "[link]source[/]" };
+// Escape brackets by doubling them before rendering.
+'''
+briefs = [
+  "Escape each label and print it as «SAFE <escaped>».",
+  "Append «COUNT 3» and «ESCAPED 2».",
+  "Append «LONGEST [link]source[/]» from the raw labels, then «QUARANTINE SET».",
+]
+solution = '''
+string[] labels = { "[red]danger[/]", "plain", "[link]source[/]" };
+foreach (string label in labels) Console.WriteLine($"SAFE {label.Replace("[", "[[").Replace("]", "]]" )}");
+Console.WriteLine($"COUNT {labels.Length}");
+Console.WriteLine($"ESCAPED {labels.Count(label => label.Contains('['))}");
+Console.WriteLine($"LONGEST {labels.MaxBy(label => label.Length)}");
+Console.WriteLine("QUARANTINE SET");
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 11
+title = "THE SCANNER CONCLAVE"
+starter = '''
+var scanners = new List<IScanner> { new ExactScanner(), new BroadScanner(), new FallbackScanner() };
+// Invoke through the interface; implementations remain replaceable.
+interface IScanner { string Scan(); }
+class ExactScanner : IScanner { public string Scan() => "exact:2"; }
+class BroadScanner : IScanner { public string Scan() => "broad:5"; }
+class FallbackScanner : IScanner { public string Scan() => "fallback:1"; }
+'''
+briefs = [
+  "Call every scanner polymorphically and print «SCAN <result>» for all three.",
+  "Append «COUNT 3» and «UNIQUE 3».",
+  "Append «PRIMARY exact:2» and «CONCLAVE CLOSED».",
+]
+solution = '''
+var scanners = new List<IScanner> { new ExactScanner(), new BroadScanner(), new FallbackScanner() };
+var results = scanners.Select(scanner => scanner.Scan()).ToList();
+foreach (string result in results) Console.WriteLine($"SCAN {result}");
+Console.WriteLine($"COUNT {results.Count}");
+Console.WriteLine($"UNIQUE {results.Distinct().Count()}");
+Console.WriteLine($"PRIMARY {results[0]}");
+Console.WriteLine("CONCLAVE CLOSED");
+
+interface IScanner { string Scan(); }
+class ExactScanner : IScanner { public string Scan() => "exact:2"; }
+class BroadScanner : IScanner { public string Scan() => "broad:5"; }
+class FallbackScanner : IScanner { public string Scan() => "fallback:1"; }
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 11
+title = "THE TABLE OF PROOFS"
+starter = '''
+var cases = new (int score, bool expected)[] { (9, true), (6, true), (2, false) };
+// Run the table through IsTrusted and report every proof.
+bool IsTrusted(int score) => score >= 6;
+'''
+briefs = [
+  "Print each result as «CASE <score> PASS» or «CASE <score> FAIL».",
+  "Append «PASSED 3» and «FAILED 0».",
+  "Append «BOUNDARIES 2» for the true/false boundary classes, then «PROOFS GREEN».",
+]
+solution = '''
+var cases = new (int score, bool expected)[] { (9, true), (6, true), (2, false) };
+bool[] passes = cases.Select(test => IsTrusted(test.score) == test.expected).ToArray();
+for (int i = 0; i < cases.Length; i++) Console.WriteLine($"CASE {cases[i].score} {(passes[i] ? "PASS" : "FAIL")}");
+Console.WriteLine($"PASSED {passes.Count(pass => pass)}");
+Console.WriteLine($"FAILED {passes.Count(pass => !pass)}");
+Console.WriteLine("BOUNDARIES 2");
+Console.WriteLine("PROOFS GREEN");
+
+bool IsTrusted(int score) => score >= 6;
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 5
+title = "THE TEMPORARY ARCHIVE"
+starter = '''
+string[] entries = { "ash:4", "rune:9", "salt:2" };
+// Write, read, audit, and remove a temporary archive.
+'''
+briefs = [
+  "Write entries to a temporary file, read them back, and print «ENTRY <line>» for each.",
+  "Append «COUNT 3» and «TOTAL 15», parsing the values after each colon.",
+  "Delete the file, append «DELETED True», then «ARCHIVE CLOSED».",
+]
+solution = '''
+string[] entries = { "ash:4", "rune:9", "salt:2" };
+string path = Path.GetTempFileName();
+File.WriteAllLines(path, entries);
+string[] loaded = File.ReadAllLines(path);
+foreach (string line in loaded) Console.WriteLine($"ENTRY {line}");
+Console.WriteLine($"COUNT {loaded.Length}");
+Console.WriteLine($"TOTAL {loaded.Sum(line => int.Parse(line.Split(':')[1]))}");
+File.Delete(path);
+Console.WriteLine($"DELETED {!File.Exists(path)}");
+Console.WriteLine("ARCHIVE CLOSED");
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 5
+title = "THE CONFIGURATION SCALE"
+starter = '''
+var config = new Dictionary<string, int> { ["max_sources"] = -2, ["min_trust"] = 12, ["timeout"] = 30 };
+// Repair only values outside their lawful ranges.
+'''
+briefs = [
+  "Print the raw rows as «RAW <key> <value>» ordered by key.",
+  "Repair max_sources to 5 and min_trust to 3; append «REPAIRED 2» and «VALID 1».",
+  "Append «FINAL max_sources=5 min_trust=3 timeout=30» and «CONFIG SET».",
+]
+solution = '''
+var config = new Dictionary<string, int> { ["max_sources"] = -2, ["min_trust"] = 12, ["timeout"] = 30 };
+foreach (var row in config.OrderBy(row => row.Key)) Console.WriteLine($"RAW {row.Key} {row.Value}");
+int repaired = 0;
+if (config["max_sources"] < 1 || config["max_sources"] > 20) { config["max_sources"] = 5; repaired++; }
+if (config["min_trust"] < 0 || config["min_trust"] > 10) { config["min_trust"] = 3; repaired++; }
+Console.WriteLine($"REPAIRED {repaired}");
+Console.WriteLine($"VALID {config.Count - repaired}");
+Console.WriteLine($"FINAL max_sources={config["max_sources"]} min_trust={config["min_trust"]} timeout={config["timeout"]}");
+Console.WriteLine("CONFIG SET");
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 6
+title = "THE PARAGRAPH HARVEST"
+starter = '''
+using System.Text.RegularExpressions;
+string html = "<p>first seal</p><div>noise</div><p>second seal</p><p>third seal</p>";
+// Harvest only paragraph bodies.
+'''
+briefs = [
+  "Use Regex.Matches to print the three paragraph bodies as «TEXT <body>».",
+  "Append «COUNT 3» and «WORDS 6» from the harvested text.",
+  "Append «LAST third seal» and «HARVEST DONE».",
+]
+solution = '''
+using System.Text.RegularExpressions;
+string html = "<p>first seal</p><div>noise</div><p>second seal</p><p>third seal</p>";
+var texts = Regex.Matches(html, "<p>(.*?)</p>").Select(match => match.Groups[1].Value).ToList();
+foreach (string text in texts) Console.WriteLine($"TEXT {text}");
+Console.WriteLine($"COUNT {texts.Count}");
+Console.WriteLine($"WORDS {texts.Sum(text => text.Split(' ').Length)}");
+Console.WriteLine($"LAST {texts[^1]}");
+Console.WriteLine("HARVEST DONE");
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 6
+title = "THE CLEANED TESTIMONY"
+starter = '''
+using System.Text.RegularExpressions;
+string[] lines = { "  TLS   one ", "cipher\t suites", " session   keys " };
+// Normalize each witness before joining the testimony.
+'''
+briefs = [
+  "Collapse whitespace and trim each line; print each as «CLEAN <text>».",
+  "Append «COUNT 3» and «CHARS 32» using the cleaned strings' lengths.",
+  "Append «JOIN TLS one | cipher suites | session keys» and «TESTIMONY SET».",
+]
+solution = '''
+using System.Text.RegularExpressions;
+string[] lines = { "  TLS   one ", "cipher\t suites", " session   keys " };
+var clean = lines.Select(line => Regex.Replace(line, @"\s+", " ").Trim()).ToArray();
+foreach (string line in clean) Console.WriteLine($"CLEAN {line}");
+Console.WriteLine($"COUNT {clean.Length}");
+Console.WriteLine($"CHARS {clean.Sum(line => line.Length)}");
+Console.WriteLine($"JOIN {string.Join(" | ", clean)}");
+Console.WriteLine("TESTIMONY SET");
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 7
+title = "THE DOMAIN CONCORDANCE"
+starter = '''
+string[] domains = { "ietf.org", "nist.gov", "ietf.org", "w3.org", "nist.gov", "ietf.org" };
+// Group, rank, and summarize the concordance.
+'''
+briefs = [
+  "Group and rank by count descending; print «DOMAIN <name> <count>» for all three.",
+  "Append «UNIQUE 3» and «TOTAL 6».",
+  "Append «LEADER ietf.org 3» and «CONCORDANCE SET».",
+]
+solution = '''
+string[] domains = { "ietf.org", "nist.gov", "ietf.org", "w3.org", "nist.gov", "ietf.org" };
+var groups = domains.GroupBy(domain => domain).OrderByDescending(group => group.Count()).ThenBy(group => group.Key).ToList();
+foreach (var group in groups) Console.WriteLine($"DOMAIN {group.Key} {group.Count()}");
+Console.WriteLine($"UNIQUE {groups.Count}");
+Console.WriteLine($"TOTAL {domains.Length}");
+Console.WriteLine($"LEADER {groups[0].Key} {groups[0].Count()}");
+Console.WriteLine("CONCORDANCE SET");
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 7
+title = "THE TRUST EXTENSION"
+starter = '''
+int[] scores = { 9, 2, 6 };
+// Give int the IsTrusted verb, then audit the sequence.
+'''
+briefs = [
+  "Write IsTrusted(this int score) and print «SCORE <n> TRUSTED <bool>» for all scores.",
+  "Append «TRUSTED 2» and «REJECTED 1».",
+  "Append «MEAN 5» using integer average, then «EXTENSION SET».",
+]
+solution = '''
+int[] scores = { 9, 2, 6 };
+foreach (int score in scores) Console.WriteLine($"SCORE {score} TRUSTED {score.IsTrusted()}");
+Console.WriteLine($"TRUSTED {scores.Count(score => score.IsTrusted())}");
+Console.WriteLine($"REJECTED {scores.Count(score => !score.IsTrusted())}");
+Console.WriteLine($"MEAN {(int)scores.Average()}");
+Console.WriteLine("EXTENSION SET");
+
+public static class TrustDuelExtensions
+{
+    public static bool IsTrusted(this int score) => score >= 6;
+}
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 8
+title = "THE CONCURRENT MEASURES"
+starter = '''
+int[] measures = { 3, 5, 7 };
+// Measure all three concurrently; Task.WhenAll preserves input order.
+async Task<int> Weigh(int value) { await Task.Delay(15); return value * 10; }
+'''
+briefs = [
+  "Run Weigh for all values concurrently and print «WEIGHT <result>» for all three.",
+  "Append «COUNT 3» and «TOTAL 150».",
+  "Append «MAX 70» and «MEASURES COMPLETE».",
+]
+solution = '''
+int[] measures = { 3, 5, 7 };
+int[] weights = await Task.WhenAll(measures.Select(Weigh));
+foreach (int weight in weights) Console.WriteLine($"WEIGHT {weight}");
+Console.WriteLine($"COUNT {weights.Length}");
+Console.WriteLine($"TOTAL {weights.Sum()}");
+Console.WriteLine($"MAX {weights.Max()}");
+Console.WriteLine("MEASURES COMPLETE");
+
+async Task<int> Weigh(int value) { await Task.Delay(15); return value * 10; }
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 8
+title = "THE BROKEN COURIER"
+starter = '''
+int[] couriers = { 1, 2, 3 };
+// Courier 2 fails. Catch per task so the others still report.
+async Task<string> Send(int id) { await Task.Delay(10); if (id == 2) throw new Exception("lost"); return $"courier-{id}"; }
+'''
+briefs = [
+  "Contain each Send failure and print «COURIER <id> OK» or «COURIER <id> LOST».",
+  "Append «DELIVERED 2» and «LOST 1».",
+  "Append «FIRST LOST 2» and «DISPATCH CLOSED».",
+]
+solution = '''
+int[] couriers = { 1, 2, 3 };
+bool[] delivered = await Task.WhenAll(couriers.Select(SafeSend));
+for (int i = 0; i < couriers.Length; i++) Console.WriteLine($"COURIER {couriers[i]} {(delivered[i] ? "OK" : "LOST")}");
+Console.WriteLine($"DELIVERED {delivered.Count(ok => ok)}");
+Console.WriteLine($"LOST {delivered.Count(ok => !ok)}");
+Console.WriteLine($"FIRST LOST {couriers[Array.IndexOf(delivered, false)]}");
+Console.WriteLine("DISPATCH CLOSED");
+
+async Task<bool> SafeSend(int id)
+{
+    try { await Send(id); return true; }
+    catch { return false; }
+}
+async Task<string> Send(int id) { await Task.Delay(10); if (id == 2) throw new Exception("lost"); return $"courier-{id}"; }
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
 tier = 7
 title = "THE SORTING OF VOICES"
 starter = '''
@@ -1343,3 +1719,218 @@ async Task<string> Invoke(string name)
 record Seal(string name, int power, bool active);
 '''
 cuts = [4, 8, 13]
+
+# -----------------------------------------------------------------------------
+# Golden-tome depth pass: two additional verified challenges per tier.
+
+[[challenge]]
+tier = 1
+title = "THE THREE MEASURES"
+starter = '''
+int ward = 8;
+int thread = 5;
+string name = "ash";
+// Measure first, then compute the seal.
+'''
+briefs = [
+  "Print «WARD 8», «THREAD 5», and «NAME ash» from the variables.",
+  "Append «SUM 13» and «PRODUCT 40», both computed.",
+  "Append «PARITY EVEN» for the product, then «SEAL READY».",
+]
+solution = '''
+int ward = 8;
+int thread = 5;
+string name = "ash";
+Console.WriteLine($"WARD {ward}");
+Console.WriteLine($"THREAD {thread}");
+Console.WriteLine($"NAME {name}");
+Console.WriteLine($"SUM {ward + thread}");
+int product = ward * thread;
+Console.WriteLine($"PRODUCT {product}");
+Console.WriteLine(product % 2 == 0 ? "PARITY EVEN" : "PARITY ODD");
+Console.WriteLine("SEAL READY");
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 1
+title = "THE LETTERED KEY"
+starter = '''
+string token = "candle";
+// Read the token's own properties; hardcoded answers break the rite.
+'''
+briefs = [
+  "Print «TOKEN candle», «LENGTH 6», and «FIRST c» from token.",
+  "Append «LAST e» and «UPPER CANDLE».",
+  "Append «HAS D True» computed with Contains, then «TOKEN SET».",
+]
+solution = '''
+string token = "candle";
+Console.WriteLine($"TOKEN {token}");
+Console.WriteLine($"LENGTH {token.Length}");
+Console.WriteLine($"FIRST {token[0]}");
+Console.WriteLine($"LAST {token[^1]}");
+Console.WriteLine($"UPPER {token.ToUpper()}");
+Console.WriteLine($"HAS D {token.Contains('d')}");
+Console.WriteLine("TOKEN SET");
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 2
+title = "THE EVEN PROCESSION"
+starter = '''
+int[] marks = { 2, 4, 6 };
+// Walk the procession; totals come after its members.
+'''
+briefs = [
+  "Loop over marks and print «MARK <value>» for all three.",
+  "Append «COUNT 3» and «SUM 12» from the array.",
+  "Append «MAX 6» and «ALL EVEN True», both computed.",
+]
+solution = '''
+int[] marks = { 2, 4, 6 };
+foreach (int mark in marks) Console.WriteLine($"MARK {mark}");
+Console.WriteLine($"COUNT {marks.Length}");
+Console.WriteLine($"SUM {marks.Sum()}");
+Console.WriteLine($"MAX {marks.Max()}");
+Console.WriteLine($"ALL EVEN {marks.All(mark => mark % 2 == 0)}");
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 2
+title = "THE QUESTIONS AT THE GATE"
+starter = '''
+string[] words = { "how", "what", "why" };
+// Classify with a switch expression; then audit the set.
+'''
+briefs = [
+  "Print each classification: «how PROCEDURAL», «what FACTUAL», «why EXPLANATION».",
+  "Append «COUNT 3» and «KNOWN 3» from the processed words.",
+  "Append «FIRST how» and «GATE ANSWERED».",
+]
+solution = '''
+string[] words = { "how", "what", "why" };
+int known = 0;
+foreach (string word in words)
+{
+    string kind = word switch { "how" => "PROCEDURAL", "what" => "FACTUAL", "why" => "EXPLANATION", _ => "GENERAL" };
+    if (kind != "GENERAL") known++;
+    Console.WriteLine($"{word} {kind}");
+}
+Console.WriteLine($"COUNT {words.Length}");
+Console.WriteLine($"KNOWN {known}");
+Console.WriteLine($"FIRST {words[0]}");
+Console.WriteLine("GATE ANSWERED");
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 3
+title = "THE RECORD OF SEEKERS"
+starter = '''
+var seekers = new List<Seeker> { new("rune", 4), new("ash", 9), new("salt", 6) };
+// Records carry the names and circles.
+record Seeker(string Name, int Circle);
+'''
+briefs = [
+  "Print each seeker as «SEEKER <name> C<circle>» in list order.",
+  "Append «COUNT 3» and «FOREMOST ash 9» computed from the records.",
+  "Append «MEAN 6» using integer average, then «RECORD SET».",
+]
+solution = '''
+var seekers = new List<Seeker> { new("rune", 4), new("ash", 9), new("salt", 6) };
+foreach (var seeker in seekers) Console.WriteLine($"SEEKER {seeker.Name} C{seeker.Circle}");
+Console.WriteLine($"COUNT {seekers.Count}");
+var top = seekers.MaxBy(seeker => seeker.Circle)!;
+Console.WriteLine($"FOREMOST {top.Name} {top.Circle}");
+Console.WriteLine($"MEAN {(int)seekers.Average(seeker => seeker.Circle)}");
+Console.WriteLine("RECORD SET");
+
+record Seeker(string Name, int Circle);
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 3
+title = "THE OMEN REGISTER"
+starter = '''
+int[] omens = { 2, 7, 9 };
+// Calm < 4, Stirring < 8, Dire otherwise.
+enum Peril { Calm, Stirring, Dire }
+'''
+briefs = [
+  "Classify each omen and print «OMEN <n> <PERIL>» with the peril uppercased.",
+  "Append «CALM 1» and «DANGEROUS 2» from the classifications.",
+  "Append «GRAVEST 9» and «REGISTER SEALED».",
+]
+solution = '''
+int[] omens = { 2, 7, 9 };
+var perils = omens.Select(omen => omen >= 8 ? Peril.Dire : omen >= 4 ? Peril.Stirring : Peril.Calm).ToArray();
+for (int i = 0; i < omens.Length; i++) Console.WriteLine($"OMEN {omens[i]} {perils[i].ToString().ToUpper()}");
+Console.WriteLine($"CALM {perils.Count(peril => peril == Peril.Calm)}");
+Console.WriteLine($"DANGEROUS {perils.Count(peril => peril != Peril.Calm)}");
+Console.WriteLine($"GRAVEST {omens.Max()}");
+Console.WriteLine("REGISTER SEALED");
+
+enum Peril { Calm, Stirring, Dire }
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 4
+title = "THE JSON RELIQUARY"
+starter = '''
+using System.Text.Json;
+string json = """[{"name":"ash","weight":4},{"name":"rune","weight":9},{"name":"salt","weight":2}]""";
+// Deserialize the relics before weighing them.
+record Relic(string name, int weight);
+'''
+briefs = [
+  "Deserialize and print each relic as «RELIC <name> <weight>».",
+  "Append «COUNT 3» and «TOTAL 15».",
+  "Append «HEAVIEST rune 9» and «RELIQUARY CLOSED».",
+]
+solution = '''
+using System.Text.Json;
+string json = """[{"name":"ash","weight":4},{"name":"rune","weight":9},{"name":"salt","weight":2}]""";
+var relics = JsonSerializer.Deserialize<List<Relic>>(json)!;
+foreach (var relic in relics) Console.WriteLine($"RELIC {relic.name} {relic.weight}");
+Console.WriteLine($"COUNT {relics.Count}");
+Console.WriteLine($"TOTAL {relics.Sum(relic => relic.weight)}");
+var heavy = relics.MaxBy(relic => relic.weight)!;
+Console.WriteLine($"HEAVIEST {heavy.name} {heavy.weight}");
+Console.WriteLine("RELIQUARY CLOSED");
+
+record Relic(string name, int weight);
+'''
+cuts = [3, 5, 7]
+
+[[challenge]]
+tier = 4
+title = "THE PARSING TRIBUNAL"
+starter = '''
+string[] claims = { "12", "ash", "7" };
+// TryParse every claim; failures become evidence, not crashes.
+'''
+briefs = [
+  "Print each result as «CLAIM <text> OK <n>» or «CLAIM <text> BAD».",
+  "Append «VALID 2» and «INVALID 1».",
+  "Append «FIRST ERROR ash» and «TRIBUNAL CLOSED».",
+]
+solution = '''
+string[] claims = { "12", "ash", "7" };
+int valid = 0;
+string firstError = "none";
+foreach (string claim in claims)
+{
+    if (int.TryParse(claim, out int value)) { valid++; Console.WriteLine($"CLAIM {claim} OK {value}"); }
+    else { if (firstError == "none") firstError = claim; Console.WriteLine($"CLAIM {claim} BAD"); }
+}
+Console.WriteLine($"VALID {valid}");
+Console.WriteLine($"INVALID {claims.Length - valid}");
+Console.WriteLine($"FIRST ERROR {firstError}");
+Console.WriteLine("TRIBUNAL CLOSED");
+'''
+cuts = [3, 5, 7]

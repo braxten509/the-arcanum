@@ -1,0 +1,77 @@
+# Lesson s09-l01 manifest
+[[lessons]]
+id = '''s09-l01'''
+title = '''The Indexed Scroll'''
+body = '''<p>Vectors store values sequentially, but sometimes a scribe must locate records using keys rather than numeric indices. For mapping keys to values, Rust provides the <code>HashMap&lt;K, V&gt;</code> collection. It stores mappings using a hashing function.</p>
+<p>To use a hash map, we must bring it into scope using the <code>use std::collections::HashMap;</code> directive. We create an empty map and insert key-value pairs using the <code>insert</code> method:</p>
+<pre><code>use std::collections::HashMap;
+
+let mut scores = HashMap::new();
+scores.insert(String::from("Blue"), 10);
+scores.insert(String::from("Yellow"), 50);</code></pre>
+<p>Like vectors, hash maps are homogeneous: all keys must have the same type, and all values must have the same type. Pushing owned data into a hash map transfers ownership of that data to the map.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // HASHING SECURITY</div>
+<p>By default, <code>HashMap</code> uses a hashing function that provides resistance to Denial of Service (DoS) attacks. While secure, this hasher is not the fastest possible algorithm; you can swap it if performance is critical.</p></div>
+<p>Hash maps map keys to values using a secure hashing function. Scribes use HashMap to aggregate stats, such as counts by log level. The collection is homogeneous, ensuring type safety for all keys and values.</p>
+<p>Inserting elements transfers ownership to the map. Scribes must bring HashMap into scope explicitly, as it is not part of the standard prelude.</p>
+<p>Scribes should verify that key types implement the Eq and Hash traits, which is required for the map to compare and locate buckets accurately.</p>
+<p>The archivist aggregates entries in indexed catalogs. HashMap provides average constant-time lookups, making it ideal for tracking large collections of log stats.</p>
+<p>Using hash maps ensures fast query resolution, allowing the CLI tool to summarize search metrics at the end of execution without slowdowns.</p>
+<p>Scribes must design maps to pre-allocate capacity when counting lines. Pre-allocated hash maps avoid collision spikes and speed up aggregation. Scribes must choose map structures that match their indexing needs. When mapping keys to counts, ensure the keys are clean, as trailing spaces or casing differences will create separate, unintended entries.</p>'''
+
+[[lessons.readings]]
+label = '''Hash Maps'''
+url = '''https://doc.rust-lang.org/book/ch08-03-hash-maps.html'''
+
+
+[[lessons.exercises]]
+id = "s09-l01-e1"
+type = "mc"
+points = 15
+prompt = '''Which module contains the HashMap collection type?'''
+choices = ['std::maps', 'std::hash', 'std::core', 'std::collections']
+answer = 3
+whyWrong = '''Standard structures live within std::collections.'''
+hint = '''Identify how hash maps works inside this Treatise.'''
+explain = '''Importing std::collections::HashMap brings the mapping registry into scope.'''
+
+
+[[lessons.exercises]]
+id = "s09-l01-e2"
+type = "text"
+points = 20
+prompt = '''Specify the keyword or name associated with hash maps in this section.'''
+answer = '''map insert'''
+hint = '''Identify the term for hash maps in this context.'''
+whyWrong = '''Double check the terminology introduced in this lesson for hash maps.'''
+
+
+[[lessons.exercises]]
+id = "s09-l01-e3"
+type = "fill"
+points = 20
+prompt = '''Complete this snippet to apply hash maps.'''
+code = '''let mut map = ____::new();'''
+answer = '''HashMap'''
+hint = '''Supply the token that matches hash maps.'''
+whyWrong = '''Verify the syntax of the blanked item for hash maps.'''
+
+
+[[lessons.exercises]]
+id = "s09-l01-w1"
+type = "write"
+points = 35
+prompt = '''Create a HashMap `logs_parsed`, insert a key `"A"` with value `1`, and print map length.'''
+expect = '''1
+'''
+solution = '''use std::collections::HashMap;
+fn main() {
+    let mut logs_parsed = HashMap::new();
+    logs_parsed.insert("A", 1);
+    println!("{}", logs_parsed.len());
+}'''
+starter = '''use std::collections::HashMap;
+fn main() {
+    // create and insert logs_parsed
+}'''
+hint = '''Solve hash maps following the instructions step-by-step.'''

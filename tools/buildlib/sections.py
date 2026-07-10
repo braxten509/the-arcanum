@@ -2,11 +2,13 @@
 sections-done resume bookkeeping."""
 import json
 import os
+import shutil
 import tomllib
 
-from . import BUILD_DIR, REPO
+from . import BUILD_DIR, REPO, retries_for
 from .liveness import run_agent
-from .prompts import build_prompt
+from .measure import validate
+from .prompts import build_prompt, read_tooling
 from .runners import _implicit_fallback, request_runner
 
 
@@ -19,6 +21,23 @@ def section_ids(tid):
     except (OSError, tomllib.TOMLDecodeError):
         return []
     return [str(s) for s in ((d.get("content") or {}).get("sections") or [])]
+
+
+def wipe_sections(tid):
+    """A resume that re-runs Phase 2 or earlier rebuilds the skeleton — sections on disk are
+    the OLD run's output (possibly authored against no arc at all). Remove them, plus the
+    split-mode resume manifest, so nothing downstream resumes on trash. Returns how many
+    section dirs were removed."""
+    sec = os.path.join(REPO, "tomes", tid, "sections")
+    n = len([d for d in (os.listdir(sec) if os.path.isdir(sec) else [])
+             if os.path.isdir(os.path.join(sec, d))])
+    if os.path.isdir(sec):
+        shutil.rmtree(sec)
+    try:
+        os.remove(_sections_done_path(tid))
+    except OSError:
+        pass
+    return n
 
 
 def _author_section(chain, ri, prompt, sid, num, cfg, overrides,
@@ -120,8 +139,30 @@ def author_sections_split(tid, num, title, body, chain, refs, cfg, overrides,
                      f"with the rest.")
             print(f"    · authoring {sid} [{i + 1}/{len(ids)}] on {chain[ri][0]}")
         p = build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel) + focus
-        ri, ok = _author_section(chain, ri, p, sid, num, cfg, overrides,
-                                 ping, dead, cap, ask_on_death, interactive, tome_id)
-        if ok:
-            _mark_section_done(tid, sid)  # so a future resume skips this finished section
+        attempts = 0
+        while True:
+            ri, ok = _author_section(chain, ri, p, sid, num, cfg, overrides,
+                                     ping, dead, cap, ask_on_death, interactive, tome_id)
+            if not ok:
+                break
+            # This checkpoint is a fast schema/content pass. The whole Phase-3 gate
+            # immediately after the split executes every starter and solution once;
+            # doing that after each section would re-run the growing tome O(n^2).
+            clean, report = validate(tid, tooling=read_tooling(os.path.join(REPO, plan_rel)),
+                                     run=False)
+            if clean:
+                _mark_section_done(tid, sid)  # a future resume skips only validator-clean work
+                break
+            attempts += 1
+            if attempts > retries_for(chain[ri][0]):
+                print(f"    ! section {sid}: worker exited cleanly but validator still fails; "
+                      "leaving it uncheckpointed for the whole-tome repair pass")
+                break
+            print(f"    x section {sid}: validator errors -> re-running its worker "
+                  f"(attempt {attempts + 1})")
+            p = (build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel)
+                 + focus
+                 + "\n\n===== THIS SECTION STILL FAILS VALIDATION =====\n"
+                 + "Fix the errors below in this section. Do not edit another section.\n"
+                 + report)
     return ri

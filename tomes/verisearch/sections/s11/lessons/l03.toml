@@ -36,7 +36,10 @@ body = '''
 <p><strong>Result objects vs exceptions for FLOW:</strong> exceptions are for failures; "search found nothing" is not a failure, it's a result. Encoding it as <code>PipelineResult.Empty(reason)</code> keeps the happy path readable and the renderer informed. Exceptions-as-control-flow is the C# equivalent of goto with better marketing.</p>
 <p><strong>Method size heuristic:</strong> an orchestrator should fit on one screen (~30 lines). If a stage grows a second responsibility, extract it — <code>ScrapeAllAsync</code> exists precisely because fan-out + containment is its own job.</p>
 <p><strong>Static factory helpers</strong> read well on result types: <code>PipelineResult.Empty(string reason)</code> is a static method returning a pre-shaped instance — clearer than a constructor with mystery nulls.</p></div>'''
-readings = []
+[[lessons.readings]]
+label = "Microsoft Learn — Async return types and Task<TResult>"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/asynchronous-programming/async-return-types"
+essential = true
 
 [[lessons.exercises]]
 id = "s11-l03-e1"
@@ -90,4 +93,12 @@ prompt = "Early-exit lab: write <code>string RunPipeline(List&lt;string&gt; resu
 expect = '''
 empty: search returned nothing
 ok: 3 sources'''
+solution = '''
+Console.WriteLine(RunPipeline(new List<string>()));
+Console.WriteLine(RunPipeline(new List<string> { "a", "b", "c" }));
+
+string RunPipeline(List<string> results) => results.Count == 0
+    ? "empty: search returned nothing"
+    : $"ok: {results.Count} sources";
+'''
 hint = "Guard clause first, happy path after. Two calls, two WriteLines."

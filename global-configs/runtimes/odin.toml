@@ -1,0 +1,219 @@
+# ODIN — engine config for the Odin programming language.
+# The zero-code language example from §5 (see tome-authoring/5-runtimes.md).
+# A tome's [runtime] table overrides any key here.
+language = "Odin"
+entryFile = "main.odin"
+newFileExt = ".odin"
+editorLang = "odin"
+command = ["odin", "run", "{file}", "-file"]
+checkCommand = ["odin", "check", "{file}", "-file"]
+diagRegex = '^(?P<file>[^(\n]+)\((?P<line>\d+):(?P<col>\d+)\) (?:\w+ )?Error: (?P<msg>.*)$'
+
+# --- lesson-snippet checking (tools/validatelib/execute.py check_snippets) ---
+# A body code block matching snippetEntry claims to be a whole program and gets built.
+# One matching snippetFragment instead is a partial sample: it is compiled inside the
+# snippetWrap shell (imports/package lines hoisted above it), and failures are WARNs.
+snippetEntry = '^\s*main\s*::\s*proc'
+snippetPrelude = "package main\n"
+snippetFragment = ':=|::|\bfmt\.'
+snippetWrap = "main :: proc() {\n{code}\n}"
+snippetHoist = '^\s*(import|package)\b'
+snippetFragmentSkip = '\A\s*(?:(?://|/\*)[^\n]*\n\s*)*case\b'  # a case list without its switch
+snippetFragmentIgnore = [
+  'invalid type',                    # cascade from an undeclared name diagIgnore forgave
+  'Ambiguous procedure group call',  # overload resolution on an unknown-typed argument
+  'Assignment count mismatch',       # multi-return from a proc the fragment never declared
+  "got 'case'",                      # a mid-switch excerpt; its switch header lives in prose
+]
+diagIgnore = [
+  'undeclared name',        # an earlier block in the same lesson declared it
+  'not used',               # an excerpt imports more than the excerpt uses
+  '^Path does not exist:',  # a sibling package a single-file build cannot see
+]
+starterCode = '''
+package main
+import "core:fmt"
+main :: proc() { fmt.println("hello") }
+'''
+
+[syntax]
+lineComment = "//"
+blockComment = ["/*", "*/"]
+strings = ["\"", "'", "`"]
+keywords = [
+  "package", "import", "proc", "struct", "enum", "union", "bit_set", "bit_field",
+  "if", "else", "for", "switch", "case", "return", "defer", "when", "where",
+  "using", "cast", "transmute", "or_return", "or_else", "or_continue",
+  "fallthrough", "break", "continue", "foreign", "inline", "no_inline",
+  "partial", "distinct", "map", "dynamic", "context",
+]
+types = [
+  "int", "i8", "i16", "i32", "i64", "uint", "u8", "u16", "u32", "u64",
+  "f32", "f64", "string", "bool", "rune", "byte", "rawptr", "uintptr",
+  "any", "typeid", "true", "false", "nil",
+]
+
+# Completions for Odin — IntelliSense for a beginner meeting core:fmt, os, strings, etc.
+[completions]
+keywords = [
+  "package", "import", "proc", "struct", "enum", "union", "bit_set",
+  "if", "else", "for", "switch", "case", "return", "defer", "when",
+  "where", "using", "cast", "transmute", "or_return", "or_else", "or_continue",
+  "fallthrough", "break", "continue", "foreign", "inline", "no_inline",
+  "partial", "distinct", "map", "dynamic", "context",
+  "main", "fmt", "os", "strings", "strconv", "mem", "sort", "math",
+  "int", "i8", "i16", "i32", "i64", "uint", "u8", "u16", "u32", "u64",
+  "f32", "f64", "string", "bool", "rune", "byte", "rawptr", "uintptr",
+  "any", "typeid", "true", "false", "nil", "len", "cap", "append",
+  "make", "new", "delete", "free",
+]
+snippets = [
+  ["proc", "procedure definition", "${1:name} :: proc($2) -> $3 {\n\t$0\n}"],
+  ["if", "if block", "if $1 {\n\t$0\n}"],
+  ["ifelse", "if / else", "if $1 {\n\t$2\n} else {\n\t$0\n}"],
+  ["for", "for loop", "for $1 {\n\t$0\n}"],
+  ["fori", "for range", "for ${1:i} in ${2:0}..<${3:n} {\n\t$0\n}"],
+  ["forin", "for over slice", "for ${1:item} in ${2:items} {\n\t$0\n}"],
+  ["switch", "switch statement", "switch ${1:val} {\ncase ${2:}:\n\t$0\n}"],
+  ["struct", "struct definition", "${1:Name} :: struct {\n\t$0\n}"],
+  ["enum", "enum definition", "${1:Name} :: enum {\n\t$0\n}"],
+  ["proc_type", "procedure type", "${1:Callback} :: proc(${2:}) -> ${3:void}"],
+  ["defer", "defer statement", "defer $0"],
+  ["main", "entry point", "main :: proc() {\n\t$0\n}"],
+  ["import", "import package", "import \"core:${1:fmt}\""],
+  ["or_return", "error union with or_return", "${1:result} := ${2:fallible}() or_return"],
+]
+types = [
+  ["^os\\.", "os"],
+  ["^strings\\.", "strings"],
+  ["^strconv\\.", "strconv"],
+  ["^(\\[\\]u?byte|\\[\\]string|?\\[\\])", "slice"],
+  ["^\\[\\]", "slice"],
+  ["^map\\[", "map"],
+]
+classRegex = '(\w+)\s*::\s*struct\s*\{((?:[^\}]|\n)*)\}'
+methodRegex = '(\w+)\s*::\s*proc\s*\('
+ctorRegex = '^(\w+)\s*\('
+enumRegex = '(\w+)\s*::\s*enum\s*\{([^}]*)\}'
+
+[completions.members]
+fmt = [
+  ["println()", "m", "fmt — print with newline", "println($1)$0"],
+  ["print()", "m", "fmt — print without newline", "print($1)$0"],
+  ["printf()", "m", "fmt — formatted print (C-style)", "printf($1)$0"],
+  ["printfln()", "m", "fmt — formatted print with newline", "printfln($1)$0"],
+  ["eprintln()", "m", "fmt — stderr print with newline", "eprintln($1)$0"],
+  ["tprintf()", "m", "fmt — format to string (returns string)", "tprintf($1)$0"],
+]
+os = [
+  ["open()", "m", "os — open file (returns ^File, err)", "open($1)$0"],
+  ["read()", "m", "os — read from file", "read($1, $2)$0"],
+  ["close()", "m", "os — close file handle", "close($1)$0"],
+  ["read_entire_file()", "m", "os — read entire file to []byte", "read_entire_file($1)$0"],
+  ["write_entire_file()", "m", "os — write entire file", "write_entire_file($1, $2)$0"],
+  ["args", "f", "os — command-line arguments as []string", "args"],
+  ["exit()", "m", "os — exit with code", "exit($1)$0"],
+  ["get_env()", "m", "os — get environment variable", "get_env($1)$0"],
+  ["stat()", "m", "os — file info", "stat($1)$0"],
+  ["exists()", "m", "os — check if path exists", "exists($1)$0"],
+  ["HOME", "f", "os — home directory path", "HOME"],
+]
+strings = [
+  ["contains()", "m", "bool — substring check", "contains($1, $2)$0"],
+  ["split()", "m", "[]string — split on separator", "split($1, $2)$0"],
+  ["trim_space()", "m", "string — trim leading/trailing whitespace", "trim_space($1)$0"],
+  ["trim()", "m", "string — trim leading/trailing chars", "trim($1, $2)$0"],
+  ["index_byte()", "m", "int — first byte index, -1 if missing", "index_byte($1, $2)$0"],
+  ["join()", "m", "string — join []string with separator", "join($1, $2)$0"],
+  ["to_lower()", "m", "string — lowercase copy", "to_lower($1)$0"],
+  ["to_upper()", "m", "string — uppercase copy", "to_upper($1)$0"],
+  ["has_prefix()", "m", "bool — prefix check", "has_prefix($1, $2)$0"],
+  ["has_suffix()", "m", "bool — suffix check", "has_suffix($1, $2)$0"],
+  ["replace()", "m", "string — replace all occurrences", "replace($1, $2, $3)$0"],
+  ["fields()", "m", "[]string — split on whitespace", "fields($1)$0"],
+]
+strconv = [
+  ["atoi()", "m", "int — parse string to int", "atoi($1)$0"],
+  ["append_int()", "m", "[]byte — format int to []byte", "append_int($1, $2, $3)$0"],
+  ["append_float()", "m", "[]byte — format float to []byte", "append_float($1, $2, $3)$0"],
+  ["itoa()", "m", "string — int to string", "itoa($1)$0"],
+  ["f64_to_string()", "m", "string — f64 to string", "f64_to_string($1)$0"],
+]
+mem = [
+  ["alloc()", "m", "rawptr — allocate memory", "alloc($1, $2)$0"],
+  ["free()", "m", "free allocated memory", "free($1)$0"],
+  ["alloc_bytes()", "m", "[]byte — allocate byte slice", "alloc_bytes($1)$0"],
+]
+sort = [
+  ["sort()", "m", "sort a slice in place", "sort($1)$0"],
+  ["search()", "m", "int — binary search on sorted slice", "search($1, $2)$0"],
+  ["reverse()", "m", "reverse slice in place", "reverse($1)$0"],
+]
+math = [
+  ["abs()", "m", "absolute value", "abs($1)$0"],
+  ["max()", "m", "maximum of two values", "max($1, $2)$0"],
+  ["min()", "m", "minimum of two values", "min($1, $2)$0"],
+  ["sqrt()", "m", "square root", "sqrt($1)$0"],
+  ["pow()", "m", "power (x^y)", "pow($1, $2)$0"],
+  ["floor()", "m", "round down", "floor($1)$0"],
+  ["ceil()", "m", "round up", "ceil($1)$0"],
+  ["sin()", "m", "sine (radians)", "sin($1)$0"],
+  ["cos()", "m", "cosine (radians)", "cos($1)$0"],
+  ["atan2()", "m", "atan2(y, x)", "atan2($1, $2)$0"],
+]
+slice = [
+  ["append()", "m", "append to dynamic array", "append($1, $2)$0"],
+  ["len()", "m", "int — length", "len($1)$0"],
+  ["cap()", "m", "int — capacity", "cap($1)$0"],
+  ["clear()", "m", "clear all elements (len=0)", "clear($1)$0"],
+  ["reserve()", "m", "reserve capacity", "reserve($1, $2)$0"],
+  ["resize()", "m", "resize the slice", "resize($1, $2)$0"],
+]
+map = [
+  ["len()", "m", "int — key count", "len($1)$0"],
+  ["delete()", "m", "delete a key from the map", "delete($1, $2)$0"],
+  ["clear()", "m", "remove all keys", "clear($1)$0"],
+  ["clone()", "m", "shallow copy of the map", "clone($1)$0"],
+]
+
+[completions.returns]
+println = "void"
+print = "void"
+printf = "void"
+printfln = "void"
+tprintf = "string"
+open = "os"
+read = "int"
+read_entire_file = "slice"
+write_entire_file = "int"
+get_env = "string"
+split = "slice"
+trim_space = "string"
+trim = "string"
+join = "string"
+to_lower = "string"
+to_upper = "string"
+replace = "string"
+fields = "slice"
+atoi = "int"
+itoa = "string"
+f64_to_string = "string"
+alloc = "rawptr"
+alloc_bytes = "slice"
+sort = "void"
+search = "int"
+reverse = "void"
+abs = "f64"
+sqrt = "f64"
+pow = "f64"
+floor = "f64"
+ceil = "f64"
+sin = "f64"
+cos = "f64"
+max = "f64"
+min = "f64"
+len = "int"
+cap = "int"
+append = "slice"
+clear = "void"
+clone = "slice"

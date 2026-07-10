@@ -4,6 +4,8 @@ import os
 import re
 import sys
 
+from .checkpoints import ARC_CONTRACT, ARC_HEADING
+
 PREAMBLE = """You are ONE stage of an automated build harness for an Arcanum coding-tome.
 You are running headless. Do this ONE phase completely and correctly, then STOP — do
 NOT start other phases; the harness runs those separately.
@@ -26,7 +28,7 @@ Context you share with the other phases (all of it lives on disk):
   never mv/cp the tome folder yourself.
 
 After you finish, the harness runs tools/validate_tome.py (from Phase 7 on, in --strict
-mode where anti-template/content WARNs fail too); if it reports failures you will be
+mode where every non-advisory WARN fails too); if it reports failures you will be
 re-invoked with them, so leave the tome parseable. The harness also compares the file
 tree and content counts before/after your phase: deleting files or shrinking arrays an
 earlier phase built gets you re-invoked unless the plan gains a `SHRINK OK:` line
@@ -123,7 +125,9 @@ def read_verdict(path):
         return None
     v = open(path, encoding="utf-8").read().strip().upper()
     os.remove(path)  # consume it so the next loop reads a fresh write
-    return "PASS" if "PASS" in v.split() else "GAPS REMAIN"
+    # Exact protocol, not keyword spotting: "NOT PASS", prose containing PASS, or a
+    # malformed multi-line response must never end the editorial gate successfully.
+    return v if v in ("PASS", "GAPS REMAIN") else None
 
 
 GATE_QS = [
@@ -191,6 +195,14 @@ science. Before writing the section list:
 2. Build the advanced chapters toward THAT list. Where a sample above names a concept
    that is rare or unidiomatic here, swap it for this topic's equal-difficulty
    counterpart instead of teaching it anyway.
+3. Write the graduate ledger: "after the last chapter the student CAN …" and "still
+   CANNOT …". At mastery 2+ the CAN list must include the topic's daily-driver kit —
+   for a language: its growable collection, its key-value type, real string work, and
+   its error-handling idiom; for a tool: the handful of operations every practitioner
+   does weekly. A course can hit its project's endpoint on a narrow path and still
+   graduate someone who cannot use the language for anything else — that is a MISSED
+   endpoint, not a scoping choice. Anything daily-driver deliberately left out is
+   stated in meta.description, so the card never promises what the arc doesn't teach.
 Calibration contrasts: nearly every language HAS recursion, but a Python course at
 level 3 leans on iterators, comprehensions and dict-shaped design (recursion earns a
 lesson, not a chapter), while a Lisp or Haskell course inverts that ratio; JavaScript's
@@ -262,6 +274,31 @@ TOOLING_POLICY = {
 }
 
 
+def gate_errors(answers):
+    """Validate Phase-0 answers before any model spends tokens interpreting them.
+
+    The plan is the source of truth for every later phase and for --tooling validation;
+    a blank/invalid answer here otherwise silently disables the corresponding guardrail.
+    """
+    values = {label: str(value or "").strip() for label, value in answers}
+    errors = []
+    if not values.get("Prior knowledge"):
+        errors.append("Prior knowledge must say what the student already knows (use 'none' if appropriate)")
+    for label, hi in (("Starting level (1-10)", 10), ("Breadth (1-10)", 10),
+                      ("Lesson depth (1-10)", 10), ("Mastery (1-5)", 5)):
+        raw = values.get(label, "")
+        try:
+            number = int(raw)
+        except ValueError:
+            number = 0
+        if str(number) != raw or not 1 <= number <= hi:
+            errors.append(f"{label} must be a whole number from 1 to {hi}")
+    tooling = values.get("Tooling", "").lower()
+    if tooling not in TOOLING_POLICY:
+        errors.append("Tooling must be exactly internal, external, or both")
+    return errors
+
+
 def read_tooling(plan_path):
     """The Tooling gate answer (internal|external|both) from the plan, or None — the
     single source of truth the harness passes to the validator on every phase, resume
@@ -304,13 +341,21 @@ def write_plan(plan_path, tid, answers, concept=None):
         pol = TOOLING_POLICY.get(next((v.lower() for k, v in answers if k == "Tooling"), ""))
         if pol:
             f.write(f"\n## Tooling policy — {pol[0]}\n{pol[1]}\n")
-        f.write("\n## Arc (Phase 1 fills this in, later phases read it)\n")
+        f.write("\n" + ARC_HEADING + ARC_CONTRACT)
 
 
 def do_gate(plan_path, tid, concept=None):
     """Phase 0 is interactive by design — the harness asks the user, no agent involved."""
-    print("\n=== Phase 0 — GATE: three questions (the harness asks YOU) ===")
-    ans = [(k, input(f"  {q}\n  > ").strip()) for k, q in GATE_QS]
+    print("\n=== Phase 0 — GATE: six course-shaping questions (the harness asks YOU) ===")
+    while True:
+        ans = [(k, input(f"  {q}\n  > ").strip()) for k, q in GATE_QS]
+        errors = gate_errors(ans)
+        if not errors:
+            break
+        print("\n  Gate answers are incomplete or invalid:")
+        for error in errors:
+            print(f"  - {error}")
+        print("  Please answer the gate again; no build has started.\n")
     write_plan(plan_path, tid, ans, concept)
     print(f"  -> wrote {plan_path}\n")
 
@@ -321,7 +366,12 @@ def do_gate_json(plan_path, tid, gate_json, concept=None):
         g = json.loads(gate_json)
     except json.JSONDecodeError as e:
         sys.exit(f"--gate-json is not valid JSON: {e}")
+    if not isinstance(g, dict):
+        sys.exit("--gate-json must be a JSON object containing all six Phase-0 answers")
     ans = [(label, str(g.get(key, "")).strip()) for (label, _), key in
            zip(GATE_QS, ("prior_knowledge", "prior_level", "breadth", "depth", "mastery", "tooling"))]
+    errors = gate_errors(ans)
+    if errors:
+        sys.exit("--gate-json has incomplete or invalid Phase-0 answers:\n- " + "\n- ".join(errors))
     write_plan(plan_path, tid, ans, concept)
     print(f"=== Phase 0 — GATE: answers taken from --gate-json ===\n  -> wrote {plan_path}\n")

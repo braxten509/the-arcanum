@@ -1,0 +1,85 @@
+# Lesson s04-l01 manifest
+[[lessons]]
+id = '''s04-l01'''
+title = '''Structures of Truth'''
+body = '''<p>A scribe needs to group related data into cohesive units. In Rust, we achieve this using structs, short for structures. A struct is a custom data type that lets us package and name multiple related values that make up a meaningful group.</p>
+<p>To define a struct, we enter the keyword <code>struct</code> and name the entire structure. Inside curly braces, we define the names and types of the data pieces, which we call fields. Each field must have an explicit type:</p>
+<pre><code>struct ArchiveRecord {
+    id: u32,
+    message: String,
+    severity: i32,
+}</code></pre>
+<p>To use a struct after defining it, we create an instance of that struct by specifying concrete values for each of the fields. We access the fields of an instance using dot notation: <code>instance.field_name</code>. If the instance is mutable, we can also modify fields:</p>
+<pre><code>let mut rec = ArchiveRecord {
+    id: 101,
+    message: String::from("Auth failure"),
+    severity: 4,
+};
+rec.severity = 5; // Modifying field</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // STRUCT MUTABILITY</div>
+<p>In Rust, mutability is a property of the entire struct instance; you cannot mark only specific fields as mutable while others remain immutable. The entire struct is either mutable or immutable.</p></div>
+<p>Structs group related variables into custom structures. Scribes must define clear fields and types, mapping log attributes to the struct. The compiler enforces struct initialization, ensuring that no struct can be created with uninitialized fields, preventing memory errors.</p>
+<p>Struct fields can be accessed via dot notation, and if the instance is mutable, modified inline. Grouping data into structures improves organization and clarity.</p>
+<p>Scribes should also implement methods on structs to encapsulate logic. By packaging functions and data together, you build clean interfaces that hide internal representations from calling code.</p>
+<p>The archivist values structured representation. Well-designed structs form the backbone of our CLI tool, ensuring that file records, parser options, and output writers are represented cleanly in memory.</p>
+<p>Additionally, defining structures establishes a custom domain model. When we encapsulate query options in a designated configuration struct, the scriptorium logic remains clean, coherent, and simple to test.</p>'''
+
+[[lessons.readings]]
+label = '''Defining and Instantiating Structs'''
+url = '''https://doc.rust-lang.org/book/ch05-01-defining-structs.html'''
+
+
+[[lessons.exercises]]
+id = "s04-l01-e1"
+type = "mc"
+points = 15
+prompt = '''How does a scribe access fields of a struct instance?'''
+choices = ['using double colons ::', 'using brackets', 'using a dot .', 'using arrow ->']
+answer = 2
+whyWrong = '''Dot notation accesses named fields. Double colons access namespaces.'''
+hint = '''Identify how struct fields works inside this Treatise.'''
+explain = '''Named fields in struct instances are read using the instance.field pattern.'''
+
+
+[[lessons.exercises]]
+id = "s04-l01-e2"
+type = "text"
+points = 20
+prompt = '''Specify the keyword or name associated with struct fields in this section.'''
+answer = '''dot notation'''
+hint = '''Identify the term for struct fields in this context.'''
+whyWrong = '''Double check the terminology introduced in this lesson for struct fields.'''
+
+
+[[lessons.exercises]]
+id = "s04-l01-e3"
+type = "fill"
+points = 20
+prompt = '''Complete this snippet to apply struct fields.'''
+code = '''struct S { x: ____ }'''
+answer = '''i32'''
+hint = '''Supply the token that matches struct fields.'''
+whyWrong = '''Verify the syntax of the blanked item for struct fields.'''
+
+
+[[lessons.exercises]]
+id = "s04-l01-w1"
+type = "write"
+points = 35
+prompt = '''Define a struct `Log` with field `logs_parsed: i32`. Instantiate it in `main` with code `500` and print `Code: 500`.'''
+expect = '''Code: 500
+'''
+solution = '''struct Log {
+    logs_parsed: i32,
+}
+fn main() {
+    let l = Log { logs_parsed: 500 };
+    println!("Code: {}", l.logs_parsed);
+}'''
+starter = '''struct Log {
+    logs_parsed: i32,
+}
+fn main() {
+    // instantiate and print
+}'''
+hint = '''Solve struct fields following the instructions step-by-step.'''

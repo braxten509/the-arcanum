@@ -6,6 +6,14 @@ in order: brief → lessons (§3a, vary 3–8 by material) → exercises per les
 (§3b) that extends the ONE evolving project. Concepts strictly cumulative — never
 test what no earlier lesson taught.
 
+⚠️ **The freestyle must be completable from the lessons alone — no outside content.**
+Every construct, type, and API its brief/xray/rubric names must have been taught by a
+lesson in this or an earlier section. Before writing the brief, list what the build
+needs; anything not yet taught gets a lesson (or a lesson paragraph) FIRST, or gets cut
+from the brief. The validator ERRORs when freestyle code names a language keyword/type
+no prior lesson mentions — but that only catches keywords/types, so hold the full
+requirement yourself (e.g. don't demand string parsing before any lesson taught it).
+
 ⚠️ **Harness / subagent runs: the unit of content work is one SECTION, never one
 lesson.** A per-lesson worker fed a templated brief produces the ~100-word-stub tome —
 28 workers, one implicit length budget, 28 identical stubs that pass structure and

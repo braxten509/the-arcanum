@@ -1,0 +1,126 @@
+[[lessons]]
+id = "s03-l02"
+title = "Lending the Scroll: References"
+body = '''<p>Moving ownership every time you need to read a value is tedious. Rust offers a better way: borrowing through references. A reference lets you pass a value to a function without transferring ownership. The function reads the data but does not own it.</p>
+<p>Create a reference by prefixing a variable with an ampersand (<code>&</code>):</p>
+<pre><code>fn print_entry(s: &String) {
+    println!("Log: {}", s);
+} // s is a reference and goes out of scope, but the String is NOT dropped
+
+fn main() {
+    let entry = String::from("PARSED");
+    print_entry(&entry);  // Borrow entry; pass a reference
+    println!("{}", entry);  // entry is still valid!
+}'''</code></pre>
+<p>By default, references are immutable. You can read the data through <code>&entry</code>, but not modify it:</p>
+<pre><code>let record = String::from("INFO");
+let r = &record;
+// r.push_str("!") would fail—r is immutable</code></pre>
+<p>If you need to modify borrowed data, use a mutable reference: <code>&mut</code>. However, Rust enforces a strict rule: at any moment, you can have *either* one mutable reference *or* any number of immutable references—never both.</p>
+<pre><code>let mut logs = String::from("Starting");
+let r_mut = &mut logs;  // Mutable reference
+r_mut.push_str(" appended");
+println!("{}", logs);  // Prints: Starting appended</code></pre>
+<p>This rule prevents data races. If two parts of your code could modify <code>logs</code> simultaneously, memory corruption is possible. Rust's rule, checked at compile time, eliminates that risk entirely.</p>
+<p>You cannot hold a mutable reference and immutable references to the same value in the same scope:</p>
+<pre><code>let mut entry = String::from("ERROR");
+let r1 = &entry;      // Immutable reference
+let r2 = &mut entry;  // Compile error: r1 is still in scope
+println!("{}", r1);</code></pre>
+<p>Borrowing is the foundation of Rust's zero-cost abstractions. Pass references instead of moving; the log parser can iterate through thousands of records without cloning each one.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE BORROW CHECKER</div>
+<p>The borrow checker is the Rust compiler's subsystem that enforces borrowing rules. It tracks which references are alive in each scope and ensures the "one mutable or many immutable" rule is never violated. When you see "cannot borrow as mutable because it is also borrowed as immutable," the borrow checker is protecting you from a subtle memory bug. Read the error carefully; it points to the exact scope boundaries that violate the rule.</p></div>'''
+
+[[lessons.readings]]
+label = "References and Borrowing"
+url = "https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html"
+
+[[lessons.readings]]
+label = "Mutable References"
+url = "https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html#mutable-references"
+
+[[lessons.exercises]]
+id = "s03-l02-e1"
+type = "mc"
+points = 15
+prompt = "How many mutable references to the same String can be alive in a scope?"
+choices = [
+    "As many as you want",
+    "Exactly one",
+    "Up to three",
+    "None if any immutable reference exists"
+]
+answer = 1
+hint = "The lesson states a strict rule about mutable references. Reread the paragraph starting 'However, Rust enforces a strict rule'."
+whyWrong = "Rust allows only one mutable reference at a time to prevent data races. Multiple writers to the same memory are forbidden."
+explain = "The borrow checker ensures memory safety by limiting concurrent writes. One mutable reference prevents simultaneous modifications."
+
+[[lessons.exercises]]
+id = "s03-l02-e2"
+type = "text"
+points = 20
+prompt = "What keyword do you add to a reference to allow modification of borrowed data?"
+answer = "mut"
+accept = ["mut keyword", "mut"]
+hint = "In the lesson, when borrowing data for modification, the reference uses <code>&__</code> syntax. What word fills the blank?"
+whyWrong = "Add <code>mut</code> to a reference to borrow mutably. Write <code>&mut variable</code> to allow the reference to modify the data."
+
+[[lessons.exercises]]
+id = "s03-l02-e3"
+type = "fill"
+points = 20
+prompt = "Complete this code block showing an immutable borrow:"
+code = '''let entry = String::from("LOG");
+let reference = ____ entry;  // Borrow immutably
+println!("{}", reference);'''
+answer = "&"
+hint = "To create a reference (immutable), prefix the variable with a symbol shown in the first code example."
+whyWrong = "Use the ampersand <code>&</code> to create a reference. Mutable borrows use <code>&mut</code>; immutable use <code>&</code>."
+
+[[lessons.exercises]]
+id = "s03-l02-e4"
+type = "mc"
+points = 15
+prompt = "What will this code do? `let mut x = String::from(\"test\"); let r1 = &x; let r2 = &mut x;`"
+choices = [
+    "Compile successfully: r1 and r2 coexist",
+    "Compile error: cannot have both immutable and mutable borrows",
+    "Runtime error: data race detected",
+    "Prints \"test\" twice"
+]
+answer = 1
+hint = "The lesson explicitly states the rule: 'you can have *either* one mutable reference *or* any number of immutable references—never both.' Check if this code violates it."
+whyWrong = "Rust forbids mixing immutable and mutable references in the same scope. The borrow checker rejects this code at compile time."
+explain = "The borrow checker prevents simultaneous read and write access. This design eliminates data races before the program runs."
+
+[[lessons.exercises]]
+id = "s03-l02-e5"
+type = "fill"
+points = 20
+prompt = "Complete this function signature to borrow a String immutably:"
+code = '''fn analyze_entry(s: ____ String) {
+    println!("{}", s);
+}'''
+answer = "&"
+hint = "To borrow immutably, prefix the type with the reference symbol from this lesson."
+whyWrong = "Use <code>&String</code> to accept an immutable reference. Use <code>&mut String</code> to accept a mutable reference."
+
+[[lessons.exercises]]
+id = "s03-l02-w1"
+type = "write"
+points = 35
+prompt = '''Create a mutable String <code>logs = "INITIAL"</code>. Borrow it mutably and append <code>" MODIFIED"</code> using <code>push_str</code>. Print the result: <code>INITIAL MODIFIED</code>.'''
+expect = "INITIAL MODIFIED\n"
+solution = '''fn main() {
+    let mut logs = String::from("INITIAL");
+    {
+        let r = &mut logs;
+        r.push_str(" MODIFIED");
+    }
+    println!("{}", logs);
+}'''
+starter = '''fn main() {
+    let mut logs = String::from("INITIAL");
+    // Borrow mutably and append " MODIFIED"
+}'''
+hint = "Create a mutable reference with <code>&mut logs</code>. Use <code>.push_str()</code> on the reference to append text. The scope of the mutable reference must end before you use <code>logs</code> again."

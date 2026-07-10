@@ -13,12 +13,12 @@ sections exist) — that's expected and the order accounts for it.
 One file per phase. `tools/build_tome.py` reads them from this folder and runs each
 as its own fresh agent, so the H1 of each file must stay `# Phase N — Title`.
 
-0. [Gate: three questions](phase-0-gate.md) — NEVER skip
+0. [Gate: six course-shaping questions](phase-0-gate.md) — NEVER skip
 1. [Concept & arc](phase-1-concept-arc.md)
 2. [Skeleton & voice](phase-2-skeleton-voice.md)
 3. [Sections, one at a time](phase-3-sections.md)
 4. [Minigames](phase-4-minigames.md)
 5. [Economy pass](phase-5-economy.md)
 6. [Cosmetics](phase-6-cosmetics.md)
-7. [Validate](phase-7-validate.md) — mandatory
+7. [Validate strictly](phase-7-validate.md) — mandatory
 8. [Student review & gap-fill](phase-8-student-review.md) — mandatory

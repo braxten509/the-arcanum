@@ -22,6 +22,12 @@ command = ["bash", "-lc", 'javac "$1" && java -cp "$(dirname "$1")" "$(basename 
 checkCommand = ["bash", "-lc", 'javac -d "$(mktemp -d)" "$1"', "_"]
 diagRegex = '^(?P<file>.*\.java):(?P<line>\d+): (?P<sev>error|warning): (?P<msg>.*)$'
 
+# No snippetEntry: Java is NOT calibrated for lesson-snippet checking, so it is skipped.
+# Its samples trail loose statements after a class, extend supertypes that live outside the
+# file, and show two public classes at once — all 8 blocks in ironwright flag as false
+# positives. To enable: set snippetEntry, run tools/validate_tome.py over a known-good Java
+# tome, and add each surviving artifact to diagIgnore until only real bugs remain.
+
 # Editor completions (keywords, snippets, dot-members) — served to the client via
 # TOME.runtime and rendered by the generic provider in web/editor.js. Monaco ships
 # its own java tokenizer, so no [syntax] table is needed.

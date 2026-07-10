@@ -1,0 +1,118 @@
+[[lessons]]
+id = "s02-l03"
+title = "The Logic of the Archive"
+body = '''<p>A single gate—an `if` checking one condition—often does not suffice. The archivist must weigh multiple criteria: "Is the severity above the threshold AND the entry type is 'error'?" The Boolean operators combine conditions into more complex expressions.</p>
+<p>The AND operator `&amp;&amp;` returns true only if both operands are true:</p>
+<pre><code>let severity = 8;
+let is_error = true;
+
+if (severity &gt; 5) &amp;&amp; (is_error) {
+    println!("Critical error found");
+}</code></pre>
+<p>The OR operator `||` returns true if at least one operand is true:</p>
+<pre><code>let severity = 3;
+let critical_flag = false;
+
+if (severity &gt; 7) || (critical_flag) {
+    println!("Needs attention");
+} else {
+    println!("Normal processing");  // This prints: severity is not &gt;7 and flag is not true
+}</code></pre>
+<p>The NOT operator `!` flips a Boolean:</p>
+<pre><code>let is_archived = false;
+
+if !is_archived {
+    println!("Not yet archived");  // This prints
+}</code></pre>
+<p>Rust evaluates Boolean operators left to right and short-circuits: if an AND operator finds a false operand on the left, it does not evaluate the right. If an OR operator finds a true operand on the left, it does not evaluate the right. This efficiency is standard and intentional:</p>
+<pre><code>let x = 5;
+
+// The right side is never checked because 5 &lt; 3 is false
+if (x &lt; 3) &amp;&amp; (expensive_function()) {
+    // ...
+}</code></pre>
+<p>For complex conditions, use parentheses to clarify the order of evaluation and make your intent unambiguous:</p>
+<pre><code>if (severity &gt; 5) &amp;&amp; (category == "critical" || category == "error") {
+    println!("Handle with priority");
+}</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // COMPARISON OPERATORS</div>
+<p>Rust provides six comparison operators: `==` (equal), `!=` (not equal), `&lt;` (less than), `&lt;=` (less than or equal), `&gt;` (greater than), `&gt;=` (greater than or equal). All return Booleans. Be careful to use `==` for comparison, not `=` (which is assignment). The compiler will catch `=` in an `if` condition, but such mistakes are a common source of confusion.</p></div>'''
+
+[[lessons.readings]]
+label = "Boolean Operations"
+url = "https://doc.rust-lang.org/book/ch03-05-control-flow.html#if-expressions"
+
+[[lessons.readings]]
+label = "Comparison Operators (Rust by Example)"
+url = "https://doc.rust-lang.org/rust-by-example/primitives/bool.html"
+
+[[lessons.exercises]]
+id = "s02-l03-e1"
+type = "mc"
+points = 15
+prompt = "What does `(true) &amp;&amp; (false)` evaluate to?"
+choices = ["true", "false", "undefined", "a compile error"]
+answer = 1
+hint = "The AND operator (`&amp;&amp;`) appears early in this lesson. Both operands must be true for the result to be true. Here, one is false."
+whyWrong = "The AND operator requires both operands to be true. Since the right side is false, the result is false."
+explain = "AND (`&amp;&amp;`) returns true only when both operands are true. Any combination with false produces false."
+
+[[lessons.exercises]]
+id = "s02-l03-e2"
+type = "fill"
+points = 20
+prompt = "Complete this condition to check if severity is greater than 5 OR the flag is set:"
+code = '''if (severity &gt; 5) ____ (critical_flag) {
+    println!("Alert");
+}'''
+answer = "||"
+hint = "The OR operator was shown in the early part of this lesson, used to combine conditions where at least one must be true."
+whyWrong = "The OR operator in Rust is `||` (two vertical pipes). Use `||` to test if either condition is true."
+
+[[lessons.exercises]]
+id = "s02-l03-e3"
+type = "text"
+points = 20
+prompt = "In short-circuit evaluation, when the AND operator finds a false left operand, what happens to the right operand? (Answer: it is _____.)"
+answer = "skipped"
+accept = ["skipped", "not evaluated", "ignored", "not checked"]
+hint = "The lesson explains that Rust does not evaluate the right operand if the left is already false, because the outcome is determined."
+whyWrong = "Short-circuiting means if the left side of `&amp;&amp;` is false, Rust skips checking the right side entirely because the result must be false regardless."
+
+[[lessons.exercises]]
+id = "s02-l03-e4"
+type = "mc"
+points = 15
+prompt = "Which statement correctly negates a Boolean? `let is_open = true;`"
+choices = [
+    "if !is_open { ... }",
+    "if is_open == false { ... }",
+    "if not is_open { ... }",
+    "if ~is_open { ... }"
+]
+answer = 0
+hint = "The NOT operator appears in the middle of this lesson, negating an `is_archived` Boolean. What symbol represents NOT in Rust?"
+whyWrong = "The NOT operator in Rust is `!`, not `not` or `~`. Both `if !is_open { ... }` and `if is_open == false { ... }` are valid, but `!` is more idiomatic."
+explain = "The NOT operator `!` flips a Boolean value. `!is_open` is the Rust idiom for negation."
+
+[[lessons.exercises]]
+id = "s02-l03-w1"
+type = "write"
+points = 30
+prompt = '''Declare `severity` as `6` and `is_error` as `true`. If BOTH severity > 5 AND is_error is true, print `CRITICAL ERROR`. Otherwise print `NORMAL`. (Output exactly one line.)'''
+expect = "CRITICAL ERROR\n"
+solution = '''fn main() {
+    let severity = 6;
+    let is_error = true;
+    if (severity > 5) && (is_error) {
+        println!("CRITICAL ERROR");
+    } else {
+        println!("NORMAL");
+    }
+}'''
+starter = '''fn main() {
+    let severity = 6;
+    let is_error = true;
+    // if both severity > 5 AND is_error, print CRITICAL ERROR; else print NORMAL
+}'''
+hint = "Use the `&amp;&amp;` operator to combine the two conditions. Both must be true for the if block to execute."

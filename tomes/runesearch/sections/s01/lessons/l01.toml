@@ -1,0 +1,74 @@
+[[lessons]]
+id = "s01-l01"
+title = "Holding the Quill"
+body = '''<p>To record the history of our archives, a scribe must first master the quill. In the unyielding realm of Rust, this quill is bound to a name through the <code>let</code> keyword, and every binding is immutable by default—once written, it cannot be altered. This is the immutable pact of the scriptorium.</p>
+<p>We begin our work inside the main entry point: a function named <code>main</code>. It is declared with the keyword <code>fn</code>, followed by the function name, a pair of parentheses, and a block delimited by curly braces:</p>
+<pre><code>fn main() {
+    // The scribe's work begins here
+}</code></pre>
+<p>Within this block, we bind values to names using the <code>let</code> statement. By default, bindings are immutable—they cannot be changed after their initial assignment:</p>
+<pre><code>let severity = 5;      // Immutable: severity is frozen at 5
+let archive_count = 42; // Immutable: archive_count is frozen at 42</code></pre>
+<p>If you must alter a value during execution, you must explicitly declare your intent with the <code>mut</code> keyword. This signals to the compiler and to future readers that this variable will change:</p>
+<pre><code>let mut logs_parsed = 0; // Mutable: permitted to change
+logs_parsed = logs_parsed + 1; // Now it is 1</code></pre>
+<p>Rust is a statically-typed language—the compiler must know the type of every value at compile time. Often, the compiler infers the type by analyzing how you use the variable. However, you can always write the type explicitly after a colon to guide the compiler or enforce strictness:</p>
+<pre><code>let severity: i32 = 5;
+let is_active: bool = true;</code></pre>
+<p>To print our records to the console, we use the <code>println!</code> macro. The exclamation mark signals that this is a macro—a powerful construct that generates code at compile time. We can interpolate variables using curly braces <code>{}</code> as placeholders:</p>
+<pre><code>let count = 42;
+println!("Parsed {} entries", count);</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SHADOWING</div>
+<p>Rust allows you to declare a new variable with the same name as an earlier one—this is called shadowing. The new binding obscures the old one for all code that follows. This is different from mutability: <code>let x = 5; let x = x + 1;</code> creates two separate bindings, while <code>let mut x = 5; x = x + 1;</code> modifies a single binding. Shadowing can be useful when transforming a value into a different type or concept, but it should be used sparingly to avoid confusion.</p></div>'''
+
+[[lessons.readings]]
+label = "Variables and Mutability"
+url = "https://doc.rust-lang.org/book/ch03-01-variables-and-mutability.html"
+
+[[lessons.exercises]]
+id = "s01-l01-e1"
+type = "mc"
+points = 15
+prompt = "By default, are Rust variables mutable or immutable?"
+choices = ["immutable", "mutable", "depends on the type", "determined at runtime"]
+answer = 0
+hint = "The lesson opens by stating 'every binding is immutable by default.' Later, it shows the `mut` keyword used only for exceptions."
+whyWrong = "Rust bindings are immutable by default—you must use the `mut` keyword to allow mutation. This design catches accidental changes at compile time."
+explain = "Immutability is Rust's default. It forces you to be intentional when a value must change, making code safer and easier to reason about."
+
+[[lessons.exercises]]
+id = "s01-l01-e2"
+type = "text"
+points = 20
+prompt = "What keyword do you add to a `let` binding to permit mutation?"
+answer = "mut"
+accept = ["mut keyword", "mut"]
+hint = "It appears in bindings like `let ___ x = 0;` to allow reassignment."
+whyWrong = "The `mut` keyword is the only way to declare a mutable binding in Rust. It must appear between `let` and the variable name."
+
+[[lessons.exercises]]
+id = "s01-l01-e3"
+type = "fill"
+points = 20
+prompt = "Complete this immutable binding:"
+code = '''let archive_count = ____;'''
+answer = "42"
+hint = "Fill in the numeric value shown in the lesson as an example of an immutable binding."
+whyWrong = "This exercise uses the exact value from the lesson body. Review the immutable binding example."
+
+[[lessons.exercises]]
+id = "s01-l01-w1"
+type = "write"
+points = 30
+prompt = '''Create a mutable variable `logs_seen` starting at `12`. Increment it by `8`, then print the final count as `TOTAL 20`.'''
+expect = "TOTAL 20\n"
+solution = '''fn main() {
+    let mut logs_seen = 12;
+    logs_seen = logs_seen + 8;
+    println!("TOTAL {}", logs_seen);
+}'''
+starter = '''fn main() {
+    let mut logs_seen = 12;
+    // increment by 8 and print TOTAL {result}
+}'''
+hint = "Use `logs_seen = logs_seen + 8` to increment, then `println!` with the format string from the prompt."

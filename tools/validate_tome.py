@@ -14,13 +14,15 @@ import argparse
 import os
 import sys
 
-from validatelib import HARD_GATE_LABELS, ID_RE, _findings, err, load_toml, rel
+from validatelib import ID_RE, _findings, err, load_toml, rel
 from validatelib.attacks import check_attacks, check_attacks_sync, check_intrusions
 from validatelib.content import (check_anti_template, check_content, check_density,
-                                 check_section)
-from validatelib.depth import (check_economy_totals, check_presolved_static,
-                               check_starters_run, check_taught_before_used,
+                                 check_literal_newlines, check_section)
+from validatelib.depth import (check_economy_totals, check_freestyle_scope, check_name_drift,
+                               check_padded_prose, check_presolved_static,
+                               check_self_answering, check_taught_before_used,
                                check_verbatim_prose)
+from validatelib.execute import check_snippets, check_starters_run
 from validatelib.structure import (check_badges, check_economy, check_layout, check_meta,
                                    check_narrative, check_placeholders, check_runtime,
                                    check_shop)
@@ -86,12 +88,18 @@ def validate(tome_path, run=False, tooling=None):
     check_anti_template(sections_data)
     check_density(sections_data)
     check_content(m, sections_data, label, tooling)
+    check_literal_newlines(m, sections_data)
     check_taught_before_used(sections_data)
+    check_freestyle_scope(m, sections_data)
     check_verbatim_prose(sections_data)
+    check_padded_prose(sections_data)
     check_economy_totals(tome_path, m, sections_data)
-    check_presolved_static(sections_data)
+    check_presolved_static(m, sections_data)
+    check_name_drift(sections_data)
+    check_self_answering(sections_data)
     check_intrusions(tome_path, m, label)
     if run:
+        check_snippets(m, sections_data)
         check_starters_run(tome_path, m, sections_data)
 
     # attacks is optional and machine-generated; default to generated/attacks.toml,
@@ -103,6 +111,23 @@ def validate(tome_path, run=False, tooling=None):
         check_attacks(apath, m, label, stages)
         check_attacks_sync(tome_path, apath)
 
+    # Exercise the same final assembly path the HTTP /api/tome route uses. The
+    # structural checks above are intentionally detailed, but only the real loader can
+    # prove its merged runtime/banks/sections payload can actually be constructed.
+    installed_root = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "tomes"))
+    if os.path.realpath(os.path.dirname(tome_path)) == installed_root:
+        try:
+            from arcanum.tomes import assemble_tome
+            payload = assemble_tome(tome_id)
+            if len(payload.get("sections", [])) != len(sections_data):
+                err("loader", f"assembled payload has {len(payload.get('sections', []))} section(s), "
+                    f"validator loaded {len(sections_data)}")
+        except Exception as ex:
+            err("loader", f"the server's assemble_tome() path failed: {type(ex).__name__}: {ex}")
+    else:
+        warn("advisory", "server assembly was skipped because this tome is outside the repo's "
+             "tomes/ directory; install it there to exercise the /api/tome loader path")
+
 
 def main():
     ap = argparse.ArgumentParser(
@@ -111,12 +136,14 @@ def main():
                "still emits an ERROR is not done.")
     ap.add_argument("tome", help="path to the tome folder, e.g. tomes/verisearch")
     ap.add_argument("--strict", action="store_true",
-                    help="also exit 1 on hard-gate WARNs (anti-template/content) — the "
-                         "tome-workflow phase 7 bar; the harness uses this from Phase 7 on")
-    ap.add_argument("--run", action="store_true",
-                    help="also EXECUTE every write-lab and intrusion starter through the tome's "
-                         "runtime: flags starters that don't compile/run and ones already pre-solved. "
-                         "Needs the toolchain installed; degrades to a WARN if it isn't.")
+                    help="also exit 1 on every WARN except 'advisory' ones (language-calibration "
+                         "limits no tome can fix) — the tome-workflow phase 7 bar: a finished tome "
+                         "carries zero warnings; the harness uses this from Phase 7 on")
+    ap.add_argument("--run", action=argparse.BooleanOptionalAction, default=True,
+                    help="EXECUTE every write-lab and intrusion starter through the tome's runtime: "
+                         "flags starters that don't compile/run and ones already pre-solved. On by "
+                         "default (it is the only check that can see a broken scaffold); degrades to "
+                         "a WARN when the toolchain is absent. --no-run skips it.")
     ap.add_argument("--tooling", choices=("internal", "external", "both"), default=None,
                     help="enforce the build's gate Tooling choice: internal forbids "
                          "externalWorkspace; external/both require external tools taught in section 1")
@@ -126,7 +153,7 @@ def main():
 
     errors = sum(1 for f in _findings if f[0] == "ERROR")
     warns = len(_findings) - errors
-    hard = sum(1 for lv, lbl, _ in _findings if lv == "WARN" and lbl in HARD_GATE_LABELS)
+    hard = sum(1 for lv, lbl, _ in _findings if lv == "WARN" and lbl != "advisory")
     for level, lbl, msg in _findings:
         print(f"{level} {lbl}: {msg}")
     strict_note = f", {hard} hard-gate warn(s) [--strict]" if args.strict and hard else ""

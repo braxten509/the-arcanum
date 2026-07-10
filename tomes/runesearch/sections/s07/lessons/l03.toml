@@ -1,0 +1,89 @@
+# Lesson s07-l03 manifest
+[[lessons]]
+id = '''s07-l03'''
+title = '''The Bubbling Rune'''
+body = '''<p>When writing complex log parsing logic, we often want to return any encountered errors directly to the caller, letting them bubble up the call stack. To make error propagation concise, Rust provides the question mark operator (<code>?</code>).</p>
+<p>The <code>?</code> operator can only be used in functions that return a <code>Result</code> or an <code>Option</code>. When placed after a <code>Result</code> value, if the value is <code>Ok(T)</code>, the inner value <code>T</code> is returned from the expression and execution continues. If the value is <code>Err(E)</code>, the error is returned early from the function:</p>
+<pre><code>fn read_and_parse() -&gt; Result&lt;u32, String&gt; {
+    let raw = get_raw_input()?; // Returns early if None/Err
+    let parsed = parse_id(&amp;raw)?; // Returns early if Err
+    Ok(parsed)
+}</code></pre>
+<p>This allows us to write clean, linear code that does not drown in nested <code>match</code> blocks, while maintaining strict error safety throughout our tool.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // COERCION</div>
+<p>The <code>?</code> operator automatically converts the error type to the function's return error type using the <code>From</code> trait, allowing different error types to bubble up to a unified error wrapper.</p></div>
+<p>The question mark operator propagates errors concisely. Scribes use ? to bubble up failures to the caller, keeping the primary logic clean and linear. This operator automatically converts error types, simplifying error handling in complex database pipelines.</p>
+<p>The operator converts error types automatically, allowing various errors to bubble up to a unified error type defined in the function signature.</p>
+<p>Scribes must ensure that the function's return type matches the operator's output container (Result or Option), as using ? in other contexts fails builds.</p>
+<p>The archivist recommends error propagation for nested operations. By bubbling errors to the top main function, we centralize exit logic and log output operations.</p>
+<p>Using ? creates clean, readable function flows that resemble exception handling in other runtimes while preserving Rust's explicit error tracking safety.</p>
+<p>Mastering error propagation is vital for complex scriptorium software. By bubbling file access errors up to the CLI root, you keep the tool reliable.</p>'''
+
+[[lessons.readings]]
+label = '''Propagating Errors'''
+url = '''https://doc.rust-lang.org/book/ch09-02-recoverable-errors-with-result.html#a-shortcut-for-propagating-errors-the--operator'''
+
+
+[[lessons.exercises]]
+id = "s07-l03-e1"
+type = "mc"
+points = 15
+prompt = '''Which operator provides shorthand propagation for errors in functions returning Result?'''
+choices = ['the question mark ?', 'the exclamation !', 'the dot .', 'the arrow ->']
+answer = 0
+whyWrong = '''? unwraps success or returns error variants early.'''
+hint = '''Identify how bubbling errors works inside this Treatise.'''
+explain = '''The question mark operator avoids redundant matching boilerplate in bubble trees.'''
+
+
+[[lessons.exercises]]
+id = "s07-l03-e2"
+type = "text"
+points = 20
+prompt = '''Specify the keyword or name associated with bubbling errors in this section.'''
+answer = '''early return operator'''
+hint = '''Identify the term for bubbling errors in this context.'''
+whyWrong = '''Double check the terminology introduced in this lesson for bubbling errors.'''
+
+
+[[lessons.exercises]]
+id = "s07-l03-e3"
+type = "fill"
+points = 20
+prompt = '''Complete this snippet to apply bubbling errors.'''
+code = '''let val = step()____;'''
+answer = '''?'''
+hint = '''Supply the token that matches bubbling errors.'''
+whyWrong = '''Verify the syntax of the blanked item for bubbling errors.'''
+
+
+[[lessons.exercises]]
+id = "s07-l03-w1"
+type = "write"
+points = 35
+prompt = '''Define a function `test() -> Result<i32, &'static str>` that bubbles up an error. In `main`, handle `logs_parsed` and print `Error`.'''
+expect = '''Error
+'''
+solution = '''fn sub() -> Result<i32, &'static str> {
+    Err("fail")
+}
+fn test() -> Result<i32, &'static str> {
+    let logs_parsed = sub()?;
+    Ok(logs_parsed)
+}
+fn main() {
+    if test().is_err() {
+        println!("Error");
+    }
+}'''
+starter = '''fn sub() -> Result<i32, &'static str> {
+    Err("fail")
+}
+fn test() -> Result<i32, &'static str> {
+    // call sub with ?
+    Ok(0)
+}
+fn main() {
+    // handle test result
+}'''
+hint = '''Solve bubbling errors following the instructions step-by-step.'''

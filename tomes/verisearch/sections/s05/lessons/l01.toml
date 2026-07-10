@@ -92,4 +92,11 @@ type = "write"
 points = 34
 prompt = "Full write-then-read round trip: write the text <code>max_sources: 5</code> to a temp file (<code>Path.GetTempFileName()</code>), read it back, print <code>reloaded: &lt;contents&gt;</code>, then delete the file with <code>File.Delete</code>."
 expect = "reloaded: max_sources: 5"
+solution = '''
+string path = Path.GetTempFileName();
+File.WriteAllText(path, "max_sources: 5");
+string contents = File.ReadAllText(path);
+Console.WriteLine($"reloaded: {contents}");
+File.Delete(path);
+'''
 hint = "var p = Path.GetTempFileName(); WriteAllText; ReadAllText; WriteLine; Delete."

@@ -17,6 +17,11 @@ build = "CLI shell skeleton — the tool's front door"  # one line: what this op
 brief = "Every tool starts with a heartbeat. …"       # HTML; section intro card
 ```
 
+**Chapter titles are Title Case — one capital per word, never more, acronyms
+excepted** (`"Java from Zero & the Ironwright CLI"`, never `"THE FIRST CUT"`).
+All-caps styling belongs to the `codename`, which is the heading label; a `title`
+whose every letter is a capital fails validation.
+
 ### `[[lessons]]` — 3–8 per section, sized by what the op teaches
 `id` (`"s01-l01"`), `title`, `body` (HTML multiline literal string).
 
@@ -38,6 +43,39 @@ machine-generated (see the anti-template rules below).
 
 Escape literal `<`/`>` in code samples as `&lt;`/`&gt;`. Lessons should be
 300–600 words of body, concrete, code-first, and in the tome's voice.
+
+**Every code sample must compile in the language the tome teaches.** The validator
+builds each `<pre><code>` block that is a whole program through the real toolchain
+(see §7), because the failure mode is not typos — it is writing the language you know
+best while claiming to teach another. Odin is not Go: `make([]T, 0, 8)` takes an
+allocator as its third argument, not a capacity; `v, ok := f()` needs `f` to return
+two values; `a + b` does not concatenate strings; and Odin has no methods, so
+`entry.show()` names nothing. Perl is not sed: a replacement containing a slash
+(`s/x/<\/h1>/`) closes the substitution early — write `s{x}{</h1>}`. Before you write
+a sample in a language you have not shipped before, build a scratch file with the
+tome's `checkCommand` and confirm the idiom exists. A wrong sample teaches the wrong
+thing far more loudly than a wrong exercise does.
+
+**Prose claims are held to the same bar — and your prior will lie to you.** The
+validator compiles code blocks; it cannot fact-check a sentence. Every claim about
+the language's behavior — "this is a compile error", "this panics", "slices carry a
+capacity", "`[a...b]` slices inclusively" — must be verified against the real
+toolchain before it ships, exactly like a code sample: write the scratch file, run
+it, watch it agree with you. The failure mode is specific: teaching a less-common
+language, your training prior is polluted by its popular siblings, and the borrowed
+fact *feels* true — Go's slice `cap`, Rust's debug-mode overflow panic, and C's
+implicit-conversion rules have each been shipped as "Odin" by an author who never
+checked. So prefer **demonstrating** a behavior claim in a code block over asserting
+it in prose: a demonstrated claim is machine-checked on every validation run; bare
+prose is checked only by you, once — which is why it is where the lies survive.
+This covers `whyWrong` and `explain` text too: a wrong-answer explanation that
+misstates the language plants the misconception it exists to correct.
+
+**Multi-line code goes in a `'''…'''` block, never a `'…'` literal.** TOML's
+single-quoted literal string does not interpret escapes, so `code = 'a\nb'` ships the
+student one long line with a `\n` punched through it. It parses, so every structural
+check passes — and a `type` drill will then ask them to retype the corruption. The
+validator ERRORs on a `code`/`starter` whose `\n` sits outside a string literal.
 
 ### `[[lessons.readings]]` — external links
 `label`, `url`. (An `essential` bool is tolerated but not currently rendered.)
@@ -69,7 +107,16 @@ teaching long after the first attempt.
 | `text` | `answer` (string), optional `accept` (array of alternate correct strings), optional `code` | free-text input. Matching is forgiving: trimmed, lowercased, whitespace collapsed, trailing `;` and surrounding quotes stripped — so `accept` only needs true alternates (synonyms, other valid answers), not case/punctuation variants |
 | `fill` | same as `text` | fill-the-blank; put `____` in the `code` block where the answer goes |
 | `type` | `code` (the text to type), optional `reps` (default 1) | typing drill: retype the code exactly (whitespace-normalized), `reps` times. No point decay |
-| `write` | `expect` (exact required stdout, **must be non-empty**) **or** `expectRe` (JS regex, multiline flag), optional `stdin` (piped input, `\n`-separated), optional `starter` (prefilled editor code) | CODE LAB: a real Monaco editor + the actual runtime. The program must produce the expected output. No point decay |
+| `write` | `expect` (exact required stdout, **must be non-empty**) **or** `expectRe` (JS regex, multiline flag), optional `stdin` (piped input, `\n`-separated), optional `starter` (prefilled editor code), `solution` (a complete program that passes — see below) | CODE LAB: a real Monaco editor + the actual runtime. The program must produce the expected output. No point decay |
+
+**Every `write` lab (and every intrusion challenge) carries a `solution`** — a
+complete program that solves the exercise as a student would. The engine never
+shows it; it exists so the validator can RUN it and prove the `expect` is
+actually achievable. A miscomputed `expect` ("print `KEY 42`" when the starter's
+values multiply to 41) ships an unwinnable lab, and nothing else can catch it —
+the validator only sees your arithmetic error when your own solution's output
+disagrees with your `expect`. Write the solution honestly (use the starter's
+data, obey the prompt); a lab without one is flagged as never-verified.
 
 **Never author an empty-output lab** (`expect = ""`): the runtime reports empty
 stdout as the literal `(no output)`, so an empty target is impossible to satisfy —
@@ -115,6 +162,19 @@ These are hard requirements, checked in review:**
   invented pseudo-trace like `CONTRACT = ____`.
 - Hints are exercise-specific (name the instruction, operand, or line) — never a
   recycled generic sentence. 180 exercises should have ~180 distinct hints.
+- **Freeze identifiers.** The first spelling of every type/proc/field name is
+  canonical for the whole tome: lessons, hints, starters, solutions, freestyle
+  briefs, and all later sections reuse those exact letters. `Push_Op` with a
+  `value` field in one section must not resurface as `PushOp` with `val` two
+  sections later — the student's cumulative build stops matching what the prompts
+  name. Keep a name ledger while authoring, and verify cross-references against
+  it: a hint claiming a struct "was defined in Operation 9" must point where the
+  definition actually lives. (`validate_tome.py` WARNs on case/underscore
+  spelling drift across a tome's code surfaces.)
+- A `text`/`fill` answer must never appear verbatim in its own prompt — "the
+  operand is stored as a byte offset… what is this value called?" (answer:
+  `offset`) tests reading the question, not knowledge. Ask for something the
+  prompt doesn't already say. (`validate_tome.py` WARNs on it.)
 - Vary structure — the single most common AI tell, so treat it as a hard rule.
   Do NOT emit the same shape in every section: 3 lessons × 4 exercises in a fixed
   `mc … write` order repeated down the whole tome is a review failure even when
@@ -131,7 +191,11 @@ These are hard requirements, checked in review:**
   rewrite choices until 0/1/2/3 are each used a comparable number of times across
   the tome. (`validate_tome.py` WARNs on a single fixed index.)
 - Write every lesson body fresh — no sentence may appear verbatim in more than one
-  lesson.
+  lesson. The rule is about the writing, not the wording: do not draft one filler
+  paragraph and reword it per lesson to slip past the check. A synonym swap leaves
+  the function-word skeleton (`the … of … to …`) identical, which is exactly what
+  the validator measures, and clearing a word floor with padding is what the floor
+  exists to prevent. The 300-word floor is a floor, not a target.
 
 ### Learning design — sequence exercises so they actually teach
 

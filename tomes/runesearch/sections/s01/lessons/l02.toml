@@ -1,0 +1,88 @@
+[[lessons]]
+id = "s01-l02"
+title = "Primitive Ink"
+body = '''<p>Every rune we engrave onto our parchment must conform to a strict type. The Great Library divides these primitive types into scalar categories: integers (signed and unsigned), booleans, and characters. Each type occupies a fixed number of bytes in memory, and Rust will not allow you to mix types carelessly.</p>
+<p>Integers come in two flavors: signed and unsigned. A signed integer begins with the letter <code>i</code> and can represent both positive and negative numbers. An unsigned integer starts with <code>u</code> and can only hold non-negative values (zero and above). The number that follows indicates the bit width—<code>i32</code> is a 32-bit signed integer, <code>u64</code> is a 64-bit unsigned integer, and so forth:</p>
+<pre><code>let line_count: u32 = 1200;    // Unsigned 32-bit: 0 to 4,294,967,295
+let temperature: i8 = -5;       // Signed 8-bit: -128 to 127
+let entries: i64 = 9223372036; // Signed 64-bit: very large range</code></pre>
+<p>When you do not specify a type, Rust infers <code>i32</code> as the default for integer literals. Use <code>i32</code> as your daily-driver integer unless memory constraints or a specific range demand otherwise. For counts, indices, and collection sizes, <code>u32</code> or <code>usize</code> are appropriate since counts cannot be negative.</p>
+<p>Booleans in the archive represent binary truth: either <code>true</code> or <code>false</code>. They occupy exactly one byte of memory:</p>
+<pre><code>let has_errors: bool = false;
+let is_archive_open: bool = true;</code></pre>
+<p>Characters in Rust represent a single Unicode scalar value, written with single quotes. Unlike ASCII-only characters in ancient systems, a Rust character can represent emojis, accents, and non-Western glyphs with equal ease:</p>
+<pre><code>let archive_marker: char = 'ᚱ';
+let line_separator: char = '\n';</code></pre>
+<p>Selecting the correct type prevents buffer overflows and index errors at compilation time. The archivist expects you to understand the bits allocated for each numeric type, ensuring that integer overflows do not corrupt your search results. This foundation ensures the runesearch engine remains stable and deterministic across all queries.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ISIZE AND USIZE</div>
+<p>The <code>isize</code> and <code>usize</code> types depend on the architecture of the computer running your code: they are 64 bits on a 64-bit system and 32 bits on a 32-bit system. They are primarily used for indexing into collections and for measuring the size of items in memory. When in doubt about indexing, use <code>usize</code>.</p></div>'''
+
+[[lessons.readings]]
+label = "Data Types"
+url = "https://doc.rust-lang.org/book/ch03-02-data-types.html"
+
+[[lessons.readings]]
+label = "The Rust Type System (Rust by Example)"
+url = "https://doc.rust-lang.org/rust-by-example/types.html"
+
+[[lessons.exercises]]
+id = "s01-l02-e1"
+type = "mc"
+points = 15
+prompt = "What is the default integer type when you write a number literal without an explicit type annotation?"
+choices = ["u32", "u64", "i32", "isize"]
+answer = 2
+hint = "The lesson states clearly: 'When you do not specify a type, Rust infers `i32` as the default for integer literals.'"
+whyWrong = "Rust defaults to `i32` for integer literals, not unsigned types. This provides a balanced range for most use cases."
+explain = "The `i32` type is Rust's default integer—32 bits with both positive and negative range. It is sufficient for most calculations and fast on modern CPUs."
+
+[[lessons.exercises]]
+id = "s01-l02-e2"
+type = "fill"
+points = 20
+prompt = "Complete this unsigned integer binding from the lesson:"
+code = '''let line_count: ____ = 1200;'''
+answer = "u32"
+hint = "This example in the lesson declares a 32-bit unsigned integer to count log lines."
+whyWrong = "The lesson shows `u32` here—a 32-bit unsigned integer, perfect for counts that cannot be negative."
+
+[[lessons.exercises]]
+id = "s01-l02-e3"
+type = "text"
+points = 20
+prompt = "What Rust type stores a single Unicode value like an emoji or accented letter?"
+answer = "char"
+accept = ["char type", "char"]
+hint = "The lesson describes this type as holding a single Unicode scalar value, even emojis."
+whyWrong = "The `char` type in Rust stores exactly one Unicode scalar value, whether ASCII, emoji, or accented characters."
+
+[[lessons.exercises]]
+id = "s01-l02-e4"
+type = "mc"
+points = 15
+prompt = "Which type can hold both positive and negative numbers?"
+choices = ["u8", "bool", "char", "i64"]
+answer = 3
+hint = "The lesson distinguishes signed (i) from unsigned (u) types. Signed types begin with `i`; unsigned with `u`. Negatives require a signed type."
+whyWrong = "`u8` is unsigned (positive only). `bool` stores true/false. `char` stores Unicode characters. Only signed integer types (i, ...) can hold negatives."
+explain = "Signed integer types (i8, i16, i32, i64) can represent negative, zero, and positive values. The `i` prefix indicates they are signed."
+
+[[lessons.exercises]]
+id = "s01-l02-w1"
+type = "write"
+points = 35
+prompt = '''Declare three variables: `entries` as a `u32` with value `250`, `temp` as an `i8` with value `-10`, and `open` as a `bool` with value `true`. Print them as `ENTRIES 250 TEMP -10 OPEN true`.'''
+expect = "ENTRIES 250 TEMP -10 OPEN true\n"
+solution = '''fn main() {
+    let entries: u32 = 250;
+    let temp: i8 = -10;
+    let open: bool = true;
+    println!("ENTRIES {} TEMP {} OPEN {}", entries, temp, open);
+}'''
+starter = '''fn main() {
+    let entries: u32 = 250;
+    let temp: i8 = -10;
+    let open: bool = true;
+    // print the three variables in the required format
+}'''
+hint = "Use `println!` with three `{}` placeholders and pass the three variables in order."

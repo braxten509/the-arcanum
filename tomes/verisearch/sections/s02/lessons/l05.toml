@@ -86,4 +86,14 @@ points = 34
 prompt = "Bind a Dictionary&lt;string,int&gt; with nist.gov→9, ietf.org→9, medium.com→2. Hear a domain by whisper and utter its score — or <code>unknown</code> if it is not in the ledger."
 stdin = "nist.gov"
 expect = "9"
+solution = '''
+var scores = new Dictionary<string, int>
+{
+    ["nist.gov"] = 9,
+    ["ietf.org"] = 9,
+    ["medium.com"] = 2
+};
+string domain = Console.ReadLine() ?? "";
+Console.WriteLine(scores.TryGetValue(domain, out int score) ? score : "unknown");
+'''
 hint = "Initializer form + TryGetValue (or GetValueOrDefault with a sentinel)."

@@ -1,0 +1,91 @@
+# Lesson s09-l02 manifest
+[[lessons]]
+id = '''s09-l02'''
+title = '''Reading the Index'''
+body = '''<p>Retrieving values from a hash map requires providing the key. The <code>get</code> method takes a reference to the key and returns an <code>Option&lt;&amp;V&gt;</code>. If the key exists, it yields <code>Some(&amp;value)</code>; if not, it yields <code>None</code>.</p>
+<pre><code>let team = String::from("Blue");
+let score = scores.get(&amp;team); // Returns Option&lt;&amp;i32&gt;</code></pre>
+<p>When aggregating counts (e.g., counting how many times each error message appears), we often want to check if a key exists, insert it with a value of 0 if not, and then mutate the value. Rust provides a highly idiomatic tool for this: the Entry API.</p>
+<p>The <code>entry</code> method takes the key and returns an enum representing presence. Calling <code>or_insert</code> on the entry returns a mutable reference to the value, allowing direct mutation:</p>
+<pre><code>let mut counts = HashMap::new();
+let word = "error";
+counts.entry(word).or_insert(0); // Inserts 0 if absent
+*counts.entry(word).or_insert(0) += 1; // Increments count</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DEFERENCING MUTABLE REFS</div>
+<p>The asterisks (<code>*</code>) in <code>*counts.entry(word).or_insert(0) += 1</code> is the dereference operator. It allows us to access and modify the integer value behind the mutable reference returned by <code>or_insert</code>.</p></div>
+<p>The Entry API provides a clean way to update hash map values. Scribes use or_insert to initialize missing keys before modifying the value. This API avoids double lookups, keeping updates highly performant.</p>
+<p>By returning a mutable reference to the value, the Entry API allows direct mutation, simplifying aggregation tasks like log counting.</p>
+<p>Scribes can use entry to inspect key state dynamically, inserting defaults or updating existing entries in a single, fluent expression block.</p>
+<p>The archivist recommends this API for frequency maps. By modifying mapped integers in place, we count error frequencies without searching key structures twice.</p>
+<p>This API represents the idiomatic way to manage map collections in Rust, combining presence checks and mutations safely under the borrow checker rules.</p>
+<p>Scribes who leverage Entry API avoid typical lookup performance traps. Updates compile down to highly efficient bucket modifications in the collection structure.</p>'''
+
+[[lessons.readings]]
+label = '''Accessing Hash Map Values'''
+url = '''https://doc.rust-lang.org/book/ch08-03-hash-maps.html#accessing-values-in-a-hash-map'''
+
+
+[[lessons.exercises]]
+id = "s09-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = '''Retype this exact line to practice entry API syntax.'''
+code = '''*map.entry(k).or_insert(0) += 1;'''
+
+
+[[lessons.exercises]]
+id = "s09-l02-e1"
+type = "fill"
+points = 20
+prompt = '''Supply the missing element for entry API.'''
+code = '''map.entry(key).____(0);'''
+answer = '''or_insert'''
+hint = '''Supply the entry API token to make the code compile.'''
+whyWrong = '''Check the syntax for entry API once more.'''
+
+
+[[lessons.exercises]]
+id = "s09-l02-e2"
+type = "mc"
+points = 15
+prompt = '''What does the or_insert method return when called on an Entry?'''
+choices = ['a mutable reference to the value', 'the value itself', 'a boolean status', 'an Option wrapper']
+answer = 0
+whyWrong = '''or_insert provides &mut access, allowing immediate variable modifications.'''
+hint = '''Recall the definition details of entry API.'''
+explain = '''Mutable references from Entry updates let scribes edit values inline.'''
+
+
+[[lessons.exercises]]
+id = "s09-l02-e3"
+type = "text"
+points = 20
+prompt = '''What is the primary keyword or type for entry API?'''
+answer = '''or_insert'''
+hint = '''Specify the keyword representing entry API.'''
+whyWrong = '''Ensure correct spelling of the entry API keyword.'''
+
+
+[[lessons.exercises]]
+id = "s09-l02-w1"
+type = "write"
+points = 35
+prompt = '''Given a HashMap `logs_parsed`, insert a key `"x"` with value `0` if missing, then increment it by `1`. Print the value.'''
+expect = '''1
+'''
+solution = '''use std::collections::HashMap;
+fn main() {
+    let mut logs_parsed: HashMap<&str, i32> = HashMap::new();
+    {
+        let val = logs_parsed.entry("x").or_insert(0);
+        *val += 1;
+    }
+    println!("{}", logs_parsed.get("x").unwrap());
+}'''
+starter = '''use std::collections::HashMap;
+fn main() {
+    let mut logs_parsed: HashMap<&str, i32> = HashMap::new();
+    // entry update and print
+}'''
+hint = '''Implement entry API by editing the starter code.'''

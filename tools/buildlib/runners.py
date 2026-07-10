@@ -14,8 +14,13 @@ CLI_RUNNERS = {
     "claude-cli": {"cmd": ["claude", "-p", "--permission-mode", "acceptEdits", "--model", "{model}"], "input": "arg",
                    "efforts": ("low", "medium", "high", "xhigh", "max"),
                    "effortArgs": ["--effort", "{effort}"]},
-    # agy has no effort switch — its Gemini model names carry it (Low/Medium/High variants)
-    "antigravity-cli": {"cmd": ["agy", "--print", "--dangerously-skip-permissions", "--model", "{model}"], "input": "stdin"},
+    # agy has no effort switch — its Gemini model names carry it (Low/Medium/High variants).
+    # --print is a STRING flag whose value IS the prompt — it must come last so the appended
+    # prompt lands as its value. A bare --print swallows the NEXT FLAG as the prompt (Gemini
+    # then chats about that flag instead of working) and ignores stdin entirely.
+    # --print-timeout defaults to 5m, far under a real phase.
+    "antigravity-cli": {"cmd": ["agy", "--dangerously-skip-permissions", "--print-timeout", "4h",
+                                "--model", "{model}", "--print"], "input": "arg"},
     "codex-cli": {"cmd": ["codex", "exec", "--skip-git-repo-check", "-s", "workspace-write", "-m", "{model}", "-"], "input": "stdin",
                   "efforts": ("minimal", "low", "medium", "high", "xhigh"),
                   "effortArgs": ["-c", "model_reasoning_effort={effort}"]},

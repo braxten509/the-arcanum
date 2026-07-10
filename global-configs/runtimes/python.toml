@@ -14,6 +14,13 @@ command = ["python3"]
 checkCommand = ["python3", "-c", "import ast,sys; ast.parse(open(sys.argv[1],encoding='utf-8').read(), sys.argv[1])"]
 diagRegex = '^  File "[^"]*", line (?P<line>\d+)\n(?:    [^\n]*\n)*?(?P<msg>\w*(?:Error|Warning)\b[^\n]*)$'
 
+# --- lesson-snippet checking (tools/validatelib/depth.py check_snippets) ---
+# checkCommand is ast.parse, so this catches syntax only — no undeclared-name noise to ignore.
+# Deliberately conservative: lesson bodies also carry shell transcripts in <pre><code>, and a
+# broader entry (any unindented first line) drags 24 of them in as SyntaxError false positives.
+snippetEntry = '^\s*(?:import |from |def |class |print\()'
+diagIgnore = []
+
 # Editor completions (keywords, snippets, dot-members) — served to the client via
 # TOME.runtime and rendered by the generic provider in web/editor.js.
 [completions]

@@ -1,0 +1,117 @@
+[[lessons]]
+id = "s03-l01"
+title = "Ownership of the Scroll"
+body = '''<p>Rust enforces a strict law: every value has exactly one owner. When the owner exits scope, the value is dropped—its memory is freed. This is not garbage collection; it is deterministic, predictable, and checked at compile time.</p>
+<p>Consider a log record stored as a String:</p>
+<pre><code>fn main() {
+    let entry = String::from("ERROR: disk full");
+    println!("Entry: {}", entry);
+} // entry goes out of scope; String is deallocated</code></pre>
+<p>The variable <code>entry</code> owns the String. When the function exits, the String is dropped automatically. No garbage collector runs; no memory leaks occur.</p>
+<p>When you assign a value to another variable, ownership transfers. The original variable becomes invalid:</p>
+<pre><code>let record1 = String::from("CRITICAL");
+let record2 = record1;  // Ownership moves to record2
+// record1 is no longer valid
+println!("{}", record1);  // Compile error: value used after move</code></pre>
+<p>This move prevents a "double-free" bug: both <code>record1</code> and <code>record2</code> would try to free the same heap memory when dropped, corrupting the heap. Rust prevents this by invalidating <code>record1</code> after the move.</p>
+<p>For scalar types like i32, u32, and bool, assignment copies the value instead of moving it. These types are small and live on the stack, so copying is cheap and safe:</p>
+<pre><code>let severity1 = 7;
+let severity2 = severity1;  // i32 is copied, not moved
+println!("{}", severity1);  // OK: severity1 is still valid</code></pre>
+<p>String, Vec, and other heap-allocated types are moved, not copied. The lesson: understand what owns each resource, and know when passing a value transfers ownership.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // COPY VS MOVE</div>
+<p>Rust's <code>Copy</code> trait marks types whose values can be safely duplicated via a bitwise copy. Scalar types (i32, bool, f64) implement <code>Copy</code>; Strings and Vecs do not. If you try to use a moved value, the compiler will point to the exact line where ownership transferred. The error message is your guide to understanding the flow of data.</p></div>'''
+
+[[lessons.readings]]
+label = "What is Ownership?"
+url = "https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html"
+
+[[lessons.readings]]
+label = "Move Semantics by Example"
+url = "https://doc.rust-lang.org/rust-by-example/scope/move.html"
+
+[[lessons.exercises]]
+id = "s03-l01-e1"
+type = "mc"
+points = 15
+prompt = "What happens when a String value is moved to another variable in Rust?"
+choices = [
+    "The original variable can still be used freely",
+    "The original variable becomes invalid",
+    "Both variables own the String (shared ownership)",
+    "A copy of the String is automatically made"
+]
+answer = 1
+hint = "Review the second code example: when <code>record2 = record1</code> executes, what state does <code>record1</code> enter?"
+whyWrong = "When ownership moves, the original variable is invalidated. The compiler prevents you from using <code>record1</code> after <code>let record2 = record1</code> to avoid double-free bugs."
+explain = "Move semantics transfer ownership completely. Once moved, the old variable name is dead—accessing it is a compile error, not a runtime leak."
+
+[[lessons.exercises]]
+id = "s03-l01-e2"
+type = "text"
+points = 20
+prompt = "Which Rust trait marks types like i32 and bool as safe to copy instead of move?"
+answer = "Copy"
+accept = ["Copy trait", "Copy"]
+hint = "The field notes name a trait that scalar types implement. This trait signals that assignment is a safe copy, not a move."
+whyWrong = "The <code>Copy</code> trait marks types whose values are cheap to duplicate. Scalar types implement it; Strings and Vecs do not."
+
+[[lessons.exercises]]
+id = "s03-l01-e3"
+type = "fill"
+points = 20
+prompt = "Complete this code block where a String is created and then moved:"
+code = '''let entry = String::from("WARNING");
+let log = ____;  // Move ownership to log
+println!("{}", log);  // Prints the String'''
+answer = "entry"
+hint = "The variable holding the String must be assigned to <code>log</code> to transfer ownership. Write the variable name that holds the resource."
+whyWrong = "To move the String, assign the variable that currently owns it. The variable name <code>entry</code> is what gets assigned to <code>log</code>."
+
+[[lessons.exercises]]
+id = "s03-l01-e4"
+type = "mc"
+points = 15
+prompt = "Which statement is true about this code? `let x = 5; let y = x; println!(\"{}\", x);`"
+choices = [
+    "Compile error: x is moved to y",
+    "Prints 5: integers are Copy types",
+    "Prints 5 but x is now invalid",
+    "Compile error: types must be declared explicitly"
+]
+answer = 1
+hint = "Recall the field notes: i32 is a Copy type. When you assign <code>y = x</code>, what happens to x?"
+whyWrong = "Integer types like i32 are <code>Copy</code>, so assignment creates a bitwise copy. Both x and y remain valid."
+explain = "Copy types are duplicated on assignment, not moved. Scalars are small enough that copying is the default behavior."
+
+[[lessons.exercises]]
+id = "s03-l01-e5"
+type = "fill"
+points = 20
+prompt = "Complete this snippet: when the function ends, what happens to <code>entry</code>?"
+code = '''fn process_log() {
+    let entry = String::from("INFO");
+} // At this point, entry is ____ and its memory is freed'''
+answer = "dropped"
+accept = ["dropped", "deallocated"]
+hint = "The lesson explains that when a variable goes out of scope, Rust calls a drop function. What is that process called?"
+whyWrong = "When a value's owner goes out of scope, Rust <code>drop</code>s it, freeing its heap memory automatically."
+
+[[lessons.exercises]]
+id = "s03-l01-w1"
+type = "write"
+points = 35
+prompt = '''Create two String variables: <code>msg1 = "ALERT"</code> and <code>msg2 = "archive"</code>. Move <code>msg1</code> to <code>active</code>, then print <code>ALERT archive</code> using both <code>active</code> and <code>msg2</code>.'''
+expect = "ALERT archive\n"
+solution = '''fn main() {
+    let msg1 = String::from("ALERT");
+    let msg2 = String::from("archive");
+    let active = msg1;
+    println!("{} {}", active, msg2);
+}'''
+starter = '''fn main() {
+    let msg1 = String::from("ALERT");
+    let msg2 = String::from("archive");
+    // Move msg1 to active, then print both
+}'''
+hint = "Assign <code>msg1</code> to <code>active</code> to move ownership. Then use <code>active</code> and <code>msg2</code> in the println!. Do not try to use <code>msg1</code> after the move."

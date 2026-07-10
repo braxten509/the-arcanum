@@ -15,6 +15,11 @@ int b = 6;
 // print exactly:  KEY <a times b>   (compute it, don't hardcode)
 '''
 expect = "KEY 42"
+solution = '''
+int a = 7;
+int b = 6;
+Console.WriteLine($"KEY {a * b}");
+'''
 
 [[tiers.pool]]
 t = "THE THREEFOLD AVOWAL"
@@ -29,6 +34,11 @@ expect = '''
 THE CANDLE BURNS
 THE DOOR IS WARDED
 THE HEX IS TURNED'''
+solution = '''
+Console.WriteLine("THE CANDLE BURNS");
+Console.WriteLine("THE DOOR IS WARDED");
+Console.WriteLine("THE HEX IS TURNED");
+'''
 
 [[tiers.pool]]
 t = "THE SUNDERED NAME"
@@ -39,6 +49,39 @@ int circle = 9;
 // print exactly:  I AM wraith OF THE 9TH CIRCLE
 '''
 expect = "I AM wraith OF THE 9TH CIRCLE"
+solution = '''
+string truename = "wraith";
+int circle = 9;
+Console.WriteLine($"I AM {truename} OF THE {circle}TH CIRCLE");
+'''
+
+[[tiers.pool]]
+t = "THE COUNTED EMBERS"
+brief = "Five embers carry uneven heat. Sum their strengths and bind the total before the rival scatters them."
+starter = '''
+int[] embers = { 4, 9, 2, 7, 3 };
+// compute the sum, then print exactly:  EMBERS <sum>
+'''
+expect = "EMBERS 25"
+solution = '''
+int[] embers = { 4, 9, 2, 7, 3 };
+int total = 0;
+foreach (int ember in embers) total += ember;
+Console.WriteLine($"EMBERS {total}");
+'''
+
+[[tiers.pool]]
+t = "THE LENGTH OF THE OATH"
+brief = "The oath is accepted only when its measured length is spoken from the text itself."
+starter = '''
+string oath = "candleward";
+// print exactly:  OATH candleward LENGTH <computed length>
+'''
+expect = "OATH candleward LENGTH 10"
+solution = '''
+string oath = "candleward";
+Console.WriteLine($"OATH {oath} LENGTH {oath.Length}");
+'''
 
 [[tiers]]
 min = 2
@@ -60,6 +103,9 @@ PORT 8002 OPEN
 PORT 8003 OPEN
 PORT 8004 OPEN
 PORT 8005 OPEN'''
+solution = '''
+for (int p = 1; p <= 5; p++) Console.WriteLine($"PORT 800{p} OPEN");
+'''
 
 [[tiers.pool]]
 t = "THE LOUDEST ECHO"
@@ -69,6 +115,12 @@ int[] pings = { 41, 7, 96, 12, 55 };
 // loop over pings, track the highest value, print:  PEAK <value>
 '''
 expect = "PEAK 96"
+solution = '''
+int[] pings = { 41, 7, 96, 12, 55 };
+int peak = pings[0];
+foreach (int ping in pings) if (ping > peak) peak = ping;
+Console.WriteLine($"PEAK {peak}");
+'''
 
 [[tiers.pool]]
 t = "THE TWIN CHANNELS"
@@ -82,6 +134,47 @@ expect = '''
 8 SAFE
 11 HOSTILE
 14 SAFE'''
+solution = '''
+int[] chans = { 3, 8, 11, 14 };
+foreach (int chan in chans) Console.WriteLine($"{chan} {(chan % 2 == 0 ? "SAFE" : "HOSTILE")}");
+'''
+
+[[tiers.pool]]
+t = "THE RUNNING TALLY"
+brief = "Each pulse strengthens the ward. Speak the cumulative charge after every pulse, not merely the final sum."
+starter = '''
+int[] pulses = { 2, 5, 1, 4 };
+// keep a running total; for each pulse print:  CHARGE <total so far>
+'''
+expect = '''
+CHARGE 2
+CHARGE 7
+CHARGE 8
+CHARGE 12'''
+solution = '''
+int[] pulses = { 2, 5, 1, 4 };
+int charge = 0;
+foreach (int pulse in pulses)
+{
+    charge += pulse;
+    Console.WriteLine($"CHARGE {charge}");
+}
+'''
+
+[[tiers.pool]]
+t = "THE VOWEL WARD"
+brief = "Count the open vowels in the rival's phrase; consonants are dead stone and must not enter the tally."
+starter = '''
+string phrase = "sealed archive";
+// count a/e/i/o/u characters, then print:  VOWELS <count>
+'''
+expect = "VOWELS 6"
+solution = '''
+string phrase = "sealed archive";
+int count = 0;
+foreach (char c in phrase) if ("aeiou".Contains(c)) count++;
+Console.WriteLine($"VOWELS {count}");
+'''
 
 [[tiers]]
 min = 3
@@ -100,6 +193,13 @@ expect = '''
 nyx:9
 wraith:5
 raven:3'''
+solution = '''
+var agents = new List<Agent> { new("raven", 3), new("nyx", 9), new("wraith", 5) };
+foreach (var agent in agents.OrderByDescending(agent => agent.Lvl))
+    Console.WriteLine($"{agent.Name}:{agent.Lvl}");
+
+record Agent(string Name, int Lvl);
+'''
 
 [[tiers.pool]]
 t = "SIFT THE WHISPERS"
@@ -112,6 +212,10 @@ expect = '''
 340
 501
 275'''
+solution = '''
+int[] pings = { 12, 340, 87, 501, 99, 275 };
+foreach (int ping in pings.Where(ping => ping > 100)) Console.WriteLine(ping);
+'''
 
 [[tiers.pool]]
 t = "WEIGH THE BUNDLE"
@@ -121,6 +225,46 @@ var sizes = new List<int> { 128, 64, 256, 32 };
 // LINQ Sum, print:  TOTAL <sum> BYTES
 '''
 expect = "TOTAL 480 BYTES"
+solution = '''
+var sizes = new List<int> { 128, 64, 256, 32 };
+Console.WriteLine($"TOTAL {sizes.Sum()} BYTES");
+'''
+
+[[tiers.pool]]
+t = "THE DISTINCT SIGILS"
+brief = "The roll repeats forged sigils to hide its true breadth. Keep first appearances and report the clean sequence."
+starter = '''
+string[] sigils = { "ash", "rune", "ash", "salt", "rune", "iron" };
+// Distinct, then print the remaining names joined with |
+'''
+expect = "ash|rune|salt|iron"
+solution = '''
+string[] sigils = { "ash", "rune", "ash", "salt", "rune", "iron" };
+Console.WriteLine(string.Join("|", sigils.Distinct()));
+'''
+
+[[tiers.pool]]
+t = "THE TRUSTED CIRCLE"
+brief = "Only adepts of the sixth circle or higher may enter. Filter, rank, and speak their names strongest first."
+starter = '''
+var adepts = new List<(string Name, int Circle)>
+{
+    ("orin", 4), ("sable", 8), ("wren", 6), ("nyx", 9)
+};
+// keep Circle >= 6, order descending, print:  <name> C<circle>
+'''
+expect = '''
+nyx C9
+sable C8
+wren C6'''
+solution = '''
+var adepts = new List<(string Name, int Circle)>
+{
+    ("orin", 4), ("sable", 8), ("wren", 6), ("nyx", 9)
+};
+foreach (var adept in adepts.Where(a => a.Circle >= 6).OrderByDescending(a => a.Circle))
+    Console.WriteLine($"{adept.Name} C{adept.Circle}");
+'''
 
 [[tiers]]
 min = 7
@@ -138,6 +282,11 @@ expect = '''
 tcp 3
 udp 2
 icmp 1'''
+solution = '''
+string[] log = { "tcp", "udp", "tcp", "icmp", "tcp", "udp" };
+foreach (var group in log.GroupBy(protocol => protocol).OrderByDescending(group => group.Count()))
+    Console.WriteLine($"{group.Key} {group.Count()}");
+'''
 
 [[tiers.pool]]
 t = "THE FOLDED SIGIL"
@@ -147,6 +296,10 @@ int[] packet = { 0x1F, 0x2A, 0x07, 0x33 };
 // Aggregate with XOR (^), print:  CHECKSUM <value>
 '''
 expect = "CHECKSUM 1"
+solution = '''
+int[] packet = { 0x1F, 0x2A, 0x07, 0x33 };
+Console.WriteLine($"CHECKSUM {packet.Aggregate((left, right) => left ^ right)}");
+'''
 
 [[tiers.pool]]
 t = "NAMES REVERSED AND RAISED"
@@ -157,6 +310,44 @@ string[] leak = { "raven", "nyx" };
 // print the joined result
 '''
 expect = "NEVAR|XYN"
+solution = '''
+string[] leak = { "raven", "nyx" };
+var scrambled = leak.Select(name => new string(name.ToUpper().Reverse().ToArray()));
+Console.WriteLine(string.Join("|", scrambled));
+'''
+
+[[tiers.pool]]
+t = "THE DOMAIN LEDGER"
+brief = "The same domains recur under different traces. Count each domain and order the ledger by frequency, then name."
+starter = '''
+string[] domains = { "ietf.org", "nist.gov", "ietf.org", "example.net", "nist.gov", "ietf.org" };
+// GroupBy domain; order count descending then domain ascending; print: <domain> <count>
+'''
+expect = '''
+ietf.org 3
+nist.gov 2
+example.net 1'''
+solution = '''
+string[] domains = { "ietf.org", "nist.gov", "ietf.org", "example.net", "nist.gov", "ietf.org" };
+foreach (var group in domains.GroupBy(domain => domain)
+                             .OrderByDescending(group => group.Count())
+                             .ThenBy(group => group.Key))
+    Console.WriteLine($"{group.Key} {group.Count()}");
+'''
+
+[[tiers.pool]]
+t = "THE WEIGHTED SEAL"
+brief = "Each rune contributes its strength multiplied by its position. Fold the weighted sequence into one seal value."
+starter = '''
+int[] runes = { 3, 5, 2, 7 };
+// weighted total uses positions 1..4; print:  WEIGHTED <total>
+'''
+expect = "WEIGHTED 47"
+solution = '''
+int[] runes = { 3, 5, 2, 7 };
+int total = runes.Select((value, index) => value * (index + 1)).Sum();
+Console.WriteLine($"WEIGHTED {total}");
+'''
 
 [[tiers]]
 min = 8
@@ -179,6 +370,17 @@ expect = '''
 data
 your
 ours'''
+solution = '''
+var frags = new[] { "atad", "ruoy", "sruo" };
+string[] results = await Task.WhenAll(frags.Select(Decrypt));
+foreach (string result in results) Console.WriteLine(result);
+
+async Task<string> Decrypt(string s)
+{
+    await Task.Delay(20);
+    return new string(s.Reverse().ToArray());
+}
+'''
 
 [[tiers.pool]]
 t = "THE MEASURED CLOSING"
@@ -191,6 +393,14 @@ T-3
 T-2
 T-1
 LOCKDOWN COMPLETE'''
+solution = '''
+for (int n = 3; n >= 1; n--)
+{
+    Console.WriteLine($"T-{n}");
+    await Task.Delay(50);
+}
+Console.WriteLine("LOCKDOWN COMPLETE");
+'''
 
 [[tiers.pool]]
 t = "TWO SPELLS ABREAST"
@@ -204,4 +414,73 @@ expect = '''
 PURGE OK
 MASK OK
 ALL CLEAR'''
+solution = '''
+var t1 = Task.Run(async () => { await Task.Delay(30); return "PURGE OK"; });
+var t2 = Task.Run(async () => { await Task.Delay(10); return "MASK OK"; });
+await Task.WhenAll(t1, t2);
+Console.WriteLine(await t1);
+Console.WriteLine(await t2);
+Console.WriteLine("ALL CLEAR");
+'''
 
+[[tiers.pool]]
+t = "THE PARALLEL SCRIBES"
+brief = "Three scribes copy separate seals at once. Gather their finished lines in commission order."
+starter = '''
+string[] seals = { "ASH", "SALT", "IRON" };
+// Task.WhenAll over Inscribe(seal), then print each returned line
+async Task<string> Inscribe(string seal)
+{
+    await Task.Delay(15);
+    return $"{seal} SEALED";
+}
+'''
+expect = '''
+ASH SEALED
+SALT SEALED
+IRON SEALED'''
+solution = '''
+string[] seals = { "ASH", "SALT", "IRON" };
+string[] lines = await Task.WhenAll(seals.Select(Inscribe));
+foreach (string line in lines) Console.WriteLine(line);
+
+async Task<string> Inscribe(string seal)
+{
+    await Task.Delay(15);
+    return $"{seal} SEALED";
+}
+'''
+
+[[tiers.pool]]
+t = "THE CONTAINED FAILURE"
+brief = "One of three wards will crack. Contain that failure and report the two survivors with the broken count."
+starter = '''
+int[] wards = { 1, 2, 3 };
+// Run Check for all wards through a per-task catch; print:  2 HELD / 1 BROKE
+async Task<bool> Check(int ward)
+{
+    await Task.Delay(10);
+    if (ward == 2) throw new Exception("cracked");
+    return true;
+}
+'''
+expect = "2 HELD / 1 BROKE"
+solution = '''
+int[] wards = { 1, 2, 3 };
+bool[] results = await Task.WhenAll(wards.Select(SafeCheck));
+int held = results.Count(result => result);
+Console.WriteLine($"{held} HELD / {results.Length - held} BROKE");
+
+async Task<bool> SafeCheck(int ward)
+{
+    try { return await Check(ward); }
+    catch { return false; }
+}
+
+async Task<bool> Check(int ward)
+{
+    await Task.Delay(10);
+    if (ward == 2) throw new Exception("cracked");
+    return true;
+}
+'''

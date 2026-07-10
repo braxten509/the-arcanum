@@ -3,7 +3,9 @@
 - themes     the 18-ink palette contract + palette distinctness
 - content    sections/lessons/exercises, anti-template, density, content-quality gates
 - attacks    attack bank, attacks_src sync, hex-defense intrusions
-- depth      taught-before-used, verbatim prose, economy totals, --run starter execution
+- depth      taught-before-used, verbatim prose, economy totals, static pre-solved tell,
+             identifier-spelling drift, self-answering questions
+- execute    the --run checks: snippet compilation, starter build/run/pre-solved
 Shared constants, the findings registry (err/warn), and small helpers live here."""
 import os
 import re
@@ -41,8 +43,10 @@ REQUIRED_CONSUMABLES = {"firewall", "x2", "skip", "vpn", "xray"}
 MULTI_CHARGE = {"firewall", "vpn"}
 META_REQUIRED = ["id", "name", "description", "author", "version", "favicon"]
 ID_RE = re.compile(r"[A-Za-z0-9_-]+")
-# tome-workflow phase 7 treats these WARN classes as hard gates; --strict enforces that.
-HARD_GATE_LABELS = {"anti-template", "content"}
+# tome-workflow phase 7 runs --strict, and --strict fails on EVERY WARN except the
+# "advisory" label — a finished tome carries zero warnings. "advisory" is reserved for
+# findings no tome author can fix (an uncalibrated language, a missing toolchain feature);
+# everything else, whatever its label, is fixable and therefore gates.
 # scaffolding text that must not survive to a finished tome (TODO/FIXME exact-case —
 # lowercase "todo" appears in honest prose; lorem any case)
 PLACEHOLDER_RE = re.compile(r"\bTODO\b|\bFIXME\b|(?i:lorem ipsum)")

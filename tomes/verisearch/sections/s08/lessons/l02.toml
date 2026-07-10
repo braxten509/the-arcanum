@@ -92,4 +92,12 @@ type = "write"
 points = 36
 prompt = "Write async methods A(), B(), C() that each await <code>Task.Delay(50)</code> then return \"alpha\", \"beta\", \"gamma\" respectively. Fan out with Task.WhenAll and print the results space-joined — WhenAll preserves input order, prove it."
 expect = "alpha beta gamma"
+solution = '''
+string[] results = await Task.WhenAll(A(), B(), C());
+Console.WriteLine(string.Join(" ", results));
+
+async Task<string> A() { await Task.Delay(50); return "alpha"; }
+async Task<string> B() { await Task.Delay(50); return "beta"; }
+async Task<string> C() { await Task.Delay(50); return "gamma"; }
+'''
 hint = "var r = await Task.WhenAll(A(), B(), C()); Console.WriteLine(string.Join(\" \", r));"

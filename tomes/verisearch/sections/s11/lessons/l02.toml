@@ -107,4 +107,17 @@ type = "write"
 points = 38
 prompt = "Composition lab: define <code>interface ISearch { string Run(); }</code>, a <code>MockSearch</code> returning \"3 results\", and a <code>Pipeline</code> class that takes ISearch via constructor and has <code>Report()</code> printing <code>pipeline: &lt;search.Run()&gt;</code>. Compose at the root and call Report()."
 expect = "pipeline: 3 results"
+solution = '''
+var pipeline = new Pipeline(new MockSearch());
+pipeline.Report();
+
+public interface ISearch { string Run(); }
+public class MockSearch : ISearch { public string Run() => "3 results"; }
+public class Pipeline
+{
+    private readonly ISearch search;
+    public Pipeline(ISearch search) => this.search = search;
+    public void Report() => Console.WriteLine($"pipeline: {search.Run()}");
+}
+'''
 hint = "new Pipeline(new MockSearch()).Report(); — the one place concrete types appear."

@@ -91,4 +91,16 @@ type = "write"
 points = 36
 prompt = "Set a 50ms deadline with CancelAfter, then await <code>Task.Delay(5000, cts.Token)</code> inside try/catch. When the cancellation lands, print <code>timed out cleanly</code>."
 expect = "timed out cleanly"
+solution = '''
+using var cts = new CancellationTokenSource();
+cts.CancelAfter(50);
+try
+{
+    await Task.Delay(5000, cts.Token);
+}
+catch (OperationCanceledException)
+{
+    Console.WriteLine("timed out cleanly");
+}
+'''
 hint = "catch (TaskCanceledException) — or its base OperationCanceledException. Either works."

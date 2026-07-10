@@ -88,4 +88,20 @@ type = "write"
 points = 34
 prompt = "Build a <code>TrustProfile</code> class with a constructor taking (string domain, double baseScore), exposing both as read-only properties, plus computed <code>bool IsTrusted =&gt; BaseScore &gt;= 6.0;</code>. Create one for nist.gov / 9.5 and print <code>&lt;Domain&gt; trusted: &lt;IsTrusted&gt;</code>."
 expect = "nist.gov trusted: True"
+solution = '''
+var profile = new TrustProfile("nist.gov", 9.5);
+Console.WriteLine($"{profile.Domain} trusted: {profile.IsTrusted}");
+
+public class TrustProfile
+{
+    public string Domain { get; }
+    public double BaseScore { get; }
+    public bool IsTrusted => BaseScore >= 6.0;
+    public TrustProfile(string domain, double baseScore)
+    {
+        Domain = domain;
+        BaseScore = baseScore;
+    }
+}
+'''
 hint = "Constructor assigns to get-only properties. Print with interpolation — bool prints as True."

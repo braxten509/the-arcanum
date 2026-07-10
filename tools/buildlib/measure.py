@@ -8,8 +8,10 @@ import tomllib
 from . import REPO, VALIDATOR
 
 
-def validate(tid, strict=False, tooling=None):
+def validate(tid, strict=False, tooling=None, run=True):
     cmd = [sys.executable, VALIDATOR, f"tomes/{tid}"] + (["--strict"] if strict else [])
+    if not run:
+        cmd.append("--no-run")
     if tooling:
         cmd += ["--tooling", tooling]  # enforce the gate's internal/external/both choice
     p = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True)

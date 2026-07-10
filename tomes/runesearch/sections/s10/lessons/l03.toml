@@ -1,0 +1,88 @@
+# Lesson s10-l03 manifest
+[[lessons]]
+id = '''s10-l03'''
+title = '''The Search Algorithm'''
+body = '''<p>With log contents in memory, we can search for the user's query. We split the log string into lines using the <code>lines()</code> method, which returns an iterator yielding each line as a string slice (<code>&amp;str</code>).</p>
+<p>We filter these lines to keep only those containing our search query, and then print them. Let us write a helper function that performs this search operation cleanly:</p>
+<pre><code>fn search_query(contents: &amp;str, query: &amp;str) {
+    for line in contents.lines() {
+        if line.contains(query) {
+            println!("{}", line);
+        }
+    }
+}</code></pre>
+<p>This search function does not allocate any new strings: it references segments of the already allocated file content string. This keeps the execution extremely fast and lightweight.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CASE INSENSITIVITY</div>
+<p>To implement case-insensitive search, convert both the line and the query to lowercase using <code>to_lowercase()</code> before checking. Note that this will allocate new strings, which has a performance cost.</p></div>
+<p>The search algorithm splits file contents into lines. Scribes use the lines method to obtain string slices, filtering them to find matches. This approach avoids heap allocations, keeping the search fast.</p>
+<p>By referencing existing string memory, the search remains lightweight and fast, showing the elegance of zero-cost borrows in Rust systems.</p>
+<p>Scribes can use iterators combined with contains to check lines, creating short search pipelines that write matches directly to stdout.</p>
+<p>The archivist searches text buffers. By filtering string slices in memory, we locate error records in massive log files without spending CPU cycles copying text.</p>
+<p>This zero-allocation line traversal is key to Rust's performance advantage, allowing CLI tools to process large logs at high speeds.</p>
+<p>Ensure that search checks use exact patterns. Scribes can combine lines checks with filter adaptors to assemble a highly efficient matching engine. Slices also ensure that log searching does not exhaust stack space. By referencing the file buffer, you can traverse millions of lines while keeping the program's memory footprint minimal and stable. This memory efficiency guarantees that the runesearch engine works perfectly on both low-power embed scrolls and massive archive hardware.</p>'''
+
+[[lessons.readings]]
+label = '''String Searching'''
+url = '''https://doc.rust-lang.org/std/primitive.str.html#method.contains'''
+
+
+[[lessons.exercises]]
+id = "s10-l03-e1"
+type = "text"
+points = 20
+prompt = '''Which variable name or term belongs to text line splitter?'''
+answer = '''line filter contains'''
+hint = '''It refers to the core element for text line splitter.'''
+whyWrong = '''Review the lesson material on text line splitter carefully.'''
+
+
+[[lessons.exercises]]
+id = "s10-l03-e2"
+type = "mc"
+points = 15
+prompt = '''Which method splits a string slice by its line endings safely?'''
+choices = ['lines()', "split('\\n')", 'divide_lines()', 'rows()']
+answer = 0
+whyWrong = '''lines() yields slices clean of both \r and \n elements.'''
+hint = '''Identify the valid option for text line splitter.'''
+explain = '''Shorthand splits via lines handle system-specific CRLF variations automatically.'''
+
+
+[[lessons.exercises]]
+id = "s10-l03-e3"
+type = "fill"
+points = 20
+prompt = '''Complete the expression pattern for text line splitter.'''
+code = '''for line in contents.____() { ... }'''
+answer = '''lines'''
+hint = '''Enter the missing operator or name for text line splitter.'''
+whyWrong = '''Verify the syntax for text line splitter before proceeding.'''
+
+
+[[lessons.exercises]]
+id = "s10-l03-w1"
+type = "write"
+points = 35
+prompt = '''Given `logs_parsed = "A\nB\n"`, split into lines using `.lines()` and print the second line.'''
+expect = '''B
+'''
+solution = '''fn main() {
+    let logs_parsed = "A\nB\n";
+    let mut it = logs_parsed.lines();
+    it.next();
+    println!("{}", it.next().unwrap());
+}'''
+starter = '''fn main() {
+    let logs_parsed = "A\nB\n";
+    // lines search
+}'''
+hint = '''Use the correct types and write the function block for text line splitter.'''
+
+
+[[lessons.exercises]]
+id = "s10-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = '''Type the given text line splitter statement exactly.'''
+code = '''let matched = line.contains("ERR");'''

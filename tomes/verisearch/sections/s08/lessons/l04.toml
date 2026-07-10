@@ -102,4 +102,23 @@ type = "write"
 points = 38
 prompt = "Containment lab: write <code>async Task&lt;string&gt; Attempt(int n)</code> that throws <code>new Exception(\"dead\")</code> when n==2, else returns \"ok\" (after a tiny Delay). Run n=1,2,3 through a wrapper that catches per-task, WhenAll them, and print <code>&lt;okCount&gt; ok &lt;failCount&gt; failed</code>."
 expect = "2 ok 1 failed"
+solution = '''
+string?[] outcomes = await Task.WhenAll(SafeAttempt(1), SafeAttempt(2), SafeAttempt(3));
+int ok = outcomes.Count(outcome => outcome == "ok");
+int failed = outcomes.Length - ok;
+Console.WriteLine($"{ok} ok {failed} failed");
+
+async Task<string> Attempt(int n)
+{
+    await Task.Delay(10);
+    if (n == 2) throw new Exception("dead");
+    return "ok";
+}
+
+async Task<string?> SafeAttempt(int n)
+{
+    try { return await Attempt(n); }
+    catch { return null; }
+}
+'''
 hint = "Wrapper returns bool (or a tiny record). outcomes.Count(o => o) and the inverse."

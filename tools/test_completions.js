@@ -15,7 +15,7 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "arcanum-completions-"));
 execSync("python3 -c \"" + [
   "import tomllib, json, os",
   "root = os.environ['ARCANUM_ROOT']; out = os.environ['ARCANUM_TMP']",
-  "for name in ('dotnet','java','python'):",
+  "for name in ('dotnet','java','python','rust'):",
   "    c = tomllib.load(open(os.path.join(root,'global-configs','runtimes',name+'.toml'),'rb'))",
   "    json.dump({'editorLang': c['editorLang'], 'completions': c.get('completions', {})}, open(os.path.join(out,name+'.json'),'w'))",
 ].join("\n") + "\"", { env: { ...process.env, ARCANUM_ROOT: ROOT, ARCANUM_TMP: tmp } });
@@ -27,7 +27,7 @@ global.monaco = {
     CompletionItemKind: new Proxy({}, { get: (_, k) => String(k) }),
     CompletionItemInsertTextRule: { InsertAsSnippet: 4 },
     registerCompletionItemProvider: (lang, prov) => { providers[lang] = prov; },
-    getLanguages: () => [{ id: "csharp" }, { id: "java" }, { id: "python" }],
+    getLanguages: () => [{ id: "csharp" }, { id: "java" }, { id: "python" }, { id: "rust" }],
     register: () => {}, setLanguageConfiguration: () => {}, setMonarchTokensProvider: () => {},
   },
   Range: function (a, b, c, d) { return { sl: a, sc: b, el: c, ec: d }; },
@@ -126,5 +126,15 @@ s = labels(completionsFor("python", "class Dog:\n    def bark(self):\n        pa
 assert(s.includes("bark()"), "python user class");
 console.log("python: 3 scenarios OK");
 
+// ---- Rust (rust.toml) ----------------------------------------------------
+use("rust");
+s = labels(completionsFor("rust", 'let s = String::from("hello");\ns.'));
+assert(s.includes("push_str()") && s.includes("len()"), "Rust String members");
+s = labels(completionsFor("rust", 'let mut map = HashMap::new();\nmap.'));
+assert(s.includes("insert()") && s.includes("get()"), "Rust HashMap members");
+s = labels(completionsFor("rust", 'struct LogEntry { message: String }\nlet entry = LogEntry { message: String::new() };\nentry.'));
+assert(s.includes("message"), "Rust struct field completion");
+console.log("rust: 3 scenarios OK");
+
 fs.rmSync(tmp, { recursive: true, force: true });
-console.log("ALL COMPLETION TESTS PASS (27 scenarios)");
+console.log("ALL COMPLETION TESTS PASS");

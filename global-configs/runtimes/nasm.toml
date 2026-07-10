@@ -17,6 +17,16 @@ checkCommand = ["bash", "-c", "nasm -f elf64 \"$0\" -o /dev/null 2>&1 || true"]
 # NASM diagnostic regex — captures line numbers from nasm errors
 diagRegex = '^(?P<file>[^:]+):(?P<line>\d+): (?P<sev>error|warning): (?P<msg>.*)$'
 
+# --- lesson-snippet checking (tools/validatelib/depth.py check_snippets) ---
+# Deliberately conservative: only a block that declares the entry point is a whole program.
+# Broadening to any unindented line pulls in ASCII memory diagrams ("Higher addresses") and
+# shell transcripts, which the assembler rejects — 7 false positives across hex-forge.
+snippetEntry = '^\s*global\s+_start'
+diagIgnore = [
+  'not defined',                     # a symbol an earlier block put in .bss/.data
+  'changed during code generation',  # offsets shift once the symbol above is missing
+]
+
 starterCode = '''
 section .text
     global _start

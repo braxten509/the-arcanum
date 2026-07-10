@@ -1,9 +1,8 @@
-"""Content-depth checks: taught-before-used APIs, verbatim prose reuse, economy
-totals, and the opt-in --run starter execution."""
-import os
+"""Content-depth checks: taught-before-used APIs, verbatim + padded prose reuse,
+economy totals, the static pre-solved tell, identifier-spelling drift, and
+self-answering questions. The --run execution checks live in execute.py."""
+import difflib
 import re
-import subprocess
-import tempfile
 
 from . import err, lang_config, norm_lines, warn
 from .attacks import load_intrusion_tiers
@@ -22,9 +21,10 @@ def _unescape(s):
 
 def _api_tokens(text):
     """API-shaped identifier segments in a blob of text (dotted names split on '.').
-    Excludes all-underscore runs (the ____ fill-blank placeholder is not an identifier)."""
+    Excludes anything carrying a ___+ run: the lone ____ fill-blank placeholder is not
+    an identifier, and neither is one glued to real letters (val_ptr____)."""
     return {t for t in _IDENT.findall(_unescape(str(text or "")))
-            if _API_SHAPE.search(t) and set(t) != {"_"}}
+            if _API_SHAPE.search(t) and "___" not in t}
 
 
 def _all_idents(text):
@@ -122,6 +122,51 @@ def check_taught_before_used(sections_data):
         taught_idents = taught_incl
 
 
+# Code spans inside freestyle text: markdown backticks or HTML <code>. The brief is
+# HTML but authors backtick signatures inside it too, so both forms count.
+_TICK_OR_CODE = re.compile(r"`([^`]+)`|<code>(.*?)</code>", re.S)
+
+
+def check_freestyle_scope(m, sections_data):
+    """§3b/§3 coverage: a freestyle must be completable from lessons alone — no outside
+    content. The mechanical slice: any LANGUAGE keyword/type (the runtime's own [syntax]
+    lists, so this is language-neutral) named in a freestyle's code spans (backticks or
+    <code> in brief/xray/rubric) must appear somewhere in a lesson up to AND INCLUDING
+    that section — body, prompt, code, starter, or solution. Unlike the dotted-call
+    check above, the vocabulary is closed (only tokens the runtime declares), so a hit
+    reliably means 'the capstone demands a construct nobody taught' and this is an
+    ERROR, not a WARN. Student-invented names (parse_severity, SEV) are never in the
+    vocabulary and can't false-positive."""
+    rt = m.get("runtime", {}) or {}
+    syn = {**lang_config(rt.get("name") or "custom"), **rt}.get("syntax") or {}
+    vocab = set(syn.get("keywords") or []) | set(syn.get("types") or [])
+    if not vocab:
+        return
+    taught = set()
+    for sd in sections_data:
+        sid = sd.get("id") or "?"
+        for les in (sd.get("lessons") or []):
+            if not isinstance(les, dict):
+                continue
+            taught |= set(_IDENT.findall(_unescape(str(les.get("body") or ""))))
+            for ex in (les.get("exercises") or []):
+                if isinstance(ex, dict):
+                    for k in ("prompt", "code", "starter", "solution"):
+                        taught |= set(_IDENT.findall(_unescape(str(ex.get(k) or ""))))
+        fs = sd.get("freestyle")
+        if not isinstance(fs, dict):
+            continue
+        blobs = [fs.get("brief"), fs.get("xray")] + \
+                [r.get("desc") for r in (fs.get("rubric") or []) if isinstance(r, dict)]
+        spans = " ".join(g1 or g2 for blob in blobs
+                         for g1, g2 in _TICK_OR_CODE.findall(_unescape(str(blob or ""))))
+        untaught = sorted(t for t in set(_IDENT.findall(spans)) if t in vocab and t not in taught)
+        if untaught:
+            err("content", f"{sid}: freestyle code names {', '.join(untaught)} but no lesson up "
+                f"to {sid} has taught it — a freestyle must be completable from lessons alone "
+                "(§3b). Teach it in a lesson body first, or cut it from the brief/xray/rubric.")
+
+
 def check_verbatim_prose(sections_data):
     """#9: §3 forbids a sentence appearing verbatim in more than one lesson body. Catch it with
     14-word shingles over visible (tag-stripped) prose — long enough that a collision is a
@@ -155,6 +200,73 @@ def check_verbatim_prose(sections_data):
         warn("anti-template", f"{len(dupes)} passage(s) of ≥{W} words repeat verbatim across "
              f"lessons — §3: write every lesson body fresh. First: {a} & {b} both contain "
              f"{snip[:70]!r}…")
+
+
+# Function words: the connective tissue an author does not choose. A synonym-swapper
+# rewrites the content words around them and leaves this skeleton untouched.
+_GLUE = frozenset(
+    "a an the of to in for on with by from as at is are was be been being not no and or but "
+    "that this these those it its you your we our they their all any each every when while "
+    "if then than so such which who what how why more most much many few less other same "
+    "very can will just do does did have has had would should could may might must into "
+    "over under out up down off again once here there both only too yours".split())
+_PARA_SPLIT = re.compile(r"</p>|</div>")
+_WORDS = re.compile(r"[a-z']+")
+_MIN_PARA = 60      # words; the floor a padding paragraph must clear to be worth writing
+_SIM = 0.78         # skeleton similarity. Five shipped tomes peak at 0.70 cross-lesson;
+                    # a synonym-swapped clone of one template runs 0.84-0.86.
+
+
+def _skeleton(html):
+    """A paragraph reduced to its function words, content words blanked. Two paragraphs
+    with the same skeleton were built from the same sentence frames."""
+    text = re.sub(r"<[^>]+>", " ", html)
+    return [w if w in _GLUE else "*" for w in _WORDS.findall(text.lower())]
+
+
+def check_padded_prose(sections_data):
+    """#11: lesson bodies padded from one template. §3 forbids a sentence repeating across
+    lessons, and a word floor rewards long bodies — together they invite an author to write
+    ONE filler paragraph, run it through a synonym randomizer, and staple a unique-looking
+    copy onto every lesson. check_verbatim_prose cannot see it (no two copies share words);
+    the density floor rewards it. But the randomizer only swaps content words, so the
+    function-word skeleton stays identical — that is what this measures. Prose written
+    fresh per lesson never approaches the threshold, even on the same subject."""
+    paras = []
+    for sd in sections_data:
+        for les in (sd.get("lessons") or []):
+            if not isinstance(les, dict):
+                continue
+            lid = les.get("id") or "?"
+            body = re.sub(r"<pre><code>.*?</code></pre>", " ", str(les.get("body") or ""), flags=re.S)
+            for chunk in _PARA_SPLIT.split(body):
+                sk = _skeleton(chunk)
+                # _GLUE is English function words; prose in another language blanks to
+                # all-'*' skeletons that would cross-match near 100%. A skeleton must
+                # carry real glue to be comparable — below that, skip, don't guess.
+                if len(sk) >= _MIN_PARA and sum(1 for w in sk if w != "*") >= 0.2 * len(sk):
+                    paras.append((lid, sk))
+    flagged, worst = set(), (0.0, None, None)
+    for i, (lid_a, sa) in enumerate(paras):
+        for lid_b, sb in paras[i + 1:]:
+            if lid_a == lid_b:
+                continue
+            sm = difflib.SequenceMatcher(None, sa, sb)
+            if sm.real_quick_ratio() < _SIM or sm.quick_ratio() < _SIM:
+                continue
+            r = sm.ratio()
+            if r >= _SIM:
+                flagged.update((lid_a, lid_b))
+                if r > worst[0]:
+                    worst = (r, lid_a, lid_b)
+    if flagged:
+        r, a, b = worst
+        warn("anti-template", f"{len(flagged)} lesson(s) carry a paragraph built from the same "
+             f"sentence frames as another lesson's — filler stamped from one template (the giveaway "
+             f"is identical function-word structure under swapped vocabulary). Worst: {a} & {b} at "
+             f"{r:.0%} skeleton match. §3: write every lesson body fresh; a 400-word lesson that "
+             "teaches beats a 700-word one that pads. Lessons: " + ", ".join(sorted(flagged)[:8])
+             + (" …" if len(flagged) > 8 else ""))
 
 
 def check_economy_totals(tome_path, m, sections_data):
@@ -195,97 +307,18 @@ def check_economy_totals(tome_path, m, sections_data):
              "ranks so the last title lands near total earnable (§2)")
 
 
-def _resolve_run_command(m):
-    """The argv that runs ONE file for this tome, plus (entryFile, timeout). Mirrors the
-    engine merge: language-TOML defaults ∪ the tome's [runtime], the tome winning."""
-    rt = m.get("runtime", {}) or {}
-    merged = {**lang_config(rt.get("name") or "custom"), **rt}
-    cmd = merged.get("command")
-    if not isinstance(cmd, list) or not cmd:
-        return None, None, None
-    entry = merged.get("entryFile") or "Main.txt"
-    timeout = merged.get("runTimeout") or 30
-    return cmd, entry, timeout
 
 
-def _run_one_file(cmd, entry, timeout, source, stdin=None):
-    """Run `source` as a single file through the tome's runtime in a temp dir. Returns
-    (ok, combined_output) — ok is False on a non-zero exit, timeout, or missing toolchain."""
-    with tempfile.TemporaryDirectory() as d:
-        path = os.path.join(d, entry)
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(source)
-        argv = [a.replace("{file}", path) for a in cmd]
-        if "{file}" not in " ".join(cmd):
-            argv = argv + [path]
-        try:
-            p = subprocess.run(argv, cwd=d, input=stdin, text=True,
-                               capture_output=True, timeout=timeout)
-        except FileNotFoundError:
-            return False, "__NO_TOOLCHAIN__"
-        except subprocess.TimeoutExpired:
-            return False, f"timed out after {timeout}s"
-        return p.returncode == 0, (p.stdout or "") + (p.stderr or "")
-
-
-def check_starters_run(tome_path, m, sections_data):
-    """#4/#5 (opt-in --run): actually execute every write-lab and intrusion starter through
-    the tome's own runtime. Two failures neither structure nor static analysis can see:
-      • the starter does not COMPILE/RUN as given — a student under the timer repairs logic,
-        not a broken scaffold (Phase 8 used to hand-compile these);
-      • the starter ALREADY prints the target `expect` — the exercise is pre-solved, so the
-        student has nothing to do (this shipped twice in a past build).
-    Language-neutral: it uses [runtime].command, so it works for any tome whose toolchain is
-    installed. If the toolchain is absent it degrades to a single WARN, never a false ERROR."""
-    cmd, entry, timeout = _resolve_run_command(m)
-    if not cmd:
-        warn("content", "--run: [runtime] resolves no `command` to run a single file — "
-             "cannot execute starters (set command in the language TOML or [runtime])")
-        return
-    labs = []  # (label, id, starter, expect, stdin)
-    for sd in sections_data:
-        sid = sd.get("id") or "?"
-        for les in (sd.get("lessons") or []):
-            if not isinstance(les, dict):
-                continue
-            for ex in (les.get("exercises") or []):
-                if isinstance(ex, dict) and ex.get("type") == "write" and str(ex.get("starter", "")).strip():
-                    labs.append((f"{sid}", ex.get("id"), ex["starter"],
-                                 ex.get("expect"), ex.get("stdin")))
-    tiers, ilabel, e = load_intrusion_tiers(tome_path, m)
-    if not e and isinstance(tiers, list):
-        for ti, tier in enumerate(tiers):
-            for pi, ch in enumerate(tier.get("pool", []) if isinstance(tier, dict) else []):
-                if isinstance(ch, dict) and str(ch.get("starter", "")).strip():
-                    labs.append((f"intrusion tier {ti + 1} challenge {pi + 1}", None,
-                                 ch["starter"], ch.get("expect"), None))
-    toolchain_ok = True
-    for label, eid, starter, expect, stdin in labs:
-        if not toolchain_ok:
-            break
-        ok, out = _run_one_file(cmd, entry, timeout, starter, stdin)
-        name = f"{label}{' ' + repr(eid) if eid else ''}"
-        if out == "__NO_TOOLCHAIN__":
-            warn("content", f"--run: runtime binary {cmd[0]!r} not installed — skipped "
-                 "executing starters (install the toolchain to run this check)")
-            toolchain_ok = False
-            break
-        if not ok:
-            err("run", f"{name}: starter does not compile/run as given — a scaffold the student "
-                f"can't build on. Runtime said: {out.strip().splitlines()[-1] if out.strip() else '(no output)'}"[:300])
-            continue
-        # pre-solved: the untouched starter already yields the exact target output
-        if expect is not None and str(expect).strip() and norm_lines(out) == norm_lines(expect):
-            err("run", f"{name}: starter is PRE-SOLVED — it already prints the exact expect "
-                "with no student edits; leave the required logic unwritten (a TODO where the "
-                "student codes)")
-
-
-def check_presolved_static(sections_data):
+def check_presolved_static(m, sections_data):
     """#4/#6 (always on, no execution): the static tell of a pre-solved / hardcodable write
     lab — the target `expect` string appears verbatim as a literal inside the starter, so the
     student can ship it untouched (or by copying). Catches the common case without needing the
-    toolchain; --run catches the computed cases this misses."""
+    toolchain; --run catches the computed cases this misses. The quote characters come from
+    the runtime's own `stringDelims` (unioned with the common three), not a hardcoded set —
+    the same source check_literal_newlines reads."""
+    rt = m.get("runtime", {}) or {}
+    delims = {**lang_config(rt.get("name") or "custom"), **rt}.get("stringDelims") or []
+    quotes = set(delims) | {'"', "'", "`"}
     for sd in sections_data:
         sid = sd.get("id") or "?"
         for les in (sd.get("lessons") or []):
@@ -301,9 +334,91 @@ def check_presolved_static(sections_data):
                 # Every expected line appears as a QUOTED STRING LITERAL in the starter — the
                 # print-the-answer signature. Quoted-literal (not bare substring) matching is
                 # what keeps input data out: expect "stone" won't match `"minecraft:stone"`.
-                if exp_lines and all(any(f'{q}{el}{q}' in starter for q in ('"', "'", "`"))
+                if exp_lines and all(any(f'{q}{el}{q}' in starter for q in quotes)
                                      for el in exp_lines):
                     warn("anti-template", f"{sid}: write {ex.get('id')!r} looks pre-solved — every "
                          "target output line is a string literal already in the starter, so it can "
                          "ship untouched. Set up the data in the starter and leave the printing to "
                          "the student (§3).")
+
+
+def check_name_drift(sections_data):
+    """One name, one spelling (§3): the same identifier drifting between spellings across
+    a tome — PushOp in the s08 lessons, Push_Op in that section's freestyle and every
+    later section — breaks the cumulative build: the student's saved code stops matching
+    what the prompts name. Compare API-shaped tokens case/underscore-insensitively across
+    every code surface, but flag only UPPER-INITIAL (type-name) collisions: Push_Op vs
+    PushOp is drift, while push_op vs pushOp is as often two legitimate naming domains
+    as a defect (verisearch's max_sources is a config-file key, maxSources the C# local
+    reading it), and Push_Op (a type) vs push_op (a variable) is idiom in half the
+    languages, as is EVENT_BUS (a constant) vs EventBus (its class). Lower-initial and
+    cross-convention drift are the accepted ceiling of this check."""
+    spellings = {}   # normalized key -> {spelling: [locations, first few]}
+    for sd in sections_data:
+        sid = sd.get("id") or "?"
+        surfaces = []
+        for les in (sd.get("lessons") or []):
+            if not isinstance(les, dict):
+                continue
+            parts = [_code_span_text(les.get("body"))]
+            for ex in (les.get("exercises") or []):
+                if not isinstance(ex, dict):
+                    continue
+                parts.append(_code_span_text(ex.get("prompt")))
+                parts += [str(ex.get(k) or "")
+                          for k in ("code", "starter", "solution", "answer", "expect")]
+            surfaces.append((les.get("id") or "?", " ".join(parts)))
+        fs = sd.get("freestyle")
+        if isinstance(fs, dict):
+            surfaces.append((f"{sid} freestyle", _code_span_text(fs.get("brief"))))
+        for loc, text in surfaces:
+            for tok in _api_tokens(text):
+                locs = spellings.setdefault(tok.lower().replace("_", ""), {}).setdefault(tok, [])
+                if loc not in locs:
+                    locs.append(loc)
+    for group in spellings.values():
+        names = sorted(s for s in group if s[0].isupper() and not s.isupper())
+        if len(names) < 2:
+            continue
+        shown = "; ".join(
+            f"{s!r} ({', '.join(group[s][:3])}{'…' if len(group[s]) > 3 else ''})"
+            for s in names)
+        warn("content", f"identifier drift — one name, {len(names)} spellings: {shown}. "
+             "Pick one spelling and use it in every lesson, starter, solution, and "
+             "freestyle (§3); the cumulative build breaks when prompts rename things.")
+
+
+# [^\W\d] = any unicode letter or underscore — a non-English tome's answers
+# (Übung, переменная) get the same treatment as ASCII ones.
+_WORDISH_ANSWER = re.compile(r"[^\W\d][\w.]*\Z")
+
+
+def check_self_answering(sections_data):
+    """A text/fill exercise whose answer sits verbatim in its own prompt PROSE is a
+    giveaway, not a question ('…stored as a byte offset. What is this value called?' —
+    answer 'offset'). Only identifier-shaped answers of ≥3 characters are compared, on
+    word boundaries, so symbol answers (':=') stay out. Code is never scanned — neither
+    the `code` field nor the prompt's own <code> spans — because a trace/lookup question
+    ('what does `$_ = "wax"; say;` print?') shows its answer by design. An answer with
+    an uppercase letter is matched case-sensitively: the directive FROM leaking is a
+    giveaway, the English word 'from' is not."""
+    for sd in sections_data:
+        for les in (sd.get("lessons") or []):
+            if not isinstance(les, dict):
+                continue
+            for ex in (les.get("exercises") or []):
+                if not isinstance(ex, dict) or ex.get("type") not in ("text", "fill"):
+                    continue
+                prose = re.sub(r"<code>.*?</code>", " ", str(ex.get("prompt") or ""), flags=re.S)
+                prose = re.sub(r"<[^>]+>", " ", _unescape(prose))
+                for ans in [ex.get("answer")] + list(ex.get("accept") or []):
+                    a = str(ans or "").strip()
+                    if len(a) < 3 or not _WORDISH_ANSWER.fullmatch(a):
+                        continue
+                    if re.search(rf"(?<!\w){re.escape(a)}(?!\w)", prose,
+                                 0 if a != a.lower() else re.I):
+                        warn("content", f"{les.get('id')}: {ex.get('type')} {ex.get('id')!r}: "
+                             f"the answer {a!r} appears verbatim in its own prompt — the "
+                             "question answers itself; reword the prompt or ask for something "
+                             "it doesn't already say (§3).")
+                        break

@@ -3,7 +3,7 @@ the content-quality gates."""
 import re
 from collections import Counter
 
-from . import EXERCISE_TYPES, err, warn
+from . import EXERCISE_TYPES, err, lang_config, warn
 
 
 def check_exercise(ex, label, seen_ex):
@@ -21,12 +21,24 @@ def check_exercise(ex, label, seen_ex):
     if t not in EXERCISE_TYPES:
         err(label, f"exercise {eid!r}: type {t!r} is not one of mc/text/fill/type/write")
         return
+    if not str(ex.get("prompt", "")).strip():
+        err(label, f"exercise {eid!r}: prompt is required — the client renders it as the "
+                   "student's entire instruction for this trial")
+    pts = ex.get("points")
+    if not isinstance(pts, (int, float)) or isinstance(pts, bool) or pts <= 0:
+        err(label, f"exercise {eid!r}: points must be a positive number — the engine pays "
+                   "e.points raw, so a missing one credits NaN and corrupts the purse")
     if t == "mc":
         choices = ex.get("choices")
         ans = ex.get("answer")
-        if not isinstance(choices, list) or not choices:
-            err(label, f"mc {eid!r}: choices must be a non-empty array")
-        if not isinstance(ans, int):
+        if not isinstance(choices, list) or len(choices) < 2:
+            err(label, f"mc {eid!r}: choices must be an array with at least two options")
+        elif any(not isinstance(choice, str) or not choice.strip() for choice in choices):
+            err(label, f"mc {eid!r}: every choice must be a non-empty string")
+        elif len({choice.strip().casefold() for choice in choices}) != len(choices):
+            err(label, f"mc {eid!r}: choices must be distinct — duplicate options make the "
+                       "question ambiguous or reveal the answer")
+        if not isinstance(ans, int) or isinstance(ans, bool):
             err(label, f"mc {eid!r}: answer must be a 0-based integer index")
         elif isinstance(choices, list) and not (0 <= ans < len(choices)):
             err(label, f"mc {eid!r}: answer index {ans} is out of range for {len(choices)} choices")
@@ -37,12 +49,26 @@ def check_exercise(ex, label, seen_ex):
         if not str(ex.get("answer", "")).strip():
             err(label, f"{t} {eid!r}: answer is required")
         if t == "fill" and "____" not in str(ex.get("code", "")):
-            warn(label, f"fill {eid!r}: code should contain the ____ blank the answer fills")
+            err(label, f"fill {eid!r}: code must contain the ____ blank the answer fills — "
+                       "without it the client renders a fill exercise with nothing to complete")
     elif t == "type":
         if not str(ex.get("code", "")).strip():
             err(label, f"type drill {eid!r}: code (the text to retype) is required")
+        reps = ex.get("reps")
+        if reps is not None and (not isinstance(reps, int) or isinstance(reps, bool) or reps < 1):
+            err(label, f"type drill {eid!r}: reps must be a positive integer when present")
     elif t == "write":
         has_re = bool(str(ex.get("expectRe", "")).strip())
+        if has_re:
+            # The engine grades with `new RegExp(expectRe, "m")` — an invalid pattern
+            # throws at grade time and the lab is unwinnable. Python re is the proxy;
+            # JS named groups (?<n>…) are rewritten to Python's (?P<n>…) first so the
+            # one syntax that legitimately differs doesn't false-error.
+            try:
+                re.compile(re.sub(r"\(\?<(?=[A-Za-z])", "(?P<", str(ex["expectRe"])))
+            except re.error as rex:
+                err(label, f"write {eid!r}: expectRe does not compile ({rex}) — the engine "
+                           "builds new RegExp(expectRe, \"m\") at grade time, so this lab is unwinnable")
         if "expect" in ex:
             if not str(ex["expect"]).strip():
                 err(label, f"write {eid!r}: expect is empty — unwinnable (empty stdout reads as \"(no output)\")")
@@ -59,6 +85,10 @@ def check_freestyle(fs, slabel):
     for key in ("title", "brief"):
         if not str(fs.get(key, "")).strip():
             err(slabel, f"[freestyle] {key} is required")
+    rw = fs.get("reward")
+    if not isinstance(rw, (int, float)) or isinstance(rw, bool) or rw <= 0:
+        err(slabel, "[freestyle] reward must be a positive number — the engine pays "
+                    "freestyle.reward raw, so a missing one credits NaN")
     if not str(fs.get("xray", "")).strip():
         warn(slabel, "[freestyle] xray is missing — the scrying-lens consumable would reveal nothing")
     badge = fs.get("badge")
@@ -90,6 +120,16 @@ def check_section(sdata, sid, slabel, seen_ex, seen_les):
     for key in ("id", "codename", "title", "build", "brief"):
         if not str(sdata.get(key, "")).strip():
             err(slabel, f"section is missing required key {key!r}")
+    # Chapter names are Title Case — one capital per word, acronyms excepted. The
+    # mechanical tell is a title whose every letter is a capital (an acronym-length
+    # one is allowed: a chapter named "JSON" is fine, "THE FIRST CUT" is not).
+    # `codename` is the deliberate all-caps channel; `title` never shouts.
+    title = str(sdata.get("title", ""))
+    letters = [c for c in title if c.isalpha()]
+    if len(letters) > 5 and all(c.isupper() for c in letters):
+        warn("content", f"{slabel}: section title {title!r} is ALL CAPS — chapter names are "
+             "Title Case (one capital per word, acronyms excepted); all-caps styling belongs "
+             "to the codename, not the title")
     check_freestyle(sdata.get("freestyle"), slabel)
     lessons = sdata.get("lessons", [])
     if not isinstance(lessons, list) or not lessons:
@@ -213,6 +253,48 @@ def _visible_words(html):
     300–600 words; the shipped reference (verisearch) runs 205–390. The floor below
     sits under that range so only genuinely thin prose trips it."""
     return len(re.sub(r"<[^>]+>", " ", str(html or "")).split())
+
+
+def _code_string_re(delims):
+    """Matches one string literal written in the code sample's own language, so a \\n
+    inside it can be recognised as real source. The delimiters come from the runtime's
+    `stringDelims`; most languages quote with " and ', but nasm also takes a backtick
+    (and only a backtick string interprets \\n), which is why this is not hardcoded."""
+    alts = []
+    for d in delims:
+        e = re.escape(d)
+        alts.append(rf"{e}(?:\\.|[^{e}\\])*{e}")
+    return re.compile("|".join(alts))
+
+
+def check_literal_newlines(m, sections_data):
+    """A TOML literal string ('…') does NOT interpret \\n. Author a multi-line code
+    sample as code = 'a\\nb' instead of code = '''…''' and the escape survives verbatim:
+    the student is shown one long line with \\n punched through it, and a `type` drill
+    asks them to retype that. It parses, so every structural check passes — but the
+    exercise is corrupt. Flag any code/starter whose \\n sits OUTSIDE a string literal
+    (i.e. was meant as a line break) while the value carries no real newline at all."""
+    rt = m.get("runtime", {}) or {}
+    delims = {**lang_config(rt.get("name") or "custom"), **rt}.get("stringDelims") or ['"', "'"]
+    code_string = _code_string_re(delims)
+    for sd in sections_data:
+        sid = sd.get("id") or "?"
+        for les in (sd.get("lessons") or []):
+            if not isinstance(les, dict):
+                continue
+            for ex in (les.get("exercises") or []):
+                if not isinstance(ex, dict):
+                    continue
+                for field, level in (("code", err), ("starter", err),
+                                     ("expect", warn), ("stdin", warn)):
+                    v = ex.get(field)
+                    if not isinstance(v, str) or "\n" in v or "\\n" not in v:
+                        continue
+                    if "\\n" not in code_string.sub('""', v):
+                        continue  # every \n is inside a string literal — real source
+                    level("content", f"{sid}: {ex.get('id')!r} {field} contains a literal \\n and no "
+                          "real line break — a TOML '…' literal does not expand escapes. Use a "
+                          "'''…''' block so the sample renders as multiple lines.")
 
 
 def check_density(sections_data):

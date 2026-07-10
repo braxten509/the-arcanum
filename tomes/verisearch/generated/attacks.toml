@@ -120,6 +120,76 @@ PARITY ODD
 MINT 946
 PURSE SEALED'''
 
+[[tiers.pool]]
+t = "THE THREE MEASURES"
+starter = '''
+int ward = 8;
+int thread = 5;
+string name = "ash";
+// Measure first, then compute the seal.
+'''
+
+[[tiers.pool.stages]]
+brief = "Print «WARD 8», «THREAD 5», and «NAME ash» from the variables."
+expect = '''
+WARD 8
+THREAD 5
+NAME ash'''
+
+[[tiers.pool.stages]]
+brief = "Append «SUM 13» and «PRODUCT 40», both computed."
+expect = '''
+WARD 8
+THREAD 5
+NAME ash
+SUM 13
+PRODUCT 40'''
+
+[[tiers.pool.stages]]
+brief = "Append «PARITY EVEN» for the product, then «SEAL READY»."
+expect = '''
+WARD 8
+THREAD 5
+NAME ash
+SUM 13
+PRODUCT 40
+PARITY EVEN
+SEAL READY'''
+
+[[tiers.pool]]
+t = "THE LETTERED KEY"
+starter = '''
+string token = "candle";
+// Read the token's own properties; hardcoded answers break the rite.
+'''
+
+[[tiers.pool.stages]]
+brief = "Print «TOKEN candle», «LENGTH 6», and «FIRST c» from token."
+expect = '''
+TOKEN candle
+LENGTH 6
+FIRST c'''
+
+[[tiers.pool.stages]]
+brief = "Append «LAST e» and «UPPER CANDLE»."
+expect = '''
+TOKEN candle
+LENGTH 6
+FIRST c
+LAST e
+UPPER CANDLE'''
+
+[[tiers.pool.stages]]
+brief = "Append «HAS D True» computed with Contains, then «TOKEN SET»."
+expect = '''
+TOKEN candle
+LENGTH 6
+FIRST c
+LAST e
+UPPER CANDLE
+HAS D True
+TOKEN SET'''
+
 # ---- difficulty 2
 [[tiers]]
 
@@ -254,6 +324,74 @@ STEADY 3
 LONGEST 42
 BURN 104
 WATCH ENDS BRIGHT'''
+
+[[tiers.pool]]
+t = "THE EVEN PROCESSION"
+starter = '''
+int[] marks = { 2, 4, 6 };
+// Walk the procession; totals come after its members.
+'''
+
+[[tiers.pool.stages]]
+brief = "Loop over marks and print «MARK <value>» for all three."
+expect = '''
+MARK 2
+MARK 4
+MARK 6'''
+
+[[tiers.pool.stages]]
+brief = "Append «COUNT 3» and «SUM 12» from the array."
+expect = '''
+MARK 2
+MARK 4
+MARK 6
+COUNT 3
+SUM 12'''
+
+[[tiers.pool.stages]]
+brief = "Append «MAX 6» and «ALL EVEN True», both computed."
+expect = '''
+MARK 2
+MARK 4
+MARK 6
+COUNT 3
+SUM 12
+MAX 6
+ALL EVEN True'''
+
+[[tiers.pool]]
+t = "THE QUESTIONS AT THE GATE"
+starter = '''
+string[] words = { "how", "what", "why" };
+// Classify with a switch expression; then audit the set.
+'''
+
+[[tiers.pool.stages]]
+brief = "Print each classification: «how PROCEDURAL», «what FACTUAL», «why EXPLANATION»."
+expect = '''
+how PROCEDURAL
+what FACTUAL
+why EXPLANATION'''
+
+[[tiers.pool.stages]]
+brief = "Append «COUNT 3» and «KNOWN 3» from the processed words."
+expect = '''
+how PROCEDURAL
+what FACTUAL
+why EXPLANATION
+COUNT 3
+KNOWN 3'''
+
+[[tiers.pool.stages]]
+brief = "Append «FIRST how» and «GATE ANSWERED»."
+expect = '''
+how PROCEDURAL
+what FACTUAL
+why EXPLANATION
+COUNT 3
+KNOWN 3
+FIRST how
+GATE ANSWERED'''
 
 # ---- difficulty 3
 [[tiers]]
@@ -398,6 +536,76 @@ raise-ward THIN
 banish-shade QUORUM
 open-vault QUORUM
 VOTE CLOSED'''
+
+[[tiers.pool]]
+t = "THE RECORD OF SEEKERS"
+starter = '''
+var seekers = new List<Seeker> { new("rune", 4), new("ash", 9), new("salt", 6) };
+// Records carry the names and circles.
+record Seeker(string Name, int Circle);
+'''
+
+[[tiers.pool.stages]]
+brief = "Print each seeker as «SEEKER <name> C<circle>» in list order."
+expect = '''
+SEEKER rune C4
+SEEKER ash C9
+SEEKER salt C6'''
+
+[[tiers.pool.stages]]
+brief = "Append «COUNT 3» and «FOREMOST ash 9» computed from the records."
+expect = '''
+SEEKER rune C4
+SEEKER ash C9
+SEEKER salt C6
+COUNT 3
+FOREMOST ash 9'''
+
+[[tiers.pool.stages]]
+brief = "Append «MEAN 6» using integer average, then «RECORD SET»."
+expect = '''
+SEEKER rune C4
+SEEKER ash C9
+SEEKER salt C6
+COUNT 3
+FOREMOST ash 9
+MEAN 6
+RECORD SET'''
+
+[[tiers.pool]]
+t = "THE OMEN REGISTER"
+starter = '''
+int[] omens = { 2, 7, 9 };
+// Calm < 4, Stirring < 8, Dire otherwise.
+enum Peril { Calm, Stirring, Dire }
+'''
+
+[[tiers.pool.stages]]
+brief = "Classify each omen and print «OMEN <n> <PERIL>» with the peril uppercased."
+expect = '''
+OMEN 2 CALM
+OMEN 7 STIRRING
+OMEN 9 DIRE'''
+
+[[tiers.pool.stages]]
+brief = "Append «CALM 1» and «DANGEROUS 2» from the classifications."
+expect = '''
+OMEN 2 CALM
+OMEN 7 STIRRING
+OMEN 9 DIRE
+CALM 1
+DANGEROUS 2'''
+
+[[tiers.pool.stages]]
+brief = "Append «GRAVEST 9» and «REGISTER SEALED»."
+expect = '''
+OMEN 2 CALM
+OMEN 7 STIRRING
+OMEN 9 DIRE
+CALM 1
+DANGEROUS 2
+GRAVEST 9
+REGISTER SEALED'''
 
 # ---- difficulty 4
 [[tiers]]
@@ -550,6 +758,76 @@ OWED 550
 {"houses":4,"collected":210,"owed":550}
 TITHE SEALED'''
 
+[[tiers.pool]]
+t = "THE JSON RELIQUARY"
+starter = '''
+using System.Text.Json;
+string json = """[{"name":"ash","weight":4},{"name":"rune","weight":9},{"name":"salt","weight":2}]""";
+// Deserialize the relics before weighing them.
+record Relic(string name, int weight);
+'''
+
+[[tiers.pool.stages]]
+brief = "Deserialize and print each relic as «RELIC <name> <weight>»."
+expect = '''
+RELIC ash 4
+RELIC rune 9
+RELIC salt 2'''
+
+[[tiers.pool.stages]]
+brief = "Append «COUNT 3» and «TOTAL 15»."
+expect = '''
+RELIC ash 4
+RELIC rune 9
+RELIC salt 2
+COUNT 3
+TOTAL 15'''
+
+[[tiers.pool.stages]]
+brief = "Append «HEAVIEST rune 9» and «RELIQUARY CLOSED»."
+expect = '''
+RELIC ash 4
+RELIC rune 9
+RELIC salt 2
+COUNT 3
+TOTAL 15
+HEAVIEST rune 9
+RELIQUARY CLOSED'''
+
+[[tiers.pool]]
+t = "THE PARSING TRIBUNAL"
+starter = '''
+string[] claims = { "12", "ash", "7" };
+// TryParse every claim; failures become evidence, not crashes.
+'''
+
+[[tiers.pool.stages]]
+brief = "Print each result as «CLAIM <text> OK <n>» or «CLAIM <text> BAD»."
+expect = '''
+CLAIM 12 OK 12
+CLAIM ash BAD
+CLAIM 7 OK 7'''
+
+[[tiers.pool.stages]]
+brief = "Append «VALID 2» and «INVALID 1»."
+expect = '''
+CLAIM 12 OK 12
+CLAIM ash BAD
+CLAIM 7 OK 7
+VALID 2
+INVALID 1'''
+
+[[tiers.pool.stages]]
+brief = "Append «FIRST ERROR ash» and «TRIBUNAL CLOSED»."
+expect = '''
+CLAIM 12 OK 12
+CLAIM ash BAD
+CLAIM 7 OK 7
+VALID 2
+INVALID 1
+FIRST ERROR ash
+TRIBUNAL CLOSED'''
+
 # ---- difficulty 5
 [[tiers]]
 
@@ -633,6 +911,74 @@ SCOURED 2
 CHRONICLE 3
 PORTENT the glass cracks 91
 SCOUR COMPLETE'''
+
+[[tiers.pool]]
+t = "THE TEMPORARY ARCHIVE"
+starter = '''
+string[] entries = { "ash:4", "rune:9", "salt:2" };
+// Write, read, audit, and remove a temporary archive.
+'''
+
+[[tiers.pool.stages]]
+brief = "Write entries to a temporary file, read them back, and print «ENTRY <line>» for each."
+expect = '''
+ENTRY ash:4
+ENTRY rune:9
+ENTRY salt:2'''
+
+[[tiers.pool.stages]]
+brief = "Append «COUNT 3» and «TOTAL 15», parsing the values after each colon."
+expect = '''
+ENTRY ash:4
+ENTRY rune:9
+ENTRY salt:2
+COUNT 3
+TOTAL 15'''
+
+[[tiers.pool.stages]]
+brief = "Delete the file, append «DELETED True», then «ARCHIVE CLOSED»."
+expect = '''
+ENTRY ash:4
+ENTRY rune:9
+ENTRY salt:2
+COUNT 3
+TOTAL 15
+DELETED True
+ARCHIVE CLOSED'''
+
+[[tiers.pool]]
+t = "THE CONFIGURATION SCALE"
+starter = '''
+var config = new Dictionary<string, int> { ["max_sources"] = -2, ["min_trust"] = 12, ["timeout"] = 30 };
+// Repair only values outside their lawful ranges.
+'''
+
+[[tiers.pool.stages]]
+brief = "Print the raw rows as «RAW <key> <value>» ordered by key."
+expect = '''
+RAW max_sources -2
+RAW min_trust 12
+RAW timeout 30'''
+
+[[tiers.pool.stages]]
+brief = "Repair max_sources to 5 and min_trust to 3; append «REPAIRED 2» and «VALID 1»."
+expect = '''
+RAW max_sources -2
+RAW min_trust 12
+RAW timeout 30
+REPAIRED 2
+VALID 1'''
+
+[[tiers.pool.stages]]
+brief = "Append «FINAL max_sources=5 min_trust=3 timeout=30» and «CONFIG SET»."
+expect = '''
+RAW max_sources -2
+RAW min_trust 12
+RAW timeout 30
+REPAIRED 2
+VALID 1
+FINAL max_sources=5 min_trust=3 timeout=30
+CONFIG SET'''
 
 [[tiers.pool]]
 t = "THE WARDING SLATE"
@@ -759,6 +1105,76 @@ WOVEN abcd
 HARVEST DONE'''
 
 [[tiers.pool]]
+t = "THE PARAGRAPH HARVEST"
+starter = '''
+using System.Text.RegularExpressions;
+string html = "<p>first seal</p><div>noise</div><p>second seal</p><p>third seal</p>";
+// Harvest only paragraph bodies.
+'''
+
+[[tiers.pool.stages]]
+brief = "Use Regex.Matches to print the three paragraph bodies as «TEXT <body>»."
+expect = '''
+TEXT first seal
+TEXT second seal
+TEXT third seal'''
+
+[[tiers.pool.stages]]
+brief = "Append «COUNT 3» and «WORDS 6» from the harvested text."
+expect = '''
+TEXT first seal
+TEXT second seal
+TEXT third seal
+COUNT 3
+WORDS 6'''
+
+[[tiers.pool.stages]]
+brief = "Append «LAST third seal» and «HARVEST DONE»."
+expect = '''
+TEXT first seal
+TEXT second seal
+TEXT third seal
+COUNT 3
+WORDS 6
+LAST third seal
+HARVEST DONE'''
+
+[[tiers.pool]]
+t = "THE CLEANED TESTIMONY"
+starter = '''
+using System.Text.RegularExpressions;
+string[] lines = { "  TLS   one ", "cipher\t suites", " session   keys " };
+// Normalize each witness before joining the testimony.
+'''
+
+[[tiers.pool.stages]]
+brief = "Collapse whitespace and trim each line; print each as «CLEAN <text>»."
+expect = '''
+CLEAN TLS one
+CLEAN cipher suites
+CLEAN session keys'''
+
+[[tiers.pool.stages]]
+brief = "Append «COUNT 3» and «CHARS 32» using the cleaned strings' lengths."
+expect = '''
+CLEAN TLS one
+CLEAN cipher suites
+CLEAN session keys
+COUNT 3
+CHARS 32'''
+
+[[tiers.pool.stages]]
+brief = "Append «JOIN TLS one | cipher suites | session keys» and «TESTIMONY SET»."
+expect = '''
+CLEAN TLS one
+CLEAN cipher suites
+CLEAN session keys
+COUNT 3
+CHARS 32
+JOIN TLS one | cipher suites | session keys
+TESTIMONY SET'''
+
+[[tiers.pool]]
 t = "THE CIPHERED WRIT"
 starter = '''
 string writ = "BEGIN|name=vael;rank=archmage;wards=7;tongue=ash|END trailing dust";
@@ -797,6 +1213,74 @@ WRIT READ'''
 
 # ---- difficulty 7
 [[tiers]]
+
+[[tiers.pool]]
+t = "THE DOMAIN CONCORDANCE"
+starter = '''
+string[] domains = { "ietf.org", "nist.gov", "ietf.org", "w3.org", "nist.gov", "ietf.org" };
+// Group, rank, and summarize the concordance.
+'''
+
+[[tiers.pool.stages]]
+brief = "Group and rank by count descending; print «DOMAIN <name> <count>» for all three."
+expect = '''
+DOMAIN ietf.org 3
+DOMAIN nist.gov 2
+DOMAIN w3.org 1'''
+
+[[tiers.pool.stages]]
+brief = "Append «UNIQUE 3» and «TOTAL 6»."
+expect = '''
+DOMAIN ietf.org 3
+DOMAIN nist.gov 2
+DOMAIN w3.org 1
+UNIQUE 3
+TOTAL 6'''
+
+[[tiers.pool.stages]]
+brief = "Append «LEADER ietf.org 3» and «CONCORDANCE SET»."
+expect = '''
+DOMAIN ietf.org 3
+DOMAIN nist.gov 2
+DOMAIN w3.org 1
+UNIQUE 3
+TOTAL 6
+LEADER ietf.org 3
+CONCORDANCE SET'''
+
+[[tiers.pool]]
+t = "THE TRUST EXTENSION"
+starter = '''
+int[] scores = { 9, 2, 6 };
+// Give int the IsTrusted verb, then audit the sequence.
+'''
+
+[[tiers.pool.stages]]
+brief = "Write IsTrusted(this int score) and print «SCORE <n> TRUSTED <bool>» for all scores."
+expect = '''
+SCORE 9 TRUSTED True
+SCORE 2 TRUSTED False
+SCORE 6 TRUSTED True'''
+
+[[tiers.pool.stages]]
+brief = "Append «TRUSTED 2» and «REJECTED 1»."
+expect = '''
+SCORE 9 TRUSTED True
+SCORE 2 TRUSTED False
+SCORE 6 TRUSTED True
+TRUSTED 2
+REJECTED 1'''
+
+[[tiers.pool.stages]]
+brief = "Append «MEAN 5» using integer average, then «EXTENSION SET»."
+expect = '''
+SCORE 9 TRUSTED True
+SCORE 2 TRUSTED False
+SCORE 6 TRUSTED True
+TRUSTED 2
+REJECTED 1
+MEAN 5
+EXTENSION SET'''
 
 [[tiers.pool]]
 t = "THE SORTING OF VOICES"
@@ -941,6 +1425,76 @@ MUSTER DONE'''
 
 # ---- difficulty 8
 [[tiers]]
+
+[[tiers.pool]]
+t = "THE CONCURRENT MEASURES"
+starter = '''
+int[] measures = { 3, 5, 7 };
+// Measure all three concurrently; Task.WhenAll preserves input order.
+async Task<int> Weigh(int value) { await Task.Delay(15); return value * 10; }
+'''
+
+[[tiers.pool.stages]]
+brief = "Run Weigh for all values concurrently and print «WEIGHT <result>» for all three."
+expect = '''
+WEIGHT 30
+WEIGHT 50
+WEIGHT 70'''
+
+[[tiers.pool.stages]]
+brief = "Append «COUNT 3» and «TOTAL 150»."
+expect = '''
+WEIGHT 30
+WEIGHT 50
+WEIGHT 70
+COUNT 3
+TOTAL 150'''
+
+[[tiers.pool.stages]]
+brief = "Append «MAX 70» and «MEASURES COMPLETE»."
+expect = '''
+WEIGHT 30
+WEIGHT 50
+WEIGHT 70
+COUNT 3
+TOTAL 150
+MAX 70
+MEASURES COMPLETE'''
+
+[[tiers.pool]]
+t = "THE BROKEN COURIER"
+starter = '''
+int[] couriers = { 1, 2, 3 };
+// Courier 2 fails. Catch per task so the others still report.
+async Task<string> Send(int id) { await Task.Delay(10); if (id == 2) throw new Exception("lost"); return $"courier-{id}"; }
+'''
+
+[[tiers.pool.stages]]
+brief = "Contain each Send failure and print «COURIER <id> OK» or «COURIER <id> LOST»."
+expect = '''
+COURIER 1 OK
+COURIER 2 LOST
+COURIER 3 OK'''
+
+[[tiers.pool.stages]]
+brief = "Append «DELIVERED 2» and «LOST 1»."
+expect = '''
+COURIER 1 OK
+COURIER 2 LOST
+COURIER 3 OK
+DELIVERED 2
+LOST 1'''
+
+[[tiers.pool.stages]]
+brief = "Append «FIRST LOST 2» and «DISPATCH CLOSED»."
+expect = '''
+COURIER 1 OK
+COURIER 2 LOST
+COURIER 3 OK
+DELIVERED 2
+LOST 1
+FIRST LOST 2
+DISPATCH CLOSED'''
 
 [[tiers.pool]]
 t = "THE FOURFOLD SIEVE"
@@ -1092,6 +1646,76 @@ SUMMONS DONE'''
 [[tiers]]
 
 [[tiers.pool]]
+t = "THE ORACLE'S BROKEN LISTS"
+starter = '''
+using System.Text.Json;
+string[] replies = { "answer [3, 900]", "no list", "[2, 2, -1]" };
+// Extract brackets when present; keep distinct indices in range 0..9.
+'''
+
+[[tiers.pool.stages]]
+brief = "Parse each reply defensively and print «REPLY <n> VALID <count>» for all three."
+expect = '''
+REPLY 1 VALID 1
+REPLY 2 VALID 0
+REPLY 3 VALID 1'''
+
+[[tiers.pool.stages]]
+brief = "Append «SURVIVORS 2» and «REJECTED 3» across all parsed integers."
+expect = '''
+REPLY 1 VALID 1
+REPLY 2 VALID 0
+REPLY 3 VALID 1
+SURVIVORS 2
+REJECTED 3'''
+
+[[tiers.pool.stages]]
+brief = "Append «FIRST 3» for the first surviving index, then «PARSE COMPLETE»."
+expect = '''
+REPLY 1 VALID 1
+REPLY 2 VALID 0
+REPLY 3 VALID 1
+SURVIVORS 2
+REJECTED 3
+FIRST 3
+PARSE COMPLETE'''
+
+[[tiers.pool]]
+t = "THE RELEVANCE WEIGHING"
+starter = '''
+string query = "tls handshake";
+string[] blocks = { "TLS handshake overview", "cooking notes", "handshake cipher TLS" };
+// Score by count of query words found case-insensitively.
+'''
+
+[[tiers.pool.stages]]
+brief = "Print «BLOCK <n> SCORE <score>» for all three blocks."
+expect = '''
+BLOCK 1 SCORE 2
+BLOCK 2 SCORE 0
+BLOCK 3 SCORE 2'''
+
+[[tiers.pool.stages]]
+brief = "Rank the two relevant blocks and append «RANK 1 BLOCK 3», then «RANK 2 BLOCK 1»."
+expect = '''
+BLOCK 1 SCORE 2
+BLOCK 2 SCORE 0
+BLOCK 3 SCORE 2
+RANK 1 BLOCK 3
+RANK 2 BLOCK 1'''
+
+[[tiers.pool.stages]]
+brief = "Append «BEST 3 SCORE 2» and «WEIGHING COMPLETE»."
+expect = '''
+BLOCK 1 SCORE 2
+BLOCK 2 SCORE 0
+BLOCK 3 SCORE 2
+RANK 1 BLOCK 3
+RANK 2 BLOCK 1
+BEST 3 SCORE 2
+WEIGHING COMPLETE'''
+
+[[tiers.pool]]
 t = "THE ORACLE'S RANKING"
 starter = '''
 string query = "shadow ward flame";
@@ -1240,6 +1864,74 @@ TOLL DONE'''
 [[tiers]]
 
 [[tiers.pool]]
+t = "THE FLAG LEDGER"
+starter = '''
+string[] argv = { "--max-sources", "4", "--min-trust", "6", "--format", "json" };
+// Walk option/value pairs and build the final invocation summary.
+'''
+
+[[tiers.pool.stages]]
+brief = "Print each pair as «FLAG <option> <value>» in argument order."
+expect = '''
+FLAG --max-sources 4
+FLAG --min-trust 6
+FLAG --format json'''
+
+[[tiers.pool.stages]]
+brief = "Append «FLAGS 3» and «NUMERIC 2»."
+expect = '''
+FLAG --max-sources 4
+FLAG --min-trust 6
+FLAG --format json
+FLAGS 3
+NUMERIC 2'''
+
+[[tiers.pool.stages]]
+brief = "Append «RUN max=4 trust=6 format=json» and «FLAGS SET»."
+expect = '''
+FLAG --max-sources 4
+FLAG --min-trust 6
+FLAG --format json
+FLAGS 3
+NUMERIC 2
+RUN max=4 trust=6 format=json
+FLAGS SET'''
+
+[[tiers.pool]]
+t = "THE MARKUP QUARANTINE"
+starter = '''
+string[] labels = { "[red]danger[/]", "plain", "[link]source[/]" };
+// Escape brackets by doubling them before rendering.
+'''
+
+[[tiers.pool.stages]]
+brief = "Escape each label and print it as «SAFE <escaped>»."
+expect = '''
+SAFE [[red]]danger[[/]]
+SAFE plain
+SAFE [[link]]source[[/]]'''
+
+[[tiers.pool.stages]]
+brief = "Append «COUNT 3» and «ESCAPED 2»."
+expect = '''
+SAFE [[red]]danger[[/]]
+SAFE plain
+SAFE [[link]]source[[/]]
+COUNT 3
+ESCAPED 2'''
+
+[[tiers.pool.stages]]
+brief = "Append «LONGEST [link]source[/]» from the raw labels, then «QUARANTINE SET»."
+expect = '''
+SAFE [[red]]danger[[/]]
+SAFE plain
+SAFE [[link]]source[[/]]
+COUNT 3
+ESCAPED 2
+LONGEST [link]source[/]
+QUARANTINE SET'''
+
+[[tiers.pool]]
 t = "THE WAR TABLE"
 starter = '''
 var hexes = new List<Hex> {
@@ -1362,6 +2054,79 @@ SIEGE LEDGER SET'''
 
 # ---- difficulty 11
 [[tiers]]
+
+[[tiers.pool]]
+t = "THE SCANNER CONCLAVE"
+starter = '''
+var scanners = new List<IScanner> { new ExactScanner(), new BroadScanner(), new FallbackScanner() };
+// Invoke through the interface; implementations remain replaceable.
+interface IScanner { string Scan(); }
+class ExactScanner : IScanner { public string Scan() => "exact:2"; }
+class BroadScanner : IScanner { public string Scan() => "broad:5"; }
+class FallbackScanner : IScanner { public string Scan() => "fallback:1"; }
+'''
+
+[[tiers.pool.stages]]
+brief = "Call every scanner polymorphically and print «SCAN <result>» for all three."
+expect = '''
+SCAN exact:2
+SCAN broad:5
+SCAN fallback:1'''
+
+[[tiers.pool.stages]]
+brief = "Append «COUNT 3» and «UNIQUE 3»."
+expect = '''
+SCAN exact:2
+SCAN broad:5
+SCAN fallback:1
+COUNT 3
+UNIQUE 3'''
+
+[[tiers.pool.stages]]
+brief = "Append «PRIMARY exact:2» and «CONCLAVE CLOSED»."
+expect = '''
+SCAN exact:2
+SCAN broad:5
+SCAN fallback:1
+COUNT 3
+UNIQUE 3
+PRIMARY exact:2
+CONCLAVE CLOSED'''
+
+[[tiers.pool]]
+t = "THE TABLE OF PROOFS"
+starter = '''
+var cases = new (int score, bool expected)[] { (9, true), (6, true), (2, false) };
+// Run the table through IsTrusted and report every proof.
+bool IsTrusted(int score) => score >= 6;
+'''
+
+[[tiers.pool.stages]]
+brief = "Print each result as «CASE <score> PASS» or «CASE <score> FAIL»."
+expect = '''
+CASE 9 PASS
+CASE 6 PASS
+CASE 2 PASS'''
+
+[[tiers.pool.stages]]
+brief = "Append «PASSED 3» and «FAILED 0»."
+expect = '''
+CASE 9 PASS
+CASE 6 PASS
+CASE 2 PASS
+PASSED 3
+FAILED 0'''
+
+[[tiers.pool.stages]]
+brief = "Append «BOUNDARIES 2» for the true/false boundary classes, then «PROOFS GREEN»."
+expect = '''
+CASE 9 PASS
+CASE 6 PASS
+CASE 2 PASS
+PASSED 3
+FAILED 0
+BOUNDARIES 2
+PROOFS GREEN'''
 
 [[tiers.pool]]
 t = "THE UNBROKEN CHAIN"

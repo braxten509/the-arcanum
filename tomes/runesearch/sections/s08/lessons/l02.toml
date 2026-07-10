@@ -1,0 +1,73 @@
+# Lesson s08-l02 manifest
+[[lessons]]
+id = '''s08-l02'''
+title = '''The Sealed Closures'''
+body = '''<p>To transform data within our iterators, we need to pass behavior as arguments. Rust's closures are anonymous functions you can save in a variable or pass to other functions. Unlike normal functions, closures can capture values from the scope in which they’re defined.</p>
+<p>We define a closure using vertical bars (<code>||</code>) to enclose the parameters, followed by the closure body. We do not need to declare parameter or return types, as the compiler infers them:</p>
+<pre><code>let offset = 10;
+let add_offset = |num: i32| num + offset; // Captures offset
+let result = add_offset(5); // Returns 15</code></pre>
+<p>Closures capture variables from their environment in three ways, which map directly to the three ways a function can take a parameter: borrowing immutably, borrowing mutably, and taking ownership.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CLOSURE TYPES</div>
+<p>The compiler automatically implements the <code>Fn</code>, <code>FnMut</code>, or <code>FnOnce</code> traits for closures based on how they handle captured values, ensuring memory safety boundaries are strictly maintained.</p></div>
+<p>Closures are anonymous functions that capture environmental variables. Scribes pass closures to iterator adaptors to customize transformations. The compiler infers closure parameters and return types, keeping code concise.</p>
+<p>Closures capture variables by borrowing or moving, ensuring memory safety boundaries are respected when passing behavior to other modules.</p>
+<p>Scribes can use the move keyword before closures to force ownership transfers of captured variables, which is necessary when closures outlive scopes.</p>
+<p>The archivist checks capture patterns. By using closures to parameterize adaptor behaviors, we write flexible search filters that reuse local context variables cleanly.</p>
+<p>This anonymous function design avoids declaring auxiliary global functions for simple, one-off mapping operations, keeping the scriptorium modules focused.</p>
+<p>Scribes should leverage closures for dynamic transformations. For instance, mapping log levels to numeric indices using local configuration map offsets. Scribes who master closure variables write highly customizable filters. By passing custom behavior dynamically, you build general-purpose search utilities that adapt to varying log attributes without code duplication.</p>'''
+
+[[lessons.readings]]
+label = '''Closures'''
+url = '''https://doc.rust-lang.org/book/ch13-01-closures.html'''
+
+
+[[lessons.exercises]]
+id = "s08-l02-e1"
+type = "mc"
+points = 15
+prompt = '''How does a scribe write parameter boundaries for a closure?'''
+choices = ['using parentheses ()', 'using brackets []', 'using braces {}', 'using vertical bars ||']
+answer = 3
+whyWrong = '''Vertical bars contain parameters. Parentheses are for standard functions.'''
+hint = '''Identify how closures works inside this Treatise.'''
+explain = '''The vertical bar syntax mirrors anonymous function definitions in Rust.'''
+
+
+[[lessons.exercises]]
+id = "s08-l02-e2"
+type = "text"
+points = 20
+prompt = '''Specify the keyword or name associated with closures in this section.'''
+answer = '''anonymous capture'''
+hint = '''Identify the term for closures in this context.'''
+whyWrong = '''Double check the terminology introduced in this lesson for closures.'''
+
+
+[[lessons.exercises]]
+id = "s08-l02-e3"
+type = "fill"
+points = 20
+prompt = '''Complete this snippet to apply closures.'''
+code = '''let add = |a, b| ____;'''
+answer = '''a + b'''
+hint = '''Supply the token that matches closures.'''
+whyWrong = '''Verify the syntax of the blanked item for closures.'''
+
+
+[[lessons.exercises]]
+id = "s08-l02-w1"
+type = "write"
+points = 35
+prompt = '''Define a closure `mult` that multiplies a number by `3`. Call it with `5` and print the result. Mention `logs_parsed` as a comment.'''
+expect = '''15
+'''
+solution = '''fn main() {
+    // logs_parsed
+    let mult = |x| x * 3;
+    println!("{}", mult(5));
+}'''
+starter = '''fn main() {
+    // logs_parsed comment, closure definition and call
+}'''
+hint = '''Solve closures following the instructions step-by-step.'''

@@ -1,8 +1,10 @@
 # Phase 7 — Validate (mandatory)
 
-Run `python3 tools/validate_tome.py tomes/<id>` and **fix every ERROR** — a tome that
-still emits one is not done. **Every `anti-template` AND `content` WARN is also a
-hard gate here, not advisory** — a uniform shape, a fixed or starved mc index, a
+Run `python3 tools/validate_tome.py tomes/<id> --strict` and **fix every ERROR and
+every non-`advisory` WARN** — a tome that still emits one is not done. `advisory`
+is reserved for limitations the tome author cannot fix, such as a runtime that cannot
+compile a one-file sample; every other warning is a shipping failure. In particular,
+every `anti-template` and `content` WARN is a hard gate: a uniform shape, a fixed or starved mc index, a
 reused hint/prompt/whyWrong/explain string, thin bootLines/gradingLines, missing
 field-notes, a sub-300-word body median, or a naming drift between id and project
 all mean the tome is machine-generated boilerplate; fix them until those WARNs are
@@ -18,7 +20,7 @@ lists), a badge bank missing an engine-granted id (`grantBadge` literals in
 web/app.js), a shop item selling the earned theme, an attack starter with
 unbalanced braces, a `generated/attacks.toml` out of sync with `attacks_src.toml`,
 and readings without an http(s) url; TODO/FIXME placeholder text anywhere is a
-hard-gate `content` WARN. (Other WARNs stay advisory, but read each one.) Then run the
+hard-gate `content` WARN. Then run the
 human-judgement checklist in **§7** (voice, anti-template variety, balance,
 coverage/no untaught dependencies, learning design). Smoke-test live: drop the folder
 in `tomes/`, open `http://localhost:8777/?tome=<id>`, and walk the boot, a lesson, a
@@ -33,4 +35,4 @@ kebab-case of `[runtime] project` (§6); the harness derives it and renames the 
 (and `meta.id`) FOR YOU after Phase 2 — never `mv`/`cp` the tome folder yourself, in any
 phase. The folder stays `untitled` until then; do not try to fix its name.
 
-→ **Produce:** a tome with zero ERRORs and zero `anti-template`/`content` WARNs, that plays.
+→ **Produce:** a tome with zero ERRORs and zero non-`advisory` WARNs, that plays.

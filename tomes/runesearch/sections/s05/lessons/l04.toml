@@ -1,0 +1,103 @@
+# Lesson s05-l04 manifest
+[[lessons]]
+id = '''s05-l04'''
+title = '''Bridges of Text'''
+body = '''<p>When designing functions that take text parameters, we must choose whether to accept <code>String</code> or <code>&amp;str</code>. The idiomatic choice in Rust is to accept a string slice <code>&amp;str</code> whenever a function only needs to read the text.</p>
+<p>By accepting <code>&amp;str</code>, the function can receive both string literals and references to owned <code>String</code> variables. The conversion from <code>&amp;String</code> to <code>&amp;str</code> happens automatically due to a compiler feature called deref coercion.</p>
+<pre><code>fn parse_log(line: &amp;str) {
+    // Works with literals and &amp;String
+}
+let lit = "WARN: disk_full";
+let owned = String::from("ERROR: out_of_mem");
+parse_log(lit);
+parse_log(&amp;owned); // Deref coercion converts &amp;String to &amp;str</code></pre>
+<p>If the function needs to take ownership of the text (e.g., to store it in a struct), it should accept <code>String</code> directly, making the ownership transfer explicit to the caller.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TO_OWNED VS CLONE</div>
+<p>To convert a borrowed <code>&amp;str</code> back into an owned <code>String</code>, you can use the <code>to_string()</code> method or the <code>to_owned()</code> method. The latter is generally preferred in systems programming as it explicitly denotes copying data to the heap.</p></div>
+<p>Deref coercion converts string references automatically, simplifying API design. Scribes should accept &str in functions that read text, allowing callers to pass literals or references to owned variables without explicit conversions.</p>
+<p>This design makes functions flexible and clean, ensuring that memory management concerns do not clutter the library interfaces and application signatures.</p>
+<p>Scribes should avoid taking &String as parameters, as it restricts the function to owned variables, forcing callers to allocate memory unnecessarily when passing literals.</p>
+<p>The archivist enforces idiomatic interfaces. By designing functions around string slices, you build reusable components that process text efficiently across different modules.</p>
+<p>Coercion happens at compile time, introducing zero runtime cost while providing a cleaner, more flexible coding experience for scriptorium developers.</p>
+<p>When you call a method that accepts a slice with an owned String reference, the compiler inserts deref calls automatically, maintaining safety silently. This eliminates the need for manual conversions, saving compilation time and reducing the potential for typos in complex log checking systems.</p>'''
+
+[[lessons.readings]]
+label = '''Deref Coercions'''
+url = '''https://doc.rust-lang.org/book/ch15-02-deref.html#implicit-deref-coercions-with-functions-and-methods'''
+
+
+[[lessons.exercises]]
+id = "s05-l04-e1"
+type = "mc"
+points = 15
+prompt = '''What allows passing &String to functions expecting &str parameters?'''
+choices = ['implicit copy', 'template cast', 'deref coercion', 'box coercion']
+answer = 2
+whyWrong = '''deref coercion automatically references underlying slices when compiler types align.'''
+hint = '''Identify the variant representing coercion deref.'''
+explain = '''Coercion simplifies interface design by accepting both owned and borrowed text views.'''
+
+
+[[lessons.exercises]]
+id = "s05-l04-e2"
+type = "text"
+points = 20
+prompt = '''Identify the term for coercion deref.'''
+answer = '''slice parameter'''
+hint = '''Refer to the method name or key element for coercion deref.'''
+whyWrong = '''Examine the lesson text for the required coercion deref method.'''
+
+
+[[lessons.exercises]]
+id = "s05-l04-e3"
+type = "fill"
+points = 20
+prompt = '''Complete this snippet to show coercion deref.'''
+code = '''fn read(s: &____) { ... }'''
+answer = '''str'''
+hint = '''Supply the token to complete the coercion deref pattern.'''
+whyWrong = '''Verify the spelling of the blanked item for coercion deref.'''
+
+
+[[lessons.exercises]]
+id = "s05-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = '''Type this snippet exactly to practice coercion deref.'''
+code = '''fn analyze(text: &str) {}'''
+
+
+[[lessons.exercises]]
+id = "s05-l04-e4"
+type = "fill"
+points = 20
+prompt = '''Complete the alternative blank pattern for coercion deref.'''
+code = '''fn read(s: &____) { ... }'''
+answer = '''str'''
+hint = '''Supply the token for coercion deref once more.'''
+whyWrong = '''Double check the syntax of the blanked item in coercion deref.'''
+
+
+[[lessons.exercises]]
+id = "s05-l04-w1"
+type = "write"
+points = 35
+prompt = '''Write a function `display(msg: &str)` that prints the uppercase version of `msg`. Invoke it inside `main` with a String reference.'''
+expect = '''SCROLL
+'''
+solution = '''fn display(msg: &str) {
+    println!("{}", msg.to_uppercase());
+}
+fn main() {
+    let logs_parsed = String::from("Scroll");
+    display(&logs_parsed);
+}'''
+starter = '''fn display(msg: &str) {
+    // print msg in uppercase
+}
+fn main() {
+    let logs_parsed = String::from("Scroll");
+    // call display with &logs_parsed
+}'''
+hint = '''Translate the coercion deref requirement into valid code.'''

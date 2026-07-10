@@ -23,21 +23,89 @@ backups, or scratch files ERROR), the badge bank must define every engine-grante
 id (the `grantBadge` literals in web/app.js), the earned theme must not be sold in
 the shop, attack starters must have balanced braces, `generated/attacks.toml` must
 match `attacks_src.toml`, readings need http(s) urls, and leftover TODO/FIXME text
-or a dyed (non-parchment) `bg1` page color is a hard-gate `content` WARN
-(`--strict` fails on those — the Phase 7 bar).
-**Fix every `ERROR` — a tome that still emits one is not
-done.** `WARN` lines are advisory (e.g. a consumable id outside the six engine
-mechanics). The checker enforces *structure*, not *content* — the human-judgement
+or a dyed (non-parchment) `bg1` page color is a `content` WARN. Two §3 integrity
+lints run tome-wide: **identifier drift** (the same type name spelled two ways
+across the code surfaces — `PushOp` in a lesson, `Push_Op` in the freestyle —
+which breaks the cumulative build) and **self-answering questions** (a
+`text`/`fill` whose answer appears verbatim in its own prompt prose; code spans
+are exempt, since a trace question shows its answer by design).
+
+**`--strict` fails on EVERY WARN except `advisory` ones** (language-calibration
+limits no tome author can fix). This is the Phase 7 bar, and the harness runs it
+from Phase 7 on: a finished tome carries zero warnings, whatever their label.
+**It also runs your code.** By default the validator puts every `write` lab starter,
+every intrusion starter, every spell-duel starter, and every whole-program lesson code
+sample through the tome's own toolchain (`--no-run` skips it; a missing toolchain
+degrades to a WARN — but a hard-gate one, so `--strict` fails a tome validated without
+its compiler installed). Five failures nothing else can see:
+
+- a **starter that does not build** — a student under the timer repairs logic, not a
+  broken scaffold. Only a *build* failure is an ERROR: a good starter is deliberately
+  incomplete, so it may well crash when run, and that is not a defect.
+- a **pre-solved starter** that already prints the target `expect` (or output the
+  lab's `expectRe` already accepts) — checked for labs, intrusions, and a duel
+  starter that already prints its stage-1 transcript.
+- a **lesson code sample that does not compile** — the tome teaching, as correct, code
+  the language rejects. This is where "Odin that is really Go" surfaces (§3). Whole
+  programs are an ERROR; on a language calibrated for it (§5 `snippetFragment` +
+  `snippetWrap`), **fragment samples are compiled too**, wrapped in a scratch shell
+  with declaration noise forgiven — a fragment the toolchain still rejects (a builtin
+  the language doesn't have, syntax borrowed from a sibling language) is a hard-gate
+  WARN.
+- a **corrupted `code`/`starter`** carrying a literal `\n` from a `'…'` TOML literal.
+- an **unachievable `expect`** — every write lab and intrusion carries a `solution`
+  (§3); the validator runs it and ERRORs when its output does not satisfy the
+  `expect`/`expectRe`, the proof the exercise is winnable. A challenge with no
+`solution` is a hard-gate `run` WARN when the runtime can execute one-file
+solutions; project-only runtimes that cannot do so receive an advisory WARN.
+- a **loader failure** — after file-level checks, the validator calls the same
+  `assemble_tome()` path as `/api/tome`; a tome that cannot merge its sections,
+  banks, and resolved runtime into the client payload is an ERROR.
+
+Every judgment is driven by the runtime's own TOML (`command`/`checkCommand` build and
+run, `diagRegex` reads the output, `stringDelims` names the quote characters), so no
+check assumes a particular language's syntax. An `expectRe` that does not compile is an
+ERROR (the engine grades with `new RegExp(expectRe, "m")`, so a bad pattern is an
+unwinnable lab). A language not calibrated for snippet checking, or one that cannot
+build a lone file at all (dotnet), degrades to an **advisory** WARN naming how many
+samples went unchecked — silence never impersonates coverage, and `--strict` does not
+punish a tome for its language's limits.
+
+A lesson body built from the same **sentence frames** as another lesson's — filler
+stamped from one template and reworded — is a hard-gate `anti-template` WARN
+(`--strict` fails it). A shop power-up that reuses the same normalized display name
+for the same mechanic in another installed tome is a hard-gate `content` WARN. The
+validator discovers those collisions across `tomes/`; it does not compare against a
+hardcoded list of names printed in this guide.
+
+**Fix every `ERROR` — a tome that still emits one is not done — and then fix every
+`WARN` too:** under `--strict` (the shipping bar) only `advisory`-labeled WARNs are
+tolerated. The checker enforces *structure*, not *content* — the human-judgement
 items below (voice, anti-template variety, balance) are still yours to run:
 
 - [ ] Every TOML file parses (`python3 -c "import tomllib; tomllib.load(open(f,'rb'))"`)
 - [ ] `meta.id` == folder name; every `[content].sections` id has a matching
       `sections/<id>/` folder (or flat `sections/<id>.toml`) whose `id` matches
 - [ ] Every exercise id unique; ids follow `<sid>-l<NN>-{e|d|w}<N>`
+- [ ] Every exercise has a non-empty `prompt`; MC choices are non-empty and distinct;
+      every `fill` has a real `____` blank; every `type.reps`, when set, is a positive integer
+- [ ] Section titles are Title Case (one capital per word, acronyms excepted) —
+      an ALL-CAPS `title` is a hard-gate `content` WARN; all-caps lives in `codename`
 - [ ] Every `[[freestyle.rubric]]` weight set sums to exactly 100
 - [ ] Every `mc` `answer` index is in range; every `write` has a NON-EMPTY `expect`
       or `expectRe` (no `expect = ""` — unwinnable, since empty stdout reads as `(no output)`)
-- [ ] `expect` strings are exact program output (verify mentally or via the runtime)
+- [ ] `expect` strings are exact program output — proven by each lab's `solution`
+      under `--run`, not by eye
+- [ ] Code the validator never compiled is still correct: fragments in a language
+      without `snippetFragment` calibration (and excerpt shapes its
+      `snippetFragmentSkip` waves through), `type` drill and `fill` `code` (both are
+      excerpts), and every sample in a language whose runtime file has no
+      `snippetEntry` (`java`, `dotnet`, `cpp` today — see §5). A clean run means
+      "nothing it can build is broken", never "the code is right"
+- [ ] Prose claims about the language verified against the toolchain (§3): every
+      "this is a compile error / panics / has a capacity" sentence was checked in a
+      scratch file, not recalled — the validator compiles code, it cannot fact-check
+      a sentence
 - [ ] Attack stages obey the append invariant; 3 stages per challenge
 - [ ] Duel titles/briefs/tokens are in the course's OWN voice — no raw/technical
       worksheet text, no borrowed-genre leftovers (§4)

@@ -86,4 +86,12 @@ prompt = "Polymorphism lab: define <code>interface IScanner { string Scan(); }</
 expect = '''
 llama: [1]
 keyword: [2]'''
+solution = '''
+var scanners = new List<IScanner> { new LlamaScanner(), new KeywordScanner() };
+foreach (IScanner scanner in scanners) Console.WriteLine(scanner.Scan());
+
+public interface IScanner { string Scan(); }
+public class LlamaScanner : IScanner { public string Scan() => "llama: [1]"; }
+public class KeywordScanner : IScanner { public string Scan() => "keyword: [2]"; }
+'''
 hint = "The loop only knows IScanner — that's the whole point. Types after top-level code."

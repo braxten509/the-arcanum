@@ -24,7 +24,10 @@ body = '''
 <p><strong>Test double taxonomy</strong> (interview-proof): <em>stub</em> — returns canned data (your MockSearchClient) · <em>fake</em> — working lightweight implementation (in-memory "database") · <em>mock</em> — records calls so you can assert "was this called with X?" (libraries like Moq/NSubstitute generate these). Verisearch's needs are 95% stubs.</p>
 <p><strong>Coverage is a flashlight, not a grade:</strong> 100% line coverage with weak assertions proves nothing; 60% coverage of trust math, parsing, and extraction with sharp assertions catches real regressions. Test where bugs COST, assert what must be TRUE.</p>
 <p><strong>AAA discipline:</strong> one Arrange, one Act, focused Asserts. A test asserting twelve unrelated things fails as a riddle; three tests asserting one thing each fail as documentation.</p></div>'''
-readings = []
+[[lessons.readings]]
+label = "Microsoft Learn — Unit testing best practices"
+url = "https://learn.microsoft.com/en-us/dotnet/core/testing/unit-testing-best-practices"
+essential = true
 
 [[lessons.exercises]]
 id = "s12-l02-e1"
@@ -77,4 +80,14 @@ type = "write"
 points = 38
 prompt = "Table-driven testing lab: define <code>bool IsTrusted(int s) =&gt; s &gt;= 6;</code> and a cases array of (input, expected) tuples: (9,true),(6,true),(5,false),(0,false). Loop the cases, count passes where IsTrusted(input)==expected, and print <code>4/4 green</code>."
 expect = "4/4 green"
+solution = '''
+var cases = new (int input, bool expected)[]
+{
+    (9, true), (6, true), (5, false), (0, false)
+};
+int passed = cases.Count(test => IsTrusted(test.input) == test.expected);
+Console.WriteLine($"{passed}/{cases.Length} green");
+
+bool IsTrusted(int score) => score >= 6;
+'''
 hint = "var cases = new (int n, bool want)[] { ... }; foreach + counter. This IS what [Theory] automates."

@@ -1,0 +1,81 @@
+# Lesson s05-l01 manifest
+[[lessons]]
+id = '''s05-l01'''
+title = '''The Owned String'''
+body = '''<p>Handling text in systems languages is notoriously difficult. Rust separates text into two primary types: the owned, growable <code>String</code>, and the borrowed string slice <code>&amp;str</code>. We begin by examining the heap-allocated <code>String</code>.</p>
+<p>A <code>String</code> is stored as a wrapper over a vector of bytes on the heap. It is growable, mutable, and guaranteed to contain valid UTF-8 text. We create a <code>String</code> from a literal string using the <code>String::from</code> function or the <code>to_string</code> method:</p>
+<pre><code>let mut message = String::from("Archive");
+message.push_str(" online"); // Append text</code></pre>
+<p>Because a <code>String</code> owns its contents, passing it to another function moves ownership by default. If we wish to keep using the string after passing it, we must clone it explicitly or pass a reference instead. Cloning can be expensive as it copies the heap data.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // INTERNAL REPS</div>
+<p>A <code>String</code> consists of three parts on the stack: a pointer to the heap memory, a length (bytes currently used), and a capacity (total bytes allocated). The length and capacity can change as you append text.</p></div>
+<p>String represents growable, heap-allocated UTF-8 text. Scribes use String to store text that changes at runtime. Since String owns its data, passing it transfers ownership, and cloning it copies the heap buffer, which requires resources.</p>
+<p>By understanding String allocation, scribes can manage memory usage, opting to borrow slices when only reading text, keeping the search engine performant.</p>
+<p>Scribes should also utilize String capacity methods to pre-allocate memory when building strings in loops. This avoids multiple reallocations and copies, optimizing performance.</p>
+<p>The archivist monitors text allocations. By using owned String objects only for data that must be mutated or stored, we keep the stack clean and prevent memory fragmentation issues.</p>
+<p>Always verify that string inputs are valid UTF-8, as Rust strings enforce this constraint at all times. This prevents encoding errors from corrupting the index databases.</p>
+<p>Additionally, heap allocations are managed automatically by scope endings. When an owned String is dropped, the allocator frees the buffer buffer, preventing leakages.</p>'''
+
+[[lessons.readings]]
+label = '''Strings'''
+url = '''https://doc.rust-lang.org/book/ch08-02-strings.html'''
+
+
+[[lessons.exercises]]
+id = "s05-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = '''Retype this exact line to practice owned string syntax.'''
+code = '''s.push_str("abc");'''
+
+
+[[lessons.exercises]]
+id = "s05-l01-e1"
+type = "fill"
+points = 20
+prompt = '''Supply the missing element for owned string.'''
+code = '''let mut s = String::____("A");'''
+answer = '''from'''
+hint = '''Supply the owned string token to make the code compile.'''
+whyWrong = '''Check the syntax for owned string once more.'''
+
+
+[[lessons.exercises]]
+id = "s05-l01-e2"
+type = "mc"
+points = 15
+prompt = '''Where does the String type store its character data?'''
+choices = ['on the stack', 'in static binary data', 'registers', 'on the heap']
+answer = 3
+whyWrong = '''String is a growable collection storing elements on the heap.'''
+hint = '''Recall the definition details of owned string.'''
+explain = '''Heap allocation enables String objects to alter size dynamically.'''
+
+
+[[lessons.exercises]]
+id = "s05-l01-e3"
+type = "text"
+points = 20
+prompt = '''What is the primary keyword or type for owned string?'''
+answer = '''String'''
+hint = '''Specify the keyword representing owned string.'''
+whyWrong = '''Ensure correct spelling of the owned string keyword.'''
+
+
+[[lessons.exercises]]
+id = "s05-l01-w1"
+type = "write"
+points = 35
+prompt = '''Create a mutable `String` variable `logs_parsed` with `"R"`, append `"ust"` using `push_str`, and print it.'''
+expect = '''Rust
+'''
+solution = '''fn main() {
+    let mut logs_parsed = String::from("R");
+    logs_parsed.push_str("ust");
+    println!("{}", logs_parsed);
+}'''
+starter = '''fn main() {
+    // create and modify string logs_parsed
+}'''
+hint = '''Implement owned string by editing the starter code.'''

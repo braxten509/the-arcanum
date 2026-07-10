@@ -156,6 +156,13 @@ def check_intrusions(tome_path, m, label):
         if not isinstance(mn, int) or isinstance(mn, bool):
             err(ilabel, f"{where}: min must be an integer (sections passed before it can "
                         f"fire), got {mn!r} — a string like \"s02\" breaks `t.min <= passed` gating")
+        # the engine uses both raw: Date.now() + tier.time * 1000 and addCredits(tier.bounty),
+        # so a missing/bad one is a NaN countdown or a NaN purse — a silently dead minigame.
+        for key, what in (("time", "seconds to solve"), ("bounty", "coin for shattering it")):
+            v = tier.get(key)
+            if not isinstance(v, (int, float)) or isinstance(v, bool) or v <= 0:
+                err(ilabel, f"{where}: {key} must be a positive number ({what}) — the engine "
+                            f"consumes it raw, and {v!r} breaks the tier with NaN")
         pool = tier.get("pool")
         if not isinstance(pool, list) or not pool:
             err(ilabel, f"{where}: needs a non-empty [[tiers.pool]] of challenges "

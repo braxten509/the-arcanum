@@ -5,6 +5,17 @@ editorLang = "perl"
 command = ["perl", "{file}"]
 checkCommand = ["perl", "-c", "{file}"]
 diagRegex = '^(?P<msg>.*) at (?P<file>.+) line (?P<line>\d+).$'
+
+# --- lesson-snippet checking (tools/validatelib/depth.py check_snippets) ---
+# Any block opening on a statement keyword. No prelude: without `use strict` an
+# undeclared $var the prose introduced earlier is legal, so a bare loop body still
+# compiles and only genuine syntax errors survive. Covers 34/34 writforge blocks.
+snippetEntry = '^\s*(?:use |my |our |sub |for|foreach|if|unless|while|say|print|open|\$\w+\s*=~)'
+diagIgnore = [
+  'requires explicit package name',   # a lexical the prose declared earlier
+  "Can't locate \\S+ in @INC",         # a module the snippet does not ship with
+  'BEGIN failed',                     # the cascade from the line above
+]
 starterCode = '''
 #!/usr/bin/env perl
 use v5.36;

@@ -77,4 +77,12 @@ type = "write"
 points = 36
 prompt = "Prove concurrency with a stopwatch: start TWO <code>Task.Delay(100)</code> tasks (store both, no await yet), then await both. If <code>System.Diagnostics.Stopwatch</code> shows under 180ms total, print <code>parallel confirmed</code>, else <code>sequential detected</code>."
 expect = "parallel confirmed"
+solution = '''
+var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+Task first = Task.Delay(100);
+Task second = Task.Delay(100);
+await Task.WhenAll(first, second);
+stopwatch.Stop();
+Console.WriteLine(stopwatch.ElapsedMilliseconds < 180 ? "parallel confirmed" : "sequential detected");
+'''
 hint = "var sw = Stopwatch.StartNew(); var t1 = Task.Delay(100); var t2 = Task.Delay(100); await t1; await t2; check sw.ElapsedMilliseconds."

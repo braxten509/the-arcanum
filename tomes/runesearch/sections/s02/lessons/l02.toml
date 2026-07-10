@@ -1,0 +1,111 @@
+[[lessons]]
+id = "s02-l02"
+title = "Counting and Iteration"
+body = '''<p>When the scribe must repeat a task—scanning a ledger entry by entry, tallying matches—the <code>while</code> loop provides the repetition. A <code>while</code> loop continues executing its body as long as a Boolean condition remains true:</p>
+<pre><code>let mut count = 0;
+
+while count &lt; 3 {
+    println!("Count: {}", count);
+    count = count + 1;
+}
+// Prints: Count: 0, Count: 1, Count: 2</code></pre>
+<p>Observe the pattern: declare a mutable variable (here, `count`) to track progress. Before each iteration, the loop tests the condition. If true, the body executes. Then control returns to the condition check. When the condition becomes false, the loop terminates and execution continues after the closing brace.</p>
+<p>A <code>loop</code> keyword creates an infinite loop—it continues forever unless you break out with the <code>break</code> keyword:</p>
+<pre><code>let mut tally = 0;
+
+loop {
+    tally = tally + 1;
+    if tally == 3 {
+        break;  // Exit the loop
+    }
+}
+// tally is now 3</code></pre>
+<p>The <code>continue</code> keyword skips the rest of the current iteration and jumps to the condition check:</p>
+<pre><code>let mut n = 0;
+
+while n &lt; 5 {
+    n = n + 1;
+    if n == 2 {
+        continue;  // Skip this iteration
+    }
+    println!("{}", n);  // Prints: 1, 3, 4, 5
+}</code></pre>
+<p>For iterating over a range of numbers, use a <code>for</code> loop with the range syntax:</p>
+<pre><code>for i in 0..3 {
+    println!("Index: {}", i);
+}
+// Prints: Index: 0, Index: 1, Index: 2</code></pre>
+<p>The range <code>0..3</code> means "from 0 up to but not including 3". A range <code>0..=3</code> includes the endpoint. For loops are often cleaner than while loops when you know the iteration count in advance.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // LOOP SAFETY</div>
+<p>An infinite `loop` that never breaks is a common error. Always ensure your `while` condition will eventually become false, or that your `loop` has a `break` statement. The Rust compiler does not prevent infinite loops (they are sometimes intentional), but they will freeze your program if not carefully managed.</p></div>'''
+
+[[lessons.readings]]
+label = "Loops"
+url = "https://doc.rust-lang.org/book/ch03-05-control-flow.html#repetition-with-loops"
+
+[[lessons.readings]]
+label = "Ranges"
+url = "https://doc.rust-lang.org/std/ops/struct.Range.html"
+
+[[lessons.exercises]]
+id = "s02-l02-e1"
+type = "mc"
+points = 15
+prompt = "How many times will this `while` loop execute? `let mut i = 0; while i < 3 { i = i + 1; }`"
+choices = ["2 times", "3 times", "4 times", "infinitely"]
+answer = 1
+hint = "Trace through: `i` starts at 0. The condition `i < 3` checks each iteration. When is the condition no longer true, and how many checks happened before that?"
+whyWrong = "The loop runs while `i < 3`: when `i` is 0, 1, 2. On the fourth check, `i` is 3, which is not less than 3, so the loop stops. That is 3 iterations."
+explain = "Count carefully: the condition `i < 3` is true when `i` is 0, 1, and 2. After the third iteration, `i` becomes 3, the condition is false, and the loop exits."
+
+[[lessons.exercises]]
+id = "s02-l02-e2"
+type = "fill"
+points = 20
+prompt = "Complete this for loop to print indices 0 through 2:"
+code = '''for i in 0..___ {
+    println!("{}", i);
+}'''
+answer = "3"
+hint = "The range `0..N` in the lesson goes from 0 up to but not including N. To print 0, 1, 2, what endpoint do you need?"
+whyWrong = "The range syntax `0..3` produces 0, 1, 2 (the upper bound is exclusive). The correct answer is `3`."
+
+[[lessons.exercises]]
+id = "s02-l02-e3"
+type = "text"
+points = 20
+prompt = "What keyword do you use to exit a `loop` or `while` loop prematurely?"
+answer = "break"
+accept = ["break keyword", "break"]
+hint = "This keyword appears inside the loop body when you want to stop iterating immediately."
+whyWrong = "The `break` keyword exits a loop immediately. Using `continue` would skip to the next iteration instead."
+
+[[lessons.exercises]]
+id = "s02-l02-e4"
+type = "mc"
+points = 15
+prompt = "Which loop is best when you do not know the iteration count in advance and must check a condition?"
+choices = ["for", "while", "loop", "let"]
+answer = 1
+hint = "The lesson shows three loop types: `for` with a range, `while` with a Boolean condition, and infinite `loop`. Which one requires testing a condition before each iteration?"
+whyWrong = "A `for` loop is best for fixed ranges. A `while` loop is best for condition-driven repetition. An infinite `loop` requires manual `break`. Use `while` when the count is unknown."
+explain = "Use `while` when you must repeat until a condition changes. Use `for` when iterating over a known range or collection. Use infinite `loop` only when `break` will exit."
+
+[[lessons.exercises]]
+id = "s02-l02-w1"
+type = "write"
+points = 35
+prompt = '''Use a `while` loop with `counter` starting at `0` to print the line `COUNT 0` through `COUNT 4`, incrementing each iteration. Print five lines total.'''
+expect = "COUNT 0\nCOUNT 1\nCOUNT 2\nCOUNT 3\nCOUNT 4\n"
+solution = '''fn main() {
+    let mut counter = 0;
+    while counter < 5 {
+        println!("COUNT {}", counter);
+        counter = counter + 1;
+    }
+}'''
+starter = '''fn main() {
+    let mut counter = 0;
+    // loop to print COUNT 0 through COUNT 4
+}'''
+hint = "Declare counter as mutable, use `while counter < 5`, print the line inside the loop, and increment counter each iteration."

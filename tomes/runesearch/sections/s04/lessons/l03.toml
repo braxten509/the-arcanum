@@ -1,0 +1,87 @@
+# Lesson s04-l03 manifest
+[[lessons]]
+id = '''s04-l03'''
+title = '''Enumerating Log Types'''
+body = '''<p>Where structs allow us to group related fields, enums (short for enumerations) allow us to say a value is one of a possible set of values. In writing our log parser, we might say a log level can only be Info, Warning, or Error.</p>
+<p>To define an enum, we use the <code>enum</code> keyword and list the variants inside curly braces. Enums give us a way of expressing that a value is one of a discrete set of possibilities:</p>
+<pre><code>enum LogLevel {
+    Info,
+    Warning,
+    Error,
+}</code></pre>
+<p>We create instances of enum variants using the double colon namespace operator, like <code>LogLevel::Info</code>. Because any value of type <code>LogLevel</code> must be exactly one of these variants, we can pass them to functions that expect this type, ensuring only valid values are used.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ENUM ADVANTAGES</div>
+<p>Unlike integer-based constants used in other systems, Rust enums prevent type confusion and guarantee at compile time that only defined variants can be passed. The compiler checks that all variants are handled.</p></div>
+<p>Enums represent choices between a discrete set of variants. Scribes use enums to model status codes, levels, and command types. By restricting choices to defined variants, enums prevent invalid state bugs, ensuring the CLI tool parses inputs predictably.</p>
+<p>Enums are a powerful tool when combined with match expressions, as the compiler guarantees all variants are handled, preventing missing branch exceptions.</p>
+<p>Scribes should avoid mixing integer codes with enums unless mapping to external interfaces. Keeping enums purely symbolic inside the application limits mapping errors and maintains type safety.</p>
+<p>The archivist uses enums to catalog different log categories. By ensuring that every log level is represented by a unique enum variant, we simplify sorting and filtering operations across large datasets.</p>
+<p>When you expand the log categories, you simply add a variant. The compiler will direct you to every match site that needs updating, keeping the codebase stable.</p>
+<p>Furthermore, enums occupy minimal memory. The compiler calculates the tag size automatically, optimizing storage layout to conserve heap space in parallel search trees.</p>'''
+
+[[lessons.readings]]
+label = '''Defining an Enum'''
+url = '''https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html'''
+
+
+[[lessons.exercises]]
+id = "s04-l03-e1"
+type = "mc"
+points = 15
+prompt = '''How do we write an instance of an enum variant in Rust?'''
+choices = ['EnumName::VariantName', 'EnumName.VariantName', 'VariantName directly', 'new VariantName()']
+answer = 0
+whyWrong = '''Double colons namespace the variant under the enum definition.'''
+hint = '''Select the option corresponding to enum variants.'''
+explain = '''The double-colon operator links enum variants to their parent type name.'''
+
+
+[[lessons.exercises]]
+id = "s04-l03-e2"
+type = "fill"
+points = 20
+prompt = '''Fill in the blank for this enum variants example.'''
+code = '''enum Level { Info, ____ }'''
+answer = '''Error'''
+hint = '''Supply the correct name for this enum variants slot.'''
+whyWrong = '''Review the lesson text for the required enum variants value.'''
+
+
+[[lessons.exercises]]
+id = "s04-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = '''Type this line exactly to solidify your understanding of enum variants.'''
+code = '''let level = Level::Info;'''
+
+
+[[lessons.exercises]]
+id = "s04-l03-w1"
+type = "write"
+points = 35
+prompt = '''Define an enum `State` with variants `Active` and `Inactive`. Assign `State::Active` and match it to print `Active`.'''
+expect = '''Active
+'''
+solution = '''#[allow(unused)]
+enum State {
+    Active,
+    Inactive,
+}
+fn main() {
+    let logs_parsed = State::Active;
+    match logs_parsed {
+        State::Active => println!("Active"),
+        State::Inactive => println!("Inactive"),
+    }
+}'''
+starter = '''#[allow(unused)]
+enum State {
+    Active,
+    Inactive,
+}
+fn main() {
+    let logs_parsed = State::Active;
+    // match and print
+}'''
+hint = '''Solve this enum variants challenge based on the examples.'''

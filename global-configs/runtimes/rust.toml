@@ -1,0 +1,146 @@
+# Rust — complete engine config. A tome's [runtime] table overrides any key here.
+language = "Rust"
+entryFile = "src/main.rs"
+newFileExt = ".rs"
+editorLang = "rust"
+runLabel = "cargo run"
+packages = false
+
+command = ["bash", "-c", "rustc \"$0\" -o main_bin && ./main_bin"]
+snippetRunCommand = ["cargo", "run", "-q"]
+scaffoldCommand = ["cargo", "init", "--bin", "--vcs", "none", "--name", "{project}", "{dir}"]
+projectFile = "Cargo.toml"
+buildCommand = ["cargo", "build"]
+checkCommand = ["rustc", "--crate-type=lib", "--emit=metadata", "--out-dir", "/tmp", "-A", "unused"]
+diagRegex = '^(?P<sev>error|warning)(?:\[(?P<code>\w+)\])?: (?P<msg>.*)\n\s*--> (?P<file>[^:\n]+):(?P<line>\d+):(?P<col>\d+)'
+
+# --- lesson-snippet checking ---
+snippetEntry = '^\s*fn\s+main\s*\(\)'
+diagIgnore = [
+  'unused variable',
+  'unused import',
+]
+
+[syntax]
+lineComment = "//"
+blockComment = ["/*", "*/"]
+strings = ["\"", "'"]
+keywords = [
+  "as", "break", "const", "continue", "crate", "else", "enum", "extern",
+  "false", "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod",
+  "move", "mut", "pub", "ref", "return", "self", "Self", "static",
+  "struct", "super", "trait", "true", "type", "unsafe", "use", "where",
+  "while", "async", "await", "dyn",
+]
+types = [
+  "i8", "i16", "i32", "i64", "i128", "isize",
+  "u8", "u16", "u32", "u64", "u128", "usize",
+  "f32", "f64", "bool", "char", "str",
+  "String", "Vec", "HashMap", "Option", "Result",
+]
+
+[completions]
+keywords = [
+  "as", "break", "const", "continue", "crate", "else", "enum", "extern",
+  "false", "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod",
+  "move", "mut", "pub", "ref", "return", "self", "Self", "static",
+  "struct", "super", "trait", "true", "type", "unsafe", "use", "where",
+  "while", "async", "await", "dyn",
+  "println!", "print!", "format!", "vec!", "panic!",
+  "i8", "i16", "i32", "i64", "i128", "isize",
+  "u8", "u16", "u32", "u64", "u128", "usize",
+  "f32", "f64", "bool", "char", "str",
+  "String", "Vec", "HashMap", "Option", "Result",
+  "Some", "None", "Ok", "Err",
+]
+snippets = [
+  ["fn", "function definition", "fn ${1:name}($2) -> ${3:Type} {\n\t$0\n}"],
+  ["let", "variable binding", "let ${1:name} = ${2:value};$0"],
+  ["letmut", "mutable variable binding", "let mut ${1:name} = ${2:value};$0"],
+  ["if", "if expression", "if ${1:condition} {\n\t$0\n}"],
+  ["ifelse", "if / else expression", "if ${1:condition} {\n\t$2\n} else {\n\t$0\n}"],
+  ["match", "pattern match", "match ${1:value} {\n\t${2:Pattern} => $0,\n}"],
+  ["for", "for loop", "for ${1:item} in ${2:iter} {\n\t$0\n}"],
+  ["while", "while loop", "while ${1:condition} {\n\t$0\n}"],
+  ["loop", "infinite loop", "loop {\n\t$0\n}"],
+  ["struct", "struct definition", "struct ${1:Name} {\n\t${2:field}: ${3:Type},\n}"],
+  ["enum", "enum definition", "enum ${1:Name} {\n\t${2:Variant},\n}"],
+  ["main", "main function", "fn main() {\n\t$0\n}"],
+]
+types = [
+  ["HashMap::new\\(\\)", "map"],
+  ["Vec::new\\(\\)", "vec"],
+  ["vec!\\[", "vec"],
+  ["String::from\\(", "string"],
+  ["\\.to_string\\(\\)", "string"],
+  ["\\.to_owned\\(\\)", "string"],
+]
+classRegex = '(?:\bstruct\s+)(\w+)\s*\{([^}]*)\}'
+propRegex = '\b(\w+)\s*:'
+ctorRegex = '^(\w+)\s*[\(\{]'
+
+[completions.members]
+string = [
+  ["len()", "m", "usize — length in bytes", "len()"],
+  ["is_empty()", "m", "bool — checks if empty", "is_empty()"],
+  ["push()", "m", "push(char) — appends character", "push($1)$0"],
+  ["push_str()", "m", "push_str(&str) — appends string slice", "push_str($1)$0"],
+  ["clear()", "m", "clears the string", "clear()"],
+  ["contains()", "m", "bool contains(&str) — substring check", "contains($1)$0"],
+  ["replace()", "m", "String replace(&str, &str) — replaces occurrences", "replace($1, $2)$0"],
+  ["trim()", "m", "trim() -> &str — removes whitespace", "trim()"],
+  ["split()", "m", "split(pat) — splits on pattern", "split($1)$0"],
+  ["chars()", "m", "chars() — iterator over characters", "chars()"],
+  ["as_str()", "m", "as_str() -> &str — extracts string slice", "as_str()"],
+]
+vec = [
+  ["len()", "m", "usize — number of elements", "len()"],
+  ["is_empty()", "m", "bool — checks if empty", "is_empty()"],
+  ["push()", "m", "push(item) — appends element", "push($1)$0"],
+  ["pop()", "m", "Option<T> pop() — removes last element", "pop()"],
+  ["insert()", "m", "insert(index, item) — inserts element at index", "insert($1, $2)$0"],
+  ["remove()", "m", "remove(index) — removes element at index", "remove($1)$0"],
+  ["clear()", "m", "clears the vector", "clear()"],
+  ["contains()", "m", "bool contains(&item) — checks if item present", "contains(&$1)$0"],
+  ["iter()", "m", "iter() — iterator over references", "iter()"],
+]
+map = [
+  ["len()", "m", "usize — number of elements", "len()"],
+  ["is_empty()", "m", "bool — checks if empty", "is_empty()"],
+  ["insert()", "m", "insert(key, value) — inserts key-value pair", "insert($1, $2)$0"],
+  ["remove()", "m", "remove(&key) — removes key", "remove(&$1)$0"],
+  ["clear()", "m", "clears the map", "clear()"],
+  ["get()", "m", "Option<&V> get(&K) — retrieves value reference", "get(&$1)$0"],
+  ["contains_key()", "m", "bool contains_key(&K) — checks key presence", "contains_key(&$1)$0"],
+  ["keys()", "m", "iterator over keys", "keys()"],
+  ["values()", "m", "iterator over values", "values()"],
+]
+option = [
+  ["is_some()", "m", "bool — true if Some", "is_some()"],
+  ["is_none()", "m", "bool — true if None", "is_none()"],
+  ["unwrap()", "m", "T — unwraps value, panics on None", "unwrap()"],
+  ["unwrap_or()", "m", "T unwrap_or(default) — unwraps or returns default", "unwrap_or($1)$0"],
+  ["and_then()", "m", "Option<U> and_then(f) — monadic bind", "and_then($1)$0"],
+  ["map()", "m", "Option<U> map(f) — maps Some value", "map($1)$0"],
+]
+result = [
+  ["is_ok()", "m", "bool — true if Ok", "is_ok()"],
+  ["is_err()", "m", "bool — true if Err", "is_err()"],
+  ["unwrap()", "m", "T — unwraps Ok, panics on Err", "unwrap()"],
+  ["unwrap_or()", "m", "T unwrap_or(default) — unwraps Ok or returns default", "unwrap_or($1)$0"],
+  ["map()", "m", "Result<U, E> map(f) — maps Ok value", "map($1)$0"],
+  ["map_err()", "m", "Result<T, F> map_err(f) — maps Err value", "map_err($1)$0"],
+]
+
+[completions.returns]
+to_string = "string"
+to_owned = "string"
+as_str = "str"
+len = "usize"
+is_empty = "bool"
+is_some = "bool"
+is_none = "bool"
+is_ok = "bool"
+is_err = "bool"
+contains = "bool"
+contains_key = "bool"
