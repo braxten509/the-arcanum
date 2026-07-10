@@ -93,8 +93,40 @@ async function init() {
   applyPen(); // set the handwritten-ink body classes + code-editor font from saved prefs
 
   // candle embers: the flame sheds warm motes that drift up and die
-  const flameEl = document.querySelector("#candle .c-flame");
+  const flameEl = document.querySelector("#candle .c-wick-anchor");
+  const liveFlame = document.querySelector("#candle .c-live-flame");
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+
+  // Each flicker rolls a fresh lean, stretch, brightness, and duration so the
+  // flame never falls into a visible loop.
+  const rand = (min, max) => min + Math.random() * (max - min);
+  let flamePose = { angle: 0, x: 0, y: 0, sx: 1, sy: 1, opacity: .96 };
+  const flickerFlame = () => {
+    if (!liveFlame || reduced.matches) return;
+    const to = {
+      angle: rand(-5.5, 5.5),
+      x: rand(-1, 1),
+      y: rand(-1.8, .5),
+      sx: rand(.94, 1.06),
+      sy: rand(.95, 1.14),
+      opacity: rand(.93, 1),
+    };
+    const frame = (v) => ({
+      transform: `translate(${v.x}px, ${v.y}px) rotate(${45 + v.angle}deg) scale(${v.sx}, ${v.sy})`,
+      opacity: v.opacity,
+    });
+    const motion = liveFlame.animate([frame(flamePose), frame(to)], {
+      duration: rand(480, 920),
+      easing: "ease-in-out",
+      fill: "forwards",
+    });
+    motion.onfinish = () => {
+      flamePose = to;
+      flickerFlame();
+    };
+  };
+  flickerFlame();
+
   setInterval(() => {
     if (document.hidden || reduced.matches || !flameEl) return;
     if ($("#parchment").classList.contains("wide")) return; // the desk is swept during the Great Working
@@ -112,7 +144,7 @@ async function init() {
       ],
       { duration: 1900 + Math.random() * 1600, easing: "cubic-bezier(.2,.5,.4,1)", fill: "forwards" }
     ).onfinish = () => em.remove();
-  }, 640);
+  }, 360);
 
   // click feedback by region: a multiple-choice pick, a fingertip on the parchment, or a
   // knock on the wooden desk. mousedown so it lands on press and catches right-clicks (button 2).
