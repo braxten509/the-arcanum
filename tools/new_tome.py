@@ -189,10 +189,10 @@ info = "#3d4d78"
 slab = "#27272b"
 slab-tx = "#e3d3ac"
 candle = "255, 172, 66"
-sigil-1 = "#f7ffff"               # white-hot heart of the cast
-sigil-2 = "#62d9dc"               # solid bolt body
-sigil-3 = "#168db4"               # broad luminous bloom
-sigil-4 = "#3d4d78"               # deep fringe and released motes
+sigil-1 = "#f7ffff"               # four casting inks, all visible along each bolt
+sigil-2 = "#62d9dc"
+sigil-3 = "#168db4"
+sigil-4 = "#3d4d78"
 
 [[themes]]
 id = "alt"

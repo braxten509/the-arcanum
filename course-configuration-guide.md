@@ -56,8 +56,8 @@ this file, and not your job here.
 `bg0` table wood · `bg1` parchment/page (also editor bg) · `bg2` panels ·
 `bg3` raised elements · `line`/`line-hi` hairlines · `tx`/`tx-dim`/`tx-faint` inks ·
 `ac`/`ac-dim`/`ac-bg` accent · `warn` · `bad` · `info` · `slab`/`slab-tx` code slabs ·
-`candle` — the candlelight glow · `sigil-1` white-hot core · `sigil-2` bolt body ·
-`sigil-3` luminous bloom · `sigil-4` fringe and released motes.
+`candle` — the candlelight glow · `sigil-1`–`sigil-4` — the four casting inks
+carried visibly along each lightning stroke and scattered through its released motes.
 
 Color rules the validator enforces:
 - **`candle` is a bare `r, g, b` triple** (e.g. `"255, 172, 66"`) — a hex value
@@ -70,6 +70,9 @@ Color rules the validator enforces:
   so a recolor must actually move the values.
 - All 22 keys present in every palette; hex like `#rrggbb` everywhere except
   `candle` and `ac-bg` (an `rgba(...)` wash).
+- The four `sigil-1`–`sigil-4` colors must form a set not used by any other
+  authored tome theme. Sharing up to three colors is fine, but changing only their
+  slot order is not. Global skin themes under `skins/` are exempt.
 
 A palette may also pick the coin icon's face with a top-level `coin = "<name>"`
 on its `[[themes]]` entry (next to `id`/`name`, NOT inside `[themes.vars]`):

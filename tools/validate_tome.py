@@ -26,7 +26,8 @@ from validatelib.execute import check_snippets, check_starters_run
 from validatelib.structure import (check_badges, check_economy, check_layout, check_meta,
                                    check_narrative, check_placeholders, check_runtime,
                                    check_shop)
-from validatelib.themes import check_theme_distinctness, check_themes
+from validatelib.themes import (check_sigil_palette_uniqueness, check_theme_distinctness,
+                                check_themes)
 
 import tome_layout  # noqa: E402 — validatelib put REPO on sys.path; in lockstep with server
 
@@ -62,6 +63,7 @@ def validate(tome_path, run=False, tooling=None):
     check_economy(m, label)
     theme_ids, earned_granted = check_themes(m, label)
     check_theme_distinctness(m, label)
+    check_sigil_palette_uniqueness(m, tome_path, label)
     check_shop(m, theme_ids, earned_granted, label)
 
     content = m.get("content", {})

@@ -9,12 +9,14 @@ Needs python3 on PATH (it IS the toolchain for the synthetic tome below).
 import os
 import sys
 import tempfile
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from validatelib import _findings  # noqa: E402
 from validatelib.content import check_exercise, check_freestyle  # noqa: E402
 from validatelib.depth import check_padded_prose  # noqa: E402
 from validatelib.execute import _project_build_result, check_starters_run  # noqa: E402
+from validatelib.themes import check_sigil_palette_uniqueness  # noqa: E402
 
 
 def findings():
@@ -111,7 +113,41 @@ def main():
     check_padded_prose(secs)
     assert any("sentence frames" in msg for _, _, msg in findings()), "English template clone missed"
 
-    print("ok: exercise schema, expectRe, --run proof, padded-prose language guard")
+    # 4. A complete four-ink sigil set may appear only once among authored tome
+    #    themes. Reordering the same four colors still duplicates the set, while
+    #    changing any one color clears it. Global skins are not scanned.
+    sigil = {f"sigil-{i}": f"#00000{i}" for i in range(1, 5)}
+    current = {"themes": [{"id": "ember", "vars": sigil}]}
+    with tempfile.TemporaryDirectory() as d:
+        root = Path(d) / "tomes"
+        current_dir = root / "current"
+        other_dir = root / "other"
+        global_dir = Path(d) / "skins" / "global"
+        current_dir.mkdir(parents=True)
+        other_dir.mkdir(parents=True)
+        global_dir.mkdir(parents=True)
+        reordered = [sigil[f"sigil-{i}"] for i in (4, 3, 2, 1)]
+        (other_dir / "themes.toml").write_text(
+            "[[themes]]\nid = \"echo\"\n\n[themes.vars]\n" +
+            "\n".join(f"sigil-{i} = \"{color}\"" for i, color in enumerate(reordered, 1)) + "\n"
+        )
+        (global_dir / "skin.toml").write_text(
+            "id = \"global\"\n[vars]\n" +
+            "\n".join(f"sigil-{i} = \"{sigil[f'sigil-{i}']}\"" for i in range(1, 5)) + "\n"
+        )
+        check_sigil_palette_uniqueness(current, current_dir, "L", root)
+        got = findings()
+        assert any(lv == "ERROR" and "other/echo" in msg and "sigil color set" in msg
+                   for lv, _, msg in got), got
+        assert not any("global/global" in msg for _, _, msg in got), got
+
+        changed = dict(sigil)
+        changed["sigil-4"] = "#000005"
+        current = {"themes": [{"id": "ember", "vars": changed}]}
+        check_sigil_palette_uniqueness(current, current_dir, "L", root)
+        assert not findings(), "one changed sigil ink should make the set unique"
+
+    print("ok: exercise schema, expectRe, --run proof, padded-prose and sigil-palette guards")
 
 
 if __name__ == "__main__":

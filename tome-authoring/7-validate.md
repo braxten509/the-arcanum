@@ -113,6 +113,7 @@ items below (voice, anti-template variety, balance) are still yours to run:
 - [ ] `[defaults].theme` exists in `[[themes]]` (or is `"vellum"`, the global
       skin); shop `theme` references resolve; `earnedTheme.id` has `earned = true`
 - [ ] All 22 theme vars present in every palette (incl. `slab`, `slab-tx`, `candle`, and `sigil-1`–`sigil-4`)
+- [ ] Every authored theme's four-color sigil set is unique across `tomes/` (global skins exempt)
 - [ ] Themes only: every palette is a `[[themes]]` entry in this tome (in `themes.toml`,
       or inline in `tome.toml`) — nothing added under `skins/`, no structural CSS anywhere, and no palette
       re-creates the global Sepia Vellum or clones another of this tome's palettes

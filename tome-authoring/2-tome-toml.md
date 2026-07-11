@@ -223,11 +223,19 @@ slab-tx = "#e3d3ac"# the speaking stone's glowing script
 candle = "255, 172, 66"  # a bare "r, g, b" triple, NOT hex/rgb() — it is used as
                          # rgba(var(--candle), …); "#39ff14" makes rgba(#39ff14, …),
                          # invalid CSS, and the candlelight glow vanishes (validator ERROR)
-sigil-1 = "#f7ffff" # white-hot lightning core
-sigil-2 = "#62d9dc" # saturated bolt body
-sigil-3 = "#168db4" # broad magical bloom
-sigil-4 = "#3d4d78" # deep fringe and particle accent
+sigil-1 = "#f7ffff" # first casting ink
+sigil-2 = "#62d9dc" # second casting ink
+sigil-3 = "#168db4" # third casting ink
+sigil-4 = "#3d4d78" # fourth casting ink
 ```
+
+The four sigil inks are checked as one order-independent color set across every
+authored tome. Another tome theme may reuse one, two, or three of them, but not all
+four; moving the same colors between `sigil-1`–`sigil-4` does not make a new set.
+Platform-wide skin themes under `skins/` are exempt from this uniqueness rule.
+At runtime every main lightning stroke traverses all four inks, while its small
+branches and release particles pick individual colors from the same set.
+
 Injected as `body[data-theme="<id>"]` and mirrored into the Monaco editor theme —
 one source of truth. Provide: 1 signature default palette (the `[defaults].theme`),
 2–3 purchasable palettes (matching `kind="theme"` shop items), and optionally 1

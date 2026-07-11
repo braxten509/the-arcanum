@@ -14,11 +14,11 @@
 const SIG = {
   letters: { minimum: 3, maximum: 6, scale: 28, spacing: .62 },
   palette: { saturation: 78, saturation_miscast: 30 },
-  lightning: { width_minimum: 4.8, width_maximum: 7.2, glow_width: 21, jitter: 8.5, cadence_milliseconds: 58, forks_minimum: 0, forks_maximum: 2 },
+  lightning: { width_minimum: 4.8, width_maximum: 7.2, glow_width: 21, jitter: 9.5, cadence_milliseconds: 44, success_cadence_start_milliseconds: 72, success_cadence_peak_milliseconds: 24, success_jitter_peak: 1.85, forks_minimum: 0, forks_maximum: 2, fork_length_minimum: 10, fork_length_maximum: 27, fork_energy: 1.35 },
   charge: { total_milliseconds: 4000, release_fraction: .75, poses_minimum: 18, poses_maximum: 22, shake: 7, grow: .25 },
   burst: { distance_minimum: 160, distance_maximum: 400, particle_size: 1.7, shards: 2, shard_size: .45 },
   sound: { enabled: true, volume: 100, charge_hertz_from: 110, charge_hertz_to: 440, shimmer: .5, burst_gain: .6, miscast: true },
-  fail: { charge_milliseconds: 1100, start: .9, tail: 1.1, gain: 2, fade: .3 }, // miscast: charge_milliseconds, then the break, then how cast-fail.mp3 is played
+  fail: { charge_milliseconds: 1200, start: .9, tail: 1.1, gain: 2, fade: .3, fall_distance_minimum: 300, fall_distance_maximum: 660, spread: 42, particles_per_node: 8, particle_size: .42 }, // miscast: charge, then instantly crumble into fine ash
 };
 window.SIGIL_CFG = SIG; // console-reachable: poke values live, then castSigil()
 // a just-enough TOML reader — [section], key = number | bool | "string" | [array].
@@ -126,8 +126,8 @@ export function castSigil(anchor, ok) {
   // always cast at the true center of the screen; the anchor arg is ignored
   // (ponytail: kept in the signature so the call sites don't need touching)
   const cs = getComputedStyle(document.body);
-  // Four inks belong to the active theme. Their order mirrors the physical
-  // lightning: white-hot heart, coloured body, broad bloom, then fringe/motes.
+  // Four inks belong to the active theme. Every main fracture carries the full
+  // set along its length; forks and released motes pick individual inks from it.
   // The fallbacks keep old third-party tomes legible while the validator nudges
   // authored palettes onto the restored four-ink contract.
   const themeInk = (name, fallback) => cs.getPropertyValue(name).trim() || fallback;
@@ -160,6 +160,25 @@ export function castSigil(anchor, ok) {
   svg.classList.add("sigil-lightning");
   svg.setAttribute("aria-hidden", "true");
   root.appendChild(svg);
+  const defs = document.createElementNS(NS, "defs");
+  svg.appendChild(defs);
+  const castToken = Math.random().toString(36).slice(2);
+  let spectrumIndex = 0;
+  const sigilSpectrum = (rotation = 0) => {
+    const gradient = document.createElementNS(NS, "linearGradient");
+    const id = `sigil-spectrum-${castToken}-${spectrumIndex++}`;
+    gradient.id = id;
+    gradient.setAttribute("x1", "0%"); gradient.setAttribute("y1", "0%");
+    gradient.setAttribute("x2", "100%"); gradient.setAttribute("y2", "100%");
+    sigilInks.forEach((_, index) => {
+      const stop = document.createElementNS(NS, "stop");
+      stop.setAttribute("offset", `${index * 100 / 3}%`);
+      stop.setAttribute("stop-color", sigilInks[(index + rotation) % sigilInks.length]);
+      gradient.appendChild(stop);
+    });
+    defs.appendChild(gradient);
+    return `url(#${id})`;
+  };
   const liveStrokes = [];
   const runningAnimations = [];
   const releaseTimers = [];
@@ -188,7 +207,8 @@ export function castSigil(anchor, ok) {
     const start = nodes[index], before = nodes[index - 1], after = nodes[index + 1];
     const angle = Math.atan2(after[1] - before[1], after[0] - before[0])
       + (Math.random() < .5 ? -1 : 1) * (.58 + Math.random() * .55);
-    const length = 18 + Math.random() * 34;
+    const length = SIG.lightning.fork_length_minimum
+      + Math.random() * (SIG.lightning.fork_length_maximum - SIG.lightning.fork_length_minimum);
     const bend = angle + (Math.random() - .5) * .45;
     return [
       start,
@@ -204,7 +224,7 @@ export function castSigil(anchor, ok) {
     svg.appendChild(path);
     return path;
   };
-  const releaseParticle = (x, y, radius, color, glow, frames, duration) => {
+  const releaseParticle = (x, y, radius, color, glow, frames, duration, easing = "cubic-bezier(.16,.7,.28,1)") => {
     const mote = document.createElementNS(NS, "circle");
     mote.setAttribute("class", "sigil-release-mote");
     mote.setAttribute("cx", x.toFixed(1));
@@ -213,7 +233,7 @@ export function castSigil(anchor, ok) {
     mote.setAttribute("fill", color);
     mote.style.filter = `drop-shadow(0 0 ${(radius * 2.2).toFixed(1)}px ${glow})`;
     svg.appendChild(mote);
-    const animation = mote.animate(frames, { duration, fill: "both", easing: "cubic-bezier(.16,.7,.28,1)" });
+    const animation = mote.animate(frames, { duration, fill: "both", easing });
     runningAnimations.push(animation);
     animation.onfinish = () => mote.remove();
   };
@@ -248,6 +268,26 @@ export function castSigil(anchor, ok) {
       }
     }
   };
+  const crumbleStroke = (nodes, width) => {
+    if (!root.isConnected) return;
+    const fallMs = E * (1 - REL) + 360;
+    for (const [x, y] of nodes) {
+      for (let fleck = 0; fleck < SIG.fail.particles_per_node; fleck++) {
+        const ink = sigilInks[(Math.random() * sigilInks.length) | 0];
+        const ash = `color-mix(in srgb, ${ink} 42%, #777 58%)`;
+        const dx = (Math.random() - .5) * SIG.fail.spread * 2;
+        const dy = SIG.fail.fall_distance_minimum
+          + Math.random() * (SIG.fail.fall_distance_maximum - SIG.fail.fall_distance_minimum);
+        const radius = Math.max(.55, width * SIG.fail.particle_size * (.55 + Math.random() * .5) / 2);
+        releaseParticle(x, y, radius, ash, "rgba(170,175,180,.3)", [
+          { transform: `translate(${((Math.random() - .5) * 4).toFixed(1)}px,${((Math.random() - .5) * 3).toFixed(1)}px) scale(1)`, opacity: .76 },
+          { transform: `translate(${(dx * .16).toFixed(1)}px,-${(2 + Math.random() * 5).toFixed(1)}px) scale(.86)`, opacity: .7, offset: .14 },
+          { transform: `translate(${(dx * .5).toFixed(1)}px,${(dy * .34).toFixed(1)}px) scale(.54)`, opacity: .48, offset: .5 },
+          { transform: `translate(${dx.toFixed(1)}px,${dy.toFixed(1)}px) scale(.1)`, opacity: 0 },
+        ], fallMs * (.82 + Math.random() * .3), "cubic-bezier(.42,.02,.82,.62)");
+      }
+    }
+  };
 
   word.forEach((strokes, li) => {
     const gx = -W / 2 + GW / 2 + li * (GW + GAP); // this letter's heart, relative to root
@@ -268,28 +308,37 @@ export function castSigil(anchor, ok) {
       }
       const nodes = pts.map(([x, y]) => [gx + (x - 1.7) * SC, (y - 3) * SC]);
       const width = SIG.lightning.width_minimum + Math.random() * (SIG.lightning.width_maximum - SIG.lightning.width_minimum);
-      const veil = svgPath("sigil-aether-veil", sigilInks[3], SIG.lightning.glow_width * 2.25);
-      const aura = svgPath("sigil-lightning-aura", sigilInks[2], SIG.lightning.glow_width);
-      const line = svgPath("sigil-lightning-line", sigilInks[1], width);
-      const hot = svgPath("sigil-lightning-hot", sigilInks[0], Math.max(1.7, width * .48));
+      const rotation = spectrumIndex % sigilInks.length;
+      const spectrum = sigilSpectrum(rotation);
+      const whiteHalo = svgPath("sigil-white-halo", "rgba(255,255,255,.96)", SIG.lightning.glow_width * .72);
+      const veil = svgPath("sigil-aether-veil", spectrum, SIG.lightning.glow_width * 2.25);
+      const aura = svgPath("sigil-lightning-aura", spectrum, SIG.lightning.glow_width);
+      const line = svgPath("sigil-lightning-line", spectrum, width);
+      const hot = svgPath("sigil-lightning-hot", "rgba(255,255,255,.88)", Math.max(1.7, width * .42));
       const phase = Math.random() * Math.PI * 2;
       const firstD = lightningPath(nodes, phase, .35);
-      veil.setAttribute("d", firstD); aura.setAttribute("d", firstD); line.setAttribute("d", firstD); hot.setAttribute("d", firstD);
+      whiteHalo.setAttribute("d", firstD); veil.setAttribute("d", firstD); aura.setAttribute("d", firstD); line.setAttribute("d", firstD); hot.setAttribute("d", firstD);
       const group = document.createElementNS(NS, "g");
-      svg.insertBefore(group, veil);
-      group.append(veil, aura, line, hot);
-      const geometries = [{ nodes, paths: [veil, aura, line, hot] }];
+      svg.insertBefore(group, whiteHalo);
+      // The colored bloom spreads furthest back. The white corona sits directly
+      // beneath the solid spectrum so parchment cannot tint it away.
+      group.append(veil, aura, whiteHalo, line, hot);
+      const halos = [{ path: whiteHalo, width: SIG.lightning.glow_width }];
+      const geometries = [{ nodes, paths: [whiteHalo, veil, aura, line, hot], energy: 1 }];
       const forkCount = Math.floor(SIG.lightning.forks_minimum + Math.random() * (SIG.lightning.forks_maximum - SIG.lightning.forks_minimum + 1));
       for (let fork = 0; fork < forkCount; fork++) {
         const branch = forkNodes(nodes);
         if (!branch) continue;
-        const forkAura = svgPath("sigil-lightning-aura sigil-lightning-fork", sigilInks[2], SIG.lightning.glow_width * .62);
-        const forkLine = svgPath("sigil-lightning-line sigil-lightning-fork", sigilInks[1], width * .68);
-        const forkHot = svgPath("sigil-lightning-hot sigil-lightning-fork", sigilInks[0], Math.max(.8, width * .24));
+        const forkInk = sigilInks[(rotation + fork + 1) % sigilInks.length];
+        const forkHalo = svgPath("sigil-white-halo sigil-lightning-fork", "rgba(255,255,255,.94)", SIG.lightning.glow_width * .38);
+        const forkAura = svgPath("sigil-lightning-aura sigil-lightning-fork", forkInk, SIG.lightning.glow_width * .62);
+        const forkLine = svgPath("sigil-lightning-line sigil-lightning-fork", forkInk, width * .68);
+        const forkHot = svgPath("sigil-lightning-hot sigil-lightning-fork", "rgba(255,255,255,.82)", Math.max(.8, width * .22));
         const forkD = lightningPath(branch, phase + fork * .7, .22);
-        forkAura.setAttribute("d", forkD); forkLine.setAttribute("d", forkD); forkHot.setAttribute("d", forkD);
-        group.append(forkAura, forkLine, forkHot);
-        geometries.push({ nodes: branch, paths: [forkAura, forkLine, forkHot] });
+        forkHalo.setAttribute("d", forkD); forkAura.setAttribute("d", forkD); forkLine.setAttribute("d", forkD); forkHot.setAttribute("d", forkD);
+        group.append(forkAura, forkHalo, forkLine, forkHot);
+        halos.push({ path: forkHalo, width: SIG.lightning.glow_width * .62 });
+        geometries.push({ nodes: branch, paths: [forkHalo, forkAura, forkLine, forkHot], energy: SIG.lightning.fork_energy });
       }
       liveStrokes.push({ geometries, phase });
 
@@ -317,8 +366,12 @@ export function castSigil(anchor, ok) {
         frames.push({ transform: "translate(0,0) scale(.98)", opacity: 0 });
         releaseTimers.push(setTimeout(() => dissolveStroke(nodes, gx, width), E * REL));
       } else {
-        frames.push({ transform: `translate(${((Math.random() - .5) * 12).toFixed(1)}px,8px) scale(.9)`, opacity: .5, offset: REL + (1 - REL) * .18, easing: "cubic-bezier(.4,.1,.7,.4)" });
-        frames.push({ transform: `translate(${((Math.random() - .5) * 34).toFixed(1)}px,${(40 + Math.random() * 55).toFixed(1)}px) scale(.35)`, opacity: 0 });
+        // The binding snaps in place. The paths themselves vanish; their shape
+        // is handed to falling ash particles instead of dropping as whole letters.
+        frames.push({ transform: "translate(0,2px) scale(.98)", opacity: .12, offset: Math.min(.99, REL + .045), easing: "ease-out" });
+        frames.push({ transform: "translate(0,2px) scale(.98)", opacity: 0 });
+        const crumbleNodes = geometries.flatMap((geometry) => geometry.nodes);
+        releaseTimers.push(setTimeout(() => crumbleStroke(crumbleNodes, width), E * REL));
         group.animate([
           { filter: "saturate(1)" },
           { filter: "saturate(1)", offset: REL, easing: "ease-in" },
@@ -337,8 +390,20 @@ export function castSigil(anchor, ok) {
         { opacity: .52 },
         { opacity: .24 },
       ], { duration: 900 + Math.random() * 650, iterations: Infinity, easing: "ease-in-out" });
-      runningAnimations.push(motion, current, breath);
-      motion.onfinish = () => { current.cancel(); breath.cancel(); group.remove(); };
+      const haloAnimations = halos.map(({ path, width: haloWidth }) => path.animate([
+        { opacity: 0, strokeWidth: `${(haloWidth * .34).toFixed(1)}px` },
+        { opacity: .12, strokeWidth: `${(haloWidth * .52).toFixed(1)}px`, offset: .08 },
+        { opacity: ok ? .42 : .3, strokeWidth: `${(haloWidth * .88).toFixed(1)}px`, offset: Math.max(.08, REL * .55), easing: "ease-in" },
+        { opacity: ok ? .94 : .62, strokeWidth: `${(haloWidth * 1.5).toFixed(1)}px`, offset: REL, easing: "ease-out" },
+        { opacity: 0, strokeWidth: `${(haloWidth * 1.76).toFixed(1)}px`, offset: Math.min(1, REL + (1 - REL) * .24) },
+        { opacity: 0, strokeWidth: `${(haloWidth * 1.76).toFixed(1)}px` },
+      ], { duration: E, fill: "both" }));
+      runningAnimations.push(motion, current, breath, ...haloAnimations);
+      motion.onfinish = () => {
+        current.cancel(); breath.cancel();
+        for (const animation of haloAnimations) animation.cancel();
+        group.remove();
+      };
     }
   });
 
@@ -347,13 +412,22 @@ export function castSigil(anchor, ok) {
   const writhe = (now) => {
     const elapsed = now - started;
     if (elapsed < E && root.isConnected) {
-      if (now - lastJolt >= SIG.lightning.cadence_milliseconds) {
-        const charge = Math.min(1, elapsed / Math.max(1, E * REL));
-        const intensity = .32 + charge * .68;
+      const charge = Math.min(1, elapsed / Math.max(1, E * REL));
+      const successSurge = Math.pow(charge, 1.65);
+      const cadence = ok
+        ? SIG.lightning.success_cadence_start_milliseconds
+          + (SIG.lightning.success_cadence_peak_milliseconds - SIG.lightning.success_cadence_start_milliseconds) * successSurge
+        : SIG.lightning.cadence_milliseconds;
+      if (now - lastJolt >= cadence) {
+        // A successful binding begins readable, then becomes violently unstable
+        // as release approaches. Miscasts retain their shorter, steadier charge.
+        const intensity = ok
+          ? .2 + successSurge * (SIG.lightning.success_jitter_peak - .2)
+          : .32 + charge * .68;
         for (const stroke of liveStrokes) {
           stroke.phase += .28 + Math.random() * .22;
           for (const geometry of stroke.geometries) {
-            const d = lightningPath(geometry.nodes, stroke.phase, intensity);
+            const d = lightningPath(geometry.nodes, stroke.phase, intensity * geometry.energy);
             for (const path of geometry.paths) path.setAttribute("d", d);
           }
         }

@@ -20,10 +20,16 @@ saturation_miscast = 30 # the four theme inks grey toward this saturation as the
 width_minimum = 4.8       # px, saturated body around the white-hot core
 width_maximum = 7.2
 glow_width = 21           # px, cyan/magical bloom behind the bolt
-jitter = 8.5              # px, unstable angular throw at full charge
-cadence_milliseconds = 58 # rapid, irregular re-binding of each elbow
+jitter = 9.5              # px, unstable angular throw at full charge
+cadence_milliseconds = 44 # faster, irregular re-binding of each elbow
+success_cadence_start_milliseconds = 72 # successful casts begin with readable motion
+success_cadence_peak_milliseconds = 24  # ...then snap rapidly near release
+success_jitter_peak = 1.85              # x jitter at peak successful charge
 forks_minimum = 0         # short secondary cracks per long glyph stroke
 forks_maximum = 2
+fork_length_minimum = 10  # px, compact branches keep the glyph readable
+fork_length_maximum = 27
+fork_energy = 1.35        # branches vibrate harder than the bound main stroke
 
 [charge]
 total_milliseconds = 4000  # whole life of the cast; release lands at total_milliseconds * release_fraction
@@ -50,8 +56,13 @@ burst_gain = 0.6        # the release whoomph
 miscast = true          # play a sound on a failed cast at all
 
 [fail]                # cast-fail.mp3, played on a MISCAST: the letter charges
-charge_milliseconds = 900  # a MISCAST charges this long (stalling ~60% of the way), then breaks
+charge_milliseconds = 1200 # a MISCAST holds visibly for this long, then crumbles into falling ash
 start = 0             # skip this many seconds of the clip's silent attack so the fail is heard at once
 tail = 1.1            # keep playing this many seconds past the break (total ≈ charge_milliseconds/1000 + this)
 gain = 2.0            # loudness of the fail sound, x [sound] volume (the clip is a quiet recording)
 fade = 0.3            # fade the tail out over the last this-many seconds, so it doesn't cut hard
+fall_distance_minimum = 300 # px, miscast ash drops from each lightning stroke
+fall_distance_maximum = 660
+spread = 42               # px of sideways ash drift
+particles_per_node = 8    # fine ash flecks emitted immediately from every bound point
+particle_size = 0.42      # x the failed stroke width; no larger parent motes

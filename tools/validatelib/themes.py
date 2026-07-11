@@ -3,7 +3,10 @@ import colorsys
 import os
 import re
 
-from . import SKINS_DIR, THEME_VARS, COIN_FACES, err, global_skin_ids, load_toml, warn
+from . import REPO, SKINS_DIR, THEME_VARS, COIN_FACES, err, global_skin_ids, load_toml, warn
+
+
+SIGIL_KEYS = ("sigil-1", "sigil-2", "sigil-3", "sigil-4")
 
 
 def _hex_hsl(value):
@@ -49,6 +52,11 @@ def check_themes(m, label):
         extra = present - THEME_VARS
         if extra:
             warn(label, f"[[themes]] {tid!r}: unknown theme var(s): " + ", ".join(sorted(extra)))
+        for key in SIGIL_KEYS:
+            value = (th.get("vars", {}) or {}).get(key)
+            if value is not None and _hex_hsl(value) is None:
+                err(label, f"[[themes]] {tid!r}: {key} must be a hex color (#rgb or #rrggbb), "
+                           f"not {value!r}")
         # `candle` is consumed as rgba(var(--candle), .x), so it MUST be a bare
         # "r, g, b" triple — a hex like "#39ff14" makes rgba(#39ff14, .x), invalid
         # CSS, and the whole candlelight glow silently fails to render.
@@ -129,6 +137,72 @@ def _palette_dist(a, b):
             tot += sum(abs(x - y) for x, y in zip(ra, rb)) / 3
             n += 1
     return tot / n if n else None
+
+
+def _sigil_fingerprint(theme):
+    """An order-independent, normalized fingerprint for a theme's four sigil inks.
+
+    Reordering the same colors between core/body/bloom/fringe must not evade the
+    cross-tome uniqueness rule. Missing or invalid colors are handled by the
+    ordinary theme contract and skipped here to avoid duplicate diagnostics.
+    """
+    values = [_var_rgb((theme.get("vars", {}) or {}).get(key, "")) for key in SIGIL_KEYS]
+    return tuple(sorted(values)) if all(value is not None for value in values) else None
+
+
+def _themes_from_tome(tome_dir):
+    """Read only a tome's theme bank, whether split or inline."""
+    split = os.path.join(tome_dir, "themes.toml")
+    source = split if os.path.isfile(split) else os.path.join(tome_dir, "tome.toml")
+    data, problem = load_toml(source)
+    if problem or not isinstance(data, dict):
+        return []
+    themes = data.get("themes", [])
+    return themes if isinstance(themes, list) else []
+
+
+def check_sigil_palette_uniqueness(m, tome_path, label, tomes_root=None):
+    """Hard-error identical four-ink sigil sets anywhere in the tome library.
+
+    Platform skins under skins/ are intentionally outside this scan: global
+    themes may share a sigil set with any tome. Fingerprints are color sets, so
+    merely shuffling the same four colors between sigil-1…sigil-4 still collides.
+    """
+    root = os.path.realpath(tomes_root or os.path.join(REPO, "tomes"))
+    current_path = os.path.realpath(tome_path)
+    current_id = os.path.basename(current_path)
+    current = [theme for theme in (m.get("themes", []) or []) if isinstance(theme, dict)]
+
+    others = []
+    try:
+        entries = sorted(os.scandir(root), key=lambda entry: entry.name)
+    except OSError:
+        entries = []
+    for entry in entries:
+        if not entry.is_dir() or os.path.realpath(entry.path) == current_path:
+            continue
+        for theme in _themes_from_tome(entry.path):
+            if isinstance(theme, dict):
+                others.append((entry.name, theme))
+
+    # Include sibling palettes in the current tome as well: a four-ink set may
+    # appear only once among authored tome themes, regardless of folder.
+    records = [(current_id, theme) for theme in current] + others
+    for theme in current:
+        fingerprint = _sigil_fingerprint(theme)
+        if fingerprint is None:
+            continue
+        duplicates = []
+        for other_index, (other_tome, other) in enumerate(records):
+            if other_tome == current_id and other is theme:
+                continue
+            if _sigil_fingerprint(other) == fingerprint:
+                duplicates.append(f"{other_tome}/{other.get('id', '?')}")
+        if duplicates:
+            colors = ", ".join(str((theme.get("vars", {}) or {}).get(key)) for key in SIGIL_KEYS)
+            err(label, f"[[themes]] {theme.get('id')!r}: sigil color set [{colors}] duplicates "
+                       f"{', '.join(sorted(set(duplicates)))} — every authored tome theme must "
+                       "change at least one of sigil-1…sigil-4; global skin themes are exempt")
 
 
 # below this mean channel distance two palettes read as the same look
