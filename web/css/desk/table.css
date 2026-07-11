@@ -5,11 +5,11 @@
   min-height: 0;
 }
 
-/* ---- the candle (top-left, click = trim the wick / settings) ---- */
+/* ---- the candle (lower-left, click = trim the wick / settings) ---- */
 #candle {
   position: absolute;
-  left: clamp(8px, 2.2vw, 34px);
-  top: 8px;
+  left: -90px;
+  top: 160px;
   z-index: 20;
   width: 200px;
   height: 334px;
@@ -18,6 +18,21 @@
   cursor: pointer;
   font-family: inherit;
   padding: 0;
+  transform: scale(1.66);
+  transform-origin: center;
+  /* the button rect is huge; only .c-hit and the label glyphs take clicks */
+  pointer-events: none;
+}
+
+/* invisible circular hitbox over the dish (center 136,145 r127 in button coords) */
+#candle .c-hit {
+  position: absolute;
+  left: 9px;
+  top: 18px;
+  width: 254px;
+  height: 254px;
+  border-radius: 50%;
+  pointer-events: auto;
 }
 
 #candle .c-glow {
@@ -89,9 +104,23 @@
 }
 
 #candle .obj-label {
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: -4px;
+  /* The holder is rotated and deliberately overhangs the table. The arc in
+     the path is concentric with the dish rim (dish center = 136,-95 in this
+     viewBox, label radius 140 vs rim 127). */
+  left: 0;
+  top: 200px;
+  bottom: auto;
+  width: 230px;
+  height: 180px;
+  overflow: visible;
+  transform: none;
+  letter-spacing: .4em;
+}
+
+#candle .obj-label text {
+  pointer-events: auto;
+  /* same #c8ab74 the desk-object captions get from .obj-label's color */
+  fill: currentColor;
 }
 
 #candle:hover .obj-label {
@@ -130,6 +159,7 @@
 
 /* ---- desk objects: the study's tools, scattered around the parchment ---- */
 .desk-obj {
+  display: none;
   position: absolute;
   z-index: 20;
   background: none;
@@ -168,16 +198,14 @@
   height: 100%;
   object-fit: contain;
   filter:
-    drop-shadow(0 9px 7px rgba(6, 2, 0, .62))
-    drop-shadow(0 1px 1px rgba(238, 194, 112, .12));
+    drop-shadow(0 9px 7px rgba(6, 2, 0, .62)) drop-shadow(0 1px 1px rgba(238, 194, 112, .12));
   transition: filter .28s ease;
   pointer-events: none;
 }
 
 .desk-obj:hover .desk-image {
   filter:
-    drop-shadow(0 12px 9px rgba(6, 2, 0, .68))
-    drop-shadow(0 1px 2px rgba(238, 194, 112, .16));
+    drop-shadow(0 12px 9px rgba(6, 2, 0, .68)) drop-shadow(0 1px 2px rgba(238, 194, 112, .16));
 }
 
 .obj-label {
