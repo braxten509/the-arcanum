@@ -45,25 +45,81 @@
   pointer-events: auto;
 }
 
+/* Fitted hitboxes: each button rect is far larger than its visible art, so the
+   buttons themselves take no clicks — an invisible .obj-hit sized to the art's
+   opaque pixels (alpha bbox of the source PNG, in % of the art box) does.
+   Percentages ride each object's own rotate/scale, like the tome hit rects. */
+.desk-obj .obj-hit {
+  pointer-events: auto;
+}
+
 #obj-grimoire {
-  --obj-w: 158px;
-  --obj-h: 158px;
-  left: clamp(10px, 2.6vw, 46px);
-  top: 49vh;
+  display: block;
+  --obj-w: 1200px;
+  --obj-h: 1200px;
+  left: -550px;
+  bottom: -800px;
+  transform: rotate(15deg);
+  pointer-events: none;
+}
+
+#obj-grimoire .obj-hit {
+  left: 11%;
+  top: 8%;
+  width: 76%;
+  height: 87%;
 }
 
 #obj-notes {
-  --obj-w: 150px;
-  --obj-h: 150px;
-  left: clamp(12px, 3vw, 52px);
-  top: 65vh;
+  display: block;
+  --obj-w: 900px;
+  --obj-h: 900px;
+  left: 1100px;
+  bottom: -600px;
+  /* under every other desk object (20) and the tomes (15) */
+  z-index: 12;
+  pointer-events: none;
+}
+
+#obj-notes .obj-hit {
+  left: 14%;
+  top: 13%;
+  width: 74%;
+  height: 74%;
 }
 
 #obj-wand {
-  --obj-w: 174px;
-  --obj-h: 174px;
-  left: clamp(10px, 2.6vw, 46px);
-  bottom: 5vh;
+  --obj-w: 800px;
+  --obj-h: 800px;
+  left: 1800px;
+  bottom: -120px;
+  transform: rotate(-35deg);
+  /* like the quill: the button rect is huge, only .w-hit takes clicks */
+  pointer-events: none;
+}
+
+/* invisible hit strip laid over the shaft (art runs corner to corner at ~45°) */
+#obj-wand .w-hit {
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 15%;
+  transform: translate(-50%, -50%) rotate(-45deg);
+  pointer-events: auto;
+}
+
+/* the caption rides the shaft instead of sitting under the 800px box */
+#obj-wand .obj-label {
+  left: 0;
+  right: 0;
+  top: 50%;
+  bottom: auto;
+  /* trailing translateY runs perpendicular to the rotated shaft: lifts the
+     text off the wood so it floats just in front of the spine */
+  transform: translateY(-50%) rotate(-45deg) translateY(-22px);
+  font-size: 17px;
+  letter-spacing: .5em;
+  pointer-events: auto;
 }
 
 #obj-tomes {
@@ -131,32 +187,88 @@
 }
 
 #obj-satchel {
-  --obj-w: 154px;
-  --obj-h: 154px;
-  right: clamp(10px, 2.6vw, 46px);
-  top: 21vh;
+  display: block;
+  --obj-w: 500px;
+  --obj-h: 500px;
+  right: 700px;
+  top: -300px;
+  transform: rotate(130deg);
+  pointer-events: none;
+}
+
+#obj-satchel .obj-hit {
+  left: 15%;
+  top: 7%;
+  width: 68%;
+  height: 88%;
 }
 
 #obj-orb {
-  right: clamp(8px, 2.2vw, 40px);
-  top: 40vh;
+  display: block;
+  scale: 2;
+  left: 50px;
+  top: 600px;
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
+/* the orb is round: a circular hit over the sphere */
+#obj-orb .obj-hit {
+  left: 10%;
+  top: 8%;
+  width: 80%;
+  height: 82%;
+  border-radius: 50%;
+}
+
+/* the caption and count sit outside the art box; keep them clickable */
+#obj-orb .obj-label,
+#obj-orb .obj-sub {
+  pointer-events: auto;
 }
 
 #obj-letter {
-  --obj-w: 154px;
-  --obj-h: 154px;
-  right: clamp(12px, 3vw, 52px);
-  top: 68vh;
+  display: block;
+  --obj-w: 900px;
+  --obj-h: 900px;
+  right: -300px;
+  top: 600px;
+  transform: rotate(320deg);
+  pointer-events: none;
+}
+
+/* the envelope sits tilted in its art: a matching rotated rect, not the bbox */
+#obj-letter .obj-hit {
+  left: 17%;
+  top: 28%;
+  width: 66%;
+  height: 43%;
+  transform: rotate(16deg);
 }
 
 #obj-wand .w-sp1,
-#obj-wand .w-sp2 {
-  width: 5px;
-  height: 5px;
+#obj-wand .w-sp2,
+#obj-wand .w-sp3,
+#obj-wand .w-sp4,
+#obj-wand .w-sp5 {
+  /* sized for the 800px wand; the crystal tip sits top-right in the art */
+  width: 11px;
+  height: 11px;
   border-radius: 50%;
   background: #f0cf72;
-  box-shadow: 0 0 7px rgba(227, 192, 89, .75);
+  box-shadow: 0 0 14px rgba(227, 192, 89, .75);
   animation: twinkle 2.6s ease-in-out infinite;
+  /* hidden until the wand is hovered; fade instead of popping */
+  opacity: 0;
+  transition: opacity .35s ease;
+}
+
+#obj-wand:hover .w-sp1,
+#obj-wand:hover .w-sp2,
+#obj-wand:hover .w-sp3,
+#obj-wand:hover .w-sp4,
+#obj-wand:hover .w-sp5 {
+  opacity: 1;
 }
 
 #obj-wand .w-sp1 {
@@ -167,27 +279,53 @@
 #obj-wand .w-sp2 {
   left: 83%;
   top: 15%;
-  width: 3px;
-  height: 3px;
+  width: 7px;
+  height: 7px;
   animation-delay: 1.2s;
 }
 
+#obj-wand .w-sp3 {
+  left: 94%;
+  top: 12%;
+  width: 8px;
+  height: 8px;
+  animation-delay: .5s;
+}
+
+#obj-wand .w-sp4 {
+  left: 83%;
+  top: 6%;
+  width: 6px;
+  height: 6px;
+  animation-delay: 1.8s;
+}
+
+#obj-wand .w-sp5 {
+  left: 91%;
+  top: 4%;
+  width: 5px;
+  height: 5px;
+  animation-delay: .9s;
+}
+
+/* scale-only: opacity is owned by the hover fade, keyframed opacity would override it */
 @keyframes twinkle {
 
   0%,
   100% {
-    opacity: .2;
-    transform: scale(.65);
+    transform: scale(.55);
   }
 
   50% {
-    opacity: 1;
     transform: scale(1.15);
   }
 }
 
 #obj-wand.locked .w-sp1,
-#obj-wand.locked .w-sp2 {
+#obj-wand.locked .w-sp2,
+#obj-wand.locked .w-sp3,
+#obj-wand.locked .w-sp4,
+#obj-wand.locked .w-sp5 {
   animation: none;
-  opacity: .15;
+  opacity: 0;
 }
