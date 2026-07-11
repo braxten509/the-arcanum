@@ -2,7 +2,7 @@
 """validate_tome.py — hold a tome up to the candlelight before you ship it.
 
 Machine-checks one tome folder against the rules in tome-authoring/: does the
-TOML parse, do the ids line up, does every palette carry all 18 inks, do the
+TOML parse, do the ids line up, does every palette carry all 22 inks, do the
 rubric weights sum true. One finding per line; a tome with any ERROR is not done.
 
     python3 tools/validate_tome.py tomes/<id>

@@ -1,23 +1,22 @@
 /* Spell sigils, verdict motes, and the just-enough TOML reader that tunes them.
 
    Every cast spells 3–6 letters of the Standard Galactic Alphabet — the
-   enchanters' script — out of semi-stable arcane motes that strain against
-   the binding, charging white-hot for ~3s, then dissipate in ONE release: each
-   mote drifts straight out from its letter's heart, breaking into smaller
-   shards as it fades. every mote lights itself; there is no candle-glow
-   here. a miscast charges the same — same letters, same colour — then the
-   binding breaks: it greys and falls as ash.
-   transform/opacity only; gated by the same preference as the candle embers.
-   strokes live on a ~3.4x6 grid (y down); a 1-point stroke is a heavy dot.
+   enchanters' script — as connected fractures of unstable living aether.
+   Their geometry snaps and forks under the binding, charging white-hot
+   for ~3s, then
+   dissipates in ONE release. A miscast charges the same — same letters, same
+   colour — then the binding breaks: it greys and falls as ash.
+   The paths animate through SVG geometry, transform, and opacity; gated by the
+   same preference as the candle embers.
+   strokes live on a ~3.4x6 grid (y down); a 1-point stroke becomes a hooked spark.
    every knob below (particles AND sound) is tuned by global-configs/sigil.toml — these
    are the fallback defaults when the file or a key is missing. */
 const SIG = {
-  letters: { minimum: 3, maximum: 6, scale: 28, spacing: .3 },
-  palette: { hue_minimum: 200, hue_maximum: 320, saturation: 85, saturation_miscast: 30 },
-  motes: { size_minimum: 4, size_maximum: 6, dot_size: 10, glow: 3 },
+  letters: { minimum: 3, maximum: 6, scale: 28, spacing: .62 },
+  palette: { saturation: 78, saturation_miscast: 30 },
+  lightning: { width_minimum: 4.8, width_maximum: 7.2, glow_width: 21, jitter: 8.5, cadence_milliseconds: 58, forks_minimum: 0, forks_maximum: 2 },
   charge: { total_milliseconds: 4000, release_fraction: .75, poses_minimum: 18, poses_maximum: 22, shake: 7, grow: .25 },
-  halo: { size: 6, peak_opacity: 1 },
-  burst: { distance_minimum: 160, distance_maximum: 400, shards: 2, shard_size: .45 },
+  burst: { distance_minimum: 160, distance_maximum: 400, particle_size: 1.7, shards: 2, shard_size: .45 },
   sound: { enabled: true, volume: 100, charge_hertz_from: 110, charge_hertz_to: 440, shimmer: .5, burst_gain: .6, miscast: true },
   fail: { charge_milliseconds: 1100, start: .9, tail: 1.1, gain: 2, fade: .3 }, // miscast: charge_milliseconds, then the break, then how cast-fail.mp3 is played
 };
@@ -127,17 +126,17 @@ export function castSigil(anchor, ok) {
   // always cast at the true center of the screen; the anchor arg is ignored
   // (ponytail: kept in the signature so the call sites don't need touching)
   const cs = getComputedStyle(document.body);
-  // arcane palette: sky-blue → indigo → violet → magenta, one hue per mote;
-  // light parchment takes deep inks, dark pages take bright self-lit motes
-  const chan = (cs.getPropertyValue("--bg1").match(/[0-9a-f]{2}/gi) || []).slice(0, 3).map((h) => parseInt(h, 16));
-  const lightBg = chan.reduce((a2, b2) => a2 + b2, 0) > 380;
-  const arcane = (sat) => {
-    const hue = (SIG.palette.hue_minimum + Math.random() * (SIG.palette.hue_maximum - SIG.palette.hue_minimum)).toFixed(0);
-    return {
-      fill: `hsl(${hue} ${sat}% ${(lightBg ? 30 + Math.random() * 12 : 62 + Math.random() * 16).toFixed(0)}%)`,
-      glow: `hsl(${hue} ${sat}% ${lightBg ? 46 : 72}% / .85)`,
-    };
-  };
+  // Four inks belong to the active theme. Their order mirrors the physical
+  // lightning: white-hot heart, coloured body, broad bloom, then fringe/motes.
+  // The fallbacks keep old third-party tomes legible while the validator nudges
+  // authored palettes onto the restored four-ink contract.
+  const themeInk = (name, fallback) => cs.getPropertyValue(name).trim() || fallback;
+  const sigilInks = [
+    themeInk("--sigil-1", "#f7ffff"),
+    themeInk("--sigil-2", themeInk("--ac-dim", "#62e8ff")),
+    themeInk("--sigil-3", themeInk("--ac", "#00aee8")),
+    themeInk("--sigil-4", themeInk("--info", "#315fff")),
+  ];
   const keys = Object.keys(GALACTIC);
   const word = []; // min–max distinct letters; a miscast musters only one
   const nL = Math.min(26, SIG.letters.minimum + Math.floor(Math.random() * (SIG.letters.maximum - SIG.letters.minimum + 1))); // a miscast musters the same letters — it just fails to hold them
@@ -156,125 +155,219 @@ export function castSigil(anchor, ok) {
   const E = ok ? SIG.charge.total_milliseconds : failMs + 1300; // whole life: gather → charge → release/fail → dissipate/fall
   const REL = ok ? SIG.charge.release_fraction : failMs / E;  // the fraction where the working lets go — or snaps
   if (window.GhostAudio) GhostAudio.sigilCast(ok, { ...SIG.sound, fail: SIG.fail, charge_seconds: E * REL / 1000 });
-  const piece = (cls, css) => {
-    const p = document.createElement("div");
-    p.className = cls;
-    p.style.cssText = css;
-    root.appendChild(p);
-    return p;
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.classList.add("sigil-lightning");
+  svg.setAttribute("aria-hidden", "true");
+  root.appendChild(svg);
+  const liveStrokes = [];
+  const runningAnimations = [];
+  const releaseTimers = [];
+  const lightningPath = (nodes, phase, intensity = 1) => {
+    const displaced = nodes.map((pt, index) => {
+      const before = nodes[Math.max(0, index - 1)], after = nodes[Math.min(nodes.length - 1, index + 1)];
+      const dx = after[0] - before[0], dy = after[1] - before[1], length = Math.hypot(dx, dy) || 1;
+      const edge = index === 0 || index === nodes.length - 1;
+      // A different transverse throw on every cadence creates large, sharp
+      // elbows. Keeping the endpoints nearly bound preserves the glyph.
+      const signed = Math.sin(index * 9.73 + phase * 3.17) * .45 + (Math.random() - .5) * 1.1;
+      const throw2 = (edge ? .08 : 1) * SIG.lightning.jitter * intensity * signed;
+      const along = edge ? 0 : (Math.random() - .5) * SIG.lightning.jitter * intensity * .22;
+      const x = pt[0] - dy / length * throw2 + dx / length * along;
+      const y = pt[1] + dx / length * throw2 + dy / length * along;
+      return [x, y];
+    });
+    if (displaced.length < 2) return "";
+    return displaced.map(([x, y], index) => `${index ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
   };
-  const kill = (anim, el2) => { anim.onfinish = () => el2.remove(); };
-  const C = "translate(-50%,-50%)"; // every piece self-centers on its left/top
-  // semi-stable: a bound mote never quite sits still — a fresh strained pose per keyframe
-  const strain = (amp, grow) =>
-    `${C} translate(${((Math.random() - .5) * amp).toFixed(1)}px,${((Math.random() - .5) * amp).toFixed(1)}px) scale(${grow})`;
+  const forkNodes = (nodes) => {
+    if (nodes.length < 3) return null;
+    const run = nodes.slice(1).reduce((total, point, index) => total + Math.hypot(point[0] - nodes[index][0], point[1] - nodes[index][1]), 0);
+    if (run < 74) return null; // short glyph strokes stay clean, like isolated sparks
+    const index = Math.max(1, Math.min(nodes.length - 2, Math.floor(nodes.length * (.3 + Math.random() * .4))));
+    const start = nodes[index], before = nodes[index - 1], after = nodes[index + 1];
+    const angle = Math.atan2(after[1] - before[1], after[0] - before[0])
+      + (Math.random() < .5 ? -1 : 1) * (.58 + Math.random() * .55);
+    const length = 18 + Math.random() * 34;
+    const bend = angle + (Math.random() - .5) * .45;
+    return [
+      start,
+      [start[0] + Math.cos(angle) * length * .48, start[1] + Math.sin(angle) * length * .48],
+      [start[0] + Math.cos(bend) * length, start[1] + Math.sin(bend) * length],
+    ];
+  };
+  const svgPath = (cls, color, width) => {
+    const path = document.createElementNS(NS, "path");
+    path.setAttribute("class", cls);
+    path.setAttribute("stroke", color);
+    path.setAttribute("stroke-width", width.toFixed(1));
+    svg.appendChild(path);
+    return path;
+  };
+  const releaseParticle = (x, y, radius, color, glow, frames, duration) => {
+    const mote = document.createElementNS(NS, "circle");
+    mote.setAttribute("class", "sigil-release-mote");
+    mote.setAttribute("cx", x.toFixed(1));
+    mote.setAttribute("cy", y.toFixed(1));
+    mote.setAttribute("r", radius.toFixed(1));
+    mote.setAttribute("fill", color);
+    mote.style.filter = `drop-shadow(0 0 ${(radius * 2.2).toFixed(1)}px ${glow})`;
+    svg.appendChild(mote);
+    const animation = mote.animate(frames, { duration, fill: "both", easing: "cubic-bezier(.16,.7,.28,1)" });
+    runningAnimations.push(animation);
+    animation.onfinish = () => mote.remove();
+  };
+  const dissolveStroke = (nodes, gx, width) => {
+    if (!root.isConnected) return;
+    const flightMs = E * (1 - REL) + 260;
+    for (const [x, y] of nodes) {
+      const fill = sigilInks[(Math.random() * sigilInks.length) | 0];
+      const glow = sigilInks[2 + ((Math.random() * 2) | 0)];
+      const angle = Math.atan2(y, x - gx) + (Math.random() - .5) * .34;
+      const distance = SIG.burst.distance_minimum + Math.random() * (SIG.burst.distance_maximum - SIG.burst.distance_minimum);
+      const dx = Math.cos(angle) * distance, dy = Math.sin(angle) * distance;
+      const radius = Math.max(1.4, width * SIG.burst.particle_size * (.75 + Math.random() * .45) / 2);
+      releaseParticle(x, y, radius, fill, glow, [
+        { transform: "translate(0,0) scale(1)", opacity: .96 },
+        { transform: `translate(${(dx * .3).toFixed(1)}px,${(dy * .3).toFixed(1)}px) scale(.82)`, opacity: .9, offset: .3 },
+        { transform: `translate(${dx.toFixed(1)}px,${dy.toFixed(1)}px) scale(.18)`, opacity: 0 },
+      ], flightMs);
+      // As before, each released mote sheds smaller fragments partway through
+      // its flight. They begin invisibly on the parent's road, then peel away.
+      for (let shard = 0; shard < SIG.burst.shards; shard++) {
+        const shardAngle = angle + (Math.random() - .5) * .9;
+        const shardDistance = distance * (.42 + Math.random() * .42);
+        const sx = dx * .34 + Math.cos(shardAngle) * shardDistance;
+        const sy = dy * .34 + Math.sin(shardAngle) * shardDistance;
+        releaseParticle(x, y, radius * SIG.burst.shard_size * (.75 + Math.random() * .4), fill, glow, [
+          { transform: "translate(0,0) scale(.5)", opacity: 0 },
+          { transform: `translate(${(dx * .3).toFixed(1)}px,${(dy * .3).toFixed(1)}px) scale(.5)`, opacity: 0, offset: .28 },
+          { transform: `translate(${(dx * .36).toFixed(1)}px,${(dy * .36).toFixed(1)}px) scale(1)`, opacity: .78, offset: .38 },
+          { transform: `translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px) scale(.16)`, opacity: 0 },
+        ], flightMs);
+      }
+    }
+  };
 
   word.forEach((strokes, li) => {
     const gx = -W / 2 + GW / 2 + li * (GW + GAP); // this letter's heart, relative to root
-    // walk each stroke, seeding a mote every `spacing` grid units; lone points are heavy dots
-    const pts = [];
+    // Resample every glyph stroke into one connected curve. A one-point mark
+    // becomes a small crescent flourish instead of a circular mote.
     for (const st of strokes) {
-      if (st.length === 1) { pts.push([st[0][0], st[0][1], 1]); continue; }
-      for (let s2 = 1; s2 < st.length; s2++) {
-        const [x1, y1] = st[s2 - 1], [x2, y2] = st[s2];
-        const steps = Math.max(1, Math.round(Math.hypot(x2 - x1, y2 - y1) / SIG.letters.spacing));
-        for (let k = s2 > 1 ? 1 : 0; k <= steps; k++)
-          pts.push([x1 + (x2 - x1) * k / steps, y1 + (y2 - y1) * k / steps, 0]);
+      const pts = [];
+      if (st.length === 1) {
+        const [x, y] = st[0];
+        pts.push([x - .22, y + .12], [x - .12, y - .2], [x + .16, y - .18], [x + .22, y + .08], [x, y + .2]);
+      } else {
+        for (let s2 = 1; s2 < st.length; s2++) {
+          const [x1, y1] = st[s2 - 1], [x2, y2] = st[s2];
+          const steps = Math.max(2, Math.round(Math.hypot(x2 - x1, y2 - y1) / SIG.letters.spacing));
+          for (let k = s2 > 1 ? 1 : 0; k <= steps; k++)
+            pts.push([x1 + (x2 - x1) * k / steps, y1 + (y2 - y1) * k / steps]);
+        }
       }
-    }
-    for (const [px2, py2, dot] of pts) {
-      const hx = gx + (px2 - 1.7) * SC, hy = (py2 - 3) * SC;
-      const sz = dot ? SIG.motes.dot_size : SIG.motes.size_minimum + Math.random() * (SIG.motes.size_maximum - SIG.motes.size_minimum);
-      const { fill, glow } = arcane(SIG.palette.saturation); // a miscast starts at the true colour and greys as it falls
-      const p = piece("sigil-p", `left:${hx.toFixed(1)}px;top:${hy.toFixed(1)}px;width:${sz.toFixed(1)}px;height:${sz.toFixed(1)}px;background:${fill};box-shadow:0 0 ${(sz * SIG.motes.glow).toFixed(0)}px ${glow}`);
-      // keyframe timeline: gather 0–.08 · strain + charge .08–REL · then the
-      // working either releases (dissipate) or, on a miscast, snaps (fall).
-      // Same charge for both — same letters, same colour — it just fails to hold.
-      // NB: options-level easing would warp the WHOLE timeline (WAAPI, unlike
-      // CSS), crushing the hold — so every segment eases on its own keyframe
+      const nodes = pts.map(([x, y]) => [gx + (x - 1.7) * SC, (y - 3) * SC]);
+      const width = SIG.lightning.width_minimum + Math.random() * (SIG.lightning.width_maximum - SIG.lightning.width_minimum);
+      const veil = svgPath("sigil-aether-veil", sigilInks[3], SIG.lightning.glow_width * 2.25);
+      const aura = svgPath("sigil-lightning-aura", sigilInks[2], SIG.lightning.glow_width);
+      const line = svgPath("sigil-lightning-line", sigilInks[1], width);
+      const hot = svgPath("sigil-lightning-hot", sigilInks[0], Math.max(1.7, width * .48));
+      const phase = Math.random() * Math.PI * 2;
+      const firstD = lightningPath(nodes, phase, .35);
+      veil.setAttribute("d", firstD); aura.setAttribute("d", firstD); line.setAttribute("d", firstD); hot.setAttribute("d", firstD);
+      const group = document.createElementNS(NS, "g");
+      svg.insertBefore(group, veil);
+      group.append(veil, aura, line, hot);
+      const geometries = [{ nodes, paths: [veil, aura, line, hot] }];
+      const forkCount = Math.floor(SIG.lightning.forks_minimum + Math.random() * (SIG.lightning.forks_maximum - SIG.lightning.forks_minimum + 1));
+      for (let fork = 0; fork < forkCount; fork++) {
+        const branch = forkNodes(nodes);
+        if (!branch) continue;
+        const forkAura = svgPath("sigil-lightning-aura sigil-lightning-fork", sigilInks[2], SIG.lightning.glow_width * .62);
+        const forkLine = svgPath("sigil-lightning-line sigil-lightning-fork", sigilInks[1], width * .68);
+        const forkHot = svgPath("sigil-lightning-hot sigil-lightning-fork", sigilInks[0], Math.max(.8, width * .24));
+        const forkD = lightningPath(branch, phase + fork * .7, .22);
+        forkAura.setAttribute("d", forkD); forkLine.setAttribute("d", forkD); forkHot.setAttribute("d", forkD);
+        group.append(forkAura, forkLine, forkHot);
+        geometries.push({ nodes: branch, paths: [forkAura, forkLine, forkHot] });
+      }
+      liveStrokes.push({ geometries, phase });
+
       const frames = [
-        { transform: `${C} translate(${((Math.random() - .5) * 50).toFixed(1)}px,${((Math.random() - .5) * 50).toFixed(1)}px) scale(.2)`, opacity: 0, easing: "cubic-bezier(.2,.6,.3,1)" },
-        { transform: C, opacity: .9, offset: .08, easing: "ease-in-out" },
+        { transform: `translate(${((Math.random() - .5) * 50).toFixed(1)}px,${((Math.random() - .5) * 50).toFixed(1)}px) scale(.25)`, opacity: 0, easing: "cubic-bezier(.2,.6,.3,1)" },
+        { transform: "translate(0,0) scale(1)", opacity: .92, offset: .08, easing: "ease-in-out" },
       ];
-      // the unstable hold: ~20 strained poses per mote, each on its own
-      // slightly shifted clock so the letter seethes instead of stepping in
-      // unison — and everything escalates with the charge: wider throws,
-      // deeper flicker, swelling size, quickening tempo (poses cluster late)
-      const nj = SIG.charge.poses_minimum + Math.floor(Math.random() * (SIG.charge.poses_maximum - SIG.charge.poses_minimum + 1));
-      // the unstable hold. a miscast caps intensity (gi) at ~60% so it never
-      // looks fully bound; the timing still runs the whole hold either way.
-      // NB WAAPI needs non-decreasing offsets — with a short charge (small REL)
-      // the per-pose jitter can outrun the gap between poses and reverse one,
-      // which makes animate() throw and the sigil vanish. clamp each offset to
-      // the previous so it can't go backwards. (charge floor ~150ms: below that
-      // REL < the .08 gather and even the clamp can't order it — nobody charges
-      // that fast.) ponytail: clamp is enough for any sane fail_ms/charge.
+      const nj = Math.max(8, Math.round((SIG.charge.poses_minimum + SIG.charge.poses_maximum) / 2));
       let prevOff = .08;
       for (let j = 1; j <= nj; j++) {
-        const g2 = j / nj; // how deep into the hold — timing scales off this
-        const gi = ok ? g2 : Math.min(g2, .6); // charge intensity — capped on a miscast
-        prevOff = Math.min(REL, Math.max(prevOff, .08 + Math.pow(g2, .7) * (REL - .08) + (j < nj ? (Math.random() - .5) * .012 : 0)));
+        const g2 = j / nj, gi = ok ? g2 : Math.min(g2, .6);
+        prevOff = Math.min(REL, Math.max(prevOff, .08 + Math.pow(g2, .7) * (REL - .08)));
         frames.push({
-          transform: strain(2 + gi * SIG.charge.shake + Math.random() * 2, 1 + gi * SIG.charge.grow),
-          opacity: (ok && j === nj) ? 1 : .95 - Math.random() * (.15 + gi * .5),
+          transform: `translate(${((Math.random() - .5) * (2 + gi * SIG.charge.shake)).toFixed(1)}px,${((Math.random() - .5) * (2 + gi * SIG.charge.shake)).toFixed(1)}px) scale(${(1 + gi * SIG.charge.grow * .22).toFixed(3)})`,
+          opacity: (ok && j === nj) ? 1 : .68 + Math.random() * .3,
           offset: prevOff,
           easing: j === nj ? "ease-out" : "ease-in-out",
         });
       }
       if (ok) {
-        // ONE release, every mote on the same clock: each drifts straight out
-        // from the letter's heart — top rises, bottom sinks, flanks slide wide
-        const a2 = Math.atan2(hy, hx - gx) + (Math.random() - .5) * .35;
-        const d2 = SIG.burst.distance_minimum + Math.random() * (SIG.burst.distance_maximum - SIG.burst.distance_minimum);
-        const dx = Math.cos(a2) * d2, dy = Math.sin(a2) * d2;
-        frames.push({ transform: `${C} translate(${dx.toFixed(0)}px,${dy.toFixed(0)}px) scale(.3)`, opacity: 0 });
-        kill(p.animate(frames, { duration: E, fill: "both" }), p);
-        // the white halo BEHIND each mote: a soft radial glow that charges from
-        // nothing to bright through the binding, peaks at release, dies after
-        const wg = piece("sigil-p", `left:${hx.toFixed(1)}px;top:${hy.toFixed(1)}px;width:${(sz * SIG.halo.size).toFixed(1)}px;height:${(sz * SIG.halo.size).toFixed(1)}px;background:radial-gradient(circle, rgba(255,255,255,.95), rgba(255,255,255,0) 70%);box-shadow:0 0 ${(sz * SIG.halo.size * 1.5).toFixed(0)}px rgba(255,255,255,.6)`);
-        root.insertBefore(wg, p); // halo sits under its mote, never over it
-        kill(wg.animate([
-          { transform: `${C} scale(.25)`, opacity: 0 },
-          { transform: `${C} scale(.35)`, opacity: .08, offset: .08, easing: "ease-in-out" },
-          { transform: `${C} scale(.75)`, opacity: .5 * SIG.halo.peak_opacity, offset: (.08 + REL) / 2, easing: "ease-in-out" }, // clearly aglow by mid-charge
-          { transform: `${C} scale(1.15)`, opacity: SIG.halo.peak_opacity, offset: REL, easing: "ease-out" },
-          { transform: `${C} scale(2.2)`, opacity: 0, offset: REL + (1 - REL) * .72 },
-          { transform: `${C} scale(2.2)`, opacity: 0 },
-        ], { duration: E, fill: "both" }), wg);
-        // mid-flight the mote breaks up: smaller shards peel off where the
-        // parent has thinned (~30% of the road out) and scatter on their own.
-        // ~1000 animated motes on a 6-letter cast — thin this loop first if a
-        // weaker study ever stutters
-        for (let s3 = 0; s3 < SIG.burst.shards; s3++) {
-          const a3 = a2 + (Math.random() - .5) * .8, d3 = d2 * (.4 + Math.random() * .5);
-          const sz3 = sz * SIG.burst.shard_size * (.8 + Math.random() * .4);
-          const sx = dx * .36 + Math.cos(a3) * d3, sy = dy * .36 + Math.sin(a3) * d3;
-          const sh = piece("sigil-p", `left:${hx.toFixed(1)}px;top:${hy.toFixed(1)}px;width:${sz3.toFixed(1)}px;height:${sz3.toFixed(1)}px;background:${fill};box-shadow:0 0 ${(sz3 * SIG.motes.glow).toFixed(0)}px ${glow}`);
-          kill(sh.animate([
-            { transform: C, opacity: 0 },
-            { transform: `${C} translate(${(dx * .32).toFixed(0)}px,${(dy * .32).toFixed(0)}px)`, opacity: 0, offset: REL + (1 - REL) * .28 },
-            { transform: `${C} translate(${(dx * .36).toFixed(0)}px,${(dy * .36).toFixed(0)}px)`, opacity: .85, offset: REL + (1 - REL) * .4, easing: "ease-out" },
-            { transform: `${C} translate(${sx.toFixed(0)}px,${sy.toFixed(0)}px) scale(.4)`, opacity: 0 },
-          ], { duration: E, fill: "both" }), sh);
-        }
+        // The living fracture holds through the charge, then gives its shape to
+        // the old mote-and-shard release instead of flying away as a whole.
+        frames.push({ transform: "translate(0,0) scale(1.03)", opacity: 1, offset: REL });
+        frames.push({ transform: "translate(0,0) scale(.98)", opacity: 0, offset: Math.min(.99, REL + .055), easing: "ease-out" });
+        frames.push({ transform: "translate(0,0) scale(.98)", opacity: 0 });
+        releaseTimers.push(setTimeout(() => dissolveStroke(nodes, gx, width), E * REL));
       } else {
-        // the binding snaps at REL: one last flail, then the letter loses its
-        // hold and falls as ash — every mote off the same charge, so they break
-        // together, then scatter down on their own
-        frames.push({ transform: strain(8, .9), opacity: .55, offset: REL + (1 - REL) * .18, easing: "cubic-bezier(.4,.1,.7,.4)" }); // the grip slips — shrinks and dims, doesn't surge
-        frames.push({ transform: strain(5, .95), opacity: .4, offset: REL + (1 - REL) * .42, easing: "ease-in" });
-        frames.push({ transform: `${C} translate(${((Math.random() - .5) * 34).toFixed(1)}px,${(40 + Math.random() * 55).toFixed(1)}px) scale(.3)`, opacity: 0 });
-        kill(p.animate(frames, { duration: E, fill: "both" }), p);
-        // greys as it falls: the true colour holds through the charge, then
-        // desaturates to the miscast tint by the time it hits the floor
-        p.animate([
+        frames.push({ transform: `translate(${((Math.random() - .5) * 12).toFixed(1)}px,8px) scale(.9)`, opacity: .5, offset: REL + (1 - REL) * .18, easing: "cubic-bezier(.4,.1,.7,.4)" });
+        frames.push({ transform: `translate(${((Math.random() - .5) * 34).toFixed(1)}px,${(40 + Math.random() * 55).toFixed(1)}px) scale(.35)`, opacity: 0 });
+        group.animate([
           { filter: "saturate(1)" },
           { filter: "saturate(1)", offset: REL, easing: "ease-in" },
           { filter: `saturate(${(SIG.palette.saturation_miscast / SIG.palette.saturation).toFixed(2)})` },
         ], { duration: E, fill: "both" });
       }
+      const motion = group.animate(frames, { duration: E, fill: "both" });
+      const current = hot.animate([
+        { opacity: .72 },
+        { opacity: 1 },
+        { opacity: .58 },
+        { opacity: .94 },
+      ], { duration: 180 + Math.random() * 160, iterations: Infinity, easing: "steps(3, end)" });
+      const breath = aura.animate([
+        { opacity: .18 },
+        { opacity: .52 },
+        { opacity: .24 },
+      ], { duration: 900 + Math.random() * 650, iterations: Infinity, easing: "ease-in-out" });
+      runningAnimations.push(motion, current, breath);
+      motion.onfinish = () => { current.cancel(); breath.cancel(); group.remove(); };
     }
   });
-  setTimeout(() => root.remove(), E + 800); // sweep whatever the onfinishes missed
+
+  let raf = 0, lastJolt = -Infinity;
+  const started = performance.now();
+  const writhe = (now) => {
+    const elapsed = now - started;
+    if (elapsed < E && root.isConnected) {
+      if (now - lastJolt >= SIG.lightning.cadence_milliseconds) {
+        const charge = Math.min(1, elapsed / Math.max(1, E * REL));
+        const intensity = .32 + charge * .68;
+        for (const stroke of liveStrokes) {
+          stroke.phase += .28 + Math.random() * .22;
+          for (const geometry of stroke.geometries) {
+            const d = lightningPath(geometry.nodes, stroke.phase, intensity);
+            for (const path of geometry.paths) path.setAttribute("d", d);
+          }
+        }
+        lastJolt = now;
+      }
+      raf = requestAnimationFrame(writhe);
+    }
+  };
+  raf = requestAnimationFrame(writhe);
+  setTimeout(() => {
+    cancelAnimationFrame(raf);
+    for (const timer of releaseTimers) clearTimeout(timer);
+    for (const animation of runningAnimations) animation.cancel();
+    root.remove();
+  }, E + 800); // sweep whatever the onfinishes missed
 }
 window.castSigil = castSigil; // console-reachable: lets you audition a palette's sigil colors

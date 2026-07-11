@@ -40,9 +40,9 @@ css = '''
 /* structural layer — see the method below */
 '''
 
-[vars]               # same 18 keys as a tome theme (§2 [[themes]]) — the
+[vars]               # same 22 keys as a tome theme (§2 [[themes]]) — the
 bg0 = "#100c07"      # engine AND Monaco read these; bg1/tx/ac/tx-faint/warn/info
-# … all 18 …         # become the editor's colors automatically
+# … all 22 …         # become the editor's colors automatically
 ```
 
 The server ships every `skins/*/skin.toml` in the tome payload;
@@ -111,7 +111,7 @@ the engine:
 
 ### Skin validation checklist
 
-- [ ] `skin.toml` parses; `css` key appears before `[vars]`; all 18 vars present
+- [ ] `skin.toml` parses; `css` key appears before `[vars]`; all 22 vars present
 - [ ] Every rule (except `@font-face`/`@keyframes`) is inside the
       `body[data-theme="<id>"]` block; new keyframe names are prefixed
 - [ ] Switch to every OTHER skin and confirm nothing changed (leak test)

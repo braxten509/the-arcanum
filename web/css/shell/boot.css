@@ -5,7 +5,11 @@
   inset: 0;
   z-index: 90;
   pointer-events: none;
-  background: radial-gradient(1050px 720px at 11% 7%, rgba(var(--candle), .13), transparent 58%);
+  /* the pool near the flame, plus a faint full-screen cast so the theme's
+     candle color actually reads across the whole study */
+  background:
+    radial-gradient(1050px 720px at 11% 7%, rgba(var(--candle), .34), transparent 58%),
+    linear-gradient(rgba(var(--candle), .12), rgba(var(--candle), .12));
   mix-blend-mode: soft-light;
   animation: breathe 4.6s ease-in-out infinite;
 }
@@ -14,7 +18,11 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at 42% 40%, transparent 52%, rgba(10, 4, 0, .42));
+  /* the color cast itself — normal blending (soft-light won't carry hue),
+     strongest near the candle corner, fading across the desk — plus the vignette */
+  background:
+    radial-gradient(1700px 1200px at 11% 7%, rgba(var(--candle), .18), rgba(var(--candle), .06) 70%),
+    radial-gradient(ellipse at 42% 40%, transparent 52%, rgba(10, 4, 0, .42));
 }
 
 @keyframes breathe {
@@ -94,7 +102,7 @@
   left: 21px;
   width: 18px;
   height: 34px;
-  background: radial-gradient(ellipse at 50% 78%, #fff5cf 0 22%, #ffcf6e 46%, #f08c1d 78%, rgba(240, 110, 20, 0) 100%);
+  background: radial-gradient(ellipse at 50% 78%, #fff5cf 0 22%, color-mix(in srgb, rgb(var(--candle)) 82%, #fff) 46%, color-mix(in oklab, rgb(var(--candle)) 72%, #000) 78%, transparent 100%);
   border-radius: 50% 50% 46% 54% / 64% 64% 36% 36%;
   filter: blur(.4px);
   transform-origin: 50% 92%;

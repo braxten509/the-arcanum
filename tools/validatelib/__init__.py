@@ -1,6 +1,6 @@
 """Support package for tools/validate_tome.py. Module map:
 - structure  layout contract, placeholders, badges, meta/runtime/narrative/economy/shop
-- themes     the 18-ink palette contract + palette distinctness
+- themes     the 22-ink palette contract + palette distinctness
 - content    sections/lessons/exercises, anti-template, density, content-quality gates
 - attacks    attack bank, attacks_src sync, hex-defense intrusions
 - depth      taught-before-used, verbatim prose, economy totals, static pre-solved tell,
@@ -22,13 +22,14 @@ SKINS_DIR = os.path.join(REPO, "skins")
 
 sys.path.insert(0, REPO)  # for tome_layout (shared split-tome layout, in lockstep with server)
 
-# The 18-ink theme contract (tome-authoring/2-tome-toml.md § [[themes]], mirrored in
+# The 22-ink theme contract (tome-authoring/2-tome-toml.md § [[themes]], mirrored in
 # the web css's "Theme palettes are injected" vellum block). Every palette
 # MUST define exactly these.
 THEME_VARS = {
     "bg0", "bg1", "bg2", "bg3", "line", "line-hi",
     "tx", "tx-dim", "tx-faint", "ac", "ac-dim", "ac-bg",
     "warn", "bad", "info", "slab", "slab-tx", "candle",
+    "sigil-1", "sigil-2", "sigil-3", "sigil-4",
 }
 EXERCISE_TYPES = {"mc", "text", "fill", "type", "write"}
 # Coin faces a palette may pick (the engine's COIN_ICONS; tome-authoring/2-tome-toml.md § [[themes]])

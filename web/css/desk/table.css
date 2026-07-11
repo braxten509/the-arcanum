@@ -56,7 +56,7 @@
   transform: translateX(-50%) rotate(45deg);
   transform-origin: 50% 50%;
   filter:
-    drop-shadow(0 9px 7px rgba(6, 2, 0, .58)) drop-shadow(0 1px 1px rgba(255, 224, 156, .18));
+    drop-shadow(0 9px 7px rgba(6, 2, 0, .58)) drop-shadow(0 1px 1px rgba(var(--candle), .18));
   transition: transform .28s cubic-bezier(.16, 1, .3, 1), filter .28s ease;
   pointer-events: none;
 }
@@ -68,12 +68,13 @@
   width: 17px;
   height: 28px;
   border-radius: 50% 50% 46% 54% / 66% 66% 34% 34%;
+  /* derived from --candle so a skin's palette tints the flame (was hardcoded orange) */
   background: radial-gradient(ellipse at 50% 78%,
-      #fffdf0 0 24%,
-      #ffd268 46%,
-      #ee791a 78%,
-      rgba(238, 121, 26, 0) 100%);
-  filter: drop-shadow(0 0 6px rgba(255, 185, 56, .82));
+      color-mix(in srgb, rgb(var(--candle)) 10%, #fffef4) 0 24%,
+      color-mix(in srgb, rgb(var(--candle)) 82%, #fff) 46%,
+      color-mix(in oklab, rgb(var(--candle)) 72%, #000) 78%,
+      transparent 100%);
+  filter: drop-shadow(0 0 6px rgba(var(--candle), .82));
   mix-blend-mode: screen;
   transform-origin: 50% 88%;
   opacity: .96;
@@ -99,8 +100,29 @@
   width: 7px;
   height: 11px;
   border-radius: 50% 50% 44% 44% / 64% 64% 36% 36%;
-  background: radial-gradient(ellipse at 50% 78%, #fffef1 0 24%, #ffe9a8 56%, transparent 100%);
+  background: radial-gradient(ellipse at 50% 78%, #fffef1 0 24%, color-mix(in srgb, rgb(var(--candle)) 30%, #fff) 56%, transparent 100%);
   opacity: .86;
+}
+
+/* The flame + lit wax are painted into the candle art, so a theme's --candle
+   can't reach them. This wash re-hues that region (color blend keeps the art's
+   luminosity) — on vellum it's a no-op, elsewhere the flame follows the palette. */
+#candle::after {
+  content: "";
+  position: absolute;
+  left: 61px;
+  top: 45px;
+  width: 170px;
+  height: 170px;
+  background: rgb(var(--candle));
+  mix-blend-mode: color;
+  mask-image: radial-gradient(circle, #000 0 18%, transparent 70%);
+  pointer-events: none;
+  transition: translate .28s cubic-bezier(.16, 1, .3, 1);
+}
+
+#candle:hover::after {
+  translate: 0 -3px;
 }
 
 /* The approved image already contains the flame. This invisible point follows
@@ -117,7 +139,7 @@
 #candle:hover .c-object {
   transform: translateX(-50%) translateY(-3px) rotate(45deg) scale(1.015);
   filter:
-    drop-shadow(0 12px 9px rgba(6, 2, 0, .62)) drop-shadow(0 1px 1px rgba(255, 224, 156, .22));
+    drop-shadow(0 12px 9px rgba(6, 2, 0, .62)) drop-shadow(0 1px 1px rgba(var(--candle), .22));
 }
 
 #candle:active .c-object {
@@ -129,8 +151,8 @@
   z-index: 21;
   pointer-events: none;
   border-radius: 50%;
-  background: radial-gradient(circle, #ffd984, #f2901f 65%, transparent);
-  box-shadow: 0 0 6px 1px rgba(242, 144, 31, .45);
+  background: radial-gradient(circle, color-mix(in srgb, rgb(var(--candle)) 55%, #fff), rgb(var(--candle)) 65%, transparent);
+  box-shadow: 0 0 6px 1px rgba(var(--candle), .45);
   will-change: transform, opacity;
 }
 

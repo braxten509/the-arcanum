@@ -157,7 +157,7 @@ their own names — those need no registry entry; register ONLY the six ids abov
   desk, never the desk itself. The parchment-and-candlelight staging is the
   platform's constant.
 - **Palette-only is necessary but not sufficient — you can abandon the study with
-  the 18 vars alone.** Pushing `bg0` to `#000000` and the accents to neon makes a
+  the 22 vars alone.** Pushing `bg0` to `#000000` and the accents to neon makes a
   neon-on-black terminal: no CSS was added, but the candlelit desk is gone, and
   that restaging is a *skin's* job, forbidden here. Keep the material: `bg0` is
   the table **wood** (a timber/earth tone — dark is fine, pure-black void is not);
@@ -185,7 +185,7 @@ their own names — those need no registry entry; register ONLY the six ids abov
   Sepia Vellum's values, and a past run shipped it renamed as its "signature"
   — a byte-for-byte replica. The validator computes each palette's color
   distance from the global vellum palette (and from this tome's other
-  palettes) and hard-gates a near-copy; replace ALL 18 vars with a palette
+  palettes) and hard-gates a near-copy; replace ALL 22 vars with a palette
   designed for this course.
 
 ```toml
@@ -199,7 +199,7 @@ coin = "serpent"        # optional: the coin icon's face while this palette is e
                         # (pick the face that fits the tome's currency fiction; unknown
                         # names are a validator ERROR)
 
-[themes.vars]      # CSS custom properties — ALL 18 required.
+[themes.vars]      # CSS custom properties — ALL 22 required.
                    # (Values annotated with what each var paints; pick your own.)
 bg0 = "#241609"    # the table wood (page surround)
 bg1 = "#e7d9b5"    # the parchment itself (also the Monaco editor background)
@@ -223,6 +223,10 @@ slab-tx = "#e3d3ac"# the speaking stone's glowing script
 candle = "255, 172, 66"  # a bare "r, g, b" triple, NOT hex/rgb() — it is used as
                          # rgba(var(--candle), …); "#39ff14" makes rgba(#39ff14, …),
                          # invalid CSS, and the candlelight glow vanishes (validator ERROR)
+sigil-1 = "#f7ffff" # white-hot lightning core
+sigil-2 = "#62d9dc" # saturated bolt body
+sigil-3 = "#168db4" # broad magical bloom
+sigil-4 = "#3d4d78" # deep fringe and particle accent
 ```
 Injected as `body[data-theme="<id>"]` and mirrored into the Monaco editor theme —
 one source of truth. Provide: 1 signature default palette (the `[defaults].theme`),

@@ -54,7 +54,7 @@
 5. **Economy pass.** Sum all earnable credits; set ranks, prices, rewards,
    hint/oracle costs so mid-course purchases and late-game trophies both exist.
 6. **Cosmetics.** 3–5 `[[themes]]` palettes with genuinely different paper
-   tints, accent inks, and candle colors (18 vars each, one `earned`), shop
+   tints, accent inks, candle colors, and four sigil inks (22 vars each, one `earned`), shop
    entries wiring themes + the engine consumables **reflavored to this course's
    world** (name/desc/ico). Themes only — never a skin; the global SEPIA VELLUM
    and OPHIDIAN DEN skins join this tome's palette picker automatically. Every

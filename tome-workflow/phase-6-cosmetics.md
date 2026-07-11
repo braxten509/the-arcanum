@@ -1,7 +1,7 @@
 # Phase 6 — Cosmetics
 
 Read **§2 [[themes]] / [[shop]] / [[badges]]**. 3–5 palettes with genuinely different
-paper tints, accent inks, and candle colors (18 vars each, one `earned`); shop entries
+paper tints, accent inks, candle colors, and sigil inks (22 vars each, one `earned`); shop entries
 wiring the themes + the six engine consumables **reflavored to this course's world**.
 Themes only — never a skin (nothing under `skins/`).
 
@@ -10,12 +10,12 @@ placeholder vars ARE Sepia Vellum's values.** A past run shipped the scaffold pa
 untouched, renamed "…Vellum", as its signature look: a byte-for-byte replica of the
 global baseline, zero identity. The validator now measures every palette's color
 distance from the global vellum palette AND from this tome's other palettes, and
-hard-gates a near-copy. Replace ALL 18 vars in EVERY palette with values chosen for
+hard-gates a near-copy. Replace ALL 22 vars in EVERY palette with values chosen for
 this course's world — different paper tint, different accent ink, different candle —
 while staying inside the parchment staging rules below.
 
 ⚠️ **A theme RECOLORS the candlelit parchment study — it must not abandon that
-material, and you can abandon it with the 18 vars alone (no CSS needed).** The trap:
+material, and you can abandon it with the 22 vars alone (no CSS needed).** The trap:
 setting `bg0` to pure black and the accents to neon turns the wizard's desk into a
 neon-on-black terminal — that's a *skin's* job (restaging the desk), forbidden to a
 tome, even though technically you only touched the palette. Stay inside the staging:

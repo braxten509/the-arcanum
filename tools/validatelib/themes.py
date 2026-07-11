@@ -1,4 +1,4 @@
-"""The 18-ink theme palette contract + palette distinctness."""
+"""The 22-ink theme palette contract + palette distinctness."""
 import colorsys
 import os
 import re
@@ -149,7 +149,7 @@ def check_theme_distinctness(m, label):
         if d is not None and d < PALETTE_MIN_DIST:
             warn("content", f"[[themes]] {th.get('id')!r} is a near-copy of the global Sepia "
                  f"Vellum palette (mean channel distance {d:.1f} < {PALETTE_MIN_DIST}) — the "
-                 "scaffold placeholder IS vellum; design this course's own palette (all 18 vars)")
+                 "scaffold placeholder IS vellum; design this course's own palette (all 22 vars)")
         for other in themes[i + 1:]:
             d2 = _palette_dist(tv, other.get("vars", {}) or {})
             if d2 is not None and d2 < PALETTE_MIN_DIST:

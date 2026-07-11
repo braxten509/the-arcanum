@@ -45,18 +45,19 @@ this file, and not your job here.
 | Lesson prose (missing text goes here) | `sections/<sid>/lessons/<lNN>.toml` | `[[lessons]]` `title`, `body` (HTML, 300–600 words + a `field-notes` div) |
 | An exercise: question, choices, right answer, hint, explanation | same lesson file | `[[lessons.exercises]]` — `prompt`, `choices`, `answer` (0-based index for `mc`), `whyWrong` (mandatory on `mc`), `hint`, `explain`, `points`; `write` labs also have `starter`, `expect`/`expectRe` |
 | End-of-chapter project brief / grading rubric | `sections/<sid>/freestyle.toml` | `brief` (HTML), `[[rubric]]` (weights MUST sum to 100), `reward`, `[badge]` |
-| A theme color | `themes.toml` | the 18 `[themes.vars]` keys (see below) |
+| A theme color | `themes.toml` | the 22 `[themes.vars]` keys (see below) |
 | Shop item name / price / flavor | `shop.toml` | `[[shop]]` `name`, `cost`, `desc`, `ico` — never change `id` or `kind` (they bind the engine mechanic) |
 | Badge names / art | `badges.toml` | `[[badges]]` `name`, `desc` — ids are engine-granted, don't change them. No `ico` field: the engine always renders a fixed seal icon for badges regardless of TOML content, so don't add one |
 | Hex-defense minigame challenges | `intrusions.toml` | `[[tiers]]` (integer `min` gate) → `[[tiers.pool]]` |
 | Duel minigame challenges | `attacks_src.toml`, then regenerate: `python3 tools/gen_attacks.py <id>` (server must be running) — never hand-edit `generated/attacks.toml` |
 
-## The 18 theme vars (a `[[themes]]` palette)
+## The 22 theme vars (a `[[themes]]` palette)
 
 `bg0` table wood · `bg1` parchment/page (also editor bg) · `bg2` panels ·
 `bg3` raised elements · `line`/`line-hi` hairlines · `tx`/`tx-dim`/`tx-faint` inks ·
 `ac`/`ac-dim`/`ac-bg` accent · `warn` · `bad` · `info` · `slab`/`slab-tx` code slabs ·
-`candle` — the candlelight glow.
+`candle` — the candlelight glow · `sigil-1` white-hot core · `sigil-2` bolt body ·
+`sigil-3` luminous bloom · `sigil-4` fringe and released motes.
 
 Color rules the validator enforces:
 - **`candle` is a bare `r, g, b` triple** (e.g. `"255, 172, 66"`) — a hex value
@@ -67,7 +68,7 @@ Color rules the validator enforces:
 - **No palette may sit close to the global Sepia Vellum palette or another of this
   tome's palettes** — the validator measures the color distance and fails near-copies,
   so a recolor must actually move the values.
-- All 18 keys present in every palette; hex like `#rrggbb` everywhere except
+- All 22 keys present in every palette; hex like `#rrggbb` everywhere except
   `candle` and `ac-bg` (an `rgba(...)` wash).
 
 A palette may also pick the coin icon's face with a top-level `coin = "<name>"`

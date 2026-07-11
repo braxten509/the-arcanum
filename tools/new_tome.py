@@ -161,7 +161,7 @@ id = "ghost-protocol"
 name = "TODO OPUS"
 desc = "TODO: awarded when every chapter's Great Working is passed."
 
-# --- palettes: 18 inks each; recolor freely, keep all keys ---------------------
+# --- palettes: 22 inks each; recolor freely, keep all keys ---------------------
 # Contract: bg0 = table wood · bg1 = parchment · bg2/bg3 = panels · line* = ink
 # hairlines · tx* = inks · ac = accent ink · slab/slab-tx = the speaking stone
 # (grey mineral, never wood browns) · candle = "r, g, b" of the light.
@@ -189,6 +189,10 @@ info = "#3d4d78"
 slab = "#27272b"
 slab-tx = "#e3d3ac"
 candle = "255, 172, 66"
+sigil-1 = "#f7ffff"               # white-hot heart of the cast
+sigil-2 = "#62d9dc"               # solid bolt body
+sigil-3 = "#168db4"               # broad luminous bloom
+sigil-4 = "#3d4d78"               # deep fringe and released motes
 
 [[themes]]
 id = "alt"
@@ -213,6 +217,10 @@ info = "#7a9aca"
 slab = "#0e0c14"
 slab-tx = "#cfc9b8"
 candle = "255, 172, 66"
+sigil-1 = "#ffffff"
+sigil-2 = "#9beec0"
+sigil-3 = "#4fb481"
+sigil-4 = "#547a64"
 """
 
 

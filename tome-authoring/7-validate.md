@@ -10,7 +10,7 @@ python3 tools/validate_tome.py tomes/<id>
 ```
 
 It machine-checks this spec: TOML parses; `meta.id` equals the folder name; runtime
-resolves; ids are unique; every palette carries all 18 inks; rubric weights sum to
+resolves; ids are unique; every palette carries all 22 inks; rubric weights sum to
 100; every `write` lab has a non-empty `expect`; attack stages obey the append
 invariant; and more. It also gates *content* floors: lesson bodies clear a word
 floor (§3's 300–600-word range), bootLines/gradingLines hit their counts,
@@ -112,7 +112,7 @@ items below (voice, anti-template variety, balance) are still yours to run:
 - [ ] intrusionTier/attack challenges solvable with only concepts taught by their gate
 - [ ] `[defaults].theme` exists in `[[themes]]` (or is `"vellum"`, the global
       skin); shop `theme` references resolve; `earnedTheme.id` has `earned = true`
-- [ ] All 18 theme vars present in every palette (incl. `slab`, `slab-tx`, `candle`)
+- [ ] All 22 theme vars present in every palette (incl. `slab`, `slab-tx`, `candle`, and `sigil-1`–`sigil-4`)
 - [ ] Themes only: every palette is a `[[themes]]` entry in this tome (in `themes.toml`,
       or inline in `tome.toml`) — nothing added under `skins/`, no structural CSS anywhere, and no palette
       re-creates the global Sepia Vellum or clones another of this tome's palettes
