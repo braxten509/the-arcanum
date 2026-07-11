@@ -42,7 +42,7 @@ export function oracleContext() {
 
 export function paintOracleBtn() {
   const n = `(${S.inv.oracle || 0})`;
-  const side = $("#obj-orb-n"); if (side) side.textContent = n;
+  const hit = $("#obj-orb .obj-hit"); if (hit) hit.title = `Ask the Oracle a question — ${n} left`;
   const ob = $("#b-oracle"); if (ob) ob.innerHTML = `${ico("orb")} CONSULT THE ORACLE ${n}`;
 }
 

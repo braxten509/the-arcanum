@@ -19,9 +19,23 @@ export const V = { ambOn: true, ambVol: 0.5, windVol: 0.5, keyVol: 1, uiVol: 1, 
 export const CONFIG = {
   sound_effects: { volume: 100 },
   sample_gain: { cast_release: 1.8, spell_hit_release: 1.3, hex: 1.2, hex_fade_seconds: 0.9, stroke: 0.4 },
+  sample_pitch: { peddler_min: 0.95, peddler_max: 1.05, wand_min: 0.86, wand_max: 1.14 },
   ambience: { lowpass_hertz: 4200, fade_seconds: 0.6, room_gain: 0.05, room_lowpass_hertz: 260, wobble_hertz: 0.17, wobble_depth: 0.02 },
   keys: {},
-  sound_files: {}, // sound name -> filename in sounds/; a named file replaces that synthesized voice
+  // Shipped recordings are defaults here as well as in audio.toml so they can
+  // begin decoding before the asynchronous config request finishes. The TOML
+  // values still win and may replace or disable any of them.
+  sound_files: {
+    candle: "candle-light-click.mp3",
+    green_tome: "green-tome.mp3",
+    grimoire: "grimoire-close.mp3",
+    ink: "inkwell-glug.mp3",
+    letter: "letter-page.mp3",
+    notes: "notes-page.mp3",
+    orb: "orb-ding.mp3",
+    peddler: "coin-pouch.mp3",
+    wand: "wand-swish.mp3",
+  },
 };
 
 export function ensureCtx() {

@@ -26,25 +26,6 @@
   pointer-events: auto;
 }
 
-/* The inkwell's label follows the curve below its dish. Its base font is
-   smaller because the whole Binder control is rendered at a 2× scale. */
-#obj-quill .obj-label-arc {
-  left: -40px;
-  top: 90px;
-  bottom: auto;
-  width: 180px;
-  height: 100px;
-  overflow: visible;
-  transform: none;
-  font-size: 8.3px;
-  letter-spacing: .4em;
-}
-
-#obj-quill .obj-label-arc text {
-  fill: currentColor;
-  pointer-events: auto;
-}
-
 /* Fitted hitboxes: each button rect is far larger than its visible art, so the
    buttons themselves take no clicks — an invisible .obj-hit sized to the art's
    opaque pixels (alpha bbox of the source PNG, in % of the art box) does.
@@ -70,55 +51,61 @@
   height: 87%;
 }
 
+/* top edge of the red book, centre-right */
+#obj-grimoire .tip-spot {
+  left: 58%;
+  top: 9%;
+}
+
 #obj-notes {
   display: block;
-  --obj-w: 900px;
-  --obj-h: 900px;
-  left: 1100px;
-  bottom: -600px;
-  /* under every other desk object (20) and the tomes (15) */
+  --obj-w: 1350px;
+  --obj-h: 1350px;
+  left: 1625px;
+  bottom: -895px;
+  /* above the letter (11), under the tomes (15) and everything else (20) */
   z-index: 12;
   pointer-events: none;
 }
 
 #obj-notes .obj-hit {
-  left: 14%;
+  left: 23%;
+  top: 17%;
+  width: 61%;
+  height: 68%;
+}
+
+/* the torn sheets' top peak */
+#obj-notes .tip-spot {
+  left: 47%;
   top: 13%;
-  width: 74%;
-  height: 74%;
 }
 
 #obj-wand {
   --obj-w: 800px;
   --obj-h: 800px;
-  left: 1800px;
-  bottom: -120px;
+  left: 2000px;
+  bottom: 30px;
   transform: rotate(-35deg);
   /* like the quill: the button rect is huge, only .w-hit takes clicks */
   pointer-events: none;
+}
+
+/* the crystal tip (same corner the sparkles ride) */
+#obj-wand .tip-spot {
+  left: 89%;
+  top: 6%;
 }
 
 /* invisible hit strip laid over the shaft (art runs corner to corner at ~45°) */
 #obj-wand .w-hit {
   left: 50%;
   top: 50%;
-  width: 100%;
+  /* the shaft runs corner to corner: the diagonal is √2 of the box, so a
+     100%-wide strip stopped short of the crystal tip and the handle */
+  width: 141%;
   height: 15%;
   transform: translate(-50%, -50%) rotate(-45deg);
-  pointer-events: auto;
-}
-
-/* the caption rides the shaft instead of sitting under the 800px box */
-#obj-wand .obj-label {
-  left: 0;
-  right: 0;
-  top: 50%;
-  bottom: auto;
-  /* trailing translateY runs perpendicular to the rotated shaft: lifts the
-     text off the wood so it floats just in front of the spine */
-  transform: translateY(-50%) rotate(-45deg) translateY(-22px);
-  font-size: 17px;
-  letter-spacing: .5em;
   pointer-events: auto;
 }
 
@@ -161,29 +148,19 @@
   transform: rotate(7deg);
 }
 
+/* mid-spine of the green tome: after the art's -47° turn this lands on-screen
+   below the HUD (the old 11%/42% mapped above the viewport, so the tooltip
+   was clamp-pinned to the top edge and never moved) */
+#obj-tomes .tip-spot {
+  left: 10%;
+  top: 56%;
+}
+
 /* The artwork, not the button, rotates and scales.  The label therefore
    remains readable at its normal type size beneath the physical stack. */
 #obj-tomes .obj-art {
   transform: rotate(313deg) scale(var(--tomes-scale));
   transform-origin: 50% 50%;
-}
-
-/* Laid along the green tome's ribbed spine: the source spine sits at ~79°,
-   the art turns -47°, so the strip reads ~32° on screen, down-left of center. */
-#obj-tomes .obj-label {
-  left: -300px;
-  right: auto;
-  top: 590px;
-  bottom: auto;
-  width: 200px;
-  transform: rotate(32deg);
-  font-size: 14px;
-  letter-spacing: .45em;
-  /* it rests on the parchment corner: dark ink, a soft paper-shadow */
-  color: #66492a;
-  text-shadow: 0 1px 2px rgba(90, 62, 28, .35);
-  opacity: .8;
-  pointer-events: auto;
 }
 
 #obj-satchel {
@@ -201,6 +178,12 @@
   top: 7%;
   width: 68%;
   height: 88%;
+}
+
+/* the pouch's tied neck */
+#obj-satchel .tip-spot {
+  left: 57%;
+  top: 28%;
 }
 
 #obj-orb {
@@ -221,10 +204,10 @@
   border-radius: 50%;
 }
 
-/* the caption and count sit outside the art box; keep them clickable */
-#obj-orb .obj-label,
-#obj-orb .obj-sub {
-  pointer-events: auto;
+/* the rim point that lands at the sphere's screen-top after the 45° turn */
+#obj-orb .tip-spot {
+  left: 20%;
+  top: 20%;
 }
 
 #obj-letter {
@@ -232,8 +215,10 @@
   --obj-w: 900px;
   --obj-h: 900px;
   right: -300px;
-  top: 600px;
-  transform: rotate(320deg);
+  top: 430px;
+  /* under the notes (12) */
+  z-index: 11;
+  transform: rotate(335deg);
   pointer-events: none;
 }
 
@@ -244,6 +229,12 @@
   width: 66%;
   height: 43%;
   transform: rotate(16deg);
+}
+
+/* maps to the envelope's screen centre-top after the button's -40° turn */
+#obj-letter .tip-spot {
+  left: 61%;
+  top: 27%;
 }
 
 #obj-wand .w-sp1,

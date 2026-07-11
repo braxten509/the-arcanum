@@ -57,6 +57,11 @@ export const SFX = {
     tone(1046, 0.07, "sine", 0.14, 0.24);
   },
   page: () => { swish(480, 2400, 0.2, 0.4, 0, 0.6); swish(900, 300, 0.12, 0.25, 0.14); }, // a page turns
+  notes: () => { swish(620, 2900, 0.16, 0.32, 0, 0.55); },             // a loose note turns
+  letter: () => { swish(380, 1800, 0.2, 0.38, 0, 0.7); },             // a heavier ledger letter opens
+  grimoire: () => { swish(260, 1300, 0.24, 0.42, 0, 0.75); },         // a heavy book closes
+  green_tome: () => { swish(520, 2300, 0.18, 0.34, 0, 0.6); },        // the green tome turns
+  wand: () => { swish(760, 4200, 0.13, 0.4, 0, 0.35); },              // the duel wand cuts the air
   orb: () => {                                                        // a fingertip rings the crystal
     tone(1568, 0.55, "sine", 0.26 * V.uiVol);                          // G6, a clear glass ring
     tone(2349, 0.5, "sine", 0.13 * V.uiVol, 0.01);                     // D7 partial
@@ -66,6 +71,10 @@ export const SFX = {
   candle: () => {                                                     // a breath stirs the flame
     swish(680, 230, 0.24, 0.34 * V.uiVol, 0, 0.5);                     // the low whoosh of the flame bending
     swish(2600, 1300, 0.08, 0.11 * V.uiVol, 0.03);                     // the wick's dry crackle
+  },
+  ink: () => {                                                        // a quill dips into a heavy inkwell
+    tone(180, 0.11, "sine", 0.22 * V.uiVol);
+    swish(720, 180, 0.16, 0.2 * V.uiVol, 0.02, 0.7);
   },
   peddler: () => {                                                    // the peddler's pouch shifts, coins within
     swish(1200, 480, 0.14, 0.28 * V.uiVol, 0, 0.5);                    // the leather satchel rustles

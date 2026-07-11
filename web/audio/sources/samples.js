@@ -6,13 +6,17 @@ import { CONFIG, V, ctx, sfxBus } from "../core.js";
 // named in audio.toml [sound_files]. Drop the file in sounds/, name it, refresh.
 const sampleBuffers = {};       // filename -> decoded AudioBuffer
 const sampleFetchStarted = {};  // filename -> true once we have begun fetching it
+const sampleFailed = {};        // filename -> true when fetch/decode failed; only then may the synth stand in
 function loadSampleFile(filename) {
   if (!filename || sampleFetchStarted[filename] || !ctx) return;
   sampleFetchStarted[filename] = true;
   fetch("sounds/" + filename).then((response) => response.arrayBuffer())
     .then((raw) => ctx.decodeAudioData(raw))
     .then((buffer) => { sampleBuffers[filename] = buffer; })
-    .catch(() => {}); // missing/undecodable: the synthesized voice keeps playing
+    .catch(() => { sampleFailed[filename] = true; }); // missing/undecodable: later clicks may use the synth
+}
+export function loadSampleOverrides() {
+  Object.values(CONFIG.sound_files).forEach(loadSampleFile);
 }
 // true when a configured file replaced the sound; false to fall back to the synth
 export function playSampleOverride(name) {
@@ -20,8 +24,15 @@ export function playSampleOverride(name) {
   if (!filename) return false;
   loadSampleFile(filename);
   const buffer = sampleBuffers[filename];
-  if (!buffer) return false; // configured but not decoded yet — the synth stands in this once
+  // A configured recording owns this cue even while it is decoding. Returning
+  // true suppresses the synth during that brief window instead of leaking the
+  // wrong voice; a genuine load failure restores the synth on later clicks.
+  if (!buffer) return !sampleFailed[filename];
   const source = ctx.createBufferSource(); source.buffer = buffer;
+  const pitchMin = Number(CONFIG.sample_pitch && CONFIG.sample_pitch[name + "_min"]);
+  const pitchMax = Number(CONFIG.sample_pitch && CONFIG.sample_pitch[name + "_max"]);
+  if (Number.isFinite(pitchMin) && Number.isFinite(pitchMax) && pitchMax >= pitchMin)
+    source.playbackRate.value = pitchMin + Math.random() * (pitchMax - pitchMin);
   const gainNode = ctx.createGain(); gainNode.gain.value = 1; // the master SFX volume applies via the bus
   source.connect(gainNode); gainNode.connect(sfxBus);
   source.start(ctx.currentTime);

@@ -8,7 +8,7 @@
 /* ---- the candle (lower-left, click = trim the wick / settings) ---- */
 #candle {
   position: absolute;
-  left: -90px;
+  left: -40px;
   top: 85px;
   z-index: 20;
   width: 200px;
@@ -78,6 +78,17 @@
   transform-origin: 50% 88%;
   opacity: .96;
   pointer-events: none;
+  /* the flicker owns `transform` (WAAPI, fill:forwards); `translate` composes
+     with it, so the flame can ride the hover lift of the candle art */
+  transition: translate .28s cubic-bezier(.16, 1, .3, 1);
+}
+
+#candle:hover .c-live-flame {
+  translate: 0 -3px;
+}
+
+#candle:active .c-live-flame {
+  translate: 0 0;
 }
 
 #candle .c-live-flame::before {
@@ -101,30 +112,6 @@
   width: 8px;
   height: 8px;
   pointer-events: none;
-}
-
-#candle .obj-label {
-  /* The holder is rotated and deliberately overhangs the table. The arc in
-     the path is concentric with the dish rim (dish center = 136,-95 in this
-     viewBox, label radius 140 vs rim 127). */
-  left: 0;
-  top: 200px;
-  bottom: auto;
-  width: 230px;
-  height: 180px;
-  overflow: visible;
-  transform: none;
-  letter-spacing: .4em;
-}
-
-#candle .obj-label text {
-  pointer-events: auto;
-  /* same #c8ab74 the desk-object captions get from .obj-label's color */
-  fill: currentColor;
-}
-
-#candle:hover .obj-label {
-  opacity: 1;
 }
 
 #candle:hover .c-object {
@@ -196,6 +183,22 @@
   display: block;
 }
 
+/* Fixed tooltip anchor: a zero-size point pinned to a landmark of each prop's
+   artwork (in % of the art box, so it rides the prop's rotate/scale).
+   tooltip.js anchors the parchment scrap here instead of the hit's rect. */
+.tip-spot {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+/* the dish rim's top, centre (dish circle: centre 136, top 18 in button coords) */
+#candle .tip-spot {
+  left: 136px;
+  top: 14px;
+}
+
 .desk-obj .desk-image {
   position: absolute;
   inset: 0;
@@ -211,39 +214,6 @@
 .desk-obj:hover .desk-image {
   filter:
     drop-shadow(0 12px 9px rgba(6, 2, 0, .68)) drop-shadow(0 1px 2px rgba(238, 194, 112, .16));
-}
-
-.obj-label {
-  position: absolute;
-  left: 0;
-  right: 0;
-  text-align: center;
-  bottom: -20px;
-  white-space: nowrap;
-  font-family: var(--arch);
-  font-size: 10px;
-  letter-spacing: .16em;
-  color: #c8ab74;
-  opacity: .55;
-  transition: opacity .25s;
-  text-shadow: 0 1px 6px rgba(8, 3, 0, .8);
-}
-
-.desk-obj:hover .obj-label {
-  opacity: 1;
-}
-
-.desk-obj .obj-sub {
-  position: absolute;
-  left: 0;
-  right: 0;
-  text-align: center;
-  bottom: -36px;
-  font-family: var(--mono);
-  font-size: 10px;
-  color: #9c7f4e;
-  opacity: .8;
-  white-space: nowrap;
 }
 
 .desk-obj.locked {

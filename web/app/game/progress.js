@@ -94,8 +94,9 @@ export function updateHud() {
   if (bAtk) {
     const d = Math.min(window.ATTACK_TIERS.length, passed);
     bAtk.classList.toggle("locked", d < 1);
-    $("#obj-wand-d").textContent = d < 1 ? "" : `CIRCLE ${roman(d)}`;
-    bAtk.title = d < 1 ? "Seal your first chapter before challenging a rival" : `Duel a rival of the ${roman(d)} circle`;
+    // the tooltip lives on the hit strip: the button itself takes no pointer events
+    const wHit = $("#obj-wand .w-hit");
+    if (wHit) wHit.title = d < 1 ? "Seal your first chapter before challenging a rival" : `Duel a rival of the ${roman(d)} circle`;
   }
 }
 
@@ -122,7 +123,7 @@ export function renderSidebar() {
 }
 
 // ------------------------------------------------------------ navigation
-export function go(view, sec, lesson) {
+export function go(view, sec, lesson, pageSound = true) {
   const moved = !S.nav || S.nav.view !== view || S.nav.sec !== (sec || null) || S.nav.lesson !== (lesson || null);
   S.nav = { view, sec: sec || null, lesson: lesson || null };
   save();
@@ -137,7 +138,7 @@ export function go(view, sec, lesson) {
   else if (view === "freestyle") { renderFreestyle(sec); }
   renderSidebar();
   $("#main").scrollTop = 0;
-  if (moved) sfx("page");
+  if (moved && pageSound) sfx("page");
 }
 
 export const secById = (id) => window.SECTIONS.find((s2) => s2.id === id);

@@ -23,9 +23,21 @@ function show(el) {
   tip.textContent = t;
   tip.classList.remove("below", "show");
   tip.style.left = "0px"; tip.style.top = "0px"; // measure unclamped
-  const r = el.getBoundingClientRect();
+  // The desk props' hit areas are rotated/scaled, so their bounding boxes are
+  // far larger than the art and their centers drift off it. Each prop carries
+  // a .tip-spot pinned to a landmark of its artwork; anchor there when present.
+  const spot = el.closest(".obj-art, #candle")?.querySelector(".tip-spot");
+  const b = (spot || el).getBoundingClientRect();
+  // clamped to the viewport for the props that overhang the table edges
+  // (both edges clamped both ways, so a fully off-screen anchor still yields
+  // an on-screen tooltip instead of a negative-y one)
+  const cl = (v) => Math.max(0, Math.min(v, innerHeight));
+  const r = {
+    left: Math.max(b.left, 0), right: Math.min(b.right, innerWidth),
+    top: cl(b.top), bottom: cl(b.bottom),
+  };
   const w = tip.offsetWidth, h = tip.offsetHeight;
-  const cx = r.left + r.width / 2;
+  const cx = (r.left + r.right) / 2;
   const x = Math.max(8, Math.min(cx - w / 2, innerWidth - w - 8));
   let y = r.top - h - 9;
   if (y < 8) { y = r.bottom + 9; tip.classList.add("below"); }

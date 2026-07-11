@@ -56,8 +56,10 @@ async function init() {
   $("#obj-notes").onclick = showOracleLog;
   $("#obj-quill").onclick = showBinder;
   $("#obj-grimoire").onclick = showCodeBook;
-  $("#obj-satchel").onclick = () => go("shop");
-  $("#obj-letter").onclick = () => go("home");
+  // These desk objects already voice themselves on pointer-down. Suppress the
+  // generic navigation page-turn or it layers in only when the view changes.
+  $("#obj-satchel").onclick = () => go("shop", null, null, false);
+  $("#obj-letter").onclick = () => go("home", null, null, false);
   $("#obj-tomes").onclick = showTomePicker;
   $("#obj-wand").onclick = initiateAttack;
   $("#candle").onclick = showStudySettings;
@@ -165,7 +167,10 @@ async function init() {
     else if (t.closest("#parchment")) kind = "click";     // anywhere on the parchment
     else if (t.closest(".modal, .grade-card")) kind = "click"; // a parchment card (bindery / forge / grade) — dust like the page, buttons included
     else if (t.closest("button")) { kind = "click"; material = false; } // HUD buttons OUTSIDE parchment: tick only (before the wood catch, so the header bar's buttons don't knock)
-    else if (t.closest("#table, #hud")) kind = "wood";    // the wooden desk — incl. the header strip above the parchment (title + empty space)
+    // The bare HUD has pointer-events:none so overhanging props remain clickable.
+    // Its empty wood therefore targets #shell rather than #hud; catch that only
+    // after every specific object, control, modal, and parchment surface above.
+    else if (t.closest("#table, #hud, #shell")) kind = "wood";
     else return;
     sfx(kind);
     if (material) burst(e.clientX, e.clientY, kind);

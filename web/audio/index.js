@@ -7,14 +7,17 @@
    This is the api. Import it for its side effect — it hangs GhostAudio on window,
    which is how the rest of the engine has always reached the sound. */
 import { setAmbience } from "./cues/ambience.js";
-import { V, configure, crackleG, ctx, ensureCtx, windG } from "./core.js";
+import { V, configure as configureCore, crackleG, ctx, ensureCtx, windG } from "./core.js";
 import { keyclick, setKeys } from "./cues/keys.js";
-import { loadCast, loadHex, playSampleOverride } from "./sources/samples.js";
+import { loadCast, loadHex, loadSampleOverrides, playSampleOverride } from "./sources/samples.js";
 import { SFX } from "./cues/sfx.js";
 import { sigilCast, spellHit } from "./cues/spell.js";
 
 window.GhostAudio = {
-  configure,
+  configure(cfg) {
+    configureCore(cfg);
+    loadSampleOverrides();
+  },
   init(prefs) {
     V.ambOn = !!(prefs && prefs.ambience !== false);
     if (prefs && typeof prefs.volume === "number") V.ambVol = prefs.volume / 100;
@@ -24,6 +27,7 @@ window.GhostAudio = {
     // create the context at load: where autoplay policy allows (Firefox lineage),
     // the keepalive warms the output stream before the session's very first click
     ensureCtx();
+    loadSampleOverrides(); // warm shipped/configured UI recordings before their first click
     loadCast(); // warm the spell-cast samples before the first working
     loadHex();  // warm the incoming-hex sample before the first ambush
     if (ctx.state === "suspended") ctx.resume().catch(() => { });
