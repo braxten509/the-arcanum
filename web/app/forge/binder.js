@@ -86,7 +86,7 @@ export function showBinder() {
   it.addEventListener("change", () => { persist(); syncDesc(); });
   rv.addEventListener("change", () => { if (rv.checked) bd.checked = false; persist(); syncDesc(); });
   rs.addEventListener("change", () => { persist(); syncReset(); });
-  fetch("/api/models").then((r) => r.json()).then((d) => {
+  const fillModels = (d) => {
     BINDERY = (d.bindery || []).filter((p) => p.installed !== false);
     k.prov.innerHTML = '<option value="">PICK A MODEL</option>' + BINDERY.map((p) => `<option value="${esc(p.id)}">${esc(p.label)}</option>`).join("");
     k.prov.disabled = false;
@@ -105,10 +105,18 @@ export function showBinder() {
     syncDesc(); syncReset();
     restoring = false;
     reattachOrResume();   // BINDERY is loaded now, so a resume card has hands to offer
-  }).catch(() => {
-    k.prov.innerHTML = '<option value="">—</option>'; k.prov.disabled = true;
-    toast("Could not reach the model list — is the server up?", "bad");
-  });
+  };
+  // Fetch failures retry quietly before the toast — a hiccup mid-startup is not "server down".
+  // fillModels sits in .then's SUCCESS slot only, so its own errors never trigger the toast.
+  const loadModels = (attempt = 0) => {
+    fetch("/api/models").then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(fillModels, () => {
+        if (attempt < 2) { setTimeout(() => loadModels(attempt + 1), 800 * (attempt + 1)); return; }
+        k.prov.innerHTML = '<option value="">—</option>'; k.prov.disabled = true;
+        toast("Could not reach the model list — is the server up?", "bad");
+      });
+  };
+  loadModels();
   const actions = $("#modal-root .modal-actions");
   const out = $("#binder-a", root);
   const sendBtn = document.createElement("button");

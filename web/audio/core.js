@@ -19,7 +19,7 @@ export const V = { ambOn: true, ambVol: 0.5, windVol: 0.5, keyVol: 1, uiVol: 1, 
 export const CONFIG = {
   sound_effects: { volume: 100 },
   sample_gain: { cast_release: 1.8, spell_hit_release: 1.3, hex: 1.2, hex_fade_seconds: 0.9, stroke: 0.4 },
-  sample_pitch: { peddler_min: 0.95, peddler_max: 1.05, wand_min: 0.86, wand_max: 1.14 },
+  sample_pitch: { peddler_min: 0.95, peddler_max: 1.05, wand_min: 0.86, wand_max: 1.14, stone_min: 0.92, stone_max: 1.08 },
   ambience: { lowpass_hertz: 4200, fade_seconds: 0.6, room_gain: 0.05, room_lowpass_hertz: 260, wobble_hertz: 0.17, wobble_depth: 0.02 },
   keys: {},
   // Shipped recordings are defaults here as well as in audio.toml so they can
@@ -34,6 +34,7 @@ export const CONFIG = {
     notes: "notes-page.mp3",
     orb: "orb-ding.mp3",
     peddler: "coin-pouch.mp3",
+    stone: "stone-tap.mp3",
     wand: "wand-swish.mp3",
   },
 };
