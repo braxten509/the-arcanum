@@ -17,6 +17,7 @@ body = '''
 
     Console.WriteLine(<span class="s">$"You asked: \"{line}\""</span>);
 }</code></pre>
+<p>Trace one turn before you change anything: execution reaches <code>while</code>, hears one line, tests the <code>if</code>, and either leaves with <code>break</code> or prints the echo. It then reaches the closing brace and returns to the top. With input <code>hello</code>, then <code>quit</code>, the body begins twice but the echo runs only once. Reading control flow in this small, literal way is how apprentices tame larger programs.</p>
 <ul>
 <li><code>while (true)</code> — the condition holds forever, so the loop turns until something breaks it.</li>
 <li><code>if (line == "quit")</code> — <code>==</code> weighs strings by their text in C#. (Not every tongue is so kind.)</li>
@@ -50,6 +51,7 @@ choices = ["compares memory addresses, so it's usually false", "doesn't compile 
 answer = 3
 whyWrong = "In C# == on strings compares the actual characters, not memory addresses, and compiles fine without .Equals() — reference-comparison is a Java habit that doesn’t apply here."
 hint = "C# overloads == for strings to do the sane thing."
+explain = "For two C# strings, <code>==</code> compares their text content, so a line containing the four characters <code>quit</code> matches the string literal."
 
 [[lessons.exercises]]
 id = "s01-l05-e3"
@@ -60,6 +62,7 @@ choices = ["line.Trim().ToLower() == \"quit\"", "line.Trim() == \"QUIT!\"", "lin
 answer = 0
 whyWrong = "Raw ‘quit’ fails on capitals/spaces, ToLower alone leaves the spaces, and the ‘QUIT!’ variant adds punctuation — only Trim().ToLower() normalizes both case and surrounding whitespace."
 hint = "First strip the spaces, then quiet the case."
+explain = "<code>Trim()</code> removes the surrounding spaces and <code>ToLower()</code> changes <code>QUIT</code> to <code>quit</code>, so the normalized value matches the sentinel."
 
 [[lessons.exercises]]
 id = "s01-l05-d1"
