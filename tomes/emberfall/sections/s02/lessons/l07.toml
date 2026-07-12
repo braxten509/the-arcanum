@@ -1,0 +1,134 @@
+[[lessons]]
+id = "s02-l07"
+title = "Strings & try/catch — Real Text, Handled Failure"
+body = '''
+<p>Every artificer's name, every line of dialogue, every save file is text — and <code>string</code> has more to it than the <code>+</code>/<code>$"..."</code> work chapter I covered. Four methods carry most of the load: <code>.Length</code> counts characters, <code>.ToUpper()</code>/<code>.ToLower()</code> return a new string cased differently, <code>.Contains(text)</code> checks for a substring, and <code>.Split(separator)</code> breaks a string into a <code>string[]</code> array wherever the separator character appears.</p>
+<pre><code><span class="k">string</span> line = <span class="s">"Kess,25,Fire"</span>;
+<span class="k">string</span>[] parts = line.Split(<span class="s">','</span>);
+Console.WriteLine(parts[0]);          <span class="c">// Kess</span>
+Console.WriteLine(parts.Length);      <span class="c">// 3</span>
+Console.WriteLine(line.Contains(<span class="s">"Fire"</span>));   <span class="c">// True</span></code></pre>
+<p>Strings are <strong>immutable</strong> — <code>.ToUpper()</code> does not change <code>line</code> itself, it returns a brand-new string; <code>line</code> is untouched unless you reassign it (<code>line = line.ToUpper();</code>). <code>string.Join(separator, collection)</code> runs <code>Split</code> in reverse, gluing a <code>List&lt;string&gt;</code> or array back into one string with a separator between each piece — useful the moment you need to print a whole <code>List&lt;string&gt;</code> inventory as one line instead of one per <code>foreach</code> pass.</p>
+<p>Not every piece of text behaves — <code>int.Parse</code> from chapter I crashes outright on bad input, and a crash mid-game is worse than a wrong number. C#'s <strong>try/catch</strong> lets you run risky code and recover instead of dying:</p>
+<pre><code><span class="k">string</span> raw = <span class="s">"oops"</span>;
+<span class="k">try</span>
+{
+    <span class="k">int</span> amount = <span class="k">int</span>.Parse(raw);
+    Console.WriteLine($<span class="s">"DONATION {amount} OK"</span>);
+}
+<span class="k">catch</span> (FormatException)
+{
+    Console.WriteLine($<span class="s">"DONATION {raw} SKIPPED (invalid)"</span>);
+}</code></pre>
+<p>C# runs the <code>try</code> block's statements in order. The moment any statement inside it throws an exception whose type matches the <code>catch</code>, execution jumps straight into that <code>catch</code> block — the rest of the <code>try</code> block, including the <code>Console.WriteLine</code> after <code>Parse</code>, never runs — and the program keeps going with whatever comes after the whole try/catch, instead of crashing. <code>FormatException</code> names the specific exception <code>int.Parse</code> throws on unparseable text; a <code>catch</code> only intercepts the exception type it names (or one that inherits from it), so a <code>catch (FormatException)</code> would not catch, say, a divide-by-zero error.</p>
+<div class="callout">Reach for try/catch around anything that reads from outside your own program's control — user input, a file, a network response — never around ordinary arithmetic whose inputs you already fully control. Handling errors you can't actually cause just hides real bugs behind a silent catch block.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ERROR HANDLING IS A DESIGN DECISION</div>
+<p>Chapter I's field notes flagged int.TryParse as "the shape you'll actually use once error handling is in your toolkit" — it now is, and it's worth naming the real choice: TryParse suits a tight loop checking many values where a bool is all you need, while try/catch suits a spot where several different things could go wrong in different ways (a missing file, a malformed line, a network timeout) and each needs its own recovery. Neither is strictly better — picking between them, and being able to say why, is exactly the kind of judgment call this course is building toward.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Microsoft C# guide: Exception handling (try, catch, finally)"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/exceptions/exception-handling"
+
+[[lessons.readings]]
+label = "OPTIONAL // Microsoft C# guide: String.Split"
+url = "https://learn.microsoft.com/en-us/dotnet/api/system.string.split"
+
+[[lessons.exercises]]
+id = "s02-l07-e1"
+type = "mc"
+points = 15
+prompt = "string line = \"Kess,25,Fire\"; then string upper = line.ToUpper(); runs. What does line itself hold afterward?"
+choices = ["\"KESS,25,FIRE\" — ToUpper changes line in place", "An empty string, since ToUpper consumes the original", "A compile error — ToUpper requires reassigning line", "Still \"Kess,25,Fire\" — ToUpper returns a new string and leaves line untouched"]
+answer = 3
+whyWrong = "Strings are immutable in C# — no string method, ToUpper included, ever mutates the original in place or empties it out, and this compiles and runs fine with no reassignment required; ToUpper() hands back a brand-new uppercased string (captured here in upper) while line keeps its original, untouched value."
+hint = "This lesson names strings as immutable right before introducing ToUpper — what does immutable mean for the original variable?"
+explain = "Strings never mutate in place — ToUpper() returns a new string, so line stays exactly as it was unless you explicitly reassign it."
+
+[[lessons.exercises]]
+id = "s02-l07-e2"
+type = "mc"
+points = 15
+prompt = "try { int amount = int.Parse(\"oops\"); Console.WriteLine(\"parsed\"); } catch (FormatException) { Console.WriteLine(\"caught\"); } — what prints?"
+choices = ["caught", "parsed", "Both parsed and caught, in that order", "Nothing — FormatException isn't a real exception type"]
+answer = 0
+whyWrong = "FormatException is a real, standard exception type (it's exactly what int.Parse throws on bad input, so 'not real' is wrong), and 'parsed' never prints — the moment int.Parse(\"oops\") throws, control jumps immediately into the matching catch block, skipping every remaining line in the try, including the Console.WriteLine(\"parsed\") that follows it — so parsed and caught together is also wrong; only caught runs."
+hint = "int.Parse throws before Console.WriteLine(\"parsed\") ever gets a chance to run — where does control jump the instant it throws?"
+explain = "int.Parse(\"oops\") throws FormatException immediately, so execution jumps straight to the matching catch — parsed never has a chance to print."
+
+[[lessons.exercises]]
+id = "s02-l07-e3"
+type = "text"
+points = 20
+prompt = "Which string method splits \"Kess,25,Fire\" into a string[] wherever a comma appears?"
+answer = "Split"
+hint = "PascalCase, and this lesson used it with a comma character argument to break the line into three parts."
+
+[[lessons.exercises]]
+id = "s02-l07-e4"
+type = "fill"
+points = 20
+prompt = "Fill in the exception type this catch block should name to intercept int.Parse's failure on unparseable text."
+code = '''try
+{
+    int amount = int.Parse(raw);
+}
+catch (____)
+{
+    Console.WriteLine("invalid");
+}'''
+answer = "FormatException"
+hint = "It's the exact exception type this lesson's donation example names in its own catch clause."
+
+[[lessons.exercises]]
+id = "s02-l07-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this try/catch exactly, until your hand knows it without reading. (Ctrl+Enter submits.)"
+code = '''try
+{
+    int amount = int.Parse(raw);
+    Console.WriteLine($"DONATION {amount} OK");
+}
+catch (FormatException)
+{
+    Console.WriteLine($"DONATION {raw} SKIPPED (invalid)");
+}'''
+
+[[lessons.exercises]]
+id = "s02-l07-w1"
+type = "write"
+points = 35
+prompt = "Given List&lt;string&gt; donations containing \"50\", \"12\", \"oops\", \"8\" in that order, loop over it and for each entry try int.Parse inside a try/catch: on success print DONATION followed by the parsed value then OK, and add it to a running total; on FormatException print DONATION followed by the raw text then SKIPPED. After the loop print TOTAL DONATIONS followed by the sum (must be 70, computed from the three valid entries)."
+starter = '''
+List<string> donations = new List<string>() { "50", "12", "oops", "8" };
+int total = 0;
+// foreach donation: try int.Parse, print OK and add to total, or catch FormatException and print SKIPPED.
+
+'''
+expect = '''
+DONATION 50 OK
+DONATION 12 OK
+DONATION oops SKIPPED
+DONATION 8 OK
+TOTAL DONATIONS 70'''
+solution = '''
+List<string> donations = new List<string>() { "50", "12", "oops", "8" };
+int total = 0;
+foreach (string raw in donations)
+{
+    try
+    {
+        int amount = int.Parse(raw);
+        Console.WriteLine($"DONATION {amount} OK");
+        total += amount;
+    }
+    catch (FormatException)
+    {
+        Console.WriteLine($"DONATION {raw} SKIPPED");
+    }
+}
+Console.WriteLine($"TOTAL DONATIONS {total}");
+'''
+hint = "Put the int.Parse and the total += inside the try block together — if Parse throws, total += never runs for that entry, which is exactly what you want."

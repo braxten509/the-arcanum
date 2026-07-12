@@ -23,7 +23,7 @@ def _codex_no_mcp():
 # A build runner must wield tools and edit files, so only the agentic login CLIs
 # qualify — ollama prints text; it cannot hold the quill.
 CLI_RUNNERS = {
-    "claude-cli": {"cmd": ["claude", "-p", "--permission-mode", "acceptEdits", "--model", "{model}"], "input": "arg",
+    "claude-cli": {"cmd": ["claude", "-p", "--permission-mode", "auto", "--model", "{model}"], "input": "arg",
                    "efforts": ("low", "medium", "high", "xhigh", "max"),
                    "effortArgs": ["--effort", "{effort}"]},
     # agy has no effort switch — its Gemini model names carry it (Low/Medium/High variants).
@@ -35,16 +35,16 @@ CLI_RUNNERS = {
                                 "--model", "{model}", "--print"], "input": "arg"},
     # npm codex preferred: the Arch openai-codex package omits codex-code-mode-host (gpt-5.6 needs it)
     "codex-cli": {"cmd": [os.path.expanduser("~/.local/bin/codex") if os.access(os.path.expanduser("~/.local/bin/codex"), os.X_OK) else "codex",
-                          "exec", "--skip-git-repo-check", "-s", "workspace-write", *_codex_no_mcp(), "-m", "{model}", "-"], "input": "stdin",
+                          "--search", "exec", "--skip-git-repo-check", "-s", "workspace-write", *_codex_no_mcp(), "-m", "{model}", "-"], "input": "stdin",
                   "efforts": ("minimal", "low", "medium", "high", "xhigh"),
                   "effortArgs": ["-c", "model_reasoning_effort={effort}"]},
     # opencode drives OpenCode Go / free models (opencode-go/*, opencode/*) AND local models
     # (ollama/* run THROUGH the opencode agent, which wields the tools the raw model can't).
-    # --dangerously-skip-permissions auto-approves edits/bash so it can build headlessly (same
-    # posture as agy/claude above). --variant is opencode's reasoning-effort knob — only some
+    # --auto approves edits/bash so it can build headlessly. Split-section workers additionally
+    # run inside the harness's read-only-repo mount sandbox. --variant is the effort knob — only some
     # models honour a given variant, so the picker offers it for OpenCode CLI (not Local) and
     # leaving it DEFAULT sends none.
-    "opencode-cli": {"cmd": ["opencode", "run", "--dangerously-skip-permissions", "-m", "{model}"], "input": "arg",
+    "opencode-cli": {"cmd": ["opencode", "run", "--auto", "-m", "{model}"], "input": "arg",
                      "efforts": ("none", "minimal", "low", "medium", "high", "max"),
                      "effortArgs": ["--variant", "{effort}"]},
 }

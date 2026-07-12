@@ -1,0 +1,31 @@
+[freestyle]
+title = "THE GREAT WORKING: BLOOD & STEEL"
+brief = "The diorama is over, artificer. In the real <code>Emberfall</code> Unity project, forge the first combat loop into the scene. Attach scripts, wire Inspector references, press Play, and prove the machine can hurt and react.<ul><li>Create <code>Health.cs</code> on <code>ArtificerRig</code>: Inspector-tunable private <code>maxHP</code>, Awake initialization of <code>CurrentHP</code>, clamped <code>TakeDamage(int amount)</code> from <code>0..maxHP</code>, and <code>IsDead()</code>.</li><li>Add public <code>HealthChanged</code> carrying the new integer HP. A separate listener must subscribe in OnEnable, unsubscribe in OnDisable, and visibly log or display the received HP; Health must not know the listener.</li><li>Create a goblin prefab with <code>EnemyController.cs</code>, Rigidbody2D, and Forge VI collider/layer discipline. Assign <code>ArtificerRig</code>'s Transform in the Inspector. It Chases using Rigidbody2D movement, then calls Health.TakeDamage through fetched Health at or inside attackRange.</li><li>Use exact <code>EnemyState</code> members <code>Idle</code>, <code>Chase</code>, and <code>Attack</code>. Attack uses IEnumerator, WaitForSeconds, and a recovery guard so close range loses HP at a visible interval, not every FixedUpdate.</li><li>In Play mode demonstrate Idle, Chase, and Attack plus two separated HealthChanged observations. HP must never display below zero.</li></ul>"
+reward = 320
+xray = "The Worldwright docks points for a goblin that edits CurrentHP directly, a timer that freezes the scene, an Attack state that restarts its coroutine every physics tick, or a listener left subscribed after OnDisable. He looks for assigned Inspector references, HealthChanged after the clamped value, and the exact Idle/Chase/Attack trail. Craft credit: PascalCase types, methods, properties, and enum members; camelCase private fields and parameters; four-space indentation and Allman braces."
+packages = []
+
+[freestyle.badge]
+id = "badge-s07"
+name = "STEELHEART"
+desc = "Forged the first enemy that can chase, strike, and be heard."
+
+[[freestyle.rubric]]
+criterion = "Health Boundary & Signal"
+weight = 25
+desc = "ArtificerRig has Health: Awake initializes CurrentHP, TakeDamage clamps 0..maxHP, IsDead is correct, and a separate listener receives HealthChanged after changes without Health hard-referencing it."
+
+[[freestyle.rubric]]
+criterion = "Enemy State Machine & Physics Chase"
+weight = 25
+desc = "A Play-mode goblin with Rigidbody2D uses exact Idle, Chase, Attack states, has its target assigned, chases with Rigidbody2D movement, and attacks at or within attackRange."
+
+[[freestyle.rubric]]
+criterion = "Timed Damage Is Real"
+weight = 25
+desc = "Attack fetches Health and calls TakeDamage rather than editing HP. IEnumerator with WaitForSeconds and a recovery guard creates separated repeat damage, not damage every FixedUpdate or a frozen scene."
+
+[[freestyle.rubric]]
+criterion = "C# Craft & Scene Proof"
+weight = 25
+desc = "Uses PascalCase for types, methods, properties, enum members; camelCase for private fields and parameters; consistent four-space indentation and Allman braces. Scene proof shows listener, assigned target, Idle/Chase/Attack, and non-negative HP."

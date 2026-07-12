@@ -1,0 +1,122 @@
+[[lessons]]
+id = "s02-l02"
+title = "Loops — Doing It Again, On Purpose"
+body = '''
+<p>A boss fight is not one line of damage math — it's the same few lines running over and over until someone's HP hits zero. C# gives you two workhorse loops for "run this again": <strong>while</strong>, which repeats as long as a condition stays true, and <strong>for</strong>, which repeats a known number of times.</p>
+<pre><code><span class="k">int</span> hitPoints = 20;
+<span class="k">int</span> turn = 1;
+
+<span class="k">while</span> (hitPoints > 0 && turn <= 5)
+{
+    Console.WriteLine($<span class="s">"Turn {turn}: {hitPoints} HP"</span>);
+    hitPoints -= 4;
+    turn++;
+}</code></pre>
+<p>A <code>while</code> checks its condition <em>before</em> every iteration, including the first — if <code>hitPoints</code> started at 0, the loop body would never run at all. <code>turn++</code> is shorthand for <code>turn = turn + 1</code>; its sibling <code>hitPoints -= 4</code> is shorthand for <code>hitPoints = hitPoints - 4</code>. Forget to change the variable the condition checks, and you have written an infinite loop — the program hangs forever, since <code>hitPoints > 0</code> never becomes false.</p>
+<p>A <code>for</code> loop packs the setup, the condition, and the "what changes each time" into one line — useful the moment you already know how many times something repeats:</p>
+<pre><code><span class="k">for</span> (<span class="k">int</span> wave = 1; wave <= 3; wave++)
+{
+    Console.WriteLine($<span class="s">"Wave {wave} inbound"</span>);
+}</code></pre>
+<p>Read the three <code>for</code> clauses as: run once before the loop starts (<code>int wave = 1</code>), check before every iteration (<code>wave <= 3</code>), run after every iteration's body finishes (<code>wave++</code>). <code>wave</code> only exists inside the loop's braces — it is out of scope the moment the loop ends.</p>
+<p>Two keywords redirect a loop mid-run: <code>break</code> exits the loop immediately, and <code>continue</code> skips straight to the next iteration without running the rest of the body.</p>
+<pre><code><span class="k">for</span> (<span class="k">int</span> i = 0; i < 5; i++)
+{
+    <span class="k">if</span> (i == 3) <span class="k">break</span>;
+    <span class="k">if</span> (i % 2 == 0) <span class="k">continue</span>;
+    Console.WriteLine(i);
+}
+<span class="c">// prints: 1  (i=0 skipped by continue, i=1 printed, i=2 skipped, i=3 breaks before printing)</span></code></pre>
+<div class="callout">for is the right tool the moment you know the trip count ahead of time (wave 1 through wave 3); while is the right tool when a condition, not a count, decides when to stop (fight until HP hits zero). Reach for the one that matches the actual shape of the problem.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHERE THE GAME LOOP IS HEADED</div>
+<p>Every loop in this lesson is finite — it eventually stops. Unity's real game loop (chapter III) is conceptually a <code>while (true)</code> that never stops on its own: the engine calls your code once per rendered frame, forever, until the game closes. You will not write that loop yourself — the engine owns it — but the habit of tracking what changes each pass and what condition would end things is exactly the muscle this lesson is building.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Microsoft C# guide: Iteration statements (for, while)"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/statements/iteration-statements"
+
+[[lessons.readings]]
+label = "OPTIONAL // Microsoft C# guide: Jump statements (break, continue)"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/statements/jump-statements"
+
+[[lessons.exercises]]
+id = "s02-l02-e1"
+type = "mc"
+points = 15
+prompt = "<code>int hitPoints = 0;</code> then <code>while (hitPoints > 0) { Console.WriteLine(\"tick\"); }</code> runs. What prints?"
+choices = ["tick, once", "tick, forever", "Nothing — the condition is checked before the first iteration and is already false", "A compile error, since hitPoints starts at 0"]
+answer = 2
+whyWrong = "A while checks its condition before EVERY pass including the first, so a false starting condition means the body never runs even once — this compiles fine and is not an infinite loop, since hitPoints > 0 is false from the very first check, before 'tick' ever has a chance to print."
+hint = "while checks its condition before the first pass too — is 0 > 0 ever true?"
+explain = "hitPoints > 0 is false immediately, since hitPoints is 0, so the while body never executes."
+
+[[lessons.exercises]]
+id = "s02-l02-e2"
+type = "mc"
+points = 15
+prompt = "In <code>for (int i = 0; i &lt; 5; i++) { if (i == 3) break; if (i % 2 == 0) continue; Console.WriteLine(i); }</code>, why does 3 never get printed?"
+choices = ["i % 2 == 0 is true for 3, so continue skips it", "break fires at i == 3, exiting the loop before that iteration's Console.WriteLine runs", "3 is odd, and odd numbers are never printed by this loop", "for loops never print their final iteration"]
+answer = 1
+whyWrong = "3 is odd (3 % 2 is 1, not 0) so the continue check is false for it and 'odd numbers are never printed' is backwards — this loop prints odd i, and there's nothing special about a for loop's last iteration; the actual reason is that break runs FIRST in the body and exits before Console.WriteLine(i) is ever reached for i == 3."
+hint = "Read the two if statements in order — which one is checked first when i is 3?"
+explain = "The break check (i == 3) runs before the continue/print logic each iteration, so once i reaches 3 the loop exits immediately — 3 is never printed."
+
+[[lessons.exercises]]
+id = "s02-l02-e3"
+type = "text"
+points = 20
+prompt = "Which loop keyword checks its condition before every single pass, including the very first one?"
+answer = "while"
+hint = "It's the loop this lesson used for the HP countdown, not the one with three semicolon-separated clauses."
+
+[[lessons.exercises]]
+id = "s02-l02-e4"
+type = "fill"
+points = 20
+prompt = "Fill in the missing clause so this loop counts wave from 1 through 3 inclusive."
+code = '''for (int wave = 1; ____; wave++)
+{
+    Console.WriteLine($"Wave {wave} inbound");
+}'''
+answer = "wave <= 3"
+hint = "The loop needs to keep running while wave is still 3 or less — think about the boundary that includes 3."
+
+[[lessons.exercises]]
+id = "s02-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this for loop exactly, until your hand knows it without reading. (Ctrl+Enter submits.)"
+code = '''for (int wave = 1; wave <= 3; wave++)
+{
+    Console.WriteLine($"Wave {wave} inbound");
+}'''
+
+[[lessons.exercises]]
+id = "s02-l02-w1"
+type = "write"
+points = 30
+prompt = "Using a for loop over wave = 1 through 4, compute each wave's damage as wave * 5, print WAVE followed by the wave number then DEALS then the damage then DAMAGE for each wave, then after the loop print the running sum as TOTAL DAMAGE 50 (do not hardcode 50 — accumulate it)."
+starter = '''
+int totalDamage = 0;
+// Loop wave from 1 to 4, print each wave's damage line, and accumulate totalDamage.
+
+'''
+expect = '''
+WAVE 1 DEALS 5 DAMAGE
+WAVE 2 DEALS 10 DAMAGE
+WAVE 3 DEALS 15 DAMAGE
+WAVE 4 DEALS 20 DAMAGE
+TOTAL DAMAGE 50'''
+solution = '''
+int totalDamage = 0;
+for (int wave = 1; wave <= 4; wave++)
+{
+    int damage = wave * 5;
+    Console.WriteLine($"WAVE {wave} DEALS {damage} DAMAGE");
+    totalDamage += damage;
+}
+Console.WriteLine($"TOTAL DAMAGE {totalDamage}");
+'''
+hint = "Each wave's damage is wave * 5 — add that value onto totalDamage with += inside the loop, then print totalDamage once after it ends."

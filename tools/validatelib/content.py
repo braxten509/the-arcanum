@@ -6,6 +6,12 @@ from collections import Counter
 from . import EXERCISE_TYPES, err, lang_config, warn
 
 
+def is_shouting_title(value):
+    """True for a multi-word ALL-CAPS display title, but not a short acronym like JSON."""
+    letters = [c for c in str(value) if c.isalpha()]
+    return len(letters) > 5 and all(c.isupper() for c in letters)
+
+
 def check_exercise(ex, label, seen_ex):
     if not isinstance(ex, dict):
         err(label, "[[lessons.exercises]] entries must be tables")
@@ -125,8 +131,7 @@ def check_section(sdata, sid, slabel, seen_ex, seen_les):
     # one is allowed: a chapter named "JSON" is fine, "THE FIRST CUT" is not).
     # `codename` is the deliberate all-caps channel; `title` never shouts.
     title = str(sdata.get("title", ""))
-    letters = [c for c in title if c.isalpha()]
-    if len(letters) > 5 and all(c.isupper() for c in letters):
+    if is_shouting_title(title):
         warn("content", f"{slabel}: section title {title!r} is ALL CAPS — chapter names are "
              "Title Case (one capital per word, acronyms excepted); all-caps styling belongs "
              "to the codename, not the title")
@@ -151,6 +156,10 @@ def check_section(sdata, sid, slabel, seen_ex, seen_les):
         if not str(les.get("title", "")).strip():
             err(slabel, f"lesson {lid!r}: missing title (must be a key on [[lessons]], not a "
                         "nested [lesson] table)")
+        lesson_title = str(les.get("title", ""))
+        if is_shouting_title(lesson_title):
+            warn("content", f"{slabel}: lesson {lid!r} title {lesson_title!r} is ALL CAPS — lesson "
+                 "names follow the same Title Case convention as chapter names (acronyms excepted)")
         if not str(les.get("body", "")).strip():
             hint = " — found `desc`; the engine reads `body`" if str(les.get("desc", "")).strip() else ""
             err(slabel, f"lesson {lid!r}: missing body (the lesson's HTML teaching text){hint}")

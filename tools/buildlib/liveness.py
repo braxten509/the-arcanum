@@ -98,7 +98,7 @@ def _feed_stdin(proc, prompt):
 
 
 def run_agent(cmd, input_mode, prompt, ping_interval=PING_INTERVAL_DEFAULT,
-              dead_pings=DEAD_PINGS_DEFAULT, hard_cap=None):
+              dead_pings=DEAD_PINGS_DEFAULT, hard_cap=None, cwd=None, env=None):
     """Invoke a headless agent, streaming its output to the terminal. Returns its exit code —
     or 124 if it goes UNRESPONSIVE: every `ping_interval`s we check the worker's process tree
     for liveness, and after `dead_pings` consecutive idle checks (no CPU AND no live network
@@ -108,7 +108,8 @@ def run_agent(cmd, input_mode, prompt, ping_interval=PING_INTERVAL_DEFAULT,
     cmd = resolve_bin(cmd)
     # ponytail: stdout/stderr are inherited (stream straight to the server/terminal, as before);
     # only stdin is piped, fed from a thread so a multi-KB prompt can't block the monitor.
-    proc = subprocess.Popen(cmd + ([prompt] if input_mode == "arg" else []), cwd=REPO,
+    proc = subprocess.Popen(cmd + ([prompt] if input_mode == "arg" else []), cwd=cwd or REPO,
+                            env=env,
                             stdin=(None if input_mode == "arg" else subprocess.PIPE),
                             text=(input_mode != "arg"))
     if input_mode != "arg":
@@ -194,7 +195,7 @@ def preflight_runners(distinct):
     drafter/writer/reviewer may be different providers/models, and each must answer before a
     long build starts. Exits with a combined report if any endpoint can't be reached.
     `distinct` is a list of (label, cmd, input_mode)."""
-    print(f"  · pre-flight: checking {len(distinct)} selected endpoint(s)…")
+    print(f"  · AI access Phase 0: checking {len(distinct)} selected endpoint(s)…")
     failures = []
     for label, cmd, input_mode in distinct:
         ok, detail = preflight_auth(cmd, input_mode, label)
@@ -203,6 +204,6 @@ def preflight_runners(distinct):
             failures.append((label, detail))
     if failures:
         lines = "\n".join(f"  · {lbl}: {d}" for lbl, d in failures)
-        sys.exit(f"\nPRE-FLIGHT FAILED — {len(failures)} of {len(distinct)} selected endpoint(s) "
+        sys.exit(f"\nAI ACCESS PHASE 0 FAILED — {len(failures)} of {len(distinct)} selected endpoint(s) "
                  f"cannot answer (nothing was built):\n{lines}")
-    print("  · pre-flight: all selected endpoints answer\n")
+    print("  · AI access Phase 0: all selected endpoints answer\n")

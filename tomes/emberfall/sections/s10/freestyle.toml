@@ -1,0 +1,36 @@
+[freestyle]
+title = "THE GREAT WORKING: THE FOREMAN'S BELL"
+brief = "The forge needs a foreman, artificer—not five panels each claiming the anvil. In the real Unity <code>Emberfall</code> project, make the game loop answer to one machine.<ul><li>Create a scene-level <code>GameStateManager</code> with a <code>GameState</code> enum containing exactly <code>MainMenu</code>, <code>Playing</code>, <code>Paused</code>, and <code>GameOver</code>. It exposes <code>CurrentState</code> with a private setter and has public <code>StartGame()</code>, <code>PauseGame()</code>, <code>ResumeGame()</code>, <code>EndGame()</code>, <code>ReturnToMenu()</code>, and <code>TogglePause()</code> methods.</li><li>Assign MainMenuPanel, HUD panel, PausePanel, and GameOverPanel references in the Inspector. Each state transition must activate only the appropriate panel combination: menu only; HUD while playing; HUD plus pause while paused; game over only after death. Do not let UI buttons set panels active directly.</li><li>Set <code>Time.timeScale</code> to <code>0f</code> only in Paused and restore it to <code>1f</code> on start, resume, game over, and return to menu. TogglePause may change state only from Playing or Paused.</li><li>Create <code>HealthHUD</code> with an assigned Health and TextMeshProUGUI. It subscribes/unsubscribes to <code>HealthChanged</code> in OnEnable/OnDisable, renders exact form <code>HP current/max</code>, and displays the initial value without waiting for damage.</li><li>Wire real Canvas Buttons to StartGame, TogglePause, ResumeGame, and ReturnToMenu. Connect Health reaching zero to EndGame. In Play mode visibly prove menu → play → pause → resume → game over → menu, including a HUD HP update and restored time after leaving pause.</li></ul>"
+reward = 400
+packages = []
+xray = "The Worldwright watches the real Play-mode machine and Inspector wiring. He docks competing panel owners, a paused state that leaves Time.timeScale at one, a menu return that leaves the clock frozen, a HUD that subscribes repeatedly or never draws its initial HP, and a TogglePause that pauses from the menu. Craft credit requires PascalCase types, methods, properties, and enum members; camelCase private fields and parameters; four-space indentation; and Allman braces."
+
+[freestyle.badge]
+id = "badge-s10"
+name = "FOREMAN'S BELL"
+desc = "Bound Emberfall's many parts to one honest game loop."
+
+[[freestyle.rubric]]
+criterion = "State Authority"
+weight = 25
+desc = "A scene-level GameStateManager owns the exact four-member GameState enum and CurrentState with private setter; public transition methods, rather than panels or buttons, are the single authority for state changes."
+
+[[freestyle.rubric]]
+criterion = "Panels & Scaled Time"
+weight = 25
+desc = "Inspector-assigned menu, HUD, pause, and game-over panels show the required combinations for every state; PauseGame sets Time.timeScale to 0f and every non-paused transition restores 1f. TogglePause is valid only while Playing or Paused."
+
+[[freestyle.rubric]]
+criterion = "HUD Event Binding"
+weight = 20
+desc = "HealthHUD binds an assigned Health to TextMeshProUGUI using HealthChanged in OnEnable/OnDisable, renders HP current/max immediately and after damage, and does not duplicate subscriptions."
+
+[[freestyle.rubric]]
+criterion = "Real UI Flow & Death"
+weight = 15
+desc = "Real Canvas Buttons call the manager's public methods; Health reaching zero reaches EndGame; Play mode visibly proves menu, play, pause, resume, game over, return to menu, and unfrozen time afterward."
+
+[[freestyle.rubric]]
+criterion = "C# Craft"
+weight = 15
+desc = "Uses PascalCase types, methods, properties, and enum members; camelCase private fields and parameters; consistent four-space indentation; and Allman braces."

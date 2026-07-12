@@ -1,0 +1,123 @@
+[[lessons]]
+id = "s07-l02"
+title = "Let the World Hear the Wound"
+body = '''
+<p>Health now keeps its numbers sound. The next danger is quieter: a readout, a death effect, and an enemy brain may all need to know when that number changes. Having each component poll <code>CurrentHP</code> every frame works, but makes every listener responsible for noticing the change. A C# <strong>event</strong> is the bell instead: Health rings it, and interested components choose to listen.</p>
+<pre><code><span class="k">using</span> System;
+<span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> Health : MonoBehaviour
+{
+    <span class="k">public</span> event Action&lt;<span class="k">int</span>&gt; HealthChanged;
+    <span class="k">public</span> <span class="k">int</span> CurrentHP { get; <span class="k">private</span> set; }
+
+    <span class="k">public</span> <span class="k">void</span> TakeDamage(<span class="k">int</span> amount)
+    {
+        <span class="k">int</span> proposedHP = CurrentHP - amount;
+        CurrentHP = Mathf.Clamp(proposedHP, 0, maxHP);
+        HealthChanged?.Invoke(CurrentHP);
+    }
+}</code></pre>
+<p><code>Action&lt;int&gt;</code> names a callback shape: a method that returns nothing and accepts one <code>int</code>. The event stores zero or more methods of that shape. Its name reports a fact, <code>HealthChanged</code>, rather than commanding a particular consumer such as a HUD. The <code>?.</code> is a null-conditional call: when nobody has subscribed, there is no callback to invoke and the line safely does nothing.</p>
+<pre><code><span class="k">public</span> <span class="k">class</span> HealthReadout : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> Health health;
+
+    <span class="k">private</span> <span class="k">void</span> OnEnable()
+    {
+        health.HealthChanged += ShowHP;
+    }
+
+    <span class="k">private</span> <span class="k">void</span> OnDisable()
+    {
+        health.HealthChanged -= ShowHP;
+    }
+
+    <span class="k">private</span> <span class="k">void</span> ShowHP(<span class="k">int</span> hp)
+    {
+        Debug.Log($<span class="s">"HP is now {hp}"</span>);
+    }
+}</code></pre>
+<p><code>+=</code> subscribes the method and <code>-=</code> removes it. Forge III gave us the matching lifecycle hooks: OnEnable when a component becomes active, OnDisable when it stops. Forgetting the unsubscribe leaves an old listener attached and can make a disabled component receive a later event. The listener receives the new value as <code>hp</code>; it never writes Health's private data.</p>
+<div class="callout">An event is ordinary C#, not an Inspector wire. Use it when one system reports a fact and several others may react; use a direct method call when one object deliberately commands another job.</div>
+<p>After adding the event, make <code>Heal</code> and <code>Restore</code> invoke <code>HealthChanged?.Invoke(CurrentHP)</code> after they clamp too. Every sanctioned HP change must ring the same bell, or the later HUD and loaded save will display stale health.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // RING AFTER THE CHANGE</div><p>Invoke HealthChanged after Clamp assigns CurrentHP. Reverse those lines and every listener sees yesterday's number. The event declaration is public so other scripts may subscribe, but only Health invokes it; that boundary keeps a HUD from pretending damage happened.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Microsoft Learn: Events"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/events/"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Manual: MonoBehaviour messages"
+url = "https://docs.unity3d.com/Manual/ExecutionOrder.html"
+
+[[lessons.exercises]]
+id = "s07-l02-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype the event declaration that lets Health report its new integer HP to any listener."
+code = '''public event Action<int> HealthChanged;'''
+
+[[lessons.exercises]]
+id = "s07-l02-e1"
+type = "fill"
+points = 22
+prompt = "Fill the one token that safely invokes HealthChanged with the freshly clamped CurrentHP, even when no HUD has subscribed yet."
+code = '''HealthChanged____Invoke(CurrentHP);'''
+answer = "?."
+hint = "The two-character null-conditional operator goes directly between the event name and Invoke; it makes a no-listener situation a safe no-op."
+
+[[lessons.exercises]]
+id = "s07-l02-e2"
+type = "mc"
+points = 21
+prompt = "HealthReadout is disabled when a scene overlay hides it. Which lifecycle method must remove ShowHP from health.HealthChanged so the disabled readout is no longer called?"
+choices = ["Awake, because Awake runs before every health change", "OnDisable, using health.HealthChanged -= ShowHP", "FixedUpdate, by setting CurrentHP to zero", "OnEnable, by adding ShowHP a second time"]
+answer = 1
+whyWrong = "Awake prepares a component once, not its shutdown. FixedUpdate neither owns Health's value nor removes callbacks. OnEnable is where this lesson ADDS the listener with +=; adding again creates another subscription instead of removing the old one."
+hint = "Find the lifecycle name paired with OnEnable in the listener, then match the opposite operator to +=."
+explain = "OnDisable pairs with OnEnable: subscribe with += when active, then unsubscribe with -= when inactive so the event cannot call an old listener."
+
+[[lessons.exercises]]
+id = "s07-l02-e3"
+type = "text"
+points = 20
+prompt = "Name the C# callback type used here for an event that carries one integer and returns no value."
+answer = "Action<int>"
+accept = ["Action&lt;int&gt;", "System.Action<int>"]
+hint = "It is the generic callback shape imported from System; its angle brackets identify the listener's one argument."
+
+[[lessons.exercises]]
+id = "s07-l02-w1"
+type = "write"
+points = 34
+prompt = "Model the combat bell in plain C#: create Health with public event Action&lt;int&gt; HealthChanged, CurrentHP starting at 10, and TakeDamage(int amount) that subtracts then invokes the event. Subscribe a listener that prints HP &lt;value&gt;, then call TakeDamage(3) and TakeDamage(2). The listener—not TakeDamage itself—must produce exactly:\nHP 7\nHP 5"
+starter = '''
+// Create Health, subscribe one Action<int> listener that prints "HP <value>",
+// then call TakeDamage(3) and TakeDamage(2). Put class Health at the BOTTOM.
+
+'''
+expect = '''
+HP 7
+HP 5'''
+solution = '''
+Health health = new Health();
+health.HealthChanged += hp => Console.WriteLine($"HP {hp}");
+health.TakeDamage(3);
+health.TakeDamage(2);
+
+class Health
+{
+    public event Action<int> HealthChanged;
+    public int CurrentHP { get; private set; } = 10;
+
+    public void TakeDamage(int amount)
+    {
+        CurrentHP -= amount;
+        HealthChanged?.Invoke(CurrentHP);
+    }
+}
+'''
+hint = "Subscribe before either damage call. Invoke the event only after changing CurrentHP, and let the hp callback parameter format each output line."

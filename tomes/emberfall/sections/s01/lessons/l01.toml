@@ -1,0 +1,83 @@
+[[lessons]]
+id = "s01-l01"
+title = "The Cold Anvil — Installing the Real Tools"
+body = '''
+<p>Before a single rune is cut, the anvil has to exist. Install <strong>Unity 6.3 LTS</strong> through Unity Hub, including your desktop platform's build-support module. This tome's <code>linearVelocity</code>, Build Profiles, and Inspector directions target that editor line.</p>
+<p>Underneath the Editor sits a second, separate machine: <strong>.NET</strong>, the runtime that actually executes the C# you write, whether that C# lives inside Unity or in a bare console project. Unity ships its own copy, but you will also use the <code>dotnet</code> command-line tool directly for these early, sprite-free chapters — it is faster to iterate in than opening the full Editor for one line of code.</p>
+<p>Keep the console sandbox and Unity game in separate sibling folders. Use <code>EmberfallCourse/Console</code> for this command; later create <code>EmberfallCourse/Unity/Emberfall</code> from Hub's 2D template:</p>
+<pre><code>$ dotnet new console -n Emberfall
+$ cd Emberfall
+$ dotnet run</code></pre>
+<p>Two files matter in that fresh folder:</p>
+<ul>
+<li><code>Program.cs</code> — your source. Every run starts by reading this file.</li>
+<li><code>Emberfall.csproj</code> — the project's charter: which .NET version it targets, which packages it depends on. You will rarely hand-edit it.</li>
+</ul>
+<p><code>dotnet run</code> does two jobs in sequence, and it is worth naming them separately because the Editor does the same two jobs later: first it <strong>compiles</strong> — turns your <code>.cs</code> text into a form the machine can execute, checking every line for legality on the way — then it <strong>runs</strong> that compiled result. If the compile step fails, nothing runs, and the tool prints exactly where it choked.</p>
+<div class="callout">The compiler is not your enemy. It is the first artificer inspecting your work — every red line it prints is a flaw caught before it reaches the forge floor. Read the FIRST error it reports; later ones are often just that same flaw echoing.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHAT dotnet run ACTUALLY DOES</div>
+<p><code>dotnet build</code> only compiles, dropping its output in a <code>bin/</code> folder. <code>dotnet run</code> builds (if the source changed) and then launches that build. The sibling <code>obj/</code> folder is scratch the tool regenerates freely — never hand-edit anything inside <code>bin/</code> or <code>obj/</code>, and never commit them to a project; they are rebuilt from the real source every time.</p>
+<p>A compiler error has a fixed shape you will read hundreds of times: <code>Program.cs(4,18): error CS1002: ; expected</code> — that is <em>file</em>(<em>line</em>,<em>column</em>): error <em>code</em>: <em>message</em>. The line and column point at the exact spot the compiler gave up, which is not always the exact spot you made the mistake — a missing semicolon on line 4 often gets reported as an error starting on line 5.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Hub download"
+url = "https://unity.com/download"
+essential = true
+
+[[lessons.readings]]
+label = "MANDATORY // .NET SDK download"
+url = "https://dotnet.microsoft.com/en-us/download"
+essential = true
+
+[[lessons.readings]]
+label = "OPTIONAL // Microsoft Learn: Write your first C# code"
+url = "https://learn.microsoft.com/en-us/training/modules/csharp-write-first/"
+
+[[lessons.exercises]]
+id = "s01-l01-e1"
+type = "mc"
+points = 15
+prompt = "You need the Unity <strong>Editor</strong> installed on a fresh machine. What do you install first?"
+choices = ["The Editor installer, downloaded directly from Unity's site", "Unity Hub, then a specific Editor version through it", "Just the .NET SDK — it brings the Editor with it", "Visual Studio, which bundles the Editor automatically"]
+answer = 1
+whyWrong = "There is no bare 'Editor installer' Unity ships anymore, and neither the .NET SDK nor Visual Studio installs the game engine itself — Unity Hub is the one app that manages and launches specific Editor versions."
+hint = "The lesson names one small manager app you install before the Editor itself."
+explain = "Unity Hub is the version manager: it installs, updates, and launches whichever Editor version a project needs."
+
+[[lessons.exercises]]
+id = "s01-l01-e2"
+type = "mc"
+points = 15
+prompt = "What does <code>dotnet run</code> do that <code>dotnet build</code> alone does not?"
+choices = ["It skips compiling entirely", "It deletes the obj/ folder before compiling", "It also launches the compiled result after building it", "It installs Unity Hub as a side effect"]
+answer = 2
+whyWrong = "'build' does not skip compiling — that IS what build does — and neither command touches obj/ deletion or Unity Hub; the one real difference is that run launches the program after compiling it."
+hint = "One of the two commands stops after producing bin/; the other keeps going."
+explain = "dotnet build only compiles. dotnet run compiles (when needed) and then executes the result — that's the one extra step."
+
+[[lessons.exercises]]
+id = "s01-l01-e3"
+type = "text"
+points = 20
+prompt = "Name the file where a freshly-scaffolded C# console project's source code begins (the file, not the folder)."
+answer = "Program.cs"
+accept = ["program.cs"]
+hint = "It's the .cs file dotnet new console writes for you, sitting next to the .csproj."
+
+[[lessons.exercises]]
+id = "s01-l01-e4"
+type = "fill"
+points = 20
+prompt = "Fill in the command that raises a brand-new console project, using the exact project name this lesson's own scaffolding example used above."
+code = 'dotnet new console -n ____'
+answer = "Emberfall"
+hint = "The project name comes right after the -n flag — it's the name the Worldwright's commission uses."
+
+[[lessons.exercises]]
+id = "s01-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the scaffolding command exactly, until your hand knows it without reading. (Ctrl+Enter submits.)"
+code = "dotnet new console -n Emberfall"

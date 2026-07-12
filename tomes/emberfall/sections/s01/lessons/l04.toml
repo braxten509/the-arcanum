@@ -1,0 +1,95 @@
+[[lessons]]
+id = "s01-l04"
+title = "Methods — Naming a Piece of Work"
+body = '''
+<p>Every line you have written so far has lived inside one block already, whether you noticed it or not — <code>dotnet new console</code> writes what C# calls <strong>top-level statements</strong>: the whole file's loose statements are, behind the scenes, compiled into one method the runtime calls first, still named <code>Main</code>, even though you never typed that name yourself. A <strong>method</strong> is a named, reusable piece of work: give it a job once, and call it by name as many times as the job needs doing.</p>
+<pre><code><span class="k">int</span> AddGold(<span class="k">int</span> current, <span class="k">int</span> reward)
+{
+    <span class="k">return</span> current + reward;
+}</code></pre>
+<p>Reading that shape left to right: the <strong>return type</strong> — what kind of value calling this method hands back — then the <strong>name</strong> in PascalCase (methods are PascalCase; only local variables are camelCase), then <strong>parameters</strong> in parentheses — named, typed inputs the caller supplies — then the <strong>body</strong> in braces, ending with a <code>return</code> statement carrying the value out. Written this way, sitting among your top-level statements, it is called a <strong>local function</strong> — legal anywhere in the file, callable from any statement below it.</p>
+<p>Calling it looks like any other expression:</p>
+<pre><code><span class="k">int</span> newTotal = AddGold(40, 12);   <span class="c">// 52</span>
+Console.WriteLine(newTotal);</code></pre>
+<p>Not every method hands a value back. One that only performs an action — printing something, say — declares <code>void</code> as its return type instead, and simply has no <code>return value;</code> line (an empty <code>return;</code> is allowed, to exit early, but never required):</p>
+<pre><code><span class="k">void</span> Greet(<span class="k">string</span> name)
+{
+    Console.WriteLine($<span class="s">"Well met, {name}."</span>);
+}</code></pre>
+<p>Once you leave these fundamentals chapters and start writing inside Unity components in chapter III, you will meet the <code>static</code> keyword and full class-and-method bodies properly — for now, a local function beside your top-level statements is the honest, simplest shape for "a named piece of work."</p>
+<div class="callout">A method is a promise about its return type: a method declared int must return an int on every path through its body, or the compiler refuses it outright — there is no "usually returns a value" in C#.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // PARAMETERS ARE COPIES (FOR NOW)</div>
+<p>C# passes arguments by value unless you explicitly write <code>ref</code>, <code>out</code>, or <code>in</code>. For an <code>int</code>, the copied value is the number itself. For a later array, list, or class, the copied value is a reference to the same object: mutating that object is visible to the caller, but assigning the parameter to a different object does not reassign the caller's variable.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Microsoft C# guide: Methods"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/methods"
+
+[[lessons.readings]]
+label = "OPTIONAL // Microsoft C# guide: Passing parameters"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/method-parameters"
+
+[[lessons.exercises]]
+id = "s01-l04-e1"
+type = "mc"
+points = 15
+prompt = "A method that only prints a line and hands nothing back to its caller declares which return type?"
+choices = ["int", "void", "string", "It must always return something, C# has no exception"]
+answer = 1
+whyWrong = "int and string both promise a real value back on every path, which this method never provides, and C# absolutely allows a no-return-value method — that's exactly what void declares."
+hint = "It's the keyword meaning 'no value comes back'."
+explain = "void marks a method that performs an action but returns no value."
+
+[[lessons.exercises]]
+id = "s01-l04-e2"
+type = "mc"
+points = 15
+prompt = "Inside AddGold(int current, int reward), the method changes current to 999. What happens to the variable the caller originally passed in?"
+choices = ["It also becomes 999", "It is unaffected — current was a copy", "It becomes 0", "The program crashes"]
+answer = 1
+whyWrong = "int is a value type, so the parameter is a fresh copy the moment the method is called — nothing links current back to the caller's original variable, so no crash and no change to 999 or 0 happens on the caller's side."
+hint = "The field notes just named this: int is passed by value, meaning the method gets a copy."
+explain = "Value types like int are copied into parameters — mutating the parameter inside the method never reaches back to the caller's variable."
+
+[[lessons.exercises]]
+id = "s01-l04-e3"
+type = "text"
+points = 20
+prompt = "What is the name of the method the .NET runtime calls first when a console program starts?"
+answer = "Main"
+hint = "It's PascalCase, four letters, and you've been writing inside it since lesson 1."
+
+[[lessons.exercises]]
+id = "s01-l04-e4"
+type = "fill"
+points = 20
+prompt = "Fill in the missing return type so this method compiles and correctly hands back the sum."
+code = '''____ AddGold(int current, int reward)
+{
+    return current + reward;
+}'''
+answer = "int"
+hint = "current + reward is a whole-number arithmetic result — what type is that?"
+
+[[lessons.exercises]]
+id = "s01-l04-w1"
+type = "write"
+points = 30
+prompt = "Write a local function named AddGold that takes two int parameters, current and reward, and returns their sum. Call AddGold(40, 12) and print exactly: NEW TOTAL 52"
+starter = '''
+// Define AddGold(int current, int reward) as a local function, then call it below.
+
+'''
+expect = '''
+NEW TOTAL 52'''
+solution = '''
+int AddGold(int current, int reward)
+{
+    return current + reward;
+}
+
+int newTotal = AddGold(40, 12);
+Console.WriteLine($"NEW TOTAL {newTotal}");
+'''
+hint = "AddGold's body is one line: return current + reward;"

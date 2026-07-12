@@ -1,0 +1,36 @@
+[freestyle]
+title = "THE GREAT WORKING: THE SHAPE OF CODE"
+brief = "The loose variables from the First Spark get cast into a real object. Extend the same <code>Emberfall</code> project's <code>Program.cs</code> — the artificer is no longer three unconnected variables, it's one Artificer with rules of its own.<ul><li>Define <code>class Artificer</code> with <code>Name</code> and <code>Level</code> as auto-properties, and <code>HitPoints</code> as a property whose setter is <code>private</code> — only the class itself may change it</li><li>Give <code>Artificer</code> a constructor <code>Artificer(string name, int level, int hitPoints)</code> that sets all three</li><li>Give it a method <code>TakeDamage(int amount)</code> that subtracts <code>amount</code> from <code>HitPoints</code> and never lets it drop below <code>0</code></li><li>Give it its own <code>List&lt;string&gt;</code> inventory with an <code>AddItem(string item)</code> method and a <code>PrintInventory()</code> method that <code>foreach</code>-prints every item, numbered from 1 like <code>1. Lantern</code></li><li>Construct one Artificer named <code>\"Kess\"</code>, level <code>1</code>, hitPoints <code>20</code>; call <code>TakeDamage(6)</code>; add the items <code>Lantern</code>, <code>Rope</code>, <code>Waybread</code> in that order; then print, in order:<br><code>Kess — Level 1, 14 HP</code><br><code>1. Lantern</code><br><code>2. Rope</code><br><code>3. Waybread</code></li><li>Build a <code>Dictionary&lt;string,int&gt;</code> of elemental resistances with <code>Fire = 30</code> and <code>Ice = 15</code>. Using <code>TryGetValue</code> (never the bare indexer — a missing key must not crash the forge), print the Fire resistance and then a Lightning resistance that isn't in the dictionary at all, exactly:<br><code>FIRE RESIST 30</code><br><code>LIGHTNING RESIST 0</code></li><li>Given a <code>List&lt;string&gt;</code> of gold-shard donations <code>\"75\"</code>, <code>\"twenty\"</code>, <code>\"5\"</code> in that order, loop over them with a <code>try/catch</code> around <code>int.Parse</code> — a bad entry must be skipped, not crash the run — printing exactly:<br><code>DONATION 75 OK</code><br><code>DONATION twenty SKIPPED</code><br><code>DONATION 5 OK</code><br><code>TOTAL DONATIONS 80</code></li><li>Prove it with <code>dotnet run</code> — the Worldwright reads what actually prints, in the order above, nothing more and nothing less</li></ul>Every fact this forge grades on — the readout, the resistances, the total — must come from real computation over the stated values, never a hardcoded print."
+reward = 200
+packages = []
+xray = "The Worldwright strikes gold from the tally for: a public setter on HitPoints (the whole point of TakeDamage is that nothing else can touch it directly), a hardcoded readout or total instead of one built from the actual object and loop, a bare resistances[\"Lightning\"] indexer left in instead of TryGetValue (a crash on a missing key is exactly the bug this forge exists to catch), and output lines out of the required order or missing the exact wording. He grants favor for a constructor that sets every property in one clean pass, a TakeDamage that reads as a one-line clamp rather than a sprawl of ifs, camelCase locals and parameters paired with PascalCase types/methods, and Allman braces held consistently through every class and method."
+
+[freestyle.badge]
+id = "badge-s02"
+name = "SHAPED METAL"
+desc = "The loose variables of the First Spark are cast into a real Artificer — properties, an inventory, and a guarded HitPoints that nothing outside the class can break."
+
+[[freestyle.rubric]]
+criterion = "Compiles & runs"
+weight = 20
+desc = "dotnet run succeeds from a clean checkout with no manual fixes; Artificer, its properties, TakeDamage, AddItem, and PrintInventory all exist and are actually used from Main."
+
+[[freestyle.rubric]]
+criterion = "Encapsulation holds"
+weight = 20
+desc = "HitPoints (and any other guarded fact) uses get; private set; — no public setter exists that would let outside code bypass TakeDamage's clamp; the clamp itself never lets HitPoints go negative."
+
+[[freestyle.rubric]]
+criterion = "Collections used correctly"
+weight = 25
+desc = "Inventory is a real List&lt;string&gt; built and printed via foreach with 1-based numbering computed from the loop, not hardcoded; resistances is a real Dictionary&lt;string,int&gt; read exclusively through TryGetValue, with a missing key producing 0 rather than a crash or an unhandled bare-indexer lookup."
+
+[[freestyle.rubric]]
+criterion = "try/catch used correctly"
+weight = 15
+desc = "The donation loop wraps int.Parse in a try/catch that specifically names FormatException (or a compatible base type), skips the invalid entry without crashing the program, and the printed TOTAL DONATIONS reflects only the successfully parsed entries, summed at runtime."
+
+[[freestyle.rubric]]
+criterion = "Clean style"
+weight = 20
+desc = "Follows Microsoft's C# naming conventions: camelCase locals/parameters, PascalCase classes/methods/properties, Allman braces (opening brace on its own line) held consistently across every class and method, and no dead or commented-out code left in the file."

@@ -1,0 +1,108 @@
+[[lessons]]
+id = "s03-l04"
+title = "Your First Script — Attaching Code to a GameObject"
+body = '''
+<p>Every script you write from here on is a component, and Unity is strict about how it links a file to a class: right-click in the Project window, choose <strong>Create &gt; C# Script</strong>, name it <code>ArtificerRig</code>, and Unity generates <code>ArtificerRig.cs</code> containing <code>public class ArtificerRig</code>. The class name and the filename must match exactly, letter for letter — rename the file without renaming the class inside it (or the reverse) and Unity refuses to attach the script at all, because it can no longer tell which class the file is supposed to define.</p>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> ArtificerRig : MonoBehaviour
+{
+    <span class="k">void</span> Start()
+    {
+        Debug.Log(<span class="s">"Kess wakes at the forge."</span>);
+    }
+}</code></pre>
+<p>Two new pieces of syntax appear the moment you open that generated file. <code>using UnityEngine;</code> is the same <code>using</code> directive that pulled in <code>System</code> ever since chapter I — it just pulls in Unity's own namespace instead, which is where <code>MonoBehaviour</code> and <code>Debug</code> live. And <code>: MonoBehaviour</code> after the class name is <strong>inheritance</strong> — the colon says "ArtificerRig IS a MonoBehaviour," which is what makes Unity willing to attach it to a GameObject as a component at all. A plain <code>class ArtificerRig</code> with no <code>: MonoBehaviour</code> compiles fine but never shows up as an option in Add Component — Unity only offers types that inherit from MonoBehaviour.</p>
+<p>Drag the finished script from the Project window onto ArtificerRig in the Hierarchy — or select ArtificerRig and use Add Component, typing the script's name — and it joins the component stack from the last two lessons, Transform and all. <code>Debug.Log</code> is this lesson's replacement for <code>Console.WriteLine</code>: it prints to Unity's <strong>Console</strong> window instead of a terminal, and it is the single most useful debugging tool you own for the rest of this course — when a script "isn't doing anything," a <code>Debug.Log</code> planted inside it is how you find out whether the method is even running.</p>
+<div class="callout">Unity finds every method by NAME, not by you calling it — you never write ArtificerRig.Start() yourself. Name a method Start with the exact spelling and signature Unity expects, attach the script, and Unity calls it for you. Misspell it Strat and the method just... never runs, silently, with no compiler error, because as far as C# is concerned it's a perfectly legal method that happens to share no name with anything special.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // A SCRIPT WITHOUT A GAMEOBJECT DOES NOTHING</div>
+<p>Writing a MonoBehaviour class and saving the file changes nothing in your scene by itself — the class only starts running once an actual GameObject in the Hierarchy has it attached as a component. This trips up artificers coming from chapter I and II, where finishing Program.cs and pressing run was the whole story; here, finishing the script is only half the job; attaching it to something in the Hierarchy is the other half, and Unity gives you no warning if you skip it — the project simply compiles, and nothing happens when you press Play.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Manual: Creating and using scripts"
+url = "https://docs.unity3d.com/Manual/creating-scripts.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Microsoft C# guide: Inheritance"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/object-oriented/inheritance"
+
+[[lessons.exercises]]
+id = "s03-l04-e1"
+type = "mc"
+points = 20
+prompt = "You create Ranger.cs, then rename the FILE (not the class inside it) to RangerUnit.cs, leaving public class Ranger untouched. What happens when you try to attach it to a GameObject?"
+choices = ["Unity refuses — the class name Ranger no longer matches the filename RangerUnit, so it won't attach", "Unity attaches it fine and quietly renames the class to RangerUnit for you", "It attaches, but Start() and Update() stop being called until the names match again", "It attaches, and Unity shows both Ranger and RangerUnit as separate components in Add Component"]
+answer = 0
+whyWrong = "Unity never edits your source code to paper over a mismatch — it doesn't rename the class for you, and it doesn't half-attach a script that still runs its lifecycle methods while showing a mismatch warning; nor does a filename change somehow duplicate the component into two separate entries — the actual behavior is a hard refusal to attach at all, because Unity cannot resolve which class a mismatched file is supposed to define."
+hint = "The lesson stated this as a strict rule, letter for letter, in both directions — filename and class name."
+explain = "The class name and filename must match exactly; a mismatch in either direction (renamed file, renamed class) makes Unity refuse to attach the script as a component."
+
+[[lessons.exercises]]
+id = "s03-l04-e2"
+type = "mc"
+points = 20
+prompt = "A script has void Strat() instead of void Start() — a typo. What actually happens?"
+choices = ["Unity throws a compile-time error naming the missing Start method", "It compiles cleanly and attaches fine, but Strat is never called by anything — it's just an ordinary, unused method to Unity", "Unity runs Strat() anyway, since it treats any single unrecognized method as the entry point", "The GameObject fails to appear in the Hierarchy until the typo is fixed"]
+answer = 1
+whyWrong = "There's no compiler check for this — Strat is a perfectly legal method name as far as C# is concerned, so nothing flags it at build time; Unity does not guess that an unrecognized method must be your intended entry point, so it never runs it either, and none of this affects whether the GameObject itself shows up in the Hierarchy at all — the object is fine, it's the method that silently never fires."
+hint = "The lesson's callout said this exact typo produces no error at all — what does 'silently' mean for a method Unity was never told to call?"
+explain = "Unity calls lifecycle methods by exact name match — Strat() is just an ordinary method with no special meaning, so it compiles and attaches normally but is never invoked, with no error anywhere to flag the mistake."
+
+[[lessons.exercises]]
+id = "s03-l04-e3"
+type = "text"
+points = 20
+prompt = "What is the Unity replacement for Console.WriteLine that prints to the Editor's Console window instead of a terminal?"
+answer = "Debug.Log"
+hint = "It's a static method called through a class named Debug, and this lesson called it the single most useful debugging tool you own."
+
+[[lessons.exercises]]
+id = "s03-l04-e4"
+type = "fill"
+points = 22
+prompt = "Fill in the missing syntax that declares ArtificerRig as a MonoBehaviour, making it eligible to attach as a component."
+code = '''using UnityEngine;
+
+public class ArtificerRig ____
+{
+    void Start()
+    {
+        Debug.Log("Kess wakes at the forge.");
+    }
+}'''
+answer = ": MonoBehaviour"
+hint = "It's the colon-and-name pair this lesson called inheritance — the thing that makes Unity offer this class in Add Component at all."
+
+[[lessons.exercises]]
+id = "s03-l04-w1"
+type = "write"
+points = 30
+prompt = "MonoBehaviour needs a real Unity GameObject to run, so model its Start-then-log shape in plain C#: a class Rig with a private string statusMessage (set in a constructor Rig(string message)) and a method Start() that prints statusMessage exactly as given. Build a Rig with the message \"Kess wakes at the forge.\", then call Start(). Print exactly:\nKess wakes at the forge."
+starter = '''
+// Build the Rig with its status message, then call Start(). Define class Rig
+// at the BOTTOM of the file (top-level statements must come first).
+
+'''
+expect = '''
+Kess wakes at the forge.'''
+solution = '''
+Rig rig = new Rig("Kess wakes at the forge.");
+rig.Start();
+
+class Rig
+{
+    private string statusMessage;
+
+    public Rig(string message)
+    {
+        statusMessage = message;
+    }
+
+    public void Start()
+    {
+        Console.WriteLine(statusMessage);
+    }
+}
+'''
+hint = "statusMessage is a plain private field set once in the constructor, same shape as Artificer's fields from chapter II — Start() just prints it."

@@ -1,0 +1,101 @@
+[[lessons]]
+id = "s08-l01"
+title = "Data That Outlives a Scene"
+body = '''
+<p>Up to now, each goblin has carried its own Health numbers in a component. That is correct for <em>current</em> HP: one wounded goblin must not wound every goblin. A potion's name, icon, price, and healing value are different metal. They are shared design facts. If every pickup prefab owns copied fields, changing a potion from 15 to 20 healing means hunting every copy. A <strong>ScriptableObject</strong> is Unity's asset-shaped container for that shared data; it lives independently of a GameObject and can be referenced by scenes and prefabs.</p>
+<pre><code><span class="k">using</span> UnityEngine;
+
+[CreateAssetMenu(menuName = <span class="s">"Emberfall/Item Definition"</span>)]
+<span class="k">public</span> <span class="k">class</span> ItemDefinition : ScriptableObject
+{
+    [SerializeField] <span class="k">private</span> <span class="k">string</span> itemId;
+    [SerializeField] <span class="k">private</span> <span class="k">string</span> displayName;
+    [SerializeField] <span class="k">private</span> <span class="k">int</span> healAmount;
+
+    <span class="k">public</span> <span class="k">string</span> ItemId =&gt; itemId;
+    <span class="k">public</span> <span class="k">string</span> DisplayName =&gt; displayName;
+    <span class="k">public</span> <span class="k">int</span> HealAmount =&gt; healAmount;
+}</code></pre>
+<p><code>ItemDefinition</code> is a type, while a particular <code>MinorPotion.asset</code> is one configured instance of that type. <code>CreateAssetMenu</code> puts that type in Unity's Assets/Create menu, where you create the asset once and set its private serialized fields in the Inspector. The expression-bodied properties use <code>=&gt;</code> to return the backing field. This is the same public-read/private-data boundary Forge II and Health used, just without a setter because this asset defines a template.</p>
+<p>Make a <code>Data/Items</code> folder, then create <code>MinorPotion</code> with id <code>minor_potion</code>, display name <code>Minor Potion</code>, and heal amount 15. Do not put a ScriptableObject component on the player. Drag the asset into a field on a pickup or inventory component instead. The scene object is the physical bottle; the asset is the recipe card shared by every bottle.</p>
+<p>The workbench has no Unity asset database, so its lab models an immutable item record in ordinary C#. That is an honest rehearsal of data ownership, not a pretend asset pipeline.</p>
+<div class="callout">Put shared authored facts in a ScriptableObject asset; put per-instance changing state on a GameObject component.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ASSETS ARE NOT SAVE FILES</div><p>Changing an asset while editing changes the definition used by every reference. It is not the place for a player's remaining potion count or a slain enemy's current HP. Those mutable facts belong to runtime state and, later, the save file. Treat definition data and play-session data as separate ledgers from the beginning.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Scripting API: ScriptableObject"
+url = "https://docs.unity3d.com/ScriptReference/ScriptableObject.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Scripting API: CreateAssetMenuAttribute"
+url = "https://docs.unity3d.com/ScriptReference/CreateAssetMenuAttribute.html"
+
+[[lessons.exercises]]
+id = "s08-l01-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype the complete declaration that makes ItemDefinition creatable from Emberfall's Assets/Create menu."
+code = '''[CreateAssetMenu(menuName = "Emberfall/Item Definition")]
+public class ItemDefinition : ScriptableObject
+{
+}'''
+
+[[lessons.exercises]]
+id = "s08-l01-e1"
+type = "fill"
+points = 23
+prompt = "Fill the Unity base type that lets this shared item definition live as an asset rather than a scene component."
+code = '''public class ItemDefinition : ____
+{
+}'''
+answer = "ScriptableObject"
+hint = "It is the asset-shaped Unity base class named in the first paragraph, not the GameObject-attached base class from Forge III."
+
+[[lessons.exercises]]
+id = "s08-l01-e2"
+type = "mc"
+points = 22
+prompt = "You change MinorPotion's heal amount from 15 to 20. Where should that shared authored value live so every pickup using that potion sees it?"
+choices = ["In each pickup GameObject's local field", "In the MinorPotion ItemDefinition asset", "In ArtificerRig's current Health component", "In EnemyController's Chase state"]
+answer = 1
+whyWrong = "A pickup GameObject represents one physical bottle, while Health and EnemyController own unrelated runtime behavior. The shared definition asset is the one source that every pickup reference can reuse."
+hint = "Ask which object is the recipe card rather than one bottle in one scene."
+explain = "The ItemDefinition asset centralizes designed values; pickup instances reference it instead of copying them."
+
+[[lessons.exercises]]
+id = "s08-l01-e3"
+type = "text"
+points = 19
+prompt = "What attribute causes a ScriptableObject-derived type to appear in Unity's Assets/Create submenu?"
+answer = "CreateAssetMenu"
+accept = ["CreateAssetMenuAttribute", "[CreateAssetMenu]"]
+hint = "It sits immediately above the ItemDefinition class declaration and names the menu-creation behavior."
+
+[[lessons.exercises]]
+id = "s08-l01-w1"
+type = "write"
+points = 34
+prompt = "Model one shared recipe card in plain C#: create an ItemDefinition with read-only ItemId, DisplayName, and HealAmount set by its constructor. Build minor_potion with minor_potion, Minor Potion, and 15; compute the line from its properties exactly:\nITEM minor_potion | Minor Potion | HEAL 15"
+starter = '''// Create ItemDefinition and one minor_potion definition. Print from its properties.
+// Define ItemDefinition at the BOTTOM of the file.
+
+'''
+expect = '''ITEM minor_potion | Minor Potion | HEAL 15'''
+solution = '''ItemDefinition minorPotion = new ItemDefinition("minor_potion", "Minor Potion", 15);
+Console.WriteLine($"ITEM {minorPotion.ItemId} | {minorPotion.DisplayName} | HEAL {minorPotion.HealAmount}");
+
+class ItemDefinition
+{
+    public string ItemId { get; }
+    public string DisplayName { get; }
+    public int HealAmount { get; }
+    public ItemDefinition(string itemId, string displayName, int healAmount)
+    {
+        ItemId = itemId;
+        DisplayName = displayName;
+        HealAmount = healAmount;
+    }
+}'''
+hint = "The constructor receives three values once. Expose each with a get-only property, then interpolate those properties in the required order."

@@ -1,0 +1,90 @@
+[[lessons]]
+id = "s08-l05"
+title = "Make Loot Physical"
+body = '''
+<p>Definitions in a folder do nothing until the player meets a physical pickup. Forge VI already forged the physical gate: a Collider2D marked <code>isTrigger</code> calls <code>OnTriggerEnter2D</code> when the player crosses it. This tempering joins that known trigger with the new Inventory boundary. A pickup owns a reference to one ItemDefinition and asks the entering object for Inventory. It does not reach into a list itself.</p>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> ItemPickup : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> ItemDefinition definition;
+
+    <span class="k">private</span> <span class="k">void</span> OnTriggerEnter2D(Collider2D other)
+    {
+        <span class="k">if</span> (other.TryGetComponent&lt;Inventory&gt;(<span class="k">out</span> Inventory inventory))
+        {
+            inventory.Add(definition);
+            Destroy(gameObject);
+        }
+    }
+}</code></pre>
+<p>Put ItemPickup and a trigger Collider2D on the potion prefab. Drag MinorPotion into <code>definition</code>. ArtificerRig still needs its Rigidbody2D and collision-layer discipline from Forge VI; the trigger callback depends on the same real physics arrangement. <code>TryGetComponent</code> is the component-safe cousin of the null-check pattern Forge VII used after GetComponent: it returns false when the collider is not an inventory carrier, so a wandering goblin cannot collect a player potion.</p>
+<p>Add is Inventory's public doorway. It finds a matching slot, stacks or appends, and can later ring an inventory event for UI. Destroying the pickup comes <em>after</em> Add succeeds. Reversing that order deletes the physical bottle before the player receives it. A pickup does not mutate ItemDefinition.Amount because there is no such per-player field on a shared definition.</p>
+<p>Test in Play mode: walk through two MinorPotion pickups. The first makes one minor_potion slot; the second increases the same slot to two, and both world objects disappear. This is real scene behavior, not a console simulation.</p>
+<div class="callout">The trigger detects contact, Inventory owns the transaction, and ItemDefinition supplies the item being transacted.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DESTROY ONLY AFTER ACCEPTANCE</div><p>A later capacity rule may make Add return false. When that happens, only destroy the pickup if Inventory says it accepted the item. Designing the public boundary now keeps a future full-pack rule from eating loot by accident.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Scripting API: Component.TryGetComponent"
+url = "https://docs.unity3d.com/ScriptReference/Component.TryGetComponent.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Scripting API: Object.Destroy"
+url = "https://docs.unity3d.com/ScriptReference/Object.Destroy.html"
+
+[[lessons.exercises]]
+id = "s08-l05-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype the guarded component lookup that lets a pickup find Inventory on an entering collider."
+code = '''if (other.TryGetComponent<Inventory>(out Inventory inventory))
+{
+    inventory.Add(definition);
+}'''
+
+[[lessons.exercises]]
+id = "s08-l05-e1"
+type = "fill"
+points = 24
+prompt = "Fill the Inventory method ItemPickup calls before it removes its own GameObject."
+code = '''inventory.____(definition);
+Destroy(gameObject);'''
+answer = "Add"
+hint = "It is the public transaction doorway that stacks an existing slot or creates one."
+
+[[lessons.exercises]]
+id = "s08-l05-e2"
+type = "mc"
+points = 22
+prompt = "Why must ItemPickup call Inventory.Add(definition) before Destroy(gameObject)?"
+choices = ["Destroy changes ItemKind into Consumable", "The pickup must be recorded in Inventory before its world object is removed", "Destroying first makes TryGetComponent return an ItemDefinition", "Awake only runs after Destroy"]
+answer = 1
+whyWrong = "Destroy does not alter enums, TryGetComponent's type, or Awake timing. The ordering protects the transaction: deleting the pickup first could lose the item before Inventory accepts it."
+hint = "Think of the world bottle as a receipt: when is it safe to throw away?"
+explain = "Inventory must own the item before the scene object representing it disappears."
+
+[[lessons.exercises]]
+id = "s08-l05-w1"
+type = "write"
+points = 34
+prompt = "Model a pickup transaction in plain C#: Inventory starts at 0 and Add(string itemId) increments only when itemId equals minor_potion. Call Add for minor_potion, then print the computed receipt:\nPICKED minor_potion COUNT 1"
+starter = '''// Build Inventory with Add. Use the named id rather than hardcoding the final count.
+// Define Inventory at the BOTTOM of the file.
+
+'''
+expect = '''PICKED minor_potion COUNT 1'''
+solution = '''Inventory inventory = new Inventory();
+inventory.Add("minor_potion");
+Console.WriteLine($"PICKED minor_potion COUNT {inventory.MinorPotionCount}");
+
+class Inventory
+{
+    public int MinorPotionCount { get; private set; }
+    public void Add(string itemId)
+    {
+        if (itemId == "minor_potion") MinorPotionCount++;
+    }
+}'''
+hint = "Initialize the count through its default zero, compare itemId to minor_potion in Add, and print the property after the call."

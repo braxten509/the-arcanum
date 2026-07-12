@@ -1,0 +1,97 @@
+[[lessons]]
+id = "s03-l03"
+title = "The Inspector & [SerializeField] — Exposing a Private Door"
+body = '''
+<p>Chapter II's Properties lesson taught you to guard a field behind <code>get; private set;</code> so nothing outside the class could corrupt it directly. Unity's Inspector needs the opposite favor granted on purpose: a way for YOU, standing outside the code in the Editor, to reach in and set a starting value without recompiling anything. By default Unity only shows <strong>public</strong> fields in the Inspector — mark a field <code>public int level;</code> and a numeric box for it appears the moment the component is attached, editable by hand, no code required.</p>
+<pre><code><span class="k">public</span> <span class="k">class</span> ArtificerRig : MonoBehaviour
+{
+    <span class="k">public</span> <span class="k">string</span> artificerName = <span class="s">"Kess"</span>;
+    <span class="k">public</span> <span class="k">int</span> level = 1;
+}</code></pre>
+<p>That works, but it reopens exactly the hole Properties closed — every other script in the project can now also write <code>rig.level = 999</code> from anywhere, because <code>public</code> means public to both the Inspector AND every line of C# in the project. Unity solves this with an attribute, a bracketed tag placed directly above a member: <code>[SerializeField]</code> tells Unity's own serializer "show this field in the Inspector and save its value," while <code>private</code> still blocks every other script from touching it in code.</p>
+<pre><code><span class="k">public</span> <span class="k">class</span> ArtificerRig : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> <span class="k">string</span> artificerName = <span class="s">"Kess"</span>;
+    [SerializeField] <span class="k">private</span> <span class="k">int</span> level = 1;
+}</code></pre>
+<p>Two boxes still appear in the Inspector, identical to before — <code>[SerializeField]</code> only changes who can reach the field from code, never what the Editor shows you. This is encapsulation's actual job description carried into Unity: the Editor gets a supervised front door, other scripts get none. It is the same trade Properties made — just aimed at the Inspector instead of at other classes.</p>
+<p>Values typed into the Inspector are <strong>serialized</strong> — saved into the scene or prefab file itself, overriding whatever the field's C# default was. Change <code>level = 1</code> to <code>level = 5</code> in the Inspector and that GameObject remembers 5 even though the script still says 1; edit the script's default afterward and it has no effect on a GameObject that already serialized its own value. This is precisely why designers can hand-tune a hundred enemies' stats without ever opening a code editor — and precisely why "I changed the number in the script and nothing happened" is the first thing to check for an Inspector override sitting on top of it.</p>
+<div class="callout">Not every type can go in the Inspector — Unity's serializer understands primitives, strings, Unity's own types, and your own plain-data classes marked [System.Serializable], but a List&lt;string&gt; and a Dictionary&lt;string,int&gt; behave differently: List shows as a resizable Inspector array, Dictionary does not serialize at all and never appears there.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY NOT JUST MAKE EVERYTHING PUBLIC</div>
+<p>A public field is not just visible in the Inspector — it is a promise to every other script in the project that reading and writing it is safe at any time, forever. A private field with [SerializeField] keeps that promise scoped to exactly one reader: the Editor's own serializer, which only ever writes to it through the Inspector UI, never through arbitrary code elsewhere. Studios that skip this and leave fields public routinely discover, months in, that a distant unrelated script was quietly overwriting a stat they assumed only the Inspector touched — the same bug class Properties exists to prevent, wearing Unity's clothes.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Scripting API: SerializeField"
+url = "https://docs.unity3d.com/ScriptReference/SerializeField.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Microsoft C# guide: Attributes"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/advanced-topics/reflection-and-attributes/"
+
+[[lessons.exercises]]
+id = "s03-l03-e1"
+type = "mc"
+points = 20
+prompt = "A field is declared [SerializeField] private int level = 1;. A designer sets it to 7 in the Inspector. Later another script in the project writes rig.level = 3;. What happens?"
+choices = ["It compiles and runs, silently overwriting the Inspector's 7 with 3", "It fails to compile — level is private, so no other script can reach it directly", "Unity reverts the Inspector value back to the script's default of 1 the next time the scene loads", "It throws a runtime SerializationException because level is marked [SerializeField]"]
+answer = 1
+whyWrong = "This wouldn't silently succeed and overwrite anything — private still means private to other scripts even with [SerializeField] attached, that attribute only grants the Inspector access; nothing here reverts a serialized value back to a script default just because another script exists elsewhere, and there's no exception here either — [SerializeField] doesn't turn a private field into something that throws, it simply refuses outside code the door at compile time, before the program ever runs."
+hint = "SerializeField only opens the door for the Inspector's own serializer — does it change what private means for every OTHER script in the project?"
+explain = "private still applies to every other C# script — [SerializeField] grants access to Unity's serializer alone, so an outside script writing rig.level directly is a compile error, exactly the protection Properties gave you in chapter II."
+
+[[lessons.exercises]]
+id = "s03-l03-e3"
+type = "text"
+points = 20
+prompt = "What single word describes what happens to an Inspector-edited value when it gets saved into the scene or prefab file, overriding the script's own default?"
+answer = "serialized"
+accept = ["serialization"]
+hint = "The lesson used this exact verb twice, describing what the Editor does to a value you type into a field's Inspector box."
+
+[[lessons.exercises]]
+id = "s03-l03-e4"
+type = "fill"
+points = 22
+prompt = "Fill in the attribute that exposes this private field to the Inspector while keeping it unreachable from other scripts."
+code = '''public class ArtificerRig : MonoBehaviour
+{
+    ____
+    private int level = 1;
+}'''
+answer = "[SerializeField]"
+hint = "It's the bracketed attribute this lesson placed directly above a private field, right before its access modifier."
+
+[[lessons.exercises]]
+id = "s03-l03-w1"
+type = "write"
+points = 30
+prompt = "Model an Inspector-style override in plain C#: a class Stat with a private int value, exposed through a property Value with a get and a private set (matching chapter II's Properties pattern), and a constructor Stat(int startingValue) that sets it. Give Stat a method Override(int newValue) that simulates a designer editing the Inspector by replacing Value. Build a Stat starting at 1, call Override(7), then print exactly:\nLEVEL 7"
+starter = '''
+// Build the Stat starting at 1, call Override(7), then print the line below.
+// Define class Stat at the BOTTOM of the file.
+
+'''
+expect = '''
+LEVEL 7'''
+solution = '''
+Stat level = new Stat(1);
+level.Override(7);
+Console.WriteLine($"LEVEL {level.Value}");
+
+class Stat
+{
+    public int Value { get; private set; }
+
+    public Stat(int startingValue)
+    {
+        Value = startingValue;
+    }
+
+    public void Override(int newValue)
+    {
+        Value = newValue;
+    }
+}
+'''
+hint = "Value needs get; private set; exactly like chapter II's HitPoints — only Override, a method on Stat itself, is allowed to change it."

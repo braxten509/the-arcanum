@@ -1,0 +1,122 @@
+[[lessons]]
+id = "s03-l05"
+title = "The MonoBehaviour Lifecycle — Order Is a Promise"
+body = '''
+<p>A MonoBehaviour never runs top to bottom the way <code>Program.cs</code> did. Instead, Unity calls a fixed set of specially-named methods on it at specific moments — you never call them yourself, and you don't get to choose the order, because Unity already chose it, and every script in the project depends on that choice staying consistent. Getting this order into your head now is the single highest-value fact in this entire forge: chase, attack, and physics bugs later in the course trace back to it more than any other cause.</p>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> ArtificerRig : MonoBehaviour
+{
+    <span class="k">void</span> Awake()  { Debug.Log(<span class="s">"AWAKE"</span>); }
+    <span class="k">void</span> OnEnable() { Debug.Log(<span class="s">"ENABLE"</span>); }
+    <span class="k">void</span> Start()  { Debug.Log(<span class="s">"START"</span>); }
+    <span class="k">void</span> Update() { Debug.Log(<span class="s">"UPDATE"</span>); }
+    <span class="k">void</span> LateUpdate() { Debug.Log(<span class="s">"LATE"</span>); }
+}</code></pre>
+<p>On the frame this GameObject first exists, Unity calls these once each, strictly in this order: <strong>Awake</strong> — the earliest hook, before anything else on this object has necessarily finished setting up, good for "prepare my own state" work that must not depend on another script yet. Then <strong>OnEnable</strong> — fires here on first activation, and again every later time the GameObject or component is re-enabled after being switched off. Then <strong>Start</strong> — called once, but critically, only after every object already in the scene has finished its own Awake, which is why "look up another GameObject's component" work belongs in Start, never Awake — the other object might not have run Awake yet if you reach for it too early.</p>
+<p>After that one-time setup, every single frame repeats a different order for as long as the object stays enabled: <strong>FixedUpdate</strong> runs zero or more times per frame on a fixed physics timestep (you will use it for movement once Rigidbody2D enters the course), then <strong>Update</strong> runs exactly once — the default home for ordinary per-frame game logic — and finally <strong>LateUpdate</strong> runs once, after every script's Update has already finished, which is why camera-follow logic belongs there: it needs the player to have already moved this frame before it decides where to look.</p>
+<pre><code>Frame 1:   Awake → OnEnable → Start → FixedUpdate(0+) → Update → LateUpdate
+Frame 2+:                             FixedUpdate(0+) → Update → LateUpdate</code></pre>
+<div class="callout">Awake and OnEnable run per-OBJECT the instant that object exists or is enabled — they do not wait for every other GameObject in the scene. Start is the one that waits for every Awake in the scene to finish first. Confusing "runs once" with "runs first, before anyone else's Awake" is the exact trap that breaks a lookup written in the wrong method.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // UPDATE VS. COROUTINE, A CHOICE COMING SOON</div>
+<p>Update fires every frame no matter what — even when nothing has changed and there is genuinely nothing to do this frame, which is why a "wait three seconds, then do X" behavior written naively inside Update turns into a manually-tracked timer field, checked and decremented on every single call. A later forge introduces coroutines specifically for waiting-and-resuming logic that doesn't belong crammed into a once-per-frame check — for now, just notice that Update being unconditional, every frame, forever, is a cost as much as a convenience.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Manual: Event function execution order"
+url = "https://docs.unity3d.com/Manual/execution-order.html"
+essential = true
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Manual: Order of execution for event functions (reference diagram)"
+url = "https://docs.unity3d.com/Manual/execution-order.html"
+
+[[lessons.exercises]]
+id = "s03-l05-e1"
+type = "mc"
+points = 20
+prompt = "ArtificerRig's Awake looks up a Torch component on a different, already-existing GameObject in the scene. Why is this risky compared to doing the same lookup in Start?"
+choices = ["Awake cannot legally call any other method, so the lookup would fail to compile", "The Torch GameObject's own Awake may not have run yet, so its data could be unready when ArtificerRig reaches for it", "Awake only runs in the Unity Editor, never in a built, exported game", "Looking things up is only allowed inside Update, never inside Awake or Start"]
+answer = 1
+whyWrong = "Nothing about Awake blocks calling other methods — that's not a real C# or Unity restriction; Awake absolutely does run in an exported build, it isn't an editor-only hook, and lookups are routinely done in Awake or Start, not exclusively in Update — the actual risk is purely about ordering between different objects' Awake calls, not about which method is 'allowed' to look things up."
+hint = "Start's whole reason for existing, per this lesson, is that it waits for something Awake does not wait for — what is that?"
+explain = "Awake runs per-object with no guarantee every other object in the scene has finished its own Awake yet — Start is the hook that waits for all Awakes to complete first, which is why cross-object lookups belong there instead."
+
+[[lessons.exercises]]
+id = "s03-l05-e2"
+type = "mc"
+points = 20
+prompt = "Which method is the correct home for camera-follow logic that needs the player's Transform to have already moved THIS frame before deciding where the camera looks?"
+choices = ["LateUpdate — it runs once per frame, after every script's Update has already finished", "Awake — it runs earliest, before the player has had a chance to move at all", "FixedUpdate — it runs on the physics timestep, so it always happens before Update", "OnEnable — it reruns every time the camera GameObject is toggled active"]
+answer = 0
+whyWrong = "Awake runs far too early — before the player has moved this frame at all, which is the opposite of what camera-follow needs; FixedUpdate isn't guaranteed to run before this frame's Update in the way that would help here, and OnEnable only fires on activation events, not every frame, so it can't drive continuous follow logic at all."
+hint = "This lesson named the one per-frame hook that is guaranteed to run only after every other script's Update for this frame has already happened."
+explain = "LateUpdate runs once per frame after every Update has finished, guaranteeing the player has already moved before the camera decides where to look — exactly why camera-follow logic belongs there."
+
+[[lessons.exercises]]
+id = "s03-l05-e3"
+type = "mc"
+points = 20
+prompt = "A GameObject is disabled, then re-enabled later in the same Play session (its own Awake already ran once, back when it first existed). Which method fires again on re-enable, that Awake does not?"
+choices = ["Start", "OnEnable", "Update", "Awake fires again too, every single time"]
+answer = 1
+whyWrong = "Start only ever fires once per object for the object's whole lifetime, not on every re-enable, so it's not the answer here; Update only starts running again once the object is active — it doesn't specially 'fire' as a distinct re-enable event, it just resumes; and Awake is explicitly a once-ever hook — it does NOT repeat on a later re-enable, which is exactly what this lesson called out as the split between it and OnEnable."
+hint = "This lesson explicitly separated Awake (once ever) from one other hook that reruns every time the object is switched back on."
+explain = "OnEnable reruns every time the GameObject or component becomes active again, unlike Awake, which fires exactly once for the object's entire lifetime."
+
+[[lessons.exercises]]
+id = "s03-l05-e4"
+type = "text"
+points = 20
+prompt = "Name the per-frame method that runs on a fixed physics timestep and can fire zero or more times in a single rendered frame."
+answer = "FixedUpdate"
+hint = "This lesson listed it first among the per-frame trio, reserved for physics work like Rigidbody2D movement."
+
+[[lessons.exercises]]
+id = "s03-l05-e5"
+type = "fill"
+points = 22
+prompt = "Fill in the missing method name in this frame-one order sketch from the lesson."
+code = '''Frame 1:   Awake → OnEnable → ____ → FixedUpdate(0+) → Update → LateUpdate'''
+answer = "Start"
+hint = "It's the one-time hook that waits for every other object's Awake to finish first, right before the per-frame trio begins."
+
+[[lessons.exercises]]
+id = "s03-l05-w1"
+type = "write"
+points = 32
+prompt = "MonoBehaviour's lifecycle can't run outside Unity, so model one frame's order in plain C#: a class Rig with a method RunFrame(int frameNumber) that prints, in order, \"AWAKE\" and \"START\" only when frameNumber == 1, then always prints \"UPDATE\" followed by \"LATE\" every frame. Call RunFrame for frameNumber 1 then 2 (a plain for loop from 1 to 2 inclusive), printing exactly:\nAWAKE\nSTART\nUPDATE\nLATE\nUPDATE\nLATE"
+starter = '''
+// Loop frameNumber from 1 to 2 inclusive, calling rig.RunFrame(frameNumber) each time.
+// Define class Rig at the BOTTOM of the file (top-level statements must come first).
+
+'''
+expect = '''
+AWAKE
+START
+UPDATE
+LATE
+UPDATE
+LATE'''
+solution = '''
+Rig rig = new Rig();
+for (int frameNumber = 1; frameNumber <= 2; frameNumber++)
+{
+    rig.RunFrame(frameNumber);
+}
+
+class Rig
+{
+    public void RunFrame(int frameNumber)
+    {
+        if (frameNumber == 1)
+        {
+            Console.WriteLine("AWAKE");
+            Console.WriteLine("START");
+        }
+        Console.WriteLine("UPDATE");
+        Console.WriteLine("LATE");
+    }
+}
+'''
+hint = "Use a for loop like chapter II's — frameNumber from 1 to 2 inclusive — and an if (frameNumber == 1) guard around AWAKE/START only, matching the one-time-setup-then-repeat shape from the lesson."

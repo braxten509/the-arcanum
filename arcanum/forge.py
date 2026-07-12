@@ -29,6 +29,29 @@ BUILD_SECTION_RE = re.compile(r"^\s*·\s+(?:authoring|resuming|section)\s+s\d+\s
 BUILD_RUNNER_RE = re.compile(r"\[runner: ([^\]]+)\]")
 BUILD_TOTAL_PHASES = 9  # tome-workflow/ phases 0..8
 
+# The runner's stdout also contains patches, generated prose, token counters, and CLI
+# narration. Keep that raw tail for failure diagnostics, but give the live terminal only
+# harness-authored progress signals. Anchored phrases prevent arbitrary worker prose from
+# masquerading as forge status just because it begins with a bullet or punctuation mark.
+BUILD_STATUS_RE = re.compile(
+    r"^(?:"
+    r">\s*Phase\s+\d+\s+—|"
+    r"===\s*Phase\s+0\b|"
+    r"·\s*(?:AI access Phase 0|forecast:|reset tomes/|split-sections:|"
+    r"(?:authoring|resuming|section)\s+s\d+|shrinkage justified|renamed tomes/|liveness ping)|"
+    r"(?:ok|FAIL)\s+|"
+    r"!\s*(?:runner|worker|section|Phase|naming)\b|"
+    r"x\s*(?:gates failed|Phase|section)\b|"
+    r"⇒\s+|↻\s+|~\s*student verdict\b|⏸\s*phase\b|"
+    r"==\s*all phases complete\b|AI ACCESS PHASE 0 FAILED\b|->\s*wrote\b)"
+)
+
+
+def forge_status_line(line):
+    """Return a concise, display-safe forge status line, or None for raw runner chatter."""
+    clean = line.strip()
+    return clean if clean and BUILD_STATUS_RE.match(clean) else None
+
 
 def fresh_tome_id(name):
     """Slugify a course name into an unused tomes/<id> — the harness's Phase 2 runs
@@ -96,6 +119,10 @@ def watch_build(gid, proc):
                 break
             job["log"].append(line)
             del job["log"][:-400]
+            status_line = forge_status_line(line)
+            if status_line:
+                job.setdefault("statusLog", []).append(status_line)
+                del job["statusLog"][:-120]
             if m:
                 job["phase"] = int(m.group(1))
                 job["phaseTitle"] = m.group(2).strip()

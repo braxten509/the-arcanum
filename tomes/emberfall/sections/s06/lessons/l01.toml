@@ -1,0 +1,103 @@
+[[lessons]]
+id = "s06-l01"
+title = "Collider2D & the Composite Wall"
+body = '''
+<p>Forge IV's field notes made a promise and left it hanging: Walls tiles LOOK solid, the Game view draws them on top of Floor without complaint, but nothing yet stops ArtificerRig from walking straight through one — physical blocking was named as "Forge VI's job" and deferred on purpose. This is that forge.</p>
+<p>Every physical shape in Unity's 2D physics is a <strong>Collider2D</strong> — chapter III's component list already named one in passing, <code>BoxCollider2D</code>, "gives the shape something to collide with," months before there was anything on the other side of that collision yet. ArtificerRig gets one first: <code>Add Component &gt; Box Collider 2D</code>, resized to hug the sprite. Paired with the Rigidbody2D chapter V already attached, ArtificerRig is now physically solid — but solid against what? The Walls Tilemap has no collider of its own, so walking toward a painted wall still collides with nothing at all.</p>
+<p>A naive fix — one BoxCollider2D per Walls tile, placed by hand — would work but scales badly: a modest overworld might paint hundreds of Walls cells, each spawning its own separate collider shape, its own share of physics overhead, and its own seam where two tiles meet edge-to-edge (a well-known source of a character snagging on an invisible ridge between two tiles that should read as one smooth wall). The Tilemap system has a purpose-built answer instead: <code>Add Component &gt; Tilemap Collider 2D</code> on the Walls Tilemap GameObject generates a collider shape automatically, one per painted tile, matching whatever is actually painted with no manual placement at all.</p>
+<p>Add <code>Composite Collider 2D</code> on the same GameObject and set its Rigidbody2D Body Type to <strong>Static</strong>. In Unity 6, set TilemapCollider2D's <strong>Composite Operation</strong> to <strong>Merge</strong>. The tile shapes then feed one continuous outline, removing internal seams; the older "Used By Composite" checkbox is not the Unity 6.3 control this tome targets.</p>
+<pre><code>[SerializeField] <span class="k">private</span> BoxCollider2D bodyCollider;
+
+<span class="k">void</span> Awake()
+{
+    bodyCollider = GetComponent&lt;BoxCollider2D&gt;();
+    Debug.Log(<span class="s">$"ArtificerRig collider size: {bodyCollider.size}"</span>);
+}</code></pre>
+<p>Nothing above is new syntax — <code>GetComponent&lt;T&gt;()</code> cached in Awake is exactly chapter V's Rigidbody2D-and-Animator pattern, just reaching for a third component type. What's new is what happens once both colliders exist with neither one's <code>isTrigger</code> checked (the default, and next lesson's whole topic): Unity's physics engine now stops ArtificerRig at the merged Walls outline entirely on its own, with not one line of collision-response code written by hand.</p>
+<div class="callout">Composite Collider2D requires a Rigidbody2D on the same GameObject to function at all — Unity refuses to merge shapes without one, and adds it automatically the first time Composite Collider2D is attached. Leave that Rigidbody2D's Body Type on its default of Dynamic and the "solid, immovable wall" becomes a wall that falls, tips, or gets shoved by ArtificerRig instead. Static is not optional here.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY MERGE COLLIDERS AT ALL</div>
+<p>Composite Operation: Merge cuts physics cost and removes edge snagging: the merged outline drops internal seams. The Scene view can look identical; Play mode reveals whether ArtificerRig glides past an inside corner.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Scripting API: TilemapCollider2D"
+url = "https://docs.unity3d.com/ScriptReference/TilemapCollider2D.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Scripting API: CompositeCollider2D"
+url = "https://docs.unity3d.com/ScriptReference/CompositeCollider2D.html"
+
+[[lessons.exercises]]
+id = "s06-l01-e1"
+type = "fill"
+points = 22
+prompt = "Fill in the missing generic method — the same component-fetching call chapter V used for Rigidbody2D and Animator, this time caching ArtificerRig's own BoxCollider2D in Awake."
+code = '''[SerializeField] private BoxCollider2D bodyCollider;
+
+void Awake()
+{
+    bodyCollider = ____<BoxCollider2D>();
+}'''
+answer = "GetComponent"
+hint = "It's the same caching call chapter V used twice already for rb and animator — the generic method that fetches a component already attached to this GameObject."
+
+[[lessons.exercises]]
+id = "s06-l01-e2"
+type = "mc"
+points = 20
+prompt = "Adding Composite Collider2D to the Walls Tilemap GameObject auto-attaches a Rigidbody2D. What Body Type must that Rigidbody2D be set to, per this lesson, for the merged wall outline to actually stay put?"
+choices = ["Dynamic, so the wall can be pushed and still register the correct outline", "Kinematic, since only script-driven movement should ever move level geometry", "Static, matching chapter V's own definition of a body that never moves", "It doesn't matter — Composite Collider2D ignores the Rigidbody2D's Body Type entirely"]
+answer = 2
+whyWrong = "Dynamic is the setting the callout named specifically as the failure case — it lets the 'solid, immovable wall' fall, tip, or get shoved by ArtificerRig, the opposite of the goal; Kinematic ignores forces but still allows script-driven movement, which level geometry that should never move at all doesn't need; and Composite Collider2D absolutely depends on that Rigidbody2D — it refuses to merge shapes without one attached, so its Body Type is far from irrelevant."
+hint = "Chapter V's Rigidbody2D lesson already defined one Body Type as 'never moves at all' — the exact behavior level geometry wants."
+explain = "Static, defined back in chapter V as a body that never moves, is exactly right for level geometry: Composite Collider2D needs the Rigidbody2D to exist to merge its source shapes, but that body should never actually respond to forces or be pushed."
+
+[[lessons.exercises]]
+id = "s06-l01-e3"
+type = "mc"
+points = 20
+prompt = "The Walls Tilemap already has a Tilemap Collider2D generating one shape per painted tile. Why does this lesson add a Composite Collider2D on top, rather than leaving Tilemap Collider2D alone?"
+choices = ["Tilemap Collider2D alone cannot generate any collider shapes at all — it requires Composite Collider2D to function", "Composite Collider2D merges the many per-tile shapes into one outline, cutting physics cost and removing the seams where adjacent tiles snag movement", "Composite Collider2D is required before ArtificerRig's own BoxCollider2D will register as solid", "Tilemap Collider2D only works on the Floor Tilemap, never on the Walls Tilemap"]
+answer = 1
+whyWrong = "Tilemap Collider2D generates shapes on its own just fine — the lesson's own second paragraph described it doing exactly that, one shape per painted tile, with no Composite Collider2D present yet; ArtificerRig's BoxCollider2D has nothing to do with whether the Walls Tilemap's own colliders register, those are two independent GameObjects; and Tilemap Collider2D works on any Tilemap GameObject it's attached to, Floor or Walls alike, with no such restriction."
+hint = "The field notes named two specific problems Composite Collider2D solves — one about how expensive many small shapes are, one about what happens right at a tile seam."
+explain = "Composite Collider2D merges every tile shape whose Composite Operation is Merge into one outline, reducing internal seams that can catch ArtificerRig."
+
+[[lessons.exercises]]
+id = "s06-l01-e4"
+type = "text"
+points = 20
+prompt = "What must be checked on the Walls Tilemap's Tilemap Collider2D component for its per-tile shapes to feed into the Composite Collider2D's merged outline instead of generating independent contacts of their own?"
+answer = "Composite Operation"
+accept = ["Used by Composite", "usedByComposite"]
+hint = "It's the exact checkbox name this lesson introduced right after describing what Composite Collider2D auto-attaches."
+
+[[lessons.exercises]]
+id = "s06-l01-w1"
+type = "write"
+points = 32
+prompt = "Composite Collider2D can't run in this workbench, so model what it merges in plain C#: given a List<bool> wallCells representing five Walls Tilemap cells in painting order [true, true, false, true, true] (true = a painted Walls tile that Tilemap Collider2D generates a shape for, false = an empty Floor cell with none), loop over the list and count how many entries are true — the number of source shapes Composite Collider2D would merge into its one outline. Print the count, exactly:\nMERGED 4"
+starter = '''
+// wallCells lists five Tilemap cells in painting order. Count how many are
+// true (a painted Walls tile with a generated collider shape) and print the
+// total the way Composite Collider2D would report a merged shape count.
+List<bool> wallCells = new List<bool> { true, true, false, true, true };
+
+'''
+expect = '''
+MERGED 4'''
+solution = '''
+List<bool> wallCells = new List<bool> { true, true, false, true, true };
+
+int merged = 0;
+foreach (bool cell in wallCells)
+{
+    if (cell)
+    {
+        merged += 1;
+    }
+}
+
+Console.WriteLine($"MERGED {merged}");
+'''
+hint = "This is chapter II's foreach-and-count pattern applied to wallCells — increment a counter only when a cell reads true, then print the total after the loop finishes."

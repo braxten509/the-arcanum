@@ -1,0 +1,36 @@
+[freestyle]
+title = "THE GREAT WORKING: SCENE ANATOMY"
+brief = "Program.cs taught you the shape of Artificer. Now build its bones in the real Unity Editor — the actual Emberfall project, not a simulation. This forge is graded from the C# scripts you write and a log file describing what the Console actually printed; there is no automatic compiler check standing between you and a broken scene, so read your own Console window like the Worldwright would.<ul><li>In your Emberfall project, create an empty GameObject named exactly <code>ArtificerRig</code> in the active scene.</li><li>Create <code>ArtificerRig.cs</code>: <code>public class ArtificerRig : MonoBehaviour</code> with two Inspector-editable but code-private fields, <code>[SerializeField] private string artificerName = \"Kess\";</code> and <code>[SerializeField] private int level = 1;</code>. Attach it to <code>ArtificerRig</code>.</li><li>In <code>ArtificerRig.cs</code>, implement <code>Awake()</code>, <code>Start()</code>, and <code>Update()</code>. <code>Awake()</code> logs exactly <code>ARTIFICERRIG AWAKE</code>. <code>Start()</code> logs exactly <code>Kess online at Level 1</code> built from <code>artificerName</code> and <code>level</code>, not hardcoded. <code>Update()</code> logs <code>FRAME &lt;n&gt;</code> where <code>&lt;n&gt;</code> counts up from 1 using a private <code>int</code> field you increment yourself — but only for the first 3 frames; after that, <code>Update()</code> must log nothing further (guard it so the Console doesn't fill with spam).</li><li>Create a SECOND script, <code>TorchGlow.cs</code>, attached to a separate child GameObject named <code>Torch</code> parented under <code>ArtificerRig</code> — proving composition over inheritance rather than cramming torch logic into <code>ArtificerRig.cs</code>. <code>TorchGlow.cs</code> logs exactly <code>Torch lit.</code> in its own <code>Start()</code>.</li><li>Drag <code>ArtificerRig</code> into <code>Assets/Prefabs/</code> to turn it into a Prefab. Drag a SECOND instance of that same prefab into the scene, rename it <code>ArtificerRig (Apprentice)</code>, and override its <code>level</code> field to <code>2</code> in the Inspector — do not touch the original instance's level.</li><li>Press Play once, let it run a few frames, then write <code>Assets/SCENE-LOG.md</code> recording: the Hierarchy tree (both ArtificerRig instances and each one's Torch child), the exact ordered Console lines the FIRST instance printed this session, and one sentence naming which field was overridden on the second instance and to what value.</li></ul>Every logged line must come from real field values and a real counter — a hardcoded Debug.Log string standing in for computed output earns no credit for that line."
+reward = 220
+packages = []
+xray = "The Worldwright docks the tally for: a public field left un-[SerializeField]'d (or [SerializeField] slapped on a field that's still public, which grants nothing) where the brief asked for a guarded one, an Update() that logs forever past frame 3 or never resets to a clean count, torch logic folded into ArtificerRig.cs instead of living on its own component, a prefab instance whose level override never actually happened (both instances silently read 1), and a SCENE-LOG.md whose claimed Console lines don't match what the scripts as written would actually print. He grants favor for Awake/Start/Update each doing only the job this forge assigned it (no lookup-in-Awake landmine), a frame counter that reads as one clean guarded increment rather than a sprawl of ifs, PascalCase class and method names paired with camelCase fields and locals, and Allman braces held through both scripts."
+
+[freestyle.badge]
+id = "badge-s03"
+name = "SCENE-SMITH"
+desc = "Raised ArtificerRig from a bare GameObject to a composed, scripted, prefabbed citizen of a real Unity scene — and read its heartbeat in the Console to prove it."
+
+[[freestyle.rubric]]
+criterion = "MonoBehaviour lifecycle correct"
+weight = 25
+desc = "Awake, Start, and Update on ArtificerRig.cs each log the specified exact text, Update's frame counter is a real incrementing private field guarded to stop after 3 frames (not a magic hardcoded sequence), and Start's message is built from artificerName/level rather than a literal string."
+
+[[freestyle.rubric]]
+criterion = "SerializeField / encapsulation holds"
+weight = 15
+desc = "artificerName and level are private fields marked [SerializeField], editable in the Inspector but not exposed as public — no plain public field standing in for the pattern this forge names."
+
+[[freestyle.rubric]]
+criterion = "Composition, not inheritance"
+weight = 20
+desc = "TorchGlow.cs is its own MonoBehaviour on its own child GameObject (Torch, parented under ArtificerRig) with its own Start() logging Torch lit. — torch behavior is never merged into ArtificerRig.cs."
+
+[[freestyle.rubric]]
+criterion = "Prefab + override proven"
+weight = 20
+desc = "ArtificerRig exists as a Prefab asset with at least two instances in the scene, and SCENE-LOG.md documents a level override on exactly one instance (not both, not neither), consistent with what the scripts would actually produce."
+
+[[freestyle.rubric]]
+criterion = "Clean style"
+weight = 20
+desc = "Follows Microsoft's C# naming conventions carried into Unity's own idiom: PascalCase for classes and methods, camelCase for fields and locals (including [SerializeField] private fields), Allman braces (opening brace on its own line) held consistently across both scripts, and no dead or commented-out code left behind."

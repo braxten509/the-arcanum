@@ -1,0 +1,90 @@
+[[lessons]]
+id = "s11-l01"
+title = "Tempering I // The Memory Vessel"
+body = '''
+<p>A save file is not the live world poured into a bottle, artificer. It is a deliberately small account of what the next session needs. Make a plain <code>[System.Serializable]</code> class named <code>SaveData</code>. Give it public fields for <code>float playerX</code>, <code>float playerY</code>, <code>int currentHP</code>, <code>List&lt;string&gt; inventoryItemIds</code>, and <code>List&lt;string&gt; questFlags</code>. These are values, not scene references: a Transform and a GameObject do not belong in this ledger.</p>
+<pre><code>[System.Serializable]
+<span class="k">public</span> <span class="k">class</span> SaveData
+{
+    <span class="k">public</span> <span class="k">float</span> playerX;
+    <span class="k">public</span> <span class="k">float</span> playerY;
+    <span class="k">public</span> <span class="k">int</span> currentHP;
+    <span class="k">public</span> List&lt;<span class="k">string</span>&gt; inventoryItemIds = <span class="k">new</span>();
+    <span class="k">public</span> List&lt;<span class="k">string</span>&gt; questFlags = <span class="k">new</span>();
+}</code></pre>
+<p>Why ids? Forge VIII made item definitions ScriptableObjects; the definition already knows its name, icon, and effect. Save <code>"waybread"</code>, then use the inventory's existing item lookup on load. Saving the ScriptableObject itself duplicates the wrong concern and makes later balance edits brittle. The same rule holds for quests: save the stable flag string, not a Canvas label or an NPC component.</p>
+<p>Unity's <code>JsonUtility</code> serializes fields on a serializable class. It is intentionally narrower than a general C# serializer: shape the vessel from public fields rather than expecting arbitrary properties, dictionaries, or polymorphic objects to be preserved. That limitation is a design guardrail here. Lists fit the inventory and quest flag records already taught; your existing dictionary lookup can rebuild fast access after loading.</p>
+<p>Capture a snapshot at the boundary. A <code>SaveManager</code> asks the player transform for its position, Health for current HP, Inventory for item ids, and the quest tracker for flags. Those systems remain owners of their own rules. The save manager translates their current state into <code>SaveData</code>; it does not become a second Health or inventory implementation.</p>
+<div class="callout">Persist facts that can be restored. Reconstruct scene relationships from the scene and data definitions already in the project.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // VERSION THE VESSEL LATER</div><p>Once players have saves, changing field names is a compatibility decision. For this first release, keep the schema small and stable. A later version can add a version field and migration path; do not fake that complexity before the basic round trip works.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Unity Scripting API: JsonUtility"
+url = "https://docs.unity3d.com/ScriptReference/JsonUtility.html"
+
+[[lessons.exercises]]
+id = "s11-l01-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype the complete field declaration that gives a fresh SaveData vessel an empty inventory-id list."
+code = 'public List<string> inventoryItemIds = new();'
+
+[[lessons.exercises]]
+id = "s11-l01-e1"
+type = "mc"
+points = 23
+prompt = "Which value should Emberfall save for a Lantern from the ScriptableObject-backed inventory?"
+choices = ["The Lantern GameObject from the scene", "The Lantern item's stable string id", "The Inventory Canvas TextMeshProUGUI", "The ItemDefinition ScriptableObject reference"]
+answer = 1
+whyWrong = "A scene object and UI label are session-specific, while serializing the definition reference ties the file to Unity asset layout. The stable item id is the small fact that the inventory lookup can resolve again after launch."
+hint = "Recall why Forge VIII used a lookup table: a compact key finds an item definition."
+explain = "Save the item id, then rebuild the runtime item from the existing definition lookup."
+
+[[lessons.exercises]]
+id = "s11-l01-e2"
+type = "fill"
+points = 24
+prompt = "Fill the attribute that marks this data-only class as eligible for Unity JSON serialization."
+code = '''[____]
+public class SaveData { }'''
+answer = "System.Serializable"
+hint = "It is the C# attribute placed in square brackets, with its namespace shown in the lesson sample."
+whyWrong = "JsonUtility needs a serializable data shape; MonoBehaviour is for scene behavior, not the marker that describes this plain record."
+
+[[lessons.exercises]]
+id = "s11-l01-w1"
+type = "write"
+points = 35
+prompt = "Model the save vessel in plain C#. Create SaveData with playerX, playerY, currentHP, inventoryItemIds, and questFlags. Populate position 12.5, -3, HP 14, ids Lantern and Waybread, and flag spoke_to_warden. Compute the snapshot summary exactly:\nSAVE 12.5,-3 HP 14\nITEMS 2 FLAGS 1"
+starter = '''using System.Collections.Generic;
+
+// Define SaveData below the top-level statements. Create and fill one snapshot here.
+// Print counts from the lists; do not hardcode either count.
+'''
+expect = '''SAVE 12.5,-3 HP 14
+ITEMS 2 FLAGS 1'''
+solution = '''using System.Collections.Generic;
+
+SaveData save = new SaveData
+{
+    playerX = 12.5f,
+    playerY = -3f,
+    currentHP = 14
+};
+save.inventoryItemIds.Add("Lantern");
+save.inventoryItemIds.Add("Waybread");
+save.questFlags.Add("spoke_to_warden");
+Console.WriteLine($"SAVE {save.playerX},{save.playerY} HP {save.currentHP}");
+Console.WriteLine($"ITEMS {save.inventoryItemIds.Count} FLAGS {save.questFlags.Count}");
+
+class SaveData
+{
+    public float playerX;
+    public float playerY;
+    public int currentHP;
+    public List<string> inventoryItemIds = new();
+    public List<string> questFlags = new();
+}'''
+hint = "Put the executable snapshot construction above the SaveData class, then use each List's Count for the second line."

@@ -80,7 +80,7 @@ export function startReview(onPass) {
   let passed = false;
   const overlay = document.createElement("div");
   overlay.className = "grade-overlay review-overlay";
-  overlay.innerHTML = `<div class="grade-card" style="max-width:94%;width:780px;max-height:1267px;display:flex;flex-direction:column">
+  overlay.innerHTML = `<div class="grade-card" style="max-width:780px;width:min(780px,94vw);max-height:88vh;display:flex;flex-direction:column">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
       <div>
         <div class="faint" style="font-size:11px;letter-spacing:.2em">✦ SPACED REVIEW // RE-FORGE WHAT YOU HAVE LEARNED</div>
@@ -108,7 +108,7 @@ export function startReview(onPass) {
     }));
   });
   updateCount();
-  ArcanumViewport.mount(overlay);
+  document.body.appendChild(overlay);
   closeBtn.onclick = () => { overlay.remove(); if (passed && onPass) onPass(); };
 }
 

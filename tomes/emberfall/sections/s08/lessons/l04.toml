@@ -1,0 +1,91 @@
+[[lessons]]
+id = "s08-l04"
+title = "Index the Armory"
+body = '''
+<p>The pack is ordered because a player will later read it. A catalog solves another problem: find one definition by its stable id. Forge II introduced <code>Dictionary&lt;TKey,TValue&gt;</code> and its safe <code>TryGetValue</code> pattern. Here the key is the ItemDefinition's exact <code>ItemId</code>; the value is the ItemDefinition asset. This lets a quest or pickup request <code>rust_key</code> without scanning a display list.</p>
+<pre><code><span class="k">using</span> System.Collections.Generic;
+<span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> ItemCatalog : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> List&lt;ItemDefinition&gt; definitions;
+    <span class="k">private</span> Dictionary&lt;<span class="k">string</span>, ItemDefinition&gt; byId;
+
+    <span class="k">private</span> <span class="k">void</span> Awake()
+    {
+        byId = <span class="k">new</span> Dictionary&lt;<span class="k">string</span>, ItemDefinition&gt;();
+        <span class="k">foreach</span> (ItemDefinition definition <span class="k">in</span> definitions)
+            byId.Add(definition.ItemId, definition);
+    }
+
+    <span class="k">public</span> <span class="k">bool</span> TryGet(<span class="k">string</span> itemId, <span class="k">out</span> ItemDefinition definition)
+    {
+        <span class="k">return</span> byId.TryGetValue(itemId, <span class="k">out</span> definition);
+    }
+}</code></pre>
+<p>Drag every authored definition into the Inspector list on one ItemCatalog GameObject. Awake runs before the scene starts playing, as Forge III taught, so the lookup map is ready before pickup logic asks it a question. <code>out</code> lets TryGetValue hand back the found definition while the bool says whether it exists. The caller must respect false; it does not receive a magical fallback asset.</p>
+<p>Why not use a Dictionary as the Inspector list directly? The authoring surface is a List you can inspect and order. Awake derives the fast runtime index. That is composition, not duplication: one source list feeds one purposeful map. Do not call the indexer <code>byId[itemId]</code> on unknown player-facing ids; it throws. Use the safe pattern already forged in Forge II.</p>
+<p>The bench lab indexes two definitions and retrieves one. In Unity, the references are real assets supplied through the Inspector; no Resources folder or simulated loader is required here.</p>
+<div class="callout">Use List for authored order and Dictionary for keyed lookup; choose the collection by the question being asked.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // IDS ARE CONTRACTS</div><p><code>itemId</code> is a machine-facing stable key, not decoration. DisplayName may be localized or renamed; a saved inventory and a quest need an id that does not casually drift. Later save/load will persist these ids and rebuild references through this catalog.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Microsoft Learn: Dictionary&lt;TKey,TValue&gt;"
+url = "https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.dictionary-2"
+
+[[lessons.exercises]]
+id = "s08-l04-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype the safe ItemCatalog lookup return line."
+code = '''return byId.TryGetValue(itemId, out definition);'''
+
+[[lessons.exercises]]
+id = "s08-l04-e1"
+type = "fill"
+points = 24
+prompt = "Fill the dictionary method ItemCatalog uses so an unknown id reports false instead of indexing blindly."
+code = '''return byId.____(itemId, out definition);'''
+answer = "TryGetValue"
+hint = "Forge II used this two-result lookup: a bool tells whether the key exists, while out receives the value."
+
+[[lessons.exercises]]
+id = "s08-l04-e2"
+type = "mc"
+points = 22
+prompt = "Why does ItemCatalog build its Dictionary in Awake from an Inspector-authored List&lt;ItemDefinition&gt;?"
+choices = ["Awake turns item ids into display names", "Dictionary keys make Rigidbody2D movement frame-rate independent", "A ScriptableObject cannot be placed in a List", "The List supplies inspectable authored references; the Dictionary supplies quick keyed lookup"]
+answer = 3
+whyWrong = "Awake does not rename assets, physics timing belongs to Forge V, and ScriptableObject references can live in Lists. The two collections have different jobs: authoring order versus lookup by id."
+hint = "One collection is convenient to drag assets into; the other answers a known id efficiently."
+explain = "The List is the Inspector source; Awake derives the Dictionary index from it."
+
+[[lessons.exercises]]
+id = "s08-l04-e3"
+type = "text"
+points = 19
+prompt = "What keyword marks the parameter through which TryGet returns the found ItemDefinition?"
+answer = "out"
+hint = "It appears before ItemDefinition definition in the method signature and before definition in TryGetValue."
+
+[[lessons.exercises]]
+id = "s08-l04-w1"
+type = "write"
+points = 35
+prompt = "Build a Dictionary&lt;string, int&gt; catalog with minor_potion = 15 and rust_key = 0. Use TryGetValue to retrieve minor_potion and compute exactly:\nFOUND minor_potion HEAL 15"
+starter = '''using System.Collections.Generic;
+
+// Create the catalog, add the two exact ids, then safely retrieve minor_potion.
+
+'''
+expect = '''FOUND minor_potion HEAL 15'''
+solution = '''Dictionary<string, int> catalog = new Dictionary<string, int>();
+catalog.Add("minor_potion", 15);
+catalog.Add("rust_key", 0);
+if (catalog.TryGetValue("minor_potion", out int healAmount))
+{
+    Console.WriteLine($"FOUND minor_potion HEAL {healAmount}");
+}'''
+hint = "Add both pairs, then place the required print inside the true TryGetValue branch so healAmount was actually found."

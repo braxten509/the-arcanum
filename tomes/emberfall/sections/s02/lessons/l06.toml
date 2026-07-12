@@ -1,0 +1,101 @@
+[[lessons]]
+id = "s02-l06"
+title = "Dictionary<K,V> — Looking Things Up By Name"
+body = '''
+<p>A <code>List&lt;T&gt;</code> finds an item by counting its position — fine for an ordered inventory, useless for "how much fire resistance does this artificer have?" when all you know is the name <code>"Fire"</code>. <code>Dictionary&lt;TKey, TValue&gt;</code> is C#'s key-value collection: every entry pairs a unique key with a value, and you look values up by key instead of by position.</p>
+<pre><code><span class="k">using</span> System.Collections.Generic;
+
+Dictionary&lt;<span class="k">string</span>, <span class="k">int</span>&gt; resistances = <span class="k">new</span> Dictionary&lt;<span class="k">string</span>, <span class="k">int</span>&gt;();
+resistances[<span class="s">"Fire"</span>] = 25;
+resistances[<span class="s">"Ice"</span>] = 10;
+Console.WriteLine(resistances[<span class="s">"Fire"</span>]);   <span class="c">// 25</span></code></pre>
+<p>The two type arguments name the key type then the value type — here, a <code>string</code> key mapped to an <code>int</code> value. The indexer (<code>[ ]</code>) does double duty: <code>resistances["Fire"] = 25;</code> adds a new entry or overwrites an existing one, and <code>resistances["Fire"]</code> on the right of an assignment reads a value back out by its key. Keys must be unique — assigning the same key twice replaces the old value rather than creating a second entry.</p>
+<p>Reading a key that was never added crashes — <code>resistances["Poison"]</code> throws a <code>KeyNotFoundException</code> if <code>"Poison"</code> was never set. <code>TryGetValue</code> is the safe alternative: it returns <code>true</code>/<code>false</code> instead of throwing, and hands the found value out through an <code>out</code> parameter.</p>
+<pre><code><span class="k">if</span> (resistances.TryGetValue(<span class="s">"Poison"</span>, <span class="k">out</span> <span class="k">int</span> poisonResist))
+{
+    Console.WriteLine($<span class="s">"Poison resist: {poisonResist}"</span>);
+}
+<span class="k">else</span>
+{
+    Console.WriteLine(<span class="s">"Poison resist: 0 (no entry)"</span>);
+}</code></pre>
+<p><code>out int poisonResist</code> declares <code>poisonResist</code> right there in the call — if <code>TryGetValue</code> returns <code>true</code>, that variable holds the found value inside the <code>if</code> block; if it returns <code>false</code>, the key wasn't present and <code>poisonResist</code> is left at <code>0</code>, the default for <code>int</code>. This is the exact same "returns a bool instead of throwing" shape as <code>int.TryParse</code>, which chapter I's field notes already named as the pattern you'd actually use once you had the tools for it — this is that moment.</p>
+<div class="callout">ContainsKey(key) answers the yes/no question alone, without fetching a value — reach for it when you only need to know an entry exists, and for TryGetValue the moment you also need the value itself, to avoid checking twice.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ITERATING A DICTIONARY</div>
+<p>foreach works on a Dictionary too, handing back one KeyValuePair&lt;TKey,TValue&gt; per entry, with .Key and .Value properties: foreach (KeyValuePair&lt;string, int&gt; entry in resistances) { Console.WriteLine($"{entry.Key}: {entry.Value}"); }. Unlike a List&lt;T&gt;, a Dictionary makes no promise about iteration order — never write code (or a lab's expected output) that depends on which entry foreach visits first.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Microsoft C# guide: Dictionary<TKey,TValue>"
+url = "https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.dictionary-2"
+
+[[lessons.readings]]
+label = "OPTIONAL // Microsoft C# guide: TryGetValue"
+url = "https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.dictionary-2.trygetvalue"
+
+[[lessons.exercises]]
+id = "s02-l06-e1"
+type = "mc"
+points = 15
+prompt = "resistances holds only \"Fire\" and \"Ice\" entries. What does resistances[\"Poison\"] do?"
+choices = ["Returns 0, the default for int", "Returns false", "Returns null", "Throws a KeyNotFoundException"]
+answer = 3
+whyWrong = "The indexer never quietly falls back to a default value like 0 or null for a missing key (that's what TryGetValue with an out variable is for), and it doesn't return a bool like false either — a plain [ ] read on a key that was never added throws a KeyNotFoundException at runtime; TryGetValue exists specifically because the plain indexer does NOT hand you a safe fallback."
+hint = "The plain [ ] indexer is the risky read this lesson contrasted against TryGetValue — what does the risky one do on a missing key?"
+explain = "Reading a missing key through the plain indexer throws KeyNotFoundException — that risk is exactly why TryGetValue exists as the safe alternative."
+
+[[lessons.exercises]]
+id = "s02-l06-e2"
+type = "mc"
+points = 15
+prompt = "resistances[\"Fire\"] = 25; then later resistances[\"Fire\"] = 40; runs. How many entries does resistances have for the key \"Fire\", and what value does it hold?"
+choices = ["One entry, holding 40 — the second assignment overwrote the first", "Two entries, 25 and 40, both under the key \"Fire\"", "One entry, holding 25 — the first assignment wins", "It throws an exception for assigning the same key twice"]
+answer = 0
+whyWrong = "Dictionary keys are unique by design, so there is never a second entry created for a repeated key, and assigning an existing key is completely legal — it does not throw; since the first assignment does NOT 'win', overwriting is exactly what a repeat key assignment does — resistances[\"Fire\"] ends up holding the most recent value, 40."
+hint = "Dictionary keys must be unique — what happens when you assign to a key that's already present?"
+explain = "Assigning an existing key overwrites its value rather than creating a duplicate entry — Fire ends up holding 40, the second assignment."
+
+[[lessons.exercises]]
+id = "s02-l06-e3"
+type = "text"
+points = 20
+prompt = "Which Dictionary method returns true/false instead of throwing, and hands the found value out through an out parameter?"
+answer = "TryGetValue"
+hint = "It follows the exact same TryX naming pattern as int.TryParse from chapter I."
+
+[[lessons.exercises]]
+id = "s02-l06-e4"
+type = "fill"
+points = 20
+prompt = "Fill in the missing type argument pair so this declares a dictionary mapping resistance names (text) to resistance amounts (whole numbers)."
+code = 'Dictionary<____, int> resistances = new Dictionary<____, int>();'
+answer = "string"
+hint = "The keys are names like \"Fire\" and \"Ice\" — what type holds text?"
+
+[[lessons.exercises]]
+id = "s02-l06-w1"
+type = "write"
+points = 30
+prompt = "Build a Dictionary&lt;string,int&gt; named resistances with Fire=25 and Ice=10. Using TryGetValue, look up \"Poison\" — since it's absent, print exactly POISON RESIST 0 using the out variable's default when the lookup fails. Then look up \"Fire\" the same safe way and print FIRE RESIST 25."
+starter = '''
+Dictionary<string, int> resistances = new Dictionary<string, int>();
+resistances["Fire"] = 25;
+resistances["Ice"] = 10;
+// Use TryGetValue for "Poison" then "Fire", printing POISON RESIST <n> and FIRE RESIST <n>.
+
+'''
+expect = '''
+POISON RESIST 0
+FIRE RESIST 25'''
+solution = '''
+Dictionary<string, int> resistances = new Dictionary<string, int>();
+resistances["Fire"] = 25;
+resistances["Ice"] = 10;
+
+resistances.TryGetValue("Poison", out int poisonResist);
+Console.WriteLine($"POISON RESIST {poisonResist}");
+
+resistances.TryGetValue("Fire", out int fireResist);
+Console.WriteLine($"FIRE RESIST {fireResist}");
+'''
+hint = "TryGetValue leaves its out variable at 0 (int's default) when the key is missing — you don't need an if/else here, just print the out variable either way."

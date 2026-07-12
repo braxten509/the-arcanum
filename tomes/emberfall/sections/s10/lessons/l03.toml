@@ -1,0 +1,102 @@
+[[lessons]]
+id = "s10-l03"
+title = "Tempering III // Stop the Clock"
+body = '''
+<p>A pause screen that merely covers the world is stage paint. Unity exposes <code>Time.timeScale</code>, a multiplier for <em>scaled</em> time. Set it to <code>0f</code> when GameState becomes Paused and Rigidbody2D physics steps, Update code using deltaTime, and Forge VII's <code>WaitForSeconds</code> recovery wait stop advancing. Restore <code>1f</code> before a new run, on resume, on game over, and on return to menu. Leaving the clock at zero is the classic cursed forge: the menu looks alive but the next run cannot move.</p>
+<pre><code><span class="k">private</span> <span class="k">void</span> SetState(GameState nextState)
+{
+    CurrentState = nextState;
+    Time.timeScale = nextState == GameState.Paused ? 0f : 1f;
+    pausePanel.SetActive(nextState == GameState.Paused);
+    hudPanel.SetActive(nextState == GameState.Playing || nextState == GameState.Paused);
+}</code></pre>
+<p>The conditional operator has the shape <code>condition ? valueWhenTrue : valueWhenFalse</code>. It is appropriate here because there are exactly two clock values. It is not a replacement for the panel matrix: menu and game-over need their own SetActive lines, and Playing plus Paused deliberately share the HUD. Assign these panel references with [SerializeField] in the Inspector; a missing reference is scene wiring failure, not a reason to hide it behind a null check.</p>
+<p>Scaled time is a design choice, not universal ice. Forge VII already noted that <code>WaitForSeconds</code> uses scaled time; it should halt combat recovery during pause. A pause-menu animation or a “PAUSED” glow that must continue needs <code>WaitForSecondsRealtime</code>, which ignores timeScale. Teach your future self the reason at the call site. Do not convert every coroutine to realtime simply because one UI flourish needs it.</p>
+<p>The workbench models the number rather than Unity's global Time class. That is honest: the real verification is Play mode. Start a run, move ArtificerRig, pause, and confirm the Rigidbody2D stops while the PausePanel shows. Resume, then return to menu and start once more; movement must return. This also reaches backward to the fixed-step physics discipline from Forge V.</p>
+<div class="callout">Paused means a visible overlay and a scaled clock of zero. A new or ended run must restore the clock to one.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // A CLOCK IS GLOBAL</div><p>Time.timeScale affects the whole running scene. That is precisely why GameStateManager owns it. Letting a DialoguePanel or pickup set it creates hidden global side effects that become impossible to audit.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Scripting API: Time.timeScale"
+url = "https://docs.unity3d.com/ScriptReference/Time-timeScale.html"
+
+[[lessons.exercises]]
+id = "s10-l03-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype the scaled-clock assignment that freezes only the Paused state."
+code = '''Time.timeScale = nextState == GameState.Paused ? 0f : 1f;'''
+
+[[lessons.exercises]]
+id = "s10-l03-e1"
+type = "mc"
+points = 22
+prompt = "Which Forge VII timing tool should normally stop while Emberfall is paused because it follows scaled time?"
+choices = ["WaitForSeconds used for enemy attack recovery", "WaitForSecondsRealtime used for a pause-menu glow", "TextMeshProUGUI text assignment", "Dictionary.TryGetValue for quest flags"]
+answer = 0
+whyWrong = "WaitForSecondsRealtime intentionally ignores timeScale, while text assignment and dictionary lookup do not run on Unity's scaled timer. WaitForSeconds is the combat-facing delay that should freeze with the run."
+hint = "Recall the earlier field note distinguishing the scaled coroutine wait from its realtime counterpart."
+explain = "Time.timeScale affects WaitForSeconds, so attack recovery pauses with gameplay."
+
+[[lessons.exercises]]
+id = "s10-l03-e2"
+type = "fill"
+points = 24
+prompt = "Fill the float literal that freezes Unity's scaled clock in the paused branch."
+code = '''Time.timeScale = nextState == GameState.Paused ? ____ : 1f;'''
+answer = "0f"
+hint = "A multiplier of zero prevents scaled seconds and FixedUpdate simulation from advancing."
+
+[[lessons.exercises]]
+id = "s10-l03-e3"
+type = "mc"
+points = 22
+prompt = "After ReturnToMenu, why must GameStateManager set Time.timeScale back to 1f even though no player is moving on the menu?"
+choices = ["Canvas panels cannot draw at timeScale zero", "The next StartGame would inherit frozen physics and scaled coroutines", "CurrentState would stop being an enum", "HealthChanged can only invoke at timeScale one"]
+answer = 1
+whyWrong = "Canvas can still render and enums/events do not depend on the scaled clock. The danger is global state leaking into the next run: a zero scale would leave movement and WaitForSeconds frozen after StartGame."
+hint = "Think about the next scene action, not only what the menu currently shows."
+explain = "timeScale is global, so a transition out of pause must clean it up for the next playable state."
+
+[[lessons.exercises]]
+id = "s10-l03-w1"
+type = "write"
+points = 35
+prompt = "In plain C#, create ClockManager whose SetState stores a GameState and assigns Scale 0f only for Paused, otherwise 1f. Set Playing, Paused, then GameOver and compute exactly:\nCLOCK Playing 1\nCLOCK Paused 0\nCLOCK GameOver 1"
+starter = '''// Define GameState and ClockManager. Derive each printed scale through SetState.
+// Do not print constants in place of the Scale property.
+
+'''
+expect = '''CLOCK Playing 1
+CLOCK Paused 0
+CLOCK GameOver 1'''
+solution = '''ClockManager manager = new ClockManager();
+manager.SetState(GameState.Playing);
+Console.WriteLine($"CLOCK {manager.CurrentState} {manager.Scale}");
+manager.SetState(GameState.Paused);
+Console.WriteLine($"CLOCK {manager.CurrentState} {manager.Scale}");
+manager.SetState(GameState.GameOver);
+Console.WriteLine($"CLOCK {manager.CurrentState} {manager.Scale}");
+
+enum GameState { MainMenu, Playing, Paused, GameOver }
+class ClockManager
+{
+    public GameState CurrentState { get; private set; }
+    public float Scale { get; private set; }
+    public void SetState(GameState nextState)
+    {
+        CurrentState = nextState;
+        Scale = nextState == GameState.Paused ? 0f : 1f;
+    }
+}'''
+hint = "Assign CurrentState first, then use nextState == GameState.Paused to choose the Scale value."
+
+[[lessons.exercises]]
+id = "s10-l03-e4"
+type = "text"
+points = 19
+prompt = "What coroutine wait should a pause-menu glow use if it must continue while the scaled gameplay clock is zero?"
+answer = "WaitForSecondsRealtime"
+hint = "Its name explicitly says it measures real time rather than the scaled game clock."

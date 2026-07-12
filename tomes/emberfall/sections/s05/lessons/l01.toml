@@ -1,0 +1,123 @@
+[[lessons]]
+id = "s05-l01"
+title = "Reading the Keyboard — Unity's Input System"
+body = '''
+<p>Chapter III's field notes named FixedUpdate and Update as the per-frame trio, but every ArtificerRig script so far has only ever logged its own heartbeat — nothing has read a key. Unity ships two ways to do that: the legacy <code>Input</code> class, and the newer <strong>Input System</strong> package, installed through <code>Window &gt; Package Manager</code>. Emberfall commits to the Input System for the rest of this course — it is the actively developed API, and its device-object model (a <code>Keyboard</code>, a <code>Gamepad</code>, a <code>Mouse</code>, each queried directly) will matter again once the course reaches menus and pause screens.</p>
+<p>The static property <code>Keyboard.current</code> returns the keyboard most recently added or used, and is <code>null</code> when no keyboard is available. A null guard supports keyboard-less devices and unusual startup states. Each key exposes a <strong>ButtonControl</strong>; <code>isPressed</code> stays true while held.</p>
+<pre><code><span class="k">using</span> UnityEngine;
+<span class="k">using</span> UnityEngine.InputSystem;
+
+<span class="k">public</span> <span class="k">class</span> ArtificerRig : MonoBehaviour
+{
+    <span class="k">void</span> Update()
+    {
+        <span class="k">if</span> (Keyboard.current == <span class="k">null</span>) <span class="k">return</span>;
+
+        <span class="k">int</span> moveX = <span class="k">0</span>;
+        <span class="k">if</span> (Keyboard.current.dKey.isPressed) moveX += <span class="k">1</span>;
+        <span class="k">if</span> (Keyboard.current.aKey.isPressed) moveX -= <span class="k">1</span>;
+
+        <span class="k">int</span> moveY = <span class="k">0</span>;
+        <span class="k">if</span> (Keyboard.current.wKey.isPressed) moveY += <span class="k">1</span>;
+        <span class="k">if</span> (Keyboard.current.sKey.isPressed) moveY -= <span class="k">1</span>;
+    }
+}</code></pre>
+<p>Two opposite keys compose into one axis by subtraction rather than four separate booleans surviving into the rest of the script: D adds 1, A subtracts 1, and whichever is actually held (or neither, or — held together — both, cancelling to 0) is the only thing later code needs to know. This is the same "reduce four raw signals to one usable number" instinct chapter II's branching lessons already built, just aimed at hardware instead of a stored value.</p>
+<div class="callout">Install Input System in Package Manager, then set <code>Edit &gt; Project Settings &gt; Player &gt; Active Input Handling</code> to "Input System Package" or "Both" and accept any requested restart. If keys do not register, verify the package, this setting, the Console, and that <code>Keyboard.current</code> is non-null.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // isPressed VS. wasPressedThisFrame</div>
+<p>Every ButtonControl actually offers two related readings: <code>isPressed</code>, true across the whole span a key is held (right for movement, which should keep going as long as D stays down), and <code>wasPressedThisFrame</code>, true for exactly one frame — the frame the key transitions from up to down. Movement wants <code>isPressed</code>; a later forge's interact or jump button, which should fire once per press no matter how long the key stays down afterward, will want <code>wasPressedThisFrame</code> instead. Reaching for the wrong one is a common source of either "movement only works for one frame" or "my button fires every frame it's held."</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Scripting API: Keyboard class (Input System)"
+url = "https://docs.unity3d.com/Packages/com.unity.inputsystem@1.0/api/UnityEngine.InputSystem.Keyboard.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Manual: Input System quick start guide"
+url = "https://docs.unity3d.com/Packages/com.unity.inputsystem@1.0/manual/QuickStartGuide.html"
+
+[[lessons.exercises]]
+id = "s05-l01-e1"
+type = "mc"
+points = 20
+prompt = "ArtificerRig's script correctly checks Keyboard.current.dKey.isPressed in Update, but pressing D produces no movement at all — no error appears in the Console. Project Settings > Player > Active Input Handling is still set to its original value. What is the most likely cause, per this lesson?"
+choices = ["isPressed only fires once per key press, so holding D never re-triggers it", "Keyboard.current is always null until Awake has run at least twice", "Active Input Handling is left on \"Input Manager (Old)\", so the new Input System package's device APIs never activate", "moveX must be declared static or the Input System cannot read it"]
+answer = 2
+whyWrong = "isPressed being 'once per press' describes wasPressedThisFrame, not isPressed, which the field notes defined as true for the whole held-down span — that's not what's failing here; Keyboard.current being null is a first-frame-only concern the code already guards against with a return, and nothing about Awake running twice is a real Unity behavior; and moveX is a plain local variable — the Input System has no concept of a script's local variables needing to be static to be read."
+hint = "The callout named exactly one Project Settings field whose wrong value makes every Keyboard.current property silently do nothing."
+explain = "The course requires the Input System package and a compatible Active Input Handling setting. Verify both, restart if Unity requests it, then inspect the Console and Keyboard.current."
+
+[[lessons.exercises]]
+id = "s05-l01-e2"
+type = "fill"
+points = 22
+prompt = "Fill in the missing ButtonControl property — the one this lesson defined as true for every frame a key is held down, used to build moveX from the D and A keys."
+code = '''int moveX = 0;
+if (Keyboard.current.dKey.____) moveX += 1;
+if (Keyboard.current.aKey.isPressed) moveX -= 1;'''
+answer = "isPressed"
+hint = "It's the property the field notes contrasted directly against wasPressedThisFrame — the one that stays true the whole time the key is held, not just on the frame it goes down."
+
+[[lessons.exercises]]
+id = "s05-l01-e3"
+type = "mc"
+points = 20
+prompt = "This lesson's field notes distinguished isPressed from wasPressedThisFrame. Which correctly describes the difference?"
+choices = ["isPressed is true for every frame the key is held down; wasPressedThisFrame is true only on the single frame the key first goes down", "isPressed is true only on the exact frame a key goes down; wasPressedThisFrame stays true the whole time it's held", "They are interchangeable aliases for the same underlying bool", "isPressed works only for the mouse; wasPressedThisFrame works only for the keyboard"]
+answer = 0
+whyWrong = "The second choice has the two properties' behavior exactly backwards — isPressed is the sustained one, wasPressedThisFrame is the single-frame one; they are not aliases, since sustained movement and a one-shot button press genuinely need different readings, which is the whole reason both exist; and neither property is restricted to one device type — ButtonControl backs keys, mouse buttons, and gamepad buttons alike."
+hint = "Held-down movement wants a value that stays true across many frames; a one-shot button wants a value true on exactly one frame — which name matches which behavior?"
+explain = "isPressed stays true for the entire span a key is held, which is what continuous movement needs; wasPressedThisFrame is true for exactly the one frame a key transitions from up to down, right for a jump or interact press that should never fire twice from one hold."
+
+[[lessons.exercises]]
+id = "s05-l01-e4"
+type = "text"
+points = 20
+prompt = "What is the name of the static InputSystem property, checked against null before reading any key off of it, that returns the keyboard device most recently used?"
+answer = "Keyboard.current"
+accept = ["current"]
+hint = "It's the property this lesson's very first code sample null-checked with an early return before touching a single key."
+
+[[lessons.exercises]]
+id = "s05-l01-w1"
+type = "write"
+points = 32
+prompt = "Unity's Keyboard class can't run in this workbench, so model key-to-direction logic in plain C#: a class InputPoll with four public bool fields UpPressed, DownPressed, LeftPressed, RightPressed (all false by default), and two methods: MoveX(), returning 1 if RightPressed is true and LeftPressed is false, -1 if LeftPressed is true and RightPressed is false, and 0 otherwise; and MoveY(), returning 1 if UpPressed is true and DownPressed is false, -1 if DownPressed is true and UpPressed is false, and 0 otherwise (the same compose-by-subtraction idea as Keyboard.current's D-minus-A, W-minus-S, guarded so two opposite keys held together cancel to 0 instead of picking one arbitrarily). Build an InputPoll with RightPressed and UpPressed set to true, then print exactly:\nMOVE (1, 1)"
+starter = '''
+// Build an InputPoll with RightPressed and UpPressed set to true, then print
+// "MOVE (x, y)" using MoveX() and MoveY(). Define class InputPoll at the
+// BOTTOM of the file (top-level statements first).
+
+'''
+expect = '''
+MOVE (1, 1)'''
+solution = '''
+InputPoll input = new InputPoll();
+input.RightPressed = true;
+input.UpPressed = true;
+
+Console.WriteLine($"MOVE ({input.MoveX()}, {input.MoveY()})");
+
+class InputPoll
+{
+    public bool UpPressed = false;
+    public bool DownPressed = false;
+    public bool LeftPressed = false;
+    public bool RightPressed = false;
+
+    public int MoveX()
+    {
+        if (RightPressed && !LeftPressed) return 1;
+        if (LeftPressed && !RightPressed) return -1;
+        return 0;
+    }
+
+    public int MoveY()
+    {
+        if (UpPressed && !DownPressed) return 1;
+        if (DownPressed && !UpPressed) return -1;
+        return 0;
+    }
+}
+'''
+hint = "MoveX and MoveY are the same shape as Keyboard.current's D-minus-A, W-minus-S subtraction — just guard the case where both opposite keys are true instead of letting it silently pick a side you didn't check for."

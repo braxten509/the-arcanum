@@ -1,0 +1,104 @@
+[[lessons]]
+id = "s06-l04"
+title = "Layers & the Collision Matrix"
+body = '''
+<p>Every GameObject carries a second dropdown at the top of the Inspector, right next to Tag, easy to confuse yet doing something entirely different: <strong>Layer</strong>. Where Tag answers "what IS this" for a script's benefit — last lesson's <code>CompareTag("Player")</code> — Layer answers a question the physics engine asks of every pair of colliders in the scene, before OnTriggerEnter2D or OnCollisionEnter2D ever get a chance to fire: "should these two even be tested against each other at all?"</p>
+<p>Layers live in <code>Edit &gt; Project Settings &gt; Physics 2D</code>, at the bottom of that window, as a triangular grid of checkboxes — one row and one column per Layer, one checkbox per PAIR of layers. A checked cell means colliders on those two layers are tested for overlap as normal; an unchecked cell means the physics engine skips that pair entirely, for every object on those layers, project-wide — no OnTriggerEnter2D, no solid collision, nothing, and no per-script check needed to enforce it. This is a project-wide default, decided once in Project Settings, not a per-object toggle.</p>
+<p>The motivating case for Forge VI: a floor scattered with several pickups, each with a Circle Collider2D marked isTrigger, would — with every layer left on the Default layer — start firing OnTriggerEnter2D on EACH OTHER the instant two of them happened to overlap slightly, since last lesson's Rigidbody2D-pairing rule only asked for one Rigidbody2D somewhere, and it never checked what the two colliders actually WERE. Fix it at the source: create a new Layer named <code>Pickup</code> (the Layer dropdown's own <code>Add Layer...</code> entry, the same pattern as adding a Tag), assign every pickup GameObject to it, then in the Physics 2D collision matrix, uncheck the cell where the Pickup row meets the Pickup column. Pickup-vs-Pickup pairs are now invisible to physics entirely; Pickup-vs-Default (ArtificerRig, still on Default) stays checked, so triggers against the artificer keep working exactly as before.</p>
+<pre><code><span class="c">// read-only from script: the current Layer index of a GameObject</span>
+<span class="k">int</span> pickupLayer = gameObject.layer;
+Debug.Log(<span class="s">$"This pickup is on layer index {pickupLayer}"</span>);</code></pre>
+<p>Layer itself is stored as a plain <code>int</code> — 0 through 31, with Default always 0 — readable from script as <code>gameObject.layer</code> the same way <code>gameObject.tag</code> reads the Tag string, though this section leans on the Project Settings matrix rather than reading that int directly, since the matrix solves the pickup-overlap problem project-wide with zero per-script logic.</p>
+<div class="callout">The collision matrix is a STARTING default, checked once when the scene loads — it is not the only lever. <code>Physics2D.IgnoreLayerCollision(layerA, layerB, ignore)</code> exists for the rarer case of toggling a layer pair's behavior at RUNTIME (a boss phase that briefly makes ArtificerRig immune to hazards, say). For Forge VI's pickups, which should never interact with each other for the entire life of the scene, the matrix is the right tool — reach for the script API only when the rule needs to change mid-play.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TAG VS. LAYER, ONE MORE TIME</div>
+<p>Both are single-value Inspector dropdowns living right next to each other, which is exactly why they're easy to conflate. Tag is read by SCRIPTS, one string, checked with CompareTag, and has no effect on the physics engine's own decisions. Layer is read by the PHYSICS ENGINE ITSELF (and separately, rendering — camera culling and sorting also use it, outside this forge's scope), decided once in the collision matrix, and has no bearing on what CompareTag returns. ArtificerRig can be Tag "Player" and Layer "Default" at the same time — they don't compete for the same slot, and a script checking one learns nothing about the other.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Manual: Layer-based collision detection"
+url = "https://docs.unity3d.com/Manual/LayerBasedCollision.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Scripting API: Physics2D.IgnoreLayerCollision"
+url = "https://docs.unity3d.com/ScriptReference/Physics2D.IgnoreLayerCollision.html"
+
+[[lessons.exercises]]
+id = "s06-l04-e1"
+type = "mc"
+points = 20
+prompt = "Two pickups, both Circle Collider2D with isTrigger checked, both on the default Layer, drift close enough to slightly overlap. Per this lesson, what happens by default?"
+choices = ["Nothing — trigger events never fire between two objects that are both triggers, only between a trigger and a solid collider", "The physics engine automatically assigns one of them a new Layer to prevent the overlap", "Unity throws a Console warning but no trigger event fires, since two triggers overlapping is treated as an error state", "OnTriggerEnter2D fires on both pickups against each other, since the Default×Default cell in the collision matrix is checked by default and last lesson's Rigidbody2D-pairing rule doesn't check what the colliders actually are"]
+answer = 3
+whyWrong = "Two trigger colliders CAN fire OnTriggerEnter2D against each other — the pairing rule from two lessons ago only asked for at least one isTrigger and at least one Rigidbody2D somewhere in the pair, it never required one side to be solid; Unity never reassigns a GameObject's Layer automatically, Layer is a value the artificer sets by hand; and there is no error state for two overlapping triggers — it's a perfectly normal, silently firing event, which is exactly the motivating problem this lesson opens with."
+hint = "The lesson's own motivating example is this EXACT scenario — reread the paragraph that starts with two pickups on a scattered floor."
+explain = "With every layer left on Default, the collision matrix's Default×Default cell is checked, and the earlier Rigidbody2D-pairing rule is satisfied by isTrigger alone on either side — so OnTriggerEnter2D fires between the two pickups exactly as it would against ArtificerRig, which is precisely the unwanted behavior this lesson's Pickup layer and matrix change exist to stop."
+
+[[lessons.exercises]]
+id = "s06-l04-e2"
+type = "text"
+points = 20
+prompt = "What is the name of the Project Settings window, opened from Edit > Project Settings, whose bottom section holds the triangular grid of layer-pair checkboxes this lesson edits?"
+answer = "Physics 2D"
+accept = ["Physics2D"]
+hint = "It's named after the same 2D physics system every Rigidbody2D and Collider2D in this section already belongs to."
+
+[[lessons.exercises]]
+id = "s06-l04-e3"
+type = "mc"
+points = 20
+prompt = "Which correctly distinguishes Tag from Layer, per this lesson's field notes?"
+choices = ["Tag is read by scripts via CompareTag and has no effect on physics; Layer is read by the physics engine via the collision matrix and has no effect on CompareTag", "Tag and Layer are two names for the same underlying value, kept for backward compatibility", "Layer must always match Tag on the same GameObject, or Unity throws a compile error", "Tag controls the collision matrix; Layer is only used for CompareTag checks"]
+answer = 0
+whyWrong = "They are two entirely separate values stored independently on every GameObject, not aliases of one field; there is no such matching requirement or compile-time check tying the two together, and GameObjects routinely carry an unrelated Tag and Layer at once, exactly as the field notes' ArtificerRig example does; and the roles in the last choice are swapped — Layer drives the collision matrix, Tag drives CompareTag, the reverse of what's stated."
+hint = "The field notes named exactly which system reads each one — one is read by scripts, the other by the physics engine itself."
+explain = "Tag is a script-facing label checked with CompareTag and never consulted by the physics engine's own collision decisions; Layer is what the Physics 2D collision matrix keys off of, and CompareTag never looks at it — a GameObject can hold any combination of the two independently."
+
+[[lessons.exercises]]
+id = "s06-l04-e4"
+type = "fill"
+points = 20
+prompt = "Fill in the missing property — the read-only script-side int mirroring gameObject.tag's string, but for the OTHER Inspector dropdown this lesson introduced, the one the Physics 2D collision matrix keys off of."
+code = '''int pickupLayer = gameObject.____;
+Debug.Log($"This pickup is on layer index {pickupLayer}");'''
+answer = "layer"
+hint = "It's named identically to the Inspector dropdown itself, just lowercase — the same pattern as .tag reading the Tag dropdown."
+
+[[lessons.exercises]]
+id = "s06-l04-w1"
+type = "write"
+points = 32
+prompt = "The Physics 2D collision matrix can't run in this workbench, so model a lookup of it in plain C#: a class CollisionMatrix with a Dictionary<string, bool> named Pairs, and a method static string Key(string layerA, string layerB) that returns the two layer names joined with \"-\" in alphabetical order (so \"Pickup\" and \"Default\" always produce the same key regardless of call order, matching how the real matrix's grid is symmetric). Build a CollisionMatrix, add two entries to Pairs: Key(\"Default\", \"Pickup\") mapped to true, and Key(\"Pickup\", \"Pickup\") mapped to false (mirroring this lesson's own fix: pickups collide with the artificer's Default layer, but never with each other). Then look up and print both, exactly:\nDefault-Pickup: True\nPickup-Pickup: False"
+starter = '''
+// Build a CollisionMatrix, populate its Pairs dictionary with the two
+// entries given in the prompt using Key(...) to build each dictionary key,
+// then print both lookups in "<key>: <value>" form.
+// Define class CollisionMatrix at the BOTTOM of the file.
+
+'''
+expect = '''
+Default-Pickup: True
+Pickup-Pickup: False'''
+solution = '''
+CollisionMatrix matrix = new CollisionMatrix();
+matrix.Pairs[CollisionMatrix.Key("Default", "Pickup")] = true;
+matrix.Pairs[CollisionMatrix.Key("Pickup", "Pickup")] = false;
+
+string keyA = CollisionMatrix.Key("Default", "Pickup");
+Console.WriteLine($"{keyA}: {matrix.Pairs[keyA]}");
+
+string keyB = CollisionMatrix.Key("Pickup", "Pickup");
+Console.WriteLine($"{keyB}: {matrix.Pairs[keyB]}");
+
+class CollisionMatrix
+{
+    public Dictionary<string, bool> Pairs = new Dictionary<string, bool>();
+
+    public static string Key(string layerA, string layerB)
+    {
+        string[] pair = { layerA, layerB };
+        Array.Sort(pair);
+        return $"{pair[0]}-{pair[1]}";
+    }
+}
+'''
+hint = "Key(\"Default\", \"Pickup\") and Key(\"Pickup\", \"Default\") must build the identical string — sort the two names alphabetically before joining them, the way chapter II's Dictionary<K,V> lesson used a key to look a value back up."

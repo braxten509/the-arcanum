@@ -3,9 +3,10 @@ import { BADGES, J, RANKS, TID } from "./config.js";
 
 export let S = null;
 let saveTimer = null, savePending = false;
+let saveInFlight = null, saveResetting = false;
 let loadDefaulted = false; // true when loadState fell back to a fresh default (server empty/unreachable)
 // real play, not just settings — mirrors the server's has_progress guard
-const hasProgress = (s) => !!(s && (s.earned || s.credits ||
+const hasProgress = (s) => !!(s && (s.earned || s.credits || s.hexesEnabled === false ||
   (s.ex && Object.keys(s.ex).length) || (s.read && Object.keys(s.read).length) ||
   (s.badges && Object.keys(s.badges).length) || (s.fs && Object.keys(s.fs).length)));
 
@@ -13,7 +14,7 @@ const DEFAULT_STATE = () => {
   const jd = (window.TOME && window.TOME.defaults) || {};
   const dTheme = jd.theme || "vellum", dai = jd.ai || {};
   return {
-    v: 1, booted: false, credits: 0, earned: 0,
+    v: 1, booted: false, credits: 0, earned: 0, hexesEnabled: true,
     ex: {}, read: {}, fs: {},
     inv: { oracle: 0, skip: 0, firewall: 0, x2: 0, xray: 0, vpn: 0 },
     oracleLog: [],
@@ -68,6 +69,7 @@ export async function loadState() {
 }
 
 export function save(now) {
+  if (saveResetting) return;
   // if our load fell back to a default (server was empty or unreachable), don't
   // let an autosave write that blank state over a real save on disk — hold off
   // until there's actual progress to persist. a real save resumes the moment
@@ -77,13 +79,37 @@ export function save(now) {
   setLed("saving");
   clearTimeout(saveTimer);
   const doSave = async () => {
+    if (saveResetting) return;
+    let request = null;
     try {
-      await fetch("/api/state", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(S) });
+      request = fetch("/api/state", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(S) });
+      saveInFlight = request;
+      await request;
       savePending = false;
       setLed("saved");
-    } catch { setLed("error"); setTimeout(() => save(), 3000); }
+    } catch {
+      if (!saveResetting) { setLed("error"); setTimeout(() => save(), 3000); }
+    } finally {
+      if (request && saveInFlight === request) saveInFlight = null;
+    }
   };
   if (now) doSave(); else saveTimer = setTimeout(doSave, 700);
+}
+
+// A reset must not race the autosave or the beforeunload beacon: first prevent
+// new writes, then let any request already accepted by the server finish.
+export async function prepareStateReset() {
+  saveResetting = true;
+  savePending = false;
+  clearTimeout(saveTimer);
+  if (saveInFlight) {
+    try { await saveInFlight; } catch { /* the reset supersedes a failed save */ }
+  }
+}
+
+export function resumeStateSaves() {
+  saveResetting = false;
+  setLed("saved");
 }
 window.addEventListener("beforeunload", () => {
   // sendBeacon bypasses the fetch shim, so scope it to the active tome explicitly

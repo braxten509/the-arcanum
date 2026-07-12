@@ -1,0 +1,132 @@
+[[lessons]]
+id = "s07-l05"
+title = "Forge the Goblin Brain"
+body = '''
+<p>Join the metal. EnemyController is a real Unity component on the goblin prefab: it owns the target, reads physical distance, chooses EnemyState, moves its Rigidbody2D in FixedUpdate, and uses last tempering's coroutine gate to inflict damage without striking every physics step. Health remains responsible for clamping HP and ringing HealthChanged; the enemy only calls its public TakeDamage method.</p>
+<pre><code><span class="k">using</span> System.Collections;
+<span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> EnemyController : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> Transform target;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> chaseSpeed = 2f;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> detectionRange = 5f;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> attackRange = 0.8f;
+    [SerializeField] <span class="k">private</span> <span class="k">int</span> damage = 3;
+    <span class="k">private</span> Rigidbody2D body;
+    <span class="k">private</span> EnemyState state = EnemyState.Idle;
+    <span class="k">private</span> <span class="k">bool</span> recovering;
+
+    <span class="k">private</span> <span class="k">void</span> Awake() { body = GetComponent&lt;Rigidbody2D&gt;(); }
+
+    <span class="k">private</span> <span class="k">void</span> FixedUpdate()
+    {
+        <span class="k">if</span> (target == <span class="k">null</span>) { state = EnemyState.Idle; <span class="k">return</span>; }
+        <span class="k">float</span> distance = Vector2.Distance(body.position, target.position);
+        <span class="k">if</span> (distance &gt; detectionRange) { state = EnemyState.Idle; <span class="k">return</span>; }
+        <span class="k">if</span> (distance &lt;= attackRange)
+        {
+            state = EnemyState.Attack;
+            <span class="k">if</span> (!recovering) StartCoroutine(AttackRoutine());
+        }
+        <span class="k">else</span>
+        {
+            state = EnemyState.Chase;
+            Vector2 nextPosition = Vector2.MoveTowards(body.position, target.position, chaseSpeed * Time.fixedDeltaTime);
+            body.MovePosition(nextPosition);
+        }
+    }</code></pre>
+<p>Forge V established why physics movement belongs in FixedUpdate and why MovePosition uses Rigidbody2D instead of moving Transform directly. <code>Vector2.Distance</code> measures the straight-line gap. <code>Vector2.MoveTowards</code> returns a next position no farther than its last argument; multiplying chaseSpeed by <code>Time.fixedDeltaTime</code> converts world-units-per-second to one physics-tick step.</p>
+<pre><code>    <span class="k">private</span> IEnumerator AttackRoutine()
+    {
+        recovering = <span class="k">true</span>;
+        Health targetHealth = target.GetComponent&lt;Health&gt;();
+        <span class="k">if</span> (targetHealth != <span class="k">null</span>) targetHealth.TakeDamage(damage);
+        <span class="k">yield return</span> <span class="k">new</span> WaitForSeconds(0.5f);
+        recovering = <span class="k">false</span>;
+    }
+}</code></pre>
+<p>Give the goblin its own Health component and an EnemyDeath listener that disables or destroys it when Health reaches zero. SwordSwing can now damage a real target and repeated strikes visibly defeat it. AttackRoutine reaches through an explicit public API: GetComponent&lt;Health&gt; asks the target for Health, the null check prevents a missing-component crash, and TakeDamage preserves Clamp and the event. It never writes CurrentHP, whose private setter forbids that. In the Unity Editor, attach this to a goblin with Rigidbody2D, drag ArtificerRig into target, and Play. At long range it chases; at 0.8 units or closer it attacks, waits half a second, then may attack again.</p>
+<p>The workbench cannot make a GameObject, scheduler, or physics body. Its lab honestly rehearses the distance-to-state comparison with numbers only. The actual artifact is the Unity scene, tested in Play mode.</p>
+<div class="callout">The enemy decides <em>when</em> damage is attempted; Health decides <em>what damage does</em>. That separation lets HUDs, enemies, hazards, and potions reuse one trustworthy Health component.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // FREEZE THE NAMES</div><p>As state-entry work grows, route assignments through SetState from the previous lesson. Keep the exact names Idle, Chase, and Attack; future menus can reuse the pattern without renaming this enemy's states into a second vocabulary.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Scripting API: Vector2.MoveTowards"
+url = "https://docs.unity3d.com/ScriptReference/Vector2.MoveTowards.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Scripting API: Rigidbody2D.MovePosition"
+url = "https://docs.unity3d.com/ScriptReference/Rigidbody2D.MovePosition.html"
+
+[[lessons.exercises]]
+id = "s07-l05-e1"
+type = "mc"
+points = 22
+prompt = "The target is distance 0.6, attackRange is 0.8, and recovering is false. Which state and action follow?"
+choices = ["Idle; a target exists", "Chase; every target farther than zero moves", "Attack; 0.6 is within the inclusive attack range and the recovery gate starts AttackRoutine", "Attack; it writes targetHealth.CurrentHP directly"]
+answer = 2
+whyWrong = "Idle is only for a null target, and Chase is the branch beyond attackRange. EnemyController cannot write CurrentHP directly because Health owns its private setter; AttackRoutine fetches Health and calls TakeDamage."
+hint = "Compare 0.6 with the `<= attackRange` branch, then check the bool gate."
+explain = "0.6 <= 0.8 selects Attack, and a false recovering flag permits AttackRoutine to start."
+
+[[lessons.exercises]]
+id = "s07-l05-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype the physics-safe next-position calculation from Forge V."
+code = '''Vector2 nextPosition = Vector2.MoveTowards(body.position, target.position, chaseSpeed * Time.fixedDeltaTime);
+body.MovePosition(nextPosition);'''
+
+[[lessons.exercises]]
+id = "s07-l05-e2"
+type = "fill"
+points = 23
+prompt = "Fill the component type EnemyController asks ArtificerRig for before using the public TakeDamage boundary."
+code = '''____ targetHealth = target.GetComponent<Health>();
+if (targetHealth != null) targetHealth.TakeDamage(damage);'''
+answer = "Health"
+hint = "It owns CurrentHP, Clamp, IsDead, and the HealthChanged bell."
+
+[[lessons.exercises]]
+id = "s07-l05-e3"
+type = "text"
+points = 20
+prompt = "What exact Time property converts chaseSpeed from units per second into one FixedUpdate movement step?"
+answer = "Time.fixedDeltaTime"
+accept = ["fixedDeltaTime"]
+hint = "Forge V separated the frame delta from the fixed physics clock; this controller runs in FixedUpdate."
+
+[[lessons.exercises]]
+id = "s07-l05-w1"
+type = "write"
+points = 35
+prompt = "Rehearse EnemyController's distance decision in plain C#: declare EnemyState with Idle, Chase, Attack. EnemyBrain.ChooseState(double distance, double attackRange) prints Idle when distance is negative, Attack when distance is <= range, otherwise Chase. Call -1, then 0.8 with range 0.8, then 1.4 with range 0.8:\nSTATE Idle\nSTATE Attack\nSTATE Chase"
+starter = '''
+// Declare EnemyState and create EnemyBrain. Model no target with -1, then
+// choose for 0.8 and 1.4 against attack range 0.8. Define types below.
+
+'''
+expect = '''
+STATE Idle
+STATE Attack
+STATE Chase'''
+solution = '''
+EnemyBrain brain = new EnemyBrain();
+brain.ChooseState(-1, 0.8);
+brain.ChooseState(0.8, 0.8);
+brain.ChooseState(1.4, 0.8);
+
+enum EnemyState { Idle, Chase, Attack }
+class EnemyBrain
+{
+    public void ChooseState(double distance, double attackRange)
+    {
+        EnemyState state = distance < 0 ? EnemyState.Idle : distance <= attackRange ? EnemyState.Attack : EnemyState.Chase;
+        Console.WriteLine($"STATE {state}");
+    }
+}
+'''
+hint = "Negative models no target. The attack comparison is inclusive, so 0.8 at range 0.8 is Attack."

@@ -1,0 +1,117 @@
+[[lessons]]
+id = "s05-l04"
+title = "The Animator — Playing a Walk Cycle"
+body = '''
+<p>ArtificerRig now moves, but the sprite riding along with him never changes — a walking artificer should look different from a standing one. <code>Add Component &gt; Animator</code> gives ArtificerRig a component that plays animations, but the Animator component itself holds no clips or logic; it only points at an <strong>Animator Controller</strong> asset, a separate state machine of its own — the same component-plus-asset split chapter III's prefab lesson already drew between a script and the data it reads.</p>
+<p>An Animator Controller alone has no pictures to show — each state needs an <strong>Animation Clip</strong> assigned to its Motion field. Build the simplest version: with ArtificerRig selected, open <code>Window &gt; Animation &gt; Animation</code>, click <strong>Create</strong> to save a new clip (the first time you do this, Unity generates the Animator Controller too and wires it onto the Animator component automatically), then use the window's record button to set one keyframe on the SpriteRenderer's Sprite field. A clip needs at least one keyframe to exist at all — a single-sprite clip with no motion is a perfectly valid Idle state, and Walk can reuse the same sprite for now or swap between two if art assets are available. A convincing multi-frame cycle is an art task, not a scripting one, and outside what this forge grades.</p>
+<p>Inside the Animator Controller window, the <strong>Parameters</strong> tab defines variables the script can set: a <code>Float</code>, an <code>Int</code>, a <code>Bool</code>, or a <code>Trigger</code> (a one-shot bool the controller resets automatically once a transition consumes it — useful later for an attack swing, not needed yet). Create a Float named exactly <code>Speed</code>. Draw a transition arrow from the <strong>Idle</strong> state to <strong>Walk</strong>, add a condition <code>Speed &gt; 0.1</code>, then a second arrow back from Walk to Idle with <code>Speed &lt; 0.1</code>. From script, each parameter type has its own matching setter — <code>SetFloat</code>, <code>SetInteger</code>, <code>SetBool</code>, <code>SetTrigger</code> — and using the wrong one for a parameter's declared type either fails to compile or silently sets nothing.</p>
+<p>Two lines land on top of last lesson's script: a cached <code>Animator</code> reference, fetched the same way <code>rb</code> was, and one call at the end of Update that feeds the Speed parameter.</p>
+<pre><code><span class="c">// added alongside the existing private Rigidbody2D rb; field</span>
+<span class="k">private</span> Animator animator;
+
+<span class="c">// added inside Awake, alongside rb = GetComponent&lt;Rigidbody2D&gt;();</span>
+animator = GetComponent&lt;Animator&gt;();
+
+<span class="c">// added at the end of Update, after moveX and moveY are set</span>
+<span class="k">float</span> speed = <span class="k">new</span> Vector2(moveX, moveY).magnitude;
+animator.SetFloat(<span class="s">"Speed"</span>, speed);</code></pre>
+<p><code>Vector2.magnitude</code> — its length, regardless of direction — is what feeds the Speed parameter rather than moveX or moveY alone: a diagonal press (both an X and a Y key held) should still read as moving and trigger Walk, and magnitude reports that correctly where either raw axis alone might read as small.</p>
+<div class="callout">Every transition Unity creates defaults to <strong>Has Exit Time</strong> checked — the transition waits for the current clip to finish playing before it's even allowed to fire, regardless of whether the condition is already true. For a parameter-driven transition like Speed crossing 0.1, that produces a visibly delayed, unresponsive-feeling switch between Idle and Walk. Uncheck Has Exit Time on both the Idle→Walk and Walk→Idle transitions so they fire the instant their condition is met.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // FOUR PARAMETER TYPES, FOUR SETTERS</div>
+<p>SetFloat, SetInteger, SetBool, and SetTrigger match their parameter types exactly. Trigger is the odd one out: it takes only a name and the controller clears it after a transition consumes it. That makes it fit a later attack swing, not this continuously updated Speed float.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Manual: Animation Parameters"
+url = "https://docs.unity3d.com/Manual/AnimationParameters.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Manual: Introduction to Animator Controllers"
+url = "https://docs.unity3d.com/Manual/class-AnimatorController.html"
+
+[[lessons.exercises]]
+id = "s05-l04-e1"
+type = "mc"
+points = 20
+prompt = "The Animator Controller's Speed parameter is typed as Float in the Parameters tab. Which Animator method must the script call to update it each frame, per this lesson's field notes?"
+choices = ["animator.SetBool(\"Speed\", value > 0)", "animator.SetTrigger(\"Speed\")", "animator.SetInteger(\"Speed\", (int)value)", "animator.SetFloat(\"Speed\", value)"]
+answer = 3
+whyWrong = "SetBool targets a Bool parameter, not a Float one, and collapsing a continuous speed into true/false throws away the exact magnitude the transition condition compares against 0.1; SetTrigger takes no value at all and auto-resets the instant it's consumed, wrong for a value that needs updating every single frame; and SetInteger truncates to a whole number, discarding the fractional magnitude a diagonal press or partial speed produces."
+hint = "Each Set method in the field notes matches its own parameter type exactly — which one pairs with Float?"
+explain = "SetFloat is the only setter whose second argument type matches a Float parameter, and it's the one that preserves Speed's full fractional value for the 0.1 threshold comparison in the transition conditions."
+
+[[lessons.exercises]]
+id = "s05-l04-e2"
+type = "text"
+points = 20
+prompt = "What is the name of Vector2's built-in property, named directly by this lesson, that returns a movement vector's length regardless of its direction — the value fed into SetFloat(\"Speed\", …)?"
+answer = "magnitude"
+hint = "It's the property that reads correctly for a diagonal press too, where moveX or moveY alone might look small even though the artificer is clearly moving."
+
+[[lessons.exercises]]
+id = "s05-l04-e3"
+type = "fill"
+points = 22
+prompt = "Fill in the missing method — the same component-fetching call the Rigidbody2D lesson used, this time fetching the Animator component and caching it in Awake."
+code = '''private Animator animator;
+
+void Awake()
+{
+    animator = ____<Animator>();
+}'''
+answer = "GetComponent"
+hint = "Same caching pattern as Rigidbody2D two lessons ago — the generic method that fetches a component already attached to this GameObject, called once in Awake rather than every frame."
+
+[[lessons.exercises]]
+id = "s05-l04-e4"
+type = "mc"
+points = 20
+prompt = "The Idle to Walk transition in ArtificerRig's Animator Controller is left with its default \"Has Exit Time\" checked. The Speed parameter crosses above 0.1 mid-animation. Per this lesson's callout, what happens?"
+choices = ["The transition waits until the current animation clip nears the end of its playback before switching, making movement feel delayed", "The transition fires immediately, exactly on the frame Speed crosses 0.1", "Has Exit Time has no effect on parameter-driven transitions at all", "The Animator throws a runtime error because Has Exit Time conflicts with a Float condition"]
+answer = 0
+whyWrong = "Firing immediately on the crossing frame is the UNCHECKED behavior, the fix this lesson recommends, not what the default checked state produces; the callout was explicit that Has Exit Time absolutely does affect parameter-driven transitions, which is exactly why it needs to be turned off here; and there is no runtime error or conflict between Has Exit Time and a condition — they coexist by default, which is precisely what causes the delayed feel."
+hint = "The callout named the exact symptom this default setting produces — 'visibly delayed, unresponsive-feeling' — before telling you which box to uncheck."
+explain = "Has Exit Time makes a transition wait for the current clip's playback to near its end before it's even eligible to fire, regardless of whether its condition is already true — checked by default, that produces a noticeably delayed switch, which is why this lesson has both Idle→Walk and Walk→Idle unchecked."
+
+[[lessons.exercises]]
+id = "s05-l04-w1"
+type = "write"
+points = 32
+prompt = "Unity's Animator can't run in this workbench, so model the Speed-driven Idle/Walk switch in plain C#: a class AnimatorState with a public string CurrentState starting as \"Idle\", and a method SetSpeed(double speed) that sets CurrentState to \"Walk\" if speed is greater than 0.1, or \"Idle\" otherwise (matching this lesson's transition conditions exactly). Build an AnimatorState, then call SetSpeed(0.0), print CurrentState, call SetSpeed(4.2), print CurrentState, call SetSpeed(0.05), print CurrentState, exactly:\nIdle\nWalk\nIdle"
+starter = '''
+// Build an AnimatorState, call SetSpeed three times with the values given
+// in the prompt, printing CurrentState after each call.
+// Define class AnimatorState at the BOTTOM of the file.
+
+'''
+expect = '''
+Idle
+Walk
+Idle'''
+solution = '''
+AnimatorState animator = new AnimatorState();
+animator.SetSpeed(0.0);
+Console.WriteLine(animator.CurrentState);
+animator.SetSpeed(4.2);
+Console.WriteLine(animator.CurrentState);
+animator.SetSpeed(0.05);
+Console.WriteLine(animator.CurrentState);
+
+class AnimatorState
+{
+    public string CurrentState = "Idle";
+
+    public void SetSpeed(double speed)
+    {
+        if (speed > 0.1)
+        {
+            CurrentState = "Walk";
+        }
+        else
+        {
+            CurrentState = "Idle";
+        }
+    }
+}
+'''
+hint = "The threshold is exactly 0.1, the same number as the Idle-Walk transition condition — 0.05 falls back to Idle, 4.2 crosses well into Walk."

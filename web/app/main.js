@@ -134,13 +134,13 @@ async function init() {
   setInterval(() => {
     if (document.hidden || reduced.matches || !flameEl) return;
     if ($("#parchment").classList.contains("wide")) return; // the desk is swept during the Great Working
-    const r = ArcanumViewport.rect(flameEl.getBoundingClientRect());
+    const r = flameEl.getBoundingClientRect();
     if (!r.width) return;
     const em = document.createElement("div");
     em.className = "ember";
     const sz = 2 + Math.random() * 2.5;
     em.style.cssText = `left:${r.left + r.width / 2 + (Math.random() - 0.5) * 10}px;top:${r.top + 4}px;width:${sz}px;height:${sz}px`;
-    ArcanumViewport.mount(em);
+    document.body.appendChild(em);
     em.animate(
       [
         { transform: "translate(0,0)", opacity: 0.9 },
@@ -209,6 +209,9 @@ async function init() {
   let intrusionNextAt = Date.now() + intrusionDelay();
   setInterval(() => {
     if (document.hidden) { intrusionNextAt = Math.max(intrusionNextAt, Date.now() + 60000); return; }
+    // A disabled scheduler continually moves its deadline forward. Re-enabling therefore
+    // starts a fresh 10–15 minute window instead of releasing an attack that became overdue.
+    if (S.hexesEnabled === false) { intrusionNextAt = Date.now() + intrusionDelay(); return; }
     if (Date.now() < intrusionNextAt || !intrusionEligible()) return;
     intrusionNextAt = Date.now() + intrusionDelay();
     if (S.inv.vpn > 0) {

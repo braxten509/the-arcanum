@@ -26,7 +26,7 @@ export function showBinder() {
         <select id="bd-eff" class="cfg-select" style="flex:0 0 auto;width:104px" disabled><option value="">—</option></select>
       </div></div>
     </div>
-    <div id="binder-a" class="hidden" style="margin-top:12px;padding:12px;border:1px solid var(--line-hi);border-left:2px solid var(--ac-dim);border-radius:3px;font-size:12.5px;white-space:pre-wrap;max-height:648px;overflow-y:auto"></div>`,
+    <div id="binder-a" class="hidden" style="margin-top:12px;padding:12px;border:1px solid var(--line-hi);border-left:2px solid var(--ac-dim);border-radius:3px;font-size:12.5px;white-space:pre-wrap;max-height:45vh;overflow-y:auto"></div>`,
     [["LEAVE THE BENCH", "quiet"]]);
   const root = $("#modal-root");
   $(".modal", root).classList.add("wide");   // room for the validator's report and the button row

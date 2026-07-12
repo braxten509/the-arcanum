@@ -1,0 +1,100 @@
+[[lessons]]
+id = "s11-l02"
+title = "Tempering II // The Iron Archive"
+body = '''
+<p>Now give the vessel a shelf. <code>Application.persistentDataPath</code> is Unity's per-application writable location; build one path with <code>Path.Combine</code>, for example <code>Path.Combine(Application.persistentDataPath, "emberfall-save.json")</code>. Do not write beside your Assets folder. That is an Editor convenience, not the reliable place a desktop build owns at runtime.</p>
+<pre><code><span class="k">string</span> json = JsonUtility.ToJson(data, <span class="k">true</span>);
+File.WriteAllText(savePath, json);
+
+<span class="k">if</span> (!File.Exists(savePath)) <span class="k">return</span>;
+<span class="k">string</span> loadedJson = File.ReadAllText(savePath);
+SaveData data = JsonUtility.FromJson&lt;SaveData&gt;(loadedJson);</code></pre>
+<pre><code><span class="k">public</span> <span class="k">void</span> SaveGame()
+{
+    SaveData data = <span class="k">new</span> SaveData {
+        playerX = player.position.x, playerY = player.position.y,
+        currentHP = health.CurrentHP,
+        inventoryItemIds = inventory.GetItemIds(),
+        questFlags = questLog.GetSetFlags()
+    };
+    <span class="k">try</span> { File.WriteAllText(savePath, JsonUtility.ToJson(data, <span class="k">true</span>)); }
+    <span class="k">catch</span> (System.Exception error) { Debug.LogWarning(<span class="s">$"Save failed: {error.Message}"</span>); }
+}
+
+<span class="k">public</span> <span class="k">bool</span> LoadGame()
+{
+    <span class="k">if</span> (!File.Exists(savePath)) <span class="k">return false</span>;
+    <span class="k">try</span> {
+        SaveData data = JsonUtility.FromJson&lt;SaveData&gt;(File.ReadAllText(savePath));
+        <span class="k">if</span> (data == <span class="k">null</span>) <span class="k">return false</span>;
+        player.position = <span class="k">new</span> Vector3(data.playerX, data.playerY, player.position.z);
+        health.Restore(data.currentHP);
+        inventory.RestoreFromIds(data.inventoryItemIds, itemCatalog);
+        questLog.RestoreFlags(data.questFlags);
+        <span class="k">return true</span>;
+    } <span class="k">catch</span> (System.Exception error) {
+        Debug.LogWarning(<span class="s">$"Load failed; current session kept: {error.Message}"</span>);
+        <span class="k">return false</span>;
+    }
+}</code></pre>
+<p>These owner APIs are part of the build, not pseudocode. <code>Inventory.GetItemIds()</code> emits an id once per quantity, so repeated ids preserve stack counts; <code>RestoreFromIds</code> clears slots, resolves every id through ItemCatalog, and calls Add. QuestLog returns only true flags, then clears and reapplies them on restore. Health.Restore clamps and rings HealthChanged so the HUD refreshes. Unknown item ids warn and are skipped rather than producing null slots.</p>
+<p><code>ToJson</code> turns your snapshot into text; the optional <code>true</code> makes that text readable while you inspect it. <code>FromJson&lt;SaveData&gt;</code> builds a new vessel from the file. The angle-bracket type is not decoration: it tells C# which record to create. Loading is then a second boundary operation: set the player position, ask Health to restore its sanctioned value, rebuild inventory entries through the item-id lookup, and apply known quest flags. Let the original owners validate their values.</p>
+<p>Files fail in ordinary ways. On first launch there may be no file, so <code>File.Exists</code> means “start normally,” not “throw an error.” A file can also be damaged by a manual edit or interrupted write. Put file reads and JSON conversion inside <code>try/catch</code>, log a useful warning, and leave the current fresh session intact. Do not erase the damaged evidence automatically; a warning gives you something to investigate.</p>
+<p>A Save button should call <code>SaveManager.SaveGame()</code>; a Load button may call <code>LoadGame()</code> only when a saved game exists. This reaches back to Forge X: buttons request verbs from an owner, never perform half the operation themselves. Test a full round trip in Play mode: change position, HP, inventory, and one flag; save; change them again; load; then verify all four returned.</p>
+<div class="callout">Missing is normal. Corrupt is recoverable. Neither is permission for a release build to crash at its front door.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DO NOT SAVE EVERY FRAME</div><p>Disk writes cost more than assigning a field. Save on an explicit menu command, checkpoint, or clean quit—not in Update. If later you add autosave, choose a deliberate checkpoint and keep it debounced.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Unity Scripting API: Application.persistentDataPath"
+url = "https://docs.unity3d.com/ScriptReference/Application-persistentDataPath.html"
+
+[[lessons.exercises]]
+id = "s11-l02-e1"
+type = "fill"
+points = 24
+prompt = "Fill the File check that lets LoadGame treat a first-ever launch as normal rather than attempting a read."
+code = '''if (!File.____(savePath)) return;'''
+answer = "Exists"
+hint = "Use the System.IO File method that asks whether a path is present."
+whyWrong = "Reading first and hoping for an empty string confuses an absent file with valid data. The explicit existence check creates the normal first-launch branch."
+
+[[lessons.exercises]]
+id = "s11-l02-e2"
+type = "mc"
+points = 23
+prompt = "Where should SaveManager construct Emberfall's save-file path for a standalone player build?"
+choices = ["Application.persistentDataPath combined with the save filename", "The project's Assets folder", "The scene's Hierarchy name", "The SpriteRenderer's sprite path"]
+answer = 0
+whyWrong = "Assets and scene names are authoring-time project concepts, and a sprite path is unrelated to writable user data. persistentDataPath is Unity's application-owned writable location at runtime."
+hint = "Choose the Unity application path intended to survive outside the Editor."
+explain = "A build needs a writable per-application location, not an Editor project directory."
+
+[[lessons.exercises]]
+id = "s11-l02-e3"
+type = "text"
+points = 20
+prompt = "Name the C# error-handling construct that should surround a damaged JSON read so the current session can continue."
+answer = "try/catch"
+accept = ["try catch"]
+hint = "Forge II used it when a conversion could fail rather than ending the whole program."
+whyWrong = "A missing-file guard handles only the absent-file case; malformed text can still throw during reading or conversion, so it needs the paired exception boundary."
+
+[[lessons.exercises]]
+id = "s11-l02-w1"
+type = "write"
+points = 35
+prompt = "Practice the archive boundary in plain C#. Given the two saved lines at the top, split each at '=' and compute the restored HP and gold shards rather than printing literals. Output exactly:\nLOAD HP 14\nLOAD GOLD 37"
+starter = '''string[] lines = { "hp=14", "gold=37" };
+
+// Read the values after '=' from both lines, then print the two restored values.
+// Use Split and int.Parse; the real game receives JSON through JsonUtility instead.
+'''
+expect = '''LOAD HP 14
+LOAD GOLD 37'''
+solution = '''string[] lines = { "hp=14", "gold=37" };
+int hp = int.Parse(lines[0].Split('=')[1]);
+int gold = int.Parse(lines[1].Split('=')[1]);
+Console.WriteLine($"LOAD HP {hp}");
+Console.WriteLine($"LOAD GOLD {gold}");'''
+hint = "Each Split result has the key at index 0 and the numeric text at index 1; parse the latter before formatting it."

@@ -1,0 +1,115 @@
+[[lessons]]
+id = "s09-l02"
+title = "The Reach of the Keeper"
+body = '''
+<p>A panel must not open because the player happened to be elsewhere in the world. Give the keeper an <strong>NPCInteractable</strong> component and a trigger Collider2D. Forge VI already proved the physical rule: the player crossing a trigger causes callback code. Here the callback records whether ArtificerRig is in reach; a separate player input script—already responsible for the Input System—calls <code>Interact()</code> when its interact action fires. This keeps input mapping out of every NPC.</p>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> NPCInteractable : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> DialogueController dialogueController;
+    [SerializeField] <span class="k">private</span> <span class="k">string</span>[] openingLines;
+    <span class="k">private</span> <span class="k">bool</span> playerInRange;
+
+    <span class="k">private</span> <span class="k">void</span> OnTriggerEnter2D(Collider2D other)
+    {
+        <span class="k">if</span> (!other.CompareTag(<span class="s">"Player"</span>)) <span class="k">return</span>;
+        playerInRange = <span class="k">true</span>;
+        other.GetComponentInParent&lt;PlayerInteractor&gt;()?.SetNearby(<span class="k">this</span>);
+    }
+
+    <span class="k">private</span> <span class="k">void</span> OnTriggerExit2D(Collider2D other)
+    {
+        <span class="k">if</span> (!other.CompareTag(<span class="s">"Player"</span>)) <span class="k">return</span>;
+        playerInRange = <span class="k">false</span>;
+        other.GetComponentInParent&lt;PlayerInteractor&gt;()?.ClearNearby(<span class="k">this</span>);
+    }
+
+    <span class="k">public</span> <span class="k">void</span> Interact()
+    {
+        <span class="k">if</span> (!playerInRange) <span class="k">return</span>;
+        dialogueController.Begin(openingLines);
+    }
+}</code></pre>
+<pre><code><span class="k">public</span> <span class="k">class</span> PlayerInteractor : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> DialogueController dialogue;
+    <span class="k">private</span> NPCInteractable nearby;
+    <span class="k">public</span> <span class="k">void</span> SetNearby(NPCInteractable npc) =&gt; nearby = npc;
+    <span class="k">public</span> <span class="k">void</span> ClearNearby(NPCInteractable npc) { <span class="k">if</span> (nearby == npc) nearby = <span class="k">null</span>; }
+    <span class="k">private</span> <span class="k">void</span> Update()
+    {
+        <span class="k">if</span> (Keyboard.current == <span class="k">null</span> || !Keyboard.current.eKey.wasPressedThisFrame) <span class="k">return</span>;
+        <span class="k">if</span> (dialogue.IsOpen) dialogue.Advance(); <span class="k">else</span> nearby?.Interact();
+    }
+}</code></pre>
+<p><code>string[]</code> is an array: a fixed ordered group of strings, useful when the Inspector authors a short sequence of lines. Unlike Forge II's List, you do not call Add here at runtime. Drag DialogueController into its reference and type the lines into openingLines. Tag ArtificerRig <code>Player</code>; CompareTag guards against a goblin, pickup, or stray collider opening the keeper's conversation.</p>
+<p>Make the NPC collider a trigger and preserve the Rigidbody2D/collider discipline from Forge VI. In the player input script, only call the nearby target's public Interact method; do not let it reach inside and set playerInRange. If the player leaves range, Interact returns without beginning dialogue. That guard means input alone never talks through walls or across the map.</p>
+<p>The C# bench models the reach boolean and the public doorway. It does not simulate physics or keyboard input; those are Unity callbacks and Input System wiring. Its point is to make the gate test explicit before you assemble it in a scene.</p>
+<div class="callout">The trigger answers “may this NPC be addressed?”; Interact answers “begin this NPC's conversation now.” They are not the same job.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TAGS ARE A CONTRACT</div><p>CompareTag is only as sound as the tag assignment in the Inspector. An undefined tag spelling can raise a UnityException; a defined but different assigned tag makes the condition false, which is safer than an arbitrary collider opening dialogue—but it still deserves a Play-mode test with ArtificerRig.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Scripting API: Collider2D.OnTriggerExit2D"
+url = "https://docs.unity3d.com/ScriptReference/Collider2D.OnTriggerExit2D.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Scripting API: Component.CompareTag"
+url = "https://docs.unity3d.com/ScriptReference/Component.CompareTag.html"
+
+[[lessons.exercises]]
+id = "s09-l02-e1"
+type = "mc"
+points = 22
+prompt = "Why does NPCInteractable keep playerInRange instead of opening dialogue immediately inside OnTriggerEnter2D?"
+choices = ["Entering a trigger cannot read Collider2D", "The trigger establishes proximity; the separate interact action should deliberately begin the conversation", "OnTriggerEnter2D runs only for UI Canvas objects", "A bool automatically makes the NPC a ScriptableObject"]
+answer = 1
+whyWrong = "Collider2D callbacks can read the entering collider, Canvas is unrelated to trigger delivery, and a bool does not change a component's type. The design separates being near the keeper from choosing to speak."
+hint = "Distinguish walking within reach from pressing the action that accepts a conversation."
+explain = "playerInRange is a permission gate; Interact is the deliberate command that uses it."
+
+[[lessons.exercises]]
+id = "s09-l02-e2"
+type = "text"
+points = 19
+prompt = "Which Collider2D callback clears the reach gate when ArtificerRig walks away from the keeper?"
+answer = "OnTriggerExit2D"
+hint = "It is the matching trigger callback whose name says the collider has left rather than entered."
+
+[[lessons.exercises]]
+id = "s09-l02-e3"
+type = "fill"
+points = 24
+prompt = "Fill the comparison call that ensures only the tagged player sets playerInRange."
+code = '''if (other.____("Player")) playerInRange = true;'''
+answer = "CompareTag"
+hint = "Use Unity's tag comparison method on the entering Collider2D, not a name string comparison."
+
+[[lessons.exercises]]
+id = "s09-l02-w1"
+type = "write"
+points = 34
+prompt = "Model the reach gate in plain C#: NPCInteractable has EnterPlayer(), ExitPlayer(), and Interact() returning true only while the player is in range. Call Interact before entering, after entering, and after exiting. Compute exactly:\nBEFORE False\nNEAR True\nAFTER False"
+starter = '''// Build NPCInteractable with a private reach flag and the three named methods.
+// Derive every printed bool by calling Interact.
+
+'''
+expect = '''BEFORE False
+NEAR True
+AFTER False'''
+solution = '''NPCInteractable keeper = new NPCInteractable();
+Console.WriteLine($"BEFORE {keeper.Interact()}");
+keeper.EnterPlayer();
+Console.WriteLine($"NEAR {keeper.Interact()}");
+keeper.ExitPlayer();
+Console.WriteLine($"AFTER {keeper.Interact()}");
+
+class NPCInteractable
+{
+    private bool playerInRange;
+    public void EnterPlayer() { playerInRange = true; }
+    public void ExitPlayer() { playerInRange = false; }
+    public bool Interact() { return playerInRange; }
+}'''
+hint = "All three prints call the same Interact method. Only EnterPlayer changes the false default to true; ExitPlayer reverses it."

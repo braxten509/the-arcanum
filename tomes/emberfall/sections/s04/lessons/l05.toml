@@ -1,0 +1,144 @@
+[[lessons]]
+id = "s04-l05"
+title = "Composing the Overworld — Every Layer in One Scene"
+body = '''
+<p>Nothing in this forge works in isolation — a painted Tilemap with no camera pointed at it is invisible, a perfectly framed camera aimed at an unpainted Grid shows empty gray, and a Sorting Layer list left in the wrong order hides ArtificerRig under the very floor he's meant to stand on. Assembling Emberfall's overworld means bringing all four lessons together in the right sequence, not learning them as four separate tricks.</p>
+<p>Start with the Sorting Layers list itself: <code>Ground</code> above <code>Characters</code>, so Characters is rendered later and ArtificerRig draws over Ground. Then build the world under one shared Grid: a <code>Floor</code> Tilemap on <code>Ground</code>, Order <code>0</code>, and a <code>Walls</code> Tilemap on the same layer at Order <code>1</code>, so Walls paints over Floor.</p>
+<pre><code>Hierarchy
+├── Grid
+│   ├── Floor    (Tilemap Renderer: Ground, Order 0)
+│   └── Walls    (Tilemap Renderer: Ground, Order 1)
+├── ArtificerRig  (SpriteRenderer: Characters, Order 0)
+└── Main Camera   (Orthographic, Size 5, positioned over the painted area)</code></pre>
+<p>Last, aim the camera: Orthographic, a Size chosen to fit the painted area comfortably in view (Size 5 shows 10 world units vertically — plenty for a small starting room), and a Transform position centered over the middle of what you painted, not left at the origin by default if the Tilemap wasn't painted starting from cell (0, 0). None of this is a one-way pipeline, either — nudging the camera after seeing the Game view, or repainting a Walls tile once you notice it doesn't read as blocked next to Floor, is the normal workflow, not a sign something went wrong earlier.</p>
+<div class="callout">"Walkable" in this forge is purely visual — Floor LOOKS open and Walls LOOKS blocked, but nothing yet stops ArtificerRig from walking straight through a wall tile. Physical collision is Forge VI's job, once Collider2D and isTrigger exist to enforce it; painting the world and making it physically solid are two separate skills, taught two separate places on purpose.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // READING YOUR OWN SCENE WHEN SOMETHING'S NOT VISIBLE</div>
+<p>When the Game view shows nothing, or shows the wrong thing, this section gave you four places to check, roughly in order of how often each one is the actual cause: is a Sprite/Tilemap Palette entry actually assigned (the silent-empty failure named twice already), is the Sorting Layer list ordered the way you think it is, is Order in Layer set on the component you're actually looking at rather than a sibling, and is the camera's Size and position even pointed at the cells you painted. Checking in that order finds most bugs faster than guessing.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Manual: Introduction to Tilemaps"
+url = "https://docs.unity3d.com/Manual/tilemaps/tilemaps-landing.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Manual: Camera component reference"
+url = "https://docs.unity3d.com/Manual/class-Camera.html"
+
+[[lessons.exercises]]
+id = "s04-l05-e1"
+type = "mc"
+points = 20
+prompt = "ArtificerRig is on Characters and Floor is on Ground. The list has Characters ABOVE Ground. What does the Game view show?"
+choices = ["ArtificerRig renders normally on top of the visible Floor tile", "ArtificerRig and Floor both vanish, since a layer conflict blanks the whole frame", "Only Walls renders; both Floor and ArtificerRig are hidden regardless of layer order", "ArtificerRig is hidden underneath Floor, because Ground sits above Characters in the list"]
+answer = 3
+whyWrong = "ArtificerRig would render normally only if Characters were below Ground, because lower list entries render later. Sorting layers never blank the whole frame, and Walls does not erase unrelated renderers."
+hint = "The lower layer is rendered later. Here Ground is below Characters."
+explain = "Ground is below Characters, so Floor is rendered later and hides ArtificerRig."
+
+[[lessons.exercises]]
+id = "s04-l05-e2"
+type = "mc"
+points = 20
+prompt = "A Walls tile is painted directly over a Floor tile at the same cell, and the Game view correctly shows Walls on top. An artificer then walks a test build straight through that same cell with no collision at all. Per this lesson, is that a bug?"
+choices = ["Yes — a Walls tile drawing on top should automatically block movement through it", "Yes, but only because the Walls Tilemap's Order in Layer was set incorrectly", "No — this section's Walls tiles are purely visual; physical blocking is a separate system this forge deliberately does not build yet", "No, but only because Collider2D was never attached to the Camera"]
+answer = 2
+whyWrong = "Drawing on top is purely a Sorting Layer/Order in Layer outcome — this lesson's callout was explicit that nothing about visual stacking enforces physical blocking, so this is not a bug caused by a wrong Order in Layer value; and Collider2D belongs on the Tilemap or the moving object, never on the Camera, so that reasoning doesn't apply either, though the underlying 'this is expected' conclusion in that choice happens to be right for the wrong reason."
+hint = "The callout in this lesson drew a hard line between what LOOKS blocked and what physically stops movement — which forge did it say owns the physical half?"
+explain = "Painting Walls visually over Floor is exactly what this forge teaches and nothing more — the callout named Forge VI's Collider2D/isTrigger work as the separate system responsible for actually stopping movement, so walking through an unpainted-for-collision wall right now is expected, not a bug."
+
+[[lessons.exercises]]
+id = "s04-l05-e3"
+type = "text"
+points = 18
+prompt = "Per this lesson's field notes, which forge (by name, not number) is responsible for making a Walls tile actually stop ArtificerRig from walking through it?"
+answer = "Walls & Triggers"
+accept = ["Forge VI", "Walls and Triggers"]
+hint = "The callout named the specific system — Collider2D and isTrigger — and pointed to the codename of the forge that teaches it."
+
+[[lessons.exercises]]
+id = "s04-l05-e4"
+type = "fill"
+points = 22
+prompt = "Fill in the missing Order in Layer value for Walls in this composed Hierarchy sketch, matching what this lesson specified so Walls draws over Floor wherever the two overlap."
+code = '''Hierarchy
+Grid
+  Floor    (Tilemap Renderer: Ground, Order 0)
+  Walls    (Tilemap Renderer: Ground, Order ____)'''
+answer = "1"
+hint = "It only needs to be higher than Floor's 0 within their shared Ground Sorting Layer — this lesson used the smallest number that satisfies that."
+
+[[lessons.exercises]]
+id = "s04-l05-e5"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype this composed Hierarchy sketch exactly, including the box-drawing prefixes."
+code = '''Hierarchy
+Grid
+  Floor    (Tilemap Renderer: Ground, Order 0)
+  Walls    (Tilemap Renderer: Ground, Order 1)
+ArtificerRig  (SpriteRenderer: Characters, Order 0)
+Main Camera   (Orthographic, Size 5, positioned over the painted area)'''
+
+[[lessons.exercises]]
+id = "s04-l05-w1"
+type = "write"
+points = 33
+prompt = "Combine this whole section's rules in plain C#: build Ground at ListIndex 0 and Characters at ListIndex 1, then ArtificerRig, Floor, and Walls as before. Higher list indices render later/in front. Print exactly:\nArtificerRig over Floor: True\nWalls over Floor: True\nArtificerRig over Walls: True"
+starter = '''
+// Build the two Layers and three Drawables, then print the three DrawsInFrontOf checks.
+// Define classes Layer and Drawable at the BOTTOM of the file, matching the
+// Sorting Layers lesson exactly.
+
+'''
+expect = '''
+ArtificerRig over Floor: True
+Walls over Floor: True
+ArtificerRig over Walls: True'''
+solution = '''
+Layer ground = new Layer("Ground", 0);
+Layer characters = new Layer("Characters", 1);
+Drawable artificerRig = new Drawable("ArtificerRig", characters, 0);
+Drawable floor = new Drawable("Floor", ground, 0);
+Drawable walls = new Drawable("Walls", ground, 1);
+
+Console.WriteLine($"ArtificerRig over Floor: {artificerRig.DrawsInFrontOf(floor)}");
+Console.WriteLine($"Walls over Floor: {walls.DrawsInFrontOf(floor)}");
+Console.WriteLine($"ArtificerRig over Walls: {artificerRig.DrawsInFrontOf(walls)}");
+
+class Layer
+{
+    public string Name;
+    public int ListIndex;
+
+    public Layer(string name, int listIndex)
+    {
+        Name = name;
+        ListIndex = listIndex;
+    }
+}
+
+class Drawable
+{
+    public string Name;
+    public Layer OnLayer;
+    public int OrderInLayer;
+
+    public Drawable(string name, Layer onLayer, int orderInLayer)
+    {
+        Name = name;
+        OnLayer = onLayer;
+        OrderInLayer = orderInLayer;
+    }
+
+    public bool DrawsInFrontOf(Drawable other)
+    {
+        if (OnLayer == other.OnLayer)
+        {
+            return OrderInLayer > other.OrderInLayer;
+        }
+        return OnLayer.ListIndex > other.OnLayer.ListIndex;
+    }
+}
+'''
+hint = "Characters at index 1 is rendered after Ground at 0; Walls beats Floor because they share Ground and its OrderInLayer is higher."

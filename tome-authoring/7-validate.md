@@ -91,6 +91,8 @@ items below (voice, anti-template variety, balance) are still yours to run:
       every `fill` has a real `____` blank; every `type.reps`, when set, is a positive integer
 - [ ] Section titles are Title Case (one capital per word, acronyms excepted) —
       an ALL-CAPS `title` is a hard-gate `content` WARN; all-caps lives in `codename`
+- [ ] Lesson titles follow the same Title Case rule; acronyms may stay uppercase,
+      but an ALL-CAPS lesson `title` is a hard-gate `content` WARN
 - [ ] Every `[[freestyle.rubric]]` weight set sums to exactly 100
 - [ ] Every `mc` `answer` index is in range; every `write` has a NON-EMPTY `expect`
       or `expectRe` (no `expect = ""` — unwinnable, since empty stdout reads as `(no output)`)

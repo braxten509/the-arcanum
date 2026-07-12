@@ -68,6 +68,7 @@ export function showStudySettings() {
         <option value="claude-cli">CLAUDE CLI — your subscription login, no key</option>
         <option value="antigravity-cli">ANTIGRAVITY CLI — your Google login, no key</option>
         <option value="codex-cli">CODEX CLI — your ChatGPT login, no key</option>
+        <option value="opencode-cli">OPENCODE CLI — Go, free, and local providers</option>
         <option value="anthropic">ANTHROPIC API — needs API key</option>
         <option value="openai">OPENAI API — needs API key</option>
         <option value="ollama">LOCAL — Ollama on this rig</option>
@@ -152,7 +153,7 @@ export function showStudySettings() {
     save();
   };
   // main grader: provider select + model combo / key / custom command
-  const GRADER_DEFAULTS = { "claude-cli": "claude-opus-4-8", "antigravity-cli": "Gemini 3.1 Pro (High)", "codex-cli": "", anthropic: "claude-opus-4-8", openai: "gpt-5.1", ollama: S.ai.grader, other: "" };
+  const GRADER_DEFAULTS = { "claude-cli": "claude-opus-4-8", "antigravity-cli": "Gemini 3.1 Pro (High)", "codex-cli": "", "opencode-cli": "opencode-go/deepseek-v4-flash", anthropic: "claude-opus-4-8", openai: "gpt-5.1", ollama: S.ai.grader, other: "" };
   // per-provider model lists come from /api/models — ollama and agy enumerated live,
   // claude/codex from the server's curated lists (those CLIs can't enumerate).
   // "Custom…" always lets you type any id, so a newer model is one keystroke away.
@@ -234,7 +235,7 @@ export function showStudySettings() {
     setCensusLoading(false);   // the fills below replace the Loading… placeholders
     if (S.ai.graderKind !== "other") fillModelOptions();  // repaint with the live census
     // THE ORACLE — option values encode "kind:model" (kind ids never contain ':')
-    const CLI_TAGS = { "claude-cli": "claude cli", "antigravity-cli": "antigravity cli", "codex-cli": "codex cli" };
+    const CLI_TAGS = { "claude-cli": "claude cli", "antigravity-cli": "antigravity cli", "codex-cli": "codex cli", "opencode-cli": "opencode cli" };
     const osel = $("#as-oracle", root);
     const cur = `${S.ai.oracleKind || "ollama"}:${S.ai.oracle}`;
     const defO = `${TOME_AI.oracleKind || "ollama"}:${TOME_AI.oracle || ""}`;

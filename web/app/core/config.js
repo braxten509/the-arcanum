@@ -84,7 +84,7 @@ export const J = () => window.TOME || {};
 export const persona = () => (J().narrative && J().narrative.graderPersona) || "THE MAGISTER";
 // the tower's name plate: names the grader ACTUALLY selected in settings, not the
 // tome's flavor text — "OPUS 4.8 // MAGISTER THORNE", "QWEN3:14B // MAGISTER THORNE"
-const GRADER_KIND_NAME = { "claude-cli": "CLAUDE", "antigravity-cli": "ANTIGRAVITY", "codex-cli": "CODEX", anthropic: "ANTHROPIC", openai: "OPENAI", ollama: "OLLAMA", other: "A CUSTOM SCRIBE" };
+const GRADER_KIND_NAME = { "claude-cli": "CLAUDE", "antigravity-cli": "ANTIGRAVITY", "codex-cli": "CODEX", "opencode-cli": "OPENCODE", anthropic: "ANTHROPIC", openai: "OPENAI", ollama: "OLLAMA", other: "A CUSTOM SCRIBE" };
 export function graderTitle() {
   const m = ((S && S.ai && S.ai.graderModel) || "").replace(/^claude-/, "").replace(/-(\d+)-(\d+)$/, " $1.$2").replace(/-/g, " ");
   const who = (m || GRADER_KIND_NAME[S && S.ai && S.ai.graderKind] || "THE TOWER").toUpperCase();

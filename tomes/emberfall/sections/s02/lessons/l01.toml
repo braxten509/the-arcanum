@@ -1,0 +1,111 @@
+[[lessons]]
+id = "s02-l01"
+title = "Branching the Path — if, else, and Comparison"
+body = '''
+<p>Every program you wrote in the last chapter ran top to bottom, the same lines in the same order, every single time. A game cannot work that way — it constantly asks yes/no questions: is the artificer's HP at zero? is the door locked? An <strong>if statement</strong> is how C# answers one of those questions and picks which block runs.</p>
+<pre><code><span class="k">int</span> hitPoints = 6;
+
+<span class="k">if</span> (hitPoints <= 0)
+{
+    Console.WriteLine(<span class="s">"Defeated"</span>);
+}
+<span class="k">else</span> <span class="k">if</span> (hitPoints < 10)
+{
+    Console.WriteLine(<span class="s">"Wounded"</span>);
+}
+<span class="k">else</span>
+{
+    Console.WriteLine(<span class="s">"Steady"</span>);
+}
+<span class="c">// prints: Wounded</span></code></pre>
+<p>Reading it: the condition inside <code>( )</code> must be a <code>bool</code> expression. C# checks branches top to bottom and runs the <strong>first</strong> one that evaluates <code>true</code>, then skips every branch after it — even if a later condition would also have been true. That ordering matters: if the <code>hitPoints &lt; 10</code> branch were written first, a defeated artificer at 0 HP would print "Wounded" instead of "Defeated", because 0 is also less than 10.</p>
+<p>Six comparison operators build these conditions: <code>==</code> (equal), <code>!=</code> (not equal), <code>&lt;</code>, <code>&gt;</code>, <code>&lt;=</code>, <code>&gt;=</code>. Note <code>==</code> is two characters — a single <code>=</code> is assignment, a completely different operation, and mixing them up is the single most common beginner slip in an <code>if</code>.</p>
+<p>Boolean logic combines conditions: <code>&&</code> (both must be true), <code>||</code> (at least one must be true), <code>!</code> (flips true/false).</p>
+<pre><code><span class="k">bool</span> hasKey = <span class="k">false</span>;
+<span class="k">bool</span> doorLocked = <span class="k">true</span>;
+
+<span class="k">if</span> (doorLocked && !hasKey)
+{
+    Console.WriteLine(<span class="s">"The door won't budge without a key."</span>);
+}</code></pre>
+<p><code>&&</code> and <code>||</code> are <strong>short-circuiting</strong>: <code>&&</code> stops the instant its left side is <code>false</code> (the right side never runs), and <code>||</code> stops the instant its left side is <code>true</code>. This is not just an optimization — it is a safety net you will lean on constantly: <code>count > 0 && total / count > 5</code> never divides by zero, because when <code>count</code> is <code>0</code> the left side is already <code>false</code> and C# never evaluates the right side at all.</p>
+<div class="callout">Order your else-if branches from most specific to least — the first true condition wins, and everything after it is dead code for that run.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE == VS = TRAP</div>
+<p>Write <code>if (hitPoints = 0)</code> by accident — one <code>=</code> instead of two — and for an <code>int</code> condition the compiler flat-out refuses it: an assignment's result is an <code>int</code>, not a <code>bool</code>, so it cannot sit inside <code>if ( )</code>. But try the same slip on a <code>bool</code>, <code>if (isBlocking = true)</code>, and it compiles — an assignment's result IS a <code>bool</code> here, so the condition is legal, silently sets <code>isBlocking</code> to <code>true</code> every time, and always takes that branch. This is why the compiler catches the <code>int</code> version but never the <code>bool</code> one; read your own conditions for a lone <code>=</code> before you trust one that "always seems to fire."</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Microsoft C# guide: Selection statements (if, else)"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/statements/selection-statements"
+
+[[lessons.readings]]
+label = "OPTIONAL // Microsoft C# guide: Boolean logical operators"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/boolean-logical-operators"
+
+[[lessons.exercises]]
+id = "s02-l01-e1"
+type = "mc"
+points = 15
+prompt = "Using this chapter's own branch order — <code>hitPoints &lt;= 0</code> then <code>hitPoints &lt; 10</code> then <code>else</code> — what prints when <code>hitPoints</code> is exactly <code>10</code>?"
+choices = ["Defeated", "Wounded", "Steady", "Nothing prints"]
+answer = 2
+whyWrong = "Defeated needs hitPoints <= 0 which 10 isn't, and Wounded needs hitPoints < 10 which is also false since 10 is not less than 10 — every if/else-if/else chain always runs exactly one branch, so 'nothing prints' is never possible here; only the final else (Steady) is left standing."
+hint = "10 < 10 is false — check the third, catch-all branch instead."
+explain = "10 fails both hitPoints <= 0 and hitPoints < 10, so control falls through to the else branch and prints Steady."
+
+[[lessons.exercises]]
+id = "s02-l01-e2"
+type = "mc"
+points = 15
+prompt = "<code>int count = 0; int total = 50;</code> then <code>if (count > 0 && total / count > 5)</code> runs. What happens?"
+choices = ["It throws a DivideByZeroException", "Both sides evaluate, but the whole condition is just false", "The condition is false and total / count never runs, thanks to short-circuiting", "It fails to compile because count could be zero"]
+answer = 2
+whyWrong = "It never reaches the division at all, so there's no exception and no compile error (C# doesn't do that kind of static division-safety check) — && short-circuits the instant count > 0 evaluates to false, skipping total / count entirely rather than evaluating it and then discarding the result."
+hint = "count > 0 is false before the && even looks at the right side — what does short-circuiting skip?"
+explain = "&& stops evaluating at the first false operand. Since count > 0 is false, total / count is never executed, so no division-by-zero occurs."
+
+[[lessons.exercises]]
+id = "s02-l01-e3"
+type = "text"
+points = 20
+prompt = "Which two-character operator tests that two values are NOT equal?"
+answer = "!="
+hint = "It pairs the negation symbol with the equals sign, unlike the equality check's two equals signs."
+
+[[lessons.exercises]]
+id = "s02-l01-e4"
+type = "fill"
+points = 20
+prompt = "Fill in the operator so the door only stays shut when it's locked AND the artificer lacks the key."
+code = 'if (doorLocked ____ !hasKey)'
+answer = "&&"
+hint = "Both conditions must hold for the door to stay shut — that's the 'both sides true' operator."
+
+[[lessons.exercises]]
+id = "s02-l01-w1"
+type = "write"
+points = 30
+prompt = "Declare int hitPoints = 3. Using an if/else-if/else chain, print CRITICAL when hitPoints is 5 or less, WOUNDED when it's less than 15, and STEADY otherwise. For hitPoints = 3 this must print exactly: CRITICAL"
+starter = '''
+int hitPoints = 3;
+// Write the if/else-if/else chain below and print the matching word.
+
+'''
+expect = '''
+CRITICAL'''
+solution = '''
+int hitPoints = 3;
+if (hitPoints <= 5)
+{
+    Console.WriteLine("CRITICAL");
+}
+else if (hitPoints < 15)
+{
+    Console.WriteLine("WOUNDED");
+}
+else
+{
+    Console.WriteLine("STEADY");
+}
+'''
+hint = "Check the most severe condition first: hitPoints <= 5 catches 3 before the WOUNDED branch ever gets a look."

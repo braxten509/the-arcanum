@@ -1,0 +1,135 @@
+[[lessons]]
+id = "s07-l01"
+title = "Health, Damage, and Mathf.Clamp"
+body = '''
+<p>Forge II gave the artificer a number called HitPoints, and one rule: it never goes below zero. That rule lived in a plain C# class with nothing Unity about it. This forge moves the same idea into the real Emberfall project as a component any GameObject can carry — a script named <code>Health.cs</code>, attached to ArtificerRig, that owns exactly one job: track a number, refuse to let it go anywhere illegal.</p>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> Health : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> <span class="k">int</span> maxHP = 20;
+    <span class="k">public</span> <span class="k">int</span> CurrentHP { get; <span class="k">private</span> set; }
+    <span class="k">public</span> <span class="k">int</span> MaxHP =&gt; maxHP;
+
+    <span class="k">private</span> <span class="k">void</span> Awake()
+    {
+        CurrentHP = maxHP;
+    }
+
+    <span class="k">public</span> <span class="k">void</span> TakeDamage(<span class="k">int</span> amount)
+    {
+        CurrentHP = Mathf.Clamp(CurrentHP - Mathf.Max(0, amount), 0, maxHP);
+    }
+
+    <span class="k">public</span> <span class="k">void</span> Heal(<span class="k">int</span> amount) =&gt;
+        CurrentHP = Mathf.Clamp(CurrentHP + Mathf.Max(0, amount), 0, maxHP);
+
+    <span class="k">public</span> <span class="k">void</span> Restore(<span class="k">int</span> savedHP) =&gt;
+        CurrentHP = Mathf.Clamp(savedHP, 0, maxHP);
+
+    <span class="k">public</span> <span class="k">bool</span> IsDead()
+    {
+        <span class="k">return</span> CurrentHP <= 0;
+    }
+}</code></pre>
+<p>Two things carry straight over from Forge II: <code>[SerializeField] private int maxHP</code> is the exact private-plus-attribute shape Forge III's Inspector lesson taught — a designer can still drag a number into the field in the Inspector, but no OTHER script can reach in and overwrite it directly, only Health's own code touches it. And <code>public int CurrentHP { get; private set; }</code> is the same auto-property shape Forge II used for HitPoints: anyone can read it, only Health can change it.</p>
+<p>What's new is <code>Mathf.Clamp(value, min, max)</code> — Unity's own version of the floor check Forge II wrote by hand as <code>if (HitPoints < 0) HitPoints = 0;</code>. Clamp does both ends in a single expression: if the value is below <code>min</code> it returns <code>min</code>, if it's above <code>max</code> it returns <code>max</code>, otherwise it passes the value through unchanged. Health uses it on <em>every</em> call to TakeDamage, not just the dangerous-looking ones, because a floor-only check quietly assumes <code>amount</code> is always positive — and nothing in the method signature enforces that.</p>
+<p>The last new piece is <code>IsDead()</code> — not a property this time, a plain method, because the check it runs (<code>CurrentHP &lt;= 0</code>) is a small computation, not a stored value being exposed. Health calls it internally, and later scripts in this forge will call it too, the same way any other public method gets called: with parentheses.</p>
+<div class="callout">Awake sets CurrentHP = maxHP the instant the GameObject wakes up — the same "prepare my own state before anyone else needs it" job Forge III assigned to Awake specifically, not Start.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY CLAMP BOTH ENDS ON A DAMAGE-ONLY METHOD</div>
+<p>TakeDamage rejects negative input with <code>Mathf.Max(0, amount)</code>; healing is a separate <code>Heal</code> verb. Separate verbs make call sites honest, while both methods clamp at the Health boundary.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Scripting API: Mathf.Clamp"
+url = "https://docs.unity3d.com/ScriptReference/Mathf.Clamp.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Scripting API: MonoBehaviour"
+url = "https://docs.unity3d.com/ScriptReference/MonoBehaviour.html"
+
+[[lessons.exercises]]
+id = "s07-l01-e1"
+type = "mc"
+points = 20
+prompt = "Forge II's Artificer.TakeDamage clamped only the floor (`if (HitPoints < 0) HitPoints = 0;`). Health.TakeDamage instead clamps BOTH ends with `Mathf.Clamp(CurrentHP - amount, 0, maxHP)`. Why is the upper bound worth guarding here even though TakeDamage only ever subtracts amount from CurrentHP?"
+choices = ["Mathf.Clamp requires exactly three arguments, so a floor-only clamp using just an if-statement isn't legal syntax", "Unity's physics engine reads CurrentHP directly every frame and throws an exception if it ever exceeds maxHP", "TakeDamage is called automatically once per frame by Unity, so without a ceiling the int would overflow within seconds", "amount is a plain int, not a uint — a caller could pass a negative amount as a cheap heal, and without the ceiling CurrentHP could climb past maxHP unnoticed"]
+answer = 3
+whyWrong = "Mathf.Clamp is one convenient expression, not a syntax requirement — a hand-written floor-only if-check compiles just as fine, so nothing about legality forces Clamp's use; Unity's physics engine never reads or validates gameplay fields like CurrentHP at all, that's application data the engine has no opinion on; and TakeDamage is never called automatically — it only runs when something explicitly calls it, so there's no per-frame overflow risk to guard against."
+hint = "The field notes named exactly what TakeDamage's int parameter doesn't stop a caller from passing."
+explain = "amount is a plain int with no built-in guarantee it's positive — a negative amount would raise CurrentHP instead of lowering it, and only the maxHP ceiling in Mathf.Clamp stops that raise from overshooting the character's maximum health."
+
+[[lessons.exercises]]
+id = "s07-l01-e2"
+type = "mc"
+points = 20
+prompt = "Health declares `[SerializeField] private int maxHP = 20;` rather than `public int maxHP = 20;`. Per Forge III's Inspector lesson, what does the private-plus-SerializeField combination actually buy here that a public field would not?"
+choices = ["maxHP still appears in the Inspector for a designer to set per-instance, but no other script outside Health can read or overwrite it directly — only Health's own code ever touches the field", "[SerializeField] makes the Inspector field render-only, so a designer can see the value but never actually edit it there", "public and SerializeField-private behave identically in every respect; the attribute exists purely as documentation for other programmers", "private fields are never serialized by Unity, so [SerializeField] here only affects whether maxHP survives a scene save, with no effect on which scripts can access it"]
+answer = 0
+whyWrong = "SerializeField fields are fully editable in the Inspector, not render-only — that's the entire reason the attribute exists, to make an otherwise-hidden private field editable there; the attribute is functional, not cosmetic — it changes what OTHER scripts are allowed to touch, since private still blocks outside access regardless of serialization; and while it's true SerializeField is what makes a private field save with the scene, that's not its ONLY effect — private still keeps the field off-limits to every script except Health's own code, which is the whole reason this pattern was worth learning in Forge III."
+hint = "Ask what changes for a script OTHER than Health trying to read or write maxHP directly — not what changes in the Inspector window."
+explain = "SerializeField exposes a private field to the Inspector for a designer to set without opening it up to every other script in the project — maxHP stays entirely Health's own business in code, even though a designer can still tune it per GameObject."
+
+[[lessons.exercises]]
+id = "s07-l01-e3"
+type = "fill"
+points = 22
+prompt = "Fill in the blank in Health.TakeDamage's clamp line — the expression that subtracts this call's damage from the artificer's current HP before the floor and ceiling are applied."
+code = '''CurrentHP = Mathf.Clamp(____, 0, maxHP);'''
+answer = "CurrentHP - amount"
+hint = "It's the same subtraction Forge II's Artificer.TakeDamage did by hand, just handed to Clamp instead of an if-statement."
+
+[[lessons.exercises]]
+id = "s07-l01-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype Health's CurrentHP property exactly — the same get-public, set-private shape Forge II used for HitPoints."
+code = '''public int CurrentHP { get; private set; }'''
+
+[[lessons.exercises]]
+id = "s07-l01-w1"
+type = "write"
+points = 33
+prompt = "Unity's Mathf.Clamp can't run in this workbench, so model Health in plain C# using .NET's Math.Clamp instead: a class Health with a constructor Health(int maxHP) that sets CurrentHP to maxHP, a method TakeDamage(int amount) that sets CurrentHP to Math.Clamp(CurrentHP - amount, 0, maxHP), and a method IsDead() returning CurrentHP <= 0. Build a Health(30), call TakeDamage(12), print HP <CurrentHP>, call TakeDamage(50), print HP <CurrentHP>, then print DEAD <IsDead() result>, exactly:\nHP 18\nHP 0\nDEAD True"
+starter = '''
+// Build a Health(30). TakeDamage(12), print its HP. TakeDamage(50), print its
+// HP again (it should clamp at 0, not go negative). Print whether it's dead.
+// Define class Health at the BOTTOM of the file.
+
+'''
+expect = '''
+HP 18
+HP 0
+DEAD True'''
+solution = '''
+Health health = new Health(30);
+health.TakeDamage(12);
+Console.WriteLine($"HP {health.CurrentHP}");
+health.TakeDamage(50);
+Console.WriteLine($"HP {health.CurrentHP}");
+Console.WriteLine($"DEAD {health.IsDead()}");
+
+class Health
+{
+    private int maxHP;
+    public int CurrentHP { get; private set; }
+
+    public Health(int maxHP)
+    {
+        this.maxHP = maxHP;
+        CurrentHP = maxHP;
+    }
+
+    public void TakeDamage(int amount)
+    {
+        CurrentHP = Math.Clamp(CurrentHP - amount, 0, maxHP);
+    }
+
+    public bool IsDead()
+    {
+        return CurrentHP <= 0;
+    }
+}
+'''
+hint = "30 - 12 = 18 for the first line; 18 - 50 = -32, which Math.Clamp floors to 0 for the second line; IsDead() then reads CurrentHP <= 0, which is now true."

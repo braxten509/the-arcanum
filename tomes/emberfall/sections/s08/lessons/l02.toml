@@ -1,0 +1,85 @@
+[[lessons]]
+id = "s08-l02"
+title = "Give Every Relic a Purpose"
+body = '''
+<p>A string can say <code>"Potion"</code>, but strings are too permissive for a rule-bearing category. One typo turns <code>"potion"</code> into a different value and a comparison silently misses it. Forge VII's EnemyState showed the stronger shape: an <strong>enum</strong> names a small, closed set of choices. Item definitions now receive an <code>ItemKind</code> so inventory logic can ask what an item does without guessing from its display name.</p>
+<pre><code><span class="k">public</span> <span class="k">enum</span> ItemKind
+{
+    Consumable,
+    Key,
+    Equipment
+}
+
+[CreateAssetMenu(menuName = <span class="s">"Emberfall/Item Definition"</span>)]
+<span class="k">public</span> <span class="k">class</span> ItemDefinition : ScriptableObject
+{
+    [SerializeField] <span class="k">private</span> ItemKind kind;
+    [SerializeField] <span class="k">private</span> <span class="k">int</span> healAmount;
+    <span class="k">public</span> ItemKind Kind =&gt; kind;
+    <span class="k">public</span> <span class="k">int</span> HealAmount =&gt; healAmount;
+}</code></pre>
+<p>Set MinorPotion to Consumable. Later, a RustKey will be Key and an IronSword will be Equipment. Do not make every item consume healing just because the field exists. The use code will first test <code>definition.Kind == ItemKind.Consumable</code>; only then does <code>HealAmount</code> matter. A numeric field may be zero for a key, but the enum tells us whether using the item is even a meaningful action.</p>
+<p>Keep the enum near the definition in <code>ItemDefinition.cs</code> while this project is small. It is a shared vocabulary, like EnemyState: use the exact members <code>Consumable</code>, <code>Key</code>, and <code>Equipment</code> everywhere. The category is authored once in the asset Inspector; inventory stacks hold references to definitions rather than a new, copied category string.</p>
+<p>The plain-C# lab takes the worked enum and fades it into a tiny rule check. Unity does not run there, so it does not attempt to fake an asset. It proves the C# comparison that the eventual <code>Use</code> method needs.</p>
+<div class="callout">Use an enum for a finite design vocabulary; use displayName for words a player sees.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CATEGORIES ARE NOT BEHAVIOR</div><p>ItemKind is a classification, not a switchboard that does all game work. As the forge grows, a category can guide a use decision, while ItemDefinition holds the per-item numbers. Avoid a sprawling switch that knows every named item; that turns every new asset into a code edit.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Microsoft Learn: Enumeration types"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/enum"
+
+[[lessons.exercises]]
+id = "s08-l02-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype Emberfall's complete three-purpose ItemKind enum."
+code = '''public enum ItemKind
+{
+    Consumable,
+    Key,
+    Equipment
+}'''
+
+[[lessons.exercises]]
+id = "s08-l02-e1"
+type = "fill"
+points = 23
+prompt = "Fill the ItemKind member MinorPotion must use before its healing amount is considered."
+code = '''public ItemKind Kind =&gt; ItemKind.____;'''
+answer = "Consumable"
+hint = "MinorPotion can be used up for a healing effect; it is neither a permanent gate token nor worn gear."
+
+[[lessons.exercises]]
+id = "s08-l02-e2"
+type = "mc"
+points = 22
+prompt = "Why should ItemDefinition use ItemKind rather than infer an item's purpose from displayName?"
+choices = ["Enums make all items serialize into a save file automatically", "Display names cannot contain spaces in Unity assets", "A closed enum prevents spelling variants from silently becoming different categories", "The enum gives every item a Rigidbody2D"]
+answer = 2
+whyWrong = "An enum neither writes saves nor changes Unity's allowed display-name characters, and data assets do not gain physics components. Its limited members prevent a typo such as potion versus Potion from becoming a new category."
+hint = "Compare a closed list of compiler-known members with freely typed player-facing words."
+explain = "ItemKind makes the category an explicit, finite data decision instead of a fragile text convention."
+
+[[lessons.exercises]]
+id = "s08-l02-w1"
+type = "write"
+points = 34
+prompt = "Create ItemKind with Consumable, Key, Equipment. Write CanHeal(ItemKind kind) that returns true only for Consumable. Call it for Consumable and Key, then compute exactly:\nConsumable HEALS True\nKey HEALS False"
+starter = '''// Declare ItemKind and write CanHeal. Test a consumable and a key.
+// Define methods and types below the top-level calls.
+
+'''
+expect = '''Consumable HEALS True
+Key HEALS False'''
+solution = '''Console.WriteLine($"{ItemKind.Consumable} HEALS {CanHeal(ItemKind.Consumable)}");
+Console.WriteLine($"{ItemKind.Key} HEALS {CanHeal(ItemKind.Key)}");
+
+static bool CanHeal(ItemKind kind)
+{
+    return kind == ItemKind.Consumable;
+}
+
+enum ItemKind { Consumable, Key, Equipment }'''
+hint = "The equality comparison from the lesson has only one true case: ItemKind.Consumable. Let interpolation print the bool result."

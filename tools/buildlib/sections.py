@@ -6,10 +6,11 @@ import shutil
 import tomllib
 
 from . import BUILD_DIR, REPO, retries_for
-from .liveness import run_agent
+from .liveness import preflight_runners, run_agent
 from .measure import validate
 from .prompts import build_prompt, read_tooling
 from .runners import _implicit_fallback, request_runner
+from .agent_runtime import section_runner_command
 
 
 def section_ids(tid):
@@ -41,14 +42,28 @@ def wipe_sections(tid):
 
 
 def _author_section(chain, ri, prompt, sid, num, cfg, overrides,
-                    ping, dead, cap, ask_on_death, interactive, tome_id):
+                    ping, dead, cap, ask_on_death, interactive, tome_id, section_dir,
+                    preflighted):
     """Run ONE section's worker with liveness + death recovery (fallback → human ask → implicit
     default), switching runners as needed. Returns (ri, ok) — ri may have grown as the chain did,
     ok is True only if a runner finished cleanly. Mirrors the main loop's death handling but scoped
     to a single section, so split Phase 3 stays isolated from the normal phase loop."""
     while True:
         name, cmd, im = chain[ri]
-        rc = run_agent(cmd, im, prompt, ping, dead, cap)
+        worker_env = os.environ.copy()
+        worker_env["ARCANUM_REPO_ROOT"] = REPO
+        worker_env["ARCANUM_SECTION_ROOT"] = section_dir
+        # Avoid harmless __pycache__ write attempts when a worker executes trusted Python
+        # elsewhere in the read-only repository.
+        worker_env["PYTHONDONTWRITEBYTECODE"] = "1"
+        scoped = section_runner_command(name, cmd, section_dir, REPO)
+        # A runner selected after a death (human choice or implicit default) was not present
+        # during the build's initial census. Never let it start authoring without Phase 0.
+        if tuple(cmd) not in preflighted:
+            preflight_runners([(name, scoped, im)])
+            preflighted.add(tuple(cmd))
+        rc = run_agent(scoped, im, prompt, ping, dead, cap,
+                       cwd=section_dir, env=worker_env)
         if rc == 0:
             return ri, True
         reason = "hung/timeout" if rc == 124 else f"exit {rc}"
@@ -98,7 +113,8 @@ def _mark_section_done(tid, sid):
 
 
 def author_sections_split(tid, num, title, body, chain, refs, cfg, overrides,
-                          ping, dead, cap, ask_on_death, interactive, tome_id, resume=False):
+                          ping, dead, cap, ask_on_death, interactive, tome_id, resume=False,
+                          preflighted=None):
     """Phase 3, split mode: author each section in its OWN fresh worker, so the context (and the
     cache-read tokens that dominated GLM's bill) never accumulate across the whole tome — which
     makes ANY model affordable here. On resume, sections recorded done are skipped and the one that
@@ -106,6 +122,7 @@ def author_sections_split(tid, num, title, body, chain, refs, cfg, overrides,
     authors only the rest. The workflow's end-of-phase cross-tome reconcile then runs in the caller's
     normal loop. Returns ri after the last section."""
     plan_rel, verdict_rel, findings_rel = refs
+    preflighted = preflighted if preflighted is not None else set()
     ids = section_ids(tid)
     done = _load_sections_done(tid) if resume else set()
     print(f"  · split-sections: {len(ids)} sections, one worker each — {', '.join(ids)}"
@@ -138,11 +155,20 @@ def author_sections_split(tid, num, title, body, chain, refs, cfg, overrides,
                      f"line for this op live in the plan — follow them exactly so {sid} reads as one book "
                      f"with the rest.")
             print(f"    · authoring {sid} [{i + 1}/{len(ids)}] on {chain[ri][0]}")
-        p = build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel) + focus
+        section_dir = os.path.join(REPO, "tomes", tid, "sections", sid)
+        os.makedirs(section_dir, exist_ok=True)
+        boundary = (f"\n\n===== SECTION WORKER SECURITY BOUNDARY =====\n"
+                    f"The repository root is {REPO}. Your process cwd and ONLY writable project "
+                    f"directory is {section_dir}. You may READ any file under the repository, "
+                    "execute trusted Python files from the repository, and use WebSearch/WebFetch "
+                    "for current documentation and research. All edits must remain inside your "
+                    "assigned section. Resolve repo-relative paths against the repository root.")
+        p = build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel) + focus + boundary
         attempts = 0
         while True:
             ri, ok = _author_section(chain, ri, p, sid, num, cfg, overrides,
-                                     ping, dead, cap, ask_on_death, interactive, tome_id)
+                                     ping, dead, cap, ask_on_death, interactive, tome_id,
+                                     section_dir, preflighted)
             if not ok:
                 break
             # This checkpoint is a fast schema/content pass. The whole Phase-3 gate
@@ -162,6 +188,7 @@ def author_sections_split(tid, num, title, body, chain, refs, cfg, overrides,
                   f"(attempt {attempts + 1})")
             p = (build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel)
                  + focus
+                 + boundary
                  + "\n\n===== THIS SECTION STILL FAILS VALIDATION =====\n"
                  + "Fix the errors below in this section. Do not edit another section.\n"
                  + report)

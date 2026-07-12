@@ -1,0 +1,110 @@
+[[lessons]]
+id = "s02-l04"
+title = "Properties — Guarding a Field's Front Door"
+body = '''
+<p>Last lesson's <code>Artificer</code> exposed <code>Name</code>, <code>Level</code>, and <code>HitPoints</code> as bare <strong>public fields</strong> — anyone holding an <code>Artificer</code> reference can slam <code>kess.HitPoints = -400;</code> straight through, no questions asked. A <strong>property</strong> looks like a field from the outside but is really a pair of tiny methods — <code>get</code> and <code>set</code> — giving the class a chance to control what happens on the way in or out.</p>
+<pre><code><span class="k">class</span> Artificer
+{
+    <span class="k">public</span> <span class="k">string</span> Name { <span class="k">get</span>; <span class="k">set</span>; }
+    <span class="k">public</span> <span class="k">int</span> Level { <span class="k">get</span>; <span class="k">set</span>; }
+    <span class="k">public</span> <span class="k">int</span> HitPoints { <span class="k">get</span>; <span class="k">set</span>; }
+}</code></pre>
+<p>Written this way — no body inside <code>get</code>/<code>set</code> — this is an <strong>auto-implemented property</strong>: the compiler generates a hidden backing field for you. From the caller's side, <code>kess.Level = 2;</code> and <code>Console.WriteLine(kess.Level);</code> read exactly like the field version did — properties exist so you can start with this plain shape and add real logic later without breaking anyone who already calls <code>kess.Level</code>.</p>
+<p>The real power shows up when you restrict access. <code>private set</code> lets every reader see the value through <code>get</code>, but only code <em>inside the class itself</em> can change it — outside code is locked to reading:</p>
+<pre><code><span class="k">class</span> Artificer
+{
+    <span class="k">public</span> <span class="k">string</span> Name { <span class="k">get</span>; <span class="k">private</span> <span class="k">set</span>; }
+    <span class="k">public</span> <span class="k">int</span> Level { <span class="k">get</span>; <span class="k">set</span>; }
+    <span class="k">public</span> <span class="k">int</span> HitPoints { <span class="k">get</span>; <span class="k">private</span> <span class="k">set</span>; }
+
+    <span class="k">public</span> Artificer(<span class="k">string</span> name, <span class="k">int</span> level, <span class="k">int</span> hitPoints)
+    {
+        Name = name;
+        Level = level;
+        HitPoints = hitPoints;
+    }
+
+    <span class="k">public</span> <span class="k">void</span> TakeDamage(<span class="k">int</span> amount)
+    {
+        HitPoints = HitPoints - amount;
+        <span class="k">if</span> (HitPoints < 0) HitPoints = 0;
+    }
+}</code></pre>
+<p><code>TakeDamage</code> is an <strong>instance method</strong> — a method that lives on the class and acts on that specific object's own properties, the way <code>AddGold</code> in chapter I acted only on its parameters. Because <code>HitPoints</code> has <code>private set</code>, the ONLY way outside code can change it is by calling <code>TakeDamage</code> — which means the "never below zero" rule can never be bypassed by some other line elsewhere just assigning a negative number directly. This is <strong>encapsulation</strong>: the class guards its own rules instead of trusting every caller to remember them.</p>
+<div class="callout">A get-only auto-property can be assigned by a constructor or property initializer, but ordinary methods cannot replace it later. That is the shape to reach for on a fact that should never change again once an object is built, like an artificer's starting Name.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY NOT JUST USE PUBLIC FIELDS FOREVER</div>
+<p>A public field with no property wrapper works fine right up until the moment a rule needs enforcing — "HitPoints can't go negative," "Level can't exceed 99." Retrofitting that rule onto a field means finding every line in the codebase that assigns it directly and hoping you caught them all. A property with private set concentrates the rule in exactly one place: the method that's allowed to change the value. Unity's own [SerializeField] fields (chapter III) are usually private, exposed to the Inspector but wrapped in a public get-only property for other scripts to read — the same pattern, one chapter early.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Microsoft C# guide: Properties"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/properties"
+
+[[lessons.readings]]
+label = "OPTIONAL // Microsoft C# guide: Auto-implemented properties"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/auto-implemented-properties"
+
+[[lessons.exercises]]
+id = "s02-l04-e1"
+type = "mc"
+points = 15
+prompt = "Artificer declares public int HitPoints { get; private set; }. Code in a completely different class writes kess.HitPoints = 50; directly. What happens?"
+choices = ["Compile error — outside code cannot use the private setter", "It compiles and sets HitPoints to 50, bypassing TakeDamage's clamp", "It compiles but silently does nothing", "It throws a runtime exception naming the private setter"]
+answer = 0
+whyWrong = "private set is enforced at compile time, not silently ignored or deferred to a runtime exception — the compiler refuses code outside Artificer that tries to assign HitPoints directly, which is the entire reason 'bypassing TakeDamage's clamp' from outside is impossible: that assignment simply never compiles in the first place."
+hint = "private set restricts WHO can assign, and the compiler checks that before your program ever runs."
+explain = "private set means only code inside the Artificer class itself can assign HitPoints — any outside assignment is a compile-time error."
+
+[[lessons.exercises]]
+id = "s02-l04-e2"
+type = "mc"
+points = 15
+prompt = "Why does TakeDamage clamp HitPoints to 0 after subtracting amount, instead of just letting it go negative and checking hitPoints <= 0 elsewhere?"
+choices = ["C# throws an exception if an int property ever goes negative", "It guarantees HitPoints can never be read as a nonsensical negative number by any other code, no matter where HitPoints is read from", "Negative ints are slower to store than positive ones", "It has no real effect — it's purely stylistic"]
+answer = 1
+whyWrong = "C# has no such restriction — int (and an int property) can hold negative values with zero performance penalty, so neither the exception claim nor the storage-speed claim is real, and the clamp is doing real, non-stylistic work: without it, every other piece of code that later reads kess.HitPoints would need its OWN 'is this actually negative' check, instead of being able to trust the value is always sane."
+hint = "Think about every other place in a future game that might read kess.HitPoints — what do they get to assume if TakeDamage clamps it here?"
+explain = "Clamping inside TakeDamage means every reader of HitPoints can trust it's never negative, without re-checking — that trust is exactly what encapsulation buys you."
+
+[[lessons.exercises]]
+id = "s02-l04-e3"
+type = "text"
+points = 20
+prompt = "What is the term for a property that restricts outside code to reading a value while only the class itself can change it?"
+answer = "encapsulation"
+hint = "This lesson's closing paragraph names it directly, right after explaining what private set buys you."
+
+[[lessons.exercises]]
+id = "s02-l04-w1"
+type = "write"
+points = 35
+prompt = "Define class Artificer with public int HitPoints { get; private set; }, a constructor Artificer(int hitPoints) setting it, and a method TakeDamage(int amount) that subtracts amount and clamps at 0 (never below). Construct one with hitPoints 10, call TakeDamage(15), then print exactly: HP 0"
+starter = '''
+// Construct hitPoints 10, call TakeDamage(15), then print HP followed by the clamped result — then
+// define class Artificer at the BOTTOM of the file (top-level statements must come first).
+
+'''
+expect = '''
+HP 0'''
+solution = '''
+Artificer kess = new Artificer(10);
+kess.TakeDamage(15);
+Console.WriteLine($"HP {kess.HitPoints}");
+
+class Artificer
+{
+    public int HitPoints { get; private set; }
+
+    public Artificer(int hitPoints)
+    {
+        HitPoints = hitPoints;
+    }
+
+    public void TakeDamage(int amount)
+    {
+        HitPoints = HitPoints - amount;
+        if (HitPoints < 0) HitPoints = 0;
+    }
+}
+'''
+hint = "10 - 15 is -5, which the clamp inside TakeDamage must bring back up to 0 before HitPoints ever holds it."

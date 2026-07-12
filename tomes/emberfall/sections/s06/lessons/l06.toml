@@ -1,0 +1,104 @@
+[[lessons]]
+id = "s06-l06"
+title = "Scripting the Door — enabled, Not Destroyed"
+body = '''
+<p>Last lesson's field notes ended on a promise: something DOES need to disable a component without deleting it, and a door is exactly that case. A pickup vanishing from the scene forever is correct — it's gone, collected, done. A door disappearing forever the instant it's touched is wrong in a subtler way: the door's Sprite still needs to be there, still needs to render, still needs a GameObject to exist on — only the BLOCKING needs to stop.</p>
+<p>Every component a GameObject carries — every MonoBehaviour, every Collider2D, every Rigidbody2D — inherits a bool property named <code>enabled</code>. Set to false, that ONE component stops participating (a disabled Collider2D takes part in no physics checks at all, solid or trigger; a disabled MonoBehaviour script stops receiving Update, FixedUpdate, and every trigger/collision callback) while the GameObject itself, and every OTHER component still on it, keeps existing exactly as before. This is Destroy's opposite in exactly the dimension that matters here: Destroy removes the object; <code>enabled = false</code> silences one piece of it and leaves the rest intact.</p>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> DoorTrigger : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> Collider2D doorBlocker;
+    <span class="k">private</span> Collider2D openSensor;
+
+    <span class="k">void</span> Awake()
+    {
+        openSensor = GetComponent&lt;Collider2D&gt;();
+    }
+
+    <span class="k">private</span> <span class="k">void</span> OnTriggerEnter2D(Collider2D other)
+    {
+        <span class="k">if</span> (!other.CompareTag(<span class="s">"Player"</span>)) <span class="k">return</span>;
+
+        Debug.Log(<span class="s">"Door opens."</span>);
+        doorBlocker.enabled = <span class="k">false</span>;
+        openSensor.enabled = <span class="k">false</span>;
+    }
+}</code></pre>
+<p>A usable closed door needs <em>two</em> shapes. Put a solid BoxCollider2D on the Door root as <code>doorBlocker</code>. Put this script and a slightly larger trigger Collider2D on a child named OpenSensor, then drag the root's solid collider into the serialized field. The trigger can be reached while the solid shape still blocks passage. Opening disables both the blocker and sensor: the sprite remains, passage opens, and the event cannot repeat.</p>
+<div class="callout">GetComponent&lt;Collider2D&gt;() returns whichever specific collider type is actually attached — BoxCollider2D, CircleCollider2D, whatever the door happens to use — because Collider2D is the shared base type every one of them derives from, the same relationship chapter VI-1 opened this whole forge with. Requesting the base type here means DoorTrigger.cs works unmodified no matter which concrete collider shape the door's artist ends up choosing.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // enabled ON A WHOLE SCRIPT, NOT JUST A COLLIDER</div>
+<p>enabled isn't unique to Collider2D — it exists on MonoBehaviour itself too, which is why <code>this.enabled = false</code> (or just <code>enabled = false</code> from inside the script) turns off an ENTIRE script's Update, FixedUpdate, and trigger callbacks at once, while the GameObject and its other components carry on. DoorTrigger.cs disables only its Collider2D, deliberately narrower, because the script itself has nothing left to do once the door is open — but a future forge's stunned-enemy state, which needs to stop an enemy's AI script from running for a few seconds while everything else about it (its Sprite, its Collider2D, its HP) stays exactly as it was, will reach for disabling the SCRIPT instead of any one component on it.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Scripting API: Behaviour.enabled"
+url = "https://docs.unity3d.com/ScriptReference/Behaviour-enabled.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Scripting API: Collider2D.enabled"
+url = "https://docs.unity3d.com/ScriptReference/Collider2D-enabled.html"
+
+[[lessons.exercises]]
+id = "s06-l06-e1"
+type = "mc"
+points = 20
+prompt = "DoorTrigger.cs sets doorCollider.enabled = false the moment ArtificerRig enters it, rather than calling Destroy(gameObject) the way PickupItem.cs does. Why, per this lesson?"
+choices = ["The door's GameObject and Sprite need to keep existing and rendering after opening — only the blocking/triggering needs to stop, which Destroy can't do without removing everything", "enabled = false is required syntax any time a Collider2D is isTrigger; Destroy only works on solid colliders", "Destroy(gameObject) does not exist for objects with a Collider2D attached", "There is no real difference — either line produces identical results for a door"]
+answer = 0
+whyWrong = "There's no such rule tying enabled to isTrigger specifically — enabled works identically on solid and trigger colliders alike, and isTrigger has nothing to do with which removal method is legal; Destroy(gameObject) works on any GameObject regardless of what components it carries, Collider2D included, so that restriction doesn't exist; and the two are far from interchangeable here — Destroy would erase the door's Sprite and GameObject entirely, which this lesson's opening paragraph specifically said is wrong for a door."
+hint = "The lesson's opening paragraph named exactly what a door needs to keep doing after it opens that a pickup does not."
+explain = "A door's Sprite and GameObject need to keep existing and rendering after it opens — only the physical blocking should stop — so disabling just the Collider2D leaves everything else intact, where Destroy(gameObject) would erase the whole door, sprite included."
+
+[[lessons.exercises]]
+id = "s06-l06-e2"
+type = "mc"
+points = 20
+prompt = "DoorTrigger.cs never tracks an isOpened bool of its own, yet the door can never fire OnTriggerEnter2D a second time after opening once. How, per this lesson?"
+choices = ["OnTriggerEnter2D is hardcoded by Unity to fire at most once per GameObject for the lifetime of the scene", "CompareTag(\"Player\") automatically returns false the second time it's called on the same collider", "Awake runs again after the door opens and resets the trigger state", "Setting doorCollider.enabled to false makes that collider stop taking part in physics entirely, so it can no longer overlap anything or generate a second event — no flag needed"]
+answer = 3
+whyWrong = "OnTriggerEnter2D has no built-in once-per-scene limit — chapter VI-2's field notes described it firing on every fresh overlap begin, with nothing capping how many times across a whole scene; CompareTag is a pure string comparison with no memory of past calls, it returns the same answer every time for the same inputs; and Awake runs exactly once per GameObject's lifetime by chapter III's own lifecycle ordering, not again later just because a door opened."
+hint = "The lesson's own paragraph right after the code sample named exactly what a disabled collider CAN'T do anymore, and why that's enough on its own."
+explain = "A disabled Collider2D takes part in no physics checks at all, so it can never overlap anything again once doorCollider.enabled is false — 'open once, never re-trigger' falls out of that single state change with no separate isOpened flag required."
+
+[[lessons.exercises]]
+id = "s06-l06-e3"
+type = "text"
+points = 20
+prompt = "What is the name of the bool property, shared by every component a GameObject carries (MonoBehaviour scripts included), that this lesson sets to false on a Collider2D to stop it from participating in physics without removing anything?"
+answer = "enabled"
+hint = "It's the property this lesson positioned as Destroy's opposite — silencing one piece of a GameObject rather than removing the whole thing."
+
+[[lessons.exercises]]
+id = "s06-l06-w1"
+type = "write"
+points = 32
+prompt = "Unity's Collider2D.enabled can't run in this workbench, so model DoorTrigger's open-once behavior in plain C#: a class DoorTrigger with a public bool ColliderEnabled starting true, and a method Enter(string colliderTag) that, only if colliderTag equals \"Player\" AND ColliderEnabled is currently true, prints Door opens. and sets ColliderEnabled to false; in every other case (wrong tag, or ColliderEnabled already false) it prints nothing at all. Build a DoorTrigger, then call Enter(\"Player\") twice in a row, exactly:\nDoor opens."
+starter = '''
+// Build a DoorTrigger, call Enter("Player") twice in a row. The second call
+// must print nothing, since the door's collider is already disabled.
+// Define class DoorTrigger at the BOTTOM of the file.
+
+'''
+expect = '''
+Door opens.'''
+solution = '''
+DoorTrigger door = new DoorTrigger();
+door.Enter("Player");
+door.Enter("Player");
+
+class DoorTrigger
+{
+    public bool ColliderEnabled = true;
+
+    public void Enter(string colliderTag)
+    {
+        if (colliderTag == "Player" && ColliderEnabled)
+        {
+            Console.WriteLine("Door opens.");
+            ColliderEnabled = false;
+        }
+    }
+}
+'''
+hint = "The first Enter(\"Player\") call passes both conditions and flips ColliderEnabled to false; the second call has the right tag but ColliderEnabled is now false, so the if-block never runs and nothing prints — exactly the real Collider2D.enabled = false behavior."

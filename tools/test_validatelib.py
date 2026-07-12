@@ -13,7 +13,8 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from validatelib import _findings  # noqa: E402
-from validatelib.content import check_exercise, check_freestyle  # noqa: E402
+from validatelib.content import (check_exercise, check_freestyle, check_section,
+                                 is_shouting_title)  # noqa: E402
 from validatelib.depth import check_padded_prose  # noqa: E402
 from validatelib.execute import _project_build_result, check_starters_run  # noqa: E402
 from validatelib.themes import check_sigil_palette_uniqueness  # noqa: E402
@@ -25,6 +26,20 @@ def findings():
 
 
 def main():
+    # Display titles share one casing contract: prose titles use Title Case while
+    # short acronyms remain legal. This guards both section and lesson callers.
+    assert is_shouting_title("TEMPERING III // STOP THE CLOCK")
+    assert not is_shouting_title("Tempering III // Stop the Clock")
+    assert not is_shouting_title("JSON")
+    section = {"id": "s01", "codename": "CHAPTER I // TEST", "title": "Test Chapter",
+               "build": "Build", "brief": "Brief", "freestyle": None,
+               "lessons": [{"id": "s01-l01", "title": "TEMPERING I // ONE FOREMAN",
+                            "body": "<p>Body</p>", "exercises": []}]}
+    check_section(section, "s01", "s01", set(), set())
+    got = findings()
+    assert any(lv == "WARN" and label == "content" and "lesson 's01-l01'" in msg
+               and "ALL CAPS" in msg for lv, label, msg in got), got
+
     # 1. expectRe must compile — an invalid pattern is an unwinnable lab (ERROR)…
     check_exercise({"id": "w1", "type": "write", "expectRe": "([", "hint": "h"}, "L", set())
     assert any(lv == "ERROR" and "expectRe" in msg for lv, _, msg in findings()), "bad expectRe not flagged"

@@ -1,0 +1,105 @@
+[[lessons]]
+id = "s02-l05"
+title = "List<T> — A Pouch That Grows"
+body = '''
+<p>An inventory is not one item — it's a growing pile of them, and a plain <code>string</code> or <code>int</code> variable can only ever hold one value. <code>List&lt;T&gt;</code> is C#'s everyday growable collection: a single variable that holds many items of the same type, in order, and can grow or shrink at runtime.</p>
+<pre><code><span class="k">using</span> System.Collections.Generic;
+
+List&lt;<span class="k">string</span>&gt; inventory = <span class="k">new</span> List&lt;<span class="k">string</span>&gt;();
+inventory.Add(<span class="s">"Torch"</span>);
+inventory.Add(<span class="s">"Ember Charm"</span>);
+Console.WriteLine(inventory.Count);   <span class="c">// 2</span></code></pre>
+<p>The <code>&lt;string&gt;</code> is a <strong>generic type argument</strong> — it tells the compiler exactly what type this particular list holds, so <code>inventory.Add(42)</code> would refuse to compile: this list only ever accepts <code>string</code>. <code>Add</code> appends an item to the end; <code>Count</code> is a property (not a method — no parentheses) giving the current number of items. Individual items are reached the same way as an array, by zero-based index in square brackets: <code>inventory[0]</code> is <code>"Torch"</code>, the first item added.</p>
+<p>Walking every item without tracking an index by hand uses <code>foreach</code>:</p>
+<pre><code><span class="k">foreach</span> (<span class="k">string</span> item <span class="k">in</span> inventory)
+{
+    Console.WriteLine(item);
+}</code></pre>
+<p><code>foreach</code> hands you one item at a time, in order, until the collection runs out — there's no index variable to get off-by-one on, which is exactly why it's the default choice over a <code>for</code> loop whenever you don't specifically need the index. <code>Remove(item)</code> deletes the first matching item, and <code>Contains(item)</code> checks whether a value is already present, both by the item's own value, not a position:</p>
+<pre><code>inventory.Remove(<span class="s">"Torch"</span>);
+<span class="k">bool</span> hasCharm = inventory.Contains(<span class="s">"Ember Charm"</span>);   <span class="c">// true</span></code></pre>
+<div class="callout">List&lt;T&gt; can also live as a class member — <code>public List&lt;string&gt; Items = new List&lt;string&gt;();</code> on Artificer gives every artificer their own separate inventory, the same way each object gets its own separate fields.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ARRAYS VS LIST&lt;T&gt;</div>
+<p>C# also has fixed-size arrays (string[] names = new string[3];) — you may meet them in older code or Unity samples. An array's length is locked at creation; List&lt;T&gt; resizes itself on every Add and Remove, which is what an inventory, a spawned-enemy roster, or a dialogue-line queue actually needs, since none of those counts are known ahead of time. Default to List&lt;T&gt; for anything that grows or shrinks — reach for an array only once you have a specific, measured reason to want a fixed size.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Microsoft C# guide: List<T>"
+url = "https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.list-1"
+
+[[lessons.readings]]
+label = "OPTIONAL // Microsoft C# guide: foreach statement"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/statements/iteration-statements#the-foreach-statement"
+
+[[lessons.exercises]]
+id = "s02-l05-e1"
+type = "mc"
+points = 15
+prompt = "List&lt;string&gt; inventory holds Torch then Ember Charm, added in that order. What does inventory[0] give back?"
+choices = ["Ember Charm, because [0] always reads the most recently added item", "Torch — the item at index 0, the first one added", "The Count of the list, which is 2", "A compile error, since List&lt;T&gt; doesn't support the [ ] indexer"]
+answer = 1
+whyWrong = "[0] is not 'most recent' and it never returns Count — indexing reads position 0 specifically, and List&lt;T&gt; absolutely supports the [ ] indexer (this compiles and runs fine); since Torch was Add()ed first, it sits at index 0, and Ember Charm — added second — sits at index 1."
+hint = "Index 0 means position zero — which item went in first?"
+explain = "Add appends to the end, so the first item added (Torch) ends up at index 0, and inventory[0] returns it."
+
+[[lessons.exercises]]
+id = "s02-l05-e2"
+type = "mc"
+points = 15
+prompt = "Why does this lesson recommend foreach over a for loop for printing every inventory item, when both would work?"
+choices = ["for loops cannot access List&lt;T&gt; items at all", "foreach is faster to execute at runtime", "foreach removes the chance of an off-by-one index bug, since there's no index variable to manage", "foreach can only be used with List&lt;string&gt;, never List&lt;int&gt;"]
+answer = 2
+whyWrong = "for loops work fine on List&lt;T&gt; (via the indexer), foreach works with a List&lt;T&gt; of any element type including List&lt;int&gt;, and this lesson never claims a performance difference — the real reason is simplicity and safety: foreach hands you each item directly with no index variable to increment, bound-check, or get off by one on."
+hint = "Think about what a for loop needs that a foreach doesn't — a variable you have to manage by hand."
+explain = "foreach eliminates the index bookkeeping a for loop requires, removing an entire class of off-by-one bugs."
+
+[[lessons.exercises]]
+id = "s02-l05-e3"
+type = "text"
+points = 20
+prompt = "Which List&lt;T&gt; property (no parentheses — it's not a method) gives the current number of items it holds?"
+answer = "Count"
+hint = "PascalCase, one word, and this lesson printed it right after two Add calls to show it equals 2."
+
+[[lessons.exercises]]
+id = "s02-l05-e4"
+type = "fill"
+points = 20
+prompt = "Fill in the missing loop keyword so this walks every string in inventory, binding each one to item, without any index variable to manage."
+code = '''____ (string item in inventory)
+{
+    Console.WriteLine(item);
+}'''
+answer = "foreach"
+hint = "It's the loop keyword built specifically for walking a collection item by item."
+
+[[lessons.exercises]]
+id = "s02-l05-w1"
+type = "write"
+points = 30
+prompt = "Build a List&lt;string&gt; named inventory containing, in order: Torch, Ember Charm, Rope. Using foreach, print each item on its own line prefixed with its 1-based position, exactly:\n1. Torch\n2. Ember Charm\n3. Rope\nThen print the count as ITEMS 3 (computed from inventory.Count, not hardcoded)."
+starter = '''
+List<string> inventory = new List<string>();
+// Add the three items, then foreach-print them numbered 1., 2., 3., then print ITEMS <count>.
+
+'''
+expect = '''
+1. Torch
+2. Ember Charm
+3. Rope
+ITEMS 3'''
+solution = '''
+List<string> inventory = new List<string>();
+inventory.Add("Torch");
+inventory.Add("Ember Charm");
+inventory.Add("Rope");
+
+int position = 1;
+foreach (string item in inventory)
+{
+    Console.WriteLine($"{position}. {item}");
+    position++;
+}
+Console.WriteLine($"ITEMS {inventory.Count}");
+'''
+hint = "foreach doesn't give you an index, so track the 1-based position yourself in a separate int, incrementing it each pass."

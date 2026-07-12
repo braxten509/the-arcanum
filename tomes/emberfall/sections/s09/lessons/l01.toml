@@ -1,0 +1,102 @@
+[[lessons]]
+id = "s09-l01"
+title = "A Window for Words"
+body = '''
+<p>A line of dialogue needs a visible home, not a Debug.Log that vanishes into the console. Unity's <strong>Canvas</strong> is the screen-space root for UI. Under it, make a <code>DialoguePanel</code> GameObject, give it a background Image, and make a child TextMeshPro text object named <code>DialogueText</code>. Start the panel inactive. An inactive GameObject does not draw and its child UI does not draw either; that is the closed book before an NPC speaks.</p>
+<pre><code><span class="k">using</span> TMPro;
+<span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> DialoguePanel : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> GameObject panelRoot;
+    [SerializeField] <span class="k">private</span> TextMeshProUGUI dialogueText;
+
+    <span class="k">public</span> <span class="k">void</span> ShowLine(<span class="k">string</span> line)
+    {
+        dialogueText.text = line;
+        panelRoot.SetActive(<span class="k">true</span>);
+    }
+
+    <span class="k">public</span> <span class="k">void</span> Hide()
+    {
+        panelRoot.SetActive(<span class="k">false</span>);
+    }
+}</code></pre>
+<p><code>TextMeshProUGUI</code> is the UI text component; drag the child bearing it into <code>dialogueText</code>, and drag DialoguePanel itself into <code>panelRoot</code>. The private serialized references use the Forge III bargain: Inspector-assigned without becoming public handles every script can misuse. <code>ShowLine</code> sets the text first and opens the root second. <code>Hide</code> owns the matching close action. Nothing else should directly set the panel active.</p>
+<p>Anchor the panel near the lower screen and give its text a readable margin. Test it before wiring an NPC: temporarily call ShowLine from a tiny debug button or a one-shot Start, see <code>“The road remembers.”</code>, then remove the temporary caller. The real interaction arrives next. This small proof catches wrong references and a panel accidentally left active before you build a larger machine around them.</p>
+<p>The workbench cannot render Unity UI. Its exercise uses a plain string holder only to rehearse the ownership rule: one method receives a line, one property exposes what would be drawn. The Canvas, anchors, and Inspector references remain real Editor work.</p>
+<div class="callout">Canvas owns the screen surface; DialoguePanel owns whether its one dialogue window is shown and what line it displays.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // UI REFERENCES ARE SCENE WIRING</div><p>A missing dialogueText reference is not a C# syntax problem. It is a scene-assembly failure that appears when ShowLine touches null. Assign it deliberately and test in Play mode. Later, a HUD may listen to events; this panel is simpler because a dialogue controller deliberately commands one display.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Manual: Canvas"
+url = "https://docs.unity3d.com/Manual/UICanvas.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // TextMesh Pro package manual"
+url = "https://docs.unity3d.com/Packages/com.unity.textmeshpro@latest"
+
+[[lessons.exercises]]
+id = "s09-l01-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype the complete public doorway that places a line in the panel and reveals its root."
+code = '''public void ShowLine(string line)
+{
+    dialogueText.text = line;
+    panelRoot.SetActive(true);
+}'''
+
+[[lessons.exercises]]
+id = "s09-l01-e1"
+type = "mc"
+points = 22
+prompt = "Where should DialogueText live so it renders as part of Emberfall's screen UI rather than as a world sprite?"
+choices = ["Under a Canvas, as a TextMeshProUGUI child", "On ArtificerRig's Rigidbody2D", "Inside MinorPotion.asset", "On the TilemapCollider2D"]
+answer = 0
+whyWrong = "Rigidbody2D and TilemapCollider2D serve physics, while MinorPotion is shared item data. A screen UI text element belongs under the Canvas hierarchy and uses the UI TextMeshPro component."
+hint = "Choose the hierarchy that Unity uses to draw screen-space interface elements."
+explain = "Canvas establishes the UI surface; a TextMeshProUGUI child renders the dialogue line on it."
+
+[[lessons.exercises]]
+id = "s09-l01-e2"
+type = "fill"
+points = 24
+prompt = "Fill the GameObject method DialoguePanel uses to make its configured root visible."
+code = '''dialogueText.text = line;
+panelRoot.____(true);'''
+answer = "SetActive"
+hint = "It is the Unity call that changes whether the panel GameObject participates in the active hierarchy."
+
+[[lessons.exercises]]
+id = "s09-l01-e3"
+type = "write"
+points = 34
+prompt = "Model the panel boundary in plain C#: create DialoguePanel with a public string CurrentLine { get; private set; }, ShowLine(string line), and Hide() that clears CurrentLine to an empty string. Show the supplied line, print it, hide it, then compute exactly:\nOPEN The road remembers.\nCLOSED True"
+starter = '''// Create DialoguePanel. Call ShowLine with the exact supplied line, then Hide.
+// Define DialoguePanel at the BOTTOM of the file.
+
+'''
+expect = '''OPEN The road remembers.
+CLOSED True'''
+solution = '''DialoguePanel panel = new DialoguePanel();
+panel.ShowLine("The road remembers.");
+Console.WriteLine($"OPEN {panel.CurrentLine}");
+panel.Hide();
+Console.WriteLine($"CLOSED {panel.CurrentLine == ""}");
+
+class DialoguePanel
+{
+    public string CurrentLine { get; private set; } = "";
+    public void ShowLine(string line)
+    {
+        CurrentLine = line;
+    }
+    public void Hide()
+    {
+        CurrentLine = "";
+    }
+}'''
+hint = "ShowLine assigns the given line to CurrentLine. After Hide, compare CurrentLine with the empty string to compute the second value."

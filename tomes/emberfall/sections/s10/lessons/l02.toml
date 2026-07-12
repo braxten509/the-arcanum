@@ -1,0 +1,87 @@
+[[lessons]]
+id = "s10-l02"
+title = "Tempering II // Legal Transitions"
+body = '''
+<p>A state name is only a label until it changes something. Give GameStateManager narrow public verbs: <code>StartGame</code>, <code>PauseGame</code>, <code>ResumeGame</code>, <code>EndGame</code>, and <code>ReturnToMenu</code>. Each calls one private <code>SetState</code> method. That single throat is where the manager assigns CurrentState, changes panel visibility, and controls the scaled clock. No Button and no player script gets to perform half a transition.</p>
+<pre><code><span class="k">public</span> <span class="k">void</span> PauseGame()
+{
+    <span class="k">if</span> (CurrentState != GameState.Playing) <span class="k">return</span>;
+    SetState(GameState.Paused);
+}
+
+<span class="k">public</span> <span class="k">void</span> TogglePause()
+{
+    <span class="k">if</span> (CurrentState == GameState.Playing) PauseGame();
+    <span class="k">else</span> <span class="k">if</span> (CurrentState == GameState.Paused) ResumeGame();
+}</code></pre>
+<p>The early <code>return</code> is a guard, not cowardice. Pause is legal only during a run. Calling it from MainMenu must leave the state untouched; calling it after GameOver must not resurrect a dead run. TogglePause makes the same choice explicit. It does nothing for the other two states because they have different actions: Start begins a fresh run; ReturnToMenu abandons the old one. This reaches back to Forge II's if/else branches and Forge VII's SetState habit.</p>
+<p>In <code>SetState</code>, switch the panels by their assigned GameObject references. MainMenu shows only mainMenuPanel. Playing shows hudPanel and hides the menu, pause, and game-over panels. Paused leaves the HUD visible and adds pausePanel. GameOver shows gameOverPanel; whether you keep the HUD visible is a choice, but make it intentional and consistent. The exact panel matrix belongs in one method so a future settings panel does not cause a scavenger hunt through buttons. Put the player, enemies, world interaction, and gameplay-only HUD under an assigned <code>gameplayRoot</code>. Set it active only for Playing or Paused; MainMenu and GameOver deactivate it so movement, combat, and interaction cannot continue behind an overlay. Paused keeps it active while <code>Time.timeScale = 0</code> so TogglePause can still receive input.</p>
+<p>At this stage you are rehearsing state legality in plain C#. The actual Canvas work remains in the Unity Editor, where Button onClick events will call these public verbs later. Test transition guards by invoking PauseGame in MainMenu and reading CurrentState before wiring art. A machine that refuses an illegal command is easier to trust than one which repairs itself after damage.</p>
+<div class="callout">A transition is a named, guarded operation—not an assignment scattered across UI callbacks.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ONE SETSTATE PATH</div><p>Use a private SetState rather than public property assignment so side effects cannot be skipped. If future code needs to announce state changes, that method is the single place to invoke a GameStateChanged event.</p></div>
+'''
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Manual: GameObject.SetActive"
+url = "https://docs.unity3d.com/Manual/DeactivatingGameObjects.html"
+
+[[lessons.exercises]]
+id = "s10-l02-e1"
+type = "mc"
+points = 22
+prompt = "GameStateManager is in MainMenu. What should PauseGame do?"
+choices = ["Set Paused so the menu stops animating", "Call EndGame because no run exists", "Leave CurrentState unchanged through its guard", "Open DialoguePanel to explain the pause"]
+answer = 2
+whyWrong = "Paused describes an interrupted Playing run, not a frozen menu; EndGame and DialoguePanel are unrelated state changes. The guard rejects PauseGame outside Playing so MainMenu remains stable."
+hint = "Read the first line of PauseGame and compare MainMenu with the one permitted source state."
+explain = "The != Playing guard returns before SetState can execute."
+
+[[lessons.exercises]]
+id = "s10-l02-e2"
+type = "fill"
+points = 24
+prompt = "Fill the comparison value that makes this guard accept only an active run."
+code = '''if (CurrentState != GameState.____) return;'''
+answer = "Playing"
+hint = "Pause interrupts movement and combat, so it needs the state where those systems are active."
+
+[[lessons.exercises]]
+id = "s10-l02-w1"
+type = "write"
+points = 35
+prompt = "Write a plain C# GameStateManager with StartGame, PauseGame, ResumeGame, and a guarded TogglePause. Start, toggle twice, then attempt PauseGame from MainMenu after a new manager is made. Compute exactly:\nFLOW Playing Paused Playing\nGUARD MainMenu"
+starter = '''// Define GameState and GameStateManager. TogglePause may act only from Playing or Paused.
+// Use CurrentState values to compute both output lines.
+
+'''
+expect = '''FLOW Playing Paused Playing
+GUARD MainMenu'''
+solution = '''GameStateManager manager = new GameStateManager();
+manager.StartGame();
+GameState first = manager.CurrentState;
+manager.TogglePause();
+GameState second = manager.CurrentState;
+manager.TogglePause();
+Console.WriteLine($"FLOW {first} {second} {manager.CurrentState}");
+GameStateManager menu = new GameStateManager();
+menu.PauseGame();
+Console.WriteLine($"GUARD {menu.CurrentState}");
+
+enum GameState { MainMenu, Playing, Paused, GameOver }
+class GameStateManager
+{
+    public GameState CurrentState { get; private set; } = GameState.MainMenu;
+    public void StartGame() { CurrentState = GameState.Playing; }
+    public void PauseGame() { if (CurrentState == GameState.Playing) CurrentState = GameState.Paused; }
+    public void ResumeGame() { if (CurrentState == GameState.Paused) CurrentState = GameState.Playing; }
+    public void TogglePause() { if (CurrentState == GameState.Playing) PauseGame(); else if (CurrentState == GameState.Paused) ResumeGame(); }
+}'''
+hint = "Capture each CurrentState after the method that changes it. PauseGame needs an equality guard, while TogglePause branches between the two legal modes."
+
+[[lessons.exercises]]
+id = "s10-l02-e3"
+type = "text"
+points = 19
+prompt = "Which public manager method should a death handler call to enter the finished-run mode?"
+answer = "EndGame"
+hint = "It is the transition named for ending a run, not the one that merely interrupts it."

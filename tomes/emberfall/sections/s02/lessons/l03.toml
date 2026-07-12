@@ -1,0 +1,119 @@
+[[lessons]]
+id = "s02-l03"
+title = "Classes & Objects — Bundling Facts Together"
+body = '''
+<p>Chapter I scattered an artificer's facts across loose variables — <code>artificerName</code>, <code>level</code>, <code>hitPoints</code> — living side by side with no connection between them except that you remembered to keep them in sync. A <strong>class</strong> is a blueprint that bundles related data and behavior into one named thing; an <strong>object</strong> (also called an instance) is a real value built from that blueprint.</p>
+<pre><code><span class="k">class</span> Artificer
+{
+    <span class="k">public</span> <span class="k">string</span> Name;
+    <span class="k">public</span> <span class="k">int</span> Level;
+    <span class="k">public</span> <span class="k">int</span> HitPoints;
+}</code></pre>
+<p>Inside a class, the variables it carries are called <strong>fields</strong>. Classes are named PascalCase, same as methods — you have used that convention since lesson four of chapter I without a class to apply it to yet. Building an actual <code>Artificer</code> from this blueprint uses the <code>new</code> keyword:</p>
+<pre><code>Artificer kess = <span class="k">new</span> Artificer();
+kess.Name = <span class="s">"Kess"</span>;
+kess.Level = 1;
+kess.HitPoints = 20;
+Console.WriteLine($<span class="s">"{kess.Name} — Level {kess.Level}, {kess.HitPoints} HP"</span>);</code></pre>
+<p><code>new Artificer()</code> allocates a fresh object and hands back a reference to it, which <code>kess</code> holds. The dot (<code>kess.Name</code>) reaches into that specific object's own copy of each field — a second <code>Artificer</code> built the same way has its own separate <code>Name</code>, <code>Level</code>, and <code>HitPoints</code>, untouched by anything done to <code>kess</code>.</p>
+<p>Setting three fields by hand after <code>new</code> is easy to forget and easy to get wrong — a <strong>constructor</strong> is a special method, named exactly like the class, that runs automatically at the moment of construction and forces every field to be set on the spot:</p>
+<pre><code><span class="k">class</span> Artificer
+{
+    <span class="k">public</span> <span class="k">string</span> Name;
+    <span class="k">public</span> <span class="k">int</span> Level;
+    <span class="k">public</span> <span class="k">int</span> HitPoints;
+
+    <span class="k">public</span> Artificer(<span class="k">string</span> name, <span class="k">int</span> level, <span class="k">int</span> hitPoints)
+    {
+        <span class="k">this</span>.Name = name;
+        <span class="k">this</span>.Level = level;
+        <span class="k">this</span>.HitPoints = hitPoints;
+    }
+}
+
+Artificer kess = <span class="k">new</span> Artificer(<span class="s">"Kess"</span>, 1, 20);</code></pre>
+<p><code>this</code> means "the specific object this constructor is currently building" — it disambiguates the field <code>Name</code> from the parameter also named <code>name</code>, which would otherwise shadow it. Once a class declares any constructor, C# no longer offers a bare parameterless <code>new Artificer()</code> — every construction site must supply the arguments that constructor demands, which is exactly the point: it is now impossible to end up with an <code>Artificer</code> that forgot to set its <code>HitPoints</code>.</p>
+<p>One placement rule matters the moment you actually type this into your own <code>Program.cs</code>: top-level statements — the loose lines that run top to bottom, like the <code>Artificer kess = new Artificer(...)</code> line above — must all come <em>before</em> any <code>class</code> (or other type) declaration in the file. Write the class first and a top-level statement after it, and the compiler refuses the file outright with <code>error CS8803: Top-level statements must precede namespace and type declarations</code>. The fix is simply ordering: every executable line goes at the top, and every <code>class</code> you define goes at the bottom, below all of it.</p>
+<div class="callout">A class can also hold methods, exactly like the local functions from chapter I, except they act on that object's own fields through this instead of on parameters alone.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // REFERENCE TYPES VS VALUE TYPES</div>
+<p>Chapter I noted that int, double, bool, and char are copied when passed to a method — value types. A class is different: Artificer kess passed into a method hands over a <em>reference</em> to the same underlying object, not a copy. Mutate kess.HitPoints there and the caller's kess sees the change too, because both variables point at the identical object. Unity Components are reference types too.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Microsoft C# guide: Classes"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/types/classes"
+
+[[lessons.readings]]
+label = "OPTIONAL // Microsoft C# guide: Constructors"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/constructors"
+
+[[lessons.exercises]]
+id = "s02-l03-e1"
+type = "mc"
+points = 15
+prompt = "Two variables, kess and second, both hold an Artificer object created separately with new. A method sets second.HitPoints = 5. What happens to kess.HitPoints?"
+choices = ["It also becomes 5, since both are Artificer objects", "It is unaffected — kess and second reference two separate objects", "It becomes 0", "The program fails to compile"]
+answer = 1
+whyWrong = "Nothing links kess's object to second's just because they're the same class — 'both are Artificer objects' isn't a connection, it's a coincidence of type; there's no reset-to-0 behavior anywhere in C#, and this compiles and runs fine — kess and second are two entirely separate new'd objects, so mutating one's field never touches the other's."
+hint = "Each call to new Artificer(...) allocates its own separate object — how many objects did this scenario actually create?"
+explain = "kess and second were each built with their own new Artificer(...) call, so they are two distinct objects in memory — changing one's field never affects the other."
+
+[[lessons.exercises]]
+id = "s02-l03-e2"
+type = "mc"
+points = 15
+prompt = "Once Artificer declares the three-parameter constructor from this lesson, what happens if code elsewhere writes new Artificer()?"
+choices = ["It compiles and leaves Name, Level, and HitPoints at their default values", "It fails to compile — no parameterless constructor exists once you declare your own", "It silently calls the three-parameter constructor with nulls and zeros", "It throws a NullReferenceException at runtime"]
+answer = 1
+whyWrong = "C# does NOT keep a free parameterless constructor around as a fallback once you write your own — it doesn't silently substitute nulls/zeros into the real constructor either, and this is a compile-time problem, not something that waits to blow up at runtime as a NullReferenceException; the compiler rejects new Artificer() outright because the only constructor Artificer has now demands three arguments."
+hint = "Declaring any constructor removes the automatic empty one C# normally gives every class for free."
+explain = "A class only gets the free implicit parameterless constructor if it declares no constructors of its own. Once Artificer(string, int, int) exists, new Artificer() no longer compiles."
+
+[[lessons.exercises]]
+id = "s02-l03-e3"
+type = "text"
+points = 20
+prompt = "Inside a constructor, which keyword refers to the specific object currently being built — used to tell a field apart from a same-named parameter?"
+answer = "this"
+hint = "It's three letters, lowercase, and you saw it disambiguate this.Name from the parameter name."
+
+[[lessons.exercises]]
+id = "s02-l03-e4"
+type = "fill"
+points = 20
+prompt = "Fill in the keyword that allocates a fresh Artificer object and hands back a reference to it."
+code = 'Artificer kess = ____ Artificer("Kess", 1, 20);'
+answer = "new"
+hint = "It's the same keyword this lesson used the very first time it built an object, before the constructor even existed."
+
+[[lessons.exercises]]
+id = "s02-l03-w1"
+type = "write"
+points = 35
+prompt = "Define class Artificer with public fields Name (string), Level (int), and HitPoints (int), and a constructor Artificer(string name, int level, int hitPoints) that sets all three via this. Construct one named \"Kess\", level 2, hitPoints 18, then print exactly: Kess — Level 2, 18 HP"
+starter = '''
+// Construct "Kess" and print the readout below, then define class Artificer at the BOTTOM of the
+// file (fields + constructor) — top-level statements must come before any class declaration.
+
+'''
+expect = '''
+Kess — Level 2, 18 HP'''
+solution = '''
+Artificer kess = new Artificer("Kess", 2, 18);
+Console.WriteLine($"{kess.Name} — Level {kess.Level}, {kess.HitPoints} HP");
+
+class Artificer
+{
+    public string Name;
+    public int Level;
+    public int HitPoints;
+
+    public Artificer(string name, int level, int hitPoints)
+    {
+        this.Name = name;
+        this.Level = level;
+        this.HitPoints = hitPoints;
+    }
+}
+'''
+hint = "The print line is $\"{kess.Name} — Level {kess.Level}, {kess.HitPoints} HP\" — match the em dash and comma exactly."

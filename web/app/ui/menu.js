@@ -2,11 +2,12 @@
    Animate: unfurl top→bottom in, retract bottom→top out. */
 import { $, closeModal, modal, sfx, toast } from "../core/dom.js";
 import { askOracle, oracleContext } from "../bench/oracle.js";
-import { go } from "../game/progress.js";
+import { addCredits, go } from "../game/progress.js";
 import { showStudySettings } from "./settings.js";
 import { castSigil } from "../game/sigil.js";
-import { S } from "../core/state.js";
+import { prepareStateReset, resumeStateSaves, S, save } from "../core/state.js";
 import { showCodeBook } from "./views.js";
+import { parseSpellCode } from "./spell-codes.js";
 
 let popOpen = null; // { el, owner, onClose }
 export function closePop(instant) {
@@ -27,7 +28,7 @@ function shedPixels(el) {
   const cs = getComputedStyle(document.body);
   const cols = ["--ac", "--tx", "--line-hi"].map((v) => cs.getPropertyValue(v).trim());
   rows.forEach((row, i) => {
-    const r = ArcanumViewport.rect(row.getBoundingClientRect());
+    const r = row.getBoundingClientRect();
     if (!r.width) return;
     const delay = (rows.length - 1 - i) * 30; // bottom rows disintegrate first
     const count = Math.min(8, Math.max(3, Math.round(r.width / 34)));
@@ -38,7 +39,7 @@ function shedPixels(el) {
       // opacity:0 until its animation begins — rows dissolve bottom-up, and a top-row
       // particle otherwise sits visible-but-frozen through its whole stagger delay
       px.style.cssText = `left:${r.left + Math.random() * r.width}px;top:${r.top + Math.random() * r.height}px;width:${sz}px;height:${sz}px;background:${cols[k % cols.length]};opacity:0`;
-      ArcanumViewport.mount(px);
+      document.body.appendChild(px);
       const dx = (Math.random() - 0.25) * 44; // biased right — the wipe travels left→right
       const dy = (Math.random() - 0.65) * 38; // biased up
       px.animate(
@@ -49,21 +50,47 @@ function shedPixels(el) {
   });
 }
 
-// cast-a-spell codes: "unlock-all" lifts every seal (chapters + workbenches) without
-// touching real progress — it's a pure view override, so "lock-all" simply clears it
-// and the true progress shows through again. any other words = miscast.
+// Cast-a-spell codes are intentional debug/practice controls. Progress-shaped changes
+// go through the real economy/save paths; random-hex control persists per tome.
 function castSpellPrompt() {
+  const hexesOn = S.hexesEnabled !== false;
   modal(`<h2>CAST A SPELL</h2><p class="dim">Speak the incantation.</p>
-    <input type="text" id="spell-code" style="width:100%" placeholder="the words of the spell" spellcheck="false" autocomplete="off">`,
+    <input type="text" id="spell-code" style="width:100%" placeholder="the words of the spell" spellcheck="false" autocomplete="off">
+    <div class="spell-ledger" aria-label="Known spell codes">
+      <div><code>GOLD-X</code><span>add X currency to your purse</span></div>
+      <div><code>DISABLE-HEX</code><span>still random incoming hexes</span></div>
+      <div><code>ENABLE-HEX</code><span>restore random incoming hexes</span></div>
+      <div><code>RESET-PROGRESS</code><span>return this tome to a new beginning</span></div>
+      <div><span class="spell-command"><code>UNLOCK-ALL</code> / <code>LOCK-ALL</code></span><span>lift or restore chapter seals</span></div>
+      <p>RANDOM HEXES // <b>${hexesOn ? "ENABLED" : "DISABLED"}</b></p>
+    </div>`,
     [["LEAVE IT", "quiet"], ["CAST", "", null]]);
   const cast = () => {
-    const code = $("#spell-code").value.trim().toLowerCase();
+    const spell = parseSpellCode($("#spell-code").value);
     closeModal(() => {
-      if (code === "unlock-all") S.spellAll = true;
-      else if (code === "lock-all") delete S.spellAll;
-      else return castSigil(null, false); // unknown words — the spell fizzles
+      let repaint = false;
+      if (spell.kind === "unlock-all") { S.spellAll = true; repaint = true; }
+      else if (spell.kind === "lock-all") { delete S.spellAll; repaint = true; }
+      else if (spell.kind === "gold") {
+        if (!Number.isSafeInteger(S.credits + spell.amount) || !Number.isSafeInteger(S.earned + spell.amount)) {
+          toast("THE PURSE REJECTS THE SPELL // that amount is too vast", "bad");
+          return castSigil(null, false);
+        }
+        addCredits(spell.amount);
+      }
+      else if (spell.kind === "disable-hex") {
+        S.hexesEnabled = false;
+        save();
+        toast("RANDOM HEXES STILLED // rival ambushes are disabled", "warn");
+      } else if (spell.kind === "enable-hex") {
+        S.hexesEnabled = true;
+        save();
+        toast("RANDOM HEXES RESTORED // the next rival may strike in 10–15 minutes");
+      } else if (spell.kind === "reset-progress") {
+        return showResetProgressConfirm();
+      } else return castSigil(null, false); // unknown words — the spell fizzles
       castSigil(null, true);
-      go(S.nav.view, S.nav.sec, S.nav.lesson); // repaint the current page so seals lift/return in place
+      if (repaint) go(S.nav.view, S.nav.sec, S.nav.lesson); // seals lift/return in place
     });
   };
   document.querySelectorAll("#modal-root .modal-actions .btn")[1].onclick = cast;
@@ -72,13 +99,44 @@ function castSpellPrompt() {
   setTimeout(() => f.focus(), 50);
 }
 
+function showResetProgressConfirm() {
+  modal(`<h2>RESET THIS TOME?</h2>
+    <div class="reset-warning">
+      <p><b>This cannot be undone.</b> The active tome will return to the state of a newly opened book.</p>
+      <p>This erases lesson and chapter progress, gold and lifetime earnings, inventory, badges, grades, and files in the internal workbench.</p>
+      <p>Reader-wide audio and AI settings remain. A project folder managed in your external editor is never deleted, though you will need to reconnect it.</p>
+    </div>`,
+    [["KEEP MY PROGRESS", "quiet"], ["RESET THIS TOME", "danger", null]], { sticky: true });
+  const reset = document.querySelectorAll("#modal-root .modal-actions .btn")[1];
+  reset.onclick = async () => {
+    reset.disabled = true;
+    reset.textContent = "CASTING…";
+    await prepareStateReset();
+    closeModal(async () => {
+      try {
+        await castSigil(null, true);
+        const r = await fetch("/api/state/reset", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ confirm: "reset-progress" }),
+        });
+        const out = await r.json();
+        if (!r.ok || !out.ok) throw new Error(out.error || "the reset was refused");
+        location.reload();
+      } catch (e) {
+        resumeStateSaves();
+        toast(`THE RESET WAS REFUSED // ${String(e.message || e)}`, "bad");
+      }
+    });
+  };
+}
+
 // the practice circle: a chalk ring by the table's edge — click it to audition
 // each sigil at the center of the study, no live cast required
 const practice = document.createElement("button");
 practice.type = "button";
 practice.id = "practice-circle";
 practice.title = "The practice circle — audition the sigils";
-ArcanumViewport.mount(practice);
+document.body.appendChild(practice);
 practice.onclick = () => {
   const r = practice.getBoundingClientRect();
   popMenu([
@@ -91,10 +149,9 @@ practice.onclick = () => {
 
 export function popMenu(items, x, y, minW) {
   closePop(true);
-  const at = ArcanumViewport.point(x, y);
   const el = document.createElement("div");
   el.className = "pop-menu";
-  if (minW) el.style.minWidth = ArcanumViewport.length(minW) + "px";
+  if (minW) el.style.minWidth = minW + "px";
   for (const it of items) {
     if (it === "-") {
       el.appendChild(Object.assign(document.createElement("div"), { className: "pop-sep" }));
@@ -121,9 +178,10 @@ export function popMenu(items, x, y, minW) {
   const kids = [...el.children];
   kids.forEach((k, i) => { k.style.setProperty("--i", i); k.style.setProperty("--o", kids.length - 1 - i); });
   el.style.setProperty("--n", kids.length);
-  ArcanumViewport.mount(el);
-  el.style.left = Math.max(4, Math.min(at.x, ArcanumViewport.width - el.offsetWidth - 4)) + "px";
-  el.style.top = Math.max(4, Math.min(at.y, ArcanumViewport.height - el.offsetHeight - 4)) + "px";
+  document.body.appendChild(el);
+  const r = el.getBoundingClientRect();
+  el.style.left = Math.max(4, Math.min(x, innerWidth - r.width - 4)) + "px";
+  el.style.top = Math.max(4, Math.min(y, innerHeight - r.height - 4)) + "px";
   popOpen = { el };
   const sel = el.querySelector(".pop-item.sel");
   if (sel) sel.focus();

@@ -17,9 +17,7 @@ plus one plan file at .tome-build/<id>.plan.md carrying the gate answers + arc.
 The machinery lives in tools/buildlib/ (see its __init__ for the module map);
 this file is the CLI + the phase loop."""
 import argparse
-import glob
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -31,15 +29,17 @@ except ModuleNotFoundError:
     sys.exit("build_tome.py needs Python 3.11+ (tomllib).")
 
 from buildlib import (BUILD_DIR, CONFIG, DEAD_PINGS_DEFAULT, MAX_STUDENT_LOOPS,
-                      PING_INTERVAL_DEFAULT, REPO, WORKFLOW_DIR, retries_for)
+                      PING_INTERVAL_DEFAULT, REPO, retries_for)
 from buildlib.checkpoints import arc_checkpoint, arc_written, maybe_rename, reset_arc
+from buildlib.agent_runtime import scoped_runner_command
 from buildlib.liveness import run_agent, preflight_runners
 from buildlib.measure import forecast_line, inventory, measure, plan_shrink_marks, shrinkage, validate
-from buildlib.prompts import (GATE_QS, build_prompt, do_gate, do_gate_json, gate_errors,
-                              read_findings, read_tooling, read_verdict)
+from buildlib.prompts import (build_prompt, do_gate, do_gate_json, read_findings,
+                              read_tooling, read_verdict)
 from buildlib.runners import (_implicit_fallback, parse_fallbacks, parse_runner_flags,
                               request_runner, runner_for)
 from buildlib.sections import author_sections_split, section_ids, wipe_sections
+from buildlib.workflow import access_boundary, parse_phases
 
 
 def load_config(preset=None):
@@ -58,117 +58,10 @@ def load_config(preset=None):
     return cfg
 
 
-PHASE_H1 = re.compile(r"#\s*Phase (\d+)\s*—\s*(.*)")
-
-
-def parse_phases():
-    """Read tome-workflow/phase-N-*.md, one file per phase, ordered by N.
-
-    Returns [(num, title, body), ...]: the title comes from each file's `# Phase N — Title`
-    H1, the body is everything after it — the phase's own instructions, verbatim.
-    """
-    phases = []
-    for path in glob.glob(os.path.join(WORKFLOW_DIR, "phase-*.md")):
-        head, _, body = open(path, encoding="utf-8").read().partition("\n")
-        m = PHASE_H1.fullmatch(head.strip())
-        if not m:
-            sys.exit(f"{path}: first line must be '# Phase N — Title', got {head.strip()!r}")
-        phases.append((int(m.group(1)), m.group(2).strip(), body.strip()))
-    if not phases:
-        sys.exit(f"parsed 0 phases from {WORKFLOW_DIR}/ — where did the phase-N-*.md files go?")
-    return sorted(phases)
-
-
 def _selftest():
     """Runnable check for the fallback/chain logic — `python3 tools/build_tome.py --selftest`."""
-    from buildlib.liveness import _cpu_ticks, _descendants, _has_live_conn
-    from buildlib.runners import _spec_to_runner, default_runner
-    from buildlib.sections import _load_sections_done, _mark_section_done, _sections_done_path
-    # spec → runner tuple
-    d, cmd, im = _spec_to_runner("opencode-cli:opencode-go/deepseek-v4-flash", "--fallback")
-    assert cmd[:2] == ["opencode", "run"] and "opencode-go/deepseek-v4-flash" in cmd, cmd
-    assert im == "arg" and d == "opencode-cli opencode-go/deepseek-v4-flash", (im, d)
-    # effort injection keeps codex's trailing stdin marker last
-    _, ccmd, _ = _spec_to_runner("codex-cli:gpt-5.5@high", "--fallback")
-    assert ccmd[-1] == "-" and "model_reasoning_effort=high" in ccmd, ccmd
-    # agy: the appended prompt must land as --print's VALUE — a bare --print swallows the
-    # next flag as the prompt (the Phase-1 "greeting" failures), so --print stays LAST
-    _, gcmd, gim = _spec_to_runner("antigravity-cli:gemini-3-pro", "--runner")
-    assert gcmd[-1] == "--print" and gim == "arg", gcmd
-    # ordered fallback chain
-    fb = parse_fallbacks(["opencode-cli:a", "codex-cli:b"])
-    assert [x[0] for x in fb] == ["opencode-cli a", "codex-cli b"], fb
-    # implicit fallback = default runner, but empty when the phase already IS default
-    cfg = {"default": "d", "runners": {"d": {"cmd": ["opencode", "run", "-m", "m"], "input": "arg"}}}
-    same = ("opencode-cli m", ["opencode", "run", "-m", "m"], "arg")
-    diff = ("codex-cli x", ["codex", "exec", "-"], "stdin")
-    assert _implicit_fallback(cfg, {}, same) == [], "no fallback when phase == default"
-    assert _implicit_fallback(cfg, {}, diff) == [default_runner(cfg, {})], "fallback to default"
-    # switch decision: only when a worker died AND another runner remains
-    switch = lambda died, ri, n: died and ri + 1 < n
-    assert switch(True, 0, 2) and not switch(False, 0, 2) and not switch(True, 1, 2)
-    # liveness helpers read this very process tree
-    me = os.getpid()
-    assert me in _descendants(me), "descendant walk misses self"
-    assert _cpu_ticks([me]) > 0, "our own process shows 0 CPU?"
-    assert isinstance(_has_live_conn([me]), bool)
-    # section list reads gracefully; missing tome → [] (split then falls back to one worker)
-    assert section_ids("no-such-tome-xyz") == []
-    # resume manifest: fresh id is empty, marks round-trip through disk, skip set is what resume reads
-    os.makedirs(BUILD_DIR, exist_ok=True)
-    _t = "selftest-resume-xyz"
-    try:
-        os.remove(_sections_done_path(_t))
-    except OSError:
-        pass
-    assert _load_sections_done(_t) == set()
-    _mark_section_done(_t, "s01")
-    _mark_section_done(_t, "s03")
-    assert _load_sections_done(_t) == {"s01", "s03"}, _load_sections_done(_t)
-    os.remove(_sections_done_path(_t))
-    # wipe_sections: drops stale section dirs AND the split-mode resume manifest
-    _sec = os.path.join(REPO, "tomes", _t, "sections")
-    os.makedirs(os.path.join(_sec, "s01"))
-    _mark_section_done(_t, "s01")
-    assert wipe_sections(_t) == 1 and not os.path.exists(_sec)
-    assert _load_sections_done(_t) == set()
-    os.rmdir(os.path.join(REPO, "tomes", _t))
-    assert wipe_sections("no-such-tome-xyz") == 0  # fresh build: nothing to wipe, no error
-    # Phase-0 input is a machine-enforced contract, not prose a weak model can guess around.
-    good_gate = [(label, value) for (label, _), value in zip(
-        GATE_QS, ("none", "1", "7", "6", "3", "external"))]
-    assert gate_errors(good_gate) == [], gate_errors(good_gate)
-    bad_gate = [(label, "") for label, _ in GATE_QS]
-    assert len(gate_errors(bad_gate)) == 6, gate_errors(bad_gate)
-    # Phase 1 gate: an empty/greeting run leaves the Arc blank → fail; every required
-    # labeled part + the length floor → pass; a missing label or a thin arc → fail.
-    from buildlib.checkpoints import ARC_CONTRACT, ARC_HEADING, ARC_PARTS, DAILY_DRIVERS
-    plan_test = os.path.join(BUILD_DIR, f"{_t}.plan.md")
-    header = "## Gate answers\n- stuff\n\n" + ARC_HEADING + ARC_CONTRACT
-    dd = "; ".join(f"{d} = CAN" for d in DAILY_DRIVERS)
-    full = "".join(f"**{p}:** {dd if p == 'Daily drivers' else 'hammered out in ample forge-detail'}\n"
-                   for p in ARC_PARTS)
-    for extra, expected in (("", False), ("\n\n", False),
-                            (full, True),
-                            (full.replace("**Graduate ledger:**", "ledger"), False),  # missing part
-                            (full.replace("key-value = CAN", "key-value"), False),    # driver unassigned
-                            ("".join(f"**{p}:** x\n" for p in ARC_PARTS), False)):    # under the floor
-        with open(plan_test, "w", encoding="utf-8") as f:
-            f.write(header + extra)
-        ok, _ = arc_written(plan_test, plan_test)
-        assert ok is expected, (extra, expected)
-    reset_arc(plan_test)  # a --from-phase 1 restart blanks the old arc → gate must fail again
-    assert arc_written(plan_test, plan_test)[0] is False
-    os.remove(plan_test)
-    assert arc_written("/no/such/plan.md", "x")[0] is False
-    # The editorial protocol accepts exactly PASS, never "NOT PASS" or explanatory prose.
-    verdict_test = os.path.join(BUILD_DIR, f"{_t}.verdict")
-    for raw, expected in (("PASS\n", "PASS"), ("GAPS REMAIN\n", "GAPS REMAIN"),
-                          ("NOT PASS\n", None), ("PASS - looks good\n", None)):
-        with open(verdict_test, "w", encoding="utf-8") as f:
-            f.write(raw)
-        assert read_verdict(verdict_test) == expected, raw
-    print("build_tome self-test: OK")
+    from buildlib.build_selftest import run
+    run()
 
 
 def main():
@@ -237,6 +130,11 @@ def main():
     plan_path = os.path.join(BUILD_DIR, f"{tid}.plan.md")
     verdict_path = os.path.join(BUILD_DIR, f"{tid}.verdict")
     findings_path = os.path.join(BUILD_DIR, f"{tid}.findings.json")
+    # AI workers may write these exact harness artifacts but not the rest of .tome-build.
+    # Pre-create them so bubblewrap can expose each file without exposing the directory.
+    for sidecar in (plan_path, verdict_path, findings_path):
+        if not os.path.exists(sidecar):
+            open(sidecar, "a", encoding="utf-8").close()
     plan_rel = os.path.relpath(plan_path, REPO)
     verdict_rel = os.path.relpath(verdict_path, REPO)
     findings_rel = os.path.relpath(findings_path, REPO)
@@ -262,19 +160,8 @@ def main():
     if args.from_phase == 1:  # Phase 1 re-run: a stale arc from the old run must not pass the gate
         reset_arc(plan_path)
 
-    # Preflight every DISTINCT endpoint that will drive a phase (the drafter/writer/reviewer
-    # may be different providers), deduped by command — so a bad model/login for ANY selected
-    # runner is caught up front, not on the phase that first uses it.
-    distinct, seen = [], set()
-    for pnum, _, _ in phases:
-        if pnum == 0 or pnum < args.from_phase:
-            continue
-        nm, cmd, im = runner_for(cfg, pnum, overrides)
-        if tuple(cmd) not in seen:
-            seen.add(tuple(cmd))
-            distinct.append((nm, cmd, im))
-    if distinct:
-        preflight_runners(distinct)
+    preflight_done = False
+    preflighted = set()  # raw runner commands whose provider/model has answered Phase 0
 
     for num, title, body in phases:
         if num < args.from_phase:
@@ -297,6 +184,32 @@ def main():
         if not os.path.exists(plan_path):
             sys.exit(f"no plan file at {plan_path} — run Phase 0 first (drop --from-phase, or >0 needs an existing plan).")
 
+        # Phase 0 for AI access: after the tome exists but before any AI work, prove every
+        # selected provider/model answers through the SAME scoped runtime used by real phases.
+        if not preflight_done:
+            distinct, seen = [], set()
+            current_tome = os.path.join(REPO, "tomes", tid)
+            writable = [current_tome, plan_path, verdict_path, findings_path]
+            for pnum, _, _ in phases:
+                if pnum == 0 or pnum < args.from_phase:
+                    continue
+                nm, pcmd, pim = runner_for(cfg, pnum, overrides)
+                if tuple(pcmd) not in seen:
+                    seen.add(tuple(pcmd))
+                    distinct.append((nm, scoped_runner_command(
+                        nm, pcmd, current_tome, writable, REPO), pim))
+            # Explicit fallbacks are just as important as primary phase runners: prove them
+            # now, rather than discovering an expired login only after the primary dies.
+            for nm, pcmd, pim in fallbacks:
+                if tuple(pcmd) not in seen:
+                    seen.add(tuple(pcmd))
+                    distinct.append((nm, scoped_runner_command(
+                        nm, pcmd, current_tome, writable, REPO), pim))
+            if distinct:
+                preflight_runners(distinct)
+                preflighted.update(seen)
+            preflight_done = True
+
         primary = runner_for(cfg, num, overrides)
         # Runner chain: the primary, then any explicit --fallback runners, tried in order when
         # a worker DIES (each resumes from the tome on disk). With no --fallback left, a death
@@ -313,7 +226,8 @@ def main():
 
         fb_note = f"  (+{len(chain) - 1} fallback)" if len(chain) > 1 else ""
         print(f"\n{'=' * 64}\n> Phase {num} — {title}   [runner: {primary[0]}]{fb_note}\n{'=' * 64}")
-        prompt = build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel)
+        access = access_boundary(tid)
+        prompt = build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel) + access
 
         t0 = time.monotonic()
         pre = inventory(tid)                    # phase-start snapshot: the shrinkage contract
@@ -331,7 +245,7 @@ def main():
                                        interactive, args.tome_id,
                                        # starts below 3 wiped the sections (see wipe_sections),
                                        # so ONLY a start AT phase 3 is a genuine resume
-                                       resume=(args.from_phase == 3))
+                                       resume=(args.from_phase == 3), preflighted=preflighted)
             prompt = build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel) + (
                 "\n\n===== every section is ALREADY authored, one worker per section, on disk — "
                 "do NOT re-author them =====\nDo the end-of-Phase-3 reconciliation across the whole "
@@ -343,13 +257,26 @@ def main():
 
         while True:
             name, cmd, input_mode = chain[ri]
-            rc = run_agent(cmd, input_mode, prompt, ping_interval, dead_pings, hard_cap)
+            tome_scope = os.path.join(REPO, "tomes", tid)
+            scoped = scoped_runner_command(name, cmd, tome_scope,
+                                           [tome_scope, plan_path, verdict_path, findings_path], REPO)
+            # Human-selected and implicit recovery runners do not exist during the initial
+            # census. Give each one the same bounded Phase 0 check before it can do real work.
+            if tuple(cmd) not in preflighted:
+                preflight_runners([(name, scoped, input_mode)])
+                preflighted.add(tuple(cmd))
+            env = os.environ.copy()
+            env.update(ARCANUM_REPO_ROOT=REPO, ARCANUM_TOME_ROOT=tome_scope,
+                       PYTHONDONTWRITEBYTECODE="1")
+            rc = run_agent(scoped, input_mode, prompt, ping_interval, dead_pings, hard_cap,
+                           cwd=tome_scope, env=env)
             died = rc != 0
             if died:
                 print(f"  ! runner {name} exited {rc}" + (" (hung/timeout)" if rc == 124 else ""))
             if num >= 2:  # rename only once Phase 2 has set [runtime] project — before
                 tid = maybe_rename(tid, plan_path)  # Phase 3 reads paths. Earlier, the
                 # scaffold's placeholder project would rename untitled-N to a junk id.
+                access = access_boundary(tid)
             if num == 1:  # Phase 1 writes the plan's Arc, not tome content — gate on that
                 probs = []
                 ok, report = arc_written(plan_path, plan_rel)
@@ -384,7 +311,7 @@ def main():
                     ri += 1
                     print(f"  ⇒ {name} died — continuing on {chain[ri][0]} "
                           f"(resumes from tomes/{tid}/ on disk)")
-                    prompt = build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel)
+                    prompt = build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel) + access
                     continue
             if attempt >= retry_budget:
                 # Automatic budget spent. Unattended with nobody to ask → fail as before. Otherwise
@@ -420,7 +347,7 @@ def main():
                              "content an earlier phase built =====\n" + "\n".join(probs) +
                              "\nRestore it. If a removal is genuinely deliberate, append a line starting "
                              "`SHRINK OK:` to the plan file saying what and why; it will then be accepted.")
-            prompt = build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel) + feedback
+            prompt = build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel) + access + feedback
 
         timings.append((num, name, round(time.monotonic() - t0), attempt + 1))
 
@@ -441,9 +368,13 @@ def main():
                 where = "flagged files only" if focus else "full re-read (no findings file)"
                 print(f"  ~ student verdict not PASS -> review/fill loop {loop} ({where})")
                 t1 = time.monotonic()
-                rc = run_agent(cmd, input_mode,
-                               build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel, focus),
-                               ping_interval, dead_pings, hard_cap)
+                tome_scope = os.path.join(REPO, "tomes", tid)
+                scoped = scoped_runner_command(name, cmd, tome_scope,
+                                               [tome_scope, plan_path, verdict_path, findings_path], REPO)
+                rc = run_agent(scoped, input_mode,
+                               build_prompt(tid, num, title, body, plan_rel, verdict_rel,
+                                            findings_rel, focus) + access,
+                               ping_interval, dead_pings, hard_cap, cwd=tome_scope, env=env)
                 timings.append((f"8.{loop}", name, round(time.monotonic() - t1), 1))
                 verdict = read_verdict(verdict_path)
                 ok, report = validate(tid, strict=True, tooling=read_tooling(plan_path))

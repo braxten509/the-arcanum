@@ -134,9 +134,8 @@
 }
 
 .modal {
-  width: 580px;
-  max-width: 92%;
-  max-height: 1210px;
+  width: min(580px, 92vw);
+  max-height: 84vh;
   overflow-y: auto;
   background:
     radial-gradient(ellipse 90% 50% at 26% 8%, rgba(255, 248, 224, .5), transparent 60%),
@@ -152,13 +151,64 @@
 }
 
 .modal.wide {
-  width: 880px;
-  max-width: 94%;
+  width: min(880px, 94vw);
 }
 
 .modal.forge-modal {
-  width: 660px;
-  max-width: 94%;
+  width: min(660px, 94vw);
+}
+
+/* cast-a-spell command ledger: one compact parchment rulebook, not four cards */
+.spell-ledger {
+  margin-top: 13px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 8px 0 7px;
+  font-size: 12px;
+}
+
+.spell-ledger>div {
+  display: grid;
+  grid-template-columns: minmax(150px, auto) 1fr;
+  align-items: baseline;
+  gap: 12px;
+  padding: 4px 2px;
+}
+
+.spell-ledger code {
+  color: var(--ac);
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+.spell-ledger span {
+  color: var(--tx-dim);
+}
+
+.spell-ledger .spell-command {
+  color: var(--tx);
+  white-space: nowrap;
+}
+
+.spell-ledger p {
+  margin: 7px 2px 0;
+  padding-top: 7px;
+  border-top: 1px solid color-mix(in oklab, var(--line), transparent 45%);
+  color: var(--tx-faint);
+  font-family: var(--arch);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+}
+
+.spell-ledger p b {
+  color: var(--tx);
+}
+
+@media (max-width: 520px) {
+  .spell-ledger>div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
 }
 
 /* the bindery: room for [provider][model][effort] rows */
@@ -172,7 +222,7 @@
 
 /* the grimoire of learned incantations */
 .cb-scroll {
-  max-height: 893px;
+  max-height: 62vh;
   overflow-y: auto;
   padding-right: 6px;
 }
@@ -302,4 +352,8 @@
   #obj-wand .w-sp2 {
     animation: none;
   }
+}
+.reset-warning {
+  border-left: 2px solid var(--bad);
+  padding-left: 14px;
 }

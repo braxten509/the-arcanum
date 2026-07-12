@@ -1,0 +1,36 @@
+[freestyle]
+title = "THE GREAT WORKING: VOICES IN THE DARK"
+brief = "The road has a keeper now, artificer. In the real Unity <code>Emberfall</code> project, forge a conversation that changes what the world knows—no console-only counterfeit.<ul><li>Create a screen-space Canvas with an initially hidden <code>DialoguePanel</code>, a background Image, and a child <code>TextMeshProUGUI</code> named <code>DialogueText</code>. DialoguePanel owns private serialized <code>panelRoot</code> and <code>dialogueText</code> references plus public <code>ShowLine(string line)</code> and <code>Hide()</code>.</li><li>Create <code>DialogueController</code> with its assigned DialoguePanel, an authored <code>string[]</code> conversation sequence, zero-based line index, and public read/private-set <code>IsOpen</code>. Begin shows the first line; Advance shows each next line and closes safely after the final line without indexing past <code>Length</code>.</li><li>Create a keeper NPC with <code>NPCInteractable</code>, a trigger Collider2D, opening lines, and an assigned DialogueController. Only a Collider2D tagged <code>Player</code> may set its reach gate; the player's existing Input System interaction calls public <code>Interact()</code>, which starts dialogue only while in range.</li><li>Add one scene-level <code>QuestLog</code> with a private <code>Dictionary&lt;string, bool&gt;</code>, public <code>SetFlag(string flagId)</code>, and safe <code>HasFlag(string flagId)</code> using TryGetValue. When the keeper's opening conversation completes, record exact flag <code>keeper_spoken_to</code>.</li><li>After that flag is set, interacting with the keeper must use a different return line instead of replaying the opening conversation. In Play mode prove: the panel starts hidden; ArtificerRig opens and advances the opening lines; the final advance closes it and records the flag; leaving and returning shows the return line. A non-Player collider must not begin dialogue.</li></ul>"
+reward = 375
+packages = []
+xray = "The Worldwright checks the running Canvas and Inspector wiring, not a Debug.Log masquerading as UI. He docks direct access to DialoguePanel's UI references, a controller that reads activeLines past Length, a trigger that lets any collider talk, or a direct dictionary index read for an unknown quest id. Craft credit demands PascalCase types, methods, and properties; camelCase private fields and parameters; four-space indentation; and Allman braces."
+
+[freestyle.badge]
+id = "badge-s09"
+name = "OATH KEEPER"
+desc = "Gave Emberfall a voice and made the world remember the answer."
+
+[[freestyle.rubric]]
+criterion = "Canvas & Panel Boundary"
+weight = 20
+desc = "A real Canvas has an initially hidden DialoguePanel with Image and DialogueText TextMeshProUGUI; DialoguePanel alone owns serialized UI references and ShowLine/Hide correctly display or hide the panel."
+
+[[freestyle.rubric]]
+criterion = "Dialogue Sequence Safety"
+weight = 25
+desc = "DialogueController begins at zero, exposes IsOpen with a private setter, advances every authored line once, and closes after the final line without an out-of-range array read."
+
+[[freestyle.rubric]]
+criterion = "NPC Reach & Interaction"
+weight = 20
+desc = "The keeper's trigger and Player tag gate Interact; the real player interaction begins dialogue only in range, while a non-Player collider cannot start it."
+
+[[freestyle.rubric]]
+criterion = "Quest Consequence & Play Proof"
+weight = 20
+desc = "QuestLog owns a private Dictionary<string,bool>, SetFlag, and TryGetValue-backed HasFlag; completing the opening dialogue records keeper_spoken_to and a later interaction presents a distinct return line. Play mode visibly proves hidden, opening, advance, close, flag, and return behavior."
+
+[[freestyle.rubric]]
+criterion = "C# Craft"
+weight = 15
+desc = "Uses PascalCase types, methods, and properties; camelCase private fields and parameters; consistent four-space indentation; and Allman braces."

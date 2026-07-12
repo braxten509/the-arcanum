@@ -1,0 +1,137 @@
+[[lessons]]
+id = "s07-l04"
+title = "Name the Enemy's Mind"
+body = '''
+<p>A lone <code>recovering</code> bool answers one question. An enemy needs more: is it waiting, closing distance, or striking? Separate <code>isChasing</code> and <code>isAttacking</code> bools can both become true. An <strong>enum</strong> gives possible modes one named, mutually exclusive home.</p>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> enum EnemyState
+{
+    Idle,
+    Chase,
+    Attack
+}
+
+<span class="k">public</span> <span class="k">class</span> EnemyBrain : MonoBehaviour
+{
+    <span class="k">public</span> EnemyState State { get; <span class="k">private</span> set; } = EnemyState.Idle;
+
+    <span class="k">public</span> <span class="k">void</span> SetState(EnemyState nextState)
+    {
+        <span class="k">if</span> (State == nextState) <span class="k">return</span>;
+        State = nextState;
+        Debug.Log($<span class="s">"Enemy is now {State}"</span>);
+    }
+}</code></pre>
+<p><code>EnemyState</code> is a type whose only legal values are the members inside its braces. Type and member names use PascalCase, as Health, CurrentHP, and TakeDamage did. <code>EnemyState.Idle</code> names one member explicitly. State has the Forge II public-get/private-set boundary: another component can inspect the brain but cannot silently force Attack.</p>
+<p><code>SetState</code> is the one gate that changes modes. Its equality guard does more than save a log: real state entries can start an animation, reset a timer, or start a coroutine. Re-entering Attack on every physics step would restart recovery. A state machine is neither inheritance nor a special Unity component; it is a model of one object being in exactly one named condition.</p>
+<pre><code><span class="k">switch</span> (State)
+{
+    <span class="k">case</span> EnemyState.Idle:
+        Debug.Log(<span class="s">"Watching the road."</span>);
+        <span class="k">break</span>;
+    <span class="k">case</span> EnemyState.Chase:
+        Debug.Log(<span class="s">"Closing distance."</span>);
+        <span class="k">break</span>;
+    <span class="k">case</span> EnemyState.Attack:
+        Debug.Log(<span class="s">"Steel is out."</span>);
+        <span class="k">break</span>;
+}</code></pre>
+<p>A <code>switch</code> selects the matching case and <code>break</code> ends it. Forge II already taught branching; enums make it readable rather than a knot of magic numbers. The full controller next chooses a state from distance, then performs only the work allowed in that state.</p>
+<div class="callout">Make an enum when an object has a small known set of exclusive modes and its current mode changes what code is permitted to do.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TRANSITIONS ARE DECISIONS</div><p>EnemyState stores a fact; SetState makes a transition visible. A future menu machine can use Menu, Play, Pause, and GameOver with this same structure. The pattern describes changing modes, not goblins.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Microsoft Learn: Enumeration types"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/enum"
+
+[[lessons.readings]]
+label = "OPTIONAL // Microsoft Learn: switch statement"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/statements/selection-statements"
+
+[[lessons.exercises]]
+id = "s07-l04-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype the complete three-mode EnemyState enum in order."
+code = '''public enum EnemyState
+{
+    Idle,
+    Chase,
+    Attack
+}'''
+
+[[lessons.exercises]]
+id = "s07-l04-e1"
+type = "fill"
+points = 23
+prompt = "Fill the enum member that initializes a newly awakened EnemyBrain before it has a target to pursue."
+code = '''public EnemyState State { get; private set; } = EnemyState.____;'''
+answer = "Idle"
+hint = "Choose the first named mode: waiting, not moving toward a target or swinging at one."
+
+[[lessons.exercises]]
+id = "s07-l04-e2"
+type = "mc"
+points = 21
+prompt = "Why is EnemyState safer than separate isChasing and isAttacking bool fields?"
+choices = ["An enum makes Unity call FixedUpdate less often", "An enum is the only C# type Unity can show in the Inspector", "An enum member can hold a Transform while a bool cannot", "One EnemyState value represents one named mode, so Chase and Attack cannot both be true"]
+answer = 3
+whyWrong = "An enum changes neither callback frequency nor Inspector serialization, and it does not store the target Transform. One field holds one enum member, preventing contradictory mode booleans."
+hint = "Picture two independent bools after a sloppy assignment: can both claim different active modes?"
+explain = "State can be Idle, Chase, or Attack, but not Chase and Attack simultaneously."
+
+[[lessons.exercises]]
+id = "s07-l04-e3"
+type = "text"
+points = 20
+prompt = "What C# keyword begins the branching block that selects a case for Idle, Chase, or Attack?"
+answer = "switch"
+hint = "It appears before `(State)` in the second worked example; each branch below begins with case."
+
+[[lessons.exercises]]
+id = "s07-l04-e4"
+type = "mc"
+points = 20
+prompt = "EnemyBrain.SetState returns when State already equals nextState. Which failure does that guard head off?"
+choices = ["Repeated physics checks re-entering Attack could restart an animation, timer, or coroutine", "The enum would change PascalCase names to camelCase", "HealthChanged listeners could not unsubscribe in OnDisable", "Rigidbody2D would stop colliding with a TilemapCollider2D"]
+answer = 0
+whyWrong = "Naming style is chosen in source, events subscribe independently of EnemyState, and physics collisions follow Forge VI's collider/layer setup. The guard stops repeat callbacks from restarting state-entry work."
+hint = "The paragraph after SetState names the work that becomes dangerous to restart every physics step."
+explain = "A repeated Attack request is not a transition, so it must not restart Attack's timer, animation, or recovery coroutine."
+
+[[lessons.exercises]]
+id = "s07-l04-w1"
+type = "write"
+points = 34
+prompt = "Build the named-mode gate in plain C#: declare EnemyState with Idle, Chase, Attack. EnemyBrain starts Idle; SetState(EnemyState nextState) prints STATE &lt;state&gt; only when nextState differs. Call Chase, Chase, then Attack:\nSTATE Chase\nSTATE Attack"
+starter = '''
+// Declare EnemyState and build EnemyBrain. Change to Chase twice, then Attack.
+// Define types at the BOTTOM of the file.
+
+'''
+expect = '''
+STATE Chase
+STATE Attack'''
+solution = '''
+EnemyBrain brain = new EnemyBrain();
+brain.SetState(EnemyState.Chase);
+brain.SetState(EnemyState.Chase);
+brain.SetState(EnemyState.Attack);
+
+enum EnemyState { Idle, Chase, Attack }
+
+class EnemyBrain
+{
+    public EnemyState State { get; private set; } = EnemyState.Idle;
+    public void SetState(EnemyState nextState)
+    {
+        if (State == nextState) return;
+        State = nextState;
+        Console.WriteLine($"STATE {State}");
+    }
+}
+'''
+hint = "Put the equality guard before assignment. Only a true transition reaches Console.WriteLine, so the second Chase call makes no line."

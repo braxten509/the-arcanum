@@ -1,0 +1,105 @@
+[[lessons]]
+id = "s10-l01"
+title = "Tempering I // One Foreman"
+body = '''
+<p>Emberfall already has honest machines: Health owns hit points, DialogueController owns pages, and QuestLog owns flags. Do not crown any of them king. A game loop needs a small scene-level authority that answers one question: <em>what mode is the game in now?</em> Forge VII's EnemyState was the same pattern for a goblin; this is the larger state machine for the whole play session.</p>
+<pre><code><span class="k">public</span> <span class="k">enum</span> GameState
+{
+    MainMenu,
+    Playing,
+    Paused,
+    GameOver
+}
+
+<span class="k">public</span> <span class="k">class</span> GameStateManager : MonoBehaviour
+{
+    <span class="k">public</span> GameState CurrentState { <span class="k">get</span>; <span class="k">private</span> <span class="k">set</span>; }
+
+    <span class="k">private</span> <span class="k">void</span> Awake()
+    {
+        CurrentState = GameState.MainMenu;
+    }
+}</code></pre>
+<p>An <strong>enum</strong> names a closed set of meaningful values. Here, <code>GameState.Paused</code> is safer than a scattered collection of booleans such as <code>isPaused</code>, <code>showMenu</code>, and <code>isDead</code> that can contradict one another. <code>CurrentState</code> is public to read but has a private setter: another component may ask whether input is legal, yet only GameStateManager may declare a transition. Put this component on a scene GameObject named <code>GameStateManager</code>, then let its Inspector references arrive in the next tempering.</p>
+<p>The four values are deliberately distinct. <code>MainMenu</code> means no run is active. <code>Playing</code> permits the existing player input, Rigidbody2D motion, dialogue, combat, and HUD. <code>Paused</code> is an interrupted run, not a new menu. <code>GameOver</code> means the current run has ended and should not resume merely because someone presses Escape. Naming those facts makes the later panel choices auditable: a screen can draw what the state says, but it does not decide the state.</p>
+<p>The plain C# bench below cannot run Canvas panels or Unity's frame clock. It rehearses the ownership contract with an enum and a private-set property. In the actual Editor, test by entering Play mode and inspecting CurrentState in the Inspector or logging it once from a temporary caller; remove that probe when the state methods exist.</p>
+<div class="callout">One manager owns the mode. Every other system responds to that declared fact through a public boundary.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ENUMS ARE NOT FLAGS</div><p>An enum does not prevent every bad transition by magic. It prevents impossible combinations from being represented as several independent booleans. The transition methods you forge next are where legal changes are enforced.</p></div>
+'''
+
+[[lessons.readings]]
+label = "OPTIONAL // Microsoft Learn: Enumeration types"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/enum"
+
+[[lessons.exercises]]
+id = "s10-l01-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype the complete closed set of Emberfall game modes."
+code = '''public enum GameState
+{
+    MainMenu,
+    Playing,
+    Paused,
+    GameOver
+}'''
+
+[[lessons.exercises]]
+id = "s10-l01-e1"
+type = "mc"
+points = 22
+prompt = "Which component should be permitted to assign GameStateManager.CurrentState?"
+choices = ["Every Canvas Button, so each screen controls itself", "GameStateManager through its own transition methods", "HealthHUD whenever it redraws text", "DialoguePanel whenever it hides"]
+answer = 1
+whyWrong = "Buttons and display components may request an action but should not become competing state authorities; HealthHUD and DialoguePanel own presentation, not the session mode. The manager's private setter protects one source of truth."
+hint = "Look for the component whose job is to declare the game's current mode."
+explain = "GameStateManager owns transitions, while other components can only read CurrentState or call a public request method."
+
+[[lessons.exercises]]
+id = "s10-l01-e2"
+type = "fill"
+points = 24
+prompt = "Fill the access modifier that lets other components read CurrentState but prevents them from assigning it."
+code = '''public GameState CurrentState { get; ____ set; }'''
+answer = "private"
+hint = "The setter must remain inside the manager even though the getter is public."
+
+[[lessons.exercises]]
+id = "s10-l01-e3"
+type = "text"
+points = 19
+prompt = "Name the GameState member for an interrupted run that can later continue, rather than a run that has ended."
+answer = "Paused"
+hint = "It is the mode entered by the pause control, before ResumeGame restores play."
+
+[[lessons.exercises]]
+id = "s10-l01-w1"
+type = "write"
+points = 34
+prompt = "Model the foreman's initial declaration in plain C#: define the four GameState values and GameStateManager with CurrentState private-set. Construct it and print its initial mode exactly:\nSTATE MainMenu"
+starter = '''// Define GameState and GameStateManager. Awake is Unity-only here; use a constructor for the initial state.
+// Define both types below the top-level call.
+
+'''
+expect = '''STATE MainMenu'''
+solution = '''GameStateManager manager = new GameStateManager();
+Console.WriteLine($"STATE {manager.CurrentState}");
+
+enum GameState
+{
+    MainMenu,
+    Playing,
+    Paused,
+    GameOver
+}
+
+class GameStateManager
+{
+    public GameState CurrentState { get; private set; }
+    public GameStateManager()
+    {
+        CurrentState = GameState.MainMenu;
+    }
+}'''
+hint = "Initialize CurrentState in the constructor to GameState.MainMenu; the top-level print should read the property, not a hardcoded word."

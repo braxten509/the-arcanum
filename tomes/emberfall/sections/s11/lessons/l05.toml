@@ -1,0 +1,74 @@
+[[lessons]]
+id = "s11-l05"
+title = "Tempering V // Open the Gate"
+body = '''
+<p>The Editor is the forge; the build is the thing a player receives. Open <strong>File &gt; Build Profiles</strong> and add the desktop platform you intend to ship. In the profile's scene list, include the actual opening scene containing MainMenu, GameStateManager, SaveManager, and AudioManager. A scene that works only because you pressed Play while another Editor scene happened to be open is not a release.</p>
+<p>Choose a clean output folder outside Assets, such as <code>Builds/Emberfall-Windows</code> in your project workspace. Build, then launch the generated executable from your file manager—not Unity's Play button. This proves the player is using the packaged data and the runtime path, including <code>Application.persistentDataPath</code>. Do not claim success from a green build log alone; launch it.</p>
+<pre><code><span class="c">// Release proof sequence</span>
+<span class="c">// 1. Launch the standalone executable.</span>
+<span class="c">// 2. Start a run, change position / HP / inventory / quest flag.</span>
+<span class="c">// 3. Save, quit the executable, relaunch, then load.</span>
+<span class="c">// 4. Confirm the restored facts and audio/UI loop.</span></code></pre>
+<p>Build settings are part of the machine. Set the product name to Emberfall, use an identifiable version such as <code>0.1.0</code>, and confirm the target architecture your desktop expects. Keep the build folder out of source assets so Unity does not import its own generated files. If the output opens to a black screen, first inspect the scene list and the Console/player log; do not rebuild five times without changing evidence.</p>
+<p>Run two proof routes from the executable. First, a clean start with no save file: MainMenu appears, Start creates a playable run, and Load is safely unavailable or harmless. Second, the persistence route: save a changed state, quit, relaunch, and load it. Include audio, pause/resume, dialogue, a pickup, and a damage/HUD update in the first route. That is your whole project returning under its own power.</p>
+<div class="callout">A build is not a screenshot of the Editor. It is a launched executable that survives the player’s path.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TAG THE SHIPMENT</div><p>Record the Unity version and build version alongside your release notes. When a tester reports a save defect, “the current build” is not enough to identify the metal you shipped.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Unity Manual: Build Profiles"
+url = "https://docs.unity3d.com/Manual/build-profiles.html"
+
+[[lessons.exercises]]
+id = "s11-l05-e1"
+type = "mc"
+points = 23
+prompt = "What evidence proves Emberfall was exported as a playable standalone rather than merely tested in the Editor?"
+choices = ["A screenshot of the Scene view", "A successful script compile in the Console", "The generated executable launches outside Unity and completes a save/relaunch/load route", "The Build Profiles window has a desktop platform selected"]
+answer = 2
+whyWrong = "A scene screenshot, compile, and selected target are preparation evidence only. Launching the packaged executable through a persistence round trip proves the player-facing artifact actually runs."
+hint = "Pick the option that leaves the Editor and exercises the saved file across a relaunch."
+explain = "A release claim needs runtime evidence from the built application, not authoring-tool state."
+
+[[lessons.exercises]]
+id = "s11-l05-e2"
+type = "fill"
+points = 24
+prompt = "Fill the Unity application path whose behavior the standalone relaunch must prove, rather than an Assets-folder path."
+code = '''string folder = Application.____;'''
+answer = "persistentDataPath"
+hint = "It is the per-application writable location introduced when the archive shelf was forged."
+whyWrong = "dataPath points at application data, not the durable writable location selected for Emberfall's player save file."
+
+[[lessons.exercises]]
+id = "s11-l05-e3"
+type = "text"
+points = 20
+prompt = "Name the Unity release configuration surface where you add the desktop platform and choose which scenes enter the standalone."
+answer = "Build Profiles"
+accept = ["build profile"]
+hint = "Its name is plural and appears in the File menu path from this tempering."
+whyWrong = "The Inspector assigns object references and the Console reports diagnostics; the release platform and included scenes belong to the build configuration surface."
+
+[[lessons.exercises]]
+id = "s11-l05-w1"
+type = "write"
+points = 35
+prompt = "Model a release-gate report in plain C#. Given three named proofs and their results, count successful proofs and print READY only when all pass. Compute from the arrays and output exactly:\nPROOFS 2/3\nSTATUS HOLD"
+starter = '''string[] proofs = { "CLEAN_START", "SAVE_RELAUNCH_LOAD", "AUDIO_PAUSE" };
+bool[] passed = { true, true, false };
+
+// Count passed proofs. Derive READY when every proof passed; otherwise derive HOLD.
+'''
+expect = '''PROOFS 2/3
+STATUS HOLD'''
+solution = '''string[] proofs = { "CLEAN_START", "SAVE_RELAUNCH_LOAD", "AUDIO_PAUSE" };
+bool[] passed = { true, true, false };
+int passedCount = 0;
+foreach (bool proofPassed in passed)
+{
+    if (proofPassed) passedCount++;
+}
+Console.WriteLine($"PROOFS {passedCount}/{proofs.Length}");
+Console.WriteLine(passedCount == proofs.Length ? "STATUS READY" : "STATUS HOLD");'''
+hint = "Use the Count-style loop from earlier inventory work; compare the computed passedCount with proofs.Length for the status."

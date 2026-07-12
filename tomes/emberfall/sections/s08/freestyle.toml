@@ -1,0 +1,36 @@
+[freestyle]
+title = "THE GREAT WORKING: VAULTS & LOOT"
+brief = "The combat forge has drawn blood; now give the artificer something worth carrying. In the real Unity <code>Emberfall</code> project, forge the data vault and make its loot enter and leave the player pack.<ul><li>Create <code>ItemDefinition.cs</code> as a ScriptableObject with CreateAssetMenu, exact ItemKind members <code>Consumable</code>, <code>Key</code>, <code>Equipment</code>, and private serialized <code>itemId</code>, <code>displayName</code>, and <code>healAmount</code> exposed through read-only properties.</li><li>Create <code>MinorPotion.asset</code> (id <code>minor_potion</code>, display name <code>Minor Potion</code>, Consumable, heal amount 15) and one non-consumable <code>RustKey.asset</code> (id <code>rust_key</code>, Key).</li><li>Add an <code>Inventory</code> component to ArtificerRig. It owns a serialized <code>List&lt;InventorySlot&gt;</code>, stacks matching ItemDefinition references through public <code>Add(ItemDefinition definition)</code>, and offers public <code>Use(ItemDefinition definition, Health health)</code>.</li><li>Make an <code>ItemPickup</code> trigger prefab with an assigned definition. Two MinorPotion pickups must produce one stack of 2; the world pickups disappear only after Inventory accepts them.</li><li>Use one MinorPotion while ArtificerRig is below max HP. It calls Health.TakeDamage with the negative heal amount, raises HP by 15 without exceeding maxHP, and reduces that stack by exactly one. Using RustKey must return false and change neither HP nor its count.</li><li>In Play mode show the two-potion stack, one successful potion use, and one rejected key use in a Debug.Log or temporary on-screen proof.</li></ul>"
+reward = 350
+packages = []
+xray = "The Worldwright looks for actual .asset definitions, not copied strings on pickups; an Inventory that owns counts rather than mutating ItemDefinition; and the old Health boundary still intact. He docks a pickup that destroys itself before a successful Add, a key that heals, or HP that bypasses Clamp. Craft credit demands PascalCase types, methods, properties, and enum members; camelCase private fields and parameters; four-space indentation and Allman braces."
+
+[freestyle.badge]
+id = "badge-s08"
+name = "VAULT KEEPER"
+desc = "Forged a shared armory and a pack that can receive and spend its loot."
+
+[[freestyle.rubric]]
+criterion = "Definition Assets & Categories"
+weight = 25
+desc = "ItemDefinition is a CreateAssetMenu ScriptableObject with private serialized id/name/heal data and read-only properties; MinorPotion and RustKey are real configured assets using exact Consumable and Key ItemKind members."
+
+[[freestyle.rubric]]
+criterion = "Inventory Ownership & Stacking"
+weight = 25
+desc = "ArtificerRig Inventory owns a serialized List<InventorySlot>; public Add(ItemDefinition) stacks matching definition references so two MinorPotion pickups become one count of 2 without changing shared definition data."
+
+[[freestyle.rubric]]
+criterion = "Physical Pickup Transaction"
+weight = 20
+desc = "ItemPickup has an assigned definition and trigger discipline, gets Inventory safely from the entering player, calls Add before destroying itself, and Play mode proves both pickups enter the one stack."
+
+[[freestyle.rubric]]
+criterion = "Use Boundary & Play Proof"
+weight = 20
+desc = "Use accepts only a nonempty Consumable slot, calls Health.Heal(HealAmount), spends exactly one slot, and respects maxHP; RustKey returns false with no HP/count change. Play proof shows stack, successful potion use, and rejected key use."
+
+[[freestyle.rubric]]
+criterion = "C# Craft"
+weight = 10
+desc = "Uses PascalCase types, methods, properties, and enum members; camelCase private fields and parameters; consistent four-space indentation and Allman braces."

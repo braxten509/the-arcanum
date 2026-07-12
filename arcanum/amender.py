@@ -11,7 +11,9 @@ import time
 
 from .config import (AGY_BIN, BUILD_DIR, CLAUDE_BIN, CODEX_BIN, OPENCODE_BIN, ROOT,
                      agy_print_args, amend_procs, codex_no_mcp_args, jobs, jobs_lock)
+from .ai_access import ensure_cli_access
 from .forge import ANSI_RE, notify
+from tools.buildlib.agent_runtime import scoped_runner_command
 
 AMEND_TIMEOUT = 900  # seconds for one small-change agent run
 
@@ -124,8 +126,9 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
             f"Write that report to {report_rel} (create the folder if needed) — that report is the "
             "ONLY file you may create or change. Do NOT edit anything else: no course files, no "
             "engine code, nothing under tomes/. Read files with whatever tools your harness provides "
-            "(shell reads are fine where shell is your file interface); run no validators or "
-            "generators. End with one short paragraph summarizing your top findings.")
+            "(shell reads are fine where shell is your file interface); trusted repository Python "
+            "tools may be executed when they help verify a finding. End with one short paragraph "
+            "summarizing your top findings.")
     elif iterate:
         focus = f"The player asks you to focus especially on:\n\n{req}\n\n" if req else ""
         prompt = (
@@ -138,8 +141,8 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
             "choose the HIGHEST-VALUE improvements you can make, and apply them, editing as many "
             f"files as it takes. {focus}"
             f"{bounds} Read and edit files with whatever tools your harness provides — if shell "
-            "commands are how you read or edit files, use them freely for that; just do NOT run "
-            "validators, builds, or generators yourself. "
+            "commands are how you read or edit files, use them freely; you may also run trusted "
+            "repository Python validators and inspection tools. "
             f"The harness runs `python3 tools/validate_tome.py tomes/{jid}` the moment you finish, and "
             "your work MUST leave it with ZERO errors and no new warnings — reason through that "
             "validator's rules as you edit, and if a change would break it, fix it or don't make it. "
@@ -161,39 +164,59 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
             "FIRST read course-configuration-guide.md at the repo root — it maps every file and "
             f"field you may touch and the rules that bind them. Then {how}. "
             f"{bounds} Read and edit files with whatever tools your harness provides — if shell "
-            "commands are how you read or edit files, use them freely for that; just do NOT run "
-            "validators, builds, or generators yourself. The harness runs "
+            "commands are how you read or edit files, use them freely; you may also run trusted "
+            "repository Python validators and inspection tools. The harness runs "
             f"`python3 tools/validate_tome.py tomes/{jid}` the moment you finish, and your work MUST "
             "leave it with ZERO errors and no new warnings — reason through that validator's rules as "
             "you edit, and if a change would break it, fix it or don't make it. End with one "
             "short paragraph naming exactly the file(s) and field(s) you changed.")
-    # same headless postures + effort switches as tools/build_tome.py CLI_RUNNERS
+    prompt += (f"\n\nAI ACCESS: The repository root is {ROOT}. You may read files and execute trusted "
+               "Python anywhere in this repository, use web search/fetch for current sources, and "
+               "use /tmp freely. Project writes are enforced by the harness: "
+               + (f"only {report_rel} is writable for this review."
+                  if review else f"the complete tome at tomes/{jid}/ is writable; other project paths are read-only."))
+    # Same provider commands as the tome builder; the shared runtime below supplies
+    # auto-approval, web, repo read/execute, /tmp, and the tome/report write boundary.
     cmds = {
-        "claude-cli": [CLAUDE_BIN, "-p", "--permission-mode", "acceptEdits"]
+        "claude-cli": [CLAUDE_BIN, "-p", "--permission-mode", "auto"]
                       + (["--model", model] if model else [])
                       + (["--effort", effort] if effort else []),
-        "antigravity-cli": [AGY_BIN, "--print", "--dangerously-skip-permissions"]
+        "antigravity-cli": [AGY_BIN, "--dangerously-skip-permissions"]
                            + agy_print_args(AMEND_TIMEOUT)
-                           + (["--model", model] if model else []),  # agy: model name carries effort
+                           + (["--model", model] if model else []) + ["--print"],
         # personal MCP servers off (codex-desktop's node_repl hangs headless) — the Binder needs none
-        "codex-cli": [CODEX_BIN, "exec", "--skip-git-repo-check", "-s", "workspace-write", *codex_no_mcp_args()]
+        "codex-cli": [CODEX_BIN, "--search", "exec", "--skip-git-repo-check", "-s", "workspace-write", *codex_no_mcp_args()]
                      + (["-m", model] if model else [])
                      + (["-c", f"model_reasoning_effort={effort}"] if effort else []) + ["-"],
-        "opencode-cli": [OPENCODE_BIN, "run", "--dangerously-skip-permissions"]
+        "opencode-cli": [OPENCODE_BIN, "run", "--auto"]
                         + (["-m", model] if model else [])
-                        + (["--variant", effort] if effort else []) + [prompt],
+                        + (["--variant", effort] if effort else []),
     }
     try:
         cmd = cmds.get(kind)
         if not cmd:
             raise ValueError(f"unknown binder kind {kind!r}")
+        tome_root = os.path.join(ROOT, "tomes", jid)
+        if review:
+            report_abs = os.path.join(ROOT, report_rel)
+            os.makedirs(os.path.dirname(report_abs), exist_ok=True)
+            open(report_abs, "a", encoding="utf-8").close()
+            writable = [report_abs]
+        else:
+            writable = [tome_root]
+        cmd = scoped_runner_command(kind, cmd, tome_root, writable, ROOT)
+        input_mode = "stdin" if kind == "codex-cli" else "arg"
+        ensure_cli_access(f"Binder {kind} {model}".strip(), cmd, input_mode)
         if not review:  # review edits nothing under tomes/ — no checkpoint needed
             checkpoint_tome(jid)
         env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
-        stdin_data = None if kind == "opencode-cli" else prompt
-        p = subprocess.Popen(cmd, stdin=(subprocess.DEVNULL if stdin_data is None else subprocess.PIPE),
+        env.update(ARCANUM_REPO_ROOT=ROOT, ARCANUM_TOME_ROOT=tome_root,
+                   PYTHONDONTWRITEBYTECODE="1")
+        stdin_data = prompt if input_mode == "stdin" else None
+        full_cmd = cmd + ([prompt] if input_mode == "arg" else [])
+        p = subprocess.Popen(full_cmd, stdin=(subprocess.DEVNULL if stdin_data is None else subprocess.PIPE),
                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
-                             env=env, cwd=ROOT, start_new_session=True)  # own group, so cancel kills CLI children too
+                             env=env, cwd=tome_root, start_new_session=True)  # own group, so cancel kills CLI children too
         with jobs_lock:
             amend_procs[job_id] = p
         if stdin_data is not None:

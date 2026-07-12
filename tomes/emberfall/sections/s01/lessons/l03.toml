@@ -1,0 +1,81 @@
+[[lessons]]
+id = "s01-l03"
+title = "Expressions, Interpolation & Talking Back"
+body = '''
+<p>A variable holding a fact is only half a program — the other half is doing something with it. C# gives you the arithmetic you'd expect: <code>+ - * /</code>, plus <code>%</code> for remainder (useful later for "every third tile" logic). Operators follow the same order of operations as arithmetic class: multiplication and division bind tighter than addition and subtraction, and parentheses override both.</p>
+<pre><code><span class="k">int</span> baseGold = 40;
+<span class="k">int</span> bonus = 12;
+<span class="k">int</span> total = baseGold + bonus * 2;   <span class="c">// 64, not 104 — bonus*2 happens first</span></code></pre>
+<p>You have already seen <code>Console.WriteLine</code> print a single value. It also accepts <strong>string interpolation</strong>: prefix a string with <code>$</code>, and anything inside <code>{ }</code> is evaluated and dropped into the text.</p>
+<pre><code><span class="k">string</span> name = <span class="s">"Kess"</span>;
+<span class="k">int</span> gold = 64;
+Console.WriteLine($<span class="s">"{name} holds {gold} gold shards"</span>);
+<span class="c">// prints: Kess holds 64 gold shards</span></code></pre>
+<p>Interpolation is not just convenience — hand-building that string with <code>+</code> works too (<code>name + " holds " + gold + " gold shards"</code>) but every one of those <code>+</code> calls costs a hidden step and the <code>$"..."</code> form reads closer to the sentence you mean, which matters once a print line has four or five values in it.</p>
+<p>The other direction — the program listening — is <code>Console.ReadLine()</code>, which pauses execution until the artificer types a line and presses Enter, then hands that line back as a <code>string</code>:</p>
+<pre><code>Console.Write(<span class="s">"Enter your name: "</span>);
+<span class="k">string</span> input = Console.ReadLine();
+Console.WriteLine($<span class="s">"Welcome, {input}."</span>);</code></pre>
+<p>Notice <code>Console.Write</code> (no "Line") — it prints without a trailing newline, so the artificer types on the same line as the prompt. Everything <code>ReadLine()</code> returns is text, even if the artificer types digits — <code>"20"</code> is a <code>string</code>, not an <code>int</code>, until you convert it with <code>int.Parse(input)</code>, which turns a numeric-looking string into a real <code>int</code> you can do arithmetic on. Feed it something that isn't a number and the program crashes — a problem the next chapters' error handling will address properly.</p>
+<div class="callout">Reach for $"..." the moment a printed line has more than one value in it. A pile of + concatenations is where typos hide.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHAT int.Parse ACTUALLY DOES</div>
+<p><code>int.Parse("20")</code> walks the string character by character, confirms every character is a digit (an optional leading sign too), and builds the integer from them — it is doing real work, not a type-system trick. Its cousin <code>int.TryParse(input, out int value)</code> returns <code>true</code>/<code>false</code> instead of crashing on bad input, which is the shape you will actually use once error handling (section II) is in your toolkit; for now, <code>Parse</code> is the honest, simpler tool to learn the idea with.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Microsoft C# guide: String interpolation"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/tokens/interpolated"
+
+[[lessons.readings]]
+label = "OPTIONAL // Microsoft C# guide: Arithmetic operators"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/arithmetic-operators"
+
+[[lessons.exercises]]
+id = "s01-l03-e1"
+type = "mc"
+points = 15
+prompt = "What does <code>Console.WriteLine(40 + 12 * 2);</code> print?"
+choices = ["64", "104", "24", "It fails to compile"]
+answer = 0
+whyWrong = "104 comes from doing the addition first (wrong order), 24 comes from only computing 12*2 and dropping the 40, and this compiles fine — multiplication simply binds tighter than addition, so 12*2 runs first (24), then 40+24 gives 64."
+hint = "Multiplication runs before addition — compute 12*2 first."
+explain = "Order of operations: 12*2 evaluates first (24), then 40+24 = 64."
+
+[[lessons.exercises]]
+id = "s01-l03-e2"
+type = "mc"
+points = 15
+prompt = "After <code>string input = Console.ReadLine();</code> where the artificer types 20, what is the type of input?"
+choices = ["int, because 20 looks numeric", "double", "string — always, regardless of what was typed", "It has no type until int.Parse runs"]
+answer = 2
+whyWrong = "ReadLine never inspects the text to guess a numeric type — it hands back whatever was typed as a plain string every single time; converting to int or double is a separate, explicit step you perform afterward with Parse."
+hint = "ReadLine's return type never changes based on what the artificer types — check the method's signature, not the input."
+explain = "Console.ReadLine() always returns string. Turning \"20\" into a real int requires int.Parse(input)."
+
+[[lessons.exercises]]
+id = "s01-l03-e3"
+type = "text"
+points = 20
+prompt = "Which method call turns the string \"20\" into the int 20?"
+answer = "int.Parse"
+accept = ["int.parse(input)", "int.parse"]
+hint = "Named in the field notes — it's a method on the int type itself, not on the string."
+
+[[lessons.exercises]]
+id = "s01-l03-w1"
+type = "write"
+points = 30
+prompt = "Declare int baseGold = 40 and int bonus = 12. Compute total as baseGold plus bonus doubled (respect order of operations — don't hardcode 64), then print exactly: TOTAL 64"
+starter = '''
+// Declare baseGold and bonus, compute total, then print "TOTAL " followed by the value.
+
+'''
+expect = '''
+TOTAL 64'''
+solution = '''
+int baseGold = 40;
+int bonus = 12;
+int total = baseGold + bonus * 2;
+Console.WriteLine($"TOTAL {total}");
+'''
+hint = "total is baseGold + bonus*2, computed by C#'s own order of operations — you don't need parentheses."

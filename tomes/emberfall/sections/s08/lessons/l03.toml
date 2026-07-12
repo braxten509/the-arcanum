@@ -1,0 +1,129 @@
+[[lessons]]
+id = "s08-l03"
+title = "Stack the Pack"
+body = '''
+<p>Definitions describe the catalog. An inventory records the artificer's changing possession: which definition and how many. Forge II gave you <code>List&lt;T&gt;</code> for a growable ordered collection. Here each entry is an <strong>InventorySlot</strong>, a small plain C# class that holds one <code>ItemDefinition</code> reference and a count. A <code>List&lt;InventorySlot&gt;</code> preserves a deliberate display order while each slot keeps its own mutable amount.</p>
+<pre><code><span class="k">using</span> System.Collections.Generic;
+<span class="k">using</span> UnityEngine;
+
+[System.Serializable]
+<span class="k">public</span> <span class="k">class</span> InventorySlot
+{
+    <span class="k">public</span> ItemDefinition Definition;
+    <span class="k">public</span> <span class="k">int</span> Amount;
+}
+
+<span class="k">public</span> <span class="k">class</span> Inventory : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> List&lt;InventorySlot&gt; slots = <span class="k">new</span> List&lt;InventorySlot&gt;();
+}</code></pre>
+<p><code>[System.Serializable]</code> tells Unity it may show an InventorySlot's fields inside the containing serialized list. That is a different job from <code>ScriptableObject</code>: a slot is not an asset definition; it is a runtime record inside ArtificerRig's Inventory component. The public fields are deliberate because Unity needs to serialize the simple nested record. The outer <code>slots</code> field stays private so another component cannot replace the whole list behind Inventory's back.</p>
+<p>Adding an item means searching slots for the same <code>Definition</code>. If found, increment Amount. Otherwise create a new InventorySlot and call List.Add. This is the same foreach-plus-Add work Forge II practiced, now attached to a game rule. Do not match by displayName: the ScriptableObject reference is the definition identity already wired by the Inspector.</p>
+<p>The bench cannot hold Unity asset references, so its lab uses strings only to rehearse the list algorithm. In the editor, the matching field stays ItemDefinition. That boundary matters: the lab is real C# practice, not a lie about how Unity assets are loaded.</p>
+<div class="callout">A definition is shared authored data; an InventorySlot is a changing claim that this player has some of it.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // LIST ORDER IS A DESIGN CHOICE</div><p>A List is correct when the inventory must retain a chosen order for a future UI. It is not automatically fast lookup by id; the next tempering adds a Dictionary catalog for that distinct job. Do not force one collection to be every collection.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Microsoft Learn: List&lt;T&gt;"
+url = "https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.list-1"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Manual: Script serialization"
+url = "https://docs.unity3d.com/Manual/script-serialization.html"
+
+[[lessons.exercises]]
+id = "s08-l03-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype the complete runtime slot record used inside Inventory's serialized list."
+code = '''[System.Serializable]
+public class InventorySlot
+{
+    public ItemDefinition Definition;
+    public int Amount;
+}'''
+
+[[lessons.exercises]]
+id = "s08-l03-e1"
+type = "fill"
+points = 24
+prompt = "Fill the growable collection type that owns ArtificerRig's ordered InventorySlot records."
+code = '''[SerializeField] private ____&lt;InventorySlot&gt; slots = new List&lt;InventorySlot&gt;();'''
+answer = "List"
+hint = "Forge II used this generic collection's Add, Count, and foreach members; this forge changes its element type to InventorySlot."
+
+[[lessons.exercises]]
+id = "s08-l03-e2"
+type = "mc"
+points = 21
+prompt = "A second MinorPotion pickup reaches ArtificerRig. A slot already references that exact MinorPotion ItemDefinition asset. What should Add do?"
+choices = ["Increase that slot's Amount", "Create a new ScriptableObject asset", "Overwrite MinorPotion's HealAmount", "Replace ArtificerRig's Health component"]
+answer = 0
+whyWrong = "The asset is an authored definition, so it should not be recreated or modified by one pickup; Health is unrelated. The matching existing slot represents the carried stack and gains one amount."
+hint = "Separate the shared recipe card from the player's changing count."
+explain = "A matching definition means the player already has that item type, so the existing slot increments."
+
+[[lessons.exercises]]
+id = "s08-l03-e3"
+type = "text"
+points = 19
+prompt = "What attribute lets Unity serialize and show the fields of a plain nested InventorySlot record?"
+answer = "System.Serializable"
+accept = ["[System.Serializable]", "Serializable"]
+hint = "It appears immediately above the slot class; it is not the Create Asset menu attribute."
+
+[[lessons.exercises]]
+id = "s08-l03-e4"
+type = "mc"
+points = 21
+prompt = "Why is List&lt;InventorySlot&gt; a better first backing store than putting a mutable Amount on ItemDefinition?"
+choices = ["Lists allow Collider2D triggers to run", "ItemDefinition cannot have any int fields", "The list makes all item assets unique per scene", "Each player needs a separate changing count while the definition remains shared"]
+answer = 3
+whyWrong = "Triggers come from pickup colliders, ItemDefinition can hold authored ints, and a List does not duplicate assets. Counts differ per player while the definition's designed values remain common."
+hint = "Imagine two players: one used a potion and one did not. Which data must be allowed to differ?"
+explain = "Slots carry per-inventory state; ItemDefinition carries the shared template."
+
+[[lessons.exercises]]
+id = "s08-l03-w1"
+type = "write"
+points = 35
+prompt = "Write a plain-C# Inventory with a List&lt;InventorySlot&gt;. Add minor_potion twice and rust_key once; Add must increment an existing matching Id or append a new slot. Print each slot in insertion order, computing exactly:\nminor_potion x2\nrust_key x1"
+starter = '''using System.Collections.Generic;
+
+// Build Inventory and InventorySlot. Add the three named items, then print the slots.
+// Define types at the BOTTOM of the file.
+
+'''
+expect = '''minor_potion x2
+rust_key x1'''
+solution = '''Inventory inventory = new Inventory();
+inventory.Add("minor_potion");
+inventory.Add("minor_potion");
+inventory.Add("rust_key");
+inventory.Print();
+
+class Inventory
+{
+    private List<InventorySlot> slots = new List<InventorySlot>();
+    public void Add(string id)
+    {
+        foreach (InventorySlot slot in slots)
+        {
+            if (slot.Id == id) { slot.Amount++; return; }
+        }
+        slots.Add(new InventorySlot(id));
+    }
+    public void Print()
+    {
+        foreach (InventorySlot slot in slots) Console.WriteLine($"{slot.Id} x{slot.Amount}");
+    }
+}
+class InventorySlot
+{
+    public string Id { get; }
+    public int Amount { get; set; }
+    public InventorySlot(string id) { Id = id; Amount = 1; }
+}'''
+hint = "Search slots with foreach first. Only after no slot returns should Add append a new InventorySlot whose Amount starts at 1."

@@ -1,0 +1,100 @@
+[[lessons]]
+id = "s01-l05"
+title = "Reading the Machine's Complaints"
+body = '''
+<p>Two different kinds of failure will greet you as you write C#, and telling them apart is a skill on its own. A <strong>compile-time error</strong> — the <code>Program.cs(4,18): error CS1002: ; expected</code> shape from lesson one — means the compiler refused to even build your program; nothing ran, nothing was tested, the flaw was caught on paper. A <strong>runtime exception</strong> is different: the program compiled cleanly and started running, then hit a specific line it could not survive — feed <code>int.Parse</code> the text <code>"twenty"</code> instead of digits, and it throws a <code>FormatException</code> mid-run, printing a stack trace instead of your next line of output.</p>
+<pre><code><span class="k">string</span> input = <span class="s">"twenty"</span>;
+<span class="k">int</span> value = <span class="k">int</span>.Parse(input);   <span class="c">// compiles fine — throws FormatException at runtime</span></code></pre>
+<p>The habit that separates a frustrating debugging session from a fast one: read the FIRST error the compiler reports, top to bottom, and fix only that one before rebuilding. A single missing semicolon can cascade into a dozen reported errors below it — errors 2 through 12 are usually just the compiler getting confused by error 1's aftermath, and they vanish once it's fixed.</p>
+<p>Every sample in this chapter has quietly followed C#'s house style, and it's worth naming explicitly now that you've seen enough of it to recognize the pattern: opening braces sit on their <strong>own line</strong> (called Allman style, and it's what the whole .NET ecosystem expects), locals and parameters are <strong>camelCase</strong> (<code>hitPoints</code>, <code>current</code>), methods and types are <strong>PascalCase</strong> (<code>AddGold</code>, <code>Program</code>), and every statement ends in a semicolon. None of this changes what a program does — the compiler doesn't care about brace placement — but every C# codebase you touch from here on, including Unity's own, assumes you already write this way.</p>
+<p>One more habit worth naming: the <code>// comment</code> you've seen scattered through every code block in this chapter is a real piece of syntax, not decoration — anything after <code>//</code> on a line is ignored completely by the compiler. It exists purely for the next reader, which is often you, six weeks later, wondering why a line does what it does.</p>
+<div class="callout">A stack trace is not noise to scroll past — its top line names the exact exception type and message; read that line before anything else in the trace.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHERE THIS IS HEADED</div>
+<p>Everything in this chapter — variables, methods, printing, reading input — has run in a bare console window with no picture on screen. Chapter III hands the exact same C# you now know to something new: a <strong>GameObject</strong> living inside a real Unity scene, with your method calls firing in response to the engine's own clock instead of a linear top-to-bottom script. The language does not change. What changes is who calls your code, and when — which is the entire subject of the MonoBehaviour lifecycle waiting two chapters from now.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Microsoft C# guide: Common exception classes"
+url = "https://learn.microsoft.com/en-us/dotnet/standard/exceptions/"
+
+[[lessons.readings]]
+label = "OPTIONAL // Microsoft C# guide: Comments"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/lexical-structure#635-comments"
+
+[[lessons.exercises]]
+id = "s01-l05-e1"
+type = "text"
+points = 20
+prompt = "What two characters start a single-line comment in C#, the ones the compiler ignores for the rest of that line?"
+answer = "//"
+hint = "You've seen it in nearly every code block this chapter, tinted differently from the rest of the line."
+
+[[lessons.exercises]]
+id = "s01-l05-e2"
+type = "mc"
+points = 15
+prompt = "int.Parse(\"twenty\") — what actually happens when this line runs?"
+choices = ["A compile-time error, because \"twenty\" isn't a numeral literal", "It silently returns 0", "It rounds to the nearest valid number", "The program compiles, then throws a FormatException when this line executes"]
+answer = 3
+whyWrong = "The compiler cannot know the CONTENTS of a string at compile time — \"twenty\" is a perfectly legal string literal, so this compiles fine; Parse doesn't silently default to 0 or round anything, it inspects the text at runtime and throws FormatException the moment it finds non-digit characters."
+hint = "The compiler only checks that Parse is called correctly — it can't see inside the string's actual text."
+explain = "Parse's failure is a runtime exception, not a compile error — the compiler has no way to know a string variable's contents in advance."
+
+[[lessons.exercises]]
+id = "s01-l05-e3"
+type = "fill"
+points = 25
+prompt = "This combines lesson 3's arithmetic with lesson 4's methods. Fill in the blank so it prints exactly: TOTAL 64"
+code = '''int ComputeTotal(int baseGold, int bonus)
+{
+    return baseGold + bonus * 2;
+}
+
+int total = ComputeTotal(40, 12);
+Console.WriteLine(____);'''
+answer = '$"TOTAL {total}"'
+accept = ["$\"TOTAL {total}\""]
+hint = "You need $ before the string, and {total} inside it — same interpolation shape as lesson 3."
+
+[[lessons.exercises]]
+id = "s01-l05-e4"
+type = "mc"
+points = 15
+prompt = "Which name correctly follows C# convention for a local variable holding an artificer's remaining health?"
+choices = ["remainingHealth", "remaining_health", "RemainingHP", "HITPOINTSLEFT"]
+answer = 0
+whyWrong = "remaining_health is snake_case, which no local in this chapter has ever used; RemainingHP is PascalCase — the case reserved for method and type names like AddGold and Program — and renames the value besides; HITPOINTSLEFT is SCREAMING_CASE, the style reserved for constants, not locals. camelCase (remainingHealth) is what every local variable in this chapter has used."
+hint = "Locals are camelCase — first word lowercase, each following word capitalized."
+explain = "remainingHealth is camelCase — the convention this whole chapter's variables have followed."
+
+[[lessons.exercises]]
+id = "s01-l05-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this Allman-style method exactly — note the opening brace on its own line. (Ctrl+Enter submits.)"
+code = '''int AddGold(int current, int reward)
+{
+    return current + reward;
+}'''
+
+[[lessons.exercises]]
+id = "s01-l05-w1"
+type = "write"
+points = 35
+prompt = "Write a local function named FormatReadout that takes an int hitPoints and an int level, and returns the string \"HP 20 LVL 3\" style text via interpolation (order: HP first, LVL second, one space between each piece). Call FormatReadout(20, 3) and print exactly: HP 20 LVL 3"
+starter = '''
+// Define FormatReadout(int hitPoints, int level) returning a string, then call and print it.
+
+'''
+expect = '''
+HP 20 LVL 3'''
+solution = '''
+string FormatReadout(int hitPoints, int level)
+{
+    return $"HP {hitPoints} LVL {level}";
+}
+
+Console.WriteLine(FormatReadout(20, 3));
+'''
+hint = "FormatReadout returns a string built with $\"HP {hitPoints} LVL {level}\" — then Console.WriteLine the returned value."

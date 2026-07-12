@@ -1,0 +1,122 @@
+[[lessons]]
+id = "s06-l02"
+title = "isTrigger & OnTriggerEnter2D"
+body = '''
+<p>Last forge's Collider2D stopped ArtificerRig cold at a wall, which is exactly the right behavior for a wall and exactly the wrong behavior for a pickup lying in the open — a shard of ember-glass sitting on the floor should be walked THROUGH, not bounced off of, while still somehow noticing that ArtificerRig arrived. Every Collider2D carries a bool for precisely this fork: <code>isTrigger</code>. Left unchecked (last lesson's default), a collider is solid — Unity's physics engine resolves the overlap by pushing the two bodies apart, exactly what happened at the Walls outline. Checked, the same collider stops producing that physical push entirely; two overlapping trigger colliders simply pass through each other, and Unity instead reports the overlap as an event a script can react to.</p>
+<p>That event arrives as a MonoBehaviour message named <code>OnTriggerEnter2D</code>, called automatically the instant this GameObject's collider begins overlapping another one where at least one side has <code>isTrigger</code> checked:</p>
+<pre><code><span class="k">private</span> <span class="k">void</span> OnTriggerEnter2D(Collider2D other)
+{
+    Debug.Log(<span class="s">$"Trigger entered by {other.gameObject.name}"</span>);
+}</code></pre>
+<p>The <code>other</code> parameter is the Collider2D that was walked into, not the GameObject directly — <code>other.gameObject</code> reaches the GameObject it belongs to, the same way a MonoBehaviour script and the GameObject it's attached to are two related but distinct things chapter III already drew a hard line between. Checking <code>other.gameObject.name</code> against a literal string works, in the sense that it compiles and runs, but it's fragile: rename the pickup in the Hierarchy and the check silently stops matching nothing else in the code tells you why. Next forge fixes that with a purpose-built tool; for now, name is the only lever available.</p>
+<p>One more condition has to hold before <code>OnTriggerEnter2D</code> fires at all, and it trips up almost every artificer the first time: <strong>at least one of the two GameObjects in the pair must carry a Rigidbody2D</strong> — it does not matter which one. ArtificerRig already has a Dynamic Rigidbody2D from chapter V, and the Walls Tilemap already has a Static one from last lesson's Composite Collider2D setup, so both sides of most Forge VI interactions are already covered without doing anything extra. A bare pickup with only a trigger Collider2D and no Rigidbody2D of its own still fires correctly — ArtificerRig's own Rigidbody2D satisfies the rule for the whole pair.</p>
+<div class="callout">isTrigger unchecked and no Rigidbody2D on either side means Unity's physics engine never even considers the pair — no push, no event, nothing. That silent third outcome (neither solid nor triggering) is the most common reason a new pickup or door "does nothing at all" with no error in the Console: the collider exists, but the pairing rule was never satisfied.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ENTER, STAY, AND EXIT</div>
+<p>OnTriggerEnter2D is one of a matched triple: OnTriggerStay2D fires every physics step for as long as the overlap continues after the initial Enter, and OnTriggerExit2D fires once when the two colliders stop overlapping. Solid, non-trigger pairs get the exact same triple under different names — OnCollisionEnter2D, OnCollisionStay2D, OnCollisionExit2D — fired by the SAME isTrigger fork, just the other branch of it. A pickup that should vanish the instant it's touched only ever needs Enter; a damage-over-time hazard a later forge builds will reach for Stay instead, to keep firing for as long as ArtificerRig lingers in it.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Scripting API: MonoBehaviour.OnTriggerEnter2D"
+url = "https://docs.unity3d.com/ScriptReference/MonoBehaviour.OnTriggerEnter2D.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Scripting API: Collider2D.isTrigger"
+url = "https://docs.unity3d.com/ScriptReference/Collider2D-isTrigger.html"
+
+[[lessons.exercises]]
+id = "s06-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this OnTriggerEnter2D method exactly."
+code = '''private void OnTriggerEnter2D(Collider2D other)
+{
+    Debug.Log($"Trigger entered by {other.gameObject.name}");
+}'''
+
+[[lessons.exercises]]
+id = "s06-l02-e1"
+type = "mc"
+points = 20
+prompt = "A pickup GameObject has a Collider2D with isTrigger checked, but no Rigidbody2D of its own. ArtificerRig, carrying his usual Dynamic Rigidbody2D, walks into it. Does OnTriggerEnter2D fire on the pickup?"
+choices = ["Yes — the rule only requires at least one Rigidbody2D somewhere in the pair, and ArtificerRig's satisfies it for both sides", "No — every GameObject involved in a trigger event needs its own Rigidbody2D", "No — trigger events require BOTH colliders to have isTrigger checked, not just one", "Yes, but only because the pickup is stationary and never moves"]
+answer = 0
+whyWrong = "The lesson was explicit that the requirement is 'at least one of the two,' not both individually — a bare pickup with zero Rigidbody2D still fires correctly; isTrigger only needs to be checked on ONE side of the pair, not both, which is why ArtificerRig's own solid, non-trigger collider from chapter V still triggers correctly against a trigger pickup; and whether an object moves has nothing to do with the Rigidbody2D-pairing rule — a moving Dynamic body and a motionless one both satisfy it equally."
+hint = "The lesson named exactly which side of the pair needs the Rigidbody2D — one specific word, not 'both'."
+explain = "The pairing rule only requires at least one Rigidbody2D somewhere between the two GameObjects, on either side — ArtificerRig's Dynamic Rigidbody2D from chapter V covers this pair on its own, so the pickup itself needs none."
+
+[[lessons.exercises]]
+id = "s06-l02-e2"
+type = "mc"
+points = 20
+prompt = "A Door's Collider2D is left with isTrigger UNCHECKED. ArtificerRig walks toward it. What happens, per this lesson?"
+choices = ["OnTriggerEnter2D fires normally, exactly as if isTrigger were checked", "Nothing happens at all — an unchecked isTrigger disables the collider entirely", "Unity throws a compile error, since a Collider2D without isTrigger cannot be walked into", "The physics engine treats it as solid and pushes ArtificerRig to a stop — the same behavior last lesson gave the Walls outline, since isTrigger unchecked is the solid branch of the same fork"]
+answer = 3
+whyWrong = "OnTriggerEnter2D specifically requires isTrigger checked on at least one side — leaving it unchecked routes the SAME overlap through the solid-collision branch instead, so it does not fire the trigger event; an unchecked collider is not disabled, it is simply solid, the opposite of inert — this is exactly last lesson's Walls behavior; and there is no compile-time relationship between isTrigger and whether a scene even builds — this is purely a runtime physics-resolution choice."
+hint = "isTrigger is described as a fork with two branches, not an on/off switch for whether the collider does anything at all — which branch does unchecked route to?"
+explain = "isTrigger unchecked is the same solid branch last lesson's Walls outline used — Unity resolves the overlap with a physical push instead of a trigger event, stopping ArtificerRig exactly the way the Composite Collider2D wall did."
+
+[[lessons.exercises]]
+id = "s06-l02-e3"
+type = "fill"
+points = 22
+prompt = "Fill in the missing parameter type — the type OnTriggerEnter2D receives for the collider that was overlapped, the same type this section's very first lesson used for ArtificerRig's own solid wall collider."
+code = '''private void OnTriggerEnter2D(____ other)
+{
+    Debug.Log($"Trigger entered by {other.gameObject.name}");
+}'''
+answer = "Collider2D"
+hint = "It's the base collider type this section opened with — the one BoxCollider2D, TilemapCollider2D, and every other 2D collider all derive from."
+
+[[lessons.exercises]]
+id = "s06-l02-e4"
+type = "text"
+points = 20
+prompt = "Name the method, part of the same Enter/Stay/Exit triple as OnTriggerEnter2D, that fires once when two overlapping trigger colliders stop touching."
+answer = "OnTriggerExit2D"
+hint = "It's named by swapping one word in OnTriggerEnter2D for its opposite — the field notes listed all three names in the same sentence."
+
+[[lessons.exercises]]
+id = "s06-l02-w1"
+type = "write"
+points = 33
+prompt = "Unity's Collider2D pairing rule can't run in this workbench, so model it in plain C#: a class ColliderPair with public bool IsTriggerA, IsTriggerB, HasRigidbodyA, HasRigidbodyB (all set through a constructor in that order), and a method FiresTriggerEvent() returning true only if (IsTriggerA OR IsTriggerB) AND (HasRigidbodyA OR HasRigidbodyB) — this lesson's two-part rule as one boolean expression. Build one ColliderPair matching the pickup scenario (pickup: isTrigger true, no Rigidbody2D; ArtificerRig: isTrigger false, has Rigidbody2D) and print its result, then build a second matching two solid, motionless Walls-style colliders touching (both isTrigger false, both HAS Rigidbody2D false — no Composite Collider2D on either) and print its result, exactly:\nFIRES True\nFIRES False"
+starter = '''
+// Build a ColliderPair for the pickup scenario, print FIRES <result>, then
+// build a second for two static solid colliders neither carrying a
+// Rigidbody2D, print FIRES <result>.
+// Define class ColliderPair at the BOTTOM of the file.
+
+'''
+expect = '''
+FIRES True
+FIRES False'''
+solution = '''
+ColliderPair pickupPair = new ColliderPair(true, false, false, true);
+Console.WriteLine($"FIRES {pickupPair.FiresTriggerEvent()}");
+
+ColliderPair solidPair = new ColliderPair(false, false, false, false);
+Console.WriteLine($"FIRES {solidPair.FiresTriggerEvent()}");
+
+class ColliderPair
+{
+    public bool IsTriggerA;
+    public bool IsTriggerB;
+    public bool HasRigidbodyA;
+    public bool HasRigidbodyB;
+
+    public ColliderPair(bool isTriggerA, bool isTriggerB, bool hasRigidbodyA, bool hasRigidbodyB)
+    {
+        IsTriggerA = isTriggerA;
+        IsTriggerB = isTriggerB;
+        HasRigidbodyA = hasRigidbodyA;
+        HasRigidbodyB = hasRigidbodyB;
+    }
+
+    public bool FiresTriggerEvent()
+    {
+        return (IsTriggerA || IsTriggerB) && (HasRigidbodyA || HasRigidbodyB);
+    }
+}
+'''
+hint = "The pickup pair has one isTrigger true and one Rigidbody2D true (ArtificerRig's) — both halves of the AND are satisfied. The solid pair has neither isTrigger nor any Rigidbody2D at all, failing both halves."

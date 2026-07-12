@@ -1,0 +1,89 @@
+[[lessons]]
+id = "s10-l05"
+title = "Tempering V // Buttons Obey"
+body = '''
+<p>Now put handles on the machine. A Unity UI <strong>Button</strong> exposes an <code>onClick</code> event in the Inspector. Select StartButton, press its <code>+</code> under On Click(), drag the scene GameStateManager into the object slot, and choose <code>GameStateManager.StartGame</code> from the function menu. Wire PauseButton to <code>TogglePause</code>, ResumeButton to <code>ResumeGame</code>, and a GameOverPanel return button to <code>ReturnToMenu</code>. Buttons command public verbs; they never call <code>SetActive</code> themselves.</p>
+<pre><code><span class="k">public</span> <span class="k">void</span> EndGame()
+{
+    <span class="k">if</span> (CurrentState != GameState.Playing) <span class="k">return</span>;
+    SetState(GameState.GameOver);
+}
+
+<span class="k">public</span> <span class="k">void</span> ReturnToMenu()
+{
+    SetState(GameState.MainMenu);
+}</code></pre>
+<p>Connect death through the boundary you already own. Health has <code>IsDead</code> and HealthChanged. A small player-facing coordinator may listen to HealthChanged and call EndGame when the supplied current HP reaches zero; it does not activate GameOverPanel. Keep that check out of Health itself: Health can serve a goblin, a crate, or ArtificerRig, while GameStateManager describes the player session. If your existing Health exposes IsDead, checking it after the event is equally clear.</p>
+<p>Use the Inspector wiring before writing a custom Button listener script. The event slot serializes the scene connection and makes it visible to a future maintainer. A custom listener is justified only when the click needs calculated arguments or dynamic buttons; that is not this forge. Start in MainMenu, click Start, and verify the panel matrix plus a timeScale of one. During Playing, trigger pause by button or input action, click Resume, then force player Health to zero for a GameOver proof. Click Return To Menu and start again; this last test catches the frozen-clock leak from the prior tempering.</p>
+<p>The C# bench models command routing with ordinary methods rather than pretending it can click a Canvas. It reaches back to the private-set property and the transition guards: input is only a caller, not a second state owner. Your real result is the Editor scene where each public method is chosen from a Button's On Click dropdown.</p>
+<div class="callout">A button requests a transition. GameStateManager performs every visible and timed consequence of that transition.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DEATH IS NOT PAUSE</div><p>Do not implement game over by calling PauseGame. A paused run is resumable; a dead run must show its own panel and reject TogglePause. Separate enum values make that policy concrete.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Manual: Button onClick event"
+url = "https://docs.unity3d.com/Packages/com.unity.ugui@latest/manual/script-Button.html"
+
+[[lessons.exercises]]
+id = "s10-l05-e1"
+type = "mc"
+points = 22
+prompt = "What should StartButton's Inspector On Click() event call?"
+choices = ["MainMenuPanel.SetActive(false)", "HealthHUD.ShowHP(20)", "GameStateManager.StartGame()", "QuestLog.SetFlag(\"started\")"]
+answer = 2
+whyWrong = "Direct panel mutation creates a second UI authority, while HP and quest flags are unrelated to starting a run. StartGame is the manager's public transition that sets state, panels, and the clock together."
+hint = "Choose the public verb that begins a run through the state manager rather than touching a panel."
+explain = "The button requests StartGame; GameStateManager owns the resulting screen and time changes."
+
+[[lessons.exercises]]
+id = "s10-l05-e2"
+type = "fill"
+points = 24
+prompt = "Fill the manager call a player-death coordinator makes after Health reaches zero."
+code = '''gameStateManager.____();'''
+answer = "EndGame"
+hint = "Use the public transition for a finished run, not the resumable pause transition."
+
+[[lessons.exercises]]
+id = "s10-l05-w1"
+type = "write"
+points = 35
+prompt = "Write plain C# GameStateManager with StartGame, EndGame, ReturnToMenu, and TogglePause guarded to Playing/Paused. Start a run, end it, attempt TogglePause, return to menu, and compute exactly:\nDEAD GameOver\nSTILL DEAD GameOver\nMENU MainMenu"
+starter = '''// Define GameState and GameStateManager. EndGame is legal only from Playing.
+// TogglePause must not change GameOver; use CurrentState to compute every line.
+
+'''
+expect = '''DEAD GameOver
+STILL DEAD GameOver
+MENU MainMenu'''
+solution = '''GameStateManager manager = new GameStateManager();
+manager.StartGame();
+manager.EndGame();
+Console.WriteLine($"DEAD {manager.CurrentState}");
+manager.TogglePause();
+Console.WriteLine($"STILL DEAD {manager.CurrentState}");
+manager.ReturnToMenu();
+Console.WriteLine($"MENU {manager.CurrentState}");
+
+enum GameState { MainMenu, Playing, Paused, GameOver }
+class GameStateManager
+{
+    public GameState CurrentState { get; private set; } = GameState.MainMenu;
+    public void StartGame() { CurrentState = GameState.Playing; }
+    public void EndGame() { if (CurrentState == GameState.Playing) CurrentState = GameState.GameOver; }
+    public void ReturnToMenu() { CurrentState = GameState.MainMenu; }
+    public void TogglePause()
+    {
+        if (CurrentState == GameState.Playing) CurrentState = GameState.Paused;
+        else if (CurrentState == GameState.Paused) CurrentState = GameState.Playing;
+    }
+}'''
+hint = "EndGame changes Playing to GameOver; TogglePause has no branch for GameOver, so the second printed state must be derived unchanged."
+
+[[lessons.exercises]]
+id = "s10-l05-e3"
+type = "text"
+points = 19
+prompt = "Which manager method should the Game Over panel's return button invoke to restore the menu state and normal clock?"
+answer = "ReturnToMenu"
+hint = "It is named for leaving a completed run and returning to the opening screen."

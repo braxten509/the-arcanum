@@ -1,0 +1,138 @@
+[[lessons]]
+id = "s05-l03"
+title = "Rigidbody2D & FixedUpdate — Moving Through Physics"
+body = '''
+<p>Last lesson's field notes already flagged the trap: once ArtificerRig gains a <strong>Rigidbody2D</strong> component, writing to <code>transform.position</code> directly starts fighting the physics engine, which now considers itself the owner of that Transform. <code>Add Component &gt; Rigidbody2D</code> gives ArtificerRig a <strong>Body Type</strong> field — <em>Dynamic</em> responds to forces and collisions like a real physics object, <em>Kinematic</em> ignores forces entirely and moves only when a script tells it to (while still registering collisions), and <em>Static</em> never moves at all, the type later forges reserve for level geometry like walls. A top-down player wants Dynamic — pushed by collisions, swept along by physics — with one adjustment: <strong>Gravity Scale</strong> set to <code>0</code>, since a top-down floor has no "down" to fall toward.</p>
+<p>Moving a Dynamic Rigidbody2D correctly means setting its <code>linearVelocity</code> — a Vector2, units per second — not touching Transform at all. The script reaches the component through <code>GetComponent&lt;Rigidbody2D&gt;()</code>, the script-side counterpart to the Inspector's Add Component: it searches this GameObject for a component of the given type and returns it, using the same angle-bracket generic syntax chapter II's <code>List&lt;T&gt;</code> already made familiar. Calling it is comparatively expensive, so it runs once in <code>Awake</code> and gets cached in a private field, never re-called inside Update or FixedUpdate.</p>
+<pre><code>[SerializeField] <span class="k">private</span> <span class="k">float</span> moveSpeed = <span class="k">5f</span>;
+<span class="k">private</span> Rigidbody2D rb;
+<span class="k">private</span> <span class="k">int</span> moveX;
+<span class="k">private</span> <span class="k">int</span> moveY;
+
+<span class="k">void</span> Awake()
+{
+    rb = GetComponent&lt;Rigidbody2D&gt;();
+}
+
+<span class="k">void</span> Update()
+{
+    <span class="k">if</span> (Keyboard.current == <span class="k">null</span>) <span class="k">return</span>;
+    moveX = (Keyboard.current.dKey.isPressed ? <span class="k">1</span> : <span class="k">0</span>) - (Keyboard.current.aKey.isPressed ? <span class="k">1</span> : <span class="k">0</span>);
+    moveY = (Keyboard.current.wKey.isPressed ? <span class="k">1</span> : <span class="k">0</span>) - (Keyboard.current.sKey.isPressed ? <span class="k">1</span> : <span class="k">0</span>);
+}
+
+<span class="k">void</span> FixedUpdate()
+{
+    Vector2 dir = <span class="k">new</span> Vector2(moveX, moveY).normalized;
+    rb.linearVelocity = dir * moveSpeed;
+}</code></pre>
+<p><code>normalized</code> keeps diagonal input at the same speed as cardinal input; without it, (1,1) has magnitude about 1.41. Reading keys happens in <strong>Update</strong>; applying the cached direction happens in <strong>FixedUpdate</strong>, on Unity's physics clock.</p>
+<div class="callout">Notice FixedUpdate's velocity assignment has no Time.deltaTime term at all, unlike last lesson's transform.position line. linearVelocity already means "units per second" — the physics engine itself multiplies it by Time.fixedDeltaTime internally when it advances position. Multiplying by deltaTime again here does not make movement smoother; it silently scales velocity down by a tiny, framerate-tied fraction a second time, producing motion that feels sluggish and reintroduces the exact frame-dependence deltaTime was supposed to remove.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // Time.fixedDeltaTime, THE OTHER CLOCK</div>
+<p>Time.deltaTime is not one single value — read inside FixedUpdate specifically, it returns <code>Time.fixedDeltaTime</code>, a constant configured in Project Settings (0.02 seconds, or 50 physics steps a second, by default) rather than the variable per-render value Update sees. This is why physics-driven motion feels perfectly consistent regardless of render framerate: it is never actually measured against render time at all, only against this fixed, unchanging step.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Scripting API: Rigidbody2D"
+url = "https://docs.unity3d.com/ScriptReference/Rigidbody2D.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Manual: Rigidbody 2D body types"
+url = "https://docs.unity3d.com/2022.3/Documentation/Manual/rigidbody2D-body-types.html"
+
+[[lessons.exercises]]
+id = "s05-l03-e1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype this FixedUpdate method exactly."
+code = '''void FixedUpdate()
+{
+    Vector2 dir = new Vector2(moveX, moveY).normalized;
+    rb.linearVelocity = dir * moveSpeed;
+}'''
+
+[[lessons.exercises]]
+id = "s05-l03-e2"
+type = "mc"
+points = 20
+prompt = "ArtificerRig needs to be pushed back by walls later and swept along by physics collisions, but a top-down game has no floor to fall through — gravity would just be wrong. Which Rigidbody2D setup does this lesson recommend?"
+choices = ["Body Type Static, so it never moves and nothing can collide with it", "Body Type Kinematic, since kinematic bodies are always the correct choice for any player character", "Body Type Dynamic with Gravity Scale set to 0, so physics still applies (collisions, being pushed) but nothing pulls the artificer downward", "Body Type Dynamic with Gravity Scale left at its default of 1, matching every other Dynamic body in the project"]
+answer = 2
+whyWrong = "Static never moves at all, which defeats the entire point of a controllable player and also means nothing could ever push it, the opposite of what's wanted; Kinematic ignores forces and pushes entirely, which is exactly the 'swept along by collisions' behavior this scenario asks for, so it is not 'always correct' here or in general; and leaving Gravity Scale at its default 1 pulls the artificer downward every frame in a game with no floor to fall onto, which is precisely the wrong behavior the lesson called out."
+hint = "The lesson named one specific Body Type as the top-down default, plus one field this section's floor-and-walls lesson never needed but a moving player does."
+explain = "Dynamic keeps ArtificerRig responsive to forces and collisions — being pushed, colliding with walls later — while Gravity Scale 0 removes the one force (downward pull) that makes no sense in a top-down game with no floor to fall through."
+
+[[lessons.exercises]]
+id = "s05-l03-e3"
+type = "fill"
+points = 22
+prompt = "Fill in the missing method — the generic call this lesson used to fetch the Rigidbody2D already attached to this GameObject, cached once in Awake."
+code = '''private Rigidbody2D rb;
+
+void Awake()
+{
+    rb = ____<Rigidbody2D>();
+}'''
+answer = "GetComponent"
+hint = "It's the script-side counterpart to the Inspector's Add Component — the same angle-bracket generic syntax chapter II's List<T> already used, just fetching a component instead of holding a collection."
+
+[[lessons.exercises]]
+id = "s05-l03-e4"
+type = "mc"
+points = 20
+prompt = "ArtificerRig's FixedUpdate sets rb.linearVelocity = dir * moveSpeed * Time.deltaTime instead of rb.linearVelocity = dir * moveSpeed. Per this lesson's callout, what's wrong?"
+choices = ["Nothing — velocity should always be scaled by deltaTime, in FixedUpdate exactly like Update", "linearVelocity already represents units per second; multiplying by deltaTime again makes the physics engine apply timing twice, producing sluggish, frame-dependent motion", "Time.deltaTime cannot be read inside FixedUpdate at all — it always returns exactly 0 there", "moveSpeed becomes negative whenever Time.deltaTime is included in a velocity assignment"]
+answer = 1
+whyWrong = "This is exactly the mistake the callout warned against, not a correct pattern — unlike last lesson's transform.position line, linearVelocity is already a per-second rate, so it doesn't need its own deltaTime multiplication; the field notes were explicit that Time.deltaTime IS readable inside FixedUpdate, it just returns the fixed value Time.fixedDeltaTime there rather than 0; and there is no arithmetic here that could flip a sign — multiplying by a positive deltaTime never makes moveSpeed negative."
+hint = "Last lesson's transform.position line DID need a Time.deltaTime multiplication because it was applying a raw per-frame step — is linearVelocity the same kind of raw step, or something already measured per second?"
+explain = "linearVelocity is already expressed in units per second, and the physics engine applies Time.fixedDeltaTime to it internally when advancing position — multiplying it by deltaTime again in the script double-applies timing, scaling the actual applied speed down by a tiny, framerate-tied amount and making motion feel sluggish."
+
+[[lessons.exercises]]
+id = "s05-l03-e5"
+type = "text"
+points = 20
+prompt = "What is the name of the constant, fixed time-step value that Time.deltaTime returns specifically when it is read inside FixedUpdate, per this lesson's field notes?"
+answer = "Time.fixedDeltaTime"
+accept = ["fixedDeltaTime"]
+hint = "It's named almost identically to Time.deltaTime itself, just with one word inserted describing which of the two per-frame clocks it belongs to."
+
+[[lessons.exercises]]
+id = "s05-l03-w1"
+type = "write"
+points = 34
+prompt = "Unity's Rigidbody2D can't run in this workbench, so model FixedUpdate's fixed-timestep integration in plain C#: a class SimBody with a public double PositionX (starting 0) and a public double VelocityX, set through a constructor SimBody(double velocityX), and a method FixedStep(double fixedDeltaTime) that adds VelocityX * fixedDeltaTime to PositionX (the physics engine's own integration, distinct from lesson 2's per-frame Step). Build a SimBody with VelocityX 10, then call FixedStep(0.02) five times using a for loop (Unity's real default fixed timestep, run for five physics steps), then print PositionX rounded to the nearest whole number, exactly:\nPOSITION 1"
+starter = '''
+// Build a SimBody with VelocityX 10, call FixedStep(0.02) five times using a
+// for loop, then print the rounded PositionX.
+// Define class SimBody at the BOTTOM of the file.
+
+'''
+expect = '''
+POSITION 1'''
+solution = '''
+SimBody body = new SimBody(10);
+for (int i = 0; i < 5; i++)
+{
+    body.FixedStep(0.02);
+}
+
+Console.WriteLine($"POSITION {(int)body.PositionX}");
+
+class SimBody
+{
+    public double PositionX = 0;
+    public double VelocityX;
+
+    public SimBody(double velocityX)
+    {
+        VelocityX = velocityX;
+    }
+
+    public void FixedStep(double fixedDeltaTime)
+    {
+        PositionX += VelocityX * fixedDeltaTime;
+    }
+}
+'''
+hint = "Five identical FixedStep(0.02) calls at VelocityX 10 is a fixed-timestep for loop — chapter II's for-loop pattern, called five times before you print, exactly the way a real Rigidbody2D advances one physics step at a time."

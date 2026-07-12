@@ -1,0 +1,135 @@
+[[lessons]]
+id = "s09-l03"
+title = "Turn Pages, Not Knots"
+body = '''
+<p>The NPC owns which conversation it offers; it should not own text rendering or remember how a panel closes. <strong>DialogueController</strong> is the middle machine. It receives an ordered array of lines, remembers an index, sends the current line through DialoguePanel, and advances when commanded. This is a small state machine: no active lines means closed; an index inside the array means one visible page; an index past the last page closes the panel.</p>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> DialogueController : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> DialoguePanel dialoguePanel;
+    <span class="k">private</span> <span class="k">string</span>[] activeLines;
+    <span class="k">private</span> <span class="k">int</span> lineIndex;
+
+    <span class="k">public</span> <span class="k">void</span> Begin(<span class="k">string</span>[] lines)
+    {
+        <span class="k">if</span> (lines == <span class="k">null</span> || lines.Length == 0) { dialoguePanel.Hide(); <span class="k">return</span>; }
+        activeLines = lines;
+        lineIndex = 0;
+        dialoguePanel.ShowLine(activeLines[lineIndex]);
+    }
+
+    <span class="k">public</span> <span class="k">void</span> Advance()
+    {
+        lineIndex++;
+        <span class="k">if</span> (lineIndex &gt;= activeLines.Length)
+        {
+            dialoguePanel.Hide();
+            <span class="k">return</span>;
+        }
+        dialoguePanel.ShowLine(activeLines[lineIndex]);
+    }
+}</code></pre>
+<p><code>Length</code> is an array's count. Arrays are zero-based, so the first line is index 0 and the last valid index is Length minus one. Advance increments first: after the last displayed line, lineIndex equals Length, which is no longer legal to read. The <code>&gt;=</code> guard closes before indexing. Do not test only <code>==</code> if another caller could invoke Advance twice; >= still protects the boundary.</p>
+<p>Assign the one DialoguePanel reference in the Inspector. An NPC calls Begin with its own openingLines. Your input script calls Advance only while dialogue is active—use the controller's next lesson property to make that rule explicit. For now, test with exactly two lines: first Interact shows line 0, first advance shows line 1, second advance hides the panel. This is the same disciplined “state changes, then output follows” order Health used for its events, but here a direct call is appropriate: one controller deliberately commands one panel.</p>
+<p>The bench models the indexes and returns strings rather than touching TextMeshProUGUI. It forces real array bounds reasoning while honestly leaving Unity display work in the Editor.</p>
+<div class="callout">Begin resets a conversation to index 0. Advance moves once, checks the boundary, then either hides or displays exactly one next line.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // EMPTY ARRAYS</div><p>This first controller assumes every NPC has at least one authored line. In production, validate that in Awake or have Begin reject an empty array before reading index 0. Never “fix” an empty conversation by indexing it and hoping the Inspector will be kind.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Microsoft Learn: Arrays"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/arrays"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Scripting API: GameObject.SetActive"
+url = "https://docs.unity3d.com/ScriptReference/GameObject.SetActive.html"
+
+[[lessons.exercises]]
+id = "s09-l03-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype the boundary check that closes dialogue instead of reading beyond its final line."
+code = '''if (lineIndex >= activeLines.Length)
+{
+    dialoguePanel.Hide();
+    return;
+}'''
+
+[[lessons.exercises]]
+id = "s09-l03-e1"
+type = "fill"
+points = 24
+prompt = "Fill the array member that gives the number of authored dialogue lines for the bounds guard."
+code = '''if (lineIndex >= activeLines.____)
+{
+    dialoguePanel.Hide();
+}'''
+answer = "Length"
+hint = "Arrays expose their fixed count through the capitalized member used in the worked Advance method."
+
+[[lessons.exercises]]
+id = "s09-l03-e2"
+type = "mc"
+points = 22
+prompt = "activeLines has two entries. After Begin, lineIndex is 0. What must Advance do on its second call?"
+choices = ["Show activeLines[2]", "Set lineIndex back to 0 automatically", "Hide the panel because incrementing reaches Length 2", "Append a third line to the array"]
+answer = 2
+whyWrong = "Index 2 is outside a two-entry zero-based array, Begin—not Advance—does the reset, and a fixed array is not expanded by indexing. The second increment reaches the closing boundary and must hide the panel."
+hint = "Trace the values: first Advance goes 0 to 1; second goes 1 to 2. Compare 2 with Length."
+explain = "The valid indexes are 0 and 1. At 2, lineIndex is no longer valid, so Advance closes before reading."
+
+[[lessons.exercises]]
+id = "s09-l03-e3"
+type = "text"
+points = 19
+prompt = "What integer index does Begin assign so an array's first dialogue line is displayed?"
+answer = "0"
+hint = "C# arrays begin their positions at the first zero-based slot."
+
+[[lessons.exercises]]
+id = "s09-l03-w1"
+type = "write"
+points = 35
+prompt = "Create DialogueController in plain C# with Begin(string[] lines) and Advance() returning the next line or null after the final line. Begin it with exactly Dawn and Ash, then call Advance three times. Compute exactly:\nLINE Dawn\nLINE Ash\nCLOSED True"
+starter = '''// Define DialogueController. Begin with the two supplied lines and derive the final bool from Advance.
+// Define DialogueController at the BOTTOM of the file.
+
+'''
+expect = '''LINE Dawn
+LINE Ash
+CLOSED True'''
+solution = '''DialogueController controller = new DialogueController();
+controller.Begin(new string[] { "Dawn", "Ash" });
+Console.WriteLine($"LINE {controller.Advance()}");
+Console.WriteLine($"LINE {controller.Advance()}");
+Console.WriteLine($"CLOSED {controller.Advance() == null}");
+
+class DialogueController
+{
+    private string[] activeLines = new string[0];
+    private int lineIndex;
+    public void Begin(string[] lines)
+    {
+        activeLines = lines;
+        lineIndex = 0;
+    }
+    public string? Advance()
+    {
+        if (lineIndex >= activeLines.Length) return null;
+        return activeLines[lineIndex++];
+    }
+}'''
+hint = "Begin stores the supplied array and resets index to 0. Advance returns the current element, then increments; once index reaches Length it returns null."
+
+[[lessons.exercises]]
+id = "s09-l03-e4"
+type = "mc"
+points = 22
+prompt = "Why does DialogueController call DialoguePanel.ShowLine rather than assigning dialogueText.text itself?"
+choices = ["TextMeshProUGUI can only be changed in FixedUpdate", "DialoguePanel owns its references and open/close behavior, so the controller commands its public boundary", "NPCInteractable is the only class allowed to use strings", "ShowLine makes array indexes one-based"]
+answer = 1
+whyWrong = "UI text can change outside FixedUpdate, strings are usable by normal C# classes, and ShowLine does not alter indexing. The boundary keeps panel wiring in DialoguePanel while the controller owns sequence state."
+hint = "Recall the first tempering: which component owns panelRoot and dialogueText?"
+explain = "A public ShowLine method prevents the controller from knowing or mutating the panel's private UI references."

@@ -1,0 +1,98 @@
+[[lessons]]
+id = "s05-l02"
+title = "Time.deltaTime — Frame-Rate-Independent Movement"
+body = '''
+<p>Update does not run at a fixed, guaranteed interval — chapter III's lifecycle lesson said it runs "exactly once" per frame, but frames themselves are not the same length: a fast machine might render 120 of them a second, a struggling one 30. Add a fixed amount to <code>transform.position</code> every Update and ArtificerRig moves four times faster on the fast machine than the slow one, purely by accident of hardware — the exact bug this lesson exists to prevent.</p>
+<p><code>Time.deltaTime</code> is the fix: the number of real seconds that elapsed since the previous frame, read fresh every Update. Multiplying a per-second speed by deltaTime converts "how far to move this specific frame" into a real-world rate, regardless of how long that frame took — a fast frame gets a small deltaTime and a small step, a slow frame gets a larger deltaTime and a larger step, and the two average out to the same speed over one real second either way.</p>
+<pre><code><span class="k">void</span> Update()
+{
+    Vector2 dir = <span class="k">new</span> Vector2(moveX, moveY);
+    transform.position += (Vector3)(dir * moveSpeed * Time.deltaTime);
+}</code></pre>
+<p><strong>Vector2</strong> is Unity's built-in 2D point/direction type — two floats, X and Y, built with <code>new Vector2(x, y)</code> exactly the way <code>new Artificer(...)</code> built a chapter II object. Unity overloads its arithmetic operators, so <code>dir * moveSpeed * Time.deltaTime</code> scales both components by the same two numbers with no method call needed. <code>transform.position</code>, though, is a <strong>Vector3</strong> even in a 2D project — Unity has no separate 2D Transform type — so a Vector2 result needs an explicit <code>(Vector3)</code> cast before it can be added to it; the cast simply sets Z to 0.</p>
+<p>The <code>moveSpeed</code> field stays <code>[SerializeField] private float</code>, not a hardcoded number inside Update: chapter III's Inspector lesson defined that exact pattern as exposing a value for tuning while keeping outside code from touching it, and a movement speed is precisely the kind of number a designer wants to nudge — 4, then 4.5, then 5 — without reopening the script each time.</p>
+<div class="callout">Forgetting <code>Time.deltaTime</code> entirely is one bug; multiplying by it twice, once in one method and again in another that touches the same movement, is the opposite one — it does not just move ArtificerRig at the wrong speed, it moves him at a speed that is ALSO framerate-dependent again, silently reintroducing the exact problem deltaTime was supposed to solve. Multiply by it exactly once, at the one place motion is actually applied.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THIS FORGE'S OWN TRAP, ONE LESSON AHEAD</div>
+<p>This Update-and-transform.position pattern is the honest first draft, not the forge's final answer. The next lesson attaches a Rigidbody2D to ArtificerRig, and once a Rigidbody2D is present, writing to transform.position directly starts fighting the physics engine instead of cooperating with it — colliders can tunnel through each other, and pushes from other physics objects get silently overwritten the next frame. Learn the deltaTime math here, on a body with no Rigidbody2D yet, because it is the same math the next lesson reuses in a different method for a different reason.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Scripting API: Time.deltaTime"
+url = "https://docs.unity3d.com/ScriptReference/Time-deltaTime.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Manual: Time and frame rate management"
+url = "https://docs.unity3d.com/2023.1/Documentation/Manual/TimeFrameManagement.html"
+
+[[lessons.exercises]]
+id = "s05-l02-e1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype this Update movement method exactly."
+code = '''void Update()
+{
+    Vector2 dir = new Vector2(moveX, moveY);
+    transform.position += (Vector3)(dir * moveSpeed * Time.deltaTime);
+}'''
+
+[[lessons.exercises]]
+id = "s05-l02-e2"
+type = "mc"
+points = 20
+prompt = "ArtificerRig's Update multiplies movement by moveSpeed but never by Time.deltaTime. What breaks, per this lesson?"
+choices = ["Nothing — Update already runs at a fixed, guaranteed interval so deltaTime is redundant", "The game refuses to compile, since transform.position requires a Time.deltaTime term", "Movement becomes perfectly smooth, since removing deltaTime eliminates frame-timing jitter entirely", "ArtificerRig moves at a speed tied to however many frames per second the machine happens to render, not a real-world speed"]
+answer = 3
+whyWrong = "Update is explicitly NOT fixed-interval — this lesson opened by contradicting that exact assumption, frame length varies with hardware and load; there is no compiler requirement tying transform.position assignment to any particular right-hand expression, so this would compile fine and just behave wrong; and removing deltaTime does not smooth anything — it does the opposite, tying apparent speed directly to however fast or slow frames happen to render."
+hint = "The lesson's opening example contrasted a fast machine rendering many frames a second against a struggling one rendering few — what happens to a per-frame, un-scaled step on each?"
+explain = "Without Time.deltaTime, each Update tick moves ArtificerRig by the same raw amount regardless of how much real time that frame took, so a machine rendering more frames per second moves him faster in real time than one rendering fewer — exactly the frame-rate-dependent bug deltaTime exists to remove."
+
+[[lessons.exercises]]
+id = "s05-l02-e3"
+type = "mc"
+points = 20
+prompt = "This lesson keeps moveSpeed as a private field marked [SerializeField] rather than a public field or a hardcoded literal inside Update. Per chapter III's Inspector lesson, why?"
+choices = ["SerializeField is required syntax for any float multiplied by Time.deltaTime", "It exposes the value to the Inspector for tuning while keeping the field's write access private to the class itself — [SerializeField]'s entire purpose since chapter III", "Public and private fields both work in Update, so SerializeField only affects performance, not access", "A hardcoded literal compiles faster than any field, public or private"]
+answer = 1
+whyWrong = "There is no such requirement tying [SerializeField] to arithmetic involving Time.deltaTime — the attribute has nothing to do with what a field is multiplied by; access, not runtime performance, is what SerializeField changes, so the 'performance only' claim misstates chapter III's own definition; and a hardcoded literal isn't a field at all, so there's no compile-speed comparison to make — the real cost of hardcoding it is losing the ability to tune it without editing code."
+hint = "Chapter III defined [SerializeField] as opening exactly one door — who gets to read and write the value, and through what channel?"
+explain = "[SerializeField] private float moveSpeed exposes the value to the Inspector for tuning while every other script in the project is still blocked from writing it directly — the same encapsulation trade chapter III's Inspector lesson made, applied here to a tunable movement speed instead of a stat."
+
+[[lessons.exercises]]
+id = "s05-l02-w1"
+type = "write"
+points = 33
+prompt = "Unity's Update/Time.deltaTime loop can't run in this workbench, so model frame-rate-independent movement in plain C#: a class FrameMover with a public double PositionX (starting 0) and a public double Speed, set through a constructor FrameMover(double speed), and a method Step(double deltaTime, int moveX) that adds moveX * Speed * deltaTime to PositionX. Build a FrameMover with Speed 10, then simulate three frames of different lengths with the D key held (moveX 1 each time): Step(0.20, 1), Step(0.10, 1), Step(0.30, 1). Print PositionX rounded to the nearest whole number, exactly:\nPOSITION 6"
+starter = '''
+// Build a FrameMover with Speed 10, call Step three times with the deltaTimes
+// and moveX given in the prompt, then print the rounded PositionX.
+// Define class FrameMover at the BOTTOM of the file.
+
+'''
+expect = '''
+POSITION 6'''
+solution = '''
+FrameMover mover = new FrameMover(10);
+mover.Step(0.20, 1);
+mover.Step(0.10, 1);
+mover.Step(0.30, 1);
+
+Console.WriteLine($"POSITION {(int)mover.PositionX}");
+
+class FrameMover
+{
+    public double PositionX = 0;
+    public double Speed;
+
+    public FrameMover(double speed)
+    {
+        Speed = speed;
+    }
+
+    public void Step(double deltaTime, int moveX)
+    {
+        PositionX += moveX * Speed * deltaTime;
+    }
+}
+'''
+hint = "Each Step call is exactly the Update formula from this lesson — Speed times moveX times that call's own deltaTime — accumulated across all three calls before you print."

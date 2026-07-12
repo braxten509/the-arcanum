@@ -64,7 +64,7 @@ export function askOracle(label, detail, selection) {
     ${selection ? `<div class="faint" style="font-size:10.5px;letter-spacing:.14em;margin-bottom:4px">THE ORB REFLECTS YOUR SELECTION</div>
     <pre style="max-height:110px;overflow:auto;margin:0 0 10px;padding:8px;border:1px solid var(--line-hi);border-radius:3px;font-family:var(--mono);font-size:12px"><code></code></pre>` : ""}
     <textarea id="oracle-q" rows="3" style="width:100%" placeholder="e.g. why does ReadLine return null? what's the difference between var and int?"></textarea>
-    <div id="oracle-a" class="hidden" style="margin-top:12px;padding:12px;border:1px solid var(--line-hi);border-left:2px solid var(--ac-dim);border-radius:3px;font-size:13px;white-space:pre-wrap;max-height:648px;overflow-y:auto"></div>`,
+    <div id="oracle-a" class="hidden" style="margin-top:12px;padding:12px;border:1px solid var(--line-hi);border-left:2px solid var(--ac-dim);border-radius:3px;font-size:13px;white-space:pre-wrap;max-height:45vh;overflow-y:auto"></div>`,
     [["COVER THE ORB", "quiet"]], { sticky: true });
   if (selection) $("#modal-root pre code").textContent = selection.slice(0, 600);
   const actions = $("#modal-root .modal-actions");
@@ -116,6 +116,6 @@ export function showOracleLog() {
       <div style="white-space:pre-wrap;font-size:12.5px">${esc(e.a)}</div>
     </div>`).join("");
   modal(`<h2>THE ORACLE'S NOTES</h2>
-    <div style="max-height:864px;overflow-y:auto">${rows || '<p class="dim">The pages are blank. Consult the Oracle and its answers will be copied down here.</p>'}</div>`,
+    <div style="max-height:60vh;overflow-y:auto">${rows || '<p class="dim">The pages are blank. Consult the Oracle and its answers will be copied down here.</p>'}</div>`,
     [["SET THE NOTES DOWN", "quiet"]]);
 }

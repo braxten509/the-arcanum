@@ -79,7 +79,9 @@ def handle(h):
                                            "totalPhases", "startedAt", "error",
                                            "phaseStartedAt", "runner", "sections") if k in job}
                 out["name"] = forge_name(job.get("tome"))
-                out["logtail"] = "\n".join(job.get("log", [])[-40:])
+                # The forge terminal is a status surface, not a mirror of runner stdout.
+                # Raw output remains in job["log"] and feeds the failure report below.
+                out["logtail"] = "\n".join(job.get("statusLog", [])[-40:])
                 req = os.path.join(BUILD_DIR, f"{job.get('slug') or job.get('tome')}.runner-request.json")
                 if os.path.exists(req):  # a worker died; the harness is waiting for a pick
                     try:
@@ -184,7 +186,8 @@ def model_census():
     lists (they can't). `installed` says which login CLIs exist on this rig."""
     installed = {"claude-cli": os.access(CLAUDE_BIN, os.X_OK),
                  "antigravity-cli": os.access(AGY_BIN, os.X_OK),
-                 "codex-cli": os.access(CODEX_BIN, os.X_OK)}
+                 "codex-cli": os.access(CODEX_BIN, os.X_OK),
+                 "opencode-cli": os.access(OPENCODE_BIN, os.X_OK)}
     providers = {k: list(v) for k, v in CLI_MODELS.items()}
     if installed["antigravity-cli"]:
         try:
@@ -193,6 +196,8 @@ def model_census():
             providers["antigravity-cli"] = []
     else:
         providers["antigravity-cli"] = []
+    providers["opencode-cli"] = ([row[0] for row in opencode_models()]
+                                  if installed["opencode-cli"] else [])
     out = {"ok": True, "models": [], "providers": providers, "installed": installed,
            "efforts": CLI_EFFORTS}
     try:
@@ -207,7 +212,7 @@ def model_census():
     # [PROVIDER][MODEL][EFFORT] triple-box. models are [id, label, tag] triples. Separate
     # from `providers`/`models` above (which the settings grader/oracle pickers still use),
     # so this can carry opencode + local without polluting the grader backends.
-    oc_ok = os.access(OPENCODE_BIN, os.X_OK)
+    oc_ok = installed["opencode-cli"]
     oc_models = opencode_models() if oc_ok else []
     local_models = ollama_bindery_models() if oc_ok else []  # local runs THROUGH opencode
     # each model row is [id, label, tag, efforts]. effort is PER-MODEL: claude/codex

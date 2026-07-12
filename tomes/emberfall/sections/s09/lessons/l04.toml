@@ -1,0 +1,94 @@
+[[lessons]]
+id = "s09-l04"
+title = "Keep the Oath"
+body = '''
+<p>Dialogue is wind if the world forgets it. A simple quest needs a durable runtime fact such as <code>keeper_spoken_to</code>. Forge II and Forge VIII already gave us the right metal: a <code>Dictionary&lt;string, bool&gt;</code> maps a stable flag id to whether it has been completed. <strong>QuestLog</strong> owns that dictionary. NPCs request a change through SetFlag; other systems ask HasFlag. They do not index the dictionary or share its field.</p>
+<pre><code><span class="k">using</span> System.Collections.Generic;
+<span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> QuestLog : MonoBehaviour
+{
+    <span class="k">private</span> Dictionary&lt;<span class="k">string</span>, <span class="k">bool</span>&gt; flags = <span class="k">new</span> Dictionary&lt;<span class="k">string</span>, <span class="k">bool</span>&gt;();
+
+    <span class="k">public</span> <span class="k">void</span> SetFlag(<span class="k">string</span> flagId)
+    {
+        flags[flagId] = <span class="k">true</span>;
+    }
+
+    <span class="k">public</span> <span class="k">bool</span> HasFlag(<span class="k">string</span> flagId)
+    {
+        <span class="k">return</span> flags.TryGetValue(flagId, <span class="k">out</span> <span class="k">bool</span> isSet) &amp;&amp; isSet;
+    }
+}</code></pre>
+<p>The dictionary indexer is safe in SetFlag because assignment creates or replaces this known authoring key. Reading is different: an unknown id through <code>flags[flagId]</code> throws, so HasFlag uses the TryGetValue pattern from the ItemCatalog. If the key is absent, TryGetValue returns false and short-circuit <code>&amp;&amp;</code> returns false without claiming the quest is done.</p>
+<p>Attach one QuestLog to a scene-level GameObject such as <code>WorldState</code>, then drag that reference into the keeper. When the last opening line closes, the keeper calls <code>questLog.SetFlag("keeper_spoken_to")</code>. Another NPC can call HasFlag to choose a later greeting. Keep the exact id spelling in one place for now; a later save system will serialize it. This is a runtime quest ledger, not a ScriptableObject definition—completion belongs to this play session, not every future game.</p>
+<p>The bench applies the exact dictionary rule in ordinary C#. It reaches back to stable ids and safe lookup, while Unity scene references remain an Editor concern.</p>
+<div class="callout">SetFlag records a fact; HasFlag safely asks whether that exact fact has been recorded. A missing flag means not completed, not a crash.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // FLAGS ARE NOT DIALOGUE TEXT</div><p>Use the stable machine id <code>keeper_spoken_to</code> for rules and a human sentence for the panel. Never branch game logic on player-facing prose; localization or a punctuation edit would then alter a quest.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Microsoft Learn: Dictionary<TKey,TValue>.TryGetValue"
+url = "https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.dictionary-2.trygetvalue"
+
+[[lessons.exercises]]
+id = "s09-l04-e1"
+type = "mc"
+points = 22
+prompt = "Why does QuestLog.HasFlag use TryGetValue instead of reading flags[flagId] directly?"
+choices = ["TryGetValue makes all flags permanently saved to disk", "The indexer cannot assign true", "Dictionaries can only contain ItemDefinition values", "An unknown key can be absent; TryGetValue reports false safely instead of throwing"]
+answer = 3
+whyWrong = "Neither operation saves data, the indexer can assign true, and dictionaries accept many value types. The difference is unknown-key behavior: direct lookup throws while TryGetValue gives a safe failure path."
+hint = "Recall the ItemCatalog warning about asking a Dictionary for a player-facing id it may not contain."
+explain = "HasFlag treats a missing quest record as not completed, using TryGetValue's false result."
+
+[[lessons.exercises]]
+id = "s09-l04-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype QuestLog's safe completed-check return expression exactly."
+code = '''return flags.TryGetValue(flagId, out bool isSet) && isSet;'''
+
+[[lessons.exercises]]
+id = "s09-l04-e2"
+type = "fill"
+points = 24
+prompt = "Fill the boolean literal SetFlag writes for a quest that has been completed."
+code = '''flags[flagId] = ____;'''
+answer = "true"
+hint = "The assignment records completion; the opposite boolean represents a flag that is not set."
+
+[[lessons.exercises]]
+id = "s09-l04-w1"
+type = "write"
+points = 35
+prompt = "Build QuestLog with SetFlag(string flagId) and HasFlag(string flagId) using Dictionary&lt;string, bool&gt; plus TryGetValue. Ask for keeper_spoken_to before and after recording it, and ask for unlit_beacon. Compute exactly:\nBEFORE False\nAFTER True\nUNKNOWN False"
+starter = '''using System.Collections.Generic;
+
+// Implement QuestLog with a private dictionary. Use the two named public methods.
+// Define QuestLog at the BOTTOM of the file.
+
+'''
+expect = '''BEFORE False
+AFTER True
+UNKNOWN False'''
+solution = '''QuestLog questLog = new QuestLog();
+Console.WriteLine($"BEFORE {questLog.HasFlag("keeper_spoken_to")}");
+questLog.SetFlag("keeper_spoken_to");
+Console.WriteLine($"AFTER {questLog.HasFlag("keeper_spoken_to")}");
+Console.WriteLine($"UNKNOWN {questLog.HasFlag("unlit_beacon")}");
+
+class QuestLog
+{
+    private Dictionary<string, bool> flags = new Dictionary<string, bool>();
+    public void SetFlag(string flagId)
+    {
+        flags[flagId] = true;
+    }
+    public bool HasFlag(string flagId)
+    {
+        return flags.TryGetValue(flagId, out bool isSet) && isSet;
+    }
+}'''
+hint = "SetFlag can assign through the indexer. HasFlag must use TryGetValue and combine its success result with the retrieved isSet value."

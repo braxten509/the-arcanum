@@ -1,0 +1,41 @@
+[freestyle]
+title = "THE GREAT WORKING: WALLS & TRIGGERS"
+brief = "ArtificerRig moves and animates, but the overworld around him is still a picture, not a place. Make it physical, in the real Emberfall project — no simulation, no shortcuts.<ul><li>Add a <code>Box Collider 2D</code> to ArtificerRig, sized to hug his sprite, left with <strong>isTrigger unchecked</strong> — solid.</li><li>On the Walls Tilemap GameObject, add <code>Tilemap Collider 2D</code> and <code>Composite Collider 2D</code>. Set the auto-added Rigidbody2D's Body Type to <strong>Static</strong>, and set <strong>Composite Operation</strong> to <strong>Merge</strong> on the Tilemap Collider2D. Press Play and confirm ArtificerRig now stops dead at Walls tiles instead of walking through them.</li><li>Confirm ArtificerRig's Tag is set to the built-in <code>Player</code> (Inspector, top of the component list).</li><li>Create a Pickup GameObject: a trigger Collider2D (isTrigger checked), Layer set to a NEW layer named exactly <code>Pickup</code>, and a script <code>PickupItem.cs</code> with <code>[SerializeField] private string itemName</code> set to any item name of your choice, whose <code>OnTriggerEnter2D</code> checks <code>other.CompareTag(\"Player\")</code> before logging <code>Picked up &lt;itemName&gt;</code> and calling <code>Destroy(gameObject)</code>.</li><li>Create a second Pickup instance nearby, same Layer, and in <code>Edit &gt; Project Settings &gt; Physics 2D</code>, uncheck the <strong>Pickup &times; Pickup</strong> cell in the collision matrix so the two pickups never fire triggers against each other.</li><li>Create a Door root with a solid BoxCollider2D and a child OpenSensor with a slightly larger trigger Collider2D plus DoorTrigger.cs. Serialize the root collider as doorBlocker. On Player entry log <code>Door opens.</code>, disable both doorBlocker and the sensor; never destroy the root.</li><li>Press Play. Confirm in order: ArtificerRig cannot walk through Walls; walking into a Pickup logs the pickup line once and the Pickup GameObject disappears from the Hierarchy; walking into the Door logs <code>Door opens.</code> exactly once even if you walk back into the same spot a second time.</li><li>Write <code>Assets/COLLISION-LOG.md</code> recording: ArtificerRig's Box Collider2D isTrigger state; the Walls Composite setup (Rigidbody2D Body Type, Composite Operation: Merge checked); ArtificerRig's Tag; both scripts' exact logged lines as they appeared in the Console; the Pickup layer name and the Pickup&times;Pickup matrix cell's state; and one honest sentence confirming the door did not re-log on a second entry.</li></ul>Every line in COLLISION-LOG.md must match what the scene, scripts, and Console actually show — a log describing behavior that doesn't match the real Inspector values or the real Play-mode result earns no credit for that line."
+reward = 280
+packages = []
+xray = "The Worldwright docks the tally for: Walls left without a working Composite Collider2D (ArtificerRig still walks through), the Composite's Rigidbody2D left Dynamic instead of Static, Tilemap Collider2D not set to Composite Operation: Merge, a Pickup or Door's Collider2D left without isTrigger checked (physically blocking instead of triggering), an OnTriggerEnter2D with no CompareTag guard (firing for anything, not just the artificer), a Pickup that never calls Destroy (duplicates pile up) or a Door that calls Destroy instead of disabling its collider (erasing the door itself), Pickup&times;Pickup left checked in the collision matrix, and a COLLISION-LOG.md whose claimed Console lines or Inspector values don't match what the scene and scripts actually produce. He grants favor for the CompareTag guard written as an early-return rather than a wrapped conditional, GetComponent calls cached in Awake rather than called every frame, a Pickup layer that actually stops pickups from tripping each other, and a COLLISION-LOG.md that reads as an honest inspection of a real Play-mode session rather than a restatement of the brief."
+
+[freestyle.badge]
+id = "badge-s06"
+name = "BOUNDARY KEEPER"
+desc = "Turned a painted overworld into a physical one — solid walls, a pickup that vanishes on touch, and a door that opens exactly once and stays open."
+
+[[freestyle.rubric]]
+criterion = "Walls are physically solid"
+weight = 25
+desc = "ArtificerRig carries a non-trigger Box Collider2D; the Walls Tilemap carries Tilemap Collider2D (Composite Operation set to Merge) plus Composite Collider2D with its Rigidbody2D's Body Type set to Static; in Play mode ArtificerRig is stopped by Walls tiles rather than walking through them."
+
+[[freestyle.rubric]]
+criterion = "Pickup scripted correctly"
+weight = 20
+desc = "PickupItem.cs's Collider2D has isTrigger checked; OnTriggerEnter2D guards with other.CompareTag(\"Player\") before logging the pickup line and calling Destroy(gameObject); the pickup visibly disappears from the Hierarchy after being collected once."
+
+[[freestyle.rubric]]
+criterion = "Door scripted correctly"
+weight = 20
+desc = "Door has a solid root blocker plus a reachable child trigger sensor. DoorTrigger disables both after a Player-tagged entry, leaving the sprite/root present and allowing passage without a second log."
+
+[[freestyle.rubric]]
+criterion = "Layers & collision matrix configured"
+weight = 15
+desc = "A Pickup layer exists and is assigned to every Pickup GameObject; Edit > Project Settings > Physics 2D has the Pickup x Pickup cell unchecked so pickups never fire triggers against each other, while Pickup x Default (ArtificerRig) stays checked."
+
+[[freestyle.rubric]]
+criterion = "COLLISION-LOG.md accuracy"
+weight = 10
+desc = "Assets/COLLISION-LOG.md truthfully records ArtificerRig's collider isTrigger state, the Walls Composite setup, ArtificerRig's Tag, both scripts' actual logged Console lines, the Pickup layer/matrix state, and an honest confirmation the door did not re-fire on a second entry — matching the real scene and script exactly."
+
+[[freestyle.rubric]]
+criterion = "Clean style"
+weight = 10
+desc = "Follows Microsoft's C# naming conventions carried into this course's established idiom: camelCase private fields (itemName, doorCollider), PascalCase methods and types (PickupItem, DoorTrigger, OnTriggerEnter2D), Allman braces, an early-return CompareTag guard rather than a wrapped conditional, and PascalCase Unity Layer/Tag names (Pickup, Player) rather than lowercase editor typos."

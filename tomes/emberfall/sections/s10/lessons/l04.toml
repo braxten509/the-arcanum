@@ -1,0 +1,139 @@
+[[lessons]]
+id = "s10-l04"
+title = "Tempering IV // The HUD Hears"
+body = '''
+<p>The player should not have to infer wounds from a disappearing goblin. Build a <strong>HealthHUD</strong> component under the Canvas and give it assigned references to the established <code>Health</code> component and a <code>TextMeshProUGUI</code> label. Forge VII already forged the correct bell: Health changes CurrentHP, then invokes <code>HealthChanged</code>. The HUD subscribes to that event and renders it. Health never needs to know a Canvas exists.</p>
+<pre><code><span class="k">using</span> TMPro;
+<span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> HealthHUD : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> Health health;
+    [SerializeField] <span class="k">private</span> TextMeshProUGUI healthText;
+
+    <span class="k">private</span> <span class="k">void</span> OnEnable()
+    {
+        health.HealthChanged += ShowHP;
+        ShowHP(health.CurrentHP);
+    }
+
+    <span class="k">private</span> <span class="k">void</span> OnDisable()
+    {
+        health.HealthChanged -= ShowHP;
+    }
+
+    <span class="k">private</span> <span class="k">void</span> ShowHP(<span class="k">int</span> currentHP)
+    {
+        healthText.text = $<span class="s">"HP {currentHP}/{health.MaxHP}"</span>;
+    }
+}</code></pre>
+<p><code>OnEnable</code> subscribes and then calls ShowHP once because an event only reports <em>future</em> changes. Without that second line, a newly shown HUD remains blank until the first injury. <code>OnDisable</code> removes precisely the same method. This is the lifecycle discipline from Forge VII: a disabled UI must not keep listening, and re-enabling it must not stack duplicate subscriptions. Health's event remains the report of a fact; ShowHP is merely one listener.</p>
+<p>Drag ArtificerRig's Health into the health field and the HUD label into healthText. The string interpolation form was taught in Forge II: the braces insert values, so <code>HP 14/20</code> comes from the actual component rather than a hardcoded display. Use the exact visible form consistently; later a potion or enemy needs no HUD code because it already calls Health's public boundary and rings the same bell.</p>
+<p>The bench below models the event and formatted render string in one ordinary file. It cannot inspect Canvas anchoring or TextMeshPro fonts. In Unity, enter Play mode, confirm the initial HP immediately, take enemy damage, use a potion from Forge VIII, then disable and re-enable the HUD object while watching for only one update per health change.</p>
+<div class="callout">Health owns the number; HealthHUD owns its text; HealthChanged is the narrow wire between them.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SUBSCRIBE ONCE</div><p>Do not subscribe in Update. That would add ShowHP every frame and cause a growing chorus of duplicate renders. Lifecycle callbacks express the actual lifetime of this listener and make the removal location obvious.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Scripting API: MonoBehaviour.OnEnable"
+url = "https://docs.unity3d.com/ScriptReference/MonoBehaviour.OnEnable.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // TextMesh Pro scripting API"
+url = "https://docs.unity3d.com/Packages/com.unity.textmeshpro@latest/index.html"
+
+[[lessons.exercises]]
+id = "s10-l04-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype the complete lifecycle pair that binds and releases the HUD's HealthChanged listener."
+code = '''private void OnEnable()
+{
+    health.HealthChanged += ShowHP;
+    ShowHP(health.CurrentHP);
+}
+
+private void OnDisable()
+{
+    health.HealthChanged -= ShowHP;
+}'''
+
+[[lessons.exercises]]
+id = "s10-l04-e1"
+type = "fill"
+points = 24
+prompt = "Fill the event operator that adds ShowHP as a HealthChanged listener when HealthHUD becomes enabled."
+code = '''health.HealthChanged ____ ShowHP;'''
+answer = "+="
+hint = "The add-subscription operator is the paired opposite of the -= removal in OnDisable."
+
+[[lessons.exercises]]
+id = "s10-l04-e2"
+type = "mc"
+points = 22
+prompt = "Why does HealthHUD call ShowHP(health.CurrentHP) inside OnEnable after subscribing?"
+choices = ["It changes CurrentHP so the event has a value", "Events replay every older hit automatically", "The label needs an initial render because no event fires merely from subscribing", "TextMeshProUGUI cannot be assigned from an event"]
+answer = 2
+whyWrong = "The HUD must never change Health, and subscribing does not replay past events. TextMeshProUGUI can be updated by a listener; the explicit call supplies the current value before any future damage occurs."
+hint = "Ask what occurs if the player opens a HUD but takes no damage yet."
+explain = "HealthChanged announces changes, not the initial state, so ShowHP renders CurrentHP immediately."
+
+[[lessons.exercises]]
+id = "s10-l04-e3"
+type = "text"
+points = 19
+prompt = "Which lifecycle callback must remove ShowHP from HealthChanged when the HUD panel becomes inactive?"
+answer = "OnDisable"
+hint = "It is the counterpart to OnEnable and is already used by the combat readout in Forge VII."
+
+[[lessons.exercises]]
+id = "s10-l04-w1"
+type = "write"
+points = 35
+prompt = "Model the existing combat bell in plain C#: Health begins at 20, exposes HealthChanged, and TakeDamage invokes it. Make HealthHUD subscribe, render the initial HP, then have health take 6 damage. Compute exactly:\nHUD HP 20\nHUD HP 14"
+starter = '''// Define Health and HealthHUD below the top-level calls. HealthHUD must render once on Enable and on each event.
+// Use the supplied 20 HP and 6 damage through properties and methods.
+
+'''
+expect = '''HUD HP 20
+HUD HP 14'''
+solution = '''Health health = new Health(20);
+HealthHUD hud = new HealthHUD(health);
+hud.Enable();
+health.TakeDamage(6);
+
+class Health
+{
+    public int CurrentHP { get; private set; }
+    public event Action<int>? HealthChanged;
+    public Health(int currentHP) { CurrentHP = currentHP; }
+    public void TakeDamage(int amount)
+    {
+        CurrentHP -= amount;
+        HealthChanged?.Invoke(CurrentHP);
+    }
+}
+class HealthHUD
+{
+    private readonly Health health;
+    public HealthHUD(Health health) { this.health = health; }
+    public void Enable()
+    {
+        health.HealthChanged += ShowHP;
+        ShowHP(health.CurrentHP);
+    }
+    private void ShowHP(int currentHP) { Console.WriteLine($"HUD HP {currentHP}"); }
+}'''
+hint = "Enable first adds ShowHP to HealthChanged, then calls it with CurrentHP. TakeDamage invokes the event after reducing the number."
+
+[[lessons.exercises]]
+id = "s10-l04-e4"
+type = "mc"
+points = 22
+prompt = "What bug follows if HealthHUD adds ShowHP in OnEnable but never removes it in OnDisable, then the panel is hidden and shown again?"
+choices = ["CurrentHP becomes a string", "One damage event can call ShowHP more than once", "GameState becomes MainMenu", "QuestLog can no longer use TryGetValue"]
+answer = 1
+whyWrong = "Events retain each added listener; re-enabling without -= adds another copy, producing duplicate updates. Health's type, game state, and quest dictionary are unrelated to this listener-lifetime error."
+hint = "Track the event subscription list through enable, disable, and enable again."
+explain = "OnDisable balances the += subscription so the next enable begins with one listener, not an accumulated list."

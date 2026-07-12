@@ -1,0 +1,119 @@
+[[lessons]]
+id = "s09-l05"
+title = "Let the World Answer"
+body = '''
+<p>The keeper now opens pages, and QuestLog remembers facts. Forge them together without making either component swallow the other. NPCInteractable owns the consequence of finishing <em>its</em> opening conversation: after it starts the sequence, it may later call <code>questLog.SetFlag("keeper_spoken_to")</code>. DialogueController must expose whether its panel is open, but it must not know what a keeper, key, or quest means.</p>
+<pre><code><span class="k">public</span> <span class="k">class</span> DialogueController : MonoBehaviour
+{
+    <span class="k">public</span> <span class="k">bool</span> IsOpen { <span class="k">get</span>; <span class="k">private</span> <span class="k">set</span>; }
+    <span class="k">public</span> event System.Action ConversationFinished;
+
+    <span class="k">public</span> <span class="k">void</span> Begin(<span class="k">string</span>[] lines)
+    {
+        activeLines = lines;
+        lineIndex = 0;
+        IsOpen = <span class="k">true</span>;
+        dialoguePanel.ShowLine(activeLines[lineIndex]);
+    }
+
+    <span class="k">public</span> <span class="k">void</span> Advance()
+    {
+        lineIndex++;
+        <span class="k">if</span> (lineIndex &gt;= activeLines.Length)
+        {
+            IsOpen = <span class="k">false</span>;
+            dialoguePanel.Hide();
+            ConversationFinished?.Invoke();
+            <span class="k">return</span>;
+        }
+        dialoguePanel.ShowLine(activeLines[lineIndex]);
+    }
+}</code></pre>
+<p><code>IsOpen</code> is the same public-read/private-set boundary you used for Health.CurrentHP. A player input script can decide whether its interact action means “advance dialogue” by reading IsOpen, but it cannot forge an open state without Begin. The controller changes IsOpen before commanding the panel so its observable state agrees with the screen on the same frame.</p>
+<p>Before the keeper begins its first conversation, subscribe <code>dialogueController.ConversationFinished += CompleteOpeningQuest</code>. That method immediately unsubscribes itself, calls <code>questLog.SetFlag("keeper_spoken_to")</code>, and therefore runs once. Later interactions use HasFlag to choose a return line without subscribing again. DialogueController reports completion but never knows which quest the NPC records.</p>
+<p>Test the entire chain in Play mode: approach, interact, advance every opening line, observe the panel close, then log HasFlag. Leave and return; the second greeting must be the return line. Also walk a goblin through the trigger to prove its tag does not start the quest. That proof crosses UI, physics, strings, dictionary state, and boundaries without pretending a single console file could do it.</p>
+<div class="callout">DialogueController owns page state. QuestLog owns completion facts. NPCInteractable is the narrow bridge that gives one NPC's finished conversation a consequence.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ONE-TIME REWARDS</div><p>When a conversation eventually grants an item, guard the grant with HasFlag before Inventory.Add. Otherwise every return greeting becomes a duplication machine. The flag is not merely narrative; it is a rule that prevents a real gameplay exploit.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Microsoft Learn: Properties"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/properties"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Manual: Tags"
+url = "https://docs.unity3d.com/Manual/Tags.html"
+
+[[lessons.exercises]]
+id = "s09-l05-e1"
+type = "mc"
+points = 22
+prompt = "Which component should own the flag keeper_spoken_to after the keeper's opening conversation finishes?"
+choices = ["DialoguePanel, because it draws the words", "ItemDefinition, because every quest is an item asset", "Rigidbody2D, because it saw the player approach", "QuestLog, because it owns runtime quest facts keyed by stable ids"]
+answer = 3
+whyWrong = "DialoguePanel owns display, ItemDefinition is shared authored item data, and Rigidbody2D owns motion. A completion flag is mutable world state, so QuestLog's dictionary is its proper ledger."
+hint = "Ask which object already owns Dictionary<string, bool> and the safe HasFlag question."
+explain = "QuestLog centralizes completion state so later NPCs and rules can ask the same source of truth."
+
+[[lessons.exercises]]
+id = "s09-l05-e2"
+type = "text"
+points = 19
+prompt = "What DialogueController property may another script read to decide whether an interact press should advance an active conversation?"
+answer = "IsOpen"
+hint = "It is the public boolean property whose setter remains private to DialogueController."
+
+[[lessons.exercises]]
+id = "s09-l05-e3"
+type = "fill"
+points = 24
+prompt = "Fill the QuestLog call that records the keeper's completed opening conversation."
+code = '''questLog.____("keeper_spoken_to");'''
+answer = "SetFlag"
+hint = "Use the public verb that writes completion, not the question method that only reads it."
+
+[[lessons.exercises]]
+id = "s09-l05-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype the public-read, controller-write status property exactly."
+code = '''public bool IsOpen { get; private set; }'''
+
+[[lessons.exercises]]
+id = "s09-l05-w1"
+type = "write"
+points = 35
+prompt = "Model the one-time quest reward guard in plain C#. QuestLog already has SetFlag and HasFlag. Write GrantRustKey(QuestLog questLog, ref int keys): if keeper_spoken_to is not set, increment keys once and set that flag; otherwise do nothing. Call it twice and compute exactly:\nRUST KEYS 1\nSPOKEN True"
+starter = '''using System.Collections.Generic;
+
+// Implement QuestLog and GrantRustKey. The second call must not add another key.
+// Define QuestLog below the top-level calls.
+
+'''
+expect = '''RUST KEYS 1
+SPOKEN True'''
+solution = '''QuestLog questLog = new QuestLog();
+int keys = 0;
+GrantRustKey(questLog, ref keys);
+GrantRustKey(questLog, ref keys);
+Console.WriteLine($"RUST KEYS {keys}");
+Console.WriteLine($"SPOKEN {questLog.HasFlag("keeper_spoken_to")}");
+
+static void GrantRustKey(QuestLog questLog, ref int keys)
+{
+    if (questLog.HasFlag("keeper_spoken_to")) return;
+    keys++;
+    questLog.SetFlag("keeper_spoken_to");
+}
+
+class QuestLog
+{
+    private Dictionary<string, bool> flags = new Dictionary<string, bool>();
+    public void SetFlag(string flagId) { flags[flagId] = true; }
+    public bool HasFlag(string flagId)
+    {
+        return flags.TryGetValue(flagId, out bool isSet) && isSet;
+    }
+}'''
+hint = "Use HasFlag as an early return before incrementing. The first call adds the key and writes the flag; the second sees the flag and exits."

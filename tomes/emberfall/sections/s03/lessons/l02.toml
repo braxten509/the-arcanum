@@ -1,0 +1,126 @@
+[[lessons]]
+id = "s03-l02"
+title = "Components — Composition Over Inheritance"
+body = '''
+<p>Chapter II's Artificer class carried everything about an artificer in one blueprint — Name, Level, HitPoints, an inventory, all inside a single <code>class Artificer</code>. Unity throws that model out for anything living in a scene. A GameObject does not subclass its way into new abilities; it <strong>composes</strong> them by collecting separate, swappable <strong>Components</strong> side by side. Select ArtificerRig in the Hierarchy, click <strong>Add Component</strong> in the Inspector, and the object gains a capability — a SpriteRenderer to draw a picture, a Rigidbody2D to feel gravity, your own script to run custom logic — without inheriting from anything.</p>
+<pre><code>Hierarchy: ArtificerRig
+Inspector shows, stacked top to bottom:
+  Transform          — position, rotation, scale (always present)
+  SpriteRenderer      — draws a 2D image
+  BoxCollider2D       — gives the shape something to collide with
+  ArtificerRig.cs      — your own script, one component among the rest</code></pre>
+<p>Notice the last row: <strong>your script is a component too</strong>, sitting in the exact same list as Transform and SpriteRenderer, not some special container that holds them. This is why Unity calls the pattern <strong>composition over inheritance</strong> — where a language-only design might reach for a class hierarchy (<code>FlyingEnemy : Enemy : Creature</code>, each level adding fields the ones below don't need), Unity mixes and matches instead. A flying enemy and a walking enemy can share one <code>Health</code> component and one <code>Damageable</code> component while differing only in which movement component is attached — swap one component out, keep the rest, and nothing about their shared class ancestry has to change because there isn't a shared ancestry to manage.</p>
+<p>Removing a capability is symmetric: right-click a component's header and choose Remove Component, and the GameObject loses exactly that ability and nothing else. A GameObject with no SpriteRenderer simply doesn't draw; the rest of its components keep working untouched. Compare that to inheritance, where removing one ability from deep in a class chain risks breaking every sibling class built on the same branch.</p>
+<div class="callout">A GameObject can carry more than one of some component types (several scripts, several colliders) but never more than one Transform, and Unity will refuse a second one — that single Transform is what every other component on the object positions itself relative to.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // COMPONENTS ARE REFERENCE TYPES, JUST LIKE ARTIFICER</div>
+<p>Chapter II's field notes on Artificer flagged that a class is a reference type — copying a variable copies the reference, not the object. Every Component in Unity is a class under the hood, so the same rule applies: a script that stores a reference to another GameObject's SpriteRenderer is holding a pointer to the live component sitting in the scene, not a snapshot. Disable that component elsewhere and every script holding a reference to it sees the disabled state immediately — nothing needs to be re-fetched.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Manual: Use components"
+url = "https://docs.unity3d.com/Manual/UsingComponents.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Manual: The GameObject class (component list)"
+url = "https://docs.unity3d.com/Manual/class-GameObject.html"
+
+[[lessons.exercises]]
+id = "s03-l02-e1"
+type = "mc"
+points = 15
+prompt = "A flying enemy and a walking enemy both need a Health component but different movement logic. What is the Unity-idiomatic way to build this?"
+choices = ["A base class Enemy that FlyingEnemy and WalkingEnemy both inherit from, sharing Health as an inherited field", "Put every possible field for every enemy type into one giant Enemy component and leave the unused fields blank", "Give each its own Health component plus a different movement component attached to the same GameObject — no shared class hierarchy required", "Make Health a static field shared across all enemies in the scene"]
+answer = 2
+whyWrong = "Reaching for a base class is exactly the instinct this lesson said Unity replaces — GameObjects don't inherit abilities, they attach them, so there's no Enemy superclass to share a Health field through; cramming every field into one bloated component is the opposite of composition, and a static Health field would mean every enemy in the scene shared the exact same hit points, which breaks the moment two enemies exist at once."
+hint = "This lesson's whole point was that Unity solves 'shared trait, different behavior' without a class hierarchy at all."
+explain = "Composition handles this by attaching a shared Health component to both and a different movement component to each — no inheritance chain needed, and either enemy type can gain or lose capabilities independently."
+
+[[lessons.exercises]]
+id = "s03-l02-e2"
+type = "mc"
+points = 20
+prompt = "Why does the lesson call your own script 'one component among the rest' instead of a special container?"
+choices = ["Because scripts run before every other component in a fixed priority order", "Because Unity actually compiles a script into a subclass of GameObject behind the scenes", "Because in the Inspector's component list, a script sits alongside Transform, SpriteRenderer, and every other component as an equal peer", "Because only one script component is allowed per GameObject, unlike other component types"]
+answer = 2
+whyWrong = "Component execution order is a real, separate topic — but it isn't why a script counts as 'one component among the rest', so that's the wrong reason; a script is never compiled as a GameObject subclass (GameObjects cannot be subclassed at all, which is the entire point of composition), and a GameObject can hold several script components at once, not just one."
+hint = "Look at the Inspector sketch again — where does the .cs script row sit relative to Transform and SpriteRenderer?"
+explain = "The Inspector lists a script component in the exact same stacked list as every built-in component — Unity gives it no special status, which is the concrete proof that composition treats your code as just another attachable capability."
+
+[[lessons.exercises]]
+id = "s03-l02-e3"
+type = "text"
+points = 20
+prompt = "What is the name of the design pattern, called out explicitly in this lesson, where a GameObject gains abilities by attaching separate components instead of extending a class hierarchy?"
+answer = "composition over inheritance"
+hint = "Two words joined by 'over' — the lesson's own section title."
+
+[[lessons.exercises]]
+id = "s03-l02-e4"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this Inspector sketch of a fully composed ArtificerRig exactly."
+code = '''Hierarchy: ArtificerRig
+Inspector shows, stacked top to bottom:
+  Transform          — position, rotation, scale (always present)
+  SpriteRenderer      — draws a 2D image
+  BoxCollider2D       — gives the shape something to collide with
+  ArtificerRig.cs      — your own script, one component among the rest'''
+
+[[lessons.exercises]]
+id = "s03-l02-e5"
+type = "fill"
+points = 20
+prompt = "Fill in the missing action from the Inspector — the one that strips a single capability off a GameObject without touching any of its other components."
+code = '''Right-click a component's header and choose ____ Component, and the GameObject
+loses exactly that ability and nothing else — the rest keep working untouched.'''
+answer = "Remove"
+hint = "It's the mirror image of Add Component, named earlier in this same lesson."
+
+[[lessons.exercises]]
+id = "s03-l02-w1"
+type = "write"
+points = 30
+prompt = "Model a GameObject's component list in plain C#: a class Rig with a public string Name and a public List<string> Components (initialized empty in a constructor Rig(string name)). Build a Rig named \"ArtificerRig\", then in order Add \"Transform\", \"SpriteRenderer\", \"BoxCollider2D\" to Components. Write a method AttachedCount() on Rig returning Components.Count. Print, exactly:\nArtificerRig has 3 components\n1. Transform\n2. SpriteRenderer\n3. BoxCollider2D"
+starter = '''
+// Build the ArtificerRig and its component list below, then define class Rig
+// at the BOTTOM of the file (top-level statements must come first).
+
+'''
+expect = '''
+ArtificerRig has 3 components
+1. Transform
+2. SpriteRenderer
+3. BoxCollider2D'''
+solution = '''
+Rig rig = new Rig("ArtificerRig");
+rig.Components.Add("Transform");
+rig.Components.Add("SpriteRenderer");
+rig.Components.Add("BoxCollider2D");
+
+Console.WriteLine($"{rig.Name} has {rig.AttachedCount()} components");
+int number = 1;
+foreach (string component in rig.Components)
+{
+    Console.WriteLine($"{number}. {component}");
+    number++;
+}
+
+class Rig
+{
+    public string Name;
+    public List<string> Components;
+
+    public Rig(string name)
+    {
+        this.Name = name;
+        Components = new List<string>();
+    }
+
+    public int AttachedCount()
+    {
+        return Components.Count;
+    }
+}
+'''
+hint = "This is the same numbered foreach pattern PrintInventory used in chapter II — count with an int you increment each pass, starting at 1."

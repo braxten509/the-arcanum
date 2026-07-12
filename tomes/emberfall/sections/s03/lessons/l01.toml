@@ -1,0 +1,107 @@
+[[lessons]]
+id = "s03-l01"
+title = "GameObjects & the Hierarchy — Everything Starts Empty"
+body = '''
+<p>Open Unity and look at the <strong>Hierarchy</strong> window on the left of the Editor — it lists every <strong>GameObject</strong> that exists in the current scene, the way <code>Program.cs</code> listed every variable in your workbench. A GameObject is not code. Fresh out of <code>GameObject &gt; Create Empty</code>, it is a bare container with a name and a position — it draws nothing, moves nothing, and does nothing on its own. Every capability you have read about — a sprite, a collider, your own script — is bolted onto a GameObject afterward, never baked into it.</p>
+<p>One exception: a GameObject is never <em>fully</em> empty. Unity refuses to let you remove the one piece every GameObject carries by law — its <strong>Transform</strong>, holding position, rotation, and scale. Select any GameObject and the Inspector shows Transform pinned at the top, with no "X" to delete it. Everything else attached below it is optional.</p>
+<pre><code>Hierarchy
+├── ArtificerRig      (Transform only — an empty container so far)
+├── Torch              (Transform only — the same, a different name)
+└── SceneLighting       (Transform only)</code></pre>
+<p>GameObjects can be nested inside one another in the Hierarchy — drag one onto another and it becomes a <strong>child</strong>. A child's Transform is measured relative to its <strong>parent</strong>: move the parent, and every child rides along, even though the child's own position number never changed. This is how a whole rig — a body plus a held torch plus a name label — moves as one unit later in the course: not by writing code that moves three things in lockstep, but by parenting three GameObjects once.</p>
+<pre><code>Hierarchy
+└── ArtificerRig
+    └── Torch      (child — moves with ArtificerRig automatically)</code></pre>
+<p>Naming discipline matters more here than it did in <code>Program.cs</code>. A variable name was private to your own file; a GameObject's name is public to the whole project — other scripts will find it by that exact string later (<code>GameObject.Find("ArtificerRig")</code>, a tool you will meet properly once you are writing scripts that reach across the scene). Rename sloppily now — "GameObject (1)", "New GameObject" — and a later forge's lookup silently fails to find anything.</p>
+<div class="callout">The Hierarchy only shows what exists in THIS scene. A Unity project can hold many scenes — a title screen, an overworld, a dungeon — and each keeps its own separate Hierarchy, the way each of your workbench exercises kept its own separate Program.cs.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE SCENE VIEW VS. THE GAME VIEW</div>
+<p>The Editor shows two different windows for the same world: the <strong>Scene</strong> view is your workbench — click and drag GameObjects, orbit the camera, nothing here is visible to a player. The <strong>Game</strong> view is what actually renders through whatever camera the scene contains, and it is the only view live while you press Play. Building in the Scene view and forgetting to check the Game view is the single most common reason a new artificer swears a GameObject "isn't there" when it is sitting three units outside the camera's frame the whole time.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Manual: The GameObject class"
+url = "https://docs.unity3d.com/Manual/class-GameObject.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Manual: Instantiating Prefabs at runtime (parenting preview)"
+url = "https://docs.unity3d.com/Manual/instantiating-prefabs.html"
+
+[[lessons.exercises]]
+id = "s03-l01-e1"
+type = "mc"
+points = 15
+prompt = "You run GameObject > Create Empty and immediately check its Inspector without adding anything else. What does it show?"
+choices = ["Just a Transform component — position, rotation, scale", "An empty Inspector with nothing listed at all", "A default SpriteRenderer, since every GameObject needs to be visible", "An error, because an empty GameObject cannot exist until a script is attached"]
+answer = 0
+whyWrong = "The Inspector is never truly blank — Unity will not let a GameObject exist without the one component it enforces by law; nothing renders a GameObject automatically (SpriteRenderer is opt-in, added by you later), and an empty GameObject is a completely legal, common thing to have sitting in a scene — it compiles nothing, so there is no error to throw."
+hint = "This lesson named the one component every GameObject is born with and can never remove."
+explain = "Every GameObject carries a Transform from the moment it's created — position, rotation, and scale — and the Inspector will not offer a way to remove it."
+
+[[lessons.exercises]]
+id = "s03-l01-e2"
+type = "mc"
+points = 15
+prompt = "Torch is dragged in the Hierarchy so it becomes a child of ArtificerRig. Later, ArtificerRig's Transform position is changed in code. What happens to Torch?"
+choices = ["Nothing — Torch's own position value is untouched, so it stays exactly where it was", "Torch moves along with ArtificerRig, because its position is measured relative to its parent", "Torch is deleted, since children are destroyed when a parent's Transform changes", "Unity throws a MissingReferenceException"]
+answer = 1
+whyWrong = "Torch's own position NUMBER is genuinely unchanged — but that number is relative to the parent, so 'unaffected' is the wrong read on what the player actually sees; nothing about moving a parent's Transform destroys its children, and no reference goes missing here — this is exactly what parenting is built to do, not an error state."
+hint = "The lesson said a child's Transform is measured relative to its parent — what does that do to where the child visibly ends up when the parent moves?"
+explain = "A parented child's position is relative to the parent, so moving the parent carries every child along visually even though each child's own stored position value never changes."
+
+[[lessons.exercises]]
+id = "s03-l01-e3"
+type = "text"
+points = 20
+prompt = "Name the one component that Unity attaches to a GameObject automatically and will not let you remove from the Inspector."
+answer = "Transform"
+hint = "It holds position, rotation, and scale — the lesson called it out as pinned at the top of the Inspector with no way to delete it."
+
+[[lessons.exercises]]
+id = "s03-l01-e4"
+type = "fill"
+points = 20
+prompt = "Fill in the missing word in this Hierarchy sketch, where Torch rides along whenever ArtificerRig moves."
+code = '''Hierarchy
+└── ArtificerRig
+    └── Torch      (____ — moves with ArtificerRig automatically)'''
+answer = "child"
+hint = "One GameObject dragged onto another in the Hierarchy takes on this relationship to it."
+
+[[lessons.exercises]]
+id = "s03-l01-w1"
+type = "write"
+points = 30
+prompt = "Unity's Hierarchy can't run inside this workbench, so build a paper model of it in plain C#: a class SceneNode with a public string Name and a public List<SceneNode> Children (initialized empty in a constructor SceneNode(string name)). Construct a root node \"ArtificerRig\" and add two children to its Children list, in this order: a node named \"Torch\" and a node named \"NameLabel\" (each built with SceneNode(string) and no grandchildren). Then print the root's name, followed by each direct child's name indented two spaces, in the order added, exactly:\nArtificerRig\n  Torch\n  NameLabel"
+starter = '''
+// Build the ArtificerRig node and its two children below, then define
+// class SceneNode at the BOTTOM of the file (top-level statements first).
+
+'''
+expect = '''
+ArtificerRig
+  Torch
+  NameLabel'''
+solution = '''
+SceneNode root = new SceneNode("ArtificerRig");
+root.Children.Add(new SceneNode("Torch"));
+root.Children.Add(new SceneNode("NameLabel"));
+
+Console.WriteLine(root.Name);
+foreach (SceneNode child in root.Children)
+{
+    Console.WriteLine("  " + child.Name);
+}
+
+class SceneNode
+{
+    public string Name;
+    public List<SceneNode> Children;
+
+    public SceneNode(string name)
+    {
+        this.Name = name;
+        Children = new List<SceneNode>();
+    }
+}
+'''
+hint = "Children is a List<SceneNode> just like the inventory List<string> from chapter II — Add two SceneNode objects to it in order, then foreach over it to print each one indented by two spaces."

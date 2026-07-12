@@ -1,0 +1,101 @@
+[[lessons]]
+id = "s01-l02"
+title = "Variables & Types — Naming the Metal"
+body = '''
+<p>A game is a machine that remembers things: how much health an artificer has, how many gold shards sit in their pouch, whether a door is locked. Every one of those facts lives in a <strong>variable</strong> — a named slot in memory. In C#, declaring one always follows the same shape: <em>type</em>, then <em>name</em>, then optionally <code>= value</code>.</p>
+<pre><code><span class="k">int</span> hitPoints = 20;
+<span class="k">double</span> attackSpeed = 1.5;
+<span class="k">bool</span> isBlocking = <span class="k">false</span>;
+<span class="k">string</span> artificerName = <span class="s">"Kess"</span>;
+<span class="k">char</span> grade = <span class="s">'A'</span>;</code></pre>
+<p>C# is <strong>statically typed</strong>: once <code>hitPoints</code> is declared <code>int</code>, it can only ever hold a whole number, and the compiler checks this before your code ever runs — a bug like <code>hitPoints = "twenty"</code> is caught at compile time, not discovered three fights into a playtest.</p>
+<p>The five types above are the ones you will reach for constantly: <code>int</code> for whole numbers (health, gold, a level index), <code>double</code> for numbers with a fraction (a speed multiplier, a percentage), <code>bool</code> for a yes/no fact, <code>string</code> for text, <code>char</code> for a single character wrapped in single quotes (note: <code>'A'</code> is a <code>char</code>, <code>"A"</code> is a one-letter <code>string</code> — they are not the same type).</p>
+<p>When the value on the right already makes the type obvious, C# lets you write <code>var</code> instead of spelling the type out:</p>
+<pre><code><span class="k">var</span> level = 3;              <span class="c">// var infers int</span>
+<span class="k">var</span> title = <span class="s">"Coal-Hand"</span>;   <span class="c">// var infers string</span></code></pre>
+<p><code>var</code> is not a looser type — the compiler still locks <code>level</code> to <code>int</code> forever, it just worked out which type to lock from the right-hand side. It is a convenience for the reader's eyes, not a rule change.</p>
+<p>Naming has a convention you will follow from the first line you write: local variables are <strong>camelCase</strong> — <code>hitPoints</code>, <code>artificerName</code>, first word lowercase, each following word capitalized. Types (which you have not built yet) get <strong>PascalCase</strong> instead — every word capitalized. The Worldwright reads camelCase locals as a mark of a hand that has done this before.</p>
+<div class="callout">A variable declared but never given a starting value cannot be read until it is assigned one — the compiler refuses to let you use a fact you never actually stated.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY THE COMPILER CARES SO MUCH</div>
+<p>Static typing costs you a little ceremony up front — you have to say <code>int</code> — and buys back a category of bug that dynamic languages only catch at runtime, sometimes mid-playtest. Unity leans on this hard: a <code>[SerializeField] int maxHitPoints</code> on a component (chapter III) is a promise the Inspector panel enforces too — you cannot accidentally type text into a number field.</p>
+<p><code>const</code> exists for a value that can never change after compilation (<code>const double Gravity = 9.8;</code>) — you will not need it yet, but it is the sibling of <code>var</code> you will meet once constants matter.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Microsoft C# guide: Built-in types"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/built-in-types"
+essential = true
+
+[[lessons.readings]]
+label = "OPTIONAL // Microsoft C# guide: Coding conventions"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/coding-style/coding-conventions"
+
+[[lessons.exercises]]
+id = "s01-l02-e1"
+type = "mc"
+points = 15
+prompt = "Which declaration correctly holds a fractional attack speed of one and a half?"
+choices = ["int attackSpeed = 1.5;", "string attackSpeed = 1.5;", "bool attackSpeed = 1.5;", "double attackSpeed = 1.5;"]
+answer = 3
+whyWrong = "int can only hold whole numbers so 1.5 would not compile, string would require quotes around a number for it to even parse as text, and bool only holds true/false — double is the type built for a fractional value like 1.5."
+hint = "The value has a decimal point — which of the five named types allows a fraction?"
+explain = "double is C#'s everyday type for numbers with a fractional part."
+
+[[lessons.exercises]]
+id = "s01-l02-e2"
+type = "mc"
+points = 15
+prompt = "<code>var title = \"Coal-Hand\";</code> — what type does <code>title</code> end up as?"
+choices = ["object, resolved at runtime", "var, a genuinely loose type", "string, inferred once at compile time", "It has no fixed type and can be reassigned to an int later"]
+answer = 2
+whyWrong = "var is not itself a runtime-resolved or loose type — it is pure compile-time sugar; the compiler reads the string literal on the right and locks title to string permanently, so reassigning it to an int afterward would not compile."
+hint = "var isn't a fourth type sitting alongside string and int — it's shorthand the compiler resolves once, immediately."
+explain = "var only saves you typing the type name; the compiler still infers and locks a single real type from the initializer."
+
+[[lessons.exercises]]
+id = "s01-l02-e3"
+type = "text"
+points = 20
+prompt = "A single character wrapped in single quotes, like 'A', is which C# type?"
+answer = "char"
+hint = "It's the type built for exactly one character — distinct from a multi-character string."
+
+[[lessons.exercises]]
+id = "s01-l02-e4"
+type = "fill"
+points = 20
+prompt = "Fill in the missing type so this declares a whole-number health value of 20."
+code = '____ hitPoints = 20;'
+answer = "int"
+hint = "20 has no decimal point and no quotes — it's a whole number."
+
+[[lessons.exercises]]
+id = "s01-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this declaration exactly, until your hand knows it without reading. (Ctrl+Enter submits.)"
+code = "double attackSpeed = 1.5;"
+
+[[lessons.exercises]]
+id = "s01-l02-w1"
+type = "write"
+points = 30
+prompt = "The Worldwright wants three facts about a fresh artificer declared and printed, one per line, in this exact order and wording: a string name holding \"Kess\", an int level holding 3, and a bool isBlocking holding false. Print exactly:\nKess\n3\nFalse"
+starter = '''
+// Declare artificerName, level, and isBlocking below, then print each on its own line.
+
+'''
+expect = '''
+Kess
+3
+False'''
+solution = '''
+string artificerName = "Kess";
+int level = 3;
+bool isBlocking = false;
+Console.WriteLine(artificerName);
+Console.WriteLine(level);
+Console.WriteLine(isBlocking);
+'''
+hint = "Console.WriteLine on a bool prints 'True' or 'False' with a capital letter — that's C#'s own formatting, not a typo."

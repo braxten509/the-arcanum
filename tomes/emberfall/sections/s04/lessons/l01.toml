@@ -1,0 +1,103 @@
+[[lessons]]
+id = "s04-l01"
+title = "Sprites & the SpriteRenderer — Giving ArtificerRig a Body"
+body = '''
+<p>Drag a PNG into <code>Assets/Sprites</code> and Unity's importer treats it as a <strong>Texture</strong> first — raw pixel data, nothing more. For a 2D project the importer's <strong>Texture Type</strong> defaults to <em>Sprite (2D and UI)</em>, which slices that texture into one or more <strong>Sprites</strong>: a Sprite is a texture plus the metadata Unity needs to draw it in a scene — its pivot point, its border, and its <strong>Pixels Per Unit</strong> (PPU), the number of source pixels that map to one Unity world unit. A 32-pixel-wide image imported at PPU 32 is exactly 1 unit wide in the scene; the same image at PPU 16 renders 2 units wide with no change to the file itself — PPU decides scale, not the Transform.</p>
+<p>A Sprite sitting in the Project window still draws nothing — same rule chapter III taught about scripts and GameObjects. Select ArtificerRig, <strong>Add Component &gt; Sprite Renderer</strong>, and drag the imported Sprite onto its <code>Sprite</code> field. SpriteRenderer joins the Inspector stack exactly where chapter III said a component belongs: beside Transform and ArtificerRig.cs, not wrapping them.</p>
+<pre><code>Hierarchy: ArtificerRig
+Inspector shows, stacked top to bottom:
+  Transform          — position, rotation, scale
+  SpriteRenderer      — Sprite: KessBody, Color: white, Sorting Layer: Default
+  ArtificerRig.cs      — your own script, unchanged since chapter III</code></pre>
+<p>SpriteRenderer carries a <code>Color</code> field too, and it does not just replace the image — it <strong>multiplies</strong> against every pixel. White (the default) leaves the Sprite untouched; a red tint darkens and colors it; a Color with alpha below 255 makes the whole Sprite partially transparent. This is how a hurt-flash or a fade-out effect works later in the course: no new art, just a script changing one field on a component that is already sitting there.</p>
+<div class="callout">A missing Sprite reference is silent, not an error. Add a SpriteRenderer and leave its Sprite field empty (or forget to reassign it after deleting the old asset) and the GameObject compiles, runs, and simply draws nothing — the same "no warning, just missing" failure chapter III's field notes described for a script attached to no GameObject.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SPRITE MODE: SINGLE VS. MULTIPLE</div>
+<p>The Texture Importer's <code>Sprite Mode</code> field offers <em>Single</em> — the whole image is one Sprite, right for a standalone icon or a one-off prop — and <em>Multiple</em>, which opens the Sprite Editor to slice one imported sheet into a grid of many named Sprites at once. A spritesheet of sixteen 32×32 wall tiles imported at Multiple, sliced by a 32×32 grid, hands the later Tilemap lessons sixteen individually paintable Sprites from a single PNG instead of sixteen separate image files to manage.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Manual: Sprite Renderer component reference"
+url = "https://docs.unity3d.com/Manual/sprite/renderer/sprite-renderer-reference.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Manual: Texture import settings reference"
+url = "https://docs.unity3d.com/Manual/class-TextureImporter.html"
+
+[[lessons.exercises]]
+id = "s04-l01-e1"
+type = "mc"
+points = 18
+prompt = "A 64-pixel-wide sprite is imported at Pixels Per Unit 32, then re-imported at PPU 64 with no other changes. What happens to it in the scene?"
+choices = ["It renders half as wide as before — 1 unit instead of 2", "It renders twice as wide as before, since a higher PPU always means a bigger sprite", "Nothing changes visually; PPU only affects the file size on disk", "Unity refuses the re-import because PPU cannot be changed after a sprite is placed in a scene"]
+answer = 0
+whyWrong = "PPU going up does not enlarge the sprite — it is pixels PER unit, so a higher number packs more source pixels into each world unit and shrinks the on-screen size, the opposite of the second choice's instinct; PPU is metadata read at draw time, not a disk-size setting, so it very much changes what you see; and nothing about changing PPU on an already-imported texture is blocked — sprites already placed in a scene simply re-render at the new scale."
+hint = "The lesson defined PPU as pixels mapped INTO one unit — going from 32 to 64 packs more pixels into the same unit of world space."
+explain = "64 pixels at PPU 32 is 2 units wide; the same 64 pixels at PPU 64 is only 1 unit wide — doubling PPU halves the apparent size, because more source pixels are now squeezed into each world unit."
+
+[[lessons.exercises]]
+id = "s04-l01-e2"
+type = "mc"
+points = 18
+prompt = "ArtificerRig's SpriteRenderer has its Color field set to white with alpha lowered to 128 (half). What is the visible effect, per this lesson's description of how Color interacts with a Sprite's pixels?"
+choices = ["The Sprite is replaced entirely by a solid gray square", "The Sprite renders unchanged, since white performs no multiplication", "The Sprite renders at half transparency, its original colors still showing through", "Unity throws a runtime error, since alpha values below 255 are invalid on a SpriteRenderer"]
+answer = 2
+whyWrong = "Color never swaps the artwork out for a flat shape — it multiplies against the existing pixels, so the original image is still what's drawn; white at FULL alpha (255) is the one case that leaves a Sprite untouched, but lowering alpha specifically is what this lesson called out as the fade-out mechanism, so 'unchanged' is wrong once alpha drops; and there is nothing invalid about a lowered alpha value — SpriteRenderer is built to accept it, which is exactly how a later script drives a fade effect."
+hint = "The lesson said Color multiplies against every pixel rather than replacing them — what does lowering only the alpha channel do to a multiplied pixel, as opposed to lowering red, green, or blue?"
+explain = "Color multiplies against the Sprite's existing pixels rather than replacing them, so a white tint with reduced alpha leaves the original artwork visible but partially see-through — the mechanism this lesson named for fades and hurt-flashes."
+
+[[lessons.exercises]]
+id = "s04-l01-e3"
+type = "text"
+points = 20
+prompt = "What is the name of the Texture Importer setting that controls how many source pixels of an imported image map to one Unity world unit?"
+answer = "Pixels Per Unit"
+accept = ["PPU"]
+hint = "This lesson introduced it by its full name first, then used the three-letter abbreviation for the rest of the section."
+
+[[lessons.exercises]]
+id = "s04-l01-e4"
+type = "fill"
+points = 22
+prompt = "Fill in the missing Inspector row — the component this lesson attached to ArtificerRig so it would actually draw an image."
+code = '''Hierarchy: ArtificerRig
+Inspector shows, stacked top to bottom:
+  Transform          — position, rotation, scale
+  ____      — Sprite: KessBody, Color: white, Sorting Layer: Default
+  ArtificerRig.cs      — your own script, unchanged since chapter III'''
+answer = "SpriteRenderer"
+hint = "It's the component added via Add Component right after chapter III's ArtificerRig.cs was already attached — the one whose Sprite field you drag an image into."
+
+[[lessons.exercises]]
+id = "s04-l01-w1"
+type = "write"
+points = 30
+prompt = "Unity's importer and SpriteRenderer can't run in this workbench, so model the PPU-to-world-size math in plain C#: a class SpriteAsset with a public int PixelWidth and a public int PixelsPerUnit, set through a constructor SpriteAsset(int pixelWidth, int pixelsPerUnit), and a method WorldWidth() returning PixelWidth divided by PixelsPerUnit as a double (cast one operand to double before dividing so the division isn't truncated to an int). Build a SpriteAsset with PixelWidth 64 and PixelsPerUnit 32, then print exactly:\nWIDTH 2 UNITS"
+starter = '''
+// Build the SpriteAsset(64, 32) and print its world width, then define
+// class SpriteAsset at the BOTTOM of the file (top-level statements first).
+
+'''
+expect = '''
+WIDTH 2 UNITS'''
+solution = '''
+SpriteAsset kessBody = new SpriteAsset(64, 32);
+Console.WriteLine($"WIDTH {(int)kessBody.WorldWidth()} UNITS");
+
+class SpriteAsset
+{
+    public int PixelWidth;
+    public int PixelsPerUnit;
+
+    public SpriteAsset(int pixelWidth, int pixelsPerUnit)
+    {
+        PixelWidth = pixelWidth;
+        PixelsPerUnit = pixelsPerUnit;
+    }
+
+    public double WorldWidth()
+    {
+        return (double)PixelWidth / PixelsPerUnit;
+    }
+}
+'''
+hint = "Cast PixelWidth to double before dividing by PixelsPerUnit, the same way integer division has bitten you since chapter I — 64 / 32 as plain ints is fine here, but the method must work generally, so divide as a double."

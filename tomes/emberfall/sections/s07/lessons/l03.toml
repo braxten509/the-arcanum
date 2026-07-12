@@ -1,0 +1,123 @@
+[[lessons]]
+id = "s07-l03"
+title = "Wait Without Stopping the Forge"
+body = '''
+<p>An enemy attack needs a beat: strike, wait, recover. A beginner often reaches for a loop that waits in place, but Update and FixedUpdate are the engine's bellows; blocking either freezes every other object that needs its next frame. Unity's answer is a <strong>coroutine</strong>: a method that can pause itself with <code>yield return</code>, then resume later while the game keeps running.</p>
+<pre><code><span class="k">using</span> System.Collections;
+<span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> SwordSwing : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> recoverySeconds = 0.35f;
+    [SerializeField] <span class="k">private</span> Transform attackPoint;
+    [SerializeField] <span class="k">private</span> <span class="k">float</span> attackRadius = 0.6f;
+    [SerializeField] <span class="k">private</span> LayerMask enemyLayers;
+    [SerializeField] <span class="k">private</span> <span class="k">int</span> damage = 5;
+    <span class="k">private</span> <span class="k">bool</span> recovering;
+
+    <span class="k">public</span> <span class="k">void</span> BeginSwing()
+    {
+        <span class="k">if</span> (recovering) <span class="k">return</span>;
+        StartCoroutine(Recover());
+    }
+
+    <span class="k">private</span> IEnumerator Recover()
+    {
+        recovering = <span class="k">true</span>;
+        Debug.Log(<span class="s">"Steel strikes."</span>);
+        Collider2D[] hits = Physics2D.OverlapCircleAll(attackPoint.position, attackRadius, enemyLayers);
+        <span class="k">foreach</span> (Collider2D hit <span class="k">in</span> hits)
+            <span class="k">if</span> (hit.TryGetComponent(out Health health)) health.TakeDamage(damage);
+        <span class="k">yield return</span> <span class="k">new</span> WaitForSeconds(recoverySeconds);
+        recovering = <span class="k">false</span>;
+    }
+}</code></pre>
+<p>Create an AttackPoint child at the blade reach, put goblins on an Enemy layer, assign enemyLayers, and call BeginSwing from a Space-key <code>wasPressedThisFrame</code> check. OverlapCircleAll finds each enemy collider in range and TryGetComponent safely requests Health.</p>
+<p><code>IEnumerator</code> is the return type Unity recognizes for this step-by-step method; <code>using System.Collections;</code> supplies it. Calling <code>StartCoroutine(Recover())</code> hands the routine to Unity and returns immediately. Recover sets its guard, reaches <code>yield return new WaitForSeconds(recoverySeconds)</code>, and yields control. Rendering, physics, and every other script continue; Unity resumes after the requested scaled-game-time delay.</p>
+<p>That <code>recovering</code> bool is not decoration. FixedUpdate can notice attack range many times during the wait. Without the early guard, every notice starts another coroutine and several delayed routines later fight over the same flag. A coroutine handles timing; the state flag decides whether starting it is legal. The next tempering replaces that lonely bool with named enemy states, but learn the small mechanism cleanly first.</p>
+<p>This is not a console-input trick or a plain-dotnet feature. The workbench cannot host Unity's scheduler, WaitForSeconds, or real frames. Its lab models the recovery guard only; build the actual coroutine in the Unity Editor, where it belongs.</p>
+<div class="callout">Use Update or FixedUpdate for work required each frame or physics step. Use a coroutine for a sequence with deliberate waits—hit flash, attack recovery, delayed door close—when the rest of the scene must keep breathing.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE CLOCK IS A CHOICE</div><p>WaitForSeconds uses scaled game time. When a later pause screen sets Time.timeScale to zero, combat recovery pauses too, usually the desired result. A menu animation that must run through pause needs WaitForSecondsRealtime instead; do not swap clocks by reflex.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Manual: Coroutines"
+url = "https://docs.unity3d.com/Manual/Coroutines.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Scripting API: WaitForSeconds"
+url = "https://docs.unity3d.com/ScriptReference/WaitForSeconds.html"
+
+[[lessons.exercises]]
+id = "s07-l03-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype the load-bearing coroutine pause exactly: wait for recoverySeconds without blocking the scene."
+code = '''yield return new WaitForSeconds(recoverySeconds);'''
+
+[[lessons.exercises]]
+id = "s07-l03-e1"
+type = "fill"
+points = 23
+prompt = "Fill the return type that tells Unity Recover is a coroutine which can yield."
+code = '''private ____ Recover()
+{
+    yield return new WaitForSeconds(recoverySeconds);
+}'''
+answer = "IEnumerator"
+hint = "It comes from System.Collections and stands before Recover's name; void cannot describe a method that yields control."
+
+[[lessons.exercises]]
+id = "s07-l03-e2"
+type = "mc"
+points = 21
+prompt = "SwordSwing.BeginSwing is called again during its 0.35-second recovery. What does `if (recovering) return;` prevent?"
+choices = ["Unity from rendering another frame", "The Inspector field from being serialized", "A second Recover coroutine from starting and later fighting over the recovery flag", "WaitForSeconds from using scaled time"]
+answer = 2
+whyWrong = "The guard returns only from this BeginSwing call; it does not freeze rendering. SerializeField is unrelated to a bool guard, and WaitForSeconds chooses scaled time through its own API. The guard prevents repeated engine callbacks from scheduling duplicate recovery routines."
+hint = "Imagine FixedUpdate finds attack range twice before the first wait ends: how many routines should own one flag?"
+explain = "The first swing owns recovery. Later calls return rather than scheduling more routines that would all modify recovering."
+
+[[lessons.exercises]]
+id = "s07-l03-e3"
+type = "text"
+points = 20
+prompt = "Which Unity method launches Recover() so Unity schedules it while the caller returns immediately?"
+answer = "StartCoroutine"
+accept = ["StartCoroutine()", "StartCoroutine(Recover())"]
+hint = "It wraps Recover() in BeginSwing; it is not the yielded wait object inside Recover."
+
+[[lessons.exercises]]
+id = "s07-l03-w1"
+type = "write"
+points = 34
+prompt = "The workbench cannot schedule Unity coroutines, so model SwordSwing's recovery gate in plain C#: a class SwordSwing with public bool Recovering starting false. BeginSwing() prints Steel strikes. and sets Recovering true only when it was false; FinishRecovery() sets it false. Call BeginSwing twice, FinishRecovery(), then BeginSwing again. Compute the guard, producing exactly:\nSteel strikes.\nSteel strikes."
+starter = '''
+// Build SwordSwing. BeginSwing twice, clear recovery once, then BeginSwing again.
+// Define SwordSwing at the BOTTOM of the file.
+
+'''
+expect = '''
+Steel strikes.
+Steel strikes.'''
+solution = '''
+SwordSwing swing = new SwordSwing();
+swing.BeginSwing();
+swing.BeginSwing();
+swing.FinishRecovery();
+swing.BeginSwing();
+
+class SwordSwing
+{
+    public bool Recovering { get; private set; }
+    public void BeginSwing()
+    {
+        if (Recovering) return;
+        Recovering = true;
+        Console.WriteLine("Steel strikes.");
+    }
+    public void FinishRecovery() { Recovering = false; }
+}
+'''
+hint = "The first call flips Recovering before printing; the second returns. FinishRecovery is the plain-C# stand-in for the line after Unity's yield."

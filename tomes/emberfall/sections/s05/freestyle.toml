@@ -1,0 +1,36 @@
+[freestyle]
+title = "THE GREAT WORKING: BREATH OF MOTION"
+brief = "ArtificerRig has a body and a floor, but he's still a statue. Give him legs, in the real Emberfall project — no simulation, no shortcuts.<ul><li>Confirm the Input System package is installed (<code>Window &gt; Package Manager</code>, search \"Input System\") and Project Settings &gt; Player &gt; Active Input Handling is set to <code>Input System Package</code> or <code>Both</code>.</li><li>Add a Rigidbody2D to ArtificerRig: Body Type <code>Dynamic</code>, Gravity Scale <code>0</code>, and Freeze Rotation Z checked (Constraints section) so physics collisions never tip him over.</li><li>Extend <code>ArtificerRig.cs</code> (from Forge III) with a <code>[SerializeField] private float moveSpeed</code>, a private <code>Rigidbody2D rb</code> and private <code>Animator animator</code> both cached via <code>GetComponent&lt;T&gt;()</code> in Awake, an <code>Update()</code> that null-checks <code>Keyboard.current</code> and builds <code>moveX</code>/<code>moveY</code> ints from the W/A/S/D keys (each -1, 0, or 1), and a <code>FixedUpdate()</code> that sets <code>rb.linearVelocity</code> to a normalized Vector2 built from moveX/moveY times moveSpeed, with no extra Time.deltaTime multiplication in FixedUpdate.</li><li>Add an Animator component to ArtificerRig with a new Animator Controller asset named exactly <code>ArtificerAnimator</code>, containing a Float parameter named exactly <code>Speed</code>, two states named exactly <code>Idle</code> and <code>Walk</code> each with at least one keyframe animation clip assigned, and transitions both directions gated on Speed (Idle&rarr;Walk when greater than 0.1, Walk&rarr;Idle when less than 0.1) with <strong>Has Exit Time unchecked</strong> on both.</li><li>From <code>Update()</code>, call <code>animator.SetFloat(\"Speed\", …)</code> every frame using the moved vector's magnitude.</li><li>Press Play. Walk ArtificerRig in all four directions with WASD, confirming Walk activates while moving and Idle resumes at rest.</li><li>Write <code>Assets/MOTION-LOG.md</code> recording: the exact moveSpeed value; the Rigidbody2D's Body Type, Gravity Scale, and Freeze Rotation Z setting; the Animator Controller's parameter name and type, and both state names; and one honest sentence describing what you actually observed in Play mode moving vs. standing still.</li></ul>Every value in MOTION-LOG.md must match what is actually configured in the scene and script — a log describing behavior that doesn't match the real Inspector values or the real Play-mode result earns no credit for that line."
+reward = 260
+packages = []
+xray = "The Worldwright docks the tally for: movement applied in Update or directly to transform.position instead of Rigidbody2D.linearVelocity in FixedUpdate, a Time.deltaTime term left in the FixedUpdate velocity assignment (the double-apply this forge named twice), Gravity Scale left nonzero on a top-down body, Keyboard.current read with no null guard, an Animator Controller left with Has Exit Time checked on either transition (visibly delayed Idle/Walk switching), a Speed parameter of the wrong type or never updated from script, and a MOTION-LOG.md whose recorded moveSpeed, Rigidbody2D settings, or Animator setup don't match what the scene and script actually show. He grants favor for caching both GetComponent calls in Awake rather than calling them every frame, a moveX/moveY composition that correctly cancels when opposite keys are held together, an Animator Controller that mirrors the lesson's exact structure (ArtificerAnimator, Speed float, Idle/Walk states), and a MOTION-LOG.md that reads as an honest inspection of what was actually tested in Play mode rather than a restatement of the brief."
+
+[freestyle.badge]
+id = "badge-s05"
+name = "MOTION-SMITH"
+desc = "Gave ArtificerRig legs — real keyboard input, physics-correct movement on the fixed clock, and an Animator that knows the difference between standing still and walking."
+
+[[freestyle.rubric]]
+criterion = "Reads real input"
+weight = 20
+desc = "ArtificerRig.cs null-checks Keyboard.current before reading any key, and correctly composes moveX/moveY from the W/A/S/D ButtonControls' isPressed state via subtraction (each landing on -1, 0, or 1, with opposite keys held together cancelling to 0)."
+
+[[freestyle.rubric]]
+criterion = "Physics-correct movement"
+weight = 25
+desc = "ArtificerRig carries a Rigidbody2D with Body Type Dynamic, Gravity Scale 0, and Freeze Rotation Z on; movement is applied by setting rb.linearVelocity inside FixedUpdate (never Update, never transform.position directly), with no additional Time.deltaTime multiplication on that velocity assignment."
+
+[[freestyle.rubric]]
+criterion = "Animator drives Idle/Walk"
+weight = 20
+desc = "An Animator Controller named ArtificerAnimator has a Float parameter named Speed, states named Idle and Walk each with an assigned animation clip, both transitions with Has Exit Time unchecked and gated on the 0.1 Speed threshold, and the script calls animator.SetFloat(\"Speed\", …) every frame using the movement vector's magnitude."
+
+[[freestyle.rubric]]
+criterion = "MOTION-LOG.md accuracy"
+weight = 15
+desc = "Assets/MOTION-LOG.md truthfully records moveSpeed, the Rigidbody2D's Body Type/Gravity Scale/Freeze Rotation Z, the Animator Controller's parameter and state names, and an honest one-line account of the observed Play-mode behavior, matching the actual configured scene and script."
+
+[[freestyle.rubric]]
+criterion = "Clean style"
+weight = 20
+desc = "Follows Microsoft's C# naming conventions carried into this course's established idiom: camelCase private fields (moveSpeed, rb, animator, moveX, moveY), PascalCase methods (Awake, Update, FixedUpdate), Allman braces, and PascalCase Unity asset names (ArtificerAnimator, Idle, Walk) rather than editor defaults like New Animator Controller or State."

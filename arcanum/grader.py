@@ -11,13 +11,15 @@ import urllib.request
 
 from runtimes.common import atomic_write
 
-from .config import CACHE_DIR, GRADE_TIMEOUT, GRADER_MODELS, ORACLE_TIMEOUT, jobs, jobs_lock, read_json
+from .config import CACHE_DIR, GRADE_TIMEOUT, GRADER_MODELS, ORACLE_TIMEOUT, ROOT, jobs, jobs_lock, read_json
+from .ai_access import ensure_command_access, ensure_remote_access
 from .models import GraderConfigError, cli_text
+from .repo_tools import anthropic_tools, execute as execute_repo_tool, openai_tools
+from tools.buildlib.agent_runtime import scoped_shell_command
 from .tomes import grades_dir, project_dir, runtime_for
 
 FALLBACK_GRADER = "qwen2.5:14b"  # strongest installed Ollama model; overridable per-request from settings
 ORACLE_MODEL = "llama3.1:8b"
-ORACLE_URL = "http://localhost:11434/api/generate"
 
 
 def extract_json(text):
@@ -53,6 +55,9 @@ def build_grade_prompt(payload, files, prev, rt, pdir):
     parts = [
         f"You are the grader inside a {language} learning game. A student learning {language} submitted their "
         "freestyle project for the section below. Grade it strictly against the rubric.",
+        "You have read-only access to this tome and the surrounding repository. You may read supporting "
+        "course/runtime files, execute trusted repository Python for verification, use /tmp, and search/fetch "
+        "the web for current official conventions. Do not modify project files.",
         "",
         f"SECTION: {section}",
         f"ASSIGNMENT BRIEF: {brief}",
@@ -121,66 +126,106 @@ missing or broken functionality, bugs, or code-quality issues the rubric explici
     return "\n".join(parts)
 
 
-def grade_with_ollama(prompt, model):
-    """Local grading fallback when the claude CLI is unavailable or out of usage."""
-    body = json.dumps({
-        "model": model,
-        "prompt": prompt + "\n\nRespond with ONLY the JSON grade object — no prose before or after.",
-        "stream": False, "keep_alive": 0,
-        "options": {"temperature": 0.2, "num_ctx": 16384},
-    }).encode()
-    req = urllib.request.Request(ORACLE_URL, data=body, headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=GRADE_TIMEOUT) as r:
-        data = json.loads(r.read())
-    return extract_json(data.get("response", ""))
+def grade_with_ollama(prompt, model, tome_root):
+    """Run local Ollama models through OpenCode so they receive the same tools/boundary."""
+    ensure_remote_access("ollama", model)
+    routed = model if model.startswith("ollama/") else "ollama/" + model
+    text = cli_text("opencode-cli", prompt + "\n\nRespond with ONLY the JSON grade object.",
+                    routed, GRADE_TIMEOUT, tome_root)
+    return extract_json(text)
 
 
-def grade_with_claude_cli(prompt, model):
-    return extract_json(cli_text("claude-cli", prompt, model, GRADE_TIMEOUT))
+def grade_with_claude_cli(prompt, model, tome_root):
+    return extract_json(cli_text("claude-cli", prompt, model, GRADE_TIMEOUT, tome_root))
 
 
-def grade_with_agy_cli(prompt, model):
+def grade_with_agy_cli(prompt, model, tome_root):
     """Antigravity CLI (`agy`) print mode: one-shot, non-interactive, JSON from stdout.
     Uses the user's Google login — no API key, mirroring the claude CLI path."""
-    return extract_json(cli_text("antigravity-cli", prompt, model, GRADE_TIMEOUT))
+    return extract_json(cli_text("antigravity-cli", prompt, model, GRADE_TIMEOUT, tome_root))
 
 
-def grade_with_codex_cli(prompt, model):
+def grade_with_codex_cli(prompt, model, tome_root):
     """Codex CLI (ChatGPT login) non-interactively: prompt on stdin, JSON from stdout."""
-    return extract_json(cli_text("codex-cli", prompt, model, GRADE_TIMEOUT))
+    return extract_json(cli_text("codex-cli", prompt, model, GRADE_TIMEOUT, tome_root))
 
 
-def grade_with_command(prompt, command):
+def grade_with_opencode_cli(prompt, model, tome_root):
+    return extract_json(cli_text("opencode-cli", prompt, model, GRADE_TIMEOUT, tome_root))
+
+
+def grade_with_command(prompt, command, tome_root):
     """Any AI CLI the user configures ('Other' provider): the grading prompt is piped
     to the command's stdin, the JSON grade is parsed from its stdout. Runs via the
-    shell so the user can supply flags/pipes; cwd is the isolated cache dir."""
+    shell so the user can supply flags/pipes; cwd is the read-only tome boundary."""
     if not command.strip():
         raise ValueError("no command configured")
-    p = subprocess.run(command, shell=True, input=prompt, capture_output=True, text=True,
-                       timeout=GRADE_TIMEOUT, cwd=CACHE_DIR)
+    cmd = scoped_shell_command(command, tome_root)
+    ensure_command_access(cmd, tome_root)
+    p = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
+                       timeout=GRADE_TIMEOUT, cwd=tome_root)
     if p.returncode != 0:
         raise RuntimeError(f"exit {p.returncode}: {p.stderr[:500]}")
     return extract_json(p.stdout)
 
 
-def grade_with_anthropic(prompt, model, key):
-    body = json.dumps({"model": model, "max_tokens": 4096,
-                       "messages": [{"role": "user", "content": prompt}]}).encode()
-    req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=body, headers={
-        "x-api-key": key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=GRADE_TIMEOUT) as r:
-        data = json.loads(r.read())
-    return extract_json("".join(b.get("text", "") for b in data.get("content", [])))
+def grade_with_anthropic(prompt, model, key, tome_root):
+    ensure_remote_access("anthropic", model, key)
+    messages = [{"role": "user", "content": prompt}]
+    tools = [{"type": "web_search_20250305", "name": "web_search", "max_uses": 5},
+             {"type": "web_fetch_20250910", "name": "web_fetch"}, *anthropic_tools()]
+    for _ in range(8):
+        body = json.dumps({"model": model, "max_tokens": 4096,
+                           "messages": messages, "tools": tools}).encode()
+        req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=body, headers={
+            "x-api-key": key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=GRADE_TIMEOUT) as r:
+            data = json.loads(r.read())
+        calls = [b for b in data.get("content", []) if b.get("type") == "tool_use"]
+        if not calls:
+            return extract_json("".join(b.get("text", "") for b in data.get("content", [])))
+        messages.append({"role": "assistant", "content": data["content"]})
+        results = []
+        for call in calls:
+            try:
+                output = execute_repo_tool(call["name"], call.get("input") or {}, tome_root)
+                results.append({"type": "tool_result", "tool_use_id": call["id"], "content": output})
+            except Exception as exc:
+                results.append({"type": "tool_result", "tool_use_id": call["id"],
+                                "content": str(exc), "is_error": True})
+        messages.append({"role": "user", "content": results})
+    raise RuntimeError("Anthropic grader exceeded 8 local tool rounds")
 
 
-def grade_with_openai(prompt, model, key):
-    body = json.dumps({"model": model,
-                       "messages": [{"role": "user", "content": prompt}]}).encode()
-    req = urllib.request.Request("https://api.openai.com/v1/chat/completions", data=body, headers={
-        "Authorization": "Bearer " + key, "Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=GRADE_TIMEOUT) as r:
-        data = json.loads(r.read())
-    return extract_json(data["choices"][0]["message"]["content"])
+def grade_with_openai(prompt, model, key, tome_root):
+    ensure_remote_access("openai", model, key)
+    next_input, previous = prompt, None
+    for _ in range(8):
+        body = {"model": model, "input": next_input,
+                "tools": [{"type": "web_search"}, *openai_tools()]}
+        if previous:
+            body["previous_response_id"] = previous
+        req = urllib.request.Request("https://api.openai.com/v1/responses",
+                                     data=json.dumps(body).encode(), headers={
+            "Authorization": "Bearer " + key, "Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=GRADE_TIMEOUT) as r:
+            data = json.loads(r.read())
+        calls = [item for item in data.get("output", []) if item.get("type") == "function_call"]
+        if not calls:
+            text = "".join(str(c.get("text") or "") for item in data.get("output", [])
+                           if item.get("type") == "message" for c in item.get("content", [])
+                           if c.get("type") in ("output_text", "text"))
+            return extract_json(text)
+        next_input = []
+        for call in calls:
+            try:
+                output = execute_repo_tool(call["name"], json.loads(call.get("arguments") or "{}"), tome_root)
+            except Exception as exc:
+                output = json.dumps({"error": str(exc)})
+            next_input.append({"type": "function_call_output", "call_id": call["call_id"],
+                               "output": output})
+        previous = data["id"]
+    raise RuntimeError("OpenAI grader exceeded 8 local tool rounds")
 
 
 def run_grader(job_id, payload, jid):
@@ -212,6 +257,7 @@ def run_grader(job_id, payload, jid):
         return
 
     prompt = build_grade_prompt(payload, files, last, rt, pdir)
+    tome_root = os.path.join(ROOT, "tomes", jid)
     last_err = "no model attempted"
 
     def finish(result, model):
@@ -229,13 +275,14 @@ def run_grader(job_id, payload, jid):
     else:
         attempts = [(kind, model, key)]
 
-    graders = {"claude-cli": lambda: grade_with_claude_cli(prompt, model),
-               "antigravity-cli": lambda: grade_with_agy_cli(prompt, model),
-               "codex-cli": lambda: grade_with_codex_cli(prompt, model),
-               "anthropic": lambda: grade_with_anthropic(prompt, model, key),
-               "openai": lambda: grade_with_openai(prompt, model, key),
-               "ollama": lambda: grade_with_ollama(prompt, model),
-               "other": lambda: grade_with_command(prompt, command)}
+    graders = {"claude-cli": lambda: grade_with_claude_cli(prompt, model, tome_root),
+               "antigravity-cli": lambda: grade_with_agy_cli(prompt, model, tome_root),
+               "codex-cli": lambda: grade_with_codex_cli(prompt, model, tome_root),
+               "opencode-cli": lambda: grade_with_opencode_cli(prompt, model, tome_root),
+               "anthropic": lambda: grade_with_anthropic(prompt, model, key, tome_root),
+               "openai": lambda: grade_with_openai(prompt, model, key, tome_root),
+               "ollama": lambda: grade_with_ollama(prompt, model, tome_root),
+               "other": lambda: grade_with_command(prompt, command, tome_root)}
     for kind, model, key in attempts:
         try:
             if kind not in graders:
@@ -256,38 +303,39 @@ def run_grader(job_id, payload, jid):
     fb = payload.get("fallbackModel") or FALLBACK_GRADER
     if not (kind == "ollama" and model == fb):
         try:
-            return finish(grade_with_ollama(prompt, fb), fb + " (local fallback)")
+            return finish(grade_with_ollama(prompt, fb, tome_root), fb + " (local fallback)")
         except Exception as e:
             last_err += f"; ollama {fb}: {str(e)[:300]}"
     with jobs_lock:
         jobs[job_id] = {"status": "error", "error": last_err}
 
 
-def ask_oracle(question, context, model=None, language="code", kind="ollama"):
+def ask_oracle(question, context, model=None, language="code", kind="ollama", jid=""):
     """One question to the selected oracle backend — a local Ollama model (default)
     or any of the login CLIs (claude/agy/codex). Returns text or a friendly error."""
     prompt = (
         f"You are the ORACLE, a terse mentor spirit dwelling in a crystal ball inside an arcane {language} learning game. "
         f"The student is learning {language} by building a CLI tool. Answer their question clearly and "
         "concisely (a few short paragraphs max, code snippets welcome). Do NOT write whole "
-        "solutions to their assignments — explain concepts and point them the right way.\n"
+        "solutions to their assignments — explain concepts and point them the right way. You have read-only "
+        "access to this tome and repository, may execute trusted repository Python, use /tmp, and search/fetch "
+        "the web for current documentation; do not modify project files.\n"
         f"CURRENT LESSON CONTEXT: {context[:12000]}\n\nSTUDENT QUESTION (they are programming in {language}): {question[:2000]}"
     )
-    if kind in ("claude-cli", "antigravity-cli", "codex-cli"):
+    if kind in ("claude-cli", "antigravity-cli", "codex-cli", "opencode-cli"):
         try:
-            answer = cli_text(kind, prompt, model or "", ORACLE_TIMEOUT).strip()
+            tome_root = os.path.join(ROOT, "tomes", jid)
+            answer = cli_text(kind, prompt, model or "", ORACLE_TIMEOUT, tome_root).strip()
             return {"ok": True, "answer": answer or "(the oracle said nothing)",
                     "model": model or kind}
         except Exception as e:
             return {"ok": False, "answer": f"THE ORB IS DARK — the {kind} spirit did not answer ({str(e)[:300]})"}
     model = model or ORACLE_MODEL
-    body = json.dumps({"model": model, "prompt": prompt, "stream": False,
-                       "keep_alive": 0, "options": {"temperature": 0.4}}).encode()
-    req = urllib.request.Request(ORACLE_URL, data=body, headers={"Content-Type": "application/json"})
     try:
-        with urllib.request.urlopen(req, timeout=ORACLE_TIMEOUT) as r:
-            data = json.loads(r.read())
-        return {"ok": True, "answer": data.get("response", "").strip() or "(the oracle said nothing)",
-                "model": model}
+        ensure_remote_access("ollama", model)
+        tome_root = os.path.join(ROOT, "tomes", jid)
+        routed = model if model.startswith("ollama/") else "ollama/" + model
+        answer = cli_text("opencode-cli", prompt, routed, ORACLE_TIMEOUT, tome_root).strip()
+        return {"ok": True, "answer": answer or "(the oracle said nothing)", "model": model}
     except Exception as e:
-        return {"ok": False, "answer": f"THE ORB IS DARK — is Ollama running? ({e})"}
+        return {"ok": False, "answer": f"THE ORB IS DARK — AI access phase 0 failed ({e})"}

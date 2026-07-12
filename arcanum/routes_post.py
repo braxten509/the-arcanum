@@ -22,7 +22,7 @@ from .forge import (BUILD_TOTAL_PHASES, _clear_runner_handshake, _plan_concept,
 from .grader import ask_oracle, run_grader
 from .tomes import (external_workspace, has_progress, load_manifest, plan_path, project_dir,
                     project_name, resolve_tome, resolve_working_tid, runtime_for,
-                    scratch_base, state_path, write_files)
+                    save_dir, scratch_base, state_path, tome_dir, write_files)
 
 
 def handle(h):
@@ -39,6 +39,8 @@ def handle(h):
     try:
         if path == "/api/state":
             return save_state(h, body, jid)
+        if path == "/api/state/reset":
+            return reset_state(h, body, jid)
         if path == "/api/workspace":
             write_files(jid, body.get("files", []))
             return h.send_json({"ok": True})
@@ -82,7 +84,7 @@ def handle(h):
             lang = body.get("language") or load_manifest(jid).get("runtime", {}).get("language") or "code"
             return h.send_json(ask_oracle(body.get("question", ""), body.get("context", ""),
                                           body.get("model"), lang,
-                                          body.get("kind") or "ollama"))
+                                          body.get("kind") or "ollama", jid))
         if path == "/api/runsnippet":
             rt = runtime_for(jid)
             return h.send_json(rt.run_snippet(scratch_base(rt.NAME), body.get("code", ""), body.get("stdin", "")))
@@ -196,6 +198,24 @@ def save_state(h, body, jid):
     return h.send_json({"ok": True, "savedAt": time.time()})
 
 
+def reset_state(h, body, jid):
+    """Erase one tome's private save tree, never its authored content or external folder."""
+    if not isinstance(body, dict) or body.get("confirm") != "reset-progress":
+        return h.send_json({"ok": False, "error": "reset confirmation is required"}, 400)
+    with jobs_lock:
+        busy = any(j.get("status") == "running" and j.get("tome") == jid for j in jobs.values())
+    if busy:
+        return h.send_json({"ok": False, "error": "finish or cancel the active tome job before resetting"}, 409)
+
+    root = os.path.realpath(save_dir(jid))
+    expected_parent = os.path.realpath(tome_dir(jid))
+    if os.path.basename(root) != "save" or os.path.dirname(root) != expected_parent:
+        raise ValueError("refused unsafe save path")
+    shutil.rmtree(root)
+    os.makedirs(root, exist_ok=True)
+    return h.send_json({"ok": True})
+
+
 def start_amend(h, body, jid):
     req_text = str(body.get("request") or "").strip()
     iterate = bool(body.get("iterate"))
@@ -299,10 +319,13 @@ def answer_runner_pause(h, body):
         retries = 0
     with open(os.path.join(BUILD_DIR, f"{tome}.runner-reply.json"), "w", encoding="utf-8") as f:
         json.dump({"kind": kind, "model": mdl, "effort": eff, "retries": retries}, f)
-    if mdl:  # reflect the pick now: mid-phase the harness re-emits [runner: …] only at
-        with jobs_lock:  # the next phase banner, so the overlay would keep the dead model.
-            j = jobs.get(bid)  # matches build_tome _spec_to_runner display; app.js strips the -cli prefix
-            if j:
+    # This is a new attempt at the paused phase. Restart its visible clock now rather
+    # than carrying over the time spent before the runner/gate pause.
+    with jobs_lock:
+        j = jobs.get(bid)
+        if j:
+            j["phaseStartedAt"] = time.time()
+            if mdl:  # the harness re-emits [runner: …] only at the next phase banner
                 j["runner"] = f"{kind} {mdl}" + (f" @{eff}" if eff else "")
     return h.send_json({"ok": True})
 
@@ -359,10 +382,12 @@ def resume_build(h, body):
                             cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             text=True, start_new_session=True)
     gid = uuid.uuid4().hex[:12]
+    resumed_at = time.time()
     with jobs_lock:
         jobs[gid] = {"status": "running", "kind": "build", "tome": tid, "slug": tid,
                      "phase": frm, "phaseTitle": "resuming", "totalPhases": BUILD_TOTAL_PHASES,
-                     "log": [], "pid": proc.pid, "startedAt": time.time()}
+                     "log": [], "pid": proc.pid, "startedAt": resumed_at,
+                     "phaseStartedAt": resumed_at}
     threading.Thread(target=watch_build, args=(gid, proc), daemon=True).start()
     return h.send_json({"ok": True, "jobId": gid, "tome": tid})
 

@@ -1,0 +1,136 @@
+[[lessons]]
+id = "s06-l05"
+title = "Scripting the Pickup"
+body = '''
+<p>Everything this forge has built so far now assembles into one working script. A pickup GameObject needs a Circle Collider2D (or Box, whichever hugs its sprite better) with <strong>isTrigger checked</strong> — chapter VI-2's fork, the trigger branch, not the solid one last lesson's Composite Collider2D used for Walls. It needs no Tag of its own and no Rigidbody2D of its own; ArtificerRig's Tag <code>Player</code> and Rigidbody2D from chapter V already cover both sides of the pairing rule. It DOES need a Layer — <code>Pickup</code>, from last lesson, so two pickups sitting near each other never fire triggers against one another.</p>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> PickupItem : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> <span class="k">string</span> itemName = <span class="s">"Emberstone"</span>;
+
+    <span class="k">private</span> <span class="k">void</span> OnTriggerEnter2D(Collider2D other)
+    {
+        <span class="k">if</span> (!other.CompareTag(<span class="s">"Player"</span>)) <span class="k">return</span>;
+
+        Debug.Log(<span class="s">$"Picked up {itemName}"</span>);
+        Destroy(gameObject);
+    }
+}</code></pre>
+<p>The <code>CompareTag</code> guard from two lessons ago opens the method exactly the way it was introduced: check first, bail immediately if it's the wrong thing, do the real work only once confirmed. Without it, ANY trigger collider walking through — a future forge's enemy, a stray hazard, anything sharing the Player-vs-Pickup collision pairing — would also count as a valid pickup, which is rarely the intended design.</p>
+<p><code>Destroy(gameObject)</code> is new: a method every MonoBehaviour inherits, removing a GameObject from the scene entirely — all its components, all its children, gone. Two things about its timing matter here. First, it does not happen INSTANTLY on the line it's called — Unity actually removes the object at the end of the current frame, after every other script's Update and physics callbacks for that frame have already run, which is why code elsewhere in the same frame that still references this pickup won't crash outright, though it will be looking at an object on its way out. Second, and more relevant to THIS method specifically: because the GameObject (and its Collider2D) still technically exists for the rest of this frame, OnTriggerEnter2D itself is guaranteed not to re-fire for the same overlap — Enter only fires once per overlap begin, not once per frame, which chapter VI-2's field notes already drew a hard line between (Enter vs. Stay).</p>
+<div class="callout">Reversing the guard — checking a NEGATIVE condition and only continuing past it, <code>if (!other.CompareTag("Player")) return;</code> rather than wrapping the whole method body in <code>if (other.CompareTag("Player")) { ... }</code> — is a deliberate style choice this course keeps making (chapter V's Keyboard.current null-check used the identical shape). It keeps the method body at one indent level instead of two, and it reads as "get the wrong case out of the way first," which only gets more valuable as a trigger method grows more branches later.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHAT IF THE PICKUP NEEDS TO SURVIVE THE FRAME</div>
+<p>Destroy(gameObject) is right for a one-shot pickup that should genuinely vanish, but it is the wrong tool the moment something ELSE in the same frame still needs to read from it — a UI popup that shows the collected item's name, say, reading itemName after Destroy has already been called on the object it lives on. Unity's own answer for "disable now, remove nothing" is the property the next lesson introduces for a completely different reason: setting a component's <code>enabled</code> to false stops it from running without deleting anything, keeping every field on it intact for as long as something still needs to read them.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Scripting API: Object.Destroy"
+url = "https://docs.unity3d.com/ScriptReference/Object.Destroy.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Manual: Instantiating and destroying GameObjects"
+url = "https://docs.unity3d.com/Manual/InstantiatingPrefabs.html"
+
+[[lessons.exercises]]
+id = "s06-l05-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype PickupItem's guarded OnTriggerEnter2D method exactly: reject non-Player colliders before logging the item and destroying its GameObject."
+code = '''private void OnTriggerEnter2D(Collider2D other)
+{
+    if (!other.CompareTag("Player")) return;
+
+    Debug.Log($"Picked up {itemName}");
+    Destroy(gameObject);
+}'''
+
+[[lessons.exercises]]
+id = "s06-l05-e1"
+type = "mc"
+points = 20
+prompt = "PickupItem.cs's OnTriggerEnter2D is written WITHOUT the other.CompareTag(\"Player\") guard — Destroy(gameObject) and the Debug.Log both run unconditionally. What breaks, per this lesson?"
+choices = ["Nothing breaks — only ArtificerRig has a Rigidbody2D, so he's the only thing that could ever trigger it", "The script fails to compile, since OnTriggerEnter2D requires a CompareTag check to be valid C#", "Any trigger collider satisfying the Rigidbody2D-pairing rule counts as a valid pickup — a future enemy or stray hazard walking through would also collect the item", "Destroy(gameObject) silently does nothing without a preceding CompareTag call"]
+answer = 2
+whyWrong = "The pairing rule only needs a Rigidbody2D SOMEWHERE in the pair, not specifically on ArtificerRig — a future forge's enemy or any other object with its own Rigidbody2D would satisfy it identically; there is no compiler rule tying OnTriggerEnter2D's validity to CompareTag, this is a design/logic concern, not a syntax one; and Destroy(gameObject) works exactly the same regardless of what ran before it — nothing about it depends on a prior CompareTag call."
+hint = "The lesson's own prose named exactly what happens without the guard, right after showing the code sample — reread the sentence starting 'Without it'."
+explain = "Without the CompareTag guard, the method has no way to distinguish ArtificerRig from any other trigger collider satisfying the Rigidbody2D-pairing rule — a future enemy or hazard walking across the pickup would collect it exactly as if it were the artificer, which is rarely the intended design."
+
+[[lessons.exercises]]
+id = "s06-l05-e2"
+type = "mc"
+points = 20
+prompt = "PickupItem calls Destroy(gameObject) the instant OnTriggerEnter2D fires. Per this lesson, when does the GameObject actually disappear from the scene?"
+choices = ["Immediately, on that exact line, before the rest of OnTriggerEnter2D's own code even finishes running", "At the end of the current frame, after every other script's callbacks for that frame have already run", "At the start of the NEXT frame's Update, before any other script runs", "Only when the scene is reloaded or the game is stopped"]
+answer = 1
+whyWrong = "Destroy is explicitly NOT instant — the lesson was direct that it happens at the end of the current frame, not on the calling line, which is exactly why the Debug.Log call right before it still executes normally; waiting until the START of the next frame, before anything runs, is also not what the lesson described — the removal happens at the END of the current frame instead; and Destroy absolutely does not wait for a scene reload — that would make pickups permanent for the rest of the session, the opposite of what a working pickup needs."
+hint = "The lesson drew a specific line between 'on this exact line' and some later point in the same frame — which end of the frame did it land on?"
+explain = "Destroy(gameObject) marks the object for removal, but Unity actually removes it at the end of the current frame, after every other script's Update and physics callbacks have already run for that frame — which is also why OnTriggerEnter2D itself can't accidentally re-fire for the same overlap before the object is gone."
+
+[[lessons.exercises]]
+id = "s06-l05-e3"
+type = "text"
+points = 20
+prompt = "What is the name of the MonoBehaviour-inherited method, taking a GameObject argument, that PickupItem calls to remove itself from the scene entirely once collected?"
+answer = "Destroy"
+accept = ["Destroy(gameObject)", "Object.Destroy"]
+hint = "It's the method this lesson introduced as brand new, distinct from every GetComponent call chapters V and VI-1 already used — this one removes an object rather than fetching one."
+
+[[lessons.exercises]]
+id = "s06-l05-e4"
+type = "fill"
+points = 22
+prompt = "Fill in the missing guard condition — the exact CompareTag check, negated, that this lesson's OnTriggerEnter2D opens with before doing any real work."
+code = '''private void OnTriggerEnter2D(Collider2D other)
+{
+    if (____) return;
+
+    Debug.Log($"Picked up {itemName}");
+    Destroy(gameObject);
+}'''
+answer = "!other.CompareTag(\"Player\")"
+accept = ["!other.CompareTag(\"Player\")", "!(other.CompareTag(\"Player\"))"]
+hint = "It's the same negated-CompareTag shape chapter V's Keyboard.current null-check already used — get the wrong case out of the way first, with a leading ! before the call."
+
+[[lessons.exercises]]
+id = "s06-l05-w1"
+type = "write"
+points = 33
+prompt = "Unity's OnTriggerEnter2D can't run in this workbench, so model PickupItem's collection logic in plain C#: a class Pickup with a public string ItemName, a public bool Collected (starting false), set through a constructor Pickup(string itemName), and a method TryCollect(string colliderTag) that, only if colliderTag equals \"Player\" AND Collected is currently false, sets Collected to true and returns true; in every other case it returns false and leaves Collected unchanged (mirroring the CompareTag guard plus Destroy's one-time removal — once collected, a second attempt can never succeed again). Build a Pickup with ItemName \"Emberstone\", call TryCollect(\"Player\") and print the result, then call TryCollect(\"Player\") again and print the result, exactly:\nCOLLECT True\nCOLLECT False"
+starter = '''
+// Build a Pickup for "Emberstone", call TryCollect("Player") twice, printing
+// "COLLECT <result>" after each call.
+// Define class Pickup at the BOTTOM of the file.
+
+'''
+expect = '''
+COLLECT True
+COLLECT False'''
+solution = '''
+Pickup pickup = new Pickup("Emberstone");
+Console.WriteLine($"COLLECT {pickup.TryCollect("Player")}");
+Console.WriteLine($"COLLECT {pickup.TryCollect("Player")}");
+
+class Pickup
+{
+    public string ItemName;
+    public bool Collected = false;
+
+    public Pickup(string itemName)
+    {
+        ItemName = itemName;
+    }
+
+    public bool TryCollect(string colliderTag)
+    {
+        if (colliderTag == "Player" && !Collected)
+        {
+            Collected = true;
+            return true;
+        }
+        return false;
+    }
+}
+'''
+hint = "The second TryCollect(\"Player\") call has the right tag but Collected is already true from the first call — the AND condition fails on its second half, exactly like Destroy(gameObject) making a real pickup impossible to collect twice."

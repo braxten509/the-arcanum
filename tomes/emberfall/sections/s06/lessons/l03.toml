@@ -1,0 +1,82 @@
+[[lessons]]
+id = "s06-l03"
+title = "Tags & CompareTag"
+body = '''
+<p>Last forge's OnTriggerEnter2D left one honest gap: <code>other.gameObject.name</code> worked, but only by accident, and only until someone renamed the pickup in the Hierarchy for a completely unrelated reason and quietly broke every script checking against the old string. What's actually needed is a way to ask "is this the artificer?" that survives a rename — Unity's answer is the <strong>Tag</strong> system.</p>
+<p>Every GameObject carries exactly one Tag, set from a dropdown at the top of the Inspector — separate from the Name field above it and unrelated to the Layer dropdown next lesson covers. New projects ship a handful of built-ins (<code>Untagged</code>, the default; <code>Player</code>, <code>Respawn</code>, and others) and <code>Add Tag...</code> at the bottom of that same dropdown creates new ones. Select ArtificerRig and set its Tag to <code>Player</code> — the built-in tag exists for exactly this, an artificer's own GameObject.</p>
+<p>From script, prefer the purpose-built <code>other.CompareTag("Player")</code> over retrieving <code>other.gameObject.tag</code> and comparing it yourself. It states the intent directly and Unity validates the requested tag name:</p>
+<pre><code><span class="k">private</span> <span class="k">void</span> OnTriggerEnter2D(Collider2D other)
+{
+    <span class="k">if</span> (!other.CompareTag(<span class="s">"Player"</span>)) <span class="k">return</span>;
+    Debug.Log(<span class="s">"Player detected."</span>);
+}</code></pre>
+<p><code>CompareTag(string)</code> is available on GameObject and Component. It returns whether the object carries that configured tag. Use an early-return guard: check the tag first, bail immediately if it's the wrong thing, then do the real work only once that's confirmed.</p>
+<div class="callout">The tag name must exist in the project's Tags list. An undefined spelling such as <code>"player"</code> can raise a UnityException; a different but defined tag simply returns false. Read the Console and compare the literal with the Inspector dropdown.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ONE TAG, MANY OBJECTS</div>
+<p>Tags are not unique — nothing stops a dozen different GameObjects from all carrying the tag <code>Enemy</code>, and that's the whole point: <code>CompareTag</code> lets one script ask "are you a member of this category" without caring which specific instance answered. A future forge's enemy AI will tag every hostile GameObject <code>Enemy</code> and check for it the same way this lesson checks for <code>Player</code> — one string, many objects, one consistent question asked of all of them.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Scripting API: GameObject.CompareTag"
+url = "https://docs.unity3d.com/ScriptReference/GameObject.CompareTag.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Manual: Tags"
+url = "https://docs.unity3d.com/Manual/Tags.html"
+
+[[lessons.exercises]]
+id = "s06-l03-e1"
+type = "mc"
+points = 20
+prompt = "ArtificerRig's OnTriggerEnter2D checks other.gameObject.tag == \"Player\" instead of other.CompareTag(\"Player\"). Per this lesson, what's the practical difference?"
+choices = ["There is no difference — the two are byte-for-byte identical operations under the hood", "== only matches built-in tags like Player; CompareTag is required for any custom tag", "The == version allocates a fresh managed string on every read of .tag, while CompareTag compares natively with no allocation, for the same boolean result", "CompareTag ignores capitalization while == is case-sensitive, so they can return different results"]
+answer = 2
+whyWrong = "The lesson was specific that they are NOT identical — .tag pays an allocation cost every read that CompareTag skips, even though both return the same true/false answer for the same comparison; there's no such restriction tying == to built-in tags only, custom tags compare with == exactly the same way; and neither method changes case sensitivity — both compare the tag string as written, with no special-casing described anywhere in this lesson."
+hint = "The lesson named one specific cost that .tag pays on every read, and one method built specifically to skip it."
+explain = "Reading .tag copies a fresh managed string out of the engine every single call; CompareTag compares natively inside the engine with no allocation, returning the identical boolean result at lower cost — which is why it's the method this lesson establishes as the course's idiom going forward."
+
+[[lessons.exercises]]
+id = "s06-l03-e2"
+type = "mc"
+points = 20
+prompt = "A pickup's OnTriggerEnter2D checks other.CompareTag(\"player\") — lowercase — but ArtificerRig's Inspector Tag dropdown is set to the built-in \"Player\", capital P. What happens when ArtificerRig walks into the pickup?"
+choices = ["Unity reports that the undefined tag is not defined", "CompareTag returns false silently even though the tag is undefined", "CompareTag treats tags as case-insensitive", "The Collider2D disables itself"]
+answer = 0
+whyWrong = "There is no compiler or runtime check comparing a literal tag string against the set of tags that actually exist in the project — a misspelled or miscased tag compiles and runs with zero errors, per the callout; the callout was explicit that tag comparison is exact, not case-insensitive, so 'player' never matches 'Player'; and nothing about a failed CompareTag call disables a collider — the collider stays exactly as configured, just permanently mismatched."
+hint = "The callout named this exact failure mode directly — a compiling, error-free script that simply never fires — and named what to go re-check first."
+explain = "CompareTag validates the requested tag. If lowercase player is not defined, Unity reports that error; if it is separately defined, it still does not match Player."
+
+[[lessons.exercises]]
+id = "s06-l03-e3"
+type = "text"
+points = 20
+prompt = "What is the name of the built-in Tag this lesson assigns to ArtificerRig from the Inspector's Tag dropdown, so triggers can later identify him by CompareTag?"
+answer = "Player"
+hint = "It's one of the handful of tags every new Unity project ships with by default — the one whose whole purpose is naming the artificer's own GameObject."
+
+[[lessons.exercises]]
+id = "s06-l03-w1"
+type = "write"
+points = 32
+prompt = "CompareTag can't run in this workbench, so model exact-match tag comparison in plain C#: a method static bool CompareTag(string actualTag, string checkTag) returning actualTag == checkTag (the same exact, case-sensitive comparison this lesson described). Call it three times and print each result, once for CompareTag(\"Player\", \"Player\"), once for CompareTag(\"Player\", \"player\"), once for CompareTag(\"Enemy\", \"Player\"), each printed as MATCH <result>, exactly:\nMATCH True\nMATCH False\nMATCH False"
+starter = '''
+// Define static bool CompareTag(string actualTag, string checkTag) at the
+// bottom of the file, then call it three times with the pairs given in the
+// prompt, printing "MATCH <result>" after each call.
+
+'''
+expect = '''
+MATCH True
+MATCH False
+MATCH False'''
+solution = '''
+Console.WriteLine($"MATCH {CompareTag("Player", "Player")}");
+Console.WriteLine($"MATCH {CompareTag("Player", "player")}");
+Console.WriteLine($"MATCH {CompareTag("Enemy", "Player")}");
+
+static bool CompareTag(string actualTag, string checkTag)
+{
+    return actualTag == checkTag;
+}
+'''
+hint = "\"Player\" against \"player\" fails on capitalization alone, exactly the trap the mc question above just walked through — exact comparison means no case-insensitivity anywhere."

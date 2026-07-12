@@ -1,0 +1,102 @@
+[[lessons]]
+id = "s04-l03"
+title = "The Orthographic Camera — Framing the Game View"
+body = '''
+<p>Chapter III's field notes drew a line between the Scene view (your workbench, never seen by a player) and the Game view (whatever the scene's camera actually sees). Every fresh 3D-template project's <strong>Main Camera</strong> defaults to <strong>Perspective</strong> projection — distant objects shrink, near ones loom, exactly like your own eyes. A 2D game wants none of that: a floor tile ten units away should read at the same size as one right under ArtificerRig's feet. Select Main Camera, and in the Inspector's <code>Projection</code> field switch it to <strong>Orthographic</strong> — Unity's own description is blunt about the tradeoff: the camera "will render objects uniformly, with no sense of perspective."</p>
+<pre><code>Hierarchy: Main Camera
+Inspector shows:
+  Transform     — Position (0, 0, -10)
+  Camera
+    Projection: Orthographic
+    Size: 5</code></pre>
+<p>Switching to Orthographic replaces the Field of View slider with a single new field: <strong>Size</strong>, defined as half the camera's vertical viewing volume in world units. A Size of 5 means the Game view shows 10 world units top-to-bottom, however wide the window happens to be — raise Size and more of the scene fits on screen at a smaller apparent scale; lower it and the view zooms in. This is the one dial that controls "how much of Emberfall's overworld is visible at once," independent of how big any individual tile or sprite is.</p>
+<p>Position still matters exactly as it did for any other GameObject: the camera's X and Y decide WHERE it's centered over the scene, while Z stays negative for a 2D camera — conventionally <code>-10</code> — simply to sit in front of everything on the Z=0 plane it's meant to photograph. Move Main Camera's Transform and the Game view's window onto the world moves with it; nothing about Orthographic mode changes how position works, only how distance is (not) rendered.</p>
+<div class="callout">Exactly one camera in a scene should be tagged "MainCamera" (the default tag on the camera Unity creates for you). Scripts reach it later with the static shortcut <code>Camera.main</code> rather than hunting the Hierarchy by name — tag a second camera "MainCamera" by mistake and that lookup returns whichever one Unity happens to find first, a bug that is maddening precisely because it looks correct most of the time.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ASPECT RATIO STRETCHES WIDTH, NEVER HEIGHT</div>
+<p>Size fixes the VERTICAL span of the Game view in world units; the horizontal span is whatever that vertical span times the window's current aspect ratio works out to — a wider window shows more world side-to-side at the same Size, a narrower one shows less, but the vertical slice never changes. This is why a Tilemap overworld sized to look right on one window shape can crop awkwardly on another, and why later UI work anchors to screen edges rather than fixed world coordinates.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Manual: Camera component reference"
+url = "https://docs.unity3d.com/Manual/class-Camera.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Manual: Sorting layers in 2D"
+url = "https://docs.unity3d.com/Manual/2d-renderer-sorting.html"
+
+[[lessons.exercises]]
+id = "s04-l03-e1"
+type = "mc"
+points = 20
+prompt = "Main Camera is set to Orthographic with Size 5. A designer raises Size to 10 and changes nothing else. What happens in the Game view?"
+choices = ["The camera zooms IN, showing less of the scene at a larger apparent scale", "The camera zooms OUT, showing twice as much of the scene vertically, at a smaller apparent scale", "Nothing visible changes, since Size only affects the Scene view, never the Game view", "Every sprite in the scene doubles in pixel size to compensate"]
+answer = 1
+whyWrong = "Raising Size is the opposite of zooming in — it widens the vertical world-unit span the camera captures, which is a zoom OUT, not in; Size is specifically what drives the GAME view (what a player sees), not a Scene-view-only setting; and no sprite's own scale changes when the camera's Size changes — the camera captures more or less world, it doesn't resize anything in that world."
+hint = "The lesson defined Size as half the vertical world-unit span shown — doubling that number doubles how much vertical world space fits on screen."
+explain = "Size is half the vertical viewing volume in world units, so doubling it from 5 to 10 doubles how much of the scene fits vertically in the Game view — a zoom-out, with everything appearing smaller at the same on-screen resolution."
+
+[[lessons.exercises]]
+id = "s04-l03-e2"
+type = "mc"
+points = 20
+prompt = "Why does a 2D Main Camera conventionally sit at Z position -10 rather than Z = 0, the same plane most 2D sprites are placed on?"
+choices = ["Because Orthographic cameras are physically incapable of rendering anything at their own exact Z position", "Because -10 is the maximum Size value Unity allows for an Orthographic camera", "Because moving the camera's Z axis is what controls its Orthographic Size", "Because a negative Z simply positions the camera in front of the Z=0 plane so it can actually see what's sitting on it"]
+answer = 3
+whyWrong = "There's no such rendering restriction on a camera's own exact Z position — that's not a real Unity limitation; -10 is a Z position, and it has nothing to do with Size, which is a completely separate field measured in world units of viewing volume, not a camera coordinate; and Z position and Orthographic Size are two unrelated fields — moving one never controls the other."
+hint = "Think about where a camera has to physically stand to look AT a plane, rather than being stuck exactly on top of it."
+explain = "A camera sitting exactly on the Z=0 plane it's meant to photograph has nothing in front of it to see — a negative Z simply moves the camera back so the Z=0 plane, where sprites live, is in front of its lens."
+
+[[lessons.exercises]]
+id = "s04-l03-e3"
+type = "text"
+points = 18
+prompt = "What is the exact name of the static shortcut a script uses to reach the scene's tagged MainCamera without searching the Hierarchy by name?"
+answer = "Camera.main"
+hint = "This lesson's callout named it directly, contrasting it with hunting the Hierarchy string by string."
+
+[[lessons.exercises]]
+id = "s04-l03-e4"
+type = "fill"
+points = 22
+prompt = "Fill in the missing Projection value — the setting this lesson switched Main Camera to so distant and near objects render at the same size."
+code = '''Hierarchy: Main Camera
+Inspector shows:
+  Transform     - Position (0, 0, -10)
+  Camera
+    Projection: ____
+    Size: 5'''
+answer = "Orthographic"
+hint = "It's the mode this lesson said renders objects uniformly, with no sense of perspective — the opposite of the 3D-template default."
+
+[[lessons.exercises]]
+id = "s04-l03-w1"
+type = "write"
+points = 31
+prompt = "Unity's Camera component can't run in this workbench, so model Orthographic Size math in plain C#: a class OrthoCamera with a public double Size, set through a constructor OrthoCamera(double size), and a method VerticalSpan() returning Size times 2 (the full vertical world-unit span the lesson described). Build an OrthoCamera with Size 5, then print exactly:\nVERTICAL SPAN 10 UNITS"
+starter = '''
+// Build the OrthoCamera(5) and print its vertical span, then define
+// class OrthoCamera at the BOTTOM of the file (top-level statements first).
+
+'''
+expect = '''
+VERTICAL SPAN 10 UNITS'''
+solution = '''
+OrthoCamera mainCamera = new OrthoCamera(5);
+Console.WriteLine($"VERTICAL SPAN {(int)mainCamera.VerticalSpan()} UNITS");
+
+class OrthoCamera
+{
+    public double Size;
+
+    public OrthoCamera(double size)
+    {
+        Size = size;
+    }
+
+    public double VerticalSpan()
+    {
+        return Size * 2;
+    }
+}
+'''
+hint = "VerticalSpan is just Size doubled — the lesson defined Size as HALF the vertical span, so the full span is the reverse of that relationship."

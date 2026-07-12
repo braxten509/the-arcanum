@@ -1,0 +1,75 @@
+[[lessons]]
+id = "s11-l04"
+title = "Tempering IV // The Last Inspection"
+body = '''
+<p>Polish is not sprinkling sparks over a broken machine. It is a short, repeatable inspection of the promises already forged. Start a fresh Play-mode run from MainMenu. Start the game; move through tilemap walls; open dialogue; take damage and confirm the HUD redraws; pick up an item; pause and resume; save; then load. This is deliberate interleaving: the save system matters only if it restores the actual game, not a detached JSON demonstration.</p>
+<p>Inspect the Inspector as hard as the screen. Every serialized reference on SaveManager, AudioManager, GameStateManager, HealthHUD, dialogue, and inventory should be assigned. A missing reference is a predictable runtime failure, not a mysterious Unity curse. Read the Console after each pass and clear only warnings you understand. Keep useful guards and warnings; do not silence errors merely to make the Console look calm.</p>
+<pre><code><span class="k">if</span> (playerTransform == <span class="k">null</span> || health == <span class="k">null</span>)
+{
+    Debug.LogWarning(<span class="s">"SaveManager needs player and Health references."</span>);
+    <span class="k">return</span>;
+}</code></pre>
+<p>Use a small release checklist, not memory. Check readable text at your target window size, menu buttons that cannot be pressed through hidden panels, music/effects balance, and a player spawn that does not overlap a Collider2D. Save a recognizable state—different position, HP, inventory, and quest flag—then change each fact before loading. A load that restores only position is a partial failure, even if it feels impressive.</p>
+<p>When a defect appears, isolate its owner. A HUD number wrong after loading may mean SaveManager supplied bad HP, Health restored it without raising HealthChanged, or HealthHUD failed to render. Do not “fix” it by editing the text directly. Trace the old event boundary from Forge X and correct the responsible machine. That discipline is why the game can survive its last changes.</p>
+<div class="callout">A release check is a sequence with evidence. “I clicked around” is not evidence, artificer.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TEST A CLEAN START</div><p>Move or temporarily remove the local save during testing so you can prove both first launch and Load Game. Never assume your developer save represents a new player's machine.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Unity Manual: Console window"
+url = "https://docs.unity3d.com/Manual/console-Using.html"
+
+[[lessons.exercises]]
+id = "s11-l04-e1"
+type = "text"
+points = 20
+prompt = "After SaveManager restores Health's current HP, what existing Forge X event should cause HealthHUD to redraw?"
+answer = "HealthChanged"
+hint = "Name the combat bell that HealthHUD subscribed to in OnEnable."
+whyWrong = "Changing the TMP text directly bypasses the HUD boundary, while GameState is not the health notification. HealthChanged is the existing signal for a new HP display."
+
+[[lessons.exercises]]
+id = "s11-l04-e2"
+type = "mc"
+points = 23
+prompt = "A load restores the player position but leaves the HUD showing the old HP. What is the best first investigation?"
+choices = ["Increase the AudioSource volume", "Check whether Health restoration raises HealthChanged for HealthHUD", "Paint another tilemap layer", "Have SaveManager write directly to the HUD text"]
+answer = 1
+whyWrong = "Audio and tilemaps cannot update HP, and direct text mutation creates a second health-display authority. Trace the established Health-to-HUD event path after the load boundary."
+hint = "Reach back to the listener contract from Forge X instead of bypassing it."
+explain = "The symptom separates data restoration from UI notification; test the notification boundary next."
+
+[[lessons.exercises]]
+id = "s11-l04-e3"
+type = "fill"
+points = 24
+prompt = "Fill the Unity logging call that records a missing SaveManager reference without crashing the player's session."
+code = '''Debug.____("SaveManager needs player and Health references.");'''
+answer = "LogWarning"
+hint = "Use the Debug method named in the null-guard sample, not the error-level method."
+whyWrong = "A warning reports a recoverable setup defect; throwing or pretending the reference exists would end or corrupt the inspection path."
+
+[[lessons.exercises]]
+id = "s11-l04-w1"
+type = "write"
+points = 35
+prompt = "Turn a real inspection result into a deterministic report. Given the four booleans below, count passed checks with a loop and print the failed check name. Do not hardcode the count. Output exactly:\nCHECKS 3/4\nFAIL HUD_EVENT"
+starter = '''string[] checks = { "WALLS", "SAVE_LOAD", "HUD_EVENT", "PAUSE" };
+bool[] passed = { true, true, false, true };
+
+// Count true entries and print the name for each false entry.
+'''
+expect = '''CHECKS 3/4
+FAIL HUD_EVENT'''
+solution = '''string[] checks = { "WALLS", "SAVE_LOAD", "HUD_EVENT", "PAUSE" };
+bool[] passed = { true, true, false, true };
+int count = 0;
+string failed = "";
+for (int i = 0; i < checks.Length; i++)
+{
+    if (passed[i]) count++;
+    else failed = checks[i];
+}
+Console.WriteLine($"CHECKS {count}/{checks.Length}");
+Console.WriteLine($"FAIL {failed}");'''
+hint = "The expected order puts the summary first: collect failed names while looping, print the count, then print the collected failure."

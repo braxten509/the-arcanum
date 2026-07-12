@@ -25,6 +25,10 @@ whose every letter is a capital fails validation.
 ### `[[lessons]]` — 3–8 per section, sized by what the op teaches
 `id` (`"s01-l01"`), `title`, `body` (HTML multiline literal string).
 
+**Lesson titles follow the same Title Case convention as chapter titles.** Keep
+acronyms such as `JSON` or `HUD` uppercase, but never use an all-caps lesson title;
+all-caps styling belongs to labels such as the chapter `codename`.
+
 **Let each section's material set its lesson count** — a setup op might need 3,
 a dense op (state + config + events + sides, say) 5 or 6. Never more than 8:
 past that, split the section. Uniform counts across every section read as

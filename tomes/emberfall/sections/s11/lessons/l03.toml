@@ -1,0 +1,85 @@
+[[lessons]]
+id = "s11-l03"
+title = "Tempering III // The Sounding Anvil"
+body = '''
+<p>Sound belongs to an owner, artificer. Add a scene-level <code>AudioManager</code> with assigned <code>AudioSource</code> references for music and effects, plus assigned <code>AudioClip</code> fields for footsteps, hit, pickup, and button click. An AudioSource is the speaker in the scene; an AudioClip is the recorded sound it can play. Do not attach a new source to every sword, button, and NPC just because you can.</p>
+<pre><code><span class="k">public</span> <span class="k">void</span> PlaySfx(AudioClip clip)
+{
+    <span class="k">if</span> (clip == <span class="k">null</span>) <span class="k">return</span>;
+    effectsSource.PlayOneShot(clip);
+}</code></pre>
+<p><code>PlayOneShot</code> layers a short effect without replacing whatever that source is currently playing. That makes it suitable for a pickup or a combat hit. Use a dedicated music source for the overworld loop, and use the effects source for brief sounds. Assign both in the Inspector so the scene declares its hardware. A null guard is not cowardice: it gives an unfinished assignment silence instead of a Play-mode exception while you are wiring the scene.</p>
+<p>Call the manager from meaningful events already present in Emberfall. The inventory pickup path calls <code>PlaySfx(pickupClip)</code>; the Health damage boundary can request the hit clip; Canvas Button On Click can call a public <code>PlayButtonClick()</code> before or alongside the Forge X state transition. Do not put audio polling in Update. An event that happened once deserves one sound request, not a per-frame guess.</p>
+<p>Audio is polish with rules. Footsteps should be tied to actual movement and should not continue when GameStateManager is paused. If an AudioSource is set to ignore listener pause, it can keep playing while <code>AudioListener.pause</code> is active; leave that specialized option alone unless you deliberately need menu music. Your basic pause proof is simpler: stop movement events through the existing game state and confirm no new gameplay effects fire.</p>
+<p>The bench cannot play Unity audio, so its drill tests event ownership. The real work is Inspector assignment and listening in Play mode with a headset or speakers.</p>
+<div class="callout">An event asks for a sound. AudioManager chooses the source and clip; gameplay does not become an audio mixer.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // LEVELS BEFORE LOUDNESS</div><p>Set source volumes conservatively, then test dialogue, hit effects, and music together. A perfectly coded clip that buries the dialogue is still a release defect.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Unity Scripting API: AudioSource.PlayOneShot"
+url = "https://docs.unity3d.com/ScriptReference/AudioSource.PlayOneShot.html"
+
+[[lessons.exercises]]
+id = "s11-l03-e1"
+type = "mc"
+points = 23
+prompt = "When a Waybread pickup succeeds, which design keeps sound ownership clean?"
+choices = ["The pickup creates an AudioSource in Update until the player leaves", "Inventory directly edits the music source's clip", "The pickup event asks AudioManager to play the assigned pickup clip", "HealthChanged changes the pickup's SpriteRenderer"]
+answer = 2
+whyWrong = "Creating sources per frame causes repeated sounds, editing music replaces the wrong channel, and SpriteRenderer has no audio responsibility. The one-time pickup event should request the manager's effect playback."
+hint = "Follow the same boundary rule as HUD and game state: a caller requests an owner-owned action."
+explain = "AudioManager centralizes source selection while the pickup remains responsible only for its own event."
+
+[[lessons.exercises]]
+id = "s11-l03-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype the complete guarded effect request used by AudioManager."
+code = '''if (clip == null) return;
+effectsSource.PlayOneShot(clip);'''
+
+[[lessons.exercises]]
+id = "s11-l03-e2"
+type = "fill"
+points = 24
+prompt = "Fill the AudioSource method that plays a short hit clip without replacing the source's current clip assignment."
+code = '''effectsSource.____(hitClip);'''
+answer = "PlayOneShot"
+hint = "It is the two-word method shown directly beneath PlaySfx in this tempering."
+whyWrong = "Play assigns the source's configured clip, while this method accepts the requested effect clip for one layered playback."
+
+[[lessons.exercises]]
+id = "s11-l03-e3"
+type = "text"
+points = 20
+prompt = "What Unity component represents the scene speaker that actually plays an assigned AudioClip?"
+answer = "AudioSource"
+hint = "The clip is the recording; name the component that emits it."
+whyWrong = "AudioClip is the sound asset, not the playback component. AudioManager is the coordinator, while an AudioSource is the scene-side player."
+
+[[lessons.exercises]]
+id = "s11-l03-w1"
+type = "write"
+points = 35
+prompt = "Model a sound owner in plain C#. AudioManager receives a clip name and ignores a missing clip. Request Hit, then a missing value, then Pickup. Compute exactly:\nSFX Hit\nSFX Pickup"
+starter = '''// Define AudioManager below the top-level statements.
+// PlaySfx must print only non-null clip names, so the missing request prints nothing.
+'''
+expect = '''SFX Hit
+SFX Pickup'''
+solution = '''AudioManager audio = new AudioManager();
+audio.PlaySfx("Hit");
+audio.PlaySfx(null);
+audio.PlaySfx("Pickup");
+
+class AudioManager
+{
+    public void PlaySfx(string? clip)
+    {
+        if (clip == null) return;
+        Console.WriteLine($"SFX {clip}");
+    }
+}'''
+hint = "Put the null guard before Console.WriteLine so only the two real clip names become output."

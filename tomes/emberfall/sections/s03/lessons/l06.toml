@@ -1,0 +1,115 @@
+[[lessons]]
+id = "s03-l06"
+title = "Prefabs — One Blueprint, Many Instances"
+body = '''
+<p>Chapter II's constructor let you stamp out as many Artificer objects as you wanted from one blueprint — every <code>new Artificer("Kess", 1, 20)</code> call built a fresh, independent object without retyping the class. A <strong>Prefab</strong> is that same idea applied to a whole GameObject, components and all, inside the Editor instead of in code. Build ArtificerRig with its Transform, SpriteRenderer, and ArtificerRig.cs script exactly the way you want it, then drag it from the Hierarchy into the Project window — Unity turns it into a reusable <strong>Prefab asset</strong>, and the original GameObject in the scene becomes an <strong>instance</strong> of that asset, shown in blue text in the Hierarchy to mark the link.</p>
+<pre><code>Project window:
+  Assets/Prefabs/ArtificerRig.prefab   ← the blueprint, saved as an asset
+
+Hierarchy:
+  ArtificerRig   (blue text — this is an INSTANCE of the prefab above)</code></pre>
+<p>Drag that same prefab asset into the Hierarchy a second time and Unity creates a second, independent instance — same components, same starting field values, but its own separate GameObject that can move, take damage, or be destroyed without touching the first. This is how a scene ends up with a dozen identical torches or a room full of enemies without hand-building each one: build once, instantiate as many times as the scene needs.</p>
+<p>Prefab instances can still diverge from their blueprint. Change one instance's <code>level</code> field in the Inspector — say, from the prefab's default of <code>1</code> to <code>2</code> on just this one — and Unity marks that field bold with a blue bar in the Inspector: an <strong>override</strong>, a per-instance difference that this one instance remembers, while every other instance and the prefab asset itself stay at the original default. Edit the prefab asset's own script or a field the instance has NOT overridden, and every instance updates to match — the whole point of a shared blueprint — but an overridden field stays put, because that instance was told, specifically, to be different.</p>
+<div class="callout">A prefab does not need a script to be useful — a torch made only of a SpriteRenderer and a Light component is just as valid a prefab as ArtificerRig. Prefabs package whatever components a GameObject has, code or not.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // NESTED PREFABS AND WHEN AN OVERRIDE STICKS FOREVER</div>
+<p>A prefab can itself contain child GameObjects that are ALSO prefab instances — ArtificerRig's Torch child, from lesson one's Hierarchy sketch, could be its own separate Torch.prefab nested inside the ArtificerRig.prefab. Editing Torch.prefab then ripples into every ArtificerRig instance in the project, not just one. The one override that never gets undone by an edit to the source prefab is deleting a component or child outright on an instance — Unity remembers a removal as permanently as it remembers a changed number, so "temporarily" stripping a component off one instance to test something is a change that survives every future prefab update unless you explicitly revert it.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Manual: Prefabs"
+url = "https://docs.unity3d.com/Manual/Prefabs.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Manual: Instantiating prefabs"
+url = "https://docs.unity3d.com/Manual/instantiating-prefabs.html"
+
+[[lessons.exercises]]
+id = "s03-l06-e1"
+type = "mc"
+points = 20
+prompt = "Torch.prefab is dragged into the Hierarchy three times, giving a scene three Torch instances. One instance has its light color changed in the Inspector; the other two are left alone. Torch.prefab's own script is then edited to add a new field. What happens to the three instances?"
+choices = ["All three instances lose the color change, since editing the prefab resets every instance to default", "Only the two un-overridden instances gain the new field; the overridden one is now disconnected from the prefab entirely", "The edit fails until every instance's overrides are manually cleared first", "All three gain the new field, and the one instance keeps its overridden light color — the new field and the color override don't conflict"]
+answer = 3
+whyWrong = "Editing the prefab's script doesn't wipe existing Inspector overrides on instances — that would make overrides pointless; an instance with one overridden field is NOT disconnected from the prefab over that single change, it still receives every other update; and Unity never blocks a prefab edit waiting on instances to clear their overrides — none of these match how overrides actually coexist with prefab updates."
+hint = "The lesson said an overridden field stays put while everything the instance has NOT overridden keeps matching the prefab — does a new field conflict with an existing override on a different field?"
+explain = "A field-level override on one property doesn't disconnect the instance from the prefab as a whole — every instance still picks up a new field added to the prefab's script, while the specific overridden field (light color, here) stays as the instance set it."
+
+[[lessons.exercises]]
+id = "s03-l06-e2"
+type = "mc"
+points = 20
+prompt = "An artificer removes the BoxCollider2D component from one Torch instance to test something, then later edits Torch.prefab's script to fix an unrelated bug. What happens to that instance's missing BoxCollider2D?"
+choices = ["It stays removed — a component removal on an instance is remembered like any other override, and a script edit to the prefab does not restore it", "It comes back automatically, since any edit to the prefab re-syncs every component on every instance", "The instance is deleted, since a missing required component corrupts the prefab link", "Unity blocks the prefab script edit until the missing component is restored"]
+answer = 0
+whyWrong = "A prefab update does not quietly restore something you deliberately removed on an instance — that would make 'test something by stripping a component' impossible to do safely; there's no rule that a missing component deletes the whole instance, and Unity places no such restriction on editing a prefab's script because one instance is missing a component — the field notes were explicit that a removal sticks exactly like an overridden value does."
+hint = "The field notes named this exact scenario — a removed component behaves like which OTHER kind of change this lesson described?"
+explain = "Removing a component on an instance is remembered just as permanently as an overridden field value — later prefab edits elsewhere do not bring it back; only an explicit revert on that instance would restore it."
+
+[[lessons.exercises]]
+id = "s03-l06-e3"
+type = "text"
+points = 20
+prompt = "What single word names a per-instance difference from its prefab's default — shown bold with a blue bar in the Inspector — that survives future edits to the prefab asset?"
+answer = "override"
+hint = "This lesson used the word twice describing a field an instance was deliberately told to differ on, like level going from 1 to 2 on just one copy."
+
+[[lessons.exercises]]
+id = "s03-l06-e4"
+type = "fill"
+prompt = "Fill in the missing label from the Hierarchy sketch — the visual marker Unity uses to show a GameObject is linked to a prefab asset."
+points = 22
+code = '''Hierarchy:
+  ArtificerRig   (____ text — this is an INSTANCE of the prefab above)'''
+answer = "blue"
+hint = "This lesson named the specific color Unity uses in the Hierarchy to mark a prefab instance, twice."
+
+[[lessons.exercises]]
+id = "s03-l06-w1"
+type = "write"
+points = 32
+prompt = "Model dragging a prefab into a scene twice, in plain C#: reuse class Artificer from chapter II exactly (Name, Level auto-properties; HitPoints with a private setter; constructor Artificer(string name, int level, int hitPoints); method TakeDamage(int amount)). Write a method SpawnInstance(string suffix) that builds a new Artificer using \"Kess\" + suffix as Name, level 1, hitPoints 20 — modeling two prefab instances built from one blueprint. Call it twice with suffixes \" Copy 1\" and \" Copy 2\", call TakeDamage(5) on the SECOND instance only (modeling a per-instance override), then print both, in order, exactly:\nKess Copy 1 — Level 1, 20 HP\nKess Copy 2 — Level 1, 15 HP"
+starter = '''
+// Call SpawnInstance twice, damage only the second result by 5, then print both readouts.
+// Define class Artificer and the SpawnInstance method at the BOTTOM of the file.
+
+'''
+expect = '''
+Kess Copy 1 — Level 1, 20 HP
+Kess Copy 2 — Level 1, 15 HP'''
+solution = '''
+Artificer copyOne = SpawnInstance(" Copy 1");
+Artificer copyTwo = SpawnInstance(" Copy 2");
+copyTwo.TakeDamage(5);
+
+Console.WriteLine($"{copyOne.Name} — Level {copyOne.Level}, {copyOne.HitPoints} HP");
+Console.WriteLine($"{copyTwo.Name} — Level {copyTwo.Level}, {copyTwo.HitPoints} HP");
+
+static Artificer SpawnInstance(string suffix)
+{
+    return new Artificer("Kess" + suffix, 1, 20);
+}
+
+class Artificer
+{
+    public string Name { get; }
+    public int Level { get; }
+    public int HitPoints { get; private set; }
+
+    public Artificer(string name, int level, int hitPoints)
+    {
+        Name = name;
+        Level = level;
+        HitPoints = hitPoints;
+    }
+
+    public void TakeDamage(int amount)
+    {
+        HitPoints -= amount;
+        if (HitPoints < 0)
+        {
+            HitPoints = 0;
+        }
+    }
+}
+'''
+hint = "SpawnInstance is a static method that returns a new Artificer, the same way a prefab returns a new instance each time it's dragged in — call TakeDamage(5) only on copyTwo before printing either line."

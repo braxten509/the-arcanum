@@ -1,10 +1,13 @@
 """Support package for tools/build_tome.py. Module map:
 - runners   runner templates/specs, harness.toml resolution, the human runner-pick pause
 - liveness  headless worker execution, hang detection, auth preflight
+- agent_runtime  provider-normalized repo/web/temp access and scoped write boundaries
 - prompts   phase prompt assembly, the Phase-0 gate/plan writer, verdict/findings IO
 - measure   validator gate, inventory/shrinkage contract, ground-truth measuring
 - sections  split-mode Phase 3 (one worker per section) + its resume bookkeeping
 - checkpoints  between-phase gates: Phase-1 arc gate, arc approval pause, tome rename
+- workflow  phase-file parsing and the shared access-boundary prompt
+- build_selftest  focused harness regression checks
 Shared paths/constants live here."""
 import os
 

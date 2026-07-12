@@ -1,0 +1,117 @@
+[[lessons]]
+id = "s04-l04"
+title = "Grids & Tilemaps — Painting Instead of Placing"
+body = '''
+<p>Every GameObject you have built so far — ArtificerRig, Torch, the Apprentice prefab instance — was placed one at a time, by hand, in the Hierarchy. That approach falls apart the moment "the floor" means two hundred individual tiles: two hundred GameObjects, each with its own Transform, SpriteRenderer, and Hierarchy row, just to draw a rectangle of dirt. Unity's <strong>Tilemap</strong> system exists specifically to avoid that explosion. <code>GameObject &gt; 2D Object &gt; Tilemap &gt; Rectangular</code> creates two GameObjects at once: a <strong>Grid</strong> parent, which defines the cell size every tile snaps to, and a child named <strong>Tilemap</strong> carrying two components — <code>Tilemap</code>, which stores which tile sits in which integer cell, and <code>Tilemap Renderer</code>, the Tilemap's own equivalent of a SpriteRenderer, right down to carrying the same Sorting Layer and Order in Layer fields from the last lesson.</p>
+<pre><code>Hierarchy
+└── Grid
+    └── Floor
+        Tilemap          — stores cell coordinates to tile sprites
+        Tilemap Renderer   — Sorting Layer: Ground, Order in Layer: 0</code></pre>
+<p>A Tilemap has no tiles to paint with until you build a <strong>Tile Palette</strong> — open <code>Window &gt; 2D &gt; Tile Palette</code>, create a new Palette asset, then drag one or more Sprites from the Project window into it. Each Sprite becomes a paintable brush. Select the Floor Tilemap in the Hierarchy, pick a tile from the Palette, and painting in the Scene view stamps that Sprite into whichever integer cell your cursor is over — one click covers one cell, a click-and-drag covers a whole rectangle, all through a single Tilemap component instead of one GameObject per cell.</p>
+<p>Cell coordinates are integers, always — cell <code>(3, 2)</code> means the fourth column, third row of the Grid, regardless of what Pixels Per Unit or cell size the Grid was configured with. This is a different coordinate system from the Transform positions you have used since chapter III: a script can still ask a Tilemap "what's painted at cell (3, 2)?" long before it needs to know that cell's actual world-space position.</p>
+<div class="callout">A Tilemap with an empty Tile Palette paints nothing, silently — the same "no sprite assigned, no error, no output" failure this section has already named for SpriteRenderer. Build or import the Palette's Sprites BEFORE trying to paint, or the brush tool simply has nothing to stamp.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY THE GRID IS A SEPARATE GAMEOBJECT FROM THE TILEMAP</div>
+<p>A single Grid can parent several Tilemap children — Floor, Walls, and later a Decoration layer — all sharing that one Grid's cell size, so painting a wall tile and a floor tile in the same location always lines up exactly, cell for cell. This is the same composition principle chapter III's second lesson taught with GameObjects generally: the Grid owns the shared layout rule, each Tilemap child owns one layer's own painted content, and neither has to duplicate what the other is responsible for.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Manual: Introduction to Tilemaps"
+url = "https://docs.unity3d.com/Manual/tilemaps/tilemaps-landing.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Manual: Sprite Renderer component reference"
+url = "https://docs.unity3d.com/Manual/sprite/renderer/sprite-renderer-reference.html"
+
+[[lessons.exercises]]
+id = "s04-l04-e1"
+type = "mc"
+points = 20
+prompt = "An artificer wants a Walls layer painted on the exact same cell grid as an existing Floor Tilemap, so wall tiles always line up with floor tiles beneath them. What is the correct structure, per this lesson?"
+choices = ["Create a second, separate Grid GameObject sized identically by hand and hope the numbers match", "Add a second Tilemap child, named Walls, under the SAME Grid parent that already holds Floor", "Rename the existing Floor Tilemap's GameObject to Walls, since one Tilemap can only hold one layer's worth of tiles at a time", "Paint wall tiles directly onto the Floor Tilemap using a different Sorting Layer per tile"]
+answer = 1
+whyWrong = "Hand-matching a second, separate Grid's numbers is exactly the fragile duplication this lesson's field notes said a shared Grid parent avoids; renaming Floor to Walls destroys the floor layer rather than adding a second one, and a single Tilemap is built to hold exactly one layer's tiles, not several; and Sorting Layer lives on the Tilemap Renderer as a whole, not per individual painted tile, so tiles can't be split that way within one Tilemap."
+hint = "The field notes explained why Grid and Tilemap are separate GameObjects in the first place — what does sharing one Grid parent guarantee between two Tilemap children?"
+explain = "A single Grid can parent multiple Tilemap children that all share its exact cell size, so a second Tilemap named Walls under the same Grid as Floor is guaranteed to line up cell-for-cell with no manual matching required."
+
+[[lessons.exercises]]
+id = "s04-l04-e2"
+type = "mc"
+points = 20
+prompt = "A Tile Palette asset has been created but no Sprites have been dragged into it yet. An artificer selects the Floor Tilemap and tries to paint with the brush tool anyway. What happens?"
+choices = ["Unity throws a compile error, since an empty Palette is an invalid asset", "The brush paints a default placeholder checkerboard tile into every cell clicked", "Nothing gets painted — there is no tile assigned to the brush, the same silent-nothing failure this section has already shown for an empty SpriteRenderer field", "Unity automatically pulls in the first Sprite found anywhere in the Assets folder"]
+answer = 2
+whyWrong = "There is no compiler involved in painting a Tilemap by hand in the Editor, so no compile error is possible here; Unity never invents a placeholder checkerboard tile to paint with on your behalf; and it does not auto-select some unrelated Sprite from the project to use instead — the callout was explicit that an empty Palette paints nothing at all, silently, the exact same failure mode as a SpriteRenderer with no Sprite assigned."
+hint = "The callout compared this directly to an earlier failure this section already covered — what happens when a SpriteRenderer's Sprite field is left empty?"
+explain = "An empty Tile Palette has no brush to paint with, so clicking or dragging in the Scene view stamps nothing into any cell — silent, with no error, exactly like an unassigned SpriteRenderer earlier in this section."
+
+[[lessons.exercises]]
+id = "s04-l04-e3"
+type = "text"
+points = 18
+prompt = "What is the exact name of the window, opened via Window > 2D, used to build a set of paintable tile brushes from imported Sprites?"
+answer = "Tile Palette"
+hint = "This lesson named it as the second thing you build, right after creating the Grid and Tilemap GameObjects themselves."
+
+[[lessons.exercises]]
+id = "s04-l04-e4"
+type = "fill"
+points = 22
+prompt = "Fill in the missing component — the Tilemap's own equivalent of a SpriteRenderer, carrying the same Sorting Layer and Order in Layer fields."
+code = '''Hierarchy
+Grid
+  Floor
+    Tilemap          - stores cell coordinates to tile sprites
+    ____   - Sorting Layer: Ground, Order in Layer: 0'''
+answer = "Tilemap Renderer"
+hint = "It's named the same way as the component from chapter III's very first lesson of this section, just with 'Tilemap' swapped in for 'Sprite'."
+
+[[lessons.exercises]]
+id = "s04-l04-w1"
+type = "write"
+points = 32
+prompt = "Unity's Tilemap can't run outside the Editor, so model cell-coordinate lookup in plain C#: a class TileGrid with a private Dictionary<string, string> cells, initialized empty in a constructor TileGrid(), a method Paint(int column, int row, string tileName) that stores tileName under the key $\"{column},{row}\" (matching chapter II's string interpolation), and a method TileAt(int column, int row) that builds that same key and returns the stored name via TryGetValue, or the literal string \"EMPTY\" if that cell was never painted. Paint (0, 0) as \"Grass\", (1, 0) as \"Grass\", and (2, 0) as \"Stone\", then print, in order, the results of TileAt(0, 0), TileAt(2, 0), and TileAt(5, 5), exactly:\nGrass\nStone\nEMPTY"
+starter = '''
+// Paint the three named cells, then print TileAt for (0,0), (2,0), and (5,5).
+// Define class TileGrid at the BOTTOM of the file.
+
+'''
+expect = '''
+Grass
+Stone
+EMPTY'''
+solution = '''
+TileGrid floor = new TileGrid();
+floor.Paint(0, 0, "Grass");
+floor.Paint(1, 0, "Grass");
+floor.Paint(2, 0, "Stone");
+
+Console.WriteLine(floor.TileAt(0, 0));
+Console.WriteLine(floor.TileAt(2, 0));
+Console.WriteLine(floor.TileAt(5, 5));
+
+class TileGrid
+{
+    private Dictionary<string, string> cells;
+
+    public TileGrid()
+    {
+        cells = new Dictionary<string, string>();
+    }
+
+    public void Paint(int column, int row, string tileName)
+    {
+        cells[$"{column},{row}"] = tileName;
+    }
+
+    public string TileAt(int column, int row)
+    {
+        if (cells.TryGetValue($"{column},{row}", out string tileName))
+        {
+            return tileName;
+        }
+        return "EMPTY";
+    }
+}
+'''
+hint = "This is chapter II's Dictionary TryGetValue pattern again, just keyed by a $\"{column},{row}\" string built with interpolation instead of a plain word — an unpainted cell should behave exactly like a resistance chapter II's Dictionary never had an entry for."

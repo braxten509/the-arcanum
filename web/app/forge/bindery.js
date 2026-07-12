@@ -11,6 +11,14 @@ export const FORGE_PHASES = ["Gate", "Concept & arc", "Skeleton & voice", "Secti
 export const FORGE_PHASE_NAMES = ["Gate", "Concept & arc", "Skeleton & voice", "Sections",
   "Minigames", "Economy", "Cosmetics", "Validate", "Student review"];
 
+// Defense in depth for a page connected to an older server: keep the live terminal a
+// concise status stream even if that server still returns raw runner stdout.
+const FORGE_STATUS_RE = /^(?:>\s*Phase\s+\d+\s+—|===\s*Phase\s+0\b|·\s*(?:AI access Phase 0|forecast:|reset tomes\/|split-sections:|(?:authoring|resuming|section)\s+s\d+|shrinkage justified|renamed tomes\/|liveness ping)|(?:ok|FAIL)\s+|!\s*(?:runner|worker|section|Phase|naming)\b|x\s*(?:gates failed|Phase|section)\b|⇒\s+|↻\s+|~\s*student verdict\b|⏸\s*phase\b|==\s*all phases complete\b|AI ACCESS PHASE 0 FAILED\b|->\s*wrote\b)/;
+function forgeStatusTail(raw) {
+  return String(raw || "").split("\n").map((line) => line.trim())
+    .filter((line) => FORGE_STATUS_RE.test(line)).slice(-40).join("\n");
+}
+
 let forgeOverlay = null; // the one live progress overlay (null when none)
 let forgePoll = 0;       // its status poller — always cleared before the overlay is dropped
 
@@ -178,7 +186,7 @@ export function openBuildOverlay(jobId) {
       <button class="btn danger" id="fp-cancel">ABANDON THE WORKING</button>
       <button class="btn quiet" id="fp-leave">LEAVE THE BINDERY (work continues)</button>
     </div></div>`;
-  ArcanumViewport.mount(overlay);
+  document.body.appendChild(overlay);
   forgeOverlay = overlay;
   $("#fp-leave", overlay).onclick = () => overlay.classList.add("hidden");
 
@@ -223,8 +231,9 @@ export function openBuildOverlay(jobId) {
       $(".fp-mark", row).textContent = i < st.phase ? "✓" : i === st.phase ? "…" : "";
     });
     const log = $("#fp-log", overlay);
-    if (log.textContent !== (st.logtail || "")) {
-      log.textContent = st.logtail || "";
+    const visibleLog = forgeStatusTail(st.logtail);
+    if (log.textContent !== visibleLog) {
+      log.textContent = visibleLog;
       log.scrollTop = log.scrollHeight;
     }
   }
