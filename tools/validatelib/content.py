@@ -384,6 +384,18 @@ def check_content(m, sections_data, label, tooling=None):
                  "— every lesson should link at least one reading, even if just one; "
                  "check the later/denser sections aren't where coverage thins out")
 
+        # essential = true means "the course itself cannot fully teach this concept" —
+        # rare by definition. A high ratio is quota-filling (a past Binder run flagged
+        # one per lesson to give every lesson an essential reading), not curation.
+        ess = sum(1 for les in lessons
+                  if any(r.get("essential") is True
+                         for r in (les.get("readings") or []) if isinstance(r, dict)))
+        if ess > 2 and ess / len(lessons) > 0.15:
+            warn("anti-template", f"{ess} of {len(lessons)} lessons flag an essential reading — "
+                 "essential means the course itself cannot fully teach that concept, so it is "
+                 "rare; flagging one per lesson is quota-filling. Unflag all but the few readings "
+                 "a student genuinely must study externally to proceed")
+
     # §5 + the gate's Tooling choice (harness passes --tooling internal|external|both):
     #   internal → the course must stay in-browser: externalWorkspace = true is forbidden.
     #   external/both, or externalWorkspace = true → the tome MUST teach its external tools,

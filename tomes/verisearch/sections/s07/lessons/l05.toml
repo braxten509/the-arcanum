@@ -1,0 +1,125 @@
+[[lessons]]
+id = "s07-l05"
+title = "Reading Web Addresses — Safe Uri Domain Extraction"
+body = '''
+
+<p>The Scales cannot consult the trust ledger until they know which domain issued a result. A URL is structured data, not a string to carve apart with <code>Split('/')</code>. C# already has the right instrument: <code>Uri</code>.</p>
+<pre><code><span class="k">string</span> raw = <span class="s">"https://www.ietf.org/rfc/rfc8446.html?view=all"</span>;
+<span class="k">var</span> uri = <span class="k">new</span> Uri(raw);
+
+Console.WriteLine(uri.Scheme);       <span class="c">// https</span>
+Console.WriteLine(uri.Host);         <span class="c">// www.ietf.org</span>
+Console.WriteLine(uri.AbsolutePath); <span class="c">// /rfc/rfc8446.html</span></code></pre>
+<p>The three properties answer different questions. <code>Scheme</code> names the protocol, <code>Host</code> names the server, and <code>AbsolutePath</code> names the path on that server. The trust database wants the host. Query strings and fragments do not belong in that lookup key.</p>
+<p>Search results are foreign input. <code>new Uri(raw)</code> throws when the text is malformed, so the ranking pipeline needs the non-throwing gate:</p>
+<pre><code><span class="k">static bool</span> TryGetWebHost(<span class="k">string</span> raw, <span class="k">out string</span> host)
+{
+    host = <span class="s">""</span>;
+    <span class="k">if</span> (!Uri.TryCreate(raw, UriKind.Absolute, <span class="k">out</span> Uri? uri))
+        <span class="k">return false</span>;
+
+    <span class="k">if</span> (uri.Scheme != Uri.UriSchemeHttp &amp;&amp; uri.Scheme != Uri.UriSchemeHttps)
+        <span class="k">return false</span>;
+
+    host = uri.Host.ToLowerInvariant();
+    <span class="k">return</span> host.Length &gt; 0;
+}</code></pre>
+<p><code>UriKind.Absolute</code> rejects fragments such as <code>docs/page.html</code> that lack a scheme and host. The second ward admits only HTTP and HTTPS; a syntactically valid <code>file:</code> address is still not a web source. Lowercasing the host gives the ledger one stable spelling before the Chapter II <code>Dictionary</code> lookup:</p>
+<pre><code><span class="k">if</span> (TryGetWebHost(result.Url, <span class="k">out string</span> host)
+    &amp;&amp; trustByDomain.TryGetValue(host, <span class="k">out</span> TrustProfile? profile))
+{
+    Console.WriteLine(<span class="s">$"{host}: {profile.BaseScore:F1}"</span>);
+}</code></pre>
+<div class="callout">Reject a malformed result; do not let one crooked URL break the ranking of every sound source. The containment habit from exceptions now becomes a small boolean gate.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>Subdomains are distinct hosts.</strong> <code>www.ietf.org</code> and <code>datatracker.ietf.org</code> do not automatically become <code>ietf.org</code>. If the ledger should share trust across them, encode that policy explicitly rather than trimming labels by guesswork.</p>
+<p><strong>Keep escaping and parsing separate.</strong> Chapter IV's <code>Uri.EscapeDataString</code> prepares a query value before building a request URL. <code>Uri.TryCreate</code> parses a complete result URL after it arrives. One protects construction; the other validates interpretation.</p></div>'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — Uri class reference"
+url = "https://learn.microsoft.com/en-us/dotnet/api/system.uri"
+essential = false
+
+[[lessons.exercises]]
+id = "s07-l05-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Copy the safe web-host gate twice. This is the exact ward the Scales need before a trust lookup."
+code = '''
+if (Uri.TryCreate(raw, UriKind.Absolute, out Uri? uri)
+    && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+{
+    Console.WriteLine(uri.Host.ToLowerInvariant());
+}'''
+
+[[lessons.exercises]]
+id = "s07-l05-e1"
+type = "fill"
+points = 25
+prompt = "Fill the blank with the non-throwing parser used to test a complete result URL."
+code = '''
+if (Uri.____(raw, UriKind.Absolute, out Uri? uri))
+    Console.WriteLine(uri.Host);'''
+answer = "TryCreate"
+accept = ["trycreate"]
+whyWrong = "The ranking boundary needs the boolean-returning parser so malformed search results become a rejected item instead of an exception."
+hint = "The method name pairs the safe-parsing convention from int.TryParse with object creation."
+
+[[lessons.exercises]]
+id = "s07-l05-e2"
+type = "mc"
+points = 25
+prompt = "A result URL is <code>https://nist.gov/pubs?id=7#summary</code>. Which value belongs in the domain-trust dictionary lookup?"
+choices = ["/pubs", "nist.gov", "id=7", "https"]
+answer = 1
+whyWrong = "The path, query value, and scheme describe other URL parts; the trust ledger is keyed by the server host, <code>nist.gov</code>."
+explain = "Parsing the address and reading <code>uri.Host</code> yields <code>nist.gov</code>, unaffected by its path, query string, or fragment."
+hint = "The ledger identifies who published the page, not where on that server the page lives."
+
+[[lessons.exercises]]
+id = "s07-l05-e3"
+type = "text"
+points = 20
+prompt = "After <code>var uri = new Uri(\"https://ietf.org/rfc/8446\");</code>, which property yields the server name? Give only the property name."
+answer = "Host"
+accept = [".host", "uri.host"]
+whyWrong = "Scheme identifies <code>https</code> and AbsolutePath identifies <code>/rfc/8446</code>; the server-name property is <code>Host</code>."
+hint = "The lesson's first inspection printed Scheme, this property, and AbsolutePath in that order."
+
+[[lessons.exercises]]
+id = "s07-l05-w1"
+type = "write"
+points = 36
+prompt = "Given the starter's three candidate strings, print the lowercase host of each absolute HTTP/HTTPS URL in input order. Reject <code>not a url</code> without throwing. The exact output must be <code>ietf.org</code> then <code>nist.gov</code>, one per line."
+starter = '''
+var urls = new List<string>
+{
+    "https://IETF.org/rfc/8446",
+    "not a url",
+    "https://nist.gov/pubs?id=7"
+};
+
+// Inspect every candidate with Uri.TryCreate and print only valid web hosts.
+'''
+expect = '''
+ietf.org
+nist.gov'''
+solution = '''
+var urls = new List<string>
+{
+    "https://IETF.org/rfc/8446",
+    "not a url",
+    "https://nist.gov/pubs?id=7"
+};
+
+foreach (string raw in urls)
+{
+    if (Uri.TryCreate(raw, UriKind.Absolute, out Uri? uri)
+        && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+    {
+        Console.WriteLine(uri.Host.ToLowerInvariant());
+    }
+}
+'''
+hint = "Inside the foreach, combine Uri.TryCreate with an HTTP-or-HTTPS scheme check; print uri.Host.ToLowerInvariant() only when both gates pass."

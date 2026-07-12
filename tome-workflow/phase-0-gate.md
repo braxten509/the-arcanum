@@ -11,4 +11,4 @@ This gate is absolute. **Even in an autonomous / automode run, interrupt the run
 ask** — you can break out of automode, so do it. Never answer for the user, never
 assume defaults, never proceed unanswered.
 
-→ **Produce:** the user's three answers. Nothing else exists until they arrive.
+→ **Produce:** the user's six answers. Nothing else exists until they arrive.

@@ -5,11 +5,11 @@ phases (§6), pulling in each section as its phase needs it (`§N` = the file st
 with `N-` in this folder). If you are driving this with a tool, keep `tome-authoring/`
 as the reference and follow `tome-workflow/` for the order to work in.
 
-### 🚦 HARD GATE — ask three questions FIRST, then WAIT for the answers
+### 🚦 HARD GATE — ask the six questions FIRST, then WAIT for the answers
 
 Before designing ANYTHING — before a single file, id, or section arc — ask the
-requester at least **three** clarifying questions (§6 step 0 lists them; the three
-that most change the design are prior knowledge, scope/depth, and toolchain) and
+requester the **six** course-shaping questions (§6 step 0 lists them: prior
+knowledge, starting level, breadth, lesson depth, mastery, and tooling) and
 **WAIT for their real answers.** Scaffold nothing and generate no TOML until they
 have answered.
 

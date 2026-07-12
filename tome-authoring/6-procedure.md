@@ -1,21 +1,25 @@
 # 6. Generation procedure — follow in order
 
-0. **Ask three questions FIRST — mandatory, never skip (see the §0 HARD GATE).**
-   Before designing anything, ask the requester at least THREE clarifying questions
+0. **Ask the six questions FIRST — mandatory, never skip (see the §0 HARD GATE).**
+   Before designing anything, ask the requester the SIX course-shaping questions
    and wait for the answers; the answers reshape every later step. This holds in
    EVERY run mode: even under autonomous/automode, interrupt the run and ask — never
-   answer on the user's behalf, assume defaults, or proceed unanswered. Pick the
-   three that most change the design, e.g.:
-   - Prior knowledge: "Do you already know <language>, or is this course also
-     your first <language>?" (decides whether early ops teach the language or
-     only the domain — a Minecraft-mod tome for a Java veteran skips Java
-     fundamentals; for a newcomer it must teach them)
-   - Scope & depth: "Quick focused mini-course or thorough from-zero coverage?"
-     (drives section count and lesson density)
-   - Toolchain: "Work inside the engine's own workbench, or in your real
-     external project/IDE (`externalWorkspace`, §5)?" — and for externals, which
+   answer on the user's behalf, assume defaults, or proceed unanswered. The six:
+   - Prior knowledge: "What can you already do — which languages/tools do you
+     know?" (a Minecraft-mod tome for a Java veteran skips Java fundamentals;
+     for a newcomer it must teach them)
+   - Starting level (1–10): how much they already know about THIS subject —
+     1 = teach the language/tool from scratch as its own chapters, 10 = expert
+   - Breadth (1–10): how much of the topic's surface — one tight path to the
+     objective, or the whole territory (drives section count)
+   - Lesson depth (1–10): how deep each lesson digs — just use it, or internals
+     and edge cases (drives lesson density)
+   - Mastery (1–5): where the student must stand after the last chapter —
+     acquainted through expert
+   - Tooling: work inside the engine's own workbench, in the real external
+     project/IDE (`externalWorkspace`, §5), or both? — and for externals, which
      exact tool versions
-   A fourth (fiction/theme taste) is welcome; zero questions is a review
+   A seventh (fiction/theme taste) is welcome; skipping the gate is a review
    failure.
 
 1. **Concept & end product.** Pick the finished tool the student will genuinely

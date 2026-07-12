@@ -7,6 +7,18 @@ import time
 
 from . import BUILD_DIR
 
+def _codex_no_mcp():
+    """Disable every personal MCP server by name (mirrors arcanum.config.codex_no_mcp_args —
+    `-c mcp_servers={}` merges instead of clearing; codex-desktop's node_repl hangs headless)."""
+    import tomllib
+    try:
+        with open(os.path.expanduser("~/.codex/config.toml"), "rb") as f:
+            servers = tomllib.load(f).get("mcp_servers", {})
+    except (OSError, tomllib.TOMLDecodeError):
+        return []
+    return [a for n in servers for a in ("-c", f"mcp_servers.{n}.enabled=false")]
+
+
 # Ready-made runner templates the web bindery's pickers map onto (--runner overrides).
 # A build runner must wield tools and edit files, so only the agentic login CLIs
 # qualify — ollama prints text; it cannot hold the quill.
@@ -21,7 +33,9 @@ CLI_RUNNERS = {
     # --print-timeout defaults to 5m, far under a real phase.
     "antigravity-cli": {"cmd": ["agy", "--dangerously-skip-permissions", "--print-timeout", "4h",
                                 "--model", "{model}", "--print"], "input": "arg"},
-    "codex-cli": {"cmd": ["codex", "exec", "--skip-git-repo-check", "-s", "workspace-write", "-m", "{model}", "-"], "input": "stdin",
+    # npm codex preferred: the Arch openai-codex package omits codex-code-mode-host (gpt-5.6 needs it)
+    "codex-cli": {"cmd": [os.path.expanduser("~/.local/bin/codex") if os.access(os.path.expanduser("~/.local/bin/codex"), os.X_OK) else "codex",
+                          "exec", "--skip-git-repo-check", "-s", "workspace-write", *_codex_no_mcp(), "-m", "{model}", "-"], "input": "stdin",
                   "efforts": ("minimal", "low", "medium", "high", "xhigh"),
                   "effortArgs": ["-c", "model_reasoning_effort={effort}"]},
     # opencode drives OpenCode Go / free models (opencode-go/*, opencode/*) AND local models

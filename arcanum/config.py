@@ -28,7 +28,22 @@ def agy_print_args(timeout):
     return ["--print-timeout", f"{timeout}s"]
 
 
-CODEX_BIN = shutil.which("codex") or os.path.expanduser("~/.local/bin/codex")
+# prefer the npm install: the Arch openai-codex package omits codex-code-mode-host,
+# which gpt-5.6 models need — /usr/bin/codex dies with "failed to spawn code-mode host"
+_NPM_CODEX = os.path.expanduser("~/.local/bin/codex")
+CODEX_BIN = _NPM_CODEX if os.access(_NPM_CODEX, os.X_OK) else (shutil.which("codex") or _NPM_CODEX)
+
+
+def codex_no_mcp_args():
+    """-c overrides disabling every MCP server in ~/.codex/config.toml by name.
+    (`-c mcp_servers={}` MERGES with the file instead of clearing it, so each server
+    must be switched off individually. codex-desktop's node_repl hangs headless.)"""
+    try:
+        with open(os.path.expanduser("~/.codex/config.toml"), "rb") as f:
+            servers = tomllib.load(f).get("mcp_servers", {})
+    except (OSError, tomllib.TOMLDecodeError):
+        return []
+    return [a for n in servers for a in ("-c", f"mcp_servers.{n}.enabled=false")]
 OPENCODE_BIN = shutil.which("opencode") or os.path.expanduser("~/.local/bin/opencode")
 GRADE_TIMEOUT = 420  # seconds for claude grading
 ORACLE_TIMEOUT = 180  # seconds for one oracle question (any backend)
@@ -40,9 +55,10 @@ CLI_MODELS = {
     "claude-cli": ["claude-opus-4-8", "claude-opus-4-7", "claude-sonnet-5", "claude-haiku-4-5", "claude-fable-5"],
     # gpt-5.4-mini is the cheap/fast coding model (supersedes gpt-4o-mini, which is not in the
     # 2026 codex lineup); gpt-5.3-codex stays available for the coding-optimized cost profile.
-    "codex-cli": ["gpt-5.5", "gpt-5.4", "gpt-5.3-codex", "gpt-5.4-mini"],
+    # gpt-5.6 tiers (July 2026): sol = deepest reasoning, terra = balanced, luna = fast/cheap
+    "codex-cli": ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5", "gpt-5.4", "gpt-5.3-codex", "gpt-5.4-mini"],
     "anthropic": ["claude-opus-4-8", "claude-opus-4-7", "claude-sonnet-5", "claude-haiku-4-5", "claude-fable-5"],
-    "openai": ["gpt-5.1", "gpt-5", "gpt-4.1", "o3"],
+    "openai": ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.1", "gpt-5", "gpt-4.1", "o3"],
 }
 # Reasoning-effort levels each login CLI accepts (claude: `--effort`, per its own
 # --help; codex: `-c model_reasoning_effort=`). agy takes none — its Gemini model

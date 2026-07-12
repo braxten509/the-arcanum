@@ -58,6 +58,7 @@ var result = nums.Aggregate(1, (acc, n) => acc * n);'''
 choices = ["9", "24", "10", "1"]
 answer = 1
 whyWrong = "Trace the chain’s arithmetic: it evaluates to 24 — the other numbers drop or double a step in the pipeline."
+explain = "<code>Aggregate</code> carries its accumulator through every item: the seed 1 becomes 2, then 6, then 24."
 hint = "1*2=2, 2*3=6, 6*4=…"
 
 [[lessons.exercises]]
@@ -68,6 +69,7 @@ prompt = "<code>results.First(r =&gt; r.Trust &gt; 9)</code> when nothing matche
 choices = ["returns null", "returns a default SearchResult", "throws InvalidOperationException", "returns the highest-trust result instead"]
 answer = 2
 whyWrong = "First with a predicate doesn’t return null or a default when nothing matches — it throws InvalidOperationException; use FirstOrDefault for a safe default."
+explain = "<code>First</code> promises that a matching element exists, so an empty match set breaks that promise with <code>InvalidOperationException</code>."
 hint = "This is why FirstOrDefault exists."
 
 [[lessons.exercises]]
@@ -78,6 +80,7 @@ prompt = "You want \"how many results per engine\". Which operator starts that q
 choices = ["Distinct", "OrderBy", "Zip", "GroupBy"]
 answer = 3
 whyWrong = "Distinct dedupes, OrderBy sorts and Zip pairs sequences — counting ‘per engine’ starts with GroupBy."
+explain = "<code>GroupBy(r =&gt; r.Engine)</code> forms one bucket per engine; calling <code>Count()</code> on each bucket then yields the requested totals."
 hint = "Bucket first, count each bucket second."
 
 [[lessons.exercises]]

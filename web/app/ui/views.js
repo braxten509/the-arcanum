@@ -144,7 +144,7 @@ export function renderLesson(sid, lid) {
     ${l.readings && l.readings.length ? `
     <div class="readings">
       <h2 style="margin-top:0">${ico("book")} THE MORTAL LIBRARY</h2>
-      ${l.readings.map((r) => `<div class="r-item"><span class="tag">OPTIONAL</span><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.label)}</a></div>`).join("")}
+      ${l.readings.map((r) => `<div class="r-item"><span class="tag${r.essential ? " ac" : ""}">${r.essential ? "ESSENTIAL" : "OPTIONAL"}</span><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.label)}</a></div>`).join("")}
     </div>` : ""}
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
       <h2>THE TRIALS</h2>
@@ -246,7 +246,7 @@ export function renderShop() {
         if (!spend(item.cost)) return;
         if (item.kind === "theme") { S.themes[item.theme] = true; toast(`The ink and vellum are yours. Put them to use from the peddler's table.`); }
         else { S.inv[item.id] = (S.inv[item.id] || 0) + (item.charges || 1); toast(`<b>${esc(item.name)}</b> slipped into your satchel.`); }
-        sfx("buy");
+        sfx("peddler"); // same voice as the satchel desk object
         save(); renderShop();
       }]]);
   }));

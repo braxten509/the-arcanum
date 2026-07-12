@@ -78,7 +78,12 @@ check passes — and a `type` drill will then ask them to retype the corruption.
 validator ERRORs on a `code`/`starter` whose `\n` sits outside a string literal.
 
 ### `[[lessons.readings]]` — external links
-`label`, `url`. (An `essential` bool is tolerated but not currently rendered.)
+`label`, `url`. An optional `essential` bool exists but is **rare**: it means the
+course itself cannot fully teach that concept and the reader must study the external
+doc to proceed. Most lessons have no essential reading — that is the normal state,
+never a gap to fill. (The engine renders essential readings with an accented
+ESSENTIAL tag in place of the usual OPTIONAL one; the validator WARNs when a tome
+over-flags them.)
 1–2 per lesson, only high-quality official docs/videos. **Every lesson needs at
 least one** — how many and how deep is a judgement call, but zero is not: a
 lesson with no anchor doc is the most common regression in the later, denser

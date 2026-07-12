@@ -50,6 +50,7 @@ var list = q.ToList();
 choices = ["At point A — when the query is defined", "At compile time", "At point B — when ToList enumerates it", "Never"]
 answer = 2
 whyWrong = "LINQ is lazy: the Where lambda doesn’t run when defined or at compile time — it runs when ToList enumerates the query."
+explain = "The assignment at A stores a query recipe. <code>ToList()</code> at B enumerates that recipe, which is when the predicate finally executes."
 hint = "Queries are recipes. ToList is the cooking."
 
 [[lessons.exercises]]
@@ -60,6 +61,7 @@ prompt = "Calling <code>.Count()</code> and then foreach-ing the same un-materia
 choices = ["uses a cached result the second time", "throws InvalidOperationException", "is a compile error", "executes the filtering work twice"]
 answer = 3
 whyWrong = "An un-materialized query re-executes on each enumeration, so Count() then foreach filters twice — call ToList() once to cache it."
+explain = "<code>Count()</code> performs one enumeration and <code>foreach</code> performs another; without a materialized list, both passes invoke the <code>Where</code> predicate."
 hint = "Each enumeration replays the pipeline from scratch."
 
 [[lessons.exercises]]

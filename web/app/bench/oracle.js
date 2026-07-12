@@ -54,7 +54,7 @@ export function askOracle(label, detail, selection) {
       [["LET IT SLEEP", "quiet"], [`PAY (${ORACLE_COST}${gp()})`, "", () => {
         if (!spend(ORACLE_COST)) return;
         S.inv.oracle = (S.inv.oracle || 0) + 1;
-        sfx("buy"); save(); paintOracleBtn();
+        sfx("peddler"); save(); paintOracleBtn();
         askOracle(label, detail, selection);
       }]]);
     return;
@@ -65,7 +65,7 @@ export function askOracle(label, detail, selection) {
     <pre style="max-height:110px;overflow:auto;margin:0 0 10px;padding:8px;border:1px solid var(--line-hi);border-radius:3px;font-family:var(--mono);font-size:12px"><code></code></pre>` : ""}
     <textarea id="oracle-q" rows="3" style="width:100%" placeholder="e.g. why does ReadLine return null? what's the difference between var and int?"></textarea>
     <div id="oracle-a" class="hidden" style="margin-top:12px;padding:12px;border:1px solid var(--line-hi);border-left:2px solid var(--ac-dim);border-radius:3px;font-size:13px;white-space:pre-wrap;max-height:45vh;overflow-y:auto"></div>`,
-    [["COVER THE ORB", "quiet"]]);
+    [["COVER THE ORB", "quiet"]], { sticky: true });
   if (selection) $("#modal-root pre code").textContent = selection.slice(0, 600);
   const actions = $("#modal-root .modal-actions");
   const askBtn = document.createElement("button");
@@ -74,7 +74,7 @@ export function askOracle(label, detail, selection) {
     const q = $("#oracle-q").value.trim();
     if (!q) return;
     askBtn.disabled = true; askBtn.textContent = "THE MISTS SWIRL...";
-    $("#oracle-q").disabled = true;
+    $("#oracle-q").readOnly = true; // readOnly, not disabled — disabled fields swallow right-clicks and the browser's native menu leaks through
     const out = $("#oracle-a");
     out.classList.remove("hidden");
     out.textContent = "gazing into the glass...";
@@ -101,7 +101,7 @@ export function askOracle(label, detail, selection) {
       askBtn.remove();   // one question per scrying — pay again for the next
     } else {
       askBtn.disabled = false; askBtn.textContent = "ASK (1 SCRYING)";
-      $("#oracle-q").disabled = false;
+      $("#oracle-q").readOnly = false;
     }
   };
   actions.prepend(askBtn);

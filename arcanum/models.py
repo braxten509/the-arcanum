@@ -5,7 +5,7 @@ import subprocess
 import time
 import urllib.request
 
-from .config import (AGY_BIN, CACHE_DIR, CLAUDE_BIN, CODEX_BIN, OPENCODE_BIN, agy_print_args,
+from .config import (AGY_BIN, CACHE_DIR, CLAUDE_BIN, CODEX_BIN, OPENCODE_BIN, agy_print_args, codex_no_mcp_args,
                      OPENCODE_FREE_IDS, OPENCODE_GO_FALLBACK)
 
 
@@ -103,7 +103,7 @@ def cli_text(kind, prompt, model, timeout):
                            + (["--model", model] if model else []),
                            capture_output=True, text=True, timeout=timeout, cwd=CACHE_DIR)
     elif kind == "codex-cli":
-        p = subprocess.run([CODEX_BIN, "exec", "--skip-git-repo-check", "-s", "read-only"]
+        p = subprocess.run([CODEX_BIN, "exec", "--skip-git-repo-check", "-s", "read-only", *codex_no_mcp_args()]
                            + (["-m", model] if model else []) + ["-"],
                            input=prompt, capture_output=True, text=True,
                            timeout=timeout, cwd=CACHE_DIR)

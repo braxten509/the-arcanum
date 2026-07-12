@@ -126,7 +126,7 @@ export function dropOverlay(el, then) {
 // Live drags are caught by a delegated listener (setup); this seeds the initial fill on render.
 export const paintRange = (el) => el.style.setProperty("--fill", (el.value - el.min) / (el.max - el.min) * 100 + "%");
 
-export function modal(html, actions) {
+export function modal(html, actions, opts) {
   const root = $("#modal-root");
   root.innerHTML = `<div class="modal-back"><div class="modal">${html}<div class="modal-actions"></div></div></div>`;
   const act = $(".modal-actions", root);
@@ -136,6 +136,7 @@ export function modal(html, actions) {
     b.onclick = () => closeModal(fn);
     act.appendChild(b);
   }
-  $(".modal-back", root).addEventListener("click", (e) => { if (e.target.classList.contains("modal-back")) closeModal(); });
+  // sticky: a stray click outside the card must not discard what's typed inside it
+  if (!(opts && opts.sticky)) $(".modal-back", root).addEventListener("click", (e) => { if (e.target.classList.contains("modal-back")) closeModal(); });
   root.querySelectorAll('input[type="range"]').forEach(paintRange);   // seed every slider's fill
 }

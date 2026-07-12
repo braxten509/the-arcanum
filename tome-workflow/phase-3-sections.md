@@ -116,8 +116,9 @@ Two hard rules the validator now enforces (`--run` executes every starter):
 **ACCEPTANCE FLOOR (the validator hard-gates these at Phase 7 — build to them now, don't
 discover them later):** every section ≥3 lessons (vary 3–8), every lesson ≥4 exercises
 (vary 4–6), every lesson body 300–600 visible words with a FIELD NOTES appendix, every
-lesson ≥1 `[[lessons.readings]]` link (count/depth/`essential` beyond that is a judgement
-call, but zero is never acceptable — this is the floor that erodes first in later chapters),
+lesson ≥1 `[[lessons.readings]]` link (count/depth beyond that is a judgement call —
+and `essential = true` is RARE, only for a concept the course itself cannot fully teach, §3 —
+but zero is never acceptable — this is the floor that erodes first in later chapters),
 every `mc` a `whyWrong`, and each section's freestyle a distinct rubric summing to 100.
 
 **END-OF-PHASE SELF-AUDIT (produce this, in the plan, before you stop).** After the

@@ -191,6 +191,11 @@ document.addEventListener("contextmenu", (ev) => {
       "-",
       { label: "SELECT ALL", on: () => { med.focus(); med.trigger("ctx", "editor.action.selectAll"); } },
       { label: "COMMAND PALETTE", on: () => { med.focus(); med.trigger("ctx", "editor.action.quickCommand"); } },
+      "-",
+      { label: hasSel ? "ASK THE ORACLE ABOUT THIS" : "CONSULT THE ORACLE", on: () => {
+        const c = oracleContext();
+        askOracle(c.label, c.detail, hasSel ? med.getModel().getValueInRange(med.getSelection()).trim() : "");
+      } },
     ], ev.clientX, ev.clientY);
     return;
   }

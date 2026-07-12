@@ -64,7 +64,7 @@ export function showBinder() {
   [k.prov, k.model, k.eff].forEach((s) => { enhanceSelect(s); s.addEventListener("change", persist); });
   const DESC_NARROW = "Name one small flaw in this tome — a typo, a wrong color, a price, a missing line — and the Binder's spirit will re-ink the page. It edits the course itself, so be specific. Ask a question instead and it will just answer, with no edits made.";
   const DESC_BROAD = "Describe a larger rework — recast a chapter, add lessons, retune the economy — and the Binder's spirit will re-ink the tome, editing as many pages as it takes. Say what you want; you can send it back to iterate. Ask a question instead and it will just answer, with no edits made.";
-  const DESC_ITERATE = "The Binder surveys the whole tome against its improvement guide and reworks the weak spots on its own — thin duel banks, unmarked essential readings, shallow answer feedback, flat lessons. Leave the box below empty, or name what to focus on.";
+  const DESC_ITERATE = "The Binder surveys the whole tome against its improvement guide and reworks the weak spots on its own — untaught concepts, thin duel banks, lessons with no readings, shallow answer feedback, flat lessons. It may add new lessons or append new chapters where the material needs them (additions never touch your progress). Leave the box below empty, or name what to focus on.";
   const DESC_REVIEW = "The Binder reads the whole tome without inking a single page and sets its findings down in the reviews/ ledger. Name what to look for below — or leave it blank for a full survey — and afterwards you may commission the changes it suggests.";
   const qBox = $("#binder-q", root);
   const qPlaceholder = qBox.placeholder;   // restore when Iterate is switched off
@@ -233,7 +233,7 @@ export function showBinder() {
     out.classList.remove("hidden");
     actions.querySelectorAll(".binder-extra, .binder-cancel").forEach((b) => b.remove());
     const cx = document.createElement("button");
-    cx.className = "btn quiet binder-cancel"; cx.textContent = "STAY THE QUILL";
+    cx.className = "btn danger binder-cancel"; cx.textContent = "STAY THE QUILL";
     cx.title = "Cancel this amendment";
     cx.onclick = async () => {
       cx.disabled = true;
