@@ -3,7 +3,7 @@
 import { BLACKICE_CAP, BLACKICE_N, EARNED_THEME, J, RANKS, SHOP, SRANK_MULT, coin, gp, persona, roman } from "../core/config.js";
 import { $, esc, ico, modal, refreshCoins, sfx, toast } from "../core/dom.js";
 import { atkQualifying } from "../game/duel.js";
-import { exerciseEl, reviewBanner, wireReview } from "../game/exercise.js";
+import { GATE_MIN, exerciseEl, reviewBanner, reviewDue, reviewGate, startReview, wireReview } from "../game/exercise.js";
 import { askOracle, grabSelection } from "../bench/oracle.js";
 import { freestyleUnlocked, fsBest, go, lessonDone, rank, secById, sectionExercises, sectionPassed, sectionSolvedFrac, sectionUnlocked, spend } from "../game/progress.js";
 import { S, save } from "../core/state.js";
@@ -124,7 +124,7 @@ export function renderSection(sid) {
   $("[data-nav=home]", v).onclick = () => go("home");
   wireReview(v);
   const fsBtn = $("#btn-fs", v);
-  if (fsBtn && fsOpen) fsBtn.onclick = () => go("freestyle", sid);
+  if (fsBtn && fsOpen) fsBtn.onclick = () => reviewGate(() => go("freestyle", sid));
 }
 
 // ------------------------------------------------------------ LESSON
@@ -162,7 +162,17 @@ export function renderLesson(sid, lid) {
   const b2 = $("[data-nav=sec2]", v); if (b2) b2.onclick = () => go("section", sid);
 
   const exList = $("#ex-list", v);
-  l.exercises.forEach((e, i) => exList.appendChild(exerciseEl(e, i)));
+  const fillTrials = () => l.exercises.forEach((e, i) => exList.appendChild(exerciseEl(e, i)));
+  // the review gate: a lesson with unpassed trials is barred while a real
+  // backlog of old seals is due — the body and readings above stay free
+  const fresh = l.exercises.some((e) => !(S.ex[e.id] && S.ex[e.id].ok));
+  const nDue = reviewDue().length;
+  if (fresh && nDue >= GATE_MIN) {
+    exList.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;padding:16px;border:1px solid var(--line-hi);border-radius:var(--rad);background:var(--ac-bg)">
+      <div><b>${ico("bell")} THE MASTER BARS THE TRIALS</b> <span class="dim" style="font-size:12.5px">${nDue} old seals are fading — re-forge ${Math.min(8, nDue)} of them and the way opens.</span></div>
+      <button class="btn" id="btn-gate">${ico("scroll")} BEGIN REVIEW</button></div>`;
+    $("#btn-gate", v).onclick = () => startReview(() => { exList.innerHTML = ""; fillTrials(); });
+  } else fillTrials();
 
   const bo = $("#b-oracle", v);
   let boSel = "";

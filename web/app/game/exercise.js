@@ -11,26 +11,57 @@ const EX_LABEL = { mc: "CHOOSE WISELY", fill: "COMPLETE THE RUNE", text: "SPEAK 
 
 // ------------------------------------------------------------ SPACED REVIEW
 // Retrieval practice of already-solved recall items, resurfaced on a Leitner
-// schedule keyed to lessons completed (a self-paced course's natural clock, not
-// the wall). type/write are no-decay skill drills already, so review covers only
-// mc/fill/text. A hit pushes the item further out; a miss brings it right back.
+// schedule with TWO clocks: lessons completed (a self-paced course's natural
+// clock) and wall time (so long absences and a finished tome still surface
+// review). An item is due when EITHER clock runs out; a successful recall
+// re-stamps both. type/write are no-decay skill drills already, so review
+// covers only mc/fill/text. A hit pushes the item further out; a miss brings
+// it right back.
 const REVIEWABLE = new Set(["mc", "fill", "text"]);
-const REVIEW_STEPS = [1, 2, 4, 8, 16]; // Leitner intervals, in lessons-completed units
+const REVIEW_STEPS = [1, 2, 4, 8, 16]; // Leitner intervals: lessons-completed units AND days
+const DAY = 86400000;
+export const GATE_MIN = 5; // due items before the gate bars a doorway
 const lessonsCompleted = () => window.SECTIONS.reduce((n, s) => n + s.lessons.filter(lessonDone).length, 0);
 function scheduleReview(st, ok) {
   st.box = ok ? Math.min((st.box || 1) + 1, REVIEW_STEPS.length) : 1;
   st.due = lessonsCompleted() + REVIEW_STEPS[st.box - 1];
+  st.dueT = Date.now() + REVIEW_STEPS[st.box - 1] * DAY;
 }
-function reviewDue() {
-  const clock = lessonsCompleted(), out = [];
+export function reviewDue() {
+  const clock = lessonsCompleted(), now = Date.now(), out = [];
   for (const sec of window.SECTIONS)
     for (const l of sec.lessons)
       for (const e of (l.exercises || [])) {
         if (!REVIEWABLE.has(e.type)) continue;
         const st = S.ex[e.id];
-        if (st && st.ok && st.due != null && st.due <= clock) out.push({ e, st });
+        if (st && st.ok && ((st.due != null && st.due <= clock) || (st.dueT != null && st.dueT <= now))) out.push({ e, st });
       }
-  return out.sort((a, b) => a.st.due - b.st.due);
+  return out.sort((a, b) => (a.st.due || 0) - (b.st.due || 0));
+}
+// One-time repair: recall items solved before spaced review existed (or before
+// the time clock existed) were never fully enrolled. Stamp them "last recalled
+// now" on the shortest leash so they start cycling.
+export function backfillReview() {
+  const clock = lessonsCompleted(), now = Date.now();
+  let changed = false;
+  for (const sec of window.SECTIONS)
+    for (const l of sec.lessons)
+      for (const e of (l.exercises || [])) {
+        if (!REVIEWABLE.has(e.type)) continue;
+        const st = S.ex[e.id];
+        if (!st || !st.ok) continue;
+        if (st.due == null) { st.box = 1; st.due = clock + REVIEW_STEPS[0]; changed = true; }
+        if (st.dueT == null) { st.dueT = now + REVIEW_STEPS[(st.box || 1) - 1] * DAY; changed = true; }
+      }
+  if (changed) save();
+}
+// The gate: a doorway (new lesson's trials, a chapter's project) calls this
+// instead of proceeding directly. Under GATE_MIN due it opens at once; at or
+// above, one review round (max 8 items) must be completed first — closing the
+// overlay early keeps the door shut.
+export function reviewGate(onPass) {
+  if (reviewDue().length < GATE_MIN) { onPass(); return; }
+  startReview(onPass);
 }
 // a banner shown wherever review is due; caller wires #btn-review to startReview
 export function reviewBanner() {
@@ -40,12 +71,13 @@ export function reviewBanner() {
     <div><b>${ico("bell")} SPACED REVIEW</b> <span class="dim" style="font-size:12.5px">${n} concept${n > 1 ? "s you have" : " you have"} learned ${n > 1 ? "are" : "is"} due to be re-forged — quick recall keeps them from fading.</span></div>
     <button class="btn" id="btn-review">${ico("scroll")} BEGIN REVIEW (${n})</button></div>`;
 }
-export function wireReview(v) { const b = $("#btn-review", v); if (b) b.onclick = startReview; }
+export function wireReview(v) { const b = $("#btn-review", v); if (b) b.onclick = () => startReview(); }
 
-function startReview() {
+export function startReview(onPass) {
   const due = reviewDue().slice(0, 8); // a short round; the rest surface next time
-  if (!due.length) { toast("Nothing is due for review — your seals hold.", "ok"); return; }
+  if (!due.length) { toast("Nothing is due for review — your seals hold.", "ok"); if (onPass) onPass(); return; }
   const graded = new Set(); // grade each item once per round, on its first outcome
+  let passed = false;
   const overlay = document.createElement("div");
   overlay.className = "grade-overlay review-overlay";
   overlay.innerHTML = `<div class="grade-card" style="max-width:780px;width:min(780px,94vw);max-height:88vh;display:flex;flex-direction:column">
@@ -53,12 +85,13 @@ function startReview() {
       <div>
         <div class="faint" style="font-size:11px;letter-spacing:.2em">✦ SPACED REVIEW // RE-FORGE WHAT YOU HAVE LEARNED</div>
         <h2 style="margin:6px 0 0">THE MASTER CALLS BACK OLD LESSONS</h2>
-        <div class="dim" style="font-size:12.5px;margin-top:4px">Answer from memory. No coin, no penalty — recall is its own rent. <span id="rv-count" class="num"></span></div>
+        <div class="dim" style="font-size:12.5px;margin-top:4px">${onPass ? "The Master bars the way until these seals are re-forged. " : ""}Answer from memory. No coin, no penalty — recall is its own rent. <span id="rv-count" class="num"></span></div>
       </div>
-      <button class="btn quiet" id="rv-close">CLOSE</button>
+      <button class="btn quiet" id="rv-close">${onPass ? "TURN BACK" : "CLOSE"}</button>
     </div>
     <div class="review-scroll" style="overflow:auto;margin-top:14px;flex:1;display:flex;flex-direction:column;gap:14px"></div>`;
   const scroll = $(".review-scroll", overlay);
+  const closeBtn = $("#rv-close", overlay);
   const updateCount = () => { const c = $("#rv-count", overlay); if (c) c.textContent = `${graded.size}/${due.length} re-forged`; };
   due.forEach(({ e, st }, i) => {
     scroll.appendChild(exerciseEl(e, i, true, (ok) => {
@@ -67,12 +100,16 @@ function startReview() {
       scheduleReview(st, ok);
       S.stats.reviews = (S.stats.reviews || 0) + 1;
       save(); updateCount();
-      if (graded.size >= due.length) toast("Review complete — the old seals are re-forged.", "ok");
+      if (graded.size >= due.length) {
+        passed = true;
+        toast("Review complete — the old seals are re-forged.", "ok");
+        if (onPass) { closeBtn.className = "btn"; closeBtn.textContent = "CONTINUE — THE WAY IS OPEN"; }
+      }
     }));
   });
   updateCount();
   document.body.appendChild(overlay);
-  $("#rv-close", overlay).onclick = () => overlay.remove();
+  closeBtn.onclick = () => { overlay.remove(); if (passed && onPass) onPass(); };
 }
 
 export function exerciseEl(e, idx, redo, onReview) {
@@ -106,7 +143,7 @@ export function exerciseEl(e, idx, redo, onReview) {
         ${!st.ok ? `<button class="btn quiet b-orc" title="the candle's hint is the author's fixed nudge; the Oracle is a living spirit you can question">${ico("orb")} ASK THE ORACLE</button>` : ""}
         ${!st.ok && S.inv.skip > 0 ? `<button class="btn quiet b-skip">${ico("scroll")} SCROLL OF REVELATION</button>` : ""}
         ${st.ok && !redo ? `<button class="btn quiet b-redo">RECAST FOR SPORT</button>` : ""}
-        ${redo ? `<button class="btn quiet b-done">MARK COMPLETE</button>` : ""}
+        ${redo && !onReview ? `<button class="btn quiet b-done">MARK COMPLETE</button>` : ""}
         ${!st.ok || redo ? `<button class="btn b-check">${e.type === "write" ? "INSCRIBE + CAST" : "CAST"}</button>` : ""}
       </span>
     </div>`;
@@ -173,9 +210,13 @@ export function exerciseEl(e, idx, redo, onReview) {
   function solve() {
     if (redo) { // for sport: the seal already stands — full flourish, no coin, no stats, no save
       castFeedback(true);
+      if (onReview) { // a clean recall: grade it and condense to the solved row
+        onReview(true);
+        wrap.replaceWith(exerciseEl(e, idx));
+        return;
+      }
       verdict.className = "ex-verdict ok";
-      verdict.textContent = onReview ? "RECALLED CLEAN — the seal is re-forged" : "THE SEAL HOLDS — A CLEAN RECAST";
-      if (onReview) onReview(true);
+      verdict.textContent = "THE SEAL HOLDS — A CLEAN RECAST";
       return;
     }
     const bonus = noDecay ? 0 : comboBonus();

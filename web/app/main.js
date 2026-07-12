@@ -6,6 +6,7 @@ import { fetchActiveBuilds, showTomePicker } from "./forge/bindery.js";
 import { showBinder } from "./forge/binder.js";
 import { $, applyPen, esc, paintRange, refreshCoins, sfx, toast } from "./core/dom.js";
 import { initiateAttack, intrusionEligible, startIntrusion } from "./game/duel.js";
+import { backfillReview } from "./game/exercise.js";
 import "./ui/menu.js";
 import { askOracle, grabSelection, oracleContext, paintOracleBtn, showOracleLog } from "./bench/oracle.js";
 import { go, secById } from "./game/progress.js";
@@ -40,6 +41,7 @@ async function init() {
   await window.tomeReady;   // the active tome's data must be present before we render
   applyTomeConfig();
   await loadState();
+  backfillReview(); // enroll recall items solved before spaced review (or its time clock) existed
   document.body.dataset.theme = S.theme || (window.TOME.defaults && window.TOME.defaults.theme) || "vellum";
   refreshCoins();   // the HUD purse is inked in index.html; re-ink it for the active palette
   window.GhostEditor.boot(() => {
