@@ -91,12 +91,13 @@ const PCL = {
 export function burst(x, y, kind) {
   if (reducedMotion.matches) return;
   const spec = PCL[kind]; if (!spec) return;
+  const at = ArcanumViewport.point(x, y);
   for (let index = 0; index < spec.count; index++) {
     const particle = document.createElement("div");
     particle.className = "pcl";
     const size = spec.size[0] + Math.random() * (spec.size[1] - spec.size[0]);
     const color = spec.colors[(Math.random() * spec.colors.length) | 0];
-    particle.style.cssText = `left:${x}px;top:${y}px;width:${size}px;height:${size}px;` +
+    particle.style.cssText = `left:${at.x}px;top:${at.y}px;width:${size}px;height:${size}px;` +
       (spec.glow ? `background:radial-gradient(circle,${color},transparent 70%);border-radius:50%;`
                  : `background:${color};border-radius:${spec.round ? "50%" : "1px"};`);
     let offsetX, offsetY;
@@ -110,7 +111,7 @@ export function burst(x, y, kind) {
       offsetX = (Math.random() - 0.5) * spec.spread * 2;
       offsetY = -spec.rise * (0.4 + Math.random()) + spec.drift;
     }
-    document.body.appendChild(particle);
+    ArcanumViewport.mount(particle);
     particle.animate(
       [{ transform: "translate(-50%,-50%) scale(1)", opacity: spec.start_opacity ?? 0.9 },
        { transform: `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px)) scale(.4)`, opacity: 0 }],
@@ -143,14 +144,14 @@ export function castSigil(anchor, ok) {
   for (let i = 0; i < nL; i++)
     word.push(GALACTIC[keys.splice(Math.floor(Math.random() * keys.length), 1)[0]]);
   // px per grid unit → letters stand ~6x this tall, squeezed to fit narrow studies
-  const SC = Math.min(SIG.letters.scale, (innerWidth - 60) / (word.length * 3.4 + (word.length - 1) * 1.8));
+  const SC = Math.min(SIG.letters.scale, (ArcanumViewport.width - 60) / (word.length * 3.4 + (word.length - 1) * 1.8));
   const GW = 3.4 * SC, GAP = SC * 1.8, W = word.length * GW + (word.length - 1) * GAP;
-  const cx = Math.max(W / 2 + 16, Math.min(innerWidth / 2, innerWidth - W / 2 - 16));
-  const cy = Math.max(3 * SC + 16, Math.min(innerHeight / 2, innerHeight - 3 * SC - 16));
+  const cx = Math.max(W / 2 + 16, Math.min(ArcanumViewport.width / 2, ArcanumViewport.width - W / 2 - 16));
+  const cy = Math.max(3 * SC + 16, Math.min(ArcanumViewport.height / 2, ArcanumViewport.height - 3 * SC - 16));
   const root = document.createElement("div");
   root.className = "sigil";
   root.style.cssText = `left:${cx}px;top:${cy}px`;
-  document.body.appendChild(root);
+  ArcanumViewport.mount(root);
   const failMs = SIG.fail.charge_milliseconds || 1100;       // miscast: charge this long, then the binding breaks
   const E = ok ? SIG.charge.total_milliseconds : failMs + 1300; // whole life: gather → charge → release/fail → dissipate/fall
   const REL = ok ? SIG.charge.release_fraction : failMs / E;  // the fraction where the working lets go — or snaps

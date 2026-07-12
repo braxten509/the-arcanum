@@ -1,7 +1,7 @@
 /* ---- global tooltips: every [title] becomes a themed parchment scrap ---- */
 const tip = document.createElement("div");
 tip.id = "tip";
-document.body.appendChild(tip);
+ArcanumViewport.mount(tip);
 let timer = 0, current = null, armed = null;
 
 // Move title -> data-tip so the native tooltip never appears; re-reads on every
@@ -27,18 +27,18 @@ function show(el) {
   // far larger than the art and their centers drift off it. Each prop carries
   // a .tip-spot pinned to a landmark of its artwork; anchor there when present.
   const spot = el.closest(".obj-art, #candle")?.querySelector(".tip-spot");
-  const b = (spot || el).getBoundingClientRect();
+  const b = ArcanumViewport.rect((spot || el).getBoundingClientRect());
   // clamped to the viewport for the props that overhang the table edges
   // (both edges clamped both ways, so a fully off-screen anchor still yields
   // an on-screen tooltip instead of a negative-y one)
-  const cl = (v) => Math.max(0, Math.min(v, innerHeight));
+  const cl = (v) => Math.max(0, Math.min(v, ArcanumViewport.height));
   const r = {
-    left: Math.max(b.left, 0), right: Math.min(b.right, innerWidth),
+    left: Math.max(b.left, 0), right: Math.min(b.right, ArcanumViewport.width),
     top: cl(b.top), bottom: cl(b.bottom),
   };
   const w = tip.offsetWidth, h = tip.offsetHeight;
   const cx = (r.left + r.right) / 2;
-  const x = Math.max(8, Math.min(cx - w / 2, innerWidth - w - 8));
+  const x = Math.max(8, Math.min(cx - w / 2, ArcanumViewport.width - w - 8));
   let y = r.top - h - 9;
   if (y < 8) { y = r.bottom + 9; tip.classList.add("below"); }
   tip.style.left = x + "px"; tip.style.top = y + "px";

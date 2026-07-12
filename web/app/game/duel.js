@@ -42,7 +42,7 @@ export function startIntrusion() {
     </div>
   </div>`;
   $(".lab-expect pre code", overlay).textContent = ch.expect;
-  document.body.appendChild(overlay);
+  ArcanumViewport.mount(overlay);
   let hkEd = null;
   window.GhostEditor.monacoReady.then(() => {
     hkEd = codePad($(".code-pad", overlay), ch.starter, () => $("#hk-submit", overlay).click());
@@ -184,7 +184,7 @@ function startAttack(d, stake) {
   </div>`;
   const expectEl = $(".lab-expect pre code", overlay);
   expectEl.textContent = ch.stages[0].expect;
-  document.body.appendChild(overlay);
+  ArcanumViewport.mount(overlay);
   let atkEd = null;
   window.GhostEditor.monacoReady.then(() => {
     atkEd = codePad($(".code-pad", overlay), ch.starter, () => $("#atk-submit", overlay).click());

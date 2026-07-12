@@ -30,7 +30,7 @@ export async function submitForGrading() {
     <div class="dim" style="margin-top:18px;font-size:12px;font-style:italic">judgement takes a minute or two — it happens in the tower, so feel free to keep working at your desk</div>
     <button class="btn quiet" id="grade-hide" style="margin-top:18px">RETURN TO THE DESK (judgement continues)</button>
   </div></div>`;
-  document.body.appendChild(overlay);
+  ArcanumViewport.mount(overlay);
   let lineIdx = 0;
   const lineTimer = setInterval(() => {
     lineIdx = (lineIdx + 1) % GRADING_LINES.length;
@@ -136,7 +136,7 @@ function showGradeResult(sec, res) {
       ${total >= 60 ? `<button class="btn" id="gr-next">TURN THE PAGE ${ico("arrow")}</button>` : ""}
     </div>
   </div>`;
-  document.body.appendChild(overlay);
+  ArcanumViewport.mount(overlay);
   $("#gr-close", overlay).onclick = () => dropOverlay(overlay, renderSidebar);
   const nx = $("#gr-next", overlay);
   if (nx) nx.onclick = () => dropOverlay(overlay, () => {

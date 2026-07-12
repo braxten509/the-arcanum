@@ -27,7 +27,7 @@ function shedPixels(el) {
   const cs = getComputedStyle(document.body);
   const cols = ["--ac", "--tx", "--line-hi"].map((v) => cs.getPropertyValue(v).trim());
   rows.forEach((row, i) => {
-    const r = row.getBoundingClientRect();
+    const r = ArcanumViewport.rect(row.getBoundingClientRect());
     if (!r.width) return;
     const delay = (rows.length - 1 - i) * 30; // bottom rows disintegrate first
     const count = Math.min(8, Math.max(3, Math.round(r.width / 34)));
@@ -38,7 +38,7 @@ function shedPixels(el) {
       // opacity:0 until its animation begins — rows dissolve bottom-up, and a top-row
       // particle otherwise sits visible-but-frozen through its whole stagger delay
       px.style.cssText = `left:${r.left + Math.random() * r.width}px;top:${r.top + Math.random() * r.height}px;width:${sz}px;height:${sz}px;background:${cols[k % cols.length]};opacity:0`;
-      document.body.appendChild(px);
+      ArcanumViewport.mount(px);
       const dx = (Math.random() - 0.25) * 44; // biased right — the wipe travels left→right
       const dy = (Math.random() - 0.65) * 38; // biased up
       px.animate(
@@ -78,7 +78,7 @@ const practice = document.createElement("button");
 practice.type = "button";
 practice.id = "practice-circle";
 practice.title = "The practice circle — audition the sigils";
-document.body.appendChild(practice);
+ArcanumViewport.mount(practice);
 practice.onclick = () => {
   const r = practice.getBoundingClientRect();
   popMenu([
@@ -91,9 +91,10 @@ practice.onclick = () => {
 
 export function popMenu(items, x, y, minW) {
   closePop(true);
+  const at = ArcanumViewport.point(x, y);
   const el = document.createElement("div");
   el.className = "pop-menu";
-  if (minW) el.style.minWidth = minW + "px";
+  if (minW) el.style.minWidth = ArcanumViewport.length(minW) + "px";
   for (const it of items) {
     if (it === "-") {
       el.appendChild(Object.assign(document.createElement("div"), { className: "pop-sep" }));
@@ -120,10 +121,9 @@ export function popMenu(items, x, y, minW) {
   const kids = [...el.children];
   kids.forEach((k, i) => { k.style.setProperty("--i", i); k.style.setProperty("--o", kids.length - 1 - i); });
   el.style.setProperty("--n", kids.length);
-  document.body.appendChild(el);
-  const r = el.getBoundingClientRect();
-  el.style.left = Math.max(4, Math.min(x, innerWidth - r.width - 4)) + "px";
-  el.style.top = Math.max(4, Math.min(y, innerHeight - r.height - 4)) + "px";
+  ArcanumViewport.mount(el);
+  el.style.left = Math.max(4, Math.min(at.x, ArcanumViewport.width - el.offsetWidth - 4)) + "px";
+  el.style.top = Math.max(4, Math.min(at.y, ArcanumViewport.height - el.offsetHeight - 4)) + "px";
   popOpen = { el };
   const sel = el.querySelector(".pop-item.sel");
   if (sel) sel.focus();

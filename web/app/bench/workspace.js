@@ -49,7 +49,7 @@ export async function openStarterFile(rel) {
   if (!rel) return;
   modal(`<h2>${esc(rel)}</h2>
     <p class="dim">The starter contents for this file — copy it into your own editor.</p>
-    <pre id="sf-pre" style="max-height:52vh;overflow:auto;margin:10px 0 0;padding:12px 14px;border:1px solid var(--line-hi);border-radius:var(--rad);background:var(--bg2);font-family:var(--mono);font-size:12.5px;white-space:pre"><code>loading…</code></pre>`,
+    <pre id="sf-pre" style="max-height:749px;overflow:auto;margin:10px 0 0;padding:12px 14px;border:1px solid var(--line-hi);border-radius:var(--rad);background:var(--bg2);font-family:var(--mono);font-size:12.5px;white-space:pre"><code>loading…</code></pre>`,
     [["CLOSE", "quiet"]]);
   const copyBtn = document.createElement("button");
   copyBtn.className = "btn"; copyBtn.textContent = "COPY";

@@ -178,7 +178,7 @@ export function openBuildOverlay(jobId) {
       <button class="btn danger" id="fp-cancel">ABANDON THE WORKING</button>
       <button class="btn quiet" id="fp-leave">LEAVE THE BINDERY (work continues)</button>
     </div></div>`;
-  document.body.appendChild(overlay);
+  ArcanumViewport.mount(overlay);
   forgeOverlay = overlay;
   $("#fp-leave", overlay).onclick = () => overlay.classList.add("hidden");
 
