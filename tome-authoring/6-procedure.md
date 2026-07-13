@@ -9,7 +9,9 @@
      know?" (a Minecraft-mod tome for a Java veteran skips Java fundamentals;
      for a newcomer it must teach them)
    - Starting level (1–10): how much they already know about THIS subject —
-     1 = teach the language/tool from scratch as its own chapters, 10 = expert
+     1 = zero, 2 = near zero with full foundations at a faster pace, 3 = beginner,
+     4 = transfer learner, 5 = generalist, 6 = adjacent, 7 = practitioner,
+     8 = fluent, 9 = advanced, and 10 = peer expert
    - Breadth (1–10): how much of the topic's surface — one tight path to the
      objective, or the whole territory (drives section count)
    - Lesson depth (1–10): how deep each lesson digs — just use it, or internals

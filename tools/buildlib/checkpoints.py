@@ -12,7 +12,7 @@ from .skeleton import parse_section_list
 # The arc's REQUIRED parts — the gate checks each appears as a bold `**Label:**` line.
 # Difficulty spine + Graduate ledger are plan deliverables Phase 1 has skipped before.
 ARC_PARTS = ("Finished tool", "Language", "Project name", "Mentor persona", "Student term",
-             "Visual identity", "Difficulty spine", "Graduate ledger", "Daily drivers",
+             "Visual identity", "Tooling fit", "Difficulty spine", "Graduate ledger", "Daily drivers",
              "Continuity map", "Artifact lifecycle", "Acceptance proof", "Section list")
 # The plan's daily-driver kit, machine-checked: each must be assigned CAN or CANNOT in
 # the arc (Phase 1 has silently dropped the key-value type twice), and a CANNOT is a
@@ -25,7 +25,8 @@ ARC_HEADING = "## Arc (Phase 1 fills this in, later phases read it)\n"
 ARC_CONTRACT = (
     "_Phase 1: write the arc below this line. The harness gates on these parts, each as\n"
     "its own bold `**Label:** value` line, labels spelled exactly: Finished tool;\n"
-    "Language; Project name; Mentor persona; Student term; Visual identity; Difficulty\n"
+    "Language; Project name; Mentor persona; Student term; Visual identity; Tooling fit\n"
+    "(exactly `<gate answer> — COMPATIBLE: evidence` or `<gate answer> — BLOCKED: reason — REQUIRED: internal|external|both`); Difficulty\n"
     "spine (the 3-6 concepts practitioners of this language/tool find hard and idiomatic\n"
     "at the target level); Graduate ledger (after the last chapter the student CAN … /\n"
     "still CANNOT …); Daily drivers (this language's daily-driver kit, every item\n"
@@ -68,6 +69,35 @@ def arc_written(plan_path, plan_rel):
     low = body.lower()
     missing = [p for p in ARC_PARTS if f"**{p.lower()}:**" not in low]
     probs = []
+    gate_tooling = re.search(r"(?im)^- \*\*Tooling:\*\*\s*(internal|external|both)\s*$", text)
+    fit = re.search(
+        r"(?im)^\*\*Tooling fit:\*\*\s*(internal|external|both)\s*[—-]\s*"
+        r"(COMPATIBLE|BLOCKED)\s*:\s*(\S.+)$", body)
+    if fit and fit.group(2).upper() == "BLOCKED":
+        detail = fit.group(3).strip()
+        required = re.search(
+            r"(?i)\s+[—-]\s+REQUIRED\s*:\s*(internal|external|both)\s*$", detail)
+        if not required:
+            probs.append("a BLOCKED **Tooling fit:** must end with exactly "
+                         "`— REQUIRED: internal|external|both` so the human can approve "
+                         "one concrete change")
+        elif required.group(1).lower() == fit.group(1).lower():
+            probs.append("a BLOCKED **Tooling fit:** must REQUIRE a different Tooling mode")
+        else:
+            reason = detail[:required.start()].strip()
+            if not reason:
+                probs.append("a BLOCKED **Tooling fit:** needs a reason before `— REQUIRED:`")
+            else:
+                need = required.group(1).lower()
+                return False, ("TOOLING_CONFLICT: Phase 1 found that the concept cannot be "
+                               f"delivered under Tooling={fit.group(1).lower()}: {reason} "
+                               f"REQUIRED_TOOLING={need}. Open the unfinished working and "
+                               f"approve the proposed change to Tooling={need}; Phase 1 will restart.")
+    if not gate_tooling:
+        probs.append("the immutable Phase-0 **Tooling:** answer is missing or invalid")
+    elif fit and fit.group(1).lower() != gate_tooling.group(1).lower():
+        probs.append("**Tooling fit:** must repeat the Phase-0 Tooling answer exactly; "
+                     f"gate={gate_tooling.group(1).lower()}, fit={fit.group(1).lower()}")
     if missing:
         probs.append("these parts are missing and must be written EXACTLY as their own "
                      "`**Label:** value` line: " + "; ".join(f"**{p}:**" for p in missing))

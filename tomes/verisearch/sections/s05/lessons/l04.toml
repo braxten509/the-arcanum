@@ -3,33 +3,24 @@ id = "s05-l04"
 teaches = ["config-validation"]
 title = "Validate Configuration — Reject Ambiguity Early"
 body = '''
-<p>Deserialization proves only that JSON can be shaped like <code>AppConfig</code>. Verisearch must also prove that its model name, quote limit, and source identities are usable. Put those rules in one method that returns all errors, not one exception per property.</p>
-<pre><code><span class="k">public static</span> List&lt;<span class="k">string</span>&gt; Validate(AppConfig config)
+<p>Deserialization proves only that JSON can become the shape of <code>AppConfig</code>. It does not prove that the values are usable. Validation is the next, separate step. Keeping those steps separate makes an error precise: malformed punctuation is a JSON problem; an empty model name is a configuration-policy problem.</p>
+<p>Write the rules down before writing the method. Verisearch requires:</p>
+<ol><li>a nonblank model name;</li><li>an absolute HTTP or HTTPS Ollama address;</li><li><code>MaxQuotes</code> between one and ten;</li><li>at least one configured source;</li><li>a nonblank, case-insensitively unique label for every source;</li><li>a user-authored trust value from zero through ten; and</li><li>a URL scheme that agrees with <code>SourceKind</code>.</li></ol>
+<p>The final rule needs actual URI parsing. Do not inspect a URL with <code>StartsWith("http")</code>; malformed strings can share that prefix. Practice the non-throwing gate independently:</p>
+<pre><code><span class="k">static string</span>? ExplainBadWebAddress(<span class="k">string</span> value)
 {
-    <span class="k">var</span> errors = <span class="k">new</span> List&lt;<span class="k">string</span>&gt;();
+    <span class="k">if</span> (!Uri.TryCreate(value, UriKind.Absolute, <span class="k">out</span> Uri? parsed))
+        <span class="k">return</span> <span class="s">"URL must be absolute"</span>;
 
-    <span class="k">if</span> (<span class="k">string</span>.IsNullOrWhiteSpace(config.Model))
-        errors.Add(<span class="s">"model is required"</span>);
-    <span class="k">if</span> (config.MaxQuotes < 1 || config.MaxQuotes > 10)
-        errors.Add(<span class="s">"maxQuotes must be between 1 and 10"</span>);
-    <span class="k">if</span> (config.Sources.Count == 0)
-        errors.Add(<span class="s">"at least one source is required"</span>);
-
-    <span class="k">foreach</span> (SourceSpec source <span class="k">in</span> config.Sources)
-    {
-        <span class="k">if</span> (<span class="k">string</span>.IsNullOrWhiteSpace(source.Label))
-            errors.Add(<span class="s">"every source needs a label"</span>);
-        <span class="k">if</span> (source.Trust < 0 || source.Trust > 10)
-            errors.Add(<span class="s">$"{source.Label}: trust must be 0 through 10"</span>);
-    }
-
-    <span class="k">return</span> errors;
+    <span class="k">bool</span> web = parsed.Scheme == Uri.UriSchemeHttp
+        || parsed.Scheme == Uri.UriSchemeHttps;
+    <span class="k">return</span> web ? <span class="k">null</span> : <span class="s">"web source must use HTTP or HTTPS"</span>;
 }</code></pre>
-<p>URL validation is a separate rule because fixture URLs and web URLs have different contracts. A web source must be an absolute HTTP or HTTPS URI. A local fixture must use the <code>mock</code> scheme. Chapter VII will give this policy a dedicated class; for now validate enough to prevent a confusing network call.</p>
-<p>When the config file does not exist, creating a documented default is safe because there is no user file to overwrite. When it exists but cannot parse or validate, print the exact path plus every error and stop. Do not “repair” trust scores or source URLs silently. The user owns those choices.</p>
-<div class="callout">Beginner recovery loop: read the first error, open the printed path, change one value, save, run <code>dotnet run</code> again. If the JSON parser reports a line and byte position, go there before changing C#.</div>
-<div class="field-notes"><div class="fn-head">MARGINALIA // VALIDATION RESULTS AS DATA</div>
-<p>Returning <code>List&lt;string&gt;</code> keeps validation easy to test and lets the CLI render every problem at once. Throwing is appropriate after the boundary decides configuration cannot continue; individual rules themselves can remain ordinary data transformations.</p></div>
+<p>A nullable return is useful for one tiny rule: null means no complaint. The complete workshop uses <code>List&lt;string&gt;</code> because a learner should see every problem in one run instead of repairing and rerunning the file seven times. It also branches on <code>SourceKind</code>, admitting <code>mock://</code> only for the clearly labeled local fixture.</p>
+<p>Missing and invalid are different states. When the file is absent, a documented default may be created because no user policy exists yet. When the file exists but parsing or validation fails, keep it untouched, print its exact path, and stop. Never “repair” a label, URL, trust value, or model name silently; those are the user's choices.</p>
+<div class="callout">Beginner recovery loop: read the first diagnostic, open the printed file, change one value, save, and run again. A JSON line-and-byte location points to text syntax. A named validation rule points to a value.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // THE WORKSHOP IS CANONICAL</div>
+<p>This lesson isolates the reasoning and one URI helper. Do not create a second production validator from it. The next lesson gives the complete <code>ConfigLoader.cs</code>, including the one list-returning method the finished project keeps and tests.</p></div>
 '''
 
 [[lessons.readings]]

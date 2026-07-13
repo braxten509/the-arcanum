@@ -5,25 +5,58 @@ teaches = ["s08-turn-order", "s08-player-actions"]
 body = '''
 <p>The map runs every frame, but a turn resolves only after one committed choice. Create <code>data/enemies.json</code> now and retire l01’s local Slime variables completely:</p>
 <pre><code>{
-  "slime": {"name": "Slime", "hp": 20, "max_hp": 20, "attack": 5, "defense": 1}
+  "slime": {"name": "Slime", "hp": 12, "max_hp": 12, "attack": 5, "defense": 1}
 }</code></pre>
 <p>In <code>combat.py</code>, load that file with <code>json.load</code> when creating the encounter and build <code>StatBlock(data["hp"], data["max_hp"], data["attack"], data["defense"])</code>. These values are authored data, not a second hardcoded balance table. Leave Player’s starting record in <code>player.py</code>: it is Player state, whereas the JSON entry describes an enemy template.</p>
-<p>Add <code>CombatSystem(player, enemy)</code>. It owns <code>player</code>, <code>enemy</code>, <code>active = True</code>, <code>result = None</code>, and a short <code>message</code>. Its <code>player_action(action)</code> is the ledger: reject calls after an outcome; for <code>"attack"</code>, damage the enemy, test whether it reached zero, then take one enemy turn only if the fight remains active. For <code>"defend"</code>, set <code>player_defending = True</code> for the following enemy hit, then clear it after that response. For <code>"flee"</code>, set <code>active = False</code> and <code>result = "fled"</code>; it does not award a victory.</p>
-<pre><code>def player_action(self, action):
-    if not self.active:
-        return
-    if action == "flee":
-        self.active = False
-        self.result = "fled"
-        return
-    self.player_defending = action == "defend"
-    if action == "attack":
-        deal_damage(self.player, self.enemy)
-    if self.enemy.stats.hp == 0:
-        self.active = False
-        self.result = "won"
-        return
-    self.enemy_turn()</code></pre>
+<p>Add the complete <code>CombatSystem(player, enemy)</code> below <code>deal_damage</code> in <code>combat.py</code>. It owns <code>player</code>, <code>enemy</code>, <code>active = True</code>, <code>result = None</code>, <code>player_defending = False</code>, and a short <code>message</code>. Its <code>player_action(action)</code> rejects calls after an outcome; attack damages the enemy, defend changes only the immediately following enemy hit, and flee closes without a victory. The enemy response is complete here rather than left as an implied method: it refreshes the taught AI state, calculates the same minimum-one damage rule, halves that hit while defending, applies the zero HP floor, clears the defend flag, and records a loss if needed.</p>
+<pre><code>class CombatSystem:
+    def __init__(self, player, enemy):
+        self.player = player
+        self.enemy = enemy
+        self.active = True
+        self.result = None
+        self.player_defending = False
+        self.message = "A Slime blocks the road. A attack, D defend, F flee."
+
+    def player_action(self, action):
+        if not self.active:
+            return
+        if action not in {"attack", "defend", "flee"}:
+            self.message = "Choose A, D, or F."
+            return
+        if action == "flee":
+            self.active = False
+            self.result = "fled"
+            self.message = "You leave the Slime behind."
+            return
+
+        self.player_defending = action == "defend"
+        if action == "attack":
+            damage = deal_damage(self.player, self.enemy)
+            self.message = f"You deal {damage} damage."
+        else:
+            self.message = "You brace for the next hit."
+
+        if self.enemy.stats.hp == 0:
+            self.active = False
+            self.result = "won"
+            self.message = "The Slime dissolves."
+            return
+        self.enemy_turn()
+
+    def enemy_turn(self):
+        state = self.enemy.update_ai(self.player)
+        damage = max(1, self.enemy.stats.attack - self.player.stats.defense)
+        if self.player_defending:
+            damage = max(1, damage // 2)
+        self.player.stats.hp = max(0, self.player.stats.hp - damage)
+        self.player_defending = False
+        self.message += f" Slime {state}: {damage} damage."
+        if self.player.stats.hp == 0:
+            self.active = False
+            self.result = "lost"
+            self.message = "The chart goes dark."</code></pre>
+<p>The Slime’s 12 HP and Player’s 7 attack against defense 1 make the acceptance encounter deterministic: the first attack deals 6, the Slime answers once, and the second attack wins before a second response. Do not change those values while claiming the same two-attack proof.</p>
 <p>Use the s03 split honestly. In the existing <code>for event in pygame.event.get()</code> block, <code>KEYDOWN</code> turns one press into Attack, Defend, or Flee: A, D, and F. Keep one <code>keys = pygame.key.get_pressed()</code> read per frame, but only call <code>player.handle_input(keys)</code> while no combat is active. Held arrows remain continuous walking; combat choices are single events, so holding a key cannot silently spend several turns.</p>
 <div class="callout"><strong>THE CARTOGRAPHER'S RULE:</strong> one player action resolves, then at most one enemy response resolves, then the next prompt appears.</div>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // BAD INPUT</div><p>If an unfamiliar key reaches <code>player_action</code>, leave the ledger unchanged and set a helpful message. Never let drawing decide a turn, and never let a finished fight accept another key.</p></div>

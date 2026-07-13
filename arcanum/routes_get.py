@@ -11,7 +11,8 @@ from .config import (AGY_BIN, BUILD_DIR, CLAUDE_BIN, CLI_EFFORTS, CLI_MODEL_EFFO
                      CLI_MODELS, CODEX_BIN, GLOBAL_STATE_KEYS, MIME, OPENCODE_BIN,
                      ROOT, SKINS_DIR, TOMES_DIR, WEB, jobs, jobs_lock, read_json,
                      read_settings, read_toml)
-from .build_state import build_result_status, cancelled_build_status
+from .build_state import (build_result_status, cancelled_build_status,
+                          load_runner_request)
 from .forge import forge_name, list_active_builds, list_workings
 from .model_policy import guided_row
 from .models import agy_models, codex_models, ollama_bindery_models, opencode_models
@@ -85,16 +86,15 @@ def handle(h):
                 # The forge terminal is a status surface, not a mirror of runner stdout.
                 # Raw output remains in job["log"] and feeds the failure report below.
                 out["logtail"] = "\n".join(job.get("statusLog", [])[-40:])
-                req = os.path.join(BUILD_DIR, f"{job.get('slug') or job.get('tome')}.runner-request.json")
-                if os.path.exists(req):  # a worker died; the harness is waiting for a pick
-                    try:
-                        with open(req, encoding="utf-8") as f:
-                            out["awaitingRunner"] = json.load(f)
-                    except (OSError, ValueError):
-                        pass
+                req = load_runner_request(job.get("slug") or job.get("tome"))
+                if req:  # a worker died or exhausted its gates; the harness awaits approval
+                    out["awaitingRunner"] = req
         if out is None:
             out = next((j for j in list_active_builds()
                         if j.get("external") and j.get("id") == bid), None)
+            req = load_runner_request(bid)
+            if out is not None and req:
+                out["awaitingRunner"] = req
         if out is None:
             out = build_result_status(bid) or cancelled_build_status(bid) or {"status": "unknown"}
         return h.send_json(out)

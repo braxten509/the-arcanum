@@ -3,7 +3,7 @@
    POST /api/buildtome starts tools/build_tome.py on the server; the overlay below polls it.
    Leaving the overlay never stops the build — the shelf and localStorage.buildJob reattach. */
 import { $, closeModal, dropOverlay, esc, modal, sfx } from "../core/dom.js";
-import { forgeEntry } from "./forge.js";
+import { forgeEntry, showToolingConflictApproval } from "./forge.js";
 import { enhanceSelect } from "../ui/menu.js";
 import { forgeActivityKey, forgeActivityOptions, forgeTraceLines } from "./activity.js";
 
@@ -267,10 +267,25 @@ export function openBuildOverlay(jobId, traceId = jobId) {
     paintTrace(st);
   }
 
-  function finish(st) {
+  async function finish(st) {
     overlay.classList.remove("hidden"); // surfaces the verdict even if they had left
     const card = $(".grade-card", overlay);
     const close = () => { forgeOverlay = null; dropOverlay(overlay); };
+    if (st.status === "error" && String(st.error || "").includes("TOOLING_CONFLICT:")) {
+      card.innerHTML = `<div class="faint" style="font-size:11px;letter-spacing:.2em">THE BINDERY // TOOLING APPROVAL REQUIRED</div>
+        <h2 style="margin:8px 0 6px">The course needs a different workbench</h2>
+        <p class="dim" style="font-size:12.5px">Preparing the exact Tooling change for your approval…</p>`;
+      try {
+        const data = await (await fetch("/api/buildtome/resumable")).json();
+        const working = ((data && data.workings) || []).find((w) =>
+          w.toolingConflict && (w.id === st.id || w.tome === st.tome));
+        if (working) {
+          forgeOverlay = null;
+          dropOverlay(overlay, () => showToolingConflictApproval(working));
+          return;
+        }
+      } catch { /* fall through to the normal durable failure card */ }
+    }
     if (st.status === "done") {
       sfx("grade");
       card.innerHTML = `<div class="grading-anim">
@@ -329,7 +344,7 @@ export function openBuildOverlay(jobId, traceId = jobId) {
     { const b = overlay.querySelector(".runner-death"); if (b) b.remove(); }
     clearInterval(forgePoll);
     if (localStorage.getItem("buildJob") === jobId) localStorage.removeItem("buildJob");
-    finish(st);
+    await finish(st);
   }
   // one interval: poll the server every 3rd beat, tick the phase clock on the others
   let beat = 0;

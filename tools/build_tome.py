@@ -335,6 +335,8 @@ def main():
                 else:
                     ok, report = validate(
                         tid, phase=num, tooling=tooling)
+            if num == 1 and not ok and "TOOLING_CONFLICT:" in report:
+                sys.exit(report)
             if ok and not probs and not (num == 8 and died):
                 print("  ok plan Arc written" if num == 1 else "  ok validate_tome: clean")
                 break
@@ -430,7 +432,10 @@ def main():
             f.write("\n## Harness ground truth (measured from disk)\n")
             f.write(f"- {forecast_line(mv)}\n")
             f.write(f"- exercise points {mv['ex_points']} · freestyle rewards {mv['fs_reward']} "
-                    f"· intrusion bounties {mv['bounty']} → base earnable {mv['base_earnable']}\n")
+                    f"→ fixed face-value {mv['base_earnable']}\n")
+            if mv["bounty_max"]:
+                f.write(f"- repeatable hex-defense bonus {mv['bounty_min']}–{mv['bounty_max']} "
+                        f"per win (tier schedule sum {mv['bounty']}; excluded from fixed total)\n")
             f.write(f"- banks: {mv['themes']} themes · {mv['shop']} shop items · {mv['badges']} badges\n")
             if handoffs_exist(tid) and section_ids(tid):
                 continuity_ok, _ = validate_all_handoffs(tid, section_ids(tid), plan_path)

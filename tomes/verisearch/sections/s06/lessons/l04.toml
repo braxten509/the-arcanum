@@ -14,7 +14,7 @@ Crawl-delay: 2</code></pre>
 <p><strong>2. Identify yourself.</strong> Anonymous blank user-agents look like attacks:</p>
 <pre><code>http.DefaultRequestHeaders.UserAgent.ParseAdd(<span class="s">"Verisearch/1.0 (research tool)"</span>);</code></pre>
 <p><strong>3. Bound traffic.</strong> Set a timeout, pass cancellation, and do not start an unbounded number of requests to one host. If a server returns HTTP 429, record the source failure and honor <code>Retry-After</code> before any deliberate retry. The course's core path makes one request per selected URL and never loops forever.</p>
-<pre><code><span class="k">await</span> Task.Delay(1000);   <span class="c">// 1s of manners</span></code></pre>
+<pre><code>http.Timeout = TimeSpan.FromSeconds(15);</code></pre>
 <p><strong>4. Contain each source failure.</strong> A dead link, 403, timeout, or unacceptable media type becomes one named <code>FetchOutcome</code> in Chapter VIII. Other selected sources may continue, but the report does not hide the failure or substitute another page.</p>
 <div class="callout">Project boundary: public pages the user is permitted to read, tiny request volume, and exact quotations with attribution. Do not fetch content behind authentication, evade access controls, ignore publisher rules, or ship copied source material with the application.</div><div class="field-notes"><div class="fn-head">MARGINALIA // POLICY IS REAL CODE</div>
 <p><strong>HTTP 429 Too Many Requests</strong> explicitly asks the client to slow down and may carry a <code>Retry-After</code> header. A production retry policy needs a maximum attempt count, cancellation, and tests. The beginner build records the failure instead of quietly spinning.</p>
@@ -35,7 +35,7 @@ essential = false
 id = "s06-l04-e1"
 type = "text"
 points = 20
-prompt = "At what path does every site publish its crawler rules? (starts with a slash)"
+prompt = "At what conventional root path should you first look for a site's crawler rules?"
 answer = "/robots.txt"
 accept = ["robots.txt"]
 hint = "It's a .txt file at the site root."
@@ -65,10 +65,10 @@ id = "s06-l04-d1"
 type = "type"
 points = 12
 reps = 2
-prompt = "Identify + pace — the two etiquette lines. Twice."
+prompt = "Identify + bound — the two request-lifecycle lines. Twice."
 code = '''
 http.DefaultRequestHeaders.UserAgent.ParseAdd("Verisearch/1.0 (research tool)");
-await Task.Delay(1000);'''
+http.Timeout = TimeSpan.FromSeconds(15);'''
 
 [[lessons.exercises]]
 id = "s06-l04-w1"

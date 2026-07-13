@@ -285,11 +285,14 @@ def check_padded_prose(sections_data):
 
 
 def check_economy_totals(tome_path, m, sections_data):
-    """#10: recompute earnable credit from disk and check the top rank tracks it. §2: 'make
-    the top title ≈ total earnable coin'. Base earnable = Σ exercise points + Σ freestyle
-    rewards + Σ intrusion bounties (duel coin is a late trickle, excluded per §2). Combos and
-    the S multiplier push the real ceiling higher, so the top rank landing a bit UNDER base is
-    fine; far under (unreachable ranks) or above (a title no one can earn) is the smell."""
+    """#10: recompute fixed face-value credit from disk and check the top rank tracks it.
+
+    Fixed face value = Σ exercise points + Σ freestyle rewards. Hex-defense bounties
+    are deliberately reported but excluded: the scheduler can award the same tier bounty
+    repeatedly, or award none at all, so summing each tier once invents a finite payout the
+    runtime does not have. Combos, S ranks, and repeatable hex wins make a top rank modestly
+    above fixed face value reachable; a much higher or much lower threshold is the smell.
+    """
     econ = m.get("economy", {}) or {}
     ranks = econ.get("ranks")
     if not isinstance(ranks, list) or not ranks:
@@ -301,25 +304,33 @@ def check_economy_totals(tome_path, m, sections_data):
     fs_reward = sum((sd.get("freestyle") or {}).get("reward", 0) or 0
                     for sd in sections_data if isinstance(sd.get("freestyle"), dict))
     tiers, _, e = load_intrusion_tiers(tome_path, m)
-    bounty = 0
+    bounties = []
     if not e and isinstance(tiers, list):
-        bounty = sum(t.get("bounty", 0) or 0 for t in tiers if isinstance(t, dict))
-    base = ex_pts + fs_reward + bounty
+        bounties = [t.get("bounty") for t in tiers if isinstance(t, dict)
+                    and isinstance(t.get("bounty"), (int, float))
+                    and not isinstance(t.get("bounty"), bool)]
+    bounty = sum(bounties)
+    base = ex_pts + fs_reward
     if base <= 0:
         return
     try:
         top = max(r[0] for r in ranks if isinstance(r, list) and r and isinstance(r[0], (int, float)))
     except ValueError:
         return
-    detail = f"(exercises {ex_pts} + freestyles {fs_reward} + bounties {bounty})"
-    if top > base * 1.05:
-        warn("content", f"[economy] top rank threshold {top} exceeds base earnable {base} "
-             f"{detail} — that title is unreachable without heavy combo/S-rank luck; land the "
-             "top rank at roughly total earnable (§2)")
-    elif top < base * 0.6:
-        warn("content", f"[economy] top rank threshold {top} is far below base earnable {base} "
+    hex_detail = (f"; repeatable hex-defense bounties pay {min(bounties)}–{max(bounties)} "
+                  f"per win (tier schedule sum {bounty}, excluded from the finite base)"
+                  if bounty else "; no hex-defense bonus income")
+    detail = f"(exercises {ex_pts} + freestyles {fs_reward}{hex_detail})"
+    if top > base * 1.15:
+        warn("content", f"[economy] top rank threshold {top} exceeds fixed face-value "
+             f"earnings {base} by more than 15% {detail} — that title depends too heavily "
+             "on combo/S-rank luck or repeatable bonus play; land it near the fixed course "
+             "rewards (§2)")
+    elif top < base * 0.85:
+        warn("content", f"[economy] top rank threshold {top} is far below fixed face-value "
+             f"earnings {base} by more than 15% "
              f"{detail} — the top title is reached with most of the course still ahead; spread "
-             "ranks so the last title lands near total earnable (§2)")
+             "ranks so the last title lands near the fixed course rewards (§2)")
 
 
 

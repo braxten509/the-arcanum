@@ -17,7 +17,8 @@ from validatelib.content import (check_exercise, check_freestyle, check_section,
                                  is_shouting_title)  # noqa: E402
 from validatelib.coverage import (check_capability_ledger,
                                   check_canonical_type_regressions)  # noqa: E402
-from validatelib.depth import check_padded_prose, check_taught_before_used  # noqa: E402
+from validatelib.depth import (check_economy_totals, check_padded_prose,
+                               check_taught_before_used)  # noqa: E402
 from validatelib.execute import _project_build_result, check_starters_run  # noqa: E402
 from validatelib.phase2 import check_tooling_contract  # noqa: E402
 from validatelib.structure import check_meta, check_runtime  # noqa: E402
@@ -117,7 +118,38 @@ def main():
                      "rubric": [{"criterion": "c", "weight": 100}]}, "L")
     assert any("reward" in msg and lv == "ERROR" for lv, _, msg in findings()), "missing reward not flagged"
 
-    # 2e. An exercise can parse while rendering as blank or impossible in the client.
+    # 2e. Economy balance uses finite course rewards as its base. Hex-defense money is
+    #     real but repeatable, so adding one bounty per tier invents a guaranteed total.
+    economy_sections = [{"id": "s01", "lessons": [{"id": "l1", "exercises": [
+        {"id": "e1", "points": 600},
+    ]}], "freestyle": {"reward": 400}}]
+    with tempfile.TemporaryDirectory() as d:
+        balanced = {"economy": {"ranks": [[0, "NOVICE"], [1120, "MASTER"]]},
+                    "progression": {"intrusionTiers": [{"min": 0, "time": 90,
+                                                         "bounty": 900, "pool": [{}]}]}}
+        check_economy_totals(d, balanced, economy_sections)
+        assert not findings(), "repeatable hex bounty was folded into the finite economy base"
+
+        too_high = {**balanced, "economy": {"ranks": [[0, "NOVICE"], [1160, "MASTER"]]}}
+        check_economy_totals(d, too_high, economy_sections)
+        got = findings()
+        assert any(lv == "WARN" and "fixed face-value earnings 1000" in msg
+                   and "repeatable hex-defense bounties pay 900–900 per win" in msg
+                   for lv, _, msg in got), got
+
+        no_hex = {"economy": {"ranks": [[0, "NOVICE"], [1160, "MASTER"]]}}
+        check_economy_totals(d, no_hex, economy_sections)
+        got = findings()
+        assert any(lv == "WARN" and "no hex-defense bonus income" in msg
+                   for lv, _, msg in got), got
+
+        too_low = {"economy": {"ranks": [[0, "NOVICE"], [840, "MASTER"]]}}
+        check_economy_totals(d, too_low, economy_sections)
+        got = findings()
+        assert any(lv == "WARN" and "far below fixed face-value earnings 1000 by more than 15%"
+                   in msg for lv, _, msg in got), got
+
+    # 2f. An exercise can parse while rendering as blank or impossible in the client.
     #     These are schema errors, not editorial advice.
     cases = [
         ({"id": "blank", "type": "text", "points": 15, "answer": "x", "hint": "h"}, "prompt"),

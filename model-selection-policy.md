@@ -2,12 +2,18 @@
 
 Research snapshot: **2026-07-13**. The executable source of truth is
 `arcanum/model_policy.py`; this page records why the current 42 live choices are
-or are not advised.
+selectable, insufficient, or wasteful for each hand.
 
 ## The bar
 
-An advised model must be realistic for the **entire hand**, not merely able to
-answer one representative prompt:
+An advised model must fall inside a **two-sided recommendation band** for the
+entire hand, not merely be able to answer one representative prompt:
+
+1. **Capability floor:** it must realistically complete every phase bundled into
+   that hand.
+2. **Cost ceiling:** it must offer a plausible quality/reliability gain over the
+   cheapest model that already clears that hand. Same-price predecessors and
+   premium bulk-output choices with no role-specific payoff are gray too.
 
 - **Drafter** owns the skeleton, runtime setup, economy, cosmetics, and the
   whole-tome Phase 7 validation/repair pass. It is validator-backed, but not
@@ -25,20 +31,40 @@ The accuracy strategy is a capable author, web/repository evidence, executable
 validation, and a different strong reviewer. Provider benchmark claims below are
 treated as directional evidence, not as independent guarantees.
 
+Published API prices, Codex credit rates, and OpenCode Go usage allowances are
+used as relative cost evidence. Login plans may hide the per-token bill, but an
+expensive choice still consumes more quota/credits and reduces the number of
+complete runs available.
+
 Legend: **D** Drafter, **W** Writer, **S** Sections, **R** Reviewer. A dash means
-the option remains visible but is gray and marked `(not advised)` for that hand.
+the option remains visible but gray. The Custom picker says `(insufficient)`
+when capability, evidence, context, or endpoint durability is below that hand's
+complete-task bar; it says `(wasteful)` when the model is capable but overpriced
+for that hand or dominated by a better-value choice.
 Efforts listed are the only selectable efforts for the applicable advised hands;
 other provider-supported efforts remain visible but gray.
+
+Every selectable model also shows `power X/10`. This is an ordinal
+**tome-authoring capability** estimate, independent of cost: 10 is the strongest
+current frontier; 9 is frontier author/reviewer class; 8 is a strong complete
+author with some tradeoffs; 7 is a dependable checked/support agent; 6 and below
+indicates a constrained local, older, or narrow specialist. It is a researched
+workflow aid, not a claim that cross-provider benchmark scores are scientifically
+interchangeable. Gray models omit the number because the exclusion reason is the
+actionable fact for that hand.
 
 ## Claude CLI
 
 | Live model | D | W | S | R | Recommended effort by hand | Conservative conclusion |
 |---|:---:|:---:|:---:|:---:|---|---|
 | `claude-haiku-4-5` | yes | — | — | — | fixed; Haiku has no effort control | Near-frontier speed and coding do make it useful for bounded, checked work. Anthropic positions it for rapid/subagent use, not ownership of a complete course phase. |
-| `claude-sonnet-5` | yes | yes | yes | yes | D medium/high; W/S medium/high/xhigh; R high/xhigh | Current frontier Sonnet with broad knowledge work and long-running agent evidence. |
-| `claude-opus-4-7` | yes | yes | yes | yes | D high; W/S/R high/xhigh | Anthropic recommends high as the intelligence-sensitive floor and xhigh for long-horizon agentic work. |
-| `claude-opus-4-8` | yes | yes | yes | yes | D high; W/S/R high/xhigh | Same effort guidance as 4.7; a strong top-tier author or reviewer. |
-| `claude-fable-5` | yes | yes | yes | yes | D medium/high; W/S/R high/xhigh | Strongest widely released Claude for long-running agents, but usually unnecessary outside the highest quality tier. |
+| `claude-sonnet-5` | — | yes | yes | yes | W/S medium or high; R high | $2/$10 per MTok through August 2026. It is the cost-effective Claude author; the checked Drafter has cheaper options. |
+| `claude-opus-4-7` | — | — | — | — | all efforts gray | Same $5/$25 base rate as newer Opus 4.8, with its fast mode being retired. It is a same-price predecessor. |
+| `claude-opus-4-8` | — | yes | — | yes | W high; R high/xhigh | $5/$25. Its judgment can pay back in course architecture or final review, not the support hand or the largest output phase. |
+| `claude-fable-5` | — | — | — | yes | R high | $10/$50—twice Opus and five times Sonnet's current rate. Only an accuracy-first final audit plausibly justifies it. |
+
+This directly closes the reported Fable loophole: Fable High is now gray for
+Drafter, Writer, and Sections; even Reviewer exposes only High, not xhigh/max.
 
 ## Antigravity CLI
 
@@ -48,31 +74,38 @@ effort box.
 | Live model/variant | D | W | S | R | Conservative conclusion |
 |---|:---:|:---:|:---:|:---:|---|
 | `Gemini 3.5 Flash (Low)` | yes | — | — | — | Low is explicitly the fewer-step, lower-latency setting. |
-| `Gemini 3.5 Flash (Medium)` | yes | yes | yes | — | Google's default and recommendation for most complex work; use High for independent final review. |
-| `Gemini 3.5 Flash (High)` | yes | yes | yes | yes | Sustained frontier Flash with maximum reasoning/tool behavior. |
-| `Gemini 3.1 Pro (Low)` | yes | — | — | — | Strong base model, but Low minimizes depth on the exact long-horizon work these hands perform. |
-| `Gemini 3.1 Pro (High)` | yes | yes | yes | yes | Advanced reasoning/agentic model at its default deep setting. |
+| `Gemini 3.5 Flash (Medium)` | — | yes | yes | — | Google's default for most complex work; Low is the cheaper Drafter and High the deeper reviewer. |
+| `Gemini 3.5 Flash (High)` | — | yes | yes | yes | High is cost-justified for course architecture, the largest authorship phase, and final review. It remains cheaper than the premium Writer alternatives and is used by Quality 2–3 Reviewer. |
+| `Gemini 3.1 Pro (Low)` | — | — | — | — | Low removes the reasoning that would justify the Pro premium; Flash Low is the better-value Drafter. |
+| `Gemini 3.1 Pro (High)` | — | yes | — | yes | $2/$12 per MTok versus Flash's $1.50/$9. A defensible quality-first architect or Quality 4+ final reviewer; Flash remains the better bulk value. |
 | `GPT-OSS 120B (Medium)` | yes | — | — | — | Strong tool use and roughly o4-mini-class open-model performance, but not the general pedagogy/reviewer floor. |
+
+Flash High is intentionally selectable for Writer alongside Sol High. The
+earlier restriction was too aggressive: High increases reasoning on a model
+that is still priced below the premium Writer choices, so it is a meaningful
+quality/cost step rather than wasteful overkill.
 
 ## Codex CLI
 
 The installed `codex debug models` catalog is read live. It currently describes
-Sol as frontier, Terra as balanced, Luna as fast/affordable, GPT-5.5 as suitable
-for complex coding/research, GPT-5.4 as a strong full model, and Mini as intended
-for simpler tasks.
+Sol as frontier, Terra as balanced, Luna as fast/affordable, and Mini as intended
+for simpler tasks. The current Codex rate card makes the replacements unusually
+clear: GPT-5.5 costs exactly the same as Sol, and GPT-5.4 exactly the same as
+Terra, while OpenAI says GPT-5.6 improves both quality and efficiency.
 
 | Live model | D | W | S | R | Recommended effort by hand |
 |---|:---:|:---:|:---:|:---:|---|
-| `gpt-5.6-sol` | yes | yes | yes | yes | D medium/high; W/S medium/high/xhigh; R high/xhigh |
-| `gpt-5.6-terra` | yes | yes | yes | yes | D/W/S medium/high; R high/xhigh |
-| `gpt-5.6-luna` | yes | yes | yes | — | D/W/S medium/high |
-| `gpt-5.5` | yes | yes | yes | yes | D medium/high; W/S medium/high/xhigh; R high/xhigh |
-| `gpt-5.4` | yes | yes | yes | yes | D/W/S medium/high; R high/xhigh |
-| `gpt-5.4-mini` | yes | — | — | — | D high/xhigh |
+| `gpt-5.6-sol` | — | yes | — | yes | W medium/high; R high/xhigh |
+| `gpt-5.6-terra` | — | yes | yes | yes | W/S medium/high; R high |
+| `gpt-5.6-luna` | yes | yes | yes | — | D medium only; W/S medium/high |
+| `gpt-5.5` | — | — | — | — | all efforts gray; same credit rate as newer Sol |
+| `gpt-5.4` | — | — | — | — | all efforts gray; same credit rate as newer Terra |
+| `gpt-5.4-mini` | yes | — | — | — | D high only |
 
-`low`, `max`, and `ultra` are not recommended for these bundled hands: Low
-unnecessarily risks shallow execution, while Max/Ultra spend is not justified by
-the tome workflow without a model-specific evaluation showing a measurable gain.
+`low`, `max`, and `ultra` remain gray. High and xhigh are now role-scoped too:
+Luna Drafter and Mini Drafter expose only their cheapest adequate setting, while
+xhigh remains available only for the two frontier final-review choices where a
+long-horizon gain is plausible.
 
 ## OpenCode Go
 
@@ -83,18 +116,18 @@ for Writer or Reviewer; the underlying vendor evidence determines those roles.
 | Live model | D | W | S | R | Effort | Conservative conclusion |
 |---|:---:|:---:|:---:|:---:|---|---|
 | `opencode-go/deepseek-v4-flash` | yes | — | — | — | high | 13B active; official claim is Pro-like simple-agent performance, not equivalent long-horizon ownership. |
-| `opencode-go/deepseek-v4-pro` | yes | yes | yes | yes | high | 1M context, broad world knowledge, frontier reasoning, tool use, and long outputs. |
-| `opencode-go/glm-5.1` | yes | yes | yes | yes | fixed | Explicitly built for eight-hour tasks and positioned for long documents, teaching materials, and research papers. |
-| `opencode-go/glm-5.2` | yes | yes | yes | yes | high | Improved 1M-context flagship with broad reasoning and long-horizon evidence. |
-| `opencode-go/kimi-k2.6` | yes | yes | yes | yes | fixed | Strong research/search, knowledge, document delivery, and long-running agent results—not merely coding. |
-| `opencode-go/kimi-k2.7-code` | yes | — | — | — | fixed | Coding-focused derivative; its public evidence is much narrower than K2.6's general/research evidence. |
+| `opencode-go/deepseek-v4-pro` | — | yes | yes | yes | high | $1.74/$3.48. Strong enough to justify authorship/review, while Flash is about twelve times cheaper for Drafter. |
+| `opencode-go/glm-5.1` | — | — | — | — | all gray | Same $1.40/$4.40 rate as newer GLM-5.2; dominated. |
+| `opencode-go/glm-5.2` | — | yes | — | yes | high | $1.40/$4.40. Reserve the costly long-horizon flagship for planning/review, not support or bulk output. |
+| `opencode-go/kimi-k2.6` | — | yes | — | yes | fixed | $0.95/$4.00. Strong research/long-horizon evidence justifies planning/review, not cheaper hands. |
+| `opencode-go/kimi-k2.7-code` | — | — | — | — | fixed | Same output price as K2.6, narrower evidence, and far more costly than Drafter-class models. |
 | `opencode-go/mimo-v2.5` | yes | — | — | — | fixed | Efficient 15B-active agent model; too small for the three critical authorship hands. |
-| `opencode-go/mimo-v2.5-pro` | yes | yes | yes | — | fixed | 42B-active, 1M-context Pro model with strong long-context/agent results, but insufficient final-review evidence. |
-| `opencode-go/minimax-m2.7` | yes | yes | yes | — | fixed | Strong professional document and office-delivery model; not the independent factual arbiter. |
-| `opencode-go/minimax-m3` | yes | yes | yes | yes | fixed | 1M-context frontier agent with browsing, reasoning, and autonomous research-reproduction evidence. |
-| `opencode-go/qwen3.6-plus` | yes | yes | yes | — | fixed | 1M-context content/document and agent model; Max remains the conservative reviewer tier. |
-| `opencode-go/qwen3.7-max` | yes | yes | yes | yes | fixed | Qwen flagship for complex multi-step reasoning and agents. |
-| `opencode-go/qwen3.7-plus` | yes | yes | yes | — | fixed | Current performance/cost model for content, documents, coding, and productivity workflows. |
+| `opencode-go/mimo-v2.5-pro` | — | — | — | — | fixed | Same $1.74/$3.48 rate as broader DeepSeek V4 Pro; dominated for this workflow. |
+| `opencode-go/minimax-m2.7` | — | — | — | — | fixed | Same $0.30/$1.20 rate as newer, broader MiniMax M3; dominated. |
+| `opencode-go/minimax-m3` | — | yes | yes | yes | fixed | $0.30/$1.20 makes it a cost-effective author/reviewer; Flash/MiMo remain cheaper support hands. |
+| `opencode-go/qwen3.6-plus` | — | — | — | — | fixed | Costs $0.50/$3.00 at <=256K versus newer 3.7 Plus at $0.40/$1.60; dominated. |
+| `opencode-go/qwen3.7-max` | — | yes | — | yes | fixed | $2.50/$7.50 flagship; course architecture or final arbitration can justify the premium over Plus, but bulk Sections cannot. |
+| `opencode-go/qwen3.7-plus` | — | yes | yes | — | fixed | Current $0.40/$1.60 performance/cost author; too expensive for Drafter and below the Reviewer bar. |
 
 ## OpenCode limited-time free endpoints
 
@@ -129,9 +162,9 @@ runtime context, Qwen2.5 at 32,768, and the listed quantizations below.
 
 ## Primary sources
 
-- Anthropic: [model selection](https://platform.claude.com/docs/en/about-claude/models/choosing-a-model), [effort guidance](https://platform.claude.com/docs/en/build-with-claude/effort), and [Haiku 4.5 positioning](https://www.anthropic.com/news/claude-haiku-4-5).
-- Google: [Gemini model catalog](https://ai.google.dev/gemini-api/docs/models) and [Gemini 3.5 Flash levels and long-horizon guidance](https://ai.google.dev/gemini-api/docs/whats-new-gemini-3.5).
-- OpenAI: [latest-model guide](https://developers.openai.com/api/docs/guides/latest-model) and [gpt-oss-120b model page](https://developers.openai.com/api/docs/models/gpt-oss-120b).
+- Anthropic: [model selection](https://platform.claude.com/docs/en/about-claude/models/choosing-a-model), [current pricing](https://platform.claude.com/docs/en/about-claude/pricing), [effort guidance](https://platform.claude.com/docs/en/build-with-claude/effort), and [Haiku 4.5 positioning](https://www.anthropic.com/news/claude-haiku-4-5).
+- Google: [Gemini model catalog](https://ai.google.dev/gemini-api/docs/models), [current pricing](https://ai.google.dev/gemini-api/docs/pricing), and [Gemini 3.5 Flash levels and long-horizon guidance](https://ai.google.dev/gemini-api/docs/whats-new-gemini-3.5).
+- OpenAI: [latest-model guide](https://developers.openai.com/api/docs/guides/latest-model), [current Codex credit rate card](https://learn.chatgpt.com/docs/pricing#what-are-tokens-and-credits), and [gpt-oss-120b model page](https://developers.openai.com/api/docs/models/gpt-oss-120b).
 - OpenCode: [Go models, prices, and limits](https://opencode.ai/docs/go/) and [Zen free-endpoint terms](https://opencode.ai/docs/zen/).
 - DeepSeek: [V4 release and Pro/Flash positioning](https://api-docs.deepseek.com/news/news260424/) and [model details](https://api-docs.deepseek.com/quick_start/pricing).
 - Z.ai: [GLM-5.1 long-horizon and document guidance](https://docs.z.ai/guides/llm/glm-5.1) and [GLM-5.2 official model card](https://huggingface.co/zai-org/GLM-5.2).

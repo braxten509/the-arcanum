@@ -198,16 +198,19 @@ def _load_launch(*ids):
     return {}
 
 
-def _save_launch(tid, body, concept):
+def _save_launch(tid, body, concept, plan_text=""):
     # gate answers ride along so a resume can DISPLAY them (they are fixed once Phase 0
     # ran); a resume POST carries none — keep the ones from the original launch then.
+    previous = _load_launch(tid)
     gate = {k: str(body.get(k) or "").strip()
             for k in ("prior_knowledge", "prior_level", "breadth", "depth", "mastery", "tooling")}
     if not any(gate.values()):
-        gate = _load_launch(tid).get("gate") or {}
+        gate = previous.get("gate") or (_plan_gate(plan_text) if plan_text else {})
     try:
         with open(os.path.join(BUILD_DIR, f"{tid}.launch.json"), "w", encoding="utf-8") as f:
-            json.dump({"bindery": body.get("bindery") or {}, "concept": concept,
+            json.dump({"bindery": body.get("bindery") or previous.get("bindery") or {},
+                       "runners": body.get("runners") or previous.get("runners") or {},
+                       "concept": concept,
                        "sectionsSplit": bool(body.get("sectionsSplit")), "gate": gate}, f)
     except OSError:
         pass
@@ -225,6 +228,56 @@ def _plan_gate(text):
         if m:
             out[key] = m.group(1).strip()
     return out
+
+
+def tooling_conflict_details(text, failure=""):
+    """Structured Phase-1 conflict data for the approval UI and resume endpoint."""
+    fit = re.search(
+        r"(?im)^\*\*Tooling fit:\*\*\s*(internal|external|both)\s*[—-]\s*"
+        r"BLOCKED\s*:\s*(.+)$", text)
+    conflict = bool(fit or "TOOLING_CONFLICT:" in failure)
+    if not conflict:
+        return {"conflict": False, "current": "", "required": "", "reason": ""}
+    current = (fit.group(1).lower() if fit
+               else str(_plan_gate(text).get("tooling") or "").lower())
+    detail = fit.group(2).strip() if fit else failure.split("TOOLING_CONFLICT:", 1)[-1].strip()
+    required_match = re.search(
+        r"(?i)(?:REQUIRED_TOOLING\s*=|REQUIRED\s*:)\s*(internal|external|both)",
+        detail + " " + failure)
+    required = required_match.group(1).lower() if required_match else ""
+    reason = re.split(
+        r"(?i)\s+(?:[—-]\s*)?(?:REQUIRED_TOOLING\s*=|REQUIRED\s*:)",
+        detail, maxsplit=1)[0].strip().rstrip(".;")
+    # Legacy conflicts predate the structured REQUIRED marker. BOTH is the safe widening
+    # for an internal/external-only plan; new conflicts always carry the exact recommendation.
+    if not required and current in ("internal", "external"):
+        required = "both"
+    return {"conflict": True, "current": current, "required": required,
+            "reason": reason or "The selected Tooling cannot deliver the promised artifact."}
+
+
+def replace_plan_tooling(text, tooling):
+    """Apply a human tooling-conflict resolution without changing any other gate answer."""
+    policies = {
+        "internal": ("INTERNAL (in-browser only)",
+                     "Use the browser workbench only; do not require downloads or set `externalWorkspace`."),
+        "external": ("EXTERNAL (teach the real tools)",
+                     "Teach the real toolchain from install through diagnostics and final delivery; use `externalWorkspace` when the real work cannot run in-browser."),
+        "both": ("BOTH (internal + external available)",
+                 "Support the browser workbench and teach the complete real-tool path through final delivery."),
+    }
+    if tooling not in policies:
+        raise ValueError("tooling must be internal, external, or both")
+    label, meaning = policies[tooling]
+    updated, gate_count = re.subn(
+        r"(?im)^- \*\*Tooling:\*\*\s*(?:internal|external|both)\s*$",
+        f"- **Tooling:** {tooling}", text, count=1)
+    updated, policy_count = re.subn(
+        r"(?im)^- \*\*Tooling — .*?$",
+        f"- **Tooling — {label}:** {meaning}", updated, count=1)
+    if gate_count != 1 or policy_count != 1:
+        raise ValueError("the build plan's Tooling gate or calibration line is missing")
+    return updated
 
 
 def _write_progress(tome, phase):
@@ -391,11 +444,18 @@ def list_workings():
         if tid in active or planid in active:         # currently being forged, not abandoned
             continue
         launch = _load_launch(tid, planid)
+        durable = result or build_result_status(tid) or {}
+        failure = str(durable.get("error") or "")
+        tooling = tooling_conflict_details(text, failure)
         out.append({"id": planid, "tome": tid, "name": forge_name(tid) or tid,
                     "concept": launch.get("concept") or _plan_concept(text),
                     "phase": _resume_phase(planid, tid),
                     "bindery": launch.get("bindery") or {},
+                    "runners": launch.get("runners") or {},
                     "gate": launch.get("gate") or _plan_gate(text),
+                    "toolingConflict": tooling["conflict"],
+                    "requiredTooling": tooling["required"],
+                    "toolingConflictReason": tooling["reason"],
                     "sectionsSplit": bool(launch.get("sectionsSplit")),
                     "updated": os.path.getmtime(pp)})
     out.sort(key=lambda w: w["updated"], reverse=True)

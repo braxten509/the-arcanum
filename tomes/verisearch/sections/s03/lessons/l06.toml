@@ -19,7 +19,7 @@ body = '''
     <span class="k">string</span> Url, <span class="k">int</span> PassageId);</code></pre>
 <p>These names encode the product's trust boundary. A <code>QuoteProposal</code> is merely model output and must never be rendered. A <code>VerifiedQuote</code> is created later by C# only after exact source matching. The URL is absent from <code>QuoteProposal</code> on purpose: the model cannot invent attribution when it does not own that field.</p>
 <p>Use one type per line at first, even though C# permits terse declarations. The compiler can then point to a specific name. In <code>Program.cs</code>, create a tiny smoke test:</p>
-<pre><code><span class="k">var</span> source = <span class="k">new</span> SourceSpec(<span class="s">"RFC 8446"</span>, <span class="s">"https://www.rfc-editor.org/rfc/rfc8446"</span>, 10, SourceKind.Web);
+<pre><code><span class="k">var</span> source = <span class="k">new</span> SourceSpec(<span class="s">"C# overview"</span>, <span class="s">"https://learn.microsoft.com/en-us/dotnet/csharp/tour-of-csharp/overview"</span>, 10, SourceKind.Web);
 <span class="k">var</span> passage = <span class="k">new</span> Passage(7, <span class="s">"The exact source words."</span>, source);
 Console.WriteLine(<span class="s">$"{passage.Id}: {passage.Source.Label}"</span>);</code></pre>
 <p>Run <code>dotnet build</code> before moving on. If the compiler says a type already exists, search the project and remove the obsolete demonstration declaration—not the canonical one in <code>Models.cs</code>. If it cannot find <code>List&lt;T&gt;</code>, confirm implicit usings remain enabled in the project file or add <code>using System.Collections.Generic;</code>.</p>

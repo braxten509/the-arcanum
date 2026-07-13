@@ -1,15 +1,15 @@
 # Phase 1 — Concept & arc
 
-Read the plan, **§1**, and **§2 `[content]`**. Translate the six calibrated answers into
-the Arc fields already listed in the plan; write course-specific decisions, not another
-copy of the generic instructions.
+Read the plan, **§1**, and **§2 `[content]`**. Translate its six answers into the listed Arc
+fields as course-specific decisions, not generic instructions.
 
-Begin with the real finished artifact and its acceptance proof. A learner matching the
-stated prerequisites must be able to use the real tools, find the relevant target or
-problem, produce the promised artifact, launch or apply it, and verify the result without
-unstated expert repair. If part must be simulated, state that boundary and narrow the
-promise. Use `externalWorkspace` later when real work cannot run in-browser; never replace
-the core skill with a convenient mock.
+Begin with the real finished artifact and its acceptance proof. Honor Phase 0 Tooling
+exactly: `internal` keeps every required action in-browser and forbids `externalWorkspace`;
+`external` requires real external tools; `both` permits a taught mix. Never override it or
+simulate the core skill. Write `**Tooling fit:** <answer> — COMPATIBLE: <evidence>` in the
+Arc. If that answer cannot deliver the concept, write `**Tooling fit:** <answer> — BLOCKED:
+<reason> — REQUIRED: <internal|external|both>` and stop. `REQUIRED` is the one different,
+honest mode. The harness asks the human to approve that exact change before authoring.
 
 Choose one project spelling and derive its kebab-case id. Record the project name for
 Phase 2, but do not rename, move, or copy the scaffolded tome; the harness does that after

@@ -51,6 +51,18 @@ def load_active_owner(slug, pid):
     return None
 
 
+def load_runner_request(slug):
+    """Return a live runner/gate approval request written by the harness."""
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", str(slug or "")):
+        return None
+    try:
+        with open(_path(slug, "runner-request"), encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else None
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None
+
+
 def record_build_result(slug, tid, status, phase=0, phase_title="", error=""):
     phase = max(0, min(8, int(phase or 0)))
     data = {"status": status, "kind": "build", "id": slug, "slug": slug,

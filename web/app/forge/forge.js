@@ -17,7 +17,7 @@ function showResumeChooser(workings) {
     <div class="tome-row resume-row">
       <button class="resume-pick" data-id="${esc(w.id)}">
         <div class="jr-top"><span class="jr-name">${esc(w.name)}</span>
-          <span class="jr-tag num">phase ${w.phase} · ${esc(FORGE_PHASE_NAMES[w.phase] || "")}</span></div>
+          <span class="jr-tag num">${w.toolingConflict ? "TOOLING CONFLICT" : `phase ${w.phase} · ${esc(FORGE_PHASE_NAMES[w.phase] || "")}`}</span></div>
         <div class="jr-desc dim">${esc(w.concept || "(no concept recorded)")}</div>
       </button>
       <button class="resume-trash" data-id="${esc(w.id)}" aria-label="Discard this working entirely" title="Discard this working entirely">🗑</button>
@@ -30,7 +30,7 @@ function showResumeChooser(workings) {
   root.querySelectorAll(".resume-pick").forEach((b) => {
     b.onclick = () => {
       const w = workings.find((x) => x.id === b.dataset.id);
-      closeModal(() => showForgeModal(w));
+      closeModal(() => (w.toolingConflict ? showToolingConflictApproval(w) : showForgeModal(w)));
     };
   });
   root.querySelectorAll(".resume-trash").forEach((b) => {
@@ -52,18 +52,72 @@ function showResumeChooser(workings) {
   });
 }
 
+export function showToolingConflictApproval(working) {
+  const current = String(((working.gate || {}).tooling) || "unknown").toLowerCase();
+  const required = String(working.requiredTooling || "").toLowerCase();
+  const labels = {
+    internal: "INTERNAL — every required action stays in the browser",
+    external: "EXTERNAL — the complete real-tool workflow is taught",
+    both: "BOTH — browser workbenches plus the complete real-tool workflow",
+  };
+  const reason = working.toolingConflictReason ||
+    "The selected Tooling cannot deliver the promised artifact.";
+  const proposal = required && labels[required]
+    ? `<p>Phase 1 requires <b>${esc(labels[required])}</b>.</p>
+       <p>Approve changing Tooling from <b>${esc(current)}</b> to <b>${esc(required)}</b>?
+       Approval restarts Phase 1; all other gate answers remain locked.</p>`
+    : `<p>Phase 1 did not record one safe replacement mode. This working cannot resume
+       until its tooling requirement is made explicit.</p>`;
+  const actions = required && labels[required]
+    ? [[`APPROVE ${required.toUpperCase()}`, "", () => approveToolingConflict(working, required)],
+       ["CANCEL", "quiet", null]]
+    : [["CLOSE", "quiet", null]];
+  modal(`<h2>TOOLING APPROVAL REQUIRED</h2>
+    <p class="dim" style="font-size:12px;margin:2px 0 12px">${esc(reason)}</p>
+    ${proposal}`, actions, { sticky: true });
+}
+
+async function approveToolingConflict(working, required) {
+  const bindery = working.bindery || {};
+  const pick = (value) => value && value.prov && value.model
+    ? { kind: value.prov, model: value.model, ...(value.eff ? { effort: value.eff } : {}) }
+    : null;
+  const drafter = pick(bindery.drafter), writer = pick(bindery.writer),
+        sections = pick(bindery.sec), reviewer = pick(bindery.reviewer);
+  const runners = { ...(working.runners || {}) };
+  if (!Object.keys(runners).length) { // compatibility with launch records made before runners were persisted
+    if (drafter) runners.default = drafter;
+    if (writer) { runners["1"] = writer; runners["4"] = writer; }
+    if (sections) runners["3"] = sections;
+    if (reviewer) runners["8"] = reviewer;
+  }
+  try {
+    const response = await fetch("/api/buildtome/resume", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: working.id, tooling: required, fromPhase: 1,
+        runners, bindery, sectionsSplit: !!working.sectionsSplit }),
+    });
+    const data = await response.json();
+    if (!data.ok) throw new Error(data.error || "the bindery did not accept the change");
+    localStorage.setItem("buildJob", data.jobId);
+    openBuildOverlay(data.jobId);
+  } catch (err) {
+    toast("The Tooling change was not applied: " + esc(String(err.message || err)), "bad");
+  }
+}
+
 // `resume` (optional) = a working from /api/buildtome/resumable: pre-fills the pickers with
 // the models that build used, locks the concept, and continues from where it stopped.
 function showForgeModal(resume) {
   // a dial's label + a hover/focus tooltip carrying its guidance, so the modal stays compact
   const fhead = (lbl, tip, up) => `<div class="forge-lbl"><label>${lbl}</label>` +
     `<button type="button" class="forge-help${up ? " forge-help--up" : ""}" aria-label="What this hand does">i<span class="forge-tip">${tip}</span></button></div>`;
-  const providersTip = "Providers: Claude / Antigravity / Codex (their own logins), OpenCode CLI (OpenCode Go + FREE models), and Local (your ollama models, run through opencode). Model and effort support is read per model. A model too weak—or an endpoint too temporary—for this complete multi-hour hand is gray and marked <b>(not advised)</b>; unsupported or wasteful effort levels are simply gray. Antigravity carries effort in the model name; Local has no effort switch.";
+  const providersTip = "Providers: Claude / Antigravity / Codex (their own logins), OpenCode CLI (OpenCode Go + FREE models), and Local (your ollama models, run through opencode). Selectable models show researched tome-authoring <b>power X/10</b>; this measures capability, not value. Gray models say <b>(insufficient)</b> when capability, evidence, context, or endpoint reliability falls below the complete-hand bar, and <b>(wasteful)</b> when the model is capable but overpriced for that hand or dominated by a better-value choice. Unsupported, too-low, and wastefully-high effort levels are simply gray. Antigravity carries effort in the model name; Local has no effort switch.";
   modal(`<h2>THE BINDERY<button type="button" class="forge-help" aria-label="How the model pickers work">i<span class="forge-tip">${providersTip}</span></button></h2>
     <p class="dim" style="font-size:12px;margin:2px 0 16px">Describe the course you wish existed. The bindery names it, chooses the tools it needs, then drafts, writes, and reviews the whole tome — it takes a good while, and you may leave and return as it works.</p>
     <div class="forge-field"><label for="fg-concept">COURSE CONCEPT</label>
       <textarea id="fg-concept" rows="4" placeholder="What should this tome teach? What does the student build by the end?"></textarea></div>
-    <div class="forge-field">${fhead("PRIOR KNOWLEDGE", "Two signals set where the course STARTS. The <b>box</b> is an exhaustive list of WHAT the student can already do; nearby skills are not assumed. The <b>slider</b> sets pace: <b>1</b> = absolute zero · <b>2</b> = nearly zero, with the same fundamental coverage as 1 but less repetition · <b>5</b> = a brisk language/tooling primer before the domain · <b>10</b> = expert, advanced material only. At 1–3, every new construct and tool action is introduced before use. When unsure, aim LOW: a skipped fundamental is the worst gap a course can have.")}
+    <div class="forge-field">${fhead("PRIOR KNOWLEDGE", "Two signals set where the course STARTS. The <b>box</b> exhaustively lists WHAT the student can already do; nearby skills are not assumed. The <b>slider</b> sets subject experience: <b>1</b> zero · <b>2</b> near zero, with full foundations but less repetition · <b>3</b> beginner · <b>4</b> transfer learner · <b>5</b> generalist · <b>6</b> adjacent experience · <b>7</b> practitioner · <b>8</b> fluent · <b>9</b> advanced · <b>10</b> peer expert. Higher levels may compress only what their boundary explicitly permits; course-specific and uncommon material is still introduced before use.")}
       <input type="text" id="fg-prior" placeholder="what the student can already do (languages / tools)">
       <div class="forge-depth" style="margin-top:8px"><input type="range" id="fg-prior-level" min="1" max="10" step="1" value="5">
         <span class="forge-depth-val num" id="fg-prior-level-val">5</span></div></div>
@@ -91,7 +145,7 @@ function showForgeModal(resume) {
       </div>
       <div class="fq-summary"><b id="fg-quality-name">loading model mix…</b><span id="fg-quality-blurb"></span></div></div>
     <div id="fg-hands">
-    <div class="forge-field">${fhead("THE DRAFTER", "The lower-cost hand — lays the scaffold, economy, and cosmetics, then owns the whole-tome validation pass. Mechanical checks help, but the final pass still requires judgment, so only models realistic for that full bundle remain selectable. <b>Effort:</b> use the lowest level that remains selectable; compact models may require high.")}
+    <div class="forge-field">${fhead("THE DRAFTER", "The lower-cost hand — lays the scaffold, economy, and cosmetics, then owns the whole-tome validation pass. Mechanical checks help, but the final pass still requires judgment. Both underpowered models and premium flagships that add cost without a useful gain are gray. <b>Effort:</b> use the lowest level that remains selectable; compact models may require high.")}
       <div class="forge-ai-row">
         <select id="fg-drafter-prov" class="cfg-select" style="flex:0 0 auto;width:172px"><option value="">PICK A MODEL</option></select>
         <select id="fg-drafter-model" class="cfg-select" style="flex:1 1 auto;min-width:0" disabled><option value="">—</option></select>
@@ -103,7 +157,7 @@ function showForgeModal(resume) {
         <select id="fg-writer-model" class="cfg-select" style="flex:1 1 auto;min-width:0" disabled><option value="">—</option></select>
         <select id="fg-writer-eff" class="cfg-select" style="flex:0 0 auto;width:104px" disabled><option value="">—</option></select>
       </div></div>
-    <div class="forge-field">${fhead('THE SECTIONS HAND <span style="font-weight:400;font-style:italic;letter-spacing:0">— phase 3 only</span>', "Sections is the biggest, most cache-heavy phase and writes all teaching prose, examples, exercises, and cumulative project changes. Recommendations assume the model may have to own the phase unsplit; splitting improves reliability and cost, but does not make a subagent-class model a dependable course author. This hand overrides the Writer for phase 3.")}
+    <div class="forge-field">${fhead('THE SECTIONS HAND <span style="font-weight:400;font-style:italic;letter-spacing:0">— phase 3 only</span>', "Sections is the biggest, most cache-heavy and output-heavy phase. It writes all teaching prose, examples, exercises, and cumulative project changes, so premium flagships are gray when a cheaper frontier author meets the same bar. Recommendations still assume the model may have to own the phase unsplit; splitting does not make a subagent-class model dependable. This hand overrides the Writer for phase 3.")}
       <label class="forge-split-toggle"><input type="checkbox" id="fg-split"> split by section</label>
       <div class="forge-ai-row">
         <select id="fg-sec-prov" class="cfg-select" style="flex:0 0 auto;width:172px"><option value="">PICK A MODEL</option></select>
@@ -117,7 +171,7 @@ function showForgeModal(resume) {
         <select id="fg-reviewer-eff" class="cfg-select" style="flex:0 0 auto;width:104px" disabled><option value="">—</option></select>
       </div></div>
     </div>`,
-    [["NOT TODAY", "quiet", null]]);
+    [["NOT TODAY", "quiet", null]], { sticky: true });
   const root = $("#modal-root");
   $(".modal", root).classList.add("forge-modal");   // roomier dialog for the three-box rows
   if (resume) {
@@ -159,13 +213,15 @@ function showForgeModal(resume) {
     setDial(breadth, breadthVal, g.breadth);
     setDial(depth, depthVal, g.depth);
     setDial(mastery, masteryVal, g.mastery);
-    for (const el of [$("#fg-concept", root), prior, priorLvl, $("#fg-tool-internal", root),
-                      breadth, depth, mastery]) {
+    const lockedGate = [$("#fg-concept", root), prior, priorLvl,
+                        $("#fg-tool-internal", root), breadth, depth, mastery];
+    for (const el of lockedGate) {
       el.closest(".forge-field").classList.add("forge-locked");
     }
   }
   // Each row is [id,label,tag,efforts,guidance]. Guidance is role-specific, so the same
-  // cheap model can remain selectable for the Drafter while appearing gray for Reviewer.
+  // cheap model can remain selectable for the Drafter while appearing insufficient for
+  // Reviewer; raw model power remains independent of that role/value judgment.
   const knob = (n, role) => ({ role, prov: $(`#fg-${n}-prov`, root),
     model: $(`#fg-${n}-model`, root), eff: $(`#fg-${n}-eff`, root) });
   const K = { drafter: knob("drafter", "drafter"), writer: knob("writer", "writer"),
@@ -183,6 +239,13 @@ function showForgeModal(resume) {
   // Older, already-running servers return four-column model rows. Treat those
   // rows as usable until the server can be restarted and supply policy data.
   const advised = (row, role) => !!(row && (!row[4] || (row[4].advised && row[4].advised[role])));
+  const providerHasAdvised = (provider, role) =>
+    !!(provider && (provider.models || []).some((row) => advised(row, role)));
+  const providerReason = (provider, role) => {
+    const reasons = new Set((provider && provider.models || []).map((row) =>
+      row[4] && row[4].reason && row[4].reason[role]).filter(Boolean));
+    return reasons.size === 1 ? [...reasons][0] : "no selectable models";
+  };
   // Every supported effort remains visible. Only the role/model combinations assessed as
   // useful are selectable; disabled entries need no verbose suffix in the narrow box.
   const fillEffort = (k) => {
@@ -202,14 +265,23 @@ function showForgeModal(resume) {
     const models = (p && p.models) || [];
     k.model.innerHTML = models.length
       ? models.map((row) => {
-        const [v, l, tag] = row, ok = advised(row, k.role);
-        return `<option value="${esc(v)}"${ok ? "" : " disabled"}${tag ? ` data-suffix="— ${esc(tag)}"` : ""}>${esc(l)}${ok ? "" : " (not advised)"}</option>`;
+        const [v, l, tag] = row, guidance = row[4], ok = advised(row, k.role);
+        const power = guidance && Number.isInteger(guidance.power) ? guidance.power : null;
+        const reason = guidance && guidance.reason && guidance.reason[k.role];
+        const note = ok ? (power == null ? "" : ` · power ${power}/10`)
+          : ` (${reason === "wasteful" ? "wasteful" : "insufficient"})`;
+        return `<option value="${esc(v)}"${ok ? "" : " disabled"}${tag ? ` data-suffix="— ${esc(tag)}"` : ""}>${esc(l)}${note}</option>`;
       }).join("")
       : `<option value="">${p ? "(no models found)" : "—"}</option>`;
     const first = [...k.model.options].find((o) => !o.disabled);
     if (first) k.model.value = first.value;
-    else if (models.length) k.model.selectedIndex = 0;  // keep an all-gray provider legible
-    k.model.disabled = !models.length;
+    else if (models.length) {
+      // A stale saved provider may have no model valid for this hand. Keep every
+      // researched choice visible in the DOM, but never present one as selected.
+      k.model.insertAdjacentHTML("afterbegin", '<option value="" selected>NO SELECTABLE MODELS</option>');
+      k.model.value = "";
+    }
+    k.model.disabled = !first;
     fillEffort(k);
   };
   for (const k of Object.values(K)) {
@@ -228,10 +300,9 @@ function showForgeModal(resume) {
     for (const [n, k] of Object.entries(K)) snap[n] = { prov: k.prov.value, model: k.model.value, eff: k.eff.value };
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(snap)); } catch (e) { /* private mode */ }
   };
-  const has = (sel, v) => [...sel.options].some((o) => o.value === v);
   const hasEnabled = (sel, v) => [...sel.options].some((o) => o.value === v && !o.disabled);
   const restoreKnob = (k, s) => {
-    if (!s || !s.prov || !has(k.prov, s.prov)) return;
+    if (!s || !s.prov || !hasEnabled(k.prov, s.prov)) return;
     k.prov.value = s.prov;
     k.prov.dispatchEvent(new Event("change"));          // → fillKnob repopulates model+eff; buttons repaint
     if (s.model && hasEnabled(k.model, s.model)) { k.model.value = s.model; k.model.dispatchEvent(new Event("change")); }
@@ -240,7 +311,7 @@ function showForgeModal(resume) {
   // Apply one tier pick {kind, model, effort} to a knob. A provider that isn't installed
   // (login CLI absent) leaves the knob untouched — tick Configure and fill it by hand.
   const applyPick = (k, p) => {
-    if (!p || !has(k.prov, p.kind)) return false;
+    if (!p || !hasEnabled(k.prov, p.kind)) return false;
     k.prov.value = p.kind; k.prov.dispatchEvent(new Event("change"));
     if (!hasEnabled(k.model, p.model)) return false;
     k.model.value = p.model; k.model.dispatchEvent(new Event("change"));
@@ -290,8 +361,14 @@ function showForgeModal(resume) {
   fetch("/api/models").then((r) => r.json()).then((d) => {
     setLoading(false);   // restore placeholders + re-enable; fillKnob re-disables model/eff as needed
     BINDERY = (d.bindery || []).filter((p) => p.installed !== false);
-    const provOpts = BINDERY.map((p) => `<option value="${esc(p.id)}">${esc(p.label)}</option>`).join("");
-    for (const k of Object.values(K)) { k.prov.insertAdjacentHTML("beforeend", provOpts); fillKnob(k); }
+    for (const k of Object.values(K)) {
+      const provOpts = BINDERY.map((p) => {
+        const ok = providerHasAdvised(p, k.role);
+        return `<option value="${esc(p.id)}"${ok ? "" : " disabled"}>${esc(p.label)}${ok ? "" : ` (${providerReason(p, k.role)})`}</option>`;
+      }).join("");
+      k.prov.insertAdjacentHTML("beforeend", provOpts);
+      fillKnob(k);
+    }
     QUALITY = d.quality || [];
     // the purse renders grayed from the first paint (no pop-in); tiers arriving ungray
     // it and snap the slider to the saved tier — no tiers at all hides it entirely
@@ -317,7 +394,9 @@ function showForgeModal(resume) {
     }
     restoring = false;
     syncPurse();
-  }).catch(() => { setLoading(false); toast("Could not reach the bindery's model list — is the server up?", "bad"); });
+    persist();  // scrub any saved provider/model that policy now makes unselectable
+    syncBegin();
+  }).catch(() => { setLoading(false); syncBegin(); toast("Could not reach the bindery's model list — is the server up?", "bad"); });
   for (const k of Object.values(K)) [k.prov, k.model, k.eff].forEach(enhanceSelect);
   for (const k of Object.values(K)) [k.prov, k.model, k.eff].forEach((s) => s.addEventListener("change", persist));
   const splitBox = $("#fg-split", root);
@@ -330,11 +409,22 @@ function showForgeModal(resume) {
     if (!p || !k.model.value || !advised(row, k.role)) return null;
     const o = { kind: p.kind, model: k.model.value };
     const effortOption = [...k.eff.options].find((opt) => opt.value === k.eff.value);
+    if ((row[3] || []).length && (!k.eff.value || !effortOption || effortOption.disabled)) return null;
     if (k.eff.value && effortOption && !effortOption.disabled) o.effort = k.eff.value;
     return o;
   };
   const begin = document.createElement("button");
   begin.className = "btn"; begin.textContent = resume ? "CONTINUE THE WORKING" : "BEGIN THE WORKING";
+  begin.disabled = true;
+  const syncBegin = () => {
+    if (begin.dataset.busy === "true") return;
+    const ready = Object.values(K).every((k) => readKnob(k));
+    begin.disabled = !ready;
+    begin.title = ready ? "" : "Choose a selectable model and effort for every hand";
+  };
+  for (const k of Object.values(K)) {
+    [k.prov, k.model, k.eff].forEach((s) => s.addEventListener("change", syncBegin));
+  }
   begin.onclick = async () => {
     const concept = $("#fg-concept", root).value.trim();
     if (!resume && !concept) { toast("The bindery needs at least a <b>concept</b>.", "warn"); return; }
@@ -344,8 +434,8 @@ function showForgeModal(resume) {
     const picks = { drafter: readKnob(K.drafter), writer: readKnob(K.writer),
       sections: readKnob(K.sec), reviewer: readKnob(K.reviewer) };
     const missing = Object.entries(picks).find(([, pick]) => !pick);
-    if (missing) { toast(`Pick an advised <b>${missing[0]}</b> model and effort.`, "warn"); return; }
-    begin.disabled = true; begin.textContent = "KINDLING THE FORGE...";
+    if (missing) { toast(`Pick a selectable <b>${missing[0]}</b> model and effort.`, "warn"); return; }
+    begin.dataset.busy = "true"; begin.disabled = true; begin.textContent = "KINDLING THE FORGE...";
     try {
       const runners = {};
       // Four explicit hands: no cheap fallback can silently inherit a harder role.
@@ -374,7 +464,9 @@ function showForgeModal(resume) {
       localStorage.setItem("buildJob", data.jobId);
       closeModal(() => openBuildOverlay(data.jobId));
     } catch (err) {
-      begin.disabled = false; begin.textContent = resume ? "CONTINUE THE WORKING" : "BEGIN THE WORKING";
+      delete begin.dataset.busy;
+      begin.textContent = resume ? "CONTINUE THE WORKING" : "BEGIN THE WORKING";
+      syncBegin();
       toast("The bindery could not begin: " + esc(String(err.message || err)), "bad");
     }
   };

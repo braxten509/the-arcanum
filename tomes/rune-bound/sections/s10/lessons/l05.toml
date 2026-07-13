@@ -3,28 +3,54 @@ id = "s10-l05"
 title = "The Damaged Save Route"
 teaches = ["s10-game-state-restore", "s10-safe-save-load"]
 body = '''
-<p>A mapmaker does not call a torn chart a destination. Add <code>GameState.from_dict(payload, player, quest_log)</code> as a class method in <code>state.py</code>. It validates required top-level keys, restores existing objects rather than creating duplicate Player or QuestLog types, and returns a new GameState wrapper for the restored references. Its map filename later tells <code>main.py</code> exactly which CSV to pass to the established <code>TileMap.load</code>.</p>
+<p>A mapmaker does not call a torn chart a destination. Add <code>GameState.from_dict(payload, player, quest_log)</code> as a class method in <code>state.py</code>. It first copies and validates every required value without touching the live world. Only after that staging pass succeeds does it patch the existing Player and QuestLog and return a new GameState wrapper. This order is essential: if a late key is missing, <code>load_game</code> must not leave a half-restored position or inventory behind. Its map filename later tells <code>main.py</code> exactly which CSV to pass to the established <code>TileMap.load</code>.</p>
 <pre><code>@classmethod
 def from_dict(cls, payload, player, quest_log):
     player_data = payload["player"]
-    player.rect.topleft = player_data["position"]
-    for field, value in player_data["stats"].items():
+    position = list(player_data["position"])
+    stats = dict(player_data["stats"])
+    inventory = list(player_data["inventory"])
+    completed = dict(payload["quests"])
+    dialogue_flags = dict(payload["dialogue_flags"])
+    combat_flags = dict(payload["combat_flags"])
+    map_filename = payload["map_filename"]
+
+    if len(position) != 2 or not all(isinstance(value, (int, float)) for value in position):
+        raise TypeError("position must contain two numbers")
+    required_stats = {"hp", "max_hp", "attack", "defense"}
+    if set(stats) != required_stats or not all(
+            isinstance(value, int) for value in stats.values()):
+        raise TypeError("stats do not match StatBlock")
+    if not all(isinstance(item_id, str) for item_id in inventory):
+        raise TypeError("inventory ids must be strings")
+    if not isinstance(map_filename, str):
+        raise TypeError("map filename must be text")
+    for quest in quest_log.quests:
+        if not isinstance(completed[quest.quest_id], bool):
+            raise TypeError("quest completion must be boolean")
+
+    player.rect.topleft = position
+    for field, value in stats.items():
         setattr(player.stats, field, value)
-    player.inventory.items = list(player_data["inventory"])
-    completed = payload["quests"]
+    player.inventory.items = inventory
     for quest in quest_log.quests:
         quest.completed = completed[quest.quest_id]
-    return cls(player, quest_log, dict(payload["dialogue_flags"]),
-               dict(payload["combat_flags"]), payload["map_filename"])</code></pre>
+    return cls(player, quest_log, dialogue_flags, combat_flags, map_filename)</code></pre>
 <p>Then write <code>load_game(filename, player, quest_log)</code>. It catches only missing files, malformed JSON, and malformed required save keys: <code>FileNotFoundError</code>, <code>json.JSONDecodeError</code>, <code>KeyError</code>, and <code>TypeError</code>. Return <code>(None, "No usable save found.")</code> on those recovery cases; otherwise return <code>(state, "Save loaded.")</code>. Do not catch every <code>Exception</code>, because an implementation bug deserves a traceback during development.</p>
 <pre><code>def load_game(filename, player, quest_log):
     try:
         with open(filename, encoding="utf-8") as handle:
             payload = json.load(handle)
+        map_filename = payload["map_filename"]
+        if not isinstance(map_filename, str):
+            raise TypeError("map filename must be text")
+        with open(map_filename, encoding="utf-8") as map_handle:
+            if not any(line.strip() for line in map_handle):
+                raise TypeError("map file is empty")
         return GameState.from_dict(payload, player, quest_log), "Save loaded."
     except (FileNotFoundError, json.JSONDecodeError, KeyError, TypeError):
         return None, "No usable save found."</code></pre>
-<p>In the L-key event branch, call this loader. Only if the returned state is not <code>None</code>, assign it to <code>game_state</code>, replace the map with <code>tile_map.load(game_state.map_filename)</code>, and use the returned message for the timed screen-space toast. A missing or corrupt save leaves the current running world intact. Test both cases: rename or remove <code>save.json</code>, press L, then put <code>{broken</code> in a disposable save and press L. Restore a valid save afterward.</p>
+<p>In the L-key event branch, call this loader. It verifies that the referenced map exists and is nonempty before <code>from_dict</code> changes live objects. Only if the returned state is not <code>None</code> assign it to <code>game_state</code>, call <code>tile_map.load(game_state.map_filename)</code>, and use the returned message for the timed screen-space toast. A missing, corrupt, or structurally incomplete save leaves the current running world intact. Test all three cases: use no <code>save.json</code>, put <code>{broken</code> in a disposable save, and remove one required key from otherwise valid JSON. Restore a valid save afterward.</p>
 <div class="callout"><strong>THE CARTOGRAPHER'S RULE:</strong> loading restores canonical objects only after parsing succeeds; a damaged chart reports recovery and does not erase the world in hand.</div>
 <div class="field-notes"><div class="fn-head">SURVEY // RESTORE, DO NOT REBUILD</div><p>Player keeps its AnimatedSprite, velocity, speed, and collision members because <code>from_dict</code> patches only durable fields. Likewise QuestLog keeps its authored definitions while the save supplies only their completion state.</p></div>
 '''

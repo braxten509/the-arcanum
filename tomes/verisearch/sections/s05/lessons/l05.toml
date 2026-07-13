@@ -48,8 +48,8 @@ body = '''
             Sources =
             [
                 <span class="k">new</span> SourceSpec(<span class="s">"Local fixture"</span>, <span class="s">"mock://fixture"</span>, 10, SourceKind.LocalFixture),
-                <span class="k">new</span> SourceSpec(<span class="s">"RFC 8446"</span>,
-                    <span class="s">"https://www.rfc-editor.org/rfc/rfc8446"</span>, 10, SourceKind.Web)
+                <span class="k">new</span> SourceSpec(<span class="s">"C# overview"</span>,
+                    <span class="s">"https://learn.microsoft.com/en-us/dotnet/csharp/tour-of-csharp/overview"</span>, 10, SourceKind.Web)
             ]
         };
     }
@@ -60,12 +60,16 @@ body = '''
         <span class="k">if</span> (<span class="k">string</span>.IsNullOrWhiteSpace(config.Model))
             errors.Add(<span class="s">"model is required"</span>);
         <span class="k">if</span> (!Uri.TryCreate(config.OllamaUrl, UriKind.Absolute, <span class="k">out</span> Uri? ollama)
+            || ollama <span class="k">is null</span>
             || (ollama.Scheme != Uri.UriSchemeHttp &amp;&amp; ollama.Scheme != Uri.UriSchemeHttps))
             errors.Add(<span class="s">"ollamaUrl must be an absolute HTTP or HTTPS URL"</span>);
         <span class="k">if</span> (config.MaxQuotes &lt; 1 || config.MaxQuotes &gt; 10)
             errors.Add(<span class="s">"maxQuotes must be between 1 and 10"</span>);
-        <span class="k">if</span> (config.Sources.Count == 0)
+        <span class="k">if</span> (config.Sources <span class="k">is null</span> || config.Sources.Count == 0)
+        {
             errors.Add(<span class="s">"at least one source is required"</span>);
+            <span class="k">return</span> errors;
+        }
 
         <span class="k">var</span> labels = <span class="k">new</span> HashSet&lt;<span class="k">string</span>&gt;(StringComparer.OrdinalIgnoreCase);
         <span class="k">foreach</span> (SourceSpec source <span class="k">in</span> config.Sources)
@@ -82,19 +86,18 @@ body = '''
                 <span class="k">continue</span>;
             }
 
-            <span class="k">bool</span> validScheme = source.Kind <span class="k">switch</span>
-            {
-                SourceKind.Web =&gt; uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps,
-                SourceKind.LocalFixture =&gt; uri.Scheme == <span class="s">"mock"</span>,
-                _ =&gt; <span class="k">false</span>
-            };
+            <span class="k">bool</span> validScheme = <span class="k">false</span>;
+            <span class="k">if</span> (source.Kind == SourceKind.Web)
+                validScheme = uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps;
+            <span class="k">else if</span> (source.Kind == SourceKind.LocalFixture)
+                validScheme = uri.Scheme == <span class="s">"mock"</span>;
             <span class="k">if</span> (!validScheme)
                 errors.Add(<span class="s">$"{source.Label}: URL scheme does not match source kind"</span>);
         }
         <span class="k">return</span> errors;
     }
 }</code></pre>
-<p>Add <code>using System.Text.Json;</code> and <code>using System.Text.Json.Serialization;</code> at the top. The listing is the complete loader; do not invent a second helper from memory. Its default includes one deterministic fixture and one real standards page, while later <code>--source</code> options decide which configured entries run. Do not catch <code>JsonException</code> here merely to return defaults. Let <code>Program.cs</code> catch it once and print <code>ex.Message</code> with the path.</p>
+<p>Add <code>using System.Text.Json;</code> and <code>using System.Text.Json.Serialization;</code> at the top. The listing is the complete loader; do not invent a second helper from memory. Its default includes one deterministic fixture and one real documentation page, while later <code>--source</code> options decide which configured entries run. Do not catch <code>JsonException</code> here merely to return defaults. Let <code>Program.cs</code> catch it once and print <code>ex.Message</code> with the path.</p>
 <ol><li>Paste the complete class.</li><li>Confirm the models from Chapter III compile.</li><li>Call <code>new ConfigLoader().LoadOrCreate()</code> once in <code>Program.cs</code>.</li><li>Run <code>dotnet build</code> after each step.</li></ol>
 <div class="callout">If a red compiler line names a brace or semicolon, fix that first. If the program runs but names a JSON line and byte, your C# built successfully—the fault is now in the configuration text.</div>
 <div class="field-notes"><div class="fn-head">MARGINALIA // ONE OWNER FOR POLICY</div><p>Only <code>ConfigLoader</code> knows the file path and serializer settings. Other components receive an already validated <code>AppConfig</code>. This keeps tests from touching a real home directory and prevents different classes from interpreting the same JSON differently.</p></div>

@@ -206,12 +206,13 @@ def runtime_config_scope_violations(before, allowed, root=RUNTIME_CONFIG_DIR):
 
 
 def measure(tid):
-    """Ground-truth counts from disk: sections/lessons/exercises + bank sizes + economy total.
+    """Ground-truth counts: content/bank sizes, fixed rewards, and repeatable hex range.
     Feeds the pre-build forecast (#23) and the post-build plan reconciliation (#11) — the plan
     is prose and 'claims are not evidence', so the harness writes the real numbers itself."""
     root = os.path.join(REPO, "tomes", tid)
     out = {"sections": 0, "lessons": 0, "exercises": 0, "ex_points": 0,
-           "fs_reward": 0, "bounty": 0, "badges": 0, "themes": 0, "shop": 0}
+           "fs_reward": 0, "bounty": 0, "bounty_min": 0, "bounty_max": 0,
+           "badges": 0, "themes": 0, "shop": 0}
     if not os.path.isdir(root):
         return out
 
@@ -229,7 +230,12 @@ def measure(tid):
         out[key] = len(data.get(key, []) or [])
     tiers = (load("intrusions.toml").get("tiers")
              or (manifest.get("progression", {}) or {}).get("intrusionTiers") or [])
-    out["bounty"] = sum(t.get("bounty", 0) or 0 for t in tiers if isinstance(t, dict))
+    bounties = [t.get("bounty") for t in tiers if isinstance(t, dict)
+                and isinstance(t.get("bounty"), (int, float))
+                and not isinstance(t.get("bounty"), bool)]
+    out["bounty"] = sum(bounties)
+    out["bounty_min"] = min(bounties, default=0)
+    out["bounty_max"] = max(bounties, default=0)
     sids = (manifest.get("content", {}) or {}).get("sections") or []
     for sid in sids:
         sd = None
@@ -256,7 +262,9 @@ def measure(tid):
             exs = les.get("exercises", []) or []
             out["exercises"] += len(exs)
             out["ex_points"] += sum(e.get("points", 0) or 0 for e in exs if isinstance(e, dict))
-    out["base_earnable"] = out["ex_points"] + out["fs_reward"] + out["bounty"]
+    # Hex defenses repeat every 10–15 minutes and may be won zero or many times.
+    # Their tier schedule is useful balance context, but it is not a finite base total.
+    out["base_earnable"] = out["ex_points"] + out["fs_reward"]
     return out
 
 
@@ -264,5 +272,7 @@ def forecast_line(mv):
     """One rough line: content size + a crude token estimate (lessons/exercises are the bulk).
     Deliberately a heuristic, not a promise — it's a 'how big is this getting' gut-check."""
     est_k = round((mv["lessons"] * 1.2 + mv["exercises"] * 0.4) )  # ~KB of TOML, order-of-magnitude
+    hex_part = (f" · repeatable hex bounty {mv['bounty_min']}–{mv['bounty_max']}/win"
+                if mv.get("bounty_max") else "")
     return (f"{mv['sections']} sections · {mv['lessons']} lessons · {mv['exercises']} exercises "
-            f"· base earnable {mv['base_earnable']} · ~{est_k}KB content (rough)")
+            f"· fixed face-value {mv['base_earnable']}{hex_part} · ~{est_k}KB content (rough)")

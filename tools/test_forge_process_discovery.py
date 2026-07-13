@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import arcanum.forge as forge
 import arcanum.build_state as state
+import arcanum.routes_post as routes_post
 import arcanum.tomes as tomes
 
 
@@ -45,8 +46,23 @@ with tempfile.TemporaryDirectory() as tmp:
     old_build, old_state_build, old_tomes_build = forge.BUILD_DIR, state.BUILD_DIR, tomes.BUILD_DIR
     old_forge_tomes, old_tomes_tomes = forge.TOMES_DIR, tomes.TOMES_DIR
     old_jobs = dict(forge.jobs)
+    old_post_build = routes_post.BUILD_DIR
+    old_external = routes_post.external_build_process
     original = forge.list_active_builds
     try:
+        resolved = forge.replace_plan_tooling(
+            "- **Tooling:** internal\n"
+            "- **Tooling — INTERNAL (in-browser only):** old policy\n", "both")
+        assert "- **Tooling:** both" in resolved
+        assert "BOTH (internal + external available)" in resolved
+        conflict_details = forge.tooling_conflict_details(
+            "- **Tooling:** internal\n"
+            "**Tooling fit:** internal — BLOCKED: desktop execution is required "
+            "— REQUIRED: both\n")
+        assert conflict_details == {
+            "conflict": True, "current": "internal", "required": "both",
+            "reason": "desktop execution is required",
+        }, conflict_details
         forge.BUILD_DIR = state.BUILD_DIR = tomes.BUILD_DIR = build
         forge.TOMES_DIR, tomes.TOMES_DIR = tome_root, tome_root
         forge.jobs.clear()
@@ -60,6 +76,26 @@ with tempfile.TemporaryDirectory() as tmp:
         assert active[0]["external"] is True, active
         assert active[0]["traceId"] == "owner-job-1", active
 
+        request = {"phase": 8, "dead": "claude-cli", "reason": "exit 1", "gate": False}
+        with open(os.path.join(build, "untitled-5.runner-request.json"), "w", encoding="utf-8") as f:
+            json.dump(request, f)
+        assert state.load_runner_request("untitled-5") == request
+
+        class Handler:
+            @staticmethod
+            def send_json(payload, status=200):
+                return payload, status
+
+        routes_post.BUILD_DIR = build
+        routes_post.external_build_process = lambda bid: ({"pid": 111, "planid": bid}
+                                                           if bid == "untitled-5" else None)
+        payload, status = routes_post.answer_runner_pause(
+            Handler(), {"id": "untitled-5", "kind": "codex-cli",
+                        "model": "gpt-5.6-luna", "retries": 0})
+        assert status == 200 and payload["ok"] is True, (payload, status)
+        with open(os.path.join(build, "untitled-5.runner-reply.json"), encoding="utf-8") as f:
+            assert json.load(f)["model"] == "gpt-5.6-luna"
+
         cancelled = state.record_cancelled_build("untitled-5", "rune-bound", 4)
         assert state.cancelled_build_status("untitled-5") == cancelled
         assert state.build_result_status("untitled-5")["status"] == "cancelled"
@@ -72,6 +108,12 @@ with tempfile.TemporaryDirectory() as tmp:
         # Once the process is gone, a failed/cancelled result is resumable even if a
         # premature legacy ground-truth heading exists; a durable done result is not.
         forge.list_active_builds = lambda proc_root="/proc": []
+        state.record_build_result(
+            "untitled-5", "rune-bound", "error", 1, "Concept & arc",
+            "TOOLING_CONFLICT: desktop execution is required REQUIRED_TOOLING=both")
+        conflict = forge.list_workings()
+        assert len(conflict) == 1 and conflict[0]["toolingConflict"] is True, conflict
+        assert conflict[0]["requiredTooling"] == "both", conflict
         with open(os.path.join(build, "untitled-5.plan.md"), "a", encoding="utf-8") as f:
             f.write("\n## Harness ground truth\n")
         workings = forge.list_workings()
@@ -85,5 +127,7 @@ with tempfile.TemporaryDirectory() as tmp:
         forge.jobs.update(old_jobs)
         forge.BUILD_DIR, state.BUILD_DIR, tomes.BUILD_DIR = old_build, old_state_build, old_tomes_build
         forge.TOMES_DIR, tomes.TOMES_DIR = old_forge_tomes, old_tomes_tomes
+        routes_post.BUILD_DIR = old_post_build
+        routes_post.external_build_process = old_external
 
 print("forge process discovery: OK")

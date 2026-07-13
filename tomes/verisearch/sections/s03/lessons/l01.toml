@@ -22,7 +22,7 @@ page1.Html = <span class="s">"&lt;main&gt;TLS 1.3&lt;/main&gt;"</span>;
 <span class="k">var</span> page2 = <span class="k">new</span> PageDraft();          <span class="c">// instance #2 — completely separate data</span>
 page2.Label = <span class="s">"Local fixture"</span>;
 
-page1.Describe();                         <span class="c">// RFC 8446: 26 characters</span></code></pre>
+page1.Describe();                         <span class="c">// RFC 8446: 20 characters</span></code></pre>
 <p>Key mental model: <code>page1</code> and <code>page2</code> are <em>references</em> to two separate objects on the heap. Assigning <code>var alias = page1;</code> does not copy the object—both names now point at the same one. Change <code>alias.Label</code> and <code>page1.Label</code> changes too.</p>
 <div class="callout">The examples in the first five lessons are tiny syntax specimens, not files to add to Verisearch. The workshop at the end of this chapter supplies the canonical product types and exact filenames.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>Access modifiers:</strong> <code>public</code> anyone · <code>private</code> this class only (the default!) · <code>internal</code> this project only. Start private, open up only what callers need — small surface, fewer regrets.</p>
@@ -56,7 +56,7 @@ code = '''
 var a = new PageDraft { Label = "first" };
 var b = a;
 b.Label = "second";'''
-choices = ["first", "second", "", "It throws an exception"]
+choices = ["first", "second", "blank label", "It throws an exception"]
 answer = 1
 whyWrong = "Both names reference one object, so the last write changes the label visible through either name."
 hint = "b = a copies the REFERENCE, not the object. One object, two names."

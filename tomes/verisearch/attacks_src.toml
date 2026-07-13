@@ -537,7 +537,7 @@ Console.WriteLine("STRUCTURE SET");
 record QuoteProposal(int PassageId, string Quote);
 record QuoteBatch(List<QuoteProposal> Quotes);
 '''
-cuts = [3, 5, 7]
+cuts = [2, 4, 6]
 
 [[challenge]]
 tier = 10
@@ -620,7 +620,7 @@ interface ISelector { string Mode(); }
 class LiveSelector : ISelector { public string Mode() => "LIVE"; }
 class MockSelector : ISelector { public string Mode() => "MOCK"; }
 '''
-cuts = [3, 5, 7]
+cuts = [2, 4, 6]
 
 [[challenge]]
 tier = 11
@@ -657,7 +657,7 @@ Console.WriteLine($"ACCEPTED {cases.Count(test => test.expected)}");
 Console.WriteLine($"REJECTED {cases.Count(test => !test.expected)}");
 Console.WriteLine("PROOFS GREEN");
 '''
-cuts = [3, 5, 7]
+cuts = [3, 5, 8]
 
 [[challenge]]
 tier = 5
@@ -787,25 +787,30 @@ cuts = [3, 5, 7]
 tier = 7
 title = "THE TRUST EXTENSION"
 starter = '''
-int[] scores = { 9, 2, 6 };
-// Give int the IsTrusted verb, then audit the sequence.
+string sourceText = "Before. Exact words. After.";
+string[] candidates = { "Exact words.", "exact words.", "Before." };
+// Give string an ordinal containment verb, then audit the candidates.
 '''
 briefs = [
-  "Write IsTrusted(this int score) and print «SCORE <n> TRUSTED <bool>» for all scores.",
-  "Append «TRUSTED 2» and «REJECTED 1».",
-  "Append «MEAN 5» using integer average, then «EXTENSION SET».",
+  "Write ContainsOrdinal(this string source, string candidate) and print «CANDIDATE <n> EXACT <bool>» for all candidates.",
+  "Append «EXACT 2» and «REJECTED 1».",
+  "Append «FIRST Exact words.» from the first accepted candidate, then «EXTENSION SET».",
 ]
 solution = '''
-int[] scores = { 9, 2, 6 };
-foreach (int score in scores) Console.WriteLine($"SCORE {score} TRUSTED {score.IsTrusted()}");
-Console.WriteLine($"TRUSTED {scores.Count(score => score.IsTrusted())}");
-Console.WriteLine($"REJECTED {scores.Count(score => !score.IsTrusted())}");
-Console.WriteLine($"MEAN {(int)scores.Average()}");
+string sourceText = "Before. Exact words. After.";
+string[] candidates = { "Exact words.", "exact words.", "Before." };
+bool[] exact = candidates.Select(sourceText.ContainsOrdinal).ToArray();
+for (int i = 0; i < candidates.Length; i++)
+    Console.WriteLine($"CANDIDATE {i + 1} EXACT {exact[i]}");
+Console.WriteLine($"EXACT {exact.Count(value => value)}");
+Console.WriteLine($"REJECTED {exact.Count(value => !value)}");
+Console.WriteLine($"FIRST {candidates[Array.IndexOf(exact, true)]}");
 Console.WriteLine("EXTENSION SET");
 
-public static class TrustDuelExtensions
+public static class TextDuelExtensions
 {
-    public static bool IsTrusted(this int score) => score >= 6;
+    public static bool ContainsOrdinal(this string source, string candidate)
+        => source.Contains(candidate, StringComparison.Ordinal);
 }
 '''
 cuts = [3, 5, 7]
@@ -1041,6 +1046,8 @@ var proposals = new[] {
 };
 // A proposal is evidence only when its passage exists and contains the exact quote.
 // THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Proposal(int PassageId, string Quote);
 '''
 briefs = [
   "Verify every proposal with Dictionary.TryGetValue and string.Contains using StringComparison.Ordinal. Print «PROPOSAL <n> EXACT» or «PROPOSAL <n> REJECTED», then «CHECKED 4».",
@@ -1077,7 +1084,7 @@ Console.WriteLine("ORACLE DONE");
 
 record Proposal(int PassageId, string Quote);
 '''
-cuts = [7, 14, 18]
+cuts = [5, 7, 10]
 
 [[challenge]]
 tier = 9
@@ -1092,6 +1099,11 @@ var proposals = new[] {
 };
 // The model proposes passage id and quote. C# owns exact verification and attribution.
 // THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Source(string Label, string Url);
+record Passage(int Id, string Text, Source Source);
+record Proposal(int PassageId, string Quote);
+record Verified(string Quote, Source Source, int PassageId);
 '''
 briefs = [
   "For each proposal, find its passage and require an ordinal exact substring. Print «PROPOSAL <n> ACCEPTED» or «PROPOSAL <n> REJECTED», then «WEIGHED 2».",
@@ -1133,7 +1145,7 @@ record Passage(int Id, string Text, Source Source);
 record Proposal(int PassageId, string Quote);
 record Verified(string Quote, Source Source, int PassageId);
 '''
-cuts = [7, 15, 21]
+cuts = [3, 5, 9]
 
 [[challenge]]
 tier = 10
@@ -1639,6 +1651,8 @@ var configured = new[] {
 string[] requested = { "nist", "RFC", "rfc mirror", "missing" };
 // Admit only configured labels with http/https URLs; preserve request order and URL uniqueness.
 // THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Source(string Label, string Url);
 '''
 briefs = [
   "Resolve each requested label against configured sources with ordinal case-insensitive comparison. Reject unknown labels and non-http(s) URLs. Print «REQUEST <label> ADMITTED» or «REQUEST <label> REJECTED».",
@@ -1678,7 +1692,7 @@ Console.WriteLine("TOLL DONE");
 
 record Source(string Label, string Url);
 '''
-cuts = [8, 17, 23]
+cuts = [4, 6, 11]
 
 [[challenge]]
 tier = 10

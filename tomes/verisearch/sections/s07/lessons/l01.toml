@@ -29,12 +29,12 @@ x =&gt; { <span class="k">var</span> y = x * 2; <span class="k">return</span> y;
 <pre><code><span class="k">var</span> requested = <span class="k">new</span> HashSet&lt;<span class="k">string</span>&gt;(labels, StringComparer.OrdinalIgnoreCase);
 <span class="k">var</span> keep = config.Sources.Where(source =&gt; requested.Contains(source.Label));</code></pre><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>The loop-capture trap</strong> — the classic closure bug: lambdas created in a loop all capture the SAME variable in old C# <code>for</code> loops. Modern <code>foreach</code> gives each iteration a fresh variable, so <code>foreach (var u in urls) tasks.Add(Scrape(u));</code> is safe — but if a captured value must be frozen, copy it to a local first.</p>
-<p><strong>Method groups:</strong> when a lambda just forwards to a method — <code>list.Where(x =&gt; IsTrusted(x))</code> — you can pass the method name directly: <code>list.Where(IsTrusted)</code>. Cleaner, same behavior.</p>
+<p><strong>Method groups:</strong> when a lambda just forwards to a method—<code>sources.Where(source =&gt; IsWeb(source))</code>—you can pass the method name directly: <code>sources.Where(IsWeb)</code>. Cleaner, same behavior.</p>
 <p><strong>Static lambdas:</strong> <code>static x =&gt; x * 2</code> — the compiler guarantees no capture, no allocation. A micro-optimization to recognize, not chase.</p></div>'''
 
 [[lessons.readings]]
 label = "Microsoft Learn — \"Lambda expressions\""
-url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/seekers/lambda-expressions"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/lambda-expressions"
 essential = false
 
 [[lessons.exercises]]
@@ -82,9 +82,10 @@ points = 14
 reps = 2
 prompt = "One Func, one Action, one call each. Twice — delegate syntax must be automatic before the LINQ arsenal."
 code = '''
+string sample = "Exact source passage.";
 Func<string, bool> isLong = text => text.Length >= 20;
 Action<string> log = msg => Console.WriteLine($"[source] {msg}");
-log($"long enough: {isLong("Exact source passage.")}");'''
+log($"long enough: {isLong(sample)}");'''
 
 [[lessons.exercises]]
 id = "s07-l01-w1"

@@ -4,6 +4,7 @@ import os
 import re
 import sys
 
+from . import REPO
 from .checkpoints import ARC_CONTRACT, ARC_HEADING
 from .measure import validator_shell_command
 
@@ -112,11 +113,45 @@ def build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel=None
     if repair_only:
         p += REPAIR_ONLY
     if num == 8:
+        p += current_start_calibration(plan_rel)
         review_scope = (FOCUSED_REVIEW_SCOPE.format(focus=focus)
                         if focus else FULL_REVIEW_SCOPE)
         p += STUDENT_HOOK.format(tid=tid, verdict=verdict_rel, findings=findings_rel,
                                  review_scope=review_scope)
     return p
+
+
+def read_prior_level(plan_path):
+    """Return the user's immutable Phase-0 starting-level number from a build plan."""
+    try:
+        text = open(plan_path, encoding="utf-8").read()
+    except OSError:
+        return None
+    match = re.search(
+        r"(?im)^- \*\*Starting level \(1-10\):\*\*\s*(\d+)\s*$", text)
+    if not match:
+        return None
+    level = int(match.group(1))
+    return level if level in PRIOR_LEVELS else None
+
+
+def current_start_calibration(plan_rel):
+    """Inject current level semantics into Phase 8, including reviews of old plans.
+
+    The user's recorded number remains immutable. Only its harness-owned interpretation is
+    refreshed, so a stale plan cannot preserve a calibration bug forever.
+    """
+    plan_path = plan_rel if os.path.isabs(plan_rel) else os.path.join(REPO, plan_rel)
+    level = read_prior_level(plan_path)
+    if level is None:
+        return ("\n\n===== CURRENT START CALIBRATION =====\n"
+                "The Phase-0 starting-level number could not be read from the plan. Treat "
+                "that as a blocking calibration gap; do not invent a level.\n")
+    label, meaning = PRIOR_LEVELS[level]
+    return (f"\n\n===== CURRENT START CALIBRATION =====\n"
+            f"Recorded Phase-0 level: {level}/10 — {label}. Apply this current canonical "
+            "meaning even if the plan contains an older paraphrase; preserve the user's "
+            f"numeric level and prior-knowledge text exactly:\n{meaning}\n")
 
 
 def read_findings(path):
@@ -162,7 +197,9 @@ def read_verdict(path):
 GATE_QS = [
     ("Prior knowledge", "What can the student already do? (languages / tools they know)"),
     ("Starting level (1-10)", "How much does the student already know about THIS subject? "
-     "1 = absolute zero (teach the language/tool from scratch as its own chapters), 10 = expert (advanced material only)"),
+     "1 = absolute zero, 2 = near zero, 3 = beginner, 4 = transfer learner, "
+     "5 = generalist, 6 = adjacent, 7 = practitioner, 8 = fluent, 9 = advanced, "
+     "10 = expert"),
     ("Breadth (1-10)", "How much of the topic's surface? 1 = one tight path to the objective, 10 = the whole territory"),
     ("Lesson depth (1-10)", "How deep does each lesson dig? 1 = just use it, 10 = internals and edge cases"),
     ("Mastery (1-5)", "Where must the student stand after the last chapter? 1 = acquainted, 5 = expert"),
@@ -180,13 +217,13 @@ PRIOR_LEVELS = {
     1: ("FROM ZERO", "Assume only the stated prior knowledge. Teach setup, first run, and every required construct or tool action from first principles."),
     2: ("NEAR ZERO", "Cover the same required fundamentals as level 1 with less repetition, not fewer concepts. Assume only the exact prior-knowledge answer."),
     3: ("BEGINNER", "Teach the language/tool from the ground up. General ideas may be familiar, but every subject-specific construct and tool action still needs a first introduction."),
-    4: ("OTHER-STACK CODER", "Give this language and toolchain a focused on-ramp before domain work."),
-    5: ("GENERALIST", "Give a brisk primer on this stack's differences, then enter the domain."),
-    6: ("ADJACENT", "Recap only the specific tooling and APIs this course relies on."),
-    7: ("PRACTITIONER", "Skip fundamentals and begin with the domain, introducing APIs in context."),
-    8: ("FLUENT", "Assume language idioms and standard tooling; begin at the real work."),
-    9: ("ADVANCED", "Assume the domain except for the advanced material this course targets."),
-    10: ("EXPERT", "Teach only non-obvious frontier material."),
+    4: ("TRANSFER LEARNER", "Assume only transferable concepts explicitly supported by prior knowledge. Compress those concepts, but fully teach this subject's constructs, tools, workflow, and foundations."),
+    5: ("GENERALIST", "Assume independent general practice, not subject expertise. Give focused subject-specific foundations and introduce its constructs, tools, and conventions before requiring domain work."),
+    6: ("ADJACENT", "Assume only the stated neighboring experience. Explicitly bridge differences, verify essential foundations, and teach the exact APIs, tools, and workflow this course requires."),
+    7: ("PRACTITIONER", "Assume routine subject fundamentals and standard tool use. Begin with real domain tasks, but introduce every course-specific API, constraint, and workflow before requiring it."),
+    8: ("FLUENT", "Assume idiomatic independent work in this subject and its standard tools. Focus on integration, tradeoffs, and failure modes; still introduce uncommon or specialized material."),
+    9: ("ADVANCED", "Assume deep practical experience. Focus on internals, architecture, edge cases, and difficult tradeoffs; recap basics only when a course-specific contract depends on them."),
+    10: ("EXPERT", "Treat the learner as a peer. Teach only specialized, disputed, or genuinely non-obvious material relevant to the objective; include frontier topics only when relevant and supportable."),
 }
 TOOLING_POLICY = {
     "internal": ("INTERNAL (in-browser only)",

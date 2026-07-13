@@ -949,35 +949,35 @@ ARCHIVE CLOSED'''
 [[tiers.pool]]
 t = "THE CONFIGURATION SCALE"
 starter = '''
-var config = new Dictionary<string, int> { ["max_sources"] = -2, ["min_trust"] = 12, ["timeout"] = 30 };
+var config = new Dictionary<string, int> { ["maxQuotes"] = 0, ["sourceTrust"] = 12, ["timeoutSeconds"] = 30 };
 // Repair only values outside their lawful ranges.
 '''
 
 [[tiers.pool.stages]]
 brief = "Print the raw rows as «RAW <key> <value>» ordered by key."
 expect = '''
-RAW max_sources -2
-RAW min_trust 12
-RAW timeout 30'''
+RAW maxQuotes 0
+RAW sourceTrust 12
+RAW timeoutSeconds 30'''
 
 [[tiers.pool.stages]]
-brief = "Repair max_sources to 5 and min_trust to 3; append «REPAIRED 2» and «VALID 1»."
+brief = "Repair maxQuotes to 5 and sourceTrust to 10; append «REPAIRED 2» and «VALID 1»."
 expect = '''
-RAW max_sources -2
-RAW min_trust 12
-RAW timeout 30
+RAW maxQuotes 0
+RAW sourceTrust 12
+RAW timeoutSeconds 30
 REPAIRED 2
 VALID 1'''
 
 [[tiers.pool.stages]]
-brief = "Append «FINAL max_sources=5 min_trust=3 timeout=30» and «CONFIG SET»."
+brief = "Append «FINAL maxQuotes=5 sourceTrust=10 timeoutSeconds=30» and «CONFIG SET»."
 expect = '''
-RAW max_sources -2
-RAW min_trust 12
-RAW timeout 30
+RAW maxQuotes 0
+RAW sourceTrust 12
+RAW timeoutSeconds 30
 REPAIRED 2
 VALID 1
-FINAL max_sources=5 min_trust=3 timeout=30
+FINAL maxQuotes=5 sourceTrust=10 timeoutSeconds=30
 CONFIG SET'''
 
 [[tiers.pool]]
@@ -1108,19 +1108,19 @@ HARVEST DONE'''
 t = "THE PARAGRAPH HARVEST"
 starter = '''
 using System.Text.RegularExpressions;
-string html = "<p>first seal</p><div>noise</div><p>second seal</p><p>third seal</p>";
-// Harvest only paragraph bodies.
+string[] raw = { "  first\tseal ", "second\nseal", "  third   seal  " };
+// Normalize already-extracted visible text without rewriting words.
 '''
 
 [[tiers.pool.stages]]
-brief = "Use Regex.Matches to print the three paragraph bodies as «TEXT <body>»."
+brief = "Collapse whitespace and print the three stable passages as «TEXT <text>»."
 expect = '''
 TEXT first seal
 TEXT second seal
 TEXT third seal'''
 
 [[tiers.pool.stages]]
-brief = "Append «COUNT 3» and «WORDS 6» from the harvested text."
+brief = "Append «COUNT 3» and «WORDS 6» from the normalized passages."
 expect = '''
 TEXT first seal
 TEXT second seal
@@ -1251,35 +1251,36 @@ CONCORDANCE SET'''
 [[tiers.pool]]
 t = "THE TRUST EXTENSION"
 starter = '''
-int[] scores = { 9, 2, 6 };
-// Give int the IsTrusted verb, then audit the sequence.
+string sourceText = "Before. Exact words. After.";
+string[] candidates = { "Exact words.", "exact words.", "Before." };
+// Give string an ordinal containment verb, then audit the candidates.
 '''
 
 [[tiers.pool.stages]]
-brief = "Write IsTrusted(this int score) and print «SCORE <n> TRUSTED <bool>» for all scores."
+brief = "Write ContainsOrdinal(this string source, string candidate) and print «CANDIDATE <n> EXACT <bool>» for all candidates."
 expect = '''
-SCORE 9 TRUSTED True
-SCORE 2 TRUSTED False
-SCORE 6 TRUSTED True'''
+CANDIDATE 1 EXACT True
+CANDIDATE 2 EXACT False
+CANDIDATE 3 EXACT True'''
 
 [[tiers.pool.stages]]
-brief = "Append «TRUSTED 2» and «REJECTED 1»."
+brief = "Append «EXACT 2» and «REJECTED 1»."
 expect = '''
-SCORE 9 TRUSTED True
-SCORE 2 TRUSTED False
-SCORE 6 TRUSTED True
-TRUSTED 2
+CANDIDATE 1 EXACT True
+CANDIDATE 2 EXACT False
+CANDIDATE 3 EXACT True
+EXACT 2
 REJECTED 1'''
 
 [[tiers.pool.stages]]
-brief = "Append «MEAN 5» using integer average, then «EXTENSION SET»."
+brief = "Append «FIRST Exact words.» from the first accepted candidate, then «EXTENSION SET»."
 expect = '''
-SCORE 9 TRUSTED True
-SCORE 2 TRUSTED False
-SCORE 6 TRUSTED True
-TRUSTED 2
+CANDIDATE 1 EXACT True
+CANDIDATE 2 EXACT False
+CANDIDATE 3 EXACT True
+EXACT 2
 REJECTED 1
-MEAN 5
+FIRST Exact words.
 EXTENSION SET'''
 
 [[tiers.pool]]
@@ -1648,216 +1649,227 @@ SUMMONS DONE'''
 [[tiers.pool]]
 t = "THE ORACLE'S BROKEN LISTS"
 starter = '''
-using System.Text.Json;
-string[] replies = { "answer [3, 900]", "no list", "[2, 2, -1]" };
-// Extract brackets when present; keep distinct indices in range 0..9.
+var passages = new List<Passage> { new(1, "Before. Exact source words. After.") };
+var proposals = new List<QuoteProposal>
+{
+    new(1, "Exact source words."),
+    new(1, "exact source words."),
+    new(9, "Exact source words.")
+};
+// Accept only a known passage id plus an ordinal substring.
+
+record Passage(int Id, string Text);
+record QuoteProposal(int PassageId, string Quote);
 '''
 
 [[tiers.pool.stages]]
-brief = "Parse each reply defensively and print «REPLY <n> VALID <count>» for all three."
+brief = "Verify each proposal and print «PROPOSAL <n> ACCEPT» or «PROPOSAL <n> REJECT» for all three."
 expect = '''
-REPLY 1 VALID 1
-REPLY 2 VALID 0
-REPLY 3 VALID 1'''
+PROPOSAL 1 ACCEPT
+PROPOSAL 2 REJECT
+PROPOSAL 3 REJECT'''
 
 [[tiers.pool.stages]]
-brief = "Append «SURVIVORS 2» and «REJECTED 3» across all parsed integers."
+brief = "Append «ACCEPTED 1» and «REJECTED 2»."
 expect = '''
-REPLY 1 VALID 1
-REPLY 2 VALID 0
-REPLY 3 VALID 1
-SURVIVORS 2
-REJECTED 3'''
+PROPOSAL 1 ACCEPT
+PROPOSAL 2 REJECT
+PROPOSAL 3 REJECT
+ACCEPTED 1
+REJECTED 2'''
 
 [[tiers.pool.stages]]
-brief = "Append «FIRST 3» for the first surviving index, then «PARSE COMPLETE»."
+brief = "Append «FIRST Exact source words.» from the accepted proposal, then «GATE CLOSED»."
 expect = '''
-REPLY 1 VALID 1
-REPLY 2 VALID 0
-REPLY 3 VALID 1
-SURVIVORS 2
-REJECTED 3
-FIRST 3
-PARSE COMPLETE'''
+PROPOSAL 1 ACCEPT
+PROPOSAL 2 REJECT
+PROPOSAL 3 REJECT
+ACCEPTED 1
+REJECTED 2
+FIRST Exact source words.
+GATE CLOSED'''
 
 [[tiers.pool]]
 t = "THE RELEVANCE WEIGHING"
 starter = '''
-string query = "tls handshake";
-string[] blocks = { "TLS handshake overview", "cooking notes", "handshake cipher TLS" };
-// Score by count of query words found case-insensitively.
+using System.Text.Json;
+string inner = """{"quotes":[{"passageId":2,"quote":"Exact first words."},{"passageId":7,"quote":"Exact second words."}]}""";
+// Deserialize the structured proposal batch; do not scrape prose or numbers.
+
+record QuoteProposal(int PassageId, string Quote);
+record QuoteBatch(List<QuoteProposal> Quotes);
 '''
 
 [[tiers.pool.stages]]
-brief = "Print «BLOCK <n> SCORE <score>» for all three blocks."
+brief = "Deserialize case-insensitively and print «QUOTE <passageId> <quote>» for both proposals."
 expect = '''
-BLOCK 1 SCORE 2
-BLOCK 2 SCORE 0
-BLOCK 3 SCORE 2'''
+QUOTE 2 Exact first words.
+QUOTE 7 Exact second words.'''
 
 [[tiers.pool.stages]]
-brief = "Rank the two relevant blocks and append «RANK 1 BLOCK 3», then «RANK 2 BLOCK 1»."
+brief = "Append «COUNT 2» and «IDS 2,7»."
 expect = '''
-BLOCK 1 SCORE 2
-BLOCK 2 SCORE 0
-BLOCK 3 SCORE 2
-RANK 1 BLOCK 3
-RANK 2 BLOCK 1'''
+QUOTE 2 Exact first words.
+QUOTE 7 Exact second words.
+COUNT 2
+IDS 2,7'''
 
 [[tiers.pool.stages]]
-brief = "Append «BEST 3 SCORE 2» and «WEIGHING COMPLETE»."
+brief = "Append «FIRST Exact first words.» and «STRUCTURE SET»."
 expect = '''
-BLOCK 1 SCORE 2
-BLOCK 2 SCORE 0
-BLOCK 3 SCORE 2
-RANK 1 BLOCK 3
-RANK 2 BLOCK 1
-BEST 3 SCORE 2
-WEIGHING COMPLETE'''
+QUOTE 2 Exact first words.
+QUOTE 7 Exact second words.
+COUNT 2
+IDS 2,7
+FIRST Exact first words.
+STRUCTURE SET'''
 
 [[tiers.pool]]
 t = "THE ORACLE'S RANKING"
 starter = '''
-string query = "shadow ward flame";
-string[] verses = {
-    "the ward holds against flame",
-    "shadow creeps past the ward",
-    "the sky is clear tonight",
-    "flame ward shadow all three bound",
+var passages = new Dictionary<int, string> {
+    [1] = "Alpha exact. The ward holds.",
+    [2] = "Gamma exact. The gate opens.",
 };
-// Score = how many query words appear in the verse (Split + Contains).
+var proposals = new[] {
+    new Proposal(1, "Alpha exact."), new Proposal(1, "Alpha exact."),
+    new Proposal(1, "Invented words."), new Proposal(2, "Gamma exact."),
+};
+// A proposal is evidence only when its passage exists and contains the exact quote.
 // THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Proposal(int PassageId, string Quote);
 '''
 
 [[tiers.pool.stages]]
-brief = "Consult the oracle: score each verse = count of query words it holds (split both on spaces). Print «VERSE <n> SCORE <s>» (1-based), then «SCORED 4 VERSES»."
+brief = "Verify every proposal with Dictionary.TryGetValue and string.Contains using StringComparison.Ordinal. Print «PROPOSAL <n> EXACT» or «PROPOSAL <n> REJECTED», then «CHECKED 4»."
 expect = '''
-VERSE 1 SCORE 2
-VERSE 2 SCORE 2
-VERSE 3 SCORE 0
-VERSE 4 SCORE 3
-SCORED 4 VERSES'''
+PROPOSAL 1 EXACT
+PROPOSAL 2 REJECTED
+PROPOSAL 3 REJECTED
+PROPOSAL 4 EXACT
+CHECKED 4'''
 
 [[tiers.pool.stages]]
-brief = "Rank verses by score descending (ties: lower number first): «RANK <r> VERSE <n>» each."
+brief = "Keep at most two exact proposals and reject duplicates by passage id plus quote. Print each survivor as «QUOTE <passage id> <quote>» in proposal order."
 expect = '''
-VERSE 1 SCORE 2
-VERSE 2 SCORE 2
-VERSE 3 SCORE 0
-VERSE 4 SCORE 3
-SCORED 4 VERSES
-RANK 1 VERSE 4
-RANK 2 VERSE 1
-RANK 3 VERSE 2
-RANK 4 VERSE 3'''
+PROPOSAL 1 EXACT
+PROPOSAL 2 REJECTED
+PROPOSAL 3 REJECTED
+PROPOSAL 4 EXACT
+CHECKED 4
+QUOTE 1 Alpha exact.
+QUOTE 2 Gamma exact.'''
 
 [[tiers.pool.stages]]
-brief = "Verses scoring 2+ ring true. Append «TRUE <count>», «HOLLOW <count>», then «ORACLE DONE»."
+brief = "Append «ACCEPTED <count>», «REJECTED <count>», then «ORACLE DONE». Compute both counts from the proposals and survivors."
 expect = '''
-VERSE 1 SCORE 2
-VERSE 2 SCORE 2
-VERSE 3 SCORE 0
-VERSE 4 SCORE 3
-SCORED 4 VERSES
-RANK 1 VERSE 4
-RANK 2 VERSE 1
-RANK 3 VERSE 2
-RANK 4 VERSE 3
-TRUE 3
-HOLLOW 1
+PROPOSAL 1 EXACT
+PROPOSAL 2 REJECTED
+PROPOSAL 3 REJECTED
+PROPOSAL 4 EXACT
+CHECKED 4
+QUOTE 1 Alpha exact.
+QUOTE 2 Gamma exact.
+ACCEPTED 2
+REJECTED 2
 ORACLE DONE'''
 
 [[tiers.pool]]
 t = "THE WEIGHING OF WORDS"
 starter = '''
-string prophecy = "The Pale Wyrm wakes at dusk";
-string[] accounts = {
-    "pale wyrm seen at dusk",
-    "wyrm sleeps all winter",
-    "the pale wyrm wakes at dusk indeed",
+var source = new Source("RFC", "https://example.test/rfc");
+var passages = new[] {
+    new Passage(7, "Before. Exact evidence. After.", source),
 };
-// Normalize with ToLower, split on spaces, count DISTINCT prophecy words each account holds.
+var proposals = new[] {
+    new Proposal(7, "Exact evidence."), new Proposal(7, "invented evidence"),
+};
+// The model proposes passage id and quote. C# owns exact verification and attribution.
 // THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Source(string Label, string Url);
+record Passage(int Id, string Text, Source Source);
+record Proposal(int PassageId, string Quote);
+record Verified(string Quote, Source Source, int PassageId);
 '''
 
 [[tiers.pool.stages]]
-brief = "Weigh the accounts: lowercase the prophecy, split into words; for each account count how many DISTINCT prophecy words it holds. Print «ACCOUNT <n> MATCH <m>», then «WEIGHED 3»."
+brief = "For each proposal, find its passage and require an ordinal exact substring. Print «PROPOSAL <n> ACCEPTED» or «PROPOSAL <n> REJECTED», then «WEIGHED 2»."
 expect = '''
-ACCOUNT 1 MATCH 4
-ACCOUNT 2 MATCH 1
-ACCOUNT 3 MATCH 6
-WEIGHED 3'''
+PROPOSAL 1 ACCEPTED
+PROPOSAL 2 REJECTED
+WEIGHED 2'''
 
 [[tiers.pool.stages]]
-brief = "Trust = matched * 100 / <prophecy word count> (integer math). Append «TRUST <n> <pct>%» per account."
+brief = "For every accepted proposal construct a Verified value using the matched passage's Source—not model-supplied attribution. Print «SOURCE <label> <url>» and «PASSAGE <id> <quote>»."
 expect = '''
-ACCOUNT 1 MATCH 4
-ACCOUNT 2 MATCH 1
-ACCOUNT 3 MATCH 6
-WEIGHED 3
-TRUST 1 66%
-TRUST 2 16%
-TRUST 3 100%'''
+PROPOSAL 1 ACCEPTED
+PROPOSAL 2 REJECTED
+WEIGHED 2
+SOURCE RFC https://example.test/rfc
+PASSAGE 7 Exact evidence.'''
 
 [[tiers.pool.stages]]
-brief = "Verdicts: 80%+ TRUE, 50%+ PARTIAL, else FALSE. Append «ACCOUNT <n> <VERDICT>» each, then «WEIGHING DONE»."
+brief = "Append «VERIFIED <count>», «REJECTED <count>», «ATTRIBUTION SEALED», then «WEIGHING DONE»."
 expect = '''
-ACCOUNT 1 MATCH 4
-ACCOUNT 2 MATCH 1
-ACCOUNT 3 MATCH 6
-WEIGHED 3
-TRUST 1 66%
-TRUST 2 16%
-TRUST 3 100%
-ACCOUNT 1 PARTIAL
-ACCOUNT 2 FALSE
-ACCOUNT 3 TRUE
+PROPOSAL 1 ACCEPTED
+PROPOSAL 2 REJECTED
+WEIGHED 2
+SOURCE RFC https://example.test/rfc
+PASSAGE 7 Exact evidence.
+VERIFIED 1
+REJECTED 1
+ATTRIBUTION SEALED
 WEIGHING DONE'''
 
 [[tiers.pool]]
 t = "THE TOLL OF NAMES"
 starter = '''
-string[] wanted = { "iron", "shadow", "flame" };
-string[] scrolls = {
-    "iron and flame forge the blade",
-    "the shadow flame consumes iron",
-    "a quiet meadow at dawn",
+var configured = new[] {
+    new Source("RFC", "https://example.test/rfc"),
+    new Source("NIST", "https://example.test/nist"),
+    new Source("RFC mirror", "https://example.test/rfc"),
+    new Source("Notes", "mock://notes"),
 };
-// Score = how many wanted words a scroll holds (Split + Contains); LINQ for the ranking.
+string[] requested = { "nist", "RFC", "rfc mirror", "missing" };
+// Admit only configured labels with http/https URLs; preserve request order and URL uniqueness.
 // THE FIRST BINDING is set. Further demands may arm as the glass runs.
+
+record Source(string Label, string Url);
 '''
 
 [[tiers.pool.stages]]
-brief = "Toll each scroll: its score is the count of wanted words it holds (split on spaces). Print «SCROLL <n> SCORE <s>» (1-based), then «TOLLED 3 SCROLLS»."
+brief = "Resolve each requested label against configured sources with ordinal case-insensitive comparison. Reject unknown labels and non-http(s) URLs. Print «REQUEST <label> ADMITTED» or «REQUEST <label> REJECTED»."
 expect = '''
-SCROLL 1 SCORE 2
-SCROLL 2 SCORE 3
-SCROLL 3 SCORE 0
-TOLLED 3 SCROLLS'''
+REQUEST nist ADMITTED
+REQUEST RFC ADMITTED
+REQUEST rfc mirror REJECTED
+REQUEST missing REJECTED'''
 
 [[tiers.pool.stages]]
-brief = "Rank scrolls by score descending (ties: lower number first): «RANK <r> SCROLL <n>» each."
+brief = "Keep admitted sources in request order, deduplicated by URL with ordinal case-insensitive comparison. Print each survivor as «SOURCE <label> <url>»."
 expect = '''
-SCROLL 1 SCORE 2
-SCROLL 2 SCORE 3
-SCROLL 3 SCORE 0
-TOLLED 3 SCROLLS
-RANK 1 SCROLL 2
-RANK 2 SCROLL 1
-RANK 3 SCROLL 3'''
+REQUEST nist ADMITTED
+REQUEST RFC ADMITTED
+REQUEST rfc mirror REJECTED
+REQUEST missing REJECTED
+SOURCE NIST https://example.test/nist
+SOURCE RFC https://example.test/rfc'''
 
 [[tiers.pool.stages]]
-brief = "Append «BEST SCROLL <n> SCORE <s>» for the top scroll, «BARREN <count of score 0>», then «TOLL DONE»."
+brief = "Append «COUNT <selected count>», «REJECTED <rejected count>», «ORDER <comma-separated labels>», «POLICY SET», then «TOLL DONE»."
 expect = '''
-SCROLL 1 SCORE 2
-SCROLL 2 SCORE 3
-SCROLL 3 SCORE 0
-TOLLED 3 SCROLLS
-RANK 1 SCROLL 2
-RANK 2 SCROLL 1
-RANK 3 SCROLL 3
-BEST SCROLL 2 SCORE 3
-BARREN 1
+REQUEST nist ADMITTED
+REQUEST RFC ADMITTED
+REQUEST rfc mirror REJECTED
+REQUEST missing REJECTED
+SOURCE NIST https://example.test/nist
+SOURCE RFC https://example.test/rfc
+COUNT 2
+REJECTED 2
+ORDER NIST,RFC
+POLICY SET
 TOLL DONE'''
 
 # ---- difficulty 10
@@ -1866,35 +1878,35 @@ TOLL DONE'''
 [[tiers.pool]]
 t = "THE FLAG LEDGER"
 starter = '''
-string[] argv = { "--max-sources", "4", "--min-trust", "6", "--format", "json" };
-// Walk option/value pairs and build the final invocation summary.
+string[] argv = { "What changed?", "--source", "RFC", "--source", "NIST", "--mock" };
+// Parse one question, repeated source labels, and an explicit mock flag.
 '''
 
 [[tiers.pool.stages]]
-brief = "Print each pair as «FLAG <option> <value>» in argument order."
+brief = "Print «QUESTION What changed?» and each selected label as «SOURCE <label>»."
 expect = '''
-FLAG --max-sources 4
-FLAG --min-trust 6
-FLAG --format json'''
+QUESTION What changed?
+SOURCE RFC
+SOURCE NIST'''
 
 [[tiers.pool.stages]]
-brief = "Append «FLAGS 3» and «NUMERIC 2»."
+brief = "Append «SOURCES 2» and «MOCK True»."
 expect = '''
-FLAG --max-sources 4
-FLAG --min-trust 6
-FLAG --format json
-FLAGS 3
-NUMERIC 2'''
+QUESTION What changed?
+SOURCE RFC
+SOURCE NIST
+SOURCES 2
+MOCK True'''
 
 [[tiers.pool.stages]]
-brief = "Append «RUN max=4 trust=6 format=json» and «FLAGS SET»."
+brief = "Append «RUN RFC,NIST MODE MOCK» and «FLAGS SET»."
 expect = '''
-FLAG --max-sources 4
-FLAG --min-trust 6
-FLAG --format json
-FLAGS 3
-NUMERIC 2
-RUN max=4 trust=6 format=json
+QUESTION What changed?
+SOURCE RFC
+SOURCE NIST
+SOURCES 2
+MOCK True
+RUN RFC,NIST MODE MOCK
 FLAGS SET'''
 
 [[tiers.pool]]
@@ -2058,74 +2070,76 @@ SIEGE LEDGER SET'''
 [[tiers.pool]]
 t = "THE SCANNER CONCLAVE"
 starter = '''
-var scanners = new List<IScanner> { new ExactScanner(), new BroadScanner(), new FallbackScanner() };
-// Invoke through the interface; implementations remain replaceable.
-interface IScanner { string Scan(); }
-class ExactScanner : IScanner { public string Scan() => "exact:2"; }
-class BroadScanner : IScanner { public string Scan() => "broad:5"; }
-class FallbackScanner : IScanner { public string Scan() => "fallback:1"; }
+var selectors = new List<ISelector> { new LiveSelector(), new MockSelector() };
+// Invoke both through the proposal-side interface; no automatic fallback exists.
+interface ISelector { string Mode(); }
+class LiveSelector : ISelector { public string Mode() => "LIVE"; }
+class MockSelector : ISelector { public string Mode() => "MOCK"; }
 '''
 
 [[tiers.pool.stages]]
-brief = "Call every scanner polymorphically and print «SCAN <result>» for all three."
+brief = "Call each selector polymorphically and print «SELECTOR <mode>» for both."
 expect = '''
-SCAN exact:2
-SCAN broad:5
-SCAN fallback:1'''
+SELECTOR LIVE
+SELECTOR MOCK'''
 
 [[tiers.pool.stages]]
-brief = "Append «COUNT 3» and «UNIQUE 3»."
+brief = "Append «COUNT 2» and «UNIQUE 2»."
 expect = '''
-SCAN exact:2
-SCAN broad:5
-SCAN fallback:1
-COUNT 3
-UNIQUE 3'''
+SELECTOR LIVE
+SELECTOR MOCK
+COUNT 2
+UNIQUE 2'''
 
 [[tiers.pool.stages]]
-brief = "Append «PRIMARY exact:2» and «CONCLAVE CLOSED»."
+brief = "Append «EXPLICIT MOCK» from the second selector, then «CONCLAVE CLOSED»."
 expect = '''
-SCAN exact:2
-SCAN broad:5
-SCAN fallback:1
-COUNT 3
-UNIQUE 3
-PRIMARY exact:2
+SELECTOR LIVE
+SELECTOR MOCK
+COUNT 2
+UNIQUE 2
+EXPLICIT MOCK
 CONCLAVE CLOSED'''
 
 [[tiers.pool]]
 t = "THE TABLE OF PROOFS"
 starter = '''
-var cases = new (int score, bool expected)[] { (9, true), (6, true), (2, false) };
-// Run the table through IsTrusted and report every proof.
-bool IsTrusted(int score) => score >= 6;
+string passage = "Before. Exact source words. After.";
+var cases = new (string quote, bool expected)[]
+{
+    ("Exact source words.", true),
+    ("Exact source words", true),
+    ("exact source words.", false)
+};
+// Run the table through ordinal substring proof.
 '''
 
 [[tiers.pool.stages]]
-brief = "Print each result as «CASE <score> PASS» or «CASE <score> FAIL»."
+brief = "Print each result as «CASE <n> PASS» or «CASE <n> FAIL»."
 expect = '''
-CASE 9 PASS
-CASE 6 PASS
-CASE 2 PASS'''
+CASE 1 PASS
+CASE 2 PASS
+CASE 3 PASS'''
 
 [[tiers.pool.stages]]
 brief = "Append «PASSED 3» and «FAILED 0»."
 expect = '''
-CASE 9 PASS
-CASE 6 PASS
+CASE 1 PASS
 CASE 2 PASS
+CASE 3 PASS
 PASSED 3
 FAILED 0'''
 
 [[tiers.pool.stages]]
-brief = "Append «BOUNDARIES 2» for the true/false boundary classes, then «PROOFS GREEN»."
+brief = "Append «ACCEPTED 2» and «REJECTED 1» from expected verdicts, then «PROOFS GREEN»."
 expect = '''
-CASE 9 PASS
-CASE 6 PASS
+CASE 1 PASS
 CASE 2 PASS
+CASE 3 PASS
 PASSED 3
 FAILED 0
-BOUNDARIES 2
+ACCEPTED 2
+REJECTED 1
 PROOFS GREEN'''
 
 [[tiers.pool]]

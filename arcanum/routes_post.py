@@ -18,10 +18,10 @@ from .build_state import (BUILD_TOTAL_PHASES, build_result_status,
                           record_cancelled_build, save_active_owner)
 from .config import (BUILD_DIR, CLI_EFFORTS, GLOBAL_STATE_KEYS, ROOT,
                      TOMES_DIR, amend_procs, jobs, jobs_lock, read_settings, write_settings)
-from .forge import (_clear_runner_handshake, _plan_concept,
+from .forge import (_clear_runner_handshake, _plan_concept, _plan_gate,
                     _resume_phase, _runner_args, _save_launch, _write_progress,
                     external_build_process, fresh_tome_id, watch_build,
-                    working_is_active)
+                    working_is_active, replace_plan_tooling, tooling_conflict_details)
 from .grader import ask_oracle, run_grader
 from .tomes import (external_workspace, has_progress, load_manifest, plan_path, project_dir,
                     project_name, resolve_tome, resolve_working_tid, runtime_for,
@@ -324,6 +324,8 @@ def answer_runner_pause(h, body):
         job = jobs.get(bid)
         # reply under the launch slug build_tome polls, not the renamed tome dir
         tome = (job.get("slug") or job.get("tome")) if job and job.get("kind") == "build" else None
+    if not tome and external_build_process(bid):
+        tome = bid  # a different server owns it; /proc validated this launch id
     if not tome:
         return h.send_json({"ok": False, "error": "no such build"}, 404)
     kind = str(body.get("kind") or "")
@@ -361,6 +363,31 @@ def resume_build(h, body):
     if working_is_active(rid, tid):
         return h.send_json({"ok": False, "error": "that working is already being forged"}, 409)
     frm = _resume_phase(rid, tid)
+    result = build_result_status(rid) or build_result_status(tid) or {}
+    conflict = tooling_conflict_details(text, str(result.get("error") or ""))
+    tooling_conflict = conflict["conflict"]
+    if tooling_conflict:
+        tooling = str(body.get("tooling") or "").strip().lower()
+        previous_tooling = str(_plan_gate(text).get("tooling") or "").lower()
+        if tooling == previous_tooling:
+            return h.send_json({
+                "ok": False,
+                "error": (f"Tooling={tooling} is the mode Phase 1 rejected; "
+                          "choose a different Tooling mode to resolve the conflict"),
+            }, 400)
+        if conflict["required"] and tooling != conflict["required"]:
+            return h.send_json({
+                "ok": False,
+                "error": (f"Phase 1 requires Tooling={conflict['required']}; "
+                          f"approve that exact change instead of Tooling={tooling or '(missing)'}"),
+            }, 400)
+        try:
+            text = replace_plan_tooling(text, tooling)
+        except ValueError as exc:
+            return h.send_json({"ok": False, "error": str(exc)}, 400)
+        with open(pp, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        frm = 1
     # optional operator override: the resume modal's "restart from" picker forces a
     # phase instead of the auto-detected one. Phase 3 skips sections in the done-set,
     # so a forced restart at/before it must drop that set to re-author every section
@@ -369,6 +396,8 @@ def resume_build(h, body):
         forced = int(body.get("fromPhase"))
     except (TypeError, ValueError):
         forced = 0
+    if tooling_conflict:
+        forced = 1
     if 1 <= forced <= 8:
         frm = forced
         _write_progress(tid, frm)
@@ -391,7 +420,9 @@ def resume_build(h, body):
         subprocess.call([sys.executable, os.path.join(ROOT, "tools", "new_tome.py"), tid])
         frm = 1
     _clear_runner_handshake(tid)
-    _save_launch(tid, body, _plan_concept(text))
+    launch_body = dict(body)
+    launch_body.update(_plan_gate(text))
+    _save_launch(tid, launch_body, _plan_concept(text), text)
     split_args = ["--split-sections"] if body.get("sectionsSplit") else []
     proc = subprocess.Popen([sys.executable, "-u", os.path.join(ROOT, "tools", "build_tome.py"),
                              tid, "--from-phase", str(frm), "--ask-on-death"]

@@ -84,13 +84,18 @@ standard choice; keep it unless the course has a real reason not to.
 | `attackStakePerDiff` | `20` | credits **staked** (lost on failure) per difficulty tier of an attack |
 | `attackWinPerDiff` | `15` | duel wins pay NO coin until the `earnedTheme` palette is won; after that, every **2nd** win at the current circle pays `attackWinPerDiff × circle` (a post-theme trickle, not a per-stage payout) |
 
-**Balance math you must do:** total earnable = Σ exercise points (with combos) +
-Σ freestyle rewards + intrusion bounties (duel coin is a late-game trickle — see
-`attackWinPerDiff` above; don't count it). A freestyle pays `reward × total/100`
+**Balance math you must do:** fixed face-value earnings = Σ exercise points +
+Σ freestyle rewards. Intrusion bounties are repeatable bonus income: a player may
+win none or may win the same tier many times, so never add each tier's bounty once to
+invent a finite base total. Duel coin is another late-game trickle — see
+`attackWinPerDiff` above. A freestyle pays `reward × total/100`
 (× `sRankMultiplier` on an S), and re-submissions pay only the improvement over
 the previous best — so budget freestyles at roughly their face `reward`. Price the shop so consumables are
 affordable mid-course and cosmetic themes are late-game trophies (see the price
-ladder in §2's shop). Rank thresholds should spread evenly across that total.
+ladder in §2's shop). Rank thresholds should spread evenly across the fixed total;
+the top title should land within about 15% of it. Sitting modestly above is reachable
+because combos, S ranks, and successful defenses provide bonus income; sitting farther
+below awards the final title while too much of the course remains.
 
 ### `[[shop]]` — one table per item
 | key | notes |

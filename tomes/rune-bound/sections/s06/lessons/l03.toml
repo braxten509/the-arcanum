@@ -19,14 +19,16 @@ def hits_solid_tile(self, tile_map, rect):
     return False
 
 def move_and_collide(self, tile_map, dt):
+    old_x = self.rect.x
     self.rect.x += self.velocity.x * dt
     if self.hits_solid_tile(tile_map, self.rect):
-        self.rect.x -= self.velocity.x * dt
+        self.rect.x = old_x
+    old_y = self.rect.y
     self.rect.y += self.velocity.y * dt
     if self.hits_solid_tile(tile_map, self.rect):
-        self.rect.y -= self.velocity.y * dt</code></pre>
-<p>Resolve one axis at a time. First propose the x motion, check the full footprint, and undo that x proposal if it enters a solid tile. Then do the same for y. This preserves legal movement along a wall instead of undoing a whole diagonal step. The subtraction returns the player to the last legal position; it does not modify the CSV, tile catalog, camera, or animation frame.</p>
-<p>Use the same <code>dt</code> that already drives animation. At 160 pixels per second and <code>dt = 0.1</code>, a pure east step proposes 16 pixels. The stored <code>rect</code> is a PyGame integer rectangle, so tiny fractional motion can be rounded by PyGame. That is acceptable for this beginner-scale game; keep speed and coordinates consistent rather than inventing a second hidden position yet.</p>
+        self.rect.y = old_y</code></pre>
+<p>Resolve one axis at a time. Save the exact legal integer coordinate, propose the x motion, check the full footprint, and restore <code>old_x</code> if it enters a solid tile. Then do the same for y. This preserves legal movement along a wall instead of undoing a whole diagonal step. Restoring the saved coordinate is safer than subtracting the floating-point proposal from a <code>pygame.Rect</code>, because Rect rounds assignments to whole pixels and an add-then-subtract pair can otherwise drift by a pixel.</p>
+<p>Use the same <code>dt</code> that already drives animation. At 160 pixels per second and <code>dt = 0.1</code>, a pure east step proposes 16 pixels. For this beginner-scale game, Rect’s whole-pixel motion is acceptable; the saved old coordinate guarantees a blocked proposal returns to the actual last legal position.</p>
 <div class="callout"><strong>THE CARTOGRAPHER'S RULE:</strong> pixels choose candidate tile indexes; the tile map’s data decides whether each candidate blocks.</div>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // MAP BOUNDARY</div><p><code>TileMap.is_solid</code> returns false outside the map under its existing contract. The supplied overworld has walls at its border, so test collision against those deliberate wall cells rather than changing s04’s query semantics.</p></div>
 '''
@@ -112,9 +114,10 @@ id = "s06-l03-e5"
 type = "type"
 points = 12
 reps = 2
-prompt = '''<p>Retype the axis-by-axis x resolution route.</p>'''
+prompt = '''<p>Retype the axis-by-axis x resolution route. Save the exact integer coordinate before the floating-point proposal.</p>'''
 code = '''
+old_x = self.rect.x
 self.rect.x += self.velocity.x * dt
 if self.hits_solid_tile(tile_map, self.rect):
-    self.rect.x -= self.velocity.x * dt
+    self.rect.x = old_x
 '''

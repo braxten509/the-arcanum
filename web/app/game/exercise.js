@@ -64,14 +64,27 @@ export function reviewGate(onPass) {
   startReview(onPass);
 }
 // a banner shown wherever review is due; caller wires #btn-review to startReview
+const reviewCopy = (n) => `${n} concept${n > 1 ? "s you have" : " you have"} learned ${n > 1 ? "are" : "is"} due to be re-forged — quick recall keeps them from fading.`;
 export function reviewBanner() {
   const n = reviewDue().length;
   if (!n) return "";
   return `<div id="review-cta" style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin:0 0 18px;padding:13px 16px;border:1px solid var(--line-hi);border-radius:var(--rad);background:var(--ac-bg)">
-    <div><b>${ico("bell")} SPACED REVIEW</b> <span class="dim" style="font-size:12.5px">${n} concept${n > 1 ? "s you have" : " you have"} learned ${n > 1 ? "are" : "is"} due to be re-forged — quick recall keeps them from fading.</span></div>
+    <div><b>${ico("bell")} SPACED REVIEW</b> <span class="dim" data-review-copy style="font-size:12.5px">${reviewCopy(n)}</span></div>
     <button class="btn" id="btn-review">${ico("scroll")} BEGIN REVIEW (${n})</button></div>`;
 }
 export function wireReview(v) { const b = $("#btn-review", v); if (b) b.onclick = () => startReview(); }
+function refreshReviewBanners() {
+  const n = reviewDue().length;
+  document.querySelectorAll("#review-cta").forEach((banner) => {
+    if (!n) { banner.remove(); return; }
+    const copy = $("[data-review-copy]", banner), button = $("#btn-review", banner);
+    if (copy) copy.textContent = reviewCopy(n);
+    if (button) {
+      button.innerHTML = `${ico("scroll")} BEGIN REVIEW (${n})`;
+      button.onclick = () => startReview();
+    }
+  });
+}
 
 export function startReview(onPass) {
   const due = reviewDue().slice(0, 8); // a short round; the rest surface next time
@@ -102,8 +115,12 @@ export function startReview(onPass) {
       save(); updateCount();
       if (graded.size >= due.length) {
         passed = true;
+        refreshReviewBanners();
         toast("Review complete — the old seals are re-forged.", "ok");
-        if (onPass) { closeBtn.className = "btn"; closeBtn.textContent = "CONTINUE — THE WAY IS OPEN"; }
+        closeBtn.className = "btn";
+        closeBtn.innerHTML = onPass
+          ? `${ico("check")} CONTINUE — THE WAY IS OPEN`
+          : `${ico("check")} COMPLETE`;
       }
     }));
   });

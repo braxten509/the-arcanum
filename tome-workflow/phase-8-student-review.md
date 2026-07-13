@@ -30,7 +30,9 @@ Audit these semantic contracts:
    and debug path. Cold-start the final entrypoint and trace visible behavior, persistence,
    relaunch, and delivery.
 7. **Calibration and independence.** Enforce every Phase 0 answer and treat prior knowledge
-   as exhaustive. At Start 1–3, each unlisted keyword, syntax form, operator, API, tool
+   as exhaustive. Apply the harness's CURRENT START CALIBRATION over any older plan
+   paraphrase without changing the user's recorded number. At Start 1–3, each unlisted
+   keyword, syntax form, operator, API, tool
    action, or technical term needs, before required use, a plain-language purpose,
    stepwise anatomy, a minimal worked example with an observable result, one likely
    failure, and guided practice. A name-drop, reading link, or unexplained sample is not
