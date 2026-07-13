@@ -1,0 +1,102 @@
+[[lessons]]
+id = "s13-l03"
+title = "Paint The Doors, Not The Road"
+teaches = ["scene-font-owner", "scene-card-renderer", "scene-card-text-render"]
+body = '''
+<p>A realm must be seen before it can be trusted. Forge XII already owns <code>dialogue_font</code>; add this separate, larger top-level font after it and before <code>running = True</code>. Then add the complete new helper below <code>set_scene</code>. It receives the existing display Surface, the current scene string, and the font instead of secretly reaching into other owners. Do not wrap this excerpt in a second loop or make a second display.</p>
+<pre><code>scene_font = pygame.font.Font(None, 42)
+
+
+def draw_scene_card(screen, scene, scene_font):
+    screen.fill((24, 18, 39))
+    if scene == SCENE_TITLE:
+        title_surface = scene_font.render("Duskhaven", True, (255, 181, 81))
+        prompt_surface = scene_font.render("Press Enter", True, (244, 232, 204))
+    elif scene == SCENE_MENU:
+        title_surface = scene_font.render("M — menu", True, (255, 181, 81))
+        prompt_surface = scene_font.render("B — battle preview", True, (244, 232, 204))
+    else:
+        title_surface = scene_font.render("Battle preview", True, (255, 181, 81))
+        prompt_surface = scene_font.render("Esc — return", True, (244, 232, 204))
+    screen.blit(title_surface, (300, 210))
+    screen.blit(prompt_surface, (300, 270))</code></pre>
+<p><code>screen.fill</code> belongs inside this card helper because title, menu, and preview replace the visible road for that frame. Each <code>render</code> creates a text Surface; each <code>blit</code> lays it down. The final <code>else</code> is deliberately only the battle preview: Thread IV will call this helper only for title, menu, and battle, never for the overworld. This keeps the old world renderer as its canonical owner.</p>
+<p>The menu copy names the next available controls, while the preview honestly promises battle without borrowing HP or damage concepts from Forge XIV. Test the helper by reaching the title after Thread IV is wired; for now, confirm the code is indented inside its function and that all text quotes are paired. A black card with no words usually means a Surface was rendered but never blitted; inspect those two final lines before blaming the font.</p>
+<div class="callout">A card may cover the road for one frame. It may not replace the road renderer that will return after the threshold.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // A PURPOSEFUL ELSE</div><p>Because the caller will admit only three card scenes, the final branch has one known meaning. If later scenes multiply, change this into explicit branches rather than allowing unknown values to masquerade as battle.</p></div>
+'''
+
+[[lessons.readings]]
+label = "PyGame Font — render text"
+url = "https://www.pygame.org/docs/ref/font.html#pygame.font.Font.render"
+
+[[lessons.exercises]]
+id = "s13-l03-e1"
+type = "fill"
+points = 26
+prompt = "Restore the display-Surface method that lays the already-rendered title Surface onto the visible title card."
+code = 'screen.____(title_surface, (300, 210))'
+answer = "blit"
+hint = "Forge VIII and Forge XII used this screen method after a Surface had already been made."
+whyWrong = "render belongs to the font and creates a Surface, while fill paints a color over a Surface. blit is the screen operation that places title_surface at its card position."
+
+[[lessons.exercises]]
+id = "s13-l03-e2"
+type = "mc"
+points = 29
+prompt = "Why does <code>draw_scene_card</code> call <code>screen.fill((24, 18, 39))</code> before its text blits?"
+choices = ["It resets scene to title", "It clears the previous frame so the card visibly replaces the overworld", "It converts scene_font into a clock", "It allows KEYDOWN to contain event.key"]
+answer = 1
+hint = "Reach back to the draw-order rule: full-background paint must occur before foreground marks."
+whyWrong = "Scene state, clocks, and event attributes are separate concerns. The specific rendering need is clearing old map pixels before the title or menu text is laid over the frame."
+explain = "The fill is the card background; title_surface and prompt_surface are its foreground ink."
+
+[[lessons.exercises]]
+id = "s13-l03-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the two-stage title text path: render a Surface, then blit it on the scene card."
+code = '''title_surface = scene_font.render("Duskhaven", True, (255, 181, 81))
+screen.blit(title_surface, (300, 210))'''
+
+[[lessons.exercises]]
+id = "s13-l03-e3"
+type = "text"
+points = 24
+prompt = "What existing PyGame object does <code>scene_font.render(...)</code> return for the subsequent screen operation to place?"
+answer = "Surface"
+accept = ["a Surface", "pygame.Surface"]
+hint = "Forge XII gave this name to speaker_surface and line_surface before they were placed."
+whyWrong = "A font owns the render method but is not the rendered image, and a Rect only describes geometry. render produces a Surface that blit can place."
+
+[[lessons.exercises]]
+id = "s13-l03-w1"
+type = "write"
+points = 37
+prompt = "A card chooser has <code>scene = &quot;battle&quot;</code>. Use an if/else to choose <code>&quot;Battle preview&quot;</code> when the supplied scene is battle and <code>&quot;Other realm&quot;</code> otherwise, then print exactly <code>Card text: Battle preview</code>. Derive the text from scene."
+expect = '''Card text: Battle preview'''
+hint = "Compare scene with the supplied battle string, assign card_text in both branches, then use one f-string."
+starter = '''scene = "battle"
+
+# Choose the honest card wording for this supplied realm.
+'''
+solution = '''scene = "battle"
+
+if scene == "battle":
+    card_text = "Battle preview"
+else:
+    card_text = "Other realm"
+
+print(f"Card text: {card_text}")'''
+
+[[lessons.exercises]]
+id = "s13-l03-e4"
+type = "mc"
+points = 27
+prompt = "What should the battle card promise in this forge, before stats and turns are taught?"
+choices = ["A damage formula with HP and DEF", "A new Enemy class with random attacks", "A visible Battle preview with a return instruction", "A terminal input prompt for choosing a spell"]
+answer = 2
+hint = "The scene manager chooses a realm; Forge XIV will make the actual combat rules."
+whyWrong = "Damage, Enemy behavior, and combat input belong to later untaught systems. This forge truthfully provides only a visible scene placeholder and its exit control."
+explain = "A preview gives the player a real threshold now without claiming mechanics that do not yet exist."

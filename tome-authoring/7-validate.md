@@ -30,6 +30,15 @@ which breaks the cumulative build) and **self-answering questions** (a
 `text`/`fill` whose answer appears verbatim in its own prompt prose; code spans
 are exempt, since a trace question shows its answer by design).
 
+New scaffolds set `[content].capabilityLedger = true`. With that contract enabled,
+every lesson must carry non-empty kebab-case `teaches` ids and every freestyle must
+carry non-empty cumulative `requires` ids; a future or misspelled requirement is an
+ERROR. External-workspace ledgers reserve `tool-install`, `tool-create-open`,
+`tool-navigate`, `tool-edit-save`, `tool-run-test`, and `tool-diagnose` for the first
+section, plus `tool-deliver` for the final lesson/capstone. The validator also warns
+when a later whole C# class example drops members present in an earlier version: show
+a complete cumulative replacement or an explicitly located member-only patch.
+
 **`--strict` fails on EVERY WARN except `advisory` ones** (language-calibration
 limits no tome author can fix). This is the Phase 7 bar, and the harness runs it
 from Phase 7 on: a finished tome carries zero warnings, whatever their label.

@@ -1,6 +1,6 @@
-"""The Binder (amend a tome): one headless CLI agent edits tomes/<jid>/, then
-validate_tome.py checks the result. Amend jobs live in the shared config.jobs
-registry with "kind": "amend"."""
+"""The Binder (amend a tome): a scoped CLI edits tomes/<jid>/, then validate_tome.py
+checks it and may return one exact-report repair turn. Amend jobs live in the shared
+config.jobs registry with "kind": "amend"."""
 import json
 import os
 import signal
@@ -71,6 +71,12 @@ def rollback_tome(jid):
     _git("clean", "-fd", "--", f"tomes/{jid}")
 
 
+def tome_has_changes(jid):
+    """Tracked or untracked tome changes since the Binder checkpoint."""
+    result = _git("status", "--short", "--", f"tomes/{jid}")
+    return bool(result and result.stdout.strip())
+
+
 def _mark_amend_state(tome, status):
     st = load_amend_state(tome)
     if st:
@@ -78,10 +84,76 @@ def _mark_amend_state(tome, status):
         save_amend_state(st)
 
 
+def _run_agent_turn(job_id, cmd, prompt, input_mode, env, cwd):
+    """Run one scoped Binder turn and stream it to the existing job log."""
+    stdin_data = prompt if input_mode == "stdin" else None
+    full_cmd = cmd + ([prompt] if input_mode == "arg" else [])
+    p = subprocess.Popen(full_cmd,
+                         stdin=(subprocess.DEVNULL if stdin_data is None else subprocess.PIPE),
+                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
+                         env=env, cwd=cwd, start_new_session=True)
+    with jobs_lock:
+        amend_procs[job_id] = p
+    if stdin_data is not None:
+        try:
+            p.stdin.write(stdin_data)
+            p.stdin.close()
+        except BrokenPipeError:
+            pass
+
+    timed_out = {"v": False}
+
+    def kill_timeout():
+        timed_out["v"] = True
+        try:
+            os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+
+    watchdog = threading.Timer(AMEND_TIMEOUT, kill_timeout)
+    watchdog.start()
+
+    def pump_output():
+        for line in p.stdout:
+            line = ANSI_RE.sub("", line.rstrip("\n"))
+            with jobs_lock:
+                job = jobs.get(job_id)
+                if not job:
+                    break
+                job["log"].append(line)
+                del job["log"][:-400]
+
+    pump = threading.Thread(target=pump_output, daemon=True)
+    pump.start()
+    try:
+        rc = p.wait()
+        pump.join(15)
+        if pump.is_alive():
+            try:
+                os.killpg(p.pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
+            pump.join(5)
+    finally:
+        watchdog.cancel()
+        with jobs_lock:
+            amend_procs.pop(job_id, None)
+    with jobs_lock:
+        logtail = list(jobs.get(job_id, {}).get("log", []))
+    return rc, timed_out["v"], logtail
+
+
+def _validate_amendment(jid):
+    return subprocess.run(
+        [sys.executable, os.path.join(ROOT, "tools", "validate_tome.py"),
+         os.path.join("tomes", jid)], capture_output=True, text=True,
+        timeout=900, cwd=ROOT)
+
+
 def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, iterate=False, reset_ok=False,
                 review=False, review_path=""):
-    """Background worker: ONE headless CLI agent makes an edit to tomes/<jid>/
-    guided by course-configuration-guide.md, then validate_tome.py checks the result.
+    """Background worker: a headless CLI edits tomes/<jid>/ under the configuration
+    guide, then validate_tome.py checks it and may trigger one bounded repair turn.
     The agent edits with whatever file tools its CLI has (codex reads/edits THROUGH
     shell, so the prompt must never ban shell outright — gpt-5.6 obeys the ban
     literally and aborts unable to read a single file); the server runs the validator.
@@ -134,18 +206,17 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
         prompt = (
             "You are THE BINDER — a maintenance agent for the Arcanum course platform, in "
             f"ITERATE mode on the course (tome) at tomes/{jid}/.\n\n"
-            "FIRST read THREE guides: course-configuration-guide.md (the file/field map and hard "
-            "rules), course-improvement-guide.md (the rubric for what makes a tome strong and where "
-            "weaknesses hide), and tome-authoring/3-chapters.md (the pedagogy spec — its anti-template "
-            f"and learning-design rules bind every addition you make). Then survey tomes/{jid}/ against that rubric, "
+            "FIRST read course-improvement-guide.md and course-configuration-guide.md. Consult the "
+            "relevant parts of tome-authoring/3-chapters.md before changing lesson or exercise fields; "
+            f"it is lookup material, not a mandatory full reread. Then survey tomes/{jid}/ against the rubric, "
             "choose the HIGHEST-VALUE improvements you can make, and apply them, editing as many "
             f"files as it takes. {focus}"
             f"{bounds} Read and edit files with whatever tools your harness provides — if shell "
             "commands are how you read or edit files, use them freely; you may also run trusted "
             "repository Python validators and inspection tools. "
-            f"The harness runs `python3 tools/validate_tome.py tomes/{jid}` the moment you finish, and "
-            "your work MUST leave it with ZERO errors and no new warnings — reason through that "
-            "validator's rules as you edit, and if a change would break it, fix it or don't make it. "
+            f"Before returning, run `python3 tools/validate_tome.py tomes/{jid}`, read the complete "
+            "report, and repair it until it exits cleanly with no new warnings. The harness repeats "
+            "that check independently after you return. "
             "End with one short paragraph naming exactly the file(s) you changed and what you improved.")
     else:
         ask = ("requests a broad change — a larger rework you can iterate on"
@@ -165,10 +236,9 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
             f"field you may touch and the rules that bind them. Then {how}. "
             f"{bounds} Read and edit files with whatever tools your harness provides — if shell "
             "commands are how you read or edit files, use them freely; you may also run trusted "
-            "repository Python validators and inspection tools. The harness runs "
-            f"`python3 tools/validate_tome.py tomes/{jid}` the moment you finish, and your work MUST "
-            "leave it with ZERO errors and no new warnings — reason through that validator's rules as "
-            "you edit, and if a change would break it, fix it or don't make it. End with one "
+            "repository Python validators and inspection tools. Before returning, run "
+            f"`python3 tools/validate_tome.py tomes/{jid}`, read the complete report, and repair it "
+            "until it exits cleanly with no new warnings; the harness repeats the check independently. End with one "
             "short paragraph naming exactly the file(s) and field(s) you changed.")
     prompt += (f"\n\nAI ACCESS: The repository root is {ROOT}. You may read files and execute trusted "
                "Python anywhere in this repository, use web search/fetch for current sources, and "
@@ -212,65 +282,15 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
         env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
         env.update(ARCANUM_REPO_ROOT=ROOT, ARCANUM_TOME_ROOT=tome_root,
                    PYTHONDONTWRITEBYTECODE="1")
-        stdin_data = prompt if input_mode == "stdin" else None
-        full_cmd = cmd + ([prompt] if input_mode == "arg" else [])
-        p = subprocess.Popen(full_cmd, stdin=(subprocess.DEVNULL if stdin_data is None else subprocess.PIPE),
-                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
-                             env=env, cwd=tome_root, start_new_session=True)  # own group, so cancel kills CLI children too
-        with jobs_lock:
-            amend_procs[job_id] = p
-        if stdin_data is not None:
-            try:
-                p.stdin.write(stdin_data)
-                p.stdin.close()
-            except BrokenPipeError:
-                pass
-        # Stream the agent's output live into the job log (stderr merged into stdout) so a broad
-        # run shows a terminal like the forge does. A watchdog kills the group on timeout.
-        timed_out = {"v": False}
-        def _kill_timeout():
-            timed_out["v"] = True
-            try:
-                os.killpg(os.getpgid(p.pid), signal.SIGKILL)
-            except (ProcessLookupError, PermissionError):
-                pass
-        wd = threading.Timer(AMEND_TIMEOUT, _kill_timeout)
-        wd.start()
-        # stdout is pumped on a side thread: a lingering CLI child (e.g. a stuck MCP server)
-        # inherits the pipe and blocks a plain read-to-EOF forever, even after codex exits —
-        # the job then never leaves "running". Wait on the process, then sever stragglers.
-        def _pump():
-            for line in p.stdout:
-                line = ANSI_RE.sub("", line.rstrip("\n"))
-                with jobs_lock:
-                    job = jobs.get(job_id)
-                    if not job:
-                        break
-                    job["log"].append(line)
-                    del job["log"][:-400]
-        pump = threading.Thread(target=_pump, daemon=True)
-        pump.start()
-        try:
-            rc = p.wait()
-            pump.join(15)  # grace for trailing output
-            if pump.is_alive():  # something still holds the pipe — kill the group and move on
-                try:
-                    os.killpg(p.pid, signal.SIGKILL)  # pgid == pid (start_new_session)
-                except (ProcessLookupError, PermissionError):
-                    pass
-                pump.join(5)
-        finally:
-            wd.cancel()
-            with jobs_lock:
-                amend_procs.pop(job_id, None)
+        rc, timed_out, logtail = _run_agent_turn(
+            job_id, cmd, prompt, input_mode, env, tome_root)
         with jobs_lock:
             if jobs.get(job_id, {}).get("status") == "cancelled":
                 clear_amend_state(jid)  # the player stayed the quill; nothing to resume
                 if not review:
                     rollback_tome(jid)  # discard the half-finished edit
                 return  # the kill is not an error
-            logtail = list(jobs.get(job_id, {}).get("log", []))
-        if timed_out["v"]:
+        if timed_out:
             raise RuntimeError(f"timed out after {AMEND_TIMEOUT}s:\n" + "\n".join(logtail[-20:]))
         if rc != 0:
             raise RuntimeError(f"exit {rc}:\n" + "\n".join(logtail[-20:]))
@@ -292,13 +312,46 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
             notify("✓ The Binder's survey is done",
                    f"The review of {jid} is inked at {report_rel} — open the Binder to commission changes.")
             return
+        if not tome_has_changes(jid):
+            # The request may have been a question, or the requested state already held.
+            # Do not turn an unrelated pre-existing validator finding into an unsolicited edit.
+            with jobs_lock:
+                job = jobs.get(job_id)
+                if job:
+                    job.update(status="done", summary=summary, validator="No tome files changed.",
+                               validatorOk=True)
+            clear_amend_state(jid)
+            return
         with jobs_lock:  # the log streams to the bench — say the agent is done, the wait is the candle's
             job = jobs.get(job_id)
             if job:
                 job["log"].append("── the hand rests; the candle now inspects the work (validator — a few minutes) ──")
-        v = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "validate_tome.py"),
-                            os.path.join("tomes", jid)], capture_output=True, text=True,
-                           timeout=900, cwd=ROOT)  # this tome already validates in ~4.5min — 300s would kill good runs
+        v = _validate_amendment(jid)
+        if v.returncode != 0:
+            report = (v.stdout + v.stderr).strip()
+            with jobs_lock:
+                job = jobs.get(job_id)
+                if job:
+                    job["log"].append("── exact validator report returned to the hand; one repair turn begins ──")
+            repair_prompt = (prompt + "\n\n===== HARNESS REPAIR TURN =====\n"
+                             "The independent validator failed. Read every finding below, repair "
+                             "all in-scope failures without undoing the requested amendment, rerun "
+                             "the validator yourself until clean, then stop.\n\n" + report)
+            rc, timed_out, logtail = _run_agent_turn(
+                job_id, cmd, repair_prompt, input_mode, env, tome_root)
+            with jobs_lock:
+                cancelled = jobs.get(job_id, {}).get("status") == "cancelled"
+            if cancelled:
+                clear_amend_state(jid)
+                rollback_tome(jid)
+                return
+            if timed_out:
+                raise RuntimeError(f"repair timed out after {AMEND_TIMEOUT}s:\n"
+                                   + "\n".join(logtail[-20:]))
+            if rc != 0:
+                raise RuntimeError(f"repair exit {rc}:\n" + "\n".join(logtail[-20:]))
+            summary = "\n".join(logtail)[-2000:].strip()
+            v = _validate_amendment(jid)
         with jobs_lock:
             job = jobs.get(job_id)
             if job:
@@ -306,7 +359,8 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
                                   if v.returncode == 0 else
                                   "── the candle gutters: the validator found flaws (see its report below) ──")
                 job.update(status="done", summary=summary,
-                           validator=v.stdout.strip()[-2000:], validatorOk=v.returncode == 0)
+                           validator=(v.stdout + v.stderr).strip()[-2000:],
+                           validatorOk=v.returncode == 0)
         clear_amend_state(jid)  # the run finished; the edit is on disk, nothing to resume
         if broad:  # broad runs are long/unattended — ping the operator on the outcome
             if v.returncode == 0:

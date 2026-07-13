@@ -1,0 +1,235 @@
+[[lessons]]
+id = "s01-l01"
+title = "Choose The Anvil"
+teaches = ["tool-install", "tool-create-open", "tool-navigate", "tool-edit-save"]
+body = '''
+<p>A game is not made inside this study's little editor, apprentice. Duskhaven will live in a real folder on your machine, and we will use the same tools a working Python game uses outside these walls. Install a current Python 3 from <code>python.org</code>. On Windows, tick the installer option that adds Python to PATH; on macOS and Linux, follow the platform instructions. Then install VS Code and its <strong>Python</strong> extension. The extension is the editor's lens: it recognizes <code>.py</code> files, offers diagnostics, and lets you choose the interpreter that actually runs your work.</p>
+<p>Make one folder named <code>duskhaven</code> somewhere you can find again—your Documents folder is sensible. In VS Code choose <em>File → Open Folder</em> and open that exact folder, not a random file beside it. The Explorer at the left is now your map of the workspace; the integrated terminal, opened with <em>Terminal → New Terminal</em>, should start at that folder. If its prompt ends in <code>duskhaven</code>, you stand at the right anvil.</p>
+<p>In Explorer, create <code>main.py</code>. The <code>.py</code> ending matters: it tells Python and VS Code which language owns the file. Put this complete first program in it, then save with <code>Ctrl+S</code> or <code>Cmd+S</code>. A dot on the editor tab means unsaved changes; do not run by hope when the dot is still there.</p>
+<pre><code>print("Duskhaven: the lantern is lit.")</code></pre>
+<p>We use <code>print()</code> to send text to the terminal. Parentheses hold what a command receives; quotation marks make visible text, called a string. You do not need to memorize those names yet. You do need to preserve the spelling, quotes, and parentheses. This one line is deliberately plain: it proves the file, editor, and workspace exist before we ask them to carry a whole world.</p>
+<div class="callout">Do not create a second <code>main.py</code> in a second folder. One project folder and one canonical entry file keep every later forge on the same loom.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // FIND THE REAL FOLDER</div><p>VS Code can show many open files while the terminal stands somewhere else. The Explorer folder and terminal prompt are better evidence than a familiar-looking tab. If you lose the project, use Explorer's right-click <em>Reveal in File Explorer/Finder</em>, then reopen that folder in VS Code.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python Downloads"
+url = "https://www.python.org/downloads/"
+
+[[lessons.readings]]
+label = "Getting Started with Python in VS Code"
+url = "https://code.visualstudio.com/docs/python/python-tutorial"
+
+[[lessons.exercises]]
+id = "s01-l01-e1"
+type = "mc"
+points = 18
+prompt = "You created <code>main.py</code> inside Documents/duskhaven. Which VS Code action makes the Explorer and integrated terminal refer to that project workspace?"
+choices = ["Open only main.py from the Recent list", "Open the Python download page inside VS Code", "Create a new untitled editor and paste the code", "Choose File → Open Folder and select duskhaven"]
+answer = 3
+hint = "The workspace must be the folder that contains main.py, not merely the file tab."
+whyWrong = "A lone file tab can be open while the terminal is in another directory. Opening the duskhaven folder gives the Explorer and terminal one shared project root."
+explain = "A folder workspace is the durable home for the growing game and its terminal commands."
+
+[[lessons.exercises]]
+id = "s01-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the complete first line for <code>main.py</code>."
+code = 'print("Duskhaven: the lantern is lit.")'
+
+[[lessons.exercises]]
+id = "s01-l01-e2"
+type = "fill"
+points = 20
+prompt = "Complete the command that sends the lantern message to the terminal."
+code = '____("Duskhaven: the lantern is lit.")'
+answer = "print"
+hint = "Use the built-in command demonstrated in the first program; only its name is missing."
+whyWrong = "The blank is the command name, not the message or the parentheses. Python needs print to send this string to the terminal."
+
+[[lessons.exercises]]
+id = "s01-l01-e3"
+type = "text"
+points = 18
+prompt = "In VS Code, what keyboard action should you use after changing <code>main.py</code> so the disk copy is current before a run?"
+answer = "save"
+accept = ["ctrl+s", "cmd+s", "control+s", "command+s"]
+hint = "Look at the editor tab: its dot warns that the disk does not yet hold the latest thread."
+whyWrong = "Running uses the saved file on disk, not an unsaved intention in the editor. Save the changed file before testing it."
+
+[[lessons.exercises]]
+id = "s01-l01-w1"
+type = "write"
+points = 30
+prompt = "The lantern needs its first inscription. Starting from the runnable scaffold, write the <code>print()</code> line that produces exactly <code>Duskhaven: the lantern is lit.</code>."
+expect = '''Duskhaven: the lantern is lit.'''
+hint = "Place the exact message inside double quotes in the print call where the comment marks the missing line."
+starter = '''# main.py — first inscription
+# Add the exact lantern message here.
+'''
+solution = '''print("Duskhaven: the lantern is lit.")'''
+
+[[lessons]]
+id = "s01-l02"
+title = "Wake The Tools"
+teaches = ["tool-run-test", "python-program", "pygame-install", "pygame-import-check"]
+body = '''
+<p>Now strike the anvil, apprentice. In the integrated terminal beneath the <code>duskhaven</code> workspace, run <code>python --version</code>. If your machine calls the command <code>python3</code>, use that spelling consistently in this forge. The response should name Python 3. That command answers a crucial question: which interpreter will run <code>main.py</code>?</p>
+<p>Run your saved first program with <code>python main.py</code>. You should see the lantern line in the terminal. This is the loop we will keep: edit the real file, save it, run it from the project terminal, inspect the result. The green triangle in VS Code can be convenient, but the terminal command is clearer when something goes wrong because it shows both output and errors in one place.</p>
+<p>Duskhaven uses PyGame later to make a window, draw a map, and hear keys. Install that real library into this same Python interpreter with <code>python -m pip install pygame</code>. The <code>-m pip</code> form asks the Python you just checked to run its own package installer; it avoids the common split where one Python installs a package and another Python tries to run the game. After installation, replace <code>main.py</code> with this complete program and run it.</p>
+<pre><code>import pygame
+
+print("Duskhaven: the lantern is lit.")
+print("PyGame import: ready.")</code></pre>
+<p><code>import pygame</code> loads the library so Python can use it. This is not a window yet; window setup belongs to a later forge. Here the import is a gate test: if the two messages print, the interpreter can find PyGame. Keep this file as Duskhaven's canonical starting point. We will extend it, not multiply it.</p>
+<div class="callout">If VS Code's selected interpreter differs from the terminal's <code>python --version</code>, use the interpreter picker in the status bar and select the Python where you installed PyGame.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // PACKAGE OWNERSHIP</div><p><code>pip install pygame</code> can target a different Python when several versions exist. <code>python -m pip install pygame</code> binds installation to the executable named by <code>python</code>; that is why it is our forge command. Do not add <code>pygame.init()</code> yet—later threads will explain why and where it belongs.</p></div>
+'''
+
+[[lessons.readings]]
+label = "PyGame Documentation"
+url = "https://www.pygame.org/docs/"
+
+[[lessons.readings]]
+label = "Python Packaging User Guide — Installing Packages"
+url = "https://packaging.python.org/en/latest/tutorials/installing-packages/"
+
+[[lessons.exercises]]
+id = "s01-l02-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype the complete PyGame boundary check for <code>main.py</code>."
+code = '''import pygame
+
+print("Duskhaven: the lantern is lit.")
+print("PyGame import: ready.")'''
+
+[[lessons.exercises]]
+id = "s01-l02-e1"
+type = "fill"
+points = 22
+prompt = "Complete the import line that makes the installed game library available to <code>main.py</code>."
+code = 'import ____'
+answer = "pygame"
+hint = "Use the library name installed by the command ending in <code>install pygame</code>."
+whyWrong = "This blank names the module Python must load, not the package installer or the file name. The installed PyGame module is imported as pygame."
+
+[[lessons.exercises]]
+id = "s01-l02-e2"
+type = "mc"
+points = 20
+prompt = "Why is <code>python -m pip install pygame</code> safer than typing only <code>pip install pygame</code> when several Python installations might exist?"
+choices = ["It opens a PyGame window while installing", "It writes pygame into main.py automatically", "It makes the Python command run the package installer tied to that interpreter", "It changes every Python version on the computer into PyGame"]
+answer = 2
+hint = "Focus on the first word: which Python owns the installer that follows <code>-m</code>?"
+whyWrong = "The command does not create a window or alter source files. Its value is interpreter ownership: the same Python executable runs pip and later runs main.py."
+explain = "Tying pip to python prevents an installed package from being invisible to the interpreter that launches the game."
+
+[[lessons.exercises]]
+id = "s01-l02-w1"
+type = "write"
+points = 32
+prompt = "A courier records the successful library check. Add two print calls so the plain Python transcript records exactly the two lines shown. The real <code>import pygame</code> check remains in your external <code>main.py</code>."
+expect = '''Duskhaven: the lantern is lit.
+PyGame import: ready.'''
+hint = "Add one print for the lantern line and a second print for the PyGame-ready line; the first must come first."
+starter = '''# Add the lantern line here.
+# Add the PyGame-ready line here.
+'''
+solution = '''print("Duskhaven: the lantern is lit.")
+print("PyGame import: ready.")'''
+
+[[lessons]]
+id = "s01-l03"
+title = "Read The Smoke"
+teaches = ["tool-diagnose", "traceback-locate"]
+body = '''
+<p>A crash is not a verdict, apprentice. It is a lamp pointed at the loose thread. When <code>python main.py</code> fails, read the terminal from the bottom upward. The final line names the error kind and its message. Above it, a traceback lists the route Python took, including a file name and line number. Start with the last line in <code>main.py</code>; it is usually where your code asked for something Python could not do.</p>
+<p>Make this deliberate mistake after saving your working version: change <code>pygame</code> to <code>pygmae</code> in the import, save, and run. Python reports <code>ModuleNotFoundError</code> because it cannot find a module with that misspelled name. The repair is not a random reinstall. Return to the named line, restore <code>import pygame</code>, save, and run again. A successful run is the proof that the repair worked.</p>
+<pre><code>import pygame
+
+print("Duskhaven: the lantern is lit.")
+print("PyGame import: ready.")</code></pre>
+<p>Another common smoke signal is <code>ModuleNotFoundError: No module named 'pygame'</code> with the spelling correct. That says the running interpreter cannot see PyGame. First run <code>python --version</code> in this terminal. Then run <code>python -m pip install pygame</code> there, not in an unrelated terminal. If VS Code still underlines the import, select that same interpreter in the status bar. Read the exact message before choosing a repair: a misspelling and a missing installation are different breaks.</p>
+<p>Keep changes small while diagnosing. Change one suspicious line, save, run, and compare the new message. This turns a frightening wall of text into an experiment. You do not need to understand every traceback frame today. You need to locate your own file, use its line number, and make the evidence change.</p>
+<div class="callout">Never hide an error by deleting the line it points at unless you know why that line should not exist. Repair the owner of the failure; do not sweep the loom clean.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TWO KINDS OF ABSENCE</div><p>A misspelled import names a module that does not exist. A correctly spelled missing-module error usually means the wrong interpreter owns the run or PyGame was not installed into it. The traceback is a route map, not a command to panic.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python Errors and Exceptions"
+url = "https://docs.python.org/3/tutorial/errors.html"
+
+[[lessons.readings]]
+label = "PEP 8 — Style Guide for Python Code"
+url = "https://peps.python.org/pep-0008/"
+
+[[lessons.exercises]]
+id = "s01-l03-e1"
+type = "mc"
+points = 20
+prompt = "Your terminal ends with <code>ModuleNotFoundError: No module named 'pygmae'</code> after a run. What is the first focused repair?"
+choices = ["Change the import in main.py from pygmae back to pygame, then save and run", "Delete main.py so VS Code can make a clean file", "Add pygame.init() before the import", "Install a second copy of VS Code"]
+answer = 0
+hint = "Compare the missing module spelling with the library name you installed in the previous thread."
+whyWrong = "The message names pygmae, which is a spelling error in the source, not evidence that VS Code or initialization is broken. Restore the import spelling and verify with another run."
+explain = "Diagnose the exact named failure first: pygmae is not the pygame module."
+
+[[lessons.exercises]]
+id = "s01-l03-e2"
+type = "text"
+points = 18
+prompt = "A traceback names <code>main.py</code> and shows a line number. Which part of the traceback should you inspect first to find the most immediate error location?"
+answer = "the last line in main.py"
+accept = ["last main.py line", "the final main.py line", "the last frame in main.py"]
+hint = "Read upward from the bottom; the most recent frame is nearest the error message."
+whyWrong = "The top of a traceback is the earlier path into the program. The final frame that names your file is the immediate place to inspect before chasing library internals."
+
+[[lessons.exercises]]
+id = "s01-l03-e3"
+type = "fill"
+points = 22
+prompt = "Repair the load-bearing module name in this canonical import line."
+code = 'import ____'
+answer = "pygame"
+hint = "The exact module spelling has one y after p, then game."
+whyWrong = "Python imports module names exactly. The working canonical line imports pygame, so a transposed spelling points at a module that does not exist."
+
+[[lessons.exercises]]
+id = "s01-l03-w1"
+type = "write"
+points = 33
+prompt = "The forge log must make repair visible. Write both print calls so a successful plain-Python rerun records exactly <code>Repair checked: pygame import restored.</code> followed by <code>Duskhaven: the lantern is lit.</code>. Your external <code>main.py</code> keeps its working PyGame import above these messages."
+expect = '''Repair checked: pygame import restored.
+Duskhaven: the lantern is lit.'''
+hint = "Use two print calls in the requested order after the two comments."
+starter = '''# Record the repaired import here.
+# Relight the lantern here.
+'''
+solution = '''print("Repair checked: pygame import restored.")
+print("Duskhaven: the lantern is lit.")'''
+
+[[lessons.exercises]]
+id = "s01-l03-e4"
+type = "mc"
+points = 19
+prompt = "With <code>import pygame</code> spelled correctly, the terminal says <code>No module named 'pygame'</code>. Which next action best tests the likely boundary problem?"
+choices = ["Replace the import with a print message so the error disappears", "Copy the error into a comment and run again", "Rename main.py to pygame.py", "Run <code>python --version</code>, then use that same terminal's <code>python -m pip install pygame</code>"]
+answer = 3
+hint = "The goal is to connect the Python that runs the file to the installer that owns PyGame."
+whyWrong = "Correct spelling means the source may be fine; the likely issue is that PyGame was installed for another interpreter. Check the runner and install through that same Python."
+explain = "The terminal's python command is the authority for both version checking and python -m pip installation."
+
+[[lessons.exercises]]
+id = "s01-l03-e5"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the repaired canonical <code>main.py</code> before sealing the forge."
+code = '''import pygame
+
+print("Duskhaven: the lantern is lit.")
+print("PyGame import: ready.")'''

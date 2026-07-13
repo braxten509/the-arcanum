@@ -48,6 +48,12 @@ machine-generated (see the anti-template rules below).
 Escape literal `<`/`>` in code samples as `&lt;`/`&gt;`. Lessons should be
 300–600 words of body, concrete, code-first, and in the tome's voice.
 
+When `[content].capabilityLedger = true`, every lesson also has
+`teaches = ["stable-kebab-case-id", ...]`. Name observable abilities or implemented
+boundaries, not vague subjects: `json-save-boundary`, `editor-play-mode`, and
+`inventory-add-receipt` can be traced to code or tool actions; `saving` or `advanced`
+cannot. These ids are the mechanical bridge to the freestyle's `requires` list.
+
 **Every code sample must compile in the language the tome teaches.** The validator
 builds each `<pre><code>` block that is a whole program through the real toolchain
 (see §7), because the failure mode is not typos — it is writing the language you know
@@ -74,6 +80,21 @@ it in prose: a demonstrated claim is machine-checked on every validation run; ba
 prose is checked only by you, once — which is why it is where the lies survive.
 This covers `whyWrong` and `explain` text too: a wrong-answer explanation that
 misstates the language plants the misconception it exists to correct.
+
+**A cumulative project has one canonical source of truth.** If a later lesson changes
+an earlier class/module/file, either show a complete replacement that preserves every
+still-required member/import/behavior, or show member-only edits with the exact target
+file and insertion/replacement point. A whole `class` wrapper visually promises a
+complete replacement; never put an incomplete excerpt inside one. After changing a
+canonical API, re-read every exercise choice, answer, hint, `whyWrong`, `explain`, and
+freestyle line that names it—old feedback is still teaching, even when the body is fixed.
+
+**Cumulative does not mean immortal.** Temporary teaching scaffolds—terminal prompts,
+smoke-test calls, seeded state changes, debug prints, mock data, placeholder resources,
+and transitional APIs—must be listed in the Phase 1 Artifact lifecycle and explicitly
+removed, replaced, isolated, or declared part of the finished artifact. At each chapter
+boundary, trace execution from the entrypoint's first line; never preserve an old demo
+that blocks or mutates the real program the student is now building.
 
 **Multi-line code goes in a `'''…'''` block, never a `'…'` literal.** TOML's
 single-quoted literal string does not interpret escapes, so `code = 'a\nb'` ships the
@@ -269,6 +290,7 @@ cognitive load. Apply all four:
 [freestyle]
 title = "BUILD: The Verisearch Shell"
 brief = "Turn <code>Program.cs</code> into …<ul><li>requirement</li>…</ul>"  # HTML; the <ul> IS the requirements checklist (shown as "IT MUST")
+requires = ["cli-entry-loop", "validated-command"] # cumulative lesson `teaches` ids
 reward = 200            # pays reward * (score/100), * sRankMultiplier on an S;
                         # a re-grade pays only the improvement over the previous best
 packages = []           # allowed package installs for this op (dotnet tomes)
@@ -320,6 +342,11 @@ actually strict, state it concretely — the flavor text alone will not be enfor
 - Only atmospheric ("greets the seeker warmly")? The grader accepts any reasonable take — fine for soft goals, useless as a hard gate.
 Anything that MUST pass to earn the grade belongs in a rubric criterion too; the
 `<ul>` tells the student what to build, the `rubric` is what actually scores it.
+When the capability ledger is enabled, every checklist item and rubric criterion must
+trace to one or more ids in `freestyle.requires`; every required id must already appear
+in a lesson's `teaches` list in this or an earlier section. The validator enforces the
+ordering and spelling; the Phase 8 student audit verifies the lesson genuinely teaches
+what the id claims.
 
 **The through-line: one project, built up op by op.** Every section's freestyle
 extends the SAME evolving project (`runtime.project`) — section 1 stands up a

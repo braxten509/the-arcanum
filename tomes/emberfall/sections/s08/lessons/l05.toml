@@ -11,15 +11,15 @@ body = '''
 
     <span class="k">private</span> <span class="k">void</span> OnTriggerEnter2D(Collider2D other)
     {
-        <span class="k">if</span> (other.TryGetComponent&lt;Inventory&gt;(<span class="k">out</span> Inventory inventory))
+        <span class="k">if</span> (other.TryGetComponent&lt;Inventory&gt;(<span class="k">out</span> Inventory inventory)
+            &amp;&amp; inventory.Add(definition))
         {
-            inventory.Add(definition);
             Destroy(gameObject);
         }
     }
 }</code></pre>
 <p>Put ItemPickup and a trigger Collider2D on the potion prefab. Drag MinorPotion into <code>definition</code>. ArtificerRig still needs its Rigidbody2D and collision-layer discipline from Forge VI; the trigger callback depends on the same real physics arrangement. <code>TryGetComponent</code> is the component-safe cousin of the null-check pattern Forge VII used after GetComponent: it returns false when the collider is not an inventory carrier, so a wandering goblin cannot collect a player potion.</p>
-<p>Add is Inventory's public doorway. It finds a matching slot, stacks or appends, and can later ring an inventory event for UI. Destroying the pickup comes <em>after</em> Add succeeds. Reversing that order deletes the physical bottle before the player receives it. A pickup does not mutate ItemDefinition.Amount because there is no such per-player field on a shared definition.</p>
+<p>Add is Inventory's public doorway. It finds a matching slot, stacks or appends, then returns a bool receipt. Short-circuit <code>&amp;&amp;</code> means Add is called only after TryGetComponent found an Inventory, and the block runs only when both operations succeed. Destroying the pickup therefore comes after acceptance. A pickup does not mutate ItemDefinition.Amount because there is no such per-player field on a shared definition.</p>
 <p>Test in Play mode: walk through two MinorPotion pickups. The first makes one minor_potion slot; the second increases the same slot to two, and both world objects disappear. This is real scene behavior, not a console simulation.</p>
 <div class="callout">The trigger detects contact, Inventory owns the transaction, and ItemDefinition supplies the item being transacted.</div>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // DESTROY ONLY AFTER ACCEPTANCE</div><p>A later capacity rule may make Add return false. When that happens, only destroy the pickup if Inventory says it accepted the item. Designing the public boundary now keeps a future full-pack rule from eating loot by accident.</p></div>
@@ -39,9 +39,10 @@ type = "type"
 points = 13
 reps = 2
 prompt = "Retype the guarded component lookup that lets a pickup find Inventory on an entering collider."
-code = '''if (other.TryGetComponent<Inventory>(out Inventory inventory))
+code = '''if (other.TryGetComponent<Inventory>(out Inventory inventory)
+    && inventory.Add(definition))
 {
-    inventory.Add(definition);
+    Destroy(gameObject);
 }'''
 
 [[lessons.exercises]]

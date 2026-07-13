@@ -1,11 +1,14 @@
 """The validator gate, the cross-phase no-silent-shrinkage contract, and
 ground-truth content measuring (forecast + end-of-run plan reconciliation)."""
+import hashlib
 import os
 import subprocess
 import sys
 import tomllib
 
 from . import REPO, VALIDATOR
+
+RUNTIME_CONFIG_DIR = os.path.join(REPO, "global-configs", "runtimes")
 
 
 def validate(tid, strict=False, tooling=None, run=True):
@@ -58,14 +61,99 @@ def shrinkage(before, after):
     return probs
 
 
-def plan_shrink_marks(plan_path):
-    """How many `SHRINK OK` justification lines the plan carries — the escape hatch for
-    deliberate removals (a new mark during a phase accepts that phase's shrinkage)."""
+def shrink_marks(path):
+    """How many `SHRINK OK` lines the dedicated justification sidecar carries."""
     try:
-        with open(plan_path, encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return f.read().count("SHRINK OK")
     except OSError:
         return 0
+
+
+def runtime_config_inventory(root=RUNTIME_CONFIG_DIR):
+    """Content hashes for the shared runtime-directory write audit."""
+    out = {}
+    try:
+        names = os.listdir(root)
+    except OSError:
+        return out
+    for name in names:
+        path = os.path.join(root, name)
+        if os.path.isfile(path):
+            try:
+                with open(path, "rb") as f:
+                    out[name] = hashlib.sha256(f.read()).hexdigest()
+            except OSError:
+                pass
+    return out
+
+
+def review_inventory(tid, runtime_root=RUNTIME_CONFIG_DIR):
+    """Hashes of every authored tome file plus every runtime config.
+
+    Phase 8 uses this snapshot around one reviewer invocation.  Sidecars are excluded,
+    so writing the required verdict is not mistaken for an editorial repair; ``save/``
+    is excluded because it is learner state rather than authored course content.  The
+    runtime directory is included in full because the post-write scope audit separately
+    rejects changes to anything except the runtime selected by this tome.
+    """
+    root = os.path.join(REPO, "tomes", tid)
+    out = {}
+    if os.path.isdir(root):
+        for dirpath, dirs, names in os.walk(root):
+            dirs[:] = sorted(d for d in dirs if d != "save")
+            for name in sorted(names):
+                path = os.path.join(dirpath, name)
+                if not os.path.isfile(path):
+                    continue
+                key = os.path.relpath(path, REPO).replace(os.sep, "/")
+                try:
+                    with open(path, "rb") as f:
+                        out[key] = hashlib.sha256(f.read()).hexdigest()
+                except OSError:
+                    pass
+    for name, digest in runtime_config_inventory(runtime_root).items():
+        out[f"global-configs/runtimes/{name}"] = digest
+    return out
+
+
+def review_changes(before, after):
+    """Human-readable authored-file changes between two Phase-8 snapshots."""
+    changes = []
+    for path in sorted(before.keys() | after.keys()):
+        if path not in before:
+            kind = "ADDED"
+        elif path not in after:
+            kind = "DELETED"
+        elif before[path] != after[path]:
+            kind = "MODIFIED"
+        else:
+            continue
+        changes.append(f"{kind}: {path}")
+    return changes
+
+
+def selected_runtime_config(tid):
+    try:
+        with open(os.path.join(REPO, "tomes", tid, "tome.toml"), "rb") as f:
+            runtime = tomllib.load(f).get("runtime")
+    except (OSError, tomllib.TOMLDecodeError):
+        return None
+    if not isinstance(runtime, dict):
+        return None
+    name = runtime.get("name")
+    return str(name) + ".toml" if name else None
+
+
+def runtime_config_scope_violations(before, allowed, root=RUNTIME_CONFIG_DIR):
+    """A runtime-writing phase may alter only the runtime selected by its tome."""
+    after = runtime_config_inventory(root)
+    changed = sorted(name for name in before.keys() | after.keys()
+                     if before.get(name) != after.get(name))
+    wrong = [name for name in changed if name != allowed]
+    return (["runtime config OUT OF SCOPE: " + ", ".join(wrong)
+             + f" (this tome selects {allowed or 'no valid runtime'}; restore every other file)"]
+            if wrong else [])
 
 
 def measure(tid):

@@ -1,0 +1,67 @@
+[[lessons]]
+id = "s04-l02"
+title = "Read A Hoard By Position"
+teaches = ["python-list-index", "python-zero-based-index", "python-list-index-expression"]
+body = '''
+<p>A list gives each item a numbered position called an <strong>index</strong>. Python begins those positions at zero: the first supply is index <code>0</code>, the second is <code>1</code>. This is a machine-facing count, unlike the human-facing watch rounds that began at one in Forge III. The difference is intentional, and the future map grid will use the same zero-based positions.</p>
+<p>Keep the supply hoard from the prior thread. Add this member-only report beneath it in the same canonical <code>main.py</code>. The brackets after a list name mean “give me the item at this position.”</p>
+<pre><code>first_supply = town_supplies[0]
+last_supply = town_supplies[3]
+
+print(f"First supply: {first_supply}")
+print(f"Last supply: {last_supply}")</code></pre>
+<p>Because <code>append</code> made torch the fourth item, its index is <code>3</code>, not <code>4</code>. The assignments make the lookups visible: <code>first_supply</code> receives the string <code>"oil"</code>, then the f-string from Forge II weaves that stored value into a report. Indexing is not a new kind of loop and it does not alter the list; it asks for one existing item.</p>
+<p>Count positions carefully. Asking a four-item list for <code>town_supplies[4]</code> goes one step past its end and raises an error. Do not patch that error by changing the list at random. Read the index and count the available positions: 0, 1, 2, 3. The terminal output should say <code>First supply: oil</code> and <code>Last supply: torch</code>.</p>
+<p>Use a descriptive lookup name when the selected item has a job. It makes later code easier to read than repeatedly hiding <code>[0]</code> inside a sentence. We will soon use a <code>for</code> loop when every item matters; indexing is for a particular known position.</p>
+<div class="callout">First does not mean index one. Touch the first list item with <code>[0]</code>, then count forward.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // POSITIONS AND LABELS</div><p>The number in <code>range(2)</code> was a stop boundary; the number in <code>town_supplies[2]</code> is a requested position. Both use zero-based values, but one produces a sequence while the other retrieves one item.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python Tutorial — List Indexing"
+url = "https://docs.python.org/3/tutorial/introduction.html#lists"
+
+[[lessons.exercises]]
+id = "s04-l02-e1"
+type = "mc"
+points = 22
+prompt = "With <code>town_supplies = [&quot;oil&quot;, &quot;bread&quot;, &quot;bandage&quot;, &quot;torch&quot;]</code>, which expression retrieves <code>&quot;bread&quot;</code>?"
+choices = ["town_supplies[1]", "town_supplies[0]", "town_supplies[2]", "town_supplies[4]"]
+answer = 0
+hint = "Oil owns position 0, so move one position forward for bread."
+whyWrong = "The plausible slip is counting the first item as one or choosing the later bandage position. Python starts list indexes at zero, so bread is at 1."
+explain = "A list's second element follows the first zero-based position and therefore uses index 1."
+
+[[lessons.exercises]]
+id = "s04-l02-e2"
+type = "text"
+points = 19
+prompt = "What zero-based index retrieves the first item from any nonempty Python list?"
+answer = "0"
+hint = "Recall the first supply report: its brackets hold the machine's first position."
+whyWrong = "Human ordinals start with first, but Python list positions begin at zero. Index 1 would retrieve the second item."
+
+[[lessons.exercises]]
+id = "s04-l02-e3"
+type = "fill"
+points = 23
+prompt = "Complete the precise lookup that assigns the first listed supply to first_supply."
+code = 'first_supply = town_supplies[____]'
+answer = "0"
+hint = "Use the same first-position number that makes the report say First supply: oil."
+whyWrong = "The bracket value is a position, not the number of total supplies. In a zero-based list, oil occupies position 0."
+
+[[lessons.exercises]]
+id = "s04-l02-w1"
+type = "write"
+points = 34
+prompt = "The route list is <code>[&quot;harbor&quot;, &quot;gate&quot;, &quot;tower&quot;]</code>. Retrieve its third item by index, store it in <code>final_stop</code>, and use an f-string to print exactly <code>Final stop: tower</code>."
+expect = '''Final stop: tower'''
+hint = "The third listed value has zero-based index 2; put final_stop inside braces in the requested f-string."
+starter = '''route_stops = ["harbor", "gate", "tower"]
+
+# Retrieve the final listed stop, then report it.
+'''
+solution = '''route_stops = ["harbor", "gate", "tower"]
+final_stop = route_stops[2]
+print(f"Final stop: {final_stop}")'''

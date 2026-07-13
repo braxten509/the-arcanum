@@ -1,0 +1,84 @@
+[[lessons]]
+id = "s15-l01"
+title = "Pack A True Satchel"
+teaches = ["item-record-dict", "inventory-list-owner", "player-maximum-health", "inventory-item-lookup"]
+body = '''
+<p>A potion is not merely the word “potion,” apprentice. It has named facts: what the player sees and what the drink does. Forge IV's dictionary is the proper record for those facts, while its list is the proper ordered satchel. Add the item record beside the existing top-level battle construction in canonical <code>main.py</code>. In the existing <code>Player.__init__</code> method, add only the following two assignments: place <code>max_health</code> immediately after <code>self.health = health</code>, and place <code>inventory</code> after the existing defense assignment. Do not replace Player, make a second class, or alter its Forge XIV report and wound methods.</p>
+<pre><code>healing_potion = {
+    "name": "Ember Tonic",
+    "heal": 5,
+}</code></pre>
+<ol><li>Inside the existing initializer, add <code>self.max_health = health</code> after the health assignment.</li><li>After the defense assignment in that same initializer, add <code>self.inventory = []</code>.</li></ol>
+<p>After <code>player = Player("Mira", 12, 5, 2)</code>, add <code>player.inventory.append(healing_potion)</code>. The list begins empty for each new Player; that is why it is made inside <code>__init__</code>, not as one loose town list. <code>append</code> reaches back to Forge IV and puts the dictionary itself at index 0. The lookup <code>player.inventory[0]["name"]</code> is read left to right: select the first carried record, then select its name field.</p>
+<p><code>max_health</code> begins as the received health, 12 for Mira. Current <code>health</code> can fall during battle; the maximum is the ceiling a future tonic will respect. Keep both fields on Player rather than inventing <code>mira_max_hp</code> at the file margin. Run the external game. If an initializer traceback says an argument is missing, find every old Player construction and keep its four combat values. If a key error appears, inspect the quoted dictionary key; <code>"heal"</code> and <code>"health"</code> are different facts.</p>
+<div class="callout">A dictionary describes one carried thing. The inventory list says which thing the particular traveler actually carries.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TWO BRACKETS, TWO QUESTIONS</div><p><code>player.inventory[0]["heal"]</code> uses brackets twice for different layers: index 0 finds a list position, then the quoted key finds a named value in that record. Keeping those questions separate prevents the usual “first item” versus “heal amount” tangle.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python Tutorial — Lists and Dictionaries"
+url = "https://docs.python.org/3/tutorial/datastructures.html"
+
+[[lessons.exercises]]
+id = "s15-l01-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the complete Ember Tonic record with its two named facts."
+code = '''healing_potion = {
+    "name": "Ember Tonic",
+    "heal": 5,
+}'''
+
+[[lessons.exercises]]
+id = "s15-l01-e1"
+type = "mc"
+points = 31
+prompt = "After Mira appends <code>healing_potion</code>, which expression reads the amount that first carried tonic can restore?"
+choices = ["player.inventory[\"heal\"]", "player.inventory.heal[0]", "player.inventory[0][\"heal\"]", "healing_potion[0][\"heal\"]"]
+answer = 2
+hint = "First choose one record from Mira's list at zero-based position 0; only then look up its quoted heal key."
+whyWrong = "The plausible mistake is treating a list like a dictionary or reversing the two lookup layers. Inventory needs an index first, and the selected dictionary then needs its named key."
+explain = "Index 0 returns the first potion record; its heal key maps to 5."
+
+[[lessons.exercises]]
+id = "s15-l01-e2"
+type = "fill"
+points = 27
+prompt = "Restore the Player attribute that remembers the ceiling a healing item must not cross."
+code = '''        self.health = health
+        self.____ = health
+        self.attack = attack'''
+answer = "max_health"
+hint = "This two-word snake_case field begins at the same received health but remains the future healing ceiling."
+whyWrong = "health is the changing current value and attack is a damage stat. max_health names the separate upper boundary established for potion recovery."
+
+[[lessons.exercises]]
+id = "s15-l01-e3"
+type = "text"
+points = 25
+prompt = "Which list method from Forge IV adds the complete tonic dictionary to the end of Mira's inventory?"
+answer = "append"
+hint = "Recall how torch joined town_supplies without replacing the list."
+whyWrong = "pop removes and returns an existing item, while index brackets only retrieve one. append is the list operation that adds this record at the end."
+
+[[lessons.exercises]]
+id = "s15-l01-w1"
+type = "write"
+points = 40
+prompt = "Create an <code>ember_tonic</code> dictionary with <code>name</code> set to <code>Ember Tonic</code> and <code>heal</code> set to <code>5</code>. Append it to the supplied empty <code>inventory</code>, then compute the first record's name and heal value with nested lookups. Print exactly <code>Satchel: Ember Tonic restores 5 HP</code>."
+expect = '''Satchel: Ember Tonic restores 5 HP'''
+hint = "Append ember_tonic, then use inventory[0]['name'] and inventory[0]['heal'] inside the final f-string."
+starter = '''inventory = []
+
+# Create the tonic record, pack it, and report its nested facts.
+'''
+solution = '''inventory = []
+
+ember_tonic = {
+    "name": "Ember Tonic",
+    "heal": 5,
+}
+inventory.append(ember_tonic)
+
+print(f"Satchel: {inventory[0]['name']} restores {inventory[0]['heal']} HP")'''

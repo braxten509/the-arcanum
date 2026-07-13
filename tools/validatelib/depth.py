@@ -81,6 +81,7 @@ def check_taught_before_used(sections_data):
     taught_idents = set()   # every identifier mentioned in any body up to the PREVIOUS section
     first_api = {}          # API-shaped token -> earliest section index mentioning it
     for i, sd in enumerate(sections_data):
+        sid = sd.get("id") or f"section {i + 1}"
         lessons = [l for l in (sd.get("lessons") or []) if isinstance(l, dict)]
         body_all = " ".join(re.sub(r"<[^>]+>", " ", str(les.get("body") or "")) for les in lessons)
         body_all += " " + re.sub(r"<[^>]+>", " ", str(sd.get("brief") or ""))
@@ -99,17 +100,31 @@ def check_taught_before_used(sections_data):
                 given.append(_code_span_text(ex.get("prompt")))
         fs = sd.get("freestyle")
         if isinstance(fs, dict):
-            given.append(_code_span_text(fs.get("brief")))
+            freestyle_given = " ".join([_code_span_text(fs.get("brief")),
+                                          _code_span_text(fs.get("xray"))] +
+                                         [_code_span_text(row.get("desc"))
+                                          for row in (fs.get("rubric") or [])
+                                          if isinstance(row, dict)])
+            given.append(freestyle_given)
             used_api |= _api_tokens(_code_span_text(fs.get("brief")))
         invented = []
         for recv, member in _DOTTED_CALL.findall(_unescape(" ".join(given))):
             if recv not in taught_incl and member not in taught_incl and f"{recv}.{member}" not in invented:
                 invented.append(f"{recv}.{member}")
         if invented:
-            sid = sd.get("id") or f"section {i + 1}"
             shown = ", ".join(invented[:5]) + (f" (+{len(invented) - 5} more)" if len(invented) > 5 else "")
             warn("content", f"{sid}: prompt/brief code calls API(s) no lesson mentions: "
                  f"{shown} — §3: use only what a lesson taught. (Teach it, or fix the name.)")
+        if isinstance(fs, dict):
+            untaught_methods = sorted({f"{recv}.{member}"
+                                       for recv, member in _DOTTED_CALL.findall(_unescape(freestyle_given))
+                                       if member not in taught_incl})
+            if untaught_methods:
+                shown = ", ".join(untaught_methods[:5]) + (
+                    f" (+{len(untaught_methods) - 5} more)" if len(untaught_methods) > 5 else "")
+                warn("coverage", f"{sid}: freestyle calls method(s) no lesson body up to this "
+                     f"section mentions: {shown} — a capstone may not invent the final API; teach "
+                     "the method and its implementation first")
 
         # #8: does this section's API vocabulary reach back to an earlier section?
         if i >= 2 and used_api:

@@ -1,0 +1,75 @@
+[[lessons]]
+id = "s16-l03"
+title = "Deliver The Lit Realm"
+teaches = ["save-key-routing", "save-status-feedback", "tool-package-build", "tool-deliver", "delivery-end-to-end-proof"]
+body = '''
+<p>The seal needs hands in the living game before it can leave this study, apprentice. In the existing <code>pygame.KEYDOWN</code> ladder, add these complete branches after the battle-only H branch and before the Escape branch. They reuse the one event queue and use the existing <code>battle_message</code> card for visible feedback. F5 and F9 are global utility keys here, so they may work in any scene; neither creates a loop, changes a renderer, or reaches for terminal <code>input()</code>.</p>
+<pre><code>elif event.key == pygame.K_F5:
+    battle_message = save_game(player)
+elif event.key == pygame.K_F9:
+    battle_message = load_save_data(player)</code></pre>
+<p>Run from VS Code first. Reach battle through title → Enter → M → B, use H or Space so Player state changes, press F5, and confirm the message <code>World sealed.</code> plus a new <code>duskhaven_save.json</code> beside <code>main.py</code>. Close normally, reopen, press F9, and confirm <code>World restored.</code> with the saved HUD facts. Rename the save temporarily or replace its text with <code>{not json}</code>; F9 must instead say <code>No valid seal found.</code> and the game must remain open. Restore or delete that test file afterward.</p>
+<p>Now deliver the real program. In the project terminal, install the packager into the same Python with <code>python -m pip install pyinstaller</code>. Then, while standing in the folder containing <code>main.py</code>, run <code>python -m PyInstaller --onefile --windowed --name Duskhaven main.py</code>. This creates the delivered launcher in <code>dist</code>: <code>dist/Duskhaven.exe</code> on Windows and <code>dist/Duskhaven</code> on macOS/Linux. Open that launcher from your file manager or terminal—not the VS Code Run button—and repeat title → battle → F5 → close → relaunch → F9. Hand your friend the platform-matching launcher; a Windows build is not a Linux or macOS build.</p>
+<p>If PyInstaller says it cannot find <code>pygame</code>, repeat its install with the same <code>python -m</code> interpreter and rerun the package command. If the delivered game does not show its save, launch it from the folder holding the launcher: this forge intentionally keeps the sidecar JSON beside the program's working folder. A packaged executable is a delivery test, not permission to skip the source run.</p>
+<div class="callout">The final proof has two lights: the packaged launcher opens outside the authoring surface, and its saved change survives a close-and-relaunch cycle.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // PLATFORM FORGES</div><p>PyInstaller bundles for the platform where you build. Make one delivery on each target platform if you need several kinds of friend. The game uses drawn shapes and text in this tome, so no unstated art folder is required; the generated JSON save is the only companion file.</p></div>
+'''
+
+[[lessons.readings]]
+label = "PyGame Documentation — Key Constants"
+url = "https://www.pygame.org/docs/ref/key.html"
+
+[[lessons.readings]]
+label = "PyInstaller Manual — Usage"
+url = "https://pyinstaller.org/en/stable/usage.html"
+
+[[lessons.exercises]]
+id = "s16-l03-e1"
+type = "mc"
+points = 36
+prompt = "What is the required end-to-end delivery proof for Duskhaven?"
+choices = ["Only see a successful PyInstaller command in VS Code's terminal", "Only confirm that duskhaven_save.json exists before closing", "Open the launcher outside VS Code, save changed state, close it, relaunch it, and restore that state", "Copy main.py to a friend without running it"]
+answer = 2
+hint = "A delivery proof must exercise the artifact after the authoring surface is no longer running it."
+whyWrong = "A build command and a file's existence do not prove the delivered launcher runs or restores anything, while an untested source copy is not a packaged handoff. The complete proof crosses launch, save, close, relaunch, and load."
+explain = "That sequence proves both the standalone artifact and the persistence contract at their real boundary."
+
+[[lessons.exercises]]
+id = "s16-l03-e2"
+type = "fill"
+points = 31
+prompt = "Restore the PyGame key constant that calls the existing save_game helper from the one KEYDOWN ladder."
+code = '''elif event.key == pygame.____:
+    battle_message = save_game(player)'''
+answer = "K_F5"
+hint = "Use PyGame's upper-case function-key spelling for F5, not the string 'F5'."
+whyWrong = "K_F9 is the restore control, K_h consumes a tonic only in live battle, and a raw string is not the event key constant. K_F5 routes the save action."
+
+[[lessons.exercises]]
+id = "s16-l03-e3"
+type = "text"
+points = 29
+prompt = "Which folder contains the launcher made by the taught PyInstaller command?"
+answer = "dist"
+hint = "The command's normal output folder is named with four lower-case letters; it is not the source folder or the save file."
+whyWrong = "main.py remains source, and build is an intermediate work folder. dist is the output location containing the named delivered launcher."
+
+[[lessons.exercises]]
+id = "s16-l03-w1"
+type = "write"
+points = 45
+prompt = "A delivery checker receives <code>launcher_opened = True</code>, <code>saved = True</code>, and <code>restored = True</code>. Use one Boolean expression so it reports success only when all three proofs hold. Print exactly <code>Delivered proof: True</code> from the supplied values."
+expect = '''Delivered proof: True'''
+hint = "Join launcher_opened, saved, and restored with and, then place the resulting Boolean in the f-string."
+starter = '''launcher_opened = True
+saved = True
+restored = True
+
+# Combine every delivery proof; no one signal is enough by itself.
+'''
+solution = '''launcher_opened = True
+saved = True
+restored = True
+
+delivered = launcher_opened and saved and restored
+print(f"Delivered proof: {delivered}")'''

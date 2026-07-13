@@ -6,14 +6,12 @@ what a strong tome looks like and where the common weaknesses hide. Read the
 whole tome first, judge it against the checks below, then apply the
 **highest-value** improvements you can.
 
-Read these alongside this file — their rules bind everything you add here:
+Use these as references; open the parts relevant to the files you actually change:
 
 - `course-configuration-guide.md` — the file/field map and the hard rules.
-- `tome-authoring/3-chapters.md` (§3) — the pedagogy spec: the anti-template
-  rules and the learning-design rules. **Every lesson, exercise, hint, `explain`,
-  or `whyWrong` you add must obey §3 exactly as if you were authoring it fresh** —
-  varied shape, exercise-specific wording, diagnostic distractors, spread mc
-  answer indices, the type→fill→write fading ladder, cumulative concepts.
+- `tome-authoring/3-chapters.md` (§3) — consult its relevant field and pedagogy
+  sections before changing lessons or exercises. New teaching still follows its
+  varied shape, exercise-specific feedback, fading, and cumulative-learning rules.
 
 Hard rules that still bind you here:
 
@@ -57,18 +55,12 @@ tome up.
 
 ## Truth discipline — don't assert what you haven't verified
 
-You generally cannot verify a behavioral claim against the compiler the way an
-author must (§3's rule). So: **only assert in an
-`explain`, `whyWrong`, hint, or lesson sentence what the lesson's own prose or
-code blocks already demonstrate, or what you are certain of.** Never introduce a
-new claim about the language's behavior from memory — a wrong explanation plants
-the exact misconception it exists to correct, and the validator compiles code
-but cannot fact-check a sentence. If an improvement needs a new *demonstrated*
-behavior, add it as a code block consistent with the samples already present
-(the validator will build whole-program samples through the real toolchain when
-it runs). Any new code you add — samples, starters, solutions — must compile in
-the tome's language; when unsure of an idiom, stay within the patterns the tome
-already uses.
+Verify new behavioral claims instead of relying on memory. Use the installed
+toolchain and disposable files under `/tmp`; use current official documentation
+when behavior is version-sensitive. Any new sample, starter, or solution must
+compile in the tome's language. The validator checks executable artifacts but
+cannot fact-check prose, so record only conclusions your toolchain or sources
+support.
 
 ## What to look for (highest-value first)
 
@@ -152,8 +144,8 @@ of manufacturing changes to show work.
 ## When done (mandatory)
 
 Validate: `python3 tools/validate_tome.py tomes/<id>` — 0 errors, and don't
-introduce new WARNs. (The harness runs it the moment you finish — don't run it
-yourself.)
+introduce new WARNs. Run it while the changes are still in context, repair its
+complete report, and rerun until clean; the harness repeats it independently.
 End with one short paragraph, in the mentor's voice, naming exactly which files
 you changed and what you improved — and what you judged already strong or left
 for a future pass — so the author can iterate again from there.

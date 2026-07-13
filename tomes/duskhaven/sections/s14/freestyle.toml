@@ -1,0 +1,36 @@
+[freestyle]
+title = "BUILD: Make The Battle Card Bite"
+brief = '''<p>The threshold now opens onto steel, apprentice. Extend the real external <code>duskhaven/main.py</code> from Forge XIII. Preserve one display, one Clock/tick, one event queue, QUIT/clean quit, scene doors, overworld gate, map, collision, camera, dialogue, and title/menu card helper. Do not create a second program, file, loop, display, Clock, class declaration, terminal <code>input()</code>, or duplicate health/stat variables.</p><ul><li>Replace canonical <code>Player</code> and <code>Enemy</code> with complete versions whose initializers store <code>name</code>, <code>health</code>, <code>attack</code>, and <code>defense</code>; retain <code>report_status</code> and <code>take_damage</code>. Wounds subtract supplied damage and clamp negative health to <code>0</code>. Construct <code>Player("Mira", 12, 5, 2)</code> and <code>Enemy("Mist Wolf", 8, 4, 1)</code>.</li><li>Define <code>calculate_damage(attacker, defender)</code>. Return <code>attacker.attack - defender.defense</code>, except a result below <code>1</code> becomes <code>1</code>; keep calculation separate from wounds.</li><li>Own <code>battle_message = "Press Space to strike."</code> and <code>battle_over = False</code> outside the loop. In existing <code>pygame.KEYDOWN</code>, Space in <code>SCENE_BATTLE</code> while <code>not battle_over</code> makes Mira strike first; if Mist Wolf reaches 0, visibly announce Mira's win and end battle. Otherwise Mist Wolf answers once; if Mira reaches 0, visibly announce loss and end battle. Extra Space presses after either outcome must not change health.</li><li>Define <code>draw_battle_screen(screen, player, enemy, battle_message, scene_font)</code>. It fills, renders, and blits <code>Trial by Steel</code>, both names with current HP/ATK/DEF, and the battle message. Before existing <code>pygame.display.flip()</code>, use it for <code>SCENE_BATTLE</code> and retain <code>draw_scene_card</code> for title/menu.</li><li>Run Duskhaven from VS Code outside this study. Verify title → Enter → overworld → M → menu → B reaches live battle; Space changes wolf HP, permits an answer only for a surviving wolf, shows win/loss at 0 HP, and locks the result; Escape, arrows, dialogue, collision, and close still work.</li></ul>'''
+requires = ["python-class-declaration", "python-init-method", "python-instance-attributes", "python-object-method-call", "python-function-define", "python-function-parameter", "python-return-value", "python-if-branch", "pygame-event-queue", "pygame-keydown-event", "pygame-key-constants", "pygame-quit-event", "pygame-clean-quit", "pygame-surface-blit", "pygame-surface-fill", "pygame-font-render-surface", "pygame-display-flip", "scene-state-owner", "scene-name-constants", "scene-active-input-routing", "scene-overworld-gate", "scene-card-renderer", "combat-stat-owner", "combat-health-clamp", "combat-damage-formula", "combat-minimum-damage", "combat-damage-return", "combat-battle-state-owner", "combat-player-turn", "combat-enemy-response", "combat-outcome-lock", "combat-battle-screen-render", "combat-battle-hud-text", "combat-scene-loop-integration"]
+reward = 420
+xray = "I dock embers for duplicate classes or shadow stats, a reversed formula, health below zero, a fallen wolf replying, repeated strikes after an outcome, hidden state, a second loop/display, or a renderer that changes health. I reward clear owners, readable live numbers, and older scene/overworld seams that still hold."
+
+[freestyle.badge]
+id = "badge-s14"
+name = "STEELWOVEN"
+desc = "Turned a painted preview into a battle that answers, ends, and tells the truth."
+
+[[freestyle.rubric]]
+criterion = "Owns Combat Stats And Wounds"
+weight = 20
+desc = "Complete canonical Player and Enemy classes own name, health, attack, and defense; retain report_status and take_damage; required constructions are present; wounds clamp to 0 without shadow stats."
+
+[[freestyle.rubric]]
+criterion = "Calculates A Fair Strike"
+weight = 15
+desc = "calculate_damage(attacker, defender) reads attacker.attack minus defender.defense, returns the result, and applies a minimum of 1; calculation is neither hidden in drawing nor duplicated."
+
+[[freestyle.rubric]]
+criterion = "Resolves Ordered Turns And Outcomes"
+weight = 25
+desc = "Existing KEYDOWN accepts Space only in SCENE_BATTLE while not battle_over; Mira strikes first, a surviving Mist Wolf answers once, either 0-HP outcome sets visible result and battle_over, and later Space leaves health unchanged."
+
+[[freestyle.rubric]]
+criterion = "Renders And Integrates The Live Trial"
+weight = 25
+desc = "draw_battle_screen fills and visibly renders/blits Trial by Steel, current name/HP/ATK/DEF, and battle_message; it is selected for SCENE_BATTLE before flip while title/menu cards, overworld, Escape, dialogue, collision, and close remain functional."
+
+[[freestyle.rubric]]
+criterion = "Worldwright's Python Craft"
+weight = 15
+desc = "Uses CapWords class names, descriptive snake_case functions and variables, UPPER_CASE scene constants, four-space indentation, one space around operators, and clear helper boundaries in one main.py without duplicate classes, loops, displays, or blocking input()."

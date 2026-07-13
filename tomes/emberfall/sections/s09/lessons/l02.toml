@@ -31,7 +31,10 @@ body = '''
         dialogueController.Begin(openingLines);
     }
 }</code></pre>
-<pre><code><span class="k">public</span> <span class="k">class</span> PlayerInteractor : MonoBehaviour
+<pre><code><span class="k">using</span> UnityEngine;
+<span class="k">using</span> UnityEngine.InputSystem;
+
+<span class="k">public</span> <span class="k">class</span> PlayerInteractor : MonoBehaviour
 {
     [SerializeField] <span class="k">private</span> DialogueController dialogue;
     <span class="k">private</span> NPCInteractable nearby;
@@ -43,7 +46,7 @@ body = '''
         <span class="k">if</span> (dialogue.IsOpen) dialogue.Advance(); <span class="k">else</span> nearby?.Interact();
     }
 }</code></pre>
-<p><code>string[]</code> is an array: a fixed ordered group of strings, useful when the Inspector authors a short sequence of lines. Unlike Forge II's List, you do not call Add here at runtime. Drag DialogueController into its reference and type the lines into openingLines. Tag ArtificerRig <code>Player</code>; CompareTag guards against a goblin, pickup, or stray collider opening the keeper's conversation.</p>
+<p>These are two files, <code>NPCInteractable.cs</code> and <code>PlayerInteractor.cs</code>; never paste both public MonoBehaviours into one file. Attach PlayerInteractor to the same ArtificerRig root that carries the Player tag, so GetComponentInParent can find it even when the entering collider sits on a child. <code>string[]</code> is a fixed ordered group useful when the Inspector authors a short sequence. Drag DialogueController into its references and type the lines into openingLines.</p>
 <p>Make the NPC collider a trigger and preserve the Rigidbody2D/collider discipline from Forge VI. In the player input script, only call the nearby target's public Interact method; do not let it reach inside and set playerInRange. If the player leaves range, Interact returns without beginning dialogue. That guard means input alone never talks through walls or across the map.</p>
 <p>The C# bench models the reach boolean and the public doorway. It does not simulate physics or keyboard input; those are Unity callbacks and Input System wiring. Its point is to make the gate test explicit before you assemble it in a scene.</p>
 <div class="callout">The trigger answers “may this NPC be addressed?”; Interact answers “begin this NPC's conversation now.” They are not the same job.</div>

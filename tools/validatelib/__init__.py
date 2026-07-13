@@ -3,6 +3,7 @@
 - themes     the 22-ink palette contract + palette distinctness
 - content    sections/lessons/exercises, anti-template, density, content-quality gates
 - attacks    attack bank, attacks_src sync, hex-defense intrusions
+- coverage   capability-ledger ordering and cumulative C# type handoffs
 - depth      taught-before-used, verbatim prose, economy totals, static pre-solved tell,
              identifier-spelling drift, self-answering questions
 - execute    the --run checks: snippet compilation, starter build/run/pre-solved

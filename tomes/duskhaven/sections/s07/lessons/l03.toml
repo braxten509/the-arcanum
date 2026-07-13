@@ -1,0 +1,82 @@
+[[lessons]]
+id = "s07-l03"
+title = "Present A Steady Frame"
+teaches = ["pygame-display-flip", "pygame-clock-create", "pygame-fps-cap", "pygame-window-loop-wiring"]
+body = '''
+<p>The close-aware loop can now remain alive, but a living game must mark out frames. Add the following <strong>members only</strong> to the existing top-level window code from Threads I and II: put <code>clock = pygame.time.Clock()</code> after the caption and before <code>running = True</code>; put the two indented frame lines after the event <code>for</code> loop but still inside <code>while running:</code>. Do not create a second loop, second <code>screen</code>, or second call to <code>pygame.init()</code>.</p>
+<pre><code>clock = pygame.time.Clock()</code></pre>
+<pre><code>    pygame.display.flip()
+    clock.tick(60)</code></pre>
+<p><code>pygame.time.Clock()</code> makes a Clock object that measures time for this game loop. Keep it in the named variable <code>clock</code>, just as <code>screen</code> names the display Surface. <code>clock.tick(60)</code> asks the loop not to exceed roughly 60 iterations per second. It is a frame-rate cap, not movement code and not a guarantee that every computer produces exactly 60 frames. Delta-time movement arrives only after movement itself in Forge IX.</p>
+<p><code>pygame.display.flip()</code> presents the complete display Surface to the screen. Today we have not drawn any sprites or filled a background, so a plain window is an honest result. Still call <code>flip()</code> once per frame: later Forge VIII will draw on <code>screen</code> before this same presentation step. Put <code>flip()</code> after event handling so close requests are heard before another frame is presented; put <code>clock.tick(60)</code> after it so the completed frame is the one paced.</p>
+<p>Your final top-level order is therefore: earlier Duskhaven terminal and object work; <code>pygame.init()</code>; <code>screen</code> and caption; <code>clock</code>; <code>running</code>; one <code>while</code> loop that drains events, flips, and ticks; then one <code>pygame.quit()</code>. Run it externally, keep the unadorned window open for several seconds, and close it. If the machine grows hot or the loop races, check that <code>clock.tick(60)</code> is indented inside the loop rather than after it.</p>
+<div class="callout">A frame has an order: receive messages, prepare the Surface, present it, then pace the next turn. Keep that loom order; later drawing and movement will slot into it.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // PRESENTING IS NOT DRAWING</div><p><code>flip()</code> makes display changes visible; it does not create those changes. Forge VIII supplies drawing calls, and Forge IX supplies time-scaled movement. Separating those jobs now prevents a future loop from becoming a tangle.</p></div>
+'''
+
+[[lessons.readings]]
+label = "PyGame Time — Clock and tick"
+url = "https://www.pygame.org/docs/ref/time.html#pygame.time.Clock.tick"
+
+[[lessons.readings]]
+label = "PEP 8 — Naming and Code Layout"
+url = "https://peps.python.org/pep-0008/"
+
+[[lessons.exercises]]
+id = "s07-l03-e1"
+type = "text"
+points = 21
+prompt = "Which PyGame call presents the full display Surface after a frame's work is ready?"
+answer = "pygame.display.flip()"
+accept = ["pygame.display.flip", "flip", "pygame.display.flip()"]
+hint = "It belongs after event handling and before clock.tick(60); it is not the set_mode call that created the window."
+whyWrong = "set_mode creates or replaces the display Surface, and tick paces the loop. pygame.display.flip() is the presentation call that makes the full Surface visible."
+
+[[lessons.exercises]]
+id = "s07-l03-e2"
+type = "mc"
+points = 25
+prompt = "Where does <code>clock.tick(60)</code> belong in the taught program?"
+choices = ["Before pygame.init(), because timing initializes PyGame", "Inside the Player class, because objects own their speed", "Inside the existing while running loop after pygame.display.flip()", "After pygame.quit(), because cleanup needs a frame cap"]
+answer = 2
+hint = "A cap must run once for each live frame, after that frame has been presented."
+whyWrong = "The Clock is created after initialization but tick must repeat, so it cannot live before setup or after cleanup. Player owns character state, not this global frame boundary. The live loop is its proper owner."
+explain = "Putting tick(60) inside the one while loop paces every frame; placing it after flip gives the frame a clear present-then-pace order."
+
+[[lessons.exercises]]
+id = "s07-l03-e3"
+type = "fill"
+points = 25
+prompt = "Complete the capitalized constructor from <code>pygame.time</code> that creates the object used to cap Duskhaven's first loop."
+code = 'clock = pygame.time.____()'
+answer = "Clock"
+hint = "This constructor has a capital C and lives in pygame.time; the later method call is clock.tick(60)."
+whyWrong = "tick is a method called on an existing Clock rather than the constructor, and Timer is not the taught PyGame object. Clock() creates the timekeeper."
+
+[[lessons.exercises]]
+id = "s07-l03-w1"
+type = "write"
+points = 35
+prompt = "A frame cap is computed from a named target, not painted into its report. Store <code>60</code> in <code>target_fps</code> and <code>3</code> in <code>seconds</code>. Compute <code>frame_budget</code> as their product, then print exactly <code>Frame budget: 180</code>. This plain Python lab rehearses the numeric pacing idea; in the real PyGame loop, the Clock receives <code>target_fps</code> through <code>clock.tick(target_fps)</code>."
+expect = '''Frame budget: 180'''
+hint = "Multiply target_fps by seconds, then put frame_budget—not the literal 180—into the f-string."
+starter = '''target_fps = 60
+seconds = 3
+
+# Compute the number of capped frame opportunities, then print it.
+'''
+solution = '''target_fps = 60
+seconds = 3
+frame_budget = target_fps * seconds
+print(f"Frame budget: {frame_budget}")'''
+
+[[lessons.exercises]]
+id = "s07-l03-e4"
+type = "mc"
+points = 24
+prompt = "Why does the Forge VII loop still call <code>pygame.display.flip()</code> even though it has not taught sprite drawing yet?"
+choices = ["flip draws a Player automatically", "flip establishes the once-per-frame presentation boundary that later drawing will use", "flip replaces pygame.event.get(), so events are optional", "flip turns a 60 FPS cap into delta-time movement"]
+answer = 1
+hint = "Choose the answer about making the display Surface visible, not about creating objects, receiving events, or moving them."
+whyWrong = "flip neither draws Player objects nor drains the event queue, and a frame cap is not delta-time movement. Its job is to present the display Surface once per frame, ready for later drawing."
+explain = "The frame order is already useful before art exists: handle events, present the Surface, and pace the next iteration."

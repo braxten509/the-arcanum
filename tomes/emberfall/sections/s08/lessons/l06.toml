@@ -2,7 +2,7 @@
 id = "s08-l06"
 title = "Spend the Healing Draught"
 body = '''
-<p>Acquiring a potion is not using it. Inventory now needs one deliberate public action: find a slot, reject an empty or non-consumable request, call the established Health boundary, then reduce the stack. This reaches back across the book: ItemKind guards the category, List supplies slots, Health.TakeDamage already clamps both sides, and events can notify a later HUD without Inventory knowing its listener.</p>
+<p>Acquiring a potion is not using it. Inventory now needs one deliberate public action: find a slot, reject an empty or non-consumable request, call the established Health boundary, then reduce the stack. This reaches back across the book: ItemKind guards the category, List supplies slots, <code>Health.Heal</code> owns recovery, and events can notify a later HUD without Inventory knowing its listener.</p>
 <pre><code><span class="k">public</span> <span class="k">bool</span> Use(ItemDefinition definition, Health health)
 {
     <span class="k">if</span> (definition.Kind != ItemKind.Consumable) <span class="k">return</span> <span class="k">false</span>;
@@ -15,11 +15,11 @@ body = '''
     }
     <span class="k">return</span> <span class="k">false</span>;
 }</code></pre>
-<p>Forge VII deliberately made Health.Clamp protect both 0 and maxHP. Passing a negative amount here means subtracting a negative value, so CurrentHP rises, then Clamp refuses to exceed maxHP. This is a reuse of an explicit public API, not permission to write CurrentHP. A Key returns false because it has no consumable effect; an empty slot returns false because no item was actually spent.</p>
+<p>Forge VII deliberately gave healing its own verb. <code>Heal</code> rejects negative input with <code>Mathf.Max(0, amount)</code>, adds the accepted amount, clamps at maxHP, and rings the same HealthChanged event as damage. This is a reuse of an explicit public API, not permission to write CurrentHP. A Key returns false because it has no consumable effect; an empty slot returns false because no item was actually spent.</p>
 <p>The order is load-bearing: apply Health first, decrement the one matching slot next, then return. If no slot matches, neither health nor count changes. For this small forge, a caller can assign the target Health explicitly. Do not use FindAnyObjectByType as a shortcut: Inspector references and component boundaries are clearer and safer. A later input/UI forge will decide which slot the player selects.</p>
 <p>In Play mode, set ArtificerRig below max HP, pick up MinorPotion, invoke Use from a temporary test button or small debug caller, and watch HP rise by 15 without crossing maxHP while the slot drops by one. The bench lab calculates the same health-and-count contract with ordinary values; it cannot invoke Unity events or Inspector assets.</p>
 <div class="callout">Use effects through the component that owns the state, then spend exactly one accepted inventory slot.</div>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // NEGATIVE DAMAGE IS A LOCAL CONTRACT</div><p>Using negative TakeDamage is acceptable only because this course's Health explicitly clamps both bounds and its lesson named that choice. In a larger project, a separate Heal method may communicate intent more clearly. Do not smuggle a convention into unrelated APIs; make the boundary's behavior visible.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ONE VERB, ONE INTENT</div><p>Do not smuggle healing through negative damage. This course's <code>TakeDamage</code> deliberately turns negative amounts into zero, while <code>Heal</code> names and enforces the opposite operation. Separate verbs make call sites readable and prevent an accidental negative damage value from becoming an unintended full heal.</p></div>
 '''
 
 [[lessons.readings]]
@@ -55,9 +55,9 @@ points = 22
 prompt = "ArtificerRig has 18 of max 20 HP and uses a MinorPotion with HealAmount 15. What should the code call, and what final HP is correct?"
 choices = ["Heal(15), then Health.Clamp leaves 20", "TakeDamage(15), then Health leaves 3", "Write CurrentHP = 33 directly", "Increase ItemDefinition.HealAmount to 20"]
 answer = 0
-whyWrong = "Positive damage lowers HP, CurrentHP has a private setter, and changing the shared asset would alter every potion. Health's documented two-sided Clamp turns the negative-damage heal into a capped final 20."
-hint = "Recall Forge VII's subtraction in TakeDamage and its maxHP ceiling. What sign raises HP?"
-explain = "Subtracting -15 raises 18 to 33, then Health clamps the result to maxHP 20."
+whyWrong = "TakeDamage lowers HP, CurrentHP has a private setter, and changing the shared asset would alter every potion. Heal is the explicit boundary that raises HP and applies the maxHP ceiling."
+hint = "Use the method whose name states the intended operation, then remember its maxHP clamp."
+explain = "Heal adds 15 to 18, then Health clamps the result to maxHP 20."
 
 [[lessons.exercises]]
 id = "s08-l06-e3"
@@ -72,7 +72,7 @@ id = "s08-l06-e4"
 type = "mc"
 points = 22
 prompt = "Which order preserves Inventory.Use's transaction when the player has one valid potion slot?"
-choices = ["Decrement the slot, then search for its definition", "Destroy the ItemDefinition asset, then raise HP", "Raise HP through Health.TakeDamage, decrement the matching slot, return true", "Set CurrentHP, then replace the whole slots List"]
+choices = ["Decrement the slot, then search for its definition", "Destroy the ItemDefinition asset, then raise HP", "Raise HP through Health.Heal, decrement the matching slot, return true", "Set CurrentHP, then replace the whole slots List"]
 answer = 2
 whyWrong = "Searching must happen before spending, ScriptableObject assets are shared definitions not consumables, and Inventory cannot write Health.CurrentHP or replace its list recklessly. The successful path uses Health's boundary, spends one slot, and reports success."
 hint = "Follow the worked loop after it has found a nonempty matching slot."

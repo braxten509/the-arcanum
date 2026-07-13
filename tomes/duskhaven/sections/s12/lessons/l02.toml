@@ -1,0 +1,87 @@
+[[lessons]]
+id = "s12-l02"
+title = "Keep The Conversation's Place"
+teaches = ["pygame-dialogue-state-owner", "pygame-dialogue-begin-transition", "pygame-dialogue-advance-transition"]
+body = '''
+<p>A list of lines is a book, not a conversation. The game needs two facts that survive one frame and guide the next: whether dialogue is open and which list entry is current. Add these top-level owners after the NPC record. <code>False</code> begins with the panel closed; index <code>0</code> names the first line because Forge IV established zero-based list indexing.</p>
+<pre><code>dialogue_active = False
+dialogue_index = 0
+dialogue_lines = npc["lines"]</code></pre>
+<p>Do not store a fresh local <code>dialogue_index</code> inside the loop; that would reset the talk every frame. Instead add these complete helpers below <code>is_near_npc</code>. A function can return two values separated by a comma, and matching names on the left unpack them. <code>begin_dialogue</code> returns the open state and first index. <code>advance_dialogue</code> computes the next index, compares it with <code>len(dialogue_lines)</code>, and returns either a new open state or a closed, reset state.</p>
+<pre><code>def begin_dialogue():
+    return True, 0
+
+
+def advance_dialogue(dialogue_index, dialogue_lines):
+    next_index = dialogue_index + 1
+    if next_index &gt;= len(dialogue_lines):
+        return False, 0
+    return True, next_index</code></pre>
+<p>This is a small state machine: each action turns one known state into the next known state. The last line does not risk indexing beyond the list, because the helper closes before the renderer is asked for an invalid entry. The local <code>next_index</code> is a calculation; the returned pair is what the main loop will make durable in the next thread.</p>
+<p>For now, rehearse the helpers in a plain Python file if you wish. The real game remains GUI-driven: it will receive key actions from the event queue, not standard input. When you run the external game today, its visible scene should remain unchanged. An invisible but correctly owned state is a sound stitch.</p>
+<div class="callout">State belongs outside the frame loop when tomorrow's frame must remember today's choice.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CLOSE BEFORE INDEX</div><p>The check uses <code>&gt;=</code>, not only <code>==</code>, so the helper also closes safely if a later bug somehow supplies an already-too-large index. Guard the list boundary where the transition happens.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python Tutorial — lists and returning values"
+url = "https://docs.python.org/3/tutorial/datastructures.html"
+
+[[lessons.exercises]]
+id = "s12-l02-e1"
+type = "mc"
+points = 27
+prompt = "Why are dialogue_active and dialogue_index top-level owners rather than assignments recreated inside while running?"
+choices = ["Because pygame.Rect can only read top-level variables", "Because camera_x is allowed only inside helper functions", "Because lists cannot contain strings in a game", "Because a frame-local reset would forget that the dialogue is open and return to line zero"]
+answer = 3
+hint = "Ask what the next frame needs to know after the apprentice pressed an interaction key in the current one."
+whyWrong = "Rects, cameras, and string lists do not impose this placement. The real hazard is resetting the remembered conversation every trip through the loop."
+explain = "Durable dialogue state lets a later frame render the selected line instead of starting over."
+
+[[lessons.exercises]]
+id = "s12-l02-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the complete transition that closes a finished dialogue instead of indexing past its final line."
+code = '''def advance_dialogue(dialogue_index, dialogue_lines):
+    next_index = dialogue_index + 1
+    if next_index >= len(dialogue_lines):
+        return False, 0
+    return True, next_index'''
+
+[[lessons.exercises]]
+id = "s12-l02-e2"
+type = "fill"
+points = 26
+prompt = "Restore the comparison token that closes Ilyra's dialogue when the proposed index reaches or passes the number of lines."
+code = 'if next_index ____ len(dialogue_lines):'
+answer = ">="
+hint = "The boundary is unsafe both at the list length and above it, so use the two-character greater-than-or-equal comparison."
+whyWrong = "Using > permits exactly len(dialogue_lines), an invalid last index, while == would not guard an already-too-large value. >= protects both boundary cases."
+
+[[lessons.exercises]]
+id = "s12-l02-w1"
+type = "write"
+points = 36
+prompt = "A three-line dialogue is currently showing index 1. Compute the next index, keep the exchange open only when it is below line_count, and print exactly <code>Dialogue open: True</code> then <code>Next index: 2</code>. Use the supplied values rather than printing the target text."
+expect = '''Dialogue open: True
+Next index: 2'''
+hint = "Add one to dialogue_index; compare the result with line_count, then use an if/else to choose both returned-state values."
+starter = '''dialogue_index = 1
+line_count = 3
+
+# Calculate the next state for one advance action.
+'''
+solution = '''dialogue_index = 1
+line_count = 3
+
+next_index = dialogue_index + 1
+if next_index >= line_count:
+    dialogue_active = False
+    next_index = 0
+else:
+    dialogue_active = True
+
+print(f"Dialogue open: {dialogue_active}")
+print(f"Next index: {next_index}")'''

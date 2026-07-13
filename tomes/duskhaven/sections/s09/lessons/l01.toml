@@ -1,0 +1,86 @@
+[[lessons]]
+id = "s09-l01"
+title = "Hear A Held Key"
+teaches = ["pygame-key-state", "pygame-key-constants", "pygame-event-state-distinction"]
+body = '''
+<p>Forge VII taught the event queue because the window must hear a close request. That queue is not the right owner for walking. A close request happens once; a traveler holding Right needs a fresh answer on every frame. After the existing <code>for event in pygame.event.get()</code> block, add these <strong>new members only</strong> inside the established <code>while running</code> loop. Do not remove the QUIT branch and do not make a second event loop.</p>
+<pre><code>keys = pygame.key.get_pressed()
+
+if keys[pygame.K_RIGHT]:
+    print("Mira is walking east")</code></pre>
+<p><code>pygame.key.get_pressed()</code> returns the current keyboard state. Store that returned collection in the descriptive variable <code>keys</code>. The expression <code>keys[pygame.K_RIGHT]</code> is true while the right-arrow key is held and false after it is released. The square brackets are the same indexing shape Forge IV used for a list, but here the key constant chooses the keyboard state that PyGame maintains. <code>pygame.K_RIGHT</code> is PyGame's named token for that physical control; do not invent a string such as <code>"right"</code>.</p>
+<p>The temporary <code>print</code> is a proof thread, not the final movement spell. Run the real project, hold Right, and watch repeated terminal lines appear; release it and they stop. Then remove that print before the next thread. If holding the key produces no response, first confirm the game window has focus, then inspect whether the polling lines are indented inside <code>while running</code> but outside the event <code>for</code> loop. Polling inside the event loop only runs when a queued message exists, which defeats held input.</p>
+<p>Direction is intentionally separate from drawing. Forge VIII's <code>screen.blit</code> still places Mira; this thread only answers whether the apprentice is asking to travel. In the next thread, that answer changes position. Keep the close branch exactly as it was: the queue still owns quitting, while key state owns continuous intent.</p>
+<div class="callout">Poll once per frame. A key held for many frames is one continuing intention, not many accidental close-style events.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // FOCUS IS PART OF INPUT</div><p>Desktop input belongs to the focused window. Click Duskhaven before testing, and never “fix” a focus issue by adding a blocking <code>input()</code> call to the game loop.</p></div>
+'''
+
+[[lessons.readings]]
+label = "PyGame Key — get_pressed and key constants"
+url = "https://www.pygame.org/docs/ref/key.html#pygame.key.get_pressed"
+
+[[lessons.exercises]]
+id = "s09-l01-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the held-right proof exactly as it belongs after the existing event loop."
+code = '''keys = pygame.key.get_pressed()
+
+if keys[pygame.K_RIGHT]:
+    print("Mira is walking east")'''
+
+[[lessons.exercises]]
+id = "s09-l01-e1"
+type = "fill"
+points = 25
+prompt = "Restore the PyGame call that reads the keyboard's current held-state collection."
+code = 'keys = pygame.key.____()'
+answer = "get_pressed"
+hint = "The missing snake_case call is on pygame.key and describes keys that are currently pressed."
+whyWrong = "event.get() drains discrete queued messages, while get_mods() reports modifier keys only. get_pressed() supplies the per-frame state needed for a held arrow."
+
+[[lessons.exercises]]
+id = "s09-l01-e2"
+type = "mc"
+points = 26
+prompt = "Why should Duskhaven keep <code>pygame.QUIT</code> in the event loop but read movement with <code>pygame.key.get_pressed()</code> each frame?"
+choices = ["QUIT and arrow movement are both strings stored in town_ledger", "QUIT is a one-time queued window request, while an arrow must remain true across frames while held", "get_pressed() closes the window faster than the event queue", "The event queue can only contain sprite images"]
+answer = 1
+hint = "Contrast one discrete operating-system message with an input that must continue after the first frame."
+whyWrong = "The queue does not store the town ledger or images, and polling does not replace clean close handling. The misconception is treating a continuing held input as if it were only one event."
+explain = "Retain the QUIT event branch, then poll key state once per live frame for movement intent."
+
+[[lessons.exercises]]
+id = "s09-l01-e3"
+type = "text"
+points = 21
+prompt = "What exact PyGame constant names the right-arrow key in the taught held-state expression?"
+answer = "pygame.K_RIGHT"
+accept = ["K_RIGHT"]
+hint = "It begins with pygame.K_ and ends with the direction written in capitals."
+whyWrong = "A literal string such as right is not the established key constant, and pygame.QUIT names window closure. PyGame's arrow constants select an entry from keys."
+
+[[lessons.exercises]]
+id = "s09-l01-w1"
+type = "write"
+points = 35
+prompt = "A test harness reports <code>right_held = True</code> and <code>left_held = False</code>. Use <code>if</code>/<code>elif</code>/<code>else</code> to set <code>intent</code> to <code>&quot;east&quot;</code> when right is held, <code>&quot;west&quot;</code> when left is held, or <code>&quot;still&quot;</code> otherwise. Print exactly <code>Travel intent: east</code>. This plain-file drill rehearses the branch that real PyGame key state drives; the game itself receives keyboard state from its window, not stdin."
+expect = '''Travel intent: east'''
+hint = "The first condition is true, so assign east to intent before the final f-string."
+starter = '''right_held = True
+left_held = False
+
+# Derive one travel intent from these two held-state values.
+'''
+solution = '''right_held = True
+left_held = False
+
+if right_held:
+    intent = "east"
+elif left_held:
+    intent = "west"
+else:
+    intent = "still"
+
+print(f"Travel intent: {intent}")'''

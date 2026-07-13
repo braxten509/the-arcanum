@@ -1,55 +1,46 @@
 # Phase 8 — Student review & gap-fill (mandatory)
 
-Validation proves the tome is well-*formed*; it cannot prove it actually *teaches*.
-That last question — "would a real beginner come out able to DO this?" — is the one
-that keeps failing (a course that drills C++ 101 instead of the domain; two payoff
-chapters left hollow; the hook taught but never how to find what to hook). So close
-the loop with a fresh set of eyes.
+Reconcile contradictions and omissions left by fresh Phase 3 section workers, then prove the
+course as a first-time learner. Structural validation cannot do this. Follow the harness's
+review scope, assume only the declared prerequisites, and never bridge unclear steps with
+expertise.
 
-**The review needs clean eyes** — a first-time-student reviewer who knows only what the
-tome's own prerequisites assume, not what the author knows. If you authored earlier
-phases in THIS same context, spawn ONE clean-context subagent to be that student. If you
-are a fresh worker with no authoring context (the harness case), you already ARE the
-clean eyes — do the read yourself; spawning a child just reads the tome twice at double
-cost. Either way, the student lens works like this:
+For the material in scope, audit these semantic contracts:
 
-- **Read EVERY chapter, cover to cover, in order — no sampling, no skimming, no
-  reading only titles.** Every section brief, every lesson `body`, every exercise, every
-  freestyle, from `s01` to the last. A review that skipped a chapter is void; the two
-  chapters most likely to be broken are the *last* ones, exactly the ones a lazy review
-  skips.
-- Play it straight as a learner: at each chapter, note **what you can now actually do**,
-  **what was used or assumed but never taught** (an untaught prerequisite, an address
-  handed to you with no method to find it, a tool named but never shown), and **where the
-  prose is missing, placeholder, or hollow**.
-- End with the blunt verdict: **after the final chapter, could you sit down with the real
-  tools and a real target and do the thing `meta.description` promises — unaided?** If
-  no, name precisely what's missing.
-- **Audit the artifact, not the story.** List every file under the tome folder
-  (`find tomes/<id> -type f`) and justify each against the layout contract — a nested
-  folder, a backup copy, or a scratch file is a blocking finding. Verify every claim
-  in the build plan against the disk: a phase that logged "registered the 6 badges"
-  must have six `[[badges]]` present NOW; claims are not evidence. Confirm the engine
-  contracts: the badge bank defines every engine-granted id, shop theme items point at
-  real `[[themes]]`, attack starters run as given. The meta files — badges, themes,
-  shop, intrusions, attacks — are content too: read them in the tome's voice, not just
-  the chapters.
+1. **Cross-section agreement.** Track every recurring identifier, API, type, file path,
+   command, data shape, visible behavior, and instruction from its first owner through all
+   later consumers. The same contract must mean the same thing everywhere. If a later
+   lesson intentionally supersedes it, say so and update every exercise, reading, hint,
+   rubric, and capstone that relies on the old form.
+2. **Cumulative source truth.** Compare each repeated file or type with its prior complete
+   version. A replacement retains required imports, members, behavior, and wiring; a patch
+   names the file and exact insertion/replacement point. Reconstruct the final artifact
+   forward from lesson one and backward from the acceptance journey.
+3. **Learner execution.** Apply the instructions in order in a disposable workspace. Build,
+   run, or parse meaningful milestones with the real toolchain where possible. Any required
+   deletion, insertion point, value, asset, working directory, recovery action, or API that
+   must be inferred is a blocking gap.
+4. **Capability proof.** Trace every freestyle checklist and rubric requirement through
+   `requires` to the owning `teaches`, then inspect that lesson for the complete code or tool
+   procedure. Matching ids, names, handoff claims, or plan prose are not teaching evidence.
+5. **Runtime agreement.** Open `[runtime]` in `tome.toml` and its selected
+   `global-configs/runtimes/<name>.toml`. Compare the merged language, `entryFile`, starter,
+   project/scaffold commands, run/build/check behavior, diagnostics, extensions, editor
+   mode, and external-workspace assumptions with every lesson and final delivery. Before
+   editing the shared file, inspect its other tome consumers. Preserve reusable defaults;
+   put tome-specific behavior in this tome. Exercise the resolved runtime after either change.
+6. **Continuity and lifecycle.** Treat handoffs and the plan as maps to evidence. Verify each
+   obligation and retire or deliberately ship every temporary fixture, prompt, demo
+   mutation, mock, placeholder, and debug path. Cold-start the final entrypoint and trace
+   visible behavior, persistence, relaunch, and delivery.
+7. **Calibration and independence.** Enforce the Phase 0 starting level, breadth, depth,
+   mastery, and tooling choices. For `externalWorkspace`, require install, create/open,
+   navigation, edit/save, run/test, diagnostics, recovery, and delivery instruction. Fail
+   hollow late chapters, untaught dependencies, templated repetition, voice drift,
+   unavailable assets, or a `meta.description` promise the graduate cannot fulfill.
 
-**The same pass (or a second clean-context reviewer) also runs the §7 human-judgement
-checklist as an editor** — voice consistency, anti-template variety, balance, coverage,
-learning design — over the WHOLE assembled tome. This reviewer has the authority to
-FAIL the run: a blocking finding from either lens (student gap or editorial checklist)
-means the tome is not done, no matter what the validator said. The validator is the
-structural gate; this is the editorial one — a harness run that ends at Phase 7 has
-shipped unreviewed content. write the missing lesson bodies,
-add the untaught fundamentals/reconnaissance as their own lessons or chapters, repair the
-hollow chapters. Re-run **Phase 7**, then send the *revised* tome back through another
-student pass. Loop until the student, having read every chapter, reports no blocking gap.
-(Under the harness this loop is EXTERNAL: each invocation does ONE review + fix round and
-writes its verdict; the harness re-runs the phase, scoped to the findings. Do not nest
-your own loop inside a harness round. The harness accepts only the exact one-line verdict
-`PASS`, re-runs strict validation after every revision, and exits nonzero if the review
-cap is reached without a clean pass.)
-
-→ **Produce:** the student's per-chapter gap report + the revisions that answer it — a
-tome that doesn't just validate, but actually teaches the thing it promises.
+Resolve the intended contract from the approved arc, `meta.description`, acceptance journey,
+and observed runtime behavior—not whichever conflicting wording appears most often. You may
+repair any authored file in this tome and its selected runtime configuration. Use the exact
+verdict/findings protocol: one invocation is one review-or-repair pass, and a later fresh pass
+must verify all repairs before PASS.

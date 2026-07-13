@@ -9,16 +9,13 @@ body = '''
     Playing,
     Paused,
     GameOver
-}
+}</code></pre>
+<p>Create <code>GameStateManager.cs</code> as a MonoBehaviour and place the enum above the class. Inside that class, add only this property and initialization for now:</p>
+<pre><code><span class="k">public</span> GameState CurrentState { <span class="k">get</span>; <span class="k">private</span> <span class="k">set</span>; }
 
-<span class="k">public</span> <span class="k">class</span> GameStateManager : MonoBehaviour
+<span class="k">private</span> <span class="k">void</span> Awake()
 {
-    <span class="k">public</span> GameState CurrentState { <span class="k">get</span>; <span class="k">private</span> <span class="k">set</span>; }
-
-    <span class="k">private</span> <span class="k">void</span> Awake()
-    {
-        CurrentState = GameState.MainMenu;
-    }
+    CurrentState = GameState.MainMenu;
 }</code></pre>
 <p>An <strong>enum</strong> names a closed set of meaningful values. Here, <code>GameState.Paused</code> is safer than a scattered collection of booleans such as <code>isPaused</code>, <code>showMenu</code>, and <code>isDead</code> that can contradict one another. <code>CurrentState</code> is public to read but has a private setter: another component may ask whether input is legal, yet only GameStateManager may declare a transition. Put this component on a scene GameObject named <code>GameStateManager</code>, then let its Inspector references arrive in the next tempering.</p>
 <p>The four values are deliberately distinct. <code>MainMenu</code> means no run is active. <code>Playing</code> permits the existing player input, Rigidbody2D motion, dialogue, combat, and HUD. <code>Paused</code> is an interrupted run, not a new menu. <code>GameOver</code> means the current run has ended and should not resume merely because someone presses Escape. Naming those facts makes the later panel choices auditable: a screen can draw what the state says, but it does not decide the state.</p>

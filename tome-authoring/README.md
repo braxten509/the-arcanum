@@ -15,7 +15,7 @@ The order to work in is `tome-workflow/` (start at its README).
 
 | § | File | What it covers |
 |---|------|----------------|
-| §0 | [0-start-here.md](0-start-here.md) | The hard gate: three questions, asked first |
+| §0 | [0-start-here.md](0-start-here.md) | The hard gate: six questions, asked first |
 | §1 | [1-what-you-are-building.md](1-what-you-are-building.md) | What a tome is; the folder layout |
 | §2 | [2-tome-toml.md](2-tome-toml.md) | `tome.toml` — the complete schema |
 | §3 | [3-chapters.md](3-chapters.md) | A chapter: lessons, exercises, freestyle, learning design |

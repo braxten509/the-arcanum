@@ -1,0 +1,72 @@
+[[lessons]]
+id = "s04-l05"
+title = "Kindle Ember Labels"
+teaches = ["python-list-comprehension", "python-comprehension-expression", "python-range-list-build"]
+body = '''
+<p>You can build a list with a loop and <code>append</code>, but Python also offers a compact form when every new item follows one clear pattern: a <strong>list comprehension</strong>. It puts the expression to build first, then the familiar <code>for</code> clause, all inside square brackets. This thread reaches back to Forge III's <code>range(3)</code> values 0, 1, and 2 and Forge II's f-strings.</p>
+<p>Add this member-only block after your town records in canonical <code>main.py</code>. Do not wrap it in a function—that tool arrives in the next forge. The complete line is the owner of <code>ember_labels</code>.</p>
+<pre><code>ember_labels = [f"Ember {ember_number}" for ember_number in range(3)]
+
+print(ember_labels)</code></pre>
+<p>Read it from the right: <code>range(3)</code> supplies 0, 1, and 2. For each value, Python calls it <code>ember_number</code>. The expression on the left creates <code>"Ember 0"</code>, then <code>"Ember 1"</code>, then <code>"Ember 2"</code>. The brackets collect those results into one new list. The output is <code>['Ember 0', 'Ember 1', 'Ember 2']</code>.</p>
+<p>This is not a magic string formatter and it does not print during each pass; it <em>builds</em> a list first. You still print the completed list afterward. A normal direct-list loop remains clearer when the job is reporting each existing supply. Use a comprehension when the job is making a collection whose members all share a simple recipe.</p>
+<p>Keep the singular/plural naming rule: <code>ember_number</code> is one range value, while <code>ember_labels</code> is the completed collection. Run the entire file. Its early gate prompts and later ledgers are proof that your new pattern is interleaved with the earlier program rather than floating in a toy snippet.</p>
+<div class="callout">In a comprehension, the left expression is what you make; the right <code>for</code> clause is where each ingredient comes from.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // KEEP THE RECIPE SHORT</div><p>Comprehensions are powerful precisely because the recipe fits on one readable line. If you later need several branches or many statements, use the ordinary loop form you already understand rather than compressing the loom beyond recognition.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python Tutorial — List Comprehensions"
+url = "https://docs.python.org/3/tutorial/datastructures.html#list-comprehensions"
+
+[[lessons.exercises]]
+id = "s04-l05-e1"
+type = "mc"
+points = 23
+prompt = "What does <code>[f&quot;Ember {ember_number}&quot; for ember_number in range(3)]</code> create?"
+choices = ["One string named Ember ember_number", "Three printed lines with no list", "A list of Ember 0, Ember 1, and Ember 2", "A dictionary whose keys are 0, 1, and 2"]
+answer = 2
+hint = "The brackets collect one f-string result for each of range(3)'s three values."
+whyWrong = "The loop variable is replaced by each range value, and square brackets collect results. This expression neither prints by itself nor creates named dictionary fields."
+explain = "The comprehension transforms 0, 1, and 2 into three formatted strings in a new list."
+
+[[lessons.exercises]]
+id = "s04-l05-e2"
+type = "fill"
+points = 24
+prompt = "Restore the existing Forge III producer that supplies 0, 1, and 2 to this comprehension."
+code = 'ember_labels = [f"Ember {ember_number}" for ember_number in ____(3)]'
+answer = "range"
+hint = "Use the same built-in that made the zero-based ward marks, now with a stop boundary of 3."
+whyWrong = "A list name would iterate existing strings and input would wait for text. range(3) supplies the three numeric values requested by the ember recipe."
+
+[[lessons.exercises]]
+id = "s04-l05-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the complete ember-label comprehension and report."
+code = '''ember_labels = [f"Ember {ember_number}" for ember_number in range(3)]
+
+print(ember_labels)'''
+
+[[lessons.exercises]]
+id = "s04-l05-e3"
+type = "text"
+points = 19
+prompt = "In the ember comprehension, which singular name holds one value from range(3) while the list is being built?"
+answer = "ember_number"
+hint = "It appears after for and changes from 0 to 2; ember_labels is the completed plural collection."
+whyWrong = "ember_labels is the result list, not the per-pass value, and range is the producer. ember_number is the loop variable receiving each number."
+
+[[lessons.exercises]]
+id = "s04-l05-w1"
+type = "write"
+points = 35
+prompt = "Use one list comprehension over <code>range(3)</code> to build <code>ward_labels</code> containing <code>&quot;Ward 0&quot;</code>, <code>&quot;Ward 1&quot;</code>, and <code>&quot;Ward 2&quot;</code>. Print the finished list exactly as <code>['Ward 0', 'Ward 1', 'Ward 2']</code>."
+expect = '''['Ward 0', 'Ward 1', 'Ward 2']'''
+hint = "Put the f-string recipe before for, choose one singular ward_number after for, and print ward_labels after the square brackets close."
+starter = '''# Build all three ward labels with one list comprehension, then print the list.
+'''
+solution = '''ward_labels = [f"Ward {ward_number}" for ward_number in range(3)]
+print(ward_labels)'''

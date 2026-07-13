@@ -1,0 +1,172 @@
+[[lessons]]
+id = "s11-l01c"
+title = "Wire the Complete Save Manager"
+body = '''
+<p>The vessel and owner doors are ready. Now create one canonical <code>SaveManager.cs</code>; do not assemble it from disconnected fragments. <code>Application.persistentDataPath</code> is Unity's per-application writable location, so the same code works in the Editor and a desktop build. Assign player, Health, Inventory, ItemCatalog, and QuestLog in the Inspector.</p>
+<pre><code><span class="k">using</span> System.IO;
+<span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> SaveManager : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> Transform player;
+    [SerializeField] <span class="k">private</span> Health health;
+    [SerializeField] <span class="k">private</span> Inventory inventory;
+    [SerializeField] <span class="k">private</span> ItemCatalog itemCatalog;
+    [SerializeField] <span class="k">private</span> QuestLog questLog;
+    <span class="k">private string</span> savePath;
+
+    <span class="k">private</span> <span class="k">void</span> Awake()
+    {
+        savePath = Path.Combine(Application.persistentDataPath, <span class="s">"emberfall-save.json"</span>);
+    }
+
+    <span class="k">public</span> <span class="k">void</span> SaveGame()
+    {
+        SaveData data = <span class="k">new</span> SaveData
+        {
+            playerX = player.position.x,
+            playerY = player.position.y,
+            currentHP = health.CurrentHP,
+            inventoryItemIds = inventory.GetItemIds(),
+            questFlags = questLog.GetSetFlags()
+        };
+        <span class="k">try</span>
+        {
+            File.WriteAllText(savePath, JsonUtility.ToJson(data, <span class="k">true</span>));
+            Debug.Log(<span class="s">$"Saved to {savePath}"</span>);
+        }
+        <span class="k">catch</span> (System.Exception error)
+        {
+            Debug.LogWarning(<span class="s">$"Save failed: {error.Message}"</span>);
+        }
+    }
+
+    <span class="k">public</span> <span class="k">bool</span> LoadGame()
+    {
+        <span class="k">if</span> (!File.Exists(savePath)) <span class="k">return false</span>;
+        <span class="k">try</span>
+        {
+            SaveData data = JsonUtility.FromJson&lt;SaveData&gt;(File.ReadAllText(savePath));
+            <span class="k">if</span> (data == <span class="k">null</span>) <span class="k">return false</span>;
+            player.position = <span class="k">new</span> Vector3(data.playerX, data.playerY, player.position.z);
+            health.Restore(data.currentHP);
+            inventory.RestoreFromIds(data.inventoryItemIds, itemCatalog);
+            questLog.RestoreFlags(data.questFlags);
+            <span class="k">return true</span>;
+        }
+        <span class="k">catch</span> (System.Exception error)
+        {
+            Debug.LogWarning(<span class="s">$"Load failed; current session kept: {error.Message}"</span>);
+            <span class="k">return false</span>;
+        }
+    }
+}</code></pre>
+<p><code>ToJson</code> turns the SaveData snapshot into text; the <code>true</code> argument formats it readably. <code>FromJson&lt;SaveData&gt;</code> reconstructs that record. SaveManager then delegates: Health clamps and raises its event, Inventory clears and resolves ids, and QuestLog clears and reapplies flags. It never edits those owners' private fields.</p>
+<p>A missing file is normal on first launch, so Load returns false before reading. A malformed or inaccessible file belongs inside try/catch: report the exception and leave the current session usable. Do not erase a broken file automatically; the warning is evidence. Wire UI Buttons to SaveGame and LoadGame exactly as Forge X wired state verbs.</p>
+<div class="callout">Test the boundary, not only the JSON: save a recognizable position, HP, stack, and quest flag; change all four; load; verify all four return.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WRITE ON COMMAND</div><p>Do not call SaveGame from Update. Disk I/O belongs on an explicit command or deliberate checkpoint. One button press should produce one write and one Console confirmation; a per-frame save hides performance and corruption problems until the build leaves the Editor.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Scripting API: Application.persistentDataPath"
+url = "https://docs.unity3d.com/ScriptReference/Application-persistentDataPath.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Scripting API: JsonUtility"
+url = "https://docs.unity3d.com/ScriptReference/JsonUtility.html"
+
+[[lessons.exercises]]
+id = "s11-l01c-e1"
+type = "mc"
+points = 23
+prompt = "LoadGame is called on a machine where Emberfall has never saved. What is the correct result?"
+choices = ["Return false and leave the new session usable", "Throw FileNotFoundException so the menu closes", "Create a fake completed quest", "Read a JSON file from Assets"]
+answer = 0
+whyWrong = "A first launch has no file by definition; it is not exceptional, and Assets is not the standalone player's writable save location. Load should decline cleanly without inventing state."
+hint = "The first branch asks File.Exists before File.ReadAllText can run."
+explain = "Missing is a normal state, distinct from a damaged file that exists but cannot be parsed."
+
+[[lessons.exercises]]
+id = "s11-l01c-e2"
+type = "fill"
+points = 24
+prompt = "Fill the Unity-owned directory used to construct the standalone-safe save path."
+code = '''savePath = Path.Combine(Application.____, "emberfall-save.json");'''
+answer = "persistentDataPath"
+hint = "Use the writable per-application path, not dataPath or the Assets directory."
+
+[[lessons.exercises]]
+id = "s11-l01c-e3"
+type = "text"
+points = 20
+prompt = "Which existing Health method should LoadGame call so restored HP is clamped and HealthChanged fires?"
+answer = "Restore"
+accept = ["Health.Restore", "Restore()"]
+hint = "Forge VII created separate verbs for damage, healing, and loading an already-known saved value."
+whyWrong = "Writing CurrentHP directly is forbidden by its private setter and would bypass the HUD event. Restore is the sanctioned load boundary."
+
+[[lessons.exercises]]
+id = "s11-l01c-w1"
+type = "write"
+points = 36
+prompt = "Model a full owner-boundary load in plain C#. Saved values are X 6, Y -2, HP 14, two item ids, and one quest flag. Assign them to a Session object through Restore, then compute exactly:\nLOAD 6,-2 HP 14 ITEMS 2 FLAGS 1"
+starter = '''SaveData saved = new SaveData(6, -2, 14, 2, 1);
+Session session = new Session();
+
+// Call Restore(saved), then print every restored property from session.
+
+class SaveData
+{
+    public int X { get; }
+    public int Y { get; }
+    public int HP { get; }
+    public int Items { get; }
+    public int Flags { get; }
+    public SaveData(int x, int y, int hp, int items, int flags)
+    {
+        X = x; Y = y; HP = hp; Items = items; Flags = flags;
+    }
+}
+class Session
+{
+    public int X { get; private set; }
+    public int Y { get; private set; }
+    public int HP { get; private set; }
+    public int Items { get; private set; }
+    public int Flags { get; private set; }
+    public void Restore(SaveData data)
+    {
+        X = data.X; Y = data.Y; HP = data.HP; Items = data.Items; Flags = data.Flags;
+    }
+}'''
+expect = '''LOAD 6,-2 HP 14 ITEMS 2 FLAGS 1'''
+solution = '''SaveData saved = new SaveData(6, -2, 14, 2, 1);
+Session session = new Session();
+session.Restore(saved);
+Console.WriteLine($"LOAD {session.X},{session.Y} HP {session.HP} ITEMS {session.Items} FLAGS {session.Flags}");
+
+class SaveData
+{
+    public int X { get; }
+    public int Y { get; }
+    public int HP { get; }
+    public int Items { get; }
+    public int Flags { get; }
+    public SaveData(int x, int y, int hp, int items, int flags)
+    {
+        X = x; Y = y; HP = hp; Items = items; Flags = flags;
+    }
+}
+class Session
+{
+    public int X { get; private set; }
+    public int Y { get; private set; }
+    public int HP { get; private set; }
+    public int Items { get; private set; }
+    public int Flags { get; private set; }
+    public void Restore(SaveData data)
+    {
+        X = data.X; Y = data.Y; HP = data.HP; Items = data.Items; Flags = data.Flags;
+    }
+}'''
+hint = "Restore first, then interpolate session.X, session.Y, session.HP, session.Items, and session.Flags in the target order."

@@ -1,0 +1,83 @@
+[[lessons]]
+id = "s06-l01"
+title = "Cast A Player Form"
+teaches = ["python-class-declaration", "python-init-method", "python-instance-construct", "python-instance-attributes"]
+body = '''
+<p>Duskhaven has named facts already, but a hero's name and health belong together. A <strong>class</strong> is a blueprint for one kind of object; an <strong>instance</strong> is one object made from that blueprint. Add this complete new <code>Player</code> class below the existing function definitions in canonical <code>main.py</code>, then put the instance lines below the existing data and function calls. Do not create a second file, and do not replace the earlier functions.</p>
+<pre><code>class Player:
+    def __init__(self, name, health):
+        self.name = name
+        self.health = health
+
+
+player = Player("Mira", 12)
+print(f"Player: {player.name}, HP: {player.health}")</code></pre>
+<p>The line beginning <code>class Player:</code> names the blueprint. Python convention uses <strong>CapWords</strong> for a class name, which is why <code>Player</code> has a capital P. The special-looking <code>__init__</code> method runs when <code>Player("Mira", 12)</code> constructs an instance. Its first parameter is always <code>self</code>: inside this method, it means the particular new player being prepared.</p>
+<p><code>name</code> and <code>health</code> are ordinary parameters, just as Forge V taught. The assignments <code>self.name = name</code> and <code>self.health = health</code> place received values on this particular object as <strong>attributes</strong>. After construction, dot access reads them: <code>player.name</code> is <code>"Mira"</code>, and <code>player.health</code> is <code>12</code>. The left side of a dot assignment is the object's own storage; the right side is the temporary parameter.</p>
+<p>Run the whole file. The old supply count and the new player report should both appear. Do not write <code>Player.name</code> for this first report: the class is a pattern, while <code>player</code> is the actual inhabitant whose values were initialized. This distinction stops a future enemy from overwriting the hero merely because both use a field called <code>health</code>.</p>
+<div class="callout">A blueprint does not walk the road. Construct an instance, then use that instance's dot to reach its own facts.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE DOUBLE UNDERSCORES ARE A NAME</div><p>Type <code>__init__</code> with two underscores on each side. It is Python's initializer hook, not an arbitrary abbreviation. For now, treat <code>self</code> as the instance currently being built; later methods use the same doorway to read or change that instance.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python Tutorial — A First Look at Classes"
+url = "https://docs.python.org/3/tutorial/classes.html#a-first-look-at-classes"
+
+[[lessons.exercises]]
+id = "s06-l01-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the complete Player blueprint, construction call, and attribute report."
+code = '''class Player:
+    def __init__(self, name, health):
+        self.name = name
+        self.health = health
+
+
+player = Player("Mira", 12)
+print(f"Player: {player.name}, HP: {player.health}")'''
+
+[[lessons.exercises]]
+id = "s06-l01-e1"
+type = "fill"
+points = 25
+prompt = "Restore the initializer name that Python calls while this Player instance is being made."
+code = '''class Player:
+    def ____(self, name, health):
+        self.name = name
+        self.health = health'''
+answer = "init"
+hint = "The missing letters sit between the two underscores on each side of Python's construction-time method name."
+whyWrong = "A method named start or create would be an ordinary method and would not run automatically here. __init__ is the exact initializer name Python recognizes after Player(...) constructs an instance."
+
+[[lessons.exercises]]
+id = "s06-l01-e2"
+type = "mc"
+points = 24
+prompt = "After <code>player = Player(&quot;Mira&quot;, 12)</code>, which expression reads Mira's stored name?"
+choices = ["Player(\"Mira\", 12).name", "player.name", "player['name']", "name.player"]
+answer = 1
+hint = "Choose the dot lookup beginning with the variable that holds the constructed inhabitant."
+whyWrong = "The class name is the blueprint rather than this player's storage, brackets are the dictionary syntax from Forge IV, and reversing the dot puts the attribute in the wrong position. An instance attribute is read as instance.name."
+explain = "player holds the constructed Player object, and its name attribute was set by self.name = name."
+
+[[lessons.exercises]]
+id = "s06-l01-w1"
+type = "write"
+points = 35
+prompt = "Build a <code>Player</code> class whose initializer receives <code>name</code> and <code>health</code> and stores both on <code>self</code>. Construct <code>scout = Player(&quot;Tala&quot;, 9)</code>, then use its attributes in an f-string to print exactly <code>Scout Tala has 9 HP.</code>."
+expect = '''Scout Tala has 9 HP.'''
+hint = "The two assignments inside __init__ begin self.name and self.health; after construction, the report must read scout.name and scout.health."
+starter = '''# Define the Player class with __init__.
+
+# Construct scout, then print its two stored attributes.
+'''
+solution = '''class Player:
+    def __init__(self, name, health):
+        self.name = name
+        self.health = health
+
+
+scout = Player("Tala", 9)
+print(f"Scout {scout.name} has {scout.health} HP.")'''

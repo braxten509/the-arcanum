@@ -34,7 +34,7 @@ body = '''
 <p>Assign the one DialoguePanel reference in the Inspector. An NPC calls Begin with its own openingLines. Your input script calls Advance only while dialogue is active—use the controller's next lesson property to make that rule explicit. For now, test with exactly two lines: first Interact shows line 0, first advance shows line 1, second advance hides the panel. This is the same disciplined “state changes, then output follows” order Health used for its events, but here a direct call is appropriate: one controller deliberately commands one panel.</p>
 <p>The bench models the indexes and returns strings rather than touching TextMeshProUGUI. It forces real array bounds reasoning while honestly leaving Unity display work in the Editor.</p>
 <div class="callout">Begin resets a conversation to index 0. Advance moves once, checks the boundary, then either hides or displays exactly one next line.</div>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // EMPTY ARRAYS</div><p>This first controller assumes every NPC has at least one authored line. In production, validate that in Awake or have Begin reject an empty array before reading index 0. Never “fix” an empty conversation by indexing it and hoping the Inspector will be kind.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // EMPTY ARRAYS</div><p>Begin rejects null or empty input before reading index 0. Keep that guard even when every current NPC has authored lines; an unfilled Inspector array should close safely, not turn into an indexing exception.</p></div>
 '''
 
 [[lessons.readings]]

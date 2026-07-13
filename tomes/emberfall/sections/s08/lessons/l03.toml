@@ -16,12 +16,25 @@ body = '''
 <span class="k">public</span> <span class="k">class</span> Inventory : MonoBehaviour
 {
     [SerializeField] <span class="k">private</span> List&lt;InventorySlot&gt; slots = <span class="k">new</span> List&lt;InventorySlot&gt;();
+
+    <span class="k">public</span> <span class="k">bool</span> Add(ItemDefinition definition)
+    {
+        <span class="k">if</span> (definition == <span class="k">null</span>) <span class="k">return false</span>;
+        <span class="k">foreach</span> (InventorySlot slot <span class="k">in</span> slots)
+        {
+            <span class="k">if</span> (slot.Definition != definition) <span class="k">continue</span>;
+            slot.Amount++;
+            <span class="k">return true</span>;
+        }
+        slots.Add(<span class="k">new</span> InventorySlot { Definition = definition, Amount = 1 });
+        <span class="k">return true</span>;
+    }
 }</code></pre>
 <p><code>[System.Serializable]</code> tells Unity it may show an InventorySlot's fields inside the containing serialized list. That is a different job from <code>ScriptableObject</code>: a slot is not an asset definition; it is a runtime record inside ArtificerRig's Inventory component. The public fields are deliberate because Unity needs to serialize the simple nested record. The outer <code>slots</code> field stays private so another component cannot replace the whole list behind Inventory's back.</p>
-<p>Adding an item means searching slots for the same <code>Definition</code>. If found, increment Amount. Otherwise create a new InventorySlot and call List.Add. This is the same foreach-plus-Add work Forge II practiced, now attached to a game rule. Do not match by displayName: the ScriptableObject reference is the definition identity already wired by the Inspector.</p>
+<p><code>Add</code> first rejects a missing definition. It then searches slots for the same <code>Definition</code>; when found it increments Amount and returns true immediately. Otherwise the object initializer inside <code>List.Add</code> creates a new slot at count one. This is the same foreach-plus-Add work Forge II practiced, now attached to a game rule. Do not match by displayName: the ScriptableObject reference is the definition identity already wired by the Inspector.</p>
 <p>The bench cannot hold Unity asset references, so its lab uses strings only to rehearse the list algorithm. In the editor, the matching field stays ItemDefinition. That boundary matters: the lab is real C# practice, not a lie about how Unity assets are loaded.</p>
 <div class="callout">A definition is shared authored data; an InventorySlot is a changing claim that this player has some of it.</div>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // LIST ORDER IS A DESIGN CHOICE</div><p>A List is correct when the inventory must retain a chosen order for a future UI. It is not automatically fast lookup by id; the next tempering adds a Dictionary catalog for that distinct job. Do not force one collection to be every collection.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE BOOL IS A RECEIPT</div><p><code>Add</code> returns true only after the inventory accepts the definition. There is no capacity rule yet, so only null returns false, but the receipt lets a physical pickup destroy itself after acceptance rather than assuming the transaction worked. A List remains correct for display order; the next tempering adds a Dictionary for the separate keyed-lookup job.</p></div>
 '''
 
 [[lessons.readings]]

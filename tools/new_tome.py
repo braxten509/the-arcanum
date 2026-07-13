@@ -57,6 +57,8 @@ language = "@@LANGUAGE@@"           # display name, used in grader/oracle prompt
 
 [content]
 sections = [@@SECTIONS_ARRAY@@]     # ordered section ids; each maps to sections/<id>/
+capabilityLedger = true             # keep this: lessons declare `teaches`, capstones
+                                    # declare cumulative `requires`; validator proves order
 # OPTIONAL duel bank → generated/attacks.toml (the engine default). Do NOT hand-write it:
 # author attacks_src.toml, then run  python3 tools/gen_attacks.py @@ID@@
 
@@ -239,6 +241,7 @@ brief = "TODO: HTML intro card for the chapter."
 [freestyle]
 title = "THE WORKING: TODO"
 brief = "TODO: the in-world commission.<ul><li>TODO requirement one (state exact output/tokens)</li><li>TODO requirement two</li></ul>"
+requires = ["replace-me"]           # TODO: exact ids taught by this/earlier lessons
 reward = 150
 xray = "TODO: the grader's private notes — the specific pitfalls it docks and the style it rewards, truthful to the rubric below."
 
@@ -265,6 +268,7 @@ desc = "TODO: name this language's real naming AND layout conventions (research 
 [[lessons]]
 id = "@@SID@@-l01"
 title = "TODO: lesson title"
+teaches = ["replace-me"]            # TODO: stable kebab-case capabilities this lesson teaches
 body = '''
 <p>TODO: 300-600 words of code-first lesson body, in the tome's voice.</p>
 <pre><code><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>

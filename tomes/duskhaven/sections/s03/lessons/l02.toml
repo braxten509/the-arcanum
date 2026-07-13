@@ -1,0 +1,76 @@
+[[lessons]]
+id = "s03-l02"
+title = "Give Every Gate A Reply"
+teaches = ["python-elif-else-branch", "python-exclusive-branch"]
+body = '''
+<p>One answer is not yet a gate watch. A closed gate deserves a different message, and an unfamiliar reply must not pretend to be open. Python joins mutually exclusive paths with <code>if</code>, <code>elif</code> (“else if”), and <code>else</code>. It checks from top to bottom and runs the first condition that is true; final <code>else</code> catches everything left over.</p>
+<p>Find the single <code>if gate_status == "open":</code> block in the existing canonical <code>main.py</code>. Replace that entire block—only that block—with this complete three-path version. Keep <code>gate_status</code>, <code>keeper_name</code>, all ledger lines, and the PyGame import. Do not make a second status check elsewhere.</p>
+<pre><code>if gate_status == "open":
+    print(f"Gate is open, {keeper_name}.")
+elif gate_status == "closed":
+    print(f"Gate is closed, {keeper_name}.")
+else:
+    print(f"Gate status unknown, {keeper_name}.")</code></pre>
+<p>Save and try three runs: <code>open</code>, <code>closed</code>, and <code>ajar</code>. Each prints exactly one new gate message. The colon after each header begins a block; every print beneath it receives four spaces. The <code>else</code> has no comparison because it means none of the earlier comparisons matched.</p>
+<p>Order matters. An <code>else</code> cannot come before an <code>elif</code>. More subtly, a broad condition in a future program can swallow a specific path below it. Here, two exact string checks come first and the honest fallback comes last. This is the seed of later dialogue and scene decisions: make each state visible and give unexpected input a deliberate owner.</p>
+<div class="callout">An <code>elif</code> is not a separate <code>if</code>; it is another door in one corridor, so one run takes one reply.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // UNKNOWN IS VALID</div><p>Do not call the fallback an error merely because a traveler typed <code>ajar</code>. The code works as designed by reporting an unknown status. Later, validation may clean input; today the fallback proves that the program remains readable and running when text is unfamiliar.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python Language Reference — if Statement"
+url = "https://docs.python.org/3/reference/compound_stmts.html#the-if-statement"
+
+[[lessons.exercises]]
+id = "s03-l02-e1"
+type = "mc"
+points = 21
+prompt = "For a stored status of <code>&quot;ajar&quot;</code>, which message does the three-path gate code print?"
+choices = ["Gate is open, because the first if always runs", "Gate is closed, because closed is nearest", "Nothing, because else only runs after a crash", "Gate status unknown, because neither exact comparison matched"]
+answer = 3
+hint = "Neither open nor closed matches ajar, so follow the final catch-all path."
+whyWrong = "Earlier branches run only on exact matches, and else is normal fallback rather than crash handling. An unfamiliar value reaches the unknown-status message."
+explain = "The else block owns every value that failed both named comparisons."
+
+[[lessons.exercises]]
+id = "s03-l02-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the complete closed and unknown portions of the gate decision."
+code = '''elif gate_status == "closed":
+    print(f"Gate is closed, {keeper_name}.")
+else:
+    print(f"Gate status unknown, {keeper_name}.")'''
+
+[[lessons.exercises]]
+id = "s03-l02-e2"
+type = "fill"
+points = 23
+prompt = "Restore the middle branch keyword that checks the closed status only after the open check fails."
+code = '____ gate_status == "closed":'
+answer = "elif"
+hint = "This is Python's one-word spelling for another condition in the same decision chain."
+whyWrong = "A new if begins a separate decision chain, and else cannot carry this comparison. The middle path is elif."
+
+[[lessons.exercises]]
+id = "s03-l02-w1"
+type = "write"
+points = 34
+prompt = "A slate holds <code>gate_status = &quot;closed&quot;</code> and <code>keeper_name = &quot;Tala&quot;</code>. Write one <code>if</code>/<code>elif</code>/<code>else</code> chain with open, closed, and unknown messages. For these values, output exactly <code>Gate is closed, Tala.</code>."
+expect = '''Gate is closed, Tala.'''
+hint = "Use open first, closed in elif, and let else print the unfamiliar-status message."
+starter = '''gate_status = "closed"
+keeper_name = "Tala"
+
+# Write one three-path gate-status decision here.
+'''
+solution = '''gate_status = "closed"
+keeper_name = "Tala"
+
+if gate_status == "open":
+    print(f"Gate is open, {keeper_name}.")
+elif gate_status == "closed":
+    print(f"Gate is closed, {keeper_name}.")
+else:
+    print(f"Gate status unknown, {keeper_name}.")'''

@@ -412,6 +412,7 @@ def discard_build(h, body):
                 os.remove(os.path.join(BUILD_DIR, f"{key}.{suff}"))
             except OSError:
                 pass
+        shutil.rmtree(os.path.join(BUILD_DIR, f"{key}.handoffs"), ignore_errors=True)
     # the partial tome itself — only when incomplete, and only if the path really is a
     # direct child of tomes/ (never let a crafted id escape the folder)
     tdir = os.path.realpath(os.path.join(TOMES_DIR, tid))

@@ -1,0 +1,92 @@
+[[lessons]]
+id = "s11-l02"
+title = "Set The Stonework"
+teaches = ["pygame-wall-rect-list", "pygame-world-space-wall-draw"]
+body = '''
+<p>A blue water tile is scenery; a wall needs a boundary the movement code can test. Add these top-level owners after Forge X's <code>tile_colors</code> in the one canonical <code>main.py</code>. They are a list because the realm may have many walls, and every Rect uses <strong>world</strong> coordinates. Keep <code>world_map</code> as the terrain ledger and do not hide collision facts inside <code>draw_world</code>.</p>
+<pre><code>wall_color = (109, 83, 58)
+wall_rects = [
+    pygame.Rect(192, 144, 48, 192),
+    pygame.Rect(432, 96, 144, 48),
+    pygame.Rect(672, 288, 48, 192),
+]</code></pre>
+<p>Each four-number Rect says left, top, width, height. The values are multiples of Forge X's <code>tile_size = 48</code>, which lets the stonework sit cleanly on the tile world without requiring a new map format. A list makes a deliberate owner for all solid geometry: the later collision loop can ask about every member, and a later forge can append an NPC zone without confusing it for a wall.</p>
+<p>To make the rules visible, add this direct-list drawing loop inside the existing draw phase after <code>draw_world(...)</code> and before Mira's <code>screen.blit</code>. It is a members-only insertion into the existing loop; preserve the camera calculations and the final flip.</p>
+<pre><code>for wall_rect in wall_rects:
+    pygame.draw.rect(
+        screen,
+        wall_color,
+        (wall_rect.x - camera_x, wall_rect.y - camera_y, wall_rect.width, wall_rect.height),
+    )</code></pre>
+<p>This reaches back to Forge X's camera law. A wall's <code>x</code> and <code>y</code> never change merely because Mira walks; subtraction produces only its screen destination. Width and height do not receive camera subtraction because the camera translates, not scales. The loop uses the direct iteration from Forge IV, while the color tuple and draw order reach back to Forge VIII.</p>
+<p>Run the external game and walk around the colored blocks. They still do not stop Mira—visibility comes before enforcement—but they must scroll opposite travel with the map. If a block seems glued to the window, inspect the two subtractions; a wall drawn at raw coordinates has been mistaken for a screen-space ornament.</p>
+<div class="callout">World facts are written once. The camera is only the lens through which those facts are painted.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ONE LIST, MANY QUESTIONS</div><p>Keep <code>wall_rects</code> as a list of Rects rather than four named wall variables. A single loop can draw and later test every wall, which prevents a new wall from being visible but accidentally non-solid.</p></div>
+'''
+
+[[lessons.readings]]
+label = "PyGame Draw — drawing rectangles"
+url = "https://www.pygame.org/docs/ref/draw.html#pygame.draw.rect"
+
+[[lessons.exercises]]
+id = "s11-l02-e1"
+type = "mc"
+points = 27
+prompt = "A wall has <code>wall_rect.x = 432</code> and <code>camera_x = 240</code>. Which x value must be supplied to its draw tuple?"
+choices = ["672", "240", "432", "192"]
+answer = 3
+hint = "Use the same world-to-screen conversion that Forge X used for a map tile: world x minus camera x."
+whyWrong = "Adding reverses the camera effect, camera_x alone loses the wall's location, and raw 432 pins the wall to world coordinates on the screen. The wall must be translated through the current view."
+explain = "432 - 240 is 192, so the wall is drawn 192 pixels from the current view's left edge."
+
+[[lessons.exercises]]
+id = "s11-l02-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the direct-list loop that paints every world-space wall through the established camera."
+code = '''for wall_rect in wall_rects:
+    pygame.draw.rect(screen, wall_color, (wall_rect.x - camera_x, wall_rect.y - camera_y, wall_rect.width, wall_rect.height))'''
+
+[[lessons.exercises]]
+id = "s11-l02-e2"
+type = "text"
+points = 22
+prompt = "What collection must the later collision code iterate so every solid boundary is checked?"
+answer = "wall_rects"
+hint = "It is the new list that owns the three Rect objects, not the terrain-symbol grid."
+whyWrong = "world_map describes terrain symbols and tile_colors describes appearance. The direct-list iteration needs the collection whose elements are actual collision Rects."
+
+[[lessons.exercises]]
+id = "s11-l02-e3"
+type = "fill"
+points = 25
+prompt = "Restore the camera conversion in the wall draw tuple without changing the wall's world coordinate owner."
+code = 'screen_x = wall_rect.x ____ camera_x'
+answer = "-"
+hint = "The camera offset is removed from a permanent world place to obtain a temporary screen place."
+whyWrong = "Adding makes the wall scroll with the wrong direction, while assignment discards its world location. Camera rendering subtracts the view's origin."
+
+[[lessons.exercises]]
+id = "s11-l02-w1"
+type = "write"
+points = 35
+prompt = "A stone wall begins at world x 528, is 48 pixels wide, and the camera begins at x 336. Compute its screen x and right edge, then print exactly <code>Wall screen x: 192</code> and <code>Wall right edge: 576</code>. Use the named values; do not print the target strings directly."
+expect = '''Wall screen x: 192
+Wall right edge: 576'''
+hint = "Screen x subtracts camera_x; the wall's right edge adds wall_width to its unchanged world x."
+starter = '''wall_x = 528
+wall_width = 48
+camera_x = 336
+
+# Derive the camera-relative x and the wall's world-space right edge.
+'''
+solution = '''wall_x = 528
+wall_width = 48
+camera_x = 336
+
+wall_screen_x = wall_x - camera_x
+wall_right = wall_x + wall_width
+
+print(f"Wall screen x: {wall_screen_x}")
+print(f"Wall right edge: {wall_right}")'''

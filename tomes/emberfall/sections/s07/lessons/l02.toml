@@ -3,22 +3,15 @@ id = "s07-l02"
 title = "Let the World Hear the Wound"
 body = '''
 <p>Health now keeps its numbers sound. The next danger is quieter: a readout, a death effect, and an enemy brain may all need to know when that number changes. Having each component poll <code>CurrentHP</code> every frame works, but makes every listener responsible for noticing the change. A C# <strong>event</strong> is the bell instead: Health rings it, and interested components choose to listen.</p>
-<pre><code><span class="k">using</span> System;
-<span class="k">using</span> UnityEngine;
-
-<span class="k">public</span> <span class="k">class</span> Health : MonoBehaviour
+<p>Keep the Health.cs file from the previous lesson. Add <code>using System;</code> above its Unity import, then place this declaration beside its public properties:</p>
+<pre><code><span class="k">public</span> event Action&lt;<span class="k">int</span>&gt; HealthChanged;</code></pre>
+<p>Finally, replace only Health's existing <code>SetHP</code> method with this version:</p>
+<pre><code><span class="k">private</span> <span class="k">void</span> SetHP(<span class="k">int</span> value)
 {
-    <span class="k">public</span> event Action&lt;<span class="k">int</span>&gt; HealthChanged;
-    <span class="k">public</span> <span class="k">int</span> CurrentHP { get; <span class="k">private</span> set; }
-
-    <span class="k">public</span> <span class="k">void</span> TakeDamage(<span class="k">int</span> amount)
-    {
-        <span class="k">int</span> proposedHP = CurrentHP - amount;
-        CurrentHP = Mathf.Clamp(proposedHP, 0, maxHP);
-        HealthChanged?.Invoke(CurrentHP);
-    }
+    CurrentHP = Mathf.Clamp(value, 0, maxHP);
+    HealthChanged?.Invoke(CurrentHP);
 }</code></pre>
-<p><code>Action&lt;int&gt;</code> names a callback shape: a method that returns nothing and accepts one <code>int</code>. The event stores zero or more methods of that shape. Its name reports a fact, <code>HealthChanged</code>, rather than commanding a particular consumer such as a HUD. The <code>?.</code> is a null-conditional call: when nobody has subscribed, there is no callback to invoke and the line safely does nothing.</p>
+<p>Those two edits upgrade the same complete component; do not create a second Health class. <code>Action&lt;int&gt;</code> names a callback shape: a method that returns nothing and accepts one <code>int</code>. The event stores zero or more methods of that shape. Its name reports a fact, <code>HealthChanged</code>, rather than commanding a particular consumer such as a HUD. The <code>?.</code> is a null-conditional call: when nobody has subscribed, there is no callback to invoke and the line safely does nothing.</p>
 <pre><code><span class="k">public</span> <span class="k">class</span> HealthReadout : MonoBehaviour
 {
     [SerializeField] <span class="k">private</span> Health health;
@@ -40,7 +33,7 @@ body = '''
 }</code></pre>
 <p><code>+=</code> subscribes the method and <code>-=</code> removes it. Forge III gave us the matching lifecycle hooks: OnEnable when a component becomes active, OnDisable when it stops. Forgetting the unsubscribe leaves an old listener attached and can make a disabled component receive a later event. The listener receives the new value as <code>hp</code>; it never writes Health's private data.</p>
 <div class="callout">An event is ordinary C#, not an Inspector wire. Use it when one system reports a fact and several others may react; use a direct method call when one object deliberately commands another job.</div>
-<p>After adding the event, make <code>Heal</code> and <code>Restore</code> invoke <code>HealthChanged?.Invoke(CurrentHP)</code> after they clamp too. Every sanctioned HP change must ring the same bell, or the later HUD and loaded save will display stale health.</p>
+<p>TakeDamage, Heal, and Restore already route through SetHP, so every sanctioned HP change now clamps and reports the same way. The later HUD and loaded save therefore cannot display stale health.</p>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // RING AFTER THE CHANGE</div><p>Invoke HealthChanged after Clamp assigns CurrentHP. Reverse those lines and every listener sees yesterday's number. The event declaration is public so other scripts may subscribe, but only Health invokes it; that boundary keeps a HUD from pretending damage happened.</p></div>
 '''
 

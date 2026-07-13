@@ -1,0 +1,85 @@
+[[lessons]]
+id = "s12-l03"
+title = "Answer A Single Keypress"
+teaches = ["pygame-keydown-event", "pygame-dialogue-event-wiring", "pygame-interaction-gate"]
+body = '''
+<p>Walking uses held key state because it continues. Talking must advance once per press, so it belongs in the event queue Forge VII already drains. First move the existing frame-local <code>mira_rect = pygame.Rect(...)</code> member to immediately after <code>dt = clock.tick(60) / 1000.0</code> and before <code>for event in pygame.event.get():</code>. It remains a rebuilt view of Mira's float owners; this placement simply makes it available to the discrete interaction event. Do not create a second event loop or a permanent Rect owner.</p>
+<p>Then preserve the existing QUIT branch and add these members inside that same event loop. <code>pygame.KEYDOWN</code> is a one-time press event whose <code>event.key</code> attribute identifies the key. E opens dialogue only when <code>is_near_npc</code> approves the current world-space bodies. Space advances only an already-open dialogue. The pair assignment receives the two values returned by the helpers from Thread II.</p>
+<pre><code>for event in pygame.event.get():
+    if event.type == pygame.QUIT:
+        running = False
+    elif event.type == pygame.KEYDOWN:
+        if event.key == pygame.K_e and is_near_npc(mira_rect, npc_rect):
+            dialogue_active, dialogue_index = begin_dialogue()
+        elif event.key == pygame.K_SPACE and dialogue_active:
+            dialogue_active, dialogue_index = advance_dialogue(dialogue_index, dialogue_lines)</code></pre>
+<p>The order is intentional. <code>elif</code> keeps a QUIT event from also being treated as a key event. The E condition combines a named key with the proximity Boolean using <code>and</code>: both must be true. Space outside a dialogue does nothing, which is safer than indexing a list with no active panel. Held-arrow polling still follows the event loop and handles travel; never replace it with KEYDOWN or Mira would move one tiny step per press.</p>
+<p>Run the real project, walk into Ilyra's violet welcome zone, press E once, then press Space twice. No panel exists yet, but use a temporary <code>print(dialogue_active, dialogue_index)</code> only while diagnosing if needed, then remove it. If E seems dead, click the game window, verify the event branch is inside the established loop, and check that you used <code>pygame.K_e</code>, not the string <code>"e"</code>.</p>
+<div class="callout">A held arrow is a continuing intent. A dialogue key is a single decision. Give each the input channel it deserves.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // EVENT ATTRIBUTES BELONG TO THEIR TYPE</div><p>Read <code>event.key</code> only inside the KEYDOWN branch. A QUIT event has no key attribute, so checking it before the type test is a loose thread that can crash a normal close.</p></div>
+'''
+
+[[lessons.readings]]
+label = "PyGame Event — KEYDOWN and key attributes"
+url = "https://www.pygame.org/docs/ref/event.html"
+
+[[lessons.exercises]]
+id = "s12-l03-e1"
+type = "text"
+points = 23
+prompt = "Which event type carries the key attribute for one physical key press in this forge?"
+answer = "pygame.KEYDOWN"
+accept = ["KEYDOWN"]
+hint = "The name says the key went down once; it is distinct from Forge IX's continuously queried held state."
+whyWrong = "pygame.QUIT has no key attribute, and get_pressed is a polling call rather than an event type. KEYDOWN is the discrete keyboard event that exposes event.key."
+
+[[lessons.exercises]]
+id = "s12-l03-e2"
+type = "mc"
+points = 28
+prompt = "Why does the E branch require both event.key == pygame.K_e and is_near_npc(mira_rect, npc_rect)?"
+choices = ["It makes wall_rects draw in screen space", "It allows any keyboard key to open every dialogue", "It prevents a press far from Ilyra from opening her conversation", "It converts a held arrow into a delta-time movement value"]
+answer = 2
+hint = "One condition identifies the requested action; the other verifies the apprentice is in the welcome zone."
+whyWrong = "Drawing walls and delta-time movement are unrelated, and accepting any key abandons the named control. The specific safeguard is rejecting an interaction request from across the map."
+explain = "Both facts must be true: E was pressed and Mira's Rect overlaps Ilyra's expanded interaction Rect."
+
+[[lessons.exercises]]
+id = "s12-l03-e3"
+type = "fill"
+points = 26
+prompt = "Restore the event constant that makes the next branch run only for a one-time keyboard press."
+code = 'elif event.type == pygame.____:'
+answer = "KEYDOWN"
+hint = "Use the all-caps event name for the moment a key is pressed, not the held-state polling call."
+whyWrong = "QUIT would duplicate the close condition, while K_e is a key value rather than an event type. KEYDOWN is the event category that safely permits event.key access."
+
+[[lessons.exercises]]
+id = "s12-l03-e4"
+type = "mc"
+points = 27
+prompt = "Which input mechanism should remain responsible for Mira's continuous arrow travel after dialogue keys are added?"
+choices = ["pygame.key.get_pressed() once per frame", "pygame.KEYDOWN only when a key first falls", "A terminal input() call inside the game loop", "pygame.display.flip() after every arrow"]
+answer = 0
+hint = "Forge IX's arrows must stay true for every frame the key remains held."
+whyWrong = "KEYDOWN fires once rather than continuously, terminal input blocks the GUI loop, and flip presents pixels rather than reads controls. The established held-state poll owns sustained movement."
+explain = "Keep event-driven E/Space for one action and key-state polling for ongoing travel."
+
+[[lessons.exercises]]
+id = "s12-l03-w1"
+type = "write"
+points = 36
+prompt = "A plain-file rehearsal receives <code>key = &quot;e&quot;</code> and <code>near_npc = True</code>. Use the taught combined Boolean condition to set dialogue_active, then print exactly <code>Dialogue opened: True</code>. The real game gets its key from a KEYDOWN event; this lab rehearses only the decision."
+expect = '''Dialogue opened: True'''
+hint = "Compare key to e and combine that Boolean with near_npc using and; assign the resulting decision to dialogue_active."
+starter = '''key = "e"
+near_npc = True
+
+# Decide whether this single interaction request can open dialogue.
+'''
+solution = '''key = "e"
+near_npc = True
+
+dialogue_active = key == "e" and near_npc
+
+print(f"Dialogue opened: {dialogue_active}")'''

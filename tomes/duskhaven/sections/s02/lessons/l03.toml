@@ -1,0 +1,73 @@
+[[lessons]]
+id = "s02-l03"
+title = "Weave A Gate Report"
+teaches = ["python-fstring-output", "python-formatted-status-line"]
+body = '''
+<p>A terminal can print several separate values, but a gate report should read as one sentence. An <strong>f-string</strong> is a string beginning with <code>f</code> immediately before its opening quote. Inside its braces, Python evaluates a variable and weaves that value into the surrounding text. This saves you from guessing how to join text with a number.</p>
+<p>Keep the existing canonical <code>main.py</code>, including its import, lantern proof, named oil facts, and numeric prints. Add this one new line directly below <code>print(lamp_price)</code>. It is an addition to that existing file, not a complete replacement and not a second program.</p>
+<pre><code>print(f"{town_name} holds {oil_total} flasks of oil.")</code></pre>
+<p>Run the changed file. Its last line is <code>Duskhaven holds 5 flasks of oil.</code>. The braces are not decoration: <code>{town_name}</code> looks up the stored string, and <code>{oil_total}</code> looks up the computed integer. Leave the braces and the leading <code>f</code> in place. Without the <code>f</code>, Python prints the braces as ordinary characters; without braces, the variable's letters become ordinary text. Read the output aloud before moving on.</p>
+<p>Use an f-string when a sentence needs one or more values embedded in it. It is especially good for later dialogue, menus, and battle notices because the sentence stays legible while its facts change. Keep the calculation separate above the print: first reckon <code>oil_total</code>, then report it. That separation lets you inspect a wrong total without untangling prose. The next thread lets a person supply one piece of the report.</p>
+<div class="callout">Read an f-string aloud as a template with holes. Text stays outside braces; the value names go inside them.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ONE SENTENCE, MANY VALUES</div><p>Double and single quotes both create Python strings, but this forge consistently uses double quotes so the canonical file is easy to scan. The <code>f</code> prefix must touch the opening quote: <code>f"..."</code>, not <code>f "..."</code>.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python Tutorial — Formatted String Literals"
+url = "https://docs.python.org/3/tutorial/inputoutput.html#formatted-string-literals"
+
+[[lessons.exercises]]
+id = "s02-l03-e1"
+type = "mc"
+points = 20
+prompt = "Which print call reports the stored town and computed oil total as <code>Duskhaven holds 5 flasks.</code>?"
+choices = ["print(\"town_name holds oil_total flasks.\")", "print(\"{town_name} holds {oil_total} flasks.\")", "print(f\"town_name holds oil_total flasks.\")", "print(f\"{town_name} holds {oil_total} flasks.\")"]
+answer = 3
+hint = "The working form needs both the f prefix and braces around each value name."
+whyWrong = "Plain quoted names are literal letters, and braces only become replacement slots when the string begins with f. The report must evaluate both stored values."
+explain = "The f-string evaluates the expressions in braces, so the output uses the town text and the calculated total."
+
+[[lessons.exercises]]
+id = "s02-l03-e2"
+type = "text"
+points = 18
+prompt = "In the gate report, what punctuation surrounds the value expression that should be inserted into the sentence?"
+answer = "braces"
+accept = ["curly braces", "curly brackets", "{}"]
+hint = "Look at the pair around oil_total in the worked report."
+whyWrong = "Parentheses call functions and quotes start or end text. An f-string uses curly braces to mark the expression whose value belongs in the sentence."
+
+[[lessons.exercises]]
+id = "s02-l03-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype the complete formatted gate report."
+code = 'print(f"{town_name} holds {oil_total} flasks of oil.")'
+
+[[lessons.exercises]]
+id = "s02-l03-e3"
+type = "fill"
+points = 22
+prompt = "Restore the one-character prefix that makes the braces in this sentence evaluate the stored oil total."
+code = 'print(____"Gate reserve: {oil_total}")'
+answer = "f"
+hint = "The missing character sits immediately before the opening quote of a formatted string literal."
+whyWrong = "The braces alone are ordinary characters in a plain string. Prefixing the quote with f turns the braces into places where Python inserts values."
+
+[[lessons.exercises]]
+id = "s02-l03-w1"
+type = "write"
+points = 33
+prompt = "A slate stores <code>town_name = \"Duskhaven\"</code> and <code>oil_total = 8</code>. Write one f-string print call that uses both values and produces exactly <code>Duskhaven reserve: 8</code>."
+expect = '''Duskhaven reserve: 8'''
+hint = "Start the quoted sentence with f, place town_name and oil_total in separate braces, and keep the words reserve: between them."
+starter = '''town_name = "Duskhaven"
+oil_total = 8
+
+# Print one formatted reserve report from the two stored values.
+'''
+solution = '''town_name = "Duskhaven"
+oil_total = 8
+
+print(f"{town_name} reserve: {oil_total}")'''

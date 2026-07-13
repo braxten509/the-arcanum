@@ -1,0 +1,78 @@
+[[lessons]]
+id = "s13-l02"
+title = "Build One Honest Threshold"
+teaches = ["scene-transition-helper", "scene-returned-state", "scene-transition-assignment"]
+body = '''
+<p>A key branch should say where it is going without scattering raw assignments through the loom. Add this complete new helper below Forge XII's <code>advance_dialogue</code> in canonical <code>main.py</code>. It has one parameter, returns that next scene, and changes no old function. This small boundary seems plain because it is plain: a threshold receives a requested realm and hands it back to the one durable owner.</p>
+<pre><code>def set_scene(next_scene):
+    return next_scene</code></pre>
+<p>Later, the event queue will use <code>scene = set_scene(SCENE_OVERWORLD)</code>. Read that from right to left: call the function with the named destination, receive its return value, then store that value in the existing top-level <code>scene</code> owner. Do not create <code>scene</code> inside <code>set_scene</code>; that would be a local name that vanishes at return time, a scope boundary Forge V already taught us to respect.</p>
+<p>This helper also keeps us from pretending a transition starts combat. <code>SCENE_BATTLE</code> means only “draw the battle preview card” in this forge. HP, enemies, turns, and damage belong to Forge XIV and are not smuggled through this door. A scene manager selects a mode; it does not manufacture all the systems that a future mode will need.</p>
+<p>For a plain-Python rehearsal, call the helper and print its returned string. In the external project, do not add terminal <code>input()</code>: a player crosses real thresholds with PyGame events. If a transition appears to do nothing, print <code>scene</code> briefly after the assignment, then remove that diagnostic once you confirm the expected string. If you see <code>None</code>, inspect the indented <code>return next_scene</code>; a function without a return does not supply the desired state.</p>
+<div class="callout">A transition is a value change with a named destination, not a fresh loop, window, or hidden global.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SMALL HELPERS EARN THEIR KEEP</div><p>Today <code>set_scene</code> returns one argument. Keeping all transitions in that shape makes a later reset or scene-entry effect have one obvious seam, rather than a hunt through unrelated key branches.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python Tutorial — defining functions"
+url = "https://docs.python.org/3/tutorial/controlflow.html#defining-functions"
+
+[[lessons.exercises]]
+id = "s13-l02-e1"
+type = "mc"
+points = 28
+prompt = "What does <code>scene = set_scene(SCENE_MENU)</code> store in the durable scene owner?"
+choices = ["The string held by SCENE_MENU", "A new PyGame window", "The set_scene function itself", "The current dialogue index"]
+answer = 0
+hint = "Follow the return value: the helper hands back its one parameter unchanged."
+whyWrong = "The helper neither creates a window nor touches dialogue, and parentheses call it rather than store the function object. Its returned destination string becomes scene."
+explain = "The assignment records the requested menu state for following frames."
+
+[[lessons.exercises]]
+id = "s13-l02-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the complete transition helper, including its parameter and returned value."
+code = '''def set_scene(next_scene):
+    return next_scene'''
+
+[[lessons.exercises]]
+id = "s13-l02-e2"
+type = "fill"
+points = 26
+prompt = "Restore the keyword that sends the requested destination back to the assignment at the transition boundary."
+code = '''def set_scene(next_scene):
+    ____ next_scene'''
+answer = "return"
+hint = "Forge V's function result leaves the helper through this single keyword."
+whyWrong = "print would only show text, break applies to loops, and yield has not been taught. return supplies the value that scene must retain."
+
+[[lessons.exercises]]
+id = "s13-l02-w1"
+type = "write"
+points = 36
+prompt = "The menu key asks for <code>next_scene = &quot;menu&quot;</code>. Define <code>set_scene</code> with the taught parameter-and-return shape, call it into <code>scene</code>, and print exactly <code>Scene now: menu</code>. Use the supplied value rather than hardcoding the output."
+expect = '''Scene now: menu'''
+hint = "Your helper returns next_scene; assign its call result to scene before the final f-string."
+starter = '''next_scene = "menu"
+
+# Define the small threshold helper and retain its returned destination.
+'''
+solution = '''next_scene = "menu"
+
+def set_scene(next_scene):
+    return next_scene
+
+scene = set_scene(next_scene)
+
+print(f"Scene now: {scene}")'''
+
+[[lessons.exercises]]
+id = "s13-l02-e3"
+type = "text"
+points = 23
+prompt = "Which existing top-level owner must receive a transition result so the next game frame can use it?"
+answer = "scene"
+hint = "It began as the title state in Thread I and is deliberately outside while running."
+whyWrong = "next_scene is only the helper parameter, while dialogue_active remembers conversation rather than the active realm. scene is the durable selector the renderer and event router will read."

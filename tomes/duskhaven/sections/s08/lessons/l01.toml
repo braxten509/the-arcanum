@@ -1,0 +1,80 @@
+[[lessons]]
+id = "s08-l01"
+title = "Mix The Night Vellum"
+teaches = ["python-tuple-value", "pygame-rgb-color", "pygame-surface-fill", "pygame-screen-coordinate"]
+body = '''
+<p>The old window has a Surface named <code>screen</code>, but its pixels still remember whatever was shown last. A color in PyGame can be a three-number <strong>RGB tuple</strong>: red, green, then blue, each from 0 to 255. Add this new top-level color owner after the existing caption and before <code>clock = pygame.time.Clock()</code>; a tuple is the same grouped-value shape you met in <code>set_mode((960, 540))</code>.</p>
+<pre><code>night_color = (14, 18, 38)</code></pre>
+<p>Then add this one member inside the existing <code>while running</code> loop, after its event <code>for</code> block and before the already-owned <code>pygame.display.flip()</code>. Do not wrap it in a new loop and do not replace the window setup.</p>
+<pre><code>    screen.fill(night_color)</code></pre>
+<p><code>screen.fill(...)</code> paints every pixel of the display Surface with the supplied color. It belongs in the loop because a game redraws a complete frame repeatedly. If a later forge moves a sprite, clearing first prevents old copies from remaining on the road. The RGB values above make a deep indigo: low red and green with more blue. You may change the numbers to explore, but keep the tuple's red-green-blue order and retain the variable name in the growing project.</p>
+<p>Coordinates begin at the upper-left of the window: <code>(0, 0)</code>. X increases to the right; y increases <strong>downward</strong>. That last direction is the thread beginners pull loose most often because paper graphs place positive y upward. Nothing is positioned yet, but memorize the coordinate world before we draw a gate into it. The real game receives visual input through PyGame's Surface, not through terminal stdin.</p>
+<p>Save the external <code>main.py</code>, run it, and keep the window open. It should be a solid night field rather than its previous blank frame. If Python says <code>night_color</code> is unknown, make sure its top-level assignment occurs before the loop runs. If the window still looks unchanged, inspect whether <code>fill</code> is indented inside the loop and before <code>flip()</code>.</p>
+<div class="callout">A color tuple is data; <code>fill</code> is the action that uses it. Name the first and place the second in the frame order.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CLEARING IS REDRAWING</div><p>Later movement will deliberately replace old pixels by drawing a fresh frame, not by trying to erase one sprite's previous location. That is why the background clear is a normal per-frame operation rather than a one-time setup line.</p></div>
+'''
+
+[[lessons.readings]]
+label = "PyGame Surface — fill and pixel colors"
+url = "https://www.pygame.org/docs/ref/surface.html#pygame.Surface.fill"
+
+[[lessons.exercises]]
+id = "s08-l01-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the named dusk color and the indented frame operation that clears the existing display Surface."
+code = '''night_color = (14, 18, 38)
+
+while running:
+    screen.fill(night_color)'''
+
+[[lessons.exercises]]
+id = "s08-l01-e1"
+type = "fill"
+points = 25
+prompt = "Restore the Surface method that paints the whole existing screen with the named night color before the frame is presented."
+code = 'screen.____(night_color)'
+answer = "fill"
+hint = "The missing verb means cover every pixel; it is called on screen rather than on pygame.display."
+whyWrong = "flip presents a prepared display but does not paint it, while set_mode creates the display only once. fill is the Surface method that clears the current frame."
+
+[[lessons.exercises]]
+id = "s08-l01-e2"
+type = "mc"
+points = 25
+prompt = "In Duskhaven's screen coordinates, which position is lower on the 960-by-540 window than <code>(120, 90)</code>?"
+choices = ["(120, 40)", "(70, 90)", "(120, 220)", "(220, 90)"]
+answer = 2
+hint = "Only one choice keeps x fixed and increases y; PyGame's origin is the upper-left corner."
+whyWrong = "Smaller y goes upward, changing x moves sideways, and changing neither axis does not move lower. Screen y grows downward, so the greater y coordinate is lower."
+explain = "(120, 220) shares the x position but has a larger y value, placing it below (120, 90)."
+
+[[lessons.exercises]]
+id = "s08-l01-w1"
+type = "write"
+points = 35
+prompt = "A lantern tint uses RGB values <code>14</code>, <code>18</code>, and <code>38</code>. Store them in <code>red</code>, <code>green</code>, and <code>blue</code>, compute <code>brightness</code> as their sum, and print exactly <code>Night brightness: 70</code>. This plain-file rehearsal uses the same named color components that become a PyGame tuple in the external game."
+expect = '''Night brightness: 70'''
+hint = "Add red, green, and blue instead of writing 70 directly; the f-string should report brightness."
+starter = '''red = 14
+green = 18
+blue = 38
+
+# Compute brightness from all three color components, then report it.
+'''
+solution = '''red = 14
+green = 18
+blue = 38
+brightness = red + green + blue
+print(f"Night brightness: {brightness}")'''
+
+[[lessons.exercises]]
+id = "s08-l01-e3"
+type = "text"
+points = 20
+prompt = "At which screen coordinate does PyGame place its origin for the display Surface?"
+answer = "(0, 0)"
+accept = ["0, 0", "0,0", "top left", "upper left", "the upper left"]
+hint = "Think of the corner from which moving right raises x and moving down raises y."
+whyWrong = "The lower corners have large y values and the right corners have large x values. PyGame begins its screen coordinate grid at the upper-left corner."

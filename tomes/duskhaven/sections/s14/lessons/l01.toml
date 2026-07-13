@@ -1,0 +1,102 @@
+[[lessons]]
+id = "s14-l01"
+title = "Give The Combatants Their Measure"
+teaches = ["combat-stat-owner", "combat-health-clamp", "combat-object-stat-report"]
+body = '''
+<p>Steel needs facts before spectacle, apprentice. Forge VI gave <code>Player</code> and <code>Enemy</code> their own <code>name</code>, <code>health</code>, status report, and wound method. Replace each existing class at its current location in canonical <code>main.py</code> with these complete replacements. Do not create a second class or a loose <code>player_attack</code> variable: health, attack, and defense belong to the creature they describe.</p>
+<pre><code>class Player:
+    def __init__(self, name, health, attack, defense):
+        self.name = name
+        self.health = health
+        self.attack = attack
+        self.defense = defense
+
+    def report_status(self):
+        print(f"{self.name} has {self.health} HP.")
+
+    def take_damage(self, damage):
+        self.health = self.health - damage
+        if self.health &lt; 0:
+            self.health = 0
+
+
+class Enemy:
+    def __init__(self, name, health, attack, defense):
+        self.name = name
+        self.health = health
+        self.attack = attack
+        self.defense = defense
+
+    def report_status(self):
+        print(f"{self.name} has {self.health} HP.")
+
+    def take_damage(self, damage):
+        self.health = self.health - damage
+        if self.health &lt; 0:
+            self.health = 0</code></pre>
+<p>Replace the old construction lines with <code>player = Player("Mira", 12, 5, 2)</code> and <code>mist_wolf = Enemy("Mist Wolf", 8, 4, 1)</code>. The first extra number is attack; the second is defense. Dot access makes every later rule legible: <code>player.attack</code> belongs to Mira, while <code>mist_wolf.defense</code> belongs to the wolf. Both classes retain their old members; the only new policy is that a wound cannot leave health below zero.</p>
+<p>The clamp is an <code>if</code> after subtraction, not a magical integer property. A 3-HP wolf taking 5 damage first reaches -2, then stores 0. That makes defeat readable for the coming turn logic. Run the external game after both constructors change. A missing-argument traceback means an old two-value construction survived; find that call and supply attack and defense rather than weakening the initializer.</p>
+<div class="callout">One object owns one creature's changing numbers. Duplicate owners make a battle impossible to trust.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ZERO IS A STATE</div><p>Zero prevents contradictory “-2 HP” displays. It does not decide victory or stop turns; those are later rules with their own boundary.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python Tutorial — Instance Objects"
+url = "https://docs.python.org/3/tutorial/classes.html#instance-objects"
+
+[[lessons.exercises]]
+id = "s14-l01-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the complete Player wound member, including the zero-health guard."
+code = '''    def take_damage(self, damage):
+        self.health = self.health - damage
+        if self.health < 0:
+            self.health = 0'''
+
+[[lessons.exercises]]
+id = "s14-l01-e1"
+type = "mc"
+points = 29
+prompt = "Why should Mira's attack be read as <code>player.attack</code> instead of kept in a loose <code>player_attack</code> variable?"
+choices = ["A loose variable makes Python unable to subtract numbers", "The Player instance is the canonical owner of Mira's combat state", "Only Enemy objects may have attack attributes", "PyGame requires every number to be global"]
+answer = 1
+hint = "Forge VI placed Mira's health on her Player instance; place the new combat fact beside it."
+whyWrong = "Python can subtract loose numbers, both object types may own attack, and PyGame does not require globals. The error is splitting one creature's state across competing owners."
+explain = "player.attack keeps Mira's combat value beside player.health and player.defense."
+
+[[lessons.exercises]]
+id = "s14-l01-e2"
+type = "fill"
+points = 26
+prompt = "Restore the attribute that keeps this initializer's final received combat number on the particular Enemy instance."
+code = '''    def __init__(self, name, health, attack, defense):
+        self.name = name
+        self.health = health
+        self.attack = attack
+        self.____ = defense'''
+answer = "defense"
+hint = "The final parameter belongs under the same lower-case attribute name on self."
+whyWrong = "attack would overwrite another stat, while name and health hold different inputs. defense receives this final parameter."
+
+[[lessons.exercises]]
+id = "s14-l01-w1"
+type = "write"
+points = 37
+prompt = "A Cinder Boar begins with <code>health = 3</code> and receives <code>damage = 5</code>. Store the subtraction, use an if guard to clamp any negative result to zero, and print exactly <code>Cinder Boar HP: 0</code>. Compute from both supplied values."
+expect = '''Cinder Boar HP: 0'''
+hint = "Subtract damage from health first; then compare the stored result with 0 and replace it only when lower."
+starter = '''health = 3
+damage = 5
+
+# Apply the wound and keep displayed health from falling below zero.
+'''
+solution = '''health = 3
+damage = 5
+
+health = health - damage
+if health < 0:
+    health = 0
+
+print(f"Cinder Boar HP: {health}")'''

@@ -2,18 +2,32 @@
 id = "s11-l03"
 title = "Tempering III // The Sounding Anvil"
 body = '''
-<p>Sound belongs to an owner, artificer. Add a scene-level <code>AudioManager</code> with assigned <code>AudioSource</code> references for music and effects, plus assigned <code>AudioClip</code> fields for footsteps, hit, pickup, and button click. An AudioSource is the speaker in the scene; an AudioClip is the recorded sound it can play. Do not attach a new source to every sword, button, and NPC just because you can.</p>
-<pre><code><span class="k">public</span> <span class="k">void</span> PlaySfx(AudioClip clip)
+<p>Sound belongs to an owner, artificer. Make a guaranteed placeholder set before searching for polished assets: use your operating system's recorder to capture three short sounds—a tap for pickup, a clap for damage, and the word “click” for UI—export them as WAV or OGG, then drag the files into <code>Assets/Audio</code>. Select each imported AudioClip and leave <strong>Load Type</strong> on Decompress On Load for these tiny effects. Sound design is outside this course; importing, owning, and triggering clips in Unity is inside it.</p>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> AudioManager : MonoBehaviour
 {
-    <span class="k">if</span> (clip == <span class="k">null</span>) <span class="k">return</span>;
-    effectsSource.PlayOneShot(clip);
+    [SerializeField] <span class="k">private</span> AudioSource effectsSource;
+    [SerializeField] <span class="k">private</span> AudioClip pickupClip;
+    [SerializeField] <span class="k">private</span> AudioClip damageClip;
+    [SerializeField] <span class="k">private</span> AudioClip buttonClip;
+
+    <span class="k">public</span> <span class="k">void</span> PlayPickup() =&gt; PlaySfx(pickupClip);
+    <span class="k">public</span> <span class="k">void</span> PlayDamage() =&gt; PlaySfx(damageClip);
+    <span class="k">public</span> <span class="k">void</span> PlayButton() =&gt; PlaySfx(buttonClip);
+
+    <span class="k">private</span> <span class="k">void</span> PlaySfx(AudioClip clip)
+    {
+        <span class="k">if</span> (clip == <span class="k">null</span>) <span class="k">return</span>;
+        effectsSource.PlayOneShot(clip);
+    }
 }</code></pre>
-<p><code>PlayOneShot</code> layers a short effect without replacing whatever that source is currently playing. That makes it suitable for a pickup or a combat hit. Use a dedicated music source for the overworld loop, and use the effects source for brief sounds. Assign both in the Inspector so the scene declares its hardware. A null guard is not cowardice: it gives an unfinished assignment silence instead of a Play-mode exception while you are wiring the scene.</p>
-<p>Call the manager from meaningful events already present in Emberfall. The inventory pickup path calls <code>PlaySfx(pickupClip)</code>; the Health damage boundary can request the hit clip; Canvas Button On Click can call a public <code>PlayButtonClick()</code> before or alongside the Forge X state transition. Do not put audio polling in Update. An event that happened once deserves one sound request, not a per-frame guess.</p>
+<p>Create one scene AudioManager, add one AudioSource, disable Play On Awake, then assign that source and all three clips. <code>PlayOneShot</code> layers a short effect without replacing another effect already playing. The private helper accepts the clip; public named verbs keep gameplay callers from choosing arbitrary audio assets.</p>
+<p>Call the manager from meaningful events already present in Emberfall. A successful ItemPickup calls <code>PlayPickup</code> before destruction; the player Health listener calls <code>PlayDamage</code> after real damage; each Button On Click can call <code>PlayButton</code> in a second event slot alongside its state command. Do not poll audio in Update. An event that happened once deserves one sound request, not a per-frame guess.</p>
 <p>Audio is polish with rules. Footsteps should be tied to actual movement and should not continue when GameStateManager is paused. If an AudioSource is set to ignore listener pause, it can keep playing while <code>AudioListener.pause</code> is active; leave that specialized option alone unless you deliberately need menu music. Your basic pause proof is simpler: stop movement events through the existing game state and confirm no new gameplay effects fire.</p>
-<p>The bench cannot play Unity audio, so its drill tests event ownership. The real work is Inspector assignment and listening in Play mode with a headset or speakers.</p>
+<p>The bench cannot play Unity audio, so its drill tests event ownership. The real work is importing the three placeholders, assigning them, and listening in Play mode. Music remains optional because composing or licensing a soundtrack is not part of the selected C#/Unity scope.</p>
 <div class="callout">An event asks for a sound. AudioManager chooses the source and clip; gameplay does not become an audio mixer.</div>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // LEVELS BEFORE LOUDNESS</div><p>Set source volumes conservatively, then test dialogue, hit effects, and music together. A perfectly coded clip that buries the dialogue is still a release defect.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // LEVELS BEFORE LOUDNESS</div><p>Set effect volume conservatively and trigger pickup, damage, and button clips in one test pass. A correctly wired clip that startles the player or repeats twice is still a release defect. Add a separate looping music source only when you actually have a soundtrack.</p></div>
 '''
 
 [[lessons.readings]]

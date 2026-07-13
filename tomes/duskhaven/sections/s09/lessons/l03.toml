@@ -1,0 +1,82 @@
+[[lessons]]
+id = "s09-l03"
+title = "Measure A Frame's Breath"
+teaches = ["pygame-clock-delta-ms", "pygame-delta-seconds", "pygame-frame-rate-independent-movement"]
+body = '''
+<p>One pixel per frame is a loose thread: at 120 frames per second Mira runs twice as far as at 60. Movement needs distance, and distance is speed multiplied by time. Keep <code>mira_x</code> and <code>mira_y</code> as floats, then add <code>mira_speed = 180.0</code> beside them before <code>running = True</code>. This means 180 pixels per second, not 180 pixels per frame.</p>
+<p>Forge VII already owns one Clock and one pacing call. Replace its existing indented <code>clock.tick(60)</code> line—do not add a second tick—with this member as the first line inside the existing <code>while running</code> loop, before event handling:</p>
+<pre><code>    dt = clock.tick(60) / 1000.0</code></pre>
+<p><code>clock.tick(60)</code> waits as needed to cap the loop and returns the milliseconds since its previous call. Dividing by <code>1000.0</code> makes <code>dt</code> seconds. The decimal keeps Python's result a float. A frame that took roughly 16 milliseconds therefore produces roughly <code>0.016</code> seconds. Use this exact <code>dt</code> once for this frame's update; calling <code>tick</code> twice splits the pacing measurement and makes the loop's timing unclear.</p>
+<p>Now replace each rehearsal <code>1</code> in Thread II's direction members with <code>mira_speed * dt</code>. The expression has units that can be checked: pixels per second times seconds becomes pixels. At a 60-ish frame rate it is about three pixels; at a slower frame it is a larger step, preserving approximately the same travel per second. The real PyGame artifact receives time from Clock, while this lab merely lets you inspect the arithmetic in a plain Python file.</p>
+<p>If movement is wildly fast, inspect the divisor: milliseconds are not seconds. If it stutters, confirm there is exactly one <code>clock.tick(60)</code> call in the loop and that it occurs before the key-driven update. Keep the old event queue and drawing order. Time measures the loop; it does not replace either input or rendering.</p>
+<div class="callout">Never attach speed to the frame count. Attach it to seconds, then let the Clock account for the machine's actual breath.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // FLOATS HOLD THE FRACTION</div><p>A float position may be 132.7 even though a display pixel is whole. Preserve that fraction in the owner; Thread IV converts only at the drawing boundary.</p></div>
+'''
+
+[[lessons.readings]]
+label = "PyGame Time — Clock.tick return value"
+url = "https://www.pygame.org/docs/ref/time.html#pygame.time.Clock.tick"
+
+[[lessons.exercises]]
+id = "s09-l03-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the single timing boundary and a rightward delta-time update."
+code = '''dt = clock.tick(60) / 1000.0
+
+if keys[pygame.K_RIGHT]:
+    mira_x += mira_speed * dt'''
+
+[[lessons.exercises]]
+id = "s09-l03-e1"
+type = "fill"
+points = 25
+prompt = "Restore the conversion that turns Clock.tick's milliseconds into seconds for <code>dt</code>."
+code = 'dt = clock.tick(60) / ____'
+answer = "1000.0"
+hint = "There are one thousand milliseconds in a second; the decimal preserves a float result."
+whyWrong = "Dividing by 60 applies the FPS cap again rather than changing units, while multiplying by 1000 makes the timing vastly larger. The Clock return is in milliseconds, so divide by 1000.0."
+
+[[lessons.exercises]]
+id = "s09-l03-e2"
+type = "mc"
+points = 26
+prompt = "What does <code>mira_speed * dt</code> represent when speed is pixels per second and dt is seconds?"
+choices = ["The pixel distance to move during this frame", "The number of held keys", "The display width in pixels", "A replacement for pygame.display.flip()"]
+answer = 0
+hint = "Multiply the units themselves: pixels/second times seconds."
+whyWrong = "The expression neither reads keys nor presents a Surface, and it has no window-size input. The misconception is confusing a time-scaled distance with a frame or display operation."
+explain = "Its units reduce to pixels, so adding or subtracting it changes a position by this frame's fair travel distance."
+
+[[lessons.exercises]]
+id = "s09-l03-w1"
+type = "write"
+points = 35
+prompt = "Use <code>mira_speed = 180.0</code> and <code>dt = 0.05</code> to compute <code>step</code>. Add that step to <code>mira_x = 132.0</code>, then print exactly <code>Mira x: 141.0</code>."
+expect = '''Mira x: 141.0'''
+hint = "First calculate 180.0 times 0.05, then add that 9.0-pixel step to the named x position."
+starter = '''mira_speed = 180.0
+dt = 0.05
+mira_x = 132.0
+
+# Compute this frame's distance, then apply it to Mira's x position.
+'''
+solution = '''mira_speed = 180.0
+dt = 0.05
+mira_x = 132.0
+
+step = mira_speed * dt
+mira_x += step
+
+print(f"Mira x: {mira_x}")'''
+
+[[lessons.exercises]]
+id = "s09-l03-e3"
+type = "text"
+points = 21
+prompt = "Clock.tick returns elapsed time in which unit before the taught division converts it?"
+answer = "milliseconds"
+accept = ["millisecond", "ms"]
+hint = "The divisor 1000.0 tells you how the original unit relates to seconds."
+whyWrong = "It does not return seconds directly or a number of pixels. Treating its result as seconds would make a movement step about a thousand times too large."

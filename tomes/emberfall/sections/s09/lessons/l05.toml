@@ -3,34 +3,42 @@ id = "s09-l05"
 title = "Let the World Answer"
 body = '''
 <p>The keeper now opens pages, and QuestLog remembers facts. Forge them together without making either component swallow the other. NPCInteractable owns the consequence of finishing <em>its</em> opening conversation: after it starts the sequence, it may later call <code>questLog.SetFlag("keeper_spoken_to")</code>. DialogueController must expose whether its panel is open, but it must not know what a keeper, key, or quest means.</p>
-<pre><code><span class="k">public</span> <span class="k">class</span> DialogueController : MonoBehaviour
-{
-    <span class="k">public</span> <span class="k">bool</span> IsOpen { <span class="k">get</span>; <span class="k">private</span> <span class="k">set</span>; }
-    <span class="k">public</span> event System.Action ConversationFinished;
-
-    <span class="k">public</span> <span class="k">void</span> Begin(<span class="k">string</span>[] lines)
-    {
-        activeLines = lines;
-        lineIndex = 0;
-        IsOpen = <span class="k">true</span>;
-        dialoguePanel.ShowLine(activeLines[lineIndex]);
-    }
-
-    <span class="k">public</span> <span class="k">void</span> Advance()
-    {
-        lineIndex++;
-        <span class="k">if</span> (lineIndex &gt;= activeLines.Length)
-        {
-            IsOpen = <span class="k">false</span>;
-            dialoguePanel.Hide();
-            ConversationFinished?.Invoke();
-            <span class="k">return</span>;
-        }
-        dialoguePanel.ShowLine(activeLines[lineIndex]);
-    }
-}</code></pre>
+<p>Keep the DialogueController from Tempering III and add these two members beside its private fields:</p>
+<pre><code><span class="k">public</span> <span class="k">bool</span> IsOpen { <span class="k">get</span>; <span class="k">private</span> <span class="k">set</span>; }
+<span class="k">public</span> event System.Action ConversationFinished;</code></pre>
+<p>Then make four precise edits to its existing methods. In Begin's null-or-empty branch, set <code>IsOpen = false;</code> before hiding. In Begin's valid branch, set <code>IsOpen = true;</code> immediately before showing line zero. Put this guard at the very top of Advance:</p>
+<pre><code><span class="k">if</span> (!IsOpen || activeLines == <span class="k">null</span>) <span class="k">return</span>;</code></pre>
+<p>Finally, inside Advance's closing branch, set <code>IsOpen = false;</code> before Hide and ring <code>ConversationFinished?.Invoke();</code> immediately after Hide. Do not create a second DialogueController class; these edits extend the working file from Tempering III.</p>
 <p><code>IsOpen</code> is the same public-read/private-set boundary you used for Health.CurrentHP. A player input script can decide whether its interact action means “advance dialogue” by reading IsOpen, but it cannot forge an open state without Begin. The controller changes IsOpen before commanding the panel so its observable state agrees with the screen on the same frame.</p>
-<p>Before the keeper begins its first conversation, subscribe <code>dialogueController.ConversationFinished += CompleteOpeningQuest</code>. That method immediately unsubscribes itself, calls <code>questLog.SetFlag("keeper_spoken_to")</code>, and therefore runs once. Later interactions use HasFlag to choose a return line without subscribing again. DialogueController reports completion but never knows which quest the NPC records.</p>
+<p>Replace the earlier NPC's Interact method with this complete consequence gate; keep its trigger methods and <code>playerInRange</code> field unchanged:</p>
+<pre><code>[SerializeField] <span class="k">private</span> QuestLog questLog;
+[SerializeField] <span class="k">private</span> <span class="k">string</span>[] returnLines;
+<span class="k">private const string</span> KeeperFlag = <span class="s">"keeper_spoken_to"</span>;
+
+<span class="k">public</span> <span class="k">void</span> Interact()
+{
+    <span class="k">if</span> (!playerInRange) <span class="k">return</span>;
+    <span class="k">if</span> (questLog.HasFlag(KeeperFlag))
+    {
+        dialogueController.Begin(returnLines);
+        <span class="k">return</span>;
+    }
+    dialogueController.ConversationFinished -= CompleteOpeningQuest;
+    dialogueController.ConversationFinished += CompleteOpeningQuest;
+    dialogueController.Begin(openingLines);
+}
+
+<span class="k">private</span> <span class="k">void</span> CompleteOpeningQuest()
+{
+    dialogueController.ConversationFinished -= CompleteOpeningQuest;
+    questLog.SetFlag(KeeperFlag);
+}
+
+<span class="k">private</span> <span class="k">void</span> OnDisable()
+{
+    dialogueController.ConversationFinished -= CompleteOpeningQuest;
+}</code></pre>
+<p>The pre-emptive <code>-=</code> prevents duplicate subscriptions if Interact is somehow called twice before completion. The handler unsubscribes itself before setting the flag, and OnDisable supplies cleanup if the NPC disappears mid-conversation. A later interaction sees the flag and selects returnLines without subscribing again. DialogueController reports completion but never knows which quest the NPC records.</p>
 <p>Test the entire chain in Play mode: approach, interact, advance every opening line, observe the panel close, then log HasFlag. Leave and return; the second greeting must be the return line. Also walk a goblin through the trigger to prove its tag does not start the quest. That proof crosses UI, physics, strings, dictionary state, and boundaries without pretending a single console file could do it.</p>
 <div class="callout">DialogueController owns page state. QuestLog owns completion facts. NPCInteractable is the narrow bridge that gives one NPC's finished conversation a consequence.</div>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // ONE-TIME REWARDS</div><p>When a conversation eventually grants an item, guard the grant with HasFlag before Inventory.Add. Otherwise every return greeting becomes a duplication machine. The flag is not merely narrative; it is a rule that prevents a real gameplay exploit.</p></div>

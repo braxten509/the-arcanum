@@ -6,7 +6,7 @@ import re
 import shutil
 
 from . import (CONSUMABLE_IDS, ID_RE, META_REQUIRED, MULTI_CHARGE, PLACEHOLDER_RE,
-               REPO, REQUIRED_CONSUMABLES, err, lang_config, load_toml, rel,
+               REPO, REQUIRED_CONSUMABLES, RUNTIMES_DIR, err, load_toml, rel,
                runtime_resolves, warn)
 
 
@@ -177,16 +177,89 @@ def check_runtime(m, tome_id, label):
         err(label, "[runtime] table is missing")
         return
     name = rt.get("name") or "custom"  # matches the engine's default (generic.py NAME) when name is omitted
-    if not ID_RE.fullmatch(str(name)):
+    runtime_name = str(name)
+    if not ID_RE.fullmatch(runtime_name):
         err(label, f"[runtime] name {name!r} must match [A-Za-z0-9_-]+")
-    merged = {**lang_config(name), **rt}
-    if not runtime_resolves(name):
+    runtime_path = os.path.join(RUNTIMES_DIR, runtime_name + ".toml")
+    runtime_data = {}
+    if not runtime_resolves(runtime_name):
         err(label, f"[runtime] name {name!r} has no global-configs/runtimes/{name}.toml — "
                    "every tome ships on a NAMED runtime file, so the language is reusable "
                    "and reviewable. CREATE that file now (zero code — command, checkCommand, "
                    "diagRegex, starterCode…; read tome-authoring/5-runtimes.md and copy the "
                    "shape of any existing global-configs/runtimes/*.toml), keeping only "
                    "tome-specific tweaks in this table")
+    else:
+        runtime_data, runtime_error = load_toml(runtime_path)
+        if runtime_error:
+            err(rel(runtime_path), runtime_error)
+            runtime_data = {}
+    merged = {**(runtime_data or {}), **rt}
+
+    def source_label(key):
+        return label if key in rt else rel(runtime_path)
+
+    # Phase 2 and Phase 8 may author this shared config. Validate the generic runtime's
+    # executable schema here, before a malformed value reaches list(), re.compile(), or
+    # os.path.join() inside the live engine.
+    command_keys = ("command", "runCommand", "buildCommand", "checkCommand",
+                    "scaffoldCommand", "packageCommand", "snippetRunCommand")
+    for key in command_keys:
+        if key not in merged:
+            continue
+        value = merged[key]
+        if (not isinstance(value, list)
+                or any(not isinstance(arg, str) or not arg for arg in value)):
+            err(source_label(key), f"[runtime] {key} must be an array of non-empty argv strings")
+    for key in ("codeExt", "excludeDirs", "diagIgnore", "snippetFragmentIgnore"):
+        if key not in merged:
+            continue
+        value = merged[key]
+        if (not isinstance(value, list)
+                or any(not isinstance(item, str) or not item for item in value)):
+            err(source_label(key), f"[runtime] {key} must be an array of non-empty strings")
+    for key in ("entryFile", "projectFile"):
+        value = merged.get(key)
+        if value is None:
+            continue
+        if not isinstance(value, str) or not value.strip():
+            err(source_label(key), f"[runtime] {key} must be a non-empty relative path")
+            continue
+        normalized = value.replace("\\", "/")
+        if normalized.startswith("/") or ".." in normalized.split("/"):
+            err(source_label(key), f"[runtime] {key} must stay inside the learner project; "
+                                   f"got {value!r}")
+    regex_keys = ("diagRegex", "snippetEntry", "snippetFragment", "snippetHoist",
+                  "snippetFragmentSkip")
+    for key in regex_keys:
+        value = merged.get(key)
+        if value is None:
+            continue
+        if not isinstance(value, str):
+            err(source_label(key), f"[runtime] {key} must be a regex string")
+            continue
+        try:
+            re.compile(value, re.M)
+        except re.error as exc:
+            err(source_label(key), f"[runtime] {key} is not a valid Python regex: {exc}")
+    for key in ("diagIgnore", "snippetFragmentIgnore"):
+        value = merged.get(key)
+        if not isinstance(value, list):
+            continue  # the list-shape error above is already specific
+        for index, pattern in enumerate(value):
+            if not isinstance(pattern, str):
+                continue
+            try:
+                re.compile(pattern, re.M)
+            except re.error as exc:
+                err(source_label(key), f"[runtime] {key}[{index}] is not a valid Python "
+                                       f"regex: {exc}")
+    for key in ("buildTimeout", "runTimeout"):
+        value = merged.get(key)
+        if value is not None and (isinstance(value, bool) or not isinstance(value, int)
+                                  or value <= 0):
+            err(source_label(key), f"[runtime] {key} must be a positive integer number of seconds")
+
     if not (merged.get("command") or merged.get("runCommand")):
         err(label, f"[runtime] {name!r} sets neither command nor runCommand — nothing can run")
     # The named toolchain must exist on THIS host: a runtime whose binary isn't installed

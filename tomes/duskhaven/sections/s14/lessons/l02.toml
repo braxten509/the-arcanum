@@ -1,0 +1,100 @@
+[[lessons]]
+id = "s14-l02"
+title = "Temper The Damage And Turn"
+teaches = ["combat-damage-formula", "combat-minimum-damage", "combat-damage-return", "combat-battle-state-owner", "combat-player-turn", "combat-enemy-response", "combat-outcome-lock"]
+body = '''
+<p>Numbers need a rule and a turn needs an order, apprentice. Add this complete helper below the two canonical class declarations in <code>main.py</code>. It reads the attacker and defender that already own their stats, then returns one damage number. It does not alter health itself; that separation gives the event branch a clean place to decide who acts next.</p>
+<pre><code>def calculate_damage(attacker, defender):
+    damage = attacker.attack - defender.defense
+    if damage &lt; 1:
+        damage = 1
+    return damage</code></pre>
+<p>The formula is attack minus defense. Mira's 5 against the wolf's 1 is 4. A high-defense opponent could make the subtraction zero or negative, so Duskhaven's stated policy replaces every result below 1 with 1. This is different from Thread I's health clamp: that protects stored HP after a wound, while this helper protects the amount a caller will apply. Do not reverse the operands; <code>defender.attack - attacker.defense</code> quietly asks the wrong question.</p>
+<p>After <code>mist_wolf</code>, add durable <code>battle_message = "Press Space to strike."</code> and <code>battle_over = False</code>. Then insert this complete <code>elif</code> in the existing <code>pygame.KEYDOWN</code> ladder after menu B and before Escape. It belongs in the one event queue; Space is a discrete press, not held-arrow input.</p>
+<pre><code>elif scene == SCENE_BATTLE and event.key == pygame.K_SPACE and not battle_over:
+    player_damage = calculate_damage(player, mist_wolf)
+    mist_wolf.take_damage(player_damage)
+    battle_message = f"Mira strikes for {player_damage}."
+    if mist_wolf.health == 0:
+        battle_message = "Mist Wolf falls. Mira wins!"
+        battle_over = True
+    else:
+        enemy_damage = calculate_damage(mist_wolf, player)
+        player.take_damage(enemy_damage)
+        battle_message = f"Mist Wolf answers for {enemy_damage}."
+        if player.health == 0:
+            battle_message = "Mira falls. The trial is lost."
+            battle_over = True</code></pre>
+<p>Mira strikes first. Only a surviving wolf answers, so a defeated enemy cannot act from the floor. The <code>not battle_over</code> guard locks the result against extra Space presses. Run the real scene route now; numbers become visible next thread.</p>
+<div class="callout">A turn is ordered: strike, inspect the outcome, then permit a surviving enemy to answer.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // NO SECRET RESET</div><p>This forge has one encounter state. A replay needs an explicit restoration owner, never a hidden assignment in the Space branch.</p></div>
+'''
+
+[[lessons.readings]]
+label = "PyGame Event — event queue and event types"
+url = "https://www.pygame.org/docs/ref/event.html"
+
+[[lessons.exercises]]
+id = "s14-l02-e1"
+type = "mc"
+points = 30
+prompt = "Mira has attack 5 and a Mist Wolf has defense 1. What does <code>calculate_damage(player, mist_wolf)</code> return?"
+choices = ["1, because all strikes use the minimum", "5, because defense is display-only", "4, because defender defense is subtracted from attacker attack", "6, because defense is added"]
+answer = 2
+hint = "Use attacker.attack - defender.defense before considering the one-point floor."
+whyWrong = "The floor applies only below 1, and defense is neither ignored nor added. Here 5 - 1 already yields a legal 4."
+explain = "The helper calculates 5 - 1 and returns 4."
+
+[[lessons.exercises]]
+id = "s14-l02-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the complete reusable damage helper with its one-point floor."
+code = '''def calculate_damage(attacker, defender):
+    damage = attacker.attack - defender.defense
+    if damage < 1:
+        damage = 1
+    return damage'''
+
+[[lessons.exercises]]
+id = "s14-l02-e2"
+type = "fill"
+points = 27
+prompt = "Restore the Boolean word that keeps a completed battle from processing another Space-key turn."
+code = 'elif scene == SCENE_BATTLE and event.key == pygame.K_SPACE and ____ battle_over:'
+answer = "not"
+hint = "The branch should run only while battle_over is False."
+whyWrong = "battle_over alone permits strikes only after completion, while True always permits them. not reverses the finished flag."
+
+[[lessons.exercises]]
+id = "s14-l02-e3"
+type = "text"
+points = 24
+prompt = "A 2-attack Ember Moth strikes a defender with 7 defense. After the taught floor rule, what integer does the helper return?"
+answer = "1"
+hint = "Reckon 2 - 7, then apply the branch for a value below the smallest legal hit."
+whyWrong = "Returning -5 could turn defense into healing, while 0 creates a stalemate. The stated policy raises every result below 1 to 1."
+
+[[lessons.exercises]]
+id = "s14-l02-w1"
+type = "write"
+points = 39
+prompt = "A wolf begins with <code>wolf_health = 4</code> and Mira's strike is <code>player_damage = 4</code>. Subtract, then use if/else to print exactly <code>Outcome: Mira wins</code> at zero, otherwise <code>Outcome: Wolf answers</code>. Derive the result from these values."
+expect = '''Outcome: Mira wins'''
+hint = "Store wolf_health - player_damage, compare that stored health with 0, then choose the matching outcome."
+starter = '''wolf_health = 4
+player_damage = 4
+
+# Apply Mira's strike, then decide whether a wolf response is legal.
+'''
+solution = '''wolf_health = 4
+player_damage = 4
+
+wolf_health = wolf_health - player_damage
+if wolf_health == 0:
+    outcome = "Mira wins"
+else:
+    outcome = "Wolf answers"
+
+print(f"Outcome: {outcome}")'''

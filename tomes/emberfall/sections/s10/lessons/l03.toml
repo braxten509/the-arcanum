@@ -3,14 +3,56 @@ id = "s10-l03"
 title = "Tempering III // Stop the Clock"
 body = '''
 <p>A pause screen that merely covers the world is stage paint. Unity exposes <code>Time.timeScale</code>, a multiplier for <em>scaled</em> time. Set it to <code>0f</code> when GameState becomes Paused and Rigidbody2D physics steps, Update code using deltaTime, and Forge VII's <code>WaitForSeconds</code> recovery wait stop advancing. Restore <code>1f</code> before a new run, on resume, on game over, and on return to menu. Leaving the clock at zero is the classic cursed forge: the menu looks alive but the next run cannot move.</p>
-<pre><code><span class="k">private</span> <span class="k">void</span> SetState(GameState nextState)
+<pre><code><span class="k">using</span> UnityEngine;
+<span class="k">using</span> UnityEngine.InputSystem;
+
+<span class="k">public enum</span> GameState { MainMenu, Playing, Paused, GameOver }
+
+<span class="k">public</span> <span class="k">class</span> GameStateManager : MonoBehaviour
 {
-    CurrentState = nextState;
-    Time.timeScale = nextState == GameState.Paused ? 0f : 1f;
-    pausePanel.SetActive(nextState == GameState.Paused);
-    hudPanel.SetActive(nextState == GameState.Playing || nextState == GameState.Paused);
+    [SerializeField] <span class="k">private</span> GameObject mainMenuPanel;
+    [SerializeField] <span class="k">private</span> GameObject hudPanel;
+    [SerializeField] <span class="k">private</span> GameObject pausePanel;
+    [SerializeField] <span class="k">private</span> GameObject gameOverPanel;
+    [SerializeField] <span class="k">private</span> GameObject gameplayRoot;
+    <span class="k">public</span> GameState CurrentState { <span class="k">get</span>; <span class="k">private set</span>; }
+
+    <span class="k">private</span> <span class="k">void</span> Awake() =&gt; SetState(GameState.MainMenu);
+
+    <span class="k">private</span> <span class="k">void</span> Update()
+    {
+        <span class="k">if</span> (Keyboard.current != <span class="k">null</span>
+            &amp;&amp; Keyboard.current.escapeKey.wasPressedThisFrame) TogglePause();
+    }
+
+    <span class="k">public</span> <span class="k">void</span> StartGame()
+    { <span class="k">if</span> (CurrentState == GameState.MainMenu) SetState(GameState.Playing); }
+    <span class="k">public</span> <span class="k">void</span> PauseGame()
+    { <span class="k">if</span> (CurrentState == GameState.Playing) SetState(GameState.Paused); }
+    <span class="k">public</span> <span class="k">void</span> ResumeGame()
+    { <span class="k">if</span> (CurrentState == GameState.Paused) SetState(GameState.Playing); }
+    <span class="k">public</span> <span class="k">void</span> EndGame()
+    { <span class="k">if</span> (CurrentState == GameState.Playing) SetState(GameState.GameOver); }
+    <span class="k">public</span> <span class="k">void</span> ReturnToMenu() =&gt; SetState(GameState.MainMenu);
+
+    <span class="k">public</span> <span class="k">void</span> TogglePause()
+    {
+        <span class="k">if</span> (CurrentState == GameState.Playing) PauseGame();
+        <span class="k">else if</span> (CurrentState == GameState.Paused) ResumeGame();
+    }
+
+    <span class="k">private</span> <span class="k">void</span> SetState(GameState nextState)
+    {
+        CurrentState = nextState;
+        Time.timeScale = nextState == GameState.Paused ? 0f : 1f;
+        mainMenuPanel.SetActive(nextState == GameState.MainMenu);
+        hudPanel.SetActive(nextState == GameState.Playing || nextState == GameState.Paused);
+        pausePanel.SetActive(nextState == GameState.Paused);
+        gameOverPanel.SetActive(nextState == GameState.GameOver);
+        gameplayRoot.SetActive(nextState == GameState.Playing || nextState == GameState.Paused);
+    }
 }</code></pre>
-<p>The conditional operator has the shape <code>condition ? valueWhenTrue : valueWhenFalse</code>. It is appropriate here because there are exactly two clock values. It is not a replacement for the panel matrix: menu and game-over need their own SetActive lines, and Playing plus Paused deliberately share the HUD. Assign these panel references with [SerializeField] in the Inspector; a missing reference is scene wiring failure, not a reason to hide it behind a null check.</p>
+<p>This is the canonical complete manager; replace the earlier teaching fragment rather than keeping two competing versions. The conditional operator has the shape <code>condition ? valueWhenTrue : valueWhenFalse</code>. It fits the two clock values but not the panel matrix: each panel states its own visible modes. Assign all five references in the Inspector. The manager sits outside gameplayRoot so its Escape-key Update still runs while gameplay is hidden or paused.</p>
 <p>Scaled time is a design choice, not universal ice. Forge VII already noted that <code>WaitForSeconds</code> uses scaled time; it should halt combat recovery during pause. A pause-menu animation or a “PAUSED” glow that must continue needs <code>WaitForSecondsRealtime</code>, which ignores timeScale. Teach your future self the reason at the call site. Do not convert every coroutine to realtime simply because one UI flourish needs it.</p>
 <p>The workbench models the number rather than Unity's global Time class. That is honest: the real verification is Play mode. Start a run, move ArtificerRig, pause, and confirm the Rigidbody2D stops while the PausePanel shows. Resume, then return to menu and start once more; movement must return. This also reaches backward to the fixed-step physics discipline from Forge V.</p>
 <div class="callout">Paused means a visible overlay and a scaled clock of zero. A new or ended run must restore the clock to one.</div>

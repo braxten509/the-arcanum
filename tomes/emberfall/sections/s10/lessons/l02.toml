@@ -3,17 +3,8 @@ id = "s10-l02"
 title = "Tempering II // Legal Transitions"
 body = '''
 <p>A state name is only a label until it changes something. Give GameStateManager narrow public verbs: <code>StartGame</code>, <code>PauseGame</code>, <code>ResumeGame</code>, <code>EndGame</code>, and <code>ReturnToMenu</code>. Each calls one private <code>SetState</code> method. That single throat is where the manager assigns CurrentState, changes panel visibility, and controls the scaled clock. No Button and no player script gets to perform half a transition.</p>
-<pre><code><span class="k">public</span> <span class="k">void</span> PauseGame()
-{
-    <span class="k">if</span> (CurrentState != GameState.Playing) <span class="k">return</span>;
-    SetState(GameState.Paused);
-}
-
-<span class="k">public</span> <span class="k">void</span> TogglePause()
-{
-    <span class="k">if</span> (CurrentState == GameState.Playing) PauseGame();
-    <span class="k">else</span> <span class="k">if</span> (CurrentState == GameState.Paused) ResumeGame();
-}</code></pre>
+<table><thead><tr><th>Public request</th><th>Legal source</th><th>Destination</th></tr></thead><tbody><tr><td>StartGame</td><td>MainMenu</td><td>Playing</td></tr><tr><td>PauseGame</td><td>Playing</td><td>Paused</td></tr><tr><td>ResumeGame</td><td>Paused</td><td>Playing</td></tr><tr><td>EndGame</td><td>Playing</td><td>GameOver</td></tr><tr><td>ReturnToMenu</td><td>Any state</td><td>MainMenu</td></tr></tbody></table>
+<p>For each guarded request, compare CurrentState with the legal source; return immediately when it does not match, otherwise pass the destination to the private SetState method. TogglePause checks for Playing and calls PauseGame, or checks for Paused and calls ResumeGame. The next lesson supplies the canonical complete class after its clock and Inspector fields are known.</p>
 <p>The early <code>return</code> is a guard, not cowardice. Pause is legal only during a run. Calling it from MainMenu must leave the state untouched; calling it after GameOver must not resurrect a dead run. TogglePause makes the same choice explicit. It does nothing for the other two states because they have different actions: Start begins a fresh run; ReturnToMenu abandons the old one. This reaches back to Forge II's if/else branches and Forge VII's SetState habit.</p>
 <p>In <code>SetState</code>, switch the panels by their assigned GameObject references. MainMenu shows only mainMenuPanel. Playing shows hudPanel and hides the menu, pause, and game-over panels. Paused leaves the HUD visible and adds pausePanel. GameOver shows gameOverPanel; whether you keep the HUD visible is a choice, but make it intentional and consistent. The exact panel matrix belongs in one method so a future settings panel does not cause a scavenger hunt through buttons. Put the player, enemies, world interaction, and gameplay-only HUD under an assigned <code>gameplayRoot</code>. Set it active only for Playing or Paused; MainMenu and GameOver deactivate it so movement, combat, and interaction cannot continue behind an overlay. Paused keeps it active while <code>Time.timeScale = 0</code> so TogglePause can still receive input.</p>
 <p>At this stage you are rehearsing state legality in plain C#. The actual Canvas work remains in the Unity Editor, where Button onClick events will call these public verbs later. Test transition guards by invoking PauseGame in MainMenu and reading CurrentState before wiring art. A machine that refuses an illegal command is easier to trust than one which repairs itself after damage.</p>

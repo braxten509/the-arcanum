@@ -6,7 +6,8 @@ final student-review pass) and half-reads buried rules. This harness runs each p
 file in tome-workflow/ as a SEPARATE headless agent, so no phase can be
 skipped and each gets clean, focused context. Between content phases it runs
 validate_tome.py as a hard gate and re-runs the phase (feeding back the errors) until
-it passes. Phase 8 (student review + gap-fill) loops until the student agent writes PASS.
+it passes. Phase 8 loops through review/repair workers until a fresh no-change reviewer
+writes PASS; a worker cannot certify content it changed in the same invocation.
 
     python3 tools/build_tome.py <tome-id> [--from-phase N]
 
@@ -30,16 +31,23 @@ except ModuleNotFoundError:
 
 from buildlib import (BUILD_DIR, CONFIG, DEAD_PINGS_DEFAULT, MAX_STUDENT_LOOPS,
                       PING_INTERVAL_DEFAULT, REPO, retries_for)
-from buildlib.checkpoints import arc_checkpoint, arc_written, maybe_rename, reset_arc
+from buildlib.checkpoints import (arc_checkpoint, arc_written, finalize_arc, maybe_rename,
+                                  reset_arc)
+from buildlib.continuity import (handoffs_exist, planned_edges, reconciliation_prompt,
+                                 validate_all_handoffs)
 from buildlib.agent_runtime import scoped_runner_command
 from buildlib.liveness import run_agent, preflight_runners
-from buildlib.measure import forecast_line, inventory, measure, plan_shrink_marks, shrinkage, validate
-from buildlib.prompts import (build_prompt, do_gate, do_gate_json, read_findings,
-                              read_tooling, read_verdict)
+from buildlib.measure import (forecast_line, inventory, measure, runtime_config_inventory,
+                              review_changes, review_inventory,
+                              runtime_config_scope_violations, selected_runtime_config,
+                              shrink_marks, shrinkage, validate)
+from buildlib.prompts import build_prompt, do_gate, do_gate_json, read_tooling
+from buildlib.review import run_student_review
 from buildlib.runners import (_implicit_fallback, parse_fallbacks, parse_runner_flags,
                               request_runner, runner_for)
 from buildlib.sections import author_sections_split, section_ids, wipe_sections
-from buildlib.workflow import access_boundary, parse_phases
+from buildlib.workflow import (access_boundary, parse_phases, phase_sidecars,
+                               phase_writable_paths, support_prompt)
 
 
 def load_config(preset=None):
@@ -130,9 +138,10 @@ def main():
     plan_path = os.path.join(BUILD_DIR, f"{tid}.plan.md")
     verdict_path = os.path.join(BUILD_DIR, f"{tid}.verdict")
     findings_path = os.path.join(BUILD_DIR, f"{tid}.findings.json")
-    # AI workers may write these exact harness artifacts but not the rest of .tome-build.
-    # Pre-create them so bubblewrap can expose each file without exposing the directory.
-    for sidecar in (plan_path, verdict_path, findings_path):
+    shrink_path = os.path.join(BUILD_DIR, f"{tid}.shrink-ok")
+    # Candidate sidecars are pre-created so bubblewrap can expose the phase-specific
+    # subset as exact files without making the containing directory writable.
+    for sidecar in (plan_path, verdict_path, findings_path, shrink_path):
         if not os.path.exists(sidecar):
             open(sidecar, "a", encoding="utf-8").close()
     plan_rel = os.path.relpath(plan_path, REPO)
@@ -184,12 +193,13 @@ def main():
         if not os.path.exists(plan_path):
             sys.exit(f"no plan file at {plan_path} — run Phase 0 first (drop --from-phase, or >0 needs an existing plan).")
 
-        # Phase 0 for AI access: after the tome exists but before any AI work, prove every
-        # selected provider/model answers through the SAME scoped runtime used by real phases.
+        # Phase 0 for AI access: prove every selected provider/model answers through the
+        # same read/web/bubblewrap mechanism used by real phases. Local self-tests prove
+        # the narrower per-phase write mounts independently.
         if not preflight_done:
             distinct, seen = [], set()
             current_tome = os.path.join(REPO, "tomes", tid)
-            writable = [current_tome, plan_path, verdict_path, findings_path]
+            writable = [current_tome, plan_path, verdict_path, findings_path, shrink_path]
             for pnum, _, _ in phases:
                 if pnum == 0 or pnum < args.from_phase:
                     continue
@@ -226,12 +236,19 @@ def main():
 
         fb_note = f"  (+{len(chain) - 1} fallback)" if len(chain) > 1 else ""
         print(f"\n{'=' * 64}\n> Phase {num} — {title}   [runner: {primary[0]}]{fb_note}\n{'=' * 64}")
-        access = access_boundary(tid)
-        prompt = build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel) + access
+        access = access_boundary(tid, num)
+        continuity_context = ""
+        if num >= 7 and handoffs_exist(tid) and section_ids(tid):
+            continuity_context = reconciliation_prompt(tid, section_ids(tid), plan_path)
+        active_body = body
+        prompt = (build_prompt(tid, num, title, active_body, plan_rel, verdict_rel, findings_rel)
+                  + continuity_context + access)
 
         t0 = time.monotonic()
         pre = inventory(tid)                    # phase-start snapshot: the shrinkage contract
-        marks = plan_shrink_marks(plan_path)    # SHRINK OK lines already in the plan
+        runtime_pre = runtime_config_inventory() if num in (2, 8) else None
+        review_edits = []                         # changes made by the latest Phase-8 pass
+        marks = shrink_marks(shrink_path)
         attempt = 0
         ri = 0                                  # index into the runner chain
         retry_budget = retries_for(chain[0][0])  # local runners get more; the failure pause extends it
@@ -239,27 +256,38 @@ def main():
         # Split Phase 3: author each section in its own worker (small context → any model is
         # affordable), then let the loop below run the workflow's whole-tome reconcile/validate.
         if num == 3 and split_sections and len(section_ids(tid)) >= 2:
-            ri = author_sections_split(tid, num, title, body, chain,
+            ri = author_sections_split(tid, num, title, chain,
                                        (plan_rel, verdict_rel, findings_rel), cfg, overrides,
                                        ping_interval, dead_pings, hard_cap, ask_on_death,
                                        interactive, args.tome_id,
                                        # starts below 3 wiped the sections (see wipe_sections),
                                        # so ONLY a start AT phase 3 is a genuine resume
                                        resume=(args.from_phase == 3), preflighted=preflighted)
-            prompt = build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel) + (
-                "\n\n===== every section is ALREADY authored, one worker per section, on disk — "
-                "do NOT re-author them =====\nDo the end-of-Phase-3 reconciliation across the whole "
-                "tome: tally the anti-template rules (lesson/exercise shape, mc `answer`-index spread, "
-                "and per-exercise hint/prompt/whyWrong/explain) ACROSS all sections and fix the "
-                "outliers; verify concepts stay strictly cumulative across section boundaries; remove "
-                "any cross-section duplication; and confirm one consistent mentor voice throughout. "
-                "Then make validate_tome pass. Author no new sections.")
+            handoffs_ok, handoffs_report = validate_all_handoffs(
+                tid, section_ids(tid), plan_path)
+            if not handoffs_ok:
+                sys.exit("split-section continuity gate failed; resume Phase 3 so the owning "
+                         "section workers can repair their exact handoffs:\n" + handoffs_report)
+            reconcile_body = support_prompt("phase-3-reconcile")
+            active_body = reconcile_body
+            continuity_context = reconciliation_prompt(tid, section_ids(tid), plan_path)
+            prompt = (build_prompt(tid, num, title, active_body, plan_rel, verdict_rel,
+                                   findings_rel)
+                      + continuity_context + access)
 
         while True:
             name, cmd, input_mode = chain[ri]
             tome_scope = os.path.join(REPO, "tomes", tid)
-            scoped = scoped_runner_command(name, cmd, tome_scope,
-                                           [tome_scope, plan_path, verdict_path, findings_path], REPO)
+            review_pre = review_inventory(tid) if num == 8 else None
+            if num == 8:
+                # A verdict belongs to this exact fresh invocation. Never let a PASS or
+                # findings file from an earlier build satisfy the editorial gate.
+                for review_sidecar in (verdict_path, findings_path):
+                    open(review_sidecar, "w", encoding="utf-8").close()
+            sidecars = phase_sidecars(
+                num, plan_path, verdict_path, findings_path, shrink_path)
+            writable = phase_writable_paths(num, tome_scope, sidecars)
+            scoped = scoped_runner_command(name, cmd, tome_scope, writable, REPO)
             # Human-selected and implicit recovery runners do not exist during the initial
             # census. Give each one the same bounded Phase 0 check before it can do real work.
             if tuple(cmd) not in preflighted:
@@ -276,19 +304,28 @@ def main():
             if num >= 2:  # rename only once Phase 2 has set [runtime] project — before
                 tid = maybe_rename(tid, plan_path)  # Phase 3 reads paths. Earlier, the
                 # scaffold's placeholder project would rename untitled-N to a junk id.
-                access = access_boundary(tid)
+                access = access_boundary(tid, num)
+            if num == 8:
+                review_edits = review_changes(review_pre, review_inventory(tid))
             if num == 1:  # Phase 1 writes the plan's Arc, not tome content — gate on that
                 probs = []
                 ok, report = arc_written(plan_path, plan_rel)
-            elif not os.path.isdir(os.path.join(REPO, "tomes", tid)):
-                break  # the raw scaffold isn't gradeable until Phase 2 fills it in
             else:
-                probs = shrinkage(pre, inventory(tid))
-                if probs and plan_shrink_marks(plan_path) > marks:
-                    print(f"  · shrinkage justified in the plan (SHRINK OK): {len(probs)} change(s) accepted")
-                    probs = []
-                ok, report = validate(tid, strict=(num >= 7), tooling=read_tooling(plan_path))  # Phase 7+: hard-gate WARNs fail too
-            if ok and not probs:
+                shrink_probs = shrinkage(pre, inventory(tid))
+                if shrink_probs and shrink_marks(shrink_path) > marks:
+                    print(f"  · shrinkage justified in {os.path.relpath(shrink_path, REPO)}: "
+                          f"{len(shrink_probs)} change(s) accepted")
+                    shrink_probs = []
+                probs = list(shrink_probs)
+                if num in (2, 8):
+                    probs += runtime_config_scope_violations(
+                        runtime_pre, selected_runtime_config(tid))
+                if not os.path.isdir(os.path.join(REPO, "tomes", tid)):
+                    ok, report = False, f"tomes/{tid}/ is missing — restore the scaffolded tome"
+                else:
+                    ok, report = validate(
+                        tid, strict=(num >= 7), tooling=read_tooling(plan_path))
+            if ok and not probs and not (num == 8 and died):
                 print("  ok plan Arc written" if num == 1 else "  ok validate_tome: clean")
                 break
             # A DIED worker (crash/quota/hang) that left work undone: don't waste a validator
@@ -311,7 +348,8 @@ def main():
                     ri += 1
                     print(f"  ⇒ {name} died — continuing on {chain[ri][0]} "
                           f"(resumes from tomes/{tid}/ on disk)")
-                    prompt = build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel) + access
+                    prompt = (build_prompt(tid, num, title, active_body, plan_rel, verdict_rel,
+                                           findings_rel) + continuity_context + access)
                     continue
             if attempt >= retry_budget:
                 # Automatic budget spent. Unattended with nobody to ask → fail as before. Otherwise
@@ -334,7 +372,8 @@ def main():
                       f"(resumes from tomes/{tid}/ on disk)")
             attempt += 1
             what = "+".join(w for w, on in (("arc missing" if num == 1 else "validator", not ok),
-                                            ("shrinkage", bool(probs))) if on)
+                                            ("write contract", bool(probs)),
+                                            ("worker exit", num == 8 and died)) if on)
             print(f"  x gates failed ({what}) -> re-running phase {num} (attempt {attempt + 1})")
             feedback = ""
             if not ok:
@@ -343,57 +382,32 @@ def main():
                               "\n\n===== validate_tome.py still reports failures — fix exactly these =====\n")
                              + report)
             if probs:
-                feedback += ("\n\n===== cross-phase contract violations — this phase deleted or shrank "
-                             "content an earlier phase built =====\n" + "\n".join(probs) +
-                             "\nRestore it. If a removal is genuinely deliberate, append a line starting "
-                             "`SHRINK OK:` to the plan file saying what and why; it will then be accepted.")
-            prompt = build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel) + access + feedback
+                feedback += ("\n\n===== phase write-contract violations =====\n" + "\n".join(probs) +
+                             "\nRestore every out-of-scope change. If a reported tome removal or shrink "
+                             "is genuinely deliberate, append one line starting "
+                             f"`SHRINK OK:` to {os.path.relpath(shrink_path, REPO)} saying what and why; "
+                             "that exception never authorizes another runtime file.")
+            prompt = (build_prompt(tid, num, title, active_body, plan_rel, verdict_rel,
+                                   findings_rel) + continuity_context + access + feedback)
 
         timings.append((num, name, round(time.monotonic() - t0), attempt + 1))
 
-        if num == 1:                 # #21: human approves the arc before authoring commits to it
+        if num == 1:                 # Later phases need the arc, not its Phase-1 schema.
+            finalize_arc(plan_path)
+            # #21: human approves the arc before authoring commits to it
             arc_checkpoint(plan_path, interactive, args.yes)
         if num == 3:                 # #23: forecast the now-real content size
             print(f"  · forecast: {forecast_line(measure(tid))}")
 
-        if num == 8:  # loop the student review/fill until PASS (#18 capped, #19 scoped)
-            loop = 1
-            verdict = read_verdict(verdict_path)
-            validation_focus = None
-            while verdict != "PASS" and loop < MAX_STUDENT_LOOPS:
-                loop += 1
-                focus = read_findings(findings_path)  # #19: re-review only the flagged files
-                if validation_focus:
-                    focus = ((focus + "\n") if focus else "") + validation_focus
-                where = "flagged files only" if focus else "full re-read (no findings file)"
-                print(f"  ~ student verdict not PASS -> review/fill loop {loop} ({where})")
-                t1 = time.monotonic()
-                tome_scope = os.path.join(REPO, "tomes", tid)
-                scoped = scoped_runner_command(name, cmd, tome_scope,
-                                               [tome_scope, plan_path, verdict_path, findings_path], REPO)
-                rc = run_agent(scoped, input_mode,
-                               build_prompt(tid, num, title, body, plan_rel, verdict_rel,
-                                            findings_rel, focus) + access,
-                               ping_interval, dead_pings, hard_cap, cwd=tome_scope, env=env)
-                timings.append((f"8.{loop}", name, round(time.monotonic() - t1), 1))
-                verdict = read_verdict(verdict_path)
-                ok, report = validate(tid, strict=True, tooling=read_tooling(plan_path))
-                if not ok:
-                    print("  x Phase 8 revisions broke strict validation; the next review must fix it")
-                    validation_focus = ("- [blocking] strict validator failures introduced during "
-                                        "review:\n" + report)
-                    verdict = None  # PASS cannot override a structurally broken tome
-                else:
-                    validation_focus = None
-                if rc != 0:
-                    print(f"  ! Phase 8 review worker exited {rc}; no verdict is trusted")
-                    verdict = None
-            if verdict != "PASS":     # #18: cap reached — surface, don't pretend success
-                review_unresolved = (validation_focus or read_findings(findings_path)
-                                     or "reviewer did not write the exact one-line verdict PASS")
+        if num == 8:
+            review_unresolved = run_student_review(
+                tid, title, body, (name, cmd, input_mode),
+                (plan_rel, verdict_rel, findings_rel),
+                (plan_path, verdict_path, findings_path, shrink_path),
+                pre, runtime_pre, marks, review_edits, rc, continuity_context, access,
+                ping_interval, dead_pings, hard_cap, timings)
 
-    # #11: the plan is prose ("claims are not evidence") — append the harness's own
-    # ground-truth counts + phase timings so the numbers are on disk, not asserted.
+    # #11: append measured ground truth; model-authored decisions are not measurement.
     if os.path.isdir(os.path.join(REPO, "tomes", tid)):
         mv = measure(tid)
         with open(plan_path, "a", encoding="utf-8") as f:
@@ -402,6 +416,11 @@ def main():
             f.write(f"- exercise points {mv['ex_points']} · freestyle rewards {mv['fs_reward']} "
                     f"· intrusion bounties {mv['bounty']} → base earnable {mv['base_earnable']}\n")
             f.write(f"- banks: {mv['themes']} themes · {mv['shop']} shop items · {mv['badges']} badges\n")
+            if handoffs_exist(tid) and section_ids(tid):
+                continuity_ok, _ = validate_all_handoffs(tid, section_ids(tid), plan_path)
+                f.write(f"- continuity: {len(section_ids(tid))} section handoffs · "
+                        f"{len(planned_edges(plan_path, section_ids(tid)))} planned edges · "
+                        f"gate {'CLOSED' if continuity_ok else 'BROKEN'}\n")
             if timings:
                 f.write("\n### Phase timings\n")
                 for ph, rn, secs, tries in timings:

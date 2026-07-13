@@ -1,0 +1,82 @@
+[[lessons]]
+id = "s03-l00"
+title = "The Editor Workshop — Navigate, Save, and Test"
+body = '''
+<p>Open the <code>Emberfall</code> project from Unity Hub. Before building an object, learn the workshop you will use for every remaining forge. The center <strong>Scene view</strong> is the editable world; the <strong>Game view</strong> is the camera's output. The <strong>Hierarchy</strong> lists objects in the open scene, the <strong>Project</strong> window lists assets saved under <code>Assets/</code>, the <strong>Inspector</strong> edits the selected object or asset, and <code>Window &gt; General &gt; Console</code> shows compile errors, warnings, and <code>Debug.Log</code> messages. If a named panel is missing, reopen it from <code>Window &gt; General</code> instead of resetting the whole layout.</p>
+<p>Create <code>Assets/Scenes</code>, <code>Assets/Scripts</code>, <code>Assets/Prefabs</code>, <code>Assets/Sprites</code>, <code>Assets/Data</code>, and <code>Assets/Audio</code> in the Project window. These folders are not magic; they keep the growing project readable. Save the current scene through <code>File &gt; Save As</code> as <code>Assets/Scenes/Overworld.unity</code>. The scene is an asset, so unsaved Hierarchy changes are not safely on disk until Unity saves it.</p>
+<p>The toolbar supplies four daily tools: <strong>Q</strong> pans/views, <strong>W</strong> moves, <strong>E</strong> rotates, and <strong>R</strong> scales. Right-drag pans the 2D Scene view, the mouse wheel zooms, and selecting an object then pressing <strong>F</strong> frames it. Use the colored gizmo handles rather than guessing Transform numbers; then read the resulting Position, Rotation, and Scale in the Inspector. Double-clicking an object in the Hierarchy frames it too.</p>
+<p>Press the triangular <strong>Play</strong> button to run the open scene. Unity tints the Editor while Play mode is active. Changes made to ordinary scene objects during Play mode are temporary: stop the run and those experimental Inspector edits revert. Tune deliberately by noting a successful value, stopping, then applying it again outside Play mode. Never restructure the project while the Play button is blue.</p>
+<p>When Unity imports an asset or recompiles a script, watch the lower-right progress indicator and wait. A red Console count means the project may not enter Play mode at all. Open the first error, read its file and line, fix that cause, then let Unity recompile before chasing later messages. Save with <code>Ctrl+S</code> after a clean change and before a risky one.</p>
+<div class="callout">Hierarchy objects belong to one scene; Project assets belong to the whole project. Deleting an object from the Hierarchy does not delete its prefab or script asset from the Project window.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // LAYOUTS ARE RECOVERABLE</div><p>Dragging a tab can dock it elsewhere or float it. That changes only your workspace layout, not the game. Use the Layout menu to restore the default if panels become unusable. Treat Play mode, saved scene state, and layout state as three different things; confusing them is how a beginner loses an hour while the actual project remains intact.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Unity Manual: The Main Windows"
+url = "https://docs.unity3d.com/Manual/UsingTheEditor.html"
+
+[[lessons.readings]]
+label = "OPTIONAL // Unity Manual: Scene view navigation"
+url = "https://docs.unity3d.com/Manual/SceneViewNavigation.html"
+
+[[lessons.exercises]]
+id = "s03-l00-e1"
+type = "mc"
+points = 20
+prompt = "You changed ArtificerRig's speed in the Inspector while the Play button was active, stopped Play mode, and the old value returned. What happened?"
+choices = ["Unity failed to compile the speed field", "Play-mode scene edits are temporary unless reapplied after stopping", "The Project window deleted the script asset", "The Game view cannot serialize numbers"]
+answer = 1
+whyWrong = "Compilation, asset deletion, and the Game view do not explain a clean reversion after Stop. The Editor deliberately restores ordinary scene state when Play mode ends."
+hint = "The lesson distinguished an experiment made while the Editor is running from a saved scene edit."
+explain = "Record a successful test value, stop, then set it outside Play mode and save the scene."
+
+[[lessons.exercises]]
+id = "s03-l00-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype the canonical project folders that keep Emberfall's authored assets separated."
+code = '''Scenes Scripts Prefabs Sprites Data Audio'''
+
+[[lessons.exercises]]
+id = "s03-l00-e2"
+type = "text"
+points = 18
+prompt = "Which single-key shortcut frames the currently selected object in the Scene view?"
+answer = "F"
+hint = "Select the object first; this is the same action as double-clicking it in the Hierarchy."
+whyWrong = "Q, W, E, and R select manipulation tools. Framing the current selection uses its own shortcut."
+
+[[lessons.exercises]]
+id = "s03-l00-e3"
+type = "fill"
+points = 22
+prompt = "Fill the missing folder in the saved scene path used throughout Emberfall."
+code = '''Assets/____/Overworld.unity'''
+answer = "Scenes"
+hint = "The scene asset belongs in the first canonical folder created in the Project window."
+
+[[lessons.exercises]]
+id = "s03-l00-w1"
+type = "write"
+points = 32
+prompt = "Model the Play-mode reversion rule in plain C#. Start with savedSpeed 5 and testSpeed 8. While isPlaying is true, report the test value; after Stop, report the saved value. Compute exactly:\nPLAY SPEED 8\nSTOP SPEED 5"
+starter = '''int savedSpeed = 5;
+int testSpeed = 8;
+bool isPlaying = true;
+
+// Print the temporary Play-mode value, stop the session, then print savedSpeed.
+'''
+expect = '''PLAY SPEED 8
+STOP SPEED 5'''
+solution = '''int savedSpeed = 5;
+int testSpeed = 8;
+bool isPlaying = true;
+
+if (isPlaying)
+{
+    Console.WriteLine($"PLAY SPEED {testSpeed}");
+}
+isPlaying = false;
+Console.WriteLine($"STOP SPEED {savedSpeed}");'''
+hint = "The first line uses testSpeed only while isPlaying; stopping does not assign testSpeed into savedSpeed."

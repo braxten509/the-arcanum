@@ -12,7 +12,7 @@ from . import REPO
 # Difficulty spine + Graduate ledger are plan deliverables Phase 1 has skipped before.
 ARC_PARTS = ("Finished tool", "Language", "Project name", "Mentor persona", "Student term",
              "Visual identity", "Difficulty spine", "Graduate ledger", "Daily drivers",
-             "Section list")
+             "Continuity map", "Artifact lifecycle", "Acceptance proof", "Section list")
 # The plan's daily-driver kit, machine-checked: each must be assigned CAN or CANNOT in
 # the arc (Phase 1 has silently dropped the key-value type twice), and a CANNOT is a
 # declared scope cut the Graduate ledger and meta.description repeat — not an oversight.
@@ -30,7 +30,15 @@ ARC_CONTRACT = (
     "still CANNOT …); Daily drivers (this language's daily-driver kit, every item\n"
     "assigned as `item = CAN` or `item = CANNOT`, items spelled exactly: growable\n"
     "collection; key-value; strings; errors — a CANNOT is a deliberate scope cut and\n"
-    "must be repeated in the Graduate ledger); Section list (numbered, each with the\n"
+    "must be repeated in the Graduate ledger); Continuity map (one-line `sNN -> sMM:`\n"
+    "edges for every non-adjacent API/data/file reuse and every promise a later section\n"
+    "must honor — write `single-section course` only when there truly is one section);\n"
+    "Artifact lifecycle (the canonical files/\n"
+    "entrypoints plus every temporary prompt, fixture, demo call, placeholder, or debug\n"
+    "behavior, with the section that retires or deliberately ships it); Acceptance proof\n"
+    "(a literal clean-start user journey from launch through the promised final outcome,\n"
+    "including delivery outside the authoring surface when applicable); Section list\n"
+    "(numbered, each with the\n"
     "capability its op adds)._\n")
 ARC_MIN_CHARS = 500  # of the striker's own content, contract lines excluded
 
@@ -66,6 +74,28 @@ def arc_written(plan_path, plan_rel):
     if unassigned:
         probs.append("the **Daily drivers:** line must assign every item EXACTLY as "
                      "`item = CAN` or `item = CANNOT`; unassigned: " + "; ".join(unassigned))
+    continuity_match = re.search(r"(?i)\*\*Continuity map:\*\*", body)
+    continuity_tail = body[continuity_match.end():] if continuity_match else ""
+    continuity = re.split(r"(?m)^\*\*[^\n]+:\*\*", continuity_tail, maxsplit=1)[0]
+    edge_lines = [line.strip() for line in continuity.splitlines() if line.strip()]
+    edge_pattern = re.compile(r"(?:[-*]\s*)?s(\d{2})\s*->\s*s(\d{2})\s*:\s*\S.+", re.I)
+    single = len(edge_lines) == 1 and edge_lines[0].lower() == "single-section course"
+    if not edge_lines or (not single and not any(edge_pattern.fullmatch(line)
+                                                 for line in edge_lines)):
+        probs.append("the **Continuity map:** needs at least one explicit `sNN -> sMM:` "
+                     "dependency edge (or the exact phrase `single-section course`)")
+    elif not single:
+        malformed = [line for line in edge_lines if not edge_pattern.fullmatch(line)]
+        backwards = [line for line in edge_lines
+                     if edge_pattern.fullmatch(line)
+                     and int(edge_pattern.fullmatch(line).group(1))
+                     >= int(edge_pattern.fullmatch(line).group(2))]
+        if malformed:
+            probs.append("every **Continuity map:** entry must be one complete physical "
+                         "`sNN -> sMM: promise` line; malformed: " + "; ".join(malformed))
+        if backwards:
+            probs.append("Continuity-map edges must point forward to a later section: "
+                         + "; ".join(backwards))
     if len(body) < ARC_MIN_CHARS:
         probs.append(f"the arc is only {len(body)} chars — a real arc is far longer "
                      f"(minimum {ARC_MIN_CHARS})")
@@ -87,6 +117,20 @@ def reset_arc(plan_path):
     if sep:
         with open(plan_path, "w", encoding="utf-8") as f:
             f.write(head + ARC_HEADING + ARC_CONTRACT)
+
+
+def finalize_arc(plan_path):
+    """Drop the Phase-1-only schema once the arc passes, so every later worker reads
+    decisions rather than the instructions that produced them."""
+    try:
+        text = open(plan_path, encoding="utf-8").read()
+    except OSError:
+        return False
+    if ARC_CONTRACT not in text:
+        return False
+    with open(plan_path, "w", encoding="utf-8") as f:
+        f.write(text.replace(ARC_CONTRACT, "", 1))
+    return True
 
 
 def arc_checkpoint(plan_path, interactive, skip):

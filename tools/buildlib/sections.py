@@ -6,11 +6,14 @@ import shutil
 import tomllib
 
 from . import BUILD_DIR, REPO, retries_for
+from .continuity import (continuity_prompt, prepare_handoff, reset_handoffs,
+                         validate_handoff)
 from .liveness import preflight_runners, run_agent
 from .measure import validate
 from .prompts import build_prompt, read_tooling
 from .runners import _implicit_fallback, request_runner
 from .agent_runtime import section_runner_command
+from .workflow import support_prompt
 
 
 def section_ids(tid):
@@ -38,12 +41,13 @@ def wipe_sections(tid):
         os.remove(_sections_done_path(tid))
     except OSError:
         pass
+    reset_handoffs(tid)
     return n
 
 
 def _author_section(chain, ri, prompt, sid, num, cfg, overrides,
                     ping, dead, cap, ask_on_death, interactive, tome_id, section_dir,
-                    preflighted):
+                    handoff, preflighted):
     """Run ONE section's worker with liveness + death recovery (fallback → human ask → implicit
     default), switching runners as needed. Returns (ri, ok) — ri may have grown as the chain did,
     ok is True only if a runner finished cleanly. Mirrors the main loop's death handling but scoped
@@ -56,7 +60,8 @@ def _author_section(chain, ri, prompt, sid, num, cfg, overrides,
         # Avoid harmless __pycache__ write attempts when a worker executes trusted Python
         # elsewhere in the read-only repository.
         worker_env["PYTHONDONTWRITEBYTECODE"] = "1"
-        scoped = section_runner_command(name, cmd, section_dir, REPO)
+        scoped = section_runner_command(name, cmd, section_dir, REPO,
+                                        writable_sidecars=[handoff])
         # A runner selected after a death (human choice or implicit default) was not present
         # during the build's initial census. Never let it start authoring without Phase 0.
         if tuple(cmd) not in preflighted:
@@ -112,7 +117,7 @@ def _mark_section_done(tid, sid):
         pass
 
 
-def author_sections_split(tid, num, title, body, chain, refs, cfg, overrides,
+def author_sections_split(tid, num, title, chain, refs, cfg, overrides,
                           ping, dead, cap, ask_on_death, interactive, tome_id, resume=False,
                           preflighted=None):
     """Phase 3, split mode: author each section in its OWN fresh worker, so the context (and the
@@ -122,6 +127,8 @@ def author_sections_split(tid, num, title, body, chain, refs, cfg, overrides,
     authors only the rest. The workflow's end-of-phase cross-tome reconcile then runs in the caller's
     normal loop. Returns ri after the last section."""
     plan_rel, verdict_rel, findings_rel = refs
+    plan_path = os.path.join(REPO, plan_rel)
+    worker_body = support_prompt("section-author")
     preflighted = preflighted if preflighted is not None else set()
     ids = section_ids(tid)
     done = _load_sections_done(tid) if resume else set()
@@ -129,12 +136,24 @@ def author_sections_split(tid, num, title, body, chain, refs, cfg, overrides,
           + (f"  (resume: {len(done)} already done)" if resume and done else ""))
     ri = 0
     for i, sid in enumerate(ids):
-        if sid in done:
+        handoff = prepare_handoff(tid, sid, reset=not resume)
+        handoff_clean, handoff_report = validate_handoff(tid, sid, ids, plan_path)
+        if sid in done and handoff_clean:
             print(f"    · section {sid} [{i + 1}/{len(ids)}] already authored — skipping (resume)")
             continue
+        if sid in done:
+            print(f"    · section {sid} [{i + 1}/{len(ids)}] content is checkpointed, but its "
+                  "continuity handoff is missing/invalid — rebuilding the handoff")
         prev = (f"Section {ids[i - 1]} is finished on disk — read it so concepts stay strictly "
-                f"cumulative and callbacks reach back into it." if i else
+                f"cumulative and callbacks reach back into it. Also SEARCH all earlier sections "
+                f"for every class, API, capability id, asset, or workflow step this section reuses, "
+                f"then read each canonical owner before writing. The immediately previous section "
+                f"alone is not enough when an older type returns later. Read the plan's Artifact "
+                f"lifecycle too: if this section retires a prompt, fixture, demo call, placeholder, "
+                f"or temporary API, teach that exact removal/replacement instead of blindly saying "
+                f"to preserve every earlier line." if i else
                 "This is the FIRST section — it opens the course.")
+        continuity = continuity_prompt(tid, sid, ids, plan_path)
         if resume:  # interrupted (or never-started) section: finish it, keeping what's already correct
             focus = (f"\n\n===== SPLIT RUN — RESUME section {sid} ({i + 1} of {len(ids)}) =====\n"
                      f"A previous run was interrupted mid-build. Open tomes/{tid}/sections/{sid}/ and "
@@ -159,16 +178,18 @@ def author_sections_split(tid, num, title, body, chain, refs, cfg, overrides,
         os.makedirs(section_dir, exist_ok=True)
         boundary = (f"\n\n===== SECTION WORKER SECURITY BOUNDARY =====\n"
                     f"The repository root is {REPO}. Your process cwd and ONLY writable project "
-                    f"directory is {section_dir}. You may READ any file under the repository, "
+                    f"directory is {section_dir}; the only other writable path is the exact "
+                    f"continuity sidecar {handoff}. You may READ any file under the repository, "
                     "execute trusted Python files from the repository, and use WebSearch/WebFetch "
-                    "for current documentation and research. All edits must remain inside your "
-                    "assigned section. Resolve repo-relative paths against the repository root.")
-        p = build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel) + focus + boundary
+                    "for current documentation and research. Do not edit the build plan or another "
+                    "section. Resolve repo-relative paths against the repository root.")
+        p = build_prompt(tid, num, title, worker_body, plan_rel, verdict_rel, findings_rel,
+                         validation_flags="--no-run") + focus + continuity + boundary
         attempts = 0
         while True:
             ri, ok = _author_section(chain, ri, p, sid, num, cfg, overrides,
                                      ping, dead, cap, ask_on_death, interactive, tome_id,
-                                     section_dir, preflighted)
+                                     section_dir, handoff, preflighted)
             if not ok:
                 break
             # This checkpoint is a fast schema/content pass. The whole Phase-3 gate
@@ -176,7 +197,8 @@ def author_sections_split(tid, num, title, body, chain, refs, cfg, overrides,
             # doing that after each section would re-run the growing tome O(n^2).
             clean, report = validate(tid, tooling=read_tooling(os.path.join(REPO, plan_rel)),
                                      run=False)
-            if clean:
+            handoff_clean, handoff_report = validate_handoff(tid, sid, ids, plan_path)
+            if clean and handoff_clean:
                 _mark_section_done(tid, sid)  # a future resume skips only validator-clean work
                 break
             attempts += 1
@@ -186,10 +208,13 @@ def author_sections_split(tid, num, title, body, chain, refs, cfg, overrides,
                 break
             print(f"    x section {sid}: validator errors -> re-running its worker "
                   f"(attempt {attempts + 1})")
-            p = (build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel)
+            p = (build_prompt(tid, num, title, worker_body, plan_rel, verdict_rel, findings_rel,
+                              validation_flags="--no-run")
                  + focus
+                 + continuity
                  + boundary
                  + "\n\n===== THIS SECTION STILL FAILS VALIDATION =====\n"
-                 + "Fix the errors below in this section. Do not edit another section.\n"
-                 + report)
+                 + "Fix the errors below in this section or its handoff. Do not edit another "
+                   "section or an earlier handoff.\n"
+                 + "\n".join(part for part in (report, handoff_report) if part))
     return ri

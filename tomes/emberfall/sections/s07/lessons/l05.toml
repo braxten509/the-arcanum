@@ -46,7 +46,22 @@ body = '''
         recovering = <span class="k">false</span>;
     }
 }</code></pre>
-<p>Give the goblin its own Health component and an EnemyDeath listener that disables or destroys it when Health reaches zero. SwordSwing can now damage a real target and repeated strikes visibly defeat it. AttackRoutine reaches through an explicit public API: GetComponent&lt;Health&gt; asks the target for Health, the null check prevents a missing-component crash, and TakeDamage preserves Clamp and the event. It never writes CurrentHP, whose private setter forbids that. In the Unity Editor, attach this to a goblin with Rigidbody2D, drag ArtificerRig into target, and Play. At long range it chases; at 0.8 units or closer it attacks, waits half a second, then may attack again.</p>
+<p>Give the goblin its own Health component, then add this listener to the same object and drag that Health into its Inspector field:</p>
+<pre><code><span class="k">using</span> UnityEngine;
+
+<span class="k">public</span> <span class="k">class</span> EnemyDeath : MonoBehaviour
+{
+    [SerializeField] <span class="k">private</span> Health health;
+
+    <span class="k">private</span> <span class="k">void</span> OnEnable() { health.HealthChanged += CheckForDeath; }
+    <span class="k">private</span> <span class="k">void</span> OnDisable() { health.HealthChanged -= CheckForDeath; }
+
+    <span class="k">private</span> <span class="k">void</span> CheckForDeath(<span class="k">int</span> hp)
+    {
+        <span class="k">if</span> (hp &lt;= 0) gameObject.SetActive(<span class="k">false</span>);
+    }
+}</code></pre>
+<p>SwordSwing can now damage a real target and repeated strikes visibly defeat it. AttackRoutine reaches through an explicit public API: GetComponent&lt;Health&gt; asks the target for Health, the null check prevents a missing-component crash, and TakeDamage preserves Clamp and the event. It never writes CurrentHP, whose private setter forbids that. In the Unity Editor, attach EnemyController to a goblin with Rigidbody2D, drag ArtificerRig into target, and Play. At long range it chases; at 0.8 units or closer it attacks, waits half a second, then may attack again.</p>
 <p>The workbench cannot make a GameObject, scheduler, or physics body. Its lab honestly rehearses the distance-to-state comparison with numbers only. The actual artifact is the Unity scene, tested in Play mode.</p>
 <div class="callout">The enemy decides <em>when</em> damage is attempted; Health decides <em>what damage does</em>. That separation lets HUDs, enemies, hazards, and potions reuse one trustworthy Health component.</div>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // FREEZE THE NAMES</div><p>As state-entry work grows, route assignments through SetState from the previous lesson. Keep the exact names Idle, Chase, and Attack; future menus can reuse the pattern without renaming this enemy's states into a second vocabulary.</p></div>

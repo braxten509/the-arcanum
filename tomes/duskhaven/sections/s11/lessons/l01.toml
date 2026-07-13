@@ -1,0 +1,74 @@
+[[lessons]]
+id = "s11-l01"
+title = "Give Mira A Boundary"
+teaches = ["pygame-rect-owner", "pygame-rect-overlap-test"]
+body = '''
+<p>Forge X gave Mira floating world coordinates because travel accumulates in small delta-time steps. Collision needs a different tool: <code>pygame.Rect</code>, a rectangle with an x, y, width, and height. It is a boundary object, not a replacement for Mira's float owners. Add the following new top-level constant beside the existing sprite setup in canonical <code>main.py</code>. Then make the one frame-local <code>mira_rect</code> inside the existing loop after the held-key movement has been considered and before drawing. Do not create a second <code>Player</code> class or store a separate permanent x and y on a Rect.</p>
+<pre><code>mira_size = 32
+
+# Inside the existing while running loop, before camera calculations:
+mira_rect = pygame.Rect(int(mira_x), int(mira_y), mira_size, mira_size)</code></pre>
+<p>The first two arguments locate the upper-left corner. The next two are width and height, so this body matches the 32-by-32 placeholder sprite from Forge VIII. <code>int(mira_x)</code> and <code>int(mira_y)</code> repeat the established drawing-boundary rule: floats preserve travel; whole pixels give PyGame a stable rectangle. The Rect is rebuilt each frame from the real coordinate owners, so it cannot quietly drift away from what is drawn.</p>
+<p>Two Rects overlap when <code>first.colliderect(second)</code> is true. This is a question, not a movement command. It does not push a body away, draw a wall, or know about the camera. Later threads will ask this question of a proposed Mira rectangle and a wall rectangle before allowing the new position. That ordering matters: testing after committing a bad step forces a repair; testing first keeps the old, known-safe location.</p>
+<p>For a plain-file rehearsal, Rects are unavailable because the lab runner is a single Python file rather than the PyGame game. We will use numeric edges there, but the real project uses PyGame's tested Rect API. Run the real program now. Nothing should visibly change yet; an invisible boundary owner with a clean run is the correct first stitch.</p>
+<div class="callout">Keep position and collision roles distinct: <code>mira_x</code>/<code>mira_y</code> own travel, while <code>mira_rect</code> describes this frame's occupied space.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TOUCHING IS NOT OVERLAPPING</div><p><code>colliderect</code> reports overlapping area. Two rectangles merely meeting at an edge are not colliding, which makes a stopped traveler rest against a wall rather than be treated as buried inside it.</p></div>
+'''
+
+[[lessons.readings]]
+label = "PyGame Rect — construction and collision"
+url = "https://www.pygame.org/docs/ref/rect.html"
+
+[[lessons.exercises]]
+id = "s11-l01-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the frame-local Rect that gives the 32-pixel Mira sprite a collision boundary from her float world position."
+code = '''mira_size = 32
+mira_rect = pygame.Rect(int(mira_x), int(mira_y), mira_size, mira_size)'''
+
+[[lessons.exercises]]
+id = "s11-l01-e1"
+type = "fill"
+points = 25
+prompt = "Restore the Rect method that asks whether Mira's boundary overlaps one wall boundary."
+code = 'blocked = mira_rect.____(wall_rect)'
+answer = "colliderect"
+hint = "Use the Rect question whose name begins with collide; it returns a Boolean rather than moving either rectangle."
+whyWrong = "A drawing call would only paint a shape, and moving a Rect would alter a copy rather than answer the overlap question. colliderect is the API that tests the two occupied areas."
+
+[[lessons.exercises]]
+id = "s11-l01-e2"
+type = "mc"
+points = 26
+prompt = "Why is <code>mira_rect</code> rebuilt from <code>int(mira_x)</code> and <code>int(mira_y)</code> each frame instead of becoming Mira's permanent position owner?"
+choices = ["Because Rects make clock.tick return delta time", "Because colliderect draws the sprite automatically", "Because the camera stores all wall positions", "Because the float owners keep fractional movement while the Rect describes this frame's pixel boundary"]
+answer = 3
+hint = "Recall Forge IX's rule about preserving fractional travel until a PyGame boundary needs whole pixels."
+whyWrong = "Clock timing, sprite drawing, and camera offsets are separate jobs. The tempting mistake is to round away fractional travel by making Rect the permanent state; Rect is a frame-local collision view of the float owners."
+explain = "Mira keeps precise world travel in floats, while each frame's Rect gives collision code whole-pixel edges to compare."
+
+[[lessons.exercises]]
+id = "s11-l01-w1"
+type = "write"
+points = 35
+prompt = "A 32-pixel Mira body begins at x 96 and a wall begins at x 128. Compute Mira's right edge and print exactly <code>Mira right edge: 128</code>. Then print exactly <code>Edges meet: True</code> by comparing that edge to the wall x. This rehearses the edge arithmetic behind the real PyGame Rect check."
+expect = '''Mira right edge: 128
+Edges meet: True'''
+hint = "Add mira_x and mira_size for the right edge, then use == against wall_x; do not hardcode either reported value."
+starter = '''mira_x = 96
+mira_size = 32
+wall_x = 128
+
+# Compute Mira's right edge, then compare it with the wall's left edge.
+'''
+solution = '''mira_x = 96
+mira_size = 32
+wall_x = 128
+
+mira_right = mira_x + mira_size
+edges_meet = mira_right == wall_x
+
+print(f"Mira right edge: {mira_right}")
+print(f"Edges meet: {edges_meet}")'''

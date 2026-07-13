@@ -142,8 +142,10 @@ def scoped_runner_command(name, cmd, cwd, writable_paths, repo):
     return [*wrapped, *resolve_bin(_normalized_command(provider, cmd, repo))]
 
 
-def section_runner_command(name, cmd, section_dir, repo):
-    return scoped_runner_command(name, cmd, section_dir, [section_dir], repo)
+def section_runner_command(name, cmd, section_dir, repo, writable_sidecars=()):
+    """Section-scoped runner plus exact harness-owned handoff files, when supplied."""
+    return scoped_runner_command(name, cmd, section_dir,
+                                 [section_dir, *writable_sidecars], repo)
 
 
 def scoped_shell_command(command, cwd):

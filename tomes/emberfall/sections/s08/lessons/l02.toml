@@ -8,16 +8,10 @@ body = '''
     Consumable,
     Key,
     Equipment
-}
-
-[CreateAssetMenu(menuName = <span class="s">"Emberfall/Item Definition"</span>)]
-<span class="k">public</span> <span class="k">class</span> ItemDefinition : ScriptableObject
-{
-    [SerializeField] <span class="k">private</span> ItemKind kind;
-    [SerializeField] <span class="k">private</span> <span class="k">int</span> healAmount;
-    <span class="k">public</span> ItemKind Kind =&gt; kind;
-    <span class="k">public</span> <span class="k">int</span> HealAmount =&gt; healAmount;
 }</code></pre>
+<p>Keep the complete <code>ItemDefinition.cs</code> from the previous lesson. Put the enum above its existing class, then add only these members <em>inside</em> the existing <code>ItemDefinition</code> body. Do not create a second class or remove <code>ItemId</code>, <code>DisplayName</code>, <code>HealAmount</code>, or their backing fields.</p>
+<pre><code>[SerializeField] <span class="k">private</span> ItemKind kind;
+<span class="k">public</span> ItemKind Kind =&gt; kind;</code></pre>
 <p>Set MinorPotion to Consumable. Later, a RustKey will be Key and an IronSword will be Equipment. Do not make every item consume healing just because the field exists. The use code will first test <code>definition.Kind == ItemKind.Consumable</code>; only then does <code>HealAmount</code> matter. A numeric field may be zero for a key, but the enum tells us whether using the item is even a meaningful action.</p>
 <p>Keep the enum near the definition in <code>ItemDefinition.cs</code> while this project is small. It is a shared vocabulary, like EnemyState: use the exact members <code>Consumable</code>, <code>Key</code>, and <code>Equipment</code> everywhere. The category is authored once in the asset Inspector; inventory stacks hold references to definitions rather than a new, copied category string.</p>
 <p>The plain-C# lab takes the worked enum and fades it into a tiny rule check. Unity does not run there, so it does not attempt to fake an asset. It proves the C# comparison that the eventual <code>Use</code> method needs.</p>

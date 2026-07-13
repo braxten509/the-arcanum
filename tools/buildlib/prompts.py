@@ -6,102 +6,107 @@ import sys
 
 from .checkpoints import ARC_CONTRACT, ARC_HEADING
 
-PREAMBLE = """You are ONE stage of an automated build harness for an Arcanum coding-tome.
-You are running headless. Do this ONE phase completely and correctly, then STOP — do
-NOT start other phases; the harness runs those separately.
+PREAMBLE = """You are the headless worker for ONE phase of an Arcanum tome build.
+Complete only Phase {num}, then stop. The harness owns phase order, retries, and folder
+renames; never run `new_tome.py`, copy/move the tome, or leave scratch files in it.
 
-Context you share with the other phases (all of it lives on disk):
-- Tome id: {tid}. Its folder ALREADY EXISTS — the harness scaffolded tomes/{tid}/ after
-  Phase 0. Put ALL content THERE; never run new_tome.py or create another tome folder.
-- Full authoring reference: the tome-authoring/ folder, one file per section — `§N` means
-  the file starting with `N-` (so "§3" = tome-authoring/3-chapters.md; its README indexes
-  them all). READ the sections THIS phase names below, and only those.
-- Build plan (the user's gate answers + the arc): {plan}
-  READ IT FIRST. Append any durable decision you make (arc, section list, the VOICE) so
-  the later phases inherit it — you are not the same agent that runs the next phase.
-- The tome files already on disk are the source of truth; earlier phases wrote them.
-- The plan is a LOG, not evidence: before you build on a prior phase's claim, verify it
-  against the files — phases have claimed work the disk never showed.
-- Never duplicate the tome directory, and leave no backups, scratch files, or old-name
-  folders under tomes/ — every file outside the layout contract fails validation.
-  Folder renames are the HARNESS's job (it derives the id from [runtime] project);
-  never mv/cp the tome folder yourself.
+Start by reading {plan} and the existing files relevant to this phase. The files, not
+earlier prose claims, are ground truth. `tome-authoring/` is reference material: open only
+the sections named by this phase, and use them to resolve schema or authoring questions.
+Preserve correct earlier work unless this phase explicitly replaces it.
 
-After you finish, the harness runs tools/validate_tome.py (from Phase 7 on, in --strict
-mode where every non-advisory WARN fails too); if it reports failures you will be
-re-invoked with them, so leave the tome parseable. The harness also compares the file
-tree and content counts before/after your phase: deleting files or shrinking arrays an
-earlier phase built gets you re-invoked unless the plan gains a `SHRINK OK:` line
-explaining why.
+Before returning, run this phase-appropriate warm-context check:
 
-===== YOUR PHASE =====
-## Phase {num} — {title}
+  {validator_command}
+
+Read the complete report. Fix every in-scope failure and rerun until it exits cleanly.
+Report an out-of-scope finding without crossing the write boundary. The harness repeats
+the gate independently and rejects unexplained file deletion or array shrinkage.
+
+===== PHASE {num}: {title} =====
 
 {body}
 """
 
 STUDENT_HOOK = """
 
-===== HARNESS HOOK (phase 8) =====
-This phase is the whole point of the harness: do NOT skip the student read-through, and
-read EVERY chapter s01..last cover to cover, then fill the gaps you find.
+===== PHASE 8 HARNESS PROTOCOL =====
+You are already the fresh reviewer. Work directly; do not spawn reviewers or run a private
+multi-pass loop. This invocation performs one review/fix pass, writes its result, and stops.
+The harness starts another fresh pass when needed.
 
-You are ALREADY the clean-context reviewer: the harness runs you as a fresh worker with
-no authoring context, so where the workflow says to spawn a clean-context subagent, that
-means YOU — do NOT spawn a subagent/child agent to do the reading (it re-reads the whole
-tome a second time and doubles this phase's cost for zero information). Read the chapters
-yourself, in order. And run `python3 tools/validate_tome.py tomes/{tid} --strict` directly
-in your own shell, as often as you like — it is a free local script; its failures are
-never counted against you, so there is nothing to gain by testing it in a child.
+Review scope for this invocation:
+{review_scope}
 
-ONE pass per invocation. The harness owns the review loop (it re-runs this phase and
-scopes the next round to your findings) — do NOT run your own second/third/final review
-rounds, and do NOT spawn reviewers to re-check your fixes. Read once, fix what you found,
-re-run the validator, write the honest verdict, STOP. If gaps remain after your fixes,
-that is what GAPS REMAIN + the findings file is for — the harness will send the next
-round. A private review loop re-reads the tome four or five times over and burns the
-whole usage budget in one phase.
+Write exactly `PASS` or `GAPS REMAIN` as the sole line of {verdict}. PASS means a learner
+matching the stated prerequisites can use the real tools to produce and verify the exact
+artifact promised by `meta.description`, using only the tome, and this invocation made no
+authored tome/runtime change. If you repair anything, write GAPS REMAIN; the harness will
+start a fresh reviewer to verify the repair before accepting PASS.
 
-You are also the AUDITOR — the last eyes before shipping, with three duties the
-student lens does not cover (a smarter reviewer only does the job it was given, so
-here is the whole job):
-- INVENTORY: list every file under the tome folder (`find tomes/<id> -type f`) and
-  justify each against the layout contract in tome-authoring/7-validate.md. A nested folder, a
-  backup copy, or a scratch file is a FAIL, not a shrug.
-- CLAIMS vs DISK: reread the build plan and verify every claim in it against the
-  files. A phase that wrote "registered the 6 badges" must have six [[badges]] on
-  disk right now. Claims are not evidence.
-- ENGINE CONTRACTS: the badge bank defines every engine-granted id; shop theme items
-  point at real [[themes]]; attack starters run as given. The META files — badges,
-  themes, shop, intrusions, attacks — are content too: read them in the tome's voice,
-  not just the chapters.
-
-When done, write your verdict to the file {verdict} — exactly one line:
-  PASS          if a first-time student, having read every chapter, could now sit down
-                with the REAL tools and a REAL target and do what meta.description
-                promises, unaided.
-  GAPS REMAIN   otherwise.
-The harness re-runs this phase until you write PASS (up to a few times), so only write
-PASS when it is genuinely true.
-
-If (and only if) the verdict is GAPS REMAIN, ALSO write {findings} as a JSON array of the
-blocking findings, most-severe first — so the next review pass can go straight to them
-instead of re-reading all 46 files:
-  [{{"file": "tomes/<id>/sections/s05/lessons/l04.toml", "issue": "recursion never taught before the lab", "severity": "blocking"}}, …]
-Use "file": null for a whole-tome finding. Keep it to the real blockers you just fixed or
-still need fixed. On PASS, do not write this file (or write []).
+On `GAPS REMAIN`, write {findings} as a JSON array of blocking findings, most severe first:
+  [{{"file": "tomes/<id>/sections/s05/lessons/l04.toml", "issue": "the capstone uses an untaught API", "severity": "blocking"}}]
+Use `null` for a whole-tome file. On PASS, write `[]` or remove the findings file.
 """
 
+FULL_REVIEW_SCOPE = """Read the selected global runtime, then every section, lesson,
+exercise, freestyle, and content bank in order. Do not sample. Apply the complete Phase 8
+rubric."""
 
-def build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel=None, focus=None):
-    p = PREAMBLE.format(tid=tid, num=num, title=title, body=body, plan=plan_rel)
+FOCUSED_REVIEW_SCOPE = """Start with the prior blocking findings below. Recheck each changed
+file, its prerequisite owners, and downstream consumers. Expand only when a finding is
+systemic; a focused retry need not reread unrelated chapters.
+
+{focus}"""
+
+
+def repair_verification_focus(changes):
+    """Focus for the mandatory fresh pass after a reviewer changed authored content."""
+    shown = list(changes[:40])
+    lines = "\n".join(f"  - {change}" for change in shown)
+    if len(changes) > len(shown):
+        lines += (f"\n  - ... {len(changes) - len(shown)} additional authored files changed; "
+                  "treat this as systemic and repeat the full-tome review")
+    return ("- [blocking] Fresh verification is required because the previous reviewer "
+            "changed authored tome/runtime content. Recheck each change against its earlier "
+            "owners and downstream consumers. If every repair is sound, make no authored "
+            "change and write PASS. If anything remains wrong, repair it and write GAPS "
+            "REMAIN; the harness will schedule another fresh pass.\n" + lines)
+
+
+def review_pass_eligible(verdict, changes, gates_clean=True, worker_rc=0):
+    """Only a successful, no-edit reviewer may close the editorial gate."""
+    return (verdict == "PASS" and not changes and gates_clean and worker_rc == 0)
+
+
+def review_findings_clear(path):
+    """PASS may accompany only a missing/blank findings sidecar or the exact JSON ``[]``."""
+    if not os.path.exists(path):
+        return True
+    try:
+        with open(path, encoding="utf-8") as f:
+            raw = f.read().strip()
+        return not raw or json.loads(raw) == []
+    except (OSError, json.JSONDecodeError):
+        return False
+
+
+def build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel=None, focus=None,
+                 validation_flags=None):
+    if num == 1:
+        validator_command = (f'cd "$ARCANUM_REPO_ROOT" && python3 tools/validate_tome.py '
+                             f"tomes/{tid} --phase-1-plan {plan_rel}")
+    else:
+        flags = validation_flags if validation_flags is not None else ("--strict" if num >= 7 else "")
+        validator_command = (f'cd "$ARCANUM_REPO_ROOT" && '
+                             f"python3 tools/validate_tome.py tomes/{tid} {flags}").rstrip()
+    p = PREAMBLE.format(tid=tid, num=num, title=title, body=body, plan=plan_rel,
+                        validator_command=validator_command)
     if num == 8:
-        p += STUDENT_HOOK.format(tid=tid, verdict=verdict_rel, findings=findings_rel)
-        if focus:
-            p += ("\n\n===== FOCUS THIS PASS (from the previous review's findings) =====\n"
-                  "A prior pass already read the whole tome and flagged the items below. Fix "
-                  "THESE first and re-verify the chapters they touch — you need not re-read every "
-                  "chapter from scratch this round:\n" + focus)
+        review_scope = (FOCUSED_REVIEW_SCOPE.format(focus=focus)
+                        if focus else FULL_REVIEW_SCOPE)
+        p += STUDENT_HOOK.format(tid=tid, verdict=verdict_rel, findings=findings_rel,
+                                 review_scope=review_scope)
     return p
 
 
@@ -112,11 +117,26 @@ def read_findings(path):
     try:
         with open(path, encoding="utf-8") as f:
             items = json.load(f)
-        os.remove(path)  # consume it; the next round writes fresh
     except (OSError, json.JSONDecodeError):
+        try:
+            open(path, "w", encoding="utf-8").close()
+        except OSError:
+            pass
         return None
-    lines = [f"- [{it.get('severity', '?')}] {it.get('file') or '(whole tome)'}: {it.get('issue', '')}"
-             for it in items if isinstance(it, dict)]
+    open(path, "w", encoding="utf-8").close()  # consume without removing the mounted sidecar
+    if not isinstance(items, list):
+        return None
+    lines = []
+    for item in items[:40]:
+        if not isinstance(item, dict):
+            continue
+        clean = lambda value, limit: re.sub(r"\s+", " ", str(value or "")).strip()[:limit]
+        issue = clean(item.get("issue"), 600)
+        if not issue:
+            continue
+        severity = clean(item.get("severity") or "blocking", 40)
+        file = clean(item.get("file"), 300) or "(whole tome)"
+        lines.append(f"- [{severity}] {file}: {issue}")
     return "\n".join(lines) if lines else None
 
 
@@ -124,7 +144,7 @@ def read_verdict(path):
     if not os.path.exists(path):
         return None
     v = open(path, encoding="utf-8").read().strip().upper()
-    os.remove(path)  # consume it so the next loop reads a fresh write
+    open(path, "w", encoding="utf-8").close()  # keep the exact mounted file, clear stale verdict
     # Exact protocol, not keyword spotting: "NOT PASS", prose containing PASS, or a
     # malformed multi-line response must never end the editorial gate successfully.
     return v if v in ("PASS", "GAPS REMAIN") else None
@@ -140,137 +160,33 @@ GATE_QS = [
     ("Tooling", "internal (in-browser only), external (teach real tools), or both?"),
 ]
 
-# How the three dials steer the arc — written into the plan so every phase reads the same
-# semantics instead of re-interpreting three bare numbers.
-DIALS_NOTE = """\
-- **Starting level** (see Starting level below) fixes where teaching BEGINS — how much the
-  student already knows about THIS subject. Low = teach the course's own language/tool from
-  zero as its own early chapters; high = skip fundamentals. It pairs with Prior knowledge,
-  which names WHAT they already know. A low starting level ADDS chapters — there is no cap.
-- **Breadth** shapes the SECTION LIST: how much of the topic's surface appears. 1 = the
-  single tight path to the objective; 10 = the whole territory, side-paths included.
-- **Lesson depth** shapes EACH LESSON: how far under the surface it digs. 1 = use the
-  thing; 10 = internals, edge cases, why it works.
-- **Mastery** (see Mastery target below) fixes the ENDPOINT — where the student stands
-  after the final chapter. Breadth and depth spend the pages; mastery decides where the
-  pages must ARRIVE. Material the student already has (see Prior knowledge) gets AT MOST
-  one brief recap section, no matter how high breadth is.
-- The concept is casual prose; these dials are the user's CALIBRATED intent. Where the
-  two disagree (e.g. the concept says "from beginner" but prior knowledge + mastery say
-  otherwise), THE DIALS WIN. Take the concept for topic and flavor, the dials for shape.
-"""
-
-# The mastery tick expanded into concrete sample end-state objectives — a cheap model
-# can't misread an example the way it can misread an adjective. Written into the plan.
 MASTERY_LEVELS = {
-    1: ("ACQUAINTED", "The student ends able to READ and follow the topic, not yet work "
-        "alone: explain the core ideas, run and modify provided examples, finish guided "
-        "exercises. Sample end-state objectives: edit a provided script to change its "
-        "behavior; explain what a given loop or lookup does; spot the obvious bug in five lines."),
-    2: ("FUNCTIONAL", "Ends able to do the everyday basics unaided: build small things "
-        "from scratch with the core constructs, read error messages, fix simple faults. "
-        "Samples: write a small program that reads input and prints a computed result; "
-        "use the basic collection types correctly; trace why a branch did or didn't run."),
-    3: ("CAPABLE", "Ends able to solve real problems alone and CHOOSE between approaches. "
-        "Samples: implement recursion where iteration hurts; pick a map over an array (or "
-        "the reverse) and justify the tradeoff; decompose a fuzzy problem into functions; "
-        "treat error handling as a design decision, not an afterthought."),
-    4: ("ADVANCED", "Ends fluent in the topic's idioms and the internals that matter. "
-        "Samples: wield the topic's power tools (e.g. generators/iterators, decorators/"
-        "closures in a programming course); reason about complexity and performance; "
-        "structure a multi-part project; read unfamiliar source to answer what the docs don't."),
-    5: ("EXPERT", "Ends at the deep end: the machinery under the surface and the judgment "
-        "to wield it. Samples: metaprogramming or the topic's equivalent under-the-hood "
-        "layer; performance/memory models; concurrency where applicable; architect a "
-        "substantial tool end to end and defend its design."),
+    1: ("ACQUAINTED", "Can explain the core ideas and modify guided examples, but not work alone."),
+    2: ("FUNCTIONAL", "Can build small everyday examples and repair simple faults unaided."),
+    3: ("CAPABLE", "Can solve real problems independently and justify choices among taught approaches."),
+    4: ("ADVANCED", "Can use the topic's important idioms, internals, and power tools fluently."),
+    5: ("EXPERT", "Can reason about the machinery and architect a substantial solution defensibly."),
 }
-MASTERY_CODA = """
-These samples CALIBRATE the endpoint — they are not a syllabus. Translate them into THIS
-course's topic, and spend the chapter budget so the FINAL chapters sit AT this level.
-
-Adapt the samples to this topic's OWN difficulty landscape, not to generic computer
-science. Before writing the section list:
-1. Name, in the plan, the 3-6 concepts practitioners of THIS language/tool actually
-   find hard and idiomatic at the target level — its REAL difficulty spine.
-2. Build the advanced chapters toward THAT list. Where a sample above names a concept
-   that is rare or unidiomatic here, swap it for this topic's equal-difficulty
-   counterpart instead of teaching it anyway.
-3. Write the graduate ledger: "after the last chapter the student CAN …" and "still
-   CANNOT …". At mastery 2+ the CAN list must include the topic's daily-driver kit —
-   for a language: its growable collection, its key-value type, real string work, and
-   its error-handling idiom; for a tool: the handful of operations every practitioner
-   does weekly. A course can hit its project's endpoint on a narrow path and still
-   graduate someone who cannot use the language for anything else — that is a MISSED
-   endpoint, not a scoping choice. Anything daily-driver deliberately left out is
-   stated in meta.description, so the card never promises what the arc doesn't teach.
-Calibration contrasts: nearly every language HAS recursion, but a Python course at
-level 3 leans on iterators, comprehensions and dict-shaped design (recursion earns a
-lesson, not a chapter), while a Lisp or Haskell course inverts that ratio; JavaScript's
-hard spine is async/the event loop/closures; Rust's is ownership and borrowing; C's is
-pointers and memory; SQL's is joins, aggregation and window functions. Weight the
-course toward what is hard AND used HERE."""
-
-# The starting-level tick expanded into concrete instructions — mirror of MASTERY_LEVELS but
-# for where teaching BEGINS. Low ticks force the course's own language/tool to be taught from
-# zero as its own chapters, so a "teach me X in Python" course for a non-programmer actually
-# teaches Python instead of assuming it. Written into the plan.
 PRIOR_LEVELS = {
-    1: ("FROM ZERO", "The student has never programmed. The course's OWN language/tool is taught "
-        "from the absolute basics — install it, run the first program, variables, control flow — "
-        "as its OWN early chapters BEFORE any domain work. Assume NOTHING, not even that they know "
-        "what the language is."),
-    2: ("NEAR ZERO", "Has glimpsed code but cannot write it. Still teach the language from basics "
-        "as its own chapters; move only slightly faster than level 1."),
-    3: ("RANK BEGINNER", "Can copy and tweak examples in some language. Teach THIS course's language "
-        "from the ground up as its own chapters, but the idea of a variable or loop need not be "
-        "introduced as brand-new."),
-    4: ("OTHER-LANGUAGE CODER", "Comfortable in at least ONE other language, but NOT this course's. "
-        "Give this language its own fast on-ramp chapter(s) — syntax, toolchain, how to run it — then "
-        "proceed. Do NOT assume they know this language's syntax or standard library."),
-    5: ("GENERALIST", "Solid general coding experience across languages, but not necessarily this "
-        "exact stack. A brisk language/tooling primer (one focused chapter on what differs from what "
-        "they likely know), then straight into the domain."),
-    6: ("ADJACENT", "Knows this language's neighborhood or an adjacent stack. A short recap of the "
-        "specific tools this course uses, then domain work — no from-zero language teaching."),
-    7: ("PRACTITIONER", "Already uses this language/stack. Skip fundamentals; open at the domain. "
-        "Recap only the exact APIs the course leans on, in context."),
-    8: ("FLUENT", "Fluent in the language and its ecosystem. No primers — begin at the real work; "
-        "assume idioms and the standard library are known."),
-    9: ("ADVANCED", "Deep in this exact domain already. Go straight to advanced material; assume "
-        "everything short of the course's frontier."),
-    10: ("EXPERT", "Near-mastery of the subject. Teach ONLY the sharp edge — advanced, non-obvious, "
-        "and frontier material; assume all else."),
+    1: ("FROM ZERO", "Teach installation, first run, syntax, and fundamentals before domain work."),
+    2: ("NEAR ZERO", "Teach the language/tool from its basics, moving only slightly faster."),
+    3: ("BEGINNER", "Teach this language/tool from the ground up; general coding ideas may be familiar."),
+    4: ("OTHER-STACK CODER", "Give this language and toolchain a focused on-ramp before domain work."),
+    5: ("GENERALIST", "Give a brisk primer on this stack's differences, then enter the domain."),
+    6: ("ADJACENT", "Recap only the specific tooling and APIs this course relies on."),
+    7: ("PRACTITIONER", "Skip fundamentals and begin with the domain, introducing APIs in context."),
+    8: ("FLUENT", "Assume language idioms and standard tooling; begin at the real work."),
+    9: ("ADVANCED", "Assume the domain except for the advanced material this course targets."),
+    10: ("EXPERT", "Teach only non-obvious frontier material."),
 }
-PRIOR_CODA = """
-This fixes where teaching BEGINS (Mastery fixes where it ends). Read it against the concept: if
-the concept names a language or tool the student does NOT already know (per this level and the
-Prior-knowledge note), that language's fundamentals and toolchain are THEIR OWN early chapters —
-never assumed away or folded into one artifact's build. There is NO maximum chapter count; a
-from-zero course simply needs more chapters than an expert's. Size the arc to the gap.
-"""
-
-# The gate's Tooling choice expanded into the rules the author-AI must honor — written
-# into the plan (which every phase reads) so it steers all phases. The validator enforces
-# the mechanical half (see validate_tome.py --tooling); this is the rest, via the prompt.
 TOOLING_POLICY = {
     "internal": ("INTERNAL (in-browser only)",
-        "Every workbench is the built-in browser editor — do NOT set `externalWorkspace`. The "
-        "course must need NO external download or install: never tell the student to fetch, "
-        "install, or run an external program, IDE, or toolchain, and never assume one is present. "
-        "(They may still opt into their own editor via USE MY OWN EDITOR, but write the course as "
-        "if in-browser.) Every lab runs in the engine's own runtime."),
+        "Use the browser workbench only; do not require downloads or set `externalWorkspace`."),
     "external": ("EXTERNAL (teach the real tools)",
-        "The course MUST teach how to install and use the real external tools the topic needs — "
-        "name them in section 1 with `[[lessons.readings]]` links (mark mandatory/optional). Where "
-        "the real toolchain cannot run in the browser, set `externalWorkspace = true` (§5) and make "
-        "the workbenches external; an in-browser workbench is fine only where genuinely applicable. "
-        "Never simulate away the real skill."),
+        "Teach the real toolchain from install through diagnostics and final delivery; use "
+        "`externalWorkspace` when the real work cannot run in-browser."),
     "both": ("BOTH (internal + external available)",
-        "Both in-browser and real external tools must be available to the student. Teach the real "
-        "external tools — name them in section 1 with `[[lessons.readings]]` links. Workbenches may "
-        "be internal or external per topic: set `externalWorkspace = true` only where the real "
-        "toolchain needs it; otherwise keep the in-browser workbench while STILL teaching the "
-        "external tools."),
+        "Support the browser workbench and teach the complete real-tool path through final delivery."),
 }
 
 
@@ -313,7 +229,7 @@ def read_tooling(plan_path):
 
 
 def write_plan(plan_path, tid, answers, concept=None):
-    """Write the Phase-0 plan file — the one format both gate paths share."""
+    """Write a compact Phase-0 brief; Phase 1 adds only course-specific decisions."""
     with open(plan_path, "w", encoding="utf-8") as f:
         f.write(f"# BUILD PLAN — {tid}\n\n")
         if concept:
@@ -322,25 +238,32 @@ def write_plan(plan_path, tid, answers, concept=None):
         for k, v in answers:
             if v:   # an unanswered dial is omitted, not written as an empty line
                 f.write(f"- **{k}:** {v}\n")
-        if any(v for k, v in answers if k.startswith(("Breadth", "Lesson depth", "Mastery"))):
-            f.write("\n## Course dials — how to read them\n" + DIALS_NOTE)
+        values = {k: str(v).strip() for k, v in answers}
         m = next((v for k, v in answers if k.startswith("Mastery")), "")
         try:
             lvl = MASTERY_LEVELS.get(int(str(m).strip()))
         except (ValueError, TypeError):
             lvl = None
-        if lvl:
-            f.write(f"\n## Mastery target — {str(m).strip()}/5: {lvl[0]}\n{lvl[1]}{MASTERY_CODA}\n")
         p = next((v for k, v in answers if k.startswith("Starting level")), "")
         try:
             plvl = PRIOR_LEVELS.get(int(str(p).strip()))
         except (ValueError, TypeError):
             plvl = None
-        if plvl:
-            f.write(f"\n## Starting level — {str(p).strip()}/10: {plvl[0]}\n{plvl[1]}{PRIOR_CODA}\n")
         pol = TOOLING_POLICY.get(next((v.lower() for k, v in answers if k == "Tooling"), ""))
+        f.write("\n## Calibration contract\n")
+        if plvl:
+            f.write(f"- **Start {str(p).strip()}/10 — {plvl[0]}:** {plvl[1]}\n")
+        f.write(f"- **Breadth {values.get('Breadth (1-10)', '?')}/10:** controls which "
+                "topic domains enter the section arc; it does not set a chapter count.\n")
+        f.write(f"- **Depth {values.get('Lesson depth (1-10)', '?')}/10:** controls how "
+                "far each included mechanism is explained, debugged, and qualified.\n")
+        if lvl:
+            f.write(f"- **Finish {str(m).strip()}/5 — {lvl[0]}:** {lvl[1]}\n")
         if pol:
-            f.write(f"\n## Tooling policy — {pol[0]}\n{pol[1]}\n")
+            f.write(f"- **Tooling — {pol[0]}:** {pol[1]}\n")
+        f.write("- These calibrated answers override casual scope adjectives in the concept. "
+                "Phase 1 must translate them into the actual difficulty spine, graduate ledger, "
+                "daily-driver scope, lifecycle, acceptance proof, and section arc below.\n")
         f.write("\n" + ARC_HEADING + ARC_CONTRACT)
 
 

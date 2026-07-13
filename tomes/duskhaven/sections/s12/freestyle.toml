@@ -1,0 +1,36 @@
+[freestyle]
+title = "BUILD: Give Duskhaven Its First Witness"
+brief = '''<p>Duskhaven's roads are no longer empty, apprentice. Extend the one real external <code>duskhaven/main.py</code> from Forge XI. Preserve the canonical map, camera, walls, bounds, float Mira position, one Clock/tick, QUIT branch, held-arrow movement, one display, sprite, and clean quit. Do not create a second program, loop, display, Clock, class, coordinate system, or terminal <code>input()</code>.</p><ul><li>Define one <code>npc</code> dictionary with a non-empty <code>"name"</code> and at least two short <code>"lines"</code>, plus a 32-by-32 world-space <code>npc_rect</code> and visible <code>npc_color</code>. Draw the NPC after the world and wall layers but before Mira, converting its Rect x/y with the established camera subtraction.</li><li>Define <code>is_near_npc(mira_rect, npc_rect)</code>. It must create an enlarged Rect with <code>npc_rect.inflate(64, 64)</code> and return whether it overlaps Mira's rebuilt frame Rect. The interaction zone must not be made a wall.</li><li>Own <code>dialogue_active</code>, <code>dialogue_index</code>, and <code>dialogue_lines = npc["lines"]</code> outside the loop. Define <code>begin_dialogue()</code> and <code>advance_dialogue(dialogue_index, dialogue_lines)</code>; E starts at index 0 only when Mira is near the NPC, and Space advances one line or closes and resets cleanly after the final line.</li><li>Keep one event queue. In its existing loop, handle <code>pygame.KEYDOWN</code> before reading <code>event.key</code>; use <code>pygame.K_e</code> and <code>pygame.K_SPACE</code> for dialogue while retaining <code>pygame.key.get_pressed()</code> for continuous arrows.</li><li>Define <code>dialogue_font = pygame.font.Font(None, 28)</code>. When dialogue is active, draw a visible foreground panel after Mira and before flip, render the NPC name and current dialogue line with <code>dialogue_font.render(...)</code>, then blit both returned Surfaces. Run it in VS Code: approach the NPC, press E, advance every line with Space, confirm the panel closes after the last line, then verify movement, walls, camera scrolling, and normal window closing still work.</li></ul>'''
+requires = ["python-dict-literal", "python-dict-key-lookup", "python-list-index", "python-zero-based-index", "python-list-literal", "python-function-define", "python-function-parameter", "python-return-value", "python-boolean-value", "python-elif-else-branch", "python-comparison-result", "pygame-event-queue", "pygame-quit-event", "pygame-clean-quit", "pygame-key-state", "pygame-key-constants", "pygame-event-state-distinction", "pygame-surface-blit", "pygame-draw-order", "pygame-display-flip", "pygame-world-space-wall-draw", "camera-world-to-screen", "pygame-rect-owner", "pygame-rect-overlap-test", "pygame-world-bound-clamp", "pygame-npc-record-owner", "pygame-npc-world-rect", "pygame-npc-proximity-test", "pygame-dialogue-state-owner", "pygame-dialogue-begin-transition", "pygame-dialogue-advance-transition", "pygame-keydown-event", "pygame-dialogue-event-wiring", "pygame-interaction-gate", "pygame-font-owner", "pygame-font-render-surface", "pygame-dialogue-panel-render"]
+reward = 360
+xray = "I dock embers for a screen-fixed NPC, an interaction zone mistakenly treated as a wall, dialogue state reset inside the loop, E opening speech from anywhere, KEYDOWN replacing held-arrow input, event.key read on QUIT, an index that runs past the lines, or text rendered without being blitted. I reward one named world-space witness, explicit state transitions, a guarded key branch, and a panel layered deliberately above the traveler."
+
+[freestyle.badge]
+id = "badge-s12"
+name = "EMBER-TONGUED WAYFINDER"
+desc = "Gave the dark road a witness who remembers when to speak."
+
+[[freestyle.rubric]]
+criterion = "Places A World-Space Witness"
+weight = 20
+desc = "main.py defines one npc dictionary with a name and at least two short lines, a 32-by-32 npc_rect, and npc_color; it draws the NPC after world/walls and before Mira with Rect x/y minus camera_x/camera_y."
+
+[[freestyle.rubric]]
+criterion = "Gates A Real Interaction"
+weight = 20
+desc = "is_near_npc enlarges npc_rect by inflate(64, 64) and uses colliderect with Mira's rebuilt frame Rect; E opens dialogue only while near, without adding the interaction zone to wall_rects."
+
+[[freestyle.rubric]]
+criterion = "Advances Durable Dialogue State"
+weight = 25
+desc = "dialogue_active, dialogue_index, and dialogue_lines remain outside the loop; begin_dialogue starts at index 0 and advance_dialogue progresses one line at a time, then closes and resets after the final line without an invalid list index."
+
+[[freestyle.rubric]]
+criterion = "Uses The Existing Input And Render Boundaries"
+weight = 20
+desc = "The existing event queue handles KEYDOWN before event.key, E, and Space while get_pressed still owns continuous arrows; an active foreground panel is drawn after Mira and before flip, and Font.render results for name and current line are both blitted."
+
+[[freestyle.rubric]]
+criterion = "Worldwright's Python Craft"
+weight = 15
+desc = "Uses descriptive snake_case names such as dialogue_active and interaction_rect, four-space indentation for functions, loops, and branches, one space around operators, and extends the one main.py without duplicate files, displays, loops, classes, or blocking input()."

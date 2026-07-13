@@ -9,35 +9,7 @@ File.WriteAllText(savePath, json);
 <span class="k">if</span> (!File.Exists(savePath)) <span class="k">return</span>;
 <span class="k">string</span> loadedJson = File.ReadAllText(savePath);
 SaveData data = JsonUtility.FromJson&lt;SaveData&gt;(loadedJson);</code></pre>
-<pre><code><span class="k">public</span> <span class="k">void</span> SaveGame()
-{
-    SaveData data = <span class="k">new</span> SaveData {
-        playerX = player.position.x, playerY = player.position.y,
-        currentHP = health.CurrentHP,
-        inventoryItemIds = inventory.GetItemIds(),
-        questFlags = questLog.GetSetFlags()
-    };
-    <span class="k">try</span> { File.WriteAllText(savePath, JsonUtility.ToJson(data, <span class="k">true</span>)); }
-    <span class="k">catch</span> (System.Exception error) { Debug.LogWarning(<span class="s">$"Save failed: {error.Message}"</span>); }
-}
-
-<span class="k">public</span> <span class="k">bool</span> LoadGame()
-{
-    <span class="k">if</span> (!File.Exists(savePath)) <span class="k">return false</span>;
-    <span class="k">try</span> {
-        SaveData data = JsonUtility.FromJson&lt;SaveData&gt;(File.ReadAllText(savePath));
-        <span class="k">if</span> (data == <span class="k">null</span>) <span class="k">return false</span>;
-        player.position = <span class="k">new</span> Vector3(data.playerX, data.playerY, player.position.z);
-        health.Restore(data.currentHP);
-        inventory.RestoreFromIds(data.inventoryItemIds, itemCatalog);
-        questLog.RestoreFlags(data.questFlags);
-        <span class="k">return true</span>;
-    } <span class="k">catch</span> (System.Exception error) {
-        Debug.LogWarning(<span class="s">$"Load failed; current session kept: {error.Message}"</span>);
-        <span class="k">return false</span>;
-    }
-}</code></pre>
-<p>These owner APIs are part of the build, not pseudocode. <code>Inventory.GetItemIds()</code> emits an id once per quantity, so repeated ids preserve stack counts; <code>RestoreFromIds</code> clears slots, resolves every id through ItemCatalog, and calls Add. QuestLog returns only true flags, then clears and reapplies them on restore. Health.Restore clamps and rings HealthChanged so the HUD refreshes. Unknown item ids warn and are skipped rather than producing null slots.</p>
+<p>The previous tempering supplied the complete SaveManager and every owner method it calls. Keep that implementation open while reading the archive operations above; this lesson explains and tests its failure boundaries rather than asking you to build a competing version. <code>Inventory.GetItemIds()</code> emits an id once per quantity, so repeated ids preserve stack counts; <code>RestoreFromIds</code> clears slots, resolves every id through ItemCatalog, and calls Add. QuestLog returns only true flags, then clears and reapplies them on restore. Health.Restore clamps and rings HealthChanged so the HUD refreshes. Unknown item ids warn and are skipped rather than producing null slots.</p>
 <p><code>ToJson</code> turns your snapshot into text; the optional <code>true</code> makes that text readable while you inspect it. <code>FromJson&lt;SaveData&gt;</code> builds a new vessel from the file. The angle-bracket type is not decoration: it tells C# which record to create. Loading is then a second boundary operation: set the player position, ask Health to restore its sanctioned value, rebuild inventory entries through the item-id lookup, and apply known quest flags. Let the original owners validate their values.</p>
 <p>Files fail in ordinary ways. On first launch there may be no file, so <code>File.Exists</code> means “start normally,” not “throw an error.” A file can also be damaged by a manual edit or interrupted write. Put file reads and JSON conversion inside <code>try/catch</code>, log a useful warning, and leave the current fresh session intact. Do not erase the damaged evidence automatically; a warning gives you something to investigate.</p>
 <p>A Save button should call <code>SaveManager.SaveGame()</code>; a Load button may call <code>LoadGame()</code> only when a saved game exists. This reaches back to Forge X: buttons request verbs from an owner, never perform half the operation themselves. Test a full round trip in Play mode: change position, HP, inventory, and one flag; save; change them again; load; then verify all four returned.</p>

@@ -1,0 +1,120 @@
+[[lessons]]
+id = "s11-l01b"
+title = "Prepare the Owners for Restoration"
+body = '''
+<p>SaveManager cannot reach into private lists and dictionaries, and it should not. Before writing a file, give Inventory and QuestLog explicit snapshot and restoration doors. These methods belong on the systems that own the state. They convert runtime objects into stable strings on capture, then rebuild through the same validated public operations used during play.</p>
+<pre><code><span class="c">// Add inside Inventory</span>
+<span class="k">public</span> List&lt;<span class="k">string</span>&gt; GetItemIds()
+{
+    List&lt;<span class="k">string</span>&gt; ids = <span class="k">new</span> List&lt;<span class="k">string</span>&gt;();
+    <span class="k">foreach</span> (InventorySlot slot <span class="k">in</span> slots)
+    {
+        <span class="k">for</span> (<span class="k">int</span> i = 0; i &lt; slot.Amount; i++)
+            ids.Add(slot.Definition.ItemId);
+    }
+    <span class="k">return</span> ids;
+}
+
+<span class="k">public</span> <span class="k">void</span> RestoreFromIds(List&lt;<span class="k">string</span>&gt; ids, ItemCatalog catalog)
+{
+    slots.Clear();
+    <span class="k">if</span> (ids == <span class="k">null</span> || catalog == <span class="k">null</span>) <span class="k">return</span>;
+    <span class="k">foreach</span> (<span class="k">string</span> id <span class="k">in</span> ids)
+    {
+        <span class="k">if</span> (catalog.TryGet(id, <span class="k">out</span> ItemDefinition definition)) Add(definition);
+        <span class="k">else</span> Debug.LogWarning(<span class="s">$"Unknown saved item id: {id}"</span>);
+    }
+}</code></pre>
+<p>Writing an id once per quantity is deliberately simple: a potion stack of three becomes three <code>minor_potion</code> strings. Restore clears the old session, resolves each stable id through ItemCatalog, and calls the existing Add boundary, which naturally rebuilds stacks. An unknown id is skipped with evidence rather than becoming a null definition that crashes later.</p>
+<pre><code><span class="c">// Add inside QuestLog</span>
+<span class="k">public</span> List&lt;<span class="k">string</span>&gt; GetSetFlags()
+{
+    List&lt;<span class="k">string</span>&gt; setFlags = <span class="k">new</span> List&lt;<span class="k">string</span>&gt;();
+    <span class="k">foreach</span> (KeyValuePair&lt;<span class="k">string</span>, <span class="k">bool</span>&gt; pair <span class="k">in</span> flags)
+        <span class="k">if</span> (pair.Value) setFlags.Add(pair.Key);
+    <span class="k">return</span> setFlags;
+}
+
+<span class="k">public</span> <span class="k">void</span> RestoreFlags(List&lt;<span class="k">string</span>&gt; savedFlags)
+{
+    flags.Clear();
+    <span class="k">if</span> (savedFlags == <span class="k">null</span>) <span class="k">return</span>;
+    <span class="k">foreach</span> (<span class="k">string</span> flagId <span class="k">in</span> savedFlags) SetFlag(flagId);
+}</code></pre>
+<p>Add <code>using System.Collections.Generic;</code> to both files if it is not already present. QuestLog saves only true facts; absent flags already mean false. Health needs no new work because Forge VII's <code>Restore</code> clamps saved HP and rings HealthChanged. After these additions, every owner can both describe and rebuild its own state without SaveManager touching private fields.</p>
+<div class="callout">Capture and restore are a pair. A field placed in SaveData without a tested owner restoration method is not actually saved—it is merely written down.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CLEAR, THEN REPLAY</div><p>Restoration replaces the current snapshot; it does not merge two sessions. Clear first, then replay ids through public boundaries. This reuses stacking and flag rules instead of maintaining a second, subtly different implementation inside SaveManager.</p></div>
+'''
+
+[[lessons.readings]]
+label = "MANDATORY // Microsoft Learn: List<T>.Clear"
+url = "https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.list-1.clear"
+
+[[lessons.readings]]
+label = "OPTIONAL // Microsoft Learn: KeyValuePair<TKey,TValue>"
+url = "https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.keyvaluepair-2"
+
+[[lessons.exercises]]
+id = "s11-l01b-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype the loop that emits a definition id once for each item in a stack."
+code = '''for (int i = 0; i < slot.Amount; i++)
+    ids.Add(slot.Definition.ItemId);'''
+
+[[lessons.exercises]]
+id = "s11-l01b-e1"
+type = "mc"
+points = 23
+prompt = "Why does Inventory.RestoreFromIds call slots.Clear before resolving the saved ids?"
+choices = ["A load replaces current inventory state instead of duplicating saved items onto it", "ItemCatalog cannot perform TryGetValue while a List contains entries", "JsonUtility requires every List to remain permanently empty", "Clear converts ScriptableObjects into strings"]
+answer = 0
+whyWrong = "Catalog lookup, JSON serialization, and ScriptableObject identity do not require an empty list. Clearing expresses replacement semantics so repeated loads do not duplicate the same saved stack."
+hint = "Imagine loading the same two-potion save twice without removing the current two potions first."
+explain = "Clear then replay reconstructs exactly the snapshot on disk."
+
+[[lessons.exercises]]
+id = "s11-l01b-e2"
+type = "fill"
+points = 24
+prompt = "Fill the safe catalog operation used before adding a restored definition."
+code = '''if (catalog.____(id, out ItemDefinition definition)) Add(definition);'''
+answer = "TryGet"
+hint = "Forge VIII wrapped Dictionary.TryGetValue behind this shorter ItemCatalog method."
+
+[[lessons.exercises]]
+id = "s11-l01b-e3"
+type = "text"
+points = 20
+prompt = "When a saved item id no longer exists in ItemCatalog, what should restoration do instead of creating a null slot?"
+answer = "skip it with a warning"
+accept = ["skip with a warning", "warn and skip", "skip"]
+hint = "A missing definition cannot safely supply DisplayName, Kind, or HealAmount later. Preserve evidence without corrupting the pack."
+whyWrong = "A null inventory definition postpones the failure until unrelated UI or item-use code reads it. Skipping the unknown id keeps the remaining save usable."
+
+[[lessons.exercises]]
+id = "s11-l01b-w1"
+type = "write"
+points = 36
+prompt = "Model snapshot expansion in plain C#. The ordered stacks are minor_potion ×2 and rust_key ×1. Build a List<string> by looping over each quantity, then print one line joined with commas. Compute exactly:\nITEMS minor_potion,minor_potion,rust_key"
+starter = '''string[] itemIds = { "minor_potion", "rust_key" };
+int[] amounts = { 2, 1 };
+List<string> snapshot = new List<string>();
+
+// Loop over both item definitions and append each id amounts[index] times.
+'''
+expect = '''ITEMS minor_potion,minor_potion,rust_key'''
+solution = '''string[] itemIds = { "minor_potion", "rust_key" };
+int[] amounts = { 2, 1 };
+List<string> snapshot = new List<string>();
+
+for (int index = 0; index < itemIds.Length; index++)
+{
+    for (int count = 0; count < amounts[index]; count++)
+    {
+        snapshot.Add(itemIds[index]);
+    }
+}
+Console.WriteLine($"ITEMS {string.Join(",", snapshot)}");'''
+hint = "Use an outer index loop for the two definitions and an inner count loop bounded by amounts[index]."

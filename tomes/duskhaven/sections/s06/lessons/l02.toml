@@ -1,0 +1,87 @@
+[[lessons]]
+id = "s06-l02"
+title = "Teach The Player A Report"
+teaches = ["python-instance-method", "python-self-attribute-read", "python-object-status-report"]
+body = '''
+<p>The Player form now owns two facts, but the file still decides how to report them. A <strong>method</strong> is a function defined inside a class; it belongs to each instance of that class. The next block is the complete, safe replacement for the existing <code>Player</code> class only: replace that class at its current location below the function definitions, preserving every shown member. Do not create a second Player class or touch the earlier functions.</p>
+<pre><code>class Player:
+    def report_status(self):
+        print(f"{self.name} has {self.health} HP.")
+
+    def __init__(self, name, health):
+        self.name = name
+        self.health = health</code></pre>
+<p>Unlike a file-level function, a method's first parameter is <code>self</code>. When the call <code>player.report_status()</code> runs, Python supplies the <code>player</code> instance as <code>self</code>. The method can therefore read that one player's <code>self.name</code> and <code>self.health</code>. Add the call below <code>player = Player("Mira", 12)</code>, after construction. Calling a method before its instance exists is asking a lantern to hang itself.</p>
+<p>The parentheses still mean “run this behavior,” as they did for Forge V functions. The dot means “use behavior owned by this object.” That is the useful boundary: the Player owns how its basic status is phrased, while the left-margin main path chooses when the status should be reported. A second player would use the same method but retrieve different stored attributes.</p>
+<p>Keep the earlier standalone f-string report briefly only to compare output, then let <code>player.report_status()</code> become the canonical report. Do not put <code>player</code> into the class body; it is an instance created later at the file's left margin. Run <code>main.py</code> and confirm that the existing town reports still run before the new status line.</p>
+<div class="callout">A method is not magic punctuation. It is a function with an object supplied through <code>self</code>, called through that object's dot.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ONE OWNER, MANY INSTANCES</div><p><code>report_status</code> is written once in the class, yet each Player instance can call it. That is reuse without hardcoding Mira: the method reads whichever object arrives as <code>self</code>.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python Tutorial — Method Objects"
+url = "https://docs.python.org/3/tutorial/classes.html#method-objects"
+
+[[lessons.exercises]]
+id = "s06-l02-e1"
+type = "mc"
+points = 24
+prompt = "Where does the new <code>report_status</code> method belong in the cumulative source?"
+choices = ["Inside the existing Player class after its initializer assignments", "Inside town_ledger because it reports a name", "Above import pygame as a separate class", "Inside the player = Player(...) call"]
+answer = 0
+hint = "A method is behavior owned by a class, while the instance construction stays at the file's left margin."
+whyWrong = "A dictionary stores named data but cannot own this method, imports stay at the top, and a call cannot contain a new indented function definition. The canonical Player class is the one safe owner."
+explain = "Adding the member inside the existing class preserves __init__ and gives every Player instance the behavior."
+
+[[lessons.exercises]]
+id = "s06-l02-e2"
+type = "text"
+points = 20
+prompt = "What is the term for a function defined inside a class and called through an instance such as <code>player.report_status()</code>?"
+answer = "method"
+accept = ["a method", "instance method"]
+hint = "It is the class-owned counterpart to the file-level functions forged in the previous section."
+whyWrong = "An attribute is stored data reached with a dot, and an argument is a value supplied to a call. This class-owned function is a method."
+
+[[lessons.exercises]]
+id = "s06-l02-e3"
+type = "fill"
+points = 25
+prompt = "Complete the receiver in the method header so the body can read the constructed player's attributes."
+code = '''    def report_status(____):
+        print(f"{self.name} has {self.health} HP.")'''
+answer = "self"
+hint = "The f-string already shows the receiver word that names the particular Player running this method."
+whyWrong = "player is a specific outside variable and name is only one initializer parameter. self is the conventional first method parameter that receives whichever instance made the call."
+
+[[lessons.exercises]]
+id = "s06-l02-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the exact Player method member that reports one instance's stored state."
+code = '''    def report_status(self):
+        print(f"{self.name} has {self.health} HP.")'''
+
+[[lessons.exercises]]
+id = "s06-l02-w1"
+type = "write"
+points = 35
+prompt = "Define a complete <code>Player</code> class with the same name/health initializer and a <code>report_status</code> method. Construct <code>healer = Player(&quot;Nia&quot;, 14)</code>, call the method, and make the program print exactly <code>Nia has 14 HP.</code>."
+expect = '''Nia has 14 HP.'''
+hint = "The method stays indented one level within Player, its print is one level further, and healer.report_status() belongs after healer has been constructed."
+starter = '''# Define Player, including __init__ and report_status.
+
+# Construct healer and call its report method.
+'''
+solution = '''class Player:
+    def __init__(self, name, health):
+        self.name = name
+        self.health = health
+
+    def report_status(self):
+        print(f"{self.name} has {self.health} HP.")
+
+
+healer = Player("Nia", 14)
+healer.report_status()'''

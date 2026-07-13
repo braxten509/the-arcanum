@@ -5,6 +5,8 @@
 - prompts   phase prompt assembly, the Phase-0 gate/plan writer, verdict/findings IO
 - measure   validator gate, inventory/shrinkage contract, ground-truth measuring
 - sections  split-mode Phase 3 (one worker per section) + its resume bookkeeping
+- continuity  schema-checked cross-section handoffs and whole-tome continuity briefing
+- review    Phase-8 repair loop plus independent fresh no-change PASS gate
 - checkpoints  between-phase gates: Phase-1 arc gate, arc approval pause, tome rename
 - workflow  phase-file parsing and the shared access-boundary prompt
 - build_selftest  focused harness regression checks
@@ -19,7 +21,7 @@ BUILD_DIR = os.path.join(REPO, ".tome-build")
 
 MAX_RETRIES = 2        # per content phase on validator ERROR — paid cloud runners (retries cost money)
 MAX_RETRIES_LOCAL = 4  # a free local ollama runner gets more automatic tries before it pauses to ask
-MAX_STUDENT_LOOPS = 3  # phase 8 review -> fill loops before giving up
+MAX_STUDENT_LOOPS = 4  # includes the required fresh, no-change verification after repairs
 PING_INTERVAL_DEFAULT = 30  # seconds between worker liveness checks
 DEAD_PINGS_DEFAULT = 2      # consecutive idle checks before a worker is declared hung
 

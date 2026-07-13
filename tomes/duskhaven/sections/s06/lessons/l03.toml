@@ -1,0 +1,90 @@
+[[lessons]]
+id = "s06-l03"
+title = "Bind An Enemy Form"
+teaches = ["python-enemy-class", "python-second-object-type", "python-enemy-instance"]
+body = '''
+<p>One Player cannot make a game encounter. An enemy needs the same broad kind of state—name and health—but it is a different kind of thing, so give it its own blueprint. Add this complete new <code>Enemy</code> class below the complete <code>Player</code> class in the canonical <code>main.py</code>. It is not a replacement for Player. The matching shape is deliberate: two different object types may each own similar attributes.</p>
+<pre><code>class Enemy:
+    def __init__(self, name, health):
+        self.name = name
+        self.health = health
+
+    def report_status(self):
+        status_line = f"{self.name} has {self.health} HP."
+        print(status_line)
+
+
+mist_wolf = Enemy("Mist Wolf", 8)
+mist_wolf.report_status()</code></pre>
+<p><code>Enemy</code> is a second class, not a second Player. Its initializer uses the same parameter pattern to place received values onto <code>self</code>. Its <code>report_status</code> method also has the same job: describe whichever Enemy instance calls it. The constructed variable <code>mist_wolf</code> is an instance of Enemy, so <code>mist_wolf.name</code> is <code>"Mist Wolf"</code> and <code>mist_wolf.health</code> is <code>8</code>.</p>
+<p>Do not fold the enemy into <code>town_ledger</code> merely because both can store named facts. A dictionary is excellent data from Forge IV; a class adds a reusable pattern plus methods that keep behavior beside an object's state. Nor should you make a global <code>enemy_health</code> alongside it. That creates two competing owners for the same fact, and the battle forge would have no trustworthy health to change.</p>
+<p>Create <code>mist_wolf</code> after the Player instance lines, then call both status methods from the left-margin itinerary. The result proves that the same method name works on two separate object types because each class owns its own implementation. Save and run the full external project; the growing script must keep its earlier reports alive.</p>
+<div class="callout">Similar shape is not sameness. Player and Enemy are separate blueprints so later rules can grow without tangling their state.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CAPITALS AND SNAKE CASE</div><p>PEP 8 uses CapWords for classes such as <code>Enemy</code>, while variables and methods use lowercase <code>snake_case</code> such as <code>mist_wolf</code> and <code>report_status</code>. The visual distinction tells a reader whether a name is a blueprint or a particular creature.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python Tutorial — Class Definition Syntax"
+url = "https://docs.python.org/3/tutorial/classes.html#class-definition-syntax"
+
+[[lessons.exercises]]
+id = "s06-l03-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the complete Enemy class and the Mist Wolf instance call."
+code = '''class Enemy:
+    def __init__(self, name, health):
+        self.name = name
+        self.health = health
+
+    def report_status(self):
+        print(f"{self.name} has {self.health} HP.")
+
+
+mist_wolf = Enemy("Mist Wolf", 8)
+mist_wolf.report_status()'''
+
+[[lessons.exercises]]
+id = "s06-l03-e1"
+type = "mc"
+points = 24
+prompt = "Why is <code>mist_wolf = Enemy(&quot;Mist Wolf&quot;, 8)</code> preferable to adding a loose <code>enemy_health = 8</code> beside the Player code?"
+choices = ["It makes health impossible to print", "It stores the enemy's related state under one reusable Enemy instance", "It changes the Enemy class into a dictionary", "It prevents the Player class from having methods"]
+answer = 1
+hint = "Choose the answer about keeping one creature's name and health with the pattern that knows how to report it."
+whyWrong = "An Enemy instance still allows printing and does not turn into a dictionary or remove Player methods. Its value is ownership: related enemy state stays on one object instead of splitting across loose variables."
+explain = "mist_wolf holds an Enemy whose initializer owns both name and health, and whose method can use them together."
+
+[[lessons.exercises]]
+id = "s06-l03-e2"
+type = "fill"
+points = 25
+prompt = "Restore the class name used to construct the mist wolf from the new enemy blueprint."
+code = 'mist_wolf = ____("Mist Wolf", 8)'
+answer = "Enemy"
+hint = "The blueprint name starts with a capital and is different from both the Player class and the mist_wolf instance variable."
+whyWrong = "Player would make the wolf the wrong object type, while mist_wolf is the variable receiving the new object rather than a callable blueprint. Enemy is the class constructor."
+
+[[lessons.exercises]]
+id = "s06-l03-w1"
+type = "write"
+points = 35
+prompt = "Create a complete <code>Enemy</code> class with an initializer storing <code>name</code> and <code>health</code>, plus <code>report_status</code>. Construct <code>ash_bat = Enemy(&quot;Ash Bat&quot;, 5)</code>, call its method, and print exactly <code>Ash Bat has 5 HP.</code>."
+expect = '''Ash Bat has 5 HP.'''
+hint = "Use the Enemy CapWords class name, assign both incoming values onto self, then let ash_bat.report_status() use the class-owned method."
+starter = '''# Define Enemy with __init__ and report_status.
+
+# Construct ash_bat and report its status.
+'''
+solution = '''class Enemy:
+    def __init__(self, name, health):
+        self.name = name
+        self.health = health
+
+    def report_status(self):
+        print(f"{self.name} has {self.health} HP.")
+
+
+ash_bat = Enemy("Ash Bat", 5)
+ash_bat.report_status()'''

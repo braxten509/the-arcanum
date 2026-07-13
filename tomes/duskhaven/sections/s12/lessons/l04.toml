@@ -1,0 +1,86 @@
+[[lessons]]
+id = "s12-l04"
+title = "Lay The Words On Parchment"
+teaches = ["pygame-font-owner", "pygame-font-render-surface", "pygame-dialogue-panel-render"]
+body = '''
+<p>A conversation state must become a visible promise. After the existing display and before <code>running = True</code>, add the one reusable font owner. <code>pygame.font.Font(None, 28)</code> asks PyGame for its default font at 28 pixels; it does not load a file the apprentice must hunt down. Then add the following members in the existing draw phase after Mira's blit and before the one <code>pygame.display.flip()</code>. This keeps the panel above the world and does not disturb the map, wall, NPC, or actor order beneath it.</p>
+<pre><code>dialogue_font = pygame.font.Font(None, 28)
+
+if dialogue_active:
+    panel_rect = pygame.Rect(36, 390, 888, 114)
+    pygame.draw.rect(screen, (38, 30, 48), panel_rect)
+    speaker_surface = dialogue_font.render(npc["name"], True, (255, 181, 81))
+    line_surface = dialogue_font.render(dialogue_lines[dialogue_index], True, (244, 232, 204))
+    screen.blit(speaker_surface, (60, 410))
+    screen.blit(line_surface, (60, 448))</code></pre>
+<p><code>render</code> returns a new Surface containing text. It does not draw directly, so each returned <code>speaker_surface</code> or <code>line_surface</code> still needs the established <code>screen.blit</code> step. The second argument, <code>True</code>, requests antialiasing for smoother glyph edges. The guarded block reads <code>dialogue_lines[dialogue_index]</code> only while the transition helper has left dialogue open, which is why Thread II's close-before-index rule matters.</p>
+<p>Run the external Duskhaven build. Walk to Ilyra, press E, read the first line, press Space for the second, then Space again to close the panel. Continue walking and verify that the camera still scrolls the NPC and walls, arrow travel still stops at stone, and the normal close control returns the terminal cleanly. If text is hidden, first inspect draw order: a panel drawn before the map will be painted over. If a list error appears on the final Space, inspect <code>advance_dialogue</code> rather than adding a blanket try/except.</p>
+<div class="callout">Render makes ink on a temporary Surface; blit lays that Surface on the one real screen.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SHORT LINES ARE A DELIBERATE LIMIT</div><p>This first panel does not wrap paragraphs. Keep the two taught lines short enough for the 888-pixel panel; a later forge may teach text measurement and wrapping as its own capability rather than smuggling it into a dialogue exercise.</p></div>
+'''
+
+[[lessons.readings]]
+label = "PyGame Font — Font and render"
+url = "https://www.pygame.org/docs/ref/font.html"
+
+[[lessons.readings]]
+label = "PEP 8 — Naming and indentation"
+url = "https://peps.python.org/pep-0008/"
+
+[[lessons.exercises]]
+id = "s12-l04-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the two-stage text path: render Ilyra's current line, then blit the returned Surface on the panel."
+code = '''line_surface = dialogue_font.render(dialogue_lines[dialogue_index], True, (244, 232, 204))
+screen.blit(line_surface, (60, 448))'''
+
+[[lessons.exercises]]
+id = "s12-l04-e1"
+type = "fill"
+points = 26
+prompt = "Restore the font method that turns the active dialogue string into a Surface before it can be blitted."
+code = 'line_surface = dialogue_font.____(dialogue_lines[dialogue_index], True, (244, 232, 204))'
+answer = "render"
+hint = "The missing method produces a new text Surface; the next line uses screen.blit to place it."
+whyWrong = "blit belongs to screen and places an existing Surface, while fill paints a Surface with a color. render is the font operation that creates the text image."
+
+[[lessons.exercises]]
+id = "s12-l04-e2"
+type = "mc"
+points = 28
+prompt = "Why is the dialogue-panel block placed after Mira's blit but before pygame.display.flip()?"
+choices = ["It lets the panel cover the scene as a foreground layer before the completed frame is presented", "It makes dialogue_index advance without a key event", "It moves npc_rect into screen coordinates permanently", "It causes clock.tick(60) to create the font"]
+answer = 0
+hint = "Recall the scene-layering rule: later drawing overlays earlier drawing, while flip only reveals the completed Surface."
+whyWrong = "State transitions belong to the event branch, NPC world ownership must remain fixed, and Clock does not make fonts. The relevant rule is foreground draw order before presentation."
+explain = "Map, walls, NPC, and Mira are drawn first; the panel then overlays them, and flip shows that finished stack."
+
+[[lessons.exercises]]
+id = "s12-l04-e3"
+type = "text"
+points = 23
+prompt = "What object must be passed as the first argument to screen.blit after dialogue_font.render(...) returns?"
+answer = "line_surface"
+hint = "Name the returned text-image owner from the taught two-line render-and-place sequence."
+whyWrong = "dialogue_font creates text but is not the rendered image, while dialogue_lines is a list of strings. line_surface is the Surface returned by render and therefore the thing blit can place."
+
+[[lessons.exercises]]
+id = "s12-l04-w1"
+type = "write"
+points = 37
+prompt = "Ilyra's dialogue list has two lines and the state selects index 1. Use list indexing to choose the current string, then print exactly <code>Panel line: Keep your ember dry, Mira.</code>. Do not print the target literal without reading the named list and index."
+expect = '''Panel line: Keep your ember dry, Mira.'''
+hint = "Square brackets with dialogue_index select the current list entry; place that selected string in the f-string."
+starter = '''dialogue_lines = ["The east road remembers every footstep.", "Keep your ember dry, Mira."]
+dialogue_index = 1
+
+# Select the active dialogue entry for the panel.
+'''
+solution = '''dialogue_lines = ["The east road remembers every footstep.", "Keep your ember dry, Mira."]
+dialogue_index = 1
+
+current_line = dialogue_lines[dialogue_index]
+
+print(f"Panel line: {current_line}")'''

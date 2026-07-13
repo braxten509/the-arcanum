@@ -1,0 +1,80 @@
+[[lessons]]
+id = "s03-l01"
+title = "Ask The Gate A True Question"
+teaches = ["python-boolean-value", "python-comparison-result", "python-if-branch"]
+body = '''
+<p>Before a program can choose, it must ask a question with only two possible answers: <code>True</code> or <code>False</code>. That result is a <strong>boolean</strong>. The comparison operator <code>==</code> asks whether the value on its left matches the value on its right. It is not <code>=</code>; assignment stores a value, while comparison judges a match.</p>
+<p>Keep the canonical <code>main.py</code> from Forge II. Directly after its keeper report, add this member-only check. Do not replace the import, oil ledger, or input. The indented print belongs to the <code>if</code> block: Python uses four leading spaces to show what happens only when the question is true.</p>
+<pre><code>gate_status = input("Gate status (open/closed): ")
+
+if gate_status == "open":
+    print(f"Gate is open, {keeper_name}.")</code></pre>
+<p>Run <code>python main.py</code>. Enter <code>Mira</code>, then <code>open</code>; the final line reads <code>Gate is open, Mira.</code>. Entering <code>closed</code> makes the comparison false, so this small version prints no gate line. That is evidence of a false condition, not a crash. The next thread gives false and alternate cases their own replies.</p>
+<p>Quotes matter. <code>"open"</code> is expected text, while <code>gate_status</code> holds what the person typed. Use <code>==</code> between them. Later the game will compare keys and scene names in the same broad pattern, but this first check stays humble enough to inspect in a terminal.</p>
+<div class="callout">Read the header aloud: “if the stored gate text equals open.” If you hear “store,” you wrote the wrong operator.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CASE COUNTS</div><p>For this first gate, <code>Open</code> and <code>open</code> are different strings. We will learn text cleanup later; do not invent it here. If Python reports indentation trouble, inspect the whitespace beneath <code>if</code> and use four spaces, never tabs. A deliberate false result is useful evidence: it tells you the question ran and simply found no match, cleanly, before any later repair work begins.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python Tutorial — More Control Flow Tools"
+url = "https://docs.python.org/3/tutorial/controlflow.html"
+
+[[lessons.exercises]]
+id = "s03-l01-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the complete first gate check, including its four-space block."
+code = '''gate_status = input("Gate status (open/closed): ")
+
+if gate_status == "open":
+    print(f"Gate is open, {keeper_name}.")'''
+
+[[lessons.exercises]]
+id = "s03-l01-e1"
+type = "fill"
+points = 23
+prompt = "Restore the comparison token that asks whether the stored response matches the quoted gate word."
+code = 'if gate_status ____ "open":'
+answer = "=="
+hint = "The blank has two equals signs because this line asks a question instead of storing a new value."
+whyWrong = "One equals sign assigns and would be invalid in this condition; a not-equal comparison asks the opposite question. This gate needs equality."
+
+[[lessons.exercises]]
+id = "s03-l01-e2"
+type = "mc"
+points = 21
+prompt = "With <code>gate_status = &quot;closed&quot;</code>, what does <code>gate_status == &quot;open&quot;</code> produce?"
+choices = ["False, because the stored characters do not match", "True, because both are strings", "open, because comparison returns its right side", "closed, because comparison returns its left side"]
+answer = 0
+hint = "Compare the letters in closed with the expected letters in open."
+whyWrong = "Being strings does not make values equal, and comparison yields a boolean rather than either operand. The characters differ, so the result is false."
+explain = "Equality is a match test: closed is not open, so Python produces False."
+
+[[lessons.exercises]]
+id = "s03-l01-e3"
+type = "text"
+points = 18
+prompt = "What is Python's two-outcome data kind called when a comparison reports either <code>True</code> or <code>False</code>?"
+answer = "boolean"
+accept = ["bool"]
+hint = "Its name describes the true-or-false kind used by an if condition."
+whyWrong = "A string is quoted text and an integer is a whole number. A comparison's true-or-false result has the boolean, or bool, type."
+
+[[lessons.exercises]]
+id = "s03-l01-w1"
+type = "write"
+points = 33
+prompt = "The watch slate stores <code>gate_status = &quot;open&quot;</code> and <code>keeper_name = &quot;Mira&quot;</code>. Write an <code>if</code> block that compares the status to <code>&quot;open&quot;</code> and prints exactly <code>Gate is open, Mira.</code>. Do not hardcode the keeper name."
+expect = '''Gate is open, Mira.'''
+hint = "Put equality after if, end the header with a colon, and indent the f-string print that uses keeper_name."
+starter = '''gate_status = "open"
+keeper_name = "Mira"
+
+# If the gate status matches open, print the keeper's message.
+'''
+solution = '''gate_status = "open"
+keeper_name = "Mira"
+
+if gate_status == "open":
+    print(f"Gate is open, {keeper_name}.")'''

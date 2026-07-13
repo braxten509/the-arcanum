@@ -14,10 +14,11 @@ import argparse
 import os
 import sys
 
-from validatelib import ID_RE, _findings, err, load_toml, rel
+from validatelib import ID_RE, _findings, err, load_toml, rel, warn
 from validatelib.attacks import check_attacks, check_attacks_sync, check_intrusions
 from validatelib.content import (check_anti_template, check_content, check_density,
                                  check_literal_newlines, check_section)
+from validatelib.coverage import check_capability_ledger, check_canonical_type_regressions
 from validatelib.depth import (check_economy_totals, check_freestyle_scope, check_name_drift,
                                check_padded_prose, check_presolved_static,
                                check_self_answering, check_taught_before_used,
@@ -93,6 +94,8 @@ def validate(tome_path, run=False, tooling=None):
     check_literal_newlines(m, sections_data)
     check_taught_before_used(sections_data)
     check_freestyle_scope(m, sections_data)
+    check_capability_ledger(m, sections_data)
+    check_canonical_type_regressions(m, sections_data)
     check_verbatim_prose(sections_data)
     check_padded_prose(sections_data)
     check_economy_totals(tome_path, m, sections_data)
@@ -149,7 +152,19 @@ def main():
     ap.add_argument("--tooling", choices=("internal", "external", "both"), default=None,
                     help="enforce the build's gate Tooling choice: internal forbids "
                          "externalWorkspace; external/both require external tools taught in section 1")
+    ap.add_argument("--phase-1-plan", metavar="PATH", default=None,
+                    help="Phase 1 warm-context mode: validate the build plan's Arc instead of "
+                         "the intentionally unfinished tome")
     args = ap.parse_args()
+
+    if args.phase_1_plan:
+        from buildlib.checkpoints import arc_written
+        plan = os.path.abspath(args.phase_1_plan)
+        clean, report = arc_written(plan, rel(plan))
+        if not clean:
+            print(f"ERROR plan: {report}")
+        print(f"-- {os.path.basename(plan)}: {'clean' if clean else '1 error(s)'} [Phase 1 Arc]")
+        sys.exit(0 if clean else 1)
 
     validate(args.tome, run=args.run, tooling=args.tooling)
 

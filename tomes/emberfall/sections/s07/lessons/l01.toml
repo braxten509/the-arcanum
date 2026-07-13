@@ -18,22 +18,27 @@ body = '''
 
     <span class="k">public</span> <span class="k">void</span> TakeDamage(<span class="k">int</span> amount)
     {
-        CurrentHP = Mathf.Clamp(CurrentHP - Mathf.Max(0, amount), 0, maxHP);
+        SetHP(CurrentHP - Mathf.Max(0, amount));
     }
 
     <span class="k">public</span> <span class="k">void</span> Heal(<span class="k">int</span> amount) =&gt;
-        CurrentHP = Mathf.Clamp(CurrentHP + Mathf.Max(0, amount), 0, maxHP);
+        SetHP(CurrentHP + Mathf.Max(0, amount));
 
     <span class="k">public</span> <span class="k">void</span> Restore(<span class="k">int</span> savedHP) =&gt;
-        CurrentHP = Mathf.Clamp(savedHP, 0, maxHP);
+        SetHP(savedHP);
 
     <span class="k">public</span> <span class="k">bool</span> IsDead()
     {
         <span class="k">return</span> CurrentHP <= 0;
     }
+
+    <span class="k">private</span> <span class="k">void</span> SetHP(<span class="k">int</span> value)
+    {
+        CurrentHP = Mathf.Clamp(value, 0, maxHP);
+    }
 }</code></pre>
 <p>Two things carry straight over from Forge II: <code>[SerializeField] private int maxHP</code> is the exact private-plus-attribute shape Forge III's Inspector lesson taught — a designer can still drag a number into the field in the Inspector, but no OTHER script can reach in and overwrite it directly, only Health's own code touches it. And <code>public int CurrentHP { get; private set; }</code> is the same auto-property shape Forge II used for HitPoints: anyone can read it, only Health can change it.</p>
-<p>What's new is <code>Mathf.Clamp(value, min, max)</code> — Unity's own version of the floor check Forge II wrote by hand as <code>if (HitPoints < 0) HitPoints = 0;</code>. Clamp does both ends in a single expression: if the value is below <code>min</code> it returns <code>min</code>, if it's above <code>max</code> it returns <code>max</code>, otherwise it passes the value through unchanged. Health uses it on <em>every</em> call to TakeDamage, not just the dangerous-looking ones, because a floor-only check quietly assumes <code>amount</code> is always positive — and nothing in the method signature enforces that.</p>
+<p>What's new is <code>Mathf.Clamp(value, min, max)</code> — Unity's own version of the floor check Forge II wrote by hand as <code>if (HitPoints &lt; 0) HitPoints = 0;</code>. Clamp does both ends in a single expression: if the value is below <code>min</code> it returns <code>min</code>, if it's above <code>max</code> it returns <code>max</code>, otherwise it passes the value through unchanged. Every sanctioned change routes through <code>SetHP</code>, so the invariant lives in one place. TakeDamage and Heal also reject negative amounts with <code>Mathf.Max(0, amount)</code>; a negative damage call cannot become secret healing.</p>
 <p>The last new piece is <code>IsDead()</code> — not a property this time, a plain method, because the check it runs (<code>CurrentHP &lt;= 0</code>) is a small computation, not a stored value being exposed. Health calls it internally, and later scripts in this forge will call it too, the same way any other public method gets called: with parentheses.</p>
 <div class="callout">Awake sets CurrentHP = maxHP the instant the GameObject wakes up — the same "prepare my own state before anyone else needs it" job Forge III assigned to Awake specifically, not Start.</div>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // WHY CLAMP BOTH ENDS ON A DAMAGE-ONLY METHOD</div>
@@ -52,12 +57,12 @@ url = "https://docs.unity3d.com/ScriptReference/MonoBehaviour.html"
 id = "s07-l01-e1"
 type = "mc"
 points = 20
-prompt = "Forge II's Artificer.TakeDamage clamped only the floor (`if (HitPoints < 0) HitPoints = 0;`). Health.TakeDamage instead clamps BOTH ends with `Mathf.Clamp(CurrentHP - amount, 0, maxHP)`. Why is the upper bound worth guarding here even though TakeDamage only ever subtracts amount from CurrentHP?"
-choices = ["Mathf.Clamp requires exactly three arguments, so a floor-only clamp using just an if-statement isn't legal syntax", "Unity's physics engine reads CurrentHP directly every frame and throws an exception if it ever exceeds maxHP", "TakeDamage is called automatically once per frame by Unity, so without a ceiling the int would overflow within seconds", "amount is a plain int, not a uint — a caller could pass a negative amount as a cheap heal, and without the ceiling CurrentHP could climb past maxHP unnoticed"]
-answer = 3
-whyWrong = "Mathf.Clamp is one convenient expression, not a syntax requirement — a hand-written floor-only if-check compiles just as fine, so nothing about legality forces Clamp's use; Unity's physics engine never reads or validates gameplay fields like CurrentHP at all, that's application data the engine has no opinion on; and TakeDamage is never called automatically — it only runs when something explicitly calls it, so there's no per-frame overflow risk to guard against."
-hint = "The field notes named exactly what TakeDamage's int parameter doesn't stop a caller from passing."
-explain = "amount is a plain int with no built-in guarantee it's positive — a negative amount would raise CurrentHP instead of lowering it, and only the maxHP ceiling in Mathf.Clamp stops that raise from overshooting the character's maximum health."
+prompt = "Why does TakeDamage subtract `Mathf.Max(0, amount)` instead of subtracting `amount` directly?"
+choices = ["Mathf.Max converts the integer into a Rigidbody2D force", "It turns any negative input into zero, so TakeDamage cannot secretly heal", "Unity requires every serialized integer to pass through Mathf.Max", "It makes damage bypass the SetHP clamp"]
+answer = 1
+whyWrong = "Mathf.Max only compares numbers; it does not create forces or bypass SetHP. Unity does not require it for serialized integers. Here it protects the meaning of the TakeDamage verb."
+hint = "Evaluate Mathf.Max(0, -5)."
+explain = "Mathf.Max(0, amount) produces zero for a negative argument, preserving TakeDamage as damage-only input while Heal remains the separate healing verb."
 
 [[lessons.exercises]]
 id = "s07-l01-e2"
@@ -74,10 +79,10 @@ explain = "SerializeField exposes a private field to the Inspector for a designe
 id = "s07-l01-e3"
 type = "fill"
 points = 22
-prompt = "Fill in the blank in Health.TakeDamage's clamp line — the expression that subtracts this call's damage from the artificer's current HP before the floor and ceiling are applied."
-code = '''CurrentHP = Mathf.Clamp(____, 0, maxHP);'''
-answer = "CurrentHP - amount"
-hint = "It's the same subtraction Forge II's Artificer.TakeDamage did by hand, just handed to Clamp instead of an if-statement."
+prompt = "Fill the guard that prevents a negative amount from turning TakeDamage into healing."
+code = '''SetHP(CurrentHP - ____(0, amount));'''
+answer = "Mathf.Max"
+hint = "Use Unity's two-number maximum helper so any value below zero becomes zero."
 
 [[lessons.exercises]]
 id = "s07-l01-d1"
