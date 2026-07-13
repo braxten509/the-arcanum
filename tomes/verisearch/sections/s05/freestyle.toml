@@ -1,36 +1,37 @@
 [freestyle]
-title = "THE WORKING: The Ledger of Trust"
-brief = "Give Verisearch its memory: a <code>ConfigLoader</code> class.<ul><li>Finds <code>~/.verisearch/config.yaml</code> portably (GetFolderPath + Path.Combine)</li><li>Creates a commented default config on first run</li><li>Deserializes with YamlDotNet (snake_case convention); survives malformed YAML with a helpful message</li><li>Validates/repairs values; exposes the domain trust data as a <code>Dictionary&lt;string, TrustProfile&gt;</code></li><li>Wire it into the shell: print how many domains loaded on startup; add a <code>trust &lt;domain&gt;</code> command reporting a domain's score/tier (unknown domain → sensible default, not a crash)</li><li>Install YamlDotNet via the PACKAGES button</li></ul>"
+title = "THE WORKING: The Source Charter"
+requires = ["file-io", "portable-paths", "json-config", "config-validation", "config-loader"]
+brief = "Add the project’s durable policy boundary without restarting it.<ul><li>Create <code>ConfigLoader.cs</code> exactly as the workshop specifies and keep <code>AppConfig</code> in <code>Models.cs</code>.</li><li>Use <code>Environment.GetFolderPath</code> and <code>Path.Combine</code> for <code>~/.verisearch/config.json</code>; never place a literal <code>~</code> in a file API.</li><li>Create a readable default only when the file is absent, then deserialize it with <code>System.Text.Json</code> and <code>JsonStringEnumConverter</code>.</li><li>Validate the Ollama URL, model, quote limit, and every <code>SourceSpec</code>. An existing invalid file must produce its path plus useful errors and remain byte-for-byte untouched.</li><li>At startup, print the number of configured sources and their labels. Do not invent, repair, or silently downgrade source trust.</li><li>Run <code>dotnet build</code>, then test missing, valid, malformed, and invalid-value configurations.</li></ul>"
 reward = 350
-packages = ["YamlDotNet"]
-xray = "THORNE will mentally delete your config file and re-run: does first-run work AND produce a file with comments? He greps for \"~\" inside string literals (instant deduction) and for GetFolderPath (required). Sneaky check: does your default YAML actually round-trip through your own deserializer — snake_case in the file, convention in the builder? Mismatch = the bug he sees weekly in prod."
+packages = []
+xray = "THORNE tries four ledgers: absent, valid, malformed JSON, and valid JSON with an impossible quote limit. He checks that only the absent case writes a file, that paths are portable, and that invalid user policy is reported rather than replaced."
 
 [freestyle.badge]
 id = "badge-s05"
 name = "KEEPER OF THE LEDGER"
-desc = "The tome reads its charter from disk and mends its own ledger."
+desc = "The tome reads a user-owned source charter without rewriting inconvenient truths."
 
 [[freestyle.rubric]]
-criterion = "Compiles & runs first-time"
+criterion = "Missing-file path"
 weight = 20
-desc = "Fresh machine simulation: no config → default written → tool works."
+desc = "Creates the directory and documented JSON default only when config.json does not exist."
 
 [[freestyle.rubric]]
-criterion = "Path & file hygiene"
+criterion = "Typed JSON loading"
 weight = 20
-desc = "GetFolderPath/Path.Combine, CreateDirectory, exists-checks or exception handling."
+desc = "Deserializes AppConfig and SourceSpec with shared options, including string enum values."
 
 [[freestyle.rubric]]
-criterion = "YAML round-trip"
-weight = 20
-desc = "Default config written is valid YAML that the loader itself can re-read; naming convention right."
+criterion = "Non-destructive diagnostics"
+weight = 25
+desc = "Malformed or invalid existing config prints its path and actionable errors without overwriting it."
 
 [[freestyle.rubric]]
-criterion = "Resilience & validation"
+criterion = "Source-policy integration"
 weight = 20
-desc = "Mangled YAML and nonsense values produce warnings + defaults, never a stack trace."
+desc = "Program.cs reports configured sources from the loaded model and never silently invents trust or sources."
 
 [[freestyle.rubric]]
-criterion = "Model integration & readability"
-weight = 20
-desc = "Dictionary<string,TrustProfile> bridge; trust command works; loader in its own file."
+criterion = "C# craft"
+weight = 15
+desc = "PascalCase types and methods, camelCase locals, four-space indentation, Allman braces, and one focused ConfigLoader file."

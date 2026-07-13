@@ -1,86 +1,75 @@
 [[lessons]]
 id = "s06-l04"
-title = "Reading the Loss"
+teaches = ["loss-diagnostics"]
+title = "Use Loss as Evidence, Not a Fortune Teller"
 body = '''
-<p>Three rites taught what to measure — style shift, voice quality, and forgetting. This rite teaches the first signal that appears <em>during</em> the binding run, not after it: the loss curve. The SFTTrainer the seventh rite's scaffold lesson assembled logs a loss value at every <code>logging_steps</code> interval — a single floating-point number that is the cross-entropy between the model's predicted token distribution and the actual next token. One number per log step, and each one carries a message about whether the bind is learning, memorizing, or stalling.</p>
-<p>The loss curve the trainer reports is the <strong>training loss</strong> — the loss computed on the records the model is actively training on. It should start in the 1.5–3.0 range for a fresh LoRA on a 7B base (the same range the seventh rite's AMD lesson gave), and it should trend downward — not smoothly (per-batch noise introduces high-frequency jitter), but with a clear negative slope when averaged across 10–20 steps. A loss that starts at 0.5 or below before any meaningful training has the same root cause the seventh rite already diagnosed: the loss mask from the sixth rite's template lesson is wrong, and the model is predicting its own user-turn tokens — a copy task that is trivially easy and produces an artificially low loss that looks like convergence but signals nothing.</p>
-<p>The overfitting signal is a <strong>divergence</strong> between the training loss and the evaluation loss. The training loss continues to drop — the model is getting better at predicting the training records. But the evaluation loss (computed on the held-out style prompts from the third rite of this section) <em>stops improving</em> or starts to <em>rise</em>. This is the moment when the model crosses from learning the style pattern to memorizing the specific tokens of the training records. On a personal dataset of a few hundred records with a single epoch, the divergence is usually subtle — a plateau in eval loss while training loss still drops, or a shallow U-shape where eval loss improves to a minimum and then begins to climb. The training run is small enough that severe overfitting (training loss crashes toward zero while eval loss explodes) is rare on one epoch — but it can happen if the learning rate is high and the dataset is tiny (<100 records).</p>
-<pre><code><span class="c"># The SFTTrainer logging output the artificer reads mid-run:</span>
-<span class="c"># {'loss': 2.341, 'learning_rate': 1.9e-4, 'epoch': 0.12, 'step': 10}</span>
-<span class="c"># {'loss': 1.982, 'learning_rate': 1.8e-4, 'epoch': 0.25, 'step': 20}</span>
-<span class="c"># {'loss': 1.754, 'learning_rate': 1.7e-4, 'epoch': 0.38, 'step': 30}</span>
-<span class="c"># {'loss': 1.733, 'learning_rate': 1.6e-4, 'epoch': 0.50, 'step': 40}</span>
-<span class="c"># → Loss is dropping steadily — the bind is learning.</span>
-<span class="c"># {'loss': 1.728, 'learning_rate': 1.5e-4, 'epoch': 0.62, 'step': 50}</span>
-<span class="c"># {'loss': 1.731, 'learning_rate': 1.4e-4, 'epoch': 0.75, 'step': 60}</span>
-<span class="c"># {'loss': 1.727, 'learning_rate': 1.3e-4, 'epoch': 0.88, 'step': 70}</span>
-<span class="c"># → Loss has plateaued — the bind has extracted what it can from this epoch.</span></code></pre>
-<p>The artificer reads the loss curve in three registers. <strong>Steady descent</strong>: loss drops meaningfully every 10–20 steps — the bind is forming. <strong>Plateau</strong>: loss stops improving and hovers within ±0.02 of its current value for 20+ steps — the model has absorbed what it can from the dataset at the current learning rate, and continuing the epoch will not improve the bind (though it won't hurt it either on a single epoch). <strong>Oscillation</strong>: loss jumps between low (0.5) and high (3.0) values across consecutive steps — a sign that the batch size is too small relative to the gradient noise, or that the learning rate is too high, causing the optimizer to overshoot the loss basin on every update. The seventh rite's AMD lesson already warned about this pattern for loss spiking.</p>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // THE EVAL-LOSS GAP — WHY YOU CAN'T READ IT FROM THE TRAINER ALONE</div>
-<p>The SFTTrainer reports training loss by default, not evaluation loss — because computing eval loss requires a separate pass over a held-out set that the trainer does not hold in memory. To measure the eval-loss divergence and catch overfitting during training, the artificer must run a separate evaluation pass at checkpoint intervals: save the adapter at step 20, 40, 60 (via the <code>save_steps</code> argument the seventh rite's scaffold lesson configured), load each one with <code>PeftModel.from_pretrained</code>, and compute the loss on the held-out prompts using <code>model.eval()</code> and a forward pass without gradient computation. This is the automated evaluation loop the final rite of this section will assemble — the loss curve alone, without the eval gap, is a diagnostic with one eye closed.</p></div>
+<p>Training loss answers a narrow question: how well is the current model predicting supervised completion tokens in the training batches? Its absolute value has no universal healthy range across tokenizers, corpora, masking, sequence lengths, and model families. Delete rules such as “below 0.5 means the mask failed” or “above 4 means the data is bad.” Prove the mask directly, then read loss comparatively.</p>
+<p>The full run must produce finite training loss and evaluation loss. A NaN or infinity is an immediate failure. A downward training trend shows optimization on the seen rows, but it does not prove useful style transfer. Evaluation loss on the frozen prompt-completion split is the better checkpoint signal: if training loss keeps improving while evaluation loss worsens, the run is fitting seen tokens at the expense of held-out prediction.</p>
+<pre><code>history = trainer.state.log_history
+loss_rows = [row for row in history if "loss" in row or "eval_loss" in row]
+Path(f"runs/{run_id}/loss-history.json").write_text(
+    json.dumps(loss_rows, indent=2) + "\n", encoding="utf-8")</code></pre>
+<p>One epoch may provide only one evaluation point, so do not invent a curve it did not measure. If the initial adapter fails and you need checkpoint selection, configure matching step-based evaluation and saving intervals on the next controlled run. Choose the lowest held-out evaluation loss only as a candidate; the paired human rubric and regression suite still decide whether it is useful.</p>
+<p>Loss diagnostics also expose pipeline defects: no loss rows means logging was not preserved; zero evaluation rows means the held-out split was not actually used; a sudden OOM after several steps calls for the peak-memory report and sequence-length distribution. Record observations in <code>reports/loss-bind-001.md</code> with exact step numbers and values.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // LOSS IS A TRAINING INSTRUMENT</div>
+<p>Training and evaluation loss describe token prediction under the prepared dataset; they do not directly measure usefulness, privacy, or personal voice. Use curves to catch instability and overfitting, then decide with held-out behavioral suites. A lower loss paired with worse blind judgments is not a paradox—it means the optimization target and product target diverged.</p></div>
 '''
-body_words = 540
 
 [[lessons.readings]]
-label = "Understanding Loss Curves in Neural Network Training"
-url = "https://ml-cheatsheet.readthedocs.io/en/latest/loss_functions.html"
+label = "Transformers Trainer state and logs"
+url = "https://huggingface.co/docs/transformers/main_classes/trainer"
 
 [[lessons.exercises]]
 id = "s06-l04-e1"
 type = "mc"
 points = 20
-prompt = "Per this rite, a training loss of 1.73 at step 40 and 1.72 at step 60 on a single-epoch QLoRA run — what does this plateau pattern most likely indicate?"
-choices = [
-  "The training has hit a local minimum and the optimizer is stuck with zero gradient — the model has converged perfectly and further training would degrade it",
-  "The bind has extracted what it can from the dataset at the current learning rate — the model is no longer finding new patterns to learn from the training records, which is normal for a single-epoch run on a small personal dataset",
-  "The GPU has thermally throttled and is running at reduced clock speed, which explains the flat loss — the same computation now takes fewer effective floating-point operations per second",
-  "The gradient accumulation steps are misconfigured — four forward passes with no backward pass means the model has stopped learning entirely"
-]
-answer = 1
-whyWrong = "A plateau on a single-pass small dataset is not convergence — it's saturation: the model has seen every training record once and there are no new patterns to learn without a second epoch (which risks memorization). It is not a GPU thermal issue (loss is a mathematical value, not a hardware speed measure), and gradient accumulation continues to work correctly — the optimizer still updates, just on near-zero gradients because the model has exhausted the training signal. The key distinction the lesson makes: a plateau means 'the bind absorbed what it can,' not 'the optimizer broke.'"
-hint = "The lesson says a plateau with 'loss hovers within ±0.02 of its current value for 20+ steps' means 'the model has absorbed what it can from the dataset at the current learning rate.' The correct choice reflects this saturation diagnosis for a small, single-epoch dataset."
-explain = "On a single-epoch run with ~300 records, the model sees every example exactly once. By the end of the epoch, the adapter has extracted the dominant style patterns from those examples — word choice, register, formatting habits. Further steps would find only noise-level improvements (±0.01–0.02), which is why the curve flattens. A second epoch would find new signal (because the model sees each record again from a slightly different starting point), but at the cost of memorization risk — the judgment the final rite of this section must weigh."
+prompt = "What does a falling training loss prove by itself?"
+choices = ["The model is getting better at predicting supervised tokens in seen batches", "The assistant now sounds like the learner", "No capability regressed", "The GGUF will fit"]
+answer = 0
+whyWrong = "Voice, regression, and serving footprint require separate evidence."
+explain = "Loss is an optimization signal, not the product verdict."
+hint = "Keep the claim inside the data used to compute the number."
 
 [[lessons.exercises]]
 id = "s06-l04-e2"
 type = "text"
-points = 18
-prompt = "Per this rite, what training-loss pattern signals that the learning rate is too high — the optimizer overshoots the loss basin on every update, producing loss values that swing between low and high across consecutive steps rather than trending steadily downward?"
-answer = "oscillation"
-accept = ["oscillation", "oscillating", "oscillating loss", "loss oscillation"]
-hint = "The lesson describes a loss that 'jumps between low (0.5) and high (3.0) values across consecutive steps' and names it as a sign 'that the learning rate is too high, causing the optimizer to overshoot the loss basin.' The single-word name for this pattern appears right before that explanation."
+points = 15
+prompt = "Which held-out metric helps identify overfitting during training?"
+answer = "evaluation loss"
+accept = ["eval_loss", "evaluation loss", "held-out evaluation loss"]
+hint = "It is computed on the frozen eval split."
 
 [[lessons.exercises]]
 id = "s06-l04-e3"
 type = "fill"
 points = 20
-prompt = "Fill the missing <code>TrainingArguments</code> field from the lesson — the one that controls how many steps pass between loss-log entries, which the seventh rite's scaffold lesson set to 5 and this rite reads to track the loss curve's shape."
-code = '''from transformers import TrainingArguments
-
-args = TrainingArguments(
-    output_dir="./bind-output",
-    per_device_train_batch_size=1,
-    gradient_accumulation_steps=4,
-    num_train_epochs=1,
-    learning_rate=2e-4,
-    ____=5,               # how often the trainer prints loss to the log
-)'''
-answer = "logging_steps"
-accept = ["logging_steps"]
-hint = "The lesson's first paragraph says 'the SFTTrainer logs a loss value at every logging_steps interval' — the field from s05-l03's TrainingArguments that controls how often the trainer reports loss."
+prompt = "Complete the key used to extract held-out loss rows."
+code = '''row["____"]'''
+answer = "eval_loss"
+hint = "Trainer log history prefixes evaluation metrics with eval_."
 
 [[lessons.exercises]]
 id = "s06-l04-e4"
 type = "write"
 points = 35
-prompt = "Given a log of training loss values at 9 consecutive steps, detect which regime the run is in. If the last 3 losses are all within 0.02 of each other — a plateau — print <code>PLATEAU</code>. If they decrease by at least 0.2 from first to last — still descending — print <code>LEARNING</code>. Use the loss list <code>[2.34, 1.98, 1.85, 1.77, 1.74, 1.73, 1.72, 1.72, 1.71]</code>. Compute the verdict from the data, not hardcoded."
-starter = '''losses = [2.34, 1.98, 1.85, 1.77, 1.74, 1.73, 1.72, 1.72, 1.71]
+prompt = "Select the step with lowest eval loss and print exactly: BEST step=20 loss=1.40"
+starter = '''rows = [
+    {"step": 10, "eval_loss": 1.55},
+    {"step": 20, "eval_loss": 1.40},
+    {"step": 30, "eval_loss": 1.47},
+]
 
-# The last 3 losses are losses[-3:].
-# If max(last_3) - min(last_3) <= 0.02, it's a plateau.
-# Else if losses[0] - losses[-1] >= 0.2, it's still learning.
-# Print PLATEAU or LEARNING accordingly.
-print("UNDETERMINED")
+best = rows[0]
+print(f"BEST step={best['step']} loss={best['eval_loss']:.2f}")
 '''
-expect = "PLATEAU"
-hint = "last_3 = losses[-3:] = [1.72, 1.72, 1.71]. max - min = 1.72 - 1.71 = 0.01, which is ≤ 0.02 → plateau. The first-to-last drop is 2.34 - 1.71 = 0.63, which is ≥ 0.2, but the plateau condition comes first — the model was learning earlier but stopped improving. Print PLATEAU."
+solution = '''rows = [
+    {"step": 10, "eval_loss": 1.55},
+    {"step": 20, "eval_loss": 1.40},
+    {"step": 30, "eval_loss": 1.47},
+]
+
+best = min(rows, key=lambda row: row["eval_loss"])
+print(f"BEST step={best['step']} loss={best['eval_loss']:.2f}")
+'''
+expect = "BEST step=20 loss=1.40"
+hint = "Use min with a key that returns each row's eval_loss."

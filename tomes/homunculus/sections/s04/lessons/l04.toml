@@ -1,107 +1,96 @@
 [[lessons]]
 id = "s04-l04"
-title = "What the Bind Learns"
+teaches = ["completion-only-loss"]
+title = "Make the Loss Learn the Answer"
 body = '''
-<p>Every record in the last two rites has two sides: what the artificer said and what the assistant replied. When the binding rite's <code>SFTTrainer</code> hands a batch of tokenized records to the model for supervised fine-tuning, it computes a cross-entropy loss over every token position in the sequence — unless a position is explicitly marked to be ignored. You can, and you must, tell the trainer: <em>only learn from the assistant's tokens</em>. The user's prompt tokens must contribute nothing to the loss, because teaching the model to generate its own prompts is not the goal — it turns the assistant into a user-role mimic, not a responsive familiar.</p>
-<p>The mechanism is a parallel <strong>labels</strong> tensor, the same length as the tokenized input IDs. Every position the model should learn from carries the correct next-token ID; every position to ignore carries <code>-100</code>, which PyTorch's <code>CrossEntropyLoss</code> treats as a sentinel meaning "skip this position entirely." The common pattern: tokenize the whole messages list with <code>apply_chat_template(tokenize=True)</code>, produce an identically-shaped labels tensor first filled with <code>-100</code>, then copy the assistant-token span's input IDs into the corresponding label positions. Everything the user typed — the prompt itself, the role markers, the template control tokens the last rite taught — stays at <code>-100</code>.</p>
-<pre><code><span class="k">import</span> torch
-tokenized = tokenizer.apply_chat_template(messages, tokenize=<span class="k">True</span>, return_tensors=<span class="s">"pt"</span>)[0]
-labels = torch.full_like(tokenized, -<span class="k">100</span>)
-<span class="c"># find the assistant's token span and copy its IDs into labels</span>
-<span class="c">#   labels[assistant_start:assistant_end] = tokenized[assistant_start:assistant_end]</span></code></pre>
-<p>Finding the assistant span is the fiddly part, not the concept — you locate it by tokenizing the assistant response in isolation and finding that subsequence inside the full tokenized sequence, or by tokenizing each message turn separately and tracking the cumulative offset. TRL's <code>DataCollatorForCompletionOnlyLM</code> automates this for datasets where every record's response follows a fixed separator token, and that shortcut is often sufficient for a personal dataset with a consistent template. The principle, not the library, is what this rite is built to teach: the memory-budget section drilled the habit of separating line items that shared a card but had different costs — weights, KV cache, gradients, optimizer state — and the loss mask is exactly the same discipline applied to tokens. One contiguous span of the same sequence carries one cost (learn from it) and the adjacent span carries another (ignore it).</p>
-<div class="callout">Loss masking is not a QLoRA-specific requirement — it applies identically to full fine-tuning, PEFT, and every supervised next-token prediction under the same loss function. The adapter-vs-base decision controls <em>which</em> parameters receive updates; the mask controls <em>which tokens</em> contribute to the loss that drives those updates. Confusing the two is the quickest way to ship a model that recites your prompts back at you.</div>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY -100 AND NOT 0</div>
-<p>PyTorch's cross-entropy loss interprets a label of 0 as "the correct token is token ID 0," not as "ignore this position." In most tokenizers, token 0 is a genuine control token (often <code>&lt;unk&gt;</code> or <code>&lt;s&gt;</code>), so using 0 as a mask would actively train the model to emit that control token at every user-turn position. The -100 convention is inherited from PyTorch's <code>ignore_index</code> parameter (default -100), and every major training library — TRL, Axolotl, torchtune — expects labels in this exact format.</p></div>
+<p>Supervised fine-tuning predicts the next token, but the objective is not to teach Homunculus to generate its own user requests. The prompt provides conditions; the assistant completion is the target. With the conversational prompt-completion rows from the previous lesson, current TRL exposes that decision directly:</p>
+<pre><code>from trl import SFTConfig
+
+args = SFTConfig(
+    output_dir="artifacts/training",
+    max_length=1024,
+    completion_only_loss=True,
+)</code></pre>
+<p><code>completion_only_loss=True</code> masks the prompt portion when TRL prepares labels. Underneath, ignored labels use PyTorch's <code>-100</code> convention, while completion labels carry their token ids. You should understand that mechanism, but you should not manually search Qwen control-token subsequences or copy an outdated <code>DataCollatorForCompletionOnlyLM</code> tutorial. The structured dataset already gives the trainer an unambiguous boundary.</p>
+<p>Prove the boundary before an expensive run. Load one row, render <code>row["prompt"] + row["completion"]</code> through <code>tokenizer.apply_chat_template(..., tokenize=False, add_generation_prompt=False)</code>, and print it to <code>reports/template-sample.txt</code>. Then let the trainer prepare a tiny batch and inspect its labels: prompt content must be ignored and at least one completion token must remain learnable. An all-<code>-100</code> batch has no target; an entirely unmasked batch teaches prompt imitation.</p>
+<p>Do not confuse this with LoRA parameter selection. PEFT decides <em>which parameters</em> can change. Completion-only loss decides <em>which token errors</em> drive those changes. Both are needed. Also keep the training and evaluation schemas identical: TRL can compute evaluation loss on the held-out prompt-completion rows with the same mask.</p>
+<div class="callout">The acceptance proof is observable: a saved native-template sample, a structured prompt/completion row, <code>completion_only_loss=True</code>, and a tiny prepared batch containing both ignored and learnable labels.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // INSPECT LABELS BEFORE LOSS</div>
+<p>A believable loss curve cannot prove that the intended tokens were supervised. Print one prepared example's token IDs, decoded segments, and label mask. There must be ignored prompt positions and non-ignored completion positions. This direct boundary check is faster and more reliable than diagnosing a mask from an unusually small first loss.</p></div>
 '''
+
+[[lessons.readings]]
+label = "TRL SFTTrainer"
+url = "https://huggingface.co/docs/trl/sft_trainer"
 
 [[lessons.exercises]]
 id = "s04-l04-e1"
 type = "mc"
 points = 20
-prompt = "Per this rite, why must the model's loss only include the assistant's token positions, not the user's?"
+prompt = "What does completion_only_loss change?"
 choices = [
-  "Training on user tokens wastes GPU memory because user tokens are longer, and the KV-cache math from the memory-budget section shows longer sequences cost more VRAM",
-  "User tokens are already in the training data, so the model would see them twice and overfit",
-  "If the model learns to generate user-side prompts, the finished familiar will mimic the artificer's own questions rather than producing responsive answers — the loss function treats every token position identically, so unmasked user tokens train the model to emit its own prompts back",
-  "PyTorch's cross-entropy loss can only accept a single token ID per position, and user turns contain multiple tokens that would overflow the label tensor",
+  "Prompt tokens stop contributing to loss while completion tokens remain supervised",
+  "The base model weights become trainable",
+  "The GGUF becomes smaller",
+  "FAISS returns only one chunk",
 ]
-answer = 2
-whyWrong = "The issue is not a memory constraint (token sequences are the same length either way) nor a data-duplication problem — it's about what behavior the loss reinforces. Cross-entropy penalizes the model for every token position whose label is not -100, so unmasked user turns teach 'generate prompts that look like this user's writing,' which is the opposite of what the bind is meant to produce."
-hint = "Think about the loss function: it tries to make the model predict every position whose label isn't -100. If user-token labels aren't masked, the model learns to predict the user's own words — the finished familiar would recite your prompts back to you instead of answering them."
-explain = "The loss function does not know who said what — it only sees token IDs. Without masking, every token the artificer typed becomes a target to predict, and the model learns to generate those prompts as if they were the assistant's own speech."
+answer = 0
+whyWrong = "Parameter freezing, quantization, and retrieval are owned by other layers."
+explain = "The option controls token-level supervision at the prompt/completion boundary."
+hint = "It changes labels, not model size or retrieval."
 
 [[lessons.exercises]]
 id = "s04-l04-e2"
 type = "text"
-points = 18
-prompt = "What special integer value does PyTorch's cross-entropy loss treat as a sentinel meaning 'skip this token position entirely' — the value that should fill every user-token label?"
+points = 15
+prompt = "Which label value means ignore this token in PyTorch cross-entropy?"
 answer = "-100"
-accept = ["-100", "ignore_index -100"]
-hint = "It's named explicitly in the lesson's code block and explained in the FIELD NOTES as the reason 0 would actively be wrong for masking."
+accept = ["negative 100", "-100"]
+hint = "Zero is a real token id."
 
 [[lessons.exercises]]
 id = "s04-l04-e3"
-type = "mc"
+type = "fill"
 points = 20
-prompt = "What happens if you label every user-turn token position with <code>0</code> instead of <code>-100</code>, intending to mask them?"
-choices = [
-  "The model will see token ID 0 as a genuine prediction target and train itself to emit that control token at every user-turn position — which in most tokenizers is <code>&lt;unk&gt;</code> or <code>&lt;s&gt;</code>, not a mask sentinel at all",
-  "0 works the same as -100 because only negative values are treated as mask sentinels",
-  "The trainer throws an error because the label tensor cannot contain 0 alongside valid token IDs",
-  "Nothing — zero labels are silently ignored during loss computation, identical to -100",
-]
-answer = 0
-whyWrong = "PyTorch's default ignore_index is -100, not 0, and the loss treats a label of 0 as 'the correct next token is token ID 0' — which in real tokenizers maps to a genuine token like <code>&lt;unk&gt;</code>, so the model would actively be trained to emit that token at masked positions rather than skip them."
-hint = "The FIELD NOTES section explains exactly why -100 was chosen: token ID 0 is a real token in most tokenizers (<code>&lt;unk&gt;</code> or <code>&lt;s&gt;</code>), so using 0 as a mask would teach the model to output that token, not to ignore the position."
-explain = "The field notes spell this out exactly: token 0 is a real token in most tokenizers, so labeling mask positions with 0 trains the model to generate that token at those positions — the opposite of ignoring them."
+prompt = "Enable the SFTConfig option that supervises only the answer side."
+code = '''args = SFTConfig(
+    ____=True,
+)'''
+answer = "completion_only_loss"
+hint = "Its name describes the desired loss region."
 
 [[lessons.exercises]]
 id = "s04-l04-e4"
-type = "fill"
+type = "mc"
 points = 20
-prompt = "Fill the missing PyTorch call from the lesson — the function that creates a tensor of the same shape as an existing one, initialized to a constant value."
-code = '''tokenized = tokenizer.apply_chat_template(messages, tokenize=True, return_tensors="pt")[0]
-labels = ____(tokenized, -100)'''
-answer = "torch.full_like"
-accept = ["torch.full_like(tokenized"]
-hint = "It's the PyTorch function named directly in the lesson's code block, right after the tokenization step."
+prompt = "A prepared batch has every label set to -100. What does that prove?"
+choices = [
+  "No completion token can drive learning, so the schema or boundary is broken",
+  "The mask is perfect",
+  "The adapter has merged",
+  "The model is deterministic",
+]
+answer = 0
+whyWrong = "A loss requires at least one supervised target token; merging and sampling are unrelated."
+explain = "All ignored labels make the training example inert."
+hint = "Ask what target remains for cross-entropy."
 
 [[lessons.exercises]]
 id = "s04-l04-e5"
-type = "type"
-points = 12
-reps = 2
-prompt = "Retype the core loss-masking pattern from the lesson: create an all-ignored labels tensor, then copy the assistant span's token IDs into the corresponding positions."
-code = '''import torch
-tokenized = tokenizer.apply_chat_template(messages, tokenize=True, return_tensors="pt")[0]
-labels = torch.full_like(tokenized, -100)
-labels[assistant_start:assistant_end] = tokenized[assistant_start:assistant_end]'''
-
-[[lessons.exercises]]
-id = "s04-l04-e6"
 type = "write"
 points = 35
-prompt = "Given <code>token_ids</code> (a list of integer token IDs for a full messages sequence) and <code>role_spans</code> (a list of <code>[start, end, role]</code> triples marking where each role's tokens sit), construct a labels list of the same length — <code>-100</code> for every user and system token position, and the actual token ID for every assistant token position. Print the labels list exactly as <code>LABELS [ ... ]</code> with Python's standard list representation."
-starter = '''token_ids = [32000, 1234, 5678, 9012, 3456, 7890, 1111]
-role_spans = [
-    [0, 3, "user"],      # tokens 0-2 are user
-    [3, 5, "assistant"], # tokens 3-4 are assistant
-    [5, 7, "user"],      # tokens 5-6 are user
-]
+prompt = "Count ignored and learnable labels and print exactly: MASK ignored=3 learnable=2"
+starter = '''labels = [-100, -100, -100, 41, 92]
 
-# NEW LIST TOOLS (beyond Chapters I-II):
-#   [-100] * n           -> a list of n copies of -100  (start every position ignored)
-#   labels[start:end] = token_ids[start:end]   -> overwrite a *slice* (a run of
-#                        positions from start up to end) with those values at once
-#
-# Implement: make labels = [-100] * len(token_ids).
-# For each span [start, end, role] in role_spans:
-#   if role == "assistant": labels[start:end] = token_ids[start:end]
-#   else: leave that slice as -100
-# Print: LABELS [-100, -100, -100, 9012, 3456, -100, -100]
-labels = []
-print(f"LABELS {labels}")
+ignored = 0
+learnable = 0
+print(f"MASK ignored={ignored} learnable={learnable}")
 '''
-expect = "LABELS [-100, -100, -100, 9012, 3456, -100, -100]"
-hint = "Initialize labels = [-100] * len(token_ids), then for each span where role == 'assistant', do labels[start:end] = token_ids[start:end]."
+solution = '''labels = [-100, -100, -100, 41, 92]
+
+ignored = sum(1 for label in labels if label == -100)
+learnable = sum(1 for label in labels if label != -100)
+print(f"MASK ignored={ignored} learnable={learnable}")
+'''
+expect = "MASK ignored=3 learnable=2"
+hint = "Count labels equal to -100 separately from all remaining labels."

@@ -1,25 +1,26 @@
 [freestyle]
-title = "THE WORKING: CONSULT THE GRIMOIRE"
-brief = "Build a retrieval pass that finds the right notes or references and returns them with enough grounding to support the answer."
+requires = ["embedding-contract", "reference-chunking", "faiss-index", "retrieval-query", "rag-assistant"]
+title = "THE WORKING: BUILD THE CITEABLE GRIMOIRE"
+brief = '''Extend <code>Homunculus/</code> with at least three provenance-backed style references, persistent RAG artifacts, and build/search/evaluate commands.<ul><li>Use learner-authored summaries or lawful excerpts with source id, canonical URL, retrieval date, local path, rights note, and source hash.</li><li>Chunk by Markdown structure, then 200-token windows with 30-token overlap; preserve stable chunk-level citations.</li><li>Use encode_document/encode_query, float32 L2 normalization, and exact IndexFlatIP cosine search.</li><li>Persist and round-trip index, ordered metadata, and a manifest; refuse stale hashes.</li><li>Pass at least fifteen expected-source queries at hit-rate@4 ≥ 0.80 and manually inspect every miss.</li></ul>Retrieval remains independent of generation so fluent output cannot conceal irrelevant evidence.'''
 reward = 240
-xray = "The best answer explains why naive retrieval fails and how the chunking or similarity choice changes the result."
+xray = "Reject whole-page embeddings, 512-token MiniLM chunks, unnormalized inner products called cosine, vector ids without stable citations, indexes rebuilt per query, or source text without provenance."
 
 [freestyle.badge]
 id = "s07-badge"
 name = "THE GRIMOIRE"
-desc = "Awarded for teaching the homunculus to consult its references."
+desc = "Awarded for a persistent, measured, citeable reference shelf."
 
 [[freestyle.rubric]]
-criterion = "Retrieval"
-weight = 35
-desc = "Relevant chunks are actually found."
-
-[[freestyle.rubric]]
-criterion = "Grounding"
-weight = 35
-desc = "The retrieved material is used to support the answer."
-
-[[freestyle.rubric]]
-criterion = "Failure modes"
+criterion = "Provenance and chunking"
 weight = 30
-desc = "The answer recognizes why the simple version is not enough."
+desc = "Every self-contained chunk fits the embedder window and maps to a lawful, hash-tracked source."
+
+[[freestyle.rubric]]
+criterion = "Exact persistent retrieval"
+weight = 35
+desc = "Normalized document/query vectors, IndexFlatIP, ordered metadata, manifests, and round-trip checks agree."
+
+[[freestyle.rubric]]
+criterion = "Measured relevance"
+weight = 35
+desc = "The frozen retrieval suite passes its gate and failures are diagnosed at the owning layer."

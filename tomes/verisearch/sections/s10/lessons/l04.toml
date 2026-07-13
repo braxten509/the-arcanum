@@ -1,94 +1,87 @@
 [[lessons]]
 id = "s10-l04"
-title = "Composing the report — the Verisearch design sketch"
+teaches = ["report-renderer"]
+title = "Design a Report That Can Render Only Verified Quotes"
 body = '''
-
-<p>Formatting logic scattered through pipeline code rots fast. Put the whole report behind one class with one job:</p>
-<pre><code><span class="k">public class</span> ReportRenderer
-{
-    <span class="k">public void</span> Render(<span class="k">string</span> query, List&lt;VerbatimQuote&gt; quotes, List&lt;SourceSummary&gt; sources, <span class="k">bool</span> verbose)
-    {
-        <span class="c">// 1. header rule with the query</span>
-        <span class="c">// 2. group quotes by source, ordered by trust desc</span>
-        <span class="c">// 3. per source: Rule (domain + colored trust) → Panel per quote</span>
-        <span class="c">// 4. trust summary Table</span>
-        <span class="c">// 5. verbose? timing/debug lines in [dim][/]</span>
-    }
-}</code></pre>
-<p>The target, from the original design sketch:</p>
-<pre><code>─── SOURCE 1: datatracker.ietf.org (Trust: 9.5/10) ───────────
-╭─ ¶ 142 · Paragraph ─────────────────────────────────────────╮
-│ A client MUST NOT offer to negotiate...                     │
-╰──────────────────────────────────────────────────────────────╯
-─── TRUST SUMMARY ────────────────────────────────────────────
-╭───┬───────────────────────┬───────┬────────────╮
-│ # │ Domain                │ Trust │ Tier       │
-├───┼───────────────────────┼───────┼────────────┤
-│ 1 │ datatracker.ietf.org  │  9.5  │ Standards  │
-╰───┴───────────────────────┴───────┴────────────╯</code></pre>
-<p>Craft details that separate an A from a C:</p>
-<ul>
-<li><strong>Empty state</strong> — zero quotes found is a DESIGNED screen ("no sources met min_trust 3.0 — try --min-trust 1"), not blank output.</li>
-<li><strong>Escape everything scraped</strong> — quotes, titles, domains. One weird page shouldn't corrupt your layout.</li>
-<li><strong>Verbose gating</strong> — <code>--verbose</code> adds [dim] timing/decision lines; default output stays clean.</li>
-<li><strong>Grouping</strong> — quotes grouped under their source rule (GroupBy from Chapter VII), sources ordered by trust.</li>
-</ul><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
-<p><strong>Truncating long quotes for layout</strong> without lying: show the first ~400 chars with a dim <code>[…truncated, ¶142 in full at source]</code> marker — truncation is a RENDERING choice; the VerbatimQuote record keeps the full text. Never trim the data to fit the view.</p>
-<p><strong>Terminal width awareness:</strong> <code>Console.WindowWidth</code> (guard it — throws when output is redirected!). Spectre widgets handle wrapping themselves; your own manual formatting is where width bugs live.</p>
-<p><strong>The renderer test trick:</strong> because ReportRenderer takes plain data (PipelineResult), you can unit test it by rendering to a recording console (<code>AnsiConsole.Record()</code> / <code>ExportText()</code>) and asserting on the text — Chapter XII ammunition.</p></div>'''
+<p>Formatting scattered through the pipeline makes truth rules hard to see. Create one <code>ReportRenderer</code> whose public method accepts a question, a read-only collection of <code>VerifiedQuote</code>, rejected-proposal count, source-error strings, and the two mode flags. There is deliberately no overload for <code>QuoteProposal</code>.</p>
+<p>Render in a stable order:</p>
+<ol><li>A rule containing the escaped question.</li><li>If <code>mock</code>, an unmistakable yellow <code>MODE: MOCK FIXTURE</code> line.</li><li>A designed empty state or complete verified quote panels grouped by source URL.</li><li>The source label, full URL, and passage id for every quote.</li><li>Visible source failures; in verbose mode, rejected-proposal count.</li></ol>
+<p>Every string from a question, page, configuration, model, or exception passes through <code>Markup.Escape</code> before entering Spectre markup. Without it, text such as <code>[red]forged[/]</code> would be interpreted as formatting instructions. Hardcoded markup like <code>[yellow]</code> is safe because the program authored it.</p>
+<p>Do not truncate quote text. Terminal wrapping may change its visual lines, but the characters printed remain the full <code>VerifiedQuote.Text</code>. A user can then copy and search for the exact evidence at its URL. The renderer may abbreviate verbose diagnostics, never the promised quotation.</p>
+<div class="callout">An empty verified list is not permission to print proposals, whole passages, or keyword matches. Say that no verified quotes were found and show any source/model failure separately.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // TYPES AS A DISPLAY FIREWALL</div><p>When a renderer's signature names only trusted output types, accidental misuse becomes a compiler error. This is stronger than a comment saying “remember to verify first.”</p></div>
+'''
 
 [[lessons.readings]]
-label = "Spectre.Console — GitHub (examples gallery)"
-url = "https://github.com/spectreconsole/spectre.console"
+label = "Spectre.Console — Markup"
+url = "https://spectreconsole.net/markup"
 essential = false
 
 [[lessons.exercises]]
 id = "s10-l04-e1"
 type = "mc"
 points = 20
-prompt = "Why isolate rendering in a ReportRenderer class instead of sprinkling AnsiConsole calls through the pipeline?"
-choices = ["Spectre only works in one file", "Static methods can't print", "It compiles faster", "One place owns the look — pipeline stays testable, format changes touch one class"]
-answer = 3
-whyWrong = "It’s not a Spectre limitation or speed — isolating rendering keeps the pipeline testable and means a format change touches exactly one class."
-hint = "Separation of concerns: computing results vs presenting them."
+prompt = "Why does ReportRenderer accept <code>VerifiedQuote</code> but not <code>QuoteProposal</code>?"
+choices = ["Spectre cannot render records", "The method signature makes bypassing verification harder", "Proposals have no strings", "It improves network speed"]
+answer = 1
+whyWrong = "Spectre can render strings from records, proposals do contain text, and rendering types do not affect networking. The signature enforces the trust boundary."
+explain = "Raw model output cannot be passed to this renderer without a compile-time type mismatch."
+hint = "What happens if a caller passes the wrong record type?"
 
 [[lessons.exercises]]
 id = "s10-l04-e2"
 type = "mc"
 points = 25
-prompt = "Verisearch finds zero quotes above min_trust. The machineht output is…"
-choices = ["a designed empty state explaining why and suggesting --min-trust adjustments", "a stack trace", "nothing — empty is empty", "fabricated results so the report isn't empty"]
+prompt = "There are zero verified quotes and Ollama returned malformed JSON. What should the report show?"
+choices = ["A designed no-verified-quotes state plus the model error", "A fabricated quote", "The malformed JSON", "Nothing"]
 answer = 0
-whyWrong = "A stack trace, blank output, or fabricated results all fail the user — show a designed empty state explaining why and suggesting a --min-trust change."
-hint = "Empty states are designed, not defaulted. (Your game follows the same rule.)"
+whyWrong = "Fabrication, raw model output, and silence all obscure what happened. The user needs an honest empty state and a separate actionable failure."
+explain = "Absence of verified evidence and reason for failure are distinct facts."
+hint = "Do not confuse no result with no report."
 
 [[lessons.exercises]]
 id = "s10-l04-e3"
 type = "mc"
 points = 20
-prompt = "Which Chapter VII operator groups quotes under their source for the report?"
+prompt = "Which LINQ operator groups verified quotes under each source URL?"
 choices = ["Distinct", "GroupBy", "Zip", "Aggregate"]
 answer = 1
-whyWrong = "Distinct/Zip/Aggregate don’t cluster items — grouping quotes under their source is GroupBy."
-hint = "Bucket by source URL/domain."
+whyWrong = "Distinct removes duplicates, Zip pairs sequences, and Aggregate folds values. GroupBy forms one bucket per URL."
+explain = "Each grouping exposes its URL Key and all VerifiedQuote members from that source."
+hint = "Bucket by quote.Url."
 
 [[lessons.exercises]]
 id = "s10-l04-d1"
 type = "type"
-points = 12
+points = 14
 reps = 2
-prompt = "Padded columns by hand — the alignment idiom Spectre automates. Twice."
-code = "Console.WriteLine($\"{o.Url,-40} {o.Blocks.Count,4} blocks {o.Seconds,5:F1}s\");"
+prompt = "Retype the markup-safe quote output twice."
+code = '''string safeText = Markup.Escape(quote.Text);
+string safeUrl = Markup.Escape(quote.Url);
+AnsiConsole.Write(new Panel(safeText).Header($"Passage {quote.PassageId}"));
+AnsiConsole.MarkupLine($"[dim]{safeUrl}[/]");'''
 
 [[lessons.exercises]]
 id = "s10-l04-w1"
 type = "write"
 points = 32
-prompt = "Empty-state lab: given <code>var quotes = new List&lt;string&gt;();</code> — if it's empty print exactly <code>no sources met min_trust 3.0 — try --min-trust 1</code>, otherwise print the quotes. (Designed empties are a habit, not a feature.)"
-expect = "no sources met min_trust 3.0 — try --min-trust 1"
-solution = '''
-var quotes = new List<string>();
-if (quotes.Count == 0) Console.WriteLine("no sources met min_trust 3.0 — try --min-trust 1");
-else foreach (string quote in quotes) Console.WriteLine(quote);
+prompt = "Given an empty verified quote list and one source error, print the exact two-line plain-text empty state from the solution contract."
+starter = '''var quotes = new List<string>();
+var errors = new List<string> { "RFC: timed out" };
+Console.WriteLine("NOT RENDERED");
 '''
-hint = "if (quotes.Count == 0) — the em-dash — is in the target, copy it carefully."
+expect = '''no verified quotes found
+source error: RFC: timed out'''
+solution = '''var quotes = new List<string>();
+var errors = new List<string> { "RFC: timed out" };
+
+if (quotes.Count == 0)
+{
+    Console.WriteLine("no verified quotes found");
+}
+foreach (string error in errors)
+{
+    Console.WriteLine($"source error: {error}");
+}
+'''
+hint = "Print the empty line when Count is zero, then foreach the errors with the source error prefix."

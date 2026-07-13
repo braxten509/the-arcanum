@@ -1,0 +1,154 @@
+[[lessons]]
+id = "s11-l05"
+teaches = ["composition-root"]
+title = "Workshop — Replace the Demos with the Real Entrypoint"
+body = '''
+<p>Before editing <code>Program.cs</code>, create <code>MockQuoteSelector.cs</code>. It is deterministic plumbing, not an offline AI:</p>
+<pre><code><span class="k">public sealed class</span> MockQuoteSelector : IQuoteSelector
+{
+    <span class="k">public</span> Task&lt;QuoteBatch&gt; SelectAsync(<span class="k">string</span> question,
+        IReadOnlyList&lt;Passage&gt; passages, CancellationToken ct = <span class="k">default</span>)
+    {
+        ct.ThrowIfCancellationRequested();
+        Passage? first = passages.FirstOrDefault();
+        QuoteBatch batch = first <span class="k">is null</span>
+            ? <span class="k">new</span> QuoteBatch([])
+            : <span class="k">new</span> QuoteBatch([<span class="k">new</span> QuoteProposal(first.Id, first.Text)]);
+        <span class="k">return</span> Task.FromResult(batch);
+    }
+}</code></pre>
+<p>Now replace—not append to—temporary top-level demos in <code>Program.cs</code>. Keep the entrypoint order visible:</p>
+<pre><code>CommandLineOptions options;
+<span class="k">try</span>
+{
+    options = CommandLineOptions.Parse(args);
+}
+<span class="k">catch</span> (ArgumentException ex)
+{
+    Console.Error.WriteLine(ex.Message);
+    Console.Error.WriteLine(CommandLineOptions.Usage);
+    <span class="k">return</span> 2;
+}
+
+<span class="k">if</span> (options.ShowHelp)
+{
+    Console.WriteLine(CommandLineOptions.Usage);
+    <span class="k">return</span> 0;
+}
+
+<span class="k">try</span>
+{
+    AppConfig config = <span class="k">new</span> ConfigLoader().LoadOrCreate();
+    List&lt;SourceSpec&gt; sources = <span class="k">new</span> SourcePolicy().Select(config, options.SourceLabels);
+    <span class="k">if</span> (sources.Count == 0)
+        <span class="k">throw new</span> InvalidOperationException(<span class="s">"no usable configured sources"</span>);
+
+    <span class="k">using var</span> http = <span class="k">new</span> HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+    http.DefaultRequestHeaders.UserAgent.ParseAdd(<span class="s">"Verisearch/1.0"</span>);
+    ISourceFetcher fetcher = <span class="k">new</span> SourceFetcher(http);
+    <span class="k">var</span> batch = <span class="k">new</span> SourceBatch(fetcher);
+    IPageExtractor extractor = <span class="k">new</span> PageExtractor();
+    IQuoteSelector selector = options.Mock
+        ? <span class="k">new</span> MockQuoteSelector()
+        : <span class="k">new</span> OllamaQuoteSelector(http, config);
+    <span class="k">var</span> pipeline = <span class="k">new</span> Pipeline(batch, extractor, selector,
+        <span class="k">new</span> QuoteVerifier(), config.MaxQuotes);
+
+    <span class="k">using var</span> cts = <span class="k">new</span> CancellationTokenSource(TimeSpan.FromSeconds(45));
+    PipelineResult result = <span class="k">await</span> pipeline.RunAsync(
+        options.Question, sources, options.Mock, cts.Token);
+    <span class="k">new</span> ReportRenderer().Render(options.Question, result.Quotes,
+        result.RejectedProposals, result.SourceErrors, result.Mock, options.Verbose);
+    <span class="k">return</span> 0;
+}
+<span class="k">catch</span> (OperationCanceledException)
+{
+    Console.Error.WriteLine(<span class="s">"canceled"</span>);
+    <span class="k">return</span> 130;
+}
+<span class="k">catch</span> (Exception ex)
+{
+    Console.Error.WriteLine(<span class="s">$"verisearch failed: {ex.Message}"</span>);
+    <span class="k">return</span> 1;
+}</code></pre>
+<p>Build, then remove obsolete demo declarations and calls named in the Working. A duplicate-type compiler error tells you an old teaching model survived; search its exact name and keep the canonical declaration.</p>
+<div class="callout">Run mock deliberately with <code>dotnet run -- "fixture question" --mock</code>. A normal live command contains no mock flag and must never reach MockQuoteSelector.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // FINAL OWNERSHIP MAP</div><p>Program owns construction and user-facing errors. Pipeline owns sequence. Components own one transformation. QuoteVerifier owns proof. ReportRenderer owns appearance. If a future edit does not fit one owner, introduce a named boundary rather than hiding it in Program.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — Main return values"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/program-structure/main-command-line"
+essential = false
+
+[[lessons.exercises]]
+id = "s11-l05-e1"
+type = "mc"
+points = 20
+prompt = "Why does MockQuoteSelector still return QuoteProposal rather than VerifiedQuote?"
+choices = ["Mock output skips verification", "Every selector remains untrusted and must cross the same verifier", "VerifiedQuote cannot contain fixture text", "Task.FromResult forbids it"]
+answer = 1
+whyWrong = "Mock must not bypass the product gate, and neither the record nor Task.FromResult prevents a different type. Shared verification proves the plumbing honestly."
+explain = "Explicit mode changes selection implementation, not the proof rule."
+hint = "Which contract does both selector classes implement?"
+
+[[lessons.exercises]]
+id = "s11-l05-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the one explicit mode branch twice."
+code = '''IQuoteSelector selector = options.Mock
+    ? new MockQuoteSelector()
+    : new OllamaQuoteSelector(http, config);'''
+
+[[lessons.exercises]]
+id = "s11-l05-e2"
+type = "fill"
+points = 18
+prompt = "Complete the conventional cancellation exit code."
+code = '''catch (OperationCanceledException)
+{
+    Console.Error.WriteLine("canceled");
+    return ____;
+}'''
+answer = "130"
+hint = "It is 128 plus the common interrupt signal number 2."
+
+[[lessons.exercises]]
+id = "s11-l05-e3"
+type = "mc"
+points = 18
+prompt = "A duplicate-type compiler error appears after replacing Program.cs. What is the beginner-safe response?"
+choices = ["Rename the canonical model", "Search the exact type name and remove the obsolete demo declaration", "Disable compiler errors", "Create another project"]
+answer = 1
+whyWrong = "Renaming causes contract drift, compiler errors cannot be disabled safely, and a new project abandons cumulative work."
+explain = "The workshop marks which canonical file owns each production type."
+hint = "One name should have one declaration."
+
+[[lessons.exercises]]
+id = "s11-l05-w1"
+type = "write"
+points = 38
+prompt = "Choose LiveSelector when mock is false and MockSelector when true, then print each selected Name with a <code>selected: </code> prefix."
+starter = '''Console.WriteLine("NOT WIRED");
+
+public interface ISelector { string Name { get; } }
+public sealed class LiveSelector : ISelector { public string Name => "LIVE"; }
+public sealed class MockSelector : ISelector { public string Name => "MOCK"; }
+'''
+expect = '''selected: LIVE
+selected: MOCK'''
+solution = '''Console.WriteLine($"selected: {Choose(false).Name}");
+Console.WriteLine($"selected: {Choose(true).Name}");
+
+static ISelector Choose(bool mock)
+{
+    return mock ? new MockSelector() : new LiveSelector();
+}
+
+public interface ISelector { string Name { get; } }
+public sealed class LiveSelector : ISelector { public string Name => "LIVE"; }
+public sealed class MockSelector : ISelector { public string Name => "MOCK"; }
+'''
+hint = "Return mock ? new MockSelector() : new LiveSelector(), then interpolate Name after the prefix."

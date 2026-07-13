@@ -1,36 +1,37 @@
 [freestyle]
-title = "THE WORKING: The Binding of the Spirit"
-brief = "Build <code>RelevanceScanner</code>: given a page's <code>List&lt;ScrapedParagraph&gt;</code> and the user's query, return the indices of relevant paragraphs — LLM-first, defensively parsed, gracefully degrading. The full ladder:<ul><li>Numbered + truncated prompt with format demand, example, and empty-case</li><li>Streaming consumption (await foreach) OR documented non-streaming choice</li><li>Bracket-slice extraction + JsonException handling</li><li>Index validation (in-range, Distinct, capped); one firm retry</li><li>Keyword fallback so <strong>everything works with Ollama completely absent</strong></li><li>Convert winning indices to <code>VerbatimQuote</code> records (Chapter III) carrying source URL + trust score</li><li>Shell command <code>ask &lt;question&gt;</code> runs search → rank → scrape → scan → prints quotes with their indices</li><li>Install OllamaSharp via PACKAGES</li></ul>"
+title = "THE WORKING: The Proposal-and-Proof Gate"
+requires = ["json-mapping", "http-client", "canonical-models", "page-extractor", "ollama-setup", "ollama-http-api", "structured-quote-schema", "quote-verification", "quote-selector"]
+brief = "Add the local AI boundary without replacing any earlier project files.<ul><li>Create <code>OllamaQuoteSelector.cs</code> from the workshop. Use the official <code>/api/chat</code> HTTP endpoint, <code>stream = false</code>, temperature zero, and the exact quote JSON schema; install no Ollama client package.</li><li>Send one source’s stored numbered passages as untrusted data. Ask for at most the configured count of contiguous, case-exact substrings; permit an empty array.</li><li>Deserialize the inner response into <code>QuoteBatch</code>. Invalid HTTP, envelope, or inner JSON must fail clearly; do not scrape numbers or prose from malformed output.</li><li>Create <code>QuoteVerifier.cs</code>. It alone creates <code>VerifiedQuote</code> records after ordinal substring matching and C#-owned attribution.</li><li>Add an explicit <code>--mock</code> fixture selector only for a known local passage. Label its terminal mode MOCK. Live mode with Ollama unavailable must return a clear error and nonzero exit code.</li><li>Test exact, altered, fabricated, unknown-id, duplicate, empty, and over-limit proposal batches before a live call.</li></ul>"
 reward = 550
-packages = ["OllamaSharp"]
-xray = "THORNE simulates three model personalities against your parser: Chatty (JSON buried in prose), Liar (indices out of range + duplicates), and Dead (connection refused). All three must yield usable output. He diffs your final quotes against the scraped source text — ONE altered character in a \"verbatim\" quote and the integrity criterion zeroes. He also checks the retry counter: zero retries is fragile, unlimited is a hang; the answer is one."
+packages = []
+xray = "THORNE supplies valid JSON containing one invented quote, one exact quote with a false model-owned URL attempt, a duplicate, and an unknown passage id. Only the exact source substring may emerge, with the URL copied from Passage. He then stops Ollama and checks that live mode fails instead of invoking hidden keyword logic."
 
 [freestyle.badge]
 id = "badge-s09"
 name = "SPIRIT-BINDER"
-desc = "Bound a spirit to a pointing finger. It may choose truth but never invent it."
+desc = "Gave the spirit semantic work while reserving truth and attribution for deterministic C#."
 
 [[freestyle.rubric]]
-criterion = "Compiles & works WITHOUT Ollama"
+criterion = "Official HTTP integration"
 weight = 20
-desc = "The keyword fallback path delivers end-to-end results on a bare machine."
+desc = "Uses HttpClient /api/chat with structured format, non-streaming response, cancellation, status checks, and no wrapper package."
 
 [[freestyle.rubric]]
-criterion = "Prompt quality"
+criterion = "Proposal contract"
+weight = 20
+desc = "Prompt and schema request bounded passageId plus contiguous exact quote text and allow an honest empty result."
+
+[[freestyle.rubric]]
+criterion = "Deterministic proof"
+weight = 30
+desc = "Only ordinal substrings with valid ids become VerifiedQuote; duplicates, fabrications, empties, and excess results are rejected."
+
+[[freestyle.rubric]]
+criterion = "Mode honesty"
 weight = 15
-desc = "All five contract features present in a raw string literal."
+desc = "Mock is explicit and labeled; live Ollama failure is actionable and never silently replaced with keyword matching."
 
 [[freestyle.rubric]]
-criterion = "Defensive parsing ladder"
-weight = 25
-desc = "Extract → validate → retry-once → fallback, each layer actually reachable."
-
-[[freestyle.rubric]]
-criterion = "Verbatim integrity"
-weight = 20
-desc = "Quotes are byte-identical to scraped text; indices map correctly; no paraphrasing anywhere."
-
-[[freestyle.rubric]]
-criterion = "Integration & readability"
-weight = 20
-desc = "ask command runs search→rank→scrape→scan cleanly; scanner isolated; honest console reporting of which layer answered."
+criterion = "C# craft"
+weight = 15
+desc = "PascalCase types and methods, camelCase locals, four-space indentation, Allman braces, focused selector/verifier files, and no raw model output rendering."

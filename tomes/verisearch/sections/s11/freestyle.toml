@@ -1,36 +1,37 @@
 [freestyle]
 title = "THE WORKING: The Binding of the Tome"
-brief = "The milestone run, end to end: <code>verisearch \"What does RFC 8446 say about session resumption?\"</code> → search → trust filter → parallel scrape → relevance scan → verbatim quotes → war-paint report.<ul><li>Interfaces for the seams that earn them (ISearchClient, IPageScraper, IRelevanceScanner); constructor injection everywhere</li><li>A composition root in Program.cs sharing ONE HttpClient</li><li>A Pipeline orchestrator returning a PipelineResult record (no printing!)</li><li>Early-exit reasoned empties; one CancellationToken through the whole run</li><li>The full resilience ladder — including honest disclosure of any degradation in the report</li><li>Mock implementations keep it demoable offline</li></ul>"
+requires = ["interfaces", "dependency-injection", "pipeline-orchestration", "degradation-policy", "composition-root"]
+brief = "Bind the exact files from the workshops into one executable.<ul><li>Add <code>Interfaces.cs</code>; make SourceFetcher, PageExtractor, and OllamaQuoteSelector implement their contracts. Add the explicit <code>MockQuoteSelector</code> and update SourceBatch to depend on ISourceFetcher.</li><li>Add the final <code>PipelineResult</code> model and <code>Pipeline.cs</code>. The flow is configured source list → concurrent fetch outcomes → per-source passages → structured proposals → exact verifier → result.</li><li>Replace temporary Program.cs demos with the workshop’s composition root: parse, load, select sources, construct one HttpClient and all collaborators, run once, render once, return a stable exit code.</li><li>Only Program.cs chooses live versus mock from <code>--mock</code>. No catch block anywhere may replace Ollama with a keyword, mock, or all-passages selector.</li><li>Run four acceptance rehearsals: explicit mock success, one source failure plus one success, no verified quotes, and live Ollama unavailable.</li><li>Delete obsolete SearchResult, SearxngClient, TrustEngine, PageScraper, RelevanceScanner, VerbatimQuote, and temporary demo calls if they remain in the learner project.</li></ul>"
 reward = 700
 packages = []
-xray = "THORNE greps for 'new SearxngClient' and friends OUTSIDE Program.cs — any hit fails the DI check. He counts HttpClient constructions (must be exactly one). He kills components one at a time and reads the output: each failure must name itself (which stage, what happened, what he should try). Architecture tell he loves: PipelineResult containing enough data that a JSON renderer could replace the Spectre one without touching Pipeline."
+xray = "THORNE searches for one HttpClient construction, one composition root, and no obsolete search/fallback types. He injects one fabricated proposal and one failed page, stops Ollama in live mode, then runs --mock. Every visible behavior must agree with the selected mode and only VerifiedQuote may reach the renderer."
 
 [freestyle.badge]
 id = "badge-s11"
 name = "BINDER OF THE TOME"
-desc = "Every rite, one spine. The artifact is REAL now."
+desc = "Sewed every boundary into one inspectable proposal-and-proof flow."
 
 [[freestyle.rubric]]
-criterion = "End-to-end run works"
+criterion = "End-to-end contracts"
 weight = 25
-desc = "The milestone query (mock or live) produces the complete formatted report."
+desc = "Configured sources flow through fetch, extraction, selection, verification, and rendering with canonical types only."
 
 [[freestyle.rubric]]
-criterion = "Architecture"
+criterion = "Composition"
+weight = 20
+desc = "Program.cs constructs one HttpClient and the concrete object graph; collaborators receive dependencies through constructors."
+
+[[freestyle.rubric]]
+criterion = "Truth boundary"
 weight = 25
-desc = "Interfaces at real seams only; constructor injection; composition root; pipeline/renderer separation."
+desc = "Pipeline returns only C#-verified quotes with source-owned attribution; obsolete direct/proposal output paths are gone."
 
 [[freestyle.rubric]]
-criterion = "Resilience ladder"
-weight = 25
-desc = "Each rung degrades correctly and VISIBLY; fatal cases exit nonzero with clear messages."
-
-[[freestyle.rubric]]
-criterion = "Orchestrator quality"
+criterion = "Failure and mode behavior"
 weight = 15
-desc = "RunAsync reads as a story; stages explicit; PipelineResult carries everything the renderer needs."
+desc = "Partial source failure survives, live AI failure exits clearly, and mock occurs only when explicitly selected and labeled."
 
 [[freestyle.rubric]]
-criterion = "Code hygiene"
-weight = 10
-desc = "Consistent naming/files; no dead code; the composition root is the only place with concrete wiring."
+criterion = "C# craft"
+weight = 15
+desc = "PascalCase types/methods, camelCase locals, four-space indentation, Allman braces, one responsibility per file, and no dead demo code."

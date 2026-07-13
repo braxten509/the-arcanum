@@ -2,8 +2,8 @@
 ground-truth content measuring (forecast + end-of-run plan reconciliation)."""
 import hashlib
 import os
+import shlex
 import subprocess
-import sys
 import tomllib
 
 from . import REPO, VALIDATOR
@@ -11,14 +11,63 @@ from . import REPO, VALIDATOR
 RUNTIME_CONFIG_DIR = os.path.join(REPO, "global-configs", "runtimes")
 
 
-def validate(tid, strict=False, tooling=None, run=True):
-    cmd = [sys.executable, VALIDATOR, f"tomes/{tid}"] + (["--strict"] if strict else [])
+def validator_argv(tid, phase=None, tooling=None, run=None, strict=None, plan_rel=None):
+    """Return the one canonical validator command used by workers and the harness.
+
+    Keeping this as argv (rather than a hand-built flags string) makes command parity
+    testable and keeps paths safely quoted when the same command is rendered into a
+    worker prompt. ``phase`` selects only genuinely phase-specific gates; explicit
+    ``run``/``strict`` overrides are retained for the split-Section fast checkpoint.
+    """
+    cmd = ["python3", os.path.relpath(VALIDATOR, REPO), f"tomes/{tid}"]
+    if phase == 1:
+        if not plan_rel:
+            raise ValueError("Phase 1 validator command needs plan_rel")
+        return cmd + ["--phase-1-plan", plan_rel]
+
+    if phase == 2:
+        cmd.append("--phase-2-skeleton")
+    strict = (phase is not None and phase >= 7) if strict is None else strict
+    run = (phase != 2) if run is None else run
+    if strict:
+        cmd.append("--strict")
     if not run:
         cmd.append("--no-run")
     if tooling:
         cmd += ["--tooling", tooling]  # enforce the gate's internal/external/both choice
+    return cmd
+
+
+def validator_shell_command(tid, phase=None, tooling=None, run=None, strict=None,
+                            plan_rel=None):
+    """The canonical argv rendered exactly as the worker should run it."""
+    return ('cd "$ARCANUM_REPO_ROOT" && '
+            + shlex.join(validator_argv(tid, phase, tooling, run, strict, plan_rel)))
+
+
+def validate(tid, phase=None, strict=None, tooling=None, run=None, plan_rel=None):
+    cmd = validator_argv(tid, phase, tooling, run, strict, plan_rel)
     p = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True)
     return p.returncode == 0, (p.stdout + p.stderr).strip()
+
+
+def blocking_report(report, strict=False):
+    """Trim validator output to findings that can actually fail the current gate.
+
+    A non-strict phase exits nonzero only for ``ERROR``. Strict phases additionally
+    fail on non-advisory ``WARN`` findings. If the process crashed or returned some
+    unexpected format, preserve the full report so diagnostics are never hidden.
+    """
+    lines = str(report or "").splitlines()
+    blockers = []
+    for line in lines:
+        if line.startswith("ERROR "):
+            blockers.append(line)
+        elif (strict and line.startswith("WARN ")
+              and not line.startswith("WARN advisory:")):
+            blockers.append(line)
+    summaries = [line for line in lines if line.startswith("-- ")]
+    return "\n".join(blockers + summaries) if blockers else str(report or "").strip()
 
 
 def inventory(tid):

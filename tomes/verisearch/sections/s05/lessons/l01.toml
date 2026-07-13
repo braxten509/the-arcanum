@@ -1,11 +1,12 @@
 [[lessons]]
 id = "s05-l01"
+teaches = ["file-io"]
 title = "Files — read, write, check"
 body = '''
 
 <p>The <code>File</code> static class covers 90% of file work in one-liners:</p>
 <pre><code><span class="c">// write (creates or overwrites)</span>
-File.WriteAllText(<span class="s">"notes.txt"</span>, <span class="s">"trust nist.gov = 9.5"</span>);
+File.WriteAllText(<span class="s">"notes.txt"</span>, <span class="s">"source: RFC 8446"</span>);
 
 <span class="c">// read the whole thing</span>
 <span class="k">string</span> content = File.ReadAllText(<span class="s">"notes.txt"</span>);
@@ -17,14 +18,14 @@ File.WriteAllText(<span class="s">"notes.txt"</span>, <span class="s">"trust nis
 File.AppendAllText(<span class="s">"log.txt"</span>, <span class="s">$"[{DateTime.Now}] query ran\n"</span>);
 
 <span class="c">// look before you leap</span>
-<span class="k">if</span> (File.Exists(<span class="s">"config.yaml"</span>)) { ... }
+<span class="k">if</span> (File.Exists(<span class="s">"config.json"</span>)) { ... }
 <span class="k">if</span> (Directory.Exists(<span class="s">"/home/op/.verisearch"</span>)) { ... }
 Directory.CreateDirectory(<span class="s">"/home/op/.verisearch"</span>);   <span class="c">// mkdir -p: no error if it exists</span></code></pre>
 <p>Async variants exist for all of them (<code>ReadAllTextAsync</code>…) — use them inside async code.</p>
 <p>What throws: reading a file that doesn't exist (<code>FileNotFoundException</code>), a folder that doesn't exist in the write path (<code>DirectoryNotFoundException</code>), permissions (<code>UnauthorizedAccessException</code>). The pattern:</p>
 <pre><code><span class="k">try</span>
 {
-    <span class="k">string</span> yaml = File.ReadAllText(configPath);
+    <span class="k">string</span> json = File.ReadAllText(configPath);
 }
 <span class="k">catch</span> (FileNotFoundException)
 {
@@ -79,7 +80,7 @@ prompt = "The read-or-create-defaults shape. Twice."
 code = '''
 try
 {
-    string yaml = File.ReadAllText(configPath);
+    string json = File.ReadAllText(configPath);
 }
 catch (FileNotFoundException)
 {
@@ -90,11 +91,11 @@ catch (FileNotFoundException)
 id = "s05-l01-w1"
 type = "write"
 points = 34
-prompt = "Full write-then-read round trip: write the text <code>max_sources: 5</code> to a temp file (<code>Path.GetTempFileName()</code>), read it back, print <code>reloaded: &lt;contents&gt;</code>, then delete the file with <code>File.Delete</code>."
-expect = "reloaded: max_sources: 5"
+prompt = "Full write-then-read round trip: write the text <code>{\"maxQuotes\":5}</code> to a temp file (<code>Path.GetTempFileName()</code>), read it back, print <code>reloaded: &lt;contents&gt;</code>, then delete the file with <code>File.Delete</code>."
+expect = '''reloaded: {"maxQuotes":5}'''
 solution = '''
 string path = Path.GetTempFileName();
-File.WriteAllText(path, "max_sources: 5");
+File.WriteAllText(path, """{"maxQuotes":5}""");
 string contents = File.ReadAllText(path);
 Console.WriteLine($"reloaded: {contents}");
 File.Delete(path);

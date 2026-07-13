@@ -1,104 +1,103 @@
 [[lessons]]
 id = "s10-l04"
 title = "The State Ledger in JSON"
-teaches = ["s10-state-dict","s10-json-serialization"]
+teaches = ["s10-game-state-snapshot", "s10-json-save-write"]
 body = '''
-<p>s10-l04 opens the quests and saves chart through State. s10-l04 hears THE CARTOGRAPHER name s10-state-dict its first bearing. s10-l04 names one input, one change, and one output. s10-l04 gives s10-json-serialization a second mark for comparison. s10-l04 keeps the smallest successful example beside its route.</p>
-<p>s10-l04 reads from left to right, then narrates state changes. s10-l04 keeps its quests and saves clue concrete and observable. s10-l04 runs twice; the second pass challenges the first. s10-l04 records which owner moved when s10-state-dict shifted. s10-l04 borrows a neighboring trace without hiding its owner.</p>
-<p>s10-l04 asks one decision to stand alone in the margin. s10-l04 keeps s10-json-serialization visible instead of hiding it behind polish. s10-l04 tests a friendly case and a sharp edge case. s10-l04 compares both traces so s10-state-dict has a witness. s10-l04 names the failure before choosing a repair.</p>
-<p>s10-l04 treats each handoff as a contract between maker and reader. s10-l04 supplies s10-state-dict; the reader checks s10-json-serialization. s10-l04 places its check where another wayfinder can repeat it. s10-l04 earns THE CARTOGRAPHER's trust through evidence, not luck. s10-l04 leaves one deliberate question for the next chart.</p>
-<p>s10-l04 closes by stating what the program must preserve. s10-l04 names one input that could falsify s10-state-dict. s10-l04 names one output that confirms s10-json-serialization still belongs. s10-l04 runs the smallest route, inspects its trace, and annotates it. s10-l04 turns the quests and saves chart into a RuneBound waypoint.</p>
-<p>s10-l04 ends with a handoff to the next chart. s10-l04 carries s10-json-serialization forward after s10-state-dict earns trust. s10-l04 lets THE CARTOGRAPHER record the result in plain language. s10-l04 turns a clean rerun from a guess into a fact. s10-l04 lets the next wayfinder begin without hidden context.</p>
-<pre><code>print("s10-l04 // The State Ledger in JSON")</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // S10-L04</div><p>s10-l04 <strong>Evidence.</strong> Record s10-state-dict; compare it with s10-json-serialization before advancing.</p><p>s10-l04 <strong>Repair.</strong> Change one cause, rerun the route, and preserve the explanation.</p></div>
+<p>Now bind the living world into a portable record. Create <code>state.py</code>; it is the canonical save boundary. <code>GameState</code> holds references to the live Player, QuestLog, dialogue flags, combat flags, and the current map filename. Its <code>to_dict()</code> copies only JSON-shaped values: Player world-pixel position, <code>player.stats.__dict__</code>, ordered inventory ids, completion flags keyed by <code>quest_id</code>, flags, and map filename. The s02 round-trip taught why this is a snapshot: <code>__dict__</code> is data, not a reconstructed object.</p>
+<pre><code>class GameState:
+    def __init__(self, player, quest_log, dialogue_flags, combat_flags, map_filename):
+        self.player = player
+        self.quest_log = quest_log
+        self.dialogue_flags = dialogue_flags
+        self.combat_flags = combat_flags
+        self.map_filename = map_filename
+
+    def to_dict(self):
+        return {
+            "player": {
+                "position": [self.player.rect.x, self.player.rect.y],
+                "stats": self.player.stats.__dict__,
+                "inventory": list(self.player.inventory.items),
+            },
+            "quests": {quest.quest_id: quest.completed for quest in self.quest_log.quests},
+            "dialogue_flags": dict(self.dialogue_flags),
+            "combat_flags": dict(self.combat_flags),
+            "map_filename": self.map_filename,
+        }</code></pre>
+<p>Add <code>save_game(state, filename)</code> below the class. It writes <code>state.to_dict()</code> through <code>json.dump(..., indent=2)</code>. In <code>main.py</code>, create one GameState after Player, QuestLog, and the flag dictionaries exist. S in the existing KEYDOWN pump calls <code>save_game(game_state, "save.json")</code> and starts a brief screen-space message. Saving must not move the event pump, duplicate display flips, or serialize camera offsets: Player’s rect is already world pixels.</p>
+<pre><code>def save_game(state, filename):
+    with open(filename, "w", encoding="utf-8") as handle:
+        json.dump(state.to_dict(), handle, indent=2)</code></pre>
+<p>Inspect <code>save.json</code> after one save. It should contain JSON arrays for position and inventory, an object for stats, and the literal <code>"shadow_key"</code> when collected. Never write <code>json.dumps(game_state)</code>: the live object includes references and behavior that JSON cannot encode.</p>
+<div class="callout"><strong>THE CARTOGRAPHER'S RULE:</strong> GameState names what survives a relaunch; JSON stores only that explicit dictionary, never live PyGame objects.</div>
+<div class="field-notes"><div class="fn-head">SURVEY // SAVE LOCATION</div><p>Run <code>python3 main.py</code> from the RuneBound project folder so the relative <code>save.json</code> location is predictable. s11 will invoke the same save boundary from its title menu.</p></div>
 '''
 
 [[lessons.readings]]
-label = "Python library // dataclasses // The State Ledger in JSON"
-url = "https://docs.python.org/3/library/dataclasses.html"
-
-[[lessons.readings]]
-label = "Python library // JSON // The State Ledger in JSON"
-url = "https://docs.python.org/3/library/json.html"
+label = "Python Docs // json.dump"
+url = "https://docs.python.org/3/library/json.html#json.dump"
 
 [[lessons.exercises]]
 id = "s10-l04-e1"
 type = "type"
-points = 10
+points = 12
 reps = 2
-prompt = '''
-<p>Retype this ledger seal evidence exactly. Keep to_dict(), json.dumps(), and a payload containing position, stats, inventory, quests, and flags visible while you write. (Ctrl+Enter submits.)</p>
-'''
+prompt = '''<p>Retype the Player portion of the save snapshot. Its coordinates remain world pixels.</p>'''
 code = '''
-state_data = {"position": [10, 4], "gold": 12}
-print(state_data["position"])
+"player": {
+    "position": [self.player.rect.x, self.player.rect.y],
+    "stats": self.player.stats.__dict__,
+    "inventory": list(self.player.inventory.items),
+},
 '''
 
 [[lessons.exercises]]
 id = "s10-l04-e2"
-type = "text"
-points = 16
-prompt = '''
-<p>s10-l04-e2: name the Python term for the specific unit requested by this chart. Supply the language term, not the surrounding story label.</p>
+type = "fill"
+points = 22
+prompt = '''<p>Restore the JSON writer that sends the snapshot to the open save-file handle.</p>'''
+code = '''
+with open(filename, "w", encoding="utf-8") as handle:
+    json.____(state.to_dict(), handle, indent=2)
 '''
-answer = "to_dict"
-hint = '''
-Recall the named boundary in The State Ledger in JSON; the answer is the language term for that single job, not the larger game feature.
-'''
+answer = "dump"
+hint = '''This JSON function writes a Python value to a file handle; its string-producing sibling has an extra <code>s</code>.''' 
+whyWrong = '''<code>dumps</code> returns JSON text rather than writing to the handle, and <code>load</code> reads instead. The save boundary must emit the structured snapshot.''' 
 
 [[lessons.exercises]]
 id = "s10-l04-e3"
-type = "write"
-points = 30
-prompt = '''
-<p>Complete the ledger seal route and print exactly <code>RUNEBOUND S10 L04 SEAL</code>. Preserve the named data before adding the final observation.</p>
-'''
-starter = '''
-route_mark = "state-ledger"
-print("survey pending")
-# Add the chart seal after checking the route.
-'''
-expect = '''
-RUNEBOUND S10 L04 SEAL
-'''
-solution = '''
-route_mark = "state-ledger"
-print("RUNEBOUND S10 L04 SEAL")
-'''
-hint = '''
-For s10-l04-e3, leave the route data intact and add only its final s10 observation; compare the starter output with the target before submitting.
-'''
+type = "mc"
+points = 20
+prompt = '''<p>Which value belongs in the saved position field?</p>'''
+choices = ["The camera-subtracted screen position", "The sprite sheet source rectangle", "The most recent Q-key event", "The Player rect’s x and y world pixels"]
+answer = 3
+hint = '''Tile lookup, collision, and Player rect ownership have used world coordinates since s06.''' 
+whyWrong = '''Camera and sprite source values describe presentation, while an event is transient input. Restoring must put the Player back into the same world location.''' 
+explain = '''The live Player rect is the canonical world-space position, so its x/y values survive the save.''' 
 
 [[lessons.exercises]]
 id = "s10-l04-e4"
-type = "mc"
-points = 14
-prompt = '''
-<p>Why serialize a dictionary rather than the live GameState object itself? Select the reading that keeps a later main menu can load the same snapshot without rebuilding it by hand possible.</p>
-'''
-choices = ["JSON can execute class methods while loading","a dictionary automatically preserves every private pointer","live objects are smaller because they contain no state","The State Ledger in JSON: keep s10-state-dict owned by the named boundary and verify the result before handoff s10-l04-e4."]
-answer = 3
-whyWrong = '''
-The tempting routes confuse saving an object reference or omitting a nested fact that the final proof needs with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace to_dict(), json.dumps(), and a payload containing position, stats, inventory, quests, and flags in the Ledger Seal chart, then compare the the live objects own behavior while the serialized dictionary owns a portable snapshot with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves the live objects own behavior while the serialized dictionary owns a portable snapshot and leaves to_dict(), json.dumps(), and a payload containing position, stats, inventory, quests, and flags available for the next RuneBound handoff.
-'''
+type = "write"
+points = 35
+prompt = '''<p>Build a JSON-shaped snapshot from the supplied state values and print exactly <code>POS [64, 96]</code> and <code>KEY True</code>. Use a dictionary rather than serializing a custom object.</p>'''
+starter = '''
+position = [64, 96]
+inventory = ["potion", "shadow_key"]
+completed = {"shadow_key": True}
 
-[[lessons.exercises]]
-id = "s10-l04-e5"
-type = "fill"
-points = 18
-prompt = '''
-<p>s10-l04-e5: restore the missing operation in the supplied code. Use its operands and the chart evidence to complete the route without renaming the owner.</p>
+# Build the snapshot, then read back its position and completion flag.
 '''
-code = '''
-text = json.____(game_state.to_dict())
+expect = '''
+POS [64, 96]
+KEY True
 '''
-answer = "dumps"
-hint = '''
-Look at what must happen to payload = game_state.to_dict(); choose the operation that performs that job rather than the one that merely inspects the result.
+solution = '''
+position = [64, 96]
+inventory = ["potion", "shadow_key"]
+completed = {"shadow_key": True}
+
+snapshot = {"player": {"position": position, "inventory": inventory}, "quests": completed}
+print("POS", snapshot["player"]["position"])
+print("KEY", snapshot["quests"]["shadow_key"])
 '''
+hint = '''Nest the position and inventory under <code>"player"</code>, and place the completion mapping under <code>"quests"</code>.''' 

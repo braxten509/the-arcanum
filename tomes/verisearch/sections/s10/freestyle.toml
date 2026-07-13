@@ -1,36 +1,37 @@
 [freestyle]
-title = "THE WORKING: The Illumination"
-brief = "Give Verisearch its face.<ul><li>Convert entry to <code>Spectre.Console.Cli</code>: a default async command taking <code>&lt;query&gt;</code> plus <code>--max-sources</code>, <code>--min-trust</code>, <code>--verbose</code> (flags override config-file values, which override defaults)</li><li>Run the pipeline under a Status spinner with phase updates</li><li>Render via a dedicated <code>ReportRenderer</code>: header rule, per-source rules with traffic-light trust colors, panels for verbatim quotes (escaped!), the trust summary table (right-aligned numbers), a designed empty state, and dim verbose lines</li><li>Install Spectre.Console and Spectre.Console.Cli via PACKAGES</li></ul>Note: the desk's scroll terminal supports ANSI colors — run it and look at your work."
+title = "THE WORKING: The Verified Report"
+requires = ["cli-options", "spectre-markup", "spectre-widgets", "report-renderer", "verified-output"]
+brief = "Give the existing project a safe command surface and report.<ul><li>Add <code>CommandLineOptions.cs</code> with question, repeatable <code>--source LABEL</code>, <code>--mock</code>, <code>--verbose</code>, and <code>--help</code>. Bad input prints usage and exits nonzero.</li><li>Install only <code>Spectre.Console</code>. Keep argument parsing in project code; do not add Spectre.Console.Cli.</li><li>Create <code>ReportRenderer.cs</code> from the workshop. Its public signature accepts only <code>VerifiedQuote</code> plus failure/count metadata—never <code>QuoteProposal</code> or raw model strings.</li><li>Escape the question, quote, label, URL, and errors. Print every complete verified quote with source label, URL, and passage id.</li><li>Show an unmistakable MOCK banner only when <code>--mock</code> was explicitly supplied; design honest zero-quote and partial-source-failure states.</li><li>Run a markup-injection fixture containing <code>[red]FORGED[/]</code>, then <code>dotnet build</code> and visually inspect narrow-terminal wrapping.</li></ul>"
 reward = 550
-packages = ["Spectre.Console", "Spectre.Console.Cli"]
-xray = "THORNE's render tests: a source whose title is literally \"[red]INJECTED[/]\" (escape or bleed), a run with zero results (designed empty state or blank shame), and --min-trust banana (typed parser should handle it — friendly error, nonzero exit). He compares --verbose off/on: identical core report, added dim lines only. Style: he counts accent colors — more than one non-semantic accent and the design criterion drops."
+packages = ["Spectre.Console"]
+xray = "THORNE tries unknown flags, a missing --source value, markup in every external string, zero verified quotes, and one failed source. He also searches the renderer signature for QuoteProposal: if raw model output can enter, the illumination is counterfeit."
 
 [freestyle.badge]
 id = "badge-s10"
 name = "ILLUMINATOR"
-desc = "The tome earned a face worth reading by candlelight at 3am."
+desc = "Made verified evidence legible without letting untrusted markup or proposals cross the page."
 
 [[freestyle.rubric]]
-criterion = "Compiles & renders the sketch"
+criterion = "CLI behavior"
 weight = 20
-desc = "Report visually matches the design: rules, panels, summary table."
+desc = "Question, repeatable source labels, help, mock, and verbose parse predictably; invalid input gives usage and nonzero status."
 
 [[freestyle.rubric]]
-criterion = "CLI parsing"
-weight = 20
-desc = "Settings class attributes correct; --help meaningful; bad input → friendly error + nonzero exit."
+criterion = "Verified-only boundary"
+weight = 25
+desc = "ReportRenderer can consume VerifiedQuote but no proposal or raw model response type."
 
 [[freestyle.rubric]]
 criterion = "Markup safety"
 weight = 20
-desc = "All scraped text escaped or interpolated safely — a title containing [red] must not break the report."
+desc = "Every externally controlled string is escaped; bracket markup cannot alter the report."
 
 [[freestyle.rubric]]
-criterion = "Design quality"
+criterion = "Honest report design"
 weight = 20
-desc = "Color=meaning only, consistent number formatting, aligned columns, empty state, clean verbose gating."
+desc = "Full quotes, citations, visible mock mode, empty state, rejected count, and partial errors are readable and distinct."
 
 [[freestyle.rubric]]
-criterion = "Architecture"
-weight = 20
-desc = "ReportRenderer isolation; flag/config/default precedence actually implemented."
+criterion = "C# craft"
+weight = 15
+desc = "PascalCase types and methods, camelCase locals, four-space indentation, Allman braces, and rendering isolated from pipeline logic."

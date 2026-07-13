@@ -1,98 +1,73 @@
 [[lessons]]
 id = "s09-l03"
-title = "The Quantization — Shrinking the Vessel"
+teaches = ["q4-quantization"]
+title = "Quantize the Master for the 16 GB Serving Budget"
 body = '''
-<p>The FP16 GGUF from the second lesson is a full-precision vessel — too large to serve efficiently and too large to leave headroom for the KV cache the fifth rite taught lives underneath every generation. This lesson quantizes it, shrinking the vessel by roughly a factor of four while preserving the binder's contribution. The same quantization math the fifth rite drilled — bits per weight, the q4_k_m sweet spot, the accuracy-size trade-off — now meets the artificer's own model: no longer a downloaded base from someone else's repository, but the homunculus itself.</p>
-
-<p>The quantization tool is <code>llama-quantize</code>, a compiled C++ binary distributed with llama.cpp. Its command is a single line with three arguments: <code>./llama-quantize homunculus-f16.gguf homunculus-q4_k_m.gguf q4_k_m</code>. The tool reads every weight tensor from the input GGUF, applies the quantization algorithm for the specified type, and writes the compressed tensors to the output GGUF. Quantization is a conversion, not a training step — no gradients flow, no loss is computed, and the model's behavior changes solely because the quantized weights approximate the original FP16 weights with reduced numerical precision. The metadata header is preserved intact — the quantized GGUF reports the same architecture, context length, and vocabulary as the FP16 original.</p>
-
-<p>The quant types, recalled from the fifth rite's GGUF naming lesson and now applied to the artificer's own vessel. <code>q4_0</code> is the simplest scheme: round each weight to the nearest 4-bit value, store one shared FP16 scale factor per block of 32 weights. It produces the smallest file but loses the most information — output quality degrades noticeably, especially on tasks requiring precise numerical reasoning. <code>q4_k_m</code> — the "k-quant medium" — is the sweet spot: it uses a more sophisticated scheme that allocates more bits to important layers (attention output projections, the first embedding layer, the final output head) and fewer to intermediate MLP layers, while keeping the average at 4 bits per weight. The result is a model nearly as small as q4_0 (within 10% of file size) but whose output quality is measurably closer to the unquantized FP16 baseline. The fifth rite's capstone budget lesson assumed q4_k_m as the quant level for its VRAM calculation; this lesson makes that assumption material. <code>q8_0</code> is 8-bit quantization — twice the size, higher quality, useful as a comparison point to measure what q4_k_m loses. The artificer should produce both q4_k_m and q8_0 versions and compare them against the held-out prompts the proving rite established — the evaluation habit the eighth rite drilled becomes the quantization gate.</p>
-
-<p>Why the homunculus tolerates q4_k_m quantization especially well. The seventh rite's binding trained the adapter on a 4-bit quantized base — the "Q" in QLoRA — using the nf4 quantization scheme. The adapter's weights were optimized to shift a quantized model's output, not a full-precision model's output. When the merged weights are re-quantized to q4_k_m, the adapter's contribution passes through quantization the same way the base model's weights do. The adapter learned to work with quantized representations during training; the quantization at this stage is not a new distortion but a return to the precision regime the adapter was designed for. This is not to say quantization is lossless — information is discarded, and the quantized model's output will differ from the FP16 merged model's output — but the loss is bounded by the same mechanism that made QLoRA viable in the first place: a low-rank adapter trained in 4-bit generalizes well to 4-bit inference.</p>
-
-<div class="field-notes"><div class="fn-head">FIELD NOTES // QUANTIZATION ARTIFACT INSPECTION — WHEN THE WALLS GET THIN</div>
-<p>The quantized model can be inspected with <code>llama.cpp</code>'s <code>llama-perplexity</code> tool: it computes the model's perplexity on a calibration text and reports a single number that quantifies (no pun) how well the quantized weights approximate the original. A perplexity increase of more than 0.5 from FP16 to q4_k_m on a standard calibration set (WikiText-2, for example) suggests a quantization problem — a corrupted GGUF input, an incompatible converter version, or a quant type that is too aggressive for this particular model. For the homunculus, the more relevant test is the proving rite's evaluation: run the same six held-out prompts through both the FP16 merged model and the q4_k_m quantized model and compare the outputs. If the quantized model's answers are substantially different (the style score drops more than 0.1, or the model produces refusal on prompts the FP16 model answered), the quantization is too aggressive — fall back to q5_k_m or q8_0. Quantization time on the RX 9070 XT: approximately 3–5 minutes for an 8B model with llama.cpp's ROCm backend. The output file size for the homunculus at q4_k_m: approximately params × 4.5 / 8 bytes ≈ 4.5 GB for an 8B model (including the ~1 MB metadata header).</p></div>
+<p>Quantization is a deterministic artifact transformation, not another training run. Use the binary built in Section I and the quant spelling accepted by current llama.cpp:</p>
+<pre><code>vendor/llama.cpp/build/bin/llama-quantize \
+  artifacts/gguf/homunculus-f16.gguf \
+  artifacts/gguf/homunculus-Q4_K_M.gguf \
+  Q4_K_M</code></pre>
+<p><code>Q4_K_M</code> is the course's starting balance for an 8B model on 16 GB. The output should be substantially smaller than the F16 master, but a parameter-times-bits estimate is only a sanity range: embeddings, metadata, tensor-specific quantization, and alignment affect exact bytes. Record actual sizes and hashes.</p>
+<p>Check the output magic, converter/quantizer exit code, and that its byte size is between 20% and 45% of the F16 master as a broad corruption screen—not a quality test. Keep the F16 file until the served comparison passes. If disk space forces cleanup later, preserve its manifest and the merged checkpoint so it can be reproduced.</p>
+<p>Quantization can change behavior. Section VI's direct adapter report is the quality reference; after Ollama import, rerun the same frozen prompt, regression, and policy suites with the same generation contract. A quantized artifact is accepted only if it retains the required voice gain, adds no critical failures, and stays within the predefined correctness/usefulness tolerances. If Q4_K_M fails, produce a Q5_K_M or Q8_0 sibling from the same F16 hash and compare one variable.</p>
+<p>Write <code>artifacts/gguf/Q4_K_M-manifest.json</code> with input F16 hash, llama.cpp commit, exact command, quant type, byte size, SHA-256, and verification evidence.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // QUANTIZATION IS A PRODUCT TEST</div>
+<p>A plausible file-size ratio proves only that bytes were produced. Run fixed prompts against merged HF, F16 GGUF, and Q4_K_M, then compare output contract, citations, style, and key capabilities. The acceptable quant is the smallest artifact that still passes those checks on the target hardware—not simply the smallest file llama.cpp can write.</p></div>
 '''
-body_words = 510
 
 [[lessons.readings]]
-label = "llama.cpp quantization types — the complete quant-type reference with quality benchmarks"
-url = "https://github.com/ggerganov/llama.cpp/blob/master/examples/quantize/quantize.cpp"
-
-[[lessons.readings]]
-label = "QLoRA paper — the 4-bit training scheme that makes quantization-tolerant adapters possible"
-url = "https://arxiv.org/abs/2305.14314"
+label = "llama.cpp quantization guide"
+url = "https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md"
 
 [[lessons.exercises]]
 id = "s09-l03-e1"
 type = "mc"
 points = 20
-prompt = "Per this rite and the fifth rite's memory-budget lesson, why is q4_k_m the recommended quant type for the homunculus rather than q4_0 or q8_0?"
-choices = [
-  "q4_k_m allocates more bits to critical layers (attention output projections, embedding layer, output head) and fewer to intermediate MLP layers while averaging 4 bits per weight — it achieves nearly q8_0 output quality at nearly q4_0 file size. Additionally, the homunculus's adapter was trained on a 4-bit base during the binding rite, so the adapter weights are already optimized for quantized inference: re-quantizing the merged model returns it to the precision regime the adapter was designed for",
-  "q4_k_m uses a vector-quantization scheme with a codebook of 16 prototype values per block — the codebook is shared across layers and acts as a regularizer that suppresses overfitting artifacts in the adapter weights, producing a quantized model whose output is often better than the unquantized FP16 baseline",
-  "q4_k_m discards the metadata header after quantization and reconstructs it at load time from the model's architecture fingerprint — the resulting file is 30% smaller than q4_0 because the header, not the weights, dominates GGUF file size for models under 10B parameters",
-  "q4_k_m quantizes the attention projection layers to 4 bits but leaves the MLP layers at FP16 precision — the attention layers dominate VRAM usage during generation through the KV cache, so quantizing them produces the largest memory savings, while keeping MLP layers at full precision preserves the model's general knowledge"
-]
+prompt = "What does the file-size ratio prove?"
+choices = ["Only a broad artifact sanity check, not output quality", "The style score", "The policy boundary", "The adapter was trained"]
 answer = 0
-whyWrong = "q4_k_m does not use a vector-quantization codebook (it uses block-wise importance-weighted scalar quantization — per-block scale factors, not a shared codebook, and it never improves on FP16 quality because quantization is lossy, not regularization), the metadata header is negligible (~1 MB vs gigabytes of weights — discarding it saves essentially nothing), and q4_k_m does not leave MLP layers at full precision (all layers are quantized; the bit allocation varies by layer importance, not by layer type — MLP intermediate layers get fewer bits, but they are still quantized, not kept at FP16). The correct answer: importance-weighted bit allocation (more bits for critical layers) plus the adapter's QLoRA compatibility (trained on 4-bit, optimized for 4-bit inference)."
-hint = "The lesson says q4_k_m 'allocates more bits to important layers' and that the adapter 'was optimized to shift a quantized model's output' because it was trained on a 4-bit base. The correct choice combines both: the importance-weighted scheme AND the adapter's QLoRA provenance making it robust to re-quantization."
-explain = "The binding rite's choice of QLoRA-as-training-method was not just about fitting training into 16 GB VRAM — it also made the resulting adapter quantization-tolerant. An adapter trained on a full-precision base would have learned weight shifts that assume FP16 precision; quantizing those shifts to 4 bits could erase small but important deltas. An adapter trained on a 4-bit base learned its weight shifts in the same quantized regime it will be served in, so the quantization step is a return to familiar ground rather than a new distortion."
+whyWrong = "Behavior and training provenance require their own reports; bytes cannot measure them."
+explain = "Quantized output must still pass endpoint evaluation."
+hint = "A smaller valid file can still be a worse model."
 
 [[lessons.exercises]]
 id = "s09-l03-e2"
 type = "text"
-points = 18
-prompt = "Per this rite, what is the name of the compiled C++ binary (distributed with llama.cpp, not a Python script) that quantizes an FP16 GGUF file into a q4_k_m GGUF file?"
-answer = "llama-quantize"
-accept = ["llama-quantize", "llama_quantize", "llama quantize", "llamaquantize"]
-hint = "The lesson states the tool name and command: './llama-quantize homunculus-f16.gguf homunculus-q4_k_m.gguf q4_k_m.' It is a compiled binary shipped with the llama.cpp build, not a Python script."
+points = 15
+prompt = "What exact quant type does the starting artifact use?"
+answer = "Q4_K_M"
+accept = ["q4_k_m", "Q4_K_M"]
+hint = "Use the spelling passed to llama-quantize."
 
 [[lessons.exercises]]
 id = "s09-l03-e3"
 type = "fill"
 points = 20
-prompt = "Fill the missing quant type argument in the quantization command — the k-quant medium level that allocates more bits to critical layers and fewer to intermediate ones, and was assumed by the fifth rite's capstone VRAM budget calculation."
-code = '''./llama-quantize homunculus-f16.gguf \\
-    homunculus-q4_k_m.gguf \\
-    ____'''
-answer = "q4_k_m"
-accept = ["q4_k_m"]
-hint = "The lesson states the command as './llama-quantize homunculus-f16.gguf homunculus-q4_k_m.gguf q4_k_m.' The third argument — the quant type — is q4_k_m, the k-quant medium scheme that the fifth rite's VRAM budget lesson selected as the default quant level."
+prompt = "Complete the upper sanity bound for quantized/F16 byte ratio."
+code = "ratio <= ____"
+answer = "0.45"
+accept = ["0.45", "45%"]
+hint = "The broad range begins at 20 percent and ends at 45 percent."
 
 [[lessons.exercises]]
 id = "s09-l03-e4"
-type = "mc"
-points = 20
-prompt = "Per this rite and the fifth rite's bits-per-weight lesson, approximately what compression ratio does q4_k_m achieve relative to the unquantized FP16 GGUF, and why is the practical ratio slightly less than the theoretical 4×?"
-choices = [
-  "Approximately 8× — the q4_k_m scheme quantizes from 32 bits per weight (the FP32 precision the original base model was trained in) down to 4 bits, and the FP16 intermediate format is transparent to the quantizer because llama-quantize reads the weights as 32-bit values regardless of the storage format",
-  "Approximately 2× — only the attention projection weights (q, k, v, o) are quantized to 4 bits; the MLP layers, embedding table, and output head remain at FP16 precision, producing an average of roughly 8 bits per weight across the entire model",
-  "Approximately 3× — the q4_k_m scheme requires an additional 1.33 bits per weight on average for per-block scale factors and minimum values, giving an effective 5.33 bits per weight vs 16 bits FP16, which yields 16 / 5.33 ≈ 3× compression",
-  "Approximately 4× — 16 bits per weight ÷ 4 bits per weight = 4× theoretical. The practical ratio is slightly less because q4_k_m stores per-block scale factors (one FP16 value per 32-weight block ≈ 0.5 bits per weight overhead) and because the fixed-size metadata header (~1 MB) is constant regardless of quant level, adding a larger relative overhead to the smaller quantized file"
-]
-answer = 3
-whyWrong = "q4_k_m does not quantize from FP32 (llama-quantize reads the actual storage format — FP16 weights as 16-bit values — and the 4 bits are derived from the stored precision; the ratio is 16/4=4×, not 32/4=8×). The quantization applies to all layers, not just attention projections (the non-uniform bit allocation means MLP layers get slightly fewer bits than attention layers, but all layers are quantized — no layer stays at FP16). And the per-block overhead is approximately 0.5 bits per weight (one FP16 scale factor ÷ 32 weights = 16/32 = 0.5), not 1.33 bits. The correct answer: 16÷4=4× theoretically, with a small practical reduction from per-block scale factors (~0.5 bits/weight overhead) and the fixed metadata header."
-hint = "The lesson's FIELD NOTES calculate the output size as 'params × 4.5 / 8 bytes ≈ 4.5 GB for an 8B model' — the 4.5 effective bits (not 4.0) accounts for the per-block overhead. 16 ÷ 4.5 ≈ 3.56× actual compression, slightly less than the 4× theoretical. The correct choice names this overhead and the fixed header as the reasons."
-explain = "The q4_k_m scheme's bit allocation is not uniform across the model — some layers get 3 bits, critical layers get 6 bits, the average is 4 bits per weight. But the per-block metadata (one FP16 scale factor per block of 32 weights = 16/32 = 0.5 extra bits per weight) raises the effective bit count slightly above 4. The practical file size is ~4.5 GB for an 8B model, compared to ~16 GB for FP16 — a 3.6× reduction, not quite 4×. The difference is small in absolute terms but matters when comparing quant levels: q8_0 at 8.5 effective bits/weight = ~8.5 GB, q5_k_m at ~5.5 effective bits = ~5.5 GB."
-
-[[lessons.exercises]]
-id = "s09-l03-e5"
 type = "write"
-points = 33
-prompt = "Compute the quantized GGUF file size. The FP16 GGUF file is <code>fp16_size_gb = 16.0</code> GB. Quantization at q4_k_m reduces the effective bits per weight from <code>bits_fp16 = 16</code> to <code>bits_quant = 4.5</code> (4 bits for the weights plus ~0.5 bits for per-block scale factors). The metadata header is <code>header_mb = 1</code> MB regardless of quant level. Print <code>QUANT &lt;v&gt; GB</code> where &lt;v&gt; is the quantized file size in GB, rounded to one decimal place. Compute from the FP16 size (scaling by the bit ratio) — don't hardcode."
-starter = '''fp16_size_gb = 16.0
-bits_fp16 = 16
-bits_quant = 4.5
-header_mb = 1
+points = 35
+prompt = "Compute the ratio and print exactly: RATIO 0.31 PASS"
+starter = '''f16_bytes = 16_000
+quant_bytes = 4_960
 
-# weight_bytes_fp16 = (fp16_size_gb * 1_000_000_000) - (header_mb * 1_000_000)
-# weight_bytes_quant = weight_bytes_fp16 * (bits_quant / bits_fp16)
-# total_bytes_quant = weight_bytes_quant + (header_mb * 1_000_000)
-# total_gb_quant = total_bytes_quant / 1_000_000_000
-# Print QUANT <v> GB rounded to one decimal place
-
-print("QUANT 0.0 GB")
+ratio = 0
+status = "FAIL"
+print(f"RATIO {ratio:.2f} {status}")
 '''
-expect = "QUANT 4.5 GB"
-hint = "weight_bytes_fp16 = 16_000_000_000 - 1_000_000 = 15_999_000_000. weight_bytes_quant = 15_999_000_000 * (4.5 / 16.0) = 15_999_000_000 * 0.28125 = 4_499_718_750. total_bytes_quant = 4_499_718_750 + 1_000_000 = 4_500_718_750. total_gb = 4_500_718_750 / 1_000_000_000 = 4.50071875. round(total_gb, 1) = 4.5 GB. Print f'QUANT {round(total_gb, 1)} GB'."
+solution = '''f16_bytes = 16_000
+quant_bytes = 4_960
+
+ratio = quant_bytes / f16_bytes
+status = "PASS" if 0.20 <= ratio <= 0.45 else "FAIL"
+print(f"RATIO {ratio:.2f} {status}")
+'''
+expect = "RATIO 0.31 PASS"
+hint = "Divide quantized bytes by F16 bytes, then apply both range bounds."

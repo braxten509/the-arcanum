@@ -1,36 +1,37 @@
 [freestyle]
-title = "THE WORKING: The Scales of Trust"
-brief = "The judgment core: a <code>TrustEngine</code> that turns raw <code>SearchResult</code>s plus your Chapter V trust database into a re-ranked, deduplicated, filtered list.<ul><li>Extract the domain from each URL (Uri class); look up its TrustProfile (unknown → Unverified default)</li><li>Compute a final score via an <strong>extension method</strong> <code>ComputeTrust(this TrustProfile)</code> (base score + at least two modifiers, capped at 10)</li><li>Attach scores, <code>DistinctBy</code> URL, filter below config's min_trust, order descending, take max_sources</li><li>A <code>rank</code> demo command showing before/after like the milestone — plus a per-tier <code>GroupBy</code> summary line</li></ul>THORNE wants LINQ pipelines, not nested foreach pyramids."
+title = "THE WORKING: The Source Admission Ward"
+requires = ["json-config", "lambdas-delegates", "linq-advanced", "extension-methods", "deferred-execution", "uri-validation", "source-policy"]
+brief = "Add <code>SourcePolicy.cs</code> to the evolving project.<ul><li>Accept only <code>SourceSpec</code> values already present in the validated <code>AppConfig</code>. When <code>--source LABEL</code> values are supplied, match those labels case-insensitively; when none are supplied, select all configured sources.</li><li>Validate web URLs as absolute HTTP/HTTPS and fixture URLs as <code>mock://</code>. Reject malformed entries before fetching.</li><li>Deduplicate exact URLs case-insensitively and materialize once with <code>ToList</code>. Preserve configuration order in all-sources mode and user request order in explicit mode.</li><li>If a requested label is absent, stop with a message naming it. Never search for a substitute, infer a domain score, or ask Ollama which source is authoritative.</li><li>Demonstrate all-sources mode, two-label ordering, duplicate URLs, and an unknown label with local records.</li><li>Run <code>dotnet build</code> before wiring this policy into later networking.</li></ul>"
 reward = 450
 packages = []
-xray = "THORNE's traps: a result list with the same URL twice (DistinctBy or bust), a URL like \"not a url\" (new Uri throws — did you catch it?), and a domain absent from the trust DB (TryGetValue or GetValueOrDefault, not indexer). He counts your foreach loops — more than one where LINQ obviously fits costs style points. Secret bonus: naming the pipeline steps with intermediate variables instead of one 8-line chain."
+xray = "THORNE requests one mixed-case label, repeats a URL, adds a malformed web address, and names a source not in config. He expects a small deterministic policy—not search, guessed trust, or a silent substitute."
 
 [freestyle.badge]
 id = "badge-s07"
-name = "KEEPER OF THE SCALES"
-desc = "The tome now ranks the world by who deserves belief, not who shouts loudest."
+name = "KEEPER OF THE SHELVES"
+desc = "Bound the working to sources the seeker actually chose."
 
 [[freestyle.rubric]]
-criterion = "Compiles & correct ranking"
-weight = 20
-desc = "Demo shows ietf.org beating medium.com regardless of search order."
-
-[[freestyle.rubric]]
-criterion = "Extension method design"
-weight = 20
-desc = "Proper static class/this-param; modifiers sensible; capped; unit-testable shape."
-
-[[freestyle.rubric]]
-criterion = "LINQ fluency"
+criterion = "Configured-only admission"
 weight = 25
-desc = "Pipeline uses Where/OrderByDescending/DistinctBy/Take/GroupBy appropriately; no foreach-and-temp-list where LINQ fits."
+desc = "Every selected source originates in AppConfig; unknown requested labels produce a clear failure."
 
 [[freestyle.rubric]]
-criterion = "Lazy-evaluation awareness"
-weight = 15
-desc = "ToList at boundaries; no accidental multiple enumeration of expensive steps."
-
-[[freestyle.rubric]]
-criterion = "Robustness & readability"
+criterion = "URI rules"
 weight = 20
-desc = "Bad URLs handled (Uri can throw); unknown domains defaulted; clear names; engine in its own file."
+desc = "Web and LocalFixture kinds enforce their distinct absolute URI schemes before fetching."
+
+[[freestyle.rubric]]
+criterion = "LINQ boundary"
+weight = 20
+desc = "Selection, case-insensitive URL deduplication, stable input ordering, and one final ToList are readable and not multiply enumerated."
+
+[[freestyle.rubric]]
+criterion = "Trust ownership"
+weight = 20
+desc = "No discovered substitute, inferred domain authority, or AI-authored trust enters the selected list."
+
+[[freestyle.rubric]]
+criterion = "C# craft"
+weight = 15
+desc = "PascalCase types and methods, camelCase locals, four-space indentation, Allman braces, and short policy helpers."

@@ -21,6 +21,280 @@ print(f"TARGET gfx1201")
 cuts = [1, 2, 3]
 
 [[challenge]]
+tier = 1
+title = "THE READINESS LEDGER"
+starter = '''
+checks = {"rocm": True, "torch": True, "ollama": False}
+# Read the doctor's ledger without guessing.
+'''
+briefs = [
+    "Count all checks. Print exactly: «CHECKS 3»",
+    "Count successful checks. Append: «PASSED 2»",
+    "Print the failed check's name. Append: «FAILED ollama»"
+]
+solution = '''
+checks = {"rocm": True, "torch": True, "ollama": False}
+print(f"CHECKS {len(checks)}")
+print(f"PASSED {sum(checks.values())}")
+failed = [name for name, passed in checks.items() if not passed]
+print(f"FAILED {failed[0]}")
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 1
+title = "THE BASELINE PROMPTS"
+starter = '''
+cases = ["voice-01", "format-01", "privacy-01", "rag-01"]
+# Inventory the frozen judgment set.
+'''
+briefs = [
+    "Count the cases. Print exactly: «CASES 4»",
+    "Print the first identifier. Append: «FIRST voice-01»",
+    "Count identifiers ending in -01. Append: «VERSIONED 4»"
+]
+solution = '''
+cases = ["voice-01", "format-01", "privacy-01", "rag-01"]
+print(f"CASES {len(cases)}")
+print(f"FIRST {cases[0]}")
+print(f"VERSIONED {sum(1 for case in cases if case.endswith('-01'))}")
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 2
+title = "THE FROZEN BASELINE"
+starter = '''
+records = [
+    {"id": "voice-01", "sha": "a1"},
+    {"id": "format-01", "sha": "b2"},
+]
+# Prove the suite has stable identities.
+'''
+briefs = [
+    "Count records. Print exactly: «RECORDS 2»",
+    "Join their IDs with a comma. Append: «IDS voice-01,format-01»",
+    "Confirm every record has a hash. Append: «HASHED True»"
+]
+solution = '''
+records = [
+    {"id": "voice-01", "sha": "a1"},
+    {"id": "format-01", "sha": "b2"},
+]
+print(f"RECORDS {len(records)}")
+print(f"IDS {','.join(record['id'] for record in records)}")
+print(f"HASHED {all(record.get('sha') for record in records)}")
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 2
+title = "THE DETERMINISTIC SAMPLE"
+starter = '''
+settings = {"temperature": 0, "seed": 42, "num_predict": 128}
+# Describe the reproducible baseline call.
+'''
+briefs = [
+    "Print the temperature. Print exactly: «TEMPERATURE 0»",
+    "Print the seed. Append: «SEED 42»",
+    "Confirm deterministic sampling. Append: «DETERMINISTIC True»"
+]
+solution = '''
+settings = {"temperature": 0, "seed": 42, "num_predict": 128}
+print(f"TEMPERATURE {settings['temperature']}")
+print(f"SEED {settings['seed']}")
+print(f"DETERMINISTIC {settings['temperature'] == 0}")
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 3
+title = "THE HEADROOM PROOF"
+starter = '''
+capacity_gb = 16.0
+peak_gb = 13.4
+required_gb = 1.0
+# Measure, then judge.
+'''
+briefs = [
+    "Compute free memory. Print exactly: «FREE 2.6 GB»",
+    "Print the required reserve. Append: «REQUIRED 1.0 GB»",
+    "Judge the run. Append: «HEADROOM PASS»"
+]
+solution = '''
+capacity_gb = 16.0
+peak_gb = 13.4
+required_gb = 1.0
+free_gb = capacity_gb - peak_gb
+print(f"FREE {free_gb:.1f} GB")
+print(f"REQUIRED {required_gb:.1f} GB")
+print(f"HEADROOM {'PASS' if free_gb >= required_gb else 'FAIL'}")
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 3
+title = "THE TRAINING BUDGET"
+starter = '''
+parts = {"base": 5.2, "activations": 4.8, "adapter": 0.2, "reserve": 1.5}
+# Total the planned occupancy.
+'''
+briefs = [
+    "Count budget parts. Print exactly: «PARTS 4»",
+    "Sum the planned memory. Append: «PLANNED 11.7 GB»",
+    "Check it against 16 GB. Append: «FITS True»"
+]
+solution = '''
+parts = {"base": 5.2, "activations": 4.8, "adapter": 0.2, "reserve": 1.5}
+planned = sum(parts.values())
+print(f"PARTS {len(parts)}")
+print(f"PLANNED {planned:.1f} GB")
+print(f"FITS {planned <= 16}")
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 4
+title = "THE SOURCE-LEVEL SPLIT"
+starter = '''
+rows = [
+    {"source": "page-a", "split": "train"},
+    {"source": "page-a", "split": "train"},
+    {"source": "page-b", "split": "eval"},
+]
+# Detect cross-split source leakage.
+'''
+briefs = [
+    "Count rows. Print exactly: «ROWS 3»",
+    "Count unique sources. Append: «SOURCES 2»",
+    "Confirm each source uses one split. Append: «LEAKAGE False»"
+]
+solution = '''
+rows = [
+    {"source": "page-a", "split": "train"},
+    {"source": "page-a", "split": "train"},
+    {"source": "page-b", "split": "eval"},
+]
+sources = {row['source'] for row in rows}
+split_sets = {source: {row['split'] for row in rows if row['source'] == source} for source in sources}
+print(f"ROWS {len(rows)}")
+print(f"SOURCES {len(sources)}")
+print(f"LEAKAGE {any(len(splits) > 1 for splits in split_sets.values())}")
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 4
+title = "THE ONE-STEP WITNESS"
+starter = '''
+result = {"steps": 1, "peak_gb": 13.2, "adapter_saved": True}
+# Decide whether the dry run is evidence.
+'''
+briefs = [
+    "Print completed steps. Print exactly: «STEPS 1»",
+    "Print peak memory. Append: «PEAK 13.2 GB»",
+    "Require one step, saved adapter, and peak below 15 GB. Append: «DRY PASS»"
+]
+solution = '''
+result = {"steps": 1, "peak_gb": 13.2, "adapter_saved": True}
+print(f"STEPS {result['steps']}")
+print(f"PEAK {result['peak_gb']:.1f} GB")
+passed = result['steps'] == 1 and result['adapter_saved'] and result['peak_gb'] < 15
+print(f"DRY {'PASS' if passed else 'FAIL'}")
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 5
+title = "THE DOCUMENT QUERY"
+starter = '''
+api_calls = ["encode_document", "encode_document", "encode_query"]
+# Verify asymmetric embedding intent.
+'''
+briefs = [
+    "Count all calls. Print exactly: «CALLS 3»",
+    "Count document encodes. Append: «DOCUMENTS 2»",
+    "Count query encodes. Append: «QUERIES 1»"
+]
+solution = '''
+api_calls = ["encode_document", "encode_document", "encode_query"]
+print(f"CALLS {len(api_calls)}")
+print(f"DOCUMENTS {api_calls.count('encode_document')}")
+print(f"QUERIES {api_calls.count('encode_query')}")
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 5
+title = "THE CITED RETURN"
+starter = '''
+results = [
+    {"score": 0.82, "source": "typography.md"},
+    {"score": 0.71, "source": "notes.md"},
+]
+# Preserve ranking and provenance.
+'''
+briefs = [
+    "Print the top score. Print exactly: «TOP 0.82»",
+    "Print the top source. Append: «SOURCE typography.md»",
+    "Confirm every result is citeable. Append: «CITEABLE True»"
+]
+solution = '''
+results = [
+    {"score": 0.82, "source": "typography.md"},
+    {"score": 0.71, "source": "notes.md"},
+]
+print(f"TOP {results[0]['score']:.2f}")
+print(f"SOURCE {results[0]['source']}")
+print(f"CITEABLE {all(result.get('source') for result in results)}")
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 6
+title = "THE SERVED REGRESSION"
+starter = '''
+stages = {"adapter": True, "merged": True, "served": False}
+# Find the first boundary that changed behavior.
+'''
+briefs = [
+    "Count stages. Print exactly: «STAGES 3»",
+    "Count passing stages. Append: «PASSED 2»",
+    "Print the failing boundary. Append: «FAILED served»"
+]
+solution = '''
+stages = {"adapter": True, "merged": True, "served": False}
+print(f"STAGES {len(stages)}")
+print(f"PASSED {sum(stages.values())}")
+failed = [stage for stage, passed in stages.items() if not passed]
+print(f"FAILED {failed[0]}")
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
+tier = 6
+title = "THE REBUILD MANIFEST"
+starter = '''
+expected = {"adapter": "a1", "rag": "b2", "policy": "c3"}
+rebuilt = {"adapter": "a1", "rag": "b2", "policy": "c3"}
+# Compare immutable identities.
+'''
+briefs = [
+    "Count expected components. Print exactly: «COMPONENTS 3»",
+    "Count matching hashes. Append: «MATCHES 3»",
+    "Declare the fresh rebuild verdict. Append: «REBUILD PASS»"
+]
+solution = '''
+expected = {"adapter": "a1", "rag": "b2", "policy": "c3"}
+rebuilt = {"adapter": "a1", "rag": "b2", "policy": "c3"}
+matches = sum(rebuilt.get(name) == digest for name, digest in expected.items())
+print(f"COMPONENTS {len(expected)}")
+print(f"MATCHES {matches}")
+print(f"REBUILD {'PASS' if matches == len(expected) else 'FAIL'}")
+'''
+cuts = [1, 2, 3]
+
+[[challenge]]
 tier = 2
 title = "THE TENSOR SLICE"
 starter = '''
@@ -160,19 +434,20 @@ cuts = [1, 2, 3]
 tier = 4
 title = "THE MASK DIAGNOSTIC"
 starter = '''
-initial_loss = 0.05
-# The Distiller warns of the overfit rot.
+labels = [-100, -100, 41, 42, 43]
+# Inspect the actual completion-only supervision boundary.
 '''
 briefs = [
-    "Print the initial loss. Print exactly: «LOSS 0.05»",
-    "Check if loss < 0.1. Append: «SUSPICIOUS True»",
-    "Declare the failure mode. Append: «MODE MASK FAILURE»"
+    "Count all label positions. Print exactly: «LABELS 5»",
+    "Count labels that are not -100. Append: «SUPERVISED 3»",
+    "Confirm that both ignored and supervised tokens exist. Append: «BOUNDARY True»"
 ]
 solution = '''
-initial_loss = 0.05
-print(f"LOSS {initial_loss}")
-print(f"SUSPICIOUS {initial_loss < 0.1}")
-print(f"MODE MASK FAILURE")
+labels = [-100, -100, 41, 42, 43]
+supervised = sum(1 for label in labels if label != -100)
+print(f"LABELS {len(labels)}")
+print(f"SUPERVISED {supervised}")
+print(f"BOUNDARY {0 < supervised < len(labels)}")
 '''
 cuts = [1, 2, 3]
 
@@ -231,20 +506,20 @@ cuts = [1, 2, 3]
 tier = 5
 title = "THE CHUNK STRIDE"
 starter = '''
-chunk_size = 512
-overlap = 64
-total_tokens = 1000
+chunk_size = 200
+overlap = 30
+total_tokens = 500
 # The Distiller commands you to portion the quintessence.
 '''
 briefs = [
-    "Calculate the effective stride (size - overlap). Print exactly: «STRIDE 448»",
-    "Calculate the start of the second chunk. Append: «CHUNK_2_START 448»",
-    "Calculate the start of the third chunk. Append: «CHUNK_3_START 896»"
+    "Calculate the effective stride (size - overlap). Print exactly: «STRIDE 170»",
+    "Calculate the start of the second chunk. Append: «CHUNK_2_START 170»",
+    "Calculate the start of the third chunk. Append: «CHUNK_3_START 340»"
 ]
 solution = '''
-chunk_size = 512
-overlap = 64
-total_tokens = 1000
+chunk_size = 200
+overlap = 30
+total_tokens = 500
 stride = chunk_size - overlap
 print(f"STRIDE {stride}")
 print(f"CHUNK_2_START {stride}")
@@ -280,18 +555,18 @@ cuts = [1, 2, 3]
 tier = 6
 title = "THE ALIGNMENT SEAL"
 starter = '''
-base_model = "homunculus-base"
-adapter_path = "distilled-lore"
+base_model = "Qwen3-8B"
+adapter_path = "artifacts/adapter"
 # The artificer must merge the final vessel.
 '''
 briefs = [
-    "Print the base model name. Print exactly: «BASE homunculus-base»",
-    "Print the adapter path. Append: «ADAPTER distilled-lore»",
-    "State the merged identifier. Append: «MERGED homunculus-base+distilled-lore»"
+    "Print the base model name. Print exactly: «BASE Qwen3-8B»",
+    "Print the adapter path. Append: «ADAPTER artifacts/adapter»",
+    "State the merged identifier. Append: «MERGED Qwen3-8B+artifacts/adapter»"
 ]
 solution = '''
-base_model = "homunculus-base"
-adapter_path = "distilled-lore"
+base_model = "Qwen3-8B"
+adapter_path = "artifacts/adapter"
 print(f"BASE {base_model}")
 print(f"ADAPTER {adapter_path}")
 print(f"MERGED {base_model}+{adapter_path}")
@@ -302,21 +577,21 @@ cuts = [1, 2, 3]
 tier = 6
 title = "THE QUANTIZATION COMPROMISE"
 starter = '''
-fp16_size = 14.0
-target_format = "q8_0"
+fp16_size = 16.0
+target_format = "Q4_K_M"
 # Prepare the vessel for serving.
 '''
 briefs = [
-    "State the original size. Print exactly: «ORIGINAL 14.0 GB»",
-    "State the target format. Append: «FORMAT q8_0»",
-    "Calculate 8-bit size (half of 16-bit). Append: «SERVED 7.0 GB»"
+    "State the original size. Print exactly: «ORIGINAL 16.0 GB»",
+    "State the target format. Append: «FORMAT Q4_K_M»",
+    "Estimate 4-bit size as one quarter of F16. Append: «SERVED 4.0 GB»"
 ]
 solution = '''
-fp16_size = 14.0
-target_format = "q8_0"
+fp16_size = 16.0
+target_format = "Q4_K_M"
 print(f"ORIGINAL {fp16_size} GB")
 print(f"FORMAT {target_format}")
-print(f"SERVED {fp16_size / 2} GB")
+print(f"SERVED {fp16_size / 4} GB")
 '''
 cuts = [1, 2, 3]
 
@@ -324,21 +599,21 @@ cuts = [1, 2, 3]
 tier = 6
 title = "THE OLLAMA MODIFICATION"
 starter = '''
-gguf_path = "homunculus-q8.gguf"
-system_ward = "Act as the Distiller."
-# Construct the final Modelfile.
+gguf_path = "homunculus-q4_k_m.gguf"
+temperature = 0.2
+# Keep the GGUF's embedded Qwen template.
 '''
 briefs = [
-    "State the FROM directive. Print exactly: «FROM homunculus-q8.gguf»",
-    "State the SYSTEM directive. Append: «SYSTEM Act as the Distiller.»",
-    "State the PARAM temperature. Append: «PARAMETER temperature 0.7»"
+    "State the FROM directive. Print exactly: «FROM homunculus-q4_k_m.gguf»",
+    "State the sampling parameter. Append: «PARAMETER temperature 0.2»",
+    "Confirm no guessed template was added. Append: «NATIVE_TEMPLATE True»"
 ]
 solution = '''
-gguf_path = "homunculus-q8.gguf"
-system_ward = "Act as the Distiller."
+gguf_path = "homunculus-q4_k_m.gguf"
+temperature = 0.2
 print(f"FROM {gguf_path}")
-print(f"SYSTEM {system_ward}")
-print(f"PARAMETER temperature 0.7")
+print(f"PARAMETER temperature {temperature}")
+print(f"NATIVE_TEMPLATE {True}")
 '''
 cuts = [1, 2, 3]
 
@@ -389,16 +664,16 @@ cuts = [1, 2, 3]
 tier = 1
 title = "THE MAP READ ALOUD"
 starter = '''
-config = {"base": "qwen2.5", "rank": 8}
+config = {"base": "Qwen3-8B", "rank": 16}
 # Read the map, then forge a name from its parts.
 '''
 briefs = [
-    "Read the base. Print exactly: «BASE qwen2.5»",
-    "Read the rank. Append: «RANK 8»",
-    "Forge the adapter path. Append: «PATH adapters/qwen2.5_rank-8»"
+    "Read the base. Print exactly: «BASE Qwen3-8B»",
+    "Read the rank. Append: «RANK 16»",
+    "Forge the adapter path. Append: «PATH adapters/Qwen3-8B_rank-16»"
 ]
 solution = '''
-config = {"base": "qwen2.5", "rank": 8}
+config = {"base": "Qwen3-8B", "rank": 16}
 print(f"BASE {config['base']}")
 print(f"RANK {config['rank']}")
 print(f"PATH adapters/{config['base']}_rank-{config['rank']}")

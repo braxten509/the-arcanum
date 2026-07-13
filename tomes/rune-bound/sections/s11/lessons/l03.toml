@@ -1,81 +1,115 @@
 [[lessons]]
 id = "s11-l03"
-title = "The Clean RuneBound Run"
-teaches = ["s11-final-integration","s11-acceptance-proof"]
+title = "The Final Traverse"
+teaches = ["s11-complete-state-integration", "s11-regression-suite-shipping", "s11-end-to-end-save-proof", "tool-deliver"]
 body = '''
-<p>s11-l03 opens the states and controls chart through Clean. s11-l03 hears THE CARTOGRAPHER name s11-final-integration its first bearing. s11-l03 names one input, one change, and one output. s11-l03 gives s11-acceptance-proof a second mark for comparison. s11-l03 keeps the smallest successful example beside its route.</p>
-<p>s11-l03 reads from left to right, then narrates state changes. s11-l03 keeps its states and controls clue concrete and observable. s11-l03 runs twice; the second pass challenges the first. s11-l03 records which owner moved when s11-final-integration shifted. s11-l03 borrows a neighboring trace without hiding its owner.</p>
-<p>s11-l03 asks one decision to stand alone in the margin. s11-l03 keeps s11-acceptance-proof visible instead of hiding it behind polish. s11-l03 tests a friendly case and a sharp edge case. s11-l03 compares both traces so s11-final-integration has a witness. s11-l03 names the failure before choosing a repair.</p>
-<p>s11-l03 treats each handoff as a contract between maker and reader. s11-l03 supplies s11-final-integration; the reader checks s11-acceptance-proof. s11-l03 places its check where another wayfinder can repeat it. s11-l03 earns THE CARTOGRAPHER's trust through evidence, not luck. s11-l03 leaves one deliberate question for the next chart.</p>
-<p>s11-l03 closes by stating what the program must preserve. s11-l03 names one input that could falsify s11-final-integration. s11-l03 names one output that confirms s11-acceptance-proof still belongs. s11-l03 runs the smallest route, inspects its trace, and annotates it. s11-l03 turns the states and controls chart into a RuneBound waypoint.</p>
-<p>s11-l03 ends with a handoff to the next chart. s11-l03 carries s11-acceptance-proof forward after s11-final-integration earns trust. s11-l03 lets THE CARTOGRAPHER record the result in plain language. s11-l03 turns a clean rerun from a guess into a fact. s11-l03 lets the next wayfinder begin without hidden context.</p>
-<pre><code>print("s11-l03 // The Clean RuneBound Run")</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // S11-L03</div><p>s11-l03 <strong>Evidence.</strong> Record s11-final-integration; compare it with s11-acceptance-proof before advancing.</p><p>s11-l03 <strong>Repair.</strong> Change one cause, rerun the route, and preserve the explanation.</p></div>
+<p>Now bind the routes into one finished traverse, wayfinder. In PLAYING, preserve the earlier execution order: held keys feed <code>player.handle_input(keys)</code>; <code>player.move_and_collide(tile_map, dt)</code> resolves world-pixel motion; pickups and dialogue/combat transitions record facts; <code>quest_log.update(player, combat_flags, dialogue_flags)</code> collects only new completions; then actors update, the camera follows the resolved Player, and world layers draw. When an overlap starts combat, set <code>active_combat</code> and enter <code>COMBAT</code> before accepting another movement route. The state dispatcher changes routing; it does not replace the owners s06–s10 already established.</p>
+<p>COMBAT still pumps QUIT and routes only A/D/F to <code>active_combat.player_action</code>. When its result is <code>"won"</code>, retain the combat flag, remove the defeated Enemy from <code>actors</code>, update quests, show the existing one-time receipt, clear <code>active_combat</code>, and return to PLAYING. A flee clears it and returns to PLAYING with the enemy still present. A loss preserves the result for the final message, clears the manager, and enters GAME_OVER. The game-over panel must offer N for <code>reset_new_game()</code> and T for TITLE; it must not revive the old Player merely by repainting the HUD.</p>
+<p>Move the development probes named in the plan—such as <code>test_tilemap.py</code> and <code>test_combat.py</code>—into <code>tests/</code> at the RuneBound project root. Do not leave their test calls in <code>main.py</code>; the shipped entry point begins with setup and TITLE. Keep tests runnable as regression evidence, for example <code>python3 tests/test_tilemap.py</code> and <code>python3 tests/test_combat.py</code>, and add a short README section naming each command and what contract it protects. These tests are intentionally shipped, not temporary debris.</p>
+<pre><code>def draw_active_state(screen):
+    if screen_state is ScreenState.TITLE:
+        draw_title(screen)
+    else:
+        tile_map.render(screen, camera)
+        draw_world_actors(screen)
+        draw_hud(screen, player, quest_log, gold, render_text)
+        if screen_state is ScreenState.PAUSED:
+            draw_pause(screen)
+        elif screen_state is ScreenState.INVENTORY:
+            draw_inventory(screen, player.inventory, items, render_text)
+        elif screen_state is ScreenState.QUEST_LOG:
+            draw_quest_log(screen, quest_log, render_text)
+        elif screen_state is ScreenState.COMBAT:
+            draw_combat_panel(screen, active_combat)
+        elif screen_state is ScreenState.GAME_OVER:
+            draw_game_over(screen)</code></pre>
+<p>Adapt names such as <code>draw_world_actors</code>, <code>draw_title</code>, and <code>draw_combat_panel</code> to your existing helpers; they label required routes rather than license duplicate renderers. Each screen-pixel UI helper remains above the world and before the sole flip. Do not render an old inventory/quest Boolean branch after this dispatch: the enum is now their single selector.</p>
+<p>Perform the final proof from the RuneBound project folder. With no <code>save.json</code>, run <code>python3 main.py</code>, choose New Game, walk ten tiles east into the map edge, speak through three Elder nodes, defeat the Slime with two attacks while observing one enemy response, collect Potion, inspect I and Q, save, quit, relaunch, and choose Load Game. Confirm world position, HP, inventory order, quest completion, dialogue flags, combat flags, current map variant, and gold. Also choose Load with a missing and a malformed save, confirming TITLE remains usable. Record each command, observation, and precise repair or explicit no-repair in <code>README.md</code>.</p>
+<p>Deliver the source project rather than an executable: hand over <code>main.py</code>, every named module, <code>data/</code>, <code>assets/</code>, <code>tests/</code>, and README together. On a second local Python + PyGame setup, follow README’s install command, run <code>python3 main.py</code>, and repeat the clean-launch and save/load proof. This verifies a real deliverable without silently expanding the course into PyInstaller packaging, which is outside RuneBound’s stated scope.</p>
+<div class="callout"><strong>THE CARTOGRAPHER'S RULE:</strong> ship one entry route, one state selector, one presentation boundary, and regression tests that guard the old roads beneath the finished map.</div>
+<div class="field-notes"><div class="fn-head">SURVEY // TRACE THE FIRST STEP</div><p>On a clean launch, the first visible state is TITLE—not a test loop, overworld, or stale save restore. If a state panel appears behind actors, repair only draw order; if it appears twice, find the duplicate call rather than adding another flip.</p></div>
 '''
 
 [[lessons.readings]]
-label = "Python library // enum // The Clean RuneBound Run"
-url = "https://docs.python.org/3/library/enum.html"
+label = "Python Docs // unittest basics"
+url = "https://docs.python.org/3/library/unittest.html"
 
 [[lessons.readings]]
-label = "PyGame docs // display and event loop // The Clean RuneBound Run"
-url = "https://www.pygame.org/docs/"
+label = "PyGame Docs // display.flip"
+url = "https://www.pygame.org/docs/ref/display.html#pygame.display.flip"
 
 [[lessons.exercises]]
 id = "s11-l03-e1"
 type = "mc"
-points = 14
-prompt = '''
-<p>Which result closes the RuneBound commission? Select the reading that keeps runebound is ready to leave the study as a playable single-player artifact possible.</p>
-'''
-choices = ["a title screen appears with no playable route","The Clean RuneBound Run: keep s11-final-integration owned by the named boundary and verify the result before handoff s11-l03-e1.","the game prints a completion word without opening a window","one isolated combat function passes while save/load is untested"]
-answer = 1
-whyWrong = '''
-The tempting routes confuse calling the world complete because each isolated screen works while the handoffs lose state with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace ten tiles of movement, Elder dialogue, Slime combat, Potion pickup, quest progress, and a relaunch in the Bound World chart, then compare the integration is proven by behavior across state changes, not by a menu that merely opens with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves integration is proven by behavior across state changes, not by a menu that merely opens and leaves ten tiles of movement, elder dialogue, slime combat, potion pickup, quest progress, and a relaunch available for the next RuneBound handoff.
-'''
+points = 22
+prompt = '''<p>After a combat manager finishes with <code>result == "won"</code>, which sequence preserves the established owners?</p>'''
+choices = ["Let the HUD remove the enemy and invent a quest completion", "Set every screen state to PLAYING before recording the result", "Record the combat flag, remove the defeated enemy, update quests, clear the manager, then return to PLAYING", "Keep the manager active and poll arrow keys for attacks"]
+answer = 2
+hint = '''A win is a fact from CombatSystem; quest transitions are still evaluated by QuestLog, and the dispatcher chooses the next route only after that work.''' 
+whyWrong = '''The HUD is read-only, skipping the combat fact loses quest evidence, and an inactive manager should not keep receiving actions. The ordered transition preserves each system’s narrow responsibility.''' 
+explain = '''The dispatcher connects the systems without moving combat, quest, or UI ownership into one giant branch.''' 
 
 [[lessons.exercises]]
 id = "s11-l03-e2"
-type = "text"
-points = 16
-prompt = '''
-<p>s11-l03-e2: name the Python term for the specific unit requested by this chart. Supply the language term, not the surrounding story label.</p>
+type = "fill"
+points = 24
+prompt = '''<p>Restore the final presentation call after the state-specific draw route. It remains exactly once per frame.</p>'''
+code = '''
+draw_active_state(screen)
+pygame.display.____()
+dt = clock.tick(FPS) / 1000.0
 '''
-answer = "repeatable"
-hint = '''
-Recall the named boundary in The Clean RuneBound Run; the answer is the language term for that single job, not the larger game feature.
-'''
+answer = "flip"
+hint = '''s03 established the display call that presents the completed back buffer.''' 
+whyWrong = '''<code>update</code> is not this course’s presentation boundary and <code>blit</code> belongs to a Surface. One final flip preserves the established layer order.''' 
 
 [[lessons.exercises]]
 id = "s11-l03-e3"
-type = "fill"
-points = 18
-prompt = '''
-<p>s11-l03-e3: restore the missing operation in the supplied code. Use its operands and the chart evidence to complete the route without renaming the owner.</p>
-'''
-code = '''
-if __name__ == "____":
-'''
-answer = "main"
-hint = '''
-Look at what must happen to main.py starts clean, plays, saves, exits, loads, and compares restored facts; choose the operation that performs that job rather than the one that merely inspects the result.
-'''
+type = "text"
+points = 20
+prompt = '''<p>Where do the retained tile-map and combat regression scripts belong in the shipped RuneBound project?</p>'''
+answer = "tests/"
+accept = ["tests"]
+hint = '''They remain part of the project, but no longer execute from the game entry point.''' 
+whyWrong = '''Leaving test loops in <code>main.py</code> changes the first executable route, and deleting them loses regression evidence. The project-root test directory isolates checks from the playable entry point.''' 
 
 [[lessons.exercises]]
 id = "s11-l03-e4"
-type = "type"
-points = 10
-reps = 2
-prompt = '''
-<p>Retype this bound world evidence exactly. Keep ten tiles of movement, elder dialogue, slime combat, potion pickup, quest progress, and a relaunch visible while you write. (Ctrl+Enter submits.)</p>
+type = "write"
+points = 36
+prompt = '''<p>Model the final combat transition. With the supplied outcome <code>"lost"</code>, set the screen state to <code>GAME_OVER</code> and print exactly <code>STATE GAME_OVER</code> and <code>MANAGER None</code>.</p>'''
+starter = '''
+combat_result = "lost"
+screen_state = "COMBAT"
+active_combat = "manager"
+
+# Resolve the terminal result without returning to PLAYING.
 '''
-code = '''
-checks = ["position", "inventory", "quest", "dialogue", "hp"]
-print(len(checks))
+expect = '''
+STATE GAME_OVER
+MANAGER None
 '''
+solution = '''
+combat_result = "lost"
+screen_state = "COMBAT"
+active_combat = "manager"
+
+if combat_result == "lost":
+    screen_state = "GAME_OVER"
+    active_combat = None
+
+print("STATE", screen_state)
+print("MANAGER", active_combat)
+'''
+hint = '''The loss branch replaces COMBAT with GAME_OVER and clears the no-longer-active manager before both print calls.''' 
+
+[[lessons.exercises]]
+id = "s11-l03-e5"
+type = "mc"
+points = 22
+prompt = '''<p>Which clean-launch observation proves the final entry route is correct?</p>'''
+choices = ["A per-system test loop runs before PyGame initializes", "The game immediately restores any file without a menu choice", "The first visible screen is TITLE with New Game, Load Game, and Quit choices", "The inventory overlay is open before the event pump"]
+answer = 2
+hint = '''The finished artifact begins at a deliberate menu state, not a temporary development probe or implicit load.''' 
+whyWrong = '''Test loops belong under tests, loading remains an explicit menu action, and overlays require a PLAYING transition. TITLE is the finished first screen and supplies the player’s first choice.''' 
+explain = '''A clean start makes the state machine’s first executable promise visible and testable.''' 

@@ -1,100 +1,110 @@
 [[lessons]]
 id = "s09-l02"
 title = "The Pack Ledger"
-teaches = ["s09-inventory-collection","s09-inventory-api"]
+teaches = ["s09-inventory-api", "s09-stat-modifier-application"]
 body = '''
-<p>s09-l02 opens the items and inventory chart through Pack. s09-l02 hears THE CARTOGRAPHER name s09-inventory-collection its first bearing. s09-l02 names one input, one change, and one output. s09-l02 gives s09-inventory-api a second mark for comparison. s09-l02 keeps the smallest successful example beside its route.</p>
-<p>s09-l02 reads from left to right, then narrates state changes. s09-l02 keeps its items and inventory clue concrete and observable. s09-l02 runs twice; the second pass challenges the first. s09-l02 records which owner moved when s09-inventory-collection shifted. s09-l02 carries earlier <code>GameState</code> evidence into this chart.</p>
-<p>s09-l02 asks one decision to stand alone in the margin. s09-l02 keeps s09-inventory-api visible instead of hiding it behind polish. s09-l02 tests a friendly case and a sharp edge case. s09-l02 compares both traces so s09-inventory-collection has a witness. s09-l02 names the failure before choosing a repair.</p>
-<p>s09-l02 treats each handoff as a contract between maker and reader. s09-l02 supplies s09-inventory-collection; the reader checks s09-inventory-api. s09-l02 places its check where another wayfinder can repeat it. s09-l02 earns THE CARTOGRAPHER's trust through evidence, not luck. s09-l02 leaves one deliberate question for the next chart.</p>
-<p>s09-l02 closes by stating what the program must preserve. s09-l02 names one input that could falsify s09-inventory-collection. s09-l02 names one output that confirms s09-inventory-api still belongs. s09-l02 runs the smallest route, inspects its trace, and annotates it. s09-l02 turns the items and inventory chart into a RuneBound waypoint.</p>
-<p>s09-l02 ends with a handoff to the next chart. s09-l02 carries s09-inventory-api forward after s09-inventory-collection earns trust. s09-l02 lets THE CARTOGRAPHER record the result in plain language. s09-l02 turns a clean rerun from a guess into a fact. s09-l02 lets the next wayfinder begin without hidden context.</p>
-<pre><code>print("s09-l02 // The Pack Ledger")</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // S09-L02</div><p>s09-l02 <strong>Evidence.</strong> Record s09-inventory-collection; compare it with s09-inventory-api before advancing.</p><p>s09-l02 <strong>Repair.</strong> Change one cause, rerun the route, and preserve the explanation.</p></div>
+<p>s02 made an <code>Inventory</code> whose instance owns <code>self.items</code>. Now replace that temporary teaching version with the canonical class in <code>items.py</code>. Its list holds item ids in pickup order, not copies of <code>Item</code> objects. That makes <code>player.inventory.items</code> a simple, inspectable list for s10’s quest conditions, while the catalog remains the one owner of names and modifiers.</p>
+<pre><code>class Inventory:
+    def __init__(self):
+        self.items = []
+
+    def add(self, item_id):
+        if item_id in self.items:
+            return False
+        self.items.append(item_id)
+        return True
+
+    def remove(self, item_id):
+        if item_id not in self.items:
+            return False
+        self.items.remove(item_id)
+        return True
+
+    def contains(self, item_id):
+        return item_id in self.items</code></pre>
+<p>This API supplies a receipt: <code>True</code> means the collection changed; <code>False</code> means it did not. The pickup boundary will use that to avoid granting the same map item on every frame. Do not let the HUD append directly to the list, and do not turn the list into a set: pickup order is useful to display and s10 explicitly reads <code>player.inventory.items</code>.</p>
+<p>Below <code>Inventory</code> in <code>items.py</code>, add the stat bridge. It changes the existing <code>StatBlock</code>, whose four fields remain <code>hp</code>, <code>max_hp</code>, <code>attack</code>, and <code>defense</code>. Only supported keys are changed; an unknown JSON key is an error worth fixing in data. HP is clamped after any maximum change.</p>
+<pre><code>def apply_modifiers(stats, modifiers):
+    unknown = set(modifiers) - {"hp", "max_hp", "attack", "defense"}
+    if unknown:
+        raise ValueError(f"unknown stat modifier: {unknown}")
+    for field in ("max_hp", "attack", "defense"):
+        if field in modifiers:
+            setattr(stats, field, getattr(stats, field) + modifiers[field])
+    if "hp" in modifiers:
+        stats.hp += modifiers["hp"]
+    stats.hp = max(0, min(stats.hp, stats.max_hp))</code></pre>
+<p>Make a member-only patch in <code>player.py</code>: import <code>Inventory</code> from <code>items</code>, then add <code>self.inventory = Inventory()</code> inside the existing <code>Player.__init__</code>, immediately after its existing <code>self.stats = StatBlock(30, 30, 7, 2)</code>. Keep every inherited sprite setup, vector, speed, input, and collision method exactly where it is. Player owns this inventory because it belongs to this player; <code>items.py</code> owns how a pack changes.</p>
+<div class="callout"><strong>THE CARTOGRAPHER'S RULE:</strong> a catalog describes an item, an Inventory records possession, and a StatBlock remains the owner of combat numbers.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ONE-TIME EFFECT</div><p>Call <code>apply_modifiers</code> only after <code>inventory.add(item_id)</code> returns <code>True</code>. Otherwise standing on the same potion would heal every frame. The map retirement in the next lesson makes the visual state agree with that receipt.</p></div>
 '''
 
 [[lessons.readings]]
-label = "Python library // dataclasses // The Pack Ledger"
-url = "https://docs.python.org/3/library/dataclasses.html"
+label = "Python Docs // list methods"
+url = "https://docs.python.org/3/tutorial/datastructures.html#more-on-lists"
 
 [[lessons.exercises]]
 id = "s09-l02-e1"
-type = "fill"
-points = 18
-prompt = '''
-<p>s09-l02-e1: restore the missing operation in the supplied code. Use its operands and the chart evidence to complete the route without renaming the owner.</p>
-'''
-code = '''
-inventory.____("potion")
-'''
-answer = "contains"
-hint = '''
-Look at what must happen to inventory.contains("potion"); choose the operation that performs that job rather than the one that merely inspects the result.
-'''
+type = "mc"
+points = 20
+prompt = '''<p>After a player already carries <code>"potion"</code>, what should <code>inventory.add("potion")</code> return?</p>'''
+choices = ["A second <code>Item</code> record", "<code>True</code>, because the modifier runs again", "<code>False</code>, because the collection did not change", "The current HP value"]
+answer = 2
+hint = '''The method’s boolean is a receipt for whether it appended an id.''' 
+whyWrong = '''Creating another record would duplicate catalog ownership, and current HP is not a collection receipt. A duplicate id leaves the list unchanged, so the method reports <code>False</code>.''' 
+explain = '''That false receipt is how the pickup route avoids repeating a one-time effect.''' 
 
 [[lessons.exercises]]
 id = "s09-l02-e2"
-type = "mc"
-points = 14
-prompt = '''
-<p>Why should the HUD ask Inventory for its contents instead of editing the list? Select the reading that keeps quest completion can later ask about an item without knowing how the list is stored possible.</p>
-'''
-choices = ["the HUD can only draw immutable data","The Pack Ledger: keep s09-inventory-collection owned by the named boundary and verify the result before handoff s09-l02-e2.","a list cannot be changed outside a class","direct edits make JSON load faster"]
-answer = 1
-whyWrong = '''
-The tempting routes confuse letting ui code mutate the list directly and losing one source of truth with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace player.inventory.items as a deliberate collection with a small public API in the Spoils Ledger chart, then compare the Inventory owns membership while the HUD only reads a view of its contents with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves inventory owns membership while the hud only reads a view of its contents and leaves player.inventory.items as a deliberate collection with a small public api available for the next RuneBound handoff.
+type = "type"
+points = 12
+reps = 2
+prompt = '''<p>Retype the Player member-only addition. It belongs after the existing StatBlock assignment in <code>Player.__init__</code>.</p>'''
+code = '''
+self.inventory = Inventory()
 '''
 
 [[lessons.exercises]]
 id = "s09-l02-e3"
-type = "type"
-points = 10
-reps = 2
-prompt = '''
-<p>Retype this spoils ledger evidence exactly. Keep player.inventory.items as a deliberate collection with a small public api visible while you write. (Ctrl+Enter submits.)</p>
-'''
+type = "fill"
+points = 22
+prompt = '''<p>Restore the list operation that makes the new id visible through <code>player.inventory.items</code>.</p>'''
 code = '''
-items = ["key"]
-print("key" in items)
+if item_id not in self.items:
+    self.items.____(item_id)
+    return True
 '''
+answer = "append"
+hint = '''The existing list stays ordered, so use its one-value-at-the-end method.''' 
+whyWrong = '''<code>extend</code> would iterate through a string’s characters and <code>remove</code> deletes an existing value. The new item id needs one <code>append</code>.''' 
 
 [[lessons.exercises]]
 id = "s09-l02-e4"
 type = "write"
-points = 30
-prompt = '''
-<p>Complete the spoils ledger route and print exactly <code>RUNEBOUND S09 L02 SEAL</code>. Preserve the named data before adding the final observation.</p>
-'''
+points = 35
+prompt = '''<p>Model the potion receipt in plain Python. Start at 12 of 30 HP, add <code>"potion"</code> once, apply 20 HP only when the add succeeds, and attempt the same pickup again. Print exactly <code>FIRST True HP 30</code> and <code>SECOND False HP 30</code>.</p>'''
 starter = '''
-route_mark = "pack-ledger"
-print("survey pending")
-# Add the chart seal after checking the route.
+items = []
+hp = 12
+max_hp = 30
+
+# Add the id once, heal only on a true receipt, then try the duplicate.
 '''
 expect = '''
-RUNEBOUND S09 L02 SEAL
+FIRST True HP 30
+SECOND False HP 30
 '''
 solution = '''
-route_mark = "pack-ledger"
-print("RUNEBOUND S09 L02 SEAL")
-'''
-hint = '''
-For s09-l02-e4, leave the route data intact and add only its final s09 observation; compare the starter output with the target before submitting.
-'''
+items = []
+hp = 12
+max_hp = 30
 
-[[lessons.exercises]]
-id = "s09-l02-e5"
-type = "text"
-points = 16
-prompt = '''
-<p>s09-l02-e5: name the Python term for the specific unit requested by this chart. Supply the language term, not the surrounding story label.</p>
+first = "potion" not in items
+if first:
+    items.append("potion")
+    hp = min(max_hp, hp + 20)
+print("FIRST", first, "HP", hp)
+second = "potion" not in items
+print("SECOND", second, "HP", hp)
 '''
-answer = "list"
-hint = '''
-Recall the named boundary in The Pack Ledger; the answer is the language term for that single job, not the larger game feature.
-'''
+hint = '''Use membership before each attempt; only the first true test appends and raises HP with <code>min(max_hp, hp + 20)</code>.''' 

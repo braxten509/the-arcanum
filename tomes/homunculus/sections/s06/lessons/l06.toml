@@ -1,120 +1,78 @@
 [[lessons]]
 id = "s06-l06"
-title = "The Judgment"
+teaches = ["merge-gate"]
+title = "Issue a Merge Permit, Not a Vibe"
 body = '''
-<p>Five rites assembled every signal the proving suite can produce: the held-out mirror (did anything change?), the voice judge (did it change in the right direction?), the forgetting score (what did the change cost?), the loss curve (did the bind learn or memorize?), and the iterative pass (which knob settings produced the best result?). This final rite of the proving chapter teaches the artificer to read those signals together and produce a verdict — not a number, but a decision: pass, fail, or re-bind.</p>
-<p>The judgment is a three-axis readout. <strong>Style quality</strong>: the cosine similarity and n-gram overlap the fourth rite defined, measured on held-out prompts the SFTTrainer never saw. A cosine similarity >0.75 and a clear lexical shift (10%+ change in word-choice patterns from the frozen base) is a working bind. Below 0.65 cosine similarity, the adapter either learned nothing or learned the wrong thing — the output is indistinguishable from the base or actively worse. <strong>Preservation</strong>: the forgetting score the fifth rite defined. A score of 0.0–0.15 is acceptable — the bind preserved general knowledge. 0.15–0.25 is a warning — the adapter shifted far enough to degrade factual recall, and the artificer must decide whether the improved style is worth the lost precision. Above 0.25 is a failed bind — the homunculus that forgets more than it learns is a downgrade from the frozen base.</p>
-<p><strong>Learning dynamics</strong>: the loss curve shape the sixth rite taught, plus the checkpoint selection the seventh rite demonstrated. A bind whose loss plateaued at step 40 instead of dropping to step 80 is not a failure — it extracted what it could, and the checkpoint at step 40 produced the best evaluation scores. A bind whose loss never dropped below 2.5 (on a 7B base with a fresh LoRA) is a warning: the training signal was weak, possibly because the dataset was too small or the template mismatched (the same silent failure the sixth rite's template lesson warned about). A bind whose loss started at 0.4 (the loss-mask failure the seventh rite's AMD lesson diagnosed) is an automatic fail — the entire run trained on predicting the prompt itself, and the adapter learned nothing about the artificer's style.</p>
-<pre><code><span class="c"># The judgment — a function, not a feeling:</span>
-<span class="k">def</span> <span class="nf">verdict</span>(style_score, forgetting, loss_shape):
-    <span class="k">if</span> loss_shape == <span class="s">"mask_failure"</span>:
-        <span class="k">return</span> <span class="s">"RE-BIND — fix loss mask, re-run from scratch"</span>
-    <span class="k">if</span> forgetting &gt; <span class="k">0.25</span>:
-        <span class="k">return</span> <span class="s">"FAIL — forgetting too high, try lower rank or fewer epochs"</span>
-    <span class="k">if</span> style_score &lt; <span class="k">0.65</span> <span class="k">and</span> forgetting &lt; <span class="k">0.10</span>:
-        <span class="k">return</span> <span class="s">"FAIL — no style shift, try higher rank or more epochs"</span>
-    <span class="k">if</span> style_score &lt; <span class="k">0.65</span>:
-        <span class="k">return</span> <span class="s">"RE-BIND — weak style shift with forgetting, tune knobs"</span>
-    <span class="k">if</span> style_score &gt;= <span class="k">0.75</span> <span class="k">and</span> forgetting &lt;= <span class="k">0.15</span>:
-        <span class="k">return</span> <span class="s">"PASS — the bind is ready for the sealing rite"</span>
-    <span class="k">return</span> <span class="s">"MARGINAL — acceptable but could be better, re-bind optional"</span></code></pre>
-<p>The verdict function is a scaffold, not a law — the thresholds (0.75 for style, 0.15/0.25 for forgetting) are starting points the artificer adjusts as experience with the specific base model and personal corpus accumulates. The twelfth rite's expert endpoint expects the artificer to defend these choices with domain knowledge, not to treat them as fixed constants — but starting with defensible numbers and adjusting them deliberately is how expert judgment begins.</p>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // THE MARGINAL BIND — WHEN "GOOD ENOUGH" IS THE RIGHT CALL</div>
-<p>A bind with style_score=0.72 and forgetting=0.18 is marginal: the style shift is real but not dramatic, and the model lost some factual precision. The artificer could re-bind — try rank 32, or add the feed-forward layers as targets (gate_proj, up_proj, down_proj), or run two epochs with a lower learning rate. But every re-bind burns another 20–40 minutes on the card and risks a worse result — the grid-sweep limitation the seventh rite proved applies to the tuning cycle too. The judgment the artificer must make: is this bind useful <em>enough</em> to proceed to the sealing rite? A marginal bind that serves the daily note-taking use case is a finished product. A marginal bind that can't produce a coherent paragraph in the right register is a dead end. The answer is not in the numbers alone — it's in the actual output on a handful of real prompts the artificer reads with their own eyes, not with a cosine-similarity printout. The numbers narrow the decision space from "maybe" to "marginal with style 0.72 and forgetting 0.18 — should I ship it?" The artisan's eye answers the rest.</p></div>
+<p>Write the acceptance thresholds before revealing the adapted scores. The course's starting gate is: zero privacy or memorization criticals; zero missing prompt ids; mean voice improvement of at least 0.5 on the 0–2 scale across at least three categories; mean correctness and usefulness may each decline by no more than 0.2; no more than one newly failed noncritical capability case out of at least fifteen; and a finite held-out evaluation loss. These are defaults you may tighten for your own work. If you change them after seeing results, document why and treat the decision as exploratory.</p>
+<p>Create <code>reports/evaluation-decision.md</code> with a table containing every gate, threshold, observed value, evidence path, and pass/fail. End with exactly one verdict: <code>MERGE</code>, <code>REBIND</code>, or <code>STOP</code>. <code>MERGE</code> identifies the adapter manifest hash authorized for Section IX. <code>REBIND</code> names one causal hypothesis and one controlled change. <code>STOP</code> is for critical privacy, provenance, or data-integrity failures that require returning to curation.</p>
+<p>A passing average cannot overrule a critical failure. Likewise, an adapter that sounds more personal but gets requested formats wrong is not useful. Read the raw paired responses after unblinding and add at least three representative wins and every regression by id. Keep the frozen base outputs in the report; they remain the comparison for later quantization and serving.</p>
+<pre><code>decision = {
+    "verdict": "MERGE",
+    "adapter_manifest_sha256": "...",
+    "suite_sha256": "...",
+    "critical_failures": [],
+}</code></pre>
+<p>Section IX must refuse to merge an adapter whose manifest hash is absent from this permit. That small contract prevents “final-v2” directory names from silently choosing the wrong bind.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SOME FAILURES ARE VETOES</div>
+<p>Average scores can conceal a memorized private string, a broken output contract, or a severe new capability failure. The merge permit should therefore contain both thresholds and vetoes. It is a signed decision artifact—not a celebratory note—and it must identify the exact adapter, suite, policy, evaluator, and raw reports it authorized.</p></div>
 '''
-body_words = 560
 
 [[lessons.readings]]
-label = "Practical evaluation of fine-tuned language models"
-url = "https://huggingface.co/docs/transformers/training"
+label = "Hugging Face model evaluation overview"
+url = "https://huggingface.co/docs/evaluate/index"
 
 [[lessons.exercises]]
 id = "s06-l06-e1"
 type = "mc"
 points = 20
-prompt = "Per this rite, what verdict should the judgment return when the loss curve signals a mask failure (initial loss 0.4, never rises above 1.0 during training)?"
-choices = [
-  "RE-BIND — fix the loss mask and re-run from scratch, because the model trained on predicting its own prompt tokens (a copy task) and the adapter learned nothing about the artificer's style; continuing with a mask-failure adapter is a dead end regardless of how good the style or forgetting scores look",
-  "PASS — the low initial loss means the model converged extremely quickly, and the style and forgetting scores will reflect a well-trained adapter",
-  "FAIL — the forgetting score will be above 0.25 regardless of other metrics, because mask-failure training produces catastrophic forgetting as a side effect",
-  "MARGINAL — the adapter may have learned something useful even with a bad loss mask, and the style evaluation on held-out prompts will reveal whether the training was actually productive"
-]
+prompt = "Which event overrides a strong average score?"
+choices = ["A privacy or memorization critical failure", "One response uses bullets", "The adapter directory is small", "Training used one epoch"]
 answer = 0
-whyWrong = "A mask failure is a fatal training error — the model trained on a copy task (predicting its own input prompt tokens), not on generating style-consistent responses. Low loss from a mask failure is not 'fast convergence,' it's the model acing a trivial prediction. The forgetting score is not the issue — the adapter didn't learn style in the first place, so forgetting is undefined (the adapter is near-zero from initialization). There is no MARGINAL path for mask failure — the adapter learned nothing, and no evaluation score can salvage weights that were never trained on the right loss signal."
-hint = "The lesson's verdict function has a hardcoded mask_failure check that returns RE-BIND unconditionally: 'fix loss mask, re-run from scratch.' The judgment code in the lesson puts this check first — before style_score, before forgetting — because a mask-failure run is unsalvageable regardless of any downstream metric."
-explain = "Loss masking (from the sixth rite) tells the trainer which tokens count toward the loss. If user-turn tokens are unmasked, the model's training objective becomes 'predict the next token of the prompt the user just typed' — a task the model solves trivially because it can see those tokens in the input. The loss drops to ~0.4, the adapter weights barely move (near-zero initialization + trivial prediction = near-zero gradient), and the resulting adapter changes nothing about the model's output. No evaluation metric can detect this as a pass because there is no style shift to measure."
+whyWrong = "Formatting preferences and training size matter only through predefined criteria; critical exposure blocks the artifact."
+explain = "Some defects are categorical release blockers."
+hint = "A secret cannot be averaged away."
 
 [[lessons.exercises]]
 id = "s06-l06-e2"
 type = "text"
-points = 18
-prompt = "What three evaluation signals does the judgment function in this rite combine to produce a verdict — the three readouts that together answer whether the bind passes, fails, or needs a re-bind?"
-answer = "style quality, forgetting score, and loss curve"
-accept = ["style quality, forgetting score, and loss curve", "style score, forgetting score, and loss curve", "style, forgetting, and loss curve", "style, forgetting, loss curve", "style quality, preservation, and learning dynamics", "style, preservation, and learning dynamics"]
-hint = "The lesson names them as 'a three-axis readout' — the first paragraph after the introduction names style quality, preservation (the forgetting score), and learning dynamics (the loss curve)."
+points = 15
+prompt = "Which verdict authorizes sealing?"
+answer = "MERGE"
+accept = ["merge"]
+hint = "It is one of three exact verdict words."
 
 [[lessons.exercises]]
 id = "s06-l06-e3"
 type = "fill"
 points = 20
-prompt = "Fill the missing verdict from the lesson's judgment function — the one returned when the style score is below 0.65 and the forgetting score is above 0.10, indicating the adapter failed to shift style AND lost factual knowledge."
-code = '''def verdict(style_score, forgetting, loss_shape):
-    if loss_shape == "mask_failure":
-        return "RE-BIND — fix loss mask, re-run from scratch"
-    if forgetting > 0.25:
-        return "FAIL — forgetting too high, try lower rank or fewer epochs"
-    if style_score < 0.65 and forgetting < 0.10:
-        return "FAIL — no style shift, try higher rank or more epochs"
-    if style_score < 0.65:
-        return "____ — weak style shift with forgetting, tune knobs"
-    if style_score >= 0.75 and forgetting <= 0.15:
-        return "PASS — the bind is ready for the sealing rite"
-    return "MARGINAL — acceptable but could be better, re-bind optional"'''
-answer = "RE-BIND"
-accept = ["RE-BIND", "REBIND", "re-bind"]
-hint = "The verdict function's fourth branch — the fallback for when style_score < 0.65 but forgetting is already above 0.10 (so the 'FAIL — no style shift' branch didn't fire) — returns a different verdict: one that instructs the artificer to re-train with different knobs rather than accepting or rejecting outright."
+prompt = "Complete the required minimum mean voice improvement on the 0–2 scale."
+code = "minimum_voice_gain = ____"
+answer = "0.5"
+hint = "It is half a rubric point."
 
 [[lessons.exercises]]
 id = "s06-l06-e4"
-type = "mc"
-points = 20
-prompt = "Per this rite, when is a marginal bind (style 0.72, forgetting 0.18) the RIGHT call to ship rather than re-training?"
-choices = [
-  "When the training run cost less than 10 minutes — fast runs amortize the loss of precision because re-training is cheap and the marginal bind is a temporary artifact on the way to a better one",
-  "When the bind produces useful output on the actual daily prompts the artificer needs — style_score=0.72 produces recognizable style shift on real notes, and forgetting=0.18 means the model still answers general questions correctly 82% of the time, which may be good enough for daily use; the numbers narrow the decision, but reading actual output decides it",
-  "When the cosine similarity exceeds the n-gram overlap score — a dominant semantic signal means the meaning is right even if the word choice is slightly off, which is always acceptable for a marginal bind",
-  "When the adapter was trained for only one epoch — single-epoch adapters are inherently marginal and should always be shipped because a second epoch would cause catastrophic forgetting exceeding 0.25"
-]
-answer = 1
-whyWrong = "The right call depends on practical utility, not training duration (a fast bad run is still a bad adapter), metric ranking (cosine vs. n-gram comparison is a diagnostic, not a decision rule), or a hard epoch rule (second epoch can improve style without exceeding the 0.25 forgetting threshold — the iterative pass proved this by testing multiple configs). The FIELD NOTES say it directly: the numbers 'narrow the decision space' but 'the artisan's eye answers the rest' — read actual output, not just numbers."
-explain = "The metrics only bound the decision. Style 0.72 means the shift is real but modest; forgetting 0.18 means roughly four in five general answers still land. Whether that is good enough is a question the numbers cannot close — it is settled by reading the model's actual output on the handful of prompts the artificer needs daily. A marginal bind that serves those prompts is a finished product; one that garbles them is a dead end, whatever the cosine score says."
-hint = "The lesson's FIELD NOTES section says 'the answer is not in the numbers alone — it's in the actual output on a handful of real prompts the artificer reads with their own eyes.' The correct choice captures this: the numbers narrow the decision, but actual output on real use-case prompts makes the final call."
-
-[[lessons.exercises]]
-id = "s06-l06-e5"
 type = "write"
 points = 35
-prompt = "Implement the verdict function from the lesson. Given <code>style_score=0.73</code>, <code>forgetting=0.12</code>, and <code>loss_shape=\"normal\"</code>, determine which verdict the function returns. Print the exact verdict string (without the explanation part) — computed by your function from the inputs, not hardcoded."
-starter = '''style_score = 0.73
-forgetting = 0.12
-loss_shape = "normal"
+prompt = "Apply the critical and voice gates and print exactly: VERDICT MERGE"
+starter = '''critical_failures = 0
+voice_gain = 0.7
+minimum_voice_gain = 0.5
 
-def verdict(style_score, forgetting, loss_shape):
-    # implement the verdict logic from the lesson.
-    # The branches, in order:
-    #   1. loss_shape == "mask_failure"
-    #   2. forgetting > a high threshold
-    #   3. style_score < a threshold AND forgetting very low
-    #   4. style_score < a threshold (fallback)
-    #   5. style_score >= a threshold AND forgetting <= a threshold
-    #   6. otherwise
-    #
-    # Each branch returns a string — read the lesson's verdict
-    # function for the exact thresholds and verdict text.
-    return "UNKNOWN"
-
-result = verdict(style_score, forgetting, loss_shape)
-print(result)
+verdict = "STOP"
+print(f"VERDICT {verdict}")
 '''
-expect = "MARGINAL"
-hint = "Trace: loss_shape != 'mask_failure' → skip branch 1. forgetting=0.12 ≤ 0.25 → skip branch 2. style_score=0.73 ≥ 0.65 → skip branch 3 and 4. style_score=0.73 < 0.75, so branch 5's condition (style_score >= 0.75 and forgetting <= 0.15) fails. Falls to branch 6 → 'MARGINAL'. Print 'MARGINAL'."
+solution = '''critical_failures = 0
+voice_gain = 0.7
+minimum_voice_gain = 0.5
+
+if critical_failures:
+    verdict = "STOP"
+elif voice_gain >= minimum_voice_gain:
+    verdict = "MERGE"
+else:
+    verdict = "REBIND"
+print(f"VERDICT {verdict}")
+'''
+expect = "VERDICT MERGE"
+hint = "Critical failures stop; otherwise compare voice gain with its minimum."

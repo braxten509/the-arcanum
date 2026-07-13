@@ -1,5 +1,6 @@
 [[lessons]]
 id = "s04-l03"
+teaches = ["http-client"]
 title = "HttpClient — GET requests done right"
 body = '''
 
@@ -34,9 +35,10 @@ HttpResponseMessage resp = <span class="k">await</span> http.GetAsync(url);
     Console.WriteLine(<span class="s">"timed out"</span>);
 }</code></pre>
 <p><strong>The one lifetime rule:</strong> create ONE <code>HttpClient</code> and reuse it for the whole program. New-ing one per request leaks sockets and eventually starves the OS. (Chapter VIII goes deeper.)</p>
-<p>Building URLs with query strings — escape user input, always:</p>
-<pre><code><span class="k">string</span> q = Uri.EscapeDataString(userQuery);   <span class="c">// "tls 1.3?" → "tls%201.3%3F"</span>
-<span class="k">string</span> url = <span class="s">$"http://localhost:8080/search?q={q}&amp;format=json"</span>;</code></pre><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p>Pass a cancellation token through every real request. This gives the caller one way to stop a slow page or Ctrl+C cancellation:</p>
+<pre><code><span class="k">using var</span> timeout = <span class="k">new</span> CancellationTokenSource(TimeSpan.FromSeconds(15));
+<span class="k">using</span> HttpResponseMessage response = <span class="k">await</span> http.GetAsync(source.Url, timeout.Token);
+response.EnsureSuccessStatusCode();</code></pre><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>Status code families:</strong> 2xx success · 3xx redirect (HttpClient follows most automatically) · 4xx you messed up (404 not found, 403 forbidden, 429 slow down) · 5xx they messed up. <code>resp.EnsureSuccessStatusCode()</code> throws on any non-2xx — the quick version of the if-check.</p>
 <p><strong>Headers you'll actually set:</strong> <code>http.DefaultRequestHeaders.UserAgent.ParseAdd("Verisearch/1.0")</code> once at startup; per-request headers go on an <code>HttpRequestMessage</code> if you ever need them.</p>
 <p><strong>POST in one line</strong> (for later): <code>await http.PostAsJsonAsync(url, myObject)</code> — serializes and sends. The GetFromJsonAsync/PostAsJsonAsync family (namespace <code>System.Net.Http.Json</code>) fuses HTTP + JSON and skips manual Deserialize entirely.</p></div>'''
@@ -74,11 +76,11 @@ hint = "if (resp.____) { ... }"
 id = "s04-l03-e3"
 type = "mc"
 points = 25
-prompt = "The user's query is <code>C# && rust?</code>. Before putting it in a URL query string you should…"
-choices = ["pass it through Uri.EscapeDataString", "wrap it in single quotes", "trust it — browsers handle everything", "remove all punctuation"]
+prompt = "A caller cancels while a source request is waiting. What should SourceFetcher do?"
+choices = ["Propagate the cancellation token and exception", "Retry forever", "Silently return fabricated HTML", "Switch to an unrelated URL"]
 answer = 0
-whyWrong = "Quoting or stripping punctuation corrupts the query and raw input can never be trusted in a URL — Uri.EscapeDataString percent-encodes the special characters safely."
-hint = "# & ? all mean something special in URLs."
+whyWrong = "Unbounded retry ignores the caller, while fabricated content or a substituted URL changes the evidence set. Cancellation should remain cancellation."
+hint = "The caller owns whether the operation may continue."
 
 [[lessons.exercises]]
 id = "s04-l03-d1"
@@ -97,5 +99,6 @@ if (resp.IsSuccessStatusCode)
 id = "s04-l03-d2"
 type = "type"
 points = 12
-prompt = "The escape line that keeps user queries from detonating your URLs. Once."
-code = "string url = $\"http://localhost:8080/search?q={Uri.EscapeDataString(query)}&format=json\";"
+prompt = "The bounded, cancellable GET shape. Once."
+code = '''using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+using HttpResponseMessage response = await http.GetAsync(source.Url, timeout.Token);'''

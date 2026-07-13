@@ -61,7 +61,10 @@ export function showTomePicker() {
         <div class="jr-desc">Phase ${b.phase} / 9 — ${esc(b.phaseTitle || "")}</div>
       </button>`).join("");
     slot.querySelectorAll("[data-job]").forEach((el) => {
-      el.onclick = () => { const id = el.dataset.job; closeModal(() => openBuildOverlay(id)); };
+      el.onclick = () => {
+        const build = builds.find((b) => b.id === el.dataset.job);
+        closeModal(() => openBuildOverlay(el.dataset.job, build && build.traceId));
+      };
     });
   });
 }
@@ -159,13 +162,13 @@ function showRunnerDeath(overlay, jobId, info) {
   };
 }
 
-export function openBuildOverlay(jobId) {
+export function openBuildOverlay(jobId, traceId = jobId) {
   if (forgeOverlay) {
     if (forgeOverlay.dataset.job === jobId) { forgeOverlay.classList.remove("hidden"); return; }
     clearInterval(forgePoll); forgeOverlay.remove(); forgeOverlay = null; // stale overlay for another job
   }
   const overlay = document.createElement("div");
-  overlay.className = "grade-overlay";
+  overlay.className = "grade-overlay forge-progress";
   overlay.dataset.job = jobId;
   overlay.innerHTML = `<div class="grade-card">
     <div class="faint" style="font-size:11px;letter-spacing:.2em">THE BINDERY // A TOME IS BEING FORGED</div>
@@ -292,7 +295,7 @@ export function openBuildOverlay(jobId) {
         <h2 style="margin:8px 0 6px">${lost ? "The candle was relit" : esc(st.name || "The tome") + " would not bind"}</h2>
         ${lost ? '<p class="dim" style="font-size:12.5px">The desk was restarted and no longer holds this working’s record. If it finished, its tome waits in /tomes.</p>'
       : `<div class="forge-log num" style="height:auto;max-height:180px">${esc(st.error || st.logtail || "no record of the failure")}</div>
-        <p class="dim" style="font-size:12.5px;margin-top:12px">Its partial pages remain in <span class="num">tomes/${esc(st.tome || "")}</span> and <span class="num">.tome-build/</span> — resume by hand with <span class="num">tools/build_tome.py --from-phase</span>, or delete them.</p>`}
+        <p class="dim" style="font-size:12.5px;margin-top:12px">Its partial pages remain in <span class="num">tomes/${esc(st.tome || "")}</span> and now appear under Unfinished Workings, ready to resume from Phase ${esc(st.phase ?? "?")}.</p>`}
         <div class="modal-actions"><button class="btn quiet" id="fp-close">SO BE IT</button></div>`;
       $("#fp-close", card).onclick = close;
     }
@@ -303,7 +306,7 @@ export function openBuildOverlay(jobId) {
     try {
       const [statusResponse, toolingResponse] = await Promise.all([
         fetch("/api/buildtome/status?id=" + encodeURIComponent(jobId)),
-        fetch(`/.forge-trace/${encodeURIComponent(jobId)}.json?t=${Date.now()}`, { cache: "no-store" })
+        fetch(`/.forge-trace/${encodeURIComponent(traceId)}.json?t=${Date.now()}`, { cache: "no-store" })
           .catch(() => null),
       ]);
       st = await statusResponse.json();

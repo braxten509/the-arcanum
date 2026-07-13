@@ -1,5 +1,6 @@
 [[lessons]]
 id = "s03-l02"
+teaches = ["gguf-quantization"]
 title = "The GGUF Ladder"
 body = '''
 <p>The last rite's math used clean bytes-per-parameter numbers — 4, 2, 1, 0.5 — as if quantization only ever lands on a whole-byte boundary. GGUF, the format llama.cpp converts to and Ollama serves from, mostly doesn't. Its quant names encode a specific bit-width and a specific bucketing strategy, and reading them correctly is how you predict a model's real VRAM cost before you ever download it.</p>
@@ -79,4 +80,16 @@ size_gb = 0
 print(f"SIZE {size_gb} GB")
 '''
 expect = "SIZE 3.4 GB"
+solution = '''params_b = 8
+quant_bits = {
+    "q8_0": 8.0,
+    "q4_0": 4.0,
+    "q4_K_M": 4.5,
+    "q3_K_S": 3.4,
+}
+
+bits = quant_bits["q3_K_S"]
+size_gb = params_b * bits / 8
+print(f"SIZE {size_gb:.1f} GB")
+'''
 hint = "Pull the bits value with quant_bits[\"q3_K_S\"], then size_gb = params_b * bits / 8 — format the result with one decimal place."

@@ -1,129 +1,118 @@
 [[lessons]]
 id = "s10-l03"
-title = "Spectre.Console.Cli — real flags, typed settings"
+teaches = ["cli-options"]
+title = "Parse a Small CLI Without Another Framework"
 body = '''
-
-<p>Verisearch's destiny is <code>verisearch "question" --max-sources 3 --min-trust 5</code> — not an interactive menu. <code>Spectre.Console.Cli</code> (separate package) parses argv into typed settings classes:</p>
-<pre><code><span class="k">using</span> Spectre.Console.Cli;
-
-<span class="k">public class</span> SearchSettings : CommandSettings
+<p>Verisearch has four user-facing inputs: one question, repeatable <code>--source LABEL</code> choices, <code>--mock</code>, and <code>--verbose</code>. That grammar is small enough to teach directly. Create <code>CommandLineOptions.cs</code> and keep parsing separate from <code>Program.cs</code>.</p>
+<pre><code><span class="k">public sealed record</span> CommandLineOptions(<span class="k">string</span> Question,
+    List&lt;<span class="k">string</span>&gt; SourceLabels, <span class="k">bool</span> Mock, <span class="k">bool</span> Verbose, <span class="k">bool</span> ShowHelp)
 {
-    [CommandArgument(0, <span class="s">"&lt;query&gt;"</span>)]              <span class="c">// required positional</span>
-    <span class="k">public string</span> Query { <span class="k">get</span>; <span class="k">set</span>; } = <span class="s">""</span>;
+    <span class="k">public const string</span> Usage = <span class="s">"verisearch \"question\" [--source LABEL] [--mock] [--verbose]"</span>;
 
-    [CommandOption(<span class="s">"-m|--max-sources"</span>)]
-    <span class="k">public int</span> MaxSources { <span class="k">get</span>; <span class="k">set</span>; } = 5;
-
-    [CommandOption(<span class="s">"-t|--min-trust"</span>)]
-    <span class="k">public double</span> MinTrust { <span class="k">get</span>; <span class="k">set</span>; } = 3.0;
-
-    [CommandOption(<span class="s">"-v|--verbose"</span>)]
-    <span class="k">public bool</span> Verbose { <span class="k">get</span>; <span class="k">set</span>; }
-}
-
-<span class="k">public class</span> SearchCommand : AsyncCommand&lt;SearchSettings&gt;
-{
-    <span class="k">public override async</span> Task&lt;<span class="k">int</span>&gt; ExecuteAsync(CommandContext ctx, SearchSettings s)
+    <span class="k">public static</span> CommandLineOptions Parse(<span class="k">string</span>[] args)
     {
-        <span class="k">await</span> RunPipeline(s.Query, s.MaxSources, s.MinTrust, s.Verbose);
-        <span class="k">return</span> 0;      <span class="c">// exit code: 0 = success, nonzero = failure (scripts depend on this)</span>
+        <span class="k">if</span> (args.Contains(<span class="s">"--help"</span>))
+            <span class="k">return new</span>(<span class="s">""</span>, [], <span class="k">false</span>, <span class="k">false</span>, <span class="k">true</span>);
+
+        <span class="k">string</span>? question = <span class="k">null</span>;
+        <span class="k">var</span> labels = <span class="k">new</span> List&lt;<span class="k">string</span>&gt;();
+        <span class="k">bool</span> mock = <span class="k">false</span>;
+        <span class="k">bool</span> verbose = <span class="k">false</span>;
+
+        <span class="k">for</span> (<span class="k">int</span> i = 0; i &lt; args.Length; i++)
+        {
+            <span class="k">switch</span> (args[i])
+            {
+                <span class="k">case</span> <span class="s">"--source"</span> <span class="k">when</span> i + 1 &lt; args.Length:
+                    labels.Add(args[++i]);
+                    <span class="k">break</span>;
+                <span class="k">case</span> <span class="s">"--mock"</span>: mock = <span class="k">true</span>; <span class="k">break</span>;
+                <span class="k">case</span> <span class="s">"--verbose"</span>: verbose = <span class="k">true</span>; <span class="k">break</span>;
+                <span class="k">default</span>:
+                    <span class="k">if</span> (args[i].StartsWith(<span class="s">"-"</span>) || question <span class="k">is not null</span>)
+                        <span class="k">throw new</span> ArgumentException(<span class="s">$"unexpected argument: {args[i]}"</span>);
+                    question = args[i];
+                    <span class="k">break</span>;
+            }
+        }
+        <span class="k">if</span> (<span class="k">string</span>.IsNullOrWhiteSpace(question))
+            <span class="k">throw new</span> ArgumentException(<span class="s">"a question is required"</span>);
+        <span class="k">return new</span>(question, labels, mock, verbose, <span class="k">false</span>);
     }
 }</code></pre>
-<p>Wire it in Program.cs:</p>
-<pre><code><span class="k">var</span> app = <span class="k">new</span> CommandApp&lt;SearchCommand&gt;();   <span class="c">// default command</span>
-<span class="k">return await</span> app.RunAsync(args);</code></pre>
-<p>What you get free: <code>--help</code> generated from your attributes, type conversion ("abc" for an int option → clean error, not a crash), validation hooks, and subcommands if you later want <code>verisearch config</code>.</p>
-<p>Angle brackets <code>&lt;query&gt;</code> mean required; square <code>[query]</code> would mean optional. Command-line convention, enforced by the parser.</p>
-<div class="callout">Settings defaults + config file + flags = three layers. Precedence rule real tools use: flags beat config file, config file beats built-in defaults. Your ConfigLoader (Chapter V) supplies the middle layer.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
-<p><strong>Settings validation hook:</strong> override <code>Validate()</code> in your settings class — <code>return MinTrust is &lt; 0 or &gt; 10 ? ValidationResult.Error("min-trust must be 0-10") : ValidationResult.Success();</code> — the parser prints your message and exits nonzero for free.</p>
-<p><strong>Subcommands</strong> when the tool grows: <code>app.Configure(c =&gt; { c.AddCommand&lt;SearchCommand&gt;("search"); c.AddCommand&lt;ConfigCommand&gt;("config"); });</code> — <code>verisearch config show</code> and friends.</p>
-<p><strong>args still exists:</strong> Spectre.Cli consumes the same <code>string[] args</code> your hidden Main receives — it's a parser on top, not magic. Understanding the layer under your tools is the theme of this whole course.</p></div>'''
+<p>Shell quotes keep a multiword question in one argument: <code>dotnet run -- "What changed?" --source RFC</code>. The double dash belongs to <code>dotnet run</code>; it passes later tokens to your program.</p>
+<div class="callout">The <code>--mock</code> flag selects a different implementation explicitly. It is not an exception handler and must never be enabled automatically.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // FRIENDLY FAILURES</div><p><code>Program.cs</code> catches <code>ArgumentException</code>, prints the message plus <code>Usage</code>, and exits 2. Help prints usage and exits 0. These exit codes let scripts distinguish success, bad input, and later runtime failure.</p></div>
+'''
 
 [[lessons.readings]]
-label = "Spectre.Console.Cli — quick start"
-url = "https://spectreconsole.net/cli/tutorials/quick-start-your-first-cli-app/"
-essential = false
-
-[[lessons.readings]]
-label = "Spectre.Console.Cli — getting started"
-url = "https://spectreconsole.net/cli/getting-started"
-essential = false
-
-[[lessons.readings]]
-label = "Attribute & parameter reference"
-url = "https://spectreconsole.net/cli/reference/attribute-and-parameter-reference/"
-essential = false
-
-[[lessons.readings]]
-label = "DarthPedro — Starting with Spectre.Console.Cli"
-url = "https://darthpedro.net/2020/12/10/lesson-1-1-starting-with-spectre-cli/"
+label = "Microsoft Learn — Command-line arguments"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/program-structure/main-command-line"
 essential = false
 
 [[lessons.exercises]]
 id = "s10-l03-e1"
 type = "mc"
 points = 20
-prompt = "In <code>[CommandArgument(0, \"&lt;query&gt;\")]</code>, the angle brackets signify…"
-choices = ["an HTML tag", "the argument is required", "the argument is optional", "a generic type"]
+prompt = "Why must a multiword question be quoted in the shell command?"
+choices = ["C# strings always need shell quotes", "The shell must pass it as one argument instead of several tokens", "Ollama reads only quoted JSON", "Spectre.Console requires quotes"]
 answer = 1
-whyWrong = "In CommandArgument, angle brackets ‘<query>’ mark a REQUIRED argument (square brackets would mean optional) — they’re not HTML or a generic."
-hint = "Square brackets would make it optional. CLI convention."
+whyWrong = "This is shell tokenization, not a requirement of C# strings, Ollama, or Spectre. Quotes preserve one positional argument."
+explain = "The parser permits one non-flag question token, so the shell must keep the words together."
+hint = "Inspect what arrives in args[]."
 
 [[lessons.exercises]]
 id = "s10-l03-e2"
 type = "fill"
-points = 25
-prompt = "Fill the attribute so both <code>-t 5</code> and <code>--min-trust 5</code> work."
-code = '''
-[CommandOption("____")]
-public double MinTrust { get; set; } = 3.0;'''
-answer = "-t|--min-trust"
-accept = ["-t|--min-trust "]
-hint = "Short form, pipe, long form."
+points = 20
+prompt = "Complete the prefix test used to reject unknown flags."
+code = '''if (args[i].____("-") || question is not null)
+    throw new ArgumentException($"unexpected argument: {args[i]}");'''
+answer = "StartsWith"
+hint = "The string method asks whether the first characters match."
 
 [[lessons.exercises]]
 id = "s10-l03-e3"
 type = "mc"
 points = 20
-prompt = "Why return an exit code (0 vs nonzero) from ExecuteAsync?"
-choices = ["Spectre requires it to render", "It sets the process priority", "Shell scripts and CI pipelines branch on exit codes — it's the CLI success contract", "Purely decorative"]
-answer = 2
-whyWrong = "Exit codes aren’t decorative or about priority/rendering — shells and CI branch on 0 vs nonzero, so it’s the CLI’s success contract."
-hint = "somecommand && echo ok — what does && test?"
+prompt = "Why should invalid CLI input return a nonzero exit code?"
+choices = ["To make output red", "So scripts and callers can detect failure", "Because Console.WriteLine returns an int", "To stop Ollama"]
+answer = 1
+whyWrong = "Color and Ollama are unrelated, and Console.WriteLine returns void. Process status is a machine-readable success signal."
+explain = "Exit 0 means successful handling; a nonzero status distinguishes an error even when output is redirected."
+hint = "Think of another program invoking Verisearch."
 
 [[lessons.exercises]]
 id = "s10-l03-d1"
 type = "type"
 points = 14
 reps = 2
-prompt = "The typed-settings shape — argument + two options with defaults. Twice."
-code = '''
-public class SearchSettings : CommandSettings
-{
-    [CommandArgument(0, "<query>")]
-    public string Query { get; set; } = "";
-
-    [CommandOption("-m|--max-sources")]
-    public int MaxSources { get; set; } = 5;
-
-    [CommandOption("-v|--verbose")]
-    public bool Verbose { get; set; }
-}'''
+prompt = "Retype the repeated source option branch twice."
+code = '''case "--source" when i + 1 < args.Length:
+    labels.Add(args[++i]);
+    break;'''
 
 [[lessons.exercises]]
 id = "s10-l03-w1"
 type = "write"
-points = 34
-prompt = "Flag-parsing-from-first-principles lab: given <code>var tokens = new[] { \"--max-sources\", \"3\", \"--min-trust\", \"5\" };</code> walk the array in pairs and print <code>max=3 trust=5</code>. (This is what Spectre does under the hood, minus 4,000 edge cases.)"
-expect = "max=3 trust=5"
-solution = '''
-var tokens = new[] { "--max-sources", "3", "--min-trust", "5" };
-int max = 0, trust = 0;
-for (int i = 0; i < tokens.Length; i += 2)
-{
-    if (tokens[i] == "--max-sources") max = int.Parse(tokens[i + 1]);
-    else if (tokens[i] == "--min-trust") trust = int.Parse(tokens[i + 1]);
-}
-Console.WriteLine($"max={max} trust={trust}");
+points = 38
+prompt = "Parse the starter tokens in pairs and print the two source labels comma-separated."
+starter = '''var tokens = new[] { "--source", "RFC", "--source", "NIST" };
+var labels = new List<string>();
+
+Console.WriteLine("NOT PARSED");
 '''
-hint = "Loop i += 2, switch on args[i], parse args[i+1] into two locals, print once."
+expect = "RFC,NIST"
+solution = '''var tokens = new[] { "--source", "RFC", "--source", "NIST" };
+var labels = new List<string>();
+
+for (int i = 0; i < tokens.Length; i++)
+{
+    if (tokens[i] == "--source" && i + 1 < tokens.Length)
+    {
+        labels.Add(tokens[++i]);
+    }
+}
+Console.WriteLine(string.Join(",", labels));
+'''
+hint = "When the current token is --source, increment i and add the next token."

@@ -29,6 +29,14 @@ must diagnose them. Use recall exercises for domain/tool concepts a one-file lab
 Vary lesson and exercise shape; do not stamp a fixed template through the section. The validator
 owns numeric floors and schema details and will report them precisely.
 
+For Start 1–3, the prior-knowledge answer is the complete assumption boundary. At the first
+required use of every unlisted keyword, syntax form, operator, API, tool action, or technical
+term, explain its purpose in plain language, read its parts or steps in order, show a minimal
+worked example with an observable result, name one likely failure, and give guided practice
+before independent work. A term followed by unexplained sample code, a reading link, or a
+capstone demand does not count as an introduction. Start 2 may move through this sequence
+faster than Start 1, but it may not omit a fundamental.
+
 For `externalWorkspace`, section 1 must genuinely teach install, create/open, navigation,
 edit/save, run/test, diagnostics, and first recovery; the last section must teach delivery and
 end-to-end verification. Required unsupplied assets or inputs need a legal taught placeholder

@@ -1,125 +1,101 @@
 [[lessons]]
 id = "s05-l02"
-title = "The PEFT Library"
+teaches = ["qlora-config"]
+title = "Configure the Frozen Base and the Trainable Seam"
 body = '''
-<p>The last rite taught the shape of LoRA — two small trainable matrices pressed alongside frozen base weights. This rite teaches the library that makes it real on the AMD box. <strong>PEFT</strong> (Parameter-Efficient Fine-Tuning) is Hugging Face's adapter toolkit, and it does two things this binding rite cannot do by hand: load a quantized base model into GPU memory with a single config dict, and wrap the frozen base with trainable LoRA adapter layers whose shapes, targets, and initialization it handles automatically.</p>
-<p>The first half is quantization. <code>BitsAndBytesConfig</code> is a single config object that tells <code>transformers</code> to load the base model in 4-bit NF4 — the same NormalFloat4 scheme the fifth rite's weight-math explained. One call: <code>BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16, bnb_4bit_quant_type="nf4")</code>, then pass it as <code>quantization_config</code> to <code>AutoModelForCausalLM.from_pretrained</code>. The base model lands in VRAM at roughly 4.5 bits per weight, just as the memory-budget arithmetic promised, and the ROCm warning the third rite raised still applies: bitsandbytes' stable ROCm wheels target gfx90a/gfx942/gfx1100, not gfx1201. The multi-backend-refactor build — installed from a specific source wheel, not the default pypi package — supports RDNA4 experimentally. The course's toolchain rite taught the artificer to verify GPU access before assuming, and that habit earns its keep right here.</p>
-<pre><code><span class="k">import</span> torch
-<span class="k">from</span> transformers <span class="k">import</span> AutoModelForCausalLM, BitsAndBytesConfig
+<p>QLoRA combines two independent configurations. <code>BitsAndBytesConfig</code> controls how the frozen Qwen base is stored and computed; <code>LoraConfig</code> controls which new parameters can learn. Save both in <code>src/homunculus/train.py</code> exactly, then let the live dry run verify the preview ROCm backend.</p>
+<pre><code>import torch
+from peft import LoraConfig
+from transformers import BitsAndBytesConfig
 
-quant_config = BitsAndBytesConfig(
-    load_in_4bit=<span class="k">True</span>,
+quantization = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
     bnb_4bit_compute_dtype=torch.bfloat16,
-    bnb_4bit_quant_type=<span class="s">"nf4"</span>,
+    bnb_4bit_use_double_quant=True,
 )
 
-base = AutoModelForCausalLM.from_pretrained(
-    <span class="s">"your-base-model-id"</span>,
-    quantization_config=quant_config,
-    device_map=<span class="s">"auto"</span>,
-    torch_dtype=torch.bfloat16,
+adapter = LoraConfig(
+    r=16,
+    lora_alpha=32,
+    lora_dropout=0.05,
+    target_modules="all-linear",
+    bias="none",
+    task_type="CAUSAL_LM",
 )</code></pre>
-<p>The second half is the adapter. <code>LoraConfig</code> from <code>peft</code> takes four load-bearing arguments: <code>r</code> (rank, the third rite's lesson laid out exactly what that controls), <code>lora_alpha</code> (a scaling factor, sharpening or dampening the adapter's contribution relative to the base), <code>target_modules</code> (which weight matrices to attach the adapter to — typically the attention projections: <code>q_proj</code>, <code>k_proj</code>, <code>v_proj</code>, <code>o_proj</code>, sometimes the feed-forward gates too), and <code>lora_dropout</code> (a small dropout applied to the adapter layer, guarding against the overfitting risk a personal dataset of a few hundred records invites).</p>
-<p>The <code>target_modules</code> list is the bind's point of contact — the exact layer names in the base model that receive the adapter. These names are model-specific, not universal: a Llama model exposes <code>q_proj</code>, <code>v_proj</code>, etc.; a Mistral model uses the same naming convention; a Qwen model may differ slightly. The safe way to find them is one line: <code>print([n for n, _ in base.named_modules() if "proj" in n])</code> or the model's <code>config.json</code>. Guessing a target-module name the base doesn't have causes a silent skip — the adapter layer never gets attached, the trainer runs without error, and the bind learns nothing.</p>
-<pre><code><span class="k">from</span> peft <span class="k">import</span> LoraConfig, get_peft_model
-
-lora_config = LoraConfig(
-    r=<span class="k">16</span>,
-    lora_alpha=<span class="k">32</span>,
-    target_modules=[<span class="s">"q_proj"</span>, <span class="s">"k_proj"</span>, <span class="s">"v_proj"</span>, <span class="s">"o_proj"</span>],
-    lora_dropout=<span class="k">0.05</span>,
-    bias=<span class="s">"none"</span>,
-    task_type=<span class="s">"CAUSAL_LM"</span>,
-)
-
-model = get_peft_model(base, lora_config)
-model.print_trainable_parameters()</code></pre>
-<p><code>get_peft_model</code> is the single call that wraps the frozen quantized base with the adapter layers — after it returns, <code>model</code> is the combined vessel-plus-seam, and <code>print_trainable_parameters()</code> confirms the expected ratio: roughly 0.01–0.2% of the total, matching the third rite's parameter-math exactly. The last line of defense before the trainer fires: if the trainable count is zero or unexpectedly high, the target-module names are wrong.</p>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // TARGET_MODULES — WHAT YOU SKIP MATTERS AS MUCH AS WHAT YOU TARGET</div>
-<p>The common default is to target all linear layers (<code>"all-linear"</code> in newer PEFT versions), which attaches adapters to every <code>nn.Linear</code> in the model — including the language-model head (<code>lm_head</code>) and the embedding projection. This is rarely optimal on a small personal dataset: the adapter's parameter budget is finite, and spreading it across layers that learn the vocabulary mapping (embedding, lm_head) dilutes the signal headed for the attention projections where style and generation behavior actually live. The binding rite's conservative default is the four attention projections alone; expanding to the feed-forward linear layers (<code>gate_proj</code>, <code>up_proj</code>, <code>down_proj</code>) is a trade-off that costs more parameters for a potentially richer style shift — a decision the final rite of this section will revisit once the artificer can read a loss curve.</p></div>
+<p>NF4 is the four-bit representation designed for normally distributed weights. Computation still uses bfloat16; the adapter itself is not trained in four-bit arithmetic. Double quantization compresses quantization constants as well as base weights. None of these settings makes gradients flow into the base model.</p>
+<p>PEFT's current <code>"all-linear"</code> shorthand targets eligible linear/Conv1D modules while excluding the output layer for standard pretrained models. It is a supported QLoRA default and avoids a brittle hand-written list of Qwen module names. After <code>SFTTrainer</code> prepares the model, call <code>trainer.model.print_trainable_parameters()</code>. The trainable count must be greater than zero and a small fraction of the total. Record the printed value in the run report; do not accept “the trainer started” as proof that adapters attached.</p>
+<p>The pinned bitsandbytes wheel lists <code>gfx1201</code> as a preview ROCm target. Preview means runtime proof is mandatory, not that you should fetch an old experimental source branch. If the one-step run fails in a bitsandbytes kernel, capture the complete traceback, package versions, ROCm version, and architecture from the doctor. Changing quantization libraries without updating the course contract would be a new experiment, not a hidden repair.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ATTACHMENT IS MEASURABLE</div>
+<p>Do not infer that LoRA attached because model loading returned without an exception. Print trainable parameter counts, target module names, dtype, and the trainable fraction. A nonzero but tiny fraction is the expected shape. Zero means nothing can learn; a large fraction usually means the base was not frozen as intended.</p></div>
 '''
-body_words = 570
+
+[[lessons.readings]]
+label = "Transformers bitsandbytes quantization"
+url = "https://huggingface.co/docs/transformers/quantization/bitsandbytes"
+
+[[lessons.readings]]
+label = "PEFT LoRA configuration"
+url = "https://huggingface.co/docs/peft/package_reference/lora"
 
 [[lessons.exercises]]
 id = "s05-l02-e1"
 type = "mc"
 points = 20
-prompt = "Per this rite, what does passing a <code>BitsAndBytesConfig(load_in_4bit=True)</code> to <code>AutoModelForCausalLM.from_pretrained</code> actually do to the loaded model?"
-choices = [
-  "It converts the model's weights to 4-bit integers and then immediately trains the adapter inside that quantized space without ever dequantizing during the forward pass",
-  "It downloads a separate pre-quantized GGUF file from Hugging Face and loads it through llama.cpp instead of transformers",
-  "It loads the model normally at 16-bit and then applies a compression pass to the optimizer state, not the weights, so only the training memory footprint shrinks",
-  "It stores the frozen base weights as 4-bit NF4 in VRAM (~4.5 bits per weight) and dequantizes them to bfloat16 on the fly during each forward pass, then discards the full-precision values — the memory saving is the storage format; the compute still happens at bfloat16",
-]
+prompt = "Which values remain trainable in this QLoRA configuration?"
+choices = ["Every NF4 base weight", "The GGUF metadata header", "The FAISS index vectors", "The bfloat16 LoRA adapter parameters"]
 answer = 3
-whyWrong = "The quantized weights are dequantized for each forward pass — training does not operate inside 4-bit arithmetic, and the optimizer state is never quantized (that would destroy the precision gradients need). The GGUF route uses llama.cpp, not transformers/BitsAndBytesConfig, and the compression applies to the frozen weights in VRAM storage, not to the optimizer."
-hint = "The lesson's code block shows <code>bnb_4bit_compute_dtype=torch.bfloat16</code> — that's the data type used for the actual matrix multiply after dequantization. The correct choice explains that storage is 4-bit but compute uses the dtype specified in the config."
-explain = "NF4 quantization is a storage trick: the weights sit in VRAM as 4-bit integers and get dequantized to the compute dtype (bfloat16) for each matmul. The dequantized values are discarded after the forward pass, so the memory pressure is the 4-bit storage, not the full-precision representation. This is fundamentally different from loading a GGUF (which is a separate serialization format) and from quantizing the optimizer state (which no library does because gradients need precision)."
+whyWrong = "The base is frozen; GGUF and FAISS belong to later serving and retrieval stages."
+explain = "QLoRA stores the large base cheaply while retaining higher-precision trainable adapters."
+hint = "The Q compresses the frozen part; LoRA names the learned part."
 
 [[lessons.exercises]]
 id = "s05-l02-e2"
 type = "text"
-points = 18
-prompt = "What PEFT function takes a frozen base model and a <code>LoraConfig</code> and returns the combined model with trainable adapter layers attached — the call the lesson uses right after defining the config?"
-answer = "get_peft_model"
-accept = ["peft.get_peft_model", "get_peft_model()"]
-hint = "It's the function called directly after the LoraConfig definition in the lesson's second code block — the one whose result is assigned to <code>model</code>."
+points = 15
+prompt = "Which NF4 option also compresses the quantization constants?"
+answer = "bnb_4bit_use_double_quant"
+accept = ["bnb_4bit_use_double_quant=True", "double quantization"]
+hint = "Its name contains both double and quant."
 
 [[lessons.exercises]]
 id = "s05-l02-e3"
 type = "fill"
 points = 20
-prompt = "Fill the missing argument in the <code>LoraConfig</code> — the list that names which specific weight matrices in the base model receive the adapter layers."
-code = '''from peft import LoraConfig
-
-lora_config = LoraConfig(
-    r=16,
-    lora_alpha=32,
-    ____=["q_proj", "k_proj", "v_proj", "o_proj"],
-    lora_dropout=0.05,
-    bias="none",
-    task_type="CAUSAL_LM",
+prompt = "Complete PEFT's model-independent QLoRA target shorthand."
+code = '''adapter = LoraConfig(
+    target_modules="____",
 )'''
-answer = "target_modules"
-accept = ["target_modules"]
-hint = "The lesson's FIELD NOTES section is entirely about this argument — it controls which linear layers the adapter attaches to, and getting the names wrong causes a silent skip."
+answer = "all-linear"
+hint = "It targets the eligible linear layers without a hand-written Qwen list."
 
 [[lessons.exercises]]
 id = "s05-l02-e4"
-type = "type"
-points = 12
-reps = 2
-code = '''from peft import LoraConfig, get_peft_model
-
-lora_config = LoraConfig(
-    r=16,
-    lora_alpha=32,
-    target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
-    lora_dropout=0.05,
-    bias="none",
-    task_type="CAUSAL_LM",
-)
-
-model = get_peft_model(base, lora_config)
-model.print_trainable_parameters()'''
+type = "mc"
+points = 20
+prompt = "What is the acceptance evidence that adapters attached?"
+choices = ["print_trainable_parameters reports a nonzero, small trainable fraction", "The model download completes", "The baseline report exists", "Ollama lists qwen3:8b"]
+answer = 0
+whyWrong = "Those checks prove other boundaries but do not inspect the prepared PEFT model."
+explain = "Trainable-parameter reporting directly observes the adapter attachment."
+hint = "Inspect the parameters that require gradients."
 
 [[lessons.exercises]]
 id = "s05-l02-e5"
 type = "write"
 points = 35
-prompt = "Given <code>base_params = 7_000_000_000</code> (the frozen base model's parameter count) and a config dict <code>adapter_spec</code> with rank, target in/out dimensions, and module count, compute the adapter's total trainable parameters and the ratio <code>adapter / base × 100</code>. Print <code>RATIO &lt;percent&gt;%</code> rounded to 4 decimal places — computed from the variables, not hardcoded."
-starter = '''base_params = 7_000_000_000
+prompt = "Compute the trainable percentage and print exactly: TRAINABLE 0.200%"
+starter = '''trainable = 16_000_000
+total = 8_000_000_000
 
-# adapter_spec: rank=16, in_dim=4096, out_dim=4096, modules=4
-rank = 16
-in_dim = 4096
-out_dim = 4096
-modules = 4
-
-# adapter params = rank * (in_dim + out_dim) * modules
-# ratio = adapter_params / base_params * 100
-# Print RATIO <ratio>% with 4 decimal places
-print("RATIO 0.0000%")
+percent = 0
+print(f"TRAINABLE {percent:.3f}%")
 '''
-expect = "RATIO 0.0075%"
-hint = "adapter_params = rank * (in_dim + out_dim) * modules = 16 * 8192 * 4 = 524288. ratio = 524288 / 7_000_000_000 * 100 ≈ 0.0074898… rounds to 0.0075%. Use f'RATIO {ratio:.4f}%' to format."
+solution = '''trainable = 16_000_000
+total = 8_000_000_000
+
+percent = trainable / total * 100
+print(f"TRAINABLE {percent:.3f}%")
+'''
+expect = "TRAINABLE 0.200%"
+hint = "Divide trainable by total, multiply by 100, and format to three decimals."

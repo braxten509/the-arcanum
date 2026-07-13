@@ -20,6 +20,15 @@ capabilities required—not a target number. Respect the exact start, breadth, d
 mastery, prior-knowledge, and tooling answers. Identify the topic's real difficulty spine,
 the graduate CAN/CANNOT boundary, and its daily-driver operations. A low starting level
 gets explicit fundamentals and toolchain sections before domain work.
+For Start 1–3, treat the prior-knowledge answer as an exhaustive whitelist and order the
+arc so every required keyword, syntax form, operator, API, tool action, and technical term
+is introduced before first use. Start 2 changes pace and repetition, not fundamental
+coverage; a construct cannot disappear from the teaching sequence merely because the
+learner is not at absolute zero.
+
+Keep CANNOT items and other scope cuts in this internal Arc and its Graduate ledger.
+They are planning constraints, not catalog copy; Phase 2's public description must say
+positively what the learner builds and learns, without an exclusion list.
 
 Make cross-section state explicit:
 
@@ -31,5 +40,8 @@ Make cross-section state explicit:
   replaces, isolates, or intentionally ships it.
 - `Acceptance proof`: the literal clean-start learner journey through setup, launch,
   meaningful use, persistence/relaunch where relevant, delivery, and end-to-end proof.
+- `Section list`: one physical line per section, sequential, exactly
+  `1. **s01 — Title:** capability/build promise`. The harness parses these lines to create
+  Phase 2's section tree; prose paragraphs or a different id/order do not pass the gate.
 
 Produce only the completed Arc in the plan. Phase 2 turns it into tome files.

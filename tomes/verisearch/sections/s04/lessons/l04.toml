@@ -1,108 +1,107 @@
 [[lessons]]
 id = "s04-l04"
-title = "System.Text.Json — JSON in, objects out"
+teaches = ["json-mapping"]
+title = "System.Text.Json — JSON In, Typed Data Out"
 body = '''
-
-<p>APIs speak JSON. <code>System.Text.Json</code> converts it to your records and back. Given this SearXNG-style response:</p>
+<p>JSON is text with a defined shape. <code>System.Text.Json</code>, included with .NET, maps that text to C# records and back. Verisearch will use it for configuration, Ollama requests, and Ollama responses, so learn one dependable pathway now.</p>
 <pre><code>{
-  <span class="s">"query"</span>: <span class="s">"tls 1.3"</span>,
-  <span class="s">"results"</span>: [
-    { <span class="s">"url"</span>: <span class="s">"https://ietf.org/rfc8446"</span>, <span class="s">"title"</span>: <span class="s">"RFC 8446"</span>, <span class="s">"content"</span>: <span class="s">"snippet..."</span>, <span class="s">"engine"</span>: <span class="s">"duckduckgo"</span> }
-  ]
+  <span class="s">"label"</span>: <span class="s">"RFC 8446"</span>,
+  <span class="s">"url"</span>: <span class="s">"https://www.rfc-editor.org/rfc/rfc8446"</span>,
+  <span class="s">"trust"</span>: 10
 }</code></pre>
-<p>Model the shape with records, then deserialize:</p>
 <pre><code><span class="k">using</span> System.Text.Json;
 
-<span class="k">public record</span> SearxResponse(List&lt;SearxResult&gt; Results);
-<span class="k">public record</span> SearxResult(<span class="k">string</span> Url, <span class="k">string</span> Title, <span class="k">string</span> Content, <span class="k">string</span> Engine);
+<span class="k">public record</span> SourceRow(<span class="k">string</span> Label, <span class="k">string</span> Url, <span class="k">double</span> Trust);
 
-<span class="k">var</span> options = <span class="k">new</span> JsonSerializerOptions { PropertyNameCaseInsensitive = <span class="k">true</span> };
-SearxResponse? resp = JsonSerializer.Deserialize&lt;SearxResponse&gt;(json, options);
+<span class="k">var</span> options = <span class="k">new</span> JsonSerializerOptions
+{
+    PropertyNameCaseInsensitive = <span class="k">true</span>
+};
 
-<span class="k">foreach</span> (<span class="k">var</span> r <span class="k">in</span> resp?.Results ?? [])
-    Console.WriteLine(<span class="s">$"{r.Title} — {r.Url}"</span>);</code></pre>
-<p>Three details that bite everyone:</p>
-<ul>
-<li><strong>Casing.</strong> JSON uses <code>"url"</code>, C# uses <code>Url</code>. Fix with <code>PropertyNameCaseInsensitive = true</code> or <code>[JsonPropertyName("url")]</code> attributes.</li>
-<li><strong>Null.</strong> <code>Deserialize</code> returns <code>T?</code> — the JSON could be the literal <code>null</code>. Guard it.</li>
-<li><strong>Bad JSON throws</strong> <code>JsonException</code>. API gave you an HTML error page instead of JSON? That's a JsonException. Catch it.</li>
-</ul>
-<p>Serializing (you'll want this for saving config/state):</p>
-<pre><code><span class="k">string</span> json = JsonSerializer.Serialize(myObject,
-    <span class="k">new</span> JsonSerializerOptions { WriteIndented = <span class="k">true</span> });</code></pre><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
-<p><strong>Nested shapes:</strong> JSON objects inside objects map to records inside records — <code>record Resp(Meta Meta, List&lt;Item&gt; Results);</code>. Arrays map to <code>List&lt;T&gt;</code> or <code>T[]</code>.</p>
-<p><strong>Per-property renaming</strong> beats global case-insensitivity when names truly differ: <code>[JsonPropertyName("base_score")] double BaseScore</code>.</p>
-<p><strong>Missing vs null vs default:</strong> a JSON field that's absent leaves the C# property at its default (null for string? — 0 for int!). If zero-vs-missing matters, make it <code>int?</code> and check for null.</p>
-<p><strong>Debug tip:</strong> when deserialization "works" but everything is null/0, it's ALWAYS a name/casing mismatch. Print the raw JSON's first 200 chars next to your record definition and compare.</p></div>'''
+SourceRow? row = JsonSerializer.Deserialize&lt;SourceRow&gt;(json, options);</code></pre>
+<p><code>Deserialize&lt;T&gt;</code> returns <code>T?</code>: malformed data may throw <code>JsonException</code>, while the JSON literal <code>null</code> legitimately produces null. Check both. Lowercase JSON names do not match PascalCase properties under the serializer's strict default, which is why this course creates one shared options object with case-insensitive reads.</p>
+<p>For HTTP, <code>System.Net.Http.Json</code> adds helpers:</p>
+<pre><code><span class="k">using</span> System.Net.Http.Json;
+
+HttpResponseMessage response = <span class="k">await</span> http.PostAsJsonAsync(<span class="s">"api/path"</span>, request, ct);
+ResponseBody? body = <span class="k">await</span> response.Content.ReadFromJsonAsync&lt;ResponseBody&gt;(cancellationToken: ct);</code></pre>
+<p>The helpers serialize the request and deserialize the response, but they do not decide whether a failed status is acceptable. Call <code>response.EnsureSuccessStatusCode()</code> or branch on <code>IsSuccessStatusCode</code> before trusting the body.</p>
+<div class="callout">Never solve a JSON mismatch with a chain of string replacements. Print a bounded piece of the raw payload, compare it to the C# record, and fix names, nesting, or nullability. That habit will save Chapter IX.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // MISSING, NULL, AND DEFAULT</div>
+<p>A missing numeric property becomes zero on a non-nullable <code>int</code>; explicit JSON null cannot. Use nullable types when absence matters, then validate after deserialization. Serialization with <code>WriteIndented = true</code> produces human-readable config. The serializer understands nested records and lists, so model the actual shape instead of parsing with regular expressions.</p></div>
+'''
 
 [[lessons.readings]]
-label = "Microsoft Learn — \"How to serialize and deserialize JSON\""
+label = "Microsoft Learn — System.Text.Json how-to"
 url = "https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/how-to"
 essential = false
 
 [[lessons.readings]]
-label = "SearXNG — Search API documentation"
-url = "https://docs.searxng.org/dev/search_api.html"
-essential = false
-
-[[lessons.readings]]
-label = "SearXNG — JSON format discussion"
-url = "https://github.com/searxng/searxng/discussions/1789"
+label = "Microsoft Learn — HttpClient JSON extensions"
+url = "https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/httpclient-extensions"
 essential = false
 
 [[lessons.exercises]]
 id = "s04-l04-e1"
 type = "fill"
 points = 25
-prompt = "Fill the blank to parse JSON into a SearxResponse."
-code = "var resp = JsonSerializer.____<SearxResponse>(json, options);"
+prompt = "Fill the method that converts JSON text into a typed C# value."
+code = "var row = JsonSerializer.____<SourceRow>(json, options);"
 answer = "Deserialize"
-hint = "JSON → object. The other direction is Serialize."
+hint = "JSON to object; Serialize travels the other direction."
 
 [[lessons.exercises]]
 id = "s04-l04-e2"
 type = "mc"
 points = 20
-prompt = "Your JSON has <code>\"title\"</code> but your record property is <code>Title</code>. Without extra options, what happens on deserialize?"
-choices = ["Works fine — matching is always case-insensitive", "Title ends up null/empty because default matching is case-SENSITIVE", "JsonException is thrown", "The program won't compile"]
+prompt = "The payload uses <code>label</code> while the C# record uses <code>Label</code>. Which explicit option admits that difference?"
+choices = ["WriteIndented", "PropertyNameCaseInsensitive", "AllowTrailingCommas only", "IncludeFields"]
 answer = 1
-whyWrong = "Default System.Text.Json matching is case-SENSITIVE, so ‘title’ won’t map to ‘Title’ and the property stays null — it doesn’t auto-match, throw, or fail to compile."
-hint = "This is why PropertyNameCaseInsensitive exists."
+whyWrong = "Indentation controls output formatting, while the other settings do not establish case-insensitive property matching."
+explain = "PropertyNameCaseInsensitive allows common web-style lowercase names to bind to PascalCase properties."
+hint = "Its name states the matching rule."
 
 [[lessons.exercises]]
 id = "s04-l04-e3"
 type = "mc"
 points = 20
-prompt = "The API returned an HTML error page and you called Deserialize on it. What happens?"
-choices = ["Returns null quietly", "Returns an empty object", "Throws JsonException — catch it", "The HTML is parsed as best-effort JSON"]
+prompt = "What should happen before reading a typed JSON body from a failed HTTP response?"
+choices = ["Ignore the status", "Retry forever", "Check or enforce success status", "Convert the status code to JSON"]
 answer = 2
-whyWrong = "Deserializing HTML as JSON doesn’t quietly return null/empty or best-effort parse — it throws JsonException, which you should catch."
-hint = "HTML starts with < — not valid JSON."
+whyWrong = "A typed body does not turn an HTTP failure into success, and unbounded retries hide the real boundary."
+explain = "Status handling and JSON mapping are separate responsibilities."
+hint = "HTTP status comes before body interpretation."
 
 [[lessons.exercises]]
 id = "s04-l04-d1"
 type = "type"
 points = 12
 reps = 2
-prompt = "The deserialize-with-options incantation. Twice."
-code = '''
-var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-var resp = JsonSerializer.Deserialize<SearxResponse>(json, options);'''
+prompt = "Retype the shared serializer options twice."
+code = '''var jsonOptions = new JsonSerializerOptions
+{
+    PropertyNameCaseInsensitive = true,
+    WriteIndented = true
+};'''
 
 [[lessons.exercises]]
 id = "s04-l04-w1"
 type = "write"
 points = 36
-prompt = "Real JSON round-trip: add <code>using System.Text.Json;</code> at the top. Define record <code>Result(string Url, string Title)</code>. Deserialize the string <code>{\"url\":\"ietf.org\",\"title\":\"RFC 8446\"}</code> (watch the casing!) and print <code>&lt;Title&gt; @ &lt;Url&gt;</code>."
-expect = "RFC 8446 @ ietf.org"
-solution = '''
-using System.Text.Json;
+prompt = "Deserialize the supplied lowercase JSON into <code>SourceRow(string Label, string Url, double Trust)</code> with case-insensitive options. Print exactly <code>RFC 8446 @ 10</code>."
+starter = '''using System.Text.Json;
 
-string json = """{"url":"ietf.org","title":"RFC 8446"}""";
-var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-var result = JsonSerializer.Deserialize<Result>(json, options)!;
-Console.WriteLine($"{result.Title} @ {result.Url}");
-
-public record Result(string Url, string Title);
+string json = """{"label":"RFC 8446","url":"https://example.test/rfc","trust":10}""";
+Console.WriteLine("NOT PARSED");
 '''
-hint = "The JSON is lowercase, the record PascalCase — you need PropertyNameCaseInsensitive = true. Escape quotes in the literal or use a raw string \"\"\"...\"\"\"."
+expect = "RFC 8446 @ 10"
+solution = '''using System.Text.Json;
+
+string json = """{"label":"RFC 8446","url":"https://example.test/rfc","trust":10}""";
+var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+var row = JsonSerializer.Deserialize<SourceRow>(json, options)!;
+Console.WriteLine($"{row.Label} @ {row.Trust}");
+
+public record SourceRow(string Label, string Url, double Trust);
+'''
+hint = "Create JsonSerializerOptions, call Deserialize<SourceRow>, then read Label and Trust."

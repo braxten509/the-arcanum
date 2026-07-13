@@ -7,7 +7,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from arcanum.tool_trace import SessionFollower, codex_tool_events, claude_tool_events, format_tool_event
+from arcanum.tool_trace import (_claude_session_from_processes, SessionFollower,
+                                codex_tool_events, claude_tool_events, format_tool_event)
 
 
 codex_record = {
@@ -15,7 +16,7 @@ codex_record = {
     "type": "response_item",
     "payload": {
         "type": "custom_tool_call", "name": "exec",
-        "input": 'const r = await tools.exec_command({cmd:"rg -n \\\"lesson\\\" tomes/rune-bound"}); text(r.output);',
+        "input": 'const r = await tools.exec_command({"cmd":"rg -n \\\"lesson\\\" tomes/rune-bound"}); text(r.output);',
     },
 }
 events = codex_tool_events(codex_record)
@@ -50,5 +51,20 @@ try:
 finally:
     os.unlink(path)
 
-print("forge tool trace: OK")
+with tempfile.TemporaryDirectory() as tmp:
+    proc_root = os.path.join(tmp, "proc")
+    projects = os.path.join(tmp, "projects")
+    cwd = "/repo/tomes/rune-bound"
+    pdir = os.path.join(proc_root, "123")
+    project = os.path.join(projects, cwd.replace(os.sep, "-"))
+    os.makedirs(pdir)
+    os.makedirs(project)
+    with open(os.path.join(pdir, "cmdline"), "wb") as handle:
+        handle.write(b"/home/user/.local/bin/claude\0-p\0")
+    os.symlink(cwd, os.path.join(pdir, "cwd"))
+    session = os.path.join(project, "session.jsonl")
+    with open(session, "w", encoding="utf-8") as handle:
+        handle.write(json.dumps(claude_record) + "\n")
+    assert _claude_session_from_processes([123], proc_root, projects) == ("claude", session)
 
+print("forge tool trace: OK")

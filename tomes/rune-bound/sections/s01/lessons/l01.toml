@@ -1,124 +1,97 @@
 [[lessons]]
 id = "s01-l01"
-title = "Marks, Values, and Types"
-teaches = ["s01-value-tracing","s01-value-contract"]
+title = "Marks on the Map"
+teaches = ["tool-install", "tool-create-open", "tool-navigate", "tool-edit-save", "tool-run-test", "tool-diagnose", "python-game-data-values", "typed-level-facts"]
 body = '''
-<p>s01-l01 opens the values and rows chart through Marks. s01-l01 hears THE CARTOGRAPHER name s01-value-tracing its first bearing. s01-l01 names one input, one change, and one output. s01-l01 gives s01-value-contract a second mark for comparison. s01-l01 keeps the smallest successful example beside its route.</p>
-<p>s01-l01 reads from left to right, then narrates state changes. s01-l01 keeps its values and rows clue concrete and observable. s01-l01 runs twice; the second pass challenges the first. s01-l01 records which owner moved when s01-value-tracing shifted. s01-l01 carries earlier <code>level_rows</code> evidence into this chart.</p>
-<p>s01-l01 asks one decision to stand alone in the margin. s01-l01 keeps s01-value-contract visible instead of hiding it behind polish. s01-l01 tests a friendly case and a sharp edge case. s01-l01 compares both traces so s01-value-tracing has a witness. s01-l01 names the failure before choosing a repair.</p>
-<p>s01-l01 treats each handoff as a contract between maker and reader. s01-l01 supplies s01-value-tracing; the reader checks s01-value-contract. s01-l01 places its check where another wayfinder can repeat it. s01-l01 earns THE CARTOGRAPHER's trust through evidence, not luck. s01-l01 leaves one deliberate question for the next chart.</p>
-<p>s01-l01 closes by stating what the program must preserve. s01-l01 names one input that could falsify s01-value-tracing. s01-l01 names one output that confirms s01-value-contract still belongs. s01-l01 runs the smallest route, inspects its trace, and annotates it. s01-l01 turns the values and rows chart into a RuneBound waypoint.</p>
-<p>s01-l01 ends with a handoff to the next chart. s01-l01 carries s01-value-contract forward after s01-value-tracing earns trust. s01-l01 lets THE CARTOGRAPHER record the result in plain language. s01-l01 turns a clean rerun from a guess into a fact. s01-l01 lets the next wayfinder begin without hidden context.</p>
-<pre><code>print("s01-l01 // Marks, Values, and Types")</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // S01-L01</div><p>s01-l01 <strong>Evidence.</strong> Record s01-value-tracing; compare it with s01-value-contract before advancing.</p><p>s01-l01 <strong>Repair.</strong> Change one cause, rerun the route, and preserve the explanation.</p></div>
+<p>Before a world can be drawn, prepare the field table. Follow the mandatory Python and PyGame readings, then in a terminal create a folder such as <code>mkdir RuneBound</code>, enter it with <code>cd RuneBound</code>, and open that folder in your editor. Save a file named <code>survey.py</code>, run <code>python3 survey.py</code>, and keep the terminal in that same folder. Verify the interpreter before s03 with <code>python3 -c "import pygame; print(pygame.version.ver)"</code>. If that reports <code>ModuleNotFoundError</code>, run <code>python3 -m pip install pygame</code> and repeat the exact import check; if <code>python3</code> itself is missing, install Python 3 from the first reading and reopen the terminal. This is the real local-tool route; s01–s02’s small exercises can still be rehearsed in the browser, but the project folder and terminal become the durable delivery route from s03 onward.</p>
+<p>Before a world can be drawn, it has to be described without lying. THE CARTOGRAPHER begins with three facts about a single map square: its label, how much gold rests there, and whether a wayfinder may cross it. Python lets a name point at a value, and the value’s <strong>type</strong> tells us what operations make sense. A string holds text, an integer holds a whole count, and a boolean holds one of two decisions: <code>True</code> or <code>False</code>.</p>
+<pre><code>tile_name = "Moss Trail"
+gold = 12
+passable = True
+
+print(tile_name)
+print(gold + 3)
+print(passable)</code></pre>
+<p>Read that chart left to right. The first three lines establish facts; they do not display anything yet. The last three lines inspect them. Keeping <code>gold</code> as an integer matters because later code will add, subtract, and compare it. Keeping <code>tile_name</code> as text matters because it is a human-facing label. A boolean is not the text <code>"True"</code>: quoted text cannot make a branch behave like a yes/no fact.</p>
+<p>Use names that explain ownership. <code>starting_gold</code> answers “whose number is this?” better than <code>x</code>. At this stage, print statements are deliberately useful debug scaffolding: they let you see the data before a PyGame window exists. In s03, the game loop will retire these terminal probes in favor of surface rendering; do not mistake a printout for the finished game.</p>
+<div class="callout"><strong>THE CARTOGRAPHER'S RULE:</strong> choose the type for the work a value must perform, not for how convenient it looks when printed.</div>
+<p>When an output surprises you, trace one name at a time: identify its assigned value, its type, and the expression that used it. That habit will make malformed map data much less mysterious. The eventual RuneBound game receives keyboard and window events, not terminal input; these one-file exercises are a safe place to practice Python’s data vocabulary before the event-driven world begins.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // VALUE OWNERSHIP</div><p>A name can later be assigned a different value, but changing a type casually makes code harder to reason about. Keep numeric game facts numeric and convert them to display text only when rendering a label.</p></div>
 '''
 
 [[lessons.readings]]
-label = "MANDATORY // Python installation and downloads"
-url = "https://docs.python.org/3/tutorial/introduction.html"
+label = "MANDATORY // Install Python 3"
+url = "https://www.python.org/downloads/"
+essential = true
 
 [[lessons.readings]]
-label = "MANDATORY // PyGame installation and getting started"
-url = "https://docs.python.org/3/tutorial/datastructures.html"
+label = "MANDATORY // Install PyGame"
+url = "https://www.pygame.org/wiki/GettingStarted"
+essential = true
 
 [[lessons.exercises]]
 id = "s01-l01-e1"
-type = "text"
-points = 16
-prompt = '''
-<p>s01-l01-e1: name the Python term for the specific unit requested by this chart. Supply the language term, not the surrounding story label.</p>
-'''
-answer = "int"
-hint = '''
-Recall the named boundary in Marks, Values, and Types; the answer is the language term for that single job, not the larger game feature.
+type = "type"
+points = 12
+reps = 2
+prompt = '''<p>Retype the survey exactly. It records text, a count, and a crossing decision.</p>'''
+code = '''
+tile_name = "Moss Trail"
+gold = 12
+passable = True
+print(tile_name, gold, passable)
 '''
 
 [[lessons.exercises]]
 id = "s01-l01-e2"
 type = "fill"
-points = 18
-prompt = '''
-<p>s01-l01-e2: restore the missing operation in the supplied code. Use its operands and the chart evidence to complete the route without renaming the owner.</p>
-'''
+points = 22
+prompt = '''<p>Complete the literal that records that a bridge tile may be crossed.</p>'''
 code = '''
-gold = ____
+bridge_passable = ____
+print(bridge_passable)
 '''
-answer = "12"
-hint = '''
-Look at what must happen to gold = 12 beside label = "sun coins"; choose the operation that performs that job rather than the one that merely inspects the result.
-'''
+answer = "True"
+hint = '''A crossing decision has exactly two unquoted Python literals; choose the affirmative one.''' 
+whyWrong = '''Quoted text such as "True" only looks like a decision when printed. The program needs Python's boolean literal so a future condition can use it.''' 
 
 [[lessons.exercises]]
 id = "s01-l01-e3"
 type = "mc"
-points = 14
-prompt = '''
-<p>Which pairing keeps the first clearing's data honest? Select the reading that keeps the level survey can record facts without guessing their kind possible.</p>
-'''
-choices = ["an integer for the count and a string for its display label","a string for every value so printing is always easy","a boolean for the gold total and a number for its label","one large list with no separate names"]
+points = 20
+prompt = '''<p>A chest begins with 7 gold pieces and the game later adds 3. Which representation keeps that update honest?</p>'''
+choices = ["gold = 7", "gold = \"7\"", "gold = True", "gold = [7]"]
 answer = 0
-whyWrong = '''
-The tempting routes confuse letting a display string masquerade as a number with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace the player name, a starting gold count, and a passable flag in the First Ink chart, then compare the a number stays numeric while its display label remains text with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves a number stays numeric while its display label remains text and leaves the player name, a starting gold count, and a passable flag available for the next RuneBound handoff.
-'''
+hint = '''The later operation is arithmetic, so select the value that can be added to another number without parsing or indexing.''' 
+whyWrong = '''A string is display text, a boolean represents a decision, and a one-item list is a collection. None is the direct numeric fact needed for arithmetic.''' 
+explain = '''An integer represents a whole-number amount, so <code>gold + 3</code> produces the new count directly.''' 
 
 [[lessons.exercises]]
 id = "s01-l01-e4"
-type = "write"
-points = 30
-prompt = '''
-<p>Complete the first ink route and print exactly <code>RUNEBOUND S01 L01 SEAL</code>. Preserve the named data before adding the final observation.</p>
-'''
-starter = '''
-route_mark = "sun-coins"
-print("survey pending")
-# Add the chart seal after checking the route.
-'''
-expect = '''
-RUNEBOUND S01 L01 SEAL
-'''
-solution = '''
-route_mark = "sun-coins"
-print("RUNEBOUND S01 L01 SEAL")
-'''
-hint = '''
-For s01-l01-e4, leave the route data intact and add only its final s01 observation; compare the starter output with the target before submitting.
-'''
+type = "text"
+points = 18
+prompt = '''<p>What Python type is the value produced by <code>2 + 5</code> when both operands are whole numbers?</p>'''
+answer = "int"
+hint = '''Use Python's short built-in name for a whole-number type.''' 
+whyWrong = '''A result displayed by print is not automatically text. Adding two whole-number values produces another whole-number value.''' 
 
 [[lessons.exercises]]
 id = "s01-l01-e5"
-type = "type"
-points = 10
-reps = 2
-prompt = '''
-<p>Retype this first ink evidence exactly. Keep the player name, a starting gold count, and a passable flag visible while you write. (Ctrl+Enter submits.)</p>
+type = "write"
+points = 32
+prompt = '''<p>Create three variables for the exact facts in the starter: the trail label, 12 gold pieces, and the passable decision. Print exactly the two lines shown: <code>Moss Trail</code> then <code>15</code>. Do not turn the gold count into text.</p>'''
+starter = '''
+# Record the trail facts here.
 '''
-code = '''
+expect = '''
+Moss Trail
+15
+'''
+solution = '''
+tile_name = "Moss Trail"
 gold = 12
-label = "sun coins"
-print(label, gold)
+passable = True
+print(tile_name)
+print(gold + 3)
 '''
-
-[[lessons.exercises]]
-id = "s01-l01-e6"
-type = "mc"
-points = 14
-prompt = '''
-<p>Which pairing keeps the first clearing's data honest? Select the reading that keeps the level survey can record facts without guessing their kind possible.</p>
-'''
-choices = ["an integer for the count and a string for its display label","a string for every value so printing is always easy","a boolean for the gold total and a number for its label","one large list with no separate names"]
-answer = 0
-whyWrong = '''
-The tempting routes confuse letting a display string masquerade as a number with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace the player name, a starting gold count, and a passable flag in the First Ink chart, then compare the a number stays numeric while its display label remains text with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves a number stays numeric while its display label remains text and leaves the player name, a starting gold count, and a passable flag available for the next RuneBound handoff.
-'''
+hint = '''Store 12 in a numeric variable, then print that variable plus 3 on the second line.''' 

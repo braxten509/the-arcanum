@@ -1,29 +1,28 @@
 [[lessons]]
 id = "s12-l02"
-title = "What to test — the high-value targets"
+teaches = ["contract-tests"]
+title = "Test the Boundaries Where False Quotes Could Escape"
 body = '''
-
-<p>You will not test everything; test where bugs COST. The tome doc names Verisearch's big three, and each is pure logic you already isolated (thank Chapter XI's architecture):</p>
-<p><strong>1. Trust scoring</strong> — pure math, zero I/O, perfect first target:</p>
-<ul>
-<li>known domain → its configured score; unknown → Unverified default</li>
-<li>modifiers apply and CAP at 10; ranking orders ietf above medium regardless of input order</li>
-</ul>
-<p><strong>2. LLM output parsing</strong> — your Chapter IX ladder, fed the three personalities as strings:</p>
+<p>Prioritize tests by damage. Verisearch's highest-cost regression is presenting altered or misattributed text as verified evidence. Build this deterministic suite before testing decorative output.</p>
+<ol><li><strong>QuoteVerifier:</strong> exact substring accepted; changed case, punctuation, unknown id, empty text, duplicate, and over-limit proposals rejected.</li><li><strong>Attribution:</strong> accepted label and URL equal the matched <code>Passage.Source</code>, regardless of any surrounding test data.</li><li><strong>Structured response parsing:</strong> a fixed valid inner JSON string becomes <code>QuoteBatch</code>; malformed JSON throws. Extract parsing into <code>OllamaQuoteSelector.ParseBatch</code> so tests need no server.</li><li><strong>PageExtractor:</strong> fixed HTML yields normalized stable passages, excludes navigation, and retains the exact <code>SourceSpec</code>.</li><li><strong>SourcePolicy:</strong> unknown labels and invalid schemes cannot become selected sources.</li></ol>
 <pre><code>[Theory]
-[InlineData(<span class="s">"[1, 2, 3]"</span>, 3)]                                <span class="c">// clean</span>
-[InlineData(<span class="s">"Sure! Here you go: [1, 2] Hope that helps!"</span>, 2)] <span class="c">// chatty</span>
-[InlineData(<span class="s">"[900, -1, 1, 1]"</span>, 1)]                          <span class="c">// liar (150-block page)</span>
-[InlineData(<span class="s">"no brackets at all"</span>, 0)]                       <span class="c">// broken → empty, not throw</span>
-<span class="k">public void</span> ParseIndices_SurvivesModelPersonalities(<span class="k">string</span> raw, <span class="k">int</span> expected)
-    =&gt; Assert.Equal(expected, ResponseParser.ParseIndices(raw, blockCount: 150).Count);</code></pre>
-<p><strong>3. HTML extraction</strong> — feed AngleSharp fixture HTML strings (no network!): junk removal, pre-block whitespace preservation, crumb filtering, stable numbering.</p>
-<p>What NOT to unit test: that HttpClient does HTTP, that Spectre draws boxes, that YamlDotNet parses YAML. Those are their authors' tests. YOUR logic at the seams is yours.</p>
-<p>Notice the enabling pattern: every one of these tests works because the logic takes VALUES in and returns VALUES out — no network, no disk, no globals. Code that's annoying to test is usually badly factored; the pain is diagnostic.</p>
-<div class="callout">Deterministic tests only: no live network, no real LLM, no sleeps. A test that fails when the wifi's down isn't a test, it's a weather report.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
-<p><strong>Test double taxonomy</strong> (interview-proof): <em>stub</em> — returns canned data (your MockSearchClient) · <em>fake</em> — working lightweight implementation (in-memory "database") · <em>mock</em> — records calls so you can assert "was this called with X?" (libraries like Moq/NSubstitute generate these). Verisearch's needs are 95% stubs.</p>
-<p><strong>Coverage is a flashlight, not a grade:</strong> 100% line coverage with weak assertions proves nothing; 60% coverage of trust math, parsing, and extraction with sharp assertions catches real regressions. Test where bugs COST, assert what must be TRUE.</p>
-<p><strong>AAA discipline:</strong> one Arrange, one Act, focused Asserts. A test asserting twelve unrelated things fails as a riddle; three tests asserting one thing each fail as documentation.</p></div>'''
+[InlineData(<span class="s">"Exact source words."</span>, <span class="k">true</span>)]
+[InlineData(<span class="s">"exact source words."</span>, <span class="k">false</span>)]
+[InlineData(<span class="s">"Exact source words"</span>, <span class="k">true</span>)]
+[InlineData(<span class="s">"Invented source words."</span>, <span class="k">false</span>)]
+<span class="k">public void</span> Verify_Candidate_AcceptsOnlyActualSubstrings(<span class="k">string</span> candidate, <span class="k">bool</span> expected)
+{
+    VerificationBatch result = _verifier.Verify(
+        [<span class="k">new</span> QuoteProposal(1, candidate)], _passages, 5);
+    Assert.Equal(expected, result.Accepted.Count == 1);
+}</code></pre>
+<p>The no-period candidate is correctly accepted because it is still a contiguous exact substring. Tests must reflect the actual product contract, not a hidden preference for sentence boundaries.</p>
+<p>Do not hit a live URL or model in unit tests. Those services change, fail, and respond nondeterministically. Unit tests provide fixed HTML and JSON values. The acceptance workshop separately proves that the installed services can talk end to end.</p>
+<p>Beginner checkpoint: make one test fail deliberately, read its expected-versus-actual message, then undo only that deliberate change.</p>
+<div class="callout">Do not test that System.Text.Json parses JSON in general or that Spectre draws a panel. Test your schema boundary, your exactness decision, your attribution ownership, and your extraction rules.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // A PARSER SEAM</div><p>Move the inner deserialization into <code>public static QuoteBatch ParseBatch(string json)</code> and have <code>SelectAsync</code> call it. The method remains small and deterministic; tests no longer need to fake HttpClient just to prove malformed model content is rejected.</p></div>
+'''
+
 [[lessons.readings]]
 label = "Microsoft Learn — Unit testing best practices"
 url = "https://learn.microsoft.com/en-us/dotnet/core/testing/unit-testing-best-practices"
@@ -33,61 +32,78 @@ essential = false
 id = "s12-l02-e1"
 type = "mc"
 points = 25
-prompt = "Best FIRST test target in Verisearch and why?"
-choices = ["The full pipeline over live network — maximum coverage", "Whether Ollama is installed", "Spectre table rendering pixels", "Trust scoring — pure logic, no I/O, deterministic, high blast radius"]
+prompt = "Which is the highest-value first production test for Verisearch?"
+choices = ["A live Ollama call", "Terminal border color", "Download speed", "QuoteVerifier rejects text absent from Passage.Text"]
 answer = 3
-whyWrong = "Live-network and rendering tests are slow and flaky and ‘is Ollama installed’ isn’t your logic — start with trust scoring: pure, deterministic, high-impact."
-hint = "Pure functions test themselves practically."
+whyWrong = "Live services and performance are environment-dependent, while border color does not protect truth. The exact-match gate carries the product's central risk."
+explain = "A fast deterministic verifier test catches the regression that could let a fabricated quote escape."
+hint = "Test the strongest promise first."
 
 [[lessons.exercises]]
 id = "s12-l02-e2"
 type = "mc"
 points = 25
-prompt = "Your parse test hits the real Ollama server. What's wrong?"
-choices = ["Nondeterministic + environment-dependent: it tests the weather, not your parser. Feed it fixed strings instead", "Nothing — realism is good", "Ollama forbids testing", "It should hit the search API too"]
+prompt = "Why should the unit test for inner model JSON avoid the real Ollama server?"
+choices = ["A fixed string isolates parsing and remains deterministic", "Ollama forbids tests", "HTTP cannot run under xUnit", "A search API is required too"]
 answer = 0
-whyWrong = "Hitting real Ollama isn’t realism worth having — it makes the test nondeterministic and environment-dependent, testing the model instead of your parser; feed fixed strings."
-hint = "The parser takes a string. Hand it strings."
+whyWrong = "xUnit can perform HTTP and Ollama does not forbid tests, but external behavior would make this parsing test flaky and unfocused."
+explain = "Feed ParseBatch exact valid and invalid strings; acceptance tests own live connectivity."
+hint = "One test should have one reason to fail."
 
 [[lessons.exercises]]
 id = "s12-l02-e3"
 type = "mc"
 points = 20
-prompt = "\"Code that's hard to unit test is usually…\""
-choices = ["fast", "badly factored — tangled I/O and logic; the pain is diagnostic", "well encapsulated", "written in C#"]
+prompt = "A test expects <code>Exact source words</code> without the final period to be rejected, although it is present inside the passage. What is wrong?"
+choices = ["Nothing", "The test invents a stricter whole-sentence rule than the ordinal-substring contract", "String.Contains requires punctuation", "xUnit ignores periods"]
 answer = 1
-whyWrong = "Hard-to-test code isn’t fast or well-encapsulated — it’s usually badly factored, with I/O and logic tangled; the difficulty is a design smell."
-hint = "Chapter XI's architecture is what MAKES this op easy."
+whyWrong = "String.Contains does not require punctuation and xUnit does not alter strings. The candidate is a real substring, so the expectation misstates the contract."
+explain = "Tests are executable specifications; a wrong expectation can pressure production code into the wrong behavior."
+hint = "Search for those exact characters inside the passage."
 
 [[lessons.exercises]]
 id = "s12-l02-d1"
 type = "type"
 points = 14
 reps = 2
-prompt = "A Theory with its InlineData rows — one body, many cases. Twice."
-code = '''
-[Theory]
-[InlineData("[1, 2, 3]", 3)]
-[InlineData("no brackets", 0)]
-public void ParseIndices_Survives(string raw, int expected)
+prompt = "Retype the fabricated-proposal rejection test twice."
+code = '''[Fact]
+public void Verify_FabricatedText_Rejects()
 {
-    Assert.Equal(expected, ResponseParser.ParseIndices(raw, 150).Count);
+    VerificationBatch result = _verifier.Verify(
+        [new QuoteProposal(1, "Words not in the source.")], _passages, 5);
+    Assert.Empty(result.Accepted);
+    Assert.Equal(1, result.Rejected);
 }'''
 
 [[lessons.exercises]]
 id = "s12-l02-w1"
 type = "write"
 points = 38
-prompt = "Table-driven testing lab: define <code>bool IsTrusted(int s) =&gt; s &gt;= 6;</code> and a cases array of (input, expected) tuples: (9,true),(6,true),(5,false),(0,false). Loop the cases, count passes where IsTrusted(input)==expected, and print <code>4/4 green</code>."
-expect = "4/4 green"
-solution = '''
-var cases = new (int input, bool expected)[]
+prompt = "Run four table-driven substring cases against <code>Before. Exact words. After.</code>, compare with expected Booleans, and print the pass count."
+starter = '''string passage = "Before. Exact words. After.";
+var cases = new (string quote, bool expected)[]
 {
-    (9, true), (6, true), (5, false), (0, false)
+    ("Exact words.", true),
+    ("Exact words", true),
+    ("exact words.", false),
+    ("Invented.", false)
 };
-int passed = cases.Count(test => IsTrusted(test.input) == test.expected);
-Console.WriteLine($"{passed}/{cases.Length} green");
 
-bool IsTrusted(int score) => score >= 6;
+Console.WriteLine("NOT CHECKED");
 '''
-hint = "var cases = new (int n, bool want)[] { ... }; foreach + counter. This IS what [Theory] automates."
+expect = "4/4 green"
+solution = '''string passage = "Before. Exact words. After.";
+var cases = new (string quote, bool expected)[]
+{
+    ("Exact words.", true),
+    ("Exact words", true),
+    ("exact words.", false),
+    ("Invented.", false)
+};
+
+int passed = cases.Count(test =>
+    passage.Contains(test.quote, StringComparison.Ordinal) == test.expected);
+Console.WriteLine($"{passed}/{cases.Length} green");
+'''
+hint = "Count cases where ordinal Contains equals the expected Boolean."

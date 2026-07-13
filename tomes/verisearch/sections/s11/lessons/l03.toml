@@ -1,43 +1,59 @@
 [[lessons]]
 id = "s11-l03"
-title = "The orchestrator — one method that tells the story"
+teaches = ["pipeline-orchestration"]
+title = "Pipeline — One Method That Tells the Truth"
 body = '''
-
-<p>The pipeline method should read like the mission briefing. A reader who knows NOTHING about the internals should follow the flow:</p>
-<pre><code><span class="k">public async</span> Task&lt;PipelineResult&gt; RunAsync(<span class="k">string</span> query, CancellationToken ct = <span class="k">default</span>)
+<p>Add the final result record to <code>Models.cs</code>:</p>
+<pre><code><span class="k">public sealed record</span> PipelineResult(List&lt;VerifiedQuote&gt; Quotes,
+    List&lt;<span class="k">string</span>&gt; SourceErrors, <span class="k">int</span> RejectedProposals,
+    <span class="k">int</span> SourcesAttempted, <span class="k">int</span> SourcesFetched, <span class="k">bool</span> Mock);</code></pre>
+<p>Then create <code>Pipeline.cs</code>. Its method reads in the same order as the product claim: fetch configured sources, extract passages, request proposals, verify exact text, return facts for the renderer.</p>
+<pre><code><span class="k">public async</span> Task&lt;PipelineResult&gt; RunAsync(<span class="k">string</span> question,
+    IReadOnlyList&lt;SourceSpec&gt; sources, <span class="k">bool</span> mock,
+    CancellationToken ct = <span class="k">default</span>)
 {
-    <span class="c">// 1. SEARCH</span>
-    <span class="k">var</span> raw = <span class="k">await</span> _search.SearchAsync(query, ct);
-    <span class="k">if</span> (raw.Count == 0) <span class="k">return</span> PipelineResult.Empty(<span class="s">"search returned nothing"</span>);
+    List&lt;FetchOutcome&gt; outcomes = <span class="k">await</span> _batch.FetchAllAsync(sources, ct);
+    <span class="k">var</span> errors = outcomes.Where(o =&gt; !o.Ok)
+        .Select(o =&gt; <span class="s">$"{o.Source.Label}: {o.Error}"</span>).ToList();
+    <span class="k">var</span> quotes = <span class="k">new</span> List&lt;VerifiedQuote&gt;();
+    <span class="k">int</span> rejected = 0;
 
-    <span class="c">// 2. TRUST RANK</span>
-    <span class="k">var</span> ranked = _trust.Rank(raw);
+    <span class="k">foreach</span> (FetchOutcome outcome <span class="k">in</span> outcomes.Where(o =&gt; o.Ok))
+    {
+        List&lt;Passage&gt; passages;
+        <span class="k">try</span>
+        {
+            passages = <span class="k">await</span> _extractor.ExtractAsync(outcome.Document!);
+        }
+        <span class="k">catch</span> (Exception ex)
+        {
+            errors.Add(<span class="s">$"{outcome.Source.Label}: extraction failed: {ex.Message}"</span>);
+            <span class="k">continue</span>;
+        }
+        <span class="k">if</span> (passages.Count == 0)
+        {
+            errors.Add(<span class="s">$"{outcome.Source.Label}: no usable passages"</span>);
+            <span class="k">continue</span>;
+        }
 
-    <span class="c">// 3. PARALLEL SCRAPE (Chapter VIII containment — failures become data)</span>
-    <span class="k">var</span> outcomes = <span class="k">await</span> ScrapeAllAsync(ranked, ct);
-    <span class="k">var</span> alive = outcomes.Where(o =&gt; o.Ok).ToList();
-    <span class="k">if</span> (alive.Count == 0) <span class="k">return</span> PipelineResult.Empty(<span class="s">"all sources failed"</span>);
+        <span class="k">int</span> remaining = _maxQuotes - quotes.Count;
+        <span class="k">if</span> (remaining == 0) <span class="k">break</span>;
+        QuoteBatch proposals = <span class="k">await</span> _selector.SelectAsync(question, passages, ct);
+        VerificationBatch proof = _verifier.Verify(proposals.Quotes, passages, remaining);
+        quotes.AddRange(proof.Accepted);
+        rejected += proof.Rejected;
+    }
 
-    <span class="c">// 4. RELEVANCE SCAN per source</span>
-    <span class="k">var</span> quotes = <span class="k">new</span> List&lt;VerbatimQuote&gt;();
-    <span class="k">foreach</span> (<span class="k">var</span> src <span class="k">in</span> alive)
-        quotes.AddRange(<span class="k">await</span> _scanner.ScanAsync(src, query, ct));
-
-    <span class="k">return new</span> PipelineResult(quotes, outcomes, ranked);
+    <span class="k">return new</span> PipelineResult(quotes, errors, rejected, sources.Count,
+        outcomes.Count(o =&gt; o.Ok), mock);
 }</code></pre>
-<p>Principles at work:</p>
-<ul>
-<li><strong>Stage boundaries are explicit.</strong> Each phase gets its data from the previous phase's output — no hidden shared state between stages.</li>
-<li><strong>Early exits for empty.</strong> Each stage asks "can the next stage even run?" and returns a REASONED empty result — which the renderer turns into that designed empty state.</li>
-<li><strong>The result is a record</strong>, not console output. The orchestrator computes; the renderer presents. You could bolt a web UI onto PipelineResult without touching this method.</li>
-<li><strong>One CancellationToken rides the whole run.</strong> Ctrl+C or the 30s deadline cancels everything at once.</li>
-</ul>
-<div class="callout">If a method needs comments like "// 1. SEARCH" it should be SHORT — each phase one or two lines, details pushed into the components. An orchestrator that's 200 lines long isn't orchestrating; it's doing everyone's job.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
-<p><strong>Result objects vs exceptions for FLOW:</strong> exceptions are for failures; "search found nothing" is not a failure, it's a result. Encoding it as <code>PipelineResult.Empty(reason)</code> keeps the happy path readable and the renderer informed. Exceptions-as-control-flow is the C# equivalent of goto with better marketing.</p>
-<p><strong>Method size heuristic:</strong> an orchestrator should fit on one screen (~30 lines). If a stage grows a second responsibility, extract it — <code>ScrapeAllAsync</code> exists precisely because fan-out + containment is its own job.</p>
-<p><strong>Static factory helpers</strong> read well on result types: <code>PipelineResult.Empty(string reason)</code> is a static method returning a pre-shaped instance — clearer than a constructor with mystery nulls.</p></div>'''
+<p>There is no search stage, no inferred trust, no proposal rendering, and no fallback catch around <code>_selector</code>. If live Ollama is unavailable, its exception reaches <code>Program.cs</code>, which can name the required service accurately.</p>
+<div class="callout">The pipeline returns data and never calls Console or AnsiConsole. The same PipelineResult can feed the current terminal renderer or a future JSON renderer without changing truth logic.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // FAILURE OWNERSHIP</div><p>Fetching and extraction fail per source, so healthy sources continue. Model availability is mode-wide, so a live selector failure stops the live run. The boundary follows the scope of each failure rather than one generic “catch everything” rule.</p></div>
+'''
+
 [[lessons.readings]]
-label = "Microsoft Learn — Async return types and Task<TResult>"
+label = "Microsoft Learn — Async return types"
 url = "https://learn.microsoft.com/en-us/dotnet/csharp/asynchronous-programming/async-return-types"
 essential = false
 
@@ -45,60 +61,65 @@ essential = false
 id = "s11-l03-e1"
 type = "mc"
 points = 25
-prompt = "Why does RunAsync return a PipelineResult record instead of printing directly?"
-choices = ["Console printing is slow", "Async methods can't print", "Records print themselves", "Compute and presentation stay separated — testable pipeline, swappable frontends"]
+prompt = "Why does RunAsync return PipelineResult instead of printing?"
+choices = ["Console is too slow", "Async methods cannot print", "Records render automatically", "Computation stays testable and presentation can change independently"]
 answer = 3
-whyWrong = "It’s not about print speed or records printing themselves — returning a result record separates computation from presentation, so the pipeline is testable and the frontend swappable."
-hint = "The renderer owns the face. The pipeline owns the facts."
+whyWrong = "Console speed, async restrictions, and automatic rendering are not the reason. Returning data separates facts from their presentation."
+explain = "Tests can inspect quotes, errors, and counts without scraping terminal output."
+hint = "Which Chapter X class owns the face?"
 
 [[lessons.exercises]]
 id = "s11-l03-e2"
 type = "mc"
 points = 20
-prompt = "Search returns zero results. The orchestrator should…"
-choices = ["return early with a reasoned empty result the renderer can explain", "continue — later stages can handle empty lists", "throw NoResultsException", "retry the search forever"]
+prompt = "One fetched page produces no usable passages. What should the orchestrator do?"
+choices = ["Record that source error and continue with other sources", "Send empty HTML to Ollama", "Invent a passage", "Crash every source"]
 answer = 0
-whyWrong = "Continuing, throwing, or retrying all mishandle a legitimate zero-result — return early with a reasoned empty result the renderer can explain."
-hint = "Early exit + a reason string = the designed empty state."
+whyWrong = "The model cannot use an empty batch, invention breaks truth, and a page-local problem should not erase healthy sources."
+explain = "The reason remains visible in SourceErrors while the run continues."
+hint = "Match failure scope to containment scope."
 
 [[lessons.exercises]]
 id = "s11-l03-e3"
 type = "mc"
 points = 20
-prompt = "What rides through every stage of the run for coordinated shutdown?"
-choices = ["a global bool", "the CancellationToken", "an exception", "Thread.Abort"]
+prompt = "What parameter travels through fetching and model selection for coordinated shutdown?"
+choices = ["A global Boolean", "CancellationToken", "An output string", "Thread.Abort"]
 answer = 1
-whyWrong = "A global bool or exception won’t coordinate shutdown and Thread.Abort is unsafe — the CancellationToken threaded through every stage does."
-hint = "Chapter VIII's plug, threaded end to end."
+whyWrong = "Global flags and strings are not the .NET cancellation contract, while Thread.Abort is not the cooperative pattern."
+explain = "One token lets Ctrl+C or a deadline stop all participating asynchronous operations."
+hint = "It is the last parameter on the async contracts."
 
 [[lessons.exercises]]
 id = "s11-l03-d1"
 type = "type"
 points = 14
 reps = 2
-prompt = "Stage-with-early-exit — the orchestrator's sentence structure. Twice."
-code = '''
-var raw = await _search.SearchAsync(query, ct);
-if (raw.Count == 0)
-{
-    return PipelineResult.Empty("search returned nothing");
-}
-var ranked = _trust.Rank(raw);'''
+prompt = "Retype the proposal-to-proof handoff twice."
+code = '''QuoteBatch proposals = await _selector.SelectAsync(question, passages, ct);
+VerificationBatch proof = _verifier.Verify(proposals.Quotes, passages, remaining);
+quotes.AddRange(proof.Accepted);
+rejected += proof.Rejected;'''
 
 [[lessons.exercises]]
 id = "s11-l03-w1"
 type = "write"
 points = 36
-prompt = "Early-exit lab: write <code>string RunPipeline(List&lt;string&gt; results)</code> — empty input returns \"empty: search returned nothing\", otherwise \"ok: N sources\". Call it twice: once with an empty list, once with a list of 3 strings; print both returns."
-expect = '''
-empty: search returned nothing
+prompt = "Write <code>RunPipeline</code> so an empty source list returns empty: no configured sources and a three-source list returns ok: 3 sources. Print both calls."
+starter = '''Console.WriteLine("NOT ORCHESTRATED");
+'''
+expect = '''empty: no configured sources
 ok: 3 sources'''
-solution = '''
-Console.WriteLine(RunPipeline(new List<string>()));
+solution = '''Console.WriteLine(RunPipeline(new List<string>()));
 Console.WriteLine(RunPipeline(new List<string> { "a", "b", "c" }));
 
-string RunPipeline(List<string> results) => results.Count == 0
-    ? "empty: search returned nothing"
-    : $"ok: {results.Count} sources";
+static string RunPipeline(List<string> sources)
+{
+    if (sources.Count == 0)
+    {
+        return "empty: no configured sources";
+    }
+    return $"ok: {sources.Count} sources";
+}
 '''
-hint = "Guard clause first, happy path after. Two calls, two WriteLines."
+hint = "Use a Count == 0 guard clause, then return the happy-path count."

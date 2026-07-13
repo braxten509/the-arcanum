@@ -1,26 +1,27 @@
 [[lessons]]
 id = "s07-l02"
+teaches = ["linq-advanced"]
 title = "The LINQ arsenal — GroupBy, Distinct, Aggregate, Zip"
 body = '''
 
 <p>Beyond Where/Select/OrderBy, four seekers do the heavy analytical lifting:</p>
 <p><strong>GroupBy</strong> — bucket items by a key. Each group has a <code>.Key</code> and is itself enumerable:</p>
-<pre><code><span class="k">var</span> byTier = profiles.GroupBy(p =&gt; p.Tier);
-<span class="k">foreach</span> (<span class="k">var</span> g <span class="k">in</span> byTier)
-    Console.WriteLine(<span class="s">$"{g.Key}: {g.Count()} domains, avg {g.Average(p =&gt; p.BaseScore):F1}"</span>);
-<span class="c">// Government: 4 domains, avg 9.1</span></code></pre>
-<p><strong>Distinct / DistinctBy</strong> — dedupe. Search engines return the same URL twice constantly:</p>
-<pre><code><span class="k">var</span> unique = results.DistinctBy(r =&gt; r.Url);   <span class="c">// first hit wins per URL</span></code></pre>
+<pre><code><span class="k">var</span> bySource = passages.GroupBy(p =&gt; p.Source.Label);
+<span class="k">foreach</span> (<span class="k">var</span> group <span class="k">in</span> bySource)
+    Console.WriteLine(<span class="s">$"{group.Key}: {group.Count()} passages"</span>);
+<span class="c">// RFC 8446: 14 passages</span></code></pre>
+<p><strong>Distinct / DistinctBy</strong> — dedupe. Configuration can accidentally repeat one URL under multiple labels:</p>
+<pre><code><span class="k">var</span> unique = sources.DistinctBy(source =&gt; source.Url, StringComparer.OrdinalIgnoreCase);</code></pre>
 <p><strong>Aggregate</strong> — fold everything into one value, carrying an accumulator:</p>
 <pre><code><span class="k">double</span> product = scores.Aggregate(1.0, (acc, s) =&gt; acc * s);
 <span class="c">// like Sum, but you define the combining step. Use for anything "cumulative".</span></code></pre>
 <p><strong>Zip</strong> — pair up two sequences element-by-element:</p>
-<pre><code><span class="k">var</span> ranked = urls.Zip(scores, (u, s) =&gt; <span class="s">$"{u} → {s}"</span>);</code></pre>
+<pre><code><span class="k">var</span> summaries = labels.Zip(counts, (label, count) =&gt; <span class="s">$"{label} → {count}"</span>);</code></pre>
 <p>And the aggregation shorthands you'll reach for daily: <code>Count(pred)</code>, <code>Sum(sel)</code>, <code>Average(sel)</code>, <code>Min/Max(sel)</code>, <code>Any(pred)</code> (at least one?), <code>All(pred)</code> (every one?), <code>First/FirstOrDefault(pred)</code>.</p>
 <div class="callout"><code>First</code> on an empty sequence THROWS. <code>FirstOrDefault</code> returns null/default. In pipeline code that eats real-world data, OrDefault is almost always what you meant.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>SelectMany</strong> — flatten a list of lists: 5 pages each yielding a List of quotes → one flat quote stream: <code>outcomes.SelectMany(o =&gt; o.Quotes)</code>. You WILL need this in Chapter XI.</p>
-<p><strong>ThenBy</strong> — tie-breakers: <code>.OrderByDescending(r =&gt; r.Trust).ThenBy(r =&gt; r.Url)</code> — equal trust sorts alphabetically. LINQ's OrderBy is <em>stable</em>: equal keys keep their original relative order.</p>
-<p><strong>Chunk(n)</strong> — split into batches of n (paginating paragraphs for prompt size limits). <strong>ToDictionary / ToHashSet</strong> — materialize into lookup structures: <code>profiles.ToDictionary(p =&gt; p.Domain)</code> is your Chapter V bridge in one call.</p></div>'''
+<p><strong>ThenBy</strong> — tie-breakers: <code>.OrderBy(source =&gt; source.Label).ThenBy(source =&gt; source.Url)</code>. LINQ's OrderBy is <em>stable</em>: equal keys retain their original relative order.</p>
+<p><strong>Chunk(n)</strong> splits a long sequence into bounded batches. <strong>ToDictionary / ToHashSet</strong> materialize lookup structures: <code>passages.ToDictionary(p =&gt; p.Id)</code> is the verifier's id lookup in one call.</p></div>'''
 
 [[lessons.readings]]
 label = "Microsoft Learn — \"Working with LINQ\" tutorial"
@@ -41,8 +42,8 @@ essential = false
 id = "s07-l02-e1"
 type = "fill"
 points = 25
-prompt = "Fill the blank to deduplicate search results by URL."
-code = "var unique = results.____(r => r.Url).ToList();"
+prompt = "Fill the blank to deduplicate configured sources by URL."
+code = "var unique = sources.____(source => source.Url).ToList();"
 answer = "DistinctBy"
 accept = ["distinctby"]
 hint = "Distinct's picky sibling — dedupe BY a key."
@@ -65,8 +66,8 @@ hint = "1*2=2, 2*3=6, 6*4=…"
 id = "s07-l02-e3"
 type = "mc"
 points = 20
-prompt = "<code>results.First(r =&gt; r.Trust &gt; 9)</code> when nothing matches…"
-choices = ["returns null", "returns a default SearchResult", "throws InvalidOperationException", "returns the highest-trust result instead"]
+prompt = "<code>passages.First(p =&gt; p.Id == 99)</code> when nothing matches…"
+choices = ["returns null", "returns a default Passage", "throws InvalidOperationException", "returns the last passage instead"]
 answer = 2
 whyWrong = "First with a predicate doesn’t return null or a default when nothing matches — it throws InvalidOperationException; use FirstOrDefault for a safe default."
 explain = "<code>First</code> promises that a matching element exists, so an empty match set breaks that promise with <code>InvalidOperationException</code>."
@@ -76,11 +77,11 @@ hint = "This is why FirstOrDefault exists."
 id = "s07-l02-e4"
 type = "mc"
 points = 20
-prompt = "You want \"how many results per engine\". Which operator starts that query?"
+prompt = "You want “how many passages per source label.” Which operator starts that query?"
 choices = ["Distinct", "OrderBy", "Zip", "GroupBy"]
 answer = 3
-whyWrong = "Distinct dedupes, OrderBy sorts and Zip pairs sequences — counting ‘per engine’ starts with GroupBy."
-explain = "<code>GroupBy(r =&gt; r.Engine)</code> forms one bucket per engine; calling <code>Count()</code> on each bucket then yields the requested totals."
+whyWrong = "Distinct dedupes, OrderBy sorts and Zip pairs sequences—counting per source starts with GroupBy."
+explain = "<code>GroupBy(p =&gt; p.Source.Label)</code> forms one bucket per source; calling <code>Count()</code> on each bucket yields the totals."
 hint = "Bucket first, count each bucket second."
 
 [[lessons.exercises]]
@@ -90,9 +91,9 @@ points = 14
 reps = 2
 prompt = "GroupBy with per-group aggregates — the analytics shape. Twice."
 code = '''
-foreach (var g in profiles.GroupBy(p => p.Tier))
+foreach (var group in passages.GroupBy(p => p.Source.Label))
 {
-    Console.WriteLine($"{g.Key}: {g.Count()} domains");
+    Console.WriteLine($"{group.Key}: {group.Count()} passages");
 }'''
 
 [[lessons.exercises]]

@@ -1,44 +1,41 @@
 [freestyle]
-title = "THE WORKING 5 // Life in the Tiles"
+title = "BUILD: Life in the Tiles"
 brief = '''
-<p>Bind life in the tiles into the growing RuneBound route. The commission must leave a runnable artifact whose behavior can be inspected from the named evidence.</p><ul><li>preserve the chart's data boundary and use the established names</li><li>prove the requested behavior with a repeatable run that ends at <code>RUNEBOUND S05 SEAL</code></li><li>write a short repair note explaining the nearest failure and the change that corrected it</li></ul>
+<p>Wayfinder, turn the static overworld into a living scene. Work in your local RuneBound project. The commission is complete only when the visual route survives a close-and-rerun.</p>
+<ul><li>build the placeholder sheet in code with a <code>make_placeholder_sheet()</code> function in <code>sprites.py</code> — a 4 columns × 2 rows Surface of 32×32 frames drawn with <code>pygame.draw</code>; depend on no external image file and copy no proprietary game art</li><li>create <code>sprites.py</code> with <code>AnimatedSprite(pygame.sprite.Sprite)</code>; it must own <code>sheet</code>, nested <code>frame_rects[row][column]</code>, <code>state_rows = {"idle": 0, "walk": 1}</code>, <code>state</code>, <code>frame_index</code>, <code>frame_duration</code>, <code>animation_timer</code>, a world-space <code>rect</code>, <code>set_state(state)</code>, <code>update(dt)</code>, and <code>draw(surface, camera)</code></li><li>derive source rectangles from the sheet and retire the section’s one-frame <code>pygame.Rect(0, 0, 32, 32)</code> placeholder; a new frame must replace <code>image</code> by slicing the sheet</li><li>update <code>main.py</code> without removing its map load, event pump, held-arrow camera controls, one clock, one flip, or shutdown: load the sheet after the display exists, put one walking test sprite in <code>actors</code>, call <code>actors.update(dt)</code>, render ground first, then draw actors with the camera</li><li>make the test sprite cross and wrap across the map at a delta-time speed. This temporary demo must be clearly named <code>test_sprite</code> and use <code>DEMO_SPEED</code>; s06 replaces it with Player input and collision</li><li>run <code>python3 main.py</code> from the project folder, close with X, run it again, and add a short <code>README.md</code> record of the exact command, visible frame change, camera observation, and one specific repair or an explicit no-repair result</li></ul>
 '''
-requires = ["s05-sprite-class","s05-sprite-groups","s05-frame-rects","s05-sheet-slicing","s05-animation-timer","s05-state-frame-map"]
-reward = 220
+requires = ["s05-sprite-class", "s05-sprite-groups", "s05-frame-rects", "s05-sheet-slicing", "s05-animation-timer", "s05-state-frame-map"]
+reward = 285
 xray = '''
-The Cartographer checks whether the living frames commission keeps a sprite image, rect, and group that can be updated and drawn together under the right owner, shows s06 can reuse the same sprite state while adding real player velocity, and leaves evidence beyond a decorative printout.
+The Cartographer checks the actual sheet path and the constructor rather than accepting a colored rectangle as animation. He follows the frame timer across a slow update, checks that state labels choose rows, and confirms that map ground paints before world-space actors without a second display flip. He also finds the temporary demo named plainly enough for s06 to retire. Clear snake_case names, four-space indentation, focused methods, and a useful README recovery note earn the craft marks.
 '''
 
 [freestyle.badge]
 id = "badge-s05"
 name = "LIVING FRAMES SEALED"
-desc = "Sealed the life in the tiles chart with evidence another wayfinder can inspect."
+desc = "Set a sheet of frames in motion over the mapped world."
 
 [[freestyle.rubric]]
-criterion = "Living Frames runs"
+criterion = "Timed AnimatedSprite contract"
+weight = 30
+desc = '''<code>sprites.py</code> defines <code>AnimatedSprite(pygame.sprite.Sprite)</code> with the named sheet, nested frame rectangles, state-to-row dictionary, world rect, and delta-time update contract. Frame advancement is not tied to raw loop count.'''
+
+[[freestyle.rubric]]
+criterion = "Sheet Frames Replace the Placeholder"
+weight = 20
+desc = '''The supplied 4×2 32-pixel sheet is loaded after display setup; source rectangles select its pixels and replace the s05 single-frame rectangle placeholder. No copied proprietary art is required.'''
+
+[[freestyle.rubric]]
+criterion = "Map and Sprite Frame Integration"
 weight = 25
-desc = '''
-The life in the tiles artifact parses and runs with the chart's named behavior visible.
-'''
+desc = '''<code>main.py</code> preserves the s04 map/event/camera/clock route, updates a sprite Group with <code>dt</code>, paints tile ground before camera-adjusted actors, flips once, and cleanly quits.'''
 
 [[freestyle.rubric]]
-criterion = "Living Frames keeps its boundary"
-weight = 35
-desc = '''
-The commission keeps a sprite image, rect, and group that can be updated and drawn together and s06 can reuse the same sprite state while adding real player velocity in the owners established by the lessons.
-'''
+criterion = "Repeatable Visual Evidence"
+weight = 10
+desc = '''README records <code>python3 main.py</code>, a visible pose-change observation, a camera observation, and a precise repair with evidence or an explicit no-repair result; the window is closed and successfully launched again.'''
 
 [[freestyle.rubric]]
-criterion = "Living Frames shows proof"
-weight = 25
-desc = '''
-The wayfinder supplies a repeatable observation, the exact s05 seal, and a useful comparison case rather than a one-time claim.
-'''
-
-[[freestyle.rubric]]
-criterion = "Cartographer's repair note"
+criterion = "Python Chartcraft"
 weight = 15
-desc = '''
-The explanation names the failing boundary, the evidence that exposed it, and the smallest correction that restored the route.
-'''
-
+desc = '''Python uses descriptive snake_case names, four-space indentation, focused methods, and stable public AnimatedSprite names; temporary <code>test_sprite</code> and <code>DEMO_SPEED</code> are plainly isolated for s06 replacement.'''

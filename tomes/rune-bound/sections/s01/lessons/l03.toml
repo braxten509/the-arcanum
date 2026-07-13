@@ -1,105 +1,112 @@
 [[lessons]]
 id = "s01-l03"
-title = "The File at the Trailhead"
-teaches = ["s01-file-reading","s01-level-parsing"]
+title = "The Trailhead File"
+teaches = ["text-level-file-reading", "comma-level-parser", "grid-inspection-output"]
 body = '''
-<p>s01-l03 opens the values and rows chart through File. s01-l03 hears THE CARTOGRAPHER name s01-file-reading its first bearing. s01-l03 names one input, one change, and one output. s01-l03 gives s01-level-parsing a second mark for comparison. s01-l03 keeps the smallest successful example beside its route.</p>
-<p>s01-l03 reads from left to right, then narrates state changes. s01-l03 keeps its values and rows clue concrete and observable. s01-l03 runs twice; the second pass challenges the first. s01-l03 records which owner moved when s01-file-reading shifted. s01-l03 carries earlier <code>level_rows</code> evidence into this chart.</p>
-<p>s01-l03 asks one decision to stand alone in the margin. s01-l03 keeps s01-level-parsing visible instead of hiding it behind polish. s01-l03 tests a friendly case and a sharp edge case. s01-l03 compares both traces so s01-file-reading has a witness. s01-l03 names the failure before choosing a repair.</p>
-<p>s01-l03 treats each handoff as a contract between maker and reader. s01-l03 supplies s01-file-reading; the reader checks s01-level-parsing. s01-l03 places its check where another wayfinder can repeat it. s01-l03 earns THE CARTOGRAPHER's trust through evidence, not luck. s01-l03 leaves one deliberate question for the next chart.</p>
-<p>s01-l03 closes by stating what the program must preserve. s01-l03 names one input that could falsify s01-file-reading. s01-l03 names one output that confirms s01-level-parsing still belongs. s01-l03 runs the smallest route, inspects its trace, and annotates it. s01-l03 turns the values and rows chart into a RuneBound waypoint.</p>
-<p>s01-l03 ends with a handoff to the next chart. s01-l03 carries s01-level-parsing forward after s01-file-reading earns trust. s01-l03 lets THE CARTOGRAPHER record the result in plain language. s01-l03 turns a clean rerun from a guess into a fact. s01-l03 lets the next wayfinder begin without hidden context.</p>
-<pre><code>print("s01-l03 // The File at the Trailhead")</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // S01-L03</div><p>s01-l03 <strong>Evidence.</strong> Record s01-file-reading; compare it with s01-level-parsing before advancing.</p><p>s01-l03 <strong>Repair.</strong> Change one cause, rerun the route, and preserve the explanation.</p></div>
+<p>Now the map stops being hardcoded in the program. A level description can be a plain text file whose lines contain comma-separated marks: <code>G,G,W</code>. The program has three separate jobs: open and read the file, parse each line into a row, and inspect the finished grid. Separation is a debugging tool. If a row is wrong, you can decide whether the file contents or the parser caused it instead of guessing.</p>
+<pre><code>def parse_level(lines):
+    grid = []
+    for line in lines:
+        row = line.strip().split(",")
+        grid.append(row)
+    return grid
+
+lines = ["G,G,W\n", "G,W,G\n"]
+print(parse_level(lines))</code></pre>
+<p><code>strip()</code> removes the trailing newline from a line read from a file. Then <code>split(",")</code> turns the comma-separated text into a list of cell strings. Appending each parsed row makes the returned list-of-lists. This is a deliberate text-level format for learning, not a permanent final map format; s04 replaces the temporary terminal inspection with data-driven tile rendering and a real map loader.</p>
+<p>When the level lives in a file named <code>level.txt</code> beside your script, use a context manager. The <code>with</code> block closes the handle after the indented block, including when a read fails. <code>readlines()</code> returns a list of the file’s lines, which is exactly what <code>parse_level</code> receives.</p>
+<pre><code>with open("level.txt", encoding="utf-8") as handle:
+    lines = handle.readlines()
+
+grid = parse_level(lines)
+for row in grid:
+    for cell in row:
+        print(cell)</code></pre>
+<p>For a first recovery, read the error literally. <code>FileNotFoundError</code> means Python did not find the named path from the terminal’s current working directory. Check the file spelling, save it, and run the command in the folder that contains both files. Do not “fix” that problem by changing the parser. Once the file is read, inspect the grid with the same row-major loop from the previous lesson. These prints are evidence for this chapter only, and s03 must retire them when the game loop renders surfaces.</p>
+<div class="callout"><strong>THE CARTOGRAPHER'S CHECK:</strong> first print raw lines, then print the parsed grid. Evidence at both boundaries makes a broken route locatable.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // EMPTY CELLS</div><p>A blank line becomes <code>[""]</code> with this simple parser. For the controlled first map, do not include blank lines; later loaders can validate map shape and report malformed data clearly.</p></div>
 '''
 
 [[lessons.readings]]
-label = "Python tutorial // first steps // The File at the Trailhead"
-url = "https://docs.python.org/3/tutorial/introduction.html"
-
-[[lessons.readings]]
-label = "Python tutorial // data structures // The File at the Trailhead"
-url = "https://docs.python.org/3/tutorial/datastructures.html"
+label = "Python Docs // Reading and Writing Files"
+url = "https://docs.python.org/3/tutorial/inputoutput.html#reading-and-writing-files"
 
 [[lessons.exercises]]
 id = "s01-l03-e1"
-type = "mc"
-points = 14
-prompt = '''
-<p>Why should file reading and level parsing remain separate? Select the reading that keeps s02's objects can receive a clean level grid instead of raw file debris possible.</p>
+type = "fill"
+points = 22
+prompt = '''<p>Complete the method call that obtains every line from an already-open level file handle.</p>'''
+code = '''
+with open("level.txt", encoding="utf-8") as handle:
+    lines = handle.____()
 '''
-choices = ["each stage has one observable job and one easier failure to diagnose","the parser can only work when it owns the operating system","separate stages prevent Python from storing strings","the renderer must read every file again each frame"]
-answer = 0
-whyWrong = '''
-The tempting routes confuse assuming every line has equal width or leaving newline characters inside cells with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace open(), readlines(), and a parser that turns marks into rows in the First Ink chart, then compare the file ownership, parsing, and printing are three separate jobs with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves file ownership, parsing, and printing are three separate jobs and leaves open(), readlines(), and a parser that turns marks into rows available for the next RuneBound handoff.
-'''
+answer = "readlines"
+hint = '''Use the file method whose name says it returns multiple lines, not the one that reads a single line.''' 
+whyWrong = '''Calling <code>read</code> would return one string, which this row-by-row parser cannot iterate as lines. The parser expects the list returned by <code>readlines()</code>.''' 
 
 [[lessons.exercises]]
 id = "s01-l03-e2"
-type = "write"
-points = 30
-prompt = '''
-<p>Complete the first ink route and print exactly <code>RUNEBOUND S01 L03 SEAL</code>. Preserve the named data before adding the final observation.</p>
-'''
-starter = '''
-route_mark = "level-lines"
-print("survey pending")
-# Add the chart seal after checking the route.
-'''
-expect = '''
-RUNEBOUND S01 L03 SEAL
-'''
-solution = '''
-route_mark = "level-lines"
-print("RUNEBOUND S01 L03 SEAL")
-'''
-hint = '''
-For s01-l03-e2, leave the route data intact and add only its final s01 observation; compare the starter output with the target before submitting.
-'''
+type = "mc"
+points = 20
+prompt = '''<p>Which operation turns the text line <code>"G,W,G\\n"</code> into cells without the newline?</p>'''
+choices = ["line.strip().split(\",\")", "line.append(\",\")", "line[0][1]", "print(line)"]
+answer = 0
+hint = '''One operation removes surrounding whitespace; the next divides text at comma boundaries.''' 
+whyWrong = '''Appending changes a list rather than parsing text, indexing selects one character, and printing only observes the original line. The parser must remove the newline then split at commas.''' 
+explain = '''<code>strip()</code> removes the trailing newline and <code>split(",")</code> produces the three cell strings.''' 
 
 [[lessons.exercises]]
 id = "s01-l03-e3"
-type = "type"
-points = 10
-reps = 2
-prompt = '''
-<p>Retype this first ink evidence exactly. Keep open(), readlines(), and a parser that turns marks into rows visible while you write. (Ctrl+Enter submits.)</p>
+type = "write"
+points = 35
+prompt = '''<p>Write <code>parse_level(lines)</code>. It must convert the supplied comma-separated lines into a list of row lists, then use the canonical nested loops to print each cell. Your program must print exactly the six marks shown, one per line: <code>G</code>, <code>G</code>, <code>W</code>, <code>W</code>, <code>G</code>, <code>G</code>.</p>'''
+starter = '''
+lines = ["G,G,W\n", "W,G,G\n"]
+
+# Define parse_level, call it, and inspect every cell.
 '''
-code = '''
+expect = '''
+G
+G
+W
+W
+G
+G
+'''
+solution = '''
+lines = ["G,G,W\n", "W,G,G\n"]
+
 def parse_level(lines):
-    return [line.strip().split(",") for line in lines]
-print(parse_level(["0,1"]))
+    grid = []
+    for line in lines:
+        grid.append(line.strip().split(","))
+    return grid
+
+grid = parse_level(lines)
+for row in grid:
+    for cell in row:
+        print(cell)
 '''
+hint = '''Build grid with append inside a loop over lines, then reuse for row in grid and for cell in row to print it.''' 
 
 [[lessons.exercises]]
 id = "s01-l03-e4"
-type = "fill"
+type = "text"
 points = 18
-prompt = '''
-<p>s01-l03-e4: restore the missing operation in the supplied code. Use its operands and the chart evidence to complete the route without renaming the owner.</p>
-'''
-code = '''
-lines = handle.____()
-'''
-answer = "readlines"
-hint = '''
-Look at what must happen to with open("level.txt", encoding="utf-8") as handle; choose the operation that performs that job rather than the one that merely inspects the result.
-'''
+prompt = '''<p>Which exception usually tells you that Python could not locate the named level file from the folder where you ran the command?</p>'''
+answer = "FileNotFoundError"
+hint = '''Its name combines the missing thing with the failure condition.''' 
+whyWrong = '''A parser problem happens after text has been read. This exception occurs earlier, when the path supplied to <code>open()</code> cannot be found.''' 
 
 [[lessons.exercises]]
 id = "s01-l03-e5"
-type = "text"
-points = 16
-prompt = '''
-<p>s01-l03-e5: name the Python term for the specific unit requested by this chart. Supply the language term, not the surrounding story label.</p>
-'''
-answer = "open"
-hint = '''
-Recall the named boundary in The File at the Trailhead; the answer is the language term for that single job, not the larger game feature.
+type = "type"
+points = 12
+reps = 2
+prompt = '''<p>Retype the smallest complete parser. Keep its file-reading boundary separate from its parsing boundary.</p>'''
+code = '''
+def parse_level(lines):
+    return [line.strip().split(",") for line in lines]
+
+print(parse_level(["G,W\\n"]))
 '''

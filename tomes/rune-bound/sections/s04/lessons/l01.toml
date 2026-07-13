@@ -1,119 +1,98 @@
 [[lessons]]
 id = "s04-l01"
-title = "The CSV Ground Survey"
-teaches = ["s04-csv-map","s04-grid-render-order"]
+title = "Give the Ground a Ledger"
+teaches = ["s04-tile-catalog-data", "s04-csv-map-loading"]
 body = '''
-<p>s04-l01 opens the tiles and cameras chart through CSV. s04-l01 hears THE CARTOGRAPHER name s04-csv-map its first bearing. s04-l01 names one input, one change, and one output. s04-l01 gives s04-grid-render-order a second mark for comparison. s04-l01 keeps the smallest successful example beside its route.</p>
-<p>s04-l01 reads from left to right, then narrates state changes. s04-l01 keeps its tiles and cameras clue concrete and observable. s04-l01 runs twice; the second pass challenges the first. s04-l01 records which owner moved when s04-csv-map shifted. s04-l01 carries earlier <code>tile_map</code> evidence into this chart.</p>
-<p>s04-l01 asks one decision to stand alone in the margin. s04-l01 keeps s04-grid-render-order visible instead of hiding it behind polish. s04-l01 tests a friendly case and a sharp edge case. s04-l01 compares both traces so s04-csv-map has a witness. s04-l01 names the failure before choosing a repair.</p>
-<p>s04-l01 treats each handoff as a contract between maker and reader. s04-l01 supplies s04-csv-map; the reader checks s04-grid-render-order. s04-l01 places its check where another wayfinder can repeat it. s04-l01 earns THE CARTOGRAPHER's trust through evidence, not luck. s04-l01 leaves one deliberate question for the next chart.</p>
-<p>s04-l01 closes by stating what the program must preserve. s04-l01 names one input that could falsify s04-csv-map. s04-l01 names one output that confirms s04-grid-render-order still belongs. s04-l01 runs the smallest route, inspects its trace, and annotates it. s04-l01 turns the tiles and cameras chart into a RuneBound waypoint.</p>
-<p>s04-l01 ends with a handoff to the next chart. s04-l01 carries s04-grid-render-order forward after s04-csv-map earns trust. s04-l01 lets THE CARTOGRAPHER record the result in plain language. s04-l01 turns a clean rerun from a guess into a fact. s04-l01 lets the next wayfinder begin without hidden context.</p>
-<pre><code>print("s04-l01 // The CSV Ground Survey")</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // S04-L01</div><p>s04-l01 <strong>Evidence.</strong> Record s04-csv-map; compare it with s04-grid-render-order before advancing.</p><p>s04-l01 <strong>Repair.</strong> Change one cause, rerun the route, and preserve the explanation.</p></div>
+<p>Wayfinder, a tile is not its paint. A tile is a named rule which happens to be painted one way today. Create a <code>data</code> folder and a <code>data/maps</code> folder beside <code>main.py</code>. In <code>data/tiles.json</code>, make the catalog below. JSON object keys are strings, so the CSV will use the same lower-case strings: <code>grass</code>, <code>path</code>, and <code>wall</code>.</p>
+<pre><code>{
+  "grass": {"name": "Grass", "color": [34, 102, 56], "solid": false},
+  "path": {"name": "Path", "color": [156, 122, 72], "solid": false},
+  "wall": {"name": "Stone wall", "color": [82, 86, 92], "solid": true}
+}</code></pre>
+<p><code>color</code> is a three-number RGB list that PyGame can use directly; <code>solid</code> is data reserved for s06 collision, not an instruction to stop the camera now. This continues s02’s strict lookup: <code>tile_types[tile_id]</code> first selects one definition, then <code>["color"]</code> or <code>["solid"]</code> selects a field. A missing id should raise <code>KeyError</code>; a silent fallback would conceal a misspelled map cell.</p>
+<p>Now create <code>data/maps/overworld.csv</code>. Each line is one row and commas divide cells. Begin with a small readable map, then extend it to 25 rows of 19 ids before the freestyle. The first three rows could be:</p>
+<pre><code>wall,wall,wall,wall,wall
+wall,grass,path,grass,wall
+wall,grass,grass,grass,wall</code></pre>
+<p>CSV parsing turns each line into a list. Do not convert ids to integers: their useful identity is their catalog key. A file path is interpreted from the folder where you run <code>python3 main.py</code>, so run from the RuneBound project folder. If Python reports <code>FileNotFoundError</code>, inspect the spelling and working folder before changing parser code.</p>
+<p>We will briefly render an inline list to isolate drawing, then retire it in l02. The delivered artifact loads this CSV; it must contain no inline stand-in map. That separation lets a later quest choose another map filename without rewriting renderer logic.</p>
+<div class="callout"><strong>THE CARTOGRAPHER'S RULE:</strong> map placement names a tile; the catalog decides what that name means.</div>
 '''
 
 [[lessons.readings]]
-label = "Python library // csv // The CSV Ground Survey"
+label = "Python Docs // json"
+url = "https://docs.python.org/3/library/json.html"
+
+[[lessons.readings]]
+label = "Python Docs // csv"
 url = "https://docs.python.org/3/library/csv.html"
 
 [[lessons.exercises]]
 id = "s04-l01-e1"
-type = "text"
-points = 16
-prompt = '''
-<p>s04-l01-e1: name the Python term for the specific unit requested by this chart. Supply the language term, not the surrounding story label.</p>
-'''
-answer = "csv"
-hint = '''
-Recall the named boundary in The CSV Ground Survey; the answer is the language term for that single job, not the larger game feature.
-'''
+type = "mc"
+points = 20
+prompt = '''<p>A CSV cell contains <code>wall</code>. Which expression obtains its reusable collision rule from the catalog?</p>'''
+choices = ['<code>tile_id["solid"]</code>', '<code>tile_types["solid"][tile_id]</code>', '<code>tile_types[tile_id]["solid"]</code>', '<code>grid["wall"]</code>']
+answer = 2
+hint = '''Select the named tile definition first, then select its rule inside that definition.'''
+whyWrong = '''The CSV cell is a string, not a rule-bearing object. The outer dictionary is keyed by tile id; only the selected definition has a <code>solid</code> field.'''
+explain = '''The first brackets use the CSV id, and the second brackets select the reusable solid flag.'''
 
 [[lessons.exercises]]
 id = "s04-l01-e2"
-type = "fill"
-points = 18
-prompt = '''
-<p>s04-l01-e2: restore the missing operation in the supplied code. Use its operands and the chart evidence to complete the route without renaming the owner.</p>
-'''
+type = "type"
+points = 12
+reps = 2
+prompt = '''<p>Retype the file route that makes one CSV row into a list of tile ids.</p>'''
 code = '''
-cells = line.____(",")
-'''
-answer = "split"
-hint = '''
-Look at what must happen to row = [int(mark) for mark in line.split(",")]; choose the operation that performs that job rather than the one that merely inspects the result.
+with open("data/maps/overworld.csv", newline="", encoding="utf-8") as handle:
+    rows = [row for row in csv.reader(handle) if row]
 '''
 
 [[lessons.exercises]]
 id = "s04-l01-e3"
-type = "mc"
-points = 14
-prompt = '''
-<p>What should the map loader decide before the renderer begins? Select the reading that keeps the tile catalog can interpret these ids without changing the loader possible.</p>
+type = "fill"
+points = 22
+prompt = '''<p>Restore the JSON operation that reads the already-open tile catalog into a Python dictionary.</p>'''
+code = '''
+with open("data/tiles.json", encoding="utf-8") as handle:
+    tile_types = json.____(handle)
 '''
-choices = ["the final color of every sprite frame","the player's attack damage formula","the order of dialogue choices in an NPC tree","the row and column data structure that holds each tile id"]
-answer = 3
-whyWrong = '''
-The tempting routes confuse silently accepting ragged rows and later indexing beyond the ground with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace a rectangular list whose values can be handed to a renderer in the Ground Survey chart, then compare the parsing a comma is different from deciding what tile id 1 means with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves parsing a comma is different from deciding what tile id 1 means and leaves a rectangular list whose values can be handed to a renderer available for the next RuneBound handoff.
-'''
+answer = "load"
+hint = '''The file handle is already open; use the JSON function that turns its text into Python data.'''
+whyWrong = '''<code>loads</code> accepts JSON text already held in a string, while this route reads from the open file object.'''
 
 [[lessons.exercises]]
 id = "s04-l01-e4"
 type = "write"
-points = 30
-prompt = '''
-<p>Complete the ground survey route and print exactly <code>RUNEBOUND S04 L01 SEAL</code>. Preserve the named data before adding the final observation.</p>
-'''
+points = 34
+prompt = '''<p>Use the supplied JSON text as a catalog, parse it, select the <code>wall</code> entry through a tile-id variable, and print exactly <code>Stone wall True</code>.</p>'''
 starter = '''
-route_mark = "csv-ground"
-print("survey pending")
-# Add the chart seal after checking the route.
+import json
+
+catalog_text = '{"grass": {"name": "Grass", "solid": false}, "wall": {"name": "Stone wall", "solid": true}}'
+
+# Parse the catalog, choose wall, and print its name and solid rule.
 '''
 expect = '''
-RUNEBOUND S04 L01 SEAL
+Stone wall True
 '''
 solution = '''
-route_mark = "csv-ground"
-print("RUNEBOUND S04 L01 SEAL")
+import json
+
+catalog_text = '{"grass": {"name": "Grass", "solid": false}, "wall": {"name": "Stone wall", "solid": true}}'
+tile_types = json.loads(catalog_text)
+tile_id = "wall"
+definition = tile_types[tile_id]
+print(definition["name"], definition["solid"])
 '''
-hint = '''
-For s04-l01-e4, leave the route data intact and add only its final s04 observation; compare the starter output with the target before submitting.
-'''
+hint = '''Use <code>json.loads(catalog_text)</code>, then index the resulting dictionary with <code>tile_id</code>.'''
 
 [[lessons.exercises]]
 id = "s04-l01-e5"
-type = "type"
-points = 10
-reps = 2
-prompt = '''
-<p>Retype this ground survey evidence exactly. Keep a rectangular list whose values can be handed to a renderer visible while you write. (Ctrl+Enter submits.)</p>
-'''
-code = '''
-level_rows = [[0, 1, 0], [1, 0, 1]]
-print(len(level_rows), len(level_rows[0]))
-'''
-
-[[lessons.exercises]]
-id = "s04-l01-e6"
-type = "mc"
-points = 14
-prompt = '''
-<p>What should the map loader decide before the renderer begins? Select the reading that keeps the tile catalog can interpret these ids without changing the loader possible.</p>
-'''
-choices = ["the final color of every sprite frame","the player's attack damage formula","the row and column data structure that holds each tile id","the order of dialogue choices in an NPC tree"]
-answer = 2
-whyWrong = '''
-The tempting routes confuse silently accepting ragged rows and later indexing beyond the ground with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace a rectangular list whose values can be handed to a renderer in the Ground Survey chart, then compare the parsing a comma is different from deciding what tile id 1 means with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves parsing a comma is different from deciding what tile id 1 means and leaves a rectangular list whose values can be handed to a renderer available for the next RuneBound handoff.
-'''
+type = "text"
+points = 18
+prompt = '''<p>What exception should a strict square-bracket lookup expose when a map uses an id absent from its tile catalog?</p>'''
+answer = "KeyError"
+hint = '''It is the same dictionary-specific exception from the earlier Rule Drawer.'''
+whyWrong = '''A bad catalog key is neither a missing file nor a bad list position. Strict dictionary lookup reports its own missing-key exception.'''

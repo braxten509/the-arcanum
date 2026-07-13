@@ -5,7 +5,8 @@ import subprocess
 import time
 import urllib.request
 
-from .config import (AGY_BIN, CLAUDE_BIN, CODEX_BIN, OPENCODE_BIN, ROOT, agy_print_args, codex_no_mcp_args,
+from .config import (AGY_BIN, CLAUDE_BIN, CLI_EFFORTS, CLI_MODELS, CODEX_BIN,
+                     OPENCODE_BIN, ROOT, agy_print_args, codex_no_mcp_args,
                      OPENCODE_FREE_IDS, OPENCODE_GO_FALLBACK)
 from .ai_access import ensure_cli_access
 from tools.buildlib.agent_runtime import scoped_runner_command
@@ -64,6 +65,39 @@ def ollama_bindery_models():
 
 
 _agy_cache = {"t": 0.0, "models": []}
+_codex_cache = {"t": 0.0, "models": []}
+
+
+def codex_models():
+    """Visible models and per-model efforts from the installed Codex catalog.
+
+    Unlike a static slug list, `codex debug models` tracks removals and exposes
+    model-specific levels such as max/ultra. Cache it for the same reason as agy:
+    the browser asks on every Bindery open.
+    """
+    if time.time() - _codex_cache["t"] > 600:
+        try:
+            p = subprocess.run([CODEX_BIN, "debug", "models"], capture_output=True,
+                               text=True, timeout=30)
+            if p.returncode != 0:
+                raise RuntimeError(p.stderr[:300])
+            rows = []
+            for model in json.loads(p.stdout).get("models", []):
+                if model.get("visibility") != "list" or not model.get("slug"):
+                    continue
+                efforts = [level.get("effort") for level in
+                           (model.get("supported_reasoning_levels") or [])
+                           if level.get("effort")]
+                rows.append([model["slug"], model.get("display_name") or model["slug"],
+                             "", efforts])
+            if rows:
+                _codex_cache.update(t=time.time(), models=rows)
+        except Exception:
+            pass
+    if _codex_cache["models"]:
+        return [list(row) for row in _codex_cache["models"]]
+    return [[model, model, "", list(CLI_EFFORTS["codex-cli"])]
+            for model in CLI_MODELS["codex-cli"]]
 
 
 def agy_models():

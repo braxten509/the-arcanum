@@ -1,110 +1,88 @@
 [[lessons]]
 id = "s09-l01"
-title = "The Merge — Sealing the Seam"
+teaches = ["model-merge"]
+title = "Merge the Permitted Adapter into a Fresh Base"
 body = '''
-<div class="callout"><strong>Mostly terminal, a little Python.</strong> This chapter seals the finished model, and most of its real work is shell commands you run in your own workspace (<code>convert_hf_to_gguf.py</code>, <code>llama-quantize</code>, <code>ollama create</code>) — you type those as shown, no Python needed. The tome's write exercises are two familiar kinds from Chapters I–II: <em>size arithmetic</em> (multiply a parameter count by bytes, divide to GB, and round for display with <code>round(x, 1)</code>) and <em>string assembly</em> (build a Modelfile or a ChatML prompt line by line with f-strings). Given data in, computed text or number out.</div>
-<p>At the seventh rite's end, the bind was a seam — two small matrices riding alongside frozen base weights, computed on the fly at every forward pass. At this rite's beginning, the seam must close. <code>merge_and_unload()</code> performs the operation the binding rite set up: it converts the low-rank adapter matrices into a single, conventional weight matrix that no longer requires PEFT to load. The artificer who understands what the merge computes — and what it permanently discards — can seal the bind deliberately rather than by default.</p>
+<p>The NF4 training object is not the archival model you convert. Create <code>src/homunculus/merge.py</code> that first reads <code>reports/evaluation-decision.md</code> or its machine-readable companion and refuses unless the verdict is <code>MERGE</code> and the permitted adapter-manifest hash matches the directory on disk.</p>
+<p>Load a fresh, unquantized Qwen base on CPU, attach that exact adapter, and merge safely:</p>
+<pre><code>import torch
+from pathlib import Path
+from peft import PeftModel
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
-<p>The merge is a mathematical precomputation, not a serialization trick. For every linear layer that received a LoRA adapter — the target modules the seventh rite configured (<code>q_proj</code>, <code>v_proj</code>, <code>k_proj</code>, <code>o_proj</code>) — PEFT stored two small matrices A and B alongside the original frozen weight W. During training, only A and B received gradient updates; W remained frozen. At inference, the effective weight was computed on the fly: the transformer block computes <code>h = W·x + (B·A)·x</code>, where the second term is the adapter's low-rank contribution. <code>merge_and_unload()</code> precomputes this sum: <strong>W_new = W + BA</strong>. The outer-product BA is added pointwise to the original weight matrix W, producing a single new weight matrix that encodes both the base model's knowledge and the adapter's learned style shift. The adapter matrices A and B are then discarded — they have been absorbed. The forward pass becomes <code>h = W_new·x</code>: a standard dense matrix multiply with no adapter term to compute.</p>
+MODEL_ID = "Qwen/Qwen3-8B"
 
-<p>Three gains follow. First, the merged model is a standard <code>transformers</code> model: <code>AutoModelForCausalLM.from_pretrained(merged_path)</code> loads it without PEFT, without <code>LoraConfig</code>, without any adapter-awareness — it is an ordinary pretrained model as far as the Hugging Face ecosystem is concerned. Second, the llama.cpp conversion tool in the next lesson reads standard Hugging Face files — it cannot read PEFT adapters, so the merge is a prerequisite for the GGUF conversion chain that ultimately delivers the homunculus to the shelf. Third, inference is fractionally faster: one matrix multiply per adapted layer instead of one multiply plus one low-rank addition. The cost is one and irreversible: the adapter A and B matrices are gone from the merged directory. The seventh rite's checkpoint discipline — save the adapter separately before merging — is the insurance policy. If the twelfth rite's long-term monitoring reveals a regression, the artificer returns to the pre-merge adapter checkpoint and retrains. The merge consumes a copy; it does not destroy the original.</p>
-
-<p>The procedure is two lines of substance. Load the base model with the adapter attached — the same <code>PeftModel.from_pretrained(base_model, adapter_path)</code> pattern the eighth rite's evaluation scripts used. Call <code>model = model.merge_and_unload()</code>. Then save the sealed vessel: <code>model.save_pretrained(merged_path)</code> and <code>tokenizer.save_pretrained(merged_path)</code>. The tokenizer was never touched by the adapter — the sixth rite's chat-template lesson kept the adapter format-agnostic — but the GGUF converter expects tokenizer files alongside the weights, so they must be copied. The merged directory now contains the standard Hugging Face inventory: <code>config.json</code>, <code>model.safetensors</code>, <code>tokenizer.json</code>, <code>tokenizer_config.json</code>, and <code>special_tokens_map.json</code>. This is the vessel sealed — a single directory that any tool in the Hugging Face ecosystem can load, and the input to every remaining step of this rite.</p>
-
-<div class="field-notes"><div class="fn-head">FIELD NOTES // MERGE PRECISION — WHAT THE QUANTIZED BASE BECOMES</div>
-<p>If the seventh rite's binding loaded the base in 4-bit (<code>BitsAndBytesConfig(load_in_4bit=True)</code> — the nf4 path), <code>merge_and_unload()</code> dequantizes it first: the merged model is full precision (FP16 or BF16, depending on <code>torch_dtype</code>). The merged checkpoint is therefore <strong>larger</strong> than the adapter but equal to the original full-precision base — approximately <code>params × 2 bytes</code>. An 8B model produces a ~16 GB safetensors file after the merge, which the third lesson's quantization step will shrink back down. For multi-adapter workflows: if <code>PeftModel</code> loaded multiple adapters (different binds for different styles), pass <code>adapter_name="my_adapter"</code> to <code>merge_and_unload()</code> to select which bind to seal. The merge is always performed on a copy of the base weights — the original adapter directory is not modified, and the <code>PeftModel</code> instance in memory is the only artifact affected. The merged weights are functionally identical to the adapter-augmented forward pass up to floating-point rounding — the output of <code>merged_model.generate()</code> and <code>peft_model.generate()</code> on the same prompt should produce byte-identical tokens when <code>do_sample=False</code>.</p></div>
+def merge(adapter_dir, output_dir):
+    base = AutoModelForCausalLM.from_pretrained(
+        MODEL_ID,
+        dtype=torch.bfloat16,
+        device_map={"": "cpu"},
+        low_cpu_mem_usage=True,
+    )
+    model = PeftModel.from_pretrained(base, adapter_dir)
+    merged = model.merge_and_unload(safe_merge=True)
+    merged.save_pretrained(
+        output_dir, safe_serialization=True, max_shard_size="5GB")
+    AutoTokenizer.from_pretrained(MODEL_ID).save_pretrained(output_dir)
+</code></pre>
+<p><code>safe_merge=True</code> checks adapter weights for invalid values before adding the scaled LoRA delta to the base. The standalone adapter is not deleted or modified. The merged output under <code>artifacts/merged/bind-001/</code> is a full bfloat16 Hugging Face model split into manageable safetensors shards, plus config and tokenizer files.</p>
+<p>This stage needs substantial system RAM and disk even though training fit in 16 GB VRAM. Before starting, use <code>free -h</code> and <code>df -h .</code>; plan for roughly the full half-precision model plus another copy during downstream conversion and quantization. If local RAM is insufficient, stop and add RAM/swap cautiously or perform this artifact stage on another trusted local machine; do not pretend GPU fit implies CPU merge fit.</p>
+<p>After saving, reload the merged model in a fresh process and run one deterministic prompt. Compare its output with the adapter-enabled result as a smoke test. Small floating-point differences are possible; grossly different or incoherent output blocks conversion. Hash every shard and tokenizer/config file in <code>artifacts/merged/bind-001/manifest.json</code>.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // MERGE FROM A CLEAN BASE</div>
+<p>Reload the exact unquantized base named by the adapter manifest, attach the approved adapter, and merge once in a fresh process. Do not merge into the 4-bit training object or reuse a model mutated by evaluation. Hash the resulting checkpoint and rerun a small comparison before conversion so the merge boundary has its own evidence.</p></div>
 '''
-body_words = 515
 
 [[lessons.readings]]
-label = "PEFT merge_and_unload documentation — the canonical merge API reference"
-url = "https://huggingface.co/docs/peft/main/en/developer_guides/lora#merge-and-unload-adapters"
-
-[[lessons.readings]]
-label = "PEFT LoRA tutorial — loading, training, merging, and saving adapters end-to-end"
-url = "https://huggingface.co/docs/peft/main/en/tutorial/peft_model_config"
+label = "PEFT merge and unload"
+url = "https://huggingface.co/docs/peft/developer_guides/checkpoint"
 
 [[lessons.exercises]]
 id = "s09-l01-e1"
-type = "type"
-points = 12
-reps = 2
-code = '''import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from peft import PeftModel
-
-# Load the base model, attach the adapter, merge, and save:
-base_path = "meta-llama/Llama-3.1-8B"
-adapter_path = "./my-homunculus-adapter"
-merged_path = "./homunculus-merged"
-
-base = AutoModelForCausalLM.from_pretrained(
-    base_path, torch_dtype=torch.bfloat16
-)
-model = PeftModel.from_pretrained(base, adapter_path)
-model = model.merge_and_unload()
-
-tokenizer = AutoTokenizer.from_pretrained(base_path)
-model.save_pretrained(merged_path)
-tokenizer.save_pretrained(merged_path)
-print(f"Vessel sealed at {merged_path}")'''
+type = "mc"
+points = 20
+prompt = "Why reload a fresh unquantized base for merge?"
+choices = ["The approved LoRA delta should be folded into full-precision base weights for a standard HF checkpoint", "The adapter contains no weights", "FAISS requires bfloat16", "Ollama trains during merge"]
+answer = 0
+whyWrong = "The adapter contains learned weights; FAISS and Ollama are not participants in PEFT merging."
+explain = "Training quantization is a memory technique, while the archival merge starts from the original precision."
+hint = "The next converter expects a conventional Hugging Face model."
 
 [[lessons.exercises]]
 id = "s09-l01-e2"
-type = "mc"
-points = 20
-prompt = "Per this rite, what computation does <code>merge_and_unload()</code> perform on every LoRA-adapted layer, and what is irreversibly lost?"
-choices = [
-  "It serializes the adapter matrices A and B into a separate binary file alongside the base weights and modifies <code>config.json</code> to reference that file at load time — the weight matrix W is never modified; the adapter is merely stored as a companion artifact and the loader recombines them at inference",
-  "It replaces the base model's frozen weights W entirely with the adapter's learned weights BA and discards the original W — the merged model contains only the adapter's contribution, because the base knowledge was already transferred to the adapter matrices during training and the original weights are redundant",
-  "It computes W_new = W + BA — the outer product of the two low-rank adapter matrices is added pointwise to the frozen base weight, producing a single unified weight matrix. The adapter matrices A and B are discarded because their contribution has been absorbed into W_new, and the forward pass becomes a single dense matrix multiply with no adapter term",
-  "It concatenates the adapter matrices to the weight matrix along the hidden dimension — W becomes a wider matrix [W | BA], and the model architecture is modified to split the input vector, route one half through W and the other through BA, then sum the results. The matrices A and B are retained in the merged model as separate parameter groups"
-]
-answer = 2
-whyWrong = "merge_and_unload does not create a separate adapter file (it modifies the model's state dict in memory — the adapter is absorbed, not stored alongside), does not discard the base weights (BA is a low-rank delta — typically rank 8 or 16 applied to a 4096×4096 matrix; the adapter cannot encode the base model's knowledge, only a small shift on top of it), and does not concatenate or reshape matrices (the weight dimensions stay unchanged — a 4096×4096 matrix stays 4096×4096, and the model's architecture is not modified). The correct answer: W_new = W + BA — a pointwise addition that bakes the adapter's delta into the base weights and removes the need for the separate A and B matrices."
-hint = "The lesson states the formula explicitly: 'W_new = W + BA. The outer-product BA is added pointwise to the original weight matrix W.' The correct choice names this formula and explains that the adapter matrices are absorbed — not stored alongside, not concatenated, and not a replacement of the base weights."
-explain = "Every LoRA-adapted linear layer in the merged model has one weight matrix where it previously had three (W, A, B). The forward pass h = W·x + (B·A)·x becomes h = W_new·x — identical output up to floating-point rounding, but computed with one matrix multiply instead of one multiply plus a low-rank add. The merge is a precomputation: the adapter's contribution is baked into the weights at seal time rather than computed at every forward pass. The trade-off is that the adapter can no longer be separated or swapped — the bind is permanent on this copy."
+type = "text"
+points = 15
+prompt = "Which merge argument checks adapter values before addition?"
+answer = "safe_merge=True"
+accept = ["safe_merge", "safe_merge=true"]
+hint = "It is passed to merge_and_unload."
 
 [[lessons.exercises]]
 id = "s09-l01-e3"
 type = "fill"
 points = 20
-prompt = "Fill the missing method call in the merge procedure — the PEFT operation that absorbs the adapter matrices A and B into the base weights W and returns a standard transformers model with no PEFT dependency."
-code = '''from peft import PeftModel
-from transformers import AutoModelForCausalLM, AutoTokenizer
-
-base = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.1-8B")
-model = PeftModel.from_pretrained(base, "./my-adapter")
-model = model.____()
-tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.1-8B")
-model.save_pretrained("./homunculus-merged")
-tokenizer.save_pretrained("./homunculus-merged")'''
-answer = "merge_and_unload"
-accept = ["merge_and_unload"]
-hint = "The lesson states the call explicitly: 'Call model = model.merge_and_unload().' The method name is merge_and_unload — it merges the adapter into the base weights and returns a standard model that can be saved and loaded without PEFT."
+prompt = "Complete the device mapping that keeps the full merge out of GPU memory."
+code = '''device_map={"": "____"}'''
+answer = "cpu"
+hint = "This stage is limited by system RAM, not the 16 GB training card."
 
 [[lessons.exercises]]
 id = "s09-l01-e4"
-type = "text"
-points = 18
-prompt = "Per this rite, what does the artificer permanently lose by calling merge_and_unload() — the capability the merged model gives up in exchange for simpler serving and standard Hugging Face loading without any PEFT dependency?"
-answer = "the ability to swap or retrain the adapter"
-accept = ["the ability to swap or retrain the adapter", "the ability to swap the adapter", "the ability to retrain the adapter", "the ability to unmerge the adapter", "the ability to separate the adapter from the base", "being able to swap adapters", "the adapter matrices", "the ability to change the adapter without re-merging"]
-hint = "The lesson says 'the adapter A and B matrices are gone from the merged directory' and 'the merge is one and irreversible.' The trade-off is that the adapter can no longer be swapped, unmerged, or retrained — the bind is permanent on the merged copy. The seventh rite's checkpoint discipline (save the adapter separately) is the remedy: return to the pre-merge checkpoint and retrain if needed."
-
-[[lessons.exercises]]
-id = "s09-l01-e5"
 type = "write"
-points = 33
-prompt = "Compute the merged model's disk size. A base model has <code>params = 8_000_000_000</code> parameters. After merge_and_unload(), every parameter is stored at <code>bytes_per_param = 2</code> (FP16/BF16). Print <code>MERGED &lt;v&gt; GB</code> where &lt;v&gt; is the total size in GB, rounded to one decimal place. Compute from the parameters — don't hardcode. (1 GB = 1_000_000_000 bytes.)"
-starter = '''params = 8_000_000_000
-bytes_per_param = 2
+points = 35
+prompt = "Apply the permit hash check and print exactly: MERGE AUTHORIZED"
+starter = '''verdict = "MERGE"
+permitted_hash = "abc123"
+actual_hash = "abc123"
 
-# Compute total bytes: params * bytes_per_param
-# Convert to GB: total_bytes / 1_000_000_000
-# Print MERGED <v> GB rounded to one decimal place
-
-print("MERGED 0.0 GB")
+status = "BLOCKED"
+print(f"MERGE {status}")
 '''
-expect = "MERGED 16.0 GB"
-hint = "total_bytes = 8_000_000_000 * 2 = 16_000_000_000 bytes. size_gb = 16_000_000_000 / 1_000_000_000 = 16.0 GB. Use round(size_gb, 1) and print with f'MERGED {round(size_gb, 1)} GB'. The adapter overhead is negligible — the merged model stores all base parameters at full precision."
+solution = '''verdict = "MERGE"
+permitted_hash = "abc123"
+actual_hash = "abc123"
+
+authorized = verdict == "MERGE" and permitted_hash == actual_hash
+print("MERGE AUTHORIZED" if authorized else "MERGE BLOCKED")
+'''
+expect = "MERGE AUTHORIZED"
+hint = "Both the verdict and exact manifest identity must match."

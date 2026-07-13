@@ -1,0 +1,120 @@
+[[lessons]]
+id = "s07-l06"
+teaches = ["source-policy"]
+title = "Workshop — Make Source Choice Explicit"
+body = '''
+<p>Create <code>SourcePolicy.cs</code>. This is an admission filter, not a search engine and not a credibility oracle. Its inputs are the validated sources from <code>AppConfig</code> plus zero or more labels supplied by the user. Every output record must therefore be traceable to configuration.</p>
+<pre><code><span class="k">public sealed class</span> SourcePolicy
+{
+    <span class="k">public</span> List&lt;SourceSpec&gt; Select(AppConfig config,
+        IReadOnlyCollection&lt;<span class="k">string</span>&gt; requestedLabels)
+    {
+        IEnumerable&lt;SourceSpec&gt; candidates;
+        <span class="k">if</span> (requestedLabels.Count == 0)
+        {
+            candidates = config.Sources;
+        }
+        <span class="k">else</span>
+        {
+            List&lt;<span class="k">string</span>&gt; missing = requestedLabels
+                .Where(label =&gt; !config.Sources.Any(source =&gt;
+                    source.Label.Equals(label, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+            <span class="k">if</span> (missing.Count &gt; 0)
+                <span class="k">throw new</span> ArgumentException(<span class="s">$"unknown source: {string.Join(", ", missing)}"</span>);
+
+            candidates = requestedLabels.Select(label =&gt; config.Sources.First(source =&gt;
+                source.Label.Equals(label, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        <span class="k">return</span> candidates
+            .Where(IsAdmissible)
+            .DistinctBy(source =&gt; source.Url, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    <span class="k">private static bool</span> IsAdmissible(SourceSpec source)
+    {
+        <span class="k">if</span> (!Uri.TryCreate(source.Url, UriKind.Absolute, <span class="k">out</span> Uri? uri))
+            <span class="k">return false</span>;
+
+        <span class="k">return</span> source.Kind <span class="k">switch</span>
+        {
+            SourceKind.Web =&gt; uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps,
+            SourceKind.LocalFixture =&gt; uri.Scheme == <span class="s">"mock"</span>,
+            _ =&gt; <span class="k">false</span>
+        };
+    }
+}</code></pre>
+<p>Use <code>System.Linq</code> if implicit usings are disabled. Read the method from top to bottom: begin with configured candidates; prove every requested name exists; map labels back to configured records; validate; deduplicate; materialize. No-label mode preserves configuration order, while explicit labels preserve the user's request order. Each intermediate name tells a beginner what changed.</p>
+<p><code>Trust</code> is not generated or interpreted here. It is metadata the user wrote in configuration and may be displayed later. Quote correctness comes from exact matching; no trust value converts a fabricated proposal into a verified quotation.</p>
+<div class="callout">If every configured source is inadmissible, return an empty list and let the application boundary report “no usable configured sources.” Do not fill the silence with an unchosen website.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // POLICY IS NOT DISCOVERY</div><p>An optional discovery feature could someday suggest new <code>SourceSpec</code> candidates for the user to approve. It must remain outside this core. The quotation pipeline starts only after approval, so changes in a public search service cannot decide what becomes evidence.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — LINQ filtering"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/linq/standard-query-operators/filtering-data"
+essential = false
+
+[[lessons.exercises]]
+id = "s07-l06-e1"
+type = "mc"
+points = 20
+prompt = "What is the only valid origin of a SourceSpec returned by <code>SourcePolicy.Select</code>?"
+choices = ["An Ollama suggestion", "A public search result", "The validated AppConfig supplied by the user", "A hardcoded domain list"]
+answer = 2
+whyWrong = "The AI, public discovery, and compiled domain lists do not own source choice. The method narrows the user's validated configuration."
+explain = "Configured-only admission makes every consulted source intentional and inspectable."
+hint = "Trace the initial candidates variable."
+
+[[lessons.exercises]]
+id = "s07-l06-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the web-scheme guard twice."
+code = '''SourceKind.Web => uri.Scheme == Uri.UriSchemeHttp
+    || uri.Scheme == Uri.UriSchemeHttps,'''
+
+[[lessons.exercises]]
+id = "s07-l06-e2"
+type = "fill"
+points = 18
+prompt = "Complete the case-insensitive URL deduplication call."
+code = '''.DistinctBy(source => source.Url, StringComparer.____)'''
+answer = "OrdinalIgnoreCase"
+hint = "Use deterministic ordinal comparison while ignoring letter case."
+
+[[lessons.exercises]]
+id = "s07-l06-e3"
+type = "mc"
+points = 18
+prompt = "A requested label is not present in configuration. Which behavior preserves user intent?"
+choices = ["Search for something similar", "Use the first configured source", "Ask the model to choose", "Stop and name the missing label"]
+answer = 3
+whyWrong = "Substitution changes the user's evidence set, whether chosen by search, position, or the model. Naming the missing label makes repair explicit."
+explain = "A failed explicit request is safer than silently consulting a different source."
+hint = "Do not turn a typo into permission."
+
+[[lessons.exercises]]
+id = "s07-l06-w1"
+type = "write"
+points = 38
+prompt = "From the starter's configured labels, select the requested labels case-insensitively, remove duplicates, and print one summary line in request order."
+starter = '''var configured = new List<string> { "RFC", "NIST", "RFC" };
+var requested = new List<string> { "nist", "rfc" };
+
+Console.WriteLine("NOT SELECTED");
+'''
+expect = "selected=NIST,RFC"
+solution = '''var configured = new List<string> { "RFC", "NIST", "RFC" };
+var requested = new List<string> { "nist", "rfc" };
+
+var selected = requested
+    .Select(label => configured.First(item => item.Equals(label, StringComparison.OrdinalIgnoreCase)))
+    .Distinct(StringComparer.OrdinalIgnoreCase);
+
+Console.WriteLine($"selected={string.Join(",", selected)}");
+'''
+hint = "Map each request with First plus Equals(...OrdinalIgnoreCase), Distinct, then string.Join the selected values."

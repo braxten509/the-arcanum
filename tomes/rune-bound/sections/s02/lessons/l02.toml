@@ -1,113 +1,123 @@
 [[lessons]]
 id = "s02-l02"
 title = "The Self-Carried Compass"
-teaches = ["s02-method-behavior","s02-self-reference"]
+teaches = ["entity-move-method", "entity-inheritance-contract"]
 body = '''
-<p>s02-l02 opens the objects and behavior chart through Self-Carried. s02-l02 hears THE CARTOGRAPHER name s02-method-behavior its first bearing. s02-l02 names one input, one change, and one output. s02-l02 gives s02-self-reference a second mark for comparison. s02-l02 keeps the smallest successful example beside its route.</p>
-<p>s02-l02 reads from left to right, then narrates state changes. s02-l02 keeps its objects and behavior clue concrete and observable. s02-l02 runs twice; the second pass challenges the first. s02-l02 records which owner moved when s02-method-behavior shifted. s02-l02 carries earlier <code>GameEntity</code> evidence into this chart.</p>
-<p>s02-l02 asks one decision to stand alone in the margin. s02-l02 keeps s02-self-reference visible instead of hiding it behind polish. s02-l02 tests a friendly case and a sharp edge case. s02-l02 compares both traces so s02-method-behavior has a witness. s02-l02 names the failure before choosing a repair.</p>
-<p>s02-l02 treats each handoff as a contract between maker and reader. s02-l02 supplies s02-method-behavior; the reader checks s02-self-reference. s02-l02 places its check where another wayfinder can repeat it. s02-l02 earns THE CARTOGRAPHER's trust through evidence, not luck. s02-l02 leaves one deliberate question for the next chart.</p>
-<p>s02-l02 closes by stating what the program must preserve. s02-l02 names one input that could falsify s02-method-behavior. s02-l02 names one output that confirms s02-self-reference still belongs. s02-l02 runs the smallest route, inspects its trace, and annotates it. s02-l02 turns the objects and behavior chart into a RuneBound waypoint.</p>
-<p>s02-l02 ends with a handoff to the next chart. s02-l02 carries s02-self-reference forward after s02-method-behavior earns trust. s02-l02 lets THE CARTOGRAPHER record the result in plain language. s02-l02 turns a clean rerun from a guess into a fact. s02-l02 lets the next wayfinder begin without hidden context.</p>
-<pre><code>print("s02-l02 // The Self-Carried Compass")</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // S02-L02</div><p>s02-l02 <strong>Evidence.</strong> Record s02-method-behavior; compare it with s02-self-reference before advancing.</p><p>s02-l02 <strong>Repair.</strong> Change one cause, rerun the route, and preserve the explanation.</p></div>
+<p>An entity’s state becomes useful when the entity can change it deliberately. A <strong>method</strong> is a function defined in a class. Its first parameter is conventionally <code>self</code>, the instance that received the call. The method below moves one entity by a delta: a change in pixels, not an absolute destination. Calling <code>hero.move(4, -2)</code> changes the existing hero; it does not make a replacement hero.</p>
+<pre><code>class GameEntity:
+    def __init__(self, x, y, width, height):
+        self.x, self.y = x, y
+        self.width, self.height = width, height
+
+    def move(self, dx, dy):
+        self.x += dx
+        self.y += dy
+
+hero = GameEntity(10, 10, 16, 16)
+hero.move(4, -2)
+print(hero.x, hero.y)</code></pre>
+<p><code>+=</code> is a compact assignment: <code>self.x += dx</code> means “take this entity’s current x and add dx.” It is not the same as <code>self.x = dx</code>, which would discard the old position. The explicit <code>self.</code> keeps instance state distinct from method parameters. In the final game, movement will later need collision checks; for now this method proves the direction and ownership of a state change.</p>
+<p>Classes also let a specialized role keep an already-working contract. <code>class Tile(GameEntity)</code> says Tile inherits the base class. Its initializer calls <code>super().__init__(x, y, width, height)</code> so the base class remains the single owner of spatial setup; Tile adds only <code>tile_id</code>. This is the precise s04 bridge. Do not copy four assignments into Tile, because duplicated constructors drift when the base contract changes.</p>
+<pre><code>class Tile(GameEntity):
+    def __init__(self, x, y, width, height, tile_id):
+        super().__init__(x, y, width, height)
+        self.tile_id = tile_id
+
+wall = Tile(0, 0, 32, 32, "wall")
+wall.move(32, 0)
+print(wall.x, wall.tile_id)</code></pre>
+<p>This is inheritance as reuse, not a license for a child to overwrite every rule. s04 must preserve <code>GameEntity</code> and those four inherited attributes when it introduces tiles; future Player, NPC, and Enemy sprite classes will follow the same spatial vocabulary. Test the temporary terminal model now. s03 will retire the separate <code>test_entity.py</code> file, not this public contract.</p>
+<div class="callout"><strong>THE CARTOGRAPHER'S CHECK:</strong> state moves only on the instance that received the method call.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ONE OWNER</div><p>Use <code>super()</code> when the base class owns initialization. A child should name only the state that its own role adds.</p></div>
 '''
 
 [[lessons.readings]]
-label = "Python tutorial // classes // The Self-Carried Compass"
-url = "https://docs.python.org/3/tutorial/classes.html"
-
-[[lessons.readings]]
-label = "Python tutorial // dictionaries // The Self-Carried Compass"
-url = "https://docs.python.org/3/tutorial/datastructures.html#dictionaries"
+label = "Python Docs // Method Objects and Inheritance"
+url = "https://docs.python.org/3/tutorial/classes.html#inheritance"
 
 [[lessons.exercises]]
 id = "s02-l02-e1"
 type = "type"
-points = 10
+points = 12
 reps = 2
-prompt = '''
-<p>Retype this shape ledger evidence exactly. Keep self as the receiver of position updates and return as a useful report visible while you write. (Ctrl+Enter submits.)</p>
-'''
+prompt = '''<p>Retype the movement method that updates the object that receives it.</p>'''
 code = '''
-class GameEntity:
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
-    def move(self, dx, dy):
-        self.x += dx
-        self.y += dy
-        return self.x, self.y
-print(GameEntity(1, 1).move(2, 0))
+def move(self, dx, dy):
+    self.x += dx
+    self.y += dy
 '''
 
 [[lessons.exercises]]
 id = "s02-l02-e2"
-type = "text"
-points = 16
-prompt = '''
-<p>s02-l02-e2: name the Python term for the specific unit requested by this chart. Supply the language term, not the surrounding story label.</p>
-'''
-answer = "self"
-hint = '''
-Recall the named boundary in The Self-Carried Compass; the answer is the language term for that single job, not the larger game feature.
-'''
+type = "mc"
+points = 20
+prompt = '''<p>Why should <code>Tile.__init__</code> call <code>super().__init__(x, y, width, height)</code>?</p>'''
+choices = ["It turns tile coordinates into grid indexes", "It lets Tile reuse the base spatial setup before adding tile-specific state", "It creates a second GameEntity inside every Tile", "It makes <code>tile_id</code> a class variable"]
+answer = 1
+hint = '''Identify which class already owns x, y, width, and height.'''
+whyWrong = '''Grid indexes are a separate coordinate system, and <code>super()</code> neither creates a second object nor changes an instance attribute into a class attribute. It delegates the base initialization to its one canonical owner.'''
+explain = '''The child keeps the established spatial contract and adds only <code>tile_id</code>.'''
 
 [[lessons.exercises]]
 id = "s02-l02-e3"
-type = "write"
-points = 30
-prompt = '''
-<p>Complete the shape ledger route and print exactly <code>RUNEBOUND S02 L02 SEAL</code>. Preserve the named data before adding the final observation.</p>
+type = "fill"
+points = 22
+prompt = '''<p>Complete the movement update so the entity adds the horizontal delta to its current position.</p>'''
+code = '''
+def move(self, dx, dy):
+    self.x ____ dx
+    self.y += dy
 '''
-starter = '''
-route_mark = "entity-compass"
-print("survey pending")
-# Add the chart seal after checking the route.
-'''
-expect = '''
-RUNEBOUND S02 L02 SEAL
-'''
-solution = '''
-route_mark = "entity-compass"
-print("RUNEBOUND S02 L02 SEAL")
-'''
-hint = '''
-For s02-l02-e3, leave the route data intact and add only its final s02 observation; compare the starter output with the target before submitting.
-'''
+answer = "+="
+hint = '''Use the augmented assignment operator that keeps the old coordinate and adds the delta.'''
+whyWrong = '''Plain assignment would replace the position with the delta. The method must accumulate a change from the entity’s current coordinate.'''
 
 [[lessons.exercises]]
 id = "s02-l02-e4"
-type = "mc"
-points = 14
-prompt = '''
-<p>Why is a movement method clearer when it returns a small report? Select the reading that keeps later collision code can ask one entity to move and inspect the result possible.</p>
+type = "write"
+points = 34
+prompt = '''<p>Use the supplied <code>GameEntity</code> unchanged. Define <code>Tile(GameEntity)</code> with <code>tile_id</code>, call the parent initializer, move <code>wall = Tile(0, 0, 32, 32, "wall")</code> by 32 pixels horizontally, and print exactly <code>WALL 32 wall</code>.</p>'''
+starter = '''
+class GameEntity:
+    def __init__(self, x, y, width, height):
+        self.x, self.y = x, y
+        self.width, self.height = width, height
+
+    def move(self, dx, dy):
+        self.x += dx
+        self.y += dy
+
+# Define Tile, make wall, move it, and print its evidence.
 '''
-choices = ["return prevents the method from touching self","the caller can inspect the result without guessing which attributes changed","the renderer requires every method to return a sprite","a return statement replaces the entity constructor"]
-answer = 1
-whyWrong = '''
-The tempting routes confuse omitting self or returning a value that the caller never receives with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
+expect = '''
+WALL 32 wall
 '''
-hint = '''
-Trace self as the receiver of position updates and return as a useful report in the Shape Ledger chart, then compare the a method's local calculation must end by changing or returning a named fact with the evidence named in the prompt.
+solution = '''
+class GameEntity:
+    def __init__(self, x, y, width, height):
+        self.x, self.y = x, y
+        self.width, self.height = width, height
+
+    def move(self, dx, dy):
+        self.x += dx
+        self.y += dy
+
+class Tile(GameEntity):
+    def __init__(self, x, y, width, height, tile_id):
+        super().__init__(x, y, width, height)
+        self.tile_id = tile_id
+
+wall = Tile(0, 0, 32, 32, "wall")
+wall.move(32, 0)
+print("WALL", wall.x, wall.tile_id)
 '''
-explain = '''
-The selected mark preserves a method's local calculation must end by changing or returning a named fact and leaves self as the receiver of position updates and return as a useful report available for the next RuneBound handoff.
-'''
+hint = '''Put <code>Tile(GameEntity)</code> below the base class, call <code>super().__init__</code> with the first four values, then add <code>self.tile_id</code>.'''
 
 [[lessons.exercises]]
 id = "s02-l02-e5"
-type = "fill"
+type = "text"
 points = 18
-prompt = '''
-<p>s02-l02-e5: restore the missing operation in the supplied code. Use its operands and the chart evidence to complete the route without renaming the owner.</p>
-'''
-code = '''
-def move(self, dx, dy):
-    self.x += dx
-    ____ self.x, self.y
-'''
-answer = "return"
-hint = '''
-Look at what must happen to entity.move(4, -2) updates the same object the caller holds; choose the operation that performs that job rather than the one that merely inspects the result.
-'''
+prompt = '''<p>What is the conventional first parameter name for an instance method, representing the object receiving the call?</p>'''
+answer = "self"
+hint = '''It appears before <code>dx</code> and <code>dy</code> in the movement method.'''
+whyWrong = '''The caller supplies movement deltas, but Python supplies the receiving instance as the first argument when a bound method is called.'''

@@ -4,6 +4,7 @@ import re
 from collections import Counter
 
 from . import EXERCISE_TYPES, err, lang_config, warn
+from .phase2 import check_tooling_contract
 
 
 def is_shouting_title(value):
@@ -405,26 +406,10 @@ def check_content(m, sections_data, label, tooling=None):
                  "rare; flagging one per lesson is quota-filling. Unflag all but the few readings "
                  "a student genuinely must study externally to proceed")
 
-    # §5 + the gate's Tooling choice (harness passes --tooling internal|external|both):
-    #   internal → the course must stay in-browser: externalWorkspace = true is forbidden.
-    #   external/both, or externalWorkspace = true → the tome MUST teach its external tools,
-    #     named in the first section with resource links. Language-neutral proxy: the first
-    #     section must carry at least one [[lessons.readings]] link.
+    # §5 + the Phase-0 gate's Tooling choice. Kept in its own helper so the Phase-2
+    # skeleton mode can enforce it without running Phase-3 prose/density checks.
+    check_tooling_contract(m, sections_data, label, tooling)
     rt = m.get("runtime", {}) or {}
-    xw = rt.get("externalWorkspace") is True
-    if tooling == "internal" and xw:
-        err(label, "tooling gate = internal (in-browser only) but [runtime] externalWorkspace "
-                   "= true — an internal-only course keeps every workbench in the browser; drop it")
-    if (xw or tooling in ("external", "both")) and sections_data:
-        first = sections_data[0]
-        has_reading = any(str(r.get("url", "")).strip()
-                          for les in (first.get("lessons") or []) if isinstance(les, dict)
-                          for r in (les.get("readings") or []) if isinstance(r, dict))
-        if not has_reading:
-            why = "[runtime] externalWorkspace = true" if xw else f"tooling gate = {tooling}"
-            err(label, f"{why} but the first section has no [[lessons.readings]] links — the tome "
-                       "REQUIRES external tools be taught: state which to install/use in the first "
-                       "lesson, with resource links (marked mandatory/optional)")
     if rt.get("externalWorkspace") is True and not str(rt.get("projectFile", "")).strip():
         warn("content", "[runtime] externalWorkspace = true but no projectFile — the workbench's "
              "required-files panel falls back to the language default (e.g. a lone Main.java), "

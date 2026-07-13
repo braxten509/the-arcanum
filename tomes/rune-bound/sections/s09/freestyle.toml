@@ -1,44 +1,36 @@
 [freestyle]
-title = "THE WORKING 9 // Spoils of the Tiles"
+title = "BUILD: Spoils of the Tiles"
 brief = '''
-<p>Bind spoils of the tiles into the growing RuneBound route. The commission must leave a runnable artifact whose behavior can be inspected from the named evidence.</p><ul><li>preserve the chart's data boundary and use the established names</li><li>prove the requested behavior with a repeatable run that ends at <code>RUNEBOUND S09 SEAL</code></li><li>write a short repair note explaining the nearest failure and the change that corrected it</li></ul>
+<p>Wayfinder, make exploration leave durable, inspectable evidence in the cumulative RuneBound project. This is a runnable PyGame delivery, not a terminal inventory mock.</p>
+<ul><li>create canonical <code>items.py</code> with <code>Item(item_id, name, description, pickup_tile, modifiers)</code>, <code>load_items(filename)</code>, <code>Inventory.add/remove/contains</code>, <code>apply_modifiers(stats, modifiers)</code>, and <code>draw_inventory</code></li><li>create <code>data/items.json</code> as the sole item catalog, including Potion with <code>{"hp": 20}</code> and Shadow Key with id <code>"shadow_key"</code>; retire every inline <code>{"name": "Potion", "heal": 10}</code> placeholder</li><li>extend <code>data/tiles.json</code> and <code>data/maps/overworld.csv</code> with non-solid lower-case pickup tiles; add <code>TileMap.replace_tile(world_x, world_y, replacement)</code> as a world-pixel member-only patch</li><li>patch the existing <code>Player.__init__</code> to own <code>self.inventory = Inventory()</code> after its canonical <code>StatBlock(30, 30, 7, 2)</code>, preserving sprite, movement, collision, and camera behavior</li><li>in <code>main.py</code>, load the catalog once, test the resolved Player world-space center after movement, use the <code>Inventory.add</code> receipt to apply modifiers once, replace the collected map tile with <code>"grass"</code>, and show a brief screen-space pickup toast</li><li>toggle an I-key inventory overlay through the existing <code>KEYDOWN</code> pump; draw it after world/UI layers and before exactly one final flip, while X-close and combat rules remain live</li><li>run <code>python3 main.py</code>; collect Potion once, observe its HP effect and toast, inspect it with I, verify no repeat pickup after returning to the tile, collect Shadow Key, and record command, observations, relaunch result, and one repair or explicit no-repair result in <code>README.md</code></li></ul>
 '''
-requires = ["s09-item-data","s09-item-catalog","s09-inventory-collection","s09-inventory-api","s09-pickup-detection","s09-pickup-feedback","s09-stat-modifiers","s09-inventory-display"]
-reward = 252
+requires = ["s09-item-record", "s09-json-item-catalog", "s09-inventory-api", "s09-stat-modifier-application", "s09-pickup-detection", "s09-pickup-retirement", "s09-inventory-overlay", "s09-inventory-integration"]
+reward = 390
 xray = '''
-The Cartographer checks whether the spoils ledger commission keeps item name, description, pickup tile, and stat modifiers in one inspectable definition under the right owner, shows s10 can read inventory contents as a stable quest fact, and leaves evidence beyond a decorative printout.
+The Cartographer starts at main.py’s frame route and verifies a Player world-space center selects a JSON-backed pickup, changes player.inventory.items once, applies only supported StatBlock modifiers, retires the source grid cell, and shows a screen-space receipt. He presses I through the event pump, checks the overlay’s catalog-backed entries and one final flip, then confirms the Shadow Key id remains available for s10.
 '''
 
 [freestyle.badge]
 id = "badge-s09"
-name = "SPOILS LEDGER SEALED"
-desc = "Sealed the spoils of the tiles chart with evidence another wayfinder can inspect."
+name = "SPOILS OF THE TILES SEALED"
+desc = "Bound data-driven finds to a player-owned pack."
 
 [[freestyle.rubric]]
-criterion = "Spoils Ledger runs"
+criterion = "Catalog and Pack Ownership"
 weight = 25
-desc = '''
-The spoils of the tiles artifact parses and runs with the chart's named behavior visible.
-'''
+desc = '''<code>data/items.json</code> is the sole item-definition source; <code>Item</code> keeps id, display data, pickup tile, and modifiers; <code>Inventory</code> owns ordered <code>items</code> ids with truthful add/remove/contains receipts.''' 
 
 [[freestyle.rubric]]
-criterion = "Spoils Ledger keeps its boundary"
-weight = 35
-desc = '''
-The commission keeps item name, description, pickup tile, and stat modifiers in one inspectable definition and s10 can read inventory contents as a stable quest fact in the owners established by the lessons.
-'''
+criterion = "One-Time World Pickup"
+weight = 30
+desc = '''The resolved Player world-space center reads TileMap data, maps a pickup tile to catalog data, adds an id once, applies modifier effects to the existing StatBlock, replaces that map cell with grass, and renders a temporary screen-space toast.''' 
 
 [[freestyle.rubric]]
-criterion = "Spoils Ledger shows proof"
+criterion = "Cumulative Overlay Route"
 weight = 25
-desc = '''
-The wayfinder supplies a repeatable observation, the exact s09 seal, and a useful comparison case rather than a one-time claim.
-'''
+desc = '''I toggles the inventory through KEYDOWN without replacing the event pump; the overlay reports catalog-backed contents after world/UI layers and before exactly one display flip, while camera, combat, and X-close contracts remain intact.''' 
 
 [[freestyle.rubric]]
-criterion = "Cartographer's repair note"
-weight = 15
-desc = '''
-The explanation names the failing boundary, the evidence that exposed it, and the smallest correction that restored the route.
-'''
-
+criterion = "Field Evidence and Future Key"
+weight = 20
+desc = '''README proves a one-shot Potion pickup, HP effect, inventory overlay, return-to-tile non-repeat, relaunch, and a repair/no-repair note. The collected Shadow Key remains the literal id <code>"shadow_key"</code> in <code>player.inventory.items</code>.''' 

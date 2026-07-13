@@ -1,44 +1,36 @@
 [freestyle]
-title = "THE WORKING 7 // Voices in the Tiles"
+title = "BUILD: Voices in the Tiles"
 brief = '''
-<p>Bind voices in the tiles into the growing RuneBound route. The commission must leave a runnable artifact whose behavior can be inspected from the named evidence.</p><ul><li>preserve the chart's data boundary and use the established names</li><li>prove the requested behavior with a repeatable run that ends at <code>RUNEBOUND S07 SEAL</code></li><li>write a short repair note explaining the nearest failure and the change that corrected it</li></ul>
+<p>Wayfinder, bind a speaking Elder into the cumulative RuneBound world. Work in the same local project; this commission is complete only when the close-and-rerun proves an NPC conversation, not merely a printed trace.</p>
+<ul><li>create <code>npc.py</code> with <code>NPC(AnimatedSprite)</code>; preserve inherited sheet animation, world-pixel <code>rect</code>, and camera-adjusted <code>draw(surface, camera)</code>. Give each NPC <code>npc_id</code>, <code>dialogue_path</code>, <code>interaction_radius = 64</code>, <code>distance_to(player)</code>, and <code>can_interact(player)</code></li><li>validate the Elder’s world placement through <code>TileMap.tile_at(world_x, world_y)</code> and the existing lower-case tile definition before adding it to <code>actors</code>; never use camera-adjusted coordinates for this rule</li><li>create <code>data/dialogue/elder.json</code> with <code>start</code>, named <code>nodes</code>, per-node <code>text</code>, and ordered choices containing visible <code>text</code> plus <code>next</code>. Replace any inline Python dialogue dictionary completely with this file</li><li>implement <code>DialogueTree(filename)</code>, <code>current_node()</code>, and <code>choose(choice_index)</code>. It must load JSON, navigate nodes by strict id lookup, reject invalid choice indexes with <code>False</code>, and keep <code>current_id</code> as the current node id</li><li>update <code>main.py</code>: E in a <code>KEYDOWN</code> branch opens dialogue only in range; Up/Down select responses, Return follows a choice, and E closes a terminal node. While dialogue is active, arrows must not also move Player</li><li>add <code>render_text(surface, text, x, y)</code> and a bottom-screen dialogue box. Preserve the established event/update/camera route, render ground then actors then UI, and call <code>pygame.display.flip()</code> exactly once</li><li>run <code>python3 main.py</code>, walk near and farther than 64 pixels from the Elder, navigate the “Who are you?” branch to farewell, close it, quit with X, and rerun. In <code>README.md</code>, record the command, both distance observations, the response path, and one specific repair or an explicit no-repair result. Do not ship debug prints.</li></ul>
 '''
-requires = ["s07-npc-proximity","s07-interaction-trigger","s07-dialogue-json","s07-node-navigation","s07-choice-routing","s07-dialogue-render"]
-reward = 236
+requires = ["s07-npc-proximity", "s07-npc-walkable-placement", "s07-interaction-trigger", "s07-dialogue-json", "s07-dialogue-tree-contract", "s07-node-navigation", "s07-choice-routing", "s07-dialogue-render", "s07-dialogue-frame-integration"]
+reward = 335
 xray = '''
-The Cartographer checks whether the speaking tiles commission keeps an interaction radius, a deliberate e press, and an npc that inherits animated placement under the right owner, shows quest hooks can later react to a stable dialogue flag instead of reading pixels, and leaves evidence beyond a decorative printout.
+The Cartographer traces the actual E event from a Player near the Elder through a world-space distance test, JSON-loaded node, choice edge, and one UI render layer. He checks that NPCs reuse AnimatedSprite rather than a duplicate animation route, that placement asks TileMap with world pixels, that inline dialogue has been retired, and that a terminal node cannot index an empty choice list. He also opens README for the close-and-rerun evidence and repair note.
 '''
 
 [freestyle.badge]
 id = "badge-s07"
 name = "SPEAKING TILES SEALED"
-desc = "Sealed the voices in the tiles chart with evidence another wayfinder can inspect."
+desc = "Bound a data-driven voice to the mapped world."
 
 [[freestyle.rubric]]
-criterion = "Speaking Tiles runs"
+criterion = "NPC World Contract"
 weight = 25
-desc = '''
-The voices in the tiles artifact parses and runs with the chart's named behavior visible.
-'''
+desc = '''<code>NPC(AnimatedSprite)</code> preserves inherited animation and world rect behavior, validates a walkable placement through <code>tile_at</code>, and gates E interaction by a 64-pixel world-space distance.''' 
 
 [[freestyle.rubric]]
-criterion = "Speaking Tiles keeps its boundary"
-weight = 35
-desc = '''
-The commission keeps an interaction radius, a deliberate e press, and an npc that inherits animated placement and quest hooks can later react to a stable dialogue flag instead of reading pixels in the owners established by the lessons.
-'''
+criterion = "Data-Driven Dialogue"
+weight = 30
+desc = '''<code>elder.json</code> is the only delivered Elder conversation source. <code>DialogueTree</code> loads its nested dictionaries, keeps a stable current node id, and routes valid ordered choices without hard-coded branches.''' 
 
 [[freestyle.rubric]]
-criterion = "Speaking Tiles shows proof"
-weight = 25
-desc = '''
-The wayfinder supplies a repeatable observation, the exact s07 seal, and a useful comparison case rather than a one-time claim.
-'''
+criterion = "Playable Dialogue Frame"
+weight = 30
+desc = '''<code>main.py</code> routes E, arrows, and Return to the active dialogue without moving Player at the same time; ground, actors, and dialogue UI render in order before one flip. <code>render_text(surface, text, x, y)</code> paints UI text without mutating conversation state.''' 
 
 [[freestyle.rubric]]
-criterion = "Cartographer's repair note"
+criterion = "Repeatable Field Evidence"
 weight = 15
-desc = '''
-The explanation names the failing boundary, the evidence that exposed it, and the smallest correction that restored the route.
-'''
-
+desc = '''README records <code>python3 main.py</code>, an in-range and out-of-range observation, the chosen branch, close-and-rerun result, and a concrete repair with evidence or an explicit no-repair result.''' 

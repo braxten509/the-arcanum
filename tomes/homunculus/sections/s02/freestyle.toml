@@ -1,25 +1,26 @@
 [freestyle]
-title = "THE WORKING: THE FIRST RESPONSE"
-brief = "Run a base model and an instruct model locally, note the sampling settings, and record what changes when the chat template is obeyed or broken."
+requires = ["tool-run-test", "ollama-baseline", "model-types", "model-card", "sampling-contract", "baseline-suite"]
+title = "THE WORKING: FREEZE THE FIRST RESPONSE"
+brief = '''Extend the same <code>Homunculus/</code> project with <code>data/eval/baseline-prompts.jsonl</code>, <code>src/homunculus/baseline.py</code>, <code>reports/baseline.jsonl</code>, and <code>reports/baseline-review.md</code>.<ul><li>Use at least ten stable prompt ids spanning voice, format, task correctness, uncertainty, and future grounding.</li><li>Record the exact <code>qwen3:8b</code> model id and fixed sampling options.</li><li>Call the live Ollama chat API; do not invent or paste responses.</li><li>Save every raw response, then score each 0–2 for correctness, format, usefulness, and voice.</li><li>Demonstrate once what a missing chat template changes, but keep that experiment separate from the frozen product baseline.</li></ul>These prompt ids are now evaluation assets and may not be copied into the training split.'''
 reward = 200
-xray = "Look for whether the student can tell baseline behavior from template behavior. A correct run is not enough; they must notice the shape of the output."
+xray = "The report must be reproducible from code and a live model. Reject a baseline with mutable prompt ids, unstated settings, hand-written outputs, or evaluation prompts later leaked into training."
 
 [freestyle.badge]
 id = "s02-badge"
 name = "FIRST RESPONSE"
-desc = "Awarded for waking the first local model."
+desc = "Awarded for a frozen, repeatable before-picture of the assistant."
 
 [[freestyle.rubric]]
-criterion = "Baseline run"
+criterion = "Live baseline"
 weight = 35
-desc = "A local model is run successfully and the result is read, not just shown."
+desc = "The module calls Ollama and preserves raw responses with model and sampling metadata."
 
 [[freestyle.rubric]]
-criterion = "Template awareness"
+criterion = "Representative suite"
 weight = 35
-desc = "The response shows awareness of chat formatting and sampling settings."
+desc = "Ten or more stable, leak-free prompts exercise the assistant's actual daily job."
 
 [[freestyle.rubric]]
-criterion = "Comparison"
+criterion = "Repeatable judgment"
 weight = 30
-desc = "Base and instruct behavior are compared with a clear reason."
+desc = "The review uses the stated four-axis rubric and names concrete failures by prompt id."

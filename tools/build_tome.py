@@ -31,8 +31,7 @@ except ModuleNotFoundError:
 
 from buildlib import (BUILD_DIR, CONFIG, DEAD_PINGS_DEFAULT, MAX_STUDENT_LOOPS,
                       PING_INTERVAL_DEFAULT, REPO, retries_for)
-from buildlib.checkpoints import (arc_checkpoint, arc_written, finalize_arc, maybe_rename,
-                                  reset_arc)
+from buildlib.checkpoints import arc_checkpoint, finalize_arc, maybe_rename, reset_arc
 from buildlib.continuity import (handoffs_exist, planned_edges, reconciliation_prompt,
                                  validate_all_handoffs)
 from buildlib.agent_runtime import scoped_runner_command
@@ -40,12 +39,13 @@ from buildlib.liveness import run_agent, preflight_runners
 from buildlib.measure import (forecast_line, inventory, measure, runtime_config_inventory,
                               review_changes, review_inventory,
                               runtime_config_scope_violations, selected_runtime_config,
-                              shrink_marks, shrinkage, validate)
+                              shrink_marks, shrinkage, validate, blocking_report)
 from buildlib.prompts import build_prompt, do_gate, do_gate_json, read_tooling
 from buildlib.review import run_student_review
 from buildlib.runners import (_implicit_fallback, parse_fallbacks, parse_runner_flags,
                               request_runner, runner_for)
 from buildlib.sections import author_sections_split, section_ids, wipe_sections
+from buildlib.skeleton import scaffold_sections
 from buildlib.workflow import (access_boundary, parse_phases, phase_sidecars,
                                phase_writable_paths, support_prompt)
 
@@ -193,6 +193,14 @@ def main():
         if not os.path.exists(plan_path):
             sys.exit(f"no plan file at {plan_path} — run Phase 0 first (drop --from-phase, or >0 needs an existing plan).")
 
+        if num == 2:
+            try:
+                specs = scaffold_sections(tid, plan_path)
+            except ValueError as exc:
+                sys.exit(f"Phase 2 deterministic scaffold failed before starting a worker: {exc}")
+            print(f"  · Phase 2 scaffolded from the approved Arc: {len(specs)} sections, "
+                  "one placeholder lesson each")
+
         # Phase 0 for AI access: prove every selected provider/model answers through the
         # same read/web/bubblewrap mechanism used by real phases. Local self-tests prove
         # the narrower per-phase write mounts independently.
@@ -225,11 +233,12 @@ def main():
         # a worker DIES (each resumes from the tome on disk). With no --fallback left, a death
         # instead PAUSES for a human to pick the next runner — see the death handling below.
         chain = [primary] + list(fallbacks)
+        tooling = read_tooling(plan_path)
 
         # #17: never spend the editorial reviewer's tokens on a structurally-broken tome.
         # In order this is already true (Phase 7 gated strict); it matters on --from-phase 8.
         if num == 8:
-            ok, report = validate(tid, strict=True, tooling=read_tooling(plan_path))
+            ok, report = validate(tid, phase=8, tooling=tooling)
             if not ok:
                 sys.exit("Phase 8 gate: the structural validator (--strict) must pass before the "
                          "editorial review runs — fix these first (or re-run from Phase 7):\n" + report)
@@ -241,7 +250,8 @@ def main():
         if num >= 7 and handoffs_exist(tid) and section_ids(tid):
             continuity_context = reconciliation_prompt(tid, section_ids(tid), plan_path)
         active_body = body
-        prompt = (build_prompt(tid, num, title, active_body, plan_rel, verdict_rel, findings_rel)
+        prompt = (build_prompt(tid, num, title, active_body, plan_rel, verdict_rel,
+                               findings_rel, tooling=tooling)
                   + continuity_context + access)
 
         t0 = time.monotonic()
@@ -272,7 +282,7 @@ def main():
             active_body = reconcile_body
             continuity_context = reconciliation_prompt(tid, section_ids(tid), plan_path)
             prompt = (build_prompt(tid, num, title, active_body, plan_rel, verdict_rel,
-                                   findings_rel)
+                                   findings_rel, tooling=tooling)
                       + continuity_context + access)
 
         while True:
@@ -309,7 +319,7 @@ def main():
                 review_edits = review_changes(review_pre, review_inventory(tid))
             if num == 1:  # Phase 1 writes the plan's Arc, not tome content — gate on that
                 probs = []
-                ok, report = arc_written(plan_path, plan_rel)
+                ok, report = validate(tid, phase=1, plan_rel=plan_rel)
             else:
                 shrink_probs = shrinkage(pre, inventory(tid))
                 if shrink_probs and shrink_marks(shrink_path) > marks:
@@ -324,7 +334,7 @@ def main():
                     ok, report = False, f"tomes/{tid}/ is missing — restore the scaffolded tome"
                 else:
                     ok, report = validate(
-                        tid, strict=(num >= 7), tooling=read_tooling(plan_path))
+                        tid, phase=num, tooling=tooling)
             if ok and not probs and not (num == 8 and died):
                 print("  ok plan Arc written" if num == 1 else "  ok validate_tome: clean")
                 break
@@ -349,7 +359,8 @@ def main():
                     print(f"  ⇒ {name} died — continuing on {chain[ri][0]} "
                           f"(resumes from tomes/{tid}/ on disk)")
                     prompt = (build_prompt(tid, num, title, active_body, plan_rel, verdict_rel,
-                                           findings_rel) + continuity_context + access)
+                                           findings_rel, tooling=tooling)
+                              + continuity_context + access)
                     continue
             if attempt >= retry_budget:
                 # Automatic budget spent. Unattended with nobody to ask → fail as before. Otherwise
@@ -377,10 +388,12 @@ def main():
             print(f"  x gates failed ({what}) -> re-running phase {num} (attempt {attempt + 1})")
             feedback = ""
             if not ok:
+                retry_report = (report if num == 1 else
+                                blocking_report(report, strict=(num >= 7)))
                 feedback += (("\n\n===== the previous attempt did NOT deliver this phase =====\n"
                               if num == 1 else
-                              "\n\n===== validate_tome.py still reports failures — fix exactly these =====\n")
-                             + report)
+                              "\n\n===== BLOCKING validator findings — fix only these =====\n")
+                             + retry_report)
             if probs:
                 feedback += ("\n\n===== phase write-contract violations =====\n" + "\n".join(probs) +
                              "\nRestore every out-of-scope change. If a reported tome removal or shrink "
@@ -388,7 +401,8 @@ def main():
                              f"`SHRINK OK:` to {os.path.relpath(shrink_path, REPO)} saying what and why; "
                              "that exception never authorizes another runtime file.")
             prompt = (build_prompt(tid, num, title, active_body, plan_rel, verdict_rel,
-                                   findings_rel) + continuity_context + access + feedback)
+                                   findings_rel, tooling=tooling, repair_only=True)
+                      + continuity_context + access + feedback)
 
         timings.append((num, name, round(time.monotonic() - t0), attempt + 1))
 
@@ -405,7 +419,9 @@ def main():
                 (plan_rel, verdict_rel, findings_rel),
                 (plan_path, verdict_path, findings_path, shrink_path),
                 pre, runtime_pre, marks, review_edits, rc, continuity_context, access,
-                ping_interval, dead_pings, hard_cap, timings)
+                ping_interval, dead_pings, hard_cap, timings,
+                build_id=args.tome_id, ask_on_death=ask_on_death,
+                interactive=interactive)
 
     # #11: append measured ground truth; model-authored decisions are not measurement.
     if os.path.isdir(os.path.join(REPO, "tomes", tid)):

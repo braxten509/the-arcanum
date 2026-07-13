@@ -1,12 +1,13 @@
 [[lessons]]
 id = "s02-l01"
+teaches = ["ollama-baseline"]
 title = "The First Breath"
 body = '''
 <p>The bench from the last rite proved the metal works. This rite proves something different: that a vessel — a model — can actually be summoned into it and made to answer. Waking a model is not a single click; it is a chain of its own, and the fastest link to pull first is <strong>Ollama</strong>, the serving tool your last rite already installed to load a <code>Modelfile</code> and speak GGUF.</p>
-<div class="callout"><strong>What this rite asks of you:</strong> the commands in the grey boxes (<code>ollama pull</code>, <code>ollama run</code>, <code>ollama list</code>) you type into a terminal exactly as written — no Python for those. The coding exercises use only what Chapters I and II gave you: a loop, an <code>if</code>, a counter, and f-strings over lists and dicts. If a line of Python here looks unfamiliar, its shape is spelled out in the exercise's own starter comments — read those before you worry.</div>
+<div class="callout"><strong>Keep the identity fixed.</strong> The course baseline, fine-tune, merge, and served artifact all use the Qwen3 8B family. Changing families halfway through would invalidate the tokenizer, adapter, template, and comparisons.</div>
 <p>Two commands do almost everything at this stage. <code>ollama pull &lt;name&gt;</code> fetches a model's GGUF weights and its <code>Modelfile</code> from Ollama's own registry and stores them locally — no chat happens yet. <code>ollama run &lt;name&gt;</code> pulls first if the weights aren't already local, then drops you into an interactive chat loop against that vessel. The distinction matters once you start scripting: a build step should <code>pull</code> explicitly and fail loudly if the download breaks, rather than silently blocking the first <code>run</code> a user tries.</p>
-<pre><code><span class="k">ollama</span> pull llama3.1
-<span class="k">ollama</span> run llama3.1</code></pre>
+<pre><code><span class="k">ollama</span> pull qwen3:8b
+<span class="k">ollama</span> run qwen3:8b</code></pre>
 <p>Once a model is local, <code>ollama list</code> shows every vessel currently bound to your machine — name, size on disk, and how long since it was last touched. Read that list like a ledger, not a curiosity: each entry is disk space and, later, a candidate base for your own fine-tune. A name with no tag after the colon defaults to whatever Ollama's library calls its primary build for that family — usually the instruction-tuned one, a distinction the next rite digs into properly.</p>
 <p>This is deliberately the shallow end. You are not yet asking whether the answer was any good, or whether the sampling settings were sane, or whether the chat template was honored — those are the next three rites. Right now the only question is whether the chain from registry to local GGUF to a running local process actually completes, end to end, on your own bench.</p>
 <div class="callout">A model that never finished downloading and a model that downloaded but won't load are two different failures with two different fixes — <code>ollama list</code> tells you which one you're looking at before you start guessing.</div>
@@ -22,7 +23,7 @@ url = "https://docs.ollama.com/quickstart"
 id = "s02-l01-e1"
 type = "mc"
 points = 15
-prompt = "What is the actual difference between <code>ollama pull llama3.1</code> and <code>ollama run llama3.1</code> on a machine with nothing local yet?"
+prompt = "What is the actual difference between <code>ollama pull qwen3:8b</code> and <code>ollama run qwen3:8b</code> on a machine with nothing local yet?"
 choices = [
   "pull only checks the registry for updates; run is required to download anything at all",
   "pull downloads the weights and Modelfile and stops there; run downloads them too if missing, then opens an interactive chat",
@@ -48,8 +49,8 @@ id = "s02-l01-e3"
 type = "fill"
 points = 20
 prompt = "Fill the missing command from the two-line sequence shown in the lesson that fetches a model, then opens a chat against it."
-code = '''ollama ____ llama3.1
-ollama run llama3.1'''
+code = '''ollama ____ qwen3:8b
+ollama run qwen3:8b'''
 answer = "pull"
 hint = "It's the fetch-only step that stores the GGUF and Modelfile locally without opening a chat."
 
@@ -59,8 +60,8 @@ type = "write"
 points = 30
 prompt = "A local registry ledger holds four models as (name, size_gb) tuples. Count how many have <code>instruct</code> in their name and print exactly: <code>INSTRUCT COUNT: 2</code> — computed from the data, not hardcoded."
 starter = '''models = [
-    ("llama3.1:8b-instruct-q4_0", 4.7),
-    ("llama3.1:8b-text-q4_0", 4.7),
+    ("qwen3:8b-instruct-q4_K_M", 5.2),
+    ("qwen3:8b-base-q4_K_M", 5.2),
     ("gemma2:9b-instruct-q4_0", 5.4),
     ("mistral:7b", 4.1),
 ]
@@ -75,4 +76,17 @@ for name, size_gb in models:
 print(f"INSTRUCT COUNT: {count}")
 '''
 expect = "INSTRUCT COUNT: 2"
+solution = '''models = [
+    ("qwen3:8b-instruct-q4_K_M", 5.2),
+    ("qwen3:8b-base-q4_K_M", 5.2),
+    ("gemma2:9b-instruct-q4_0", 5.4),
+    ("mistral:7b", 4.1),
+]
+
+count = 0
+for name, size_gb in models:
+    if "instruct" in name:
+        count += 1
+print(f"INSTRUCT COUNT: {count}")
+'''
 hint = "Loop over `models`, check `\"instruct\" in name` on each tuple's first element, and tally the matches."

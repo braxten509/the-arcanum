@@ -1,14 +1,15 @@
 [freestyle]
-title = "THE WORKING: The Question-Sifter"
-brief = "Deepen your vestibule: every line that is not a leave-taking gets sifted.<ul><li>Split the line into tokens</li><li>Sieve out the chaff-words (like \"the\", \"a\", \"is\") and quiet the key words to lowercase</li><li>Divine the question's kind with a <strong>switch expression</strong> (factual / procedural / definition / general — your own taxonomy)</li><li>Speak the sifted breakdown like the milestone: <code>[Parsed] Keywords: ...</code>, <code>[Parsed] Question type: ...</code>, <code>[Parsed] Search terms: \"...\"</code></li><li>Keep Chapter I's vestibule behavior whole</li></ul>"
+title = "THE WORKING: The Question Boundary"
+requires = ["input-loop", "conditions", "switch-expressions", "loops", "lists-arrays", "dictionaries", "exceptions", "method-design"]
+brief = "Deepen the existing vestibule without replacing its working loop.<ul><li>Add <code>ClassifyInput(string raw)</code>; use one switch expression to return <code>quit</code>, <code>help</code>, or <code>question</code> after trimming and lowercasing only for command comparison</li><li>Add <code>TryPrepareQuestion(string raw, out string question, out string error)</code> from the workshop; it collapses harmless whitespace, rejects empty or over-500-character input, and preserves all meaningful question text</li><li>For a question, print <code>[Ready] Question: &lt;whole question&gt;</code>; for help, print the three accepted input forms; for invalid input, print <code>[Input] &lt;error&gt;</code></li><li>Do not extract search terms, remove stop words, or score relevance—the later local AI receives the whole prepared question</li><li>Run <code>dotnet build</code>, then test a one-word question, punctuation, capitals, doubled spaces, blank input, <code>help</code>, and mixed-case <code>QUIT</code></li></ul><div class=\"callout\"><strong>Patch, do not restart:</strong> keep Chapter I's greeting and loop. Add the two local methods after the loop in the same <code>Program.cs</code>. Chapter III will move stable data into files after classes have been taught.</div>"
 reward = 250
 packages = []
-xray = "THORNE's private tests: does \"What?\" alone survive? Is the chaff-word list truly consulted (he searches your runes for Contains)? Is the switch an EXPRESSION, not a statement — its absence costs gold on sight. Extra favor for TrimEnd('?', '.', '!') or char.IsPunctuation, and for a Dictionary mapping first-words to kinds instead of four arms carved by hand."
+xray = "THORNE tests the two methods separately before he runs the loop. He passes a one-word question, punctuation, doubled spaces, capitals, blanks, help, and mixed-case quit; confirms the complete question survives; and verifies Chapter I's greeting and prompt still work."
 
 [freestyle.badge]
 id = "badge-s02"
-name = "SIFTER OF WORDS"
-desc = "Taught the tome to tell a question from a cat on the keys."
+name = "KEEPER OF QUESTIONS"
+desc = "Preserved a seeker's whole question while turning bad input aside."
 
 [[freestyle.rubric]]
 criterion = "It takes the flame & runs"
@@ -16,21 +17,21 @@ weight = 20
 desc = "Forges clean; survives strange input without unhandled exceptions."
 
 [[freestyle.rubric]]
-criterion = "Splitting & sieving"
+criterion = "Conservative preparation"
 weight = 25
-desc = "Split, Trim, ToLower, punctuation stripping, chaff-word sieving with a List or array."
+desc = "Whitespace is normalized, invalid length is reported, and words, punctuation, and case are not discarded from questions."
 
 [[freestyle.rubric]]
-criterion = "Divination via switch expression"
+criterion = "Named method boundaries"
 weight = 20
-desc = "A true switch expression (=> arms, _ default) drives the kind-of-question divining."
+desc = "Preparation and command classification are separate methods with clear parameters and returned values; classification uses a switch expression."
 
 [[freestyle.rubric]]
 criterion = "Vessels of many, used well"
 weight = 20
-desc = "Sensible use of List/array (and Dictionary if used); string.Join for the utterance."
+desc = "Sensible use of Split options and string.Join; no home-made relevance or authority algorithm enters the artifact."
 
 [[freestyle.rubric]]
 criterion = "Utterance & a fair hand"
 weight = 15
-desc = "Matches the [Parsed] form; conventional C# names (camelCase locals, PascalCase methods); Allman braces; no passages copied thrice."
+desc = "Matches the [Ready]/[Input] forms; conventional C# names, four-space indentation, and Allman braces."

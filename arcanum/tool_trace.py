@@ -20,8 +20,8 @@ TOOL_TRACE_CHARS = 360
 TOOL_TRACE_DIR = os.path.join(WEB, ".forge-trace")
 _CODEX_SESSION_PART = os.sep + ".codex" + os.sep + "sessions" + os.sep
 _CLAUDE_SESSION_PART = os.sep + ".claude" + os.sep + "projects" + os.sep
-_JS_STRING_RE = re.compile(r'\bcmd\s*:\s*("(?:\\.|[^"\\])*")', re.S)
-_JS_TEMPLATE_RE = re.compile(r"\bcmd\s*:\s*`((?:\\.|[^`])*)`", re.S)
+_JS_STRING_RE = re.compile(r'(?<![A-Za-z0-9_])["\']?cmd["\']?\s*:\s*("(?:\\.|[^"\\])*")', re.S)
+_JS_TEMPLATE_RE = re.compile(r"(?<![A-Za-z0-9_])[\"']?cmd[\"']?\s*:\s*`((?:\\.|[^`])*)`", re.S)
 _NESTED_TOOL_RE = re.compile(r"\btools\.([A-Za-z_][A-Za-z0-9_]*)\s*\(")
 _PATCH_FILE_RE = re.compile(r"\*\*\*\s+(?:Add|Update|Delete) File:\s*([^\n\\]+)")
 
@@ -53,7 +53,8 @@ def _descendants(root_pid):
 def runner_session(root_pid):
     """Find the Codex or Claude JSONL file held open by this build's live worker."""
     candidates = []
-    for pid in _descendants(root_pid):
+    pids = _descendants(root_pid)
+    for pid in pids:
         fd_dir = f"/proc/{pid}/fd"
         try:
             fds = os.listdir(fd_dir)
@@ -77,9 +78,34 @@ def runner_session(root_pid):
                 continue
             candidates.append((stamp, provider, target))
     if not candidates:
-        return None
+        return _claude_session_from_processes(pids)
     _, provider, path = max(candidates)
     return provider, path
+
+
+def _claude_session_from_processes(pids, proc_root="/proc", projects_root=None):
+    """Fallback for Claude versions that append JSONL without holding it open."""
+    projects_root = projects_root or os.path.expanduser("~/.claude/projects")
+    candidates = []
+    for pid in pids:
+        pdir = os.path.join(proc_root, str(pid))
+        try:
+            with open(os.path.join(pdir, "cmdline"), "rb") as handle:
+                argv = [part.decode("utf-8", "replace") for part in handle.read().split(b"\0") if part]
+            if not argv or os.path.basename(argv[0]) != "claude":
+                continue
+            cwd = os.readlink(os.path.join(pdir, "cwd"))
+            project_dir = os.path.join(projects_root, cwd.replace(os.sep, "-"))
+            for name in os.listdir(project_dir):
+                if not name.endswith(".jsonl"):
+                    continue
+                path = os.path.join(project_dir, name)
+                candidates.append((os.stat(path).st_mtime_ns, path))
+        except OSError:
+            continue
+    if not candidates:
+        return None
+    return "claude", max(candidates)[1]
 
 
 def _literal_command(source, start):
@@ -264,6 +290,7 @@ def mirror_tool_trace(job_id, build_pid, interval=0.75):
     """Follow a build until it exits, updating its bounded static trace snapshot."""
     follower = None
     missing = 0
+    _write_snapshot(job_id, {"active": False, "provider": "", "updatedAt": time.time(), "lines": []})
     while os.path.exists(f"/proc/{int(build_pid)}"):
         current = runner_session(build_pid)
         if current:

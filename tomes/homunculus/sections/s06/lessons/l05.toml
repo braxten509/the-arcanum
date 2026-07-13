@@ -1,115 +1,72 @@
 [[lessons]]
 id = "s06-l05"
-title = "The Iterative Pass"
+teaches = ["controlled-sweep"]
+title = "Change One Cause at a Time"
 body = '''
-<p>Four rites built a measurement suite: the held-out mirror (style shift), the voice judge (quality), the forgetting score (preservation), and the loss curve (learning dynamics). This rite teaches the simplest and most expensive skill in the proving set: running the bind more than once with different knobs and comparing the results. The seventh rite's knob lesson taught what rank, alpha, and learning rate control; this rite teaches how to change them <em>deliberately</em> across runs and read the output as a decision.</p>
-<p>The iterative pass is a <strong>small grid search</strong> — a table of 3–6 configurations where one or two knobs change at a time, each configuration gets its own training run, and the best configuration is the one with the best combined evaluation score (style + forgetting). The grid is small because each run takes 15–40 minutes on a 16 GB card (the seventh rite's AMD lesson timed it), and a sweep of 3 knobs at 3 levels each (27 runs) would take 7–18 hours — too long for a practical proving pass. A productive first sweep changes exactly two knobs across 4–6 runs — for example, hold alpha fixed at 32 and vary rank across [8, 16, 32], then hold the best rank fixed and vary learning rate across [1e-4, 2e-4, 3e-4]. Six runs, roughly 2–3 hours on the card, and the result is a defensible "best I could find within this resource budget."</p>
-<p>Checkpoint selection is the cheaper cousin of the grid sweep: run the bind <em>once</em> with a conservative config (rank 16, alpha 32, lr 2e-4), save checkpoints at intervals (<code>save_steps=10</code> or <code>save_steps=20</code>), and evaluate each checkpoint's adapter on the held-out prompts. The best checkpoint is not always the last one — on a single-epoch run with a small dataset, the loss curve plateaus early (the sixth rite proved this), and a checkpoint at step 40 may produce a better style-consistency score than step 80 because the later steps overfit to the noise in the last few training records. The sixth rite's loss-curve intuition maps directly to checkpoint selection: pick the checkpoint at the step where eval loss stops improving, not where training loss is lowest.</p>
-<pre><code><span class="c"># A minimal grid-sweep script — one config per run, log the result:</span>
-configs = [
-    {<span class="s">"r"</span>: <span class="k">8</span>,  <span class="s">"lr"</span>: <span class="k">2e-4</span>, <span class="s">"name"</span>: <span class="s">"r8-lr2e4"</span>},
-    {<span class="s">"r"</span>: <span class="k">16</span>, <span class="s">"lr"</span>: <span class="k">2e-4</span>, <span class="s">"name"</span>: <span class="s">"r16-lr2e4"</span>},
-    {<span class="s">"r"</span>: <span class="k">32</span>, <span class="s">"lr"</span>: <span class="k">2e-4</span>, <span class="s">"name"</span>: <span class="s">"r32-lr2e4"</span>},
-    {<span class="s">"r"</span>: <span class="k">16</span>, <span class="s">"lr"</span>: <span class="k">1e-4</span>, <span class="s">"name"</span>: <span class="s">"r16-lr1e4"</span>},
-    {<span class="s">"r"</span>: <span class="k">16</span>, <span class="s">"lr"</span>: <span class="k">3e-4</span>, <span class="s">"name"</span>: <span class="s">"r16-lr3e4"</span>},
-]
-<span class="c"># For each config: run trainer.train(), evaluate on held-out prompts,</span>
-<span class="c"># record style-similarity score + forgetting score → pick best combo.</span></code></pre>
-<p><strong>Early stopping</strong> is the grid sweep's shortcut: instead of running every configuration to completion, monitor the training loss and abort a run mid-epoch if the loss has plateaued for 20+ steps (the same plateau signal the sixth rite defined). The run is not a failure — a plateau at step 30 means the bind absorbed the signal it could, and continuing to step 80 would only burn clock cycles for the same adapter quality. Abort, save the adapter at the plateau point, and move to the next configuration. On a 6-run grid, early stopping can cut the total proving time from 3 hours to under 2 — half the wattage for the same information.</p>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // THE SINGLE-VARIABLE RULE — WHY YOU CHANGE ONE KNOB AT A TIME</div>
-<p>Change two knobs between runs — say, rank 16→32 AND learning rate 2e-4→1e-4 — and the evaluation cannot tell you which change caused the improvement (or degradation). The result is a number, not a lesson: "this config works better" without any insight into <em>why</em>. The proving rite's goal is not just to find a good config, but to understand the relationship between the knobs and the behavior — the same expert judgment the final rite demands. Change one knob at a time across a sweep, and the result is a curve (style quality vs. rank, forgetting vs. learning rate) instead of a single point — a curve the artificer can reason about, not just accept.</p></div>
+<p>Do not launch a large hyperparameter sweep because the first answer felt imperfect. First run the complete gate. If the adapter has no broad voice gain but preserves capability, choose one plausible lever: more authentic data, rank, learning rate, or training duration. If it regresses capability or memorizes, choose a conservative lever such as better curation, lower rank, or lower learning rate. Data defects are not repaired by knob searches.</p>
+<p>A controlled comparison changes one declared variable while keeping the base id, data hashes, split, tokenizer, seed, sequence length, sampling, and evaluation suite fixed. For example, compare <code>bind-001</code> at rank 16 with <code>bind-r8-001</code> at rank 8; do not also change learning rate and corpus. The two manifests are the proof that only the intended field differs.</p>
+<pre><code>comparison = {
+    "control": "bind-001",
+    "candidate": "bind-r8-001",
+    "changed": {"rank": [16, 8]},
+    "fixed_hashes": ["train", "eval", "suite", "base"],
+}</code></pre>
+<p>Run the same dry gate, full training, paired evaluation, blind rubric, and regression suite. Compare category-level results, critical failures, evaluation loss, and memory—not just a single average. Stop when a candidate passes the predefined product gate. Endless tuning against one held-out suite gradually overfits the evaluation itself; if you make many decisions from it, reserve a final untouched acceptance suite.</p>
+<p>Elapsed time is measured, never promised. Store every abandoned run and its reason in the run manifest so the next retraining cycle does not repeat failed experiments. A failed candidate does not replace the last known-good adapter.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // EXPERIMENTS NEED ONE DELTA</div>
+<p>Record the parent run and the single intended change before launching a rebind. If rank, learning rate, corpus, and sequence length all move together, a better score cannot teach you which lever mattered. One-delta trials may feel slower, but they build a reusable map of this model, dataset, and card instead of a pile of anecdotes.</p></div>
 '''
-body_words = 540
 
 [[lessons.readings]]
-label = "Hugging Face Trainer — checkpointing and resuming"
-url = "https://huggingface.co/docs/transformers/main_classes/trainer"
+label = "Hugging Face hyperparameter search concepts"
+url = "https://huggingface.co/docs/transformers/hpo_train"
 
 [[lessons.exercises]]
 id = "s06-l05-e1"
 type = "mc"
 points = 20
-prompt = "Per this rite, why does the iterative pass sweep only 4–6 configurations rather than a full 3×3×3 grid (27 runs)?"
-choices = [
-  "The SFTTrainer can only be configured with at most 6 different TrainingArguments objects per Python process — calling trainer.train() a seventh time raises a ResourceExhaustedError",
-  "Each training run takes 15–40 minutes on a 16 GB card, and 27 runs (7–18 hours) exceeds a practical proving session — the sweep is resource-bound by GPU time, not by solver completeness, and the goal is a defensible best-effort config, not a global optimum",
-  "The evaluation scripts from earlier rites can only compare at most 6 adapters side by side before the combined context exceeds the tokenizer's max sequence length",
-  "Grid search beyond 6 points overfits the hyperparameter space — the evaluation metrics start to favor configs that score well by random chance rather than genuine quality"
-]
-answer = 1
-whyWrong = "The grid size limit is a practical resource constraint, not a software limit (the SFTTrainer has no restriction on the number of runs per process), a tokenizer constraint (evaluation compares adapters one at a time, not all at once), or a statistical overfitting argument (more runs give more information, not less). The bound is time — each run burns wattage and minutes on the AMD card, and the proving rite values a defensible result in 2 hours over a perfect result in 18."
-explain = "The grid stays small for a single reason — wall-clock cost. Each run burns 15–40 minutes of the card, so a full 3×3×3 sweep of 27 runs would take 7–18 hours. No software or statistical rule caps the size; the artificer simply trades an exhaustive search for a defensible best-effort that fits one working session."
-hint = "The lesson says each run 'takes 15–40 minutes on a 16 GB card' and '27 runs would take 7–18 hours — too long for a practical proving pass.' The correct choice is the time-bound constraint on the grid sweep."
+prompt = "Why change only one intended variable?"
+choices = ["So an observed difference has an attributable cause", "Because PEFT supports only one field", "Because JSON cannot store two changes", "To avoid evaluation"]
+answer = 0
+whyWrong = "The libraries permit multiple changes; the constraint exists for inference, not syntax."
+explain = "Controlled comparisons turn results into knowledge rather than just another score."
+hint = "Ask which change caused the outcome."
 
 [[lessons.exercises]]
 id = "s06-l05-e2"
 type = "text"
-points = 18
-prompt = "Per this rite, which checkpoint in a single-epoch training run should the artificer select — the last one (most steps) or the one where the evaluation loss stops improving — and why?"
-answer = "the one where evaluation loss stops improving, because later steps risk overfitting the noise in the last training records without improving style quality on held-out prompts"
-accept = ["the one where evaluation loss stops improving", "where eval loss stops improving", "where evaluation loss plateaus", "the checkpoint where eval loss stops improving", "where the evaluation loss stops improving", "the checkpoint at the step where eval loss stops improving"]
-hint = "The lesson says 'pick the checkpoint at the step where eval loss stops improving, not where training loss is lowest' — because later steps overfit to noise in the last few training records. The second paragraph of the lesson explains this checkpoint-selection rule directly."
+points = 15
+prompt = "What artifact proves all supposedly fixed inputs remained fixed?"
+answer = "the run manifests"
+accept = ["run manifests", "manifest hashes", "the manifests"]
+hint = "They record config and input hashes for each run."
 
 [[lessons.exercises]]
 id = "s06-l05-e3"
-type = "type"
-points = 12
-reps = 2
-code = '''# A minimal grid-sweep script — one config per run, log the result:
-configs = [
-    {"r": 8,  "lr": 2e-4, "name": "r8-lr2e4"},
-    {"r": 16, "lr": 2e-4, "name": "r16-lr2e4"},
-    {"r": 32, "lr": 2e-4, "name": "r32-lr2e4"},
-    {"r": 16, "lr": 1e-4, "name": "r16-lr1e4"},
-    {"r": 16, "lr": 3e-4, "name": "r16-lr3e4"},
-]
-# For each config: run trainer.train(), evaluate on held-out prompts,
-# record style-similarity score + forgetting score -> pick best combo.'''
+type = "fill"
+points = 20
+prompt = "Complete the rule for a candidate that fails the product gate."
+code = "failed_candidate_replaces_known_good = ____"
+answer = "False"
+accept = ["false", "False"]
+hint = "A comparison does not automatically become production."
 
 [[lessons.exercises]]
 id = "s06-l05-e4"
-type = "mc"
-points = 20
-prompt = "Per this rite, why does the lesson recommend changing only one knob at a time across a sweep rather than varying both rank and learning rate simultaneously?"
-choices = [
-  "The SFTTrainer's configuration parser validates one knob at a time — passing two changed knobs causes a config-collision error because the underlying PEFT model can only reconfigure one LoraConfig field per training session",
-  "Changing two knobs at once conflates the effect — you cannot tell whether rank or learning rate caused the improvement, so you get a number without a lesson; changing one knob at a time produces a curve you can reason about rather than a single opaque data point",
-  "Grid search algorithms require orthogonal search directions — varying two knobs simultaneously introduces correlated gradients that bias the optimizer's learning rate schedule built into the SFTTrainer",
-  "The GPU memory constraint limits each run to tuning one knob at a time — two simultaneous knob changes double the optimizer state footprint because each changed knob requires its own gradient buffer"
-]
-answer = 1
-whyWrong = "The SFTTrainer has no knob-collision restriction — every config is a fresh LoraConfig object and a fresh trainer, so you can change as many knobs as you want between runs. There is no orthogonal-search requirement (grid search doesn't care about correlation between dimensions — it's exhaustive within the grid), and memory is a per-run concern, not per-knob (changing two knobs within one run doesn't double memory). The real reason is diagnostic: one variable changed = one attributable cause. Two variables changed = confounded effect, and the proving rite is about understanding the bind, not just finding a working config."
-explain = "Changing one knob per run keeps cause and effect legible: if the score moves, exactly one variable moved with it, so the sweep yields an attributable curve — style against rank, forgetting against learning rate. Move two knobs together and a better score tells you the pair helped, not which one — a data point you cannot reason from. The proving rite is about understanding the bind, not just landing on a config that happens to work."
-hint = "The lesson's FIELD NOTES section states: 'Change two knobs between runs and the evaluation cannot tell you which change caused the improvement. Change one knob at a time and the result is a curve instead of a single point.'"
-
-[[lessons.exercises]]
-id = "s06-l05-e5"
-type = "fill"
-points = 20
-prompt = "Fill the missing method from the lesson — the one called on a PEFT-wrapped model to save a snapshot of the adapter weights at a specific step during training, which the seventh rite's artifact lesson explained produces a safetensors file and adapter_config.json in the output directory."
-code = '''# After training completes, save the bind for later loading:
-model.____("./bind-output/checkpoint-40")
-tokenizer.save_pretrained("./bind-output/checkpoint-40")'''
-answer = "save_pretrained"
-accept = ["save_pretrained"]
-hint = "The seventh rite's artifact lesson (s05-l06) named this method as the one that writes adapter weights to safetensors. It's the same call used to save checkpoints during training — the method that creates the directory of adapter weights the evaluation loop loads with PeftModel.from_pretrained."
-
-[[lessons.exercises]]
-id = "s06-l05-e6"
 type = "write"
 points = 35
-prompt = "Given three checkpoint evaluation scores below — each a dict with a checkpoint name and a combined score — find the checkpoint with the highest combined score. The combined score is <code>style_score - (forgetting * 0.5)</code> where higher is better. Print <code>BEST &lt;name&gt;</code> — computed from the data, not hardcoded."
-starter = '''checkpoints = [
-    {"name": "ckpt-20", "style_score": 0.72, "forgetting": 0.10},
-    {"name": "ckpt-40", "style_score": 0.78, "forgetting": 0.15},
-    {"name": "ckpt-60", "style_score": 0.74, "forgetting": 0.20},
-    {"name": "ckpt-80", "style_score": 0.76, "forgetting": 0.25},
-]
+prompt = "List changed configuration keys and print exactly: CHANGED rank"
+starter = '''control = {"rank": 16, "lr": 1e-4, "max_length": 1024}
+candidate = {"rank": 8, "lr": 1e-4, "max_length": 1024}
 
-# For each checkpoint, combined = style_score - (forgetting * 0.5)
-# Find the one with the highest combined score.
-# Print BEST <name>
-print("BEST none")
+changed = []
+print("CHANGED " + ", ".join(changed))
 '''
-expect = "BEST ckpt-40"
-hint = "ckpt-20: 0.72 - 0.05 = 0.67. ckpt-40: 0.78 - 0.075 = 0.705. ckpt-60: 0.74 - 0.10 = 0.64. ckpt-80: 0.76 - 0.125 = 0.635. ckpt-40 has the highest combined score at 0.705. Find the max by iterating, tracking current best name and score."
+solution = '''control = {"rank": 16, "lr": 1e-4, "max_length": 1024}
+candidate = {"rank": 8, "lr": 1e-4, "max_length": 1024}
+
+changed = [key for key in control if control[key] != candidate[key]]
+print("CHANGED " + ", ".join(changed))
+'''
+expect = "CHANGED rank"
+hint = "Keep keys whose values differ between the two dicts."

@@ -1,0 +1,110 @@
+[[lessons]]
+id = "s10-l05"
+teaches = ["verified-output"]
+title = "Workshop — Build the Verified-Only Renderer"
+body = '''
+<p>Create <code>ReportRenderer.cs</code>. Add <code>using Spectre.Console;</code>. This class has no HttpClient, JSON parser, model selector, or verifier. It receives finished data and gives that data a readable terminal form.</p>
+<pre><code><span class="k">public sealed class</span> ReportRenderer
+{
+    <span class="k">public void</span> Render(<span class="k">string</span> question,
+        IReadOnlyList&lt;VerifiedQuote&gt; quotes, <span class="k">int</span> rejected,
+        IReadOnlyList&lt;<span class="k">string</span>&gt; sourceErrors, <span class="k">bool</span> mock, <span class="k">bool</span> verbose)
+    {
+        <span class="k">string</span> safeQuestion = Markup.Escape(question);
+        AnsiConsole.Write(<span class="k">new</span> Rule(<span class="s">$"[bold]VERISEARCH[/] · {safeQuestion}"</span>).LeftJustified());
+
+        <span class="k">if</span> (mock)
+            AnsiConsole.MarkupLine(<span class="s">"[black on yellow] MODE: MOCK FIXTURE [/]"</span>);
+
+        <span class="k">if</span> (quotes.Count == 0)
+            AnsiConsole.Write(<span class="k">new</span> Panel(<span class="s">"No verified quotes were found."</span>));
+
+        <span class="k">foreach</span> (<span class="k">var</span> group <span class="k">in</span> quotes.GroupBy(quote =&gt; quote.Url))
+        {
+            VerifiedQuote first = group.First();
+            AnsiConsole.MarkupLine(<span class="s">$"[blue]{Markup.Escape(first.SourceLabel)}[/]"</span>);
+            AnsiConsole.MarkupLine(<span class="s">$"[dim]{Markup.Escape(first.Url)}[/]"</span>);
+
+            <span class="k">foreach</span> (VerifiedQuote quote <span class="k">in</span> group)
+            {
+                <span class="k">string</span> safeText = Markup.Escape(quote.Text);
+                AnsiConsole.Write(<span class="k">new</span> Panel(safeText)
+                    .Header(<span class="s">$"[bold]Passage {quote.PassageId}[/]"</span>)
+                    .RoundedBorder());
+            }
+        }
+
+        <span class="k">foreach</span> (<span class="k">string</span> error <span class="k">in</span> sourceErrors)
+            AnsiConsole.MarkupLine(<span class="s">$"[red]source error:[/] {Markup.Escape(error)}"</span>);
+
+        <span class="k">if</span> (verbose)
+            AnsiConsole.MarkupLine(<span class="s">$"[dim]rejected proposals: {rejected}[/]"</span>);
+    }
+}</code></pre>
+<p>Build. If Spectre names are unknown, run <code>dotnet add package Spectre.Console</code> in the project directory and ensure the <code>using</code> is present. If <code>VerifiedQuote</code> is unknown, repair <code>Models.cs</code>; never replace the parameter with <code>object</code> or <code>string</code> merely to silence the compiler.</p>
+<p>Create a fixture whose question, label, URL, and quote contain brackets. Confirm they display literally. Confirm mock false produces no mode banner, and mock true does. Keep full quotation text even when it wraps.</p>
+<div class="callout">Delete any older rendering method that accepts <code>VerbatimQuote</code>, <code>QuoteProposal</code>, or loose strings. One public report path keeps the guarantee inspectable.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // OUTPUT REDIRECTION</div><p>Spectre detects many terminal capabilities, but a future <code>--json</code> mode should be a separate renderer rather than ANSI text redirected into a file. The trusted input type can remain the same.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Spectre.Console — Panels"
+url = "https://spectreconsole.net/widgets/panel"
+essential = false
+
+[[lessons.exercises]]
+id = "s10-l05-e1"
+type = "mc"
+points = 20
+prompt = "A verified quote contains <code>[green]text[/]</code>. What must happen before it enters a Panel?"
+choices = ["Remove the brackets", "Pass it through Markup.Escape", "Trust it because verification passed", "Convert it back to QuoteProposal"]
+answer = 1
+whyWrong = "Verification proves source containment, not safe terminal markup. Deleting characters changes the quote, and converting types weakens the boundary."
+explain = "Escaping preserves every displayed character while preventing Spectre from interpreting it as style."
+hint = "Truth safety and markup safety are separate checks."
+
+[[lessons.exercises]]
+id = "s10-l05-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the verified quote panel twice."
+code = '''string safeText = Markup.Escape(quote.Text);
+AnsiConsole.Write(new Panel(safeText)
+    .Header($"[bold]Passage {quote.PassageId}[/]")
+    .RoundedBorder());'''
+
+[[lessons.exercises]]
+id = "s10-l05-e2"
+type = "fill"
+points = 18
+prompt = "Complete the LINQ operator that buckets quotes by URL."
+code = '''foreach (var group in quotes.____(quote => quote.Url))'''
+answer = "GroupBy"
+hint = "The result exposes a Key and the members of each bucket."
+
+[[lessons.exercises]]
+id = "s10-l05-e3"
+type = "mc"
+points = 18
+prompt = "When may the renderer show the MOCK banner?"
+choices = ["Whenever Ollama is offline", "Whenever no quotes pass", "Only when the user explicitly selected mock mode", "Whenever a local fixture source exists"]
+answer = 2
+whyWrong = "Offline service, empty results, or fixture data do not grant permission to change modes. The CLI flag is the explicit choice."
+explain = "Mode honesty requires selection and labeling to agree."
+hint = "Follow the Boolean parameter back to --mock."
+
+[[lessons.exercises]]
+id = "s10-l05-w1"
+type = "write"
+points = 38
+prompt = "Escape square brackets in the starter quote by doubling each opening and closing bracket, then print it."
+starter = '''string quote = "[red]source text[/]";
+Console.WriteLine(quote);
+'''
+expect = "[[red]]source text[[/]]"
+solution = '''string quote = "[red]source text[/]";
+string escaped = quote.Replace("[", "[[").Replace("]", "]]" );
+Console.WriteLine(escaped);
+'''
+hint = "Replace each [ with [[ and each ] with ]]."

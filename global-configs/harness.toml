@@ -24,55 +24,55 @@ dead_pings = 2       # consecutive idle checks that confirm a dead worker
 # kind = bindery provider id; model = that provider's model id; effort only where the CLI
 # takes one. q3+ lean on the login CLIs (claude/codex/antigravity, flat-cost) — if one
 # isn't installed that hand is left unset and the [ ] Configure box lets you pick manually.
-# FREE opencode models and local ollama are deliberately absent: free ids rotate and
-# rate-limit (workers look dead to the liveness ping), local quality depends on the rig.
+# FREE OpenCode endpoints are limited-time/trial offerings, and local model quality depends
+# on the exact rig/runtime; presets therefore use durable hosted or login-backed paths.
 
-[quality.q1]  # ~cheapest that still follows the plan; whole tome for well under $1
-label = "threadbare"
-blurb = "DeepSeek Flash scaffold & sections, MiniMax M3 where it must think"
+[quality.q1]  # cheapest complete mix: spend on the teaching + independent final eyes
+label = "economy"
+blurb = "Flash drafts, MiniMax plans, Qwen writes split sections, DeepSeek Pro reviews"
 split = true
-phases.default = { kind = "opencode-cli", model = "opencode-go/deepseek-v4-flash" }
+phases.default = { kind = "opencode-cli", model = "opencode-go/deepseek-v4-flash", effort = "high" }
 phases."1" = { kind = "opencode-cli", model = "opencode-go/minimax-m3" }
 phases."4" = { kind = "opencode-cli", model = "opencode-go/minimax-m3" }
-phases."3" = { kind = "opencode-cli", model = "opencode-go/deepseek-v4-flash" }
-phases."8" = { kind = "opencode-cli", model = "opencode-go/qwen3.7-plus" }
+phases."3" = { kind = "opencode-cli", model = "opencode-go/qwen3.7-plus" }
+phases."8" = { kind = "opencode-cli", model = "opencode-go/deepseek-v4-pro", effort = "high" }
 
-[quality.q2]  # spend where it teaches: sections get the value-king pro model (cache ~ free)
-label = "frugal"
-blurb = "flash scaffold, M3 arc, DeepSeek V4 Pro sections, Kimi eyes"
+[quality.q2]  # value: stronger arc/sections, then independent subscription-backed eyes
+label = "value"
+blurb = "Qwen plans, DeepSeek Pro writes split sections, Gemini 3.5 Flash reviews"
 split = true
-phases.default = { kind = "opencode-cli", model = "opencode-go/deepseek-v4-flash" }
-phases."1" = { kind = "opencode-cli", model = "opencode-go/minimax-m3" }
-phases."4" = { kind = "opencode-cli", model = "opencode-go/minimax-m3" }
-phases."3" = { kind = "opencode-cli", model = "opencode-go/deepseek-v4-pro" }
-phases."8" = { kind = "opencode-cli", model = "opencode-go/kimi-k2.5" }
-
-[quality.q3]  # balanced: pro-tier authoring end to end, third-vendor reviewer on the agy login
-label = "balanced"
-blurb = "DeepSeek V4 Pro writes everything, Gemini reviews it"
-split = true
-phases.default = { kind = "opencode-cli", model = "opencode-go/minimax-m3" }
-phases."1" = { kind = "opencode-cli", model = "opencode-go/deepseek-v4-pro" }
-phases."4" = { kind = "opencode-cli", model = "opencode-go/deepseek-v4-pro" }
-phases."3" = { kind = "opencode-cli", model = "opencode-go/deepseek-v4-pro" }
+phases.default = { kind = "opencode-cli", model = "opencode-go/deepseek-v4-flash", effort = "high" }
+phases."1" = { kind = "opencode-cli", model = "opencode-go/qwen3.7-plus" }
+phases."4" = { kind = "opencode-cli", model = "opencode-go/qwen3.7-plus" }
+phases."3" = { kind = "opencode-cli", model = "opencode-go/deepseek-v4-pro", effort = "high" }
 phases."8" = { kind = "antigravity-cli", model = "Gemini 3.5 Flash (High)" }
 
-[quality.q4]  # fine: Sonnet 5 authors the arc, strong open coder on sections, frontier Gemini reviews
-label = "fine"
-blurb = "Sonnet 5 arc & minigames, Kimi K2.6 sections, Gemini 3.1 Pro eyes"
+[quality.q3]  # balanced: current efficient frontier models, strongest hand on the bulk phase
+label = "balanced"
+blurb = "GPT-5.6 Luna plans, Terra writes split sections, Gemini 3.5 Flash reviews"
 split = true
-phases.default = { kind = "opencode-cli", model = "opencode-go/minimax-m3" }
-phases."1" = { kind = "claude-cli", model = "claude-sonnet-5", effort = "medium" }
-phases."4" = { kind = "claude-cli", model = "claude-sonnet-5", effort = "medium" }
-phases."3" = { kind = "opencode-cli", model = "opencode-go/kimi-k2.6" }
+phases.default = { kind = "codex-cli", model = "gpt-5.6-luna", effort = "medium" }
+phases."1" = { kind = "codex-cli", model = "gpt-5.6-luna", effort = "medium" }
+phases."4" = { kind = "codex-cli", model = "gpt-5.6-luna", effort = "medium" }
+phases."3" = { kind = "codex-cli", model = "gpt-5.6-terra", effort = "medium" }
+phases."8" = { kind = "antigravity-cli", model = "Gemini 3.5 Flash (High)" }
+
+[quality.q4]  # fine: strong frontier authoring and independent pro review
+label = "fine"
+blurb = "Sonnet 5 plans, GPT-5.6 Terra writes split sections, Gemini 3.1 Pro reviews"
+split = true
+phases.default = { kind = "codex-cli", model = "gpt-5.6-luna", effort = "medium" }
+phases."1" = { kind = "claude-cli", model = "claude-sonnet-5", effort = "high" }
+phases."4" = { kind = "claude-cli", model = "claude-sonnet-5", effort = "high" }
+phases."3" = { kind = "codex-cli", model = "gpt-5.6-terra", effort = "medium" }
 phases."8" = { kind = "antigravity-cli", model = "Gemini 3.1 Pro (High)" }
 
-[quality.q5]  # masterwork: best hands where they matter, none wasted on scaffold
+[quality.q5]  # masterwork: no Fable/max/ultra overspend; frontier hands only where useful
 label = "masterwork"
-blurb = "Opus 4.8 arc, Sonnet 5 sections, GPT-5.5 reviews — mini scaffold"
+blurb = "Opus 4.8 plans, Sonnet 5 writes split sections, GPT-5.6 Sol reviews"
 split = true
-phases.default = { kind = "codex-cli", model = "gpt-5.4-mini", effort = "low" }
-phases."1" = { kind = "claude-cli", model = "claude-opus-4-8", effort = "medium" }
-phases."4" = { kind = "claude-cli", model = "claude-opus-4-8", effort = "medium" }
-phases."3" = { kind = "claude-cli", model = "claude-sonnet-5", effort = "medium" }
-phases."8" = { kind = "codex-cli", model = "gpt-5.5", effort = "high" }
+phases.default = { kind = "codex-cli", model = "gpt-5.6-luna", effort = "medium" }
+phases."1" = { kind = "claude-cli", model = "claude-opus-4-8", effort = "high" }
+phases."4" = { kind = "claude-cli", model = "claude-opus-4-8", effort = "high" }
+phases."3" = { kind = "claude-cli", model = "claude-sonnet-5", effort = "high" }
+phases."8" = { kind = "codex-cli", model = "gpt-5.6-sol", effort = "high" }

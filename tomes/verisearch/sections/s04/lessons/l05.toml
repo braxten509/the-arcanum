@@ -1,0 +1,104 @@
+[[lessons]]
+id = "s04-l05"
+teaches = ["source-fetcher"]
+title = "Workshop — Fetch One Explicit Source"
+body = '''
+<p>The first real network component should be smaller than a search engine. Verisearch begins with a source the user explicitly chose, fetches its HTML, and preserves its identity in a <code>SourceDocument</code>. Discovery can be added later; exact quotation does not require a search provider.</p>
+<p>Create <code>SourceFetcher.cs</code>:</p>
+<pre><code><span class="k">public class</span> SourceFetcher
+{
+    <span class="k">private readonly</span> HttpClient _http;
+
+    <span class="k">public</span> SourceFetcher(HttpClient http)
+    {
+        _http = http;
+    }
+
+    <span class="k">public async</span> Task&lt;SourceDocument&gt; FetchAsync(SourceSpec source,
+        CancellationToken ct = <span class="k">default</span>)
+    {
+        <span class="k">if</span> (source.Kind == SourceKind.LocalFixture)
+        {
+            <span class="k">string</span> fixture = <span class="s">"&lt;main&gt;&lt;p&gt;A verified local passage.&lt;/p&gt;&lt;/main&gt;"</span>;
+            <span class="k">return new</span> SourceDocument(source, fixture);
+        }
+
+        <span class="k">using var</span> response = <span class="k">await</span> _http.GetAsync(source.Url, ct);
+        response.EnsureSuccessStatusCode();
+
+        <span class="k">string</span> mediaType = response.Content.Headers.ContentType?.MediaType ?? <span class="s">""</span>;
+        <span class="k">if</span> (!mediaType.Contains(<span class="s">"html"</span>, StringComparison.OrdinalIgnoreCase))
+        {
+            <span class="k">throw new</span> InvalidOperationException(<span class="s">$"expected HTML, received {mediaType}"</span>);
+        }
+
+        <span class="k">string</span> html = <span class="k">await</span> response.Content.ReadAsStringAsync(ct);
+        <span class="k">return new</span> SourceDocument(source, html);
+    }
+}</code></pre>
+<p>The constructor receives an <code>HttpClient</code>; it does not create one per request. Chapter XI will name this pattern dependency injection, but you can use it now: <code>var fetcher = new SourceFetcher(http);</code>. The explicit local fixture is not a secret fallback. The caller selects <code>LocalFixture</code>, output labels it, and the same <code>SourceDocument</code> path continues into later stages.</p>
+<p>Keep exceptions meaningful at this boundary. A bad URL, failed status, cancellation, or non-HTML response should not become an empty string that looks successful. The batch chapter will decide which failures are survivable.</p>
+<div class="field-notes"><div class="fn-head">MARGINALIA // WHY SEARCH IS NOT THE FOUNDATION</div>
+<p>Public search APIs vary, require keys, or disable JSON. A quotation verifier should remain useful when the user supplies a URL directly. Making explicit sources the core also gives the user control over trust. An optional discovery adapter can produce more <code>SourceSpec</code> values later without changing fetching, extraction, or verification.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — HttpClient guidelines"
+url = "https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/http/httpclient-guidelines"
+essential = false
+
+[[lessons.exercises]]
+id = "s04-l05-e1"
+type = "mc"
+points = 20
+prompt = "Why does SourceFetcher receive an HttpClient through its constructor?"
+choices = ["HttpClient cannot be constructed", "The same configured client can be reused and tested instead of creating one per call", "Records require it", "It makes HTTP synchronous"]
+answer = 1
+whyWrong = "HttpClient can be constructed and remains asynchronous; constructor ownership exists for reuse, configuration, and substitution."
+explain = "A long-lived client avoids per-request socket churn and makes the dependency visible."
+hint = "One client, many fetches."
+
+[[lessons.exercises]]
+id = "s04-l05-e2"
+type = "text"
+points = 18
+prompt = "Which canonical record carries a SourceSpec together with the fetched HTML?"
+answer = "SourceDocument"
+accept = ["SourceDocument record"]
+hint = "It was established in Models.cs."
+
+[[lessons.exercises]]
+id = "s04-l05-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the status-and-body boundary twice."
+code = '''using var response = await _http.GetAsync(source.Url, ct);
+response.EnsureSuccessStatusCode();
+string html = await response.Content.ReadAsStringAsync(ct);'''
+
+[[lessons.exercises]]
+id = "s04-l05-w1"
+type = "write"
+points = 38
+prompt = "Write <code>static SourceDocument LoadFixture(SourceSpec source)</code> returning HTML <code>&lt;p&gt;Exact words.&lt;/p&gt;</code>. Construct a LocalFixture source labeled <code>Fixture</code>, call the method, and print exactly <code>Fixture 19</code> using the HTML length."
+starter = '''var source = new SourceSpec("Fixture", "mock://fixture", SourceKind.LocalFixture);
+Console.WriteLine("NOT LOADED");
+
+// Define LoadFixture and the three small types below.
+'''
+expect = "Fixture 19"
+solution = '''var source = new SourceSpec("Fixture", "mock://fixture", SourceKind.LocalFixture);
+var document = LoadFixture(source);
+Console.WriteLine($"{document.Source.Label} {document.Html.Length}");
+
+static SourceDocument LoadFixture(SourceSpec source)
+{
+    return new SourceDocument(source, "<p>Exact words.</p>");
+}
+
+public enum SourceKind { Web, LocalFixture }
+public record SourceSpec(string Label, string Url, SourceKind Kind);
+public record SourceDocument(SourceSpec Source, string Html);
+'''
+hint = "Return new SourceDocument(source, the HTML string), then read document.Source.Label and document.Html.Length."

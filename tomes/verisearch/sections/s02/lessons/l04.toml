@@ -1,28 +1,29 @@
 [[lessons]]
 id = "s02-l04"
+teaches = ["lists-arrays"]
 title = "Arrays & List<T> — things in their order"
 body = '''
 
 <p><strong>Arrays</strong> are cast at a fixed size. Once made, they cannot grow:</p>
-<pre><code><span class="k">string</span>[] engines = { <span class="s">"searxng"</span>, <span class="s">"duckduckgo"</span> };
-engines[0] = <span class="s">"brave"</span>;         <span class="c">// exchange one thing: fine</span>
-<span class="c">// engines.Add(...)  ← no such rite. Arrays do not grow.</span></code></pre>
+<pre><code><span class="k">string</span>[] sourceLabels = { <span class="s">"RFC"</span>, <span class="s">"NIST"</span> };
+sourceLabels[0] = <span class="s">"RFC 8446"</span>;   <span class="c">// exchange one thing: fine</span>
+<span class="c">// sourceLabels.Add(...)  ← no such rite. Arrays do not grow.</span></code></pre>
 <p><strong><code>List&lt;T&gt;</code></strong> is the growing array you will truly use. The <code>&lt;T&gt;</code> is a <em>generic type parameter</em> — a List of what?</p>
-<pre><code>List&lt;<span class="k">string</span>&gt; keywords = <span class="k">new</span>();
-keywords.Add(<span class="s">"tls"</span>);
-keywords.Add(<span class="s">"cipher"</span>);
-keywords.Remove(<span class="s">"tls"</span>);
-Console.WriteLine(keywords.Count);        <span class="c">// 1  (List keeps Count, arrays keep Length)</span>
-Console.WriteLine(keywords.Contains(<span class="s">"cipher"</span>)); <span class="c">// True</span>
-Console.WriteLine(keywords[0]);           <span class="c">// the same [index] reach as arrays</span></code></pre>
-<p>The one most useful string→vessel move for your sifter — <code>Split</code>:</p>
+<pre><code>List&lt;<span class="k">string</span>&gt; passages = <span class="k">new</span>();
+passages.Add(<span class="s">"TLS protects application data."</span>);
+passages.Add(<span class="s">"A second source passage."</span>);
+passages.RemoveAt(1);
+Console.WriteLine(passages.Count);        <span class="c">// 1  (List keeps Count, arrays keep Length)</span>
+Console.WriteLine(passages.Contains(<span class="s">"TLS protects application data."</span>)); <span class="c">// True</span>
+Console.WriteLine(passages[0]);           <span class="c">// the same [index] reach as arrays</span></code></pre>
+<p>The string→vessel move used for conservative whitespace normalization is <code>Split</code>:</p>
 <pre><code><span class="k">string</span> query = <span class="s">"What are the TLS 1.3 cipher suites?"</span>;
 <span class="k">string</span>[] tokens = query.Split(<span class="s">' '</span>);   <span class="c">// ["What","are","the","TLS","1.3","cipher","suites?"]</span></code></pre>
-<p>And its mirror, <code>string.Join</code>:</p>
-<pre><code><span class="k">string</span> terms = <span class="k">string</span>.Join(<span class="s">", "</span>, keywords);  <span class="c">// "tls, cipher"</span></code></pre>
+<p>Its mirror, <code>string.Join</code>, puts the complete question back together after empty whitespace entries are removed:</p>
+<pre><code><span class="k">string</span> normalized = <span class="k">string</span>.Join(<span class="s">" "</span>, tokens);</code></pre>
 <div class="callout">The rule of thumb: parameters and fixed matter → arrays serve. Anything you gather as you go → <code>List&lt;T&gt;</code>.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>The initializer forms:</strong> <code>int[] a = { 1, 2, 3 };</code> · <code>var list = new List&lt;string&gt; { "a", "b" };</code> · an empty list: <code>List&lt;string&gt; l = new();</code> or the newest collection expression <code>List&lt;int&gt; l = [1, 2, 3];</code>.</p>
-<p><strong>Split, done properly:</strong> <code>text.Split(' ')</code> yields EMPTY entries for doubled spaces. True sifting uses: <code>text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)</code> — no empties, tokens pre-trimmed. That one line is half a question-sifter.</p>
+<p><strong>Split, done properly:</strong> <code>text.Split(' ')</code> yields empty entries for doubled spaces. The input boundary uses <code>text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)</code>, then joins every token again. This is formatting cleanup, not word selection.</p>
 <p><strong>Other List workings:</strong> <code>Insert(0, item)</code> set before all, <code>list[^1]</code> the last thing (index-from-end), <code>list.GetRange(0, 3)</code> the first three, <code>Clear()</code>.</p></div>'''
 
 [[lessons.readings]]
@@ -39,7 +40,7 @@ essential = false
 id = "s02-l04-e1"
 type = "mc"
 points = 20
-prompt = "You are gathering an unknown number of key words while sifting. The best vessel?"
+prompt = "You are gathering an unknown number of extracted passages from a page. The best vessel?"
 choices = ["string[]", "int[]", "string", "List<string>"]
 answer = 3
 whyWrong = "A fixed array needs a known size and int[]/plain string are the wrong shape — List<string> grows as you add an unknown number of items."

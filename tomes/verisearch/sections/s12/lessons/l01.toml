@@ -1,111 +1,111 @@
 [[lessons]]
 id = "s12-l01"
-title = "xUnit — proof, not hope"
+teaches = ["xunit-basics"]
+title = "xUnit — Turn the Promise into Executable Proof"
 body = '''
-
-<p>A unit test is a tiny program that calls your code and asserts what MUST be true. xUnit is the de facto .NET test framework. Setup (a test project beside your main one):</p>
-<pre><code>$ dotnet new xunit -n Verisearch.Tests
-$ dotnet add Verisearch.Tests reference Verisearch
-$ dotnet test              <span class="c"># builds + runs every test, red/green report</span></code></pre>
-<p>Anatomy — <code>[Fact]</code> for single cases, Arrange/Act/Assert inside:</p>
+<p>A unit test calls project code with known values and asserts what must remain true. Create the test project beside—not inside—the application folder so the main project does not compile test files:</p>
+<pre><code><span class="c"># open a terminal in the folder that contains the Verisearch project folder</span>
+dotnet new xunit -n Verisearch.Tests
+dotnet add Verisearch.Tests/Verisearch.Tests.csproj reference Verisearch/Verisearch.csproj
+dotnet test Verisearch.Tests/Verisearch.Tests.csproj</code></pre>
+<p>If your application folder has another name, replace only the final path segment; do not rename the course project or saved tome ids. In the test project, delete the generated <code>UnitTest1.cs</code> and create <code>QuoteVerifierTests.cs</code>.</p>
 <pre><code><span class="k">using</span> Xunit;
 
-<span class="k">public class</span> TrustEngineTests
+<span class="k">public sealed class</span> QuoteVerifierTests
 {
     [Fact]
-    <span class="k">public void</span> UnknownDomain_GetsUnverifiedDefault()
+    <span class="k">public void</span> Verify_ExactSubstring_AttachesPassageSource()
     {
-        <span class="k">var</span> engine = <span class="k">new</span> TrustEngine(TestConfig());          <span class="c">// arrange</span>
-        <span class="k">var</span> profile = engine.ProfileFor(<span class="s">"nobody-knows.example"</span>); <span class="c">// act</span>
-        Assert.Equal(SourceTier.Unverified, profile.Tier);    <span class="c">// assert</span>
+        <span class="k">var</span> source = <span class="k">new</span> SourceSpec(<span class="s">"RFC"</span>, <span class="s">"https://example.test/rfc"</span>, 10, SourceKind.Web);
+        <span class="k">var</span> passages = <span class="k">new</span> List&lt;Passage&gt;
+        {
+            <span class="k">new</span>(1, <span class="s">"Before. Exact source words. After."</span>, source)
+        };
+
+        VerificationBatch result = <span class="k">new</span> QuoteVerifier().Verify(
+            [<span class="k">new</span> QuoteProposal(1, <span class="s">"Exact source words."</span>)], passages, 5);
+
+        VerifiedQuote quote = Assert.Single(result.Accepted);
+        Assert.Equal(<span class="s">"https://example.test/rfc"</span>, quote.Url);
+        Assert.Equal(0, result.Rejected);
     }
 }</code></pre>
-<p><code>[Theory]</code> runs one test body against many inputs — perfect for scoring rules:</p>
-<pre><code>[Theory]
-[InlineData(9.5, <span class="s">"green"</span>)]
-[InlineData(5.0, <span class="s">"yellow"</span>)]
-[InlineData(2.0, <span class="s">"red"</span>)]
-<span class="k">public void</span> TrustColor_MatchesTier(<span class="k">double</span> score, <span class="k">string</span> expected)
-    =&gt; Assert.Contains(expected, ReportRenderer.TrustMarkup(score));</code></pre>
-<p>Assertion vocabulary: <code>Assert.Equal(expected, actual)</code>, <code>Assert.True/False</code>, <code>Assert.Contains</code>, <code>Assert.Empty/NotEmpty</code>, <code>Assert.Throws&lt;T&gt;(() =&gt; ...)</code> — yes, you assert that bad input THROWS the machineht thing.</p>
-<div class="callout">Test naming that survives 3am: <code>Thing_Condition_Expectation</code>. When <code>UnknownDomain_GetsUnverifiedDefault</code> goes red, the failure report IS the bug description.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
-<p><strong>Test lifecycle:</strong> xUnit creates a NEW instance of the test class for EVERY test — instance fields are per-test, the constructor is your setup, <code>IDisposable.Dispose</code> is teardown. No [SetUp] attributes like other frameworks; the constructor IS the setup.</p>
-<p><strong>Async tests are natural:</strong> <code>[Fact] public async Task Scan_HandlesEmpty() { ... await ... }</code> — the runner awaits them.</p>
-<p><strong>Failure output:</strong> Assert.Equal prints expected vs actual on failure — which is why Equal(expected, actual) argument ORDER matters; swap them and every failure message lies to you.</p></div>'''
+<p><code>[Fact]</code> names one fixed example. <code>[Theory]</code> runs the same method with multiple <code>[InlineData]</code> rows. Follow Arrange, Act, Assert: prepare source data; call the verifier; inspect the result. A name such as <code>Verify_ChangedCase_Rejects</code> reads as a requirement when it fails.</p>
+<div class="callout">Red tests are evidence, not shame. Read the first failure, verify the expected value, repair the smallest production rule, and rerun the same command.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // TEST PROJECT PATHS</div><p>A project reference compiles against the real application assembly. If “project not found” appears, run <code>pwd</code> and <code>ls</code> in the parent directory, then correct the two folder names; do not copy production classes into the test project.</p></div>
+'''
 
 [[lessons.readings]]
-label = "xUnit — getting started (v3, command line)"
-url = "https://xunit.net/docs/getting-started/netcore/cmdline"
+label = "xUnit — Getting started with .NET"
+url = "https://xunit.net/docs/getting-started/v3/getting-started"
 essential = false
 
 [[lessons.readings]]
-label = "Microsoft Learn — \"Unit testing C# with xUnit\""
+label = "Microsoft Learn — Unit testing C# with xUnit"
 url = "https://learn.microsoft.com/en-us/dotnet/core/testing/unit-testing-csharp-with-xunit"
-essential = false
-
-[[lessons.readings]]
-label = "LinkedIn Learning — C# Unit Testing with xUnit"
-url = "https://www.linkedin.com/learning/c-sharp-unit-testing-with-xunit"
 essential = false
 
 [[lessons.exercises]]
 id = "s12-l01-e1"
 type = "mc"
 points = 20
-prompt = "<code>[Fact]</code> vs <code>[Theory]</code>:"
-choices = ["Fact is deprecated", "Fact = one fixed case; Theory = same test body fed multiple InlineData inputs", "Theory tests are skipped in CI", "Facts can't use Assert"]
+prompt = "How do <code>[Fact]</code> and <code>[Theory]</code> differ?"
+choices = ["Fact is deprecated", "Fact is one fixed case; Theory runs one body with multiple supplied inputs", "Theory is never run by dotnet test", "Fact cannot use Assert"]
 answer = 1
-whyWrong = "Neither is deprecated or skipped — [Fact] is a single fixed case and [Theory] runs the same body over multiple InlineData inputs."
-hint = "Theories are parameterized."
+whyWrong = "Both are supported and executed, and both use assertions. Theory adds parameterized data rows."
+explain = "Use a Fact for one contract example and a Theory for several boundary variants."
+hint = "Think fixed example versus table of examples."
 
 [[lessons.exercises]]
 id = "s12-l01-e2"
 type = "text"
 points = 20
-prompt = "Which command builds and runs the whole test suite?"
+prompt = "Which two-word command builds and runs the test project?"
 answer = "dotnet test"
 accept = ["dotnet test."]
-hint = "Two words."
+hint = "It starts with the .NET CLI executable."
 
 [[lessons.exercises]]
 id = "s12-l01-e3"
 type = "mc"
 points = 25
-prompt = "How do you assert that parsing garbage LLM output throws JsonException?"
-choices = ["try/catch with a bool flag", "Assert.Equal(JsonException, Parse(garbage))", "Assert.Throws<JsonException>(() => Parse(garbage))", "You can't test exceptions"]
+prompt = "How should a test assert that invalid inner JSON throws <code>JsonException</code>?"
+choices = ["Assert.True(json)", "Assert.Equal(JsonException, json)", "Assert.Throws<JsonException>(() => Parse(json))", "Exceptions cannot be tested"]
 answer = 2
-whyWrong = "A try/catch bool or an equality check won’t assert an exception — Assert.Throws<JsonException>(() => Parse(garbage)) does, and exceptions are absolutely testable."
-hint = "There's a dedicated assertion that takes a lambda."
+whyWrong = "Boolean and equality checks do not execute and capture the exception, while xUnit provides a dedicated Throws assertion."
+explain = "The lambda delays the call so Assert.Throws can observe its exception."
+hint = "Use the assertion whose name states the expected behavior."
 
 [[lessons.exercises]]
 id = "s12-l01-d1"
 type = "type"
 points = 14
 reps = 2
-prompt = "A complete Fact — Arrange, Act, Assert. Twice."
-code = '''
-[Fact]
-public void UnknownDomain_GetsUnverifiedDefault()
-{
-    var engine = new TrustEngine(TestConfig());
-    var profile = engine.ProfileFor("nobody.example");
-    Assert.Equal(SourceTier.Unverified, profile.Tier);
-}'''
+prompt = "Retype the exact-substring assertion core twice."
+code = '''VerificationBatch result = new QuoteVerifier().Verify(
+    [new QuoteProposal(1, "Exact source words.")], passages, 5);
+VerifiedQuote quote = Assert.Single(result.Accepted);
+Assert.Equal(source.Url, quote.Url);
+Assert.Equal(0, result.Rejected);'''
 
 [[lessons.exercises]]
 id = "s12-l01-w1"
 type = "write"
 points = 36
-prompt = "Build the machinery yourself once: write <code>static void AssertEqual(int expected, int actual)</code> that throws <code>new Exception($\"expected {expected} got {actual}\")</code> on mismatch. Run two passing assertions (2+2==4, 10/2==5), then print <code>2 passed</code>."
+prompt = "Implement a tiny <code>AssertEqual</code> helper, run two passing integer assertions, then print <code>2 passed</code>."
+starter = '''Console.WriteLine("NOT TESTED");
+'''
 expect = "2 passed"
-solution = '''
-AssertEqual(4, 2 + 2);
+solution = '''AssertEqual(4, 2 + 2);
 AssertEqual(5, 10 / 2);
 Console.WriteLine("2 passed");
 
 static void AssertEqual(int expected, int actual)
 {
-    if (expected != actual) throw new Exception($"expected {expected} got {actual}");
+    if (expected != actual)
+    {
+        throw new Exception($"expected {expected} got {actual}");
+    }
 }
 '''
-hint = "Two calls that don't throw, then one WriteLine. Congratulations, you've written 10% of xUnit."
+hint = "Throw only when expected != actual; two calls that do not throw precede the WriteLine."

@@ -15,15 +15,18 @@ from .continuity import (continuity_prompt, handoff_dir, prepare_handoff,
                          reconciliation_prompt, validate_all_handoffs,
                          validate_handoff)
 from .liveness import _cpu_ticks, _descendants, _has_live_conn
-from .measure import (review_changes, review_inventory, runtime_config_inventory,
-                      runtime_config_scope_violations, selected_runtime_config)
-from .prompts import (GATE_QS, PREAMBLE, STUDENT_HOOK, build_prompt, gate_errors,
+from .measure import (blocking_report, review_changes, review_inventory,
+                      runtime_config_inventory, runtime_config_scope_violations,
+                      selected_runtime_config, validate, validator_argv,
+                      validator_shell_command)
+from .prompts import (GATE_QS, PREAMBLE, REPAIR_ONLY, STUDENT_HOOK, build_prompt, gate_errors,
                       read_findings, read_verdict, repair_verification_focus,
                       review_findings_clear, review_pass_eligible, write_plan)
 from .runners import _implicit_fallback, _spec_to_runner, default_runner, parse_fallbacks
 from .section_security_selftest import run as section_security_selftest
 from .sections import (_load_sections_done, _mark_section_done, _sections_done_path,
                        section_ids, wipe_sections)
+from .skeleton import parse_section_list, scaffold_sections
 from .workflow import (RUNTIME_CONFIG_DIR, access_boundary, parse_phases,
                        phase_sidecars, phase_writable_paths, support_prompt)
 
@@ -74,7 +77,7 @@ def run():
     assert wipe_sections("no-such-tome-xyz") == 0
 
     good_gate = [(label, value) for (label, _), value in zip(
-        GATE_QS, ("none", "1", "7", "6", "3", "external"))]
+        GATE_QS, ("very basic", "2", "7", "6", "3", "external"))]
     assert gate_errors(good_gate) == []
     bad_gate = [(label, "") for label, _ in GATE_QS]
     assert len(gate_errors(bad_gate)) == 6
@@ -83,29 +86,52 @@ def run():
     compact_text = open(compact_plan, encoding="utf-8").read()
     assert len(compact_text.split()) <= 650, len(compact_text.split())
     assert "## Calibration contract" in compact_text
+    assert "Start 2/10 — NEAR ZERO" in compact_text
+    assert "same required fundamentals as level 1" in compact_text
+    assert "Assumption boundary" in compact_text
+    assert "First-use rule for Start 1–3" in compact_text
+    assert "keyword, syntax form, operator, API, tool action" in compact_text
+    assert "Start 2 shortens repetition" in compact_text
     assert "Calibration contrasts" not in compact_text and "Sample end-state" not in compact_text
     os.remove(compact_plan)
 
-    # Every AI phase keeps a warm-context repair pass. Phase 1 validates its plan Arc;
-    # shipping phases use strict, and split workers avoid running the growing tome O(n²).
+    # Every AI phase uses the exact validator argv the harness will repeat. Phase 1
+    # validates its Arc, Phase 2 uses the narrow skeleton gate, shipping phases use
+    # strict, and split workers avoid running the growing tome O(n²).
     for phase in range(1, 9):
-        prompt = build_prompt("selftest", phase, "Test", "Body", "plan", "verdict", "findings")
-        if phase == 1:
-            expected = ('cd "$ARCANUM_REPO_ROOT" && python3 tools/validate_tome.py '
-                        'tomes/selftest --phase-1-plan plan')
-        else:
-            expected = ('cd "$ARCANUM_REPO_ROOT" && python3 tools/validate_tome.py '
-                        'tomes/selftest' + (" --strict" if phase >= 7 else ""))
+        prompt = build_prompt("selftest", phase, "Test", "Body", "plan", "verdict", "findings",
+                              tooling="internal")
+        expected = validator_shell_command(
+            "selftest", phase=phase, tooling="internal", plan_rel="plan")
         assert f"  {expected}\n" in prompt and "warm-context check" in prompt, phase
+    assert validator_argv("selftest", phase=2, tooling="internal") == [
+        "python3", "tools/validate_tome.py", "tomes/selftest",
+        "--phase-2-skeleton", "--no-run", "--tooling", "internal"]
+    with patch("buildlib.measure.subprocess.run") as run_validator:
+        run_validator.return_value.returncode = 0
+        run_validator.return_value.stdout = "-- selftest: clean"
+        run_validator.return_value.stderr = ""
+        assert validate("selftest", phase=2, tooling="internal")[0]
+        assert run_validator.call_args.args[0] == validator_argv(
+            "selftest", phase=2, tooling="internal")
     section_prompt = build_prompt("selftest", 3, "Test", "Body", "plan", "verdict", "findings",
-                                  validation_flags="--no-run")
-    assert "tomes/selftest --no-run" in section_prompt
+                                  tooling="external", validation_run=False)
+    assert "tomes/selftest --no-run --tooling external" in section_prompt
     review_prompt = build_prompt("selftest", 8, "Test", "Body", "plan", "verdict", "findings")
     focused = build_prompt("selftest", 8, "Test", "Body", "plan", "verdict", "findings",
                            focus="- [blocking] lesson.toml: missing proof")
     assert "then every section" in review_prompt
     assert "focused retry need not reread unrelated chapters" in focused
     assert "missing proof" in focused and "then every section" not in focused
+    repair_prompt = build_prompt("selftest", 3, "Test", "Body", "plan", "verdict", "findings",
+                                 repair_only=True)
+    assert "REPAIR-ONLY RETRY" in repair_prompt and "Do not restart the phase" in repair_prompt
+    sample_report = ("WARN content: leave this for later\nERROR tome.toml: real blocker\n"
+                     "WARN advisory: host limitation\n-- selftest: 1 error(s), 2 warning(s)")
+    assert "leave this" not in blocking_report(sample_report)
+    assert "real blocker" in blocking_report(sample_report)
+    assert "leave this" in blocking_report(sample_report, strict=True)
+    assert "host limitation" not in blocking_report(sample_report, strict=True)
     assert "this invocation made no" in review_prompt
     change_focus = repair_verification_focus([
         "MODIFIED: tomes/selftest/sections/s01/lessons/l01.toml"])
@@ -115,8 +141,13 @@ def run():
     assert not review_pass_eligible("PASS", [], worker_rc=1)
     assert not review_pass_eligible("GAPS REMAIN", [])
     assert "three duties" not in review_prompt.lower()
-    assert len(PREAMBLE.split()) <= 180 and len(STUDENT_HOOK.split()) <= 180
+    assert len(PREAMBLE.split()) <= 200 and len(STUDENT_HOOK.split()) <= 180
+    assert len(REPAIR_ONLY.split()) <= 80
     phase_bodies = {num: body for num, _, body in parse_phases()}
+    assert "prior-knowledge answer as an exhaustive whitelist" in phase_bodies[1]
+    assert "Start 2 changes pace and repetition" in phase_bodies[1]
+    assert "complete assumption boundary" in support_prompt("section-author")
+    assert "Start 2 permits less repetition" in phase_bodies[8]
     assert max(len(body.split()) for body in phase_bodies.values()) <= 450
     assert len(phase_bodies[3].split()) <= 250, len(phase_bodies[3].split())
     assert len(phase_bodies[8].split()) <= 700, len(phase_bodies[8].split())
@@ -308,13 +339,22 @@ def run():
     plan = os.path.join(BUILD_DIR, f"{tid}.plan.md")
     header = "## Gate answers\n- stuff\n\n" + ARC_HEADING + ARC_CONTRACT
     drivers = "; ".join(f"{driver} = CAN" for driver in DAILY_DRIVERS)
-    full = "".join(f"**{part}:** {drivers if part == 'Daily drivers' else ('s01 -> s02: preserve the exact forge contract' if part == 'Continuity map' else 'hammered out in ample forge-detail')}\n"
+    values = {
+        "Daily drivers": drivers,
+        "Continuity map": "s01 -> s02: preserve the exact forge contract",
+        "Section list": ("\n1. **s01 — First Forge:** establish the project shell\n"
+                         "2. **s02 — Second Forge:** deliver the finished artifact"),
+    }
+    full = "".join(f"**{part}:** {values.get(part, 'hammered out in ample forge-detail')}\n"
                    for part in ARC_PARTS)
+    parsed = parse_section_list(full)
+    assert [spec.sid for spec in parsed] == ["s01", "s02"]
     cases = (("", False), ("\n\n", False), (full, True),
              (full.replace("**Graduate ledger:**", "ledger"), False),
              (full.replace("key-value = CAN", "key-value"), False),
              (full.replace("s01 -> s02:", "s02 -> s01:"), False),
              (full.replace("s01 -> s02: preserve", "s01 -> s02:\npreserve"), False),
+             (full.replace("2. **s02 —", "3. **s03 —"), False),
              ("".join(f"**{part}:** x\n" for part in ARC_PARTS), False))
     for extra, expected in cases:
         with open(plan, "w", encoding="utf-8") as f:
@@ -328,6 +368,46 @@ def run():
                           "tomes/not-authored-yet", "--phase-1-plan", plan],
                          cwd=REPO, capture_output=True, text=True)
     assert cli.returncode == 0, (cli.stdout, cli.stderr)
+
+    # The approved Section list becomes a deterministic, validator-green Phase-2 tree:
+    # one placeholder lesson per section. Adding a second lesson crosses the phase
+    # boundary and must fail the narrow gate even though it is legal finished content.
+    skeleton_tid = "selftest-phase2-skeleton-xyz"
+    skeleton_root = os.path.join(REPO, "tomes", skeleton_tid)
+    skeleton_plan = os.path.join(BUILD_DIR, f"{skeleton_tid}.plan.md")
+    shutil.rmtree(skeleton_root, ignore_errors=True)
+    try:
+        made = subprocess.run(
+            [sys.executable, os.path.join(REPO, "tools", "new_tome.py"), skeleton_tid],
+            cwd=REPO, capture_output=True, text=True)
+        assert made.returncode == 0, (made.stdout, made.stderr)
+        with open(skeleton_plan, "w", encoding="utf-8") as handle:
+            handle.write("## Arc\n" + full)
+        specs = scaffold_sections(skeleton_tid, skeleton_plan)
+        assert [spec.sid for spec in specs] == ["s01", "s02"]
+        assert section_ids(skeleton_tid) == ["s01", "s02"]
+        for spec in specs:
+            lesson_dir = os.path.join(skeleton_root, "sections", spec.sid, "lessons")
+            assert os.listdir(lesson_dir) == ["l01.toml"]
+        skeleton_check = subprocess.run(
+            validator_argv(skeleton_tid, phase=2, tooling="internal"),
+            cwd=REPO, capture_output=True, text=True)
+        assert skeleton_check.returncode == 0, (skeleton_check.stdout, skeleton_check.stderr)
+        assert "density" not in skeleton_check.stdout and "TODO/FIXME" not in skeleton_check.stdout
+        first_lessons = os.path.join(skeleton_root, "sections", "s01", "lessons")
+        shutil.copyfile(os.path.join(first_lessons, "l01.toml"),
+                        os.path.join(first_lessons, "l02.toml"))
+        overbuilt = subprocess.run(
+            validator_argv(skeleton_tid, phase=2, tooling="internal"),
+            cwd=REPO, capture_output=True, text=True)
+        assert overbuilt.returncode != 0 and "expected exactly 1 placeholder lesson" in overbuilt.stdout
+    finally:
+        shutil.rmtree(skeleton_root, ignore_errors=True)
+        try:
+            os.remove(skeleton_plan)
+        except OSError:
+            pass
+
     reset_arc(plan)
     assert arc_written(plan, plan)[0] is False
     os.remove(plan)

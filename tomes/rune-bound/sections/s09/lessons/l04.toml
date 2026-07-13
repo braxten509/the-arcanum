@@ -1,87 +1,88 @@
 [[lessons]]
 id = "s09-l04"
-title = "The Weight of a Relic"
-teaches = ["s09-stat-modifiers","s09-inventory-display"]
+title = "The Open Pack"
+teaches = ["s09-inventory-overlay", "s09-inventory-integration"]
 body = '''
-<p>s09-l04 opens the items and inventory chart through Weight. s09-l04 hears THE CARTOGRAPHER name s09-stat-modifiers its first bearing. s09-l04 names one input, one change, and one output. s09-l04 gives s09-inventory-display a second mark for comparison. s09-l04 keeps the smallest successful example beside its route.</p>
-<p>s09-l04 reads from left to right, then narrates state changes. s09-l04 keeps its items and inventory clue concrete and observable. s09-l04 runs twice; the second pass challenges the first. s09-l04 records which owner moved when s09-stat-modifiers shifted. s09-l04 carries earlier <code>GameState</code> evidence into this chart.</p>
-<p>s09-l04 asks one decision to stand alone in the margin. s09-l04 keeps s09-inventory-display visible instead of hiding it behind polish. s09-l04 tests a friendly case and a sharp edge case. s09-l04 compares both traces so s09-stat-modifiers has a witness. s09-l04 names the failure before choosing a repair.</p>
-<p>s09-l04 treats each handoff as a contract between maker and reader. s09-l04 supplies s09-stat-modifiers; the reader checks s09-inventory-display. s09-l04 places its check where another wayfinder can repeat it. s09-l04 earns THE CARTOGRAPHER's trust through evidence, not luck. s09-l04 leaves one deliberate question for the next chart.</p>
-<p>s09-l04 closes by stating what the program must preserve. s09-l04 names one input that could falsify s09-stat-modifiers. s09-l04 names one output that confirms s09-inventory-display still belongs. s09-l04 runs the smallest route, inspects its trace, and annotates it. s09-l04 turns the items and inventory chart into a RuneBound waypoint.</p>
-<p>s09-l04 ends with a handoff to the next chart. s09-l04 carries s09-inventory-display forward after s09-stat-modifiers earns trust. s09-l04 lets THE CARTOGRAPHER record the result in plain language. s09-l04 turns a clean rerun from a guess into a fact. s09-l04 lets the next wayfinder begin without hidden context.</p>
-<pre><code>print("s09-l04 // The Weight of a Relic")</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // S09-L04</div><p>s09-l04 <strong>Evidence.</strong> Record s09-stat-modifiers; compare it with s09-inventory-display before advancing.</p><p>s09-l04 <strong>Repair.</strong> Change one cause, rerun the route, and preserve the explanation.</p></div>
+<p>The pickup toast proves a moment; the inventory panel proves durable state. Keep <code>main.py</code> as the one event pump and add <code>inventory_open = False</code> beside the other pre-loop state. In its existing <code>pygame.KEYDOWN</code> event branch, add this member-level route before combat action keys: <code>if event.key == pygame.K_i and active_combat is None: inventory_open = not inventory_open</code>. Inventory is a display mode for now, not the full game-state machine; s11 deliberately replaces this local Boolean with state dispatch.</p>
+<p>Define this module-level helper in <code>items.py</code>. It reads <code>inventory.items</code> and the catalog but changes neither. Its <code>render_text</code> parameter receives the canonical s07 helper from <code>npc.py</code>, so all panel coordinates are screen pixels and this module does not create a competing text renderer.</p>
+<pre><code>def draw_inventory(surface, inventory, items, render_text):
+    pygame.draw.rect(surface, (20, 24, 32), (80, 70, 640, 460))
+    render_text(surface, "Inventory", 110, 100)
+    if not inventory.items:
+        render_text(surface, "Pack is empty.", 110, 140)
+        return
+    for index, item_id in enumerate(inventory.items):
+        item = items[item_id]
+        modifiers = ", ".join(
+            f"+{value} {field}" for field, value in item.modifiers.items()
+        ) or "no stat effect"
+        render_text(surface, f"{item.name}: {modifiers}", 110, 140 + index * 32)</code></pre>
+<p>Add <code>import pygame</code> at the top of <code>items.py</code>. In <code>main.py</code>, after the normal world, actors, bars, dialogue, and pickup-toast drawing, call <code>draw_inventory(screen, player.inventory, items, render_text)</code> when <code>inventory_open</code> is true. It must still be before the sole <code>pygame.display.flip()</code>. The overlay does not stop the event pump; X still closes the window. It may suppress Player movement while open with <code>if active_combat is None and not inventory_open</code>, but it must not change combat results, camera ownership, or the world-space pickup calculation.</p>
+<p>Run <code>python3 main.py</code> from the RuneBound folder. Walk onto Potion, observe one <code>Picked up Potion!</code> toast and its HP change, press I, and verify its item name and <code>+20 hp</code> effect. Toggle I closed, walk away and back, and prove no second pickup occurs. Then collect Shadow Key and leave it in <code>player.inventory.items</code>; s10 will read that exact list for a quest condition. Record command, the one-shot pickup, panel contents, close/reopen behavior, and one repair or explicit no-repair result in <code>README.md</code>.</p>
+<div class="callout"><strong>THE CARTOGRAPHER'S RULE:</strong> the overlay reports the pack; it never becomes a second owner of pickup, stats, input pumping, or display flipping.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DELIVERY CHECK</div><p>If I toggles repeatedly, it was put in held-key polling instead of <code>KEYDOWN</code>. If the panel appears behind actors, move only its draw call later in the existing draw route. If a missing catalog id raises <code>KeyError</code>, repair the map tile or JSON id so both lower-case identifiers match.</p></div>
 '''
 
 [[lessons.readings]]
-label = "Python library // dataclasses // The Weight of a Relic"
-url = "https://docs.python.org/3/library/dataclasses.html"
+label = "PyGame Docs // key events"
+url = "https://www.pygame.org/docs/ref/key.html"
+
+[[lessons.readings]]
+label = "PyGame Docs // draw"
+url = "https://www.pygame.org/docs/ref/draw.html"
 
 [[lessons.exercises]]
 id = "s09-l04-e1"
-type = "write"
-points = 30
-prompt = '''
-<p>Complete the spoils ledger route and print exactly <code>RUNEBOUND S09 L04 SEAL</code>. Preserve the named data before adding the final observation.</p>
-'''
-starter = '''
-route_mark = "relic-weight"
-print("survey pending")
-# Add the chart seal after checking the route.
-'''
-expect = '''
-RUNEBOUND S09 L04 SEAL
-'''
-solution = '''
-route_mark = "relic-weight"
-print("RUNEBOUND S09 L04 SEAL")
-'''
-hint = '''
-For s09-l04-e1, leave the route data intact and add only its final s09 observation; compare the starter output with the target before submitting.
-'''
+type = "mc"
+points = 20
+prompt = '''<p>Where does the inventory draw call belong in RuneBound’s frame route?</p>'''
+choices = ["Inside <code>Inventory.add</code>", "After the sole <code>pygame.display.flip()</code>", "After world/UI layers and before the one final flip", "Before <code>pygame.event.get()</code>"]
+answer = 2
+hint = '''The established route draws reports before presenting one completed frame.''' 
+whyWrong = '''Adding is a model change, not rendering; drawing after a flip delays it to no visible frame. The event pump stays at the frame start. The panel is the final UI layer before the existing single flip.''' 
+explain = '''That z-order places the panel over the world without adding a competing presentation boundary.''' 
 
 [[lessons.exercises]]
 id = "s09-l04-e2"
-type = "mc"
-points = 14
-prompt = '''
-<p>What is the safest time to apply a permanent item modifier? Select the reading that keeps s10 can read inventory contents as a stable quest fact possible.</p>
+type = "fill"
+points = 22
+prompt = '''<p>Restore the one-press key constant that toggles the pack panel.</p>'''
+code = '''
+if event.type == pygame.KEYDOWN and event.key == pygame.____:
+    inventory_open = not inventory_open
 '''
-choices = ["whenever the inventory screen redraws","before the item exists in the catalog","only when the camera crosses a tile boundary","The Weight of a Relic: keep s09-stat-modifiers owned by the named boundary and verify the result before handoff s09-l04-e2."]
-answer = 3
-whyWrong = '''
-The tempting routes confuse applying the same modifier every frame or showing a bonus that the combat stats never receive with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace modifier application that updates the Player's StatBlock and a display that explains the change in the Spoils Ledger chart, then compare the the item supplies a modifier while Player or StatBlock owns the resulting value with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves the item supplies a modifier while player or statblock owns the resulting value and leaves modifier application that updates the player's statblock and a display that explains the change available for the next RuneBound handoff.
-'''
+answer = "K_i"
+hint = '''PyGame’s lowercase letter constants follow the visible I key.''' 
+whyWrong = '''<code>K_UP</code> is movement navigation and <code>K_ESCAPE</code> was not assigned to the pack. The panel uses I as its one-event toggle.''' 
 
 [[lessons.exercises]]
 id = "s09-l04-e3"
 type = "text"
-points = 16
-prompt = '''
-<p>s09-l04-e3: name the Python term for the specific unit requested by this chart. Supply the language term, not the surrounding story label.</p>
-'''
-answer = "StatBlock"
-hint = '''
-Recall the named boundary in The Weight of a Relic; the answer is the language term for that single job, not the larger game feature.
-'''
+points = 18
+prompt = '''<p>What exact player-owned list will s10 inspect to decide whether the Shadow Key was collected?</p>'''
+answer = "player.inventory.items"
+hint = '''Follow possession from Player to its Inventory instance, then to the ordered id collection.''' 
+whyWrong = '''The shared catalog says what a key means, while the map says where one spawned. The future condition needs the collection that records this Player’s actual possessions.''' 
 
 [[lessons.exercises]]
 id = "s09-l04-e4"
-type = "fill"
-points = 18
-prompt = '''
-<p>s09-l04-e4: restore the missing operation in the supplied code. Use its operands and the chart evidence to complete the route without renaming the owner.</p>
+type = "write"
+points = 34
+prompt = '''<p>Model the panel’s read-only report. Given two collected ids and a catalog of display names, print exactly <code>PACK Potion, Shadow Key</code>. Do not modify the <code>items</code> list.</p>'''
+starter = '''
+items = ["potion", "shadow_key"]
+catalog = {"potion": "Potion", "shadow_key": "Shadow Key"}
+
+# Make a display-name list from the collected ids and print the panel line.
 '''
-code = '''
-item.____("attack")
+expect = '''
+PACK Potion, Shadow Key
 '''
-answer = "remove"
-hint = '''
-Look at what must happen to player.stats.hp += item.modifiers.get("hp", 0); choose the operation that performs that job rather than the one that merely inspects the result.
+solution = '''
+items = ["potion", "shadow_key"]
+catalog = {"potion": "Potion", "shadow_key": "Shadow Key"}
+
+names = [catalog[item_id] for item_id in items]
+print("PACK", ", ".join(names))
 '''
+hint = '''Build a new list with <code>catalog[item_id]</code> for each id, then join the names with <code>", "</code>.''' 

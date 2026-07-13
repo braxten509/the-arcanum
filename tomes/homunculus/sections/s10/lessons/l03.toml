@@ -1,93 +1,74 @@
 [[lessons]]
 id = "s10-l03"
-title = "The Long Watch"
+teaches = ["drift-monitor"]
+title = "Watch the Released Chain, Not a Mystery Score"
 body = '''
-<p>The eighth rite taught evaluation at binding time — measure a fresh adapter against a held-out set and decide whether it sounds like the artificer. The twelfth rite extends that habit across time. The question shifts from "is this adapter good enough to ship" to "is the familiar still on target three months later." The same prompts, the same metrics, the same Jaccard similarity the proving rite introduced — but the baseline is no longer a single run's pre-bind output; it is the served familiar's own last month's answers, and a drop between them is a regression that deserves investigation, not default trust.</p>
-
-<p>Drift comes from two sources, and the debug path differs for each. <strong>Corpus drift</strong> is the less visible one: the artificer's notes have changed character — a new project, a different tone, fresh vocabulary the old adapter never saw — but no explicit re-bind has happened yet, so the familiar's style is anchored to last year's corpus while today's prompts demand last month's voice. The symptom is a Jaccard drop against the held-out ground truth, and the fix is the fourth rite's trigger: the corpus crossed the threshold and should have been re-trained.</p>
-
-<p><strong>Config drift</strong> is hardware- or toolchain-mediated: a GPU driver update changes the default ROCm HIP target, a bitsandbytes wheel update silently alters the 4-bit NF4 bucketing and produces a marginally different loss landscape, or a new GGUF of the same base model ships with a different quant scheme. The symptom is a Jaccard drop with <em>no corpus change</em> — the notes haven't grown, the prompts haven't changed, and the output degraded anyway. The first-rite toolchain habit saves the investigation here: diff the driver version, the bitsandbytes build hash, and the GGUF quant string between the known-good run and the current one, because the root cause is almost always a single changed ingredient in a chain that looked identical at a glance.</p>
-
-<pre><code><span class="k">import</span> json
-<span class="k">def</span> <span class="k">check_regression</span>(current_score, baseline_score, threshold=0.1):
-    drop = baseline_score - current_score
-    <span class="k">if</span> drop >= threshold:
-        <span class="k">return</span> <span class="s">f"REGRESSION: Jaccard dropped {drop:.2f} (was {baseline_score:.2f}, now {current_score:.2f})"</span>
-    <span class="k">return</span> <span class="s">f"STABLE: Jaccard within {threshold:.2f} of baseline"</span></code></pre>
-
-<p>The proving rite's held-out set is the anchor. Keep it frozen — no adding new prompts, no revising ground-truth answers — because a moving baseline defeats the point of measuring change. The run-log entry from the first lesson records both the current evaluation score and the baseline it was compared against, so the timeline of drift, not just the existence of it, is preserved.</p>
-
-<div class="callout">A Jaccard drop of 0.05 is a curiosity. A drop of 0.15 is a root-cause investigation. A drop of 0.30 is a rollback to the last known-good adapter while the investigation happens — a regression that big is almost never a measurement artifact.</div>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // THE FROZEN BASELINE IS THE WHOLE GAME</div>
-<p>The hardest discipline in long-term evaluation is resisting the urge to "improve" the held-out set mid-course. A prompt that felt essential in January may feel redundant in July. Resist. Replace it and you have broken the timeline — a score change that came from swapping a prompt looks identical to a score change that came from the model degrading, and you have no way to tell which one happened. If the set genuinely needs an update, version it: archive the old set and start a new one, so every run can still be compared against the baseline it was actually measured against.</p></div>
+<p>An immutable local model does not spontaneously forget between months. Observed drift comes from changed inputs, policy, references, software, hardware path, sampling, conversation context, or evaluation data—or from normal nondeterminism. Monitoring starts by verifying the active release manifest and using the same frozen suites and generation settings.</p>
+<p>Create <code>src/homunculus/monitor.py</code>. It queries Ollama for the active model digest and version, verifies policy/RAG/config hashes, runs a small canary subset on every check, and runs the full baseline/capability/policy/retrieval suites on a schedule or after any detected component change. Write timestamped reports; never overwrite the previous snapshot.</p>
+<pre><code>snapshot = {
+    "release_manifest_sha256": "...",
+    "ollama_digest": "...",
+    "policy_sha256": "...",
+    "rag_manifest_sha256": "...",
+    "suite_sha256": "...",
+    "critical_failures": 0,
+    "score_by_axis": {"correct": 1.8, "voice": 1.7},
+}</code></pre>
+<p>Compare like with like. If a score changes while any identity hash changed, classify the event by that component and run its rebuild plan. If hashes match but outputs change, confirm deterministic settings, conversation isolation, Ollama version, and hardware placement. A critical privacy, injection, or citation failure blocks use immediately; a noncritical score drop greater than the predefined 0.2 tolerance triggers review, not blind retraining.</p>
+<p>Version evaluation suites when the real job expands. Keep the old suite and baseline rather than editing history, and evaluate a release against the suite version it was approved under plus the new candidate suite. Monitoring reports link raw responses so a number never hides the actual behavioral difference.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DRIFT BEGINS WITH IDENTITY</div>
+<p>When a monthly score moves, first compare release, model, policy, RAG, suite, generation settings, and software identities. Only then interpret behavior. A score change with a changed suite is not model drift; a change with identical inputs may reveal nondeterminism, evaluator variance, corrupted state, or a real serving regression worth isolating.</p></div>
 '''
+
+[[lessons.readings]]
+label = "Ollama list API"
+url = "https://docs.ollama.com/api/tags"
 
 [[lessons.exercises]]
 id = "s10-l03-e1"
 type = "mc"
 points = 20
-prompt = "Per this rite, an adapter's Jaccard score on the held-out set has dropped from 0.72 to 0.54 in three months with no new notes added to the corpus. Which category of drift is the most likely cause?"
-choices = [
-  "Corpus drift — the notes have silently changed content without growing in count, and the adapter's training data no longer reflects the artificer's current voice",
-  "The LLM architecture itself deteriorates over time — transformer weight matrices naturally lose precision through floating-point accumulation during repeated inference calls, and the LoRA adapter from the seventh rite relies on those weights being bit-for-bit stable",
-  "Config drift — a GPU driver update, bitsandbytes version change, or GGUF quant scheme shift has altered the evaluation path, and the toolchain-ingredient diff is the correct investigation",
-  "The held-out set must have been corrupted — a Jaccard score cannot drop if the prompts and the adapter haven't changed, since Jaccard is a deterministic function of its two inputs that never varies across runs on the same data",
-]
-answer = 2
-whyWrong = "Corpus drift is named as the cause when the corpus HAS changed — but this scenario specifies no new notes. Transformer weights don't degrade from inference (inference is read-only), and Jaccard is not deterministically constant across runs — sampling parameters (temperature, top-p) produce different outputs on every evaluation run, so score variance is expected, but a 0.18 drop is far outside sampling noise and points to a toolchain ingredient change."
-explain = "The lesson explicitly distinguishes the two: corpus drift = notes changed, config drift = toolchain changed. With no new notes, the investigation starts at the toolchain layer — driver, bitsandbytes, GGUF quant string — exactly where this rite names the debug path."
-hint = "The lesson says 'Config drift is hardware- or toolchain-mediated' and its symptom is 'a Jaccard drop with no corpus change.' That matches the scenario exactly: no new notes, a large score drop — look at the toolchain ingredients."
+prompt = "What is the first action when a monthly score changes?"
+choices = ["Verify release, policy, RAG, suite, software, and settings identities", "Retrain immediately", "Delete the old report", "Raise temperature"]
+answer = 0
+whyWrong = "Blind mutation destroys the evidence needed to locate the changed component."
+explain = "Drift diagnosis begins with lineage."
+hint = "Determine whether the comparison is actually like-for-like."
 
 [[lessons.exercises]]
 id = "s10-l03-e2"
 type = "text"
-points = 18
-prompt = "Per this rite, what numeric threshold does the lesson use as the value where a Jaccard drop stops being 'a curiosity' and becomes 'a root-cause investigation'?"
-answer = "0.15"
-accept = [".15", "15", "0.15"]
-hint = "The callout at the bottom of the lesson lists three thresholds: 0.05 (curiosity), 0.15 (investigation), and 0.30 (rollback)."
+points = 15
+prompt = "What score-drop tolerance triggers noncritical review?"
+answer = "0.2"
+accept = ["0.2", "0.20", "twenty hundredths"]
+hint = "It matches the served quality tolerance."
 
 [[lessons.exercises]]
 id = "s10-l03-e3"
 type = "fill"
 points = 20
-prompt = "Fill the missing source of drift from this rite's taxonomy — the kind that arises when the artificer's notes have changed in content or character but no re-bind has been run to incorporate that change."
-code = '''# ____ drift: the artificer's notes changed,
-# the adapter hasn't been re-trained, and the
-# familiar's style is anchored to an older corpus'''
-answer = "Corpus"
-accept = ["corpus", "corpus drift"]
-hint = "The lesson's second paragraph names this kind of drift and says its symptom is 'a Jaccard drop against the held-out ground truth' and its fix is the re-bind trigger from the last rite."
+prompt = "Complete the field that identifies Ollama's registered model bytes."
+code = '''snapshot = {"ollama_____": "..."}'''
+answer = "digest"
+hint = "It is returned by the tags/list API."
 
 [[lessons.exercises]]
 id = "s10-l03-e4"
-type = "mc"
-points = 20
-prompt = "Per this rite, why must the held-out evaluation set from the eighth rite stay frozen over time — no new prompts, no revised ground-truth answers?"
-choices = [
-  "A moving baseline makes it impossible to distinguish a score change caused by the model degrading from a score change caused by swapping the measurement instrument — if a prompt gets replaced, the Jaccard delta could be drift, or it could just be a different question with a naturally different similarity range, and the timeline gives no way to tell which",
-  "The model will detect prompts it has seen before and refuse to generate new answers — an internal prompt-caching mechanism in llama.cpp's inference engine silently returns cached tokens when the input hash matches a previously-seen prompt, invalidating the evaluation entirely",
-  "The frozen baseline is required for the Ollama Modelfile to validate — ollama create checks the held-out set's hash against the RUNS.md log, and a mismatch prevents the new adapter from being registered",
-  "Jaccard similarity requires both texts to be tokenized with the same vocabulary — changing a prompt changes the tokenizer's internal state and invalidates all subsequent evaluations on the model's output",
-]
-answer = 0
-whyWrong = "There's no prompt-caching mechanism in llama.cpp that would refuse to generate; Ollama create has no held-out-set validation step; and Jaccard operates on token n-grams, not on the tokenizer's full vocabulary state, so changing a prompt does not invalidate the metric on different prompts. The real reason is measurement hygiene: a changing baseline loses the timeline — you can't tell whether the score changed because the model changed or because the test changed."
-explain = "The field notes are explicit: 'Replace it and you have broken the timeline — a score change that came from swapping a prompt looks identical to a score change that came from the model degrading.' The frozen baseline is the only way to maintain the timeline the run log preserves."
-hint = "The FIELD NOTES section is titled 'THE FROZEN BASELINE IS THE WHOLE GAME' and explains that a moving baseline makes it impossible to distinguish model drift from measurement change — the correct choice names this diagnostic ambiguity."
-
-[[lessons.exercises]]
-id = "s10-l03-e5"
 type = "write"
 points = 35
-prompt = "Given <code>baseline_score = 0.72</code>, <code>current_score = 0.54</code>, and <code>threshold = 0.1</code>, compute the drop (<code>baseline_score - current_score</code>). If the drop is at or above the threshold, print <code>REGRESSION: Jaccard dropped &lt;drop:.2f&gt; (was &lt;baseline:.2f&gt;, now &lt;current:.2f&gt;)</code>. Otherwise print <code>STABLE: Jaccard within &lt;threshold:.2f&gt; of baseline</code>. Compute from the variables, not hardcoded."
-starter = '''baseline_score = 0.72
-current_score = 0.54
-threshold = 0.1
+prompt = "Classify a changed policy hash and print exactly: OWNER policy"
+starter = '''before = {"policy": "aaa", "rag": "bbb", "model": "ccc"}
+after = {"policy": "new", "rag": "bbb", "model": "ccc"}
 
-# drop = baseline_score - current_score
-# if drop >= threshold: print REGRESSION message with the exact format
-# else: print STABLE message
-print("STABLE: Jaccard within 0.00 of baseline")
+owners = []
+print("OWNER " + ", ".join(owners))
 '''
-expect = "REGRESSION: Jaccard dropped 0.18 (was 0.72, now 0.54)"
-hint = "drop = baseline_score - current_score = 0.72 - 0.54 = 0.18. Since 0.18 >= 0.1, print f\"REGRESSION: Jaccard dropped {drop:.2f} (was {baseline_score:.2f}, now {current_score:.2f})\"."
+solution = '''before = {"policy": "aaa", "rag": "bbb", "model": "ccc"}
+after = {"policy": "new", "rag": "bbb", "model": "ccc"}
+
+owners = [name for name in before if before[name] != after[name]]
+print("OWNER " + ", ".join(owners))
+'''
+expect = "OWNER policy"
+hint = "Keep component names whose identity changed."

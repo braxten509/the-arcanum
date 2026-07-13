@@ -1,105 +1,118 @@
 [[lessons]]
 id = "s05-l01"
-title = "The Sprite Muster"
-teaches = ["s05-sprite-class","s05-sprite-groups"]
+title = "Muster the Living Things"
+teaches = ["s05-sprite-class", "s05-sprite-groups"]
 body = '''
-<p>s05-l01 opens the sprites and frames chart through Sprite. s05-l01 hears THE CARTOGRAPHER name s05-sprite-class its first bearing. s05-l01 names one input, one change, and one output. s05-l01 gives s05-sprite-groups a second mark for comparison. s05-l01 keeps the smallest successful example beside its route.</p>
-<p>s05-l01 reads from left to right, then narrates state changes. s05-l01 keeps its sprites and frames clue concrete and observable. s05-l01 runs twice; the second pass challenges the first. s05-l01 records which owner moved when s05-sprite-class shifted. s05-l01 carries earlier <code>player_rect</code> evidence into this chart.</p>
-<p>s05-l01 asks one decision to stand alone in the margin. s05-l01 keeps s05-sprite-groups visible instead of hiding it behind polish. s05-l01 tests a friendly case and a sharp edge case. s05-l01 compares both traces so s05-sprite-class has a witness. s05-l01 names the failure before choosing a repair.</p>
-<p>s05-l01 treats each handoff as a contract between maker and reader. s05-l01 supplies s05-sprite-class; the reader checks s05-sprite-groups. s05-l01 places its check where another wayfinder can repeat it. s05-l01 earns THE CARTOGRAPHER's trust through evidence, not luck. s05-l01 leaves one deliberate question for the next chart.</p>
-<p>s05-l01 closes by stating what the program must preserve. s05-l01 names one input that could falsify s05-sprite-class. s05-l01 names one output that confirms s05-sprite-groups still belongs. s05-l01 runs the smallest route, inspects its trace, and annotates it. s05-l01 turns the sprites and frames chart into a RuneBound waypoint.</p>
-<p>s05-l01 ends with a handoff to the next chart. s05-l01 carries s05-sprite-groups forward after s05-sprite-class earns trust. s05-l01 lets THE CARTOGRAPHER record the result in plain language. s05-l01 turns a clean rerun from a guess into a fact. s05-l01 lets the next wayfinder begin without hidden context.</p>
-<pre><code>print("s05-l01 // The Sprite Muster")</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // S05-L01</div><p>s05-l01 <strong>Evidence.</strong> Record s05-sprite-class; compare it with s05-sprite-groups before advancing.</p><p>s05-l01 <strong>Repair.</strong> Change one cause, rerun the route, and preserve the explanation.</p></div>
+<p>Wayfinder, keep two kinds of ownership separate. A <code>pygame.sprite.Sprite</code> is one actor: it conventionally exposes an <code>image</code> to paint and a <code>rect</code> to locate it. A <code>pygame.sprite.Group</code> is a collection of actors. It can update each member, and—when all rects are already screen-space—it can draw them. RuneBound’s map scrolls, so its actor <code>rect</code> will remain a <strong>world-pixel</strong> rectangle and our own draw method will subtract the camera. The group still owns collection and the once-per-frame update pass.</p>
+<p>Create <code>sprites.py</code> beside <code>main.py</code>. Begin with this small, runnable shape. The green surface is only an isolated proof that <code>image</code> and <code>rect</code> are the names a Sprite supplies; it is not the delivered character and it must not reach the freestyle.</p>
+<pre><code>import pygame
+
+
+class AnimatedSprite(pygame.sprite.Sprite):
+    def __init__(self, sheet, x, y):
+        super().__init__()
+        self.sheet = sheet
+        self.image = pygame.Surface((32, 32), pygame.SRCALPHA)
+        self.image.fill((34, 160, 92))
+        self.rect = self.image.get_rect(topleft=(x, y))
+
+
+actors = pygame.sprite.Group()
+</code></pre>
+<p>Run this file only after PyGame has been initialized by <code>main.py</code>; <code>Sprite</code> itself does not create a window. The <code>rect</code> starts at world position <code>(x, y)</code>, just as s04’s tile positions are in world pixels. Do not subtract <code>camera</code> when constructing it. The conversion happens only while drawing each frame, so the same actor remains at the same world coordinate when the viewport moves.</p>
+<p>Add each actor with <code>actors.add(test_sprite)</code>. Later, call <code>actors.update(dt)</code> after input and before painting, then loop over <code>actors</code> to draw each world-space actor after <code>tile_map.render(screen, camera)</code>. This preserves s03’s event pump and one display flip, and it establishes the z-order: ground first, character second. It also gives s06 one collection boundary to keep when the test sprite becomes a Player.</p>
+<div class="callout"><strong>THE CARTOGRAPHER'S RULE:</strong> a Sprite owns one actor’s image and world rect; a Group owns many sprites, never the camera or the map.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // COORDINATE CHECK</div><p>If an actor appears to drift when you hold an arrow, inspect the draw calculation before changing <code>rect.x</code>. Camera motion changes screen placement, not the actor’s stored world position.</p></div>
 '''
 
 [[lessons.readings]]
-label = "PyGame docs // sprites // The Sprite Muster"
+label = "PyGame Docs // sprite"
 url = "https://www.pygame.org/docs/ref/sprite.html"
 
 [[lessons.readings]]
-label = "PyGame docs // Surface // The Sprite Muster"
-url = "https://www.pygame.org/docs/ref/surface.html"
+label = "PyGame Docs // Rect"
+url = "https://www.pygame.org/docs/ref/rect.html"
 
 [[lessons.exercises]]
 id = "s05-l01-e1"
 type = "mc"
-points = 14
-prompt = '''
-<p>What does a sprite group contribute to the first living scene? Select the reading that keeps the frame can now place life above the tilemap ground possible.</p>
-'''
-choices = ["a replacement for the event pump","a JSON catalog of solid tiles","a timer that chooses animation frames automatically","The Sprite Muster: keep s05-sprite-class owned by the named boundary and verify the result before handoff s05-l01-e1."]
-answer = 3
-whyWrong = '''
-The tempting routes confuse keeping a loose list that the draw pass forgets or drawing the same actor twice with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace a sprite image, rect, and Group that can be updated and drawn together in the Living Frames chart, then compare the the sprite owns its visual state while the group owns collection and iteration with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves the sprite owns its visual state while the group owns collection and iteration and leaves a sprite image, rect, and group that can be updated and drawn together available for the next RuneBound handoff.
-'''
+points = 20
+prompt = '''<p>RuneBound keeps each actor’s <code>rect</code> in world pixels because the camera may scroll. Which frame route preserves that choice?</p>'''
+choices = ['<code>actors.draw(screen)</code> before the tile map renders', '<code>test_sprite.rect.x -= camera[0]</code> every frame', '<code>for actor in actors: actor.draw(screen, camera)</code> after <code>tile_map.render</code>', '<code>tile_map.render(screen, test_sprite.rect)</code>']
+answer = 2
+hint = '''The map already converts world coordinates while rendering. Keep the actor’s stored rect stable and apply the same kind of conversion only for this paint.'''
+whyWrong = '''A Group draw uses its member rects as screen positions, so it cannot apply RuneBound’s camera by itself. Mutating the rect each frame loses the actor’s world location, and drawing before the map hides the actor under the ground.'''
+explain = '''The explicit actor draw receives the camera, while the group remains responsible for membership and update iteration.'''
 
 [[lessons.exercises]]
 id = "s05-l01-e2"
-type = "write"
-points = 30
-prompt = '''
-<p>Complete the living frames route and print exactly <code>RUNEBOUND S05 L01 SEAL</code>. Preserve the named data before adding the final observation.</p>
-'''
-starter = '''
-route_mark = "sprite-muster"
-print("survey pending")
-# Add the chart seal after checking the route.
-'''
-expect = '''
-RUNEBOUND S05 L01 SEAL
-'''
-solution = '''
-route_mark = "sprite-muster"
-print("RUNEBOUND S05 L01 SEAL")
-'''
-hint = '''
-For s05-l01-e2, leave the route data intact and add only its final s05 observation; compare the starter output with the target before submitting.
+type = "type"
+points = 12
+reps = 2
+prompt = '''<p>Retype the smallest collection boundary. The actor is added once; the group can then visit every member.</p>'''
+code = '''
+actors = pygame.sprite.Group()
+actors.add(test_sprite)
+for actor in actors:
+    actor.update(dt)
 '''
 
 [[lessons.exercises]]
 id = "s05-l01-e3"
-type = "type"
-points = 10
-reps = 2
-prompt = '''
-<p>Retype this living frames evidence exactly. Keep a sprite image, rect, and group that can be updated and drawn together visible while you write. (Ctrl+Enter submits.)</p>
-'''
+type = "fill"
+points = 22
+prompt = '''<p>Restore the Group operation that registers the already-created test sprite for the update and draw route.</p>'''
 code = '''
-scene_name = "tile_map"
-actors = ["wayfinder"]
-print(scene_name, len(actors))
+actors.____(test_sprite)
 '''
+answer = "add"
+hint = '''The group exists already; use the method that inserts one Sprite into that collection.'''
+whyWrong = '''<code>append</code> belongs to a Python list, not a PyGame Group. The supplied actor is not called like a function; it must become a group member.'''
 
 [[lessons.exercises]]
 id = "s05-l01-e4"
-type = "fill"
-points = 18
-prompt = '''
-<p>s05-l01-e4: restore the missing operation in the supplied code. Use its operands and the chart evidence to complete the route without renaming the owner.</p>
+type = "write"
+points = 34
+prompt = '''<p>Model RuneBound’s collection boundary without opening a window. Define a tiny <code>Actor</code> class whose <code>update(dt)</code> adds <code>dt</code> to <code>updates</code>. Put one actor in a list named <code>actors</code>, update every member with <code>0.25</code>, then print exactly <code>ACTORS 1</code> and <code>UPDATES 0.25</code>.</p>'''
+starter = '''
+class Actor:
+    def __init__(self):
+        self.updates = 0.0
+
+    # Add update(dt) here.
+
+actors = [Actor()]
+
+# Update every actor once and report the collection and first actor state.
 '''
-code = '''
-sprites.____(player)
+expect = '''
+ACTORS 1
+UPDATES 0.25
 '''
-answer = "add"
-hint = '''
-Look at what must happen to sprites.add(player) followed by sprites.draw(screen); choose the operation that performs that job rather than the one that merely inspects the result.
+solution = '''
+class Actor:
+    def __init__(self):
+        self.updates = 0.0
+
+    def update(self, dt):
+        self.updates += dt
+
+actors = [Actor()]
+
+for actor in actors:
+    actor.update(0.25)
+
+print("ACTORS", len(actors))
+print("UPDATES", actors[0].updates)
 '''
+hint = '''Put <code>self.updates += dt</code> inside <code>update</code>, then use a <code>for actor in actors</code> loop before reading the first actor’s value.'''
 
 [[lessons.exercises]]
 id = "s05-l01-e5"
 type = "text"
-points = 16
-prompt = '''
-<p>s05-l01-e5: name the Python term for the specific unit requested by this chart. Supply the language term, not the surrounding story label.</p>
-'''
-answer = "Sprite"
-hint = '''
-Recall the named boundary in The Sprite Muster; the answer is the language term for that single job, not the larger game feature.
-'''
+points = 18
+prompt = '''<p>Which PyGame collection type gathers Sprites so one update route can visit them all?</p>'''
+answer = "Group"
+accept = ["pygame.sprite.Group"]
+hint = '''It is the plural collection from the worked code, whereas one actor inherits the singular Sprite type.'''
+whyWrong = '''A Sprite represents one actor. A Surface holds pixels, and a Rect holds geometry; neither is the collection that coordinates many actors.'''

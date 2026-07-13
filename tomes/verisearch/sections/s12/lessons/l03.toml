@@ -1,72 +1,65 @@
 [[lessons]]
 id = "s12-l03"
-title = "dotnet publish — the single-file executable"
+teaches = ["dotnet-publish"]
+title = "Publish and Run the Artifact You Will Actually Ship"
 body = '''
-
-<p><code>dotnet run</code> requires the SDK. Your users have nothing. <code>publish</code> bundles your app + the .NET runtime into one file that runs on a bare machine:</p>
-<pre><code>$ dotnet publish -c Release -r linux-x64 --self-contained \
-    -p:PublishSingleFile=true -p:PublishTrimmed=true
-
-<span class="c"># output lands in bin/Release/net*/linux-x64/publish/Verisearch  ← one executable</span></code></pre>
-<p>Decoding the flags:</p>
-<ul>
-<li><code>-c Release</code> — optimized build, no debug baggage (Debug is the default; shipping Debug is amateur hour).</li>
-<li><code>-r linux-x64</code> — the runtime identifier (RID). One publish per target: <code>win-x64</code>, <code>osx-arm64</code>, <code>linux-x64</code>…</li>
-<li><code>--self-contained</code> — embed the runtime (~60-80MB, runs anywhere) vs <code>--no-self-contained</code> (small, needs .NET installed).</li>
-<li><code>-p:PublishSingleFile=true</code> — one file instead of a directory spray.</li>
-<li><code>-p:PublishTrimmed=true</code> — strip unused framework code (~½ the size). <strong>Caveat:</strong> trimming can break reflection-based libraries — YamlDotNet and System.Text.Json lean on reflection. Rule: trim, then TEST THE PUBLISHED BINARY; if it breaks, untrim or add trimmer hints.</li>
-</ul>
-<p>The reflection-proof alternative for System.Text.Json — source-generated serialization — exists when you want trimming AND JSON; file that away for later.</p>
-<pre><code>$ ./publish/Verisearch <span class="s">"test query"</span> --max-sources 3   <span class="c"># THE test that counts:</span>
-<span class="c"># the published binary, not dotnet run, on a path with no SDK</span></code></pre>
-<div class="callout">Ship checklist: version in the banner (<code>--version</code>), exit codes honest, config auto-creates on first run (Chapter V pays off here — a fresh machine has no ~/.verisearch).</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
-<p><strong>The RID catalog you'll actually use:</strong> <code>linux-x64</code>, <code>win-x64</code>, <code>osx-x64</code> (Intel Mac), <code>osx-arm64</code> (Apple Silicon), <code>linux-arm64</code> (Pi/ARM servers). A release script is just the same publish command in a loop over RIDs.</p>
-<p><strong>Version stamping:</strong> add <code>&lt;Version&gt;1.0.0&lt;/Version&gt;</code> to the csproj PropertyGroup; read it at runtime via <code>Assembly.GetExecutingAssembly().GetName().Version</code> for the --version banner — one source of truth.</p>
-<p><strong>ReadyToRun</strong> (<code>-p:PublishReadyToRun=true</code>) pre-JITs for faster startup at a size cost; full <strong>Native AOT</strong> compiles to pure native (fastest, smallest start, most reflection restrictions). Ladder: normal publish → R2R if startup matters → AOT when you've earned the fight with reflection.</p></div>'''
+<p><code>dotnet run</code> proves the SDK can build and launch the project. A release test must execute the published artifact itself. First identify the current platform:</p>
+<pre><code>dotnet --info</code></pre>
+<p>Choose its runtime identifier: <code>linux-x64</code>, <code>linux-arm64</code>, <code>win-x64</code>, <code>osx-x64</code>, or <code>osx-arm64</code>. On 64-bit Linux:</p>
+<pre><code>dotnet publish Verisearch/Verisearch.csproj \
+  -c Release -r linux-x64 --self-contained true \
+  -p:PublishSingleFile=true -p:PublishTrimmed=false \
+  -o ./release/linux-x64</code></pre>
+<p>If the terminal is already inside the project, replace the first path with <code>Verisearch.csproj</code>. The explicit output directory makes the artifact easy to find. Then run the artifact, not the project:</p>
+<pre><code>./release/linux-x64/Verisearch --help
+./release/linux-x64/Verisearch <span class="s">"What does the fixture say?"</span> --mock</code></pre>
+<p><code>--self-contained true</code> bundles the target .NET runtime. <code>PublishSingleFile</code> asks for one main executable. Platform-specific native files may still appear for some dependencies or settings, so inspect the output rather than promising one file by memory.</p>
+<p>This course deliberately disables trimming. Trimming removes code based on static reachability and can break libraries or serializers that discover members dynamically. A beginner release gains little from adding that risk. If a later maintainer enables trimming, the full published-binary acceptance journey—not merely <code>dotnet build</code>—must pass.</p>
+<p>Publishing does not bundle Ollama or a model. Live mode still requires an accessible Ollama server and the configured model tag. The executable does bundle application code and the .NET runtime; its README states both boundaries.</p>
+<div class="callout">Copy the exact command and resulting artifact path into the release notes. “Publish succeeded” without running that path is incomplete evidence.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // ONE RID PER ARTIFACT</div><p>A self-contained executable targets one operating system and architecture. Create separate output directories for other RIDs and test each on its target; renaming a Linux binary does not make it a Windows binary.</p></div>
+'''
 
 [[lessons.readings]]
-label = "Microsoft Learn — \"dotnet publish\""
+label = "Microsoft Learn — dotnet publish"
 url = "https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-publish"
-essential = false
-
-[[lessons.readings]]
-label = "Microsoft Learn — \"Single-file deployment\""
-url = "https://learn.microsoft.com/en-us/dotnet/core/deploying/single-file"
 essential = false
 
 [[lessons.exercises]]
 id = "s12-l03-e1"
 type = "mc"
 points = 20
-prompt = "<code>--self-contained</code> means…"
-choices = ["the code has no dependencies", "it only runs in containers", "the .NET runtime is bundled in — target machines need nothing installed", "the file is encrypted"]
-answer = 2
-whyWrong = "‘Self-contained’ doesn’t mean no dependencies or containers — it bundles the .NET runtime so the target machine needs nothing preinstalled."
-hint = "Trade ~70MB for 'works on a bare machine'."
+prompt = "What does <code>--self-contained true</code> mean?"
+choices = ["It bundles the selected .NET runtime with the application", "It bundles Ollama and the model", "It supports every OS in one file", "It removes configuration"]
+answer = 0
+whyWrong = "Ollama, models, configuration, and other operating systems remain separate concerns. Self-contained refers to the selected .NET runtime."
+explain = "A machine without the SDK can run the RID-specific artifact."
+hint = "Ask which runtime normally executes a .NET assembly."
 
 [[lessons.exercises]]
 id = "s12-l03-e2"
 type = "fill"
-points = 25
+points = 20
 prompt = "Fill the runtime identifier for 64-bit Windows."
-code = "$ dotnet publish -c Release -r ____ --self-contained"
+code = '''dotnet publish -c Release -r ____ --self-contained true'''
 answer = "win-x64"
-hint = "os-arch format. Windows, x64."
+hint = "Operating system abbreviation, hyphen, architecture."
 
 [[lessons.exercises]]
 id = "s12-l03-e3"
 type = "mc"
-points = 25
-prompt = "After publishing with PublishTrimmed=true, YamlDotNet config loading crashes — but dotnet run works fine. Why?"
-choices = ["YAML doesn't work in Release mode", "Single files can't read disks", "The RID is wrong", "Trimming stripped reflection-reached code the trimmer couldn't see was needed"]
-answer = 3
-whyWrong = "It’s not a Release/RID/disk issue — trimming stripped reflection-reached code it couldn’t see YamlDotNet needed, so it fails only after PublishTrimmed."
-hint = "Reflection is invisible to static analysis. Test the PUBLISHED binary."
+points = 20
+prompt = "Why does the beginner release use <code>PublishTrimmed=false</code>?"
+choices = ["Trimming changes the source URL", "Trimming can remove dynamically discovered code and must be validated separately", "Single-file requires false", "Release builds cannot trim"]
+answer = 1
+whyWrong = "Trimming does not alter source URLs, is compatible with some single-file releases, and can run in Release. Its dynamic-code risk is the reason to defer it."
+explain = "A larger known-good artifact is preferable to a smaller subtly broken first release."
+hint = "Static reachability cannot always see reflection."
 
 [[lessons.exercises]]
 id = "s12-l03-d1"
 type = "type"
 points = 14
 reps = 2
-prompt = "The ship command. Twice — you'll type it from memory at the end of every project for years."
-code = "dotnet publish -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true"
+prompt = "Retype the Linux release command twice."
+code = '''dotnet publish Verisearch.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o ./release/linux-x64'''

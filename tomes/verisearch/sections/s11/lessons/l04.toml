@@ -1,105 +1,89 @@
 [[lessons]]
 id = "s11-l04"
-title = "Graceful degradation — the resilience ladder"
+teaches = ["degradation-policy"]
+title = "Resilience Without Impersonation"
 body = '''
-
-<p>Verisearch's quality bar: <strong>every failure below "the machine is on fire" degrades the result instead of killing the run.</strong> Walk the ladder:</p>
-<table style="width:100%;border-collapse:collapse;font-size:12.5px">
-<tr><td style="padding:6px;border-bottom:1px solid var(--line)"><b>Failure</b></td><td style="padding:6px;border-bottom:1px solid var(--line)"><b>Response</b></td></tr>
-<tr><td style="padding:6px;border-bottom:1px solid var(--line)">Config file mangled</td><td style="padding:6px;border-bottom:1px solid var(--line)">warn + defaults (Chapter V)</td></tr>
-<tr><td style="padding:6px;border-bottom:1px solid var(--line)">Search API down</td><td style="padding:6px;border-bottom:1px solid var(--line)">clear message + nonzero exit — this one IS fatal, nothing downstream can run</td></tr>
-<tr><td style="padding:6px;border-bottom:1px solid var(--line)">2 of 5 pages dead</td><td style="padding:6px;border-bottom:1px solid var(--line)">[FAIL] rows, proceed with 3 (Chapter VIII)</td></tr>
-<tr><td style="padding:6px;border-bottom:1px solid var(--line)">LLM down/garbage</td><td style="padding:6px;border-bottom:1px solid var(--line)">keyword fallback, report says so honestly (Chapter IX)</td></tr>
-<tr><td style="padding:6px;border-bottom:1px solid var(--line)">Zero quotes survive</td><td style="padding:6px;border-bottom:1px solid var(--line)">designed empty state + tuning suggestions (Chapter X)</td></tr>
-</table>
-<p>Implementation notes:</p>
-<ul>
-<li><strong>Catch at boundaries, not everywhere.</strong> Components throw honestly; the orchestrator's stage transitions decide what each failure means. try/catch confetti sprinkled through every method hides bugs.</li>
-<li><strong>Degradation must be VISIBLE.</strong> If the keyword fallback answered, the report says <code>[dim]relevance: keyword fallback (LLM offline)[/]</code>. Silent degradation is lying with extra steps.</li>
-<li><strong>Fatal means fatal.</strong> When nothing downstream can possibly run, exit nonzero with one clear sentence. Limping on to print an empty report wastes the user's time.</li>
-</ul>
-<p>End-to-end testing this by hand (Chapter XII automates some of it): unplug SearXNG → clear fatal message? Feed a dead URL → [FAIL] row? Stop Ollama → fallback note in the report? Set min_trust to 99 → designed empty state? That checklist IS your integration test suite, run manually.</p><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
-<p><strong>Circuit breaker</strong> — the name for "stop calling a thing that keeps failing": after N consecutive failures, skip the call entirely for a cooldown window. Ollama down? After the first failed probe, don't re-probe per-source — remember and fall back for the rest of the run.</p>
-<p><strong>Health checks up front:</strong> probing dependencies at startup (search reachable? model pulled?) converts mid-run surprises into clean preflight warnings. One probe each, cached for the run.</p>
-<p><strong>The degradation ladder is a TEST PLAN:</strong> every rung is a manual test you can run today and an automated test in Chapter XII. Resilience you haven't tested is a rumor.</p></div>'''
+<p>“Graceful” does not mean every failure returns plausible-looking quotes. It means each failure is handled at the boundary that owns it, with behavior the user can see and understand.</p>
+<table style="width:100%;border-collapse:collapse"><tr><th style="text-align:left">Condition</th><th style="text-align:left">Policy</th></tr>
+<tr><td>One source fetch/extraction fails</td><td>keep other sources; report label and reason</td></tr>
+<tr><td>No verified quote answers the question</td><td>successful empty result; never manufacture evidence</td></tr>
+<tr><td>Proposal is altered or fabricated</td><td>reject it; optionally show rejected count</td></tr>
+<tr><td>Live Ollama is offline or malformed</td><td>clear runtime error and nonzero exit; no hidden selector swap</td></tr>
+<tr><td>User supplied <code>--mock</code></td><td>use MockQuoteSelector from startup and display MOCK prominently</td></tr>
+<tr><td>User cancels</td><td>propagate cancellation, print canceled, exit 130</td></tr></table>
+<p>The critical distinction is explicit selection versus fallback. This is sound:</p>
+<pre><code>IQuoteSelector selector = options.Mock
+    ? <span class="k">new</span> MockQuoteSelector()
+    : <span class="k">new</span> OllamaQuoteSelector(http, config);</code></pre>
+<p>This is not sound: catch an Ollama exception and quietly construct a keyword or mock selector. That changes what “AI-assisted quotation” means after the command has started. Even a disclosure line cannot make a relevance algorithm equivalent to the requested model.</p>
+<p><code>Program.cs</code> is the friendly application boundary. Catch bad arguments separately from invalid config, cancellation, HTTP/model failure, and an unexpected final exception. Print short actionable messages by default; verbose mode may include more detail. Never print raw model output in an error.</p>
+<div class="callout">An empty answer can be a correct answer. A fabricated answer can never be graceful degradation.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // EXIT STATUS</div><p>Use 0 for a completed run, even when it found no evidence; 2 for bad invocation; 130 for cancellation; and 1 for configuration or runtime failure. These stable meanings make the CLI useful in scripts.</p></div>
+'''
 
 [[lessons.readings]]
-label = "Microsoft Learn — \"Logging in .NET\" (for the verbose trail)"
-url = "https://learn.microsoft.com/en-us/dotnet/core/extensions/logging"
-essential = false
-
-[[lessons.readings]]
-label = "Serilog — structured logging (optional upgrade)"
-url = "https://github.com/serilog/serilog"
+label = "Microsoft Learn — Exception best practices"
+url = "https://learn.microsoft.com/en-us/dotnet/standard/exceptions/best-practices-for-exceptions"
 essential = false
 
 [[lessons.exercises]]
 id = "s11-l04-e1"
 type = "mc"
-points = 25
-prompt = "Which failure is legitimately FATAL for a search tool?"
-choices = ["One source URL 404s", "The LLM is offline", "The search backend is unreachable — nothing downstream can produce results", "A page has weird encoding"]
+points = 20
+prompt = "Which condition is fatal to a requested live AI run?"
+choices = ["One of four source pages returns 404", "One proposal fails exact matching", "Ollama cannot be reached", "The model returns an empty quotes array"]
 answer = 2
-whyWrong = "A single 404, an offline LLM, or odd encoding are all survivable — an unreachable search backend is fatal because nothing downstream can produce results."
-hint = "Can ANY later stage still do useful work?"
+whyWrong = "A source-local failure can be contained, a rejected proposal is expected, and an honest empty selection is valid. Live mode cannot perform its defining selection without Ollama."
+explain = "The program exits with setup guidance instead of changing algorithms."
+hint = "Which missing component defines the requested mode?"
 
 [[lessons.exercises]]
 id = "s11-l04-e2"
 type = "mc"
-points = 25
-prompt = "The keyword fallback answered instead of the LLM. The report should…"
-choices = ["say nothing — results are results", "apologize in red capitals", "refuse to render", "disclose it (e.g., a dim 'keyword fallback' note) — silent degradation misleads the user about quality"]
-answer = 3
-whyWrong = "Staying silent or apologizing loudly both mislead — disclose the keyword fallback with a dim note so the user knows the result quality changed."
-hint = "Degrade loudly enough to be honest, quietly enough to stay readable."
+points = 20
+prompt = "Ollama is offline and the user did not pass <code>--mock</code>. What should happen?"
+choices = ["Use keyword matching silently", "Enable mock and label it", "Print a clear live-mode error and exit nonzero", "Display all passages as quotes"]
+answer = 2
+whyWrong = "All other choices change selection behavior without permission or falsely present evidence."
+explain = "Mock remains an explicit next command the user may choose, not an automatic recovery."
+hint = "Selection of a mode belongs to the user."
 
 [[lessons.exercises]]
 id = "s11-l04-e3"
 type = "mc"
 points = 20
-prompt = "\"Catch at boundaries\" means…"
-choices = ["components throw honestly; the orchestrator's stage transitions translate failures into degradation decisions", "never catch anything", "wrap every single method body in try/catch", "catch only in Main"]
-answer = 0
-whyWrong = "It doesn’t mean never catching or wrapping every method — components throw honestly and the orchestrator’s stage boundaries translate those failures into degradation decisions."
-hint = "The orchestrator is where 'what does this failure MEAN' gets decided."
+prompt = "What does catch at boundaries mean here?"
+choices = ["Every method catches Exception", "Only named ownership points translate failures; inner methods preserve useful detail", "No method may catch", "Exceptions are converted to quotes"]
+answer = 1
+whyWrong = "Catching everywhere loses context, catching nowhere loses partial-source behavior, and exceptions never become evidence."
+explain = "SourceBatch contains source failures; Program translates application failures."
+hint = "Match the catch location to the scope it can honestly handle."
 
 [[lessons.exercises]]
 id = "s11-l04-d1"
 type = "type"
 points = 14
 reps = 2
-prompt = "Primary-with-fallback — degrade loudly, continue quietly. Twice."
-code = '''
-try
-{
-    indices = await _llm.ScanAsync(blocks, query, ct);
-}
-catch (HttpRequestException)
-{
-    Console.WriteLine("[dim]relevance: keyword fallback (LLM offline)[/]");
-    indices = KeywordFallback(blocks, keywords);
-}'''
+prompt = "Retype explicit mode selection twice."
+code = '''IQuoteSelector selector = options.Mock
+    ? new MockQuoteSelector()
+    : new OllamaQuoteSelector(http, config);'''
 
 [[lessons.exercises]]
 id = "s11-l04-w1"
 type = "write"
-points = 36
-prompt = "Fallback lab: write <code>string Primary()</code> that throws <code>new Exception(\"LLM offline\")</code>, and <code>string Fallback()</code> returning \"keyword scan\". Call Primary in a try/catch; on failure print <code>degraded: &lt;exception message&gt;</code> then print the fallback's result."
-expect = '''
-degraded: LLM offline
-keyword scan'''
-solution = '''
-try
-{
-    Console.WriteLine(Primary());
-}
-catch (Exception ex)
-{
-    Console.WriteLine($"degraded: {ex.Message}");
-    Console.WriteLine(Fallback());
-}
-
-string Primary() => throw new Exception("LLM offline");
-string Fallback() => "keyword scan";
+points = 38
+prompt = "Write <code>SelectMode(bool mock)</code> returning MOCK only when true and LIVE otherwise. Call it for false and true, one per line."
+starter = '''Console.WriteLine("NOT SELECTED");
 '''
-hint = "catch (Exception ex) { WriteLine($\"degraded: {ex.Message}\"); WriteLine(Fallback()); }"
+expect = '''LIVE
+MOCK'''
+solution = '''Console.WriteLine(SelectMode(false));
+Console.WriteLine(SelectMode(true));
+
+static string SelectMode(bool mock)
+{
+    return mock ? "MOCK" : "LIVE";
+}
+'''
+hint = "Return mock ? \"MOCK\" : \"LIVE\"; then call with false and true."

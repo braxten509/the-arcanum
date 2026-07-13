@@ -1,20 +1,21 @@
 [[lessons]]
 id = "s02-l01"
+teaches = ["conditions"]
 title = "if / else — choices, and the marks that feed them"
 body = '''
 
 <p>An <code>if</code> works a block only when a condition holds <code>true</code>:</p>
-<pre><code><span class="k">if</span> (score &gt;= 8.0)
+<pre><code><span class="k">if</span> (length &gt;= 80)
 {
-    Console.WriteLine(<span class="s">"trusted source"</span>);
+    Console.WriteLine(<span class="s">"long question"</span>);
 }
-<span class="k">else if</span> (score &gt;= 4.0)
+<span class="k">else if</span> (length &gt;= 20)
 {
-    Console.WriteLine(<span class="s">"use with caution"</span>);
+    Console.WriteLine(<span class="s">"medium question"</span>);
 }
 <span class="k">else</span>
 {
-    Console.WriteLine(<span class="s">"unverified — flag it"</span>);
+    Console.WriteLine(<span class="s">"short question"</span>);
 }</code></pre>
 <p>The weighing marks: <code>==</code> equal, <code>!=</code> not equal, <code>&lt;</code> <code>&gt;</code> <code>&lt;=</code> <code>&gt;=</code>. Each yields a <code>bool</code>.</p>
 <p>The binding marks join bools together:</p>
@@ -24,7 +25,7 @@ a || b    <span class="c">// OR  — at least one holds</span>
 <p><code>&amp;&amp;</code> and <code>||</code> <strong>short-circuit</strong>: if <code>a</code> is false, <code>a &amp;&amp; b</code> never so much as glances at <code>b</code>. That is why this is safe even when <code>line</code> is empty:</p>
 <pre><code><span class="k">if</span> (line.Length &gt; 0 &amp;&amp; line[0] == <span class="s">'?'</span>) { ... }  <span class="c">// the second test is skipped when empty</span></code></pre>
 <div class="callout">The classic snare: <code>=</code> fills a vessel, <code>==</code> weighs two things. C# spares you — <code>if (x = 5)</code> will not forge, for an int is not a bool. Be grateful; those who write C have no such mercy.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
-<p><strong>The ternary mark</strong> — an if/else that IS a value: <code>string label = score &gt;= 6 ? "trusted" : "sketchy";</code> Use it for simple picks; if you find yourself nesting ternaries, reach for a switch expression instead.</p>
+<p><strong>The ternary mark</strong> — an if/else that IS a value: <code>string label = text.Length &gt; 0 ? "ready" : "empty";</code> Use it for simple picks; if you find yourself nesting ternaries, reach for a switch expression instead.</p>
 <p><strong>Weighing doubles:</strong> floating-point arithmetic is approximate — <code>0.1 + 0.2 == 0.3</code> is FALSE. Weigh with a tolerance: <code>Math.Abs(a - b) &lt; 0.0001</code>. (Ints and decimals weigh exactly.)</p>
 <p><strong>The law of braces:</strong> C# custom sets <code>{</code> on its own line. Single-statement ifs may go unbraced, but one famous Apple security wound ("goto fail") came from exactly that — in this tome, everything is braced.</p></div>'''
 
@@ -48,11 +49,11 @@ explain = "<code>&amp;&amp;</code> is C#'s logical AND operator: the whole condi
 id = "s02-l01-e2"
 type = "mc"
 points = 20
-prompt = "What does this utter when <code>trust = 6.5</code>?"
+prompt = "What does this utter when <code>length = 6</code>?"
 code = '''
-if (trust >= 8.0)
+if (length >= 8)
     Console.WriteLine("A");
-else if (trust >= 4.0)
+else if (length >= 4)
     Console.WriteLine("B");
 else
     Console.WriteLine("C");'''
@@ -80,17 +81,17 @@ points = 12
 reps = 2
 prompt = "The full if / else-if / else ladder — twice, until its shape is beneath thought."
 code = '''
-if (score >= 8.0)
+if (length >= 80)
 {
-    Console.WriteLine("trusted source");
+    Console.WriteLine("long question");
 }
-else if (score >= 4.0)
+else if (length >= 20)
 {
-    Console.WriteLine("use with caution");
+    Console.WriteLine("medium question");
 }
 else
 {
-    Console.WriteLine("unverified");
+    Console.WriteLine("short question");
 }'''
 
 [[lessons.exercises]]

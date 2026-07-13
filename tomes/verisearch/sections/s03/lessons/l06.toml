@@ -1,0 +1,79 @@
+[[lessons]]
+id = "s03-l06"
+teaches = ["canonical-models"]
+title = "Workshop — Establish the Canonical Models"
+body = '''
+<p>The preceding lessons used small types to teach classes, records, enums, and LINQ. Now the project needs one canonical vocabulary that every later chapter will share. Create <code>Models.cs</code>; do not leave competing demonstration versions of <code>SearchResult</code> or <code>Source</code> in other files.</p>
+<pre><code><span class="k">public enum</span> SourceKind
+{
+    Web,
+    LocalFixture
+}
+
+<span class="k">public record</span> SourceSpec(<span class="k">string</span> Label, <span class="k">string</span> Url, <span class="k">double</span> Trust, SourceKind Kind);
+<span class="k">public record</span> SourceDocument(SourceSpec Source, <span class="k">string</span> Html);
+<span class="k">public record</span> Passage(<span class="k">int</span> Id, <span class="k">string</span> Text, SourceSpec Source);
+<span class="k">public record</span> QuoteProposal(<span class="k">int</span> PassageId, <span class="k">string</span> Quote);
+<span class="k">public record</span> QuoteBatch(List&lt;QuoteProposal&gt; Quotes);
+<span class="k">public record</span> VerifiedQuote(<span class="k">string</span> Text, <span class="k">string</span> SourceLabel,
+    <span class="k">string</span> Url, <span class="k">int</span> PassageId);</code></pre>
+<p>These names encode the product's trust boundary. A <code>QuoteProposal</code> is merely model output and must never be rendered. A <code>VerifiedQuote</code> is created later by C# only after exact source matching. The URL is absent from <code>QuoteProposal</code> on purpose: the model cannot invent attribution when it does not own that field.</p>
+<p>Use one type per line at first, even though C# permits terse declarations. The compiler can then point to a specific name. In <code>Program.cs</code>, create a tiny smoke test:</p>
+<pre><code><span class="k">var</span> source = <span class="k">new</span> SourceSpec(<span class="s">"RFC 8446"</span>, <span class="s">"https://www.rfc-editor.org/rfc/rfc8446"</span>, 10, SourceKind.Web);
+<span class="k">var</span> passage = <span class="k">new</span> Passage(7, <span class="s">"The exact source words."</span>, source);
+Console.WriteLine(<span class="s">$"{passage.Id}: {passage.Source.Label}"</span>);</code></pre>
+<p>Run <code>dotnet build</code> before moving on. If the compiler says a type already exists, search the project and remove the obsolete demonstration declaration—not the canonical one in <code>Models.cs</code>. If it cannot find <code>List&lt;T&gt;</code>, confirm implicit usings remain enabled in the project file or add <code>using System.Collections.Generic;</code>.</p>
+<div class="field-notes"><div class="fn-head">MARGINALIA // WHY PROPOSAL AND VERIFIED ARE DIFFERENT TYPES</div>
+<p>Using separate record types makes an unsafe state harder to use accidentally. A renderer that accepts only <code>VerifiedQuote</code> cannot be handed raw model JSON without a compiler error. This is a C# version of making illegal states unrepresentable: types carry security and truth guarantees, not merely data shape.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — Records"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/record"
+essential = false
+
+[[lessons.exercises]]
+id = "s03-l06-e1"
+type = "mc"
+points = 20
+prompt = "Why is the source URL deliberately absent from <code>QuoteProposal</code>?"
+choices = ["C# records cannot hold URLs", "The model must not own attribution; C# attaches it from the matched Passage", "URLs are added by Spectre.Console", "Ollama adds URLs automatically"]
+answer = 1
+whyWrong = "Records can hold strings and neither Spectre nor Ollama supplies trustworthy attribution. The program attaches source identity from its own passage data after verification."
+explain = "Separating model proposals from C#-owned source metadata prevents invented citations from entering the report."
+hint = "Which component has trustworthy source identity?"
+
+[[lessons.exercises]]
+id = "s03-l06-e2"
+type = "fill"
+points = 20
+prompt = "Complete the type that represents untrusted model output before exact matching."
+code = '''public record ____(int PassageId, string Quote);'''
+answer = "QuoteProposal"
+hint = "It is a proposal, not yet a verified quote."
+
+[[lessons.exercises]]
+id = "s03-l06-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the source-owned passage record twice."
+code = '''public record Passage(int Id, string Text, SourceSpec Source);'''
+
+[[lessons.exercises]]
+id = "s03-l06-w1"
+type = "write"
+points = 38
+prompt = "Define <code>SourceSpec</code> and <code>Passage</code> records with the workshop's fields. Create source label <code>RFC</code>, URL <code>https://example.test/rfc</code>, trust 10, then passage id 4 and print exactly <code>4 RFC 10</code>."
+starter = '''// Define the two records below the top-level statements.
+Console.WriteLine("NOT BUILT");
+'''
+expect = "4 RFC 10"
+solution = '''var source = new SourceSpec("RFC", "https://example.test/rfc", 10);
+var passage = new Passage(4, "Exact words", source);
+Console.WriteLine($"{passage.Id} {passage.Source.Label} {passage.Source.Trust}");
+
+public record SourceSpec(string Label, string Url, double Trust);
+public record Passage(int Id, string Text, SourceSpec Source);
+'''
+hint = "Construct SourceSpec first, pass it into Passage, then read nested properties through passage.Source."

@@ -1,44 +1,36 @@
 [freestyle]
-title = "THE WORKING 8 // Steel and Shadow"
+title = "BUILD: Steel and Shadow"
 brief = '''
-<p>Bind steel and shadow into the growing RuneBound route. The commission must leave a runnable artifact whose behavior can be inspected from the named evidence.</p><ul><li>preserve the chart's data boundary and use the established names</li><li>prove the requested behavior with a repeatable run that ends at <code>RUNEBOUND S08 SEAL</code></li><li>write a short repair note explaining the nearest failure and the change that corrected it</li></ul>
+<p>Wayfinder, bind the first hostile encounter into the cumulative RuneBound world. This is a runnable PyGame delivery, not a terminal combat mock.</p>
+<ul><li>create <code>combat.py</code> with the canonical <code>StatBlock(hp, max_hp, attack, defense)</code>, <code>deal_damage(attacker, target)</code>, <code>Enemy(AnimatedSprite)</code>, <code>CombatSystem(player, enemy)</code>, and <code>draw_health_bar</code>; preserve AnimatedSprite’s world rect and camera-adjusted draw boundary</li><li>patch the existing <code>Player.__init__</code> to own <code>self.stats = StatBlock(30, 30, 7, 2)</code> without replacing Player input, velocity, collision, or camera ownership</li><li>create <code>data/enemies.json</code> containing the Slime template and load it into an Enemy; remove every local <code>hp=20</code>/<code>attack=5</code> enemy demo variable so JSON is the sole enemy-stat source</li><li>make a player action resolve attack, defend, or flee; apply the minimum-one, zero-clamped damage rule; resolve at most one enemy response; retain <code>result</code> as <code>"won"</code>, <code>"lost"</code>, or <code>"fled"</code></li><li>use world-space <code>Vector2</code> distance for the Slime’s idle → aggro → attack → retreat AI state and the existing <code>rectangles_overlap(player.rect, slime.rect)</code> helper for encounter contact</li><li>patch <code>main.py</code> without replacing its event pump: A/D/F <code>KEYDOWN</code> events choose combat actions, held arrows move only outside combat, ground then actors then bars/UI draw before one flip, and a finished win removes the Slime while flee leaves it</li><li>run <code>python3 main.py</code>, contact the Slime, attack through a visible HP change to a win, relaunch and flee, close with X during a combat run, and record command, observations, outcome, rerun, and one repair or no-repair result in <code>README.md</code></li></ul>
 '''
-requires = ["s08-stat-block","s08-damage-rule","s08-turn-order","s08-player-actions","s08-enemy-ai","s08-state-transitions","s08-health-ui","s08-combat-outcomes","s08-combat-integration","s08-encounter-proof"]
-reward = 244
+requires = ["s08-stat-block", "s08-damage-rule", "s08-turn-order", "s08-player-actions", "s08-enemy-ai", "s08-state-transitions", "s08-health-ui", "s08-combat-outcomes", "s08-combat-integration", "s08-encounter-proof"]
+reward = 360
 xray = '''
-The Cartographer checks whether the steel turn commission keeps hp, max_hp, attack, and defense as explicit combat facts under the right owner, shows s09 can award an item or toast from the stored combat result, and leaves evidence beyond a decorative printout.
+The Cartographer follows main.py from its frame pump to a world-rect encounter, then through one event-selected turn, a JSON-backed enemy record, AI response, terminal result, and the one final flip. He verifies that combat never uses camera coordinates for game rules, that the l01 local enemy-stat probe was retired, and that README proves both a win and a flee after a fresh launch.
 '''
 
 [freestyle.badge]
 id = "badge-s08"
-name = "STEEL TURN SEALED"
-desc = "Sealed the steel and shadow chart with evidence another wayfinder can inspect."
+name = "STEEL AND SHADOW SEALED"
+desc = "Bound a data-driven enemy to an inspectable combat ledger."
 
 [[freestyle.rubric]]
-criterion = "Steel Turn runs"
+criterion = "Shared Combat Facts"
 weight = 25
-desc = '''
-The steel and shadow artifact parses and runs with the chart's named behavior visible.
-'''
+desc = '''<code>StatBlock(hp, max_hp, attack, defense)</code> is the shared record for Player and Enemy; <code>deal_damage</code> enforces a minimum-one hit and zero HP floor, and the Slime template comes only from <code>data/enemies.json</code>.'''
 
 [[freestyle.rubric]]
-criterion = "Steel Turn keeps its boundary"
-weight = 35
-desc = '''
-The commission keeps hp, max_hp, attack, and defense as explicit combat facts and s09 can award an item or toast from the stored combat result in the owners established by the lessons.
-'''
+criterion = "Turns and Enemy Intent"
+weight = 30
+desc = '''<code>CombatSystem</code> resolves one player action followed by at most one surviving enemy response, stores terminal result, and Enemy’s world-space state route visibly distinguishes idle, aggro, attack, and retreat. Encounter contact uses the established strict AABB helper.'''
 
 [[freestyle.rubric]]
-criterion = "Steel Turn shows proof"
-weight = 25
-desc = '''
-The wayfinder supplies a repeatable observation, the exact s08 seal, and a useful comparison case rather than a one-time claim.
-'''
+criterion = "Cumulative Frame Route"
+weight = 30
+desc = '''<code>main.py</code> keeps the event pump and held-key read every frame, suppresses Player movement only during combat, renders world actors then HP/UI layers before exactly one flip, and returns to the overworld according to win or flee.'''
 
 [[freestyle.rubric]]
-criterion = "Cartographer's repair note"
+criterion = "Repeatable Field Evidence"
 weight = 15
-desc = '''
-The explanation names the failing boundary, the evidence that exposed it, and the smallest correction that restored the route.
-'''
-
+desc = '''README records <code>python3 main.py</code>, a visible damage/HP change, win and flee observations across launches, X-close behavior, and a concrete repair with evidence or an explicit no-repair result.'''

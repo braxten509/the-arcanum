@@ -1,44 +1,35 @@
 [freestyle]
-title = "THE WORKING 1 // The Cartographer's First Ink"
+title = "BUILD: The Cartographer's First Ink"
 brief = '''
-<p>Bind the cartographer's first ink into the growing RuneBound route. The commission must leave a runnable artifact whose behavior can be inspected from the named evidence.</p><ul><li>preserve the chart's data boundary and use the established names</li><li>prove the requested behavior with a repeatable run that ends at <code>RUNEBOUND S01 SEAL</code></li><li>write a short repair note explaining the nearest failure and the change that corrected it</li></ul>
+<p>Wayfinder, make a small terminal proof for RuneBound before any window is raised. Create <code>level.txt</code> beside your Python script, containing exactly two comma-separated rows such as <code>G,G,W</code> and <code>W,G,G</code>. Your script must load that file, parse it, and show the map's cells as evidence.</p><ul><li>Define <code>parse_level(lines)</code> that returns a list of row lists after removing each line’s newline and splitting at commas.</li><li>Use <code>with open("level.txt", encoding="utf-8")</code> and <code>readlines()</code> to obtain the raw lines; do not hardcode the completed grid.</li><li>Walk the parsed grid with <code>for row in grid:</code> followed by <code>for cell in row:</code>, printing every cell in row-major order.</li><li>Use <code>grid[row][col]</code> once to print a labeled lookup for the second row, first column, and finish with <code>RUNEBOUND S01 SEAL</code>.</li><li>Add a short code comment naming the likely cause and repair for a missing <code>level.txt</code> file.</li></ul>
 '''
-requires = ["s01-value-tracing","s01-value-contract","s01-grid-rows","s01-grid-indexing","s01-file-reading","s01-level-parsing"]
-reward = 188
+requires = ["python-game-data-values", "typed-level-facts", "nested-grid-iteration", "grid-row-column-lookup", "level-grid-function", "text-level-file-reading", "comma-level-parser", "grid-inspection-output"]
+reward = 180
 xray = '''
-The Cartographer checks whether the first ink commission keeps the player name, a starting gold count, and a passable flag under the right owner, shows s02's objects can receive a clean level grid instead of raw file debris, and leaves evidence beyond a decorative printout.
+The Cartographer looks for a real file boundary, not a pasted final grid. He checks the row-major loop and row-then-column lookup separately, then follows the printed evidence through the final seal. He rewards a small, readable Python script whose names describe game data.
 '''
 
 [freestyle.badge]
 id = "badge-s01"
 name = "FIRST INK SEALED"
-desc = "Sealed the the cartographer's first ink chart with evidence another wayfinder can inspect."
+desc = "Charted and inspected RuneBound's first file-backed level grid."
 
 [[freestyle.rubric]]
-criterion = "First Ink runs"
-weight = 25
-desc = '''
-The the cartographer's first ink artifact parses and runs with the chart's named behavior visible.
-'''
+criterion = "File-Backed Level"
+weight = 30
+desc = '''A script opens level.txt with a context manager, reads its lines, and passes them to parse_level(lines) instead of hardcoding the completed grid.'''
 
 [[freestyle.rubric]]
-criterion = "First Ink keeps its boundary"
-weight = 35
-desc = '''
-The commission keeps the player name, a starting gold count, and a passable flag and s02's objects can receive a clean level grid instead of raw file debris in the owners established by the lessons.
-'''
+criterion = "Grid Contract"
+weight = 30
+desc = '''parse_level returns a list of row lists; the script visits every cell using for row in grid followed by for cell in row and demonstrates grid[row][col] for second-row, first-column lookup.'''
 
 [[freestyle.rubric]]
-criterion = "First Ink shows proof"
-weight = 25
-desc = '''
-The wayfinder supplies a repeatable observation, the exact s01 seal, and a useful comparison case rather than a one-time claim.
-'''
+criterion = "Visible Evidence"
+weight = 20
+desc = '''A repeatable run prints cells in row-major order, a labeled lookup result, and the exact final line RUNEBOUND S01 SEAL.'''
 
 [[freestyle.rubric]]
-criterion = "Cartographer's repair note"
-weight = 15
-desc = '''
-The explanation names the failing boundary, the evidence that exposed it, and the smallest correction that restored the route.
-'''
-
+criterion = "Python Field Craft"
+weight = 20
+desc = '''Uses PEP 8-friendly snake_case names, four-space indentation, clear small functions, and a concise comment explaining the missing-file check and repair.'''

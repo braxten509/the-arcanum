@@ -1,5 +1,6 @@
 [[lessons]]
 id = "s05-l01"
+teaches = ["lora-math"]
 title = "A Low-Rank Delta"
 body = '''
 <p>The bind is not a second vessel. It is a low-rank delta pressed onto the base model, small enough to fit the memory budget and powerful enough to move the behavior. The seventh rite begins where every deep-learning fine-tune begins — with the shape of the weights — because the binding rite is a <strong>parameter-efficient</strong> rite by necessity, not by fashion.</p>
@@ -14,7 +15,7 @@ body = '''
 <p>QLoRA adds one more compression: the frozen base model W is <strong>4-bit quantized</strong> — stored at ~4.5 bits per weight instead of 16, which the fifth rite proved brings a 7 B model from 14 GB down to roughly 4 GB, reclaiming room for the optimizer state and activation memory the training pass actually needs. The quantization is NF4 (NormalFloat4), a data-aware scheme that respects the weight distribution rather than clamping it into uniform bins, and the forward-pass dequantization is fused into the compute — the weight spends training in VRAM as 4-bit integers and only gets promoted to 16-bit for the actual matrix multiply, then discarded.</p>
 <p>There is no binder ("LoRA") without a quantized base ("Q") — that is why the piece the artificer is training is called a <strong>QLoRA adapter</strong>, and why the entire op is the binding rite, not a rebuilding rite. The vessel stays intact, frozen in 4-bit; only the seam — the A·B low-rank correction spanning a few tens of megabytes — moves.</p>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // RANK, NOT RANK — THE MATH VS. THE KNOB</div>
-<p>The rank in "low-rank adaptation" is the mathematical rank of the product matrix BA — the maximum number of linearly independent directions the delta can express. When the binding rite sets <code>r=16</code>, it is capping the adapter at 16 degrees of freedom per targeted weight: enough to shift style, word choice, and formatting patterns; far too few to overwrite the base model's factual knowledge (which is why a LoRA is style-safe). The knobs that actually control training behavior — <code>r</code>, <code>lora_alpha</code>, <code>target_modules</code> — are the last rite of this section; this one only teaches what they steer.</p></div>
+<p>The rank in "low-rank adaptation" is the mathematical rank of the product BA—the maximum number of independent directions that layer's delta can express. Setting <code>r=16</code> constrains capacity; it does not make the adapter inherently style-only or regression-proof. A LoRA can still alter facts, formatting, refusals, and general capability, especially with poor data or aggressive training. That is why the course preserves a base comparison and requires the Section VI regression gate.</p></div>
 '''
 body_words = 520
 
@@ -29,6 +30,7 @@ url = "https://arxiv.org/abs/2305.14314"
 [[lessons.exercises]]
 id = "s05-l01-e1"
 type = "type"
+prompt = "Retype the annotated LoRA forward-pass sketch; focus on which matrix stays frozen and which two low-rank matrices receive gradients."
 points = 12
 reps = 2
 code = '''# The LoRA forward pass, decomposed:
@@ -92,4 +94,11 @@ modules = 4  # q_proj, k_proj, v_proj, o_proj — each in_features == out_featur
 print("ADAPTER PARAMS 0")
 '''
 expect = "ADAPTER PARAMS 524288"
+solution = '''d = 4096
+rank = 16
+modules = 4
+
+total = modules * rank * 2 * d
+print(f"ADAPTER PARAMS {total}")
+'''
 hint = "Each module contributes rank * 2 * d parameters. With 4 modules, the total is 4 * rank * 2 * d = 8 * rank * d = 8 * 16 * 4096 = 524288. Use integer arithmetic: params_per_module = rank * 2 * d, then total = modules * params_per_module."

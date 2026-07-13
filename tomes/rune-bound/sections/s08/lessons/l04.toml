@@ -1,106 +1,83 @@
 [[lessons]]
 id = "s08-l04"
 title = "Bars, Victory, and Retreat"
-teaches = ["s08-health-ui","s08-combat-outcomes"]
+teaches = ["s08-health-ui", "s08-combat-outcomes"]
 body = '''
-<p>s08-l04 opens the turns and damage chart through Bars. s08-l04 hears THE CARTOGRAPHER name s08-health-ui its first bearing. s08-l04 names one input, one change, and one output. s08-l04 gives s08-combat-outcomes a second mark for comparison. s08-l04 keeps the smallest successful example beside its route.</p>
-<p>s08-l04 reads from left to right, then narrates state changes. s08-l04 keeps its turns and damage clue concrete and observable. s08-l04 runs twice; the second pass challenges the first. s08-l04 records which owner moved when s08-health-ui shifted. s08-l04 carries earlier <code>StatBlock</code> evidence into this chart.</p>
-<p>s08-l04 asks one decision to stand alone in the margin. s08-l04 keeps s08-combat-outcomes visible instead of hiding it behind polish. s08-l04 tests a friendly case and a sharp edge case. s08-l04 compares both traces so s08-health-ui has a witness. s08-l04 names the failure before choosing a repair.</p>
-<p>s08-l04 treats each handoff as a contract between maker and reader. s08-l04 supplies s08-health-ui; the reader checks s08-combat-outcomes. s08-l04 places its check where another wayfinder can repeat it. s08-l04 earns THE CARTOGRAPHER's trust through evidence, not luck. s08-l04 leaves one deliberate question for the next chart.</p>
-<p>s08-l04 closes by stating what the program must preserve. s08-l04 names one input that could falsify s08-health-ui. s08-l04 names one output that confirms s08-combat-outcomes still belongs. s08-l04 runs the smallest route, inspects its trace, and annotates it. s08-l04 turns the turns and damage chart into a RuneBound waypoint.</p>
-<p>s08-l04 ends with a handoff to the next chart. s08-l04 carries s08-combat-outcomes forward after s08-health-ui earns trust. s08-l04 lets THE CARTOGRAPHER record the result in plain language. s08-l04 turns a clean rerun from a guess into a fact. s08-l04 lets the next wayfinder begin without hidden context.</p>
-<pre><code>print("s08-l04 // Bars, Victory, and Retreat")</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // S08-L04</div><p>s08-l04 <strong>Evidence.</strong> Record s08-health-ui; compare it with s08-combat-outcomes before advancing.</p><p>s08-l04 <strong>Repair.</strong> Change one cause, rerun the route, and preserve the explanation.</p></div>
+<p>A health bar is a report, not a second store of HP. Add <code>draw_health_bar(surface, stats, x, y, width=48, height=6)</code> to <code>combat.py</code>. Its <code>x</code> and <code>y</code> are screen pixels because the caller has already chosen a screen position. It draws a dark empty rectangle, computes <code>ratio = stats.hp / stats.max_hp</code>, and draws a green filled rectangle whose width is <code>int(width * ratio)</code>. Since l01 clamps HP, ratio remains in the visible 0–1 range. Do not let this helper damage, heal, select a turn, or subtract the camera.</p>
+<pre><code>def draw_health_bar(surface, stats, x, y, width=48, height=6):
+    pygame.draw.rect(surface, (35, 28, 24), (x, y, width, height))
+    ratio = stats.hp / stats.max_hp
+    pygame.draw.rect(surface, (80, 180, 90),
+                     (x, y, int(width * ratio), height))</code></pre>
+<p>When drawing actors, derive the bar location from their already camera-adjusted visual position: <code>screen_x = actor.rect.x - camera[0]</code>, <code>screen_y = actor.rect.y - camera[1] - 10</code>, then call the helper. Ground still renders first, actors second, bars after their actor, dialogue UI after world layers, and <code>pygame.display.flip()</code> exactly once in <code>main.py</code>. Calling <code>draw_health_bar</code> is not a reason to flip a second time.</p>
+<p>Outcomes belong in <code>CombatSystem</code>. After each hit, if enemy HP is zero set <code>active = False</code>, <code>result = "won"</code>, and a message such as <code>"The Slime dissolves."</code>. If Player HP is zero, set <code>result = "lost"</code>. Flee sets <code>"fled"</code> before any enemy response. Keep <code>result</code> after <code>active</code> becomes false; s09 and s10 need a truthful combat fact rather than a vanished Slime sprite to award loot or satisfy a quest.</p>
+<p>Return control cleanly. Main can keep <code>active_combat = None</code> after it reads a completed result and removes a defeated enemy from <code>actors</code>; on flee, leave the enemy in place. A loss currently displays a clear message and stops Player input for the run. s11 will replace this local routing with its explicit GAME_OVER and COMBAT state machine, so do not build a competing enum here.</p>
+<div class="callout"><strong>THE CARTOGRAPHER'S RULE:</strong> UI observes stats, the combat system records outcomes, and main schedules the layers.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // EMPTY BAR</div><p>If a bar stays full after a hit, inspect whether it receives <code>actor.stats</code>, not a copied integer from encounter creation. A renderer that caches HP becomes a second, stale source of truth.</p></div>
 '''
 
 [[lessons.readings]]
-label = "Python library // dataclasses // Bars, Victory, and Retreat"
-url = "https://docs.python.org/3/library/dataclasses.html"
-
-[[lessons.readings]]
-label = "PyGame docs // drawing // Bars, Victory, and Retreat"
-url = "https://www.pygame.org/docs/ref/draw.html"
+label = "PyGame Docs // draw.rect"
+url = "https://www.pygame.org/docs/ref/draw.html#pygame.draw.rect"
 
 [[lessons.exercises]]
 id = "s08-l04-e1"
-type = "fill"
-points = 18
-prompt = '''
-<p>s08-l04-e1: restore the missing operation in the supplied code. Use its operands and the chart evidence to complete the route without renaming the owner.</p>
-'''
-code = '''
-hp = max(0, hp - ____)
-'''
-answer = "damage"
-hint = '''
-Look at what must happen to hp = max(0, hp - damage); choose the operation that performs that job rather than the one that merely inspects the result.
-'''
+type = "mc"
+points = 20
+prompt = '''<p>Which component may change <code>result</code> from <code>None</code> to <code>"won"</code> when enemy HP reaches zero?</p>'''
+choices = ['<code>draw_health_bar</code>', '<code>TileMap.render</code>', '<code>CombatSystem</code>', '<code>AnimatedSprite.draw</code>']
+answer = 2
+hint = '''The outcome follows a resolved action, whereas the listed renderers only paint what already happened.'''
+whyWrong = '''Rendering code must not mutate game decisions, or a different draw order could change who wins. The manager owns the action sequence and records its terminal outcome.'''
+explain = '''Keeping result in CombatSystem lets later systems inspect a stable fact after the fight closes.'''
 
 [[lessons.exercises]]
 id = "s08-l04-e2"
-type = "mc"
-points = 14
-prompt = '''
-<p>What should happen immediately after an enemy reaches zero hp? Select the reading that keeps inventory and quest facts can later respond to a clean combat result possible.</p>
+type = "fill"
+points = 22
+prompt = '''<p>Restore the conversion from a health fraction to an integer filled-bar width.</p>'''
+code = '''
+filled_width = ____(width * ratio)
 '''
-choices = ["increase the enemy's bar until it reaches max_hp","Bars, Victory, and Retreat: keep s08-health-ui owned by the named boundary and verify the result before handoff s08-l04-e2.","return to the title screen without recording the result","let the draw order decide whether combat is over"]
-answer = 1
-whyWrong = '''
-The tempting routes confuse drawing a full bar after hp reaches zero or allowing a defeated enemy to receive another turn with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace hp clamping, win and game-over checks, and a flee route that returns to play in the Steel Turn chart, then compare the the UI reports state while the combat system owns whether a fight has ended with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves the ui reports state while the combat system owns whether a fight has ended and leaves hp clamping, win and game-over checks, and a flee route that returns to play available for the next RuneBound handoff.
-'''
+answer = "int"
+hint = '''PyGame’s rectangle dimensions are whole pixels, while the multiplication may produce a decimal.'''
+whyWrong = '''<code>str</code> would make text and <code>bool</code> would discard the size. The chosen conversion truncates the proportional pixel count to an integer.'''
 
 [[lessons.exercises]]
 id = "s08-l04-e3"
-type = "type"
-points = 10
-reps = 2
-prompt = '''
-<p>Retype this steel turn evidence exactly. Keep hp clamping, win and game-over checks, and a flee route that returns to play visible while you write. (Ctrl+Enter submits.)</p>
-'''
-code = '''
-hp = 2
-damage = 5
-hp = max(0, hp - damage)
-print(hp)
-'''
+type = "text"
+points = 18
+prompt = '''<p>Which stored combat field must survive a finished fight so later inventory and quest code can distinguish a win from a flee?</p>'''
+answer = "result"
+hint = '''It starts as <code>None</code> and receives one of the terminal strings after the manager resolves an outcome.'''
+whyWrong = '''<code>active</code> says only whether the encounter is still running, while <code>message</code> is player-facing wording. The requested field preserves the machine-readable terminal fact.'''
 
 [[lessons.exercises]]
 id = "s08-l04-e4"
 type = "write"
-points = 30
-prompt = '''
-<p>Complete the steel turn route and print exactly <code>RUNEBOUND S08 L04 SEAL</code>. Preserve the named data before adding the final observation.</p>
-'''
+points = 35
+prompt = '''<p>Compute a 48-pixel health bar at 5 HP out of 20, then record a win when enemy HP is zero. Print exactly <code>BAR 12</code> and <code>RESULT won</code>.</p>'''
 starter = '''
-route_mark = "combat-bars"
-print("survey pending")
-# Add the chart seal after checking the route.
+width = 48
+hp = 5
+max_hp = 20
+enemy_hp = 0
+
+# Compute the filled width and choose the terminal result.
 '''
 expect = '''
-RUNEBOUND S08 L04 SEAL
+BAR 12
+RESULT won
 '''
 solution = '''
-route_mark = "combat-bars"
-print("RUNEBOUND S08 L04 SEAL")
-'''
-hint = '''
-For s08-l04-e4, leave the route data intact and add only its final s08 observation; compare the starter output with the target before submitting.
-'''
+width = 48
+hp = 5
+max_hp = 20
+enemy_hp = 0
 
-[[lessons.exercises]]
-id = "s08-l04-e5"
-type = "text"
-points = 16
-prompt = '''
-<p>s08-l04-e5: name the Python term for the specific unit requested by this chart. Supply the language term, not the surrounding story label.</p>
+filled_width = int(width * (hp / max_hp))
+result = "won" if enemy_hp == 0 else None
+print("BAR", filled_width)
+print("RESULT", result)
 '''
-answer = "hp"
-hint = '''
-Recall the named boundary in Bars, Victory, and Retreat; the answer is the language term for that single job, not the larger game feature.
-'''
+hint = '''Divide current HP by max HP before multiplying width; compare the enemy’s current HP with zero for the outcome.'''

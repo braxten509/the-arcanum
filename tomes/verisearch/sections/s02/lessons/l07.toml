@@ -1,0 +1,96 @@
+[[lessons]]
+id = "s02-l07"
+teaches = ["method-design"]
+title = "Methods — Give One Job a Name"
+body = '''
+<p>Your vestibule works, but every new behavior has been poured into one long top-level scroll. C# methods let you give a job a name, state what it needs, and state what it returns. That boundary is the first tool for keeping a growing program understandable.</p>
+<pre><code><span class="k">static bool</span> TryPrepareQuestion(<span class="k">string</span> raw,
+    <span class="k">out string</span> question, <span class="k">out string</span> error)
+{
+    question = <span class="k">string</span>.Join(<span class="s">' '</span>, raw.Split(<span class="s">' '</span>,
+        StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+    <span class="k">if</span> (question.Length == 0)
+    {
+        error = <span class="s">"question is empty"</span>;
+        <span class="k">return false</span>;
+    }
+    <span class="k">if</span> (question.Length &gt; 500)
+    {
+        error = <span class="s">"question is longer than 500 characters"</span>;
+        <span class="k">return false</span>;
+    }
+    error = <span class="s">""</span>;
+    <span class="k">return true</span>;
+}</code></pre>
+<p>The first word after <code>static</code> is the <strong>return type</strong>. This method returns a <code>bool</code>: true means the two output values are ready to use. The <code>out</code> parameters let the method return either a prepared question or a repair message without throwing for ordinary input:</p>
+<pre><code><span class="k">if</span> (TryPrepareQuestion(input, <span class="k">out string</span> question, <span class="k">out string</span> error))
+    Console.WriteLine(<span class="s">$"[Ready] Question: {question}"</span>);
+<span class="k">else</span>
+    Console.WriteLine(<span class="s">$"[Input] {error}"</span>);</code></pre>
+<p>Whitespace normalization is deliberately conservative. It removes accidental doubled spaces but keeps every meaningful word, punctuation mark, and capital letter for the AI. Verisearch does not decide relevance with a hand-written bag of search terms. In a top-level <code>Program.cs</code>, local method declarations go after executable statements. Chapter III later moves stable data shapes into their own file.</p>
+<div class="callout"><strong>Scope is where a name exists.</strong> A parameter exists only inside its method. A variable declared with <code>out int score</code> inside an <code>if</code> condition exists through the surrounding block after that condition; it is not trapped inside <code>TryParse</code>. Hover a name in the editor to see its type, and trust <code>dotnet build</code> over the color of a squiggle.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // VOID, RETURN, AND THE CALLER</div>
+<p>A <code>void</code> method performs work but returns no value. Prefer returning data when another part of the program must use the result; it is easier to test than a method that prints internally. The <code>Try...</code> naming convention promises expected failure through a boolean, while exceptional failures may still throw. Use early <code>return</code> statements for invalid input, but keep the happy path visible. If a method needs six unrelated parameters, a record or class should probably carry those values together—exactly what the next chapter teaches.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — Methods in C#"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/methods"
+essential = false
+
+[[lessons.exercises]]
+id = "s02-l07-e1"
+type = "mc"
+points = 20
+prompt = "In <code>static bool TryPrepareQuestion(...)</code>, what does <code>bool</code> promise?"
+choices = ["The type returned to the caller", "The type of every output value", "The name of the method", "The file that contains it"]
+answer = 0
+whyWrong = "The method name follows the return type, and locals may have many types. The return type is the contract for the value handed back to the caller."
+explain = "A non-void method must return a value compatible with the declared return type."
+hint = "Look immediately before the method name."
+
+[[lessons.exercises]]
+id = "s02-l07-e2"
+type = "fill"
+points = 20
+prompt = "Complete the keyword that hands a computed value back to the caller."
+code = '''static int CountWords(string text)
+{
+    ____ text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+}'''
+answer = "return"
+hint = "It ends this call and supplies its result."
+
+[[lessons.exercises]]
+id = "s02-l07-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype one small data-returning method twice."
+code = '''static string Normalize(string value)
+{
+    return value.Trim().ToLowerInvariant();
+}'''
+
+[[lessons.exercises]]
+id = "s02-l07-w1"
+type = "write"
+points = 36
+prompt = "Write <code>static bool TryPrepare(string raw, out string question)</code>. Collapse repeated spaces, return false for an empty result, and otherwise return true without dropping words or punctuation. Call it with <code>\"  What  is TLS?  \"</code> and print <code>&lt;bool&gt; &lt;question&gt;</code>."
+starter = '''bool ok = TryPrepare("  What  is TLS?  ", out string question);
+Console.WriteLine("NOT IMPLEMENTED");
+
+// Define TryPrepare below the top-level statements.
+'''
+expect = "True What is TLS?"
+solution = '''bool ok = TryPrepare("  What  is TLS?  ", out string question);
+Console.WriteLine($"{ok} {question}");
+
+static bool TryPrepare(string raw, out string question)
+{
+    question = string.Join(' ', raw.Split(' ',
+        StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+    return question.Length > 0;
+}
+'''
+hint = "Assign string.Join over Split with RemoveEmptyEntries, then return whether the result has any characters."

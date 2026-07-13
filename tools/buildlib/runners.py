@@ -36,7 +36,7 @@ CLI_RUNNERS = {
     # npm codex preferred: the Arch openai-codex package omits codex-code-mode-host (gpt-5.6 needs it)
     "codex-cli": {"cmd": [os.path.expanduser("~/.local/bin/codex") if os.access(os.path.expanduser("~/.local/bin/codex"), os.X_OK) else "codex",
                           "--search", "exec", "--skip-git-repo-check", "-s", "workspace-write", *_codex_no_mcp(), "-m", "{model}", "-"], "input": "stdin",
-                  "efforts": ("minimal", "low", "medium", "high", "xhigh"),
+                  "efforts": ("low", "medium", "high", "xhigh", "max", "ultra"),
                   "effortArgs": ["-c", "model_reasoning_effort={effort}"]},
     # opencode drives OpenCode Go / free models (opencode-go/*, opencode/*) AND local models
     # (ollama/* run THROUGH the opencode agent, which wields the tools the raw model can't).

@@ -1,78 +1,103 @@
 [[lessons]]
 id = "s05-l06"
-title = "The Adapter Artifact"
+teaches = ["adapter-artifact"]
+title = "Prove and Fingerprint the Adapter"
 body = '''
-<p>Five rites built toward one moment: <code>trainer.train()</code> completes, and the binder holds a trained adapter — the seam that shifts the vessel toward the artificer's voice. This final pre-evaluation rite teaches what that artifact actually is, how to preserve it, and how to check that it survived the bind intact before handing it to the proving rite ahead.</p>
-<p>The trained adapter is a small set of <strong>.safetensors</strong> files — one or two, depending on the checkpointing config — containing the learned A and B matrices for every targeted layer, plus a small <code>adapter_config.json</code> that records the <code>LoraConfig</code> that produced them. The whole directory is typically 10–100 MB for rank 8–32 on a 7B model — the same size the third rite's parameter math predicted. The saving is one call: <code>model.save_pretrained("./my-adapter")</code> on the PEFT-wrapped model, which writes the adapter weights (not the frozen base — those are never modified, so saving them would be a multi-gigabyte waste). Reloading is symmetrical: <code>PeftModel.from_pretrained(base_model, "./my-adapter")</code>, which reattaches the adapter to the same (or a newly loaded) frozen base.</p>
-<pre><code><span class="c"># After training completes — save the bind:</span>
-model.save_pretrained(<span class="s">"./my-adapter"</span>)
-tokenizer.save_pretrained(<span class="s">"./my-adapter"</span>)
+<p>The successful bind produces <code>artifacts/adapters/bind-001/</code>, not a second copy of Qwen. The directory must contain <code>adapter_config.json</code>, adapter weights such as <code>adapter_model.safetensors</code>, and tokenizer/template files saved by the course command. Open the config and confirm <code>base_model_name_or_path</code> identifies <code>Qwen/Qwen3-8B</code>, rank and alpha match the run, and the weight file is nonempty.</p>
+<p>Now make the artifact accountable. Hash every file with SHA-256 and write <code>runs/bind-001/artifact-manifest.json</code> containing the run id, base id, curated train/eval hashes, training configuration, package versions, metrics path, and adapter-file hashes. A directory name like <code>r16-final-final</code> is not provenance. The manifest is how the merge stage proves it is sealing the adapter that passed evaluation.</p>
+<pre><code>import hashlib
+import json
+from pathlib import Path
 
-<span class="c"># Later — load the bind onto a fresh base:</span>
-<span class="k">from</span> peft <span class="k">import</span> PeftModel
-loaded = PeftModel.from_pretrained(base_model, <span class="s">"./my-adapter"</span>)
+def sha256(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
-<span class="c"># The adapter directory contains:</span>
-<span class="c">#   adapter_config.json   — r, alpha, target_modules, etc.</span>
-<span class="c">#   adapter_model.safetensors — the trained A and B matrices</span></code></pre>
-<p>The adapter can live in two states. <strong>Standalone</strong> (the default): the adapter weights sit alongside the frozen base, contributing their delta during every forward pass — fast to load, fast to swap (change adapters by swapping the safetensors directory, no base reload needed), and small on disk. <strong>Merged</strong>: <code>model.merge_and_unload()</code> folds the adapter's learned delta into the base weights themselves, producing a single, un-quantized model with no adapter layers — the adapter's correction is baked permanently into the weights. Merging is the path to the sealing rite ahead (which converts to GGUF for Ollama serving), because llama.cpp's converter reads full model weights, not PEFT adapter layers. The trade-off: a merged model is the full base size (~14 GB at 16-bit) and cannot be un-adapted — the correction is permanent.</p>
-<p>The sanity check before the proving rite evaluates the bind is a single generation call on a prompt the adapter should have learned. Load the adapter, run a simple <code>model.generate</code> on a prompt from the training set's own style (not an exact training record — that tests memorization, not learning), and read the output. It should sound approximately like the corpus — not word-for-word, not perfectly, but <em>in the right register</em>. If the output is indistinguishable from the frozen base, the adapter didn't learn — rank too low, alpha too weak, or the training run failed silently. If the output recites a training record verbatim, the adapter memorized — rank too high, epochs too many, or the learning rate too aggressive. The evaluation rite's job is to quantify these judgments; this check's job is to confirm the adapter is not dead on arrival before handing it to the quantifier.</p>
-<div class="callout">The <code>merge_and_unload</code> path produces a full-precision (float16/bfloat16) model — not a 4-bit one. The quantization that the fifth rite applied was only for training; after merging, the adapter's corrections are baked into full-precision weights, and the model must be re-quantized (the sealing rite's job) before it can be served efficiently. The memory-budget section's VRAM math applies at serving time too: a merged-but-unquantized 7B model at 16-bit needs ~14 GB just to load, leaving almost nothing for context — the GGUF conversion and re-quantization in the sealing rite are not optional steps.</div>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // ADAPTER VERSIONING — THE ARTIFACT YOU RE-TRAIN</div>
-<p>The twelfth rite's automation depends on a convention the artificer establishes here: name the adapter directory after the training run's configuration, not the model. <code>./adapters/r16-a32-lr2e4-ep1</code> is a self-documenting name — it encodes the knobs the sixth rite taught, and a later re-run with a different config (say, <code>r32-a64-lr1e4-ep2</code>) produces a sibling directory rather than overwriting the first attempt. The date is secondary (a git tag handles chronology), but the config is primary — it is how the artificer answers "what made this adapter sound like that?" three months later, which is exactly the expert judgment the final rite demands.</p></div>
+adapter_dir = Path("artifacts/adapters/bind-001")
+files = {str(path.relative_to(adapter_dir)): sha256(path)
+         for path in sorted(adapter_dir.rglob("*")) if path.is_file()}
+manifest = {
+    "run_id": "bind-001",
+    "base_id": "Qwen/Qwen3-8B",
+    "adapter_files": files,
+}
+Path("runs/bind-001/artifact-manifest.json").write_text(
+    json.dumps(manifest, indent=2) + "\n", encoding="utf-8")</code></pre>
+<p>Reload the adapter onto the same quantized base in a fresh process and run one held-out prompt. The purpose is not to declare quality from one answer; it is to prove that the saved artifact is loadable and changes inference without relying on the in-memory trainer. Keep the standalone adapter even after merging. Section IX loads a fresh full-precision base on CPU, attaches this proved adapter, and merges a copy. It must not merge the four-bit training object and assume a full-precision model appeared.</p>
+<div class="callout">Exit bar: saved config and safetensors, base identity match, fresh-process reload, manifest hashes, finite metrics, and no evaluation prompt copied into training.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // RELOAD BREAKS HIDDEN DEPENDENCIES</div>
+<p>Testing inside the trainer process can accidentally rely on in-memory state, an unsaved tokenizer, or a modified model object. Exit, start a fresh process, load the pinned base and only the saved adapter directory, then run a known prompt. That procedure defines what the artifact actually contains and what a later merge can reproduce.</p></div>
 '''
-body_words = 530
+
+[[lessons.readings]]
+label = "PEFT checkpoint format"
+url = "https://huggingface.co/docs/peft/developer_guides/checkpoint"
 
 [[lessons.exercises]]
 id = "s05-l06-e1"
 type = "mc"
 points = 20
-prompt = "Per this rite, what does <code>model.save_pretrained(\"./my-adapter\")</code> actually write to disk for a PEFT-wrapped QLoRA model?"
-choices = [
-  "The full 14 GB base model weights plus the adapter, stored as a single merged safetensors file — the same output as merge_and_unload()",
-  "The adapter weights serialized as a Python pickle file, which preserves the exact gradient state for resuming training later",
-  "Only the trained adapter weights (A and B matrices) and the adapter_config.json — the frozen base weights are never modified during training, so saving them would waste gigabytes for no gain",
-  "The tokenizer, the training arguments, and the loss log — but not the adapter weights themselves, which are stored in-memory only until the merge step",
-]
-answer = 2
-whyWrong = "save_pretrained on a PEFT model writes only the adapter (not the frozen base, which is unchanged — saving the base again would be ~14 GB of duplicate data). It writes safetensors (not pickle, which is a security risk the lesson explicitly notes), and it always includes the adapter weights — a PEFT model with no saved weights is a config file with nothing to load."
-hint = "The lesson says 'save_pretrained writes the adapter weights (not the frozen base — those are never modified, so saving them would be a multi-gigabyte waste).' The correct choice names the adapter-only safetensors output."
-explain = "The PEFT wrapper's save_pretrained is adapter-aware: it only serializes the trainable layers (A and B matrices + the config), skipping the frozen base entirely. The resulting directory is 10–100 MB, not 14 GB — exactly the delta the binding rite produced."
+prompt = "What does the adapter directory deliberately omit?"
+choices = ["A full duplicate of the frozen 8B base weights", "adapter_config.json", "adapter_model.safetensors", "tokenizer configuration"]
+answer = 0
+whyWrong = "The configuration and learned adapter weights are the artifact; only the unchanged multi-gigabyte base is referenced rather than duplicated."
+explain = "PEFT stores the learned delta and the information needed to attach it."
+hint = "Which part never changed during training?"
 
 [[lessons.exercises]]
 id = "s05-l06-e2"
 type = "text"
-points = 18
-prompt = "What PEFT class's <code>.from_pretrained()</code> method reattaches a saved adapter to a base model — the loading counterpart to <code>model.save_pretrained()</code>?"
-answer = "PeftModel"
-accept = ["peft.PeftModel", "PeftModel"]
-hint = "It's the class imported in the lesson's second code block — the one called with from_pretrained(base_model, './my-adapter')."
+points = 15
+prompt = "Which hash algorithm fingerprints the adapter files?"
+answer = "SHA-256"
+accept = ["sha256", "sha-256"]
+hint = "It is the hashlib function in the manifest snippet."
 
 [[lessons.exercises]]
 id = "s05-l06-e3"
 type = "fill"
 points = 20
-prompt = "Fill the missing method call from the lesson — the one that folds the adapter's learned delta into the base weights permanently, producing a single model with no adapter layers, which is the prerequisite for the GGUF conversion in the sealing rite ahead."
-code = '''from peft import PeftModel
-
-model = PeftModel.from_pretrained(base_model, "./my-adapter")
-merged = model.____()'''
-answer = "merge_and_unload"
-accept = ["merge_and_unload"]
-hint = "The lesson's 'Merged' paragraph names this method — the one that produces a full-precision model by baking the adapter correction into the base weights, as opposed to keeping them separate."
+prompt = "Complete the required base identity in the manifest."
+code = '''manifest = {
+    "base_id": "____",
+}'''
+answer = "Qwen/Qwen3-8B"
+hint = "An adapter must attach to the exact base used for training."
 
 [[lessons.exercises]]
 id = "s05-l06-e4"
-type = "write"
-points = 32
-prompt = "Given <code>adapter_params</code> (the number of trainable float16 parameters in the adapter) and <code>bytes_per_param = 2</code> (float16 = 2 bytes), compute the approximate safetensors file size in MB (1 MB = 1,000,000 bytes). Print <code>ADAPTER SIZE &lt;n&gt; MB</code> — computed from the variables, not hardcoded."
-starter = '''adapter_params = 524288  # from the third rite's parameter math
-bytes_per_param = 2       # float16 = 2 bytes per value
+type = "mc"
+points = 20
+prompt = "Why reload in a fresh process?"
+choices = ["It proves the on-disk adapter is sufficient and not accidentally relying on trainer memory", "It increases LoRA rank", "It moves eval rows into train", "It quantizes to GGUF"]
+answer = 0
+whyWrong = "Reload verification does not change configuration, data splits, or serving format."
+explain = "A persisted artifact must survive process boundaries before downstream stages trust it."
+hint = "The thing being tested is persistence."
 
-# file_size_bytes = adapter_params * bytes_per_param
-# file_size_mb = file_size_bytes / 1_000_000
-# Print ADAPTER SIZE <file_size_mb> MB (round to 2 decimal places)
-print("ADAPTER SIZE 0.00 MB")
+[[lessons.exercises]]
+id = "s05-l06-e5"
+type = "write"
+points = 35
+prompt = "Select nonempty required files and print exactly: VERIFIED 2"
+starter = '''sizes = {
+    "adapter_config.json": 912,
+    "adapter_model.safetensors": 42_000_000,
+    "README.md": 0,
+}
+required = {"adapter_config.json", "adapter_model.safetensors"}
+
+verified = []
+print(f"VERIFIED {len(verified)}")
 '''
-expect = "ADAPTER SIZE 1.05 MB"
-hint = "file_size_bytes = 524288 * 2 = 1_048_576 bytes. file_size_mb = 1_048_576 / 1_000_000 ≈ 1.0486, which rounds to 1.05 MB. Use f'ADAPTER SIZE {file_size_mb:.2f} MB'."
+solution = '''sizes = {
+    "adapter_config.json": 912,
+    "adapter_model.safetensors": 42_000_000,
+    "README.md": 0,
+}
+required = {"adapter_config.json", "adapter_model.safetensors"}
+
+verified = [name for name in required if sizes.get(name, 0) > 0]
+print(f"VERIFIED {len(verified)}")
+'''
+expect = "VERIFIED 2"
+hint = "Keep required names whose recorded size is greater than zero."

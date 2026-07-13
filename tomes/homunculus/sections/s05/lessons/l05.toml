@@ -1,117 +1,109 @@
 [[lessons]]
 id = "s05-l05"
-title = "Running the Bind on AMD"
+teaches = ["rocm-training"]
+title = "Dry-Step, Measure, Then Bind"
 body = '''
-<p>Four rites taught what to train, how to prepare it, what scaffold runs it, and which knobs control it. This rite teaches the moment those four meet the hardware — running the actual SFTTrainer on the AMD RDNA4 box and reading the result while it happens. The third rite taught the artificer to verify the GPU with <code>rocm-smi</code> and <code>torch.cuda</code> before trusting any toolchain claim; this rite extends that discipline into a live training run where the card is actively bound and every second of the run costs wattage, heat, and the chance to catch a bad bind before it finishes.</p>
-<p>The first check is the one the third rite's HSA_OVERRIDE_GFX_VERSION lesson taught: confirm PyTorch sees the GPU <em>before</em> the trainer fires. <code>torch.cuda.is_available()</code> must return <code>True</code>, <code>torch.cuda.device_count()</code> must return 1, and the model must report its device as <code>cuda:0</code>. If the model silently lands on CPU — the most common AMD training failure — the loss will drop (CPU training is correct, just slow), but the run will take hours per step instead of seconds, indistinguishable from a hung process at a glance. A single <code>print(next(model.parameters()).device)</code> after the PEFT wrap catches this in one line.</p>
-<p>With the GPU confirmed, the trainer's first few logging steps are the binding rite's vital signs. The loss should start somewhere in the 1.5–3.0 range for a well-initialized LoRA on a 7B base model — higher (4.0+) suggests the dataset is too noisy or the template is mismatched; lower (0.5 or below) before any training suggests the loss mask from the sixth rite is wrong and the model is predicting its own prompts (which are trivially easy to predict since they're in the input). The loss should trend downward steadily across steps — not in a smooth line (batch variance introduces noise), but with a clear negative slope when averaged over 10–20 steps. A loss that spikes, plateaus for a full epoch, or oscillates wildly without a downward trend signals a learning-rate problem or a gradient-accumulation mismatch.</p>
-<pre><code><span class="c"># Before trainer.train() — the AMD-specific guard:</span>
-<span class="k">print</span>(<span class="s">"cuda available:"</span>, torch.cuda.is_available())
-<span class="k">print</span>(<span class="s">"device count:"</span>, torch.cuda.device_count())
-<span class="k">print</span>(<span class="s">"model device:"</span>, <span class="k">next</span>(model.parameters()).device)
+<p>Finish <code>train.py</code> with a CLI that makes the one-step proof and the full run the same code path:</p>
+<pre><code>def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--run-id", required=True)
+    parser.add_argument("--max-steps", type=int, default=-1)
+    cli = parser.parse_args()
+    trainer, tokenizer = build_trainer(cli.run_id, cli.max_steps)
+    trainer.model.print_trainable_parameters()
+    torch.cuda.reset_peak_memory_stats()
+    result = trainer.train()
+    torch.cuda.synchronize()
+    adapter_dir = Path("artifacts/adapters") / cli.run_id
+    trainer.save_model(adapter_dir)
+    tokenizer.save_pretrained(adapter_dir)
+    metrics = dict(result.metrics)
+    metrics["max_memory_allocated_gib"] = torch.cuda.max_memory_allocated() / 1024**3
+    metrics["max_memory_reserved_gib"] = torch.cuda.max_memory_reserved() / 1024**3
+    metrics["gpu"] = torch.cuda.get_device_name(0)
+    metrics["architecture"] = torch.cuda.get_device_properties(0).gcnArchName
+    run_dir = Path("runs") / cli.run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "training-metrics.json").write_text(
+        json.dumps(metrics, indent=2, default=str) + "\n", encoding="utf-8")
 
-<span class="c"># During training — watch the card with a second terminal:</span>
-<span class="c">#   watch -n 1 rocm-smi --showmemuse vram --showuse</span>
-
-<span class="c"># Expected VRAM profile for QLoRA on 16 GB:</span>
-<span class="c">#   ~4.0 GB  — frozen 4-bit base weights</span>
-<span class="c">#   ~0.1 GB  — trainable adapter parameters</span>
-<span class="c">#   ~2–4 GB  — KV cache + activations (the variable part)</span>
-<span class="c">#   ~0.5 GB  — optimizer state (AdamW moment buffers)</span>
-<span class="c">#   Total:   ~8–10 GB — comfortably under the 16 GB ceiling</span></code></pre>
-<p>The AMD-specific gotcha list is short but load-bearing. <strong>bfloat16, not float16</strong>: ROCm's bf16 mixed-precision path on consumer cards is more stable than fp16, which can produce NaN-loss from gradient overflow in the attention softmax. <strong>No paged AdamW on bitsandbytes ROCm</strong>: the fifth rite's research confirmed that bitsandbytes' paged-optimizer feature (which offloads optimizer state to CPU during spikes) is buggy on ROCm builds — disable it (<code>optim="adamw_torch"</code> instead of <code>"paged_adamw_8bit"</code>) and let the standard PyTorch AdamW handle it; the VRAM budget already proved 16 GB is enough without paging. <strong>Checkpoint format is .safetensors</strong>: the trainer saves adapter weights in Hugging Face's safe-tensor format — a single-file format that loads without executing arbitrary code (unlike pickle-based .bin checkpoints), which matters when the sealing rite reopens these files in a different environment.</p>
-<p>The binding rite on a personal dataset of a few hundred records with a 7B base, rank 16, and one epoch should finish in 15–40 minutes on an RX 9070 XT — the training is small by design, and the time is dominated by the forward pass through the frozen base, not by adapter gradient computation. If the run exceeds an hour, something is wrong: the model is on CPU, the batch is too large for the card (causing swap to system RAM), or the gradient accumulation is misconfigured.</p>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // THE RANDOM SEED — WHY IT MATTERS AND WHAT IT DOES NOT CONTROL</div>
-<p>Set <code>seed=42</code> (or any fixed integer) in the <code>TrainingArguments</code>. This does not make the training deterministic in a cryptographic sense — GPU floating-point is non-associative even with a fixed seed, and bfloat16's reduced mantissa amplifies the variance — but it does guarantee that two runs with the same code, same data, same config, and same seed produce loss curves that are comparable, not identical. Without it, every run is a different shuffle of the dataset, and the loss curve cannot be used to judge whether a hyperparameter change made a real difference or just landed on a luckier data ordering. Comparative judgment — "rank 32 lost less than rank 16 on the same data" — only works when the ordering is held constant.</p></div>
+if __name__ == "__main__":
+    main()</code></pre>
+<p>Inside the tested ROCm container, run <code>python -m homunculus.doctor training</code>, then <code>python -m homunculus.train --run-id dry-001 --max-steps 1</code>. Inspect the report rather than guessing from fan noise. It must name <code>gfx1201</code>, report a finite training loss, save a reloadable adapter, and leave at least two GiB between physical VRAM and peak reserved memory. A one-step adapter is disposable evidence, not the product.</p>
+<p>If the dry step fails, preserve the traceback. An out-of-memory error calls for the Section III recovery order: reduce <code>max_length</code>, confirm gradient checkpointing and batch size one, then reconsider the base. An import or missing-kernel error calls for the doctor and pinned-environment checks. A NaN loss calls for inspecting the data boundary and compute dtype. Do not change five knobs together.</p>
+<p>After the dry step passes, run <code>python -m homunculus.train --run-id bind-001</code>. There is no universal “correct starting loss” or guaranteed runtime. Judge the run by finite loss, completed evaluation, measured peaks, saved artifacts, and later held-out behavior. Hardware speed, corpus length, sequence distribution, and library kernels all affect elapsed time.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ONE STEP CROSSES MANY BOUNDARIES</div>
+<p>A real dry step proves far more than an import test: the model quantizes, adapters attach, rows tokenize, labels contain supervised tokens, forward and backward kernels execute, the optimizer updates, peak memory is measured, and an adapter checkpoint is written. Preserve its report and traceback because it is the smallest reproducible version of the full bind.</p></div>
 '''
-body_words = 560
+
+[[lessons.readings]]
+label = "AMD PyTorch verification"
+url = "https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/install/installrad/native_linux/install-pytorch.html"
+
+[[lessons.readings]]
+label = "PyTorch CUDA memory APIs used by ROCm"
+url = "https://docs.pytorch.org/docs/stable/cuda.html#memory-management"
 
 [[lessons.exercises]]
 id = "s05-l05-e1"
 type = "mc"
 points = 20
-prompt = "Per this rite, what does a loss value of 0.4 on the very first logging step (before any meaningful training) most likely indicate?"
-choices = [
-  "The learning rate is perfectly tuned and the model is converging unusually fast — this is a good sign",
-  "The GPU is operating in a reduced-precision mode that accidentally improves the loss computation",
-  "The base model was already fine-tuned on similar data, so the loss starts low naturally",
-  "The loss mask from the sixth rite is probably wrong — the model is predicting its own user-turn prompt tokens (which are trivially easy to predict since they appear in the input), producing an artificially low loss that does not reflect actual learning",
-]
-answer = 3
-whyWrong = "An anomalously low initial loss on a fresh LoRA adapter (which is initialized near zero, contributing almost nothing) means the model is being evaluated on tokens it can trivially predict — which in a supervised fine-tune setup almost always means the user-turn tokens are not masked out of the loss. A base model fine-tuned on similar data would still show a loss in the 1.5–3.0 range because the LoRA adapter starts at near-zero contribution regardless of the base's training history."
-hint = "The lesson says 'lower (0.5 or below) before any training suggests the loss mask from the sixth rite is wrong and the model is predicting its own prompts.' The sixth rite's loss-masking lesson taught that unmasked user tokens produce artificially low loss because the model already sees them in the input — the correct choice connects this symptom to that earlier lesson."
-explain = "A fresh LoRA adapter is initialized so that its contribution is near-zero — the model initially behaves like the frozen base. If the loss starts at 0.4, the model is being tested on tokens it can trivially predict, which in an SFT setup means the loss mask failed to exclude user-turn tokens, and the model is predicting text it already sees in the input (a copy task, not a generation task)."
+prompt = "Why must the dry step use the same train.py path as the full bind?"
+choices = ["So its compatibility and memory proof covers the code that will actually train", "So the one-step adapter becomes the final model", "So evaluation data enters training", "So Ollama can merge during the step"]
+answer = 0
+whyWrong = "The dry artifact is disposable; evaluation leakage and Ollama merging would break stage boundaries."
+explain = "A separate toy smoke script can pass while the real trainer still fails."
+hint = "The proof is valuable only if it exercises the production path."
 
 [[lessons.exercises]]
 id = "s05-l05-e2"
 type = "text"
-points = 18
-prompt = "What single-line Python expression does the lesson recommend to confirm the model is on the GPU and not silently running on CPU — the check that catches the most common AMD training failure?"
-answer = "next(model.parameters()).device"
-accept = ["print(next(model.parameters()).device)", "next(model.parameters()).device"]
-hint = "It's the one-liner in the lesson's first code block, right after the torch.cuda checks — the line that prints the device of the model's first parameter."
+points = 15
+prompt = "Which metric is compared with physical VRAM for the conservative headroom gate?"
+answer = "max_memory_reserved_gib"
+accept = ["peak reserved memory", "torch.cuda.max_memory_reserved", "max_memory_reserved_gib"]
+hint = "Reserved includes memory held by the allocator."
 
 [[lessons.exercises]]
 id = "s05-l05-e3"
-type = "mc"
+type = "fill"
 points = 20
-prompt = "Per this rite, why does the binding rite use <code>bf16=True, fp16=False</code> in TrainingArguments instead of the more common float16 mixed-precision?"
-choices = [
-  "bfloat16 uses less VRAM than float16 because it stores fewer mantissa bits, so the 4-bit base quantizes more efficiently",
-  "bfloat16 has a wider exponent range (8 bits, same as float32), which makes gradient overflow — a NaN-loss hazard in the attention softmax — less likely on ROCm consumer cards; float16's narrower exponent (5 bits) is more prone to overflow, especially in the bf16-immature AMD stack",
-  "float16 is not supported at all on AMD GPUs — any fp16 flag causes an immediate torch.cuda error on ROCm",
-  "bfloat16 training is 2× faster than float16 on RDNA4 because the hardware natively accelerates bf16 matrix multiplies but not fp16 ones",
-]
-answer = 1
-whyWrong = "VRAM usage is identical (both use 2 bytes per value); float16 does work on AMD (it's less stable, not unsupported); and RDNA4 does not have special bf16 acceleration (that's a data-center CDNA feature). The real reason is numerical stability: bfloat16's 8-bit exponent matches float32's range, so values that would overflow float16's 5-bit exponent survive in bfloat16 — and attention softmax is especially vulnerable to exponent overflow."
-hint = "The lesson's AMD-specific gotcha list says 'ROCm's bf16 mixed-precision path on consumer cards is more stable than fp16, which can produce NaN-loss from gradient overflow in the attention softmax.' The correct choice captures the wider exponent range as the stability mechanism, not VRAM savings, hardware acceleration, or AMD fp16 unavailability."
-explain = "The attention softmax involves exponentiation of large logits — float16's max representable value is ~65,504, and logits routinely exceed that, producing inf → NaN. bfloat16's max is ~3.4 × 10^38 (same exponent range as float32), so the same logits survive the exponentiation without overflowing. On ROCm's consumer stack, where the fp16 path has historically seen less testing, this is the difference between a clean run and a NaN crash."
+prompt = "Complete the CLI option that limits the smoke run to one optimizer step."
+code = "python -m homunculus.train --run-id dry-001 ____ 1"
+answer = "--max-steps"
+hint = "It maps to SFTConfig.max_steps."
 
 [[lessons.exercises]]
 id = "s05-l05-e4"
-type = "fill"
+type = "mc"
 points = 20
-prompt = "Fill the missing optimizer argument for the TrainingArguments — the one that tells the trainer to use PyTorch's standard AdamW instead of bitsandbytes' paged variant, which the fifth rite's research showed is buggy on ROCm builds."
-code = '''from transformers import TrainingArguments
-
-args = TrainingArguments(
-    output_dir="./bind-output",
-    per_device_train_batch_size=1,
-    gradient_accumulation_steps=4,
-    num_train_epochs=1,
-    learning_rate=2e-4,
-    bf16=True,
-    ____="adamw_torch",
-)'''
-answer = "optim"
-accept = ["optim"]
-hint = "The lesson's AMD gotcha list says to use optim='adamw_torch' instead of the paged variant — the TrainingArguments field that selects the optimizer is named here."
+prompt = "The dry step hits OOM at max_length 1024. What is the first narrow change?"
+choices = ["Reduce max_length and rerun the identical measurement", "Set a false HSA architecture override", "Move evaluation rows into training", "Switch to an unrelated base without recording it"]
+answer = 0
+whyWrong = "Overrides, leakage, and silent base changes do not address the measured activation budget honestly."
+explain = "Sequence length is the first configured activation lever in the recovery order."
+hint = "Change the term most directly tied to retained activations."
 
 [[lessons.exercises]]
 id = "s05-l05-e5"
-type = "type"
-points = 12
-reps = 2
-code = '''# Before trainer.train() — the AMD-specific guard:
-print("cuda available:", torch.cuda.is_available())
-print("device count:", torch.cuda.device_count())
-print("model device:", next(model.parameters()).device)'''
-
-[[lessons.exercises]]
-id = "s05-l05-e6"
 type = "write"
 points = 35
-prompt = "Given <code>loss_log</code> — the per-step training loss for the first 12 steps — find the step with the lowest loss and print <code>BEST STEP &lt;n&gt; LOSS &lt;v&gt;</code> with the loss rounded to 2 decimal places. If the best step appears multiple times, report the earliest. Compute from the list, not hardcoded."
-starter = '''loss_log = [
-    2.35, 2.18, 2.41, 1.97, 2.05, 1.88,
-    1.92, 1.76, 1.83, 1.95, 1.71, 1.79,
-]
+prompt = "Compute measured headroom and print exactly: DRY PASS headroom=2.4"
+starter = '''physical = 16.0
+reserved = 13.6
+required = 2.0
 
-# Two built-ins do this in two lines (see this chapter's opening note):
-#   min(loss_log)          -> the smallest loss value
-#   loss_log.index(value)  -> the first step number where it appears
-# Print BEST STEP <index> LOSS <value rounded to 2 places, use :.2f>.
-print("BEST STEP 0 LOSS 0.00")
+headroom = 0
+status = "FAIL"
+print(f"DRY {status} headroom={headroom:.1f}")
 '''
-expect = "BEST STEP 10 LOSS 1.71"
-hint = "Use min_loss = min(loss_log) and best_step = loss_log.index(min_loss). The step is the index (0-based). Format: f'BEST STEP {best_step} LOSS {min_loss:.2f}'. Step 10 has loss 1.71."
+solution = '''physical = 16.0
+reserved = 13.6
+required = 2.0
+
+headroom = physical - reserved
+status = "PASS" if headroom >= required else "FAIL"
+print(f"DRY {status} headroom={headroom:.1f}")
+'''
+expect = "DRY PASS headroom=2.4"
+hint = "Subtract peak reserved from physical, then apply the required threshold."

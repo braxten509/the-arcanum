@@ -1,103 +1,92 @@
 [[lessons]]
 id = "s08-l02"
-title = "Task.WhenAll — the fan-out"
+teaches = ["task-when-all"]
+title = "Task.WhenAll — Start Together, Await Together"
 body = '''
+<p>The concurrency pattern has two distinct moments: start every operation, then await the group. Chapter VII's deferred-execution lesson matters here because a lazy <code>Select</code> does not call its lambda until it is enumerated.</p>
+<pre><code>List&lt;Task&lt;FetchOutcome&gt;&gt; tasks = sources
+    .Select(source =&gt; FetchOneAsync(source, ct))
+    .ToList();                         <span class="c">// enumerate now; calls start now</span>
 
-<p>The parallel pattern, distilled to its essence:</p>
-<pre><code>List&lt;<span class="k">string</span>&gt; urls = GetTrustedUrls();       <span class="c">// 5 urls</span>
-
-<span class="c">// 1. START everything — no awaits yet. All 5 requests are now in flight.</span>
-List&lt;Task&lt;ScrapeOutcome&gt;&gt; tasks = urls.Select(u =&gt; ScrapeOneAsync(u)).ToList();
-
-<span class="c">// 2. Await them ALL at once.</span>
-ScrapeOutcome[] outcomes = <span class="k">await</span> Task.WhenAll(tasks);
-
-<span class="c">// total time ≈ the SLOWEST page, not the sum</span></code></pre>
-<p>The classic self-sabotage — awaiting inside the loop — LOOKS async but is fully sequential:</p>
-<pre><code><span class="k">foreach</span> (<span class="k">var</span> u <span class="k">in</span> urls)
-    results.Add(<span class="k">await</span> ScrapeOneAsync(u));   <span class="c">// each waits for the previous. 5x slower.</span></code></pre>
-<p>Notes on the pattern:</p>
-<ul>
-<li>The <code>.ToList()</code> in step 1 matters! LINQ is lazy (Chapter VII) — without materializing, tasks would start one-by-one as WhenAll enumerates. ToList fires them all NOW.</li>
-<li><code>Task.WhenAll</code> returns the results in the SAME ORDER as the input tasks, regardless of finish order.</li>
-<li>Sibling: <code>Task.WhenAny(tasks)</code> completes when the FIRST task finishes — races, timeouts, "first source to answer wins".</li>
-</ul>
-<div class="callout">Politeness still applies (Chapter VI): 5 requests to 5 DIFFERENT hosts in parallel is fine. 50 parallel requests to ONE host is a beating. If you ever scale up, cap per-host concurrency — for Verisearch's 5 distinct sources, you're clean.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
-<p><strong>Throttling</strong> — when you someday have 50 URLs, don't launch 50 requests: <code>SemaphoreSlim(5)</code> is the standard gate:</p>
-<pre><code>var gate = new SemaphoreSlim(5);
-var tasks = urls.Select(async u =>
+FetchOutcome[] outcomes = <span class="k">await</span> Task.WhenAll(tasks);</code></pre>
+<p>Do not put <code>await</code> inside the loop that starts each fetch:</p>
+<pre><code><span class="k">foreach</span> (SourceSpec source <span class="k">in</span> sources)
 {
-    await gate.WaitAsync();
-    try { return await ScrapeOneAsync(u); }
-    finally { gate.Release(); }
-}).ToList();</code></pre>
-<p>Five in flight, the rest queue. File the pattern away — Verisearch's 5 sources don't need it, scale does.</p>
-<p><strong>WhenAny in anger:</strong> <code>var winner = await Task.WhenAny(primary, Task.Delay(2000));</code> — race a task against a delay for a soft timeout, or race mirrors and take the fastest.</p></div>'''
+    FetchOutcome outcome = <span class="k">await</span> FetchOneAsync(source, ct);
+    results.Add(outcome);              <span class="c">// next fetch starts only after this one ends</span>
+}</code></pre>
+<p>The second version is asynchronous but sequential. If four sources each take about one second, it takes about four seconds; start-all/await-all takes about the slowest one. <code>Task.WhenAll</code> returns results in input-task order, not completion order, so stable source order remains available even when the third source finishes first.</p>
+<ul><li><code>ToList</code> materializes the calls and stores their task handles.</li><li><code>WhenAll</code> gives one task representing the entire set.</li><li>Awaiting that group does not create extra threads for HTTP waits.</li><li>Do not write several tasks into one shared result list; have each task return one outcome.</li></ul>
+<p>Concurrency does not remove fetch etiquette. A small list of user-chosen sources is a reasonable batch. If the product later accepts large lists, add an explicit concurrency limit with <code>SemaphoreSlim</code>; do not hide an unbounded fan-out inside this first implementation.</p>
+<div class="callout">Materializing starts the async methods because calling an async method begins its work up to the first incomplete await. <code>WhenAll</code> then waits; it is not the starting pistol.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // ORDER IS NOT TIMING</div><p>Result order follows task input order. If the UI ever needs completion order, that is a different design using <code>Task.WhenAny</code> in a loop. Verisearch does not need that complexity; one final batch report is clearer.</p></div>
+'''
 
 [[lessons.readings]]
-label = "Microsoft Learn — \"Asynchronous programming\" (WhenAll)"
-url = "https://learn.microsoft.com/en-us/dotnet/csharp/asynchronous-programming/"
-essential = false
-
-[[lessons.readings]]
-label = "RoundTheCode — async/await API calls without blocking"
-url = "https://www.roundthecode.com/dotnet-tutorials/how-to-use-csharp-async-await-api-calls-stop-blocking"
+label = "Microsoft Learn — Task.WhenAll"
+url = "https://learn.microsoft.com/en-us/dotnet/api/system.threading.tasks.task.whenall"
 essential = false
 
 [[lessons.exercises]]
 id = "s08-l02-e1"
 type = "mc"
 points = 25
-prompt = "Five pages take 1.2s, 0.9s, 1.5s, 0.7s, 1.1s. Total time with Task.WhenAll ≈"
-choices = ["5.4s — the sum", "1.08s — the average", "0.7s — the fastest", "1.5s — the slowest"]
+prompt = "Five requests take 1.2, 0.9, 1.5, 0.7, and 1.1 seconds. Ignoring small overhead, a concurrent WhenAll batch takes about…"
+choices = ["5.4 seconds", "1.08 seconds", "0.7 seconds", "1.5 seconds"]
 answer = 3
-whyWrong = "WhenAll runs them concurrently, so total time is the SLOWEST task (1.5s), not the sum, average, or fastest."
-hint = "Parallel cost = max, sequential cost = sum."
+whyWrong = "The requests overlap, so elapsed time is approximately the slowest request rather than the sum, average, or fastest request."
+explain = "All work begins before the one group await; completion therefore waits for the 1.5-second member."
+hint = "Concurrent cost is approximately the maximum duration."
 
 [[lessons.exercises]]
 id = "s08-l02-e2"
 type = "mc"
 points = 25
-prompt = "Why is <code>foreach (var u in urls) results.Add(await Scrape(u));</code> NOT parallel?"
-choices = ["Each await pauses the loop until that scrape finishes before starting the next", "foreach can't contain await", "It is parallel — this is fine", "results.Add isn't thread-safe"]
+prompt = "Why is <code>await FetchOneAsync</code> inside a foreach not a concurrent batch?"
+choices = ["The loop waits for each fetch before starting the next", "foreach cannot contain await", "List.Add blocks HTTP", "CancellationToken forbids it"]
 answer = 0
-whyWrong = "It’s valid code, but awaiting inside the loop pauses until each scrape finishes before starting the next — collect the Tasks and WhenAll them for real parallelism."
-hint = "Start-all-then-await-all vs start-one-await-one."
+whyWrong = "Await is legal in a loop, List.Add is not the network wait, and cancellation permits either shape. The location of await serializes starting."
+explain = "Collect task handles first, then await the group once."
+hint = "Ask when the second fetch call occurs."
 
 [[lessons.exercises]]
 id = "s08-l02-e3"
 type = "fill"
 points = 25
-prompt = "Fill the blank to await all scrape tasks at once."
-code = '''
-var tasks = urls.Select(u => ScrapeOneAsync(u)).ToList();
-var outcomes = await Task.____(tasks);'''
+prompt = "Complete the method that joins all already-started tasks."
+code = '''FetchOutcome[] outcomes = await Task.____(tasks);'''
 answer = "WhenAll"
 accept = ["whenall"]
-hint = "Its sibling WhenAny returns on the first completion."
+hint = "Its name contrasts with WhenAny."
 
 [[lessons.exercises]]
 id = "s08-l02-d1"
 type = "type"
 points = 14
 reps = 2
-prompt = "The fan-out idiom — materialized Select, one WhenAll. Twice; this is THE line of Chapter VIII."
-code = '''
-var tasks = urls.Select(u => ScrapeOneAsync(u)).ToList();
-var outcomes = await Task.WhenAll(tasks);'''
+prompt = "Retype the fan-out and join twice."
+code = '''List<Task<FetchOutcome>> tasks = sources
+    .Select(source => FetchOneAsync(source, ct))
+    .ToList();
+FetchOutcome[] outcomes = await Task.WhenAll(tasks);'''
 
 [[lessons.exercises]]
 id = "s08-l02-w1"
 type = "write"
 points = 36
-prompt = "Write async methods A(), B(), C() that each await <code>Task.Delay(50)</code> then return \"alpha\", \"beta\", \"gamma\" respectively. Fan out with Task.WhenAll and print the results space-joined — WhenAll preserves input order, prove it."
+prompt = "Write async methods A, B, and C that delay briefly then return alpha, beta, and gamma. Start all three in one WhenAll call and print the results space-joined."
+starter = '''Console.WriteLine("NOT STARTED");
+
+static async Task<string> A() { await Task.Delay(30); return "alpha"; }
+static async Task<string> B() { await Task.Delay(5); return "beta"; }
+static async Task<string> C() { await Task.Delay(15); return "gamma"; }
+'''
 expect = "alpha beta gamma"
-solution = '''
-string[] results = await Task.WhenAll(A(), B(), C());
+solution = '''string[] results = await Task.WhenAll(A(), B(), C());
 Console.WriteLine(string.Join(" ", results));
 
-async Task<string> A() { await Task.Delay(50); return "alpha"; }
-async Task<string> B() { await Task.Delay(50); return "beta"; }
-async Task<string> C() { await Task.Delay(50); return "gamma"; }
+static async Task<string> A() { await Task.Delay(30); return "alpha"; }
+static async Task<string> B() { await Task.Delay(5); return "beta"; }
+static async Task<string> C() { await Task.Delay(15); return "gamma"; }
 '''
-hint = "var r = await Task.WhenAll(A(), B(), C()); Console.WriteLine(string.Join(\" \", r));"
+hint = "Task.WhenAll(A(), B(), C()) returns a string array in that input order."

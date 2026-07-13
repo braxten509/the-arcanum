@@ -1,85 +1,111 @@
 [[lessons]]
 id = "s01-l03"
-title = "The Stack Above the Metal"
+teaches = ["tool-navigate", "tool-edit-save"]
+title = "Pin the Project, Then Edit What You Run"
 body = '''
-<p>ROCm and PyTorch give you a card that computes. Everything above that layer is the Hugging Face stack, and each library in it has exactly one job — confusing their jobs is how a working bench still fails to train anything. <strong>transformers</strong> loads a base model's architecture and weights. <strong>datasets</strong> loads and shapes your training examples into the rows a trainer expects. <strong>peft</strong> wraps a loaded model with a LoRA adapter — the small, trainable delta this course spends its middle rites on. <strong>trl</strong> supplies the actual training loop, its <code>SFTTrainer</code>, that reads your shaped dataset and updates the adapter's weights. <strong>accelerate</strong> sits underneath all of them, deciding which device each tensor lives on — on a single-GPU bench like yours, its job is small, but it is still the thing quietly making device placement correct.</p>
-<p>Downstream of training sits a second, separate toolchain, and its job is not to train anything — it exists purely to turn a finished set of weights into something you can talk to locally. <strong>llama.cpp</strong> converts and quantizes a merged model into GGUF, the single-file format from the first lesson. <strong>Ollama</strong> then loads that GGUF and serves it as a local chat process, configured by a <code>Modelfile</code> — a small text file naming the base GGUF, the chat template, and the system prompt the served model should carry.</p>
-<p>None of this lives inside this tome's engine. The homunculus you build is a real external project, in your own folder, run by your own tools — this course only teaches you what to install and verify. That project needs one marker file the engine can recognize as "a real Python project lives here":</p>
-<pre><code>[runtime]
-name = "python"
-externalWorkspace = true
-projectFile = "____"</code></pre>
-<p>Lay the project out plainly from the start — a data folder for your distilled notes, a source folder for training and serving scripts, and the marker file at the root:</p>
-<pre><code>my-homunculus/
-  pyproject.toml
-  src/
-    train.py
-  data/</code></pre>
-<div class="callout">If a rite ever asks you to run something "in the workbench," that means your own external project and editor — not a sandbox standing in for the real one.</div>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // ONE JOB PER TOOL</div>
-<p>When something breaks later, resist the urge to blame "the training step" as one lump. Ask which single-job tool actually owns the failure: a shape error is almost always <code>datasets</code>; a device error is almost always <code>accelerate</code>; an adapter that won't attach is almost always a <code>peft</code> config mismatch; a loop that never starts is <code>trl</code>. Naming the tool narrows the fix before you've read a single line of traceback.</p></div>
+<p>The AMD image already contains its tested PyTorch build. Do not replace that build with an arbitrary <code>pip install torch</code>. Instead, declare only the application libraries Homunculus owns. Open the root <code>pyproject.toml</code> in your editor and save this project contract:</p>
+<pre><code>[build-system]
+requires = ["setuptools&gt;=80"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "homunculus"
+version = "0.1.0"
+requires-python = "==3.12.*"
+dependencies = [
+  "httpx==0.28.1",
+  "numpy==1.26.4",
+]
+
+[project.optional-dependencies]
+train = [
+  "accelerate==1.14.0",
+  "bitsandbytes==0.49.2",
+  "datasets==5.0.0",
+  "peft==0.19.1",
+  "transformers==5.13.0",
+  "trl==1.8.0",
+]
+rag = [
+  "faiss-cpu==1.14.3",
+  "sentence-transformers==5.6.0",
+]
+dev = ["pytest==9.1.1"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]</code></pre>
+<p>These pins are a known course snapshot, not a promise that newer versions are bad. They make the examples and current APIs agree. The <code>numpy</code> pin also follows AMD's tested-environment guidance. When you intentionally upgrade later, change one layer at a time and rerun the doctor.</p>
+<p>Still inside the training container and at <code>/workspace</code>, install the editable project:</p>
+<pre><code>python -m pip install --upgrade pip
+python -m pip install -e '.[train,rag,dev]'
+python -c 'import homunculus; print(homunculus.__file__)'</code></pre>
+<p>An editable install means <code>python -m homunculus.doctor</code> imports the file under <code>src/homunculus/</code> that you can see and edit. If the printed path points at some unrelated copy, stop: inspect <code>pwd</code>, uninstall that accidental copy, return to <code>/workspace</code>, and install again.</p>
+<p>Know which component owns each future problem. <code>datasets</code> shapes JSONL rows; <code>transformers</code> owns tokenization and base-model loading; <code>peft</code> owns the LoRA adapter; <code>trl</code> owns supervised training; <code>bitsandbytes</code> owns 4-bit loading; <code>sentence-transformers</code> and FAISS own retrieval. llama.cpp converts and quantizes merged weights; Ollama serves the GGUF. Save after each coherent edit, run the smallest relevant command, and read the first traceback frame inside <code>src/homunculus</code> before changing packages.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // PINS ARE PART OF THE EXPERIMENT</div>
+<p>Package versions are not housekeeping here. They define constructor names, dataset behavior, quantization kernels, and even whether the card target exists in a wheel. Change one pin only as an explicit experiment, capture the old and new lock state, and rerun the doctor plus the narrowest affected proof before accepting it.</p></div>
 '''
 
 [[lessons.readings]]
-label = "Hugging Face transformers docs"
-url = "https://huggingface.co/docs/transformers/index"
+label = "Python packaging: pyproject.toml"
+url = "https://packaging.python.org/en/latest/guides/writing-pyproject-toml/"
 
 [[lessons.readings]]
-label = "Ollama Modelfile reference"
-url = "https://github.com/ollama/ollama/blob/main/docs/modelfile.md"
+label = "TRL SFTTrainer"
+url = "https://huggingface.co/docs/trl/sft_trainer"
 
 [[lessons.exercises]]
 id = "s01-l03-e1"
 type = "mc"
 points = 20
-prompt = "Which pairing correctly matches each Hugging Face library to its one job in the training half of the stack?"
+prompt = "Why is torch absent from this project's dependency list?"
 choices = [
-  "datasets runs the training loop; trl only stores files on disk",
-  "peft downloads the base model's weights; transformers only defines the LoRA config",
-  "accelerate quantizes the model to GGUF; llama.cpp only loads checkpoints into memory",
-  "trl's SFTTrainer runs the supervised fine-tune loop; datasets loads and shapes the JSONL; peft wraps the base model with a LoRA adapter; accelerate handles device placement",
+  "Homunculus never uses tensors",
+  "The tested AMD image already owns the matching ROCm PyTorch build",
+  "bitsandbytes secretly replaces PyTorch",
+  "Ollama trains the adapter instead",
 ]
-answer = 3
-whyWrong = "Swapping which library 'runs the loop' versus 'loads data' is the single most common mix-up here — trl owns the loop, datasets owns the rows it feeds in, and neither one does the other's job."
-explain = "Each library keeps to exactly one responsibility: architecture/weights (transformers), data shaping (datasets), adapter wrapping (peft), the loop itself (trl), device placement (accelerate)."
-hint = "The lesson's FIELD NOTES break it down: a shape error is datasets, a device error is accelerate, an adapter that won't attach is peft, and the training loop itself is trl."
+answer = 1
+whyWrong = "The training code does use PyTorch; neither bitsandbytes nor Ollama replaces it. The omission protects the vendor-tested ROCm build from an accidental generic replacement."
+explain = "Environment-level PyTorch and application-level dependencies have deliberately separate owners."
+hint = "Which component supplied the tested GPU runtime?"
 
 [[lessons.exercises]]
 id = "s01-l03-e2"
 type = "text"
 points = 15
-prompt = "What file does Ollama read to define a served model's base GGUF, chat template, and system prompt?"
-answer = "Modelfile"
-accept = ["a modelfile"]
-hint = "It's named directly in the lesson's paragraph about the serving side of the stack, right after GGUF is mentioned."
+prompt = "Which library owns the small trainable LoRA adapter?"
+answer = "peft"
+accept = ["PEFT"]
+hint = "Its name expands to parameter-efficient fine-tuning."
 
 [[lessons.exercises]]
 id = "s01-l03-e3"
 type = "fill"
 points = 20
-prompt = "Fill the missing key from the runtime snippet shown in the lesson — the file that marks this as a real external Python project."
-code = '''[runtime]
-name = "python"
-externalWorkspace = true
-projectFile = "____"'''
-answer = "pyproject.toml"
-hint = "It's the standard Python project marker file named in the lesson's folder layout, sitting at the project root next to src/ and data/."
+prompt = "Complete the editable installation command for this project's development dependencies."
+code = "python -m pip install -e '.[train,rag,____]'"
+answer = "dev"
+hint = "It is the optional-dependency group containing pytest, after the training and retrieval groups."
 
 [[lessons.exercises]]
 id = "s01-l03-e4"
 type = "write"
 points = 30
-prompt = "Given a dict mapping five pipeline stage names to their correct order, and a shuffled list of those same stages, sort the shuffled list into the correct order and print exactly: <code>PIPELINE: train -> merge -> convert -> quantize -> serve</code>."
-starter = '''order_index = {"train": 0, "merge": 1, "convert": 2, "quantize": 3, "serve": 4}
-stages = ["quantize", "train", "serve", "merge", "convert"]
+prompt = "Sort the shuffled pipeline stages by order_index and print exactly: PIPELINE: curate -> train -> evaluate -> merge -> serve"
+starter = '''order_index = {"curate": 0, "train": 1, "evaluate": 2, "merge": 3, "serve": 4}
+stages = ["merge", "curate", "serve", "evaluate", "train"]
 
-# NEW TOOL (beyond Chapters I-II): sorted(seq, key=f) returns a NEW list,
-# ordered by the number f gives back for each item. order_index.get is such
-# an f -- it returns a stage's index. Put them together to order `stages`,
-# then the print below builds:
-#   PIPELINE: train -> merge -> convert -> quantize -> serve
 ordered = stages
 print("PIPELINE: " + " -> ".join(ordered))
 '''
-expect = "PIPELINE: train -> merge -> convert -> quantize -> serve"
-hint = "Python's sort takes a key function — use order_index.get on each stage name rather than sorting the strings alphabetically."
+solution = '''order_index = {"curate": 0, "train": 1, "evaluate": 2, "merge": 3, "serve": 4}
+stages = ["merge", "curate", "serve", "evaluate", "train"]
+
+ordered = sorted(stages, key=order_index.get)
+print("PIPELINE: " + " -> ".join(ordered))
+'''
+expect = "PIPELINE: curate -> train -> evaluate -> merge -> serve"
+hint = "Use sorted(stages, key=order_index.get)."

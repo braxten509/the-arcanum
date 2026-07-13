@@ -1,25 +1,31 @@
 [freestyle]
-title = "THE WORKING: KINDLE THE BENCH"
-brief = "Assemble the first working bench for the homunculus: a verified ROCm/PyTorch/HF/llama.cpp/Ollama toolchain, with the GPU seen by the runtime and the tools named in the notes.<ul><li>Show the exact install and verification path for the external toolchain.</li><li>Prove the GPU is visible to PyTorch on ROCm.</li><li>Keep the commission grounded in the real project folder the student will choose later.</li></ul>"
+requires = ["tool-install", "tool-create-open", "tool-navigate", "tool-edit-save", "tool-run-test", "tool-diagnose", "project-doctor"]
+title = "THE WORKING: KINDLE THE REAL BENCH"
+brief = '''Create and keep the external <code>Homunculus/</code> project that every later Working will extend. Submit the project tree, its pinned <code>pyproject.toml</code>, <code>src/homunculus/doctor.py</code>, <code>tests/test_doctor.py</code>, and <code>reports/doctor.txt</code>.<ul><li>Show that you opened the project root in your editor, edited and saved the visible source, and ran commands from that same root.</li><li>Use AMD's tested Python 3.12 ROCm container without replacing its PyTorch build.</li><li>Prove HIP, the Radeon name, <code>gfx1201</code>, and the result of a real GPU tensor operation.</li><li>Prove the pinned application imports, the llama.cpp build, and the host Ollama version endpoint.</li><li>Run the pytest check and the doctor; the saved report must end in <code>READY</code>.</li><li>Add <code>reports/recovery.md</code> naming the owner and narrow recovery for a host-device failure, container-mapping failure, wrong import path, and Ollama failure.</li></ul>Do not submit screenshots without command output, a copied report from another machine, an HSA target override, or files outside the one evolving project.'''
 reward = 180
-xray = "The first failure is usually a false victory: a driver installed but the GPU never seen, a package installed but not the ROCm build, or a model run in the wrong place. Dock anything that does not prove the whole chain."
+xray = "A passing-looking report is insufficient if the script never performs its claimed checks. Inspect the code and evidence together. The GPU proof must execute a device tensor, package versions must be read from the environment, and Ollama must answer its live endpoint."
 
 [freestyle.badge]
 id = "s01-badge"
 name = "KINDLED BENCH"
-desc = "Awarded for lighting the first working bench."
+desc = "Awarded for a reproducible Radeon workshop with executable readiness proof."
 
 [[freestyle.rubric]]
-criterion = "Toolchain proof"
-weight = 40
-desc = "The exact external tools are named and their install/verification path is explicit."
+criterion = "Persistent project and editor workflow"
+weight = 20
+desc = "The required tree is one real external project; root navigation, edit/save, run, and preserved report are demonstrated."
 
 [[freestyle.rubric]]
-criterion = "GPU verification"
+criterion = "ROCm compute proof"
 weight = 35
-desc = "The bench proves the AMD GPU is visible to the ROCm PyTorch stack."
+desc = "The tested image reports HIP, the Radeon, gfx1201, and a correct GPU tensor result without a target override."
 
 [[freestyle.rubric]]
-criterion = "Project framing"
-weight = 25
-desc = "The work is clearly framed as the student's external project, not a sandbox toy."
+criterion = "Toolchain and tests"
+weight = 30
+desc = "Pinned imports, pytest, llama.cpp, and live Ollama are verified by commands whose saved output matches the implementation."
+
+[[freestyle.rubric]]
+criterion = "Diagnosis and recovery"
+weight = 15
+desc = "Recovery notes assign each failure to the correct layer and preserve learner-owned data and artifacts."

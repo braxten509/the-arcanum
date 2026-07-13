@@ -1,44 +1,36 @@
 [freestyle]
-title = "THE WORKING 10 // The Cartographer's Ledger"
+title = "BUILD: The Cartographer's Ledger"
 brief = '''
-<p>Bind the cartographer's ledger into the growing RuneBound route. The commission must leave a runnable artifact whose behavior can be inspected from the named evidence.</p><ul><li>preserve the chart's data boundary and use the established names</li><li>prove the requested behavior with a repeatable run that ends at <code>RUNEBOUND S10 SEAL</code></li><li>write a short repair note explaining the nearest failure and the change that corrected it</li></ul>
+<p>Wayfinder, bind quests and persistence into the cumulative RuneBound world. This is a runnable PyGame delivery, not a terminal-only JSON sketch.</p>
+<ul><li>create canonical <code>quests.py</code> with <code>Quest(quest_id, title, objectives, conditions, reward, completed=False)</code>, <code>Quest.check_completion(player, combat_flags, dialogue_flags)</code>, <code>QuestLog.update/active</code>, and <code>draw_quest_log</code></li><li>create <code>data/quests.json</code> as the sole quest-definition source with a Shadow Key condition that reads the literal <code>"shadow_key"</code> from <code>player.inventory.items</code>; retire every inline quest-completion <code>if</code></li><li>record dialogue node ids after successful DialogueTree choices and combat victory flags after CombatSystem results; evaluate those dictionaries and inventory facts after gameplay changes, not from rendered text</li><li>add the quest-gated CSV variant <code>data/maps/overworld_unsealed.csv</code>; when the quest first completes, call <code>TileMap.load(filename)</code> once to replace the grid and retain the current filename</li><li>add Q-key QuestLog UI and a one-time reward banner through the existing KEYDOWN pump; all quest text uses s07 <code>render_text</code> at screen pixels before one final flip</li><li>create <code>state.py</code> with <code>GameState.to_dict()</code>, <code>GameState.from_dict(payload, player, quest_log)</code>, <code>save_game</code>, and safe <code>load_game</code>; persist Player world position, StatBlock fields, ordered inventory ids, quest completion, dialogue flags, combat flags, and current map filename to <code>save.json</code></li><li>route S and L through main.py’s existing KEYDOWN loop; a missing or corrupt save reports recovery without erasing the current session, while a valid load restores objects and calls <code>TileMap.load</code> before the next draw</li><li>run <code>python3 main.py</code> from the RuneBound folder; collect Shadow Key, inspect Q, save, relaunch, load, and prove position, HP, I inventory, Q quest progress, Elder dialogue state, and quest-gated map survive; also test missing and malformed saves and record command, observations, and repair/no-repair in <code>README.md</code></li></ul>
 '''
-requires = ["s10-quest-definition","s10-objective-state","s10-condition-evaluator","s10-cross-system-facts","s10-quest-log","s10-quest-ui","s10-state-dict","s10-json-serialization","s10-safe-load","s10-save-errors","s10-save-load-integration","s10-persistence-proof"]
-reward = 260
+requires = ["s10-quest-record", "s10-quest-data-loading", "s10-quest-condition-evaluator", "s10-quest-cross-system-facts", "s10-quest-log-update", "s10-quest-log-ui", "s10-game-state-snapshot", "s10-json-save-write", "s10-game-state-restore", "s10-safe-save-load", "s10-save-load-frame-route", "s10-persistence-verification"]
+reward = 430
 xray = '''
-The Cartographer checks whether the ledger seal commission keeps quest data with an id, objective text, condition kind, and reward under the right owner, shows s11 can place load behind a title menu and prove the final world survives a relaunch, and leaves evidence beyond a decorative printout.
+The Cartographer starts at main.py’s event pump and traces one Shadow Key through Player.inventory.items, Quest.check_completion, QuestLog’s one-time transition, the quest-gated TileMap.load replacement, screen-space Q/report rendering, GameState.to_dict(), save.json, load_game recovery, GameState.from_dict(), and the one final flip.
 '''
 
 [freestyle.badge]
 id = "badge-s10"
-name = "LEDGER SEAL SEALED"
-desc = "Sealed the the cartographer's ledger chart with evidence another wayfinder can inspect."
+name = "LEDGER SEALED"
+desc = "Bound quest truth and a recoverable world snapshot."
 
 [[freestyle.rubric]]
-criterion = "Ledger Seal runs"
+criterion = "Data-Driven Quest Truth"
 weight = 25
-desc = '''
-The the cartographer's ledger artifact parses and runs with the chart's named behavior visible.
-'''
+desc = '''<code>data/quests.json</code> is the sole quest-definition source. Quest conditions inspect canonical inventory, combat, and dialogue facts; the old inline completion check is retired.''' 
 
 [[freestyle.rubric]]
-criterion = "Ledger Seal keeps its boundary"
-weight = 35
-desc = '''
-The commission keeps quest data with an id, objective text, condition kind, and reward and s11 can place load behind a title menu and prove the final world survives a relaunch in the owners established by the lessons.
-'''
-
-[[freestyle.rubric]]
-criterion = "Ledger Seal shows proof"
+criterion = "Cumulative Quest Route"
 weight = 25
-desc = '''
-The wayfinder supplies a repeatable observation, the exact s10 seal, and a useful comparison case rather than a one-time claim.
-'''
+desc = '''QuestLog reports a one-time completion, Q and reward text are screen-space UI before one flip, dialogue node hooks preserve DialogueTree ownership, and the completed quest replaces the grid through <code>TileMap.load</code> once.''' 
 
 [[freestyle.rubric]]
-criterion = "Cartographer's repair note"
-weight = 15
-desc = '''
-The explanation names the failing boundary, the evidence that exposed it, and the smallest correction that restored the route.
-'''
+criterion = "Safe Complete Snapshot"
+weight = 30
+desc = '''GameState saves and restores world-pixel Player position, all StatBlock fields, ordered inventory ids, quest completion, dialogue/combat flags, and map filename. Missing or malformed saves preserve the active session and report recovery.''' 
 
+[[freestyle.rubric]]
+criterion = "Relaunch Evidence"
+weight = 20
+desc = '''README records the command, Shadow Key and journal observation, saved/relaunched/restored position and state, missing/corrupt-save recovery, and one repair or explicit no-repair result.''' 

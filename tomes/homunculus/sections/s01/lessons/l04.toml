@@ -1,79 +1,142 @@
 [[lessons]]
 id = "s01-l04"
-title = "The Exit Bar: Proving the Whole Bench"
+teaches = ["tool-run-test", "project-doctor"]
+title = "Make Readiness Executable"
 body = '''
-<p>A rite does not end when every package reports "installed successfully." It ends when a single script, run start to finish, touches every link in the chain and reports the truth. This lesson is about writing that script and reading it honestly — not stacking five separate reassurances that never actually run together.</p>
-<p>Recall the chain: ROCm gives the metal, PyTorch's ROCm build proves the metal is reachable, the Hugging Face stack loads and trains, llama.cpp converts and quantizes, Ollama serves. A real smoke test checks a fact at each link, not just the first one. "PyTorch sees the GPU" is necessary but not sufficient — plenty of benches pass that single check and still can't train, because a downstream wheel was compiled for the wrong <code>gfx</code> target, or the HF stack was never actually installed.</p>
-<p>This is also where the earlier rites in this section earn their keep. The card's target string, the wavefront distinction, the one-job-per-tool discipline — none of that was trivia; it's the vocabulary this test's failures speak in. When a check fails, you now know whether to suspect the driver layer, a mismatched wheel, or a genuinely broken script, instead of reinstalling things at random.</p>
-<pre><code>my-homunculus/
-  pyproject.toml
-  <span class="s">src/</span>/
-    train.py
-  data/</code></pre>
-<p>That project layout from the last rite is where this test actually lives — a plain script in <code>src/</code>, run with your own interpreter, in your own folder. If this course's engine ever needs to read that folder, you point it there yourself; nothing here writes into it or resets it on your behalf.</p>
-<div class="callout">A "READY" printed by a script that never actually imported the HF stack is a false victory — the exact failure the grader is trained to catch. Every claimed check must be a check that actually ran.</div>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // THE HONEST FAILURE MESSAGE</div>
-<p>Write your smoke test to name what failed, not just that something failed. "NOT READY" alone sends you hunting blind through five tools; "NOT READY: hf_stack, ollama_ok" tells you exactly which two links to re-check first. The habit of naming the specific failure, not just its existence, is the same habit the grader rewards in your first freestyle and every rite after it.</p></div>
+<p>A successful installation message is not evidence that the assistant can be built. Turn readiness into a command that fails at the first broken boundary. Create <code>src/homunculus/doctor.py</code> in your editor, save it, and enter this real diagnostic:</p>
+<pre><code>import argparse
+import importlib.metadata
+import json
+import sys
+import urllib.request
+
+EXPECTED = {
+    "bitsandbytes": "0.49.2",
+    "datasets": "5.0.0",
+    "peft": "0.19.1",
+    "transformers": "5.13.0",
+    "trl": "1.8.0",
+}
+
+def require(condition: bool, message: str) -&gt; None:
+    if not condition:
+        raise RuntimeError(message)
+
+def check_packages() -&gt; None:
+    for name, wanted in EXPECTED.items():
+        found = importlib.metadata.version(name)
+        require(found == wanted, f"{name}: wanted {wanted}, found {found}")
+        print(f"PACKAGE {name} {found}")
+
+def check_training() -&gt; None:
+    import torch
+    require(sys.version_info[:2] == (3, 12), "training image must use Python 3.12")
+    require(torch.version.hip is not None, "this is not a ROCm PyTorch build")
+    require(torch.cuda.is_available(), "ROCm cannot see a compute device")
+    arch = torch.cuda.get_device_properties(0).gcnArchName
+    require("gfx1201" in arch, f"expected gfx1201, found {arch}")
+    value = torch.arange(1, 5, device="cuda").sum().item()
+    require(value == 10, f"GPU tensor check returned {value}")
+    print(f"GPU {torch.cuda.get_device_name(0)} {arch} TENSOR {value}")
+
+def check_serving() -&gt; None:
+    with urllib.request.urlopen("http://127.0.0.1:11434/api/version", timeout=3) as response:
+        payload = json.load(response)
+    require("version" in payload, "Ollama returned no version")
+    print(f"OLLAMA {payload['version']}")
+
+def main() -&gt; None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("mode", choices=["training", "serving", "all"])
+    mode = parser.parse_args().mode
+    if mode in {"training", "all"}:
+        check_packages()
+        check_training()
+    if mode in {"serving", "all"}:
+        check_serving()
+    print("READY")
+
+if __name__ == "__main__":
+    main()</code></pre>
+<p>Create <code>tests/test_doctor.py</code> with a small failure test:</p>
+<pre><code>import pytest
+from homunculus.doctor import require
+
+def test_require_names_failed_boundary():
+    with pytest.raises(RuntimeError, match="tensor failed"):
+        require(False, "tensor failed")</code></pre>
+<p>Start Ollama on the host, enter the mounted training container, and run from <code>/workspace</code>:</p>
+<pre><code>pytest -q
+python -m homunculus.doctor all | tee reports/doctor.txt</code></pre>
+<p>The exit bar is literal: the test passes; the report names the pinned packages, Radeon and <code>gfx1201</code>; the tensor result is 10; Ollama returns a version; the final line is <code>READY</code>. Open <code>reports/doctor.txt</code> in the editor and confirm it contains this run rather than an old copy.</p>
+<p>When it fails, read the final exception and the first traceback frame in your own source. Confirm <code>pwd</code>, then rerun the smallest owner check. The container is disposable, but <code>data/raw</code>, <code>artifacts</code>, and <code>reports</code> are not. Recreate a broken environment; never “recover” by deleting the learner-owned project.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // A DOCTOR SHOULD NAME THE OWNER</div>
+<p>Useful diagnostics do more than print red or green. They report the working directory, imported module path, package versions, detected architecture, available devices, and the first failed boundary. That turns “training is broken” into a specific statement such as “the container imported a host package” or “PyTorch cannot allocate on the ROCm device.”</p></div>
 '''
+
+[[lessons.readings]]
+label = "Python: running modules with -m"
+url = "https://docs.python.org/3/using/cmdline.html#cmdoption-m"
+
+[[lessons.readings]]
+label = "Ollama API version endpoint"
+url = "https://docs.ollama.com/api/version"
 
 [[lessons.exercises]]
 id = "s01-l04-e1"
 type = "mc"
 points = 20
-prompt = "A smoke-test script prints <code>torch.cuda.is_available() == True</code>, but <code>rocm-smi</code> was never run this session. What confirmation is actually still missing?"
+prompt = "What evidence proves GPU compute rather than mere device discovery?"
 choices = [
-  "Nothing — the Python-level check alone is definitive proof the bench is ready",
-  "Confirmation Ollama can hold a chat, since that's the real proof of GPU compute",
-  "Confirmation the base model file finished downloading, since that's the real risk",
-  "Confirmation the OS/driver layer sees the card independent of any one Python process",
+  "pip prints Successfully installed",
+  "A tensor allocated on the ROCm device produces the checked sum 10",
+  "The editor can open doctor.py",
+  "Ollama returns its version",
 ]
-answer = 3
-whyWrong = "A single Python process reporting success can still be wrong if the runtime beneath it is in a fragile state — a driver-level tool like rocm-smi checks the card's visibility at a layer no single script's internal state can vouch for on its own."
-explain = "Ollama chatting proves serving works, not that ROCm compute is sound, and a download completing is a different risk entirely — only an OS-level check confirms the card itself, independent of any one process's assumptions."
-hint = "One Python process reporting success doesn't vouch for the layer beneath it — is there an independent, OS-level check that confirms the card itself?"
+answer = 1
+whyWrong = "Package, editor, and service checks prove other boundaries. Only a checked tensor operation exercises actual GPU computation."
+explain = "The doctor requires both discovery and a correct device-side result."
+hint = "Look for the check that asks the card to calculate."
 
 [[lessons.exercises]]
 id = "s01-l04-e2"
 type = "text"
 points = 15
-prompt = "Which environment variable, when set, forces ROCm to treat the card as a different, already-supported gfx target?"
-answer = "HSA_OVERRIDE_GFX_VERSION"
-hint = "It was covered as the override mechanism two rites' worth of lessons back, when discussing the card's true gfx target name."
+prompt = "What final word does a fully successful doctor print?"
+answer = "READY"
+accept = ["ready"]
+hint = "It is printed only after all selected checks return."
 
 [[lessons.exercises]]
 id = "s01-l04-e3"
 type = "fill"
 points = 20
-prompt = "Fill the missing folder name from the project layout shown earlier in this rite, where the training and serving scripts live."
-code = '''my-homunculus/
-  pyproject.toml
-  ____/
-    train.py
-  data/'''
-answer = "src"
-hint = "It's the conventional short name for 'source code' shown right above train.py in the layout."
+prompt = "Complete the module path for the project's readiness command."
+code = "python -m homunculus.____ all"
+answer = "doctor"
+hint = "It matches the filename under src/homunculus without .py."
 
 [[lessons.exercises]]
 id = "s01-l04-e4"
 type = "mc"
 points = 20
-prompt = "Per the grader's private notes on this rite's freestyle, which failure gets docked hardest?"
+prompt = "An import traceback points at a different Homunculus directory. What is the narrow recovery?"
 choices = [
-  "Using Ollama instead of a raw transformers call to serve the model",
-  "Not commenting the verification script heavily enough",
-  "A claimed pass where the GPU was never actually confirmed visible to the ROCm PyTorch build",
-  "Choosing a project folder outside the user's Documents directory",
+  "Confirm pwd, remove the accidental installed copy, return to /workspace, and reinstall this project editable",
+  "Delete data/raw and begin the corpus again",
+  "Set HSA_OVERRIDE_GFX_VERSION",
+  "Quantize the untrained model",
 ]
-answer = 2
-whyWrong = "Serving-tool choice and comment density are style questions this rite's rubric doesn't gate on, and folder location is the student's own call by design — the one failure that actually costs points is a claimed victory the chain never really proved."
-explain = "The rite exists to prove the whole chain works, so a false 'it's ready' — a check that never actually ran the thing it claims to have checked — is exactly the failure mode the grader is watching for."
-hint = "The freestyle xray text names it directly: a claimed pass where the GPU was never really confirmed is the one dock the grader will not overlook."
+answer = 0
+whyWrong = "Corpus deletion, GPU impersonation, and premature quantization do not correct Python's import path."
+explain = "The printed module path identifies an environment/cwd ownership mistake, so repair that boundary only."
+hint = "Fix the location Python imports, not unrelated data or GPU settings."
 
 [[lessons.exercises]]
 id = "s01-l04-e5"
 type = "write"
 points = 35
-prompt = "A smoke test holds five boolean checks in a dict. If every value is True, print exactly <code>READY</code>; otherwise print <code>NOT READY: hf_stack, ollama_ok</code> — the names of the failed checks, in the order they appear in the dict, comma-and-space separated."
+prompt = "Collect the false checks in insertion order. Print exactly: NOT READY: hf_stack, ollama_ok"
 starter = '''checks = {
     "driver_visible": True,
     "pytorch_rocm": True,
@@ -82,16 +145,22 @@ starter = '''checks = {
     "ollama_ok": False,
 }
 
-# Walk the dict the Chapter II way and collect the FAILED check names.
-# If nothing failed, print exactly:
-#   READY
-# otherwise print the failed names, in dict order, like:
-#   NOT READY: hf_stack, ollama_ok
 failed = []
-for name, ok in checks.items():
-    ...  # if this check is not ok, add `name` to `failed`
-# now: if `failed` is empty -> print READY; else -> print the NOT READY line
 print("READY")
 '''
+solution = '''checks = {
+    "driver_visible": True,
+    "pytorch_rocm": True,
+    "hf_stack": False,
+    "llama_cpp_ok": True,
+    "ollama_ok": False,
+}
+
+failed = [name for name, ok in checks.items() if not ok]
+if failed:
+    print("NOT READY: " + ", ".join(failed))
+else:
+    print("READY")
+'''
 expect = "NOT READY: hf_stack, ollama_ok"
-hint = "Collect the keys whose value is False, in the order `checks.items()` yields them, then join them with `, ` after the `NOT READY: ` prefix."
+hint = "Build failed from checks.items(), then choose output based on whether that list is empty."

@@ -1,129 +1,87 @@
 [[lessons]]
 id = "s10-l05"
-title = "The Living Pipeline — One Command, No Amnesia"
+teaches = ["pipeline-orchestration", "tool-deliver"]
+title = "Rebuild in Stages and Deliver from a Clean Root"
 body = '''
-<p>The third rite established a chain of single-purpose tools. The fifth rite assembled a budget from five line items. The sixth rite curates, the fifth binds, the sixth proves, the seventh retrieves, the eighth wards, the ninth seals, and the fourth rite taught the first summoning. Every one of those rites produced a working artefact. The twelfth rite's final lesson assembles them into a single pipeline — one command that builds the familiar end to end, not a mental checklist the artificer must remember to follow in order.</p>
+<p>The pipeline has human gates and two environments, so one magical uninterrupted command would be dishonest. Make each command complete its authorized stage and stop visibly:</p>
+<pre><code># In the tested ROCm container:
+python -m homunculus.pipeline build --run-id 2026-07-13-bind-002
 
-<p>The shape is a single Python file, <code>pipeline.py</code>, with one function per rite and a <code>main()</code> that calls them in sequence. <code>curate()</code> reads the raw Notion export, applies the sixth rite's three curation checks, and writes a dated JSONL. <code>bind()</code> loads the QLoRA config from the seventh rite, tokenizes with the base's chat template from the fourth, applies the loss mask, and saves the adapter. <code>prove()</code> loads the held-out prompts from the eighth rite, evaluates against the new adapter, and writes the score to the run log. <code>grind()</code> rebuilds the grimoire's FAISS index from the ninth rite against the current reference corpus. <code>seal()</code> merges the adapter, converts to GGUF, quantizes, and writes the Modelfile from the eleventh rite. <code>serve()</code> runs <code>ollama create</code> and verifies the familiar answers a known prompt. Each function takes the dated artefact directory name from the first lesson's cabinet, reads its inputs from paths the cabinet discipline guarantees are consistent, and writes its outputs to predictable locations the next function expects.</p>
+# After blind scoring produces MERGE and POLICY APPROVED; in the trusted
+# environment with enough system RAM and llama.cpp tools:
+python -m homunculus.pipeline seal --run-id 2026-07-13-bind-002
 
-<pre><code><span class="k">def</span> <span class="k">main</span>(run_date):
-    dataset = curate(run_date)          <span class="c"># sixth rite</span>
-    adapter = bind(run_date, dataset)   <span class="c"># seventh rite</span>
-    score = prove(run_date, adapter)    <span class="c"># eighth rite</span>
-    grim = grind(run_date)              <span class="c"># ninth rite</span>
-    model = seal(run_date, adapter)     <span class="c"># eleventh rite</span>
-    serve(model, grim, run_date)        <span class="c"># fourth rite + ninth</span>
-    log(run_date, adapter, model, score)<span class="c"># twelfth rite</span></code></pre>
+# On the host where Ollama runs:
+python -m homunculus.pipeline publish --run-id 2026-07-13-bind-002
 
-<p>The pipeline is not autonomous — each function succeeds or reports exactly which step failed and what the artificer should investigate. A failed <code>bind()</code> that reports "bitsandbytes paged-optimizer assertion failed at step 847" is actionable — the fifth rite's QLoRA lesson named that exact rough edge. A failed <code>seal()</code> that reports "merge_and_unload: base model checkpoint not found at expected path" is a cabinet-discipline error — the adapter was saved to a location that doesn't match the convention. The pipeline's value is not perfection; it is that every failure points to a specific rite's lesson and a specific field-notes entry, not a generic "run failed" with no diagnosis.</p>
-
-<p>The final habit of the twelfth rite: run the whole pipeline on a clean checkout — a fresh directory, no cached adapter, no leftover GGUF — before calling the familiar done. A pipeline that works from a warm cache is a pipeline that breaks the first time it is actually needed, which is always six months later when the cache doesn't exist. The true test of a living pipeline is whether it can rebuild the familiar from scratch, from only the cabinet directory and the reference corpus, with no artefacts left over from the last run.</p>
-
-<div class="callout">The pipeline is a test of every previous rite's discipline, not a new rite's skill. If the cabinet naming convention isn't consistent, <code>bind()</code> can't find the dataset. If the modelfile template doesn't match the base, <code>seal()</code> produces a broken artefact. If the held-out set was corrupted, <code>prove()</code> reports success for a failing familiar. The pipeline surfaces every short-cut the earlier rites permitted; the living familiar is the one that can be rebuilt cold, from nothing but the cabinet, and produce the same held-out score as last month.</div>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // THE COLD-START TEST</div>
-<p>Delete every artefact except the raw export directory, the reference corpus, and <code>pipeline.py</code>. Run <code>python pipeline.py</code>. If it cannot rebuild the familiar to within 0.03 Jaccard of last month's served version, the pipeline has an implicit dependency — a cached intermediate file, an environment variable the docstring doesn't name, a library version that drifted. The cold-start test catches it before the real crisis (a disk failure, a migrated machine) catches it for you. Run it once per month, on the same schedule as the drift check from the third lesson.</p></div>
+# Daily delivery:
+python -m homunculus.assistant --query "..." --out outbox/note.md</code></pre>
+<p><code>build</code> verifies the doctor, curation, RAG build/evaluation, one-step memory gate, full training, and paired evaluation generation, then stops for blind human scores. <code>seal</code> verifies the hash-bound decisions, merges, converts, quantizes, and renders the Modelfile. <code>publish</code> imports into Ollama, runs every served suite, and writes the release manifest. Use <code>subprocess.run([...], check=True)</code> with argument lists, stage logs, and no <code>shell=True</code>. A failure marks the manifest and prevents later stages.</p>
+<p>Refactor paths through a <code>ProjectPaths</code> configuration with a read-only logical input root and a separate derived-output root. Then prove a cold rebuild without deleting anything:</p>
+<pre><code>python -m homunculus.pipeline build \
+  --run-id clean-001 \
+  --derived-root rebuilds/clean-001</code></pre>
+<p>The pipeline must refuse a nonempty derived root. It reads source, configuration, policies, raw Notion export, reference summaries, and frozen suites from the project; every dataset, adapter, report, index, merged model, and GGUF is newly written beneath the fresh root. Deterministic curation and RAG artifacts should reproduce their hashes. GPU training may not reproduce byte-identical weights, so the clean adapter must pass the same behavioral gates rather than match a hash.</p>
+<p>After the clean candidate is scored and sealed under its own model name, run the served suites and import its new Markdown output into a Notion scratch page. Preserve the existing known-good release throughout. This proves the course's end artifact can be rebuilt from declared inputs, used daily, delivered to the target tool, and maintained without destructive cleanup.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CLEAN DOES NOT MEAN DESTRUCTIVE</div>
+<p>Prove reproducibility by targeting a newly created, empty derived-artifact root. Build, evaluate, seal, and publish as separate stages, then compare the new manifest and required behavior with the approved release. Never “clean” by deleting the only known-good artifacts; a fresh destination provides stronger evidence and preserves recovery.</p></div>
 '''
+
+[[lessons.readings]]
+label = "Python subprocess"
+url = "https://docs.python.org/3/library/subprocess.html"
+
+[[lessons.readings]]
+label = "Notion import data"
+url = "https://www.notion.com/help/import-data-into-notion"
 
 [[lessons.exercises]]
 id = "s10-l05-e1"
 type = "mc"
 points = 20
-prompt = "Per this rite, why does <code>pipeline.py</code> assemble every previous rite's work into one file rather than keeping them as separate scripts the artificer runs by hand?"
-choices = [
-  "A single file guarantees each step receives correctly dated artefact paths from the cabinet convention — when functions share a run_date and a path convention, the output of one step is the predictable input of the next, so the chain can't silently skip a step or pass the wrong artefact version",
-  "The Ollama Modelfile from the eleventh rite requires all training components to be referenced from a single Python file — ollama create refuses to read a GGUF path that was constructed in a different script, enforcing a single-entry-point constraint across the entire pipeline",
-  "Hugging Face's PEFT library only supports fine-tuning when the dataset, tokenizer, and training config are all defined within the same Python process — attempting to load a pre-saved dataset from disk into SFTTrainer triggers a stale-format error that requires in-memory construction",
-  "The ROCm HIP runtime enforces a single-process constraint on GPU memory allocation — if the training and evaluation scripts run in separate Python processes, the GPU driver deallocates the weight buffer between processes and the adapter cannot be compared against the evaluation set within the same VRAM session",
-]
+prompt = "Why are build, seal, and publish separate commands?"
+choices = ["They cross human approval and environment boundaries that must not be hidden", "Python permits only one stage per file", "Ollama cannot use manifests", "FAISS requires deletion"]
 answer = 0
-whyWrong = "Ollama has no single-file-source constraint (it reads the GGUF and Modelfile as static files regardless of their origin), PEFT's SFTTrainer can load datasets from disk (Arrow, JSONL, Hugging Face Dataset.from_disk all work), and the ROCm runtime has no cross-process GPU memory constraint for sequential steps (each process gets its own allocation, and the adapter file persists on disk between steps). The real value is the pipeline's function-hygiene: shared path conventions enforced by a single entry point eliminate version-skew between steps."
-explain = "Each function takes a run_date and reads/writes to predictable paths derived from the cabinet convention — the single entry point guarantees that the adapter path curate() wrote to is the exact same path bind() reads from, which is the same path prove() evaluates and seal() merges."
-hint = "The lesson's code block shows each function receiving the same run_date — the shared parameter enforces a consistent naming convention across the whole chain. The correct answer identifies this function-hygiene as the value of a single pipeline file."
+whyWrong = "The separation is a workflow and safety contract, not a language or library limitation."
+explain = "Automation stops where new evidence or authority is required."
+hint = "Blind scoring and host Ollama happen at different boundaries."
 
 [[lessons.exercises]]
 id = "s10-l05-e2"
 type = "text"
-points = 18
-prompt = "Per this rite, what is the name of the test where the artificer deletes every artefact except the raw export, the reference corpus, and pipeline.py, and then runs the pipeline from scratch to verify it can rebuild the familiar to within 0.03 Jaccard of the last served version?"
-answer = "the cold-start test"
-accept = ["cold-start test", "cold start test"]
-hint = "It's named in the FIELD NOTES section, right at the bottom of the lesson — the test that catches implicit dependencies before a real crisis does."
+points = 15
+prompt = "What must the pipeline do when the requested derived root is nonempty?"
+answer = "refuse"
+accept = ["refuse", "fail", "stop", "exit nonzero"]
+hint = "The proof cannot depend on warm-cache artifacts."
 
 [[lessons.exercises]]
 id = "s10-l05-e3"
-type = "mc"
+type = "fill"
 points = 20
-prompt = "Per this rite, a <code>bind()</code> call fails with the error: 'bitsandbytes paged-optimizer assertion failed at step 847.' Why is this more useful than a generic 'run failed'?"
-choices = [
-  "The CUDA runtime version on the GPU is too old — the assertion failure indicates bitsandbytes attempted a kernel launch that requires a compute-capability level the 9070 XT's HIP runtime cannot provide, and the step number narrows the failure to the exact PyTorch autograd graph node",
-  "Assertion errors terminate the Python process cleanly — the step number corresponds to a line in the PyTorch source code where the assertion was placed, and each assertion has a unique help message that names the Hugging Face documentation page covering the fix",
-  "The error is actionable because the fifth rite's QLoRA lesson explicitly named that exact rough edge — the paged-optimizer bug on ROCm is documented, and the artefact step number tells the artificer exactly where in the training loop the assertion failed, which is enough to decide whether to disable paged optimizers or switch to a different bitsandbytes backend",
-  "The step number is a checkpoint index — the SFTTrainer from the seventh rite can resume training from exactly step 847, skipping the failed operation and continuing from the last successfully-completed gradient update",
-]
-answer = 2
-whyWrong = "The CUDA/compute-capability angle is wrong for ROCm (which doesn't report CUDA compute-capability). PyTorch assertion errors don't link to Hugging Face fix documentation — they are raw C-level checks. And SFTTrainer checkpointing resumes from saved checkpoint steps, not from arbitrary assertion-failure points (the step number in the error is a training-step counter, not a recoverable checkpoint index). The correct answer ties the specific error to the specific lesson that taught it: the fifth rite's QLoRA lesson named paged-optimizer bugs on ROCm as a known rough edge."
-explain = "The lesson's paragraph is explicit: 'A failed bind() that reports bitsandbytes paged-optimizer assertion failed at step 847 is actionable — the fifth rite's QLoRA lesson named that exact rough edge.' The error's value is the direct line to the prior lesson that documented it, not a generic recovery mechanism."
-hint = "The lesson says the error points to 'a specific rite's lesson and a specific field-notes entry, not a generic run failed with no diagnosis.' The correct answer references the exact lesson (fifth rite's QLoRA), the exact bug (paged optimizer), and the diagnosis that makes the error actionable."
+prompt = "Complete the safe subprocess option that turns a nonzero child exit into a failure."
+code = '''subprocess.run(command, ____=True)'''
+answer = "check"
+hint = "It prevents a failed stage from silently continuing."
 
 [[lessons.exercises]]
 id = "s10-l05-e4"
-type = "fill"
-points = 20
-prompt = "Fill the missing function in the pipeline's <code>main()</code> — the step from the ninth rite that rebuilds the FAISS index from the current reference corpus before the familiar is served with grounding."
-code = '''def main(run_date):
-    dataset = curate(run_date)
-    adapter = bind(run_date, dataset)
-    score = prove(run_date, adapter)
-    grim = ____(run_date)
-    model = seal(run_date, adapter)
-    serve(model, grim, run_date)
-    log(run_date, adapter, model, score)'''
-answer = "grind"
-accept = ["grind"]
-hint = "It's the function named in the lesson's pipeline diagram, with a comment marking it as 'ninth rite' — the one that rebuilds the grimoire's index."
-
-[[lessons.exercises]]
-id = "s10-l05-e5"
-type = "type"
-points = 12
-prompt = "Retype the pipeline's main function from the lesson, showing the chain of functions from curation through to logging — the full sequence."
-code = '''def main(run_date):
-    dataset = curate(run_date)          # sixth rite
-    adapter = bind(run_date, dataset)   # seventh rite
-    score = prove(run_date, adapter)    # eighth rite
-    grim = grind(run_date)              # ninth rite
-    model = seal(run_date, adapter)     # eleventh rite
-    serve(model, grim, run_date)        # fourth rite + ninth
-    log(run_date, adapter, model, score)# twelfth rite'''
-
-[[lessons.exercises]]
-id = "s10-l05-e6"
 type = "write"
 points = 35
-prompt = "Given the seven pipeline steps below (each a string with a bracketed rite number), print each step with a 1-based counter prefix like <code>STEP 1: curate [4]</code>, one per line. Additionally, if any two adjacent steps share the same rite number, insert a line <code>WARN: consecutive same-rite &lt;rite_number&gt;</code> between them. Compute from the list, not hardcoded."
-starter = '''steps = [
-    "curate [4]",
-    "bind [5]",
-    "prove [6]",
-    "grind [7]",
-    "seal [9]",
-    "serve [2]",
-    "log [10]",
-]
+prompt = "Stop at the first failed stage and print exactly: STOP train"
+starter = '''stages = [("doctor", True), ("curate", True), ("train", False), ("seal", True)]
 
-# Walk the list with enumerate(steps, start=1) for the 1-based counter.
-# For each step, print: STEP <counter>: <step_name>
-# To read the rite number out of a string like "curate [4]":
-#   rite = int(step.split("[")[1].rstrip("]"))
-# If the current step's rite number matches the previous step's,
-# print a WARN line first (there are no matches in this list, so none appear).
-print("PIPELINE: 0 steps")
+failed = "none"
+print(f"STOP {failed}")
 '''
-expect = '''STEP 1: curate [4]
-STEP 2: bind [5]
-STEP 3: prove [6]
-STEP 4: grind [7]
-STEP 5: seal [9]
-STEP 6: serve [2]
-STEP 7: log [10]'''
-hint = "Enumerate over steps with enumerate(steps, start=1). For each (i, step), print f\"STEP {i}: {step}\". Also track the previous rite number (extracted as int between [ and ]). If current == previous, print the WARN line first. With the given list, no two adjacent steps share a rite number, so the output is the seven STEP-prefixed lines with no WARN insertions. The 'STEP N: ' prefix must be generated by the loop — it does not appear in the input list."
+solution = '''stages = [("doctor", True), ("curate", True), ("train", False), ("seal", True)]
+
+failed = "none"
+for name, passed in stages:
+    if not passed:
+        failed = name
+        break
+print(f"STOP {failed}")
+'''
+expect = "STOP train"
+hint = "Loop in order, assign the first false stage, and break."

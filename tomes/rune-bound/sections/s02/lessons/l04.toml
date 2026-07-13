@@ -1,104 +1,133 @@
 [[lessons]]
 id = "s02-l04"
-title = "The Rule Drawer"
-teaches = ["s02-dict-lookup","s02-json-data"]
+title = "The Pack and the Sealed Record"
+teaches = ["inventory-instance-list", "item-catalog-lookup", "json-object-roundtrip"]
 body = '''
-<p>s02-l04 opens the objects and behavior chart through Rule. s02-l04 hears THE CARTOGRAPHER name s02-dict-lookup its first bearing. s02-l04 names one input, one change, and one output. s02-l04 gives s02-json-data a second mark for comparison. s02-l04 keeps the smallest successful example beside its route.</p>
-<p>s02-l04 reads from left to right, then narrates state changes. s02-l04 keeps its objects and behavior clue concrete and observable. s02-l04 runs twice; the second pass challenges the first. s02-l04 records which owner moved when s02-dict-lookup shifted. s02-l04 carries earlier <code>GameEntity</code> evidence into this chart.</p>
-<p>s02-l04 asks one decision to stand alone in the margin. s02-l04 keeps s02-json-data visible instead of hiding it behind polish. s02-l04 tests a friendly case and a sharp edge case. s02-l04 compares both traces so s02-dict-lookup has a witness. s02-l04 names the failure before choosing a repair.</p>
-<p>s02-l04 treats each handoff as a contract between maker and reader. s02-l04 supplies s02-dict-lookup; the reader checks s02-json-data. s02-l04 places its check where another wayfinder can repeat it. s02-l04 earns THE CARTOGRAPHER's trust through evidence, not luck. s02-l04 leaves one deliberate question for the next chart.</p>
-<p>s02-l04 closes by stating what the program must preserve. s02-l04 names one input that could falsify s02-dict-lookup. s02-l04 names one output that confirms s02-json-data still belongs. s02-l04 runs the smallest route, inspects its trace, and annotates it. s02-l04 turns the objects and behavior chart into a RuneBound waypoint.</p>
-<p>s02-l04 ends with a handoff to the next chart. s02-l04 carries s02-json-data forward after s02-dict-lookup earns trust. s02-l04 lets THE CARTOGRAPHER record the result in plain language. s02-l04 turns a clean rerun from a guess into a fact. s02-l04 lets the next wayfinder begin without hidden context.</p>
-<pre><code>print("s02-l04 // The Rule Drawer")</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // S02-L04</div><p>s02-l04 <strong>Evidence.</strong> Record s02-dict-lookup; compare it with s02-json-data before advancing.</p><p>s02-l04 <strong>Repair.</strong> Change one cause, rerun the route, and preserve the explanation.</p></div>
+<p>A class can also own a collection. RuneBound’s later inventory needs a bag that belongs to one player, so <code>Inventory.__init__</code> creates <code>self.items = []</code>. That placement is vital: a list written directly in the class body would be shared by every Inventory. The <code>add</code> method appends one item name to this one bag. A list preserves the pickup order; an item catalog answers a different question—what a named item means.</p>
+<pre><code>class Inventory:
+    def __init__(self):
+        self.items = []
+
+    def add(self, item_name):
+        self.items.append(item_name)
+
+items = {"potion": {"heal": 10}}
+pack = Inventory()
+pack.add("potion")
+print(pack.items)
+print(items["potion"]["heal"])</code></pre>
+<p>In s09, catalog values will become <code>Item</code> objects, so the public lookup becomes <code>items["potion"].heal</code>. This section deliberately teaches both sides: the dictionary is indexed by an item id, and dot notation reads the selected item instance’s attribute. The <code>Inventory</code> contract is <code>inventory.items</code>, a list of item references. Preserve it when pickup and UI code arrive.</p>
+<p>JSON is a text data format for save files. <code>json.dumps</code> serializes supported Python data to a JSON string; <code>json.loads</code> parses that string back into Python data. A simple object’s <code>__dict__</code> is a dictionary of its instance attributes, making it a useful first save boundary. It is not magic persistence: methods are not saved, and nested custom objects need their own conversion later.</p>
+<pre><code>import json
+
+class SaveProbe:
+    def __init__(self, x, height):
+        self.x = x
+        self.height = height
+
+hero = SaveProbe(32, 16)
+saved_text = json.dumps(hero.__dict__)
+loaded_state = json.loads(saved_text)
+print(loaded_state["x"], loaded_state["height"])</code></pre>
+<p>The loaded value is a dictionary, not a restored <code>GameEntity</code>; s10 will deliberately feed its values into a reconstruction path while handling missing or corrupt save files. For now, prove the round trip without claiming it restores methods. This distinction keeps the future save system honest.</p>
+<p>Run this section’s standalone <code>test_entity.py</code> from its folder while it is useful, with hardcoded entities and assertions as evidence. s03 must remove that file when entity construction moves inside the actual game loop. Keep the contracts—<code>GameEntity</code>, <code>tile_types</code>, <code>Inventory</code>, and JSON conversion—but not the temporary isolated runner.</p>
+<div class="callout"><strong>THE CARTOGRAPHER'S CHECK:</strong> a bag belongs to one inventory, while a catalog belongs to the game’s shared rules.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // LEGIBLE PYTHON</div><p>Use snake_case for functions, methods, variables, and attributes; PascalCase for classes; and four-space indentation. That is the PEP 8 trail marking expected in every RuneBound artifact.</p></div>
 '''
 
 [[lessons.readings]]
-label = "Python tutorial // classes // The Rule Drawer"
-url = "https://docs.python.org/3/tutorial/classes.html"
+label = "Python Docs // json encoder and decoder"
+url = "https://docs.python.org/3/library/json.html"
 
 [[lessons.readings]]
-label = "Python tutorial // dictionaries // The Rule Drawer"
-url = "https://docs.python.org/3/tutorial/datastructures.html#dictionaries"
+label = "PEP 8 // Naming and Indentation"
+url = "https://peps.python.org/pep-0008/"
 
 [[lessons.exercises]]
 id = "s02-l04-e1"
-type = "fill"
-points = 18
-prompt = '''
-<p>s02-l04-e1: restore the missing operation in the supplied code. Use its operands and the chart evidence to complete the route without renaming the owner.</p>
-'''
-code = '''
-solid = tile_types.____("wall", False)
-'''
-answer = "get"
-hint = '''
-Look at what must happen to tile_types.get("wall", {"solid": false}); choose the operation that performs that job rather than the one that merely inspects the result.
-'''
+type = "mc"
+points = 20
+prompt = '''<p>Why must <code>self.items = []</code> be inside <code>Inventory.__init__</code>?</p>'''
+choices = ["So JSON can never read the list", "So every inventory instance receives its own list", "So item ids automatically become Item objects", "So the list is sorted alphabetically"]
+answer = 1
+hint = '''Consider what would happen if two separate players picked up different items.'''
+whyWrong = '''JSON does not determine list ownership, appending a string does not create an Item object, and initialization does not sort anything. The placement prevents separate inventories from sharing one mutable list.'''
+explain = '''An assignment in <code>__init__</code> runs for each newly created inventory.'''
 
 [[lessons.exercises]]
 id = "s02-l04-e2"
-type = "mc"
-points = 14
-prompt = '''
-<p>What belongs in a tile-type dictionary rather than inside the renderer's loop? Select the reading that keeps s04 can load tile definitions while keeping tilemap logic general possible.</p>
+type = "fill"
+points = 22
+prompt = '''<p>Restore the JSON function that turns the entity attribute dictionary into JSON text.</p>'''
+code = '''
+import json
+saved_text = json.____(hero.__dict__)
 '''
-choices = ["the player's current keyboard state","properties such as a name, color, and solid flag","the order in which frames are blitted","a hard-coded copy of every map coordinate"]
-answer = 1
-whyWrong = '''
-The tempting routes confuse spelling a key differently in the data file and the lookup code with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace tile_types["wall"] as data the renderer can look up without a new if branch in the Shape Ledger chart, then compare the the table owns names and properties while the class owns behavior with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves the table owns names and properties while the class owns behavior and leaves tile_types["wall"] as data the renderer can look up without a new if branch available for the next RuneBound handoff.
-'''
+answer = "dumps"
+hint = '''Choose the JSON function whose name ends with an s and produces a string.'''
+whyWrong = '''<code>loads</code> travels in the opposite direction: it parses JSON text into Python data. Saving begins with the Python attribute dictionary.'''
 
 [[lessons.exercises]]
 id = "s02-l04-e3"
 type = "type"
-points = 10
+points = 12
 reps = 2
-prompt = '''
-<p>Retype this shape ledger evidence exactly. Keep tile_types["wall"] as data the renderer can look up without a new if branch visible while you write. (Ctrl+Enter submits.)</p>
-'''
+prompt = '''<p>Retype the smallest honest JSON round trip. Notice that the result is loaded state, not a new object with methods.</p>'''
 code = '''
-tile_types = {"grass": {"solid": False}, "wall": {"solid": True}}
-print(tile_types["wall"]["solid"])
+import json
+
+state = {"x": 32, "y": 64}
+saved_text = json.dumps(state)
+loaded_state = json.loads(saved_text)
+print(loaded_state["x"])
 '''
 
 [[lessons.exercises]]
 id = "s02-l04-e4"
 type = "write"
-points = 30
-prompt = '''
-<p>Complete the shape ledger route and print exactly <code>RUNEBOUND S02 L04 SEAL</code>. Preserve the named data before adding the final observation.</p>
-'''
+points = 35
+prompt = '''<p>Define <code>Inventory</code> so each instance starts with its own <code>items</code> list and <code>add</code> appends a name. Create an <code>Item</code> class with a <code>heal</code> attribute, set <code>items = {"potion": Item(10)}</code>, add <code>"potion"</code> to one inventory, then serialize and reload <code>{"items": pack.items}</code>. Print exactly <code>PACK ['potion']</code>, <code>HEAL 10</code>, and <code>LOADED ['potion']</code>.</p>'''
 starter = '''
-route_mark = "rule-drawer"
-print("survey pending")
-# Add the chart seal after checking the route.
+import json
+
+# Define Inventory and Item, then make the catalog and pack.
 '''
 expect = '''
-RUNEBOUND S02 L04 SEAL
+PACK ['potion']
+HEAL 10
+LOADED ['potion']
 '''
 solution = '''
-route_mark = "rule-drawer"
-print("RUNEBOUND S02 L04 SEAL")
+import json
+
+class Inventory:
+    def __init__(self):
+        self.items = []
+
+    def add(self, item_name):
+        self.items.append(item_name)
+
+class Item:
+    def __init__(self, heal):
+        self.heal = heal
+
+items = {"potion": Item(10)}
+pack = Inventory()
+pack.add("potion")
+saved_text = json.dumps({"items": pack.items})
+loaded_state = json.loads(saved_text)
+print("PACK", pack.items)
+print("HEAL", items["potion"].heal)
+print("LOADED", loaded_state["items"])
 '''
-hint = '''
-For s02-l04-e4, leave the route data intact and add only its final s02 observation; compare the starter output with the target before submitting.
-'''
+hint = '''Initialize <code>self.items</code> in Inventory, make <code>Item(10)</code> the catalog value, and pass a plain dictionary containing the list to <code>json.dumps</code>.'''
 
 [[lessons.exercises]]
 id = "s02-l04-e5"
 type = "text"
-points = 16
-prompt = '''
-<p>s02-l04-e5: name the Python term for the specific unit requested by this chart. Supply the language term, not the surrounding story label.</p>
-'''
+points = 18
+prompt = '''<p>After <code>json.loads(saved_text)</code>, what Python collection holds the saved attribute values from <code>hero.__dict__</code>?</p>'''
 answer = "dict"
-hint = '''
-Recall the named boundary in The Rule Drawer; the answer is the language term for that single job, not the larger game feature.
-'''
+accept = ["dictionary"]
+hint = '''The original <code>__dict__</code> is the same collection kind, and JSON objects decode to it.'''
+whyWrong = '''The JSON string is only the serialized transport form. Parsing it returns mapping-style Python data, not a GameEntity instance or a method-bearing class.'''

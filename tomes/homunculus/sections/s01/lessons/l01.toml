@@ -1,88 +1,102 @@
 [[lessons]]
 id = "s01-l01"
-title = "What the Vessel Demands"
+teaches = ["tool-install", "tool-create-open"]
+title = "Open the One Real Workshop"
 body = '''
-<p>The homunculus is not a metaphor for a toy model. It is a real local assistant, bound to a real GPU, trained with real examples, and served through real tooling. In this third rite, the concern is not clever prompts; it is whether the bench itself is ready.</p>
-<div class="callout"><strong>Fresh from the first two rites?</strong> Good — you already have <code>print</code>, variables, conditionals, functions, loops, lists, and dicts, and that is every Python tool this chapter's exercises ask of you. Most of this rite is about the <em>bench</em> — the outside tools and the card they run on — so most of its work is <em>recognizing</em> the pieces, not writing code. Where you do write code, it is the list-filtering and f-strings you learned in Chapters I and II. Let the ROCm words wash over you on the first read; you are being asked to name these tools, not to build them.</div>
-<p>Start with the hardware path. On an AMD card, the language of victory is not "it installed" but "PyTorch sees the device through ROCm." That means the lesson cannot stop at package names. You need the driver, the ROCm stack, the matching PyTorch build, and a verification command that names the device and shows tensor work on the GPU.</p>
-<p>That verification command has a shape worth reading slowly, because the first exercise asks you to retype it exactly: <code>python3 -c "..."</code> runs the quoted Python program straight from the shell, with no file — a quick way to ask the interpreter one question. Inside the quotes, <code>torch.cuda.is_available()</code> answers "can the runtime reach a compute device?" and <code>torch.cuda.get_device_name(0)</code> prints the name of card number 0. Two facts, one line. You are not expected to write this from memory — only to read it and know what each half proves.</p>
-<p>The rest of the stack follows the same rule. Hugging Face libraries are not abstract virtues; they are the actual tools for loading models, shaping datasets, and training adapters. llama.cpp and Ollama are not optional decorations; they are how the finished vessel becomes a GGUF file and then a local service. You are building a chain, and every link must be named before you trust it.</p>
-<div class="callout">A rite that only says "install the tools" is not a rite. It must say which tools, what they prove, and which failure each check would expose.</div>
-<p>Keep the external-project boundary clear. The tome lives in the engine, but the finished homunculus lives in the student’s own folder in their own editor. The first section teaches the install and the proof, not a fake sandbox version of the workflow.</p>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // BENCH DISCIPLINE</div>
-<p>When you teach ROCm, do not let CUDA habits blur the shape of the story. The practical question is whether the AMD GPU is usable for the fine-tuning path you plan to teach later. Every verification step should answer a real operational question: can the runtime see the card, can tensors land on it, can the model stack load there, and can the final assistant still be served locally?</p></div>
+<p>The commission is specific: build a private assistant that learns your Notion voice, retrieves trustworthy style guidance, runs on your own hardware, and can be retrained when your work changes. You are not starting from absolute programming basics. You need only the basic Python syntax named in the original brief; this course supplies the model-building tools and explains what each one proves.</p>
+<p>Create one physical project now and keep it for all ten sections. In a terminal, choose a parent folder you control and run:</p>
+<pre><code>mkdir -p Homunculus/{src/homunculus,tests,data/raw/notion,data/references,data/curated,data/eval,artifacts,reports,runs,outbox,vendor}
+cd Homunculus
+touch pyproject.toml homunculus.toml src/homunculus/__init__.py
+code .</code></pre>
+<p>If your editor is not VS Code, replace <code>code .</code> with that editor's <em>Open Folder</em> command. Confirm its file tree shows <code>pyproject.toml</code>, open that file, type a temporary comment, save it, close the tab, and reopen it from the tree. Those small actions prove you are editing the project you will run—not a loose copy elsewhere.</p>
+<p>The two execution environments have different jobs. The <strong>host</strong> owns the GPU driver, Docker, Git, CMake, llama.cpp, and Ollama. A tested AMD ROCm PyTorch container owns training. The project folder is mounted into that container, so source, data, adapters, and reports survive when the container exits. This split gives you a reproducible Python stack without pretending an unsupported host distribution is officially supported.</p>
+<p>Install Docker using its instructions for your operating system and verify <code>docker version</code>. Install Ollama from its official Linux instructions and verify <code>ollama --version</code>. Install Git and CMake through your operating system, then clone llama.cpp into the project:</p>
+<pre><code>git clone https://github.com/ggml-org/llama.cpp vendor/llama.cpp
+cmake -S vendor/llama.cpp -B vendor/llama.cpp/build -DCMAKE_BUILD_TYPE=Release
+cmake --build vendor/llama.cpp/build --config Release -j --target llama-quantize llama-cli</code></pre>
+<p>Do not download a mystery bundle that claims to contain the whole stack. Each command above has one owner and one verification. By the end of this section, <code>reports/doctor.txt</code> will record whether the complete bench is ready.</p>
+<div class="callout"><strong>Continuity rule:</strong> every later command is run from this same <code>Homunculus/</code> root. If <code>pwd</code> does not end there, stop and navigate back before editing or running anything.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ONE WORKSPACE, TWO ENVIRONMENTS</div>
+<p>The host folder is the durable project; the container is a replaceable tool room. If the container vanishes, source, data, reports, and manifests remain on the host mount. If the host folder is misplaced, a healthy container cannot recover it. Keep that ownership distinction visible in every command: verify <code>pwd</code>, mount the same root, and write derived artifacts beneath it.</p></div>
 '''
 
 [[lessons.readings]]
-label = "PyTorch ROCm installation"
-url = "https://pytorch.org/get-started/locally/"
+label = "AMD: install PyTorch for Radeon"
+url = "https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/install/installrad/native_linux/install-pytorch.html"
 
 [[lessons.readings]]
-label = "Hugging Face docs"
-url = "https://huggingface.co/docs"
+label = "Ollama: Linux installation"
+url = "https://docs.ollama.com/linux"
+
+[[lessons.readings]]
+label = "llama.cpp build instructions"
+url = "https://github.com/ggml-org/llama.cpp/blob/master/docs/build.md"
 
 [[lessons.exercises]]
 id = "s01-l01-e1"
-type = "type"
-points = 12
-prompt = "Retype the exact one-liner that proves PyTorch's ROCm build can see the card and name it."
-code = 'python3 -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"'
+type = "mc"
+points = 20
+prompt = "Why does the course keep the project on the host while running the training stack in a tested ROCm container?"
+choices = [
+  "Docker adds more physical VRAM to the graphics card",
+  "The mounted host folder preserves the evolving project while the container supplies a reproducible training environment",
+  "Ollama can only read files created by a container",
+  "Python source files cannot run directly on Linux",
+]
+answer = 1
+whyWrong = "A container does not add VRAM, Ollama has no such file-origin rule, and Linux runs Python normally. The useful boundary is persistent project data plus a repeatable training environment."
+explain = "The disposable container owns package compatibility; the mounted Homunculus folder owns everything the learner creates and must retain."
+hint = "Ask what survives after the container exits."
 
 [[lessons.exercises]]
 id = "s01-l01-e2"
-type = "mc"
-points = 20
-prompt = "On an AMD Radeon card running ROCm, <code>torch.cuda.is_available()</code> returning <code>True</code> mostly proves what?"
-choices = [
-  "The GPU driver package is up to date",
-  "PyTorch's ROCm build is routing through the HIP backend under the historic <code>cuda</code> device namespace, and the runtime can see a compute device",
-  "CUDA itself is installed alongside ROCm",
-  "The base model has finished downloading",
-]
-answer = 1
-whyWrong = "A driver version number and a working compute path are two different checks — an up-to-date driver can still leave the runtime blind to the card, and a stale one can still pass this exact test."
-explain = "ROCm's PyTorch build reuses the <code>torch.cuda</code> namespace for HIP, so the name is a historical accident, not a sign CUDA is present — there is no CUDA on this box at all."
-hint = "The function name's <code>cuda</code> prefix is a ROCm layout choice, not genuine CUDA — the check proves the HIP backend can route to a compute device under that inherited namespace, regardless of driver version."
+type = "type"
+points = 12
+prompt = "Retype the command that opens the current Homunculus folder in VS Code."
+code = "code ."
 
 [[lessons.exercises]]
 id = "s01-l01-e3"
 type = "mc"
 points = 20
-prompt = "Which pairing correctly separates the TRAIN-side tools from the SERVE-side tools in the vessel's chain?"
+prompt = "You opened a terminal and are unsure which copy of the project it points at. What should you do before editing?"
 choices = [
-  "transformers and peft train the adapter; llama.cpp and Ollama convert and serve the finished vessel",
-  "Ollama trains the adapter; transformers only serves the finished chat",
-  "llama.cpp trains on the ROCm GPU; peft only quantizes afterward",
-  "ROCm serves the finished model to the artificer; transformers only measures VRAM",
+  "Run pwd, confirm the path ends in Homunculus, and inspect the expected root files",
+  "Start training; a traceback will eventually reveal the folder",
+  "Create another pyproject.toml in the current directory",
+  "Move the data folder into the course engine",
 ]
 answer = 0
-whyWrong = "llama.cpp and Ollama never touch gradients — they convert and run already-trained weights. Training is transformers loading the base and peft wrapping it with a LoRA adapter; serving is downstream of that, not the same step."
-explain = "The boundary is gradients. <code>transformers</code> loads the base weights and <code>peft</code> wraps them in the trainable LoRA adapter — the only place learning happens. <code>llama.cpp</code> and Ollama never compute a gradient; they take already-trained weights, convert them to GGUF, and serve them. Train-side forges the adapter, serve-side only runs the finished vessel."
-hint = "One side touches gradients and adapters; the other only converts and runs already-trained weights — the lesson's paragraph on the serving toolchain names that boundary explicitly."
+whyWrong = "Training from an unknown directory risks writing artifacts into the wrong tree. Creating duplicate markers or moving learner data into the course engine makes that ambiguity worse."
+explain = "A working-directory check is cheap and protects the single evolving project boundary."
+hint = "Use the command that prints the current working directory."
 
 [[lessons.exercises]]
 id = "s01-l01-e4"
 type = "text"
 points = 15
-prompt = "What is the name of the quantized, single-file weight format that llama.cpp produces and Ollama loads to serve a model?"
-answer = "GGUF"
-accept = ["gguf"]
-hint = "It is the format llama.cpp's convert script writes and the one named in the 'Sealing the Vessel' rite later in this course."
+prompt = "Which project directory receives Notion's Markdown export before curation?"
+answer = "data/raw/notion"
+accept = ["data/raw/notion/", "Homunculus/data/raw/notion", "Homunculus/data/raw/notion/"]
+hint = "It is the nested raw-data path created in the first mkdir command."
 
 [[lessons.exercises]]
 id = "s01-l01-e5"
 type = "write"
 points = 30
-prompt = "A bench check has a <code>required</code> list of five tools and an <code>installed</code> set. Compute which required tools are missing, in the order they appear in <code>required</code>, and print exactly: <code>MISSING: peft, ollama</code> (comma-and-space separated, no trailing items)."
+prompt = "A bench check has required tools and an installed set. Compute the missing tools in required order and print exactly: MISSING: peft, ollama"
 starter = '''required = ["rocm", "pytorch", "peft", "llama.cpp", "ollama"]
 installed = {"rocm", "pytorch", "llama.cpp"}
 
-# This is a list comprehension from Chapter II: keep each name from
-# `required` that is NOT in `installed`, in the order `required` lists them.
-#   missing = [name for name in required if name not in installed]
-# Write that, then the print below joins the names with ", ".
 missing = []
 print("MISSING: " + ", ".join(missing))
 '''
+solution = '''required = ["rocm", "pytorch", "peft", "llama.cpp", "ollama"]
+installed = {"rocm", "pytorch", "llama.cpp"}
+
+missing = [name for name in required if name not in installed]
+print("MISSING: " + ", ".join(missing))
+'''
 expect = "MISSING: peft, ollama"
-hint = "Loop over `required` in order and keep only the names that are not in `installed` — don't loop over `installed` instead, its order isn't the one the output needs."
+hint = "Keep each name from required when it is not in installed."

@@ -6,6 +6,7 @@ import sys
 import tomllib
 
 from . import REPO
+from .skeleton import parse_section_list
 
 
 # The arc's REQUIRED parts — the gate checks each appears as a bold `**Label:**` line.
@@ -15,7 +16,7 @@ ARC_PARTS = ("Finished tool", "Language", "Project name", "Mentor persona", "Stu
              "Continuity map", "Artifact lifecycle", "Acceptance proof", "Section list")
 # The plan's daily-driver kit, machine-checked: each must be assigned CAN or CANNOT in
 # the arc (Phase 1 has silently dropped the key-value type twice), and a CANNOT is a
-# declared scope cut the Graduate ledger and meta.description repeat — not an oversight.
+# declared scope cut repeated in the Graduate ledger — never public catalog copy.
 DAILY_DRIVERS = ("growable collection", "key-value", "strings", "errors")
 ARC_HEADING = "## Arc (Phase 1 fills this in, later phases read it)\n"
 # Written into the plan right under the heading, so the contract sits exactly where
@@ -38,8 +39,9 @@ ARC_CONTRACT = (
     "behavior, with the section that retires or deliberately ships it); Acceptance proof\n"
     "(a literal clean-start user journey from launch through the promised final outcome,\n"
     "including delivery outside the authoring surface when applicable); Section list\n"
-    "(numbered, each with the\n"
-    "capability its op adds)._\n")
+    "(one physical line per entry, sequential, in the exact form "
+    "`1. **s01 — Title:** capability/build promise`; the harness deterministically "
+    "scaffolds those entries)._\n")
 ARC_MIN_CHARS = 500  # of the striker's own content, contract lines excluded
 
 
@@ -74,6 +76,10 @@ def arc_written(plan_path, plan_rel):
     if unassigned:
         probs.append("the **Daily drivers:** line must assign every item EXACTLY as "
                      "`item = CAN` or `item = CANNOT`; unassigned: " + "; ".join(unassigned))
+    try:
+        parse_section_list(body)
+    except ValueError as exc:
+        probs.append(f"the **Section list:** is not machine-scaffoldable: {exc}")
     continuity_match = re.search(r"(?i)\*\*Continuity map:\*\*", body)
     continuity_tail = body[continuity_match.end():] if continuity_match else ""
     continuity = re.split(r"(?m)^\*\*[^\n]+:\*\*", continuity_tail, maxsplit=1)[0]

@@ -1,80 +1,105 @@
 [[lessons]]
 id = "s10-l05"
 title = "The Damaged Save Route"
-teaches = ["s10-safe-load","s10-save-errors"]
+teaches = ["s10-game-state-restore", "s10-safe-save-load"]
 body = '''
-<p>s10-l05 opens the quests and saves chart through Damaged. s10-l05 hears THE CARTOGRAPHER name s10-safe-load its first bearing. s10-l05 names one input, one change, and one output. s10-l05 gives s10-save-errors a second mark for comparison. s10-l05 keeps the smallest successful example beside its route.</p>
-<p>s10-l05 reads from left to right, then narrates state changes. s10-l05 keeps its quests and saves clue concrete and observable. s10-l05 runs twice; the second pass challenges the first. s10-l05 records which owner moved when s10-safe-load shifted. s10-l05 borrows a neighboring trace without hiding its owner.</p>
-<p>s10-l05 asks one decision to stand alone in the margin. s10-l05 keeps s10-save-errors visible instead of hiding it behind polish. s10-l05 tests a friendly case and a sharp edge case. s10-l05 compares both traces so s10-safe-load has a witness. s10-l05 names the failure before choosing a repair.</p>
-<p>s10-l05 treats each handoff as a contract between maker and reader. s10-l05 supplies s10-safe-load; the reader checks s10-save-errors. s10-l05 places its check where another wayfinder can repeat it. s10-l05 earns THE CARTOGRAPHER's trust through evidence, not luck. s10-l05 leaves one deliberate question for the next chart.</p>
-<p>s10-l05 closes by stating what the program must preserve. s10-l05 names one input that could falsify s10-safe-load. s10-l05 names one output that confirms s10-save-errors still belongs. s10-l05 runs the smallest route, inspects its trace, and annotates it. s10-l05 turns the quests and saves chart into a RuneBound waypoint.</p>
-<p>s10-l05 ends with a handoff to the next chart. s10-l05 carries s10-save-errors forward after s10-safe-load earns trust. s10-l05 lets THE CARTOGRAPHER record the result in plain language. s10-l05 turns a clean rerun from a guess into a fact. s10-l05 lets the next wayfinder begin without hidden context.</p>
-<pre><code>print("s10-l05 // The Damaged Save Route")</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // S10-L05</div><p>s10-l05 <strong>Evidence.</strong> Record s10-safe-load; compare it with s10-save-errors before advancing.</p><p>s10-l05 <strong>Repair.</strong> Change one cause, rerun the route, and preserve the explanation.</p></div>
+<p>A mapmaker does not call a torn chart a destination. Add <code>GameState.from_dict(payload, player, quest_log)</code> as a class method in <code>state.py</code>. It validates required top-level keys, restores existing objects rather than creating duplicate Player or QuestLog types, and returns a new GameState wrapper for the restored references. Its map filename later tells <code>main.py</code> exactly which CSV to pass to the established <code>TileMap.load</code>.</p>
+<pre><code>@classmethod
+def from_dict(cls, payload, player, quest_log):
+    player_data = payload["player"]
+    player.rect.topleft = player_data["position"]
+    for field, value in player_data["stats"].items():
+        setattr(player.stats, field, value)
+    player.inventory.items = list(player_data["inventory"])
+    completed = payload["quests"]
+    for quest in quest_log.quests:
+        quest.completed = completed[quest.quest_id]
+    return cls(player, quest_log, dict(payload["dialogue_flags"]),
+               dict(payload["combat_flags"]), payload["map_filename"])</code></pre>
+<p>Then write <code>load_game(filename, player, quest_log)</code>. It catches only missing files, malformed JSON, and malformed required save keys: <code>FileNotFoundError</code>, <code>json.JSONDecodeError</code>, <code>KeyError</code>, and <code>TypeError</code>. Return <code>(None, "No usable save found.")</code> on those recovery cases; otherwise return <code>(state, "Save loaded.")</code>. Do not catch every <code>Exception</code>, because an implementation bug deserves a traceback during development.</p>
+<pre><code>def load_game(filename, player, quest_log):
+    try:
+        with open(filename, encoding="utf-8") as handle:
+            payload = json.load(handle)
+        return GameState.from_dict(payload, player, quest_log), "Save loaded."
+    except (FileNotFoundError, json.JSONDecodeError, KeyError, TypeError):
+        return None, "No usable save found."</code></pre>
+<p>In the L-key event branch, call this loader. Only if the returned state is not <code>None</code>, assign it to <code>game_state</code>, replace the map with <code>tile_map.load(game_state.map_filename)</code>, and use the returned message for the timed screen-space toast. A missing or corrupt save leaves the current running world intact. Test both cases: rename or remove <code>save.json</code>, press L, then put <code>{broken</code> in a disposable save and press L. Restore a valid save afterward.</p>
+<div class="callout"><strong>THE CARTOGRAPHER'S RULE:</strong> loading restores canonical objects only after parsing succeeds; a damaged chart reports recovery and does not erase the world in hand.</div>
+<div class="field-notes"><div class="fn-head">SURVEY // RESTORE, DO NOT REBUILD</div><p>Player keeps its AnimatedSprite, velocity, speed, and collision members because <code>from_dict</code> patches only durable fields. Likewise QuestLog keeps its authored definitions while the save supplies only their completion state.</p></div>
 '''
 
 [[lessons.readings]]
-label = "Python library // dataclasses // The Damaged Save Route"
-url = "https://docs.python.org/3/library/dataclasses.html"
+label = "Python Docs // JSONDecodeError"
+url = "https://docs.python.org/3/library/json.html#json.JSONDecodeError"
 
 [[lessons.exercises]]
 id = "s10-l05-e1"
 type = "mc"
-points = 14
-prompt = '''
-<p>What makes save recovery safe instead of silently destructive? Select the reading that keeps the final menu can tell the player whether it loaded, started new, or recovered safely possible.</p>
-'''
-choices = ["the loader ignores every exception and continues","The Damaged Save Route: keep s10-safe-load owned by the named boundary and verify the result before handoff s10-l05-e1.","the menu draws a save icon before parsing","a corrupt file is treated as a completed quest"]
-answer = 1
-whyWrong = '''
-The tempting routes confuse catching every exception and hiding a real programming error behind a fresh game with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace try/except around file access and JSON parsing with a safe default state in the Ledger Seal chart, then compare the file failure is handled at the save boundary while normal game state remains explicit with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves file failure is handled at the save boundary while normal game state remains explicit and leaves try/except around file access and json parsing with a safe default state available for the next RuneBound handoff.
-'''
+points = 20
+prompt = '''<p>What should happen after L finds malformed JSON in <code>save.json</code>?</p>'''
+choices = ["Delete the player’s inventory and start over", "Silently catch every possible exception", "Keep the current world and return the recovery message", "Pass the broken text to <code>TileMap.load</code>"]
+answer = 2
+hint = '''A failed parse must not mutate the live Player or QuestLog before a valid state exists.''' 
+whyWrong = '''Deleting state is destructive, a broad catch hides coding defects, and TileMap expects a CSV filename. The safe boundary leaves the current world alone and reports the recoverable failure.''' 
+explain = '''Only a successfully reconstructed GameState is assigned back into the live frame route.''' 
 
 [[lessons.exercises]]
 id = "s10-l05-e2"
-type = "text"
-points = 16
-prompt = '''
-<p>s10-l05-e2: name the Python term for the specific unit requested by this chart. Supply the language term, not the surrounding story label.</p>
+type = "fill"
+points = 22
+prompt = '''<p>Restore the exception class raised when a requested save path does not exist.</p>'''
+code = '''
+try:
+    with open(filename, encoding="utf-8") as handle:
+        payload = json.load(handle)
+except ____:
+    return None, "No usable save found."
 '''
-answer = "except"
-hint = '''
-Recall the named boundary in The Damaged Save Route; the answer is the language term for that single job, not the larger game feature.
-'''
+answer = "FileNotFoundError"
+hint = '''This specific exception describes a missing path, distinct from JSON text that cannot parse.''' 
+whyWrong = '''A missing file is not a key lookup or a malformed JSON document. Catching its named filesystem exception lets the caller keep the current session.''' 
 
 [[lessons.exercises]]
 id = "s10-l05-e3"
-type = "fill"
+type = "text"
 points = 18
-prompt = '''
-<p>s10-l05-e3: restore the missing operation in the supplied code. Use its operands and the chart evidence to complete the route without renaming the owner.</p>
-'''
-code = '''
-except ____:
-    state = GameState.new()
-'''
-answer = "FileNotFoundError"
-hint = '''
-Look at what must happen to except (filenotfounderror, json.jsondecodeerror); choose the operation that performs that job rather than the one that merely inspects the result.
-'''
+prompt = '''<p>Which GameState method reconstructs durable fields from a parsed payload while preserving the existing Player and QuestLog objects?</p>'''
+answer = "from_dict"
+hint = '''It is the class method paired with the snapshot method introduced in the previous lesson.''' 
+whyWrong = '''<code>to_dict</code> travels in the opposite direction, producing a portable snapshot. The restore boundary consumes that snapshot and patches canonical live owners.''' 
 
 [[lessons.exercises]]
 id = "s10-l05-e4"
-type = "type"
-points = 10
-reps = 2
-prompt = '''
-<p>Retype this ledger seal evidence exactly. Keep try/except around file access and json parsing with a safe default state visible while you write. (Ctrl+Enter submits.)</p>
+type = "write"
+points = 34
+prompt = '''<p>Model safe parsing of one valid payload and one broken JSON string. Print exactly <code>VALID True</code> and <code>BROKEN False</code>.</p>'''
+starter = '''
+import json
+
+valid_text = '{"quests": {"shadow_key": true}}'
+broken_text = '{broken'
+
+# Define can_load(text) to return True only when json.loads succeeds.
 '''
-code = '''
-try:
-    raise FileNotFoundError("save missing")
-except FileNotFoundError:
-    print("new state")
+expect = '''
+VALID True
+BROKEN False
 '''
+solution = '''
+import json
+
+valid_text = '{"quests": {"shadow_key": true}}'
+broken_text = '{broken'
+
+def can_load(text):
+    try:
+        json.loads(text)
+        return True
+    except json.JSONDecodeError:
+        return False
+
+print("VALID", can_load(valid_text))
+print("BROKEN", can_load(broken_text))
+'''
+hint = '''Call <code>json.loads</code> in <code>try</code>, returning false only from an <code>except json.JSONDecodeError</code> branch.''' 

@@ -1,150 +1,75 @@
 [[lessons]]
 id = "s07-l04"
-title = "The Search Ritual"
+teaches = ["retrieval-query"]
+title = "Retrieve Evidence Before Asking for Prose"
 body = '''
-<p>Three rites built the grimoire's machinery piece by piece — the embedding (a map from text to vector), the chunker (a way to split references into slices), and the index (a structure that finds the nearest stored vectors to a query). This rite assembles those three pieces into a single <strong>retrieval pipeline</strong>: the sequence of steps that takes a question, consults the reference shelf, and returns the evidence the homunculus needs to ground its answer. The pipeline has four stages: embed the query, search the index, retrieve the top-k chunks, and format them as context for the generation model. Every stage except the last is a machine operation — the first three rites already taught them in isolation. The fourth stage is where the artificer's judgment enters: how many chunks to retrieve, how to delimit them, and where in the prompt template to insert them.</p>
-
-<p><strong>Top-k</strong> — the number of chunks to retrieve — is the pipeline's simplest and most load-bearing knob. k=1 retrieves the single closest chunk — precise but fragile. If the single best chunk missed a relevant detail that was in the second-best chunk, the homunculus answers from incomplete evidence. k=5 retrieves the five closest chunks — comprehensive but noisy. The homunculus must now read through five paragraphs of reference material to find the relevant sentence, adding tokens to its context window and diluting the signal. For a personal reference shelf of a few hundred style-guide chunks, k=3 is a practical default: enough coverage to survive one noisy top hit (the chunk that is lexically similar but semantically off-target), not so much coverage that the context becomes a wall of text the model treats as background noise. The proving rite taught the artificer to sweep hyperparameters and evaluate the results — the same habit applies here: try k=1, k=3, and k=5 on a handful of real queries, retrieve the chunks, and read whether the right reference material appears in the top-k for each query.</p>
-
-<p><strong>Formatting</strong> the retrieved chunks for the homunculus requires the same discipline the sixth rite's chat-template lesson drilled: the context must match the base vessel's expected prompt structure, and every chunk must carry a source marker so the artificer can trace which reference the answer drew from. The simplest format wraps each chunk in a <code>&lt;reference&gt;</code> block with a chunk number — the homunculus reads it as "here is what the grimoire found; answer using this material." The prompt template the sixth rite taught — ChatML for Llama-based vessels, the Mistral format for Mistral bases — stays the same; the only addition is a block of reference text inserted into the system prompt or the user message, depending on where the base model expects context to appear.</p>
-
-<pre><code><span class="k">def</span> <span class="nf">build_rag_prompt</span>(query, retrieved_chunks, tokenizer):
-    <span class="s">"""Wrap the query and retrieved context in the base model's chat template."""</span>
-    context = <span class="s">"\n\n"</span>.join(
-        <span class="s">"&lt;reference id=</span><span class="k">"</span> + <span class="k">str</span>(i+<span class="k">1</span>) + <span class="k">"</span><span class="s">>"
-</span>        + chunk
-        + <span class="s">"&lt;/reference&gt;"</span>
-        <span class="k">for</span> i, chunk <span class="k">in</span> <span class="nb">enumerate</span>(retrieved_chunks)
-    )
-    system_msg = (
-        <span class="s">"You are a style assistant. Answer using the reference material below. "</span>
-        <span class="s">"If the references don't cover the question, say so."</span>
-    )
-    messages = [
-        {<span class="s">"role"</span>: <span class="s">"system"</span>, <span class="s">"content"</span>: system_msg + <span class="s">"\n\n"</span> + context},
-        {<span class="s">"role"</span>: <span class="s">"user"</span>, <span class="s">"content"</span>: query},
-    ]
-    <span class="k">return</span> tokenizer.apply_chat_template(messages, tokenize=<span class="k">False</span>)</code></pre>
-
-<p>The retrieval pipeline does not generate the answer — that is the base vessel's job once the context is inserted. The pipeline's output is a prompt: the user's question plus the retrieved reference chunks, formatted so the model treats the chunks as authoritative source material. The distinction is load-bearing: the retrieval step <strong>finds</strong> relevant information, and the generation step <strong>uses</strong> it to produce an answer. A retrieval pipeline that produces bad context — chunks that don't cover the question, or chunks that contradict each other — cannot be rescued by a good generation model, because the model's only source of grounding is the context it was given. The proving rite's evaluation habit applies again: measure the quality of the retrieved context separately from the quality of the generated answer. A bad answer may be a retrieval failure, not a generation failure — and re-running the generation step with different context is cheaper than retraining the model.</p>
-
-<div class="field-notes"><div class="fn-head">FIELD NOTES // RETRIEVAL WITHOUT A GENERATOR — THE STANDALONE TEST</div>
-<p>The quickest way to debug a retrieval pipeline is to run it without a generation model: embed a query, search the index, and print the top-k chunks alongside their similarity scores. Read the chunks with human eyes. If the top-3 chunks for "what font size for headings?" are about color palettes and line spacing, the embedding model is retrieving on lexical similarity (the query contains the word "for" twice, which matches chunks with high "for" frequency) rather than semantic similarity — and the fix is not a better generation model but a better embedding model or better chunk boundaries. If the top-3 chunks all come from the same section of the reference material and cover the same subtopic, the corpus is over-representing that section — and the fix is better chunk curation, not a different k value. The sixth rite's curation discipline (hold out records, inspect the data before training) is the same habit applied to the retrieval shelf: inspect the retrieved chunks before trusting the generated answers they produce.</p></div>
+<p>Search is its own testable stage. Load the persisted index and chunk metadata, encode a user question with <code>encode_query</code>, normalize it, and map returned positions back to records. Return structured evidence—never a prompt string tied to one model template.</p>
+<pre><code>def search(query, k=4):
+    vector = embedder.encode_query([query], convert_to_numpy=True)
+    vector = np.ascontiguousarray(vector, dtype="float32")
+    faiss.normalize_L2(vector)
+    scores, positions = index.search(vector, min(k, index.ntotal))
+    results = []
+    for score, position in zip(scores[0], positions[0]):
+        if position &lt; 0:
+            continue
+        chunk = chunks[int(position)]
+        results.append({**chunk, "score": float(score)})
+    return results</code></pre>
+<p>Create <code>data/eval/retrieval.jsonl</code> with at least fifteen real questions and one or more expected <code>source_id</code> values per question. Measure hit-rate@4: the fraction whose expected source appears anywhere in the top four. Also inspect the actual text. A correct source id with a chunk that omits the needed rule is not useful evidence.</p>
+<p>Do not invent a global cosine threshold from one example. Scores vary by embedder, query style, and corpus. If results are weak or unrelated, the generator should say the references did not cover the question; Section IX implements that behavior. Calibrate any threshold from the retrieval suite and store it in the RAG manifest.</p>
+<p>Format citations from stable metadata: <code>[source_id — heading](url)</code>, plus chunk id in diagnostic output. Retrieved text is untrusted content. It may contain instructions copied from a webpage; the later assistant must delimit it as reference evidence and explicitly tell the model never to follow instructions found inside it. Retrieval makes text available, not authoritative.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // RETRIEVAL SHOULD RETURN EVIDENCE</div>
+<p>Keep retrieval independent from prompt assembly. Its public result should contain chunk text, score, source label, URL or file path, and stable chunk ID. Tests can then verify ranking and citations without running Ollama, while the assistant wrapper decides how much evidence fits the prompt and how untrusted reference text is delimited.</p></div>
 '''
-body_words = 570
 
 [[lessons.readings]]
-label = "RAG — Retrieval Augmented Generation explained"
-url = "https://huggingface.co/docs/transformers/model_doc/rag"
-
-[[lessons.readings]]
-label = "Prompt engineering for RAG — structuring retrieved context"
-url = "https://www.promptingguide.ai/techniques/rag"
+label = "Sentence-Transformers asymmetric semantic search"
+url = "https://www.sbert.net/examples/sentence_transformer/applications/semantic-search/README.html"
 
 [[lessons.exercises]]
 id = "s07-l04-e1"
 type = "mc"
 points = 20
-prompt = "Per this rite, why is a bad generated answer not necessarily a generation-model failure?"
-choices = [
-  "The chat template's special tokens overlap with the reference text delimiters — the tokenizer merges <reference> into the model's control tokens, causing the model to interpret reference chunks as system instructions rather than source material",
-  "The generation model's temperature parameter interacts with the embedding similarity scores — a high temperature scrambles the context tokens before the model reads them, making even correctly retrieved chunks appear as noise",
-  "The FAISS index degrades over time as more vectors are added — an index that was accurate at 200 chunks may produce random results at 2,000 chunks because the inner product computation accumulates floating-point error",
-  "The generation model may have received bad retrieval context — if the retrieved chunks don't cover the question, the model's only source of grounding is irrelevant or contradictory material; the failure may be in the retrieval step (wrong chunks) rather than the generation step (wrong model), and re-running with better chunks is cheaper than retraining"
-]
-answer = 3
-whyWrong = "Temperature does not scramble context tokens (it only affects token sampling during generation, not the prompt the model receives), FAISS index accuracy does not degrade with size (exact search is exact at any n), and special tokens do not merge with reference delimiters (the tokenizer treats <reference> as plain text, not a control token). The real diagnostic: 'a bad answer may be a retrieval failure, not a generation failure' — the generation step is downstream of retrieval, and the model can only answer from the chunks it was given. Blaming the model for bad context is like blaming the binding rite for a bad dataset — the fault is upstream."
-hint = "The lesson says 'a bad answer may be a retrieval failure, not a generation failure — and re-running the generation step with different context is cheaper than retraining the model.' The correct choice identifies the upstream retrieval quality as the possible root cause."
-explain = "In RAG, the generation model's answer is bounded by the context it receives. If the retrieval step returns chunks about color palettes when the query is about font sizes, the generation model has two options: produce a wrong answer based on the wrong context, or refuse to answer because the context is irrelevant. Either way, the fix is in the retrieval pipeline (better chunks, better embeddings, better k), not in the generation model itself. Diagnosing whether the failure is retrieval or generation is a core RAG debugging skill."
+prompt = "Why return structured chunks rather than a preformatted Qwen prompt?"
+choices = ["Retrieval remains independently testable and the serving layer owns prompt assembly", "FAISS cannot return strings", "Ollama rejects dicts", "It increases rank"]
+answer = 0
+whyWrong = "FAISS ids can map to text; model and training settings are separate from the retrieval interface."
+explain = "A clean boundary lets retrieval quality be measured before generation."
+hint = "One job per module."
 
 [[lessons.exercises]]
 id = "s07-l04-e2"
 type = "text"
-points = 18
-prompt = "Per this rite, what are the four stages of the retrieval pipeline — the sequence that takes a question, consults the reference shelf, and returns the evidence the homunculus uses to ground its answer?"
-answer = "embed the query, search the index, retrieve the top-k chunks, format them as context"
-accept = ["embed the query, search the index, retrieve the top-k chunks, and format them as context", "embed query, search index, retrieve chunks, format context", "embed, search, retrieve, format", "embed the query, search the index, retrieve top-k, format context"]
-hint = "The lesson's first paragraph names them explicitly: 'The pipeline has four stages: embed the query, search the index, retrieve the top-k chunks, and format them as context for the generation model.'"
+points = 15
+prompt = "Which metric checks whether an expected source appears in the top four?"
+answer = "hit-rate@4"
+accept = ["hit rate at 4", "hit-rate@4", "hit_rate@4"]
+hint = "It gives one success/failure per query."
 
 [[lessons.exercises]]
 id = "s07-l04-e3"
 type = "fill"
 points = 20
-prompt = "Fill the missing method in the RAG prompt builder from the lesson — the Hugging Face tokenizer method that converts a list of role/content message dictionaries into the base model's expected chat format, which the sixth rite's template lesson taught."
-code = '''def build_rag_prompt(query, retrieved_chunks, tokenizer):
-    context = "\n\n".join(
-        "<reference id=" + str(i+1) + ">" + chunk + "</reference>"
-        for i, chunk in enumerate(retrieved_chunks)
-    )
-    messages = [
-        {"role": "system", "content": "Use the references below." + context},
-        {"role": "user",  "content": query},
-    ]
-    return tokenizer.____(messages, tokenize=False)'''
-answer = "apply_chat_template"
-accept = ["apply_chat_template"]
-hint = "This method was introduced in the sixth rite's lesson on chat templates (s04-l02) and has appeared in both the fill exercise s04-l02-e3 and the SFTTrainer scaffold lesson. It converts role/content dictionaries into the base model's native chat format — ChatML for Llama, Mistral format for Mistral bases."
+prompt = "Complete the method for encoding user searches."
+code = "vector = embedder.____([query], convert_to_numpy=True)"
+answer = "encode_query"
+hint = "Stored chunks use encode_document."
 
 [[lessons.exercises]]
 id = "s07-l04-e4"
-type = "mc"
-points = 20
-prompt = "Per this rite, what is the practical diagnostic for determining whether a retrieval pipeline's top-k value is working correctly?"
-choices = [
-  "If the FAISS search returns in under 10 milliseconds — search speed is the primary indicator of retrieval quality because a slow search means the index is fragmented and producing partial results",
-  "If the cosine similarity score of the top-1 chunk exceeds 0.9 — a high similarity score guarantees the chunk contains the right answer, and any score below 0.9 indicates the retrieval step failed regardless of what the chunk actually says",
-  "The right reference material appears in the top-k chunks — the artificer should test with known-good queries and read the retrieved text with human eyes, incrementing k until the relevant passages appear; high similarity scores or fast search speeds are secondary signals that don't prove the chunks contain the answer",
-  "If k equals the square root of the total number of chunks — this is the mathematically optimal k for any retrieval task because it balances precision (k small) against recall (k large)"
-]
-answer = 2
-whyWrong = "Search speed is a performance metric, not a quality metric — a fast search returning wrong chunks is still wrong. Cosine similarity is a ranking signal, not a relevance proof — a chunk at 0.95 cosine may be lexically similar but factually wrong (as the proving rite already warned about surface-metric traps). There is no mathematical rule tying k to sqrt(n) — it depends on the corpus density and the query type. The correct diagnostic is human judgment: retrieve the chunks, read them, and decide whether they contain the answer."
-hint = "The lesson says 'try k=1, k=3, and k=5 on a handful of real queries, retrieve the chunks, and read whether the right reference material appears in the top-k.' The correct choice identifies direct human inspection of the retrieved content as the diagnostic."
-explain = "RAG retrieval is an information-retrieval task, and retrieval quality is ultimately measured by whether the right information is in the result set — not by speed, similarity scores, or mathematical heuristics. Cosine similarity and search speed are useful signals for tuning (high similarity + wrong content = the embedding model is the problem; fast search + wrong content = the reference corpus or chunking is the problem), but the ground truth is the chunk text itself. The proving rite's habit of reading actual output (not just numbers) applies here: read the chunks."
-
-[[lessons.exercises]]
-id = "s07-l04-e5"
-type = "type"
-points = 12
-reps = 2
-code = '''def build_rag_prompt(query, retrieved_chunks, tokenizer):
-    """Wrap the query and retrieved context in the base model's chat template."""
-    context = "\n\n".join(
-        "<reference id=" + str(i+1) + ">" + chunk + "</reference>"
-        for i, chunk in enumerate(retrieved_chunks)
-    )
-    system_msg = (
-        "You are a style assistant. Answer using the reference material below. "
-        "If the references don't cover the question, say so."
-    )
-    messages = [
-        {"role": "system", "content": system_msg + "\n\n" + context},
-        {"role": "user",  "content": query},
-    ]
-    return tokenizer.apply_chat_template(messages, tokenize=False)'''
-
-[[lessons.exercises]]
-id = "s07-l04-e6"
 type = "write"
 points = 35
-prompt = "Given three retrieved chunks and a query, build the RAG context string and print the combined system message. The chunks are <code>[\"Use 16px for body, 24px for H1.\", \"Line-height: 1.5 for body, 1.2 for headings.\", \"Color: #333 text, #007acc links.\"]</code> and query is <code>\"What font size for headings?\"</code>. Print the combined text that would go into the <code>system</code> message's content: the system instruction plus all chunks formatted as <code>&lt;reference id=N&gt;…&lt;/reference&gt;</code> blocks separated by blank lines. Do not call a tokenizer — just build and print the string."
-starter = '''retrieved_chunks = [
-    "Use 16px for body, 24px for H1.",
-    "Line-height: 1.5 for body, 1.2 for headings.",
-    "Color: #333 text, #007acc links.",
-]
-query = "What font size for headings?"
+prompt = "Compute hit-rate and print exactly: HIT@4 0.75"
+starter = '''hits = [True, True, False, True]
 
-system_instruction = "You are a style assistant. Answer using the reference material below."
-# Build context: join chunks with <reference id=N>...</reference> blocks
-# Print: system_instruction + "\n\n" + context
-
-print("none")
+rate = 0
+print(f"HIT@4 {rate:.2f}")
 '''
-expect = '''You are a style assistant. Answer using the reference material below.
+solution = '''hits = [True, True, False, True]
 
-<reference id=1>Use 16px for body, 24px for H1.</reference>
-
-<reference id=2>Line-height: 1.5 for body, 1.2 for headings.</reference>
-
-<reference id=3>Color: #333 text, #007acc links.</reference>'''
-hint = "Build context as '\\n\\n'.join(f'<reference id={i+1}>{chunk}</reference>' for i, chunk in enumerate(retrieved_chunks)). Print f'{system_instruction}\\n\\n{context}'. The reference blocks should be separated by double newlines, matching the lesson's format."
+rate = sum(hits) / len(hits)
+print(f"HIT@4 {rate:.2f}")
+'''
+expect = "HIT@4 0.75"
+hint = "Booleans sum as one for true and zero for false."

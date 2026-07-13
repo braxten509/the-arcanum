@@ -1,5 +1,6 @@
 [[lessons]]
 id = "s08-l03"
+teaches = ["cancellation-token"]
 title = "CancellationToken — pulling the plug politely"
 body = '''
 
@@ -23,7 +24,7 @@ CancellationToken token = cts.Token;
 {
     Console.WriteLine(<span class="s">$"[timeout/canceled] {url}"</span>);
 }</code></pre>
-<p>It's <em>cooperative</em>: cancellation only works where code checks the token. Your own loops can honor it too — <code>token.ThrowIfCancellationRequested()</code>.</p>
+<p>It's <em>cooperative</em>: cancellation only works where code checks the token. Your own loops can honor it too — <code>token.ThrowIfCancellationRequested()</code>. Trace one token from Program.cs to HttpClient before adding another timeout.</p>
 <p>Layered timeouts for Verisearch: HttpClient.Timeout guards each request; a CancellationTokenSource with CancelAfter guards the whole batch ("no search takes more than 15s, period"); Ctrl+C can hook a token so a user abort cancels cleanly.</p>
 <div class="callout">Convention: CancellationToken is the LAST parameter of every async method you write: <code>ScrapeAsync(string url, CancellationToken ct = default)</code>. Adopting it now saves refactoring every signature later.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>Linked tokens</strong> — combine "user hit Ctrl+C" with "30s deadline": <code>CancellationTokenSource.CreateLinkedTokenSource(userToken, deadlineToken)</code> — the linked token fires when EITHER does. The orchestrator makes one; every component just accepts a token and doesn't care why it fires.</p>

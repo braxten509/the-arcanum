@@ -1,91 +1,118 @@
 [[lessons]]
 id = "s03-l06"
-title = "Picking a Base That Fits"
+teaches = ["model-selection"]
+title = "Commit to a Budget That Can Be Tested"
 body = '''
-<p>Five line items now have a formula: quantized base weights, KV cache, full-fine-tune training state, and the QLoRA adapter's much smaller training state. This rite does the one thing the whole section has been building toward — adding them up against the real 16 GB ceiling and deciding, on paper, whether a specific base model and quant level actually leaves room to train, not just to chat.</p>
-<p>The budget has four terms: <strong>base weights</strong> (quant level from the GGUF rite), <strong>KV cache</strong> at your intended context length (the formula from the fifth rite), <strong>adapter training state</strong> (the QLoRA rite — weights, gradients, and Adam moments, but only for the adapter's tiny parameter count), and <strong>activation memory</strong> from the forward/backward pass, which scales with batch size and sequence length the same way the KV cache does. That last term is the hardest to pin exactly without running the code, so the practiced habit is to budget everything else tightly and leave real headroom — this section's third rite's warning about optimistic floors applies hardest right here.</p>
-<pre><code><span class="k">budget_gb</span> = 16
-<span class="k">components_gb</span> = {
-    "base_weights": 4.5,   <span class="c">// q4_K_M, 8B</span>
-    "kv_cache": 0.5,       <span class="c">// ~4k context, GQA</span>
-    "adapter": 0.1,        <span class="c">// QLoRA adapter train state</span>
-}
-total_gb = sum(components_gb.values())
-fits = total_gb <= budget_gb</code></pre>
-<p>Run those numbers and an 8B model at <code>q4_K_M</code>, a modest context length, and a QLoRA adapter lands around 5 GB of the 16 GB budget — comfortable room left for activation memory and for pushing context length up before the card is actually in danger. Compare that against last section's raw <code>fp16</code> weight-only figure of 16 GB with nothing else loaded, and the value of the whole chain this section built — quantized base, bounded context, adapter-only training — is the difference between "impossible" and "comfortable" on the identical card.</p>
-<div class="callout">A base model choice is not just "biggest model that loads" — it's the one that leaves the MOST headroom after training state and context are accounted for, because headroom is what a longer context, a bigger batch, or a rockier training run will spend first.</div>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // THE BUDGET IS A LIVING DOCUMENT, NOT A ONE-TIME CHECK</div>
-<p>Every number in this rite's formula changes if you change your mind later — a bigger base, a longer context window for a coding-notes use case, a higher LoRA rank that grows the adapter. The habit worth keeping isn't "I calculated this once"; it's "I re-run this calculation every time one of the four terms changes," the same way the summoning section's judging habit wasn't a one-time check but a habit to repeat every run. The bind rite ahead hands you a real training script — this budget is the check you run against it before you press go, not after a crash tells you the hard way.</p></div>
+<p>Serving and training use different 4-bit formats. A <code>Q4_K_M</code> GGUF estimate belongs to llama.cpp inference; it is not the memory footprint of a bitsandbytes NF4 training run. QLoRA memory includes the quantized base plus quantization metadata and work buffers, trainable adapter state, activations, gradients, optimizer state, framework reservations, and allocator fragmentation. During training, <code>use_cache=False</code>, so the inference KV cache is not the dominant line item. Sequence length and activation storage are.</p>
+<p>Use estimates to reject impossible choices, then let a real one-batch dry run prove the candidate. For a 16 GB card, <code>Qwen/Qwen3-8B</code> is the course default: it is small enough to attempt with NF4, useful enough to be a real assistant, Apache-2.0 licensed, and matched to the <code>qwen3:8b</code> baseline. A 14B candidate may serve quantized yet leave too little training headroom. The course does not promise a fabricated GB total before the exact kernel and sequence shape run.</p>
+<p>Open <code>homunculus.toml</code> and save the first durable configuration:</p>
+<pre><code>[model]
+base_id = "Qwen/Qwen3-8B"
+
+[training]
+max_length = 1024
+batch_size = 1
+gradient_accumulation = 8
+rank = 16
+alpha = 32
+dropout = 0.05
+learning_rate = 0.0001
+epochs = 1
+seed = 42
+
+[serving]
+ollama_name = "homunculus"
+quant = "Q4_K_M"
+num_ctx = 4096
+
+[memory]
+physical_gib = 16
+required_headroom_gib = 2</code></pre>
+<p>The two-gibibyte headroom is a stop condition, not a claim that training will use exactly fourteen. Section V records <code>torch.cuda.max_memory_allocated()</code> and <code>max_memory_reserved()</code> after a dry step. If reserved memory leaves less than the configured headroom, reduce <code>max_length</code> first, enable or confirm gradient checkpointing, and only then reconsider model size. Do not quietly change the base id: an adapter is coupled to its exact base and tokenizer.</p>
+<p>Write <code>reports/memory-budget.md</code> with two separate tables—one for NF4 training and one for GGUF serving. Name every uncertain term and its proof command. The document is complete when it says what would make the choice fail, not when every row contains a confident-looking number.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ESTIMATES CHOOSE A TEST</div>
+<p>The ledger is a planning instrument, not a certificate. It helps choose sequence length, microbatch size, accumulation, and reserve before expensive work begins. The certificate is the peak memory from the exact training path. Keep both: the estimate explains the choice, while the measurement catches allocator, kernel, and activation costs the estimate omitted.</p></div>
 '''
+
+[[lessons.readings]]
+label = "Qwen3-8B model card"
+url = "https://huggingface.co/Qwen/Qwen3-8B"
+
+[[lessons.readings]]
+label = "Transformers bitsandbytes quantization"
+url = "https://huggingface.co/docs/transformers/quantization/bitsandbytes"
 
 [[lessons.exercises]]
 id = "s03-l06-e1"
 type = "mc"
 points = 20
-prompt = "Per this rite, why is activation memory the hardest of the four budget terms to pin exactly on paper?"
+prompt = "Why is a Q4_K_M file-size estimate not a complete QLoRA training budget?"
 choices = [
-  "It doesn't actually consume any VRAM, so it can be safely ignored",
-  "It scales with batch size and sequence length the same way the KV cache does, and is harder to compute exactly without running the actual code — so the practiced habit is to leave real headroom rather than trust an exact figure",
-  "It is always exactly equal to the base weights' size, so no separate calculation is needed",
-  "It only matters for inference, never for a QLoRA training run",
+  "Q4_K_M always consumes exactly twice the file size in VRAM",
+  "GGUF includes an Adam optimizer",
+  "GGUF is the serving representation, while training uses NF4 plus activations and training state",
+  "QLoRA does not load base weights",
 ]
-answer = 1
-whyWrong = "It's not zero, it's not a fixed multiple of the weights, and it very much matters for training (a forward+backward pass is exactly where activations are produced) — the honest reason it's hard to pin is that it depends on batch size and sequence length in ways that are easiest to observe by actually running the code, not by a clean formula."
-explain = "The rite names activation memory as the one term without a clean closed-form estimate here, which is exactly why the budgeting habit leans on headroom rather than a false sense of precision."
-hint = "The lesson says activation memory 'scales with batch size and sequence length the same way the KV cache does, and is the hardest term to pin exactly without running the code.' The key word is 'headroom' — the lesson's advice is to budget the other three terms tightly and leave space for this one, because it resists a clean closed-form estimate."
+answer = 2
+whyWrong = "There is no universal two-times rule, GGUF has no optimizer state, and QLoRA still loads the frozen base."
+explain = "The two phases use different formats and simultaneous memory line items."
+hint = "Separate the llama.cpp serving path from the bitsandbytes training path."
 
 [[lessons.exercises]]
 id = "s03-l06-e2"
-type = "fill"
-points = 20
-prompt = "Fill the missing comparison from the budget-check formula shown in the lesson — the condition that decides whether a chosen base actually fits."
-code = '''total_gb = sum(components_gb.values())
-fits = total_gb ____ budget_gb'''
-answer = "<="
-accept = ["<= budget_gb"]
-hint = "The budget check should pass when total usage is at or under the ceiling, not strictly under it — look at the comparison operator directly in the lesson's code block."
+type = "text"
+points = 15
+prompt = "What exact Hugging Face model id does the course freeze?"
+answer = "Qwen/Qwen3-8B"
+accept = ["qwen/qwen3-8b"]
+hint = "It is the base_id in homunculus.toml."
 
 [[lessons.exercises]]
 id = "s03-l06-e3"
-type = "mc"
+type = "fill"
 points = 20
-prompt = "Per this rite's worked example, roughly what fraction of the 16 GB budget does an 8B q4_K_M base plus a QLoRA adapter and a modest KV cache actually consume?"
-choices = [
-  "Almost the entire card, around 15–16 GB",
-  "Nothing measurable — quantization makes the cost negligible",
-  "Roughly a third, about 5 GB, leaving real headroom for activations and longer context",
-  "Exactly 12 GB, matching the training-state figure from the full-fine-tune rite",
-]
-answer = 2
-whyWrong = "Neither extreme matches the worked numbers — quantization reduces cost, it doesn't erase it, and 12 GB was the full-fine-tune training-state figure from an earlier rite, not this rite's combined budget, which sums to roughly 5 GB across base weights, KV cache, and the adapter."
-explain = "4.5 GB base + 0.5 GB KV cache + 0.1 GB adapter ≈ 5.1 GB of 16 GB — the whole point of the section's chain, versus the 16 GB (or worse, the 96 GB full-fine-tune figure) an unquantized, un-QLoRA'd approach would have demanded."
-hint = "Add the three components from the lesson's worked budget: base_weights (4.5 GB, from the q4_K_M example in the GGUF rite), kv_cache (0.5 GB, from the context-length rite's formula), and adapter (0.1 GB, the QLoRA train state). Together they sum to about 5 GB — roughly a third of the 16 GB card, with 11 GB of headroom left."
+prompt = "Complete the first training knob to reduce when the measured dry run leaves too little headroom."
+code = '''[training]
+____ = 1024'''
+answer = "max_length"
+hint = "It controls the number of tokens whose activations must be retained."
 
 [[lessons.exercises]]
 id = "s03-l06-e4"
-type = "text"
-points = 15
-prompt = "Which earlier rite in this section established the formula this rite reuses for the KV-cache line item in the budget?"
-answer = "the cache rite"
-accept = ["the kv cache rite", "the fifth rite", "the cache that grows while you talk", "the kv cache lesson"]
-hint = "It's the same rite that introduced the 2 × n_layers × n_kv_heads × head_dim × seq_len × bytes_per_element formula."
+type = "mc"
+points = 20
+prompt = "Which result finally proves this model/config pair fits training?"
+choices = [
+  "A real dry training step whose peak reserved memory preserves the configured headroom",
+  "The GGUF filename contains Q4",
+  "The model card says 8B",
+  "Ollama can open the downloaded model",
+]
+answer = 0
+whyWrong = "Names and inference success are useful estimates but do not allocate training activations or optimizer state."
+explain = "The exact software, kernels, sequence shape, and card meet only in the measured dry step."
+hint = "Choose runtime evidence from the training path."
 
 [[lessons.exercises]]
 id = "s03-l06-e5"
 type = "write"
 points = 35
-prompt = "Given <code>budget_gb = 16</code> and the <code>components_gb</code> dict below, sum the dict's values, and print <code>FITS total=5.1 budget=16</code> if the sum is at or under budget, otherwise print <code>OVER total=&lt;sum&gt; budget=16</code> — computed from the dict, not hardcoded."
-starter = '''budget_gb = 16
-components_gb = {
-    "base_weights": 4.5,
-    "kv_cache": 0.5,
-    "adapter": 0.1,
-}
+prompt = "Given physical and reserved GiB, print exactly: HEADROOM 3.2 GiB PASS"
+starter = '''physical_gib = 16.0
+reserved_gib = 12.8
+required_headroom_gib = 2.0
 
-# total_gb = sum(components_gb.values())
-# if total_gb <= budget_gb: print "FITS total=<total_gb, 1 decimal> budget=16"
-# else: print "OVER total=<total_gb, 1 decimal> budget=16"
-print("OVER total=0.0 budget=16")
+headroom = 0
+status = "FAIL"
+print(f"HEADROOM {headroom:.1f} GiB {status}")
 '''
-expect = "FITS total=5.1 budget=16"
-hint = "total_gb = sum(components_gb.values()) gives 5.1 — format it with :.1f inside the f-string, and branch on total_gb <= budget_gb."
+solution = '''physical_gib = 16.0
+reserved_gib = 12.8
+required_headroom_gib = 2.0
+
+headroom = physical_gib - reserved_gib
+status = "PASS" if headroom >= required_headroom_gib else "FAIL"
+print(f"HEADROOM {headroom:.1f} GiB {status}")
+'''
+expect = "HEADROOM 3.2 GiB PASS"
+hint = "Subtract reserved from physical, then compare the result with the required headroom."

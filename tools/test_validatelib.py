@@ -19,7 +19,8 @@ from validatelib.coverage import (check_capability_ledger,
                                   check_canonical_type_regressions)  # noqa: E402
 from validatelib.depth import check_padded_prose, check_taught_before_used  # noqa: E402
 from validatelib.execute import _project_build_result, check_starters_run  # noqa: E402
-from validatelib.structure import check_runtime  # noqa: E402
+from validatelib.phase2 import check_tooling_contract  # noqa: E402
+from validatelib.structure import check_meta, check_runtime  # noqa: E402
 from validatelib.themes import check_sigil_palette_uniqueness  # noqa: E402
 
 
@@ -29,6 +30,21 @@ def findings():
 
 
 def main():
+    # Catalog descriptions sell the artifact positively; scope cuts stay in the plan.
+    meta = {"id": "test", "name": "Test", "description":
+            "Build a working game. The course stops short of multiplayer.",
+            "author": "The Arcanum", "version": "0.1.0", "favicon": "*"}
+    check_meta({"meta": meta}, "tome.toml")
+    got = findings()
+    assert any(lv == "WARN" and "public shelf copy" in msg for lv, _, msg in got), got
+    meta["description"] = "Build a working game. The course stops at local play: no networking."
+    check_meta({"meta": meta}, "tome.toml")
+    got = findings()
+    assert any(lv == "WARN" and "public shelf copy" in msg for lv, _, msg in got), got
+    meta["description"] = "Build a working single-player game with maps and combat."
+    check_meta({"meta": meta}, "tome.toml")
+    assert not findings(), "positive catalog description was falsely flagged"
+
     # Display titles share one casing contract: prose titles use Title Case while
     # short acronyms remain legal. This guards both section and lesson callers.
     assert is_shouting_title("TEMPERING III // STOP THE CLOCK")
@@ -202,6 +218,13 @@ def main():
     check_capability_ledger(external, wip_sections)
     got = findings()
     assert got and all(lv == "WARN" for lv, _, _ in got), got
+
+    # The Phase-0 tooling choice is a Phase-2 blocker too; it must not disappear merely
+    # because finished-content checks are intentionally skipped in skeleton mode.
+    check_tooling_contract(external, wip_sections, "tome.toml", tooling="internal")
+    got = findings()
+    assert any(lv == "ERROR" and "tooling gate = internal" in msg
+               for lv, _, msg in got), got
 
     # 6. A later complete-looking C# class may add members, but must not silently
     #    drop the earlier public/private contract. Member-only patches are safe.

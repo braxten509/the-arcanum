@@ -1,5 +1,6 @@
 [[lessons]]
 id = "s05-l04"
+teaches = ["hyperparameter-plan"]
 title = "The Knobs: Rank, Alpha, and Learning Rate"
 body = '''
 <p>Three rites set the table — the LoRA shape, the PEFT library that loads it, the SFTTrainer scaffold that runs it. This rite teaches the three knobs that control <em>how</em> the bind forms, and every one of them is connected to the others. Turning one without understanding the coupling is the fastest way to ship an adapter that either changes nothing or memorizes the training set verbatim.</p>
@@ -18,7 +19,7 @@ body = '''
 <span class="c">#   doubling alpha while keeping r constant amplifies the</span>
 <span class="c">#   adapter's contribution without adding parameters —</span>
 <span class="c">#   stronger correction, same cost, but can overwhelm the base.</span></code></pre>
-<p>The binding rite's default starting point for a 7B-ish base on a personal dataset: <code>r=16, lora_alpha=32, lr=2e-4</code>. Alpha at twice the rank gives the adapter a mild boost (scaling factor 2.0), and the learning rate at the upper safe bound compensates for the single epoch. This is not a universal optimum — it is a defensible first strike that the evaluation rite ahead will measure and tune — but it is not a guess either: every value is chosen for the specific resource profile (16 GB, QLoRA, ~300 curated records, one epoch) the artificer's earlier rites defined.</p>
+<p>The course's first measured run uses <code>r=16, lora_alpha=32, lr=1e-4</code> on Qwen3-8B for one epoch. It is a conservative starting point, not a universal optimum and not a promise tied to a magic record count. Section VI compares it with one-variable changes only after the baseline run passes.</p>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // THE LORA_ALPHA CONFUSION — WHY IT IS NOT THE LEARNING RATE</div>
 <p>Nearly every QLoRA tutorial gets this wrong at least once. Alpha does not control gradient magnitude; it controls the adapter's output scale during the forward pass. If alpha is set to 0, the adapter's <code>ΔW</code> contribution is zero — the model's output is identical to the frozen base, regardless of what the adapter weights have learned, because the learned correction is multiplied by zero before it reaches the next layer. The learning rate, in contrast, controls the step size of the optimizer update — set it to zero and the adapter never learns anything because the weights never move. A well-tuned bind needs both: a learning rate high enough to move the weights, and an alpha/r ratio that gives the learned correction enough presence without drowning the base model's original knowledge.</p></div>
 '''
@@ -53,15 +54,15 @@ hint = "The lesson writes it as '(α / r) × BA' — the ratio that controls how
 id = "s05-l04-e3"
 type = "fill"
 points = 20
-prompt = "Fill the missing <code>TrainingArguments</code> field from the lesson — the one that controls the optimizer's step size, which the FIELD NOTES carefully distinguish from alpha."
-code = '''from transformers import TrainingArguments
+prompt = "Fill the missing <code>SFTConfig</code> field that controls the optimizer's step size, which the FIELD NOTES distinguish from alpha."
+code = '''from trl import SFTConfig
 
-args = TrainingArguments(
+args = SFTConfig(
     output_dir="./bind-output",
     per_device_train_batch_size=1,
     gradient_accumulation_steps=4,
     num_train_epochs=1,
-    ____=2e-4,
+    ____=1e-4,
 )'''
 answer = "learning_rate"
 accept = ["learning_rate"]
@@ -86,6 +87,7 @@ explain = "A rank-128 adapter on 200 records gives the model roughly 2 million t
 [[lessons.exercises]]
 id = "s05-l04-e5"
 type = "type"
+prompt = "Retype the three-knob reference card that distinguishes rank, alpha, and learning rate before you edit the training configuration."
 points = 12
 reps = 2
 code = '''# The three knobs, side by side with their consequences:
@@ -121,4 +123,19 @@ print("NO PASS")
 '''
 expect = '''PASS B
 PASS C'''
+solution = '''configs = [
+    {"id": "A", "r": 16, "lora_alpha": 16, "lr": 2e-4},
+    {"id": "B", "r": 8,  "lora_alpha": 32, "lr": 1.5e-4},
+    {"id": "C", "r": 16, "lora_alpha": 32, "lr": 2e-4},
+    {"id": "D", "r": 32, "lora_alpha": 32, "lr": 8e-5},
+]
+
+for config in configs:
+    scaling = config["lora_alpha"] / config["r"]
+    if scaling > 1.5 and config["lr"] > 1e-4:
+        print(f"PASS {config['id']}")
+'''
 hint = "For each config: scaling = c['lora_alpha'] / c['r']. Check if scaling > 1.5 and c['lr'] > 1e-4. B: 32/8=4.0, lr=0.00015 (>0.0001) → PASS. C: 32/16=2.0, lr=0.0002 (>0.0001) → PASS. A fails scaling (1.0), D fails lr (0.00008). Print both as separate PASS lines."
+[[lessons.readings]]
+label = "PEFT LoRA concepts"
+url = "https://huggingface.co/docs/peft/conceptual_guides/lora"

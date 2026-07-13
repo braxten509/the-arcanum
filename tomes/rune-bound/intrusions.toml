@@ -1,0 +1,402 @@
+# HEX DEFENSE — rival cartographers hurl a hex across the leyline while you study;
+# you cast the exact counter (print the true value) before the sandglass empties.
+# The engine reads ONLY the `tiers` key: each [[tiers]] gates on `min` sections passed
+# and picks one challenge from its [[tiers.pool]] at random. Pure-Python stdout only —
+# no PyGame here; a hex tests whether the wayfinder can still read the numbers cold.
+
+# ---- tier 1 — min 1: first ink. variables, arithmetic, strings, lists, f-strings.
+[[tiers]]
+min = 1
+time = 90
+bounty = 50
+
+[[tiers.pool]]
+t = "THE OFFSET MARK"
+brief = "A rival smears a tile's true column. Recompute it. Print EXACTLY: «COL 7»."
+starter = '''origin = 3
+step = 4
+# print exactly:  COL <origin + step>   (compute it, don't hardcode)
+'''
+expect = "COL 7"
+solution = '''origin = 3
+step = 4
+print(f"COL {origin + step}")
+'''
+
+[[tiers.pool]]
+t = "THE SURVEYED SPAN"
+brief = "The hex hides a road's length between two survey stakes. Total it. Print EXACTLY: «SPAN 26»."
+starter = '''legs = [8, 5, 13]
+# print exactly:  SPAN <sum of legs>   (compute it, don't hardcode)
+'''
+expect = "SPAN 26"
+solution = '''legs = [8, 5, 13]
+print(f"SPAN {sum(legs)}")
+'''
+
+[[tiers.pool]]
+t = "THE CHART NAME"
+brief = "A rival scrambles the map's true name. Bind the two halves. Print EXACTLY: «MAP Runebound»."
+starter = '''head = "Rune"
+tail = "bound"
+# print exactly:  MAP <head joined to tail>
+'''
+expect = "MAP Runebound"
+solution = '''head = "Rune"
+tail = "bound"
+print(f"MAP {head + tail}")
+'''
+
+[[tiers.pool]]
+t = "THE MARKER COUNT"
+brief = "Count the waypoints the wayfinder has planted. Print EXACTLY: «MARKS 4»."
+starter = '''waypoints = ["spawn", "well", "gate", "shrine"]
+# print exactly:  MARKS <how many waypoints>   (compute it, don't hardcode)
+'''
+expect = "MARKS 4"
+solution = '''waypoints = ["spawn", "well", "gate", "shrine"]
+print(f"MARKS {len(waypoints)}")
+'''
+
+[[tiers.pool]]
+t = "THE PLOTTED FIELD"
+brief = "A rival blurs the map's area. Multiply its width by its height. Print EXACTLY: «AREA 300»."
+starter = '''cols = 25
+rows = 12
+# print exactly:  AREA <cols times rows>   (compute it, don't hardcode)
+'''
+expect = "AREA 300"
+solution = '''cols = 25
+rows = 12
+print(f"AREA {cols * rows}")
+'''
+
+# ---- tier 2 — min 3: dict lookup, dict aggregation, FPS budget math.
+[[tiers]]
+min = 3
+time = 90
+bounty = 70
+
+[[tiers.pool]]
+t = "THE SOLID LEDGER"
+brief = "A rival forges the tile table. Read the wall tile's solid flag. Print EXACTLY: «SOLID True»."
+starter = '''tiles = {"grass": False, "wall": True, "water": True}
+# print exactly:  SOLID <the wall tile's value>   (look it up, don't hardcode)
+'''
+expect = "SOLID True"
+solution = '''tiles = {"grass": False, "wall": True, "water": True}
+print(f"SOLID {tiles['wall']}")
+'''
+
+[[tiers.pool]]
+t = "THE FRAME BUDGET"
+brief = "At 60 frames a second, how many whole milliseconds does one frame own? Print EXACTLY: «BUDGET 16»."
+starter = '''fps = 60
+# print exactly:  BUDGET <1000 // fps>   (compute it, don't hardcode)
+'''
+expect = "BUDGET 16"
+solution = '''fps = 60
+print(f"BUDGET {1000 // fps}")
+'''
+
+[[tiers.pool]]
+t = "THE TALLIED WALLS"
+brief = "Count how many tile kinds block the wayfinder. Print EXACTLY: «WALLS 2»."
+starter = '''tiles = {"grass": False, "wall": True, "water": True}
+# print exactly:  WALLS <how many tiles are solid>   (compute it, don't hardcode)
+'''
+expect = "WALLS 2"
+solution = '''tiles = {"grass": False, "wall": True, "water": True}
+print(f"WALLS {sum(tiles.values())}")
+'''
+
+[[tiers.pool]]
+t = "THE KEYED KINDS"
+brief = "A rival claims more tile kinds than the legend holds. Count the true keys. Print EXACTLY: «KINDS 3»."
+starter = '''tiles = {"grass": 0, "wall": 1, "water": 2}
+# print exactly:  KINDS <how many keys>   (compute it, don't hardcode)
+'''
+expect = "KINDS 3"
+solution = '''tiles = {"grass": 0, "wall": 1, "water": 2}
+print(f"KINDS {len(tiles)}")
+'''
+
+[[tiers.pool]]
+t = "THE MISSING LEGEND"
+brief = "The lava tile is not yet charted. Fall back to id 0 without crashing. Print EXACTLY: «ID 0»."
+starter = '''ids = {"grass": 0, "wall": 1}
+# print exactly:  ID <ids for "lava", or 0 if absent>   (compute it, don't hardcode)
+'''
+expect = "ID 0"
+solution = '''ids = {"grass": 0, "wall": 1}
+print(f"ID {ids.get('lava', 0)}")
+'''
+
+# ---- tier 3 — min 5: camera transform, 2D grids, CSV split, animation timer.
+[[tiers]]
+min = 5
+time = 100
+bounty = 90
+
+[[tiers.pool]]
+t = "THE CAMERA SHIFT"
+brief = "A rival hides a tile's screen column behind the camera. Apply world minus camera. Print EXACTLY: «SCREEN 40»."
+starter = '''world_x = 160
+camera_x = 120
+# print exactly:  SCREEN <world_x - camera_x>   (compute it, don't hardcode)
+'''
+expect = "SCREEN 40"
+solution = '''world_x = 160
+camera_x = 120
+print(f"SCREEN {world_x - camera_x}")
+'''
+
+[[tiers.pool]]
+t = "THE GRID SUM"
+brief = "Total every tile id in the small chart. Print EXACTLY: «TOTAL 5»."
+starter = '''grid = [[0, 1, 0], [1, 1, 0], [0, 1, 1]]
+# print exactly:  TOTAL <sum of every cell>   (compute it, don't hardcode)
+'''
+expect = "TOTAL 5"
+solution = '''grid = [[0, 1, 0], [1, 1, 0], [0, 1, 1]]
+print(f"TOTAL {sum(sum(row) for row in grid)}")
+'''
+
+[[tiers.pool]]
+t = "THE SPLIT ROW"
+brief = "One CSV map row arrives as text. Count its columns. Print EXACTLY: «COLS 5»."
+starter = '''row = "0,1,1,0,2"
+# print exactly:  COLS <how many comma-separated values>   (compute it, don't hardcode)
+'''
+expect = "COLS 5"
+solution = '''row = "0,1,1,0,2"
+print(f"COLS {len(row.split(','))}")
+'''
+
+[[tiers.pool]]
+t = "THE FRAME INDEX"
+brief = "The sprite timer has run 150ms; each frame lasts 40ms. Which frame shows? Print EXACTLY: «FRAME 3»."
+starter = '''elapsed = 150
+frame_ms = 40
+# print exactly:  FRAME <elapsed // frame_ms>   (compute it, don't hardcode)
+'''
+expect = "FRAME 3"
+solution = '''elapsed = 150
+frame_ms = 40
+print(f"FRAME {elapsed // frame_ms}")
+'''
+
+[[tiers.pool]]
+t = "THE WALKABLE COUNT"
+brief = "Count the open tiles (id 0) in one charted row. Print EXACTLY: «OPEN 3»."
+starter = '''row = [0, 1, 0, 0, 1]
+# print exactly:  OPEN <how many cells equal 0>   (compute it, don't hardcode)
+'''
+expect = "OPEN 3"
+solution = '''row = [0, 1, 0, 0, 1]
+print(f"OPEN {row.count(0)}")
+'''
+
+# ---- tier 4 — min 7: pixel↔tile index, velocity step, proximity, dialogue nodes.
+[[tiers]]
+min = 7
+time = 100
+bounty = 110
+
+[[tiers.pool]]
+t = "THE TILE INDEX"
+brief = "The wayfinder stands at pixel 96 on a 32-pixel grid. Which tile? Print EXACTLY: «TILE 3»."
+starter = '''pixel_x = 96
+tile_size = 32
+# print exactly:  TILE <pixel_x // tile_size>   (compute it, don't hardcode)
+'''
+expect = "TILE 3"
+solution = '''pixel_x = 96
+tile_size = 32
+print(f"TILE {pixel_x // tile_size}")
+'''
+
+[[tiers.pool]]
+t = "THE STEPPED POSITION"
+brief = "A step of velocity 4 over 3 frames moves the sprite how far from x=10? Print EXACTLY: «NEXTX 22»."
+starter = '''x = 10
+velocity = 4
+frames = 3
+# print exactly:  NEXTX <x + velocity * frames>   (compute it, don't hardcode)
+'''
+expect = "NEXTX 22"
+solution = '''x = 10
+velocity = 4
+frames = 3
+print(f"NEXTX {x + velocity * frames}")
+'''
+
+[[tiers.pool]]
+t = "THE PROXIMITY GAP"
+brief = "The Elder sits at x=200, the wayfinder at x=150. How many pixels apart? Print EXACTLY: «GAP 50»."
+starter = '''npc_x = 200
+player_x = 150
+# print exactly:  GAP <absolute distance between them>   (compute it, don't hardcode)
+'''
+expect = "GAP 50"
+solution = '''npc_x = 200
+player_x = 150
+print(f"GAP {abs(npc_x - player_x)}")
+'''
+
+[[tiers.pool]]
+t = "THE DIALOGUE DEPTH"
+brief = "Count the nodes in the Elder's dialogue tree. Print EXACTLY: «NODES 4»."
+starter = '''tree = {"start": 0, "quest": 1, "warn": 2, "farewell": 3}
+# print exactly:  NODES <how many nodes>   (compute it, don't hardcode)
+'''
+expect = "NODES 4"
+solution = '''tree = {"start": 0, "quest": 1, "warn": 2, "farewell": 3}
+print(f"NODES {len(tree)}")
+'''
+
+[[tiers.pool]]
+t = "THE RIGHT EDGE"
+brief = "A 24-pixel-wide sprite at x=88 on a 32 grid — which tile holds its right edge? Print EXACTLY: «EDGE 3»."
+starter = '''x = 88
+width = 24
+tile_size = 32
+# print exactly:  EDGE <(x + width - 1) // tile_size>   (compute it, don't hardcode)
+'''
+expect = "EDGE 3"
+solution = '''x = 88
+width = 24
+tile_size = 32
+print(f"EDGE {(x + width - 1) // tile_size}")
+'''
+
+# ---- tier 5 — min 9: combat formulas, stat blocks, inventory modifiers.
+[[tiers]]
+min = 9
+time = 110
+bounty = 135
+
+[[tiers.pool]]
+t = "THE DAMAGE ROLL"
+brief = "Attack 12 strikes defense 5. Damage never falls below zero. Print EXACTLY: «DMG 7»."
+starter = '''attack = 12
+defense = 5
+# print exactly:  DMG <attack - defense, but never below 0>   (compute it, don't hardcode)
+'''
+expect = "DMG 7"
+solution = '''attack = 12
+defense = 5
+print(f"DMG {max(0, attack - defense)}")
+'''
+
+[[tiers.pool]]
+t = "THE GUARDED BLOW"
+brief = "Attack 4 meets defense 9 — the ward holds. Print EXACTLY: «DMG 0»."
+starter = '''attack = 4
+defense = 9
+# print exactly:  DMG <attack - defense, but never below 0>   (compute it, don't hardcode)
+'''
+expect = "DMG 0"
+solution = '''attack = 4
+defense = 9
+print(f"DMG {max(0, attack - defense)}")
+'''
+
+[[tiers.pool]]
+t = "THE CAPPED MEND"
+brief = "A potion heals 30 onto 85 HP, but max is 100. Print EXACTLY: «HP 100»."
+starter = '''hp = 85
+heal = 30
+max_hp = 100
+# print exactly:  HP <hp + heal, capped at max_hp>   (compute it, don't hardcode)
+'''
+expect = "HP 100"
+solution = '''hp = 85
+heal = 30
+max_hp = 100
+print(f"HP {min(max_hp, hp + heal)}")
+'''
+
+[[tiers.pool]]
+t = "THE BORNE STATS"
+brief = "Sum the attack bonuses the wayfinder carries. Print EXACTLY: «BONUS 8»."
+starter = '''modifiers = [3, 2, 1, 2]
+# print exactly:  BONUS <sum of modifiers>   (compute it, don't hardcode)
+'''
+expect = "BONUS 8"
+solution = '''modifiers = [3, 2, 1, 2]
+print(f"BONUS {sum(modifiers)}")
+'''
+
+[[tiers.pool]]
+t = "THE FILLED PACK"
+brief = "Count the items resting in the wayfinder's pack. Print EXACTLY: «ITEMS 3»."
+starter = '''pack = ["potion", "shadow key", "map fragment"]
+# print exactly:  ITEMS <how many items>   (compute it, don't hardcode)
+'''
+expect = "ITEMS 3"
+solution = '''pack = ["potion", "shadow key", "map fragment"]
+print(f"ITEMS {len(pack)}")
+'''
+
+# ---- tier 6 — min 10: quest ledger, save-state aggregation, flag checks.
+[[tiers]]
+min = 10
+time = 110
+bounty = 165
+
+[[tiers.pool]]
+t = "THE SEALED QUESTS"
+brief = "Count the quests marked done in the ledger. Print EXACTLY: «DONE 2»."
+starter = '''quests = {"first-steps": True, "shadow-key": True, "the-wraith": False}
+# print exactly:  DONE <how many quests are True>   (compute it, don't hardcode)
+'''
+expect = "DONE 2"
+solution = '''quests = {"first-steps": True, "shadow-key": True, "the-wraith": False}
+print(f"DONE {sum(quests.values())}")
+'''
+
+[[tiers.pool]]
+t = "THE OPEN LEDGER"
+brief = "Name the one quest still unsealed. Print EXACTLY: «OPEN the-wraith»."
+starter = '''quests = {"first-steps": True, "shadow-key": True, "the-wraith": False}
+# print exactly:  OPEN <the quest id whose value is False>   (compute it, don't hardcode)
+'''
+expect = "OPEN the-wraith"
+solution = '''quests = {"first-steps": True, "shadow-key": True, "the-wraith": False}
+unsealed = [q for q, done in quests.items() if not done]
+print(f"OPEN {unsealed[0]}")
+'''
+
+[[tiers.pool]]
+t = "THE PAID BOUNTY"
+brief = "Total the gold every completed quest paid out. Print EXACTLY: «GOLD 120»."
+starter = '''rewards = [50, 70]
+# print exactly:  GOLD <sum of rewards>   (compute it, don't hardcode)
+'''
+expect = "GOLD 120"
+solution = '''rewards = [50, 70]
+print(f"GOLD {sum(rewards)}")
+'''
+
+[[tiers.pool]]
+t = "THE KEY CHECK"
+brief = "Does the save hold the Shadow Key? Report the truth. Print EXACTLY: «HASKEY True»."
+starter = '''pack = ["potion", "shadow key", "torch"]
+# print exactly:  HASKEY <True if "shadow key" is in the pack>   (compute it, don't hardcode)
+'''
+expect = "HASKEY True"
+solution = '''pack = ["potion", "shadow key", "torch"]
+print(f"HASKEY {'shadow key' in pack}")
+'''
+
+[[tiers.pool]]
+t = "THE STATE FIELDS"
+brief = "Count the systems the save file must serialize. Print EXACTLY: «FIELDS 5»."
+starter = '''state = {"pos": 0, "stats": 0, "pack": 0, "quests": 0, "flags": 0}
+# print exactly:  FIELDS <how many keys in the state>   (compute it, don't hardcode)
+'''
+expect = "FIELDS 5"
+solution = '''state = {"pos": 0, "stats": 0, "pack": 0, "quests": 0, "flags": 0}
+print(f"FIELDS {len(state)}")
+'''

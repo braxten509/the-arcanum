@@ -4,71 +4,138 @@ time = 90
 bounty = 60
 
 [[tiers.pool]]
-t = "THE FALSE VESSEL"
-brief = "A rival claims their vessel is RDNA4. Form the architecture target code. Print EXACTLY: «TARGET gfx1201»."
-starter = '''
-arch = "gfx"
-series = 12
+t = "THE TRUE TARGET"
+brief = "Build the real RDNA4 architecture code from its parts. Print EXACTLY: «TARGET gfx1201»."
+starter = '''prefix = "gfx"
+family = 12
 revision = 1
-# Compute the architecture code, do not hardcode it.
 '''
 expect = "TARGET gfx1201"
+solution = '''prefix = "gfx"
+family = 12
+revision = 1
+target = f"{prefix}{family:02d}0{revision}"
+print(f"TARGET {target}")
+'''
 
 [[tiers.pool]]
 t = "THE MEMORY THIEF"
-brief = "A rogue ward claims 3 drams of VRAM. Compute the remaining from 16. Print EXACTLY: «REMAINING 13 GB»."
-starter = '''
-total_vram = 16
-stolen = 3
-# The Distiller demands the remaining budget.
+brief = "A process claims 3 GB of the 16 GB card. Compute what remains. Print EXACTLY: «REMAINING 13 GB»."
+starter = '''total_vram = 16
+claimed_vram = 3
 '''
 expect = "REMAINING 13 GB"
+solution = '''total_vram = 16
+claimed_vram = 3
+remaining = total_vram - claimed_vram
+print(f"REMAINING {remaining} GB")
+'''
 
 [[tiers.pool]]
-t = "THE CORRUPT TENSOR"
-brief = "The vessel's shape is warped. Slice the first 3 elements of the quintessence. Print EXACTLY: «SHAPE [4, 8, 12]»."
-starter = '''
-quintessence = [4, 8, 12, 16, 20]
-# Slice the list to extract the first 3 elements.
+t = "THE PROJECT ROOT"
+brief = "Join the host folder name from two variables. Print EXACTLY: «PROJECT Homunculus»."
+starter = '''label = "Homun"
+ending = "culus"
 '''
-expect = "SHAPE [4, 8, 12]"
+expect = "PROJECT Homunculus"
+solution = '''label = "Homun"
+ending = "culus"
+print(f"PROJECT {label + ending}")
+'''
 
+[[tiers.pool]]
+t = "THE PINNED STACK"
+brief = "Count the pinned libraries in the list. Print EXACTLY: «PACKAGES 4»."
+starter = '''packages = ["transformers", "trl", "peft", "bitsandbytes"]
+'''
+expect = "PACKAGES 4"
+solution = '''packages = ["transformers", "trl", "peft", "bitsandbytes"]
+print(f"PACKAGES {len(packages)}")
+'''
+
+[[tiers.pool]]
+t = "THE FAILED DOCTOR"
+brief = "Collect checks whose value is false. Print EXACTLY: «FAILED ollama»."
+starter = '''checks = {"rocm": True, "torch": True, "ollama": False}
+'''
+expect = "FAILED ollama"
+solution = '''checks = {"rocm": True, "torch": True, "ollama": False}
+failed = [name for name, passed in checks.items() if not passed]
+print(f"FAILED {', '.join(failed)}")
+'''
 
 [[tiers]]
 min = 3
-time = 90
+time = 100
 bounty = 80
 
 [[tiers.pool]]
-t = "THE HEAVY BIND"
-brief = "A full fine-tune demands too much VRAM. Calculate 6x the base weights of a 7GB model. Print EXACTLY: «FULL BIND 42 GB»."
-starter = '''
-base_weights_gb = 7
-multiplier = 6
-# Compute the toll of a full fine-tune.
+t = "THE FULL BIND"
+brief = "Compute 12 bytes of training state for 8 billion parameters. Print EXACTLY: «FULL FINETUNE 96 GB»."
+starter = '''params_b = 8
+bytes_per_param = 12
 '''
-expect = "FULL BIND 42 GB"
+expect = "FULL FINETUNE 96 GB"
+solution = '''params_b = 8
+bytes_per_param = 12
+print(f"FULL FINETUNE {params_b * bytes_per_param} GB")
+'''
 
 [[tiers.pool]]
-t = "THE CACHE DRAIN"
-brief = "The context window drains the vessel. Compute KV cache for 2 sequences of 500 MB each. Print EXACTLY: «KV DRAIN 1000 MB»."
-starter = '''
-seq_mb = 500
-count = 2
-# Compute the total KV cache drain.
+t = "THE Q4 ESTIMATE"
+brief = "Estimate an 8B model at 4.5 bits per weight. Print EXACTLY: «WEIGHTS 4.5 GB»."
+starter = '''params_b = 8
+bits_per_weight = 4.5
 '''
-expect = "KV DRAIN 1000 MB"
+expect = "WEIGHTS 4.5 GB"
+solution = '''params_b = 8
+bits_per_weight = 4.5
+size_gb = params_b * bits_per_weight / 8
+print(f"WEIGHTS {size_gb:.1f} GB")
+'''
 
 [[tiers.pool]]
-t = "THE 4-BIT REDUCTION"
-brief = "We must compress the vessel. Divide the 16-bit weight size by 4. Print EXACTLY: «COMPRESSED 3.5 GB»."
-starter = '''
-fp16_gb = 14.0
-factor = 4
-# Compute the quantized size.
+t = "THE CONTEXT TOLL"
+brief = "Add a 6.2 GB base, 1.4 GB context, and 1.0 GB headroom. Print EXACTLY: «BUDGET 8.6 GB»."
+starter = '''base_gb = 6.2
+context_gb = 1.4
+headroom_gb = 1.0
 '''
-expect = "COMPRESSED 3.5 GB"
+expect = "BUDGET 8.6 GB"
+solution = '''base_gb = 6.2
+context_gb = 1.4
+headroom_gb = 1.0
+budget = base_gb + context_gb + headroom_gb
+print(f"BUDGET {budget:.1f} GB")
+'''
 
+[[tiers.pool]]
+t = "THE ADAPTER FOOTPRINT"
+brief = "Compute 8,000,000 adapter parameters at 12 bytes each in MB. Print EXACTLY: «ADAPTER 96 MB»."
+starter = '''adapter_params = 8_000_000
+bytes_per_param = 12
+'''
+expect = "ADAPTER 96 MB"
+solution = '''adapter_params = 8_000_000
+bytes_per_param = 12
+mb = adapter_params * bytes_per_param // 1_000_000
+print(f"ADAPTER {mb} MB")
+'''
+
+[[tiers.pool]]
+t = "THE HEADROOM WARD"
+brief = "Decide whether 13.8 GB peak leaves at least 1 GB on a 16 GB card. Print EXACTLY: «HEADROOM PASS»."
+starter = '''capacity_gb = 16.0
+peak_gb = 13.8
+required_gb = 1.0
+'''
+expect = "HEADROOM PASS"
+solution = '''capacity_gb = 16.0
+peak_gb = 13.8
+required_gb = 1.0
+status = "PASS" if capacity_gb - peak_gb >= required_gb else "FAIL"
+print(f"HEADROOM {status}")
+'''
 
 [[tiers]]
 min = 5
@@ -76,101 +143,193 @@ time = 120
 bounty = 120
 
 [[tiers.pool]]
+t = "THE SOURCE BOUNDARY"
+brief = "Keep every row from a single page in one split. Print EXACTLY: «SPLIT train 3»."
+starter = '''page = {"split": "train", "rows": ["a", "b", "c"]}
+'''
+expect = "SPLIT train 3"
+solution = '''page = {"split": "train", "rows": ["a", "b", "c"]}
+print(f"SPLIT {page['split']} {len(page['rows'])}")
+'''
+
+[[tiers.pool]]
+t = "THE COMPLETION MASK"
+brief = "Count labels that are not ignored. Print EXACTLY: «SUPERVISED 3»."
+starter = '''labels = [-100, -100, 41, 42, 43]
+'''
+expect = "SUPERVISED 3"
+solution = '''labels = [-100, -100, 41, 42, 43]
+supervised = sum(1 for label in labels if label != -100)
+print(f"SUPERVISED {supervised}")
+'''
+
+[[tiers.pool]]
 t = "THE LOOSE SEAM"
-brief = "The adapter alpha must double the rank to hold the bind. Rank is 16. Print EXACTLY: «ALPHA 32»."
-starter = '''
-rank = 16
-# Calculate the required alpha.
+brief = "Compute LoRA scaling alpha divided by rank. Print EXACTLY: «SCALING 2.0»."
+starter = '''rank = 16
+alpha = 32
 '''
-expect = "ALPHA 32"
+expect = "SCALING 2.0"
+solution = '''rank = 16
+alpha = 32
+print(f"SCALING {alpha / rank:.1f}")
+'''
 
 [[tiers.pool]]
-t = "THE OVERFIT ROT"
-brief = "The loss curve drops to 0.0, indicating mask failure. Check if loss is under 0.1. Print EXACTLY: «STATUS MASK FAILURE»."
-starter = '''
-loss = 0.0
-# If loss is less than 0.1, print "STATUS MASK FAILURE", else "STATUS NORMAL".
+t = "THE DRY STEP"
+brief = "Authorize a run only when one step completed and peak VRAM is below the cap. Print EXACTLY: «DRY RUN PASS»."
+starter = '''steps = 1
+peak_gb = 13.4
+cap_gb = 15.0
 '''
-expect = "STATUS MASK FAILURE"
+expect = "DRY RUN PASS"
+solution = '''steps = 1
+peak_gb = 13.4
+cap_gb = 15.0
+status = "PASS" if steps == 1 and peak_gb < cap_gb else "FAIL"
+print(f"DRY RUN {status}")
+'''
 
 [[tiers.pool]]
-t = "THE FOOTPRINT"
-brief = "Calculate adapter footprint: parameters * 2 bytes. Parameters = 8000000. Print EXACTLY: «FOOTPRINT 16000000 BYTES»."
-starter = '''
-params = 8000000
-bytes_per_param = 2
-# Compute the total footprint in bytes.
+t = "THE RELOAD PROOF"
+brief = "Require both adapter files before declaring an artifact complete. Print EXACTLY: «ADAPTER READY»."
+starter = '''files = {"adapter_config.json", "adapter_model.safetensors", "notes.txt"}
+required = {"adapter_config.json", "adapter_model.safetensors"}
 '''
-expect = "FOOTPRINT 16000000 BYTES"
-
+expect = "ADAPTER READY"
+solution = '''files = {"adapter_config.json", "adapter_model.safetensors", "notes.txt"}
+required = {"adapter_config.json", "adapter_model.safetensors"}
+status = "READY" if required <= files else "INCOMPLETE"
+print(f"ADAPTER {status}")
+'''
 
 [[tiers]]
 min = 7
-time = 120
+time = 130
 bounty = 150
 
 [[tiers.pool]]
-t = "THE DISTANT WARD"
-brief = "A rival's vector is orthogonal. Compute cosine similarity for dot product 0.0, norms 1.0. Print EXACTLY: «SIMILARITY 0.0»."
-starter = '''
-dot_product = 0.0
-norm_a = 1.0
-norm_b = 1.0
-# Compute similarity (dot_product / (norm_a * norm_b)).
+t = "THE CHUNK STRIDE"
+brief = "Compute the stride for 200-token chunks with 30-token overlap. Print EXACTLY: «STRIDE 170»."
+starter = '''chunk_tokens = 200
+overlap_tokens = 30
 '''
-expect = "SIMILARITY 0.0"
+expect = "STRIDE 170"
+solution = '''chunk_tokens = 200
+overlap_tokens = 30
+print(f"STRIDE {chunk_tokens - overlap_tokens}")
+'''
 
 [[tiers.pool]]
-t = "THE FRACTURED TEXT"
-brief = "The chunk size is 300 tokens, overlap is 50. Calculate the effective stride. Print EXACTLY: «STRIDE 250»."
-starter = '''
-chunk = 300
-overlap = 50
-# Compute the stride between chunks.
+t = "THE NORMALIZED INDEX"
+brief = "Accept only float32 normalized vectors for inner-product search. Print EXACTLY: «INDEX READY»."
+starter = '''dtype = "float32"
+normalized = True
 '''
-expect = "STRIDE 250"
+expect = "INDEX READY"
+solution = '''dtype = "float32"
+normalized = True
+status = "READY" if dtype == "float32" and normalized else "INVALID"
+print(f"INDEX {status}")
+'''
 
 [[tiers.pool]]
-t = "THE PRECISION LOSS"
-brief = "Precision@k: 2 relevant out of 5 retrieved. Calculate percentage as an integer. Print EXACTLY: «PRECISION 40%»."
-starter = '''
-relevant = 2
-k = 5
-# Compute the precision percentage.
+t = "THE CITATION GATE"
+brief = "Count cited retrieved chunks. Print EXACTLY: «CITATIONS 2»."
+starter = '''chunks = [{"source": "a.md"}, {"source": "b.md"}]
 '''
-expect = "PRECISION 40%"
+expect = "CITATIONS 2"
+solution = '''chunks = [{"source": "a.md"}, {"source": "b.md"}]
+count = sum(1 for chunk in chunks if chunk.get("source"))
+print(f"CITATIONS {count}")
+'''
 
+[[tiers.pool]]
+t = "THE REGRESSION COUNT"
+brief = "Count newly failed cases whose base result passed. Print EXACTLY: «REGRESSIONS 1»."
+starter = '''cases = [(True, True), (True, False), (False, False)]
+'''
+expect = "REGRESSIONS 1"
+solution = '''cases = [(True, True), (True, False), (False, False)]
+regressions = sum(1 for base_pass, adapter_pass in cases if base_pass and not adapter_pass)
+print(f"REGRESSIONS {regressions}")
+'''
+
+[[tiers.pool]]
+t = "THE POLICY HASH"
+brief = "Verify the loaded policy hash against its manifest. Print EXACTLY: «POLICY MATCH»."
+starter = '''loaded_hash = "9fa2"
+manifest_hash = "9fa2"
+'''
+expect = "POLICY MATCH"
+solution = '''loaded_hash = "9fa2"
+manifest_hash = "9fa2"
+status = "MATCH" if loaded_hash == manifest_hash else "MISMATCH"
+print(f"POLICY {status}")
+'''
 
 [[tiers]]
 min = 9
-time = 120
+time = 140
 bounty = 200
 
 [[tiers.pool]]
-t = "THE FINAL SEAL"
-brief = "Merge the base model and adapter paths with a plus sign. Print EXACTLY: «SEALED models/base+adapter»."
-starter = '''
-base = "models/base"
-adapter = "adapter"
-# Construct the merged identifier.
+t = "THE MERGE PERMIT"
+brief = "Authorize merge only when evaluation and privacy checks pass. Print EXACTLY: «MERGE AUTHORIZED»."
+starter = '''evaluation_passed = True
+privacy_passed = True
 '''
-expect = "SEALED models/base+adapter"
+expect = "MERGE AUTHORIZED"
+solution = '''evaluation_passed = True
+privacy_passed = True
+status = "AUTHORIZED" if evaluation_passed and privacy_passed else "BLOCKED"
+print(f"MERGE {status}")
+'''
 
 [[tiers.pool]]
-t = "THE Q8 QUANTIZATION"
-brief = "The final vessel must be quantized to 8 bits. Divide 16GB by 2. Print EXACTLY: «FINAL VRAM 8 GB»."
-starter = '''
-initial_vram = 16
-# Compute the 8-bit quantized size as an integer.
+t = "THE Q4 SEAL"
+brief = "Select the course's serving quantization from the candidates. Print EXACTLY: «FORMAT Q4_K_M»."
+starter = '''formats = ["F16", "Q8_0", "Q4_K_M"]
+selected_index = 2
 '''
-expect = "FINAL VRAM 8 GB"
+expect = "FORMAT Q4_K_M"
+solution = '''formats = ["F16", "Q8_0", "Q4_K_M"]
+selected_index = 2
+print(f"FORMAT {formats[selected_index]}")
+'''
 
 [[tiers.pool]]
-t = "THE WARDED PROMPT"
-brief = "The system prompt must enforce the wards. Combine base and instruction. Print EXACTLY: «SYSTEM REFUSE IF UNSAFE»."
-starter = '''
-base = "SYSTEM "
-instruction = "REFUSE IF UNSAFE"
-# Assemble the final instruction.
+t = "THE NATIVE TEMPLATE"
+brief = "Keep only the FROM directive for a GGUF with embedded Qwen metadata. Print EXACTLY: «DIRECTIVES 1»."
+starter = '''directives = ["FROM ./homunculus-q4_k_m.gguf"]
 '''
-expect = "SYSTEM REFUSE IF UNSAFE"
+expect = "DIRECTIVES 1"
+solution = '''directives = ["FROM ./homunculus-q4_k_m.gguf"]
+print(f"DIRECTIVES {len(directives)}")
+'''
+
+[[tiers.pool]]
+t = "THE NOTION DELIVERY"
+brief = "Confirm a Markdown result has a heading and two citations. Print EXACTLY: «DELIVERY PASS»."
+starter = '''markdown = "# Plan\n\nDraft text\n\n## Sources\n- [A](a)\n- [B](b)"
+'''
+expect = "DELIVERY PASS"
+solution = '''markdown = "# Plan\n\nDraft text\n\n## Sources\n- [A](a)\n- [B](b)"
+has_heading = markdown.startswith("# ")
+has_sources = markdown.count("](") >= 2
+status = "PASS" if has_heading and has_sources else "FAIL"
+print(f"DELIVERY {status}")
+'''
+
+[[tiers.pool]]
+t = "THE FRESH REBUILD"
+brief = "Accept a clean rebuild only when the derived root began empty and the manifest matches. Print EXACTLY: «REBUILD PASS»."
+starter = '''started_empty = True
+manifest_matches = True
+'''
+expect = "REBUILD PASS"
+solution = '''started_empty = True
+manifest_matches = True
+status = "PASS" if started_empty and manifest_matches else "FAIL"
+print(f"REBUILD {status}")
+'''

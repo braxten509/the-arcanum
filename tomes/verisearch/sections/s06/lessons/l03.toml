@@ -1,94 +1,91 @@
 [[lessons]]
 id = "s06-l03"
-title = "Cleaning the catch — junk removal & text hygiene"
+teaches = ["passage-cleaning"]
+title = "Clean Passages Without Rewriting Their Words"
 body = '''
-
-<p>Raw extraction gives you navbars saying "Home | About | Contact" as paragraph #3. Clean in this order:</p>
-<p><strong>1. Remove junk subtrees BEFORE extracting.</strong> Deleting an element removes all its descendants from future queries:</p>
-<pre><code><span class="k">foreach</span> (<span class="k">var</span> junk <span class="k">in</span> doc.QuerySelectorAll(<span class="s">"script, style, nav, header, footer, aside, noscript"</span>).ToList())
-    junk.Remove();</code></pre>
-<p>(The <code>.ToList()</code> matters — you can't remove elements while iterating the live collection.)</p>
-<p><strong>2. Extract with type + cleanup.</strong> Whitespace in HTML collapses; your text should too:</p>
-<pre><code><span class="k">var</span> paragraphs = <span class="k">new</span> List&lt;ScrapedParagraph&gt;();
-<span class="k">int</span> index = 0;
-<span class="k">foreach</span> (<span class="k">var</span> el <span class="k">in</span> doc.QuerySelectorAll(<span class="s">"h1, h2, h3, p, pre, li, blockquote"</span>))
-{
-    <span class="k">string</span> text = Regex.Replace(el.TextContent, <span class="s">@"\s+"</span>, <span class="s">" "</span>).Trim();
-    <span class="k">if</span> (text.Length &lt; 30 &amp;&amp; el.TagName != <span class="s">"H1"</span>) <span class="k">continue</span>;   <span class="c">// drop crumbs ("Read more", "×")</span>
-
-    ContentType type = el.TagName <span class="k">switch</span>
-    {
-        <span class="s">"PRE"</span> =&gt; ContentType.Code,
-        <span class="s">"H1"</span> <span class="k">or</span> <span class="s">"H2"</span> <span class="k">or</span> <span class="s">"H3"</span> =&gt; ContentType.Heading,
-        <span class="s">"LI"</span> =&gt; ContentType.ListItem,
-        <span class="s">"BLOCKQUOTE"</span> =&gt; ContentType.BlockQuote,
-        _ =&gt; ContentType.Paragraph
-    };
-    paragraphs.Add(<span class="k">new</span> ScrapedParagraph(index++, text, type, text.Length));
-}</code></pre>
-<p>One exception to whitespace collapsing: inside <code>&lt;pre&gt;</code> blocks, whitespace IS the content (indentation!). Skip the regex for Code blocks.</p>
-<div class="callout">Verisearch's promise is VERBATIM quotes. Cleaning may collapse whitespace, but never rewrite words. The Index on each paragraph is how the LLM will point at content later — stable numbering is sacred.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
-<p><strong>Invisible characters that ruin verbatim quotes:</strong> non-breaking spaces (<code>\u00A0</code> — looks like a space, isn't one), zero-width spaces, smart quotes. Normalize NBSP early: <code>text.Replace('\u00A0', ' ')</code>. HTML entities (<code>&amp;amp;</code>) are already decoded by AngleSharp's TextContent — one thing you get free.</p>
-<p><strong>Crumb heuristics that work in practice:</strong> length &lt; 30 chars AND not a heading · link-density (an element whose text is mostly inside &lt;a&gt; tags is navigation) · all-caps short strings ("READ MORE"). Verisearch ships with the length rule; the others are upgrades if a site's junk leaks through.</p>
-<p><strong>Preserving code blocks:</strong> for <code>&lt;pre&gt;</code>, take <code>TextContent</code> raw — no regex, no trim beyond outer newlines. A quote of code with mangled indentation is NOT verbatim.</p></div>'''
+<p>Raw <code>TextContent</code> can contain line breaks, tabs, non-breaking spaces, and page furniture. Verisearch needs a stable representation: the model must see the same <code>Passage.Text</code> that C# later checks. Clean structure and spacing, but never correct grammar, swap punctuation, summarize, or add missing words.</p>
+<p>First choose a likely content container. Prefer <code>&lt;main&gt;</code>, then <code>&lt;article&gt;</code>, then the document body. Within it, select prose-bearing elements such as paragraphs, list items, and block quotes. Avoid selecting both a container and all of its descendants, which would duplicate text.</p>
+<ol><li>Choose one content root.</li><li>Visit its prose elements in document order.</li><li>Normalize each element once.</li><li>Skip only clearly unusable crumbs.</li><li>Assign the next id after acceptance, not before filtering.</li></ol>
+<p>Normalize only whitespace that HTML rendering already treats as spacing:</p>
+<pre><code><span class="k">string</span> ordinarySpaces = rawText.Replace(<span class="s">'\u00A0'</span>, <span class="s">' '</span>);
+<span class="k">string</span> stableText = Regex.Replace(ordinarySpaces, <span class="s">@"\s+"</span>, <span class="s">" "</span>).Trim();</code></pre>
+<p>This representation is exact for Verisearch's contract: every displayed quote must be an ordinal substring of one normalized passage. The README must say that HTML whitespace is normalized, so “verbatim” is not confused with the page's raw bytes. Store the source on every passage; an integer without its source is not an attribution.</p>
+<div class="callout">Never normalize the proposal separately. Normalize once during extraction, send that stored value to Ollama, then verify against that same stored value.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // STABILITY BEFORE CLEVERNESS</div><p>Short-element filtering is a heuristic, not truth. Keep the threshold visible and tested. If a source routinely uses short authoritative statements, lower it in one place instead of smuggling special cases into the model prompt.</p></div>
+'''
 
 [[lessons.readings]]
-label = "ScrapingDog — 5 Best C# HTML parsers (landscape)"
-url = "https://www.scrapingdog.com/blog/csharp-html-parser/"
+label = "AngleSharp — DOM examples"
+url = "https://github.com/AngleSharp/AngleSharp/blob/devel/docs/tutorials/03-Examples.md"
 essential = false
 
 [[lessons.exercises]]
 id = "s06-l03-e1"
 type = "mc"
 points = 25
-prompt = "Why call <code>.ToList()</code> before removing elements in that loop?"
-choices = ["Remove() only exists on List", "You can't safely mutate the live query collection while iterating it — snapshot first", "It's faster", "Pure style preference"]
+prompt = "Why must normalization happen before passages are sent to Ollama?"
+choices = ["Ollama cannot read newlines", "The model and verifier must operate on the identical stored text", "Regex makes sources trusted", "It converts HTML to JSON"]
 answer = 1
-whyWrong = "It’s not speed or a List-only method — you can’t mutate the live query while iterating it, so ToList() snapshots it first."
-hint = "Modifying a collection you're foreach-ing over is a classic runtime error."
+whyWrong = "Ollama can receive newlines, regex does not establish trust, and JSON is a different boundary. One stored representation prevents verification drift."
+explain = "Extract once, store once, and reuse that exact string for proposal and proof."
+hint = "Compare the string seen during selection with the string checked later."
 
 [[lessons.exercises]]
 id = "s06-l03-e2"
 type = "mc"
 points = 20
-prompt = "<code>Regex.Replace(text, @\"\\s+\", \" \")</code> does what?"
-choices = ["removes all spaces", "replaces words with spaces", "collapses any run of whitespace (spaces, tabs, newlines) into a single space", "escapes special characters"]
+prompt = "Which operation would violate the extraction contract?"
+choices = ["Collapse a run of HTML whitespace", "Replace a non-breaking space with an ordinary space", "Correct a source's misspelled word", "Trim outer whitespace"]
 answer = 2
-whyWrong = "\\s+ matches runs of any whitespace and replaces them with a single space — it doesn’t delete all spaces or escape characters."
-hint = "\\s+ = one or more whitespace characters."
+whyWrong = "Whitespace normalization is declared by the product, but correcting a word changes source content and could create a quotation the page never displayed."
+explain = "The extractor may normalize representation; it may not edit meaning or wording."
+hint = "Which choice changes letters rather than spacing?"
 
 [[lessons.exercises]]
 id = "s06-l03-e3"
 type = "mc"
 points = 25
-prompt = "Why should <code>&lt;pre&gt;</code> (Code) blocks skip whitespace collapsing?"
-choices = ["pre blocks are always empty", "Regex doesn't work on code", "They should be collapsed too", "In code, indentation and line breaks ARE meaningful content"]
-answer = 3
-whyWrong = "pre blocks aren’t empty and regex works fine on them — you skip collapsing because in code the indentation and line breaks are meaningful content."
-hint = "Collapse a Python snippet's whitespace and see what survives."
+prompt = "Why does a <code>Passage</code> carry its <code>SourceSpec</code>?"
+choices = ["To let the model rewrite URLs", "To keep source identity attached when passages are verified and rendered", "AngleSharp requires it", "To avoid using records"]
+answer = 1
+whyWrong = "Neither AngleSharp nor records require source metadata, and the model must not rewrite attribution. C# carries identity through its own data."
+explain = "The eventual citation comes from the matched passage, not model output."
+hint = "Follow a quote's URL backward to its owner."
 
 [[lessons.exercises]]
 id = "s06-l03-d1"
 type = "type"
 points = 14
 reps = 2
-prompt = "The junk-removal sweep with its crucial .ToList(). Twice."
-code = '''
-foreach (var junk in doc.QuerySelectorAll("script, style, nav, footer").ToList())
-{
-    junk.Remove();
-}'''
+prompt = "Retype the one-time whitespace normalization twice."
+code = '''string ordinarySpaces = text.Replace('\u00A0', ' ');
+return Regex.Replace(ordinarySpaces, @"\s+", " ").Trim();'''
 
 [[lessons.exercises]]
 id = "s06-l03-w1"
 type = "write"
-points = 34
-prompt = "Whitespace hygiene lab: add <code>using System.Text.RegularExpressions;</code>. Given <code>string raw = \"  the   tls\\n\\thandshake   protocol  \";</code> collapse every whitespace run to a single space, trim the ends, and print the result."
-expect = "the tls handshake protocol"
-solution = '''
-using System.Text.RegularExpressions;
+points = 35
+prompt = "Write <code>Normalize</code> so tabs, line breaks, and repeated spaces in <code>\"  Exact\t source\n words.  \"</code> become one space, then print the result."
+starter = '''using System.Text.RegularExpressions;
 
-string raw = "  the   tls\n\thandshake   protocol  ";
-Console.WriteLine(Regex.Replace(raw, @"\s+", " ").Trim());
+string raw = "  Exact\t source\n words.  ";
+Console.WriteLine(Normalize(raw));
+
+static string Normalize(string text)
+{
+    return text;
+}
 '''
-hint = "Regex.Replace(raw, @\"\\s+\", \" \").Trim()"
+expect = "Exact source words."
+solution = '''using System.Text.RegularExpressions;
+
+string raw = "  Exact\t source\n words.  ";
+Console.WriteLine(Normalize(raw));
+
+static string Normalize(string text)
+{
+    string ordinarySpaces = text.Replace('\u00A0', ' ');
+    return Regex.Replace(ordinarySpaces, @"\s+", " ").Trim();
+}
+'''
+hint = "Use Regex.Replace with the pattern @\"\\s+\", then Trim."

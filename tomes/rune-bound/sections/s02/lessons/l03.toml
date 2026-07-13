@@ -1,82 +1,98 @@
 [[lessons]]
 id = "s02-l03"
-title = "The Inheritance Bridge"
-teaches = ["s02-inheritance-contract","s02-shared-behavior"]
+title = "The Rule Drawer"
+teaches = ["tile-type-dict-lookup", "nested-dict-properties"]
 body = '''
-<p>s02-l03 opens the objects and behavior chart through Inheritance. s02-l03 hears THE CARTOGRAPHER name s02-inheritance-contract its first bearing. s02-l03 names one input, one change, and one output. s02-l03 gives s02-shared-behavior a second mark for comparison. s02-l03 keeps the smallest successful example beside its route.</p>
-<p>s02-l03 reads from left to right, then narrates state changes. s02-l03 keeps its objects and behavior clue concrete and observable. s02-l03 runs twice; the second pass challenges the first. s02-l03 records which owner moved when s02-inheritance-contract shifted. s02-l03 carries earlier <code>GameEntity</code> evidence into this chart.</p>
-<p>s02-l03 asks one decision to stand alone in the margin. s02-l03 keeps s02-shared-behavior visible instead of hiding it behind polish. s02-l03 tests a friendly case and a sharp edge case. s02-l03 compares both traces so s02-inheritance-contract has a witness. s02-l03 names the failure before choosing a repair.</p>
-<p>s02-l03 treats each handoff as a contract between maker and reader. s02-l03 supplies s02-inheritance-contract; the reader checks s02-shared-behavior. s02-l03 places its check where another wayfinder can repeat it. s02-l03 earns THE CARTOGRAPHER's trust through evidence, not luck. s02-l03 leaves one deliberate question for the next chart.</p>
-<p>s02-l03 closes by stating what the program must preserve. s02-l03 names one input that could falsify s02-inheritance-contract. s02-l03 names one output that confirms s02-shared-behavior still belongs. s02-l03 runs the smallest route, inspects its trace, and annotates it. s02-l03 turns the objects and behavior chart into a RuneBound waypoint.</p>
-<p>s02-l03 ends with a handoff to the next chart. s02-l03 carries s02-shared-behavior forward after s02-inheritance-contract earns trust. s02-l03 lets THE CARTOGRAPHER record the result in plain language. s02-l03 turns a clean rerun from a guess into a fact. s02-l03 lets the next wayfinder begin without hidden context.</p>
-<pre><code>print("s02-l03 // The Inheritance Bridge")</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // S02-L03</div><p>s02-l03 <strong>Evidence.</strong> Record s02-inheritance-contract; compare it with s02-shared-behavior before advancing.</p><p>s02-l03 <strong>Repair.</strong> Change one cause, rerun the route, and preserve the explanation.</p></div>
+<p>Not every difference between game things deserves a new class. A wall and grass tile share the same Tile behavior; their rules are data. A Python <strong>dictionary</strong> maps a unique key to a value. Here <code>tile_types</code> maps a tile id such as <code>"wall"</code> to a second dictionary of properties. The lookup is exact: <code>tile_types[tile_id]</code> uses the tile’s id to find its definition.</p>
+<pre><code>tile_types = {
+    "grass": {"color": "green", "solid": False},
+    "wall": {"color": "gray", "solid": True},
+}
+
+tile_id = "wall"
+definition = tile_types[tile_id]
+print(definition["color"])
+print(definition["solid"])</code></pre>
+<p>The outer dictionary answers “which tile type?”; the inner dictionary answers “which property of that type?” This is not a list lookup: <code>tile_types[1]</code> would ask for the key <code>1</code>, not the second entry. Keys make the data readable and let s04 load tile definitions without adding an <code>if</code> branch for every new tile. Later s07 will use the same shape for dialogue nodes: node id first, then fields inside the selected node.</p>
+<p>Square-bracket lookup is intentionally strict. If <code>tile_id</code> is not present, Python raises <code>KeyError</code>; that is useful when a map refers to a misspelled definition. When absence is acceptable, use <code>tile_types.get(tile_id)</code>, which returns <code>None</code> by default. Do not use <code>get</code> to hide a required wall definition—surface the bad data and repair its key.</p>
+<p>Keep ownership clear: <code>GameEntity</code> and <code>Tile</code> own per-object position and behavior; <code>tile_types</code> owns reusable names and properties. s04 can turn a parsed cell id from s01 into <code>Tile(..., tile_id)</code>, then consult this dictionary for its visual and solid rule. The row-major parser remains intact, but terminal prints are still scheduled for retirement in s03.</p>
+<pre><code>tile_types = {"water": {"solid": True}}
+tile_id = "water"
+if tile_types[tile_id]["solid"]:
+    print("BLOCKED")</code></pre>
+<div class="callout"><strong>THE CARTOGRAPHER'S RULE:</strong> use a key to find a named rule; use an attribute to find state belonging to one object.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SPELL THE KEY</div><p><code>"Wall"</code> and <code>"wall"</code> are different keys. Freeze ids in lower-case spelling before maps and dialogue begin to rely on them.</p></div>
 '''
 
 [[lessons.readings]]
-label = "Python tutorial // classes // The Inheritance Bridge"
-url = "https://docs.python.org/3/tutorial/classes.html"
+label = "Python Docs // Dictionaries"
+url = "https://docs.python.org/3/tutorial/datastructures.html#dictionaries"
 
 [[lessons.exercises]]
 id = "s02-l03-e1"
 type = "mc"
-points = 14
-prompt = '''
-<p>What should a child class add after it inherits a working entity contract? Select the reading that keeps s03 can place a named entity beside the first pygame surface possible.</p>
-'''
-choices = ["a second copy of every base attribute with new spellings","a renderer that replaces the constructor entirely","only the player-specific state or behavior that the base does not own","a global variable that moves every entity at once"]
-answer = 2
-whyWrong = '''
-The tempting routes confuse copying the base constructor by hand and letting the two versions drift with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace inheritance that reuses spatial behavior while adding a role-specific attribute in the Shape Ledger chart, then compare the the child keeps the parent's contract and adds only what its role needs with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves the child keeps the parent's contract and adds only what its role needs and leaves inheritance that reuses spatial behavior while adding a role-specific attribute available for the next RuneBound handoff.
-'''
+points = 20
+prompt = '''<p>Which expression gets the <code>solid</code> property for the tile id stored in <code>tile_id</code>?</p>'''
+choices = ['<code>tile_types.solid(tile_id)</code>', '<code>tile_types[tile_id]["solid"]</code>', '<code>tile_types["solid"][tile_id]</code>', '<code>tile_id.solid</code>']
+answer = 1
+hint = '''Choose the type first with its id, then choose one property inside that definition.'''
+whyWrong = '''The outer dictionary is keyed by tile ids, not property names, and dictionaries do not expose values as dot-method calls. The tile id is plain text, not an object carrying a solid attribute.'''
+explain = '''The first brackets select the definition; the second brackets select its <code>solid</code> field.'''
 
 [[lessons.exercises]]
 id = "s02-l03-e2"
-type = "text"
-points = 16
-prompt = '''
-<p>s02-l03-e2: name the Python term for the specific unit requested by this chart. Supply the language term, not the surrounding story label.</p>
+type = "fill"
+points = 22
+prompt = '''<p>Restore the strict lookup that selects the definition for the current tile id.</p>'''
+code = '''
+tile_types = {"wall": {"solid": True}}
+tile_id = "wall"
+definition = tile_types[____]
+print(definition["solid"])
 '''
-answer = "inheritance"
-hint = '''
-Recall the named boundary in The Inheritance Bridge; the answer is the language term for that single job, not the larger game feature.
-'''
+answer = "tile_id"
+hint = '''The variable holds the outer dictionary’s key, rather than a property inside the definition.'''
+whyWrong = '''Using <code>"solid"</code> would try to find a tile named solid. The outer table must first be indexed by the current tile identifier.'''
 
 [[lessons.exercises]]
 id = "s02-l03-e3"
-type = "fill"
-points = 18
-prompt = '''
-<p>s02-l03-e3: restore the missing operation in the supplied code. Use its operands and the chart evidence to complete the route without renaming the owner.</p>
-'''
+type = "type"
+points = 12
+reps = 2
+prompt = '''<p>Retype the two-level lookup that reads a wall’s solid rule.</p>'''
 code = '''
-class Player(____):
-    pass
-'''
-answer = "GameEntity"
-hint = '''
-Look at what must happen to class player(gameentity) gives a player position before adding inventory; choose the operation that performs that job rather than the one that merely inspects the result.
+tile_types = {"wall": {"solid": True}}
+tile_id = "wall"
+print(tile_types[tile_id]["solid"])
 '''
 
 [[lessons.exercises]]
 id = "s02-l03-e4"
-type = "type"
-points = 10
-reps = 2
-prompt = '''
-<p>Retype this shape ledger evidence exactly. Keep inheritance that reuses spatial behavior while adding a role-specific attribute visible while you write. (Ctrl+Enter submits.)</p>
+type = "text"
+points = 18
+prompt = '''<p>Which exception exposes a missing key when code uses strict square-bracket dictionary lookup?</p>'''
+answer = "KeyError"
+hint = '''The exception name combines the missing dictionary part with an error condition.'''
+whyWrong = '''A misspelled dictionary key is not an index-range problem or a file problem. Strict dictionary access reports the absent key with its dedicated exception.'''
+
+[[lessons.exercises]]
+id = "s02-l03-e5"
+type = "write"
+points = 34
+prompt = '''<p>Create the exact <code>tile_types</code> table for <code>"grass"</code> (green, not solid) and <code>"wall"</code> (gray, solid). Look up the <code>"wall"</code> definition through a <code>tile_id</code> variable and print exactly <code>WALL gray True</code>.</p>'''
+starter = '''
+# Create tile_types, choose tile_id, and inspect the selected definition.
 '''
-code = '''
-class GameEntity:
-    def __init__(self, x):
-        self.x = x
-class Player(GameEntity):
-    pass
-print(Player(5).x)
+expect = '''
+WALL gray True
 '''
+solution = '''
+tile_types = {
+    "grass": {"color": "green", "solid": False},
+    "wall": {"color": "gray", "solid": True},
+}
+tile_id = "wall"
+definition = tile_types[tile_id]
+print("WALL", definition["color"], definition["solid"])
+'''
+hint = '''Make each type id an outer key, then retrieve <code>definition = tile_types[tile_id]</code> before reading its color and solid keys.'''

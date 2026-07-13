@@ -5,6 +5,7 @@
 - prompts   phase prompt assembly, the Phase-0 gate/plan writer, verdict/findings IO
 - measure   validator gate, inventory/shrinkage contract, ground-truth measuring
 - sections  split-mode Phase 3 (one worker per section) + its resume bookkeeping
+- skeleton  plan parser + deterministic one-placeholder-lesson Phase-2 scaffolding
 - continuity  schema-checked cross-section handoffs and whole-tome continuity briefing
 - review    Phase-8 repair loop plus independent fresh no-change PASS gate
 - checkpoints  between-phase gates: Phase-1 arc gate, arc approval pause, tome rename

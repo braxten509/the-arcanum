@@ -1,24 +1,25 @@
 [[lessons]]
 id = "s06-l04"
+teaches = ["fetch-etiquette"]
 title = "Scraping etiquette — robots.txt, rate limits, honest headers"
 body = '''
 
-<p>A scraper without manners gets IP-banned — or worse, becomes someone else's outage. Verisearch is a QUIET tool: it reads a handful of pages per query. Keep it polite:</p>
-<p><strong>1. robots.txt</strong> — every site's ground rules live at <code>https://site.com/robots.txt</code>:</p>
+<p>A fetcher without manners can become someone else's outage. Verisearch is a quiet tool: it reads only the small set of pages the user selected. Keep it polite and make each configured publisher's terms part of the user's source decision.</p>
+<p><strong>1. Check the site policy.</strong> Many sites publish crawler rules at <code>https://site.example/robots.txt</code>:</p>
 <pre><code>User-agent: *
 Disallow: /admin/
 Disallow: /search
 Crawl-delay: 2</code></pre>
-<p>Minimal honest check: fetch it, find the <code>User-agent: *</code> section, and skip URLs whose path starts with a <code>Disallow:</code> prefix. A full parser is overkill for five URLs — but checking at all puts you ahead of most.</p>
+<p>Do not build a three-line “robots parser” and assume it implements the standard. Groups, longest-match precedence, wildcards, and allow rules matter. For this beginner artifact, consult the rules and terms for the few configured pages during setup; if automatic policy enforcement becomes a feature, use a tested implementation and add it as its own explicit boundary.</p>
 <p><strong>2. Identify yourself.</strong> Anonymous blank user-agents look like attacks:</p>
 <pre><code>http.DefaultRequestHeaders.UserAgent.ParseAdd(<span class="s">"Verisearch/1.0 (research tool)"</span>);</code></pre>
-<p><strong>3. Rate limit.</strong> Hammering a server with N instant requests is how tools get banned. A polite delay between requests to the <em>same host</em>:</p>
+<p><strong>3. Bound traffic.</strong> Set a timeout, pass cancellation, and do not start an unbounded number of requests to one host. If a server returns HTTP 429, record the source failure and honor <code>Retry-After</code> before any deliberate retry. The course's core path makes one request per selected URL and never loops forever.</p>
 <pre><code><span class="k">await</span> Task.Delay(1000);   <span class="c">// 1s of manners</span></code></pre>
-<p><strong>4. Fail quietly and move on.</strong> Dead link? 403? Timeout? Log it, skip it, continue with the other sources. One bad URL must never kill the run — Verisearch always has 4 more sources.</p>
-<div class="callout">Legal/ethical line for this project: public pages, tiny volume, verbatim quotes WITH attribution (that's the whole point of the tool). What crosses lines: ignoring robots.txt at scale, hammering servers, and scraping content behind logins/paywalls.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
-<p><strong>robots.txt matching rules</strong> (the two that matter): rules are PATH PREFIXES (<code>Disallow: /search</code> blocks /search and /search/anything), and an empty <code>Disallow:</code> means "everything allowed". <code>Allow:</code> lines can carve exceptions out of a Disallow — full parsers pick the longest matching rule; your five-URL tool can just respect Disallows.</p>
-<p><strong>HTTP 429 Too Many Requests</strong> is the server explicitly telling you to slow down — it often carries a <code>Retry-After</code> header (seconds). Honoring it isn't optional if you see one; that's the last warning before a ban.</p>
-<p><strong>Cache what you fetch:</strong> robots.txt per host should be fetched ONCE per run, not per URL — a little Dictionary&lt;host, rules&gt; is plenty.</p></div>'''
+<p><strong>4. Contain each source failure.</strong> A dead link, 403, timeout, or unacceptable media type becomes one named <code>FetchOutcome</code> in Chapter VIII. Other selected sources may continue, but the report does not hide the failure or substitute another page.</p>
+<div class="callout">Project boundary: public pages the user is permitted to read, tiny request volume, and exact quotations with attribution. Do not fetch content behind authentication, evade access controls, ignore publisher rules, or ship copied source material with the application.</div><div class="field-notes"><div class="fn-head">MARGINALIA // POLICY IS REAL CODE</div>
+<p><strong>HTTP 429 Too Many Requests</strong> explicitly asks the client to slow down and may carry a <code>Retry-After</code> header. A production retry policy needs a maximum attempt count, cancellation, and tests. The beginner build records the failure instead of quietly spinning.</p>
+<p><strong>Cache policy documents per host</strong> if you later automate checks. Fetching the same policy once for every page merely creates more traffic in the name of reducing traffic.</p>
+<p><strong>Evidence selection and permission are separate.</strong> A configured URL says the user wants that source considered; it does not override terms, authentication, copyright, or rate limits.</p></div>'''
 
 [[lessons.readings]]
 label = "ZenRows — Web scraping in C#: best practices"
@@ -43,11 +44,11 @@ hint = "It's a .txt file at the site root."
 id = "s06-l04-e2"
 type = "mc"
 points = 20
-prompt = "One of your 5 source URLs times out. Verisearch should…"
-choices = ["log it, skip it, and continue with the other 4 sources", "retry forever", "crash — data integrity matters", "switch to a VPN"]
+prompt = "One selected source times out while another succeeds. Verisearch should…"
+choices = ["record the named failure and continue with the successful selected source", "retry forever", "hide every result", "substitute an unchosen website"]
 answer = 0
-whyWrong = "One slow source shouldn’t crash the run or trigger infinite retries — log it, skip it, and continue with the sources that responded."
-hint = "One dead source shouldn't kill a five-source run."
+whyWrong = "A bounded source failure should remain visible without erasing unrelated successes; infinite retry and source substitution violate the run's contract."
+hint = "Contain the failure without changing the evidence set."
 
 [[lessons.exercises]]
 id = "s06-l04-e3"
@@ -73,12 +74,17 @@ await Task.Delay(1000);'''
 id = "s06-l04-w1"
 type = "write"
 points = 34
-prompt = "robots.txt logic lab: given <code>var disallowed = new List&lt;string&gt; { \"/admin\", \"/search\" };</code> read a URL PATH from STDIN and print <code>blocked</code> if it starts with any disallowed prefix, else <code>allowed</code>."
-stdin = "/search/results?q=tls"
-expect = "blocked"
+prompt = "Status-handling lab: read one HTTP status number. Print <code>success</code> for 200–299, <code>back off</code> for 429, and <code>record failure</code> otherwise."
+stdin = "429"
+expect = "back off"
 solution = '''
-var disallowed = new List<string> { "/admin", "/search" };
-string path = Console.ReadLine() ?? "";
-Console.WriteLine(disallowed.Any(prefix => path.StartsWith(prefix)) ? "blocked" : "allowed");
+int.TryParse(Console.ReadLine(), out int status);
+string action = status switch
+{
+    >= 200 and <= 299 => "success",
+    429 => "back off",
+    _ => "record failure"
+};
+Console.WriteLine(action);
 '''
-hint = "disallowed.Any(d => path.StartsWith(d)) — LINQ meets etiquette."
+hint = "Use a switch expression with the 200–299 range before the exact 429 arm."

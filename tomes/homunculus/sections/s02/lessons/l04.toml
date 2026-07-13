@@ -1,5 +1,6 @@
 [[lessons]]
 id = "s02-l04"
+teaches = ["sampling-contract"]
 title = "Sampling: Temperature, Top-p, and the Rest"
 body = '''
 <p>The same vessel, the same prompt, the same chat template — and yet two runs can answer differently. That is not noise to be feared; it is <strong>sampling</strong>, a deliberate knob most serving tools expose, and reading it correctly is the difference between a vessel that seems inconsistent and one you've simply tuned wrong for the task.</p>
@@ -76,4 +77,14 @@ starter = '''settings = {"temperature": 0.7, "top_p": 0.9}
 print("DETERMINISTIC")
 '''
 expect = "STOCHASTIC top_p=0.9"
+solution = '''settings = {"temperature": 0.7, "top_p": 0.9}
+
+if settings["temperature"] == 0:
+    print("DETERMINISTIC")
+else:
+    print(f"STOCHASTIC top_p={settings['top_p']}")
+'''
 hint = "Branch on settings['temperature'] == 0, and in the else branch build the string with an f-string using settings['top_p']."
+[[lessons.readings]]
+label = "Ollama Modelfile parameters"
+url = "https://docs.ollama.com/modelfile"

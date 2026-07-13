@@ -1,97 +1,79 @@
 [[lessons]]
 id = "s09-l02"
-title = "OllamaSharp — chat and streaming from C#"
+teaches = ["ollama-http-api"]
+title = "Call Ollama’s Chat API with Built-In HTTP JSON"
 body = '''
+<p>Verisearch needs no Ollama-specific NuGet client. The API is ordinary HTTP and JSON, so Chapter IV's <code>HttpClient</code> and <code>System.Net.Http.Json</code> helpers keep the dependency surface small.</p>
+<pre><code><span class="k">using</span> System.Net.Http.Json;
+<span class="k">using</span> System.Text.Json;
 
-<p><code>dotnet add package OllamaSharp</code>. The client wraps every Ollama endpoint:</p>
-<pre><code><span class="k">using</span> OllamaSharp;
+<span class="c">// request is an anonymous object with model, messages, stream, format, and options</span>
+<span class="k">using</span> HttpResponseMessage response = <span class="k">await</span> http.PostAsJsonAsync(
+    <span class="s">$"{config.OllamaUrl.TrimEnd('/')}/api/chat"</span>, request, ct);
+response.EnsureSuccessStatusCode();
 
-<span class="k">var</span> ollama = <span class="k">new</span> OllamaApiClient(<span class="s">"http://localhost:11434"</span>)
-{
-    SelectedModel = config.OllamaModel     <span class="c">// "llama3" from your YAML</span>
-};</code></pre>
-<p>Ollama <strong>streams</strong> responses token-by-token (that typewriter effect). OllamaSharp exposes that as an async stream you consume with <code>await foreach</code>:</p>
-<pre><code><span class="k">var</span> full = <span class="k">new</span> System.Text.StringBuilder();
-<span class="k">await foreach</span> (<span class="k">var</span> chunk <span class="k">in</span> ollama.GenerateAsync(prompt))
-{
-    Console.Write(chunk?.Response);        <span class="c">// live progress for the user</span>
-    full.Append(chunk?.Response);          <span class="c">// accumulate the real payload</span>
-}
-<span class="k">string</span> answer = full.ToString();</code></pre>
-<p><code>await foreach</code> is new syntax for you: it iterates an <code>IAsyncEnumerable&lt;T&gt;</code> — a sequence where each element ARRIVES asynchronously. Same loop body, await built into every step.</p>
-<p>Connection hygiene — Ollama might not be running. Probe before depending on it:</p>
-<pre><code><span class="k">try</span>
-{
-    <span class="k">var</span> models = <span class="k">await</span> ollama.ListLocalModelsAsync();
-    <span class="k">if</span> (!models.Any(m =&gt; m.Name.StartsWith(config.OllamaModel)))
-        Console.WriteLine(<span class="s">$"model {config.OllamaModel} not pulled — falling back"</span>);
-}
-<span class="k">catch</span> (HttpRequestException)
-{
-    Console.WriteLine(<span class="s">"Ollama offline — keyword fallback engaged"</span>);
-}</code></pre><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
-<p><strong>Generate vs chat:</strong> <code>GenerateAsync</code> is one-shot prompt→completion (perfect for the scanner); <code>ChatAsync</code> maintains a message history with roles. The roles: <code>system</code> (standing orders — "you are a relevance filter"), <code>user</code> (the request), <code>assistant</code> (the model's prior replies).</p>
-<p><strong>IAsyncEnumerable</strong> — the type behind <code>await foreach</code> — is just "a sequence where each MoveNext may await". You can write your own with <code>async IAsyncEnumerable&lt;T&gt;</code> + yield return; cancellation flows via <code>[EnumeratorCancellation]</code>. Recognize it; OllamaSharp writes it for you.</p>
-<p><strong>Timeouts for LLM calls:</strong> a wedged local model can hang forever — the same CancellationTokenSource discipline from Chapter VIII applies. LLM calls are just slow HTTP.</p></div>'''
+<span class="k">string</span> outerJson = <span class="k">await</span> response.Content.ReadAsStringAsync(ct);
+OllamaChatResponse result = JsonSerializer.Deserialize&lt;OllamaChatResponse&gt;(
+    outerJson, <span class="k">new</span> JsonSerializerOptions { PropertyNameCaseInsensitive = <span class="k">true</span> })
+    ?? <span class="k">throw new</span> InvalidOperationException(<span class="s">"Ollama returned an empty response"</span>);</code></pre>
+<p>The anonymous request object mirrors the documented wire fields: the configured model; a system message plus user prompt; <code>stream = false</code>; the schema in <code>format</code>; and temperature zero in <code>options</code>. The workshop assembles that complete object. Add two response records to <code>Models.cs</code> now:</p>
+<pre><code><span class="k">public sealed record</span> OllamaMessage(<span class="k">string</span> Content);
+<span class="k">public sealed record</span> OllamaChatResponse(OllamaMessage Message);</code></pre>
+<p><code>stream = false</code> asks for one JSON response. Streaming is useful for prose shown token by token, but Verisearch cannot display unverified model text and needs the complete structured payload before checking it. Simpler is safer here.</p>
+<p><code>EnsureSuccessStatusCode</code> preserves HTTP failure instead of trying to deserialize an error document as a chat response. At the application boundary, translate connection refusal into a precise instruction: start Ollama, confirm the configured URL, and pull the configured model. Do not catch it and silently run keyword matching.</p>
+<div class="callout">Reuse the same long-lived <code>HttpClient</code> configured in Program.cs. The source fetcher and Ollama selector can share it because each request has its own URL, headers, and cancellation token.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // RESPONSE ENVELOPE</div><p>The assistant text lives in <code>result.Message.Content</code>. That content is itself JSON only because the next lesson requests structured output; the outer chat response and inner quote payload are two serialization boundaries.</p></div>
+'''
 
 [[lessons.readings]]
-label = "OllamaSharp — GitHub README"
-url = "https://github.com/awaescher/OllamaSharp"
+label = "Ollama API — Generate a chat message"
+url = "https://docs.ollama.com/api/chat"
 essential = false
 
 [[lessons.readings]]
-label = "OllamaSharp — Getting Started"
-url = "https://github.com/awaescher/OllamaSharp/blob/main/docs/getting-started.md"
-essential = false
-
-[[lessons.readings]]
-label = "Microsoft.Extensions.AI announcement (multi-provider abstraction)"
-url = "https://devblogs.microsoft.com/dotnet/introducing-microsoft-extensions-ai-preview/"
+label = "Microsoft Learn — HttpClient JSON extensions"
+url = "https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/httpclient-extensions"
 essential = false
 
 [[lessons.exercises]]
 id = "s09-l02-e1"
 type = "fill"
-points = 25
-prompt = "Fill the blank to consume a streaming response."
-code = '''
-await ____ (var chunk in ollama.GenerateAsync(prompt))
-{
-    full.Append(chunk?.Response);
-}'''
-answer = "foreach"
-hint = "A familiar loop keyword, now with await in front."
+points = 20
+prompt = "Complete the built-in extension that posts an object as JSON."
+code = '''using HttpResponseMessage response = await http.____(url, request, ct);'''
+answer = "PostAsJsonAsync"
+hint = "Its name states the HTTP verb, representation, and asynchronous behavior."
 
 [[lessons.exercises]]
 id = "s09-l02-e2"
 type = "mc"
 points = 20
-prompt = "Why accumulate chunks in a StringBuilder while streaming?"
-choices = ["Each chunk is only a token or two — the parseable payload is the concatenation", "Console.Write requires it", "StringBuilder validates JSON", "Chunks arrive out of order"]
-answer = 0
-whyWrong = "StringBuilder doesn’t validate JSON and chunks arrive in order — you accumulate because each streamed chunk is a fragment and only the concatenation is parseable."
-hint = "You show pieces live AND keep the whole for parsing."
+prompt = "Why does the course set <code>stream = false</code> for quotation selection?"
+choices = ["Ollama cannot stream", "The program needs one complete structured payload before any verification and displays no raw model tokens", "HttpClient forbids streams", "It makes the model truthful"]
+answer = 1
+whyWrong = "Ollama and HttpClient support streaming, and the option does not establish truth. Non-streaming simplifies the verify-before-display boundary."
+explain = "The entire inner JSON document is parsed and checked before a user sees a quotation."
+hint = "Would partial unverified JSON be useful to render?"
 
 [[lessons.exercises]]
 id = "s09-l02-e3"
 type = "mc"
 points = 20
-prompt = "Ollama isn't running when Verisearch calls it. Your code should…"
-choices = ["crash with the raw HttpRequestException", "catch it and engage a non-LLM fallback (e.g., keyword matching)", "retry every second forever", "silently return zero results"]
-answer = 1
-whyWrong = "Don’t crash on the raw exception or retry forever — catch the connection failure and switch to a non-LLM fallback like keyword matching."
-hint = "The tome doc: everything before Chapter IX works WITHOUT AI. Keep it that way."
+prompt = "Live mode calls Ollama but the connection is refused. What should Verisearch do?"
+choices = ["Silently switch to keyword matching", "Print model-looking fixture output", "Fail clearly with setup guidance and a nonzero exit code", "Return every passage"]
+answer = 2
+whyWrong = "Each alternative impersonates the AI or changes relevance behavior without permission. Live mode must disclose that its required service is unavailable."
+explain = "The explicit --mock mode remains available for learning and deterministic tests."
+hint = "Do not let degraded behavior masquerade as the requested mode."
 
 [[lessons.exercises]]
 id = "s09-l02-d1"
 type = "type"
 points = 14
 reps = 2
-prompt = "Stream-and-accumulate — show progress live, keep the payload. Twice."
-code = '''
-var full = new StringBuilder();
-await foreach (var chunk in ollama.GenerateAsync(prompt))
-{
-    Console.Write(chunk?.Response);
-    full.Append(chunk?.Response);
-}'''
+prompt = "Retype the HTTP status and response-envelope boundary twice."
+code = '''using HttpResponseMessage response = await http.PostAsJsonAsync(url, request, ct);
+response.EnsureSuccessStatusCode();
+OllamaChatResponse result = await response.Content
+    .ReadFromJsonAsync<OllamaChatResponse>(cancellationToken: ct)
+    ?? throw new InvalidOperationException("Ollama returned an empty response");'''

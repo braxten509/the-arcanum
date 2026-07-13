@@ -1,5 +1,6 @@
 [[lessons]]
 id = "s03-l04"
+teaches = ["training-memory"]
 title = "Why Training Costs More Than It Looks"
 body = '''
 <p>Every number so far has described a vessel sitting still — a model loaded, chatting, holding a growing cache. Training changes the equation entirely, and the gap is not small. A model that loads and chats fine at 8 GB can be completely unable to fine-tune on a 16 GB card at the exact same size, because training adds line items inference never touches at all.</p>
@@ -77,4 +78,18 @@ total_gb = 0
 print(f"FULL FINETUNE {total_gb} GB")
 '''
 expect = "FULL FINETUNE 96 GB"
+solution = '''params_b = 8
+bytes_per_param = {
+    "weights": 2,
+    "gradients": 2,
+    "adam_m": 4,
+    "adam_v": 4,
+}
+
+total_gb = params_b * sum(bytes_per_param.values())
+print(f"FULL FINETUNE {total_gb} GB")
+'''
 hint = "Use sum(bytes_per_param.values()) for the 12-bytes-per-param total, then multiply by params_b."
+[[lessons.readings]]
+label = "Hugging Face model training anatomy"
+url = "https://huggingface.co/docs/transformers/training"

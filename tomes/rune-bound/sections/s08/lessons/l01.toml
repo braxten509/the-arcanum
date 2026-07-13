@@ -1,102 +1,102 @@
 [[lessons]]
 id = "s08-l01"
 title = "The Stat Block"
-teaches = ["s08-stat-block","s08-damage-rule"]
+teaches = ["s08-stat-block", "s08-damage-rule"]
 body = '''
-<p>s08-l01 opens the turns and damage chart through Stat. s08-l01 hears THE CARTOGRAPHER name s08-stat-block its first bearing. s08-l01 names one input, one change, and one output. s08-l01 gives s08-damage-rule a second mark for comparison. s08-l01 keeps the smallest successful example beside its route.</p>
-<p>s08-l01 reads from left to right, then narrates state changes. s08-l01 keeps its turns and damage clue concrete and observable. s08-l01 runs twice; the second pass challenges the first. s08-l01 records which owner moved when s08-stat-block shifted. s08-l01 carries earlier <code>StatBlock</code> evidence into this chart.</p>
-<p>s08-l01 asks one decision to stand alone in the margin. s08-l01 keeps s08-damage-rule visible instead of hiding it behind polish. s08-l01 tests a friendly case and a sharp edge case. s08-l01 compares both traces so s08-stat-block has a witness. s08-l01 names the failure before choosing a repair.</p>
-<p>s08-l01 treats each handoff as a contract between maker and reader. s08-l01 supplies s08-stat-block; the reader checks s08-damage-rule. s08-l01 places its check where another wayfinder can repeat it. s08-l01 earns THE CARTOGRAPHER's trust through evidence, not luck. s08-l01 leaves one deliberate question for the next chart.</p>
-<p>s08-l01 closes by stating what the program must preserve. s08-l01 names one input that could falsify s08-stat-block. s08-l01 names one output that confirms s08-damage-rule still belongs. s08-l01 runs the smallest route, inspects its trace, and annotates it. s08-l01 turns the turns and damage chart into a RuneBound waypoint.</p>
-<p>s08-l01 ends with a handoff to the next chart. s08-l01 carries s08-damage-rule forward after s08-stat-block earns trust. s08-l01 lets THE CARTOGRAPHER record the result in plain language. s08-l01 turns a clean rerun from a guess into a fact. s08-l01 lets the next wayfinder begin without hidden context.</p>
-<pre><code>print("s08-l01 // The Stat Block")</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // S08-L01</div><p>s08-l01 <strong>Evidence.</strong> Record s08-stat-block; compare it with s08-damage-rule before advancing.</p><p>s08-l01 <strong>Repair.</strong> Change one cause, rerun the route, and preserve the explanation.</p></div>
+<p>Wayfinder, a fight becomes unchartable the moment its numbers hide in event branches. Give every combatant one <code>StatBlock</code>: a small dataclass with current <code>hp</code>, its ceiling <code>max_hp</code>, <code>attack</code>, and <code>defense</code>. Put the canonical definition at the top of the new <code>combat.py</code>. A dataclass writes the ordinary initializer for you, but the four field names are still your public contract. s09 will apply item modifiers to this exact record, so do not rename a bearing because a Slime happens to use it first.</p>
+<pre><code>from dataclasses import dataclass
+
+
+@dataclass
+class StatBlock:
+    hp: int
+    max_hp: int
+    attack: int
+    defense: int
+
+
+def deal_damage(attacker, target):
+    damage = max(1, attacker.stats.attack - target.stats.defense)
+    target.stats.hp = max(0, target.stats.hp - damage)
+    return damage</code></pre>
+<p><code>deal_damage</code> receives combatants rather than four loose numbers. It reads the attacker’s attack and the target’s defense, never lets a successful hit do less than one point, clamps HP at zero, and returns the amount for the combat log. A defense of 9 against attack 5 therefore still takes 1; an attack of 7 against defense 3 takes 4. Returning the value does not decide whose turn is next. That ownership belongs to the manager in the next survey.</p>
+<p>For one tiny terminal experiment only, make <code>player_stats = StatBlock(20, 20, 7, 2)</code> and <code>slime_stats = StatBlock(12, 12, 5, 1)</code>, call the function, and print the returned damage. Those local numbers are a teaching probe, not shipped enemy configuration. In l02 you will delete them and load the Slime record from <code>data/enemies.json</code>; the JSON file becomes the sole enemy-stat source.</p>
+<p>Then make a member-only patch in <code>player.py</code>: add <code>from combat import StatBlock</code> beside its imports, and at the end of the existing <code>Player.__init__</code>, after inherited sprite setup, add <code>self.stats = StatBlock(30, 30, 7, 2)</code>. Do not redraw Player, replace its <code>rect</code>, or move camera state into it. Player still owns movement and collision; this added record only gives combat a stable world actor to damage.</p>
+<div class="callout"><strong>THE CARTOGRAPHER'S RULE:</strong> a stat record stores facts; <code>deal_damage</code> changes HP by one visible rule.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ZERO IS A FLOOR</div><p>A negative HP bar is not dramatic; it is a broken invariant. Clamp after subtraction so the renderer and outcome checks can trust <code>0 &lt;= hp &lt;= max_hp</code>. Healing arrives in s09, so this chart does not add it early.</p></div>
 '''
 
 [[lessons.readings]]
-label = "Python library // dataclasses // The Stat Block"
+label = "Python Docs // dataclasses"
 url = "https://docs.python.org/3/library/dataclasses.html"
 
 [[lessons.exercises]]
 id = "s08-l01-e1"
 type = "mc"
-points = 14
-prompt = '''
-<p>Why keep combat numbers in a StatBlock? Select the reading that keeps the turn ledger can apply one named damage rule in both directions possible.</p>
-'''
-choices = ["the block automatically chooses the enemy's next state","The Stat Block: keep s08-stat-block owned by the named boundary and verify the result before handoff s08-l01-e1.","stats belong in the tile CSV so the map can balance them","a stat record replaces the need for a turn order"]
+points = 20
+prompt = '''<p>Which boundary should own the four changing combat values for one actor?</p>'''
+choices = ['<code>camera = [x, y]</code>', 'A <code>StatBlock</code> attached to that actor', 'The tile CSV row beneath the actor', 'The <code>pygame.KEYDOWN</code> event']
 answer = 1
-whyWrong = '''
-The tempting routes confuse scattering magic numbers through action handlers and making balance impossible to inspect with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace hp, max_hp, attack, and defense as explicit combat facts in the Steel Turn chart, then compare the the stat record holds values while the combat system decides when to apply them with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves the stat record holds values while the combat system decides when to apply them and leaves hp, max_hp, attack, and defense as explicit combat facts available for the next RuneBound handoff.
-'''
+hint = '''The values must remain available to player, enemy, UI, and later item code without making the camera or input system a stat store.'''
+whyWrong = '''Camera coordinates describe a viewport, tiles describe terrain, and an event is one input occurrence. The named record groups one combatant’s mutable combat facts under a reusable contract.'''
+explain = '''A StatBlock is inspectable data; it does not decide turn order or input routing.'''
 
 [[lessons.exercises]]
 id = "s08-l01-e2"
-type = "write"
-points = 30
-prompt = '''
-<p>Complete the steel turn route and print exactly <code>RUNEBOUND S08 L01 SEAL</code>. Preserve the named data before adding the final observation.</p>
-'''
-starter = '''
-route_mark = "stat-block"
-print("survey pending")
-# Add the chart seal after checking the route.
-'''
-expect = '''
-RUNEBOUND S08 L01 SEAL
-'''
-solution = '''
-route_mark = "stat-block"
-print("RUNEBOUND S08 L01 SEAL")
-'''
-hint = '''
-For s08-l01-e2, leave the route data intact and add only its final s08 observation; compare the starter output with the target before submitting.
+type = "type"
+points = 12
+reps = 2
+prompt = '''<p>Retype the damage floor. It is the same rule both Player and Enemy use.</p>'''
+code = '''
+damage = max(1, attacker.stats.attack - target.stats.defense)
+target.stats.hp = max(0, target.stats.hp - damage)
 '''
 
 [[lessons.exercises]]
 id = "s08-l01-e3"
-type = "type"
-points = 10
-reps = 2
-prompt = '''
-<p>Retype this steel turn evidence exactly. Keep hp, max_hp, attack, and defense as explicit combat facts visible while you write. (Ctrl+Enter submits.)</p>
-'''
+type = "fill"
+points = 22
+prompt = '''<p>Restore the function that prevents a defended hit from becoming zero or negative.</p>'''
 code = '''
-attack = 7
-defense = 3
-damage = max(1, attack - defense)
-print(damage)
+damage = ____(1, attacker.attack - target.defense)
 '''
+answer = "max"
+hint = '''Compare the minimum allowed hit, 1, with the subtraction before choosing the built-in.'''
+whyWrong = '''<code>min</code> would cap damage at one in many ordinary cases, while <code>sum</code> needs an iterable. This rule selects the larger of the floor and calculated difference.'''
 
 [[lessons.exercises]]
 id = "s08-l01-e4"
-type = "fill"
-points = 18
-prompt = '''
-<p>s08-l01-e4: restore the missing operation in the supplied code. Use its operands and the chart evidence to complete the route without renaming the owner.</p>
+type = "write"
+points = 35
+prompt = '''<p>Write the supplied <code>damage</code> calculation for an attack of 7 against defense 10, clamp 3 HP after that hit, and print exactly <code>DAMAGE 1</code> and <code>HP 2</code>. This plain-Python lab models the combat rule; RuneBound receives actions through PyGame events.</p>'''
+starter = '''
+attack = 7
+defense = 10
+hp = 3
+
+# Calculate the minimum-one hit, apply it, and print both observations.
 '''
-code = '''
-damage = ____ (1, attack - defense)
+expect = '''
+DAMAGE 1
+HP 2
 '''
-answer = "max"
-hint = '''
-Look at what must happen to damage = max(1, attacker.attack - target.defense); choose the operation that performs that job rather than the one that merely inspects the result.
+solution = '''
+attack = 7
+defense = 10
+hp = 3
+
+damage = max(1, attack - defense)
+hp = max(0, hp - damage)
+print("DAMAGE", damage)
+print("HP", hp)
 '''
+hint = '''Use <code>max(1, attack - defense)</code>, then subtract that result from <code>hp</code> inside a second <code>max(0, ...)</code>.'''
 
 [[lessons.exercises]]
 id = "s08-l01-e5"
 type = "text"
-points = 16
-prompt = '''
-<p>s08-l01-e5: name the Python term for the specific unit requested by this chart. Supply the language term, not the surrounding story label.</p>
-'''
-answer = "defense"
-hint = '''
-Recall the named boundary in The Stat Block; the answer is the language term for that single job, not the larger game feature.
-'''
+points = 18
+prompt = '''<p>What decorator generates the ordinary initializer for the four-field combat record?</p>'''
+answer = "dataclass"
+hint = '''It is imported from Python’s <code>dataclasses</code> module and written immediately above the class.'''
+whyWrong = '''<code>staticmethod</code> changes method binding and <code>property</code> wraps an accessor. The requested decorator creates the data-oriented initializer and representation for this record.'''

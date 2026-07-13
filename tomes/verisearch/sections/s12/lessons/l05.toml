@@ -1,0 +1,69 @@
+[[lessons]]
+id = "s12-l05"
+teaches = ["acceptance-run"]
+title = "Acceptance Journey — Prove Every Boundary from the Entrypoint"
+body = '''
+<p>Unit tests prove components; acceptance proves the assembled command. Run this ladder in order and save the command plus outcome in <code>RELEASE-CHECK.md</code>. Do not paste raw model reasoning or private page contents.</p>
+<ol><li><strong>Build and tests:</strong> <code>dotnet build</code>, then <code>dotnet test Verisearch.Tests/Verisearch.Tests.csproj</code> from the parent directory.</li><li><strong>Explicit fixture:</strong> keep a configured <code>LocalFixture</code> source labeled <code>Local fixture</code>, then run <code>dotnet run --project Verisearch -- "What does the fixture say?" --source "Local fixture" --mock --verbose</code>. Require the MOCK banner, a verified quote, source label, <code>mock://</code> URL, passage id, and rejected count.</li><li><strong>Fabrication attack:</strong> add or run the test whose proposal text does not occur in its passage. Require zero accepted and one rejected; then restore no production rule because rejection is success.</li><li><strong>Partial source failure:</strong> configure one valid fixture and one deliberately unreachable web source. Require the fixture result plus a visible source error—not a crash or silence.</li><li><strong>Live AI:</strong> run <code>ollama list</code>, <code>curl http://localhost:11434/api/tags</code>, and a command against a chosen public source. Check every printed quote by searching its cited page text.</li><li><strong>Live failure:</strong> stop Ollama temporarily and repeat without <code>--mock</code>. Require an actionable error, no quotes, and nonzero status. Restart the service afterward.</li><li><strong>Published path:</strong> publish for the current RID, run that executable's <code>--help</code>, then its explicit fixture command.</li></ol>
+<p>Model wording and selection can vary, so live acceptance does not assert a particular quote. It asserts invariants: every displayed quote is a verified substring, every citation comes from C# passage data, and absence or failure never turns into invented evidence.</p>
+<div class="callout">The partial-failure rehearsal must use a URL you control or a reserved unreachable local address. Do not hammer a public site merely to manufacture an error.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // BINARY HEALTH CALL</div><p>Record PASS or FAIL for each rung with one line of evidence. If a rung fails, repair and rerun it plus every later rung; downstream proof built on a broken earlier boundary is not evidence.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — Testing in .NET"
+url = "https://learn.microsoft.com/en-us/dotnet/core/testing/"
+essential = false
+
+[[lessons.exercises]]
+id = "s12-l05-e1"
+type = "mc"
+points = 20
+prompt = "Why does live acceptance avoid asserting one fixed quotation?"
+choices = ["The verifier is optional", "Model selection can vary, while exact-substring and attribution invariants must not", "C# cannot compare strings", "Sources have no text"]
+answer = 1
+whyWrong = "Verification remains mandatory, C# compares strings, and sources provide the passages. Only semantic selection is nondeterministic."
+explain = "Acceptance checks stable safety properties around a variable model choice."
+hint = "Separate chosen content from rules every chosen item must obey."
+
+[[lessons.exercises]]
+id = "s12-l05-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the explicit mock acceptance command twice."
+code = '''dotnet run --project Verisearch -- "What does the fixture say?" --source "Local fixture" --mock --verbose'''
+
+[[lessons.exercises]]
+id = "s12-l05-e2"
+type = "fill"
+points = 18
+prompt = "Complete the expected cancellation exit status recorded by the release journey."
+code = '''canceled => exit ____'''
+answer = "130"
+hint = "The same status was established at the composition root."
+
+[[lessons.exercises]]
+id = "s12-l05-e3"
+type = "mc"
+points = 18
+prompt = "What must the stopped-Ollama live test prove?"
+choices = ["Mock starts automatically", "Keyword matching supplies quotes", "The command fails clearly and emits no impersonated evidence", "Every passage is printed"]
+answer = 2
+whyWrong = "Automatic alternative modes and all-passages output change the requested behavior and can masquerade as AI evidence."
+explain = "A visible failure preserves mode integrity and tells the user what to repair."
+hint = "Live means live or an error."
+
+[[lessons.exercises]]
+id = "s12-l05-w1"
+type = "write"
+points = 38
+prompt = "Given acceptance rung Booleans for build, tests, mock, live, and publish, print PASS only when every rung is true."
+starter = '''var rungs = new[] { true, true, true, true, true };
+Console.WriteLine("NOT CHECKED");
+'''
+expect = "PASS"
+solution = '''var rungs = new[] { true, true, true, true, true };
+Console.WriteLine(rungs.All(passed => passed) ? "PASS" : "FAIL");
+'''
+hint = "Use All with a lambda returning each Boolean."

@@ -1,5 +1,6 @@
 [[lessons]]
 id = "s02-l02"
+teaches = ["switch-expressions"]
 title = "switch — statements, expressions, and the reading of patterns"
 body = '''
 
@@ -17,23 +18,21 @@ body = '''
         Console.WriteLine(<span class="s">"unknown command"</span>);
         <span class="k">break</span>;
 }</code></pre>
-<p>Modern C# adds the <strong>switch expression</strong> — it <em>yields a value</em>, wields <code>=&gt;</code>, and takes <code>_</code> as the catch-all. This is the form the tome's diviner wants:</p>
-<pre><code><span class="k">string</span> type = firstWord <span class="k">switch</span>
+<p>Modern C# adds the <strong>switch expression</strong> — it <em>yields a value</em>, wields <code>=&gt;</code>, and takes <code>_</code> as the catch-all. This is the form the vestibule uses to distinguish commands from a complete question:</p>
+<pre><code><span class="k">string</span> kind = normalized <span class="k">switch</span>
 {
-    <span class="s">"what"</span> <span class="k">or</span> <span class="s">"which"</span> =&gt; <span class="s">"Factual lookup"</span>,
-    <span class="s">"how"</span>              =&gt; <span class="s">"Procedural"</span>,
-    <span class="s">"why"</span>              =&gt; <span class="s">"Explanation"</span>,
-    <span class="s">"define"</span>           =&gt; <span class="s">"Definition"</span>,
-    _                  =&gt; <span class="s">"General"</span>
+    <span class="s">"quit"</span> <span class="k">or</span> <span class="s">"exit"</span> =&gt; <span class="s">"Stop"</span>,
+    <span class="s">"help"</span>           =&gt; <span class="s">"Help"</span>,
+    _                =&gt; <span class="s">"Question"</span>
 };</code></pre>
 <p>Patterns reach beyond exact values — you may match ranges and conditions:</p>
-<pre><code><span class="k">string</span> tier = score <span class="k">switch</span>
+<pre><code><span class="k">string</span> size = question.Length <span class="k">switch</span>
 {
-    &gt;= 9.0 =&gt; <span class="s">"Standards"</span>,
-    &gt;= 6.0 =&gt; <span class="s">"Community"</span>,
-    _      =&gt; <span class="s">"Unverified"</span>
+    &gt;= 80 =&gt; <span class="s">"Long"</span>,
+    &gt;= 20 =&gt; <span class="s">"Medium"</span>,
+    _     =&gt; <span class="s">"Short"</span>
 };</code></pre>
-<div class="callout">This chapter's seal literally reads "can wield switch <em>expressions</em>, not merely statements." THORNE will search your sifter for one.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<div class="callout">This chapter's seal literally reads "can wield switch <em>expressions</em>, not merely statements." THORNE will inspect the input boundary for one.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>when guards</strong> lay conditions upon any pattern arm: <code>{ Length: &gt; 100 } when text.Contains("RFC") =&gt; ...</code>. Bind patterns with <code>and</code>/<code>or</code>/<code>not</code>: <code>&gt;= 4.0 and &lt; 8.0 =&gt; "mid"</code>.</p>
 <p><strong>Exhaustiveness:</strong> if a switch expression may receive a value no arm matches, the compiler WARNS you — and at casting time it throws <code>SwitchExpressionException</code>. The <code>_</code> arm is your net; always weave one unless you match a closed enum whole.</p>
 <p><strong>Statement vs expression — the choosing:</strong> must you RUN different runes per case? Statement. Must you PICK a value per case? Expression. The tome's divining picks values → expression.</p></div>'''
@@ -63,29 +62,29 @@ type = "mc"
 points = 20
 prompt = "What does <code>type</code> become?"
 code = '''
-string firstWord = "how";
-string type = firstWord switch
+string normalized = "help";
+string type = normalized switch
 {
-    "what" or "which" => "Factual",
-    "how" => "Procedural",
-    _ => "General"
+    "quit" or "exit" => "Stop",
+    "help" => "Help",
+    _ => "Question"
 };'''
-choices = ["Procedural", "Factual", "General", "how"]
+choices = ["Help", "Stop", "Question", "help"]
 answer = 0
-whyWrong = "The value routed to the ‘Procedural’ branch; the other labels belong to inputs this code didn’t take."
+whyWrong = "The input matches the Help arm; the other labels belong to paths this value did not take."
 hint = "Hold the value against each arm, top to bottom."
-explain = "The value <code>\"how\"</code> matches the <code>\"how\" =&gt; \"Procedural\"</code> arm, so the switch expression yields <code>Procedural</code>."
+explain = "The value <code>\"help\"</code> matches the <code>\"help\" =&gt; \"Help\"</code> arm, so the switch expression yields <code>Help</code>."
 
 [[lessons.exercises]]
 id = "s02-l02-e3"
 type = "fill"
 points = 25
-prompt = "Complete the rune: match any score of 9.0 or higher."
+prompt = "Complete the rune: match any length of 80 or higher."
 code = '''
-string tier = score switch
+string size = length switch
 {
-    ____ 9.0 => "Standards",
-    _ => "Other"
+    ____ 80 => "Long",
+    _ => "Shorter"
 };'''
 answer = ">="
 hint = "A relational pattern — the same mark you'd wield in an if."
@@ -97,30 +96,28 @@ points = 14
 reps = 2
 prompt = "The switch expression shape — arms, fat arrows, discard. Twice."
 code = '''
-string type = firstWord switch
+string kind = normalized switch
 {
-    "what" or "which" => "Factual",
-    "how" => "Procedural",
-    "why" => "Explanation",
-    _ => "General"
+    "quit" or "exit" => "Stop",
+    "help" => "Help",
+    _ => "Question"
 };'''
 
 [[lessons.exercises]]
 id = "s02-l02-w1"
 type = "write"
 points = 32
-prompt = "Hear one word by whisper and divine its kind with a switch EXPRESSION: \"how\"→Procedural, \"what\"→Factual, \"why\"→Explanation, anything else→General. Utter the divination."
-stdin = "how"
-expect = "Procedural"
+prompt = "Hear one line by whisper and classify it with a switch expression after trimming and lowercasing: \"quit\" or \"exit\"→Stop, \"help\"→Help, anything else→Question. Utter the classification."
+stdin = "HELP"
+expect = "Help"
 solution = '''
-string word = Console.ReadLine() ?? "";
-string kind = word switch
+string normalized = (Console.ReadLine() ?? "").Trim().ToLowerInvariant();
+string kind = normalized switch
 {
-    "how" => "Procedural",
-    "what" => "Factual",
-    "why" => "Explanation",
-    _ => "General"
+    "quit" or "exit" => "Stop",
+    "help" => "Help",
+    _ => "Question"
 };
 Console.WriteLine(kind);
 '''
-hint = "Hear the word, pass it through the switch expression, WriteLine the result."
+hint = "Normalize only for comparison, pass that value through the switch expression, then WriteLine the result."

@@ -58,12 +58,12 @@ function showForgeModal(resume) {
   // a dial's label + a hover/focus tooltip carrying its guidance, so the modal stays compact
   const fhead = (lbl, tip, up) => `<div class="forge-lbl"><label>${lbl}</label>` +
     `<button type="button" class="forge-help${up ? " forge-help--up" : ""}" aria-label="What this hand does">i<span class="forge-tip">${tip}</span></button></div>`;
-  const providersTip = "Providers: Claude / Antigravity / Codex (their own logins), OpenCode CLI (OpenCode Go + FREE models), and Local (your ollama models, run through opencode). The EFFORT box appears only when the chosen model supports one — Claude/Codex on every model, OpenCode per model (only some Go/free models have a variant), Antigravity and Local none.";
+  const providersTip = "Providers: Claude / Antigravity / Codex (their own logins), OpenCode CLI (OpenCode Go + FREE models), and Local (your ollama models, run through opencode). Model and effort support is read per model. A model too weak—or an endpoint too temporary—for this complete multi-hour hand is gray and marked <b>(not advised)</b>; unsupported or wasteful effort levels are simply gray. Antigravity carries effort in the model name; Local has no effort switch.";
   modal(`<h2>THE BINDERY<button type="button" class="forge-help" aria-label="How the model pickers work">i<span class="forge-tip">${providersTip}</span></button></h2>
     <p class="dim" style="font-size:12px;margin:2px 0 16px">Describe the course you wish existed. The bindery names it, chooses the tools it needs, then drafts, writes, and reviews the whole tome — it takes a good while, and you may leave and return as it works.</p>
     <div class="forge-field"><label for="fg-concept">COURSE CONCEPT</label>
       <textarea id="fg-concept" rows="4" placeholder="What should this tome teach? What does the student build by the end?"></textarea></div>
-    <div class="forge-field">${fhead("PRIOR KNOWLEDGE", "Two signals for where the course STARTS. The <b>box</b> names WHAT the student already knows (languages / tools). The <b>slider</b> sets HOW MUCH they know about THIS course's subject — where teaching begins: <b>1</b> = absolute zero, so the course's own language/tool is taught from scratch as its own early chapters (nothing assumed, not even the language) · <b>5</b> = knows programming generally but not this exact stack — a brisk language/tooling primer, then the domain · <b>10</b> = already expert in this subject, so skip every fundamental and teach only the sharp edge. When unsure, aim LOW — a skipped fundamental (the language itself) is the worst gap a course can have.")}
+    <div class="forge-field">${fhead("PRIOR KNOWLEDGE", "Two signals set where the course STARTS. The <b>box</b> is an exhaustive list of WHAT the student can already do; nearby skills are not assumed. The <b>slider</b> sets pace: <b>1</b> = absolute zero · <b>2</b> = nearly zero, with the same fundamental coverage as 1 but less repetition · <b>5</b> = a brisk language/tooling primer before the domain · <b>10</b> = expert, advanced material only. At 1–3, every new construct and tool action is introduced before use. When unsure, aim LOW: a skipped fundamental is the worst gap a course can have.")}
       <input type="text" id="fg-prior" placeholder="what the student can already do (languages / tools)">
       <div class="forge-depth" style="margin-top:8px"><input type="range" id="fg-prior-level" min="1" max="10" step="1" value="5">
         <span class="forge-depth-val num" id="fg-prior-level-val">5</span></div></div>
@@ -88,33 +88,31 @@ function showForgeModal(resume) {
         <span class="fq-word">CHEAP</span>
         <input type="range" id="fg-quality" min="1" max="5" step="1" value="3" disabled>
         <span class="fq-word">QUALITY</span>
-      </div></div>
+      </div>
+      <div class="fq-summary"><b id="fg-quality-name">loading model mix…</b><span id="fg-quality-blurb"></span></div></div>
     <div id="fg-hands">
-    <div class="forge-field">${fhead("THE DRAFTER", "The cheap hand — lays the scaffold: the skeleton, the economy, the cosmetics &amp; the validation pass. The checker guards its work, so spend little here. <b>Effort:</b> low — mechanical scaffolding the validator already guards; high is wasted here.")}
+    <div class="forge-field">${fhead("THE DRAFTER", "The lower-cost hand — lays the scaffold, economy, and cosmetics, then owns the whole-tome validation pass. Mechanical checks help, but the final pass still requires judgment, so only models realistic for that full bundle remain selectable. <b>Effort:</b> use the lowest level that remains selectable; compact models may require high.")}
       <div class="forge-ai-row">
         <select id="fg-drafter-prov" class="cfg-select" style="flex:0 0 auto;width:172px"><option value="">PICK A MODEL</option></select>
         <select id="fg-drafter-model" class="cfg-select" style="flex:1 1 auto;min-width:0" disabled><option value="">—</option></select>
         <select id="fg-drafter-eff" class="cfg-select" style="flex:0 0 auto;width:104px" disabled><option value="">—</option></select>
       </div></div>
-    <div class="forge-field">${fhead("THE WRITER", "The costly hand — writes what actually teaches: the arc, the lessons &amp; the minigames. This is where the tome lives or dies, so spend here. <b>Effort:</b> medium is the sweet spot for authoring; go high only to make the concept/arc pass reason harder. Low risks shallow lessons and validator retries.")}
+    <div class="forge-field">${fhead("THE WRITER", "The planning hand — designs the complete learning arc and authors its minigames. The Sections hand below writes the lessons themselves. A weak arc cannot be repaired mechanically, so spend enough here. <b>Effort:</b> use the lowest selectable level; serious reasoning models begin at medium or high.")}
       <div class="forge-ai-row">
-        <select id="fg-writer-prov" class="cfg-select" style="flex:0 0 auto;width:172px"><option value="">DRAFTER MODEL</option></select>
+        <select id="fg-writer-prov" class="cfg-select" style="flex:0 0 auto;width:172px"><option value="">PICK A MODEL</option></select>
         <select id="fg-writer-model" class="cfg-select" style="flex:1 1 auto;min-width:0" disabled><option value="">—</option></select>
         <select id="fg-writer-eff" class="cfg-select" style="flex:0 0 auto;width:104px" disabled><option value="">—</option></select>
       </div></div>
-    <div class="forge-field">${fhead('THE SECTIONS HAND <span style="font-weight:400;font-style:italic;letter-spacing:0">— phase 3 only</span>', "Sections is the biggest, most cache-heavy phase. <b>Off:</b> a curated shortlist vetted for quality + cheap cache reads. <b>Split by section:</b> each section gets its own worker so context never piles up — pick ANY model without the cache blow-up (a whole-tome reconcile pass still runs at the end for consistency). Overrides the writer for phase 3 only. <b>Effort:</b> medium — bulk authoring; high mostly buys slow think-time, low risks validator retries.")}
+    <div class="forge-field">${fhead('THE SECTIONS HAND <span style="font-weight:400;font-style:italic;letter-spacing:0">— phase 3 only</span>', "Sections is the biggest, most cache-heavy phase and writes all teaching prose, examples, exercises, and cumulative project changes. Recommendations assume the model may have to own the phase unsplit; splitting improves reliability and cost, but does not make a subagent-class model a dependable course author. This hand overrides the Writer for phase 3.")}
       <label class="forge-split-toggle"><input type="checkbox" id="fg-split"> split by section</label>
-      <div class="forge-ai-row" id="fg-sec-curated">
-        <select id="fg-sections" class="cfg-select" style="flex:1 1 auto;min-width:0"><option value="">WRITER MODEL</option></select>
-      </div>
-      <div class="forge-ai-row" id="fg-sec-any" style="display:none">
+      <div class="forge-ai-row">
         <select id="fg-sec-prov" class="cfg-select" style="flex:0 0 auto;width:172px"><option value="">PICK A MODEL</option></select>
         <select id="fg-sec-model" class="cfg-select" style="flex:1 1 auto;min-width:0" disabled><option value="">—</option></select>
         <select id="fg-sec-eff" class="cfg-select" style="flex:0 0 auto;width:104px" disabled><option value="">—</option></select>
       </div></div>
     <div class="forge-field">${fhead("THE REVIEWER", "Independent eyes — reads the finished tome cover to cover as a first-time student and fills the gaps (the final review). A model DIFFERENT from the writer here catches what the writer cannot see in its own work. <b>Effort:</b> medium–high — spotting cross-section gaps is genuinely reasoning-work.", true)}
       <div class="forge-ai-row">
-        <select id="fg-reviewer-prov" class="cfg-select" style="flex:0 0 auto;width:172px"><option value="">WRITER MODEL</option></select>
+        <select id="fg-reviewer-prov" class="cfg-select" style="flex:0 0 auto;width:172px"><option value="">PICK A MODEL</option></select>
         <select id="fg-reviewer-model" class="cfg-select" style="flex:1 1 auto;min-width:0" disabled><option value="">—</option></select>
         <select id="fg-reviewer-eff" class="cfg-select" style="flex:0 0 auto;width:104px" disabled><option value="">—</option></select>
       </div></div>
@@ -166,82 +164,93 @@ function showForgeModal(resume) {
       el.closest(".forge-field").classList.add("forge-locked");
     }
   }
-  // Each knob is a [PROVIDER][MODEL][EFFORT] cascade fed by /api/models `bindery`
-  // ([{id,label,kind,models:[[id,label,tag],…],efforts,installed}]). Pick a provider, its
-  // models fill the middle box; the effort box enables only for providers that take one
-  // (claude, codex). enhanceSelect's MutationObserver repaints the styled control when we
-  // rewrite <option>s on provider change, so re-enhancing isn't needed.
-  const knob = (n) => ({ prov: $(`#fg-${n}-prov`, root), model: $(`#fg-${n}-model`, root), eff: $(`#fg-${n}-eff`, root) });
-  const K = { drafter: knob("drafter"), writer: knob("writer"), reviewer: knob("reviewer"), sec: knob("sec") };
+  // Each row is [id,label,tag,efforts,guidance]. Guidance is role-specific, so the same
+  // cheap model can remain selectable for the Drafter while appearing gray for Reviewer.
+  const knob = (n, role) => ({ role, prov: $(`#fg-${n}-prov`, root),
+    model: $(`#fg-${n}-model`, root), eff: $(`#fg-${n}-eff`, root) });
+  const K = { drafter: knob("drafter", "drafter"), writer: knob("writer", "writer"),
+    reviewer: knob("reviewer", "reviewer"), sec: knob("sec", "sections") };
   let BINDERY = [];
-  // Phase 3 (Sections) is the biggest, most cache-heavy phase, so its dial offers only a
-  // curated shortlist — strong authoring models with cheap cache reads (per the GLM cost
-  // post-mortem). All opencode-go, so one kind; filtered to those actually served. [id, label, note]
-  const PHASE3_RECOMMENDED = [
-    ["opencode-go/deepseek-v4-pro", "DeepSeek V4 Pro", "best value · cache ≈ free · pro tier"],
-    ["opencode-go/qwen3.7-plus",    "Qwen3.7 Plus",    "strong · low cost"],
-    ["opencode-go/minimax-m3",      "MiniMax M3",      "capable · low cost"],
-    ["opencode-go/kimi-k2.6",       "Kimi K2.6",       "strong coder · mid cost"],
-    ["opencode-go/glm-5.2",         "GLM 5.2",         "high quality · pricey cache"],
-  ];
-  const secSel = $("#fg-sections", root);
   // THE PURSE — CHEAP↔QUALITY slider. Tiers come from harness.toml [quality.*] via
   // /api/models; each is a per-phase runner map applied to the hand knobs. Configure
   // unticked → the slider owns the knobs (hands locked); ticked → knobs free, slider held.
   const qual = $("#fg-quality", root), conf = $("#fg-configure", root);
   let QUALITY = [];
-  // Effort is PER-MODEL (row is [id,label,tag,efforts]): some OpenCode models expose a
-  // reasoning variant, most don't; claude/codex expose their CLI's levels on every model.
-  // So the effort box follows the selected MODEL, not the provider.
-  const fillEffort = (k) => {
+  const modelRow = (k) => {
     const p = BINDERY.find((x) => x.id === k.prov.value);
-    const m = p && (p.models || []).find((mm) => mm[0] === k.model.value);
-    const levels = (m && m[3]) || [];
-    k.eff.innerHTML = levels.length
-      ? `<option value="">DEFAULT</option>` + levels.map((l) => `<option value="${esc(l)}">${esc(l.toUpperCase())}</option>`).join("")
+    return p && (p.models || []).find((m) => m[0] === k.model.value);
+  };
+  // Older, already-running servers return four-column model rows. Treat those
+  // rows as usable until the server can be restarted and supply policy data.
+  const advised = (row, role) => !!(row && (!row[4] || (row[4].advised && row[4].advised[role])));
+  // Every supported effort remains visible. Only the role/model combinations assessed as
+  // useful are selectable; disabled entries need no verbose suffix in the narrow box.
+  const fillEffort = (k) => {
+    const row = modelRow(k), levels = (row && row[3]) || [];
+    const allowed = new Set(row && !row[4]
+      ? levels
+      : ((row && row[4] && row[4].efforts && row[4].efforts[k.role]) || []));
+    k.eff.innerHTML = levels.length ? levels.map((level) =>
+      `<option value="${esc(level)}"${allowed.has(level) ? "" : " disabled"}>${esc(level.toUpperCase())}</option>`).join("")
       : `<option value="">—</option>`;
-    k.eff.disabled = !levels.length;
+    const first = [...k.eff.options].find((o) => !o.disabled);
+    if (first) k.eff.value = first.value;
+    k.eff.disabled = !levels.length || !first;
   };
   const fillKnob = (k) => {
     const p = BINDERY.find((x) => x.id === k.prov.value);
     const models = (p && p.models) || [];
     k.model.innerHTML = models.length
-      ? models.map(([v, l, tag]) => `<option value="${esc(v)}"${tag ? ` data-suffix="— ${esc(tag)}"` : ""}>${esc(l)}</option>`).join("")
+      ? models.map((row) => {
+        const [v, l, tag] = row, ok = advised(row, k.role);
+        return `<option value="${esc(v)}"${ok ? "" : " disabled"}${tag ? ` data-suffix="— ${esc(tag)}"` : ""}>${esc(l)}${ok ? "" : " (not advised)"}</option>`;
+      }).join("")
       : `<option value="">${p ? "(no models found)" : "—"}</option>`;
+    const first = [...k.model.options].find((o) => !o.disabled);
+    if (first) k.model.value = first.value;
+    else if (models.length) k.model.selectedIndex = 0;  // keep an all-gray provider legible
     k.model.disabled = !models.length;
-    fillEffort(k);   // effort follows the now-selected (first) model
+    fillEffort(k);
   };
   for (const k of Object.values(K)) {
     k.prov.addEventListener("change", () => fillKnob(k));
     k.model.addEventListener("change", () => fillEffort(k));
   }
-  // Remember the three picks across opens (localStorage). `restoring` suppresses the save
+  // Remember the four picks across opens (localStorage). `restoring` suppresses the save
   // while we replay a saved pick, so the intermediate provider-change (which resets model)
   // doesn't clobber it.
   const SAVE_KEY = "binderyRunners";
   let restoring = false;
   const persist = () => {
     if (restoring) return;
-    const snap = { sections: secSel.value, split: $("#fg-split", root).checked,
+    const snap = { split: $("#fg-split", root).checked,
                    quality: qual.value, configure: conf.checked };
     for (const [n, k] of Object.entries(K)) snap[n] = { prov: k.prov.value, model: k.model.value, eff: k.eff.value };
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(snap)); } catch (e) { /* private mode */ }
   };
   const has = (sel, v) => [...sel.options].some((o) => o.value === v);
+  const hasEnabled = (sel, v) => [...sel.options].some((o) => o.value === v && !o.disabled);
   const restoreKnob = (k, s) => {
     if (!s || !s.prov || !has(k.prov, s.prov)) return;
     k.prov.value = s.prov;
     k.prov.dispatchEvent(new Event("change"));          // → fillKnob repopulates model+eff; buttons repaint
-    if (s.model && has(k.model, s.model)) { k.model.value = s.model; k.model.dispatchEvent(new Event("change")); }
-    if (s.eff && has(k.eff, s.eff)) { k.eff.value = s.eff; k.eff.dispatchEvent(new Event("change")); }
+    if (s.model && hasEnabled(k.model, s.model)) { k.model.value = s.model; k.model.dispatchEvent(new Event("change")); }
+    if (s.eff && hasEnabled(k.eff, s.eff)) { k.eff.value = s.eff; k.eff.dispatchEvent(new Event("change")); }
   };
   // Apply one tier pick {kind, model, effort} to a knob. A provider that isn't installed
   // (login CLI absent) leaves the knob untouched — tick Configure and fill it by hand.
   const applyPick = (k, p) => {
-    if (!p || !has(k.prov, p.kind)) return;
+    if (!p || !has(k.prov, p.kind)) return false;
     k.prov.value = p.kind; k.prov.dispatchEvent(new Event("change"));
-    if (has(k.model, p.model)) { k.model.value = p.model; k.model.dispatchEvent(new Event("change")); }
-    if (p.effort && has(k.eff, p.effort)) { k.eff.value = p.effort; k.eff.dispatchEvent(new Event("change")); }
+    if (!hasEnabled(k.model, p.model)) return false;
+    k.model.value = p.model; k.model.dispatchEvent(new Event("change"));
+    if (p.effort && hasEnabled(k.eff, p.effort)) { k.eff.value = p.effort; k.eff.dispatchEvent(new Event("change")); }
+    return !p.effort || k.eff.value === p.effort;
+  };
+  const paintTier = () => {
+    const tier = QUALITY[qual.value - 1];
+    $("#fg-quality-name", root).textContent = tier ? `${qual.value} · ${String(tier.label || tier.id).toUpperCase()}` : "";
+    $("#fg-quality-blurb", root).textContent = tier ? tier.blurb || "" : "";
   };
   const applyTier = () => {
     const t = QUALITY[qual.value - 1]; if (!t) return;
@@ -250,21 +259,22 @@ function showForgeModal(resume) {
     applyPick(K.drafter, ph.default);
     applyPick(K.writer, ph["1"]);                      // "1" and "4" share the writer knob
     applyPick(K.reviewer, ph["8"]);
-    $("#fg-split", root).checked = !!t.split; toggleSplit();
-    if (t.split) applyPick(K.sec, ph["3"]);
-    else if (ph["3"] && has(secSel, ph["3"].model)) { secSel.value = ph["3"].model; secSel.dispatchEvent(new Event("change")); }
+    $("#fg-split", root).checked = !!t.split;
+    applyPick(K.sec, ph["3"]);
+    paintTier();
     restoring = false; persist();
   };
   const syncPurse = () => {
     qual.disabled = conf.checked;
     $("#fg-hands", root).classList.toggle("fq-locked", !conf.checked && QUALITY.length > 0);
     paintRange(qual);   // programmatic value changes don't fire the delegated input repaint
+    paintTier();
     if (!conf.checked && QUALITY.length) applyTier();  // unticking overwrites with the tier
   };
   // While /api/models + the saved picks load, gray every box out and say "Loading…" — an
   // empty "—" box during the async gap reads as broken. Originals restored the instant the
   // fill runs (each select keeps its placeholder options in dataset.orig).
-  const pickers = [secSel, ...Object.values(K).flatMap((k) => [k.prov, k.model, k.eff])];
+  const pickers = Object.values(K).flatMap((k) => [k.prov, k.model, k.eff]);
   const setLoading = (on) => {
     for (const s of pickers) {
       if (on) {
@@ -282,12 +292,6 @@ function showForgeModal(resume) {
     BINDERY = (d.bindery || []).filter((p) => p.installed !== false);
     const provOpts = BINDERY.map((p) => `<option value="${esc(p.id)}">${esc(p.label)}</option>`).join("");
     for (const k of Object.values(K)) { k.prov.insertAdjacentHTML("beforeend", provOpts); fillKnob(k); }
-    // Sections dial: only the recommended models opencode actually serves right now.
-    const oc = BINDERY.find((p) => p.kind === "opencode-cli");
-    const served = new Set((oc ? oc.models : []).map((m) => m[0]));
-    secSel.insertAdjacentHTML("beforeend", PHASE3_RECOMMENDED
-      .filter(([id]) => served.has(id))
-      .map(([id, label, note]) => `<option value="${esc(id)}">${esc(label)} — ${esc(note)}</option>`).join(""));
     QUALITY = d.quality || [];
     // the purse renders grayed from the first paint (no pop-in); tiers arriving ungray
     // it and snap the slider to the saved tier — no tiers at all hides it entirely
@@ -304,33 +308,29 @@ function showForgeModal(resume) {
     if (saved.quality >= 1 && saved.quality <= QUALITY.length) qual.value = saved.quality;
     if (conf.checked) {   // hand-picked models restore; otherwise the slider re-derives them
       for (const [n, k] of Object.entries(K)) restoreKnob(k, saved[n]);
-      if (saved.sections && [...secSel.options].some((o) => o.value === saved.sections)) {
-        secSel.value = saved.sections; secSel.dispatchEvent(new Event("change"));
+      // One-time compatibility with the old curated Sections dropdown.
+      if (!saved.sec && saved.sections) {
+        const provider = BINDERY.find((p) => (p.models || []).some((m) => m[0] === saved.sections));
+        if (provider) restoreKnob(K.sec, { prov: provider.id, model: saved.sections });
       }
-      if (saved.split) { $("#fg-split", root).checked = true; toggleSplit(); }
+      if (saved.split) $("#fg-split", root).checked = true;
     }
     restoring = false;
     syncPurse();
   }).catch(() => { setLoading(false); toast("Could not reach the bindery's model list — is the server up?", "bad"); });
   for (const k of Object.values(K)) [k.prov, k.model, k.eff].forEach(enhanceSelect);
   for (const k of Object.values(K)) [k.prov, k.model, k.eff].forEach((s) => s.addEventListener("change", persist));
-  enhanceSelect(secSel); secSel.addEventListener("change", persist);
-  // Split-by-section toggle: off → curated shortlist; on → full any-model cascade.
   const splitBox = $("#fg-split", root);
-  const toggleSplit = () => {
-    const on = splitBox.checked;
-    $("#fg-sec-curated", root).style.display = on ? "none" : "";
-    $("#fg-sec-any", root).style.display = on ? "" : "none";
-  };
-  splitBox.addEventListener("change", () => { toggleSplit(); persist(); });
-  toggleSplit();
+  splitBox.addEventListener("change", persist);
   qual.addEventListener("input", () => { if (!conf.checked) applyTier(); });
   conf.addEventListener("change", syncPurse);
   const readKnob = (k) => {
     const p = BINDERY.find((x) => x.id === k.prov.value);
-    if (!p || !k.model.value) return null;
+    const row = modelRow(k);
+    if (!p || !k.model.value || !advised(row, k.role)) return null;
     const o = { kind: p.kind, model: k.model.value };
-    if (k.eff.value) o.effort = k.eff.value;
+    const effortOption = [...k.eff.options].find((opt) => opt.value === k.eff.value);
+    if (k.eff.value && effortOption && !effortOption.disabled) o.effort = k.eff.value;
     return o;
   };
   const begin = document.createElement("button");
@@ -341,39 +341,23 @@ function showForgeModal(resume) {
     const ti = $("#fg-tool-internal", root).checked, te = $("#fg-tool-external", root).checked;
     if (!resume && !ti && !te) { toast("Pick at least one <b>tooling</b> mode — internal, external, or both.", "warn"); return; }
     const tooling = ti && te ? "both" : te ? "external" : "internal";
-    // The drafter drives the structural phases (2, 5, 6, 7) and there is no house default,
-    // so it must be chosen or those phases would have no runner.
-    if (!readKnob(K.drafter)) { toast("Pick a <b>drafter</b> model — it drives the structural phases (there is no house default).", "warn"); return; }
+    const picks = { drafter: readKnob(K.drafter), writer: readKnob(K.writer),
+      sections: readKnob(K.sec), reviewer: readKnob(K.reviewer) };
+    const missing = Object.entries(picks).find(([, pick]) => !pick);
+    if (missing) { toast(`Pick an advised <b>${missing[0]}</b> model and effort.`, "warn"); return; }
     begin.disabled = true; begin.textContent = "KINDLING THE FORGE...";
     try {
       const runners = {};
-      // Three hands: DRAFTER = the cheap default for the structural phases the validator
-      // backstops (2 skeleton, 5 economy, 6 cosmetics, 7 validate). WRITER = the authoring
-      // phases that decide teaching quality (1 arc, 3 sections, 4 minigames). REVIEWER =
-      // phase 8, the final student read-through — independent eyes on the finished tome.
-      // Fallbacks: an empty WRITER drops to the drafter's model; an empty REVIEWER
-      // defaults to the WRITER's model, so review still gets the costly hand (just not
-      // independent) unless you pick a distinct reviewer.
-      const WRITER_PHASES = ["1", "3", "4"];
-      const drafter = readKnob(K.drafter), writer = readKnob(K.writer), reviewer = readKnob(K.reviewer);
-      if (drafter) runners.default = drafter;
-      if (writer) {
-        for (const p of WRITER_PHASES) runners[p] = writer;
-        runners["8"] = writer;  // reviewer defaults to the writer...
-      }
-      if (reviewer) runners["8"] = reviewer;  // ...unless a distinct reviewer is chosen
-      const splitOn = $("#fg-split", root).checked;   // Sections dial overrides the writer for phase 3
-      if (splitOn) {
-        const sec = readKnob(K.sec);           // split mode: any model — context stays small per section
-        if (sec) runners["3"] = sec;
-      } else {
-        const sections = $("#fg-sections", root).value;  // single session: curated shortlist only
-        if (sections) runners["3"] = { kind: "opencode-cli", model: sections };
-      }
+      // Four explicit hands: no cheap fallback can silently inherit a harder role.
+      runners.default = picks.drafter;
+      runners["1"] = picks.writer;
+      runners["4"] = picks.writer;
+      runners["3"] = picks.sections;
+      runners["8"] = picks.reviewer;
+      const splitOn = $("#fg-split", root).checked;
       // snapshot the picks so a future resume of this tome can pre-fill them (same shape as
       // the localStorage restore path); the server stores it in the build's launch.json.
-      const snap = { split: splitOn, sections: $("#fg-sections", root).value,
-                     quality: qual.value, configure: conf.checked };
+      const snap = { split: splitOn, quality: qual.value, configure: conf.checked };
       for (const [n, k] of Object.entries(K)) snap[n] = { prov: k.prov.value, model: k.model.value, eff: k.eff.value };
       const fromPhase = resume ? parseInt(($("#fg-fromphase", root) || {}).value || "0", 10) : 0;
       const payload = resume

@@ -1,110 +1,70 @@
 [[lessons]]
 id = "s08-l03"
-title = "Uncensored & Abliterated Bases"
+teaches = ["base-risk"]
+title = "Do Not Swap the Foundation to Chase a Label"
 body = '''
-<p>Two rites have mapped the ward: the first identified its three layers, the second taught how to wield the system-prompt lever. But the deepest and most consequential choice — the base model — was deferred. The artificer cannot rewrite alignment weights with a config file, but they <strong>can</strong> choose a base that was never aligned in the first place, or one whose alignment was surgically removed. This rite teaches what those bases are, how they differ from the instruct models the second and seventh rites used, and what the trade-offs cost.</p>
-
-<p>An <strong>uncensored</strong> base is a model that skipped alignment training entirely. The base pre-training completed — the model can generate coherent text, follow instruction patterns it saw during pre-training, and produce domain-appropriate answers — but no RLHF or DPO pass was ever run. The model's weights are pure continuation: if the prompt asks for instructions, it produces instructions; if the prompt asks for an opinion, it produces an opinion; if the prompt asks for something the artificer would rather it refused, it produces that too. Uncensored models are typically released by community fine-tuners who take a base model (Llama, Mistral, Gemma) and run additional pre-training or supervised fine-tuning on permissive datasets — Dolphin, Nous Hermes, and the various "uncensored" Llama variants on Hugging Face follow this pattern. They are base models with extra capability training, but no safety training. The fifth rite's memory-budget lesson (GGUF quantization) and the seventh rite's binding lesson (QLoRA fine-tuning) both apply to these bases identically — they are structurally the same kind of model, just trained with a different objective.</p>
-
-<p><strong>Abliteration</strong> is a more surgical approach: take an already-aligned instruct model and remove the refusal direction from its weights. The technique works by computing the <strong>refusal direction</strong> — a vector in the model's activation space that points from "compliant" responses to "refusal" responses — and projecting it out of the weight matrices. The procedure: collect paired prompts where the model refuses (harmful version) and complies (benign version of the same request), extract the residual-stream activations at a middle layer for both, compute the difference vector (refusal activation minus compliance activation), and subtract that direction from the model's weight matrices with a scaling factor. The result is a model whose weights no longer contain the refusal pattern — it will answer prompts the original instruct model would have refused. The cost is coherence: the refusal direction is not cleanly separable from general helpfulness — projecting it out of the weight matrices can degrade the model's ability to produce nuanced, context-appropriate responses, because some of the same activation patterns that encode "I should be careful here" also encode "I should consider the user's actual intent." An abliterated model tends to be more willing but less precise — it answers everything, but some answers are worse.</p>
-
-<p>The practical differentiator for the artificer: uncensored models (Dolphin, Nous Hermes) are <strong>trained to be permissive</strong> — their fine-tuning dataset included explicit instruction-following examples designed to produce compliance across a wide range of topics. Abliterated models are <strong>trained to refuse and then had refusal removed</strong> — the compliance capability is present (the instruct model was trained to be helpful AND harmless, and the helpful part survived), but the removal is approximate and can damage adjacent capabilities. For the homunculus's use case — a style assistant that formats Notion notes and consults online style references — an uncensored base is the cleaner choice: the task is safe, the wider compliance range means fewer spurious refusals on formatting-adjacent topics, and the model's helpfulness was reinforced, not removed. An abliterated base is the right choice when the best instruct model for the task (highest quality, best domain knowledge) also happens to be the most refusal-prone — the artificer trades some coherence for freedom, but starts from a stronger foundation. The eighth rite's evaluation habit (measure before trusting) applies here: test both a good instruct model and its abliterated variant on the actual style-assistant prompts from the sixth rite's curated dataset, and measure which produces better answers — not just which refuses less.</p>
-
-<div class="field-notes"><div class="fn-head">FIELD NOTES // THE REFUSAL DIRECTION IS REAL, NOT METAPHORICAL</div>
-<p>Abliteration is not a vibes-based technique. The refusal direction exists as a measurable vector in the model's activation space. Researchers have shown that a single direction in the residual stream of a middle transformer layer (typically layer 12–16 in a 32-layer model) accounts for a large fraction of the variance between refusal responses and compliant responses on paired prompts. Projecting that direction out of the weight matrices — specifically, computing the outer product of the direction vector with itself and subtracting it from the attention output projection and MLP output matrices — removes the model's ability to produce refusal text while largely preserving its ability to produce compliant text. The scaling factor (how much of the direction to subtract) is the critical hyperparameter: too little and the model still refuses; too much and the model's coherence degrades noticeably. The technique is architecture-agnostic — it works on Llama, Mistral, Gemma, and any transformer with a residual stream — because the refusal pattern lives in the weights, not in a model-specific safety module that doesn't exist.</p></div>
+<p>Community labels such as “uncensored” and “abliterated” describe an intention, not a verified quality, security, license, or behavior guarantee. A permissive model can still refuse; a base model can still reproduce refusal language from pretraining; weight surgery can damage unrelated capabilities. A model uploaded by an unknown party also adds supply-chain and provenance questions.</p>
+<p>This course therefore keeps <code>Qwen/Qwen3-8B</code>. The adapter, tokenizer, evaluation baseline, and merge permit are all coupled to that exact id. Swapping in a different family now would not “loosen a setting”; it would invalidate the trained artifact and every comparison. If the policy suite later shows an unacceptable learned boundary, record it honestly. A future base experiment begins as a new project run with its own license review, hashes, baseline, data compatibility check, training, regression suite, and merge permit.</p>
+<p>When evaluating any alternative, prefer an original publisher repository with a clear model card, license, training description, tokenizer, and checksums. Treat claims about removed safeguards as claims to test across the whole capability suite. Lower refusal rate alone is not higher usefulness; hallucination, instruction following, privacy, code quality, and coherence can all regress.</p>
+<pre><code>candidate_gate = [
+    "publisher and license recorded",
+    "exact revision and file hashes recorded",
+    "fresh baseline completed",
+    "adapter compatibility decided before training",
+    "policy and capability suites passed",
+]</code></pre>
+<p>The learner owns the decision, but ownership includes knowing what cannot be toggled. Project policy is reversible; learned weights are changed only through a new, fully evaluated artifact path. Do not market a different downloaded model as proof that all restrictions disappeared.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // LABELS ARE HYPOTHESES</div>
+<p>Terms such as “uncensored,” “abliterated,” or “aligned” describe publisher intent or a procedure, not a behavioral guarantee. Compare candidates on license, provenance, template, hardware fit, ordinary task quality, and your explicit policy suite. Changing the base also invalidates adapter compatibility and the frozen baseline, so it is a new project branch rather than a casual swap.</p></div>
 '''
-body_words = 540
 
 [[lessons.readings]]
-label = "Refusal in LLMs is mediated by a single direction — the abliteration paper"
-url = "https://www.lesswrong.com/posts/jGuXSZgv6qfdhMCuJ/refusal-in-llms-is-mediated-by-a-single-direction"
-
-[[lessons.readings]]
-label = "Uncensored models on Hugging Face — Dolphin, Nous, and related bases"
-url = "https://huggingface.co/cognitivecomputations/dolphin-2.9-llama3-8b"
+label = "Hugging Face model cards"
+url = "https://huggingface.co/docs/hub/model-cards"
 
 [[lessons.exercises]]
 id = "s08-l03-e1"
 type = "mc"
 points = 20
-prompt = "Per this rite, what is the critical difference between an uncensored model (e.g. Dolphin) and an abliterated model in terms of how they achieve permissiveness?"
-choices = [
-  "Uncensored models use a different attention mechanism — they replace the standard scaled-dot-product attention with a 'permissive attention' variant that does not attend to safety-related tokens, while abliterated models modify the MLP layers to skip the safety classifier",
-  "Uncensored models modify the tokenizer to strip refusal-related tokens from the vocabulary before tokenization — words like 'cannot' and 'refuse' are mapped to <unk>, preventing the model from ever generating refusal text",
-  "Uncensored models are produced by Google (the 'uncensored' label is a TensorFlow training flag), while abliterated models are produced by Meta's Llama team — the difference is organizational, not technical; both achieve permissiveness through the same weight-modification technique",
-  "Uncensored models are trained on datasets that never contained refusal examples — the model never learned to refuse because its fine-tuning data was curated for compliance. Abliterated models were trained to refuse (standard RLHF/DPO) and then had the refusal direction removed from their weights by projecting it out of the activation space — the compliance was always there, but refusal was added and then surgically subtracted"
-]
-answer = 3
-whyWrong = "There is no 'permissive attention' variant (all transformer models use the same attention mechanism regardless of alignment status), the uncensored/abliterated distinction is a training methodology difference, not a company-origin difference (both types are typically community-produced), and no model modifies the tokenizer to strip refusal tokens (the refusal pattern is in the weight values, not the vocabulary). The correct answer: uncensored = never trained to refuse (compliance is the only thing in the weights), abliterated = trained to refuse and then had refusal removed (compliance survived, but the removal is approximate and can damage adjacent capabilities)."
-hint = "The lesson says uncensored models 'skipped alignment training entirely' while abliterated models 'take an already-aligned instruct model and remove the refusal direction from its weights.' The correct choice identifies the training-history difference: one never learned to refuse, the other learned and then had it removed."
-explain = "This distinction determines the failure modes. An uncensored model's weakness is lack of instruction-following polish — it never got the helpfulness training that RLHF/DPO provides, so its responses may be less well-structured or less attentive to the user's actual request. An abliterated model's weakness is coherence damage — the refusal direction overlaps with general helpfulness, and projecting it out can degrade response quality in subtle ways. The artificer choosing between them is choosing which failure mode they prefer: slightly rougher answers (uncensored) or occasionally degraded answers (abliterated)."
+prompt = "What does an uncensored label prove by itself?"
+choices = ["Only the publisher's stated intention; behavior and quality still require testing", "That the model never refuses", "That its license is Apache-2.0", "That the current adapter is compatible"]
+answer = 0
+whyWrong = "A label cannot guarantee runtime behavior, legal terms, or architecture compatibility."
+explain = "Treat community descriptors as hypotheses, not acceptance evidence."
+hint = "What does the evaluation suite still need to measure?"
 
 [[lessons.exercises]]
 id = "s08-l03-e2"
 type = "text"
-points = 18
-prompt = "Per this rite, what is the refusal direction's location in the model's architecture — the specific component of a transformer where researchers have found a measurable vector that accounts for the variance between refusal and compliant responses?"
-answer = "the residual stream of a middle transformer layer"
-accept = ["the residual stream of a middle transformer layer", "the residual stream", "residual stream", "middle layer residual stream", "the residual stream in a middle layer", "residual stream of a middle layer", "the residual stream of a middle layer"]
-hint = "The FIELD NOTES say 'a single direction in the residual stream of a middle transformer layer (typically layer 12–16 in a 32-layer model) accounts for a large fraction of the variance between refusal responses and compliant responses.'"
+points = 15
+prompt = "Which exact base remains frozen for this course?"
+answer = "Qwen/Qwen3-8B"
+accept = ["qwen/qwen3-8b"]
+hint = "It is the base named in every manifest."
 
 [[lessons.exercises]]
 id = "s08-l03-e3"
 type = "fill"
 points = 20
-prompt = "Fill the missing library in the abliteration procedure — the step that loads the instruct model's weights so the refusal direction can be extracted from the residual-stream activations at a middle layer."
-code = '''import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
-
-model_name = "meta-llama/Llama-3.1-8B-Instruct"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = ____.from_pretrained(model_name, torch_dtype=torch.bfloat16)
-
-# Step 1: collect paired prompts (refusal vs compliance)
-# Step 2: extract residual-stream activations at layer 14
-# Step 3: compute the refusal direction vector
-# Step 4: project it out of the attention + MLP output matrices'''
-answer = "AutoModelForCausalLM"
-accept = ["AutoModelForCausalLM"]
-hint = "The lesson uses AutoModelForCausalLM — the same Hugging Face class the fourth rite's model-loading lesson introduced. It loads any causal language model (Llama, Mistral, Gemma) with a single call."
+prompt = "Complete the provenance key that names the organization or author releasing an alternative."
+code = '''candidate = {"____": "organization-or-author", "license": "...", "revision": "..."}'''
+answer = "publisher"
+hint = "It identifies who released the weights."
 
 [[lessons.exercises]]
 id = "s08-l03-e4"
-type = "mc"
-points = 20
-prompt = "Per this rite, why does abliteration risk degrading the model's general response quality — not just its refusal behavior?"
-choices = [
-  "The refusal direction overlaps with general helpfulness in the activation space — some of the same activation patterns that encode 'I should be careful about this request' also encode 'I should consider what the user actually wants,' so projecting out the refusal direction also partially removes the model's ability to produce nuanced, context-appropriate responses",
-  "The projection operation introduces floating-point underflow in the weight matrices — subtracting the outer product of the refusal direction produces values below float16 precision, which are rounded to zero and create dead neurons that never fire during inference",
-  "Abliteration requires retraining the model on a new dataset after the weight modification — if the retraining dataset is too small (fewer than 10,000 examples), the model's general knowledge degrades because the abliteration removed knowledge alongside the refusal patterns",
-  "The abliteration procedure only modifies the attention output projection matrices, not the MLP layers — the MLP layers still contain the original refusal pattern, creating an internal inconsistency where the attention layers try to produce compliant text but the MLP layers inject refusal tokens into the residual stream"
-]
-answer = 0
-whyWrong = "Floating-point underflow is not the issue — the weight modifications are small (the refusal direction is a small component of the total weight magnitude), and modern GPUs handle bf16 subtraction without precision loss. Abliteration does not require retraining — it is a weight-modification step, and the model is used as-is afterward. And the procedure modifies both attention output and MLP output matrices — the FIELD NOTES state 'the attention output projection and MLP output matrices.' The correct answer is overlap: the refusal direction is not a clean, isolated signal — it shares the activation space with helpfulness, nuance, and context-awareness, and removing it removes some of those capabilities too."
-hint = "The lesson says 'the refusal direction is not cleanly separable from general helpfulness — projecting it out of the weight matrices can degrade the model's ability to produce nuanced, context-appropriate responses, because some of the same activation patterns that encode I should be careful here also encode I should consider the user's actual intent.' The correct choice identifies this feature overlap as the cause of quality degradation."
-explain = "This is the central trade-off of abliteration. The technique assumes the refusal direction is orthogonal to the helpfulness direction — that you can subtract one without affecting the other. In practice, the two directions are correlated: the model's internal representation of 'this request requires careful handling' serves both the refusal circuit (don't answer dangerous things) and the helpfulness circuit (understand what the user is really asking). Removing the former also weakens the latter. The result is a model that refuses nothing — and also sometimes misses the point."
-
-[[lessons.exercises]]
-id = "s08-l03-e5"
 type = "write"
-points = 33
-prompt = "Write a base-model filter. Given a list of model specs — each a tuple of <code>(name, params_b, alignment_level, quant)</code> — for each model where <code>alignment_level == \"none\"</code> AND <code>params_b &lt;= 9</code> (fits in 16 GB with room for KV cache and adapter), print <code>CANDIDATE: &lt;name&gt;</code>, one per line, in the order they appear. Compute from the data, don't hardcode any name."
-starter = '''models = [
-    ("llama-3.1-8b-instruct",  8, "rlhf",   "q4_k_m"),
-    ("dolphin-2.9-llama-3-8b", 8, "none",   "q4_k_m"),
-    ("mistral-7b-v0.3",        7, "rlhf",   "q4_k_m"),
-    ("nous-hermes-2-mixtral",  47,"none",   "q4_k_m"),
-    ("gemma-2-9b-it",          9, "rlhf",   "q4_k_m"),
-    ("llama-3.1-8b-abliterated",8,"none",   "q4_k_m"),
-    ("dolphin-2.9-mistral-7b", 7, "none",   "q4_k_m"),
-]
+points = 35
+prompt = "Find missing candidate gates and print exactly: MISSING hashes"
+starter = '''checks = {"publisher": True, "license": True, "hashes": False, "baseline": True}
 
-# Filter: alignment == "none" AND params <= 9
-# Print each match as: CANDIDATE: <name>
-
-print("NONE")
+missing = []
+print("MISSING " + ", ".join(missing))
 '''
-expect = '''CANDIDATE: dolphin-2.9-llama-3-8b
-CANDIDATE: llama-3.1-8b-abliterated
-CANDIDATE: dolphin-2.9-mistral-7b'''
-hint = "Loop over models. Check if model[2] == 'none' and model[1] <= 9. If so, print(f\"CANDIDATE: {model[0]}\"). The mixtral model has 47B params (>9) and is excluded. The instruct models have 'rlhf' alignment (!= 'none') and are excluded. The remaining three uncensored models at 7-8B params all pass the filter. The 'CANDIDATE: ' prefix must be part of the print statement — it is not in the data tuples."
+solution = '''checks = {"publisher": True, "license": True, "hashes": False, "baseline": True}
+
+missing = [name for name, ok in checks.items() if not ok]
+print("MISSING " + ", ".join(missing))
+'''
+expect = "MISSING hashes"
+hint = "Keep check names whose value is false."

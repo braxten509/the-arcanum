@@ -1,25 +1,26 @@
 [freestyle]
-title = "THE WORKING: QUINTESSENCE FROM NOTES"
-brief = "Distill a real note corpus into a clean dataset in the student's voice, with the template matched and the noise removed."
+requires = ["notion-export", "prompt-completion-schema", "tokenizer-template", "completion-only-loss", "dataset-curation"]
+title = "THE WORKING: DISTILL THE ACTUAL VOICE"
+brief = '''Export your own Notion material as Markdown and extend <code>Homunculus/</code> with <code>data/drafts.jsonl</code>, <code>src/homunculus/curate.py</code>, frozen train/eval JSONL files, a native-template sample, and curation reports.<ul><li>Every row uses conversational <code>prompt</code>/<code>completion</code>, stable id/category, source path/hash, frozen split, and human approval.</li><li>Completions are your writing or text you personally rewrote—not bulk synthetic proxy voice.</li><li>Keep each source page wholly in one split and prove baseline prompts did not leak into training.</li><li>Run schema, duplicate, provenance, and secret-pattern gates, then manually review every accepted row.</li><li>Prove the Qwen tokenizer renders a sample and the planned SFT config uses completion-only loss.</li></ul>Your own notes are required input; the tome never ships or invents a personal corpus for you.'''
 reward = 240
-xray = "The good result shows curation and template fidelity. The bad result looks like raw notes dumped into a trainer."
+xray = "Reject raw-note dumping, synthetic completions mistaken for the learner's voice, mutable/random splits, source siblings across splits, or a claimed privacy pass based only on regex."
 
 [freestyle.badge]
 id = "s04-badge"
 name = "DISTILLED VOICE"
-desc = "Awarded for turning notes into usable quintessence."
+desc = "Awarded for a provenance-backed, leak-resistant personal dataset."
 
 [[freestyle.rubric]]
-criterion = "Curation"
-weight = 40
-desc = "The source notes are cleaned, grouped, and made training-safe."
+criterion = "Authentic curation"
+weight = 35
+desc = "Approved completions represent the learner's real voice and all accepted rows receive human review."
 
 [[freestyle.rubric]]
-criterion = "Template fidelity"
+criterion = "Training contract"
+weight = 35
+desc = "Prompt/completion schema, Qwen template, source-grouped split, and completion-only supervision agree."
+
+[[freestyle.rubric]]
+criterion = "Reproducibility and privacy"
 weight = 30
-desc = "The dataset matches the base model's expected chat template."
-
-[[freestyle.rubric]]
-criterion = "Masking discipline"
-weight = 30
-desc = "The answer spans and loss masking are handled deliberately."
+desc = "Hashes, reports, duplicate/secret gates, baseline leak check, and frozen outputs are present."

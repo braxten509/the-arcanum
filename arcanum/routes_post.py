@@ -14,11 +14,14 @@ from runtimes import common as rt_common
 from runtimes.common import atomic_write
 
 from .amender import clear_amend_state, load_amend_state, run_amender, save_amend_state
+from .build_state import (BUILD_TOTAL_PHASES, build_result_status,
+                          record_cancelled_build, save_active_owner)
 from .config import (BUILD_DIR, CLI_EFFORTS, GLOBAL_STATE_KEYS, ROOT,
                      TOMES_DIR, amend_procs, jobs, jobs_lock, read_settings, write_settings)
-from .forge import (BUILD_TOTAL_PHASES, _clear_runner_handshake, _plan_concept,
+from .forge import (_clear_runner_handshake, _plan_concept,
                     _resume_phase, _runner_args, _save_launch, _write_progress,
-                    fresh_tome_id, watch_build)
+                    external_build_process, fresh_tome_id, watch_build,
+                    working_is_active)
 from .grader import ask_oracle, run_grader
 from .tomes import (external_workspace, has_progress, load_manifest, plan_path, project_dir,
                     project_name, resolve_tome, resolve_working_tid, runtime_for,
@@ -149,10 +152,26 @@ def handle(h):
                 is_build = bool(job) and job.get("kind") == "build"
                 running = is_build and job.get("status") == "running"
                 pid = job.get("pid") if is_build else None
+                slug = (job.get("slug") or job.get("tome")) if is_build else bid
+                tome = job.get("tome") if is_build else None
+                phase = job.get("phase", 0) if is_build else 0
                 if running:
                     job["status"] = "cancelled"  # before the kill, so watch_build won't flag "error"
             if not is_build:
-                return h.send_json({"ok": False, "error": "no such build"}, 404)
+                proc = external_build_process(bid)
+                if not proc:
+                    return h.send_json({"ok": False, "error": "no such build"}, 404)
+                pid, running = proc["pid"], True
+                pp = plan_path(bid)
+                try:
+                    with open(pp, encoding="utf-8") as f:
+                        plan_text = f.read()
+                    tome = resolve_working_tid(bid, plan_text)
+                except OSError:
+                    tome = bid
+                phase = _resume_phase(bid, tome)
+            if running:
+                record_cancelled_build(slug, tome, phase)
             if running and pid:
                 try:
                     if hasattr(os, "killpg"):
@@ -290,6 +309,7 @@ def start_build(h, body):
         jobs[gid] = {"status": "running", "kind": "build", "tome": tid, "slug": tid,
                      "phase": 0, "phaseTitle": "starting", "totalPhases": BUILD_TOTAL_PHASES,
                      "log": [], "pid": proc.pid, "startedAt": time.time()}
+    save_active_owner(tid, gid, proc.pid)
     threading.Thread(target=watch_build, args=(gid, proc), daemon=True).start()
     return h.send_json({"ok": True, "jobId": gid, "tome": tid})
 
@@ -338,10 +358,7 @@ def resume_build(h, body):
     with open(pp, encoding="utf-8") as f:
         text = f.read()
     tid = resolve_working_tid(rid, text)
-    with jobs_lock:
-        busy = any(j.get("kind") == "build" and j.get("status") == "running"
-                   and j.get("tome") in (tid, rid) for j in jobs.values())
-    if busy:
+    if working_is_active(rid, tid):
         return h.send_json({"ok": False, "error": "that working is already being forged"}, 409)
     frm = _resume_phase(rid, tid)
     # optional operator override: the resume modal's "restart from" picker forces a
@@ -388,6 +405,7 @@ def resume_build(h, body):
                      "phase": frm, "phaseTitle": "resuming", "totalPhases": BUILD_TOTAL_PHASES,
                      "log": [], "pid": proc.pid, "startedAt": resumed_at,
                      "phaseStartedAt": resumed_at}
+    save_active_owner(tid, gid, proc.pid)
     threading.Thread(target=watch_build, args=(gid, proc), daemon=True).start()
     return h.send_json({"ok": True, "jobId": gid, "tome": tid})
 
@@ -400,23 +418,24 @@ def discard_build(h, body):
     with open(pp, encoding="utf-8") as f:
         text = f.read()
     tid = resolve_working_tid(rid, text)
-    with jobs_lock:
-        busy = any(j.get("kind") == "build" and j.get("status") == "running"
-                   and j.get("tome") in (tid, rid) for j in jobs.values())
-    if busy:
+    if working_is_active(rid, tid):
         return h.send_json({"ok": False, "error": "cancel the running forge before discarding it"}, 409)
     for key in {rid, tid}:  # plan + every per-build sidecar, both ids if renamed
-        for suff in ("plan.md", "launch.json", "progress", "sections-done", "verdict",
+        for suff in ("plan.md", "launch.json", "progress", "sections-done", "verdict", "active.json", "cancelled.json", "result.json",
                      "findings.json", "runner-request.json", "runner-reply.json"):
             try:
                 os.remove(os.path.join(BUILD_DIR, f"{key}.{suff}"))
             except OSError:
                 pass
         shutil.rmtree(os.path.join(BUILD_DIR, f"{key}.handoffs"), ignore_errors=True)
-    # the partial tome itself — only when incomplete, and only if the path really is a
-    # direct child of tomes/ (never let a crafted id escape the folder)
+    # The partial tome itself — only when incomplete, and only if the path really is a
+    # direct child of tomes/ (never let a crafted id escape the folder). Durable terminal
+    # state overrides the legacy Harness-ground-truth proxy.
     tdir = os.path.realpath(os.path.join(TOMES_DIR, tid))
-    if (tid and "Harness ground truth" not in text
+    result = build_result_status(rid) or build_result_status(tid)
+    incomplete = (result.get("status") != "done" if result
+                  else "Harness ground truth" not in text)
+    if (tid and incomplete
             and os.path.dirname(tdir) == os.path.realpath(TOMES_DIR)
             and os.path.isdir(tdir)):
         shutil.rmtree(tdir, ignore_errors=True)

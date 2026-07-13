@@ -1,78 +1,114 @@
 [[lessons]]
 id = "s06-l01"
-title = "Held Keys and Honest Velocity"
-teaches = ["s06-held-input","s06-velocity-vector"]
+title = "Give the Wayfinder a Heading"
+teaches = ["s06-held-input", "s06-velocity-vector"]
 body = '''
-<p>s06-l01 opens the motion and contact chart through Held. s06-l01 hears THE CARTOGRAPHER name s06-held-input its first bearing. s06-l01 names one input, one change, and one output. s06-l01 gives s06-velocity-vector a second mark for comparison. s06-l01 keeps the smallest successful example beside its route.</p>
-<p>s06-l01 reads from left to right, then narrates state changes. s06-l01 keeps its motion and contact clue concrete and observable. s06-l01 runs twice; the second pass challenges the first. s06-l01 records which owner moved when s06-held-input shifted. s06-l01 borrows a neighboring trace without hiding its owner.</p>
-<p>s06-l01 asks one decision to stand alone in the margin. s06-l01 keeps s06-velocity-vector visible instead of hiding it behind polish. s06-l01 tests a friendly case and a sharp edge case. s06-l01 compares both traces so s06-held-input has a witness. s06-l01 names the failure before choosing a repair.</p>
-<p>s06-l01 treats each handoff as a contract between maker and reader. s06-l01 supplies s06-held-input; the reader checks s06-velocity-vector. s06-l01 places its check where another wayfinder can repeat it. s06-l01 earns THE CARTOGRAPHER's trust through evidence, not luck. s06-l01 leaves one deliberate question for the next chart.</p>
-<p>s06-l01 closes by stating what the program must preserve. s06-l01 names one input that could falsify s06-held-input. s06-l01 names one output that confirms s06-velocity-vector still belongs. s06-l01 runs the smallest route, inspects its trace, and annotates it. s06-l01 turns the motion and contact chart into a RuneBound waypoint.</p>
-<p>s06-l01 ends with a handoff to the next chart. s06-l01 carries s06-velocity-vector forward after s06-held-input earns trust. s06-l01 lets THE CARTOGRAPHER record the result in plain language. s06-l01 turns a clean rerun from a guess into a fact. s06-l01 lets the next wayfinder begin without hidden context.</p>
-<pre><code>print("s06-l01 // Held Keys and Honest Velocity")</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // S06-L01</div><p>s06-l01 <strong>Evidence.</strong> Record s06-held-input; compare it with s06-velocity-vector before advancing.</p><p>s06-l01 <strong>Repair.</strong> Change one cause, rerun the route, and preserve the explanation.</p></div>
+<p>Wayfinder, s05’s <code>test_sprite</code> walks by itself only to prove that animation works. It cannot become a player by accepting a single <code>KEYDOWN</code> event: walking must continue for every frame a key remains down. Keep the event loop for window actions such as <code>pygame.QUIT</code>. Then, once per frame, ask <code>pygame.key.get_pressed()</code> for the current keyboard state. This is the same held-key boundary s03 used for the camera, but its owner now changes: the Player will turn keys into a proposed world movement.</p>
+<p>In the new <code>player.py</code>, use <code>pygame.math.Vector2</code> for that proposal. A vector has an <code>x</code> and <code>y</code> component, so left/right and up/down can combine without four competing position assignments. This first method reads keys but deliberately does not move the rect yet; collision gets that responsibility in the next charts.</p>
+<pre><code>import pygame
+
+from sprites import AnimatedSprite
+
+
+class Player(AnimatedSprite):
+    def __init__(self, sheet, x, y):
+        super().__init__(sheet, x, y)
+        self.velocity = pygame.math.Vector2()
+        self.speed = 160
+
+    def handle_input(self, keys):
+        self.velocity.update(0, 0)
+        self.velocity.x = keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]
+        self.velocity.y = keys[pygame.K_DOWN] - keys[pygame.K_UP]
+        if self.velocity.length_squared() &gt; 0:
+            self.velocity = self.velocity.normalize() * self.speed
+            self.set_state("walk")
+        else:
+            self.set_state("idle")</code></pre>
+<p>Subtraction is useful here because PyGame’s pressed values behave as false/true, which act like <code>0</code>/<code>1</code> in arithmetic. Right minus left makes east positive and west negative; down minus up does the same vertically. When a diagonal has both components, normalization makes its length one before multiplication by <code>speed</code>, preventing diagonal travel from being faster. The velocity is measured in world pixels per second, not pixels per frame, so the later movement formula is <code>velocity * dt</code>.</p>
+<p>Do not give the Player camera coordinates. The inherited <code>rect</code> stays in world pixels, while s05’s <code>draw(surface, camera)</code> subtracts the camera only when painting. That separation is what lets s07 later measure NPC proximity in the same world.</p>
+<div class="callout"><strong>THE CARTOGRAPHER'S RULE:</strong> events announce one-time happenings; held-key polling reports a condition that movement may use every frame.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DIAGONAL CHECK</div><p>Hold Right alone, then Right+Down. Both routes should have the same overall speed. If the diagonal is faster, inspect whether normalization happened before multiplying by <code>speed</code>.</p></div>
 '''
 
 [[lessons.readings]]
-label = "PyGame docs // keyboard // Held Keys and Honest Velocity"
+label = "PyGame Docs // key"
 url = "https://www.pygame.org/docs/ref/key.html"
+
+[[lessons.readings]]
+label = "PyGame Docs // Vector2"
+url = "https://www.pygame.org/docs/ref/math.html"
 
 [[lessons.exercises]]
 id = "s06-l01-e1"
 type = "mc"
-points = 14
-prompt = '''
-<p>Why is held-key polling the right shape for walking? Select the reading that keeps collision code can receive a proposed movement rather than raw keyboard symbols possible.</p>
-'''
-choices = ["it fires exactly once when the key first goes down","Held Keys and Honest Velocity: keep s06-held-input owned by the named boundary and verify the result before handoff s06-l01-e1.","it tests whether a tile is solid without a map","it advances a sprite sheet row by itself"]
+points = 20
+prompt = '''<p>Which input boundary should RuneBound use to keep a player walking while the Right arrow remains held?</p>'''
+choices = ['<code>pygame.event.get()</code> only', '<code>pygame.key.get_pressed()</code> once per frame', '<code>pygame.display.flip()</code>', '<code>clock.tick(FPS)</code>']
 answer = 1
-whyWrong = '''
-The tempting routes confuse using keydown for continuous walking and making movement depend on event repeat settings with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace pygame.key.get_pressed(), a velocity vector, and a speed that remains understandable in the Safe Step chart, then compare the event triggers handle one press while polling describes a key still held down with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves event triggers handle one press while polling describes a key still held down and leaves pygame.key.get_pressed(), a velocity vector, and a speed that remains understandable available for the next RuneBound handoff.
-'''
+hint = '''Look for the API that returns the current state of every key rather than one queued event.'''
+whyWrong = '''The event queue remains essential for QUIT and one-press actions, but a KEYDOWN event is not a continuous movement state. Flipping presents pixels and ticking measures elapsed time; neither reads the keyboard.'''
+explain = '''Polling once each frame gives Player.handle_input the current held-key state.'''
 
 [[lessons.exercises]]
 id = "s06-l01-e2"
-type = "text"
-points = 16
-prompt = '''
-<p>s06-l01-e2: name the Python term for the specific unit requested by this chart. Supply the language term, not the surrounding story label.</p>
-'''
-answer = "get_pressed"
-hint = '''
-Recall the named boundary in Held Keys and Honest Velocity; the answer is the language term for that single job, not the larger game feature.
+type = "type"
+points = 12
+reps = 2
+prompt = '''<p>Retype the diagonal-safe velocity conversion. It keeps the vector in pixels per second.</p>'''
+code = '''
+if velocity.length_squared() > 0:
+    velocity = velocity.normalize() * speed
 '''
 
 [[lessons.exercises]]
 id = "s06-l01-e3"
 type = "fill"
-points = 18
-prompt = '''
-<p>s06-l01-e3: restore the missing operation in the supplied code. Use its operands and the chart evidence to complete the route without renaming the owner.</p>
-'''
+points = 22
+prompt = '''<p>Restore the vector operation that clears yesterday’s proposed movement before this frame reads keys.</p>'''
 code = '''
-velocity = pygame.math.____()
+self.velocity.____(0, 0)
 '''
-answer = "Vector2"
-hint = '''
-Look at what must happen to pressed = pygame.key.get_pressed(); velocity.x = pressed[pygame.k_right]; choose the operation that performs that job rather than the one that merely inspects the result.
-'''
+answer = "update"
+hint = '''This Vector2 method replaces both components with the two supplied values.'''
+whyWrong = '''<code>normalize</code> changes a nonzero direction to length one; it does not clear stale components. The method here assigns a fresh x and y before the key arithmetic.'''
 
 [[lessons.exercises]]
 id = "s06-l01-e4"
-type = "type"
-points = 10
-reps = 2
-prompt = '''
-<p>Retype this safe step evidence exactly. Keep pygame.key.get_pressed(), a velocity vector, and a speed that remains understandable visible while you write. (Ctrl+Enter submits.)</p>
+type = "write"
+points = 34
+prompt = '''<p>Model the input calculation without opening PyGame. With <code>right = 1</code>, <code>left = 0</code>, <code>down = 1</code>, and <code>up = 0</code>, calculate <code>velocity_x</code> and <code>velocity_y</code> by subtraction. Print exactly <code>VELOCITY 1 1</code> and <code>MOVING True</code>.</p>'''
+starter = '''
+right = 1
+left = 0
+down = 1
+up = 0
+
+# Derive the two velocity components and report whether either component is nonzero.
 '''
-code = '''
-speed = 120
-velocity_x = 1
-print(speed * velocity_x)
+expect = '''
+VELOCITY 1 1
+MOVING True
 '''
+solution = '''
+right = 1
+left = 0
+down = 1
+up = 0
+
+velocity_x = right - left
+velocity_y = down - up
+
+print("VELOCITY", velocity_x, velocity_y)
+print("MOVING", velocity_x != 0 or velocity_y != 0)
+'''
+hint = '''Right and down are the positive directions, so subtract left from right and up from down.'''
+
+[[lessons.exercises]]
+id = "s06-l01-e5"
+type = "text"
+points = 18
+prompt = '''<p>What Vector2 method makes a nonzero diagonal direction have length one before speed is applied?</p>'''
+answer = "normalize"
+hint = '''It is called immediately before multiplication by <code>self.speed</code> in the worked method.'''
+whyWrong = '''<code>update</code> assigns components and <code>length_squared</code> only measures the vector. The required method returns a direction whose magnitude is one.'''

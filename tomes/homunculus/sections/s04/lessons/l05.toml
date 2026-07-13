@@ -1,88 +1,142 @@
 [[lessons]]
 id = "s04-l05"
-title = "The Curation Pass"
+teaches = ["dataset-curation"]
+title = "Freeze a Corpus You Can Defend"
 body = '''
-<p>Three rites built the vessel-shape: JSONL records, the chat template, and the loss mask. What still sits in those records is whatever the third rite's extraction grabbed — raw, unfiltered, including material a model should never see. This final pre-bind rite is the <strong>curation pass</strong>: check every record for quality, for duplication, and for secrets, because a fine-tune amplifies whatever you feed it, and bad data survives the bind far longer than you expect.</p>
-<p>The pass runs three checks, in order, and none may be skipped. First, <strong>deduplication</strong>: near-identical records waste the adapter's limited capacity on repeated patterns the model already saw. A Jaccard similarity (size of token overlap divided by size of token union) above roughly 0.8 on the assistant's text alone catches most duplicates without a full embedding pipeline. Second, <strong>PII removal</strong>: email addresses (<code>[\w.+-]+@[\w-]+\.[a-z]{2,}</code>), API keys (long runs of base64-like characters), phone patterns, and anything that looks credential-shaped must be stripped or the entire record discarded — the vessel is a talking machine, not a vault, and once a secret is in the weights, no prompt or system-message ward can reliably pull it back out.</p>
-<pre><code><span class="k">import</span> re
-PIIS = {
-    <span class="s">"email"</span>: re.compile(<span class="s">r'[\w.+-]+@[\w-]+\.[a-z]{2,}'</span>),
-    <span class="s">"apikey"</span>: re.compile(<span class="s">r'[A-Za-z0-9+/]{32,}={0,2}'</span>),
-}
-<span class="k">for</span> record <span class="k">in</span> records:
-    full_text = <span class="s">""</span>.join(m[<span class="s">"content"</span>] <span class="k">for</span> m <span class="k">in</span> record[<span class="s">"messages"</span>])
-    flagged = {name: pat.findall(full_text) <span class="k">for</span> name, pat <span class="k">in</span> PIIS.items()}</code></pre>
-<p>Third, <strong>assistant-response quality</strong>: a record whose assistant turn is one word ("Yes."), a bare URL with no explanation, or a direct copy of the user's own phrasing teaches almost nothing — the bind sees a low-effort pattern and learns to produce low-effort responses. A minimum assistant word count of roughly 15–20 words per record is a reasonable gate for a personal dataset where the goal is to capture how you actually explain things, not to mimic a FAQ entry. The three checks together are the reconnaissance habit the binding rite depends on: every record that passes them is worth training on, and everything that fails is removed before the binder ever sees it, the same way the memory-budget rite's final check kept bad base-model choices from reaching a real training run.</p>
-<div class="callout">A dataset passes validation and still fails curation — validation checks that the JSONL parses and the template matches; curation checks that the <em>content</em> is worth training on. The former is a machine check; the latter requires the artificer to actually read what they're about to bake into the vessel's weights.</div>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // CURATION AS A SEPARATE TOOL, NOT A TRAINING FLAG</div>
-<p>The third rite's discipline — one job per tool — applies here with extra force. Write a standalone <code>curate.py</code> script that reads a raw JSONL, applies all three checks, and writes a cleaned JSONL, entirely separate from the training script. This keeps the binder focused on the bind and the curator focused on the content, and it means you can iterate on curation (tighten the Jaccard threshold, add a new PII pattern) without re-running the entire binding pipeline. The toolchain rite's lesson that the whole pipeline is a chain of single-purpose tools, not one monolithic script, earns its keep hardest right here — a curation step buried inside a training loop gets skipped when the run is urgent, and the cost of that skip is bad data baked into the finished familiar.</p></div>
+<p>Create <code>src/homunculus/curate.py</code> as a separate command. Its contract is strict: read <code>data/drafts.jsonl</code>; accept only human-approved prompt-completion rows; reject duplicate ids, duplicate normalized completions, malformed roles, unknown splits, missing source hashes, and obvious secret patterns; write <code>data/curated/train.jsonl</code>, <code>data/curated/eval.jsonl</code>, and <code>reports/curation.json</code>. It never trains.</p>
+<pre><code>import hashlib
+import json
+import re
+from pathlib import Path
+
+SECRET_PATTERNS = [
+    re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
+    re.compile(r"(?i)(api[_-]?key|token|password)\s*[:=]\s*\S+"),
+]
+
+def normalized(text):
+    return " ".join(text.casefold().split())
+
+def validate(row):
+    assert row["approved"] is True
+    assert row["split"] in {"train", "eval"}
+    assert row["source_sha256"]
+    assert row["prompt"][-1]["role"] == "user"
+    assert row["completion"] == [{"role": "assistant",
+                                  "content": row["completion"][0]["content"]}]
+    full_text = json.dumps(row, ensure_ascii=False)
+    assert not any(pattern.search(full_text) for pattern in SECRET_PATTERNS)
+
+def main():
+    rows = [json.loads(line) for line in Path("data/drafts.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+    ids = set()
+    completions = set()
+    accepted = {"train": [], "eval": []}
+    for row in rows:
+        validate(row)
+        assert row["id"] not in ids, f"duplicate id: {row['id']}"
+        key = normalized(row["completion"][0]["content"])
+        assert key not in completions, f"duplicate completion: {row['id']}"
+        ids.add(row["id"])
+        completions.add(key)
+        accepted[row["split"]].append(row)
+    Path("data/curated").mkdir(parents=True, exist_ok=True)
+    for split, items in accepted.items():
+        text = "".join(json.dumps(item, ensure_ascii=False) + "\n" for item in items)
+        Path(f"data/curated/{split}.jsonl").write_text(text, encoding="utf-8")
+    summary = {"counts": {k: len(v) for k, v in accepted.items()},
+               "draft_sha256": hashlib.sha256(Path("data/drafts.jsonl").read_bytes()).hexdigest()}
+    Path("reports/curation.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+
+if __name__ == "__main__":
+    main()</code></pre>
+<p>Regex is triage, not a privacy guarantee. Read every accepted completion and inspect the exported attachments. Remove secrets, private third-party material, boilerplate, low-effort fragments, and facts you do not want reflected in weights. Keep a source page wholly in one split, and compare source hashes to catch sibling leakage. Reserve enough evaluation examples to cover every category; do not move weak examples into training merely to improve the score.</p>
+<p>Run <code>python -m homunculus.curate</code>, reopen both output files, and validate each line with <code>python -m json.tool</code> or a short loader. Save a human checklist in <code>reports/curation-review.md</code>. Quality matters more than a magical row count, but a handful of examples cannot establish a stable personal style; keep collecting until the categories and variations in the real daily workflow are represented.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CURATION NEEDS A REJECTION LOG</div>
+<p>Keep rejected row IDs and reason codes without retaining the secret or unwanted content itself. Counts such as <code>secret-pattern</code>, <code>too-short</code>, <code>duplicate</code>, and <code>source-leakage</code> show whether a rebuild changed the corpus for a legitimate reason. They also make manual review finite: inspect the exceptions, not every byte again.</p></div>
 '''
+
+[[lessons.readings]]
+label = "Notion export documentation"
+url = "https://www.notion.com/help/workspace-settings"
+
+[[lessons.readings]]
+label = "Hugging Face Datasets JSON loading"
+url = "https://huggingface.co/docs/datasets/loading"
 
 [[lessons.exercises]]
 id = "s04-l05-e1"
 type = "mc"
 points = 20
-prompt = "Per this rite, why must near-duplicate records be removed before the binding run, not during training?"
+prompt = "Why is approved=true insufficient by itself?"
 choices = [
-  "The trainer's GPU cannot process duplicate records at all — it throws an error on repeated token sequences",
-  "A near-duplicate wastes the LoRA adapter's limited trainable capacity on a pattern the model already learned from the first copy, squeezing out genuinely distinct examples the student could have spent the bind's tight parameter budget on instead",
-  "Duplicate records cause the KV cache from the memory-budget section to grow faster than the card can handle",
-  "Near-duplicates corrupt the model's quantized base weights, forcing a re-download of the GGUF file",
+  "Automated validation and a final human review still need to catch schema, duplication, provenance, and privacy failures",
+  "JSON booleans are ignored by Python",
+  "TRL requires approved=false",
+  "Approval automatically quantizes the row",
 ]
-answer = 1
-whyWrong = "The GPU processes duplicates fine without error, the KV cache is unrelated to deduplication, and duplicate training data does not corrupt the frozen base weights (which are never updated during QLoRA). The real cost is the adapter's limited parameter budget — every near-duplicate pair eats capacity on a repeated signal the model already learned from the first one, leaving less room for the genuinely distinct examples that actually improve the familiar."
-hint = "The lesson says 'near-identical records waste the adapter's limited capacity' — the correct answer names the LoRA adapter's tight parameter budget as the resource that duplicates consume, not the GPU, the KV cache, or the base weights (which are frozen and never updated)."
-explain = "The LoRA adapter has a fixed tiny parameter count (~0.1-0.2% of the base). Repeated patterns spend that budget on redundancy instead of variety — and on a small personal dataset, every wasted record is a lost opportunity to teach the model something genuinely new about the artificer's voice."
+answer = 0
+whyWrong = "Python reads booleans normally; approval is project metadata, not a trainer or quantizer switch."
+explain = "Curation combines an accountable human decision with repeatable mechanical gates."
+hint = "One field cannot prove every property of a row."
 
 [[lessons.exercises]]
 id = "s04-l05-e2"
 type = "text"
-points = 18
-prompt = "What similarity measure does the lesson suggest for catching near-duplicate records using only the assistant's text — the size of token overlap divided by the size of the token union?"
-answer = "Jaccard similarity"
-accept = ["jaccard", "the jaccard similarity", "jaccard index"]
-hint = "It's named in the first curation check — 'deduplication' — where the formula and the threshold (~0.8) are both given."
+points = 15
+prompt = "Which report stores the draft corpus hash and split counts?"
+answer = "reports/curation.json"
+accept = ["curation.json", "reports/curation.json"]
+hint = "It is written after the two split files."
 
 [[lessons.exercises]]
 id = "s04-l05-e3"
-type = "mc"
+type = "fill"
 points = 20
-prompt = "Per this rite, what is the specific risk of keeping a training record whose assistant turn contains only a bare URL with no explanation?"
-choices = [
-  "The URL will trigger the loss mask from the last rite, so the assistant tokens will be ignored anyway",
-  "The model learns to produce bare URLs as complete responses — a low-effort pattern that teaches the familiar to answer with a link instead of the explanatory style the artificer's notes actually demonstrate",
-  "The training run will fail because the URL contains characters the tokenizer cannot encode",
-  "Nothing — a single URL-only record is too small for the adapter to learn anything from, so it has no effect either way",
-]
-answer = 1
-whyWrong = "The loss mask only ignores user tokens, never assistant tokens (which are exactly what we want the model to learn); tokenizers handle URLs fine; and even a single record matters in a small personal dataset where every sample counts. The real risk is behavioral: the model sees 'answer with a bare URL' as a legitimate response pattern and reproduces it for prompts that deserved an explanation."
-hint = "The third curation check in the lesson is 'assistant-response quality' — it says a bare URL with no explanation teaches the model to produce bare URLs as answers. The correct choice captures a behavioral consequence (the model learns a low-effort pattern), not a technical failure (crash, ignore, no effect)."
-explain = "The third curation check — assistant-response quality — specifically calls out bare URLs and single-word answers: the bind amplifies whatever it sees, and a data-void example teaches the model that a data-void response is correct."
+prompt = "Complete the method used before comparing completion text for exact normalized duplicates."
+code = '''def normalized(text):
+    return " ".join(text.____().split())'''
+answer = "casefold"
+hint = "It is a stronger Unicode-aware lowercase normalization."
 
 [[lessons.exercises]]
 id = "s04-l05-e4"
-type = "fill"
+type = "mc"
 points = 20
-prompt = "Fill the missing PII pattern from the lesson — the regex that catches long runs of base64-like characters, a common shape for API keys."
-code = '''PIIS = {
-    "email": re.compile(r'[\w.+-]+@[\w-]+\.[a-z]{2,}'),
-    "apikey": re.compile(____),
-}'''
-answer = "r'[A-Za-z0-9+/]{32,}={0,2}'"
-accept = ["r'[A-Za-z0-9+/]{32,}={0,2}'"]
-hint = "It's the second regex pattern in the lesson's <code>PIIS</code> dict — it matches 32 or more base64 characters, optionally followed by up to two padding equals signs."
+prompt = "A page produced three examples. Where should they be assigned?"
+choices = [
+  "All to train or all to eval, never across both",
+  "Round-robin across both splits",
+  "Copy all three into both",
+  "Choose randomly during each epoch",
+]
+answer = 0
+whyWrong = "Cross-split siblings and duplicates leak source language into evaluation; mutable assignment breaks reproducibility."
+explain = "The source document is the grouping unit for a leak-resistant split."
+hint = "Split by source, not by fragment."
 
 [[lessons.exercises]]
 id = "s04-l05-e5"
 type = "write"
 points = 35
-prompt = "Given <code>samples</code> (a list of ints — assistant word counts for each record) and <code>min_words = 15</code>, count how many samples have at least 15 words. Print <code>KEPT &lt;n&gt;/&lt;total&gt;</code> — computed from the list, not hardcoded."
-starter = '''samples = [3, 42, 18, 7, 156, 11, 29, 1]
-min_words = 15
+prompt = "Count rows by their frozen split and print exactly: train=3 eval=2"
+starter = '''rows = [
+    {"split": "train"}, {"split": "eval"}, {"split": "train"},
+    {"split": "train"}, {"split": "eval"},
+]
 
-# Implement: count how many entries in samples are >= min_words.
-# Print: KEPT <kept>/<total>
-print("KEPT 0/8")
+counts = {"train": 0, "eval": 0}
+print(f"train={counts['train']} eval={counts['eval']}")
 '''
-expect = "KEPT 4/8"
-hint = "Use sum(1 for s in samples if s >= min_words) to count qualifying records, and len(samples) for the total — then print with f-string."
+solution = '''rows = [
+    {"split": "train"}, {"split": "eval"}, {"split": "train"},
+    {"split": "train"}, {"split": "eval"},
+]
+
+counts = {"train": 0, "eval": 0}
+for row in rows:
+    counts[row["split"]] += 1
+print(f"train={counts['train']} eval={counts['eval']}")
+'''
+expect = "train=3 eval=2"
+hint = "Increment the dict entry named by each row's split."

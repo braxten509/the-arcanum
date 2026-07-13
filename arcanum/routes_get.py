@@ -7,11 +7,14 @@ import urllib.request
 from runtimes import get as get_runtime, names as runtime_names
 
 from .amender import load_amend_state
-from .config import (AGY_BIN, BUILD_DIR, CLAUDE_BIN, CLI_EFFORTS, CLI_MODELS, CODEX_BIN,
-                     GLOBAL_STATE_KEYS, MIME, OPENCODE_BIN, ROOT, SKINS_DIR,
-                     TOMES_DIR, WEB, jobs, jobs_lock, read_json, read_settings, read_toml)
-from .forge import forge_name, list_workings
-from .models import agy_models, ollama_bindery_models, opencode_models
+from .config import (AGY_BIN, BUILD_DIR, CLAUDE_BIN, CLI_EFFORTS, CLI_MODEL_EFFORTS,
+                     CLI_MODELS, CODEX_BIN, GLOBAL_STATE_KEYS, MIME, OPENCODE_BIN,
+                     ROOT, SKINS_DIR, TOMES_DIR, WEB, jobs, jobs_lock, read_json,
+                     read_settings, read_toml)
+from .build_state import build_result_status, cancelled_build_status
+from .forge import forge_name, list_active_builds, list_workings
+from .model_policy import guided_row
+from .models import agy_models, codex_models, ollama_bindery_models, opencode_models
 from .tomes import (assemble_tome, list_tomes, project_dir, project_name, runtime_for,
                     state_path)
 
@@ -73,7 +76,7 @@ def handle(h):
         with jobs_lock:
             job = jobs.get(bid)
             if not job or job.get("kind") != "build":
-                out = {"status": "unknown"}
+                out = None
             else:
                 out = {k: job[k] for k in ("status", "kind", "tome", "phase", "phaseTitle",
                                            "totalPhases", "startedAt", "error",
@@ -89,6 +92,11 @@ def handle(h):
                             out["awaitingRunner"] = json.load(f)
                     except (OSError, ValueError):
                         pass
+        if out is None:
+            out = next((j for j in list_active_builds()
+                        if j.get("external") and j.get("id") == bid), None)
+        if out is None:
+            out = build_result_status(bid) or cancelled_build_status(bid) or {"status": "unknown"}
         return h.send_json(out)
     if path.startswith("/api/amend/status"):
         q = urllib.parse.parse_qs(urllib.parse.urlparse(h.path).query)
@@ -126,12 +134,7 @@ def handle(h):
             "resetOk": bool(st.get("resetOk")), "review": bool(st.get("review")),
             "status": st.get("status", "interrupted"), "startedAt": st.get("startedAt")}})
     if path == "/api/buildtome/active":
-        with jobs_lock:
-            act = [{"id": bid, "tome": j.get("tome"), "name": forge_name(j.get("tome")), "phase": j.get("phase"),
-                    "phaseTitle": j.get("phaseTitle"), "status": j.get("status")}
-                   for bid, j in jobs.items()
-                   if j.get("kind") == "build" and j.get("status") == "running"]
-        return h.send_json({"jobs": act})
+        return h.send_json({"jobs": list_active_builds()})
     if path == "/api/buildtome/resumable":
         return h.send_json({"workings": list_workings()})
     if path == "/api/health":
@@ -198,6 +201,8 @@ def model_census():
         providers["antigravity-cli"] = []
     providers["opencode-cli"] = ([row[0] for row in opencode_models()]
                                   if installed["opencode-cli"] else [])
+    codex_rows = codex_models() if installed["codex-cli"] else []
+    providers["codex-cli"] = [row[0] for row in codex_rows]
     out = {"ok": True, "models": [], "providers": providers, "installed": installed,
            "efforts": CLI_EFFORTS}
     try:
@@ -209,30 +214,34 @@ def model_census():
         out["ok"] = False
         out["error"] = str(e)
     # `bindery`: the ordered provider list the FORGE-A-TOME pickers build from — each a
-    # [PROVIDER][MODEL][EFFORT] triple-box. models are [id, label, tag] triples. Separate
+    # [PROVIDER][MODEL][EFFORT] triple-box. Separate
     # from `providers`/`models` above (which the settings grader/oracle pickers still use),
     # so this can carry opencode + local without polluting the grader backends.
     oc_ok = installed["opencode-cli"]
     oc_models = opencode_models() if oc_ok else []
     local_models = ollama_bindery_models() if oc_ok else []  # local runs THROUGH opencode
-    # each model row is [id, label, tag, efforts]. effort is PER-MODEL: claude/codex
-    # take their CLI's effort list on every model; opencode is per-model from
-    # models.dev; antigravity/local take none.
-    rows = lambda ms, ef: [[m, m, "", list(ef)] for m in ms]
+    # Each model row is [id, label, tag, efforts, guidance]. Effort support and
+    # role/effort advice are both per-model; antigravity/local simply carry [].
+    def rows(models, kind):
+        per_model = CLI_MODEL_EFFORTS.get(kind, {})
+        return [guided_row([model, model, "", per_model.get(model, [])])
+                for model in models]
+
     out["bindery"] = [
         {"id": "claude-cli", "label": "Claude CLI", "kind": "claude-cli",
-         "models": rows(CLI_MODELS["claude-cli"], CLI_EFFORTS["claude-cli"]),
+         "models": rows(CLI_MODELS["claude-cli"], "claude-cli"),
          "installed": installed["claude-cli"]},
         {"id": "antigravity-cli", "label": "Antigravity CLI", "kind": "antigravity-cli",
-         "models": rows(providers["antigravity-cli"], []),
+         "models": rows(providers["antigravity-cli"], "antigravity-cli"),
          "installed": installed["antigravity-cli"]},
         {"id": "codex-cli", "label": "Codex CLI", "kind": "codex-cli",
-         "models": rows(CLI_MODELS["codex-cli"], CLI_EFFORTS["codex-cli"]),
+         "models": [guided_row(row) for row in codex_rows],
          "installed": installed["codex-cli"]},
         {"id": "opencode-cli", "label": "OpenCode CLI", "kind": "opencode-cli",
-         "models": oc_models, "installed": oc_ok},
+         "models": [guided_row(row) for row in oc_models], "installed": oc_ok},
         {"id": "local", "label": "Local", "kind": "opencode-cli",
-         "models": local_models, "installed": oc_ok and bool(local_models)},
+         "models": [guided_row(row) for row in local_models],
+         "installed": oc_ok and bool(local_models)},
     ]
     # `quality`: the CHEAP<->QUALITY slider tiers from harness.toml [quality.q1..q5],
     # ordered cheapest first. Each carries a per-phase runner map the browser applies

@@ -1,103 +1,74 @@
 [[lessons]]
 id = "s09-l02"
-title = "The Conversion — Hugging Face to GGUF"
+teaches = ["gguf-conversion"]
+title = "Convert the Standard Checkpoint to an F16 GGUF Master"
 body = '''
-<p>The sealed vessel from the first lesson is a standard Hugging Face directory — the same format the fourth rite's model-loading lesson used. But the delivery format for the homunculus is GGUF: the single-file, metadata-rich format that Ollama, llama.cpp, and the local serving ecosystem expect. The fifth rite's memory-budget lesson catalogued the GGUF quant-level naming convention (<code>q4_k_m</code>, <code>q8_0</code>). This lesson converts the Hugging Face directory into an unquantized GGUF file — the intermediate artifact that feeds the quantization step in the next lesson.</p>
-
-<p>The conversion tool is <code>convert_hf_to_gguf.py</code>, distributed with llama.cpp. Its job is straightforward but exact: read every tensor from the Hugging Face safetensors files (or PyTorch <code>.bin</code> files), write them into a single GGUF binary, and encode the model's configuration — architecture type, hidden size, layer count, vocabulary, tokenizer — as key-value metadata in the GGUF header. The artifact it produces is a self-contained file: one <code>.gguf</code> file that carries the model weights, the tokenizer vocabulary, and the configuration metadata the inference engine needs to reconstruct the model architecture at load time. No separate <code>config.json</code>, no <code>tokenizer.json</code>, no directory of sharded safetensors files — the GGUF is the whole vessel in one file.</p>
-
-<p>The conversion command for the homunculus: <code>python3 convert_hf_to_gguf.py ./homunculus-merged --outfile homunculus-f16.gguf --outtype f16</code>. The <code>--outtype</code> flag controls the output precision: <code>f16</code> preserves the merged model's FP16/BF16 weights unchanged; <code>f32</code> converts to float32 (unnecessary here — the merge already produced half-precision, and quantization to 4-bit in the next lesson will discard most of this information anyway). The converter reads the model's <code>config.json</code> to determine the architecture family (Llama, Mistral, Gemma — the converter knows how to map each architecture's tensor names to the GGUF layout) and the tokenizer files to embed the vocabulary. A misconfigured tokenizer path — pointing at the wrong directory, or a directory where the tokenizer was saved from a different base — produces a GGUF whose vocabulary does not match its weights: a vessel whose label names a different potion than the one inside. The symptoms surface only at serving time, when the model produces garbled or repetitive tokens because the vocabulary it uses to decode output ids does not correspond to the token sequences the weights were trained to produce.</p>
-
-<p>The GGUF format partitions the file into two sections. The <strong>metadata header</strong> is a sequence of typed key-value pairs: <code>general.architecture = "llama"</code>, <code>llama.context_length = 8192</code>, <code>llama.embedding_length = 4096</code>, <code>llama.block_count = 32</code>, <code>tokenizer.ggml.model = "llama"</code>, and dozens of others — enough for the inference engine to reconstruct the model's architecture and vocabulary without referencing any external config file. The <strong>tensor data</strong> follows the metadata: a flat sequence of weight tensors in GGML format, ordered as the llama.cpp runtime expects (attention projection weights per layer, then MLP weights, then output head and embedding). The conversion tool handles the ordering automatically, but knowing the structure matters when the artificer needs to inspect a GGUF file: the <code>gguf</code> Python library's <code>GGUFReader</code> can dump the metadata keys and tensor shapes without loading the entire model into memory.</p>
-
-<p>After conversion, the artificer should verify the output before trusting it as input to quantization. The GGUF file's size should be approximately <code>params × bytes_per_param + header_overhead</code> — the same computation the first lesson's lab performed. An 8B-parameter model at FP16 produces roughly a 16 GB GGUF file. A significantly different size suggests a conversion failure: the wrong <code>--outtype</code>, a missing tensor safetensors shard, or a tokenizer mismatch that the converter silently handled by embedding a truncated vocabulary. The third rite's one-job-per-tool discipline applies: verify the conversion output (file size, metadata keys, vocabulary size) before proceeding — the quantization step will shrink the file by 4×, and a mistake at this stage is compressed but not corrected by that shrinkage.</p>
-
-<div class="field-notes"><div class="fn-head">FIELD NOTES // GGUF INSPECTION — READING METADATA WITHOUT LOADING THE MODEL</div>
-<p>The <code>gguf</code> Python package (pip-installable as <code>gguf</code>) provides <code>GGUFReader</code> for metadata-only inspection. To verify a conversion output: <code>from gguf import GGUFReader; reader = GGUFReader("homunculus-f16.gguf")</code>. <code>reader.fields</code> is a dict of all metadata key-value pairs; filter for architecture keys with <code>{k: v for k, v in reader.fields.items() if "block_count" in k or "context" in k or "embedding" in k}</code>. Check that <code>block_count</code> matches the original model's layer count and <code>context_length</code> matches what the fifth rite's KV-cache math assumed. Common conversion failures: the converter cannot find <code>tokenizer.model</code> because the merged directory contains only <code>tokenizer.json</code> (some architectures, notably Llama, originally use SentencePiece <code>.model</code> files); the fix is to pass <code>--vocab-dir</code> pointing at the tokenizer directory, or to copy the correct file into the merged directory before conversion. The GGUF metadata header also records the conversion tool version — <code>general.conversion_commit</code> — which is useful when debugging quantization artifacts that may be converter-version-dependent.</p></div>
+<p>Run llama.cpp's converter from the project root. The merged directory contains the Qwen architecture, weights, tokenizer, and native chat template; the converter carries those into GGUF metadata:</p>
+<pre><code>mkdir -p artifacts/gguf
+python vendor/llama.cpp/convert_hf_to_gguf.py \
+  artifacts/merged/bind-001 \
+  --outfile artifacts/gguf/homunculus-f16.gguf \
+  --outtype f16</code></pre>
+<p><code>f16</code> is an intermediate master, not the daily serving file. It provides a conventional input to llama.cpp's quantizer and a higher-precision comparison artifact. Do not use <code>f32</code> to double disk usage when the merged weights were saved in bfloat16/half precision.</p>
+<p>Read the converter output. It must recognize Qwen, load every safetensors shard, import the tokenizer and chat template, and exit zero. Verify the artifact rather than trusting its filename:</p>
+<pre><code>python -c 'from pathlib import Path; p=Path("artifacts/gguf/homunculus-f16.gguf"); print(p.read_bytes()[:4], p.stat().st_size)'
+vendor/llama.cpp/build/bin/llama-cli \
+  -m artifacts/gguf/homunculus-f16.gguf --help</code></pre>
+<p>The first four bytes must be <code>b'GGUF'</code> and the file must be plausibly large and nonzero. Use llama.cpp's GGUF inspection tooling when available to compare architecture, block count, vocabulary size, and context metadata with the merged <code>config.json</code>. Do not hard-code Llama metadata keys for a Qwen model; architecture-prefixed fields differ.</p>
+<p>Write <code>artifacts/gguf/f16-manifest.json</code> containing the merged-manifest hash, converter repository commit, exact command, byte size, SHA-256, and verification results. If the converter lacks Qwen support, update llama.cpp deliberately, rebuild its tools, record the new commit, and rerun from the unchanged merged checkpoint.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // KEEP THE CONVERSION MASTER</div>
+<p>The F16 GGUF is larger than the serving artifact, but it is the stable input for quantization trials. Keeping it lets you compare Q4 variants or regenerate after a llama.cpp update without repeating the adapter merge. Validate metadata, tokenizer, architecture, and a prompt at the F16 boundary before blaming a later quantized file.</p></div>
 '''
-body_words = 525
 
 [[lessons.readings]]
-label = "llama.cpp GGUF format specification — the complete metadata key reference"
-url = "https://github.com/ggerganov/llama.cpp/blob/master/docs/gguf.md"
-
-[[lessons.readings]]
-label = "llama.cpp convert_hf_to_gguf.py — source and usage documentation"
-url = "https://github.com/ggerganov/llama.cpp/blob/master/convert_hf_to_gguf.py"
+label = "llama.cpp Hugging Face converter"
+url = "https://github.com/ggml-org/llama.cpp/blob/master/convert_hf_to_gguf.py"
 
 [[lessons.exercises]]
 id = "s09-l02-e1"
 type = "mc"
 points = 20
-prompt = "Per this rite, what does <code>convert_hf_to_gguf.py</code> produce, and what distinguishes a GGUF file from the Hugging Face directory format it reads?"
-choices = [
-  "It produces a directory of JSON metadata files annotated with quantization parameters — GGUF is a configuration overlay format that supplements Hugging Face directories with additional metadata while keeping the weights in safetensors format; the GGUF files only reference the sharded safetensors without duplicating the tensor data",
-  "It produces a single binary file encoding the model configuration as key-value metadata in a header followed by the weight tensors in GGML format — the tokenizer vocabulary is embedded in the metadata as well, making the GGUF file a self-contained artifact that needs no external config.json, tokenizer.json, or safetensors files to reconstruct the model at load time",
-  "It produces a compiled shared library (.so/.dll) that links the model weights as static arrays into an executable — GGUF is an ahead-of-time compilation step that eliminates Python dependency from inference by converting the model into native code, and the resulting binary can be loaded with dlopen at serving time",
-  "It produces a SQLite database file that stores weights as BLOB columns indexed by layer name and parameter type — the GGUF format uses a relational schema to enable selective weight loading, where the inference engine queries only the layers needed for the current generation step"
-]
-answer = 1
-whyWrong = "GGUF is not a configuration overlay (it contains the actual weight tensors, not references to external safetensors files — the weights are in the GGUF file itself), not a compiled library (GGUF is a data format, not executable code — llama.cpp or Ollama reads the GGUF at runtime and loads weights into GPU memory; the file does not contain machine instructions), and not a SQLite database (GGUF uses a custom binary layout: a key-value metadata header followed by a flat tensor data section — there is no relational schema, no BLOB columns, and no SQL query engine). The correct answer: GGUF is a single self-contained file — metadata header + tensor data — with the tokenizer vocabulary baked into the metadata."
-hint = "The lesson describes GGUF as 'a self-contained file: one .gguf file that carries the model weights, the tokenizer vocabulary, and the configuration metadata the inference engine needs to reconstruct the model architecture at load time.' The correct choice identifies the single-file, self-contained nature of GGUF — no external config, no external tokenizer, no directory structure."
-explain = "This self-containment is GGUF's primary design goal. A Hugging Face model directory may contain dozens of files (sharded safetensors, multiple JSON configs, tokenizer files, generation config, etc.). A GGUF file is exactly one file that can be moved, copied, and served without any companion artifacts — the llama.cpp runtime and Ollama both read a single GGUF path and reconstruct the model entirely from its contents. This simplification is load-bearing for local serving: it means the artificer's homunculus is a single file they can archive, transfer, and version with ordinary file tools."
+prompt = "Why preserve an F16 GGUF master?"
+choices = ["It is the stable higher-precision input for quantization and comparison", "Ollama cannot load quantized GGUF", "It contains the LoRA optimizer", "FAISS searches it"]
+answer = 0
+whyWrong = "Ollama supports quantized GGUF; optimizer state and retrieval indexes are separate artifacts."
+explain = "The master separates conversion from later lossy quantization."
+hint = "Which stage should you rerun when testing another quant?"
 
 [[lessons.exercises]]
 id = "s09-l02-e2"
 type = "text"
-points = 18
-prompt = "Per this rite, what is the name of the Python script distributed with llama.cpp that converts a Hugging Face model directory into a single GGUF file?"
-answer = "convert_hf_to_gguf.py"
-accept = ["convert_hf_to_gguf.py", "convert_hf_to_gguf", "convert-hf-to-gguf.py", "convert_hf_to_gguf.py"]
-hint = "The lesson names the script as 'convert_hf_to_gguf.py, distributed with llama.cpp.' It is the conversion entry point that reads Hugging Face safetensors and writes a GGUF binary."
+points = 15
+prompt = "What four-byte magic should the file begin with?"
+answer = "GGUF"
+accept = ["b'GGUF'", "GGUF"]
+hint = "It is also the format name."
 
 [[lessons.exercises]]
 id = "s09-l02-e3"
 type = "fill"
 points = 20
-prompt = "Fill the missing flag in the conversion command — the argument that controls the output weight precision and should be set to f16 for the homunculus since the merge already produced FP16/BF16 weights."
-code = '''python3 convert_hf_to_gguf.py ./homunculus-merged \\
-    --outfile homunculus-f16.gguf \\
-    ____ f16'''
-answer = "--outtype"
-accept = ["--outtype"]
-hint = "The lesson states the full command: 'python3 convert_hf_to_gguf.py ./homunculus-merged --outfile homunculus-f16.gguf --outtype f16.' The flag that sets output precision is --outtype. f16 preserves the merged model's existing precision; f32 would double the file size unnecessarily."
+prompt = "Complete the converter output precision."
+code = "--outtype ____"
+answer = "f16"
+hint = "It is the half-precision master used by the quantizer."
 
 [[lessons.exercises]]
 id = "s09-l02-e4"
-type = "type"
-points = 12
-reps = 2
-code = '''# Convert the merged Hugging Face model to GGUF format:
-# The command (run in the terminal, not Python):
-# python3 convert_hf_to_gguf.py ./homunculus-merged \\
-#     --outfile homunculus-f16.gguf \\
-#     --outtype f16
-
-# Verify the output GGUF's metadata header:
-from gguf import GGUFReader
-
-reader = GGUFReader("homunculus-f16.gguf")
-keys = ["general.architecture", "llama.block_count",
-        "llama.context_length", "llama.embedding_length"]
-for key in keys:
-    if key in reader.fields:
-        print(f"{key} = {reader.fields[key]}")'''
-
-[[lessons.exercises]]
-id = "s09-l02-e5"
 type = "write"
-points = 33
-prompt = "Compute the unquantized GGUF file size. The merged model has <code>params = 7_000_000_000</code> parameters stored at <code>bytes_per_param = 2</code> (FP16). The GGUF metadata header adds <code>header_size = 1_048_576</code> bytes (1 MB). Print <code>SIZE &lt;v&gt; GB</code> where &lt;v&gt; is the total GGUF file size in GB, rounded to one decimal place. Compute from the parameters, don't hardcode. (1 GB = 1_000_000_000 bytes.)"
-starter = '''params = 7_000_000_000
-bytes_per_param = 2
-header_size = 1_048_576
+points = 35
+prompt = "Check magic and nonzero size and print exactly: GGUF VALID"
+starter = '''magic = b"GGUF"
+size = 16_000_000_000
 
-# Compute: tensor_bytes = params * bytes_per_param
-# total_bytes = tensor_bytes + header_size
-# total_gb = total_bytes / 1_000_000_000
-# Print SIZE <v> GB rounded to one decimal place
-
-print("SIZE 0.0 GB")
+status = "INVALID"
+print(f"GGUF {status}")
 '''
-expect = "SIZE 14.0 GB"
-hint = "tensor_bytes = 7_000_000_000 * 2 = 14_000_000_000 bytes. total_bytes = 14_000_000_000 + 1_048_576 = 14_001_048_576 bytes. total_gb = 14_001_048_576 / 1_000_000_000 ≈ 14.001. round(total_gb, 1) = 14.0 GB. The 1 MB header is negligible against 14 GB of weights — it pushes the total from exactly 14.0 to 14.001, which still rounds to 14.0."
+solution = '''magic = b"GGUF"
+size = 16_000_000_000
+
+valid = magic == b"GGUF" and size > 0
+print("GGUF VALID" if valid else "GGUF INVALID")
+'''
+expect = "GGUF VALID"
+hint = "Require both the exact magic and a positive byte size."

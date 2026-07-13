@@ -1,0 +1,129 @@
+[[lessons]]
+id = "s08-l05"
+teaches = ["source-batch"]
+title = "Workshop — Assemble SourceBatch"
+body = '''
+<p>Create <code>SourceBatch.cs</code>. Begin with the outcome record from the preceding lesson in <code>Models.cs</code>, then add a class whose constructor receives the existing <code>SourceFetcher</code>. The public method stays small because each private task owns its containment.</p>
+<pre><code><span class="k">public sealed class</span> SourceBatch
+{
+    <span class="k">private readonly</span> SourceFetcher _fetcher;
+
+    <span class="k">public</span> SourceBatch(SourceFetcher fetcher)
+    {
+        _fetcher = fetcher;
+    }
+
+    <span class="k">public async</span> Task&lt;List&lt;FetchOutcome&gt;&gt; FetchAllAsync(
+        IReadOnlyCollection&lt;SourceSpec&gt; sources, CancellationToken ct = <span class="k">default</span>)
+    {
+        List&lt;Task&lt;FetchOutcome&gt;&gt; tasks = sources
+            .Select(source =&gt; FetchOneAsync(source, ct))
+            .ToList();
+        FetchOutcome[] outcomes = <span class="k">await</span> Task.WhenAll(tasks);
+        <span class="k">return</span> outcomes.ToList();
+    }
+
+    <span class="k">private async</span> Task&lt;FetchOutcome&gt; FetchOneAsync(
+        SourceSpec source, CancellationToken ct)
+    {
+        <span class="k">var</span> clock = System.Diagnostics.Stopwatch.StartNew();
+        <span class="k">try</span>
+        {
+            SourceDocument document = <span class="k">await</span> _fetcher.FetchAsync(source, ct);
+            <span class="k">return new</span>(source, document, <span class="k">null</span>, clock.Elapsed.TotalSeconds);
+        }
+        <span class="k">catch</span> (OperationCanceledException) <span class="k">when</span> (ct.IsCancellationRequested)
+        {
+            <span class="k">throw</span>;
+        }
+        <span class="k">catch</span> (Exception ex)
+        {
+            <span class="k">return new</span>(source, <span class="k">null</span>, ex.Message, clock.Elapsed.TotalSeconds);
+        }
+    }
+}</code></pre>
+<p>Compile. If <code>Select</code> is unknown, add <code>using System.Linq;</code> or restore implicit usings. If the constructor cannot find <code>SourceFetcher</code>, confirm the class name from Chapter IV rather than renaming this consumer.</p>
+<p>For a deterministic demo, use the explicit <code>mock://</code> fixture behavior from <code>SourceFetcher</code>. Do not add sleeps or forced exceptions to production web branches. Later xUnit tests will replace the fetch dependency cleanly through an interface.</p>
+<div class="callout">The temporary demo belongs in <code>Program.cs</code> and is removed when Chapter XI installs the real composition root. Reusable classes return data; they do not decide terminal wording.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // CONCURRENCY WITHOUT SHARED MUTATION</div><p>Every task returns its own immutable outcome, and <code>WhenAll</code> assembles them. No task writes to a shared <code>List</code>, so there is no lock and no race over collection state.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — Start multiple asynchronous tasks"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/asynchronous-programming/start-multiple-async-tasks-and-process-them-as-they-complete"
+essential = false
+
+[[lessons.exercises]]
+id = "s08-l05-e1"
+type = "mc"
+points = 20
+prompt = "Why is the LINQ task sequence immediately materialized with <code>ToList</code>?"
+choices = ["Tasks cannot live in IEnumerable", "It starts and stores every per-source task before the single await", "It catches every exception", "It sorts by duration"]
+answer = 1
+whyWrong = "Tasks can be enumerable, and ToList neither catches nor sorts. Materialization enumerates Select now so all calls begin before WhenAll is awaited."
+explain = "Start-all then await-all is the concurrency pattern this boundary preserves."
+hint = "Recall deferred execution from Chapter VII."
+
+[[lessons.exercises]]
+id = "s08-l05-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the fan-out and join twice."
+code = '''List<Task<FetchOutcome>> tasks = sources
+    .Select(source => FetchOneAsync(source, ct))
+    .ToList();
+FetchOutcome[] outcomes = await Task.WhenAll(tasks);'''
+
+[[lessons.exercises]]
+id = "s08-l05-e2"
+type = "fill"
+points = 18
+prompt = "Complete the cancellation filter that distinguishes requested cancellation from an ordinary source failure."
+code = '''catch (OperationCanceledException) when (ct.____)'''
+answer = "IsCancellationRequested"
+hint = "Read the Boolean state on the token."
+
+[[lessons.exercises]]
+id = "s08-l05-e3"
+type = "mc"
+points = 18
+prompt = "Where should the temporary per-source status report be written?"
+choices = ["Inside FetchOneAsync", "Inside the FetchOutcome constructor", "In Program.cs, using returned outcomes", "Inside SourceFetcher"]
+answer = 2
+whyWrong = "Fetching, outcomes, and batching own data and control flow, not UI wording. Program.cs may temporarily inspect returned data."
+explain = "Keeping terminal output at the application edge makes SourceBatch reusable and testable."
+hint = "Which layer already talks to the terminal?"
+
+[[lessons.exercises]]
+id = "s08-l05-w1"
+type = "write"
+points = 38
+prompt = "Start three delayed methods together, await them with <code>Task.WhenAll</code>, and print their integer results in input order."
+starter = '''Task<int> first = Work(30, 1);
+Task<int> second = Work(5, 2);
+Task<int> third = Work(15, 3);
+
+Console.WriteLine("NOT AWAITED");
+
+static async Task<int> Work(int milliseconds, int value)
+{
+    await Task.Delay(milliseconds);
+    return value;
+}
+'''
+expect = "1 2 3"
+solution = '''Task<int> first = Work(30, 1);
+Task<int> second = Work(5, 2);
+Task<int> third = Work(15, 3);
+
+int[] values = await Task.WhenAll(first, second, third);
+Console.WriteLine(string.Join(" ", values));
+
+static async Task<int> Work(int milliseconds, int value)
+{
+    await Task.Delay(milliseconds);
+    return value;
+}
+'''
+hint = "Task.WhenAll returns results in the same order as its input tasks."

@@ -1,16 +1,17 @@
 [[lessons]]
 id = "s04-l03"
+teaches = ["tokenizer-template"]
 title = "The Template the Vessel Speaks"
 body = '''
-<p>The last rite shaped your notes into chat-format JSONL records with <code>"user"</code> and <code>"assistant"</code> roles. That is the <em>logical</em> shape. The <strong>chat template</strong> is the <em>physical</em> shape — the exact sequence of tokens the model was trained to expect wrapping those roles, and that sequence is not "user says X, assistant says Y" in plain English. It is a fixed set of special control tokens the base model's own training consumed, and if you feed the binding rite a dataset whose template does not match, the model will learn to treat those tokens as content rather than as formatting — a quiet, pervasive degradation that every other check this section runs will fail to catch.</p>
+<p>The last rite shaped your notes into conversational <code>prompt</code> and <code>completion</code> message lists. That is the <em>logical</em> shape. The <strong>chat template</strong> is the <em>physical</em> token sequence the chosen model expects around those roles. Current TRL applies that template from the Qwen tokenizer; the dataset should preserve messages rather than hard-code control tokens by hand.</p>
 <p>Three template families dominate the models you can actually run on this card. <strong>ChatML</strong> (used by Qwen, older command-r variants) wraps turns in <code>&lt;|im_start|&gt;role\ncontent&lt;|im_end|&gt;</code> tokens. <strong>Llama 3/3.1</strong> uses <code>&lt;|begin_of_text|&gt;</code> to open, then <code>&lt;|start_header_id|&gt;role&lt;|end_header_id|&gt;</code> around each role label. <strong>Mistral</strong> (and early Llama 2) uses no special tokens at all for the role itself — it brackets the entire exchange inside <code>[INST]</code>/<code>[/INST]</code> markers, with the assistant response following unmarked. These are not stylistic choices; each is the format baked into the base model's training data, and the model's tokenizer has dedicated token IDs for every one of those markers.</p>
 <pre><code><span class="k">from</span> transformers <span class="k">import</span> AutoTokenizer
-tokenizer = AutoTokenizer.from_pretrained(<span class="s">"your-base-model-id"</span>)
+tokenizer = AutoTokenizer.from_pretrained(<span class="s">"Qwen/Qwen3-8B"</span>)
 messages = [
     {<span class="s">"role"</span>: <span class="s">"user"</span>, <span class="s">"content"</span>: <span class="s">"justify my chunk-size choice"</span>},
     {<span class="s">"role"</span>: <span class="s">"assistant"</span>, <span class="s">"content"</span>: <span class="s">"512 tokens balances retrieval precision with paragraph coherence."</span>},
 ]
-formatted = tokenizer.apply_chat_template(messages, tokenize=<span class="k">False</span>)
+formatted = tokenizer.apply_chat_template(messages, tokenize=<span class="k">False</span>, add_generation_prompt=<span class="k">False</span>)
 <span class="k">print</span>(formatted)</code></pre>
 <p><code>apply_chat_template</code> with <code>tokenize=False</code> gives you the raw string the model expects — run it once for a single message pair and read the output carefully before you hand it to a training loop for ten thousand records. The method reads the base model's own <code>tokenizer_config.json</code>, which means the template is whatever the model's own authors shipped, not what you or any tutorial guesses it might be. The fourth rite taught you to read a model card's chat-template annotation for Ollama <code>PARAMETER</code> lines; this is the transformers-level equivalent, and the two should match because they are reading the same underlying configuration from the same model repository.</p>
 <div class="callout">A dataset built for the wrong template does not typically fail with an error message — the tokenizer still tokenizes the text, the trainer still runs, and the loss still drops. The failure shows up later: the model generates template tokens as if they were natural language, or fails to recognize role boundaries in multi-turn conversations, producing garbled output that looks like training worked but the model forgot how to format.</div>
@@ -91,4 +92,17 @@ expect = '''<|im_start|>user
 why did we freeze the base at q4_K_M<|im_end|>
 <|im_start|>assistant
 frozen weights cost no gradients and no optimizer state — they sit in VRAM as a static 4-bit block, and only the LoRA adapter trains.<|im_end|>'''
+solution = '''messages = [
+    {"role": "user", "content": "why did we freeze the base at q4_K_M"},
+    {"role": "assistant", "content": "frozen weights cost no gradients and no optimizer state — they sit in VRAM as a static 4-bit block, and only the LoRA adapter trains."},
+]
+
+rendered = []
+for message in messages:
+    rendered.append(f"<|im_start|>{message['role']}\n{message['content']}<|im_end|>")
+print("\n".join(rendered))
+'''
 hint = "Build a list of formatted strings: for each message m, f'<|im_start|>{m[\"role\"]}\\n{m[\"content\"]}<|im_end|>'. Then '\\n'.join(lines) and print."
+[[lessons.readings]]
+label = "Transformers chat templates"
+url = "https://huggingface.co/docs/transformers/chat_templating"

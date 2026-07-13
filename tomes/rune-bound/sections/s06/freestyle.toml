@@ -1,44 +1,35 @@
 [freestyle]
-title = "THE WORKING 6 // The Wayfinder Walks"
+title = "THE WORKING VI // Safe Step"
 brief = '''
-<p>Bind the wayfinder walks into the growing RuneBound route. The commission must leave a runnable artifact whose behavior can be inspected from the named evidence.</p><ul><li>preserve the chart's data boundary and use the established names</li><li>prove the requested behavior with a repeatable run that ends at <code>RUNEBOUND S06 SEAL</code></li><li>write a short repair note explaining the nearest failure and the change that corrected it</li></ul>
+<p>Bind a controllable wayfinder into the growing RuneBound map. Deliver <code>player.py</code> with <code>Player(AnimatedSprite)</code>, its held-key <code>Vector2</code> velocity, <code>rectangles_overlap(first, second)</code>, full-footprint tile collision, and axis-by-axis resolution. Replace—not supplement—s05’s <code>test_sprite</code>, <code>DEMO_SPEED</code>, wraparound demo, and manual camera controls in <code>main.py</code>.</p><ul><li>keep every actor rect in world pixels and ask <code>TileMap.is_solid(world_x, world_y)</code> about every touched cell</li><li>make the camera follow only the resolved Player rect; preserve ground, actors, and one <code>pygame.display.flip()</code> in that order</li><li>run <code>python3 main.py</code>, walk into a border wall, then walk parallel to it; record what proves blocked and free axes differ</li></ul><p>In a short repair note, name one collision failure you observed or deliberately simulated, the exact values or visual evidence that exposed it, and the smallest correction. Do not add a print seal to the shipped game.</p>
 '''
-requires = ["s06-held-input","s06-velocity-vector","s06-aabb-rect","s06-overlap-test","s06-tile-contact","s06-solid-query","s06-collision-resolution","s06-camera-follow"]
-reward = 228
+requires = ["s06-held-input", "s06-velocity-vector", "s06-aabb-rect", "s06-aabb-overlap-helper", "s06-tile-grid-collision", "s06-axis-collision-resolution", "s06-player-integration", "s06-camera-follow"]
+reward = 310
 xray = '''
-The Cartographer checks whether the safe step commission keeps pygame.key.get_pressed(), a velocity vector, and a speed that remains understandable under the right owner, shows s07 can place an npc in the same coordinate space and trust proximity checks, and leaves evidence beyond a decorative printout.
+The Cartographer checks that Player, not main.py, owns held-key velocity and solid-tile resolution; that a wide rect surveys every touched grid[row][col] cell; and that s05's automatic demo has actually been retired before one camera-adjusted frame is flipped.
 '''
 
 [freestyle.badge]
 id = "badge-s06"
 name = "SAFE STEP SEALED"
-desc = "Sealed the the wayfinder walks chart with evidence another wayfinder can inspect."
+desc = "Bound a controllable wayfinder to the map without letting it cross the wall line."
 
 [[freestyle.rubric]]
-criterion = "Safe Step runs"
+criterion = "Player Owns Motion"
+weight = 30
+desc = '''Player.handle_input(keys) produces diagonal-safe Vector2 velocity, changes animation state, and Player.move_and_collide(tile_map, dt) owns delta-time movement rather than a main.py demo block.'''
+
+[[freestyle.rubric]]
+criterion = "Every Touched Cell Blocks"
+weight = 30
+desc = '''Collision converts the complete player.rect footprint to row-first map cells, queries TileMap.is_solid with world pixels, and resolves x and y separately so wall sliding remains possible.'''
+
+[[freestyle.rubric]]
+criterion = "Frame Route Is Intact"
 weight = 25
-desc = '''
-The the wayfinder walks artifact parses and runs with the chart's named behavior visible.
-'''
+desc = '''main.py removes test_sprite, DEMO_SPEED, wraparound, and manual camera panning; it updates actors, follows the resolved Player, renders ground then actors, and flips once.'''
 
 [[freestyle.rubric]]
-criterion = "Safe Step keeps its boundary"
-weight = 35
-desc = '''
-The commission keeps pygame.key.get_pressed(), a velocity vector, and a speed that remains understandable and s07 can place an npc in the same coordinate space and trust proximity checks in the owners established by the lessons.
-'''
-
-[[freestyle.rubric]]
-criterion = "Safe Step shows proof"
-weight = 25
-desc = '''
-The wayfinder supplies a repeatable observation, the exact s06 seal, and a useful comparison case rather than a one-time claim.
-'''
-
-[[freestyle.rubric]]
-criterion = "Cartographer's repair note"
+criterion = "Wall Evidence and Repair"
 weight = 15
-desc = '''
-The explanation names the failing boundary, the evidence that exposed it, and the smallest correction that restored the route.
-'''
-
+desc = '''The submission states a repeatable wall-bump observation and a specific repair note tied to a rect edge, tile index, velocity, or camera coordinate.'''

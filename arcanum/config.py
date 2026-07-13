@@ -52,11 +52,12 @@ ORACLE_TIMEOUT = 180  # seconds for one oracle question (any backend)
 # command); antigravity (`agy models`) and ollama (/api/tags) are listed live in
 # /api/models. One source of truth — the browser pickers fetch these.
 CLI_MODELS = {
-    "claude-cli": ["claude-opus-4-8", "claude-opus-4-7", "claude-sonnet-5", "claude-haiku-4-5", "claude-fable-5"],
-    # gpt-5.4-mini is the cheap/fast coding model (supersedes gpt-4o-mini, which is not in the
-    # 2026 codex lineup); gpt-5.3-codex stays available for the coding-optimized cost profile.
-    # gpt-5.6 tiers (July 2026): sol = deepest reasoning, terra = balanced, luna = fast/cheap
-    "codex-cli": ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5", "gpt-5.4", "gpt-5.3-codex", "gpt-5.4-mini"],
+    "claude-cli": ["claude-haiku-4-5", "claude-sonnet-5", "claude-opus-4-7",
+                   "claude-opus-4-8", "claude-fable-5"],
+    # Fallback only: /api/models normally reads the installed Codex CLI's live catalog.
+    # Keep this cheapest-to-frontier list current enough for an offline CLI startup.
+    "codex-cli": ["gpt-5.4-mini", "gpt-5.6-luna", "gpt-5.4", "gpt-5.6-terra",
+                  "gpt-5.5", "gpt-5.6-sol"],
     "anthropic": ["claude-opus-4-8", "claude-opus-4-7", "claude-sonnet-5", "claude-haiku-4-5", "claude-fable-5"],
     "openai": ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.1", "gpt-5", "gpt-4.1", "o3"],
 }
@@ -66,11 +67,24 @@ CLI_MODELS = {
 # CLI_RUNNERS, which does the actual flag injection.
 CLI_EFFORTS = {
     "claude-cli": ["low", "medium", "high", "xhigh", "max"],
-    "codex-cli": ["minimal", "low", "medium", "high", "xhigh"],
+    "codex-cli": ["low", "medium", "high", "xhigh", "max", "ultra"],
     # opencode's --variant reasoning effort — a permissive ALLOWLIST here (the real per-model
     # values come from models.dev in the bindery). "none" appears on some models (e.g.
     # north-mini-code-free). Local ollama models take no variant.
     "opencode-cli": ["none", "minimal", "low", "medium", "high", "max"],
+}
+
+# Claude Code accepts one provider-wide --effort flag, but the API support is
+# model-specific. Haiku 4.5, for example, has no effort control. The Bindery uses
+# these rows rather than falsely offering every provider effort on every model.
+CLI_MODEL_EFFORTS = {
+    "claude-cli": {
+        "claude-fable-5": CLI_EFFORTS["claude-cli"],
+        "claude-opus-4-8": CLI_EFFORTS["claude-cli"],
+        "claude-opus-4-7": CLI_EFFORTS["claude-cli"],
+        "claude-sonnet-5": CLI_EFFORTS["claude-cli"],
+        "claude-haiku-4-5": [],
+    },
 }
 
 # OpenCode Go (opencode.ai/go) — the low-cost coding gateway. Its lineup rotates, so we

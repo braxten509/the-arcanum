@@ -1,121 +1,108 @@
 [[lessons]]
 id = "s08-l05"
 title = "The First Steel Encounter"
-teaches = ["s08-combat-integration","s08-encounter-proof"]
+teaches = ["s08-combat-integration", "s08-encounter-proof"]
 body = '''
-<p>s08-l05 opens the turns and damage chart through First. s08-l05 hears THE CARTOGRAPHER name s08-combat-integration its first bearing. s08-l05 names one input, one change, and one output. s08-l05 gives s08-encounter-proof a second mark for comparison. s08-l05 keeps the smallest successful example beside its route.</p>
-<p>s08-l05 reads from left to right, then narrates state changes. s08-l05 keeps its turns and damage clue concrete and observable. s08-l05 runs twice; the second pass challenges the first. s08-l05 records which owner moved when s08-combat-integration shifted. s08-l05 carries earlier <code>StatBlock</code> evidence into this chart.</p>
-<p>s08-l05 asks one decision to stand alone in the margin. s08-l05 keeps s08-encounter-proof visible instead of hiding it behind polish. s08-l05 tests a friendly case and a sharp edge case. s08-l05 compares both traces so s08-combat-integration has a witness. s08-l05 names the failure before choosing a repair.</p>
-<p>s08-l05 treats each handoff as a contract between maker and reader. s08-l05 supplies s08-combat-integration; the reader checks s08-encounter-proof. s08-l05 places its check where another wayfinder can repeat it. s08-l05 earns THE CARTOGRAPHER's trust through evidence, not luck. s08-l05 leaves one deliberate question for the next chart.</p>
-<p>s08-l05 closes by stating what the program must preserve. s08-l05 names one input that could falsify s08-combat-integration. s08-l05 names one output that confirms s08-encounter-proof still belongs. s08-l05 runs the smallest route, inspects its trace, and annotates it. s08-l05 turns the turns and damage chart into a RuneBound waypoint.</p>
-<p>s08-l05 ends with a handoff to the next chart. s08-l05 carries s08-encounter-proof forward after s08-combat-integration earns trust. s08-l05 lets THE CARTOGRAPHER record the result in plain language. s08-l05 turns a clean rerun from a guess into a fact. s08-l05 lets the next wayfinder begin without hidden context.</p>
-<pre><code>print("s08-l05 // The First Steel Encounter")</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // S08-L05</div><p>s08-l05 <strong>Evidence.</strong> Record s08-combat-integration; compare it with s08-encounter-proof before advancing.</p><p>s08-l05 <strong>Repair.</strong> Change one cause, rerun the route, and preserve the explanation.</p></div>
+<p>Now trace RuneBound from the first executable step, wayfinder. <code>main.py</code> still initializes PyGame, loads the tile map and sprite sheet, creates Player and the Elder, and owns the one event pump. Import <code>CombatSystem</code> and <code>Enemy</code>, load the Slime template from <code>data/enemies.json</code>, create one <code>Enemy(sheet, "slime", 320, 192, slime_stats)</code>, and add it to the existing <code>actors</code> group. Its world rect is the encounter position; never place it with a camera-adjusted coordinate.</p>
+<p>After event handling and before ordinary Player movement, test <code>rectangles_overlap(player.rect, slime.rect)</code>. If it returns true and <code>active_combat is None</code>, create <code>active_combat = CombatSystem(player, slime)</code>. While that variable exists and its manager remains active, suppress <code>player.handle_input(keys)</code> and <code>player.move_and_collide(tile_map, dt)</code>. The event pump still runs every frame, so the X button remains responsive; keys A, D, and F route to <code>active_combat.player_action(...)</code>. This fulfills s03’s input contract without turning continuous arrow movement into repeated attacks.</p>
+<pre><code>for event in pygame.event.get():
+    if event.type == pygame.QUIT:
+        running = False
+    elif event.type == pygame.KEYDOWN and active_combat is not None:
+        if event.key == pygame.K_a:
+            active_combat.player_action("attack")
+        elif event.key == pygame.K_d:
+            active_combat.player_action("defend")
+        elif event.key == pygame.K_f:
+            active_combat.player_action("flee")
+
+keys = pygame.key.get_pressed()
+if active_combat is None:
+    player.handle_input(keys)
+    player.move_and_collide(tile_map, dt)</code></pre>
+<p>Continue the familiar frame: <code>actors.update(dt)</code>, resolved Player camera follow, clear, map render, actor draws, health bars, optional dialogue, then a combat panel drawn after world layers with action labels and <code>active_combat.message</code>. Call <code>pygame.display.flip()</code> once and let <code>clock.tick(FPS)</code> create the next <code>dt</code>. When <code>active_combat.active</code> becomes false, record its result in a local <code>last_combat_result</code>; remove the Slime only for <code>"won"</code>, then clear <code>active_combat</code>. This is deliberately a small integration seam: s11 will replace it with the full state-machine dispatcher.</p>
+<p>Run <code>python3 main.py</code> from the project folder. Walk into the Slime, press A until it dissolves, then relaunch and use F to flee. Verify the window still closes with X during either encounter. In <code>README.md</code>, record the launch command, one attack damage/HP observation, a defend or flee observation, the outcome, close-and-rerun result, and one precise repair or explicit no-repair result. Do not ship print seals, local enemy stat variables, or a second display flip.</p>
+<div class="callout"><strong>THE CARTOGRAPHER'S RULE:</strong> contact opens combat, event presses resolve turns, and the old overworld route resumes only after an outcome.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // FROZEN WINDOW</div><p>If the combat panel appears but the X button fails, the event loop was placed under the non-combat branch. Move only the pump back to the top of every frame; suppress movement, never window events.</p></div>
 '''
 
 [[lessons.readings]]
-label = "Python library // dataclasses // The First Steel Encounter"
-url = "https://docs.python.org/3/library/dataclasses.html"
+label = "PyGame Docs // key events"
+url = "https://www.pygame.org/docs/ref/key.html"
+
+[[lessons.readings]]
+label = "PyGame Docs // display flip"
+url = "https://www.pygame.org/docs/ref/display.html#pygame.display.flip"
 
 [[lessons.exercises]]
 id = "s08-l05-e1"
-type = "text"
-points = 16
-prompt = '''
-<p>s08-l05-e1: name the Python term for the specific unit requested by this chart. Supply the language term, not the surrounding story label.</p>
-'''
-answer = "CombatSystem"
-hint = '''
-Recall the named boundary in The First Steel Encounter; the answer is the language term for that single job, not the larger game feature.
-'''
+type = "mc"
+points = 20
+prompt = '''<p>While <code>active_combat</code> is running, which route must remain available every frame?</p>'''
+choices = ['The <code>pygame.event.get()</code> pump, including QUIT', 'Player arrow movement and collision', 'A second <code>pygame.display.flip()</code>', 'Replacing enemy JSON with local variables']
+answer = 0
+hint = '''Combat changes which game actions keys route to, but it never removes the operating system’s close-event duty.'''
+whyWrong = '''Movement is intentionally suppressed during turns, a second flip breaks the established frame boundary, and local stats were retired. The event pump remains frame-wide so the window can close cleanly.'''
+explain = '''The event pump is a liveness contract, not an overworld-only feature.'''
 
 [[lessons.exercises]]
 id = "s08-l05-e2"
-type = "fill"
-points = 18
-prompt = '''
-<p>s08-l05-e2: restore the missing operation in the supplied code. Use its operands and the chart evidence to complete the route without renaming the owner.</p>
-'''
+type = "type"
+points = 12
+reps = 2
+prompt = '''<p>Retype the exact branch that lets normal Player movement occur only outside combat.</p>'''
 code = '''
-combat_system.____(dt)
-'''
-answer = "update"
-hint = '''
-Look at what must happen to combat_system.update(dt) runs only while the game state is combat; choose the operation that performs that job rather than the one that merely inspects the result.
+if active_combat is None:
+    player.handle_input(keys)
+    player.move_and_collide(tile_map, dt)
 '''
 
 [[lessons.exercises]]
 id = "s08-l05-e3"
-type = "mc"
-points = 14
-prompt = '''
-<p>What proves that the first combat integration is complete? Select the reading that keeps s09 can award an item or toast from the stored combat result possible.</p>
+type = "fill"
+points = 22
+prompt = '''<p>Restore the key constant for the one-press flee command in the combat event branch.</p>'''
+code = '''
+elif event.key == pygame.____:
+    active_combat.player_action("flee")
 '''
-choices = ["the Slime has a different color in the sprite sheet","the map stops loading JSON after the first frame","the player can attack without an enemy state","The First Steel Encounter: keep s08-combat-integration owned by the named boundary and verify the result before handoff s08-l05-e3."]
-answer = 3
-whyWrong = '''
-The tempting routes confuse letting overworld movement continue underneath a combat menu or losing the player's hp on return with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace enemy contact, a combat transition, and a result that returns to the correct world state in the Steel Turn chart, then compare the the overworld triggers combat while the combat manager owns turns until an outcome with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves the overworld triggers combat while the combat manager owns turns until an outcome and leaves enemy contact, a combat transition, and a result that returns to the correct world state available for the next RuneBound handoff.
-'''
+answer = "K_f"
+hint = '''The visible action legend uses the letter F, and PyGame names letter key constants with the same lower-case suffix.'''
+whyWrong = '''<code>K_ESCAPE</code> is not the taught flee action and <code>K_DOWN</code> belongs to navigation. The branch matches F with the string action <code>"flee"</code>.'''
 
 [[lessons.exercises]]
 id = "s08-l05-e4"
 type = "write"
-points = 30
-prompt = '''
-<p>Complete the steel turn route and print exactly <code>RUNEBOUND S08 L05 SEAL</code>. Preserve the named data before adding the final observation.</p>
-'''
+points = 35
+prompt = '''<p>Model the input boundary in plain Python. With <code>active_combat = True</code>, do not append <code>"move"</code>; append <code>"attack"</code> for a one-shot A event. Print exactly <code>ACTIONS attack</code>.</p>'''
 starter = '''
-route_mark = "steel-encounter"
-print("survey pending")
-# Add the chart seal after checking the route.
+active_combat = True
+event_key = "a"
+actions = []
+
+# Route the one event to attack. Add movement only when combat is not active.
 '''
 expect = '''
-RUNEBOUND S08 L05 SEAL
+ACTIONS attack
 '''
 solution = '''
-route_mark = "steel-encounter"
-print("RUNEBOUND S08 L05 SEAL")
+active_combat = True
+event_key = "a"
+actions = []
+
+if active_combat and event_key == "a":
+    actions.append("attack")
+if not active_combat:
+    actions.append("move")
+print("ACTIONS", *actions)
 '''
-hint = '''
-For s08-l05-e4, leave the route data intact and add only its final s08 observation; compare the starter output with the target before submitting.
-'''
+hint = '''First test both <code>active_combat</code> and the event key; put movement in a separate <code>if not active_combat</code> branch.'''
 
 [[lessons.exercises]]
 id = "s08-l05-e5"
-type = "type"
-points = 10
-reps = 2
-prompt = '''
-<p>Retype this steel turn evidence exactly. Keep enemy contact, a combat transition, and a result that returns to the correct world state visible while you write. (Ctrl+Enter submits.)</p>
-'''
-code = '''
-game_state = "PLAYING"
-if True:
-    game_state = "COMBAT"
-print(game_state)
-'''
-
-[[lessons.exercises]]
-id = "s08-l05-e6"
-type = "mc"
-points = 14
-prompt = '''
-<p>What proves that the first combat integration is complete? Select the reading that keeps s09 can award an item or toast from the stored combat result possible.</p>
-'''
-choices = ["the Slime has a different color in the sprite sheet","the map stops loading JSON after the first frame","The First Steel Encounter: keep s08-combat-integration owned by the named boundary and verify the result before handoff s08-l05-e6.","the player can attack without an enemy state"]
-answer = 2
-whyWrong = '''
-The tempting routes confuse letting overworld movement continue underneath a combat menu or losing the player's hp on return with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace enemy contact, a combat transition, and a result that returns to the correct world state in the Steel Turn chart, then compare the the overworld triggers combat while the combat manager owns turns until an outcome with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves the overworld triggers combat while the combat manager owns turns until an outcome and leaves enemy contact, a combat transition, and a result that returns to the correct world state available for the next RuneBound handoff.
-'''
+type = "text"
+points = 18
+prompt = '''<p>Which strict world-space helper opens an encounter when the Player and Slime share interior?</p>'''
+answer = "rectangles_overlap"
+hint = '''It was introduced for AABBs in s06 and is called with <code>player.rect</code> and <code>slime.rect</code>.'''
+whyWrong = '''<code>distance_to</code> is useful for AI range but does not test rectangles, and <code>tile_at</code> reads terrain. The required helper preserves the game’s established contact rule.'''

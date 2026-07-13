@@ -1,0 +1,127 @@
+[[lessons]]
+id = "s06-l05"
+teaches = ["page-extractor"]
+title = "Workshop — Assemble PageExtractor"
+body = '''
+<p>Create <code>PageExtractor.cs</code>. This workshop is a full replacement boundary, not a fragment to blend with the old demonstration scraper. It receives HTML already fetched in Chapter IV and returns canonical passages from Chapter III.</p>
+<pre><code><span class="k">using</span> System.Text.RegularExpressions;
+<span class="k">using</span> AngleSharp;
+<span class="k">using</span> AngleSharp.Dom;
+
+<span class="k">public sealed class</span> PageExtractor
+{
+    <span class="k">public async</span> Task&lt;List&lt;Passage&gt;&gt; ExtractAsync(SourceDocument document)
+    {
+        <span class="k">var</span> context = BrowsingContext.New(Configuration.Default);
+        IDocument parsed = <span class="k">await</span> context.OpenAsync(request =&gt; request.Content(document.Html));
+        IElement scope = parsed.QuerySelector(<span class="s">"main"</span>)
+            ?? parsed.QuerySelector(<span class="s">"article"</span>)
+            ?? parsed.Body
+            ?? parsed.DocumentElement;
+
+        <span class="k">var</span> passages = <span class="k">new</span> List&lt;Passage&gt;();
+        <span class="k">foreach</span> (IElement element <span class="k">in</span> scope.QuerySelectorAll(<span class="s">"p, li, blockquote"</span>))
+        {
+            <span class="k">string</span> text = Normalize(element.TextContent);
+            <span class="k">if</span> (text.Length &lt; 20)
+                <span class="k">continue</span>;
+
+            passages.Add(<span class="k">new</span> Passage(passages.Count + 1, text, document.Source));
+        }
+        <span class="k">return</span> passages;
+    }
+
+    <span class="k">private static string</span> Normalize(<span class="k">string</span> text)
+    {
+        <span class="k">string</span> ordinarySpaces = text.Replace(<span class="s">'\u00A0'</span>, <span class="s">' '</span>);
+        <span class="k">return</span> Regex.Replace(ordinarySpaces, <span class="s">@"\s+"</span>, <span class="s">" "</span>).Trim();
+    }
+}</code></pre>
+<p>Compile immediately. If <code>AngleSharp</code> is unknown, run <code>dotnet add package AngleSharp</code> from the project directory. If <code>Passage</code> or <code>SourceDocument</code> is unknown, return to <code>Models.cs</code>; do not recreate a slightly different record in this file.</p>
+<p>Test with a local <code>SourceDocument</code>, not a live site. Include a <code>&lt;nav&gt;</code> outside <code>&lt;main&gt;</code>, irregular whitespace, and at least three paragraphs. Print the results, run twice, and compare. Delete that temporary print loop after the Working; the fixture returns in the test project during Chapter XII.</p>
+<div class="callout">A passage id is only meaningful inside the source batch presented to one model call. Chapter XI processes one source at a time, so two pages may both have passage 1 without confusing attribution.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // A SMALL, TESTABLE SEAM</div><p>Receiving <code>SourceDocument</code> makes the extractor deterministic: tests supply HTML strings without internet access. The network boundary and parsing boundary can now fail independently and report which part actually broke.</p></div>
+'''
+
+[[lessons.readings]]
+label = "AngleSharp — project documentation"
+url = "https://anglesharp.github.io/"
+essential = false
+
+[[lessons.exercises]]
+id = "s06-l05-e1"
+type = "mc"
+points = 20
+prompt = "Why does <code>PageExtractor</code> accept <code>SourceDocument</code> instead of a URL?"
+choices = ["AngleSharp cannot parse URLs", "Fetching and parsing remain separate boundaries that can be tested independently", "Records cannot store URLs", "It makes extraction synchronous"]
+answer = 1
+whyWrong = "AngleSharp can fetch with other configuration, records can hold URLs, and the method remains asynchronous. The input separates network behavior from deterministic parsing."
+explain = "A fixture can exercise all extraction rules without a network request."
+hint = "Which Chapter IV class already owns HTTP?"
+
+[[lessons.exercises]]
+id = "s06-l05-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the fallback container selection twice."
+code = '''IElement scope = parsed.QuerySelector("main")
+    ?? parsed.QuerySelector("article")
+    ?? parsed.Body
+    ?? parsed.DocumentElement;'''
+
+[[lessons.exercises]]
+id = "s06-l05-e2"
+type = "fill"
+points = 18
+prompt = "Complete the expression that assigns stable one-based ids as accepted passages are added."
+code = '''passages.Add(new Passage(passages.____ + 1, text, document.Source));'''
+answer = "Count"
+hint = "A List reports how many accepted items it already has."
+
+[[lessons.exercises]]
+id = "s06-l05-e3"
+type = "mc"
+points = 18
+prompt = "Two different source pages both produce passage id 1. Why is this safe in the designed pipeline?"
+choices = ["Integers are globally unique", "Each model call and verification batch is scoped to one source whose SourceSpec remains attached", "Ollama renumbers everything", "The renderer discards source identity"]
+answer = 1
+whyWrong = "The integers are not globally unique, Ollama does not own numbering, and the renderer retains attribution. Source-scoped batches disambiguate them."
+explain = "Passage identity is the pair of its source-owned batch and local id."
+hint = "Look beyond the integer to the Passage record."
+
+[[lessons.exercises]]
+id = "s06-l05-w1"
+type = "write"
+points = 38
+prompt = "Implement <code>AddPassage</code>: trim the supplied text, ignore it when shorter than 5 characters, otherwise append a one-based <code>Passage</code>. Call it with <code>\" no \"</code> and <code>\" Exact source words. \"</code>, then print count, id, and text."
+starter = '''var passages = new List<Passage>();
+AddPassage(passages, " no ");
+AddPassage(passages, " Exact source words. ");
+Console.WriteLine($"{passages.Count} {passages[0].Id} {passages[0].Text}");
+
+static void AddPassage(List<Passage> passages, string raw)
+{
+}
+
+public record Passage(int Id, string Text);
+'''
+expect = "1 1 Exact source words."
+solution = '''var passages = new List<Passage>();
+AddPassage(passages, " no ");
+AddPassage(passages, " Exact source words. ");
+Console.WriteLine($"{passages.Count} {passages[0].Id} {passages[0].Text}");
+
+static void AddPassage(List<Passage> passages, string raw)
+{
+    string text = raw.Trim();
+    if (text.Length < 5)
+    {
+        return;
+    }
+    passages.Add(new Passage(passages.Count + 1, text));
+}
+
+public record Passage(int Id, string Text);
+'''
+hint = "Trim first; return for a short string; use passages.Count + 1 before Add."

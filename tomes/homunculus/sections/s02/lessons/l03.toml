@@ -1,10 +1,11 @@
 [[lessons]]
 id = "s02-l03"
+teaches = ["model-card"]
 title = "Reading the Vial's Label"
 body = '''
 <p>Every vial worth drinking has a label, and a model is no different. Before you run anything unfamiliar, its <strong>model card</strong> — the documentation page on Hugging Face or in Ollama's library entry — answers the questions you'd otherwise learn the hard way, mid-chat or mid-fine-tune. Skipping it is how an artificer ends up training against a license that forbids it, or budgeting VRAM for the wrong parameter count.</p>
 <p>A few fields matter more than the rest. <strong>License</strong> states what you're actually allowed to do with the weights — some are fully open, some restrict commercial use, some gate access behind an application. <strong>Parameters</strong> gives the raw size (7B, 8B, 70B) that drives your VRAM math two rites from now. <strong>Context length</strong> is the maximum number of tokens the model can hold in a single conversation before earlier turns start falling out of its window — get this wrong and a long chat degrades in ways that look like the model "forgetting," when really the window simply ran out. <strong>Quantization</strong> notes, when present, tell you whether the weights on offer are full precision or already compressed — a <code>q4_0</code> tag in a GGUF's filename is the same idea the last rite's registry ledger already showed you, just spelled out formally here.</p>
-<pre><code><span class="k">ollama</span> show llama3.1 --modelfile</code></pre>
+<pre><code><span class="k">ollama</span> show qwen3:8b --modelfile</code></pre>
 <p>That command is the local equivalent of reading the label without leaving your terminal — it prints the exact <code>Modelfile</code> bound to a locally pulled model: its base GGUF path, its chat template, its default parameters. Hugging Face's web page is the fuller label, with the license, intended use, and known limitations section spelled out in prose the terminal command doesn't carry.</p>
 <div class="callout">A card's <strong>limitations</strong> section is not boilerplate — it is the model's authors telling you, in their own words, where it breaks: languages it's weak in, tasks it hallucinates on, biases it inherited from its training data. Read it before you trust an output you can't independently verify.</div>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // THE CARD YOU'LL WRITE YOURSELF</div>
@@ -20,7 +21,7 @@ id = "s02-l03-e1"
 type = "type"
 points = 12
 prompt = "Retype the exact local command that prints a pulled model's Modelfile — its base GGUF, chat template, and default parameters — without opening a browser."
-code = "ollama show llama3.1 --modelfile"
+code = "ollama show qwen3:8b --modelfile"
 
 [[lessons.exercises]]
 id = "s02-l03-e2"

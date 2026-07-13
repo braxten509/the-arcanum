@@ -1,17 +1,18 @@
 [[lessons]]
 id = "s07-l05"
-title = "Reading Web Addresses — Safe Uri Domain Extraction"
+teaches = ["uri-validation"]
+title = "Reading Web Addresses — Safe URI Admission"
 body = '''
 
-<p>The Scales cannot consult the trust ledger until they know which domain issued a result. A URL is structured data, not a string to carve apart with <code>Split('/')</code>. C# already has the right instrument: <code>Uri</code>.</p>
+<p><code>SourcePolicy</code> cannot admit a configured web address until it knows the address is absolute and uses HTTP or HTTPS. A URL is structured data, not a string to carve apart with <code>Split('/')</code>. C# already has the right instrument: <code>Uri</code>.</p>
 <pre><code><span class="k">string</span> raw = <span class="s">"https://www.ietf.org/rfc/rfc8446.html?view=all"</span>;
 <span class="k">var</span> uri = <span class="k">new</span> Uri(raw);
 
 Console.WriteLine(uri.Scheme);       <span class="c">// https</span>
 Console.WriteLine(uri.Host);         <span class="c">// www.ietf.org</span>
 Console.WriteLine(uri.AbsolutePath); <span class="c">// /rfc/rfc8446.html</span></code></pre>
-<p>The three properties answer different questions. <code>Scheme</code> names the protocol, <code>Host</code> names the server, and <code>AbsolutePath</code> names the path on that server. The trust database wants the host. Query strings and fragments do not belong in that lookup key.</p>
-<p>Search results are foreign input. <code>new Uri(raw)</code> throws when the text is malformed, so the ranking pipeline needs the non-throwing gate:</p>
+<p>The three properties answer different questions. <code>Scheme</code> names the protocol, <code>Host</code> names the server, and <code>AbsolutePath</code> names the path on that server. Admission needs the scheme; attribution retains the complete configured URL.</p>
+<p>Configuration is still input. <code>new Uri(raw)</code> throws when the text is malformed, so source admission uses the non-throwing gate:</p>
 <pre><code><span class="k">static bool</span> TryGetWebHost(<span class="k">string</span> raw, <span class="k">out string</span> host)
 {
     host = <span class="s">""</span>;
@@ -24,16 +25,18 @@ Console.WriteLine(uri.AbsolutePath); <span class="c">// /rfc/rfc8446.html</span>
     host = uri.Host.ToLowerInvariant();
     <span class="k">return</span> host.Length &gt; 0;
 }</code></pre>
-<p><code>UriKind.Absolute</code> rejects fragments such as <code>docs/page.html</code> that lack a scheme and host. The second ward admits only HTTP and HTTPS; a syntactically valid <code>file:</code> address is still not a web source. Lowercasing the host gives the ledger one stable spelling before the Chapter II <code>Dictionary</code> lookup:</p>
-<pre><code><span class="k">if</span> (TryGetWebHost(result.Url, <span class="k">out string</span> host)
-    &amp;&amp; trustByDomain.TryGetValue(host, <span class="k">out</span> TrustProfile? profile))
+<p><code>UriKind.Absolute</code> rejects fragments such as <code>docs/page.html</code> that lack a scheme and host. The second ward admits only HTTP and HTTPS; a syntactically valid <code>file:</code> address is still not a web source. The production policy applies this to <code>SourceSpec.Url</code>. A label lookup may select a configured record, but it must never manufacture a new one:</p>
+<pre><code><span class="k">var</span> byLabel = config.Sources.ToDictionary(
+    source =&gt; source.Label, StringComparer.OrdinalIgnoreCase);
+<span class="k">if</span> (byLabel.TryGetValue(requestedLabel, <span class="k">out</span> SourceSpec? source)
+    &amp;&amp; TryGetWebHost(source.Url, <span class="k">out string</span> host))
 {
-    Console.WriteLine(<span class="s">$"{host}: {profile.BaseScore:F1}"</span>);
+    Console.WriteLine(<span class="s">$"{source.Label}: {host}"</span>);
 }</code></pre>
-<div class="callout">Reject a malformed result; do not let one crooked URL break the ranking of every sound source. The containment habit from exceptions now becomes a small boolean gate.</div>
+<div class="callout">Reject malformed configuration before any network call. Never “repair” a scheme or host by guessing what the user meant.</div>
 <div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
-<p><strong>Subdomains are distinct hosts.</strong> <code>www.ietf.org</code> and <code>datatracker.ietf.org</code> do not automatically become <code>ietf.org</code>. If the ledger should share trust across them, encode that policy explicitly rather than trimming labels by guesswork.</p>
-<p><strong>Keep escaping and parsing separate.</strong> Chapter IV's <code>Uri.EscapeDataString</code> prepares a query value before building a request URL. <code>Uri.TryCreate</code> parses a complete result URL after it arrives. One protects construction; the other validates interpretation.</p></div>'''
+<p><strong>Subdomains are distinct hosts.</strong> <code>www.ietf.org</code> and <code>datatracker.ietf.org</code> do not automatically become <code>ietf.org</code>. Verisearch retains the exact configured URL instead of trimming or grouping names by guesswork.</p>
+<p><strong>Keep escaping and parsing separate.</strong> <code>Uri.EscapeDataString</code> prepares one value before it is inserted into a query string. <code>Uri.TryCreate</code> parses a complete configured address. One protects construction; the other validates interpretation.</p></div>'''
 
 [[lessons.readings]]
 label = "Microsoft Learn — Uri class reference"
@@ -45,7 +48,7 @@ id = "s07-l05-d1"
 type = "type"
 points = 14
 reps = 2
-prompt = "Copy the safe web-host gate twice. This is the exact ward the Scales need before a trust lookup."
+prompt = "Copy the safe web-host gate twice. SourcePolicy uses this shape before any network call."
 code = '''
 if (Uri.TryCreate(raw, UriKind.Absolute, out Uri? uri)
     && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
@@ -57,23 +60,23 @@ if (Uri.TryCreate(raw, UriKind.Absolute, out Uri? uri)
 id = "s07-l05-e1"
 type = "fill"
 points = 25
-prompt = "Fill the blank with the non-throwing parser used to test a complete result URL."
+prompt = "Fill the blank with the non-throwing parser used to test a complete configured URL."
 code = '''
 if (Uri.____(raw, UriKind.Absolute, out Uri? uri))
     Console.WriteLine(uri.Host);'''
 answer = "TryCreate"
 accept = ["trycreate"]
-whyWrong = "The ranking boundary needs the boolean-returning parser so malformed search results become a rejected item instead of an exception."
+whyWrong = "The admission boundary needs the boolean-returning parser so malformed configuration becomes a clear rejection instead of an accidental network call."
 hint = "The method name pairs the safe-parsing convention from int.TryParse with object creation."
 
 [[lessons.exercises]]
 id = "s07-l05-e2"
 type = "mc"
 points = 25
-prompt = "A result URL is <code>https://nist.gov/pubs?id=7#summary</code>. Which value belongs in the domain-trust dictionary lookup?"
+prompt = "A configured URL is <code>https://nist.gov/pubs?id=7#summary</code>. Which value does <code>uri.Host</code> return?"
 choices = ["/pubs", "nist.gov", "id=7", "https"]
 answer = 1
-whyWrong = "The path, query value, and scheme describe other URL parts; the trust ledger is keyed by the server host, <code>nist.gov</code>."
+whyWrong = "The path, query value, and scheme describe other URL parts; the server host is <code>nist.gov</code>."
 explain = "Parsing the address and reading <code>uri.Host</code> yields <code>nist.gov</code>, unaffected by its path, query string, or fragment."
 hint = "The ledger identifies who published the page, not where on that server the page lives."
 

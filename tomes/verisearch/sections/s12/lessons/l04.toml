@@ -1,83 +1,78 @@
 [[lessons]]
 id = "s12-l04"
-title = "README & --help — the tool's first impression"
+teaches = ["release-docs"]
+title = "Document the Exact Product, Requirements, and Limits"
 body = '''
-
-<p>Nobody reads source before deciding whether your tool is worth 90 seconds. Two artifacts do all the convincing:</p>
-<p><strong>The README skeleton that works</strong> (in this order — the pitch before the plumbing):</p>
+<p>A stranger should understand Verisearch before installing anything. Write <code>README.md</code> in this order:</p>
 <pre><code># Verisearch
-One paragraph: what it does and WHY it exists (verbatim quotes,
-trust-ranked sources, zero paraphrasing — the anti-hallucination search).
 
-## Example                      ← SHOW the output before anything else
-$ verisearch <span class="s">"What does RFC 8446 say about session resumption?"</span>
-[the actual formatted report, pasted]
+One paragraph: local AI proposes precise evidence from user-chosen pages;
+C# prints only exact substrings and attaches source-owned citations.
 
-## Install                      ← copy-pasteable, tested on a clean machine
-## Usage                        ← the flags table
-## Configuration                ← ~/.verisearch/config.yaml annotated
-## How it works                 ← 5 bullets: search → trust → scrape → scan → report
-## Requirements & limitations   ← honest: SearXNG needed, Ollama optional (fallback)</code></pre>
-<p><strong><code>--help</code> that respects the reader</strong> — Spectre.Console.Cli generates the frame from your attributes; you supply the words:</p>
-<pre><code>[Description(<span class="s">"Search the web and return VERBATIM quotes from trusted sources."</span>)]
-<span class="k">public class</span> SearchCommand ...
-
-[CommandOption(<span class="s">"-t|--min-trust"</span>)]
-[Description(<span class="s">"Minimum trust score 0-10 a source must have (default: 3.0)"</span>)]
-<span class="k">public double</span> MinTrust { <span class="k">get</span>; <span class="k">set</span>; } = 3.0;</code></pre>
-<p>Description quality bar: every option says what it does, its range, and its default. "Sets the minimum trust" is filler; the version above answers the three questions the user actually has.</p>
-<div class="callout">Honesty is a feature: the README's limitations section ("requires a SearXNG instance; LLM scan degrades to keyword matching without Ollama") builds more trust than any adjective. You built a tool about source honesty — its docs should model it.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
-<p><strong>/// doc comments</strong> — the tooltip text future-you reads in the editor:</p>
-<pre><code>/// &lt;summary&gt;Re-ranks raw results by computed trust score, highest first.&lt;/summary&gt;
-/// &lt;param name="raw"&gt;Unfiltered results straight from the search engine.&lt;/param&gt;
-public List&lt;SearchResult&gt; Rank(List&lt;SearchResult&gt; raw)</code></pre>
-<p>Write them on PUBLIC surface (the pipeline, the clients); skip them on privates where the name should suffice.</p>
-<p><strong>Changelog discipline:</strong> a <code>CHANGELOG.md</code> with Added/Changed/Fixed per version (keepachangelog.com format) — thirty seconds per release, priceless at "wait, when did --min-trust change default?"</p>
-<p><strong>The last word — you built a TOOL, not a tutorial:</strong> the README's job is to let a stranger succeed in 90 seconds; the tests' job is to let YOU change code without fear; the published binary's job is to not need you standing next to it. That's the definition of done.</p></div>'''
+## Example
+## Install and requirements
+## Quick start
+## Configuration
+## How proposal and verification work
+## Mock mode
+## Limitations
+## Test and publish</code></pre>
+<p>The example shows the command and representative output with a complete quote, source label, URL, and passage id. State that live mode requires Ollama plus the configured model and that source pages come from <code>~/.verisearch/config.json</code>. Include a minimal valid JSON configuration that the learner actually tested.</p>
+<p>The “How it works” section must preserve the trust boundary in plain language:</p>
+<ol><li>The user chooses sources.</li><li>C# fetches and normalizes visible HTML text into passages.</li><li>Ollama proposes contiguous quote substrings and passage ids.</li><li>C# rejects anything not found exactly with ordinal comparison.</li><li>C# copies label and URL from its own passage record.</li></ol>
+<p>Document mock mode as a deterministic fixture for learning and tests, not an offline relevance algorithm. Its output is labeled and may select an entire fixture passage. Live failure never enables it automatically.</p>
+<p>Be equally clear about limits: HTML whitespace is normalized; client-rendered JavaScript content may not be present; paywalled or authenticated pages are unsupported; configured trust is a user preference, not a fact-check; exact source presence does not prove the source itself is correct; no search/discovery service is built in; and local models can miss relevant passages.</p>
+<p><code>--help</code> prints the same usage grammar as the README. Run every copied command. A documentation example that never worked is another fabricated output.</p>
+<div class="callout">The product guarantees source containment and attribution ownership—not universal truth, exhaustive research, or credibility scoring. Precise limits make the real guarantee stronger.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // REPRODUCIBLE EXAMPLES</div><p>Use a public stable document for a live example and a bundled/local HTML fixture for mock. Mark representative output as such, record the model tag, and avoid claiming identical model selection across machines.</p></div>
+'''
 
 [[lessons.readings]]
-label = "Make a README — the classic guide"
-url = "https://www.makeareadme.com/"
+label = "Microsoft Learn — Create a README for a .NET repository"
+url = "https://learn.microsoft.com/en-us/contribute/content/how-to-write-use-markdown"
 essential = false
 
 [[lessons.exercises]]
 id = "s12-l04-e1"
 type = "mc"
 points = 20
-prompt = "What should a README show FIRST after the one-paragraph pitch?"
-choices = ["A real usage example with actual output", "The license text", "The full API reference", "Contributor guidelines"]
+prompt = "What should follow the one-paragraph README pitch?"
+choices = ["A concrete command and representative verified-output example", "The entire source code", "A marketing comparison", "A hidden limitations footnote"]
 answer = 0
-whyWrong = "License, full API, and contributor guidelines come later — right after the pitch a README should show a real usage example with actual output."
-hint = "Show the payoff before the plumbing."
+whyWrong = "Code dumps, comparisons, and buried caveats do not show a user the shortest successful path."
+explain = "A tested example makes the promised behavior tangible before setup detail."
+hint = "Show the destination before the map."
 
 [[lessons.exercises]]
 id = "s12-l04-e2"
 type = "mc"
 points = 20
-prompt = "A good --help description for an option answers…"
-choices = ["who wrote it", "what it does, its valid range, and its default", "when it was added", "why C# is great"]
+prompt = "A useful <code>--help</code> description for <code>--mock</code> should explain…"
+choices = ["Only its data type", "What behavior it selects and that output is a labeled fixture", "The implementation's line count", "Nothing; the name is enough"]
 answer = 1
-whyWrong = "A help line isn’t about authorship or history — it states what the option does, its valid range, and its default."
-hint = "The user's three questions."
+whyWrong = "Types and code size do not tell users the behavioral consequence, while the name alone can be mistaken for an automatic fallback."
+explain = "CLI help should answer what changes and when to use it."
+hint = "Describe semantics, not syntax alone."
 
 [[lessons.exercises]]
 id = "s12-l04-e3"
 type = "mc"
 points = 20
-prompt = "Documenting that Verisearch NEEDS SearXNG and degrades without Ollama is…"
-choices = ["bad marketing — hide it", "only needed for paid tools", "honest limitation docs that build trust and save users' time", "a security leak"]
+prompt = "Which limitation must the README state?"
+choices = ["Exact substring verification proves every source is correct", "Verisearch includes web-wide search", "Exact presence does not establish source credibility or completeness", "Mock mode is equivalent to Ollama"]
 answer = 2
-whyWrong = "Hiding the SearXNG requirement isn’t good marketing and isn’t paid-only — documenting hard requirements and graceful degradation builds trust and saves users time."
-hint = "The tool is literally about source honesty."
+whyWrong = "The other claims overstate or misdescribe the product. Exact matching proves provenance within extracted text, not external truth."
+explain = "User-owned source selection and transparent limits remain necessary."
+hint = "Separate quotation integrity from source correctness."
 
 [[lessons.exercises]]
 id = "s12-l04-d1"
 type = "type"
 points = 14
 reps = 2
-prompt = "A doc comment + described option — the polish grammar. Twice, then go ship Verisearch."
-code = '''
-/// <summary>Search the web and return verbatim quotes from trusted sources.</summary>
-[CommandOption("-t|--min-trust")]
-[Description("Minimum trust score 0-10 a source must have (default: 3.0)")]
-public double MinTrust { get; set; } = 3.0;'''
+prompt = "Retype the five-step trust boundary twice."
+code = '''1. User chooses sources.
+2. C# extracts stable passages.
+3. Ollama proposes exact substrings.
+4. C# verifies ordinal containment.
+5. C# attaches source-owned citations.'''

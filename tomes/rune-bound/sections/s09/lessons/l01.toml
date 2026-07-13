@@ -1,82 +1,114 @@
 [[lessons]]
 id = "s09-l01"
 title = "The Item Record"
-teaches = ["s09-item-data","s09-item-catalog"]
+teaches = ["s09-item-record", "s09-json-item-catalog"]
 body = '''
-<p>s09-l01 opens the items and inventory chart through Item. s09-l01 hears THE CARTOGRAPHER name s09-item-data its first bearing. s09-l01 names one input, one change, and one output. s09-l01 gives s09-item-catalog a second mark for comparison. s09-l01 keeps the smallest successful example beside its route.</p>
-<p>s09-l01 reads from left to right, then narrates state changes. s09-l01 keeps its items and inventory clue concrete and observable. s09-l01 runs twice; the second pass challenges the first. s09-l01 records which owner moved when s09-item-data shifted. s09-l01 carries earlier <code>GameState</code> evidence into this chart.</p>
-<p>s09-l01 asks one decision to stand alone in the margin. s09-l01 keeps s09-item-catalog visible instead of hiding it behind polish. s09-l01 tests a friendly case and a sharp edge case. s09-l01 compares both traces so s09-item-data has a witness. s09-l01 names the failure before choosing a repair.</p>
-<p>s09-l01 treats each handoff as a contract between maker and reader. s09-l01 supplies s09-item-data; the reader checks s09-item-catalog. s09-l01 places its check where another wayfinder can repeat it. s09-l01 earns THE CARTOGRAPHER's trust through evidence, not luck. s09-l01 leaves one deliberate question for the next chart.</p>
-<p>s09-l01 closes by stating what the program must preserve. s09-l01 names one input that could falsify s09-item-data. s09-l01 names one output that confirms s09-item-catalog still belongs. s09-l01 runs the smallest route, inspects its trace, and annotates it. s09-l01 turns the items and inventory chart into a RuneBound waypoint.</p>
-<p>s09-l01 ends with a handoff to the next chart. s09-l01 carries s09-item-catalog forward after s09-item-data earns trust. s09-l01 lets THE CARTOGRAPHER record the result in plain language. s09-l01 turns a clean rerun from a guess into a fact. s09-l01 lets the next wayfinder begin without hidden context.</p>
-<pre><code>print("s09-l01 // The Item Record")</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // S09-L01</div><p>s09-l01 <strong>Evidence.</strong> Record s09-item-data; compare it with s09-item-catalog before advancing.</p><p>s09-l01 <strong>Repair.</strong> Change one cause, rerun the route, and preserve the explanation.</p></div>
+<p>Combat already gives each actor a <code>StatBlock</code>; this chart gives a found thing a durable description. Do not add a new <code>Item</code> class to <code>player.py</code>. Create the new canonical owner, <code>items.py</code>. An <code>Item</code> records an id, a player-facing name, a description, the map tile that represents the pickup, and a dictionary of numeric stat modifiers. The id is the stable machine name. The name is what the inventory panel shows. Keeping those separate lets a later quest ask for <code>"shadow_key"</code> without depending on capitalization in prose.</p>
+<pre><code>from dataclasses import dataclass
+import json
+
+@dataclass
+class Item:
+    item_id: str
+    name: str
+    description: str
+    pickup_tile: str
+    modifiers: dict[str, int]
+
+def load_items(filename):
+    with open(filename, encoding="utf-8") as source:
+        raw_items = json.load(source)
+    return {
+        item_id: Item(item_id=item_id, **values)
+        for item_id, values in raw_items.items()
+    }</code></pre>
+<p>Make <code>data/items.json</code> the sole catalog. It replaces the phase-plan placeholder <code>{"name": "Potion", "heal": 10}</code>; do not leave that inline dictionary in <code>main.py</code>, <code>player.py</code>, or a test. Start with a visible potion tile and a future quest item:</p>
+<pre><code>{
+  "potion": {
+    "name": "Potion", "description": "A warm draught from the old road.",
+    "pickup_tile": "potion", "modifiers": {"hp": 20}
+  },
+  "shadow_key": {
+    "name": "Shadow Key", "description": "Cold iron marked with a crescent.",
+    "pickup_tile": "shadow_key", "modifiers": {}
+  }
+}</code></pre>
+<p>Patch <code>data/tiles.json</code>, not the map loader, with lower-case <code>potion</code> and <code>shadow_key</code> definitions. Each needs a readable RGB color and <code>"solid": false</code>, so the Player can stand on it. Then replace chosen cells in the existing <code>data/maps/overworld.csv</code> with those ids. CSV remains the one map layout source; item JSON says what a pickup means. That distinction is the same dictionary lookup s02 taught: <code>items[item_id]</code> chooses one authored record.</p>
+<div class="callout"><strong>THE CARTOGRAPHER'S RULE:</strong> terrain identifies where a thing lies; the item catalog identifies what it is.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DATA RECOVERY</div><p>If <code>load_items("data/items.json")</code> raises <code>FileNotFoundError</code>, launch <code>python3 main.py</code> from the RuneBound project folder, the same working-directory rule used for maps and sprite assets. If JSON parsing fails, fix the comma or quotation in the data file; do not conceal it with a second inline catalog.</p></div>
 '''
 
 [[lessons.readings]]
-label = "Python library // dataclasses // The Item Record"
+label = "Python Docs // dataclasses"
 url = "https://docs.python.org/3/library/dataclasses.html"
 
 [[lessons.readings]]
-label = "Python tutorial // dictionaries // The Item Record"
-url = "https://docs.python.org/3/tutorial/datastructures.html"
+label = "Python Docs // json.load"
+url = "https://docs.python.org/3/library/json.html#json.load"
 
 [[lessons.exercises]]
 id = "s09-l01-e1"
-type = "mc"
-points = 14
-prompt = '''
-<p>What belongs in an item catalog? Select the reading that keeps the inventory can store a reference to the same record the pickup system found possible.</p>
-'''
-choices = ["the current frame's event queue","the camera's world-to-screen subtraction","the complete combat turn history","The Item Record: keep s09-item-data owned by the named boundary and verify the result before handoff s09-l01-e1."]
-answer = 3
-whyWrong = '''
-The tempting routes confuse creating a special case for every item and making a new key require engine edits with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace Item name, description, pickup tile, and stat modifiers in one inspectable definition in the Spoils Ledger chart, then compare the the catalog describes what an item is while Inventory decides who carries it with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves the catalog describes what an item is while inventory decides who carries it and leaves item name, description, pickup tile, and stat modifiers in one inspectable definition available for the next RuneBound handoff.
+type = "type"
+points = 12
+reps = 2
+prompt = '''<p>Retype the constructor call that preserves the JSON key as the stable item id.</p>'''
+code = '''
+item = Item(item_id="shadow_key", name="Shadow Key", description="Cold iron.", pickup_tile="shadow_key", modifiers={})
 '''
 
 [[lessons.exercises]]
 id = "s09-l01-e2"
-type = "text"
-points = 16
-prompt = '''
-<p>s09-l01-e2: name the Python term for the specific unit requested by this chart. Supply the language term, not the surrounding story label.</p>
+type = "fill"
+points = 22
+prompt = '''<p>Restore the module that turns the opened item-data stream into Python dictionaries.</p>'''
+code = '''
+with open("data/items.json", encoding="utf-8") as source:
+    raw_items = json.____(source)
 '''
-answer = "dataclass"
-hint = '''
-Recall the named boundary in The Item Record; the answer is the language term for that single job, not the larger game feature.
-'''
+answer = "load"
+hint = '''The function receives an already-open file object; <code>loads</code> would instead receive JSON text.''' 
+whyWrong = '''<code>dump</code> writes Python data as JSON, while <code>loads</code> parses a string. The open source file needs <code>json.load</code>.'''
 
 [[lessons.exercises]]
 id = "s09-l01-e3"
-type = "fill"
-points = 18
-prompt = '''
-<p>s09-l01-e3: restore the missing operation in the supplied code. Use its operands and the chart evidence to complete the route without renaming the owner.</p>
-'''
-code = '''
-from dataclasses import ____
-'''
-answer = "dataclass"
-hint = '''
-Look at what must happen to item(name="potion", modifiers={"hp": 20}); choose the operation that performs that job rather than the one that merely inspects the result.
-'''
+type = "mc"
+points = 20
+prompt = '''<p>Which file should become the sole definition of Potion’s pickup tile and modifier?</p>'''
+choices = ["<code>data/items.json</code>", "The event loop in <code>main.py</code>", "<code>data/maps/overworld.csv</code>", "The Player constructor"]
+answer = 0
+hint = '''One file describes item meaning; the CSV only places lower-case tile ids.''' 
+whyWrong = '''The map places a tile but cannot describe its name or modifiers, and Player and the event loop are runtime owners. The JSON catalog is the authored source for an item record.''' 
+explain = '''Loading one catalog lets new items arrive as data rather than branches scattered through the program.''' 
 
 [[lessons.exercises]]
 id = "s09-l01-e4"
-type = "type"
-points = 10
-reps = 2
-prompt = '''
-<p>Retype this spoils ledger evidence exactly. Keep item name, description, pickup tile, and stat modifiers in one inspectable definition visible while you write. (Ctrl+Enter submits.)</p>
+type = "write"
+points = 34
+prompt = '''<p>Build a tiny catalog record for the Shadow Key. Use the literal id <code>"shadow_key"</code>, an empty modifier dictionary, and print exactly <code>KEY shadow_key Shadow Key</code>. This is a one-file data-model proof; RuneBound itself reads the catalog from JSON.</p>'''
+starter = '''
+from dataclasses import dataclass
+
+@dataclass
+class Item:
+    item_id: str
+    name: str
+    modifiers: dict
+
+# Construct the Shadow Key record and report its id and display name.
 '''
-code = '''
-item_name = "Potion"
-item_bonus = {"hp": 20}
-print(item_name, item_bonus["hp"])
+expect = '''
+KEY shadow_key Shadow Key
 '''
+solution = '''
+from dataclasses import dataclass
+
+@dataclass
+class Item:
+    item_id: str
+    name: str
+    modifiers: dict
+
+item = Item("shadow_key", "Shadow Key", {})
+print("KEY", item.item_id, item.name)
+'''
+hint = '''Instantiate <code>Item</code> with the three declared fields, then print <code>item.item_id</code> before <code>item.name</code>.''' 

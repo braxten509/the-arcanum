@@ -1,9 +1,10 @@
 [freestyle]
 title = "THE WORKING: The Skeleton of the Tome"
-brief = "Create the type skeleton the rest of Verisearch hangs on, in separate files.<ul><li>Enums <code>SourceTier</code> and <code>ContentType</code></li><li>Records <code>DomainTrustScore</code>, <code>SearchResult</code>, <code>ScrapedParagraph</code>, <code>VerbatimQuote</code></li><li>A <code>TrustProfile</code> class with init properties and at least one computed property or method</li><li>Prove it works: in Program.cs, build a few sample TrustProfiles/SearchResults in a List, rank them with LINQ (Where + OrderByDescending), and print a mini trust report</li><li>Keep the shell loop — add a command like <code>demo</code> that runs the report</li></ul>"
+requires = ["classes-objects", "properties-constructors", "records", "enums", "linq-basics", "canonical-models"]
+brief = "Create the one model file the rest of Verisearch will share.<ul><li>Add <code>Models.cs</code> containing exactly the workshop's <code>SourceKind</code>, <code>SourceSpec</code>, <code>SourceDocument</code>, <code>Passage</code>, <code>QuoteProposal</code>, <code>QuoteBatch</code>, and <code>VerifiedQuote</code></li><li>Delete or rename any earlier demonstration type that collides; do not keep two meanings for <code>Source</code> or <code>SearchResult</code></li><li>In <code>Program.cs</code>, add a <code>demo</code> branch that constructs two SourceSpecs and three Passages, filters to trust ≥ 8 with LINQ, and prints <code>&lt;id&gt;: &lt;label&gt;</code></li><li>Keep the Chapter I loop and Chapter II parser intact</li><li>Run <code>dotnet build</code>, then exercise both <code>demo</code> and an ordinary question</li></ul><div class=\"callout\"><strong>Canonical means future chapters edit these records deliberately.</strong> Examples in earlier lessons taught syntax; <code>Models.cs</code> now owns the product contract.</div>"
 reward = 300
 packages = []
-xray = "THORNE checks whether records are positional (one-liners) — writing 40-line classes with { get; set; } everywhere for pure data costs points. He looks for at least one 'init' accessor, one computed member (=> or a method), and whether the LINQ demo actually sorts DESCENDING. Files: he tolerates two types per file if related, but Program.cs containing everything is an automatic style hit."
+xray = "THORNE compiles every file together, rejects duplicate demonstration types, verifies QuoteProposal has no URL field, and checks that VerifiedQuote carries C#-owned source label and URL. He runs the demo through the existing loop and expects the LINQ result to be computed from the list."
 
 [freestyle.badge]
 id = "badge-s03"
@@ -16,14 +17,14 @@ weight = 20
 desc = "Builds clean; demo output renders."
 
 [[freestyle.rubric]]
-criterion = "Records & enums modeled correctly"
+criterion = "Canonical records & enum"
 weight = 25
-desc = "Positional records for value data; enums for closed sets; sensible property types."
+desc = "Models.cs contains the specified source, passage, proposal, batch, and verified records plus SourceKind with stable names."
 
 [[freestyle.rubric]]
-criterion = "TrustProfile class design"
+criterion = "Trust boundary in types"
 weight = 20
-desc = "init vs set used deliberately; computed member present; class-vs-record choice justified by usage."
+desc = "Raw model proposals cannot carry attribution and cannot be passed off as VerifiedQuote without an explicit verification step."
 
 [[freestyle.rubric]]
 criterion = "LINQ demo"

@@ -1,28 +1,29 @@
 [[lessons]]
 id = "s03-l03"
+teaches = ["records"]
 title = "Records — immutable data done right"
 body = '''
 
-<p>Most of Verisearch's data never changes after creation: a search result IS what came back; a quote IS what the page said. For data like that, <code>record</code> beats <code>class</code>. One line:</p>
-<pre><code><span class="k">public record</span> SearchResult(<span class="k">string</span> Url, <span class="k">string</span> Title, <span class="k">string</span> Snippet, <span class="k">string</span> Engine);</code></pre>
+<p>Most of Verisearch's data should not change after creation: a passage has one id and one stored text value; a proposal has one passage id and one candidate quotation. For value-like data, <code>record</code> often beats <code>class</code>. One line:</p>
+<pre><code><span class="k">public record</span> PassageDraft(<span class="k">int</span> Id, <span class="k">string</span> Text);</code></pre>
 <p>That <strong>positional record</strong> declaration generates: a constructor, init-only properties (Url, Title…), value-based equality, and a readable ToString. All free.</p>
-<pre><code><span class="k">var</span> a = <span class="k">new</span> SearchResult(<span class="s">"https://x"</span>, <span class="s">"T"</span>, <span class="s">"S"</span>, <span class="s">"searxng"</span>);
-<span class="k">var</span> b = <span class="k">new</span> SearchResult(<span class="s">"https://x"</span>, <span class="s">"T"</span>, <span class="s">"S"</span>, <span class="s">"searxng"</span>);
+<pre><code><span class="k">var</span> a = <span class="k">new</span> PassageDraft(1, <span class="s">"Exact source words."</span>);
+<span class="k">var</span> b = <span class="k">new</span> PassageDraft(1, <span class="s">"Exact source words."</span>);
 
 Console.WriteLine(a == b);        <span class="c">// True! records compare by CONTENT</span>
 <span class="c">// (two class instances with identical data would be != — reference comparison)</span>
 
-Console.WriteLine(a);             <span class="c">// SearchResult { Url = https://x, Title = T, ... }</span></code></pre>
+Console.WriteLine(a);             <span class="c">// PassageDraft { Id = 1, Text = Exact source words. }</span></code></pre>
 <p>Records are immutable by default — to "change" one you make a modified <em>copy</em> with <code>with</code>:</p>
-<pre><code><span class="k">var</span> upgraded = a <span class="k">with</span> { Title = <span class="s">"RFC 8446"</span> };   <span class="c">// new record; a is untouched</span></code></pre>
+<pre><code><span class="k">var</span> corrected = a <span class="k">with</span> { Text = <span class="s">"Corrected practice text."</span> }; <span class="c">// new record; a is untouched</span></code></pre>
 <p><strong>class vs record — the decision:</strong></p>
 <ul>
-<li>Identity + changing state over time (a live TrustProfile whose ReferenceCount ticks up) → <code>class</code></li>
-<li>A value that just IS its data (results, quotes, scores, config rows) → <code>record</code></li>
+<li>Identity plus changing state over time (a running fetch session whose counters increase) → <code>class</code></li>
+<li>A value that just is its data (source rows, passages, proposals, verified quotes) → <code>record</code></li>
 </ul><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
-<p><strong>Why records equal by value:</strong> the compiler generates <code>Equals</code>/<code>GetHashCode</code> over all positional members. Two facts scraped identically ARE the same fact — records encode that; classes say "same object in memory?" which is a different question.</p>
+<p><strong>Why records equal by value:</strong> the compiler generates <code>Equals</code>/<code>GetHashCode</code> over all positional members. Two draft values with the same members compare equal; classes normally ask “same object in memory?”, which is a different question.</p>
 <p><strong>Records still get bodies:</strong> you can add methods, computed properties, even extra constructors inside <code>record X(...) { }</code> braces.</p>
-<p><strong>Deconstruction</strong> comes free with positional records: <code>var (url, title, _, _) = result;</code> — pull members into locals, discard what you don't need.</p>
+<p><strong>Deconstruction</strong> comes free with positional records: <code>var (id, text) = passage;</code> — pull members into locals by position.</p>
 <p><strong>record struct:</strong> a VALUE-type record (copied on assignment, no heap allocation) — <code>public readonly record struct Coords(int X, int Y);</code>. For tiny hot-path data. Your Verisearch records are fine as normal (class-based) records.</p></div>'''
 
 [[lessons.readings]]
@@ -55,7 +56,7 @@ explain = "Records use value equality by default, so two records of the same typ
 id = "s03-l03-e2"
 type = "text"
 points = 25
-prompt = "Which keyword creates a modified copy of a record? <code>var b = a ____ { Title = \"new\" };</code>"
+prompt = "Which keyword creates a modified copy of a record? <code>var b = a ____ { Text = \"new\" };</code>"
 answer = "with"
 hint = "Four letters. Non-destructive mutation."
 
@@ -77,27 +78,27 @@ points = 14
 reps = 2
 prompt = "A positional record and a with-copy. Twice — this is your data model's whole grammar."
 code = '''
-public record SearchResult(string Url, string Title, double Trust);
+public record PassageDraft(int Id, string Text);
 
-var a = new SearchResult("https://x", "RFC", 9.5);
-var b = a with { Trust = 7.0 };'''
+var a = new PassageDraft(1, "Exact source words.");
+var b = a with { Text = "New practice words." };'''
 
 [[lessons.exercises]]
 id = "s03-l03-w1"
 type = "write"
 points = 34
-prompt = "Declare record <code>Quote(string Source, string Text)</code>. Create q1 for (\"ietf.org\", \"verbatim rules\"), make q2 = q1 with Source \"nist.gov\", then print three lines: q1's Source, q2's Source, and whether <code>q1 == (q1 with { })</code> (an identical copy)."
+prompt = "Declare record <code>SourceNote(string Label, string Text)</code>. Create n1 for (\"RFC\", \"practice text\"), make n2 = n1 with Label \"NIST\", then print n1's Label, n2's Label, and whether <code>n1 == (n1 with { })</code>. This is record syntax practice, not the final quote model."
 expect = '''
-ietf.org
-nist.gov
+RFC
+NIST
 True'''
 solution = '''
-var q1 = new Quote("ietf.org", "verbatim rules");
-var q2 = q1 with { Source = "nist.gov" };
-Console.WriteLine(q1.Source);
-Console.WriteLine(q2.Source);
-Console.WriteLine(q1 == (q1 with { }));
+var n1 = new SourceNote("RFC", "practice text");
+var n2 = n1 with { Label = "NIST" };
+Console.WriteLine(n1.Label);
+Console.WriteLine(n2.Label);
+Console.WriteLine(n1 == (n1 with { }));
 
-public record Quote(string Source, string Text);
+public record SourceNote(string Label, string Text);
 '''
 hint = "Record declaration goes after the top-level statements. The last line proves value equality."

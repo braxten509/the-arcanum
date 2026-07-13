@@ -1,36 +1,37 @@
 [freestyle]
 title = "THE LAST WORKING: Set the Seal"
-brief = "The close of the whole commission — a finished artifact.<ul><li>Add <code>Verisearch.Tests</code> (xUnit) covering the big three: trust scoring (Facts + a Theory), LLM output parsing (the four personalities as InlineData), and HTML extraction (fixture strings, pre-whitespace check)</li><li>All green under <code>dotnet test</code></li><li>Publish a self-contained single-file binary for your platform, and prove the PUBLISHED binary works (paste its output in the terminal)</li><li>Write the full README (pitch → example → install → usage → config → how-it-works → limitations); polish every --help description</li><li>Version banner + honest exit codes</li></ul>This is the one THORNE grades like a code review on a real release."
+requires = ["xunit-basics", "contract-tests", "dotnet-publish", "release-docs", "acceptance-run"]
+brief = "Ship the artifact whose claim the tome now teaches.<ul><li>Create the sibling <code>Verisearch.Tests</code> project. Test exact/altered/fabricated/unknown/duplicate/over-limit proposals, C#-owned label and URL, inner JSON parsing, HTML extraction, source admission, and explicit mock plumbing. No test may require internet or Ollama.</li><li>Run <code>dotnet build</code> and <code>dotnet test</code> from the documented directories; include the green command output in release notes.</li><li>Run the complete acceptance ladder: local fixture with explicit <code>--mock</code>, a deliberately fabricated proposal rejected by the verifier, one partial source failure, a live Ollama call, and live mode with Ollama unavailable.</li><li>Write README.md with tested setup/config/usage, the proposal-and-proof design, explicit mock semantics, whitespace normalization, source-selection limits, and honest non-guarantees.</li><li>Publish a self-contained single-file untrimmed build for the current RID. Run <code>--help</code> and the fixture command from the published artifact path.</li><li>Remove obsolete search/index/keyword-fallback types and temporary Program.cs demos; keep the final canonical file map from Chapter XI.</li></ul>"
 reward = 800
 packages = []
-xray = "THORNE runs dotnet test himself and reads names before bodies — vague names (Test1, TestParse) hurt even when green. He checks the parser Theory actually includes an out-of-range-index case. For publish he wants proof the binary ran WITHOUT the SDK path (banner output pasted). README: he reads Limitations FIRST — missing or dishonest = documentation criterion halved. The holistic pass rewards consistency: same error-message voice, same naming, same patterns from Chapter V to Chapter XII."
+xray = "THORNE runs the deterministic suite offline, changes one quote character, substitutes a false URL in surrounding test data, and inspects the renderer signature. He then checks a real published path, README limitations, explicit mock banner, and a stopped-Ollama live failure. Generated output without these runtime proofs does not set the seal."
 
 [freestyle.badge]
 id = "badge-s12"
 name = "THE LAST SEAL"
-desc = "From Console.WriteLine to a binary strangers could wield. The Liber Veritatis: complete."
+desc = "From first C# line to a tested binary that can distinguish a proposal from proof."
 
 [[freestyle.rubric]]
-criterion = "Test suite quality"
+criterion = "Truth-contract tests"
 weight = 30
-desc = "dotnet test green; the big three covered with Facts AND Theories; deterministic (no network/LLM); names read as specs."
+desc = "Deterministic tests prove exact rejection, attribution ownership, schema parsing, extraction, source policy, and no verifier bypass."
 
 [[freestyle.rubric]]
-criterion = "Published binary"
+criterion = "Acceptance journey"
 weight = 20
-desc = "Single-file self-contained publish works; evidence the BINARY ran (not dotnet run); trimming issues handled if hit."
+desc = "Mock, fabricated proposal, partial source failure, live Ollama, and stopped-Ollama cases are exercised from the real entrypoint."
+
+[[freestyle.rubric]]
+criterion = "Published artifact"
+weight = 20
+desc = "The current-RID self-contained untrimmed output is built and its executable path runs help plus a fixture query."
 
 [[freestyle.rubric]]
 criterion = "Documentation"
-weight = 20
-desc = "README complete/honest with a real example; --help descriptions meet the bar."
+weight = 15
+desc = "README commands were run and its architecture, requirements, modes, normalization, and limitations match behavior."
 
 [[freestyle.rubric]]
-criterion = "Release polish"
+criterion = "C# release craft"
 weight = 15
-desc = "Version banner, exit codes, first-run config creation on a clean HOME."
-
-[[freestyle.rubric]]
-criterion = "Whole-project review"
-weight = 15
-desc = "THORNE's holistic pass over the entire codebase: consistency, no dead code, the arc from Chapter I shell to shipped tool holds together."
+desc = "PascalCase types/methods, camelCase locals, four-space indentation, Allman braces, specific test names, no dead demo/fallback code, and canonical files only."

@@ -1,136 +1,82 @@
 [[lessons]]
 id = "s07-l03"
-title = "The Index"
+teaches = ["faiss-index"]
+title = "Build an Exact, Persistent Cosine Index"
 body = '''
-<p>Two rites assembled the grimoire's raw material: the first taught the embedding — a map from text to a 384-dimensional point — and the second taught how to carve the reference texts into slices small enough to embed independently. This rite teaches the <strong>index</strong> — the structure that holds all those embedded points and answers the one question the grimoire exists to answer: given a query vector, which reference chunks are closest to it? The answer is a nearest-neighbor search across potentially thousands of vectors, and it must run in milliseconds, not minutes. Sixty chunks from a small style guide is brute-forceable — a loop over 60 dot products finishes before the artificer blinks. Six thousand chunks from a shelf of reference books is not — the brute-force approach scans the entire library on every query, and the search time grows linearly with the collection. The grimoire needs a proper index.</p>
+<p>For a personal shelf of hundreds or a few thousand chunks, exact search is fast enough and easier to reason about than an approximate index. Encode all chunk texts with <code>encode_document</code>, convert to contiguous float32, normalize every row, and add them to <code>faiss.IndexFlatIP</code>. Inner product over unit vectors is cosine similarity.</p>
+<pre><code>import faiss
+import numpy as np
 
-<p><strong>FAISS</strong> — Facebook AI Similarity Search — is the standard library for fast vector search on CPU and GPU. It ships with multiple index types optimized for different tradeoffs between speed, memory, and accuracy. For the homunculus's reference shelf — a corpus of a few hundred to a few thousand reference chunks — the simplest and most appropriate index is <strong>IndexFlatIP</strong>: a flat (exact, non-approximate) index that computes the inner product between the query vector and every stored vector. Inner product is the un-normalized cosine similarity — for unit-length vectors it produces identical rankings, and for non-normalized vectors it is slightly faster because it skips the normalization step. The tradeoff is that IndexFlatIP is an O(n·d) exact search — it touches every stored vector for every query. At 2,000 chunks × 384 dimensions, a single query takes roughly 0.8 million floating-point operations — a few microseconds on a modern CPU, well within the homunculus's response-time budget.</p>
+vectors = embedder.encode_document(
+    [chunk["text"] for chunk in chunks], convert_to_numpy=True)
+vectors = np.ascontiguousarray(vectors, dtype="float32")
+faiss.normalize_L2(vectors)
+index = faiss.IndexFlatIP(vectors.shape[1])
+index.add(vectors)
 
-<p>Building an index has three steps: <strong>create</strong> it with the correct dimensionality, <strong>add</strong> the reference vectors, and <strong>search</strong> with a query vector. The index must know the embedding dimension at creation time — <code>faiss.IndexFlatIP(384)</code> for the MiniLM model this tome uses. Adding vectors requires a 2D NumPy array of shape (n_chunks, dim) in float32 — the same <code>model.encode()</code> calls the third rite taught, collected into a single matrix. Searching requires a query vector reshaped to (1, dim) — a 2D array with one row — and returns two arrays: the distances (inner-product scores, higher is better for IP) and the indices of the top-k nearest chunks in the original add order.</p>
-
-<pre><code><span class="k">import</span> faiss
-<span class="k">import</span> numpy <span class="k">as</span> np
-<span class="k">from</span> sentence_transformers <span class="k">import</span> SentenceTransformer
-
-model = SentenceTransformer(<span class="s">"all-MiniLM-L6-v2"</span>)
-
-<span class="c"># The reference chunks — already split by the fourth rite's chunker:</span>
-chunks = [
-    <span class="s">"Use 16px for body text and 24px for H1 headings."</span>,
-    <span class="s">"Line-height should be 1.5 for body and 1.2 for headings."</span>,
-    <span class="s">"The color palette uses #333 for text and #007acc for links."</span>,
-    <span class="s">"All Notion pages should use sentence case for titles."</span>,
-]
-
-<span class="c"># Embed every chunk into the 384-dim space:</span>
-chunk_vectors = np.array([model.encode(c) <span class="k">for</span> c <span class="k">in</span> chunks], dtype=np.float32)
-
-<span class="c"># Build the index — inner product, 384 dimensions:</span>
-index = faiss.IndexFlatIP(<span class="k">384</span>)
-index.add(chunk_vectors)          <span class="c"># (n_chunks, 384)</span>
-
-<span class="c"># Search for the top-2 chunks matching a query:</span>
-query_vec = model.encode(<span class="s">"What font size for headings?"</span>).reshape(<span class="k">1</span>, -1)
-k = <span class="k">2</span>
-scores, ids = index.search(query_vec.astype(np.float32), k)
-<span class="k">print</span>(<span class="s">"Top chunk:"</span>, chunks[ids[<span class="k">0</span>][<span class="k">0</span>]], <span class="s">"(score:"</span>, scores[<span class="k">0</span>][<span class="k">0</span>], <span class="s">")"</span>)</code></pre>
-
-<p>For larger collections — tens of thousands of chunks, or scenarios where the search must complete in single-digit microseconds — FAISS offers <strong>approximate</strong> indexes (IndexIVFFlat, IndexHNSWFlat) that trade a small accuracy loss for a large speed gain. The homunculus's reference shelf will not reach that scale — a few hundred style-guide chunks plus a few hundred documentation pages is well within the exact-search regime — but the artificer who later adds entire libraries of reference material (the twelfth rite's expert endpoint) will need the approximate path.</p>
-
-<div class="field-notes"><div class="fn-head">FIELD NOTES // INDEXFLATIP VS INDEXFLATL2 — WHEN THE METRIC MATTERS</div>
-<p>Inner product (IP) and L2 distance (Euclidean) are two different answers to "how close are these two vectors?" For unit-length vectors, they rank identically — the vector with the highest inner product is also the vector with the smallest L2 distance. For non-normalized vectors, they can disagree: a long vector (high magnitude) on an unrelated topic may have a higher inner product with the query than a short vector on exactly the right topic, because the inner product includes the magnitude term that cosine similarity cancels out. The safe practice for retrieval: always normalize the embedding vectors before adding them to the index (vec / np.linalg.norm(vec) from the third rite), which makes IP and cosine identical, or use <code>IndexFlatIP</code> with the normalized vectors. The proving rite's cosine-similarity lesson (s06-l02-e4) proved why normalization matters — the same lesson applies to the retrieval index.</p></div>
+Path("artifacts/rag").mkdir(parents=True, exist_ok=True)
+faiss.write_index(index, "artifacts/rag/index.faiss")</code></pre>
+<p>Persist <code>chunks.jsonl</code> in exactly the same order as vectors are added. A returned integer id is an array position, so reordering metadata without rebuilding the index creates convincing but false citations. Write <code>artifacts/rag/manifest.json</code> with embedder id and revision if available, dimension, chunk settings, source-file hashes, chunk-file hash, vector count, and index hash.</p>
+<p>Round-trip the artifact immediately: load the FAISS index from disk, reload the JSONL, and assert <code>index.ntotal == len(chunks)</code> and <code>index.d</code> matches the manifest. Run a query only after those invariants pass. The final assistant should load these persisted files at startup; rebuilding the entire shelf for every question wastes time and makes results depend on whatever source files happen to exist that moment.</p>
+<p>Normalization is not optional. Without it, vector magnitude influences inner product, so the ranking is not cosine similarity even if the code comments call it cosine. Normalize stored documents once and every query before search.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ORDER IS PART OF THE INDEX</div>
+<p>FAISS stores vectors, not your citation objects. The metadata list must remain in the exact same order as insertion, and its manifest must hash the embedder, chunk settings, source snapshots, vector count, and dimensions. Normalize both document and query vectors before inner-product search when cosine ranking is the intended metric.</p></div>
 '''
-body_words = 520
 
 [[lessons.readings]]
-label = "FAISS documentation — the vector search library"
-url = "https://faiss.ai/"
-
-[[lessons.readings]]
-label = "FAISS index types — choosing between flat, IVF, and HNSW"
+label = "FAISS index types"
 url = "https://github.com/facebookresearch/faiss/wiki/Faiss-indexes"
 
 [[lessons.exercises]]
 id = "s07-l03-e1"
 type = "mc"
 points = 20
-prompt = "Per this rite, why does the artificer normalize the embedding vectors before adding them to a FAISS IndexFlatIP?"
-choices = [
-  "FAISS requires all vectors in the index to have magnitude exactly 1.0 — the add() method raises a DimensionError if any vector's L2 norm deviates from 1.0 by more than 1e-6",
-  "The SentenceTransformer model outputs vectors in a proprietary format that FAISS cannot parse — normalizing the vectors converts them to the standard float32 representation FAISS expects",
-  "Normalization makes inner product identical to cosine similarity — without it, a long vector on an unrelated topic could outscore a short vector on the correct topic because the inner product includes magnitude, not just direction; normalizing collapses the metric to pure angular similarity",
-  "IndexFlatIP computes the L2 distance internally by subtracting the inner product from the vector magnitude, and non-normalized vectors cause a floating-point overflow in this subtraction"
-]
-answer = 2
-whyWrong = "FAISS does not enforce a unit-length requirement (any float32 vector works), SentenceTransformer already outputs float32 numpy arrays (no format conversion needed), and IndexFlatIP computes pure inner product with no L2 conversion step. The real reason is metric collapse: inner product = cosine × magnitude_A × magnitude_B, so a high-magnitude wrong vector beats a low-magnitude right vector. Normalizing both query and reference vectors removes the magnitude terms and makes IP rank identically to cosine similarity — the metric the proving rite already established as the semantic-similarity standard."
-hint = "The lesson's FIELD NOTES section says 'always normalize the embedding vectors before adding them to the index, which makes IP and cosine identical.' The correct choice names the metric equivalence normalization provides and explains that without it, vector magnitude — not semantic direction — can dominate the ranking."
-explain = "Inner product = sum(a_i × b_i) over all dimensions. Cosine = sum(a_i × b_i) / (||a|| × ||b||). When ||a|| = ||b|| = 1.0, the two formulas are identical. Without normalization, a reference vector with magnitude 10.0 on a slightly related topic (IP ≈ 3.0) outranks a reference vector with magnitude 0.5 on exactly the right topic (IP ≈ 0.45) — the magnitude inflated the score. Normalization is a one-line safety measure that ensures the nearest-neighbor ranking reflects semantic direction, not vector length."
+prompt = "When does IndexFlatIP implement cosine ranking?"
+choices = ["When stored vectors and queries are L2-normalized", "Whenever vectors are float64", "Only on GPU", "When k equals one"]
+answer = 0
+whyWrong = "Precision, device, and k do not remove vector magnitude from inner product."
+explain = "Unit-length vectors make inner product equal cosine similarity."
+hint = "Cosine divides by both magnitudes."
 
 [[lessons.exercises]]
 id = "s07-l03-e2"
 type = "text"
-points = 18
-prompt = "What FAISS index type does this lesson recommend for the homunculus's reference shelf — the exact (non-approximate) index that computes inner product between the query and every stored vector, suitable for collections of a few thousand chunks where sub-millisecond search speed is not required?"
-answer = "IndexFlatIP"
-accept = ["IndexFlatIP", "faiss.IndexFlatIP", "FlatIP", "indexflatip", "IndexFlatIP(384)"]
-hint = "The lesson says 'the simplest and most appropriate index is IndexFlatIP: a flat (exact, non-approximate) index that computes the inner product between the query vector and every stored vector.' It is created with faiss.IndexFlatIP(384)."
+points = 15
+prompt = "Which file preserves vector-to-citation metadata order?"
+answer = "artifacts/rag/chunks.jsonl"
+accept = ["chunks.jsonl", "artifacts/rag/chunks.jsonl"]
+hint = "The index itself stores vectors, not source URLs."
 
 [[lessons.exercises]]
 id = "s07-l03-e3"
-type = "mc"
+type = "fill"
 points = 20
-prompt = "Per this rite, when does the artificer need to move from an exact index (IndexFlatIP) to an approximate index (IndexIVFFlat or IndexHNSWFlat)?"
-choices = [
-  "When the query embedding model changes from all-MiniLM-L6-v2 to a larger model — the 768-dimensional vectors from all-mpnet-base-v2 exceed IndexFlatIP's maximum supported dimensionality of 512",
-  "When the reference collection grows to tens of thousands of chunks — exact search scales linearly with n (O(n·d)), and searching 50,000 vectors on every query would add tens of milliseconds to the retrieval step, which adds up across repeated queries; approximate indexes trade a few percent accuracy for sub-millisecond search at any scale",
-  "When the GRAM of the base vessel exceeds 12 GB — FAISS uses different index types for different GPU memory sizes, and the switch is required for correct allocation on cards with more VRAM",
-  "When the distance metric changes from inner product to cosine similarity — IndexFlatIP only supports inner product, and any cosine-based search requires an approximate index because FAISS has no exact cosine-similarity index"
-]
-answer = 1
-whyWrong = "FAISS has no dimensionality limit of 512 (it supports arbitrary dimensions), the index type is independent of GPU VRAM (the search runs on CPU for this setup), and IndexFlatIP with normalized vectors IS a cosine-similarity index (as the FIELD NOTES proved). The real trigger is collection size: exact search is linear, and at tens of thousands of chunks the per-query cost becomes noticeable. Approximate indexes cluster vectors into coarse regions and search only the relevant ones — constant-time in practice — at the cost of occasionally missing a truly relevant chunk that fell in the wrong cluster."
-hint = "The lesson says 'for larger collections — tens of thousands of chunks — FAISS offers approximate indexes that trade a small accuracy loss for a large speed gain.' The correct choice identifies the collection-size threshold as the trigger for approximating."
-explain = "IndexFlatIP is O(n·d): it touches every vector. At 2,000 chunks × 384 dims, that's ~0.8M FLOPS — a few microseconds. At 50,000 chunks × 384 dims, it's 19M FLOPS — tens of microseconds, still fast for a single query, but the retrieval step is called repeatedly (once per query during evaluation, and once per user request in production). Approximate indexes like IVFFlat pre-partition the space into cells and search only the nearest cells — O(k·d) where k << n — cutting the search cost by 10–100× for a 1–2% recall loss."
+prompt = "Complete the FAISS normalization call."
+code = "faiss.____(vectors)"
+answer = "normalize_L2"
+hint = "It changes every row to unit L2 length."
 
 [[lessons.exercises]]
 id = "s07-l03-e4"
-type = "fill"
-points = 20
-prompt = "Fill the missing FAISS method — the one that populates the index with the pre-computed reference vectors after creation, which the lesson calls on <code>chunk_vectors</code>, a 2D float32 array of shape (n_chunks, 384)."
-code = '''import faiss
-import numpy as np
-
-chunk_vectors = np.array([
-    [0.12, -0.34, 0.08, 0.05],   # simplified — real vectors are 384-dim
-    [0.01, 0.42, -0.11, 0.33],
-], dtype=np.float32)
-
-index = faiss.IndexFlatIP(4)
-index.____(chunk_vectors)           # populate with the reference matrix
-
-query = np.array([[0.10, -0.30, 0.12, 0.08]], dtype=np.float32)
-scores, ids = index.search(query, k=1)'''
-answer = "add"
-accept = ["add"]
-hint = "The lesson's code block calls index.add(chunk_vectors) after creating the index — it's the method that inserts the reference vectors into the FAISS structure. The comment says '# populate with the reference matrix'."
-
-[[lessons.exercises]]
-id = "s07-l03-e5"
 type = "write"
 points = 35
-prompt = "A FAISS search returns the <em>index</em> of the best-matching chunk, and your job is to map that index back to the chunk's text — the <code>chunks[ids[0][0]]</code> step from the lesson. Here the per-chunk similarity scores are given (as <code>index.search</code> would return them). Find the position of the highest score and print <code>RESULT: &lt;that chunk's text&gt;</code> — looked up from the list, not hardcoded."
-starter = '''# The reference chunks, and the similarity score FAISS computed for each
-# against the query "What font size for body text?" (higher = closer).
-chunks = [
-    "Use 16px font for body.",
-    "Set line-height to 1.5 for readability.",
-    "Use #333 for all text.",
-]
-scores = [0.82, 0.41, 0.35]   # one score per chunk, same order
+prompt = "Reuse Section III's <code>bytes_per_element</code> ledger while checking index and metadata counts; print exactly: INDEX OK 42"
+starter = '''index_total = 42
+metadata_count = 42
+dimensions = 384
+bytes_per_element = 4
 
-# Find the position (index) of the highest score, then look up that
-# chunk's text and print:  RESULT: <text>
-# (max(scores) gives the top score; scores.index(...) gives its position.)
-print("RESULT: none")
+status = "BAD"
+print(f"INDEX {status} {index_total}")
 '''
-expect = "RESULT: Use 16px font for body."
-hint = "best = scores.index(max(scores)) gives 0 (0.82 is highest). Then print(f'RESULT: {chunks[best]}') — the font chunk. This is exactly what chunks[ids[0][0]] does after a real FAISS search: turn the winning index back into text."
+solution = '''index_total = 42
+metadata_count = 42
+dimensions = 384
+bytes_per_element = 4
+
+vector_bytes = index_total * dimensions * bytes_per_element
+status = "OK" if index_total == metadata_count and vector_bytes > 0 else "BAD"
+print(f"INDEX {status} {index_total}")
+'''
+expect = "INDEX OK 42"
+hint = "The two counts must be equal."

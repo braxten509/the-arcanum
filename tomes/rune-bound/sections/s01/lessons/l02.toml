@@ -1,87 +1,98 @@
 [[lessons]]
 id = "s01-l02"
-title = "Grid Lines"
-teaches = ["s01-grid-rows","s01-grid-indexing"]
+title = "Rows, Cells, and Bearings"
+teaches = ["nested-grid-iteration", "grid-row-column-lookup", "level-grid-function"]
 body = '''
-<p>s01-l02 opens the values and rows chart through Grid. s01-l02 hears THE CARTOGRAPHER name s01-grid-rows its first bearing. s01-l02 names one input, one change, and one output. s01-l02 gives s01-grid-indexing a second mark for comparison. s01-l02 keeps the smallest successful example beside its route.</p>
-<p>s01-l02 reads from left to right, then narrates state changes. s01-l02 keeps its values and rows clue concrete and observable. s01-l02 runs twice; the second pass challenges the first. s01-l02 records which owner moved when s01-grid-rows shifted. s01-l02 carries earlier <code>level_rows</code> evidence into this chart.</p>
-<p>s01-l02 asks one decision to stand alone in the margin. s01-l02 keeps s01-grid-indexing visible instead of hiding it behind polish. s01-l02 tests a friendly case and a sharp edge case. s01-l02 compares both traces so s01-grid-rows has a witness. s01-l02 names the failure before choosing a repair.</p>
-<p>s01-l02 treats each handoff as a contract between maker and reader. s01-l02 supplies s01-grid-rows; the reader checks s01-grid-indexing. s01-l02 places its check where another wayfinder can repeat it. s01-l02 earns THE CARTOGRAPHER's trust through evidence, not luck. s01-l02 leaves one deliberate question for the next chart.</p>
-<p>s01-l02 closes by stating what the program must preserve. s01-l02 names one input that could falsify s01-grid-rows. s01-l02 names one output that confirms s01-grid-indexing still belongs. s01-l02 runs the smallest route, inspects its trace, and annotates it. s01-l02 turns the values and rows chart into a RuneBound waypoint.</p>
-<p>s01-l02 ends with a handoff to the next chart. s01-l02 carries s01-grid-indexing forward after s01-grid-rows earns trust. s01-l02 lets THE CARTOGRAPHER record the result in plain language. s01-l02 turns a clean rerun from a guess into a fact. s01-l02 lets the next wayfinder begin without hidden context.</p>
-<pre><code>print("s01-l02 // Grid Lines")</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // S01-L02</div><p>s01-l02 <strong>Evidence.</strong> Record s01-grid-rows; compare it with s01-grid-indexing before advancing.</p><p>s01-l02 <strong>Repair.</strong> Change one cause, rerun the route, and preserve the explanation.</p></div>
+<p>A paper map has rows; RuneBound’s first map does too. In Python, a <strong>list</strong> keeps values in order. A grid is a list whose values are themselves row lists. The outer list selects a row. The inner list selects a cell in that row. That order is not decoration: it is the row-major pattern s04 will use when rendering every tile.</p>
+<pre><code>grid = [
+    ["G", "G", "W"],
+    ["G", "W", "G"],
+]
+
+for row in grid:
+    for cell in row:
+        print(cell)</code></pre>
+<p>Read the two loops as a route. The outer <code>for row in grid</code> takes one complete horizontal row. Only then does the inner loop visit each cell inside it. The output is <code>G</code>, <code>G</code>, <code>W</code>, then the second row. In s04, retain this exact pattern—<code>for row in grid: for cell in row</code>—when the map is rendered. Swapping the roles makes the program describe a different traversal and often hides a transposed-map bug.</p>
+<p>To ask for one known cell, index in the same geography: <code>grid[row][col]</code>. Indexing starts at zero, so <code>grid[1][0]</code> means the second row, then its first column. It is not <code>grid[col][row]</code>. That canonical row-then-column address will be reused in s06 when collision code asks what tile a player touches.</p>
+<pre><code>def tile_at(grid, row, col):
+    return grid[row][col]
+
+print(tile_at([["G", "W"], ["W", "G"]], 1, 0))</code></pre>
+<p>A function gives a repeated question a name. Its parameters are local placeholders; calling <code>tile_at</code> supplies the actual grid and coordinates. Keep the function small and return the cell rather than printing inside it: later systems can decide whether to render, collide with, or label that returned value. Print outside the function only for today’s inspection evidence.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // COORDINATE DISCIPLINE</div><p>Before indexing, verify that the row and column exist. An index outside the list raises an error; later collision code will use bounds checks before it asks the grid for a tile.</p></div>
 '''
 
 [[lessons.readings]]
-label = "Python tutorial // first steps // Grid Lines"
-url = "https://docs.python.org/3/tutorial/introduction.html"
+label = "Python Docs // Lists and Loops"
+url = "https://docs.python.org/3/tutorial/introduction.html#lists"
 
 [[lessons.exercises]]
 id = "s01-l02-e1"
-type = "write"
-points = 30
-prompt = '''
-<p>Complete the first ink route and print exactly <code>RUNEBOUND S01 L02 SEAL</code>. Preserve the named data before adding the final observation.</p>
-'''
-starter = '''
-route_mark = "row-marks"
-print("survey pending")
-# Add the chart seal after checking the route.
-'''
-expect = '''
-RUNEBOUND S01 L02 SEAL
-'''
-solution = '''
-route_mark = "row-marks"
-print("RUNEBOUND S01 L02 SEAL")
-'''
-hint = '''
-For s01-l02-e1, leave the route data intact and add only its final s01 observation; compare the starter output with the target before submitting.
-'''
+type = "mc"
+points = 20
+prompt = '''<p>In the nested iteration pattern, what does the outer loop provide to the inner loop?</p>'''
+choices = ["The current row list", "One cell from every row at once", "The last column number", "A file handle"]
+answer = 0
+hint = '''The inner loop needs something iterable that contains the cells of one horizontal strip.''' 
+whyWrong = '''The outer loop does not flatten the grid or open a file. It selects one row list, which the inner loop then walks cell by cell.''' 
+explain = '''The outer loop owns row selection; the inner loop owns cell selection within that row.''' 
 
 [[lessons.exercises]]
 id = "s01-l02-e2"
-type = "mc"
-points = 14
-prompt = '''
-<p>What does the first loop own when printing a nested level grid? Select the reading that keeps tilemap.render can walk data in the same row-major order possible.</p>
+type = "fill"
+points = 22
+prompt = '''<p>Restore the expression that asks for row 1, column 0 from the map.</p>'''
+code = '''
+grid = [["G", "W"], ["W", "G"]]
+tile = grid[____][0]
+print(tile)
 '''
-choices = ["the current row that the inner walk will inspect","the camera offset for every future sprite","the final column regardless of the map shape","the file handle that loaded the level"]
-answer = 0
-whyWrong = '''
-The tempting routes confuse reading grid[column][row] and quietly transposing the world with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace grid[row][column] as the address for each tile mark in the First Ink chart, then compare the the outer iteration chooses a row before the inner iteration chooses a cell with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves the outer iteration chooses a row before the inner iteration chooses a cell and leaves grid[row][column] as the address for each tile mark available for the next RuneBound handoff.
-'''
+answer = "1"
+hint = '''The first brackets choose the row, and Python counts the top row as 0.''' 
+whyWrong = '''Putting 0 first would inspect the top row. The requested location is on the second row, so its row index is 1.''' 
 
 [[lessons.exercises]]
 id = "s01-l02-e3"
-type = "text"
-points = 16
-prompt = '''
-<p>s01-l02-e3: name the Python term for the specific unit requested by this chart. Supply the language term, not the surrounding story label.</p>
-'''
-answer = "list"
-hint = '''
-Recall the named boundary in Grid Lines; the answer is the language term for that single job, not the larger game feature.
+type = "type"
+points = 12
+reps = 2
+prompt = '''<p>Retype the canonical row-major walk. Later rendering reuses these two loop lines verbatim.</p>'''
+code = '''
+for row in grid:
+    for cell in row:
+        print(cell)
 '''
 
 [[lessons.exercises]]
 id = "s01-l02-e4"
-type = "fill"
+type = "write"
+points = 34
+prompt = '''<p>Define <code>tile_at(grid, row, col)</code> so it returns the requested cell using row-then-column indexing. Use the supplied 2×3 grid and print exactly <code>TILE W</code> for row 1, column 1.</p>'''
+starter = '''
+grid = [["G", "G", "W"], ["W", "W", "G"]]
+
+# Define tile_at here.
+
+print("TILE", tile_at(grid, 1, 1))
+'''
+expect = '''
+TILE W
+'''
+solution = '''
+grid = [["G", "G", "W"], ["W", "W", "G"]]
+
+def tile_at(grid, row, col):
+    return grid[row][col]
+
+print("TILE", tile_at(grid, 1, 1))
+'''
+hint = '''The function body needs one return statement: first index grid by row, then index that row by col.''' 
+
+[[lessons.exercises]]
+id = "s01-l02-e5"
+type = "text"
 points = 18
-prompt = '''
-<p>s01-l02-e4: restore the missing operation in the supplied code. Use its operands and the chart evidence to complete the route without renaming the owner.</p>
-'''
-code = '''
-level_rows.____([0, 1, 0])
-'''
-answer = "append"
-hint = '''
-Look at what must happen to for row in level_rows: for mark in row: print(mark); choose the operation that performs that job rather than the one that merely inspects the result.
-'''
+prompt = '''<p>What built-in collection type keeps the ordered row values in the first level grid?</p>'''
+answer = "list"
+hint = '''It is written with square brackets and can contain another collection as a row.''' 
+whyWrong = '''A dictionary uses keys, while a string is one text value. The ordered bracketed collection used for rows is Python's list type.''' 

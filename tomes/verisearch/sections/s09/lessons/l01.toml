@@ -1,61 +1,68 @@
 [[lessons]]
 id = "s09-l01"
-title = "Local LLMs & Ollama — the model on YOUR box"
+teaches = ["ollama-setup"]
+title = "Run a Local Model with Ollama"
 body = '''
-
-<p><a href="https://ollama.com" target="_blank">Ollama</a> runs open-weight language models (Llama, Mistral, Qwen…) locally. For Verisearch that means: no API keys, no per-token bills, no query leaves your machine — your searches stay yours.</p>
-<pre><code>$ ollama pull llama3        <span class="c"># download a model (~4.7GB)</span>
-$ ollama run llama3         <span class="c"># chat in the terminal</span>
-$ ollama list               <span class="c"># installed models</span></code></pre>
-<p>Ollama serves an HTTP API on <code>http://localhost:11434</code> — which is why your config file (Chapter V) has an <code>ollama_model</code> field and why any HTTP-speaking language can use it. You could call it with raw HttpClient; OllamaSharp (next lesson) just makes it pleasant.</p>
-<p>What Verisearch actually needs from a model is <em>humble</em>: read ~150 numbered paragraphs, decide which 2–5 answer the question. That's reading comprehension, not genius — small fast models (llama3 8B, qwen2.5 7B, even 3B models) handle it. Bigger model = slower pipeline, marginal gain for this task.</p>
-<p>The one non-negotiable: <strong>treat LLM output as untrusted input</strong>. Models return malformed JSON, extra chatter, invented indices. Everything downstream of a model call needs validation — same discipline as parsing user input or scraping HTML. An LLM is just a very confident random text generator that's usually right.</p>
-<div class="callout">No Ollama on this machine? Totally fine — this chapter's Great Working has a mock mode requirement precisely so the code (and the grade) doesn't depend on a 5GB download. If you want the real thing: <code>curl -fsSL https://ollama.com/install.sh | sh</code>, then <code>ollama pull llama3</code>.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
-<p><strong>Model size ↔ quantization:</strong> "llama3 8B Q4" = 8 billion parameters, 4-bit quantized (compressed weights, ~4.7GB, slight quality cost). Rule of thumb for local: 3B–8B models handle classification/selection tasks like Verisearch's scan; reasoning-heavy tasks want bigger.</p>
-<p><strong>Temperature</strong> controls randomness: 0 ≈ deterministic (same input → same output — what a PIPELINE wants), higher = creative variance (what a CHATBOT wants). Set temperature 0 for the relevance scan so your tests aren't chasing a moving target.</p>
-<p><strong>Context window</strong> = how many tokens the model can see at once. Overflow it and the START of your prompt silently falls off — which for your prompt design means the paragraphs, not the instructions, must be the thing you truncate.</p></div>'''
+<p>Ollama runs a language model on the learner's own machine and exposes a local HTTP API. Verisearch uses it for one bounded judgment: given a question and numbered passages, propose short exact substrings that answer the question. The model does not fetch pages, choose source authority, verify its own words, or author citations.</p>
+<p>Install Ollama from its official instructions for your operating system. On Linux, the official installation command is:</p>
+<pre><code>curl -fsSL https://ollama.com/install.sh | sh</code></pre>
+<p>Then open a terminal and run these checks one at a time:</p>
+<pre><code>ollama --version
+ollama pull qwen3:4b
+ollama run qwen3:4b</code></pre>
+<p>Enter a short message to prove the model loads; use <code>/bye</code> to leave the interactive session. The local API normally listens on <code>http://localhost:11434</code>. Depending on the installation, Ollama may already run as a service; otherwise <code>ollama serve</code> starts it in a terminal. A simple health check is <code>curl http://localhost:11434/api/tags</code>.</p>
+<p><code>qwen3:4b</code> is the course default because it is small enough for many local machines while supporting structured output. It is configuration, not a compiled constant: a learner may choose another installed model after checking memory and performance. The course should still use one known model during debugging so a model change is not confused with a C# bug.</p>
+<p>Local does not mean trusted. Model output is untrusted input just like JSON from a network service. Chapter IX will deserialize its proposed shape, cap it, match ids, and require an exact source substring before creating a <code>VerifiedQuote</code>.</p>
+<div class="callout">If the machine cannot run the model yet, continue only with the explicit <code>--mock</code> learning path. The terminal must label that output MOCK; live mode must fail clearly rather than silently changing algorithms.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // THREE SEPARATE FAILURES</div><p>“Command not found” means installation or PATH. “Connection refused” means the API service is not running. “Model not found” means the server is alive but the configured tag has not been pulled. Diagnose those states separately before editing C#.</p></div>
+'''
 
 [[lessons.readings]]
-label = "Ollama — official site & docs"
-url = "https://ollama.com/"
+label = "Ollama — Linux installation"
+url = "https://docs.ollama.com/linux"
+essential = true
+
+[[lessons.readings]]
+label = "Ollama — qwen3 model tags"
+url = "https://ollama.com/library/qwen3/tags"
 essential = false
 
 [[lessons.exercises]]
 id = "s09-l01-e1"
 type = "mc"
 points = 20
-prompt = "Why does Verisearch's LLM return paragraph INDICES instead of writing the answer?"
-choices = ["Indices use fewer tokens, saving money", "LLMs can't generate prose", "The verbatim text comes from the page itself, so the LLM cannot fabricate a quote", "JSON can't contain text"]
-answer = 2
-whyWrong = "It’s not mainly tokens/cost and LLMs can generate prose — returning indices means the verbatim quote comes from the page itself, so the model can’t fabricate it."
-hint = "The whole product promise is zero paraphrasing."
+prompt = "Why is Ollama allowed to produce only a <code>QuoteProposal</code>, not a <code>VerifiedQuote</code>?"
+choices = ["Models cannot return JSON", "C# must independently prove exact text and attach source-owned attribution", "Records cannot cross HTTP", "Ollama has no local API"]
+answer = 1
+whyWrong = "Ollama can return JSON through its local API and C# can deserialize it. The separate type exists because model output has not earned the verifier's guarantee."
+explain = "Proposal and proof remain different states, enforced by different C# types."
+hint = "Which component owns the source URL and exact-match check?"
 
 [[lessons.exercises]]
 id = "s09-l01-e2"
 type = "text"
 points = 20
-prompt = "What port does Ollama's local API listen on by default?"
+prompt = "Which TCP port does Ollama use in the course's default local URL?"
 answer = "11434"
-hint = "Five digits, in the lesson and in your config's URL."
+hint = "Read the digits after localhost in the API address."
 
 [[lessons.exercises]]
 id = "s09-l01-e3"
 type = "mc"
 points = 20
-prompt = "The correct security posture toward LLM output is…"
-choices = ["trust it — models are deterministic", "trust JSON output but not prose", "only trust it above 70B parameters", "treat it as untrusted input: validate, parse defensively, have fallbacks"]
-answer = 3
-whyWrong = "LLM output isn’t deterministic or trustworthy by format/size — treat it as untrusted input: validate, parse defensively, and keep fallbacks."
-hint = "Same rule as user input and scraped HTML."
+prompt = "What security posture should Verisearch take toward local model output?"
+choices = ["Trust it because it is local", "Trust only JSON syntax", "Treat it as untrusted data until deterministic C# checks pass", "Display it first and verify later"]
+answer = 2
+whyWrong = "Local execution and valid syntax do not prove truth, while displaying before verification breaks the product promise."
+explain = "Deserialization proves shape; QuoteVerifier proves the exact source relation."
+hint = "Location is not a truth guarantee."
 
 [[lessons.exercises]]
 id = "s09-l01-d1"
 type = "type"
-points = 12
+points = 14
 reps = 2
-prompt = "Client init with model-from-config. Twice."
-code = '''
-var ollama = new OllamaApiClient("http://localhost:11434")
-{
-    SelectedModel = config.OllamaModel
-};'''
+prompt = "Retype the three setup checks twice."
+code = '''ollama --version
+ollama pull qwen3:4b
+curl http://localhost:11434/api/tags'''

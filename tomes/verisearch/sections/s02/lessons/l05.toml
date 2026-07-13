@@ -1,33 +1,33 @@
 [[lessons]]
 id = "s02-l05"
-title = "Dictionary<TKey, TValue> — the instant concordance"
+teaches = ["dictionaries"]
+title = "Dictionary<TKey, TValue> — Find a Passage by Id"
 body = '''
 
-<p>A <code>Dictionary</code> binds keys to values with near-instant finding. The tome's whole ledger of trust is one of these — domain → score:</p>
-<pre><code>Dictionary&lt;<span class="k">string</span>, <span class="k">double</span>&gt; trust = <span class="k">new</span>()
+<p>A <code>Dictionary</code> binds keys to values with near-instant finding. The later quote verifier must locate the source passage named by a model proposal, so this chapter practices the same shape with integer id → source text:</p>
+<pre><code>Dictionary&lt;<span class="k">int</span>, <span class="k">string</span>&gt; passages = <span class="k">new</span>()
 {
-    [<span class="s">"nist.gov"</span>] = 9.5,
-    [<span class="s">"ietf.org"</span>] = 9.5,
-    [<span class="s">"medium.com"</span>] = 2.0,
+    [1] = <span class="s">"TLS protects application data."</span>,
+    [2] = <span class="s">"The protocol defines a handshake."</span>,
 };
 
-trust[<span class="s">"owasp.org"</span>] = 8.0;               <span class="c">// add anew or write over</span>
-Console.WriteLine(trust[<span class="s">"nist.gov"</span>]);    <span class="c">// 9.5</span></code></pre>
+passages[3] = <span class="s">"A third exact passage."</span>;      <span class="c">// add anew or write over</span>
+Console.WriteLine(passages[1]);</code></pre>
 <p>Reading a key that is not written there <strong>throws</strong> (<code>KeyNotFoundException</code>). Two safe rites:</p>
-<pre><code><span class="k">if</span> (trust.ContainsKey(domain))
-    Console.WriteLine(trust[domain]);      <span class="c">// rite 1: look first (two findings)</span>
+<pre><code><span class="k">if</span> (passages.ContainsKey(passageId))
+    Console.WriteLine(passages[passageId]); <span class="c">// rite 1: look first (two findings)</span>
 
-<span class="k">if</span> (trust.TryGetValue(domain, <span class="k">out double</span> score))
-    Console.WriteLine(score);              <span class="c">// rite 2: one finding — favored</span>
+<span class="k">if</span> (passages.TryGetValue(passageId, <span class="k">out string</span>? text))
+    Console.WriteLine(text);               <span class="c">// rite 2: one finding — favored</span>
 <span class="k">else</span>
-    Console.WriteLine(<span class="s">"unknown domain — default 1.0"</span>);</code></pre>
+    Console.WriteLine(<span class="s">"unknown passage"</span>);</code></pre>
 <p>Walking a dictionary yields key/value pairs:</p>
-<pre><code><span class="k">foreach</span> (<span class="k">var</span> pair <span class="k">in</span> trust)
+<pre><code><span class="k">foreach</span> (<span class="k">var</span> pair <span class="k">in</span> passages)
     Console.WriteLine(<span class="s">$"{pair.Key} → {pair.Value}"</span>);</code></pre>
-<div class="callout">Keys stand alone. Writing <code>trust["nist.gov"] = 3.0</code> silently replaces 9.5 — but <code>trust.Add("nist.gov", 3.0)</code> throws, for the key already stands. Know which rite you are performing.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
-<p><strong>GetValueOrDefault</strong> — the third safe reading, often the cleanest: <code>double score = trust.GetValueOrDefault(domain, 1.0);</code> — yields 1.0 for unknown domains, no if required.</p>
-<p><strong>Walking the parts:</strong> <code>foreach (var key in trust.Keys)</code>, <code>foreach (var v in trust.Values)</code>, or unbind the pairs outright: <code>foreach (var (domain, score) in trust)</code>.</p>
-<p><strong>The choosing of keys matters:</strong> keys are weighed with Equals/GetHashCode — strings and ints make perfect keys; changeable objects make dreadful ones. Case-blind string keys: <code>new Dictionary&lt;string,double&gt;(StringComparer.OrdinalIgnoreCase)</code> — handy when "NIST.gov" and "nist.gov" must strike the same entry.</p></div>'''
+<div class="callout">Keys stand alone. Writing <code>passages[1] = "changed"</code> silently replaces the original text—but <code>passages.Add(1, "changed")</code> throws because the key already exists. The production extractor assigns ids once and does not rewrite passage text.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>GetValueOrDefault</strong> is a third safe read, but a missing passage must be distinguishable from an empty one. <code>TryGetValue</code> makes that branch explicit, which is why the verifier uses it.</p>
+<p><strong>Walking the parts:</strong> <code>foreach (var key in passages.Keys)</code>, <code>foreach (var value in passages.Values)</code>, or unbind pairs outright: <code>foreach (var (id, text) in passages)</code>.</p>
+<p><strong>Key choice matters:</strong> keys are compared with <code>Equals</code> and <code>GetHashCode</code>. Strings and integers make good keys; mutable objects make poor ones. A case-insensitive string dictionary can use <code>StringComparer.OrdinalIgnoreCase</code>, which Chapter VII uses for configured labels.</p></div>'''
 
 [[lessons.readings]]
 label = "Microsoft Learn — \"Dictionary<TKey,TValue>\""
@@ -38,7 +38,7 @@ essential = false
 id = "s02-l05-e1"
 type = "mc"
 points = 20
-prompt = "<code>trust[\"unknown.example\"]</code> where the key is not written…"
+prompt = "<code>passages[99]</code> where the key is not written…"
 choices = ["returns null", "throws KeyNotFoundException", "returns 0.0", "adds the key with a default value"]
 answer = 1
 whyWrong = "Indexing a Dictionary with an absent key doesn’t return null/0 or auto-add it — it throws KeyNotFoundException; use TryGetValue or ContainsKey first."
@@ -58,8 +58,8 @@ hint = "It uses an out parameter for the value."
 id = "s02-l05-e3"
 type = "mc"
 points = 20
-prompt = "The best vessel for binding question words (\"what\", \"how\", \"why\") to question kinds?"
-choices = ["List<string>", "string[]", "Dictionary<string, string>", "int"]
+prompt = "The best vessel for binding passage ids (1, 2, 3) to their exact text?"
+choices = ["List<string> only", "string[] only", "Dictionary<int, string>", "int"]
 answer = 2
 whyWrong = "Lists/arrays force a linear scan and int is the wrong type — a Dictionary maps each question word straight to its kind."
 hint = "You want finding-by-word, not a place-numbered vessel."
@@ -72,30 +72,29 @@ points = 14
 reps = 2
 prompt = "The TryGetValue shape — one finding, no exception, twice."
 code = '''
-if (trust.TryGetValue(domain, out double score))
+if (passages.TryGetValue(passageId, out string? text))
 {
-    Console.WriteLine(score);
+    Console.WriteLine(text);
 }
 else
 {
-    Console.WriteLine("unknown domain");
+    Console.WriteLine("unknown passage");
 }'''
 
 [[lessons.exercises]]
 id = "s02-l05-w1"
 type = "write"
 points = 34
-prompt = "Bind a Dictionary&lt;string,int&gt; with nist.gov→9, ietf.org→9, medium.com→2. Hear a domain by whisper and utter its score — or <code>unknown</code> if it is not in the ledger."
-stdin = "nist.gov"
-expect = "9"
+prompt = "Bind a Dictionary&lt;int,string&gt; with 1→<code>first passage</code> and 2→<code>second passage</code>. Hear an integer id by whisper and print its text—or <code>unknown</code> when the id is absent."
+stdin = "2"
+expect = "second passage"
 solution = '''
-var scores = new Dictionary<string, int>
+var passages = new Dictionary<int, string>
 {
-    ["nist.gov"] = 9,
-    ["ietf.org"] = 9,
-    ["medium.com"] = 2
+    [1] = "first passage",
+    [2] = "second passage"
 };
-string domain = Console.ReadLine() ?? "";
-Console.WriteLine(scores.TryGetValue(domain, out int score) ? score : "unknown");
+int.TryParse(Console.ReadLine(), out int id);
+Console.WriteLine(passages.TryGetValue(id, out string? text) ? text : "unknown");
 '''
 hint = "Initializer form + TryGetValue (or GetValueOrDefault with a sentinel)."

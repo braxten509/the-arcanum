@@ -1,38 +1,40 @@
 [[lessons]]
 id = "s03-l02"
+teaches = ["properties-constructors"]
 title = "Properties, constructors & object initializers"
 body = '''
 
 <p>Public fields work, but C# convention is <strong>properties</strong> — field-like syntax with control over reading and writing:</p>
-<pre><code><span class="k">public class</span> TrustProfile
+<pre><code><span class="k">public class</span> SourceDraft
 {
-    <span class="k">public string</span> Domain { <span class="k">get</span>; <span class="k">init</span>; } = <span class="s">""</span>;  <span class="c">// init: set once at creation, then read-only</span>
-    <span class="k">public double</span> BaseScore { <span class="k">get</span>; <span class="k">init</span>; }
-    <span class="k">public int</span> ReferenceCount { <span class="k">get</span>; <span class="k">set</span>; }     <span class="c">// set: mutable forever</span>
+    <span class="k">public string</span> Label { <span class="k">get</span>; <span class="k">init</span>; } = <span class="s">""</span>; <span class="c">// init: set once at creation, then read-only</span>
+    <span class="k">public string</span> Url { <span class="k">get</span>; <span class="k">init</span>; } = <span class="s">""</span>;
+    <span class="k">public int</span> FetchCount { <span class="k">get</span>; <span class="k">set</span>; }   <span class="c">// set: mutable over time</span>
 
     <span class="c">// computed property — no storage, evaluated on read</span>
-    <span class="k">public bool</span> IsTrusted =&gt; BaseScore &gt;= 6.0;
+    <span class="k">public bool</span> HasAddress =&gt; Url.Length &gt; 0;
 }</code></pre>
 <p>Accessor cheat-sheet: <code>{ get; set; }</code> read/write · <code>{ get; init; }</code> write only during construction · <code>=&gt; expr</code> computed each read.</p>
 <p>A <strong>constructor</strong> runs at <code>new</code> time and forces required data in:</p>
-<pre><code><span class="k">public class</span> TrustProfile
+<pre><code><span class="k">public class</span> SourceDraft
 {
-    <span class="k">public string</span> Domain { <span class="k">get</span>; }
-    <span class="k">public double</span> BaseScore { <span class="k">get</span>; }
+    <span class="k">public string</span> Label { <span class="k">get</span>; }
+    <span class="k">public string</span> Url { <span class="k">get</span>; }
 
-    <span class="k">public</span> TrustProfile(<span class="k">string</span> domain, <span class="k">double</span> baseScore)   <span class="c">// same name as class, no return type</span>
+    <span class="k">public</span> SourceDraft(<span class="k">string</span> label, <span class="k">string</span> url)   <span class="c">// same name as class, no return type</span>
     {
-        Domain = domain;
-        BaseScore = baseScore;
+        Label = label;
+        Url = url;
     }
 }
-<span class="k">var</span> p = <span class="k">new</span> TrustProfile(<span class="s">"nist.gov"</span>, 9.5);</code></pre>
+<span class="k">var</span> source = <span class="k">new</span> SourceDraft(<span class="s">"RFC 8446"</span>, <span class="s">"https://example.test/rfc"</span>);</code></pre>
 <p><strong>Object initializer</strong> syntax sets properties inline at creation — great with <code>init</code>:</p>
-<pre><code><span class="k">var</span> p = <span class="k">new</span> TrustProfile { Domain = <span class="s">"nist.gov"</span>, BaseScore = 9.5 };</code></pre><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
-<p><strong>required</strong> — make callers provide a property with no constructor boilerplate: <code>public required string Domain { get; init; }</code>. Forgetting it at creation is a compile error.</p>
+<pre><code><span class="k">var</span> source = <span class="k">new</span> SourceDraft { Label = <span class="s">"RFC 8446"</span>, Url = <span class="s">"https://example.test/rfc"</span> };</code></pre>
+<p>This example stores an address; it does not infer whether the publisher is authoritative. In the finished artifact, the user decides which <code>SourceSpec</code> records belong in configuration. A constructor can require necessary data, while Chapter V validation explains what makes that data usable.</p><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<p><strong>required</strong> — make callers provide a property with no constructor boilerplate: <code>public required string Label { get; init; }</code>. Forgetting it at creation is a compile error.</p>
 <p><strong>Constructor overloading:</strong> a class can offer several constructors with different parameters; one can call another with <code>: this(...)</code> to avoid duplication.</p>
-<p><strong>Validation belongs in constructors:</strong> <code>if (baseScore is &lt; 0 or &gt; 10) throw new ArgumentOutOfRangeException(nameof(baseScore));</code> — an object that CAN'T be created invalid never needs re-checking downstream. That idea (make illegal states unrepresentable) is half of good type design.</p>
-<p><strong>Expression-bodied everything:</strong> one-liner methods and properties read best as arrows: <code>public override string ToString() =&gt; $"{Domain}: {BaseScore}";</code></p></div>'''
+<p><strong>Validation may belong at a boundary:</strong> a constructor can reject a blank label, but external JSON usually deserializes first and reports all policy errors together. Choose the location that gives the caller the most useful repair information.</p>
+<p><strong>Expression-bodied members:</strong> one-liner methods and properties read well as arrows: <code>public override string ToString() =&gt; $"{Label}: {Url}";</code></p></div>'''
 
 [[lessons.readings]]
 label = "Microsoft Learn — \"Properties\""
@@ -43,7 +45,7 @@ essential = false
 id = "s03-l02-e1"
 type = "mc"
 points = 20
-prompt = "<code>public double Score { get; init; }</code> means…"
+prompt = "<code>public string Label { get; init; }</code> means…"
 choices = ["Score can never be set at all", "Score is computed from other properties", "Score can be changed at any time", "Score can be set only when the object is created, then it's read-only"]
 answer = 3
 whyWrong = "‘init’ isn’t ‘never settable’ or computed — it allows setting only during object initialization, after which the property is read-only."
@@ -58,15 +60,15 @@ prompt = "Which is true about constructors?"
 choices = ["They have the same name as the class and no return type", "They're named Build() by convention", "They must return the new object with 'return this;'", "Each class may have at most one"]
 answer = 0
 whyWrong = "Constructors share the class’s name and have no return type — they aren’t named Build(), don’t ‘return this’, and a class may have several overloads."
-hint = "public TrustProfile(...) { }"
+hint = "public SourceDraft(...) { }"
 explain = "A constructor is identified by the class name and has no return type. Calling it with <code>new</code> initializes the new instance."
 
 [[lessons.exercises]]
 id = "s03-l02-e3"
 type = "fill"
 points = 25
-prompt = "Fill the blank to make a computed property: IsTrusted is true when BaseScore ≥ 6.0."
-code = "public bool IsTrusted ____ BaseScore >= 6.0;"
+prompt = "Fill the blank to make a computed property: HasAddress is true when Url is not empty."
+code = "public bool HasAddress ____ Url.Length > 0;"
 answer = "=>"
 hint = "The fat arrow — expression-bodied member."
 
@@ -76,34 +78,34 @@ type = "type"
 points = 14
 prompt = "Properties three ways — settable, init-only, computed. Once, precisely."
 code = '''
-public class TrustProfile
+public class SourceDraft
 {
-    public string Domain { get; init; } = "";
-    public int ReferenceCount { get; set; }
-    public bool IsTrusted => BaseScore >= 6.0;
-    public double BaseScore { get; init; }
+    public string Label { get; init; } = "";
+    public int FetchCount { get; set; }
+    public bool HasAddress => Url.Length > 0;
+    public string Url { get; init; } = "";
 }'''
 
 [[lessons.exercises]]
 id = "s03-l02-w1"
 type = "write"
 points = 34
-prompt = "Build a <code>TrustProfile</code> class with a constructor taking (string domain, double baseScore), exposing both as read-only properties, plus computed <code>bool IsTrusted =&gt; BaseScore &gt;= 6.0;</code>. Create one for nist.gov / 9.5 and print <code>&lt;Domain&gt; trusted: &lt;IsTrusted&gt;</code>."
-expect = "nist.gov trusted: True"
+prompt = "Build a <code>SourceDraft</code> class with a constructor taking (string label, string url), exposing both as read-only properties, plus computed <code>bool HasAddress =&gt; Url.Length &gt; 0;</code>. Create RFC / https://example.test/rfc and print <code>&lt;Label&gt; address: &lt;HasAddress&gt;</code>."
+expect = "RFC address: True"
 solution = '''
-var profile = new TrustProfile("nist.gov", 9.5);
-Console.WriteLine($"{profile.Domain} trusted: {profile.IsTrusted}");
+var source = new SourceDraft("RFC", "https://example.test/rfc");
+Console.WriteLine($"{source.Label} address: {source.HasAddress}");
 
-public class TrustProfile
+public class SourceDraft
 {
-    public string Domain { get; }
-    public double BaseScore { get; }
-    public bool IsTrusted => BaseScore >= 6.0;
-    public TrustProfile(string domain, double baseScore)
+    public string Label { get; }
+    public string Url { get; }
+    public bool HasAddress => Url.Length > 0;
+    public SourceDraft(string label, string url)
     {
-        Domain = domain;
-        BaseScore = baseScore;
+        Label = label;
+        Url = url;
     }
 }
 '''
-hint = "Constructor assigns to get-only properties. Print with interpolation — bool prints as True."
+hint = "The constructor assigns both get-only properties. Print with interpolation; bool displays as True."

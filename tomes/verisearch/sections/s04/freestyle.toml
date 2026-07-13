@@ -1,36 +1,37 @@
 [freestyle]
 title = "THE WORKING: The Far-Speaking Rite"
-brief = "Wire your shell to a search backend.<ul><li>A <code>SearchClient</code> class with an async method returning <code>List&lt;SearchResult&gt;</code> (your Chapter III record)</li><li>Targets a SearXNG-style JSON API (<code>/search?q=...&amp;format=json</code>) using one shared HttpClient</li><li>Escapes the query; deserializes with records + case-insensitive options</li><li>Handles HTTP/JSON/timeout failures gracefully</li><li>Prints numbered results like the milestone</li><li><strong>No live SearXNG?</strong> Include a mock mode: when the base URL is \"mock\" (or the request fails), load results from a local JSON string/file so the pipeline still demos</li></ul>THORNE grades structure and error handling, not whether your ISP was nice."
+requires = ["records", "async-await", "http-client", "json-mapping", "source-fetcher"]
+brief = '''Add the first complete project service without removing the existing loop.<ul><li>Create <code>SourceFetcher.cs</code> exactly from the workshop: constructor-injected HttpClient and <code>FetchAsync(SourceSpec, CancellationToken)</code></li><li>For <code>SourceKind.Web</code>, enforce a successful response and HTML media type before constructing SourceDocument</li><li>For <code>SourceKind.LocalFixture</code>, load a clearly labeled HTML fixture through the same SourceDocument result type</li><li>Add a temporary <code>fetch-demo</code> command that chooses the fixture, awaits FetchAsync, and prints source label plus HTML length</li><li>Run <code>dotnet build</code>, the fixture demo, and one explicit live URL if networking is available</li><li>Do not add SearXNG, API keys, or search discovery; they are outside the core quotation contract</li></ul><div class="callout"><strong>Lifecycle:</strong> <code>fetch-demo</code> is a visible diagnostic retained until Chapter XI replaces demo commands with the final pipeline.</div>'''
 reward = 350
 packages = []
-xray = "THORNE's hidden tests: he reads whether HttpClient is created once (field/static) or inside the method (deduction). He checks the catch blocks actually differ in message (a single catch(Exception) swallowing everything loses points). Mock mode earns full \"runs\" credit ONLY if it exercises the same Deserialize path as the real one — hardcoding List<SearchResult> objects skips the JSON plumbing he's grading."
+xray = "THORNE substitutes a controlled HttpMessageHandler, verifies the supplied HttpClient is reused, feeds a failed status and a non-HTML success, and checks both remain visible failures. He also runs LocalFixture with networking disabled and confirms output labels it as a fixture."
 
 [freestyle.badge]
 id = "badge-s04"
 name = "FAR-SPEAKER"
-desc = "The tome speaks with the wider world — and survives being lied to."
+desc = "The tome can fetch one chosen source without losing who spoke."
 
 [[freestyle.rubric]]
-criterion = "Compiles & runs (mock mode counts)"
+criterion = "Compiles & runs (fixture path counts)"
 weight = 20
-desc = "Builds clean; a search command produces ranked output even without a live backend."
+desc = "Builds clean; fetch-demo produces a SourceDocument from the explicit local fixture."
 
 [[freestyle.rubric]]
 criterion = "Async correctness"
 weight = 20
-desc = "async/await used properly end-to-end; no .Result/.Wait(); Task<List<SearchResult>> signatures."
+desc = "async/await used end to end; no .Result/.Wait(); Task<SourceDocument> signature."
 
 [[freestyle.rubric]]
 criterion = "HTTP hygiene"
 weight = 20
-desc = "Single reused HttpClient, timeout set, query escaped, status handling."
+desc = "Injected reused HttpClient, cancellation, status and media-type handling."
 
 [[freestyle.rubric]]
-criterion = "JSON handling"
+criterion = "Explicit fixture boundary"
 weight = 20
-desc = "Record DTOs, casing handled, null-safe, JsonException caught."
+desc = "LocalFixture is selected explicitly, labeled honestly, and returns the same SourceDocument shape."
 
 [[freestyle.rubric]]
 criterion = "Structure & readability"
 weight = 20
-desc = "SearchClient in its own file; mapping from DTO to your SearchResult record; clean output."
+desc = "SourceFetcher in its own file, canonical models reused, temporary demo clearly isolated."

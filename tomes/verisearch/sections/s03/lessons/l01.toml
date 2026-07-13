@@ -1,31 +1,30 @@
 [[lessons]]
 id = "s03-l01"
+teaches = ["classes-objects"]
 title = "Classes & objects — blueprints and instances"
 body = '''
 
 <p>A <strong>class</strong> is a blueprint: data (fields/properties) plus behavior (methods) bundled under one name. An <strong>object</strong> is one concrete instance made from it with <code>new</code>:</p>
-<pre><code><span class="k">public class</span> SearchResult
+<pre><code><span class="k">public class</span> PageDraft
 {
-    <span class="k">public string</span> Url = <span class="s">""</span>;          <span class="c">// fields (we'll upgrade these to properties next lesson)</span>
-    <span class="k">public string</span> Title = <span class="s">""</span>;
-    <span class="k">public double</span> Trust = 1.0;
+    <span class="k">public string</span> Label = <span class="s">""</span>;        <span class="c">// fields (we'll upgrade these to properties next lesson)</span>
+    <span class="k">public string</span> Html = <span class="s">""</span>;
 
     <span class="k">public void</span> Describe()            <span class="c">// a method — behavior attached to the data</span>
     {
-        Console.WriteLine(<span class="s">$"{Title} ({Url}) trust={Trust}"</span>);
+        Console.WriteLine(<span class="s">$"{Label}: {Html.Length} characters"</span>);
     }
 }</code></pre>
-<pre><code><span class="k">var</span> r1 = <span class="k">new</span> SearchResult();          <span class="c">// instance #1</span>
-r1.Url = <span class="s">"https://ietf.org/rfc8446"</span>;
-r1.Title = <span class="s">"RFC 8446"</span>;
-r1.Trust = 9.5;
+<pre><code><span class="k">var</span> page1 = <span class="k">new</span> PageDraft();          <span class="c">// instance #1</span>
+page1.Label = <span class="s">"RFC 8446"</span>;
+page1.Html = <span class="s">"&lt;main&gt;TLS 1.3&lt;/main&gt;"</span>;
 
-<span class="k">var</span> r2 = <span class="k">new</span> SearchResult();          <span class="c">// instance #2 — completely separate data</span>
-r2.Title = <span class="s">"Some blog"</span>;
+<span class="k">var</span> page2 = <span class="k">new</span> PageDraft();          <span class="c">// instance #2 — completely separate data</span>
+page2.Label = <span class="s">"Local fixture"</span>;
 
-r1.Describe();                         <span class="c">// RFC 8446 (https://ietf.org/rfc8446) trust=9.5</span></code></pre>
-<p>Key mental model: <code>r1</code> and <code>r2</code> are <em>references</em> to two separate objects on the heap. Assigning <code>var r3 = r1;</code> does NOT copy the object — both names now point at the <em>same</em> one. Change <code>r3.Trust</code> and <code>r1.Trust</code> changes too.</p>
-<div class="callout">Classes should live in their own files as the project grows — <code>SearchResult.cs</code>, <code>TrustProfile.cs</code>. The desk's scroll's + tab creates new files. Start the habit this op.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+page1.Describe();                         <span class="c">// RFC 8446: 26 characters</span></code></pre>
+<p>Key mental model: <code>page1</code> and <code>page2</code> are <em>references</em> to two separate objects on the heap. Assigning <code>var alias = page1;</code> does not copy the object—both names now point at the same one. Change <code>alias.Label</code> and <code>page1.Label</code> changes too.</p>
+<div class="callout">The examples in the first five lessons are tiny syntax specimens, not files to add to Verisearch. The workshop at the end of this chapter supplies the canonical product types and exact filenames.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>Access modifiers:</strong> <code>public</code> anyone · <code>private</code> this class only (the default!) · <code>internal</code> this project only. Start private, open up only what callers need — small surface, fewer regrets.</p>
 <p><strong>static</strong> means "belongs to the TYPE, not an instance": <code>Math.Max</code>, <code>int.Parse</code> — no object needed. An instance method secretly receives <code>this</code> (the object it was called on); a static method has no <code>this</code>.</p>
 <p><strong>null and the ? annotation:</strong> a reference variable holding no object is <code>null</code>; touching its members throws <code>NullReferenceException</code> — THE classic crash. With <code>&lt;Nullable&gt;enable&lt;/Nullable&gt;</code> the compiler tracks it: <code>string?</code> means "may be null, check me", plain <code>string</code> means "never null". Tools: <code>?.</code> (safe navigation — <code>obj?.Method()</code> skips the call if null) and <code>??</code> (fallback).</p></div>'''
@@ -46,22 +45,22 @@ type = "text"
 points = 15
 prompt = "Which keyword invokes a class constructor to create an instance?"
 answer = "new"
-hint = "Three letters. var r = ___ SearchResult();"
+hint = "Three letters. var page = ___ PageDraft();"
 
 [[lessons.exercises]]
 id = "s03-l01-e2"
 type = "mc"
 points = 25
-prompt = "After this code, what does <code>a.Trust</code> equal?"
+prompt = "After this code, what does <code>a.Label</code> equal?"
 code = '''
-var a = new SearchResult { Trust = 5.0 };
+var a = new PageDraft { Label = "first" };
 var b = a;
-b.Trust = 9.0;'''
-choices = ["5.0", "9.0", "0.0", "It throws an exception"]
+b.Label = "second";'''
+choices = ["first", "second", "", "It throws an exception"]
 answer = 1
-whyWrong = "Follow the assignments: the last write sets Trust to 9.0 — earlier values are overwritten and nothing here throws."
+whyWrong = "Both names reference one object, so the last write changes the label visible through either name."
 hint = "b = a copies the REFERENCE, not the object. One object, two names."
-explain = "<code>b = a</code> makes both variables refer to the same object, so assigning <code>b.Trust = 9.0</code> is visible through <code>a</code> as well."
+explain = "<code>b = a</code> makes both variables refer to the same object, so assigning <code>b.Label = \"second\"</code> is visible through <code>a</code> as well."
 
 [[lessons.exercises]]
 id = "s03-l01-e3"
@@ -80,14 +79,14 @@ type = "type"
 points = 14
 prompt = "Type a minimal class with data + behavior, once, cleanly."
 code = '''
-public class SearchResult
+public class PageDraft
 {
-    public string Title = "";
-    public double Trust = 1.0;
+    public string Label = "";
+    public string Html = "";
 
     public void Describe()
     {
-        Console.WriteLine($"{Title} trust={Trust}");
+        Console.WriteLine($"{Label}: {Html.Length}");
     }
 }'''
 
@@ -95,17 +94,17 @@ public class SearchResult
 id = "s03-l01-w1"
 type = "write"
 points = 34
-prompt = "Define a class <code>Source</code> with a string field <code>Domain</code> and an int field <code>Score</code>, plus a method <code>Report()</code> that prints <code>&lt;Domain&gt; scored &lt;Score&gt;</code>. Create one instance for ietf.org scoring 9 and call Report(). (Type definitions go BELOW the top-level statements in the same file.)"
-expect = "ietf.org scored 9"
+prompt = "Define a class <code>PassageDraft</code> with an int field <code>Id</code> and string field <code>Text</code>, plus <code>Report()</code> that prints <code>[&lt;Id&gt;] &lt;Text&gt;</code>. Create id 1 with text <code>Exact source words.</code> and call Report(). Type definitions go below top-level statements."
+expect = "[1] Exact source words."
 solution = '''
-var source = new Source { Domain = "ietf.org", Score = 9 };
-source.Report();
+var passage = new PassageDraft { Id = 1, Text = "Exact source words." };
+passage.Report();
 
-public class Source
+public class PassageDraft
 {
-    public string Domain = "";
-    public int Score;
-    public void Report() => Console.WriteLine($"{Domain} scored {Score}");
+    public int Id;
+    public string Text = "";
+    public void Report() => Console.WriteLine($"[{Id}] {Text}");
 }
 '''
-hint = "Top-level code first (new Source {...} or set fields, then call), class declaration after it."
+hint = "Top-level code first (new PassageDraft {...}, then call), class declaration after it."

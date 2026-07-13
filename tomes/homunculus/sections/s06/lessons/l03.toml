@@ -1,98 +1,66 @@
 [[lessons]]
 id = "s06-l03"
-title = "The Forgetting"
+teaches = ["regression-suite"]
+title = "Check What the New Voice Broke"
 body = '''
-<p>Two rites taught the artificer to measure style shift — the held-out mirror measures whether the bind changed anything, and the voice judge measures whether the change went in the right direction. This rite measures the cost: whether the bind erased something it should have kept. <strong>Catastrophic forgetting</strong> is the phenomenon where fine-tuning overwrites general knowledge the base model already possessed — not because the new knowledge displaced the old in a finite memory bank (which is the wrong model), but because the adapter's correction term steers the output so far in the style direction that the model no longer recalls how to produce factually correct answers on topics unrelated to the training corpus.</p>
-<p>The measurement is a second held-out set — not of style prompts, but of <strong>capability prompts</strong>: a small set of general-knowledge questions the base model already answers correctly without the adapter. The third rite taught the artificer to evaluate the adapted model on prompts the SFTTrainer never saw; this rite applies the same discipline to benchmark prompts — questions like "explain what a transformer is" or "list three sorting algorithms" or "write a Python function that reverses a linked list" — that test factual recall and reasoning the pre-trained base model already had. The adapted model's answers on these prompts are compared against the frozen base model's answers on the same prompts.</p>
-<p>The <strong>forgetting score</strong> is the fraction of capability prompts the adapted model gets wrong that the frozen base got right: <code>forgetting = wrong_adapted_and_right_base / total_capability_prompts</code>. A score of 0.0 means the bind preserved every capability the base had — the adapter shifted style without collateral damage. A score of 0.2 (one in five capability answers degraded) is a warning sign; 0.3 or above is a failed bind — the adapter is not ready to serve, because the homunculus that forgets how to code while learning to write like you is less useful than the frozen base you started with.</p>
-<p>Why does QLoRA produce less forgetting than a full fine-tune? The answer is the same low-rank constraint the seventh rite's first lesson proved: the adapter is a rank-r correction — typically 8–64 degrees of freedom per targeted weight — which is far too narrow to overwrite the vast set of patterns that encode general factual knowledge. A full fine-tune pushes every weight in the model, which can shift factual recall globally; a rank-16 LoRA adapter attached only to the attention projections shifts stylistic generation patterns without enough capacity to disrupt the feed-forward layers where most factual knowledge is stored. The forgetting that does happen is nearly always a formatting problem — the model still knows the fact but phrases it in the new style, which a human judge might score as "wrong" on a strict factual test.</p>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // CAPABILITY BENCHMARKS — THE MINIMUM VIABLE CHECK</div>
-<p>No single benchmark captures everything the model knows, and a full evaluation suite (MMLU, HellaSwag, etc.) takes hours on a 16 GB card. The proving rite's practical minimum is 10–15 capability prompts spanning reasoning (explain a concept), code generation (write a short function), and factual recall (name a date or formula) — a tiny but representative sample. The sixth rite's curation discipline taught the artificer to hold out test records before training; the same discipline applies here: choose the benchmark prompts NOW, run them through the frozen base, record which ones it answers correctly, and never touch that list again. A benchmark prompt seen during training is not a forgetting check — it's a memorization check wearing a benchmark mask.</p></div>
+<p>LoRA's low-rank constraint reduces trainable capacity; it does not guarantee preservation of facts or reasoning. Build <code>data/eval/capability.jsonl</code> before reading adapted results. Include at least fifteen stable cases across concise Python, factual explanation, instruction following, structured output, uncertainty, and long-context summarization. Each row needs an id, prompt, and observable pass criteria. Run the frozen base first and retain only cases whose criteria the base actually meets; you cannot call an adapter response “forgotten” when the base already failed.</p>
+<p>Use the same paired evaluator and deterministic settings. Score criteria rather than exact wording. A Python case can execute tests in an isolated test directory; a JSON case can parse and check keys; a factual case can use a short human checklist. Never run generated shell or Python against personal files. The evaluation harness owns a disposable directory and a timeout.</p>
+<p>Also add a memorization probe: prompts that resemble a category but not a training row, plus a scan for unusually long substrings shared with completions in <code>train.jsonl</code>. A common phrase is not evidence of memorization, but a distinctive multi-sentence match should stop the merge until reviewed. Privacy leaks are critical failures regardless of the aggregate average.</p>
+<p>Write <code>reports/regression-bind-001.json</code> with base passes, adapted passes, newly failed ids, newly fixed ids, and critical flags. A useful starting gate is no more than one newly failed noncritical case out of fifteen and zero privacy/memorization criticals. Record that threshold before revealing outputs; if your use case needs a stricter gate, make it stricter. Do not explain a regression away as “just style” without checking the stated criterion.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // REGRESSION HAS A BASELINE CONDITION</div>
+<p>A failed adapter case is a newly introduced regression only when the frozen base passed the same case. If both fail, the adapter did not create that deficit; it merely failed to repair it. Report both categories so ship decisions do not punish the adapter for inherited behavior or hide genuinely new damage inside an average.</p></div>
 '''
-body_words = 450
 
 [[lessons.readings]]
-label = "Catastrophic Forgetting in Neural Networks — the original paper"
-url = "https://arxiv.org/abs/1612.00796"
-
-[[lessons.readings]]
-label = "LoRA and Catastrophic Forgetting — empirical analysis"
-url = "https://arxiv.org/abs/2106.09685"
+label = "PEFT methods and limitations"
+url = "https://huggingface.co/docs/peft/index"
 
 [[lessons.exercises]]
 id = "s06-l03-e1"
 type = "mc"
 points = 20
-prompt = "Per this rite, what is catastrophic forgetting in the context of the QLoRA binding?"
-choices = [
-  "The adapter weights degrade to zero over time as the GPU cools down, slowly reverting the model to the frozen base behavior — a thermal effect unique to consumer hardware",
-  "The GPU runs out of VRAM during training and begins paging optimizer state to system RAM, causing the training run to slow to a halt and lose the accumulated gradient information",
-  "The trainer's formatting function silently corrupts the chat template mid-training, causing the model to forget the control tokens it was trained with and produce garbled output",
-  "The fine-tuning process shifts the model's output so far toward the training style that it degrades factual recall and reasoning on topics unrelated to the training corpus — the adapter overwrites general knowledge it should have preserved"
-]
-answer = 3
-whyWrong = "Catastrophic forgetting is not a hardware thermal effect (GPU cooling does not degrade weights), an OOM-to-RAM swap (the memory-budget section already proved 16 GB is sufficient for QLoRA), or a template corruption (the formatting function is stateless and does not mutate mid-training). It is a weight-shift phenomenon: the adapter's correction term moves the model's output distribution away from factually correct answers on questions outside the training domain."
-hint = "The lesson defines forgetting as the adapted model getting wrong answers that the frozen base got right — specifically on 'general-knowledge questions the base model already answers correctly without the adapter.' The correct choice names this degradation of factual recall on unrelated topics."
-explain = "A LoRA adapter is designed to shift style — word choice, phrasing patterns, register. But style is entangled with content: a model trained to write like you may learn to hedge more, or to use domain-specific vocabulary in place of generic terms, which can degrade the precision of factual answers. Catastrophic forgetting measures this degradation — how much of the base model's general knowledge the adapter accidentally overwrote."
+prompt = "When is a case eligible to measure newly introduced regression?"
+choices = ["When the frozen base passes its criteria", "Whenever the prompt is short", "Only when the adapter refuses", "When it appears in training"]
+answer = 0
+whyWrong = "Length and refusal alone are insufficient, and training examples are not held out."
+explain = "Regression is loss relative to a capability the starting model demonstrated."
+hint = "There must be something proven to preserve."
 
 [[lessons.exercises]]
 id = "s06-l03-e2"
 type = "text"
-points = 18
-prompt = "The lesson's forgetting score formula: <code>forgetting = wrong_adapted_and_right_base / total_capability_prompts</code>. If the frozen base answers 12 out of 15 capability prompts correctly, and the adapted model answers 9 of those same 12 correctly (with the 3 the base already got wrong excluded from the count), what is the forgetting score — as a decimal rounded to 2 places?"
-answer = "0.20"
-accept = ["0.20", "0.2", ".20", ".2", "20%", "20 percent", "0.20 (3/15)"]
-hint = "The base got 12 right. The adapted model got 9 of those 12 right — so 3 were 'right for base, wrong for adapted.' The denominator is total capability prompts (15), not total base-correct prompts (12). forgetting = 3 / 15 = 0.20."
-explain = "The forgetting score uses the total number of capability prompts as the denominator — not the number the base got right. This keeps the score bounded between 0 (no forgetting) and 1 (every prompt the base got right, the adapter got wrong), and it means the score is comparable across different benchmark sets of different sizes. 3 / 15 = 0.20, which the lesson calls a warning sign."
+points = 15
+prompt = "How many privacy or memorization critical failures may pass the merge gate?"
+answer = "0"
+accept = ["zero", "0", "none"]
+hint = "Critical means it blocks regardless of average score."
 
 [[lessons.exercises]]
 id = "s06-l03-e3"
 type = "fill"
 points = 20
-prompt = "Fill the missing argument in the generation call from the lesson — the one that controls how many new tokens the model produces, and must be held constant across the adapted and base evaluation runs so the comparison is not confounded by output length."
-code = '''base_answer = tokenizer.decode(
-    base.generate(**inputs, ____=128)[0],
-    skip_special_tokens=True
-)
-adapt_answer = tokenizer.decode(
-    adapted.generate(**inputs, ____=128)[0],
-    skip_special_tokens=True
-)'''
-answer = "max_new_tokens"
-accept = ["max_new_tokens"]
-hint = "The third rite's evaluation lesson already named this argument — it controls the maximum number of new tokens to generate beyond the prompt, and it appeared in the l01-e4 fill exercise. The same constraint applies to the capability benchmark: identical generation parameters across base and adapted runs."
+prompt = "Complete the minimum recommended capability-suite size."
+code = "minimum_cases = ____"
+answer = "15"
+hint = "The lesson gives a practical starting suite across six categories."
 
 [[lessons.exercises]]
 id = "s06-l03-e4"
-type = "mc"
-points = 20
-prompt = "Per this rite, why does a rank-16 LoRA adapter produce less catastrophic forgetting than a full fine-tune of the same model on the same personal dataset?"
-choices = [
-  "The low-rank constraint caps the adapter at a tiny number of degrees of freedom per weight — too narrow to overwrite the vast set of patterns encoding general factual knowledge in the feed-forward layers, while a full fine-tune pushes every weight and can shift factual recall globally",
-  "The adapter is trained on a subset of layers only, and the frozen base weights in the untargeted layers act as a knowledge anchor that prevents any factual drift",
-  "LoRA uses a special loss function — the 'forgetting penalty' — that explicitly penalizes the model when its output on held-out benchmark prompts diverges from the frozen base",
-  "The SFTTrainer automatically detects catastrophic forgetting during training and rolls back the adapter weights to the last checkpoint where the forgetting score was below a fixed threshold"
-]
-answer = 0
-whyWrong = "LoRA has no built-in forgetting penalty (you would need to add an explicit regularization term), and the SFTTrainer does not automatically detect forgetting — that's the proving rite's manual evaluation. While untargeted layers do stay frozen, forgetting can still propagate through the attention mechanism: a style shift in Q/K/V projections changes which tokens the model attends to during factual recall, which CAN degrade factual output even though the feed-forward layers are frozen. The real reason is the low-rank constraint: 16 degrees of freedom per matrix is not enough capacity to encode a general-knowledge overwrite — it can shift style, not rewrite facts."
-hint = "The lesson says 'a rank-16 LoRA adapter attached only to the attention projections shifts stylistic generation patterns without enough capacity to disrupt the feed-forward layers where most factual knowledge is stored.' The correct choice names the low-rank constraint as the reason the capacity is too narrow to overwrite general knowledge."
-explain = "The LoRA adapter has r × (d_in + d_out) parameters per targeted weight — for a 4096-dim model at rank 16, that's ~131k parameters where a full fine-tune updates all 16.8M. The adapter's limited degrees of freedom physically cannot encode a global knowledge shift — they're enough to bias attention patterns toward a style, not to rewrite the factual associations stored across millions of feed-forward parameters."
-
-[[lessons.exercises]]
-id = "s06-l03-e5"
 type = "write"
 points = 35
-prompt = "Given a capability benchmark of 14 prompts. The frozen base answered 11 correctly. The adapted model answered 8 of those 11 correctly. Compute the forgetting score as <code>wrong_by_adapted / total_prompts</code> and print <code>FORGETTING &lt;v&gt;</code> rounded to 2 decimal places — computed from the variables, not hardcoded."
-starter = '''total_prompts = 14           # total capability benchmark prompts
-base_correct = 11            # prompts the frozen base answered correctly
-adapted_correct = 8          # prompts the adapted model answered correctly (out of base_correct)
+prompt = "Find cases newly failed by the adapter and print exactly: REGRESSED cap-02"
+starter = '''base = {"cap-01": True, "cap-02": True, "cap-03": False}
+adapted = {"cap-01": True, "cap-02": False, "cap-03": True}
 
-# Number of prompts the base got right but the adapted model got wrong:
-# wrong_by_adapted = base_correct - adapted_correct
-# forgetting = wrong_by_adapted / total_prompts
-# Print FORGETTING <value> rounded to 2 decimal places.
-
-print("FORGETTING 0.00")
+regressed = []
+print("REGRESSED " + ", ".join(regressed))
 '''
-expect = "FORGETTING 0.21"
-hint = "wrong_by_adapted = 11 - 8 = 3. forgetting = 3 / 14 ≈ 0.214. Print f'FORGETTING {forgetting:.2f}'."
+solution = '''base = {"cap-01": True, "cap-02": True, "cap-03": False}
+adapted = {"cap-01": True, "cap-02": False, "cap-03": True}
+
+regressed = [case_id for case_id, passed in base.items()
+             if passed and not adapted[case_id]]
+print("REGRESSED " + ", ".join(regressed))
+'''
+expect = "REGRESSED cap-02"
+hint = "Keep ids that passed in base and failed in adapted."

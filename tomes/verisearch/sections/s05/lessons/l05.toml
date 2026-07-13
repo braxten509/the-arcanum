@@ -1,0 +1,173 @@
+[[lessons]]
+id = "s05-l05"
+teaches = ["config-loader"]
+title = "Workshop — Build the Non-Destructive Config Loader"
+body = '''
+<p>You now know every piece needed for a real boundary. Create <code>ConfigLoader.cs</code> and assemble those pieces in a deliberate order: find the portable path, create a default only if nothing exists, read, deserialize, validate, and either return a sound <code>AppConfig</code> or explain why the program cannot continue.</p>
+<pre><code><span class="k">public sealed class</span> ConfigLoader
+{
+    <span class="k">private readonly</span> JsonSerializerOptions _options = <span class="k">new</span>()
+    {
+        PropertyNameCaseInsensitive = <span class="k">true</span>,
+        WriteIndented = <span class="k">true</span>
+    };
+
+    <span class="k">public</span> ConfigLoader()
+    {
+        _options.Converters.Add(<span class="k">new</span> JsonStringEnumConverter());
+    }
+
+    <span class="k">public static string</span> PathForUser()
+    {
+        <span class="k">string</span> home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        <span class="k">return</span> Path.Combine(home, <span class="s">".verisearch"</span>, <span class="s">"config.json"</span>);
+    }
+
+    <span class="k">public</span> AppConfig LoadOrCreate()
+    {
+        <span class="k">string</span> path = PathForUser();
+        <span class="k">if</span> (!File.Exists(path))
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, JsonSerializer.Serialize(CreateDefault(), _options));
+        }
+
+        <span class="k">string</span> json = File.ReadAllText(path);
+        AppConfig config = JsonSerializer.Deserialize&lt;AppConfig&gt;(json, _options)
+            ?? <span class="k">throw new</span> InvalidOperationException(<span class="s">$"{path}: configuration was empty"</span>);
+        List&lt;<span class="k">string</span>&gt; errors = Validate(config);
+        <span class="k">if</span> (errors.Count &gt; 0)
+            <span class="k">throw new</span> InvalidOperationException(<span class="s">$"{path}:{Environment.NewLine}{string.Join(Environment.NewLine, errors)}"</span>);
+        <span class="k">return</span> config;
+    }
+
+    <span class="k">private static</span> AppConfig CreateDefault()
+    {
+        <span class="k">return new</span> AppConfig
+        {
+            Sources =
+            [
+                <span class="k">new</span> SourceSpec(<span class="s">"Local fixture"</span>, <span class="s">"mock://fixture"</span>, 10, SourceKind.LocalFixture),
+                <span class="k">new</span> SourceSpec(<span class="s">"RFC 8446"</span>,
+                    <span class="s">"https://www.rfc-editor.org/rfc/rfc8446"</span>, 10, SourceKind.Web)
+            ]
+        };
+    }
+
+    <span class="k">private static</span> List&lt;<span class="k">string</span>&gt; Validate(AppConfig config)
+    {
+        <span class="k">var</span> errors = <span class="k">new</span> List&lt;<span class="k">string</span>&gt;();
+        <span class="k">if</span> (<span class="k">string</span>.IsNullOrWhiteSpace(config.Model))
+            errors.Add(<span class="s">"model is required"</span>);
+        <span class="k">if</span> (!Uri.TryCreate(config.OllamaUrl, UriKind.Absolute, <span class="k">out</span> Uri? ollama)
+            || (ollama.Scheme != Uri.UriSchemeHttp &amp;&amp; ollama.Scheme != Uri.UriSchemeHttps))
+            errors.Add(<span class="s">"ollamaUrl must be an absolute HTTP or HTTPS URL"</span>);
+        <span class="k">if</span> (config.MaxQuotes &lt; 1 || config.MaxQuotes &gt; 10)
+            errors.Add(<span class="s">"maxQuotes must be between 1 and 10"</span>);
+        <span class="k">if</span> (config.Sources.Count == 0)
+            errors.Add(<span class="s">"at least one source is required"</span>);
+
+        <span class="k">var</span> labels = <span class="k">new</span> HashSet&lt;<span class="k">string</span>&gt;(StringComparer.OrdinalIgnoreCase);
+        <span class="k">foreach</span> (SourceSpec source <span class="k">in</span> config.Sources)
+        {
+            <span class="k">if</span> (<span class="k">string</span>.IsNullOrWhiteSpace(source.Label))
+                errors.Add(<span class="s">"every source needs a label"</span>);
+            <span class="k">else if</span> (!labels.Add(source.Label))
+                errors.Add(<span class="s">$"duplicate source label: {source.Label}"</span>);
+            <span class="k">if</span> (source.Trust &lt; 0 || source.Trust &gt; 10)
+                errors.Add(<span class="s">$"{source.Label}: trust must be 0 through 10"</span>);
+            <span class="k">if</span> (!Uri.TryCreate(source.Url, UriKind.Absolute, <span class="k">out</span> Uri? uri))
+            {
+                errors.Add(<span class="s">$"{source.Label}: URL must be absolute"</span>);
+                <span class="k">continue</span>;
+            }
+
+            <span class="k">bool</span> validScheme = source.Kind <span class="k">switch</span>
+            {
+                SourceKind.Web =&gt; uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps,
+                SourceKind.LocalFixture =&gt; uri.Scheme == <span class="s">"mock"</span>,
+                _ =&gt; <span class="k">false</span>
+            };
+            <span class="k">if</span> (!validScheme)
+                errors.Add(<span class="s">$"{source.Label}: URL scheme does not match source kind"</span>);
+        }
+        <span class="k">return</span> errors;
+    }
+}</code></pre>
+<p>Add <code>using System.Text.Json;</code> and <code>using System.Text.Json.Serialization;</code> at the top. The listing is the complete loader; do not invent a second helper from memory. Its default includes one deterministic fixture and one real standards page, while later <code>--source</code> options decide which configured entries run. Do not catch <code>JsonException</code> here merely to return defaults. Let <code>Program.cs</code> catch it once and print <code>ex.Message</code> with the path.</p>
+<ol><li>Paste the complete class.</li><li>Confirm the models from Chapter III compile.</li><li>Call <code>new ConfigLoader().LoadOrCreate()</code> once in <code>Program.cs</code>.</li><li>Run <code>dotnet build</code> after each step.</li></ol>
+<div class="callout">If a red compiler line names a brace or semicolon, fix that first. If the program runs but names a JSON line and byte, your C# built successfully—the fault is now in the configuration text.</div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // ONE OWNER FOR POLICY</div><p>Only <code>ConfigLoader</code> knows the file path and serializer settings. Other components receive an already validated <code>AppConfig</code>. This keeps tests from touching a real home directory and prevents different classes from interpreting the same JSON differently.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — How to read and write a JSON file"
+url = "https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/how-to"
+essential = false
+
+[[lessons.exercises]]
+id = "s05-l05-e1"
+type = "mc"
+points = 20
+prompt = "Why does <code>LoadOrCreate</code> write defaults only after <code>File.Exists(path)</code> returns false?"
+choices = ["JSON cannot overwrite files", "An existing file is user-owned policy and may contain the evidence needed to repair an error", "Directory.CreateDirectory deletes it", "Ollama locks the file"]
+answer = 1
+whyWrong = "JSON can overwrite files, directory creation does not protect contents, and Ollama does not own this file. The exists check prevents destructive replacement of user policy."
+explain = "Missing state may be initialized; existing invalid state must be diagnosed and preserved."
+hint = "Distinguish absent data from bad data."
+
+[[lessons.exercises]]
+id = "s05-l05-d1"
+type = "type"
+points = 14
+reps = 2
+prompt = "Retype the portable path method twice."
+code = '''public static string PathForUser()
+{
+    string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+    return Path.Combine(home, ".verisearch", "config.json");
+}'''
+
+[[lessons.exercises]]
+id = "s05-l05-e2"
+type = "fill"
+points = 18
+prompt = "Complete the call that creates parent directories without failing when they already exist."
+code = '''Directory.____(Path.GetDirectoryName(path)!);'''
+answer = "CreateDirectory"
+hint = "The method is named for the desired state, not only the first creation."
+
+[[lessons.exercises]]
+id = "s05-l05-e3"
+type = "mc"
+points = 18
+prompt = "Where should a malformed JSON exception become a friendly terminal message?"
+choices = ["Inside every model property", "At the single Program.cs application boundary", "Inside SourceFetcher", "Nowhere; hide it"]
+answer = 1
+whyWrong = "Models and fetching do not own startup errors, while hiding the exception removes the location needed for repair. Program.cs is the one user-facing boundary."
+explain = "Lower layers preserve precise failure information; the entrypoint decides how to present it and which exit code to return."
+hint = "Which file already owns terminal output and process exit?"
+
+[[lessons.exercises]]
+id = "s05-l05-w1"
+type = "write"
+points = 38
+prompt = "Implement <code>static string ConfigPath(string home)</code> with <code>Path.Combine</code>. Call it with <code>/home/ava</code> and print the resulting path."
+starter = '''string path = ConfigPath("/home/ava");
+Console.WriteLine(path);
+
+static string ConfigPath(string home)
+{
+    return "NOT PORTABLE";
+}
+'''
+expect = "/home/ava/.verisearch/config.json"
+solution = '''string path = ConfigPath("/home/ava");
+Console.WriteLine(path);
+
+static string ConfigPath(string home)
+{
+    return Path.Combine(home, ".verisearch", "config.json");
+}
+'''
+hint = "Path.Combine accepts more than two path segments."

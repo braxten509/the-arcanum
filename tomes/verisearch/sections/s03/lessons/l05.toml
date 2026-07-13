@@ -1,34 +1,35 @@
 [[lessons]]
 id = "s03-l05"
+teaches = ["linq-basics"]
 title = "First LINQ — Where, Select, OrderBy"
 body = '''
 
 <p>LINQ (Language Integrated Query) lets you filter/transform/sort collections by <em>describing what you want</em> instead of writing loops. Three verbs get you far:</p>
 <pre><code><span class="k">using</span> System.Linq;   <span class="c">// usually auto-imported via implicit usings</span>
 
-List&lt;SearchResult&gt; results = GetResults();
+List&lt;PassageDraft&gt; passages = GetPassages();
 
 <span class="c">// WHERE — keep only matching items</span>
-<span class="k">var</span> trusted = results.Where(r =&gt; r.Trust &gt;= 6.0);
+<span class="k">var</span> substantial = passages.Where(p =&gt; p.Text.Length &gt;= 20);
 
 <span class="c">// SELECT — transform each item into something else</span>
-<span class="k">var</span> urls = results.Select(r =&gt; r.Url);
+<span class="k">var</span> texts = passages.Select(p =&gt; p.Text);
 
 <span class="c">// ORDERBY / ORDERBYDESCENDING — sort</span>
-<span class="k">var</span> ranked = results.OrderByDescending(r =&gt; r.Trust);
+<span class="k">var</span> numbered = passages.OrderBy(p =&gt; p.Id);
 
 <span class="c">// chain them — reads like a sentence</span>
-<span class="k">var</span> top5 = results
-    .Where(r =&gt; r.Trust &gt;= 3.0)
-    .OrderByDescending(r =&gt; r.Trust)
+<span class="k">var</span> firstFive = passages
+    .Where(p =&gt; p.Text.Length &gt;= 20)
+    .OrderBy(p =&gt; p.Id)
     .Take(5)
     .ToList();</code></pre>
-<p>The <code>r =&gt; r.Trust &gt;= 6.0</code> syntax is a <strong>lambda</strong> — a tiny inline function: "given r, return whether r.Trust ≥ 6.0". Deep dive comes in Chapter VII; for now read <code>=&gt;</code> as "goes to".</p>
+<p>The <code>p =&gt; p.Text.Length &gt;= 20</code> syntax is a <strong>lambda</strong>—a tiny inline function: “given p, return whether its text is long enough to keep.” Deep dive comes in Chapter VII; for now read <code>=&gt;</code> as “goes to.” This length gate removes navigation crumbs; it does not decide relevance to the user's question.</p>
 <p><code>.ToList()</code> materializes the query into a real List. Until then it's a <em>description</em> of work, not results — remember that detail; it matters in Chapter VII.</p>
 <div class="callout">If you're writing a foreach whose only job is to fill another list with filtered/transformed items — that's LINQ. One line, no mutable temp list, nothing to get wrong.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
-<p><strong>Method syntax vs query syntax:</strong> everything you've seen is method syntax. The same query can be written SQL-style — <code>from r in results where r.Trust &gt;= 6 orderby r.Trust descending select r.Url</code> — compiles to identical calls. Read both; write method syntax (the ecosystem's default).</p>
+<p><strong>Method syntax vs query syntax:</strong> everything you've seen is method syntax. The same query can be written SQL-style—<code>from p in passages where p.Text.Length &gt;= 20 orderby p.Id select p.Text</code>—and compiles to equivalent calls. Read both; write method syntax, the ecosystem default.</p>
 <p><strong>Order your chain for work-shedding:</strong> <code>Where</code> BEFORE <code>OrderBy</code> — filter 100 down to 10, then sort 10. Sorting first sorts 90 items you're about to throw away.</p>
-<p><strong>Quick one-liners</strong> you'll reach for constantly: <code>.Any()</code> "is there at least one?", <code>.Count(r =&gt; r.Trust &gt; 6)</code> conditional count, <code>.First()</code> / <code>.FirstOrDefault()</code>, <code>.Take(5)</code> / <code>.Skip(5)</code>, <code>.Select((r, i) =&gt; $"{i}: {r.Url}")</code> — Select's overload with the index.</p></div>'''
+<p><strong>Quick one-liners</strong> you'll reach for constantly: <code>.Any()</code> “is there at least one?”, <code>.Count(p =&gt; p.Text.Length &gt;= 20)</code>, <code>.First()</code> / <code>.FirstOrDefault()</code>, <code>.Take(5)</code> / <code>.Skip(5)</code>, and <code>.Select((p, i) =&gt; $"{i + 1}: {p.Text}")</code>.</p></div>'''
 
 [[lessons.readings]]
 label = "Microsoft Learn — LINQ intro video (C# Advanced ep. 1)"
@@ -64,8 +65,8 @@ explain = "<code>Where</code> removes 2.0 because it is below 6.0, then <code>Or
 id = "s03-l05-e3"
 type = "fill"
 points = 25
-prompt = "Fill the blank to pull just the domains out of a list of results (transform each item)."
-code = "var domains = results.____(r => r.Domain).ToList();"
+prompt = "Fill the blank to pull just the text out of a list of passages (transform each item)."
+code = "var texts = passages.____(p => p.Text).ToList();"
 answer = "Select"
 hint = "Transform-each-item is not Where."
 
@@ -74,11 +75,11 @@ id = "s03-l05-d1"
 type = "type"
 points = 14
 reps = 2
-prompt = "The filter-sort-take pipeline — Verisearch's core move. Twice."
+prompt = "A readable filter-sort-take pipeline. Twice."
 code = '''
-var top = results
-    .Where(r => r.Trust >= 3.0)
-    .OrderByDescending(r => r.Trust)
+var first = passages
+    .Where(p => p.Text.Length >= 20)
+    .OrderBy(p => p.Id)
     .Take(5)
     .ToList();'''
 

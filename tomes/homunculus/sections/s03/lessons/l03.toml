@@ -1,5 +1,6 @@
 [[lessons]]
 id = "s03-l03"
+teaches = ["kv-cache"]
 title = "The Cache That Grows While You Talk"
 body = '''
 <p>Weights are a fixed cost — load the GGUF once and the number stops moving. The <strong>KV cache</strong> is not fixed; it grows with every token you feed the model, silently, for the entire lifetime of a conversation. A quantized base that fits the card comfortably at the first message can still run out of room forty turns later, and the failure looks nothing like a weights problem, so it is worth understanding this cost on its own.</p>
@@ -84,4 +85,17 @@ kv_mb = 0
 print(f"KV {kv_mb} MB")
 '''
 expect = "KV 537 MB"
+solution = '''n_layers = 32
+n_kv_heads = 8
+head_dim = 128
+seq_len = 4096
+bytes_per_element = 2
+
+kv_bytes = 2 * n_layers * n_kv_heads * head_dim * seq_len * bytes_per_element
+kv_mb = round(kv_bytes / 1_000_000)
+print(f"KV {kv_mb} MB")
+'''
 hint = "kv_bytes = 2 * n_layers * n_kv_heads * head_dim * seq_len * bytes_per_element, then kv_mb = round(kv_bytes / 1_000_000)."
+[[lessons.readings]]
+label = "Ollama context length"
+url = "https://docs.ollama.com/context-length"

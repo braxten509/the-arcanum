@@ -5,6 +5,7 @@ import re
 import sys
 
 from .checkpoints import ARC_CONTRACT, ARC_HEADING
+from .measure import validator_shell_command
 
 PREAMBLE = """You are the headless worker for ONE phase of an Arcanum tome build.
 Complete only Phase {num}, then stop. The harness owns phase order, retries, and folder
@@ -19,13 +20,24 @@ Before returning, run this phase-appropriate warm-context check:
 
   {validator_command}
 
-Read the complete report. Fix every in-scope failure and rerun until it exits cleanly.
-Report an out-of-scope finding without crossing the write boundary. The harness repeats
-the gate independently and rejects unexplained file deletion or array shrinkage.
+Read the complete report. Fix only findings that block this command: every ERROR, plus
+non-advisory WARNs only when the command uses `--strict`. Do not chase WARNs during a
+non-strict phase. Report an out-of-scope blocker without crossing the write boundary.
+The harness repeats this exact command independently and rejects unexplained file
+deletion or array shrinkage.
 
 ===== PHASE {num}: {title} =====
 
 {body}
+"""
+
+REPAIR_ONLY = """
+
+===== REPAIR-ONLY RETRY =====
+Preserve the work already on disk. Do not restart the phase, broaden the deliverable,
+reread unrelated references, add lessons or exercises, or clean up non-blocking WARNs.
+Fix only the BLOCKING findings supplied below, run the exact check above, and stop as
+soon as it exits 0.
 """
 
 STUDENT_HOOK = """
@@ -92,16 +104,13 @@ def review_findings_clear(path):
 
 
 def build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel=None, focus=None,
-                 validation_flags=None):
-    if num == 1:
-        validator_command = (f'cd "$ARCANUM_REPO_ROOT" && python3 tools/validate_tome.py '
-                             f"tomes/{tid} --phase-1-plan {plan_rel}")
-    else:
-        flags = validation_flags if validation_flags is not None else ("--strict" if num >= 7 else "")
-        validator_command = (f'cd "$ARCANUM_REPO_ROOT" && '
-                             f"python3 tools/validate_tome.py tomes/{tid} {flags}").rstrip()
+                 tooling=None, validation_run=None, repair_only=False):
+    validator_command = validator_shell_command(
+        tid, phase=num, tooling=tooling, run=validation_run, plan_rel=plan_rel)
     p = PREAMBLE.format(tid=tid, num=num, title=title, body=body, plan=plan_rel,
                         validator_command=validator_command)
+    if repair_only:
+        p += REPAIR_ONLY
     if num == 8:
         review_scope = (FOCUSED_REVIEW_SCOPE.format(focus=focus)
                         if focus else FULL_REVIEW_SCOPE)
@@ -168,9 +177,9 @@ MASTERY_LEVELS = {
     5: ("EXPERT", "Can reason about the machinery and architect a substantial solution defensibly."),
 }
 PRIOR_LEVELS = {
-    1: ("FROM ZERO", "Teach installation, first run, syntax, and fundamentals before domain work."),
-    2: ("NEAR ZERO", "Teach the language/tool from its basics, moving only slightly faster."),
-    3: ("BEGINNER", "Teach this language/tool from the ground up; general coding ideas may be familiar."),
+    1: ("FROM ZERO", "Assume only the stated prior knowledge. Teach setup, first run, and every required construct or tool action from first principles."),
+    2: ("NEAR ZERO", "Cover the same required fundamentals as level 1 with less repetition, not fewer concepts. Assume only the exact prior-knowledge answer."),
+    3: ("BEGINNER", "Teach the language/tool from the ground up. General ideas may be familiar, but every subject-specific construct and tool action still needs a first introduction."),
     4: ("OTHER-STACK CODER", "Give this language and toolchain a focused on-ramp before domain work."),
     5: ("GENERALIST", "Give a brisk primer on this stack's differences, then enter the domain."),
     6: ("ADJACENT", "Recap only the specific tooling and APIs this course relies on."),
@@ -253,6 +262,19 @@ def write_plan(plan_path, tid, answers, concept=None):
         f.write("\n## Calibration contract\n")
         if plvl:
             f.write(f"- **Start {str(p).strip()}/10 — {plvl[0]}:** {plvl[1]}\n")
+        f.write("- **Assumption boundary:** Treat the Prior knowledge answer as an exhaustive "
+                "whitelist, not evidence that nearby skills are safe to assume.\n")
+        try:
+            prior_number = int(str(p).strip())
+        except (ValueError, TypeError):
+            prior_number = None
+        if prior_number is not None and prior_number <= 3:
+            f.write("- **First-use rule for Start 1–3:** Before required use, every unlisted "
+                    "keyword, syntax form, operator, API, tool action, or technical term needs "
+                    "a plain-language purpose, its parts read step by step, a minimal worked "
+                    "example with an observable result, one likely failure, and guided practice. "
+                    "A name-drop, reading link, or unexplained sample is not teaching. Start 2 "
+                    "shortens repetition; it never removes fundamental coverage.\n")
         f.write(f"- **Breadth {values.get('Breadth (1-10)', '?')}/10:** controls which "
                 "topic domains enter the section arc; it does not set a chapter count.\n")
         f.write(f"- **Depth {values.get('Lesson depth (1-10)', '?')}/10:** controls how "

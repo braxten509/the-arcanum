@@ -1,79 +1,116 @@
 [[lessons]]
 id = "s04-l05"
-title = "The First Traversable Map"
-teaches = ["s04-tilemap-class","s04-scrolling-proof"]
+title = "Seal a Scrolling Overworld"
+teaches = ["s04-camera-scroll-input", "s04-scrolling-map-integration"]
 body = '''
-<p>s04-l05 opens the tiles and cameras chart through First. s04-l05 hears THE CARTOGRAPHER name s04-tilemap-class its first bearing. s04-l05 names one input, one change, and one output. s04-l05 gives s04-scrolling-proof a second mark for comparison. s04-l05 keeps the smallest successful example beside its route.</p>
-<p>s04-l05 reads from left to right, then narrates state changes. s04-l05 keeps its tiles and cameras clue concrete and observable. s04-l05 runs twice; the second pass challenges the first. s04-l05 records which owner moved when s04-tilemap-class shifted. s04-l05 carries earlier <code>tile_map</code> evidence into this chart.</p>
-<p>s04-l05 asks one decision to stand alone in the margin. s04-l05 keeps s04-scrolling-proof visible instead of hiding it behind polish. s04-l05 tests a friendly case and a sharp edge case. s04-l05 compares both traces so s04-tilemap-class has a witness. s04-l05 names the failure before choosing a repair.</p>
-<p>s04-l05 treats each handoff as a contract between maker and reader. s04-l05 supplies s04-tilemap-class; the reader checks s04-scrolling-proof. s04-l05 places its check where another wayfinder can repeat it. s04-l05 earns THE CARTOGRAPHER's trust through evidence, not luck. s04-l05 leaves one deliberate question for the next chart.</p>
-<p>s04-l05 closes by stating what the program must preserve. s04-l05 names one input that could falsify s04-tilemap-class. s04-l05 names one output that confirms s04-scrolling-proof still belongs. s04-l05 runs the smallest route, inspects its trace, and annotates it. s04-l05 turns the tiles and cameras chart into a RuneBound waypoint.</p>
-<p>s04-l05 ends with a handoff to the next chart. s04-l05 carries s04-scrolling-proof forward after s04-tilemap-class earns trust. s04-l05 lets THE CARTOGRAPHER record the result in plain language. s04-l05 turns a clean rerun from a guess into a fact. s04-l05 lets the next wayfinder begin without hidden context.</p>
-<pre><code>print("s04-l05 // The First Traversable Map")</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // S04-L05</div><p>s04-l05 <strong>Evidence.</strong> Record s04-tilemap-class; compare it with s04-scrolling-proof before advancing.</p><p>s04-l05 <strong>Repair.</strong> Change one cause, rerun the route, and preserve the explanation.</p></div>
+<p>Make the first RuneBound world run. Keep s03’s initialization, 800×600 display, event pump, one <code>pygame.key.get_pressed()</code> read per frame, clock, and shutdown. Replace its visual constants, <code>draw(screen)</code> probe, amber waystone, and standalone <code>TILE_SIZE</code> with the data-driven map route below. The source of tile size is now <code>tilemap.TILE_SIZE</code>; colors come only from <code>data/tiles.json</code>.</p>
+<pre><code>import pygame
+from tilemap import TileMap
+
+FPS = 60
+CAMERA_SPEED = 240
+
+pygame.init()
+screen = pygame.display.set_mode((800, 600))
+pygame.display.set_caption("RuneBound")
+clock = pygame.time.Clock()
+tile_map = TileMap("data/tiles.json", "data/maps/overworld.csv")
+camera = [0.0, 0.0]
+running = True</code></pre>
+<p>Inside each frame, pump events first, then read keys once. Arrow keys alter the camera, not a Tile and not <code>tile_map.grid</code>. Use <code>dt</code from the previous frame for a frame-rate-independent amount: <code>CAMERA_SPEED * dt</code>. With the initial <code>dt = 0.0</code> before the loop, the first frame simply has no movement. Clamp the camera to zero at the upper-left; the full right/bottom clamp can wait until player-follow camera work in s06.</p>
+<pre><code>keys = pygame.key.get_pressed()
+if keys[pygame.K_LEFT]:
+    camera[0] = max(0, camera[0] - CAMERA_SPEED * dt)
+if keys[pygame.K_RIGHT]:
+    camera[0] += CAMERA_SPEED * dt
+if keys[pygame.K_UP]:
+    camera[1] = max(0, camera[1] - CAMERA_SPEED * dt)
+if keys[pygame.K_DOWN]:
+    camera[1] += CAMERA_SPEED * dt
+
+screen.fill((0, 0, 0))
+tile_map.render(screen, camera)
+pygame.display.flip()
+dt = clock.tick(FPS) / 1000.0</code></pre>
+<p>Run <code>python3 main.py</code> from the folder containing <code>main.py</code>. You should see the colored 25×19 CSV world and make it slide under arrow keys; close it with X, then launch it again. If the window stays black, verify that <code>tile_map.render(screen, camera)</code> occurs before the flip and that every CSV id exists in the JSON catalog. If it does not scroll, verify that key polling and camera update occur inside the running loop.</p>
+<p>For the freestyle, record the command, what you saw at camera <code>[0.0, 0.0]</code>, what changed after holding Right, and one repair. Do not print a seal inside canonical <code>main.py</code>; the visual run is the proof.</p>
+<div class="callout"><strong>THE CARTOGRAPHER'S SEAL:</strong> the map stays true in world space while the viewport moves across it.</div>
 '''
 
 [[lessons.readings]]
-label = "Python library // csv // The First Traversable Map"
-url = "https://docs.python.org/3/library/csv.html"
+label = "PyGame Docs // key"
+url = "https://www.pygame.org/docs/ref/key.html"
+
+[[lessons.readings]]
+label = "PEP 8 // Style Guide for Python Code"
+url = "https://peps.python.org/pep-0008/"
 
 [[lessons.exercises]]
 id = "s04-l05-e1"
 type = "mc"
-points = 14
-prompt = '''
-<p>What is the cleanest boundary for the first TileMap integration? Select the reading that keeps the next chart can add animated life to a ground contract that already works possible.</p>
-'''
-choices = ["the map owns every future combat decision","the map loads and renders ground while the main loop schedules frames and input","the camera replaces the map's stored world coordinates","main.py hard-codes one color for every tile"]
-answer = 1
-whyWrong = '''
-The tempting routes confuse letting the map class reach into player input or duplicating the same transform in main.py with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace one map object with a clear load path and a render method the main loop can call in the Ground Survey chart, then compare the TileMap owns ground knowledge while main.py owns the frame schedule with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves tilemap owns ground knowledge while main.py owns the frame schedule and leaves one map object with a clear load path and a render method the main loop can call available for the next RuneBound handoff.
-'''
+points = 20
+prompt = '''<p>While Right is held, which state should change to scroll the map without changing its CSV world coordinates?</p>'''
+choices = ['<code>camera[0]</code>', '<code>tile_map.grid[0][0]</code>', '<code>definition["color"]</code>', '<code>Tile.x</code> for every tile']
+answer = 0
+hint = '''The camera is the viewport offset; world data and placed tile positions remain stable.'''
+whyWrong = '''Changing a cell edits the map, changing a catalog color edits every type, and moving every Tile mutates the world. Scrolling only changes the viewport’s x offset.'''
+explain = '''The renderer subtracts <code>camera[0]</code> from each stable world x while it builds screen rectangles.'''
 
 [[lessons.exercises]]
 id = "s04-l05-e2"
-type = "text"
-points = 16
-prompt = '''
-<p>s04-l05-e2: name the Python term for the specific unit requested by this chart. Supply the language term, not the surrounding story label.</p>
+type = "fill"
+points = 22
+prompt = '''<p>Restore the per-frame quantity that makes camera movement depend on elapsed seconds rather than on raw loop count.</p>'''
+code = '''
+camera[0] += CAMERA_SPEED * ____
 '''
-answer = "TileMap"
-hint = '''
-Recall the named boundary in The First Traversable Map; the answer is the language term for that single job, not the larger game feature.
-'''
+answer = "dt"
+hint = '''s03’s Clock converts its measured milliseconds to seconds and stores the result in this variable.'''
+whyWrong = '''FPS is a target cap, not elapsed time, and a constant one-pixel step makes fast computers pan farther each second.'''
 
 [[lessons.exercises]]
 id = "s04-l05-e3"
-type = "fill"
-points = 18
-prompt = '''
-<p>s04-l05-e3: restore the missing operation in the supplied code. Use its operands and the chart evidence to complete the route without renaming the owner.</p>
+type = "write"
+points = 34
+prompt = '''<p>Model one right-arrow camera update with <code>CAMERA_SPEED = 240</code> and <code>dt = 0.25</code>. Keep the supplied camera list, add the movement to its horizontal value, and print exactly <code>CAMERA 60.0 0.0</code>.</p>'''
+starter = '''
+CAMERA_SPEED = 240
+dt = 0.25
+camera = [0.0, 0.0]
+
+# Apply one right-scroll update and print both camera coordinates.
 '''
-code = '''
-tile_map.____(screen, camera_offset)
+expect = '''
+CAMERA 60.0 0.0
 '''
-answer = "render"
-hint = '''
-Look at what must happen to tile_map.render(screen, camera_offset); choose the operation that performs that job rather than the one that merely inspects the result.
+solution = '''
+CAMERA_SPEED = 240
+dt = 0.25
+camera = [0.0, 0.0]
+
+camera[0] += CAMERA_SPEED * dt
+print("CAMERA", camera[0], camera[1])
 '''
+hint = '''Right movement changes index 0 by speed multiplied by elapsed seconds; leave the vertical value alone.'''
 
 [[lessons.exercises]]
 id = "s04-l05-e4"
+type = "text"
+points = 18
+prompt = '''<p>What command launches the integrated RuneBound project when the terminal is in the folder containing its entry file?</p>'''
+answer = "python3 main.py"
+hint = '''Use the same Python launcher and canonical entry file from the window chart.'''
+whyWrong = '''The project is run by Python, not by a JSON or CSV tool. Running from another folder without a path risks a missing-file error for the data files.'''
+
+[[lessons.exercises]]
+id = "s04-l05-e5"
 type = "type"
-points = 10
+points = 12
 reps = 2
-prompt = '''
-<p>Retype this ground survey evidence exactly. Keep one map object with a clear load path and a render method the main loop can call visible while you write. (Ctrl+Enter submits.)</p>
-'''
+prompt = '''<p>Retype the frame’s data-driven draw and presentation boundary.</p>'''
 code = '''
-class TileMap:
-    def render(self, screen, camera_offset):
-        print("rendering", camera_offset)
-TileMap().render(None, (0, 0))
+screen.fill((0, 0, 0))
+tile_map.render(screen, camera)
+pygame.display.flip()
+dt = clock.tick(FPS) / 1000.0
 '''

@@ -1,97 +1,123 @@
 [[lessons]]
 id = "s02-l05"
-title = "Judging the Summoned"
+teaches = ["baseline-suite"]
+title = "Freeze the Before Picture"
 body = '''
-<p>You can now wake a vessel, tell base from instruct, read its label, and turn its sampling knobs. What's still missing is the habit that makes all of that useful: judging what came out, on purpose, instead of eyeballing a reply and moving on. This rite closes the section by building that habit, in Python, the way the third rite's smoke test built the habit of naming a failure instead of just noticing one.</p>
-<p>Recall that smoke test's lesson: "READY" printed by a script that never actually ran the check it claims is a false victory. Judging a model's output has the same trap. "That looked fine" is not a judgment; it names nothing, and it can't be repeated on the next run. A real comparison names the axis: did the instruct model actually follow the system prompt's instruction the base model ignored? Did the reply stay inside the requested format? Did a low-temperature run actually come back identical on a second try?</p>
-<pre><code><span class="k">from</span> transformers <span class="k">import</span> pipeline
+<p>A personal fine-tune is only useful if you can show what improved. Build the comparison before the adapter exists. Create <code>data/eval/baseline-prompts.jsonl</code> with at least ten rows. Each row needs a stable <code>id</code>, a <code>category</code>, and a <code>prompt</code>. Cover the real job: rewriting rough notes, summarizing a decision, formatting standard Markdown for Notion, explaining uncertainty, following an exact output shape, and answering a question that will later use a style reference. Do not put the desired answers into training data later.</p>
+<pre><code>{"id":"rewrite-01","category":"voice","prompt":"Rewrite this as a concise project note: We tried three layouts and the second one was easiest to scan."}
+{"id":"format-01","category":"format","prompt":"Return a Markdown heading, two bullets, and one next action for a project review."}</code></pre>
+<p>Create <code>src/homunculus/baseline.py</code>. It reads those rows, calls the live Ollama chat endpoint, and writes the complete responses rather than a hand-written impression:</p>
+<pre><code>import json
+from pathlib import Path
+import httpx
 
-pipe = pipeline("text-generation", model="&lt;hf-model-id&gt;", device="cuda")
-out = pipe(messages, max_new_tokens=200, temperature=0.0)</code></pre>
-<p>That's the same <code>transformers</code> pipeline call from the sampling rite, now with a purpose: run it once against a base model's raw completion and once against an instruct model given the exact same prompt through <code>apply_chat_template</code>, and put the two outputs side by side. The base reply usually drifts or continues the prompt; the instruct reply usually answers and stops. Naming that difference, in writing, with the specific place it showed up, is the comparison this section's freestyle grades you on.</p>
-<div class="callout">The GPU your third rite proved was visible is the same GPU this pipeline call runs on — <code>device="cuda"</code> still means the ROCm/HIP path, not literal CUDA, exactly as the bench rite explained.</div>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // BUILD THE HABIT BEFORE YOU NEED IT</div>
-<p>Later rites raise the stakes on this exact skill: judging whether a fine-tuned adapter actually "sounds like you" is the same comparison discipline, just against your own held-out prompts instead of a base-versus-instruct pair. An artificer who can only say "the fine-tune feels off" without naming which prompt, which expected trait, and which actual output failed it will struggle to fix anything. Practice naming the specific gap now, while the stakes are only a chat reply.</p></div>
+MODEL = "qwen3:8b"
+OPTIONS = {"temperature": 0.2, "top_p": 0.8, "seed": 42}
+
+def main():
+    source = Path("data/eval/baseline-prompts.jsonl")
+    target = Path("reports/baseline.jsonl")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with source.open(encoding="utf-8") as rows, target.open("w", encoding="utf-8") as report:
+        for line in rows:
+            case = json.loads(line)
+            payload = {
+                "model": MODEL,
+                "messages": [{"role": "user", "content": case["prompt"]}],
+                "stream": False,
+                "think": False,
+                "options": OPTIONS,
+            }
+            response = httpx.post("http://127.0.0.1:11434/api/chat", json=payload, timeout=180)
+            response.raise_for_status()
+            result = {**case, "model": MODEL, "options": OPTIONS,
+                      "response": response.json()["message"]["content"]}
+            report.write(json.dumps(result, ensure_ascii=False) + "\n")
+    print(f"BASELINE {target}")
+
+if __name__ == "__main__":
+    main()</code></pre>
+<p>Run <code>python -m homunculus.baseline</code>, then open <code>reports/baseline.jsonl</code>. Score each response manually in a separate <code>reports/baseline-review.md</code> on task correctness, requested format, usefulness, and resemblance to your preferred voice, each from 0–2. Record concrete observations, such as “added an unnecessary preamble” or “ignored the two-bullet limit.” These same prompt IDs and settings become the frozen comparison in Section VI.</p>
+<p>A base-versus-instruct experiment is still useful for understanding templates, but it is not the product baseline. The product baseline is the exact Qwen3 service the final model will replace, using a fixed suite, fixed settings, saved raw outputs, and a rubric another run can repeat.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // FREEZE THE QUESTIONS FIRST</div>
+<p>A baseline created after seeing the tuned model is easy to manipulate unconsciously. Freeze case IDs, prompts, settings, and scoring criteria before training; save raw responses as well as scores. Later comparisons can then ask whether the adapter changed behavior on the same work, rather than whether a reviewer invented friendlier tests.</p></div>
 '''
+
+[[lessons.readings]]
+label = "Ollama chat API"
+url = "https://docs.ollama.com/api/chat"
+
+[[lessons.readings]]
+label = "Qwen3-8B model card"
+url = "https://huggingface.co/Qwen/Qwen3-8B"
 
 [[lessons.exercises]]
 id = "s02-l05-e1"
 type = "mc"
 points = 20
-prompt = "Per this rite, what makes 'that output looked fine' a weak judgment compared to a real comparison?"
+prompt = "Why must the baseline suite be created before training?"
 choices = [
-  "It names no specific axis (format, instruction-following, determinism) and can't be repeated or checked on the next run",
-  "It is too long and should be shortened before recording",
-  "It is only a problem for base models, never for instruct models",
-  "Nothing — an experienced artificer's gut feeling is always sufficient",
+  "TRL refuses to train unless Ollama has already scored the data",
+  "It increases the GPU's physical memory",
+  "It prevents choosing only prompts that make the finished adapter look good",
+  "It converts Qwen weights into GGUF",
 ]
-answer = 0
-whyWrong = "Length isn't the issue at all, the judgment problem applies equally to instruct output, and 'gut feeling is sufficient' is exactly the false-victory habit the smoke-test callback in this rite warns against."
-explain = "A real judgment names the specific axis being checked so it can be repeated and verified later — the same discipline the third rite's smoke test demanded of a claimed 'READY'."
-hint = "The lesson says 'that looked fine' names no specific axis (format, instruction-following, determinism) — the problem is lack of specificity, not length or model type, and gut feeling alone is the false-victory trap the smoke-test callback warns about directly."
+answer = 2
+whyWrong = "The suite is an evaluation control, not a trainer requirement, memory feature, or converter."
+explain = "A frozen before-picture makes improvement and regression claims falsifiable."
+hint = "Think about selection bias after seeing the final output."
 
 [[lessons.exercises]]
 id = "s02-l05-e2"
 type = "text"
 points = 15
-prompt = "In the smoke-test rite from the first section, what did printing bare 'NOT READY' with no failed-check names fail to give you, that a named failure list did?"
-answer = "which checks failed"
-accept = ["the specific failed checks", "the names of the failed checks", "which links failed"]
-hint = "Recall the field notes on the honest failure message: naming the specific failure versus just its existence."
+prompt = "Which report stores the untouched model responses as JSONL?"
+answer = "reports/baseline.jsonl"
+accept = ["baseline.jsonl", "reports/baseline.jsonl"]
+hint = "It is the target path in baseline.py."
 
 [[lessons.exercises]]
 id = "s02-l05-e3"
-type = "mc"
+type = "fill"
 points = 20
-prompt = "On this AMD bench, what does <code>device=\"cuda\"</code> in the pipeline call above actually mean, per the third rite's explanation of the same naming quirk?"
-choices = [
-  "It silently falls back to CPU since there is no CUDA on an AMD card",
-  "It requires a separate CUDA install alongside ROCm",
-  "It is the historical device namespace PyTorch's ROCm build reuses for the HIP backend — it still means the AMD GPU, not literal CUDA",
-  "It only works if the model was originally trained on an Nvidia GPU",
-]
-answer = 2
-whyWrong = "There is no silent CPU fallback and no CUDA install required or present on this box, and a model's original training hardware has no bearing on which device string the local runtime accepts — the naming is purely a historical accident in PyTorch's own API, as the third rite explained."
-explain = "PyTorch's ROCm build reuses torch.cuda's namespace for its HIP backend, so device=\"cuda\" strings still route to the AMD GPU on this bench — exactly the same fact the third rite established for torch.cuda.is_available()."
-hint = "The third rite's opening lesson explained this exact naming quirk: the cuda namespace is a historical accident in PyTorch's API, not evidence of literal CUDA on this box — the ROCm build still routes it to the AMD GPU."
+prompt = "Complete the Ollama payload field that disables streamed response fragments for a simple one-response-per-row report."
+code = '''payload = {
+    "model": "qwen3:8b",
+    "____": False,
+}'''
+answer = "stream"
+hint = "The API otherwise yields multiple incremental chunks."
 
 [[lessons.exercises]]
 id = "s02-l05-e4"
-type = "fill"
+type = "mc"
 points = 20
-prompt = "Fill the missing method name from the pipeline snippet's companion step — turning the messages list into the exact string the model's chat training expects, as this section's fourth rite named it."
-code = '''formatted = tokenizer.____(messages, tokenize=False, add_generation_prompt=True)'''
-answer = "apply_chat_template"
-hint = "It's the same tokenizer method this rite's second lesson introduced for rendering role/content dicts into a model-specific string."
+prompt = "Which observation is reproducible enough for the review?"
+choices = [
+  "format-01 added prose before the requested heading and returned three bullets instead of two",
+  "It felt vaguely worse",
+  "The colors seemed strange",
+  "I liked the second answer more",
+]
+answer = 0
+whyWrong = "Unanchored impressions do not name the case or the contract that failed."
+explain = "A case id plus an observable deviation can be checked again after training."
+hint = "Choose the statement that another person could verify from the saved row."
 
 [[lessons.exercises]]
 id = "s02-l05-e5"
 type = "write"
 points = 35
-prompt = "Given two output strings, print exactly one line naming which is more likely the instruct reply and which the base reply, using this rule: whichever string is shorter than 40 characters is the instruct reply (assumed to answer and stop); the other is the base reply. Print exactly: <code>INSTRUCT: short and answers. BASE: rambles on with unrelated continuation text that never stops.</code> — computed by comparing lengths, not hardcoded."
-starter = '''output_a = "rambles on with unrelated continuation text that never stops"
-output_b = "short and answers"
+prompt = "Compute the mean of four 0–2 rubric scores and print exactly: SCORE 1.5"
+starter = '''scores = {"correct": 2, "format": 1, "useful": 2, "voice": 1}
 
-# whichever of output_a/output_b has length < 40 is the instruct reply,
-# the other is the base reply. Print exactly:
-#   INSTRUCT: <instruct text>. BASE: <base text>.
-print("INSTRUCT: ?. BASE: ?.")
+mean = 0
+print(f"SCORE {mean:.1f}")
 '''
-expect = "INSTRUCT: short and answers. BASE: rambles on with unrelated continuation text that never stops."
-hint = "Compare len(output_a) and len(output_b) against 40 to decide which variable holds the instruct text, then format both into the sentence."
+solution = '''scores = {"correct": 2, "format": 1, "useful": 2, "voice": 1}
 
-[[lessons.exercises]]
-id = "s02-l05-e6"
-type = "mc"
-points = 20
-prompt = "Which comparison does this section's freestyle actually grade, per its rubric's 'Comparison' criterion?"
-choices = [
-  "Whichever model has more downloads on the registry",
-  "Base and instruct behavior compared with a clear, named reason for the difference observed",
-  "Which model has the smallest file size on disk",
-  "Whether the student typed the pull command without a typo",
-]
-answer = 1
-whyWrong = "Download counts, file size, and command-typing accuracy are not what the rubric's Comparison criterion measures at all — it specifically asks for base-versus-instruct behavior with a stated reason, the exact habit this rite spent its whole body building."
-explain = "The freestyle's Comparison criterion exists to check the judgment habit this rite teaches: naming what differed between base and instruct output and why, not just that a difference was noticed."
-hint = "The freestyle rubric's Comparison criterion is described in the section's freestyle.toml — it asks for base-versus-instruct behavior compared with a clear reason, not download counts, file sizes, or command-typing accuracy."
+mean = sum(scores.values()) / len(scores)
+print(f"SCORE {mean:.1f}")
+'''
+expect = "SCORE 1.5"
+hint = "Divide the sum of the values by the number of rubric axes."

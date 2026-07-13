@@ -1,105 +1,128 @@
 [[lessons]]
 id = "s07-l03"
 title = "The Speaking Box"
-teaches = ["s07-choice-routing","s07-dialogue-render"]
+teaches = ["s07-choice-routing", "s07-dialogue-render", "s07-dialogue-frame-integration"]
 body = '''
-<p>s07-l03 opens the conversation and choice chart through Speaking. s07-l03 hears THE CARTOGRAPHER name s07-choice-routing its first bearing. s07-l03 names one input, one change, and one output. s07-l03 gives s07-dialogue-render a second mark for comparison. s07-l03 keeps the smallest successful example beside its route.</p>
-<p>s07-l03 reads from left to right, then narrates state changes. s07-l03 keeps its conversation and choice clue concrete and observable. s07-l03 runs twice; the second pass challenges the first. s07-l03 records which owner moved when s07-choice-routing shifted. s07-l03 carries earlier <code>dialogue_tree</code> evidence into this chart.</p>
-<p>s07-l03 asks one decision to stand alone in the margin. s07-l03 keeps s07-dialogue-render visible instead of hiding it behind polish. s07-l03 tests a friendly case and a sharp edge case. s07-l03 compares both traces so s07-choice-routing has a witness. s07-l03 names the failure before choosing a repair.</p>
-<p>s07-l03 treats each handoff as a contract between maker and reader. s07-l03 supplies s07-choice-routing; the reader checks s07-dialogue-render. s07-l03 places its check where another wayfinder can repeat it. s07-l03 earns THE CARTOGRAPHER's trust through evidence, not luck. s07-l03 leaves one deliberate question for the next chart.</p>
-<p>s07-l03 closes by stating what the program must preserve. s07-l03 names one input that could falsify s07-choice-routing. s07-l03 names one output that confirms s07-dialogue-render still belongs. s07-l03 runs the smallest route, inspects its trace, and annotates it. s07-l03 turns the conversation and choice chart into a RuneBound waypoint.</p>
-<p>s07-l03 ends with a handoff to the next chart. s07-l03 carries s07-dialogue-render forward after s07-choice-routing earns trust. s07-l03 lets THE CARTOGRAPHER record the result in plain language. s07-l03 turns a clean rerun from a guess into a fact. s07-l03 lets the next wayfinder begin without hidden context.</p>
-<pre><code>print("s07-l03 // The Speaking Box")</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // S07-L03</div><p>s07-l03 <strong>Evidence.</strong> Record s07-choice-routing; compare it with s07-dialogue-render before advancing.</p><p>s07-l03 <strong>Repair.</strong> Change one cause, rerun the route, and preserve the explanation.</p></div>
+<p>A dialogue tree becomes playable only when the frame route gives it both input and a visible surface. Add this module-level helper to <code>npc.py</code>. It converts a string into a new text Surface and blits it at screen pixels. Its <code>x</code> and <code>y</code> are deliberately screen coordinates because UI is pinned to the window, unlike actors and tiles. The helper returns nothing and never changes <code>current_id</code>, <code>selected_choice</code>, Player, or camera.</p>
+<pre><code>def render_text(surface, text, x, y):
+    font = pygame.font.Font(None, 28)
+    image = font.render(text, True, (245, 229, 185))
+    surface.blit(image, (x, y))
+
+
+def render_dialogue(surface, dialogue_tree, selected_choice):
+    box = pygame.Rect(24, surface.get_height() - 170,
+                      surface.get_width() - 48, 146)
+    pygame.draw.rect(surface, (25, 39, 31), box)
+    pygame.draw.rect(surface, (232, 176, 64), box, 2)
+    node = dialogue_tree.current_node()
+    render_text(surface, node["text"], box.x + 16, box.y + 14)
+    for index, choice in enumerate(node["choices"]):
+        marker = ">" if index == selected_choice else " "
+        render_text(surface, f"{marker} {choice['text']}", box.x + 16,
+                    box.y + 54 + index * 28)</code></pre>
+<p>Use a complete input branch in <code>main.py</code>. While <code>active_dialogue is not None</code>, Up and Down change only <code>selected_choice</code>, clamped to the current number of choices. Return calls <code>active_dialogue.choose(selected_choice)</code>. After a successful choice, reset selection to 0; if the new node has no choices, keep its farewell visible until the next E press closes it by setting <code>active_dialogue = None</code>. This keeps the terminal line readable rather than disappearing in the same key event.</p>
+<pre><code>if event.type == pygame.KEYDOWN and active_dialogue is not None:
+    choices = active_dialogue.current_node()["choices"]
+    if event.key == pygame.K_UP and choices:
+        selected_choice = max(0, selected_choice - 1)
+    elif event.key == pygame.K_DOWN and choices:
+        selected_choice = min(len(choices) - 1, selected_choice + 1)
+    elif event.key == pygame.K_RETURN and choices:
+        active_dialogue.choose(selected_choice)
+        selected_choice = 0
+    elif event.key == pygame.K_e and not choices:
+        active_dialogue = None</code></pre>
+<p>Keep drawing in the proven s06 order: event pump; Player input and collision; <code>actors.update(dt)</code>; resolved camera follow; clear; <code>tile_map.render(screen, camera)</code>; actor draws; then, only when active, <code>render_dialogue(screen, active_dialogue, selected_choice)</code>; one <code>pygame.display.flip()</code>. The box is painted after actors so it is readable, but its renderer is not a second display flip. Do not let arrow keys move Player while dialogue is active; make the Player input call an <code>elif active_dialogue is None</code> branch so arrows navigate choices instead.</p>
+<p>Run <code>python3 main.py</code> from RuneBound’s project folder. Walk within 64 pixels of the Elder, press E, choose “Who are you?” with arrows and Return, then show the farewell. Press E once more at the terminal node to close the box. Relaunch and repeat. Record the command, the near/far observation, one selected response, and any smallest repair in <code>README.md</code>. No debug center print and no inline dialogue dictionary belongs in the shipped game.</p>
+<div class="callout"><strong>THE CARTOGRAPHER'S RULE:</strong> input changes dialogue state; rendering reports that state; the frame presents every layer once.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // EMPTY CHOICE LIST</div><p>Never compute <code>len(choices) - 1</code> for an empty list. The guards keep selection work out of terminal nodes. If text overlaps choices, adjust only the box layout constants; do not make the renderer choose a route to hide the overlap.</p></div>
 '''
 
 [[lessons.readings]]
-label = "PyGame docs // keyboard and events // The Speaking Box"
-url = "https://www.pygame.org/docs/ref/event.html"
+label = "PyGame Docs // font rendering"
+url = "https://www.pygame.org/docs/ref/font.html"
 
 [[lessons.readings]]
-label = "Python library // JSON // The Speaking Box"
-url = "https://docs.python.org/3/library/json.html"
+label = "PyGame Docs // display flip"
+url = "https://www.pygame.org/docs/ref/display.html#pygame.display.flip"
 
 [[lessons.exercises]]
 id = "s07-l03-e1"
 type = "mc"
-points = 14
-prompt = '''
-<p>What is the dialogue renderer allowed to change during a frame? Select the reading that keeps quest hooks can later react to a stable dialogue flag instead of reading pixels possible.</p>
-'''
-choices = ["the JSON branch chosen by a key press","The Speaking Box: keep s07-choice-routing owned by the named boundary and verify the result before handoff s07-l03-e1.","the player's collision rectangle","the quest reward before a node is completed"]
-answer = 1
-whyWrong = '''
-The tempting routes confuse letting drawing mutate the selected choice or losing the current node between frames with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace choice order, next-node routing, and render_text() inside a surface-backed UI in the Speaking Tiles chart, then compare the input changes conversation state while rendering only displays the current state with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves input changes conversation state while rendering only displays the current state and leaves choice order, next-node routing, and render_text() inside a surface-backed ui available for the next RuneBound handoff.
-'''
+points = 20
+prompt = '''<p>Which responsibility is permitted inside <code>render_text</code>?</p>'''
+choices = ['Change <code>DialogueTree.current_id</code> after drawing a choice', 'Subtract the world camera from an NPC rect', 'Poll held arrows for Player velocity', 'Create a text Surface and blit it at the supplied screen position']
+answer = 3
+hint = '''This helper is the UI painting boundary, not an input, world-coordinate, or conversation-routing boundary.''' 
+whyWrong = '''Choice routing belongs to the event branch, camera subtraction belongs to world actor drawing, and held arrows belong to Player movement. The helper only turns current text into pixels on the UI surface.''' 
+explain = '''Keeping rendering pure lets later quest hooks read a stable dialogue state rather than infer choices from pixels.''' 
 
 [[lessons.exercises]]
 id = "s07-l03-e2"
-type = "write"
-points = 30
-prompt = '''
-<p>Complete the speaking tiles route and print exactly <code>RUNEBOUND S07 L03 SEAL</code>. Preserve the named data before adding the final observation.</p>
+type = "fill"
+points = 22
+prompt = '''<p>Restore the method that sends the completed frame to the display after ground, actors, and the optional dialogue box have been painted.</p>'''
+code = '''
+pygame.display.____()
 '''
-starter = '''
-route_mark = "speaking-box"
-print("survey pending")
-# Add the chart seal after checking the route.
-'''
-expect = '''
-RUNEBOUND S07 L03 SEAL
-'''
-solution = '''
-route_mark = "speaking-box"
-print("RUNEBOUND S07 L03 SEAL")
-'''
-hint = '''
-For s07-l03-e2, leave the route data intact and add only its final s07 observation; compare the starter output with the target before submitting.
-'''
+answer = "flip"
+hint = '''s03 assigned this display call to the end of the frame, and s06 kept exactly one of it.''' 
+whyWrong = '''<code>set_mode</code> creates the display Surface and <code>blit</code> is a Surface method. This call presents the already-painted back buffer.''' 
 
 [[lessons.exercises]]
 id = "s07-l03-e3"
-type = "type"
-points = 10
-reps = 2
-prompt = '''
-<p>Retype this speaking tiles evidence exactly. Keep choice order, next-node routing, and render_text() inside a surface-backed ui visible while you write. (Ctrl+Enter submits.)</p>
+type = "write"
+points = 35
+prompt = '''<p>Model dialogue selection in plain Python. The supplied node has three choices and starts at index 0. Define <code>move_selection(index, key, choice_count)</code> so “down” moves to 1, “up” returns to 0, and an “up” at 0 stays 0. Print exactly <code>DOWN 1</code>, <code>UP 0</code>, and <code>EDGE 0</code>.</p>'''
+starter = '''
+choice_count = 3
+selected_choice = 0
+
+# Define move_selection. Use it for down, up, then another up.
 '''
-code = '''
-player_rect = (0, 0, 1, 1)
-node_id = "greeting"
-print(player_rect, node_id)
+expect = '''
+DOWN 1
+UP 0
+EDGE 0
 '''
+solution = '''
+choice_count = 3
+selected_choice = 0
+
+def move_selection(index, key, choice_count):
+    if key == "down":
+        return min(choice_count - 1, index + 1)
+    if key == "up":
+        return max(0, index - 1)
+    return index
+
+selected_choice = move_selection(selected_choice, "down", choice_count)
+print("DOWN", selected_choice)
+selected_choice = move_selection(selected_choice, "up", choice_count)
+print("UP", selected_choice)
+selected_choice = move_selection(selected_choice, "up", choice_count)
+print("EDGE", selected_choice)
+'''
+hint = '''Use <code>min(choice_count - 1, index + 1)</code> for down and <code>max(0, index - 1)</code> for up.''' 
 
 [[lessons.exercises]]
 id = "s07-l03-e4"
-type = "fill"
+type = "text"
 points = 18
-prompt = '''
-<p>s07-l03-e4: restore the missing operation in the supplied code. Use its operands and the chart evidence to complete the route without renaming the owner.</p>
-'''
-code = '''
-dialogue_box.____(screen, text)
-'''
+prompt = '''<p>What helper introduced in <code>npc.py</code> will s10 reuse to paint objective and dialogue text on a PyGame Surface?</p>'''
 answer = "render_text"
-hint = '''
-Look at what must happen to dialogue_box.render_text(screen, node["text"]); choose the operation that performs that job rather than the one that merely inspects the result.
-'''
+hint = '''It accepts a surface, a string, and two screen-pixel coordinates.''' 
+whyWrong = '''<code>render_dialogue</code> lays out this section’s whole box, while <code>draw</code> is inherited actor rendering. The requested smaller helper is the reusable text-painting boundary.''' 
 
 [[lessons.exercises]]
 id = "s07-l03-e5"
-type = "text"
-points = 16
-prompt = '''
-<p>s07-l03-e5: name the Python term for the specific unit requested by this chart. Supply the language term, not the surrounding story label.</p>
-'''
-answer = "next"
-hint = '''
-Recall the named boundary in The Speaking Box; the answer is the language term for that single job, not the larger game feature.
+type = "type"
+points = 12
+reps = 2
+prompt = '''<p>Retype the final UI layer. It is conditional, but it still precedes the frame’s single presentation.</p>'''
+code = '''
+if active_dialogue is not None:
+    render_dialogue(screen, active_dialogue, selected_choice)
+pygame.display.flip()
 '''

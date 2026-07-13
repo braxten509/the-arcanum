@@ -12,6 +12,9 @@ import urllib.parse
 import urllib.request
 
 from .config import BUILD_DIR, CLI_EFFORTS, TOMES_DIR, jobs, jobs_lock, read_settings
+from .build_state import (BUILD_PHASE_TITLES, BUILD_TOTAL_PHASES, build_result_status,
+                          cancelled_build_status, load_active_owner, record_build_result,
+                          remove_active_owner)
 from .tomes import load_manifest, resolve_working_tid
 from .tool_trace import mirror_tool_trace
 
@@ -28,8 +31,6 @@ BUILD_RENAME_RE = re.compile(r"renamed tomes/\S+ -> tomes/(\S+)")
 # / "· section s01 [1/8] already authored — skipping"
 BUILD_SECTION_RE = re.compile(r"^\s*·\s+(?:authoring|resuming|section)\s+s\d+\s+\[(\d+)/(\d+)\]")
 BUILD_RUNNER_RE = re.compile(r"\[runner: ([^\]]+)\]")
-BUILD_TOTAL_PHASES = 9  # tome-workflow/ phases 0..8
-
 # The runner's stdout also contains patches, generated prose, token counters, and CLI
 # narration. Keep that raw tail for failure diagnostics, but give the live terminal only
 # harness-authored progress signals. Anchored phrases prevent arbitrary worker prose from
@@ -151,15 +152,23 @@ def watch_build(gid, proc):
         if pause:  # outside the lock — notify never blocks, forge_name reads a file
             notify(f"⏸ {forge_name(tnow) or tnow or 'A tome'} needs you", line.strip(), priority=1)
     rc = proc.wait()
-    tome = tail = final = None
+    tome = tail = final = slug = phase_title = failure = None
+    phase = 0
     with jobs_lock:
         job = jobs.get(gid)
+        slug = (job.get("slug") or job.get("tome")) if job else None
         if job and job.get("status") == "running":  # cancel sets its own status first
-            job["status"] = "done" if rc == 0 else "error"
-            if rc != 0:
+            externally_cancelled = bool(slug and cancelled_build_status(slug))
+            job["status"] = "cancelled" if externally_cancelled else ("done" if rc == 0 else "error")
+            if rc != 0 and not externally_cancelled:
                 job["error"] = "\n".join(job["log"][-30:])
         if job:
             final, tome, tail = job.get("status"), job.get("tome"), "\n".join(job.get("log", [])[-6:])
+            phase, phase_title, failure = job.get("phase", 0), job.get("phaseTitle", ""), job.get("error", "")
+    if slug:
+        remove_active_owner(slug)
+        if final in ("done", "error", "cancelled"):
+            record_build_result(slug, tome, final, phase, phase_title, failure)
     nm = forge_name(tome) or tome or "The tome"
     if final == "done":
         notify("✓ Tome forged", f"{nm} finished — ready in the Bindery.")
@@ -243,12 +252,128 @@ def _resume_phase(planid, tid):
     return 2 if os.path.isdir(tdir) else 1
 
 
-def list_workings():
-    """Abandoned builds worth resuming: a plan file whose build isn't running and never reached
-    the end-of-run '## Harness ground truth' append (which only a completed build gets)."""
+def _live_build_processes(proc_root="/proc"):
+    """Return live build_tome.py harnesses visible to this host.
+
+    The web server's jobs registry is intentionally in-memory, so a second server process
+    cannot see builds launched by the first one. /proc is the shared source of truth on the
+    Linux host: a live harness command carries the original plan id immediately after
+    tools/build_tome.py. Keep this parser exact so worker prompts that merely mention the
+    script cannot masquerade as a build.
+    """
+    found = []
+    try:
+        pids = os.listdir(proc_root)
+    except OSError:
+        return found
+    for entry in pids:
+        if not entry.isdigit():
+            continue
+        pdir = os.path.join(proc_root, entry)
+        try:
+            with open(os.path.join(pdir, "cmdline"), "rb") as f:
+                argv = [part.decode("utf-8", "replace") for part in f.read().split(b"\0") if part]
+        except OSError:  # process exited, or proc entry is not readable
+            continue
+        for i, arg in enumerate(argv[:-1]):
+            if os.path.basename(arg) != "build_tome.py":
+                continue
+            planid = argv[i + 1]
+            if not re.fullmatch(r"[A-Za-z0-9_-]+", planid):
+                break
+            try:
+                started = os.stat(pdir).st_ctime
+            except OSError:
+                started = None
+            found.append({"pid": int(entry), "planid": planid, "startedAt": started})
+            break
+    return found
+
+
+def _live_trace_jobs(proc_root="/proc"):
+    """Map build harness pid -> owning forge job id for legacy/live processes."""
+    found = {}
+    try:
+        pids = os.listdir(proc_root)
+    except OSError:
+        return found
+    for entry in pids:
+        if not entry.isdigit():
+            continue
+        try:
+            with open(os.path.join(proc_root, entry, "cmdline"), "rb") as f:
+                argv = [part.decode("utf-8", "replace") for part in f.read().split(b"\0") if part]
+        except OSError:
+            continue
+        if not any(os.path.basename(arg) == "forge_tool_trace.py" for arg in argv):
+            continue
+        try:
+            job_id = argv[argv.index("--job") + 1]
+            build_pid = int(argv[argv.index("--pid") + 1])
+        except (ValueError, IndexError):
+            continue
+        if re.fullmatch(r"[A-Za-z0-9_-]+", job_id):
+            found[build_pid] = job_id
+    return found
+
+
+def list_active_builds(proc_root="/proc"):
+    """All live tome builds, including harnesses owned by another server process."""
     with jobs_lock:
-        active = {j.get("tome") for j in jobs.values()
-                  if j.get("kind") == "build" and j.get("status") == "running"}
+        local = [{"id": bid, "tome": j.get("tome"), "slug": j.get("slug") or j.get("tome"),
+                  "name": forge_name(j.get("tome")), "phase": j.get("phase"),
+                  "phaseTitle": j.get("phaseTitle"), "status": j.get("status"),
+                  "totalPhases": j.get("totalPhases", BUILD_TOTAL_PHASES), "external": False}
+                 for bid, j in jobs.items()
+                 if j.get("kind") == "build" and j.get("status") == "running"]
+    claimed = {value for j in local for value in (j.get("slug"), j.get("tome")) if value}
+    external = []
+    legacy_traces = _live_trace_jobs(proc_root)
+    for proc in _live_build_processes(proc_root):
+        planid = proc["planid"]
+        pp = os.path.join(BUILD_DIR, f"{planid}.plan.md")
+        try:
+            with open(pp, encoding="utf-8") as f:
+                text = f.read()
+        except OSError:
+            continue
+        tid = resolve_working_tid(planid, text)
+        if planid in claimed or tid in claimed:
+            continue
+        phase = _resume_phase(planid, tid)
+        row = {"id": planid, "tome": tid, "slug": planid,
+               "name": forge_name(tid) or tid, "phase": phase,
+               "phaseTitle": BUILD_PHASE_TITLES[phase], "status": "running",
+               "totalPhases": BUILD_TOTAL_PHASES, "external": True}
+        trace_id = load_active_owner(planid, proc["pid"]) or legacy_traces.get(proc["pid"])
+        if trace_id:
+            row["traceId"] = trace_id
+        if proc.get("startedAt") is not None:
+            row["startedAt"] = proc["startedAt"]
+        external.append(row)
+        claimed.update((planid, tid))
+    return local + external
+
+
+def working_is_active(*ids):
+    wanted = {i for i in ids if i}
+    return any(wanted.intersection((j.get("slug"), j.get("tome")))
+               for j in list_active_builds())
+
+
+def external_build_process(planid, proc_root="/proc"):
+    return next((proc for proc in _live_build_processes(proc_root)
+                 if proc.get("planid") == planid), None)
+
+
+def list_workings():
+    """Stopped, failed, or cancelled builds worth resuming.
+
+    Durable results are authoritative; Harness ground truth remains only as the legacy
+    completion marker for builds that predate result sidecars.
+    """
+    active = {value for j in list_active_builds()
+              for value in (j.get("slug"), j.get("tome")) if value}
     out = []
     for pp in glob.glob(os.path.join(BUILD_DIR, "*.plan.md")):
         planid = os.path.basename(pp)[:-len(".plan.md")]
@@ -257,7 +382,10 @@ def list_workings():
                 text = f.read()
         except OSError:
             continue
-        if "Harness ground truth" in text:           # a completed run, not an abandoned one
+        result = build_result_status(planid)
+        if result and result.get("status") == "done":
+            continue
+        if not result and "Harness ground truth" in text:  # legacy completed run
             continue
         tid = resolve_working_tid(planid, text)
         if tid in active or planid in active:         # currently being forged, not abandoned
@@ -291,7 +419,7 @@ def _runner_args(body):
 
 
 def _clear_runner_handshake(tid):
-    for stale in ("runner-request", "runner-reply"):
+    for stale in ("runner-request", "runner-reply", "cancelled", "result"):
         try:
             os.remove(os.path.join(BUILD_DIR, f"{tid}.{stale}.json"))
         except OSError:

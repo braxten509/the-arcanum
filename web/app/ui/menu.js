@@ -212,8 +212,9 @@ export function enhanceSelect(sel) {
     const r = btn.getBoundingClientRect();
     const p = popMenu([...sel.options].map((o, i) => ({
       label: o.text, suffix: o.dataset.suffix, sel: i === sel.selectedIndex,
+      disabled: o.disabled,
       on: () => {
-        if (sel.selectedIndex === i) return;
+        if (o.disabled || sel.selectedIndex === i) return;
         sel.selectedIndex = i;
         sel.dispatchEvent(new Event("change"));
       },

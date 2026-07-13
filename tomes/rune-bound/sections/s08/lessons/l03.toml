@@ -1,80 +1,95 @@
 [[lessons]]
 id = "s08-l03"
 title = "The Slime's State"
-teaches = ["s08-enemy-ai","s08-state-transitions"]
+teaches = ["s08-enemy-ai", "s08-state-transitions"]
 body = '''
-<p>s08-l03 opens the turns and damage chart through Slime's. s08-l03 hears THE CARTOGRAPHER name s08-enemy-ai its first bearing. s08-l03 names one input, one change, and one output. s08-l03 gives s08-state-transitions a second mark for comparison. s08-l03 keeps the smallest successful example beside its route.</p>
-<p>s08-l03 reads from left to right, then narrates state changes. s08-l03 keeps its turns and damage clue concrete and observable. s08-l03 runs twice; the second pass challenges the first. s08-l03 records which owner moved when s08-enemy-ai shifted. s08-l03 carries earlier <code>StatBlock</code> evidence into this chart.</p>
-<p>s08-l03 asks one decision to stand alone in the margin. s08-l03 keeps s08-state-transitions visible instead of hiding it behind polish. s08-l03 tests a friendly case and a sharp edge case. s08-l03 compares both traces so s08-enemy-ai has a witness. s08-l03 names the failure before choosing a repair.</p>
-<p>s08-l03 treats each handoff as a contract between maker and reader. s08-l03 supplies s08-enemy-ai; the reader checks s08-state-transitions. s08-l03 places its check where another wayfinder can repeat it. s08-l03 earns THE CARTOGRAPHER's trust through evidence, not luck. s08-l03 leaves one deliberate question for the next chart.</p>
-<p>s08-l03 closes by stating what the program must preserve. s08-l03 names one input that could falsify s08-enemy-ai. s08-l03 names one output that confirms s08-state-transitions still belongs. s08-l03 runs the smallest route, inspects its trace, and annotates it. s08-l03 turns the turns and damage chart into a RuneBound waypoint.</p>
-<p>s08-l03 ends with a handoff to the next chart. s08-l03 carries s08-state-transitions forward after s08-enemy-ai earns trust. s08-l03 lets THE CARTOGRAPHER record the result in plain language. s08-l03 turns a clean rerun from a guess into a fact. s08-l03 lets the next wayfinder begin without hidden context.</p>
-<pre><code>print("s08-l03 // The Slime's State")</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // S08-L03</div><p>s08-l03 <strong>Evidence.</strong> Record s08-enemy-ai; compare it with s08-state-transitions before advancing.</p><p>s08-l03 <strong>Repair.</strong> Change one cause, rerun the route, and preserve the explanation.</p></div>
+<p>Enemy behavior should be a short route, not four booleans that can all be true by accident. Add <code>Enemy(AnimatedSprite)</code> in <code>combat.py</code>. Its constructor accepts <code>sheet, enemy_id, x, y, stats</code>, calls the existing sprite initializer with the supplied world pixels, then owns <code>enemy_id</code>, <code>stats</code>, <code>state = "idle"</code>, <code>aggro_range = 160</code>, and <code>attack_range = 48</code>. It does not own a camera: inherited <code>draw(surface, camera)</code> still subtracts camera only while painting.</p>
+<p>Add <code>update_ai(player)</code>. Measure distance in world space with <code>Vector2(self.rect.center).distance_to(player.rect.center)</code>; this reuses s06’s velocity vocabulary without changing Player’s velocity. The states tell a reader why the enemy has chosen its next move: idle outside aggro range; aggro inside aggro range but outside attack range; attack inside attack range; retreat when its HP is at or below one quarter of <code>max_hp</code>. A defeated enemy does not update: combat ends before another AI choice.</p>
+<pre><code>def update_ai(self, player):
+    distance = Vector2(self.rect.center).distance_to(player.rect.center)
+    if self.stats.hp &lt;= self.stats.max_hp // 4:
+        self.state = "retreat"
+    elif distance &lt;= self.attack_range:
+        self.state = "attack"
+    elif distance &lt;= self.aggro_range:
+        self.state = "aggro"
+    else:
+        self.state = "idle"
+    return self.state</code></pre>
+<p>During <code>CombatSystem.enemy_turn()</code>, call <code>enemy.update_ai(player)</code>. An attack-state enemy uses <code>deal_damage(enemy, player)</code>. An aggro enemy moves toward the Player only in the overworld encounter route: calculate a direction from centers, normalize a nonzero <code>Vector2</code>, and move its world rect by <code>enemy_speed * dt</code>. Before accepting contact, reuse <code>rectangles_overlap(player.rect, enemy.rect)</code> from <code>player.py</code>; the helper tests strict shared interior in world pixels. It has no camera argument and must not be replaced by a screen-coordinate comparison.</p>
+<p>Set the enemy animation state deliberately: idle and retreat use inherited <code>set_state("idle")</code>; aggro uses <code>set_state("walk")</code>. Attack art comes later, so do not invent an unavailable sprite-sheet row. This is a temporary visual limitation, not a temporary API. The combat state names remain real and visible in the combat message.</p>
+<div class="callout"><strong>THE CARTOGRAPHER'S RULE:</strong> the world rect answers range; the AI state names intent; animation reports that intent.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CENTER IS NOT CONTACT</div><p>Distance selects an AI state. Rectangle overlap selects encounter contact. A sprite can be in aggro range long before its rectangles overlap; merging those tests makes a long-range alert look like a collision bug.</p></div>
 '''
 
 [[lessons.readings]]
-label = "Python library // dataclasses // The Slime's State"
-url = "https://docs.python.org/3/library/dataclasses.html"
+label = "PyGame Docs // Vector2"
+url = "https://www.pygame.org/docs/ref/math.html#pygame.math.Vector2"
 
 [[lessons.exercises]]
 id = "s08-l03-e1"
-type = "mc"
-points = 14
-prompt = '''
-<p>What makes the Slime's AI easier to debug than a pile of boolean flags? Select the reading that keeps the health and win rules can stop the state machine at a deliberate terminal state possible.</p>
-'''
-choices = ["the AI never needs a distance check","a sprite group chooses combat actions by draw order","the state table stores all item descriptions","The Slime's State: keep s08-enemy-ai owned by the named boundary and verify the result before handoff s08-l03-e1."]
-answer = 3
-whyWrong = '''
-The tempting routes confuse using unrelated booleans that allow idle and attack to be true at the same time with the job this trial actually asks you to protect; each decoy moves ownership to the wrong part of the chart.
-'''
-hint = '''
-Trace a small AI transition table whose conditions can be narrated in the combat log in the Steel Turn chart, then compare the the state names intent while the update step applies one allowed transition with the evidence named in the prompt.
-'''
-explain = '''
-The selected mark preserves the state names intent while the update step applies one allowed transition and leaves a small ai transition table whose conditions can be narrated in the combat log available for the next RuneBound handoff.
+type = "type"
+points = 12
+reps = 2
+prompt = '''<p>Retype the nearest-range transition. The equality case is still close enough to attack.</p>'''
+code = '''
+if distance <= self.attack_range:
+    self.state = "attack"
 '''
 
 [[lessons.exercises]]
 id = "s08-l03-e2"
-type = "text"
-points = 16
-prompt = '''
-<p>s08-l03-e2: name the Python term for the specific unit requested by this chart. Supply the language term, not the surrounding story label.</p>
-'''
-answer = "aggro"
-hint = '''
-Recall the named boundary in The Slime's State; the answer is the language term for that single job, not the larger game feature.
-'''
+type = "mc"
+points = 20
+prompt = '''<p>Which earlier helper decides whether Player and Enemy rectangles have shared interior for encounter contact?</p>'''
+choices = ['<code>TileMap.tile_at</code>', '<code>render_text</code>', '<code>rectangles_overlap</code>', '<code>DialogueTree.choose</code>']
+answer = 2
+hint = '''s06 placed this module-level four-edge AABB rule in <code>player.py</code> specifically for later combat checks.'''
+whyWrong = '''A tile lookup describes map data, text rendering paints UI, and DialogueTree follows a conversation edge. Combat contact uses the strict world-space rectangle helper.'''
+explain = '''Using the shared helper preserves the same edge-touching rule used by collision work.'''
 
 [[lessons.exercises]]
 id = "s08-l03-e3"
 type = "fill"
-points = 18
-prompt = '''
-<p>s08-l03-e3: restore the missing operation in the supplied code. Use its operands and the chart evidence to complete the route without renaming the owner.</p>
-'''
+points = 22
+prompt = '''<p>Restore the state assigned by the closest-distance branch, where the enemy is permitted to damage Player.</p>'''
 code = '''
-enemy.state = ____
+elif distance <= self.attack_range:
+    self.state = "____"
 '''
-answer = "\"aggro\""
-hint = '''
-Look at what must happen to enemy.state = "aggro" when the player enters range; choose the operation that performs that job rather than the one that merely inspects the result.
-'''
+answer = "attack"
+hint = '''This is the closest non-terminal state; its enemy turn is permitted to call <code>deal_damage</code>.'''
+whyWrong = '''<code>aggro</code> means it has noticed the player but is not close enough to strike, while <code>retreat</code> is selected by low HP. The branch names the immediate strike state.'''
 
 [[lessons.exercises]]
 id = "s08-l03-e4"
-type = "type"
-points = 10
-reps = 2
-prompt = '''
-<p>Retype this steel turn evidence exactly. Keep a small ai transition table whose conditions can be narrated in the combat log visible while you write. (Ctrl+Enter submits.)</p>
+type = "write"
+points = 35
+prompt = '''<p>Define <code>state_for(distance, hp, max_hp)</code>. Return <code>"retreat"</code> at 5 of 20 HP, <code>"attack"</code> at distance 40 with healthy HP, and <code>"aggro"</code> at distance 100 with healthy HP. Print exactly <code>LOW retreat</code>, <code>NEAR attack</code>, and <code>MID aggro</code>.</p>'''
+starter = '''
+def state_for(distance, hp, max_hp):
+    # Retreat at one quarter HP or less; attack at <= 48; aggro at <= 160.
+    pass
+
+# Print the three required state observations.
 '''
-code = '''
-state = "idle"
-player_near = True
-if player_near:
-    state = "aggro"
-print(state)
+expect = '''
+LOW retreat
+NEAR attack
+MID aggro
 '''
+solution = '''
+def state_for(distance, hp, max_hp):
+    if hp <= max_hp // 4:
+        return "retreat"
+    if distance <= 48:
+        return "attack"
+    if distance <= 160:
+        return "aggro"
+    return "idle"
+
+print("LOW", state_for(20, 5, 20))
+print("NEAR", state_for(40, 20, 20))
+print("MID", state_for(100, 20, 20))
+'''
+hint = '''Check low HP first, then compare distance against 48 and 160 in that order.'''

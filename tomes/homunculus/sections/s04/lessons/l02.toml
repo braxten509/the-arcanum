@@ -1,88 +1,107 @@
 [[lessons]]
 id = "s04-l02"
-title = "The Shape of Quintessence"
+teaches = ["prompt-completion-schema"]
+title = "Turn a Note into an Elicitable Example"
 body = '''
-<p>The last rite gathered raw <code>.md</code> files and filtered for length. Those files are still just prose on a page — a model cannot be trained on them directly. The vessel expects its quintessence in a specific vessel-shape, not as loose text, and the most universal shape in local-training tooling is <strong>JSONL</strong>: one complete JSON object per line, no trailing commas, no outer array bracket, just a clean newline-delimited stream a parser can read one record at a time without loading the entire file into memory.</p>
-<p>Two shapes dominate. The <strong>instruction</strong> shape is a flat triple: <code>{"instruction": "…", "input": "", "output": "…"}</code>, where <code>input</code> is empty for a plain prompt and holds extra context (a paragraph to summarize, a snippet to explain) when the task needs it. The <strong>chat</strong> shape is a <code>messages</code> list of <code>{"role": "…", "content": "…"}</code> dicts, typically alternating user/assistant, optionally led by a system message. The binding rite ahead uses TRL's <code>SFTTrainer</code>, which can accept a Hugging Face <code>Dataset</code> from a JSONL file in either shape — but the chat shape is the one that aligns directly with the chat template the vessel speaks, so it is the shape this sixth rite commits to.</p>
-<pre><code><span class="k">import</span> json
-record = {
-    <span class="s">"messages"</span>: [
-        {<span class="s">"role"</span>: <span class="s">"user"</span>, <span class="s">"content"</span>: <span class="s">"explain why we picked chunk size 512"</span>},
-        {<span class="s">"role"</span>: <span class="s">"assistant"</span>, <span class="s">"content"</span>: <span class="s">"512 tokens keeps context tight enough that the embedding still captures the paragraph's main claim without drowning it in the rest of the section."</span>},
-    ]
-}
-<span class="k">print</span>(json.dumps(record, ensure_ascii=<span class="k">False</span>))</code></pre>
-<p><code>json.dumps</code> with <code>ensure_ascii=False</code> keeps your actual Unicode notes intact — curly quotes, em-dashes, the stray é in a loan-word. The call to the summoning rite's template vocabulary is deliberate: the fourth rite taught you to read a model card's <strong>chat template</strong> field, and that is the exact same template the role names in these messages records must match. A record written with <code>"role": "human"</code> heading for a model that expects <code>"role": "user"</code> gets the template wrong before the first token ever reaches training — there will be a whole rite on exactly this hazard ahead.</p>
-<div class="callout">JSONL is not the only format a training run can ingest — Parquet, Arrow, and direct Hugging Face Dataset constructions all work — but JSONL is the one a human can read, write, and debug by hand with a text editor, which makes it the right format for a first personal dataset where every record counts.</div>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // json.dumps vs json.dump — THE LINE AND THE FILE</div>
-<p><code>json.dumps</code> returns a string; <code>json.dump</code> writes directly to a file object. When you are assembling JSONL, <code>json.dumps</code> is the one you want, because you control the newline that follows it: open the output file once, then inside a loop write <code>f.write(json.dumps(record, ensure_ascii=False) + "\n")</code> for each record. Calling <code>json.dump</code> inside the loop is an easy, silent error — it writes valid JSON, but as one concatenated blob with no newline separators, which every JSONL parser will choke on.</p></div>
+<p>A raw note teaches next-token continuation, but the assistant's job is to respond to a request in your voice. Store each reviewed example as conversational <strong>prompt-completion</strong> JSONL—the exact structured format current TRL understands. The prompt is what a future user might ask; the completion is a response you actually wrote or personally rewrote. Do not ask another model to generate hundreds of completions and call that your voice.</p>
+<pre><code>{
+  "id": "decision-001",
+  "category": "decision-note",
+  "source_path": "data/raw/notion/Project Alpha/Decision.md",
+  "source_sha256": "...",
+  "split": "train",
+  "approved": true,
+  "prompt": [
+    {"role": "user", "content": "Turn these findings into a concise decision note: layout two scanned fastest; layout one hid status; layout three wasted space."}
+  ],
+  "completion": [
+    {"role": "assistant", "content": "## Decision\n\nUse layout two. It surfaced status fastest without spending space on decoration.\n\n- Layout one hid the state.\n- Layout three used space without improving the scan.\n\n**Next action:** test layout two with real project data."}
+  ]
+}</code></pre>
+<p>The metadata is for your pipeline, not the model. <code>id</code> is immutable. <code>category</code> lets evaluation cover different writing jobs. <code>source_sha256</code> proves which export produced the row. <code>split</code> is assigned during human review, before training. Keep every fragment from the same source document in the same split; otherwise a near-duplicate paragraph can leak from train into evaluation. <code>approved</code> records the human decision that the completion really represents you and contains no secret.</p>
+<p>The roles are also deliberate. The system policy is not baked into every training record because Section VIII keeps policy user-controlled and reversible. The prompt contains the task and any source facts; the completion contains only the answer to learn. Current TRL applies the tokenizer's native chat template to this conversational pair. It can then compute loss on completion tokens only, which Section IV makes explicit.</p>
+<p>Write draft rows to <code>data/drafts.jsonl</code> one JSON object per line. Use <code>json.dumps(row, ensure_ascii=False)</code> so punctuation and non-English text survive. A row that parses is not automatically good: it still needs source provenance, manual approval, and a completion that would be useful in daily work.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // EXAMPLES ARE BEHAVIORAL CONTRACTS</div>
+<p>Each row should demonstrate one recognizable job: what was asked, what a good answer looks like, and where it came from. A giant note converted into one row teaches topic continuation more than assistant behavior. Smaller, reviewed prompt/completion pairs make errors removable and let evaluation refer back to the source without exposing unrelated personal text.</p></div>
 '''
+
+[[lessons.readings]]
+label = "TRL dataset formats"
+url = "https://huggingface.co/docs/trl/dataset_formats"
 
 [[lessons.exercises]]
 id = "s04-l02-e1"
 type = "mc"
 points = 20
-prompt = "Per this rite, why is JSONL the right format for a first personal training dataset, compared to raw Markdown?"
+prompt = "Why does the course use separate prompt and completion message lists?"
 choices = [
-  "JSONL automatically infers the correct loss-masking pattern without any additional work",
-  "Markdown files are illegal input to every machine-learning library, while JSONL is the only format any trainer can open",
-  "JSONL compresses the notes to a smaller file size than Markdown, which matters for GPU memory",
-  "JSONL separates records by newlines so a parser can stream one record at a time without loading the whole file, and the structured role/content shape feeds directly into the chat template the fourth rite already taught you to read on a model card",
+  "It lets JSON contain trailing commas",
+  "It converts Markdown into a FAISS vector",
+  "It removes the need for a tokenizer",
+  "It preserves the response boundary so TRL can train only on the assistant completion",
 ]
 answer = 3
-whyWrong = "Markdown is not universally rejected by ML tooling (many pipelines do consume raw text), JSONL is not inherently smaller than Markdown, and it certainly does not auto-infer loss masks — its real advantage is the combination of line-by-line streaming and the structured role/content shape that aligns with the model's expected chat template."
-hint = "The correct answer names both advantages: streaming (one line at a time) and structure (role/content pairs that plug into the chat template) — the other three choices each claim something about JSONL that isn't true (illegal Markdown, compression, auto-masking)."
-explain = "JSONL's newline-delimited structure means a parser reads one record at a time — no loading the whole file, no fragile outer brackets — and the messages shape maps directly to the chat template format the vessel was trained on, which the fourth rite's model-card lesson specifically taught the artificer to identify."
+whyWrong = "JSON syntax, retrieval, and tokenization are separate concerns. The schema's key benefit is an explicit supervised-response boundary."
+explain = "The structure maps directly to conversational prompt-completion training."
+hint = "Ask which tokens should contribute to supervised loss."
 
 [[lessons.exercises]]
 id = "s04-l02-e2"
 type = "text"
-points = 18
-prompt = "In the messages record shape this rite commits to, what string is the correct role key for the model's own responses — the tokens the binding rite will later train on?"
-answer = "assistant"
-accept = ["assistant", "\"assistant\""]
-hint = "It's the second role in the lesson's worked example, paired against 'user' in an alternating list."
+points = 15
+prompt = "Which boolean field records that a human accepted the row?"
+answer = "approved"
+accept = ["approved = true", "approved"]
+hint = "It is shown beside split and provenance metadata."
 
 [[lessons.exercises]]
 id = "s04-l02-e3"
-type = "type"
-points = 12
-reps = 2
-code = '''import json
-record = {
-    "messages": [
-        {"role": "user", "content": "explain why we picked chunk size 512"},
-        {"role": "assistant", "content": "512 tokens keeps context tight enough that the embedding still captures the paragraph's main claim without drowning it in the rest of the section."},
-    ]
-}
-print(json.dumps(record, ensure_ascii=False))'''
+type = "fill"
+points = 20
+prompt = "Complete the role attached to the text the model should learn to produce."
+code = '''"completion": [
+  {"role": "____", "content": "## Decision..."}
+]'''
+answer = "assistant"
+hint = "The user asks; the other conversational role answers."
 
 [[lessons.exercises]]
 id = "s04-l02-e4"
-type = "fill"
+type = "mc"
 points = 20
-prompt = "Fill the missing argument to <code>json.dumps</code> that keeps Unicode characters like curly quotes and em-dashes intact in the output, rather than escaping them to <code>\\u</code> sequences."
-code = '''record = {"messages": [{"role": "user", "content": "résumé — thoughts?"}]}
-print(json.dumps(record, ____))'''
-answer = "ensure_ascii=False"
-accept = ["ensure_ascii = False", "ensure_ascii=false"]
-hint = "The lesson names this argument right where it explains why your actual Unicode notes should survive the serialization step."
+prompt = "How should two examples cut from the same exported page be split?"
+choices = [
+  "Keep both in the same split to prevent source-level leakage",
+  "Put one in train and one in evaluation",
+  "Duplicate both into every split",
+  "Choose again during every training run",
+]
+answer = 0
+whyWrong = "Cross-split fragments can carry nearly identical wording, and mutable splits destroy comparability."
+explain = "Source-grouped, frozen splits protect the held-out boundary."
+hint = "The model must not see a sibling paragraph of an evaluation answer."
 
 [[lessons.exercises]]
 id = "s04-l02-e5"
 type = "write"
 points = 35
-prompt = "Given the two raw strings below — a user note and the assistant response it deserves — construct a chat-format messages record exactly as the lesson's worked example shows, serialize it with <code>json.dumps(record, ensure_ascii=False)</code>, and print one valid JSONL line — computed from the two string variables, not hardcoded."
+prompt = "Build the exact conversational record and print one JSON line with sorted keys."
 starter = '''import json
 
-user_text = "explain why we set the LoRA rank at 16, not 64"
-assistant_text = "rank 16 adds ~0.2% of the base model's parameter count as trainable weights. rank 64 would quadruple that for a negligible quality gain on a small personal dataset — the binding rite's first rule is 'the smallest rank that still sounds like you.'"
-
-# Implement: build a record dict with a "messages" list — two dicts,
-# the first with role "user" and content = user_text,
-# the second with role "assistant" and content = assistant_text.
-# Then json.dumps it with ensure_ascii=False and print the line.
-print("LINE NOT BUILT")
+prompt_text = "Summarize the choice."
+answer_text = "Use layout two."
+record = {}
+print(json.dumps(record, sort_keys=True))
 '''
-expect = '''{"messages": [{"role": "user", "content": "explain why we set the LoRA rank at 16, not 64"}, {"role": "assistant", "content": "rank 16 adds ~0.2% of the base model's parameter count as trainable weights. rank 64 would quadruple that for a negligible quality gain on a small personal dataset — the binding rite's first rule is 'the smallest rank that still sounds like you.'"}]}'''
-hint = "Build record = {'messages': [{'role': 'user', 'content': user_text}, {'role': 'assistant', 'content': assistant_text}]}, then print(json.dumps(record, ensure_ascii=False))."
+solution = '''import json
+
+prompt_text = "Summarize the choice."
+answer_text = "Use layout two."
+record = {
+    "completion": [{"role": "assistant", "content": answer_text}],
+    "prompt": [{"role": "user", "content": prompt_text}],
+}
+print(json.dumps(record, sort_keys=True))
+'''
+expect = '''{"completion": [{"content": "Use layout two.", "role": "assistant"}], "prompt": [{"content": "Summarize the choice.", "role": "user"}]}'''
+hint = "Each key maps to a one-item list containing a role/content dict."

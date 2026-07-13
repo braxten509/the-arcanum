@@ -9,7 +9,7 @@ from . import BUILD_DIR, REPO, retries_for
 from .continuity import (continuity_prompt, prepare_handoff, reset_handoffs,
                          validate_handoff)
 from .liveness import preflight_runners, run_agent
-from .measure import validate
+from .measure import blocking_report, validate
 from .prompts import build_prompt, read_tooling
 from .runners import _implicit_fallback, request_runner
 from .agent_runtime import section_runner_command
@@ -128,6 +128,7 @@ def author_sections_split(tid, num, title, chain, refs, cfg, overrides,
     normal loop. Returns ri after the last section."""
     plan_rel, verdict_rel, findings_rel = refs
     plan_path = os.path.join(REPO, plan_rel)
+    tooling = read_tooling(plan_path)
     worker_body = support_prompt("section-author")
     preflighted = preflighted if preflighted is not None else set()
     ids = section_ids(tid)
@@ -184,7 +185,7 @@ def author_sections_split(tid, num, title, chain, refs, cfg, overrides,
                     "for current documentation and research. Do not edit the build plan or another "
                     "section. Resolve repo-relative paths against the repository root.")
         p = build_prompt(tid, num, title, worker_body, plan_rel, verdict_rel, findings_rel,
-                         validation_flags="--no-run") + focus + continuity + boundary
+                         tooling=tooling, validation_run=False) + focus + continuity + boundary
         attempts = 0
         while True:
             ri, ok = _author_section(chain, ri, p, sid, num, cfg, overrides,
@@ -195,8 +196,7 @@ def author_sections_split(tid, num, title, chain, refs, cfg, overrides,
             # This checkpoint is a fast schema/content pass. The whole Phase-3 gate
             # immediately after the split executes every starter and solution once;
             # doing that after each section would re-run the growing tome O(n^2).
-            clean, report = validate(tid, tooling=read_tooling(os.path.join(REPO, plan_rel)),
-                                     run=False)
+            clean, report = validate(tid, phase=3, tooling=tooling, run=False)
             handoff_clean, handoff_report = validate_handoff(tid, sid, ids, plan_path)
             if clean and handoff_clean:
                 _mark_section_done(tid, sid)  # a future resume skips only validator-clean work
@@ -209,12 +209,12 @@ def author_sections_split(tid, num, title, chain, refs, cfg, overrides,
             print(f"    x section {sid}: validator errors -> re-running its worker "
                   f"(attempt {attempts + 1})")
             p = (build_prompt(tid, num, title, worker_body, plan_rel, verdict_rel, findings_rel,
-                              validation_flags="--no-run")
+                              tooling=tooling, validation_run=False, repair_only=True)
                  + focus
                  + continuity
                  + boundary
                  + "\n\n===== THIS SECTION STILL FAILS VALIDATION =====\n"
-                 + "Fix the errors below in this section or its handoff. Do not edit another "
+                 + "Fix only the blocking errors below in this section or its handoff. Do not edit another "
                    "section or an earlier handoff.\n"
-                 + "\n".join(part for part in (report, handoff_report) if part))
+                 + "\n".join(part for part in (blocking_report(report), handoff_report) if part))
     return ri

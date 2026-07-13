@@ -464,33 +464,45 @@ cuts = [3, 5, 7]
 tier = 9
 title = "THE ORACLE'S BROKEN LISTS"
 starter = '''
-using System.Text.Json;
-string[] replies = { "answer [3, 900]", "no list", "[2, 2, -1]" };
-// Extract brackets when present; keep distinct indices in range 0..9.
+var passages = new List<Passage> { new(1, "Before. Exact source words. After.") };
+var proposals = new List<QuoteProposal>
+{
+    new(1, "Exact source words."),
+    new(1, "exact source words."),
+    new(9, "Exact source words.")
+};
+// Accept only a known passage id plus an ordinal substring.
+
+record Passage(int Id, string Text);
+record QuoteProposal(int PassageId, string Quote);
 '''
 briefs = [
-  "Parse each reply defensively and print «REPLY <n> VALID <count>» for all three.",
-  "Append «SURVIVORS 2» and «REJECTED 3» across all parsed integers.",
-  "Append «FIRST 3» for the first surviving index, then «PARSE COMPLETE».",
+  "Verify each proposal and print «PROPOSAL <n> ACCEPT» or «PROPOSAL <n> REJECT» for all three.",
+  "Append «ACCEPTED 1» and «REJECTED 2».",
+  "Append «FIRST Exact source words.» from the accepted proposal, then «GATE CLOSED».",
 ]
 solution = '''
-using System.Text.Json;
-string[] replies = { "answer [3, 900]", "no list", "[2, 2, -1]" };
-var all = new List<int>();
-int rejected = 0;
-for (int i = 0; i < replies.Length; i++)
+var passages = new List<Passage> { new(1, "Before. Exact source words. After.") };
+var proposals = new List<QuoteProposal>
 {
-    int left = replies[i].IndexOf('['), right = replies[i].LastIndexOf(']');
-    var raw = left >= 0 && right > left ? JsonSerializer.Deserialize<List<int>>(replies[i][left..(right + 1)])! : new List<int>();
-    var valid = raw.Where(index => index >= 0 && index < 10).Distinct().ToList();
-    rejected += raw.Count - valid.Count;
-    all.AddRange(valid);
-    Console.WriteLine($"REPLY {i + 1} VALID {valid.Count}");
-}
-Console.WriteLine($"SURVIVORS {all.Count}");
-Console.WriteLine($"REJECTED {rejected}");
-Console.WriteLine($"FIRST {all[0]}");
-Console.WriteLine("PARSE COMPLETE");
+    new(1, "Exact source words."),
+    new(1, "exact source words."),
+    new(9, "Exact source words.")
+};
+bool[] accepted = proposals.Select(proposal =>
+{
+    Passage? passage = passages.FirstOrDefault(item => item.Id == proposal.PassageId);
+    return passage is not null && passage.Text.Contains(proposal.Quote, StringComparison.Ordinal);
+}).ToArray();
+for (int i = 0; i < proposals.Count; i++)
+    Console.WriteLine($"PROPOSAL {i + 1} {(accepted[i] ? "ACCEPT" : "REJECT")}");
+Console.WriteLine($"ACCEPTED {accepted.Count(value => value)}");
+Console.WriteLine($"REJECTED {accepted.Count(value => !value)}");
+Console.WriteLine($"FIRST {proposals[Array.IndexOf(accepted, true)].Quote}");
+Console.WriteLine("GATE CLOSED");
+
+record Passage(int Id, string Text);
+record QuoteProposal(int PassageId, string Quote);
 '''
 cuts = [3, 5, 7]
 
@@ -498,26 +510,32 @@ cuts = [3, 5, 7]
 tier = 9
 title = "THE RELEVANCE WEIGHING"
 starter = '''
-string query = "tls handshake";
-string[] blocks = { "TLS handshake overview", "cooking notes", "handshake cipher TLS" };
-// Score by count of query words found case-insensitively.
+using System.Text.Json;
+string inner = """{"quotes":[{"passageId":2,"quote":"Exact first words."},{"passageId":7,"quote":"Exact second words."}]}""";
+// Deserialize the structured proposal batch; do not scrape prose or numbers.
+
+record QuoteProposal(int PassageId, string Quote);
+record QuoteBatch(List<QuoteProposal> Quotes);
 '''
 briefs = [
-  "Print «BLOCK <n> SCORE <score>» for all three blocks.",
-  "Rank the two relevant blocks and append «RANK 1 BLOCK 3», then «RANK 2 BLOCK 1».",
-  "Append «BEST 3 SCORE 2» and «WEIGHING COMPLETE».",
+  "Deserialize case-insensitively and print «QUOTE <passageId> <quote>» for both proposals.",
+  "Append «COUNT 2» and «IDS 2,7».",
+  "Append «FIRST Exact first words.» and «STRUCTURE SET».",
 ]
 solution = '''
-string query = "tls handshake";
-string[] blocks = { "TLS handshake overview", "cooking notes", "handshake cipher TLS" };
-string[] terms = query.Split(' ');
-int[] scores = blocks.Select(block => terms.Count(term => block.Contains(term, StringComparison.OrdinalIgnoreCase))).ToArray();
-for (int i = 0; i < blocks.Length; i++) Console.WriteLine($"BLOCK {i + 1} SCORE {scores[i]}");
-var ranked = Enumerable.Range(0, blocks.Length).Where(i => scores[i] > 0).OrderByDescending(i => scores[i]).ThenByDescending(i => i).ToList();
-Console.WriteLine($"RANK 1 BLOCK {ranked[0] + 1}");
-Console.WriteLine($"RANK 2 BLOCK {ranked[1] + 1}");
-Console.WriteLine($"BEST {ranked[0] + 1} SCORE {scores[ranked[0]]}");
-Console.WriteLine("WEIGHING COMPLETE");
+using System.Text.Json;
+string inner = """{"quotes":[{"passageId":2,"quote":"Exact first words."},{"passageId":7,"quote":"Exact second words."}]}""";
+var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+QuoteBatch batch = JsonSerializer.Deserialize<QuoteBatch>(inner, options)!;
+foreach (QuoteProposal quote in batch.Quotes)
+    Console.WriteLine($"QUOTE {quote.PassageId} {quote.Quote}");
+Console.WriteLine($"COUNT {batch.Quotes.Count}");
+Console.WriteLine($"IDS {string.Join(",", batch.Quotes.Select(quote => quote.PassageId))}");
+Console.WriteLine($"FIRST {batch.Quotes[0].Quote}");
+Console.WriteLine("STRUCTURE SET");
+
+record QuoteProposal(int PassageId, string Quote);
+record QuoteBatch(List<QuoteProposal> Quotes);
 '''
 cuts = [3, 5, 7]
 
@@ -525,25 +543,29 @@ cuts = [3, 5, 7]
 tier = 10
 title = "THE FLAG LEDGER"
 starter = '''
-string[] argv = { "--max-sources", "4", "--min-trust", "6", "--format", "json" };
-// Walk option/value pairs and build the final invocation summary.
+string[] argv = { "What changed?", "--source", "RFC", "--source", "NIST", "--mock" };
+// Parse one question, repeated source labels, and an explicit mock flag.
 '''
 briefs = [
-  "Print each pair as «FLAG <option> <value>» in argument order.",
-  "Append «FLAGS 3» and «NUMERIC 2».",
-  "Append «RUN max=4 trust=6 format=json» and «FLAGS SET».",
+  "Print «QUESTION What changed?» and each selected label as «SOURCE <label>».",
+  "Append «SOURCES 2» and «MOCK True».",
+  "Append «RUN RFC,NIST MODE MOCK» and «FLAGS SET».",
 ]
 solution = '''
-string[] argv = { "--max-sources", "4", "--min-trust", "6", "--format", "json" };
-var values = new Dictionary<string, string>();
-for (int i = 0; i < argv.Length; i += 2)
+string[] argv = { "What changed?", "--source", "RFC", "--source", "NIST", "--mock" };
+string question = argv[0];
+var sources = new List<string>();
+bool mock = false;
+for (int i = 1; i < argv.Length; i++)
 {
-    values[argv[i]] = argv[i + 1];
-    Console.WriteLine($"FLAG {argv[i]} {argv[i + 1]}");
+    if (argv[i] == "--source" && i + 1 < argv.Length) sources.Add(argv[++i]);
+    else if (argv[i] == "--mock") mock = true;
 }
-Console.WriteLine($"FLAGS {values.Count}");
-Console.WriteLine($"NUMERIC {values.Values.Count(value => int.TryParse(value, out _))}");
-Console.WriteLine($"RUN max={values["--max-sources"]} trust={values["--min-trust"]} format={values["--format"]}");
+Console.WriteLine($"QUESTION {question}");
+foreach (string source in sources) Console.WriteLine($"SOURCE {source}");
+Console.WriteLine($"SOURCES {sources.Count}");
+Console.WriteLine($"MOCK {mock}");
+Console.WriteLine($"RUN {string.Join(",", sources)} MODE {(mock ? "MOCK" : "LIVE")}");
 Console.WriteLine("FLAGS SET");
 '''
 cuts = [3, 5, 7]
@@ -574,31 +596,29 @@ cuts = [3, 5, 7]
 tier = 11
 title = "THE SCANNER CONCLAVE"
 starter = '''
-var scanners = new List<IScanner> { new ExactScanner(), new BroadScanner(), new FallbackScanner() };
-// Invoke through the interface; implementations remain replaceable.
-interface IScanner { string Scan(); }
-class ExactScanner : IScanner { public string Scan() => "exact:2"; }
-class BroadScanner : IScanner { public string Scan() => "broad:5"; }
-class FallbackScanner : IScanner { public string Scan() => "fallback:1"; }
+var selectors = new List<ISelector> { new LiveSelector(), new MockSelector() };
+// Invoke both through the proposal-side interface; no automatic fallback exists.
+interface ISelector { string Mode(); }
+class LiveSelector : ISelector { public string Mode() => "LIVE"; }
+class MockSelector : ISelector { public string Mode() => "MOCK"; }
 '''
 briefs = [
-  "Call every scanner polymorphically and print «SCAN <result>» for all three.",
-  "Append «COUNT 3» and «UNIQUE 3».",
-  "Append «PRIMARY exact:2» and «CONCLAVE CLOSED».",
+  "Call each selector polymorphically and print «SELECTOR <mode>» for both.",
+  "Append «COUNT 2» and «UNIQUE 2».",
+  "Append «EXPLICIT MOCK» from the second selector, then «CONCLAVE CLOSED».",
 ]
 solution = '''
-var scanners = new List<IScanner> { new ExactScanner(), new BroadScanner(), new FallbackScanner() };
-var results = scanners.Select(scanner => scanner.Scan()).ToList();
-foreach (string result in results) Console.WriteLine($"SCAN {result}");
+var selectors = new List<ISelector> { new LiveSelector(), new MockSelector() };
+var results = selectors.Select(selector => selector.Mode()).ToList();
+foreach (string result in results) Console.WriteLine($"SELECTOR {result}");
 Console.WriteLine($"COUNT {results.Count}");
 Console.WriteLine($"UNIQUE {results.Distinct().Count()}");
-Console.WriteLine($"PRIMARY {results[0]}");
+Console.WriteLine($"EXPLICIT {results[1]}");
 Console.WriteLine("CONCLAVE CLOSED");
 
-interface IScanner { string Scan(); }
-class ExactScanner : IScanner { public string Scan() => "exact:2"; }
-class BroadScanner : IScanner { public string Scan() => "broad:5"; }
-class FallbackScanner : IScanner { public string Scan() => "fallback:1"; }
+interface ISelector { string Mode(); }
+class LiveSelector : ISelector { public string Mode() => "LIVE"; }
+class MockSelector : ISelector { public string Mode() => "MOCK"; }
 '''
 cuts = [3, 5, 7]
 
@@ -606,25 +626,36 @@ cuts = [3, 5, 7]
 tier = 11
 title = "THE TABLE OF PROOFS"
 starter = '''
-var cases = new (int score, bool expected)[] { (9, true), (6, true), (2, false) };
-// Run the table through IsTrusted and report every proof.
-bool IsTrusted(int score) => score >= 6;
+string passage = "Before. Exact source words. After.";
+var cases = new (string quote, bool expected)[]
+{
+    ("Exact source words.", true),
+    ("Exact source words", true),
+    ("exact source words.", false)
+};
+// Run the table through ordinal substring proof.
 '''
 briefs = [
-  "Print each result as «CASE <score> PASS» or «CASE <score> FAIL».",
+  "Print each result as «CASE <n> PASS» or «CASE <n> FAIL».",
   "Append «PASSED 3» and «FAILED 0».",
-  "Append «BOUNDARIES 2» for the true/false boundary classes, then «PROOFS GREEN».",
+  "Append «ACCEPTED 2» and «REJECTED 1» from expected verdicts, then «PROOFS GREEN».",
 ]
 solution = '''
-var cases = new (int score, bool expected)[] { (9, true), (6, true), (2, false) };
-bool[] passes = cases.Select(test => IsTrusted(test.score) == test.expected).ToArray();
-for (int i = 0; i < cases.Length; i++) Console.WriteLine($"CASE {cases[i].score} {(passes[i] ? "PASS" : "FAIL")}");
+string passage = "Before. Exact source words. After.";
+var cases = new (string quote, bool expected)[]
+{
+    ("Exact source words.", true),
+    ("Exact source words", true),
+    ("exact source words.", false)
+};
+bool[] passes = cases.Select(test =>
+    passage.Contains(test.quote, StringComparison.Ordinal) == test.expected).ToArray();
+for (int i = 0; i < cases.Length; i++) Console.WriteLine($"CASE {i + 1} {(passes[i] ? "PASS" : "FAIL")}");
 Console.WriteLine($"PASSED {passes.Count(pass => pass)}");
 Console.WriteLine($"FAILED {passes.Count(pass => !pass)}");
-Console.WriteLine("BOUNDARIES 2");
+Console.WriteLine($"ACCEPTED {cases.Count(test => test.expected)}");
+Console.WriteLine($"REJECTED {cases.Count(test => !test.expected)}");
 Console.WriteLine("PROOFS GREEN");
-
-bool IsTrusted(int score) => score >= 6;
 '''
 cuts = [3, 5, 7]
 
@@ -658,23 +689,23 @@ cuts = [3, 5, 7]
 tier = 5
 title = "THE CONFIGURATION SCALE"
 starter = '''
-var config = new Dictionary<string, int> { ["max_sources"] = -2, ["min_trust"] = 12, ["timeout"] = 30 };
+var config = new Dictionary<string, int> { ["maxQuotes"] = 0, ["sourceTrust"] = 12, ["timeoutSeconds"] = 30 };
 // Repair only values outside their lawful ranges.
 '''
 briefs = [
   "Print the raw rows as «RAW <key> <value>» ordered by key.",
-  "Repair max_sources to 5 and min_trust to 3; append «REPAIRED 2» and «VALID 1».",
-  "Append «FINAL max_sources=5 min_trust=3 timeout=30» and «CONFIG SET».",
+  "Repair maxQuotes to 5 and sourceTrust to 10; append «REPAIRED 2» and «VALID 1».",
+  "Append «FINAL maxQuotes=5 sourceTrust=10 timeoutSeconds=30» and «CONFIG SET».",
 ]
 solution = '''
-var config = new Dictionary<string, int> { ["max_sources"] = -2, ["min_trust"] = 12, ["timeout"] = 30 };
+var config = new Dictionary<string, int> { ["maxQuotes"] = 0, ["sourceTrust"] = 12, ["timeoutSeconds"] = 30 };
 foreach (var row in config.OrderBy(row => row.Key)) Console.WriteLine($"RAW {row.Key} {row.Value}");
 int repaired = 0;
-if (config["max_sources"] < 1 || config["max_sources"] > 20) { config["max_sources"] = 5; repaired++; }
-if (config["min_trust"] < 0 || config["min_trust"] > 10) { config["min_trust"] = 3; repaired++; }
+if (config["maxQuotes"] < 1 || config["maxQuotes"] > 10) { config["maxQuotes"] = 5; repaired++; }
+if (config["sourceTrust"] < 0 || config["sourceTrust"] > 10) { config["sourceTrust"] = 10; repaired++; }
 Console.WriteLine($"REPAIRED {repaired}");
 Console.WriteLine($"VALID {config.Count - repaired}");
-Console.WriteLine($"FINAL max_sources={config["max_sources"]} min_trust={config["min_trust"]} timeout={config["timeout"]}");
+Console.WriteLine($"FINAL maxQuotes={config["maxQuotes"]} sourceTrust={config["sourceTrust"]} timeoutSeconds={config["timeoutSeconds"]}");
 Console.WriteLine("CONFIG SET");
 '''
 cuts = [3, 5, 7]
@@ -684,18 +715,18 @@ tier = 6
 title = "THE PARAGRAPH HARVEST"
 starter = '''
 using System.Text.RegularExpressions;
-string html = "<p>first seal</p><div>noise</div><p>second seal</p><p>third seal</p>";
-// Harvest only paragraph bodies.
+string[] raw = { "  first\tseal ", "second\nseal", "  third   seal  " };
+// Normalize already-extracted visible text without rewriting words.
 '''
 briefs = [
-  "Use Regex.Matches to print the three paragraph bodies as «TEXT <body>».",
-  "Append «COUNT 3» and «WORDS 6» from the harvested text.",
+  "Collapse whitespace and print the three stable passages as «TEXT <text>».",
+  "Append «COUNT 3» and «WORDS 6» from the normalized passages.",
   "Append «LAST third seal» and «HARVEST DONE».",
 ]
 solution = '''
 using System.Text.RegularExpressions;
-string html = "<p>first seal</p><div>noise</div><p>second seal</p><p>third seal</p>";
-var texts = Regex.Matches(html, "<p>(.*?)</p>").Select(match => match.Groups[1].Value).ToList();
+string[] raw = { "  first\tseal ", "second\nseal", "  third   seal  " };
+var texts = raw.Select(text => Regex.Replace(text, @"\s+", " ").Trim()).ToList();
 foreach (string text in texts) Console.WriteLine($"TEXT {text}");
 Console.WriteLine($"COUNT {texts.Count}");
 Console.WriteLine($"WORDS {texts.Sum(text => text.Split(' ').Length)}");
@@ -1000,93 +1031,109 @@ cuts = [4, 8, 10]
 tier = 9
 title = "THE ORACLE'S RANKING"
 starter = '''
-string query = "shadow ward flame";
-string[] verses = {
-    "the ward holds against flame",
-    "shadow creeps past the ward",
-    "the sky is clear tonight",
-    "flame ward shadow all three bound",
+var passages = new Dictionary<int, string> {
+    [1] = "Alpha exact. The ward holds.",
+    [2] = "Gamma exact. The gate opens.",
 };
-// Score = how many query words appear in the verse (Split + Contains).
+var proposals = new[] {
+    new Proposal(1, "Alpha exact."), new Proposal(1, "Alpha exact."),
+    new Proposal(1, "Invented words."), new Proposal(2, "Gamma exact."),
+};
+// A proposal is evidence only when its passage exists and contains the exact quote.
 // THE FIRST BINDING is set. Further demands may arm as the glass runs.
 '''
 briefs = [
-  "Consult the oracle: score each verse = count of query words it holds (split both on spaces). Print «VERSE <n> SCORE <s>» (1-based), then «SCORED 4 VERSES».",
-  "Rank verses by score descending (ties: lower number first): «RANK <r> VERSE <n>» each.",
-  "Verses scoring 2+ ring true. Append «TRUE <count>», «HOLLOW <count>», then «ORACLE DONE».",
+  "Verify every proposal with Dictionary.TryGetValue and string.Contains using StringComparison.Ordinal. Print «PROPOSAL <n> EXACT» or «PROPOSAL <n> REJECTED», then «CHECKED 4».",
+  "Keep at most two exact proposals and reject duplicates by passage id plus quote. Print each survivor as «QUOTE <passage id> <quote>» in proposal order.",
+  "Append «ACCEPTED <count>», «REJECTED <count>», then «ORACLE DONE». Compute both counts from the proposals and survivors.",
 ]
 solution = '''
-string query = "shadow ward flame";
-string[] verses = {
-    "the ward holds against flame",
-    "shadow creeps past the ward",
-    "the sky is clear tonight",
-    "flame ward shadow all three bound",
+var passages = new Dictionary<int, string> {
+    [1] = "Alpha exact. The ward holds.",
+    [2] = "Gamma exact. The gate opens.",
 };
-string[] qw = query.Split(' ');
-int[] scores = new int[verses.Length];
-for (int i = 0; i < verses.Length; i++)
+var proposals = new[] {
+    new Proposal(1, "Alpha exact."), new Proposal(1, "Alpha exact."),
+    new Proposal(1, "Invented words."), new Proposal(2, "Gamma exact."),
+};
+var survivors = new List<Proposal>();
+var seen = new HashSet<string>(StringComparer.Ordinal);
+for (int i = 0; i < proposals.Length; i++)
 {
-    var vw = verses[i].Split(' ');
-    foreach (string w in qw)
-        if (vw.Contains(w)) scores[i]++;
-    Console.WriteLine($"VERSE {i + 1} SCORE {scores[i]}");
+    Proposal proposal = proposals[i];
+    bool exact = passages.TryGetValue(proposal.PassageId, out string? text)
+        && text.Contains(proposal.Quote, StringComparison.Ordinal);
+    string key = $"{proposal.PassageId}\0{proposal.Quote}";
+    bool accepted = exact && survivors.Count < 2 && seen.Add(key);
+    if (accepted) survivors.Add(proposal);
+    Console.WriteLine($"PROPOSAL {i + 1} {(accepted ? "EXACT" : "REJECTED")}");
 }
-Console.WriteLine($"SCORED {verses.Length} VERSES");
-var order = Enumerable.Range(0, verses.Length).OrderByDescending(i => scores[i]).ThenBy(i => i).ToList();
-for (int r = 0; r < order.Count; r++)
-    Console.WriteLine($"RANK {r + 1} VERSE {order[r] + 1}");
-Console.WriteLine($"TRUE {scores.Count(s => s >= 2)}");
-Console.WriteLine($"HOLLOW {scores.Count(s => s < 2)}");
+Console.WriteLine($"CHECKED {proposals.Length}");
+foreach (Proposal proposal in survivors)
+    Console.WriteLine($"QUOTE {proposal.PassageId} {proposal.Quote}");
+Console.WriteLine($"ACCEPTED {survivors.Count}");
+Console.WriteLine($"REJECTED {proposals.Length - survivors.Count}");
 Console.WriteLine("ORACLE DONE");
+
+record Proposal(int PassageId, string Quote);
 '''
-cuts = [5, 9, 12]
+cuts = [7, 14, 18]
 
 [[challenge]]
 tier = 9
 title = "THE WEIGHING OF WORDS"
 starter = '''
-string prophecy = "The Pale Wyrm wakes at dusk";
-string[] accounts = {
-    "pale wyrm seen at dusk",
-    "wyrm sleeps all winter",
-    "the pale wyrm wakes at dusk indeed",
+var source = new Source("RFC", "https://example.test/rfc");
+var passages = new[] {
+    new Passage(7, "Before. Exact evidence. After.", source),
 };
-// Normalize with ToLower, split on spaces, count DISTINCT prophecy words each account holds.
+var proposals = new[] {
+    new Proposal(7, "Exact evidence."), new Proposal(7, "invented evidence"),
+};
+// The model proposes passage id and quote. C# owns exact verification and attribution.
 // THE FIRST BINDING is set. Further demands may arm as the glass runs.
 '''
 briefs = [
-  "Weigh the accounts: lowercase the prophecy, split into words; for each account count how many DISTINCT prophecy words it holds. Print «ACCOUNT <n> MATCH <m>», then «WEIGHED 3».",
-  "Trust = matched * 100 / <prophecy word count> (integer math). Append «TRUST <n> <pct>%» per account.",
-  "Verdicts: 80%+ TRUE, 50%+ PARTIAL, else FALSE. Append «ACCOUNT <n> <VERDICT>» each, then «WEIGHING DONE».",
+  "For each proposal, find its passage and require an ordinal exact substring. Print «PROPOSAL <n> ACCEPTED» or «PROPOSAL <n> REJECTED», then «WEIGHED 2».",
+  "For every accepted proposal construct a Verified value using the matched passage's Source—not model-supplied attribution. Print «SOURCE <label> <url>» and «PASSAGE <id> <quote>».",
+  "Append «VERIFIED <count>», «REJECTED <count>», «ATTRIBUTION SEALED», then «WEIGHING DONE».",
 ]
 solution = '''
-string prophecy = "The Pale Wyrm wakes at dusk";
-string[] accounts = {
-    "pale wyrm seen at dusk",
-    "wyrm sleeps all winter",
-    "the pale wyrm wakes at dusk indeed",
+var source = new Source("RFC", "https://example.test/rfc");
+var passages = new[] {
+    new Passage(7, "Before. Exact evidence. After.", source),
 };
-string[] pw = prophecy.ToLower().Split(' ');
-int[] match = new int[accounts.Length];
-for (int i = 0; i < accounts.Length; i++)
+var proposals = new[] {
+    new Proposal(7, "Exact evidence."), new Proposal(7, "invented evidence"),
+};
+var verified = new List<Verified>();
+for (int i = 0; i < proposals.Length; i++)
 {
-    var aw = accounts[i].ToLower().Split(' ');
-    match[i] = pw.Distinct().Count(w => aw.Contains(w));
-    Console.WriteLine($"ACCOUNT {i + 1} MATCH {match[i]}");
+    Proposal proposal = proposals[i];
+    Passage? passage = passages.FirstOrDefault(p => p.Id == proposal.PassageId);
+    bool exact = passage is not null
+        && passage.Text.Contains(proposal.Quote, StringComparison.Ordinal);
+    if (exact)
+        verified.Add(new Verified(proposal.Quote, passage!.Source, passage.Id));
+    Console.WriteLine($"PROPOSAL {i + 1} {(exact ? "ACCEPTED" : "REJECTED")}");
 }
-Console.WriteLine($"WEIGHED {accounts.Length}");
-int[] trust = new int[accounts.Length];
-for (int i = 0; i < accounts.Length; i++)
+Console.WriteLine($"WEIGHED {proposals.Length}");
+foreach (Verified item in verified)
 {
-    trust[i] = match[i] * 100 / pw.Length;
-    Console.WriteLine($"TRUST {i + 1} {trust[i]}%");
+    Console.WriteLine($"SOURCE {item.Source.Label} {item.Source.Url}");
+    Console.WriteLine($"PASSAGE {item.PassageId} {item.Quote}");
 }
-for (int i = 0; i < accounts.Length; i++)
-    Console.WriteLine($"ACCOUNT {i + 1} {(trust[i] >= 80 ? "TRUE" : trust[i] >= 50 ? "PARTIAL" : "FALSE")}");
+Console.WriteLine($"VERIFIED {verified.Count}");
+Console.WriteLine($"REJECTED {proposals.Length - verified.Count}");
+Console.WriteLine("ATTRIBUTION SEALED");
 Console.WriteLine("WEIGHING DONE");
+
+record Source(string Label, string Url);
+record Passage(int Id, string Text, Source Source);
+record Proposal(int PassageId, string Quote);
+record Verified(string Quote, Source Source, int PassageId);
 '''
-cuts = [4, 7, 11]
+cuts = [7, 15, 21]
 
 [[challenge]]
 tier = 10
@@ -1583,43 +1630,55 @@ cuts = [5, 7, 10]
 tier = 9
 title = "THE TOLL OF NAMES"
 starter = '''
-string[] wanted = { "iron", "shadow", "flame" };
-string[] scrolls = {
-    "iron and flame forge the blade",
-    "the shadow flame consumes iron",
-    "a quiet meadow at dawn",
+var configured = new[] {
+    new Source("RFC", "https://example.test/rfc"),
+    new Source("NIST", "https://example.test/nist"),
+    new Source("RFC mirror", "https://example.test/rfc"),
+    new Source("Notes", "mock://notes"),
 };
-// Score = how many wanted words a scroll holds (Split + Contains); LINQ for the ranking.
+string[] requested = { "nist", "RFC", "rfc mirror", "missing" };
+// Admit only configured labels with http/https URLs; preserve request order and URL uniqueness.
 // THE FIRST BINDING is set. Further demands may arm as the glass runs.
 '''
 briefs = [
-  "Toll each scroll: its score is the count of wanted words it holds (split on spaces). Print «SCROLL <n> SCORE <s>» (1-based), then «TOLLED 3 SCROLLS».",
-  "Rank scrolls by score descending (ties: lower number first): «RANK <r> SCROLL <n>» each.",
-  "Append «BEST SCROLL <n> SCORE <s>» for the top scroll, «BARREN <count of score 0>», then «TOLL DONE».",
+  "Resolve each requested label against configured sources with ordinal case-insensitive comparison. Reject unknown labels and non-http(s) URLs. Print «REQUEST <label> ADMITTED» or «REQUEST <label> REJECTED».",
+  "Keep admitted sources in request order, deduplicated by URL with ordinal case-insensitive comparison. Print each survivor as «SOURCE <label> <url>».",
+  "Append «COUNT <selected count>», «REJECTED <rejected count>», «ORDER <comma-separated labels>», «POLICY SET», then «TOLL DONE».",
 ]
 solution = '''
-string[] wanted = { "iron", "shadow", "flame" };
-string[] scrolls = {
-    "iron and flame forge the blade",
-    "the shadow flame consumes iron",
-    "a quiet meadow at dawn",
+var configured = new[] {
+    new Source("RFC", "https://example.test/rfc"),
+    new Source("NIST", "https://example.test/nist"),
+    new Source("RFC mirror", "https://example.test/rfc"),
+    new Source("Notes", "mock://notes"),
 };
-int[] scores = new int[scrolls.Length];
-for (int i = 0; i < scrolls.Length; i++)
+string[] requested = { "nist", "RFC", "rfc mirror", "missing" };
+var selected = new List<Source>();
+var seenUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+int rejected = 0;
+foreach (string label in requested)
 {
-    var words = scrolls[i].Split(' ');
-    scores[i] = wanted.Count(w => words.Contains(w));
-    Console.WriteLine($"SCROLL {i + 1} SCORE {scores[i]}");
+    Source? source = configured.FirstOrDefault(s =>
+        string.Equals(s.Label, label, StringComparison.OrdinalIgnoreCase));
+    bool valid = source is not null
+        && Uri.TryCreate(source.Url, UriKind.Absolute, out Uri? uri)
+        && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+        && seenUrls.Add(source.Url);
+    if (valid) selected.Add(source!);
+    else rejected++;
+    Console.WriteLine($"REQUEST {label} {(valid ? "ADMITTED" : "REJECTED")}");
 }
-Console.WriteLine($"TOLLED {scrolls.Length} SCROLLS");
-var order = Enumerable.Range(0, scrolls.Length).OrderByDescending(i => scores[i]).ThenBy(i => i).ToList();
-for (int r = 0; r < order.Count; r++)
-    Console.WriteLine($"RANK {r + 1} SCROLL {order[r] + 1}");
-Console.WriteLine($"BEST SCROLL {order[0] + 1} SCORE {scores[order[0]]}");
-Console.WriteLine($"BARREN {scores.Count(s => s == 0)}");
+foreach (Source source in selected)
+    Console.WriteLine($"SOURCE {source.Label} {source.Url}");
+Console.WriteLine($"COUNT {selected.Count}");
+Console.WriteLine($"REJECTED {rejected}");
+Console.WriteLine($"ORDER {string.Join(',', selected.Select(s => s.Label))}");
+Console.WriteLine("POLICY SET");
 Console.WriteLine("TOLL DONE");
+
+record Source(string Label, string Url);
 '''
-cuts = [4, 7, 10]
+cuts = [8, 17, 23]
 
 [[challenge]]
 tier = 10

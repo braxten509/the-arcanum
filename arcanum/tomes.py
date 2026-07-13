@@ -46,8 +46,11 @@ def resolve_working_tid(planid, text):
 
 
 def _draft_tids():
-    """Tome ids whose build never completed — a plan file in .tome-build without the
-    end-of-run 'Harness ground truth' append. The shelf shows these as DRAFTS."""
+    """Tome ids with a terminal failed/cancelled result or no completion proof.
+
+    Durable results are authoritative; Harness ground truth remains only as the legacy
+    completion marker for builds that predate result sidecars.
+    """
     out = set()
     for pp in glob.glob(os.path.join(BUILD_DIR, "*.plan.md")):
         planid = os.path.basename(pp)[:-len(".plan.md")]
@@ -56,7 +59,10 @@ def _draft_tids():
                 text = f.read()
         except OSError:
             continue
-        if "Harness ground truth" not in text:
+        result = read_json(os.path.join(BUILD_DIR, f"{planid}.result.json"), {})
+        if result.get("status") == "done":
+            continue
+        if result.get("status") in ("error", "cancelled") or "Harness ground truth" not in text:
             out.add(resolve_working_tid(planid, text))
     return out
 

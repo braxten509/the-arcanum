@@ -70,7 +70,7 @@ on macOS, or your distro's package manager on Linux.
 - `tomes/<id>/save/` — that tome's progress: `state.json` (autosaved, power-outage safe), `grades/`, `workspace/<Project>/` (your build project). Delete `save/` to reset the course — the server recreates a fresh one. Never served over HTTP.
 - `.cache/` — ephemera (snippet-run scratch, `server.log`); safe to delete anytime
 - `tome_layout.py` — the one source of truth for how a split/flat tome reassembles; imported by both the server and `validate_tome.py`
-- `tools/` — author tooling: `validate_tome.py <tome>` (machine-checks a tome against `tome-authoring/`; exits 1 on any error, CI-friendly), `new_tome.py <id>` (scaffolds a new split-layout tome that passes the validator), `split_tome.py <tome>` (converts a flat tome to the split layout, losslessly), `gen_attacks.py <tome>` (language-neutral: regenerates a tome's `attacks.toml` from its `attacks_src.toml` through the live server). Every tool is language-neutral and tome-agnostic — no per-tome or per-language generators.
+- `tools/` — author tooling: `validate_tome.py <tome>` (machine-checks a tome against `tome-authoring/`; exits 1 on any error, CI-friendly), `new_tome.py <id>` (scaffolds a new split-layout tome that passes the validator), `scaffold_tome_sections.py <tome> --plan <plan>` (deterministically turns an approved Arc into Phase 2's one-placeholder-lesson section tree), `split_tome.py <tome>` (converts a flat tome to the split layout, losslessly), `gen_attacks.py <tome>` (language-neutral: regenerates a tome's `attacks.toml` from its `attacks_src.toml` through the live server). Every tool is language-neutral and tome-agnostic — no per-tome or per-language generators.
 
 ## Authoring a tome
 

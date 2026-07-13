@@ -7,6 +7,54 @@
 [[tiers]]
 
 [[tiers.pool]]
+t = "THE READINESS LEDGER"
+starter = '''
+checks = {"rocm": True, "torch": True, "ollama": False}
+# Read the doctor's ledger without guessing.
+'''
+
+[[tiers.pool.stages]]
+brief = "Count all checks. Print exactly: «CHECKS 3»"
+expect = "CHECKS 3"
+
+[[tiers.pool.stages]]
+brief = "Count successful checks. Append: «PASSED 2»"
+expect = '''
+CHECKS 3
+PASSED 2'''
+
+[[tiers.pool.stages]]
+brief = "Print the failed check's name. Append: «FAILED ollama»"
+expect = '''
+CHECKS 3
+PASSED 2
+FAILED ollama'''
+
+[[tiers.pool]]
+t = "THE BASELINE PROMPTS"
+starter = '''
+cases = ["voice-01", "format-01", "privacy-01", "rag-01"]
+# Inventory the frozen judgment set.
+'''
+
+[[tiers.pool.stages]]
+brief = "Count the cases. Print exactly: «CASES 4»"
+expect = "CASES 4"
+
+[[tiers.pool.stages]]
+brief = "Print the first identifier. Append: «FIRST voice-01»"
+expect = '''
+CASES 4
+FIRST voice-01'''
+
+[[tiers.pool.stages]]
+brief = "Count identifiers ending in -01. Append: «VERSIONED 4»"
+expect = '''
+CASES 4
+FIRST voice-01
+VERSIONED 4'''
+
+[[tiers.pool]]
 t = "THE FIRST RECKONING"
 starter = '''
 name = "artificer"
@@ -58,26 +106,26 @@ VRAM 28'''
 [[tiers.pool]]
 t = "THE MAP READ ALOUD"
 starter = '''
-config = {"base": "qwen2.5", "rank": 8}
+config = {"base": "Qwen3-8B", "rank": 16}
 # Read the map, then forge a name from its parts.
 '''
 
 [[tiers.pool.stages]]
-brief = "Read the base. Print exactly: «BASE qwen2.5»"
-expect = "BASE qwen2.5"
+brief = "Read the base. Print exactly: «BASE Qwen3-8B»"
+expect = "BASE Qwen3-8B"
 
 [[tiers.pool.stages]]
-brief = "Read the rank. Append: «RANK 8»"
+brief = "Read the rank. Append: «RANK 16»"
 expect = '''
-BASE qwen2.5
-RANK 8'''
+BASE Qwen3-8B
+RANK 16'''
 
 [[tiers.pool.stages]]
-brief = "Forge the adapter path. Append: «PATH adapters/qwen2.5_rank-8»"
+brief = "Forge the adapter path. Append: «PATH adapters/Qwen3-8B_rank-16»"
 expect = '''
-BASE qwen2.5
-RANK 8
-PATH adapters/qwen2.5_rank-8'''
+BASE Qwen3-8B
+RANK 16
+PATH adapters/Qwen3-8B_rank-16'''
 
 # ---- difficulty 2
 [[tiers]]
@@ -106,6 +154,57 @@ expect = '''
 TOOL Ollama
 LIMIT 16 GB
 TARGET gfx1201'''
+
+[[tiers.pool]]
+t = "THE FROZEN BASELINE"
+starter = '''
+records = [
+    {"id": "voice-01", "sha": "a1"},
+    {"id": "format-01", "sha": "b2"},
+]
+# Prove the suite has stable identities.
+'''
+
+[[tiers.pool.stages]]
+brief = "Count records. Print exactly: «RECORDS 2»"
+expect = "RECORDS 2"
+
+[[tiers.pool.stages]]
+brief = "Join their IDs with a comma. Append: «IDS voice-01,format-01»"
+expect = '''
+RECORDS 2
+IDS voice-01,format-01'''
+
+[[tiers.pool.stages]]
+brief = "Confirm every record has a hash. Append: «HASHED True»"
+expect = '''
+RECORDS 2
+IDS voice-01,format-01
+HASHED True'''
+
+[[tiers.pool]]
+t = "THE DETERMINISTIC SAMPLE"
+starter = '''
+settings = {"temperature": 0, "seed": 42, "num_predict": 128}
+# Describe the reproducible baseline call.
+'''
+
+[[tiers.pool.stages]]
+brief = "Print the temperature. Print exactly: «TEMPERATURE 0»"
+expect = "TEMPERATURE 0"
+
+[[tiers.pool.stages]]
+brief = "Print the seed. Append: «SEED 42»"
+expect = '''
+TEMPERATURE 0
+SEED 42'''
+
+[[tiers.pool.stages]]
+brief = "Confirm deterministic sampling. Append: «DETERMINISTIC True»"
+expect = '''
+TEMPERATURE 0
+SEED 42
+DETERMINISTIC True'''
 
 [[tiers.pool]]
 t = "THE TENSOR SLICE"
@@ -158,6 +257,56 @@ TORCH_ROCM_ARCH=gfx1201'''
 
 # ---- difficulty 3
 [[tiers]]
+
+[[tiers.pool]]
+t = "THE HEADROOM PROOF"
+starter = '''
+capacity_gb = 16.0
+peak_gb = 13.4
+required_gb = 1.0
+# Measure, then judge.
+'''
+
+[[tiers.pool.stages]]
+brief = "Compute free memory. Print exactly: «FREE 2.6 GB»"
+expect = "FREE 2.6 GB"
+
+[[tiers.pool.stages]]
+brief = "Print the required reserve. Append: «REQUIRED 1.0 GB»"
+expect = '''
+FREE 2.6 GB
+REQUIRED 1.0 GB'''
+
+[[tiers.pool.stages]]
+brief = "Judge the run. Append: «HEADROOM PASS»"
+expect = '''
+FREE 2.6 GB
+REQUIRED 1.0 GB
+HEADROOM PASS'''
+
+[[tiers.pool]]
+t = "THE TRAINING BUDGET"
+starter = '''
+parts = {"base": 5.2, "activations": 4.8, "adapter": 0.2, "reserve": 1.5}
+# Total the planned occupancy.
+'''
+
+[[tiers.pool.stages]]
+brief = "Count budget parts. Print exactly: «PARTS 4»"
+expect = "PARTS 4"
+
+[[tiers.pool.stages]]
+brief = "Sum the planned memory. Append: «PLANNED 11.7 GB»"
+expect = '''
+PARTS 4
+PLANNED 11.7 GB'''
+
+[[tiers.pool.stages]]
+brief = "Check it against 16 GB. Append: «FITS True»"
+expect = '''
+PARTS 4
+PLANNED 11.7 GB
+FITS True'''
 
 [[tiers.pool]]
 t = "THE VRAM DIVINATION"
@@ -237,6 +386,58 @@ FITS False'''
 [[tiers]]
 
 [[tiers.pool]]
+t = "THE SOURCE-LEVEL SPLIT"
+starter = '''
+rows = [
+    {"source": "page-a", "split": "train"},
+    {"source": "page-a", "split": "train"},
+    {"source": "page-b", "split": "eval"},
+]
+# Detect cross-split source leakage.
+'''
+
+[[tiers.pool.stages]]
+brief = "Count rows. Print exactly: «ROWS 3»"
+expect = "ROWS 3"
+
+[[tiers.pool.stages]]
+brief = "Count unique sources. Append: «SOURCES 2»"
+expect = '''
+ROWS 3
+SOURCES 2'''
+
+[[tiers.pool.stages]]
+brief = "Confirm each source uses one split. Append: «LEAKAGE False»"
+expect = '''
+ROWS 3
+SOURCES 2
+LEAKAGE False'''
+
+[[tiers.pool]]
+t = "THE ONE-STEP WITNESS"
+starter = '''
+result = {"steps": 1, "peak_gb": 13.2, "adapter_saved": True}
+# Decide whether the dry run is evidence.
+'''
+
+[[tiers.pool.stages]]
+brief = "Print completed steps. Print exactly: «STEPS 1»"
+expect = "STEPS 1"
+
+[[tiers.pool.stages]]
+brief = "Print peak memory. Append: «PEAK 13.2 GB»"
+expect = '''
+STEPS 1
+PEAK 13.2 GB'''
+
+[[tiers.pool.stages]]
+brief = "Require one step, saved adapter, and peak below 15 GB. Append: «DRY PASS»"
+expect = '''
+STEPS 1
+PEAK 13.2 GB
+DRY PASS'''
+
+[[tiers.pool]]
 t = "THE ADAPTER SEAM"
 starter = '''
 rank = 16
@@ -264,26 +465,26 @@ RATIO 2.0'''
 [[tiers.pool]]
 t = "THE MASK DIAGNOSTIC"
 starter = '''
-initial_loss = 0.05
-# The Distiller warns of the overfit rot.
+labels = [-100, -100, 41, 42, 43]
+# Inspect the actual completion-only supervision boundary.
 '''
 
 [[tiers.pool.stages]]
-brief = "Print the initial loss. Print exactly: «LOSS 0.05»"
-expect = "LOSS 0.05"
+brief = "Count all label positions. Print exactly: «LABELS 5»"
+expect = "LABELS 5"
 
 [[tiers.pool.stages]]
-brief = "Check if loss < 0.1. Append: «SUSPICIOUS True»"
+brief = "Count labels that are not -100. Append: «SUPERVISED 3»"
 expect = '''
-LOSS 0.05
-SUSPICIOUS True'''
+LABELS 5
+SUPERVISED 3'''
 
 [[tiers.pool.stages]]
-brief = "Declare the failure mode. Append: «MODE MASK FAILURE»"
+brief = "Confirm that both ignored and supervised tokens exist. Append: «BOUNDARY True»"
 expect = '''
-LOSS 0.05
-SUSPICIOUS True
-MODE MASK FAILURE'''
+LABELS 5
+SUPERVISED 3
+BOUNDARY True'''
 
 [[tiers.pool]]
 t = "THE PARAMETER COUNT"
@@ -315,6 +516,57 @@ SIZE 0.52 MB'''
 [[tiers]]
 
 [[tiers.pool]]
+t = "THE DOCUMENT QUERY"
+starter = '''
+api_calls = ["encode_document", "encode_document", "encode_query"]
+# Verify asymmetric embedding intent.
+'''
+
+[[tiers.pool.stages]]
+brief = "Count all calls. Print exactly: «CALLS 3»"
+expect = "CALLS 3"
+
+[[tiers.pool.stages]]
+brief = "Count document encodes. Append: «DOCUMENTS 2»"
+expect = '''
+CALLS 3
+DOCUMENTS 2'''
+
+[[tiers.pool.stages]]
+brief = "Count query encodes. Append: «QUERIES 1»"
+expect = '''
+CALLS 3
+DOCUMENTS 2
+QUERIES 1'''
+
+[[tiers.pool]]
+t = "THE CITED RETURN"
+starter = '''
+results = [
+    {"score": 0.82, "source": "typography.md"},
+    {"score": 0.71, "source": "notes.md"},
+]
+# Preserve ranking and provenance.
+'''
+
+[[tiers.pool.stages]]
+brief = "Print the top score. Print exactly: «TOP 0.82»"
+expect = "TOP 0.82"
+
+[[tiers.pool.stages]]
+brief = "Print the top source. Append: «SOURCE typography.md»"
+expect = '''
+TOP 0.82
+SOURCE typography.md'''
+
+[[tiers.pool.stages]]
+brief = "Confirm every result is citeable. Append: «CITEABLE True»"
+expect = '''
+TOP 0.82
+SOURCE typography.md
+CITEABLE True'''
+
+[[tiers.pool]]
 t = "THE ORTHOGONAL WARD"
 starter = '''
 vec_a = [1, 0]
@@ -342,28 +594,28 @@ ORTHOGONAL True'''
 [[tiers.pool]]
 t = "THE CHUNK STRIDE"
 starter = '''
-chunk_size = 512
-overlap = 64
-total_tokens = 1000
+chunk_size = 200
+overlap = 30
+total_tokens = 500
 # The Distiller commands you to portion the quintessence.
 '''
 
 [[tiers.pool.stages]]
-brief = "Calculate the effective stride (size - overlap). Print exactly: «STRIDE 448»"
-expect = "STRIDE 448"
+brief = "Calculate the effective stride (size - overlap). Print exactly: «STRIDE 170»"
+expect = "STRIDE 170"
 
 [[tiers.pool.stages]]
-brief = "Calculate the start of the second chunk. Append: «CHUNK_2_START 448»"
+brief = "Calculate the start of the second chunk. Append: «CHUNK_2_START 170»"
 expect = '''
-STRIDE 448
-CHUNK_2_START 448'''
+STRIDE 170
+CHUNK_2_START 170'''
 
 [[tiers.pool.stages]]
-brief = "Calculate the start of the third chunk. Append: «CHUNK_3_START 896»"
+brief = "Calculate the start of the third chunk. Append: «CHUNK_3_START 340»"
 expect = '''
-STRIDE 448
-CHUNK_2_START 448
-CHUNK_3_START 896'''
+STRIDE 170
+CHUNK_2_START 170
+CHUNK_3_START 340'''
 
 [[tiers.pool]]
 t = "THE PRECISION RITE"
@@ -394,77 +646,126 @@ PRECISION 0.25'''
 [[tiers]]
 
 [[tiers.pool]]
+t = "THE SERVED REGRESSION"
+starter = '''
+stages = {"adapter": True, "merged": True, "served": False}
+# Find the first boundary that changed behavior.
+'''
+
+[[tiers.pool.stages]]
+brief = "Count stages. Print exactly: «STAGES 3»"
+expect = "STAGES 3"
+
+[[tiers.pool.stages]]
+brief = "Count passing stages. Append: «PASSED 2»"
+expect = '''
+STAGES 3
+PASSED 2'''
+
+[[tiers.pool.stages]]
+brief = "Print the failing boundary. Append: «FAILED served»"
+expect = '''
+STAGES 3
+PASSED 2
+FAILED served'''
+
+[[tiers.pool]]
+t = "THE REBUILD MANIFEST"
+starter = '''
+expected = {"adapter": "a1", "rag": "b2", "policy": "c3"}
+rebuilt = {"adapter": "a1", "rag": "b2", "policy": "c3"}
+# Compare immutable identities.
+'''
+
+[[tiers.pool.stages]]
+brief = "Count expected components. Print exactly: «COMPONENTS 3»"
+expect = "COMPONENTS 3"
+
+[[tiers.pool.stages]]
+brief = "Count matching hashes. Append: «MATCHES 3»"
+expect = '''
+COMPONENTS 3
+MATCHES 3'''
+
+[[tiers.pool.stages]]
+brief = "Declare the fresh rebuild verdict. Append: «REBUILD PASS»"
+expect = '''
+COMPONENTS 3
+MATCHES 3
+REBUILD PASS'''
+
+[[tiers.pool]]
 t = "THE ALIGNMENT SEAL"
 starter = '''
-base_model = "homunculus-base"
-adapter_path = "distilled-lore"
+base_model = "Qwen3-8B"
+adapter_path = "artifacts/adapter"
 # The artificer must merge the final vessel.
 '''
 
 [[tiers.pool.stages]]
-brief = "Print the base model name. Print exactly: «BASE homunculus-base»"
-expect = "BASE homunculus-base"
+brief = "Print the base model name. Print exactly: «BASE Qwen3-8B»"
+expect = "BASE Qwen3-8B"
 
 [[tiers.pool.stages]]
-brief = "Print the adapter path. Append: «ADAPTER distilled-lore»"
+brief = "Print the adapter path. Append: «ADAPTER artifacts/adapter»"
 expect = '''
-BASE homunculus-base
-ADAPTER distilled-lore'''
+BASE Qwen3-8B
+ADAPTER artifacts/adapter'''
 
 [[tiers.pool.stages]]
-brief = "State the merged identifier. Append: «MERGED homunculus-base+distilled-lore»"
+brief = "State the merged identifier. Append: «MERGED Qwen3-8B+artifacts/adapter»"
 expect = '''
-BASE homunculus-base
-ADAPTER distilled-lore
-MERGED homunculus-base+distilled-lore'''
+BASE Qwen3-8B
+ADAPTER artifacts/adapter
+MERGED Qwen3-8B+artifacts/adapter'''
 
 [[tiers.pool]]
 t = "THE QUANTIZATION COMPROMISE"
 starter = '''
-fp16_size = 14.0
-target_format = "q8_0"
+fp16_size = 16.0
+target_format = "Q4_K_M"
 # Prepare the vessel for serving.
 '''
 
 [[tiers.pool.stages]]
-brief = "State the original size. Print exactly: «ORIGINAL 14.0 GB»"
-expect = "ORIGINAL 14.0 GB"
+brief = "State the original size. Print exactly: «ORIGINAL 16.0 GB»"
+expect = "ORIGINAL 16.0 GB"
 
 [[tiers.pool.stages]]
-brief = "State the target format. Append: «FORMAT q8_0»"
+brief = "State the target format. Append: «FORMAT Q4_K_M»"
 expect = '''
-ORIGINAL 14.0 GB
-FORMAT q8_0'''
+ORIGINAL 16.0 GB
+FORMAT Q4_K_M'''
 
 [[tiers.pool.stages]]
-brief = "Calculate 8-bit size (half of 16-bit). Append: «SERVED 7.0 GB»"
+brief = "Estimate 4-bit size as one quarter of F16. Append: «SERVED 4.0 GB»"
 expect = '''
-ORIGINAL 14.0 GB
-FORMAT q8_0
-SERVED 7.0 GB'''
+ORIGINAL 16.0 GB
+FORMAT Q4_K_M
+SERVED 4.0 GB'''
 
 [[tiers.pool]]
 t = "THE OLLAMA MODIFICATION"
 starter = '''
-gguf_path = "homunculus-q8.gguf"
-system_ward = "Act as the Distiller."
-# Construct the final Modelfile.
+gguf_path = "homunculus-q4_k_m.gguf"
+temperature = 0.2
+# Keep the GGUF's embedded Qwen template.
 '''
 
 [[tiers.pool.stages]]
-brief = "State the FROM directive. Print exactly: «FROM homunculus-q8.gguf»"
-expect = "FROM homunculus-q8.gguf"
+brief = "State the FROM directive. Print exactly: «FROM homunculus-q4_k_m.gguf»"
+expect = "FROM homunculus-q4_k_m.gguf"
 
 [[tiers.pool.stages]]
-brief = "State the SYSTEM directive. Append: «SYSTEM Act as the Distiller.»"
+brief = "State the sampling parameter. Append: «PARAMETER temperature 0.2»"
 expect = '''
-FROM homunculus-q8.gguf
-SYSTEM Act as the Distiller.'''
+FROM homunculus-q4_k_m.gguf
+PARAMETER temperature 0.2'''
 
 [[tiers.pool.stages]]
-brief = "State the PARAM temperature. Append: «PARAMETER temperature 0.7»"
+brief = "Confirm no guessed template was added. Append: «NATIVE_TEMPLATE True»"
 expect = '''
-FROM homunculus-q8.gguf
-SYSTEM Act as the Distiller.
-PARAMETER temperature 0.7'''
+FROM homunculus-q4_k_m.gguf
+PARAMETER temperature 0.2
+NATIVE_TEMPLATE True'''
 

@@ -1,5 +1,6 @@
 [[lessons]]
 id = "s02-l02"
+teaches = ["model-types"]
 title = "Two Voices: Base and Instruct"
 body = '''
 <p>The last rite glossed over a distinction it can no longer skip: every model family the registry lists usually ships in two temperaments. A <strong>base</strong> model was trained on raw text to predict the next token, nothing more — hand it a question and it may just as easily continue it with another question, or drift into an unrelated paragraph, because "answer the user" was never a training objective. An <strong>instruct</strong> model started from that same base and was further trained on conversation-shaped examples until it learned that a message wrapped a certain way expects a reply, not a continuation.</p>
@@ -84,4 +85,15 @@ for m in messages:
 '''
 expect = '''SYSTEM: You are terse.
 USER: Name the format.'''
+solution = '''messages = [
+    {"role": "system", "content": "You are terse."},
+    {"role": "user", "content": "Name the format."},
+]
+
+for message in messages:
+    print(f"{message['role'].upper()}: {message['content']}")
+'''
 hint = "Use m['role'].upper() and m['content'] inside an f-string, one print per message in list order."
+[[lessons.readings]]
+label = "Qwen3-8B model card"
+url = "https://huggingface.co/Qwen/Qwen3-8B"
