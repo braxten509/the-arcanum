@@ -1,0 +1,110 @@
+[[lessons]]
+id = "s12-l03"
+title = "Counting & Waiting: range and while"
+body = '''
+<p>Sometimes you loop not over a list but over a <em>count</em> — run three training epochs, number the steps 0 through 9. For that, Python gives you <code>range</code>.</p>
+<pre><code>for i in range(3):
+    print(f"epoch {i}")</code></pre>
+<pre><code>epoch 0
+epoch 1
+epoch 2</code></pre>
+<p><code>range(3)</code> yields <code>0, 1, 2</code> — it starts at 0 and <em>stops before</em> the number you give, so it produces exactly that many values. This "up to but not including" rule matches zero-based indexing: <code>range(len(mylist))</code> gives every valid index of a list, no more.</p>
+<pre><code>range(3)        # 0, 1, 2
+range(1, 4)     # 1, 2, 3     — start at 1, stop before 4
+range(0, 10, 2) # 0, 2, 4, 6, 8   — step by 2</code></pre>
+<h3>The while loop — repeat until a condition falls</h3>
+<p>A <code>for</code> loop runs a known number of times. A <code>while</code> loop runs as long as a condition stays True — used when you do not know the count in advance, such as retrying until a download succeeds.</p>
+<pre><code>attempts = 0
+while attempts &lt; 3:
+    print(f"try {attempts}")
+    attempts = attempts + 1     # MUST move toward the exit
+</code></pre>
+<div class="callout">A <code>while</code> loop that never changes its condition runs forever. Something inside the body must march the condition toward False — here <code>attempts</code> climbs until it reaches 3. Forget that line and you have an infinite loop; <code>Ctrl-C</code> is how you stop a runaway.</div>
+<h3>Two words that steer a loop</h3>
+<ul>
+<li><code>break</code> — leave the loop immediately, whatever the condition says.</li>
+<li><code>continue</code> — skip the rest of this pass and go straight to the next item.</li>
+</ul>
+<pre><code>for c in [8, 16, 4, 99, 24]:
+    if c &gt; 32:
+        continue            # ignore anything too large, keep walking
+    print(c)                # 8, 16, 4, 24  — the 99 was skipped</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // KNOWN COUNT vs UNKNOWN WAIT</div>
+<p>Reach for <code>for ... range(n)</code> when you know how many times — three epochs, ten samples. Reach for <code>while</code> when you are waiting on a condition — until the loss stops improving, until the server answers. Choosing the wrong loop is rarely fatal, but choosing the right one makes the code say what you mean.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python — The range function"
+url = "https://docs.python.org/3/library/functions.html#func-range"
+essential = true
+
+[[lessons.readings]]
+label = "Python tutorial — while and break/continue"
+url = "https://docs.python.org/3/reference/compound_stmts.html#the-while-statement"
+
+[[lessons.exercises]]
+id = "s12-l03-e1"
+type = "mc"
+points = 20
+prompt = "What values does <code>range(3)</code> produce?"
+choices = [
+  "<code>1, 2, 3</code>",
+  "<code>0, 1, 2</code> — it starts at 0 and stops BEFORE 3",
+  "<code>0, 1, 2, 3</code>",
+  "<code>3</code> only",
+]
+answer = 1
+whyWrong = "<code>range</code> starts at 0 and stops just before its argument, so <code>range(3)</code> gives three values: 0, 1, 2. It never includes the stop number itself."
+explain = "The 'up to but not including' rule is what makes <code>range(3)</code> yield exactly three values (0, 1, 2) and makes <code>range(len(xs))</code> hit every valid index of a list without overshooting."
+hint = "Count how many values you want from <code>range(3)</code> — three — then list them starting at zero."
+
+[[lessons.exercises]]
+id = "s12-l03-e2"
+type = "mc"
+points = 22
+prompt = "Why does <code>while attempts &lt; 3:</code> need <code>attempts = attempts + 1</code> in its body?"
+choices = [
+  "To print the attempt number",
+  "So the condition eventually becomes False and the loop can end — otherwise it runs forever",
+  "Because <code>while</code> loops must contain an assignment",
+  "To convert attempts to a float",
+]
+answer = 1
+whyWrong = "A <code>while</code> keeps running as long as its condition is True. If nothing in the body pushes <code>attempts</code> toward 3, the condition stays True forever and the loop never exits."
+explain = "Every <code>while</code> loop needs its body to march the condition toward False. Incrementing <code>attempts</code> is what lets <code>attempts &lt; 3</code> eventually fail, ending the loop after three passes. Omit it and you get an infinite loop."
+hint = "Ask what makes the condition <code>attempts &lt; 3</code> stop being true. If the body never changes attempts, when does it end?"
+
+[[lessons.exercises]]
+id = "s12-l03-e3"
+type = "text"
+points = 16
+prompt = "Which keyword, placed in a loop, leaves the loop immediately regardless of the condition?"
+answer = "break"
+accept = ["break "]
+hint = "It is the opposite of <code>continue</code>: one skips a pass, the other abandons the whole loop."
+
+[[lessons.exercises]]
+id = "s12-l03-e4"
+type = "write"
+points = 28
+prompt = "Use <code>range</code> in a <code>for</code> loop to print the epoch numbers 0, 1, 2 as <code>epoch 0</code>, <code>epoch 1</code>, <code>epoch 2</code> — each on its own line, built with an f-string."
+starter = '''# loop over range(3) and print "epoch <i>" for each i
+'''
+expect = '''epoch 0
+epoch 1
+epoch 2'''
+hint = "<code>for i in range(3):</code> then indented <code>print(f\"epoch {i}\")</code>. range(3) gives 0, 1, 2 in order."
+
+[[lessons.exercises]]
+id = "s12-l03-e5"
+type = "write"
+points = 30
+prompt = "Walk <code>costs = [8, 16, 4, 99, 24]</code> and print each cost EXCEPT any above 32, using <code>continue</code> to skip the large ones. Output must be the four lines <code>8</code>, <code>16</code>, <code>4</code>, <code>24</code>."
+starter = '''costs = [8, 16, 4, 99, 24]
+# for each cost: if it is greater than 32, continue (skip); otherwise print it
+'''
+expect = '''8
+16
+4
+24'''
+hint = "<code>for c in costs:</code> then <code>if c &gt; 32:</code> then <code>continue</code>; after that <code>if</code>, an unindented-from-the-if <code>print(c)</code>. The 99 is skipped, the rest print."

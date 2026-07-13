@@ -1,0 +1,176 @@
+[[tiers]]
+min = 1
+time = 90
+bounty = 60
+
+[[tiers.pool]]
+t = "THE FALSE VESSEL"
+brief = "A rival claims their vessel is RDNA4. Form the architecture target code. Print EXACTLY: «TARGET gfx1201»."
+starter = '''
+arch = "gfx"
+series = 12
+revision = 1
+# Compute the architecture code, do not hardcode it.
+'''
+expect = "TARGET gfx1201"
+
+[[tiers.pool]]
+t = "THE MEMORY THIEF"
+brief = "A rogue ward claims 3 drams of VRAM. Compute the remaining from 16. Print EXACTLY: «REMAINING 13 GB»."
+starter = '''
+total_vram = 16
+stolen = 3
+# The Distiller demands the remaining budget.
+'''
+expect = "REMAINING 13 GB"
+
+[[tiers.pool]]
+t = "THE CORRUPT TENSOR"
+brief = "The vessel's shape is warped. Slice the first 3 elements of the quintessence. Print EXACTLY: «SHAPE [4, 8, 12]»."
+starter = '''
+quintessence = [4, 8, 12, 16, 20]
+# Slice the list to extract the first 3 elements.
+'''
+expect = "SHAPE [4, 8, 12]"
+
+
+[[tiers]]
+min = 3
+time = 90
+bounty = 80
+
+[[tiers.pool]]
+t = "THE HEAVY BIND"
+brief = "A full fine-tune demands too much VRAM. Calculate 6x the base weights of a 7GB model. Print EXACTLY: «FULL BIND 42 GB»."
+starter = '''
+base_weights_gb = 7
+multiplier = 6
+# Compute the toll of a full fine-tune.
+'''
+expect = "FULL BIND 42 GB"
+
+[[tiers.pool]]
+t = "THE CACHE DRAIN"
+brief = "The context window drains the vessel. Compute KV cache for 2 sequences of 500 MB each. Print EXACTLY: «KV DRAIN 1000 MB»."
+starter = '''
+seq_mb = 500
+count = 2
+# Compute the total KV cache drain.
+'''
+expect = "KV DRAIN 1000 MB"
+
+[[tiers.pool]]
+t = "THE 4-BIT REDUCTION"
+brief = "We must compress the vessel. Divide the 16-bit weight size by 4. Print EXACTLY: «COMPRESSED 3.5 GB»."
+starter = '''
+fp16_gb = 14.0
+factor = 4
+# Compute the quantized size.
+'''
+expect = "COMPRESSED 3.5 GB"
+
+
+[[tiers]]
+min = 5
+time = 120
+bounty = 120
+
+[[tiers.pool]]
+t = "THE LOOSE SEAM"
+brief = "The adapter alpha must double the rank to hold the bind. Rank is 16. Print EXACTLY: «ALPHA 32»."
+starter = '''
+rank = 16
+# Calculate the required alpha.
+'''
+expect = "ALPHA 32"
+
+[[tiers.pool]]
+t = "THE OVERFIT ROT"
+brief = "The loss curve drops to 0.0, indicating mask failure. Check if loss is under 0.1. Print EXACTLY: «STATUS MASK FAILURE»."
+starter = '''
+loss = 0.0
+# If loss is less than 0.1, print "STATUS MASK FAILURE", else "STATUS NORMAL".
+'''
+expect = "STATUS MASK FAILURE"
+
+[[tiers.pool]]
+t = "THE FOOTPRINT"
+brief = "Calculate adapter footprint: parameters * 2 bytes. Parameters = 8000000. Print EXACTLY: «FOOTPRINT 16000000 BYTES»."
+starter = '''
+params = 8000000
+bytes_per_param = 2
+# Compute the total footprint in bytes.
+'''
+expect = "FOOTPRINT 16000000 BYTES"
+
+
+[[tiers]]
+min = 7
+time = 120
+bounty = 150
+
+[[tiers.pool]]
+t = "THE DISTANT WARD"
+brief = "A rival's vector is orthogonal. Compute cosine similarity for dot product 0.0, norms 1.0. Print EXACTLY: «SIMILARITY 0.0»."
+starter = '''
+dot_product = 0.0
+norm_a = 1.0
+norm_b = 1.0
+# Compute similarity (dot_product / (norm_a * norm_b)).
+'''
+expect = "SIMILARITY 0.0"
+
+[[tiers.pool]]
+t = "THE FRACTURED TEXT"
+brief = "The chunk size is 300 tokens, overlap is 50. Calculate the effective stride. Print EXACTLY: «STRIDE 250»."
+starter = '''
+chunk = 300
+overlap = 50
+# Compute the stride between chunks.
+'''
+expect = "STRIDE 250"
+
+[[tiers.pool]]
+t = "THE PRECISION LOSS"
+brief = "Precision@k: 2 relevant out of 5 retrieved. Calculate percentage as an integer. Print EXACTLY: «PRECISION 40%»."
+starter = '''
+relevant = 2
+k = 5
+# Compute the precision percentage.
+'''
+expect = "PRECISION 40%"
+
+
+[[tiers]]
+min = 9
+time = 120
+bounty = 200
+
+[[tiers.pool]]
+t = "THE FINAL SEAL"
+brief = "Merge the base model and adapter paths with a plus sign. Print EXACTLY: «SEALED models/base+adapter»."
+starter = '''
+base = "models/base"
+adapter = "adapter"
+# Construct the merged identifier.
+'''
+expect = "SEALED models/base+adapter"
+
+[[tiers.pool]]
+t = "THE Q8 QUANTIZATION"
+brief = "The final vessel must be quantized to 8 bits. Divide 16GB by 2. Print EXACTLY: «FINAL VRAM 8 GB»."
+starter = '''
+initial_vram = 16
+# Compute the 8-bit quantized size as an integer.
+'''
+expect = "FINAL VRAM 8 GB"
+
+[[tiers.pool]]
+t = "THE WARDED PROMPT"
+brief = "The system prompt must enforce the wards. Combine base and instruction. Print EXACTLY: «SYSTEM REFUSE IF UNSAFE»."
+starter = '''
+base = "SYSTEM "
+instruction = "REFUSE IF UNSAFE"
+# Assemble the final instruction.
+'''
+expect = "SYSTEM REFUSE IF UNSAFE"

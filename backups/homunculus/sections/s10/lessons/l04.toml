@@ -1,0 +1,95 @@
+[[lessons]]
+id = "s10-l04"
+title = "The Defence — Auditing the Whole Design"
+body = '''
+<p>Nine rites built a familiar, one component at a time. The twelfth rite's fourth lesson is the architect's review: defend every choice, as if an adversarial second artificer demanded a written justification for each one. The defence is not a formality — it is the single document a future version of yourself, six months from now with a larger corpus and a newer base model, will read to decide which pieces of the pipeline to keep and which to revisit.</p>
+
+<p>The audit walks the chain in order, and every step answers three questions: what was chosen, why it was chosen over the nearest alternative, and what evidence would make you change it. Start with the <strong>base model</strong>. Why Dolphin (or Nous Hermes, or the specific abliterated variant) — the tenth rite established that an uncensored base avoids spurious refusals on style-assistant prompts, but that's the principle, not the specific model name. The audit names the model: "dolphin-2.9-llama-3-8b, because it scored 0.73 on the held-out style evaluation versus 0.58 from the base instruct model, a gap of +0.15 on the exact task the familiar was built for." A future evaluation run with a different base model can compare directly against that number — 0.73 is the bar to beat, not a vague sense of "this one felt better."</p>
+
+<p>Next, <strong>quantization</strong>. The fifth rite's budget math chose q4_k_m over q8_0 for a concrete reason — roughly 4.5 GB of the 16 GB card versus 8.0 GB — and the audit records the number, not just "4-bit vs 8-bit." The gap between those two numbers bought everything else in the budget: a longer context window, a larger batch size, room for the grimoire's embedding index to live in memory alongside the model. If a future 24 GB card changes the math, the audit tells you exactly what to recalculate: the base weights line item, which is the only term that changes when quant-string moves from q4_k_m to q8_0.</p>
+
+<p><strong>LoRA configuration.</strong> The seventh rite bound the familiar with a specific rank, alpha, target modules, and learning rate. The audit doesn't list them — it explains them. "Rank 16 on q_proj and v_proj, because rank 8 showed a Jaccard gap of 0.04 below 16 on the held-out set, and rank 32 showed no further gain within the evaluation noise floor of ±0.02 — the extra adapter parameters bought no additional style fidelity and cost an additional 0.05 GB of training state per the fifth rite's adapter-footprint formula." The eighth rite's proving habit is what generated those numbers; the audit is what preserves them alongside the choice they justified.</p>
+
+<p><strong>RAG versus weights.</strong> The ninth rite taught retrieval grounding; the audit names which knowledge is in the grimoire and which is in the adapter, and why. "CSS formatting conventions live in the grimoire — a style reference can change independently of the artificer's voice, and a retrieval update is free (re-indexing, no training). The homunculus's answer cadence — paragraph length, the particular tone of a technical explanation, when it uses bullet points versus prose — lives in the adapter's weights, because that material is not a retrievable fact; it is a learnt pattern that emerges from the full training corpus and cannot be decomposed into searchable chunks." This is the architecture-level extension of the fifth rite's single-budget-check habit: every line item in the system has an owner (weights or index), and the audit justifies the assignment.</p>
+
+<p>The final entry is the <strong>ward configuration</strong> — the system prompt and refusal-control decisions from the tenth rite. The audit records the exact system prompt, not a paraphrase, and the specific base model choice that makes that prompt effective. An abliterated base with a weak system prompt has different failure modes than a permissive base with a strong one, and the run log's verdict line alone won't capture that distinction six months later.</p>
+
+<div class="callout">The defence is not written for the current artificer, who remembers why they chose Dolphin. It is written for the same artificer six months from now, who remembers none of it and must decide whether to re-bind, re-base, or retire the current pipeline.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE DEFENCE AS A DESIGN DOCUMENT, NOT A DIARY</div>
+<p>The audit this rite teaches is structured, not freeform. Each item (base, quant, adapter, RAG assignment, ward) is a section; each section answers the same three questions; and every assertion is backed by a concrete number from a previous rite's evaluation. If the proving rite's held-out score for the current adapter was 0.73, the audit says 0.73. If the memory-budget math showed q4_k_m at 4.5 GB, the audit says 4.5 GB. A defence that says "the model sounds good and fits fine" is not a defence — it's a feeling. Numbers are what survive six months of memory.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s10-l04-e1"
+type = "mc"
+points = 20
+prompt = "Per this rite, why does the defence document require concrete numbers (the Jaccard score, the quant budget in GB, the rank-vs-fidelity comparison) rather than subjective impressions?"
+choices = [
+  "The auditor's model — a separate evaluation LLM from the eighth rite — can only parse numeric data and rejects freeform text entries, so the defence must be format-compatible with its structured review protocol",
+  "A feeling ('the model sounds good and fits fine') tells a future artificer nothing actionable, and numbers are what survive six months of memory — '0.73 on the held-out set' is a bar a future evaluation can compare directly against, while 'sounded better' is irrecoverable without the original artefacts and the original prompts",
+  "Subjective descriptions interfere with the LoRA adapter's merge step — the eleventh rite's merge_and_unload function reads the defence document during the merge operation and requires numeric parameters to correctly weight the adapter's contribution against the base model",
+  "Hugging Face's model-card specification requires all fine-tunes to include a numeric evaluation score — the Transformers library's push_to_hub function validates the defence document against the Model Card schema and rejects submissions with qualitative-only entries",
+]
+answer = 1
+whyWrong = "There's no evaluator-LLM that strictly parses the defence (the defence is a human document). merge_and_unload reads only the adapter's safetensors weights and the base model, never an audit file. And Hugging Face's model-card specification is voluntary metadata — push_to_hub does not validate any evaluation score against a schema. The real reason is the lesson's explicit callout: numbers survive, impressions don't."
+explain = "The callout is direct: 'A defence that says the model sounds good and fits fine is not a defence — it's a feeling.' The concrete numbers — the held-out Jaccard, the quant budget in GB, the rank-vs-fidelity delta — are what let a future artificer re-evaluate a decision against the exact same metrics."
+hint = "The lesson's callout and field notes both stress that numbers survive memory — the correct answer captures that '0.73 is a bar a future evaluation can compare directly against,' which is the whole reason the audit is structured around numbers rather than feelings."
+
+[[lessons.exercises]]
+id = "s10-l04-e2"
+type = "text"
+points = 18
+prompt = "Per this rite, what three questions must every item in the audit answer — the structured framework the defence applies to the base model, the quant choice, the adapter config, and every other component?"
+answer = "what was chosen, why it was chosen over the nearest alternative, and what evidence would make you change it"
+accept = ["what was chosen, why, what evidence would change it", "what, why, and what evidence would change it"]
+hint = "They're listed all together in the lesson's second paragraph: 'what was chosen, why it was chosen over the nearest alternative, and what evidence would make you change it.'"
+
+[[lessons.exercises]]
+id = "s10-l04-e3"
+type = "fill"
+points = 20
+prompt = "Fill the missing piece of knowledge assignment from the audit's RAG-vs-weights justification — the part of the homunculus the lesson says belongs in the grimoire, not in the adapter's trained weights."
+code = '''# ____ live in the grimoire — a style reference can change
+# independently of the artificer's voice, and a retrieval
+# update is free (re-indexing, no training).
+# The homunculus's answer cadence lives in the adapter's
+# weights, because it cannot be decomposed into searchable chunks.'''
+answer = "CSS formatting conventions"
+accept = ["css formatting conventions", "formatting conventions", "style conventions", "formatting rules"]
+hint = "The lesson's fourth paragraph names the specific kind of knowledge that stays in the grimoire — the formatting rules the ninth rite's retrieval pipeline grounds answers in."
+
+[[lessons.exercises]]
+id = "s10-l04-e4"
+type = "mc"
+points = 20
+prompt = "Per the audit, why does the homunculus's answer cadence — paragraph length, technical-explanation tone, when it uses bullet points versus prose — belong in the adapter's weights rather than the grimoire's retrieval index?"
+choices = [
+  "Answer cadence involves variable-length output that exceeds the grimoire's maximum chunk size of 512 tokens — the FAISS index from the ninth rite enforces a hard per-chunk limit that prose spanning multiple sentences automatically violates, forcing the pattern into the adapter instead",
+  "Cadence belongs in the adapter because the LoRA hyperparameters from the seventh rite (rank, alpha, target modules) are specifically tuned for prose-generation tasks — the lora_target_modules in PEFT's LoRA Config list includes a dedicated 'prose_cadence' projection matrix that the FAISS index cannot replicate",
+  "The retrieval pipeline needs a minimum of 10 reference examples per formatting rule — CSS conventions average five distinct selectors per rule, which is below the FAISS IndexFlatIP's minimum-vector-count requirement for cosine-similarity normalization",
+  "Answer cadence is a learnt pattern that emerges from the full training corpus and cannot be decomposed into searchable chunks — the grimoire stores retrievable facts (individual style rules), but the adapter learns the holistic style (sentence rhythm, explanation depth, bullet-vs-prose judgment) that a single retrieved chunk cannot encode alone",
+]
+answer = 3
+whyWrong = "There's no per-chunk size limit that forces prose into the adapter (chunking is configurable, and the lesson never claims a hard 512-token ceiling on the FAISS index), no dedicated 'prose_cadence' projection matrix in LoRA configs, and no minimum-vector-count requirement for IndexFlatIP. The real reason is that cadence is holistic and emergent — it's the pattern across all training examples, not a single retrievable rule."
+explain = "The lesson draws the architecture-level distinction: retrievable facts (individual style rules, formatting conventions) live in the grimoire; learnt patterns that span the entire training corpus (cadence, tone, the particular shape of an answer) live in the adapter's weights."
+hint = "The lesson says 'the adapter learns the holistic style (sentence rhythm, explanation depth, bullet-vs-prose judgment) that a single retrieved chunk cannot encode alone.' The correct answer captures that holism vs. decomposability distinction."
+
+[[lessons.exercises]]
+id = "s10-l04-e5"
+type = "write"
+points = 35
+prompt = "Given the four evaluation scores below for different base-model choices on the artificer's held-out set, compute which model achieved the largest score improvement over its nearest alternative. Print <code>BEST &lt;model_name&gt; (gap +&lt;gap&gt; over runner-up)</code> — the runner-up is the highest-scoring model among the rest. Compute from the dict, not hardcoded."
+starter = '''scores = {
+    "dolphin-2.9-llama-3-8b": 0.73,
+    "llama-3.1-8b-instruct": 0.58,
+    "nous-hermes-2-llama-3-8b": 0.71,
+    "mistral-7b-v0.3": 0.62,
+}
+
+# Find the top score and the runner-up (second-highest).
+# gap = top - runner_up
+# Print: BEST <top_name> (gap +<gap:.2f> over runner-up)
+print("BEST unknown (gap +0.00 over runner-up)")
+'''
+expect = "BEST dolphin-2.9-llama-3-8b (gap +0.02 over runner-up)"
+hint = "Find max score: 0.73 (dolphin). Runner-up: 0.71 (nous-hermes). gap = 0.73 - 0.71 = 0.02. Print f\"BEST {top_name} (gap +{gap:.2f} over runner-up)\"."

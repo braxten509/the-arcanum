@@ -13,6 +13,7 @@ import urllib.request
 
 from .config import BUILD_DIR, CLI_EFFORTS, TOMES_DIR, jobs, jobs_lock, read_settings
 from .tomes import load_manifest, resolve_working_tid
+from .tool_trace import mirror_tool_trace
 
 # The harness's banner always starts "> Phase N — …"; the ">" is REQUIRED so a worker
 # narrating "Phase 3 — s02 complete…" in its own output can't hijack the phase title.
@@ -110,6 +111,10 @@ def notify(title, message, priority=0):
 
 def watch_build(gid, proc):
     """Reader thread: stream harness stdout into the job, tracking '> Phase N — title' lines."""
+    # stdout is the deliberately concise forge narration. The AI CLI's own JSONL is the
+    # source of truth for real Bash/read/patch calls, mirrored separately into three UI rows.
+    if getattr(proc, "pid", None):
+        threading.Thread(target=mirror_tool_trace, args=(gid, proc.pid), daemon=True).start()
     for line in proc.stdout:
         line = ANSI_RE.sub("", line.rstrip("\n"))
         m = BUILD_PHASE_RE.match(line)

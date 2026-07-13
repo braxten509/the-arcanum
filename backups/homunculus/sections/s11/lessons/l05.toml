@@ -1,0 +1,111 @@
+[[lessons]]
+id = "s11-l05"
+title = "The Fork in the Path"
+body = '''
+<p>So far every line has run, always, in order. Real rites branch: if the card is large enough, load in 8-bit; otherwise, fall back to 4-bit. That decision is the <code>if</code> statement.</p>
+<pre><code>vram_gb = 16
+if vram_gb &gt;= 12:
+    print("room for 8-bit")
+else:
+    print("fall back to 4-bit")</code></pre>
+<p>Read it aloud: "if vram is at least 12, print the first line; otherwise print the second." The condition after <code>if</code> is one of the True/False questions from the last lesson. If it is True, the indented block under <code>if</code> runs; if False, the block under <code>else</code> runs. Exactly one of the two runs — never both.</p>
+<h3>Indentation is not decoration</h3>
+<p>Notice the four spaces before <code>print</code>. In Python, indentation is how you mark which lines belong <em>inside</em> the <code>if</code>. Every line of the block is indented the same amount; the first line that returns to the left margin is outside the decision again. Other languages use braces; Python uses the shape of the whitespace, and it is strict — a wrong indent is an error, not a style note.</p>
+<pre><code>if ready:
+    print("this runs only when ready is True")
+print("this runs every time — it is back at the margin")</code></pre>
+<h3>More than two roads: elif</h3>
+<p>When there are several bands, chain them with <code>elif</code> ("else if"). Python tries each condition top to bottom and takes the <em>first</em> that is True, skipping the rest:</p>
+<pre><code>if vram_gb &gt;= 24:
+    plan = "full 16-bit"
+elif vram_gb &gt;= 12:
+    plan = "8-bit"
+elif vram_gb &gt;= 6:
+    plan = "4-bit QLoRA"
+else:
+    plan = "too small"
+print(plan)</code></pre>
+<div class="callout">Order matters in an <code>elif</code> chain. Because Python stops at the first True, you list the bands from most to least demanding. Put <code>&gt;= 6</code> first and a 24 GB card would wrongly match it and never reach the 16-bit branch.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE COLON AND THE INDENT ARE A PAIR</div>
+<p>Every <code>if</code>, <code>elif</code>, and <code>else</code> line ends in a colon, and the colon promises an indented block beneath it. Forget the colon, or forget to indent, and Python stops with a syntax error before it runs a thing. When a later training script decides whether to resume from a checkpoint, it is this same shape — a question, a colon, an indented consequence.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python tutorial — if statements"
+url = "https://docs.python.org/3/tutorial/controlflow.html#if-statements"
+essential = true
+
+[[lessons.readings]]
+label = "Truth value testing"
+url = "https://docs.python.org/3/library/stdtypes.html#truth-value-testing"
+
+[[lessons.exercises]]
+id = "s11-l05-e1"
+type = "mc"
+points = 20
+prompt = "In an <code>if / else</code>, how many of the two blocks run on a single pass?"
+choices = [
+  "Both always run, top to bottom",
+  "Exactly one — the <code>if</code> block if the condition is True, otherwise the <code>else</code> block",
+  "Neither, unless you call them like functions",
+  "It depends on the indentation width",
+]
+answer = 1
+whyWrong = "An <code>if/else</code> is a fork, not a list. The condition selects exactly one road; the other block is skipped entirely on that pass."
+explain = "The condition is evaluated once. True runs the <code>if</code> block and skips <code>else</code>; False skips the <code>if</code> block and runs <code>else</code>. One and only one of them executes."
+hint = "It is called a fork in the path for a reason — you cannot walk both roads at once."
+
+[[lessons.exercises]]
+id = "s11-l05-e2"
+type = "mc"
+points = 22
+prompt = "With <code>vram_gb = 20</code> and the chain <code>if vram_gb &gt;= 24: ... elif vram_gb &gt;= 12: ... elif vram_gb &gt;= 6: ... else: ...</code>, which branch runs?"
+choices = [
+  "the <code>&gt;= 24</code> branch",
+  "the <code>&gt;= 12</code> branch — it is the first condition that is True",
+  "the <code>&gt;= 6</code> branch",
+  "the <code>else</code> branch",
+]
+answer = 1
+whyWrong = "<code>20 &gt;= 24</code> is False, so the first branch is skipped. Python then tries <code>20 &gt;= 12</code>, which is True, and takes it — it never even tests the <code>&gt;= 6</code> branch."
+explain = "An <code>elif</code> chain takes the FIRST true condition and stops. <code>20 &gt;= 24</code> fails; <code>20 &gt;= 12</code> succeeds, so that block runs and the remaining branches are ignored."
+hint = "Walk the conditions top to bottom for 20 and stop at the first one that is True."
+
+[[lessons.exercises]]
+id = "s11-l05-e3"
+type = "mc"
+points = 18
+prompt = "What ends every <code>if</code>, <code>elif</code>, and <code>else</code> header line, promising an indented block beneath it?"
+choices = [
+  "a semicolon <code>;</code>",
+  "a colon <code>:</code>",
+  "a pair of braces <code>{ }</code>",
+  "nothing — the indent alone is enough",
+]
+answer = 1
+whyWrong = "Python does not use braces or semicolons for blocks. The header line ends in a colon, and the colon is what tells Python to expect an indented block on the next line."
+explain = "The colon and the indent are a pair: the colon closes the question, the indentation marks the consequence. Omit the colon and you get a syntax error before anything runs."
+hint = "Look at the end of every <code>if</code> and <code>else</code> line in the examples — the same single mark sits there each time."
+
+[[lessons.exercises]]
+id = "s11-l05-e4"
+type = "write"
+points = 32
+prompt = "Set <code>vram_gb = 4</code>. Write an <code>if/else</code> that prints <code>fits</code> when <code>vram_gb</code> is at least 6, and <code>too small</code> otherwise. With the value 4, the output must be exactly <code>too small</code>."
+starter = '''vram_gb = 4
+# decide with if/else whether vram_gb meets the 6 GB floor,
+# and print the matching verdict (the prompt names both wordings)
+'''
+expect = "too small"
+hint = "Header: <code>if vram_gb &gt;= 6:</code> then an indented <code>print(\"fits\")</code>, then <code>else:</code> and an indented <code>print(\"too small\")</code>. Four spaces of indent on each print."
+
+[[lessons.exercises]]
+id = "s11-l05-e5"
+type = "write"
+points = 34
+prompt = "Set <code>vram_gb = 16</code>. Using an <code>if / elif / else</code> chain, set a variable <code>plan</code> to <code>\"8-bit\"</code> when vram is ≥ 12, to <code>\"4-bit\"</code> when it is ≥ 6 (but under 12), and to <code>\"too small\"</code> otherwise — then print <code>plan</code>. With 16, the output must be exactly <code>8-bit</code>."
+starter = '''vram_gb = 16
+# choose plan with if / elif / else, most demanding band first, then print plan
+'''
+expect = "8-bit"
+hint = "Order the bands high to low: <code>if vram_gb &gt;= 12:</code> set plan to 8-bit, <code>elif vram_gb &gt;= 6:</code> set it to 4-bit, <code>else:</code> too small. Then <code>print(plan)</code> at the left margin."

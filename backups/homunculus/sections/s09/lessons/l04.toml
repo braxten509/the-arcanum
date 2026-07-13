@@ -1,0 +1,147 @@
+[[lessons]]
+id = "s09-l04"
+title = "The Modelfile — The Vessel's Label"
+body = '''
+<p>The quantized GGUF is a file. To become a familiar the artificer can summon with a single command, it needs a label — a document that tells the serving daemon what vessel to pour, what temperature to serve it at, and what words to whisper in its ear before every conversation. In the Ollama ecosystem, that label is the Modelfile. The fourth rite introduced the Modelfile's basic syntax with <code>PARAMETER</code> lines and <code>FROM</code> declarations; this lesson writes a complete Modelfile for the homunculus — a label that encodes every decision the preceding eight rites made, in fewer than twenty lines.</p>
+
+<p>The Modelfile has four active sections for the homunculus. <strong><code>FROM</code></strong> names the base GGUF: <code>FROM ./homunculus-q4_k_m.gguf</code>. The path is relative to the Modelfile's location, and it must point at the quantized GGUF the third lesson produced, not the unquantized FP16 master. Ollama reads the GGUF's metadata header to determine the model architecture and tokenizer — the Modelfile only needs to specify which file contains the vessel. <strong><code>PARAMETER</code></strong> lines set inference controls — the same temperature, top-p, and top-k the fourth rite's sampling lesson introduced and the tenth rite's ward-control lesson tuned. For the homunculus: <code>PARAMETER temperature 0.7</code>, <code>PARAMETER top_p 0.9</code>, <code>PARAMETER top_k 40</code>, plus <code>PARAMETER stop "&lt;|im_end|&gt;"</code> and <code>PARAMETER stop "&lt;|im_start|&gt;"</code> to prevent the model from continuing into the next conversation turn. These are the moderate-to-loose ward parameters the tenth rite recommended: high enough to bypass spurious refusals, low enough to keep answers on-topic.</p>
+
+<p><strong><code>TEMPLATE</code></strong> defines the chat template — the exact token sequence that wraps each conversation turn in the format the model was trained to expect. For a Llama-3-based model using the ChatML format the sixth rite's template lesson taught: <code>TEMPLATE """{{ if .System }}&lt;|im_start|&gt;system\n{{ .System }}&lt;|im_end|&gt;\n{{ end }}&lt;|im_start|&gt;user\n{{ .Prompt }}&lt;|im_end|&gt;\n&lt;|im_start|&gt;assistant\n"""</code>. Ollama's Go template syntax (<code>{{ .System }}</code>, <code>{{ .Prompt }}</code>, <code>{{ .Response }}</code>) fills in the system prompt and user query at serving time. A wrong TEMPLATE — specifying Mistral's <code>[INST]</code> format for a Llama model, or forgetting the <code>{{ if .System }}</code> guard so that an empty system prompt still emits the <code>&lt;|im_start|&gt;system</code> tokens — produces garbled conversation formatting: the model sees tokens in an order it was not trained to interpret, and the output is incoherent even though the weights are correct. The TEMPLATE is not decoration; it is the protocol the model was trained to speak.</p>
+
+<p><strong><code>SYSTEM</code></strong> sets the system prompt — the ward the tenth rite's final lesson chose after testing three candidate bases and measuring refusal rates against the held-out prompts. For the homunculus: <code>SYSTEM """You are a Notion style assistant. You answer questions about formatting, typography, layout conventions, and Notion-specific features. When reference material is provided, ground your answers in it and cite the reference. If a request falls outside document styling, redirect to a related formatting topic instead of refusing."""</code>. This prompt embeds the three-pattern recipe the tenth rite's second lesson taught: role anchoring ("You are a Notion style assistant"), permission enumeration (formatting, typography, layout, Notion features), and redirection over refusal (redirect to formatting advice, don't refuse). It also embeds the RAG grounding instruction the ninth rite's grimoire pipeline expects: "When reference material is provided, ground your answers in it." Every time the artificer summons the homunculus — <code>ollama run homunculus</code> — this system prompt is prepended to the conversation, biasing the model's activation distribution toward the style-assistant role before the first user token arrives.</p>
+
+<p>The Modelfile is fewer than twenty lines of text, but those twenty lines encode ten rites of decisions: the base model choice (fifth rite), the quant level (fifth rite), the chat template format (sixth rite), the inference parameters (second and tenth rites), the system prompt (tenth rite), and the RAG integration instruction (ninth rite). A label that misstates any of those decisions produces a familiar that behaves differently from what the artificer designed. The Modelfile is a configuration artifact — a version of the third rite's one-job-per-tool discipline applied to the serving layer: it is a separate, text-editable file that can be reviewed, versioned, and revised independently of the weights it labels.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // MODELFILE GOTCHAS — FOUR FAILURE MODES THE ENGINE WON'T CATCH</div>
+<p>The <code>TEMPLATE</code> uses Go's <code>text/template</code> syntax, not Python's f-strings — <code>{{ .System }}</code> with double braces, not <code>{system}</code>. A common mistake is writing Python-style placeholders that Ollama silently ignores, producing a prompt with literal <code>{system}</code> text instead of the actual system prompt. The <code>PARAMETER stop</code> tokens must be quoted when they contain special characters: <code>PARAMETER stop "&lt;|im_end|&gt;"</code> — unquoted, the shell interprets <code>&lt;</code> as a redirect. If the <code>SYSTEM</code> prompt exceeds approximately 500 tokens, Ollama may truncate it silently; verify after creation with <code>ollama show homunculus --modelfile</code> and confirm the system prompt appears complete. The Modelfile filename is <code>Modelfile</code> by convention (capital M, no extension), and Ollama's <code>create</code> command in the final lesson expects it in the current working directory or specified with <code>-f</code>. A Modelfile without a <code>TEMPLATE</code> causes Ollama to fall back to a generic completion format — the model will generate text but without the role-structured conversation framing that the instruct training expects, producing output that feels random and untethered from the user's query.</p></div>
+'''
+body_words = 555
+
+[[lessons.readings]]
+label = "Ollama Modelfile reference — all directives and their syntax"
+url = "https://github.com/ollama/ollama/blob/main/docs/modelfile.md"
+
+[[lessons.readings]]
+label = "Ollama template syntax — the Go text/template variables available in TEMPLATE"
+url = "https://github.com/ollama/ollama/blob/main/docs/template.md"
+
+[[lessons.exercises]]
+id = "s09-l04-e1"
+type = "mc"
+points = 20
+prompt = "Per this rite, why does the Modelfile's TEMPLATE directive matter — what happens if the TEMPLATE is wrong (e.g., specifying Mistral's <code>[INST]</code> format for a Llama-3 model that expects ChatML)?"
+choices = [
+  "Ollama's tokenizer will detect the format mismatch during model creation and refuse to register the model — the tokenizer validates the TEMPLATE against the GGUF metadata's reported architecture and rejects mismatches before the model is added to the registry",
+  "The model will see tokens in an order it was not trained to interpret — the role markers ('user', 'assistant') will appear in positions that don't match the training distribution, causing the model to produce incoherent output even though the weights are correct. The chat template is the exact token sequence the model learned to associate with role-structured conversation during its instruct training",
+  "The model will run slower because Ollama retries generation three times with different template configurations before falling back to a generic format — each retry adds latency, and the final fallback format produces degraded but functional output",
+  "Ollama will strip the system prompt — the TEMPLATE and SYSTEM directives are tightly coupled in Ollama's parser, and a TEMPLATE that doesn't match the model's training format causes the SYSTEM text to be discarded before generation, so the model runs without any ward or role framing"
+]
+answer = 1
+whyWrong = "Ollama does not validate the TEMPLATE against the architecture metadata (the create command accepts any TEMPLATE string — it's the artificer's responsibility to provide the correct format, and Ollama will happily register a model with a mismatched template). Ollama does not retry with different templates (it applies the TEMPLATE exactly as written, once, and the model generates whatever tokens follow). And the SYSTEM directive is not stripped when the TEMPLATE is wrong — the TEMPLATE controls ordering of all roles, and a wrong order misplaces every role's tokens, not just the system prompt. The correct answer: the model was trained on a specific token sequence pattern, and presenting tokens in a different order means the model's internal representations don't match what it learned to expect."
+hint = "The lesson says 'a wrong TEMPLATE produces garbled conversation formatting — the model sees tokens in an order it was not trained to interpret, and the output is incoherent even though the weights are correct.' The correct choice identifies the order-sensitivity: the model's training distribution of token sequences is what the TEMPLATE must match."
+explain = "Instruct training explicitly teaches the model to associate specific token sequences with conversation roles. A Llama-3 model trained on ChatML learned that <|im_start|>system marks the system prompt, <|im_start|>user marks the user query, and <|im_start|>assistant marks the model's own response. If the TEMPLATE instead emits [INST] user query [/INST] — Mistral's format — the model sees a completely unfamiliar token pattern and generates tokens based on the statistical association of those tokens in its pre-training data (unstructured text), not its instruct training (structured conversation). The result is unrelated to the user's query: the model is processing the input as a text-completion problem, not a conversation turn."
+
+[[lessons.exercises]]
+id = "s09-l04-e2"
+type = "text"
+points = 18
+prompt = "Per this rite, what are the four active Modelfile directives the homunculus uses — the ones that name the GGUF file, set inference parameters, define the chat template, and set the system prompt?"
+answer = "FROM, PARAMETER, TEMPLATE, and SYSTEM"
+accept = ["FROM, PARAMETER, TEMPLATE, and SYSTEM", "FROM PARAMETER TEMPLATE SYSTEM", "FROM, PARAMETER, TEMPLATE, SYSTEM", "from, parameter, template, and system", "from parameter template system", "FROM, PARAMETER, TEMPLATE and SYSTEM", "FROM PARAMETER TEMPLATE and SYSTEM"]
+hint = "The lesson names them in order: 'FROM names the base GGUF,' 'PARAMETER lines set inference controls,' 'TEMPLATE defines the chat template,' and 'SYSTEM sets the system prompt.' All four are present in the homunculus's Modelfile."
+
+[[lessons.exercises]]
+id = "s09-l04-e3"
+type = "fill"
+points = 20
+prompt = "Fill the missing Modelfile directive — the one that tells Ollama which GGUF file contains the vessel's weights and should point at the quantized output from the third lesson, not the unquantized FP16 master."
+code = '''____ ./homunculus-q4_k_m.gguf
+PARAMETER temperature 0.7
+PARAMETER top_p 0.9
+PARAMETER stop "<|im_end|>"
+PARAMETER stop "<|im_start|>"'''
+answer = "FROM"
+accept = ["FROM"]
+hint = "The lesson says 'FROM names the base GGUF: FROM ./homunculus-q4_k_m.gguf.' This is the first directive in every Modelfile — it tells Ollama where the model weights live. The path must point at the quantized GGUF, not the FP16 master."
+
+[[lessons.exercises]]
+id = "s09-l04-e4"
+type = "mc"
+points = 20
+prompt = "Per this rite, what is the functional difference between the PARAMETER and SYSTEM directives in an Ollama Modelfile?"
+choices = [
+  "PARAMETER controls the model's internal sampling mechanics — temperature, top-p, top-k, and stop tokens determine how tokens are selected from the probability distribution during generation. SYSTEM sets the text prefix that prepends every conversation and biases the model's activation distribution toward a specific role. PARAMETER affects the sampler; SYSTEM affects the prompt prefix — they operate at different stages of the inference pipeline and serve different purposes",
+  "PARAMETER controls the Ollama server's resource allocation — GPU memory limit, thread count, batch size, and the number of concurrent requests the server can handle. SYSTEM controls the model's behavioral constraints — refusal boundary, response format, and domain boundaries",
+  "PARAMETER and SYSTEM are functionally identical — both are text strings that prepend the conversation. The distinction is only syntactic: PARAMETER uses key-value syntax while SYSTEM uses free-form text; Ollama concatenates both before the user query with no difference in processing",
+  "PARAMETER sets inference parameters that apply only to the system prompt generation — the system message is generated with different temperature and sampling controls than user messages, allowing the ward to be more deterministic than the response"
+]
+answer = 0
+whyWrong = "PARAMETER does not control server resources (GPU memory, thread count, and batch size are set via environment variables or ollama serve flags; PARAMETER controls the generation sampler). PARAMETER and SYSTEM are not functionally identical (PARAMETER is a numeric key-value pair read by the inference engine's sampler; SYSTEM is a text string inserted by the TEMPLATE into the prompt prefix — they go to different subsystems). And PARAMETER does not apply only to system prompt generation (it applies to the entire generation — every token the model produces uses the same temperature, top-p, and stop tokens regardless of which role's text is being generated). The correct answer: PARAMETER controls sampling (the token-selection process), SYSTEM controls the prompt prefix (what the model sees before it begins generating)."
+hint = "The lesson says PARAMETER lines 'set inference controls — the same temperature, top-p, and top-k the fourth rite's sampling lesson introduced,' while SYSTEM 'sets the system prompt — the ward the tenth rite's final lesson chose.' The correct choice distinguishes the sampler configuration (PARAMETER) from the prompt content (SYSTEM) as separate stages of the inference pipeline."
+explain = "The distinction matters because the two directives control different surfaces. Changing the SYSTEM prompt alters what the model attends to — the hidden-state representations it uses to generate. Changing PARAMETER temperature alters how the model selects tokens — the probability distribution it samples from. A good SYSTEM prompt with wrong PARAMETER values produces the right words in the wrong style (overly deterministic or too random). Good PARAMETER values with a wrong SYSTEM prompt produces well-formed text about the wrong topic. The artificer must tune both independently."
+
+[[lessons.exercises]]
+id = "s09-l04-e5"
+type = "type"
+points = 12
+reps = 2
+code = '''# The homunculus Modelfile — all four active directives:
+# FROM ./homunculus-q4_k_m.gguf
+# PARAMETER temperature 0.7
+# PARAMETER top_p 0.9
+# PARAMETER top_k 40
+# PARAMETER stop "<|im_end|>"
+# PARAMETER stop "<|im_start|>"
+# TEMPLATE """{{ if .System }}<|im_start|>system
+# {{ .System }}<|im_end|>
+# {{ end }}<|im_start|>user
+# {{ .Prompt }}<|im_end|>
+# <|im_start|>assistant
+# """
+# SYSTEM """You are a Notion style assistant.
+# Answer formatting and typography questions.
+# Ground answers in provided reference material.
+# If a request falls outside document styling,
+# redirect to a related formatting topic."""
+
+print("Modelfile assembled. Verify with: ollama show homunculus --modelfile")'''
+
+[[lessons.exercises]]
+id = "s09-l04-e6"
+type = "write"
+points = 33
+prompt = "Assemble a Modelfile from parts. Given <code>base = \"homunculus-q4_k_m.gguf\"</code>, <code>temperature = 0.7</code>, <code>top_p = 0.9</code>, <code>stop_tokens = [\"&lt;|im_end|&gt;\", \"&lt;|im_start|&gt;\"]</code>, and a <code>system_prompt</code> variable containing the ward text, print a complete Modelfile in order: FROM, PARAMETER stop for each token, PARAMETER temperature, PARAMETER top_p, hardcoded TEMPLATE (ChatML), and SYSTEM from the variable. Compute from the variables — don't hardcode the full Modelfile as one string literal."
+starter = '''base = "homunculus-q4_k_m.gguf"
+temperature = 0.7
+top_p = 0.9
+stop_tokens = ["<|im_end|>", "<|im_start|>"]
+system_prompt = (
+    "You are a Notion style assistant. "
+    "Answer formatting and typography questions. "
+    "Ground answers in provided reference material. "
+    "If a request falls outside document styling, "
+    "redirect to a related formatting topic."
+)
+
+# Print FROM line (using the base variable)
+# Print PARAMETER stop for each token in stop_tokens
+# Print PARAMETER temperature (using the temperature variable)
+# Print PARAMETER top_p (using the top_p variable)
+# Print the hardcoded TEMPLATE (ChatML format)
+# Print the SYSTEM directive using the system_prompt variable
+
+print("FROM none")
+'''
+expect = '''FROM homunculus-q4_k_m.gguf
+PARAMETER stop "<|im_end|>"
+PARAMETER stop "<|im_start|>"
+PARAMETER temperature 0.7
+PARAMETER top_p 0.9
+TEMPLATE """{{ if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+<|im_start|>assistant
+"""
+SYSTEM """You are a Notion style assistant. Answer formatting and typography questions. Ground answers in provided reference material. If a request falls outside document styling, redirect to a related formatting topic."""'''
+hint = "Print each line with f-strings: f'FROM {base}'. Loop over stop_tokens: f'PARAMETER stop \\\"{token}\\\"'. f'PARAMETER temperature {temperature}'. f'PARAMETER top_p {top_p}'. Then print the hardcoded TEMPLATE block verbatim (use a multiline string). Then print f'SYSTEM \\\"\\\"\\\"{system_prompt}\\\"\\\"\\\"'. Remember to quote the stop tokens with escaped double-quotes inside the f-string: f'PARAMETER stop \\\"{token}\\\"'."

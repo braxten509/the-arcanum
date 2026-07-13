@@ -1,0 +1,66 @@
+[[lessons]]
+id = "s04-l01"
+title = "From Notes to Feedstock"
+body = '''
+<p>Rite one's toolchain and rite three's memory budget both promised a model that fits on the card. This rite starts on the other half of the bind: the quintessence itself — the training examples that will actually shift the vessel toward your own voice. Nothing downstream matters if this material is wrong, so the sixth rite begins where the notes already live, not with a training script.</p>
+<div class="callout"><strong>Coming from Chapters I-II?</strong> The coding here is list-and-dict work you already have, plus two small idioms worth meeting up front. <em>Counting with a condition</em>: to tally how many items pass a test you can write the plain Chapter-I loop — <code>count = 0</code>, then <code>for x in seq: if test: count += 1</code> — or the shorter <code>sum(1 for x in seq if test)</code>, which does the exact same thing. Either is accepted. <em>Building a JSONL line</em>: <code>json.dumps(record)</code> turns a dict into a text line, shown in the next lesson. Anything beyond these — like copying into a <em>slice</em> of a list — is spelled out in that exercise's own comments.</div>
+<p>Your own notes are the richest source of "sounds like me" signal you have, but they are not training data as written. They're raw quintessence: freeform, inconsistent, and full of material that was never meant to teach anything — meeting times, half-finished shopping lists, a stray password pasted in a hurry. The practical way to get them out of Notion is the workspace's own built-in export, under Settings &amp; Members → Export content, which for a personal workspace produces a zip of Markdown files (plus CSVs for any databases) with no code and no API key. Notion also exposes a real API for pulling pages programmatically, which matters once the pipeline needs to re-run itself against a growing corpus — that automation is this tome's twelfth rite, not this one. For a first distillation, the manual export is the honest, correct tool: use the simplest thing that gets you clean files.</p>
+<p>An exported <code>.md</code> file is not yet feedstock. The habit this rite teaches is separating two questions that look similar but aren't: "is this note true and useful" and "is this note worth training on." A note can be perfectly true and still be wrong material — a grocery list, a one-line meeting reminder, a stray API key pasted for safekeeping — because none of it teaches the model anything about how you think or write when you're actually explaining something. What's worth keeping is durable: notes where you worked through a problem, explained a decision, or wrote at some length in your own distinctive style. Everything else is <strong>personal residue</strong> — real, but not feedstock — and it either gets discarded before the next rite or, worse, ends up baked permanently into the model's weights if it slips through.</p>
+<pre><code><span class="k">import</span> pathlib
+notes = <span class="k">list</span>(pathlib.Path(<span class="s">"export"</span>).rglob(<span class="s">"*.md"</span>))
+<span class="k">print</span>(<span class="k">len</span>(notes), <span class="s">"raw files"</span>)</code></pre>
+<p>That's the whole first pass: a <code>pathlib.Path.rglob</code> walk over the export's contents, counted before anything else happens. Nothing here filters for quality yet — that's next rite's job, once there's a target shape to filter toward. The point of separating "gather" from "filter" from "shape" into their own rites is the same discipline the memory-budget rite drilled with VRAM terms: do one calculation cleanly before combining it with the next, rather than trying to curate and format in the same pass and getting both wrong.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHAT COUNTS AS RESIDUE</div>
+<p>A rough filter that catches most residue before a human even reads it: word count. A note under roughly 20–30 words is almost never a worked explanation — it's a reminder, a link, a fragment. That's a cheap first pass, not the whole job; a genuinely short note can still be a sharp, well-phrased opinion worth keeping, and a long note can still be a rambling shopping list with annotations. Treat the length filter as triage, not judgment, and read what survives it.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Notion: Export your content"
+url = "https://www.notion.com/help/export-your-content"
+
+[[lessons.exercises]]
+id = "s04-l01-e1"
+type = "type"
+points = 12
+reps = 2
+code = '''import pathlib
+notes = list(pathlib.Path("export").rglob("*.md"))
+print(len(notes), "raw files")'''
+
+[[lessons.exercises]]
+id = "s04-l01-e2"
+type = "mc"
+points = 20
+prompt = "Per this rite, what's the correct first move to get your Notion notes out as files a Python script can read, for a one-time personal dataset build?"
+choices = [
+  "Use the workspace's built-in Settings &amp; Members → Export content, which produces a zip of Markdown files with no code and no API key",
+  "Register a Notion integration, generate an API token, and write an API client before touching a single note",
+  "Copy each page's content into the clipboard manually and paste it into a JSONL file",
+  "Install a browser extension that scrapes the rendered Notion page as HTML",
+]
+answer = 0
+whyWrong = "The API route is real and correct once you're automating repeated re-distillation (this course's later rite), but it's more machinery than a first, one-time export needs; manual copy-paste doesn't scale past a handful of notes, and scraping rendered HTML fights formatting the built-in export already solves for you."
+explain = "For a one-time build, the built-in export is the least machinery that yields clean files — a zip of Markdown with no token to register and no client to write. The Notion API is the right tool only once the pipeline must re-run itself against a growing corpus (the twelfth rite), while copy-paste and HTML scraping each create more cleanup than they remove. Match the tool to the job: the simplest thing that produces readable files."
+hint = "The lesson says 'for a first distillation, the manual export is the honest, correct tool: use the simplest thing that gets you clean files.' It's the built-in Notion export under Settings & Members, not the API (which matters later for automation — this course's twelfth rite) and not a manual or browser-scraping approach."
+
+[[lessons.exercises]]
+id = "s04-l01-e3"
+type = "text"
+points = 18
+prompt = "In this rite's terms, what's the one-word name for real, true notes that are nevertheless NOT worth training on — meeting reminders, shopping lists, stray secrets?"
+answer = "residue"
+accept = ["personal residue"]
+hint = "It's the word paired with 'personal' in the lesson's third paragraph — the opposite of feedstock."
+
+[[lessons.exercises]]
+id = "s04-l01-e4"
+type = "write"
+points = 32
+prompt = "Given the word counts below for 5 exported notes, apply this rite's cheap triage: count how many have 20 or more words, and print <code>FEEDSTOCK CANDIDATES &lt;n&gt;</code> — computed from the list, not hardcoded."
+starter = '''word_counts = [8, 145, 19, 302, 27]
+
+# Implement: count how many entries are >= 20, then print FEEDSTOCK CANDIDATES <count>
+print("FEEDSTOCK CANDIDATES 0")
+'''
+expect = "FEEDSTOCK CANDIDATES 3"
+hint = "sum(1 for w in word_counts if w >= 20) gives the count directly — 145, 302, and 27 clear the bar; 8 and 19 don't."

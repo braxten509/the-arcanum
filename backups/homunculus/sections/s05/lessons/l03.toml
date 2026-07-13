@@ -1,0 +1,100 @@
+[[lessons]]
+id = "s05-l03"
+title = "The Trainer's Scaffold"
+body = '''
+<p>Two rites taught what to train and how to prepare the vessel-plus-seam. This rite teaches the scaffold that runs the actual training — the <strong>SFTTrainer</strong> from Hugging Face's TRL (Transformer Reinforcement Learning) library. Despite the library's name, SFT stands for Supervised Fine-Tuning — the simplest, most direct training mode — and it is the only component of TRL this binding rite needs.</p>
+<p>The SFTTrainer is a wrapper: it takes four things you already have — the PEFT-wrapped model (vessel + seam), the tokenizer (the same one used to build the chat template in the sixth rite's template lesson), the training dataset (the curated JSONL from the last rite's curation pass), and a <code>TrainingArguments</code> object that spells out the run's mechanics — and it runs the supervised fine-tuning loop without any boilerplate. The dataset reaches the trainer through a <strong>formatting function</strong>: a small callable that takes a single record (a <code>messages</code> list as the sixth rite shaped it) and returns the string the model should see — the tokenized, chat-template-wrapped text that <code>apply_chat_template</code> produces.</p>
+<pre><code><span class="k">from</span> trl <span class="k">import</span> SFTTrainer
+<span class="k">from</span> transformers <span class="k">import</span> TrainingArguments
+
+<span class="k">def</span> <span class="nf">format_record</span>(record):
+    <span class="k">return</span> tokenizer.apply_chat_template(
+        record[<span class="s">"messages"</span>], tokenize=<span class="k">False</span>, add_generation_prompt=<span class="k">False</span>
+    )
+
+trainer = SFTTrainer(
+    model=model,
+    tokenizer=tokenizer,
+    args=TrainingArguments(
+        output_dir=<span class="s">"./bind-output"</span>,
+        per_device_train_batch_size=<span class="k">1</span>,
+        gradient_accumulation_steps=<span class="k">4</span>,
+        num_train_epochs=<span class="k">1</span>,
+        learning_rate=<span class="k">2e-4</span>,
+        logging_steps=<span class="k">5</span>,
+        save_steps=<span class="k">50</span>,
+        fp16=<span class="k">False</span>,
+        bf16=<span class="k">True</span>,
+    ),
+    train_dataset=dataset,
+    formatting_func=format_record,
+)</code></pre>
+<p>The <code>TrainingArguments</code> fields are the scaffold's mechanical controls, and each one has a consequence the artificer must understand before the binding run starts. <code>per_device_train_batch_size=1</code> means one example at a time through the forward pass — a necessity on 16 GB where a batch of 2 would overflow VRAM during the forward pass, a calculation the memory-budget fifth rite's KV-cache math already traced. <code>gradient_accumulation_steps=4</code> compensates: four forward passes accumulate gradients in the adapter's small parameter buffer before one backward pass updates the weights, giving an effective batch size of 4 without the memory cost of holding four examples' activations simultaneously.</p>
+<p><code>num_train_epochs=1</code> is equally deliberate. A personal dataset of a few hundred records, seen once by the model, is usually enough for a style shift — a second pass risks memorization on a set this small, and the overfitting check the next rite teaches will catch it if one epoch was too little. <code>bf16=True</code> (and <code>fp16=False</code>) is an AMD-specific choice: ROCm's bfloat16 path is more mature and less bug-prone than its float16 mixed-precision path on consumer cards, and bfloat16's wider exponent range (8 bits, same as float32) means the training is less likely to hit NaN-loss from gradient overflow — a real hazard this rite will revisit in the AMD-specific lesson ahead.</p>
+<p>The <code>formatting_func</code> is the trainer's point of contact with the sixth rite's template discipline. The same <code>apply_chat_template</code> that the template rite taught — the method that reads the base model's <code>tokenizer_config.json</code> — wraps every record just before tokenization. If the dataset was built for the wrong template, the trainer will not error — it will train on mismatched control tokens and produce the silent degradation the template rite explicitly warned about. The <code>add_generation_prompt=False</code> suppresses the trailing assistant turn header that tokenizers add when preparing for generation, because during training the assistant's response is part of the target sequence, not a generation.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DATASET_TEXT_FIELD vs. FORMATTING_FUNC — THE TWO ENTRY POINTS</div>
+<p>The SFTTrainer accepts a dataset either as a single text column (<code>dataset_text_field="text"</code>) or through a <code>formatting_func</code> that processes each record. The text-column path is simpler, but it forces the dataset to be pre-formatted as plain strings — which means the chat template is already baked in, the loss mask from the sixth rite is already applied (if at all), and there is no clean way to change templates without rebuilding the entire dataset. The <code>formatting_func</code> path keeps the dataset as structured <code>messages</code> records and defers the template decision to training time — change one line in the function, re-run the trainer, and the whole dataset re-renders against the new template. The sixth rite's curation pass taught the value of keeping curation separate from training; the formatting function applies the same principle to templates.</p></div>
+'''
+body_words = 520
+
+[[lessons.exercises]]
+id = "s05-l03-e1"
+type = "mc"
+points = 20
+prompt = "Per this rite, why does the SFTTrainer's <code>formatting_func</code> call <code>apply_chat_template</code> at training time rather than baking the formatted text into the dataset file beforehand?"
+choices = [
+  "Pre-formatted text is slower to tokenize because the tokenizer has to re-parse the control tokens it already emitted",
+  "The SFTTrainer cannot accept pre-tokenized text — it requires raw messages and will error if given plain strings",
+  "apply_chat_template is GPU-accelerated when called inside the trainer's formatting function but runs on CPU when invoked in a preprocessing script, making it faster to defer",
+  "Keeping the dataset as structured messages records and deferring the template to the formatting function means changing the template (for a different base model) only requires changing one line in the function, not rebuilding the entire dataset — the same separation-of-concerns discipline the sixth rite's curation pass already taught",
+]
+answer = 3
+whyWrong = "The SFTTrainer accepts pre-formatted text just fine (via dataset_text_field), so it's not a hard requirement — and apply_chat_template runs on CPU regardless of context. The real advantage is architectural: structured messages are template-agnostic, and deferring the template to the formatting function means you can swap base models (and their templates) without touching the dataset, which is exactly the curation-discipline the sixth rite's field notes taught."
+hint = "The lesson's FIELD NOTES section compares two paths — dataset_text_field vs. formatting_func — and explicitly says the formatting-function path 'keeps the dataset as structured messages records and defers the template decision to training time.' The correct choice is about template flexibility, not about tokenizer speed, a hard SFTTrainer constraint, or GPU acceleration."
+explain = "The formatting function is an architectural boundary: the dataset stays in the abstract messages shape the sixth rite defined, and only at the moment of training does the template render each record. Change the base model, change the formatting function — the curated dataset never gets rebuilt."
+
+[[lessons.exercises]]
+id = "s05-l03-e2"
+type = "text"
+points = 18
+prompt = "What TRL class wraps the PEFT model, tokenizer, training arguments, and dataset into a single callable training loop — the object the lesson instantiates and later calls <code>.train()</code> on?"
+answer = "SFTTrainer"
+accept = ["SFTTrainer", "trl.SFTTrainer"]
+hint = "It's the class imported from trl in the lesson's first code block — the one that takes model, tokenizer, args, train_dataset, and formatting_func."
+
+[[lessons.exercises]]
+id = "s05-l03-e3"
+type = "fill"
+points = 20
+prompt = "Fill the missing <code>TrainingArguments</code> field from the lesson — the one that lets several forward passes share a single backward pass, giving a larger effective batch size without increasing per-device VRAM usage."
+code = '''from transformers import TrainingArguments
+
+args = TrainingArguments(
+    output_dir="./bind-output",
+    per_device_train_batch_size=1,
+    ____=4,
+    num_train_epochs=1,
+    learning_rate=2e-4,
+)'''
+answer = "gradient_accumulation_steps"
+accept = ["gradient_accumulation_steps"]
+hint = "The lesson says 'four forward passes accumulate gradients before one backward pass updates the weights' — the field that controls this count is named right before that sentence."
+
+[[lessons.exercises]]
+id = "s05-l03-e4"
+type = "write"
+points = 32
+prompt = "Given <code>dataset_size = 320</code> (number of training records), <code>batch_size = 1</code>, <code>grad_accum = 4</code>, and <code>epochs = 1</code>, compute the total number of optimizer steps the binding run will execute. Print <code>STEPS &lt;n&gt;</code> — computed from the variables, not hardcoded."
+starter = '''dataset_size = 320   # records in the curated JSONL
+batch_size = 1       # per_device_train_batch_size
+grad_accum = 4       # gradient_accumulation_steps
+epochs = 1           # num_train_epochs
+
+# effective_batch = batch_size * grad_accum
+# steps_per_epoch = dataset_size / effective_batch
+# total_steps = int(steps_per_epoch * epochs)
+# Print STEPS <total_steps>
+print("STEPS 0")
+'''
+expect = "STEPS 80"
+hint = "effective_batch = 1 * 4 = 4. steps_per_epoch = 320 / 4 = 80. total_steps = 80 * 1 = 80. Print f'STEPS {total_steps}'."

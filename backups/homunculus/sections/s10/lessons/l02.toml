@@ -1,0 +1,103 @@
+[[lessons]]
+id = "s10-l02"
+title = "The Re-Distillation Trigger"
+body = '''
+<p>A living familiar is not static — the cabinet grows. New notes land in Notion weekly. A style reference updates. A ward rule changes because the artificer finds a better way to phrase the system prompt. Each of these is a reason to re-bind the familiar, and the twelfth rite's job is to make that decision disciplined rather than reactive: re-train when the evidence says it will help, not every time a file changes.</p>
+
+<p>The trigger this rite teaches has two halves: a <strong>corpus threshold</strong> and a <strong>quality regression</strong>. The corpus threshold is the simpler one: the sixth rite's curation pass taught the artificer to extract and filter notes into a training JSONL. Set a minimum net-new-record count — twenty new notes, thirty, fifty, the number that feels worth a GPU hour — and run the re-bind only when the corpus crosses that line. A single new grocery-list note is not a training signal. Twenty new worked-through explanations with the artificer's actual voice and vocabulary are.</p>
+
+<p>The quality regression is the harder half. The eighth rite taught the proving habit: measure on a held-out set before trusting. Keep that held-out set frozen — the same twenty prompts, the same ground-truth answers — and run it against the served familiar once a month. If the Jaccard similarity on assistant responses drops below a threshold (say 0.55, versus the current baseline of ~0.65–0.75 from the last bind), the familiar is drifting — either the model is forgetting the style it was taught, or the world it serves has shifted in a way that makes the old adapter's patterns less useful. Either way, a re-bind is warranted, and the run log records the evidence rather than a hunch.</p>
+
+<pre><code><span class="k">import</span> json
+<span class="k">import</span> datetime
+<span class="k">import</span> pathlib
+corpus_new = <span class="k">len</span>(<span class="k">list</span>(pathlib.Path(<span class="s">"export_new"</span>).rglob(<span class="s">"*.md"</span>)))
+corpus_old = <span class="k">len</span>(json.load(<span class="k">open</span>(<span class="s">"corpus_state.json"</span>))[<span class="s">"count"</span>])
+trigger = corpus_new - corpus_old >= 20</code></pre>
+
+<p>Automation lives here, not earlier. The sixth rite taught a manual export for a first pass; the twelfth rite teaches a script — <code>retrain.py</code> — that checks the trigger, runs the curation pass from the sixth rite against new notes, appends to the training JSONL, re-runs the binding rite's SFTTrainer, and records the result in RUNS.md. The script is not a proof; it is automation of an already-understood pipeline, and the artificer still reads the output before deciding to keep the new adapter. The toolchain rite's rule — one job per tool — applies here in its most mature form: each step (curate, train, evaluate, log) is a separate function in a single orchestration script, so a failure in one step does not silently poison the next.</p>
+
+<div class="callout">Automation is not permission to stop reading output. The script runs the pipeline; the artificer judges its results. A re-bind that ships without human review is a re-bind whose first quality regression the log will record after the familiar has already degraded in production.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE CORPUS THRESHOLD IS A MONEY DECISION</div>
+<p>A GPU hour on the 9070 XT costs electricity and wear, not cloud credits, but the logic is the same: every re-bind spends a resource (time, watts, the card's operating hours), and the return is measured in quality improvement. A threshold lets that spend be intentional — "I chose to re-train because twenty new records justify the GPU hour" — rather than reactive. Tune the threshold to your own note-writing pace: a prolific note-taker might bind monthly at fifty records; a sparse one might bind quarterly at ten. The number isn't the rule; the rule is "choose the number, write it in RUNS.md, and follow it."</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s10-l02-e1"
+type = "mc"
+points = 20
+prompt = "Per this rite, why does the re-distillation trigger use both a corpus-size threshold AND a quality-regression check, rather than only one of them?"
+choices = [
+  "The SFTTrainer from the seventh rite requires both inputs — it throws a ValueError if only one of the two conditions is satisfied before launching a training run",
+  "Because the metric only works for classification models and the homunculus is a text-generation model, so the evaluation pipeline from the eighth rite must be rewritten for each new base model",
+  "Hugging Face's model hub enforces a dual-trigger policy — any fine-tune uploaded without both a corpus-change log and a quality-regression report is automatically rejected during the push step",
+  "A corpus threshold alone would miss quality drift caused by changing external references (the grimoire's style guides update, the familiar's answers degrade even though the notes haven't changed), and a quality check alone would trigger re-binds for one-note changes that aren't worth the GPU hour — together they balance signal against cost",
+]
+answer = 3
+whyWrong = "SFTTrainer has no such trigger-validation requirement (it accepts whatever dataset you hand it), the eighth rite's evaluation pipeline is metric-agnostic (Jaccard works on text regardless of the model type), and there is no Hugging Face hub policy enforcing trigger documentation — the dual trigger is a design choice, not a tooling constraint."
+explain = "The lesson names both halves: the corpus threshold catches 'enough new material exists to make re-training worthwhile,' and the quality regression catches 'the familiar is drifting whether the corpus grew or not' — together they ensure a re-bind is always backed by evidence, not reflex."
+hint = "The lesson's two-paragraph structure mirrors the two triggers: paragraph two explains the corpus threshold (new notes → re-bind), paragraph three explains the quality regression (held-out eval score drops → re-bind). The correct choice combines both rationales into one cost-vs-signal explanation."
+
+[[lessons.exercises]]
+id = "s10-l02-e2"
+type = "text"
+points = 18
+prompt = "Per this rite, what is the name of the script that automates the pipeline — checking the trigger, curating new notes, re-training, and logging the result — in a single orchestration, one function per step?"
+answer = "retrain.py"
+accept = ["retrain.py", "the retrain script"]
+hint = "The lesson names it directly: 'the twelfth rite teaches a script — <code>retrain.py</code> — that checks the trigger, runs the curation pass...'"
+
+[[lessons.exercises]]
+id = "s10-l02-e3"
+type = "mc"
+points = 20
+prompt = "Per this rite, what should the artificer still do after <code>retrain.py</code> finishes, even when the script reports success?"
+choices = [
+  "Re-run the entire ROCm toolchain verification from the third rite — the GPU driver may have changed during the training run and must be re-validated before the new adapter is safe to serve",
+  "Read the output and decide whether to keep the new adapter — automation runs the pipeline, but the artificer judges its results, because a re-bind that ships un-reviewed is one whose first quality regression the log will record after the familiar has already degraded in production",
+  "Delete the previous adapter's safetensors file — the old adapter shares a namespace with the new one in Ollama's internal registry and must be removed to prevent a serving-time collision",
+  "Re-quantize the base model from fp16 to q4_k_m a second time — the BitsAndBytesConfig from the seventh rite invalidates the GGUF header during training and requires a fresh conversion before ollama create will accept the new artifact",
+]
+answer = 1
+whyWrong = "ROCm verification is a one-time setup step from the third rite, not a per-training-run ritual. Old adapters do not collide with new ones (each lives in its own date-prefixed directory). Re-quantization is never triggered by training — the frozen base is never modified during QLoRA, so its GGUF header is still intact. The real answer is the lesson's callout verbatim: the script runs the pipeline, but human review determines whether the result is worth keeping."
+explain = "The lesson's callout is explicit: 'the artificer still reads the output before deciding to keep the new adapter.' The automation is for the mechanical steps (curation, training, evaluation); the judgment — 'is this version better' — stays human."
+hint = "The lesson's callout says 'Automation is not permission to stop reading output.' The script handles the mechanical steps; the decision to keep or discard the result is still the artificer's."
+
+[[lessons.exercises]]
+id = "s10-l02-e4"
+type = "fill"
+points = 20
+prompt = "Fill the missing corpus comparison from this rite's trigger formula — the condition that decides whether enough new raw notes exist to justify a re-bind."
+code = '''corpus_new = len(list(pathlib.Path("export_new").rglob("*.md")))
+corpus_old = json.load(open("corpus_state.json"))["count"]
+trigger = corpus_new ____ corpus_old >= 20'''
+answer = "-"
+accept = ["-", "minus"]
+hint = "The trigger checks whether the difference between the new and old corpus counts crosses a threshold — it's the subtraction operator, since the trigger fires when the net-new count reaches the threshold."
+
+[[lessons.exercises]]
+id = "s10-l02-e5"
+type = "write"
+points = 35
+prompt = "Given <code>corpus_new</code> and <code>corpus_old</code> (raw note counts) and a <code>threshold = 20</code>, compute the net new note count (<code>corpus_new - corpus_old</code>). If it reaches or exceeds the threshold, print <code>TRIGGER: rebind (net +&lt;n&gt;)</code>; otherwise print <code>NO TRIGGER: &lt;n&gt; notes below threshold</code>, where &lt;n&gt; is how many notes short it is (<code>threshold - net_new</code>). Compute from the given variables, not hardcoded."
+starter = '''corpus_new = 145
+corpus_old = 118
+threshold = 20
+
+# net_new = corpus_new - corpus_old
+# if net_new >= threshold: print TRIGGER: rebind (net +<net_new>)
+# else: print NO TRIGGER: <threshold - net_new> notes below threshold
+print("NO TRIGGER: 0 notes below threshold")
+'''
+expect = "TRIGGER: rebind (net +27)"
+hint = "net_new = corpus_new - corpus_old = 145 - 118 = 27. Since 27 >= threshold (20), print f\"TRIGGER: rebind (net +{net_new})\"."
+
+[[lessons.exercises]]
+id = "s10-l02-e6"
+type = "type"
+points = 12
+prompt = "Retype the trigger check from the lesson, showing the two-line pattern that computes net-new raw-note counts and compares them against a threshold."
+code = '''import pathlib, json
+corpus_new = len(list(pathlib.Path("export_new").rglob("*.md")))
+corpus_old = json.load(open("corpus_state.json"))["count"]
+trigger = corpus_new - corpus_old >= 20'''

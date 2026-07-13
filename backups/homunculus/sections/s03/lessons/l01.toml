@@ -1,0 +1,76 @@
+[[lessons]]
+id = "s03-l01"
+title = "How Much Vessel Is Left"
+body = '''
+<p>The last section proved a vessel would wake and answer. This one starts with a harder question: how much of your 16 GB card is actually free once a real model sits in it? The GPU will not negotiate. Overshoot and you get an out-of-memory crash, not a polite warning — so the memory budget has to be worked out on paper before you load anything, not discovered by trial and error.</p>
+<div class="callout"><strong>Fresh off Chapters I-II?</strong> This whole rite is arithmetic — multiply, add, and print — which you already have. Two small new tools appear in the exercises, so meet them here first: <code>sum(d.values())</code> adds up all the numbers stored in a dict, and an f-string can round a number for display with <code>f"{x:.1f}"</code> — that prints <code>7</code> as <code>7.0</code>, one digit after the point. Every calculation below is one of those two tricks wrapped around a multiplication.</div>
+<p>Start with the biggest single number: the weights themselves. A model's size on disk (and in VRAM, roughly) is <strong>parameter count times bytes per parameter</strong>. Full precision (<code>fp32</code>) spends 4 bytes per weight; half precision (<code>fp16</code>/<code>bf16</code>, the usual default) spends 2; 8-bit spends 1; 4-bit spends 0.5. An 8-billion-parameter model at <code>fp16</code> is <code>8,000,000,000 &times; 2</code> bytes — 16 GB, the <em>entire</em> card, before a single token of context or a single byte of training state is loaded. That number alone is why quantization is not an optional optimization on this hardware; it is the price of entry.</p>
+<pre><code><span class="k">params_b</span> = 7        <span class="c">// billions of parameters</span>
+<span class="k">bytes_per_param</span> = 1  <span class="c">// int8</span>
+size_gb = params_b * bytes_per_param</code></pre>
+<p>But weights are only one line item. Everything that has to exist in VRAM <em>at the same time</em> shares the same 16 GB: the weights, the <strong>KV cache</strong> (the running memory of every token attended to so far in the current context), <strong>activations</strong> (the intermediate values a forward pass produces layer by layer), and — only during training — <strong>gradients</strong> and <strong>optimizer state</strong>. Inference-only use skips the last two entirely, which is why a model that comfortably chats can still fail to fine-tune in the same VRAM. This section spends one rite on each of these line items before assembling them into a single budget you can actually check a base model against.</p>
+<div class="callout">"It fit in Ollama" is not the same claim as "it fits with room to train" — a chat session and a fine-tuning run have very different memory line items, even against the identical weights.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ROUND DOWN, NOT UP</div>
+<p>Every formula in this section gives you a floor, not a guarantee. Real allocators fragment, frameworks reserve scratch space, and a driver keeps its own overhead. Treat any number this section's math produces as an optimistic estimate, and leave real headroom — a budget that lands at 15.9 of 16 GB on paper is a budget that will fail on the actual card. The discipline is knowing which line items exist at all; the exact byte count is always a little pessimistic in practice.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s03-l01-e1"
+type = "type"
+points = 12
+prompt = "Retype the three-line calculation from the lesson that turns a parameter count and a bytes-per-parameter figure into a size in gigabytes."
+code = '''params_b = 7
+bytes_per_param = 1
+size_gb = params_b * bytes_per_param'''
+
+[[lessons.exercises]]
+id = "s03-l01-e2"
+type = "mc"
+points = 20
+prompt = "An 8-billion-parameter model is loaded at <code>fp16</code> (2 bytes per weight). Per the lesson's math, roughly how much of a 16 GB card do the weights alone consume?"
+choices = [
+  "About 4 GB, leaving 12 GB free for everything else",
+  "About 8 GB, leaving half the card free",
+  "About 16 GB — effectively the entire card, before context or training state",
+  "Under 1 GB, since fp16 is already a compressed format",
+]
+answer = 2
+whyWrong = "fp16 spends 2 full bytes per weight, not a fraction of one — it is half precision relative to fp32, not a compression scheme, so 8B params at 2 bytes each lands at the full 16 GB the lesson works out, not a smaller fraction of the card."
+explain = "8,000,000,000 params × 2 bytes = 16,000,000,000 bytes ≈ 16 GB — the exact number the lesson uses to show why quantization isn't optional on this card."
+hint = "The lesson works out the math: params_b × bytes_per_param directly. 8 billion × 2 is not 4, not 8, and certainly not under 1 — run the multiplication and the result is the entire 16 GB card, which is exactly why the lesson says quantization is 'not an optional optimization' on this hardware."
+
+[[lessons.exercises]]
+id = "s03-l01-e3"
+type = "text"
+points = 15
+prompt = "What is the name of the running memory of every token attended to so far in the current context — a VRAM cost distinct from the weights themselves?"
+answer = "KV cache"
+accept = ["kv cache", "key-value cache", "the kv cache"]
+hint = "It's named directly in the lesson's list of what shares the card's 16 GB alongside the weights."
+
+[[lessons.exercises]]
+id = "s03-l01-e4"
+type = "fill"
+points = 20
+prompt = "Fill the missing pair of VRAM line items from the lesson — the two costs that exist ONLY during training, never during plain inference."
+code = '''# inference-only VRAM: weights, KV cache, activations
+# training also adds: ____ and ____'''
+answer = "gradients and optimizer state"
+accept = ["gradients, optimizer state", "gradients and optimizer"]
+hint = "They're named in the lesson's closing paragraph as the reason a model that chats fine can still fail to fine-tune in the same VRAM."
+
+[[lessons.exercises]]
+id = "s03-l01-e5"
+type = "write"
+points = 30
+prompt = "Given <code>params_b = 7</code> (billions) and <code>bytes_per_param = 1</code> (int8), compute the weight size in gigabytes and print exactly: <code>WEIGHTS 7.0 GB</code> — computed from the two variables, not hardcoded."
+starter = '''params_b = 7
+bytes_per_param = 1
+
+# Implement: compute size_gb = params_b * bytes_per_param, then print:
+#   WEIGHTS 7.0 GB
+size_gb = 0
+print(f"WEIGHTS {size_gb} GB")
+'''
+expect = "WEIGHTS 7.0 GB"
+hint = "size_gb should be a float — multiply the two variables and format with one decimal place, e.g. `f\"WEIGHTS {size_gb:.1f} GB\"`."

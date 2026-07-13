@@ -1,0 +1,35 @@
+[freestyle]
+title = "THE WORKING: SEAL AND SERVE"
+brief = "Merge the adapter into the base, convert to GGUF, quantize, and wire the result into a local Ollama service.<ul><li>Write a merge script that loads the adapter via <code>PeftModel.from_pretrained</code>, calls <code>merge_and_unload()</code>, and saves the merged model and tokenizer to a directory.</li><li>Document the <code>convert_hf_to_gguf.py</code> command with correct <code>--outtype f16</code> flag and verify the GGUF metadata header's <code>block_count</code> and <code>context_length</code> match the base model.</li><li>Run <code>llama-quantize</code> with <code>q4_k_m</code> quant type and confirm the quantized file size is approximately <code>params × 4.5 / 8</code> bytes.</li><li>Write a Modelfile containing all four active directives: <code>FROM</code> pointing at the quantized GGUF, <code>PARAMETER</code> lines for temperature/top_p/stop tokens, <code>TEMPLATE</code> in the model's native chat format (ChatML for Llama-3), and <code>SYSTEM</code> containing the ward chosen in the tenth rite.</li><li>Register the model with <code>ollama create homunculus -f Modelfile</code> and verify the served output against at least three held-out prompts — measure refusal rate, answer quality, and style fidelity as described in the verification lesson.</li></ul>"
+reward = 260
+xray = "The grader docks points for: MODEFILE with no TEMPLATE (model generates unformatted completion text), FROM pointing at an FP16 GGUF instead of the quantized GGUF (needlessly large serving footprint), PARAMETER stop tokens unquoted (shell interprets < and >), SYSTEM prompt that exceeds ~500 tokens (Ollama truncates it silently), and conversion command with --outtype f32 when the merge already produced FP16 (doubles the file size with no quality gain). Style credit for: directory structure separating the merged-model directory, FP16 GGUF, quantized GGUF, and Modelfile into clearly named subdirectories rather than dumping everything in one folder; comments in the Modelfile explaining the choice of temperature/top-p values and citing the tenth rite's ward decision; and a verification script that runs held-out prompts through the served model and prints a three-column report (refusal rate, quality, style) with the thresholds from the verification lesson."
+
+[freestyle.badge]
+id = "s09-badge"
+name = "SEALED VESSEL"
+desc = "Awarded for sealing the vessel and serving it."
+
+[[freestyle.rubric]]
+criterion = "Merge correctness"
+weight = 25
+desc = "merge_and_unload() called on the correct base+adapter pair; merged model saved to a distinct directory with model.save_pretrained() and tokenizer.save_pretrained(); the merged directory contains config.json, model.safetensors, tokenizer.json, and special_tokens_map.json."
+
+[[freestyle.rubric]]
+criterion = "GGUF conversion & quantization"
+weight = 25
+desc = "convert_hf_to_gguf.py used with --outtype f16 and the correct merged directory; llama-quantize used with q4_k_m (or a documented alternative with justification); the quantized GGUF file size is consistent with the expected compression ratio; the FP16 GGUF is retained as archival master alongside the quantized version."
+
+[[freestyle.rubric]]
+criterion = "Modelfile completeness"
+weight = 20
+desc = "FROM points at the quantized GGUF; PARAMETER lines include temperature, top_p, and stop tokens for <|im_end|> and <|im_start|>; TEMPLATE uses the model's native chat format (ChatML) with the {{ if .System }} guard; SYSTEM contains the ward text from the tenth rite with role anchoring, permission enumeration, and redirection-over-refusal patterns."
+
+[[freestyle.rubric]]
+criterion = "Serving & verification"
+weight = 20
+desc = "ollama create registers the model successfully; ollama list confirms the homunculus appears in the local registry; at least three held-out prompts are run through the served model; the verification report covers refusal rate, answer quality, and style fidelity with clear pass/fail thresholds from the lesson."
+
+[[freestyle.rubric]]
+criterion = "Style & craft"
+weight = 10
+desc = "Python scripts use snake_case naming and 4-space indentation (PEP 8); directory structure separates artifacts by pipeline stage (merged/, gguf-fp16/, gguf-quant/, modelfile/); Modelfile includes comments explaining each directive choice; verification script prints a formatted report rather than raw debug output."

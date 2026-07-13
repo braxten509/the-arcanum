@@ -1,0 +1,124 @@
+[[lessons]]
+id = "s05-l04"
+title = "The Knobs: Rank, Alpha, and Learning Rate"
+body = '''
+<p>Three rites set the table — the LoRA shape, the PEFT library that loads it, the SFTTrainer scaffold that runs it. This rite teaches the three knobs that control <em>how</em> the bind forms, and every one of them is connected to the others. Turning one without understanding the coupling is the fastest way to ship an adapter that either changes nothing or memorizes the training set verbatim.</p>
+<p><strong>Rank (<code>r</code>)</strong> is the first knob, and the third rite already defined what it controls: the number of degrees of freedom the adapter has per targeted weight. Higher rank means a richer correction — more capacity to shift style, more risk of memorizing individual training records instead of learning the pattern behind them. On a personal dataset of a few hundred examples, ranks of 8–32 are the useful range; rank 64 or above on a dataset this small is almost certainly overparameterization — the adapter has more knobs than the data has distinct signals, and the excess capacity goes to memorization rather than generalization. The third rite's parameter math already showed that doubling rank doubles the adapter's trainable count, and the memory-budget section proved that every parameter costs VRAM in gradients and optimizer state, so the rank is not free — it spends both capacity and memory.</p>
+<p><strong>Alpha (<code>lora_alpha</code>)</strong> is the scaling knob, and it is the one most often confused with the learning rate. The LoRA forward pass applies the adapter contribution as <code>ΔW = (α / r) × BA</code> — alpha divided by rank, times the low-rank product. If alpha matches rank (common default: both 16), the scaling is 1.0 and the adapter contributes at full strength. Raising alpha amplifies the adapter's output relative to the frozen base; lowering it dampens the correction. This is NOT the same as the optimizer's learning rate — alpha scales what the model <em>produces</em> during the forward pass, while the learning rate scales how much the optimizer <em>updates</em> the adapter's weights from the loss gradient. Increase alpha and the model's output changes at the same weight values; increase the learning rate and the weight values themselves change faster. The two interact — a high-alpha adapter receiving a high learning rate twice amplifies the correction — but they are separate channels.</p>
+<p><strong>Learning rate</strong> is the optimizer's step size, and on a small personal dataset the safe range is narrow. The default AdamW learning rate of 5e-5 to 2e-4 is settled practice for QLoRA on consumer hardware, and the binding rite's single-epoch run with a few hundred records sits at the upper end of that range because there is only one pass — a rate too low produces an adapter that barely shifted, and a second epoch (to compensate) risks memorization. The specific learning rate the artificer picks interacts with the gradient accumulation from the last rite: a higher effective batch (more accumulation steps) smooths the gradient, which tolerates a slightly higher learning rate without instability.</p>
+<pre><code><span class="c"># The three knobs, side by side with their consequences:</span>
+<span class="c">#   r        — degrees of freedom (8–32 for personal data)</span>
+<span class="c">#   alpha    — forward-pass amplifier (alpha/r is the scale)</span>
+<span class="c">#   lr       — optimizer step size (5e-5 to 2e-4 for QLoRA)</span>
+<span class="c">#</span>
+<span class="c"># Practical coupling:</span>
+<span class="c">#   doubling r while keeping alpha/r constant preserves the</span>
+<span class="c">#   scale but doubles the parameter cost — same strength,</span>
+<span class="c">#   more capacity, higher VRAM, higher overfitting risk.</span>
+<span class="c">#   doubling alpha while keeping r constant amplifies the</span>
+<span class="c">#   adapter's contribution without adding parameters —</span>
+<span class="c">#   stronger correction, same cost, but can overwhelm the base.</span></code></pre>
+<p>The binding rite's default starting point for a 7B-ish base on a personal dataset: <code>r=16, lora_alpha=32, lr=2e-4</code>. Alpha at twice the rank gives the adapter a mild boost (scaling factor 2.0), and the learning rate at the upper safe bound compensates for the single epoch. This is not a universal optimum — it is a defensible first strike that the evaluation rite ahead will measure and tune — but it is not a guess either: every value is chosen for the specific resource profile (16 GB, QLoRA, ~300 curated records, one epoch) the artificer's earlier rites defined.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE LORA_ALPHA CONFUSION — WHY IT IS NOT THE LEARNING RATE</div>
+<p>Nearly every QLoRA tutorial gets this wrong at least once. Alpha does not control gradient magnitude; it controls the adapter's output scale during the forward pass. If alpha is set to 0, the adapter's <code>ΔW</code> contribution is zero — the model's output is identical to the frozen base, regardless of what the adapter weights have learned, because the learned correction is multiplied by zero before it reaches the next layer. The learning rate, in contrast, controls the step size of the optimizer update — set it to zero and the adapter never learns anything because the weights never move. A well-tuned bind needs both: a learning rate high enough to move the weights, and an alpha/r ratio that gives the learned correction enough presence without drowning the base model's original knowledge.</p></div>
+'''
+body_words = 550
+
+[[lessons.exercises]]
+id = "s05-l04-e1"
+type = "mc"
+points = 20
+prompt = "Per this rite, what does increasing <code>lora_alpha</code> from 16 to 32 do, holding rank fixed at 16?"
+choices = [
+  "It doubles the scaling factor (alpha/r goes from 1.0 to 2.0), amplifying the adapter's output contribution during the forward pass without changing the parameter count or the optimizer's step size",
+  "It doubles the number of trainable parameters in the adapter, consuming more VRAM as the memory-budget section would predict",
+  "It doubles the effective learning rate, causing the optimizer to take larger steps per gradient update",
+  "It increases the dropout rate applied to the adapter layer, which guards against overfitting on small datasets",
+]
+answer = 0
+whyWrong = "Alpha does not change parameter count (that's rank), the learning rate (that's the lr argument), or dropout (that's lora_dropout). It purely scales the adapter's forward-pass output via alpha/r — same parameters, same gradients, stronger contribution to the model's final output."
+hint = "The lesson explicitly distinguishes alpha from the learning rate: 'alpha scales what the model produces during the forward pass, while the learning rate scales how much the optimizer updates.' The correct choice captures this amplifier role."
+explain = "Alpha is a forward-pass gain knob: the adapter's computed delta (B × A × x) gets multiplied by alpha/r before being added to the base output. Increase alpha, and the same adapter weights produce a larger shift — useful when the adapter is under-contributing but the weights themselves are well-shaped."
+
+[[lessons.exercises]]
+id = "s05-l04-e2"
+type = "text"
+points = 18
+prompt = "What is the formula for the scaling factor applied to the LoRA adapter's output in the forward pass, expressed in terms of <code>lora_alpha</code> and <code>r</code>?"
+answer = "alpha / r"
+accept = ["lora_alpha / r", "alpha/r", "α/r", "alpha divided by r", "lora_alpha divided by r"]
+hint = "The lesson writes it as '(α / r) × BA' — the ratio that controls how strongly the adapter's correction is applied."
+
+[[lessons.exercises]]
+id = "s05-l04-e3"
+type = "fill"
+points = 20
+prompt = "Fill the missing <code>TrainingArguments</code> field from the lesson — the one that controls the optimizer's step size, which the FIELD NOTES carefully distinguish from alpha."
+code = '''from transformers import TrainingArguments
+
+args = TrainingArguments(
+    output_dir="./bind-output",
+    per_device_train_batch_size=1,
+    gradient_accumulation_steps=4,
+    num_train_epochs=1,
+    ____=2e-4,
+)'''
+answer = "learning_rate"
+accept = ["learning_rate"]
+hint = "The lesson calls it 'the optimizer's step size' and gives its range as '5e-5 to 2e-4 for QLoRA' — it's the field that actually controls how much the optimizer updates the adapter weights from the loss gradient."
+
+[[lessons.exercises]]
+id = "s05-l04-e4"
+type = "mc"
+points = 20
+prompt = "Per this rite, what is the most likely consequence of setting rank=128 on a personal dataset of only 200 curated records?"
+choices = [
+  "The adapter will converge faster because more parameters mean more capacity to absorb the training signal — the loss will drop to zero in fewer steps",
+  "The adapter will overfit: with far more trainable parameters than distinct training patterns, the excess capacity memorizes individual records verbatim rather than learning the style behind them — it will recite specific training prompts on evaluation but fail to generalize to new ones",
+  "The training run will crash with an out-of-memory error because rank 128 exceeds the 16 GB budget regardless of batch size",
+  "The adapter will underfit because high rank dilutes the gradient signal across too many parameters, preventing any of them from learning meaningfully",
+]
+answer = 1
+whyWrong = "More parameters slow convergence, not accelerate it (each parameter receives a smaller share of the gradient signal). Rank 128's memory cost is ~4 MB — well within 16 GB — so it won't OOM. And the failure mode on small data is overfitting (memorization), not underfitting (too little capacity). The correct diagnosis: excess capacity on scarce data memorizes the training examples."
+hint = "The lesson's rank discussion says 'rank 64 or above on a dataset this small is almost certainly overparameterization — the adapter has more knobs than the data has distinct signals, and the excess capacity goes to memorization rather than generalization.' The correct choice names overfitting to individual records."
+explain = "A rank-128 adapter on 200 records gives the model roughly 2 million trainable parameters for 200 training examples — roughly 10,000 parameters per example. That's a memorization ratio, not a generalization one: the adapter can encode each record's exact tokens rather than the style pattern behind them."
+
+[[lessons.exercises]]
+id = "s05-l04-e5"
+type = "type"
+points = 12
+reps = 2
+code = '''# The three knobs, side by side with their consequences:
+#   r        — degrees of freedom (8–32 for personal data)
+#   alpha    — forward-pass amplifier (alpha/r is the scale)
+#   lr       — optimizer step size (5e-5 to 2e-4 for QLoRA)
+#
+# Practical coupling:
+#   doubling r while keeping alpha/r constant preserves the
+#   scale but doubles the parameter cost — same strength,
+#   more capacity, higher VRAM, higher overfitting risk.
+#   doubling alpha while keeping r constant amplifies the
+#   adapter's contribution without adding parameters —
+#   stronger correction, same cost, but can overwhelm the base.'''
+
+[[lessons.exercises]]
+id = "s05-l04-e6"
+type = "write"
+points = 35
+prompt = "Given the three configs below — each a dict with <code>r</code>, <code>lora_alpha</code>, and <code>lr</code> — compute the alpha/r scaling factor for each and find the config(s) where both conditions hold: scaling > 1.5 AND lr > 1e-4. Print each qualifying config's ID letter on its own line as <code>PASS &lt;id&gt;</code> — computed from the data, not hardcoded."
+starter = '''configs = [
+    {"id": "A", "r": 16, "lora_alpha": 16, "lr": 2e-4},   # scaling 1.0, lr 0.0002
+    {"id": "B", "r": 8,  "lora_alpha": 32, "lr": 1.5e-4}, # scaling 4.0, lr 0.00015
+    {"id": "C", "r": 16, "lora_alpha": 32, "lr": 2e-4},   # scaling 2.0, lr 0.0002
+    {"id": "D", "r": 32, "lora_alpha": 32, "lr": 8e-5},   # scaling 1.0, lr 0.00008
+]
+
+# For each config, compute scaling = lora_alpha / r.
+# If scaling > 1.5 AND lr > 1e-4, print PASS <id>.
+for c in configs:
+    pass
+print("NO PASS")
+'''
+expect = '''PASS B
+PASS C'''
+hint = "For each config: scaling = c['lora_alpha'] / c['r']. Check if scaling > 1.5 and c['lr'] > 1e-4. B: 32/8=4.0, lr=0.00015 (>0.0001) → PASS. C: 32/16=2.0, lr=0.0002 (>0.0001) → PASS. A fails scaling (1.0), D fails lr (0.00008). Print both as separate PASS lines."

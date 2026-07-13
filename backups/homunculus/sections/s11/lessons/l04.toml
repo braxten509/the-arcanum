@@ -1,0 +1,102 @@
+[[lessons]]
+id = "s11-l04"
+title = "Reckoning"
+body = '''
+<p>Fitting a model on a 16 GB card is arithmetic before it is alchemy: parameters times bytes, divided by a quantization factor, checked against a budget. Python's number rites are few and worth memorizing.</p>
+<pre><code>7 + 2     # 9    addition
+7 - 2     # 5    subtraction
+7 * 2     # 14   multiplication
+7 / 2     # 3.5  TRUE division — always gives a float
+7 // 2    # 3    FLOOR division — drops the remainder, whole-number result
+7 % 2     # 1    MODULO — the remainder left over
+2 ** 10   # 1024 exponent — two to the tenth</code></pre>
+<div class="callout">The two divisions trip everyone. <code>/</code> gives the exact answer as a <code>float</code> (<code>4 / 2</code> is <code>2.0</code>, not <code>2</code>). <code>//</code> throws away the fraction and keeps the whole part. When you later ask "how many whole 7B models fit in this VRAM," you want <code>//</code>.</div>
+<h3>Converting between number and text</h3>
+<p>Recall that <code>"16"</code> is text and <code>16</code> is a number. Two rites cross the border: <code>int("16")</code> turns the text into the number <code>16</code>; <code>str(16)</code> turns the number into the text <code>"16"</code>. A config file read from disk hands you strings, so <code>int(...)</code> is how you make them countable.</p>
+<pre><code>vram = int("16")     # the number 16, ready for arithmetic
+print(vram * 1024)   # 16384</code></pre>
+<h3>Comparisons — questions that answer True or False</h3>
+<p>Every comparison produces a <code>bool</code>. These are the hinges the next lesson's decisions swing on:</p>
+<ul>
+<li><code>a == b</code> — equal? (two equals signs — one is assignment, two is a question)</li>
+<li><code>a != b</code> — not equal?</li>
+<li><code>a &lt; b</code>, <code>a &gt; b</code>, <code>a &lt;= b</code>, <code>a &gt;= b</code> — the orderings</li>
+</ul>
+<pre><code>print(16 &gt;= 6)     # True  — enough room for a 4-bit 7B
+print(4 &gt;= 6)      # False — too small</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // == IS A QUESTION, = IS A COMMAND</div>
+<p>One equals sign assigns: <code>rank = 8</code> commands "make rank be 8." Two equals signs ask: <code>rank == 8</code> answers "is rank 8?" with True or False. Writing <code>=</code> where you meant <code>==</code> inside a decision is the classic first-week bug; Python will often refuse it outright, which is a mercy — it is telling you a question was expected, not a command.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python — Numbers and arithmetic"
+url = "https://docs.python.org/3/tutorial/introduction.html#numbers"
+essential = true
+
+[[lessons.readings]]
+label = "Comparisons and boolean operations"
+url = "https://docs.python.org/3/library/stdtypes.html#comparisons"
+
+[[lessons.exercises]]
+id = "s11-l04-e1"
+type = "mc"
+points = 20
+prompt = "You want the number of WHOLE 7-billion-parameter blocks that fit in 30, discarding any remainder. Which expression gives <code>4</code>?"
+choices = [
+  "<code>30 / 7</code>",
+  "<code>30 // 7</code>",
+  "<code>30 % 7</code>",
+  "<code>30 ** 7</code>",
+]
+answer = 1
+whyWrong = "<code>/</code> gives <code>4.2857...</code> (a float, not a whole count), <code>%</code> gives the remainder <code>2</code>, and <code>**</code> raises to a power. Only floor division <code>//</code> returns the whole-number count <code>4</code>."
+explain = "'How many whole X fit in Y, ignoring the leftover' is exactly floor division. <code>30 // 7</code> is <code>4</code>. The leftover <code>2</code> is what <code>30 % 7</code> would report."
+hint = "You want a whole number with the fraction thrown away — which of the two slashes does that?"
+
+[[lessons.exercises]]
+id = "s11-l04-e2"
+type = "mc"
+points = 18
+prompt = "What is the type and value of <code>8 / 2</code>?"
+choices = [
+  "the int <code>4</code>",
+  "the float <code>4.0</code>",
+  "the string <code>\"4\"</code>",
+  "an error, since 8 is not divisible cleanly in floats",
+]
+answer = 1
+whyWrong = "The single slash <code>/</code> is true division and ALWAYS produces a float, even when the result is a whole number. So <code>8 / 2</code> is <code>4.0</code>, not <code>4</code>."
+explain = "<code>/</code> never returns an int. Even a clean division like <code>8 / 2</code> yields the float <code>4.0</code>. If you specifically want the int <code>4</code>, use <code>8 // 2</code>."
+hint = "The single-slash division has one unbending habit about the type it returns, no matter how clean the numbers are."
+
+[[lessons.exercises]]
+id = "s11-l04-e3"
+type = "text"
+points = 14
+prompt = "Which rite turns the text <code>\"4096\"</code> into the number <code>4096</code> so you can do arithmetic on it? Give the function name."
+answer = "int"
+accept = ["int()", "int(x)", "the int function"]
+hint = "It is the name of the whole-number type; called as a function, it parses text into that type."
+
+[[lessons.exercises]]
+id = "s11-l04-e4"
+type = "write"
+points = 28
+prompt = "A config arrives as text: <code>ctx = \"4096\"</code>. Convert it to a number, double it, and print the result. Output must be exactly <code>8192</code> (a whole number, no decimal point)."
+starter = '''ctx = "4096"
+# convert the text to an int, multiply by 2, print
+'''
+expect = "8192"
+hint = "Wrap it: <code>int(ctx)</code> gives the number, then <code>* 2</code>. Multiplying two ints keeps it a whole number, so no <code>.0</code> appears."
+
+[[lessons.exercises]]
+id = "s11-l04-e5"
+type = "write"
+points = 26
+prompt = "Print the boolean answer to 'does a 16 GB card meet the 6 GB floor?' — i.e. print whether <code>16</code> is greater than or equal to <code>6</code>. Output must be exactly <code>True</code>."
+starter = '''vram_gb = 16
+floor = 6
+# print the True/False result of the comparison
+'''
+expect = "True"
+hint = "Put the comparison straight inside print: <code>print(vram_gb &gt;= floor)</code>. A comparison evaluates to a bool, which prints as <code>True</code> or <code>False</code>."

@@ -1,0 +1,95 @@
+[[lessons]]
+id = "s03-l05"
+title = "QLoRA: Freeze the Vessel, Train the Bind"
+body = '''
+<p>The last rite proved full fine-tuning an 8B model needs six times the card's whole capacity. <strong>QLoRA</strong> is the answer, and it works by attacking the 12-bytes-per-parameter figure at its source: it never trains most of the parameters at all. The base model is loaded once, quantized to 4-bit, and then <strong>frozen</strong> — no gradients, no optimizer state, because a frozen weight is never updated. A small set of extra matrices, the <strong>LoRA adapters</strong>, are inserted alongside a handful of the frozen layers and are the only thing that actually trains.</p>
+<p>A LoRA adapter approximates "the change this fine-tune wants to make" as a low-rank update: instead of learning a full new weight matrix, it learns two small matrices whose product approximates the delta, at a fraction of the parameter count of the layer it modifies. Typical adapters land at well under 1% of the base model's parameter count. Run last rite's 12-bytes-per-parameter cost against only the adapter's parameters, not the base's 8 billion, and the training-state cost collapses from tens of gigabytes to tens of megabytes — the base model's 4-bit weights sit in VRAM as a large but completely static, gradient-free block.</p>
+<pre><code><span class="k">adapter_params</span> = 8_000_000    <span class="c">// ~0.1% of an 8B base</span>
+<span class="k">bytes_per_param</span> = {"weights": 2, "gradients": 2, "adam_m": 4, "adam_v": 4}
+adapter_gb = adapter_params * sum(bytes_per_param.values()) / 1_000_000_000</code></pre>
+<p>The "Q" in QLoRA specifically means the frozen base is stored in <strong>4-bit NF4</strong> (a format tuned for the roughly-normal distribution real weight values follow), and PyTorch dequantizes each block back to a working precision on the fly during the forward pass — the library doing that work is <strong>bitsandbytes</strong>. This is exactly where the ROCm reality this course named back at the toolchain rite comes back due: bitsandbytes' long-standing stable release only shipped precompiled kernels for <code>gfx90a</code>/<code>gfx942</code>/<code>gfx1100</code>, leaving the 9070 XT's <code>gfx1201</code> unsupported. That gap has since narrowed — bitsandbytes' multi-backend-refactor line now ships experimental RDNA4 wheels that include <code>gfx1201</code> — but "experimental" is not decoration here: paged-optimizer support on ROCm still has open, documented bugs at the time of writing. Treat it as a real, working path with a known rough edge, not the bulletproof one most CUDA-only QLoRA tutorials assume: install the multi-backend build specifically, and disable paged optimizers as the first thing to try if a training run hangs or errors where a CUDA tutorial's would not.</p>
+<div class="callout">"QLoRA" names two separate ideas glued together: 4-bit quantization for the frozen base (the memory fix) and LoRA for the trainable delta (the compute fix). Confusing the two makes debugging harder — a quantization error and a LoRA rank error fail in different places for different reasons.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY THE ADAPTER TRAINS IN HIGHER PRECISION</div>
+<p>Notice the adapter itself is NOT trained in 4-bit — it trains in <code>fp16</code>/<code>bf16</code>, same as a normal fine-tune, and only the frozen base sits at 4-bit. This isn't an inconsistency: gradients need enough numeric precision to actually represent a small update, and 4-bit has nowhere near the resolution for that. QLoRA's trick isn't "train everything at 4-bit" — it's "keep the huge static part cheap, and let the small trainable part keep the precision it actually needs." The next rite puts this adapter through its own judgment pass, the same discipline the summoning section built for judging chat output.</p></div>
+'''
+
+[[lessons.readings]]
+label = "bitsandbytes multi-backend (ROCm) installation"
+url = "https://huggingface.co/docs/bitsandbytes/main/en/installation"
+
+[[lessons.exercises]]
+id = "s03-l05-e1"
+type = "mc"
+points = 20
+prompt = "In QLoRA, why does freezing the base model's weights collapse the training-state cost this section worked out for full fine-tuning?"
+choices = [
+  "Freezing converts the weights to a format that no longer takes up VRAM at all",
+  "A frozen weight never receives gradients or optimizer updates, so the 12-bytes-per-parameter training cost only ever applies to the small adapter, not the full base",
+  "Freezing only matters for inference speed and has no effect on the training-state calculation",
+  "Frozen weights are stored on the CPU instead of the GPU, so they never count toward the VRAM budget",
+]
+answer = 1
+whyWrong = "Frozen weights still occupy real VRAM (as the 4-bit base) and typically still sit on the GPU for the forward pass — freezing doesn't erase them or move them to the CPU, it just removes the gradient and optimizer-state cost that would otherwise apply to every one of their parameters."
+explain = "The 12-bytes-per-parameter figure from the last rite comes entirely from gradients and optimizer state, which only exist for trainable parameters — freeze the base and that cost applies only to the adapter's much smaller parameter count."
+hint = "Recall the last rite's breakdown: the 12 bytes/param came from 2 (weights) + 2 (gradients) + 4 (Adam mean) + 4 (Adam variance). Freezing a parameter removes three of those four line items — gradients and both Adam tracking values — because the frozen weight never gets an update and thus never needs them. The 4-bit base still occupies VRAM as static data, but the triple expense vanishes."
+
+[[lessons.exercises]]
+id = "s03-l05-e2"
+type = "text"
+points = 15
+prompt = "What is the name of the 4-bit format QLoRA stores the frozen base in, tuned for the roughly-normal distribution real weight values follow?"
+answer = "NF4"
+accept = ["nf4", "4-bit nf4", "normalfloat4"]
+hint = "It's named directly in the lesson right after 'The \"Q\" in QLoRA specifically means...'."
+
+[[lessons.exercises]]
+id = "s03-l05-e3"
+type = "fill"
+points = 20
+prompt = "Fill the missing library name from the lesson — the one whose multi-backend build now ships experimental gfx1201/RDNA4 wheels, but still has documented paged-optimizer bugs on ROCm."
+code = '''# frozen base stored in 4-bit NF4; ____ dequantizes blocks
+# back to a working precision on the fly during the forward pass'''
+answer = "bitsandbytes"
+hint = "It's the same library named back in the toolchain rite as the one whose stable ROCm build didn't cover gfx1201 at all."
+
+[[lessons.exercises]]
+id = "s03-l05-e4"
+type = "mc"
+points = 20
+prompt = "Per this rite, what is the current, honest status of bitsandbytes on the 9070 XT (<code>gfx1201</code>)?"
+choices = [
+  "Completely unsupported with no path forward at all",
+  "Fully stable and identical in reliability to the CUDA build, with no caveats",
+  "The stable release still lacks gfx1201 support, but the multi-backend-refactor line now ships experimental RDNA4 wheels that include it, with documented paged-optimizer bugs on ROCm",
+  "Only usable through Ollama, never through a raw transformers/PEFT training script",
+]
+answer = 2
+whyWrong = "It's neither a dead end nor a fully solved problem, and it has nothing to do with Ollama specifically — bitsandbytes is a training-time PyTorch library, not a serving tool. The honest status this rite names is the middle case: experimental gfx1201 wheels exist and work, with a real, named rough edge."
+explain = "This is the exact nuance the rite spends a paragraph on: the old stable build's gap (established at the toolchain rite) has narrowed via the multi-backend-refactor's RDNA4 wheels, but paged optimizers on ROCm still have open bugs worth knowing about before a training run."
+hint = "The lesson explicitly names three things about bitsandbytes on gfx1201: the old stable build lacks it, the multi-backend-refactor ships experimental RDNA4 wheels that include it, and paged optimizers still have documented bugs. That's neither 'completely unsupported' nor 'fully stable' — it's the honest middle case with a real, named caveat."
+
+[[lessons.exercises]]
+id = "s03-l05-e5"
+type = "type"
+points = 12
+prompt = "Retype the adapter memory calculation from the lesson, showing how the training-state cost collapses when only the adapter's parameters (not the base's) are trainable."
+code = '''adapter_params = 8_000_000
+bytes_per_param = {"weights": 2, "gradients": 2, "adam_m": 4, "adam_v": 4}
+adapter_gb = adapter_params * sum(bytes_per_param.values()) / 1_000_000_000'''
+
+[[lessons.exercises]]
+id = "s03-l05-e6"
+type = "write"
+points = 35
+prompt = "Given <code>adapter_params = 8_000_000</code> and the <code>bytes_per_param</code> dict below, compute the adapter's training-state footprint in whole megabytes (sum the dict's values, multiply by adapter_params, integer-divide by 1,000,000) and print exactly: <code>ADAPTER FOOTPRINT 96 MB</code> — computed from the dict, not hardcoded."
+starter = '''adapter_params = 8_000_000
+bytes_per_param = {"weights": 2, "gradients": 2, "adam_m": 4, "adam_v": 4}
+
+# Implement: sum bytes_per_param's values, multiply by adapter_params,
+# integer-divide by 1_000_000 to get whole MB, then print:
+#   ADAPTER FOOTPRINT 96 MB
+footprint_mb = 0
+print(f"ADAPTER FOOTPRINT {footprint_mb} MB")
+'''
+expect = "ADAPTER FOOTPRINT 96 MB"
+hint = "total bytes/param is sum(bytes_per_param.values()) = 12, so footprint_mb = adapter_params * 12 // 1_000_000 (use // for a whole-number MB, not /)."

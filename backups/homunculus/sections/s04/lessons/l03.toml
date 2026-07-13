@@ -1,0 +1,94 @@
+[[lessons]]
+id = "s04-l03"
+title = "The Template the Vessel Speaks"
+body = '''
+<p>The last rite shaped your notes into chat-format JSONL records with <code>"user"</code> and <code>"assistant"</code> roles. That is the <em>logical</em> shape. The <strong>chat template</strong> is the <em>physical</em> shape — the exact sequence of tokens the model was trained to expect wrapping those roles, and that sequence is not "user says X, assistant says Y" in plain English. It is a fixed set of special control tokens the base model's own training consumed, and if you feed the binding rite a dataset whose template does not match, the model will learn to treat those tokens as content rather than as formatting — a quiet, pervasive degradation that every other check this section runs will fail to catch.</p>
+<p>Three template families dominate the models you can actually run on this card. <strong>ChatML</strong> (used by Qwen, older command-r variants) wraps turns in <code>&lt;|im_start|&gt;role\ncontent&lt;|im_end|&gt;</code> tokens. <strong>Llama 3/3.1</strong> uses <code>&lt;|begin_of_text|&gt;</code> to open, then <code>&lt;|start_header_id|&gt;role&lt;|end_header_id|&gt;</code> around each role label. <strong>Mistral</strong> (and early Llama 2) uses no special tokens at all for the role itself — it brackets the entire exchange inside <code>[INST]</code>/<code>[/INST]</code> markers, with the assistant response following unmarked. These are not stylistic choices; each is the format baked into the base model's training data, and the model's tokenizer has dedicated token IDs for every one of those markers.</p>
+<pre><code><span class="k">from</span> transformers <span class="k">import</span> AutoTokenizer
+tokenizer = AutoTokenizer.from_pretrained(<span class="s">"your-base-model-id"</span>)
+messages = [
+    {<span class="s">"role"</span>: <span class="s">"user"</span>, <span class="s">"content"</span>: <span class="s">"justify my chunk-size choice"</span>},
+    {<span class="s">"role"</span>: <span class="s">"assistant"</span>, <span class="s">"content"</span>: <span class="s">"512 tokens balances retrieval precision with paragraph coherence."</span>},
+]
+formatted = tokenizer.apply_chat_template(messages, tokenize=<span class="k">False</span>)
+<span class="k">print</span>(formatted)</code></pre>
+<p><code>apply_chat_template</code> with <code>tokenize=False</code> gives you the raw string the model expects — run it once for a single message pair and read the output carefully before you hand it to a training loop for ten thousand records. The method reads the base model's own <code>tokenizer_config.json</code>, which means the template is whatever the model's own authors shipped, not what you or any tutorial guesses it might be. The fourth rite taught you to read a model card's chat-template annotation for Ollama <code>PARAMETER</code> lines; this is the transformers-level equivalent, and the two should match because they are reading the same underlying configuration from the same model repository.</p>
+<div class="callout">A dataset built for the wrong template does not typically fail with an error message — the tokenizer still tokenizes the text, the trainer still runs, and the loss still drops. The failure shows up later: the model generates template tokens as if they were natural language, or fails to recognize role boundaries in multi-turn conversations, producing garbled output that looks like training worked but the model forgot how to format.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // MATCHING THE TEMPLATE BETWEEN TRAINING AND SERVING</div>
+<p>The binding rite trains with transformers and the sealing rite serves with Ollama, and those two paths meet at the chat template. Ollama reads the GGUF's own embedded chat template (which the converter embeds from the same <code>tokenizer_config.json</code> during conversion, per the GGUF rite's explanation of the format), and transformers reads <code>tokenizer_config.json</code> directly through <code>apply_chat_template</code>. If both are reading the same base model's same config, the template stays identical across the whole pipeline — train with the same template the GGUF expects to serve, and the template tokens the model learned to expect during the bind are the exact same tokens Ollama emits during the summoning. A mismatch here is not caught by any loss curve or any validation metric that checks output quality — the only reliable check is printing the formatted text once and comparing it to what you see in the model card.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s04-l03-e1"
+type = "mc"
+points = 20
+prompt = "Per this rite, why does the chat template matter for a training dataset, beyond the logical role names?"
+choices = [
+  "The template is only cosmetic — the model learns from role names alone and ignores control tokens entirely",
+  "The template controls the generation temperature, so the wrong template silently changes the model's creativity during training",
+  "Each base model's training consumed fixed special control tokens (like <code>&lt;|im_start|&gt;</code> or <code>[INST]</code>) that the tokenizer maps to dedicated token IDs — feeding the binding rite role-labeled text without those tokens teaches the model to treat the markers as content rather than formatting, silently degrading output without an obvious error",
+  "The template is required only for multi-GPU training setups and has no effect on a single-card QLoRA run",
+]
+answer = 2
+whyWrong = "The template is very much not cosmetic — its control tokens have dedicated tokenizer IDs the model was trained to interpret as structure, not content. It has nothing to do with temperature; and it matters regardless of GPU count because it changes what token sequence the trainer feeds the model, which is a data-level concern, not a hardware one."
+hint = "The lesson warns that a template mismatch fails silently — the loss drops, the trainer finishes, but the output degrades. The correct answer names the control tokens and their dedicated IDs as the reason, not a hardware constraint, a temperature setting, or a cosmetic label."
+explain = "Special control tokens are the model's built-in formatting vocabulary, consumed during its own pre-training — if your dataset uses different markers (or none), the model will interpret those tokens as novel content to mimic rather than as structure, and the failure is invisible to the loss curve."
+
+[[lessons.exercises]]
+id = "s04-l03-e2"
+type = "text"
+points = 18
+prompt = "What Hugging Face tokenizer method reads the base model's <code>tokenizer_config.json</code> and converts a messages list into the exact token sequence the model was trained to expect?"
+answer = "apply_chat_template"
+accept = ["tokenizer.apply_chat_template", "apply_chat_template()"]
+hint = "It's the method called in the lesson's code block — the one that takes messages and an optional tokenize=False argument to return a raw string."
+
+[[lessons.exercises]]
+id = "s04-l03-e3"
+type = "fill"
+points = 20
+prompt = "Fill the missing argument from the lesson's <code>apply_chat_template</code> call — the one that returns the formatted string without converting it to token IDs."
+code = '''from transformers import AutoTokenizer
+tokenizer = AutoTokenizer.from_pretrained("your-base-model-id")
+messages = [{"role": "user", "content": "justify my chunk-size choice"}]
+formatted = tokenizer.apply_chat_template(messages, ____)'''
+answer = "tokenize=False"
+accept = ["tokenize = False", "tokenize=false"]
+hint = "The lesson calls the method with tokenize=False right where it explains how to inspect the raw output before feeding it to the trainer."
+
+[[lessons.exercises]]
+id = "s04-l03-e4"
+type = "mc"
+points = 20
+prompt = "Per this rite, what is the likely symptom of training a model with a dataset built for a different chat template than the one it was pre-trained with?"
+choices = [
+  "The trainer immediately throws a ValueError with a clear message about the template mismatch",
+  "The model converges faster because it sees unfamiliar tokens it has to learn from scratch",
+  "The loss curve spikes uncontrollably, making the failure obvious within the first few training steps",
+  "The training loss drops normally and the trainer reports no error, but the served model later generates template tokens as if they were natural language or garbles role boundaries in multi-turn output",
+]
+answer = 3
+whyWrong = "The failure is deliberately quiet — template tokens are just token IDs to the trainer, and the model can still produce plausible next-token predictions on them without error. It doesn't cause a crash, a faster convergence, or a loss spike; it causes a subtle degradation in output formatting that only becomes visible when you actually talk to the model after the bind."
+hint = "The lesson's callout says 'a dataset built for the wrong template does not typically fail with an error message' — the correct answer captures that the training runs fine but the model later garbles role boundaries, not that it crashes or diverges."
+explain = "The exact hazard this rite's callout names: the trainer runs fine, the loss drops, but the finished model emits control tokens as content because it never learned to treat them as structure during the fine-tune — a problem undetectable by any training metric but immediately visible in a conversation."
+
+[[lessons.exercises]]
+id = "s04-l03-e5"
+type = "write"
+points = 32
+prompt = "Given the two messages below and a simple ChatML-style template rule — wrap each message as <code>&lt;|im_start|&gt;role\ncontent&lt;|im_end|&gt;</code>, with a newline after the role name — format both messages in order and print the complete formatted string — computed from the messages list, not hardcoded."
+starter = '''messages = [
+    {"role": "user", "content": "why did we freeze the base at q4_K_M"},
+    {"role": "assistant", "content": "frozen weights cost no gradients and no optimizer state — they sit in VRAM as a static 4-bit block, and only the LoRA adapter trains."},
+]
+
+# Implement: for each message in messages, build a line like
+#   <|im_start|>{role}\n{content}<|im_end|>
+# join them with a newline between pairs, and print the result.
+print("TEMPLATE NOT BUILT")
+'''
+expect = '''<|im_start|>user
+why did we freeze the base at q4_K_M<|im_end|>
+<|im_start|>assistant
+frozen weights cost no gradients and no optimizer state — they sit in VRAM as a static 4-bit block, and only the LoRA adapter trains.<|im_end|>'''
+hint = "Build a list of formatted strings: for each message m, f'<|im_start|>{m[\"role\"]}\\n{m[\"content\"]}<|im_end|>'. Then '\\n'.join(lines) and print."

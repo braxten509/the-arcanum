@@ -1,0 +1,87 @@
+[[lessons]]
+id = "s03-l03"
+title = "The Cache That Grows While You Talk"
+body = '''
+<p>Weights are a fixed cost — load the GGUF once and the number stops moving. The <strong>KV cache</strong> is not fixed; it grows with every token you feed the model, silently, for the entire lifetime of a conversation. A quantized base that fits the card comfortably at the first message can still run out of room forty turns later, and the failure looks nothing like a weights problem, so it is worth understanding this cost on its own.</p>
+<p>Every attention layer stores a <strong>key</strong> and a <strong>value</strong> vector for every token it has already processed, so a future token can attend back to it without recomputing the whole sequence from scratch. The size of that store is <code>2 &times; n_layers &times; n_kv_heads &times; head_dim &times; seq_len &times; bytes_per_element</code> — the leading 2 for storing both the key and the value copy. Every one of those factors is a real lever: more layers or a longer context both scale the cache linearly, and this is exactly why context length is a VRAM line item, not just a UI setting.</p>
+<pre><code><span class="k">n_layers</span> = 32
+<span class="k">n_kv_heads</span> = 8      <span class="c">// grouped-query attention: fewer KV heads than attention heads</span>
+<span class="k">head_dim</span> = 128
+<span class="k">seq_len</span> = 4096
+<span class="k">bytes_per_element</span> = 2 <span class="c">// fp16 cache</span>
+kv_bytes = 2 * n_layers * n_kv_heads * head_dim * seq_len * bytes_per_element</code></pre>
+<p><code>n_kv_heads</code> in that formula deserves its own note: most current models use <strong>grouped-query attention (GQA)</strong>, where several attention heads share one KV head instead of every head keeping its own private key/value pair. A model with 32 attention heads might expose only 8 KV heads — a 4x reduction in cache size for a small, usually negligible, hit to quality. Reading a model card's "KV heads" or "num_key_value_heads" field, not just its "attention heads" field, is the difference between an accurate cache estimate and one that overshoots by 4x.</p>
+<div class="callout">Two models with identical weight sizes can have very different cache costs at the same context length — GQA ratio and layer count are independent of parameter count, so always check the architecture, not just the size on the model card.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY THIS COST HITS TRAINING HARDER</div>
+<p>A chat session's context grows one turn at a time and the user notices when it gets slow. A training run holds a full batch of sequences at whatever length the dataset was chunked to, for every step, without asking — a training-time KV/activation cost mistake fails as an out-of-memory crash minutes into a run, not a gradual slowdown you can watch coming. The rites ahead on training memory and dataset curation both come back to sequence length for exactly this reason: it is one of the few knobs you set once, at the start, that quietly governs a VRAM cost for the rest of the run.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s03-l03-e1"
+type = "mc"
+points = 20
+prompt = "Why does context length count as a VRAM cost, distinct from the weights loaded at startup?"
+choices = [
+  "The KV cache stores a key/value pair per attention layer for every token processed so far, growing linearly as the conversation gets longer",
+  "It doesn't — context length only affects response latency, never memory",
+  "Longer context forces the weights themselves to be re-quantized at a higher bit-width",
+  "Context length only matters during training, never during a plain chat session",
+]
+answer = 0
+whyWrong = "Context length very much affects memory, not just speed; weights are never re-quantized based on conversation length; and the KV cache exists during plain inference too, not only training — a long chat session alone can run a card out of room."
+explain = "The KV cache formula scales directly with seq_len, so every additional token processed adds a fixed amount of VRAM that stays allocated for the life of the conversation — a real, growing cost distinct from the fixed weight size."
+hint = "The lesson opens with the claim 'The KV cache is not fixed; it grows with every token you feed the model.' The KV cache formula multiplies by seq_len — so longer conversation = more tokens = larger cache = more VRAM. The other choices claim context length has no memory cost, which contradicts the entire lesson."
+
+[[lessons.exercises]]
+id = "s03-l03-e2"
+type = "mc"
+points = 20
+prompt = "A model card lists 32 attention heads but only 8 KV heads. What does that gap indicate, per this rite's explanation of grouped-query attention?"
+choices = [
+  "The card has a typo — attention heads and KV heads are always equal",
+  "The model uses grouped-query attention, where several attention heads share one KV head, cutting KV-cache size roughly 4x versus one KV head per attention head",
+  "Only 8 of the 32 attention heads are actually used at inference time",
+  "The model was quantized at 8-bit specifically because it has 8 KV heads",
+]
+answer = 1
+whyWrong = "It's not a typo — the two head counts are legitimately allowed to differ; all 32 attention heads still run at inference; and the KV head count has no relationship to the quantization bit-width, which is an entirely separate axis covered in the last rite."
+explain = "GQA lets multiple attention heads share a KV head, so a 32/8 split means each KV head serves 4 attention heads — directly shrinking the KV-cache formula's n_kv_heads term without touching n_layers or head_dim."
+hint = "The lesson says 'Several attention heads share one KV head instead of every head keeping its own private key/value pair. A model with 32 attention heads might expose only 8 KV heads — a 4x reduction in cache size.' The word 'share' is the core: grouped = multiple attention heads per KV head, which directly reduces the n_kv_heads term in the cache formula."
+
+[[lessons.exercises]]
+id = "s03-l03-e3"
+type = "fill"
+points = 20
+prompt = "Fill the missing factor from the KV-cache formula shown in the lesson — the leading multiplier that accounts for storing both a key AND a value copy per token."
+code = '''kv_bytes = ____ * n_layers * n_kv_heads * head_dim * seq_len * bytes_per_element'''
+answer = "2"
+hint = "It's the very first factor in the formula, explained in the lesson as covering both the key and the value store, not just one of them."
+
+[[lessons.exercises]]
+id = "s03-l03-e4"
+type = "text"
+points = 15
+prompt = "What is the name of the attention variant, common in current models, where several attention heads share one KV head to shrink the cache?"
+answer = "grouped-query attention"
+accept = ["gqa", "grouped query attention"]
+hint = "It's named directly in the lesson right where the 32-attention-head, 8-KV-head example is introduced."
+
+[[lessons.exercises]]
+id = "s03-l03-e5"
+type = "write"
+points = 35
+prompt = "Given the values below, compute the KV-cache size in bytes using <code>kv_bytes = 2 * n_layers * n_kv_heads * head_dim * seq_len * bytes_per_element</code>, convert to megabytes (<code>kv_bytes / 1_000_000</code>), round to the nearest whole MB, and print exactly: <code>KV 537 MB</code> — computed from the given values, not hardcoded."
+starter = '''n_layers = 32
+n_kv_heads = 8
+head_dim = 128
+seq_len = 4096
+bytes_per_element = 2
+
+# Implement: compute kv_bytes with the formula from the lesson, convert to MB,
+# round to the nearest whole number, then print:
+#   KV 537 MB
+kv_mb = 0
+print(f"KV {kv_mb} MB")
+'''
+expect = "KV 537 MB"
+hint = "kv_bytes = 2 * n_layers * n_kv_heads * head_dim * seq_len * bytes_per_element, then kv_mb = round(kv_bytes / 1_000_000)."

@@ -1,0 +1,470 @@
+# SPELL DUEL challenge bank. Difficulty = tier order (1..N).
+# Each stage's `expect` is the COMPLETE required stdout at that stage; demands strictly
+# append lines — stages[n].expect == stages[n-1].expect + new lines, never edits.
+# Machine-generated from attacks_src.toml by tools/gen_attacks.py — regenerate, don't hand-edit.
+
+# ---- difficulty 1
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE FIRST RECKONING"
+starter = '''
+name = "artificer"
+gpu_gb = 16
+# The Distiller demands your first spoken proof.
+'''
+
+[[tiers.pool.stages]]
+brief = "Greet by name. Print exactly: «HAIL artificer»"
+expect = "HAIL artificer"
+
+[[tiers.pool.stages]]
+brief = "State the card's size. Append: «VRAM 16 GB»"
+expect = '''
+HAIL artificer
+VRAM 16 GB'''
+
+[[tiers.pool.stages]]
+brief = "State the 4-bit verdict (>= 6 GB). Append: «FITS True»"
+expect = '''
+HAIL artificer
+VRAM 16 GB
+FITS True'''
+
+[[tiers.pool]]
+t = "THE WALKED LEDGER"
+starter = '''
+costs = [8, 16, 4, 24]
+# Walk the shelf; keep only what the ward admits.
+'''
+
+[[tiers.pool.stages]]
+brief = "Count all candidates. Print exactly: «SEEN 4»"
+expect = "SEEN 4"
+
+[[tiers.pool.stages]]
+brief = "Keep those within 16 and count them. Append: «KEPT 3»"
+expect = '''
+SEEN 4
+KEPT 3'''
+
+[[tiers.pool.stages]]
+brief = "Sum the kept cost. Append: «VRAM 28»"
+expect = '''
+SEEN 4
+KEPT 3
+VRAM 28'''
+
+[[tiers.pool]]
+t = "THE MAP READ ALOUD"
+starter = '''
+config = {"base": "qwen2.5", "rank": 8}
+# Read the map, then forge a name from its parts.
+'''
+
+[[tiers.pool.stages]]
+brief = "Read the base. Print exactly: «BASE qwen2.5»"
+expect = "BASE qwen2.5"
+
+[[tiers.pool.stages]]
+brief = "Read the rank. Append: «RANK 8»"
+expect = '''
+BASE qwen2.5
+RANK 8'''
+
+[[tiers.pool.stages]]
+brief = "Forge the adapter path. Append: «PATH adapters/qwen2.5_rank-8»"
+expect = '''
+BASE qwen2.5
+RANK 8
+PATH adapters/qwen2.5_rank-8'''
+
+# ---- difficulty 2
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE TOOLCHAIN BIND"
+starter = '''
+base_vram = 16
+tool = "Ollama"
+# The Distiller demands proof of the toolchain.
+'''
+
+[[tiers.pool.stages]]
+brief = "Invoke the tool's name. Print exactly: «TOOL Ollama»"
+expect = "TOOL Ollama"
+
+[[tiers.pool.stages]]
+brief = "Declare the VRAM limit. Append: «LIMIT 16 GB»"
+expect = '''
+TOOL Ollama
+LIMIT 16 GB'''
+
+[[tiers.pool.stages]]
+brief = "State the RDNA4 target. Append: «TARGET gfx1201»"
+expect = '''
+TOOL Ollama
+LIMIT 16 GB
+TARGET gfx1201'''
+
+[[tiers.pool]]
+t = "THE TENSOR SLICE"
+starter = '''
+shape = [2, 4, 8]
+# The quintessence must be shaped.
+'''
+
+[[tiers.pool.stages]]
+brief = "State the batch size (first element). Print exactly: «BATCH 2»"
+expect = "BATCH 2"
+
+[[tiers.pool.stages]]
+brief = "State the hidden dimension (last element). Append: «DIM 8»"
+expect = '''
+BATCH 2
+DIM 8'''
+
+[[tiers.pool.stages]]
+brief = "State the total volume. Append: «VOLUME 64»"
+expect = '''
+BATCH 2
+DIM 8
+VOLUME 64'''
+
+[[tiers.pool]]
+t = "THE ARCHITECTURE RUN"
+starter = '''
+arch = 1200
+revision = 1
+# Form the vessel's architecture code.
+'''
+
+[[tiers.pool.stages]]
+brief = "Sum the components. Print exactly: «CODE 1201»"
+expect = "CODE 1201"
+
+[[tiers.pool.stages]]
+brief = "Prefix with 'gfx'. Append: «ARCH gfx1201»"
+expect = '''
+CODE 1201
+ARCH gfx1201'''
+
+[[tiers.pool.stages]]
+brief = "Confirm PyTorch target. Append: «TORCH_ROCM_ARCH=gfx1201»"
+expect = '''
+CODE 1201
+ARCH gfx1201
+TORCH_ROCM_ARCH=gfx1201'''
+
+# ---- difficulty 3
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE VRAM DIVINATION"
+starter = '''
+weights_gb = 7
+kv_cache_mb = 1000
+# The Distiller tests your memory arithmetic.
+'''
+
+[[tiers.pool.stages]]
+brief = "State the weights in GB. Print exactly: «WEIGHTS 7 GB»"
+expect = "WEIGHTS 7 GB"
+
+[[tiers.pool.stages]]
+brief = "Convert KV cache to GB (divide by 1000). Append: «KV 1.0 GB»"
+expect = '''
+WEIGHTS 7 GB
+KV 1.0 GB'''
+
+[[tiers.pool.stages]]
+brief = "Sum the total footprint. Append: «TOTAL 8.0 GB»"
+expect = '''
+WEIGHTS 7 GB
+KV 1.0 GB
+TOTAL 8.0 GB'''
+
+[[tiers.pool]]
+t = "THE BITS-PER-WEIGHT"
+starter = '''
+params_billion = 7
+bits = 4
+# Calculate the compressed vessel's size.
+'''
+
+[[tiers.pool.stages]]
+brief = "Calculate total bits. Print exactly: «BITS 28 BILLION»"
+expect = "BITS 28 BILLION"
+
+[[tiers.pool.stages]]
+brief = "Convert to bytes (divide by 8). Append: «BYTES 3.5 BILLION»"
+expect = '''
+BITS 28 BILLION
+BYTES 3.5 BILLION'''
+
+[[tiers.pool.stages]]
+brief = "State the GB requirement. Append: «VRAM 3.5 GB»"
+expect = '''
+BITS 28 BILLION
+BYTES 3.5 BILLION
+VRAM 3.5 GB'''
+
+[[tiers.pool]]
+t = "THE FULL FINETUNE TOLL"
+starter = '''
+base_model_gb = 4
+# A full bind demands a heavier toll than QLoRA.
+'''
+
+[[tiers.pool.stages]]
+brief = "State the base size. Print exactly: «BASE 4 GB»"
+expect = "BASE 4 GB"
+
+[[tiers.pool.stages]]
+brief = "Calculate the 6x multiplier for optimizer states. Append: «STATES 24 GB»"
+expect = '''
+BASE 4 GB
+STATES 24 GB'''
+
+[[tiers.pool.stages]]
+brief = "Check if it fits in 16 GB. Append: «FITS False»"
+expect = '''
+BASE 4 GB
+STATES 24 GB
+FITS False'''
+
+# ---- difficulty 4
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE ADAPTER SEAM"
+starter = '''
+rank = 16
+scaling_factor = 2
+# The bind requires proper hyperparameters.
+'''
+
+[[tiers.pool.stages]]
+brief = "State the rank. Print exactly: «RANK 16»"
+expect = "RANK 16"
+
+[[tiers.pool.stages]]
+brief = "Calculate the required alpha (rank * scaling_factor). Append: «ALPHA 32»"
+expect = '''
+RANK 16
+ALPHA 32'''
+
+[[tiers.pool.stages]]
+brief = "State the ratio (alpha / rank). Append: «RATIO 2.0»"
+expect = '''
+RANK 16
+ALPHA 32
+RATIO 2.0'''
+
+[[tiers.pool]]
+t = "THE MASK DIAGNOSTIC"
+starter = '''
+initial_loss = 0.05
+# The Distiller warns of the overfit rot.
+'''
+
+[[tiers.pool.stages]]
+brief = "Print the initial loss. Print exactly: «LOSS 0.05»"
+expect = "LOSS 0.05"
+
+[[tiers.pool.stages]]
+brief = "Check if loss < 0.1. Append: «SUSPICIOUS True»"
+expect = '''
+LOSS 0.05
+SUSPICIOUS True'''
+
+[[tiers.pool.stages]]
+brief = "Declare the failure mode. Append: «MODE MASK FAILURE»"
+expect = '''
+LOSS 0.05
+SUSPICIOUS True
+MODE MASK FAILURE'''
+
+[[tiers.pool]]
+t = "THE PARAMETER COUNT"
+starter = '''
+modules = 4
+rank = 8
+dim = 4096
+# Calculate the low-rank delta parameters.
+'''
+
+[[tiers.pool.stages]]
+brief = "Calculate parameters per module (2 * rank * dim). Print exactly: «PER_MODULE 65536»"
+expect = "PER_MODULE 65536"
+
+[[tiers.pool.stages]]
+brief = "Calculate total adapter parameters. Append: «TOTAL 262144»"
+expect = '''
+PER_MODULE 65536
+TOTAL 262144'''
+
+[[tiers.pool.stages]]
+brief = "State the megabytes (2 bytes per param). Append: «SIZE 0.52 MB»"
+expect = '''
+PER_MODULE 65536
+TOTAL 262144
+SIZE 0.52 MB'''
+
+# ---- difficulty 5
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE ORTHOGONAL WARD"
+starter = '''
+vec_a = [1, 0]
+vec_b = [0, 1]
+# A rival challenges the similarity of two thoughts.
+'''
+
+[[tiers.pool.stages]]
+brief = "Calculate the dot product. Print exactly: «DOT 0»"
+expect = "DOT 0"
+
+[[tiers.pool.stages]]
+brief = "Since both are normalized, dot product is cosine similarity. Append: «COSINE 0»"
+expect = '''
+DOT 0
+COSINE 0'''
+
+[[tiers.pool.stages]]
+brief = "Are they orthogonal? Append: «ORTHOGONAL True»"
+expect = '''
+DOT 0
+COSINE 0
+ORTHOGONAL True'''
+
+[[tiers.pool]]
+t = "THE CHUNK STRIDE"
+starter = '''
+chunk_size = 512
+overlap = 64
+total_tokens = 1000
+# The Distiller commands you to portion the quintessence.
+'''
+
+[[tiers.pool.stages]]
+brief = "Calculate the effective stride (size - overlap). Print exactly: «STRIDE 448»"
+expect = "STRIDE 448"
+
+[[tiers.pool.stages]]
+brief = "Calculate the start of the second chunk. Append: «CHUNK_2_START 448»"
+expect = '''
+STRIDE 448
+CHUNK_2_START 448'''
+
+[[tiers.pool.stages]]
+brief = "Calculate the start of the third chunk. Append: «CHUNK_3_START 896»"
+expect = '''
+STRIDE 448
+CHUNK_2_START 448
+CHUNK_3_START 896'''
+
+[[tiers.pool]]
+t = "THE PRECISION RITE"
+starter = '''
+retrieved = ["A", "B", "C", "D"]
+relevant = ["B", "E"]
+# Measure the truth in the grimoire's return.
+'''
+
+[[tiers.pool.stages]]
+brief = "Count the retrieved items. Print exactly: «RETRIEVED 4»"
+expect = "RETRIEVED 4"
+
+[[tiers.pool.stages]]
+brief = "Count the relevant items in the retrieved set. Append: «MATCHES 1»"
+expect = '''
+RETRIEVED 4
+MATCHES 1'''
+
+[[tiers.pool.stages]]
+brief = "Calculate Precision@4 (Matches / Retrieved). Append: «PRECISION 0.25»"
+expect = '''
+RETRIEVED 4
+MATCHES 1
+PRECISION 0.25'''
+
+# ---- difficulty 6
+[[tiers]]
+
+[[tiers.pool]]
+t = "THE ALIGNMENT SEAL"
+starter = '''
+base_model = "homunculus-base"
+adapter_path = "distilled-lore"
+# The artificer must merge the final vessel.
+'''
+
+[[tiers.pool.stages]]
+brief = "Print the base model name. Print exactly: «BASE homunculus-base»"
+expect = "BASE homunculus-base"
+
+[[tiers.pool.stages]]
+brief = "Print the adapter path. Append: «ADAPTER distilled-lore»"
+expect = '''
+BASE homunculus-base
+ADAPTER distilled-lore'''
+
+[[tiers.pool.stages]]
+brief = "State the merged identifier. Append: «MERGED homunculus-base+distilled-lore»"
+expect = '''
+BASE homunculus-base
+ADAPTER distilled-lore
+MERGED homunculus-base+distilled-lore'''
+
+[[tiers.pool]]
+t = "THE QUANTIZATION COMPROMISE"
+starter = '''
+fp16_size = 14.0
+target_format = "q8_0"
+# Prepare the vessel for serving.
+'''
+
+[[tiers.pool.stages]]
+brief = "State the original size. Print exactly: «ORIGINAL 14.0 GB»"
+expect = "ORIGINAL 14.0 GB"
+
+[[tiers.pool.stages]]
+brief = "State the target format. Append: «FORMAT q8_0»"
+expect = '''
+ORIGINAL 14.0 GB
+FORMAT q8_0'''
+
+[[tiers.pool.stages]]
+brief = "Calculate 8-bit size (half of 16-bit). Append: «SERVED 7.0 GB»"
+expect = '''
+ORIGINAL 14.0 GB
+FORMAT q8_0
+SERVED 7.0 GB'''
+
+[[tiers.pool]]
+t = "THE OLLAMA MODIFICATION"
+starter = '''
+gguf_path = "homunculus-q8.gguf"
+system_ward = "Act as the Distiller."
+# Construct the final Modelfile.
+'''
+
+[[tiers.pool.stages]]
+brief = "State the FROM directive. Print exactly: «FROM homunculus-q8.gguf»"
+expect = "FROM homunculus-q8.gguf"
+
+[[tiers.pool.stages]]
+brief = "State the SYSTEM directive. Append: «SYSTEM Act as the Distiller.»"
+expect = '''
+FROM homunculus-q8.gguf
+SYSTEM Act as the Distiller.'''
+
+[[tiers.pool.stages]]
+brief = "State the PARAM temperature. Append: «PARAMETER temperature 0.7»"
+expect = '''
+FROM homunculus-q8.gguf
+SYSTEM Act as the Distiller.
+PARAMETER temperature 0.7'''
+

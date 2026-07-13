@@ -1,0 +1,103 @@
+[[lessons]]
+id = "s12-l02"
+title = "Walking the List"
+body = '''
+<p>A list you cannot walk is a shelf you cannot read. The <code>for</code> loop visits each item in turn and runs the same block for every one — the beating heart of processing a dataset.</p>
+<pre><code>models = ["qwen2.5", "llama3", "mistral"]
+for name in models:
+    print(f"loading {name}")</code></pre>
+<p>Read it: "for each item in <code>models</code>, call it <code>name</code>, and run the indented block." The loop runs three times; on each pass <code>name</code> is bound to the next item. The indented body — like an <code>if</code>'s — marks what belongs to the loop; the first line back at the margin runs once, after the loop is done.</p>
+<pre><code>loading qwen2.5
+loading llama3
+loading mistral</code></pre>
+<h3>Accumulating a result</h3>
+<p>Often you want one answer <em>from</em> many items: a total, a count, a filtered list. The pattern is always the same three beats — set up an accumulator before the loop, update it inside, read it after.</p>
+<pre><code>costs = [8, 16, 4, 24]
+total = 0                 # 1. set up before
+for c in costs:
+    total = total + c     # 2. update inside (total += c is the shorthand)
+print(total)              # 3. read after  -&gt; 52</code></pre>
+<div class="callout">The accumulator must be created <em>before</em> the loop, at the left margin. Put <code>total = 0</code> inside the loop and you reset it to zero on every pass, and the final answer is only the last item. This is the most common loop bug there is.</div>
+<h3>Filtering while you walk</h3>
+<p>Combine the loop with an <code>if</code> and an <code>append</code> and you have the "keep the good ones" rite in full:</p>
+<pre><code>costs = [8, 16, 4, 24]
+kept = []
+for c in costs:
+    if c &lt;= 16:
+        kept.append(c)
+print(kept)               # [8, 16, 4]</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE DATASET PASS</div>
+<p>Every dataset step in this course is this shape: walk the raw examples, test each against a rule, keep or transform the ones that pass, collect the survivors. Master the empty-list-plus-loop-plus-if here and "clean the dataset" in a later chapter is not a new skill — it is this paragraph with a different test in the <code>if</code>.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python tutorial — for statements"
+url = "https://docs.python.org/3/tutorial/controlflow.html#for-statements"
+essential = true
+
+[[lessons.readings]]
+label = "Looping techniques"
+url = "https://docs.python.org/3/tutorial/datastructures.html#looping-techniques"
+
+[[lessons.exercises]]
+id = "s12-l02-e1"
+type = "mc"
+points = 20
+prompt = "In <code>for name in models:</code>, what is <code>name</code> on each pass of the loop?"
+choices = [
+  "the whole <code>models</code> list, every time",
+  "the current item — bound to the next element of <code>models</code> on each pass",
+  "the index number 0, 1, 2",
+  "a fixed copy of the first item",
+]
+answer = 1
+whyWrong = "The loop variable is not the list and not the index — it is the item itself. On pass one it is the first element, on pass two the second, and so on."
+explain = "<code>for name in models:</code> binds <code>name</code> to each element of <code>models</code> in turn. Three items means three passes, with <code>name</code> taking each value once."
+hint = "The loop hands you one thing at a time. Is that thing the container, a number, or the element currently being visited?"
+
+[[lessons.exercises]]
+id = "s12-l02-e2"
+type = "mc"
+points = 24
+prompt = "Where must <code>total = 0</code> go so that <code>total</code> ends up holding the sum of all the costs?"
+choices = [
+  "inside the loop body, so it is fresh each pass",
+  "before the loop, at the left margin — inside, it would reset to 0 every pass",
+  "after the loop, just before the print",
+  "it does not matter where it goes",
+]
+answer = 1
+whyWrong = "Placed inside the loop, <code>total = 0</code> runs on every pass and wipes out the running sum, leaving only the last item's contribution. It must be set up once, before the loop begins."
+explain = "The accumulator is initialized once, before the loop, then updated on each pass. Inside the loop it would be reset to 0 every iteration, so the final value would reflect only the last item — a classic bug."
+hint = "If the setup line runs on every pass, what happens to the total you built up on the previous pass?"
+
+[[lessons.exercises]]
+id = "s12-l02-e3"
+type = "text"
+points = 14
+prompt = "Fill the blank: to run a block once for every item of a list, you write <code>for item ____ mylist:</code> — what keyword goes in the blank?"
+answer = "in"
+accept = ["in "]
+hint = "It is the same little word used in <code>for name in models:</code> throughout the lesson."
+
+[[lessons.exercises]]
+id = "s12-l02-e4"
+type = "write"
+points = 30
+prompt = "Given <code>costs = [8, 16, 4, 24]</code>, use a <code>for</code> loop to add them all up and print the total. Output must be exactly <code>52</code>."
+starter = '''costs = [8, 16, 4, 24]
+# set up an accumulator BEFORE the loop, add each cost inside, print after
+'''
+expect = "52"
+hint = "<code>total = 0</code> before the loop; <code>for c in costs:</code> then indented <code>total += c</code>; then <code>print(total)</code> at the margin."
+
+[[lessons.exercises]]
+id = "s12-l02-e5"
+type = "write"
+points = 34
+prompt = "Given <code>costs = [8, 16, 4, 24]</code>, build a new list of only the costs that are ≤ 16 and print it. Output must be exactly <code>[8, 16, 4]</code>."
+starter = '''costs = [8, 16, 4, 24]
+# empty list before the loop; for each cost, if it is <= 16, append it; print the list
+'''
+expect = "[8, 16, 4]"
+hint = "<code>kept = []</code>; <code>for c in costs:</code> then <code>if c &lt;= 16:</code> then <code>kept.append(c)</code>; finally <code>print(kept)</code>."

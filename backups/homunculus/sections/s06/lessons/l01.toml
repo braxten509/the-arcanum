@@ -1,0 +1,125 @@
+[[lessons]]
+id = "s06-l01"
+title = "The Held-Out Mirror"
+body = '''
+<p><strong>One new collection to meet first.</strong> This chapter measures how much two texts overlap, and the natural tool for that is a <em>set</em> — a collection of unique items with no duplicates and no order. <code>set(words)</code> turns a list into a set; <code>a &amp; b</code> gives the items in <em>both</em> sets (the overlap), <code>a | b</code> gives the items in <em>either</em> (the union), and <code>len(s)</code> counts them, exactly as with a list. One more list shorthand appears too: <code>nums[-3:]</code> means "the last three items." Everything else here is the loops, dicts, and f-strings you already carry from Chapters I and II.</p>
+<p>The binding rite produced an adapter — a seam pressed onto the frozen vessel, trained on the artificer's own records. The proving rite asks the one question the binder cannot answer: does it actually work? The answer comes from a mirror the binder never saw. Every record the training run fed to the <code>SFTTrainer</code> is a witness with a conflict of interest — of course the model does well on the data it was trained on. That tells you about memorization, not about the bind. The evaluation that matters uses records the binder <strong>never touched</strong>.</p>
+<p>The sixth rite's curation pass taught the artificer to reserve a held-out set — a portion of the collected records, typically 10–20%, set aside before any training begins and never passed to the <code>SFTTrainer</code>. That set is the held-out mirror: generate on it with the adapted model, generate on it with the frozen base, and compare the two outputs side by side. The difference between them — in tone, in style, in factual accuracy — is the first real measurement of what the bind actually changed. A model that recites training records verbatim on the held-out set has memorized, not learned; a model whose held-out output is indistinguishable from the frozen base absorbed nothing.</p>
+<p>The evaluation pass is a separate script from the training pass — the same one-job-per-tool discipline the third rite's toolchain lesson drilled and the sixth rite's curation pass reaffirmed. Write an <code>evaluate.py</code> that loads the adapter (the seventh rite's <code>PeftModel.from_pretrained</code>), loads the held-out prompt file (plain JSON — one prompt per line, never touched by the trainer), generates a response from both the adapted model and the frozen base for each prompt, and saves the pairs for human comparison. The generation parameters — temperature, top-p, max tokens — must be identical across the adapted and base runs, because any difference in sampling confounds the comparison: the detector cannot tell whether the output shifted because the bind changed the weights or because the sampler landed on a different random draw.</p>
+<pre><code><span class="k">from</span> peft <span class="k">import</span> PeftModel
+<span class="k">from</span> transformers <span class="k">import</span> AutoModelForCausalLM, AutoTokenizer
+
+<span class="c"># Load the frozen base (no adapter) for the baseline:</span>
+base = AutoModelForCausalLM.from_pretrained(
+    <span class="s">"your-base-id"</span>, device_map=<span class="s">"auto"</span>, torch_dtype=torch.bfloat16
+)
+tokenizer = AutoTokenizer.from_pretrained(<span class="s">"your-base-id"</span>)
+
+<span class="c"># Load the adapted model (base + adapter) for the test:</span>
+adapted = PeftModel.from_pretrained(base, <span class="s">"./my-adapter"</span>)
+
+<span class="c"># Generate on each held-out prompt — identical parameters for both:</span>
+<span class="k">for</span> prompt <span class="k">in</span> held_out_prompts:
+    inputs = tokenizer(prompt, return_tensors=<span class="s">"pt"</span>).to(<span class="s">"cuda"</span>)
+    base_out = tokenizer.decode(base.generate(**inputs, max_new_tokens=<span class="k">128</span>)[0])
+    adapt_out = tokenizer.decode(adapted.generate(**inputs, max_new_tokens=<span class="k">128</span>)[0])
+    <span class="c"># save prompt, base_out, adapt_out as a comparison row</span></code></pre>
+<p>The held-out prompts must be representative — they test the same kind of task the binding rite was meant to teach (style-consistent answers to the kind of questions the artificer actually writes about), not generic trivia. A held-out set of ten "what is the capital of France?" prompts proves nothing about whether the familiar absorbed the artificer's note-taking voice. The sixth rite's curation discipline already shaped the training records; the evaluation prompts are the same discipline applied to the test side — specific, on-domain, and unseen.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // HELD-OUT BY RECORD, NOT BY TOKEN</div>
+<p>There is a subtler failure mode: splitting at the token level rather than the record level. If a training record and an evaluation record are nearly identical — same user question, trivially reworded — the evaluation is a memorization test wearing a held-out mask. The safe split happens at the record level at the moment of curation (the sixth rite), not at the prompt level during evaluation. If the artificer wrote a note about CSS grid layout and included it in the training set, a held-out prompt that asks "explain CSS grid" is measuring recall of that specific record, not generalization to the artificer's broader explanation style. The evaluation set should cover topics the artificer writes about but in new, unseen contexts — "explain the difference between grid and flexbox for a page layout" where no training record covered that exact comparison.</p></div>
+'''
+body_words = 510
+
+[[lessons.readings]]
+label = "Hugging Face Evaluate library — metrics for text generation"
+url = "https://huggingface.co/docs/evaluate/index"
+
+[[lessons.readings]]
+label = "PEFT documentation: loading and using adapters"
+url = "https://huggingface.co/docs/peft/en/developer_guides/custom_models"
+
+[[lessons.exercises]]
+id = "s06-l01-e1"
+type = "type"
+points = 12
+reps = 2
+code = '''from peft import PeftModel
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+# Load the frozen base (no adapter) for the baseline:
+base = AutoModelForCausalLM.from_pretrained(
+    "your-base-id", device_map="auto", torch_dtype=torch.bfloat16
+)
+tokenizer = AutoTokenizer.from_pretrained("your-base-id")
+
+# Load the adapted model (base + adapter) for the test:
+adapted = PeftModel.from_pretrained(base, "./my-adapter")
+
+# Generate on each held-out prompt — identical parameters for both:
+for prompt in held_out_prompts:
+    inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
+    base_out = tokenizer.decode(base.generate(**inputs, max_new_tokens=128)[0])
+    adapt_out = tokenizer.decode(adapted.generate(**inputs, max_new_tokens=128)[0])
+    # save prompt, base_out, adapt_out as a comparison row'''
+
+[[lessons.exercises]]
+id = "s06-l01-e2"
+type = "mc"
+points = 20
+prompt = "Per this rite, why must the evaluation prompts never appear in the training set — not even in a reworded form?"
+choices = [
+  "The tokenizer caches training-set tokens in GPU memory, and reusing them during evaluation would cause an out-of-memory error from duplicate token IDs",
+  "Any prompt the model has seen during training — even reworded — measures memorization of that specific record rather than whether the bind learned the artificer's general style pattern; the held-out mirror only reflects generalization when the prompt is genuinely unseen in any form the training set covers",
+  "The SFTTrainer from the seventh rite permanently locks the model's output format to the training templates, so held-out prompts with different phrasing would cause the model to refuse generation entirely",
+  "Evaluation on seen prompts is actually fine — the model needs to prove it absorbed the exact records it was trained on, and any output that differs from the training answer is a regression"
+]
+answer = 1
+whyWrong = "The issue is not a technical memory constraint (tokenizer cache does not carry training-set tokens into evaluation) nor a template lock (the model generates on any prompt; the question is what quality of output it produces). And evaluating on training prompts is the opposite of the point: memorization checking tells you whether the model can recite, not whether it can generalize — a recited answer on the exact same prompt proves nothing about the bind's real-world usefulness."
+hint = "The lesson's FIELD NOTES section distinguishes between a memorization test and a generalization test: 'a training record and an evaluation record are nearly identical' means the evaluation is 'a memorization test wearing a held-out mask.' The correct choice explains that reworded prompts still measure recall of the specific record, not the style pattern behind it."
+explain = "The goal of evaluation is to measure generalization — can the model produce style-consistent answers on topics it hasn't seen before? If an evaluation prompt covers the same specific topic as a training record (even reworded), the model may recite from memory rather than apply a learned style pattern. A genuine held-out test uses topics the artificer writes about but in combinations or contexts no training record covered."
+
+[[lessons.exercises]]
+id = "s06-l01-e3"
+type = "text"
+points = 18
+prompt = "What fraction of the curated dataset does the lesson recommend setting aside as the held-out evaluation set before any training begins — the portion the <code>SFTTrainer</code> must never see?"
+answer = "10-20%"
+accept = ["10-20%", "10-20 percent", "10% to 20%", "10 to 20 percent", "10-20", "about 10-20%"]
+hint = "The lesson's second paragraph specifies the typical held-out fraction — it says 'typically 10–20%, set aside before any training begins.'"
+
+[[lessons.exercises]]
+id = "s06-l01-e4"
+type = "fill"
+points = 20
+prompt = "Fill the missing argument in the <code>generate</code> call from the lesson — the one that controls how many new tokens the model produces beyond the input prompt, which must be identical across the adapted and base runs to avoid confounding the comparison."
+code = '''from peft import PeftModel
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+base = AutoModelForCausalLM.from_pretrained(
+    "your-base-id", device_map="auto", torch_dtype=torch.bfloat16
+)
+tokenizer = AutoTokenizer.from_pretrained("your-base-id")
+adapted = PeftModel.from_pretrained(base, "./my-adapter")
+
+inputs = tokenizer("Explain your note-taking style.", return_tensors="pt").to("cuda")
+base_out = tokenizer.decode(base.generate(**inputs, ____=128)[0])
+adapt_out = tokenizer.decode(adapted.generate(**inputs, ____=128)[0])'''
+answer = "max_new_tokens"
+accept = ["max_new_tokens"]
+hint = "The lesson says 'max_new_tokens' must be identical across the adapted and base runs — it's the argument in both generate calls that sets the maximum number of new tokens to produce."
+
+[[lessons.exercises]]
+id = "s06-l01-e5"
+type = "write"
+points = 35
+prompt = "Given <code>total_records = 280</code> (curated records from the sixth rite's dataset) and a held-out percentage of 15%, compute how many records go to training and how many to evaluation. Print <code>TRAIN &lt;n&gt; EVAL &lt;m&gt;</code> — computed from the variables, not hardcoded. Use integer division: the eval count rounds down, and train gets the rest."
+starter = '''total = 280           # total curated JSONL records
+held_out_pct = 15     # percentage to reserve for evaluation
+
+# eval_count = int(total * held_out_pct / 100)  — round down
+# train_count = total - eval_count
+# Print TRAIN <train_count> EVAL <eval_count>
+print("TRAIN 0 EVAL 0")
+'''
+expect = "TRAIN 238 EVAL 42"
+hint = "eval_count = int(280 * 15 / 100) = int(42.0) = 42. train_count = 280 - 42 = 238. Use integer arithmetic: eval_count = int(total * held_out_pct / 100). Print f'TRAIN {train_count} EVAL {eval_count}'."

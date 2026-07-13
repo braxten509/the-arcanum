@@ -5,19 +5,12 @@
 import { $, closeModal, dropOverlay, esc, modal, sfx } from "../core/dom.js";
 import { forgeEntry } from "./forge.js";
 import { enhanceSelect } from "../ui/menu.js";
+import { forgeActivityKey, forgeActivityOptions, forgeTraceLines } from "./activity.js";
 
 export const FORGE_PHASES = ["Gate", "Concept & arc", "Skeleton & voice", "Sections", "Minigames",
   "Economy pass", "Cosmetics", "Validate", "Student review"];
 export const FORGE_PHASE_NAMES = ["Gate", "Concept & arc", "Skeleton & voice", "Sections",
   "Minigames", "Economy", "Cosmetics", "Validate", "Student review"];
-
-// Defense in depth for a page connected to an older server: keep the live terminal a
-// concise status stream even if that server still returns raw runner stdout.
-const FORGE_STATUS_RE = /^(?:>\s*Phase\s+\d+\s+—|===\s*Phase\s+0\b|·\s*(?:AI access Phase 0|forecast:|reset tomes\/|split-sections:|(?:authoring|resuming|section)\s+s\d+|shrinkage justified|renamed tomes\/|liveness ping)|(?:ok|FAIL)\s+|!\s*(?:runner|worker|section|Phase|naming)\b|x\s*(?:gates failed|Phase|section)\b|⇒\s+|↻\s+|~\s*student verdict\b|⏸\s*phase\b|==\s*all phases complete\b|AI ACCESS PHASE 0 FAILED\b|->\s*wrote\b)/;
-function forgeStatusTail(raw) {
-  return String(raw || "").split("\n").map((line) => line.trim())
-    .filter((line) => FORGE_STATUS_RE.test(line)).slice(-40).join("\n");
-}
 
 let forgeOverlay = null; // the one live progress overlay (null when none)
 let forgePoll = 0;       // its status poller — always cleared before the overlay is dropped
@@ -180,7 +173,15 @@ export function openBuildOverlay(jobId) {
     <div id="fp-phase">reattaching to the working…</div>
     <div class="forge-phases">${FORGE_PHASES.map((t, i) => `
       <div class="forge-phase" data-ph="${i}"><span class="num">${i}</span><span>${esc(t)}</span><span class="fp-mark num"></span></div>`).join("")}</div>
-    <div class="forge-log num" id="fp-log"></div>
+    <div class="forge-activity num" id="fp-activity" aria-label="Current forge activity">
+      <span class="forge-activity-pulse" aria-hidden="true"></span>
+      <span class="forge-activity-kicker" aria-hidden="true">NOW</span>
+      <span class="forge-activity-text" id="fp-activity-text">Reattaching to the working…</span>
+    </div>
+    <div class="forge-trace num" id="fp-trace" aria-label="Live AI tooling trace">
+      <div class="forge-trace-head"><span id="fp-trace-source">LIVE AI TOOLING</span><span>LAST 3 CALLS</span></div>
+      <div class="forge-trace-lines" id="fp-trace-lines"><div class="forge-trace-empty">Waiting for the AI's next tool call…</div></div>
+    </div>
     <div class="dim" style="margin-top:12px;font-size:12px;font-style:italic">a full tome takes a long while — leave, and the bindery works on; the shelf remembers it.</div>
     <div class="modal-actions">
       <button class="btn danger" id="fp-cancel">ABANDON THE WORKING</button>
@@ -209,7 +210,7 @@ export function openBuildOverlay(jobId) {
   // Active-phase line: "Phase 3 / 9 — Sections … — 3/8 — gpt-5.4-mini @high — 12m 04s".
   // sections (X/Y) appears only in split phase 3; runner drops its CLI prefix; the clock
   // is time-in-phase from the server's phaseStartedAt, repainted every second below.
-  let lastSt = null;
+  let lastSt = null, activityIndex = 0, activityKey = "", traceKey = "";
   const phaseLine = (st) => {
     let s = `Phase ${st.phase} / ${st.totalPhases || 9} — ${st.phaseTitle || "…"}`;
     if (st.sections) s += ` — ${st.sections}`;
@@ -220,6 +221,35 @@ export function openBuildOverlay(jobId) {
     }
     return s;
   };
+  function paintActivity(st, advance = false) {
+    const nextKey = forgeActivityKey(st);
+    if (nextKey !== activityKey) {
+      activityKey = nextKey;
+      activityIndex = 0;
+    } else if (advance) {
+      activityIndex += 1;
+    }
+    const options = forgeActivityOptions(st);
+    const text = options[activityIndex % options.length] || "The bindery is working";
+    const line = $("#fp-activity-text", overlay);
+    if (line && line.textContent !== text) line.textContent = text;
+  }
+  function paintTrace(st) {
+    // `toolTrace` comes from the runner's own Codex/Claude JSONL—not forge stdout.
+    // Never substitute the harness's edited narration here: the NOW line already owns that.
+    const tooling = Array.isArray(st.toolTrace);
+    const lines = tooling ? forgeTraceLines(st.toolTrace) : [];
+    const nextKey = `${tooling ? "tooling" : "attaching"}\u0000${st.toolProvider || ""}\u0000${lines.join("\u0000")}`;
+    if (nextKey === traceKey) return;
+    traceKey = nextKey;
+    $("#fp-trace-source", overlay).textContent = tooling
+      ? `LIVE ${String(st.toolProvider || "AI").toUpperCase()} TOOLING` : "LIVE AI TOOLING";
+    const box = $("#fp-trace-lines", overlay);
+    box.innerHTML = lines.length
+      ? lines.map((line) => `<div class="forge-trace-line" title="${esc(line)}">${esc(line)}</div>`).join("")
+      : `<div class="forge-trace-empty">${tooling ? "Waiting for the AI's next tool call…"
+        : "Attaching to the current AI's tool log…"}</div>`;
+  }
   function paint(st) {
     lastSt = st;
     $("#fp-name", overlay).textContent = st.name || "Untitled";
@@ -230,12 +260,8 @@ export function openBuildOverlay(jobId) {
       row.classList.toggle("now", i === st.phase);
       $(".fp-mark", row).textContent = i < st.phase ? "✓" : i === st.phase ? "…" : "";
     });
-    const log = $("#fp-log", overlay);
-    const visibleLog = forgeStatusTail(st.logtail);
-    if (log.textContent !== visibleLog) {
-      log.textContent = visibleLog;
-      log.scrollTop = log.scrollHeight;
-    }
+    paintActivity(st);
+    paintTrace(st);
   }
 
   function finish(st) {
@@ -274,7 +300,21 @@ export function openBuildOverlay(jobId) {
 
   async function tick() {
     let st;
-    try { st = await (await fetch("/api/buildtome/status?id=" + encodeURIComponent(jobId))).json(); } catch { return; }
+    try {
+      const [statusResponse, toolingResponse] = await Promise.all([
+        fetch("/api/buildtome/status?id=" + encodeURIComponent(jobId)),
+        fetch(`/.forge-trace/${encodeURIComponent(jobId)}.json?t=${Date.now()}`, { cache: "no-store" })
+          .catch(() => null),
+      ]);
+      st = await statusResponse.json();
+      if (toolingResponse && toolingResponse.ok) {
+        const tooling = await toolingResponse.json();
+        if (tooling.active && Array.isArray(tooling.lines)) {
+          st.toolTrace = tooling.lines;
+          st.toolProvider = tooling.provider || "AI";
+        }
+      }
+    } catch { return; }
     if (st.status === "running") {
       paint(st);
       if (st.awaitingRunner) {                          // a worker died; the harness is waiting on us
@@ -293,6 +333,7 @@ export function openBuildOverlay(jobId) {
   forgePoll = setInterval(() => {
     if (++beat % 3 === 0) tick();
     else if (lastSt) $("#fp-phase", overlay).textContent = phaseLine(lastSt);
+    if (lastSt && beat % 5 === 0) paintActivity(lastSt, true);
   }, 1000);
   tick();
 }

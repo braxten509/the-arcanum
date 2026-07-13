@@ -1,0 +1,99 @@
+[[lessons]]
+id = "s12-l01"
+title = "The List: Order Held"
+body = '''
+<p>A single variable holds one value. A training run has thousands of examples, a config has many layers to freeze, an evaluation returns many scores. For "many, in order," Python gives you the <strong>list</strong>.</p>
+<pre><code>models = ["qwen2.5", "llama3", "mistral"]
+print(models)        # ['qwen2.5', 'llama3', 'mistral']
+print(len(models))   # 3</code></pre>
+<p>Square brackets make the list; commas separate its <em>items</em>. A list may hold strings, numbers, booleans, even other lists — though most lists you meet hold one kind of thing, because they represent one kind of many.</p>
+<h3>Reaching in by index</h3>
+<p>Each item has a position, its <strong>index</strong>, and Python counts from <code>0</code>, not <code>1</code>. This is the single fact that trips every beginner exactly once.</p>
+<pre><code>models = ["qwen2.5", "llama3", "mistral"]
+print(models[0])    # qwen2.5   — the FIRST item
+print(models[1])    # llama3
+print(models[-1])   # mistral   — a negative index counts from the end</code></pre>
+<div class="callout">A list of three items has indices <code>0</code>, <code>1</code>, <code>2</code>. Asking for <code>models[3]</code> reaches past the end and raises an <code>IndexError</code>. The last valid index is always <code>len(list) - 1</code> — or just use <code>[-1]</code>, which always means "the last one."</div>
+<h3>Growing a list</h3>
+<p>Lists are <em>mutable</em> — you can change them after they are made. <code>.append(x)</code> adds one item to the end, the workhorse of building a list up as you go:</p>
+<pre><code>kept = []                 # an empty list, to be filled
+kept.append("qwen2.5")
+kept.append("mistral")
+print(kept)               # ['qwen2.5', 'mistral']</code></pre>
+<p>You will use this exact pattern constantly: start an empty list, loop over some source, and <code>append</code> the items that pass a test — the "keep the good ones" shape at the heart of dataset cleaning.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ZERO IS THE FIRST</div>
+<p>Index-from-zero is not a quirk to tolerate; it is load-bearing. When a later chapter slices the first 90% of examples for training and the last 10% for evaluation, those boundaries are computed with zero-based positions. Internalize now that "the first" is <code>[0]</code> and "the last" is <code>[-1]</code>, and off-by-one bugs mostly stop happening.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Python tutorial — Lists"
+url = "https://docs.python.org/3/tutorial/introduction.html#lists"
+essential = true
+
+[[lessons.readings]]
+label = "More on lists (append, indexing, methods)"
+url = "https://docs.python.org/3/tutorial/datastructures.html#more-on-lists"
+
+[[lessons.exercises]]
+id = "s12-l01-e1"
+type = "mc"
+points = 20
+prompt = "For <code>models = [\"qwen2.5\", \"llama3\", \"mistral\"]</code>, what does <code>models[0]</code> give?"
+choices = [
+  "<code>llama3</code> — the second item",
+  "<code>qwen2.5</code> — indexing starts at 0, so index 0 is the first item",
+  "an error — indices start at 1",
+  "the whole list",
+]
+answer = 1
+whyWrong = "Python counts positions from 0, so index 0 is the FIRST item, not the second and not an error. <code>models[0]</code> is <code>qwen2.5</code>."
+explain = "Zero-based indexing means the first item lives at index 0, the second at 1, the third at 2. <code>models[0]</code> is therefore <code>qwen2.5</code>. The second item would be <code>models[1]</code>."
+hint = "Where does Python start counting positions? Re-read the sentence that says which number is 'the first item.'"
+
+[[lessons.exercises]]
+id = "s12-l01-e2"
+type = "mc"
+points = 20
+prompt = "A list has 3 items. Which access raises an <code>IndexError</code>?"
+choices = [
+  "<code>list[2]</code>",
+  "<code>list[-1]</code>",
+  "<code>list[3]</code> — the valid indices are 0, 1, 2",
+  "<code>list[0]</code>",
+]
+answer = 2
+whyWrong = "With 3 items the valid indices are 0, 1, and 2. <code>list[3]</code> points one past the last item and raises IndexError. <code>list[-1]</code> is the safe way to say 'the last one.'"
+explain = "The last valid index is <code>len(list) - 1</code>, here 2. <code>list[3]</code> overshoots the end. When you want the final item without counting, use <code>list[-1]</code>."
+hint = "Three items, counting from zero — write out the indices that actually exist, then find the one that isn't in your list."
+
+[[lessons.exercises]]
+id = "s12-l01-e3"
+type = "text"
+points = 14
+prompt = "Which list method adds a single item to the END of a list — as in <code>kept.____(\"mistral\")</code>?"
+answer = "append"
+accept = ["append()", ".append", ".append()"]
+hint = "It is the workhorse used to build a list up item by item in the 'growing a list' example."
+
+[[lessons.exercises]]
+id = "s12-l01-e4"
+type = "write"
+points = 26
+prompt = "Given <code>models = [\"qwen2.5\", \"llama3\", \"mistral\"]</code>, print the first and last item using indexing, each labelled with an f-string. Output must be exactly <code>first: qwen2.5</code> then <code>last: mistral</code>."
+starter = '''models = ["qwen2.5", "llama3", "mistral"]
+# print "first: <first item>" then "last: <last item>", using indices and f-strings
+'''
+expect = '''first: qwen2.5
+last: mistral'''
+hint = "First item is <code>models[0]</code>, last is <code>models[-1]</code>. Wrap each in an f-string: <code>print(f\"first: {models[0]}\")</code> then the last with <code>models[-1]</code>."
+
+[[lessons.exercises]]
+id = "s12-l01-e5"
+type = "write"
+points = 28
+prompt = "Start from an empty list <code>kept = []</code>. Append <code>\"qwen2.5\"</code> then <code>\"mistral\"</code>, then print how many items the list now holds. Output must be exactly <code>2</code>."
+starter = '''kept = []
+# append two names, then print the count of items in kept
+'''
+expect = "2"
+hint = "Two <code>kept.append(...)</code> calls, then <code>print(len(kept))</code>. <code>len</code> reports the number of items."

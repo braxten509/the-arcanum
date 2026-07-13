@@ -1,0 +1,109 @@
+[[lessons]]
+id = "s09-l06"
+title = "The First Pour — Serve & Verify"
+body = '''
+<p>Nine rites have poured their contents into a single quantized GGUF file and a Modelfile that labels it. Two commands remain: one to register the vessel with the local serving daemon, and one to prove that the poured familiar answers the way the artificer designed it to. This final lesson of the eleventh rite delivers the homunculus to the shelf — a model the artificer can summon with a single command, on their own hardware, speaking in their own voice, grounded in their own reference material.</p>
+
+<p>The registration command: <code>ollama create homunculus -f Modelfile</code>. Ollama reads the Modelfile, locates the GGUF file specified in the <code>FROM</code> directive, parses the metadata header to determine the model architecture and tokenizer, and registers the model under the name <code>homunculus</code> in its local model registry. The model weights are not copied — Ollama reads them from the GGUF file's current location, so moving or deleting the GGUF after creation will break the model. Confirm registration with <code>ollama list</code>: the homunculus should appear alongside any other models the artificer pulled during the fourth rite's model-exploration lesson. The summoning command: <code>ollama run homunculus</code>. This loads the model into GPU memory, applies the PARAMETER settings from the Modelfile, wraps the conversation in the TEMPLATE format, prepends the SYSTEM prompt, and begins an interactive session — the same interface the fourth rite taught with downloaded models like <code>llama3.1:8b</code>, now serving the artificer's own creation.</p>
+
+<p>But the homunculus is not finished because it runs — it is finished because it works. The verification loop the eighth rite established — measure before trusting, test against held-out prompts — applies with special force here because the sealing pipeline involves three lossy transformations in series: merge (absorbing the adapter into the base and discarding the adapter matrices), quantization (reducing weight precision from 16-bit to ~4.5 effective bits), and format conversion (Hugging Face to GGUF). Each step is silent about quality — merge_and_unload does not report a perplexity score, llama-quantize does not report a style-fidelity metric, and convert_hf_to_gguf.py does not validate that the tokenizer vocabulary produces coherent token sequences for the model's expected inputs. The cumulative quality loss across all three steps can only be measured at the endpoint, by testing the served model against the same held-out prompts the proving rite used.</p>
+
+<p>The verification should check three dimensions. <strong>Refusal rate:</strong> run the sixth rite's curated held-out prompts through the served homunculus and classify each response with the same refusal-keyword check the tenth rite's fourth lesson taught (<code>"i can't"</code>, <code>"as an ai"</code>, etc.). The refusal rate should match the tenth rite's documented expectation — under 15% for the moderate-to-loose ward the artificer chose. A higher refusal rate means the system prompt or inference parameters are too restrictive; a zero refusal rate on genuinely edge-case prompts means the ward is too loose. <strong>Answer quality:</strong> for the non-refused responses, judge whether the answer addresses the formatting question correctly — the same judgment the eighth rite's evaluation scripts performed on the raw adapter outputs. The served model's answer quality should not be substantially worse than the unquantized merged model's quality on the same prompts. A noticeable degradation means the quantization level is too aggressive. <strong>Style fidelity:</strong> does the homunculus sound like the artificer's Notion notes — the "sounds like me" criterion the proving rite measured with cosine similarity? This is the most subjective dimension, but it is also the most important: the entire binding, proving, and sealing pipeline was designed to produce a model that writes the way the artificer writes. If the served homunculus produces grammatically correct but impersonally generic answers, the binder was too weak — the adapter didn't shift the base's style enough — and the twelfth rite's re-trainable pipeline will iterate.</p>
+
+<p>Three commands, three checks, and the homunculus is on the shelf. <code>ollama create</code> — registers it. <code>ollama run</code> — summons it. <code>ollama list</code> — confirms it. The tenth and final rite will teach the artificer to keep the homunculus alive as the corpus grows — to version adapters, automate re-distillation, and monitor drift. But the vessel is poured: the artificer can now type <code>ollama run homunculus</code> and converse with their own model, trained on their own notes, grounded in their own references, running on their own hardware. This is what the third rite's promise — "a personal local AI" — looks like at the end of nine rites.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE SERVING-TIME DIAGNOSTIC — OLLAMA'S HIDDEN QUALITY CHECKS</div>
+<p>Ollama provides several commands for inspecting a served model beyond basic interaction. <code>ollama show homunculus</code> prints the model's metadata — parameter count, quantization level, context length, and the Modelfile contents — without loading the model into GPU memory. Use it to verify that the <code>create</code> command registered the correct configuration. <code>ollama show homunculus --modelfile</code> prints the Modelfile exactly as Ollama parsed it; check that the SYSTEM prompt appears complete (no silent truncation) and that the TEMPLATE's Go template syntax was interpreted correctly (no literal <code>{{ .System }}</code> text in the output). <code>ollama run homunculus --verbose</code> adds per-token timing and token-count information after each generation, useful for diagnosing performance regressions: a model that generates at 5 tokens/second when the unquantized FP16 version generated at 20 tokens/second suggests a quantization or backend configuration problem. If GPU acceleration is not working — the model runs on CPU instead — the output rate drops to 1–2 tokens/second, and the fix is the third rite's toolchain verification: confirm <code>HSA_OVERRIDE_GFX_VERSION=12.0.1</code> in the environment and that the llama.cpp ROCm backend compiled successfully.</p></div>
+'''
+body_words = 535
+
+[[lessons.readings]]
+label = "Ollama CLI reference — create, run, list, show, and all subcommands"
+url = "https://github.com/ollama/ollama/blob/main/docs/cli.md"
+
+[[lessons.readings]]
+label = "Ollama Modelfile troubleshooting — common creation and serving errors"
+url = "https://github.com/ollama/ollama/blob/main/docs/modelfile.md"
+
+[[lessons.exercises]]
+id = "s09-l06-e1"
+type = "mc"
+points = 20
+prompt = "Per this rite, what command registers the homunculus in Ollama's local model registry from the Modelfile, and what does the registration actually do with the GGUF file?"
+choices = [
+  "ollama pull homunculus -f Modelfile — the pull command downloads the GGUF weights from the path in the FROM directive, caches them in Ollama's internal storage (~/.ollama/models/), and registers the model name. The original GGUF file is no longer needed after pull because Ollama maintains its own copy",
+  "ollama build homunculus -f Modelfile — the build command compiles the GGUF weights into Ollama's internal inference format (a proprietary binary format optimized for GPU dispatch), registers the compiled artifact, and deletes the original GGUF to save disk space",
+  "ollama create homunculus -f Modelfile — the create command reads the Modelfile, locates the GGUF file specified in FROM, parses its metadata header for architecture and tokenizer information, and registers the model name in Ollama's local model list. The GGUF file is not copied — Ollama reads it from its current location, so moving or deleting the file breaks the model",
+  "ollama serve homunculus -f Modelfile — the serve command loads the model into GPU memory, begins listening for API requests on port 11434, and registers the model name as a side effect of the serving process. The registration is temporary and lasts only as long as the serve command is running"
+]
+answer = 2
+whyWrong = "ollama pull downloads from a remote registry, not from a local Modelfile (pull fetches models by name from ollama.com; it cannot read a local Modelfile — the correct verb for local registration is 'create'). ollama build is not a real Ollama subcommand (the correct registration verb is 'create'; there is no compilation step — Ollama reads the GGUF directly at load time without converting it to a proprietary format). ollama serve starts the API server daemon (it doesn't register specific models — it listens for requests to models that are already registered via ollama create or ollama pull). The correct answer: ollama create reads the Modelfile, locates the GGUF in place (no copy), and registers the model name."
+hint = "The lesson states the command explicitly: 'ollama create homunculus -f Modelfile.' The correct choice names this exact command and notes that the GGUF is read from its current location — not copied, not compiled, not downloaded."
+explain = "The 'create' verb is precise: it creates a registry entry (a mapping from the model name 'homunculus' to the GGUF file path and its parsed metadata), not a copy of the weights. This means the GGUF file must remain at the path the FROM directive specified for as long as the model is registered. If the artificer moves the GGUF file or the Modelfile's FROM path changes, the model produces a 'file not found' error when summoned. The trade-off is disk efficiency (one copy of the weights serves both the file system and Ollama) for a path dependency (the model breaks if the file moves)."
+
+[[lessons.exercises]]
+id = "s09-l06-e2"
+type = "text"
+points = 18
+prompt = "Per this rite, what three dimensions of the served homunculus should the artificer verify before declaring it finished — the checks that confirm the sealing pipeline (merge, quantize, convert) did not silently degrade the model?"
+answer = "refusal rate, answer quality, and style fidelity"
+accept = ["refusal rate, answer quality, and style fidelity", "refusal rate, answer quality, style fidelity", "refusal rate, answer quality, and style", "refusal, quality, and style", "refusal rate, quality, style fidelity", "refusal rate, answer quality, style"]
+hint = "The lesson names them: 'The verification should check three dimensions. Refusal rate: … Answer quality: … Style fidelity: …' All three correspond to earlier rites: refusal rate (tenth rite), answer quality (eighth rite), style fidelity (eighth rite's 'sounds like me' criterion)."
+
+[[lessons.exercises]]
+id = "s09-l06-e3"
+type = "fill"
+points = 20
+prompt = "Fill the missing Ollama CLI subcommand — the one that registers a model from a Modelfile without downloading or copying the GGUF weights."
+code = '''# Build the GGUF first (lessons 1-3), then register:
+ollama ____ homunculus -f Modelfile
+
+# Confirm registration:
+ollama list | grep homunculus'''
+answer = "create"
+accept = ["create"]
+hint = "The lesson states the command as 'ollama create homunculus -f Modelfile.' The subcommand is 'create' — it registers the model in Ollama's local registry by reading the Modelfile and locating the GGUF specified in the FROM directive."
+
+[[lessons.exercises]]
+id = "s09-l06-e4"
+type = "mc"
+points = 20
+prompt = "Per this rite, why does the eighth rite's evaluation habit — 'measure before trusting' — apply with special force to verifying the served homunculus?"
+choices = [
+  "Ollama's create command rewrites the GGUF metadata header to include a SHA-256 hash of the Modelfile — if the hash doesn't match the expected value from the conversion step, the model's output will contain systematically incorrect tokens, and only an evaluation run can detect the mismatch because the hash is not reported in the command output",
+  "The sealing pipeline involves three lossy transformations in series — merge (absorbing adapter, discarding A and B matrices), quantization (16-bit → ~4.5 effective bits), and format conversion (HF → GGUF) — each of which can silently degrade output quality without reporting a metric. The verification run against held-out prompts is the only way to confirm that the cumulative loss across all three steps is acceptable, because no individual step reports a quality score",
+  "Ollama uses a different tokenizer than the Hugging Face training pipeline — the GGUF conversion step replaces the training tokenizer with Ollama's internal tokenizer, which may produce different token sequences for the same text, and the evaluation run is the only way to detect tokenizer drift because the replacement is undocumented",
+  "The verification run is required by Ollama's model registry protocol — models created with ollama create must pass a built-in validation step (ollama verify) before they can accept inference requests, and the evaluation run is the only way to satisfy this requirement because ollama verify requires a manually-curated test set"
+]
+answer = 1
+whyWrong = "ollama create does not rewrite the GGUF header with a hash (the GGUF metadata header is written once by convert_hf_to_gguf.py and remains unchanged through the create step — the command only registers the model, it doesn't modify the file). Ollama does not replace the tokenizer with a separate internal one (the GGUF file contains the tokenizer vocabulary baked in by the conversion step; Ollama reads that baked-in vocabulary — there is no separate Ollama tokenizer to cause drift). And ollama verify is not a real subcommand (Ollama has no built-in model validation step — verification is the artificer's responsibility, not an automated check). The correct answer: three lossy steps in series, each silent about quality, require an external quality measurement at the endpoint — the same habit the proving rite drilled."
+hint = "The lesson says 'the sealing pipeline involves three lossy transformations in series … each step is silent about quality. The cumulative quality loss across all three steps can only be measured at the endpoint.' The correct choice identifies that merge, quantize, and convert each degrade the model silently, and only an end-to-end test against known prompts can measure the total loss."
+explain = "This is the upstream-diagnosis principle applied across the entire pipeline. merge_and_unload doesn't report a quality delta — it just adds matrices. llama-quantize doesn't report a perplexity change — it just stores fewer bits. convert_hf_to_gguf.py doesn't validate output coherence — it just copies tensors into a new format. Any one of these steps could introduce a subtle degradation (a rounding difference that makes a frequently-accessed weight slightly different on every forward pass, a quantization cliff that collapses a small but important weight delta to zero, a tokenizer misalignment that shifts the vocabulary mapping). The only way to catch these is to test the endpoint against a known-good baseline — the same held-out prompts the fourth and eighth rites curated for exactly this purpose."
+
+[[lessons.exercises]]
+id = "s09-l06-e5"
+type = "write"
+points = 33
+prompt = "Compute a verification score for the served homunculus. Given a list of test results — each a tuple <code>(prompt_id, answered, quality_score, style_score)</code> — a result passes if <code>answered</code> is True AND <code>quality_score &gt;= 0.7</code> AND <code>style_score &gt;= 0.6</code>. Print <code>PASS &lt;n&gt;/&lt;total&gt;</code> and <code>SCORE &lt;v&gt;%</code> where &lt;v&gt; is the integer pass percentage. Compute from the data — don't hardcode the counts."
+starter = '''results = [
+    ("p01", True,  0.85, 0.72),
+    ("p02", True,  0.62, 0.88),
+    ("p03", False, 0.00, 0.00),
+    ("p04", True,  0.91, 0.55),
+    ("p05", True,  0.78, 0.81),
+    ("p06", True,  0.73, 0.67),
+    ("p07", True,  0.44, 0.91),
+    ("p08", True,  0.82, 0.74),
+]
+
+# Check each result: answered AND quality >= 0.7 AND style >= 0.6
+# Count passes
+# Print PASS <passes>/<total>
+# Print SCORE <v>% as an integer (rounded)
+
+print("PASS 0/0")
+print("SCORE 0%")
+'''
+expect = '''PASS 4/8
+SCORE 50%'''
+hint = "Loop over results. For each (id, answered, quality, style): if answered and quality >= 0.7 and style >= 0.6, increment passes. p01 ✓ (0.85, 0.72), p02 ✗ (0.62 < 0.7), p03 ✗ (not answered), p04 ✗ (0.55 < 0.6), p05 ✓ (0.78, 0.81), p06 ✓ (0.73, 0.67), p07 ✗ (0.44 < 0.7), p08 ✓ (0.82, 0.74). passes = 4, total = 8. rate = round(4/8 * 100) = 50. Print f'PASS {passes}/{len(results)}' and f'SCORE {round(passes/len(results)*100)}%'."

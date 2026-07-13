@@ -1,0 +1,97 @@
+[[lessons]]
+id = "s01-l04"
+title = "The Exit Bar: Proving the Whole Bench"
+body = '''
+<p>A rite does not end when every package reports "installed successfully." It ends when a single script, run start to finish, touches every link in the chain and reports the truth. This lesson is about writing that script and reading it honestly — not stacking five separate reassurances that never actually run together.</p>
+<p>Recall the chain: ROCm gives the metal, PyTorch's ROCm build proves the metal is reachable, the Hugging Face stack loads and trains, llama.cpp converts and quantizes, Ollama serves. A real smoke test checks a fact at each link, not just the first one. "PyTorch sees the GPU" is necessary but not sufficient — plenty of benches pass that single check and still can't train, because a downstream wheel was compiled for the wrong <code>gfx</code> target, or the HF stack was never actually installed.</p>
+<p>This is also where the earlier rites in this section earn their keep. The card's target string, the wavefront distinction, the one-job-per-tool discipline — none of that was trivia; it's the vocabulary this test's failures speak in. When a check fails, you now know whether to suspect the driver layer, a mismatched wheel, or a genuinely broken script, instead of reinstalling things at random.</p>
+<pre><code>my-homunculus/
+  pyproject.toml
+  <span class="s">src/</span>/
+    train.py
+  data/</code></pre>
+<p>That project layout from the last rite is where this test actually lives — a plain script in <code>src/</code>, run with your own interpreter, in your own folder. If this course's engine ever needs to read that folder, you point it there yourself; nothing here writes into it or resets it on your behalf.</p>
+<div class="callout">A "READY" printed by a script that never actually imported the HF stack is a false victory — the exact failure the grader is trained to catch. Every claimed check must be a check that actually ran.</div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE HONEST FAILURE MESSAGE</div>
+<p>Write your smoke test to name what failed, not just that something failed. "NOT READY" alone sends you hunting blind through five tools; "NOT READY: hf_stack, ollama_ok" tells you exactly which two links to re-check first. The habit of naming the specific failure, not just its existence, is the same habit the grader rewards in your first freestyle and every rite after it.</p></div>
+'''
+
+[[lessons.exercises]]
+id = "s01-l04-e1"
+type = "mc"
+points = 20
+prompt = "A smoke-test script prints <code>torch.cuda.is_available() == True</code>, but <code>rocm-smi</code> was never run this session. What confirmation is actually still missing?"
+choices = [
+  "Nothing — the Python-level check alone is definitive proof the bench is ready",
+  "Confirmation Ollama can hold a chat, since that's the real proof of GPU compute",
+  "Confirmation the base model file finished downloading, since that's the real risk",
+  "Confirmation the OS/driver layer sees the card independent of any one Python process",
+]
+answer = 3
+whyWrong = "A single Python process reporting success can still be wrong if the runtime beneath it is in a fragile state — a driver-level tool like rocm-smi checks the card's visibility at a layer no single script's internal state can vouch for on its own."
+explain = "Ollama chatting proves serving works, not that ROCm compute is sound, and a download completing is a different risk entirely — only an OS-level check confirms the card itself, independent of any one process's assumptions."
+hint = "One Python process reporting success doesn't vouch for the layer beneath it — is there an independent, OS-level check that confirms the card itself?"
+
+[[lessons.exercises]]
+id = "s01-l04-e2"
+type = "text"
+points = 15
+prompt = "Which environment variable, when set, forces ROCm to treat the card as a different, already-supported gfx target?"
+answer = "HSA_OVERRIDE_GFX_VERSION"
+hint = "It was covered as the override mechanism two rites' worth of lessons back, when discussing the card's true gfx target name."
+
+[[lessons.exercises]]
+id = "s01-l04-e3"
+type = "fill"
+points = 20
+prompt = "Fill the missing folder name from the project layout shown earlier in this rite, where the training and serving scripts live."
+code = '''my-homunculus/
+  pyproject.toml
+  ____/
+    train.py
+  data/'''
+answer = "src"
+hint = "It's the conventional short name for 'source code' shown right above train.py in the layout."
+
+[[lessons.exercises]]
+id = "s01-l04-e4"
+type = "mc"
+points = 20
+prompt = "Per the grader's private notes on this rite's freestyle, which failure gets docked hardest?"
+choices = [
+  "Using Ollama instead of a raw transformers call to serve the model",
+  "Not commenting the verification script heavily enough",
+  "A claimed pass where the GPU was never actually confirmed visible to the ROCm PyTorch build",
+  "Choosing a project folder outside the user's Documents directory",
+]
+answer = 2
+whyWrong = "Serving-tool choice and comment density are style questions this rite's rubric doesn't gate on, and folder location is the student's own call by design — the one failure that actually costs points is a claimed victory the chain never really proved."
+explain = "The rite exists to prove the whole chain works, so a false 'it's ready' — a check that never actually ran the thing it claims to have checked — is exactly the failure mode the grader is watching for."
+hint = "The freestyle xray text names it directly: a claimed pass where the GPU was never really confirmed is the one dock the grader will not overlook."
+
+[[lessons.exercises]]
+id = "s01-l04-e5"
+type = "write"
+points = 35
+prompt = "A smoke test holds five boolean checks in a dict. If every value is True, print exactly <code>READY</code>; otherwise print <code>NOT READY: hf_stack, ollama_ok</code> — the names of the failed checks, in the order they appear in the dict, comma-and-space separated."
+starter = '''checks = {
+    "driver_visible": True,
+    "pytorch_rocm": True,
+    "hf_stack": False,
+    "llama_cpp_ok": True,
+    "ollama_ok": False,
+}
+
+# Walk the dict the Chapter II way and collect the FAILED check names.
+# If nothing failed, print exactly:
+#   READY
+# otherwise print the failed names, in dict order, like:
+#   NOT READY: hf_stack, ollama_ok
+failed = []
+for name, ok in checks.items():
+    ...  # if this check is not ok, add `name` to `failed`
+# now: if `failed` is empty -> print READY; else -> print the NOT READY line
+print("READY")
+'''
+expect = "NOT READY: hf_stack, ollama_ok"
+hint = "Collect the keys whose value is False, in the order `checks.items()` yields them, then join them with `, ` after the `NOT READY: ` prefix."

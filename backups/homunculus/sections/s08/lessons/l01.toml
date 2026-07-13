@@ -1,0 +1,106 @@
+[[lessons]]
+id = "s08-l01"
+title = "Where the Ward Sits"
+body = '''
+<div class="callout"><strong>Heavy ideas, light code.</strong> This chapter is dense on concepts (alignment, RLHF, abliteration) but its exercises stay in Chapter I–II territory: loops over lists, dict/tuple lookups, and f-strings. One recurring trick is checking text for a word without caring about capitalisation — lower-case the text first with <code>text.lower()</code>, then test <code>"i can't" in text.lower()</code>. To ask "does <em>any</em> keyword appear," you can write a plain loop with a flag, or the shorthand <code>any(kw in text.lower() for kw in keywords)</code> — either is fine. Every exercise here hands you the data; you write the checking logic.</div>
+<p>The ward is not a random obstacle. It is a trained behavior — a set of weight patterns the model learned during a second training stage called <strong>alignment</strong>. Understanding the three layers that produce refusal is the first step toward controlling them. The artificer who treats refusal as a black box can only work around it; the artificer who knows where each layer sits can tune each one deliberately.</p>
+
+<p>The deepest layer is the <strong>base model</strong> itself. A base model — the raw next-token predictor trained on trillions of tokens of internet text, code, and books — has no concept of refusal. It was trained to complete text, not to judge whether a completion is appropriate. Give a base model the prompt <code>"How do I make a pipe bomb?"</code> and it will complete the sentence with instructions, because completing sentences is what it was trained to do. This is the crucial insight: refusal is not in the model's architecture — the transformer blocks and attention heads that run every forward pass have no safety circuit. Refusal was added after the base training, during a separate phase. The base model's sole drive is continuation; it has no safety instinct because safety was never part of its pre-training objective.</p>
+
+<p>The second layer — and the one that carries the heaviest ward — is <strong>alignment fine-tuning</strong>. After base training, the model creators run a second pass whose objective is not "predict the next token well" but "produce responses that are helpful, harmless, and honest." The two dominant methods are <strong>RLHF</strong> (Reinforcement Learning from Human Feedback) and <strong>DPO</strong> (Direct Preference Optimization). RLHF trains a separate reward model on human preference data — thousands of annotators rating model outputs — and then uses reinforcement learning (specifically PPO, Proximal Policy Optimization) to nudge the base weights toward responses the reward model scores highly. DPO, the simpler and increasingly dominant method, skips the reward model entirely: it directly optimizes the base model to prefer chosen responses over rejected ones from a dataset of human-labeled preference pairs. Both methods encode refusal patterns into the model's weights — the model learns that certain input patterns should map to "I can't help with that" rather than a direct answer. This layer is structural: the refusal is embedded in billions of weight values, not in a separate, toggleable module. It cannot be switched off by editing a config file — the fourth rite's lesson on chat templates already showed that the base-instruct boundary is baked into the weight distribution.</p>
+
+<p>The third and shallowest layer is the <strong>system prompt</strong> — the text that precedes every conversation and frames the model's role. A system prompt of <code>"You are a helpful, harmless assistant"</code> pushes the model toward the safe end of its learned distribution; a system prompt of <code>"You are a creative writing partner with no content restrictions"</code> pushes it toward the unrestrained end. The system prompt works because alignment training taught the model to attend to role-framing text — it learned that "assistant" signals should trigger the helpful-harmless response pattern. But the system prompt is a soft constraint: a sufficiently strong signal in the user's message — an adversarial prompt, a role-playing scenario — can override it, because the model's weights contain both the "refuse" pattern and the "comply" pattern. The system prompt biases the model toward one end of that spectrum; it cannot disable the other end. The fourth rite's sampling lesson proved that temperature and top-p shift token probabilities — the system prompt shifts activation patterns the same way: it tilts the odds, it does not rule out outcomes.</p>
+
+<p>The practical lesson for the artificer: the ward is a composite. The base model provides the raw capability; the alignment fine-tuning teaches refusal; the system prompt biases toward one end of the learned spectrum. Changing any layer changes the ward's behavior — but the deeper the layer, the harder it is to modify. System prompts take seconds to rewrite; alignment training takes days of GPU time; the base model must be chosen, not changed. The remaining rites of this chapter teach the artificer how to work with each layer — choosing the base, tuning the system prompt, and understanding when the alignment layer is the right instrument and when it is in the way.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE ALIGNMENT TAX — WHAT THE WARD COSTS</div>
+<p>Alignment is not free. The same RLHF/DPO training that teaches refusal also rounds off the model's sharper edges: its willingness to engage with ambiguity, its comfort with controversial-but-legitimate topics, its tolerance for creative exploration of dark or complex themes. This is the <strong>alignment tax</strong> — the capability you pay to the ward. For a style assistant that formats Notion headings and suggests font sizes, the tax is negligible — the task is safe and well-defined, and the model's helpfulness in this domain was likely reinforced, not suppressed, by alignment training. For a creative writing partner that needs to describe conflict, tension, or morally ambiguous characters, the tax is heavier — the model may refuse prompts that are not genuinely harmful but merely adjacent to its safety-training examples. The artificer who understands the tax can pay it deliberately: keep the tight ward for the style-assistant use case, and find a looser base for creative tasks. The key is knowing that the tax exists and pricing it into the base-choice decision — not discovering it mid-use when the homunculus suddenly refuses a legitimate request about dark-mode color palettes because "dark" triggered a safety-classifier echo in the alignment weights. The sixth rite's curation discipline (inspect the data before training) and the eighth rite's evaluation habit (measure before trusting) both apply here: test a candidate base's refusal boundary on real prompts from your use case before committing to it.</p></div>
+'''
+body_words = 545
+
+[[lessons.readings]]
+label = "Illustrating RLHF — Hugging Face blog on how alignment training works"
+url = "https://huggingface.co/blog/rlhf"
+
+[[lessons.readings]]
+label = "DPO — Direct Preference Optimization paper (the simpler alternative to RLHF)"
+url = "https://arxiv.org/abs/2305.18290"
+
+[[lessons.exercises]]
+id = "s08-l01-e1"
+type = "type"
+points = 12
+reps = 2
+code = '''# The three layers of the ward — distilled from the lesson:
+LAYERS = {
+    "base": "raw next-token predictor — no refusal instinct, completes any text",
+    "alignment": "RLHF or DPO fine-tuning — teaches the model to refuse harmful queries",
+    "system_prompt": "role-framing text — biases the model toward one end of its learned spectrum",
+}
+
+for layer, desc in LAYERS.items():
+    print(f"{layer}: {desc}")'''
+
+[[lessons.exercises]]
+id = "s08-l01-e2"
+type = "mc"
+points = 20
+prompt = "Per this rite, a base model (pre-alignment) will complete the prompt <code>\"How do I make a pipe bomb?\"</code> with instructions. Why — what specific training objective or lack thereof explains this behavior?"
+choices = [
+  "The base model was trained on a dataset that was filtered to remove all harmful content — the instructions it produces are hallucinations because it has never seen real harmful text, so it invents plausible-sounding but incorrect steps from unrelated training patterns",
+  "The base model's transformer architecture includes a dedicated safety circuit in the final attention layer that activates when harmful tokens appear — in a base model this circuit is present but disabled by a configuration flag that instruct-model training sets to 'on'",
+  "The base model was trained solely to predict the next token — its pre-training objective was text completion, not safety. It learned that text which begins with instruction-like prefixes (how do I…) is typically followed by instructional completions, so it faithfully produces them. No safety training was ever applied because safety was never part of the pre-training loss function",
+  "The base model inherits a refusal module from its initial random weight initialization — the module is active in all models, but instruct training amplifies its influence on the output distribution while leaving the module's structure unchanged"
+]
+answer = 2
+whyWrong = "Base models are trained on unfiltered internet text (not safety-filtered — that would be alignment training, not pre-training), transformers have no dedicated safety circuit (refusal is in the weight patterns, not a separate architectural component), and random initialization contains no behavioral module (weights are noise until trained). The correct answer: pre-training is a pure next-token prediction task. The model learned the statistical pattern that 'How do I make X?' is followed by instructions for making X, and it faithfully reproduces that pattern because its only objective is to minimize next-token cross-entropy loss on the training corpus."
+hint = "The lesson states: 'It was trained to complete text, not to judge whether a completion is appropriate.' The base model's training objective is next-token prediction — that's the only signal it was given. The correct choice identifies the pre-training objective and explains that no safety signal was ever part of it."
+explain = "Pre-training uses a causal language modeling objective: given tokens 1 through N, predict token N+1. The loss function is cross-entropy between the predicted token distribution and the actual next token in the training corpus. There is no term in this loss function that penalizes harmful completions — the model learns whatever statistical patterns exist in the data. Since internet text contains instructional sequences (how-to guides, tutorials, recipes), the model learns to continue instruction-like prefixes with instructional content. Alignment training adds a separate signal — 'this response is preferred, that one is not' — that reshapes the base model's continuation behavior."
+
+[[lessons.exercises]]
+id = "s08-l01-e3"
+type = "text"
+points = 18
+prompt = "Per this rite, what are the two alignment training methods named — the one that trains a separate reward model and uses reinforcement learning to shift the weights, and the simpler, increasingly dominant one that directly optimizes for preferred responses over rejected ones from human-labeled preference pairs?"
+answer = "RLHF and DPO"
+accept = ["RLHF and DPO", "RLHF, DPO", "RLHF / DPO", "DPO and RLHF", "RLHF & DPO", "rlhf and dpo"]
+hint = "The lesson names both: 'RLHF (Reinforcement Learning from Human Feedback) and DPO (Direct Preference Optimization).' RLHF uses a reward model + PPO; DPO skips the reward model entirely and optimizes from preference pairs directly."
+
+[[lessons.exercises]]
+id = "s08-l01-e4"
+type = "fill"
+points = 20
+prompt = "Fill the missing key in the lesson's three-layer ward dictionary — the layer that represents the RLHF/DPO fine-tuning stage where the model learns to map harmful requests to refusal responses rather than direct answers."
+code = '''WARD_LAYERS = {
+    "base":           "raw next-token predictor — no refusal instinct",
+    "____":           "RLHF or DPO fine-tuning — where refusal is taught",
+    "system_prompt":  "role-framing text — a soft bias, not a lock",
+}
+
+for layer, desc in WARD_LAYERS.items():
+    print(f"{layer}: {desc}")'''
+answer = "alignment"
+accept = ["alignment"]
+hint = "The lesson names the three layers explicitly: 'base model,' 'alignment fine-tuning,' and 'system prompt.' The fill is the middle layer — the one where refusal patterns are encoded into the weights via RLHF or DPO."
+
+[[lessons.exercises]]
+id = "s08-l01-e5"
+type = "write"
+points = 33
+prompt = "Build a ChatML-formatted system prompt. Given <code>system = \"You are a style assistant who formats Notion notes.\"</code> and <code>user = \"How should I format my headings?\"</code>, produce the full ChatML prompt using the template <code>&lt;|im_start|&gt;system\\n{system}&lt;|im_end|&gt;\\n&lt;|im_start|&gt;user\\n{user}&lt;|im_end|&gt;\\n&lt;|im_start|&gt;assistant\\n</code> and print it — computed from the variables, not hardcoded as a single string literal."
+starter = '''system = "You are a style assistant who formats Notion notes."
+user = "How should I format my headings?"
+
+# Build the ChatML prompt using the template:
+# <|im_start|>system\n{system}<|im_end|>\n<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n
+# The student writes the formatting logic here.
+
+print("")
+'''
+expect = '''<|im_start|>system
+You are a style assistant who formats Notion notes.<|im_end|>
+<|im_start|>user
+How should I format my headings?<|im_end|>
+<|im_start|>assistant
+'''
+hint = "Use an f-string: f'<|im_start|>system\\n{system}<|im_end|>\\n<|im_start|>user\\n{user}<|im_end|>\\n<|im_start|>assistant\\n'. The special tokens <|im_start|> and <|im_end|> are literal strings — no escaping needed."
