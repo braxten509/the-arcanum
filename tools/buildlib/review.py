@@ -7,12 +7,14 @@ from .agent_runtime import scoped_runner_command
 from .liveness import run_agent
 from .measure import (blocking_report, inventory, review_changes, review_inventory,
                       runtime_config_scope_violations, selected_runtime_config,
-                      shrink_marks, shrinkage, validate)
+                      shrink_marks, shrinkage, validate_shipping)
 from .prompts import (build_prompt, read_findings, read_tooling, read_verdict,
                       repair_verification_focus, review_findings_clear,
                       review_pass_eligible)
 from .runners import request_runner
-from .workflow import phase_sidecars, phase_writable_paths
+from .workflow import phase_sidecars, prepare_phase_writable_paths
+from .validation_env import (ValidationEnvironmentError, ensure_validation_environment,
+                             validation_subprocess_env)
 
 
 def run_student_review(tid, title, body, runner, prompt_refs, sidecar_paths,
@@ -70,11 +72,17 @@ def run_student_review(tid, title, body, runner, prompt_refs, sidecar_paths,
         started = time.monotonic()
         tome_scope = os.path.join(REPO, "tomes", tid)
         sidecars = phase_sidecars(
-            8, plan_path, verdict_path, findings_path, shrink_path)
-        writable = phase_writable_paths(8, tome_scope, sidecars)
+            8, plan_path, verdict_path, findings_path, shrink_path, tid=tid)
+        writable = prepare_phase_writable_paths(8, tome_scope, sidecars)
         scoped = scoped_runner_command(name, cmd, tome_scope, writable, REPO)
         before = review_inventory(tid)
-        env = os.environ.copy()
+        try:
+            ensure_validation_environment(tid)
+            env = validation_subprocess_env(tid)
+        except ValidationEnvironmentError:
+            # The previous review may have broken the declaration. Preserve a path
+            # for the next reviewer to repair it instead of crashing the harness.
+            env = os.environ.copy()
         env.update(ARCANUM_REPO_ROOT=REPO, ARCANUM_TOME_ROOT=tome_scope,
                    PYTHONDONTWRITEBYTECODE="1")
         rc = run_agent(
@@ -87,7 +95,11 @@ def run_student_review(tid, title, body, runner, prompt_refs, sidecar_paths,
         latest_edits = review_changes(before, review_inventory(tid))
         verdict = read_verdict(verdict_path)
 
-        clean, report = validate(tid, phase=8, tooling=tooling)
+        try:
+            ensure_validation_environment(tid)
+            clean, report = validate_shipping(tid, tooling, plan_rel)
+        except ValidationEnvironmentError as exc:
+            clean, report = False, f"ERROR validation dependencies: {exc}"
         gate_focus = []
         if verdict == "PASS" and not review_findings_clear(findings_path):
             gate_focus.append("- [blocking] PASS contradicted a non-empty or malformed "

@@ -6,7 +6,7 @@ import sys
 
 from . import REPO
 from .checkpoints import ARC_CONTRACT, ARC_HEADING
-from .measure import validator_shell_command
+from .measure import phase3_validator_shell_command, validator_shell_command
 
 PREAMBLE = """You are the headless worker for ONE phase of an Arcanum tome build.
 Complete only Phase {num}, then stop. The harness owns phase order, retries, and folder
@@ -24,8 +24,9 @@ Before returning, run this phase-appropriate warm-context check:
 Read the complete report. Fix only findings that block this command: every ERROR, plus
 non-advisory WARNs only when the command uses `--strict`. Do not chase WARNs during a
 non-strict phase. Report an out-of-scope blocker without crossing the write boundary.
-The harness repeats this exact command independently and rejects unexplained file
-deletion or array shrinkage.
+The harness repeats this check independently and rejects unexplained file deletion or
+array shrinkage. After scoped Phase-3 authoring it also runs the stronger complete
+whole-tome execution gate.
 
 ===== PHASE {num}: {title} =====
 
@@ -36,9 +37,9 @@ REPAIR_ONLY = """
 
 ===== REPAIR-ONLY RETRY =====
 Preserve the work already on disk. Do not restart the phase, broaden the deliverable,
-reread unrelated references, add lessons or exercises, or clean up non-blocking WARNs.
-Fix only the BLOCKING findings supplied below, run the exact check above, and stop as
-soon as it exits 0.
+reread unrelated references, or clean up non-blocking WARNs. Do not add lessons or
+exercises unless an exact BLOCKING authored-completion/density finding requires them.
+Fix only the supplied blockers, run the exact check above, and stop when it exits 0.
 """
 
 STUDENT_HOOK = """
@@ -105,9 +106,16 @@ def review_findings_clear(path):
 
 
 def build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel=None, focus=None,
-                 tooling=None, validation_run=None, repair_only=False):
-    validator_command = validator_shell_command(
-        tid, phase=num, tooling=tooling, run=validation_run, plan_rel=plan_rel)
+                 tooling=None, validation_run=None, repair_only=False,
+                 validation_command=None):
+    if validation_command:
+        validator_command = validation_command
+    elif num == 3 or num >= 7:
+        validator_command = phase3_validator_shell_command(
+            tid, tooling, plan_rel, run=validation_run is not False, strict=num >= 7)
+    else:
+        validator_command = validator_shell_command(
+            tid, phase=num, tooling=tooling, run=validation_run, plan_rel=plan_rel)
     p = PREAMBLE.format(tid=tid, num=num, title=title, body=body, plan=plan_rel,
                         validator_command=validator_command)
     if repair_only:

@@ -1,6 +1,6 @@
 # Section author contract
 
-Author the assigned section as one coherent addition to the single evolving project.
+Author each assigned section as one coherent addition to the single evolving project.
 Read the plan's gate answers and Arc, `tome.toml` runtime/narrative, this section's
 scaffold, and the earlier files that own anything this section reuses. Consult
 `tome-authoring/3-chapters.md` only when you need exact TOML field or pedagogy details.
@@ -42,9 +42,13 @@ edit/save, run/test, diagnostics, and first recovery; the last section must teac
 end-to-end verification. Required unsupplied assets or inputs need a legal taught placeholder
 path or must be optional.
 
-Finish the exact continuity handoff supplied by the harness. Record current artifact state,
+Finish every exact continuity handoff supplied by the harness. Record current artifact state,
 public contracts, named future obligations, temporary-artifact retirement targets, and evidence
 for obligations due here. Open every cited file: the handoff is a navigation map, never proof.
 
-Produce only the assigned section and its handoff. Do not edit the shared plan or another
-section, and do not spawn subagents; the harness owns section parallelism.
+Produce only the Phase-3 scope assigned by the harness: either the complete Arc in one warm
+worker or one bounded section batch. Work in Arc order, run and repair each section's
+warm-context gate before moving forward, and reopen the preceding section's files rather than
+relying on memory alone. In complete-Arc mode, also run every supplied periodic quality window;
+in batch mode, do not edit a section outside the assigned batch. Never edit the shared plan or
+spawn subagents; the harness owns process boundaries.

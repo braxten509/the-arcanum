@@ -24,57 +24,37 @@ import subprocess
 import sys
 import time
 
-try:
-    import tomllib
-except ModuleNotFoundError:
-    sys.exit("build_tome.py needs Python 3.11+ (tomllib).")
-
-from buildlib import (BUILD_DIR, CONFIG, DEAD_PINGS_DEFAULT, MAX_STUDENT_LOOPS,
+from buildlib import (BUILD_DIR, DEAD_PINGS_DEFAULT, MAX_STUDENT_LOOPS,
                       PING_INTERVAL_DEFAULT, REPO, retries_for)
 from buildlib.checkpoints import arc_checkpoint, finalize_arc, maybe_rename, reset_arc
-from buildlib.continuity import (handoffs_exist, planned_edges, reconciliation_prompt,
-                                 validate_all_handoffs)
+from buildlib.config import load_config
+from buildlib.continuity import handoffs_exist, reconciliation_prompt, validate_all_handoffs
 from buildlib.agent_runtime import scoped_runner_command
 from buildlib.liveness import run_agent, preflight_runners
 from buildlib.measure import (forecast_line, inventory, measure, runtime_config_inventory,
                               review_changes, review_inventory,
-                              runtime_config_scope_violations, selected_runtime_config,
-                              shrink_marks, shrinkage, validate, blocking_report)
+                              shrink_marks, validate, validate_phase3, validate_shipping,
+                              blocking_report)
+from buildlib.phase3_runtime import (prepare_warm_phase3_recovery,
+                                     prepare_warm_phase3_start, uses_whole_warm_worker)
+from buildlib.gates import evaluate_content_gate
 from buildlib.prompts import build_prompt, do_gate, do_gate_json, read_tooling
 from buildlib.review import run_student_review
+from buildlib.reporting import append_ground_truth
 from buildlib.runners import (_implicit_fallback, parse_fallbacks, parse_runner_flags,
                               request_runner, runner_for)
-from buildlib.sections import author_sections_split, section_ids, wipe_sections
+from buildlib.sections import (author_sections_split, clear_section_progress,
+                               section_ids, wipe_sections)
 from buildlib.skeleton import scaffold_sections
 from buildlib.workflow import (access_boundary, parse_phases, phase_sidecars,
-                               phase_writable_paths, support_prompt)
-
-
-def load_config(preset=None):
-    if not os.path.exists(CONFIG):
-        sys.exit(f"missing {CONFIG} — see the sample in the repo.")
-    with open(CONFIG, "rb") as f:
-        cfg = tomllib.load(f)
-    preset = preset or cfg.get("preset")
-    if preset:
-        p = (cfg.get("presets") or {}).get(preset)
-        if not p:
-            sys.exit(f"harness.toml: preset {preset!r} requested but no [presets.{preset}] table")
-        cfg["default"] = p.get("default", cfg.get("default"))
-        cfg["phases"] = dict(p.get("phases") or {})  # a preset is a full matrix, not a merge
-        print(f"  · preset {preset!r}: default={cfg['default']}, phase overrides={cfg['phases'] or '(none)'}")
-    return cfg
-
-
-def _selftest():
-    """Runnable check for the fallback/chain logic — `python3 tools/build_tome.py --selftest`."""
-    from buildlib.build_selftest import run
-    run()
-
+                               prepare_phase_writable_paths, support_prompt)
+from buildlib.validation_env import (ValidationEnvironmentError, ensure_validation_environment,
+                                     validation_subprocess_env)
 
 def main():
     if "--selftest" in sys.argv[1:]:
-        _selftest()
+        from buildlib.build_selftest import run
+        run()
         return
     ap = argparse.ArgumentParser(description="Build a tome phase-by-phase via harness.toml runners.")
     ap.add_argument("tome_id")
@@ -113,10 +93,12 @@ def main():
                          "runner from the UI (via .tome-build handshake) instead of failing. The "
                          "web bindery passes this; the build waits until a runner is chosen.")
     ap.add_argument("--split-sections", action="store_true",
-                    help="author Phase 3 one SECTION per fresh worker instead of the whole tome in "
-                         "one session — keeps each worker's context (and cache-read cost) small, so "
-                         "any model is affordable there. Falls back to a single worker if the tome "
-                         "has <2 sections.")
+                    help="author Phase 3 in bounded warm section batches instead of one whole-tome "
+                         "session — preserves nearby context while keeping every provider below a "
+                         "portable batch boundary. Falls back to one worker for <2 sections.")
+    ap.add_argument("--section-batch-size", type=int, default=3, metavar="N",
+                    help="maximum Arc-ordered sections per warm Phase-3 worker (default 3). The "
+                         "harness checkpoints every section and retries only failures.")
     ap.add_argument("--selftest", action="store_true", help=argparse.SUPPRESS)
     args = ap.parse_args()
     tid = args.tome_id
@@ -133,6 +115,7 @@ def main():
                      else int(lv.get("dead_pings", DEAD_PINGS_DEFAULT)))
     ask_on_death = args.ask_on_death
     split_sections = args.split_sections
+    section_batch_size = max(1, args.section_batch_size)
     phases = parse_phases()
     os.makedirs(BUILD_DIR, exist_ok=True)
     plan_path = os.path.join(BUILD_DIR, f"{tid}.plan.md")
@@ -235,10 +218,20 @@ def main():
         chain = [primary] + list(fallbacks)
         tooling = read_tooling(plan_path)
 
+        # Phase 2 authors the dependency contract. Every later worker and every
+        # independent gate receive one cached isolated environment for that exact
+        # runtime+dependency set. Project package managers install into validator
+        # scratch projects instead, through the same declaration.
+        if num >= 3:
+            try:
+                ensure_validation_environment(tid)
+            except ValidationEnvironmentError as exc:
+                sys.exit(f"validation dependency provisioning failed: {exc}")
+
         # #17: never spend the editorial reviewer's tokens on a structurally-broken tome.
         # In order this is already true (Phase 7 gated strict); it matters on --from-phase 8.
         if num == 8:
-            ok, report = validate(tid, phase=8, tooling=tooling)
+            ok, report = validate_shipping(tid, tooling, plan_rel)
             if not ok:
                 sys.exit("Phase 8 gate: the structural validator (--strict) must pass before the "
                          "editorial review runs — fix these first (or re-run from Phase 7):\n" + report)
@@ -246,13 +239,25 @@ def main():
         fb_note = f"  (+{len(chain) - 1} fallback)" if len(chain) > 1 else ""
         print(f"\n{'=' * 64}\n> Phase {num} — {title}   [runner: {primary[0]}]{fb_note}\n{'=' * 64}")
         access = access_boundary(tid, num)
-        continuity_context = ""
-        if num >= 7 and handoffs_exist(tid) and section_ids(tid):
-            continuity_context = reconciliation_prompt(tid, section_ids(tid), plan_path)
+        continuity_context = (reconciliation_prompt(tid, section_ids(tid), plan_path)
+                              if num >= 7 and handoffs_exist(tid) and section_ids(tid) else "")
+        phase_sections = section_ids(tid)
+        warm_whole_phase3 = uses_whole_warm_worker(num, split_sections, phase_sections)
+        whole_phase3_sidecars, warm_write_sections, resume_gate = [], [], None
         active_body = body
-        prompt = (build_prompt(tid, num, title, active_body, plan_rel, verdict_rel,
-                               findings_rel, tooling=tooling)
-                  + continuity_context + access)
+        if warm_whole_phase3:
+            warm = prepare_warm_phase3_start(
+                tid, title, body, (plan_rel, verdict_rel, findings_rel), tooling, access,
+                resume=(args.from_phase == 3))
+            prompt, continuity_context = warm.prompt, warm.context
+            whole_phase3_sidecars, warm_write_sections, active_body, resume_gate = (
+                warm.sidecars, warm.pending, warm.body, warm.gate)
+            if warm.notice:
+                print("  · " + warm.notice)
+        else:
+            prompt = (build_prompt(tid, num, title, active_body, plan_rel, verdict_rel,
+                                   findings_rel, tooling=tooling)
+                      + continuity_context + access)
 
         t0 = time.monotonic()
         pre = inventory(tid)                    # phase-start snapshot: the shrinkage contract
@@ -262,9 +267,12 @@ def main():
         attempt = 0
         ri = 0                                  # index into the runner chain
         retry_budget = retries_for(chain[0][0])  # local runners get more; the failure pause extends it
+        skip_worker_once = bool(resume_gate and resume_gate[0])
+        prevalidated = resume_gate if skip_worker_once else None
 
-        # Split Phase 3: author each section in its own worker (small context → any model is
-        # affordable), then let the loop below run the workflow's whole-tome reconcile/validate.
+        # Split Phase 3: one warm provider process owns a bounded Arc-ordered batch. Every
+        # section is checkpointed separately; a whole-tome reconciliation worker is launched
+        # only when the complete executable gate proves one is actually needed.
         if num == 3 and split_sections and len(section_ids(tid)) >= 2:
             ri = author_sections_split(tid, num, title, chain,
                                        (plan_rel, verdict_rel, findings_rel), cfg, overrides,
@@ -272,18 +280,32 @@ def main():
                                        interactive, args.tome_id,
                                        # starts below 3 wiped the sections (see wipe_sections),
                                        # so ONLY a start AT phase 3 is a genuine resume
-                                       resume=(args.from_phase == 3), preflighted=preflighted)
+                                       resume=(args.from_phase == 3), preflighted=preflighted,
+                                       batch_size=section_batch_size)
+            clear_section_progress(tid)  # section authoring is over; any next worker reconciles globally
+            warm_write_sections = section_ids(tid)
+            whole_phase3_sidecars = [os.path.join(BUILD_DIR, f"{tid}.handoffs")]
             handoffs_ok, handoffs_report = validate_all_handoffs(
                 tid, section_ids(tid), plan_path)
             if not handoffs_ok:
                 sys.exit("split-section continuity gate failed; resume Phase 3 so the owning "
                          "section workers can repair their exact handoffs:\n" + handoffs_report)
-            reconcile_body = support_prompt("phase-3-reconcile")
-            active_body = reconcile_body
-            continuity_context = reconciliation_prompt(tid, section_ids(tid), plan_path)
-            prompt = (build_prompt(tid, num, title, active_body, plan_rel, verdict_rel,
-                                   findings_rel, tooling=tooling)
-                      + continuity_context + access)
+            prevalidated = validate_phase3(
+                tid, tooling, plan_rel, section_ids(tid))
+            if prevalidated[0]:
+                print("  · Phase 3 full gate is clean — reconciliation worker not needed")
+                # Enter the normal gate/accounting path without paying for a no-op AI turn.
+                skip_worker_once = True
+            else:
+                reconcile_body = support_prompt("phase-3-reconcile")
+                active_body = reconcile_body
+                continuity_context = reconciliation_prompt(tid, section_ids(tid), plan_path)
+                prompt = (build_prompt(tid, num, title, active_body, plan_rel, verdict_rel,
+                                       findings_rel, tooling=tooling, repair_only=True)
+                          + continuity_context + access
+                          + "\n\n===== FULL PHASE-3 GATE REQUIRES RECONCILIATION =====\n"
+                          + blocking_report(prevalidated[1]))
+                prevalidated = None
 
         while True:
             name, cmd, input_mode = chain[ri]
@@ -295,19 +317,33 @@ def main():
                 for review_sidecar in (verdict_path, findings_path):
                     open(review_sidecar, "w", encoding="utf-8").close()
             sidecars = phase_sidecars(
-                num, plan_path, verdict_path, findings_path, shrink_path)
-            writable = phase_writable_paths(num, tome_scope, sidecars)
-            scoped = scoped_runner_command(name, cmd, tome_scope, writable, REPO)
-            # Human-selected and implicit recovery runners do not exist during the initial
-            # census. Give each one the same bounded Phase 0 check before it can do real work.
-            if tuple(cmd) not in preflighted:
-                preflight_runners([(name, scoped, input_mode)])
-                preflighted.add(tuple(cmd))
-            env = os.environ.copy()
-            env.update(ARCANUM_REPO_ROOT=REPO, ARCANUM_TOME_ROOT=tome_scope,
-                       PYTHONDONTWRITEBYTECODE="1")
-            rc = run_agent(scoped, input_mode, prompt, ping_interval, dead_pings, hard_cap,
-                           cwd=tome_scope, env=env)
+                num, plan_path, verdict_path, findings_path, shrink_path, tid=tid)
+            if whole_phase3_sidecars:
+                sidecars += whole_phase3_sidecars
+            writable = prepare_phase_writable_paths(
+                num, tome_scope, sidecars, warm_write_sections)
+            if skip_worker_once:
+                rc = 0
+                skip_worker_once = False
+            else:
+                scoped = scoped_runner_command(name, cmd, tome_scope, writable, REPO)
+                # Human-selected and implicit recovery runners do not exist during the initial
+                # census. Give each one the same bounded Phase 0 check before it can do real work.
+                if tuple(cmd) not in preflighted:
+                    preflight_runners([(name, scoped, input_mode)])
+                    preflighted.add(tuple(cmd))
+                try:
+                    ensure_validation_environment(tid)
+                    env = validation_subprocess_env(tid)
+                except ValidationEnvironmentError:
+                    # A previous attempt may have authored a malformed dependency
+                    # contract. Let the repair worker start in the base environment;
+                    # the blocking report tells it to repair the declaration.
+                    env = os.environ.copy()
+                env.update(ARCANUM_REPO_ROOT=REPO, ARCANUM_TOME_ROOT=tome_scope,
+                           PYTHONDONTWRITEBYTECODE="1")
+                rc = run_agent(scoped, input_mode, prompt, ping_interval, dead_pings, hard_cap,
+                               cwd=tome_scope, env=env)
             died = rc != 0
             if died:
                 print(f"  ! runner {name} exited {rc}" + (" (hung/timeout)" if rc == 124 else ""))
@@ -321,20 +357,9 @@ def main():
                 probs = []
                 ok, report = validate(tid, phase=1, plan_rel=plan_rel)
             else:
-                shrink_probs = shrinkage(pre, inventory(tid))
-                if shrink_probs and shrink_marks(shrink_path) > marks:
-                    print(f"  · shrinkage justified in {os.path.relpath(shrink_path, REPO)}: "
-                          f"{len(shrink_probs)} change(s) accepted")
-                    shrink_probs = []
-                probs = list(shrink_probs)
-                if num in (2, 8):
-                    probs += runtime_config_scope_violations(
-                        runtime_pre, selected_runtime_config(tid))
-                if not os.path.isdir(os.path.join(REPO, "tomes", tid)):
-                    ok, report = False, f"tomes/{tid}/ is missing — restore the scaffolded tome"
-                else:
-                    ok, report = validate(
-                        tid, phase=num, tooling=tooling)
+                ok, report, probs, prevalidated = evaluate_content_gate(
+                    tid, num, tooling, plan_rel, pre, marks, shrink_path,
+                    runtime_pre, prevalidated, attempt)
             if num == 1 and not ok and "TOOLING_CONFLICT:" in report:
                 sys.exit(report)
             if ok and not probs and not (num == 8 and died):
@@ -360,9 +385,19 @@ def main():
                     ri += 1
                     print(f"  ⇒ {name} died — continuing on {chain[ri][0]} "
                           f"(resumes from tomes/{tid}/ on disk)")
-                    prompt = (build_prompt(tid, num, title, active_body, plan_rel, verdict_rel,
-                                           findings_rel, tooling=tooling)
-                              + continuity_context + access)
+                    if warm_whole_phase3:
+                        death_feedback = (("\n\n===== CURRENT GATE BLOCKERS =====\n"
+                                           + blocking_report(report)) if not ok else "")
+                        warm = prepare_warm_phase3_recovery(
+                            tid, title, body, (plan_rel, verdict_rel, findings_rel), tooling,
+                            access, death_feedback)
+                        prompt, continuity_context = warm.prompt, warm.context
+                        whole_phase3_sidecars, warm_write_sections, active_body = (
+                            warm.sidecars, warm.pending, warm.body)
+                    else:
+                        prompt = (build_prompt(tid, num, title, active_body, plan_rel, verdict_rel,
+                                               findings_rel, tooling=tooling)
+                                  + continuity_context + access)
                     continue
             if attempt >= retry_budget:
                 # Automatic budget spent. Unattended with nobody to ask → fail as before. Otherwise
@@ -402,9 +437,17 @@ def main():
                              "is genuinely deliberate, append one line starting "
                              f"`SHRINK OK:` to {os.path.relpath(shrink_path, REPO)} saying what and why; "
                              "that exception never authorizes another runtime file.")
-            prompt = (build_prompt(tid, num, title, active_body, plan_rel, verdict_rel,
-                                   findings_rel, tooling=tooling, repair_only=True)
-                      + continuity_context + access + feedback)
+            if warm_whole_phase3:
+                warm = prepare_warm_phase3_recovery(
+                    tid, title, body, (plan_rel, verdict_rel, findings_rel), tooling,
+                    access, feedback)
+                prompt, continuity_context = warm.prompt, warm.context
+                whole_phase3_sidecars, warm_write_sections, active_body = (
+                    warm.sidecars, warm.pending, warm.body)
+            else:
+                prompt = (build_prompt(tid, num, title, active_body, plan_rel, verdict_rel,
+                                       findings_rel, tooling=tooling, repair_only=True)
+                          + continuity_context + access + feedback)
 
         timings.append((num, name, round(time.monotonic() - t0), attempt + 1))
 
@@ -413,6 +456,7 @@ def main():
             # #21: human approves the arc before authoring commits to it
             arc_checkpoint(plan_path, interactive, args.yes)
         if num == 3:                 # #23: forecast the now-real content size
+            clear_section_progress(tid)
             print(f"  · forecast: {forecast_line(measure(tid))}")
 
         if num == 8:
@@ -425,28 +469,8 @@ def main():
                 build_id=args.tome_id, ask_on_death=ask_on_death,
                 interactive=interactive)
 
-    # #11: append measured ground truth; model-authored decisions are not measurement.
     if os.path.isdir(os.path.join(REPO, "tomes", tid)):
-        mv = measure(tid)
-        with open(plan_path, "a", encoding="utf-8") as f:
-            f.write("\n## Harness ground truth (measured from disk)\n")
-            f.write(f"- {forecast_line(mv)}\n")
-            f.write(f"- exercise points {mv['ex_points']} · freestyle rewards {mv['fs_reward']} "
-                    f"→ fixed face-value {mv['base_earnable']}\n")
-            if mv["bounty_max"]:
-                f.write(f"- repeatable hex-defense bonus {mv['bounty_min']}–{mv['bounty_max']} "
-                        f"per win (tier schedule sum {mv['bounty']}; excluded from fixed total)\n")
-            f.write(f"- banks: {mv['themes']} themes · {mv['shop']} shop items · {mv['badges']} badges\n")
-            if handoffs_exist(tid) and section_ids(tid):
-                continuity_ok, _ = validate_all_handoffs(tid, section_ids(tid), plan_path)
-                f.write(f"- continuity: {len(section_ids(tid))} section handoffs · "
-                        f"{len(planned_edges(plan_path, section_ids(tid)))} planned edges · "
-                        f"gate {'CLOSED' if continuity_ok else 'BROKEN'}\n")
-            if timings:
-                f.write("\n### Phase timings\n")
-                for ph, rn, secs, tries in timings:
-                    f.write(f"- phase {ph}: {secs}s via {rn}"
-                            + (f" ({tries} attempts)" if tries > 1 else "") + "\n")
+        append_ground_truth(tid, plan_path, timings)
 
     if review_unresolved is not None:
         print(f"\n{'!' * 64}\n! Phase 8 review hit its {MAX_STUDENT_LOOPS}-round cap WITHOUT a PASS.\n"

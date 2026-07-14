@@ -1,16 +1,17 @@
 """Mirror the AI runner's real tool calls into a tiny browser-readable snapshot.
 
-The forge harness deliberately keeps stdout concise, so Codex/Claude tool traffic is not
-available there.  Both CLIs do, however, keep an append-only JSONL session and hold that
-file open while they work.  Follow the session owned by the build process tree and expose
-only the last three literal tool calls; this gives the operator real evidence without
-turning the Bindery into an unbounded terminal.
+The forge harness deliberately keeps stdout concise, so provider tool traffic is not
+available there. Follow the Codex/Claude JSONL, OpenCode SQLite session, or Antigravity
+full transcript owned by the build process tree and expose only the last three literal
+tool calls; this gives the operator real evidence without an unbounded terminal.
 """
 from collections import deque
+from dataclasses import dataclass
 from datetime import datetime
 import json
 import os
 import re
+import sqlite3
 import time
 
 from .config import WEB
@@ -24,6 +25,14 @@ _JS_STRING_RE = re.compile(r'(?<![A-Za-z0-9_])["\']?cmd["\']?\s*:\s*("(?:\\.|[^"
 _JS_TEMPLATE_RE = re.compile(r"(?<![A-Za-z0-9_])[\"']?cmd[\"']?\s*:\s*`((?:\\.|[^`])*)`", re.S)
 _NESTED_TOOL_RE = re.compile(r"\btools\.([A-Za-z_][A-Za-z0-9_]*)\s*\(")
 _PATCH_FILE_RE = re.compile(r"\*\*\*\s+(?:Add|Update|Delete) File:\s*([^\n\\]+)")
+_AGY_CONVERSATION_RE = re.compile(r"^(.*[/\\]antigravity-cli)[/\\]conversations[/\\]([0-9a-f-]+)\.db$")
+
+
+@dataclass(frozen=True)
+class TraceSource:
+    provider: str
+    path: str
+    session_id: str = ""
 
 
 def _descendants(root_pid):
@@ -51,7 +60,7 @@ def _descendants(root_pid):
 
 
 def runner_session(root_pid):
-    """Find the Codex or Claude JSONL file held open by this build's live worker."""
+    """Find the real session store owned by this build's live worker."""
     candidates = []
     pids = _descendants(root_pid)
     for pid in pids:
@@ -70,17 +79,60 @@ def runner_session(root_pid):
                 provider = "codex"
             elif _CLAUDE_SESSION_PART in target and target.endswith(".jsonl"):
                 provider = "claude"
+            else:
+                agy = _AGY_CONVERSATION_RE.match(target)
+                if agy:
+                    transcript = os.path.join(agy.group(1), "brain", agy.group(2),
+                                              ".system_generated", "logs", "transcript_full.jsonl")
+                    if os.path.isfile(transcript):
+                        try:
+                            candidates.append((os.stat(transcript).st_mtime_ns,
+                                               TraceSource("antigravity", transcript)))
+                        except OSError:
+                            pass
             if not provider or not os.path.isfile(target):
                 continue
             try:
                 stamp = os.stat(target).st_mtime_ns
             except OSError:
                 continue
-            candidates.append((stamp, provider, target))
+            candidates.append((stamp, TraceSource(provider, target)))
+    opencode = _opencode_session_from_processes(pids)
+    if opencode:
+        candidates.append(opencode)
     if not candidates:
         return _claude_session_from_processes(pids)
-    _, provider, path = max(candidates)
-    return provider, path
+    return max(candidates, key=lambda row: row[0])[1]
+
+
+def _opencode_session_from_processes(pids, proc_root="/proc"):
+    """Find the newest OpenCode DB session belonging to a live worker process."""
+    candidates = []
+    for pid in pids:
+        pdir = os.path.join(proc_root, str(pid))
+        try:
+            with open(os.path.join(pdir, "cmdline"), "rb") as handle:
+                argv = [part.decode("utf-8", "replace") for part in handle.read().split(b"\0") if part]
+            if not argv or os.path.basename(argv[0]) != "opencode":
+                continue
+            cwd = os.readlink(os.path.join(pdir, "cwd"))
+            started_ms = int(os.stat(pdir).st_ctime * 1000) - 2000
+            db_path = next((os.readlink(os.path.join(pdir, "fd", fd)).removesuffix(" (deleted)")
+                            for fd in os.listdir(os.path.join(pdir, "fd"))
+                            if os.path.basename(os.readlink(os.path.join(pdir, "fd", fd))
+                                                .removesuffix(" (deleted)")) == "opencode.db"), None)
+            if not db_path or not os.path.isfile(db_path):
+                continue
+            with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=0.2) as db:
+                row = db.execute(
+                    "SELECT id, time_updated FROM session WHERE directory=? AND time_created>=? "
+                    "ORDER BY time_updated DESC LIMIT 1", (cwd, started_ms)).fetchone()
+            if row:
+                candidates.append((int(row[1]) * 1_000_000,
+                                   TraceSource("opencode", db_path, str(row[0]))))
+        except (OSError, sqlite3.Error, StopIteration, ValueError):
+            continue
+    return max(candidates, key=lambda row: row[0]) if candidates else None
 
 
 def _claude_session_from_processes(pids, proc_root="/proc", projects_root=None):
@@ -105,7 +157,7 @@ def _claude_session_from_processes(pids, proc_root="/proc", projects_root=None):
             continue
     if not candidates:
         return None
-    return "claude", max(candidates)[1]
+    return TraceSource("claude", max(candidates)[1])
 
 
 def _literal_command(source, start):
@@ -195,6 +247,25 @@ def codex_tool_events(record):
     return out
 
 
+def _tool_argument_detail(name, args):
+    """Keep provider tool arguments literal while making common calls readable."""
+    if not isinstance(args, dict):
+        return json.dumps(args, ensure_ascii=False, separators=(",", ":"))
+    for key in ("command", "CommandLine"):
+        if args.get(key):
+            return str(args[key])
+    file_tools = {"read", "write", "edit", "patch", "view_file", "write_file",
+                  "replace", "list_dir", "list_directory"}
+    if str(name or "").lower() in file_tools:
+        for key in ("filePath", "file_path", "AbsolutePath", "DirectoryPath", "path"):
+            if args.get(key):
+                detail = str(args[key])
+                extras = [f"{extra}={args[extra]}" for extra in
+                          ("offset", "limit", "StartLine", "EndLine") if extra in args]
+                return detail + ((" " + " ".join(extras)) if extras else "")
+    return json.dumps(args, ensure_ascii=False, separators=(",", ":"))
+
+
 def claude_tool_events(record):
     """Extract Claude tool_use blocks without paraphrasing their arguments."""
     if record.get("type") != "assistant":
@@ -207,17 +278,30 @@ def claude_tool_events(record):
         if not isinstance(block, dict) or block.get("type") != "tool_use":
             continue
         name, args = str(block.get("name") or "tool"), block.get("input") or {}
-        if name == "Bash" and isinstance(args, dict):
-            detail = args.get("command") or json.dumps(args, ensure_ascii=False, separators=(",", ":"))
-        elif isinstance(args, dict) and args.get("file_path"):
-            detail = str(args["file_path"])
-            extras = [f"{key}={args[key]}" for key in ("offset", "limit") if key in args]
-            if extras:
-                detail += " " + " ".join(extras)
-        else:
-            detail = json.dumps(args, ensure_ascii=False, separators=(",", ":"))
+        detail = _tool_argument_detail(name, args)
         out.append(_event(timestamp, "claude", name, detail))
     return out
+
+
+def opencode_tool_events(record):
+    """Extract literal tool parts from OpenCode's SQLite session store."""
+    if record.get("type") != "tool":
+        return []
+    name = str(record.get("tool") or "tool")
+    state = record.get("state") or {}
+    return [_event(record.get("timestamp"), "opencode", name,
+                   _tool_argument_detail(name, state.get("input") or {}))]
+
+
+def antigravity_tool_events(record):
+    """Extract AGY planner tool calls from its append-only full transcript."""
+    calls = record.get("tool_calls") or []
+    if record.get("type") != "PLANNER_RESPONSE" or not isinstance(calls, list):
+        return []
+    timestamp = record.get("created_at") or ""
+    return [_event(timestamp, "antigravity", str(call.get("name") or "tool"),
+                   _tool_argument_detail(call.get("name"), call.get("args") or {}))
+            for call in calls if isinstance(call, dict)]
 
 
 def tool_events(provider, record):
@@ -225,6 +309,10 @@ def tool_events(provider, record):
         return codex_tool_events(record)
     if provider == "claude":
         return claude_tool_events(record)
+    if provider == "opencode":
+        return opencode_tool_events(record)
+    if provider == "antigravity":
+        return antigravity_tool_events(record)
     return []
 
 
@@ -245,6 +333,7 @@ class SessionFollower:
     def __init__(self, provider, path):
         self.provider = provider
         self.path = path
+        self.source = TraceSource(provider, path)
         self.offset = 0
         self.events = deque(maxlen=TOOL_TRACE_LINES)
 
@@ -275,6 +364,40 @@ class SessionFollower:
         return list(self.events)
 
 
+class OpenCodeFollower:
+    """Read the newest bounded set of tool parts from one OpenCode DB session."""
+    def __init__(self, source):
+        self.source = source
+        self.provider = source.provider
+        self.path = source.path
+
+    def poll(self):
+        try:
+            with sqlite3.connect(f"file:{self.path}?mode=ro", uri=True, timeout=0.2) as db:
+                rows = db.execute(
+                    "SELECT time_created, data FROM part WHERE session_id=? "
+                    "AND json_extract(data, '$.type')='tool' "
+                    "ORDER BY time_created DESC, id DESC LIMIT ?",
+                    (self.source.session_id, TOOL_TRACE_LINES)).fetchall()
+        except sqlite3.Error:
+            return []
+        events = []
+        for created, raw in reversed(rows):
+            try:
+                record = json.loads(raw)
+            except (TypeError, json.JSONDecodeError):
+                continue
+            record["timestamp"] = datetime.fromtimestamp(
+                int(created) / 1000).astimezone().isoformat()
+            events.extend(opencode_tool_events(record))
+        return events[-TOOL_TRACE_LINES:]
+
+
+def _follower(source):
+    return (OpenCodeFollower(source) if source.provider == "opencode"
+            else SessionFollower(source.provider, source.path))
+
+
 def _write_snapshot(job_id, payload):
     os.makedirs(TOOL_TRACE_DIR, mode=0o700, exist_ok=True)
     safe_id = re.sub(r"[^A-Za-z0-9_-]", "", str(job_id)) or "unknown"
@@ -295,9 +418,9 @@ def mirror_tool_trace(job_id, build_pid, interval=0.75):
         current = runner_session(build_pid)
         if current:
             missing = 0
-            provider, path = current
-            if not follower or (follower.provider, follower.path) != current:
-                follower = SessionFollower(provider, path)
+            provider = current.provider
+            if not follower or follower.source != current:
+                follower = _follower(current)
             events = follower.poll()
             _write_snapshot(job_id, {
                 "active": True,

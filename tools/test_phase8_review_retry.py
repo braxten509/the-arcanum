@@ -32,12 +32,14 @@ def exercise(codes, max_loops):
             patch.object(review, "review_findings_clear", return_value=True), \
             patch.object(review, "review_pass_eligible", return_value=True), \
             patch.object(review, "phase_sidecars", return_value=[]), \
-            patch.object(review, "phase_writable_paths", return_value=[]), \
+            patch.object(review, "prepare_phase_writable_paths", return_value=[]), \
             patch.object(review, "scoped_runner_command", side_effect=scoped), \
+            patch.object(review, "ensure_validation_environment", return_value={}), \
+            patch.object(review, "validation_subprocess_env", return_value=os.environ.copy()), \
             patch.object(review, "review_inventory", return_value={}), \
             patch.object(review, "review_changes", return_value=[]), \
             patch.object(review, "run_agent", side_effect=codes), \
-            patch.object(review, "validate", return_value=(True, "")), \
+            patch.object(review, "validate_shipping", return_value=(True, "")), \
             patch.object(review, "inventory", return_value={}), \
             patch.object(review, "shrinkage", return_value=[]), \
             patch.object(review, "selected_runtime_config", return_value=None), \

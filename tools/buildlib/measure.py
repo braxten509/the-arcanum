@@ -7,11 +7,14 @@ import subprocess
 import tomllib
 
 from . import REPO, VALIDATOR
+from .validation_env import validation_subprocess_env
 
 RUNTIME_CONFIG_DIR = os.path.join(REPO, "global-configs", "runtimes")
+PHASE3_VALIDATOR = os.path.join(REPO, "tools", "validate_phase3.py")
 
 
-def validator_argv(tid, phase=None, tooling=None, run=None, strict=None, plan_rel=None):
+def validator_argv(tid, phase=None, tooling=None, run=None, strict=None, plan_rel=None,
+                   run_section=None):
     """Return the one canonical validator command used by workers and the harness.
 
     Keeping this as argv (rather than a hand-built flags string) makes command parity
@@ -35,20 +38,108 @@ def validator_argv(tid, phase=None, tooling=None, run=None, strict=None, plan_re
         cmd.append("--no-run")
     if tooling:
         cmd += ["--tooling", tooling]  # enforce the gate's internal/external/both choice
+    if run_section:
+        cmd += ["--run-section", str(run_section)]
     return cmd
 
 
 def validator_shell_command(tid, phase=None, tooling=None, run=None, strict=None,
-                            plan_rel=None):
+                            plan_rel=None, run_section=None):
     """The canonical argv rendered exactly as the worker should run it."""
     return ('cd "$ARCANUM_REPO_ROOT" && '
-            + shlex.join(validator_argv(tid, phase, tooling, run, strict, plan_rel)))
+            + shlex.join(validator_argv(
+                tid, phase, tooling, run, strict, plan_rel, run_section)))
 
 
-def validate(tid, phase=None, strict=None, tooling=None, run=None, plan_rel=None):
-    cmd = validator_argv(tid, phase, tooling, run, strict, plan_rel)
-    p = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True)
+def phase3_validator_argv(tid, tooling, plan_rel, run=True, strict=False):
+    if not plan_rel:
+        raise ValueError("complete Phase-3 validator command needs plan_rel")
+    cmd = ["python3", os.path.relpath(PHASE3_VALIDATOR, REPO), f"tomes/{tid}",
+           "--plan", plan_rel]
+    if tooling:
+        cmd += ["--tooling", tooling]
+    if strict:
+        cmd.append("--strict")
+    if not run:
+        cmd.append("--no-run")
+    return cmd
+
+
+def phase3_validator_shell_command(tid, tooling, plan_rel, run=True, strict=False):
+    """The exact complete Phase-3/shipping gate shared by worker and harness."""
+    return ('cd "$ARCANUM_REPO_ROOT" && '
+            + shlex.join(phase3_validator_argv(tid, tooling, plan_rel, run, strict)))
+
+
+def section_validator_argv(tid, sid, tooling, plan_rel):
+    """Return the complete fast Phase-3 gate for one section and its handoff."""
+    if not plan_rel:
+        raise ValueError("split-section validator command needs plan_rel")
+    cmd = ["python3", "tools/validate_section.py", f"tomes/{tid}", sid,
+           "--plan", plan_rel]
+    if tooling:
+        cmd += ["--tooling", tooling]
+    return cmd
+
+
+def section_validator_shell_command(tid, sid, tooling, plan_rel):
+    """Render the exact complete section gate for a warm worker prompt."""
+    return ('cd "$ARCANUM_REPO_ROOT" && '
+            + shlex.join(section_validator_argv(tid, sid, tooling, plan_rel)))
+
+
+def section_window_validator_argv(tid, through, plan_rel):
+    """Return the continuity + anti-template checkpoint for an authored prefix."""
+    if not plan_rel:
+        raise ValueError("section-window validator command needs plan_rel")
+    return ["python3", "tools/validate_section_window.py", f"tomes/{tid}",
+            "--through", through, "--plan", plan_rel]
+
+
+def section_window_validator_shell_command(tid, through, plan_rel):
+    """Render the periodic same-worker quality checkpoint."""
+    return ('cd "$ARCANUM_REPO_ROOT" && '
+            + shlex.join(section_window_validator_argv(tid, through, plan_rel)))
+
+
+def validate(tid, phase=None, strict=None, tooling=None, run=None, plan_rel=None,
+             run_section=None):
+    cmd = validator_argv(tid, phase, tooling, run, strict, plan_rel, run_section)
+    p = subprocess.run(cmd, cwd=REPO, env=validation_subprocess_env(tid),
+                       capture_output=True, text=True)
     return p.returncode == 0, (p.stdout + p.stderr).strip()
+
+
+def validate_section(tid, sid, tooling, plan_rel):
+    """Repeat the worker's exact combined content + continuity command independently."""
+    cmd = section_validator_argv(tid, sid, tooling, plan_rel)
+    p = subprocess.run(cmd, cwd=REPO, env=validation_subprocess_env(tid),
+                       capture_output=True, text=True)
+    return p.returncode == 0, (p.stdout + p.stderr).strip()
+
+
+def validate_section_window(tid, through, plan_rel):
+    """Run a cross-section quality window independently of the author worker."""
+    cmd = section_window_validator_argv(tid, through, plan_rel)
+    p = subprocess.run(cmd, cwd=REPO, env=validation_subprocess_env(tid),
+                       capture_output=True, text=True)
+    return p.returncode == 0, (p.stdout + p.stderr).strip()
+
+
+def validate_phase3(tid, tooling, plan_rel, _sections):
+    """Repeat the worker's complete executable/authorship/continuity command."""
+    cmd = phase3_validator_argv(tid, tooling, plan_rel)
+    process = subprocess.run(cmd, cwd=REPO, env=validation_subprocess_env(tid),
+                             capture_output=True, text=True)
+    return process.returncode == 0, (process.stdout + process.stderr).strip()
+
+
+def validate_shipping(tid, tooling, plan_rel):
+    """Strict tome validation plus Phase-3 completion and continuity invariants."""
+    cmd = phase3_validator_argv(tid, tooling, plan_rel, strict=True)
+    process = subprocess.run(cmd, cwd=REPO, env=validation_subprocess_env(tid),
+                             capture_output=True, text=True)
+    return process.returncode == 0, (process.stdout + process.stderr).strip()
 
 
 def blocking_report(report, strict=False):

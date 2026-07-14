@@ -30,6 +30,9 @@ BUILD_RENAME_RE = re.compile(r"renamed tomes/\S+ -> tomes/(\S+)")
 # Split-sections progress: "· authoring s03 [3/8] on <runner>" / "· resuming s02 [2/8] …"
 # / "· section s01 [1/8] already authored — skipping"
 BUILD_SECTION_RE = re.compile(r"^\s*·\s+(?:authoring|resuming|section)\s+s\d+\s+\[(\d+)/(\d+)\]")
+BUILD_BATCH_RE = re.compile(
+    r"^\s*·\s+(?:authoring|resuming)\s+warm batch\s+\d+/\d+\s+"
+    r"\[(\d+)-(\d+)/(\d+)\].*\s+on\s+(.+)$")
 BUILD_RUNNER_RE = re.compile(r"\[runner: ([^\]]+)\]")
 # The runner's stdout also contains patches, generated prose, token counters, and CLI
 # narration. Keep that raw tail for failure diagnostics, but give the live terminal only
@@ -39,11 +42,12 @@ BUILD_STATUS_RE = re.compile(
     r"^(?:"
     r">\s*Phase\s+\d+\s+—|"
     r"===\s*Phase\s+0\b|"
-    r"·\s*(?:AI access Phase 0|forecast:|reset tomes/|split-sections:|"
+    r"·\s*(?:AI access Phase 0|forecast:|reset tomes/|split-sections:|Phase 3 (?:full gate|resume)|"
+    r"(?:authoring|resuming)\s+warm batch|"
     r"(?:authoring|resuming|section)\s+s\d+|shrinkage justified|renamed tomes/|liveness ping)|"
     r"(?:ok|FAIL)\s+|"
-    r"!\s*(?:runner|worker|section|Phase|naming)\b|"
-    r"x\s*(?:gates failed|Phase|section)\b|"
+    r"!\s*(?:runner|worker|section|warm batch|Phase|naming)\b|"
+    r"x\s*(?:gates failed|Phase|section|warm batch)\b|"
     r"⇒\s+|↻\s+|~\s*student verdict\b|⏸\s*phase\b|"
     r"==\s*all phases complete\b|AI ACCESS PHASE 0 FAILED\b|->\s*wrote\b)"
 )
@@ -144,6 +148,10 @@ def watch_build(gid, proc):
                 r = re.search(r"\bon (.+)$", line)    # split workers can differ from the phase runner
                 if r:
                     job["runner"] = r.group(1)
+            batch = BUILD_BATCH_RE.match(line)
+            if batch:
+                job["sections"] = f"{batch.group(1)}-{batch.group(2)}/{batch.group(3)}"
+                job["runner"] = batch.group(4)
             rn = BUILD_RENAME_RE.search(line)
             if rn:
                 job["tome"] = rn.group(1)  # follow the Phase 2 rename so the UI picks up the themed meta.name

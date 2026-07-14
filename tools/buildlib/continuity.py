@@ -1,4 +1,4 @@
-"""Durable, machine-checked handoffs between fresh split-section workers.
+"""Durable, machine-checked handoffs between bounded split-section workers.
 
 The tome itself remains the source of teaching truth. These small build sidecars preserve
 the exact cross-section contracts a later worker must verify against that truth: stable
@@ -45,13 +45,51 @@ def reset_handoffs(tid):
     shutil.rmtree(handoff_dir(tid), ignore_errors=True)
 
 
-def prepare_handoff(tid, sid, reset=False):
-    """Create the exact sidecar a section sandbox may write; optionally blank stale state."""
+def handoff_skeleton(sid, ids, plan_path=None):
+    """Preseed deterministic structure and Phase-1 obligations for a section worker."""
+    outgoing = []
+    fulfills = []
+    for edge in planned_edges(plan_path, ids) if plan_path else []:
+        if edge["origin"] == sid:
+            outgoing.append({
+                "id": edge["id"],
+                "target": edge["target"],
+                "location": "",
+                "requirement": edge["requirement"],
+                "reason": "",
+            })
+        elif edge["target"] == sid:
+            fulfills.append({
+                "id": edge["id"],
+                "location": "",
+                "evidence": "",
+            })
+    return {
+        "version": HANDOFF_VERSION,
+        "section": sid,
+        "artifact_state": "",
+        "public_contracts": [],
+        "future_obligations": outgoing,
+        "temporary_artifacts": [],
+        "fulfills": fulfills,
+    }
+
+
+def prepare_handoff(tid, sid, reset=False, ids=None, plan_path=None):
+    """Create the writable sidecar, optionally with a deterministic handoff skeleton."""
     path = handoff_path(tid, sid)
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    if reset or not os.path.exists(path):
-        with open(path, "w", encoding="utf-8"):
-            pass
+    initialize = reset or not os.path.exists(path)
+    if not initialize:
+        try:
+            initialize = os.path.getsize(path) == 0
+        except OSError:
+            initialize = True
+    if initialize:
+        with open(path, "w", encoding="utf-8") as handle:
+            if ids is not None:
+                json.dump(handoff_skeleton(sid, ids, plan_path), handle, indent=2)
+                handle.write("\n")
     return path
 
 
@@ -258,7 +296,7 @@ def _read_valid_prior(tid, sid, ids, plan_path=None):
 
 
 def continuity_prompt(tid, sid, ids, plan_path=None):
-    """Prompt block containing all prior contracts plus the current handoff protocol."""
+    """Prompt block with a compact prior-contract index and current handoff protocol."""
     prior = _read_valid_prior(tid, sid, ids, plan_path)
     current_position = ids.index(sid)
     lines = []
@@ -280,8 +318,7 @@ def continuity_prompt(tid, sid, ids, plan_path=None):
         latest = prior[-1]
         lines.insert(0, f"Latest cumulative state after {latest.get('section')}: "
                         f"{latest.get('artifact_state', '')}")
-    contract_lines = [f"- CURRENT CONTRACT {name} @ {origin}/{item.get('location')}: "
-                      f"{item.get('promise')}"
+    contract_lines = [f"- CONTRACT INDEX {name} @ {origin}/{item.get('location')}"
                       for name, (origin, item) in contracts.items()]
     lines[1:1] = contract_lines
     ledger = "\n".join(lines).strip() or "(first section: no prior handoffs)"
@@ -299,10 +336,13 @@ def continuity_prompt(tid, sid, ids, plan_path=None):
     return f"""
 
 ===== DURABLE CROSS-SECTION CONTINUITY =====
-The Phase 1 `Continuity map` is the planned dependency graph. The block below is the
-ACTUAL compact contract emitted by finished workers. It is injected by the harness;
-do not rely on only the immediately previous section. Before reusing or changing any
-named contract, open its cited owner file and compare the real lesson/code on disk.
+The Phase 1 `Continuity map` is the planned dependency graph. The block below is a
+compact index of ACTUAL contracts emitted by finished workers. It is injected by the
+harness; do not rely on only the immediately previous section. Promise prose is not
+duplicated here: before reusing or changing any named contract, open its cited owner
+file and compare the real lesson/code on disk. If the intended promise is unclear, open
+`.tome-build/{tid}.handoffs/<origin>.json` for its exact text. The files are the source
+of truth.
 
 {ledger}
 
@@ -335,7 +375,7 @@ future obligations or temporary artifacts. Keep the entire handoff under
 
 
 def reconciliation_prompt(tid, ids, plan_path=None):
-    """Whole-tome audit block: all handoffs and their claimed evidence, read-only."""
+    """Whole-tome audit block: all handoffs and their claimed evidence."""
     blocks = []
     for sid in ids:
         data, problem = _load(handoff_path(tid, sid))
@@ -354,7 +394,9 @@ def reconciliation_prompt(tid, ids, plan_path=None):
             "These per-section handoffs are claims, not evidence. Verify every cited location, "
             "every fulfillment, every stable contract in the final cumulative artifact, and every "
             "temporary artifact's retirement against the tome files. Fix the TOME when a claim and "
-            "the lesson disagree; never paper over a teaching gap by merely rewriting a handoff.\n"
+            "the lesson disagree. If a legitimate repair relocates existing evidence, update the "
+            "handoff's exact location only after verifying the new file. Never erase an obligation "
+            "or rewrite a claim merely to paper over a teaching gap.\n"
             "Open EVERY indexed JSON file; the index intentionally stays compact so the reviewer "
             "spends context on the tome, not duplicated handoff text.\n"
             f"Deterministic handoff gate: {status}\n" + "\n".join(blocks))

@@ -117,47 +117,77 @@ def check_snippets(m, sections_data):
     head = prelude.strip().splitlines()[0] if prelude.strip() else None
     entry, timeout = merged.get("entryFile") or "Main.txt", merged.get("runTimeout") or 30
 
-    for sd in sections_data:
-        for les in (sd.get("lessons") or []):
-            if not isinstance(les, dict):
-                continue
-            for i, block in enumerate(_CODE_BLOCK.findall(str(les.get("body") or ""))):
-                src = _snippet_source(block)
-                frag = not entry_re.search(src)
-                if frag:
-                    if not (frag_re and frag_re.search(src)):
-                        continue  # neither program nor code fragment (output, transcript, diagram)
-                    if skip_re and skip_re.search(src):
-                        continue  # an excerpt shape the wrap cannot make judgeable
-                    hoisted, body = [], []
-                    for ln in src.splitlines():
-                        (hoisted if hoist_re and hoist_re.match(ln) else body).append(ln)
-                    src = "\n".join(hoisted + [wrap.replace("{code}", "\n".join(body))])
-                if head and not re.search(r"^\s*" + re.escape(head), src, re.M):
-                    src = prelude + src
-                _, out = _run_one_file(chk, entry, timeout, src)
-                if out == "__NO_TOOLCHAIN__":
-                    warn("run", f"toolchain binary {chk[0]!r} is not installed — lesson code "
-                         "samples were never compiled. Install it and re-validate.")
-                    return
-                bad = [d.group("msg").strip() for d in diag_re.finditer(out)]
-                ir = frag_ignore_re if frag else ignore_re
-                bad = [x for x in bad if not (ir and ir.search(x))]
-                if not bad:
+    project_rt = None
+    project_tmp = None
+    project_packages = bool(merged.get("validationDependencies")
+                            and (merged.get("validationProjectPackageCommand")
+                                 or (merged.get("packageCommand")
+                                     and not merged.get("validationPackageCommand"))))
+    if project_packages:
+        try:
+            from runtimes import for_config as runtime_for_config
+            candidate = runtime_for_config(rt)
+            if candidate.available() and (candidate.build_cmd or candidate.check_cmd):
+                project_rt = candidate
+                project_tmp = tempfile.TemporaryDirectory()
+        except Exception:
+            project_rt = None
+            project_tmp = None
+
+    try:
+        for sd in sections_data:
+            for les in (sd.get("lessons") or []):
+                if not isinstance(les, dict):
                     continue
-                # One finding per sample: a single wrong line cascades into a dozen
-                # diagnostics, and the first one names the cause.
-                more = f" (+{len(bad) - 1} more)" if len(bad) > 1 else ""
-                if frag:
-                    # A fragment is deliberately incomplete, so it gets a WARN (still a
-                    # hard gate under --strict) rather than a whole-program's ERROR.
-                    warn("content", f"{les.get('id')}: code sample #{i + 1} (a fragment, compiled "
-                         f"inside the runtime's snippetWrap shell) is rejected by the toolchain: "
-                         f"{bad[0]}{more}"[:300])
-                else:
-                    err("content", f"{les.get('id')}: code sample #{i + 1} does not compile — the lesson "
-                        f"teaches it as correct {merged.get('name') or 'code'}. Toolchain said: "
-                        f"{bad[0]}{more}"[:300])
+                for i, block in enumerate(_CODE_BLOCK.findall(str(les.get("body") or ""))):
+                    src = _snippet_source(block)
+                    frag = not entry_re.search(src)
+                    if frag:
+                        if not (frag_re and frag_re.search(src)):
+                            continue  # neither program nor code fragment (output, transcript, diagram)
+                        if skip_re and skip_re.search(src):
+                            continue  # an excerpt shape the wrap cannot make judgeable
+                        hoisted, body = [], []
+                        for ln in src.splitlines():
+                            (hoisted if hoist_re and hoist_re.match(ln) else body).append(ln)
+                        src = "\n".join(hoisted + [wrap.replace("{code}", "\n".join(body))])
+                    if head and not re.search(r"^\s*" + re.escape(head), src, re.M):
+                        src = prelude + src
+                    if project_rt:
+                        data = project_rt.snippet_diagnostics(project_tmp.name, src)
+                        if not data.get("ok"):
+                            bad = [str(data.get("output") or "scratch project setup failed")]
+                        else:
+                            bad = [str(d.get("msg") or "build failed").strip()
+                                   for d in (data.get("diags") or [])
+                                   if str(d.get("sev") or "error").lower() == "error"]
+                    else:
+                        _, out = _run_one_file(chk, entry, timeout, src)
+                        if out == "__NO_TOOLCHAIN__":
+                            warn("run", f"toolchain binary {chk[0]!r} is not installed — lesson code "
+                                 "samples were never compiled. Install it and re-validate.")
+                            return
+                        bad = [d.group("msg").strip() for d in diag_re.finditer(out)]
+                    ir = frag_ignore_re if frag else ignore_re
+                    bad = [x for x in bad if not (ir and ir.search(x))]
+                    if not bad:
+                        continue
+                    # One finding per sample: a single wrong line cascades into a dozen
+                    # diagnostics, and the first one names the cause.
+                    more = f" (+{len(bad) - 1} more)" if len(bad) > 1 else ""
+                    if frag:
+                        # A fragment is deliberately incomplete, so it gets a WARN (still a
+                        # hard gate under --strict) rather than a whole-program's ERROR.
+                        warn("content", f"{les.get('id')}: code sample #{i + 1} (a fragment, compiled "
+                             f"inside the runtime's snippetWrap shell) is rejected by the toolchain: "
+                             f"{bad[0]}{more}"[:300])
+                    else:
+                        err("content", f"{les.get('id')}: code sample #{i + 1} does not compile — the lesson "
+                            f"teaches it as correct {merged.get('name') or 'code'}. Toolchain said: "
+                            f"{bad[0]}{more}"[:300])
+    finally:
+        if project_tmp:
+            project_tmp.cleanup()
 
 
 def _diag_re(m):
@@ -216,7 +246,7 @@ def _project_build_result(data, entry):
     unbuildable.  Only error-severity diagnostics fail this shipping check.
     """
     if not data.get("ok"):
-        return False, "project scaffold/build diagnostics failed"
+        return False, str(data.get("output") or "project scaffold/build diagnostics failed")
     errors = [d for d in (data.get("diags") or [])
               if str(d.get("sev") or "error").lower() == "error"]
     if not errors:
@@ -226,7 +256,7 @@ def _project_build_result(data, entry):
                    f"{first.get('col', '?')}): {first.get('msg', 'build failed')}")
 
 
-def check_starters_run(tome_path, m, sections_data):
+def check_starters_run(tome_path, m, sections_data, include_banks=True):
     """#4/#5 (on by default; --no-run skips): put every write-lab, intrusion, and
     spell-duel starter through the tome's own toolchain. Two failures neither structure
     nor static analysis can see:
@@ -244,7 +274,13 @@ def check_starters_run(tome_path, m, sections_data):
     cmd, chk, entry, timeout = _resolve_run_command(m)
     diag_re = _diag_re(m)
     project_rt = None
-    if not cmd and not chk:
+    rt_cfg = m.get("runtime", {}) or {}
+    merged_rt = {**lang_config(rt_cfg.get("name") or "custom"), **rt_cfg}
+    force_project = bool(merged_rt.get("validationDependencies")
+                         and (merged_rt.get("validationProjectPackageCommand")
+                              or (merged_rt.get("packageCommand")
+                                  and not merged_rt.get("validationPackageCommand"))))
+    if (not cmd and not chk) or force_project:
         # Project runtimes (notably dotnet) have no one-file argv, but the engine already
         # knows how to scaffold a temporary project and run snippets inside it. Reuse that
         # exact path instead of returning early and silently skipping every solution.
@@ -257,7 +293,7 @@ def check_starters_run(tome_path, m, sections_data):
                 project_rt = candidate
         except Exception:
             project_rt = None
-    if cmd and not chk:
+    if cmd and not chk and not project_rt:
         # advisory, not "run": some languages simply cannot build a lone file (dotnet),
         # so a tome author has no per-tome fix — hard-gating this would fail them forever.
         warn("advisory", "[runtime] resolves no `checkCommand` — starters are run but never "
@@ -279,18 +315,19 @@ def check_starters_run(tome_path, m, sections_data):
                 if str(ex.get("starter", "")).strip() or sol:
                     labs.append((f"{sid}", ex.get("id"), ex.get("starter", ""),
                                  ex.get("expect"), ex.get("expectRe"), ex.get("stdin"), sol))
-    tiers, ilabel, e = load_intrusion_tiers(tome_path, m)
-    if not e and isinstance(tiers, list):
-        for ti, tier in enumerate(tiers):
-            for pi, ch in enumerate(tier.get("pool", []) if isinstance(tier, dict) else []):
-                if not isinstance(ch, dict):
-                    continue
-                sol = str(ch.get("solution", "")).strip()
-                if not sol:
-                    unverified += 1
-                if str(ch.get("starter", "")).strip() or sol:
-                    labs.append((f"intrusion tier {ti + 1} challenge {pi + 1}", None,
-                                 ch.get("starter", ""), ch.get("expect"), None, None, sol))
+    if include_banks:
+        tiers, _, e = load_intrusion_tiers(tome_path, m)
+        if not e and isinstance(tiers, list):
+            for ti, tier in enumerate(tiers):
+                for pi, ch in enumerate(tier.get("pool", []) if isinstance(tier, dict) else []):
+                    if not isinstance(ch, dict):
+                        continue
+                    sol = str(ch.get("solution", "")).strip()
+                    if not sol:
+                        unverified += 1
+                    if str(ch.get("starter", "")).strip() or sol:
+                        labs.append((f"intrusion tier {ti + 1} challenge {pi + 1}", None,
+                                     ch.get("starter", ""), ch.get("expect"), None, None, sol))
     if unverified:
         # A runnable single-file runtime gives the author everything needed to prove the
         # target. Keep this a hard shipping warning there; only project-only runtimes that
@@ -303,16 +340,17 @@ def check_starters_run(tome_path, m, sections_data):
     # output from the starter as given), so they get the same sweep: must build, and must
     # not already print stage 1's expect. This replaces brace-counting as the real teeth —
     # the toolchain judges the starter in its own language, no syntax assumptions.
-    attacks_name = ((m.get("content", {}) or {}).get("attacks")) or "generated/attacks.toml"
-    adata, ae = load_toml(os.path.join(tome_path, str(attacks_name)))
-    if adata and not ae:
-        for ti, tier in enumerate(adata.get("tiers", []) or []):
-            for pi, ch in enumerate(tier.get("pool", []) if isinstance(tier, dict) else []):
-                if isinstance(ch, dict) and str(ch.get("starter", "")).strip():
-                    stages = [s for s in (ch.get("stages") or []) if isinstance(s, dict)]
-                    labs.append((f"attack tier {ti + 1} challenge {pi + 1}", None,
-                                 ch["starter"], stages[0].get("expect") if stages else None,
-                                 None, None, ""))  # duel expects are verified by gen_attacks.py
+    if include_banks:
+        attacks_name = ((m.get("content", {}) or {}).get("attacks")) or "generated/attacks.toml"
+        adata, ae = load_toml(os.path.join(tome_path, str(attacks_name)))
+        if adata and not ae:
+            for ti, tier in enumerate(adata.get("tiers", []) or []):
+                for pi, ch in enumerate(tier.get("pool", []) if isinstance(tier, dict) else []):
+                    if isinstance(ch, dict) and str(ch.get("starter", "")).strip():
+                        stages = [s for s in (ch.get("stages") or []) if isinstance(s, dict)]
+                        labs.append((f"attack tier {ti + 1} challenge {pi + 1}", None,
+                                     ch["starter"], stages[0].get("expect") if stages else None,
+                                     None, None, ""))  # duel expects are verified by gen_attacks.py
     if not cmd and not chk and not project_rt:
         warn("advisory", "[runtime] has neither a one-file command nor a usable project "
              "scaffold/build/run path — starters and solutions could not be exercised")
@@ -322,13 +360,13 @@ def check_starters_run(tome_path, m, sections_data):
     project_scratch = project_tmp.name if project_tmp else None
 
     def run_source(source, stdin_text):
-        if cmd:
+        if cmd and not project_rt:
             return _run_one_file(cmd, entry, timeout, source, stdin_text)
         data = project_rt.run_snippet(project_scratch, source, stdin_text)
         return bool(data.get("ok")), str(data.get("output") or "")
 
     def build_source(source):
-        if chk:
+        if chk and not project_rt:
             return _run_one_file(chk, entry, timeout, source)
         return _project_build_result(project_rt.snippet_diagnostics(project_scratch, source),
                                      entry)

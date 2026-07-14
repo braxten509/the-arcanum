@@ -30,11 +30,13 @@ from validatelib.structure import (check_badges, check_economy, check_layout, ch
                                    check_shop)
 from validatelib.themes import (check_sigil_palette_uniqueness, check_theme_distinctness,
                                 check_themes)
+from buildlib.validation_env import (ValidationEnvironmentError,
+                                     ready_validation_environment)
 
 import tome_layout  # noqa: E402 — validatelib put REPO on sys.path; in lockstep with server
 
 
-def validate(tome_path, run=False, tooling=None, phase2_skeleton=False):
+def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_section=None):
     tome_path = os.path.abspath(tome_path.rstrip(os.sep))
     tome_id = os.path.basename(tome_path)
     manifest = os.path.join(tome_path, "tome.toml")
@@ -47,6 +49,15 @@ def validate(tome_path, run=False, tooling=None, phase2_skeleton=False):
     if e:
         err(label, e)
         return
+    if run:
+        try:
+            # Harness launches already carry this environment. Activating it here as
+            # well makes a direct validate_tome.py invocation use the identical cache.
+            os.environ.update(ready_validation_environment(tome_id))
+        except ValidationEnvironmentError as ex:
+            err(label, f"validation dependencies are not ready — run/resume the tome harness "
+                       f"to provision them: {ex}")
+            run = False
     try:
         tome_layout.merge_banks(m, tome_path)  # fold in themes/shop/badges/intrusions siblings, if split out
     except Exception as ex:  # a malformed sibling bank file
@@ -115,8 +126,15 @@ def validate(tome_path, run=False, tooling=None, phase2_skeleton=False):
     if not phase2_skeleton:
         check_intrusions(tome_path, m, label)
     if run:
-        check_snippets(m, sections_data)
-        check_starters_run(tome_path, m, sections_data)
+        execution_sections = sections_data
+        if run_section:
+            execution_sections = [section for section in sections_data
+                                  if str(section.get("id")) == str(run_section)]
+            if not execution_sections:
+                err("run", f"--run-section {run_section!r} is not a loaded section id")
+        check_snippets(m, execution_sections)
+        check_starters_run(
+            tome_path, m, execution_sections, include_banks=not bool(run_section))
 
     # attacks is optional and machine-generated; default to generated/attacks.toml,
     # and only validate it when the file is actually present.
@@ -160,6 +178,10 @@ def main():
                          "flags starters that don't compile/run and ones already pre-solved. On by "
                          "default (it is the only check that can see a broken scaffold); degrades to "
                          "a WARN when the toolchain is absent. --no-run skips it.")
+    ap.add_argument("--run-section", metavar="SID", default=None,
+                    help="execute lesson snippets/write labs only for SID (the warm Phase-3 "
+                         "checkpoint); whole-tome static checks still run, and global intrusion/"
+                         "duel banks wait for the final gate")
     ap.add_argument("--tooling", choices=("internal", "external", "both"), default=None,
                     help="enforce the build's gate Tooling choice: internal forbids "
                          "externalWorkspace; external/both require external tools taught in section 1")
@@ -184,7 +206,7 @@ def main():
         sys.exit(0 if clean else 1)
 
     validate(args.tome, run=args.run, tooling=args.tooling,
-             phase2_skeleton=args.phase_2_skeleton)
+             phase2_skeleton=args.phase_2_skeleton, run_section=args.run_section)
 
     errors = sum(1 for f in _findings if f[0] == "ERROR")
     warns = len(_findings) - errors
@@ -192,7 +214,8 @@ def main():
     for level, lbl, msg in _findings:
         print(f"{level} {lbl}: {msg}")
     strict_note = f", {hard} hard-gate warn(s) [--strict]" if args.strict and hard else ""
-    mode_note = " [Phase 2 skeleton]" if args.phase_2_skeleton else ""
+    mode_note = (" [Phase 2 skeleton]" if args.phase_2_skeleton else
+                 f" [executed section {args.run_section}]" if args.run_section else "")
     print(f"-- {os.path.basename(os.path.abspath(args.tome.rstrip(os.sep)))}: "
           f"{errors} error(s), {warns} warning(s){strict_note}{mode_note}")
     sys.exit(1 if errors or (args.strict and hard) else 0)

@@ -80,6 +80,13 @@ with tempfile.TemporaryDirectory() as tmp:
         with open(os.path.join(build, "untitled-5.runner-request.json"), "w", encoding="utf-8") as f:
             json.dump(request, f)
         assert state.load_runner_request("untitled-5") == request
+        exact = {"section": "s05", "index": 5, "total": 12, "state": "validating",
+                 "batch": 2, "batches": 4, "updatedAt": 123.5}
+        with open(os.path.join(build, "rune-bound.section-progress.json"),
+                  "w", encoding="utf-8") as f:
+            json.dump(exact, f)
+        assert state.load_section_progress("rune-bound") == exact
+        assert state.load_section_progress("../rune-bound") is None
 
         class Handler:
             @staticmethod

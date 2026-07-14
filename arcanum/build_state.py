@@ -63,6 +63,27 @@ def load_runner_request(slug):
         return None
 
 
+def load_section_progress(tid):
+    """Return the exact section/state reported by a live warm Phase-3 worker."""
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", str(tid or "")):
+        return None
+    try:
+        with open(_path(tid, "section-progress"), encoding="utf-8") as f:
+            data = json.load(f)
+        section = str(data.get("section") or "")
+        index, total = int(data.get("index") or 0), int(data.get("total") or 0)
+        state = str(data.get("state") or "")
+        if (not re.fullmatch(r"s\d+", section) or index < 1 or total < index
+                or state not in ("authoring", "repairing", "validating", "complete")):
+            return None
+        return {"section": section, "index": index, "total": total, "state": state,
+                "batch": int(data.get("batch") or 0),
+                "batches": int(data.get("batches") or 0),
+                "updatedAt": float(data.get("updatedAt") or 0)}
+    except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        return None
+
+
 def record_build_result(slug, tid, status, phase=0, phase_title="", error=""):
     phase = max(0, min(8, int(phase or 0)))
     data = {"status": status, "kind": "build", "id": slug, "slug": slug,

@@ -27,6 +27,15 @@ runtime's TOML shape, use a toolchain installed on this host, and include the la
 run/check/scaffold, diagnostics, starter, syntax, and completion configuration. Keep
 tome-specific overrides in the tome's `[runtime]` table.
 
+If any authored solution, starter, or executable sample imports a third-party package,
+declare every such package in the tome as `validationDependencies = ["package", ...]`.
+Never embed a host-specific path, temporary install directory, shell-time package install,
+or package workaround in `command`/`checkCommand`. The reusable runtime owns the generic
+isolated installer: environment-scoped ecosystems use `validationCreateCommand`,
+`validationPackageCommand`, and `validationEnv`; project-scoped ecosystems use
+`validationProjectPackageCommand` (or their existing `packageCommand`). The harness provisions
+the former once and the validator provisions the latter inside each scratch project.
+
 Give the placeholder lesson in each section a distinct fiction-facing title so numbered
 references cannot be ambiguous, but leave its body as an explicit Phase 3 placeholder.
 The `--phase-2-skeleton` check deliberately ignores Phase 3 density, readings, prose,

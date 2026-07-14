@@ -18,7 +18,7 @@ from validatelib.content import (check_exercise, check_freestyle, check_section,
 from validatelib.coverage import (check_capability_ledger,
                                   check_canonical_type_regressions)  # noqa: E402
 from validatelib.depth import (check_economy_totals, check_padded_prose,
-                               check_taught_before_used)  # noqa: E402
+                               check_taught_before_used, check_verbatim_prose)  # noqa: E402
 from validatelib.execute import _project_build_result, check_starters_run  # noqa: E402
 from validatelib.phase2 import check_tooling_contract  # noqa: E402
 from validatelib.structure import check_meta, check_runtime  # noqa: E402
@@ -31,6 +31,25 @@ def findings():
 
 
 def main():
+    # Repeated cumulative source is expected in an evolving project and is not copied
+    # prose. Actual repeated teaching prose must still trip the 14-word shingle gate.
+    repeated_code = " ".join(f"token{i}" for i in range(20))
+    prose_a = "This first explanation is deliberately unique and teaches the opening concept clearly."
+    prose_b = "This second explanation takes a different route and teaches the later concept clearly."
+    sections = [{"id": "s01", "lessons": [
+        {"id": "s01-l01", "body": f"<p>{prose_a}</p><pre><code>{repeated_code}</code></pre>"},
+        {"id": "s01-l02", "body": f"<p>{prose_b}</p><pre><code>{repeated_code}</code></pre>"},
+    ]}]
+    check_verbatim_prose(sections)
+    assert not findings(), "repeated cumulative code was misclassified as copied prose"
+    copied = "Every careful learner should receive a distinct explanation before applying the new idea in their project today"
+    sections[0]["lessons"][0]["body"] = f"<p>{copied}.</p>"
+    sections[0]["lessons"][1]["body"] = f"<p>{copied} again.</p>"
+    check_verbatim_prose(sections)
+    got = findings()
+    assert any(label == "anti-template" and "repeat verbatim" in msg
+               for _, label, msg in got), got
+
     # Catalog descriptions sell the artifact positively; scope cuts stay in the plan.
     meta = {"id": "test", "name": "Test", "description":
             "Build a working game. The course stops short of multiplayer.",

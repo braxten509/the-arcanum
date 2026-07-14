@@ -12,7 +12,7 @@ from .config import (AGY_BIN, BUILD_DIR, CLAUDE_BIN, CLI_EFFORTS, CLI_MODEL_EFFO
                      ROOT, SKINS_DIR, TOMES_DIR, WEB, jobs, jobs_lock, read_json,
                      read_settings, read_toml)
 from .build_state import (build_result_status, cancelled_build_status,
-                          load_runner_request)
+                          load_runner_request, load_section_progress)
 from .forge import forge_name, list_active_builds, list_workings
 from .model_policy import guided_row
 from .models import agy_models, codex_models, ollama_bindery_models, opencode_models
@@ -97,6 +97,12 @@ def handle(h):
                 out["awaitingRunner"] = req
         if out is None:
             out = build_result_status(bid) or cancelled_build_status(bid) or {"status": "unknown"}
+        if out.get("status") == "running" and int(out.get("phase") or 0) == 3:
+            progress = (load_section_progress(out.get("tome"))
+                        or load_section_progress(out.get("slug"))
+                        or load_section_progress(bid))
+            if progress:
+                out["sectionProgress"] = progress
         return h.send_json(out)
     if path.startswith("/api/amend/status"):
         q = urllib.parse.parse_qs(urllib.parse.urlparse(h.path).query)

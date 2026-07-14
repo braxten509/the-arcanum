@@ -1,17 +1,24 @@
 """Regression checks for runner, prompt, access, and runtime harness contracts."""
+import json
 import os
 import shutil
 import subprocess
 from unittest.mock import patch
 
 from .. import BUILD_DIR, REPO
+from .. import sections as sections_module
 from ..agent_runtime import scoped_runner_command
 from ..checkpoints import ARC_PARTS
 from ..liveness import _cpu_ticks, _descendants, _has_live_conn
 from ..measure import (blocking_report, review_changes, review_inventory,
                        runtime_config_inventory, runtime_config_scope_violations,
-                       selected_runtime_config, validate, validator_argv,
-                       validator_shell_command)
+                       phase3_validator_argv, phase3_validator_shell_command,
+                       section_validator_argv, section_validator_shell_command,
+                       section_window_validator_argv,
+                       section_window_validator_shell_command,
+                       selected_runtime_config, validate, validate_phase3, validate_shipping,
+                       validate_section, validate_section_window,
+                       validator_argv, validator_shell_command)
 from ..prompts import (GATE_QS, PREAMBLE, PRIOR_LEVELS, REPAIR_ONLY, STUDENT_HOOK,
                        build_prompt, current_start_calibration, gate_errors,
                        read_prior_level, repair_verification_focus,
@@ -19,7 +26,8 @@ from ..prompts import (GATE_QS, PREAMBLE, PRIOR_LEVELS, REPAIR_ONLY, STUDENT_HOO
 from ..runners import _implicit_fallback, _spec_to_runner, default_runner, parse_fallbacks
 from ..section_security_selftest import run as section_security_selftest
 from ..sections import (_load_sections_done, _mark_section_done, _sections_done_path,
-                        section_ids, wipe_sections)
+                        prepare_whole_tome_warm_worker, section_ids, section_progress_path,
+                        section_progress_shell_command, wipe_sections)
 from ..workflow import (RUNTIME_CONFIG_DIR, access_boundary, parse_phases,
                         phase_sidecars, phase_writable_paths, support_prompt)
 
@@ -69,6 +77,97 @@ def run():
     os.rmdir(os.path.join(REPO, "tomes", tid))
     assert wipe_sections("no-such-tome-xyz") == 0
 
+    # Split Phase 3 keeps one provider process warm across a bounded batch, then
+    # checkpoints each section independently. This command shape is runner-neutral:
+    # the provider adapter still receives one ordinary headless prompt.
+    batch_tid = "selftest-warm-batches-xyz"
+    batch_root = os.path.join(REPO, "tomes", batch_tid)
+    batch_plan = os.path.join(BUILD_DIR, f"{batch_tid}.plan.md")
+    batch_done = _sections_done_path(batch_tid)
+    batch_progress = section_progress_path(batch_tid)
+    os.makedirs(batch_root, exist_ok=True)
+    with open(batch_plan, "w", encoding="utf-8") as handle:
+        handle.write("**Artifact lifecycle:** none\n")
+    handoff_paths = {sid: os.path.join(BUILD_DIR, f"{batch_tid}-{sid}.json")
+                     for sid in ("s01", "s02", "s03", "s04", "s05")}
+    for path in handoff_paths.values():
+        open(path, "a", encoding="utf-8").close()
+    try:
+        with (patch.object(sections_module, "section_ids",
+                           return_value=["s01", "s02", "s03", "s04", "s05"]),
+              patch.object(sections_module, "read_tooling", return_value="internal"),
+              patch.object(sections_module, "support_prompt", return_value="author contract"),
+              patch.object(sections_module, "prepare_handoff",
+                           side_effect=lambda _tid, sid, **_kwargs: handoff_paths[sid]),
+              patch.object(sections_module, "validate_handoff", return_value=(False, "stub")),
+              patch.object(sections_module, "continuity_prompt",
+                           side_effect=lambda _tid, sid, *_args: f"\nCONTINUITY {sid}\n"),
+              patch.object(sections_module, "section_validator_shell_command",
+                           side_effect=lambda _tid, sid, *_args: f"validate-{sid}"),
+              patch.object(sections_module, "build_prompt",
+                           side_effect=lambda *_args, validation_command=None, **_kwargs:
+                           f"PROMPT {validation_command}\n"),
+              patch.object(sections_module, "validate_section", return_value=(True, "clean")),
+              patch.object(sections_module, "_author_batch", return_value=(0, True)) as worker):
+            sections_module.author_sections_split(
+                batch_tid, 3, "Sections", [("fake", ["fake"], "stdin")],
+                (os.path.relpath(batch_plan, REPO), "verdict", "findings"), {}, {},
+                1, 1, None, False, False, batch_tid, batch_size=3)
+        assert worker.call_count == 2
+        assert worker.call_args_list[0].args[3] == ["s01", "s02", "s03"]
+        assert worker.call_args_list[1].args[3] == ["s04", "s05"]
+        first_prompt = worker.call_args_list[0].args[2]
+        assert "(validate-s01) && (validate-s02) && (validate-s03)" in first_prompt
+        assert "until it exits 0 BEFORE moving to the next section" in first_prompt
+        assert "report_section_progress.py" in first_prompt
+        assert batch_progress in worker.call_args_list[0].args[14]
+        assert _load_sections_done(batch_tid) == {"s01", "s02", "s03", "s04", "s05"}
+        with open(batch_progress, encoding="utf-8") as handle:
+            progress = json.load(handle)
+        assert (progress["section"], progress["index"], progress["state"]) == (
+            "s05", 5, "complete")
+        command = section_progress_shell_command(batch_tid, "s03", 3, 5, "validating", 1, 2)
+        assert "s03 3 5 validating --batch 1 --batches 2" in command
+    finally:
+        shutil.rmtree(batch_root, ignore_errors=True)
+        for path in (batch_plan, batch_done, batch_progress, *handoff_paths.values()):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+
+    # Unsplit Phase 3 keeps one provider process for the complete Arc while putting the
+    # same section gates and periodic anti-template windows inside that warm context.
+    whole_tid = "selftest-whole-warm-xyz"
+    whole_progress = section_progress_path(whole_tid)
+    whole_handoffs = {sid: os.path.join(BUILD_DIR, f"{whole_tid}-{sid}.json")
+                      for sid in ("s01", "s02", "s03", "s04", "s05")}
+    for path in whole_handoffs.values():
+        open(path, "a", encoding="utf-8").close()
+    try:
+        with (patch.object(sections_module, "section_ids",
+                           return_value=["s01", "s02", "s03", "s04", "s05"]),
+              patch.object(sections_module, "prepare_handoff",
+                           side_effect=lambda _tid, sid, **_kwargs: whole_handoffs[sid]),
+              patch.object(sections_module, "section_validator_shell_command",
+                           side_effect=lambda _tid, sid, *_args: f"validate-{sid}"),
+              patch.object(sections_module, "section_window_validator_shell_command",
+                           side_effect=lambda _tid, sid, *_args: f"window-{sid}")):
+            warm_prompt, warm_sidecars = prepare_whole_tome_warm_worker(
+                whole_tid, ".tome-build/whole.plan.md", "external", checkpoint_size=3)
+        assert "same provider session for every section" in warm_prompt
+        assert "validate-s01" in warm_prompt and "validate-s05" in warm_prompt
+        assert "window-s03" in warm_prompt and "window-s05" in warm_prompt
+        assert "Never run pip/npm/cargo/system package installs" in warm_prompt
+        assert "Do not pipe validator output through grep/head" in warm_prompt
+        assert warm_sidecars == [*whole_handoffs.values(), whole_progress]
+    finally:
+        for path in (whole_progress, *whole_handoffs.values()):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+
     good_gate = [(label, value) for (label, _), value in zip(
         GATE_QS, ("very basic", "2", "7", "6", "3", "external"))]
     assert gate_errors(good_gate) == []
@@ -108,13 +207,20 @@ def run():
     for phase in range(1, 9):
         prompt = build_prompt("selftest", phase, "Test", "Body", "plan", "verdict", "findings",
                               tooling="internal")
-        expected = validator_shell_command(
-            "selftest", phase=phase, tooling="internal", plan_rel="plan")
+        expected = (phase3_validator_shell_command(
+            "selftest", "internal", "plan", strict=phase >= 7)
+                    if phase == 3 or phase >= 7 else validator_shell_command(
+                        "selftest", phase=phase, tooling="internal", plan_rel="plan"))
         assert f"  {expected}\n" in prompt and "warm-context check" in prompt, phase
     assert validator_argv("selftest", phase=2, tooling="internal") == [
         "python3", "tools/validate_tome.py", "tomes/selftest",
         "--phase-2-skeleton", "--no-run", "--tooling", "internal"]
-    with patch("buildlib.measure.subprocess.run") as run_validator:
+    assert validator_argv(
+        "selftest", phase=3, tooling="external", run_section="s03") == [
+            "python3", "tools/validate_tome.py", "tomes/selftest",
+            "--tooling", "external", "--run-section", "s03"]
+    with patch("buildlib.measure.subprocess.run") as run_validator, \
+         patch("buildlib.measure.validation_subprocess_env", return_value=os.environ.copy()):
         run_validator.return_value.returncode = 0
         run_validator.return_value.stdout = "-- selftest: clean"
         run_validator.return_value.stderr = ""
@@ -123,7 +229,54 @@ def run():
             "selftest", phase=2, tooling="internal")
     section_prompt = build_prompt("selftest", 3, "Test", "Body", "plan", "verdict", "findings",
                                   tooling="external", validation_run=False)
-    assert "tomes/selftest --no-run --tooling external" in section_prompt
+    assert "validate_phase3.py tomes/selftest --plan plan --tooling external --no-run" in section_prompt
+    section_command = section_validator_shell_command(
+        "selftest", "s03", "external", ".tome-build/selftest.plan.md")
+    complete_section_prompt = build_prompt(
+        "selftest", 3, "Test", "Body", ".tome-build/selftest.plan.md", "verdict",
+        "findings", tooling="external", validation_run=False,
+        validation_command=section_command)
+    assert f"  {section_command}\n" in complete_section_prompt
+    assert section_validator_argv(
+        "selftest", "s03", "external", ".tome-build/selftest.plan.md") == [
+            "python3", "tools/validate_section.py", "tomes/selftest", "s03",
+            "--plan", ".tome-build/selftest.plan.md", "--tooling", "external"]
+    window_command = section_window_validator_shell_command(
+        "selftest", "s06", ".tome-build/selftest.plan.md")
+    assert "validate_section_window.py tomes/selftest --through s06" in window_command
+    assert section_window_validator_argv(
+        "selftest", "s06", ".tome-build/selftest.plan.md") == [
+            "python3", "tools/validate_section_window.py", "tomes/selftest",
+            "--through", "s06", "--plan", ".tome-build/selftest.plan.md"]
+    with patch("buildlib.measure.subprocess.run") as run_section_validator, \
+         patch("buildlib.measure.validation_subprocess_env", return_value=os.environ.copy()):
+        run_section_validator.return_value.returncode = 0
+        run_section_validator.return_value.stdout = "-- section s03 handoff: clean"
+        run_section_validator.return_value.stderr = ""
+        assert validate_section(
+            "selftest", "s03", "external", ".tome-build/selftest.plan.md")[0]
+        assert run_section_validator.call_args.args[0] == section_validator_argv(
+            "selftest", "s03", "external", ".tome-build/selftest.plan.md")
+        run_section_validator.reset_mock()
+        assert validate_section_window(
+            "selftest", "s06", ".tome-build/selftest.plan.md")[0]
+        assert run_section_validator.call_args.args[0] == section_window_validator_argv(
+            "selftest", "s06", ".tome-build/selftest.plan.md")
+    with patch("buildlib.measure.subprocess.run") as run_complete, \
+         patch("buildlib.measure.validation_subprocess_env", return_value=os.environ.copy()):
+        run_complete.return_value.returncode = 1
+        run_complete.return_value.stdout = "ERROR quality-window: copied template"
+        run_complete.return_value.stderr = ""
+        clean, phase3_report = validate_phase3(
+            "selftest", "external", ".tome-build/selftest.plan.md", ["s01", "s02"])
+        assert not clean and "copied template" in phase3_report
+        assert run_complete.call_args.args[0] == phase3_validator_argv(
+            "selftest", "external", ".tome-build/selftest.plan.md")
+        run_complete.return_value.returncode = 0
+        assert validate_shipping(
+            "selftest", "external", ".tome-build/selftest.plan.md")[0]
+        assert run_complete.call_args.args[0] == phase3_validator_argv(
+            "selftest", "external", ".tome-build/selftest.plan.md", strict=True)
     review_prompt = build_prompt("selftest", 8, "Test", "Body", "plan", "verdict", "findings")
     focused = build_prompt("selftest", 8, "Test", "Body", "plan", "verdict", "findings",
                            focus="- [blocking] lesson.toml: missing proof")
@@ -139,6 +292,14 @@ def run():
     assert "real blocker" in blocking_report(sample_report)
     assert "leave this" in blocking_report(sample_report, strict=True)
     assert "host limitation" not in blocking_report(sample_report, strict=True)
+    combined_report = ("WARN content: unrelated future scaffold\n"
+                       "-- selftest: 0 error(s), 1 warning(s)\n"
+                       "ERROR handoff: artifact_state is over 1200 characters\n"
+                       "-- section s03 handoff: error(s)")
+    combined_blockers = blocking_report(combined_report)
+    assert "artifact_state" in combined_blockers
+    assert "unrelated future scaffold" not in combined_blockers
+    assert "-- selftest:" in combined_blockers and "-- section s03" in combined_blockers
     assert "this invocation made no" in review_prompt
     assert "starting-level number could not be read" in review_prompt
     stale_plan = os.path.join(BUILD_DIR, "selftest-stale-calibration-plan.md")
@@ -186,8 +347,10 @@ def run():
     # completed tome. Other phases cannot write shared runtime definitions.
     tome_scope = os.path.join(BUILD_DIR, "phase-write-scope-selftest")
     sidecar = os.path.join(BUILD_DIR, "phase-write-scope-selftest.plan")
+    handoff_sidecar = os.path.join(BUILD_DIR, "phase-write-scope-selftest.handoffs")
     runtime_write_probe = os.path.join(RUNTIME_CONFIG_DIR, ".phase8-write-selftest")
     os.makedirs(tome_scope, exist_ok=True)
+    os.makedirs(handoff_sidecar, exist_ok=True)
     open(sidecar, "a", encoding="utf-8").close()
     try:
         plan_sidecar = sidecar + ".plan"
@@ -200,14 +363,24 @@ def run():
                               shrink_sidecar) == [plan_sidecar]
         assert phase_sidecars(3, plan_sidecar, verdict_sidecar, findings_sidecar,
                               shrink_sidecar) == [shrink_sidecar]
+        assert phase_sidecars(7, plan_sidecar, verdict_sidecar, findings_sidecar,
+                              shrink_sidecar, tid="phase-write-scope-selftest") == [
+                                  shrink_sidecar, handoff_sidecar]
         assert phase_sidecars(8, plan_sidecar, verdict_sidecar, findings_sidecar,
-                              shrink_sidecar) == [shrink_sidecar, verdict_sidecar, findings_sidecar]
+                              shrink_sidecar, tid="phase-write-scope-selftest") == [
+                                  shrink_sidecar, verdict_sidecar, findings_sidecar,
+                                  handoff_sidecar]
+        phase_four_paths = phase_writable_paths(4, tome_scope, (shrink_sidecar,))
+        assert tome_scope not in phase_four_paths
+        assert os.path.join(tome_scope, "intrusions.toml") in phase_four_paths
+        assert os.path.join(tome_scope, "attacks_src.toml") in phase_four_paths
         phase_two_paths = phase_writable_paths(2, tome_scope, (shrink_sidecar,))
         assert RUNTIME_CONFIG_DIR in phase_two_paths
         phase_eight_paths = phase_writable_paths(
             8, tome_scope, (shrink_sidecar, verdict_sidecar, findings_sidecar))
         assert RUNTIME_CONFIG_DIR in phase_eight_paths
-        phase_seven_paths = phase_writable_paths(7, tome_scope, (shrink_sidecar,))
+        phase_seven_paths = phase_writable_paths(
+            7, tome_scope, (shrink_sidecar, handoff_sidecar))
         assert RUNTIME_CONFIG_DIR not in phase_seven_paths
         phase_one_paths = phase_writable_paths(1, tome_scope, (plan_sidecar,))
         assert RUNTIME_CONFIG_DIR not in phase_one_paths and tome_scope not in phase_one_paths
@@ -217,7 +390,10 @@ def run():
         assert "global-configs/runtimes/" in access_boundary("selftest", 2)
         assert "global-configs/runtimes/" in access_boundary("selftest", 8)
         assert "global-configs/runtimes/" not in access_boundary("selftest", 3)
+        assert "assigned Phase-3 section directories" in access_boundary("selftest", 3)
         assert "scaffolded tome is read-only" in access_boundary("selftest", 1)
+        assert "tomes/selftest/intrusions.toml" in access_boundary("selftest", 4)
+        assert "rest of the tome is read-only" in access_boundary("selftest", 4)
 
         # Exercise the actual mount namespace, not just its argv: Phase 8 can write the
         # runtime directory and Phase 7 sees the same repository path read-only.
@@ -238,8 +414,16 @@ def run():
                                  capture_output=True, text=True)
         assert blocked.returncode != 0 and not os.path.exists(runtime_write_probe), (
             blocked.returncode, blocked.stdout, blocked.stderr)
+        handoff_probe = os.path.join(handoff_sidecar, "phase7-write.json")
+        handoff_cmd = ["/bin/sh", "-c", 'printf mounted > "$1"', "handoff-probe",
+                       handoff_probe]
+        wrote_handoff = subprocess.run(phase_seven_wrapped[:cut] + handoff_cmd,
+                                       capture_output=True, text=True)
+        assert wrote_handoff.returncode == 0 and os.path.isfile(handoff_probe), (
+            wrote_handoff.returncode, wrote_handoff.stdout, wrote_handoff.stderr)
     finally:
         shutil.rmtree(tome_scope, ignore_errors=True)
+        shutil.rmtree(handoff_sidecar, ignore_errors=True)
         for path in (sidecar, plan_sidecar, verdict_sidecar, findings_sidecar,
                      shrink_sidecar):
             try:

@@ -10,10 +10,10 @@ from .. import BUILD_DIR, REPO
 from .. import review as review_module
 from ..checkpoints import (ARC_CONTRACT, ARC_HEADING, ARC_PARTS, DAILY_DRIVERS,
                            arc_written, finalize_arc, reset_arc)
-from ..continuity import (continuity_prompt, handoff_dir, prepare_handoff,
+from ..continuity import (continuity_prompt, handoff_dir, handoff_skeleton, prepare_handoff,
                           reconciliation_prompt, validate_all_handoffs,
                           validate_handoff)
-from ..measure import runtime_config_inventory, validator_argv
+from ..measure import phase3_validator_argv, runtime_config_inventory, validator_argv
 from ..prompts import (read_findings, read_verdict, review_findings_clear)
 from ..sections import section_ids
 from ..skeleton import parse_section_list, scaffold_sections
@@ -35,6 +35,21 @@ def run():
             os.makedirs(section, exist_ok=True)
             with open(os.path.join(section, "lesson.toml"), "w", encoding="utf-8") as f:
                 f.write("# evidence\n")
+
+        seeded = handoff_skeleton("s01", cids, cplan)
+        assert seeded["section"] == "s01"
+        assert seeded["future_obligations"] == [{
+            "id": "s01-plan-s03-01", "target": "s03", "location": "",
+            "requirement": "Reuse the health route in the final encounter.", "reason": "",
+        }]
+        final_seeded = handoff_skeleton("s03", cids, cplan)
+        assert final_seeded["fulfills"] == [{
+            "id": "s01-plan-s03-01", "location": "", "evidence": "",
+        }]
+        seeded_path = prepare_handoff(
+            ctid, "s01", reset=True, ids=cids, plan_path=cplan)
+        with open(seeded_path, encoding="utf-8") as handle:
+            assert json.load(handle) == seeded
 
         def write_handoff(sid, future=(), temporary=(), fulfills=()):
             path = prepare_handoff(ctid, sid, reset=True)
@@ -72,6 +87,8 @@ def run():
         assert not validate_handoff(ctid, "s03", cids, cplan)[0]
         briefing = continuity_prompt(ctid, "s03", cids, cplan)
         assert "s01-plan-s03-01" in briefing and "DUE NOW" in briefing
+        assert "CONTRACT INDEX s01.contract @ s01/lesson.toml" in briefing
+        assert "Later sections preserve this exact behavior." not in briefing
         write_handoff("s03", fulfills=[{
             "id": "s01-plan-s03-01", "location": "lesson.toml",
             "evidence": "The final encounter calls the stable health transition.",
@@ -160,6 +177,12 @@ def run():
             cwd=REPO, capture_output=True, text=True)
         assert skeleton_check.returncode == 0, (skeleton_check.stdout, skeleton_check.stderr)
         assert "density" not in skeleton_check.stdout and "TODO/FIXME" not in skeleton_check.stdout
+        phase3_check = subprocess.run(
+            phase3_validator_argv(
+                skeleton_tid, "internal", os.path.relpath(skeleton_plan, REPO), run=False),
+            cwd=REPO, capture_output=True, text=True)
+        assert phase3_check.returncode != 0 and "phase3-complete" in phase3_check.stdout, (
+            phase3_check.stdout, phase3_check.stderr)
         first_lessons = os.path.join(skeleton_root, "sections", "s01", "lessons")
         shutil.copyfile(os.path.join(first_lessons, "l01.toml"),
                         os.path.join(first_lessons, "l02.toml"))
@@ -225,7 +248,10 @@ def run():
             latest_edits, 0, "", "", 1, 1, 1, [])
 
     with (patch.object(review_module, "scoped_runner_command", return_value=["fake"]),
-          patch.object(review_module, "validate", return_value=(True, "")),
+          patch.object(review_module, "ensure_validation_environment", return_value={}),
+          patch.object(review_module, "validation_subprocess_env",
+                       return_value=os.environ.copy()),
+          patch.object(review_module, "validate_shipping", return_value=(True, "")),
           patch.object(review_module, "run_agent", side_effect=clean_review_worker) as agent):
         assert invoke_review([]) is None and agent.call_count == 0
         assert invoke_review(["MODIFIED: tomes/x/tome.toml"]) is None

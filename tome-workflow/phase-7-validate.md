@@ -5,6 +5,8 @@ non-`advisory` WARN until `--strict` exits zero. The validator owns schema, layo
 density, runtime execution, capability ordering, anti-template measurements, bank
 contracts, and installed-loader assembly; respond to its exact findings instead of
 manually reproducing those checks.
+It also repeats Phase 3 authored-completion, the final cross-section quality window, and
+every continuity handoff after your repairs; those invariants may not regress in a later phase.
 
 Then perform the judgments code cannot prove:
 

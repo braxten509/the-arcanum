@@ -5,6 +5,7 @@ from collections import Counter
 
 from . import EXERCISE_TYPES, err, lang_config, warn
 from .phase2 import check_tooling_contract
+from .phase3 import MIN_BODY_WORDS, MIN_EXERCISES, MIN_LESSONS
 
 
 def is_shouting_title(value):
@@ -317,7 +318,6 @@ def check_density(sections_data):
     are WARNs (work in progress); once the TODOs are gone — the author calls it done —
     they become ERRORs. Simulated-but-dense labs and handed-over addresses are NOT
     caught here (that stays a judgement call for the Phase 8 student review)."""
-    MIN_LESSONS, MIN_EXERCISES, MIN_BODY_WORDS = 3, 4, 180  # §3: 3-8 lessons, 4-6 exercises, 300-600 words
     wip = any("TODO" in str(les.get("body", ""))
               for sd in sections_data
               for les in (sd.get("lessons") or []) if isinstance(les, dict))

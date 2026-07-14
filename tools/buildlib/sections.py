@@ -1,19 +1,70 @@
-"""Split-mode Phase 3: author each section in its OWN fresh worker, plus the
-sections-done resume bookkeeping."""
+"""Split-mode Phase 3: author bounded section batches in warm workers.
+
+The filesystem checkpoints remain per-section, but one provider process owns a small
+Arc-ordered batch. That keeps its reasoning warm across adjacent sections without making
+the build depend on any provider's undocumented compaction threshold.
+"""
 import json
 import os
+import shlex
 import shutil
+import time
 import tomllib
 
 from . import BUILD_DIR, REPO, retries_for
 from .continuity import (continuity_prompt, prepare_handoff, reset_handoffs,
                          validate_handoff)
 from .liveness import preflight_runners, run_agent
-from .measure import blocking_report, validate
+from .measure import (blocking_report, section_validator_shell_command,
+                      section_window_validator_shell_command, validate_section)
 from .prompts import build_prompt, read_tooling
 from .runners import _implicit_fallback, request_runner
-from .agent_runtime import section_runner_command
+from .agent_runtime import scoped_runner_command
 from .workflow import support_prompt
+from .validation_env import validation_subprocess_env
+from validatelib.phase3 import load_section_completion
+
+
+SECTION_BATCH_SIZE = 3
+WARM_CHECKPOINT_SIZE = 3
+SECTION_PROGRESS_STATES = ("authoring", "repairing", "validating", "complete")
+
+
+def section_progress_path(tid):
+    return os.path.join(BUILD_DIR, f"{tid}.section-progress.json")
+
+
+def write_section_progress(tid, sid, index, total, state, batch=0, batches=0):
+    """Write the exact live position shared by the worker, harness, and Bindery UI.
+
+    The file itself is mounted writable into a batch sandbox, so writes intentionally
+    target this already-created path instead of replacing it through its read-only parent.
+    """
+    if state not in SECTION_PROGRESS_STATES:
+        raise ValueError(f"unknown section progress state: {state}")
+    payload = {"section": str(sid), "index": int(index), "total": int(total),
+               "state": state, "batch": int(batch), "batches": int(batches),
+               "updatedAt": time.time()}
+    path = section_progress_path(tid)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, separators=(",", ":"))
+        handle.write("\n")
+    return path
+
+
+def clear_section_progress(tid):
+    try:
+        os.remove(section_progress_path(tid))
+    except OSError:
+        pass
+
+
+def section_progress_shell_command(tid, sid, index, total, state, batch, batches):
+    argv = ["python3", os.path.join(REPO, "tools", "report_section_progress.py"),
+            tid, sid, str(index), str(total), state,
+            "--batch", str(batch), "--batches", str(batches)]
+    return shlex.join(argv)
 
 
 def section_ids(tid):
@@ -25,6 +76,130 @@ def section_ids(tid):
     except (OSError, tomllib.TOMLDecodeError):
         return []
     return [str(s) for s in ((d.get("content") or {}).get("sections") or [])]
+
+
+def phase3_pending_sections(tid, plan_path, ids=None):
+    """Return sections whose authored-content or exact handoff gate is not yet clean."""
+    ids = list(ids or section_ids(tid))
+    tome_path = os.path.join(REPO, "tomes", tid)
+    pending, reports = [], {}
+    for sid in ids:
+        problems = load_section_completion(tome_path, sid)
+        handoff_clean, handoff_report = validate_handoff(tid, sid, ids, plan_path)
+        if problems or not handoff_clean:
+            pending.append(sid)
+            handoff_lines = ([f"ERROR handoff: {line}" for line in handoff_report.splitlines()]
+                             if not handoff_clean else [])
+            reports[sid] = "\n".join(
+                [*(f"ERROR section-complete: {problem}" for problem in problems),
+                 *handoff_lines]).strip()
+    return pending, reports
+
+
+def prepare_whole_tome_warm_worker(tid, plan_rel, tooling, resume=False,
+                                   checkpoint_size=WARM_CHECKPOINT_SIZE, pending_ids=None):
+    """Prepare one unsplit Phase-3 worker's in-context section checkpoint protocol.
+
+    The provider process remains alive for the entire phase. It authors one section,
+    runs the same fast gate used by split workers, repairs it, and only then advances.
+    Every few sections a prefix-only continuity/anti-template gate stops a bad pattern
+    from propagating. Exact writable handoff/progress sidecars are returned for bwrap.
+    """
+    ids = section_ids(tid)
+    if not ids:
+        return "", []
+    pending_set = set(pending_ids or ())
+    assigned = ids if pending_ids is None else [sid for sid in ids if sid in pending_set]
+    checkpoint_size = max(2, int(checkpoint_size or WARM_CHECKPOINT_SIZE))
+    plan_path = os.path.join(REPO, plan_rel)
+    handoffs = [prepare_handoff(tid, sid, reset=not resume, ids=ids,
+                                plan_path=plan_path) for sid in ids]
+    if not assigned:
+        return "", handoffs
+    first_index = ids.index(assigned[0]) + 1
+    progress_path = write_section_progress(
+        tid, assigned[0], first_index, len(ids), "authoring", 1, 1)
+
+    lines = [
+        "\n\n===== ONE WARM WORKER: SECTION CHECKPOINT PROTOCOL =====",
+        "Keep this same provider session for every section; do not spawn subagents or hand "
+        "sections to other workers. More context does not replace feedback: complete exactly "
+        "one section, repair its gate to exit 0, and only then move to the next.",
+        "",
+        "DEPENDENCY PREFLIGHT — before editing the first section, read the plan's Tooling fit, "
+        "acceptance proof, install steps, and [runtime].validationDependencies. The harness has "
+        "already provisioned those dependencies in an isolated validation environment shared by "
+        "your gates and the harness-owned gates. Probe them with non-mutating version/import "
+        "checks. Never run pip/npm/cargo/system package installs from this worker, never alter the "
+        "isolated environment, and never rewrite course requirements to hide a dependency failure.",
+        "",
+        "For every section, reopen the actual earlier owner files and completed handoffs before "
+        "reusing a contract. The precreated handoff JSON already contains Phase-1 obligations; "
+        "fill its artifact_state, exact public contracts, future obligations, temporary artifacts, "
+        "and evidence for obligations due here. Do not replace its schema or omit planned edges.",
+    ]
+    if assigned != ids:
+        complete = [sid for sid in ids if sid not in assigned]
+        lines += ["", "RECOVERY SCOPE — the harness independently proved these sections clean: "
+                  + (", ".join(complete) or "none") + ". Preserve them. Author or repair only: "
+                  + ", ".join(assigned) + ". Adding lessons/exercises is allowed when an exact "
+                  "authored-completion blocker requires it."]
+    for sid in assigned:
+        index = ids.index(sid) + 1
+        authoring = section_progress_shell_command(tid, sid, index, len(ids),
+                                                   "authoring", 1, 1)
+        repairing = section_progress_shell_command(tid, sid, index, len(ids),
+                                                   "repairing", 1, 1)
+        validating = section_progress_shell_command(tid, sid, index, len(ids),
+                                                    "validating", 1, 1)
+        complete = section_progress_shell_command(tid, sid, index, len(ids),
+                                                  "complete", 1, 1)
+        gate = section_validator_shell_command(tid, sid, tooling, plan_rel)
+        lines += [
+            "",
+            f"--- {sid} ({index} of {len(ids)}) ---",
+            f"Handoff: {os.path.relpath(handoffs[index - 1], REPO)}",
+            f"BEFORE editing: {authoring}",
+            f"BEFORE each gate attempt: {validating}",
+            f"If its gate fails: {repairing}",
+            f"Section code gate — executes this section's snippets/write labs; fix every ERROR "
+            f"and rerun until exit 0: {gate}",
+        ]
+        if index % checkpoint_size == 0 or index == len(ids):
+            window = section_window_validator_shell_command(tid, sid, plan_rel)
+            lines += [
+                f"BEFORE its quality window: {validating}",
+                f"QUALITY WINDOW through {sid} — run after its section gate is clean: {window}",
+                "Treat every quality-window finding as blocking. Repair the completed prefix and "
+                "rerun both the affected section gate(s) and this window until it exits 0 before "
+                "authoring the next section.",
+                f"If its quality window fails: {repairing}",
+                f"ONLY after both gates exit 0: {complete}",
+            ]
+        else:
+            lines.append(f"ONLY after its section gate exits 0: {complete}")
+    final_sid = assigned[-1]
+    final_index = ids.index(final_sid) + 1
+    final_validating = section_progress_shell_command(
+        tid, final_sid, final_index, len(ids), "validating", 1, 1)
+    final_repairing = section_progress_shell_command(
+        tid, final_sid, final_index, len(ids), "repairing", 1, 1)
+    final_complete = section_progress_shell_command(
+        tid, final_sid, final_index, len(ids), "complete", 1, 1)
+    lines += [
+        "",
+        "After the final assigned section gate (and any quality window) exits 0, run the full "
+        "warm-context validator from the "
+        "phase preamble, read its complete unfiltered report, repair every ERROR, and rerun it "
+        "until clean. Do not pipe validator output through grep/head and do not install missing "
+        "dependencies from inside the worker.",
+        f"BEFORE the full validator: {final_validating}",
+        f"If the full validator fails: {final_repairing}",
+        f"ONLY after the full validator exits 0: {final_complete}",
+    ]
+    writable_handoffs = (handoffs if pending_ids is None
+                         else [handoffs[ids.index(sid)] for sid in assigned])
+    return "\n".join(lines), writable_handoffs + [progress_path]
 
 
 def wipe_sections(tid):
@@ -41,38 +216,43 @@ def wipe_sections(tid):
         os.remove(_sections_done_path(tid))
     except OSError:
         pass
+    clear_section_progress(tid)
     reset_handoffs(tid)
     return n
 
 
-def _author_section(chain, ri, prompt, sid, num, cfg, overrides,
-                    ping, dead, cap, ask_on_death, interactive, tome_id, section_dir,
-                    handoff, preflighted):
-    """Run ONE section's worker with liveness + death recovery (fallback → human ask → implicit
-    default), switching runners as needed. Returns (ri, ok) — ri may have grown as the chain did,
-    ok is True only if a runner finished cleanly. Mirrors the main loop's death handling but scoped
-    to a single section, so split Phase 3 stays isolated from the normal phase loop."""
+def _author_batch(chain, ri, prompt, batch_ids, num, cfg, overrides,
+                  ping, dead, cap, ask_on_death, interactive, tome_id, batch_root,
+                  writable_paths, preflighted):
+    """Run one warm batch with liveness and provider fallback.
+
+    A replacement provider resumes the same bounded batch from its per-section disk
+    checkpoints. The command shape is deliberately provider-neutral: Claude, Codex, AGY,
+    and OpenCode all receive one ordinary headless prompt and need no resume/compact flag.
+    """
+    label = ", ".join(batch_ids)
     while True:
         name, cmd, im = chain[ri]
-        worker_env = os.environ.copy()
+        worker_env = validation_subprocess_env(os.path.basename(batch_root))
         worker_env["ARCANUM_REPO_ROOT"] = REPO
-        worker_env["ARCANUM_SECTION_ROOT"] = section_dir
+        worker_env["ARCANUM_TOME_ROOT"] = batch_root
+        worker_env["ARCANUM_SECTION_BATCH"] = ",".join(batch_ids)
         # Avoid harmless __pycache__ write attempts when a worker executes trusted Python
         # elsewhere in the read-only repository.
         worker_env["PYTHONDONTWRITEBYTECODE"] = "1"
-        scoped = section_runner_command(name, cmd, section_dir, REPO,
-                                        writable_sidecars=[handoff])
+        scoped = scoped_runner_command(name, cmd, batch_root, writable_paths, REPO)
         # A runner selected after a death (human choice or implicit default) was not present
         # during the build's initial census. Never let it start authoring without Phase 0.
         if tuple(cmd) not in preflighted:
             preflight_runners([(name, scoped, im)])
             preflighted.add(tuple(cmd))
         rc = run_agent(scoped, im, prompt, ping, dead, cap,
-                       cwd=section_dir, env=worker_env)
+                       cwd=batch_root, env=worker_env)
         if rc == 0:
             return ri, True
         reason = "hung/timeout" if rc == 124 else f"exit {rc}"
-        print(f"  ! section {sid}: runner {name} exited {rc}" + (" (hung/timeout)" if rc == 124 else ""))
+        print(f"  ! warm batch {label}: runner {name} exited {rc}"
+              + (" (hung/timeout)" if rc == 124 else ""))
         nxt = chain[ri + 1] if ri + 1 < len(chain) else None
         if nxt is None and (ask_on_death or interactive):
             nxt, _ = request_runner(tome_id, num, name, reason, interactive)
@@ -84,9 +264,9 @@ def _author_section(chain, ri, prompt, sid, num, cfg, overrides,
                 chain.append(imp[0])
                 nxt = imp[0]
         if nxt is None:
-            return ri, False  # out of options — the post-split whole-tome validation catches the gap
+            return ri, False
         ri += 1
-        print(f"  ⇒ continuing section {sid} on {chain[ri][0]}")
+        print(f"  ⇒ continuing warm batch {label} on {chain[ri][0]}")
 
 
 # Which sections Phase 3 has finished, persisted so a resume skips them without re-running a
@@ -119,13 +299,14 @@ def _mark_section_done(tid, sid):
 
 def author_sections_split(tid, num, title, chain, refs, cfg, overrides,
                           ping, dead, cap, ask_on_death, interactive, tome_id, resume=False,
-                          preflighted=None):
-    """Phase 3, split mode: author each section in its OWN fresh worker, so the context (and the
-    cache-read tokens that dominated GLM's bill) never accumulate across the whole tome — which
-    makes ANY model affordable here. On resume, sections recorded done are skipped and the one that
-    was interrupted is finished IN PLACE — its worker keeps the lessons already correct on disk and
-    authors only the rest. The workflow's end-of-phase cross-tome reconcile then runs in the caller's
-    normal loop. Returns ri after the last section."""
+                          preflighted=None, batch_size=SECTION_BATCH_SIZE):
+    """Author Arc-ordered sections in bounded warm batches.
+
+    Each worker must finish and self-validate every assigned section before moving to the
+    next one. The harness independently repeats each gate, checkpoints clean sections, and
+    retries only failures. A resume therefore skips clean work without relying on a provider
+    session database. Returns the active runner-chain index after the final batch.
+    """
     plan_rel, verdict_rel, findings_rel = refs
     plan_path = os.path.join(REPO, plan_rel)
     tooling = read_tooling(plan_path)
@@ -133,88 +314,131 @@ def author_sections_split(tid, num, title, chain, refs, cfg, overrides,
     preflighted = preflighted if preflighted is not None else set()
     ids = section_ids(tid)
     done = _load_sections_done(tid) if resume else set()
-    print(f"  · split-sections: {len(ids)} sections, one worker each — {', '.join(ids)}"
+    batch_size = max(1, int(batch_size or SECTION_BATCH_SIZE))
+    batches = [ids[start:start + batch_size] for start in range(0, len(ids), batch_size)]
+    print(f"  · split-sections: {len(ids)} sections, {len(batches)} warm batch(es) of up to "
+          f"{batch_size} — {', '.join(ids)}"
           + (f"  (resume: {len(done)} already done)" if resume and done else ""))
     ri = 0
-    for i, sid in enumerate(ids):
-        handoff = prepare_handoff(tid, sid, reset=not resume)
-        handoff_clean, handoff_report = validate_handoff(tid, sid, ids, plan_path)
-        if sid in done and handoff_clean:
-            print(f"    · section {sid} [{i + 1}/{len(ids)}] already authored — skipping (resume)")
+    tome_root = os.path.join(REPO, "tomes", tid)
+    positions = {sid: i for i, sid in enumerate(ids)}
+    for batch_number, batch in enumerate(batches, 1):
+        pending, handoffs = [], {}
+        for sid in batch:
+            i = positions[sid]
+            handoff = prepare_handoff(tid, sid, reset=not resume, ids=ids,
+                                      plan_path=plan_path)
+            handoffs[sid] = handoff
+            handoff_clean, _ = validate_handoff(tid, sid, ids, plan_path)
+            if sid in done and handoff_clean:
+                print(f"    · section {sid} [{i + 1}/{len(ids)}] already authored — skipping (resume)")
+                continue
+            if sid in done:
+                print(f"    · section {sid} [{i + 1}/{len(ids)}] content is checkpointed, but its "
+                      "continuity handoff is missing/invalid — rebuilding the handoff")
+            section_dir = os.path.join(tome_root, "sections", sid)
+            os.makedirs(section_dir, exist_ok=True)
+            pending.append(sid)
+        if not pending:
             continue
-        if sid in done:
-            print(f"    · section {sid} [{i + 1}/{len(ids)}] content is checkpointed, but its "
-                  "continuity handoff is missing/invalid — rebuilding the handoff")
-        prev = (f"Section {ids[i - 1]} is finished on disk — read it so concepts stay strictly "
-                f"cumulative and callbacks reach back into it. Also SEARCH all earlier sections "
-                f"for every class, API, capability id, asset, or workflow step this section reuses, "
-                f"then read each canonical owner before writing. The immediately previous section "
-                f"alone is not enough when an older type returns later. Read the plan's Artifact "
-                f"lifecycle too: if this section retires a prompt, fixture, demo call, placeholder, "
-                f"or temporary API, teach that exact removal/replacement instead of blindly saying "
-                f"to preserve every earlier line." if i else
-                "This is the FIRST section — it opens the course.")
-        continuity = continuity_prompt(tid, sid, ids, plan_path)
-        if resume:  # interrupted (or never-started) section: finish it, keeping what's already correct
-            focus = (f"\n\n===== SPLIT RUN — RESUME section {sid} ({i + 1} of {len(ids)}) =====\n"
-                     f"A previous run was interrupted mid-build. Open tomes/{tid}/sections/{sid}/ and "
-                     f"FINISH section {sid}: KEEP every lesson already fully and correctly authored (do "
-                     f"not rewrite, reword, or reorder them — a scaffold-placeholder file counts as NOT "
-                     f"authored), and author only what is missing or still a stub — the remaining lessons "
-                     f"and their exercises, the section brief, and the freestyle — so the section is "
-                     f"complete and coherent. If nothing here has been authored yet, author the whole "
-                     f"section. Do NOT create, author, edit, or delete any OTHER section this run. {prev} "
-                     f"The [narrative] voice and the Phase 1 arc for this op live in the plan — follow "
-                     f"them exactly so {sid} reads as one book with the rest.")
-            print(f"    · resuming {sid} [{i + 1}/{len(ids)}] — keep finished lessons, author the rest — on {chain[ri][0]}")
-        else:
-            focus = (f"\n\n===== SPLIT RUN — author ONLY section {sid} ({i + 1} of {len(ids)}) =====\n"
-                     f"Author the COMPLETE section {sid} — its brief, its lessons and their exercises, and "
-                     f"its freestyle — into tomes/{tid}/sections/{sid}/. Do NOT create, author, edit, or "
-                     f"delete any OTHER section this run. {prev} The [narrative] voice and the Phase 1 arc "
-                     f"line for this op live in the plan — follow them exactly so {sid} reads as one book "
-                     f"with the rest.")
-            print(f"    · authoring {sid} [{i + 1}/{len(ids)}] on {chain[ri][0]}")
-        section_dir = os.path.join(REPO, "tomes", tid, "sections", sid)
-        os.makedirs(section_dir, exist_ok=True)
-        boundary = (f"\n\n===== SECTION WORKER SECURITY BOUNDARY =====\n"
-                    f"The repository root is {REPO}. Your process cwd and ONLY writable project "
-                    f"directory is {section_dir}; the only other writable path is the exact "
-                    f"continuity sidecar {handoff}. You may READ any file under the repository, "
-                    "execute trusted Python files from the repository, and use WebSearch/WebFetch "
-                    "for current documentation and research. Do not edit the build plan or another "
-                    "section. Resolve repo-relative paths against the repository root.")
-        p = build_prompt(tid, num, title, worker_body, plan_rel, verdict_rel, findings_rel,
-                         tooling=tooling, validation_run=False) + focus + continuity + boundary
+
         attempts = 0
-        while True:
-            ri, ok = _author_section(chain, ri, p, sid, num, cfg, overrides,
-                                     ping, dead, cap, ask_on_death, interactive, tome_id,
-                                     section_dir, handoff, preflighted)
+        reports = {}
+        while pending:
+            first = positions[pending[0]] + 1
+            last = positions[pending[-1]] + 1
+            verb = "resuming" if resume or attempts else "authoring"
+            write_section_progress(
+                tid, pending[0], first, len(ids),
+                "repairing" if reports else "authoring", batch_number, len(batches))
+            print(f"    · {verb} warm batch {batch_number}/{len(batches)} "
+                  f"[{first}-{last}/{len(ids)}] {', '.join(pending)} on {chain[ri][0]}")
+
+            checks = [section_validator_shell_command(tid, sid, tooling, plan_rel)
+                      for sid in pending]
+            combined_check = " && ".join(f"({command})" for command in checks)
+            focus = (f"\n\n===== WARM SECTION BATCH {batch_number} OF {len(batches)} =====\n"
+                     f"You own exactly these sections, in this order: {', '.join(pending)}. "
+                     "Complete ONE section at a time. For each: preserve any fully correct work "
+                     "already on disk, author its brief, lessons/exercises, and freestyle, finish "
+                     "its exact handoff, run that section's validator shown below, and fix it until "
+                     "it exits 0 BEFORE moving to the next section. After writing an earlier section "
+                     "in this same batch, reopen its files and handoff before authoring the next; the "
+                     "warm context is useful, but the files remain the source of truth. Do not spawn "
+                     "subagents and do not edit a section outside this list.\n")
+            continuity_blocks = []
+            for sid, check in zip(pending, checks):
+                i = positions[sid]
+                authoring_progress = section_progress_shell_command(
+                    tid, sid, i + 1, len(ids),
+                    "repairing" if reports else "authoring", batch_number, len(batches))
+                validating_progress = section_progress_shell_command(
+                    tid, sid, i + 1, len(ids), "validating", batch_number, len(batches))
+                complete_progress = section_progress_shell_command(
+                    tid, sid, i + 1, len(ids), "complete", batch_number, len(batches))
+                previous = (f"Read section {ids[i - 1]} plus any older canonical owner reused here."
+                            if i else "This is the first section and opens the course.")
+                focus += (f"\n--- {sid} ({i + 1} of {len(ids)}) ---\n{previous}\n"
+                          "Mandatory live progress markers (run each at the stated transition):\n"
+                          f"  BEFORE editing: {authoring_progress}\n"
+                          f"  BEFORE its gate: {validating_progress}\n"
+                          f"  AFTER its gate exits 0: {complete_progress}\n"
+                          f"Write only tomes/{tid}/sections/{sid}/ and its supplied handoff.\n"
+                          "Warm-context code gate (executes this section's snippets/write labs; "
+                          f"must exit 0 before the next section):\n  {check}\n")
+                continuity_blocks.append(continuity_prompt(tid, sid, ids, plan_path))
+
+            writable = [os.path.join(tome_root, "sections", sid) for sid in pending]
+            writable += [handoffs[sid] for sid in pending]
+            writable.append(section_progress_path(tid))
+            boundary = (f"\n\n===== BATCH WORKER SECURITY BOUNDARY =====\n"
+                        f"The repository root is {REPO}; the process cwd is {tome_root}. The only "
+                        f"writable section directories are {', '.join(writable[:len(pending)])}. "
+                        "The only other writable project files are their exact continuity handoffs "
+                        "and the harness-owned live section-progress marker. "
+                        "You may read the whole repository, execute trusted repository Python, and "
+                        "use WebSearch/WebFetch. The plan and every other section are read-only.")
+            repair = ""
+            if reports:
+                repair = "\n\n===== BATCH GATES STILL FAIL =====\n"
+                for sid in pending:
+                    repair += f"\n--- {sid} blockers ---\n{blocking_report(reports.get(sid, ''))}\n"
+            prompt = (build_prompt(
+                tid, num, title, worker_body, plan_rel, verdict_rel, findings_rel,
+                tooling=tooling, validation_run=False, repair_only=bool(reports),
+                validation_command=combined_check)
+                + focus + "".join(continuity_blocks) + boundary + repair)
+
+            ri, ok = _author_batch(
+                chain, ri, prompt, pending, num, cfg, overrides, ping, dead, cap,
+                ask_on_death, interactive, tome_id, tome_root, writable, preflighted)
             if not ok:
                 break
-            # This checkpoint is a fast schema/content pass. The whole Phase-3 gate
-            # immediately after the split executes every starter and solution once;
-            # doing that after each section would re-run the growing tome O(n^2).
-            clean, report = validate(tid, phase=3, tooling=tooling, run=False)
-            handoff_clean, handoff_report = validate_handoff(tid, sid, ids, plan_path)
-            if clean and handoff_clean:
-                _mark_section_done(tid, sid)  # a future resume skips only validator-clean work
+
+            failed, reports = [], {}
+            for sid in pending:
+                i = positions[sid]
+                write_section_progress(tid, sid, i + 1, len(ids), "validating",
+                                       batch_number, len(batches))
+                clean, report = validate_section(tid, sid, tooling, plan_rel)
+                if clean:
+                    _mark_section_done(tid, sid)
+                    write_section_progress(tid, sid, i + 1, len(ids), "complete",
+                                           batch_number, len(batches))
+                    print(f"    ok section {sid}: checkpointed")
+                else:
+                    write_section_progress(tid, sid, i + 1, len(ids), "repairing",
+                                           batch_number, len(batches))
+                    failed.append(sid)
+                    reports[sid] = report
+            if not failed:
                 break
             attempts += 1
             if attempts > retries_for(chain[ri][0]):
-                print(f"    ! section {sid}: worker exited cleanly but validator still fails; "
-                      "leaving it uncheckpointed for the whole-tome repair pass")
+                print(f"    ! warm batch {', '.join(failed)}: validator still fails after "
+                      f"{attempts} repair attempt(s); leaving it uncheckpointed for recovery")
                 break
-            print(f"    x section {sid}: validator errors -> re-running its worker "
+            print(f"    x warm batch gates failed for {', '.join(failed)} -> focused repair "
                   f"(attempt {attempts + 1})")
-            p = (build_prompt(tid, num, title, worker_body, plan_rel, verdict_rel, findings_rel,
-                              tooling=tooling, validation_run=False, repair_only=True)
-                 + focus
-                 + continuity
-                 + boundary
-                 + "\n\n===== THIS SECTION STILL FAILS VALIDATION =====\n"
-                 + "Fix only the blocking errors below in this section or its handoff. Do not edit another "
-                   "section or an earlier handoff.\n"
-                 + "\n".join(part for part in (blocking_report(report), handoff_report) if part))
+            pending = failed
     return ri

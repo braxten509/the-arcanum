@@ -10,5 +10,5 @@ complete tome and make only cross-section repairs:
 - correct cross-section prerequisite gaps, duplicated prose, stale exercise feedback, uniform
   exercise shapes, answer-index clustering, and voice drift.
 
-Run the normal Phase 3 validator until clean. Produce no narrative audit or plan log; the
-validator and continuity ledgers are the durable evidence.
+Run the complete Phase 3 command supplied in the prompt until clean. Produce no narrative
+audit or plan log; the validator and continuity ledgers are the durable evidence.

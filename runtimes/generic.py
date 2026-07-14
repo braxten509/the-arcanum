@@ -36,12 +36,22 @@ Config keys (every key is optional unless marked REQUIRED):
                               # substituted, e.g. "{project}.csproj"). Default: entryFile
   packageCommand = ["..."]    # install a package; "{dir}" and "{package}" substituted.
                               # Default: package installs unsupported
+  validationDependencies = [] # tome-only packages required to validate authored code
+  validationProjectPackageCommand = ["..."]
+                              # optional per-scratch-project installer; defaults to
+                              # packageCommand when validationPackageCommand is absent
+  validationCreateCommand = ["..."]
+  validationPackageCommand = ["..."]
+  validationEnv = { PATH = "{dir}/bin:{PATH}" }
+                              # shared harness-only environment provisioning; these
+                              # keys never alter the learner project or host runtime
   snippetRunCommand = ["..."] # run a snippet after buildCommand (e.g. dotnet's
                               # --no-build). Default: command + entryFile, else runCommand
 
   buildTimeout = 180          # s, for buildCommand / scaffoldCommand
   runTimeout = 60             # s, for project runs (snippets are capped separately)
 """
+import json
 import os
 import re
 import shutil
@@ -86,6 +96,11 @@ class CommandRuntime:
         self.check_cmd = list(cfg.get("checkCommand") or [])
         self.scaffold_cmd = list(cfg.get("scaffoldCommand") or [])
         self.package_cmd = list(cfg.get("packageCommand") or [])
+        self.validation_dependencies = list(cfg.get("validationDependencies") or [])
+        project_package = cfg.get("validationProjectPackageCommand") or []
+        if not project_package and not cfg.get("validationPackageCommand"):
+            project_package = self.package_cmd
+        self.validation_project_package_cmd = list(project_package)
         self.diag_re = cfg.get("diagRegex") or ""
         self.entry = cfg.get("entryFile") or "main.txt"
         self.starter = cfg.get("starterCode") or ""
@@ -290,13 +305,45 @@ class CommandRuntime:
         scaffolded project there (dotnet needs a .csproj even for one file)."""
         if not self.scaffold_cmd:
             os.makedirs(scratch_base, exist_ok=True)
+            try:
+                self._install_validation_project_dependencies(scratch_base)
+            except (RuntimeError, subprocess.TimeoutExpired, OSError) as e:
+                return scratch_base, "dependency install failed: " + str(e)[-500:]
             return scratch_base, None
         proj = os.path.join(scratch_base, "Snippet")
         try:
             self.scaffold(proj, "Snippet")
+            self._install_validation_project_dependencies(proj)
         except (RuntimeError, subprocess.TimeoutExpired, OSError) as e:
             return proj, "scaffold failed: " + str(e)[-500:]
         return proj, None
+
+    def _install_validation_project_dependencies(self, project_dir):
+        """Install tome-only packages into this validator scratch project once."""
+        if not self.validation_dependencies:
+            return
+        if not self.validation_project_package_cmd:
+            raise RuntimeError("validation dependencies are declared but this runtime has no "
+                               "validation project package command")
+        marker = os.path.join(project_dir, ".arcanum-validation-dependencies.json")
+        wanted = json.dumps(self.validation_dependencies, separators=(",", ":"))
+        try:
+            with open(marker, encoding="utf-8") as handle:
+                if handle.read() == wanted:
+                    return
+        except OSError:
+            pass
+        for dependency in self.validation_dependencies:
+            if (not isinstance(dependency, str) or not dependency.strip()
+                    or dependency.lstrip().startswith("-")
+                    or any(ord(ch) < 32 for ch in dependency)):
+                raise RuntimeError(f"invalid validation dependency {dependency!r}")
+            p = subprocess.run(_sub(self.validation_project_package_cmd,
+                                    dir=project_dir, package=dependency),
+                               cwd=project_dir, capture_output=True, text=True, timeout=600)
+            if p.returncode:
+                raise RuntimeError((p.stdout + p.stderr)[-3000:])
+        common.atomic_write(marker, wanted)
 
     def snippet_diagnostics(self, scratch_base, code):
         can = bool(self.build_cmd or self.check_cmd)
@@ -304,7 +351,7 @@ class CommandRuntime:
             return {"ok": can, "diags": []}
         sdir, err = self._snippet_dir(scratch_base)
         if err:
-            return {"ok": False, "diags": []}
+            return {"ok": False, "diags": [], "output": err}
         with common.snippet_lock:
             if self.build_cmd:
                 common.atomic_write(os.path.join(sdir, self.entry), code)

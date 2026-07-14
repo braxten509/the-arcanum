@@ -184,9 +184,10 @@ def check_freestyle_scope(m, sections_data):
 
 def check_verbatim_prose(sections_data):
     """#9: §3 forbids a sentence appearing verbatim in more than one lesson body. Catch it with
-    14-word shingles over visible (tag-stripped) prose — long enough that a collision is a
-    copied sentence, not a stock phrase. Skips shingles that are mostly UPPER-CASE, which are
-    the shared appendix headers (FIELD NOTES // …, MARGINALIA // …) tomes repeat by design."""
+    14-word shingles over visible prose — long enough that a collision is a copied sentence,
+    not a stock phrase. Exclude <pre> blocks: cumulative courses intentionally repeat canonical
+    source while extending it, and code reuse is not copied teaching prose. Skips shingles that
+    are mostly UPPER-CASE, which are shared appendix headers (FIELD NOTES // …) by design."""
     W = 14
     seen = {}   # shingle -> first lesson id that had it
     dupes = []  # (lid_a, lid_b, snippet)
@@ -195,7 +196,9 @@ def check_verbatim_prose(sections_data):
             if not isinstance(les, dict):
                 continue
             lid = les.get("id") or "?"
-            words = re.sub(r"<[^>]+>", " ", str(les.get("body") or "")).split()
+            body = str(les.get("body") or "")
+            body = re.sub(r"<pre\b[^>]*>.*?</pre\s*>", " ", body, flags=re.I | re.S)
+            words = re.sub(r"<[^>]+>", " ", body).split()
             local = set()  # don't flag a shingle repeated within ONE lesson
             for j in range(len(words) - W + 1):
                 win = words[j:j + W]

@@ -22,6 +22,7 @@
 | `newFileExt` | string | default extension for the NEW FILE button |
 | `starterCode` | string | contents of the entry file when the workspace is first scaffolded |
 | `runLabel` | string | command shown in run/compile flavor text, e.g. `"python3 main.py"` |
+| `validationDependencies` | string[] | third-party packages required to execute authored solutions/starters/samples during validation. The harness installs these only in an isolated validation environment or scratch project; it never changes the learner project or system runtime (§5) |
 
 Every key in `global-configs/runtimes/<name>.toml` is a **default** that this
 tome's `[runtime]` table overrides key-by-key (`{language TOML} ∪ {your [runtime]}`,

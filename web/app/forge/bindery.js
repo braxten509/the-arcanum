@@ -5,7 +5,8 @@
 import { $, closeModal, dropOverlay, esc, modal, sfx } from "../core/dom.js";
 import { forgeEntry, showToolingConflictApproval } from "./forge.js";
 import { enhanceSelect } from "../ui/menu.js";
-import { forgeActivityKey, forgeActivityOptions, forgeTraceLines } from "./activity.js";
+import { forgeActivityKey, forgeActivityLine, forgeTraceLines,
+  forgeTraceSectionProgress } from "./activity.js";
 
 export const FORGE_PHASES = ["Gate", "Concept & arc", "Skeleton & voice", "Sections", "Minigames",
   "Economy pass", "Cosmetics", "Validate", "Student review"];
@@ -211,12 +212,16 @@ export function openBuildOverlay(jobId, traceId = jobId) {
   };
 
   // Active-phase line: "Phase 3 / 9 — Sections … — 3/8 — gpt-5.4-mini @high — 12m 04s".
-  // sections (X/Y) appears only in split phase 3; runner drops its CLI prefix; the clock
+  // section progress appears for both one-worker and split Phase 3; runner drops its CLI prefix; the clock
   // is time-in-phase from the server's phaseStartedAt, repainted every second below.
   let lastSt = null, activityIndex = 0, activityKey = "", traceKey = "";
+  let inferredSectionProgress = null;
   const phaseLine = (st) => {
     let s = `Phase ${st.phase} / ${st.totalPhases || 9} — ${st.phaseTitle || "…"}`;
-    if (st.sections) s += ` — ${st.sections}`;
+    const progress = st.sectionProgress || {};
+    if (st.phase === 3 && progress.section)
+      s += ` — ${progress.section} (${progress.index}/${progress.total}) · ${progress.state}`;
+    else if (st.sections) s += ` — ${st.sections}`;
     if (st.runner) s += ` — ${st.runner.replace(/^(?:claude|codex|antigravity|opencode)-cli\s+/, "")}`;
     if (st.phaseStartedAt) {
       const sec = Math.max(0, Math.round(Date.now() / 1000 - st.phaseStartedAt));
@@ -232,13 +237,13 @@ export function openBuildOverlay(jobId, traceId = jobId) {
     } else if (advance) {
       activityIndex += 1;
     }
-    const options = forgeActivityOptions(st);
-    const text = options[activityIndex % options.length] || "The bindery is working";
+    const text = forgeActivityLine(st, activityIndex);
     const line = $("#fp-activity-text", overlay);
     if (line && line.textContent !== text) line.textContent = text;
   }
   function paintTrace(st) {
-    // `toolTrace` comes from the runner's own Codex/Claude JSONL—not forge stdout.
+    // `toolTrace` comes from the runner's own Codex/Claude JSONL, OpenCode SQLite,
+    // or AGY transcript—not forge stdout.
     // Never substitute the harness's edited narration here: the NOW line already owns that.
     const tooling = Array.isArray(st.toolTrace);
     const lines = tooling ? forgeTraceLines(st.toolTrace) : [];
@@ -331,6 +336,12 @@ export function openBuildOverlay(jobId, traceId = jobId) {
           st.toolTrace = tooling.lines;
           st.toolProvider = tooling.provider || "AI";
         }
+      }
+      if (Number(st.phase) === 3 && !st.sectionProgress) {
+        inferredSectionProgress = forgeTraceSectionProgress(st) || inferredSectionProgress;
+        if (inferredSectionProgress) st.sectionProgress = inferredSectionProgress;
+      } else if (Number(st.phase) !== 3) {
+        inferredSectionProgress = null;
       }
     } catch { return; }
     if (st.status === "running") {

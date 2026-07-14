@@ -215,7 +215,9 @@ def check_runtime(m, tome_id, label):
     # executable schema here, before a malformed value reaches list(), re.compile(), or
     # os.path.join() inside the live engine.
     command_keys = ("command", "runCommand", "buildCommand", "checkCommand",
-                    "scaffoldCommand", "packageCommand", "snippetRunCommand")
+                    "scaffoldCommand", "packageCommand", "snippetRunCommand",
+                    "validationCreateCommand", "validationPackageCommand",
+                    "validationProjectPackageCommand")
     for key in command_keys:
         if key not in merged:
             continue
@@ -230,6 +232,34 @@ def check_runtime(m, tome_id, label):
         if (not isinstance(value, list)
                 or any(not isinstance(item, str) or not item for item in value)):
             err(source_label(key), f"[runtime] {key} must be an array of non-empty strings")
+    dependencies = merged.get("validationDependencies")
+    if dependencies is not None:
+        if (not isinstance(dependencies, list)
+                or any(not isinstance(item, str) or not item.strip()
+                       or item.lstrip().startswith("-")
+                       or any(ord(ch) < 32 for ch in item) for item in dependencies)):
+            err(source_label("validationDependencies"),
+                "[runtime] validationDependencies must be an array of non-empty package strings")
+        elif len(set(dependencies)) != len(dependencies):
+            err(source_label("validationDependencies"),
+                "[runtime] validationDependencies contains duplicate packages")
+        elif dependencies and not (merged.get("validationPackageCommand")
+                                   or merged.get("validationProjectPackageCommand")
+                                   or merged.get("packageCommand")):
+            err(label, "[runtime] validationDependencies are declared, but the named runtime "
+                       "has no validationPackageCommand or scratch-project packageCommand")
+    validation_env = merged.get("validationEnv")
+    if (validation_env is not None
+            and (not isinstance(validation_env, dict)
+                 or any(not isinstance(key, str) or not key
+                        or not isinstance(value, str)
+                        for key, value in validation_env.items()))):
+        err(source_label("validationEnv"),
+            "[runtime] validationEnv must be a table of non-empty environment names to strings")
+    for key in ("validationPackageCommand", "validationProjectPackageCommand"):
+        value = merged.get(key)
+        if (isinstance(value, list) and value and not any("{package}" in arg for arg in value)):
+            err(source_label(key), f"[runtime] {key} must contain a {{package}} placeholder")
     for key in ("entryFile", "projectFile"):
         value = merged.get(key)
         if value is None:
@@ -279,7 +309,9 @@ def check_runtime(m, tome_id, label):
     extra = os.pathsep.join(os.path.expanduser(p) for p in
                             ("~/.local/bin", "~/.cargo/bin", "/usr/local/bin", "/usr/bin"))
     seen = set()
-    for key in ("command", "runCommand", "buildCommand", "checkCommand", "scaffoldCommand"):
+    for key in ("command", "runCommand", "buildCommand", "checkCommand", "scaffoldCommand",
+                "validationCreateCommand", "validationPackageCommand",
+                "validationProjectPackageCommand"):
         v = merged.get(key)
         exe = v[0] if isinstance(v, list) and v and isinstance(v[0], str) else None
         if not exe or exe in seen or "{" in exe:

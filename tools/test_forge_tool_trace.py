@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
-"""Focused checks for literal Codex/Claude tool extraction and the three-line cap."""
+"""Focused checks for literal provider tool extraction and the three-line cap."""
 import json
 import os
+import sqlite3
 import tempfile
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from arcanum.tool_trace import (_claude_session_from_processes, SessionFollower,
-                                codex_tool_events, claude_tool_events, format_tool_event)
+from arcanum.tool_trace import (_claude_session_from_processes,
+                                _opencode_session_from_processes,
+                                antigravity_tool_events, claude_tool_events,
+                                codex_tool_events, format_tool_event,
+                                opencode_tool_events, OpenCodeFollower,
+                                SessionFollower, TraceSource)
 
 
 codex_record = {
@@ -39,6 +45,15 @@ claude_record = {
 }
 assert claude_tool_events(claude_record)[0]["detail"] == "python3 tools/validate_tome.py tomes/rune-bound"
 
+opencode_record = {"timestamp": "2026-07-13T10:30:14-06:00", "type": "tool", "tool": "read",
+                   "state": {"input": {"filePath": "/repo/tome.toml", "offset": 12}}}
+assert opencode_tool_events(opencode_record)[0]["detail"] == "/repo/tome.toml offset=12"
+
+agy_record = {"created_at": "2026-07-13T16:32:47Z", "type": "PLANNER_RESPONSE",
+              "tool_calls": [{"name": "run_command",
+                              "args": {"CommandLine": "python3 tools/validate_tome.py tome"}}]}
+assert antigravity_tool_events(agy_record)[0]["detail"] == "python3 tools/validate_tome.py tome"
+
 with tempfile.NamedTemporaryFile("wb", delete=False) as handle:
     path = handle.name
     for number in range(5):
@@ -65,6 +80,31 @@ with tempfile.TemporaryDirectory() as tmp:
     session = os.path.join(project, "session.jsonl")
     with open(session, "w", encoding="utf-8") as handle:
         handle.write(json.dumps(claude_record) + "\n")
-    assert _claude_session_from_processes([123], proc_root, projects) == ("claude", session)
+    assert _claude_session_from_processes([123], proc_root, projects) == TraceSource("claude", session)
+
+with tempfile.TemporaryDirectory() as tmp:
+    proc_root = os.path.join(tmp, "proc")
+    pdir = os.path.join(proc_root, "321")
+    os.makedirs(os.path.join(pdir, "fd"))
+    with open(os.path.join(pdir, "cmdline"), "wb") as handle:
+        handle.write(b"/home/user/.local/bin/opencode\0run\0")
+    os.symlink("/repo/tomes/live", os.path.join(pdir, "cwd"))
+    database = os.path.join(tmp, "opencode.db")
+    now = int(time.time() * 1000)
+    with sqlite3.connect(database) as db:
+        db.execute("CREATE TABLE session (id text, directory text, time_created integer, time_updated integer)")
+        db.execute("CREATE TABLE part (id text, session_id text, time_created integer, data text)")
+        db.execute("INSERT INTO session VALUES (?, ?, ?, ?)",
+                   ("session-live", "/repo/tomes/live", now, now))
+        for number in range(5):
+            data = {"type": "tool", "tool": "bash",
+                    "state": {"input": {"command": f"echo {number}"}}}
+            db.execute("INSERT INTO part VALUES (?, ?, ?, ?)",
+                       (f"part-{number}", "session-live", now + number, json.dumps(data)))
+    os.symlink(database, os.path.join(pdir, "fd", "3"))
+    found = _opencode_session_from_processes([321], proc_root)
+    assert found and found[1] == TraceSource("opencode", database, "session-live"), found
+    follower = OpenCodeFollower(found[1])
+    assert [event["detail"] for event in follower.poll()] == ["echo 2", "echo 3", "echo 4"]
 
 print("forge tool trace: OK")

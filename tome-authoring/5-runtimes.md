@@ -23,6 +23,11 @@ key of the language TOML (and equally of a tome's `[runtime]` table):
 | `scaffoldCommand` | create a project; `{project}`/`{dir}` substituted. Default: write `entryFile` = `starterCode` |
 | `projectFile` | file that marks a scaffolded project; `{project}` substituted (e.g. `"{project}.csproj"`). Default: `entryFile` |
 | `packageCommand` | install a package; `{dir}`/`{package}` substituted. Default: packages unsupported |
+| `validationDependencies` | **tome-level** array of packages required by authored solutions, starters, or executable samples. This declares what validation needs; keep it out of the reusable language TOML |
+| `validationCreateCommand` | create a shared isolated validation environment; `{dir}` substituted. Optional when `validationPackageCommand` can populate a plain directory |
+| `validationPackageCommand` | install one environment-scoped validation dependency; `{dir}`/`{package}` substituted. Runs once per package in a content-addressed directory under `.tome-build/validation-envs` |
+| `validationEnv` | environment-name → value table applied to the worker and independent harness gates; `{dir}` and existing environment placeholders such as `{PATH}` are expanded |
+| `validationProjectPackageCommand` | install one dependency into each validator-created scratch project; `{dir}`/`{package}` substituted. Defaults to `packageCommand` when no environment installer is configured |
 | `entryFile` | the file `command` runs / the scaffold writes (e.g. `"main.py"`) |
 | `starterCode` | the entry file's contents written by the default scaffold |
 | `newFileExt` | default extension for the NEW FILE button |
@@ -62,6 +67,26 @@ validator hard-fails a `[runtime] name` with no `global-configs/runtimes/<name>.
 (create one — it's zero code), and any runtime command whose binary isn't installed
 on the host. Keep the tome's own `[runtime]` table for tome-specific overrides. Omit
 both `checkCommand` and `buildCommand` and the course simply has no editor squiggles.
+
+### Isolated validation dependencies
+
+When course code needs a third-party library, declare it in the tome rather than hiding
+an installation in a runtime command:
+
+```toml
+[runtime]
+name = "python"
+project = "MyProject"
+validationDependencies = ["some-library"]
+```
+
+The Python runtime, for example, creates a content-addressed virtual environment and makes
+its `python3` visible through `PATH` to the warm author worker and every harness-owned gate.
+A project package manager such as NuGet or Cargo instead applies the dependency inside each
+temporary scaffold used for validation. Both paths are runtime-declared argv arrays (never a
+shell string), cached where safe, and isolated from the learner's workspace and system runtime.
+If a new ecosystem needs packages, define the appropriate environment or scratch-project
+commands in its reusable runtime TOML; tome authors should only list package names.
 
 ### Calibrating `snippetEntry` for a new language
 
