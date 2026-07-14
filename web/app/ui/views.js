@@ -136,11 +136,26 @@ export function renderLesson(sid, lid) {
   v.classList.remove("hidden");
   $("#hud-op").textContent = "— " + sec.codename.toLowerCase() + ", lesson " + roman(li + 1).toLowerCase();
   S.read[lid] = true;
+  const projectSteps = (l.artifactSteps || []).map((step) => {
+    const before = step.mode === "replace" && step.find != null
+      ? `<div class="artifact-code-label">FIND EXACTLY</div><pre><code>${esc(step.find)}</code></pre>` : "";
+    const after = step.content != null
+      ? `<div class="artifact-code-label">${step.mode === "replace" ? "REPLACE WITH" : "CONTENT"}</div><pre><code>${esc(step.content)}</code></pre>` : "";
+    return `<article class="artifact-step"><div class="artifact-step-head"><b>${esc(step.path || "")}</b><span>${esc(step.mode || "edit")}</span></div>
+      <p>${esc(step.instruction || "")}</p>${before}${after}</article>`;
+  }).join("");
+  const assetGuides = (sec.assets || []).filter((asset) => asset.lesson === lid).map((asset) => `
+    <article class="asset-guide"><div class="artifact-step-head"><b>${esc(asset.kind || "ASSET")} // ${esc(asset.destination || "")}</b><span>YOU SOURCE IT</span></div>
+      <p>${esc(asset.sourceGuidance || "")}</p><p><b>LICENSE:</b> ${esc(asset.licenseGuidance || "")}</p>
+      <div class="asset-sources">${(asset.sources || []).map((source) => `<a href="${esc(source.url)}" target="_blank" rel="noopener">${esc(source.label)} <span>(${esc(source.license)})</span></a>`).join("")}</div>
+    </article>`).join("");
 
   v.innerHTML = `
     <div class="crumb"><button data-nav="home">LEDGER</button> / <button data-nav="sec">${esc(sec.codename)}</button> / LESSON ${roman(li + 1)}</div>
     <h1>${esc(l.title)}</h1>
     <div class="lesson-body">${l.body}</div>
+    ${projectSteps ? `<section class="artifact-steps"><h2>${ico("scroll")} THE PROJECT LEDGER</h2>${projectSteps}</section>` : ""}
+    ${assetGuides ? `<section class="artifact-steps"><h2>${ico("book")} HUMAN-SOURCED MATERIALS</h2><p class="dim">The tome does not create media. Choose and license these materials yourself, then place them at the exact paths shown.</p>${assetGuides}</section>` : ""}
     ${l.readings && l.readings.length ? `
     <div class="readings">
       <h2 style="margin-top:0">${ico("book")} THE MORTAL LIBRARY</h2>
@@ -191,6 +206,7 @@ export function showCodeBook() {
       if (!lessonDone(l)) continue;
       scratch.innerHTML = l.body || "";
       const blocks = [...scratch.querySelectorAll("pre")].map((p) => p.textContent.trim()).filter(Boolean);
+      blocks.push(...(l.artifactSteps || []).map((step) => step.content || "").filter(Boolean));
       lessons.push({ title: l.title, blocks });
     }
     if (lessons.length) ops.push({ sec, lessons });

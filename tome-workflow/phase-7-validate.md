@@ -7,6 +7,8 @@ contracts, and installed-loader assembly; respond to its exact findings instead 
 manually reproducing those checks.
 It also repeats Phase 3 authored-completion, the final cross-section quality window, and
 every continuity handoff after your repairs; those invariants may not regress in a later phase.
+For proof-v1 it also reruns the ship-lifecycle proof matrix, the exact Phase-1 acceptance
+scenarios, and any clean-environment package/build/launch gate. A prose receipt is not a substitute.
 
 Then perform the judgments code cannot prove:
 
@@ -18,6 +20,7 @@ Then perform the judgments code cannot prove:
 - external-tool courses teach the novice operating loop and final delivery;
 - the clean-start path works literally from setup through the promised result.
 
-Fix findings narrowly and preserve unrelated arrays and ids. Finally smoke-test the live
-tome: boot, one lesson, one code lab, and the freestyle grader. Produce a playable tome
-with a clean strict validator report.
+Fix findings narrowly and preserve unrelated arrays and ids. Finally run the deterministic
+live gate `python3 tools/smoke_tome.py <tome-id>`; it checks boot/loader assembly, one lesson,
+one reference code lab, and the freestyle grader's real `done` lifecycle without spending
+grader-model tokens. Repair it to exit 0. Produce a playable tome with both gates clean.

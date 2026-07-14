@@ -83,7 +83,8 @@ def check_exercise(ex, label, seen_ex):
         elif not has_re:
             err(label, f"write {eid!r}: needs a non-empty expect or an expectRe")
     if t != "type" and not str(ex.get("hint", "")).strip():
-        warn(label, f"exercise {eid!r}: no hint (every exercise should have an exercise-specific one)")
+        warn(label, f"exercise {eid!r}: no hint (every exercise should have an exercise-specific one)",
+             phase=3)
 
 
 def check_freestyle(fs, slabel):
@@ -98,7 +99,8 @@ def check_freestyle(fs, slabel):
         err(slabel, "[freestyle] reward must be a positive number — the engine pays "
                     "freestyle.reward raw, so a missing one credits NaN")
     if not str(fs.get("xray", "")).strip():
-        warn(slabel, "[freestyle] xray is missing — the scrying-lens consumable would reveal nothing")
+        warn(slabel, "[freestyle] xray is missing — the scrying-lens consumable would reveal nothing",
+             phase=3)
     badge = fs.get("badge")
     if isinstance(badge, dict) and not str(badge.get("id", "")).strip():
         err(slabel, "[freestyle.badge] present but missing id")
@@ -136,11 +138,11 @@ def check_section(sdata, sid, slabel, seen_ex, seen_les):
     if is_shouting_title(title):
         warn("content", f"{slabel}: section title {title!r} is ALL CAPS — chapter names are "
              "Title Case (one capital per word, acronyms excepted); all-caps styling belongs "
-             "to the codename, not the title")
+             "to the codename, not the title", phase=3)
     check_freestyle(sdata.get("freestyle"), slabel)
     lessons = sdata.get("lessons", [])
     if not isinstance(lessons, list) or not lessons:
-        warn(slabel, "section has no [[lessons]]")
+        warn(slabel, "section has no [[lessons]]", phase=3)
     for les in lessons:
         if not isinstance(les, dict):
             err(slabel, "[[lessons]] entries must be tables")
@@ -161,7 +163,8 @@ def check_section(sdata, sid, slabel, seen_ex, seen_les):
         lesson_title = str(les.get("title", ""))
         if is_shouting_title(lesson_title):
             warn("content", f"{slabel}: lesson {lid!r} title {lesson_title!r} is ALL CAPS — lesson "
-                 "names follow the same Title Case convention as chapter names (acronyms excepted)")
+                 "names follow the same Title Case convention as chapter names (acronyms excepted)",
+                 phase=3)
         if not str(les.get("body", "")).strip():
             hint = " — found `desc`; the engine reads `body`" if str(les.get("desc", "")).strip() else ""
             err(slabel, f"lesson {lid!r}: missing body (the lesson's HTML teaching text){hint}")
@@ -178,10 +181,10 @@ def check_section(sdata, sid, slabel, seen_ex, seen_les):
 
 
 def check_anti_template(sections_data):
-    """Tome-wide WARNs for the two §3 anti-template rules structure checks miss:
+    """Tome-wide Phase-3 findings for the anti-template rules structure checks miss:
     the machine-generated grid (every section the same shape) and mc answers
-    stuck on one index. WARN, never ERROR — both are judgement calls, but they're
-    the failures AI authors ship most, so name them mechanically."""
+    stuck on one index. Direct library calls report WARN; the harness promotes them
+    to ERROR at the Phase-3 owner gate so patterns cannot spread into later batches."""
     mc_answers = []
     shapes = []  # (lesson_count, tuple(exercise_counts)) per section
     lesson_types = []  # sorted type-tuple per lesson — catches "one of each type, every lesson"
@@ -216,7 +219,7 @@ def check_anti_template(sections_data):
         if n > 3:
             warn("anti-template", f"{k}: one string is reused {n}× of {len(vals)} "
                  f"({len(set(vals))} distinct) — {k} must be exercise-specific (§3), not a "
-                 f"canned per-type sentence. Offender: {top[:60]!r}")
+                 f"canned per-type sentence. Offender: {top[:60]!r}", phase=3)
     # mc answer spread across 0–3. Catch three flavors, most-specific first: all one
     # index; a 4-choice bank that never lands on some index (the "only 1 & 2" case);
     # any bank clustered on <3 distinct indices.
@@ -225,15 +228,15 @@ def check_anti_template(sections_data):
     if len(idxs) >= 4 and len(set(idxs)) == 1:
         warn("anti-template", f"all {len(idxs)} mc answers are index {idxs[0]} — spread "
              "correct answers across positions 0–3 (§3); a fixed index is guessable "
-             "and reads as machine-authored")
+             "and reads as machine-authored", phase=3)
     elif len(four) >= 8 and (set(range(4)) - set(four)):
         miss = sorted(set(range(4)) - set(four))
         warn("anti-template", f"mc answers never land on index {miss} across {len(four)} "
              f"four-choice questions (they cluster on {sorted(set(four))}) — spread correct "
-             "answers evenly across 0–3 (§3), don't over-correct to the middle")
+             "answers evenly across 0–3 (§3), don't over-correct to the middle", phase=3)
     elif len(idxs) >= 8 and len(set(idxs)) < 3:
         warn("anti-template", f"mc answers cluster on only {sorted(set(idxs))} — spread "
-             "correct answers across positions 0–3 (§3)")
+             "correct answers across positions 0–3 (§3)", phase=3)
     # every index used, but not comparably: a bank where one position carries <10%
     # of the answers is still guessable-by-elimination and reads machine-authored
     # (§3 says 0-3 must each be used "a comparable number of times").
@@ -244,19 +247,19 @@ def check_anti_template(sections_data):
             share = {i: counts[i] for i in range(4)}
             warn("anti-template", f"mc answer index(es) {starved} carry under 10% of {len(four)} "
                  f"four-choice answers (spread: {share}) — rebalance so 0–3 are each used a "
-                 "comparable number of times (§3)")
+                 "comparable number of times (§3)", phase=3)
     if len(shapes) >= 3 and len(set(shapes)) == 1:
         lc, ec = shapes[0]
         warn("anti-template", f"every section has the same shape ({lc} lessons, exercise counts "
              f"{list(ec)}) — vary lesson counts (3–8) and exercise counts (4–6) by material (§3); "
-             "a uniform grid reads as machine-generated")
+             "a uniform grid reads as machine-generated", phase=3)
     # even when section shapes differ, every lesson carrying the identical type mix
     # (e.g. exactly one of each of mc/text/fill/type/write) is a machine tell the
     # section-level shape check misses.
     if len(lesson_types) >= 4 and len(set(lesson_types)) == 1:
         warn("anti-template", f"all {len(lesson_types)} lessons have the identical exercise-type "
              f"mix {list(lesson_types[0])} — vary the mix and order per lesson (§3), not one of "
-             "each type every time")
+             "each type every time", phase=3)
 
 
 def _visible_words(html):
@@ -321,7 +324,11 @@ def check_density(sections_data):
     wip = any("TODO" in str(les.get("body", ""))
               for sd in sections_data
               for les in (sd.get("lessons") or []) if isinstance(les, dict))
-    report = warn if wip else err
+    def report(label, message):
+        if wip:
+            warn(label, message, phase=3)
+        else:
+            err(label, message)
     tag = "density (WIP → ERROR once TODOs cleared)" if wip else "density"
     rubric_sigs = []
     for sd in sections_data:
@@ -349,24 +356,12 @@ def check_density(sections_data):
                "section's build (§3), not one canned rubric cloned across the tome")
 
 
-def check_content(m, sections_data, label, tooling=None):
+def check_content(m, sections_data, label, tooling=None, include_manifest=True):
     """Content-quality gates the structural checks miss. These are the floors a
     harness run erodes first, because until now nothing failed for them: prose
     depth, field-notes, narrative line counts, toolchain setup, naming drift.
     Language-neutral proxies only — no keyword matching, so non-English tomes
-    aren't penalized. WARNs here are hard gates per tome-workflow phase 7."""
-    nar = m.get("narrative", {}) or {}
-    nboot = len(nar.get("bootLines", []) or [])
-    ngrade = len(nar.get("gradingLines", []) or [])
-    if not 8 <= nboot <= 12:
-        warn("content", f"[narrative] bootLines has {nboot} line(s) — spec wants 8–12 "
-             "(establish the fiction, the mentor, and the commission)")
-    if not 6 <= ngrade <= 8:
-        warn("content", f"[narrative] gradingLines has {ngrade} line(s) — spec wants 6–8 in-character lines")
-    if not str(nar.get("completeText", "")).strip():
-        warn("content", "[narrative] completeText is missing — the course-complete screen falls "
-             "back to generic engine text instead of this tome's voice at its biggest moment")
-
+    aren't penalized. These warnings are owned and hard-gated by Phase 3."""
     lessons = [les for sd in sections_data
                for les in (sd.get("lessons") or []) if isinstance(les, dict)]
     if lessons:
@@ -375,12 +370,13 @@ def check_content(m, sections_data, label, tooling=None):
         fn = sum(1 for les in lessons if "field-notes" in str(les.get("body", "")))
         if fn / len(lessons) < 0.5:
             warn("content", f"only {fn} of {len(lessons)} lessons carry a FIELD NOTES appendix — "
-                 "§3 strongly recommends one on every lesson (the deeper-cut channel)")
+                 "§3 strongly recommends one on every lesson (the deeper-cut channel)", phase=3)
         words = sorted(_visible_words(les.get("body")) for les in lessons)
         median = words[len(words) // 2]
         if median < 300:
             warn("content", f"median lesson body is {median} words — §3 wants 300–600 per "
-                 "lesson; the per-lesson floor only catches stubs, this catches systematic thinness")
+                 "lesson; the per-lesson floor only catches stubs, this catches systematic thinness",
+                 phase=3)
 
         # Readings are otherwise optional (quality/count is a judgement call), but a
         # lesson with ZERO is a student left with no anchor doc — this tends to
@@ -392,7 +388,7 @@ def check_content(m, sections_data, label, tooling=None):
             warn("content", f"{len(no_reading)} of {len(lessons)} lesson(s) have zero "
                  f"[[lessons.readings]]: {no_reading[:12]}{'…' if len(no_reading) > 12 else ''} "
                  "— every lesson should link at least one reading, even if just one; "
-                 "check the later/denser sections aren't where coverage thins out")
+                 "check the later/denser sections aren't where coverage thins out", phase=3)
 
         # essential = true means "the course itself cannot fully teach this concept" —
         # rare by definition. A high ratio is quota-filling (a past Binder run flagged
@@ -404,21 +400,17 @@ def check_content(m, sections_data, label, tooling=None):
             warn("anti-template", f"{ess} of {len(lessons)} lessons flag an essential reading — "
                  "essential means the course itself cannot fully teach that concept, so it is "
                  "rare; flagging one per lesson is quota-filling. Unflag all but the few readings "
-                 "a student genuinely must study externally to proceed")
+                 "a student genuinely must study externally to proceed", phase=3)
 
     # §5 + the Phase-0 gate's Tooling choice. Kept in its own helper so the Phase-2
     # skeleton mode can enforce it without running Phase-3 prose/density checks.
+    if not include_manifest:
+        return
     check_tooling_contract(m, sections_data, label, tooling)
-    rt = m.get("runtime", {}) or {}
-    if rt.get("externalWorkspace") is True and not str(rt.get("projectFile", "")).strip():
-        warn("content", "[runtime] externalWorkspace = true but no projectFile — the workbench's "
-             "required-files panel falls back to the language default (e.g. a lone Main.java), "
-             "misdescribing the real project; name its true build file (e.g. \"build.gradle\")")
 
-    # §6 step 1, "one name, one spelling": the machine id is the kebab-case of the
-    # project name — a word boundary (camelCase or a space) becomes a hyphen, so
-    # ManaWeaver → mana-weaver. (meta.name is the tome-card title and may legitimately
-    # differ — verisearch's card reads "The Liber Veritatis" — runtime.project anchors.)
+    # The harness deterministically renames the folder and meta.id from runtime.project
+    # between Phases 2 and 3.  Check the resulting invariant once that rename has occurred.
+    rt = m.get("runtime", {}) or {}
     project = str(rt.get("project", "")).strip()
     tome_id = str((m.get("meta", {}) or {}).get("id", ""))
     if project:
@@ -428,4 +420,4 @@ def check_content(m, sections_data, label, tooling=None):
             warn("content", f"tome id {tome_id!r} is not the kebab-case of the project name "
                  f"{project!r} (→ {norm!r}) — §6: one name, one spelling, and never the "
                  "requester's phrasing; every derived form (id, caps branding, packages) "
-                 "uses the same letters")
+                 "uses the same letters", phase=3)

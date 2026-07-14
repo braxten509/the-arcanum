@@ -9,7 +9,7 @@ import os
 from . import REPO
 from .measure import (inventory, runtime_config_scope_violations,
                       selected_runtime_config, shrink_marks, shrinkage, validate,
-                      validate_phase3, validate_shipping)
+                      validate_live_smoke, validate_phase3, validate_shipping)
 from .sections import section_ids
 from .validation_env import (ValidationEnvironmentError, declared_dependencies,
                              ensure_validation_environment)
@@ -49,6 +49,10 @@ def evaluate_content_gate(tid, num, tooling, plan_rel, pre, marks, shrink_path,
         ok, report = validate_phase3(tid, tooling, plan_rel, section_ids(tid))
     elif num >= 7:
         ok, report = validate_shipping(tid, tooling, plan_rel)
+        if ok and num == 7:
+            smoke_ok, smoke_report = validate_live_smoke(tid)
+            report = "\n".join(part for part in (report, smoke_report) if part)
+            ok = smoke_ok
     else:
-        ok, report = validate(tid, phase=num, tooling=tooling)
+        ok, report = validate(tid, phase=num, tooling=tooling, plan_rel=plan_rel)
     return ok, report, problems, None

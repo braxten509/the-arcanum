@@ -11,6 +11,7 @@ from .validation_env import validation_subprocess_env
 
 RUNTIME_CONFIG_DIR = os.path.join(REPO, "global-configs", "runtimes")
 PHASE3_VALIDATOR = os.path.join(REPO, "tools", "validate_phase3.py")
+LIVE_SMOKE = os.path.join(REPO, "tools", "smoke_tome.py")
 
 
 def validator_argv(tid, phase=None, tooling=None, run=None, strict=None, plan_rel=None,
@@ -30,6 +31,10 @@ def validator_argv(tid, phase=None, tooling=None, run=None, strict=None, plan_re
 
     if phase == 2:
         cmd.append("--phase-2-skeleton")
+    if phase is not None and phase >= 2:
+        cmd += ["--build-phase", str(phase)]
+    if phase is not None and phase >= 2 and os.environ.get("ARCANUM_REQUIRE_PROOF_V1") == "1":
+        cmd.append("--require-proof-v1")
     strict = (phase is not None and phase >= 7) if strict is None else strict
     run = (phase != 2) if run is None else run
     if strict:
@@ -40,6 +45,8 @@ def validator_argv(tid, phase=None, tooling=None, run=None, strict=None, plan_re
         cmd += ["--tooling", tooling]  # enforce the gate's internal/external/both choice
     if run_section:
         cmd += ["--run-section", str(run_section)]
+    if plan_rel and phase is not None and phase >= 2:
+        cmd += ["--build-plan", plan_rel]
     return cmd
 
 
@@ -139,6 +146,14 @@ def validate_shipping(tid, tooling, plan_rel):
     cmd = phase3_validator_argv(tid, tooling, plan_rel, strict=True)
     process = subprocess.run(cmd, cwd=REPO, env=validation_subprocess_env(tid),
                              capture_output=True, text=True)
+    return process.returncode == 0, (process.stdout + process.stderr).strip()
+
+
+def validate_live_smoke(tid):
+    """Exercise loader, runtime, and grader-status routes after strict validation."""
+    process = subprocess.run(
+        ["python3", os.path.relpath(LIVE_SMOKE, REPO), tid], cwd=REPO,
+        env=validation_subprocess_env(tid), capture_output=True, text=True)
     return process.returncode == 0, (process.stdout + process.stderr).strip()
 
 

@@ -111,6 +111,10 @@ def _render_section(spec, number):
                         f"requires = [{json.dumps(capability)}]", 1)
     text = text.replace('teaches = ["replace-me"]',
                         f"teaches = [{json.dumps(capability)}]", 1)
+    text = text.replace('[[lessons.concepts]]                # one complete first-use proof for every `teaches` id\n'
+                        'id = "replace-me"',
+                        '[[lessons.concepts]]                # one complete first-use proof for every `teaches` id\n'
+                        f'id = {json.dumps(capability)}', 1)
     text = text.replace('title = "TODO: lesson title"',
                         f"title = {json.dumps('TODO: Phase 3 lesson — ' + spec.title, ensure_ascii=False)}",
                         1)

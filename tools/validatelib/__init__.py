@@ -9,6 +9,7 @@
 - depth      taught-before-used, verbatim prose, economy totals, static pre-solved tell,
              identifier-spelling drift, self-answering questions
 - execute    the --run checks: snippet compilation, starter build/run/pre-solved
+- proof      proof-v1 structured teaching, cumulative artifact replay, sources/assets
 Shared constants, the findings registry (err/warn), and small helpers live here."""
 import os
 import re
@@ -56,14 +57,27 @@ ID_RE = re.compile(r"[A-Za-z0-9_-]+")
 PLACEHOLDER_RE = re.compile(r"\bTODO\b|\bFIXME\b|(?i:lorem ipsum)")
 
 _findings = []  # (level, file_label, msg)
+_build_phase = None
 
 
 def err(label, msg):
     _findings.append(("ERROR", label, msg))
 
 
-def warn(label, msg):
-    _findings.append(("WARN", label, msg))
+def set_build_phase(phase=None):
+    """Select the phase whose authored obligations must already be complete.
+
+    Direct validator-library callers keep the historical WARN behavior.  The tome
+    harness supplies a phase, so a warning owned by that phase (or an earlier one)
+    becomes an ERROR immediately instead of accumulating as Phase-7 cleanup debt.
+    """
+    global _build_phase
+    _build_phase = int(phase) if phase is not None else None
+
+
+def warn(label, msg, *, phase=7):
+    owned = label != "advisory" and _build_phase is not None and phase <= _build_phase
+    _findings.append(("ERROR" if owned else "WARN", label, msg))
 
 
 def rel(path):

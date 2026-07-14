@@ -23,7 +23,7 @@ def _unescape(s):
     return s.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
 
 
-def check_capability_ledger(m, sections_data):
+def check_capability_ledger(m, sections_data, course_complete=True):
     """Machine-check the cumulative lesson -> capstone coverage contract.
 
     New scaffolds opt in with [content].capabilityLedger = true. Older installed
@@ -106,7 +106,8 @@ def check_capability_ledger(m, sections_data):
             report("coverage", "externalWorkspace capability ledger: the first section does not teach "
                    f"{', '.join(missing)} — a beginner needs install, create/open, navigation, "
                    "edit/save, run/test, and diagnostics before domain work")
-        if "tool-deliver" not in taught or "tool-deliver" not in final_requires:
+        if (course_complete
+                and ("tool-deliver" not in taught or "tool-deliver" not in final_requires)):
             report("coverage", "externalWorkspace capability ledger: the final section must teach AND "
                    "require `tool-deliver` — package/export/apply and verify the finished artifact in "
                    "the real target, outside the authoring surface when applicable")
@@ -174,5 +175,5 @@ def check_canonical_type_regressions(m, sections_data):
                              f"member(s) taught in {prior_lid}: {shown}. Show a complete cumulative "
                              "replacement, or remove the class wrapper and present exact member-only "
                              "edits with an insertion point; beginners treat a class wrapper as the "
-                             "whole file")
+                             "whole file", phase=3)
                 latest[name] = (members, lid)

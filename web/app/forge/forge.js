@@ -95,7 +95,7 @@ async function approveToolingConflict(working, required) {
     const response = await fetch("/api/buildtome/resume", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: working.id, tooling: required, fromPhase: 1,
-        runners, bindery, sectionsSplit: !!working.sectionsSplit }),
+        runners, bindery }),
     });
     const data = await response.json();
     if (!data.ok) throw new Error(data.error || "the bindery did not accept the change");
@@ -157,8 +157,7 @@ function showForgeModal(resume) {
         <select id="fg-writer-model" class="cfg-select" style="flex:1 1 auto;min-width:0" disabled><option value="">—</option></select>
         <select id="fg-writer-eff" class="cfg-select" style="flex:0 0 auto;width:104px" disabled><option value="">—</option></select>
       </div></div>
-    <div class="forge-field">${fhead('THE SECTIONS HAND <span style="font-weight:400;font-style:italic;letter-spacing:0">— phase 3 only</span>', "Sections is the biggest, most cache-heavy and output-heavy phase. It writes all teaching prose, examples, exercises, and cumulative project changes, so premium flagships are gray when a cheaper frontier author meets the same bar. Recommendations still assume the model may have to own the phase unsplit; splitting does not make a subagent-class model dependable. This hand overrides the Writer for phase 3.")}
-      <label class="forge-split-toggle"><input type="checkbox" id="fg-split"> split by section</label>
+    <div class="forge-field">${fhead('THE SECTIONS HAND <span style="font-weight:400;font-style:italic;letter-spacing:0">— phase 3 only</span>', "Sections is the biggest, most cache-heavy and output-heavy phase. It writes all teaching prose, examples, exercises, and cumulative project changes, so premium flagships are gray when a cheaper frontier author meets the same bar. This hand overrides the Writer for phase 3.")}
       <div class="forge-ai-row">
         <select id="fg-sec-prov" class="cfg-select" style="flex:0 0 auto;width:172px"><option value="">PICK A MODEL</option></select>
         <select id="fg-sec-model" class="cfg-select" style="flex:1 1 auto;min-width:0" disabled><option value="">—</option></select>
@@ -295,8 +294,7 @@ function showForgeModal(resume) {
   let restoring = false;
   const persist = () => {
     if (restoring) return;
-    const snap = { split: $("#fg-split", root).checked,
-                   quality: qual.value, configure: conf.checked };
+    const snap = { quality: qual.value, configure: conf.checked };
     for (const [n, k] of Object.entries(K)) snap[n] = { prov: k.prov.value, model: k.model.value, eff: k.eff.value };
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(snap)); } catch (e) { /* private mode */ }
   };
@@ -330,7 +328,6 @@ function showForgeModal(resume) {
     applyPick(K.drafter, ph.default);
     applyPick(K.writer, ph["1"]);                      // "1" and "4" share the writer knob
     applyPick(K.reviewer, ph["8"]);
-    $("#fg-split", root).checked = !!t.split;
     applyPick(K.sec, ph["3"]);
     paintTier();
     restoring = false; persist();
@@ -390,7 +387,6 @@ function showForgeModal(resume) {
         const provider = BINDERY.find((p) => (p.models || []).some((m) => m[0] === saved.sections));
         if (provider) restoreKnob(K.sec, { prov: provider.id, model: saved.sections });
       }
-      if (saved.split) $("#fg-split", root).checked = true;
     }
     restoring = false;
     syncPurse();
@@ -399,8 +395,6 @@ function showForgeModal(resume) {
   }).catch(() => { setLoading(false); syncBegin(); toast("Could not reach the bindery's model list — is the server up?", "bad"); });
   for (const k of Object.values(K)) [k.prov, k.model, k.eff].forEach(enhanceSelect);
   for (const k of Object.values(K)) [k.prov, k.model, k.eff].forEach((s) => s.addEventListener("change", persist));
-  const splitBox = $("#fg-split", root);
-  splitBox.addEventListener("change", persist);
   qual.addEventListener("input", () => { if (!conf.checked) applyTier(); });
   conf.addEventListener("change", syncPurse);
   const readKnob = (k) => {
@@ -444,17 +438,16 @@ function showForgeModal(resume) {
       runners["4"] = picks.writer;
       runners["3"] = picks.sections;
       runners["8"] = picks.reviewer;
-      const splitOn = $("#fg-split", root).checked;
       // snapshot the picks so a future resume of this tome can pre-fill them (same shape as
       // the localStorage restore path); the server stores it in the build's launch.json.
-      const snap = { split: splitOn, quality: qual.value, configure: conf.checked };
+      const snap = { quality: qual.value, configure: conf.checked };
       for (const [n, k] of Object.entries(K)) snap[n] = { prov: k.prov.value, model: k.model.value, eff: k.eff.value };
       const fromPhase = resume ? parseInt(($("#fg-fromphase", root) || {}).value || "0", 10) : 0;
       const payload = resume
-        ? { id: resume.id, runners, sectionsSplit: splitOn, bindery: snap, fromPhase }
+        ? { id: resume.id, runners, bindery: snap, fromPhase }
         : { concept, prior_knowledge: $("#fg-prior", root).value.trim(), prior_level: priorLvl.value,
             depth: depth.value, breadth: breadth.value, mastery: mastery.value,
-            tooling, runners, sectionsSplit: splitOn, bindery: snap };
+            tooling, runners, bindery: snap };
       const r = await fetch(resume ? "/api/buildtome/resume" : "/api/buildtome", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

@@ -14,11 +14,13 @@ import tomllib
 from . import BUILD_DIR, REPO, retries_for
 from .continuity import (continuity_prompt, prepare_handoff, reset_handoffs,
                          validate_handoff)
-from .liveness import preflight_runners, run_agent
+from .behavior_contract import prompt as behavior_contract_prompt
+from .liveness import preflight_recovery_runner, run_agent
 from .measure import (blocking_report, section_validator_shell_command,
-                      section_window_validator_shell_command, validate_section)
+                      section_window_validator_shell_command, validate_section,
+                      validate_section_window)
 from .prompts import build_prompt, read_tooling
-from .runners import _implicit_fallback, request_runner
+from .runners import _implicit_fallback
 from .agent_runtime import scoped_runner_command
 from .workflow import support_prompt
 from .validation_env import validation_subprocess_env
@@ -102,8 +104,9 @@ def prepare_whole_tome_warm_worker(tid, plan_rel, tooling, resume=False,
 
     The provider process remains alive for the entire phase. It authors one section,
     runs the same fast gate used by split workers, repairs it, and only then advances.
-    Every few sections a prefix-only continuity/anti-template gate stops a bad pattern
-    from propagating. Exact writable handoff/progress sidecars are returned for bwrap.
+    Every few sections a prefix-only Phase-3 quality gate stops thinness, missing
+    readings, broken continuity, and templated patterns from propagating. Exact writable
+    handoff/progress sidecars are returned for bwrap.
     """
     ids = section_ids(tid)
     if not ids:
@@ -164,6 +167,7 @@ def prepare_whole_tome_warm_worker(tid, plan_rel, tooling, resume=False,
             f"If its gate fails: {repairing}",
             f"Section code gate — executes this section's snippets/write labs; fix every ERROR "
             f"and rerun until exit 0: {gate}",
+            behavior_contract_prompt(tid, sid),
         ]
         if index % checkpoint_size == 0 or index == len(ids):
             window = section_window_validator_shell_command(tid, sid, plan_rel)
@@ -221,9 +225,8 @@ def wipe_sections(tid):
     return n
 
 
-def _author_batch(chain, ri, prompt, batch_ids, num, cfg, overrides,
-                  ping, dead, cap, ask_on_death, interactive, tome_id, batch_root,
-                  writable_paths, preflighted):
+def _author_batch(chain, ri, prompt, batch_ids, cfg, overrides,
+                  ping, dead, cap, batch_root, writable_paths, preflighted):
     """Run one warm batch with liveness and provider fallback.
 
     A replacement provider resumes the same bounded batch from its per-section disk
@@ -241,24 +244,20 @@ def _author_batch(chain, ri, prompt, batch_ids, num, cfg, overrides,
         # elsewhere in the read-only repository.
         worker_env["PYTHONDONTWRITEBYTECODE"] = "1"
         scoped = scoped_runner_command(name, cmd, batch_root, writable_paths, REPO)
-        # A runner selected after a death (human choice or implicit default) was not present
-        # during the build's initial census. Never let it start authoring without Phase 0.
-        if tuple(cmd) not in preflighted:
-            preflight_runners([(name, scoped, im)])
-            preflighted.add(tuple(cmd))
-        rc = run_agent(scoped, im, prompt, ping, dead, cap,
-                       cwd=batch_root, env=worker_env)
+        # A recovery runner selected after a death may not have been present during the
+        # build's initial census. Never let it start authoring without Phase 0.
+        if not preflight_recovery_runner(name, cmd, scoped, im, preflighted):
+            rc = 125
+        else:
+            rc = run_agent(scoped, im, prompt, ping, dead, cap,
+                           cwd=batch_root, env=worker_env)
         if rc == 0:
             return ri, True
         reason = "hung/timeout" if rc == 124 else f"exit {rc}"
         print(f"  ! warm batch {label}: runner {name} exited {rc}"
               + (" (hung/timeout)" if rc == 124 else ""))
         nxt = chain[ri + 1] if ri + 1 < len(chain) else None
-        if nxt is None and (ask_on_death or interactive):
-            nxt, _ = request_runner(tome_id, num, name, reason, interactive)
-            if nxt is not None:
-                chain.append(nxt)
-        elif nxt is None:
+        if nxt is None:
             imp = _implicit_fallback(cfg, overrides, chain[ri])
             if imp and imp[0][1] not in [c[1] for c in chain]:
                 chain.append(imp[0])
@@ -298,7 +297,7 @@ def _mark_section_done(tid, sid):
 
 
 def author_sections_split(tid, num, title, chain, refs, cfg, overrides,
-                          ping, dead, cap, ask_on_death, interactive, tome_id, resume=False,
+                          ping, dead, cap, resume=False,
                           preflighted=None, batch_size=SECTION_BATCH_SIZE):
     """Author Arc-ordered sections in bounded warm batches.
 
@@ -342,6 +341,8 @@ def author_sections_split(tid, num, title, chain, refs, cfg, overrides,
         if not pending:
             continue
 
+        batch_pending = list(pending)
+        window_through = batch[-1]
         attempts = 0
         reports = {}
         while pending:
@@ -356,7 +357,10 @@ def author_sections_split(tid, num, title, chain, refs, cfg, overrides,
 
             checks = [section_validator_shell_command(tid, sid, tooling, plan_rel)
                       for sid in pending]
-            combined_check = " && ".join(f"({command})" for command in checks)
+            window_check = section_window_validator_shell_command(
+                tid, window_through, plan_rel)
+            combined_check = " && ".join(
+                [*(f"({command})" for command in checks), f"({window_check})"])
             focus = (f"\n\n===== WARM SECTION BATCH {batch_number} OF {len(batches)} =====\n"
                      f"You own exactly these sections, in this order: {', '.join(pending)}. "
                      "Complete ONE section at a time. For each: preserve any fully correct work "
@@ -387,6 +391,15 @@ def author_sections_split(tid, num, title, chain, refs, cfg, overrides,
                           "Warm-context code gate (executes this section's snippets/write labs; "
                           f"must exit 0 before the next section):\n  {check}\n")
                 continuity_blocks.append(continuity_prompt(tid, sid, ids, plan_path))
+                continuity_blocks.append(behavior_contract_prompt(tid, sid))
+
+            focus += (f"\n--- CUMULATIVE QUALITY WINDOW THROUGH {window_through} ---\n"
+                      "After every individual section gate is clean, run this before declaring "
+                      "the batch complete. It checks the completed prefix for thin prose, missing "
+                      "readings, cloned patterns, broken interleaving, pre-solved labs, name drift, "
+                      "self-answering questions, capability coverage, and continuity. Every finding "
+                      "is blocking; repair this batch and rerun all affected gates before moving on.\n"
+                      f"  {window_check}\n")
 
             writable = [os.path.join(tome_root, "sections", sid) for sid in pending]
             writable += [handoffs[sid] for sid in pending]
@@ -402,7 +415,12 @@ def author_sections_split(tid, num, title, chain, refs, cfg, overrides,
             if reports:
                 repair = "\n\n===== BATCH GATES STILL FAIL =====\n"
                 for sid in pending:
-                    repair += f"\n--- {sid} blockers ---\n{blocking_report(reports.get(sid, ''))}\n"
+                    if reports.get(sid):
+                        repair += (f"\n--- {sid} blockers ---\n"
+                                   f"{blocking_report(reports[sid], strict=True)}\n")
+                if reports.get("quality-window"):
+                    repair += ("\n--- cumulative quality-window blockers ---\n"
+                               f"{reports['quality-window']}\n")
             prompt = (build_prompt(
                 tid, num, title, worker_body, plan_rel, verdict_rel, findings_rel,
                 tooling=tooling, validation_run=False, repair_only=bool(reports),
@@ -410,10 +428,12 @@ def author_sections_split(tid, num, title, chain, refs, cfg, overrides,
                 + focus + "".join(continuity_blocks) + boundary + repair)
 
             ri, ok = _author_batch(
-                chain, ri, prompt, pending, num, cfg, overrides, ping, dead, cap,
-                ask_on_death, interactive, tome_id, tome_root, writable, preflighted)
+                chain, ri, prompt, pending, cfg, overrides, ping, dead, cap,
+                tome_root, writable, preflighted)
             if not ok:
-                break
+                raise SystemExit(
+                    f"Phase 3 batch {batch_number}/{len(batches)} exhausted every autonomous "
+                    f"runner while authoring {', '.join(pending)}; later batches were not started")
 
             failed, reports = [], {}
             for sid in pending:
@@ -421,24 +441,42 @@ def author_sections_split(tid, num, title, chain, refs, cfg, overrides,
                 write_section_progress(tid, sid, i + 1, len(ids), "validating",
                                        batch_number, len(batches))
                 clean, report = validate_section(tid, sid, tooling, plan_rel)
-                if clean:
-                    _mark_section_done(tid, sid)
-                    write_section_progress(tid, sid, i + 1, len(ids), "complete",
-                                           batch_number, len(batches))
-                    print(f"    ok section {sid}: checkpointed")
-                else:
+                if not clean:
                     write_section_progress(tid, sid, i + 1, len(ids), "repairing",
                                            batch_number, len(batches))
                     failed.append(sid)
                     reports[sid] = report
+                else:
+                    print(f"    · section {sid}: individual gate clean; awaiting batch window")
+            if not failed:
+                window_clean, window_report = validate_section_window(
+                    tid, window_through, plan_rel)
+                if not window_clean:
+                    failed = list(pending)
+                    reports["quality-window"] = window_report
+            if not failed:
+                for sid in pending:
+                    i = positions[sid]
+                    _mark_section_done(tid, sid)
+                    write_section_progress(tid, sid, i + 1, len(ids), "complete",
+                                           batch_number, len(batches))
+                    print(f"    ok section {sid}: checkpointed after cumulative window")
             if not failed:
                 break
             attempts += 1
             if attempts > retries_for(chain[ri][0]):
-                print(f"    ! warm batch {', '.join(failed)}: validator still fails after "
-                      f"{attempts} repair attempt(s); leaving it uncheckpointed for recovery")
-                break
+                if ri + 1 < len(chain):
+                    ri += 1
+                    attempts = 0
+                    pending = list(batch_pending)
+                    print(f"    ⇒ warm batch repair budget spent — escalating to {chain[ri][0]}")
+                    continue
+                print(f"    ! warm batch {', '.join(failed)} exhausted every autonomous hand")
+                raise SystemExit(
+                    f"Phase 3 batch {batch_number}/{len(batches)} still fails validation for "
+                    f"{', '.join(failed)} after every autonomous repair hand; later batches "
+                    "were not started")
             print(f"    x warm batch gates failed for {', '.join(failed)} -> focused repair "
                   f"(attempt {attempts + 1})")
-            pending = failed
+            pending = list(batch_pending)
     return ri

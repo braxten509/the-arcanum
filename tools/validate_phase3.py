@@ -33,7 +33,8 @@ def main():
     tome_path = os.path.abspath(args.tome.rstrip(os.sep))
     tid = os.path.basename(tome_path)
     base_clean = _run(validator_argv(
-        tid, phase=7 if args.strict else 3, tooling=args.tooling, run=args.run))
+        tid, phase=7 if args.strict else 3, tooling=args.tooling, run=args.run,
+        plan_rel=os.path.relpath(os.path.abspath(args.plan), REPO)))
 
     completion = tome_completion_problems(tome_path)
     for problem in completion:

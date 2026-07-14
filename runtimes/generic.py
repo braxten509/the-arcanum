@@ -45,6 +45,11 @@ Config keys (every key is optional unless marked REQUIRED):
   validationEnv = { PATH = "{dir}/bin:{PATH}" }
                               # shared harness-only environment provisioning; these
                               # keys never alter the learner project or host runtime
+  deliveryCreateCommand = ["..."]
+  deliveryInstallCommand = ["..."]
+  deliveryBuildCommand = ["..."]
+                              # final package proof: fresh environment, exact requirements,
+                              # then real packager argv. See runtimes/delivery.py.
   snippetRunCommand = ["..."] # run a snippet after buildCommand (e.g. dotnet's
                               # --no-build). Default: command + entryFile, else runCommand
 
@@ -97,6 +102,7 @@ class CommandRuntime:
         self.scaffold_cmd = list(cfg.get("scaffoldCommand") or [])
         self.package_cmd = list(cfg.get("packageCommand") or [])
         self.validation_dependencies = list(cfg.get("validationDependencies") or [])
+        self.validation_shared_environment = bool(cfg.get("validationPackageCommand"))
         project_package = cfg.get("validationProjectPackageCommand") or []
         if not project_package and not cfg.get("validationPackageCommand"):
             project_package = self.package_cmd
@@ -252,10 +258,11 @@ class CommandRuntime:
                           "msg": (g.get("msg") or "").strip() or "error"})
         return diags
 
-    def _check_file(self, path, rel):
+    def _check_file(self, path, rel, env=None):
         """Run checkCommand on one file → list of diagnostics (empty = clean)."""
         try:
-            p = subprocess.run(_file_argv(self.check_cmd, path), capture_output=True, text=True, timeout=30)
+            p = subprocess.run(_file_argv(self.check_cmd, path), env=env,
+                               capture_output=True, text=True, timeout=30)
         except (subprocess.TimeoutExpired, OSError) as e:
             return [{"file": rel, "line": 1, "col": 1, "sev": "error", "code": "check", "msg": str(e)}]
         if p.returncode == 0:
@@ -322,6 +329,11 @@ class CommandRuntime:
         """Install tome-only packages into this validator scratch project once."""
         if not self.validation_dependencies:
             return
+        # Shared-environment ecosystems (Python venv, npm prefix, and similar) were
+        # provisioned before this runtime was entered. Installing them again into every
+        # snippet/project is both wrong and the source of the old /api/runsnippet failure.
+        if self.validation_shared_environment:
+            return
         if not self.validation_project_package_cmd:
             raise RuntimeError("validation dependencies are declared but this runtime has no "
                                "validation project package command")
@@ -345,7 +357,7 @@ class CommandRuntime:
                 raise RuntimeError((p.stdout + p.stderr)[-3000:])
         common.atomic_write(marker, wanted)
 
-    def snippet_diagnostics(self, scratch_base, code):
+    def snippet_diagnostics(self, scratch_base, code, env=None):
         can = bool(self.build_cmd or self.check_cmd)
         if not can or len(code) > SNIPPET_MAX or not self.available():
             return {"ok": can, "diags": []}
@@ -356,8 +368,8 @@ class CommandRuntime:
             if self.build_cmd:
                 common.atomic_write(os.path.join(sdir, self.entry), code)
                 try:
-                    p = subprocess.run(self.build_cmd, cwd=sdir, capture_output=True, text=True,
-                                       timeout=self.build_timeout)
+                    p = subprocess.run(self.build_cmd, cwd=sdir, env=env,
+                                       capture_output=True, text=True, timeout=self.build_timeout)
                 except (subprocess.TimeoutExpired, OSError):
                     return {"ok": False, "diags": []}
                 diags = [d for d in self._parse_diags(p.stdout + p.stderr, sdir, self.entry)
@@ -365,9 +377,9 @@ class CommandRuntime:
                 return {"ok": True, "diags": diags}
             path = os.path.join(sdir, "check-" + self.entry)
             common.atomic_write(path, code)
-            return {"ok": True, "diags": self._check_file(path, self.entry)}
+            return {"ok": True, "diags": self._check_file(path, self.entry, env=env)}
 
-    def run_snippet(self, scratch_base, code, stdin_text):
+    def run_snippet(self, scratch_base, code, stdin_text, env=None):
         if not self.available():
             return {"ok": False, "output": f"ERROR: {self._exe() or self.NAME} not found."}
         if len(code) > SNIPPET_MAX:
@@ -387,12 +399,12 @@ class CommandRuntime:
                 if self.build_cmd:
                     # build first with its own (generous) budget, so compile time never
                     # eats the execution cap — the run dies fast on an infinite loop
-                    b = subprocess.run(self.build_cmd, cwd=sdir, capture_output=True, text=True,
-                                       timeout=self.build_timeout)
+                    b = subprocess.run(self.build_cmd, cwd=sdir, env=env,
+                                       capture_output=True, text=True, timeout=self.build_timeout)
                     if b.returncode != 0:
                         out = common.join_output(b.stdout, b.stderr)
                         return {"ok": False, "output": out or "(build failed)", "exit": b.returncode}
-                p = subprocess.run(argv, cwd=sdir, input=stdin_text or "",
+                p = subprocess.run(argv, cwd=sdir, env=env, input=stdin_text or "",
                                    capture_output=True, text=True, timeout=common.SNIPPET_TIMEOUT)
             out = common.join_output(p.stdout, p.stderr)
             return {"ok": p.returncode == 0, "output": out or "(no output)", "exit": p.returncode}
@@ -402,14 +414,53 @@ class CommandRuntime:
             return {"ok": False, "output": f"(run failed to start: {e})"}
 
     # -------------------------------------------------------------- projects
-    def run_project(self, project_dir, stdin_text):
+    def verify_project(self, project_dir, env=None):
+        """Build/check a disposable project with a truthful return code and output."""
+        if not self.available():
+            return {"ok": False, "output": f"ERROR: {self._exe() or self.NAME} not found."}
+        try:
+            if self.build_cmd:
+                with common.project_lock:
+                    p = subprocess.run(self.build_cmd, cwd=project_dir, env=env,
+                                       capture_output=True, text=True,
+                                       timeout=self.build_timeout)
+                return {"ok": p.returncode == 0,
+                        "output": common.join_output(p.stdout, p.stderr)
+                                  or "(build produced no output)",
+                        "exit": p.returncode}
+            if self.check_cmd:
+                outputs = []
+                for rel, _source in self.collect_code(project_dir):
+                    if not rel.endswith(self.CODE_EXT[0]):
+                        continue
+                    path = os.path.join(project_dir, rel)
+                    p = subprocess.run(_file_argv(self.check_cmd, path), cwd=project_dir,
+                                       env=env, capture_output=True, text=True, timeout=30)
+                    if p.returncode:
+                        outputs.append(common.join_output(p.stdout, p.stderr))
+                return {"ok": not outputs,
+                        "output": "\n".join(outputs) or "(syntax/build check passed)",
+                        "exit": 1 if outputs else 0}
+            return {"ok": True, "output": "(runtime has no separate build step)", "exit": 0}
+        except subprocess.TimeoutExpired:
+            return {"ok": False, "output": "(build timed out)"}
+        except OSError as exc:
+            return {"ok": False, "output": f"(build failed to start: {exc})"}
+
+    def run_project(self, project_dir, stdin_text, args=(), env=None, timeout=None):
         if not self.available():
             return {"ok": False, "output": f"ERROR: {self._exe() or self.NAME} not found."}
         if self.run_cmd:
             argv = _sub(self.run_cmd, dir=project_dir, entry=self.entry)
         else:
             argv = _file_argv(self.cmd, self.entry)
-        return common.run_cancellable(argv, stdin_text, self.run_timeout, cwd=project_dir)
+        safe_args = []
+        for arg in args or ():
+            if not isinstance(arg, str) or any(ord(ch) < 32 for ch in arg):
+                return {"ok": False, "output": f"invalid project argument {arg!r}"}
+            safe_args.append(arg)
+        return common.run_cancellable([*argv, *safe_args], stdin_text,
+                                      timeout or self.run_timeout, cwd=project_dir, env=env)
 
     def add_package(self, project_dir, pkg):
         if not self.package_cmd:

@@ -106,12 +106,14 @@ def run():
 
     tid = "selftest-resume-xyz"
     plan = os.path.join(BUILD_DIR, f"{tid}.plan.md")
-    header = "## Gate answers\n- **Tooling:** internal\n\n" + ARC_HEADING + ARC_CONTRACT
+    header = ("## Build contract\n- **Proof contract:** 1\n\n"
+              "## Gate answers\n- **Tooling:** internal\n\n" + ARC_HEADING + ARC_CONTRACT)
     drivers = "; ".join(f"{driver} = CAN" for driver in DAILY_DRIVERS)
     values = {
         "Daily drivers": drivers,
         "Tooling fit": "internal — COMPATIBLE: every required learner action runs in-browser",
         "Continuity map": "s01 -> s02: preserve the exact forge contract",
+        "Acceptance scenarios": "launch -> complete-working",
         "Section list": ("\n1. **s01 — First Forge:** establish the project shell\n"
                          "2. **s02 — Second Forge:** deliver the finished artifact"),
     }
@@ -137,12 +139,12 @@ def run():
     with open(plan, "w", encoding="utf-8") as f:
         f.write(header + blocked)
     ok, report = arc_written(plan, plan)
-    assert not ok and "TOOLING_CONFLICT:" in report and "REQUIRED_TOOLING=both" in report
+    assert not ok and "construction cannot request a human change" in report
     invalid_blocked = blocked.replace("REQUIRED: both", "REQUIRED: internal")
     with open(plan, "w", encoding="utf-8") as f:
         f.write(header + invalid_blocked)
     ok, report = arc_written(plan, plan)
-    assert not ok and "must REQUIRE a different Tooling mode" in report
+    assert not ok and "construction cannot request a human change" in report
     with open(plan, "w", encoding="utf-8") as f:
         f.write(header + full)
     assert finalize_arc(plan) and ARC_CONTRACT not in open(plan, encoding="utf-8").read()
@@ -169,14 +171,46 @@ def run():
         specs = scaffold_sections(skeleton_tid, skeleton_plan)
         assert [spec.sid for spec in specs] == ["s01", "s02"]
         assert section_ids(skeleton_tid) == ["s01", "s02"]
+        manifest_path = os.path.join(skeleton_root, "tome.toml")
+        with open(manifest_path, encoding="utf-8") as handle:
+            manifest_text = handle.read()
+        manifest_text = manifest_text.replace(
+            'scenarios = ["replace-me", "finished-outcome"]',
+            'scenarios = ["launch", "complete-working"]', 1)
+        voice_start = manifest_text.index("bootLines = [")
+        voice_end = manifest_text.index("\n\n# --- the peddler", voice_start)
+        voice = ("bootLines = [\n" +
+                 "\n".join(f'  \"Opening voice line {index}.\",'
+                             for index in range(1, 9)) +
+                 "\n]\ngradingLines = [\n" +
+                 "\n".join(f'  \"Grading voice line {index}.\",'
+                             for index in range(1, 7)) +
+                 '\n]\ncompleteText = "The working is complete."')
+        with open(manifest_path, "w", encoding="utf-8") as handle:
+            handle.write(manifest_text[:voice_start] + voice + manifest_text[voice_end:])
         for spec in specs:
             lesson_dir = os.path.join(skeleton_root, "sections", spec.sid, "lessons")
             assert os.listdir(lesson_dir) == ["l01.toml"]
         skeleton_check = subprocess.run(
-            validator_argv(skeleton_tid, phase=2, tooling="internal"),
+            validator_argv(skeleton_tid, phase=2, tooling="internal",
+                           plan_rel=os.path.relpath(skeleton_plan, REPO)),
             cwd=REPO, capture_output=True, text=True)
         assert skeleton_check.returncode == 0, (skeleton_check.stdout, skeleton_check.stderr)
         assert "density" not in skeleton_check.stdout and "TODO/FIXME" not in skeleton_check.stdout
+        current_manifest = open(manifest_path, encoding="utf-8").read()
+        with open(manifest_path, "w", encoding="utf-8") as handle:
+            handle.write(current_manifest.replace(
+                'scenarios = ["launch", "complete-working"]',
+                'scenarios = ["launch", "different-outcome"]', 1))
+        mismatched_acceptance = subprocess.run(
+            validator_argv(skeleton_tid, phase=2, tooling="internal",
+                           plan_rel=os.path.relpath(skeleton_plan, REPO)),
+            cwd=REPO, capture_output=True, text=True)
+        assert (mismatched_acceptance.returncode != 0
+                and "do not exactly match the Phase-1 journey" in mismatched_acceptance.stdout), (
+                    mismatched_acceptance.stdout, mismatched_acceptance.stderr)
+        with open(manifest_path, "w", encoding="utf-8") as handle:
+            handle.write(current_manifest)
         phase3_check = subprocess.run(
             phase3_validator_argv(
                 skeleton_tid, "internal", os.path.relpath(skeleton_plan, REPO), run=False),

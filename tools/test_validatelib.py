@@ -10,18 +10,20 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from validatelib import REPO, _findings  # noqa: E402
-from validatelib.content import (check_exercise, check_freestyle, check_section,
+from validatelib import REPO, _findings, set_build_phase, warn  # noqa: E402
+from validatelib.content import (check_content, check_exercise, check_freestyle, check_section,
                                  is_shouting_title)  # noqa: E402
 from validatelib.coverage import (check_capability_ledger,
                                   check_canonical_type_regressions)  # noqa: E402
 from validatelib.depth import (check_economy_totals, check_padded_prose,
                                check_taught_before_used, check_verbatim_prose)  # noqa: E402
-from validatelib.execute import _project_build_result, check_starters_run  # noqa: E402
+from validatelib.execute import (STARTER_RUN_TIMEOUT, _project_build_result, _run_one_file,
+                                 check_starters_run)  # noqa: E402
 from validatelib.phase2 import check_tooling_contract  # noqa: E402
-from validatelib.structure import check_meta, check_runtime  # noqa: E402
+from validatelib.structure import check_meta, check_placeholders, check_runtime  # noqa: E402
 from validatelib.themes import check_sigil_palette_uniqueness  # noqa: E402
 
 
@@ -31,6 +33,41 @@ def findings():
 
 
 def main():
+    # Harness phases promote only obligations already owned by that phase.  Future
+    # work stays a warning; host-only advisories never become errors.
+    set_build_phase(3)
+    warn("content", "section debt", phase=3)
+    warn("content", "future attack debt", phase=4)
+    warn("advisory", "host limitation", phase=2)
+    got = findings()
+    assert [level for level, _, _ in got] == ["ERROR", "WARN", "WARN"], got
+    set_build_phase(None)
+
+    set_build_phase(3)
+    check_content({}, [{"id": "s01", "lessons": [{
+        "id": "s01-l01", "body": "word " * 220, "readings": [],
+    }]}], "tome.toml", include_manifest=False)
+    got = findings()
+    assert any(level == "ERROR" and "median lesson body" in message
+               for level, _, message in got), got
+    assert any(level == "ERROR" and "zero [[lessons.readings]]" in message
+               for level, _, message in got), got
+    set_build_phase(None)
+
+    # TODO is valid in student starter code, but not in authored prose beside it.
+    with tempfile.TemporaryDirectory() as d:
+        placeholder_path = Path(d) / "section.toml"
+        placeholder_path.write_text(
+            'body = "Finished teaching prose"\nstarter = "# TODO: student writes this"\n',
+            encoding="utf-8")
+        check_placeholders([str(placeholder_path)])
+        assert not findings(), "intentional student TODO was mistaken for author scaffolding"
+        placeholder_path.write_text(
+            'body = "TODO: author still owes this"\nstarter = "# TODO: student writes this"\n',
+            encoding="utf-8")
+        check_placeholders([str(placeholder_path)])
+        assert any("placeholder" in msg for _, _, msg in findings())
+
     # Repeated cumulative source is expected in an evolving project and is not copied
     # prose. Actual repeated teaching prose must still trip the 14-word shingle gate.
     repeated_code = " ".join(f"token{i}" for i in range(20))
@@ -99,6 +136,18 @@ def main():
     assert any("PRE-SOLVED" in msg and "solved" in msg for _, _, msg in got), got
     assert any("does not BUILD" in msg and "broken" in msg for _, _, msg in got), got
 
+    # A graphical starter that keeps its event loop alive gets only the short
+    # starter probe; reference solutions retain the runtime's full timeout.
+    looping = [{"id": "s01", "lessons": [{"id": "l1", "exercises": [
+        {"type": "write", "id": "loop", "starter": "while True: pass", "expect": "X"},
+    ]}]}]
+    with patch("validatelib.execute._run_one_file", return_value=(True, "")) as run_file, \
+         tempfile.TemporaryDirectory() as d:
+        check_starters_run(d, m, looping)
+    assert any(call.args[2] == STARTER_RUN_TIMEOUT for call in run_file.call_args_list), \
+        run_file.call_args_list
+    findings()
+
     # 2b. --run: a `solution` must run cleanly and print output the grader accepts;
     #     a wrong expect is caught the moment the author's own solution disagrees.
     secs = [{"id": "s01", "lessons": [{"id": "l1", "exercises": [
@@ -113,6 +162,17 @@ def main():
                for lv, _, msg in got), got
     assert not any("'good'" in msg and lv == "ERROR" for lv, _, msg in got), got
     assert any("no `solution`" in msg for _, _, msg in got), got
+
+    # Direct validator invocations from a graphical shell must still run authored
+    # starters and solutions without access to the user's desktop.
+    leaky_env = os.environ.copy()
+    leaky_env.update({"DISPLAY": ":88", "WAYLAND_DISPLAY": "wayland-88",
+                      "SDL_VIDEODRIVER": "x11", "SDL_AUDIODRIVER": "pulseaudio"})
+    env_probe = ("import os; print('|'.join((os.getenv('DISPLAY', '<unset>'), "
+                 "os.getenv('WAYLAND_DISPLAY', '<unset>'), os.getenv('SDL_VIDEODRIVER', ''), "
+                 "os.getenv('SDL_AUDIODRIVER', ''), os.getenv('PYGAME_HIDE_SUPPORT_PROMPT', ''))))")
+    ok, out = _run_one_file([sys.executable], "main.py", 5, env_probe, env=leaky_env)
+    assert ok and out.strip() == "<unset>|<unset>|dummy|dummy|1", out
 
     # 2c. Project compilers report warnings alongside errors. A warning must not turn a
     #     deliberately incomplete starter into a false "does not BUILD" failure.

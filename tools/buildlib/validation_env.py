@@ -27,6 +27,24 @@ ENV_ROOT = os.path.join(BUILD_DIR, "validation-envs")
 _ENV_TOKEN = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
+def headless_validation_env(base=None):
+    """Return an environment that cannot open automated work on the user's desktop.
+
+    Tome workers and validators execute authored programs. Those programs may create a
+    real window in normal mode, so inheriting DISPLAY/WAYLAND_DISPLAY makes every repeated
+    validation visibly interrupt the desktop. SDL's dummy drivers keep Pygame programs
+    executable while removing display variables is a runtime-neutral backstop for other
+    GUI toolkits.
+    """
+    env = dict(os.environ if base is None else base)
+    for key in ("DISPLAY", "WAYLAND_DISPLAY", "MIR_SOCKET"):
+        env.pop(key, None)
+    env["SDL_VIDEODRIVER"] = "dummy"
+    env["SDL_AUDIODRIVER"] = "dummy"
+    env["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+    return env
+
+
 class ValidationEnvironmentError(RuntimeError):
     """The declared validation dependency contract could not be provisioned."""
 
@@ -131,10 +149,10 @@ def ready_validation_environment(tid):
 
 
 def validation_subprocess_env(tid):
-    """A complete environment for a worker or validator subprocess."""
+    """A complete, dependency-ready, headless worker/validator environment."""
     env = os.environ.copy()
     env.update(ready_validation_environment(tid))
-    return env
+    return headless_validation_env(env)
 
 
 def _run(command, directory, env, label, package=None):

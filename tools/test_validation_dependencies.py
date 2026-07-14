@@ -67,10 +67,44 @@ def test_project_dependencies_install_once_in_scratch_only():
         assert not pathlib.Path(root).parent.joinpath("packages").exists()
 
 
+def test_shared_environment_does_not_require_a_project_installer():
+    runtime = CommandRuntime({
+        "name": "shared-test",
+        "command": [sys.executable],
+        "entryFile": "main.py",
+        "validationDependencies": ["already-in-the-shared-environment"],
+        "validationPackageCommand": [sys.executable, "-m", "pip", "install", "{package}"],
+    })
+    with tempfile.TemporaryDirectory() as root:
+        result = runtime.run_snippet(root, 'print("shared env works")\n', "", env=os.environ.copy())
+        assert result["ok"] and result["output"] == "shared env works", result
+
+
+def test_automated_validation_environment_cannot_reach_the_desktop():
+    inherited = {
+        "PATH": os.environ.get("PATH", ""),
+        "DISPLAY": ":77",
+        "WAYLAND_DISPLAY": "wayland-77",
+        "MIR_SOCKET": "mir-77",
+        "SDL_VIDEODRIVER": "x11",
+        "SDL_AUDIODRIVER": "pulseaudio",
+    }
+    headless = validation_env.headless_validation_env(inherited)
+    assert "DISPLAY" not in headless
+    assert "WAYLAND_DISPLAY" not in headless
+    assert "MIR_SOCKET" not in headless
+    assert headless["SDL_VIDEODRIVER"] == "dummy"
+    assert headless["SDL_AUDIODRIVER"] == "dummy"
+    assert headless["PYGAME_HIDE_SUPPORT_PROMPT"] == "1"
+    assert inherited["DISPLAY"] == ":77", "the caller's environment was mutated"
+
+
 def main():
     test_environment_dependencies_are_isolated_cached_and_exported()
     test_project_dependencies_install_once_in_scratch_only()
-    print("ok validation dependencies: environment + project isolation/cache")
+    test_shared_environment_does_not_require_a_project_installer()
+    test_automated_validation_environment_cannot_reach_the_desktop()
+    print("ok validation dependencies: isolation/cache + live snippet + headless execution")
 
 
 if __name__ == "__main__":

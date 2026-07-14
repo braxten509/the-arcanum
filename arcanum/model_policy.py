@@ -110,8 +110,8 @@ MODEL_POLICY = {
         "13B-active economical model; official guidance says it matches Pro on simple agents, not the long-horizon authorship hands.",
     ),
     "opencode-go/deepseek-v4-pro": _entry(
-        ("writer", "sections", "reviewer"),
-        "1M-context flagship with broad reasoning and a $1.74/$3.48 rate; its quality is useful for authorship/review, but Flash is about 12x cheaper for Drafter.",
+        ("writer", "sections"),
+        "1M-context flagship remains useful for authorship, but an observed full-tome audit falsely passed a broken beginner course, so Reviewer is disabled; Flash is cheaper for Drafter.",
     ),
     "opencode-go/glm-5.1": _entry(
         (),
@@ -154,8 +154,8 @@ MODEL_POLICY = {
         "Qwen's $2.50/$7.50 flagship is justified for the high-leverage course arc or independent final arbitration; Plus is the economical bulk author.",
     ),
     "opencode-go/qwen3.7-plus": _entry(
-        ("writer", "sections"),
-        "Current $0.40/$1.60 performance/cost model for content and documents; cheaper Flash/MiMo cover Drafter and Max-class models cover review.",
+        ("writer",),
+        "Current $0.40/$1.60 document model remains suitable for planning, but an observed long-course section run produced incomplete, non-replayable teaching, so Sections is disabled; Max-class models cover review.",
     ),
 
     # These are limited-time, data-collecting trial endpoints.  Some underlying
@@ -331,7 +331,7 @@ EFFORT_PROFILES = {
     "gpt-5.4-mini": {"drafter": ("high",)},
     "opencode-go/deepseek-v4-flash": {"drafter": ("high",)},
     "opencode-go/deepseek-v4-pro": {
-        role: ("high",) for role in ("writer", "sections", "reviewer")
+        role: ("high",) for role in ("writer", "sections")
     },
     "opencode-go/glm-5.2": {
         role: ("high",) for role in ("writer", "reviewer")

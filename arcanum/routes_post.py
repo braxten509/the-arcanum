@@ -12,6 +12,9 @@ import uuid
 
 from runtimes import common as rt_common
 from runtimes.common import atomic_write
+from tools.buildlib.validation_env import (ValidationEnvironmentError,
+                                            ensure_validation_environment,
+                                            validation_subprocess_env)
 
 from .amender import clear_amend_state, load_amend_state, run_amender, save_amend_state
 from .build_state import (BUILD_TOTAL_PHASES, build_result_status,
@@ -22,7 +25,7 @@ from .forge import (_clear_runner_handshake, _plan_concept, _plan_gate,
                     _resume_phase, _runner_args, _save_launch, _write_progress,
                     external_build_process, fresh_tome_id, watch_build,
                     working_is_active, replace_plan_tooling, tooling_conflict_details)
-from .grader import ask_oracle, run_grader
+from .grader import ask_oracle, run_grader, start_grader_smoke
 from .tomes import (external_workspace, has_progress, load_manifest, plan_path, project_dir,
                     project_name, resolve_tome, resolve_working_tid, runtime_for,
                     save_dir, scratch_base, state_path, tome_dir, write_files)
@@ -90,10 +93,23 @@ def handle(h):
                                           body.get("kind") or "ollama", jid))
         if path == "/api/runsnippet":
             rt = runtime_for(jid)
-            return h.send_json(rt.run_snippet(scratch_base(rt.NAME), body.get("code", ""), body.get("stdin", "")))
+            try:
+                ensure_validation_environment(jid)
+                env = validation_subprocess_env(jid)
+            except ValidationEnvironmentError as exc:
+                return h.send_json({"ok": False, "output": f"validation dependencies: {exc}"})
+            return h.send_json(rt.run_snippet(scratch_base(rt.NAME), body.get("code", ""),
+                                              body.get("stdin", ""), env=env))
         if path == "/api/snippetdiag":
             rt = runtime_for(jid)
-            return h.send_json(rt.snippet_diagnostics(scratch_base(rt.NAME), body.get("code", "")))
+            try:
+                ensure_validation_environment(jid)
+                env = validation_subprocess_env(jid)
+            except ValidationEnvironmentError as exc:
+                return h.send_json({"ok": False, "diags": [],
+                                    "output": f"validation dependencies: {exc}"})
+            return h.send_json(rt.snippet_diagnostics(scratch_base(rt.NAME),
+                                                     body.get("code", ""), env=env))
         if path == "/api/run":
             write_files(jid, body.get("files", []))
             return h.send_json(runtime_for(jid).run_project(project_dir(jid), body.get("stdin", "")))
@@ -105,6 +121,13 @@ def handle(h):
         if path == "/api/addpackage":
             return h.send_json(runtime_for(jid).add_package(project_dir(jid), body.get("package", "")))
         if path == "/api/grade":
+            # Phase 7 needs a deterministic live route/status smoke test, not a paid,
+            # nondeterministic model judgement.  It validates that the requested section
+            # and rubric survived loader assembly and returns the SAME terminal `done`
+            # state as run_grader, without touching a learner workspace or calling an AI.
+            if body.get("smoke") is True:
+                response, status = start_grader_smoke(jid, body)
+                return h.send_json(response, status)
             write_files(jid, body.get("files", []))
             sid = body.get("sectionId", "x")
             with jobs_lock:
@@ -295,10 +318,10 @@ def start_build(h, body):
     # -u: unbuffered, so phase lines reach the reader as they happen.
     # start_new_session=True: its own process group, so cancel can kill
     # the harness AND the agent children it spawns.
-    split_args = ["--split-sections"] if body.get("sectionsSplit") else []
+    split_args = ["--split-sections"]  # bounded warm batches are mandatory for future builds
     proc = subprocess.Popen([sys.executable, "-u", os.path.join(ROOT, "tools", "build_tome.py"),
                              tid, "--gate-json", gate, "--concept", concept,
-                             "--ask-on-death"] + split_args + runner_args,
+                             "--yes"] + split_args + runner_args,
                             cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             text=True, start_new_session=True)
     gid = uuid.uuid4().hex[:12]
@@ -423,9 +446,9 @@ def resume_build(h, body):
     launch_body = dict(body)
     launch_body.update(_plan_gate(text))
     _save_launch(tid, launch_body, _plan_concept(text), text)
-    split_args = ["--split-sections"] if body.get("sectionsSplit") else []
+    split_args = ["--split-sections"]
     proc = subprocess.Popen([sys.executable, "-u", os.path.join(ROOT, "tools", "build_tome.py"),
-                             tid, "--from-phase", str(frm), "--ask-on-death"]
+                             tid, "--from-phase", str(frm), "--yes"]
                             + split_args + _runner_args(body),
                             cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             text=True, start_new_session=True)

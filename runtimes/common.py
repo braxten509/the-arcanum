@@ -67,12 +67,12 @@ def join_output(stdout, stderr):
     return (clip(stdout) + ("\n" + clip(stderr) if (stderr or "").strip() else "")).strip()
 
 
-def run_cancellable(argv, stdin_text, timeout, cwd=None):
+def run_cancellable(argv, stdin_text, timeout, cwd=None, env=None):
     """Run a student project: cancellable via /api/runcancel, process-group killed on
     timeout, output clipped. The one runner every runtime's run_project delegates to."""
     try:
         with project_lock:
-            p = subprocess.Popen(argv, cwd=cwd,
+            p = subprocess.Popen(argv, cwd=cwd, env=env,
                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE, text=True, start_new_session=True)
             CURRENT["proc"] = p

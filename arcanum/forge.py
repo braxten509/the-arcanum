@@ -218,8 +218,7 @@ def _save_launch(tid, body, concept, plan_text=""):
         with open(os.path.join(BUILD_DIR, f"{tid}.launch.json"), "w", encoding="utf-8") as f:
             json.dump({"bindery": body.get("bindery") or previous.get("bindery") or {},
                        "runners": body.get("runners") or previous.get("runners") or {},
-                       "concept": concept,
-                       "sectionsSplit": bool(body.get("sectionsSplit")), "gate": gate}, f)
+                       "concept": concept, "gate": gate}, f)
     except OSError:
         pass
 
@@ -464,7 +463,6 @@ def list_workings():
                     "toolingConflict": tooling["conflict"],
                     "requiredTooling": tooling["required"],
                     "toolingConflictReason": tooling["reason"],
-                    "sectionsSplit": bool(launch.get("sectionsSplit")),
                     "updated": os.path.getmtime(pp)})
     out.sort(key=lambda w: w["updated"], reverse=True)
     return out

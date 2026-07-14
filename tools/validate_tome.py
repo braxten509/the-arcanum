@@ -14,7 +14,7 @@ import argparse
 import os
 import sys
 
-from validatelib import ID_RE, _findings, err, load_toml, rel, warn
+from validatelib import ID_RE, _findings, err, load_toml, rel, set_build_phase, warn
 from validatelib.attacks import check_attacks, check_attacks_sync, check_intrusions
 from validatelib.content import (check_anti_template, check_content, check_density,
                                  check_literal_newlines, check_section)
@@ -25,6 +25,7 @@ from validatelib.depth import (check_economy_totals, check_freestyle_scope, chec
                                check_verbatim_prose)
 from validatelib.execute import check_snippets, check_starters_run
 from validatelib.phase2 import check_phase2_skeleton, check_tooling_contract
+from validatelib.proof import check_future_tome_proof
 from validatelib.structure import (check_badges, check_economy, check_layout, check_meta,
                                    check_narrative, check_placeholders, check_runtime,
                                    check_shop)
@@ -36,7 +37,8 @@ from buildlib.validation_env import (ValidationEnvironmentError,
 import tome_layout  # noqa: E402 — validatelib put REPO on sys.path; in lockstep with server
 
 
-def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_section=None):
+def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_section=None,
+             require_proof_v1=False, build_plan=None):
     tome_path = os.path.abspath(tome_path.rstrip(os.sep))
     tome_id = os.path.basename(tome_path)
     manifest = os.path.join(tome_path, "tome.toml")
@@ -71,7 +73,24 @@ def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_sect
 
     layout_files = check_layout(tome_path, m)
     if not phase2_skeleton:
-        check_placeholders(layout_files)
+        placeholder_files = layout_files
+        declared = ((m.get("content") or {}).get("sections")
+                    if isinstance(m.get("content"), dict) else []) or []
+        if run_section and str(run_section) in [str(sid) for sid in declared]:
+            through = [str(sid) for sid in declared]
+            prefix_ids = set(through[:through.index(str(run_section)) + 1])
+
+            def in_authored_prefix(path):
+                local = os.path.relpath(path, tome_path).replace(os.sep, "/")
+                if not local.startswith("sections/"):
+                    return True
+                owner = local.split("/", 2)[1]
+                if owner.endswith(".toml"):
+                    owner = owner[:-5]
+                return owner in prefix_ids
+
+            placeholder_files = [path for path in layout_files if in_authored_prefix(path)]
+        check_placeholders(placeholder_files)
     check_runtime(m, tome_id, label)
     check_narrative(m, label)
     if not phase2_skeleton:
@@ -85,6 +104,9 @@ def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_sect
         check_shop(m, theme_ids, earned_granted, label)
 
     content = m.get("content", {})
+    if require_proof_v1 and (not isinstance(content, dict)
+                             or content.get("proofVersion") != 1):
+        err(label, "harness-built tomes must preserve [content] proofVersion = 1")
     sections = content.get("sections") if isinstance(content, dict) else None
     if not isinstance(sections, list) or not sections:
         err(label, "[content] sections must be a non-empty array of section ids")
@@ -92,6 +114,10 @@ def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_sect
 
     seen_ex, seen_les, seen_sid = set(), set(), set()
     sections_data = []
+    prefix_ids = None
+    if run_section and str(run_section) in [str(sid) for sid in sections]:
+        ordered_ids = [str(sid) for sid in sections]
+        prefix_ids = set(ordered_ids[:ordered_ids.index(str(run_section)) + 1])
     for sid in sections:
         if sid in seen_sid:
             err(label, f"[content] section id {sid!r} is listed more than once")
@@ -103,28 +129,38 @@ def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_sect
         except Exception as se:
             err(slabel, str(se))
             continue
-        check_section(sdata, sid, slabel, seen_ex, seen_les)
+        if prefix_ids is None or str(sid) in prefix_ids:
+            check_section(sdata, sid, slabel, seen_ex, seen_les)
         sections_data.append(sdata)
     if phase2_skeleton:
         check_phase2_skeleton(sections_data)
         check_tooling_contract(m, sections_data, label, tooling)
+        check_future_tome_proof(tome_path, m, sections_data, run=False,
+                                plan_path=build_plan)
     else:
-        check_anti_template(sections_data)
-        check_density(sections_data)
-        check_content(m, sections_data, label, tooling)
-        check_literal_newlines(m, sections_data)
-        check_taught_before_used(sections_data)
-        check_freestyle_scope(m, sections_data)
-        check_capability_ledger(m, sections_data)
-        check_canonical_type_regressions(m, sections_data)
-        check_verbatim_prose(sections_data)
-        check_padded_prose(sections_data)
-        check_economy_totals(tome_path, m, sections_data)
-        check_presolved_static(m, sections_data)
-        check_name_drift(sections_data)
-        check_self_answering(sections_data)
+        quality_sections = (sections_data if prefix_ids is None else
+                            [section for section in sections_data
+                             if str(section.get("id")) in prefix_ids])
+        check_anti_template(quality_sections)
+        check_density(quality_sections)
+        check_content(m, quality_sections, label, tooling)
+        check_literal_newlines(m, quality_sections)
+        check_taught_before_used(quality_sections)
+        check_freestyle_scope(m, quality_sections)
+        check_capability_ledger(
+            m, quality_sections,
+            course_complete=(prefix_ids is None or str(run_section) == str(sections[-1])))
+        check_canonical_type_regressions(m, quality_sections)
+        check_verbatim_prose(quality_sections)
+        check_padded_prose(quality_sections)
+        check_economy_totals(tome_path, m, quality_sections)
+        check_presolved_static(m, quality_sections)
+        check_name_drift(quality_sections)
+        check_self_answering(quality_sections)
     if not phase2_skeleton:
         check_intrusions(tome_path, m, label)
+        check_future_tome_proof(tome_path, m, sections_data, run=run,
+                                run_section=run_section, plan_path=build_plan)
     if run:
         execution_sections = sections_data
         if run_section:
@@ -166,13 +202,16 @@ def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_sect
 def main():
     ap = argparse.ArgumentParser(
         description="Validate one ARCANUM tome folder against tome-authoring/.",
-        epilog="Fix every ERROR before shipping. WARNs are advisory; a tome that "
-               "still emits an ERROR is not done.")
+        epilog="Fix every ERROR. With --build-phase, current/earlier owned warnings are "
+               "promoted to errors; --strict also gates all non-advisory warnings.")
     ap.add_argument("tome", help="path to the tome folder, e.g. tomes/verisearch")
     ap.add_argument("--strict", action="store_true",
                     help="also exit 1 on every WARN except 'advisory' ones (language-calibration "
                          "limits no tome can fix) — the tome-workflow phase 7 bar: a finished tome "
                          "carries zero warnings; the harness uses this from Phase 7 on")
+    ap.add_argument("--build-phase", type=int, choices=range(2, 9), default=None,
+                    metavar="N", help="promote warnings owned by Phase N or earlier to ERROR; "
+                         "the harness supplies this so unfinished work cannot leak forward")
     ap.add_argument("--run", action=argparse.BooleanOptionalAction, default=True,
                     help="EXECUTE every write-lab and intrusion starter through the tome's runtime: "
                          "flags starters that don't compile/run and ones already pre-solved. On by "
@@ -180,8 +219,9 @@ def main():
                          "a WARN when the toolchain is absent. --no-run skips it.")
     ap.add_argument("--run-section", metavar="SID", default=None,
                     help="execute lesson snippets/write labs only for SID (the warm Phase-3 "
-                         "checkpoint); whole-tome static checks still run, and global intrusion/"
-                         "duel banks wait for the final gate")
+                         "checkpoint); proof-v1 checks cover the authored prefix through SID, "
+                         "while whole-tome scaffold checks still run and global intrusion/duel "
+                         "banks wait for the final gate")
     ap.add_argument("--tooling", choices=("internal", "external", "both"), default=None,
                     help="enforce the build's gate Tooling choice: internal forbids "
                          "externalWorkspace; external/both require external tools taught in section 1")
@@ -191,6 +231,10 @@ def main():
     ap.add_argument("--phase-2-skeleton", action="store_true",
                     help="Phase 2 warm-context mode: validate the complete one-placeholder-lesson "
                          "skeleton without Phase 3 density/prose checks or TODO warnings")
+    ap.add_argument("--require-proof-v1", action="store_true",
+                    help="harness-owned future-tome gate: proofVersion = 1 cannot be removed")
+    ap.add_argument("--build-plan", metavar="PATH", default=None,
+                    help="Phase-1 plan whose machine-readable acceptance scenarios must match")
     args = ap.parse_args()
 
     if args.phase_1_plan and args.phase_2_skeleton:
@@ -205,8 +249,10 @@ def main():
         print(f"-- {os.path.basename(plan)}: {'clean' if clean else '1 error(s)'} [Phase 1 Arc]")
         sys.exit(0 if clean else 1)
 
+    set_build_phase(args.build_phase)
     validate(args.tome, run=args.run, tooling=args.tooling,
-             phase2_skeleton=args.phase_2_skeleton, run_section=args.run_section)
+             phase2_skeleton=args.phase_2_skeleton, run_section=args.run_section,
+             require_proof_v1=args.require_proof_v1, build_plan=args.build_plan)
 
     errors = sum(1 for f in _findings if f[0] == "ERROR")
     warns = len(_findings) - errors
@@ -216,6 +262,8 @@ def main():
     strict_note = f", {hard} hard-gate warn(s) [--strict]" if args.strict and hard else ""
     mode_note = (" [Phase 2 skeleton]" if args.phase_2_skeleton else
                  f" [executed section {args.run_section}]" if args.run_section else "")
+    if args.build_phase is not None:
+        mode_note += f" [Phase {args.build_phase} owned-warning gate]"
     print(f"-- {os.path.basename(os.path.abspath(args.tome.rstrip(os.sep)))}: "
           f"{errors} error(s), {warns} warning(s){strict_note}{mode_note}")
     sys.exit(1 if errors or (args.strict and hard) else 0)

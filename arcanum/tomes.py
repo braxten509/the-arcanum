@@ -4,6 +4,7 @@ import os
 import re
 
 import tome_layout  # shared split-tome layout, kept in lockstep with tools/validate_tome.py
+from tome_proof import public_section
 
 from runtimes import common as rt_common, for_config as runtime_for_config, resolve_config as resolve_runtime_config
 from runtimes.common import atomic_write
@@ -123,7 +124,8 @@ def assemble_tome(jid):
     jdir = tome_dir(jid)
     sections = []
     for sid in m.get("content", {}).get("sections", []):
-        sections.append(tome_layout.load_section(jdir, sid))  # folder or flat section
+        # Hidden capstone reference edits are validator inputs, never learner answers.
+        sections.append(public_section(tome_layout.load_section(jdir, sid)))
     attacks = []
     ap = os.path.join(jdir, m.get("content", {}).get("attacks", "generated/attacks.toml"))
     if os.path.isfile(ap):

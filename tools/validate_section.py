@@ -39,7 +39,9 @@ def main():
     ids = _section_ids(tome_path)
 
     tome_clean, tome_report = validate(
-        tid, phase=3, tooling=args.tooling, run=True, run_section=args.section)
+        tid, phase=3, tooling=args.tooling, run=True, run_section=args.section,
+        plan_rel=os.path.relpath(os.path.abspath(args.plan),
+                                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     if tome_report:
         print(tome_report)
     elif not tome_clean:

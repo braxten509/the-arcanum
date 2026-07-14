@@ -8,6 +8,7 @@ import re
 import subprocess
 import time
 import urllib.request
+import uuid
 
 from runtimes.common import atomic_write
 
@@ -16,10 +17,28 @@ from .ai_access import ensure_command_access, ensure_remote_access
 from .models import GraderConfigError, cli_text
 from .repo_tools import anthropic_tools, execute as execute_repo_tool, openai_tools
 from tools.buildlib.agent_runtime import scoped_shell_command
-from .tomes import grades_dir, project_dir, runtime_for
+from .tomes import assemble_tome, grades_dir, project_dir, runtime_for
 
 FALLBACK_GRADER = "qwen2.5:14b"  # strongest installed Ollama model; overridable per-request from settings
 ORACLE_MODEL = "llama3.1:8b"
+
+
+def start_grader_smoke(jid, payload):
+    """Create a deterministic completed job for the live route/status smoke gate."""
+    sid = str(payload.get("sectionId") or "")
+    loaded = assemble_tome(jid)
+    section = next((item for item in (loaded.get("sections") or [])
+                    if str(item.get("id")) == sid), None)
+    rubric = ((section or {}).get("freestyle") or {}).get("rubric") or []
+    if not section or not rubric:
+        return {"ok": False, "error": "smoke section or freestyle rubric is missing"}, 400
+    job_id = uuid.uuid4().hex[:12]
+    result = {"total": 0, "grade": "F", "scores": [],
+              "model": "deterministic route smoke", "smoke": True}
+    with jobs_lock:
+        jobs[job_id] = {"status": "done", "section": sid, "tome": jid,
+                        "result": result, "smoke": True}
+    return {"ok": True, "jobId": job_id, "smoke": True}, 200
 
 
 def extract_json(text):

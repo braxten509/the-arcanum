@@ -26,11 +26,11 @@ import time
 
 from buildlib import (BUILD_DIR, DEAD_PINGS_DEFAULT, MAX_STUDENT_LOOPS,
                       PING_INTERVAL_DEFAULT, REPO, retries_for)
-from buildlib.checkpoints import arc_checkpoint, finalize_arc, maybe_rename, reset_arc
+from buildlib.checkpoints import finalize_arc, maybe_rename, reset_arc
 from buildlib.config import load_config
 from buildlib.continuity import handoffs_exist, reconciliation_prompt, validate_all_handoffs
 from buildlib.agent_runtime import scoped_runner_command
-from buildlib.liveness import run_agent, preflight_runners
+from buildlib.liveness import (preflight_recovery_runner, preflight_runners, run_agent)
 from buildlib.measure import (forecast_line, inventory, measure, runtime_config_inventory,
                               review_changes, review_inventory,
                               shrink_marks, validate, validate_phase3, validate_shipping,
@@ -41,15 +41,15 @@ from buildlib.gates import evaluate_content_gate
 from buildlib.prompts import build_prompt, do_gate, do_gate_json, read_tooling
 from buildlib.review import run_student_review
 from buildlib.reporting import append_ground_truth
-from buildlib.runners import (_implicit_fallback, parse_fallbacks, parse_runner_flags,
-                              request_runner, runner_for)
+from buildlib.runners import (_implicit_fallback, automatic_fallbacks, parse_fallbacks,
+                              parse_runner_flags, runner_for, unique_chain)
 from buildlib.sections import (author_sections_split, clear_section_progress,
                                section_ids, wipe_sections)
 from buildlib.skeleton import scaffold_sections
 from buildlib.workflow import (access_boundary, parse_phases, phase_sidecars,
                                prepare_phase_writable_paths, support_prompt)
 from buildlib.validation_env import (ValidationEnvironmentError, ensure_validation_environment,
-                                     validation_subprocess_env)
+                                     headless_validation_env, validation_subprocess_env)
 
 def main():
     if "--selftest" in sys.argv[1:]:
@@ -73,7 +73,7 @@ def main():
                     help="flip the whole model/effort matrix to a [presets.<name>] block in "
                          "harness.toml (e.g. budget, quality). Beats the file's `preset`/`default`.")
     ap.add_argument("--yes", action="store_true",
-                    help="skip the interactive arc checkpoint after Phase 1 (for unattended runs)")
+                    help="deprecated compatibility flag; construction is always unattended")
     ap.add_argument("--fallback", action="append", metavar="KIND:MODEL[@EFFORT]",
                     help="runner to switch to when a phase's worker DIES (crash, exhausted "
                          "quota, or hang) — repeat for an ordered chain. Each resumes from the "
@@ -89,9 +89,7 @@ def main():
                     help="optional absolute backstop: kill a worker after SEC seconds even if it "
                          "looks busy (default 0 = off; liveness pings handle the common hang).")
     ap.add_argument("--ask-on-death", action="store_true",
-                    help="when a worker dies with no --fallback left, PAUSE and request a new "
-                         "runner from the UI (via .tome-build handshake) instead of failing. The "
-                         "web bindery passes this; the build waits until a runner is chosen.")
+                    help="deprecated compatibility flag; autonomous builds never pause")
     ap.add_argument("--split-sections", action="store_true",
                     help="author Phase 3 in bounded warm section batches instead of one whole-tome "
                          "session — preserves nearby context while keeping every provider below a "
@@ -113,8 +111,7 @@ def main():
                         else int(lv.get("ping_interval", PING_INTERVAL_DEFAULT)))
     dead_pings = max(1, args.dead_pings if args.dead_pings is not None
                      else int(lv.get("dead_pings", DEAD_PINGS_DEFAULT)))
-    ask_on_death = args.ask_on_death
-    split_sections = args.split_sections
+    split_sections = True  # future tomes always use bounded warm section batches
     section_batch_size = max(1, args.section_batch_size)
     phases = parse_phases()
     os.makedirs(BUILD_DIR, exist_ok=True)
@@ -130,11 +127,26 @@ def main():
     plan_rel = os.path.relpath(plan_path, REPO)
     verdict_rel = os.path.relpath(verdict_path, REPO)
     findings_rel = os.path.relpath(findings_path, REPO)
-    interactive = sys.stdin.isatty() and args.gate_json is None
+    tome_dir = os.path.join(REPO, "tomes", tid)
+    proof_build = args.from_phase <= 2
+    if not proof_build:
+        try:
+            manifest_text = open(os.path.join(tome_dir, "tome.toml"), encoding="utf-8").read()
+        except OSError:
+            manifest_text = ""
+        try:
+            plan_text = open(plan_path, encoding="utf-8").read()
+        except OSError:
+            plan_text = ""
+        proof_build = ("proofVersion = 1" in manifest_text
+                       or "**Proof contract:** 1" in plan_text)
+    if proof_build:
+        os.environ["ARCANUM_REQUIRE_PROOF_V1"] = "1"
+    else:
+        os.environ.pop("ARCANUM_REQUIRE_PROOF_V1", None)
     timings = []              # (phase, runner, seconds, attempts) for the end-of-run log
     review_unresolved = None  # set if Phase 8 exhausts its loops without PASS
 
-    tome_dir = os.path.join(REPO, "tomes", tid)
     if os.path.isdir(tome_dir):
         if args.from_phase <= 2:
             # Restarting at/below Phase 2 re-derives the whole skeleton — everything in the
@@ -207,15 +219,14 @@ def main():
                     distinct.append((nm, scoped_runner_command(
                         nm, pcmd, current_tome, writable, REPO), pim))
             if distinct:
-                preflight_runners(distinct)
-                preflighted.update(seen)
+                # A bad selected endpoint is recoverable: record the whole set only when
+                # clean; otherwise each phase probes its primary then advances automatically.
+                if preflight_runners(distinct, fatal=False):
+                    preflighted.update(seen)
             preflight_done = True
 
         primary = runner_for(cfg, num, overrides)
-        # Runner chain: the primary, then any explicit --fallback runners, tried in order when
-        # a worker DIES (each resumes from the tome on disk). With no --fallback left, a death
-        # instead PAUSES for a human to pick the next runner — see the death handling below.
-        chain = [primary] + list(fallbacks)
+        chain = unique_chain([primary], fallbacks, automatic_fallbacks(cfg, num))
         tooling = read_tooling(plan_path)
 
         # Phase 2 authors the dependency contract. Every later worker and every
@@ -276,8 +287,7 @@ def main():
         if num == 3 and split_sections and len(section_ids(tid)) >= 2:
             ri = author_sections_split(tid, num, title, chain,
                                        (plan_rel, verdict_rel, findings_rel), cfg, overrides,
-                                       ping_interval, dead_pings, hard_cap, ask_on_death,
-                                       interactive, args.tome_id,
+                                       ping_interval, dead_pings, hard_cap,
                                        # starts below 3 wiped the sections (see wipe_sections),
                                        # so ONLY a start AT phase 3 is a genuine resume
                                        resume=(args.from_phase == 3), preflighted=preflighted,
@@ -329,21 +339,19 @@ def main():
                 scoped = scoped_runner_command(name, cmd, tome_scope, writable, REPO)
                 # Human-selected and implicit recovery runners do not exist during the initial
                 # census. Give each one the same bounded Phase 0 check before it can do real work.
-                if tuple(cmd) not in preflighted:
-                    preflight_runners([(name, scoped, input_mode)])
-                    preflighted.add(tuple(cmd))
-                try:
-                    ensure_validation_environment(tid)
-                    env = validation_subprocess_env(tid)
-                except ValidationEnvironmentError:
-                    # A previous attempt may have authored a malformed dependency
-                    # contract. Let the repair worker start in the base environment;
-                    # the blocking report tells it to repair the declaration.
-                    env = os.environ.copy()
-                env.update(ARCANUM_REPO_ROOT=REPO, ARCANUM_TOME_ROOT=tome_scope,
-                           PYTHONDONTWRITEBYTECODE="1")
-                rc = run_agent(scoped, input_mode, prompt, ping_interval, dead_pings, hard_cap,
-                               cwd=tome_scope, env=env)
+                if not preflight_recovery_runner(
+                        name, cmd, scoped, input_mode, preflighted):
+                    rc = 125  # advance to the next autonomous hand through normal death handling
+                else:
+                    try:
+                        ensure_validation_environment(tid)
+                        env = validation_subprocess_env(tid)
+                    except ValidationEnvironmentError:
+                        env = headless_validation_env()
+                    env.update(ARCANUM_REPO_ROOT=REPO, ARCANUM_TOME_ROOT=tome_scope,
+                               PYTHONDONTWRITEBYTECODE="1")
+                    rc = run_agent(scoped, input_mode, prompt, ping_interval, dead_pings,
+                                   hard_cap, cwd=tome_scope, env=env)
             died = rc != 0
             if died:
                 print(f"  ! runner {name} exited {rc}" + (" (hung/timeout)" if rc == 124 else ""))
@@ -365,18 +373,11 @@ def main():
             if ok and not probs and not (num == 8 and died):
                 print("  ok plan Arc written" if num == 1 else "  ok validate_tome: clean")
                 break
-            # A DIED worker (crash/quota/hang) that left work undone: don't waste a validator
-            # retry re-invoking a dead/exhausted worker — continue on ANOTHER runner, which
-            # resumes from the tome on disk. Explicit --fallback runners go first; with none
-            # left, PAUSE for a human to choose (the Bindery box, or a TTY prompt).
+            # A dead/quota-limited worker cannot spend a repair retry. Continue on the next
+            # autonomous hand, preserving the exact tome state already on disk.
             if died:
                 nxt = chain[ri + 1] if ri + 1 < len(chain) else None
-                reason = "hung/timeout" if rc == 124 else f"exit {rc}"
-                if nxt is None and (ask_on_death or interactive):
-                    nxt, _ = request_runner(args.tome_id, num, name, reason, interactive)
-                    if nxt is not None:
-                        chain.append(nxt)
-                elif nxt is None:  # unattended, nobody to ask → default runner as a safety net
+                if nxt is None:
                     imp = _implicit_fallback(cfg, overrides, chain[ri])
                     if imp and imp[0][1] not in [c[1] for c in chain]:
                         chain.append(imp[0])
@@ -400,24 +401,14 @@ def main():
                                   + continuity_context + access)
                     continue
             if attempt >= retry_budget:
-                # Automatic budget spent. Unattended with nobody to ask → fail as before. Otherwise
-                # PAUSE and let the operator grant more retries and/or switch THIS phase's model
-                # (Bindery box / TTY prompt); either way it resumes the phase from the tome on disk.
                 report_txt = "\n".join(probs + [report])
-                if not (ask_on_death or interactive):
-                    sys.exit(f"Phase {num} still fails its gates after {attempt} retries:\n" + report_txt)
-                nxt, extra = request_runner(args.tome_id, num, name,
-                                            f"{attempt} retries used", interactive, report=report_txt)
-                if nxt is None and extra <= 0:
-                    sys.exit(f"Phase {num} still fails its gates after {attempt} retries "
-                             f"(operator declined to continue):\n" + report_txt)
-                if nxt is not None and nxt[1] not in [c[1] for c in chain]:
-                    chain.append(nxt)
-                    ri = len(chain) - 1
-                    print(f"  ⇒ operator switched phase {num} to {chain[ri][0]}")
-                retry_budget = attempt + max(extra, 1)  # a model switch with no count = one more go
-                print(f"  ↻ operator granted more retries — budget now {retry_budget} "
-                      f"(resumes from tomes/{tid}/ on disk)")
+                if ri + 1 < len(chain):
+                    ri += 1
+                    retry_budget = attempt + retries_for(chain[ri][0])
+                    print(f"  ⇒ repair budget spent — escalating phase {num} to {chain[ri][0]} "
+                          f"(budget now {retry_budget}; resumes from disk)")
+                else:
+                    sys.exit(f"Phase {num} exhausted every autonomous repair hand:\n" + report_txt)
             attempt += 1
             what = "+".join(w for w, on in (("arc missing" if num == 1 else "validator", not ok),
                                             ("write contract", bool(probs)),
@@ -453,8 +444,6 @@ def main():
 
         if num == 1:                 # Later phases need the arc, not its Phase-1 schema.
             finalize_arc(plan_path)
-            # #21: human approves the arc before authoring commits to it
-            arc_checkpoint(plan_path, interactive, args.yes)
         if num == 3:                 # #23: forecast the now-real content size
             clear_section_progress(tid)
             print(f"  · forecast: {forecast_line(measure(tid))}")
@@ -466,8 +455,7 @@ def main():
                 (plan_path, verdict_path, findings_path, shrink_path),
                 pre, runtime_pre, marks, review_edits, rc, continuity_context, access,
                 ping_interval, dead_pings, hard_cap, timings,
-                build_id=args.tome_id, ask_on_death=ask_on_death,
-                interactive=interactive)
+                runner_chain=chain[ri:])
 
     if os.path.isdir(os.path.join(REPO, "tomes", tid)):
         append_ground_truth(tid, plan_path, timings)
@@ -476,7 +464,8 @@ def main():
         print(f"\n{'!' * 64}\n! Phase 8 review hit its {MAX_STUDENT_LOOPS}-round cap WITHOUT a PASS.\n"
               f"! The tome VALIDATES but the editorial reviewer still flags blocking gaps:\n"
               f"{review_unresolved or '  (no structured findings written)'}\n"
-              f"! Surfaced for a human — the harness exits nonzero and does not mark this build done.\n{'!' * 64}")
+              f"! Every autonomous review hand is exhausted; the harness exits nonzero and "
+              f"does not mark this build done.\n{'!' * 64}")
         sys.exit(1)
 
     print(f"\n== all phases complete for '{tid}'. Smoke-test: http://localhost:8777/?tome={tid}")

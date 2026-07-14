@@ -91,9 +91,12 @@ def check_layout(tome_path, m):
 
 
 def check_placeholders(toml_files):
-    """Scaffolding sweep: a finished tome carries no TODO/FIXME/lorem strings. WARN
-    class 'content' so it hard-gates at Phase 7 (--strict) without blocking the
-    scaffold phases, which legitimately leave TODOs for later phases to fill."""
+    """Scaffolding sweep: authored fields carry no TODO/FIXME/lorem strings.
+
+    Findings are owned by the phase that authors their file, while deliberate student
+    starter TODOs are exempt.  Future scaffold banks therefore remain legal without
+    deferring completed-section debt to Phase 7.
+    """
     for path in toml_files:
         data, e = load_toml(path)
         if e:
@@ -106,6 +109,10 @@ def check_placeholders(toml_files):
                     hits.append(at or "(top level)")
             elif isinstance(v, dict):
                 for k, x in v.items():
+                    # A starter is the student's deliberately incomplete input.  TODO
+                    # markers there are instructions, not authoring scaffolding.
+                    if k == "starter":
+                        continue
                     scan(x, f"{at}.{k}" if at else k)
             elif isinstance(v, list):
                 for i, x in enumerate(v):
@@ -113,9 +120,18 @@ def check_placeholders(toml_files):
 
         scan(data, "")
         if hits:
+            normalized = rel(path).replace(os.sep, "/")
+            if "/sections/" in f"/{normalized}":
+                owner_phase = 3
+            elif normalized.endswith(("intrusions.toml", "attacks_src.toml", "attacks.toml")):
+                owner_phase = 4
+            elif normalized.endswith(("themes.toml", "shop.toml", "badges.toml")):
+                owner_phase = 6
+            else:
+                owner_phase = 7
             warn("content", f"{rel(path)}: {len(hits)} string(s) still carry TODO/FIXME/placeholder "
                             f"text (first at {hits[0]}) — clear every bit of scaffolding before "
-                            "calling the tome done")
+                            "calling the tome done", phase=owner_phase)
 
 
 def engine_badge_ids():
@@ -157,7 +173,8 @@ def check_badges(m, tome_path):
     extra = bank - engine
     if extra:
         warn(blabel, f"badge id(s) {sorted(extra)} are never granted by the engine — dead sigils "
-                     "(section badges belong in each section's [freestyle.badge], not the bank)")
+                     "(section badges belong in each section's [freestyle.badge], not the bank)",
+             phase=6)
 
 
 def check_meta(m, label):
@@ -179,7 +196,8 @@ def check_meta(m, label):
     )
     if negative_scope.search(description):
         warn(label, "[meta] description is public shelf copy: summarize the artifact and "
-                    "capabilities positively; keep exclusions in the plan's Graduate ledger")
+                    "capabilities positively; keep exclusions in the plan's Graduate ledger",
+             phase=2)
     return meta
 
 
@@ -217,7 +235,8 @@ def check_runtime(m, tome_id, label):
     command_keys = ("command", "runCommand", "buildCommand", "checkCommand",
                     "scaffoldCommand", "packageCommand", "snippetRunCommand",
                     "validationCreateCommand", "validationPackageCommand",
-                    "validationProjectPackageCommand")
+                    "validationProjectPackageCommand", "deliveryCreateCommand",
+                    "deliveryInstallCommand", "deliveryBuildCommand")
     for key in command_keys:
         if key not in merged:
             continue
@@ -260,6 +279,12 @@ def check_runtime(m, tome_id, label):
         value = merged.get(key)
         if (isinstance(value, list) and value and not any("{package}" in arg for arg in value)):
             err(source_label(key), f"[runtime] {key} must contain a {{package}} placeholder")
+    for key, placeholder in (("deliveryCreateCommand", "{env}"),
+                             ("deliveryInstallCommand", "{requirements}")):
+        value = merged.get(key)
+        if (isinstance(value, list) and value
+                and not any(placeholder in arg for arg in value)):
+            err(source_label(key), f"[runtime] {key} must contain a {placeholder} placeholder")
     for key in ("entryFile", "projectFile"):
         value = merged.get(key)
         if value is None:
@@ -296,7 +321,7 @@ def check_runtime(m, tome_id, label):
             except re.error as exc:
                 err(source_label(key), f"[runtime] {key}[{index}] is not a valid Python "
                                        f"regex: {exc}")
-    for key in ("buildTimeout", "runTimeout"):
+    for key in ("buildTimeout", "runTimeout", "deliveryTimeout"):
         value = merged.get(key)
         if value is not None and (isinstance(value, bool) or not isinstance(value, int)
                                   or value <= 0):
@@ -311,7 +336,8 @@ def check_runtime(m, tome_id, label):
     seen = set()
     for key in ("command", "runCommand", "buildCommand", "checkCommand", "scaffoldCommand",
                 "validationCreateCommand", "validationPackageCommand",
-                "validationProjectPackageCommand"):
+                "validationProjectPackageCommand", "deliveryCreateCommand",
+                "deliveryInstallCommand", "deliveryBuildCommand"):
         v = merged.get(key)
         exe = v[0] if isinstance(v, list) and v and isinstance(v[0], str) else None
         if not exe or exe in seen or "{" in exe:
@@ -323,10 +349,16 @@ def check_runtime(m, tome_id, label):
     if "workspaceDir" in rt:
         warn(label, "[runtime] workspaceDir is removed — a tome never hardwires the "
                     "project location. Use externalWorkspace = true to REQUIRE external "
-                    "mode; the student always chooses the folder")
+                    "mode; the student always chooses the folder", phase=2)
     xw = rt.get("externalWorkspace")
     if xw is not None and not isinstance(xw, bool):
         err(label, "[runtime] externalWorkspace must be a boolean (true to require external mode)")
+    if xw is True and not str(rt.get("projectFile", "")).strip():
+        warn("content", "[runtime] externalWorkspace = true but no projectFile — the workbench's "
+             "required-files panel falls back to the language default (e.g. a lone Main.java), "
+             "misdescribing the real project; name its true build file (e.g. \"build.gradle\")",
+             phase=2)
+
 
 
 def check_narrative(m, label):
@@ -334,6 +366,19 @@ def check_narrative(m, label):
     if not isinstance(nar, dict) or not str(nar.get("objective", "")).strip():
         err(label, "[narrative] objective is required and must be non-empty — "
                    "the server refuses to load a tome without it")
+        return
+    nboot = len(nar.get("bootLines", []) or [])
+    ngrade = len(nar.get("gradingLines", []) or [])
+    if not 8 <= nboot <= 12:
+        warn("content", f"[narrative] bootLines has {nboot} line(s) — spec wants 8–12 "
+             "(establish the fiction, the mentor, and the commission)", phase=2)
+    if not 6 <= ngrade <= 8:
+        warn("content", f"[narrative] gradingLines has {ngrade} line(s) — spec wants 6–8 "
+             "in-character lines", phase=2)
+    if not str(nar.get("completeText", "")).strip():
+        warn("content", "[narrative] completeText is missing — the course-complete screen "
+             "falls back to generic engine text instead of this tome's voice at its biggest "
+             "moment", phase=2)
 
 
 def check_economy(m, label):
@@ -344,7 +389,8 @@ def check_economy(m, label):
     if ranks is None:
         return
     if not isinstance(ranks, list) or not ranks:
-        warn(label, "[economy] ranks should be a non-empty array of [threshold, title] pairs")
+        warn(label, "[economy] ranks should be a non-empty array of [threshold, title] pairs",
+             phase=5)
         return
     ok = True
     for r in ranks:
@@ -352,9 +398,10 @@ def check_economy(m, label):
                 or not isinstance(r[0], (int, float)) or not isinstance(r[1], str)):
             ok = False
     if not ok:
-        warn(label, "[economy] ranks entries should each be [threshold(number), title(string)]")
+        warn(label, "[economy] ranks entries should each be [threshold(number), title(string)]",
+             phase=5)
     elif ranks[0][0] != 0:
-        warn(label, "[economy] ranks: the first title should start at threshold 0")
+        warn(label, "[economy] ranks: the first title should start at threshold 0", phase=5)
 
 
 def check_shop(m, theme_ids, earned_granted, label):
@@ -378,19 +425,20 @@ def check_shop(m, theme_ids, earned_granted, label):
         if not str(it.get("ico", "")).strip():
             err(label, f"[[shop]] power-up {cid!r}: ico is required — pick an icon id for the shop tile")
         if cid == "x2" and "charges" in it:
-            warn(label, "[[shop]] power-up 'x2': drop the charges key — the count is engine-fixed at 20")
+            warn(label, "[[shop]] power-up 'x2': drop the charges key — the count is engine-fixed at 20",
+                 phase=6)
         if cid in MULTI_CHARGE:
             ch = it.get("charges")
             if not isinstance(ch, int) or isinstance(ch, bool) or ch < 2:
                 warn(label, f"[[shop]] power-up {cid!r}: set charges to 2+ — a one-charge ward barely "
-                            "helps (reference tomes run firewall=5, vpn=3)")
+                            "helps (reference tomes run firewall=5, vpn=3)", phase=6)
         bare = _bare_shop_name(it.get("name"))
         owners = duplicate_names.get((cid, bare))
         if owners:
             others = [tid for tid in owners if tid != current_tid]
             warn(label, f"[[shop]] power-up {cid!r} reuses the name {bare!r} across tomes "
                         f"{owners} — the mechanic repeats, but each course needs its own in-world "
-                        f"name. Reflavor it here or in {others}.")
+                        f"name. Reflavor it here or in {others}.", phase=6)
     for item in m.get("shop", []):
         if not isinstance(item, dict):
             err(label, "[[shop]] entries must be tables")
@@ -404,10 +452,12 @@ def check_shop(m, theme_ids, earned_granted, label):
             err(label, f"[[shop]] {iid!r}: cost must be a positive number — the engine's "
                        "spend() subtracts it raw, and a missing cost corrupts the purse to NaN")
         if kind not in ("consumable", "theme"):
-            warn(label, f"[[shop]] {iid!r}: kind should be \"consumable\" or \"theme\"")
+            warn(label, f"[[shop]] {iid!r}: kind should be \"consumable\" or \"theme\"",
+                 phase=6)
         if kind == "consumable" and iid not in CONSUMABLE_IDS:
             warn(label, f"[[shop]] consumable {iid!r} is not one of the six engine "
-                        "mechanics (firewall/x2/skip/vpn/xray/oracle) — it renders but does nothing")
+                        "mechanics (firewall/x2/skip/vpn/xray/oracle) — it renders but does nothing",
+                 phase=6)
         if kind == "theme":
             ref = item.get("theme")
             if not ref:

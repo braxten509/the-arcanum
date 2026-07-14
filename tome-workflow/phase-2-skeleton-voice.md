@@ -1,9 +1,8 @@
 # Phase 2 — Skeleton & voice
 
-Read **§2**. Fill the existing scaffold in Arc order: `[meta]`, `[runtime]`, `[content]`,
-`[narrative]`, and `[defaults]`. Write the narrative voice before flavor text. Expand
-the voice-bearing scaffold fields needed by those tables; Phase 6 still owns the finished
-themes, shop, and badge banks.
+Read **§2**. Fill `[meta]`, `[runtime]`, `[content]`, `[narrative]`, and `[defaults]` in
+Arc order. Phase 2 owns the narrative: write 8–12 `bootLines`, 6–8 `gradingLines`, and
+an in-world `completeText`. Phase 6 still owns finished themes, shop, and badges.
 
 Write `[meta].description` as concise, positive shelf copy: name the finished artifact
 and the meaningful capabilities the learner builds. Do not advertise exclusions with
@@ -17,15 +16,22 @@ tree. Do not add lessons, exercises, readings, or authored teaching prose; do no
 the TODO marker from the lesson body or freestyle brief. Phase 3 alone authors the
 3–8 real lessons per section and their content.
 
-Keep `[content].capabilityLedger = true`. Leave each skeleton lesson and freestyle with a
+Keep `[content].capabilityLedger = true` and `[content].proofVersion = 1`. Leave each
+skeleton section's proof, concept-evidence, artifact-step, and reference-step placeholders
+for Phase 3 to replace; never downgrade the proof contract. Leave each lesson/freestyle with a
 valid placeholder `teaches`/`requires` id for Phase 3 to replace; do not disable the
 coverage contract.
+Copy Arc scenario order into `[acceptance]`; choose `package` for promised delivery,
+otherwise `runtime`. Package runtimes need delivery argv.
 
 Every tome names a reusable runtime file. If `global-configs/runtimes/<name>.toml` is
 missing or incomplete, this phase may create or repair it. Read **§5**, copy an existing
 runtime's TOML shape, use a toolchain installed on this host, and include the language's
 run/check/scaffold, diagnostics, starter, syntax, and completion configuration. Keep
 tome-specific overrides in the tome's `[runtime]` table.
+
+The runtime must scaffold, truthfully build/check, and accept safe proof arguments on its real
+run command. Never bypass it with a tome-controlled shell command.
 
 If any authored solution, starter, or executable sample imports a third-party package,
 declare every such package in the tome as `validationDependencies = ["package", ...]`.

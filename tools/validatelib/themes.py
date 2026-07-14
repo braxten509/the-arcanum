@@ -51,7 +51,8 @@ def check_themes(m, label):
                        + ", ".join(sorted(missing)))
         extra = present - THEME_VARS
         if extra:
-            warn(label, f"[[themes]] {tid!r}: unknown theme var(s): " + ", ".join(sorted(extra)))
+            warn(label, f"[[themes]] {tid!r}: unknown theme var(s): " + ", ".join(sorted(extra)),
+                 phase=6)
         for key in SIGIL_KEYS:
             value = (th.get("vars", {}) or {}).get(key)
             if value is not None and _hex_hsl(value) is None:
@@ -81,11 +82,13 @@ def check_themes(m, label):
                      f"hue {round(h)}° at {round(chroma * 100)}% chroma — dyed paper, not "
                      "parchment. Paper is warm (hue 10–95°) or near-neutral; keep a cool "
                      "tint under 10% chroma (the reference night palettes run 6–7%). Put "
-                     "the theme's color in bg0, the panels, and the accents — not the page")
+                     "the theme's color in bg0, the panels, and the accents — not the page",
+                     phase=6)
 
     if len(theme_ids) < 3:
         warn(label, f"only {len(theme_ids)} theme palette(s) — spec wants 3–5 distinct "
-                    "palettes (a signature default, 2–3 purchasable, optionally 1 earned)")
+                    "palettes (a signature default, 2–3 purchasable, optionally 1 earned)",
+             phase=6)
 
     defaults = m.get("defaults", {})
     dtheme = defaults.get("theme") if isinstance(defaults, dict) else None
@@ -213,7 +216,7 @@ def check_theme_distinctness(m, label):
     """Every palette must be measurably distinct from the global Sepia Vellum
     baseline AND from this tome's other palettes. The scaffold's placeholder
     vars ARE vellum's values — a run that keeps them ships a replica renamed
-    (the hex-forge failure). Hard-gate 'content' WARNs (--strict fails them)."""
+    (the hex-forge failure). These warnings hard-gate in their owning Phase 6."""
     vell, _ = load_toml(os.path.join(SKINS_DIR, "vellum", "skin.toml"))
     vell_vars = (vell or {}).get("vars", {})
     themes = [t for t in (m.get("themes") or []) if isinstance(t, dict)]
@@ -223,10 +226,11 @@ def check_theme_distinctness(m, label):
         if d is not None and d < PALETTE_MIN_DIST:
             warn("content", f"[[themes]] {th.get('id')!r} is a near-copy of the global Sepia "
                  f"Vellum palette (mean channel distance {d:.1f} < {PALETTE_MIN_DIST}) — the "
-                 "scaffold placeholder IS vellum; design this course's own palette (all 22 vars)")
+                 "scaffold placeholder IS vellum; design this course's own palette (all 22 vars)",
+                 phase=6)
         for other in themes[i + 1:]:
             d2 = _palette_dist(tv, other.get("vars", {}) or {})
             if d2 is not None and d2 < PALETTE_MIN_DIST:
                 warn("content", f"[[themes]] {th.get('id')!r} and {other.get('id')!r} are "
                      f"near-identical (mean channel distance {d2:.1f} < {PALETTE_MIN_DIST}) — "
-                     "palettes must differ in paper tint, accent ink, and candle")
+                     "palettes must differ in paper tint, accent ink, and candle", phase=6)

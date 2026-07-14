@@ -2,6 +2,7 @@
 """Live Bindery census + quality-preset policy regression checks."""
 import os
 import sys
+import tomllib
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -41,7 +42,7 @@ EXPECTED_ROLES = {
     "gpt-5.4": _roles(),
     "gpt-5.4-mini": _roles("drafter"),
     "opencode-go/deepseek-v4-flash": _roles("drafter"),
-    "opencode-go/deepseek-v4-pro": _roles("writer", "sections", "reviewer"),
+    "opencode-go/deepseek-v4-pro": _roles("writer", "sections"),
     "opencode-go/glm-5.1": _roles(),
     "opencode-go/glm-5.2": _roles("writer", "reviewer"),
     "opencode-go/kimi-k2.6": _roles("writer", "reviewer"),
@@ -52,7 +53,7 @@ EXPECTED_ROLES = {
     "opencode-go/minimax-m3": _roles("writer", "sections", "reviewer"),
     "opencode-go/qwen3.6-plus": _roles(),
     "opencode-go/qwen3.7-max": _roles("writer", "reviewer"),
-    "opencode-go/qwen3.7-plus": _roles("writer", "sections"),
+    "opencode-go/qwen3.7-plus": _roles("writer"),
     "opencode/big-pickle": _roles(),
     "opencode/deepseek-v4-flash-free": _roles(),
     "opencode/mimo-v2.5-free": _roles(),
@@ -138,6 +139,8 @@ def main():
     assert not opencode["opencode-go/kimi-k2.7-code"][4]["advised"]["sections"]
     assert opencode["opencode-go/minimax-m3"][4]["advised"]["reviewer"]
     assert not opencode["opencode-go/qwen3.7-plus"][4]["advised"]["reviewer"]
+    assert not opencode["opencode-go/qwen3.7-plus"][4]["advised"]["sections"]
+    assert not opencode["opencode-go/deepseek-v4-pro"][4]["advised"]["reviewer"]
     for dominated in ("opencode-go/glm-5.1", "opencode-go/mimo-v2.5-pro",
                       "opencode-go/minimax-m2.7", "opencode-go/qwen3.6-plus"):
         assert not any(opencode[dominated][4]["advised"].values()), dominated
@@ -166,6 +169,22 @@ def main():
             if pick.get("effort"):
                 spec += f'@{pick["effort"]}'
             _spec_to_runner(spec, f'{tier["id"]} {role}')
+
+    with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                           "global-configs", "harness.toml"), "rb") as handle:
+        autonomy = tomllib.load(handle).get("autonomy") or {}
+    for phase, specs in autonomy.items():
+        role = PHASE_ROLES.get(phase, "drafter")
+        for spec in specs:
+            kind, separator, raw_model = str(spec).partition(":")
+            model, _, effort = raw_model.partition("@")
+            assert separator and kind in providers, (phase, spec)
+            row = next((item for item in providers[kind]["models"] if item[0] == model), None)
+            assert row and row[4]["reason"][role] != "insufficient", (
+                f"autonomous phase {phase} uses underpowered {model} for {role}")
+            if effort:
+                assert effort in row[3], (phase, model, effort)
+            _spec_to_runner(str(spec), f"autonomy phase {phase}")
 
     q1 = quality[0]["phases"]
     assert q1["3"]["model"] != "opencode-go/deepseek-v4-flash"

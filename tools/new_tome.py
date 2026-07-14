@@ -47,8 +47,8 @@ name = "@@RUNTIME@@"                # a global-configs/runtimes/<name>.toml id
 project = "@@PROJECT@@"             # TODO: the workspace project/folder name
 language = "@@LANGUAGE@@"           # display name, used in grader/oracle prompts
 # packages = false                 # true only for dotnet/NuGet tomes
-# workspaceDir = "/abs/path"       # ONLY for courses whose build lives in the player's
-                                   # own external tools; must be absolute. Omit otherwise.
+# externalWorkspace = true         # ONLY for courses whose real work lives in the player's
+                                   # own external tools; the player chooses its location.
 # starterCode inherits from the language TOML; override it here if you want a
 # different first-run entry file:
 # starterCode = '''
@@ -59,8 +59,17 @@ language = "@@LANGUAGE@@"           # display name, used in grader/oracle prompt
 sections = [@@SECTIONS_ARRAY@@]     # ordered section ids; each maps to sections/<id>/
 capabilityLedger = true             # keep this: lessons declare `teaches`, capstones
                                     # declare cumulative `requires`; validator proves order
+proofVersion = 1                    # future-tome contract: replay learner edits + run milestones
 # OPTIONAL duel bank → generated/attacks.toml (the engine default). Do NOT hand-write it:
 # author attacks_src.toml, then run  python3 tools/gen_attacks.py @@ID@@
+
+[acceptance]
+version = 1
+mode = "run"                       # run; guided only for inherently unautomatable external work
+artifact = "runtime"               # runtime | package
+runArgs = ["--arcanum-acceptance"]
+scenarios = ["replace-me", "finished-outcome"] # Phase 2 copies the exact Phase-1 journey ids
+controls = ["input", "clock", "seed", "frame-limit"]
 
 [defaults]
 theme = "signature"                # a [[themes]] id below (this tome's own default look)
@@ -238,12 +247,39 @@ title = "TODO: chapter title"
 build = "TODO: one line — what this chapter adds to the evolving project"
 brief = "TODO: HTML intro card for the chapter."
 
+[proof]
+mode = "run"                       # run | build | guided | package (package only in final section)
+expectedFiles = ["replace-me.txt"] # TODO: source/config files that must exist after this chapter
+runArgs = ["--arcanum-proof", "@@SID@@"]
+expect = "TODO: exact deterministic milestone output"
+
+# Media is NEVER authored by the tome AI. When this chapter needs a sprite, sound,
+# music track, font, image, or video, add one or more [[assets]] sourcing guides:
+# [[assets]]
+# id = "player-sprite"
+# kind = "sprite"
+# lesson = "@@SID@@-l01"
+# destination = "assets/player.png"
+# sourceGuidance = "Explain how the learner chooses, downloads, renames, and places it."
+# licenseGuidance = "Explain the license/attribution step the learner must perform."
+# sources = [{ label = "Trusted asset library", url = "https://...", license = "..." }]
+
 [freestyle]
 title = "THE WORKING: TODO"
 brief = "TODO: the in-world commission.<ul><li>TODO requirement one (state exact output/tokens)</li><li>TODO requirement two</li></ul>"
 requires = ["replace-me"]           # TODO: exact ids taught by this/earlier lessons
 reward = 150
 xray = "TODO: the grader's private notes — the specific pitfalls it docks and the style it rewards, truthful to the rubric below."
+
+[[freestyle.referenceSteps]]        # hidden from learners; validator replays a real solution
+id = "@@SID@@-freestyle-reference"
+path = "replace-me.txt"
+mode = "rewrite"
+preserves = "all-active"
+instruction = "TODO: exact private reference edit that satisfies this Working."
+content = '''
+TODO: complete reference content
+'''
 
 [freestyle.badge]
 id = "badge-@@SID@@"
@@ -271,9 +307,27 @@ title = "TODO: lesson title"
 teaches = ["replace-me"]            # TODO: stable kebab-case capabilities this lesson teaches
 body = '''
 <p>TODO: 300-600 words of code-first lesson body, in the tome's voice.</p>
-<pre><code><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
+<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
 <p>TODO: an optional deeper-cut appendix.</p></div>
+'''
+
+[[lessons.concepts]]                # one complete first-use proof for every `teaches` id
+id = "replace-me"
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
+practice = "@@SID@@-l01-e1"
+
+[[lessons.artifactSteps]]           # visible, exact edits replayed in one disposable project
+id = "@@SID@@-l01-project-step"
+path = "replace-me.txt"
+mode = "write"                     # write | replace | rewrite | append | delete
+instruction = "TODO: exact file, working directory, action, and verification."
+content = '''
+TODO: complete learner-visible file content
 '''
 
 [[lessons.readings]]               # optional: 1-2 high-quality official docs

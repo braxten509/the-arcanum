@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Gate continuity and anti-template quality across an authored Phase-3 prefix.
+"""Gate all Phase-3 quality obligations across an authored prefix.
 
 The ordinary per-section gate catches schema and capability errors. This checkpoint runs
 after a few adjacent sections in the SAME warm worker so repeated prose, uniform exercise
@@ -15,9 +15,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import tome_layout
 from buildlib.continuity import validate_handoff
-from validatelib import _findings
-from validatelib.content import check_anti_template
-from validatelib.depth import check_padded_prose, check_verbatim_prose
+from validatelib import _findings, load_toml, rel
+from validatelib.content import check_anti_template, check_content, check_density
+from validatelib.coverage import check_capability_ledger, check_canonical_type_regressions
+from validatelib.depth import (check_freestyle_scope, check_name_drift,
+                               check_padded_prose, check_presolved_static,
+                               check_self_answering, check_taught_before_used,
+                               check_verbatim_prose)
 
 
 def section_ids(tome_path):
@@ -31,7 +35,7 @@ def section_ids(tome_path):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Validate continuity and anti-template quality through one section.")
+        description="Validate cumulative Phase-3 quality through one completed section.")
     parser.add_argument("tome", help="path to the tome folder, e.g. tomes/verisearch")
     parser.add_argument("--through", required=True, help="last completed section id")
     parser.add_argument("--plan", required=True, help="Phase 1 plan with the continuity map")
@@ -44,8 +48,18 @@ def main():
         print(f"ERROR quality-window: {args.through!r} is not in tome.toml [content].sections")
         return 1
     prefix = ids[:ids.index(args.through) + 1]
+    manifest_path = os.path.join(tome_path, "tome.toml")
+    manifest, manifest_error = load_toml(manifest_path)
     sections_data = []
     problems = []
+    if manifest_error:
+        problems.append(f"{rel(manifest_path)}: {manifest_error}")
+        manifest = {}
+    else:
+        try:
+            tome_layout.merge_banks(manifest, tome_path)
+        except Exception as exc:
+            problems.append(f"split banks cannot load: {exc}")
     for sid in prefix:
         try:
             sections_data.append(tome_layout.load_section(tome_path, sid))
@@ -56,10 +70,22 @@ def main():
             problems.append(report or f"section {sid} handoff failed without a diagnostic")
 
     _findings.clear()
-    if len(sections_data) >= 2:
+    if sections_data:
+        # Only the completed prefix participates: Phase-2 placeholders in future
+        # sections cannot dilute medians or manufacture false template findings.
+        check_density(sections_data)
+        check_content(manifest, sections_data, rel(manifest_path), include_manifest=False)
         check_anti_template(sections_data)
+        check_taught_before_used(sections_data)
+        check_freestyle_scope(manifest, sections_data)
+        check_capability_ledger(manifest, sections_data,
+                                course_complete=args.through == ids[-1])
+        check_canonical_type_regressions(manifest, sections_data)
         check_verbatim_prose(sections_data)
         check_padded_prose(sections_data)
+        check_presolved_static(manifest, sections_data)
+        check_name_drift(sections_data)
+        check_self_answering(sections_data)
     for level, label, message in _findings:
         problems.append(f"{level} {label}: {message}")
 

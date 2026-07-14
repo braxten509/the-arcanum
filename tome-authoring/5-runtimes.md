@@ -28,6 +28,9 @@ key of the language TOML (and equally of a tome's `[runtime]` table):
 | `validationPackageCommand` | install one environment-scoped validation dependency; `{dir}`/`{package}` substituted. Runs once per package in a content-addressed directory under `.tome-build/validation-envs` |
 | `validationEnv` | environment-name → value table applied to the worker and independent harness gates; `{dir}` and existing environment placeholders such as `{PATH}` are expanded |
 | `validationProjectPackageCommand` | install one dependency into each validator-created scratch project; `{dir}`/`{package}` substituted. Defaults to `packageCommand` when no environment installer is configured |
+| `deliveryCreateCommand` | create a fresh final-proof environment; `{env}` substituted |
+| `deliveryInstallCommand` | install the learner project's exact manifest; `{env}`/`{requirements}` substituted |
+| `deliveryBuildCommand` | real packager argv; final `[proof].packageArgs` are appended |
 | `entryFile` | the file `command` runs / the scaffold writes (e.g. `"main.py"`) |
 | `starterCode` | the entry file's contents written by the default scaffold |
 | `newFileExt` | default extension for the NEW FILE button |
@@ -35,7 +38,7 @@ key of the language TOML (and equally of a tome's `[runtime]` table):
 | `excludeDirs` | extra dirs skipped while collecting (dot-dirs and `node_modules/__pycache__/venv/bin/obj/build/out/target` are always skipped) |
 | `editorLang` | Monaco language id (any id; an id Monaco doesn't ship gets a generated tokenizer — see `[syntax]`) |
 | `language` | display name, used in grader/oracle prompts |
-| `buildTimeout` / `runTimeout` | seconds for build/scaffold and for project runs |
+| `buildTimeout` / `runTimeout` / `deliveryTimeout` | seconds for build/scaffold, project runs, and clean packaging |
 | `snippetEntry` | regex: a lesson `<pre><code>` block matching it is a whole program, so §7 builds it. Absent → the language's samples are never compiled |
 | `snippetPrelude` | text prepended to such a block when its first line is missing (Odin's `package main`). Usually unset |
 | `diagIgnore` | regexes for diagnostics that are artifacts of judging a snippet alone: names the prose declared earlier, sibling modules a single-file build cannot see |

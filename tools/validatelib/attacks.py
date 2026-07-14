@@ -46,14 +46,15 @@ def check_attacks(path, m, label, attackstages):
     if thin:
         warn(rel(path), f"{len(thin)} attack tier(s) have <5 challenges (tiers {thin}) — "
                         "spec wants 5+ per tier (one is picked at random) so repeat duels "
-                        "at the same tier don't feel identical")
+                        "at the same tier don't feel identical", phase=4)
     # tier N unlocks after N sections passed (the engine caps depth at #tiers), so a bank
     # far shorter than the course stops scaling — the back half unlocks no new duels.
     sections = (m.get("content", {}) or {}).get("sections")
     nsec = len(sections) if isinstance(sections, list) else 0
     if nsec and len(tiers) < (nsec + 1) // 2:
         warn(rel(path), f"only {len(tiers)} attack tier(s) for a {nsec}-section course — tiers "
-                        "should span the course (§4); the later sections unlock no new duels")
+                        "should span the course (§4); the later sections unlock no new duels",
+             phase=4)
 
 
 def check_attacks_sync(tome_path, apath):
@@ -146,7 +147,8 @@ def check_intrusions(tome_path, m, label):
             if nsec and tier["min"] >= nsec:
                 warn(ilabel, f"intrusion tier {ti + 1}: min = {tier['min']} but the course has "
                      f"{nsec} section(s) — this tier only unlocks after the whole course is "
-                     f"complete, so its hexes never fire during play (last playable gate is {nsec - 1})")
+                     f"complete, so its hexes never fire during play (last playable gate is {nsec - 1})",
+                     phase=4)
     for ti, tier in enumerate(tiers):
         where = f"intrusion tier {ti + 1}"
         if not isinstance(tier, dict):
@@ -170,7 +172,7 @@ def check_intrusions(tome_path, m, label):
             continue
         if len(pool) < 5:
             warn(ilabel, f"{where}: only {len(pool)} challenge(s); spec wants 5+ per tier "
-                         "so repeat hexes at the same tier don't feel identical")
+                         "so repeat hexes at the same tier don't feel identical", phase=4)
         for pi, ch in enumerate(pool):
             exp = ch.get("expect") if isinstance(ch, dict) else None
             if not (isinstance(exp, str) and exp.strip()):

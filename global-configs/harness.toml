@@ -1,19 +1,29 @@
 # global-configs/harness.toml — config for the tome-build harness (tools/build_tome.py).
 #
-# Models/runners are chosen per-phase in the browser bindery at launch and passed straight
-# to the harness, so this file carries no model defaults — it configures how the harness
-# WATCHES a running build. (For a command-line build, pass the model per phase with
-# --runner <phase>=<kind>:<model>.)
+# Primary models/runners are chosen per phase in the browser bindery and passed straight
+# to the harness. This file also owns the automatic recovery chain used after a primary
+# hand dies or exhausts its repair budget. A command-line build can still override a
+# primary with --runner <phase>=<kind>:<model>.
 
 # --- worker liveness ---------------------------------------------------------------------
 # Every phase runs a headless worker (an AI CLI). To catch a hung or quota-exhausted worker
 # fast, the harness pings it: every `ping_interval` seconds it checks the worker's CPU and
 # open network connections, and after `dead_pings` consecutive idle checks (no CPU AND no
-# live connection) it kills the worker and asks you to pick a new runner. The --ping-interval
-# and --dead-pings command-line flags override these.
+# live connection) it kills the worker and advances to the next autonomous hand. The
+# --ping-interval and --dead-pings command-line flags override these.
 [liveness]
 ping_interval = 30   # seconds between checks
 dead_pings = 2       # consecutive idle checks that confirm a dead worker
+
+# Web builds never pause for a human after construction starts. If a selected hand dies
+# or spends its repair budget, the harness escalates through the first installed choices
+# for that role. Endpoint/login health is checked only when a recovery hand is needed.
+[autonomy]
+default = ["codex-cli:gpt-5.6-luna@medium", "codex-cli:gpt-5.6-terra@medium", "claude-cli:claude-sonnet-5@high"]
+"1" = ["opencode-cli:opencode-go/minimax-m3", "codex-cli:gpt-5.6-terra@medium", "claude-cli:claude-sonnet-5@high"]
+"3" = ["opencode-cli:opencode-go/minimax-m3", "codex-cli:gpt-5.6-terra@medium", "claude-cli:claude-sonnet-5@high"]
+"4" = ["opencode-cli:opencode-go/minimax-m3", "codex-cli:gpt-5.6-terra@medium", "claude-cli:claude-sonnet-5@high"]
+"8" = ["opencode-cli:opencode-go/qwen3.7-max", "antigravity-cli:Gemini 3.1 Pro (High)", "codex-cli:gpt-5.6-sol@high"]
 
 # --- bindery quality presets -------------------------------------------------------------
 # The CHEAP <-> QUALITY slider in the forge modal (served via /api/models, applied in the
@@ -29,13 +39,13 @@ dead_pings = 2       # consecutive idle checks that confirm a dead worker
 
 [quality.q1]  # cheapest complete mix: spend on the teaching + independent final eyes
 label = "economy"
-blurb = "Flash drafts, MiniMax plans, Qwen writes split sections, DeepSeek Pro reviews"
+blurb = "Flash drafts, MiniMax plans and writes split sections, Qwen Max reviews"
 split = true
 phases.default = { kind = "opencode-cli", model = "opencode-go/deepseek-v4-flash", effort = "high" }
 phases."1" = { kind = "opencode-cli", model = "opencode-go/minimax-m3" }
 phases."4" = { kind = "opencode-cli", model = "opencode-go/minimax-m3" }
-phases."3" = { kind = "opencode-cli", model = "opencode-go/qwen3.7-plus" }
-phases."8" = { kind = "opencode-cli", model = "opencode-go/deepseek-v4-pro", effort = "high" }
+phases."3" = { kind = "opencode-cli", model = "opencode-go/minimax-m3" }
+phases."8" = { kind = "opencode-cli", model = "opencode-go/qwen3.7-max" }
 
 [quality.q2]  # value: stronger arc/sections, then independent subscription-backed eyes
 label = "value"

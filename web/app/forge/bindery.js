@@ -70,8 +70,9 @@ export function showTomePicker() {
   });
 }
 
-// A build worker died and the harness (build_tome --ask-on-death) is blocked on a runner
-// choice. Show a [PROVIDER][MODEL][EFFORT] picker over the forge card; POST the pick to
+// Compatibility UI for a legacy/external build that left an old runner-request sidecar.
+// Current builds never create one: their harness advances through autonomous recovery hands.
+// For an old sidecar, show a [PROVIDER][MODEL][EFFORT] picker over the forge card; POST the pick to
 // /api/buildtome/runner and the working resumes from disk. One box per pause (idempotent).
 function showRunnerDeath(overlay, jobId, info) {
   const gate = !!info.gate;   // a phase exhausted its gate retries (vs. a runner that died)

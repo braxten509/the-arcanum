@@ -7,26 +7,25 @@ import sys
 from . import REPO
 from .checkpoints import ARC_CONTRACT, ARC_HEADING
 from .measure import phase3_validator_shell_command, validator_shell_command
+from . import review_evidence
 
 PREAMBLE = """You are the headless worker for ONE phase of an Arcanum tome build.
 Complete only Phase {num}, then stop. The harness owns phase order, retries, and folder
 renames; never run `new_tome.py`, copy/move the tome, or leave scratch files in it.
 
-Start by reading {plan} and the existing files relevant to this phase. The files, not
-earlier prose claims, are ground truth. `tome-authoring/` is reference material: open only
-the sections named by this phase, and use them to resolve schema or authoring questions.
-Preserve correct earlier work unless this phase explicitly replaces it.
+Read {plan} and relevant existing files first; files, not earlier claims, are truth. Open
+only this phase's named `tome-authoring/` references. Preserve correct earlier work.
+For proof-v1, `write` creates only a new path. Existing files need exact `replace`, or
+`rewrite` with `preserves = "all-active"`. Every active earlier proof reruns after each
+section; handoff prose, receipt-only branches, and capability ids are not proof.
 
 Before returning, run this phase-appropriate warm-context check:
 
   {validator_command}
 
-Read the complete report. Fix only findings that block this command: every ERROR, plus
-non-advisory WARNs only when the command uses `--strict`. Do not chase WARNs during a
-non-strict phase. Report an out-of-scope blocker without crossing the write boundary.
-The harness repeats this check independently and rejects unexplained file deletion or
-array shrinkage. After scoped Phase-3 authoring it also runs the stronger complete
-whole-tome execution gate.
+Read the complete report and fix every ERROR. The harness promotes current/earlier-phase
+warnings, repeats the check, rejects unexplained shrinkage, and runs Phase 3's complete
+execution gate. With `--strict`, every non-advisory WARN blocks. Never cross the write boundary.
 
 ===== PHASE {num}: {title} =====
 
@@ -36,10 +35,11 @@ whole-tome execution gate.
 REPAIR_ONLY = """
 
 ===== REPAIR-ONLY RETRY =====
-Preserve the work already on disk. Do not restart the phase, broaden the deliverable,
-reread unrelated references, or clean up non-blocking WARNs. Do not add lessons or
-exercises unless an exact BLOCKING authored-completion/density finding requires them.
-Fix only the supplied blockers, run the exact check above, and stop when it exits 0.
+Preserve disk state. Do not restart the phase, broaden scope, reread unrelated references, or fix
+non-blocking WARNs. Add lessons/exercises only for an exact authored-completion blocker.
+Fix supplied blockers and stop after the exact check exits 0. For `sNN regression: active
+proof sMM`, repair the later edit; do not weaken or supersede the earlier proof unless the
+blocker explicitly requires a valid replacement.
 """
 
 STUDENT_HOOK = """
@@ -84,8 +84,8 @@ def repair_verification_focus(changes):
     return ("- [blocking] Fresh verification is required because the previous reviewer "
             "changed authored tome/runtime content. Recheck each change against its earlier "
             "owners and downstream consumers. If every repair is sound, make no authored "
-            "change and write PASS. If anything remains wrong, repair it and write GAPS "
-            "REMAIN; the harness will schedule another fresh pass.\n" + lines)
+            "change and return clean review evidence. If anything remains wrong, repair it "
+            "and report the blockers; the harness will schedule another fresh pass.\n" + lines)
 
 
 def review_pass_eligible(verdict, changes, gates_clean=True, worker_rc=0):
@@ -93,8 +93,10 @@ def review_pass_eligible(verdict, changes, gates_clean=True, worker_rc=0):
     return (verdict == "PASS" and not changes and gates_clean and worker_rc == 0)
 
 
-def review_findings_clear(path):
+def review_findings_clear(path, tid=None):
     """PASS may accompany only a missing/blank findings sidecar or the exact JSON ``[]``."""
+    if tid and review_evidence.enabled(tid):
+        return review_evidence.findings_clear(tid, path)
     if not os.path.exists(path):
         return True
     try:
@@ -124,8 +126,10 @@ def build_prompt(tid, num, title, body, plan_rel, verdict_rel, findings_rel=None
         p += current_start_calibration(plan_rel)
         review_scope = (FOCUSED_REVIEW_SCOPE.format(focus=focus)
                         if focus else FULL_REVIEW_SCOPE)
-        p += STUDENT_HOOK.format(tid=tid, verdict=verdict_rel, findings=findings_rel,
-                                 review_scope=review_scope)
+        hook = review_evidence.protocol(tid, findings_rel, review_scope)
+        p += hook or STUDENT_HOOK.format(
+            tid=tid, verdict=verdict_rel, findings=findings_rel,
+            review_scope=review_scope)
     return p
 
 
@@ -176,6 +180,8 @@ def read_findings(path):
             pass
         return None
     open(path, "w", encoding="utf-8").close()  # consume without removing the mounted sidecar
+    if isinstance(items, dict):
+        items = items.get("findings")
     if not isinstance(items, list):
         return None
     lines = []
@@ -192,7 +198,9 @@ def read_findings(path):
     return "\n".join(lines) if lines else None
 
 
-def read_verdict(path):
+def read_verdict(path, tid=None, findings_path=None):
+    if tid and findings_path and review_evidence.enabled(tid):
+        return review_evidence.derived_verdict(tid, path, findings_path)
     if not os.path.exists(path):
         return None
     v = open(path, encoding="utf-8").read().strip().upper()
@@ -288,6 +296,7 @@ def write_plan(plan_path, tid, answers, concept=None):
         f.write(f"# BUILD PLAN — {tid}\n\n")
         if concept:
             f.write("## Concept\n" + concept.strip() + "\n\n")
+        f.write("## Build contract\n- **Proof contract:** 1\n\n")
         f.write("## Gate answers (Phase 0)\n")
         for k, v in answers:
             if v:   # an unanswered dial is omitted, not written as an empty line

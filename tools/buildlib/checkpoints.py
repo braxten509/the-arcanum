@@ -1,8 +1,6 @@
-"""Between-phase checkpoints on the plan and the tome folder: the Phase-1 arc gate,
-the human arc approval pause, and the deterministic harness-side tome rename."""
+"""Between-phase checks on the plan and tome folder: Arc gate and deterministic rename."""
 import os
 import re
-import sys
 import tomllib
 
 from . import REPO
@@ -13,7 +11,8 @@ from .skeleton import parse_section_list
 # Difficulty spine + Graduate ledger are plan deliverables Phase 1 has skipped before.
 ARC_PARTS = ("Finished tool", "Language", "Project name", "Mentor persona", "Student term",
              "Visual identity", "Tooling fit", "Difficulty spine", "Graduate ledger", "Daily drivers",
-             "Continuity map", "Artifact lifecycle", "Acceptance proof", "Section list")
+             "Continuity map", "Artifact lifecycle", "Acceptance proof",
+             "Acceptance scenarios", "Section list")
 # The plan's daily-driver kit, machine-checked: each must be assigned CAN or CANNOT in
 # the arc (Phase 1 has silently dropped the key-value type twice), and a CANNOT is a
 # declared scope cut repeated in the Graduate ledger — never public catalog copy.
@@ -26,7 +25,7 @@ ARC_CONTRACT = (
     "_Phase 1: write the arc below this line. The harness gates on these parts, each as\n"
     "its own bold `**Label:** value` line, labels spelled exactly: Finished tool;\n"
     "Language; Project name; Mentor persona; Student term; Visual identity; Tooling fit\n"
-    "(exactly `<gate answer> — COMPATIBLE: evidence` or `<gate answer> — BLOCKED: reason — REQUIRED: internal|external|both`); Difficulty\n"
+    "(exactly `<gate answer> — COMPATIBLE: evidence`; construction cannot pause to change it); Difficulty\n"
     "spine (the 3-6 concepts practitioners of this language/tool find hard and idiomatic\n"
     "at the target level); Graduate ledger (after the last chapter the student CAN … /\n"
     "still CANNOT …); Daily drivers (this language's daily-driver kit, every item\n"
@@ -39,11 +38,30 @@ ARC_CONTRACT = (
     "entrypoints plus every temporary prompt, fixture, demo call, placeholder, or debug\n"
     "behavior, with the section that retires or deliberately ships it); Acceptance proof\n"
     "(a literal clean-start user journey from launch through the promised final outcome,\n"
-    "including delivery outside the authoring surface when applicable); Section list\n"
+    "including delivery outside the authoring surface when applicable); Acceptance scenarios\n"
+    "(one physical line of unique stable kebab ids separated by ` -> `, matching every\n"
+    "observable stage the executable acceptance adapter must report); Section list\n"
     "(one physical line per entry, sequential, in the exact form "
     "`1. **s01 — Title:** capability/build promise`; the harness deterministically "
     "scaffolds those entries)._\n")
 ARC_MIN_CHARS = 500  # of the striker's own content, contract lines excluded
+ACCEPTANCE_ID = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+
+
+def acceptance_scenarios(plan_path):
+    """Parse the Phase-1 machine-owned acceptance journey, or return ``[]``."""
+    try:
+        text = open(plan_path, encoding="utf-8").read()
+    except OSError:
+        return []
+    match = re.search(r"(?im)^\*\*Acceptance scenarios:\*\*\s*(\S.*)$", text)
+    if not match:
+        return []
+    items = [item.strip() for item in match.group(1).split(" -> ")]
+    if (len(items) < 2 or len(set(items)) != len(items)
+            or any(not ACCEPTANCE_ID.fullmatch(item) for item in items)):
+        return []
+    return items
 
 
 def arc_written(plan_path, plan_rel):
@@ -72,32 +90,18 @@ def arc_written(plan_path, plan_rel):
     gate_tooling = re.search(r"(?im)^- \*\*Tooling:\*\*\s*(internal|external|both)\s*$", text)
     fit = re.search(
         r"(?im)^\*\*Tooling fit:\*\*\s*(internal|external|both)\s*[—-]\s*"
-        r"(COMPATIBLE|BLOCKED)\s*:\s*(\S.+)$", body)
-    if fit and fit.group(2).upper() == "BLOCKED":
-        detail = fit.group(3).strip()
-        required = re.search(
-            r"(?i)\s+[—-]\s+REQUIRED\s*:\s*(internal|external|both)\s*$", detail)
-        if not required:
-            probs.append("a BLOCKED **Tooling fit:** must end with exactly "
-                         "`— REQUIRED: internal|external|both` so the human can approve "
-                         "one concrete change")
-        elif required.group(1).lower() == fit.group(1).lower():
-            probs.append("a BLOCKED **Tooling fit:** must REQUIRE a different Tooling mode")
-        else:
-            reason = detail[:required.start()].strip()
-            if not reason:
-                probs.append("a BLOCKED **Tooling fit:** needs a reason before `— REQUIRED:`")
-            else:
-                need = required.group(1).lower()
-                return False, ("TOOLING_CONFLICT: Phase 1 found that the concept cannot be "
-                               f"delivered under Tooling={fit.group(1).lower()}: {reason} "
-                               f"REQUIRED_TOOLING={need}. Open the unfinished working and "
-                               f"approve the proposed change to Tooling={need}; Phase 1 will restart.")
+        r"COMPATIBLE\s*:\s*(\S.+)$", body)
     if not gate_tooling:
         probs.append("the immutable Phase-0 **Tooling:** answer is missing or invalid")
-    elif fit and fit.group(1).lower() != gate_tooling.group(1).lower():
+    elif not fit:
+        probs.append("**Tooling fit:** must prove the immutable Phase-0 choice with exactly "
+                     "`<mode> — COMPATIBLE: evidence`; construction cannot request a human change")
+    elif fit.group(1).lower() != gate_tooling.group(1).lower():
         probs.append("**Tooling fit:** must repeat the Phase-0 Tooling answer exactly; "
                      f"gate={gate_tooling.group(1).lower()}, fit={fit.group(1).lower()}")
+    if (os.environ.get("ARCANUM_REQUIRE_PROOF_V1") == "1"
+            and not re.search(r"(?im)^- \*\*Proof contract:\*\*\s*1\s*$", text)):
+        probs.append("the harness-owned **Proof contract:** 1 marker was removed from the plan")
     if missing:
         probs.append("these parts are missing and must be written EXACTLY as their own "
                      "`**Label:** value` line: " + "; ".join(f"**{p}:**" for p in missing))
@@ -106,6 +110,9 @@ def arc_written(plan_path, plan_rel):
     if unassigned:
         probs.append("the **Daily drivers:** line must assign every item EXACTLY as "
                      "`item = CAN` or `item = CANNOT`; unassigned: " + "; ".join(unassigned))
+    if not acceptance_scenarios(plan_path):
+        probs.append("**Acceptance scenarios:** must be one physical line with at least two "
+                     "unique kebab-case ids separated exactly by ` -> `")
     try:
         parse_section_list(body)
     except ValueError as exc:
@@ -167,24 +174,6 @@ def finalize_arc(plan_path):
     with open(plan_path, "w", encoding="utf-8") as f:
         f.write(text.replace(ARC_CONTRACT, "", 1))
     return True
-
-
-def arc_checkpoint(plan_path, interactive, skip):
-    """#21: after Phase 1, let a human approve the arc before ~30k tokens of authoring commit
-    to it. Zero model cost. Skipped automatically when non-interactive (web/--gate-json) or --yes."""
-    if skip or not interactive:
-        print("  · arc checkpoint skipped (non-interactive or --yes) — review the plan's Arc if unsure")
-        return
-    try:
-        arc = open(plan_path, encoding="utf-8").read().split("## Arc", 1)[-1]
-    except OSError:
-        return
-    print("\n" + "-" * 64 + "\n  PHASE 1 ARC — approve before authoring commits to it:\n" + "-" * 64)
-    print(arc.strip()[:2000] or "(no arc recorded?)")
-    ans = input("\n  Proceed with this arc? [y = go / anything else = stop and edit the plan] > ").strip().lower()
-    if ans != "y":
-        sys.exit("Stopped at the arc checkpoint. Edit the plan's Arc, then resume with "
-                 "--from-phase 2.")
 
 
 KEBAB_SPLIT = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")  # camel boundary -> hyphen (§6 one-name rule)

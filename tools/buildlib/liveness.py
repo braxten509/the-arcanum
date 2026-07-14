@@ -190,7 +190,7 @@ def preflight_auth(cmd, input_mode, label=None):
     return True, "ok"
 
 
-def preflight_runners(distinct):
+def preflight_runners(distinct, fatal=True):
     """Ping EVERY distinct endpoint that will drive a phase (not just the first) — the
     drafter/writer/reviewer may be different providers/models, and each must answer before a
     long build starts. Exits with a combined report if any endpoint can't be reached.
@@ -202,8 +202,22 @@ def preflight_runners(distinct):
         print(f"    {'ok  ' if ok else 'FAIL'} {label}" + ("" if ok else f" — {detail}"))
         if not ok:
             failures.append((label, detail))
-    if failures:
+    if failures and fatal:
         lines = "\n".join(f"  · {lbl}: {d}" for lbl, d in failures)
         sys.exit(f"\nAI ACCESS PHASE 0 FAILED — {len(failures)} of {len(distinct)} selected endpoint(s) "
                  f"cannot answer (nothing was built):\n{lines}")
+    if failures:
+        return False
     print("  · AI access Phase 0: all selected endpoints answer\n")
+    return True
+
+
+def preflight_recovery_runner(name, original_cmd, scoped_cmd, input_mode, preflighted):
+    """Probe a just-in-time fallback; an unavailable recovery hand is skipped, not fatal."""
+    key = tuple(original_cmd)
+    if key in preflighted:
+        return True
+    if not preflight_runners([(name, scoped_cmd, input_mode)], fatal=False):
+        return False
+    preflighted.add(key)
+    return True

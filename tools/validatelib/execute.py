@@ -8,8 +8,19 @@ import re
 import subprocess
 import tempfile
 
+try:  # tools/validate_tome.py imports validatelib; package callers import tools.validatelib.
+    from buildlib.validation_env import headless_validation_env
+except ModuleNotFoundError:  # pragma: no cover - exercised by repo-root package imports
+    from tools.buildlib.validation_env import headless_validation_env
+
 from . import err, lang_config, load_toml, norm_lines, warn
 from .attacks import load_intrusion_tiers
+
+
+# Untouched starters are expected to stop quickly.  A graphical game loop that never
+# exits is still a valid incomplete scaffold, but waiting the runtime's full 30 seconds
+# for it on every phase made one validator pass needlessly expensive.
+STARTER_RUN_TIMEOUT = 5
 
 
 def _resolve_run_command(m):
@@ -83,7 +94,8 @@ def check_snippets(m, sections_data):
         ignore = merged.get("diagIgnore") or []
         ignore_re = re.compile("|".join(ignore), re.I) if ignore else None
     except re.error as e:
-        warn("run", f"[runtime] snippetEntry/diagRegex/diagIgnore does not compile: {e}")
+        warn("run", f"[runtime] snippetEntry/diagRegex/diagIgnore does not compile: {e}",
+             phase=3)
         return
     # Fragment checking (optional, per-language): a block that is NOT a whole program but
     # matches snippetFragment gets compiled inside the snippetWrap scratch shell, with
@@ -109,7 +121,7 @@ def check_snippets(m, sections_data):
         except re.error as e:
             frag_re = None
             warn("run", f"[runtime] snippetFragment/snippetHoist/snippetFragmentIgnore "
-                 f"does not compile: {e}")
+                 f"does not compile: {e}", phase=3)
     if "msg" not in (diag_re.groupindex or {}):
         return  # no message to judge; the file/line groups alone say nothing about validity
 
@@ -165,7 +177,7 @@ def check_snippets(m, sections_data):
                         _, out = _run_one_file(chk, entry, timeout, src)
                         if out == "__NO_TOOLCHAIN__":
                             warn("run", f"toolchain binary {chk[0]!r} is not installed — lesson code "
-                                 "samples were never compiled. Install it and re-validate.")
+                                 "samples were never compiled. Install it and re-validate.", phase=3)
                             return
                         bad = [d.group("msg").strip() for d in diag_re.finditer(out)]
                     ir = frag_ignore_re if frag else ignore_re
@@ -176,11 +188,11 @@ def check_snippets(m, sections_data):
                     # diagnostics, and the first one names the cause.
                     more = f" (+{len(bad) - 1} more)" if len(bad) > 1 else ""
                     if frag:
-                        # A fragment is deliberately incomplete, so it gets a WARN (still a
-                        # hard gate under --strict) rather than a whole-program's ERROR.
+                        # A fragment is deliberately incomplete, so direct callers get a
+                        # WARN; the harness promotes it at its owning Phase-3 gate.
                         warn("content", f"{les.get('id')}: code sample #{i + 1} (a fragment, compiled "
                              f"inside the runtime's snippetWrap shell) is rejected by the toolchain: "
-                             f"{bad[0]}{more}"[:300])
+                             f"{bad[0]}{more}"[:300], phase=3)
                     else:
                         err("content", f"{les.get('id')}: code sample #{i + 1} does not compile — the lesson "
                             f"teaches it as correct {merged.get('name') or 'code'}. Toolchain said: "
@@ -218,9 +230,10 @@ def _error_line(out, diag_re=None):
     return lines[0] if lines else "(no output)"
 
 
-def _run_one_file(cmd, entry, timeout, source, stdin=None):
+def _run_one_file(cmd, entry, timeout, source, stdin=None, env=None):
     """Run `source` as a single file through the tome's runtime in a temp dir. Returns
-    (ok, combined_output) — ok is False on a non-zero exit, timeout, or missing toolchain."""
+    (ok, combined_output) — ok is False on a non-zero exit, timeout, or missing toolchain.
+    Automated authored code is always headless, even for direct validator invocations."""
     with tempfile.TemporaryDirectory() as d:
         path = os.path.join(d, entry)
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -231,7 +244,8 @@ def _run_one_file(cmd, entry, timeout, source, stdin=None):
             argv = argv + [path]
         try:
             p = subprocess.run(argv, cwd=d, input=stdin, text=True,
-                               capture_output=True, timeout=timeout)
+                               capture_output=True, timeout=timeout,
+                               env=headless_validation_env(env))
         except FileNotFoundError:
             return False, "__NO_TOOLCHAIN__"
         except subprocess.TimeoutExpired:
@@ -335,7 +349,8 @@ def check_starters_run(tome_path, m, sections_data, include_banks=True):
         label = "run" if (cmd or project_rt) else "advisory"
         warn(label, f"{unverified} write lab(s)/intrusion(s) carry no `solution` — their "
              "expect was never machine-verified as achievable (a wrong expect is an unwinnable "
-             "exercise, the one defect no other check can see). Author a `solution` per §3.")
+             "exercise, the one defect no other check can see). Author a `solution` per §3.",
+             phase=3)
     # SPELL-DUEL starters obey the same contract (§4: the student computes each stage's
     # output from the starter as given), so they get the same sweep: must build, and must
     # not already print stage 1's expect. This replaces brace-counting as the real teeth —
@@ -358,17 +373,20 @@ def check_starters_run(tome_path, m, sections_data, include_banks=True):
 
     project_tmp = tempfile.TemporaryDirectory() if project_rt else None
     project_scratch = project_tmp.name if project_tmp else None
+    run_env = headless_validation_env()
 
-    def run_source(source, stdin_text):
+    def run_source(source, stdin_text, execution_timeout=None):
         if cmd and not project_rt:
-            return _run_one_file(cmd, entry, timeout, source, stdin_text)
-        data = project_rt.run_snippet(project_scratch, source, stdin_text)
+            return _run_one_file(cmd, entry, execution_timeout or timeout, source, stdin_text,
+                                 env=run_env)
+        data = project_rt.run_snippet(project_scratch, source, stdin_text, env=run_env)
         return bool(data.get("ok")), str(data.get("output") or "")
 
     def build_source(source):
         if chk and not project_rt:
-            return _run_one_file(chk, entry, timeout, source)
-        return _project_build_result(project_rt.snippet_diagnostics(project_scratch, source),
+            return _run_one_file(chk, entry, timeout, source, env=run_env)
+        return _project_build_result(project_rt.snippet_diagnostics(
+                                     project_scratch, source, env=run_env),
                                      entry)
 
     missing = None  # the binary that isn't installed; stops the sweep after one WARN
@@ -411,7 +429,7 @@ def check_starters_run(tome_path, m, sections_data, include_banks=True):
                     f"can't build on. Toolchain said: {_error_line(out, diag_re)}"[:300])
                 continue
 
-            ok, out = run_source(starter, stdin)
+            ok, out = run_source(starter, stdin, min(timeout, STARTER_RUN_TIMEOUT))
             if out == "__NO_TOOLCHAIN__":
                 missing = cmd[0]
                 break
@@ -434,4 +452,4 @@ def check_starters_run(tome_path, m, sections_data, include_banks=True):
     if missing:
         warn("run", f"toolchain binary {missing!r} is not installed — skipped exercising starters. "
              "Install it and re-validate before shipping; this is the only check that sees a "
-             "starter that cannot compile.")
+             "starter that cannot compile.", phase=3)

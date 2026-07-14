@@ -114,7 +114,8 @@ def check_taught_before_used(sections_data):
         if invented:
             shown = ", ".join(invented[:5]) + (f" (+{len(invented) - 5} more)" if len(invented) > 5 else "")
             warn("content", f"{sid}: prompt/brief code calls API(s) no lesson mentions: "
-                 f"{shown} — §3: use only what a lesson taught. (Teach it, or fix the name.)")
+                 f"{shown} — §3: use only what a lesson taught. (Teach it, or fix the name.)",
+                 phase=3)
         if isinstance(fs, dict):
             untaught_methods = sorted({f"{recv}.{member}"
                                        for recv, member in _DOTTED_CALL.findall(_unescape(freestyle_given))
@@ -124,7 +125,7 @@ def check_taught_before_used(sections_data):
                     f" (+{len(untaught_methods) - 5} more)" if len(untaught_methods) > 5 else "")
                 warn("coverage", f"{sid}: freestyle calls method(s) no lesson body up to this "
                      f"section mentions: {shown} — a capstone may not invent the final API; teach "
-                     "the method and its implementation first")
+                     "the method and its implementation first", phase=3)
 
         # #8: does this section's API vocabulary reach back to an earlier section?
         if i >= 2 and used_api:
@@ -132,7 +133,8 @@ def check_taught_before_used(sections_data):
                 sid = sd.get("id") or f"section {i + 1}"
                 warn("anti-template", f"{sid}: no exercise reaches back to an earlier section's "
                      "material — it only tests its own lessons. §3 wants interleaving: fold an "
-                     "earlier concept into a later section (a callback mc, a lab reusing prior data).")
+                     "earlier concept into a later section (a callback mc, a lab reusing prior data).",
+                     phase=3)
 
         taught_idents = taught_incl
 
@@ -217,7 +219,7 @@ def check_verbatim_prose(sections_data):
         a, b, snip = dupes[0]
         warn("anti-template", f"{len(dupes)} passage(s) of ≥{W} words repeat verbatim across "
              f"lessons — §3: write every lesson body fresh. First: {a} & {b} both contain "
-             f"{snip[:70]!r}…")
+             f"{snip[:70]!r}…", phase=3)
 
 
 # Function words: the connective tissue an author does not choose. A synonym-swapper
@@ -284,7 +286,7 @@ def check_padded_prose(sections_data):
              f"is identical function-word structure under swapped vocabulary). Worst: {a} & {b} at "
              f"{r:.0%} skeleton match. §3: write every lesson body fresh; a 400-word lesson that "
              "teaches beats a 700-word one that pads. Lessons: " + ", ".join(sorted(flagged)[:8])
-             + (" …" if len(flagged) > 8 else ""))
+             + (" …" if len(flagged) > 8 else ""), phase=3)
 
 
 def check_economy_totals(tome_path, m, sections_data):
@@ -328,12 +330,12 @@ def check_economy_totals(tome_path, m, sections_data):
         warn("content", f"[economy] top rank threshold {top} exceeds fixed face-value "
              f"earnings {base} by more than 15% {detail} — that title depends too heavily "
              "on combo/S-rank luck or repeatable bonus play; land it near the fixed course "
-             "rewards (§2)")
+             "rewards (§2)", phase=5)
     elif top < base * 0.85:
         warn("content", f"[economy] top rank threshold {top} is far below fixed face-value "
              f"earnings {base} by more than 15% "
              f"{detail} — the top title is reached with most of the course still ahead; spread "
-             "ranks so the last title lands near the fixed course rewards (§2)")
+             "ranks so the last title lands near the fixed course rewards (§2)", phase=5)
 
 
 
@@ -368,7 +370,7 @@ def check_presolved_static(m, sections_data):
                     warn("anti-template", f"{sid}: write {ex.get('id')!r} looks pre-solved — every "
                          "target output line is a string literal already in the starter, so it can "
                          "ship untouched. Set up the data in the starter and leave the printing to "
-                         "the student (§3).")
+                         "the student (§3).", phase=3)
 
 
 def check_name_drift(sections_data):
@@ -414,7 +416,7 @@ def check_name_drift(sections_data):
             for s in names)
         warn("content", f"identifier drift — one name, {len(names)} spellings: {shown}. "
              "Pick one spelling and use it in every lesson, starter, solution, and "
-             "freestyle (§3); the cumulative build breaks when prompts rename things.")
+             "freestyle (§3); the cumulative build breaks when prompts rename things.", phase=3)
 
 
 # [^\W\d] = any unicode letter or underscore — a non-English tome's answers
@@ -449,5 +451,5 @@ def check_self_answering(sections_data):
                         warn("content", f"{les.get('id')}: {ex.get('type')} {ex.get('id')!r}: "
                              f"the answer {a!r} appears verbatim in its own prompt — the "
                              "question answers itself; reword the prompt or ask for something "
-                             "it doesn't already say (§3).")
+                             "it doesn't already say (§3).", phase=3)
                         break

@@ -7,28 +7,23 @@ Begin with the real finished artifact and its acceptance proof. Honor Phase 0 To
 exactly: `internal` keeps every required action in-browser and forbids `externalWorkspace`;
 `external` requires real external tools; `both` permits a taught mix. Never override it or
 simulate the core skill. Write `**Tooling fit:** <answer> — COMPATIBLE: <evidence>` in the
-Arc. If that answer cannot deliver the concept, write `**Tooling fit:** <answer> — BLOCKED:
-<reason> — REQUIRED: <internal|external|both>` and stop. `REQUIRED` is the one different,
-honest mode. The harness asks the human to approve that exact change before authoring.
+Arc. A `BLOCKED`/`REQUIRED` request is forbidden because construction has no human pause.
+Choose and prove an honest compatible realization. If none exists, fail the Arc gate; never
+simulate the core skill or ask a human to rescue construction.
 
-Choose one project spelling and derive its kebab-case id. Record the project name for
-Phase 2, but do not rename, move, or copy the scaffolded tome; the harness does that after
-`[runtime] project` exists.
+Choose one project spelling for Phase 2. Do not move the scaffold; the harness derives its
+kebab-case id after `[runtime] project` exists.
 
-Design backward from acceptance to an ordered section arc. The section count follows the
-capabilities required—not a target number. Respect the exact start, breadth, depth,
-mastery, prior-knowledge, and tooling answers. Identify the topic's real difficulty spine,
-the graduate CAN/CANNOT boundary, and its daily-driver operations. A low starting level
-gets explicit fundamentals and toolchain sections before domain work.
+Design backward from acceptance; section count follows required capabilities, not a target.
+Respect every gate answer. Record the real difficulty spine, graduate CAN/CANNOT boundary,
+and daily drivers. Low starts need fundamentals and toolchain work before domain work.
 For Start 1–3, treat the prior-knowledge answer as an exhaustive whitelist and order the
 arc so every required keyword, syntax form, operator, API, tool action, and technical term
 is introduced before first use. Start 2 changes pace and repetition, not fundamental
 coverage; a construct cannot disappear from the teaching sequence merely because the
 learner is not at absolute zero.
 
-Keep CANNOT items and other scope cuts in this internal Arc and its Graduate ledger.
-They are planning constraints, not catalog copy; Phase 2's public description must say
-positively what the learner builds and learns, without an exclusion list.
+Keep scope cuts in the internal Graduate ledger; Phase 2 shelf copy stays positive.
 
 Make cross-section state explicit:
 
@@ -39,7 +34,12 @@ Make cross-section state explicit:
   demo mutation, mock, placeholder, or debug behavior and the section that retires,
   replaces, isolates, or intentionally ships it.
 - `Acceptance proof`: the literal clean-start learner journey through setup, launch,
-  meaningful use, persistence/relaunch where relevant, delivery, and end-to-end proof.
+  meaningful use, persistence/relaunch where relevant, delivery, and end-to-end proof. Name
+  the deterministic per-section build/run evidence the proof-v1 harness can execute. If the
+  final artifact needs media, name only the licensed human-sourcing and placement journey;
+  never plan AI-made assets, and keep the machine proof independent of them.
+- `Acceptance scenarios`: one line of unique kebab ids separated by ` -> `, covering meaningful
+  behavior, persistence/quit, and promised delivery. Phase 2 and execution preserve it exactly.
 - `Section list`: one physical line per section, sequential, exactly
   `1. **s01 — Title:** capability/build promise`. The harness parses these lines to create
   Phase 2's section tree; prose paragraphs or a different id/order do not pass the gate.

@@ -13,6 +13,12 @@ command = ["python3"]
 validationCreateCommand = ["python3", "-m", "venv", "{dir}"]
 validationPackageCommand = ["{dir}/bin/python", "-m", "pip", "install", "{package}"]
 validationEnv = { VIRTUAL_ENV = "{dir}", PATH = "{dir}/bin:{PATH}" }
+# Final package proofs deliberately use a second, throwaway environment. They install the
+# learner project's exact requirements file, run the real packager, and launch its artifact.
+deliveryCreateCommand = ["python3", "-m", "venv", "{env}"]
+deliveryInstallCommand = ["{env}/bin/python", "-m", "pip", "install", "-r", "{requirements}"]
+deliveryBuildCommand = ["{env}/bin/python", "-m", "PyInstaller"]
+deliveryTimeout = 900
 # syntax check: parse the file without running it; the traceback's last frame carries the error
 checkCommand = ["python3", "-c", "import ast,sys; ast.parse(open(sys.argv[1],encoding='utf-8').read(), sys.argv[1])"]
 diagRegex = '^  File "[^"]*", line (?P<line>\d+)\n(?:    [^\n]*\n)*?(?P<msg>\w*(?:Error|Warning)\b[^\n]*)$'

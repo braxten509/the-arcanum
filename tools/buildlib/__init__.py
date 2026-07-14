@@ -1,5 +1,5 @@
 """Support package for tools/build_tome.py. Module map:
-- runners   runner templates/specs, harness.toml resolution, the human runner-pick pause
+- runners   runner templates/specs, harness.toml resolution, autonomous escalation
 - config    harness.toml loading and preset resolution
 - liveness  headless worker execution, hang detection, auth preflight
 - agent_runtime  provider-normalized repo/web/temp access and scoped write boundaries
@@ -10,9 +10,9 @@
 - phase3_runtime  one-worker Phase-3 resume/replacement prompt-state decisions
 - skeleton  plan parser + deterministic one-placeholder-lesson Phase-2 scaffolding
 - continuity  schema-checked cross-section handoffs and whole-tome continuity briefing
-- review    Phase-8 repair loop plus independent fresh no-change PASS gate
+- review/review_evidence  Phase-8 repair loop plus harness-derived proof-v1 verdict
 - reporting  measured end-of-build plan facts and phase timings
-- checkpoints  between-phase gates: Phase-1 arc gate, arc approval pause, tome rename
+- checkpoints  between-phase gates: Phase-1 executable arc gate and tome rename
 - workflow  phase-file parsing and the shared access-boundary prompt
 - build_selftest  focused harness regression checks
 Shared paths/constants live here."""
@@ -24,8 +24,8 @@ CONFIG = os.path.join(REPO, "global-configs", "harness.toml")
 VALIDATOR = os.path.join(REPO, "tools", "validate_tome.py")
 BUILD_DIR = os.path.join(REPO, ".tome-build")
 
-MAX_RETRIES = 2        # per content phase on validator ERROR — paid cloud runners (retries cost money)
-MAX_RETRIES_LOCAL = 4  # a free local ollama runner gets more automatic tries before it pauses to ask
+MAX_RETRIES = 2        # per hand before autonomous escalation on validator ERROR
+MAX_RETRIES_LOCAL = 4  # a free local ollama hand gets more repair attempts before escalation
 MAX_STUDENT_LOOPS = 4  # includes the required fresh, no-change verification after repairs
 PING_INTERVAL_DEFAULT = 30  # seconds between worker liveness checks
 DEAD_PINGS_DEFAULT = 2      # consecutive idle checks before a worker is declared hung
@@ -33,5 +33,5 @@ DEAD_PINGS_DEFAULT = 2      # consecutive idle checks before a worker is declare
 
 def retries_for(runner_display):
     """Default gate-retry budget for a phase's runner: a free local/ollama worker gets more tries
-    than a paid cloud one. The operator can extend either on the failure pause (see request_runner)."""
+    than a paid cloud one before the harness escalates to the next configured hand."""
     return MAX_RETRIES_LOCAL if "ollama/" in (runner_display or "") else MAX_RETRIES

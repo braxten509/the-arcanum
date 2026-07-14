@@ -1,11 +1,7 @@
 """Runner templates and selection: KIND:MODEL[@EFFORT] specs, harness.toml resolution,
-fallback chains, and the blocking human runner-pick pause (TTY or Bindery handshake)."""
-import json
+and autonomous fallback chains."""
 import os
 import sys
-import time
-
-from . import BUILD_DIR
 
 def _codex_no_mcp():
     """Disable every personal MCP server by name (mirrors arcanum.config.codex_no_mcp_args —
@@ -90,53 +86,37 @@ def parse_fallbacks(flags):
     return [_spec_to_runner(s, "--fallback") for s in (flags or [])]
 
 
-def request_runner(build_id, phase_num, dead_name, reason, interactive, report=None):
-    """Ask a HUMAN what to do next on a stuck phase and BLOCK until they answer. Two callers:
-    a worker DIED with no --fallback left, or a phase EXHAUSTED its gate retries (pass the failing
-    validator `report`, which flips this to the gate-failure pause — the Bindery box then also
-    offers 'N more retries'). A TTY run prompts on the terminal; a server-launched run hands off
-    via .tome-build/<id>.runner-{request,reply}.json, which the Bindery UI bridges (it polls the
-    request via /api/buildtome/status and writes the reply via /api/buildtome/runner). Whatever
-    they pick resumes the SAME phase from the tome already on disk. Returns
-    (runner_or_None, extra_retries): a runner to switch to (None = keep the current model, or give
-    up), and how many MORE gate retries to grant (0 for a death)."""
-    gate = report is not None
-    if interactive:
-        if gate:
-            print(f"\n  ⚠ phase {phase_num} still fails its gates ({reason}).")
-            spec = input("  switch runner KIND:MODEL[@EFFORT] (blank = keep current model): ").strip()
-            more = input("  how many MORE retries? (blank/0 = give up): ").strip()
-            runner = _spec_to_runner(spec, "runner picker") if spec else None
-            return runner, (int(more) if more.isdigit() else 0)
-        print(f"\n  ⚠ runner {dead_name} died on phase {phase_num} ({reason}).")
-        spec = input("  new runner KIND:MODEL[@EFFORT] (blank = give up): ").strip()
-        return (_spec_to_runner(spec, "runner picker") if spec else None), 0
-    req = os.path.join(BUILD_DIR, f"{build_id}.runner-request.json")
-    reply = os.path.join(BUILD_DIR, f"{build_id}.runner-reply.json")
-    with open(req, "w", encoding="utf-8") as f:
-        json.dump({"phase": phase_num, "dead": dead_name, "reason": reason,
-                   "gate": gate, "report": report or ""}, f)
-    print(f"  ⏸ phase {phase_num} " + (f"failed its gates ({reason})" if gate
-          else f"lost runner {dead_name} ({reason})") + " — waiting for the Bindery…")
-    try:
-        while not os.path.exists(reply):
-            time.sleep(2)
-        with open(reply, encoding="utf-8") as f:
-            choice = json.load(f)
-    finally:
-        for p in (req, reply):
-            try:
-                os.remove(p)
-            except OSError:
-                pass
-    kind, model, effort = (str(choice.get(k) or "") for k in ("kind", "model", "effort"))
-    try:
-        extra = max(0, int(choice.get("retries") or 0))
-    except (TypeError, ValueError):
-        extra = 0
-    runner = (_spec_to_runner(f"{kind}:{model}" + (f"@{effort}" if effort else ""), "runner picker")
-              if kind and model else None)  # empty runner: keep current model (or, for a death, give up)
-    return runner, extra
+def automatic_fallbacks(cfg, phase_num):
+    """Harness-owned role escalation for autonomous web builds.
+
+    A phase-specific list replaces the default list. Unavailable executables are omitted;
+    endpoint/login health is probed only if the build actually needs that recovery hand.
+    """
+    import shutil
+    table = cfg.get("autonomy") or {}
+    specs = table.get(str(phase_num), table.get("default", []))
+    out = []
+    for spec in specs if isinstance(specs, list) else []:
+        runner = _spec_to_runner(str(spec), f"harness.toml [autonomy].{phase_num}")
+        executable = os.path.expanduser(runner[1][0])
+        if os.path.isabs(executable):
+            available = os.access(executable, os.X_OK)
+        else:
+            available = shutil.which(executable) is not None
+        if available:
+            out.append(runner)
+    return out
+
+
+def unique_chain(*groups):
+    """Preserve escalation order while removing identical command shapes."""
+    out, seen = [], set()
+    for runner in (item for group in groups for item in group):
+        key = tuple(runner[1])
+        if key not in seen:
+            seen.add(key)
+            out.append(runner)
+    return out
 
 
 def runner_for(cfg, phase_num, overrides=None):
