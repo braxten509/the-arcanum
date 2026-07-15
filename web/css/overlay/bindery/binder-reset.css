@@ -1,0 +1,131 @@
+/* Binder phase rewind: visually separate from ordinary AI amendments because it erases
+   authored work and learner state before opening a new build session. */
+.binder-rebuild {
+  margin-top: 14px;
+  border-top: 1px solid color-mix(in srgb, var(--bad) 42%, var(--line));
+  border-bottom: 1px solid color-mix(in srgb, var(--bad) 25%, var(--line));
+}
+
+.binder-rebuild summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 40px;
+  color: color-mix(in srgb, var(--bad) 74%, var(--tx));
+  font-family: var(--arch);
+  font-size: 10.5px;
+  letter-spacing: .16em;
+  cursor: pointer;
+  list-style: none;
+}
+
+.binder-rebuild summary::-webkit-details-marker {
+  display: none;
+}
+
+.binder-rebuild summary::before {
+  content: "+";
+  width: 16px;
+  color: var(--tx-faint);
+  font-family: var(--mono);
+  font-size: 14px;
+}
+
+.binder-rebuild[open] summary::before {
+  content: "−";
+}
+
+.binder-rebuild summary span {
+  flex: 1;
+}
+
+.binder-rebuild summary b {
+  padding: 3px 6px;
+  border: 1px solid color-mix(in srgb, var(--bad) 48%, transparent);
+  color: var(--bad);
+  font: 8.5px/1 var(--mono);
+  letter-spacing: .12em;
+}
+
+.binder-rebuild-body {
+  display: grid;
+  grid-template-columns: minmax(210px, .8fr) minmax(0, 1.4fr) auto;
+  gap: 10px 14px;
+  align-items: end;
+  padding: 2px 0 14px 30px;
+}
+
+.binder-rebuild-pick {
+  display: grid;
+  gap: 5px;
+}
+
+.binder-rebuild-pick label {
+  color: var(--tx-dim);
+  font-family: var(--arch);
+  font-size: 9.5px;
+  letter-spacing: .16em;
+}
+
+.binder-rebuild-pick .dd,
+.binder-rebuild-pick .dd-btn {
+  width: 100%;
+}
+
+.binder-rebuild-consequence {
+  align-self: stretch;
+  padding: 8px 10px;
+  border-left: 2px solid var(--bad);
+  background: color-mix(in srgb, var(--bad) 7%, transparent);
+  color: var(--tx-dim);
+  font-size: 11.5px;
+  line-height: 1.42;
+}
+
+.binder-rebuild-ack {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--tx);
+  font-size: 12px;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.binder-rebuild-ack input {
+  margin: 2px 0 0;
+}
+
+.binder-rebuild-go {
+  min-height: var(--ctl-h);
+  white-space: nowrap;
+  transition: transform .14s ease, opacity .14s ease;
+}
+
+.binder-rebuild-go:active:not(:disabled) {
+  transform: translateY(1px) scale(.99);
+}
+
+.binder-rebuild-error {
+  grid-column: 1 / -1;
+  color: var(--bad);
+  font-size: 11.5px;
+}
+
+@media (max-width: 700px) {
+  .binder-rebuild-body {
+    grid-template-columns: 1fr;
+    padding-left: 0;
+  }
+
+  .binder-rebuild-ack,
+  .binder-rebuild-error {
+    grid-column: 1;
+  }
+
+  .binder-rebuild-go {
+    width: 100%;
+  }
+}

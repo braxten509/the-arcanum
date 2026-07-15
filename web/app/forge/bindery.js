@@ -1,5 +1,6 @@
 /* Tome shelf plus the persistent author's interactive workbench. */
 import { $, closeModal, dropOverlay, esc, modal, sfx } from "../core/dom.js";
+import { enhanceSelect } from "../ui/menu.js";
 import { forgeEntry } from "./forge.js";
 
 export const FORGE_PHASES = ["Concept & arc", "Skeleton & voice", "Sections", "Minigames",
@@ -101,6 +102,15 @@ export function openBuildOverlay(jobId, traceId = jobId) {
             <button class="forge-console-btn" id="fp-pause" type="button">PAUSE AUTHOR</button>
             <button class="forge-console-btn primary" id="fp-send" type="submit">SEND</button></div></div></form></section>
     </div>
+    <div class="forge-fail-bar hidden" id="fp-fail">
+      <div class="forge-fail-msg" id="fp-fail-msg"></div>
+      <div class="forge-ai-row">
+        <div class="forge-ai-choice"><select id="fp-alt-prov" class="cfg-select" aria-label="Replacement agent CLI"></select></div>
+        <div class="forge-ai-choice"><select id="fp-alt-model" class="cfg-select" aria-label="Replacement model"></select></div>
+        <div class="forge-ai-choice"><select id="fp-alt-eff" class="cfg-select" aria-label="Replacement effort"><option value="">DEFAULT</option></select></div>
+      </div>
+      <div class="forge-console-actions"><button class="forge-console-btn primary" id="fp-alt-resume" type="button">RESUME WITH THIS AI</button></div>
+    </div>
     <div class="forge-session-actions"><button class="btn danger" id="fp-cancel">ABANDON</button>
       <div><button class="btn quiet" id="fp-leave">LEAVE · WORK CONTINUES</button></div></div>
   </div>`;
@@ -142,6 +152,54 @@ export function openBuildOverlay(jobId, traceId = jobId) {
     if (event.ctrlKey && event.key === "Enter") composer.requestSubmit();
     else message.setCustomValidity("");
   };
+  const fail = $("#fp-fail", overlay), failMsg = $("#fp-fail-msg", overlay),
+        altProv = $("#fp-alt-prov", overlay), altModel = $("#fp-alt-model", overlay),
+        altEff = $("#fp-alt-eff", overlay), altResume = $("#fp-alt-resume", overlay);
+  let altProviders = null;
+  const fillAltEfforts = () => {
+    const provider = (altProviders || []).find((item) => item.id === altProv.value);
+    const row = provider && (provider.models || []).find((item) => item[0] === altModel.value);
+    const levels = (row && row[3]) || [];
+    altEff.innerHTML = `<option value="">DEFAULT</option>` + levels.map((level) =>
+      `<option value="${esc(level)}">${esc(String(level).toUpperCase())}</option>`).join("");
+    altEff.disabled = !levels.length;
+  };
+  const fillAltModels = () => {
+    const provider = (altProviders || []).find((item) => item.id === altProv.value);
+    const rows = (provider && provider.models) || [];
+    altModel.innerHTML = rows.map(([id, label, tag]) => `<option value="${esc(id)}">${esc(label)}${tag ? ` · ${esc(tag)}` : ""}</option>`).join("")
+      || `<option value="">NO MODELS</option>`;
+    altModel.disabled = !rows.length;
+    fillAltEfforts();
+  };
+  altProv.onchange = fillAltModels;
+  altModel.onchange = fillAltEfforts;
+  async function armAltPicker(current) {
+    if (altProviders) return;
+    try {
+      const data = await (await fetch("/api/models")).json();
+      altProviders = (data.bindery || []).filter((item) => item.installed !== false && (item.models || []).length);
+    } catch { return; /* a later failure poll retries */ }
+    [altProv, altModel, altEff].forEach(enhanceSelect);
+    altProv.innerHTML = altProviders.map((item) => `<option value="${esc(item.id)}">${esc(item.label)}</option>`).join("");
+    const match = current && altProviders.find((item) => item.kind === current.kind);
+    if (match) altProv.value = match.id;
+    fillAltModels();
+    if (current?.model && [...altModel.options].some((option) => option.value === current.model)) altModel.value = current.model;
+    fillAltEfforts();
+    if (current?.effort && [...altEff.options].some((option) => option.value === current.effort)) altEff.value = current.effort;
+  }
+  altResume.onclick = async () => {
+    const provider = (altProviders || []).find((item) => item.id === altProv.value);
+    if (!provider || !altModel.value) return;
+    altResume.disabled = true;
+    const author = { kind: provider.kind, model: altModel.value, ...(altEff.value ? { effort: altEff.value } : {}) };
+    try { await post("/api/buildtome/continue", { author }); fail.classList.add("hidden"); }
+    catch (error) { altResume.title = String(error.message || error); }
+    finally { altResume.disabled = false; }
+    tick();
+  };
+
   const cancel = $("#fp-cancel", overlay);
   cancel.onclick = async () => {
     if (!armed) {
@@ -171,6 +229,9 @@ export function openBuildOverlay(jobId, traceId = jobId) {
       : state === "pausing" ? "PAUSING…" : state === "resuming" ? "RESUMING…"
       : state === "validating" ? "VALIDATING…" : "PAUSE AUTHOR";
     pause.disabled = state === "pausing" || state === "resuming" || state === "validating";
+    const authorDown = state === "paused" && status.sessionError;
+    fail.classList.toggle("hidden", !authorDown);
+    if (authorDown) { failMsg.textContent = status.sessionError; armAltPicker(status.sessionAuthor); }
     overlay.querySelectorAll(".forge-phase").forEach((row) => {
       const phase = Number(row.dataset.ph), current = Number(status.phase || 1);
       row.classList.toggle("done", phase < current || (phase === current && status.phaseState === "complete"));

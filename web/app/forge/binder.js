@@ -2,6 +2,7 @@
    course, guided by course-configuration-guide.md; validated after.
    The [PROVIDER][MODEL][EFFORT] cascade is the bindery's, fed by /api/models. */
 import { $, esc, mdLite, modal, toast } from "../core/dom.js";
+import { prepareStateReset, resumeStateSaves } from "../core/state.js";
 import { enhanceSelect } from "../ui/menu.js";
 
 let binderPoll = null;   // one watcher at a time, even across bench visits
@@ -21,10 +22,36 @@ export function showBinder() {
     <p class="hidden" id="bd-reset-warn" style="color:var(--bad,#c66);font-size:11.5px;margin:6px 0 0">⚠ The Binder may restructure this tome — every artificer's progress on it will be reset.</p>
     <div class="forge-field" style="margin-top:10px"><label>THE BINDER'S HAND</label>
       <div class="forge-ai-row">
-        <select id="bd-prov" class="cfg-select" style="flex:0 0 auto;width:172px"><option value="">PICK A MODEL</option></select>
-        <select id="bd-model" class="cfg-select" style="flex:1 1 auto;min-width:0" disabled><option value="">—</option></select>
-        <select id="bd-eff" class="cfg-select" style="flex:0 0 auto;width:104px" disabled><option value="">—</option></select>
+        <div class="forge-ai-choice"><select id="bd-prov" class="cfg-select" aria-label="Binder agent CLI"><option value="">PICK A MODEL</option></select></div>
+        <div class="forge-ai-choice"><select id="bd-model" class="cfg-select" aria-label="Binder model" disabled><option value="">—</option></select></div>
+        <div class="forge-ai-choice"><select id="bd-eff" class="cfg-select" aria-label="Binder effort" disabled><option value="">—</option></select></div>
       </div></div>
+    <details class="binder-rebuild" id="bd-rebuild">
+      <summary><span>RESET THE BUILD TO A PHASE</span><b>DESTRUCTIVE</b></summary>
+      <div class="binder-rebuild-body">
+        <div class="binder-rebuild-pick">
+          <label for="bd-phase">START THE REBUILD AT</label>
+          <select id="bd-phase" class="cfg-select">
+            <option value="">CHOOSE PHASE</option>
+            <option value="1">1 · CONCEPT &amp; ARC</option>
+            <option value="2">2 · SKELETON &amp; VOICE</option>
+            <option value="3">3 · SECTIONS</option>
+            <option value="4">4 · MINIGAMES</option>
+            <option value="5">5 · ECONOMY</option>
+            <option value="6">6 · COSMETICS</option>
+            <option value="7">7 · VALIDATE</option>
+            <option value="8">8 · STUDENT REVIEW</option>
+          </select>
+        </div>
+        <div class="binder-rebuild-consequence hidden" id="bd-phase-warn" aria-live="polite"></div>
+        <label class="binder-rebuild-ack hidden" id="bd-phase-ack-wrap">
+          <input type="checkbox" id="bd-phase-ack">
+          <span>I understand that learner progress and later tome work will be erased.</span>
+        </label>
+        <button class="btn danger binder-rebuild-go" id="bd-phase-go" type="button" disabled>RESET AND REBUILD</button>
+        <div class="binder-rebuild-error hidden" id="bd-phase-error" role="alert"></div>
+      </div>
+    </details>
     </div>
     <div id="binder-a" class="hidden" style="margin-top:12px;padding:12px;border:1px solid var(--line-hi);border-left:2px solid var(--ac-dim);border-radius:3px;font-size:12.5px;white-space:pre-wrap;max-height:45vh;overflow-y:auto"></div>`,
     [["LEAVE THE BENCH", "quiet"]]);
@@ -121,6 +148,80 @@ export function showBinder() {
   const out = $("#binder-a", root);
   const sendBtn = document.createElement("button");
   sendBtn.className = "btn"; sendBtn.textContent = "SEND TO THE BINDER";
+  const phaseReset = $("#bd-phase", root), phaseAck = $("#bd-phase-ack", root),
+        phaseAckWrap = $("#bd-phase-ack-wrap", root), phaseWarn = $("#bd-phase-warn", root),
+        phaseGo = $("#bd-phase-go", root), phaseError = $("#bd-phase-error", root);
+  const phaseConsequences = {
+    1: "The approved arc and the entire authored tome will be erased. The AI starts again at Concept & arc.",
+    2: "The approved arc is kept. The authored tome is replaced by a fresh Phase 2 skeleton.",
+    3: "The arc and Phase 2 shell are kept. Every authored section is replaced by fresh Phase 3 placeholders.",
+    4: "The arc and sections are kept. Minigames and every later phase are rebuilt.",
+    5: "Sections and minigames are kept. Economy, cosmetics, validation, and review are rebuilt.",
+    6: "Authored course content and economy are kept. Cosmetics, validation, and review are rebuilt.",
+    7: "Authored content is kept. Shipping validation and student review run again, and their completion evidence is cleared.",
+    8: "The validated tome is kept. Student review is marked incomplete and runs again against it.",
+  };
+  enhanceSelect(phaseReset);
+  const syncPhaseReset = () => {
+    const phase = Number(phaseReset.value || 0), selected = !!phase;
+    phaseWarn.classList.toggle("hidden", !selected);
+    phaseAckWrap.classList.toggle("hidden", !selected);
+    if (selected) phaseWarn.textContent = `${phaseConsequences[phase]} All learner progress, grades, and internal workbench files for this tome are erased. An external project folder is never deleted.`;
+    else phaseWarn.textContent = "";
+    phaseGo.disabled = !selected || !phaseAck.checked;
+    phaseError.classList.add("hidden");
+  };
+  phaseReset.addEventListener("change", () => { phaseAck.checked = false; syncPhaseReset(); });
+  phaseAck.addEventListener("change", syncPhaseReset);
+  phaseGo.onclick = async () => {
+    const phase = Number(phaseReset.value || 0);
+    const provider = BINDERY.find((item) => item.id === k.prov.value);
+    if (!provider || !k.model.value) {
+      toast("Pick the rebuilding AI's <b>model</b> first.", "warn");
+      return;
+    }
+    if (!phase || !phaseAck.checked) return;
+    phaseGo.disabled = true; phaseGo.textContent = "RESETTING THE TOME…";
+    phaseError.classList.add("hidden");
+    await prepareStateReset();
+    let resetDone = false;
+    try {
+      const response = await fetch("/api/buildtome/reset", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phase, confirm: "reset-tome-build",
+          confirmTome: window.__ACTIVE_TOME }),
+      });
+      const reset = await response.json();
+      if (!response.ok || !reset.ok) throw new Error(reset.error || "the phase reset was refused");
+      resetDone = true; phaseGo.textContent = "OPENING THE REBUILD…";
+      const author = { kind: provider.kind, model: k.model.value,
+        ...(k.eff.value ? { effort: k.eff.value } : {}) };
+      try {
+        const resumeResponse = await fetch("/api/buildtome/resume", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: reset.id, fromPhase: phase, author, bindery: { author } }),
+        });
+        const resumed = await resumeResponse.json();
+        if (!resumeResponse.ok || !resumed.ok) throw new Error(resumed.error || "the rebuild did not start");
+        localStorage.setItem("buildJob", resumed.jobId);
+        sessionStorage.setItem("openResetBuildJob", resumed.jobId);
+      } catch (error) {
+        sessionStorage.setItem("phaseResetNotice",
+          `The tome was reset to Phase ${phase}, but the AI did not start: ${String(error.message || error)}. It remains under Unfinished Workings.`);
+      }
+      localStorage.removeItem("activeTome");
+      location.reload();
+    } catch (error) {
+      if (resetDone) {
+        sessionStorage.setItem("phaseResetNotice", String(error.message || error));
+        localStorage.removeItem("activeTome"); location.reload(); return;
+      }
+      resumeStateSaves();
+      phaseGo.textContent = "RESET AND REBUILD"; syncPhaseReset();
+      phaseError.textContent = String(error.message || error);
+      phaseError.classList.remove("hidden");
+    }
+  };
   // gray out (and block) every input while the Binder works
   const lock = (on) => {
     const inp = $("#binder-inputs", root);
@@ -148,9 +249,9 @@ export function showBinder() {
       ${opts.logText ? `<div class="forge-log num" style="height:auto;max-height:150px;margin:0 0 10px">${esc(opts.logText)}</div>` : ""}
       <p class="dim" style="font-size:12px;margin:0 0 14px">Choose the hand that takes up the quill — it re-runs the request over the tome as it stands on disk.</p>
       <div class="forge-ai-row">
-        <select class="cfg-select rd-prov" style="flex:0 0 auto;width:172px"></select>
-        <select class="cfg-select rd-model" style="flex:1 1 auto;min-width:0" disabled><option value="">—</option></select>
-        <select class="cfg-select rd-eff" style="flex:0 0 auto;width:104px" disabled><option value="">—</option></select>
+        <div class="forge-ai-choice"><select class="cfg-select rd-prov" aria-label="Replacement Binder agent CLI"></select></div>
+        <div class="forge-ai-choice"><select class="cfg-select rd-model" aria-label="Replacement Binder model" disabled><option value="">—</option></select></div>
+        <div class="forge-ai-choice"><select class="cfg-select rd-eff" aria-label="Replacement Binder effort" disabled><option value="">—</option></select></div>
       </div>
       <div class="modal-actions" style="margin-top:16px">
         <button class="btn quiet rd-abort">LEAVE IT</button>

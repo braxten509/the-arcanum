@@ -1,0 +1,604 @@
+[[lessons]]
+id = "s12-l04"
+title = "Launch Beyond the Writing Desk"
+teaches = ["clean-external-delivery-proof", "tool-deliver"]
+body = '''
+<p>Delivery begins from a clean external folder, not from a warm development shell. Verify Python, create and activate .venv, install requirements.txt and the local project, run pytest, run source acceptance, build, then launch dist/MoonvaleRPG while the terminal's current directory is elsewhere.</p>
+<pre><code data-kind="terminal">python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m pip install -e .
+python -m pytest -q
+python -m moonvale --arcanum-acceptance
+python -m PyInstaller --onefile --name MoonvaleRPG --paths src --add-data assets:assets main.py</code></pre>
+<p>Read the sequence top to bottom. Environment creation isolates dependencies. The requirements install uses that interpreter and the editable dot install registers this src-layout project so <code>python -m moonvale</code> resolves from a clean shell. pytest checks deterministic rules. Source acceptance proves the cumulative adapter. PyInstaller creates the artifact. A likely failure is skipping the editable project install or building before tests, then debugging an import error or expensive frozen traceback whose cause was already visible.</p>
+<p>app.main recognizes <code>--arcanum-acceptance</code> before chapter proof branches and delegates to acceptance_main. Root main.py, <code>python -m moonvale</code>, and the bundled executable all reach this one dispatcher. Ordinary arguments still create Game; <code>--debug</code> remains explicit.</p>
+<p>The final Working adds <code>--arcanum-proof s12</code>. Its receipt calls run_acceptance, counts the ordered scenario observations, reads derived PASS/release readiness, and reports package prepared only when both are clean. It does not claim that text itself is a package; the package-mode harness builds and launches the declared artifact afterward.</p>
+<p>From outside the project, source acceptance and packaged acceptance must each print one JSON object with the ten ids in order. The harness repeats every negative challenge against both surfaces. Preserve stdout for machine evidence; use tracebacks, pytest output, or stderr for diagnosis.</p>
+<p>Inspect dist contents conceptually even in one-file mode: assets are declared, while tests, .venv, __pycache__, saves, save.tmp, save.corrupt, debug maps, and authoring fixtures are not. Review assets/credits.md and license any optional files personally.</p>
+<p>Completion means the visible game also follows title, collision, scrolling, herbalist quest, item use, wisp victory, pause/resume, save, quit, and reload. The final composition therefore gives <code>Game</code> one shared context containing World, Player, Camera, Animator, QuestLog, AudioBank, CombatEncounter, and SaveRepository. Scene replacements receive that context instead of constructing disconnected demo owners.</p>
+<p>In ordinary play, arrows or WASD move, E talks or gathers, C begins and advances the seeded wisp encounter, Q uses a selected tonic, I opens the inventory, F5 saves, F9 reloads, and P or Escape pauses. The herbalist zone and three visible herb markers turn the quest state into a walkable route. The save root lives under <code>Path.home() / ".moonvale-rpg"</code>, outside both source and package, so rebuilds do not erase progress.</p>
+<p>The visible path still honors deterministic boundaries: PlayScene builds InputSnapshot, asks World for nearby walls, moves Player, follows with Camera, and advances Animator with Game dt. Combat calls the same public turn method as acceptance. Save and load call the same snapshot functions. A likely failure is leaving these systems only in receipts while ordinary Game renders placeholder panels; always perform the walkthrough after the external package launch.</p>
+<pre><code data-kind="runnable">shared = {"quest": "locked"}
+title_context = shared
+play_context = shared
+play_context["quest"] = "accepted"
+print("SHARED", title_context["quest"])</code></pre>
+<p>The probe prints <code>SHARED accepted</code>: both names refer to one mutable owner, just as every SceneDirector replacement receives one GameContext. Do not copy the Player or QuestLog into each scene; returning from pause would otherwise resurrect stale state.</p>
+<p>The final scene source introduces a few focused PyGame actions. A <code>set()</code> stores currently held movement keys: KEYDOWN adds a key and KEYUP discards it, so motion continues between events and stops on release. <code>Rect.inflate(width, height)</code> returns a larger rectangle for a nearby-wall or interaction query without changing the original player rectangle. <code>pygame.font.Font(None, size)</code> selects PyGame's packaged default font, <code>font.render(text, True, color)</code> creates a text Surface, and <code>surface.blit(image, position)</code> copies either text or the current animation frame onto the window. <code>pygame.draw.circle</code> marks each media-free herb pickup. F5 and F9 are the named save/load key constants.</p>
+<p><code>Path.home()</code> returns the player's home directory as a Path; joining <code>.moonvale-rpg</code> gives persistence a stable location independent of current working directory. An injected <code>save_root</code> still replaces it for disposable checks. If held keys stick, inspect KEYUP handling. If text is invisible, call <code>pygame.init()</code> before rendering and verify the foreground contrasts with the panel. If interaction triggers too far away, print both the original and inflated rectangles.</p>
+<p>The adapter is repeatable evidence for those contracts, not a substitute for the learner's final visible walkthrough.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TWO COLD STARTS</div><p>Test source from a clean environment and the artifact from another directory. Each catches a different hidden dependency.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "clean-external-delivery-proof"
+purpose = "Rebuild, test, accept, package, and externally launch Moonvale through one canonical dispatcher with no warm workspace or player-data dependency."
+anatomy = "Compose one shared visible Game context; drive its public systems through scene controls; create/activate environment; install exact requirements and the editable src project; run pytest; run source acceptance; build declared artifact; change directory; launch proof/acceptance; run challenges; inspect credits/exclusions; perform visible walkthrough and relaunch its save."
+example = "The shared-context probe proves two scene-facing names observe one quest mutation; the terminal sequence then progresses from a new virtual environment through tests, source acceptance, and the reproducible PyInstaller command."
+observable = "Source and dist/MoonvaleRPG emit identical positive ordered JSON and challenged FAIL evidence from outside source; ordinary launch exposes movement, collision, camera, quest, inventory, combat, pause, save, and reload controls."
+failure = "Warm dependencies hide missing requirements, source cwd hides asset bugs, extra stdout breaks JSON, disconnected panel scenes hide an unplayable final game, packaged saves leak state, and receipt text without artifact launch proves no delivery."
+practice = "s12-l04-w2"
+
+[[lessons.concepts]]
+id = "tool-deliver"
+purpose = "Package the finished Moonvale application with the real delivery tool and verify its executable behavior outside the authoring workspace."
+anatomy = "Activate the clean environment; install requirements and the editable local project; run tests and source acceptance; invoke PyInstaller with src and assets declarations; locate dist/MoonvaleRPG; change outside the project; run proof, positive acceptance, and challenges; inspect credits and excluded state."
+example = "The lesson's terminal sequence uses python -m PyInstaller to build the declared artifact after clean tests and source acceptance."
+observable = "dist/MoonvaleRPG exists and emits the same ordered acceptance evidence when launched from another directory, with bundled map/credits and no workspace-only state."
+failure = "Stopping after source execution, merely locating a dist file, or launching only from the project fails to verify the delivered artifact in its real external target."
+practice = "s12-l04-w1"
+
+[[lessons.artifactSteps]]
+id = "s12-import-acceptance-dispatch"
+path = "src/moonvale/app.py"
+mode = "replace"
+instruction = "Add acceptance_main and run_acceptance beside the animation/audio owners in the canonical app imports."
+find = '''
+from moonvale.animation import Animator, FrameLibrary
+from moonvale.audio import AudioBank
+'''
+content = '''
+from moonvale.acceptance import acceptance_main, run_acceptance
+from moonvale.animation import Animator, FrameLibrary
+from moonvale.audio import AudioBank
+'''
+
+[[lessons.artifactSteps]]
+id = "s12-route-public-acceptance"
+path = "src/moonvale/app.py"
+mode = "replace"
+instruction = "Route the exact acceptance argument immediately after argv normalization and before chapter proof branches."
+find = '''
+def main(args=None):
+    args = list(sys.argv[1:] if args is None else args)
+    if args == ["--arcanum-proof", "s01"]:
+'''
+content = '''
+def main(args=None):
+    args = list(sys.argv[1:] if args is None else args)
+    if args == ["--arcanum-acceptance"]:
+        return acceptance_main()
+    if args == ["--arcanum-proof", "s01"]:
+'''
+
+[[lessons.artifactSteps]]
+id = "s12-compose-visible-scenes"
+path = "src/moonvale/scenes.py"
+mode = "rewrite"
+preserves = "all-active"
+instruction = "Replace the panel-only scene file with this complete context-aware visible RPG presentation while preserving every public scene name, key request, counter, and SceneDirector flow used by earlier checks."
+content = '''
+import pygame
+
+from moonvale.input import InputSnapshot
+from moonvale.quests import QUEST_ID
+from moonvale.settings import TILE_SIZE
+
+
+INK = (226, 232, 223)
+MIDNIGHT = (24, 29, 50)
+PARCHMENT = (52, 60, 78)
+MOSS = (75, 132, 91)
+AMBER = (214, 153, 75)
+SILVER = (180, 205, 230)
+
+
+def draw_text(surface, text, position, size=24, color=INK):
+    font = pygame.font.Font(None, size)
+    surface.blit(font.render(str(text), True, color), position)
+
+
+class PanelScene:
+    name = "panel"
+    color = (92, 117, 145)
+
+    def __init__(self, context=None):
+        self.context = context
+        self.updates = 0
+        self.renders = 0
+
+    def handle_event(self, event):
+        return None
+
+    def update(self, dt):
+        self.updates += 1
+        return None
+
+    def render(self, surface):
+        self.renders += 1
+        pygame.draw.rect(surface, self.color, (80, 60, 240, 120))
+
+
+class TitleScene(PanelScene):
+    name = "title"
+
+    def handle_event(self, event):
+        if (
+            event.type == pygame.KEYDOWN
+            and event.key in (pygame.K_RETURN, pygame.K_SPACE)
+        ):
+            return "play"
+        return None
+
+    def render(self, surface):
+        self.renders += 1
+        surface.fill(MIDNIGHT)
+        pygame.draw.rect(surface, PARCHMENT, (120, 90, 720, 360), border_radius=12)
+        pygame.draw.rect(surface, SILVER, (120, 90, 720, 360), 2, border_radius=12)
+        draw_text(surface, "MOONVALE RPG", (285, 145), 56, SILVER)
+        draw_text(surface, "A lantern-herb tale", (350, 215), 30)
+        draw_text(surface, "Enter or Space — begin", (340, 300), 28, AMBER)
+        draw_text(surface, "Move: arrows/WASD   Act: E   Fight: C", (265, 355), 22)
+        if self.context is not None:
+            draw_text(surface, self.context.status, (180, 410), 20, MOSS)
+
+
+class PlayScene(PanelScene):
+    name = "play"
+    color = MOSS
+    movement_keys = {
+        pygame.K_LEFT,
+        pygame.K_RIGHT,
+        pygame.K_UP,
+        pygame.K_DOWN,
+        pygame.K_a,
+        pygame.K_d,
+        pygame.K_w,
+        pygame.K_s,
+    }
+
+    def __init__(self, context=None):
+        super().__init__(context)
+        self.held = set()
+
+    def handle_event(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key in self.movement_keys:
+                self.held.add(event.key)
+            elif event.key in (pygame.K_ESCAPE, pygame.K_p):
+                return "pause"
+            elif self.context is not None and event.key in (pygame.K_e, pygame.K_SPACE):
+                self.context.interact()
+            elif self.context is not None and event.key == pygame.K_c:
+                if self.context.advance_combat() == "defeat":
+                    return "game-over"
+            elif self.context is not None and event.key == pygame.K_q:
+                self.context.use_tonic()
+            elif self.context is not None and event.key == pygame.K_i:
+                self.context.inventory_open = not self.context.inventory_open
+            elif self.context is not None and event.key == pygame.K_F5:
+                self.context.save()
+            elif self.context is not None and event.key == pygame.K_F9:
+                self.context.load()
+        elif event.type == pygame.KEYUP and event.key in self.movement_keys:
+            self.held.discard(event.key)
+        return None
+
+    def update(self, dt):
+        self.updates += 1
+        if self.context is None:
+            return None
+        snapshot = InputSnapshot(
+            left=pygame.K_LEFT in self.held or pygame.K_a in self.held,
+            right=pygame.K_RIGHT in self.held or pygame.K_d in self.held,
+            up=pygame.K_UP in self.held or pygame.K_w in self.held,
+            down=pygame.K_DOWN in self.held or pygame.K_s in self.held,
+        )
+        if self.context.combat is not None:
+            snapshot = InputSnapshot()
+        self.context.player.set_intent(snapshot)
+        probe = self.context.player.rect.inflate(TILE_SIZE * 4, TILE_SIZE * 4)
+        walls = self.context.world.walls_near(probe)
+        self.context.player.move(dt, walls)
+        self.context.camera.follow(
+            self.context.player.rect,
+            self.context.world.pixel_size,
+        )
+        self.context.animator.select_motion(self.context.player.direction)
+        self.context.animator.update(dt)
+        return None
+
+    def render(self, surface):
+        if self.context is None:
+            return super().render(surface)
+        self.renders += 1
+        surface.fill((31, 48, 44))
+        camera = self.context.camera
+        offset_x = round(camera.offset.x)
+        offset_y = round(camera.offset.y)
+        for x in range(-(offset_x % TILE_SIZE), surface.get_width(), TILE_SIZE):
+            pygame.draw.line(surface, (43, 66, 58), (x, 0), (x, surface.get_height()))
+        for y in range(-(offset_y % TILE_SIZE), surface.get_height(), TILE_SIZE):
+            pygame.draw.line(surface, (43, 66, 58), (0, y), (surface.get_width(), y))
+
+        for wall in self.context.world.walls:
+            pygame.draw.rect(surface, (82, 91, 108), camera.world_to_screen(wall))
+        herbalist = self.context.world.zones["herbalist"]
+        pygame.draw.rect(surface, AMBER, camera.world_to_screen(herbalist), 3)
+        draw_text(surface, "Herbalist", camera.world_to_screen(herbalist).topleft, 18, AMBER)
+
+        for index, herb in enumerate(self.context.herb_spots):
+            if index not in self.context.collected_herbs:
+                pygame.draw.circle(
+                    surface,
+                    (124, 203, 116),
+                    camera.world_to_screen(herb).center,
+                    9,
+                )
+
+        player_rect = camera.world_to_screen(self.context.player.rect)
+        surface.blit(self.context.animator.current_frame, player_rect)
+        pygame.draw.rect(surface, SILVER, player_rect, 1)
+
+        pygame.draw.rect(surface, (17, 22, 35), (0, 0, surface.get_width(), 82))
+        quest_status = self.context.quests.status(QUEST_ID)
+        herb_count = self.context.player.inventory.quantity("lantern-herb")
+        draw_text(
+            surface,
+            f"HP {self.context.player.stats['health']}/10   Quest {quest_status}   Herbs {herb_count}/3",
+            (18, 10),
+            24,
+        )
+        draw_text(surface, self.context.status, (18, 42), 20, AMBER)
+        draw_text(surface, "E act  C combat  Q tonic  I inventory  F5 save  F9 load  P pause", (350, 50), 18, SILVER)
+
+        if self.context.inventory_open:
+            pygame.draw.rect(surface, PARCHMENT, (620, 100, 310, 220), border_radius=8)
+            draw_text(surface, "SATCHEL", (645, 120), 30, SILVER)
+            rows = self.context.player.inventory.overlay_rows()
+            if not rows:
+                draw_text(surface, "Empty", (645, 165), 22)
+            for row, (_, name, quantity, selected) in enumerate(rows):
+                marker = ">" if selected else " "
+                draw_text(surface, f"{marker} {name} x{quantity}", (645, 165 + row * 28), 22)
+
+        if self.context.combat is not None:
+            encounter = self.context.combat
+            pygame.draw.rect(surface, (57, 30, 61), (250, 150, 460, 220), border_radius=10)
+            pygame.draw.rect(surface, AMBER, (250, 150, 460, 220), 2, border_radius=10)
+            draw_text(surface, "WISP ENCOUNTER", (345, 180), 36, AMBER)
+            draw_text(surface, f"Wisp HP {encounter.enemy['health']}/7", (330, 235), 28)
+            draw_text(surface, f"Wayfinder HP {self.context.player.stats['health']}/10", (330, 270), 28)
+            draw_text(surface, "Press C to attack", (360, 320), 24, SILVER)
+
+
+class PauseScene(PanelScene):
+    name = "pause"
+    color = AMBER
+
+    def handle_event(self, event):
+        if (
+            event.type == pygame.KEYDOWN
+            and event.key in (pygame.K_ESCAPE, pygame.K_p)
+        ):
+            return "play"
+        return None
+
+    def render(self, surface):
+        self.renders += 1
+        surface.fill(MIDNIGHT)
+        draw_text(surface, "PAUSED", (390, 190), 56, AMBER)
+        draw_text(surface, "P or Escape — return to Moonvale", (300, 270), 26)
+
+
+class GameOverScene(PanelScene):
+    name = "game-over"
+    color = (111, 58, 73)
+
+    def handle_event(self, event):
+        if (
+            event.type == pygame.KEYDOWN
+            and event.key in (pygame.K_RETURN, pygame.K_SPACE)
+        ):
+            if self.context is not None:
+                self.context.recover_after_defeat()
+            return "title"
+        return None
+
+    def render(self, surface):
+        self.renders += 1
+        surface.fill((52, 27, 39))
+        draw_text(surface, "THE WISP PREVAILED", (260, 190), 52, (232, 150, 160))
+        draw_text(surface, "Enter or Space — return to the title", (290, 275), 26)
+
+
+class SceneDirector:
+    scene_types = {
+        "title": TitleScene,
+        "play": PlayScene,
+        "pause": PauseScene,
+        "game-over": GameOverScene,
+    }
+
+    def __init__(self, context=None):
+        self.context = context
+        self.current = TitleScene(context)
+
+    def switch(self, name):
+        try:
+            scene_type = self.scene_types[name]
+        except KeyError as exc:
+            raise ValueError(f"unknown scene: {name}") from exc
+        self.current = scene_type(self.context)
+        return self.current
+'''
+
+[[lessons.artifactSteps]]
+id = "s12-compose-visible-game"
+path = "src/moonvale/game.py"
+mode = "rewrite"
+preserves = "all-active"
+instruction = "Replace game.py with this complete shared-state composition and the original single loop; this turns ordinary source and packaged launch into the playable journey while retaining fixed-clock, injected-event, frame-limit, clean-quit, and debug contracts."
+content = '''
+from pathlib import Path
+
+import pygame
+
+from moonvale.animation import Animator, FrameLibrary
+from moonvale.audio import AudioBank
+from moonvale.camera import Camera
+from moonvale.combat import CombatEncounter
+from moonvale.dialogue import DialogueBook
+from moonvale.diagnostics import Diagnostics
+from moonvale.entities import Player
+from moonvale.quests import QUEST_ID, QuestLog
+from moonvale.savegame import SaveRepository, make_snapshot, restore_snapshot
+from moonvale.scenes import SceneDirector
+from moonvale.settings import TARGET_FPS, WINDOW_SIZE
+from moonvale.world import World, asset_root
+
+
+class GameContext:
+    def __init__(self, save_root=None):
+        self.world = World(asset_root() / "maps" / "moonvale.tmx")
+        self.player = Player(32, 32)
+        self.camera = Camera()
+        sprite_path = asset_root() / "sprites" / "player.png"
+        self.animator = Animator(FrameLibrary.load_optional(sprite_path))
+        self.quests = QuestLog()
+        self.dialogue = DialogueBook()
+        self.audio = AudioBank.load_optional()
+        root = Path(save_root) if save_root is not None else Path.home() / ".moonvale-rpg"
+        self.repository = SaveRepository(root)
+        self.herb_spots = (
+            pygame.Rect(192, 160, 32, 32),
+            pygame.Rect(240, 208, 32, 32),
+            pygame.Rect(288, 112, 32, 32),
+        )
+        self.collected_herbs = set()
+        self.inventory_open = False
+        self.combat = None
+        self.status = "Find the herbalist east of the stone wall."
+        self.load(announce=False)
+
+    def interact(self):
+        reach = self.player.rect.inflate(28, 28)
+        quest_status = self.quests.status(QUEST_ID)
+        for index, herb in enumerate(self.herb_spots):
+            if index in self.collected_herbs or not reach.colliderect(herb):
+                continue
+            if quest_status == "locked":
+                self.status = "The herbs are unmarked. Speak with the herbalist first."
+                return
+            self.collected_herbs.add(index)
+            self.player.inventory.add("lantern-herb")
+            self.quests.collect(QUEST_ID)
+            quantity = self.player.inventory.quantity("lantern-herb")
+            self.status = f"Lantern herb gathered ({quantity}/3)."
+            self.audio.play("action")
+            return
+
+        herbalist = self.world.zones["herbalist"].inflate(48, 48)
+        if not reach.colliderect(herbalist):
+            self.status = "Nothing here answers. Follow the amber marker."
+            return
+        quest_status = self.quests.status(QUEST_ID)
+        line = self.dialogue.line_for("herbalist", quest_status)
+        if quest_status == "locked":
+            self.quests.accept(QUEST_ID)
+            self.status = f"Herbalist: {line} Quest accepted."
+        elif quest_status == "ready":
+            reward = self.quests.turn_in(QUEST_ID)
+            self.status = f"Herbalist: {line} Reward: {reward} moonmarks."
+        else:
+            self.status = f"Herbalist: {line}"
+
+    def advance_combat(self):
+        if self.combat is None:
+            self.combat = CombatEncounter(self.player, seed=7)
+            self.status = "A wisp rises. Press C to attack."
+            return "ongoing"
+        result = self.combat.attack_turn()
+        self.audio.play("action")
+        if result == "victory":
+            self.status = "Wisp defeated. A healing tonic entered the satchel."
+            self.combat = None
+        elif result == "defeat":
+            self.status = "The wisp scattered your lantern light."
+        else:
+            self.status = "Blades and sparks cross. Press C for the next turn."
+        return result
+
+    def use_tonic(self):
+        if self.player.inventory.quantity("healing-tonic") <= 0:
+            self.status = "No healing tonic is in the satchel."
+            return
+        self.player.inventory.select("healing-tonic")
+        self.player.inventory.use_selected(self.player)
+        self.audio.play("action")
+        self.status = f"Healing tonic used. Health is {self.player.stats['health']}."
+
+    def save(self):
+        self.repository.save(make_snapshot(self.player, self.quests))
+        self.status = f"Progress saved to {self.repository.path}."
+
+    def load(self, announce=True):
+        data, recovered = self.repository.load_or_recover()
+        if data is not None:
+            restore_snapshot(data, self.player, self.quests)
+            gathered = min(
+                len(self.herb_spots),
+                self.player.inventory.quantity("lantern-herb"),
+            )
+            self.collected_herbs = set(range(gathered))
+            if announce:
+                self.status = "Save restored: position, health, satchel, and quest state."
+        elif recovered:
+            self.status = "A corrupt save was quarantined; Moonvale opened safely."
+        elif announce:
+            self.status = "No save exists yet. Press S during play to create one."
+
+    def recover_after_defeat(self):
+        self.player.stats["health"] = self.player.stats["max_health"]
+        self.player.position.update(32, 32)
+        self.player.sync_rect()
+        self.combat = None
+        self.status = "You wake at Moonvale's western lantern."
+
+
+class Game:
+    def __init__(self, clock=None, event_source=None, debug=False, save_root=None):
+        self.clock = clock or pygame.time.Clock()
+        self.event_source = event_source or pygame.event.get
+        self.diagnostics = Diagnostics(debug)
+        self.context = GameContext(save_root=save_root)
+        self.director = SceneDirector(self.context)
+        self.scene = self.director.current
+
+    def run(self, frame_limit=None):
+        pygame.init()
+        self.context.audio = AudioBank.load_optional()
+        self.context.audio.play("title")
+        screen = pygame.display.set_mode(WINDOW_SIZE)
+        pygame.display.set_caption("Moonvale RPG")
+        running = True
+        frames = 0
+        dt = 0.0
+        while running and (frame_limit is None or frames < frame_limit):
+            for event in self.event_source():
+                if event.type == pygame.QUIT:
+                    running = False
+                else:
+                    request = self.scene.handle_event(event)
+                    if request is not None:
+                        self.scene = self.director.switch(request)
+            request = self.scene.update(dt)
+            if request is not None:
+                self.scene = self.director.switch(request)
+            screen.fill((24, 29, 50))
+            self.scene.render(screen)
+            if self.diagnostics.enabled:
+                if self.scene.name == "play":
+                    self.diagnostics.draw_world_overlay(
+                        screen,
+                        self.context.world,
+                        self.context.camera,
+                    )
+                pygame.draw.rect(screen, (180, 205, 230), screen.get_rect(), 1)
+            pygame.display.flip()
+            dt = self.clock.tick(TARGET_FPS) / 1000.0
+            frames += 1
+        pygame.quit()
+        return {"scene": self.scene.name, "frames": frames, "quit": "clean"}
+'''
+
+[[lessons.readings]]
+label = "Python documentation: virtual environments"
+url = "https://docs.python.org/3/tutorial/venv.html"
+
+[[lessons.exercises]]
+id = "s12-l04-e1"
+type = "mc"
+points = 15
+prompt = "Why launch the artifact from outside the project directory?"
+choices = ["To disable JSON", "To skip the package build", "To enable test fixtures", "To reveal accidental current-directory and warm-workspace dependencies"]
+answer = 3
+whyWrong = "External launch preserves JSON and follows the build; it specifically removes source-directory conveniences rather than enabling fixtures."
+hint = "A bundled asset should not depend on where the terminal stands."
+explain = "Changing cwd exposes guessed relative paths and undeclared source dependencies."
+
+[[lessons.exercises]]
+id = "s12-l04-e2"
+type = "text"
+points = 20
+prompt = "Which exact command-line argument selects the public cumulative adapter?"
+answer = "--arcanum-acceptance"
+hint = "It is shared by source and packaged launch, unlike a chapter-specific proof pair."
+whyWrong = "--debug changes diagnostics; the acceptance flag requests ordered machine evidence."
+
+[[lessons.exercises]]
+id = "s12-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the canonical package module build prefix."
+code = 'python -m PyInstaller --onefile --name MoonvaleRPG'
+
+[[lessons.exercises]]
+id = "s12-l04-e3"
+type = "fill"
+points = 20
+prompt = "Complete the clean dependency installation command."
+code = 'python -m pip install -r ____'
+answer = "requirements.txt"
+hint = "Use the root file that declared all four packages in Chapter I."
+whyWrong = "pyproject.toml describes the project; this taught delivery command consumes the pinned dependency list."
+
+[[lessons.exercises]]
+id = "s12-l04-w1"
+type = "write"
+points = 30
+prompt = "Given scenarios=10, status=PASS, release=ready, and package=prepared, print exactly S12_OK scenarios=10 status=PASS release=ready package=prepared."
+expect = '''
+S12_OK scenarios=10 status=PASS release=ready package=prepared'''
+solution = '''
+scenarios = 10
+status = "PASS"
+release = "ready"
+package = "prepared"
+print(
+    "S12_OK",
+    f"scenarios={scenarios}",
+    f"status={status}",
+    f"release={release}",
+    f"package={package}",
+)
+'''
+hint = "Print one label plus four f-string fields in the exact requested order."
+
+[[lessons.exercises]]
+id = "s12-l04-w2"
+type = "write"
+points = 30
+prompt = "Create one dictionary with quest locked, give title_context and play_context references to it, change quest through play_context to accepted, and print exactly SHARED accepted through title_context."
+expect = '''
+SHARED accepted'''
+solution = '''
+shared = {"quest": "locked"}
+title_context = shared
+play_context = shared
+play_context["quest"] = "accepted"
+print("SHARED", title_context["quest"])
+'''
+hint = "Assign both context names to the same dictionary before changing the value through one name."

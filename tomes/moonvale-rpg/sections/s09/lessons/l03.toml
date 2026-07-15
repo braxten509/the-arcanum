@@ -93,7 +93,6 @@ def test_save_round_trip_preserves_public_state(tmp_path):
 
 def test_corrupt_save_is_quarantined(tmp_path):
     repository = SaveRepository(tmp_path)
-    repository.root.mkdir()
     repository.path.write_text("{broken", encoding="utf-8")
     data, recovered = repository.load_or_recover()
     assert data is None

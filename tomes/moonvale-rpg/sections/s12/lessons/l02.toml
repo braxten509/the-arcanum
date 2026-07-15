@@ -1,0 +1,141 @@
+[[lessons]]
+id = "s12-l02"
+title = "Prove Every Control Matters"
+teaches = ["acceptance-challenge-regressions"]
+body = '''
+<p>A positive acceptance run proves the intended route works. A negative challenge proves the report depends on its controls. The harness launches the same adapter once per scenario with <code>ARCANUM_ACCEPTANCE_CHALLENGE</code> set to that exact id.</p>
+<p>ControlDeck does not assign a false result. It changes one declared edge before the ordinary method path runs. A neutral movement snapshot never reaches the wall. Zero animation time leaves frame zero. Seed two does not defeat the wisp in two attacks. Zero save frames leave no restorable file. Empty scene input leaves the director at title.</p>
+<pre><code data-kind="runnable">expected = ["boot", "walk", "save"]
+observed = {name: name != "walk" for name in expected}
+print("NEGATIVE", observed["walk"], list(observed) == expected)</code></pre>
+<p>The probe prints <code>NEGATIVE False True</code>. The dictionary comprehension derives one Boolean per ordered name. This tiny example illustrates report shape only; the real challenge changes controls and lets domain behavior decide. A likely failure is setting <code>observed[challenge] = False</code>, which tests formatting rather than control dependence.</p>
+<p>pytest parameterization runs one test body with every SCENARIOS value. The decorator supplies a different scenario argument for each case. Each case uses a unique tmp_path child, calls run_acceptance, verifies status FAIL, confirms the challenged scenario is false, and checks every value remains Boolean in exact order.</p>
+<p>The positive regression expects PASS, ten true observations, release ready, and no temp save. Another test calls acceptance_main with ARCANUM_SAVE_ROOT and parses captured stdout as JSON. It verifies the public object has only version, status, and scenarios. Human-readable diagnostics belong on stderr or in pytest, because a package harness must parse stdout as exactly one JSON object.</p>
+<p>A challenged adapter should still complete normally enough to emit evidence. FAIL is a tested observation report, not a process crash. Therefore acceptance_main returns zero after printing either PASS or FAIL; malformed configuration may still raise a clear exception.</p>
+<p>When a negative test unexpectedly passes, inspect the scenario's chosen kind and confirm the domain path actually consumes that control. When several unrelated scenarios fail, find the shared canonical owner instead of weakening multiple assertions.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // COUNTERFACTUAL EVIDENCE</div><p>If removing a required control changes nothing, either the control is not required or the adapter bypasses the promised behavior.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "acceptance-challenge-regressions"
+purpose = "Prove every declared scenario depends on a real input, clock, seed, or frame-limit edge while preserving ordered Boolean JSON output."
+anatomy = "Parameterize exact scenario ids; create isolated save root; invalidate that scenario's control; run the same journey; require FAIL and challenged false; require Boolean ordered values; parse one public JSON object."
+example = "The worked ordered comprehension produces a false walk observation while preserving the expected key order."
+observable = "The positive test passes all ten; ten negative cases each make their challenged scenario false and status FAIL without a crash or prepared report."
+failure = "Directly assigning false skips behavior, a non-Boolean value breaks schema, extra stdout breaks JSON parsing, and shared save roots make tests order-dependent."
+practice = "s12-l02-w1"
+
+[[lessons.artifactSteps]]
+id = "s12-keep-negative-exit-parseable"
+path = "src/moonvale/acceptance.py"
+mode = "replace"
+instruction = "Keep challenged FAIL reports parseable by returning zero after the exact JSON object."
+find = '''
+    print(json.dumps(public_report, separators=(",", ":")))
+    return 0 if report["status"] == "PASS" else 1
+'''
+content = '''
+    print(json.dumps(public_report, separators=(",", ":")))
+    return 0
+'''
+
+[[lessons.artifactSteps]]
+id = "s12-add-acceptance-tests"
+path = "tests/test_acceptance.py"
+mode = "write"
+instruction = "Create tests/test_acceptance.py with clean positive, per-scenario negative, and exact public JSON regressions."
+content = '''
+import json
+
+import pytest
+
+from moonvale.acceptance import SCENARIOS, acceptance_main, run_acceptance
+
+
+def test_clean_acceptance_journey_passes(tmp_path):
+    report = run_acceptance(save_root=tmp_path / "positive")
+    assert report["version"] == 1
+    assert report["status"] == "PASS"
+    assert list(report["scenarios"]) == list(SCENARIOS)
+    assert all(report["scenarios"].values())
+    assert report["release"] == "ready"
+
+
+@pytest.mark.parametrize("scenario", SCENARIOS)
+def test_each_challenge_invalidates_real_control(tmp_path, scenario):
+    report = run_acceptance(
+        challenge=scenario,
+        save_root=tmp_path / scenario,
+    )
+    assert report["status"] == "FAIL"
+    assert report["scenarios"][scenario] is False
+    assert list(report["scenarios"]) == list(SCENARIOS)
+    assert all(isinstance(value, bool) for value in report["scenarios"].values())
+
+
+def test_acceptance_main_prints_one_public_json_object(tmp_path, monkeypatch, capsys):
+    monkeypatch.delenv("ARCANUM_ACCEPTANCE_CHALLENGE", raising=False)
+    monkeypatch.setenv("ARCANUM_SAVE_ROOT", str(tmp_path / "public"))
+    assert acceptance_main() == 0
+    output = capsys.readouterr().out
+    public = json.loads(output)
+    assert list(public) == ["version", "status", "scenarios"]
+    assert public["status"] == "PASS"
+    assert list(public["scenarios"]) == list(SCENARIOS)
+'''
+
+[[lessons.readings]]
+label = "pytest documentation: parametrizing tests"
+url = "https://docs.pytest.org/en/stable/how-to/parametrize.html"
+
+[[lessons.exercises]]
+id = "s12-l02-e1"
+type = "fill"
+points = 20
+prompt = "Complete the pytest decorator that supplies every scenario value."
+code = '@pytest.mark.____("scenario", SCENARIOS)'
+answer = "parametrize"
+hint = "Use pytest's decorator for repeated cases from one collection."
+whyWrong = "A fixture supplies setup; this decorator expands one test into one case per id."
+
+[[lessons.exercises]]
+id = "s12-l02-e2"
+type = "mc"
+points = 15
+prompt = "Why must a challenged run use the same journey function?"
+choices = ["So invalidated controls affect real behavior rather than a separate fake path", "So it can print a prepared failure", "So it can reorder scenarios", "So it can touch the player save"]
+answer = 0
+whyWrong = "Prepared failures, reordered output, and real-save access defeat the counterfactual proof; only the controlled edge should differ."
+hint = "Change the cause, then observe the same rules."
+explain = "One shared path proves the required control influences the claimed behavior."
+
+[[lessons.exercises]]
+id = "s12-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the challenged Boolean assertion."
+code = 'assert report["scenarios"][scenario] is False'
+
+[[lessons.exercises]]
+id = "s12-l02-w1"
+type = "write"
+points = 30
+prompt = "Build ordered names boot, walk, save with walk false and the others true, then print exactly NEGATIVE False True for walk and order equality."
+expect = '''
+NEGATIVE False True'''
+solution = '''
+expected = ["boot", "walk", "save"]
+observed = {name: name != "walk" for name in expected}
+print("NEGATIVE", observed["walk"], list(observed) == expected)
+'''
+hint = "Use a comprehension comparing each name with walk, then compare list(observed) with expected."
+
+[[lessons.exercises]]
+id = "s12-l02-e3"
+type = "text"
+points = 20
+prompt = "Which environment variable supplies the isolated persistence directory?"
+answer = "ARCANUM_SAVE_ROOT"
+hint = "It is separate from the challenge variable and points SaveRepository away from player data."
+whyWrong = "ARCANUM_ACCEPTANCE_CHALLENGE chooses a negative case; the save-root variable controls the filesystem edge."

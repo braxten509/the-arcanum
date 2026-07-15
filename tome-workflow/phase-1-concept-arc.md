@@ -23,6 +23,16 @@ is introduced before first use. Start 2 changes pace and repetition, not fundame
 coverage; a construct cannot disappear from the teaching sequence merely because the
 learner is not at absolute zero.
 
+Starting level and mastery are separate axes. Starting level controls the support at the
+entrance; mastery controls the support that must be gone at the exit. Follow the plan's exact
+`Entry/exit separation`, `Scaffold-fading rule`, and numbered `Mastery evidence` lines. Write a
+separate `**Mastery proof:**` Arc line naming the late graded Workings or distinct requirements
+that prove the selected finish, the novel transfer each demands, which exact implementation
+help is withheld, and where the learner records or demonstrates a rationale. A finished
+reference project or successful harness replay proves solvability, not student independence.
+For Finish 3, plan at least two late transfer performances including the final Working; they
+may reuse taught interfaces and checks, but cannot be mechanical copies of lesson code.
+
 Keep scope cuts in the internal Graduate ledger; Phase 2 shelf copy stays positive.
 
 Make cross-section state explicit:

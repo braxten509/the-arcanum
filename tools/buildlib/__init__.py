@@ -10,6 +10,7 @@
 - continuity  schema-checked cross-section evidence used by validators
 - review_evidence  proof-v1 evidence derived from execution
 - checkpoints  Phase-1 arc gate and deterministic tome rename
+- phase_reset  durable phase-start snapshots and transactional Binder rewinds
 Shared paths/constants live here."""
 import os
 

@@ -119,7 +119,7 @@ def watch_build(gid, proc):
             if session:
                 job["interactionState"] = session.group(1)
     rc = proc.wait()
-    tome = tail = final = slug = phase_title = failure = None
+    tome = final = slug = phase_title = failure = None
     phase = 0
     with jobs_lock:
         job = jobs.get(gid)
@@ -131,7 +131,7 @@ def watch_build(gid, proc):
             if rc != 0 and not externally_cancelled:
                 job["error"] = "\n".join(job["log"][-30:])
         if job:
-            final, tome, tail = job.get("status"), job.get("tome"), "\n".join(job.get("log", [])[-6:])
+            final, tome = job.get("status"), job.get("tome")
             phase, phase_title, failure = job.get("phase", 0), job.get("phaseTitle", ""), job.get("error", "")
     if slug:
         try:
@@ -146,7 +146,11 @@ def watch_build(gid, proc):
     if final == "done":
         notify("✓ Tome forged", f"{nm} finished — ready in the Bindery.")
     elif final == "error":  # a user cancel sets status 'cancelled', so this only fires on real failures
-        notify("✗ Forge failed", f"{nm} stopped:\n{tail}", priority=1)
+        # Brief on purpose: the full log tail stays in the job/result for the UI.
+        where = f"in Phase {phase} — {phase_title}" if phase_title else f"in Phase {phase}" if phase else "while building"
+        notify("✗ Forge failed",
+               f"{nm} failed {where}. Resume it from Unfinished Workings — you can pick a different AI.",
+               priority=1)
 
 
 # ---------------------------------------------------------------- resuming abandoned builds

@@ -379,6 +379,8 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
         if stopped:
             _mark_amend_state(jid, "error")  # left on disk so the Binder can offer to resume it
         if stopped:  # a real failure/timeout, not a user cancel — you may be away, so ping to retry
+            # Brief on purpose: the full error stays in the job for the Binder's bench.
+            cause = (str(e).splitlines() or ["unknown error"])[0][:120]
             notify(f"✗ The Binder stopped — {jid}",
-                   f"The amendment failed and the tome was rolled back — reopen the Binder to retry it on a different hand:\n{str(e)[:360]}",
+                   f"{cause} — the tome was rolled back. Reopen the Binder to retry, or pick a different hand.",
                    priority=1)

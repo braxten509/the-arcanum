@@ -111,6 +111,10 @@ def handle(h):
             if not target or reported == target:
                 out["interactionState"] = reported
             out["sessionId"] = session.get("sessionId")
+            out["sessionError"] = str(session.get("error") or "")
+            out["sessionAuthor"] = {"kind": session.get("kind"),
+                                    "model": session.get("model"),
+                                    "effort": session.get("effort")}
         out["conversation"] = load_conversation(stable, 120)
         if out.get("status") == "running" and int(out.get("phase") or 0) == 3:
             progress = (load_section_progress(out.get("tome"))

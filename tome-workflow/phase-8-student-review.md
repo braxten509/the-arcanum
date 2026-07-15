@@ -35,7 +35,7 @@ Audit these semantic contracts:
    clock, seed, or frame limit, but not directly assign the promised outcome or saved state.
 7. **Calibration.** Enforce every Phase 0 answer and treat prior knowledge
    as exhaustive. Apply the plan's current Calibration contract over any older paraphrase
-   paraphrase without changing the user's recorded number. At Start 1–3, each unlisted
+   without changing the user's recorded number. At Start 1–3, each unlisted
    keyword, syntax form, operator, API, tool
    action, or technical term needs, before required use, a plain-language purpose,
    stepwise anatomy, a minimal worked example with an observable result, one likely
@@ -44,6 +44,16 @@ Audit these semantic contracts:
    `externalWorkspace`, require the complete novice tool and delivery loop. Fail hollow
    late chapters, asset-generation shortcuts, or an unachievable `meta.description`. Media
    needs a licensed sourcing guide, exact placement, and a proof path that works without it.
+8. **Mastery and transfer.** Starting level controls the entrance, not the exit. Locate every
+   performance named by the Arc's `**Mastery proof:**` and compare the learner-visible lesson
+   path with the hidden `referenceSteps`. Confirm scaffolding actually fades to the plan's exact
+   numbered `Mastery evidence` requirement. A completed reference project, cumulative replay,
+   or elaborate final artifact proves solvability only. For Finish 3, require at least two late
+   graded performances including the final Working (or two distinct final requirements in a
+   genuine one-section course): each must demand a novel extension, integration, or diagnosis
+   from specifications and observable checks without exposing its exact implementation or a
+   rename-only twin. At least one must grade a recorded rationale. Fail a course that gives the
+   decisive integration in lesson artifactSteps and then grades only a receipt or trivial route.
 
 Resolve behavior from the approved arc, `meta.description`, acceptance journey, and runtime,
 not majority wording. Repair any authored file or selected runtime. Proof-v1 PASS is derived

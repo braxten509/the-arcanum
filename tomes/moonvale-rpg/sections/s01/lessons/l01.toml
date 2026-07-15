@@ -3,7 +3,7 @@ id = "s01-l01"
 title = "Light the Workshop Lantern"
 teaches = ["external-python-workshop", "tool-install", "tool-create-open", "tool-navigate", "tool-edit-save", "tool-run-test", "tool-diagnose"]
 body = '''
-<p>A game project begins with a repeatable workshop. <strong>Python</strong> is the interpreter that reads our source files. A <strong>terminal</strong> is the text window where we ask that interpreter to work. An <strong>editor</strong> is where we create, open, change, and save files. Install Python 3.12 or newer and a code editor before continuing; both are mandatory. Tiled is optional until Chapter IV, but installing it now is convenient.</p>
+<p>A game project begins with a repeatable workshop. <strong>Python</strong> is the interpreter that reads our source files. A <strong>terminal</strong> is the text window where we ask that interpreter to work. An <strong>editor</strong> is where we create, open, change, and save files. Install Python 3.12 or newer and a code editor before continuing; both are mandatory. Tiled, the free map editor from mapeditor.org, is optional until Chapter IV, but installing it now is convenient; Chapter IV repeats the exact install steps before its first required use.</p>
 <p>Open a terminal, create an empty folder named <code>MoonvaleRPG</code>, enter it, and open that same folder in your editor. The terminal's current directory and the editor's project root must name the same place. Run this sequence one line at a time:</p>
 <pre><code data-kind="terminal">python3 --version
 python3 -m venv .venv
@@ -11,6 +11,7 @@ source .venv/bin/activate
 python -m pip install pygame-ce pytmx pytest pyinstaller
 python -c "print('WORKSHOP READY')"</code></pre>
 <p><code>python3 -m venv .venv</code> asks Python's <code>venv</code> module to make an isolated environment in the hidden <code>.venv</code> directory. Activation changes which <code>python</code> and <code>pip</code> the terminal finds. The install command puts libraries inside this project environment, not into unrelated projects. On Windows PowerShell, activation is <code>.venv\Scripts\Activate.ps1</code>. The final <code>-c</code> command runs the quoted Python statement directly; seeing <code>WORKSHOP READY</code> proves the interpreter answers.</p>
+<p>The rendered requirements.txt edit below records exact versions that completed this course's clean proof. A double equals pin such as <code>pygame-ce==2.5.7</code> means “install this distribution at exactly this version.” The opening command teaches package installation directly; later clean setups use <code>python -m pip install -r requirements.txt</code> so every wayfinder rebuilds the same tested toolchain. If a pin is unavailable for a different Python or platform, read pip's compatibility message before changing the version and rerun the entire test and package journey after any change.</p>
 <p>Create a file with the editor, type a line, save it, then run it from the terminal. The save step matters: Python reads bytes on disk, not unsaved editor text. If <code>python</code> is not found, activation failed or Python is not installed. If an import later says <code>ModuleNotFoundError</code>, run <code>python -m pip --version</code> and confirm its path contains this project's <code>.venv</code>. Recovery is evidence-led: check the directory, interpreter, saved file, and first traceback line before reinstalling anything.</p>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // ONE INTERPRETER</div><p>Using <code>python -m pip</code> binds the installer to the same interpreter that will run the game. A green install from a different <code>pip</code> executable can still leave the active Python unable to import the package.</p></div>
 '''
@@ -84,10 +85,10 @@ path = "requirements.txt"
 mode = "write"
 instruction = "At the MoonvaleRPG project root, create requirements.txt with these four dependency lines; save it and compare each distribution name before continuing."
 content = '''
-pygame-ce
-pytmx
-pytest
-pyinstaller
+pygame-ce==2.5.7
+pytmx==3.32
+pytest==9.1.1
+pyinstaller==6.21.0
 '''
 
 [[lessons.readings]]

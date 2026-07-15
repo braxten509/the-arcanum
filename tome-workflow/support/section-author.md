@@ -48,6 +48,23 @@ before independent work. A term followed by unexplained sample code, a reading l
 capstone demand does not count as an introduction. Start 2 may move through this sequence
 faster than Start 1, but it may not omit a fundamental.
 
+Honor the plan's exit contract independently of its starting level. Fade support across the
+course: complete examples for new material, then partial practice, then graded transfer from a
+behavioral specification and observable checks. A late Working named in `**Mastery proof:**`
+must be learner-authored. Its preceding lesson `artifactSteps` may establish prerequisites,
+interfaces, fixtures, and tests, but must not supply the exact implementation, a rename-only
+equivalent, or the decisive integration the Working grades. Put the complete solvable answer
+only in hidden `referenceSteps`.
+
+For Finish 3, include at least two late graded transfer performances, including the final
+Working (or two distinct requirements when the course genuinely has one section). Each asks for
+a novel extension, integration, or diagnosis using taught capabilities, and at least one rubric
+criterion evaluates a rationale recorded in the artifact, comments, or a project note. Do not
+defer the promised ordinary user experience to a giant final lesson rewrite and then grade only
+a receipt: integrate it incrementally, or leave the decisive integration to the specification-only
+Working. Higher finishes remove more solution structure; lower finishes may retain the amount of
+guidance stated by their exact `Mastery evidence` line.
+
 For `externalWorkspace`, section 1 teaches install, create/open, navigation, edit/save, run/test,
 diagnostics, and recovery; the last teaches delivery and end-to-end verification. Never make media.
 For every required asset, add an `[[assets]]` guide covering licensed sourcing, evaluation, and exact

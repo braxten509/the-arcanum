@@ -235,6 +235,22 @@ and spaced/interleaved practice** are the two highest-impact study techniques, a
 **worked examples** are the best-known way to keep novices from drowning in
 cognitive load. Apply all four:
 
+**Starting level and mastery are orthogonal.** A low starting level requires more complete
+early explanation; it does not license a guided finish. The plan's `Mastery evidence` line is
+an exit-performance contract. Fade support across the whole course from complete examples to
+partial practice to transfer from requirements and observable checks. The validator's hidden
+reference solution and reconstructed final project prove that the task is solvable; only the
+student's graded Working can prove independence.
+
+At Finish 3, use at least two late graded transfer performances including the final Working
+(or two distinct requirements in a genuine one-section course). They must require a novel
+extension, integration, or diagnosis rather than mechanical copying, renaming, or constant
+changes, and at least one must grade a recorded rationale for a taught choice. Learner-visible
+`artifactSteps` may provide prerequisites, interfaces, fixtures, and tests, but never the exact
+implementation being used as mastery evidence. That implementation belongs only in hidden
+`referenceSteps`. Finish 4–5 removes still more solution structure; Finish 1–2 retains only the
+guidance allowed by the plan's exact numbered contract.
+
 - **Interleave — don't only test the concept a lesson just taught.** The weakest
   habit of an AI author is a course where every exercise quizzes the current lesson
   and nothing older. Deliberately fold earlier concepts back into later sections: a
@@ -364,3 +380,10 @@ task tracker, an interpreter…), but within a course it is always ONE codebase
 growing, never a set of disconnected toy exercises. Plan this arc first — decide
 the finished tool, then work backwards to what each op must contribute — and size
 the section count to that arc (§2, `[content]`), not to a target number.
+
+**The Working is where mastery is demonstrated, not where lesson code is recopied.** For every
+late Working named in the Arc's `Mastery proof`, compare its checklist with the preceding lesson
+artifact steps. If those visible steps already implement the graded behavior—or a version that
+needs only renamed identifiers or changed constants—the Working cannot count as independent
+transfer. Keep the hidden `referenceSteps` complete so the harness can prove the task, while the
+learner receives requirements, constraints, diagnostics, and observable acceptance checks.

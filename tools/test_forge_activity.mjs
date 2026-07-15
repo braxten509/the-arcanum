@@ -3,7 +3,9 @@ import fs from "node:fs";
 
 const setup = fs.readFileSync("web/app/forge/forge.js", "utf8");
 const session = fs.readFileSync("web/app/forge/bindery.js", "utf8");
+const binder = fs.readFileSync("web/app/forge/binder.js", "utf8");
 const baseCss = fs.readFileSync("web/css/overlay/bindery/base.css", "utf8");
+const resetCss = fs.readFileSync("web/css/overlay/bindery/binder-reset.css", "utf8");
 const sessionCss = fs.readFileSync("web/css/overlay/bindery/session.css", "utf8");
 const launcher = fs.readFileSync("start.sh", "utf8");
 const main = fs.readFileSync("web/app/main.js", "utf8");
@@ -49,6 +51,16 @@ assert.match(sessionCss, /\.forge-chat-meta\s*\{[^}]*justify-content:\s*space-be
 assert.doesNotMatch(sessionCss, /\.forge-chat\s*\{[^}]*white-space:\s*pre-wrap/s);
 assert.match(sessionCss, /\.forge-console-btn\s*\{[^}]*background:[^}]*color:/s);
 assert.match(sessionCss, /\.forge-console-btn\s*\{[^}]*min-height:\s*26px[^}]*font:\s*10\.5px/s);
+const resetOptions = binder.match(/<select id="bd-phase"[\s\S]*?<\/select>/)?.[0] || "";
+assert.equal((resetOptions.match(/<option value="[1-8]">/g) || []).length, 8);
+assert.match(binder, /Every authored section is replaced by fresh Phase 3 placeholders/);
+assert.match(binder, /prepareStateReset\(\)/);
+assert.match(binder, /confirm: "reset-tome-build"/);
+assert.match(binder, /\/api\/buildtome\/reset/);
+assert.match(binder, /\/api\/buildtome\/resume/);
+assert.match(resetCss, /\.binder-rebuild-consequence\s*\{[^}]*border-left:\s*2px solid var\(--bad\)/s);
+assert.match(main, /openResetBuildJob/);
+assert.match(main, /openBuildOverlay\(resetBuildJob\)/);
 assert.match(launcher, /\/api\/buildtome\/active/);
 assert.match(launcher, /active author session/);
 assert.match(launcher, /if \[\[ "\$active_jobs" =~ \^\[1-9\]/);

@@ -10,7 +10,8 @@ from .skeleton import parse_section_list
 # The arc's REQUIRED parts — the gate checks each appears as a bold `**Label:**` line.
 # Difficulty spine + Graduate ledger are plan deliverables Phase 1 has skipped before.
 ARC_PARTS = ("Finished tool", "Language", "Project name", "Mentor persona", "Student term",
-             "Visual identity", "Tooling fit", "Difficulty spine", "Graduate ledger", "Daily drivers",
+             "Visual identity", "Tooling fit", "Difficulty spine", "Graduate ledger", "Mastery proof",
+             "Daily drivers",
              "Continuity map", "Artifact lifecycle", "Acceptance proof",
              "Acceptance scenarios", "Section list")
 # The plan's daily-driver kit, machine-checked: each must be assigned CAN or CANNOT in
@@ -28,7 +29,10 @@ ARC_CONTRACT = (
     "(exactly `<gate answer> — COMPATIBLE: evidence`; construction cannot pause to change it); Difficulty\n"
     "spine (the 3-6 concepts practitioners of this language/tool find hard and idiomatic\n"
     "at the target level); Graduate ledger (after the last chapter the student CAN … /\n"
-    "still CANNOT …); Daily drivers (this language's daily-driver kit, every item\n"
+    "still CANNOT …); Mastery proof (the named late learner performances that satisfy\n"
+    "the selected Finish level, how scaffolding fades before them, what novel transfer\n"
+    "they require, and how the learner's choices are justified—the finished reference\n"
+    "artifact alone is not learner evidence); Daily drivers (this language's daily-driver kit, every item\n"
     "assigned as `item = CAN` or `item = CANNOT`, items spelled exactly: growable\n"
     "collection; key-value; strings; errors — a CANNOT is a deliberate scope cut and\n"
     "must be repeated in the Graduate ledger); Continuity map (one-line `sNN -> sMM:`\n"
@@ -85,7 +89,12 @@ def arc_written(plan_path, plan_rel):
                        f"under '## Arc'. Printing it to the terminal does not count; later "
                        f"phases read only the file on disk.")
     low = body.lower()
-    missing = [p for p in ARC_PARTS if f"**{p.lower()}:**" not in low]
+    # Plans created before the mastery-evidence contract remain readable. New plans carry
+    # its numbered marker and must provide the corresponding Phase-1 proof explicitly.
+    required_parts = (ARC_PARTS if re.search(
+        r"(?im)^- \*\*Mastery evidence [1-5]/5:\*\*", text)
+        else tuple(part for part in ARC_PARTS if part != "Mastery proof"))
+    missing = [p for p in required_parts if f"**{p.lower()}:**" not in low]
     probs = []
     gate_tooling = re.search(r"(?im)^- \*\*Tooling:\*\*\s*(internal|external|both)\s*$", text)
     fit = re.search(

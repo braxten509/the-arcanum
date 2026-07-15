@@ -15,6 +15,7 @@ from .agent_runtime import scoped_runner_command
 from .author_gate import (PHASES, advance_unit, current_unit, ensure_unit, label,
                           next_prompt, repair_prompt, unit_prompt, validate_unit)
 from .runners import author_runner
+from arcanum.forge import notify
 from arcanum.tomes import resolve_working_tid
 from arcanum.tool_trace import _descendants, runner_session, trace_session_id
 
@@ -278,6 +279,40 @@ class AuthorSession:
             pass
         return ("complete" if rc == 0 else "failed"), ""
 
+    def apply_author(self, control):
+        """Adopt a replacement author sent through the control lane. A different CLI (or
+        model) cannot resume the old session, so the switch starts a fresh one."""
+        author = control.get("author") or {}
+        kind, model = str(author.get("kind") or ""), str(author.get("model") or "")
+        if not kind or not model or (kind, model) == (self.kind, self.model):
+            return False
+        self.kind, self.model, self.effort = kind, model, str(author.get("effort") or "")
+        self.session_id = ""
+        return True
+
+    def await_controls(self, retrying=False):
+        """Block until stop or a message/resume control. Returns the next
+        (prompt, conversation_kind, conversation_text), or None on stop."""
+        while True:
+            control = self.controls.get()
+            if control.get("type") == "stop":
+                self.stop = True
+                return None
+            if control.get("type") not in ("message", "resume"):
+                continue
+            switched = self.apply_author(control)
+            message = str(control.get("text") or "").strip()
+            unit = ensure_unit(self.build_id, self.from_phase)
+            prompt = ((message + "\n\n") if message else "") + unit_prompt(unit)
+            if switched:
+                prompt = author_prompt(self.build_id, self.concept, self.tooling,
+                                       unit.get("phase", self.from_phase)) + "\n\n" + prompt
+            verb = "Retrying" if retrying else "Resuming"
+            text = message or (
+                f"{verb} {label(unit)} with {self.kind} {self.model} in a fresh session."
+                if switched else f"{verb} {label(unit)}.")
+            return prompt, ("user" if message else "harness"), text
+
     def run(self):
         threading.Thread(target=self.read_controls, daemon=True).start()
         unit = ensure_unit(self.build_id, self.from_phase)
@@ -296,35 +331,20 @@ class AuthorSession:
                 prompt = message + "\n\n" + unit_prompt(unit)
                 conversation_kind, conversation_text = "user", message
                 continue
-            if outcome == "paused":
-                self.state("paused")
-                while True:
-                    control = self.controls.get()
-                    if control.get("type") == "stop":
-                        self.stop = True
-                        break
-                    if control.get("type") in ("message", "resume"):
-                        message = str(control.get("text") or "").strip()
-                        unit = ensure_unit(self.build_id, self.from_phase)
-                        prompt = ((message + "\n\n") if message else "") + unit_prompt(unit)
-                        conversation_kind = "user" if message else "harness"
-                        conversation_text = message or f"Resuming {label(unit)}."
-                        break
-                continue
-            if outcome == "failed":
-                self.state("paused", error="The author CLI exited unexpectedly; send a message to resume it.")
-                while True:
-                    control = self.controls.get()
-                    if control.get("type") == "stop":
-                        self.stop = True
-                        break
-                    if control.get("type") in ("message", "resume"):
-                        message = str(control.get("text") or "").strip()
-                        unit = ensure_unit(self.build_id, self.from_phase)
-                        prompt = ((message + "\n\n") if message else "") + unit_prompt(unit)
-                        conversation_kind = "user" if message else "harness"
-                        conversation_text = message or f"Retrying {label(unit)} in the same session."
-                        break
+            if outcome in ("paused", "failed"):
+                if outcome == "failed":
+                    self.state("paused", error=(
+                        "The author CLI exited unexpectedly. Resume it, or pick "
+                        "another AI to take over in a fresh session."))
+                    notify("✗ Author AI failed",
+                           f"{self.current_tome()}: {self.kind} {self.model} crashed. "
+                           "Open its forge session to retry or switch AI.", priority=1)
+                else:
+                    self.state("paused")
+                resumed = self.await_controls(retrying=outcome == "failed")
+                if resumed is None:
+                    break
+                prompt, conversation_kind, conversation_text = resumed
                 continue
             unit = current_unit(self.build_id, self.from_phase, require_gate=True)
             if not unit:

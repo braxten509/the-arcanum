@@ -10,6 +10,7 @@ from . import BUILD_DIR, REPO
 from .measure import (validate, validate_live_smoke, validate_phase3, validate_section,
                       validate_shipping)
 from .prompts import read_tooling
+from .phase_reset import capture_phase_snapshot
 from .section_progress import write_section_progress
 from arcanum.tomes import resolve_working_tid
 from tools.validatelib.phase3 import tome_section_ids
@@ -129,6 +130,17 @@ def _write_phase(build_id, phase, state):
                   "phaseStartedAt": started, "updatedAt": time.time()})
 
 
+def _capture_phase_start(build_id, phase):
+    """A missing rewind checkpoint must not block an otherwise healthy build."""
+    ctx = context(build_id)
+    if not os.path.isfile(os.path.join(REPO, "tomes", ctx["tid"], "tome.toml")):
+        return
+    try:
+        capture_phase_snapshot(build_id, phase)
+    except Exception as exc:
+        print(f"phase snapshot warning: {exc}", flush=True)
+
+
 def advance_unit(build_id, unit):
     """Checkpoint a clean unit and return the next unit, or None after Phase 8."""
     if unit["kind"] == "section":
@@ -141,6 +153,7 @@ def advance_unit(build_id, unit):
             return current_unit(build_id, 3)
         _write_phase(build_id, 3, "complete")
         _write_phase(build_id, 4, "working")
+        _capture_phase_start(build_id, 4)
         return current_unit(build_id, 4)
     phase = int(unit["phase"])
     _write_phase(build_id, phase, "complete")
@@ -151,6 +164,7 @@ def advance_unit(build_id, unit):
         sections = tome_section_ids(os.path.join(REPO, "tomes", context(build_id)["tid"]))
         first = sections[0] if sections else "s01"
         write_section_progress(build_id, first, 1, max(1, len(sections)), "authoring")
+    _capture_phase_start(build_id, phase + 1)
     return current_unit(build_id, phase + 1)
 
 

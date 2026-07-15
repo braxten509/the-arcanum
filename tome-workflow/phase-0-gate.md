@@ -5,7 +5,10 @@ starting level, breadth, lesson depth, mastery, and tooling. **WAIT for the user
 real answers.** The
 **Tooling** answer (internal / external / both) is expanded inside the plan's
 **Calibration contract** — obey it: it decides whether `externalWorkspace` is allowed
-and whether the real external tools must be taught.
+and whether the real external tools must be taught. Starting level and mastery are
+independent: starting level controls the opening explanations; mastery controls what the
+learner must perform after scaffolding fades. The generated Calibration contract expands
+each mastery number into concrete graded evidence; later phases must follow that exact text.
 
 This gate is absolute. **Even in an autonomous / automode run, interrupt the run and
 ask** — you can break out of automode, so do it. Never answer for the user, never

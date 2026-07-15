@@ -16,8 +16,13 @@
      objective, or the whole territory (drives section count)
    - Lesson depth (1–10): how deep each lesson digs — just use it, or internals
      and edge cases (drives lesson density)
-   - Mastery (1–5): where the student must stand after the last chapter —
-     acquainted through expert
+   - Mastery (1–5): what the student can do without step-by-step help after the
+     last chapter — 1 = explain and modify guided examples; 2 = complete familiar
+     small tasks and simple repairs; 3 = transfer concepts to novel real problems,
+     integrate/debug them, and justify choices independently; 4 = handle unfamiliar
+     variations and tradeoffs with minimal scaffolding; 5 = architect, validate, and
+     defend a substantial solution from goals and constraints. Starting level controls
+     the entrance; mastery controls how far scaffolding must fade by the exit.
    - Tooling: work inside the engine's own workbench, in the real external
      project/IDE (`externalWorkspace`, §5), or both? — and for externals, which
      exact tool versions

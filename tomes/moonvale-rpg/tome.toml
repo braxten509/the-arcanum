@@ -1,6 +1,4 @@
-# ARCANUM tome manifest — scaffolded by tools/new_tome.py.
-# Replace every TODO, then run:  python3 tools/validate_tome.py tomes/untitled-6
-# Read tome-authoring/2-tome-toml.md before filling this in — every key here is documented there.
+# ARCANUM tome manifest for The Moonvale Atlas.
 
 [meta]
 id = "moonvale-rpg"                       # MUST equal the folder name
@@ -21,11 +19,7 @@ entryFile = "main.py"
 projectFile = "pyproject.toml"
 runLabel = "python3 main.py"
 validationDependencies = ["pygame-ce", "pytmx", "pytest", "pyinstaller"]
-# starterCode inherits from the language TOML; override it here if you want a
-# different first-run entry file:
-# starterCode = '''
-# TODO: the entry file's first contents
-# '''
+# starterCode inherits from the complete Python runtime configuration.
 
 [content]
 sections = ["s01", "s02", "s03", "s04", "s05", "s06", "s07", "s08", "s09", "s10", "s11", "s12"]  # ordered section ids; each maps to sections/<id>/
@@ -52,16 +46,39 @@ grader = "qwen2.5:14b"
 graderKind = "claude-cli"
 graderModel = "claude-opus-4-8"
 
+[progression]
+attackTime = 180
+attackStages = [0, 60, 120]
+blackIceThreshold = 10
+blackIcePerDiffCap = 2
+
+[progression.earnedTheme]
+id = "wisp-crown"
+name = "WISP-CROWNED FOLIO"
+desc = "A night-vellum atlas granted after ten proven spell-duel victories."
+
 [economy]
-# TODO: rebalance once your exercise/freestyle points are set (see § [economy]).
-ranks = [[0, "NOVICE"], [400, "ADEPT"], [1000, "MASTER"]]
-hintCost = 50
-oracleCost = 10
+# Fixed face value: 4,234 exercise credits + 3,050 Working rewards = 7,284.
+# Repeatable hex/duel income is bonus only; the final 316-credit rise rewards mastery.
+ranks = [
+  [0, "UNMAPPED WANDERER"],
+  [800, "LANTERN BEARER"],
+  [1600, "ROAD SCRIBE"],
+  [2400, "MOONVALE SCOUT"],
+  [3200, "MAP KEEPER"],
+  [4000, "QUEST WARDEN"],
+  [4800, "WISP BREAKER"],
+  [5600, "ATLAS MAKER"],
+  [6400, "SILVER CARTOGRAPHER"],
+  [7600, "STAR-CROWNED WAYFINDER"],
+]
+hintCost = 60
+oracleCost = 35
 attemptMultipliers = [1, 0.6, 0.3]
 comboStep = 0.05
-comboCap = 0.5
+comboCap = 0.4
 sRankMultiplier = 1.5
-attackStakePerDiff = 20
+attackStakePerDiff = 18
 attackWinPerDiff = 15
 
 [narrative]

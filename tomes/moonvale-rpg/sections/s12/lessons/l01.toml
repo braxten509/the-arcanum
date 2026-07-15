@@ -1,86 +1,321 @@
 [[lessons]]
 id = "s12-l01"
-title = "TODO: Test the Clean Road"
-teaches = ["s12-phase3-placeholder"]            # TODO: stable kebab-case capabilities this lesson teaches
+title = "Drive the Whole Journey"
+teaches = ["cumulative-acceptance-adapter"]
 body = '''
-<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
-<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
-<p>TODO: an optional deeper-cut appendix.</p></div>
+<p>Acceptance answers whether the finished RPG keeps its promises, not whether ten labels can be printed. <code>SCENARIOS</code> copies the exact planned order. <code>run_acceptance</code> constructs real World, Player, Camera, Animator, QuestLog, Inventory, CombatEncounter, SaveRepository, SceneDirector, AudioBank, SpatialIndex, and release-audit behavior.</p>
+<p>Each scenario stores a Boolean observation after public methods run. Walking supplies InputSnapshot, calls Player.move with World.walls_near, and observes the collision stop. Scrolling calls Camera.follow. Animation selects Player.direction and advances with controlled dt. Quest and inventory use their transition methods. Combat calls two seeded turns.</p>
+<pre><code data-kind="runnable">observations = {"boot": True, "walk": True, "save": True}
+status = "PASS" if all(observations.values()) else "FAIL"
+print("ACCEPT", status, len(observations))</code></pre>
+<p>The probe prints <code>ACCEPT PASS 3</code>. <code>all</code> evaluates the observed Boolean values; it does not create them. A likely failure is initializing every scenario to True and changing none. That report says nothing about the game.</p>
+<p><code>ControlDeck</code> owns the four declared deterministic edges: input, clock, seed, and frame-limit. For an ordinary positive run it returns the supplied control. When the harness challenges one scenario, it invalidates that scenario's edge: neutral input, zero elapsed time, seed two, or zero frames. The same domain path then derives a false observation.</p>
+<p>The save milestone uses an injected clean root. It drives quest completion and inventory state, atomically saves schema one, restores fresh owners, then corrupts only the disposable file and verifies quarantine. No real player path is touched.</p>
+<p>The final scene-flow observation switches through the canonical director, while package readiness checks silent audio, map/credits resolution, debug disabled, frame limit unbounded, and release audit. The adapter returns an ordered report with version one, status, and scenarios. app.main alone prints its compact JSON.</p>
+<p>To diagnose a false milestone, run pytest for that scenario, inspect its controlled input, then trace the first public method whose observed state diverges. Never repair acceptance by assigning the result.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CONTROL THE EDGE</div><p>Determinism fixes external choices. Rules still decide collision, rewards, victory, restoration, and transitions.</p></div>
 '''
 
-[[lessons.concepts]]                # one complete first-use proof for every `teaches` id
-id = "s12-phase3-placeholder"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
-practice = "s12-l01-e1"
+[[lessons.concepts]]
+id = "cumulative-acceptance-adapter"
+purpose = "Drive every planned milestone through the real cumulative Moonvale project and return one ordered versioned JSON-ready observation report."
+anatomy = "Freeze scenario order; inject input/clock/seed/frame-limit; construct canonical owners; call public behavior; store Boolean observations; combine with all; preserve exact ids; return version/status/scenarios."
+example = "The worked observations dictionary derives PASS from three true behaviors and reports their count."
+observable = "A positive clean-root run reports version 1, status PASS, and all ten planned scenario ids true in order."
+failure = "Literal true milestones, direct health/status assignment, fake output, real-save access, or reordered ids can pass formatting while proving no journey."
+practice = "s12-l01-w1"
 
-[[lessons.artifactSteps]]           # visible, exact edits replayed in one disposable project
-id = "s12-l01-project-step"
-path = "replace-me.txt"
-mode = "write"                     # write | replace | rewrite | append | delete
-instruction = "TODO: exact file, working directory, action, and verification."
+[[lessons.artifactSteps]]
+id = "s12-add-acceptance-adapter"
+path = "src/moonvale/acceptance.py"
+mode = "write"
+instruction = "Create src/moonvale/acceptance.py with the complete real-behavior journey, control invalidation, clean save root, and ordered report."
 content = '''
-TODO: complete learner-visible file content
+import json
+import os
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+import pygame
+
+from moonvale.animation import Animator, FrameLibrary
+from moonvale.audio import AudioBank
+from moonvale.camera import Camera
+from moonvale.combat import CombatEncounter
+from moonvale.diagnostics import Diagnostics
+from moonvale.entities import Player
+from moonvale.input import InputSnapshot
+from moonvale.quests import QUEST_ID, QuestLog
+from moonvale.release import release_audit
+from moonvale.savegame import (
+    SCHEMA_VERSION,
+    SaveRepository,
+    make_snapshot,
+    restore_snapshot,
+)
+from moonvale.scenes import SceneDirector
+from moonvale.world import World, asset_root
+
+
+SCENARIOS = (
+    "boot-title",
+    "walk-and-collide",
+    "scroll-tiled-world",
+    "animate-player",
+    "accept-village-quest",
+    "collect-and-use-item",
+    "win-seeded-encounter",
+    "save-quit-and-resume",
+    "navigate-scene-flow",
+    "launch-packaged-rpg",
+)
+
+
+class ControlDeck:
+    def __init__(self, challenge=None):
+        if challenge is not None and challenge not in SCENARIOS:
+            raise ValueError(f"unknown acceptance challenge: {challenge}")
+        self.challenge = challenge
+
+    def value(self, scenario, kind, normal):
+        if self.challenge != scenario:
+            return normal
+        if kind == "input":
+            if isinstance(normal, InputSnapshot):
+                return InputSnapshot()
+            if isinstance(normal, bool):
+                return False
+            return []
+        if kind == "clock":
+            return 0.0
+        if kind == "seed":
+            return 2
+        if kind == "frame-limit":
+            return 0
+        raise ValueError(f"unknown acceptance control: {kind}")
+
+
+def _journey(save_root, challenge=None):
+    controls = ControlDeck(challenge)
+    observed = {}
+
+    director = SceneDirector()
+    boot_frames = controls.value("boot-title", "frame-limit", 1)
+    observed["boot-title"] = boot_frames > 0 and director.current.name == "title"
+
+    world = World(asset_root() / "maps" / "moonvale.tmx")
+    player = Player(32, 32)
+    movement = controls.value(
+        "walk-and-collide",
+        "input",
+        InputSnapshot(right=True),
+    )
+    player.set_intent(movement)
+    blocked = player.move(0.5, world.walls_near(pygame.Rect(32, 32, 128, 32)))
+    observed["walk-and-collide"] = blocked and player.rect.x == 64
+
+    camera = Camera()
+    scroll_frames = controls.value("scroll-tiled-world", "frame-limit", 1)
+    if scroll_frames > 0:
+        camera.follow(pygame.Rect(1008, 32, 32, 32), world.pixel_size)
+    observed["scroll-tiled-world"] = tuple(camera.offset) == (544, 0)
+
+    animated_player = Player()
+    animated_player.set_intent(InputSnapshot(right=True))
+    library = FrameLibrary.load_optional()
+    animator = Animator(library)
+    animator.select_motion(animated_player.direction)
+    animation_dt = controls.value("animate-player", "clock", 0.15)
+    animator.update(animation_dt)
+    observed["animate-player"] = (
+        animator.state == "walk-east"
+        and animator.frame_index == 1
+        and library.uses_fallback
+    )
+
+    quests = QuestLog()
+    quest_action = controls.value("accept-village-quest", "input", True)
+    if quest_action and "herbalist" in world.zones:
+        quests.accept(QUEST_ID)
+    observed["accept-village-quest"] = quests.status(QUEST_ID) == "accepted"
+
+    inventory_player = Player()
+    inventory_player.stats["health"] = 6
+    inventory_player.inventory.add("healing-tonic")
+    inventory_player.inventory.select("healing-tonic")
+    item_action = controls.value("collect-and-use-item", "input", True)
+    used = inventory_player.inventory.use_selected(inventory_player) if item_action else False
+    observed["collect-and-use-item"] = (
+        used
+        and inventory_player.stats["health"] == 10
+        and inventory_player.inventory.quantity("healing-tonic") == 0
+    )
+
+    combat_player = Player()
+    seed = controls.value("win-seeded-encounter", "seed", 7)
+    encounter = CombatEncounter(combat_player, seed=seed)
+    encounter.attack_turn()
+    encounter.attack_turn()
+    defeated_player = Player()
+    defeated_player.stats["health"] = 1
+    defeated_encounter = CombatEncounter(defeated_player, seed=7)
+    defeated_encounter.attack_turn()
+    observed["win-seeded-encounter"] = (
+        encounter.result == "victory"
+        and encounter.next_scene() == "play"
+        and combat_player.inventory.quantity("healing-tonic") == 1
+        and defeated_encounter.result == "defeat"
+        and defeated_encounter.next_scene() == "game-over"
+    )
+
+    saved_player = Player(64, 96)
+    saved_player.stats["health"] = 8
+    saved_player.inventory.add("lantern-herb", 3)
+    saved_player.inventory.select("lantern-herb")
+    saved_quests = QuestLog()
+    saved_quests.accept(QUEST_ID)
+    saved_quests.collect(QUEST_ID, 3)
+    saved_quests.turn_in(QUEST_ID)
+    repository = SaveRepository(save_root)
+    save_frames = controls.value("save-quit-and-resume", "frame-limit", 1)
+    if save_frames > 0:
+        repository.save(make_snapshot(saved_player, saved_quests))
+    loaded = repository.load()
+    restored_player = Player()
+    restored_quests = QuestLog()
+    restored = loaded is not None
+    if restored:
+        restore_snapshot(loaded, restored_player, restored_quests)
+    repository.root.mkdir(parents=True, exist_ok=True)
+    repository.path.write_text("{broken", encoding="utf-8")
+    _, recovered = repository.load_or_recover()
+    observed["save-quit-and-resume"] = (
+        restored
+        and SCHEMA_VERSION == 1
+        and restored_player.stats["health"] == 8
+        and restored_player.inventory.quantity("lantern-herb") == 3
+        and restored_quests.status(QUEST_ID) == "completed"
+        and recovered
+        and repository.corrupt_path.exists()
+        and not repository.temporary_path.exists()
+    )
+
+    scene_names = controls.value(
+        "navigate-scene-flow",
+        "input",
+        ["play", "pause", "play", "game-over", "title"],
+    )
+    scene_director = SceneDirector()
+    flow = [scene_director.current.name]
+    for name in scene_names:
+        flow.append(scene_director.switch(name).name)
+    observed["navigate-scene-flow"] = flow == [
+        "title",
+        "play",
+        "pause",
+        "play",
+        "game-over",
+        "title",
+    ]
+
+    package_frames = controls.value("launch-packaged-rpg", "frame-limit", 1)
+    diagnostics = Diagnostics()
+    audio = AudioBank.load_optional(asset_root() / "missing-audio")
+    audit = release_audit(
+        asset_root().parent,
+        debug=diagnostics.enabled,
+        frame_limit=None,
+    )
+    observed["launch-packaged-rpg"] = (
+        package_frames > 0
+        and audio.mode == "silent"
+        and audit["ready"]
+        and (asset_root() / "maps" / "moonvale.tmx").is_file()
+        and (asset_root() / "credits.md").is_file()
+    )
+    return observed, audit
+
+
+def run_acceptance(challenge=None, save_root=None):
+    if save_root is not None:
+        observed, audit = _journey(Path(save_root), challenge)
+    else:
+        with TemporaryDirectory() as temporary_root:
+            observed, audit = _journey(Path(temporary_root), challenge)
+    return {
+        "version": 1,
+        "status": "PASS" if all(observed.values()) else "FAIL",
+        "scenarios": observed,
+        "release": "ready" if audit["ready"] else "blocked",
+    }
+
+
+def acceptance_main():
+    challenge = os.environ.get("ARCANUM_ACCEPTANCE_CHALLENGE")
+    save_root = os.environ.get("ARCANUM_SAVE_ROOT")
+    report = run_acceptance(challenge=challenge, save_root=save_root)
+    public_report = {
+        "version": report["version"],
+        "status": report["status"],
+        "scenarios": report["scenarios"],
+    }
+    print(json.dumps(public_report, separators=(",", ":")))
+    return 0 if report["status"] == "PASS" else 1
 '''
 
-[[lessons.readings]]               # optional: 1-2 high-quality official docs
-label = "TODO: official docs"
-url = "https://example.com/TODO"
+[[lessons.readings]]
+label = "Python documentation: json.dumps"
+url = "https://docs.python.org/3/library/json.html#json.dumps"
 
 [[lessons.exercises]]
 id = "s12-l01-e1"
 type = "mc"
 points = 15
-prompt = "TODO: a multiple-choice question?"
-choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
-answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
-whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
-hint = "TODO: an exercise-specific hint."
-explain = "TODO: shown after solving."
-
-[[lessons.exercises]]
-id = "s12-l01-e2"
-type = "text"
-points = 20
-prompt = "TODO: a free-text question."
-answer = "TODO"
-# accept = ["TODO alternate"]      # optional true alternates only
-hint = "TODO: an exercise-specific hint."
-
-[[lessons.exercises]]
-id = "s12-l01-e3"
-type = "fill"
-points = 20
-prompt = "TODO: fill the blank."
-code = 'answer = ____'             # the ____ marks where the answer goes
-answer = "TODO"
-hint = "TODO: an exercise-specific hint."
+prompt = "What makes an acceptance milestone trustworthy?"
+choices = ["Its label appears in SCENARIOS", "It starts as literal True", "It skips controlled edges", "A public behavior path derives its Boolean observation"]
+answer = 3
+whyWrong = "Ordering is necessary but not proof; literal truth and skipped controls bypass the behavior acceptance exists to verify."
+hint = "Control input and time, then observe the domain result."
+explain = "The adapter drives real methods and records what they produced."
 
 [[lessons.exercises]]
 id = "s12-l01-d1"
-type = "type"                      # typing drill: retype the code; no point decay
+type = "type"
 points = 12
 reps = 2
-prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
-code = 'print("TODO")'
+prompt = "Retype the derived report status."
+code = '"status": "PASS" if all(observed.values()) else "FAIL",'
+
+[[lessons.exercises]]
+id = "s12-l01-e2"
+type = "fill"
+points = 20
+prompt = "Complete the environment lookup for the harness challenge id."
+code = 'challenge = os.environ.____("ARCANUM_ACCEPTANCE_CHALLENGE")'
+answer = "get"
+hint = "Use the mapping method that returns None when the variable is absent."
+whyWrong = "Direct indexing raises KeyError during an ordinary positive run where no challenge is set."
 
 [[lessons.exercises]]
 id = "s12-l01-w1"
-type = "write"                     # CODE LAB: runs on the real runtime; no point decay
+type = "write"
 points = 30
-prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
-# starter = '''
-# TODO: prefilled editor code / the exercise's data
-# '''
+prompt = "Given boot, walk, and save observations all True, derive status with all and print exactly ACCEPT PASS 3."
 expect = '''
-TODO EXACT OUTPUT'''
-# REQUIRED before shipping: a complete program that passes. Never shown to the
-# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
-# solution = '''
-# TODO
-# '''
-hint = "TODO: an exercise-specific hint."
+ACCEPT PASS 3'''
+solution = '''
+observations = {"boot": True, "walk": True, "save": True}
+status = "PASS" if all(observations.values()) else "FAIL"
+print("ACCEPT", status, len(observations))
+'''
+hint = "Call all on the dictionary values, then print the status and len of the dictionary."
+
+[[lessons.exercises]]
+id = "s12-l01-e3"
+type = "text"
+points = 20
+prompt = "Which exact earlier method supplies local collision candidates to the walk milestone?"
+answer = "walls_near"
+accept = ["walls_near()", "World.walls_near"]
+hint = "It queries World.wall_index with a world-space rectangle."
+whyWrong = "World.walls is the full collection; walls_near exercises the optimized release contract."

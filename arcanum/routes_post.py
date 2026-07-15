@@ -24,7 +24,7 @@ from .config import (BUILD_DIR, CLI_EFFORTS, GLOBAL_STATE_KEYS, ROOT,
 from .forge import _resume_phase, external_build_process
 from .grader import ask_oracle, run_grader, start_grader_smoke
 from .post_routes.builds import (answer_runner_pause, control_author, discard_build,
-                                 resume_build, start_build)
+                                 reset_build, resume_build, start_build)
 from .tomes import (external_workspace, has_progress, load_manifest, plan_path, project_dir,
                     project_name, resolve_tome, resolve_working_tid, runtime_for,
                     save_dir, scratch_base, state_path, tome_dir, write_files)
@@ -212,6 +212,8 @@ def handle(h):
             return h.send_json({"ok": True, "status": "cancelled" if running else job.get("status")})
         if path == "/api/buildtome/resume":
             return resume_build(h, body)
+        if path == "/api/buildtome/reset":
+            return reset_build(h, body, jid)
         if path == "/api/buildtome/discard":
             return discard_build(h, body)
     except Exception as e:  # surface errors to the UI rather than 500-ing silently

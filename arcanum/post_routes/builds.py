@@ -16,6 +16,7 @@ from ..forge import (_clear_build_terminal_state, _plan_concept, _plan_gate, _re
                      _save_launch, external_build_process, fresh_tome_id, watch_build,
                      working_is_active)
 from ..tomes import plan_path, resolve_working_tid
+from tools.buildlib.phase_reset import find_plan_for_tome, reset_tome_to_phase
 
 
 AUTHOR_KINDS = ("claude-cli", "antigravity-cli", "codex-cli", "opencode-cli")
@@ -124,6 +125,14 @@ def resume_build(h, body):
     same_cli = (previous.get("kind") == author["kind"]
                 and previous.get("model") == author["model"])
     resume_id = str(previous.get("sessionId") or "") if same_cli else ""
+    # A resumed build is no longer cancelled: a stale cancel marker here made a later
+    # clean finish record as "cancelled" instead of "done" (the untitled-6 loop).
+    for key in {rid, tid}:
+        for stale in ("cancelled", "result"):
+            try:
+                os.remove(os.path.join(BUILD_DIR, f"{key}.{stale}.json"))
+            except OSError:
+                pass
     gid = _launch(rid, author, _plan_concept(text), phase, resume_id=resume_id)
     return h.send_json({"ok": True, "jobId": gid, "tome": tid,
                         "continuedSession": bool(resume_id)})
@@ -141,6 +150,11 @@ def control_author(h, body, action):
         payload["text"] = str(body.get("text") or "").strip()
         if not payload["text"]:
             return h.send_json({"ok": False, "error": "a message is required"}, 400)
+    if action in ("message", "resume") and body.get("author"):
+        try:
+            payload["author"] = _author(body)
+        except ValueError as exc:
+            return h.send_json({"ok": False, "error": str(exc)}, 400)
     try:
         proc.stdin.write(json.dumps(payload, ensure_ascii=False) + "\n")
         proc.stdin.flush()
@@ -155,6 +169,36 @@ def control_author(h, body, action):
 def answer_runner_pause(h, body):
     """Legacy endpoint: a model pick is now an ordinary message/resume, never a handoff."""
     return h.send_json({"ok": False, "error": "this build uses one interactive author"}, 410)
+
+
+def reset_build(h, body, tid):
+    """Return a completed tome to one exact build phase and erase its learner save."""
+    try:
+        phase = int(body.get("phase") or 0)
+    except (TypeError, ValueError):
+        phase = 0
+    if phase not in range(1, 9):
+        return h.send_json({"ok": False, "error": "phase must be between 1 and 8"}, 400)
+    if (body.get("confirm") != "reset-tome-build"
+            or str(body.get("confirmTome") or "") != tid):
+        return h.send_json({"ok": False,
+                            "error": "the destructive tome and phase confirmation is required"}, 400)
+    try:
+        build_id, _path, _text = find_plan_for_tome(tid)
+    except ValueError as exc:
+        return h.send_json({"ok": False, "error": str(exc)}, 404)
+    if working_is_active(build_id, tid):
+        return h.send_json({"ok": False,
+                            "error": "cancel the active author before resetting this tome"}, 409)
+    with jobs_lock:
+        busy = any(job.get("status") == "running"
+                   and ({job.get("tome"), job.get("slug")} & {tid, build_id})
+                   for job in jobs.values())
+    if busy:
+        return h.send_json({"ok": False,
+                            "error": "finish or cancel the active tome job before resetting"}, 409)
+    result = reset_tome_to_phase(tid, phase)
+    return h.send_json({"ok": True, **result})
 
 
 def discard_build(h, body):
@@ -176,6 +220,8 @@ def discard_build(h, body):
                 os.remove(os.path.join(BUILD_DIR, f"{key}.{suffix}"))
             except OSError:
                 pass
+        shutil.rmtree(os.path.join(BUILD_DIR, f"{key}.phase-snapshots"),
+                      ignore_errors=True)
     tome = os.path.realpath(os.path.join(TOMES_DIR, tid))
     result = build_result_status(rid) or build_result_status(tid)
     if ((not result or result.get("status") != "done")

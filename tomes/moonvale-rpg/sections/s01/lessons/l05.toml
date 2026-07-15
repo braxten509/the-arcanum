@@ -12,17 +12,21 @@ if __name__ == "__main__":
     main()</code></pre>
 <p>Read the final two lines as a comparison followed by a function call inside the controlled block. The observable output is <code>MOONVALE READY</code> when executed directly. If you accidentally write <code>__name__ = "__main__"</code>, you assign instead of compare and Python rejects the assignment target in this condition. If an import fails from the root launcher, confirm that <code>src</code> was added to <code>sys.path</code> before importing <code>moonvale</code>.</p>
 <p>The chapter proof uses arguments from <code>sys.argv</code>, the growable list of command-line strings. Index zero is the launcher path. The expression <code>sys.argv[1:3]</code> slices positions one up to, but not including, three. When those values equal <code>["--arcanum-proof", "s01"]</code>, the app builds a <code>WorkshopState</code>, registers three modules through real methods, prints its computed receipt, and exits. Ordinary launch prints a workshop message. This narrow branch makes behavior observable without pretending that the final game already exists.</p>
-<p>Use the editor's file tree to verify the exact paths, save every file, then run both <code>python main.py --arcanum-proof s01</code> and <code>PYTHONPATH=src python -m moonvale --arcanum-proof s01</code>. Both routes must print the same receipt. A typo in a package or module name raises <code>ModuleNotFoundError</code>; compare the traceback's import spelling with the file tree character for character.</p>
+<p>The project metadata must also explain how pip finds this src-layout package. <code>[build-system]</code> selects setuptools' build backend, which is the component pip asks to build or install the project. <code>[tool.setuptools.packages.find]</code> with <code>where = ["src"]</code> tells it to search beneath src instead of the project root. A missing finder can produce an apparently successful environment where <code>python -m moonvale</code> still raises ModuleNotFoundError.</p>
+<pre><code data-kind="terminal">python -m pip install -e .
+python -m moonvale --arcanum-proof s01</code></pre>
+<p>The dot means the current project and <code>-e</code> means editable: pip makes the active environment import this working source tree, so saved edits are visible without reinstalling after every change. The first command should report a successful editable install; the second prints the same s01 receipt without a PYTHONPATH prefix. Run it from the project root with the environment active. If pip cannot find pyproject.toml, check the current directory. If Python still cannot find moonvale, inspect <code>python -m pip show moonvale-rpg</code> and confirm its editable location is this project.</p>
+<p>Use the editor's file tree to verify the exact paths and save every file. Before the editable install, <code>PYTHONPATH=src python -m moonvale --arcanum-proof s01</code> is a useful one-command diagnostic; after installation, the canonical command above and <code>python main.py --arcanum-proof s01</code> must print the same receipt. A typo in a package or module name raises <code>ModuleNotFoundError</code>; compare the traceback's import spelling with the file tree character for character.</p>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // THIN FRONT DOORS</div><p>Keeping launchers tiny prevents two different applications from growing. The real behavior lives in <code>moonvale.app.main</code>; every front door delegates to that one function.</p></div>
 '''
 
 [[lessons.concepts]]
 id = "moonvale-package-skeleton"
 purpose = "Create one importable source package with a canonical module entrypoint and a thin workbench/packager launcher."
-anatomy = "Place modules under src/moonvale; mark the package with __init__.py; put launch behavior in app.main; delegate from __main__.py and root main.py; guard direct execution with __name__ == '__main__'; read proof arguments from sys.argv."
+anatomy = "Place modules under src/moonvale; mark the package with __init__.py; declare setuptools and src package discovery in pyproject.toml; install the current project with python -m pip install -e .; put launch behavior in app.main; delegate from __main__.py and root main.py; guard direct execution with __name__ == '__main__'; read proof arguments from sys.argv."
 example = "The guarded main function demonstrates direct execution, and the chapter Working wires both launch routes to one computed WorkshopState receipt."
-observable = "Both proof commands print S01_OK project=MoonvaleRPG modules=3."
-failure = "A wrong package path, unsaved file, missing src path, or assignment in the entrypoint comparison produces an import or syntax traceback."
+observable = "The editable install succeeds, python -m pip show names this project location, and both proof commands print S01_OK project=MoonvaleRPG modules=3."
+failure = "A wrong package path, missing src finder, inactive editable install, unsaved file, or assignment in the entrypoint comparison produces an install, import, or syntax traceback."
 practice = "s01-l05-e1"
 
 [[lessons.artifactSteps]]
@@ -34,6 +38,21 @@ content = '''
 """Moonvale RPG package."""
 
 __version__ = "0.1.0"
+'''
+
+[[lessons.artifactSteps]]
+id = "s01-declare-editable-build"
+path = "pyproject.toml"
+mode = "append"
+instruction = "Append the build backend and src package-discovery tables to pyproject.toml, then run the editable install from the project root."
+content = '''
+
+[build-system]
+requires = ["setuptools==83.0.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
 '''
 
 [[lessons.readings]]

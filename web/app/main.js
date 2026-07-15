@@ -2,7 +2,7 @@
    Boot, wiring, and the ambient life of the study. */
 import "../audio/index.js";  // first: hangs GhostAudio on window before any module below reads it
 import { BOOT_LINES, J, applyTomeConfig } from "./core/config.js";
-import { fetchActiveBuilds, showTomePicker } from "./forge/bindery.js";
+import { fetchActiveBuilds, openBuildOverlay, showTomePicker } from "./forge/bindery.js";
 import { showBinder } from "./forge/binder.js";
 import { $, applyPen, esc, paintRange, refreshCoins, sfx, toast } from "./core/dom.js";
 import { initiateAttack, intrusionEligible, startIntrusion } from "./game/duel.js";
@@ -203,6 +203,12 @@ async function init() {
 
   if (!S.booted) await bootSequence();
   $("#shell").classList.remove("hidden");
+  const resetBuildJob = sessionStorage.getItem("openResetBuildJob");
+  const resetNotice = sessionStorage.getItem("phaseResetNotice");
+  sessionStorage.removeItem("openResetBuildJob");
+  sessionStorage.removeItem("phaseResetNotice");
+  if (resetNotice) toast(esc(resetNotice), "bad");
+  if (resetBuildJob) setTimeout(() => openBuildOverlay(resetBuildJob), 0);
 
   // hex scheduler: one rival's hex per ~10-15 min of visible, active study
   const intrusionDelay = () => (600 + Math.random() * 300) * 1000;

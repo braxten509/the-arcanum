@@ -98,7 +98,10 @@ def _set_first(text, key, value):
 def _render_section(spec, number):
     # Reuse the same known-green schema as new_tome.py; the generator only supplies
     # plan facts and unique ids, leaving honest Phase-3 TODO markers in authored fields.
-    from new_tome import SECTION_TEMPLATE, render, roman
+    try:
+        from new_tome import SECTION_TEMPLATE, render, roman
+    except ModuleNotFoundError:  # imported by server.py as tools.buildlib.skeleton
+        from tools.new_tome import SECTION_TEMPLATE, render, roman
 
     text = render(SECTION_TEMPLATE, {"SID": spec.sid, "ROMAN": roman(number)})
     text = _set_first(text, "codename", f"CHAPTER {roman(number)} // {spec.title.upper()}")
@@ -143,9 +146,9 @@ def _assert_replaceable(sections_path):
                          + shown + (" ..." if len(authored) > 5 else ""))
 
 
-def scaffold_sections(tid, plan_path, force=False):
+def scaffold_sections(tid, plan_path, force=False, repo=REPO):
     """Replace a fresh tome's sections with one deterministic stub per Arc entry."""
-    tome_path = os.path.join(REPO, "tomes", tid)
+    tome_path = os.path.join(repo, "tomes", tid)
     manifest_path = os.path.join(tome_path, "tome.toml")
     if not os.path.isfile(manifest_path):
         raise ValueError(f"tomes/{tid}/tome.toml is missing")
@@ -159,8 +162,12 @@ def scaffold_sections(tid, plan_path, force=False):
     try:
         temp_sections = os.path.join(temp_root, "sections")
         os.makedirs(temp_sections)
-        from split_tome import migrate_section
-        import split_tome
+        try:
+            from split_tome import migrate_section
+            import split_tome
+        except ModuleNotFoundError:  # imported by server.py as tools.buildlib.skeleton
+            from tools.split_tome import migrate_section
+            from tools import split_tome
         old_quiet = split_tome.QUIET
         split_tome.QUIET = True
         try:

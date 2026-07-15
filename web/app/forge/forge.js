@@ -32,7 +32,7 @@ function showForgeModal(resume) {
     <div class="forge-dials">
       <div class="forge-field">${fieldHead("BREADTH", "How much of the topic enters the course.")}<div class="forge-depth"><input id="fg-breadth" type="range" min="1" max="10" value="5"><span id="fg-breadth-val" class="forge-depth-val num">5</span></div></div>
       <div class="forge-field">${fieldHead("LESSON DEPTH", "How far each included mechanism is explained and debugged.")}<div class="forge-depth"><input id="fg-depth" type="range" min="1" max="10" value="5"><span id="fg-depth-val" class="forge-depth-val num">5</span></div></div>
-      <div class="forge-field">${fieldHead("MASTERY", "Where the learner finishes: acquainted through expert.")}<div class="forge-depth"><input id="fg-mastery" type="range" min="1" max="5" value="3"><span id="fg-mastery-val" class="forge-depth-val num">3</span></div></div>
+      <div class="forge-field">${fieldHead("MASTERY", "What the learner can do without step-by-step help at the end. Starting level controls the opening support; mastery controls how far it must fade.")}<div class="forge-depth"><input id="fg-mastery" type="range" min="1" max="5" value="3"><span id="fg-mastery-val" class="forge-depth-val num">3</span></div></div>
     </div>
     <div class="forge-field forge-author-field">${fieldHead("THE AUTHOR", "Choose freely from every installed agent CLI and every model it exposes. Keeping the same provider and model preserves its resumable session. Choosing another on a stopped working starts a fresh session that reads the existing pages.")}
       <div class="forge-ai-row">
