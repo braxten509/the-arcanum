@@ -9,7 +9,7 @@ import time
 import tomllib
 
 from . import REPO, VALIDATOR
-from .validation_env import validation_subprocess_env
+from .validation_env import ensure_validation_environment, validation_subprocess_env
 
 RUNTIME_CONFIG_DIR = os.path.join(REPO, "global-configs", "runtimes")
 PHASE3_VALIDATOR = os.path.join(REPO, "tools", "validate_phase3.py")
@@ -26,6 +26,10 @@ def _run_harness_command(cmd, tid, announce=True):
     if announce:
         print(f"VALIDATOR COMMAND START [{time.time():.3f}] › {rendered}", flush=True)
     try:
+        # The author can introduce or change validationDependencies while writing the
+        # Phase-2 manifest.  Provision at the harness boundary, after those declarations
+        # exist and before asking for the ready-only subprocess environment.
+        ensure_validation_environment(tid)
         process = subprocess.run(
             cmd, cwd=REPO, env=validation_subprocess_env(tid),
             capture_output=True, text=True)

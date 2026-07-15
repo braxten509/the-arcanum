@@ -1,0 +1,271 @@
+[[lessons]]
+id = "s06-l04"
+title = "Resolve the Melee Once"
+teaches = ["contact-damage-cooldown", "mutation-safe-enemy-roster"]
+body = '''
+<p><code>CombatSystem</code> is the coordinator, not a second game loop. It receives the canonical Player and CollisionWorld, owns Player health, AttackController, Enemy roster, current-frame events, cumulative event history, and lasting outcomes. Its <code>update(dt)</code> runs once from MarshScene's existing update boundary.</p>
+<pre><code data-kind="runnable">enemies = [
+    {"id": "wisp_1", "alive": True},
+    {"id": "wisp_2", "alive": False},
+]
+for enemy in list(enemies):
+    if not enemy["alive"]:
+        print("DEFEATED", enemy["id"])
+enemies = [enemy for enemy in enemies if enemy["alive"]]
+print("ROSTER", len(enemies))</code></pre>
+<p>The receipt is two lines: <code>DEFEATED wisp_2</code> and <code>ROSTER 1</code>. <code>list(enemies)</code> makes a shallow copy of the roster for stable iteration. A list comprehension then builds the surviving roster after resolution. Removing from the original list while looping can shift later elements left and skip them, producing enemies that survive only because of their index.</p>
+<p>Player attacks resolve before pursuit. The system asks AttackController for the current hitbox, loops over the copied roster, checks <code>can_hit(enemy_id)</code> and Rect overlap, applies one damage, marks the target, emits <code>enemy_hit</code>, then gives knockback to CollisionWorld. When health reaches zero it appends one defeated outcome and emits <code>enemy_defeated</code>. Dead enemies skip pursuit and contact, then the final comprehension removes them.</p>
+<p>Living enemies reduce <code>contact_remaining</code> toward zero, compute pursuit intent, and move through CollisionWorld. If an Enemy Rect overlaps Player and its timer is ready, it applies contact damage and loads 0.75 seconds. Continued overlap during that interval causes no new loss. This cooldown is per enemy; one wisp's timer must not protect Player from every other wisp.</p>
+<p>Knockback after contact pushes Player away through CollisionWorld. The optional <code>invulnerable</code> flag suppresses damage and push only in deterministic tests or explicit debug setup; ordinary MarshScene leaves it false. Likewise enemy-position, speed, and health overrides are dependency seams for tests, not outcome assignments. The behavior still travels through hitboxes, health, and update.</p>
+<p><code>events</code> resets each frame so presentation reacts once. <code>event_history</code> retains records for deterministic diagnostics. <code>outcomes</code> retains resolved facts for later quests and drops. Those three collections have different lifetimes, and naming them prevents a HUD frame queue from becoming accidental save state.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // FINISH THE PASS, THEN PRUNE</div><p>Observe hits, emit facts, skip dead behavior, and rebuild survivors only after the copied iteration completes.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "contact-damage-cooldown"
+purpose = "Apply enemy contact damage and knockback at controlled intervals instead of once per overlapping frame."
+anatomy = "Reduce each enemy timer by dt; pursue through CollisionWorld; test Player overlap; require timer zero; apply bounded damage unless debug-invulnerable; emit event; push through collision; reload timer."
+example = "CombatSystem.update contains the complete per-enemy contact path after pursuit."
+observable = "A first overlap removes one Player health, continued overlap during 0.75 seconds removes none, and a later ready overlap can damage again."
+failure = "A shared global timer lets one enemy protect another; per-frame contact drains health instantly; direct knockback position bypasses walls."
+practice = "s06-l04-e1"
+
+[[lessons.concepts]]
+id = "mutation-safe-enemy-roster"
+purpose = "Resolve hits, deaths, pursuit, events, and outcomes without skipping enemies when the live roster changes."
+anatomy = "Iterate over list(self.enemies); resolve each; continue after death; append one outcome; after the loop assign a comprehension containing only alive enemies."
+example = "The complete two-enemy example observes the defeated record from a copied pass and rebuilds one survivor."
+observable = "Every enemy present at frame start is considered exactly once, each defeat emits once, and the next frame roster contains only living enemies."
+failure = "Removing from the list during iteration shifts indices and can skip a neighbor; leaving dead enemies enables repeated outcomes or attacks."
+practice = "s06-l04-d1"
+
+[[lessons.artifactSteps]]
+id = "s06-add-combat-system"
+path = "src/hollowmere/combat.py"
+mode = "append"
+instruction = "Append CombatSystem with attack resolution, collision-aware pursuit/knockback, per-enemy contact cooldown, stable events/outcomes, and mutation-safe pruning."
+content = '''
+
+
+class CombatSystem:
+    """Coordinate Player attacks and Enemy behavior once per scene update."""
+
+    def __init__(
+        self,
+        player,
+        world,
+        enemy_positions=None,
+        enemy_speed=70.0,
+        enemy_health=3,
+        invulnerable=False,
+    ):
+        self.player = player
+        self.world = world
+        self.player_health = HealthPool(5)
+        self.attack = AttackController()
+        self.invulnerable = invulnerable
+        positions = enemy_positions or [(352, 192)]
+        self.enemies = []
+        for index, position in enumerate(positions, start=1):
+            self.enemies.append(
+                Enemy(
+                    f"bog_wisp_{index}",
+                    position,
+                    health=enemy_health,
+                    speed=enemy_speed,
+                )
+            )
+        self.events = []
+        self.event_history = []
+        self.outcomes = []
+
+    def set_world(self, world):
+        self.world = world
+
+    def request_attack(self, facing):
+        return self.attack.request(facing)
+
+    def _emit(self, event):
+        record = event.as_record()
+        self.events.append(record)
+        self.event_history.append(record)
+
+    def update(self, dt):
+        self.events = []
+        hitbox = self.attack.hitbox(self.player.rect())
+        for enemy in list(self.enemies):
+            if (
+                self.attack.can_hit(enemy.enemy_id)
+                and hitbox.colliderect(enemy.rect())
+            ):
+                lost = enemy.health.damage(1)
+                self.attack.mark_hit(enemy.enemy_id)
+                self._emit(
+                    CombatEvent("enemy_hit", "player", enemy.enemy_id, lost)
+                )
+                if enemy.health.alive:
+                    push = knockback_displacement(
+                        self.player.rect(), enemy.rect(), 18.0
+                    )
+                    self.world.move(enemy, push)
+                else:
+                    self.outcomes.append(
+                        {"enemy_id": enemy.enemy_id, "outcome": "defeated"}
+                    )
+                    self._emit(
+                        CombatEvent(
+                            "enemy_defeated", "player", enemy.enemy_id
+                        )
+                    )
+                    continue
+
+            enemy.contact_remaining = max(
+                0.0, enemy.contact_remaining - dt
+            )
+            pursuit = enemy.pursuit_displacement(self.player.rect(), dt)
+            self.world.move(enemy, pursuit)
+            if (
+                enemy.rect().colliderect(self.player.rect())
+                and enemy.contact_remaining == 0.0
+            ):
+                if not self.invulnerable:
+                    lost = self.player_health.damage(enemy.contact_damage)
+                    self._emit(
+                        CombatEvent(
+                            "player_hit", enemy.enemy_id, "player", lost
+                        )
+                    )
+                    push = knockback_displacement(
+                        enemy.rect(), self.player.rect(), 14.0
+                    )
+                    self.world.move(self.player, push)
+                enemy.contact_remaining = enemy.contact_cooldown
+
+        self.enemies = [enemy for enemy in self.enemies if enemy.health.alive]
+        self.attack.update(dt)
+'''
+
+[[lessons.artifactSteps]]
+id = "s06-test-combat-system"
+path = "tests/test_combat_system.py"
+mode = "write"
+instruction = "Create focused system tests for attack gating, hit/death events, outcome pruning, cooldown contact damage, collision movement, and test-only invulnerability."
+content = '''
+"""Integration tests for deterministic combat resolution."""
+
+from hollowmere.collision import CollisionWorld
+from hollowmere.combat import AttackPhase, CombatSystem
+from hollowmere.entities import Player
+
+
+def make_system(enemy_health=1, invulnerable=False):
+    player = Player(position=(96, 64))
+    world = CollisionWorld((1280, 960), [])
+    system = CombatSystem(
+        player,
+        world,
+        enemy_positions=[(136, 64)],
+        enemy_speed=0.0,
+        enemy_health=enemy_health,
+        invulnerable=invulnerable,
+    )
+    return player, system
+
+
+def test_attack_emits_one_hit_one_outcome_and_prunes_enemy():
+    _player, system = make_system(enemy_health=1, invulnerable=True)
+    assert system.request_attack((1, 0)) is True
+    assert system.request_attack((1, 0)) is False
+    system.update(0.12)
+    assert [event["kind"] for event in system.event_history] == [
+        "enemy_hit",
+        "enemy_defeated",
+    ]
+    assert system.outcomes == [
+        {"enemy_id": "bog_wisp_1", "outcome": "defeated"}
+    ]
+    assert system.enemies == []
+    assert system.attack.phase is AttackPhase.RECOVERY
+    system.update(0.30)
+    assert system.request_attack((1, 0)) is True
+
+
+def test_contact_damage_waits_for_each_enemy_cooldown():
+    player, system = make_system(enemy_health=3)
+    system.enemies[0].position.update(player.position)
+    system.update(0.0)
+    assert system.player_health.current == 4
+    system.update(0.10)
+    assert system.player_health.current == 4
+    system.update(0.65)
+    assert system.player_health.current == 3
+
+
+def test_invulnerable_test_mode_suppresses_contact_damage():
+    player, system = make_system(enemy_health=3, invulnerable=True)
+    system.enemies[0].position.update(player.position)
+    system.update(0.0)
+    assert system.player_health.current == 5
+'''
+
+[[lessons.readings]]
+label = "Python tutorial — list comprehensions"
+url = "https://docs.python.org/3/tutorial/datastructures.html#list-comprehensions"
+
+[[lessons.exercises]]
+id = "s06-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the mutation-safe roster boundary."
+code = '''
+for enemy in list(self.enemies):
+    resolve(enemy)
+self.enemies = [enemy for enemy in self.enemies if enemy.health.alive]
+'''
+
+[[lessons.exercises]]
+id = "s06-l04-e1"
+type = "mc"
+points = 15
+prompt = "Why is contact cooldown stored on each Enemy?"
+choices = ["To let one enemy's timer block every attacker", "To make collision use screen space", "To let each overlapping enemy control its own damage interval", "To replace the Player health pool"]
+answer = 2
+whyWrong = "A global timer incorrectly couples enemies; cooldown does not change coordinate spaces or own Player health."
+hint = "Imagine two wisps touching Player at different times."
+explain = "Each Enemy's contact_remaining gates only that enemy's next contact strike."
+
+[[lessons.exercises]]
+id = "s06-l04-e2"
+type = "fill"
+points = 20
+prompt = "Complete the copied collection used for a stable resolution pass."
+code = '''
+for enemy in ____(self.enemies):
+    resolve(enemy)
+'''
+answer = "list"
+whyWrong = "Iterating the live roster while changing it can skip shifted elements; a shallow list copy fixes the frame-start membership."
+hint = "Use the built-in constructor that copies the iterable into a new list."
+
+[[lessons.exercises]]
+id = "s06-l04-w1"
+type = "write"
+points = 38
+prompt = "Given enemies a/alive, b/dead, c/alive, iterate a copy, collect the dead id, rebuild survivors with a list comprehension, and print exactly <code>DEFEATED b SURVIVORS a,c</code>."
+starter = '''
+enemies = [{"id": "a", "alive": True}, {"id": "b", "alive": False}, {"id": "c", "alive": True}]
+'''
+expect = '''
+DEFEATED b SURVIVORS a,c
+'''
+solution = '''
+enemies = [{"id": "a", "alive": True}, {"id": "b", "alive": False}, {"id": "c", "alive": True}]
+defeated = []
+for enemy in list(enemies):
+    if not enemy["alive"]:
+        defeated.append(enemy["id"])
+enemies = [enemy for enemy in enemies if enemy["alive"]]
+print("DEFEATED", ",".join(defeated), "SURVIVORS", ",".join(enemy["id"] for enemy in enemies))
+'''
+hint = "Collect from the copied pass, then filter the original into a new list after the loop."

@@ -1,0 +1,211 @@
+[[lessons]]
+id = "s06-l01"
+title = "Count Every Wound"
+teaches = ["bounded-health-damage-model", "combat-event-outcome-records"]
+body = '''
+<p>Combat begins with an invariant: current health is always between zero and its positive maximum. An <strong>invariant</strong> is a rule that must remain true after every public operation. <code>HealthPool</code> owns that rule so Player, enemies, UI, saves, and tests do not each invent different damage math.</p>
+<pre><code data-kind="runnable">maximum = 5
+current = 5
+amount = 7
+current = max(0, current - amount)
+print("HP", current, "/", maximum, "ALIVE", current &gt; 0)</code></pre>
+<p>The receipt is <code>HP 0 / 5 ALIVE False</code>. Subtraction applies damage; <code>max(0, ...)</code> prevents health from becoming negative. <code>HealthPool.__init__</code> rejects a nonpositive maximum. <code>damage(amount)</code> rejects negative damage, remembers the previous value, clamps the new value, and returns the amount actually lost. A ten-point strike against two remaining health therefore reports two, not ten.</p>
+<p><code>alive</code> is a read-only property. The <code>@property</code> line lets callers write <code>pool.alive</code> while Python runs the method beneath it. Its return expression is <code>current &gt; 0</code>. Assigning <code>pool.alive = False</code> fails because no setter exists; death must arise from health reaching zero. Healing uses <code>min(maximum, current + amount)</code> and follows the same nonnegative-amount rule.</p>
+<p>Systems also need to report what happened without forcing presentation to inspect private objects. <code>CombatEvent</code> stores a stable <code>kind</code>, source id, target id, and numeric amount. <code>as_record()</code> returns a fresh dictionary. Later s09 can choose a HUD flash or sound cue from <code>kind</code>; s11 can test a novel enemy; neither needs to know which branch created the event.</p>
+<p>An outcome is a lasting record such as <code>{"enemy_id": "bog_wisp_1", "outcome": "defeated"}</code>. A hit event and a defeat outcome are different: hits describe moments, while outcomes describe resolved domain facts. Stable ids make both suitable for later quest conditions, item drops, and save data. Never infer defeat from a rectangle disappearing—the roster may change for map transitions or cleanup too.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ZERO IS A BOUNDARY</div><p>Damage may request more than remains. The model reports the real loss and makes death an observed consequence of the invariant.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "bounded-health-damage-model"
+purpose = "Keep combat health within zero and a positive maximum while reporting actual damage, healing, and alive state through one reusable owner."
+anatomy = "Validate maximum; initialize current; reject negative amounts; subtract and clamp damage with max; add and clamp healing with min; derive alive from current greater than zero."
+example = "The complete numeric example applies seven damage to five health, clamps at zero, and prints the health and alive result."
+observable = "Overkill never produces negative health; damage returns only points actually removed; alive becomes false exactly at zero."
+failure = "Scattered subtraction permits negative health; accepting negative damage heals accidentally; assigning alive independently contradicts current health."
+practice = "s06-l01-d1"
+
+[[lessons.concepts]]
+id = "combat-event-outcome-records"
+purpose = "Expose stable, presentation-neutral facts about hits and defeated enemies for later HUD, sound, quests, rewards, tests, and saves."
+anatomy = "Construct CombatEvent with kind/source/target/amount; return a fresh dictionary; append immediate events to history; append one lasting enemy_id/outcome record on death."
+example = "The complete combat.py definitions distinguish a damage event from a defeated outcome record."
+observable = "A damaging strike can yield enemy_hit with its actual loss, followed by one enemy_defeated event and one defeated outcome."
+failure = "Using display text as an event id couples logic to presentation; recording requested rather than actual damage lies on overkill; emitting defeat twice duplicates rewards."
+practice = "s06-l01-e2"
+
+[[lessons.artifactSteps]]
+id = "s06-create-health-and-events"
+path = "src/hollowmere/combat.py"
+mode = "write"
+instruction = "Create combat.py with bounded HealthPool state and stable CombatEvent records before adding timing or enemies."
+content = '''
+"""Deterministic real-time combat for Hollowmere."""
+
+import os
+
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+
+import pygame
+
+from .entities import Entity
+
+
+class CombatError(RuntimeError):
+    """Reject an invalid combat command or configuration."""
+
+
+class HealthPool:
+    """Own bounded current and maximum health."""
+
+    def __init__(self, maximum):
+        if maximum <= 0:
+            raise CombatError("maximum health must be positive")
+        self.maximum = maximum
+        self.current = maximum
+
+    @property
+    def alive(self):
+        return self.current > 0
+
+    def damage(self, amount):
+        if amount < 0:
+            raise CombatError("damage must be nonnegative")
+        before = self.current
+        self.current = max(0, self.current - amount)
+        return before - self.current
+
+    def heal(self, amount):
+        if amount < 0:
+            raise CombatError("healing must be nonnegative")
+        before = self.current
+        self.current = min(self.maximum, self.current + amount)
+        return self.current - before
+
+
+class CombatEvent:
+    """Carry one stable combat fact across system boundaries."""
+
+    def __init__(self, kind, source_id, target_id, amount=0):
+        self.kind = kind
+        self.source_id = source_id
+        self.target_id = target_id
+        self.amount = amount
+
+    def as_record(self):
+        return {
+            "kind": self.kind,
+            "source_id": self.source_id,
+            "target_id": self.target_id,
+            "amount": self.amount,
+        }
+'''
+
+[[lessons.artifactSteps]]
+id = "s06-test-health-and-events"
+path = "tests/test_combat.py"
+mode = "write"
+instruction = "Create tests for bounded damage/healing, invalid amounts, alive state, actual overkill loss, and fresh event dictionaries."
+content = '''
+"""Unit tests for combat values and timing."""
+
+import pytest
+
+from hollowmere.combat import CombatError, CombatEvent, HealthPool
+
+
+def test_health_is_bounded_and_reports_actual_change():
+    health = HealthPool(5)
+    assert health.damage(2) == 2
+    assert health.current == 3
+    assert health.damage(9) == 3
+    assert health.current == 0
+    assert health.alive is False
+    assert health.heal(20) == 5
+    assert health.current == 5
+
+
+def test_invalid_health_amounts_are_specific():
+    with pytest.raises(CombatError, match="positive"):
+        HealthPool(0)
+    health = HealthPool(3)
+    with pytest.raises(CombatError, match="nonnegative"):
+        health.damage(-1)
+
+
+def test_combat_event_exports_a_fresh_stable_record():
+    event = CombatEvent("enemy_hit", "player", "bog_wisp_1", 1)
+    first = event.as_record()
+    second = event.as_record()
+    assert first == {
+        "kind": "enemy_hit",
+        "source_id": "player",
+        "target_id": "bog_wisp_1",
+        "amount": 1,
+    }
+    assert first is not second
+'''
+
+[[lessons.readings]]
+label = "Python documentation — properties"
+url = "https://docs.python.org/3/library/functions.html#property"
+
+[[lessons.exercises]]
+id = "s06-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the bounded damage update and actual-loss calculation."
+code = '''
+before = self.current
+self.current = max(0, self.current - amount)
+return before - self.current
+'''
+
+[[lessons.exercises]]
+id = "s06-l01-e1"
+type = "mc"
+points = 15
+prompt = "A target has two health and receives five damage. What should damage return?"
+choices = ["Five, because that was requested", "Negative three", "Two, because only two points were removed", "Zero, because the target died"]
+answer = 2
+whyWrong = "Requested damage is not actual loss, health may not become negative, and death does not erase the two points that were removed."
+hint = "Compare the bounded current value before and after the operation."
+explain = "Returning actual loss keeps event and HUD data truthful during overkill."
+
+[[lessons.exercises]]
+id = "s06-l01-e2"
+type = "fill"
+points = 20
+prompt = "Complete the comparison that derives whether the pool still represents a living combatant."
+code = '''
+return self.current ____ 0
+'''
+answer = ">"
+whyWrong = "Zero marks death, so greater-than is required; greater-than-or-equal would call zero alive."
+hint = "Choose the one-character operator that excludes the boundary value."
+
+[[lessons.exercises]]
+id = "s06-l01-w1"
+type = "write"
+points = 36
+prompt = "Start at health 6. Apply damage values 2, 9, and 1, clamp after every hit, collect actual losses, and print exactly <code>HP 0 LOSSES 2,4,0 ALIVE False</code>."
+starter = '''
+health = 6
+damage_values = [2, 9, 1]
+losses = []
+'''
+expect = '''
+HP 0 LOSSES 2,4,0 ALIVE False
+'''
+solution = '''
+health = 6
+damage_values = [2, 9, 1]
+losses = []
+for amount in damage_values:
+    before = health
+    health = max(0, health - amount)
+    losses.append(before - health)
+print("HP", health, "LOSSES", ",".join(str(value) for value in losses), "ALIVE", health > 0)
+'''
+hint = "Store before each subtraction, clamp with max, and join the actual differences as strings."

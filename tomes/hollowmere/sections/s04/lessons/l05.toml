@@ -1,0 +1,205 @@
+[[lessons]]
+id = "s04-l05"
+title = "Reject a Lying Chart"
+teaches = ["tmx-contract-regression-tests", "cumulative-map-proof"]
+body = '''
+<p>A map can be valid XML and still lie about the game contract. Regression fixtures make each failure observable before a human walks the level. Tiny files under <code>tests/fixtures</code> isolate one defect: a transition missing <code>target_spawn</code>, or a map referencing an absent external tileset. They are never added to MAP_PATHS for ordinary play; tests temporarily insert an id with pytest's <code>monkeypatch.setitem</code>, then automatic cleanup restores the registry.</p>
+<pre><code data-kind="patch">monkeypatch.setitem(
+    maps.MAP_PATHS,
+    "missing_asset",
+    Path("tests/fixtures/missing_asset.tmx"),
+)
+with pytest.raises(MapLoadError, match="referenced asset is missing"):
+    MapLoader(Path.cwd()).load("missing_asset")</code></pre>
+<p><code>with pytest.raises(...)</code> was introduced for invalid dt. Here it also checks a message fragment, making the diagnostic part of the public loader behavior. A test that accepts any exception would pass on an unrelated AttributeError and fail to prove the learner-facing clue. The missing-transition fixture reaches LoadedMap parsing and must name both required properties; the missing-asset fixture must retain the underlying filename through exception chaining.</p>
+<p>The section proof exercises the successful path through the same public boundaries. It constructs MarshScene, reads the actual LoadedMap, chooses its first transition record, moves the Player body into that doorway, and calls <code>scene.update({}, 0.0)</code>. Zero dt means no movement intent, but update still performs the real transition query and <code>change_map</code>. The resulting <code>last_transition</code>, loaded map id, layers, collision count, and spawn id form the exact receipt.</p>
+<p>Do not assign <code>last_transition</code> or return a hard-coded line. Those shortcuts would not load TMX, validate the target, relocate Player, or preserve scene ownership. The proof opens no display and requires no image asset. It is deterministic because the fixture, body position, action dictionary, and dt are controlled while domain methods remain real.</p>
+<p><code>run_proof</code> gains an s04 branch inside the same Pygame init/try/finally switchboard. s01 startup, s02 movement, and s03 spatial collision remain active. The milestone asserts the exact receipt and Pygame cleanup. Run the complete pytest suite, then each proof id. Finally launch normally and walk to the causeway gate with HOLLOWMERE_DEBUG enabled once; the outline and coordinate label should show the same doorway the test used.</p>
+<p>When a check fails, diagnose in layers: confirm project root and file path; open/save in Tiled; inspect map_id; compare layer capitalization; inspect object names and positive sizes; inspect transition properties; then read the chained parser cause for XML or asset paths. One targeted correction keeps the evidence useful.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // BAD MAPS ARE TEST DATA</div>
+<p>Malformed fixtures belong in tests because they teach and preserve diagnostics. They never become fallback gameplay content.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "tmx-contract-regression-tests"
+purpose = "Prove that malformed layers, transition properties, files, and referenced assets fail at MapLoader with exact actionable diagnostics."
+anatomy = "Keep tiny fixtures under tests/fixtures; temporarily register one id with monkeypatch; call MapLoader from project root; expect MapLoadError; match the contract-specific message; let monkeypatch restore state."
+example = "The complete missing-asset test patch registers one fixture and asserts the loader's referenced-asset diagnostic."
+observable = "pytest reports passing negative cases, and a deliberate fixture defect names the missing layer/property/path rather than crashing in MarshScene."
+failure = "Catching any exception proves the wrong thing; adding broken fixtures to the game registry exposes them to players; omitting message checks allows vague regressions."
+practice = "s04-l05-d1"
+
+[[lessons.concepts]]
+id = "cumulative-map-proof"
+purpose = "Certify real TMX loading, object extraction, collision/spawn contracts, and a scene doorway transition while retaining s01–s03 proofs."
+anatomy = "Construct MarshScene; read LoadedMap; place Player at a real transition Rect; call update with controlled empty actions and zero dt; read last_transition and loaded metadata; format exact receipt; route s04 under shared cleanup."
+example = "The Working specifies the complete behavior path from prototype_marsh through causeway_gate back to marsh_entry."
+observable = "The launcher prints exactly S04_OK with map, four layers, two collisions, spawn, and causeway_gate target, then exits with Pygame released."
+failure = "Hard-coded metadata or last_transition assignment bypasses the loader/scene; opening a display adds environment timing; replacing the router can regress older receipts."
+practice = "s04-l05-e1"
+
+[[lessons.artifactSteps]]
+id = "s04-create-missing-transition-fixture"
+path = "tests/fixtures/missing_transition_property.tmx"
+mode = "write"
+instruction = "Create a test-only TMX whose layers and ids are valid but whose doorway omits target_spawn."
+content = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" orientation="orthogonal" width="2" height="2" tilewidth="32" tileheight="32" infinite="0" nextlayerid="5" nextobjectid="4">
+ <properties><property name="map_id" value="missing_transition_property"/></properties>
+ <layer id="1" name="Ground" width="2" height="2"><data encoding="csv">0,0,0,0</data></layer>
+ <objectgroup id="2" name="Collision"><object id="1" name="wall" x="0" y="0" width="32" height="32"/></objectgroup>
+ <objectgroup id="3" name="Spawns"><object id="2" name="entry" x="32" y="32"><point/></object></objectgroup>
+ <objectgroup id="4" name="Transitions"><object id="3" name="broken_gate" x="32" y="0" width="32" height="32"><properties><property name="target_map" value="prototype_marsh"/></properties></object></objectgroup>
+</map>
+'''
+
+[[lessons.artifactSteps]]
+id = "s04-create-missing-asset-fixture"
+path = "tests/fixtures/missing_asset.tmx"
+mode = "write"
+instruction = "Create a test-only TMX that references an absent external tileset so the chained asset-path diagnostic is preserved."
+content = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" orientation="orthogonal" width="1" height="1" tilewidth="32" tileheight="32" infinite="0" nextlayerid="5" nextobjectid="1">
+ <properties><property name="map_id" value="missing_asset"/></properties>
+ <tileset firstgid="1" source="missing_tileset.tsx"/>
+ <layer id="1" name="Ground" width="1" height="1"><data encoding="csv">0</data></layer>
+ <objectgroup id="2" name="Collision"/>
+ <objectgroup id="3" name="Spawns"/>
+ <objectgroup id="4" name="Transitions"/>
+</map>
+'''
+
+[[lessons.artifactSteps]]
+id = "s04-test-map-diagnostics"
+path = "tests/test_maps.py"
+mode = "append"
+instruction = "Append negative tests for missing transition properties and referenced external map assets."
+content = '''
+
+
+def test_transition_requires_both_target_properties(monkeypatch):
+    from hollowmere import maps
+
+    monkeypatch.setitem(
+        maps.MAP_PATHS,
+        "missing_transition_property",
+        Path("tests/fixtures/missing_transition_property.tmx"),
+    )
+    with pytest.raises(
+        MapLoadError,
+        match="needs target_map and target_spawn",
+    ):
+        MapLoader(Path.cwd()).load("missing_transition_property")
+
+
+def test_missing_referenced_asset_keeps_loader_context(monkeypatch):
+    from hollowmere import maps
+
+    monkeypatch.setitem(
+        maps.MAP_PATHS,
+        "missing_asset",
+        Path("tests/fixtures/missing_asset.tmx"),
+    )
+    with pytest.raises(MapLoadError, match="referenced asset is missing"):
+        MapLoader(Path.cwd()).load("missing_asset")
+'''
+
+[[lessons.readings]]
+label = "pytest documentation — Assertions about expected exceptions"
+url = "https://docs.pytest.org/en/stable/how-to/assert.html#assertions-about-expected-exceptions"
+
+[[lessons.readings]]
+label = "Tiled reference — TMX map format"
+url = "https://doc.mapeditor.org/en/stable/reference/tmx-map-format/"
+
+[[lessons.exercises]]
+id = "s04-l05-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the complete diagnostic assertion for a malformed doorway."
+code = '''
+with pytest.raises(
+    MapLoadError,
+    match="needs target_map and target_spawn",
+):
+    loader.load("missing_transition_property")
+'''
+
+[[lessons.exercises]]
+id = "s04-l05-e1"
+type = "mc"
+points = 15
+prompt = "Which s04 proof step demonstrates the doorway rather than merely describing it?"
+choices = ["Call scene.update after placing Player at the loaded transition Rect", "Assign scene.last_transition directly", "Print the target ids without loading", "Open Tiled and wait for a person"]
+answer = 0
+whyWrong = "Direct assignment and literal output manufacture evidence, while human observation is nondeterministic. Scene.update performs the real overlap and change_map path."
+hint = "Choose the same transition query the ordinary frame uses."
+explain = "Controlled position and dt replace human timing but retain LoadedMap and MarshScene behavior."
+
+[[lessons.exercises]]
+id = "s04-l05-e2"
+type = "fill"
+points = 20
+prompt = "Complete the pytest helper that temporarily inserts a fixture id into MAP_PATHS."
+code = '''
+monkeypatch.____(maps.MAP_PATHS, "missing_asset", fixture_path)
+'''
+answer = "setitem"
+whyWrong = "setattr changes an object attribute; this operation temporarily changes one dictionary key and restores it after the test."
+hint = "Use the monkeypatch method whose name describes assigning a mapping item."
+
+[[lessons.exercises]]
+id = "s04-l05-e3"
+type = "text"
+points = 20
+prompt = "Which scene attribute retains the doorway record observed during the most recent transition?"
+answer = "last_transition"
+accept = ["scene.last_transition", "MarshScene.last_transition"]
+hint = "Name the snake_case field the proof reads after scene.update."
+whyWrong = "loaded_map owns all doorway definitions; the scene's observation field records only the one most recently traversed."
+
+[[lessons.exercises]]
+id = "s04-l05-e4"
+type = "mc"
+points = 15
+prompt = "Why are malformed TMX files stored under tests/fixtures instead of the ordinary map registry?"
+choices = ["So tests can isolate diagnostics without exposing broken content to play", "Because pytest cannot read project files", "Because Tiled only opens Python modules", "So MapLoadError is never raised"]
+answer = 0
+whyWrong = "pytest can read project files, Tiled opens TMX, and the fixtures exist specifically to raise expected MapLoadError cases."
+hint = "Separate deliberate negative evidence from selectable game content."
+explain = "Tests temporarily register each fixture and automatically restore MAP_PATHS."
+
+[[lessons.exercises]]
+id = "s04-l05-w1"
+type = "write"
+points = 35
+prompt = "Given layer names Ground, Collision, Spawns, Transitions and transition target ids prototype_marsh/marsh_entry, validate that all four required names are present, then print exactly <code>VALID True LAYERS 4 TARGET prototype_marsh:marsh_entry</code>."
+starter = '''
+required = ("Ground", "Collision", "Spawns", "Transitions")
+layers = ["Ground", "Collision", "Spawns", "Transitions"]
+target = {"map": "prototype_marsh", "spawn": "marsh_entry"}
+'''
+expect = '''
+VALID True LAYERS 4 TARGET prototype_marsh:marsh_entry
+'''
+solution = '''
+required = ("Ground", "Collision", "Spawns", "Transitions")
+layers = ["Ground", "Collision", "Spawns", "Transitions"]
+target = {"map": "prototype_marsh", "spawn": "marsh_entry"}
+valid = True
+for name in required:
+    if name not in layers:
+        valid = False
+print(
+    "VALID",
+    valid,
+    "LAYERS",
+    len(layers),
+    "TARGET",
+    f'{target["map"]}:{target["spawn"]}',
+)
+'''
+hint = "Start valid as True, loop through required names, set it False for an absence, then join target values with a colon."

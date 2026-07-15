@@ -13,8 +13,8 @@ from ..build_state import (BUILD_TOTAL_PHASES, build_result_status, load_author_
 from ..config import (BUILD_DIR, CLI_EFFORTS, ROOT, TOMES_DIR, build_procs, jobs,
                       jobs_lock)
 from ..forge import (_clear_build_terminal_state, _plan_concept, _plan_gate, _resume_phase,
-                     _save_launch, external_build_process, fresh_tome_id, watch_build,
-                     working_is_active)
+                     _save_launch, external_build_process, fresh_tome_id, list_active_builds,
+                     watch_build, working_is_active)
 from ..tomes import plan_path, resolve_working_tid
 from tools.buildlib.phase_reset import find_plan_for_tome, reset_tome_to_phase
 
@@ -22,27 +22,38 @@ from tools.buildlib.phase_reset import find_plan_for_tome, reset_tome_to_phase
 AUTHOR_KINDS = ("claude-cli", "antigravity-cli", "codex-cli", "opencode-cli")
 
 
-def _author(body):
-    value = body.get("author") or {}
+def _agent(value, role):
+    value = value or {}
     kind = str(value.get("kind") or "")
     model = str(value.get("model") or "").strip()
     effort = str(value.get("effort") or "").strip()
     if kind not in AUTHOR_KINDS or not model:
-        raise ValueError("choose any installed CLI provider and model for the author")
+        raise ValueError(f"choose any installed CLI provider and model for the {role}")
     if effort and effort not in CLI_EFFORTS.get(kind, ()):
         raise ValueError(f"{kind} does not support effort {effort!r}")
     return {"kind": kind, "model": model, "effort": effort}
 
 
-def _author_spec(author):
-    return f"{author['kind']}:{author['model']}" + (
-        f"@{author['effort']}" if author.get("effort") else "")
+def _author(body):
+    return _agent(body.get("author"), "author")
 
 
-def _launch(tid, author, concept, phase, gate_json=None, resume_id=""):
+def _reviewer(body):
+    value = body.get("reviewer")
+    return _agent(value, "reviewer") if value else None
+
+
+def _agent_spec(agent):
+    return f"{agent['kind']}:{agent['model']}" + (
+        f"@{agent['effort']}" if agent.get("effort") else "")
+
+
+def _launch(tid, author, concept, phase, gate_json=None, resume_id="", reviewer=None):
     command = [sys.executable, "-u", os.path.join(ROOT, "tools", "build_tome.py"), tid,
-               "--author", _author_spec(author), "--concept", concept,
+               "--author", _agent_spec(author), "--concept", concept,
                "--from-phase", str(max(1, min(8, int(phase or 1))))]
+    if reviewer:
+        command += ["--reviewer", _agent_spec(reviewer)]
     if gate_json is not None:
         command += ["--gate-json", gate_json]
     if resume_id:
@@ -58,6 +69,8 @@ def _launch(tid, author, concept, phase, gate_json=None, resume_id=""):
                      "phaseTitle": "starting", "totalPhases": BUILD_TOTAL_PHASES,
                      "log": [], "pid": proc.pid, "startedAt": started,
                      "phaseStartedAt": started,
+                     "sessionAuthor": dict(author),
+                     "sessionReviewer": dict(reviewer) if reviewer else None,
                      "runner": f"{author['kind']} {author['model']}" + (
                          f" @{author['effort']}" if author.get("effort") else "")}
         build_procs[gid] = proc
@@ -67,6 +80,10 @@ def _launch(tid, author, concept, phase, gate_json=None, resume_id=""):
 
 
 def start_build(h, body):
+    if list_active_builds():
+        return h.send_json({"ok": False,
+                            "error": "finish or abandon the active tome before forging another"},
+                           409)
     concept = str(body.get("concept") or "").strip()
     if not concept:
         return h.send_json({"ok": False, "error": "a course concept is required"}, 400)
@@ -75,7 +92,7 @@ def start_build(h, body):
         return h.send_json({"ok": False,
                             "error": "tooling must be internal, external, or both"}, 400)
     try:
-        author = _author(body)
+        author, reviewer = _author(body), _reviewer(body)
     except ValueError as exc:
         return h.send_json({"ok": False, "error": str(exc)}, 400)
     tid = fresh_tome_id("untitled")
@@ -88,8 +105,9 @@ def start_build(h, body):
                        "tooling": tooling})
     launch = dict(body)
     launch["author"] = author
+    launch["reviewer"] = reviewer or {}
     _save_launch(tid, launch, concept)
-    gid = _launch(tid, author, concept, 1, gate)
+    gid = _launch(tid, author, concept, 1, gate, reviewer=reviewer)
     return h.send_json({"ok": True, "jobId": gid, "tome": tid})
 
 
@@ -104,7 +122,7 @@ def resume_build(h, body):
     if working_is_active(rid, tid):
         return h.send_json({"ok": False, "error": "that working is already active"}, 409)
     try:
-        author = _author(body)
+        author, reviewer = _author(body), _reviewer(body)
     except ValueError as exc:
         return h.send_json({"ok": False, "error": str(exc)}, 400)
     phase = _resume_phase(rid, tid)
@@ -120,6 +138,7 @@ def resume_build(h, body):
     launch = dict(body)
     launch.update(_plan_gate(text))
     launch["author"] = author
+    launch["reviewer"] = reviewer or {}
     _save_launch(rid, launch, _plan_concept(text), text)
     previous = load_author_session(rid) or load_author_session(tid) or {}
     same_cli = (previous.get("kind") == author["kind"]
@@ -133,7 +152,8 @@ def resume_build(h, body):
                 os.remove(os.path.join(BUILD_DIR, f"{key}.{stale}.json"))
             except OSError:
                 pass
-    gid = _launch(rid, author, _plan_concept(text), phase, resume_id=resume_id)
+    gid = _launch(rid, author, _plan_concept(text), phase, resume_id=resume_id,
+                  reviewer=reviewer)
     return h.send_json({"ok": True, "jobId": gid, "tome": tid,
                         "continuedSession": bool(resume_id)})
 

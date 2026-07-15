@@ -1,0 +1,232 @@
+[[lessons]]
+id = "s03-l01"
+title = "Hold a Direction between Events"
+teaches = ["event-driven-action-state", "focus-safe-held-input"]
+body = '''
+<p>Section two sampled the keyboard directly. A scene boundary is easier to test when events update a small state object and the scene receives the same four named actions as before. Pygame places <code>KEYDOWN</code> and <code>KEYUP</code> objects in its event queue. Each has a <code>type</code> and a <code>key</code> attribute. The type says what happened; the key is a portable constant such as <code>pygame.K_d</code>, never a guessed integer.</p>
+<pre><code data-kind="runnable">import os
+
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+
+import pygame
+
+event = pygame.event.Event(pygame.KEYDOWN, key=pygame.K_d)
+print(pygame.event.event_name(event.type), pygame.key.name(event.key))</code></pre>
+<p>The receipt is <code>KeyDown d</code>. <code>pygame.event.Event(type, key=value)</code> creates a deterministic event for tests; the operating system creates equivalent events during play. Reading <code>event.key</code> on a QUIT event would raise <code>AttributeError</code>, so input code checks the type before the type-specific attribute.</p>
+<p><code>ACTION_KEYS</code> maps each stable action name to a tuple of physical alternatives. <code>InputState</code> owns a dictionary of pressed key constants. A KEYDOWN stores <code>True</code>; a KEYUP stores <code>False</code>. Its <code>snapshot()</code> loops through <code>ACTION_KEYS.items()</code>. The <code>items</code> method yields each key/value pair, so <code>action, keys</code> unpacks a name and its two-key tuple. The snapshot combines those alternatives with <code>or</code> and returns a fresh four-key dictionary.</p>
+<p>Tracking physical keys separately prevents a subtle bug. If D and Right are both held, releasing only D must leave the <code>right</code> action true. Storing only one Boolean per action would lose which key remains down. A returned copy also prevents Player or a test from mutating the input object's private state.</p>
+<p>A window can lose focus while a key is held, and the matching KEYUP may go elsewhere. On <code>WINDOWFOCUSLOST</code>, <code>reset()</code> sets every tracked key false. Without that branch the Wayfinder may keep walking after Alt-Tab. The main loop still drains <code>pygame.event.get()</code> once per frame; <code>handle_event</code> consumes each already-drained event rather than creating a second queue.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // EVENTS ARE EDGES</div>
+<p>KEYDOWN means a state changed at one moment. The snapshot is the durable state used by every update until another event changes it.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "event-driven-action-state"
+purpose = "Translate KEYDOWN and KEYUP edges into the existing left, right, up, and down action dictionary without coupling Player to physical keys."
+anatomy = "Map each action to two key constants; initialize pressed-key Booleans; inspect event.type; update event.key only for keyboard events; combine alternatives into a fresh snapshot."
+example = "The complete Event example constructs a KEYDOWN for K_d and prints its event and key names."
+observable = "A D key-down makes snapshot()['right'] true; its key-up makes it false, while the other three action names remain present."
+failure = "Reading key on a non-key event raises AttributeError; storing one Boolean per action makes releasing one of two held alternatives cancel the other."
+practice = "s03-l01-d1"
+
+[[lessons.concepts]]
+id = "focus-safe-held-input"
+purpose = "Prevent movement from sticking when the game loses keyboard focus before it receives a release event."
+anatomy = "Recognize WINDOWFOCUSLOST before keyboard handling; call reset; iterate every tracked key; store False; return without reading a missing key attribute."
+example = "InputState.reset is the complete clearing path used by the focus-loss branch and focused tests."
+observable = "After a focus-loss event, every value in snapshot() is False."
+failure = "Ignoring focus loss can preserve a stale True indefinitely, making the player walk after returning to the window."
+practice = "s03-l01-e2"
+
+[[lessons.artifactSteps]]
+id = "s03-add-spatial-configuration"
+path = "src/hollowmere/config.py"
+mode = "append"
+instruction = "Append the canonical tile, marsh spawn, world extent, wall, and debug colors without changing the s01/s02 constants."
+content = '''
+TILE_SIZE = 32
+MARSH_SPAWN = (96.0, 64.0)
+WORLD_SIZE = (1280, 960)
+WALL_COLOR = (62, 84, 72)
+DEBUG_COLOR = (255, 204, 92)
+'''
+
+[[lessons.artifactSteps]]
+id = "s03-create-input-state"
+path = "src/hollowmere/input.py"
+mode = "write"
+instruction = "Create input.py with the event-driven held-key translator. Keep the public snapshot keys identical to section two."
+content = '''
+"""Event-driven input translated into stable action names."""
+
+import os
+
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+
+import pygame
+
+
+ACTION_KEYS = {
+    "left": (pygame.K_a, pygame.K_LEFT),
+    "right": (pygame.K_d, pygame.K_RIGHT),
+    "up": (pygame.K_w, pygame.K_UP),
+    "down": (pygame.K_s, pygame.K_DOWN),
+}
+
+
+class InputState:
+    """Remember physical key edges and expose named action state."""
+
+    def __init__(self, allow_debug=False):
+        self._pressed = {}
+        for keys in ACTION_KEYS.values():
+            for key in keys:
+                self._pressed[key] = False
+        self._allow_debug = allow_debug
+        self._teleport_requested = False
+
+    def handle_event(self, event):
+        """Update held state from one already-drained Pygame event."""
+        if event.type == pygame.WINDOWFOCUSLOST:
+            self.reset()
+            return
+        if event.type not in (pygame.KEYDOWN, pygame.KEYUP):
+            return
+        if event.key in self._pressed:
+            self._pressed[event.key] = event.type == pygame.KEYDOWN
+        if (
+            self._allow_debug
+            and event.type == pygame.KEYDOWN
+            and event.key == pygame.K_t
+        ):
+            self._teleport_requested = True
+
+    def snapshot(self):
+        """Return a fresh four-action dictionary."""
+        actions = {}
+        for action, keys in ACTION_KEYS.items():
+            primary, alternate = keys
+            actions[action] = (
+                self._pressed[primary] or self._pressed[alternate]
+            )
+        return actions
+
+    def reset(self):
+        """Release every tracked key after focus loss."""
+        for key in self._pressed:
+            self._pressed[key] = False
+
+    def consume_debug_teleport(self):
+        """Consume the debug-only teleport request once."""
+        requested = self._teleport_requested
+        self._teleport_requested = False
+        return requested
+'''
+
+[[lessons.artifactSteps]]
+id = "s03-test-input-state"
+path = "tests/test_input.py"
+mode = "write"
+instruction = "Create deterministic input tests with constructed Pygame events, then run the project test command."
+content = '''
+"""Tests for named event-driven input."""
+
+import pygame
+
+from hollowmere.input import InputState
+
+
+def key_event(event_type, key):
+    return pygame.event.Event(event_type, key=key)
+
+
+def test_alternate_keys_share_one_action_without_canceling():
+    state = InputState()
+    state.handle_event(key_event(pygame.KEYDOWN, pygame.K_d))
+    state.handle_event(key_event(pygame.KEYDOWN, pygame.K_RIGHT))
+    state.handle_event(key_event(pygame.KEYUP, pygame.K_d))
+    assert state.snapshot()["right"] is True
+    state.handle_event(key_event(pygame.KEYUP, pygame.K_RIGHT))
+    assert state.snapshot()["right"] is False
+
+
+def test_focus_loss_releases_every_action():
+    state = InputState()
+    state.handle_event(key_event(pygame.KEYDOWN, pygame.K_w))
+    state.handle_event(pygame.event.Event(pygame.WINDOWFOCUSLOST))
+    assert state.snapshot() == {
+        "left": False,
+        "right": False,
+        "up": False,
+        "down": False,
+    }
+'''
+
+[[lessons.readings]]
+label = "Pygame documentation — Event queue and Event objects"
+url = "https://www.pygame.org/docs/ref/event.html"
+
+[[lessons.readings]]
+label = "Pygame documentation — Keyboard constants and events"
+url = "https://www.pygame.org/docs/ref/key.html"
+
+[[lessons.exercises]]
+id = "s03-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the guarded keyboard-event branch exactly."
+code = '''
+if event.type not in (pygame.KEYDOWN, pygame.KEYUP):
+    return
+'''
+
+[[lessons.exercises]]
+id = "s03-l01-e1"
+type = "fill"
+points = 20
+prompt = "Complete the release-event constant in the real two-event guard."
+code = '''
+if event.type not in (pygame.KEYDOWN, pygame.____):
+    return
+'''
+answer = "KEYUP"
+whyWrong = "The paired edge is the keyboard release event; QUIT closes the window and K_UP is a physical arrow-key constant."
+hint = "Use the uppercase event type paired with KEYDOWN in the official queue."
+
+[[lessons.exercises]]
+id = "s03-l01-e2"
+type = "mc"
+points = 15
+prompt = "Why must InputState clear held keys when the window loses focus?"
+choices = ["The missing release event may be delivered to another application", "Vector2 cannot store negative components", "pygame.Rect requires a font", "Clock.tick stops producing elapsed time"]
+answer = 0
+whyWrong = "Focus affects event delivery, not vectors, rectangles, or Clock arithmetic. A held key can remain stale if its release occurs outside Hollowmere."
+hint = "Consider where KEYUP goes after the player switches windows."
+explain = "Resetting on WINDOWFOCUSLOST restores a neutral action snapshot before play resumes."
+
+[[lessons.exercises]]
+id = "s03-l01-w1"
+type = "write"
+points = 34
+prompt = "Start with <code>actions = {'right': False}</code>. Process the ordered event strings <code>['down', 'up', 'down']</code>, assigning right True for down and False for up, then print exactly <code>RIGHT True EVENTS 3</code>."
+starter = '''
+actions = {"right": False}
+events = ["down", "up", "down"]
+'''
+expect = '''
+RIGHT True EVENTS 3
+'''
+solution = '''
+actions = {"right": False}
+events = ["down", "up", "down"]
+
+for event in events:
+    if event == "down":
+        actions["right"] = True
+    elif event == "up":
+        actions["right"] = False
+
+print("RIGHT", actions["right"], "EVENTS", len(events))
+'''
+hint = "Loop in order, use if/elif to update the existing right key, and count the event list with len."

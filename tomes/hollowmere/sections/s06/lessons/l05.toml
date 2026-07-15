@@ -1,0 +1,383 @@
+[[lessons]]
+id = "s06-l05"
+title = "Join Steel to the Living Marsh"
+teaches = ["event-loop-combat-integration", "cumulative-combat-proof"]
+body = '''
+<p>Combat joins the game through existing ports. Space is a command edge like E, not a held movement action. <code>InputState</code> stores <code>_attack_requested</code> on KEYDOWN and <code>consume_attack()</code> returns then clears it. The four-key movement snapshot remains unchanged, so Player's s02 movement and s03 event contracts do not acquire an accidental fifth direction.</p>
+<pre><code data-kind="patch">if input_state.consume_attack():
+    scene.attack()
+scene.update(input_state.snapshot(), dt)
+scene.render(screen)
+pygame.display.flip()</code></pre>
+<p>The event loop still drains once and Clock still produces one seconds dt. <code>scene.attack()</code> asks CombatSystem to start using the scene's stored facing. During update, a nonzero <code>Player.movement_vector(actions)</code> refreshes facing; no movement leaves the last direction intact. The scene applies Player displacement through CollisionWorld, handles its existing TMX transition and quest event, updates combat once, then follows Player after any knockback.</p>
+<p>MarshScene creates CombatSystem only after <code>change_map()</code> has established CollisionWorld. It sets <code>self.combat = None</code> during that first activation. Later map changes call <code>set_world()</code> when combat exists, so Enemy and knockback movement use the newly loaded solids without rebuilding health, outcomes, or cooldowns. This conditional preserves the established atomic map activation.</p>
+<p>Rendering remains model-neutral and media-free. The scene loops through living enemies and camera-transforms their inherited Rects. During an active attack it draws the current hitbox outline. Both use procedural colors. The renderer never applies damage or removes enemies; it merely observes CombatSystem after update. Debug/test invulnerability and deterministic enemy overrides are constructor seams and are false/ordinary by default.</p>
+<p>The cumulative proof constructs the ordinary debug-off scene with one adjacent, stationary, one-health test enemy and invulnerability explicitly enabled. It calls the real attack request twice to observe acceptance then cooldown rejection, updates through the active window to create a hit and defeat, advances recovery time, and requests again to prove readiness. Enemy health is not assigned after construction and the outcome is not appended by proof code.</p>
+<p><code>combat_receipt()</code> derives enemy id and outcome from CombatSystem.outcomes, counts <code>enemy_hit</code> records in event_history, reads bounded Player health, observes request results, and counts the final roster. The shared router adds s06 while s01–s05 remain exact under one Pygame init/finally boundary.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ONE FRAME, ALL CONSEQUENCES</div><p>Input requests, world movement, combat resolution, camera follow, rendering, and display flip keep one explicit order.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "event-loop-combat-integration"
+purpose = "Add real-time attacks to the canonical event/update/render loop without changing movement actions, duplicating timing, or moving domain mutation into rendering."
+anatomy = "Capture Space KEYDOWN; consume once; request scene attack; derive facing from nonzero named actions; move Player; handle map/quest; update CombatSystem with the same dt; follow camera; draw enemies/hitbox; flip."
+example = "The complete loop patch shows the attack request immediately before the established scene update/render/flip sequence."
+observable = "Space starts one strike, enemies pursue and collide with walls, hits change health/outcomes in update, and procedural rectangles reflect the resulting state."
+failure = "A nested combat loop steals events; held Space restarts timing; rendering damage repeats by frame; a second Clock gives combat different elapsed time."
+practice = "s06-l05-d1"
+
+[[lessons.concepts]]
+id = "cumulative-combat-proof"
+purpose = "Defeat a deterministic test enemy through real scene attack, hitbox, health, cooldown, event, and roster behavior while retaining all earlier milestones."
+anatomy = "Construct scene with test-only enemy inputs; request attack; observe blocked repeat; update active window; update recovery; request again; derive outcome/hit/health/roster fields; route s06 through shared cleanup."
+example = "The Working specifies the exact behavior-derived S06_OK path while leaving combat_receipt implementation to the learner and hidden reference."
+observable = "The receipt reports one defeated bog_wisp, one hit, full test health, blocked repeat, recovered cooldown, empty roster; s01–s05 remain exact."
+failure = "Assigning health/outcomes, calling private emitters, hard-coding the line, opening a display, or replacing prior routes produces false or regressive evidence."
+practice = "s06-l05-e2"
+
+[[lessons.artifactSteps]]
+id = "s06-add-combat-colors"
+path = "src/hollowmere/combat.py"
+mode = "append"
+instruction = "Append procedural combat colors; no sprite, image, or other media is created or required."
+content = '''
+
+
+ENEMY_COLOR = (126, 86, 132)
+ATTACK_COLOR = (255, 204, 92)
+'''
+
+[[lessons.artifactSteps]]
+id = "s06-add-attack-input-field"
+path = "src/hollowmere/input.py"
+mode = "replace"
+instruction = "Add one isolated attack request beside the existing interaction and dialogue edge fields."
+find = '''
+        self._interact_requested = False
+        self._dialogue_choice_requested = None
+'''
+content = '''
+        self._interact_requested = False
+        self._dialogue_choice_requested = None
+        self._attack_requested = False
+'''
+
+[[lessons.artifactSteps]]
+id = "s06-capture-space-attack-edge"
+path = "src/hollowmere/input.py"
+mode = "replace"
+instruction = "Capture Space only on KEYDOWN after the established event-key guard, preserving every prior input request."
+find = '''
+        if event.type == pygame.KEYDOWN and event.key in (pygame.K_1, pygame.K_2):
+            self._dialogue_choice_requested = event.key - pygame.K_1
+'''
+content = '''
+        if event.type == pygame.KEYDOWN and event.key in (pygame.K_1, pygame.K_2):
+            self._dialogue_choice_requested = event.key - pygame.K_1
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+            self._attack_requested = True
+'''
+
+[[lessons.artifactSteps]]
+id = "s06-consume-attack-request"
+path = "src/hollowmere/input.py"
+mode = "append"
+instruction = "Append the consume-once attack method without changing movement snapshot or the existing request methods."
+content = '''
+
+    def consume_attack(self):
+        """Consume one attack request."""
+        requested = self._attack_requested
+        self._attack_requested = False
+        return requested
+'''
+
+[[lessons.artifactSteps]]
+id = "s06-import-combat-scene-boundary"
+path = "src/hollowmere/scene.py"
+mode = "replace"
+instruction = "Import CombatSystem and its procedural colors beside the existing camera and collision boundaries."
+find = '''
+from .camera import Camera, world_to_tile
+from .collision import CollisionWorld
+'''
+content = '''
+from .camera import Camera, world_to_tile
+from .collision import CollisionWorld
+from .combat import ATTACK_COLOR, ENEMY_COLOR, CombatSystem
+'''
+
+[[lessons.artifactSteps]]
+id = "s06-add-scene-combat-options"
+path = "src/hollowmere/scene.py"
+mode = "replace"
+instruction = "Add deterministic enemy and debug-invulnerability dependency seams after the existing optional QuestLog port."
+find = '''
+        spawn_id="marsh_entry",
+        quest_log=None,
+    ):
+'''
+content = '''
+        spawn_id="marsh_entry",
+        quest_log=None,
+        enemy_positions=None,
+        enemy_speed=70.0,
+        enemy_health=3,
+        invulnerable=False,
+    ):
+'''
+
+[[lessons.artifactSteps]]
+id = "s06-compose-scene-combat"
+path = "src/hollowmere/scene.py"
+mode = "replace"
+instruction = "Create combat after initial map activation, keep last nonzero facing, and leave ordinary invulnerability false."
+find = '''
+        self.dialogue_panel = DialoguePanel()
+        self.last_transition = None
+        self.change_map(map_id, spawn_id)
+'''
+content = '''
+        self.dialogue_panel = DialoguePanel()
+        self.combat = None
+        self.facing = pygame.Vector2(1, 0)
+        self.last_transition = None
+        self.change_map(map_id, spawn_id)
+        self.combat = CombatSystem(
+            self.player,
+            self.world,
+            enemy_positions=enemy_positions,
+            enemy_speed=enemy_speed,
+            enemy_health=enemy_health,
+            invulnerable=invulnerable,
+        )
+'''
+
+[[lessons.artifactSteps]]
+id = "s06-transfer-combat-world-on-map-change"
+path = "src/hollowmere/scene.py"
+mode = "replace"
+instruction = "Transfer the newly validated CollisionWorld into an existing CombatSystem during later map changes."
+find = '''
+        self.player.position.update(spawn)
+        self.camera.follow(self.player.rect())
+'''
+content = '''
+        self.player.position.update(spawn)
+        if self.combat is not None:
+            self.combat.set_world(world)
+        self.camera.follow(self.player.rect())
+'''
+
+[[lessons.artifactSteps]]
+id = "s06-integrate-combat-update"
+path = "src/hollowmere/scene.py"
+mode = "replace"
+instruction = "Replace only MarshScene.update with the same movement/map/quest behavior plus facing, one combat update, and post-knockback camera follow."
+find = '''
+    def update(self, actions, dt):
+        """Advance world state and traverse an overlapping doorway."""
+        displacement = self.player.displacement(actions, dt)
+        self.world.move(self.player, displacement)
+        transition = self.loaded_map.transition_for(self.player.rect())
+        if transition is not None:
+            self.quest_log.record("crossed_causeway")
+            self.change_map(
+                transition["target_map"],
+                transition["target_spawn"],
+            )
+            self.last_transition = transition
+        else:
+            self.camera.follow(self.player.rect())
+'''
+content = '''
+    def update(self, actions, dt):
+        """Advance movement, map events, combat, and camera once."""
+        direction = self.player.movement_vector(actions)
+        if direction.length_squared() > 0:
+            self.facing = direction
+        displacement = self.player.displacement(actions, dt)
+        self.world.move(self.player, displacement)
+        transition = self.loaded_map.transition_for(self.player.rect())
+        if transition is not None:
+            self.quest_log.record("crossed_causeway")
+            self.change_map(
+                transition["target_map"],
+                transition["target_spawn"],
+            )
+            self.last_transition = transition
+        self.combat.update(dt)
+        self.camera.follow(self.player.rect())
+'''
+
+[[lessons.artifactSteps]]
+id = "s06-add-scene-attack-port"
+path = "src/hollowmere/scene.py"
+mode = "replace"
+instruction = "Add the scene attack request immediately before the existing generic interaction port."
+find = '''
+    def interact(self):
+'''
+content = '''
+    def attack(self):
+        """Request one attack in the last nonzero movement facing."""
+        return self.combat.request_attack(self.facing)
+
+    def interact(self):
+'''
+
+[[lessons.artifactSteps]]
+id = "s06-render-procedural-combat"
+path = "src/hollowmere/scene.py"
+mode = "replace"
+instruction = "Draw living Enemy Rects and the active hitbox in camera space before existing NPC and Player rendering."
+find = '''
+        for npc_body in self.interactions.npc_rects.values():
+'''
+content = '''
+        for enemy in self.combat.enemies:
+            pygame.draw.rect(
+                screen,
+                ENEMY_COLOR,
+                self.camera.apply_rect(enemy.rect()),
+            )
+        attack_body = self.combat.attack.hitbox(self.player.rect())
+        if attack_body:
+            pygame.draw.rect(
+                screen,
+                ATTACK_COLOR,
+                self.camera.apply_rect(attack_body),
+                2,
+            )
+        for npc_body in self.interactions.npc_rects.values():
+'''
+
+[[lessons.artifactSteps]]
+id = "s06-integrate-attack-request-loop"
+path = "src/hollowmere/app.py"
+mode = "replace"
+instruction = "Consume Space once before the established scene update without adding another event drain, Clock, or loop."
+find = '''
+            choice_index = input_state.consume_dialogue_choice()
+            if choice_index is not None:
+                scene.choose_dialogue(choice_index)
+            scene.update(input_state.snapshot(), dt)
+'''
+content = '''
+            choice_index = input_state.consume_dialogue_choice()
+            if choice_index is not None:
+                scene.choose_dialogue(choice_index)
+            if input_state.consume_attack():
+                scene.attack()
+            scene.update(input_state.snapshot(), dt)
+'''
+
+[[lessons.artifactSteps]]
+id = "s06-test-scene-combat-integration"
+path = "tests/test_scene.py"
+mode = "append"
+instruction = "Append a deterministic scene test that defeats an adjacent one-health enemy through attack and update while preserving Player geometry."
+content = '''
+
+
+def test_scene_attack_uses_real_hitbox_health_and_roster():
+    scene = MarshScene(
+        (960, 540),
+        debug=False,
+        enemy_positions=[(136, 64)],
+        enemy_speed=0.0,
+        enemy_health=1,
+        invulnerable=True,
+    )
+    assert scene.attack() is True
+    assert scene.attack() is False
+    scene.update({}, 0.12)
+    assert scene.player.rect().topleft == (96, 64)
+    assert scene.combat.outcomes == [
+        {"enemy_id": "bog_wisp_1", "outcome": "defeated"}
+    ]
+    assert scene.combat.enemies == []
+'''
+
+[[lessons.artifactSteps]]
+id = "s06-test-space-input-edge"
+path = "tests/test_interactions.py"
+mode = "append"
+instruction = "Append proof that Space produces exactly one attack request and does not alter the inherited movement snapshot."
+content = '''
+
+
+def test_space_attack_is_consumed_once():
+    state = InputState()
+    state.handle_event(key_down(pygame.K_SPACE))
+    assert state.consume_attack() is True
+    assert state.consume_attack() is False
+    assert not any(state.snapshot().values())
+'''
+
+[[lessons.readings]]
+label = "Pygame documentation — event queue"
+url = "https://www.pygame.org/docs/ref/event.html"
+
+[[lessons.exercises]]
+id = "s06-l05-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the attack edge inside the established frame order."
+code = '''
+if input_state.consume_attack():
+    scene.attack()
+scene.update(input_state.snapshot(), dt)
+'''
+
+[[lessons.exercises]]
+id = "s06-l05-e1"
+type = "mc"
+points = 15
+prompt = "Why does MarshScene update combat before its final camera follow?"
+choices = ["So combat can replace pygame.quit", "So knockback can change world position before Camera observes Player", "So rendering applies damage", "So attack uses milliseconds"]
+answer = 1
+whyWrong = "Combat does not own cleanup, rendering mutations, or alternate time units; camera should observe the final post-knockback position."
+hint = "Ask which update operation may move Player after ordinary displacement."
+explain = "One final follow keeps presentation aligned with authoritative world state."
+
+[[lessons.exercises]]
+id = "s06-l05-e2"
+type = "fill"
+points = 20
+prompt = "Complete the guard that preserves the previous facing when the Player is stationary."
+code = '''
+if direction.____() > 0:
+    self.facing = direction
+'''
+answer = "length_squared"
+whyWrong = "The zero test must inspect vector magnitude; normalize would fail on zero and length is more work than needed for comparison."
+hint = "Reuse the zero-vector guard already established for movement."
+
+[[lessons.exercises]]
+id = "s06-l05-w1"
+type = "write"
+points = 38
+prompt = "Process command frames <code>space</code>, <code>space</code>, <code>cooldown</code>, <code>space</code>; accept attacks only while idle, set recovery after the first accepted strike, reset on cooldown, and print exactly <code>ATTACKS 2 BLOCKED 1 PHASE active</code>."
+expect = '''
+ATTACKS 2 BLOCKED 1 PHASE active
+'''
+solution = '''
+commands = ["space", "space", "cooldown", "space"]
+phase = "idle"
+attacks = 0
+blocked = 0
+for command in commands:
+    if command == "cooldown":
+        phase = "idle"
+    elif command == "space" and phase == "idle":
+        attacks += 1
+        phase = "active"
+        if attacks == 1:
+            phase = "recovery"
+    elif command == "space":
+        blocked += 1
+print("ATTACKS", attacks, "BLOCKED", blocked, "PHASE", phase)
+'''
+hint = "Only idle accepts Space; the cooldown command restores idle between the blocked and final request."

@@ -1,0 +1,304 @@
+[[lessons]]
+id = "s03-l04"
+title = "Give the Marsh One Scene Boundary"
+teaches = ["stable-scene-update-render", "debug-overlay-boundary"]
+body = '''
+<p>A real-time scene has two public jobs. <code>update(actions, dt)</code> changes world state; <code>render(screen)</code> observes that state and draws a view. Hollowmere's <code>MarshScene</code> owns the Player roster, CollisionWorld, Camera, and whether debugging is active. The app loop does not reach inside to resolve walls or calculate camera coordinates.</p>
+<pre><code data-kind="patch">def update(self, actions, dt):
+    displacement = self.player.displacement(actions, dt)
+    self.world.move(self.player, displacement)
+    self.camera.follow(self.player.rect())
+
+def render(self, screen):
+    screen.fill(BACKGROUND_COLOR)
+    for solid in self.world.solids:
+        pygame.draw.rect(screen, WALL_COLOR, self.camera.apply_rect(solid))</code></pre>
+<p>The order is part of the contract. Update calculates one displacement from the already-named actions and seconds-based dt, resolves it in world space, then follows the final player body. Render clears the screen, converts solid and entity Rect copies through Camera, and draws them. It never changes <code>Player.position</code>. If camera follow ran before collision, the view could follow an unreachable intermediate point; if render wrote screen coordinates back, later collision would drift with the viewport.</p>
+<p>The prototype marsh contains a wide vertical bank beginning at world (128, 64). The scene spawns the Wayfinder at (96, 64), exactly one 32-pixel body to its left. That geometry makes the collision observable without media. The colored player rectangle remains the intentional fallback, while wall rectangles expose the terrain contract that s04 will populate from a real Tiled map.</p>
+<p>Debugging needs visible evidence without becoming game logic. <code>debug_enabled()</code> reads <code>HOLLOWMERE_DEBUG</code> from <code>os.environ</code>, removes surrounding whitespace with <code>strip()</code>, normalizes capitalization with <code>lower()</code>, and accepts only <code>1</code>, <code>true</code>, <code>yes</code>, or <code>on</code>. Missing or unfamiliar values are false. Environment variables are outside-process string settings; they do not alter the saved world.</p>
+<p>When enabled, <code>draw_debug_overlay</code> outlines world solids and the player after applying the Camera, then renders a coordinate label from real world, tile, and camera values. The function uses Pygame's bundled default font through <code>pygame.font.Font(None, 18)</code>; no media file is authored or required. A T key request is remembered only when <code>InputState(allow_debug=True)</code>, consumed once, and teleports to the canonical marsh spawn. In ordinary mode the same key does nothing.</p>
+<p>The teleport is a temporary diagnostic aid, not a Player action and not an acceptance shortcut. It remains outside the four-action snapshot and is scheduled for removal in s08. That separation prevents later quests or saves from accidentally depending on a developer convenience.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DRAW THE TRUTH, DO NOT CHANGE IT</div>
+<p>An overlay may reveal collision and coordinates. It must not repair them, advance time, or become required for ordinary play.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "stable-scene-update-render"
+purpose = "Give the app loop one scene interface that updates authoritative world state before rendering camera-transformed copies."
+anatomy = "In update, compute Player displacement, resolve CollisionWorld movement, then follow the final Rect; in render, clear, transform/draw solids, transform/draw entities, and optionally overlay diagnostics."
+example = "The complete update/render patch shows the public method boundary and the first world-to-screen wall drawing loop."
+observable = "The ordinary scene blocks the Player at the bank, follows legal movement, and draws without changing Player.position during render."
+failure = "Following before collision centers on an invalid point; changing state during render makes results depend on frame presentation; bypassing the scene tangles app.py with world rules."
+practice = "s03-l04-d1"
+
+[[lessons.concepts]]
+id = "debug-overlay-boundary"
+purpose = "Expose collision rectangles, coordinate labels, and a one-shot teleport only when the explicit HOLLOWMERE_DEBUG setting enables them."
+anatomy = "Read the environment string; strip and lowercase it; compare against accepted true spellings; pass the Boolean to InputState and MarshScene; draw overlay or accept T only when true."
+example = "debug_enabled and draw_debug_overlay provide the complete setting parser and camera-aware overlay path."
+observable = "Ordinary mode reports debug off and ignores T; HOLLOWMERE_DEBUG=yes shows outlines/labels and lets one T press return the Player to MARSH_SPAWN."
+failure = "Treating any nonempty string as true makes '0' enable debugging; adding teleport to the action dictionary leaks a temporary tool into game logic."
+practice = "s03-l04-e2"
+
+[[lessons.artifactSteps]]
+id = "s03-create-debug-boundary"
+path = "src/hollowmere/debug.py"
+mode = "write"
+instruction = "Create debug.py with strict environment parsing and a camera-aware overlay that uses only Pygame fallback drawing/text."
+content = '''
+"""Opt-in spatial diagnostics for Hollowmere."""
+
+import os
+
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+
+import pygame
+
+from .camera import world_to_tile
+from .config import DEBUG_COLOR
+
+
+def debug_enabled():
+    """Return whether the explicit debug environment switch is true."""
+    raw = os.environ.get("HOLLOWMERE_DEBUG", "")
+    return raw.strip().lower() in ("1", "true", "yes", "on")
+
+
+def draw_debug_overlay(screen, scene):
+    """Draw world collision and coordinate evidence in screen space."""
+    for solid in scene.world.solids:
+        pygame.draw.rect(
+            screen,
+            DEBUG_COLOR,
+            scene.camera.apply_rect(solid),
+            1,
+        )
+    pygame.draw.rect(
+        screen,
+        DEBUG_COLOR,
+        scene.camera.apply_rect(scene.player.rect()),
+        1,
+    )
+    tile = world_to_tile(scene.player.position)
+    label = (
+        f"world={round(scene.player.position.x)},{round(scene.player.position.y)} "
+        f"tile={tile[0]},{tile[1]} "
+        f"camera={round(scene.camera.offset.x)},{round(scene.camera.offset.y)}"
+    )
+    font = pygame.font.Font(None, 18)
+    screen.blit(font.render(label, True, DEBUG_COLOR), (8, 8))
+'''
+
+[[lessons.artifactSteps]]
+id = "s03-create-marsh-scene"
+path = "src/hollowmere/scene.py"
+mode = "write"
+instruction = "Create scene.py as the canonical update/render owner for the prototype marsh, roster, collision world, and camera."
+content = '''
+"""The playable prototype marsh scene."""
+
+import os
+
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+
+import pygame
+
+from .camera import Camera
+from .collision import CollisionWorld
+from .config import (
+    BACKGROUND_COLOR,
+    MARSH_SPAWN,
+    PLAYER_COLOR,
+    WALL_COLOR,
+    WORLD_SIZE,
+)
+from .debug import draw_debug_overlay
+from .entities import Player
+
+
+MARSH_SOLIDS = (
+    pygame.Rect(128, 64, 160, 96),
+    pygame.Rect(384, 288, 256, 32),
+)
+
+
+class MarshScene:
+    """Own the prototype world's update and rendering boundaries."""
+
+    def __init__(self, viewport_size, player=None, debug=False):
+        self.player = player or Player(position=MARSH_SPAWN)
+        self.entities = [self.player]
+        self.world = CollisionWorld(WORLD_SIZE, MARSH_SOLIDS)
+        self.camera = Camera(viewport_size, WORLD_SIZE)
+        self.debug = debug
+        self.camera.follow(self.player.rect())
+
+    def update(self, actions, dt):
+        """Advance authoritative world state once."""
+        displacement = self.player.displacement(actions, dt)
+        self.world.move(self.player, displacement)
+        self.camera.follow(self.player.rect())
+
+    def render(self, screen):
+        """Draw a camera-transformed view without changing world state."""
+        screen.fill(BACKGROUND_COLOR)
+        for solid in self.world.solids:
+            pygame.draw.rect(
+                screen,
+                WALL_COLOR,
+                self.camera.apply_rect(solid),
+            )
+        for entity in self.entities:
+            pygame.draw.rect(
+                screen,
+                PLAYER_COLOR,
+                self.camera.apply_rect(entity.rect()),
+            )
+        if self.debug:
+            draw_debug_overlay(screen, self)
+
+    def teleport_player(self):
+        """Return to the debug spawn without changing input contracts."""
+        self.player.position.update(MARSH_SPAWN)
+        self.camera.follow(self.player.rect())
+'''
+
+[[lessons.artifactSteps]]
+id = "s03-test-scene-boundaries"
+path = "tests/test_scene.py"
+mode = "write"
+instruction = "Create scene tests for spawn collision, update/render separation, and canonical teleport state."
+content = '''
+"""Tests for the prototype marsh scene boundary."""
+
+import pygame
+
+from hollowmere.scene import MarshScene
+
+
+def test_scene_blocks_player_at_spawn_bank():
+    scene = MarshScene((960, 540))
+    scene.update({"right": True}, 0.5)
+    assert scene.player.rect().topleft == (96, 64)
+
+
+def test_render_does_not_change_world_position():
+    scene = MarshScene((320, 180))
+    screen = pygame.Surface((320, 180))
+    before = scene.player.position.copy()
+    scene.render(screen)
+    assert scene.player.position == before
+
+
+def test_debug_teleport_restores_canonical_spawn():
+    scene = MarshScene((320, 180), debug=True)
+    scene.player.position.update(700, 500)
+    scene.teleport_player()
+    assert scene.player.position == pygame.Vector2(96, 64)
+'''
+
+[[lessons.artifactSteps]]
+id = "s03-test-debug-teleport-input"
+path = "tests/test_input.py"
+mode = "append"
+instruction = "Append proof that T is ignored ordinarily and becomes a one-shot request only in explicit debug input mode."
+content = '''
+
+
+def test_teleport_key_is_debug_only_and_one_shot():
+    ordinary = InputState()
+    ordinary.handle_event(key_event(pygame.KEYDOWN, pygame.K_t))
+    assert ordinary.consume_debug_teleport() is False
+
+    debug = InputState(allow_debug=True)
+    debug.handle_event(key_event(pygame.KEYDOWN, pygame.K_t))
+    assert debug.consume_debug_teleport() is True
+    assert debug.consume_debug_teleport() is False
+'''
+
+[[lessons.readings]]
+label = "Python documentation — os.environ"
+url = "https://docs.python.org/3/library/os.html#os.environ"
+
+[[lessons.readings]]
+label = "Pygame documentation — Drawing shapes"
+url = "https://www.pygame.org/docs/ref/draw.html"
+
+[[lessons.readings]]
+label = "Pygame documentation — Font rendering"
+url = "https://www.pygame.org/docs/ref/font.html"
+
+[[lessons.exercises]]
+id = "s03-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the complete authoritative scene update order."
+code = '''
+displacement = self.player.displacement(actions, dt)
+self.world.move(self.player, displacement)
+self.camera.follow(self.player.rect())
+'''
+
+[[lessons.exercises]]
+id = "s03-l04-e1"
+type = "fill"
+points = 20
+prompt = "Complete the string normalization method used before matching the debug setting."
+code = '''
+return raw.strip().____() in ("1", "true", "yes", "on")
+'''
+answer = "lower"
+whyWrong = "Whitespace removal does not normalize capitalization; lower converts YES and True to the accepted lowercase spellings."
+hint = "Use the string method that converts letters to lowercase."
+
+[[lessons.exercises]]
+id = "s03-l04-e2"
+type = "mc"
+points = 15
+prompt = "Why is the debug teleport kept outside InputState.snapshot()?"
+choices = ["Rect objects cannot be moved", "It is a temporary diagnostic command, not a stable Player action", "Environment strings are always empty", "The event queue accepts only four events"]
+answer = 1
+whyWrong = "Rects can move, environment values may be set, and the queue is not limited to four events. The separation protects the stable action vocabulary from a temporary shortcut."
+hint = "Compare the four gameplay meanings with a developer-only scene reset."
+explain = "The teleport can be removed in s08 without changing Player or saved input mappings."
+
+[[lessons.exercises]]
+id = "s03-l04-e3"
+type = "text"
+points = 20
+prompt = "Which named environment variable is the only switch that enables Hollowmere's spatial diagnostics?"
+answer = "HOLLOWMERE_DEBUG"
+hint = "Use the uppercase project-prefixed name read by os.environ."
+whyWrong = "DEBUG_MODE is an older configuration constant; this boundary deliberately reads the explicit process environment setting."
+
+[[lessons.exercises]]
+id = "s03-l04-e4"
+type = "mc"
+points = 15
+prompt = "Which method is allowed to change Player.position during an ordinary frame?"
+choices = ["MarshScene.render", "Camera.apply_rect", "MarshScene.update", "draw_debug_overlay"]
+answer = 2
+whyWrong = "Render, camera transforms, and overlays produce views or evidence. Only update advances authoritative world state."
+hint = "Choose the phase that consumes actions and dt before drawing begins."
+explain = "This boundary keeps rendering frequency from changing movement results."
+
+[[lessons.exercises]]
+id = "s03-l04-w1"
+type = "write"
+points = 35
+prompt = "Normalize the raw setting <code>' YES '</code> with strip and lower, test membership in the accepted tuple ('1', 'true', 'yes', 'on'), and print exactly <code>DEBUG True</code>."
+starter = '''
+raw = " YES "
+accepted = ("1", "true", "yes", "on")
+'''
+expect = '''
+DEBUG True
+'''
+solution = '''
+raw = " YES "
+accepted = ("1", "true", "yes", "on")
+enabled = raw.strip().lower() in accepted
+print("DEBUG", enabled)
+'''
+hint = "Apply strip before lower, use in against accepted, then print the Boolean."

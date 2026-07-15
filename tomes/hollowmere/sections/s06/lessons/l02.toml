@@ -1,0 +1,224 @@
+[[lessons]]
+id = "s06-l02"
+title = "Give a Strike a Beginning and End"
+teaches = ["timed-attack-state-machine", "directional-attack-hitbox"]
+body = '''
+<p>A real-time attack is not “Space means damage.” It moves through <code>idle</code>, <code>active</code>, and <code>recovery</code>. Idle may accept a request. Active exposes a hitbox for a short window. Recovery rejects repeated requests until its cooldown expires. <code>AttackPhase</code> is a StrEnum, reusing the stable symbolic-state pattern from QuestStatus.</p>
+<pre><code data-kind="runnable">phase = "idle"
+remaining = 0.0
+if phase == "idle":
+    phase = "active"
+    remaining = 0.12
+remaining = max(0.0, remaining - 0.12)
+if phase == "active" and remaining == 0.0:
+    phase = "recovery"
+print("ATTACK", phase)</code></pre>
+<p>The receipt is <code>ATTACK recovery</code>. <code>remaining</code> is seconds, so it uses the same dt unit as Player movement. <code>request(facing)</code> returns False unless the phase is idle. For an accepted request it copies and normalizes the nonzero facing Vector2, clears the set of targets hit by this swing, enters active, and loads <code>active_seconds</code>.</p>
+<p><code>update(dt)</code> rejects negative time, subtracts dt, clamps at zero, then performs the next state transition when the timer expires. Active becomes recovery and loads <code>cooldown_seconds</code>; recovery becomes idle. An immediate second request therefore cannot restart the active window. A common bug is resetting the cooldown on every held frame, which can leave an attack permanently active or apply damage at the frame rate.</p>
+<p>The directional hitbox is an integer world-space Rect derived from the Player body and stored facing. For a horizontal facing, its x begins at <code>body.right</code> when facing east or ends at <code>body.left</code> when facing west; its y is centered on <code>body.centery</code>. Vertical attacks mirror that rule around <code>body.top</code> or <code>body.bottom</code>. Outside active state, <code>hitbox()</code> returns a zero-size Rect, which cannot collide.</p>
+<p>One active window may span multiple frames. <code>can_hit(target_id)</code> checks both phase and a set of already-hit ids. A set is a collection that stores each value at most once. <code>mark_hit()</code> adds the id after damage. The set is cleared only when a new attack is accepted, so an enemy overlapping for three active frames loses health once. Adding before collision would suppress a real hit; adding after damage keeps the event aligned with behavior.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TIME IS PART OF THE WEAPON</div><p>The hitbox describes where. The phase and per-swing target set describe when and how often.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "timed-attack-state-machine"
+purpose = "Gate each attack through idle, active, and recovery phases measured in seconds, rejecting repeat requests until cooldown ends."
+anatomy = "Define StrEnum phases; request only from idle; normalize facing; clear hit ids; load active time; subtract nonnegative dt; transition to recovery; load cooldown; transition to idle."
+example = "The complete timer example accepts from idle, spends the active window, and prints recovery."
+observable = "The first request returns True, an immediate repeat returns False, active exposes a hitbox, and request works again only after both timers expire."
+failure = "Resetting timing while a key is held repeats damage; using milliseconds makes windows 1000 times too long; accepting zero facing cannot choose a hitbox direction."
+practice = "s06-l02-d1"
+
+[[lessons.concepts]]
+id = "directional-attack-hitbox"
+purpose = "Create one world-space attack Rect beside the Player in its stored facing and prevent a target from taking damage twice during one swing."
+anatomy = "Read body edges/center; choose horizontal or vertical dominance; place extent beyond the matching edge; return zero Rect outside active; check target id in set; add id after hit."
+example = "AttackController.hitbox is the complete four-direction Rect construction from the inherited Entity.rect contract."
+observable = "A right-facing attack from a Player at x 96 begins at x 128 and overlaps an adjacent enemy without changing the Player body."
+failure = "Using screen coordinates makes camera movement alter reach; centering on Player overlaps behind it; omitting the hit-id set applies frame-rate-dependent repeated damage."
+practice = "s06-l02-e2"
+
+[[lessons.artifactSteps]]
+id = "s06-import-attack-phase-enum"
+path = "src/hollowmere/combat.py"
+mode = "replace"
+instruction = "Import StrEnum before the existing Pygame setup so attack phases have stable string values."
+find = '''
+import os
+
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+'''
+content = '''
+from enum import StrEnum
+import os
+
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+'''
+
+[[lessons.artifactSteps]]
+id = "s06-add-attack-controller"
+path = "src/hollowmere/combat.py"
+mode = "append"
+instruction = "Append the complete timed attack state machine, directional world hitbox, and once-per-swing target set."
+content = '''
+
+
+class AttackPhase(StrEnum):
+    IDLE = "idle"
+    ACTIVE = "active"
+    RECOVERY = "recovery"
+
+
+class AttackController:
+    """Own attack timing, facing, hitbox, and per-swing targets."""
+
+    def __init__(self, active_seconds=0.12, cooldown_seconds=0.30):
+        if active_seconds <= 0 or cooldown_seconds < 0:
+            raise CombatError("attack timing must be positive")
+        self.active_seconds = active_seconds
+        self.cooldown_seconds = cooldown_seconds
+        self.phase = AttackPhase.IDLE
+        self.remaining = 0.0
+        self.facing = pygame.Vector2(1, 0)
+        self._hit_targets = set()
+
+    def request(self, facing):
+        if self.phase is not AttackPhase.IDLE:
+            return False
+        direction = pygame.Vector2(facing)
+        if direction.length_squared() == 0:
+            raise CombatError("attack facing must be nonzero")
+        self.facing = direction.normalize()
+        self._hit_targets.clear()
+        self.phase = AttackPhase.ACTIVE
+        self.remaining = self.active_seconds
+        return True
+
+    def update(self, dt):
+        if dt < 0:
+            raise CombatError("combat dt must be nonnegative")
+        if self.phase is AttackPhase.IDLE:
+            return
+        self.remaining = max(0.0, self.remaining - dt)
+        if self.remaining > 0:
+            return
+        if self.phase is AttackPhase.ACTIVE:
+            self.phase = AttackPhase.RECOVERY
+            self.remaining = self.cooldown_seconds
+        else:
+            self.phase = AttackPhase.IDLE
+
+    def hitbox(self, body):
+        if self.phase is not AttackPhase.ACTIVE:
+            return pygame.Rect(0, 0, 0, 0)
+        extent = 28
+        thickness = 24
+        if abs(self.facing.x) >= abs(self.facing.y):
+            x = body.right if self.facing.x > 0 else body.left - extent
+            return pygame.Rect(x, body.centery - thickness // 2, extent, thickness)
+        y = body.bottom if self.facing.y > 0 else body.top - extent
+        return pygame.Rect(body.centerx - thickness // 2, y, thickness, extent)
+
+    def can_hit(self, target_id):
+        return (
+            self.phase is AttackPhase.ACTIVE
+            and target_id not in self._hit_targets
+        )
+
+    def mark_hit(self, target_id):
+        self._hit_targets.add(target_id)
+'''
+
+[[lessons.artifactSteps]]
+id = "s06-test-attack-controller"
+path = "tests/test_combat.py"
+mode = "append"
+instruction = "Append tests for request gating, exact phase timing, directional Rect placement, zero inactive hitbox, and once-per-swing target ids."
+content = '''
+
+
+def test_attack_phase_hitbox_and_cooldown_are_deterministic():
+    from hollowmere.combat import AttackController, AttackPhase
+
+    attack = AttackController(active_seconds=0.12, cooldown_seconds=0.30)
+    body = __import__("pygame").Rect(96, 64, 32, 32)
+    assert attack.request((1, 0)) is True
+    assert attack.request((1, 0)) is False
+    assert attack.hitbox(body) == __import__("pygame").Rect(128, 68, 28, 24)
+    assert attack.can_hit("bog_wisp_1") is True
+    attack.mark_hit("bog_wisp_1")
+    assert attack.can_hit("bog_wisp_1") is False
+    attack.update(0.12)
+    assert attack.phase is AttackPhase.RECOVERY
+    assert not attack.hitbox(body)
+    attack.update(0.30)
+    assert attack.phase is AttackPhase.IDLE
+    assert attack.request((0, -1)) is True
+'''
+
+[[lessons.readings]]
+label = "Pygame documentation — Rect edges and collision"
+url = "https://www.pygame.org/docs/ref/rect.html"
+
+[[lessons.readings]]
+label = "Pygame documentation — time values"
+url = "https://www.pygame.org/docs/ref/time.html"
+
+[[lessons.exercises]]
+id = "s06-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the repeat-request guard and accepted active transition."
+code = '''
+if self.phase is not AttackPhase.IDLE:
+    return False
+self.phase = AttackPhase.ACTIVE
+'''
+
+[[lessons.exercises]]
+id = "s06-l02-e1"
+type = "mc"
+points = 15
+prompt = "Why does an attack remember target ids until its next accepted request?"
+choices = ["To resize the map", "To damage an overlapping target once per swing instead of once per frame", "To replace enemy health", "To move the camera"]
+answer = 1
+whyWrong = "The set controls hit repetition only; it does not own maps, health values, or camera position."
+hint = "Compare one active window with the number of frames it may span."
+explain = "The target set makes damage independent of render/update frequency during one swing."
+
+[[lessons.exercises]]
+id = "s06-l02-e2"
+type = "fill"
+points = 20
+prompt = "Complete the world-edge attribute used as the starting x for an eastward strike."
+code = '''
+x = body.____ if self.facing.x > 0 else body.left - extent
+'''
+answer = "right"
+whyWrong = "An eastward attack starts beyond the body's right edge; left or center would place reach inside or behind the Player."
+hint = "Use the horizontal boundary opposite left."
+
+[[lessons.exercises]]
+id = "s06-l02-w1"
+type = "write"
+points = 36
+prompt = "Simulate idle, active for 0.1 seconds, and recovery for 0.3 seconds. Accept requests at times 0.0, 0.05, and 0.4 so the middle request is blocked, then print exactly <code>REQUESTS True False True PHASE active</code>."
+expect = '''
+REQUESTS True False True PHASE active
+'''
+solution = '''
+phase = "idle"
+requests = []
+requests.append(phase == "idle")
+if requests[-1]:
+    phase = "active"
+requests.append(phase == "idle")
+phase = "recovery"
+phase = "idle"
+requests.append(phase == "idle")
+if requests[-1]:
+    phase = "active"
+print("REQUESTS", *requests, "PHASE", phase)
+'''
+hint = "Only idle accepts; place the first active window and recovery between the second and third checks."

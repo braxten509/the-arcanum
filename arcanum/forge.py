@@ -187,6 +187,8 @@ def _save_launch(tid, body, concept, plan_text=""):
         with open(os.path.join(BUILD_DIR, f"{tid}.launch.json"), "w", encoding="utf-8") as f:
             json.dump({"bindery": body.get("bindery") or previous.get("bindery") or {},
                        "author": body.get("author") or previous.get("author") or {},
+                       "reviewer": (body.get("reviewer") or {}) if "reviewer" in body
+                       else previous.get("reviewer") or {},
                        "concept": concept, "gate": gate}, f)
     except OSError:
         pass
@@ -442,6 +444,7 @@ def list_workings():
                     "phase": resume_phase,
                     "bindery": launch.get("bindery") or {},
                     "author": author,
+                    "reviewer": launch.get("reviewer") or {},
                     "gate": launch.get("gate") or _plan_gate(text),
                     "toolingConflict": tooling["conflict"],
                     "requiredTooling": tooling["required"],

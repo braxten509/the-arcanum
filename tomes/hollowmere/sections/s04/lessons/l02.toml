@@ -1,0 +1,211 @@
+[[lessons]]
+id = "s04-l02"
+title = "Load the Map or Name the Fault"
+teaches = ["project-relative-map-loader", "map-load-error-boundary"]
+body = '''
+<p>The editor saves a file; the game needs a controlled loading boundary. <code>pathlib.Path</code> represents a filesystem path without manual slash rules. <code>Path.cwd()</code> returns the current project root when Hollowmere is launched as taught. The <code>/</code> operator joins path parts, so <code>root / "maps" / "prototype_marsh.tmx"</code> produces the platform-correct location. <code>is_file()</code> checks that a regular file exists before pytmx receives it.</p>
+<pre><code data-kind="runnable">from pathlib import Path
+
+root = Path.cwd()
+map_path = root / "maps" / "prototype_marsh.tmx"
+print("MAP_PATH", map_path.name, "PRESENT", map_path.is_file())</code></pre>
+<p>From the completed project root the output ends with <code>MAP_PATH prototype_marsh.tmx PRESENT True</code>. Running from another directory produces false; that is a working-directory diagnosis, not a reason to copy the map beside the script. The one-map <code>MAP_PATHS</code> dictionary maps stable map ids to project-relative Path values. Later s10 grows that registry without changing <code>MapLoader.load(map_id)</code>.</p>
+<p><code>pytmx.TiledMap(str(path))</code> parses TMX metadata without requiring a Pygame display. The call converts Path to a string because pytmx's documented API accepts a filename. The returned object owns map dimensions, tile dimensions, ordered layers, objects, and <code>properties</code>. <code>LoadedMap</code> copies only Hollowmere's public meanings so scene code does not depend on every parser detail.</p>
+<p>Failures cross one explicit exception boundary. <code>MapLoadError</code> is Hollowmere's domain error. An unknown registry id reports that id. A missing TMX reports the project-relative file. A <code>FileNotFoundError</code> raised while parsing can also mean a referenced external tileset or asset is absent, so the message names the map and missing reference. Other <code>OSError</code> or <code>ValueError</code> failures are wrapped with <code>raise MapLoadError(...) from error</code>. The <code>from</code> clause preserves the original exception as the cause, so a traceback shows both the friendly boundary and the low-level clue.</p>
+<p>After parsing, validation checks the declared <code>map_id</code> and every required layer name before the scene sees the map. A wrong property or missing layer is structurally valid XML but invalid Hollowmere content. Failing at load time is better than a later AttributeError during collision. Error messages include the stable id and missing contract name so the Wayfinder knows whether to fix Tiled data, the project path, or Python code.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WRAP, DO NOT ERASE</div>
+<p>A domain error explains what Hollowmere expected. Exception chaining retains what the parser actually observed.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "project-relative-map-loader"
+purpose = "Resolve a stable map id to one predictable project-root TMX path and parse it through pytmx without opening a display."
+anatomy = "Store relative Paths in MAP_PATHS; construct MapLoader with a root; look up map_id; join root and relative path; require is_file; call pytmx.TiledMap on str(path); return LoadedMap."
+example = "The complete Path example joins the current root to maps/prototype_marsh.tmx and reports its filename and presence."
+observable = "From the project root it prints prototype_marsh.tmx and True, and MapLoader returns a LoadedMap whose map_id is prototype_marsh."
+failure = "Launching from the wrong directory makes the relative file absent; bypassing the id registry leaks filesystem paths into scenes and saves."
+practice = "s04-l02-d1"
+
+[[lessons.concepts]]
+id = "map-load-error-boundary"
+purpose = "Turn missing ids, files, referenced assets, malformed TMX, map properties, and layer contracts into specific Hollowmere diagnostics while retaining causes."
+anatomy = "Define MapLoadError; validate registry id and is_file; try pytmx parsing; catch FileNotFoundError separately; catch OSError/ValueError; raise a descriptive MapLoadError from error; validate property/layers."
+example = "MapLoader.load is the complete guarded path from stable id through parser and required metadata checks."
+observable = "A bad request reports the exact map id, path, property, or layer instead of failing later inside rendering."
+failure = "Catching every Exception hides programming defects; dropping exception chaining loses the parser's filename or XML clue; silent defaults accept corrupt content."
+practice = "s04-l02-e2"
+
+[[lessons.artifactSteps]]
+id = "s04-create-map-loader"
+path = "src/hollowmere/maps.py"
+mode = "write"
+instruction = "Create maps.py with the stable one-map registry, project-root resolution, pytmx parsing, metadata validation, and chained MapLoadError diagnostics."
+content = '''
+"""Validated pytmx loading for Hollowmere maps."""
+
+from pathlib import Path
+
+import pytmx
+
+
+REQUIRED_LAYERS = ("Ground", "Collision", "Spawns", "Transitions")
+MAP_PATHS = {"prototype_marsh": Path("maps") / "prototype_marsh.tmx"}
+
+
+class MapLoadError(RuntimeError):
+    """Report a map contract failure at the loading boundary."""
+
+
+class LoadedMap:
+    """Own validated map metadata before geometry extraction."""
+
+    def __init__(self, map_id, path, tiled_map):
+        self.map_id = map_id
+        self.path = path
+        self.tiled_map = tiled_map
+        self.layer_names = []
+        for layer in tiled_map.layers:
+            self.layer_names.append(layer.name)
+
+
+class MapLoader:
+    """Resolve stable map ids and validate TMX structure."""
+
+    def __init__(self, project_root):
+        self.project_root = Path(project_root)
+
+    def load(self, map_id):
+        """Load one known map or raise a specific MapLoadError."""
+        relative_path = MAP_PATHS.get(map_id)
+        if relative_path is None:
+            raise MapLoadError(f"unknown map id: {map_id}")
+        path = self.project_root / relative_path
+        if not path.is_file():
+            raise MapLoadError(f"map file is missing: {relative_path}")
+        try:
+            tiled_map = pytmx.TiledMap(str(path))
+        except FileNotFoundError as error:
+            raise MapLoadError(
+                f"map or referenced asset is missing for {map_id}: {error}"
+            ) from error
+        except (OSError, ValueError) as error:
+            raise MapLoadError(f"could not parse map {map_id}: {error}") from error
+
+        declared_id = tiled_map.properties.get("map_id")
+        if declared_id != map_id:
+            raise MapLoadError(
+                f"map_id property must be {map_id!r}, got {declared_id!r}"
+            )
+        layer_names = []
+        for layer in tiled_map.layers:
+            layer_names.append(layer.name)
+        for layer_name in REQUIRED_LAYERS:
+            if layer_name not in layer_names:
+                raise MapLoadError(
+                    f"map {map_id} is missing required layer: {layer_name}"
+                )
+        return LoadedMap(map_id, path, tiled_map)
+'''
+
+[[lessons.artifactSteps]]
+id = "s04-test-map-loader-boundary"
+path = "tests/test_maps.py"
+mode = "write"
+instruction = "Create map-loader tests for the real prototype plus unknown-id and missing-file diagnostics."
+content = '''
+"""Tests for validated TMX map loading."""
+
+from pathlib import Path
+
+import pytest
+
+from hollowmere.maps import MapLoadError, MapLoader
+
+
+def test_real_prototype_loads_required_layers():
+    loaded = MapLoader(Path.cwd()).load("prototype_marsh")
+    assert loaded.map_id == "prototype_marsh"
+    assert loaded.layer_names == [
+        "Ground",
+        "Collision",
+        "Spawns",
+        "Transitions",
+    ]
+
+
+def test_unknown_map_id_is_specific():
+    with pytest.raises(MapLoadError, match="unknown map id: drowned_road"):
+        MapLoader(Path.cwd()).load("drowned_road")
+
+
+def test_missing_project_map_is_specific(tmp_path):
+    with pytest.raises(MapLoadError, match="map file is missing"):
+        MapLoader(tmp_path).load("prototype_marsh")
+'''
+
+[[lessons.readings]]
+label = "pytmx documentation — Basic use and properties"
+url = "https://pytmx.readthedocs.io/en/latest/"
+
+[[lessons.readings]]
+label = "Python documentation — pathlib"
+url = "https://docs.python.org/3/library/pathlib.html"
+
+[[lessons.exercises]]
+id = "s04-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the project-relative map path construction."
+code = '''
+path = self.project_root / relative_path
+'''
+
+[[lessons.exercises]]
+id = "s04-l02-e1"
+type = "fill"
+points = 20
+prompt = "Complete the Path method that verifies the resolved map is a regular file."
+code = '''
+if not path.____():
+    raise MapLoadError(f"map file is missing: {relative_path}")
+'''
+answer = "is_file"
+whyWrong = "exists would also accept a directory; the loader requires an actual TMX file at the resolved path."
+hint = "Use the two-word pathlib predicate shown before pytmx is called."
+
+[[lessons.exercises]]
+id = "s04-l02-e2"
+type = "mc"
+points = 15
+prompt = "Why does the loader raise MapLoadError from the caught parser error?"
+choices = ["To discard the original filename", "To make every invalid map load silently", "To preserve the low-level cause beneath a domain-specific message", "To convert the TMX into a Pygame Surface"]
+answer = 2
+whyWrong = "Exception chaining retains rather than discards evidence, never makes failure silent, and does not perform rendering."
+hint = "Choose the option that gives the Wayfinder both Hollowmere context and parser detail."
+explain = "The traceback shows the friendly loader contract and the original OS/XML cause."
+
+[[lessons.exercises]]
+id = "s04-l02-e3"
+type = "text"
+points = 20
+prompt = "Which project exception type should callers catch for a rejected TMX contract?"
+answer = "MapLoadError"
+hint = "Name Hollowmere's domain error rather than FileNotFoundError or ValueError."
+whyWrong = "Low-level parser categories are deliberately wrapped so callers depend on one stable map-loading boundary."
+
+[[lessons.exercises]]
+id = "s04-l02-w1"
+type = "write"
+points = 35
+prompt = "Using pathlib.Path, join root <code>Hollowmere</code> with <code>maps</code> and <code>prototype_marsh.tmx</code>; print exactly <code>PATH Hollowmere/maps/prototype_marsh.tmx NAME prototype_marsh.tmx</code>."
+expect = '''
+PATH Hollowmere/maps/prototype_marsh.tmx NAME prototype_marsh.tmx
+'''
+solution = '''
+from pathlib import Path
+
+path = Path("Hollowmere") / "maps" / "prototype_marsh.tmx"
+print("PATH", path.as_posix(), "NAME", path.name)
+'''
+hint = "Join with /, use as_posix for stable displayed separators, and read the final component with name."

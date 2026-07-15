@@ -3,6 +3,7 @@
 import json
 import os
 import pathlib
+import subprocess
 import sys
 import tempfile
 import textwrap
@@ -11,7 +12,7 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from buildlib import validation_env
+from buildlib import measure, validation_env
 from runtimes.generic import CommandRuntime
 
 
@@ -99,11 +100,26 @@ def test_automated_validation_environment_cannot_reach_the_desktop():
     assert inherited["DISPLAY"] == ":77", "the caller's environment was mutated"
 
 
+def test_harness_provisions_declared_dependencies_before_validation():
+    events = []
+    completed = subprocess.CompletedProcess(["validator"], 0, "clean", "")
+    with patch.object(measure, "ensure_validation_environment",
+                      side_effect=lambda tid: events.append(("provision", tid))), \
+            patch.object(measure, "validation_subprocess_env",
+                         side_effect=lambda tid: events.append(("environment", tid)) or {}), \
+            patch.object(measure.subprocess, "run", return_value=completed) as run:
+        result = measure._run_harness_command(["validator"], "demo", announce=False)
+    assert result is completed
+    assert events == [("provision", "demo"), ("environment", "demo")]
+    run.assert_called_once()
+
+
 def main():
     test_environment_dependencies_are_isolated_cached_and_exported()
     test_project_dependencies_install_once_in_scratch_only()
     test_shared_environment_does_not_require_a_project_installer()
     test_automated_validation_environment_cannot_reach_the_desktop()
+    test_harness_provisions_declared_dependencies_before_validation()
     print("ok validation dependencies: isolation/cache + live snippet + headless execution")
 
 

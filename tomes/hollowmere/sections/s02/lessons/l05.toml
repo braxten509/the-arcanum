@@ -1,0 +1,193 @@
+[[lessons]]
+id = "s02-l05"
+title = "Listen for the Four Roads"
+teaches = ["named-keyboard-actions", "player-render-loop"]
+body = '''
+<p>The model understands named actions, not physical keys. The live application owns the translation. <code>pygame.key.get_pressed()</code> asks Pygame for one snapshot of current keyboard state after events have been drained. The result supports lookup by Pygame key constants such as <code>pygame.K_a</code> and <code>pygame.K_LEFT</code>. Each lookup behaves as a Boolean. <code>keys[pygame.K_a] or keys[pygame.K_LEFT]</code> therefore makes one “left” action true when either binding is held.</p>
+<pre><code data-kind="patch">keys = pygame.key.get_pressed()
+actions = {
+    "left": keys[pygame.K_a] or keys[pygame.K_LEFT],
+    "right": keys[pygame.K_d] or keys[pygame.K_RIGHT],
+    "up": keys[pygame.K_w] or keys[pygame.K_UP],
+    "down": keys[pygame.K_s] or keys[pygame.K_DOWN],
+}
+player.update(actions, dt)</code></pre>
+<p>The dictionary has all four canonical keys every frame. This boundary lets tests pass ordinary dictionaries without inventing keyboard events, and later remapping can change bindings without changing Player. Reading key state before Pygame initialization can fail, and using string names to index the returned sequence raises <code>TypeError</code>; physical constants belong only on the input side.</p>
+<p>The clock now serves two related jobs. <code>clock.tick(TARGET_FPS)</code> limits the loop and returns elapsed milliseconds since its previous call. Dividing by <code>1000.0</code> converts that value to seconds for Player. The call occurs once near the start of each frame, so every update in that frame shares one <code>dt</code>. Calling tick separately for each entity would measure different tiny intervals and make behavior depend on roster order.</p>
+<pre><code data-kind="runnable">milliseconds = 500
+dt = milliseconds / 1000.0
+distance = 180.0 * dt
+print("DT", dt, "DISTANCE", distance)</code></pre>
+<p>The observable result is <code>DT 0.5 DISTANCE 90.0</code>. The ordinary loop follows one stable sequence: tick, drain events, read actions, update state, clear the screen, draw entities, present the frame. <code>entities = [player]</code> is the first live roster. <code>for entity in entities:</code> visits each object, and <code>pygame.draw.rect(screen, PLAYER_COLOR, entity.rect())</code> fills its integer body with the configured fallback color. This rectangle intentionally ships so the game works without generated or downloaded media.</p>
+<p>The prior lifecycle remains around that sequence. A <code>pygame.QUIT</code> event changes <code>running</code> to false, the loop ends, and the existing <code>finally</code> still calls <code>pygame.quit()</code>. Do not return from inside the frame body merely to close the game; preserving one cleanup exit keeps both ordinary launch and future systems predictable.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TRANSLATE AT THE SHORE</div>
+<p>Player receives meanings—left, right, up, down. Only app.py knows whether a meaning came from WASD, arrows, a controller, or a future settings screen.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "named-keyboard-actions"
+purpose = "Translate real WASD and arrow-key state into the same four action names consumed by the testable Player model."
+anatomy = "After event polling, call pygame.key.get_pressed once; index it with Pygame key constants; combine alternate bindings with or; store all four results under canonical dictionary keys."
+example = "The complete input snapshot maps A/Left, D/Right, W/Up, and S/Down before calling player.update."
+observable = "Holding either D or Right makes actions['right'] true while the other named actions retain their own state."
+failure = "Using strings against the pressed-key sequence raises TypeError; reading before initialization or bypassing named actions couples Player to hardware input."
+practice = "s02-l05-d1"
+
+[[lessons.concepts]]
+id = "player-render-loop"
+purpose = "Advance the live Player with one seconds-based frame delta and present every roster entity through its canonical Rect."
+anatomy = "Tick one Clock and divide by 1000; drain events; build actions; update Player; fill the screen; iterate entities; draw each rect; flip the display; retain finally-owned cleanup."
+example = "The integrated run_game creates Player and entities, updates from named actions, and draws the gold fallback rectangle."
+observable = "Ordinary launch shows one rectangle that moves at equal cardinal and diagonal speed under WASD or arrows and closes responsively."
+failure = "Multiple tick calls produce inconsistent dt; raw milliseconds cause extreme movement; omitting event polling makes the window unresponsive; omitting flip hides drawing."
+practice = "s02-l05-e2"
+
+[[lessons.artifactSteps]]
+id = "s02-import-player-render-contract"
+path = "src/hollowmere/app.py"
+mode = "replace"
+instruction = "Extend app.py imports with the configured fallback color and Player model."
+find = '''
+from .config import (
+    BACKGROUND_COLOR,
+    PROJECT_NAME,
+    TARGET_FPS,
+    WINDOW_HEIGHT,
+    WINDOW_WIDTH,
+)
+from .diagnostics import startup_receipt
+'''
+content = '''
+from .config import (
+    BACKGROUND_COLOR,
+    PLAYER_COLOR,
+    PROJECT_NAME,
+    TARGET_FPS,
+    WINDOW_HEIGHT,
+    WINDOW_WIDTH,
+)
+from .diagnostics import startup_receipt
+from .entities import Player
+'''
+
+[[lessons.artifactSteps]]
+id = "s02-integrate-player-scene"
+path = "src/hollowmere/app.py"
+mode = "replace"
+instruction = "Replace only the diagnostic run_game body with the controllable entity scene while preserving the display, event, flip, Clock, and finally cleanup contracts."
+find = '''
+def run_game():
+    """Open the diagnostic window until the user closes it."""
+    pygame.init()
+    try:
+        screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+        pygame.display.set_caption(PROJECT_NAME)
+        clock = pygame.time.Clock()
+        running = True
+
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+
+            screen.fill(BACKGROUND_COLOR)
+            pygame.display.flip()
+            clock.tick(TARGET_FPS)
+    finally:
+        pygame.quit()
+'''
+content = '''
+def run_game():
+    """Open the controllable entity scene until the user closes it."""
+    pygame.init()
+    try:
+        screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+        pygame.display.set_caption(PROJECT_NAME)
+        clock = pygame.time.Clock()
+        player = Player()
+        entities = [player]
+        running = True
+
+        while running:
+            dt = clock.tick(TARGET_FPS) / 1000.0
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+
+            keys = pygame.key.get_pressed()
+            actions = {
+                "left": keys[pygame.K_a] or keys[pygame.K_LEFT],
+                "right": keys[pygame.K_d] or keys[pygame.K_RIGHT],
+                "up": keys[pygame.K_w] or keys[pygame.K_UP],
+                "down": keys[pygame.K_s] or keys[pygame.K_DOWN],
+            }
+            player.update(actions, dt)
+
+            screen.fill(BACKGROUND_COLOR)
+            for entity in entities:
+                pygame.draw.rect(screen, PLAYER_COLOR, entity.rect())
+            pygame.display.flip()
+    finally:
+        pygame.quit()
+'''
+
+[[lessons.readings]]
+label = "Pygame documentation — Keyboard"
+url = "https://www.pygame.org/docs/ref/key.html"
+
+[[lessons.readings]]
+label = "Pygame documentation — Drawing"
+url = "https://www.pygame.org/docs/ref/draw.html"
+
+[[lessons.exercises]]
+id = "s02-l05-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the complete left-action binding with both supported physical keys."
+code = '''
+"left": keys[pygame.K_a] or keys[pygame.K_LEFT],
+'''
+
+[[lessons.exercises]]
+id = "s02-l05-e1"
+type = "fill"
+points = 20
+prompt = "Convert Clock.tick's elapsed milliseconds into seconds."
+code = "dt = clock.tick(TARGET_FPS) / ____"
+answer = "1000.0"
+accept = ["1000", "1_000", "1_000.0"]
+whyWrong = "There are 1000 milliseconds in one second, so division gives the unit expected by pixels-per-second speed."
+hint = "Use the number of milliseconds in one second."
+
+[[lessons.exercises]]
+id = "s02-l05-e2"
+type = "mc"
+points = 15
+prompt = "Why does app.py convert physical keys into an action dictionary before calling Player.update?"
+choices = ["It keeps Player independent of specific input devices", "It makes pygame.Rect store strings", "It replaces the event queue", "It initializes Pygame a second time"]
+answer = 0
+whyWrong = "The dictionary does not reshape Rect, poll window events, or initialize Pygame. It isolates device bindings from movement meaning."
+hint = "Choose the boundary that lets tests drive Player without a keyboard."
+explain = "Later remapping can change app.py's bindings while Player's public action contract remains stable."
+
+[[lessons.exercises]]
+id = "s02-l05-w1"
+type = "write"
+points = 35
+prompt = "Given a <code>keys</code> dictionary whose keys are <code>a</code>, <code>left</code>, <code>d</code>, and <code>right</code>, build named left/right actions with alternate bindings and print exactly <code>LEFT True RIGHT False</code>."
+starter = '''
+keys = {"a": False, "left": True, "d": False, "right": False}
+'''
+expect = '''
+LEFT True RIGHT False
+'''
+solution = '''
+keys = {"a": False, "left": True, "d": False, "right": False}
+actions = {
+    "left": keys["a"] or keys["left"],
+    "right": keys["d"] or keys["right"],
+}
+print("LEFT", actions["left"], "RIGHT", actions["right"])
+'''
+hint = "Combine each pair with or, then read the named action values in the required print order."

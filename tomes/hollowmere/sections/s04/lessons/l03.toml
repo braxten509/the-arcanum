@@ -1,0 +1,298 @@
+[[lessons]]
+id = "s04-l03"
+title = "Turn Objects into World Contracts"
+teaches = ["tmx-object-geometry-extraction", "named-spawn-transition-records"]
+body = '''
+<p>pytmx exposes Tiled objects with pixel attributes such as <code>x</code>, <code>y</code>, <code>width</code>, and <code>height</code>. Hollowmere copies those values into its own Pygame and Python shapes during loading. That copy is a boundary: CollisionWorld receives ordinary <code>pygame.Rect</code> values, Camera receives the map's pixel extent, and later saves retain stable ids rather than parser objects.</p>
+<pre><code data-kind="runnable">import os
+
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+
+import pygame
+
+object_values = {"x": 128.0, "y": 64.0, "width": 160.0, "height": 96.0}
+body = pygame.Rect(
+    round(object_values["x"]),
+    round(object_values["y"]),
+    round(object_values["width"]),
+    round(object_values["height"]),
+)
+print(body)</code></pre>
+<p>The receipt is <code>&lt;rect(128, 64, 160, 96)&gt;</code>. Collision and transition objects must have positive width and height; a point belongs on Spawns instead. Rejecting malformed shapes while the filename and object name are available gives a better diagnosis than letting a zero-area body disappear during play.</p>
+<p><code>LoadedMap</code> calculates <code>size</code> from map width times tile width and map height times tile height. It retrieves each required object layer by its canonical name. Every Collision object becomes a Rect in the <code>collisions</code> list. Every Spawns object must have a nonblank, unique <code>name</code>; the <code>spawns</code> dictionary maps that id to a floating-point position tuple. <code>spawn_position(spawn_id)</code> returns the pair or raises MapLoadError with both missing spawn and map id.</p>
+<p>A transition is a keyed record because it carries several meanings: <code>id</code>, world Rect, <code>target_map</code>, and <code>target_spawn</code>. <code>object.properties.get(...)</code> reads the custom values set in Tiled. Blank names or properties fail during load. <code>transition_for(body)</code> loops through records and returns the first whose Rect overlaps the Player body, otherwise <code>None</code>. Returning None is an ordinary “not at a doorway” state; malformed doorway data is an exception.</p>
+<p>The distinction matters for later persistence. A save can store <code>map_id="prototype_marsh"</code> and <code>spawn_id="marsh_entry"</code>; it should never serialize an absolute path, pytmx layer object, or screen coordinate. s10 will replace this one-map fixture with connected maps through the same loader and records, and s11's new dungeon must satisfy these same documented names and properties.</p>
+<p>Tests inspect the real TMX, plus a tiny malformed fixture under <code>tests/fixtures</code>. Fixtures remain test-only evidence and never become selectable game maps. A missing Collision layer should name that layer in MapLoadError before any MarshScene is constructed.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // COPY MEANING, NOT LIBRARY SHAPE</div>
+<p>pytmx parses Tiled. LoadedMap translates its result into Hollowmere's stable geometry and id vocabulary.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "tmx-object-geometry-extraction"
+purpose = "Convert Tiled pixel objects and map dimensions into validated pygame.Rect collision geometry and a world extent."
+anatomy = "Read map/tile dimensions; multiply for world size; get Collision layer by name; require positive object width/height; round x/y/size at the Rect boundary; append each Rect."
+example = "The complete dictionary-to-Rect example converts east_bank's four numeric object fields and prints its exact body."
+observable = "prototype_marsh loads world size 1280×960 and exactly two collision Rects matching the prior hard-coded banks."
+failure = "Using tile indices as pixels shrinks geometry; accepting zero-area rectangles creates invisible solids; leaking screen offsets into extraction makes collision camera-dependent."
+practice = "s04-l03-d1"
+
+[[lessons.concepts]]
+id = "named-spawn-transition-records"
+purpose = "Represent entry points and doorways with stable ids and validated target properties that scenes and later saves can reuse."
+anatomy = "Read unique nonblank spawn object names into a dictionary; read transition name/Rect; require target_map and target_spawn properties; store a record; query overlap; raise on absent spawn ids."
+example = "LoadedMap parses marsh_entry and causeway_gate, whose record targets prototype_marsh and marsh_entry."
+observable = "spawn_position returns (96, 64), and a body inside causeway_gate returns the complete target record."
+failure = "Duplicate spawn names overwrite destinations; blank target properties create nowhere doorways; saving object references couples persistence to one parser instance."
+practice = "s04-l03-e2"
+
+[[lessons.artifactSteps]]
+id = "s04-import-map-geometry"
+path = "src/hollowmere/maps.py"
+mode = "replace"
+instruction = "Add Pygame geometry support without changing the loader registry or pytmx ownership."
+find = '''
+from pathlib import Path
+
+import pytmx
+'''
+content = '''
+import os
+from pathlib import Path
+
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+
+import pygame
+import pytmx
+'''
+
+[[lessons.artifactSteps]]
+id = "s04-extract-map-contracts"
+path = "src/hollowmere/maps.py"
+mode = "replace"
+instruction = "Replace the metadata-only LoadedMap with validated world geometry, spawns, and transition records while retaining its existing public fields."
+find = '''
+class LoadedMap:
+    """Own validated map metadata before geometry extraction."""
+
+    def __init__(self, map_id, path, tiled_map):
+        self.map_id = map_id
+        self.path = path
+        self.tiled_map = tiled_map
+        self.layer_names = []
+        for layer in tiled_map.layers:
+            self.layer_names.append(layer.name)
+'''
+content = '''
+class LoadedMap:
+    """Translate validated pytmx data into Hollowmere contracts."""
+
+    def __init__(self, map_id, path, tiled_map):
+        self.map_id = map_id
+        self.path = path
+        self.tiled_map = tiled_map
+        self.layer_names = []
+        for layer in tiled_map.layers:
+            self.layer_names.append(layer.name)
+        self.size = (
+            tiled_map.width * tiled_map.tilewidth,
+            tiled_map.height * tiled_map.tileheight,
+        )
+        self.tile_size = (tiled_map.tilewidth, tiled_map.tileheight)
+        self.collisions = self._collision_rects()
+        self.spawns = self._spawn_records()
+        self.transitions = self._transition_records()
+
+    def _object_rect(self, layer_name, map_object):
+        if map_object.width <= 0 or map_object.height <= 0:
+            raise MapLoadError(
+                f"{layer_name} object {map_object.name!r} needs positive size"
+            )
+        return pygame.Rect(
+            round(map_object.x),
+            round(map_object.y),
+            round(map_object.width),
+            round(map_object.height),
+        )
+
+    def _collision_rects(self):
+        rectangles = []
+        layer = self.tiled_map.get_layer_by_name("Collision")
+        for map_object in layer:
+            rectangles.append(self._object_rect("Collision", map_object))
+        return rectangles
+
+    def _spawn_records(self):
+        spawns = {}
+        layer = self.tiled_map.get_layer_by_name("Spawns")
+        for map_object in layer:
+            spawn_id = str(map_object.name or "").strip()
+            if not spawn_id:
+                raise MapLoadError(f"map {self.map_id} has a spawn without a name")
+            if spawn_id in spawns:
+                raise MapLoadError(f"duplicate spawn id: {spawn_id}")
+            spawns[spawn_id] = (float(map_object.x), float(map_object.y))
+        return spawns
+
+    def _transition_records(self):
+        transitions = []
+        layer = self.tiled_map.get_layer_by_name("Transitions")
+        for map_object in layer:
+            transition_id = str(map_object.name or "").strip()
+            if not transition_id:
+                raise MapLoadError(
+                    f"map {self.map_id} has a transition without a name"
+                )
+            target_map = str(
+                map_object.properties.get("target_map") or ""
+            ).strip()
+            target_spawn = str(
+                map_object.properties.get("target_spawn") or ""
+            ).strip()
+            if not target_map or not target_spawn:
+                raise MapLoadError(
+                    f"transition {transition_id} needs target_map and target_spawn"
+                )
+            transitions.append(
+                {
+                    "id": transition_id,
+                    "rect": self._object_rect("Transitions", map_object),
+                    "target_map": target_map,
+                    "target_spawn": target_spawn,
+                }
+            )
+        return transitions
+
+    def spawn_position(self, spawn_id):
+        """Return a named world spawn or fail at the map boundary."""
+        position = self.spawns.get(spawn_id)
+        if position is None:
+            raise MapLoadError(
+                f"unknown spawn id {spawn_id!r} in map {self.map_id}"
+            )
+        return position
+
+    def transition_for(self, body):
+        """Return the first doorway record overlapping a world Rect."""
+        for transition in self.transitions:
+            if body.colliderect(transition["rect"]):
+                return transition
+        return None
+'''
+
+[[lessons.artifactSteps]]
+id = "s04-create-missing-layer-fixture"
+path = "tests/fixtures/missing_layers.tmx"
+mode = "write"
+instruction = "Create a tiny test-only TMX fixture whose declared id is valid but whose required object layers are absent."
+content = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" orientation="orthogonal" width="1" height="1" tilewidth="32" tileheight="32" infinite="0" nextlayerid="2" nextobjectid="1">
+ <properties><property name="map_id" value="broken_fixture"/></properties>
+ <layer id="1" name="Ground" width="1" height="1"><data encoding="csv">0</data></layer>
+</map>
+'''
+
+[[lessons.artifactSteps]]
+id = "s04-extend-map-contract-tests"
+path = "tests/test_maps.py"
+mode = "append"
+instruction = "Append real geometry/spawn/transition checks plus a missing-layer fixture diagnostic."
+content = '''
+
+
+def test_real_prototype_extracts_world_contracts():
+    loaded = MapLoader(Path.cwd()).load("prototype_marsh")
+    assert loaded.size == (1280, 960)
+    assert len(loaded.collisions) == 2
+    assert loaded.spawn_position("marsh_entry") == (96.0, 64.0)
+    doorway = loaded.transition_for(loaded.transitions[0]["rect"])
+    assert doorway["id"] == "causeway_gate"
+    assert doorway["target_map"] == "prototype_marsh"
+    assert doorway["target_spawn"] == "marsh_entry"
+
+
+def test_missing_required_layer_names_the_contract(monkeypatch):
+    from hollowmere import maps
+
+    monkeypatch.setitem(
+        maps.MAP_PATHS,
+        "broken_fixture",
+        Path("tests/fixtures/missing_layers.tmx"),
+    )
+    with pytest.raises(MapLoadError, match="missing required layer: Collision"):
+        MapLoader(Path.cwd()).load("broken_fixture")
+'''
+
+[[lessons.readings]]
+label = "Tiled manual — Working with objects"
+url = "https://doc.mapeditor.org/en/stable/manual/objects/"
+
+[[lessons.readings]]
+label = "pytmx documentation — Map and object properties"
+url = "https://pytmx.readthedocs.io/en/latest/#tile-object-and-map-properties"
+
+[[lessons.exercises]]
+id = "s04-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the complete TMX-object rectangle conversion."
+code = '''
+return pygame.Rect(
+    round(map_object.x),
+    round(map_object.y),
+    round(map_object.width),
+    round(map_object.height),
+)
+'''
+
+[[lessons.exercises]]
+id = "s04-l03-e1"
+type = "mc"
+points = 15
+prompt = "Why does LoadedMap copy pytmx objects into Rects, tuples, and dictionaries?"
+choices = ["To keep Hollowmere systems dependent on stable game meanings", "To make every object a screen coordinate", "To save absolute parser memory addresses", "To remove names from spawns"]
+answer = 0
+whyWrong = "The boundary preserves names and world coordinates while avoiding parser-specific objects and addresses in gameplay or saves."
+hint = "Choose the option that lets s10 replace map content without rewriting CollisionWorld."
+explain = "LoadedMap is an adapter from Tiled/pytmx shapes to Hollowmere contracts."
+
+[[lessons.exercises]]
+id = "s04-l03-e2"
+type = "fill"
+points = 20
+prompt = "Complete the custom-property lookup for a doorway destination map."
+code = '''
+target_map = map_object.properties.get("____")
+'''
+answer = "target_map"
+whyWrong = "The property key must match the stable custom name authored on causeway_gate; map_id belongs to the map itself."
+hint = "Use the snake_case property paired with target_spawn in Tiled."
+
+[[lessons.exercises]]
+id = "s04-l03-w1"
+type = "write"
+points = 35
+prompt = "Create spawns mapping marsh_entry to (96.0, 64.0) and one transition record with id causeway_gate, target_map prototype_marsh, and target_spawn marsh_entry. Print exactly <code>SPAWN 96 64 DOOR causeway_gate TARGET prototype_marsh:marsh_entry</code>."
+expect = '''
+SPAWN 96 64 DOOR causeway_gate TARGET prototype_marsh:marsh_entry
+'''
+solution = '''
+spawns = {"marsh_entry": (96.0, 64.0)}
+transition = {
+    "id": "causeway_gate",
+    "target_map": "prototype_marsh",
+    "target_spawn": "marsh_entry",
+}
+spawn = spawns["marsh_entry"]
+print(
+    "SPAWN",
+    round(spawn[0]),
+    round(spawn[1]),
+    "DOOR",
+    transition["id"],
+    "TARGET",
+    f'{transition["target_map"]}:{transition["target_spawn"]}',
+)
+'''
+hint = "Read the spawn tuple and record keys, round the coordinates, and join the two target ids with a colon."

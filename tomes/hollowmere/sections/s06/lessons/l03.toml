@@ -1,0 +1,183 @@
+[[lessons]]
+id = "s06-l03"
+title = "Teach the Mire to Hunt"
+teaches = ["normalized-enemy-pursuit", "collision-aware-knockback"]
+body = '''
+<p>An enemy reuses the established Entity contract: stable name, floating Vector2 position, positive tuple size, and integer <code>rect()</code>. <code>Enemy(Entity)</code> adds an <code>enemy_id</code>, speed, HealthPool, contact damage, and cooldown. It does not create a second geometry spelling. CollisionWorld can therefore move Player and Enemy through the same axis-separated boundary.</p>
+<pre><code data-kind="runnable">import os
+
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+
+import pygame
+
+enemy_center = pygame.Vector2(32, 32)
+target_center = pygame.Vector2(35, 36)
+direction = target_center - enemy_center
+if direction.length_squared() &gt; 0:
+    direction = direction.normalize()
+print("PURSUIT", round(direction.x, 1), round(direction.y, 1))</code></pre>
+<p>The output is <code>PURSUIT 0.6 0.8</code>. Subtracting centers produces the vector pointing from enemy to target. The 3-4-5 proportions normalize to 0.6 and 0.8. <code>pursuit_displacement(target_rect, dt)</code> validates nonnegative seconds, returns a zero Vector2 when centers coincide, otherwise multiplies the unit direction by speed and dt.</p>
+<p>The method returns intent; it never adds directly to position. <code>CombatSystem</code> passes that displacement to <code>CollisionWorld.move(enemy, displacement)</code>, preserving walls, bounds, and sliding. Direct pursuit updates would let enemies walk through the same TMX banks that block Player. Using screen centers would make their direction change when Camera moves.</p>
+<p>Knockback uses the same separation. <code>knockback_displacement(source_rect, target_rect, distance)</code> subtracts source center from target center, normalizes, and scales by the requested world distance. When centers are identical, there is no direction to normalize, so the function chooses deterministic east <code>(1, 0)</code>. That fallback prevents <code>Vector2.normalize()</code> from raising and keeps tests reproducible.</p>
+<p>Knockback is not a teleport. The combat system gives the returned vector to CollisionWorld, which resolves walls and bounds. If an enemy is struck beside a bank, it stops at the bank instead of landing inside it. The same function can push Player away after contact. A negative distance is invalid and raises CombatError; allowing it would reverse the meaning of source and target.</p>
+<p>This pursuit is deliberately direct and local. It does not promise pathfinding: a bank can block an enemy that wants to move straight toward Player. The graduate boundary excludes sophisticated pathfinding. s11 may assemble new behavior from the documented Enemy ports, but it should not silently turn this chapter into a navigation engine.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // INTENT MEETS THE SAME GROUND</div><p>AI chooses a displacement. CollisionWorld remains the authority that decides where an entity can finish.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "normalized-enemy-pursuit"
+purpose = "Move an Enemy toward the Player at a frame-rate-independent speed while reusing Entity geometry and CollisionWorld authority."
+anatomy = "Subtract enemy center from target center; guard zero length; normalize; multiply by enemy speed and dt; return displacement; apply it through CollisionWorld.move."
+example = "The complete 3-4-5 Vector2 example normalizes an offset and prints pursuit components 0.6 and 0.8."
+observable = "Across equal elapsed time, the enemy travels the same distance toward Player and stops or slides at loaded collision Rects."
+failure = "Adding position inside Enemy bypasses world collision; skipping normalization makes speed depend on distance; screen coordinates make pursuit camera-dependent."
+practice = "s06-l03-d1"
+
+[[lessons.concepts]]
+id = "collision-aware-knockback"
+purpose = "Push a damaged target away from a source by a deterministic world displacement that still obeys map solids and bounds."
+anatomy = "Subtract source center from target center; use east when zero; otherwise normalize; reject negative distance; multiply by distance; give the vector to CollisionWorld.move."
+example = "knockback_displacement is the complete source-to-target calculation used for enemy hits and Player contact."
+observable = "A target to the right receives positive x displacement, but a wall can shorten the final movement through ordinary collision resolution."
+failure = "Writing target.position directly teleports through walls; normalizing zero raises ValueError; reversing subtraction pulls the target toward the attacker."
+practice = "s06-l03-e2"
+
+[[lessons.artifactSteps]]
+id = "s06-add-enemy-and-knockback"
+path = "src/hollowmere/combat.py"
+mode = "append"
+instruction = "Append Enemy on the inherited Entity contract plus normalized pursuit and deterministic knockback displacement helpers."
+content = '''
+
+
+class Enemy(Entity):
+    """A pursuing combatant with stable outcome identity."""
+
+    def __init__(
+        self,
+        enemy_id,
+        position,
+        health=3,
+        speed=70.0,
+        contact_damage=1,
+    ):
+        super().__init__(enemy_id, position, (28, 28))
+        self.enemy_id = enemy_id
+        self.health = HealthPool(health)
+        self.speed = speed
+        self.contact_damage = contact_damage
+        self.contact_cooldown = 0.75
+        self.contact_remaining = 0.0
+
+    def pursuit_displacement(self, target_rect, dt):
+        if dt < 0:
+            raise CombatError("combat dt must be nonnegative")
+        offset = pygame.Vector2(target_rect.center) - pygame.Vector2(
+            self.rect().center
+        )
+        if offset.length_squared() == 0:
+            return pygame.Vector2()
+        return offset.normalize() * self.speed * dt
+
+
+def knockback_displacement(source_rect, target_rect, distance):
+    """Return a deterministic push away from source in world space."""
+    if distance < 0:
+        raise CombatError("knockback distance must be nonnegative")
+    offset = pygame.Vector2(target_rect.center) - pygame.Vector2(
+        source_rect.center
+    )
+    if offset.length_squared() == 0:
+        offset = pygame.Vector2(1, 0)
+    else:
+        offset = offset.normalize()
+    return offset * distance
+'''
+
+[[lessons.artifactSteps]]
+id = "s06-test-enemy-motion"
+path = "tests/test_combat.py"
+mode = "append"
+instruction = "Append deterministic tests for normalized pursuit distance, coincident centers, stable Entity Rects, knockback direction, and negative-distance errors."
+content = '''
+
+
+def test_enemy_pursuit_and_knockback_preserve_entity_geometry():
+    import pygame
+
+    from hollowmere.combat import Enemy, knockback_displacement
+
+    enemy = Enemy("bog_wisp_1", (0, 0), speed=10.0)
+    target = pygame.Rect(30, 40, 28, 28)
+    displacement = enemy.pursuit_displacement(target, 0.5)
+    assert displacement.length() == pytest.approx(5.0)
+    assert enemy.rect() == pygame.Rect(0, 0, 28, 28)
+    push = knockback_displacement(enemy.rect(), target, 12.0)
+    assert push.length() == pytest.approx(12.0)
+    assert push.x > 0 and push.y > 0
+
+
+def test_knockback_rejects_negative_distance():
+    import pygame
+
+    from hollowmere.combat import knockback_displacement
+
+    body = pygame.Rect(0, 0, 28, 28)
+    with pytest.raises(CombatError, match="nonnegative"):
+        knockback_displacement(body, body, -1)
+'''
+
+[[lessons.readings]]
+label = "Pygame documentation — Vector2"
+url = "https://www.pygame.org/docs/ref/math.html"
+
+[[lessons.exercises]]
+id = "s06-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the pursuit displacement after the zero-length guard."
+code = '''
+return offset.normalize() * self.speed * dt
+'''
+
+[[lessons.exercises]]
+id = "s06-l03-e1"
+type = "mc"
+points = 15
+prompt = "Why does Enemy return pursuit displacement instead of changing position itself?"
+choices = ["So DialogueSession can move it", "So CollisionWorld remains the owner of walls, bounds, and sliding", "So health can become negative", "So Camera stores world state"]
+answer = 1
+whyWrong = "Dialogue, health, and Camera do not resolve solid-world motion; the existing collision boundary does."
+hint = "Reuse the same authority that already decides Player's reachable position."
+explain = "Combat chooses intent and CollisionWorld applies the permitted result."
+
+[[lessons.exercises]]
+id = "s06-l03-e2"
+type = "fill"
+points = 20
+prompt = "Complete the order that makes the resulting vector point away from the source."
+code = '''
+offset = pygame.Vector2(____.center) - pygame.Vector2(source_rect.center)
+'''
+answer = "target_rect"
+whyWrong = "Subtracting in the opposite order points back toward the attacker; the target center must be the destination side of the difference."
+hint = "Use the rectangle being pushed as the first vector."
+
+[[lessons.exercises]]
+id = "s06-l03-w1"
+type = "write"
+points = 36
+prompt = "Using pygame.Vector2, calculate pursuit from (0,0) toward (3,4), normalize, scale by speed 20 and dt 0.5, then print exactly <code>CHASE 6.0 8.0 DISTANCE 10.0</code>."
+expect = '''
+CHASE 6.0 8.0 DISTANCE 10.0
+'''
+solution = '''
+import os
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+import pygame
+offset = pygame.Vector2(3, 4)
+displacement = offset.normalize() * 20 * 0.5
+print("CHASE", displacement.x, displacement.y, "DISTANCE", displacement.length())
+'''
+hint = "Normalize the 3-4-5 offset before multiplying by speed and elapsed seconds."

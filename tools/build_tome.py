@@ -17,6 +17,7 @@ from buildlib.checkpoints import ARC_PARTS
 from buildlib.prompts import (TOOLING_POLICY, do_gate_json, gate_errors,
                               mastery_contract, write_plan)
 from buildlib.phase_reset import capture_phase_snapshot
+from buildlib import full_review
 from buildlib.single_author import AuthorSession, author_prompt, continuation_prompt
 
 
@@ -36,15 +37,21 @@ def _selftest():
     prompt = author_prompt("sample", "Teach a tool", "both", 3)
     assert "sole author" in prompt and "through Phase 8" in prompt
     assert "START OR RESUME AT PHASE: 3" in prompt
-    assert "Do not run validators" in prompt and "progress marker to `validating`" in prompt
+    assert "exact self-check command" in prompt and "progress marker to `validating`" in prompt
     _mastery_selftest()
     section = {"kind": "section", "phase": 3, "section": "s04", "index": 4, "total": 8}
-    assert "Phase 3 section s04 (4/8)" in unit_prompt(section)
-    assert "report_section_progress.py" in unit_prompt(section)
+    assignment = unit_prompt("sample", section)
+    assert "Phase 3 section s04 (4/8)" in assignment
+    assert "report_section_progress.py" in assignment
+    assert "tools/validate_section.py tomes/sample s04" in assignment
+    assert "--source-only" in assignment and "do not substitute ad-hoc" in assignment.lower()
     continuation = continuation_prompt("sample")
     assert continuation == "Continue."
     assert _author("codex-cli:gpt-5.6-sol@high") == (
         "codex-cli", "gpt-5.6-sol", "high")
+    review = full_review.prompt("sample", "sample")
+    assert "THOROUGH FULL-TOME REVIEW" in review
+    assert "READ EVERYTHING" in review and "NO SAMPLING" in review
     session = AuthorSession("sample", "claude-cli", "opus", "", "", "both")
     session.session_id = "warm"
     assert not session.apply_author({"author": {"kind": "claude-cli", "model": "opus"}})
@@ -126,6 +133,8 @@ def main():
     parser.add_argument("tome_id")
     parser.add_argument("--author", required=True, type=_author,
                         help="KIND:MODEL[@EFFORT] for the sole author")
+    parser.add_argument("--reviewer", type=_author,
+                        help="optional KIND:MODEL[@EFFORT] for an exhaustive post-build reviewer")
     parser.add_argument("--gate-json")
     parser.add_argument("--concept", default="")
     parser.add_argument("--from-phase", type=int, default=1, choices=range(1, 9))
@@ -164,7 +173,7 @@ def main():
     session = AuthorSession(args.tome_id, kind, model, effort, args.concept,
                             json.loads(args.gate_json).get("tooling", "")
                             if args.gate_json else _tooling(plan),
-                            args.from_phase, args.resume_session)
+                            args.from_phase, args.resume_session, args.reviewer)
     raise SystemExit(session.run())
 
 

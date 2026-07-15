@@ -51,10 +51,28 @@ with tempfile.TemporaryDirectory() as root:
         with open(os.path.join(build_dir, "build.progress"), encoding="utf-8") as handle:
             assert json.load(handle)["phase"] == 4
 
-        resume = gate.next_prompt(last, phase4, "clean")
+        resume = gate.next_prompt("build", last, phase4, "clean")
         assert "PASSED" in resume and "Phase 4" in resume
         assert "report_tome_progress.py BUILD_ID 4 validating" in resume
-        assert "wherever they occur in the cumulative tome" in gate.repair_prompt(last, "bad")
+        assert "--build-phase 4 --phase-only --no-run" in resume, resume
+        repair = gate.repair_prompt("build", last, "bad")
+        assert "wherever they occur in the cumulative tome" in repair
+        assert "--source-only" in repair, repair
+        section_prompt = gate.unit_prompt("build", ready)
+        assert "tools/validate_section.py tomes/course s01" in section_prompt
+        assert "--source-only" in section_prompt
+        assert "do not substitute ad-hoc" in section_prompt.lower()
+        phase2_checks = gate.self_validation_commands(
+            "build", {"kind": "phase", "phase": 2, "state": "working"})
+        assert len(phase2_checks) == 1
+        assert "--phase-2-skeleton" in phase2_checks[0]
+        assert "--no-run" in phase2_checks[0]
+        shipping_checks = gate.self_validation_commands(
+            "build", {"kind": "phase", "phase": 7, "state": "working"})
+        assert len(shipping_checks) == 2
+        assert "tools/validate_phase3.py" in shipping_checks[0]
+        assert "--strict" in shipping_checks[0]
+        assert shipping_checks[1] == "python3 tools/smoke_tome.py course"
 
 wrapped = scoped_shell_command("true", "/")
 assert "--unshare-pid" in wrapped and "--proc" in wrapped

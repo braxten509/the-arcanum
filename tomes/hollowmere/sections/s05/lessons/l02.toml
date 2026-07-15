@@ -1,0 +1,279 @@
+[[lessons]]
+id = "s05-l02"
+title = "Branch the Ferryman's Words"
+teaches = ["data-driven-dialogue-graph", "quest-aware-dialogue-branching"]
+body = '''
+<p>Branching dialogue is a graph, not a tower of NPC-specific <code>if</code> statements. A graph contains nodes connected by choices. Each node has a stable id, speaker, text, and list of choices. Each choice has its own id and label, an optional action record, and the id of the next node. The same <code>DialogueSession</code> can traverse any graph with that shape.</p>
+<pre><code data-kind="runnable">nodes = {
+    "warning": {"choices": [{"id": "ask", "next": "answer"}]},
+    "answer": {"choices": []},
+}
+node_id = "warning"
+choice = nodes[node_id]["choices"][0]
+node_id = choice["next"]
+print("NODE", node_id)</code></pre>
+<p>The receipt is <code>NODE answer</code>. Dictionary lookup follows declared ids; list index zero selects the first option. A missing next id would cause a later lookup failure, so <code>current_node()</code> raises <code>DialogueError</code> naming both NPC and node. Data still needs validation—moving decisions out of code does not make arbitrary records safe.</p>
+<p><code>NPC_DIALOGUE</code> defines the temporary one-NPC conversation promised by the Arc. The <code>ferryman</code> record owns <code>quest_id="ferryman_oath"</code>, an <code>entry_by_status</code> mapping, and its nodes. Opening the conversation asks QuestLog for the current status string, then looks up the entry node. Inactive enters the offer, active enters a reminder, ready enters the reward, and complete enters thanks. There is no <code>if npc_id == "ferryman"</code> branch.</p>
+<p>Choices contain generic action dictionaries. <code>{"kind": "start_quest", ...}</code> calls the log's start command; <code>claim_quest</code> calls claim and returns the reward id. A choice without an action only changes the node. <code>choose(index)</code> checks that a conversation is open and that the numeric index belongs to the current choice list before applying anything. This ordering prevents a bad key press from starting a quest.</p>
+<p>Use stable ids for program meaning and prose strings for presentation. Future localization may rewrite “The planks remember every footfall” without changing <code>reminder</code>. s10 will move these Python dictionaries to validated JSON while retaining <code>DialogueSession.open()</code>, <code>current_node()</code>, and <code>choose()</code>. s11 can therefore add another condition and reward through data rather than editing traversal.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DATA CHOOSES THE ROAD</div><p>The engine validates and follows records. Content names which node, action, and destination each road carries.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "data-driven-dialogue-graph"
+purpose = "Represent reusable conversation nodes and choice edges as stable records instead of embedding each NPC's prose and branches in input or rendering code."
+anatomy = "Key nodes by id; store speaker/text/choices; give each choice an id, label, optional action, and next id; open a node; select a checked index; apply action; move to next."
+example = "The complete two-node example follows the first warning choice to answer and prints the resulting node id."
+observable = "DialogueSession exposes the current ferryman node and advances by choice index without knowing how the renderer displays it."
+failure = "A missing node raises DialogueError; indexing before validation raises IndexError; NPC-specific branches make new conversations require engine edits."
+practice = "s05-l02-d1"
+
+[[lessons.concepts]]
+id = "quest-aware-dialogue-branching"
+purpose = "Choose a conversation entry from authoritative quest status and route generic dialogue actions back through QuestLog."
+anatomy = "Read the NPC quest_id; obtain progress.status.value; look up entry_by_status; set the node; interpret start_quest or claim_quest through QuestLog; retain any returned reward."
+example = "NPC_DIALOGUE maps all four ferryman_oath statuses to offer, reminder, reward, or thanks nodes."
+observable = "The same NPC opens at different lines before acceptance, during the objective, at reward time, and after completion."
+failure = "Caching status makes dialogue stale; assigning status from a node bypasses guards; branching on NPC names prevents data-only extension."
+practice = "s05-l02-e2"
+
+[[lessons.artifactSteps]]
+id = "s05-create-dialogue-graph"
+path = "src/hollowmere/dialogue.py"
+mode = "write"
+instruction = "Create dialogue.py with the temporary ferryman graph, status-to-entry records, checked traversal, and generic quest action dispatch."
+content = '''
+"""Data-shaped dialogue graphs driven by authoritative quest state."""
+
+
+class DialogueError(RuntimeError):
+    """Report an unknown NPC, node, or choice."""
+
+
+NPC_DIALOGUE = {
+    "ferryman": {
+        "quest_id": "ferryman_oath",
+        "entry_by_status": {
+            "inactive": "offer",
+            "active": "reminder",
+            "ready": "reward",
+            "complete": "thanks",
+        },
+        "nodes": {
+            "offer": {
+                "speaker": "Ferryman",
+                "text": "Walk the causeway and return with its mud on your boots.",
+                "choices": [
+                    {
+                        "id": "accept",
+                        "label": "I will walk it.",
+                        "action": {
+                            "kind": "start_quest",
+                            "quest_id": "ferryman_oath",
+                        },
+                        "next": "accepted",
+                    },
+                    {"id": "leave", "label": "Not yet.", "next": "farewell"},
+                ],
+            },
+            "accepted": {
+                "speaker": "Ferryman",
+                "text": "Then let the old boards count your crossing.",
+                "choices": [],
+            },
+            "reminder": {
+                "speaker": "Ferryman",
+                "text": "The causeway waits east of the reeds.",
+                "choices": [],
+            },
+            "reward": {
+                "speaker": "Ferryman",
+                "text": "The mud speaks true. Take this reed charm.",
+                "choices": [
+                    {
+                        "id": "claim",
+                        "label": "Accept the charm.",
+                        "action": {
+                            "kind": "claim_quest",
+                            "quest_id": "ferryman_oath",
+                        },
+                        "next": "thanks",
+                    }
+                ],
+            },
+            "thanks": {
+                "speaker": "Ferryman",
+                "text": "The marsh remembers a kept word.",
+                "choices": [],
+            },
+            "farewell": {
+                "speaker": "Ferryman",
+                "text": "Another tide, then.",
+                "choices": [],
+            },
+        },
+    }
+}
+
+
+class DialogueSession:
+    """Traverse an NPC graph and delegate quest mutations."""
+
+    def __init__(self, quest_log, dialogue=None):
+        self.quest_log = quest_log
+        self.dialogue = dialogue or NPC_DIALOGUE
+        self.npc_id = None
+        self.node_id = None
+        self.last_reward = None
+
+    def open(self, npc_id):
+        npc = self.dialogue.get(npc_id)
+        if npc is None:
+            raise DialogueError(f"unknown npc id: {npc_id}")
+        status = self.quest_log.progress(npc["quest_id"]).status.value
+        node_id = npc["entry_by_status"].get(status)
+        if node_id is None:
+            raise DialogueError(f"npc {npc_id} has no entry for status {status}")
+        self.npc_id = npc_id
+        self.node_id = node_id
+        return self.current_node()
+
+    def close(self):
+        self.npc_id = None
+        self.node_id = None
+
+    def current_node(self):
+        if self.npc_id is None or self.node_id is None:
+            return None
+        nodes = self.dialogue[self.npc_id]["nodes"]
+        node = nodes.get(self.node_id)
+        if node is None:
+            raise DialogueError(
+                f"npc {self.npc_id} has no node {self.node_id}"
+            )
+        return node
+
+    def choose(self, index):
+        node = self.current_node()
+        if node is None:
+            raise DialogueError("cannot choose without an open conversation")
+        choices = node["choices"]
+        if index < 0 or index >= len(choices):
+            raise DialogueError(f"choice index out of range: {index}")
+        choice = choices[index]
+        self._apply_action(choice.get("action"))
+        self.node_id = choice["next"]
+        return self.current_node()
+
+    def _apply_action(self, action):
+        if action is None:
+            return
+        kind = action.get("kind")
+        quest_id = action.get("quest_id")
+        if kind == "start_quest":
+            self.quest_log.start(quest_id)
+        elif kind == "claim_quest":
+            self.last_reward = self.quest_log.claim(quest_id)
+        else:
+            raise DialogueError(f"unknown dialogue action: {kind}")
+'''
+
+[[lessons.artifactSteps]]
+id = "s05-test-dialogue-graph"
+path = "tests/test_dialogue.py"
+mode = "write"
+instruction = "Create tests for status-selected entries, checked traversal, generic quest commands, and reward delivery."
+content = '''
+"""Tests for data-driven quest dialogue."""
+
+import pytest
+
+from hollowmere.dialogue import DialogueError, DialogueSession
+from hollowmere.quests import QuestLog, QuestStatus
+
+
+def test_ferryman_branch_tracks_authoritative_quest_status():
+    log = QuestLog()
+    session = DialogueSession(log)
+    session.open("ferryman")
+    assert session.node_id == "offer"
+    session.choose(0)
+    assert log.progress("ferryman_oath").status is QuestStatus.ACTIVE
+    log.record("crossed_causeway")
+    session.open("ferryman")
+    assert session.node_id == "reward"
+    session.choose(0)
+    assert session.node_id == "thanks"
+    assert session.last_reward == "reed_charm"
+
+
+def test_invalid_choice_is_rejected_before_any_action():
+    log = QuestLog()
+    session = DialogueSession(log)
+    session.open("ferryman")
+    with pytest.raises(DialogueError, match="out of range"):
+        session.choose(9)
+    assert log.progress("ferryman_oath").status is QuestStatus.INACTIVE
+'''
+
+[[lessons.readings]]
+label = "Python documentation — dictionaries"
+url = "https://docs.python.org/3/tutorial/datastructures.html#dictionaries"
+
+[[lessons.exercises]]
+id = "s05-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the graph edge traversal exactly."
+code = '''
+choice = node["choices"][index]
+self.node_id = choice["next"]
+'''
+
+[[lessons.exercises]]
+id = "s05-l02-e1"
+type = "mc"
+points = 15
+prompt = "What should select the ferryman's opening node after its objective has been satisfied?"
+choices = ["The current camera offset", "The NPC's screen color", "The authoritative quest status and entry mapping", "A separate event loop"]
+answer = 2
+whyWrong = "Camera, presentation color, and event-loop ownership do not describe quest progress. The status mapping is the declared branch boundary."
+hint = "Look for one stable game-state value and one content record."
+explain = "DialogueSession reads QuestLog and resolves entry_by_status."
+
+[[lessons.exercises]]
+id = "s05-l02-e2"
+type = "fill"
+points = 20
+prompt = "Complete the checked lookup that keeps an absent identifier distinguishable from a valid record."
+code = '''
+node = nodes.____(self.node_id)
+if node is None:
+    raise DialogueError("missing node")
+'''
+answer = "get"
+whyWrong = "Direct indexing raises KeyError before Hollowmere can name the boundary; values or items iterate unrelated data."
+hint = "Use the dictionary method that returns None when a key is absent."
+
+[[lessons.exercises]]
+id = "s05-l02-w1"
+type = "write"
+points = 36
+prompt = "Given an entry mapping for three statuses, look up each status in order and print exactly <code>ENTRIES offer reminder thanks</code>."
+starter = '''
+entries = {"inactive": "offer", "active": "reminder", "complete": "thanks"}
+statuses = ["inactive", "active", "complete"]
+'''
+expect = '''
+ENTRIES offer reminder thanks
+'''
+solution = '''
+entries = {"inactive": "offer", "active": "reminder", "complete": "thanks"}
+statuses = ["inactive", "active", "complete"]
+nodes = []
+for status in statuses:
+    nodes.append(entries[status])
+print("ENTRIES", *nodes)
+'''
+hint = "Append one mapping result per status, then unpack the completed list into print."

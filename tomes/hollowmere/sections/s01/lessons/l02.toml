@@ -1,0 +1,128 @@
+[[lessons]]
+id = "s01-l02"
+title = "Names Written in Lantern Ink"
+teaches = ["python-values-and-output", "boolean-branch-choice"]
+body = '''
+<p>Python source becomes useful when names carry values. The statement <code>project_name = "Hollowmere"</code> has three parts: a <code>snake_case</code> name on the left, the assignment operator <code>=</code>, and a string value on the right. A <strong>string</strong> is text between matching quotes. An integer such as <code>960</code> is a whole number. A Boolean is exactly <code>True</code> or <code>False</code>, with capitals; it records a yes-or-no fact. Assignment does not claim two things are equal. It stores the right-hand value under the left-hand name.</p>
+<pre><code data-kind="runnable">project_name = "Hollowmere"
+window_width = 960
+window_height = 540
+debug_mode = False
+
+print(project_name)
+print(window_width, "x", window_height)
+print("Debug:", debug_mode)</code></pre>
+<p><code>print(...)</code> is a <strong>function call</strong>. The name selects an operation, parentheses start and end the call, and comma-separated arguments provide its inputs. Running the example prints three observable lines. Python inserts spaces between separate print arguments. A likely failure is writing <code>false</code>; the traceback ends with <code>NameError</code> because lowercase <code>false</code> is treated as an undefined name, not a Boolean.</p>
+<p>A condition lets the program choose. In <code>if debug_mode:</code>, <code>if</code> begins the choice, the Boolean expression follows it, and the colon opens an indented block. Four spaces place a statement inside that block. <code>else:</code> provides the path taken when the condition is false. Python uses indentation as structure, so an unindented line is outside the choice and a mixed tab can trigger <code>IndentationError</code>.</p>
+<pre><code data-kind="runnable">debug_mode = False
+
+if debug_mode:
+    print("DEBUG MAP")
+else:
+    print("NORMAL MAP")</code></pre>
+<p>The observable result is <code>NORMAL MAP</code>. Change only the Boolean to <code>True</code> and the other branch runs. Comparisons create Booleans: <code>window_width == 960</code> asks a question with the equality operator <code>==</code>; it does not assign. <code>!=</code> asks whether two values differ. The words <code>and</code>, <code>or</code>, and <code>not</code> combine or invert Boolean results. Read <code>ready and not debug_mode</code> as “both ready and not debugging.” Parentheses can make a compound condition's grouping explicit.</p>
+<p>Hollowmere keeps stable configuration names in one module so later systems do not invent new spellings. Uppercase names identify constants: values the project treats as configuration rather than changing game state. Save the files below, then use the editor's file tree to confirm they are under <code>src/hollowmere</code>, not beside <code>src</code>.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TWO EQUAL MARKS</div>
+<p>If an <code>if</code> line accidentally uses <code>=</code>, Python reports <code>SyntaxError</code> and often suggests <code>==</code>. Read that final line first; it names both the category and the repair.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "python-values-and-output"
+purpose = "Store Hollowmere's stable text, number, and yes-or-no configuration under readable names and inspect them through output."
+anatomy = "Write a snake_case or constant-style name; add =; place a string, integer, or Boolean on the right; pass names or literals between print parentheses."
+example = "The first runnable example assigns four values and prints three concrete lines."
+observable = "The terminal shows Hollowmere, 960 x 540, and Debug: False in order."
+failure = "Lowercase false or a missing quote produces a NameError or SyntaxError whose final traceback line identifies the problem."
+practice = "s01-l02-d1"
+
+[[lessons.concepts]]
+id = "boolean-branch-choice"
+purpose = "Choose one startup behavior from observable yes-or-no conditions."
+anatomy = "Begin with if; write a Boolean expression; add a colon; indent the true branch four spaces; optionally add aligned else and its indented branch."
+example = "The NORMAL MAP example shows exactly which branch runs when debug_mode is False."
+observable = "Changing debug_mode between False and True changes the single line printed."
+failure = "Using = instead of == in a condition causes SyntaxError; losing indentation causes IndentationError or moves code outside the branch."
+practice = "s01-l02-e2"
+
+[[lessons.artifactSteps]]
+id = "s01-create-config"
+path = "src/hollowmere/config.py"
+mode = "write"
+instruction = "Create src/hollowmere/config.py with these canonical names. Save it before any later module imports them."
+content = '''
+PROJECT_NAME = "Hollowmere"
+WINDOW_WIDTH = 960
+WINDOW_HEIGHT = 540
+TARGET_FPS = 60
+DEBUG_MODE = False
+'''
+
+[[lessons.readings]]
+label = "Python tutorial — An informal introduction to Python"
+url = "https://docs.python.org/3/tutorial/introduction.html"
+
+[[lessons.readings]]
+label = "Python language reference — Boolean operations"
+url = "https://docs.python.org/3/reference/expressions.html#boolean-operations"
+
+[[lessons.exercises]]
+id = "s01-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype this complete configuration check with its canonical spelling."
+code = '''
+project_name = "Hollowmere"
+print("PROJECT", project_name)
+'''
+
+[[lessons.exercises]]
+id = "s01-l02-e1"
+type = "fill"
+points = 20
+prompt = "Fill the Boolean literal that keeps the diagnostic overlay disabled."
+code = "debug_mode = ____"
+answer = "False"
+whyWrong = "A quoted value would be text and lowercase false would be an undefined name. Python's false Boolean is capitalized and unquoted."
+hint = "Use Python's capitalized Boolean for a no value."
+
+[[lessons.exercises]]
+id = "s01-l02-e2"
+type = "mc"
+points = 15
+prompt = "Which line asks whether <code>window_width</code> contains 960 without changing the stored value?"
+choices = ["window_width = 960", "window_width != 960", "window_width == 960", "window_width: 960"]
+answer = 2
+whyWrong = "One equals sign assigns, != asks whether values differ, and a colon does not compare them. Two equals signs perform the equality comparison."
+hint = "The question form uses a doubled operator."
+explain = "A comparison produces True or False, so it can be placed after if."
+
+[[lessons.exercises]]
+id = "s01-l02-e3"
+type = "text"
+points = 20
+prompt = "What exception name appears when Python evaluates an identifier that has never been assigned or imported?"
+answer = "NameError"
+hint = "The traceback category literally says that a name could not be found."
+whyWrong = "SyntaxError describes unreadable grammar; an unknown identifier is valid grammar but has no bound value."
+
+[[lessons.exercises]]
+id = "s01-l02-w1"
+type = "write"
+points = 30
+prompt = "Set <code>window_ready</code> to <code>True</code>. Use an if/else choice to print exactly <code>LANTERN READY</code> when true and <code>LANTERN DARK</code> otherwise."
+starter = '''
+window_ready = True
+'''
+expect = '''
+LANTERN READY
+'''
+solution = '''
+window_ready = True
+
+if window_ready:
+    print("LANTERN READY")
+else:
+    print("LANTERN DARK")
+'''
+hint = "Put the READY print inside the four-space block after <code>if window_ready:</code>."

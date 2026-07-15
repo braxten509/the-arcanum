@@ -10,7 +10,7 @@ export const FORGE_PHASE_NAMES = ["", ...FORGE_PHASES];
 let forgeOverlay = null;
 let forgePoll = 0;
 
-export async function fetchActiveBuilds() {
+export async function fetchActiveBuilds({ failClosed = false } = {}) {
   try {
     const builds = (await (await fetch("/api/buildtome/active")).json()).jobs || [];
     return await Promise.all(builds.map(async (build) => {
@@ -20,7 +20,10 @@ export async function fetchActiveBuilds() {
       } catch { return build; }
     }));
   }
-  catch { return []; }
+  catch (error) {
+    if (failClosed) throw error;
+    return [];
+  }
 }
 
 export function showTomePicker() {
@@ -31,25 +34,48 @@ export function showTomePicker() {
       <div class="jr-desc dim">${esc(tome.description || "")}</div><div class="jr-foot faint">${esc(tome.author || "")}</div>
     </button>`).join("");
   modal(`<h2>THE SHELF OF TOMES</h2><p class="dim shelf-intro">Choose a tome, or open a live author session.</p>
-    <div class="tome-list"><button class="tome-row forge" id="tome-forge">
-      <div class="jr-top"><span class="jr-name">＋ FORGE A NEW TOME</span><span class="jr-tag num">single author</span></div>
-      <div class="jr-desc dim">Commission one AI, watch its tools, and guide it while it writes.</div>
+    <div class="tome-list"><button class="tome-row forge checking" id="tome-forge" disabled aria-busy="true">
+      <div class="jr-top"><span class="jr-name">＋ FORGE A NEW TOME</span><span class="jr-tag num" id="tome-forge-state">checking bindery</span></div>
+      <div class="jr-desc dim" id="tome-forge-note">Checking whether another tome is currently being forged.</div>
     </button><div id="forge-active" style="display:contents"></div>${rows || '<p class="dim">The shelf is bare.</p>'}</div>`,
     [["LEAVE THE SHELF", "quiet", null]]);
-  $("#tome-forge").onclick = () => closeModal(forgeEntry);
+  const forgeButton = $("#tome-forge"), forgeState = $("#tome-forge-state"),
+        forgeNote = $("#tome-forge-note"), activeSlot = $("#forge-active");
+  forgeButton.onclick = () => { if (!forgeButton.disabled) closeModal(forgeEntry); };
   document.querySelectorAll("#modal-root .tome-row[data-tome]").forEach((button) => {
     button.onclick = () => { localStorage.setItem("activeTome", button.dataset.tome); location.reload(); };
   });
-  fetchActiveBuilds().then((builds) => {
-    const slot = $("#forge-active");
-    if (!slot) return;
-    slot.innerHTML = builds.map((build) => `<button class="tome-row forging" data-job="${esc(build.id)}" data-trace="${esc(build.traceId || build.id)}" data-state="${esc(build.interactionState || "running")}">
+  const refreshActiveBuilds = async () => {
+    if (!forgeButton.isConnected) return;
+    try {
+      const builds = await fetchActiveBuilds({ failClosed: true });
+      if (!forgeButton.isConnected) return;
+      const busy = builds.length > 0;
+      forgeButton.disabled = busy;
+      forgeButton.classList.toggle("busy", busy);
+      forgeButton.classList.remove("checking");
+      forgeButton.setAttribute("aria-busy", "false");
+      forgeState.textContent = busy ? "author busy" : "single author";
+      forgeNote.textContent = busy
+        ? "Finish or abandon the current working before forging another tome."
+        : "Commission one AI, watch its tools, and guide it while it writes.";
+      activeSlot.innerHTML = builds.map((build) => `<button class="tome-row forging" data-job="${esc(build.id)}" data-trace="${esc(build.traceId || build.id)}" data-state="${esc(build.interactionState || "running")}">
       <div class="jr-top"><span class="jr-name">${esc(build.name || "Untitled")}</span><span class="jr-tag num">${esc(build.interactionState || "authoring")}</span></div>
       <div class="jr-desc">Phase ${build.phase || 1} / 8 — ${esc(build.phaseTitle || "starting")}</div></button>`).join("");
-    slot.querySelectorAll("[data-job]").forEach((button) => {
+      activeSlot.querySelectorAll("[data-job]").forEach((button) => {
       button.onclick = () => closeModal(() => openBuildOverlay(button.dataset.job, button.dataset.trace));
-    });
-  });
+      });
+    } catch {
+      if (!forgeButton.isConnected) return;
+      forgeButton.disabled = true;
+      forgeButton.classList.add("checking");
+      forgeButton.setAttribute("aria-busy", "true");
+      forgeState.textContent = "status unavailable";
+      forgeNote.textContent = "The bindery must confirm no tome is active before starting another.";
+    }
+    if (forgeButton.isConnected) setTimeout(refreshActiveBuilds, 3000);
+  };
+  refreshActiveBuilds();
 }
 
 function phaseLine(status, interactionState) {
@@ -88,7 +114,8 @@ export function openBuildOverlay(jobId, traceId = jobId) {
   overlay.dataset.job = jobId;
   overlay.innerHTML = `<div class="grade-card forge-session-card">
     <header class="forge-session-head"><div><div class="faint forge-kicker">THE BINDERY // SINGLE AUTHOR</div>
-      <h2 id="fp-name">Reattaching…</h2><div id="fp-phase">Phase 1 / 8 — starting</div></div>
+      <h2 id="fp-name">Reattaching…</h2><div class="forge-session-meta"><div id="fp-phase">Phase 1 / 8 — starting</div>
+        <div class="forge-session-model"><span>MODEL</span><strong id="fp-model">ATTACHING…</strong></div></div></div>
       <div class="forge-session-badge" id="fp-session-state">ATTACHING</div></header>
     <div class="forge-phases">${FORGE_PHASES.map((title, index) => `<div class="forge-phase" data-ph="${index + 1}">
       <span class="num">${index + 1}</span><span>${esc(title)}</span><span class="fp-mark num"></span></div>`).join("")}</div>
@@ -222,12 +249,18 @@ export function openBuildOverlay(jobId, traceId = jobId) {
     const phase = $("#fp-phase", overlay);
     phase.textContent = phaseLine(status, state);
     phase.dataset.state = state;
+    const author = status.sessionAuthor || {};
+    $("#fp-model", overlay).textContent = author.model
+      ? `${author.model}${author.effort ? ` · ${String(author.effort).toUpperCase()} EFFORT` : ""}`
+      : status.runner || "ATTACHING…";
     $("#fp-session-state", overlay).textContent = state.toUpperCase();
     $("#fp-session-state", overlay).dataset.state = state;
     $("#fp-session-id", overlay).textContent = status.sessionId ? `SESSION ${status.sessionId.slice(0, 12)}` : "SESSION STARTING";
-    pause.textContent = state === "paused" ? "RESUME AUTHOR"
+    const reviewerActive = status.sessionRole === "reviewer";
+    $("#fp-trace-source", overlay).dataset.role = reviewerActive ? "reviewer" : "author";
+    pause.textContent = state === "paused" ? `RESUME ${reviewerActive ? "REVIEWER" : "AUTHOR"}`
       : state === "pausing" ? "PAUSING…" : state === "resuming" ? "RESUMING…"
-      : state === "validating" ? "VALIDATING…" : "PAUSE AUTHOR";
+      : state === "validating" ? "VALIDATING…" : `PAUSE ${reviewerActive ? "REVIEWER" : "AUTHOR"}`;
     pause.disabled = state === "pausing" || state === "resuming" || state === "validating";
     const authorDown = state === "paused" && status.sessionError;
     fail.classList.toggle("hidden", !authorDown);
@@ -244,10 +277,11 @@ export function openBuildOverlay(jobId, traceId = jobId) {
     const nextTrace = lines.join("\0");
     if (nextTrace !== traceKey) {
       traceKey = nextTrace; const terminal = $("#fp-trace-lines", overlay);
-      terminal.innerHTML = lines.length ? lines.map((line) => `<div class="forge-terminal-line">${esc(line)}</div>`).join("")
+      terminal.innerHTML = lines.length ? lines.map((line) =>
+        `<div class="forge-terminal-line">${esc(line)}</div>`).join("")
         : `<div class="forge-trace-empty">Waiting for the author's first tool call…</div>`;
       terminal.scrollTop = terminal.scrollHeight;
-      $("#fp-trace-source", overlay).textContent = `${String(tooling?.provider || "AUTHOR").toUpperCase()} TOOL HISTORY`;
+      $("#fp-trace-source", overlay).textContent = `${String(tooling?.provider || (reviewerActive ? "REVIEWER" : "AUTHOR")).toUpperCase()} TOOL HISTORY`;
       $("#fp-trace-count", overlay).textContent = `${lines.length} CALL${lines.length === 1 ? "" : "S"}`;
     }
     const conversation = Array.isArray(status.conversation) ? status.conversation : [];
@@ -258,7 +292,7 @@ export function openBuildOverlay(jobId, traceId = jobId) {
       box.innerHTML = conversation.length ? conversation.map((row) => {
         const stamp = messageStamp(row.at);
         return `<div class="forge-chat ${esc(row.kind)}"><div class="forge-chat-meta">
-          <span class="forge-chat-role">${row.kind === "user" ? "YOU" : row.kind === "assistant" ? "AUTHOR" : row.kind === "harness" ? "HARNESS" : "SESSION"}</span>
+          <span class="forge-chat-role">${row.kind === "user" ? "YOU" : row.kind === "assistant" ? (row.role === "reviewer" ? "REVIEWER" : "AUTHOR") : row.kind === "harness" ? "HARNESS" : "SESSION"}</span>
           ${stamp ? `<time datetime="${esc(stamp.iso)}">${esc(stamp.label)}</time>` : ""}</div>
           <div class="forge-chat-text">${esc(row.text)}</div></div>`;
       }).join("") : `<div class="forge-chat-empty">Waiting for the author…</div>`;
@@ -272,7 +306,9 @@ export function openBuildOverlay(jobId, traceId = jobId) {
     const card = $(".grade-card", overlay), close = () => { forgeOverlay = null; dropOverlay(overlay); };
     if (status.status === "done") {
       sfx("grade"); card.innerHTML = `<div class="grading-anim"><div class="faint forge-kicker">THE BINDERY // COMPLETE</div>
-        <h2>${esc(status.name || status.tome || "The tome")}</h2><p>Eight phases, one continuous author session, and clean shipping gates.</p>
+        <h2>${esc(status.name || status.tome || "The tome")}</h2><p>${status.sessionRole === "reviewer"
+          ? "Eight authoring phases, a thorough independent review of every file, and clean shipping gates."
+          : "Eight phases, one continuous author session, and clean shipping gates."}</p>
         <div class="modal-actions"><button class="btn quiet" id="fp-later">LEAVE ON THE SHELF</button><button class="btn" id="fp-open">OPEN THE TOME</button></div></div>`;
       $("#fp-open", card).onclick = () => { localStorage.setItem("activeTome", status.tome); location.reload(); };
       $("#fp-later", card).onclick = close;

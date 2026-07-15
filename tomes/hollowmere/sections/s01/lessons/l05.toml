@@ -1,0 +1,152 @@
+[[lessons]]
+id = "s01-l05"
+title = "Read the Smoke above the Water"
+teaches = ["traceback-guided-recovery", "deterministic-section-proof", "tool-run-test", "tool-diagnose"]
+body = '''
+<p>A failed run is evidence. Python's <strong>traceback</strong> lists the path of active calls that led to an exception. Read it from the bottom upward. The final line gives the exception category and message; the file-and-line entry above it points to the immediate failing statement. Fix that first concrete cause, save, and rerun the same command. Do not change three unrelated files at once, because then the next result cannot tell you which change mattered.</p>
+<pre><code data-kind="runnable">def require_positive(frame_limit):
+    if frame_limit &lt;= 0:
+        raise ValueError("frame_limit must be positive")
+    return frame_limit
+
+
+try:
+    print(require_positive(1))
+except ValueError as error:
+    print("RECOVERED", error)</code></pre>
+<p><code>raise</code> deliberately creates an exception when an input violates a rule. <code>ValueError</code> says the kind of input is acceptable—an integer—but its value is not. In <code>except ValueError as error:</code>, <code>except</code> selects only that category and <code>as error</code> binds the caught exception to a readable name. The example prints <code>1</code>. Change the argument to zero and it prints the recovery message instead of a traceback. A bare <code>except:</code> would hide keyboard interrupts and unrelated defects, so Hollowmere catches only errors it can actually explain or recover from.</p>
+<p>A <strong>test</strong> is a function whose name starts with <code>test_</code> and whose <code>assert</code> statements describe required facts. <code>assert actual == expected</code> passes silently when the comparison is true. When false, pytest reports the test path, failing expression, and differing values. Run <code>python -m pytest -q</code> from the project root. “No tests ran” usually means the file or function missed pytest's naming convention; an import error usually means the environment, <code>src</code> layout, or spelling is wrong.</p>
+<pre><code data-kind="runnable">def toolchain_summary():
+    return "Hollowmere 960x540 @ 60 FPS"
+
+
+def test_toolchain_summary():
+    assert toolchain_summary() == "Hollowmere 960x540 @ 60 FPS"
+
+
+test_toolchain_summary()
+print("TEST READY")</code></pre>
+<p>A graphical game also needs a display-free <strong>proof mode</strong>. The runtime appends <code>--arcanum-proof s01</code> to the real launcher. Python exposes command arguments in <code>sys.argv</code>, an ordered sequence whose position zero is the script path. <code>len(sys.argv) == 3</code> checks the expected count; <code>sys.argv[1]</code> and <code>sys.argv[2]</code> read the switch and section id. Indexes begin at zero. Reading a missing position raises <code>IndexError</code>, which is why the length check comes first and <code>and</code> stops before later checks when an earlier one is false.</p>
+<p>The proof path must initialize and release real Pygame but never open a display or wait for input. It returns one exact receipt assembled from canonical configuration. Ordinary launch still enters the actual window loop. Printing a hard-coded success line from an unrelated script would prove nothing; the receipt must flow through the same package entrypoint, configuration names, Pygame lifecycle, and cleanup used by the game.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // NARROW RECOVERY</div>
+<p>Keep proof switches narrow and deterministic. They are not cheat codes and never mutate game progress. Later proofs exercise collision, quests, combat, and saves through their real domain functions while avoiding human timing and optional media.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "traceback-guided-recovery"
+purpose = "Use Python and pytest diagnostics to isolate one concrete failure, repair it, and rerun the same smallest command."
+anatomy = "Read the traceback's final exception and message; find the nearest file and line above it; inspect names, paths, indentation, and values there; make one repair; save; rerun."
+example = "require_positive raises a specific ValueError and the matching except clause demonstrates a controlled recovery."
+observable = "Valid input prints 1; zero prints a named recovery message; a failed assert shows the actual and expected values."
+failure = "A bare except hides unrelated defects, while editing several files before rerunning destroys the evidence needed to identify the cause."
+practice = "s01-l05-e2"
+
+[[lessons.concepts]]
+id = "deterministic-section-proof"
+purpose = "Exercise Hollowmere's real configuration and Pygame startup boundary without opening a display or waiting for a person."
+anatomy = "Inspect the safe argument count and positions; select --arcanum-proof s01; initialize Pygame; build the receipt from canonical names; return it; release Pygame in finally; print once from the real entrypoint."
+example = "The lesson traces python main.py --arcanum-proof s01 through sys.argv, run_proof, startup_receipt, and guaranteed cleanup."
+observable = "The command prints exactly S01_OK project=Hollowmere window=960x540 fps=60 pygame=ready and exits zero."
+failure = "Opening the display makes the check environment-dependent; indexing before checking argument count can raise IndexError; a literal unrelated PASS line does not exercise the boundary."
+practice = "s01-l05-e3"
+
+[[lessons.concepts]]
+id = "tool-run-test"
+purpose = "Run Hollowmere and its focused pytest checks from the external project root, then distinguish ordinary launch from deterministic proof."
+anatomy = "Activate .venv; save files; run python -m pytest -q for tests; run python main.py --arcanum-proof s01 for the receipt; run python -m hollowmere for the ordinary window."
+example = "The lesson's pytest command collects test_diagnostics.py, while the Working names the exact proof and ordinary launch commands."
+observable = "pytest reports passing tests, proof prints one S01_OK line, and ordinary launch opens the responsive Pygame window."
+failure = "No tests ran identifies a discovery-name problem; import errors identify environment/path problems; unexpected proof output identifies an entrypoint problem."
+practice = "s01-l05-e3"
+
+[[lessons.concepts]]
+id = "tool-diagnose"
+purpose = "Use terminal, Python, and pytest diagnostics to identify one failing file, line, category, and repair."
+anatomy = "Read the traceback's final category/message; move upward to the nearest Hollowmere file and line; compare the command, path, spelling, indentation, and value; change one cause; save; rerun."
+example = "The ValueError example and pytest assertion example show both a controlled error and a report with actual versus expected values."
+observable = "The same smallest command changes from a specific failure to its expected output after one targeted repair."
+failure = "Catching every exception or changing several unrelated files hides the evidence and prevents a causal diagnosis."
+practice = "s01-l05-e1"
+
+[[lessons.artifactSteps]]
+id = "s01-add-diagnostic-test"
+path = "tests/test_diagnostics.py"
+mode = "write"
+instruction = "Create tests/test_diagnostics.py with this first stable test, then run python -m pytest -q from the project root."
+content = '''
+"""Tests for display-free diagnostic values."""
+
+from hollowmere.diagnostics import toolchain_summary
+
+
+def test_toolchain_summary():
+    assert toolchain_summary() == "Hollowmere 960x540 @ 60 FPS"
+'''
+
+[[lessons.readings]]
+label = "Python tutorial — Errors and exceptions"
+url = "https://docs.python.org/3/tutorial/errors.html"
+
+[[lessons.readings]]
+label = "pytest documentation — Get started"
+url = "https://docs.pytest.org/en/stable/getting-started.html"
+
+[[lessons.exercises]]
+id = "s01-l05-e1"
+type = "mc"
+points = 15
+prompt = "A Hollowmere command fails with a long traceback. Which evidence should be read first?"
+choices = ["The first imported module", "Every line in alphabetical order", "The final exception category and message", "The number of files in src"]
+answer = 2
+whyWrong = "Imports and file counts do not identify the immediate failure, and tracebacks are chronological rather than alphabetical. The final line names the exception and its message."
+hint = "Start where Python summarizes what stopped the run."
+explain = "Then move upward to the nearest project file and line that produced that exception."
+
+[[lessons.exercises]]
+id = "s01-l05-e2"
+type = "fill"
+points = 20
+prompt = "Complete the specific exception used when a numeric frame limit has an unacceptable value."
+code = '''
+if frame_limit &lt;= 0:
+    raise ____("frame_limit must be positive")
+'''
+answer = "ValueError"
+whyWrong = "The name and type exist; it is the supplied numeric value that violates the function's rule."
+hint = "Choose the built-in exception whose name describes an unacceptable value."
+
+[[lessons.exercises]]
+id = "s01-l05-w1"
+type = "write"
+points = 35
+prompt = 'Define <code>require_frames(frame_limit)</code>. Raise <code>ValueError("frame_limit must be positive")</code> when the value is zero or less; otherwise return it. Call the function with <code>0</code>, catch that exact exception as <code>error</code>, and print exactly <code>RECOVERED frame_limit must be positive</code>.'
+starter = '''
+def require_frames(frame_limit):
+    # Validate and return the value.
+    pass
+'''
+expect = '''
+RECOVERED frame_limit must be positive
+'''
+solution = '''
+def require_frames(frame_limit):
+    if frame_limit <= 0:
+        raise ValueError("frame_limit must be positive")
+    return frame_limit
+
+
+try:
+    print(require_frames(0))
+except ValueError as error:
+    print("RECOVERED", error)
+'''
+hint = "Use <= in the function, then place the zero call in try and catch only ValueError."
+
+[[lessons.exercises]]
+id = "s01-l05-e3"
+type = "text"
+points = 20
+prompt = "Which standard-library sequence contains the script path followed by command-line arguments?"
+answer = "sys.argv"
+hint = "Name the imported module and its dotted argument attribute."
+whyWrong = "input() reads interactive text and os.environ holds environment keys; Python places launch arguments on the argv attribute of sys."

@@ -1,0 +1,155 @@
+[freestyle]
+title = "THE WORKING: Prove the Causeway"
+brief = '''Mara Venn wants a display-free survey that walks the same solid ground as the ordinary scene. Extend the cumulative proof without weakening either earlier lantern.<ul><li>Add <code>spatial_receipt()</code> beside MarshScene. It must construct the canonical 960×540 debug-off scene, record the spawn x, call <code>scene.update({"right": True}, 0.5)</code>, derive the Player Rect, tile through <code>world_to_tile</code>, Camera offset, blocked direction, and debug state from resulting behavior, then return exactly <code>S03_OK player=96,64 tile=3,2 camera=0,0 blocked=right debug=off</code>.</li><li>Extend the existing <code>run_proof(section)</code> switchboard with s03 while preserving exact s01 and s02 routes, unknown-id ValueError, one real Pygame init/try/finally lifecycle, and no display creation.</li><li>Create <code>tests/milestones/test_s03.py</code> to assert the exact receipt, real bank collision, coordinate derivation, zero camera clamp, debug-off state, and released Pygame state.</li><li>Keep ordinary launch on one Clock, one event drain, InputState, MarshScene update/render, display flip, and finally-owned cleanup. Do not add a second launcher or proof-only collision implementation.</li><li>Run pytest and all three proof commands from the project root; each proof must print only its declared receipt.</li></ul>'''
+requires = ["dictionary-action-state", "player-inherits-entity", "integer-rect-boundary", "vector-normalized-direction", "delta-time-player-update", "event-loop-clean-shutdown", "cumulative-proof-routing", "event-driven-action-state", "focus-safe-held-input", "axis-separated-rect-collision", "bounded-world-clamp", "world-tile-screen-coordinates", "clamped-camera-follow", "stable-scene-update-render", "debug-overlay-boundary", "event-loop-scene-integration", "cumulative-spatial-proof"]
+reward = 280
+xray = "Mara docks direct target assignment, a literal receipt, collision in screen space, combined-axis snapping, raw millisecond movement, an unclamped camera, a debug shortcut in the four-action dictionary, a second event drain, display creation in proof mode, older proof regression, or cleanup outside finally. She rewards behavior-derived evidence, one owner per coordinate space, focused tests, snake_case, grouped imports, and four-space layout."
+
+[[freestyle.referenceSteps]]
+id = "s03-reference-import-tile-conversion"
+path = "src/hollowmere/scene.py"
+mode = "replace"
+instruction = "Privately expose the canonical coordinate conversion to the spatial receipt."
+find = '''
+from .camera import Camera
+'''
+content = '''
+from .camera import Camera, world_to_tile
+'''
+
+[[freestyle.referenceSteps]]
+id = "s03-reference-add-spatial-receipt"
+path = "src/hollowmere/scene.py"
+mode = "append"
+instruction = "Privately add a deterministic receipt derived from MarshScene update, collision, coordinate, camera, and debug behavior."
+content = '''
+
+
+def spatial_receipt():
+    """Return the deterministic section-three spatial receipt."""
+    scene = MarshScene((960, 540), debug=False)
+    start_x = round(scene.player.position.x)
+    scene.update({"right": True}, 0.5)
+    body = scene.player.rect()
+    tile = world_to_tile(scene.player.position)
+    blocked = "right" if body.x == start_x else "none"
+    debug_state = "on" if scene.debug else "off"
+    return (
+        f"S03_OK player={body.x},{body.y} tile={tile[0]},{tile[1]}"
+        f" camera={round(scene.camera.offset.x)},{round(scene.camera.offset.y)}"
+        f" blocked={blocked} debug={debug_state}"
+    )
+'''
+
+[[freestyle.referenceSteps]]
+id = "s03-reference-import-spatial-receipt"
+path = "src/hollowmere/app.py"
+mode = "replace"
+instruction = "Privately import the new receipt through the existing app proof boundary."
+find = '''
+from .scene import MarshScene
+'''
+content = '''
+from .scene import MarshScene, spatial_receipt
+'''
+
+[[freestyle.referenceSteps]]
+id = "s03-reference-extend-proof-router"
+path = "src/hollowmere/app.py"
+mode = "replace"
+instruction = "Privately extend the shared proof router while preserving s01, s02, unknown-id behavior, and one cleanup path."
+find = '''
+def run_proof(section):
+    """Exercise a deterministic milestone without opening a display."""
+    pygame.init()
+    try:
+        if section == "s01":
+            return startup_receipt()
+        if section == "s02":
+            return movement_receipt()
+        raise ValueError(f"unsupported proof section: {section}")
+    finally:
+        pygame.quit()
+'''
+content = '''
+def run_proof(section):
+    """Exercise a deterministic milestone without opening a display."""
+    pygame.init()
+    try:
+        if section == "s01":
+            return startup_receipt()
+        if section == "s02":
+            return movement_receipt()
+        if section == "s03":
+            return spatial_receipt()
+        raise ValueError(f"unsupported proof section: {section}")
+    finally:
+        pygame.quit()
+'''
+
+[[freestyle.referenceSteps]]
+id = "s03-reference-milestone-test"
+path = "tests/milestones/test_s03.py"
+mode = "write"
+instruction = "Privately add the exact section-three milestone checks for spatial behavior and shared cleanup."
+content = '''
+"""Executable milestone for section s03."""
+
+import pygame
+
+from hollowmere.app import run_proof
+from hollowmere.camera import world_to_tile
+from hollowmere.scene import MarshScene, spatial_receipt
+
+
+EXPECTED = (
+    "S03_OK player=96,64 tile=3,2 camera=0,0"
+    " blocked=right debug=off"
+)
+
+
+def test_spatial_receipt_uses_solid_scene_behavior():
+    assert spatial_receipt() == EXPECTED
+    scene = MarshScene((960, 540), debug=False)
+    scene.update({"right": True}, 0.5)
+    assert scene.player.rect().topleft == (96, 64)
+    assert world_to_tile(scene.player.position) == (3, 2)
+    assert scene.camera.offset == pygame.Vector2(0, 0)
+    assert scene.debug is False
+
+
+def test_section_three_proof_releases_pygame():
+    assert not pygame.get_init()
+    assert run_proof("s03") == EXPECTED
+    assert not pygame.get_init()
+'''
+
+[freestyle.badge]
+id = "badge-s03"
+name = "SOLID CAUSEWAY"
+desc = "Separated input, collision, coordinates, camera, and rendering into one provable marsh scene."
+
+[[freestyle.rubric]]
+criterion = "Event and scene boundary"
+weight = 20
+desc = "InputState preserves four named actions and focus safety; ordinary run_game retains one Clock, event drain, scene update/render, display flip, canonical entrypoint, and finally cleanup."
+
+[[freestyle.rubric]]
+criterion = "Collision and coordinate truth"
+weight = 25
+desc = "Player displacement remains seconds-based; CollisionWorld resolves x then y against world Rects and bounds; tile and screen coordinates derive through canonical conversions without mutating world state."
+
+[[freestyle.rubric]]
+criterion = "Camera and debug isolation"
+weight = 15
+desc = "Camera follows and clamps within world extent; overlays and one-shot teleport require HOLLOWMERE_DEBUG, remain outside Player actions, and ordinary/debug-off behavior stays deterministic."
+
+[[freestyle.rubric]]
+criterion = "Behavior-derived cumulative proof"
+weight = 25
+desc = "spatial_receipt and milestone tests traverse real scene update/collision/conversion/camera behavior, print the exact S03_OK line, preserve exact s01/s02 proofs, open no display, and verify Pygame cleanup."
+
+[[freestyle.rubric]]
+criterion = "Python naming and layout"
+weight = 15
+desc = "Follow PEP 8 at this level: CapWords for InputState, CollisionWorld, Camera, and MarshScene; snake_case for functions/variables; UPPER_CASE for constants; grouped imports, four-space indentation, and blank lines between top-level definitions."

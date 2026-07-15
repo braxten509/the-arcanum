@@ -1,0 +1,176 @@
+[[lessons]]
+id = "s01-l03"
+title = "Fold the Map into Modules"
+teaches = ["function-module-boundary", "bounded-loop-control"]
+body = '''
+<p>Repeated work deserves a name. A <strong>function</strong> packages statements behind one call. Read <code>def make_label(project_name):</code> from left to right: <code>def</code> begins a definition, <code>make_label</code> is the function's snake_case name, <code>project_name</code> is a parameter that receives one input, and the colon opens the four-space-indented body. <code>return</code> sends one value back to the caller. Defining a function does not run its body; the later call does.</p>
+<pre><code data-kind="runnable">def make_label(project_name):
+    return "PROJECT " + project_name
+
+
+label = make_label("Hollowmere")
+print(label)</code></pre>
+<p>The result is <code>PROJECT Hollowmere</code>. The <code>+</code> operator joins these two strings into a new string. A likely failure is forgetting <code>return</code>: the call then produces <code>None</code>, Python's “no value” marker, and <code>print(label)</code> shows <code>None</code>. The blank lines are layout rather than behavior; PEP 8 uses blank lines to separate top-level functions from surrounding code.</p>
+<p>A <strong>module</strong> is a saved <code>.py</code> file. <code>from hollowmere.config import PROJECT_NAME</code> first names the package, then the module, then the exact public name to bind in the importing file. Imports belong near the top. If the spelling or file location is wrong, Python raises <code>ModuleNotFoundError</code> or <code>ImportError</code>. Run from the project root with the environment active so <code>src</code> is on the configured project path.</p>
+<p>An f-string begins with <code>f</code> immediately before the opening quote. Braces inside it evaluate a name: <code>f"PROJECT {PROJECT_NAME}"</code> produces <code>PROJECT Hollowmere</code>. Missing the leading <code>f</code> prints the braces literally. A triple-quoted string placed first in a module or function is a <strong>docstring</strong>; tools can display it as documentation, while the program otherwise continues normally. The keyword <code>pass</code> is an explicit do-nothing placeholder that keeps an indented practice block syntactically valid until you replace it.</p>
+<p>Loops repeat a block. <code>for frame_number in range(1, 4):</code> asks <code>range</code> for the integers starting at 1 and stopping before 4. The <code>for</code> statement assigns each value to <code>frame_number</code>, then runs its indented body. The stop value is excluded, so the example prints three frames, not four.</p>
+<pre><code data-kind="runnable">for frame_number in range(1, 4):
+    print("FRAME", frame_number)</code></pre>
+<p>A <code>while</code> loop repeats while its Boolean condition remains true. It is the natural shape for a game that runs until the player closes it. Every <code>while</code> loop needs a path that changes its condition; otherwise it can run forever. For bounded practice, start with <code>frames_left = 3</code>, print it, then replace it with <code>frames_left - 1</code> each pass. The subtraction operator produces the smaller integer. When the value reaches zero, its Boolean meaning is false and the loop stops.</p>
+<pre><code data-kind="runnable">frames_left = 3
+
+while frames_left:
+    print("TICK", frames_left)
+    frames_left = frames_left - 1</code></pre>
+<p>Hollowmere's diagnostic module owns text receipts. Keeping receipt construction away from the window loop gives tests a display-free boundary. Later chapters may expand the game, but they can continue calling the same diagnostic function.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SMALL BORDERS</div>
+<p>Prefer a function that returns data over one that prints internally when callers need to test or reuse the result. A leading dot in <code>from .config import PROJECT_NAME</code> means “the config module beside this file,” so the package works through both supported launch paths.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "function-module-boundary"
+purpose = "Give reusable logic a stable name and keep configuration, diagnostics, and entrypoint responsibilities in separate Python files."
+anatomy = "Define with def, a snake_case name, parentheses and parameters, colon, indented body, and return; import a public name from package.module before calling it."
+example = "make_label receives Hollowmere, joins a label, returns it, and the caller prints PROJECT Hollowmere."
+observable = "The caller receives and prints a string rather than relying on hidden module output."
+failure = "A missing return yields None; a misspelled package, module, or imported name raises ModuleNotFoundError or ImportError."
+practice = "s01-l03-e2"
+
+[[lessons.concepts]]
+id = "bounded-loop-control"
+purpose = "Repeat frame-shaped work while retaining an explicit, testable stopping rule."
+anatomy = "Use for with a loop name, in, range start/stop, colon, and an indented body for known counts; use while with a Boolean condition and change that condition inside the body."
+example = "The FRAME example visits 1, 2, and 3; the TICK example reduces frames_left until it reaches zero."
+observable = "Both worked examples print a finite sequence and then return control to the terminal."
+failure = "Treating range's stop as inclusive creates an off-by-one expectation; failing to change a while condition creates an endless loop."
+practice = "s01-l03-d1"
+
+[[lessons.artifactSteps]]
+id = "s01-create-package-marker"
+path = "src/hollowmere/__init__.py"
+mode = "write"
+instruction = "Create src/hollowmere/__init__.py with a package docstring and stable version before importing sibling modules."
+content = '''
+"""Hollowmere, a cumulative 2D RPG project."""
+
+__version__ = "0.1.0"
+'''
+
+[[lessons.artifactSteps]]
+id = "s01-create-diagnostics"
+path = "src/hollowmere/diagnostics.py"
+mode = "write"
+instruction = 'Create src/hollowmere/diagnostics.py with this display-free summary function. From the project root, run python -c "from hollowmere.diagnostics import toolchain_summary; print(toolchain_summary())" after installing the project editable or with the configured test path.'
+content = '''
+"""Display-free receipts for tests and command-line proof."""
+
+from .config import (
+    PROJECT_NAME,
+    TARGET_FPS,
+    WINDOW_HEIGHT,
+    WINDOW_WIDTH,
+)
+
+
+def toolchain_summary():
+    """Describe the stable startup configuration."""
+    return (
+        f"{PROJECT_NAME} {WINDOW_WIDTH}x{WINDOW_HEIGHT}"
+        f" @ {TARGET_FPS} FPS"
+    )
+'''
+
+[[lessons.readings]]
+label = "Python tutorial — Defining functions"
+url = "https://docs.python.org/3/tutorial/controlflow.html#defining-functions"
+
+[[lessons.readings]]
+label = "Python tutorial — Modules"
+url = "https://docs.python.org/3/tutorial/modules.html"
+
+[[lessons.exercises]]
+id = "s01-l03-e1"
+type = "mc"
+points = 15
+prompt = "Why does <code>range(1, 4)</code> drive exactly three diagnostic frames?"
+choices = ["The loop skips every fourth value", "The stop value 4 is excluded", "Python starts all ranges at zero", "The print call removes the final frame"]
+answer = 1
+whyWrong = "The start is explicitly 1, print does not alter iteration, and range does not skip arbitrary values. Its stop boundary is excluded, yielding 1, 2, and 3."
+hint = "Distinguish the included start boundary from the excluded stop boundary."
+explain = "An excluded stop makes counts predictable: range(1, frame_count + 1) includes frame_count."
+
+[[lessons.exercises]]
+id = "s01-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the complete bounded frame loop."
+code = '''
+for frame_number in range(1, 4):
+    print("FRAME", frame_number)
+'''
+
+[[lessons.exercises]]
+id = "s01-l03-e2"
+type = "fill"
+points = 20
+prompt = "Complete the load-bearing keyword that sends a value from this function to its caller."
+code = '''
+def project_label():
+    ____ "PROJECT Hollowmere"
+'''
+answer = "return"
+whyWrong = "Printing would create output inside the function but would not give the string back to its caller. The return keyword supplies the call's value."
+hint = "Use the keyword that ends the function call with a result."
+
+[[lessons.exercises]]
+id = "s01-l03-w1"
+type = "write"
+points = 30
+prompt = "Define <code>announce_frame(frame_number)</code> so it returns <code>FRAME N READY</code>. Loop over <code>range(1, 4)</code> and print each returned string. The exact output must be three lines from FRAME 1 READY through FRAME 3 READY."
+starter = '''
+def announce_frame(frame_number):
+    # Return one label here.
+    pass
+
+
+# Add the bounded loop here.
+'''
+expect = '''
+FRAME 1 READY
+FRAME 2 READY
+FRAME 3 READY
+'''
+solution = '''
+def announce_frame(frame_number):
+    return f"FRAME {frame_number} READY"
+
+
+for frame_number in range(1, 4):
+    print(announce_frame(frame_number))
+'''
+hint = "Return an f-string from the function, then call it inside a for loop whose stop remains 4."
+
+[[lessons.exercises]]
+id = "s01-l03-e3"
+type = "text"
+points = 20
+prompt = "Which special value does a Python function produce when its path reaches the end without executing a return statement?"
+answer = "None"
+hint = "It is Python's capitalized marker for the absence of a value."
+whyWrong = "An empty string and zero are concrete values. Falling off a function body produces Python's distinct no-value marker."
+
+[[lessons.exercises]]
+id = "s01-l03-e4"
+type = "fill"
+points = 20
+prompt = "Complete the update that guarantees this countdown eventually reaches zero."
+code = '''
+frames_left = 3
+while frames_left:
+    print(frames_left)
+    frames_left = frames_left ____ 1
+'''
+answer = "-"
+whyWrong = "Adding one moves the condition away from zero, while comparison leaves the stored count unchanged. Subtraction makes the stopping state reachable."
+hint = "Use the arithmetic operator that reduces the integer by one."

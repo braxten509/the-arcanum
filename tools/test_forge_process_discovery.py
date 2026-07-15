@@ -9,8 +9,23 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import arcanum.build_state as state  # noqa: E402
 import arcanum.forge as forge  # noqa: E402
+import arcanum.post_routes.builds as build_routes  # noqa: E402
 import arcanum.tomes as tomes  # noqa: E402
 from arcanum.post_routes.builds import _author  # noqa: E402
+
+
+class JsonHandler:
+    def send_json(self, payload, status=200):
+        return payload, status
+
+
+old_active_builds = build_routes.list_active_builds
+try:
+    build_routes.list_active_builds = lambda: [{"id": "live"}]
+    payload, status = build_routes.start_build(JsonHandler(), {})
+    assert status == 409 and "abandon the active tome" in payload["error"]
+finally:
+    build_routes.list_active_builds = old_active_builds
 
 
 def write_proc(root, pid, argv):

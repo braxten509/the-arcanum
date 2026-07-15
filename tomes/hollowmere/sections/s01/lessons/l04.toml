@@ -1,0 +1,261 @@
+[[lessons]]
+id = "s01-l04"
+title = "Keep the Lantern Burning"
+teaches = ["pygame-display-lifecycle", "event-loop-clean-shutdown"]
+body = '''
+<p>Pygame is a third-party <strong>library</strong>: installed code your project imports. <code>os.environ</code> is the operating system's supplied key-value mapping; brackets select the quoted <code>PYGAME_HIDE_SUPPORT_PROMPT</code> key and <code>= "1"</code> stores its text value before <code>import pygame</code>. Set it before the import so proof output stays exact. Then <code>pygame.init()</code> initializes Pygame's subsystems. The dot means “select this named operation from pygame”; the parentheses call it. <code>pygame.display.set_mode((960, 540))</code> requests a window and returns a screen surface. Its inner parentheses form an ordered width-and-height pair. Reversing the values makes a tall window, while omitting the pair raises <code>TypeError</code>.</p>
+<pre><code data-kind="runnable">import os
+
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+
+import pygame
+
+pygame.init()
+try:
+    screen = pygame.display.set_mode((320, 180))
+    screen.fill((18, 31, 43))
+    pygame.display.flip()
+    print("WINDOW READY")
+finally:
+    pygame.quit()</code></pre>
+<p>This example's observable terminal line is <code>WINDOW READY</code>, and a small dark-blue window appears briefly when run normally. <code>screen.fill</code> sets the current frame's background color; <code>pygame.display.flip()</code> presents that completed frame. The three integers are red, green, and blue channel strengths. They are not an image asset and no downloaded media is required.</p>
+<p><code>try</code> marks work that must be cleaned up. <code>finally</code> marks a block that runs whether the work succeeds or raises an exception. That makes <code>pygame.quit()</code> the reliable release point. Without it, a crash during setup can leave subsystems or a window alive until the process ends. The keywords, colons, and matching four-space blocks are load-bearing.</p>
+<p>A real game must keep its window responsive. <code>running = True</code> supplies the <code>while running:</code condition. Each frame, <code>pygame.event.get()</code> removes pending input and window messages from the event queue. <code>for event in ...</code> visits them. If <code>event.type == pygame.QUIT</code>, the user asked to close the window, so assignment changes <code>running</code> to <code>False</code>. The next while check stops the loop. Failing to drain events can make the operating system label the window unresponsive.</p>
+<pre><code data-kind="pseudocode">initialize Pygame
+try:
+    while the game is running:
+        read every queued event
+        stop when a QUIT event appears
+        update the world
+        draw one complete frame
+        limit the frame rate
+finally:
+    release Pygame</code></pre>
+<p><code>pygame.time.Clock()</code> creates a clock, and <code>clock.tick(TARGET_FPS)</code> waits as needed to keep this diagnostic loop near sixty frames per second. It is a limit, not a promise that slow work becomes fast. The loop below is intentionally sparse: section 2 replaces the diagnostic frame with player state while preserving event polling, the clock, and cleanup.</p>
+<p>The root <code>main.py</code> is a thin compatibility launcher for the workbench. Its <code>from src.hollowmere.__main__ import main</code> statement reaches the same package through the checked-out <code>src</code> folder; an editable external install may use <code>python -m hollowmere</code>. Both routes call the same <code>main()</code>. A misspelled segment raises <code>ModuleNotFoundError</code>, so copy the package path exactly.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // NEVER STARVE THE QUEUE</div>
+<p>Handle events once per frame even when Hollowmere has no player controls yet. Input, focus, resize, and close requests all share the queue; postponing it is not an optimization.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "pygame-display-lifecycle"
+purpose = "Initialize Pygame, create and present a real diagnostic window, control frame timing, and release every initialized subsystem."
+anatomy = "Hide the support prompt; import pygame; call init; request a display with an ordered size pair; fill and flip the screen; create a Clock and tick it; place pygame.quit in finally."
+example = "The complete WINDOW READY program initializes, displays one frame, prints an observable receipt, and releases Pygame."
+observable = "A 320x180 dark-blue window appears during an ordinary run, the terminal prints WINDOW READY, and the process exits cleanly."
+failure = "A malformed size pair raises TypeError; skipping display setup can make event handling unreliable; skipping finally risks incomplete cleanup after an exception."
+practice = "s01-l04-d1"
+
+[[lessons.concepts]]
+id = "event-loop-clean-shutdown"
+purpose = "Keep the game responsive until a real QUIT event changes the loop's running condition."
+anatomy = "Set running True; enter while running; iterate over pygame.event.get each frame; compare event.type with pygame.QUIT; assign running False; draw, flip, and tick before the next condition check."
+example = "The lifecycle explanation traces the exact event/update/render/tick order used by Hollowmere's app.py."
+observable = "The ordinary window remains responsive and closes when its close control produces a QUIT event."
+failure = "Never draining the queue produces an unresponsive window; never changing running creates a loop the close request cannot stop."
+practice = "s01-l04-e2"
+
+[[lessons.artifactSteps]]
+id = "s01-add-background-color"
+path = "src/hollowmere/config.py"
+mode = "append"
+instruction = "Append the diagnostic window's taught RGB triple to the existing canonical configuration."
+content = '''
+BACKGROUND_COLOR = (18, 31, 43)
+'''
+
+[[lessons.artifactSteps]]
+id = "s01-create-pygame-app"
+path = "src/hollowmere/app.py"
+mode = "write"
+instruction = "Create src/hollowmere/app.py with this complete diagnostic event loop. Run it only through the package entrypoint created next."
+content = '''
+"""Pygame startup, event loop, rendering, and cleanup."""
+
+import os
+
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+
+import pygame
+
+from .config import (
+    BACKGROUND_COLOR,
+    PROJECT_NAME,
+    TARGET_FPS,
+    WINDOW_HEIGHT,
+    WINDOW_WIDTH,
+)
+
+
+def run_game():
+    """Open the diagnostic window until the user closes it."""
+    pygame.init()
+    try:
+        screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+        pygame.display.set_caption(PROJECT_NAME)
+        clock = pygame.time.Clock()
+        running = True
+
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+
+            screen.fill(BACKGROUND_COLOR)
+            pygame.display.flip()
+            clock.tick(TARGET_FPS)
+    finally:
+        pygame.quit()
+'''
+
+[[lessons.artifactSteps]]
+id = "s01-create-package-entrypoint"
+path = "src/hollowmere/__main__.py"
+mode = "write"
+instruction = "Create src/hollowmere/__main__.py. This is the canonical python -m hollowmere entrypoint; at this stage it performs an ordinary launch."
+content = '''
+"""Command-line entrypoint for Hollowmere."""
+
+from .app import run_game
+
+
+def main():
+    """Choose the ordinary game launch."""
+    run_game()
+
+
+if __name__ == "__main__":
+    main()
+'''
+
+[[lessons.artifactSteps]]
+id = "s01-replace-runtime-scaffold"
+path = "main.py"
+mode = "replace"
+instruction = "Replace the runtime scaffold's original hello program with this workbench compatibility launcher. The exact replacement removes the temporary hello output."
+find = '''
+# Your program. Run it to see the output.
+print("hello")
+'''
+content = '''
+"""Workbench launcher for the src-layout Hollowmere package."""
+
+from src.hollowmere.__main__ import main
+
+
+if __name__ == "__main__":
+    main()
+'''
+
+[[lessons.readings]]
+label = "Pygame documentation — Display"
+url = "https://www.pygame.org/docs/ref/display.html"
+
+[[lessons.readings]]
+label = "Pygame documentation — Event queue"
+url = "https://www.pygame.org/docs/ref/event.html"
+
+[[lessons.exercises]]
+id = "s01-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the cleanup skeleton. The four-space indentation is part of Python's structure."
+code = '''
+import os
+
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+
+import pygame
+
+pygame.init()
+try:
+    pygame.display.set_mode((320, 180))
+    print("PYGAME READY")
+finally:
+    pygame.quit()
+'''
+
+[[lessons.exercises]]
+id = "s01-l04-e1"
+type = "mc"
+points = 15
+prompt = "Which operation must happen every frame so operating-system close and focus messages do not accumulate?"
+choices = ["pygame.display.set_caption()", "pygame.init()", "pygame.quit()", "pygame.event.get()"]
+answer = 3
+whyWrong = "Initialization happens once, the caption is metadata, and quit belongs after the loop. Reading pygame.event.get() drains and returns the queued events each frame."
+hint = "Choose the call that reads the queue rather than configuring or releasing Pygame."
+explain = "The event queue has a finite capacity, and an undrained window may be judged unresponsive."
+
+[[lessons.exercises]]
+id = "s01-l04-e2"
+type = "fill"
+points = 20
+prompt = "Complete the event constant that represents a window close request."
+code = '''
+for event in pygame.event.get():
+    if event.type == pygame.____:
+        running = False
+'''
+answer = "QUIT"
+whyWrong = "The comparison needs Pygame's uppercase close-event constant, not the cleanup function pygame.quit()."
+hint = "Use the uppercase event name documented by pygame.event."
+
+[[lessons.exercises]]
+id = "s01-l04-e3"
+type = "text"
+points = 20
+prompt = "Which Python cleanup keyword introduces a block that runs whether the protected Pygame work succeeds or raises an exception?"
+answer = "finally"
+hint = "It follows a try block and describes guaranteed cleanup."
+whyWrong = "except handles selected errors; the unconditional cleanup block uses a different keyword."
+
+[[lessons.exercises]]
+id = "s01-l04-w1"
+type = "write"
+points = 35
+prompt = "Import Pygame without its support greeting, initialize it, print exactly <code>PYGAME LIFECYCLE READY</code>, and guarantee <code>pygame.quit()</code> with try/finally. Do not open a display in this lab."
+starter = '''
+import os
+
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+
+import pygame
+'''
+expect = '''
+PYGAME LIFECYCLE READY
+'''
+solution = '''
+import os
+
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+
+import pygame
+
+pygame.init()
+try:
+    print("PYGAME LIFECYCLE READY")
+finally:
+    pygame.quit()
+'''
+hint = "Call pygame.init before try, place the exact print inside try, and put pygame.quit inside finally."
+
+[[lessons.exercises]]
+id = "s01-l04-e4"
+type = "mc"
+points = 15
+prompt = "Why is <code>clock.tick(TARGET_FPS)</code> placed after presenting the frame?"
+choices = ["It limits how quickly the next loop iteration begins", "It converts the screen into an event", "It guarantees all machines render at exactly the target speed", "It releases Pygame after each frame"]
+answer = 0
+whyWrong = "tick neither creates events nor releases Pygame, and it cannot make slow work reach a guaranteed speed. It waits when the frame finished sooner than the target budget."
+hint = "Think of tick as a speed ceiling, not rendering or cleanup."
+explain = "Later movement uses elapsed time, but the first loop only needs a bounded diagnostic pace."
+
+[[lessons.exercises]]
+id = "s01-l04-e5"
+type = "text"
+points = 20
+prompt = "What exact Pygame event attribute is compared with <code>pygame.QUIT</code>?"
+answer = "event.type"
+hint = "Name both the loop variable and the dotted field shown in the comparison."
+whyWrong = "The event object itself carries several fields; the comparison reads its type field."

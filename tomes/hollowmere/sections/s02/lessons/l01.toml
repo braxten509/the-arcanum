@@ -1,0 +1,115 @@
+[[lessons]]
+id = "s02-l01"
+title = "Bootprints on Moonwater"
+teaches = ["list-backed-entity-roster", "tuple-shaped-geometry", "dictionary-action-state"]
+body = '''
+<p>Game state contains groups. A <strong>list</strong> is a growable, ordered collection written with square brackets. <code>names = ["Wayfinder", "Ferryman"]</code> creates two string items. Positions begin at index zero, so <code>names[0]</code> is <code>Wayfinder</code>. <code>names.append("Heron")</code> calls the list's append method and mutates the same list by adding one item at the end. Reading an absent index raises <code>IndexError</code>; use <code>len(names)</code> to inspect the count before positional access.</p>
+<pre><code data-kind="runnable">entities = ["Wayfinder"]
+entities.append("Ferryman")
+
+for entity_name in entities:
+    print(entity_name)</code></pre>
+<p>The loop prints both names in order. Lists suit a changing roster because later combat can add or remove entities. Two variables can refer to the same mutable list, so a mutation through either name is visible through both. Use <code>copy()</code> only when you deliberately need an independent shallow list.</p>
+<p>A <strong>tuple</strong> is an ordered fixed-shape value, usually written with parentheses: <code>(32, 32)</code>. Index zero is width and index one is height. Tuples do not support item assignment; <code>size[0] = 40</code> raises <code>TypeError</code>. That fixed shape makes tuples appropriate for configuration pairs and RGB triples. Unpacking reads the positions into names: <code>width, height = (32, 32)</code>. Python requires the same number of names as tuple items or raises <code>ValueError</code>.</p>
+<pre><code data-kind="runnable">player_size = (32, 32)
+width, height = player_size
+print("SIZE", width, height)</code></pre>
+<p>A <strong>dictionary</strong> maps unique keys to values. Braces enclose comma-separated <code>key: value</code> pairs. Hollowmere uses string keys and Boolean values for action state: <code>{"left": False, "right": True}</code>. Bracket access such as <code>actions["right"]</code> requires the key and raises <code>KeyError</code> when it is absent. <code>actions.get("up", False)</code> returns the stored value or the supplied default without crashing. Assignment through a key adds or replaces that entry.</p>
+<pre><code data-kind="runnable">actions = {"left": False, "right": True}
+actions["up"] = False
+print("RIGHT", actions.get("right", False))</code></pre>
+<p>The result is <code>RIGHT True</code>. These three shapes have different jobs: lists hold a changing roster, tuples hold fixed geometry/configuration, and dictionaries name controls. Keeping those meanings stable prevents a later frame from guessing whether position zero means “left,” “width,” or “first enemy.”</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CHOOSE BY MEANING</div>
+<p>Do not choose a collection because its punctuation is shorter. Choose by the mutation and lookup contract callers need.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "list-backed-entity-roster"
+purpose = "Keep a growable, ordered roster of live game objects that one frame can iterate."
+anatomy = "Open square brackets; add comma-separated items; read zero-based positions; append new items; iterate each item with for."
+example = "The entities example appends Ferryman and prints both roster names in insertion order."
+observable = "The output contains Wayfinder followed by Ferryman, and len reports two."
+failure = "Reading an index outside the current length raises IndexError; aliasing means two names can mutate the same list."
+practice = "s02-l01-d1"
+
+[[lessons.concepts]]
+id = "tuple-shaped-geometry"
+purpose = "Represent fixed width/height, position, and color shapes whose item count and order should not change."
+anatomy = "Place comma-separated values in parentheses; read by zero-based index or unpack into the same number of names."
+example = "The player_size example unpacks (32, 32) into width and height and prints both."
+observable = "The terminal prints SIZE 32 32."
+failure = "Assigning a tuple item raises TypeError; unpacking into the wrong number of names raises ValueError."
+practice = "s02-l01-e2"
+
+[[lessons.concepts]]
+id = "dictionary-action-state"
+purpose = "Name each input action explicitly and retrieve an absent action as False."
+anatomy = "Open braces; write quoted key, colon, value pairs; access a required key with brackets or call get(key, default) for optional state."
+example = "The actions example adds up and reads right with a False default."
+observable = "The terminal prints RIGHT True."
+failure = "Bracket access to a missing key raises KeyError; get avoids that when false is the intended missing state."
+practice = "s02-l01-e3"
+
+[[lessons.artifactSteps]]
+id = "s02-add-player-configuration"
+path = "src/hollowmere/config.py"
+mode = "append"
+instruction = "Append the canonical player configuration to config.py. Keep the existing startup and background constants unchanged."
+content = '''
+PLAYER_NAME = "Wayfinder"
+PLAYER_START = (100.0, 100.0)
+PLAYER_SIZE = (32, 32)
+PLAYER_SPEED = 180.0
+PLAYER_COLOR = (218, 165, 74)
+'''
+
+[[lessons.readings]]
+label = "Python tutorial — Data structures"
+url = "https://docs.python.org/3/tutorial/datastructures.html"
+
+[[lessons.exercises]]
+id = "s02-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the complete growable roster example."
+code = '''
+entities = ["Wayfinder"]
+entities.append("Ferryman")
+'''
+
+[[lessons.exercises]]
+id = "s02-l01-e2"
+type = "fill"
+points = 20
+prompt = "Complete the fixed player-size pair."
+code = "player_size = (32, ____)"
+answer = "32"
+whyWrong = "The rectangle fallback is square, so width and height use the same taught dimension."
+hint = "Use the second dimension from the lesson's SIZE output."
+
+[[lessons.exercises]]
+id = "s02-l01-e3"
+type = "text"
+points = 20
+prompt = "Which dictionary method can return a supplied False default instead of raising KeyError for a missing action?"
+answer = "get"
+accept = ["dict.get", ".get"]
+hint = "It appears between the dictionary name and parentheses in the RIGHT example."
+whyWrong = "Bracket access requires a present key; the named lookup method accepts a fallback value."
+
+[[lessons.exercises]]
+id = "s02-l01-w1"
+type = "write"
+points = 32
+prompt = "Create <code>actions</code> with left False and right True. Create <code>entities</code> containing Wayfinder, append Ferryman, then print exactly <code>ROSTER 2 RIGHT True</code> using len and actions.get."
+expect = '''
+ROSTER 2 RIGHT True
+'''
+solution = '''
+actions = {"left": False, "right": True}
+entities = ["Wayfinder"]
+entities.append("Ferryman")
+print("ROSTER", len(entities), "RIGHT", actions.get("right", False))
+'''
+hint = "len(entities) supplies 2; actions.get needs the right key and False default."

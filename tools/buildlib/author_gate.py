@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import subprocess
 import time
 
 from . import BUILD_DIR, REPO
-from .measure import (validate, validate_live_smoke, validate_phase3, validate_section,
-                      validate_shipping)
+from .measure import (phase3_validator_argv, section_source_validator_argv, validate,
+                      validate_live_smoke, validate_phase3, validate_section,
+                      validate_shipping, validator_argv)
 from .prompts import read_tooling
 from .phase_reset import capture_phase_snapshot
 from .section_progress import write_section_progress
@@ -168,27 +170,73 @@ def advance_unit(build_id, unit):
     return current_unit(build_id, phase + 1)
 
 
-def next_prompt(passed, next_unit, report):
+def self_validation_commands(build_id, unit):
+    """Exact bounded checks the warm author runs before the harness repeats the gate."""
+    ctx = context(build_id)
+    if unit["kind"] == "section":
+        commands = [section_source_validator_argv(
+            ctx["tid"], unit["section"], ctx["tooling"], ctx["plan"])]
+    else:
+        phase = int(unit["phase"])
+        if phase == 1:
+            commands = [validator_argv(ctx["tid"], phase=1, plan_rel=ctx["plan"])]
+        elif phase == 2:
+            commands = [validator_argv(
+                ctx["tid"], phase=2, tooling=ctx["tooling"], run=False,
+                plan_rel=ctx["plan"])]
+        elif phase == 3:
+            commands = [phase3_validator_argv(
+                ctx["tid"], ctx["tooling"], ctx["plan"], run=True)]
+        elif phase in (4, 5, 6):
+            commands = [validator_argv(
+                ctx["tid"], phase=phase, tooling=ctx["tooling"], run=False,
+                plan_rel=ctx["plan"], phase_only=True)]
+        else:
+            commands = [
+                phase3_validator_argv(
+                    ctx["tid"], ctx["tooling"], ctx["plan"], run=True, strict=True),
+                ["python3", "tools/smoke_tome.py", ctx["tid"]],
+            ]
+    return [shlex.join(command) for command in commands]
+
+
+def self_validation_prompt(build_id, unit):
+    commands = self_validation_commands(build_id, unit)
+    rendered = "\n".join(f"`{command}`" for command in commands)
+    section_note = (" The harness will repeat the complete section gate without "
+                    "`--source-only`." if unit["kind"] == "section" else "")
+    return (
+        "Before handing off, run only the exact self-check command(s) below. Read the complete "
+        "report; if a command exits nonzero, repair only this assigned unit from those findings "
+        "and rerun until every command exits zero. Do not inspect validator implementation to "
+        "guess at hidden checks, and do not substitute ad-hoc schema/replay/quality scripts.\n"
+        f"{rendered}\nThe harness independently reruns the authoritative gate after you stop."
+        f"{section_note}"
+    )
+
+
+def next_prompt(build_id, passed, next_unit, report):
     summary = str(report or "clean").strip()[-1600:]
     return (f"HARNESS VALIDATION PASSED for {label(passed)}.\n{summary}\n\n"
-            + unit_prompt(next_unit))
+            + unit_prompt(build_id, next_unit))
 
 
-def repair_prompt(unit, report):
+def repair_prompt(build_id, unit, report):
     cumulative = ((unit["kind"] == "section"
                    and int(unit.get("index") or 0) == int(unit.get("total") or -1))
                   or (unit["kind"] == "phase" and int(unit["phase"]) >= 7))
     scope = ("Repair the exact reported findings wherever they occur in the cumulative tome"
              if cumulative else "Repair only this unit")
     return (f"HARNESS VALIDATION FAILED for {label(unit)}. {scope} in the same "
-            "session. Preserve clean work and do not run the validator yourself.\n\n"
-            f"{str(report or 'validator failed')[-12000:]}\n\n{unit_prompt(unit)}")
+            "session. Preserve clean work. After the repair, rerun the assigned exact "
+            "self-check until it exits zero; do not replace it with manual validator imitation.\n\n"
+            f"{str(report or 'validator failed')[-12000:]}\n\n{unit_prompt(build_id, unit)}")
 
 
-def unit_prompt(unit):
+def unit_prompt(build_id, unit):
     marker = ("tools/report_section_progress.py BUILD_ID SECTION INDEX TOTAL validating"
               if unit["kind"] == "section" else
               f"tools/report_tome_progress.py BUILD_ID {unit['phase']} validating")
     return (f"Continue with {label(unit)}. Read its phase guide, then complete exactly this unit. "
-            f"Do not run its validator. End by running `{marker}` with the real values, then stop "
-            "so the harness can validate it.")
+            f"{self_validation_prompt(build_id, unit)} Then run `{marker}` with the real values "
+            "and stop so the harness can independently validate it.")

@@ -5,7 +5,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from arcanum.post_routes.builds import _author  # noqa: E402
+from arcanum.post_routes.builds import _author, _reviewer  # noqa: E402
 from arcanum.routes_get import model_census  # noqa: E402
 from tools.buildlib.runners import author_runner  # noqa: E402
 
@@ -22,6 +22,8 @@ for provider in providers:
     first = provider["models"][0]
     picked = _author({"author": {"kind": provider["kind"], "model": first[0]}})
     assert picked["model"] == first[0]
+    reviewed = _reviewer({"reviewer": {"kind": provider["kind"], "model": first[0]}})
+    assert reviewed["model"] == first[0]
     display, command, input_mode = author_runner(f"{provider['kind']}:{first[0]}")
     assert first[0] in display and command and input_mode in ("arg", "stdin")
 
@@ -29,4 +31,5 @@ for provider in providers:
 assert _author({"author": {"kind": "claude-cli", "model": "claude-haiku-4-5"}})
 assert _author({"author": {"kind": "antigravity-cli",
                            "model": "Gemini 3.5 Flash (Low)"}})
+assert _reviewer({}) is None
 print("single-author model census: OK")

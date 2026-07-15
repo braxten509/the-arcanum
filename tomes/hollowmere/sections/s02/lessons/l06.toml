@@ -1,0 +1,123 @@
+[[lessons]]
+id = "s02-l06"
+title = "Measure the Wake, Not the Story"
+teaches = ["movement-regression-tests", "cumulative-proof-routing"]
+body = '''
+<p>A movement system is easier to trust when tests state distances and invariants rather than imitate keyboard timing. A <strong>regression test</strong> records behavior that must keep working after later changes. Hollowmere already checks a rightward half-second move and diagonal unit length. Add boundary tests for no input and invalid elapsed time. An empty dictionary is valid because <code>movement_vector</code> retrieves every action with <code>.get(key, False)</code>; the resulting vector is zero and position stays unchanged.</p>
+<pre><code data-kind="patch">player = Player()
+start = player.position.copy()
+player.update({}, 0.5)
+assert player.position == start
+print("STILL", round(player.position.x), round(player.position.y))</code></pre>
+<p>The output is <code>STILL 100 100</code>. <code>copy()</code> matters because Vector2 is mutable: writing <code>start = player.position</code> would create an alias, and both names would observe the same later mutation. The negative-time test uses <code>with pytest.raises(ValueError, match="dt must be nonnegative"):</code>. The context manager expects that exact exception while the indented call runs. If no exception occurs, the test fails; if another category or message occurs, pytest reports the mismatch.</p>
+<p>The section milestone must also preserve the earlier milestone. The command-line entrypoint already sends a section string to <code>run_proof(section)</code>. Extend that same function with two explicit branches: <code>s01</code> still returns <code>startup_receipt()</code>; <code>s02</code> returns a new movement receipt; anything else raises the existing unsupported-section error. Pygame initialization and <code>finally</code> cleanup stay around every branch.</p>
+<p>The s02 receipt must use real Player behavior. Start at the configured position, build the same named right-action dictionary used by the model contract, call <code>update(actions, 0.5)</code>, then obtain the body with <code>rect()</code>. Separately ask the same Player for a right/down direction and measure its length. These operations prove the constructor, dictionary defaults, vector arithmetic, normalization, delta time, and integer rectangle boundary. Assigning x directly to 190 or returning a literal receipt would skip the behavior being certified.</p>
+<pre><code data-kind="patch">player = Player()
+player.update({"right": True}, 0.5)
+body = player.rect()
+print("BODY", body.x, body.y, body.width, body.height)</code></pre>
+<p>The observable line is <code>BODY 190 100 32 32</code>. The final receipt adds the canonical player name and <code>diagonal=normalized</code>. Run the whole suite, then run both proof commands. Interleaving matters: s02 is not complete if its own receipt passes while <code>--arcanum-proof s01</code> changes, opens a display, or leaves Pygame initialized.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // OLD LANTERNS STAY LIT</div>
+<p>A new proof route extends one switchboard. It does not fork the launcher or duplicate cleanup into section-specific scripts.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "movement-regression-tests"
+purpose = "Lock down Player distance, normalization, no-input stability, negative-time rejection, and integer body geometry with deterministic pytest checks."
+anatomy = "Construct fresh Player instances; pass explicit action dictionaries and dt values; compare vectors with pytest.approx; copy mutable start state; use pytest.raises for the invalid boundary."
+example = "The complete no-input example copies the initial Vector2, updates with an empty dictionary, asserts equality, and prints the unchanged coordinates."
+observable = "pytest reports every entity test passing and the example prints STILL 100 100."
+failure = "Aliasing the mutable position makes a before/after test meaningless; testing physical keyboard timing makes the check nondeterministic; accepting negative dt permits reversed time."
+practice = "s02-l06-e2"
+
+[[lessons.concepts]]
+id = "cumulative-proof-routing"
+purpose = "Add an exact s02 milestone through the existing launcher while keeping the s01 receipt and shared Pygame cleanup active."
+anatomy = "Route the section string inside run_proof; call real Player update and rect behavior; format one exact receipt; reject unknown ids; retain one init/try/finally lifecycle; rerun both milestones."
+example = "The BODY example moves a canonical Player right for half a second and reads 190 100 32 32 from its Rect."
+observable = "The real launcher prints the exact S02_OK receipt for s02 and the unchanged S01_OK receipt for s01, each then exits cleanly."
+failure = "A hard-coded receipt, direct target-state assignment, separate launcher, or discarded s01 branch can make a local check pass while cumulative behavior regresses."
+practice = "s02-l06-d1"
+
+[[lessons.artifactSteps]]
+id = "s02-add-movement-boundary-tests"
+path = "tests/test_entities.py"
+mode = "append"
+instruction = "Append no-input and invalid-delta regression tests to the existing entity test module."
+content = '''
+
+
+def test_missing_actions_mean_no_movement():
+    player = Player()
+    start = player.position.copy()
+    player.update({}, 0.5)
+    assert player.position == start
+
+
+def test_player_rejects_negative_delta_time():
+    player = Player()
+    with pytest.raises(ValueError, match="dt must be nonnegative"):
+        player.update(RIGHT, -0.01)
+'''
+
+[[lessons.readings]]
+label = "pytest documentation — How to write and report assertions"
+url = "https://docs.pytest.org/en/stable/how-to/assert.html"
+
+[[lessons.readings]]
+label = "Python documentation — Command line and environment"
+url = "https://docs.python.org/3/using/cmdline.html"
+
+[[lessons.exercises]]
+id = "s02-l06-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the real-behavior proof setup that yields the milestone body coordinates."
+code = '''
+player = Player()
+player.update({"right": True}, 0.5)
+body = player.rect()
+'''
+
+[[lessons.exercises]]
+id = "s02-l06-e1"
+type = "mc"
+points = 15
+prompt = "Which s02 proof approach actually certifies delta-time movement?"
+choices = ["Call Player.update with named actions and elapsed seconds, then inspect rect", "Assign player.position.x = 190 before printing", "Print the expected receipt from a separate script", "Skip Player and check only that pygame imports"]
+answer = 0
+whyWrong = "Direct assignment and literal output manufacture the target, while an import check never exercises movement. The proof must traverse the public model behavior."
+hint = "Choose the path a real frame uses after input translation."
+explain = "Deterministic controls replace human timing, not the domain methods under test."
+
+[[lessons.exercises]]
+id = "s02-l06-e2"
+type = "fill"
+points = 20
+prompt = "Complete the safe snapshot of a mutable Vector2 before testing that no input preserves position."
+code = "start = player.position.____()"
+answer = "copy"
+whyWrong = "A plain assignment aliases the same mutable Vector2, so it cannot preserve an independent before value."
+hint = "Use the method whose result is a separate vector with equal components."
+
+[[lessons.exercises]]
+id = "s02-l06-w1"
+type = "write"
+points = 35
+prompt = "Define <code>route(section)</code> so s01 returns <code>STARTUP</code>, s02 returns <code>MOVEMENT</code>, and any other value raises <code>ValueError('unsupported proof section: value')</code>. Call it with s02 and print exactly <code>PROOF MOVEMENT</code>."
+expect = '''
+PROOF MOVEMENT
+'''
+solution = '''
+def route(section):
+    if section == "s01":
+        return "STARTUP"
+    if section == "s02":
+        return "MOVEMENT"
+    raise ValueError(f"unsupported proof section: {section}")
+
+
+print("PROOF", route("s02"))
+'''
+hint = "Use two explicit equality branches, then raise after both; print the result of route('s02')."

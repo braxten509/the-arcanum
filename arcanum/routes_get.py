@@ -82,7 +82,8 @@ def handle(h):
                 out = {k: job[k] for k in ("status", "kind", "tome", "slug", "phase", "phaseTitle",
                                            "totalPhases", "startedAt", "error",
                                            "phaseStartedAt", "runner", "sections",
-                                           "interactionState") if k in job}
+                                           "interactionState", "sessionAuthor",
+                                           "sessionReviewer") if k in job}
                 out["name"] = forge_name(job.get("tome"))
                 # The forge terminal is a status surface, not a mirror of runner stdout.
                 # Raw output remains in job["log"] and feeds the failure report below.
@@ -115,6 +116,7 @@ def handle(h):
             out["sessionAuthor"] = {"kind": session.get("kind"),
                                     "model": session.get("model"),
                                     "effort": session.get("effort")}
+            out["sessionRole"] = str(session.get("role") or "author")
         out["conversation"] = load_conversation(stable, 120)
         if out.get("status") == "running" and int(out.get("phase") or 0) == 3:
             progress = (load_section_progress(out.get("tome"))

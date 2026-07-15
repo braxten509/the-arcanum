@@ -12,8 +12,10 @@ import time
 
 from . import BUILD_DIR, REPO
 from .agent_runtime import scoped_runner_command
-from .author_gate import (PHASES, advance_unit, current_unit, ensure_unit, label,
+from .author_gate import (PHASES, advance_unit, context, current_unit, ensure_unit, label,
                           next_prompt, repair_prompt, unit_prompt, validate_unit)
+from . import full_review
+from .measure import validate_live_smoke, validate_shipping
 from .runners import author_runner
 from arcanum.forge import notify
 from arcanum.tomes import resolve_working_tid
@@ -77,12 +79,16 @@ Read `tome-workflow/single-author.md` now. At the start of each phase, read only
 guide under `tome-workflow/` plus the references it explicitly names. Files on disk are truth.
 
 Work on exactly the phase or Phase-3 section named in the final instruction. When it is authored,
-set that unit's progress marker to `validating` and end your turn. Do not run validators and do
-not begin the next unit. The harness independently validates while you are stopped, checkpoints
-a clean unit, and resumes this same warm session with either the exact repair report or the exact
-next unit. Preserve correct work already on disk.
+run only the exact self-check command given in that assignment, repair its reported failures until
+it exits cleanly, set that unit's progress marker to `validating`, and end your turn. Do not invent
+ad-hoc substitutes, run a deterministic phase transition, or begin the next unit. The harness
+independently validates while you are stopped, checkpoints a clean unit, and resumes this same
+warm session with either the exact repair report or the exact next unit. Preserve correct work
+already on disk.
 
-Continue this checkpoint cycle through Phase 8. Do not spawn another author or reviewer. Do not
+Continue this checkpoint cycle through Phase 8. Do not spawn another author or reviewer yourself.
+If the operator selected an independent reviewer, the harness will start it only after your final
+Phase 8 gate passes. Do not perform or impersonate that optional independent review. Do not
 merely describe work: edit the tome, report `validating`, and stop at the assigned boundary.
 """
 
@@ -150,17 +156,20 @@ def _assistant_text(line):
 
 class AuthorSession:
     def __init__(self, build_id, kind, model, effort, concept, tooling, from_phase=1,
-                 resume_id=""):
+                 resume_id="", reviewer=None):
         self.build_id, self.kind, self.model = build_id, kind, model
         self.effort, self.concept, self.tooling = effort, concept, tooling
         self.from_phase, self.session_id = from_phase, resume_id
+        self.reviewer = reviewer
+        self.role = "author"
         self.state_path = _json_path(build_id, "session")
         self.controls, self.child, self.stop = queue.Queue(), None, False
 
     def state(self, state, **extra):
         payload = {"buildId": self.build_id, "state": state, "kind": self.kind,
                    "model": self.model, "effort": self.effort,
-                   "sessionId": self.session_id, "updatedAt": time.time(), **extra}
+                   "role": self.role, "sessionId": self.session_id,
+                   "updatedAt": time.time(), **extra}
         _write_json(self.state_path, payload)
         print(f"AUTHOR SESSION {state}", flush=True)
 
@@ -245,7 +254,7 @@ class AuthorSession:
                 print(line, flush=True)
                 answer = _assistant_text(line)
                 if answer:
-                    append_conversation(self.build_id, "assistant", answer)
+                    append_conversation(self.build_id, "assistant", answer, role=self.role)
                 elif self.kind == "antigravity-cli":
                     plain.append(line)
             except queue.Empty:
@@ -271,7 +280,8 @@ class AuthorSession:
                     return "paused", ""
         rc = self.child.wait()
         if plain:
-            append_conversation(self.build_id, "assistant", "\n".join(plain)[-20000:])
+            append_conversation(self.build_id, "assistant", "\n".join(plain)[-20000:],
+                                role=self.role)
         if not self.session_id and source:
             self.session_id = trace_session_id(source)
         if self.kind == "antigravity-cli":
@@ -303,7 +313,7 @@ class AuthorSession:
             switched = self.apply_author(control)
             message = str(control.get("text") or "").strip()
             unit = ensure_unit(self.build_id, self.from_phase)
-            prompt = ((message + "\n\n") if message else "") + unit_prompt(unit)
+            prompt = ((message + "\n\n") if message else "") + unit_prompt(self.build_id, unit)
             if switched:
                 prompt = author_prompt(self.build_id, self.concept, self.tooling,
                                        unit.get("phase", self.from_phase)) + "\n\n" + prompt
@@ -313,10 +323,101 @@ class AuthorSession:
                 if switched else f"{verb} {label(unit)}.")
             return prompt, ("user" if message else "harness"), text
 
+    def _review_writable(self):
+        tid = self.current_tome()
+        writable = [BUILD_DIR, os.path.join(REPO, "tomes", tid)]
+        from .measure import selected_runtime_config
+        runtime = selected_runtime_config(tid)
+        if runtime:
+            writable.append(os.path.join(REPO, "global-configs", "runtimes", runtime))
+        return writable
+
+    def _review_turn(self, prompt, conversation_kind="harness", conversation_text=""):
+        original = self._writable
+        self._writable = self._review_writable
+        try:
+            return self.run_turn(prompt, conversation_kind, conversation_text)
+        finally:
+            self._writable = original
+
+    def _await_reviewer_controls(self, retrying=False):
+        while True:
+            control = self.controls.get()
+            if control.get("type") == "stop":
+                self.stop = True
+                return None
+            if control.get("type") not in ("message", "resume"):
+                continue
+            switched = self.apply_author(control)
+            message = str(control.get("text") or "").strip()
+            prompt = full_review.prompt(self.build_id, self.current_tome())
+            if message:
+                prompt = message + "\n\n" + prompt
+            verb = "Retrying" if retrying else "Resuming"
+            text = message or (f"{verb} the thorough full-tome review"
+                               + (f" with {self.kind} {self.model} in a fresh session."
+                                  if switched else "."))
+            return prompt, ("user" if message else "harness"), text
+
+    def run_reviewer(self):
+        if not self.reviewer:
+            return 0
+        self.kind, self.model, self.effort = self.reviewer
+        self.session_id = ""
+        self.role = "reviewer"
+        try:
+            os.remove(full_review.evidence_path(self.build_id))
+        except OSError:
+            pass
+        tid = self.current_tome()
+        prompt = full_review.prompt(self.build_id, tid)
+        conversation_kind, conversation_text = "harness", (
+            "The optional independent reviewer is starting a thorough full-tome review. "
+            "It must read every authored file; sampling is forbidden.")
+        while not self.stop:
+            outcome, message = self._review_turn(prompt, conversation_kind, conversation_text)
+            if outcome == "stopped":
+                break
+            if outcome == "message":
+                prompt = message + "\n\n" + full_review.prompt(self.build_id, self.current_tome())
+                conversation_kind, conversation_text = "user", message
+                continue
+            if outcome in ("paused", "failed"):
+                error = ("The reviewer CLI exited unexpectedly. Resume it, or pick another "
+                         "AI to continue the exhaustive review in a fresh session.") if outcome == "failed" else ""
+                self.state("paused", **({"error": error} if error else {}))
+                resumed = self._await_reviewer_controls(retrying=outcome == "failed")
+                if resumed is None:
+                    break
+                prompt, conversation_kind, conversation_text = resumed
+                continue
+            self.state("validating", stage="full-review")
+            tid = self.current_tome()
+            evidence_ok, evidence_report = full_review.validate_report(self.build_id, tid)
+            ctx = context(self.build_id)
+            shipping_ok, shipping = validate_shipping(tid, ctx["tooling"], ctx["plan"])
+            smoke_ok, smoke = validate_live_smoke(tid) if shipping_ok else (False, "")
+            if evidence_ok and shipping_ok and smoke_ok:
+                append_conversation(self.build_id, "harness",
+                                    "The thorough full-tome review covered every authored file, "
+                                    "and strict shipping plus live-smoke verification passed.",
+                                    role="reviewer")
+                return 0
+            report = "\n\n".join(part for part in (
+                "REVIEW COVERAGE: " + evidence_report,
+                "STRICT SHIPPING:\n" + shipping if not shipping_ok else "",
+                "LIVE SMOKE:\n" + smoke if shipping_ok and not smoke_ok else "",
+            ) if part)
+            prompt = full_review.prompt(self.build_id, tid, report)
+            conversation_kind, conversation_text = "harness", (
+                "The exhaustive reviewer pass did not clear its mechanical double-check. "
+                "The exact report was returned to the same reviewer session.")
+        return 130
+
     def run(self):
         threading.Thread(target=self.read_controls, daemon=True).start()
         unit = ensure_unit(self.build_id, self.from_phase)
-        assignment = unit_prompt(unit)
+        assignment = unit_prompt(self.build_id, unit)
         prompt = (assignment if self.session_id else
                   author_prompt(self.build_id, self.concept, self.tooling, self.from_phase)
                   + "\n\n" + assignment)
@@ -328,7 +429,7 @@ class AuthorSession:
                 break
             if outcome == "message":
                 unit = ensure_unit(self.build_id, self.from_phase)
-                prompt = message + "\n\n" + unit_prompt(unit)
+                prompt = message + "\n\n" + unit_prompt(self.build_id, unit)
                 conversation_kind, conversation_text = "user", message
                 continue
             if outcome in ("paused", "failed"):
@@ -350,14 +451,15 @@ class AuthorSession:
             if not unit:
                 unit = ensure_unit(self.build_id, self.from_phase)
                 prompt = (f"You stopped before handing off {label(unit)}. Finish only that unit, "
-                          "set its progress marker to validating, and stop.\n\n" + unit_prompt(unit))
+                          "run its assigned exact self-check, set its progress marker to "
+                          "validating, and stop.\n\n" + unit_prompt(self.build_id, unit))
                 conversation_kind, conversation_text = "harness", (
                     f"{label(unit)} was not marked validating; returning it to the same author session.")
                 continue
             self.state("validating", unit=label(unit))
             ok, report = validate_unit(self.build_id, unit)
             if not ok:
-                prompt = repair_prompt(unit, report)
+                prompt = repair_prompt(self.build_id, unit, report)
                 conversation_kind, conversation_text = "harness", (
                     f"Validation failed for {label(unit)}. The report was returned to the same author session.")
                 continue
@@ -365,9 +467,13 @@ class AuthorSession:
             if next_unit is None:
                 append_conversation(self.build_id, "harness",
                                     f"Validation passed for {label(unit)}. All eight phases are clean.")
+                reviewer_result = self.run_reviewer()
+                if reviewer_result:
+                    self.state("stopped")
+                    return reviewer_result
                 self.state("complete")
                 return 0
-            prompt = next_prompt(unit, next_unit, report)
+            prompt = next_prompt(self.build_id, unit, next_unit, report)
             conversation_kind, conversation_text = "harness", (
                 f"Validation passed for {label(unit)}. Continuing with {label(next_unit)} in the same session.")
         self.state("stopped")

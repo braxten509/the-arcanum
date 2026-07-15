@@ -1,0 +1,140 @@
+[[lessons]]
+id = "s05-l05"
+title = "Interrogate Every Broken Promise"
+teaches = ["quest-contract-regression-tests", "cumulative-quest-proof"]
+body = '''
+<p>Stateful systems fail at boundaries more often than on the happy path. A useful regression test names an invariant, supplies the smallest command sequence that threatens it, and checks both the exception and unchanged state. For quests, rejected claim-before-ready must leave rewards empty. For dialogue, an unknown NPC or out-of-range choice must not start anything. For interaction, a distant Player must close the current session.</p>
+<pre><code data-kind="runnable">rewards = []
+status = "active"
+try:
+    if status != "ready":
+        raise RuntimeError(f"cannot claim from {status}")
+    rewards.append("reed_charm")
+except RuntimeError as error:
+    print("REJECTED", error, "REWARDS", len(rewards))</code></pre>
+<p>The receipt is <code>REJECTED cannot claim from active REWARDS 0</code>. <code>try</code> runs the risky command. <code>raise</code> creates the explicit failure. <code>except RuntimeError as error</code> catches that category and binds the exception for inspection. A broad bare <code>except</code> would also swallow spelling mistakes and broken imports, so tests catch the specific public error type and match a meaningful fragment.</p>
+<p>Tests should assert state after a failure, not only that something raised. That proves validation happens before mutation. They also use the public ports a caller uses: <code>QuestLog.claim</code>, <code>DialogueSession.open</code>, <code>InteractionController.interact</code>, and <code>MarshScene.update</code>. Rebuilding private dictionary lookups in a test only verifies the test's imitation.</p>
+<p>The s05 milestone is cumulative. <code>quest_receipt()</code> constructs the ordinary debug-off MarshScene without a display, opens the nearby ferryman, chooses acceptance, moves the Player body to the loaded causeway Rect, and calls the real update. It then reopens the status-selected reward branch and chooses its first option. Every receipt field comes from the resulting NPC id, stable quest definition, progress, returned reward, and current node.</p>
+<p><code>run_proof("s05")</code> joins the same switchboard as s01–s04. It does not create another Pygame lifecycle, print a prepared line, call QuestLog.record directly, or assign progress. The milestone asserts the exact receipt and released Pygame state. Run the full pytest suite and every proof route: dialogue can be locally correct while a changed scene constructor silently breaks earlier map or collision receipts.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // A FAILURE OWES TWO FACTS</div><p>Name why the command was rejected, then prove the protected state stayed unchanged.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "quest-contract-regression-tests"
+purpose = "Prove valid and invalid quest, dialogue, proximity, and input behavior through public ports while checking rejected commands leave state unchanged."
+anatomy = "Arrange minimal state; call the public method; catch the specific domain exception with pytest or try/except; match a diagnostic; assert progress, node, or rewards remain unchanged."
+example = "The complete try/except example rejects an active-state claim and observes zero delivered rewards."
+observable = "Focused tests distinguish unknown ids, invalid lifecycle edges, bad choice indices, distant interaction, and successful end-to-end completion."
+failure = "Catching every exception hides defects; checking only the exception misses partial mutation; duplicating private logic tests an imitation."
+practice = "s05-l05-e1"
+
+[[lessons.concepts]]
+id = "cumulative-quest-proof"
+purpose = "Certify one real conversation-driven quest while preserving every earlier deterministic launch, movement, collision, camera, and map milestone."
+anatomy = "Construct MarshScene; interact nearby; choose accept; obtain loaded doorway; move body to it; call update; reopen ready branch; choose claim; derive fields; route s05 through shared cleanup; rerun prior proofs."
+example = "The Working specifies the exact behavior path and S05_OK fields without supplying the learner-authored quest_receipt implementation."
+observable = "The exact receipt reports ferryman, ferryman_oath, complete, 1/1, reed_charm, and thanks; s01–s04 remain exact; Pygame ends uninitialized."
+failure = "Calling record directly, assigning progress, hard-coding the receipt, opening a display, or replacing older router branches creates false or regressive evidence."
+practice = "s05-l05-d1"
+
+[[lessons.artifactSteps]]
+id = "s05-extend-dialogue-diagnostics"
+path = "tests/test_dialogue.py"
+mode = "append"
+instruction = "Append specific unknown-NPC and unopened-choice diagnostics that also prove quest state remains inactive."
+content = '''
+
+
+def test_dialogue_errors_name_the_rejected_boundary():
+    log = QuestLog()
+    session = DialogueSession(log)
+    with pytest.raises(DialogueError, match="unknown npc id: bog_light"):
+        session.open("bog_light")
+    with pytest.raises(DialogueError, match="without an open conversation"):
+        session.choose(0)
+    assert log.progress("ferryman_oath").status is QuestStatus.INACTIVE
+'''
+
+[[lessons.artifactSteps]]
+id = "s05-extend-number-choice-regression"
+path = "tests/test_interactions.py"
+mode = "append"
+instruction = "Append a regression proving the second number key maps to index one once and still leaves the movement snapshot neutral."
+content = '''
+
+
+def test_second_choice_key_maps_to_index_one_once():
+    state = InputState()
+    state.handle_event(key_down(pygame.K_2))
+    assert state.consume_dialogue_choice() == 1
+    assert state.consume_dialogue_choice() is None
+    assert not any(state.snapshot().values())
+'''
+
+[[lessons.readings]]
+label = "Python documentation — built-in exceptions"
+url = "https://docs.python.org/3/library/exceptions.html"
+
+[[lessons.readings]]
+label = "pytest documentation — exception assertions"
+url = "https://docs.pytest.org/en/stable/how-to/assert.html#assertions-about-expected-exceptions"
+
+[[lessons.exercises]]
+id = "s05-l05-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the behavior-derived doorway step used by the cumulative proof."
+code = '''
+doorway = scene.loaded_map.transitions[0]
+scene.player.position.update(doorway["rect"].topleft)
+scene.update({}, 0.0)
+'''
+
+[[lessons.exercises]]
+id = "s05-l05-e1"
+type = "mc"
+points = 15
+prompt = "What additional assertion best proves an invalid early claim was handled atomically?"
+choices = ["The camera moved", "The dialogue font loaded", "The map has four layers", "The earned reward list is still empty"]
+answer = 3
+whyWrong = "Camera, font, and map structure are unrelated to whether validation partially delivered a quest reward."
+hint = "Inspect the state that the rejected command must protect."
+explain = "An exception plus an unchanged reward list proves the guard ran before mutation."
+
+[[lessons.exercises]]
+id = "s05-l05-e2"
+type = "fill"
+points = 20
+prompt = "Complete the specific exception binding used to inspect a rejected command."
+code = '''
+except QuestStateError ____ error:
+    print(error)
+'''
+answer = "as"
+whyWrong = "The binding keyword places the caught exception object in a local name; assignment or from has different syntax and meaning."
+hint = "Use the two-letter keyword between an exception type and its bound variable."
+
+[[lessons.exercises]]
+id = "s05-l05-w1"
+type = "write"
+points = 38
+prompt = "Attempt to claim while status is active, raise and catch <code>RuntimeError</code> with message <code>not ready</code>, keep rewards unchanged, and print exactly <code>ERROR not ready STATE active REWARDS 0</code>."
+starter = '''
+status = "active"
+rewards = []
+'''
+expect = '''
+ERROR not ready STATE active REWARDS 0
+'''
+solution = '''
+status = "active"
+rewards = []
+try:
+    if status != "ready":
+        raise RuntimeError("not ready")
+    rewards.append("reed_charm")
+except RuntimeError as error:
+    print("ERROR", error, "STATE", status, "REWARDS", len(rewards))
+'''
+hint = "Guard before append, raise the exact message, and print protected state inside the specific except block."

@@ -9,6 +9,7 @@
 - skeleton  plan parser + deterministic one-placeholder-lesson Phase-2 scaffolding
 - continuity  schema-checked cross-section evidence used by validators
 - review_evidence  proof-v1 evidence derived from execution
+- full_review  optional exhaustive post-Phase-8 reviewer inventory and evidence gate
 - checkpoints  Phase-1 arc gate and deterministic tome rename
 - phase_reset  durable phase-start snapshots and transactional Binder rewinds
 Shared paths/constants live here."""
