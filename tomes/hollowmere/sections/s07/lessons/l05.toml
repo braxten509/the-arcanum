@@ -1,0 +1,501 @@
+[[lessons]]
+id = "s07-l05"
+title = "Open the Satchel in One World"
+teaches = ["inventory-menu-command-routing", "cumulative-equip-use-proof"]
+body = '''
+<p>A menu is presentation plus commands, not a second inventory model. <code>InventoryMenu</code> owns only <code>open</code> and <code>last_action</code>. <code>entries(inventory)</code> reads the stack order. <code>activate(index, ...)</code> checks an open menu and valid zero-based row, resolves the item definition, then delegates equipment to <code>Equipment.equip()</code> or consumption to <code>EffectResolver.use()</code>.</p>
+<pre><code data-kind="runnable">entries = [("marsh_tonic", 1), ("reed_charm", 1)]
+index = 1
+if 0 &lt;= index &lt; len(entries):
+    item_id, quantity = entries[index]
+    print("ROW", index + 1, item_id, quantity)</code></pre>
+<p>The receipt is <code>ROW 2 reed_charm 1</code>. The chained comparison reads as “zero is less than or equal to index, and index is less than the list length.” It prevents negative indices from wrapping to the final row. Tuple unpacking gives the selected id and quantity. A material row raises InventoryError because it is neither usable nor equippable.</p>
+<p>InputState captures I as another one-shot command. Number keys already produce the s05 zero-based dialogue choice, so the app does not create competing key fields. It calls <code>scene.choose_number(index)</code>. When the inventory menu is open, Scene delegates to InventoryMenu; otherwise it preserves <code>choose_dialogue(index)</code>. This is state-based routing, not an NPC or item-id branch.</p>
+<p>MarshScene composes ItemCatalog, Inventory, Equipment, EffectResolver, PickupSystem, RewardHandoff, InventoryMenu, and InventoryPanel after its existing combat setup. During update it freezes movement intentions while the menu is open, preserves map/quest/combat timing, collects overlapping pickups, synchronizes pending rewards, then follows Camera. Choosing dialogue also synchronizes immediately after a claim.</p>
+<p>InventoryPanel uses Pygame's built-in font and loops through current entries and equipment slots. Pickup rectangles use a procedural color in camera space. Rendering never adds, removes, equips, or consumes. Ordinary play can walk over the tonic, press I then 1 to use it, complete the ferryman quest, press I then 1 to equip the resulting charm.</p>
+<p>The cumulative proof performs exactly that domain path without a display. It damages bounded Player health by two through HealthPool, collects the real spawn pickup through scene update, uses it through menu activation, completes the quest through dialogue and loaded doorway traversal, receives RewardHandoff delivery, then equips through the menu. Every receipt field comes from resulting events, effects, slots, bonuses, and stacks.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // MENUS ISSUE ORDERS</div><p>The panel shows state. The menu chooses a public command. Inventory, Equipment, Effects, QuestLog, and PickupSystem remain the owners that validate change.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "inventory-menu-command-routing"
+purpose = "Route one-shot I and numeric commands between dialogue and an inventory menu while keeping item mutation inside Inventory, Equipment, and EffectResolver."
+anatomy = "Capture/consume I; toggle menu state; reuse zero-based number choice; if menu open validate row and dispatch by definition kind; otherwise call existing dialogue choice; render read-only entries/slots."
+example = "The complete two-row example validates index one, unpacks reed_charm, and prints the human row number."
+observable = "I opens/closes the panel; number keys use or equip its rows; with menu closed the same keys continue dialogue; movement snapshot remains four actions."
+failure = "A nested menu loop steals QUIT/events; negative indices wrap; UI mutation bypasses ownership; separate number fields make one key activate two systems."
+practice = "s07-l05-d1"
+
+[[lessons.concepts]]
+id = "cumulative-equip-use-proof"
+purpose = "Prove a world pickup can be used and a real quest reward can be delivered and equipped through the ordinary scene while preserving s01–s06."
+anatomy = "Damage health; scene-update pickup overlap; toggle menu; activate tonic; close; accept quest; traverse loaded doorway; claim; open menu; activate charm; derive event/effect/reward/slot/bonus/stack fields; route s07."
+example = "The Working gives the exact behavioral sequence and receipt contract while hidden reference supplies the complete replay solution."
+observable = "S07_OK reports marsh_tonic, heal two, reed_charm, charm slot, max_health one, and zero carried stacks; all earlier receipts remain exact."
+failure = "Seeding inventory, appending reward directly, assigning slots, calling heal outside use flow, hard-coding output, or opening a display creates false evidence."
+practice = "s07-l05-e2"
+
+[[lessons.artifactSteps]]
+id = "s07-add-inventory-menu-model"
+path = "src/hollowmere/inventory.py"
+mode = "append"
+instruction = "Append menu state and checked command routing that delegates to Equipment or EffectResolver without owning item quantities."
+content = '''
+
+
+PICKUP_COLOR = (111, 196, 169)
+
+
+class InventoryMenu:
+    """Route selected inventory rows to their domain command owners."""
+
+    def __init__(self):
+        self.open = False
+        self.last_action = None
+
+    def toggle(self):
+        self.open = not self.open
+        return self.open
+
+    def entries(self, inventory):
+        return inventory.entries()
+
+    def activate(self, index, inventory, equipment, effects, health):
+        if not self.open:
+            raise InventoryError("inventory menu is closed")
+        entries = self.entries(inventory)
+        if index < 0 or index >= len(entries):
+            raise InventoryError(f"inventory row out of range: {index}")
+        item_id, _quantity = entries[index]
+        definition = inventory.catalog.get(item_id)
+        if definition.kind == "equipment":
+            slot = equipment.equip(item_id, inventory)
+            action = {"kind": "equipped", "item_id": item_id, "slot": slot}
+        elif definition.kind == "consumable":
+            results = effects.use(item_id, inventory, health)
+            action = {"kind": "used", "item_id": item_id, "effects": results}
+        else:
+            raise InventoryError(f"item is not usable: {item_id}")
+        self.last_action = action
+        return action
+'''
+
+[[lessons.artifactSteps]]
+id = "s07-add-inventory-panel"
+path = "src/hollowmere/ui.py"
+mode = "append"
+instruction = "Append a read-only inventory/equipment panel using the built-in font and existing procedural palette; no media is created."
+content = '''
+
+
+class InventoryPanel:
+    """Render current stacks and equipment without mutating them."""
+
+    def render(self, screen, menu, inventory, equipment):
+        if not menu.open:
+            return
+        font = pygame.font.Font(None, 24)
+        panel = pygame.Rect(80, 56, 360, 340)
+        pygame.draw.rect(screen, PANEL_COLOR, panel)
+        title = font.render("SATCHEL", True, CHOICE_COLOR)
+        screen.blit(title, (panel.x + 16, panel.y + 14))
+        for index, (item_id, quantity) in enumerate(
+            menu.entries(inventory), start=1
+        ):
+            definition = inventory.catalog.get(item_id)
+            line = font.render(
+                f"{index}. {definition.label} x{quantity}",
+                True,
+                TEXT_COLOR,
+            )
+            screen.blit(line, (panel.x + 16, panel.y + 20 + index * 28))
+        equipment_y = panel.bottom - 72
+        for slot_id, item_id in equipment.slots.items():
+            value = item_id or "empty"
+            line = font.render(
+                f"{slot_id}: {value}", True, CHOICE_COLOR
+            )
+            screen.blit(line, (panel.x + 16, equipment_y))
+            equipment_y += 24
+'''
+
+[[lessons.artifactSteps]]
+id = "s07-add-inventory-toggle-input"
+path = "src/hollowmere/input.py"
+mode = "replace"
+instruction = "Add one inventory-toggle request beside the attack request without changing held movement or prior command fields."
+find = '''
+        self._dialogue_choice_requested = None
+        self._attack_requested = False
+'''
+content = '''
+        self._dialogue_choice_requested = None
+        self._attack_requested = False
+        self._inventory_toggle_requested = False
+'''
+
+[[lessons.artifactSteps]]
+id = "s07-capture-inventory-toggle-edge"
+path = "src/hollowmere/input.py"
+mode = "replace"
+instruction = "Capture I only on KEYDOWN after the established keyboard-event guard."
+find = '''
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+            self._attack_requested = True
+'''
+content = '''
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+            self._attack_requested = True
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_i:
+            self._inventory_toggle_requested = True
+'''
+
+[[lessons.artifactSteps]]
+id = "s07-consume-inventory-toggle"
+path = "src/hollowmere/input.py"
+mode = "append"
+instruction = "Append the consume-once inventory toggle method."
+content = '''
+
+    def consume_inventory_toggle(self):
+        """Consume one inventory-menu toggle request."""
+        requested = self._inventory_toggle_requested
+        self._inventory_toggle_requested = False
+        return requested
+'''
+
+[[lessons.artifactSteps]]
+id = "s07-import-inventory-scene-boundaries"
+path = "src/hollowmere/scene.py"
+mode = "replace"
+instruction = "Import the item, inventory, pickup, reward, effect, menu, panel, and procedural pickup boundaries beside existing scene systems."
+find = '''
+from .interactions import InteractionController
+from .maps import MapLoader
+from .quests import QuestLog
+from .ui import DialoguePanel, NPC_COLOR
+'''
+content = '''
+from .interactions import InteractionController
+from .inventory import (
+    PICKUP_COLOR,
+    EffectResolver,
+    Equipment,
+    Inventory,
+    InventoryMenu,
+    PickupSystem,
+    RewardHandoff,
+)
+from .items import ItemCatalog
+from .maps import MapLoader
+from .quests import QuestLog
+from .ui import DialoguePanel, InventoryPanel, NPC_COLOR
+'''
+
+[[lessons.artifactSteps]]
+id = "s07-add-scene-pickup-option"
+path = "src/hollowmere/scene.py"
+mode = "replace"
+instruction = "Add an optional deterministic pickup list after the existing combat debug options."
+find = '''
+        enemy_health=3,
+        invulnerable=False,
+    ):
+'''
+content = '''
+        enemy_health=3,
+        invulnerable=False,
+        pickups=None,
+    ):
+'''
+
+[[lessons.artifactSteps]]
+id = "s07-compose-scene-inventory"
+path = "src/hollowmere/scene.py"
+mode = "replace"
+instruction = "Compose the canonical catalog, inventory, equipment, effects, pickups, reward cursor, menu, and panel after CombatSystem construction."
+find = '''
+        self.combat = CombatSystem(
+            self.player,
+            self.world,
+            enemy_positions=enemy_positions,
+            enemy_speed=enemy_speed,
+            enemy_health=enemy_health,
+            invulnerable=invulnerable,
+        )
+'''
+content = '''
+        self.combat = CombatSystem(
+            self.player,
+            self.world,
+            enemy_positions=enemy_positions,
+            enemy_speed=enemy_speed,
+            enemy_health=enemy_health,
+            invulnerable=invulnerable,
+        )
+        self.item_catalog = ItemCatalog()
+        self.inventory = Inventory(self.item_catalog)
+        self.equipment = Equipment()
+        self.effects = EffectResolver()
+        self.pickups = PickupSystem(pickups)
+        self.reward_handoff = RewardHandoff()
+        self.inventory_menu = InventoryMenu()
+        self.inventory_panel = InventoryPanel()
+'''
+
+[[lessons.artifactSteps]]
+id = "s07-integrate-pickup-reward-update"
+path = "src/hollowmere/scene.py"
+mode = "replace"
+instruction = "Freeze movement intent while the menu is open, then collect pickups and synchronize quest rewards after existing combat resolution."
+find = '''
+        direction = self.player.movement_vector(actions)
+        if direction.length_squared() > 0:
+            self.facing = direction
+'''
+content = '''
+        if self.inventory_menu.open:
+            actions = {}
+        direction = self.player.movement_vector(actions)
+        if direction.length_squared() > 0:
+            self.facing = direction
+'''
+
+[[lessons.artifactSteps]]
+id = "s07-finish-pickup-reward-update"
+path = "src/hollowmere/scene.py"
+mode = "replace"
+instruction = "Add ownership transfers after CombatSystem update and before the final camera observation."
+find = '''
+        self.combat.update(dt)
+        self.camera.follow(self.player.rect())
+'''
+content = '''
+        self.combat.update(dt)
+        self.pickups.collect(self.player.rect(), self.inventory)
+        self.reward_handoff.sync(self.quest_log, self.inventory)
+        self.camera.follow(self.player.rect())
+'''
+
+[[lessons.artifactSteps]]
+id = "s07-add-scene-menu-commands"
+path = "src/hollowmere/scene.py"
+mode = "replace"
+instruction = "Extend the existing dialogue choice port with immediate reward sync, then add menu toggle and state-based number routing."
+find = '''
+    def choose_dialogue(self, index):
+        """Apply one checked choice to the active dialogue graph."""
+        return self.interactions.choose(index)
+
+    def _render_ground(self, screen):
+'''
+content = '''
+    def choose_dialogue(self, index):
+        """Apply one choice, then deliver any newly claimed reward."""
+        node = self.interactions.choose(index)
+        self.reward_handoff.sync(self.quest_log, self.inventory)
+        return node
+
+    def toggle_inventory(self):
+        """Open or close the inventory command menu."""
+        return self.inventory_menu.toggle()
+
+    def choose_number(self, index):
+        """Route a number key to the active menu or dialogue."""
+        if self.inventory_menu.open:
+            return self.inventory_menu.activate(
+                index,
+                self.inventory,
+                self.equipment,
+                self.effects,
+                self.combat.player_health,
+            )
+        return self.choose_dialogue(index)
+
+    def _render_ground(self, screen):
+'''
+
+[[lessons.artifactSteps]]
+id = "s07-render-pickups-and-menu"
+path = "src/hollowmere/scene.py"
+mode = "replace"
+instruction = "Draw world pickups procedurally before enemies and render the read-only inventory panel after dialogue."
+find = '''
+        for enemy in self.combat.enemies:
+'''
+content = '''
+        for pickup in self.pickups.pickups:
+            pygame.draw.rect(
+                screen,
+                PICKUP_COLOR,
+                self.camera.apply_rect(pickup.rect()),
+            )
+        for enemy in self.combat.enemies:
+'''
+
+[[lessons.artifactSteps]]
+id = "s07-render-inventory-panel-after-dialogue"
+path = "src/hollowmere/scene.py"
+mode = "replace"
+instruction = "Append the inventory panel call to the existing dialogue rendering tail."
+find = '''
+        self.dialogue_panel.render(
+            screen,
+            self.interactions.dialogue.current_node(),
+        )
+'''
+content = '''
+        self.dialogue_panel.render(
+            screen,
+            self.interactions.dialogue.current_node(),
+        )
+        self.inventory_panel.render(
+            screen,
+            self.inventory_menu,
+            self.inventory,
+            self.equipment,
+        )
+'''
+
+[[lessons.artifactSteps]]
+id = "s07-route-inventory-input-loop"
+path = "src/hollowmere/app.py"
+mode = "replace"
+instruction = "Consume I before the existing number key and route that number through scene state without adding another event loop."
+find = '''
+            choice_index = input_state.consume_dialogue_choice()
+            if choice_index is not None:
+                scene.choose_dialogue(choice_index)
+'''
+content = '''
+            if input_state.consume_inventory_toggle():
+                scene.toggle_inventory()
+            choice_index = input_state.consume_dialogue_choice()
+            if choice_index is not None:
+                scene.choose_number(choice_index)
+'''
+
+[[lessons.artifactSteps]]
+id = "s07-test-menu-and-scene-flow"
+path = "tests/test_inventory.py"
+mode = "append"
+instruction = "Append tests for menu bounds, consumable routing, equipment routing, and closed-menu rejection through public owners."
+content = '''
+
+
+def test_inventory_menu_routes_use_and_equip_commands():
+    from hollowmere.combat import HealthPool
+    from hollowmere.inventory import EffectResolver, Equipment, InventoryMenu
+
+    inventory = Inventory()
+    equipment = Equipment()
+    effects = EffectResolver()
+    health = HealthPool(5)
+    health.damage(2)
+    menu = InventoryMenu()
+    inventory.add("marsh_tonic")
+    menu.toggle()
+    assert menu.activate(0, inventory, equipment, effects, health)["kind"] == "used"
+    inventory.add("reed_charm")
+    assert menu.activate(0, inventory, equipment, effects, health) == {
+        "kind": "equipped",
+        "item_id": "reed_charm",
+        "slot": "charm",
+    }
+    assert equipment.slots["charm"] == "reed_charm"
+
+
+def test_closed_or_invalid_menu_row_is_specific():
+    from hollowmere.combat import HealthPool
+    from hollowmere.inventory import EffectResolver, Equipment, InventoryMenu
+
+    inventory = Inventory()
+    menu = InventoryMenu()
+    with pytest.raises(InventoryError, match="closed"):
+        menu.activate(0, inventory, Equipment(), EffectResolver(), HealthPool(5))
+    menu.toggle()
+    with pytest.raises(InventoryError, match="out of range"):
+        menu.activate(-1, inventory, Equipment(), EffectResolver(), HealthPool(5))
+'''
+
+[[lessons.artifactSteps]]
+id = "s07-test-inventory-input-edge"
+path = "tests/test_interactions.py"
+mode = "append"
+instruction = "Append proof that I toggles once and preserves the four-action movement snapshot."
+content = '''
+
+
+def test_inventory_toggle_is_consumed_once():
+    state = InputState()
+    state.handle_event(key_down(pygame.K_i))
+    assert state.consume_inventory_toggle() is True
+    assert state.consume_inventory_toggle() is False
+    assert not any(state.snapshot().values())
+'''
+
+[[lessons.readings]]
+label = "Pygame documentation — font rendering"
+url = "https://www.pygame.org/docs/ref/font.html"
+
+[[lessons.exercises]]
+id = "s07-l05-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the state-based number routing."
+code = '''
+if self.inventory_menu.open:
+    return self.inventory_menu.activate(index, inventory, equipment, effects, health)
+return self.choose_dialogue(index)
+'''
+
+[[lessons.exercises]]
+id = "s07-l05-e1"
+type = "mc"
+points = 15
+prompt = "Why should the inventory panel avoid changing stack or slot state?"
+choices = ["So domain owners validate every command regardless of presentation", "So negative indices wrap", "So rewards bypass ItemCatalog", "So combat gets a second Clock"]
+answer = 0
+whyWrong = "Wrapping, catalog bypass, and duplicate timing are bugs; rendering should observe and command through existing owners."
+hint = "Choose the answer that keeps invariants identical in tests, proof, and ordinary UI."
+explain = "The menu delegates while Inventory, Equipment, and EffectResolver remain authoritative."
+
+[[lessons.exercises]]
+id = "s07-l05-e2"
+type = "fill"
+points = 20
+prompt = "Complete the upper-bound comparison that rejects a row equal to the number of entries."
+code = '''
+if index < 0 or index ____ len(entries):
+    raise InventoryError("row out of range")
+'''
+answer = ">="
+whyWrong = "Zero-based valid indices stop one before the length, so equality is already out of range."
+hint = "Use the two-character comparison meaning greater than or equal to."
+
+[[lessons.exercises]]
+id = "s07-l05-w1"
+type = "write"
+points = 38
+prompt = "Given rows tonic/consumable then charm/equipment and selected index 1, route by kind into action equipped, then print exactly <code>ROW 2 ITEM charm ACTION equipped</code>."
+starter = '''
+rows = [("tonic", "consumable"), ("charm", "equipment")]
+index = 1
+'''
+expect = '''
+ROW 2 ITEM charm ACTION equipped
+'''
+solution = '''
+rows = [("tonic", "consumable"), ("charm", "equipment")]
+index = 1
+item_id, kind = rows[index]
+if kind == "equipment":
+    action = "equipped"
+elif kind == "consumable":
+    action = "used"
+else:
+    action = "blocked"
+print("ROW", index + 1, "ITEM", item_id, "ACTION", action)
+'''
+hint = "Unpack the selected tuple, branch on kind, and convert zero-based index to a human row with +1."

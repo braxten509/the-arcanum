@@ -2,6 +2,7 @@
 import { $, closeModal, dropOverlay, esc, modal, sfx } from "../core/dom.js";
 import { enhanceSelect } from "../ui/menu.js";
 import { forgeEntry } from "./forge.js";
+import { mergeForgeTraceLines } from "./trace-lines.js";
 
 export const FORGE_PHASES = ["Concept & arc", "Skeleton & voice", "Sections", "Minigames",
   "Economy", "Cosmetics", "Validate", "Student review"];
@@ -271,9 +272,8 @@ export function openBuildOverlay(jobId, traceId = jobId) {
       row.classList.toggle("now", phase === current && status.phaseState !== "complete");
       $(".fp-mark", row).textContent = phase < current || (phase === current && status.phaseState === "complete") ? "✓" : phase === current ? "•" : "";
     });
-    const validatorLines = String(status.logtail || "").split("\n")
-      .filter((line) => /^VALIDATOR COMMAND (?:START|COMPLETE|FAILED)\b/.test(line));
-    const lines = [...(Array.isArray(tooling?.lines) ? tooling.lines : []), ...validatorLines].slice(-80);
+    const traceAnchor = Number(tooling?.updatedAt) * 1000 || Date.now();
+    const lines = mergeForgeTraceLines(tooling?.lines, status.logtail, traceAnchor);
     const nextTrace = lines.join("\0");
     if (nextTrace !== traceKey) {
       traceKey = nextTrace; const terminal = $("#fp-trace-lines", overlay);

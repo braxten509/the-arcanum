@@ -3,6 +3,7 @@ import fs from "node:fs";
 
 const setup = fs.readFileSync("web/app/forge/forge.js", "utf8");
 const session = fs.readFileSync("web/app/forge/bindery.js", "utf8");
+const traceLines = fs.readFileSync("web/app/forge/trace-lines.js", "utf8");
 const binder = fs.readFileSync("web/app/forge/binder.js", "utf8");
 const baseCss = fs.readFileSync("web/css/overlay/bindery/base.css", "utf8");
 const resetCss = fs.readFileSync("web/css/overlay/bindery/binder-reset.css", "utf8");
@@ -42,7 +43,9 @@ assert.match(session, /openBuildOverlay\(button\.dataset\.job, button\.dataset\.
 assert.match(session, /\/api\/buildtome\/pause/);
 assert.match(session, /\/api\/buildtome\/message/);
 assert.match(session, /\/api\/buildtome\/continue/);
-assert.match(session, /VALIDATOR COMMAND \(\?:START\|COMPLETE\|FAILED\)/);
+assert.match(session, /mergeForgeTraceLines\(tooling\?\.lines, status\.logtail, traceAnchor\)/);
+assert.match(traceLines, /VALIDATOR COMMAND \(\?:START\|COMPLETE\|FAILED\)/);
+assert.match(traceLines, /rows\.sort/);
 assert.match(session, /class="forge-chat-text"/);
 assert.match(session, /function messageStamp\(value\)/);
 assert.doesNotMatch(session, /function commandStamp\(line\)/);

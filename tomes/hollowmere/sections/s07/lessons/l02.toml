@@ -1,0 +1,210 @@
+[[lessons]]
+id = "s07-l02"
+title = "Stack the Satchel Honestly"
+teaches = ["bounded-stack-inventory", "atomic-inventory-mutation"]
+body = '''
+<p>Inventory owns quantities, not definitions. Its <code>stacks</code> dictionary maps each item id to one positive count. ItemCatalog answers how high that count may grow. A separate <code>capacity</code> limits the number of distinct item ids, not the total number of objects. Nine bog shards occupy one stack; one tonic and one charm occupy two more.</p>
+<pre><code data-kind="runnable">stacks = {"bog_shard": 7}
+maximum = 9
+incoming = 2
+if stacks["bog_shard"] + incoming &lt;= maximum:
+    stacks["bog_shard"] += incoming
+print("SHARDS", stacks["bog_shard"], "STACKS", len(stacks))</code></pre>
+<p>The receipt is <code>SHARDS 9 STACKS 1</code>. <code>&lt;=</code> permits the exact limit. Checking only after addition would briefly create invalid state and require rollback. <code>Inventory.can_add(item_id, quantity)</code> first asks the catalog to validate the id, rejects a nonpositive quantity, reads the existing count with <code>get(..., 0)</code>, checks maximum stack, and checks distinct capacity only when the id is new.</p>
+<p><code>add()</code> calls that complete preflight. If it returns False, InventoryError names the id and quantity; otherwise one assignment commits the new count. This is <strong>atomic mutation</strong>: the operation either performs the complete valid change or leaves the old state untouched. A failed addition must not create a zero stack or partially add whatever fits, because pickups and rewards need to know whether ownership transferred.</p>
+<p><code>remove()</code> uses the same ordering. It validates quantity and stable id, reads how many exist, and raises before mutation when there are too few. After subtraction, a zero remainder deletes the dictionary key with <code>del</code>. No zero-count stack survives to occupy capacity or appear in menus. <code>count()</code> still returns zero for a known but absent id.</p>
+<p>Defensive errors distinguish content from capacity. An unknown id comes from ItemCatalog. A known item that would exceed its stack or unique-slot limit raises InventoryError. A negative quantity is programmer misuse and also raises InventoryError. Tests assert the rejected operation and the unchanged dictionary.</p>
+<p>The Arc mentions a temporary seeding call, but none ships. Pickup and drop tests use the real public <code>add</code> and <code>remove</code> paths, so there is no privileged mutation for s08 to accidentally serialize. The malformed definition fixture remains isolated under tests/fixtures for s10's data loader work.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // PREFLIGHT BEFORE OWNERSHIP</div><p>Validate id, quantity, capacity, and stack limit first. One assignment or deletion then commits the whole transfer.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "bounded-stack-inventory"
+purpose = "Store positive item counts by stable id while enforcing each definition's maximum stack and a limit on distinct stacks."
+anatomy = "Resolve definition; validate positive quantity; get current count; compare total with max_stack; if id is new compare len(stacks) with capacity; assign on success; delete at zero."
+example = "The complete shard example grows one stack from seven to its exact maximum of nine and reports one distinct stack."
+observable = "Repeated additions combine under one id, equipment stops at one, excess additions fail, and zero-count keys disappear."
+failure = "Counting every object against distinct capacity wastes slots; retaining zero stacks blocks capacity; skipping catalog lookup admits corrupt ids."
+practice = "s07-l02-d1"
+
+[[lessons.concepts]]
+id = "atomic-inventory-mutation"
+purpose = "Make add and remove either complete fully or leave quantities unchanged so pickups, rewards, equipment, and consumables can transfer ownership safely."
+anatomy = "Preflight every condition; raise InventoryError before assignment on failure; calculate the final count; perform one assignment or one deletion; return the committed quantity."
+example = "Inventory.add and remove are the complete guarded mutations, with tests checking dictionaries after rejection."
+observable = "A failed overstack or insufficient removal preserves the exact prior stacks, while a valid transfer reports its resulting count."
+failure = "Adding then checking requires fragile rollback; partial additions make a pickup both collected and present; negative quantities reverse ownership."
+practice = "s07-l02-e2"
+
+[[lessons.artifactSteps]]
+id = "s07-create-stack-inventory"
+path = "src/hollowmere/inventory.py"
+mode = "write"
+instruction = "Create inventory.py with catalog-backed counts, distinct-stack capacity, preflight checks, atomic add/remove, and no privileged seed method."
+content = '''
+"""Stacked inventory, equipment, effects, pickups, and menu state."""
+
+from .items import ItemCatalog
+
+
+class InventoryError(RuntimeError):
+    """Reject an invalid or impossible ownership transfer."""
+
+
+class Inventory:
+    """Own positive stack counts keyed by stable item ids."""
+
+    def __init__(self, catalog=None, capacity=8):
+        if capacity <= 0:
+            raise InventoryError("inventory capacity must be positive")
+        self.catalog = catalog or ItemCatalog()
+        self.capacity = capacity
+        self.stacks = {}
+
+    def _validate_quantity(self, quantity):
+        if quantity <= 0:
+            raise InventoryError("quantity must be positive")
+
+    def count(self, item_id):
+        self.catalog.get(item_id)
+        return self.stacks.get(item_id, 0)
+
+    def can_add(self, item_id, quantity=1):
+        self._validate_quantity(quantity)
+        definition = self.catalog.get(item_id)
+        current = self.stacks.get(item_id, 0)
+        if current + quantity > definition.max_stack:
+            return False
+        if current == 0 and len(self.stacks) >= self.capacity:
+            return False
+        return True
+
+    def add(self, item_id, quantity=1):
+        if not self.can_add(item_id, quantity):
+            raise InventoryError(
+                f"cannot add {quantity} of {item_id}: stack or capacity full"
+            )
+        self.stacks[item_id] = self.stacks.get(item_id, 0) + quantity
+        return self.stacks[item_id]
+
+    def remove(self, item_id, quantity=1):
+        self._validate_quantity(quantity)
+        self.catalog.get(item_id)
+        current = self.stacks.get(item_id, 0)
+        if current < quantity:
+            raise InventoryError(
+                f"cannot remove {quantity} of {item_id}: have {current}"
+            )
+        remaining = current - quantity
+        if remaining == 0:
+            del self.stacks[item_id]
+        else:
+            self.stacks[item_id] = remaining
+        return remaining
+
+    def entries(self):
+        return list(self.stacks.items())
+'''
+
+[[lessons.artifactSteps]]
+id = "s07-test-stack-inventory"
+path = "tests/test_inventory.py"
+mode = "write"
+instruction = "Create tests for stacking, limits, distinct capacity, zero-key deletion, unknown ids, invalid quantities, and unchanged state after failed transfers."
+content = '''
+"""Tests for inventory, equipment, effects, and menu commands."""
+
+import pytest
+
+from hollowmere.inventory import Inventory, InventoryError
+from hollowmere.items import ItemError
+
+
+def test_add_stacks_and_remove_deletes_zero_key():
+    inventory = Inventory()
+    assert inventory.add("bog_shard", 7) == 7
+    assert inventory.add("bog_shard", 2) == 9
+    assert inventory.remove("bog_shard", 9) == 0
+    assert inventory.stacks == {}
+
+
+def test_failed_transfer_preserves_exact_state():
+    inventory = Inventory(capacity=1)
+    inventory.add("bog_shard", 8)
+    before = dict(inventory.stacks)
+    with pytest.raises(InventoryError, match="stack or capacity"):
+        inventory.add("bog_shard", 2)
+    with pytest.raises(InventoryError, match="stack or capacity"):
+        inventory.add("marsh_tonic", 1)
+    with pytest.raises(InventoryError, match="have 8"):
+        inventory.remove("bog_shard", 9)
+    assert inventory.stacks == before
+
+
+def test_bad_quantity_and_unknown_id_are_distinct():
+    inventory = Inventory()
+    with pytest.raises(InventoryError, match="positive"):
+        inventory.add("bog_shard", 0)
+    with pytest.raises(ItemError, match="unknown item id"):
+        inventory.add("drowned_crown")
+'''
+
+[[lessons.readings]]
+label = "Python tutorial — dictionaries and deletion"
+url = "https://docs.python.org/3/tutorial/datastructures.html#dictionaries"
+
+[[lessons.exercises]]
+id = "s07-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the maximum-stack preflight exactly."
+code = '''
+current = self.stacks.get(item_id, 0)
+if current + quantity > definition.max_stack:
+    return False
+'''
+
+[[lessons.exercises]]
+id = "s07-l02-e1"
+type = "mc"
+points = 15
+prompt = "What should happen when adding two shards to a stack already holding eight of a maximum nine?"
+choices = ["Add one and discard one", "Create a negative stack", "Reject the whole addition and keep eight", "Delete the stack"]
+answer = 2
+whyWrong = "Partial, negative, and deletion outcomes violate the all-or-nothing transfer and bounded positive-stack contracts."
+hint = "Apply atomic mutation: either the requested quantity fits completely or nothing changes."
+explain = "Preflight sees total ten exceeds nine, so add raises before assignment."
+
+[[lessons.exercises]]
+id = "s07-l02-e2"
+type = "fill"
+points = 20
+prompt = "Complete the statement that removes an empty stack key after a valid transfer."
+code = '''
+if remaining == 0:
+    ____ self.stacks[item_id]
+'''
+answer = "del"
+whyWrong = "Assigning zero leaves a phantom stack; pop could work but is not the exact statement taught in the canonical method."
+hint = "Use Python's three-letter deletion statement."
+
+[[lessons.exercises]]
+id = "s07-l02-w1"
+type = "write"
+points = 38
+prompt = "Start with an empty stacks dictionary. Add shard quantities 3 and 4 under one id, remove 2, and print exactly <code>SHARD 5 STACKS 1</code>."
+starter = '''
+stacks = {}
+'''
+expect = '''
+SHARD 5 STACKS 1
+'''
+solution = '''
+stacks = {}
+stacks["shard"] = stacks.get("shard", 0) + 3
+stacks["shard"] = stacks.get("shard", 0) + 4
+stacks["shard"] -= 2
+print("SHARD", stacks["shard"], "STACKS", len(stacks))
+'''
+hint = "Use dictionary get with zero for each addition, then subtract from the existing key."

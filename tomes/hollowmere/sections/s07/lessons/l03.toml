@@ -1,0 +1,221 @@
+[[lessons]]
+id = "s07-l03"
+title = "Bind Charms to Named Places"
+teaches = ["typed-equipment-slots", "registry-driven-item-effects"]
+body = '''
+<p>Inventory answers “how many are carried.” Equipment answers “which one occupies each named role.” <code>Equipment</code> starts with <code>{"weapon": None, "charm": None}</code>. An empty slot uses Python's <code>None</code> sentinel; an occupied slot stores one stable item id. The item definition, not a menu button, declares which slot it fits.</p>
+<pre><code data-kind="runnable">slots = {"weapon": None, "charm": None}
+item = {"item_id": "reed_charm", "slot": "charm"}
+if slots[item["slot"]] is None:
+    slots[item["slot"]] = item["item_id"]
+print("CHARM", slots["charm"])</code></pre>
+<p>The receipt is <code>CHARM reed_charm</code>. <code>equip()</code> resolves the definition, requires kind equipment, verifies the slot exists and is empty, then removes one item from Inventory before assigning the slot. Rejected operations mutate neither owner. Swapping is deliberately two explicit commands: <code>unequip()</code> then <code>equip()</code>. This keeps a full inventory from losing the previous item during a complicated implicit exchange.</p>
+<p><code>unequip(slot, inventory)</code> validates the slot and occupied id, asks <code>inventory.can_add()</code> before changing anything, adds the item, then clears the slot. <code>effect_total(effect_id)</code> loops over occupied ids, retrieves each definition, and adds matching numeric values. The equipped reed charm therefore reports <code>max_health</code> bonus one without directly changing CombatSystem's base HealthPool.</p>
+<p>Consumables use a different boundary. <code>EffectResolver.handlers</code> maps stable effect ids to methods. For <code>heal</code>, the handler calls the public <code>HealthPool.heal(value)</code> and returns the actual amount restored. <code>use(item_id, inventory, target)</code> requires a consumable definition, verifies every declared effect id exists before removal, removes one item, applies handlers, and returns records such as <code>{"effect_id": "heal", "requested": 2, "applied": 2}</code>.</p>
+<p>Preflight matters. If content names <code>teleport_to_moon</code>, EffectResolver raises InventoryError before consuming the item. A known but full-health target may apply zero healing; that is a successful use with an honest applied value, not an error. Equipment effects remain queried totals while consumable effects are commands. Mixing both into one automatic mutation would repeatedly heal every frame while a tonic sat in a slot.</p>
+<p>s10 can grow the item data and effect registry independently. s11's novel reward needs only a valid definition, supported slot or consumable effect, and the same inventory transfer ports.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // A SLOT IS OWNERSHIP</div><p>An item is either in a stack or in one equipment slot. Effects read or execute only after that transfer succeeds.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "typed-equipment-slots"
+purpose = "Move one equipment item from inventory into its definition-declared named slot and back without duplicating or losing ownership."
+anatomy = "Resolve definition; require equipment kind; validate slot; require empty; remove one; assign id; for unequip preflight inventory add, add item, then clear slot; sum equipped effects by id."
+example = "The complete dictionary example places reed_charm into the charm slot and prints its stable id."
+observable = "Equipping removes the stack and fills charm; unequipping restores the stack; invalid kind, slot, occupancy, or capacity leaves both owners unchanged."
+failure = "Menu-selected slots ignore definition data; implicit swaps can lose an item when inventory is full; copying instead of moving duplicates ownership."
+practice = "s07-l03-d1"
+
+[[lessons.concepts]]
+id = "registry-driven-item-effects"
+purpose = "Resolve stable effect ids through known handlers, reject unsupported content before consumption, and report requested versus applied results."
+anatomy = "Map effect ids to methods; resolve consumable definition; verify kind; preflight every effect id; remove one item; call each handler with target/value; append result records; return them."
+example = "EffectResolver's heal handler uses the existing bounded HealthPool.heal contract and returns actual restoration."
+observable = "Using one marsh_tonic removes its stack and restores up to two health; an unknown effect raises before quantity changes."
+failure = "Hard-coded item-id branches require engine edits per item; removing before handler lookup destroys invalid content; reporting requested heal lies at full health."
+practice = "s07-l03-e2"
+
+[[lessons.artifactSteps]]
+id = "s07-add-equipment-and-effects"
+path = "src/hollowmere/inventory.py"
+mode = "append"
+instruction = "Append typed equipment ownership, effect totals, and a preflighted consumable effect resolver using the existing HealthPool public method."
+content = '''
+
+
+class Equipment:
+    """Own one stable item id in each named equipment slot."""
+
+    SLOT_IDS = ("weapon", "charm")
+
+    def __init__(self):
+        self.slots = {slot_id: None for slot_id in self.SLOT_IDS}
+
+    def equip(self, item_id, inventory):
+        definition = inventory.catalog.get(item_id)
+        if definition.kind != "equipment":
+            raise InventoryError(f"item is not equipment: {item_id}")
+        if definition.slot not in self.slots:
+            raise InventoryError(f"unknown equipment slot: {definition.slot}")
+        if self.slots[definition.slot] is not None:
+            raise InventoryError(f"equipment slot is occupied: {definition.slot}")
+        inventory.remove(item_id, 1)
+        self.slots[definition.slot] = item_id
+        return definition.slot
+
+    def unequip(self, slot_id, inventory):
+        if slot_id not in self.slots:
+            raise InventoryError(f"unknown equipment slot: {slot_id}")
+        item_id = self.slots[slot_id]
+        if item_id is None:
+            raise InventoryError(f"equipment slot is empty: {slot_id}")
+        if not inventory.can_add(item_id, 1):
+            raise InventoryError(f"cannot unequip into full inventory: {item_id}")
+        inventory.add(item_id, 1)
+        self.slots[slot_id] = None
+        return item_id
+
+    def effect_total(self, effect_id, catalog):
+        total = 0
+        for item_id in self.slots.values():
+            if item_id is None:
+                continue
+            total += catalog.get(item_id).effects.get(effect_id, 0)
+        return total
+
+
+class EffectResolver:
+    """Apply known consumable effects through stable effect ids."""
+
+    def __init__(self):
+        self.handlers = {"heal": self._heal}
+        self.last_results = []
+
+    def _heal(self, target, value):
+        return target.heal(value)
+
+    def use(self, item_id, inventory, target):
+        definition = inventory.catalog.get(item_id)
+        if definition.kind != "consumable":
+            raise InventoryError(f"item is not consumable: {item_id}")
+        for effect_id in definition.effects:
+            if effect_id not in self.handlers:
+                raise InventoryError(f"unknown item effect: {effect_id}")
+        inventory.remove(item_id, 1)
+        results = []
+        for effect_id, value in definition.effects.items():
+            applied = self.handlers[effect_id](target, value)
+            results.append(
+                {
+                    "effect_id": effect_id,
+                    "requested": value,
+                    "applied": applied,
+                }
+            )
+        self.last_results = results
+        return results
+'''
+
+[[lessons.artifactSteps]]
+id = "s07-test-equipment-and-effects"
+path = "tests/test_inventory.py"
+mode = "append"
+instruction = "Append tests for equipment ownership, occupied-slot rejection, unequip restoration, effect totals, tonic healing, and unsupported-effect preflight."
+content = '''
+
+
+def test_equipment_moves_ownership_and_reports_bonus():
+    from hollowmere.inventory import Equipment
+
+    inventory = Inventory()
+    equipment = Equipment()
+    inventory.add("reed_charm")
+    assert equipment.equip("reed_charm", inventory) == "charm"
+    assert inventory.count("reed_charm") == 0
+    assert equipment.slots["charm"] == "reed_charm"
+    assert equipment.effect_total("max_health", inventory.catalog) == 1
+    assert equipment.unequip("charm", inventory) == "reed_charm"
+    assert inventory.count("reed_charm") == 1
+
+
+def test_consumable_effect_uses_bounded_health_and_removes_one():
+    from hollowmere.combat import HealthPool
+    from hollowmere.inventory import EffectResolver
+
+    inventory = Inventory()
+    inventory.add("marsh_tonic", 2)
+    health = HealthPool(5)
+    health.damage(3)
+    result = EffectResolver().use("marsh_tonic", inventory, health)
+    assert result == [{"effect_id": "heal", "requested": 2, "applied": 2}]
+    assert health.current == 4
+    assert inventory.count("marsh_tonic") == 1
+
+
+def test_non_equipment_cannot_enter_a_slot():
+    from hollowmere.inventory import Equipment
+
+    inventory = Inventory()
+    inventory.add("bog_shard")
+    with pytest.raises(InventoryError, match="not equipment"):
+        Equipment().equip("bog_shard", inventory)
+    assert inventory.count("bog_shard") == 1
+'''
+
+[[lessons.readings]]
+label = "Python documentation — callable objects and methods"
+url = "https://docs.python.org/3/tutorial/classes.html#method-objects"
+
+[[lessons.exercises]]
+id = "s07-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the ownership transfer into an already-validated slot."
+code = '''
+inventory.remove(item_id, 1)
+self.slots[definition.slot] = item_id
+'''
+
+[[lessons.exercises]]
+id = "s07-l03-e1"
+type = "mc"
+points = 15
+prompt = "Why does EffectResolver verify every handler before removing a consumable?"
+choices = ["To make Camera follow inventory", "To prevent invalid effect data from destroying an owned item", "To bypass HealthPool bounds", "To create a sprite"]
+answer = 1
+whyWrong = "Handler preflight protects ownership; it does not affect camera, health invariants, or media."
+hint = "Consider what must remain unchanged when an effect id is unsupported."
+explain = "All declared effects are known before the one-item removal commits."
+
+[[lessons.exercises]]
+id = "s07-l03-e2"
+type = "fill"
+points = 20
+prompt = "Complete the empty-slot sentinel check before equipment ownership moves."
+code = '''
+if self.slots[definition.slot] is not ____:
+    raise InventoryError("occupied")
+'''
+answer = "None"
+whyWrong = "An empty string or zero could be data; None is the explicit absence value used by the slot contract."
+hint = "Use Python's singleton for no item id."
+
+[[lessons.exercises]]
+id = "s07-l03-w1"
+type = "write"
+points = 38
+prompt = "Move reed_charm from a one-count inventory dictionary into an empty charm slot, sum its max_health bonus 1, and print exactly <code>EQUIPPED reed_charm BONUS 1 CARRIED 0</code>."
+expect = '''
+EQUIPPED reed_charm BONUS 1 CARRIED 0
+'''
+solution = '''
+inventory = {"reed_charm": 1}
+slots = {"charm": None}
+effects = {"reed_charm": {"max_health": 1}}
+inventory["reed_charm"] -= 1
+slots["charm"] = "reed_charm"
+bonus = effects[slots["charm"]]["max_health"]
+print("EQUIPPED", slots["charm"], "BONUS", bonus, "CARRIED", inventory["reed_charm"])
+'''
+hint = "Decrease the carried count, assign the stable id to the slot, then look up its effect."

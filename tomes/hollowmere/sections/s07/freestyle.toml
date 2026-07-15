@@ -1,36 +1,216 @@
 [freestyle]
-title = "THE WORKING: TODO"
-brief = "TODO: the in-world commission.<ul><li>TODO requirement one (state exact output/tokens)</li><li>TODO requirement two</li></ul>"
-requires = ["s07-phase3-placeholder"]           # TODO: exact ids taught by this/earlier lessons
-reward = 150
-xray = "TODO: the grader's private notes — the specific pitfalls it docks and the style it rewards, truthful to the rubric below."
+title = "THE WORKING: Wear the Ferryman's Reed"
+brief = '''Mara Venn wants one receipt that begins with an object on the ground and ends with an earned charm in its proper place.<ul><li>Add <code>inventory_receipt()</code> beside MarshScene. Construct a 960×540 debug-off scene with a distant stationary enemy and test-only invulnerability; damage Player health by two through HealthPool; call <code>scene.update({}, 0.0)</code> to collect the real spawn tonic; open the menu and choose row 0 to use it; close the menu; accept ferryman_oath through dialogue; move Player to the loaded causeway_gate and update; interact and choose row 0 to claim; open the menu and choose row 0 to equip; derive exactly <code>S07_OK pickup=marsh_tonic used=heal:2 reward=reed_charm equipped=charm bonus=max_health:1 stacks=0</code> from pickup events, effect results, reward deliveries, slots, effect totals, and Inventory.</li><li>Extend <code>run_proof(section)</code> with s07 while preserving exact s01–s06 routes, unknown-id ValueError, one Pygame init/try/finally lifecycle, and no display creation.</li><li>Create <code>tests/milestones/test_s07.py</code> to prove real overlap collection, bounded healing, quest-driven reward transfer, equipment ownership, bonus lookup, empty carried stacks, exact output, and cleanup.</li><li>Keep ordinary launch on one Clock/event/update/render/flip/finally path. I and Space remain consumed requests; number keys route by menu state; no test seed, direct stack assignment, direct slot assignment, or reward copy may enter receipt code.</li><li>Run the complete pytest suite and all seven proof routes from the project root.</li></ul>'''
+requires = ["integer-rect-boundary", "axis-separated-rect-collision", "guarded-quest-state-transitions", "quest-aware-dialogue-branching", "objective-event-reward-handoff", "bounded-health-damage-model", "combat-event-outcome-records", "event-loop-combat-integration", "stable-item-definition-registry", "unknown-item-error-boundary", "bounded-stack-inventory", "atomic-inventory-mutation", "typed-equipment-slots", "registry-driven-item-effects", "world-pickup-collection", "quest-reward-inventory-handoff", "inventory-menu-command-routing", "cumulative-equip-use-proof"]
+reward = 360
+xray = "Mara docks direct stacks or slot assignment, test-only inventory seeding, copying rewards outside RewardHandoff, consuming before effect preflight, partial pickup transfer, screen-space pickup collision, menu-owned mutation, negative row wrapping, hard-coded receipt output, a second event loop or Clock, display creation in proof mode, and any s01–s06 regression. She rewards stable ids, one owner per transfer, atomic preflight, ordered reward cursors, public menu commands, behavior-derived evidence, snake_case, grouped imports, and four-space layout."
 
-[[freestyle.referenceSteps]]        # hidden from learners; validator replays a real solution
-id = "s07-freestyle-reference"
-path = "replace-me.txt"
-mode = "rewrite"
-preserves = "all-active"
-instruction = "TODO: exact private reference edit that satisfies this Working."
+[[freestyle.referenceSteps]]
+id = "s07-reference-add-inventory-receipt"
+path = "src/hollowmere/scene.py"
+mode = "append"
+instruction = "Privately add a receipt derived from real pickup overlap, menu use, bounded healing, quest traversal/claim, reward handoff, menu equip, effect totals, and stack ownership."
 content = '''
-TODO: complete reference content
+
+
+def inventory_receipt():
+    """Return the deterministic section-seven inventory receipt."""
+    scene = MarshScene(
+        (960, 540),
+        debug=False,
+        enemy_positions=[(500, 500)],
+        enemy_speed=0.0,
+        invulnerable=True,
+    )
+    scene.combat.player_health.damage(2)
+    scene.update({}, 0.0)
+    pickup_event = scene.pickups.events[0]
+    scene.toggle_inventory()
+    use_action = scene.choose_number(0)
+    scene.toggle_inventory()
+
+    scene.interact()
+    scene.choose_dialogue(0)
+    doorway = scene.loaded_map.transitions[0]
+    scene.player.position.update(doorway["rect"].topleft)
+    scene.update({}, 0.0)
+    scene.interact()
+    scene.choose_dialogue(0)
+    reward_event = scene.reward_handoff.last_deliveries[0]
+
+    scene.toggle_inventory()
+    equip_action = scene.choose_number(0)
+    effect = use_action["effects"][0]
+    bonus = scene.equipment.effect_total(
+        "max_health", scene.item_catalog
+    )
+    return (
+        f"S07_OK pickup={pickup_event['item_id']}"
+        f" used={effect['effect_id']}:{effect['applied']}"
+        f" reward={reward_event['item_id']}"
+        f" equipped={equip_action['slot']}"
+        f" bonus=max_health:{bonus}"
+        f" stacks={len(scene.inventory.stacks)}"
+    )
+'''
+
+[[freestyle.referenceSteps]]
+id = "s07-reference-import-inventory-receipt"
+path = "src/hollowmere/app.py"
+mode = "replace"
+instruction = "Privately import the inventory receipt through the existing multiline scene/app proof boundary."
+find = '''
+from .scene import (
+    MarshScene,
+    combat_receipt,
+    map_receipt,
+    quest_receipt,
+    spatial_receipt,
+)
+'''
+content = '''
+from .scene import (
+    MarshScene,
+    combat_receipt,
+    inventory_receipt,
+    map_receipt,
+    quest_receipt,
+    spatial_receipt,
+)
+'''
+
+[[freestyle.referenceSteps]]
+id = "s07-reference-extend-proof-router"
+path = "src/hollowmere/app.py"
+mode = "replace"
+instruction = "Privately add s07 to the shared proof router without altering earlier branches or cleanup."
+find = '''
+def run_proof(section):
+    """Exercise a deterministic milestone without opening a display."""
+    pygame.init()
+    try:
+        if section == "s01":
+            return startup_receipt()
+        if section == "s02":
+            return movement_receipt()
+        if section == "s03":
+            return spatial_receipt()
+        if section == "s04":
+            return map_receipt()
+        if section == "s05":
+            return quest_receipt()
+        if section == "s06":
+            return combat_receipt()
+        raise ValueError(f"unsupported proof section: {section}")
+    finally:
+        pygame.quit()
+'''
+content = '''
+def run_proof(section):
+    """Exercise a deterministic milestone without opening a display."""
+    pygame.init()
+    try:
+        if section == "s01":
+            return startup_receipt()
+        if section == "s02":
+            return movement_receipt()
+        if section == "s03":
+            return spatial_receipt()
+        if section == "s04":
+            return map_receipt()
+        if section == "s05":
+            return quest_receipt()
+        if section == "s06":
+            return combat_receipt()
+        if section == "s07":
+            return inventory_receipt()
+        raise ValueError(f"unsupported proof section: {section}")
+    finally:
+        pygame.quit()
+'''
+
+[[freestyle.referenceSteps]]
+id = "s07-reference-milestone-test"
+path = "tests/milestones/test_s07.py"
+mode = "write"
+instruction = "Privately add the section-seven milestone for real pickup/use/reward/equip behavior, exact output, and shared cleanup."
+content = '''
+"""Executable milestone for section s07."""
+
+import pygame
+
+from hollowmere.app import run_proof
+from hollowmere.scene import MarshScene, inventory_receipt
+
+
+EXPECTED = (
+    "S07_OK pickup=marsh_tonic used=heal:2 reward=reed_charm"
+    " equipped=charm bonus=max_health:1 stacks=0"
+)
+
+
+def test_inventory_receipt_uses_real_ownership_transfers():
+    assert inventory_receipt() == EXPECTED
+    scene = MarshScene(
+        (960, 540),
+        debug=False,
+        enemy_positions=[(500, 500)],
+        enemy_speed=0.0,
+        invulnerable=True,
+    )
+    scene.combat.player_health.damage(2)
+    scene.update({}, 0.0)
+    assert scene.inventory.count("marsh_tonic") == 1
+    scene.toggle_inventory()
+    assert scene.choose_number(0)["kind"] == "used"
+    assert scene.combat.player_health.current == 5
+    scene.toggle_inventory()
+    scene.interact()
+    scene.choose_dialogue(0)
+    doorway = scene.loaded_map.transitions[0]
+    scene.player.position.update(doorway["rect"].topleft)
+    scene.update({}, 0.0)
+    scene.interact()
+    scene.choose_dialogue(0)
+    assert scene.inventory.count("reed_charm") == 1
+    scene.toggle_inventory()
+    assert scene.choose_number(0)["slot"] == "charm"
+    assert scene.equipment.slots["charm"] == "reed_charm"
+    assert scene.inventory.stacks == {}
+
+
+def test_section_seven_proof_releases_pygame():
+    assert not pygame.get_init()
+    assert run_proof("s07") == EXPECTED
+    assert not pygame.get_init()
 '''
 
 [freestyle.badge]
 id = "badge-s07"
-name = "TODO BADGE"
-desc = "TODO: one sentence."
-
-[[freestyle.rubric]]               # weights MUST sum to exactly 100
-criterion = "Compiles & runs"
-weight = 40
-desc = "TODO: build succeeds; runs without crashing on normal input."
+name = "REED-BEARER"
+desc = "Collected, used, earned, and equipped stable items through one honest chain of ownership."
 
 [[freestyle.rubric]]
-criterion = "Meets the brief"
-weight = 40
-desc = "TODO: every requirement in the checklist is present and correct."
+criterion = "Definitions and inventory invariants"
+weight = 25
+desc = "ItemCatalog validates stable ids/kinds/stacks/slots/effects and rejects unknown ids; Inventory atomically maintains positive bounded stacks and distinct capacity with no seed bypass."
 
 [[freestyle.rubric]]
-criterion = "Clean style"
+criterion = "Equipment, effects, pickups, and rewards"
+weight = 25
+desc = "Equipment transfers one owner into typed slots, EffectResolver preflights handlers, PickupSystem uses world overlap, and RewardHandoff delivers ordered occurrences exactly once."
+
+[[freestyle.rubric]]
+criterion = "Playable menu and scene integration"
 weight = 20
-desc = "TODO: name this language's real naming AND layout conventions (research its style guide)."
+desc = "I and number commands route by scene/menu state through public owners; ordinary loop remains singular; panel and pickups are procedural/read-only; quest and combat boundaries remain stable."
+
+[[freestyle.rubric]]
+criterion = "Behavior-derived cumulative proof"
+weight = 20
+desc = "inventory_receipt follows real pickup, bounded use, dialogue quest, loaded doorway, reward handoff, equip, and bonus behavior; prints exact S07_OK; preserves s01–s06 and cleanup."
+
+[[freestyle.rubric]]
+criterion = "Python naming and diagnostics"
+weight = 10
+desc = "Follow PEP 8: CapWords for model classes, snake_case for methods/variables/ids, UPPER_CASE for registries/colors/slot tuples, grouped imports, four-space indentation, and specific item/inventory errors."
