@@ -7,7 +7,7 @@ import time
 from .config import BUILD_DIR
 from .tomes import load_manifest
 
-BUILD_TOTAL_PHASES = 9
+BUILD_TOTAL_PHASES = 8
 BUILD_PHASE_TITLES = ("Gate", "Concept & arc", "Skeleton & voice", "Sections",
                       "Minigames", "Economy", "Cosmetics", "Validate", "Student review")
 
@@ -51,18 +51,6 @@ def load_active_owner(slug, pid):
     return None
 
 
-def load_runner_request(slug):
-    """Return a live runner/gate approval request written by the harness."""
-    if not re.fullmatch(r"[A-Za-z0-9_-]+", str(slug or "")):
-        return None
-    try:
-        with open(_path(slug, "runner-request"), encoding="utf-8") as f:
-            data = json.load(f)
-        return data if isinstance(data, dict) else None
-    except (OSError, ValueError, json.JSONDecodeError):
-        return None
-
-
 def load_section_progress(tid):
     """Return the exact section/state reported by a live warm Phase-3 worker."""
     if not re.fullmatch(r"[A-Za-z0-9_-]+", str(tid or "")):
@@ -81,6 +69,36 @@ def load_section_progress(tid):
                 "batches": int(data.get("batches") or 0),
                 "updatedAt": float(data.get("updatedAt") or 0)}
     except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        return None
+
+
+def load_build_progress(tid):
+    """Return the sole author's durable Phase 1-8 marker."""
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", str(tid or "")):
+        return None
+    try:
+        with open(os.path.join(BUILD_DIR, f"{tid}.progress"), encoding="utf-8") as handle:
+            data = json.load(handle)
+        phase = int(data.get("phase") or 0)
+        if phase not in range(1, 9):
+            return None
+        return {"phase": phase,
+                "phaseTitle": str(data.get("phaseTitle") or BUILD_PHASE_TITLES[phase]),
+                "phaseState": str(data.get("state") or "working"),
+                "phaseStartedAt": float(data.get("phaseStartedAt") or 0),
+                "updatedAt": float(data.get("updatedAt") or 0)}
+    except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        return None
+
+
+def load_author_session(tid):
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", str(tid or "")):
+        return None
+    try:
+        with open(_path(tid, "session"), encoding="utf-8") as handle:
+            data = json.load(handle)
+        return data if isinstance(data, dict) else None
+    except (OSError, ValueError, json.JSONDecodeError):
         return None
 
 

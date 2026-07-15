@@ -11,8 +11,8 @@ Arc. A `BLOCKED`/`REQUIRED` request is forbidden because construction has no hum
 Choose and prove an honest compatible realization. If none exists, fail the Arc gate; never
 simulate the core skill or ask a human to rescue construction.
 
-Choose one project spelling for Phase 2. Do not move the scaffold; the harness derives its
-kebab-case id after `[runtime] project` exists.
+Choose one project spelling for Phase 2. Do not move the scaffold; the deterministic Phase-2
+transition derives its kebab-case id after `[runtime] project` exists.
 
 Design backward from acceptance; section count follows required capabilities, not a target.
 Respect every gate answer. Record the real difficulty spine, graduate CAN/CANNOT boundary,

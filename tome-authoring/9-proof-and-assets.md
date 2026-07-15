@@ -107,6 +107,14 @@ assets, open a display, wait for input, or replace the real app with a fake. Ord
 still follows the course's real path. A PyGame course, for example, can run model/collision/state
 checks under `--arcanum-proof` while the normal command opens the game.
 
+At every complete replay, the harness also persists the exact reconstructed project at
+`.tome-build/<tome-id>.learner-project`, builds/checks it, and cold-starts the ordinary runtime
+command with **no proof or acceptance arguments**. A normal zero exit passes. Interactive,
+graphical, and server programs pass when they remain alive through the bounded observation window;
+the harness then stops them. Any early nonzero exit is blocking. If an ordinary console launch
+needs initial input, `[acceptance].launchStdin` may provide that learner-like text; otherwise the
+harness leaves stdin open so waiting for a person is not mistaken for a crash.
+
 ## Executable acceptance journey
 
 Phase 1 writes one `**Acceptance scenarios:**` line of stable kebab ids separated by ` -> `.
@@ -120,6 +128,7 @@ artifact = "package" # or runtime
 runArgs = ["--arcanum-acceptance"]
 scenarios = ["launch", "move", "combat", "win", "save", "relaunch-load"]
 controls = ["input", "clock", "seed", "frame-limit"]
+# launchStdin = "1\n" # optional ordinary-launch input, not an acceptance shortcut
 ```
 
 The source artifact must emit exactly one JSON object with `version = 1`, `status = "PASS"`,
@@ -128,6 +137,15 @@ must emit the same result from the packaged executable. Test controls may supply
 input, time, seed, or a frame limit; they must drive real domain methods. They may not assign a
 win, boss health, inventory, or saved state merely to manufacture a receipt. Phase 8 audits the
 adapter source while the harness owns command execution.
+
+Every executable acceptance adapter must honor the harness variable
+`ARCANUM_ACCEPTANCE_CHALLENGE=<scenario-id>`. For that run it withholds or invalidates one required
+declared control, follows the same domain path, emits `status = "FAIL"`, and reports the challenged
+scenario as `false` (all scenario values remain booleans in the planned order). The harness runs
+one challenge per scenario for source and packaged artifacts. Do not branch directly to a prepared
+FAIL object; use the challenge to alter input, clock, seed, or frame limit and let the ordinary
+scenario observations derive the report. Source that embeds `status = "PASS"` together with every
+scenario assigned literal `true` is rejected before execution.
 
 ## Absolute media rule
 
@@ -161,8 +179,11 @@ the tome; mandatory knowledge must still be taught inside it.
 ## Who decides completion
 
 For proof-v1 tomes, successful full replay writes a SHA-256-bound matrix under `.tome-build/`:
-every active proof at every later checkpoint, source acceptance, and package acceptance where
-required. Phase 8 may only acknowledge that read-only matrix and report cited semantic findings;
-it never authors PASS. Empty findings derive PASS only while the matrix fingerprint still matches
-the current tome, every row is green, the reviewer made no authored change, strict validation is
-clean, and required sources remain usable.
+every active proof at every later checkpoint, final build/check, ordinary cold start, anti-constant
+scan, positive and negative source acceptance, and equivalent package rows where required. Rows
+record the actual argv and output, and the exact reconstructed project remains beside the matrix.
+Phase 8 may only acknowledge those read-only artifacts and report cited semantic findings; it never
+authors PASS. A green matrix is a prerequisite, not semantic proof. Empty findings derive a clean
+candidate only while the fingerprint matches, every row is green, the reviewer made no authored
+change, strict validation is clean, and required sources remain usable. A different configured
+reviewer command must independently return a clean no-change report before the build completes.

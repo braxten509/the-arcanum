@@ -1,6 +1,8 @@
 # Tome workflow — the runbook for generating a tome
 
-**This is the ENTRY POINT.** `tome-authoring/` is the full reference; this folder is
+**This is the ENTRY POINT.** Interactive builds begin with `single-author.md`: one
+resumable AI session follows every phase and its validator without changing hands.
+`tome-authoring/` is the full reference; this folder is
 the *order* to work in, so you execute the procedure instead of one-shotting a
 thousand-line spec and dropping steps. Load each spec section only when its phase
 calls for it — do not read the whole reference up front and start emitting TOML.
@@ -10,8 +12,8 @@ Work the phases in order. **Finish and check each phase before starting the next
 do not batch them. Some phases loop back (the economy can't be summed until the
 sections exist) — that's expected and the order accounts for it.
 
-One file per phase. `tools/build_tome.py` reads them from this folder and runs each
-as its own fresh agent, so the H1 of each file must stay `# Phase N — Title`.
+One file per phase. The sole author reads them in order, so the H1 of each file must stay
+`# Phase N — Title`.
 
 0. [Gate: six course-shaping questions](phase-0-gate.md) — NEVER skip
 1. [Concept & arc](phase-1-concept-arc.md)

@@ -17,15 +17,14 @@ from tools.buildlib.validation_env import (ValidationEnvironmentError,
                                             validation_subprocess_env)
 
 from .amender import clear_amend_state, load_amend_state, run_amender, save_amend_state
-from .build_state import (BUILD_TOTAL_PHASES, build_result_status,
-                          record_cancelled_build, save_active_owner)
+from .build_state import record_cancelled_build
 from .config import (BUILD_DIR, CLI_EFFORTS, GLOBAL_STATE_KEYS, ROOT,
-                     TOMES_DIR, amend_procs, jobs, jobs_lock, read_settings, write_settings)
-from .forge import (_clear_runner_handshake, _plan_concept, _plan_gate,
-                    _resume_phase, _runner_args, _save_launch, _write_progress,
-                    external_build_process, fresh_tome_id, watch_build,
-                    working_is_active, replace_plan_tooling, tooling_conflict_details)
+                     TOMES_DIR, amend_procs, build_procs, jobs, jobs_lock, read_settings,
+                     write_settings)
+from .forge import _resume_phase, external_build_process
 from .grader import ask_oracle, run_grader, start_grader_smoke
+from .post_routes.builds import (answer_runner_pause, control_author, discard_build,
+                                 resume_build, start_build)
 from .tomes import (external_workspace, has_progress, load_manifest, plan_path, project_dir,
                     project_name, resolve_tome, resolve_working_tid, runtime_for,
                     save_dir, scratch_base, state_path, tome_dir, write_files)
@@ -168,6 +167,12 @@ def handle(h):
             return start_build(h, body)
         if path == "/api/buildtome/runner":
             return answer_runner_pause(h, body)
+        if path == "/api/buildtome/pause":
+            return control_author(h, body, "pause")
+        if path == "/api/buildtome/message":
+            return control_author(h, body, "message")
+        if path == "/api/buildtome/continue":
+            return control_author(h, body, "resume")
         if path == "/api/buildtome/cancel":
             bid = str(body.get("id") or "")
             with jobs_lock:
@@ -180,6 +185,7 @@ def handle(h):
                 phase = job.get("phase", 0) if is_build else 0
                 if running:
                     job["status"] = "cancelled"  # before the kill, so watch_build won't flag "error"
+                    build_procs.pop(bid, None)
             if not is_build:
                 proc = external_build_process(bid)
                 if not proc:
@@ -289,208 +295,3 @@ def start_amend(h, body, jid):
                      args=(aid, jid, req_text, kind, model, effort, broad, iterate, reset_ok, review, review_path),
                      daemon=True).start()
     return h.send_json({"ok": True, "jobId": aid})
-
-
-def start_build(h, body):
-    concept = str(body.get("concept") or "").strip()
-    if not concept:
-        return h.send_json({"ok": False, "error": "a course concept is required"}, 400)
-    # The harness owns the folder name: it launches as untitled[-N] and
-    # build_tome.py scaffolds tomes/<tid>/ after Phase 0; Phase 2 renames it
-    # from the [runtime] project the author-AI chooses.
-    tid = fresh_tome_id("untitled")
-    # a prior failed run of this slug may have left a runner-request behind;
-    # stale files would make the new job's status report the old pause
-    _clear_runner_handshake(tid)
-    tooling = str(body.get("tooling") or "").strip().lower()
-    if tooling not in ("internal", "external", "both"):
-        return h.send_json({"ok": False, "error": "tooling must be internal, external, or both"}, 400)
-    gate = json.dumps({"prior_knowledge": str(body.get("prior_knowledge") or "").strip(),
-                       "prior_level": str(body.get("prior_level") or "").strip(),
-                       "breadth": str(body.get("breadth") or "").strip(),
-                       "depth": str(body.get("depth") or "").strip(),
-                       "mastery": str(body.get("mastery") or "").strip(),
-                       "tooling": tooling})
-    # optional per-agent AI picks from the bindery modal: {"default": {kind,
-    # model, effort?}, "8": {kind, model, effort?}} → build_tome.py --runner overrides.
-    runner_args = _runner_args(body)
-    _save_launch(tid, body, concept)  # so a later resume can pre-fill the pickers
-    # -u: unbuffered, so phase lines reach the reader as they happen.
-    # start_new_session=True: its own process group, so cancel can kill
-    # the harness AND the agent children it spawns.
-    split_args = ["--split-sections"]  # bounded warm batches are mandatory for future builds
-    proc = subprocess.Popen([sys.executable, "-u", os.path.join(ROOT, "tools", "build_tome.py"),
-                             tid, "--gate-json", gate, "--concept", concept,
-                             "--yes"] + split_args + runner_args,
-                            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                            text=True, start_new_session=True)
-    gid = uuid.uuid4().hex[:12]
-    with jobs_lock:
-        # slug: the launch id build_tome keys its .tome-build sidecars on. Phase 2
-        # renames the tome dir and we follow it in "tome" (for forge_name), but the
-        # runner handshake files stay under this slug — never mutate it.
-        jobs[gid] = {"status": "running", "kind": "build", "tome": tid, "slug": tid,
-                     "phase": 0, "phaseTitle": "starting", "totalPhases": BUILD_TOTAL_PHASES,
-                     "log": [], "pid": proc.pid, "startedAt": time.time()}
-    save_active_owner(tid, gid, proc.pid)
-    threading.Thread(target=watch_build, args=(gid, proc), daemon=True).start()
-    return h.send_json({"ok": True, "jobId": gid, "tome": tid})
-
-
-def answer_runner_pause(h, body):
-    # Answer a build pause: write the reply file build_tome.py is polling. Two pauses:
-    # a dead runner (pick a new one) and a phase that exhausted its gate retries (switch
-    # model and/or grant `retries` more tries). Empty kind+model keeps the current model;
-    # for a death that means abort, for a gate pause it means "same model, N more tries".
-    bid = str(body.get("id") or "")
-    with jobs_lock:
-        job = jobs.get(bid)
-        # reply under the launch slug build_tome polls, not the renamed tome dir
-        tome = (job.get("slug") or job.get("tome")) if job and job.get("kind") == "build" else None
-    if not tome and external_build_process(bid):
-        tome = bid  # a different server owns it; /proc validated this launch id
-    if not tome:
-        return h.send_json({"ok": False, "error": "no such build"}, 404)
-    kind = str(body.get("kind") or "")
-    mdl = str(body.get("model") or "")
-    eff = str(body.get("effort") or "")
-    if mdl and kind not in ("claude-cli", "antigravity-cli", "codex-cli", "opencode-cli"):
-        return h.send_json({"ok": False, "error": "unknown runner kind"}, 400)
-    if eff and eff not in CLI_EFFORTS.get(kind, ()):
-        eff = ""  # drop an effort this kind doesn't accept rather than fail
-    try:
-        retries = max(0, int(body.get("retries") or 0))
-    except (TypeError, ValueError):
-        retries = 0
-    with open(os.path.join(BUILD_DIR, f"{tome}.runner-reply.json"), "w", encoding="utf-8") as f:
-        json.dump({"kind": kind, "model": mdl, "effort": eff, "retries": retries}, f)
-    # This is a new attempt at the paused phase. Restart its visible clock now rather
-    # than carrying over the time spent before the runner/gate pause.
-    with jobs_lock:
-        j = jobs.get(bid)
-        if j:
-            j["phaseStartedAt"] = time.time()
-            if mdl:  # the harness re-emits [runner: …] only at the next phase banner
-                j["runner"] = f"{kind} {mdl}" + (f" @{eff}" if eff else "")
-    return h.send_json({"ok": True})
-
-
-def resume_build(h, body):
-    rid = str(body.get("id") or "")
-    pp = plan_path(rid)
-    if not os.path.exists(pp):
-        return h.send_json({"ok": False, "error": "no such working"}, 404)
-    with open(pp, encoding="utf-8") as f:
-        text = f.read()
-    tid = resolve_working_tid(rid, text)
-    if working_is_active(rid, tid):
-        return h.send_json({"ok": False, "error": "that working is already being forged"}, 409)
-    frm = _resume_phase(rid, tid)
-    result = build_result_status(rid) or build_result_status(tid) or {}
-    conflict = tooling_conflict_details(text, str(result.get("error") or ""))
-    tooling_conflict = conflict["conflict"]
-    if tooling_conflict:
-        tooling = str(body.get("tooling") or "").strip().lower()
-        previous_tooling = str(_plan_gate(text).get("tooling") or "").lower()
-        if tooling == previous_tooling:
-            return h.send_json({
-                "ok": False,
-                "error": (f"Tooling={tooling} is the mode Phase 1 rejected; "
-                          "choose a different Tooling mode to resolve the conflict"),
-            }, 400)
-        if conflict["required"] and tooling != conflict["required"]:
-            return h.send_json({
-                "ok": False,
-                "error": (f"Phase 1 requires Tooling={conflict['required']}; "
-                          f"approve that exact change instead of Tooling={tooling or '(missing)'}"),
-            }, 400)
-        try:
-            text = replace_plan_tooling(text, tooling)
-        except ValueError as exc:
-            return h.send_json({"ok": False, "error": str(exc)}, 400)
-        with open(pp, "w", encoding="utf-8") as handle:
-            handle.write(text)
-        frm = 1
-    # optional operator override: the resume modal's "restart from" picker forces a
-    # phase instead of the auto-detected one. Phase 3 skips sections in the done-set,
-    # so a forced restart at/before it must drop that set to re-author every section
-    # (e.g. section 2 failed but got recorded done — this is how you redo it).
-    try:
-        forced = int(body.get("fromPhase"))
-    except (TypeError, ValueError):
-        forced = 0
-    if tooling_conflict:
-        forced = 1
-    if 1 <= forced <= 8:
-        frm = forced
-        _write_progress(tid, frm)
-        if frm <= 3:
-            for k in {rid, tid}:
-                try:
-                    os.remove(os.path.join(BUILD_DIR, f"{k}.sections-done"))
-                except OSError:
-                    pass
-    # A renamed tome kept its plan under the old id; build_tome wants both under the
-    # id it's launched with, so align the plan file name to the current tome id.
-    if tid != rid and not os.path.exists(plan_path(tid)):
-        try:
-            os.rename(pp, plan_path(tid))
-        except OSError:
-            pass
-    # Died before Phase 2 scaffolded the folder (--from-phase >0 skips Phase 0's
-    # scaffold step): create it, then resume from the first content phase.
-    if not os.path.isdir(os.path.join(TOMES_DIR, tid)):
-        subprocess.call([sys.executable, os.path.join(ROOT, "tools", "new_tome.py"), tid])
-        frm = 1
-    _clear_runner_handshake(tid)
-    launch_body = dict(body)
-    launch_body.update(_plan_gate(text))
-    _save_launch(tid, launch_body, _plan_concept(text), text)
-    split_args = ["--split-sections"]
-    proc = subprocess.Popen([sys.executable, "-u", os.path.join(ROOT, "tools", "build_tome.py"),
-                             tid, "--from-phase", str(frm), "--yes"]
-                            + split_args + _runner_args(body),
-                            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                            text=True, start_new_session=True)
-    gid = uuid.uuid4().hex[:12]
-    resumed_at = time.time()
-    with jobs_lock:
-        jobs[gid] = {"status": "running", "kind": "build", "tome": tid, "slug": tid,
-                     "phase": frm, "phaseTitle": "resuming", "totalPhases": BUILD_TOTAL_PHASES,
-                     "log": [], "pid": proc.pid, "startedAt": resumed_at,
-                     "phaseStartedAt": resumed_at}
-    save_active_owner(tid, gid, proc.pid)
-    threading.Thread(target=watch_build, args=(gid, proc), daemon=True).start()
-    return h.send_json({"ok": True, "jobId": gid, "tome": tid})
-
-
-def discard_build(h, body):
-    rid = str(body.get("id") or "")
-    pp = plan_path(rid)
-    if not os.path.exists(pp):
-        return h.send_json({"ok": False, "error": "no such working"}, 404)
-    with open(pp, encoding="utf-8") as f:
-        text = f.read()
-    tid = resolve_working_tid(rid, text)
-    if working_is_active(rid, tid):
-        return h.send_json({"ok": False, "error": "cancel the running forge before discarding it"}, 409)
-    for key in {rid, tid}:  # plan + every per-build sidecar, both ids if renamed
-        for suff in ("plan.md", "launch.json", "progress", "sections-done", "verdict", "active.json", "cancelled.json", "result.json",
-                     "findings.json", "runner-request.json", "runner-reply.json"):
-            try:
-                os.remove(os.path.join(BUILD_DIR, f"{key}.{suff}"))
-            except OSError:
-                pass
-        shutil.rmtree(os.path.join(BUILD_DIR, f"{key}.handoffs"), ignore_errors=True)
-    # The partial tome itself — only when incomplete, and only if the path really is a
-    # direct child of tomes/ (never let a crafted id escape the folder). Durable terminal
-    # state overrides the legacy Harness-ground-truth proxy.
-    tdir = os.path.realpath(os.path.join(TOMES_DIR, tid))
-    result = build_result_status(rid) or build_result_status(tid)
-    incomplete = (result.get("status") != "done" if result
-                  else "Harness ground truth" not in text)
-    if (tid and incomplete
-            and os.path.dirname(tdir) == os.path.realpath(TOMES_DIR)
-            and os.path.isdir(tdir)):
-        shutil.rmtree(tdir, ignore_errors=True)
-    return h.send_json({"ok": True})

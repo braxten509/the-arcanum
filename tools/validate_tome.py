@@ -38,7 +38,7 @@ import tome_layout  # noqa: E402 — validatelib put REPO on sys.path; in lockst
 
 
 def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_section=None,
-             require_proof_v1=False, build_plan=None):
+             require_proof_v1=False, build_plan=None, source_only=False):
     tome_path = os.path.abspath(tome_path.rstrip(os.sep))
     tome_id = os.path.basename(tome_path)
     manifest = os.path.join(tome_path, "tome.toml")
@@ -122,6 +122,13 @@ def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_sect
         if sid in seen_sid:
             err(label, f"[content] section id {sid!r} is listed more than once")
         seen_sid.add(sid)
+        # A warm Phase-3 checkpoint can only repair its authored prefix. Future
+        # sections are read-only and may contain an interrupted worker's partial TOML;
+        # parsing them here would deadlock the current batch on an out-of-scope error.
+        # File/layout presence is still checked above, and the complete Phase-3 gate
+        # (which has no --run-section) parses every section before advancing.
+        if prefix_ids is not None and str(sid) not in prefix_ids:
+            continue
         folder = os.path.join(tome_path, "sections", str(sid))
         slabel = rel(folder if os.path.isdir(folder) else folder + ".toml")
         try:
@@ -160,7 +167,8 @@ def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_sect
     if not phase2_skeleton:
         check_intrusions(tome_path, m, label)
         check_future_tome_proof(tome_path, m, sections_data, run=run,
-                                run_section=run_section, plan_path=build_plan)
+                                run_section=run_section, plan_path=build_plan,
+                                source_only=source_only)
     if run:
         execution_sections = sections_data
         if run_section:
@@ -185,7 +193,12 @@ def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_sect
     # structural checks above are intentionally detailed, but only the real loader can
     # prove its merged runtime/banks/sections payload can actually be constructed.
     installed_root = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "tomes"))
-    if os.path.realpath(os.path.dirname(tome_path)) == installed_root:
+    if run_section:
+        # assemble_tome() intentionally loads the whole tome. The final/full Phase-3
+        # gate exercises it; a prefix checkpoint must not make future read-only work
+        # an unrepairable blocker for the current batch.
+        pass
+    elif os.path.realpath(os.path.dirname(tome_path)) == installed_root:
         try:
             from arcanum.tomes import assemble_tome
             payload = assemble_tome(tome_id)
@@ -212,6 +225,9 @@ def main():
     ap.add_argument("--build-phase", type=int, choices=range(2, 9), default=None,
                     metavar="N", help="promote warnings owned by Phase N or earlier to ERROR; "
                          "the harness supplies this so unfinished work cannot leak forward")
+    ap.add_argument("--phase-only", action="store_true",
+                    help="with --build-phase, print only errors and current/earlier phase-owned "
+                         "findings; defer later-phase WARN noise until its owning worker")
     ap.add_argument("--run", action=argparse.BooleanOptionalAction, default=True,
                     help="EXECUTE every write-lab and intrusion starter through the tome's runtime: "
                          "flags starters that don't compile/run and ones already pre-solved. On by "
@@ -219,9 +235,13 @@ def main():
                          "a WARN when the toolchain is absent. --no-run skips it.")
     ap.add_argument("--run-section", metavar="SID", default=None,
                     help="execute lesson snippets/write labs only for SID (the warm Phase-3 "
-                         "checkpoint); proof-v1 checks cover the authored prefix through SID, "
-                         "while whole-tome scaffold checks still run and global intrusion/duel "
-                         "banks wait for the final gate")
+                         "checkpoint); content and proof-v1 checks parse only the authored prefix "
+                         "through SID, while whole-tome file/layout checks still run and live "
+                         "assembly plus global intrusion/duel banks wait for the final gate")
+    ap.add_argument("--source-only", action="store_true",
+                    help="fast repair checkpoint for --run-section: replay source, ordinary "
+                         "launch, and every acceptance challenge, but defer the final package "
+                         "build to the required full section gate")
     ap.add_argument("--tooling", choices=("internal", "external", "both"), default=None,
                     help="enforce the build's gate Tooling choice: internal forbids "
                          "externalWorkspace; external/both require external tools taught in section 1")
@@ -239,6 +259,12 @@ def main():
 
     if args.phase_1_plan and args.phase_2_skeleton:
         ap.error("--phase-1-plan and --phase-2-skeleton are mutually exclusive")
+    if args.phase_only and args.build_phase is None:
+        ap.error("--phase-only requires --build-phase")
+    if args.phase_only and args.strict:
+        ap.error("--phase-only and --strict are mutually exclusive; strict shipping reports all warnings")
+    if args.source_only and (not args.run or not args.run_section):
+        ap.error("--source-only requires executable --run-section validation")
 
     if args.phase_1_plan:
         from buildlib.checkpoints import arc_written
@@ -252,20 +278,28 @@ def main():
     set_build_phase(args.build_phase)
     validate(args.tome, run=args.run, tooling=args.tooling,
              phase2_skeleton=args.phase_2_skeleton, run_section=args.run_section,
-             require_proof_v1=args.require_proof_v1, build_plan=args.build_plan)
+             require_proof_v1=args.require_proof_v1, build_plan=args.build_plan,
+             source_only=args.source_only)
 
     errors = sum(1 for f in _findings if f[0] == "ERROR")
-    warns = len(_findings) - errors
-    hard = sum(1 for lv, lbl, _ in _findings if lv == "WARN" and lbl != "advisory")
-    for level, lbl, msg in _findings:
+    suppressed = sum(1 for f in _findings if args.phase_only and f[0] == "WARN")
+    reported = [finding for finding in _findings
+                if not (args.phase_only and finding[0] == "WARN")]
+    warns = sum(1 for f in reported if f[0] == "WARN")
+    hard = sum(1 for lv, lbl, _ in reported if lv == "WARN" and lbl != "advisory")
+    for level, lbl, msg in reported:
         print(f"{level} {lbl}: {msg}")
     strict_note = f", {hard} hard-gate warn(s) [--strict]" if args.strict and hard else ""
+    deferred_note = (f" [{suppressed} later-phase warning(s) deferred]"
+                     if suppressed else "")
     mode_note = (" [Phase 2 skeleton]" if args.phase_2_skeleton else
                  f" [executed section {args.run_section}]" if args.run_section else "")
+    if args.source_only:
+        mode_note += " [source acceptance only; package deferred]"
     if args.build_phase is not None:
         mode_note += f" [Phase {args.build_phase} owned-warning gate]"
     print(f"-- {os.path.basename(os.path.abspath(args.tome.rstrip(os.sep)))}: "
-          f"{errors} error(s), {warns} warning(s){strict_note}{mode_note}")
+          f"{errors} error(s), {warns} warning(s){strict_note}{deferred_note}{mode_note}")
     sys.exit(1 if errors or (args.strict and hard) else 0)
 
 

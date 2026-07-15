@@ -1,9 +1,8 @@
-"""Mirror the AI runner's real tool calls into a tiny browser-readable snapshot.
+"""Mirror the author AI's real tool calls into a browser-readable session history.
 
 The forge harness deliberately keeps stdout concise, so provider tool traffic is not
 available there. Follow the Codex/Claude JSONL, OpenCode SQLite session, or Antigravity
-full transcript owned by the build process tree and expose only the last three literal
-tool calls; this gives the operator real evidence without an unbounded terminal.
+full transcript owned by the build process tree and expose a bounded, useful shell history.
 """
 from collections import deque
 from dataclasses import dataclass
@@ -16,7 +15,7 @@ import time
 
 from .config import WEB
 
-TOOL_TRACE_LINES = 3
+TOOL_TRACE_LINES = 80
 TOOL_TRACE_CHARS = 360
 TOOL_TRACE_DIR = os.path.join(WEB, ".forge-trace")
 _CODEX_SESSION_PART = os.sep + ".codex" + os.sep + "sessions" + os.sep
@@ -87,7 +86,8 @@ def runner_session(root_pid):
                     if os.path.isfile(transcript):
                         try:
                             candidates.append((os.stat(transcript).st_mtime_ns,
-                                               TraceSource("antigravity", transcript)))
+                                               TraceSource("antigravity", transcript,
+                                                           agy.group(2))))
                         except OSError:
                             pass
             if not provider or not os.path.isfile(target):
@@ -96,7 +96,9 @@ def runner_session(root_pid):
                 stamp = os.stat(target).st_mtime_ns
             except OSError:
                 continue
-            candidates.append((stamp, TraceSource(provider, target)))
+            session_id = (os.path.basename(target).removesuffix(".jsonl")
+                          if provider == "claude" else "")
+            candidates.append((stamp, TraceSource(provider, target, session_id)))
     opencode = _opencode_session_from_processes(pids)
     if opencode:
         candidates.append(opencode)
@@ -157,7 +159,28 @@ def _claude_session_from_processes(pids, proc_root="/proc", projects_root=None):
             continue
     if not candidates:
         return None
-    return TraceSource("claude", max(candidates)[1])
+    path = max(candidates)[1]
+    return TraceSource("claude", path, os.path.basename(path).removesuffix(".jsonl"))
+
+
+def trace_session_id(source):
+    """Return the provider resume id represented by a discovered trace source."""
+    if not source:
+        return ""
+    if source.session_id:
+        return source.session_id
+    if source.provider == "claude":
+        return os.path.basename(source.path).removesuffix(".jsonl")
+    if source.provider == "codex":
+        try:
+            with open(source.path, encoding="utf-8") as handle:
+                for _ in range(20):
+                    row = json.loads(handle.readline())
+                    if row.get("type") == "session_meta":
+                        return str((row.get("payload") or {}).get("id") or "")
+        except (OSError, ValueError, json.JSONDecodeError):
+            return ""
+    return ""
 
 
 def _literal_command(source, start):
@@ -329,7 +352,7 @@ def format_tool_event(event):
 
 
 class SessionFollower:
-    """Incrementally parse complete JSONL records and retain three actual tool calls."""
+    """Incrementally parse complete JSONL records and retain recent actual tool calls."""
     def __init__(self, provider, path):
         self.provider = provider
         self.path = path
@@ -413,7 +436,9 @@ def mirror_tool_trace(job_id, build_pid, interval=0.75):
     """Follow a build until it exits, updating its bounded static trace snapshot."""
     follower = None
     missing = 0
-    _write_snapshot(job_id, {"active": False, "provider": "", "updatedAt": time.time(), "lines": []})
+    last_payload = {"active": False, "provider": "", "sessionId": "",
+                    "updatedAt": time.time(), "lines": []}
+    _write_snapshot(job_id, last_payload)
     while os.path.exists(f"/proc/{int(build_pid)}"):
         current = runner_session(build_pid)
         if current:
@@ -422,18 +447,20 @@ def mirror_tool_trace(job_id, build_pid, interval=0.75):
             if not follower or follower.source != current:
                 follower = _follower(current)
             events = follower.poll()
-            _write_snapshot(job_id, {
+            last_payload = {
                 "active": True,
                 "provider": provider,
+                "sessionId": trace_session_id(current),
                 "updatedAt": time.time(),
                 "lines": [format_tool_event(event) for event in events[-TOOL_TRACE_LINES:]],
-            })
+            }
+            _write_snapshot(job_id, last_payload)
         else:
             missing += 1
-            # Do not leave a previous phase's worker calls masquerading as current. A short
-            # grace avoids flicker while /proc changes underneath one scan.
+            # A paused author has no live child, but its history is still the session truth.
             if missing >= 3:
                 follower = None
-                _write_snapshot(job_id, {"active": False, "provider": "", "updatedAt": time.time(), "lines": []})
+                last_payload = {**last_payload, "active": False, "updatedAt": time.time()}
+                _write_snapshot(job_id, last_payload)
         time.sleep(max(0.2, float(interval)))
-    _write_snapshot(job_id, {"active": False, "provider": "", "updatedAt": time.time(), "lines": []})
+    _write_snapshot(job_id, {**last_payload, "active": False, "updatedAt": time.time()})

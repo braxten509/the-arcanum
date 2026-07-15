@@ -32,6 +32,9 @@ def main():
     parser.add_argument("--plan", required=True,
                         help="Phase 1 build plan containing the deterministic Continuity map")
     parser.add_argument("--tooling", choices=("internal", "external", "both"), default=None)
+    parser.add_argument("--source-only", action="store_true",
+                        help="run reconstructed-source acceptance and all negative controls, "
+                             "but defer the expensive package build")
     args = parser.parse_args()
 
     tome_path = os.path.abspath(args.tome.rstrip(os.sep))
@@ -40,6 +43,7 @@ def main():
 
     tome_clean, tome_report = validate(
         tid, phase=3, tooling=args.tooling, run=True, run_section=args.section,
+        phase_only=True, source_only=args.source_only, announce=False,
         plan_rel=os.path.relpath(os.path.abspath(args.plan),
                                 os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     if tome_report:

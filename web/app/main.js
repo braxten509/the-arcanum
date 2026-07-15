@@ -165,7 +165,7 @@ async function init() {
       const r = t.closest(".b-check, #b-run").getBoundingClientRect();
       setLastCastAt({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
     }
-    else if (t.closest("#term, .forge-log")) kind = "stone"; // the speaking stone & the forge log box: a mineral tap, chips fly
+    else if (t.closest("#term, .forge-log, .forge-workbench")) kind = "stone"; // dark work surfaces: a mineral tap, chips fly
     else if (t.closest("#parchment")) kind = "click";     // anywhere on the parchment
     else if (t.closest(".modal, .grade-card")) kind = "click"; // a parchment card (bindery / forge / grade) — dust like the page, buttons included
     else if (t.closest("button")) { kind = "click"; material = false; } // HUD buttons OUTSIDE parchment: tick only (before the wood catch, so the header bar's buttons don't knock)

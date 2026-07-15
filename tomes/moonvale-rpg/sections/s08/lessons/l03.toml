@@ -1,0 +1,123 @@
+[[lessons]]
+id = "s08-l03"
+title = "Test Victory and Defeat Boundaries"
+teaches = ["combat-regression-fixtures"]
+body = '''
+<p>Deterministic combat tests should drive public turns and inspect final state. The victory fixture constructs a real Player with its canonical health, power, and Inventory, then <code>CombatEncounter(player, seed=7)</code>. Two <code>attack_turn</code calls must produce victory, wisp health zero, player health eight, and tonic quantity one.</p>
+<pre><code data-kind="runnable">turns = ["player", "enemy", "player"]
+print("ORDER", "-".join(turns))</code></pre>
+<p><code>str.join</code combines the list with hyphens and prints <code>ORDER player-enemy-player</code>. This matches the seeded victory path: the second player strike ends before another enemy action. A likely failure is inserting a random call for visuals; that consumes the shared sequence. Animation choices must use emitted hooks, not the combat RNG.</p>
+<p>The defeat fixture gives Player health one and uses a seed that allows the wisp response after a weak first strike. It asserts result defeat and <code>next_scene() == "game-over"</code>. The exact damage value matters less than driving the real enemy response. A third assertion calls another turn after a terminal result and expects ValueError.</p>
+<p>These fixtures remain test-only. Ordinary play creates an encounter when the Player reaches the wisp trigger and chooses an unpredictable seed or a saved encounter seed. Acceptance later deliberately injects seven so <code>win-seeded-encounter</code> is reproducible. Injection controls the edge but does not assign enemy health or result.</p>
+<p>Animation hooks reuse <code>attack-east</code>, <code>hurt-east</code>, and enemy equivalents while the fallback FrameLibrary remains available. A visible scene consumes and clears events after rendering, but tests may inspect their order. Do not make victory wait for an animation to finish; domain result is immediate and visuals catch up.</p>
+<p>If a test changes after editing animation, search for RNG calls outside CombatEncounter. If an older Player proof fails, restore the stats and Inventory contracts rather than creating combat-only aliases.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // FIXTURE, NOT CHEAT</div><p>A seed fixes choices at a nondeterministic boundary. Directly setting result or enemy health would skip the behavior under test.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "combat-regression-fixtures"
+purpose = "Prove seeded victory, defeat/game-over, terminal guards, rewards, and animation-event ordering through real combat turns."
+anatomy = "Construct canonical Player; inject seed; call public attack_turn sequence; assert health/result/reward/events; construct low-health defeat path; assert game-over; assert post-terminal turn raises."
+example = "The joined actor list prints the exact player-enemy-player order of the two-turn victory fixture."
+observable = "Victory seed seven yields zero/eight/tonic; defeat yields game-over; terminal calls raise ValueError."
+failure = "Direct state assignments fake outcomes, visual RNG consumes combat choices, and ordinary seeded fixtures make every live encounter identical."
+practice = "s08-l03-e1"
+
+[[lessons.artifactSteps]]
+id = "s08-add-combat-tests"
+path = "tests/test_combat.py"
+mode = "write"
+instruction = "Create tests/test_combat.py with deterministic victory and terminal-boundary checks, then run python -m pytest -q."
+content = '''
+import pytest
+
+from moonvale.combat import CombatEncounter
+from moonvale.entities import Player
+
+
+def test_seeded_wisp_victory():
+    player = Player()
+    encounter = CombatEncounter(player, seed=7)
+    encounter.attack_turn()
+    encounter.attack_turn()
+    assert encounter.result == "victory"
+    assert encounter.enemy["health"] == 0
+    assert player.stats["health"] == 8
+    assert player.inventory.quantity("healing-tonic") == 1
+
+
+def test_defeat_requests_game_over():
+    player = Player()
+    player.stats["health"] = 1
+    encounter = CombatEncounter(player, seed=7)
+    encounter.attack_turn()
+    assert encounter.result == "defeat"
+    assert encounter.next_scene() == "game-over"
+
+
+def test_terminal_encounter_rejects_more_turns():
+    player = Player()
+    encounter = CombatEncounter(player, seed=7)
+    encounter.attack_turn()
+    encounter.attack_turn()
+    with pytest.raises(ValueError):
+        encounter.attack_turn()
+'''
+
+[[lessons.readings]]
+label = "pytest documentation: assertions"
+url = "https://docs.pytest.org/en/stable/how-to/assert.html"
+
+[[lessons.exercises]]
+id = "s08-l03-e1"
+type = "mc"
+points = 15
+prompt = "What makes seed seven a valid fixture rather than a fake victory?"
+choices = ["It assigns result directly", "It controls random choices while public turns still apply all rules", "It disables enemy health", "It prints expected text first"]
+answer = 1
+whyWrong = "Direct result, disabled health, or prepared output skip behavior; seeded turns still execute real damage and reward methods."
+hint = "Control the edge, not the outcome state."
+explain = "The seed supplies reproducible bonuses while rules determine victory."
+
+[[lessons.exercises]]
+id = "s08-l03-e2"
+type = "fill"
+points = 20
+prompt = "Construct the deterministic encounter used by the regression."
+code = 'encounter = CombatEncounter(player, seed=____)'
+answer = "7"
+hint = "Use the planned acceptance seed."
+whyWrong = "A different seed may produce a different damage sequence and receipt."
+
+[[lessons.exercises]]
+id = "s08-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the two public turns that prove victory."
+code = '''
+encounter.attack_turn()
+encounter.attack_turn()
+'''
+
+[[lessons.exercises]]
+id = "s08-l03-w1"
+type = "write"
+points = 30
+prompt = "Join ['player', 'enemy', 'player'] with hyphens and print exactly ORDER player-enemy-player."
+expect = '''
+ORDER player-enemy-player'''
+solution = '''
+turns = ["player", "enemy", "player"]
+print("ORDER", "-".join(turns))
+'''
+hint = "Call '-'.join on the list."
+
+[[lessons.exercises]]
+id = "s08-l03-e3"
+type = "text"
+points = 20
+prompt = "Which result requests the game-over scene?"
+answer = "defeat"
+hint = "It is the terminal opposite of victory."
+whyWrong = "Ongoing stays in combat and victory returns to play."

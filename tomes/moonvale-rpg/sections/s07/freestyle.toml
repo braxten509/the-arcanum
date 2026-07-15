@@ -1,0 +1,79 @@
+[freestyle]
+title = "THE WORKING: Drink from the Packed Satchel"
+brief = "Rowan asks one pickup and use path to prove the satchel's ownership.<ul><li>Preserve all s01-s06 proofs and ordinary launch.</li><li>Add <code>--arcanum-proof s07</code>: create a real Player, set health to 6, add two lantern herbs and one healing tonic through Inventory.add.</li><li>Select <code>healing-tonic</code> and call <code>use_selected(player)</code> exactly once.</li><li>Derive used truth, capped health, remaining tonic quantity, and dictionary slot count.</li><li>Print exactly <code>S07_OK item=healing-tonic used=True hp=10 qty=0 slots=2</code>.</li></ul>"
+requires = ["item-catalog-and-pickups", "inventory-selection-and-use", "player-inventory-owner", "player-world-state", "python-data-and-branches"]
+reward = 250
+xray = "Rowan docks UI-owned quantities, direct health assignment as the effect, unknown item acceptance, negative pickups, over-healing, early consumption, or a seeded ordinary inventory. He rewards one Player-owned rule object and a receipt derived from real add/select/use methods."
+
+[[freestyle.referenceSteps]]
+id = "s07-add-inventory-receipt"
+path = "src/moonvale/app.py"
+mode = "replace"
+instruction = "Insert the real Player inventory receipt immediately before the cumulative main dispatcher."
+find = '''
+def main(args=None):
+'''
+content = '''
+def inventory_receipt():
+    player = Player()
+    player.stats["health"] = 6
+    player.inventory.add("lantern-herb", 2)
+    item_id = "healing-tonic"
+    player.inventory.add(item_id)
+    player.inventory.select(item_id)
+    used = player.inventory.use_selected(player)
+    return (
+        f"S07_OK item={item_id} used={used} hp={player.stats['health']} "
+        f"qty={player.inventory.quantity(item_id)} "
+        f"slots={len(player.inventory.quantities)}"
+    )
+
+
+def main(args=None):
+'''
+
+[[freestyle.referenceSteps]]
+id = "s07-route-inventory-proof"
+path = "src/moonvale/app.py"
+mode = "replace"
+instruction = "Extend the exact s06 dispatcher tail with the s07 proof while preserving ordinary Game launch."
+find = '''
+    if args == ["--arcanum-proof", "s06"]:
+        print(quest_receipt())
+        return 0
+    return Game().run()
+'''
+content = '''
+    if args == ["--arcanum-proof", "s06"]:
+        print(quest_receipt())
+        return 0
+    if args == ["--arcanum-proof", "s07"]:
+        print(inventory_receipt())
+        return 0
+    return Game().run()
+'''
+
+[freestyle.badge]
+id = "badge-s07"
+name = "SATCHEL KEEPER"
+desc = "Collected stable item ids and spent one healing tonic through the canonical Player inventory."
+
+[[freestyle.rubric]]
+criterion = "Catalog and pickups"
+weight = 25
+desc = "Known stable ids resolve through one catalog; positive pickups grow dictionary quantities; unknown and nonpositive acquisitions fail clearly."
+
+[[freestyle.rubric]]
+criterion = "Selection and use"
+weight = 30
+desc = "Only positive owned slots select, healing caps at max_health, validation precedes exactly one decrement, and quest items remain unusable."
+
+[[freestyle.rubric]]
+criterion = "Player/UI ownership"
+weight = 25
+desc = "Player extends earlier contracts with one empty Inventory; overlay_rows exposes values but rendering never owns quantities or effects."
+
+[[freestyle.rubric]]
+criterion = "Python craft"
+weight = 20
+desc = "Follow PEP 8 with CapWords catalog/owner classes, snake_case methods and ids, four-space indentation, grouped imports, focused rule methods, and explicit errors."

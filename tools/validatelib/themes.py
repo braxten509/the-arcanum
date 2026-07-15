@@ -208,8 +208,11 @@ def check_sigil_palette_uniqueness(m, tome_path, label, tomes_root=None):
                        "change at least one of sigil-1…sigil-4; global skin themes are exempt")
 
 
-# below this mean channel distance two palettes read as the same look
+# Below this mean channel distance two palettes read as the same look. The
+# default palette carries a tome's first impression, so it must clear a
+# slightly stronger Vellum-distance floor than optional variants.
 PALETTE_MIN_DIST = 8
+DEFAULT_PALETTE_MIN_DIST = 10
 
 
 def check_theme_distinctness(m, label):
@@ -220,12 +223,16 @@ def check_theme_distinctness(m, label):
     vell, _ = load_toml(os.path.join(SKINS_DIR, "vellum", "skin.toml"))
     vell_vars = (vell or {}).get("vars", {})
     themes = [t for t in (m.get("themes") or []) if isinstance(t, dict)]
+    defaults = m.get("defaults", {}) if isinstance(m.get("defaults"), dict) else {}
+    default_id = defaults.get("theme")
     for i, th in enumerate(themes):
         tv = th.get("vars", {}) or {}
         d = _palette_dist(tv, vell_vars)
-        if d is not None and d < PALETTE_MIN_DIST:
+        floor = DEFAULT_PALETTE_MIN_DIST if th.get("id") == default_id else PALETTE_MIN_DIST
+        if d is not None and d < floor:
+            role = "default " if th.get("id") == default_id else ""
             warn("content", f"[[themes]] {th.get('id')!r} is a near-copy of the global Sepia "
-                 f"Vellum palette (mean channel distance {d:.1f} < {PALETTE_MIN_DIST}) — the "
+                 f"Vellum palette ({role}mean channel distance {d:.1f} < {floor}) — the "
                  "scaffold placeholder IS vellum; design this course's own palette (all 22 vars)",
                  phase=6)
         for other in themes[i + 1:]:

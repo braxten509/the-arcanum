@@ -11,10 +11,17 @@ listener_pids() {
   fuser -n tcp "$PORT" 2>/dev/null | xargs || true
 }
 
-# Always restart: kill whatever holds the port (a running instance or a stray), then start fresh
-# so a relaunch always picks up new code, config, and freshly-pulled ollama models.
+# A desktop relaunch must never sever a live author session. When the existing server reports
+# an active build, keep it intact; ordinary idle relaunches still restart to pick up new code.
 pids="$(listener_pids)"
 if [[ -n "$pids" ]]; then
+  active_jobs="$(curl --silent --fail --max-time 2 "$URL/api/buildtome/active" 2>/dev/null |
+    python3 -c 'import json,sys; print(len(json.load(sys.stdin).get("jobs", [])))' 2>/dev/null || true)"
+  if [[ "$active_jobs" =~ ^[1-9][0-9]*$ ]]; then
+    echo "ARCANUM is already lit with $active_jobs active author session(s) → $URL"
+    exit 0
+  fi
+
   echo "Restarting ARCANUM — clearing port $PORT (PID${pids// /,})..."
   kill -TERM $pids 2>/dev/null || true
 

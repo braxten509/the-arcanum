@@ -80,14 +80,18 @@ def run_cancellable(argv, stdin_text, timeout, cwd=None, env=None):
                 out_s, err_s = p.communicate(input=stdin_text or "", timeout=timeout)
             except subprocess.TimeoutExpired:
                 kill_run(p)
-                out_s, _ = p.communicate()
-                return {"ok": False, "output": clip(out_s) +
-                        f"\n(KILLED: exceeded {timeout}s — waiting for input? Provide stdin in the STDIN box.)"}
+                out_s, err_s = p.communicate()
+                return {"ok": False, "output": join_output(out_s, err_s) +
+                        f"\n(KILLED: exceeded {timeout}s — waiting for input? Provide stdin in the STDIN box.)",
+                        "command": list(argv), "timedOut": True}
             finally:
                 CURRENT["proc"] = None
         out = join_output(out_s, err_s)
         if p.returncode and p.returncode < 0:
-            return {"ok": False, "output": (out + "\n(CANCELLED by operator)").strip(), "exit": p.returncode}
-        return {"ok": p.returncode == 0, "output": out or "(no output)", "exit": p.returncode}
+            return {"ok": False, "output": (out + "\n(CANCELLED by operator)").strip(),
+                    "exit": p.returncode, "command": list(argv)}
+        return {"ok": p.returncode == 0, "output": out or "(no output)",
+                "exit": p.returncode, "command": list(argv), "timedOut": False}
     except OSError as e:
-        return {"ok": False, "output": f"(run failed to start: {e})"}
+        return {"ok": False, "output": f"(run failed to start: {e})",
+                "command": list(argv), "timedOut": False}

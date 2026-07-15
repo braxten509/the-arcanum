@@ -306,7 +306,7 @@ id = "@@SID@@-l01"
 title = "TODO: lesson title"
 teaches = ["replace-me"]            # TODO: stable kebab-case capabilities this lesson teaches
 body = '''
-<p>TODO: 300-600 words of code-first lesson body, in the tome's voice.</p>
+<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
 <pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
 <p>TODO: an optional deeper-cut appendix.</p></div>

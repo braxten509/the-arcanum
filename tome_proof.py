@@ -155,6 +155,16 @@ def proof_evidence_path(repo, tid):
     return os.path.join(repo, ".tome-build", f"{tid}.proof-evidence.json")
 
 
+def learner_project_path(repo, tid):
+    """Stable harness-owned reconstruction of the final learner project.
+
+    Phase 8 reviews this exact directory instead of mentally composing dozens of
+    lesson edits.  It is generated state under ``.tome-build``; learner workspaces
+    and authored tome files are never used as the replay target.
+    """
+    return os.path.join(repo, ".tome-build", f"{tid}.learner-project")
+
+
 def step_lists(section):
     """Yield visible lesson steps then the hidden capstone reference steps."""
     for lesson in section.get("lessons") or []:

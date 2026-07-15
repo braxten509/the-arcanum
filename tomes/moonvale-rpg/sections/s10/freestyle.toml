@@ -1,0 +1,118 @@
+[freestyle]
+title = "THE WORKING: Conduct the Six-Beat Return"
+brief = "Rowan asks every mode to answer one baton.<ul><li>Preserve every s01-s09 proof and ordinary launch.</li><li>Add <code>--arcanum-proof s10</code>: use SceneDirector to derive <code>title&gt;play&gt;pause&gt;play&gt;game-over&gt;title</code>.</li><li>Load AudioBank from a deliberately absent package-safe directory and derive <code>silent</code> mode.</li><li>Inject one <code>pygame.QUIT</code> event and FixedClock into the real Game, run at most one frame, and derive its cleanup receipt.</li><li>Print exactly <code>S10_OK flow=title&gt;play&gt;pause&gt;play&gt;game-over&gt;title audio=silent quit=clean</code>.</li></ul>"
+requires = ["single-loop-scene-director", "optional-audio-fallback", "canonical-launch-and-clean-quit", "scene-transition-contract", "deterministic-game-loop", "package-safe-asset-root"]
+reward = 290
+xray = "Rowan docks nested loops, prepared flow text, direct Game receipt assignment, duplicated entrypoints, required audio, unguarded mixer loading, arbitrary asset paths, swallowed scene ids, or missing cleanup. He rewards public director switches, the established Game edge injection, a callable silence boundary, exact package roots, and one canonical application gate."
+
+[[freestyle.referenceSteps]]
+id = "s10-import-proof-edges"
+path = "src/moonvale/app.py"
+mode = "replace"
+instruction = "Add SimpleNamespace and AudioBank to the exact cumulative application imports."
+find = '''
+import sys
+from tempfile import TemporaryDirectory
+
+import pygame
+
+from moonvale.animation import Animator, FrameLibrary
+'''
+content = '''
+import sys
+from tempfile import TemporaryDirectory
+from types import SimpleNamespace
+
+import pygame
+
+from moonvale.animation import Animator, FrameLibrary
+from moonvale.audio import AudioBank
+'''
+
+[[freestyle.referenceSteps]]
+id = "s10-import-scene-director"
+path = "src/moonvale/app.py"
+mode = "replace"
+instruction = "Add SceneDirector beside the existing model and settings owners."
+find = '''
+from moonvale.model import WorkshopState
+from moonvale.settings import TILE_SIZE
+'''
+content = '''
+from moonvale.model import WorkshopState
+from moonvale.scenes import SceneDirector
+from moonvale.settings import TILE_SIZE
+'''
+
+[[freestyle.referenceSteps]]
+id = "s10-add-conductor-receipt"
+path = "src/moonvale/app.py"
+mode = "replace"
+instruction = "Insert a public scene route, absent-media fallback, and injected real-Game quit receipt before main."
+find = '''
+def main(args=None):
+'''
+content = '''
+def conductor_receipt():
+    director = SceneDirector()
+    flow = [director.current.name]
+    for name in ("play", "pause", "play", "game-over", "title"):
+        flow.append(director.switch(name).name)
+    audio = AudioBank.load_optional(asset_root() / "missing-audio")
+    quit_event = SimpleNamespace(type=pygame.QUIT)
+    game = Game(clock=FixedClock(16), event_source=lambda: [quit_event])
+    result = game.run(frame_limit=1)
+    return (
+        f"S10_OK flow={'>'.join(flow)} audio={audio.mode} "
+        f"quit={result['quit']}"
+    )
+
+
+def main(args=None):
+'''
+
+[[freestyle.referenceSteps]]
+id = "s10-route-conductor-proof"
+path = "src/moonvale/app.py"
+mode = "replace"
+instruction = "Extend the exact s09 dispatcher tail with s10 while preserving ordinary Game launch."
+find = '''
+    if args == ["--arcanum-proof", "s09"]:
+        print(save_receipt())
+        return 0
+    return Game().run()
+'''
+content = '''
+    if args == ["--arcanum-proof", "s09"]:
+        print(save_receipt())
+        return 0
+    if args == ["--arcanum-proof", "s10"]:
+        print(conductor_receipt())
+        return 0
+    return Game().run()
+'''
+
+[freestyle.badge]
+id = "badge-s10"
+name = "TALE CONDUCTOR"
+desc = "Carried six scene beats, optional silence, and a clean quit through one application gate."
+
+[[freestyle.rubric]]
+criterion = "Scene composition"
+weight = 30
+desc = "Title, play, pause, and game-over retain the protocol, return lawful requests, and traverse the exact route through one Game-owned SceneDirector without nested loops."
+
+[[freestyle.rubric]]
+criterion = "Audio and asset boundary"
+weight = 20
+desc = "Stable title/action ids load only on request through asset_root or an injected root; missing or unreadable optional files receive callable SilentSound objects and truthful diagnostics."
+
+[[freestyle.rubric]]
+criterion = "Launch and quit proof"
+weight = 30
+desc = "Root and module entrypoints delegate to app.main; the receipt injects a real QUIT edge into Game, observes pygame cleanup, and preserves all cumulative proofs and ordinary launch."
+
+[[freestyle.rubric]]
+criterion = "Python craft"
+weight = 20
+desc = "Follow PEP 8 with CapWords scene/audio owners, snake_case methods and locals, four-space indentation, grouped imports, short focused methods, explicit requests, and narrow exception handling."

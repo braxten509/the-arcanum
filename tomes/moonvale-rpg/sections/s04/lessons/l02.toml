@@ -1,0 +1,152 @@
+[[lessons]]
+id = "s04-l02"
+title = "Load Geometry at the Asset Boundary"
+teaches = ["pytmx-world-loader", "package-safe-asset-root"]
+body = '''
+<p><code>pytmx</code> reads TMX into Python objects. Install it in the active environment with <code>python -m pip install pytmx</code>; using <code>python -m pip</code> ties the installer to the same interpreter that runs Moonvale. Then <code>pytmx.TiledMap(path)</code> parses the file. Parsing means turning external text into structured values your program can inspect.</p>
+<p>The <code>World</code> class becomes the canonical owner of map geometry. Its constructor receives a <code>Path</code>, loads the map once, calculates pixel dimensions, asks for the two named layers, and converts every object to a <code>pygame.Rect</code>. A list holds walls because collision checks visit each rectangle. A dictionary holds interaction zones because later systems ask for one stable id such as <code>herbalist</code>.</p>
+<pre><code data-kind="runnable">names = ["herbalist", "gate"]
+zones = {name: index for index, name in enumerate(names)}
+print(zones["herbalist"])</code></pre>
+<p>The braces create a dictionary comprehension: for each item, store the name as key and its enumerated position as value. The probe prints <code>0</code>. In the real loader, an ordinary loop is used so the new syntax is not required for the artifact. A likely failure is an unnamed interaction object. The loader raises a clear <code>ValueError</code> rather than silently creating an empty-string key; guided practice identifies that boundary.</p>
+<p>The loader must not depend on the terminal's current folder. <code>Path(__file__).resolve()</code> starts from the actual <code>world.py</code> file. Each <code>.parent</code> moves up one directory: from <code>world.py</code> to <code>moonvale</code>, then <code>src</code>, then the project root. Appending <code>assets</code> creates one package-safe asset root. The slash operator between <code>Path</code> values joins path components; it is not numeric division here.</p>
+<p>Read <code>World.__init__</code> in execution order. First parse. Next calculate <code>pixel_size</code>. Then build <code>walls</code>. Finally build <code>zones</code>. If <code>get_layer_by_name</code> raises <code>ValueError</code>, compare the exact lowercase layer spelling in Tiled. If the file cannot be found, print the resolved path and confirm the map lives under <code>assets/maps</code>. Do not replace these diagnostics with a second guessed relative path; one root prevents development and package launches from disagreeing.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DATA AT THE EDGE</div><p>TMX floats become rounded integers only at the PyGame rectangle boundary. Keeping the conversion in one module makes later dialogue and diagnostics consume the same geometry.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "pytmx-world-loader"
+purpose = "Parse a Tiled TMX file once and expose its dimensions, wall rectangles, and interaction rectangles through a stable World object."
+anatomy = "Call pytmx.TiledMap; multiply map tile counts by tile pixel sizes; look up collision and interactions by exact layer name; convert object coordinates to pygame.Rect; reject unnamed zones."
+example = "The worked dictionary probe demonstrates stable named lookup, and the artifact applies the same key-value ownership to Tiled interaction objects."
+observable = "Loading moonvale.tmx produces pixel_size (1600, 640), one wall, and one zone keyed by herbalist."
+failure = "A missing layer raises ValueError, an absent file raises a path error, and an unnamed interaction triggers the loader's explicit ValueError."
+practice = "s04-l02-e1"
+
+[[lessons.concepts]]
+id = "package-safe-asset-root"
+purpose = "Resolve the assets directory from installed source location rather than whichever folder happened to launch Python."
+anatomy = "Resolve __file__; move from world.py through moonvale and src to the project root; join the assets directory and then maps/moonvale.tmx."
+example = "The artifact's asset_root function returns Path(__file__).resolve().parents[2] / 'assets'."
+observable = "The same map path loads from the project root or another current working directory."
+failure = "Using Path('assets') alone can work in the project root but fail with FileNotFoundError after launching elsewhere."
+practice = "s04-l02-e3"
+
+[[lessons.artifactSteps]]
+id = "s04-add-world-loader"
+path = "src/moonvale/world.py"
+mode = "write"
+instruction = "Create src/moonvale/world.py with this complete canonical loader; from the project root verify World(asset_root() / 'maps' / 'moonvale.tmx') reports one wall and herbalist zone."
+content = '''
+from pathlib import Path
+
+import pygame
+import pytmx
+
+
+def asset_root():
+    return Path(__file__).resolve().parents[2] / "assets"
+
+
+class World:
+    def __init__(self, map_path):
+        self.map_path = Path(map_path)
+        self.map = pytmx.TiledMap(self.map_path)
+        self.pixel_size = (
+            self.map.width * self.map.tilewidth,
+            self.map.height * self.map.tileheight,
+        )
+        collision_layer = self.map.get_layer_by_name("collision")
+        self.walls = [self._rect_from_object(obj) for obj in collision_layer]
+
+        self.zones = {}
+        interaction_layer = self.map.get_layer_by_name("interactions")
+        for obj in interaction_layer:
+            if not obj.name:
+                raise ValueError("Every interaction object needs a name")
+            self.zones[obj.name] = self._rect_from_object(obj)
+
+    @staticmethod
+    def _rect_from_object(obj):
+        return pygame.Rect(
+            round(obj.x),
+            round(obj.y),
+            round(obj.width),
+            round(obj.height),
+        )
+'''
+
+[[lessons.readings]]
+label = "pytmx project documentation and examples"
+url = "https://github.com/bitcraft/pytmx"
+
+[[lessons.exercises]]
+id = "s04-l02-e1"
+type = "mc"
+points = 15
+prompt = "Why are walls stored in a list but interaction zones stored in a dictionary?"
+choices = ["PyGame forbids wall dictionaries", "Lists automatically perform collision", "Walls are scanned as a collection, while interactions need stable lookup by object name", "Dictionaries can contain only Rect values"]
+answer = 2
+whyWrong = "Both containers can hold Rect values and neither performs collision automatically; their access patterns determine the useful choice."
+hint = "Compare visiting every wall with asking specifically for herbalist."
+explain = "The collection shapes make the intended operations explicit."
+
+[[lessons.exercises]]
+id = "s04-l02-e2"
+type = "fill"
+points = 20
+prompt = "Complete the exact Tiled layer lookup for interaction zones."
+code = 'self.map.get_layer_by_name("____")'
+answer = "interactions"
+hint = "Match the plural lowercase name authored in moonvale.tmx."
+whyWrong = "Layer lookup is an exact string contract; a singular or capitalized variant is a different name."
+
+[[lessons.exercises]]
+id = "s04-l02-e3"
+type = "text"
+points = 20
+prompt = "Which special Python name gives world.py its own file path for resolving the project asset root?"
+answer = "__file__"
+hint = "It is a double-underscore module attribute, not the terminal's current directory."
+whyWrong = "Path.cwd() identifies the launch folder; the asset boundary starts from the module's stable location."
+
+[[lessons.exercises]]
+id = "s04-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the canonical map construction with the stable asset root."
+code = 'world = World(asset_root() / "maps" / "moonvale.tmx")'
+
+[[lessons.exercises]]
+id = "s04-l02-w1"
+type = "write"
+points = 30
+prompt = "Given map_width=50, map_height=20, and TILE_SIZE=32, compute pixel_width and pixel_height and print exactly WORLD size=1600x640."
+starter = '''
+map_width = 50
+map_height = 20
+TILE_SIZE = 32
+'''
+expect = '''
+WORLD size=1600x640'''
+solution = '''
+map_width = 50
+map_height = 20
+TILE_SIZE = 32
+pixel_width = map_width * TILE_SIZE
+pixel_height = map_height * TILE_SIZE
+print("WORLD", f"size={pixel_width}x{pixel_height}")
+'''
+hint = "Multiply each tile count by TILE_SIZE, then place both results in one f-string separated by x."
+
+[[lessons.exercises]]
+id = "s04-l02-e4"
+type = "mc"
+points = 15
+prompt = "What should the loader do when a Tiled interaction object has no name?"
+choices = ["Use the empty string silently", "Raise a clear ValueError at the data boundary", "Delete every other zone", "Rename it to collision"]
+answer = 1
+whyWrong = "Silent or invented identifiers hide bad authoring data; deleting or changing unrelated geometry violates map ownership."
+hint = "Later dialogue needs a stable key and should not guess one."
+explain = "Failing at load time localizes the error to the map boundary."

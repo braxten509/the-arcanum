@@ -1,0 +1,125 @@
+[[lessons]]
+id = "s07-l02"
+title = "Select and Spend a Tonic"
+teaches = ["inventory-selection-and-use"]
+body = '''
+<p>Selection names the slot the player intends to use. <code>Inventory.select(item_id)</code> requires a positive owned quantity and stores the exact id in <code>selected</code>. Selection does not consume anything. This lets an overlay highlight a slot without changing game rules.</p>
+<p><code>use_selected(player)</code> looks up the selected record. Quest items cannot be used, so their kind raises <code>ValueError</code>. A healing tonic computes new health with <code>min(max_health, health + heal)</code>. <code>min</code> selects the lower value, preventing health above the established maximum.</p>
+<pre><code data-kind="runnable">health = 6
+max_health = 10
+heal = 4
+health = min(max_health, health + heal)
+print("HP", health)</code></pre>
+<p>The probe prints <code>HP 10</code>. If health were nine, it would still stop at ten. A common failure is decrementing quantity before validating the effect; an unusable item then disappears. The method validates selection, quantity, kind, and effect first, applies the health change, then decrements exactly once.</p>
+<p>Zero quantities remain in the dictionary for now. That gives save data a stable slot history and makes this chapter's two-slot receipt observable after using the tonic. The overlay may hide zero entries, but rule state keeps them. A later design could deliberately delete empty keys, yet save and proof contracts would need migration together.</p>
+<p><code>use_selected</code> returns <code>True</code> when it applies an effect. It raises for invalid use rather than returning False because callers have violated a rule boundary. Visible UI can prevent the call by dimming quest or empty entries. The inventory does not draw fonts, rectangles, or receive a Surface.</p>
+<p>To diagnose use, print selected id, quantity, kind, health before, and health after. If health changes but quantity does not, inspect the final decrement. If quantity changes twice, search for duplicate input handling; one action snapshot should invoke one use.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TRANSACTION ORDER</div><p>Validate, apply, then consume. That order avoids spending an item on an effect that could not legally happen.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "inventory-selection-and-use"
+purpose = "Select an owned slot without consuming it, then apply a validated capped healing effect and decrement exactly one quantity."
+anatomy = "Require positive quantity for select; look up selected record; reject missing/quest items; compute min(max_health, health + heal); write health; decrement quantity; return True."
+example = "The health probe adds four to six and caps the result at max_health ten."
+observable = "One healing tonic raises health from six to ten, quantity becomes zero, and use returns True."
+failure = "Consuming before validation loses unusable items; skipping min permits health above maximum; duplicate action handling spends twice."
+practice = "s07-l02-w1"
+
+[[lessons.artifactSteps]]
+id = "s07-expand-inventory-methods"
+path = "src/moonvale/inventory.py"
+mode = "replace"
+instruction = "Replace the exact quantity method at the end of Inventory with the same method plus selection, use, and overlay-ready rows."
+find = '''
+    def quantity(self, item_id):
+        return self.quantities.get(item_id, 0)
+'''
+content = '''
+    def quantity(self, item_id):
+        return self.quantities.get(item_id, 0)
+
+    def select(self, item_id):
+        if self.quantity(item_id) <= 0:
+            raise ValueError("cannot select an empty inventory slot")
+        self.selected = item_id
+
+    def use_selected(self, player):
+        if self.selected is None or self.quantity(self.selected) <= 0:
+            raise ValueError("no usable item is selected")
+        item = ItemCatalog.get(self.selected)
+        if item["kind"] != "consumable" or "heal" not in item:
+            raise ValueError("selected item has no use effect")
+        player.stats["health"] = min(
+            player.stats["max_health"],
+            player.stats["health"] + item["heal"],
+        )
+        self.quantities[self.selected] -= 1
+        return True
+
+    def overlay_rows(self):
+        return [
+            (item_id, ItemCatalog.get(item_id)["name"], quantity, item_id == self.selected)
+            for item_id, quantity in self.quantities.items()
+        ]
+'''
+
+[[lessons.readings]]
+label = "Python documentation: min"
+url = "https://docs.python.org/3/library/functions.html#min"
+
+[[lessons.exercises]]
+id = "s07-l02-e1"
+type = "mc"
+points = 15
+prompt = "When should the tonic quantity decrement?"
+choices = ["Before checking selection", "After the validated heal is applied", "When the overlay draws", "When the map loads"]
+answer = 1
+whyWrong = "Selection, rendering, and map loading do not complete the use transaction; consuming before validation can lose items."
+hint = "Use the transaction order: validate, apply, consume."
+explain = "A successful effect spends exactly one item."
+
+[[lessons.exercises]]
+id = "s07-l02-e2"
+type = "fill"
+points = 20
+prompt = "Cap healing at the established maximum."
+code = 'health = ____(max_health, health + heal)'
+answer = "min"
+hint = "Choose the lower of maximum and proposed value."
+whyWrong = "max would choose the over-healed value."
+
+[[lessons.exercises]]
+id = "s07-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the exact selected slot assignment."
+code = 'self.selected = item_id'
+
+[[lessons.exercises]]
+id = "s07-l02-w1"
+type = "write"
+points = 30
+prompt = "Start health=8, max_health=10, heal=4, and quantity=1. Apply capped healing, decrement once, and print exactly USE hp=10 qty=0."
+expect = '''
+USE hp=10 qty=0'''
+solution = '''
+health = 8
+max_health = 10
+heal = 4
+quantity = 1
+health = min(max_health, health + heal)
+quantity -= 1
+print("USE", f"hp={health}", f"qty={quantity}")
+'''
+hint = "Use min before subtracting one quantity."
+
+[[lessons.exercises]]
+id = "s07-l02-e3"
+type = "text"
+points = 20
+prompt = "Which exact stats key limits healing?"
+answer = "max_health"
+hint = "It has remained beside health since Player construction."
+whyWrong = "power controls damage; the health cap uses max_health."

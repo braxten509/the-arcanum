@@ -1,0 +1,104 @@
+[freestyle]
+title = "THE WORKING: Unroll the Moonvale Leaf"
+brief = "Rowan asks for evidence that the hero's temporary room has become a real mapped world.<ul><li>Preserve every s01, s02, and s03 proof branch and the ordinary Game launch.</li><li>Add <code>--arcanum-proof s04</code>: resolve <code>assets/maps/moonvale.tmx</code> through <code>asset_root()</code> and construct a real <code>World</code>.</li><li>Verify loaded data, not constants: derive the map filename, wall count, and zone count from that World.</li><li>Follow <code>pygame.Rect(1008, 32, TILE_SIZE, TILE_SIZE)</code> with <code>Camera</code> against the loaded world size.</li><li>Print exactly <code>S04_OK map=moonvale.tmx walls=1 zones=1 camera=544,0</code>.</li></ul>"
+requires = ["tiled-object-map", "pytmx-world-loader", "package-safe-asset-root", "clamped-world-camera", "interaction-zone-query", "media-free-map-fallback", "axis-separated-rect-collision", "moonvale-package-skeleton"]
+reward = 230
+xray = "Rowan docks a hardcoded receipt, Path('assets') tied to the terminal folder, screen-space collision, mutable camera projection, invented map identifiers, or any required image. He rewards one World owner, exact layer names, derived counts, clamped offsets, and unchanged earlier receipts."
+
+[[freestyle.referenceSteps]]
+id = "s04-reference-app-world-proof"
+path = "src/moonvale/app.py"
+mode = "rewrite"
+preserves = "all-active"
+instruction = "Replace app.py with this complete cumulative dispatcher, adding the real World and Camera receipt while preserving every earlier proof and ordinary launch."
+content = '''
+import sys
+
+import pygame
+
+from moonvale.camera import Camera
+from moonvale.entities import Player
+from moonvale.game import Game
+from moonvale.input import InputSnapshot
+from moonvale.model import WorkshopState
+from moonvale.settings import TILE_SIZE
+from moonvale.testing import FixedClock
+from moonvale.world import World, asset_root
+
+
+def workshop_receipt():
+    state = WorkshopState("MoonvaleRPG")
+    for module_name in ["settings", "model", "app"]:
+        state.add_module(module_name)
+    return state.receipt()
+
+
+def player_collision_receipt():
+    player = Player(32, 32)
+    wall = pygame.Rect(96, 32, 32, 32)
+    player.set_intent(InputSnapshot(right=True))
+    blocked = player.move(0.5, [wall])
+    return (
+        f"S03_OK position={player.rect.x},{player.rect.y} "
+        f"blocked={blocked} hp={player.stats['health']}"
+    )
+
+
+def world_receipt():
+    world = World(asset_root() / "maps" / "moonvale.tmx")
+    camera = Camera()
+    target = pygame.Rect(1008, 32, TILE_SIZE, TILE_SIZE)
+    camera.follow(target, world.pixel_size)
+    return (
+        f"S04_OK map={world.map_path.name} walls={len(world.walls)} "
+        f"zones={len(world.zones)} "
+        f"camera={round(camera.offset.x)},{round(camera.offset.y)}"
+    )
+
+
+def main(args=None):
+    args = list(sys.argv[1:] if args is None else args)
+    if args == ["--arcanum-proof", "s01"]:
+        print(workshop_receipt())
+        return 0
+    if args == ["--arcanum-proof", "s02"]:
+        game = Game(clock=FixedClock(16), event_source=lambda: [])
+        receipt = game.run(frame_limit=3)
+        print(
+            f"S02_OK scene={receipt['scene']} frames={receipt['frames']} "
+            f"quit={receipt['quit']}"
+        )
+        return 0
+    if args == ["--arcanum-proof", "s03"]:
+        print(player_collision_receipt())
+        return 0
+    if args == ["--arcanum-proof", "s04"]:
+        print(world_receipt())
+        return 0
+    return Game().run()
+'''
+
+[freestyle.badge]
+id = "badge-s04"
+name = "MOONVALE CARTOGRAPHER"
+desc = "Loaded a real Tiled world and kept its camera, collision, and interaction coordinates honest."
+
+[[freestyle.rubric]]
+criterion = "Map and asset boundary"
+weight = 25
+desc = "The real TMX loads through package-safe asset_root; its exact object layers produce one wall and the named herbalist interaction zone without required media."
+
+[[freestyle.rubric]]
+criterion = "Coordinate correctness"
+weight = 30
+desc = "World.pixel_size derives from map tiles, Camera follows and clamps the supplied target, and world_to_screen returns a copy without mutating gameplay rectangles."
+
+[[freestyle.rubric]]
+criterion = "Cumulative proof"
+weight = 25
+desc = "The s04 receipt derives filename, counts, and offset from real objects while s01-s03 proof branches and ordinary Game launch remain working."
+
+[[freestyle.rubric]]
+criterion = "Python craft"
+weight = 20
+desc = "Follow PEP 8 with four-space indentation, CapWords World/Camera classes, snake_case functions and locals, grouped imports, Path-based boundaries, and focused geometry ownership."

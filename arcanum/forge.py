@@ -11,45 +11,22 @@ import time
 import urllib.parse
 import urllib.request
 
-from .config import BUILD_DIR, CLI_EFFORTS, TOMES_DIR, jobs, jobs_lock, read_settings
+from .config import (BUILD_DIR, CLI_EFFORTS, TOMES_DIR, build_procs, jobs, jobs_lock,
+                     read_settings)
 from .build_state import (BUILD_PHASE_TITLES, BUILD_TOTAL_PHASES, build_result_status,
-                          cancelled_build_status, load_active_owner, record_build_result,
-                          remove_active_owner)
+                          cancelled_build_status, load_active_owner, load_build_progress,
+                          record_build_result, remove_active_owner)
 from .tomes import load_manifest, resolve_working_tid
 from .tool_trace import mirror_tool_trace
 
-# The harness's banner always starts "> Phase N — …"; the ">" is REQUIRED so a worker
-# narrating "Phase 3 — s02 complete…" in its own output can't hijack the phase title.
 BUILD_PHASE_RE = re.compile(r"^\s*>\s*Phase (\d+)\s*—\s*(.+?)(?:\s+\[runner|$)")
 # Worker CLIs color their output; the browser log is plain text, where the ESC byte is
 # invisible and leaves "[0m" litter. Strip CSI/OSC sequences and stray control chars.
 ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b.|[\x00-\x08\x0b-\x1f\x7f]")
-# Phase 2 renames the tome folder from the launch slug to the themed kebab id
-# (build_tome.py maybe_rename prints this). Track it or forge_name reads a dead folder.
-BUILD_RENAME_RE = re.compile(r"renamed tomes/\S+ -> tomes/(\S+)")
-# Split-sections progress: "· authoring s03 [3/8] on <runner>" / "· resuming s02 [2/8] …"
-# / "· section s01 [1/8] already authored — skipping"
-BUILD_SECTION_RE = re.compile(r"^\s*·\s+(?:authoring|resuming|section)\s+s\d+\s+\[(\d+)/(\d+)\]")
-BUILD_BATCH_RE = re.compile(
-    r"^\s*·\s+(?:authoring|resuming)\s+warm batch\s+\d+/\d+\s+"
-    r"\[(\d+)-(\d+)/(\d+)\].*\s+on\s+(.+)$")
-BUILD_RUNNER_RE = re.compile(r"\[runner: ([^\]]+)\]")
-# The runner's stdout also contains patches, generated prose, token counters, and CLI
-# narration. Keep that raw tail for failure diagnostics, but give the live terminal only
-# harness-authored progress signals. Anchored phrases prevent arbitrary worker prose from
-# masquerading as forge status just because it begins with a bullet or punctuation mark.
+AUTHOR_SESSION_RE = re.compile(r"^AUTHOR SESSION (starting|running|paused|complete|stopped)$")
 BUILD_STATUS_RE = re.compile(
-    r"^(?:"
-    r">\s*Phase\s+\d+\s+—|"
-    r"===\s*Phase\s+0\b|"
-    r"·\s*(?:AI access Phase 0|forecast:|reset tomes/|split-sections:|Phase 3 (?:full gate|resume)|"
-    r"(?:authoring|resuming)\s+warm batch|"
-    r"(?:authoring|resuming|section)\s+s\d+|shrinkage justified|renamed tomes/|liveness ping)|"
-    r"(?:ok|FAIL)\s+|"
-    r"!\s*(?:runner|worker|section|warm batch|Phase|naming)\b|"
-    r"x\s*(?:gates failed|Phase|section|warm batch)\b|"
-    r"⇒\s+|↻\s+|~\s*student verdict\b|⏸\s*phase\b|"
-    r"==\s*all phases complete\b|AI ACCESS PHASE 0 FAILED\b|->\s*wrote\b)"
+    r"^(?:>\s*Phase\s+\d+\s+—|AUTHOR SESSION\s+|"
+    r"VALIDATOR COMMAND (?:START|COMPLETE|FAILED)\b)"
 )
 
 
@@ -60,8 +37,8 @@ def forge_status_line(line):
 
 
 def fresh_tome_id(name):
-    """Slugify a course name into an unused tomes/<id> — the harness's Phase 2 runs
-    new_tome.py, which refuses an existing dir, so the id must be fresh (including
+    """Slugify a course name into an unused tomes/<id>. The setup creates the initial
+    scaffold, and new_tome.py refuses an existing dir, so the id must be fresh (including
     ids claimed by builds still running that haven't scaffolded yet)."""
     s = re.sub(r"-{2,}", "-", re.sub(r"[^a-z0-9-]", "-", name.lower().strip())).strip("-")[:32].strip("-") or "tome"
     with jobs_lock:
@@ -138,32 +115,15 @@ def watch_build(gid, proc):
                 job["phaseTitle"] = m.group(2).strip()
                 job["phaseStartedAt"] = time.time()   # the overlay shows time-in-phase from this
                 job.pop("sections", None)             # per-phase; only phase 3 repopulates it
-                r = BUILD_RUNNER_RE.search(line)
-                if r:
-                    job["runner"] = r.group(1)
-                _write_progress(job.get("tome"), job["phase"])  # so a later resume restarts here
-            sec = BUILD_SECTION_RE.match(line)
-            if sec:
-                job["sections"] = f"{sec.group(1)}/{sec.group(2)}"
-                r = re.search(r"\bon (.+)$", line)    # split workers can differ from the phase runner
-                if r:
-                    job["runner"] = r.group(1)
-            batch = BUILD_BATCH_RE.match(line)
-            if batch:
-                job["sections"] = f"{batch.group(1)}-{batch.group(2)}/{batch.group(3)}"
-                job["runner"] = batch.group(4)
-            rn = BUILD_RENAME_RE.search(line)
-            if rn:
-                job["tome"] = rn.group(1)  # follow the Phase 2 rename so the UI picks up the themed meta.name
-            pause = line.lstrip().startswith("⏸")  # request_runner blocked for a human pick (death/gate)
-            tnow = job.get("tome")
-        if pause:  # outside the lock — notify never blocks, forge_name reads a file
-            notify(f"⏸ {forge_name(tnow) or tnow or 'A tome'} needs you", line.strip(), priority=1)
+            session = AUTHOR_SESSION_RE.match(line)
+            if session:
+                job["interactionState"] = session.group(1)
     rc = proc.wait()
     tome = tail = final = slug = phase_title = failure = None
     phase = 0
     with jobs_lock:
         job = jobs.get(gid)
+        build_procs.pop(gid, None)
         slug = (job.get("slug") or job.get("tome")) if job else None
         if job and job.get("status") == "running":  # cancel sets its own status first
             externally_cancelled = bool(slug and cancelled_build_status(slug))
@@ -174,6 +134,11 @@ def watch_build(gid, proc):
             final, tome, tail = job.get("status"), job.get("tome"), "\n".join(job.get("log", [])[-6:])
             phase, phase_title, failure = job.get("phase", 0), job.get("phaseTitle", ""), job.get("error", "")
     if slug:
+        try:
+            with open(os.path.join(BUILD_DIR, f"{slug}.plan.md"), encoding="utf-8") as handle:
+                tome = resolve_working_tid(slug, handle.read())
+        except OSError:
+            pass
         remove_active_owner(slug)
         if final in ("done", "error", "cancelled"):
             record_build_result(slug, tome, final, phase, phase_title, failure)
@@ -217,7 +182,7 @@ def _save_launch(tid, body, concept, plan_text=""):
     try:
         with open(os.path.join(BUILD_DIR, f"{tid}.launch.json"), "w", encoding="utf-8") as f:
             json.dump({"bindery": body.get("bindery") or previous.get("bindery") or {},
-                       "runners": body.get("runners") or previous.get("runners") or {},
+                       "author": body.get("author") or previous.get("author") or {},
                        "concept": concept, "gate": gate}, f)
     except OSError:
         pass
@@ -380,12 +345,23 @@ def _live_trace_jobs(proc_root="/proc"):
 def list_active_builds(proc_root="/proc"):
     """All live tome builds, including harnesses owned by another server process."""
     with jobs_lock:
-        local = [{"id": bid, "tome": j.get("tome"), "slug": j.get("slug") or j.get("tome"),
-                  "name": forge_name(j.get("tome")), "phase": j.get("phase"),
-                  "phaseTitle": j.get("phaseTitle"), "status": j.get("status"),
-                  "totalPhases": j.get("totalPhases", BUILD_TOTAL_PHASES), "external": False}
-                 for bid, j in jobs.items()
-                 if j.get("kind") == "build" and j.get("status") == "running"]
+        snapshots = [(bid, dict(j)) for bid, j in jobs.items()
+                     if j.get("kind") == "build" and j.get("status") == "running"]
+    local = []
+    for bid, job in snapshots:
+        slug, tid = job.get("slug") or job.get("tome"), job.get("tome")
+        try:
+            with open(os.path.join(BUILD_DIR, f"{slug}.plan.md"), encoding="utf-8") as handle:
+                tid = resolve_working_tid(slug, handle.read())
+        except OSError:
+            pass
+        progress = load_build_progress(slug) or load_build_progress(tid) or {}
+        local.append({"id": bid, "tome": tid, "slug": slug, "name": forge_name(tid),
+                      "phase": progress.get("phase", job.get("phase")),
+                      "phaseTitle": progress.get("phaseTitle", job.get("phaseTitle")),
+                      "status": job.get("status"),
+                      "totalPhases": job.get("totalPhases", BUILD_TOTAL_PHASES),
+                      "external": False})
     claimed = {value for j in local for value in (j.get("slug"), j.get("tome")) if value}
     external = []
     legacy_traces = _live_trace_jobs(proc_root)
@@ -454,11 +430,14 @@ def list_workings():
         durable = result or build_result_status(tid) or {}
         failure = str(durable.get("error") or "")
         tooling = tooling_conflict_details(text, failure)
+        resume_phase = _resume_phase(planid, tid)
+        author = launch.get("author") or (launch.get("runners") or {}).get(
+            str(resume_phase)) or (launch.get("runners") or {}).get("default") or {}
         out.append({"id": planid, "tome": tid, "name": forge_name(tid) or tid,
                     "concept": launch.get("concept") or _plan_concept(text),
-                    "phase": _resume_phase(planid, tid),
+                    "phase": resume_phase,
                     "bindery": launch.get("bindery") or {},
-                    "runners": launch.get("runners") or {},
+                    "author": author,
                     "gate": launch.get("gate") or _plan_gate(text),
                     "toolingConflict": tooling["conflict"],
                     "requiredTooling": tooling["required"],
@@ -468,24 +447,8 @@ def list_workings():
     return out
 
 
-def _runner_args(body):
-    """The bindery's {phase: {kind, model, effort}} picks -> build_tome.py --runner flags
-    (effort rides as an @suffix). Malformed entries are dropped rather than failing the build."""
-    args = []
-    for key, rv in (body.get("runners") or {}).items():
-        kind = str((rv or {}).get("kind") or "")
-        mdl = str((rv or {}).get("model") or "")
-        eff = str((rv or {}).get("effort") or "")
-        if eff and eff in CLI_EFFORTS.get(kind, ()):
-            mdl += "@" + eff
-        if re.fullmatch(r"default|\d", str(key)) and mdl and \
-                kind in ("claude-cli", "antigravity-cli", "codex-cli", "opencode-cli"):
-            args += ["--runner", f"{key}={kind}:{mdl}"]
-    return args
-
-
-def _clear_runner_handshake(tid):
-    for stale in ("runner-request", "runner-reply", "cancelled", "result"):
+def _clear_build_terminal_state(tid):
+    for stale in ("cancelled", "result", "session"):
         try:
             os.remove(os.path.join(BUILD_DIR, f"{tid}.{stale}.json"))
         except OSError:

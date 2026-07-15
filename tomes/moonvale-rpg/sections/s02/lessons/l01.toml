@@ -1,0 +1,104 @@
+[[lessons]]
+id = "s02-l01"
+title = "Hear the Event Queue"
+teaches = ["pygame-window-lifecycle"]
+body = '''
+<p>PyGame is a library, so <code>import pygame</code> loads its public names before use. <code>pygame.init()</code> initializes the available subsystems. <code>pygame.display.set_mode(WINDOW_SIZE)</code> creates a drawing surface and requests a window; the returned <code>Surface</code> is the page we paint. <code>pygame.display.set_caption(...)</code> labels that window. When the program finishes, <code>pygame.quit()</code> releases PyGame resources.</p>
+<pre><code data-kind="runnable">import pygame
+
+pygame.init()
+screen = pygame.display.set_mode((320, 180))
+screen.fill("midnightblue")
+pygame.display.flip()
+print(screen.get_size())
+pygame.quit()</code></pre>
+<p>The visible window may appear only briefly, but the terminal prints <code>(320, 180)</code>. <code>fill</code> changes pixels on the back surface; <code>display.flip</code> presents that completed frame. Painting without flipping leaves the user looking at an older frame. Calling display functions before initialization can produce an uninitialized-video error.</p>
+<p>The operating system delivers input and window requests as events. <code>pygame.event.get()</code> returns a list and removes those events from the queue. A <code>for event in ...</code> loop visits each one. Compare <code>event.type</code> with <code>pygame.QUIT</code> to recognize a close request. Draining the queue matters even when no keys are handled; an application that stops servicing its window can be marked unresponsive.</p>
+<p>We will not let every scene call <code>pygame.key.get_pressed()</code> independently. <code>InputSnapshot</code> records four directional facts and action presses for one update. Its <code>movement()</code> method converts Booleans into signed horizontal and vertical integers. Python treats <code>True</code> as one and <code>False</code> as zero in this small subtraction, so right minus left yields -1, 0, or 1. One snapshot gives every system the same view of a frame.</p>
+<p>For headless validation, the harness selects SDL's dummy video driver before importing the app. The game still initializes PyGame, creates a surface, processes events, updates state, and flips; it simply does not place a window on the desktop. That is a controlled display edge, not a fake game result.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // QUEUES</div><p>Events are transient records, while held-key state is a snapshot. Treating both as the same thing causes missed single presses or repeated actions; later input code will keep these meanings separate.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "pygame-window-lifecycle"
+purpose = "Initialize PyGame, create and present a drawing surface, service the operating-system event queue, and shut down cleanly."
+anatomy = "Import pygame; call init; create the display surface; drain event.get each frame; update pixels; call display.flip; finally call pygame.quit."
+example = "The complete 320 by 180 program fills, presents, reports the surface size, and releases PyGame."
+observable = "A midnight-blue window appears briefly and the terminal prints (320, 180)."
+failure = "Skipping init, event draining, flip, or quit leads to initialization errors, stale frames, an unresponsive window, or unclean resource release."
+practice = "s02-l01-d1"
+
+[[lessons.artifactSteps]]
+id = "s02-add-input-snapshot"
+path = "src/moonvale/input.py"
+mode = "write"
+instruction = "Create src/moonvale/input.py with the complete frame-owned InputSnapshot class."
+content = '''
+class InputSnapshot:
+    def __init__(self, left=False, right=False, up=False, down=False, action=False, pause=False):
+        self.left = left
+        self.right = right
+        self.up = up
+        self.down = down
+        self.action = action
+        self.pause = pause
+
+    def movement(self):
+        return (int(self.right) - int(self.left), int(self.down) - int(self.up))
+'''
+
+[[lessons.readings]]
+label = "PyGame documentation: event queue"
+url = "https://pyga.me/docs/ref/event.html"
+
+[[lessons.exercises]]
+id = "s02-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the two calls that present a finished frame and release PyGame."
+code = '''
+pygame.display.flip()
+pygame.quit()
+'''
+
+[[lessons.exercises]]
+id = "s02-l01-e1"
+type = "mc"
+points = 15
+prompt = "Why must the loop call pygame.event.get even before gameplay input exists?"
+choices = ["It changes the target frame rate", "It services queued operating-system events, including window close requests", "It automatically moves every sprite", "It saves the screen to disk"]
+answer = 1
+whyWrong = "The event queue carries OS and input records; it does not control timing, move entities, or capture images."
+hint = "Think about what happens when a desktop window stops responding to its operating system."
+explain = "Draining the queue lets the application inspect close/input events and keeps the window responsive."
+
+[[lessons.exercises]]
+id = "s02-l01-e2"
+type = "fill"
+points = 20
+prompt = "Complete the call that reveals all drawing performed on the back surface."
+code = 'pygame.display.____()'
+answer = "flip"
+hint = "Use the display function that presents the completed frame."
+whyWrong = "Surface.fill changes pixels but does not itself present them to the user."
+
+[[lessons.exercises]]
+id = "s02-l01-w1"
+type = "write"
+points = 30
+prompt = "Without importing PyGame, model a frame snapshot with right=True and left=False, compute int(right) - int(left), and print exactly DX 1."
+starter = '''
+left = False
+right = True
+'''
+expect = '''
+DX 1'''
+solution = '''
+left = False
+right = True
+dx = int(right) - int(left)
+print("DX", dx)
+'''
+hint = "Convert each Boolean to an integer and subtract the left value from the right value."
+

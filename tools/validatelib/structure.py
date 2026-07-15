@@ -236,7 +236,8 @@ def check_runtime(m, tome_id, label):
                     "scaffoldCommand", "packageCommand", "snippetRunCommand",
                     "validationCreateCommand", "validationPackageCommand",
                     "validationProjectPackageCommand", "deliveryCreateCommand",
-                    "deliveryInstallCommand", "deliveryBuildCommand")
+                    "deliveryResolveCommand", "deliveryInstallCommand",
+                    "deliveryBuildCommand")
     for key in command_keys:
         if key not in merged:
             continue
@@ -280,6 +281,7 @@ def check_runtime(m, tome_id, label):
         if (isinstance(value, list) and value and not any("{package}" in arg for arg in value)):
             err(source_label(key), f"[runtime] {key} must contain a {{package}} placeholder")
     for key, placeholder in (("deliveryCreateCommand", "{env}"),
+                             ("deliveryResolveCommand", "{requirements}"),
                              ("deliveryInstallCommand", "{requirements}")):
         value = merged.get(key)
         if (isinstance(value, list) and value
@@ -337,7 +339,8 @@ def check_runtime(m, tome_id, label):
     for key in ("command", "runCommand", "buildCommand", "checkCommand", "scaffoldCommand",
                 "validationCreateCommand", "validationPackageCommand",
                 "validationProjectPackageCommand", "deliveryCreateCommand",
-                "deliveryInstallCommand", "deliveryBuildCommand"):
+                "deliveryResolveCommand", "deliveryInstallCommand",
+                "deliveryBuildCommand"):
         v = merged.get(key)
         exe = v[0] if isinstance(v, list) and v and isinstance(v[0], str) else None
         if not exe or exe in seen or "{" in exe:

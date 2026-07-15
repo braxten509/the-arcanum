@@ -1,0 +1,181 @@
+[[lessons]]
+id = "s09-l01"
+title = "Name Every Saved Field"
+teaches = ["versioned-save-snapshot"]
+body = '''
+<p>JSON stores dictionaries, lists, strings, numbers, Booleans, and null. It does not understand a PyGame Vector2, Rect, Inventory, or QuestLog. A save snapshot therefore translates live owners into a deliberately small JSON-shaped dictionary. It records schema version one; Player position, two-component direction, and stats; inventory quantities and selected id; and the QuestLog world_state.</p>
+<pre><code data-kind="runnable">import json
+snapshot = {"version": 1, "player": {"position": [64, 96]}}
+text = json.dumps(snapshot, sort_keys=True)
+print("JSON", text)</code></pre>
+<p>The probe prints a JSON object with quoted keys. <code>json.dumps</code> serializes a Python value to text; <code>sort_keys=True</code> makes diagnostics stable. A likely failure is attempting to encode <code>player.position</code> directly, which raises TypeError because Vector2 is not a JSON type. Convert it to a two-number list at the boundary.</p>
+<p><code>make_snapshot</code> copies each mutable dictionary. A save must not change later merely because gameplay changes the original object. <code>copy.deepcopy</code> protects the nested quest records and NPC flags. The exact ids <code>lantern-herb</code>, status values, stats keys, and selected item remain data rather than being translated to friendlier labels.</p>
+<p>Loading reverses a trust boundary, so <code>validate_snapshot</code> checks types, exact key sets, version, position length, numeric coordinates, stats integers, nonnegative quantities, selected-slot membership, and the established quest shape. Extra keys are rejected for this first schema instead of silently changing meaning. <code>SaveError</code> gives the scene one focused exception to display.</p>
+<p>The schema version is not the game version. It changes only when persisted meanings change. If a future release introduces version two, a migration can recognize one and create two. Quietly accepting an unknown version risks interpreting old health as a different unit.</p>
+<p>To diagnose a rejection, print the save path, version, failing owner, and error. Never print the entire player file in a public bug report because later saves may contain personal names. Guided practice creates the smallest versioned dictionary and observes the serialized text.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DATA TRANSFER, NOT OBJECT DUMP</div><p>Persist public values needed to resume. Reconstruct runtime helpers such as Rect and renderer state from those values.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "versioned-save-snapshot"
+purpose = "Translate canonical Player, Inventory, and QuestLog state into an independent, explicitly versioned JSON shape and reject malformed input."
+anatomy = "Create exact top-level keys; convert Vector2 to a two-number list; copy stats and quantities; deep-copy world_state; verify types, key sets, ranges, stable ids, and schema version before use."
+example = "The worked snapshot serializes version one and a two-number player position with json.dumps."
+observable = "Valid live state becomes deterministic JSON text; malformed keys, types, quantities, quest shape, or versions raise SaveError."
+failure = "Encoding runtime objects raises TypeError, shallow copies drift with gameplay, and unvalidated external values corrupt established owners."
+practice = "s09-l01-w1"
+
+[[lessons.artifactSteps]]
+id = "s09-add-versioned-snapshot"
+path = "src/moonvale/savegame.py"
+mode = "write"
+instruction = "Create src/moonvale/savegame.py with the schema-one snapshot and validation boundary."
+content = '''
+import copy
+
+
+SCHEMA_VERSION = 1
+
+
+class SaveError(ValueError):
+    """Raised when persisted Moonvale state cannot be trusted."""
+
+
+def _require_keys(value, keys, label):
+    if not isinstance(value, dict) or set(value) != set(keys):
+        raise SaveError(f"invalid {label} keys")
+
+
+def make_snapshot(player, quest_log):
+    return {
+        "version": SCHEMA_VERSION,
+        "player": {
+            "position": [player.position.x, player.position.y],
+            "direction": [player.direction.x, player.direction.y],
+            "stats": dict(player.stats),
+        },
+        "inventory": {
+            "quantities": dict(player.inventory.quantities),
+            "selected": player.inventory.selected,
+        },
+        "world_state": copy.deepcopy(quest_log.world_state),
+    }
+
+
+def validate_snapshot(data):
+    _require_keys(data, ("version", "player", "inventory", "world_state"), "save")
+    if data["version"] != SCHEMA_VERSION:
+        raise SaveError(f"unsupported save version: {data['version']}")
+
+    player = data["player"]
+    _require_keys(player, ("position", "direction", "stats"), "player")
+    position = player["position"]
+    if (
+        not isinstance(position, list)
+        or len(position) != 2
+        or not all(isinstance(value, (int, float)) for value in position)
+    ):
+        raise SaveError("invalid player position")
+    if (
+        not isinstance(player["direction"], list)
+        or len(player["direction"]) != 2
+        or not all(
+            isinstance(value, (int, float)) for value in player["direction"]
+        )
+    ):
+        raise SaveError("invalid player direction")
+    _require_keys(player["stats"], ("health", "max_health", "power"), "stats")
+    if not all(isinstance(value, int) for value in player["stats"].values()):
+        raise SaveError("invalid player stats")
+
+    inventory = data["inventory"]
+    _require_keys(inventory, ("quantities", "selected"), "inventory")
+    quantities = inventory["quantities"]
+    if not isinstance(quantities, dict) or any(
+        not isinstance(item_id, str)
+        or not isinstance(quantity, int)
+        or quantity < 0
+        for item_id, quantity in quantities.items()
+    ):
+        raise SaveError("invalid inventory quantities")
+    selected = inventory["selected"]
+    if selected is not None and selected not in quantities:
+        raise SaveError("selected item is not in inventory")
+
+    world_state = data["world_state"]
+    _require_keys(world_state, ("quests", "npc_flags"), "world state")
+    _require_keys(world_state["quests"], ("lantern-herb",), "quests")
+    _require_keys(
+        world_state["quests"]["lantern-herb"],
+        ("status", "herbs"),
+        "lantern-herb quest",
+    )
+    if world_state["quests"]["lantern-herb"]["status"] not in (
+        "locked",
+        "accepted",
+        "ready",
+        "completed",
+    ):
+        raise SaveError("invalid lantern-herb status")
+    if not isinstance(world_state["npc_flags"], dict):
+        raise SaveError("invalid NPC flags")
+    return data
+'''
+
+[[lessons.readings]]
+label = "Python documentation: JSON encoder and decoder"
+url = "https://docs.python.org/3/library/json.html"
+
+[[lessons.exercises]]
+id = "s09-l01-e1"
+type = "mc"
+points = 15
+prompt = "Why convert Player.position to a two-number list?"
+choices = ["JSON cannot encode Vector2 directly", "Lists move the player", "Rect requires a network", "The schema version draws it"]
+answer = 0
+whyWrong = "Serialization translates values; it does not move, network, or render the player, and JSON has no Vector2 type."
+hint = "JSON supports lists and numbers, not PyGame classes."
+explain = "The list preserves the two coordinates in a portable JSON shape."
+
+[[lessons.exercises]]
+id = "s09-l01-e2"
+type = "fill"
+points = 20
+prompt = "Complete the stable schema marker."
+code = 'snapshot = {"version": ____}'
+answer = "1"
+hint = "This chapter defines the first save schema."
+whyWrong = "The value is a schema integer, not a game title or status."
+
+[[lessons.exercises]]
+id = "s09-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the independent stats copy."
+code = '"stats": dict(player.stats),'
+
+[[lessons.exercises]]
+id = "s09-l01-w1"
+type = "write"
+points = 30
+prompt = "Import json, create version=1 and position=[64, 96], then print exactly SAVE version=1 x=64 y=96 from the round-tripped value."
+expect = '''
+SAVE version=1 x=64 y=96'''
+solution = '''
+import json
+
+snapshot = {"version": 1, "position": [64, 96]}
+loaded = json.loads(json.dumps(snapshot))
+print("SAVE", f"version={loaded['version']}", f"x={loaded['position'][0]}", f"y={loaded['position'][1]}")
+'''
+hint = "Use json.dumps followed by json.loads, then index the two position elements."
+
+[[lessons.exercises]]
+id = "s09-l01-e3"
+type = "text"
+points = 20
+prompt = "Which exact exception class marks rejected save data?"
+answer = "SaveError"
+hint = "It is the focused subclass declared above the snapshot functions."
+whyWrong = "JSONDecodeError is one low-level cause; callers receive the save boundary's own error."

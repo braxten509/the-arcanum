@@ -1,0 +1,105 @@
+[[lessons]]
+id = "s06-l01"
+title = "Store the Herbalist's Words as Data"
+teaches = ["data-driven-dialogue"]
+body = '''
+<p>Dialogue is data when text and branching keys live in dictionaries rather than inside a scene's conditionals. The stable NPC id <code>herbalist</code> comes from the Tiled interaction object, and the stable quest id is <code>lantern-herb</code>. A <code>DialogueBook</code> maps the NPC id to lines selected by quest status. Moving the zone in Tiled does not change either id.</p>
+<pre><code data-kind="runnable">dialogue = {
+    "herbalist": {"locked": "Moonvale's path is dark.", "completed": "The lamps are bright."}
+}
+print(dialogue["herbalist"]["locked"])</code></pre>
+<p>Read the nested lookup left to right: select the herbalist record, then the line under <code>locked</code>. It prints <code>Moonvale's path is dark.</code> A likely failure is using a display name such as <code>Herbalist</code>; dictionary keys are exact and case-sensitive, so the lookup raises <code>KeyError</code>. Guided practice reuses the lowercase mapped id.</p>
+<p>The chapter uses four quest status values: <code>locked</code>, <code>accepted</code>, <code>ready</code>, and <code>completed</code>. Dialogue does not change status. <code>DialogueBook.line_for(npc_id, quest_status)</code> only validates the NPC and chooses the appropriate string. The quest owner performs transitions later. This separation prevents showing a line from accidentally granting rewards.</p>
+<p>The dialogue dictionary is JSON-shaped: string keys map to strings or nested dictionaries, so it could later move to a JSON content file. For now, a Python module gives beginners a clear traceback and avoids a second external-data parser before save data is taught. The public method raises a targeted <code>KeyError</code> for an unknown NPC and falls back to the accepted line for any in-progress status that has no unique text.</p>
+<p>Trace one interaction: World reports <code>herbalist</code>; QuestLog reports <code>accepted</code>; DialogueBook returns the accepted line; a scene renders it. None of those steps owns the others. If the wrong text appears, print the NPC id and status before the lookup rather than changing dictionary entries at random.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // IDS ARE JOINTS</div><p>Stable ids connect map, dialogue, quest, and later save data. Human-facing titles may change; ids require deliberate migration.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "data-driven-dialogue"
+purpose = "Choose herbalist dialogue from stable NPC and quest-status ids without embedding story text or state mutations in scene conditionals."
+anatomy = "Define nested NPC/status dictionaries; validate npc_id; select an exact status line or accepted fallback; return text without changing quest state."
+example = "The nested dictionary probe selects herbalist then locked and prints the opening Moonvale line."
+observable = "locked, accepted, ready, and completed statuses produce appropriate herbalist lines from one data owner."
+failure = "Case-drifted ids raise KeyError, and mutating quest state in a text lookup would hide gameplay rules in presentation."
+practice = "s06-l01-e1"
+
+[[lessons.artifactSteps]]
+id = "s06-add-dialogue-book"
+path = "src/moonvale/dialogue.py"
+mode = "write"
+instruction = "Create src/moonvale/dialogue.py with the complete stable dialogue records and read-only lookup below."
+content = '''
+DIALOGUE = {
+    "herbalist": {
+        "locked": "Moonvale's path is dark. Will you gather three lantern herbs?",
+        "accepted": "Three lantern herbs grow beyond the eastern wall.",
+        "ready": "You found them. Let me bind their light.",
+        "completed": "The lamps are bright because you kept your word.",
+    }
+}
+
+
+class DialogueBook:
+    def line_for(self, npc_id, quest_status):
+        if npc_id not in DIALOGUE:
+            raise KeyError(f"unknown npc id: {npc_id}")
+        lines = DIALOGUE[npc_id]
+        return lines.get(quest_status, lines["accepted"])
+'''
+
+[[lessons.readings]]
+label = "Python documentation: dictionaries"
+url = "https://docs.python.org/3/tutorial/datastructures.html#dictionaries"
+
+[[lessons.exercises]]
+id = "s06-l01-e1"
+type = "mc"
+points = 15
+prompt = "Why does dialogue use the id herbalist instead of the NPC's map coordinates?"
+choices = ["Strings move the camera", "The stable id survives a map-position change and joins later systems", "Coordinates cannot be integers", "pytmx forbids names"]
+answer = 1
+whyWrong = "Strings do not control cameras, coordinates are valid integers, and Tiled explicitly supports names; stability is the design reason."
+hint = "Imagine moving the NPC rectangle in Tiled."
+explain = "Dialogue continues to resolve by name without duplicating location data."
+
+[[lessons.exercises]]
+id = "s06-l01-e2"
+type = "fill"
+points = 20
+prompt = "Complete the exact mapped NPC lookup."
+code = 'line = DIALOGUE["____"]["locked"]'
+answer = "herbalist"
+hint = "Reuse the lowercase Tiled object name."
+whyWrong = "Display capitalization or a quest id does not match the NPC dictionary key."
+
+[[lessons.exercises]]
+id = "s06-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the read-only dialogue call."
+code = 'line = DialogueBook().line_for("herbalist", "accepted")'
+
+[[lessons.exercises]]
+id = "s06-l01-w1"
+type = "write"
+points = 30
+prompt = "Create a nested dictionary with herbalist completed text 'Lamps lit', look it up by both exact keys, and print exactly DIALOGUE Lamps lit."
+expect = '''
+DIALOGUE Lamps lit'''
+solution = '''
+dialogue = {"herbalist": {"completed": "Lamps lit"}}
+line = dialogue["herbalist"]["completed"]
+print("DIALOGUE", line)
+'''
+hint = "Index the NPC key first, then the status key."
+
+[[lessons.exercises]]
+id = "s06-l01-e3"
+type = "text"
+points = 20
+prompt = "What exception should an unknown NPC id raise?"
+answer = "KeyError"
+hint = "It is Python's missing dictionary-key exception."
+whyWrong = "ValueError describes an unacceptable value; this failure is specifically a missing key."

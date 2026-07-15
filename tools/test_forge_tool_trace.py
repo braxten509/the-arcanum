@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Focused checks for literal provider tool extraction and the three-line cap."""
+"""Focused checks for literal provider extraction and the expanded session history."""
 import json
 import os
 import sqlite3
@@ -14,7 +14,7 @@ from arcanum.tool_trace import (_claude_session_from_processes,
                                 antigravity_tool_events, claude_tool_events,
                                 codex_tool_events, format_tool_event,
                                 opencode_tool_events, OpenCodeFollower,
-                                SessionFollower, TraceSource)
+                                SessionFollower, trace_session_id, TraceSource)
 
 
 codex_record = {
@@ -62,9 +62,19 @@ with tempfile.NamedTemporaryFile("wb", delete=False) as handle:
         handle.write(json.dumps(row).encode() + b"\n")
 try:
     follower = SessionFollower("codex", path)
-    assert [event["detail"] for event in follower.poll()] == ["echo 2", "echo 3", "echo 4"]
+    assert [event["detail"] for event in follower.poll()] == [
+        "echo 0", "echo 1", "echo 2", "echo 3", "echo 4"]
 finally:
     os.unlink(path)
+
+with tempfile.NamedTemporaryFile("w", delete=False) as handle:
+    codex_session = handle.name
+    handle.write(json.dumps({"type": "session_meta",
+                             "payload": {"id": "019f-session-id"}}) + "\n")
+try:
+    assert trace_session_id(TraceSource("codex", codex_session)) == "019f-session-id"
+finally:
+    os.unlink(codex_session)
 
 with tempfile.TemporaryDirectory() as tmp:
     proc_root = os.path.join(tmp, "proc")
@@ -80,7 +90,8 @@ with tempfile.TemporaryDirectory() as tmp:
     session = os.path.join(project, "session.jsonl")
     with open(session, "w", encoding="utf-8") as handle:
         handle.write(json.dumps(claude_record) + "\n")
-    assert _claude_session_from_processes([123], proc_root, projects) == TraceSource("claude", session)
+    assert _claude_session_from_processes([123], proc_root, projects) == TraceSource(
+        "claude", session, "session")
 
 with tempfile.TemporaryDirectory() as tmp:
     proc_root = os.path.join(tmp, "proc")
@@ -105,6 +116,7 @@ with tempfile.TemporaryDirectory() as tmp:
     found = _opencode_session_from_processes([321], proc_root)
     assert found and found[1] == TraceSource("opencode", database, "session-live"), found
     follower = OpenCodeFollower(found[1])
-    assert [event["detail"] for event in follower.poll()] == ["echo 2", "echo 3", "echo 4"]
+    assert [event["detail"] for event in follower.poll()] == [
+        "echo 0", "echo 1", "echo 2", "echo 3", "echo 4"]
 
 print("forge tool trace: OK")

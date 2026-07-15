@@ -362,8 +362,9 @@ def check_content(m, sections_data, label, tooling=None, include_manifest=True):
     depth, field-notes, narrative line counts, toolchain setup, naming drift.
     Language-neutral proxies only — no keyword matching, so non-English tomes
     aren't penalized. These warnings are owned and hard-gated by Phase 3."""
-    lessons = [les for sd in sections_data
-               for les in (sd.get("lessons") or []) if isinstance(les, dict)]
+    lesson_records = [(sd.get("id") or "?", les) for sd in sections_data
+                      for les in (sd.get("lessons") or []) if isinstance(les, dict)]
+    lessons = [lesson for _, lesson in lesson_records]
     if lessons:
         # §3: field-notes appendix "strongly recommended on every lesson"; the
         # reference tome carries 52/52. Near-zero coverage is the hollow-content tell.
@@ -371,11 +372,22 @@ def check_content(m, sections_data, label, tooling=None, include_manifest=True):
         if fn / len(lessons) < 0.5:
             warn("content", f"only {fn} of {len(lessons)} lessons carry a FIELD NOTES appendix — "
                  "§3 strongly recommends one on every lesson (the deeper-cut channel)", phase=3)
-        words = sorted(_visible_words(les.get("body")) for les in lessons)
+        word_rows = sorted((_visible_words(lesson.get("body")), sid,
+                            lesson.get("id") or "?")
+                           for sid, lesson in lesson_records)
+        words = [row[0] for row in word_rows]
         median = words[len(words) // 2]
         if median < 300:
-            warn("content", f"median lesson body is {median} words — §3 wants 300–600 per "
-                 "lesson; the per-lesson floor only catches stubs, this catches systematic thinness",
+            below = [row for row in word_rows if row[0] < 300]
+            must_raise = max(1, len(below) - len(words) // 2)
+            closest = sorted(below, reverse=True)[:12]
+            candidates = ", ".join(f"{sid}/{lid}={count}"
+                                   for count, sid, lid in closest)
+            warn("content", f"median lesson body is {median} visible words — canonical math "
+                 f"strips HTML tags, then splits the remaining text on whitespace. {len(below)} "
+                 f"of {len(words)} lessons are below 300; raise at least {must_raise} of them "
+                 f"to ≥300 to clear this exact prefix (aim for 340–500 meaningful words, not "
+                 f"filler, so the next batch has margin). Closest repair candidates: {candidates}",
                  phase=3)
 
         # Readings are otherwise optional (quality/count is a judgement call), but a

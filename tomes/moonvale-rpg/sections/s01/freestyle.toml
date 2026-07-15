@@ -1,0 +1,89 @@
+[freestyle]
+title = "THE WORKING: Register the Workshop"
+brief = "Rowan wants one honest front door for every later map leaf.<ul><li>Create <code>src/moonvale/app.py</code> with <code>main(args=None)</code>.</li><li>When arguments are exactly <code>--arcanum-proof s01</code>, construct <code>WorkshopState(\"MoonvaleRPG\")</code>, add <code>settings</code>, <code>model</code>, and <code>app</code> through <code>add_module</code>, then print <code>S01_OK project=MoonvaleRPG modules=3</code>.</li><li>Ordinary launch must print <code>Moonvale workshop ready</code>.</li><li>Both root <code>main.py</code> and package <code>__main__.py</code> must delegate to the same app function.</li></ul>"
+requires = ["external-python-workshop", "tool-install", "tool-create-open", "tool-navigate", "tool-edit-save", "tool-run-test", "tool-diagnose", "python-data-and-branches", "python-functions-modules-errors", "python-class-state", "moonvale-package-skeleton"]
+reward = 180
+xray = "Rowan docks hardcoded proof text that bypasses WorkshopState, duplicate launcher logic, broad exception swallowing, or imports before src is available. He rewards one small main function, exact proof argument handling, snake_case functions and variables, CapWords classes, and clear four-space suites."
+
+[[freestyle.referenceSteps]]
+id = "s01-reference-app"
+path = "src/moonvale/app.py"
+mode = "write"
+instruction = "Create the canonical application function and compute the chapter receipt through WorkshopState."
+content = '''
+import sys
+
+from moonvale.model import WorkshopState
+
+
+def main(args=None):
+    args = list(sys.argv[1:] if args is None else args)
+    if args == ["--arcanum-proof", "s01"]:
+        state = WorkshopState("MoonvaleRPG")
+        for module_name in ["settings", "model", "app"]:
+            state.add_module(module_name)
+        print(state.receipt())
+        return 0
+    print("Moonvale workshop ready")
+    return 0
+'''
+
+[[freestyle.referenceSteps]]
+id = "s01-reference-module-entry"
+path = "src/moonvale/__main__.py"
+mode = "write"
+instruction = "Create the package entrypoint as a thin delegation to moonvale.app.main."
+content = '''
+from moonvale.app import main
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+'''
+
+[[freestyle.referenceSteps]]
+id = "s01-reference-root-entry"
+path = "main.py"
+mode = "rewrite"
+preserves = "all-active"
+instruction = "Replace the runtime scaffold's root main.py with this complete src-layout launcher."
+content = '''
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parent
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+from moonvale.app import main
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+'''
+
+[freestyle.badge]
+id = "badge-s01"
+name = "LANTERN LIT"
+desc = "Raised an isolated Python workshop and gave Moonvale one tested front door."
+
+[[freestyle.rubric]]
+criterion = "Proof and launch"
+weight = 30
+desc = "Both launchers delegate to app.main; the exact s01 proof arguments print the exact computed receipt and ordinary launch prints its workshop message."
+
+[[freestyle.rubric]]
+criterion = "State ownership"
+weight = 25
+desc = "WorkshopState owns its project and module list, add_module performs registration, and the receipt derives from those values rather than a hardcoded success line."
+
+[[freestyle.rubric]]
+criterion = "Project structure"
+weight = 25
+desc = "The src/moonvale package, root launcher, pyproject.toml, requirements.txt, and imports use the exact taught paths with no duplicated application body."
+
+[[freestyle.rubric]]
+criterion = "Python craft"
+weight = 20
+desc = "Follow PEP 8: snake_case for functions and variables, CapWords for classes, four spaces per indentation level, imports at the top in clear groups, and no mutable game state hidden in unexplained globals."

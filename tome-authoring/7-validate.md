@@ -42,6 +42,9 @@ a complete cumulative replacement or an explicitly located member-only patch.
 **`--strict` fails on EVERY WARN except `advisory` ones** (language-calibration
 limits no tome author can fix). This is the Phase 7 bar, and the harness runs it
 from Phase 7 on: a finished tome carries zero warnings, whatever their label.
+During construction, `--build-phase N --phase-only` keeps every ERROR but omits WARN details
+owned by later phases; its deferred count is informational. It cannot be combined with
+`--strict`, which always retains the complete shipping report.
 **It also runs your code.** By default the validator puts every `write` lab starter,
 every intrusion starter, every spell-duel starter, and every whole-program lesson code
 sample through the tome's own toolchain (`--no-run` skips it; a missing toolchain

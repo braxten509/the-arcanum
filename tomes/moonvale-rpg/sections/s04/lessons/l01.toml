@@ -1,0 +1,99 @@
+[[lessons]]
+id = "s04-l01"
+title = "Read the Tilemaker's Grid"
+teaches = ["tiled-object-map"]
+body = '''
+<p>A large RPG world should be data, not hundreds of rectangles typed into Python. Tiled is an external map editor whose TMX format stores map dimensions, layers, and objects as XML text. XML uses matching tags such as <code>&lt;map&gt;...&lt;/map&gt;</code>; attributes inside the opening tag name values. You may open this chapter's file in Tiled, but the complete text below also keeps replay deterministic.</p>
+<p>The root <code>map</code> says this atlas is 50 tiles wide and 20 tiles high. Each tile is <code>32</code> pixels, matching <code>TILE_SIZE</code>. Multiply tile coordinates by tile size to obtain world pixels: tile column 10 begins at world x=320. World coordinates belong to the map and do not change when the camera moves. Screen coordinates describe where a world point is painted inside the 960-by-540 window.</p>
+<pre><code data-kind="runnable">tile_x = 10
+tile_size = 32
+world_x = tile_x * tile_size
+print("WORLD_X", world_x)</code></pre>
+<p>Read the calculation left to right: bind the column, bind the cell size, multiply them, and print the result. It emits <code>WORLD_X 320</code>. A common failure is dividing instead of multiplying, which converts world pixels back to a tile index. Guided practice asks you to perform the forward conversion before you use the map loader.</p>
+<p>Object layers carry gameplay geometry without requiring an image tileset. The <code>collision</code> layer contains one 32-pixel square wall. The <code>interactions</code> layer contains a named <code>herbalist</code> zone. Names are public identifiers: dialogue will later look up that exact string. Tiled may display an empty gray canvas because no decorative tileset is attached; that is intentional. The game can draw a colored ground and outlines while collision and interaction behavior remain real.</p>
+<p>Create the nested <code>assets/maps</code> folders from the project root, save the exact TMX text, then open it in Tiled. In the Layers panel, expand both object layers and select each rectangle. Verify the wall starts at (96, 32), the herbalist zone starts at (320, 160), and the map properties report 50 by 20 tiles. If Tiled reports invalid XML, inspect the first reported line for a missing quote or closing tag; XML errors often surface after the actual typo.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // FOUR COORDINATE SPACES</div><p>A tile index chooses a grid cell; world pixels place gameplay rectangles; camera offset records the visible world origin; screen pixels are world pixels minus that offset. Keep the units in variable names while debugging.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "tiled-object-map"
+purpose = "Store map size, collision walls, and named interaction zones in a real Tiled TMX file instead of constructing ordinary world geometry in Python."
+anatomy = "Create a map with tile width and height 32; add named collision and interactions object layers; place rectangle objects in world pixels; save the XML-backed file under assets/maps."
+example = "The coordinate probe converts tile column 10 to world x=320, while the complete artifact defines one wall and one herbalist zone."
+observable = "The probe prints WORLD_X 320, and Tiled shows a 50-by-20 map with two named object layers."
+failure = "Dividing reverses the coordinate conversion, while malformed XML makes Tiled or pytmx report a line near a missing quote or closing tag."
+practice = "s04-l01-e1"
+
+[[lessons.artifactSteps]]
+id = "s04-create-moonvale-tmx"
+path = "assets/maps/moonvale.tmx"
+mode = "write"
+instruction = "From the MoonvaleRPG project root, create assets/maps/moonvale.tmx with this complete media-free object map; open it in Tiled and verify both object layers before continuing."
+content = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="50" height="20" tilewidth="32" tileheight="32" infinite="0" nextlayerid="3" nextobjectid="3">
+ <objectgroup id="1" name="collision">
+  <object id="1" x="96" y="32" width="32" height="32"/>
+ </objectgroup>
+ <objectgroup id="2" name="interactions">
+  <object id="2" name="herbalist" type="npc" x="320" y="160" width="64" height="64"/>
+ </objectgroup>
+</map>
+'''
+
+[[lessons.readings]]
+label = "Tiled manual: Working with Objects"
+url = "https://doc.mapeditor.org/en/stable/manual/objects/"
+
+[[lessons.exercises]]
+id = "s04-l01-e1"
+type = "fill"
+points = 20
+prompt = "Convert tile column 10 to world pixels when TILE_SIZE is 32."
+code = 'world_x = 10 ____ TILE_SIZE'
+answer = "*"
+hint = "Each column contributes one whole tile width."
+whyWrong = "Division converts pixels toward a tile index; forward placement multiplies the tile index by TILE_SIZE."
+
+[[lessons.exercises]]
+id = "s04-l01-e2"
+type = "mc"
+points = 15
+prompt = "Which coordinate remains unchanged when the camera scrolls?"
+choices = ["The world position of the herbalist zone", "The zone's screen x value", "The window's camera-relative origin", "The mouse location inside the window"]
+answer = 0
+whyWrong = "Screen, window, and pointer coordinates are view-relative; the interaction object's world position belongs to the map itself."
+hint = "Ask whether moving the viewpoint physically moves the village."
+explain = "The camera changes projection into the window, not the world's stored geometry."
+
+[[lessons.exercises]]
+id = "s04-l01-e3"
+type = "text"
+points = 20
+prompt = "What exact Tiled object-layer name will the loader use for solid walls?"
+answer = "collision"
+hint = "Use the lowercase layer name in the TMX artifact."
+whyWrong = "The loader performs a name lookup, so a descriptive synonym does not match the public map contract."
+
+[[lessons.exercises]]
+id = "s04-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the earlier constant reuse that converts a tile index to world pixels."
+code = 'world_x = tile_x * TILE_SIZE'
+
+[[lessons.exercises]]
+id = "s04-l01-w1"
+type = "write"
+points = 30
+prompt = "Set tile_x to 10 and TILE_SIZE to 32, compute world_x by multiplication, and print exactly MAP tile=10 world=320."
+expect = '''
+MAP tile=10 world=320'''
+solution = '''
+tile_x = 10
+TILE_SIZE = 32
+world_x = tile_x * TILE_SIZE
+print("MAP", f"tile={tile_x}", f"world={world_x}")
+'''
+hint = "Use an f-string for each labeled value after computing world_x."

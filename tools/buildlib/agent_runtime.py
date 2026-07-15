@@ -84,6 +84,17 @@ def _codex_command(cmd):
     exec_i = out.index("exec") if "exec" in out else 1
     if "--search" not in out:
         out.insert(exec_i, "--search")
+        exec_i += 1
+    if "resume" in out[exec_i + 1:]:
+        # `codex exec resume` has no -s/--sandbox flag. The outer bwrap is the actual
+        # project boundary, so use Codex's explicit externally-sandboxed automation mode.
+        while "-s" in out:
+            i = out.index("-s")
+            del out[i:i + 2]
+        if "--dangerously-bypass-approvals-and-sandbox" not in out:
+            out.insert(out.index("resume") + 1,
+                       "--dangerously-bypass-approvals-and-sandbox")
+        return out
     return _replace_flag_value(out, "-s", "danger-full-access")
 
 
@@ -122,8 +133,8 @@ def scoped_runner_command(name, cmd, cwd, writable_paths, repo):
     cwd = os.path.realpath(cwd)
     if not os.path.exists(cwd):
         raise RuntimeError(f"AI runner cwd does not exist: {cwd}")
-    wrapped = [bwrap, "--die-with-parent", "--new-session", "--ro-bind", "/", "/",
-               "--dev-bind", "/dev", "/dev"]
+    wrapped = [bwrap, "--die-with-parent", "--new-session", "--unshare-pid",
+               "--ro-bind", "/", "/", "--proc", "/proc", "--dev-bind", "/dev", "/dev"]
     # /tmp is the system's root temporary directory. Honour /temp too on hosts that have it.
     for temp_root in ("/tmp", "/temp"):
         if os.path.isdir(temp_root):
@@ -153,8 +164,8 @@ def scoped_shell_command(command, cwd):
     bwrap = shutil.which("bwrap")
     if not bwrap:
         raise RuntimeError("custom AI command requires bubblewrap (bwrap)")
-    wrapped = [bwrap, "--die-with-parent", "--new-session", "--ro-bind", "/", "/",
-               "--dev-bind", "/dev", "/dev"]
+    wrapped = [bwrap, "--die-with-parent", "--new-session", "--unshare-pid",
+               "--ro-bind", "/", "/", "--proc", "/proc", "--dev-bind", "/dev", "/dev"]
     for temp_root in ("/tmp", "/temp"):
         if os.path.isdir(temp_root):
             wrapped.extend(("--bind", temp_root, temp_root))

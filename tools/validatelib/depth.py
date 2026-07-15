@@ -131,9 +131,16 @@ def check_taught_before_used(sections_data):
         if i >= 2 and used_api:
             if not any(first_api.get(t, i) < i for t in used_api):
                 sid = sd.get("id") or f"section {i + 1}"
+                earlier = sorted(((origin, token) for token, origin in first_api.items()
+                                  if origin < i), reverse=True)[:12]
+                candidates = ", ".join(
+                    f"{token} ({sections_data[origin].get('id') or f'section {origin + 1}'})"
+                    for origin, token in earlier) or "none detected in earlier lesson bodies"
                 warn("anti-template", f"{sid}: no exercise reaches back to an earlier section's "
                      "material — it only tests its own lessons. §3 wants interleaving: fold an "
-                     "earlier concept into a later section (a callback mc, a lab reusing prior data).",
+                     "earlier concept into a later section. Reuse one recognized underscore/camelCase "
+                     "identifier in an exercise code/answer surface; a kebab-case capability slug in "
+                     f"prose does not count. Earlier recognized candidates: {candidates}.",
                      phase=3)
 
         taught_idents = taught_incl

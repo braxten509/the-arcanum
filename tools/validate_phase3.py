@@ -34,6 +34,7 @@ def main():
     tid = os.path.basename(tome_path)
     base_clean = _run(validator_argv(
         tid, phase=7 if args.strict else 3, tooling=args.tooling, run=args.run,
+        phase_only=not args.strict,
         plan_rel=os.path.relpath(os.path.abspath(args.plan), REPO)))
 
     completion = tome_completion_problems(tome_path)

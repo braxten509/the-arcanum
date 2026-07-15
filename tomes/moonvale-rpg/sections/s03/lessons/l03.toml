@@ -1,0 +1,138 @@
+[[lessons]]
+id = "s03-l03"
+title = "Stop at the Stone Line"
+teaches = ["axis-separated-rect-collision"]
+body = '''
+<p>Collision resolution asks two questions: did the proposed shape overlap a wall, and where is the nearest non-overlapping boundary? <code>Rect.colliderect(other)</code> returns a Boolean. It considers positive-area overlap a collision; merely touching edges is allowed. A Boolean receipt lets the caller distinguish free travel from a blocked attempt.</p>
+<p>Resolve horizontal and vertical movement separately. First add <code>delta.x</code> to the precise position, synchronize the rectangle, and inspect every wall. When moving right and overlapping, set <code>rect.right = wall.left</code>; when moving left, set <code>rect.left = wall.right</code>. Copy the corrected rectangle coordinate back to <code>position.x</code>. Repeat the pattern for <code>delta.y</code> with bottom/top boundaries.</p>
+<pre><code data-kind="runnable">import pygame
+
+body = pygame.Rect(32, 32, 32, 32)
+wall = pygame.Rect(96, 32, 32, 32)
+body.x += 64
+if body.colliderect(wall):
+    body.right = wall.left
+print(body.topleft, body.right == wall.left)</code></pre>
+<p>The proposed rectangle lands at x=96 and overlaps the wall. Correction places its right edge at 96, so its top-left becomes <code>(64, 32)</code>; the program prints <code>(64, 32) True</code>. This is the exact Chapter III proof geometry. The wall is a temporary single-room fixture isolated to proof. Chapter IV replaces wall construction with Tiled object-layer rectangles while preserving this collision function.</p>
+<p>Why not move both axes and push out along an arbitrary direction? At a corner, combined correction can choose the wrong surface or cause jitter. Axis separation lets horizontal motion slide along a vertical wall and vertical motion slide along a horizontal wall. It is appropriate for an axis-aligned top-down RPG.</p>
+<p>Use the sign of each delta, not the current direction after another system changes it. A zero axis needs no correction. A common failure is correcting <code>rect</code but forgetting <code>position</code>; the next frame resynchronizes from the old float and teleports the player back into the wall. The function must update both representations after every correction.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SWEPT LIMIT</div><p>This discrete method assumes a frame delta is not large enough to jump completely through a wall. The clock cap and moderate speed support that assumption; advanced continuous collision is outside this course's graduate boundary.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "axis-separated-rect-collision"
+purpose = "Move an entity through axis-aligned world walls, preserve sliding, and stop its rectangle exactly at the first overlapping boundary."
+anatomy = "Apply x delta; sync rect; for overlaps snap right or left by delta sign; copy corrected x; then apply y and snap bottom or top; return whether any overlap occurred."
+example = "The worked body attempts a 64-pixel right move and is corrected from x=96 to x=64 against the wall."
+observable = "The probe prints position 64,32, blocked True, and leaves the player's right edge touching rather than overlapping the wall."
+failure = "Combined-axis pushout jitters at corners; failing to copy rect corrections back to Vector2 lets the next sync re-enter the wall."
+practice = "s03-l03-e1"
+
+[[lessons.artifactSteps]]
+id = "s03-add-collision-resolver"
+path = "src/moonvale/collision.py"
+mode = "write"
+instruction = "Create src/moonvale/collision.py with the complete axis-separated resolver; verify every correction updates both rect and precise position."
+content = '''
+def move_with_collisions(entity, delta, walls):
+    blocked = False
+    entity.position.x += delta.x
+    entity.sync_rect()
+    for wall in walls:
+        if entity.rect.colliderect(wall):
+            blocked = True
+            if delta.x > 0:
+                entity.rect.right = wall.left
+            elif delta.x < 0:
+                entity.rect.left = wall.right
+            entity.position.x = float(entity.rect.x)
+
+    entity.position.y += delta.y
+    entity.sync_rect()
+    for wall in walls:
+        if entity.rect.colliderect(wall):
+            blocked = True
+            if delta.y > 0:
+                entity.rect.bottom = wall.top
+            elif delta.y < 0:
+                entity.rect.top = wall.bottom
+            entity.position.y = float(entity.rect.y)
+    entity.sync_rect()
+    return blocked
+'''
+
+[[lessons.readings]]
+label = "PyGame documentation: Rect collision methods"
+url = "https://pyga.me/docs/ref/rect.html#pygame.Rect.colliderect"
+
+[[lessons.exercises]]
+id = "s03-l03-e1"
+type = "fill"
+points = 20
+prompt = "Complete the rightward correction so the entity touches the wall without overlap."
+code = 'entity.rect.right = wall.____'
+answer = "left"
+hint = "Match the moving body's leading right edge to the wall's near left edge."
+whyWrong = "Using wall.right places the entity beyond the obstacle rather than before its near boundary."
+
+[[lessons.exercises]]
+id = "s03-l03-e2"
+type = "mc"
+points = 15
+prompt = "Why resolve x and y movement in separate passes?"
+choices = ["Rect supports only one coordinate at a time", "It allows stable sliding along walls and clearer corner correction", "Python forbids two additions before a loop", "It makes Vector2 unnecessary"]
+answer = 1
+whyWrong = "Rect and Python can change both axes; the separation is a collision-design choice that preserves sliding and deterministic boundaries."
+hint = "Imagine moving diagonally into the corner of a vertical wall."
+explain = "Correcting one axis at a time keeps the unblocked axis available for movement along the surface."
+
+[[lessons.exercises]]
+id = "s03-l03-e3"
+type = "text"
+points = 20
+prompt = "Which Rect method returns whether two rectangles overlap with positive area?"
+answer = "colliderect"
+hint = "It is called on entity.rect with one wall argument."
+whyWrong = "contains tests enclosure and clip returns an intersection rectangle; this method provides the needed Boolean overlap test."
+
+[[lessons.exercises]]
+id = "s03-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the precise-state correction after horizontal collision."
+code = 'entity.position.x = float(entity.rect.x)'
+
+[[lessons.exercises]]
+id = "s03-l03-w1"
+type = "write"
+points = 30
+prompt = "A 32-pixel body starts at x=32, attempts to move to x=96, and hits a wall whose left edge is 96. Compute corrected_x as wall_left - body_width and print exactly COLLISION x=64 blocked=True."
+starter = '''
+body_width = 32
+wall_left = 96
+attempted_x = 96
+'''
+expect = '''
+COLLISION x=64 blocked=True'''
+solution = '''
+body_width = 32
+wall_left = 96
+attempted_x = 96
+blocked = attempted_x + body_width > wall_left
+corrected_x = wall_left - body_width if blocked else attempted_x
+print("COLLISION", f"x={corrected_x}", f"blocked={blocked}")
+'''
+hint = "Compare the attempted right edge with wall_left, then subtract body_width when blocked."
+
+[[lessons.exercises]]
+id = "s03-l03-e4"
+type = "mc"
+points = 15
+prompt = "What happens if collision corrects Rect but never copies that coordinate back to Player.position?"
+choices = ["Nothing; Rect automatically owns Vector2", "The next sync can restore the stale float position and re-enter the wall", "PyGame deletes the wall", "The frame cap becomes zero"]
+answer = 1
+whyWrong = "Rect and Vector2 are separate objects; neither deletes walls nor changes timing, so explicit synchronization is required."
+hint = "Recall which representation is authoritative before each new collision pass."
+explain = "The precise vector must receive the boundary correction or its next synchronization undoes the collision response."
+

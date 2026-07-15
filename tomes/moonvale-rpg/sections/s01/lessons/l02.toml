@@ -1,0 +1,123 @@
+[[lessons]]
+id = "s01-l02"
+title = "Name the First Map Marks"
+teaches = ["python-data-and-branches"]
+body = '''
+<p>Game rules need named state. In Python, <code>health = 10</code> is an <strong>assignment</strong>: read it as “bind the name health to the integer ten.” Strings such as <code>"Moonvale"</code> hold text, integers hold whole numbers, floats such as <code>2.5</code> hold decimals, and the Boolean values <code>True</code> and <code>False</code> represent two-way facts. <code>print()</code> is a function call: the name comes first, parentheses surround inputs, and commas separate multiple inputs.</p>
+<pre><code data-kind="runnable">hero = "Mira"
+health = 10
+has_lantern = True
+print(hero, health, has_lantern)</code></pre>
+<p>The observable line is <code>Mira 10 True</code>. Quotes create a string; leaving them off makes Python search for another name. Operators compute new values: <code>health - 3</code> subtracts, <code>health &gt; 0</code> compares, <code>==</code> tests equality, and <code>and</code> requires both Boolean sides. A single <code>=</code> assigns; a double <code>==</code> compares. That distinction prevents many early syntax errors.</p>
+<p>An <code>if</code> statement chooses a block. Read <code>if health &gt; 0:</code> as: evaluate the comparison, and when it is true run the indented lines below the colon. <code>else:</code> supplies the other route. Python uses four spaces to show which statements belong to a block. Missing the colon or mixing indentation produces a <code>SyntaxError</code> or <code>IndentationError</code>.</p>
+<p>A list is a growable ordered collection: <code>items = ["herb", "key"]</code>. Index zero names the first value, and <code>items.append("potion")</code> adds at the end. A dictionary maps unique keys to values: <code>stats = {"health": 10, "mana": 4}</code>, then <code>stats["health"]</code> reads ten. A <code>for</code> loop visits collection values in order. Read <code>for item in items:</code> as “for each current value from items, bind it to item, then run the indented body.”</p>
+<pre><code data-kind="runnable">items = ["herb", "key"]
+stats = {"health": 10, "mana": 4}
+for item in items:
+    print(item)
+if stats["health"] &gt; 0:
+    print("READY")</code></pre>
+<p>This prints <code>herb</code>, <code>key</code>, and <code>READY</code> on separate lines. A misspelled dictionary key raises <code>KeyError</code>; inspect the key shown by the traceback and compare exact spelling.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // MUTATION</div><p>Assignment can rebind a name, while <code>append</code> changes the existing list. Later systems will keep one inventory list and mutate it deliberately rather than manufacturing unrelated copies.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "python-data-and-branches"
+purpose = "Represent RPG state with values, lists, and dictionaries, then choose or repeat behavior with comparisons, if blocks, and for loops."
+anatomy = "Bind values with name = value; compare with ==, >, and Boolean operators; indent four spaces after a colon; put ordered values in brackets and key-value pairs in braces; iterate with for name in collection."
+example = "The worked inventory-and-stats program visits two list entries and selects READY from a dictionary health value."
+observable = "The program prints herb, key, and READY on three lines."
+failure = "Using = where == is required, omitting a colon, bad indentation, or a misspelled dictionary key produces a specific syntax, indentation, or key error."
+practice = "s01-l02-d1"
+
+[[lessons.artifactSteps]]
+id = "s01-add-project-config"
+path = "pyproject.toml"
+mode = "write"
+instruction = "Create pyproject.toml at the project root with the exact project and pytest configuration below; save it before running later tests."
+content = '''
+[project]
+name = "moonvale-rpg"
+version = "0.1.0"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+'''
+
+[[lessons.readings]]
+label = "Python tutorial: data structures"
+url = "https://docs.python.org/3/tutorial/datastructures.html"
+
+[[lessons.exercises]]
+id = "s01-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the complete branch with its four-space body."
+code = '''
+if health > 0:
+    print("READY")
+'''
+
+[[lessons.exercises]]
+id = "s01-l02-e1"
+type = "fill"
+points = 20
+prompt = "Fill the method name that grows the inventory by one value."
+code = 'items.____("lantern")'
+answer = "append"
+hint = "Use the list method that adds one item at the end."
+whyWrong = "Indexing reads an existing slot; the required operation mutates the list by adding a new final slot."
+
+[[lessons.exercises]]
+id = "s01-l02-e2"
+type = "mc"
+points = 15
+prompt = "Why does an if body begin after a colon and indentation?"
+choices = ["Indentation only makes the file look tidy", "The colon converts the test into a string", "Python uses the indented block as the statements controlled by the test", "The spaces make the comparison faster"]
+answer = 2
+whyWrong = "Python's indentation is structural, not decorative; the colon opens a suite and the indented statements belong to that suite."
+hint = "Ask which lines should run only when the comparison is true."
+explain = "The colon begins the suite and consistent indentation identifies exactly which statements the if controls."
+
+[[lessons.exercises]]
+id = "s01-l02-w1"
+type = "write"
+points = 30
+prompt = "Using the starter values, append herb to items, subtract 3 from stats['health'], and print exactly ITEMS 2 HP 7. Compute both numbers from the collections."
+starter = '''
+items = ["key"]
+stats = {"health": 10}
+'''
+expect = '''
+ITEMS 2 HP 7'''
+solution = '''
+items = ["key"]
+stats = {"health": 10}
+items.append("herb")
+stats["health"] = stats["health"] - 3
+print("ITEMS", len(items), "HP", stats["health"])
+'''
+hint = "Call append once, reassign the health key from its old value minus three, and use len(items) in print."
+
+[[lessons.exercises]]
+id = "s01-l02-e3"
+type = "text"
+points = 20
+prompt = "Which exception name appears when square-bracket dictionary lookup uses a key that is absent?"
+answer = "KeyError"
+hint = "The traceback names the mapping lookup failure after the missing key."
+whyWrong = "An absent mapping key is different from a list position outside its range."
+
+[[lessons.exercises]]
+id = "s01-l02-e4"
+type = "mc"
+points = 15
+prompt = "Which expression asks whether the health value stored in stats is exactly ten?"
+choices = ["stats[\"health\"] == 10", "stats[\"health\"] = 10", "stats.health equals 10", "10 in stats[\"health\"]"]
+answer = 0
+whyWrong = "A single equals sign assigns, dot access is not how this string-key dictionary is read, and membership does not compare one integer for equality."
+hint = "Read the dictionary key with brackets, then use the two-character comparison operator."
+explain = "Square brackets retrieve the health value and == compares it without changing the mapping."

@@ -1,0 +1,160 @@
+[[lessons]]
+id = "s09-l03"
+title = "Restore Owners and Prove the Round Trip"
+teaches = ["save-round-trip-restoration"]
+body = '''
+<p>Restoration updates existing domain owners after validation. <code>restore_snapshot(data, player, quest_log)</code> calls validate_snapshot first, then copies values into Player, Inventory, and QuestLog. It does not construct a second combat player or a save-only quest class.</p>
+<p>Position restoration updates the Vector2 and then synchronizes <code>rect.topleft</code> with rounded coordinates. This preserves the collision invariant from Chapter III. Direction and the exact stats dictionary are copied. Inventory quantities and selected id are copied without calling add or use, because loading is state restoration rather than a new pickup or transaction.</p>
+<pre><code data-kind="runnable">before = {"health": 8}
+saved = dict(before)
+before["health"] = 1
+print("RESTORE", saved["health"])</code></pre>
+<p>The probe prints <code>RESTORE 8</code>. <code>dict</code> makes an independent shallow copy, sufficient for the flat stats record. A likely failure is assigning the saved dictionary object directly; later mutations then alter data another system still treats as the validated snapshot.</p>
+<p>Quest world_state needs deepcopy because it contains nested dictionaries. The stable quest id, completed status, three herbs, and herbalist flag round-trip unchanged. Inventory keeps zero-quantity slots and selected id because Chapter VII deliberately made both public save contracts.</p>
+<p>A regression uses pytest's <code>tmp_path</code>. It builds real owners, drives quest transitions, saves, loads into fresh owners, and asserts position, stats, inventory, and world state. A second test writes malformed JSON, calls load_or_recover, and checks no data, recovery True, and a quarantined file. A third verifies the atomic save leaves no temporary file.</p>
+<p>The proof performs the same behavior with TemporaryDirectory so no authoring or player data survives. It reloads completed quest, three herbs, and health eight, then deliberately corrupts that disposable save to prove recovery. Receipt values come from restored owners and repository output, not constants.</p>
+<p>To diagnose a round-trip mismatch, compare one owner at a time: position/Rect, stats, inventory, then world_state. Fix the translation at the boundary; do not rename established keys. Guided practice copies state, mutates the source, and observes that the saved value remains stable.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // REBUILD DERIVED STATE</div><p>Save position, not Rect internals. Restore the public coordinate, then rebuild the collision rectangle from it.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "save-round-trip-restoration"
+purpose = "Restore validated values into the canonical runtime owners, rebuild derived collision state, and prove persistence and corrupt recovery in isolated tests."
+anatomy = "Validate; update Vector2 and Rect; copy direction/stats/quantities/selection; deep-copy world_state; save and load through tmp_path; assert every public value; corrupt disposable file and assert quarantine."
+example = "The worked dictionary copy retains health eight after the original changes to one."
+observable = "Fresh owners match the saved position, health, inventory, selected slot, quest status/count/flags; corrupt input starts clean with recovery evidence."
+failure = "Aliased dictionaries drift together, unsynchronized Rect breaks collision, domain methods replay side effects, and tests overwrite real saves."
+practice = "s09-l03-w1"
+
+[[lessons.artifactSteps]]
+id = "s09-add-restore"
+path = "src/moonvale/savegame.py"
+mode = "append"
+instruction = "Append restore_snapshot, updating established owners and rebuilding Player.rect from restored position."
+content = '''
+
+
+def restore_snapshot(data, player, quest_log):
+    validate_snapshot(data)
+    player_data = data["player"]
+    player.position.update(player_data["position"])
+    player.rect.topleft = (round(player.position.x), round(player.position.y))
+    player.direction.update(player_data["direction"])
+    player.stats = dict(player_data["stats"])
+    player.inventory.quantities = dict(data["inventory"]["quantities"])
+    player.inventory.selected = data["inventory"]["selected"]
+    quest_log.world_state = copy.deepcopy(data["world_state"])
+'''
+
+[[lessons.artifactSteps]]
+id = "s09-add-save-tests"
+path = "tests/test_savegame.py"
+mode = "write"
+instruction = "Create tests/test_savegame.py with real-owner round-trip, atomic-file, and corrupt-recovery regressions."
+content = '''
+from moonvale.entities import Player
+from moonvale.quests import QUEST_ID, QuestLog
+from moonvale.savegame import (
+    SaveRepository,
+    make_snapshot,
+    restore_snapshot,
+)
+
+
+def completed_state():
+    player = Player(64, 96)
+    player.stats["health"] = 8
+    player.inventory.add("lantern-herb", 3)
+    player.inventory.select("lantern-herb")
+    quests = QuestLog()
+    quests.accept(QUEST_ID)
+    quests.collect(QUEST_ID, 3)
+    quests.turn_in(QUEST_ID)
+    return player, quests
+
+
+def test_save_round_trip_preserves_public_state(tmp_path):
+    player, quests = completed_state()
+    repository = SaveRepository(tmp_path)
+    repository.save(make_snapshot(player, quests))
+    assert repository.path.exists()
+    assert not repository.temporary_path.exists()
+
+    restored_player = Player()
+    restored_quests = QuestLog()
+    restore_snapshot(repository.load(), restored_player, restored_quests)
+    assert tuple(restored_player.position) == (64, 96)
+    assert restored_player.rect.topleft == (64, 96)
+    assert restored_player.stats["health"] == 8
+    assert restored_player.inventory.quantity("lantern-herb") == 3
+    assert restored_player.inventory.selected == "lantern-herb"
+    assert restored_quests.world_state == quests.world_state
+
+
+def test_corrupt_save_is_quarantined(tmp_path):
+    repository = SaveRepository(tmp_path)
+    repository.root.mkdir()
+    repository.path.write_text("{broken", encoding="utf-8")
+    data, recovered = repository.load_or_recover()
+    assert data is None
+    assert recovered is True
+    assert repository.corrupt_path.exists()
+    assert not repository.path.exists()
+'''
+
+[[lessons.readings]]
+label = "pytest documentation: temporary directories"
+url = "https://docs.pytest.org/en/stable/how-to/tmp_path.html"
+
+[[lessons.exercises]]
+id = "s09-l03-e1"
+type = "mc"
+points = 15
+prompt = "Why synchronize rect.topleft after restoring position?"
+choices = ["JSON draws rectangles", "Collision reads Rect while world motion owns Vector2", "Inventory needs a rectangle", "It changes the schema version"]
+answer = 1
+whyWrong = "The synchronization preserves the established movement/collision invariant; it does not render JSON, serve inventory, or version data."
+hint = "Chapter III maintained two coordinate representations for different jobs."
+explain = "Both canonical world position and integer collision shape must agree."
+
+[[lessons.exercises]]
+id = "s09-l03-e2"
+type = "fill"
+points = 20
+prompt = "Make an independent flat stats record."
+code = 'player.stats = ____(player_data["stats"])'
+answer = "dict"
+hint = "Construct a new dictionary from the validated mapping."
+whyWrong = "Direct assignment aliases the snapshot's mutable mapping."
+
+[[lessons.exercises]]
+id = "s09-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the collision synchronization."
+code = 'player.rect.topleft = (round(player.position.x), round(player.position.y))'
+
+[[lessons.exercises]]
+id = "s09-l03-w1"
+type = "write"
+points = 30
+prompt = "Copy stats health=8, mutate the original health to 1, and print exactly ROUNDTRIP saved=8 live=1."
+expect = '''
+ROUNDTRIP saved=8 live=1'''
+solution = '''
+stats = {"health": 8}
+saved = dict(stats)
+stats["health"] = 1
+print("ROUNDTRIP", f"saved={saved['health']}", f"live={stats['health']}")
+'''
+hint = "Copy with dict before changing the original."
+
+[[lessons.exercises]]
+id = "s09-l03-e3"
+type = "text"
+points = 20
+prompt = "Which exact QuestLog attribute receives the restored nested quest and NPC dictionaries?"
+answer = "world_state"
+hint = "Chapter VI made this JSON-shaped dictionary the quest owner's public save boundary."
+whyWrong = "The loader must preserve the established world_state name rather than invent a save-only alias."

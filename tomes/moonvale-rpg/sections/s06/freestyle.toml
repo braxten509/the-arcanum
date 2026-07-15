@@ -1,0 +1,98 @@
+[freestyle]
+title = "THE WORKING: Light Moonvale's Eastern Lamps"
+brief = "Rowan asks one mapped conversation to become a kept promise.<ul><li>Preserve all s01-s05 proofs and ordinary launch.</li><li>Add <code>--arcanum-proof s06</code>: load the real World and verify <code>herbalist</code> is a mapped zone.</li><li>Use <code>DialogueBook</code> with current statuses; accept <code>QUEST_ID</code>, collect exactly three herbs, and turn in through <code>QuestLog</code>.</li><li>Derive completed status and the returned reward; never assign completion or reward fields directly.</li><li>Print exactly <code>S06_OK npc=herbalist quest=lantern-herb status=completed reward=5</code>.</li></ul>"
+requires = ["data-driven-dialogue", "finite-quest-state-machine", "mapped-quest-interaction", "interaction-zone-query", "python-data-and-branches"]
+reward = 250
+xray = "Rowan docks duplicated coordinates, case-drifted ids, dialogue that mutates state, direct completion assignment, early/repeated rewards, or nested loops. He rewards exact map ids, explicit transition guards, JSON-shaped state, and exceptions that localize illegal actions."
+
+[[freestyle.referenceSteps]]
+id = "s06-import-story-owners"
+path = "src/moonvale/app.py"
+mode = "replace"
+instruction = "Add DialogueBook and QuestLog imports to the exact cumulative app import block."
+find = '''
+from moonvale.camera import Camera
+from moonvale.entities import Player
+'''
+content = '''
+from moonvale.camera import Camera
+from moonvale.dialogue import DialogueBook
+from moonvale.entities import Player
+from moonvale.quests import QUEST_ID, QuestLog
+'''
+
+[[freestyle.referenceSteps]]
+id = "s06-add-quest-receipt"
+path = "src/moonvale/app.py"
+mode = "replace"
+instruction = "Insert the mapped quest receipt immediately before the existing main dispatcher."
+find = '''
+def main(args=None):
+'''
+content = '''
+def quest_receipt():
+    world = World(asset_root() / "maps" / "moonvale.tmx")
+    npc_id = "herbalist"
+    if npc_id not in world.zones:
+        raise ValueError("herbalist zone is missing from the map")
+    dialogue = DialogueBook()
+    log = QuestLog()
+    dialogue.line_for(npc_id, log.status(QUEST_ID))
+    log.accept(QUEST_ID)
+    log.collect(QUEST_ID, 3)
+    dialogue.line_for(npc_id, log.status(QUEST_ID))
+    reward = log.turn_in(QUEST_ID)
+    return (
+        f"S06_OK npc={npc_id} quest={QUEST_ID} "
+        f"status={log.status(QUEST_ID)} reward={reward}"
+    )
+
+
+def main(args=None):
+'''
+
+[[freestyle.referenceSteps]]
+id = "s06-route-quest-proof"
+path = "src/moonvale/app.py"
+mode = "replace"
+instruction = "Extend the exact tail of the proof dispatcher with the s06 route while preserving ordinary Game launch."
+find = '''
+    if args == ["--arcanum-proof", "s05"]:
+        print(animation_receipt())
+        return 0
+    return Game().run()
+'''
+content = '''
+    if args == ["--arcanum-proof", "s05"]:
+        print(animation_receipt())
+        return 0
+    if args == ["--arcanum-proof", "s06"]:
+        print(quest_receipt())
+        return 0
+    return Game().run()
+'''
+
+[freestyle.badge]
+id = "badge-s06"
+name = "PROMISE KEEPER"
+desc = "Joined the mapped herbalist to lawful quest transitions and lit Moonvale's lamps."
+
+[[freestyle.rubric]]
+criterion = "Dialogue ownership"
+weight = 25
+desc = "DialogueBook selects text from exact NPC and status ids without changing quest state or duplicating mapped coordinates."
+
+[[freestyle.rubric]]
+criterion = "Quest invariants"
+weight = 30
+desc = "QuestLog protects locked/accepted/ready/completed transitions, three-herb requirement, NPC flag, and one-time five-moonmark reward with clear errors."
+
+[[freestyle.rubric]]
+criterion = "Mapped cumulative proof"
+weight = 25
+desc = "The real TMX herbalist id drives dialogue and the complete legal quest path while all prior proofs and ordinary launch remain active."
+
+[[freestyle.rubric]]
+criterion = "Python craft"
+weight = 20
+desc = "Follow PEP 8 with CapWords owner classes, snake_case methods and state keys, four-space indentation, grouped imports, focused modules, and targeted exceptions."

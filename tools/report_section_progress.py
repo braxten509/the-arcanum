@@ -2,7 +2,7 @@
 """Update the exact Phase-3 section marker consumed by the Bindery UI."""
 import argparse
 
-from buildlib.sections import SECTION_PROGRESS_STATES, write_section_progress
+from buildlib.section_progress import SECTION_PROGRESS_STATES, write_section_progress
 
 
 def main():

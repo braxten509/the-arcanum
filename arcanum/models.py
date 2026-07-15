@@ -7,7 +7,7 @@ import urllib.request
 
 from .config import (AGY_BIN, CLAUDE_BIN, CLI_EFFORTS, CLI_MODELS, CODEX_BIN,
                      OPENCODE_BIN, ROOT, agy_print_args, codex_no_mcp_args,
-                     OPENCODE_FREE_IDS, OPENCODE_GO_FALLBACK)
+                     OPENCODE_FREE_IDS, OPENCODE_GO_FALLBACK, OPENCODE_MAPLE_IDS)
 from .ai_access import ensure_cli_access
 from tools.buildlib.agent_runtime import scoped_runner_command
 
@@ -36,9 +36,10 @@ def models_dev_efforts():
 
 
 def opencode_models():
-    """OpenCode Go + free models as [id, label, tag, efforts] rows (tag "FREE" flags the $0
-    ones; efforts is that model's reasoning-effort values, or [] if it has none). Live from
-    `opencode models` when available, else the static snapshot. label = id sans prefix."""
+    """OpenCode Go + Maple AI + free models as [id, label, tag, efforts] rows (tag "FREE"
+    flags the $0 ones, "Maple" the Maple AI gateway; efforts is that model's
+    reasoning-effort values, or [] if it has none). Live from `opencode models` when
+    available, else the static snapshot. label = id sans prefix."""
     lines = []
     try:
         p = subprocess.run([OPENCODE_BIN, "models"], capture_output=True, text=True, timeout=20)
@@ -46,10 +47,12 @@ def opencode_models():
     except Exception:
         pass
     go = [ln for ln in lines if ln.startswith("opencode-go/")] or list(OPENCODE_GO_FALLBACK)
+    maple = [i for i in OPENCODE_MAPLE_IDS if (not lines or i in lines)]
     free = [i for i in OPENCODE_FREE_IDS if (not lines or i in lines)]
     eff = models_dev_efforts()
     short = lambda mid: mid.split("/", 1)[-1]
     return ([[m, short(m), "", eff.get(m, [])] for m in go]
+            + [[m, short(m), "Maple", eff.get(m, [])] for m in maple]
             + [[m, short(m), "FREE", eff.get(m, [])] for m in free])
 
 

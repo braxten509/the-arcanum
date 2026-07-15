@@ -1,0 +1,126 @@
+[[lessons]]
+id = "s08-l02"
+title = "Resolve a Whole Turn"
+teaches = ["seeded-turn-resolution"]
+body = '''
+<p>A turn is one player action followed, if the enemy survives, by one enemy decision. <code>attack_turn</code> first checks the encounter is ongoing. It rolls player damage, mutates enemy health once, and appends <code>attack-east</code> plus <code>wisp-hurt</code> animation hooks. Those names extend the earlier action-facing vocabulary; they are observations, not health commands.</p>
+<p>If enemy health reaches zero, the method sets victory, stores reward id <code>healing-tonic</code>, calls <code>player.inventory.add</code>, and returns before an enemy attack. Otherwise the wisp chooses its only taught action: attack. It rolls damage, updates Player.stats health, and appends <code>wisp-attack</code> plus <code>hurt-east</code>.</p>
+<pre><code data-kind="runnable">enemy_hp = 3
+damage = 4
+enemy_hp = max(0, enemy_hp - damage)
+if enemy_hp == 0:
+    result = "victory"
+print(result)</code></pre>
+<p>The branch prints <code>victory</code>. Equality uses two equals signs; a single equals assigns and is invalid in the condition. A likely failure is letting the enemy attack after reaching zero. The early return makes turn order explicit and keeps the seed sequence stable.</p>
+<p>With seed seven, the first player bonus is one: power three deals four and leaves the wisp at three. The first enemy bonus is zero: power two deals two and leaves Player at eight. The second player bonus is one: four damage clamps the wisp to zero and awards the tonic. The proof calls the same public turn twice.</p>
+<p>Defeat occurs when enemy damage reaches Player health zero. The encounter sets result defeat and does not grant reward. <code>next_scene()</code returns <code>game-over</code for defeat, <code>play</code for victory, and <code>combat</code while ongoing. It describes a transition request; it does not run a nested scene loop.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // EVENTS AFTER RULES</div><p>Append animation hooks beside successful rule changes. A renderer may miss an event, but domain health and result remain authoritative.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "seeded-turn-resolution"
+purpose = "Resolve player attack, surviving enemy response, animation hooks, victory reward, defeat, and next-scene request in deterministic order."
+anatomy = "Require ongoing; roll/apply player damage; emit attack/hurt hooks; if enemy zero set victory and add reward then return; otherwise roll/apply enemy damage; emit hooks; set defeat at player zero; map result to scene name."
+example = "The branch converts an enemy reduced from three to zero into victory."
+observable = "Seed seven wins in two attack_turn calls, leaves Player health eight, and adds one healing-tonic; defeat requests game-over."
+failure = "A dead enemy attacking changes health and RNG order; direct reward dictionary edits bypass Inventory; nested loops violate Game ownership."
+practice = "s08-l02-w1"
+
+[[lessons.artifactSteps]]
+id = "s08-expand-combat-turns"
+path = "src/moonvale/combat.py"
+mode = "replace"
+instruction = "Replace the exact _require_ongoing method at the class tail with itself plus attack_turn and next_scene."
+find = '''
+    def _require_ongoing(self):
+        if self.result != "ongoing":
+            raise ValueError(f"encounter already ended: {self.result}")
+'''
+content = '''
+    def _require_ongoing(self):
+        if self.result != "ongoing":
+            raise ValueError(f"encounter already ended: {self.result}")
+
+    def attack_turn(self):
+        self._require_ongoing()
+        player_damage = self.player.stats["power"] + self.rng.randint(0, 1)
+        self.enemy["health"] = self._after_damage(self.enemy["health"], player_damage)
+        self.animation_events.extend(("attack-east", "wisp-hurt"))
+        if self.enemy["health"] == 0:
+            self.result = "victory"
+            self.reward = "healing-tonic"
+            self.player.inventory.add(self.reward)
+            return self.result
+
+        enemy_damage = self.enemy["power"] + self.rng.randint(0, 1)
+        self.player.stats["health"] = self._after_damage(
+            self.player.stats["health"], enemy_damage
+        )
+        self.animation_events.extend(("wisp-attack", "hurt-east"))
+        if self.player.stats["health"] == 0:
+            self.result = "defeat"
+        return self.result
+
+    def next_scene(self):
+        return {"ongoing": "combat", "victory": "play", "defeat": "game-over"}[
+            self.result
+        ]
+'''
+
+[[lessons.readings]]
+label = "Python documentation: return statement"
+url = "https://docs.python.org/3/reference/simple_stmts.html#the-return-statement"
+
+[[lessons.exercises]]
+id = "s08-l02-e1"
+type = "mc"
+points = 15
+prompt = "Why return immediately after enemy health reaches zero?"
+choices = ["To close PyGame", "To prevent a defeated enemy response and preserve turn/RNG order", "To erase inventory", "To reload the map"]
+answer = 1
+whyWrong = "The return ends this method's turn resolution only; it does not close, erase, or reload unrelated owners."
+hint = "A zero-health wisp cannot take its half of the turn."
+explain = "Victory and reward complete the turn before enemy damage is rolled."
+
+[[lessons.exercises]]
+id = "s08-l02-e2"
+type = "fill"
+points = 20
+prompt = "Complete the exact terminal scene name for defeat."
+code = 'scenes = {"defeat": "____"}'
+answer = "game-over"
+hint = "Reuse the planned hyphenated scene id."
+whyWrong = "Title and play do not communicate the terminal combat outcome."
+
+[[lessons.exercises]]
+id = "s08-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the reward through the public Inventory boundary."
+code = 'self.player.inventory.add(self.reward)'
+
+[[lessons.exercises]]
+id = "s08-l02-w1"
+type = "write"
+points = 30
+prompt = "Start enemy_hp=3, apply damage=4 with a zero clamp, choose victory when zero, and print exactly TURN enemy=0 result=victory."
+expect = '''
+TURN enemy=0 result=victory'''
+solution = '''
+enemy_hp = 3
+damage = 4
+enemy_hp = max(0, enemy_hp - damage)
+result = "victory" if enemy_hp == 0 else "ongoing"
+print("TURN", f"enemy={enemy_hp}", f"result={result}")
+'''
+hint = "Clamp first, then use a conditional expression based on equality with zero."
+
+[[lessons.exercises]]
+id = "s08-l02-e3"
+type = "text"
+points = 20
+prompt = "Which exact inventory item id is awarded for victory?"
+answer = "healing-tonic"
+hint = "It is the consumable introduced in Chapter VII."
+whyWrong = "Lantern-herb belongs to the village quest; combat awards the healing consumable."

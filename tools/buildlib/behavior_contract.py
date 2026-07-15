@@ -64,6 +64,6 @@ def prompt(tid, sid):
     return ("\n\n===== ACTIVE BEHAVIOR CONTRACT =====\n"
             f"Immediately before editing {sid}, run and read:\n  {command}\n\n"
             "That command reads the current disk checkpoint, including an earlier section authored "
-            "in this same warm batch. Treat every listed proof/capability as immutable unless this "
+            "earlier in this same author session. Treat every listed proof/capability as immutable unless this "
             "section declares a valid proof supersession. The section gate reruns the entire active "
             "set; a handoff claim cannot replace a green execution result.\n")

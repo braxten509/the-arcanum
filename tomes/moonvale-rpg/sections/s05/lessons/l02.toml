@@ -1,0 +1,133 @@
+[[lessons]]
+id = "s05-l02"
+title = "Let Elapsed Time Turn the Page"
+teaches = ["elapsed-animation-state"]
+body = '''
+<p>An <code>Animator</code> owns presentation state: <code>facing</code>, <code>state</code>, <code>frame_index</code>, and an elapsed-time accumulator. It does not read events or call a clock. The existing Game loop already calculates <code>dt</code> in seconds; callers pass that same value to <code>update</code>. One clock keeps motion and animation reproducible.</p>
+<p><code>select_motion</code> reads the established <code>Player.direction</code>. A zero vector chooses <code>idle</code> while retaining the last facing. Nonzero input compares absolute x and y components; the dominant axis selects east, west, south, or north, then chooses <code>walk</code>. Changing state resets the frame and accumulator so a new pose begins predictably.</p>
+<pre><code data-kind="runnable">elapsed = 0.15
+frame_seconds = 0.10
+frame = 0
+while elapsed &gt;= frame_seconds:
+    elapsed -= frame_seconds
+    frame = (frame + 1) % 2
+print(frame, round(elapsed, 2))</code></pre>
+<p>The probe prints <code>1 0.05</code>. The while loop consumes complete frame intervals and preserves leftover time. Using <code>if</code> would advance only once after a long pause; setting elapsed back to zero would discard remainder and slowly change animation speed.</p>
+<p>The modulo operator wraps an index into the available frame count. With two frames, <code>(1 + 1) % 2</code> returns zero. Idle states have one frame, so their index remains zero even as time passes. A likely failure is advancing by one frame every render without dt; animation then runs faster on a high-refresh display.</p>
+<p>Debug labels may show state names during development, but they are temporary diagnostics. Chapter XI will place labels and collision outlines behind one opt-in flag. The state strings themselves remain public because combat later reuses attack and hurt variants.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ACCUMULATORS REMEMBER</div><p>Preserving leftover seconds makes many short frames equivalent to one longer interval. Deterministic tests can therefore supply exact dt values.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "elapsed-animation-state"
+purpose = "Choose stable idle/walk facing states from Player.direction and advance their frames at a per-second rate using the existing Game dt."
+anatomy = "Retain facing at rest; choose dominant axis while moving; reset on state change; add dt to elapsed; consume complete frame_seconds intervals; wrap frame_index with modulo."
+example = "The accumulator probe consumes one 0.10-second interval from 0.15, reaches frame 1, and preserves 0.05 seconds."
+observable = "A rightward direction selects walk-east and update(0.15) advances a two-frame fallback to index 1."
+failure = "Advancing per render ties speed to frame rate; discarding remainder drifts; a second Clock breaks the single-loop timing contract."
+practice = "s05-l02-w1"
+
+[[lessons.artifactSteps]]
+id = "s05-add-animator"
+path = "src/moonvale/animation.py"
+mode = "append"
+instruction = "Append the Animator class below to animation.py; it consumes supplied direction and dt and never creates a clock or event loop."
+content = '''
+
+
+class Animator:
+    def __init__(self, library, frame_seconds=0.1):
+        self.library = library
+        self.frame_seconds = frame_seconds
+        self.facing = "south"
+        self.state = "idle-south"
+        self.frame_index = 0
+        self.elapsed = 0.0
+
+    def select_motion(self, direction):
+        moving = direction.length_squared() > 0
+        if moving:
+            if abs(direction.x) >= abs(direction.y):
+                self.facing = "east" if direction.x > 0 else "west"
+            else:
+                self.facing = "south" if direction.y > 0 else "north"
+        next_state = f"{'walk' if moving else 'idle'}-{self.facing}"
+        if next_state != self.state:
+            self.state = next_state
+            self.frame_index = 0
+            self.elapsed = 0.0
+
+    def update(self, dt):
+        self.elapsed += dt
+        frames = self.library.states[self.state]
+        while self.elapsed >= self.frame_seconds:
+            self.elapsed -= self.frame_seconds
+            self.frame_index = (self.frame_index + 1) % len(frames)
+
+    @property
+    def current_frame(self):
+        return self.library.states[self.state][self.frame_index]
+'''
+
+[[lessons.readings]]
+label = "PyGame time guide"
+url = "https://pyga.me/docs/ref/time.html"
+
+[[lessons.exercises]]
+id = "s05-l02-e1"
+type = "mc"
+points = 15
+prompt = "Where should Animator obtain elapsed seconds?"
+choices = ["A second Clock", "The TMX file", "The existing Game-loop dt argument", "Player.stats"]
+answer = 2
+whyWrong = "Map and stats are not time sources, and a second Clock would contradict the established lifecycle authority."
+hint = "Reuse the same elapsed value that scales movement."
+explain = "One dt keeps systems ordered and tests deterministic."
+
+[[lessons.exercises]]
+id = "s05-l02-e2"
+type = "fill"
+points = 20
+prompt = "Wrap a two-frame animation after incrementing."
+code = 'frame_index = (frame_index + 1) ____ 2'
+answer = "%"
+hint = "Use the remainder operator."
+whyWrong = "Division produces a fraction; modulo cycles integer indexes into range."
+
+[[lessons.exercises]]
+id = "s05-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the accumulator interval consumption."
+code = '''
+while self.elapsed >= self.frame_seconds:
+    self.elapsed -= self.frame_seconds
+'''
+
+[[lessons.exercises]]
+id = "s05-l02-w1"
+type = "write"
+points = 30
+prompt = "Starting frame=0 and elapsed=0.15, consume 0.10-second intervals for two frames and print exactly ANIM frame=1 remainder=0.05."
+expect = '''
+ANIM frame=1 remainder=0.05'''
+solution = '''
+frame = 0
+elapsed = 0.15
+while elapsed >= 0.10:
+    elapsed -= 0.10
+    frame = (frame + 1) % 2
+print("ANIM", f"frame={frame}", f"remainder={elapsed:.2f}")
+'''
+hint = "Subtract inside a while loop, wrap with modulo, and format the remainder to two decimals."
+
+[[lessons.exercises]]
+id = "s05-l02-e3"
+type = "text"
+points = 20
+prompt = "Which Player attribute supplies the established movement vector?"
+answer = "direction"
+accept = ["Player.direction"]
+hint = "Player.set_intent normalizes this Vector2."
+whyWrong = "position stores location; the animator needs current movement intent and facing."

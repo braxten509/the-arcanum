@@ -24,7 +24,8 @@ from validatelib.execute import (STARTER_RUN_TIMEOUT, _project_build_result, _ru
                                  check_starters_run)  # noqa: E402
 from validatelib.phase2 import check_tooling_contract  # noqa: E402
 from validatelib.structure import check_meta, check_placeholders, check_runtime  # noqa: E402
-from validatelib.themes import check_sigil_palette_uniqueness  # noqa: E402
+from validatelib.themes import (check_sigil_palette_uniqueness,
+                                check_theme_distinctness)  # noqa: E402
 
 
 def findings():
@@ -50,9 +51,25 @@ def main():
     got = findings()
     assert any(level == "ERROR" and "median lesson body" in message
                for level, _, message in got), got
+    assert any("canonical math strips HTML tags" in message
+               and "raise at least 1" in message and "s01/s01-l01=220" in message
+               for _, _, message in got), got
     assert any(level == "ERROR" and "zero [[lessons.readings]]" in message
                for level, _, message in got), got
     set_build_phase(None)
+
+    callback_sections = [
+        {"id": "s01", "lessons": [{"id": "l01", "body": "Use player_speed.",
+                                      "exercises": []}]},
+        {"id": "s02", "lessons": [{"id": "l01", "body": "Track max_health.",
+                                      "exercises": []}]},
+        {"id": "s03", "lessons": [{"id": "l01", "body": "Add enemy_hp.",
+                                      "exercises": [{"type": "text", "answer": "enemy_hp"}]}]},
+    ]
+    check_taught_before_used(callback_sections)
+    got = findings()
+    assert any("player_speed (s01)" in message and "capability slug" in message
+               for _, _, message in got), got
 
     # TODO is valid in student starter code, but not in authored prose beside it.
     with tempfile.TemporaryDirectory() as d:
@@ -291,6 +308,16 @@ def main():
         current = {"themes": [{"id": "ember", "vars": changed}]}
         check_sigil_palette_uniqueness(current, current_dir, "L", root)
         assert not findings(), "one changed sigil ink should make the set unique"
+
+    # A tome's default is its visible identity. A palette barely beyond the
+    # optional-variant floor must not ship as a renamed Vellum first impression.
+    almost_vellum = {"defaults": {"theme": "signature"}, "themes": [
+        {"id": "signature", "vars": {}},
+    ]}
+    with patch("validatelib.themes._palette_dist", return_value=9.0):
+        check_theme_distinctness(almost_vellum, "L")
+    got = findings()
+    assert any("default mean channel distance 9.0 < 10" in msg for _, _, msg in got), got
 
     # 5. New scaffolds carry a cumulative capability ledger: a capstone can require
     #    only ids taught in this or earlier lessons, never a future lesson.

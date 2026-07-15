@@ -46,7 +46,8 @@ Config keys (every key is optional unless marked REQUIRED):
                               # shared harness-only environment provisioning; these
                               # keys never alter the learner project or host runtime
   deliveryCreateCommand = ["..."]
-  deliveryInstallCommand = ["..."]
+  deliveryResolveCommand = ["..."] # optional fast dependency compatibility check
+  deliveryInstallCommand = ["..."] # may use {cache} for reusable downloads/builds
   deliveryBuildCommand = ["..."]
                               # final package proof: fresh environment, exact requirements,
                               # then real packager argv. See runtimes/delivery.py.
@@ -63,7 +64,7 @@ import shutil
 import subprocess
 import tempfile
 
-from . import common
+from . import common, launch_probe
 
 SNIPPET_MAX = 20000
 RUN_TIMEOUT = 60
@@ -414,10 +415,24 @@ class CommandRuntime:
             return {"ok": False, "output": f"(run failed to start: {e})"}
 
     # -------------------------------------------------------------- projects
+    def project_command(self, project_dir, args=()):
+        """Return the exact argv used for an ordinary project launch plus safe args."""
+        if self.run_cmd:
+            argv = _sub(self.run_cmd, dir=project_dir, entry=self.entry)
+        else:
+            argv = _file_argv(self.cmd, self.entry)
+        safe_args = []
+        for arg in args or ():
+            if not isinstance(arg, str) or any(ord(ch) < 32 for ch in arg):
+                raise ValueError(f"invalid project argument {arg!r}")
+            safe_args.append(arg)
+        return [*argv, *safe_args]
+
     def verify_project(self, project_dir, env=None):
         """Build/check a disposable project with a truthful return code and output."""
         if not self.available():
-            return {"ok": False, "output": f"ERROR: {self._exe() or self.NAME} not found."}
+            return {"ok": False, "output": f"ERROR: {self._exe() or self.NAME} not found.",
+                    "commands": []}
         try:
             if self.build_cmd:
                 with common.project_lock:
@@ -427,39 +442,40 @@ class CommandRuntime:
                 return {"ok": p.returncode == 0,
                         "output": common.join_output(p.stdout, p.stderr)
                                   or "(build produced no output)",
-                        "exit": p.returncode}
+                        "exit": p.returncode, "commands": [list(self.build_cmd)]}
             if self.check_cmd:
-                outputs = []
+                outputs, commands = [], []
                 for rel, _source in self.collect_code(project_dir):
                     if not rel.endswith(self.CODE_EXT[0]):
                         continue
                     path = os.path.join(project_dir, rel)
-                    p = subprocess.run(_file_argv(self.check_cmd, path), cwd=project_dir,
+                    command = _file_argv(self.check_cmd, path)
+                    commands.append(command)
+                    p = subprocess.run(command, cwd=project_dir,
                                        env=env, capture_output=True, text=True, timeout=30)
                     if p.returncode:
                         outputs.append(common.join_output(p.stdout, p.stderr))
                 return {"ok": not outputs,
                         "output": "\n".join(outputs) or "(syntax/build check passed)",
-                        "exit": 1 if outputs else 0}
-            return {"ok": True, "output": "(runtime has no separate build step)", "exit": 0}
+                        "exit": 1 if outputs else 0, "commands": commands}
+            return {"ok": True, "output": "(runtime has no separate build step)",
+                    "exit": 0, "commands": []}
         except subprocess.TimeoutExpired:
-            return {"ok": False, "output": "(build timed out)"}
+            return {"ok": False, "output": "(build timed out)", "commands": []}
         except OSError as exc:
-            return {"ok": False, "output": f"(build failed to start: {exc})"}
+            return {"ok": False, "output": f"(build failed to start: {exc})", "commands": []}
+
+    def smoke_project(self, project_dir, stdin_text=None, env=None, timeout=None):
+        return launch_probe.smoke_project(self, project_dir, stdin_text, env, timeout)
 
     def run_project(self, project_dir, stdin_text, args=(), env=None, timeout=None):
         if not self.available():
             return {"ok": False, "output": f"ERROR: {self._exe() or self.NAME} not found."}
-        if self.run_cmd:
-            argv = _sub(self.run_cmd, dir=project_dir, entry=self.entry)
-        else:
-            argv = _file_argv(self.cmd, self.entry)
-        safe_args = []
-        for arg in args or ():
-            if not isinstance(arg, str) or any(ord(ch) < 32 for ch in arg):
-                return {"ok": False, "output": f"invalid project argument {arg!r}"}
-            safe_args.append(arg)
-        return common.run_cancellable([*argv, *safe_args], stdin_text,
+        try:
+            argv = self.project_command(project_dir, args)
+        except ValueError as exc:
+            return {"ok": False, "output": str(exc), "command": []}
+        return common.run_cancellable(argv, stdin_text,
                                       timeout or self.run_timeout, cwd=project_dir, env=env)
 
     def add_package(self, project_dir, pkg):

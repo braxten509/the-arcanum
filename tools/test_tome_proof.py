@@ -12,12 +12,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from validatelib import _findings  # noqa: E402
+from validatelib import proof_runtime  # noqa: E402
 from validatelib.proof import check_future_tome_proof, check_no_bundled_media  # noqa: E402
 from buildlib import review_evidence  # noqa: E402
 from tome_proof import proof_fingerprint, public_section  # noqa: E402
 import tome_layout  # noqa: E402
 from new_tome import SECTION_TEMPLATE, render  # noqa: E402
 from split_tome import migrate_section  # noqa: E402
+from proof_package_regressions import check_clean_package_gate  # noqa: E402
 
 
 def manifest():
@@ -33,14 +35,26 @@ def manifest():
 
 def section():
     lesson_source = '''import json
+import os
 import sys
 
 def result():
     return "guided"
 
+def acceptance_report():
+    challenge = os.environ.get("ARCANUM_ACCEPTANCE_CHALLENGE")
+    value = result()
+    launched = bool(value) and challenge != "launch"
+    finished = launched and value == "milestone" and challenge != "finished-result"
+    scenarios = {"launch": launched, "finished-result": finished}
+    status = "PASS" if all(scenarios.values()) else "FAIL"
+    print(json.dumps({"version": 1, "status": status, "scenarios": scenarios}, separators=(",", ":")))
+
 if "--arcanum-acceptance" in sys.argv:
-    print(json.dumps({"version": 1, "status": "PASS", "scenarios": {"launch": True, "finished-result": True}}, separators=(",", ":")))
+    acceptance_report()
 elif "--arcanum-proof" in sys.argv:
+    print(result())
+else:
     print(result())
 '''
     final_source = lesson_source.replace('return "guided"', 'return "milestone"')
@@ -91,10 +105,12 @@ elif "--arcanum-proof" in sys.argv:
     }
 
 
-def findings_for(data, run=False, manifest_data=None):
+def findings_for(data, run=False, manifest_data=None, source_only=False):
     _findings.clear()
     with tempfile.TemporaryDirectory() as root:
-        check_future_tome_proof(root, manifest_data or manifest(), [data], run=run)
+        check_future_tome_proof(
+            root, manifest_data or manifest(), [data], run=run,
+            source_only=source_only)
     return list(_findings)
 
 
@@ -126,15 +142,30 @@ def check_harness_owned_review():
             manifest_data = __import__("tomllib").load(handle)
         sections_data = [tome_layout.load_section(str(tome), "s01")]
         fingerprint = proof_fingerprint(manifest_data, sections_data)
-        evidence_rows = ["checkpoint:s01/proof:s01", "acceptance:source"]
+        evidence_rows = ["checkpoint:s01/proof:s01", "project:final-build",
+                         "launch:ordinary", "acceptance:anti-constant",
+                         "acceptance:source", "acceptance:negative:launch",
+                         "acceptance:negative:finish"]
         evidence = Path(root, ".tome-build", "demo.proof-evidence.json")
         evidence.parent.mkdir()
-        evidence.write_text(json.dumps({"version": 1, "tome": "demo",
+        learner_project = Path(root, ".tome-build", "demo.learner-project")
+        learner_project.mkdir()
+        rows = []
+        for row in evidence_rows:
+            item = {"id": row, "status": "pass"}
+            if row == "project:final-build":
+                item.update(commands=[["python3", "-m", "compileall"]], output="ok")
+            if row == "launch:ordinary" or row == "acceptance:source" or row.startswith(
+                    "acceptance:negative:"):
+                item.update(command=["python3", "main.py"], output="ok")
+            rows.append(item)
+        evidence.write_text(json.dumps({"version": 2, "tome": "demo",
                                         "fingerprint": fingerprint,
-                                        "rows": [{"id": row, "status": "pass"}
-                                                 for row in evidence_rows]}), encoding="utf-8")
-        report = {"version": 2, "evidenceFingerprint": fingerprint,
+                                        "learnerProject": ".tome-build/demo.learner-project",
+                                        "rows": rows}), encoding="utf-8")
+        report = {"version": 3, "evidenceFingerprint": fingerprint,
                   "evidenceRowsReviewed": evidence_rows,
+                  "learnerProjectReviewed": ".tome-build/demo.learner-project",
                   "sectionsReviewed": ["s01"],
                   "capabilitiesReviewed": ["one-capability"], "findings": []}
         findings.write_text(json.dumps(report), encoding="utf-8")
@@ -206,6 +237,17 @@ def check_section_gate_ignores_future_scaffolds():
         check_future_tome_proof(root, scoped_manifest, [authored, future], run=False)
     assert any(level == "ERROR" and "without matching structured concept evidence" in message
                for level, _label, message in _findings), _findings
+
+
+def check_truncated_prefix_does_not_run_final_acceptance():
+    authored = section()
+    scoped_manifest = manifest()
+    scoped_manifest["content"]["sections"] = ["s01", "s02"]
+    with tempfile.TemporaryDirectory() as root, \
+            patch.object(proof_runtime, "_run_acceptance") as acceptance:
+        assert proof_runtime.replay(
+            root, scoped_manifest, [authored], run_section="s01", persist=False)
+    acceptance.assert_not_called()
 
 
 def check_split_layout_round_trip():
@@ -303,50 +345,64 @@ def check_acceptance_scenario_gate():
     for _owner, steps in (("lesson", bad["lessons"][0]["artifactSteps"]),
                           ("freestyle", bad["freestyle"]["referenceSteps"])):
         for step in steps:
-            step["content"] = step["content"].replace(', "finished-result": True', "")
+            step["content"] = step["content"].replace(', "finished-result": finished', "")
             if "find" in step:
-                step["find"] = step["find"].replace(', "finished-result": True', "")
+                step["find"] = step["find"].replace(', "finished-result": finished', "")
     replay = findings_for(bad, run=True)
-    assert any("acceptance scenarios must exactly report every planned id true" in message
+    assert any("acceptance scenarios must exactly report every planned id as a boolean" in message
                for _level, _label, message in replay), replay
 
 
-def check_clean_package_gate():
-    packaged = section()
-    packaged["proof"] = {"mode": "package", "expectedFiles": ["main.py", "requirements.txt"],
-                         "requirementsFile": "requirements.txt",
-                         "packageArgs": ["fixture-build"], "artifactPath": "dist/proof-app"}
-    packaged["lessons"][0]["artifactSteps"].append({
-        "id": "s01-requirements", "path": "requirements.txt", "mode": "write",
-        "instruction": "Create the exact dependency manifest used by the clean package proof.",
-        "content": "fixture-dependency==1\n"})
-    create = ("import pathlib,sys; pathlib.Path(sys.argv[1]).mkdir(parents=True)")
-    install = ("import pathlib,sys; req=pathlib.Path(sys.argv[2]).read_text(); "
-               "assert req=='fixture-dependency==1\\n'; "
-               "pathlib.Path(sys.argv[1],'installed').write_text('yes')")
-    build = ("import os,pathlib,sys; assert pathlib.Path(sys.argv[2],'installed').is_file(); "
-             "p=pathlib.Path(sys.argv[1]); p.parent.mkdir(parents=True,exist_ok=True); "
-             "p.write_text('#!" + sys.executable + "\\nimport json,os\\nassert \\\"VIRTUAL_ENV\\\" not in os.environ and \\\"PYTHONPATH\\\" not in os.environ\\nprint(json.dumps({\\\"version\\\":1,\\\"status\\\":\\\"PASS\\\",\\\"scenarios\\\":{\\\"launch\\\":True,\\\"finished-result\\\":True}},separators=(\\\",\\\",\\\":\\\")))\\n'); "
-             "os.chmod(p,0o755)")
-    package_manifest = manifest()
-    package_manifest["acceptance"]["artifact"] = "package"
-    package_manifest["runtime"].update({
-        "deliveryCreateCommand": [sys.executable, "-c", create, "{env}"],
-        "deliveryInstallCommand": [sys.executable, "-c", install, "{env}", "{requirements}"],
-        "deliveryBuildCommand": [sys.executable, "-c", build, "{artifact}", "{env}"],
-    })
-    with patch.dict(os.environ, {"VIRTUAL_ENV": "/dirty-validation-env",
-                                 "PYTHONPATH": "/dirty-python-path"}):
-        clean = findings_for(packaged, run=True, manifest_data=package_manifest)
-    assert not [finding for finding in clean if finding[0] == "ERROR"], clean
-
-    missing = copy.deepcopy(packaged)
-    missing["proof"]["artifactPath"] = "dist/missing-app"
-    broken_manifest = copy.deepcopy(package_manifest)
-    broken_manifest["runtime"]["deliveryBuildCommand"] = [sys.executable, "-c", "print('no artifact')"]
-    replay = findings_for(missing, run=True, manifest_data=broken_manifest)
-    assert any("delivery build did not create" in message
+def check_ordinary_launch_and_anti_fake_gates():
+    crashed = section()
+    reference = crashed["freestyle"]["referenceSteps"][0]
+    reference["content"] = reference["content"].replace(
+        "else:\n    print(result())\n", "else:\n    missing_runtime_name()\n")
+    replay = findings_for(crashed, run=True)
+    assert any("ordinary entrypoint cold-start failed" in message
+               and "missing_runtime_name" in message
                for _level, _label, message in replay), replay
+
+    constant = section()
+    reference = constant["freestyle"]["referenceSteps"][0]
+    reference["content"] = reference["content"].replace(
+        "    acceptance_report()\n",
+        '    print(json.dumps({"version": 1, "status": "PASS", "scenarios": '
+        '{"launch": True, "finished-result": True}}))\n')
+    replay = findings_for(constant, run=True)
+    assert any("embeds a constant PASS receipt" in message
+               for _level, _label, message in replay), replay
+
+    unchallenged = section()
+    reference = unchallenged["freestyle"]["referenceSteps"][0]
+    reference["content"] = reference["content"].replace(
+        'challenge = os.environ.get("ARCANUM_ACCEPTANCE_CHALLENGE")',
+        "challenge = None")
+    replay = findings_for(unchallenged, run=True)
+    assert any("challenge 'launch' acceptance must report version=1 and status=FAIL" in message
+               for _level, _label, message in replay), replay
+    assert any("challenge 'finished-result' acceptance must report version=1 and status=FAIL"
+               in message for _level, _label, message in replay), replay
+
+
+def check_persisted_reconstruction_evidence():
+    with tempfile.TemporaryDirectory() as root:
+        tome = Path(root, "tomes", "demo")
+        tome.mkdir(parents=True)
+        _findings.clear()
+        with patch.object(proof_runtime, "REPO", root):
+            check_future_tome_proof(str(tome), manifest(), [section()], run=True)
+        assert not [finding for finding in _findings if finding[0] == "ERROR"], _findings
+        project = Path(root, ".tome-build", "demo.learner-project")
+        evidence_path = Path(root, ".tome-build", "demo.proof-evidence.json")
+        assert (project / "main.py").is_file(), project
+        evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+        assert evidence["version"] == 2
+        assert evidence["learnerProject"] == ".tome-build/demo.learner-project"
+        row_ids = [row["id"] for row in evidence["rows"]]
+        assert "project:final-build" in row_ids and "launch:ordinary" in row_ids
+        assert {"acceptance:negative:launch", "acceptance:negative:finished-result"}.issubset(
+            row_ids)
 
 
 def main():
@@ -416,12 +472,15 @@ def main():
         check_future_tome_proof(root, legacy, [{}], run=True)
     assert not _findings, "legacy tomes must remain outside proof-v1"
     check_section_gate_ignores_future_scaffolds()
+    check_truncated_prefix_does_not_run_final_acceptance()
     check_bundled_media_gate()
     check_harness_owned_review()
     check_split_layout_round_trip()
     check_cumulative_regression_contract()
     check_acceptance_scenario_gate()
-    check_clean_package_gate()
+    check_ordinary_launch_and_anti_fake_gates()
+    check_persisted_reconstruction_evidence()
+    check_clean_package_gate(section, manifest, findings_for)
     print("future tome proof: OK (replay, teaching, assets, harness verdict, legacy isolation)")
 
 

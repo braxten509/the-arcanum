@@ -1,0 +1,129 @@
+[[lessons]]
+id = "s04-l03"
+title = "Set the Silver Camera"
+teaches = ["clamped-world-camera"]
+body = '''
+<p>A camera is a coordinate transform, not another game world. Moonvale stores the hero, walls, and zones in world pixels. The camera stores an <code>offset</code>: the world coordinate that should appear at the window's top-left. To paint any world rectangle, subtract the offset from its position and preserve its size.</p>
+<pre><code data-kind="runnable">world_x = 1008
+camera_x = 544
+screen_x = world_x - camera_x
+print("SCREEN_X", screen_x)</code></pre>
+<p>The probe prints <code>SCREEN_X 464</code>. Read it as world location minus visible-world origin equals screen location. Adding the camera would move objects in the same direction as the viewpoint and make scrolling look backward. Guided practice makes you choose the subtraction before the artifact asks you to transform a <code>Rect</code>.</p>
+<p><code>Camera.follow</code> tries to center the target. For x, it takes <code>target.centerx - viewport_width // 2</code>. The double slash is integer floor division, producing a whole-pixel half-width. Then <code>max(0, value)</code> prevents seeing left of the map. The outer <code>min(value, world_width - viewport_width)</code> prevents seeing beyond the right edge. The y calculation follows the same steps.</p>
+<p>The map can be smaller than the window, so the maximum offset itself uses <code>max(0, world_width - viewport_width)</code>. Without that guard, a small map produces a negative camera offset. The class stores the result in <code>pygame.Vector2</code> for clear x and y fields, but converts to integers when creating screen rectangles.</p>
+<p>Trace the Chapter IV proof. The viewport is <code>WINDOW_SIZE</code>, 960 by 540. A target rectangle begins at world (1008, 32) and has size 32, so its center is (1024, 48). The desired x offset is 1024 - 480 = 544, inside the map's legal 0-to-640 range. Its desired y is negative, so clamping produces 0. The receipt therefore derives <code>camera=544,0</code>.</p>
+<p>A camera must not mutate the target or wall. <code>world_to_screen</code> calls <code>world_rect.move</code>, which returns a moved copy. If collision begins failing only after scrolling, inspect whether rendering code accidentally changed canonical world rectangles. Debug by printing one wall's world coordinate before and after drawing; it must remain identical.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // FOLLOW AFTER UPDATE</div><p>Update the player's world movement first, then follow the new rectangle, then render. That order avoids a one-frame camera lag and preserves the single Game loop's update authority.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "clamped-world-camera"
+purpose = "Follow a world-space target, keep the viewport inside map bounds, and convert world rectangles to screen rectangles without changing gameplay geometry."
+anatomy = "Compute target center minus half viewport; clamp each axis between zero and map size minus viewport size; subtract integer offset in world_to_screen; return a moved Rect copy."
+example = "The worked subtraction maps world x=1008 through camera x=544 to screen x=464, and the proof follows a 32-pixel target to offset (544, 0)."
+observable = "The probe prints SCREEN_X 464 and the section receipt reports camera=544,0 without changing any wall coordinate."
+failure = "Adding the offset reverses scrolling, omitting clamps reveals outside the map, and mutating world rectangles makes collision drift with the view."
+practice = "s04-l03-e1"
+
+[[lessons.artifactSteps]]
+id = "s04-add-camera"
+path = "src/moonvale/camera.py"
+mode = "write"
+instruction = "Create src/moonvale/camera.py with the complete viewport transform; verify following Rect(1008, 32, 32, 32) in a 1600x640 world yields integer offset 544,0."
+content = '''
+import pygame
+
+from moonvale.settings import WINDOW_SIZE
+
+
+class Camera:
+    def __init__(self, viewport_size=WINDOW_SIZE):
+        self.viewport_size = viewport_size
+        self.offset = pygame.Vector2()
+
+    def follow(self, target_rect, world_size):
+        viewport_width, viewport_height = self.viewport_size
+        world_width, world_height = world_size
+        maximum_x = max(0, world_width - viewport_width)
+        maximum_y = max(0, world_height - viewport_height)
+        desired_x = target_rect.centerx - viewport_width // 2
+        desired_y = target_rect.centery - viewport_height // 2
+        self.offset.x = min(maximum_x, max(0, desired_x))
+        self.offset.y = min(maximum_y, max(0, desired_y))
+
+    def world_to_screen(self, world_rect):
+        return world_rect.move(-round(self.offset.x), -round(self.offset.y))
+'''
+
+[[lessons.readings]]
+label = "PyGame documentation: Rect movement and position attributes"
+url = "https://pyga.me/docs/ref/rect.html"
+
+[[lessons.exercises]]
+id = "s04-l03-e1"
+type = "mc"
+points = 15
+prompt = "How does world_to_screen convert a world x coordinate?"
+choices = ["Multiply by camera x", "Replace it with camera x", "Add camera x", "Subtract camera x"]
+answer = 3
+whyWrong = "The camera offset is the visible world's origin; multiplication, replacement, or addition does not express displacement from that origin."
+hint = "A point exactly at the camera origin should appear at screen x=0."
+explain = "world_x - camera_x maps the visible origin to zero."
+
+[[lessons.exercises]]
+id = "s04-l03-e2"
+type = "fill"
+points = 20
+prompt = "Complete the left-edge clamp for a desired camera coordinate."
+code = 'safe_x = ____(0, desired_x)'
+answer = "max"
+hint = "Choose the larger value so negative coordinates become zero."
+whyWrong = "min would preserve a negative desired coordinate and select zero only for already positive positions."
+
+[[lessons.exercises]]
+id = "s04-l03-e3"
+type = "text"
+points = 20
+prompt = "What should camera rendering return instead of mutating Player.rect?"
+answer = "return a transformed copy"
+accept = ["transformed copy", "return a copy", "copy"]
+hint = "Collision still needs the canonical world rectangle after drawing."
+whyWrong = "Mutating Player.rect mixes screen and world coordinates and causes gameplay geometry to drift when the camera moves."
+
+[[lessons.exercises]]
+id = "s04-l03-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the non-mutating world-to-screen conversion."
+code = 'return world_rect.move(-round(self.offset.x), -round(self.offset.y))'
+
+[[lessons.exercises]]
+id = "s04-l03-w1"
+type = "write"
+points = 30
+prompt = "Set target_center_x=1024 and viewport_width=960, compute camera_x using integer half-width, and print exactly CAMERA x=544."
+starter = '''
+target_center_x = 1024
+viewport_width = 960
+'''
+expect = '''
+CAMERA x=544'''
+solution = '''
+target_center_x = 1024
+viewport_width = 960
+camera_x = target_center_x - viewport_width // 2
+print("CAMERA", f"x={camera_x}")
+'''
+hint = "Subtract viewport_width // 2 from the target center, then label the result in an f-string."
+
+[[lessons.exercises]]
+id = "s04-l03-e4"
+type = "mc"
+points = 15
+prompt = "Why calculate maximum_x with max(0, world_width - viewport_width)?"
+choices = ["To double the world width", "To prevent a negative offset when the world is narrower than the viewport", "To convert pixels to tiles", "To change Player.speed"]
+answer = 1
+whyWrong = "The expression only protects the camera's upper bound; it does not rescale the map, convert units, or alter player motion."
+hint = "Try subtracting a 960-pixel viewport from a 640-pixel world."
+explain = "A small world has no positive scrolling range, so its maximum legal offset is zero."

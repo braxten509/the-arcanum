@@ -1,37 +1,24 @@
-"""Support package for tools/build_tome.py. Module map:
-- runners   runner templates/specs, harness.toml resolution, autonomous escalation
-- config    harness.toml loading and preset resolution
-- liveness  headless worker execution, hang detection, auth preflight
+"""Shared authoring and validation support.
+
+- runners   command templates for the freely chosen persistent author
+- single_author  pause/message/resume control for the one author session
+- liveness  generic CLI authentication probes used outside tome construction
 - agent_runtime  provider-normalized repo/web/temp access and scoped write boundaries
-- prompts   phase prompt assembly, the Phase-0 gate/plan writer, verdict/findings IO
-- measure   validator gate, inventory/shrinkage contract, ground-truth measuring
-- gates     harness-owned between-phase validation and advance/retry decision
-- sections  split-mode Phase 3 (bounded warm section batches) + per-section checkpoints
-- phase3_runtime  one-worker Phase-3 resume/replacement prompt-state decisions
+- prompts   Phase-0 gate and calibrated build-plan writer
+- measure   canonical validator command and final shipping checks
 - skeleton  plan parser + deterministic one-placeholder-lesson Phase-2 scaffolding
-- continuity  schema-checked cross-section handoffs and whole-tome continuity briefing
-- review/review_evidence  Phase-8 repair loop plus harness-derived proof-v1 verdict
-- reporting  measured end-of-build plan facts and phase timings
-- checkpoints  between-phase gates: Phase-1 executable arc gate and tome rename
-- workflow  phase-file parsing and the shared access-boundary prompt
-- build_selftest  focused harness regression checks
+- continuity  schema-checked cross-section evidence used by validators
+- review_evidence  proof-v1 evidence derived from execution
+- checkpoints  Phase-1 arc gate and deterministic tome rename
 Shared paths/constants live here."""
 import os
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 WORKFLOW_DIR = os.path.join(REPO, "tome-workflow")  # one phase-N-*.md per phase
-CONFIG = os.path.join(REPO, "global-configs", "harness.toml")
 VALIDATOR = os.path.join(REPO, "tools", "validate_tome.py")
 BUILD_DIR = os.path.join(REPO, ".tome-build")
 
-MAX_RETRIES = 2        # per hand before autonomous escalation on validator ERROR
-MAX_RETRIES_LOCAL = 4  # a free local ollama hand gets more repair attempts before escalation
-MAX_STUDENT_LOOPS = 4  # includes the required fresh, no-change verification after repairs
-PING_INTERVAL_DEFAULT = 30  # seconds between worker liveness checks
-DEAD_PINGS_DEFAULT = 2      # consecutive idle checks before a worker is declared hung
-
-
-def retries_for(runner_display):
-    """Default gate-retry budget for a phase's runner: a free local/ollama worker gets more tries
-    than a paid cloud one before the harness escalates to the next configured hand."""
-    return MAX_RETRIES_LOCAL if "ollama/" in (runner_display or "") else MAX_RETRIES
+# Generic CLI health checks still use these; tome construction no longer monitors,
+# kills, retries, or replaces an author based on liveness heuristics.
+PING_INTERVAL_DEFAULT = 30
+DEAD_PINGS_DEFAULT = 2

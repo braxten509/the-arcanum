@@ -1,0 +1,123 @@
+[[lessons]]
+id = "s04-l04"
+title = "Keep the Atlas Honest Without Media"
+teaches = ["interaction-zone-query", "media-free-map-fallback"]
+body = '''
+<p>An interaction zone is ordinary world geometry with a stable name. The player can ask which zone overlaps or touches an interaction reach rectangle, then hand the resulting id to dialogue. Keep this query separate from drawing: a new tileset may change Moonvale's appearance, but it must not change whether <code>herbalist</code> is found.</p>
+<pre><code data-kind="runnable">zones = {"herbalist": (320, 160, 64, 64)}
+for zone_id, rectangle in zones.items():
+    if rectangle[0] == 320:
+        print("ZONE", zone_id)</code></pre>
+<p><code>.items()</code> yields each dictionary key and value together. The loop binds them to <code>zone_id</code> and <code>rectangle</code>; the condition checks the first tuple value. It prints <code>ZONE herbalist</code>. A common failure is looping over the dictionary without <code>.items()</code> and then trying to unpack the string key. Guided practice identifies the exact stable id.</p>
+<p>The map currently contains no image layer or tileset. That is a valid behavioral fallback, not a broken project. At runtime, a scene can fill the display with a ground color, draw collision rectangles only when diagnostics are enabled, and paint simple entity shapes. These are immediate PyGame drawing commands rather than shipped image files. The deterministic proof loads only TMX geometry, so it remains available on a headless machine and when optional art is absent.</p>
+<p>Human-sourced art is optional. If you later choose a tileset, verify its page permits your intended use, record creator, page URL, exact license, and required attribution in <code>assets/credits.md</code>, then configure Tiled yourself. Never copy an image from search results without its source page. The artifact creates the credits ledger now and explicitly states that no external media ships yet. This makes absence observable instead of ambiguous.</p>
+<p>For debugging, project each wall through <code>Camera.world_to_screen</code> and draw a thin outline, but put that overlay behind a flag. Chapter XI will retain the transform and asset diagnostics while making all overlays opt-in. Do not put the overlay rectangle back into <code>World.walls</code>; screen geometry is evidence for the human, not collision input.</p>
+<p>Before the Working, verify the full chain: <code>asset_root</code> finds the map, <code>World</code> produces one wall and one named zone, <code>Camera</code> follows a world rectangle, and the original wall coordinate remains (96, 32). If a visual object appears in the wrong place but collision is correct, print world rect, camera offset, and transformed screen rect in that order. One boundary at a time reveals which coordinate space is wrong.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // LICENSES ARE BUILD DATA</div><p>Credits belong beside assets and travel with delivery. A filename is not enough evidence; preserve the source and license terms a future maintainer can verify.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "interaction-zone-query"
+purpose = "Find a named gameplay region from world geometry so later dialogue and quests can respond to the player's location without depending on visuals."
+anatomy = "Iterate zones.items to receive id and Rect; compare the player's reach rectangle with each zone; return or report the stable Tiled object name."
+example = "The worked dictionary loop locates the x=320 record and prints ZONE herbalist."
+observable = "The query produces the exact id herbalist while the underlying zone remains at world coordinates (320, 160, 64, 64)."
+failure = "Iterating a dictionary without .items yields only string keys, and comparing screen rectangles against world rectangles makes results change while scrolling."
+practice = "s04-l04-e1"
+
+[[lessons.concepts]]
+id = "media-free-map-fallback"
+purpose = "Keep gameplay, automated proof, and diagnostics usable when optional decorative tiles and audio have not been supplied."
+anatomy = "Load TMX object geometry without a tileset; use runtime color fills and opt-in outlines; keep human media optional; record every later source and license in assets/credits.md."
+example = "The chapter proof loads one wall and one interaction zone without opening or requiring any image file."
+observable = "The proof receipt passes with only Python, TMX, and text files, while credits.md truthfully reports that no external media ships yet."
+failure = "Making collision depend on colored pixels or an absent image causes headless and clean-install runs to fail even though the map geometry exists."
+practice = "s04-l04-e3"
+
+[[lessons.artifactSteps]]
+id = "s04-create-media-ledger"
+path = "assets/credits.md"
+mode = "write"
+instruction = "Create assets/credits.md with the truthful media ledger below; update it only when you personally add a sourced asset and can record its creator, source URL, license, and attribution."
+content = '''
+# Moonvale RPG media credits
+
+No external image, font, music, voice, or sound asset ships at this checkpoint.
+Moonvale uses TMX object geometry and PyGame drawing commands as its media-free fallback.
+
+For every optional human-sourced asset added later, record:
+
+- destination filename
+- creator
+- source page URL
+- exact license
+- required attribution or notice
+'''
+
+[[lessons.readings]]
+label = "Tiled manual: Custom Properties"
+url = "https://doc.mapeditor.org/en/stable/manual/custom-properties/"
+
+[[lessons.exercises]]
+id = "s04-l04-e1"
+type = "fill"
+points = 20
+prompt = "Complete the dictionary method that yields both zone id and rectangle."
+code = 'for zone_id, rectangle in zones.____():'
+answer = "items"
+hint = "Use the mapping view that yields key-value pairs."
+whyWrong = "keys yields identifiers alone and values yields rectangles alone; the query needs both at once."
+
+[[lessons.exercises]]
+id = "s04-l04-e2"
+type = "mc"
+points = 15
+prompt = "Which rectangle should collision consume after the camera scrolls?"
+choices = ["The transformed screen wall", "A newly guessed wall", "The original world-space wall", "The window rectangle"]
+answer = 2
+whyWrong = "Screen and window rectangles belong to rendering, while guessed geometry duplicates the Tiled owner; collision stays in canonical world coordinates."
+hint = "The camera changes the view, not the village's physical layout."
+explain = "World geometry remains stable and is projected only for drawing."
+
+[[lessons.exercises]]
+id = "s04-l04-e3"
+type = "text"
+points = 20
+prompt = "What file records creator, source URL, license, and attribution for optional human-sourced media?"
+answer = "assets/credits.md"
+accept = ["credits.md"]
+hint = "It is the text ledger created by this lesson."
+whyWrong = "The TMX map owns geometry; the dedicated Markdown ledger owns human media provenance."
+
+[[lessons.exercises]]
+id = "s04-l04-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the stable zone lookup that later dialogue will reuse."
+code = 'herbalist_zone = world.zones["herbalist"]'
+
+[[lessons.exercises]]
+id = "s04-l04-w1"
+type = "write"
+points = 30
+prompt = "Create zones with herbalist mapped to (320, 160), loop through zones.items(), and print exactly INTERACTION id=herbalist x=320."
+expect = '''
+INTERACTION id=herbalist x=320'''
+solution = '''
+zones = {"herbalist": (320, 160)}
+for zone_id, rectangle in zones.items():
+    print("INTERACTION", f"id={zone_id}", f"x={rectangle[0]}")
+'''
+hint = "Unpack id and tuple from zones.items(), then label zone_id and rectangle[0] with f-strings."
+
+[[lessons.exercises]]
+id = "s04-l04-e4"
+type = "mc"
+points = 15
+prompt = "What should happen when optional tileset art is absent?"
+choices = ["The game must fake a passing proof", "Collision should be disabled", "The map file should be deleted", "Geometry and proof should still work through the media-free fallback"]
+answer = 3
+whyWrong = "Proof must drive real geometry; disabling or deleting gameplay data is not a fallback, and fabricated output violates the acceptance contract."
+hint = "Separate decorative presentation from gameplay geometry."
+explain = "TMX object layers remain authoritative even with no image tileset."

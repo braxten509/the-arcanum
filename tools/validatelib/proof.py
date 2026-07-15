@@ -327,7 +327,7 @@ def _authored_prefix(sections, run_section):
 
 
 def check_future_tome_proof(tome_path, manifest, sections, run=False, run_section=None,
-                            plan_path=None):
+                            plan_path=None, source_only=False):
     """Validate and optionally replay proof-v1 tomes; do nothing for legacy tomes.
 
     A warm Phase-3 section gate owns the authored prefix only.  Phase-2 deliberately leaves
@@ -355,12 +355,14 @@ def check_future_tome_proof(tome_path, manifest, sections, run=False, run_sectio
                     urls.add(url)
                 else:
                     err(where, "future-tome readings must use reachable https URLs")
-    course_complete = (not run_section or (sections and str(run_section) ==
-                                           str(sections[-1].get("id"))))
+    declared = ((manifest.get("content") or {}).get("sections")
+                if isinstance(manifest.get("content"), dict) else []) or []
+    course_complete = (not run_section or (declared and str(run_section) ==
+                                           str(declared[-1])))
     check_proof_contract(manifest, proof_sections, plan_path=plan_path,
                          allow_guided=allow_guided, course_complete=course_complete)
     if run and len(_findings) == before and not any(item[0] == "ERROR" for item in _findings):
         replay(tome_path, manifest, sections, run_section,
-               persist=not bool(run_section))
+               persist=not bool(run_section), source_only=source_only)
     if run and not run_section and urls:
         _check_links(urls)

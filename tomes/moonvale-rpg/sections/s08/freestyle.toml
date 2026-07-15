@@ -1,0 +1,91 @@
+[freestyle]
+title = "THE WORKING: Break the Lantern Wisp"
+brief = "Rowan asks the battle rules to earn one honest victory.<ul><li>Preserve every s01-s07 proof and ordinary launch.</li><li>Add <code>--arcanum-proof s08</code>: construct a real Player and CombatEncounter with seed seven.</li><li>Call <code>attack_turn()</code> exactly twice; do not assign health, result, reward, or inventory quantity directly.</li><li>Derive result, enemy health, Player health, and reward from the finished encounter.</li><li>Print exactly <code>S08_OK result=victory enemy_hp=0 player_hp=8 reward=healing-tonic</code>.</li></ul>"
+requires = ["combat-health-and-damage", "seeded-turn-resolution", "combat-regression-fixtures", "player-world-state", "player-inventory-owner", "elapsed-animation-state", "deterministic-game-loop"]
+reward = 260
+xray = "Rowan docks direct outcome assignment, global random state, duplicate health mutation, a dead enemy response, direct quantity edits, renamed Player keys, or a nested combat loop. He rewards one seeded rule owner, public turns, stable animation hooks, early victory return, and a receipt derived from real final state."
+
+[[freestyle.referenceSteps]]
+id = "s08-import-combat-owner"
+path = "src/moonvale/app.py"
+mode = "replace"
+instruction = "Insert CombatEncounter into the exact cumulative import block."
+find = '''
+from moonvale.camera import Camera
+from moonvale.dialogue import DialogueBook
+'''
+content = '''
+from moonvale.camera import Camera
+from moonvale.combat import CombatEncounter
+from moonvale.dialogue import DialogueBook
+'''
+
+[[freestyle.referenceSteps]]
+id = "s08-add-combat-receipt"
+path = "src/moonvale/app.py"
+mode = "replace"
+instruction = "Insert the seeded public-turn receipt immediately before the cumulative main dispatcher."
+find = '''
+def main(args=None):
+'''
+content = '''
+def combat_receipt():
+    player = Player()
+    encounter = CombatEncounter(player, seed=7)
+    encounter.attack_turn()
+    encounter.attack_turn()
+    return (
+        f"S08_OK result={encounter.result} "
+        f"enemy_hp={encounter.enemy['health']} "
+        f"player_hp={player.stats['health']} reward={encounter.reward}"
+    )
+
+
+def main(args=None):
+'''
+
+[[freestyle.referenceSteps]]
+id = "s08-route-combat-proof"
+path = "src/moonvale/app.py"
+mode = "replace"
+instruction = "Extend the exact s07 dispatcher tail with the s08 proof while preserving ordinary Game launch."
+find = '''
+    if args == ["--arcanum-proof", "s07"]:
+        print(inventory_receipt())
+        return 0
+    return Game().run()
+'''
+content = '''
+    if args == ["--arcanum-proof", "s07"]:
+        print(inventory_receipt())
+        return 0
+    if args == ["--arcanum-proof", "s08"]:
+        print(combat_receipt())
+        return 0
+    return Game().run()
+'''
+
+[freestyle.badge]
+id = "badge-s08"
+name = "WISP BREAKER"
+desc = "Resolved a seeded battle through lawful turns and carried its earned tonic home."
+
+[[freestyle.rubric]]
+criterion = "Health and damage"
+weight = 25
+desc = "One CombatEncounter consumes canonical Player stats, applies each integer damage once, clamps health at zero, and rejects actions after a terminal result."
+
+[[freestyle.rubric]]
+criterion = "Turn and outcome order"
+weight = 30
+desc = "A local seeded generator drives player then surviving-enemy turns; victory returns before retaliation, defeat requests game-over, and reward uses Inventory.add exactly once."
+
+[[freestyle.rubric]]
+criterion = "Animation and cumulative proof"
+weight = 25
+desc = "Stable action/hurt hooks observe rule changes without consuming combat RNG, and the real two-turn receipt preserves all earlier proofs and ordinary launch."
+
+[[freestyle.rubric]]
+criterion = "Python craft"
+weight = 20
+desc = "Follow PEP 8 with a CapWords encounter owner, snake_case methods and locals, four-space indentation, grouped imports, early terminal returns, and targeted exceptions."

@@ -1,7 +1,7 @@
 # Bindery model-selection policy
 
-Research snapshot: **2026-07-13**. The executable source of truth is
-`arcanum/model_policy.py`; this page records why the current 42 live choices are
+Research snapshot: **2026-07-14**. The executable source of truth is
+`arcanum/model_policy.py`; this page records why the current 43 live choices are
 selectable, insufficient, or wasteful for each hand.
 
 ## The bar
@@ -23,8 +23,20 @@ entire hand, not merely be able to answer one representative prompt:
 - **Sections** may own all teaching prose, worked examples, exercises, and
   cumulative project changes in one unsplit run. Splitting improves cost and
   reliability; it does not lower this recommendation bar.
-- **Reviewer** rereads every authored artifact, reconstructs the learner journey,
-  executes real milestones, finds semantic gaps, and independently repairs them.
+- **Reviewer** rereads every authored artifact and the persisted reconstructed learner
+  project, examines actual command/output evidence, finds semantic gaps, and repairs them.
+  A clean claim or authored repair must be verified by a different configured model command.
+  Primary qualification is binary and requires two consecutive passes of the authored-source
+  repair/replay suite plus complete discovery in the frozen real HollowCrawl false-pass case;
+  diagnostic subcheck counts are never partial approval. A model that clears repair/replay but
+  misses a latent real blocker may remain an independent verifier, never the primary reviewer.
+
+  The selectable Reviewer choice is now threefold: **Sol at high** (fully
+  qualified), **Fable 5 at high** (operator-designated premium audit hand,
+  untrialed on v3 — the deterministic launch/acceptance/verification gates carry
+  the qualification burden), or **Kimi K2.6** (economy primary, legal only with
+  Sol or Fable explicitly pinned behind it — the Bindery's escalation box on
+  browser builds, the `[autonomy]."8"` chain on unattended CLI builds).
 
 These recommendations cannot guarantee factual perfection—no current model can.
 The accuracy strategy is a capable author, web/repository evidence, executable
@@ -45,7 +57,8 @@ Efforts listed are the only selectable efforts for the applicable advised hands;
 other provider-supported efforts remain visible but gray.
 
 Every selectable model also shows `power X/10`. This is an ordinal
-**tome-authoring capability** estimate, independent of cost: 10 is the strongest
+**effective tome-authoring capability in this harness** estimate, independent of cost and
+including observed false-pass reliability: 10 is the strongest
 current frontier; 9 is frontier author/reviewer class; 8 is a strong complete
 author with some tradeoffs; 7 is a dependable checked/support agent; 6 and below
 indicates a constrained local, older, or narrow specialist. It is a researched
@@ -58,32 +71,35 @@ actionable fact for that hand.
 | Live model | D | W | S | R | Recommended effort by hand | Conservative conclusion |
 |---|:---:|:---:|:---:|:---:|---|---|
 | `claude-haiku-4-5` | yes | — | — | — | fixed; Haiku has no effort control | Near-frontier speed and coding do make it useful for bounded, checked work. Anthropic positions it for rapid/subagent use, not ownership of a complete course phase. |
-| `claude-sonnet-5` | — | yes | yes | yes | W/S medium or high; R high | $2/$10 per MTok through August 2026. It is the cost-effective Claude author; the checked Drafter has cheaper options. |
+| `claude-sonnet-5` | — | yes | yes | — | W/S medium or high | $2/$10 per MTok through August 2026. It remains a cost-effective author, but its Reviewer v3 run exhausted the test budget before repair closure. |
 | `claude-opus-4-7` | — | — | — | — | all efforts gray | Same $5/$25 base rate as newer Opus 4.8, with its fast mode being retired. It is a same-price predecessor. |
-| `claude-opus-4-8` | — | yes | — | yes | W high; R high/xhigh | $5/$25. Its judgment can pay back in course architecture or final review, not the support hand or the largest output phase. |
-| `claude-fable-5` | — | — | — | yes | R high | $10/$50—twice Opus and five times Sonnet's current rate. Only an accuracy-first final audit plausibly justifies it. |
+| `claude-opus-4-8` | — | yes | — | — | W high | $5/$25. It remains useful for course architecture, but exhausted the Reviewer v3 budget with most critical gates open. |
+| `claude-fable-5` | — | — | — | yes | R high only | $10/$50, operator-designated as a premium final-audit hand at high effort. Untrialed on Reviewer v3; the deterministic launch/acceptance/independent-verification gates carry the qualification burden. Authoring hands remain wasteful. |
 
-This directly closes the reported Fable loophole: Fable High is now gray for
-Drafter, Writer, and Sections; even Reviewer exposes only High, not xhigh/max.
+Sonnet and Opus reviewer runs remain inconclusive (budget-exhausted) and fail
+closed; they may still author in their proven hands.
 
-## Antigravity CLI
+## Antigravity CLI — measured, not preset
 
 Antigravity embeds effort in the displayed model name, so it has no separate
 effort box.
 
 | Live model/variant | D | W | S | R | Conservative conclusion |
 |---|:---:|:---:|:---:|:---:|---|
-| `Gemini 3.5 Flash (Low)` | yes | — | — | — | Low is explicitly the fewer-step, lower-latency setting. |
-| `Gemini 3.5 Flash (Medium)` | — | yes | yes | — | Google's default for most complex work; Low is the cheaper Drafter and High the deeper reviewer. |
-| `Gemini 3.5 Flash (High)` | — | yes | yes | yes | High is cost-justified for course architecture, the largest authorship phase, and final review. It remains cheaper than the premium Writer alternatives and is used by Quality 2–3 Reviewer. |
-| `Gemini 3.1 Pro (Low)` | — | — | — | — | Low removes the reasoning that would justify the Pro premium; Flash Low is the better-value Drafter. |
-| `Gemini 3.1 Pro (High)` | — | yes | — | yes | $2/$12 per MTok versus Flash's $1.50/$9. A defensible quality-first architect or Quality 4+ final reviewer; Flash remains the better bulk value. |
+| `Gemini 3.5 Flash (Low)` | — | — | — | — | No dependable complete-tome evidence in this harness. |
+| `Gemini 3.5 Flash (Medium)` | — | — | — | — | Repeated local runs missed executable and teaching defects. |
+| `Gemini 3.5 Flash (High)` | — | yes | yes | — | Passed compact Writer and executable Sections. Reviewer remains denied: its original full-tome Phase 8 certified a crashing project, and the blind replay still stopped at 2/3 root causes. |
+| `Gemini 3.1 Pro (Low)` | — | — | — | — | No successful complete-tome evidence; Low is not a safe long-horizon setting. |
+| `Gemini 3.1 Pro (High)` | yes | yes | yes | — | Retains its earlier authoring passes, but returned from Reviewer v3 with twelve mandatory gates open. |
 | `GPT-OSS 120B (Medium)` | yes | — | — | — | Strong tool use and roughly o4-mini-class open-model performance, but not the general pedagogy/reviewer floor. |
 
-Flash High is intentionally selectable for Writer alongside Sol High. The
-earlier restriction was too aggressive: High increases reasoning on a model
-that is still priced below the premium Writer choices, so it is a meaningful
-quality/cost step rather than wasteful overkill.
+The role trials are bounded and deterministic; their binary results are recorded in
+`global-configs/model-role-evidence.toml` and gate every quality-tier assignment. Reviewer v3
+requires authored repairs, replay, ordinary launch, authentic negative controls, truthful evidence,
+and a preserved clean control twice in fresh workspaces. The additional blind HollowCrawl case
+requires looking behind the first crash; only Sol found the float viewport bounds, the missing
+`draw_inventory` import, and the constant PASS receipt. Flash completed one compact v3 run, but
+the stronger real evidence still bars it. Gemini Pro did not complete v3 and is also barred.
 
 ## Codex CLI
 
@@ -96,16 +112,17 @@ Terra, while OpenAI says GPT-5.6 improves both quality and efficiency.
 | Live model | D | W | S | R | Recommended effort by hand |
 |---|:---:|:---:|:---:|:---:|---|
 | `gpt-5.6-sol` | — | yes | — | yes | W medium/high; R high/xhigh |
-| `gpt-5.6-terra` | — | yes | yes | yes | W/S medium/high; R high |
+| `gpt-5.6-terra` | — | yes | yes | — | W/S medium/high; verification/general-backup high |
 | `gpt-5.6-luna` | yes | yes | yes | — | D medium only; W/S medium/high |
 | `gpt-5.5` | — | — | — | — | all efforts gray; same credit rate as newer Sol |
 | `gpt-5.4` | — | — | — | — | all efforts gray; same credit rate as newer Terra |
 | `gpt-5.4-mini` | yes | — | — | — | D high only |
 
 `low`, `max`, and `ultra` remain gray. High and xhigh are now role-scoped too:
-Luna Drafter and Mini Drafter expose only their cheapest adequate setting, while
-xhigh remains available only for the two frontier final-review choices where a
-long-horizon gain is plausible.
+Luna Drafter and Mini Drafter expose only their cheapest adequate setting. Sol is the only
+fully qualified primary final reviewer (Fable 5 and chained Kimi are the two graded
+exceptions above); Terra remains the distinct verification/general-recovery hand
+because it passed repair/replay twice but missed the blind case's latent second launch blocker.
 
 ## OpenCode Go
 
@@ -116,18 +133,28 @@ for Writer or Reviewer; the underlying vendor evidence determines those roles.
 | Live model | D | W | S | R | Effort | Conservative conclusion |
 |---|:---:|:---:|:---:|:---:|---|---|
 | `opencode-go/deepseek-v4-flash` | yes | — | — | — | high | 13B active; official claim is Pro-like simple-agent performance, not equivalent long-horizon ownership. |
-| `opencode-go/deepseek-v4-pro` | — | yes | yes | yes | high | $1.74/$3.48. Strong enough to justify authorship/review, while Flash is about twelve times cheaper for Drafter. |
+| `opencode-go/deepseek-v4-pro` | — | yes | — | — | high | Its compact Sections run repaired the code but returned a placebo acceptance receipt instead of exercising it; Sections and Reviewer are disabled. |
 | `opencode-go/glm-5.1` | — | — | — | — | all gray | Same $1.40/$4.40 rate as newer GLM-5.2; dominated. |
-| `opencode-go/glm-5.2` | — | yes | — | yes | high | $1.40/$4.40. Reserve the costly long-horizon flagship for planning/review, not support or bulk output. |
-| `opencode-go/kimi-k2.6` | — | yes | — | yes | fixed | $0.95/$4.00. Strong research/long-horizon evidence justifies planning/review, not cheaper hands. |
+| `opencode-go/glm-5.2` | — | yes | — | — | high | $1.40/$4.40. Passed Reviewer v3 twice but missed HollowCrawl's guaranteed next-frame `NameError`; primary review is disabled. |
+| `opencode-go/kimi-k2.6` | — | yes | — | yes | fixed | $0.95/$4.00. Passed Reviewer v3 twice; missed the latent real blocker in the blind audit. Approved as the economy primary reviewer only with a pinned Sol/Fable escalation hand. |
 | `opencode-go/kimi-k2.7-code` | — | — | — | — | fixed | Same output price as K2.6, narrower evidence, and far more costly than Drafter-class models. |
 | `opencode-go/mimo-v2.5` | yes | — | — | — | fixed | Efficient 15B-active agent model; too small for the three critical authorship hands. |
 | `opencode-go/mimo-v2.5-pro` | — | — | — | — | fixed | Same $1.74/$3.48 rate as broader DeepSeek V4 Pro; dominated for this workflow. |
 | `opencode-go/minimax-m2.7` | — | — | — | — | fixed | Same $0.30/$1.20 rate as newer, broader MiniMax M3; dominated. |
-| `opencode-go/minimax-m3` | — | yes | yes | yes | fixed | $0.30/$1.20 makes it a cost-effective author/reviewer; Flash/MiMo remain cheaper support hands. |
+| `opencode-go/minimax-m3` | — | yes | yes | — | fixed | Passed Writer and Sections cheaply. Its Reviewer run emitted five findings for three root causes, including one false blocker, so it cannot independently approve a tome. |
 | `opencode-go/qwen3.6-plus` | — | — | — | — | fixed | Costs $0.50/$3.00 at <=256K versus newer 3.7 Plus at $0.40/$1.60; dominated. |
-| `opencode-go/qwen3.7-max` | — | yes | — | yes | fixed | $2.50/$7.50 flagship; course architecture or final arbitration can justify the premium over Plus, but bulk Sections cannot. |
-| `opencode-go/qwen3.7-plus` | — | yes | yes | — | fixed | Current $0.40/$1.60 performance/cost author; too expensive for Drafter and below the Reviewer bar. |
+| `opencode-go/qwen3.7-max` | — | yes | — | — | fixed | $2.50/$7.50 flagship for course architecture; its Reviewer v3 run timed out with eight critical gates open. |
+| `opencode-go/qwen3.7-plus` | — | yes | — | — | fixed | Suitable for planning, but an observed long-course section run was incomplete and non-replayable; Sections and Reviewer are disabled. |
+
+## OpenCode Maple AI
+
+A separate OpenCode provider gateway (`mapleai/*`), surfaced alongside the Go
+models in the OpenCode CLI picker. Even when the underlying family matches, Reviewer
+qualification is endpoint-specific; models.dev carries no effort variants for this gateway.
+
+| Live model | D | W | S | R | Effort | Conservative conclusion |
+|---|:---:|:---:|:---:|:---:|---|---|
+| `mapleai/glm-5-2` | — | yes | — | — | fixed | Same model family, but this endpoint has not independently passed Reviewer v3 twice. |
 
 ## OpenCode limited-time free endpoints
 

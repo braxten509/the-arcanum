@@ -1,0 +1,144 @@
+[[lessons]]
+id = "s10-l02"
+title = "Let Silence Keep the Beat"
+teaches = ["optional-audio-fallback"]
+body = '''
+<p>Audio improves feedback, but a missing sound must not prevent Moonvale from opening. <code>AudioBank</code> owns two stable ids, title and action. Each maps to either a real <code>pygame.mixer.Sound</code> or <code>SilentSound</code>, whose <code>play()</code> method deliberately does nothing. Callers use the same method in both cases.</p>
+<p><code>load_optional(root=None)</code> receives a path override for tests. Without one, it extends the package-safe <code>asset_root()</code> with the audio directory. It checks title.ogg and action.wav. If a file is absent, unreadable, unsupported, or the mixer is unavailable, that entry becomes SilentSound.</p>
+<pre><code data-kind="runnable">names = {"title": "title.ogg", "action": "action.wav"}
+print("AUDIO", ",".join(sorted(names)))</code></pre>
+<p>The probe prints <code>AUDIO action,title</code>. <code>sorted</code> produces a deterministic key order; comma join turns it into one diagnostic token. A likely failure is calling <code>pygame.mixer.Sound</code> during module import. Import then crashes on a headless machine before fallback logic can run.</p>
+<p>The classmethod performs loading only when the application requests a bank. It catches the focused pygame and operating-system errors around each optional file. It does not catch every Exception, because programming mistakes such as a misspelled dictionary name should remain visible.</p>
+<p><code>mode</code> reports silent when every stored object is a fallback and mixed otherwise. That label supports diagnostics; gameplay should call <code>play(name)</code> and ignore whether the optional channel was created. An unknown id raises KeyError so a scene typo is repaired instead of muted forever.</p>
+<p>The asset guide names a human source and exact destination. Learners verify its current license and record chosen filenames in credits.md. The course authors no audio, and every proof uses a deliberately missing root. This separates required mechanics from decorative media.</p>
+<p>To diagnose silence, print asset root, candidate filename, existence, mixer initialization, and caught pygame message. Do not convert missing optional media into a traceback for the player. The typing and fill exercises rehearse the fallback boundary before the independent key-order lab.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // NULL OBJECT</div><p>SilentSound is a null object: it honors the useful interface while representing an intentionally absent optional collaborator.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "optional-audio-fallback"
+purpose = "Load optional title and action sounds through the package-safe asset root while preserving the same play interface with silent substitutes."
+anatomy = "Choose injected or asset audio root; map stable ids to filenames; check each path; try mixer Sound; catch focused media errors; store SilentSound otherwise; expose play and diagnostic mode."
+example = "The worked dictionary sorts and joins the two stable audio ids into observable output."
+observable = "With no audio files, both ids remain callable, mode is silent, and launch/proofs continue without a mixer dependency."
+failure = "Import-time loading crashes headless launch, broad catches hide code bugs, and an unguarded missing file turns decoration into a requirement."
+practice = "s10-l02-e2"
+
+[[lessons.artifactSteps]]
+id = "s10-add-audio-bank"
+path = "src/moonvale/audio.py"
+mode = "write"
+instruction = "Create src/moonvale/audio.py with stable optional sound ids and a SilentSound null object."
+content = '''
+import pygame
+
+from moonvale.world import asset_root
+
+
+class SilentSound:
+    silent = True
+
+    def play(self):
+        return None
+
+
+class AudioBank:
+    filenames = {"title": "title.ogg", "action": "action.wav"}
+
+    def __init__(self, sounds):
+        self.sounds = sounds
+
+    @classmethod
+    def load_optional(cls, root=None):
+        audio_root = root if root is not None else asset_root() / "audio"
+        sounds = {}
+        for name, filename in cls.filenames.items():
+            path = audio_root / filename
+            if not path.exists():
+                sounds[name] = SilentSound()
+                continue
+            try:
+                sounds[name] = pygame.mixer.Sound(path)
+            except (pygame.error, OSError):
+                sounds[name] = SilentSound()
+        return cls(sounds)
+
+    @property
+    def mode(self):
+        return "silent" if all(
+            isinstance(sound, SilentSound) for sound in self.sounds.values()
+        ) else "mixed"
+
+    def play(self, name):
+        return self.sounds[name].play()
+'''
+
+[[lessons.artifactSteps]]
+id = "s10-record-optional-audio"
+path = "assets/credits.md"
+mode = "append"
+instruction = "Append the optional audio policy to the existing media credits ledger before adding any human-sourced files."
+content = '''
+
+## Optional audio
+
+Moonvale ships with SilentSound fallbacks. If title.ogg or action.wav is added under assets/audio/, record its creator, source page, exact license, filename, and required attribution here.
+'''
+
+[[lessons.readings]]
+label = "PyGame documentation: mixer Sound"
+url = "https://pyga.me/docs/ref/mixer.html#pygame.mixer.Sound"
+
+[[lessons.exercises]]
+id = "s10-l02-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the package-safe default root."
+code = 'audio_root = asset_root() / "audio"'
+
+[[lessons.exercises]]
+id = "s10-l02-e1"
+type = "mc"
+points = 15
+prompt = "Why does SilentSound implement play()?"
+choices = ["To synthesize music", "To keep the caller interface valid when optional media is absent", "To replace the Game loop", "To serialize mixer channels"]
+answer = 1
+whyWrong = "The null object neither creates media, owns lifecycle, nor enters save data; it preserves a callable boundary."
+hint = "Scenes should not branch before every sound request."
+explain = "Real and silent entries respond to the same play method."
+
+[[lessons.exercises]]
+id = "s10-l02-e2"
+type = "fill"
+points = 20
+prompt = "Complete the focused fallback for a missing candidate path."
+code = '''
+if not path.____():
+    sounds[name] = SilentSound()
+'''
+answer = "exists"
+hint = "Call pathlib's Boolean file-presence method."
+whyWrong = "Reading or playing before this check would raise before the fallback is installed."
+
+[[lessons.exercises]]
+id = "s10-l02-w1"
+type = "write"
+points = 30
+prompt = "Sort the dictionary keys title and action, join them with a comma, and print exactly AUDIO action,title."
+expect = '''
+AUDIO action,title'''
+solution = '''
+names = {"title": "title.ogg", "action": "action.wav"}
+print("AUDIO", ",".join(sorted(names)))
+'''
+hint = "sorted(names) returns action before title; join that result."
+
+[[lessons.exercises]]
+id = "s10-l02-e3"
+type = "text"
+points = 20
+prompt = "What mode should an AudioBank report when every entry uses the null object?"
+answer = "silent"
+hint = "The receipt contrasts this with mixed."
+whyWrong = "Missing optional media is an intentional silent mode, not a failed launch."

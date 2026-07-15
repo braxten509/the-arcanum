@@ -97,8 +97,23 @@ def _feed_stdin(proc, prompt):
         pass
 
 
+def _stream_output(proc, observer):
+    """Forward captured structured output while exposing each line to a session tracker."""
+    try:
+        for line in proc.stdout:
+            sys.stdout.write(line)
+            sys.stdout.flush()
+            try:
+                observer(line)
+            except Exception as exc:  # output bookkeeping must never kill a healthy worker
+                print(f"  ! worker output observer ignored an error: {exc}")
+    finally:
+        proc.stdout.close()
+
+
 def run_agent(cmd, input_mode, prompt, ping_interval=PING_INTERVAL_DEFAULT,
-              dead_pings=DEAD_PINGS_DEFAULT, hard_cap=None, cwd=None, env=None):
+              dead_pings=DEAD_PINGS_DEFAULT, hard_cap=None, cwd=None, env=None,
+              output_observer=None):
     """Invoke a headless agent, streaming its output to the terminal. Returns its exit code —
     or 124 if it goes UNRESPONSIVE: every `ping_interval`s we check the worker's process tree
     for liveness, and after `dead_pings` consecutive idle checks (no CPU AND no live network
@@ -106,19 +121,30 @@ def run_agent(cmd, input_mode, prompt, ping_interval=PING_INTERVAL_DEFAULT,
     `hard_cap` (seconds) is an optional absolute backstop for a worker that spins but never
     progresses; None disables it (liveness handles the common hang)."""
     cmd = resolve_bin(cmd)
-    # ponytail: stdout/stderr are inherited (stream straight to the server/terminal, as before);
-    # only stdin is piped, fed from a thread so a multi-KB prompt can't block the monitor.
+    # Ordinarily stdout/stderr inherit the terminal. Providers whose persisted session id is
+    # emitted as structured output are piped through a forwarding thread so the id can be
+    # captured without hiding live output or blocking the liveness monitor.
     proc = subprocess.Popen(cmd + ([prompt] if input_mode == "arg" else []), cwd=cwd or REPO,
                             env=env,
                             stdin=(None if input_mode == "arg" else subprocess.PIPE),
-                            text=(input_mode != "arg"))
+                            stdout=(subprocess.PIPE if output_observer else None),
+                            stderr=(subprocess.STDOUT if output_observer else None),
+                            text=(input_mode != "arg" or bool(output_observer)))
     if input_mode != "arg":
         threading.Thread(target=_feed_stdin, args=(proc, prompt), daemon=True).start()
+    output_thread = None
+    if output_observer:
+        output_thread = threading.Thread(
+            target=_stream_output, args=(proc, output_observer), daemon=True)
+        output_thread.start()
     prev = _cpu_ticks(_descendants(proc.pid))
     dead, start = 0, time.monotonic()
     while True:
         try:
-            return proc.wait(timeout=ping_interval)   # finished on its own
+            rc = proc.wait(timeout=ping_interval)   # finished on its own
+            if output_thread:
+                output_thread.join(timeout=5)
+            return rc
         except subprocess.TimeoutExpired:
             pass
         if hard_cap and time.monotonic() - start > hard_cap:
@@ -190,25 +216,32 @@ def preflight_auth(cmd, input_mode, label=None):
     return True, "ok"
 
 
+def preflight_runner_results(distinct):
+    """Probe and report every endpoint, retaining per-command health for chain pruning."""
+    print(f"  · AI access Phase 0: checking {len(distinct)} selected endpoint(s)…")
+    results = []
+    for label, cmd, input_mode in distinct:
+        ok, detail = preflight_auth(cmd, input_mode, label)
+        print(f"    {'ok  ' if ok else 'FAIL'} {label}" + ("" if ok else f" — {detail}"))
+        results.append((label, cmd, input_mode, ok, detail))
+    if all(result[3] for result in results):
+        print("  · AI access Phase 0: all selected endpoints answer\n")
+    return results
+
+
 def preflight_runners(distinct, fatal=True):
     """Ping EVERY distinct endpoint that will drive a phase (not just the first) — the
     drafter/writer/reviewer may be different providers/models, and each must answer before a
     long build starts. Exits with a combined report if any endpoint can't be reached.
     `distinct` is a list of (label, cmd, input_mode)."""
-    print(f"  · AI access Phase 0: checking {len(distinct)} selected endpoint(s)…")
-    failures = []
-    for label, cmd, input_mode in distinct:
-        ok, detail = preflight_auth(cmd, input_mode, label)
-        print(f"    {'ok  ' if ok else 'FAIL'} {label}" + ("" if ok else f" — {detail}"))
-        if not ok:
-            failures.append((label, detail))
+    results = preflight_runner_results(distinct)
+    failures = [(label, detail) for label, _, _, ok, detail in results if not ok]
     if failures and fatal:
         lines = "\n".join(f"  · {lbl}: {d}" for lbl, d in failures)
         sys.exit(f"\nAI ACCESS PHASE 0 FAILED — {len(failures)} of {len(distinct)} selected endpoint(s) "
                  f"cannot answer (nothing was built):\n{lines}")
     if failures:
         return False
-    print("  · AI access Phase 0: all selected endpoints answer\n")
     return True
 
 

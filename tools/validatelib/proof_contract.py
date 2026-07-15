@@ -122,6 +122,13 @@ def _check_acceptance(manifest, sections, plan_path, allow_guided, course_comple
     if mode == "run":
         if not _string_list(acceptance.get("runArgs"), nonempty=True):
             err("proof", "run acceptance needs a non-empty runArgs array")
+        if not controls:
+            err("proof", "run acceptance needs at least one real control from input, clock, "
+                "seed, or frame-limit so harness negative challenges can withhold a condition")
+        launch_stdin = acceptance.get("launchStdin")
+        if (launch_stdin is not None
+                and (not isinstance(launch_stdin, str) or len(launch_stdin) > 20_000)):
+            err("proof", "[acceptance] launchStdin must be a string of at most 20000 characters")
     elif mode == "guided":
         if not allow_guided:
             err("proof", "guided acceptance is allowed only for runtime.externalWorkspace")

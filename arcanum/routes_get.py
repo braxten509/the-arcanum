@@ -12,12 +12,12 @@ from .config import (AGY_BIN, BUILD_DIR, CLAUDE_BIN, CLI_EFFORTS, CLI_MODEL_EFFO
                      ROOT, SKINS_DIR, TOMES_DIR, WEB, jobs, jobs_lock, read_json,
                      read_settings, read_toml)
 from .build_state import (build_result_status, cancelled_build_status,
-                          load_runner_request, load_section_progress)
+                          load_author_session, load_build_progress, load_section_progress)
 from .forge import forge_name, list_active_builds, list_workings
-from .model_policy import guided_row
 from .models import agy_models, codex_models, ollama_bindery_models, opencode_models
+from tools.buildlib.single_author import load_conversation
 from .tomes import (assemble_tome, list_tomes, project_dir, project_name, runtime_for,
-                    state_path)
+                    state_path, resolve_working_tid)
 
 
 def handle(h):
@@ -79,24 +79,39 @@ def handle(h):
             if not job or job.get("kind") != "build":
                 out = None
             else:
-                out = {k: job[k] for k in ("status", "kind", "tome", "phase", "phaseTitle",
+                out = {k: job[k] for k in ("status", "kind", "tome", "slug", "phase", "phaseTitle",
                                            "totalPhases", "startedAt", "error",
-                                           "phaseStartedAt", "runner", "sections") if k in job}
+                                           "phaseStartedAt", "runner", "sections",
+                                           "interactionState") if k in job}
                 out["name"] = forge_name(job.get("tome"))
                 # The forge terminal is a status surface, not a mirror of runner stdout.
                 # Raw output remains in job["log"] and feeds the failure report below.
                 out["logtail"] = "\n".join(job.get("statusLog", [])[-40:])
-                req = load_runner_request(job.get("slug") or job.get("tome"))
-                if req:  # a worker died or exhausted its gates; the harness awaits approval
-                    out["awaitingRunner"] = req
         if out is None:
             out = next((j for j in list_active_builds()
                         if j.get("external") and j.get("id") == bid), None)
-            req = load_runner_request(bid)
-            if out is not None and req:
-                out["awaitingRunner"] = req
         if out is None:
             out = build_result_status(bid) or cancelled_build_status(bid) or {"status": "unknown"}
+        stable = out.get("slug") or bid
+        try:
+            with open(os.path.join(BUILD_DIR, f"{stable}.plan.md"), encoding="utf-8") as handle:
+                current_tome = resolve_working_tid(stable, handle.read())
+            out["tome"] = current_tome
+            out["name"] = forge_name(current_tome) or out.get("name")
+        except OSError:
+            pass
+        progress = load_build_progress(stable) or load_build_progress(out.get("tome"))
+        if progress:
+            out.update(progress)
+        session = load_author_session(stable) or load_author_session(out.get("tome"))
+        if session:
+            reported = session.get("state")
+            pending = out.get("interactionState")
+            target = {"pausing": "paused", "resuming": "running"}.get(pending)
+            if not target or reported == target:
+                out["interactionState"] = reported
+            out["sessionId"] = session.get("sessionId")
+        out["conversation"] = load_conversation(stable, 120)
         if out.get("status") == "running" and int(out.get("phase") or 0) == 3:
             progress = (load_section_progress(out.get("tome"))
                         or load_section_progress(out.get("slug"))
@@ -226,11 +241,10 @@ def model_census():
     oc_ok = installed["opencode-cli"]
     oc_models = opencode_models() if oc_ok else []
     local_models = ollama_bindery_models() if oc_ok else []  # local runs THROUGH opencode
-    # Each model row is [id, label, tag, efforts, guidance]. Effort support and
-    # role/effort advice are both per-model; antigravity/local simply carry [].
+    # Each model row is [id, label, tag, efforts]. Authoring imposes no power/role policy.
     def rows(models, kind):
         per_model = CLI_MODEL_EFFORTS.get(kind, {})
-        return [guided_row([model, model, "", per_model.get(model, [])])
+        return [[model, model, "", per_model.get(model, [])]
                 for model in models]
 
     out["bindery"] = [
@@ -241,20 +255,12 @@ def model_census():
          "models": rows(providers["antigravity-cli"], "antigravity-cli"),
          "installed": installed["antigravity-cli"]},
         {"id": "codex-cli", "label": "Codex CLI", "kind": "codex-cli",
-         "models": [guided_row(row) for row in codex_rows],
+         "models": codex_rows,
          "installed": installed["codex-cli"]},
         {"id": "opencode-cli", "label": "OpenCode CLI", "kind": "opencode-cli",
-         "models": [guided_row(row) for row in oc_models], "installed": oc_ok},
+         "models": oc_models, "installed": oc_ok},
         {"id": "local", "label": "Local", "kind": "opencode-cli",
-         "models": [guided_row(row) for row in local_models],
+         "models": local_models,
          "installed": oc_ok and bool(local_models)},
     ]
-    # `quality`: the CHEAP<->QUALITY slider tiers from harness.toml [quality.q1..q5],
-    # ordered cheapest first. Each carries a per-phase runner map the browser applies
-    # to the hand knobs; missing/broken TOML just hides the slider.
-    try:
-        q = read_toml(os.path.join(ROOT, "global-configs", "harness.toml")).get("quality") or {}
-        out["quality"] = [dict(q[k], id=k) for k in sorted(q)]
-    except Exception:
-        out["quality"] = []
     return out

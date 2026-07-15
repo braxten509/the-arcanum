@@ -1,4 +1,4 @@
-"""Conservative role and effort policy for the Bindery's four authoring hands.
+"""Conservative role and effort policy for the Bindery's authoring and backup hands.
 
 The provider census answers "what is selectable?".  This file answers the harder
 question: "what is a realistic, cost-justified choice for this *entire bundled
@@ -12,63 +12,74 @@ The assessment is intentionally explicit for every live model.  New and rotating
 ids fail closed (visible, but insufficient) until they are researched here.
 """
 
-ROLES = ("drafter", "writer", "sections", "reviewer")
+CORE_ROLES = ("drafter", "writer", "sections", "reviewer")
+ROLES = (*CORE_ROLES, "backup")
+# Primary discovery and independent verification are deliberately separate. A general
+# recovery hand may verify a stronger reviewer's repaired artifact without being exposed as
+# a selectable Phase-8 primary after missing latent blockers in the real HollowCrawl audit.
+BACKUP_REQUIREMENTS = frozenset(("writer", "sections", "review_verifier"))
+# Phase-8 escalation contract (see global-configs/model-role-evidence.toml): a chained
+# economy primary is legal ONLY with one of the fully/operator-approved reviewers
+# explicitly pinned behind it as the phase-8 escalation hand.
+ESCALATION_PRIMARIES = frozenset(("opencode-go/kimi-k2.6",))
+ESCALATION_TARGETS = frozenset(("gpt-5.6-sol", "claude-fable-5"))
 
 
 def _entry(roles, basis):
     return {"roles": frozenset(roles), "basis": basis}
 
 
-# Research snapshot: 2026-07-13.  ``basis`` is returned by /api/models for
+# Research and local-run evidence snapshot: 2026-07-14. ``basis`` is returned by /api/models for
 # diagnostics and future audits; the compact UI shows power for selectable
 # choices and the concise "(insufficient)" or "(wasteful)" exclusion reason.
 MODEL_POLICY = {
-    # Anthropic.  The combined capability + cost bar produces a clean ladder:
-    # Haiku for checked support, Sonnet for bulk authorship, Opus for the arc or
-    # final audit, and Fable only where its 2x-Opus price can plausibly pay back.
+    # Anthropic. Haiku, Sonnet, and Opus retain only their proven authoring hands.
+    # No Claude endpoint completed Reviewer v3 inside the bounded live trial, so
+    # premium positioning does not grant an unmeasured final-audit exception.
     "claude-haiku-4-5": _entry(
         ("drafter",),
         "Fast near-frontier subagent model; realistic for validator-backed support work, not a full course arc, unsplit section phase, or independent final audit.",
     ),
     "claude-sonnet-5": _entry(
-        ("writer", "sections", "reviewer"),
-        "Current frontier Sonnet is the cost-effective Claude author; Haiku or Luna already clears the lower-cost Drafter hand.",
+        ("writer", "sections"),
+        "Current frontier Sonnet remains a cost-effective author, but its Reviewer v3 repair run exhausted the test budget before closing the second broken project.",
     ),
     "claude-opus-4-7": _entry(
         (),
         "Still capable, but it has the same $5/$25 per-MTok base price as the newer Opus 4.8 and its fast mode is being retired; every tome hand has a better-value successor.",
     ),
     "claude-opus-4-8": _entry(
-        ("writer", "reviewer"),
-        "At $5/$25 per MTok, Opus is justified for the course arc or independent final audit, not the checked Drafter or high-output Sections hand.",
+        ("writer",),
+        "At $5/$25 per MTok, Opus remains justified for the course arc; its Reviewer v3 run exhausted the test budget with most repair gates still open.",
     ),
     "claude-fable-5": _entry(
-        ("reviewer",),
-        "Anthropic's strongest widely released model costs $10/$50 per MTok—twice Opus 4.8—so only the accuracy-first final Reviewer can justify it.",
+        ("reviewer", "review_verifier"),
+        "Anthropic's strongest widely released model at $10/$50 per MTok, operator-designated as a premium final-audit hand at high effort; untrialed on Reviewer v3, so the deterministic launch/acceptance/independent-verification gates carry the qualification burden. Authoring hands remain wasteful.",
     ),
 
-    # Google Antigravity exposes thinking level as part of the model name.  Low
-    # is for fewer-step/latency-sensitive work; Medium is Google's general
-    # default; High is still economical enough for every judgment-heavy hand.
+    # Google Antigravity. Flash may author behind deterministic gates, but its real
+    # full-tome false approval overrides one explicit compact repair pass. Pro retains
+    # its authoring passes but failed to complete Reviewer v3, so neither is selectable
+    # for final audit.
     "Gemini 3.5 Flash (Low)": _entry(
-        ("drafter",),
-        "Low thinking is optimized for fewer-step, latency-sensitive work; keep it on the validator-backed hand.",
+        (),
+        "Locally observed Gemini tome runs are not dependable enough for a complete bundled hand; Low remains experimental and fails closed.",
     ),
     "Gemini 3.5 Flash (Medium)": _entry(
-        ("writer", "sections"),
-        "Google's recommended default for most complex agentic and writing work; Low is the more economical Drafter and final gap detection merits High.",
+        (),
+        "Locally observed Flash tome runs repeatedly missed executable and teaching defects; keep this model visible but unselectable for production tome roles.",
     ),
     "Gemini 3.5 Flash (High)": _entry(
-        ("writer", "sections", "reviewer"),
-        "Frontier Flash at maximum reasoning is justified for course architecture, the largest authorship phase, or independent review; it remains cheaper than the premium Writer alternatives.",
+        ("writer", "sections"),
+        "Passed the compact Writer and executable Sections trials. Reviewer remains barred by a known full-tome false PASS, and Drafter's whole-tome Phase-7 judgment has the same unresolved reliability risk.",
     ),
     "Gemini 3.1 Pro (Low)": _entry(
         (),
-        "Low suppresses the reasoning that would justify paying the Pro premium, while Flash Low is the cheaper Drafter; this variant has no cost-effective tome hand.",
+        "Pro Low has no successful local complete-tome evidence and suppresses the reasoning needed for these long-horizon hands.",
     ),
     "Gemini 3.1 Pro (High)": _entry(
-        ("writer", "reviewer"),
-        "At $2/$12 per MTok, Pro High is a defensible quality-first course architect or independent reviewer; Flash remains the better bulk-output value.",
+        ("drafter", "writer", "sections"),
+        "Passed the earlier authoring trials, but returned from Reviewer v3 without completing either authored repair target; Reviewer is disabled.",
     ),
     "GPT-OSS 120B (Medium)": _entry(
         ("drafter",),
@@ -80,11 +91,11 @@ MODEL_POLICY = {
     # hands.  GPT-5.5 and 5.4 are same-price predecessors to Sol and Terra.
     "gpt-5.6-sol": _entry(
         ("writer", "reviewer"),
-        "Latest frontier model at 125/12.5/750 Codex credits per MTok; justified for the course arc or final audit, not support or bulk prose.",
+        "Latest frontier model at 125/12.5/750 Codex credits per MTok; passed Reviewer v3 twice and was the only tested hand to find all three blockers in the blind real HollowCrawl audit.",
     ),
     "gpt-5.6-terra": _entry(
-        ("writer", "sections", "reviewer"),
-        "Balanced model at half Sol's credit rate; appropriate for authorship and review, while Luna already clears the Drafter hand.",
+        ("writer", "sections", "review_verifier"),
+        "Balanced model at half Sol's credit rate; passed Reviewer v3 twice but missed HollowCrawl's latent second launch blocker. It remains the distinct verification/general-recovery hand, not a selectable primary reviewer.",
     ),
     "gpt-5.6-luna": _entry(
         ("drafter", "writer", "sections"),
@@ -110,20 +121,24 @@ MODEL_POLICY = {
         "13B-active economical model; official guidance says it matches Pro on simple agents, not the long-horizon authorship hands.",
     ),
     "opencode-go/deepseek-v4-pro": _entry(
-        ("writer", "sections"),
-        "1M-context flagship remains useful for authorship, but an observed full-tome audit falsely passed a broken beginner course, so Reviewer is disabled; Flash is cheaper for Drafter.",
+        ("writer",),
+        "Useful long-context author, but its compact Sections run returned a placebo acceptance receipt that did not exercise the repaired functions; Sections and Reviewer are disabled.",
     ),
     "opencode-go/glm-5.1": _entry(
         (),
         "Capable long-horizon model, but it has the same $1.40/$4.40 price and lower current capability than GLM-5.2, so it is a dominated tome choice.",
     ),
     "opencode-go/glm-5.2": _entry(
-        ("writer", "reviewer"),
-        "Improved long-horizon flagship at $1.40/$4.40; reserve it for planning or review rather than checked support or the bulk-output Sections phase.",
+        ("writer",),
+        "Improved long-horizon flagship at $1.40/$4.40; it passed Reviewer v3 twice but missed HollowCrawl's latent second launch blocker in the blind real-artifact audit, so primary review now fails closed.",
+    ),
+    "mapleai/glm-5-2": _entry(
+        ("writer",),
+        "Maple AI hosts the same GLM family, but this endpoint has not independently cleared the mandatory Reviewer v3 repair/replay qualification.",
     ),
     "opencode-go/kimi-k2.6": _entry(
         ("writer", "reviewer"),
-        "Strong research and long-horizon model at $0.95/$4.00; useful for planning/review, but cheaper proven models cover support and bulk section output.",
+        "Strong research and long-horizon model at $0.95/$4.00; passed Reviewer v3 twice but found only 2/3 blockers in the blind real HollowCrawl audit. Approved as the economy primary reviewer ONLY because the harness escalation chain places Sol/Fable behind it and the launch/acceptance gates surface latent blockers deterministically.",
     ),
     "opencode-go/kimi-k2.7-code": _entry(
         (),
@@ -142,16 +157,16 @@ MODEL_POLICY = {
         "Strong document model, but newer MiniMax M3 has the same $0.30/$1.20 rate and broader research/review evidence, making M2.7 dominated.",
     ),
     "opencode-go/minimax-m3": _entry(
-        ("writer", "sections", "reviewer"),
-        "At $0.30/$1.20, M3 is a cost-effective author/reviewer; $0.14/$0.28 Flash or MiMo remains the sensible Drafter.",
+        ("writer", "sections"),
+        "At $0.30/$1.20, M3 passed compact Writer and executable Sections. Its Reviewer run over-reported two blockers, including one false root cause, so independent review is disabled.",
     ),
     "opencode-go/qwen3.6-plus": _entry(
         (),
         "Older Plus costs $0.50/$3.00 at <=256K while Qwen3.7 Plus is newer and $0.40/$1.60, so 3.6 is dominated for tome work.",
     ),
     "opencode-go/qwen3.7-max": _entry(
-        ("writer", "reviewer"),
-        "Qwen's $2.50/$7.50 flagship is justified for the high-leverage course arc or independent final arbitration; Plus is the economical bulk author.",
+        ("writer",),
+        "Qwen's $2.50/$7.50 flagship remains useful for the course arc, but timed out without completing Reviewer v3 and is disabled for final review.",
     ),
     "opencode-go/qwen3.7-plus": _entry(
         ("writer",),
@@ -216,8 +231,9 @@ MODEL_POLICY = {
     ),
 }
 
-# A compact, ordinal estimate of raw tome-authoring capability, independent of
-# price and role fit.  It is intentionally not a synthetic benchmark average:
+# A compact, ordinal estimate of effective tome-authoring capability in this harness,
+# independent of price and role fit. It incorporates observed false-pass reliability and
+# is intentionally not a synthetic benchmark average:
 # 10 = strongest current frontier; 9 = frontier authors/reviewers; 8 = strong
 # complete authors with some tradeoffs; 7 = dependable checked/support agents;
 # 6 and below = constrained local, older, or narrow specialists.  The Custom UI
@@ -228,11 +244,11 @@ MODEL_POWER = {
     "claude-opus-4-7": 9,
     "claude-opus-4-8": 9,
     "claude-fable-5": 10,
-    "Gemini 3.5 Flash (Low)": 7,
-    "Gemini 3.5 Flash (Medium)": 8,
-    "Gemini 3.5 Flash (High)": 9,
-    "Gemini 3.1 Pro (Low)": 8,
-    "Gemini 3.1 Pro (High)": 9,
+    "Gemini 3.5 Flash (Low)": 5,
+    "Gemini 3.5 Flash (Medium)": 6,
+    "Gemini 3.5 Flash (High)": 7,
+    "Gemini 3.1 Pro (Low)": 6,
+    "Gemini 3.1 Pro (High)": 8,
     "GPT-OSS 120B (Medium)": 7,
     "gpt-5.6-sol": 10,
     "gpt-5.6-terra": 9,
@@ -244,6 +260,7 @@ MODEL_POWER = {
     "opencode-go/deepseek-v4-pro": 8,
     "opencode-go/glm-5.1": 8,
     "opencode-go/glm-5.2": 9,
+    "mapleai/glm-5-2": 9,
     "opencode-go/kimi-k2.6": 8,
     "opencode-go/kimi-k2.7-code": 8,
     "opencode-go/mimo-v2.5": 7,
@@ -275,10 +292,6 @@ WASTEFUL_ROLES = {
     "claude-opus-4-7": frozenset(ROLES),
     "claude-opus-4-8": frozenset(("drafter", "sections")),
     "claude-fable-5": frozenset(("drafter", "writer", "sections")),
-    "Gemini 3.5 Flash (Medium)": frozenset(("drafter",)),
-    "Gemini 3.5 Flash (High)": frozenset(("drafter",)),
-    "Gemini 3.1 Pro (Low)": frozenset(("drafter",)),
-    "Gemini 3.1 Pro (High)": frozenset(("drafter", "sections")),
     "gpt-5.6-sol": frozenset(("drafter", "sections")),
     "gpt-5.6-terra": frozenset(("drafter",)),
     "gpt-5.5": frozenset(ROLES),
@@ -286,6 +299,7 @@ WASTEFUL_ROLES = {
     "opencode-go/deepseek-v4-pro": frozenset(("drafter",)),
     "opencode-go/glm-5.1": frozenset(ROLES),
     "opencode-go/glm-5.2": frozenset(("drafter", "sections")),
+    "mapleai/glm-5-2": frozenset(("drafter", "sections")),
     "opencode-go/kimi-k2.6": frozenset(("drafter", "sections")),
     "opencode-go/kimi-k2.7-code": frozenset(("drafter",)),
     "opencode-go/mimo-v2.5-pro": frozenset(ROLES),
@@ -304,24 +318,24 @@ MODEL_ROLES = {model: policy["roles"] for model, policy in MODEL_POLICY.items()}
 # bundled phases, while unnecessarily high effort and max/ultra are gray when a
 # lower setting clears the hand's bar.  Every supported level remains visible.
 EFFORT_PROFILES = {
-    "claude-fable-5": {"reviewer": ("high",)},
     "claude-opus-4-8": {
         "writer": ("high",),
-        "reviewer": ("high", "xhigh"),
     },
     "claude-sonnet-5": {
         "writer": ("medium", "high"),
         "sections": ("medium", "high"),
-        "reviewer": ("high",),
     },
     "gpt-5.6-sol": {
         "writer": ("medium", "high"),
         "reviewer": ("high", "xhigh"),
     },
+    "claude-fable-5": {
+        "reviewer": ("high",),
+    },
     "gpt-5.6-terra": {
         "writer": ("medium", "high"),
         "sections": ("medium", "high"),
-        "reviewer": ("high",),
+        "backup": ("high",),
     },
     "gpt-5.6-luna": {
         "drafter": ("medium",),
@@ -331,10 +345,10 @@ EFFORT_PROFILES = {
     "gpt-5.4-mini": {"drafter": ("high",)},
     "opencode-go/deepseek-v4-flash": {"drafter": ("high",)},
     "opencode-go/deepseek-v4-pro": {
-        role: ("high",) for role in ("writer", "sections")
+        "writer": ("high",)
     },
     "opencode-go/glm-5.2": {
-        role: ("high",) for role in ("writer", "reviewer")
+        "writer": ("high",),
     },
 }
 
@@ -345,19 +359,22 @@ def model_guidance(model_id, effort_levels=()):
     roles = policy["roles"] if policy else frozenset()
     supported = tuple(effort_levels or ())
     profile = EFFORT_PROFILES.get(model_id, {})
+    backup_ok = BACKUP_REQUIREMENTS.issubset(roles)
+    advised = {role: role in roles for role in CORE_ROLES}
+    advised["backup"] = backup_ok
     return {
         "known": policy is not None,
         "basis": policy["basis"] if policy else "Unassessed model; fail closed until researched.",
         "power": MODEL_POWER.get(model_id),
-        "advised": {role: role in roles for role in ROLES},
+        "advised": advised,
         "reason": {
-            role: None if role in roles else
+            role: None if advised[role] else
             ("wasteful" if role in WASTEFUL_ROLES.get(model_id, ()) else "insufficient")
             for role in ROLES
         },
         "efforts": {
             role: [level for level in supported if level in profile.get(role, ())]
-            if role in roles else []
+            if advised[role] else []
             for role in ROLES
         },
     }

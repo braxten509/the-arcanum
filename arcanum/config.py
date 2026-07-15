@@ -101,6 +101,12 @@ OPENCODE_FREE_IDS = [
     "opencode/big-pickle", "opencode/deepseek-v4-flash-free", "opencode/mimo-v2.5-free",
     "opencode/north-mini-code-free", "opencode/nemotron-3-ultra-free",
 ]
+# Maple AI (mapleai/*) — a separate OpenCode provider gateway. Surfaced by ID (not
+# prefix-wide) so each model gets an explicit policy assessment, matching the FREE
+# list's known-ID-filtered-by-live-availability pattern.
+OPENCODE_MAPLE_IDS = [
+    "mapleai/glm-5-2",
+]
 
 # Settings that follow the READER, not the tome — audio, pen (handwritten ink), and the
 # ai grader/oracle config are the same across every tome; the palette (theme) and all
@@ -119,6 +125,7 @@ MIME = {".html": "text/html", ".js": "text/javascript", ".css": "text/css",
 jobs = {}  # id -> {status, result, error}
 jobs_lock = threading.Lock()
 amend_procs = {}  # amend job id -> Popen, kept out of `jobs` so status stays JSON-safe
+build_procs = {}  # build job id -> interactive single-author Popen (stdin is the control lane)
 
 
 def read_json(path, default):

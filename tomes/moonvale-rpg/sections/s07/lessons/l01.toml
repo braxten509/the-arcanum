@@ -1,0 +1,118 @@
+[[lessons]]
+id = "s07-l01"
+title = "Name Every Thing Once"
+teaches = ["item-catalog-and-pickups"]
+body = '''
+<p>An item id is a stable lowercase string used by pickups, inventory, quests, saves, and UI. The catalog maps each id to a record containing display name, kind, and any effect value. Moonvale begins with <code>lantern-herb</code>, a quest item, and <code>healing-tonic</code>, a consumable that restores four health. Code stores ids; UI reads display names.</p>
+<pre><code data-kind="runnable">items = {"healing-tonic": {"name": "Healing Tonic", "heal": 4}}
+item_id = "healing-tonic"
+print(items[item_id]["name"], items[item_id]["heal"])</code></pre>
+<p>The nested lookup prints <code>Healing Tonic 4</code>. A likely failure is storing <code>Healing Tonic</code> as the dictionary key in one system and <code>healing-tonic</code> in another. Exact ids avoid capitalization and localization drift. Guided practice uses the stable key.</p>
+<p><code>ItemCatalog.get(item_id)</code> validates the id and returns its record. An unknown id raises <code>KeyError</code> immediately at the pickup boundary. It does not invent a generic item, because saving an invented id would create state later versions cannot interpret. The returned record is read-only by convention; inventory owns quantities, not the catalog.</p>
+<p>A pickup carries an item id and positive quantity. <code>Inventory.add</code> validates both, then grows a dictionary using <code>dict.get(item_id, 0)</code>. The second argument is the default when the id has no slot yet. Adding two herbs then one more produces quantity three. A zero or negative pickup raises <code>ValueError</code> so world objects cannot silently remove items.</p>
+<p>Keep map pickup coordinates separate from item definitions. A scene may detect Player.rect overlapping a pickup Rect and then call <code>player.inventory.add(pickup.item_id, pickup.quantity)</code>. Only after add succeeds should the scene remove the pickup object. That ordering prevents a rendering or collision failure from losing the item.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ID, RECORD, QUANTITY</div><p>The catalog answers what an id means. Inventory answers how many the player owns. A world pickup answers where one acquisition can occur.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "item-catalog-and-pickups"
+purpose = "Define stable item meanings once and turn positive world pickups into validated inventory quantities."
+anatomy = "Map exact ids to records; validate catalog lookup; validate positive pickup quantity; read current quantity with dict.get default zero; add and store the new total."
+example = "The worked nested lookup resolves healing-tonic to display name Healing Tonic and heal value four."
+observable = "Known positive pickups grow quantities; unknown ids raise KeyError and nonpositive quantities raise ValueError."
+failure = "Using display names as ids creates drift, and removing a pickup before successful add can lose state."
+practice = "s07-l01-e1"
+
+[[lessons.artifactSteps]]
+id = "s07-add-inventory-catalog"
+path = "src/moonvale/inventory.py"
+mode = "write"
+instruction = "Create src/moonvale/inventory.py with the canonical item catalog and the initial validated Inventory owner below."
+content = '''
+ITEMS = {
+    "lantern-herb": {"name": "Lantern Herb", "kind": "quest"},
+    "healing-tonic": {"name": "Healing Tonic", "kind": "consumable", "heal": 4},
+}
+
+
+class ItemCatalog:
+    @staticmethod
+    def get(item_id):
+        try:
+            return ITEMS[item_id]
+        except KeyError as exc:
+            raise KeyError(f"unknown item id: {item_id}") from exc
+
+
+class Inventory:
+    def __init__(self):
+        self.quantities = {}
+        self.selected = None
+
+    def add(self, item_id, quantity=1):
+        ItemCatalog.get(item_id)
+        if quantity <= 0:
+            raise ValueError("pickup quantity must be positive")
+        self.quantities[item_id] = self.quantities.get(item_id, 0) + quantity
+
+    def quantity(self, item_id):
+        return self.quantities.get(item_id, 0)
+'''
+
+[[lessons.readings]]
+label = "Python dictionary get documentation"
+url = "https://docs.python.org/3/library/stdtypes.html#dict.get"
+
+[[lessons.exercises]]
+id = "s07-l01-e1"
+type = "mc"
+points = 15
+prompt = "Why is healing-tonic the stored id instead of Healing Tonic?"
+choices = ["Hyphens heal the player", "Stable machine ids avoid display-text and capitalization drift", "Python forbids spaces in strings", "Tiled requires tonic ids"]
+answer = 1
+whyWrong = "Strings may contain spaces and neither healing nor Tiled mandates this format; stability across systems is the reason."
+hint = "Display names may later be localized."
+explain = "The id remains stable while presentation can change."
+
+[[lessons.exercises]]
+id = "s07-l01-e2"
+type = "fill"
+points = 20
+prompt = "Read a missing quantity as zero before adding."
+code = 'current = quantities.____(item_id, 0)'
+answer = "get"
+hint = "Use the dictionary method with a default second argument."
+whyWrong = "Direct indexing raises KeyError for a first pickup."
+
+[[lessons.exercises]]
+id = "s07-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the validated catalog lookup."
+code = 'item = ItemCatalog.get("healing-tonic")'
+
+[[lessons.exercises]]
+id = "s07-l01-w1"
+type = "write"
+points = 30
+prompt = "Start quantities={}, add quantity=2 for lantern-herb using get default zero, and print exactly PICKUP lantern-herb=2."
+expect = '''
+PICKUP lantern-herb=2'''
+solution = '''
+quantities = {}
+item_id = "lantern-herb"
+quantity = 2
+quantities[item_id] = quantities.get(item_id, 0) + quantity
+print("PICKUP", f"{item_id}={quantities[item_id]}")
+'''
+hint = "Store the existing-or-zero amount plus quantity under the exact id."
+
+[[lessons.exercises]]
+id = "s07-l01-e3"
+type = "text"
+points = 20
+prompt = "Which exception marks an unknown catalog id?"
+answer = "KeyError"
+hint = "It is the dictionary missing-key boundary."
+whyWrong = "ValueError is used when a known id receives an invalid quantity."

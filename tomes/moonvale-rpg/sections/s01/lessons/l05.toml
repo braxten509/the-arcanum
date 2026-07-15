@@ -1,0 +1,107 @@
+[[lessons]]
+id = "s01-l05"
+title = "Assemble the Moonvale Package"
+teaches = ["moonvale-package-skeleton"]
+body = '''
+<p>Loose Python files become a project when their entrypoint and imports agree. The <code>src</code> layout keeps importable application code under <code>src/moonvale</code>. The file <code>__init__.py</code> marks the package and may expose a small public surface. The file <code>__main__.py</code> is the module entrypoint used by <code>python -m moonvale</code>. Our root <code>main.py</code> remains a thin compatibility launcher for the Arcanum workbench and later PyInstaller build.</p>
+<p>An entrypoint guard looks like <code>if __name__ == "__main__":</code>. Python assigns the special string <code>"__main__"</code> to a file executed as the program, but uses its import name when another module imports it. The guard therefore runs <code>main()</code> during launch without starting the whole application as a side effect of an import.</p>
+<pre><code data-kind="runnable">def main():
+    print("MOONVALE READY")
+
+if __name__ == "__main__":
+    main()</code></pre>
+<p>Read the final two lines as a comparison followed by a function call inside the controlled block. The observable output is <code>MOONVALE READY</code> when executed directly. If you accidentally write <code>__name__ = "__main__"</code>, you assign instead of compare and Python rejects the assignment target in this condition. If an import fails from the root launcher, confirm that <code>src</code> was added to <code>sys.path</code> before importing <code>moonvale</code>.</p>
+<p>The chapter proof uses arguments from <code>sys.argv</code>, the growable list of command-line strings. Index zero is the launcher path. The expression <code>sys.argv[1:3]</code> slices positions one up to, but not including, three. When those values equal <code>["--arcanum-proof", "s01"]</code>, the app builds a <code>WorkshopState</code>, registers three modules through real methods, prints its computed receipt, and exits. Ordinary launch prints a workshop message. This narrow branch makes behavior observable without pretending that the final game already exists.</p>
+<p>Use the editor's file tree to verify the exact paths, save every file, then run both <code>python main.py --arcanum-proof s01</code> and <code>PYTHONPATH=src python -m moonvale --arcanum-proof s01</code>. Both routes must print the same receipt. A typo in a package or module name raises <code>ModuleNotFoundError</code>; compare the traceback's import spelling with the file tree character for character.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THIN FRONT DOORS</div><p>Keeping launchers tiny prevents two different applications from growing. The real behavior lives in <code>moonvale.app.main</code>; every front door delegates to that one function.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "moonvale-package-skeleton"
+purpose = "Create one importable source package with a canonical module entrypoint and a thin workbench/packager launcher."
+anatomy = "Place modules under src/moonvale; mark the package with __init__.py; put launch behavior in app.main; delegate from __main__.py and root main.py; guard direct execution with __name__ == '__main__'; read proof arguments from sys.argv."
+example = "The guarded main function demonstrates direct execution, and the chapter Working wires both launch routes to one computed WorkshopState receipt."
+observable = "Both proof commands print S01_OK project=MoonvaleRPG modules=3."
+failure = "A wrong package path, unsaved file, missing src path, or assignment in the entrypoint comparison produces an import or syntax traceback."
+practice = "s01-l05-e1"
+
+[[lessons.artifactSteps]]
+id = "s01-mark-moonvale-package"
+path = "src/moonvale/__init__.py"
+mode = "write"
+instruction = "Create src/moonvale/__init__.py with the package docstring and version below; save it before wiring either launcher."
+content = '''
+"""Moonvale RPG package."""
+
+__version__ = "0.1.0"
+'''
+
+[[lessons.readings]]
+label = "Python documentation: using -m and module command lines"
+url = "https://docs.python.org/3/using/cmdline.html"
+
+[[lessons.exercises]]
+id = "s01-l05-e1"
+type = "mc"
+points = 15
+prompt = "What is the purpose of the __name__ entrypoint guard?"
+choices = ["It installs the package", "It adds every submodule to sys.path", "It runs launch behavior only when the file is the executed program", "It catches every import error"]
+answer = 2
+whyWrong = "The guard compares execution identity; it neither installs packages, edits import paths automatically, nor handles exceptions."
+hint = "Contrast executing a file with importing it for reuse."
+explain = "Imported modules keep their module name, so the guarded launch call does not fire as an import side effect."
+
+[[lessons.exercises]]
+id = "s01-l05-e2"
+type = "fill"
+points = 20
+prompt = "Complete the comparison in the canonical direct-execution guard."
+code = 'if __name__ ____ "__main__":'
+answer = "=="
+hint = "Use the two-character equality operator, not the assignment operator."
+whyWrong = "A single equals sign binds a value; the guard must compare the existing execution name."
+
+[[lessons.exercises]]
+id = "s01-l05-e3"
+type = "text"
+points = 20
+prompt = "Which file inside a package is executed by Python when the learner runs that package with the -m switch?"
+answer = "__main__.py"
+hint = "Its double-underscore name describes the package's program entrypoint."
+whyWrong = "__init__.py initializes an import; the module execution route looks for a different documented filename."
+
+[[lessons.exercises]]
+id = "s01-l05-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the direct-execution guard and delegated call."
+code = '''
+if __name__ == "__main__":
+    main()
+'''
+
+[[lessons.exercises]]
+id = "s01-l05-w1"
+type = "write"
+points = 30
+prompt = "Write a complete program with a main() function that stores ['settings', 'model', 'app'], computes its length, and prints exactly MODULES 3 only through the entrypoint guard."
+expect = '''
+MODULES 3'''
+solution = '''
+def main():
+    modules = ["settings", "model", "app"]
+    print("MODULES", len(modules))
+
+if __name__ == "__main__":
+    main()
+'''
+hint = "Define main first, build the three-item list inside it, then call main from the __name__ comparison block."
+
+[[lessons.exercises]]
+id = "s01-l05-d2"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the canonical package launch command exactly."
+code = 'python -m moonvale --arcanum-proof s01'

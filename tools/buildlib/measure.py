@@ -2,8 +2,10 @@
 ground-truth content measuring (forecast + end-of-run plan reconciliation)."""
 import hashlib
 import os
+import re
 import shlex
 import subprocess
+import time
 import tomllib
 
 from . import REPO, VALIDATOR
@@ -14,9 +16,34 @@ PHASE3_VALIDATOR = os.path.join(REPO, "tools", "validate_phase3.py")
 LIVE_SMOKE = os.path.join(REPO, "tools", "smoke_tome.py")
 
 
+def _run_harness_command(cmd, tid, announce=True):
+    """Run a deterministic validator command and expose its lifecycle.
+
+    The anchored messages are deliberately emitted by this orchestration seam, not by
+    validator prose, so ordinary worker narration cannot be mistaken for harness output.
+    """
+    rendered = shlex.join(cmd)
+    if announce:
+        print(f"VALIDATOR COMMAND START [{time.time():.3f}] › {rendered}", flush=True)
+    try:
+        process = subprocess.run(
+            cmd, cwd=REPO, env=validation_subprocess_env(tid),
+            capture_output=True, text=True)
+    except Exception:
+        if announce:
+            print(f"VALIDATOR COMMAND FAILED [{time.time():.3f}] "
+                  f"(exit unavailable) › {rendered}", flush=True)
+        raise
+    if announce:
+        state = "COMPLETE" if process.returncode == 0 else "FAILED"
+        print(f"VALIDATOR COMMAND {state} [{time.time():.3f}] "
+              f"(exit {process.returncode}) › {rendered}", flush=True)
+    return process
+
+
 def validator_argv(tid, phase=None, tooling=None, run=None, strict=None, plan_rel=None,
-                   run_section=None):
-    """Return the one canonical validator command used by workers and the harness.
+                   run_section=None, phase_only=False, source_only=False):
+    """Return the canonical validator command used by the author and final gate.
 
     Keeping this as argv (rather than a hand-built flags string) makes command parity
     testable and keeps paths safely quoted when the same command is rendered into a
@@ -33,9 +60,19 @@ def validator_argv(tid, phase=None, tooling=None, run=None, strict=None, plan_re
         cmd.append("--phase-2-skeleton")
     if phase is not None and phase >= 2:
         cmd += ["--build-phase", str(phase)]
+    strict = (phase is not None and phase >= 7) if strict is None else strict
+    if phase_only:
+        if phase is None or phase < 2:
+            raise ValueError("phase-only validation needs phase >= 2")
+        if strict:
+            raise ValueError("phase-only validation cannot be strict")
+        cmd.append("--phase-only")
+    if source_only:
+        if not run_section or not phase_only:
+            raise ValueError("source-only validation needs a phase-only section gate")
+        cmd.append("--source-only")
     if phase is not None and phase >= 2 and os.environ.get("ARCANUM_REQUIRE_PROOF_V1") == "1":
         cmd.append("--require-proof-v1")
-    strict = (phase is not None and phase >= 7) if strict is None else strict
     run = (phase != 2) if run is None else run
     if strict:
         cmd.append("--strict")
@@ -51,11 +88,13 @@ def validator_argv(tid, phase=None, tooling=None, run=None, strict=None, plan_re
 
 
 def validator_shell_command(tid, phase=None, tooling=None, run=None, strict=None,
-                            plan_rel=None, run_section=None):
+                            plan_rel=None, run_section=None, phase_only=False,
+                            source_only=False):
     """The canonical argv rendered exactly as the worker should run it."""
     return ('cd "$ARCANUM_REPO_ROOT" && '
             + shlex.join(validator_argv(
-                tid, phase, tooling, run, strict, plan_rel, run_section)))
+                tid, phase, tooling, run, strict, plan_rel, run_section, phase_only,
+                source_only)))
 
 
 def phase3_validator_argv(tid, tooling, plan_rel, run=True, strict=False):
@@ -95,6 +134,16 @@ def section_validator_shell_command(tid, sid, tooling, plan_rel):
             + shlex.join(section_validator_argv(tid, sid, tooling, plan_rel)))
 
 
+def section_source_validator_argv(tid, sid, tooling, plan_rel):
+    """Fast reconstructed-source checkpoint used inside a focused repair turn."""
+    return [*section_validator_argv(tid, sid, tooling, plan_rel), "--source-only"]
+
+
+def section_source_validator_shell_command(tid, sid, tooling, plan_rel):
+    return ('cd "$ARCANUM_REPO_ROOT" && '
+            + shlex.join(section_source_validator_argv(tid, sid, tooling, plan_rel)))
+
+
 def section_window_validator_argv(tid, through, plan_rel):
     """Return the continuity + anti-template checkpoint for an authored prefix."""
     if not plan_rel:
@@ -110,50 +159,46 @@ def section_window_validator_shell_command(tid, through, plan_rel):
 
 
 def validate(tid, phase=None, strict=None, tooling=None, run=None, plan_rel=None,
-             run_section=None):
-    cmd = validator_argv(tid, phase, tooling, run, strict, plan_rel, run_section)
-    p = subprocess.run(cmd, cwd=REPO, env=validation_subprocess_env(tid),
-                       capture_output=True, text=True)
+             run_section=None, phase_only=False, source_only=False, announce=True):
+    cmd = validator_argv(
+        tid, phase, tooling, run, strict, plan_rel, run_section, phase_only,
+        source_only)
+    p = _run_harness_command(cmd, tid, announce=announce)
     return p.returncode == 0, (p.stdout + p.stderr).strip()
 
 
 def validate_section(tid, sid, tooling, plan_rel):
     """Repeat the worker's exact combined content + continuity command independently."""
     cmd = section_validator_argv(tid, sid, tooling, plan_rel)
-    p = subprocess.run(cmd, cwd=REPO, env=validation_subprocess_env(tid),
-                       capture_output=True, text=True)
+    p = _run_harness_command(cmd, tid)
     return p.returncode == 0, (p.stdout + p.stderr).strip()
 
 
 def validate_section_window(tid, through, plan_rel):
     """Run a cross-section quality window independently of the author worker."""
     cmd = section_window_validator_argv(tid, through, plan_rel)
-    p = subprocess.run(cmd, cwd=REPO, env=validation_subprocess_env(tid),
-                       capture_output=True, text=True)
+    p = _run_harness_command(cmd, tid)
     return p.returncode == 0, (p.stdout + p.stderr).strip()
 
 
 def validate_phase3(tid, tooling, plan_rel, _sections):
     """Repeat the worker's complete executable/authorship/continuity command."""
     cmd = phase3_validator_argv(tid, tooling, plan_rel)
-    process = subprocess.run(cmd, cwd=REPO, env=validation_subprocess_env(tid),
-                             capture_output=True, text=True)
+    process = _run_harness_command(cmd, tid)
     return process.returncode == 0, (process.stdout + process.stderr).strip()
 
 
 def validate_shipping(tid, tooling, plan_rel):
     """Strict tome validation plus Phase-3 completion and continuity invariants."""
     cmd = phase3_validator_argv(tid, tooling, plan_rel, strict=True)
-    process = subprocess.run(cmd, cwd=REPO, env=validation_subprocess_env(tid),
-                             capture_output=True, text=True)
+    process = _run_harness_command(cmd, tid)
     return process.returncode == 0, (process.stdout + process.stderr).strip()
 
 
 def validate_live_smoke(tid):
     """Exercise loader, runtime, and grader-status routes after strict validation."""
-    process = subprocess.run(
-        ["python3", os.path.relpath(LIVE_SMOKE, REPO), tid], cwd=REPO,
-        env=validation_subprocess_env(tid), capture_output=True, text=True)
+    process = _run_harness_command(
+        ["python3", os.path.relpath(LIVE_SMOKE, REPO), tid], tid)
     return process.returncode == 0, (process.stdout + process.stderr).strip()
 
 
@@ -174,6 +219,15 @@ def blocking_report(report, strict=False):
             blockers.append(line)
     summaries = [line for line in lines if line.startswith("-- ")]
     return "\n".join(blockers + summaries) if blockers else str(report or "").strip()
+
+
+def blocker_signature(report, strict=False):
+    """Stable blocker shape for detecting a repair hand that made no gate progress."""
+    focused = blocking_report(report, strict=strict)
+    lines = [line for line in focused.splitlines()
+             if line.startswith("ERROR ") or (strict and line.startswith("WARN "))]
+    return tuple(re.sub(r"\d+", "#", re.sub(r"\s+", " ", line)).strip()
+                 for line in lines)
 
 
 def inventory(tid):

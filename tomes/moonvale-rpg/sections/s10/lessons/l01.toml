@@ -1,0 +1,226 @@
+[[lessons]]
+id = "s10-l01"
+title = "Pass Every Scene Through One Door"
+teaches = ["single-loop-scene-director"]
+body = '''
+<p>Title, play, pause, and game-over are modes inside one application, not four applications. Each preserves the Chapter II protocol: <code>name</code>, <code>handle_event(event)</code>, <code>update(dt)</code>, and <code>render(surface)</code>. A scene returns either None or the exact name of a requested next scene. It never calls Game.run.</p>
+<p><code>TitleScene</code> requests play on Enter or Space. <code>PlayScene</code> requests pause on Escape or P. Pause requests play through the same keys. GameOver requests title on Enter or Space. Render methods draw media-free colored panels so every mode works before optional art exists.</p>
+<pre><code data-kind="runnable">flow = ["title", "play", "pause", "play", "game-over", "title"]
+print("FLOW", "&gt;".join(flow))</code></pre>
+<p>The probe prints the ordered route. <code>join</code> inserts one separator between strings. A likely failure is constructing a scene and immediately starting a nested while loop. That steals event, timing, presentation, and quit ownership from Game.</p>
+<p><code>SceneDirector</code> owns a dictionary from allowed names to scene classes and one current instance. <code>switch(name)</code> validates the name and constructs the next scene. Creating a fresh PauseScene is harmless because durable Player/world state belongs outside presentation scenes; later a shared context object can be injected.</p>
+<p>Game keeps its one loop. After event handling or update returns a request, Game asks the director to switch and replaces its current scene reference. The switch occurs at a known frame boundary. A pygame QUIT event still changes the loop's running flag and is never translated into a scene.</p>
+<p>Combat already exposes <code>next_scene()</code>; its returned play or game-over name can go through this same director. No combat rule imports a display. To diagnose scene flow, print current scene, event type/key, returned request, and resulting scene. If a request is unknown, ValueError names it instead of silently leaving an inconsistent mode.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // REQUEST, THEN APPLY</div><p>A scene describes what should happen. The lifecycle owner applies it, keeping control flow visible and testable.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "single-loop-scene-director"
+purpose = "Compose title, play, pause, and game-over behind the established Scene protocol while Game remains the only loop and transition authority."
+anatomy = "Scenes return names from event/update; SceneDirector validates and constructs; Game applies requests between calls; QUIT ends the outer loop; every scene renders a fallback panel."
+example = "The worked list joins the exact title-to-play-to-pause-to-play-to-game-over-to-title route."
+observable = "Synthetic key events and combat next_scene requests traverse all four names; one Game loop still reports clean quit."
+failure = "Nested scene loops steal lifecycle edges, direct scene mutation hides transition order, and unknown names produce inconsistent modes."
+practice = "s10-l01-w1"
+
+[[lessons.artifactSteps]]
+id = "s10-compose-scenes"
+path = "src/moonvale/scenes.py"
+mode = "rewrite"
+preserves = "all-active"
+instruction = "Replace scenes.py with the complete four-scene protocol and director while preserving TitleScene counters used by earlier proof."
+content = '''
+import pygame
+
+
+class PanelScene:
+    name = "panel"
+    color = (92, 117, 145)
+
+    def __init__(self):
+        self.updates = 0
+        self.renders = 0
+
+    def handle_event(self, event):
+        return None
+
+    def update(self, dt):
+        self.updates += 1
+        return None
+
+    def render(self, surface):
+        self.renders += 1
+        pygame.draw.rect(surface, self.color, (80, 60, 240, 120))
+
+
+class TitleScene(PanelScene):
+    name = "title"
+
+    def handle_event(self, event):
+        if (
+            event.type == pygame.KEYDOWN
+            and event.key in (pygame.K_RETURN, pygame.K_SPACE)
+        ):
+            return "play"
+        return None
+
+
+class PlayScene(PanelScene):
+    name = "play"
+    color = (55, 92, 74)
+
+    def handle_event(self, event):
+        if (
+            event.type == pygame.KEYDOWN
+            and event.key in (pygame.K_ESCAPE, pygame.K_p)
+        ):
+            return "pause"
+        return None
+
+
+class PauseScene(PanelScene):
+    name = "pause"
+    color = (169, 117, 57)
+
+    def handle_event(self, event):
+        if (
+            event.type == pygame.KEYDOWN
+            and event.key in (pygame.K_ESCAPE, pygame.K_p)
+        ):
+            return "play"
+        return None
+
+
+class GameOverScene(PanelScene):
+    name = "game-over"
+    color = (111, 58, 73)
+
+    def handle_event(self, event):
+        if (
+            event.type == pygame.KEYDOWN
+            and event.key in (pygame.K_RETURN, pygame.K_SPACE)
+        ):
+            return "title"
+        return None
+
+
+class SceneDirector:
+    scene_types = {
+        "title": TitleScene,
+        "play": PlayScene,
+        "pause": PauseScene,
+        "game-over": GameOverScene,
+    }
+
+    def __init__(self):
+        self.current = TitleScene()
+
+    def switch(self, name):
+        try:
+            scene_type = self.scene_types[name]
+        except KeyError as exc:
+            raise ValueError(f"unknown scene: {name}") from exc
+        self.current = scene_type()
+        return self.current
+'''
+
+[[lessons.artifactSteps]]
+id = "s10-import-director"
+path = "src/moonvale/game.py"
+mode = "replace"
+instruction = "Replace Game's scene import and construction with the single SceneDirector owner."
+find = '''
+from moonvale.scenes import TitleScene
+'''
+content = '''
+from moonvale.scenes import SceneDirector
+'''
+
+[[lessons.artifactSteps]]
+id = "s10-own-director"
+path = "src/moonvale/game.py"
+mode = "replace"
+instruction = "Replace the exact TitleScene construction with a director and its current scene."
+find = '''
+        self.scene = TitleScene()
+'''
+content = '''
+        self.director = SceneDirector()
+        self.scene = self.director.current
+'''
+
+[[lessons.artifactSteps]]
+id = "s10-apply-event-transitions"
+path = "src/moonvale/game.py"
+mode = "replace"
+instruction = "Let Game apply event and update transition requests inside its existing loop."
+find = '''
+                else:
+                    self.scene.handle_event(event)
+            self.scene.update(dt)
+'''
+content = '''
+                else:
+                    request = self.scene.handle_event(event)
+                    if request is not None:
+                        self.scene = self.director.switch(request)
+            request = self.scene.update(dt)
+            if request is not None:
+                self.scene = self.director.switch(request)
+'''
+
+[[lessons.readings]]
+label = "PyGame documentation: keyboard events"
+url = "https://pyga.me/docs/ref/key.html"
+
+[[lessons.exercises]]
+id = "s10-l01-e1"
+type = "mc"
+points = 15
+prompt = "Who applies a scene's returned transition request?"
+choices = ["The audio file", "The Game lifecycle through SceneDirector", "The inventory overlay", "A nested scene loop"]
+answer = 1
+whyWrong = "Audio and overlays do not own control flow, and nested loops violate the established lifecycle boundary."
+hint = "The same object already owns events, update, render, and quit."
+explain = "Game applies requests at a known point in its one frame loop."
+
+[[lessons.exercises]]
+id = "s10-l01-e2"
+type = "fill"
+points = 20
+prompt = "Complete the separator that produces title>play."
+code = 'flow = "____".join(["title", "play"])'
+answer = ">"
+hint = "Use the one-character route marker in the proof receipt."
+whyWrong = "Spaces or arrows would not match the exact deterministic token."
+
+[[lessons.exercises]]
+id = "s10-l01-d1"
+type = "type"
+points = 12
+reps = 2
+prompt = "Retype the known-scene switch."
+code = 'self.scene = self.director.switch(request)'
+
+[[lessons.exercises]]
+id = "s10-l01-w1"
+type = "write"
+points = 30
+prompt = "Join title, play, pause, play, game-over, title with > and print exactly FLOW title>play>pause>play>game-over>title."
+expect = '''
+FLOW title>play>pause>play>game-over>title'''
+solution = '''
+flow = ["title", "play", "pause", "play", "game-over", "title"]
+print("FLOW", ">".join(flow))
+'''
+hint = "Keep the scene names in order and call '>'.join."
+
+[[lessons.exercises]]
+id = "s10-l01-e3"
+type = "text"
+points = 20
+prompt = "Which earlier CombatEncounter method returns play, combat, or game-over for the director?"
+answer = "next_scene"
+accept = ["next_scene()"]
+hint = "It describes a request without owning the transition."
+whyWrong = "attack_turn changes combat state; next_scene translates that state into a scene name."

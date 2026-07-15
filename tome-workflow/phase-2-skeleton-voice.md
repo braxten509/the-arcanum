@@ -47,4 +47,5 @@ references cannot be ambiguous, but leave its body as an explicit Phase 3 placeh
 The `--phase-2-skeleton` check deliberately ignores Phase 3 density, readings, prose,
 exercise-variety, and TODO-clearance warnings; never try to satisfy those here. Produce
 the complete green skeleton and, only when needed, its reusable runtime configuration.
-Do not rename the tome folder; the harness does so after this phase.
+Do not rename the tome folder yourself; run the Phase-2 transition command from
+`single-author.md`, which renames it safely and prints the new current id.

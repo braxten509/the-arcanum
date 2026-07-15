@@ -16,7 +16,8 @@ validationEnv = { VIRTUAL_ENV = "{dir}", PATH = "{dir}/bin:{PATH}" }
 # Final package proofs deliberately use a second, throwaway environment. They install the
 # learner project's exact requirements file, run the real packager, and launch its artifact.
 deliveryCreateCommand = ["python3", "-m", "venv", "{env}"]
-deliveryInstallCommand = ["{env}/bin/python", "-m", "pip", "install", "-r", "{requirements}"]
+deliveryResolveCommand = ["{env}/bin/python", "-m", "pip", "install", "--cache-dir", "{cache}/pip", "--dry-run", "-r", "{requirements}"]
+deliveryInstallCommand = ["{env}/bin/python", "-m", "pip", "install", "--cache-dir", "{cache}/pip", "-r", "{requirements}"]
 deliveryBuildCommand = ["{env}/bin/python", "-m", "PyInstaller"]
 deliveryTimeout = 900
 # syntax check: parse the file without running it; the traceback's last frame carries the error
