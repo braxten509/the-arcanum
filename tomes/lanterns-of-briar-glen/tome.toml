@@ -1,0 +1,100 @@
+# ARCANUM tome manifest — scaffolded by tools/new_tome.py.
+# Replace every TODO, then run:  python3 tools/validate_tome.py tomes/untitled-6
+# Read tome-authoring/2-tome-toml.md before filling this in — every key here is documented there.
+
+[meta]
+id = "lanterns-of-briar-glen"                       # MUST equal the folder name
+name = "Lanterns of Briar Glen"
+description = "Build and package a verified 2D Python RPG with exploration, persistence, deterministic acceptance checks, and a portable executable across 29 sections."
+author = "The Arcanum"
+version = "0.1.0"
+favicon = "BG"
+
+[runtime]
+name = "python"                # a global-configs/runtimes/<name>.toml id
+project = "LanternsOfBriarGlen"
+language = "Python"           # display name, used in grader/oracle prompts
+starterCode = ""                   # learner authors the canonical entry file
+scaffoldCommand = []               # learner assembles project structure/configuration
+entryFile = "briar_glen/main.py"
+externalWorkspace = true
+projectFile = "requirements.txt"
+validationDependencies = ["pygame-ce==2.5.7", "pytest==9.1.1", "pyinstaller==6.21.0"]
+# packages = false                 # true only for dotnet/NuGet tomes
+# externalWorkspace = true         # ONLY for courses whose real work lives in the player's
+                                   # own external tools; the player chooses its location.
+
+[content]
+sections = ["s01", "s02", "s03", "s04", "s05", "s06", "s07", "s08", "s09", "s10", "s11", "s12", "s13", "s14", "s15", "s16", "s17", "s18", "s19", "s20", "s21", "s22", "s23", "s24", "s25", "s26", "s27", "s28", "s29"]  # ordered section ids; each maps to sections/<id>/
+capabilityLedger = true             # keep this: lessons declare `teaches`, capstones
+                                    # declare cumulative `requires`; validator proves order
+proofVersion = 1                    # future-tome contract: replay learner edits + run milestones
+# OPTIONAL duel bank → generated/attacks.toml (the engine default). Do NOT hand-write it:
+# author attacks_src.toml, then run  python3 tools/gen_attacks.py untitled-6
+
+[acceptance]
+version = 1
+mode = "run"                       # run; guided only for inherently unautomatable external work
+artifact = "package"               # runtime | package
+runArgs = ["--arcanum-acceptance"]
+scenarios = ["toolchain-ready", "source-smoke", "explore-briar-glen", "collide-with-thorns", "speak-with-keeper", "collect-lantern-shard", "survive-wisp", "save-and-quit", "restore-progress", "complete-lantern-quest", "clean-package-launch"]
+controls = ["input", "clock", "seed", "frame-limit"]
+
+[defaults]
+theme = "signature"                # a [[themes]] id below (this tome's own default look)
+
+[defaults.ai]
+oracle = "llama3.1:8b"
+grader = "qwen2.5:14b"
+graderKind = "claude-cli"
+graderModel = "claude-opus-4-8"
+
+[economy]
+# TODO: rebalance once your exercise/freestyle points are set (see § [economy]).
+ranks = [[0, "NOVICE"], [400, "ADEPT"], [1000, "MASTER"]]
+hintCost = 50
+oracleCost = 10
+attemptMultipliers = [1, 0.6, 0.3]
+comboStep = 0.05
+comboCap = 0.5
+sRankMultiplier = 1.5
+attackStakePerDiff = 20
+attackWinPerDiff = 15
+
+[narrative]
+objective = "Build Lanterns of Briar Glen, a learner-authored top-down Pygame RPG with durable quests, deterministic evidence, and a clean-location executable."
+title = "ARCANUM // BRIAR GLEN TRAILBOOK"
+logo = "LANTERNS OF BRIAR GLEN"
+opsLabel = "TRAIL MARKERS"
+graderPersona = "ROWAN VELL // TRAILWRIGHT"
+studentTerm = "wayfinder"
+currency = "lantern mark"
+currencyShort = "lm"
+gradeScale = "S|A|B|C|D|F"
+bootLines = [
+  "Lantern trimmed. Terminal ready. Briar Glen still waits beyond the map.",
+  "I am Rowan Vell, trailwright and keeper of observable proof.",
+  "There are {N} trail markers between a blank folder and a traveling game.",
+  "You will create every source file, test, save boundary, and delivery record yourself.",
+  "First we learn Python in the open: values, choices, functions, failures, and checks.",
+  "Only then will Pygame turn those rules into a window and a moving grove.",
+  "A clean run is evidence; a confident guess is not.",
+  "When a path fails, preserve the symptom and trace its first broken contract.",
+  "The final lantern must burn after the executable leaves this authoring tree.",
+  "Take the trailhead, wayfinder. The grove will answer what you can prove.",
+]
+gradingLines = [
+  "Rowan follows the state change from input to evidence...",
+  "The trailwright checks each Python boundary against its claimed result...",
+  "Tests, diagnostics, and the running grove are being compared...",
+  "A broken marker is traced to the earliest unmet prerequisite...",
+  "The lantern pauses over cleanup and persistence paths...",
+  "Source and packaged behavior are weighed by the same contract...",
+  "Your rationale is inspected beside the observable outcome...",
+]
+completeText = "BRIAR GLEN TRAVELS // The copied lantern survives its clean path, relaunch, tests, and your explanation. Trail sealed, wayfinder."
+
+# --- the peddler's shop -------------------------------------------------------
+# Every tome stocks these FIVE engine power-ups. The mechanic is fixed by `id`;
+# reflavor name/desc/cost/ico to this course's world (validator requires all 5,
+# each filled). oracle is an optional 6th (needs an [runtime] oracle model).

@@ -234,8 +234,8 @@ ships visibly worse IntelliSense than C# and is a review miss. `dotnet.toml` is
 the reference for the full set; `python.toml` shows the dynamically-typed subset
 (no `declTypes`/`staticRewrites`, since Python has neither shape). **After
 authoring a language, prove it:** add a few scenarios to
-`tools/test_completions.js` (it stubs Monaco and drives the real provider with
-your TOML) and run `node tools/test_completions.js`.
+`tools/tests/web/test_completions.js` (it stubs Monaco and drives the real provider with
+your TOML) and run `node tools/tests/web/test_completions.js`.
 
 ### `externalWorkspace` — a project the player builds with their own external tools (optional)
 

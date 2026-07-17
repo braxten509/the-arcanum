@@ -6,16 +6,17 @@ import urllib.request
 
 from runtimes import get as get_runtime, names as runtime_names
 
-from .amender import load_amend_state
+from .authoring.amender import load_amend_state
 from .config import (AGY_BIN, BUILD_DIR, CLAUDE_BIN, CLI_EFFORTS, CLI_MODEL_EFFORTS,
                      CLI_MODELS, CODEX_BIN, GLOBAL_STATE_KEYS, MIME, OPENCODE_BIN,
                      ROOT, SKINS_DIR, TOMES_DIR, WEB, jobs, jobs_lock, read_json,
                      read_settings, read_toml)
-from .build_state import (build_result_status, cancelled_build_status,
+from .forge.build_state import (build_result_status, cancelled_build_status,
                           load_author_session, load_build_progress, load_section_progress)
 from .forge import forge_name, list_active_builds, list_workings
 from .models import agy_models, codex_models, ollama_bindery_models, opencode_models
 from tools.buildlib.single_author import load_conversation
+from tools.buildlib.course.state import public_course_status
 from .tomes import (assemble_tome, list_tomes, project_dir, project_name, runtime_for,
                     state_path, resolve_working_tid)
 
@@ -81,7 +82,7 @@ def handle(h):
             else:
                 out = {k: job[k] for k in ("status", "kind", "tome", "slug", "phase", "phaseTitle",
                                            "totalPhases", "startedAt", "error",
-                                           "phaseStartedAt", "runner", "sections",
+                                           "phaseStartedAt", "activityStartedAt", "runner", "sections",
                                            "interactionState", "sessionAuthor",
                                            "sessionReviewer") if k in job}
                 out["name"] = forge_name(job.get("tome"))
@@ -111,6 +112,10 @@ def handle(h):
             target = {"pausing": "paused", "resuming": "running"}.get(pending)
             if not target or reported == target:
                 out["interactionState"] = reported
+            if reported not in ("starting", "running", "resuming"):
+                out["activityStartedAt"] = 0
+            elif not out.get("activityStartedAt"):
+                out["activityStartedAt"] = float(session.get("updatedAt") or 0)
             out["sessionId"] = session.get("sessionId")
             out["sessionError"] = str(session.get("error") or "")
             out["sessionAuthor"] = {"kind": session.get("kind"),
@@ -118,6 +123,12 @@ def handle(h):
                                     "effort": session.get("effort")}
             out["sessionRole"] = str(session.get("role") or "author")
         out["conversation"] = load_conversation(stable, 120)
+        try:
+            out["courseControl"] = public_course_status(stable)
+        except (OSError, ValueError) as exc:
+            # The client can still render the section scaffold if a long-running server
+            # has an older map reader loaded; never make the omission silent.
+            out["courseControlError"] = str(exc)[-500:]
         if out.get("status") == "running" and int(out.get("phase") or 0) == 3:
             progress = (load_section_progress(out.get("tome"))
                         or load_section_progress(out.get("slug"))

@@ -1,17 +1,16 @@
 """Shared authoring and validation support.
 
-- runners   command templates for the freely chosen persistent author
-- single_author  pause/message/resume control for the one author session
-- liveness  generic CLI authentication probes used outside tome construction
-- agent_runtime  provider-normalized repo/web/temp access and scoped write boundaries
-- prompts   Phase-0 gate and calibrated build-plan writer
+- runtime   provider runners, access boundaries, liveness, and validation environments
+- single_author  author controls, phase gates, scope, sessions, and optional full review
+- workflow  prompts, checkpoints, progress markers, and phase resets
 - measure   canonical validator command and final shipping checks
-- skeleton  plan parser + deterministic one-placeholder-lesson Phase-2 scaffolding
-- continuity  schema-checked cross-section evidence used by validators
+- skeleton  Phase-2 scaffolding plus artifact-integrity contracts
+- course_map  Phase-1 seed, graph schema, codecs, locations, digest, and seal
+- course  alignment, amendment, control, dependencies, limits, and derived state
+- language_mastery  capability planning, map validation, and authored evidence
+- continuity  handoff-v3 discoveries and typed fulfillment evidence
+- prerequisites  mandatory cached post-section Validator AI gate and prompt
 - review_evidence  proof-v1 evidence derived from execution
-- full_review  optional exhaustive post-Phase-8 reviewer inventory and evidence gate
-- checkpoints  Phase-1 arc gate and deterministic tome rename
-- phase_reset  durable phase-start snapshots and transactional Binder rewinds
 Shared paths/constants live here."""
 import os
 

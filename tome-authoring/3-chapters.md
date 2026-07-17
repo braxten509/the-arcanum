@@ -96,6 +96,21 @@ removed, replaced, isolated, or declared part of the finished artifact. At each 
 boundary, trace execution from the entrypoint's first line; never preserve an old demo
 that blocks or mutates the real program the student is now building.
 
+New strict builds also carry a machine-owned `Artifact ownership` inventory. Every stable
+learner-owned path or artifact identifier used by a Working must be declared with its first owner
+and either `ships` or `retires@sNN`. The Phase 2 seal rejects undeclared Working artifacts,
+missing owner evidence, temporary artifacts that survive their retirement boundary, and shipped
+artifacts absent from the final Working. V2 also rejects an artifact used before its declared
+owner and reconciles the exact backticked lifecycle inventory with the runtime entrypoint, proof
+expected files, package requirements file, and packaged artifact path. This contract is language-
+and toolchain-neutral.
+
+V3 also seals a Phase 1 `Delivery contract`: runtime versus package, the exact delivered artifact,
+and (for package mode) the exact requirements path. Phase 2 cannot change package acceptance to
+source execution, change the final proof mode, or substitute another output path. A Phase 1 Arc
+that promises a packaged, standalone, installable, or distributable result cannot select runtime
+delivery merely to make validation easier.
+
 **Multi-line code goes in a `'''…'''` block, never a `'…'` literal.** TOML's
 single-quoted literal string does not interpret escapes, so `code = 'a\nb'` ships the
 student one long line with a `\n` punched through it. It parses, so every structural
@@ -236,20 +251,32 @@ and spaced/interleaved practice** are the two highest-impact study techniques, a
 cognitive load. Apply all four:
 
 **Starting level and mastery are orthogonal.** A low starting level requires more complete
-early explanation; it does not license a guided finish. The plan's `Mastery evidence` line is
-an exit-performance contract. Fade support across the whole course from complete examples to
-partial practice to transfer from requirements and observable checks. The validator's hidden
-reference solution and reconstructed final project prove that the task is solvable; only the
-student's graded Working can prove independence.
+early explanation; it does not license a guided finish. Mastery 1–5 applies to the declared
+implementation language. The requested project is the cumulative practice and proof vehicle, not
+the mastery target. The plan's `Language capability spine`, structured `Language performances`,
+`Language foundation coverage`, and `Mastery evidence` line form the exit-performance contract.
+The foundation coverage maps the language's idiomatic data, control, decomposition, failure, and
+verification mechanisms to distinct capabilities; it never substitutes framework behavior. At
+Finish 3–5, routine failure handling cannot be scoped out and the late graded performances must
+exercise every mapped foundation. The learner creates or assembles
+every canonical project artifact
+from the first section onward. Fade support across the whole course by shrinking work orders, increasing
+hint distance, and broadening specifications—not by first supplying production code and later
+withholding it. Complete worked examples must be small and disposable, with different
+identifiers, values, and problem shapes from the real project. The validator's hidden reference
+solution and reconstructed final project prove that the task is solvable; only the student's
+graded Working can prove independence.
 
-At Finish 3, use at least two late graded transfer performances including the final Working
-(or two distinct requirements in a genuine one-section course). They must require a novel
+Every section's Working must apply its sealed `languagePractice` capabilities so language learning
+does not stop after introductory snippets. At Finish 3, use at least two late graded language
+transfer performances across the course, including the final Working. They must require a novel
 extension, integration, or diagnosis rather than mechanical copying, renaming, or constant
-changes, and at least one must grade a recorded rationale for a taught choice. Learner-visible
-`artifactSteps` may provide prerequisites, interfaces, fixtures, and tests, but never the exact
-implementation being used as mastery evidence. That implementation belongs only in hidden
-`referenceSteps`. Finish 4–5 removes still more solution structure; Finish 1–2 retains only the
-guidance allowed by the plan's exact numbered contract.
+changes, and at least one must grade a recorded rationale for a taught language choice. Learner-visible
+`artifactSteps` are implementation-free work orders: they may state paths, requirements,
+constraints, commands, diagnostics, and observable checks, but may not provide canonical
+prerequisites, interfaces, fixtures, tests, filled data, or code. Every complete project answer
+belongs only in hidden `referenceSteps`. Finish 4–5 broadens and complicates the learner-owned
+work; Finish 1–2 uses smaller tasks and more explicit checks without giving away artifact content.
 
 - **Interleave — don't only test the concept a lesson just taught.** The weakest
   habit of an AI author is a course where every exercise quizzes the current lesson
@@ -278,6 +305,12 @@ guidance allowed by the plan's exact numbered contract.
   observable result, name a likely failure, and provide guided practice. A reading
   link or unexplained code sample does not satisfy this rule. Start 2 reduces
   repetition compared with Start 1; it does not remove concepts from the syllabus.
+- **Match lesson density to the selected start.** Follow the plan's `Lesson pacing` line.
+  Start 1 introduces one foundational concept family per lesson and separates independently
+  teachable language, API, and tool families. Start 2 introduces one major family with only
+  tightly related supporting material. Start 3 may combine multiple closely related families
+  once prerequisites are secure and each receives complete first-use teaching and guided
+  practice. A broad mechanism label must not conceal several independently teachable concepts.
 - **Drill what the labs physically can't run.** A `write` lab runs ONE plain file,
   so it can never exercise framework/API concepts — a Forge registry, a client vs.
   server side, an event lifecycle, a GUI callback. In a framework course the
@@ -381,9 +414,10 @@ growing, never a set of disconnected toy exercises. Plan this arc first — deci
 the finished tool, then work backwards to what each op must contribute — and size
 the section count to that arc (§2, `[content]`), not to a target number.
 
-**The Working is where mastery is demonstrated, not where lesson code is recopied.** For every
-late Working named in the Arc's `Mastery proof`, compare its checklist with the preceding lesson
-artifact steps. If those visible steps already implement the graded behavior—or a version that
-needs only renamed identifiers or changed constants—the Working cannot count as independent
-transfer. Keep the hidden `referenceSteps` complete so the harness can prove the task, while the
-learner receives requirements, constraints, diagnostics, and observable acceptance checks.
+**The Working is where the project is constructed, not where lesson code is recopied.** Apply this
+to every section, not only late mastery sections. Compare its checklist with all learner-visible
+code, exercise solutions, starters, and artifact steps. If those surfaces already implement any
+canonical project requirement—or a version needing only renamed identifiers or changed
+constants—the learner did not author that part of the artifact. Keep the hidden `referenceSteps`
+complete so the harness can prove the task, while the learner receives requirements, constraints,
+diagnostics, and observable acceptance checks.

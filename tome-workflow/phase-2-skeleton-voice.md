@@ -21,6 +21,160 @@ skeleton section's proof, concept-evidence, artifact-step, and reference-step pl
 for Phase 3 to replace; never downgrade the proof contract. Leave each lesson/freestyle with a
 valid placeholder `teaches`/`requires` id for Phase 3 to replace; do not disable the
 coverage contract.
+
+Expand `.tome-build/BUILD_ID.course-map.proposal.json` into the complete Phase-3 skeleton while
+the learner-facing tome files remain placeholders. Preserve every seeded Phase-1 field and
+planned obligation. For every section, assign stable kebab-case capability IDs, earlier
+dependencies, the project milestone, and every planned lesson plus exactly one Working:
+
+Before assigning nodes, perform a cold-start dependency walk in section order. For every Working,
+inventory the unavoidable language mechanisms, library or runtime APIs, tool actions,
+configuration or data-format rules, and technical terms demanded by its milestone, artifacts,
+rubric, proof, validation, and hidden replay—not only by its short learner-facing brief. Resolve the
+order from foundational language mechanisms to dependent runtime, library, tool, configuration,
+and integration work, and place every owner before first required use. An early setup step is valid
+only when it is behavior-free, mechanically followable, and requires no learner-authored source,
+configuration, entrypoint, or integration that relies on untaught mechanisms. If the sealed Arc
+cannot support this order within the allowed lesson capacity, fail the proposal instead of hiding
+the conflict in broad labels.
+
+Compute transitive prerequisite closure, not only the visible demand list. For each mechanism, ask
+what its smallest meaningful example must contain or invoke. Every unlisted syntax form, API, tool
+action, data-format rule, or technical term in that example needs an earlier owner; at Start 1–3,
+a same-section prerequisite counts only from an earlier lesson. A dependent construct cannot be
+used as the vehicle that supposedly teaches its own prerequisite. For an API, trace how its inputs
+and resources are created, obtained, and released. Apply observable-interaction closure to every
+section promise, Working, acceptance path, and control: list the concrete operations needed to
+obtain and inspect input, produce output, advance time, make nondeterministic choices, persist
+state, release resources, and respond to the observed result. Acquiring a stream, event, handle,
+or resource does not by itself own the operations that interpret or act on its contents. Add these
+rows to the private owner audit even when they are project/runtime mechanisms rather than language
+capabilities. For a tool or data/configuration file, trace the create, edit, save, and invocation
+actions. Do not invent a library- or project-specific mechanism label for general language syntax
+and then introduce the real syntax later.
+
+- lesson nodes use sequential `sNN.lNN` IDs, name what they teach, and carry a non-empty typed
+  `doneWhen.checks` packet. Except for `s01.l01`, every lesson names prerequisite evidence;
+  each later lesson in a section depends on the immediately previous lesson, and each later
+  section starts from an earlier Working;
+- lesson-node granularity obeys the plan's exact `Lesson pacing` line. Start 1 assigns one
+  foundational concept family per lesson; Start 2 assigns one major family plus only tightly
+  related support; Start 3 may group multiple closely related families after prerequisites are
+  secure. Do not hide density by giving one mechanism id to several independently teachable
+  syntax forms, APIs, tool actions, or technical terms; split them into honest mechanism owners.
+  Three lessons is the minimum, not the target: derive an honest count through eight from the
+  section's dependency load, and fail an overfull section rather than compressing it;
+- the Working uses `sNN.working`, requires only capabilities taught in this or an earlier section,
+  depends on its section's final lesson, repeats the section milestone, lists every learner-owned
+  artifact, and includes
+  `working-replay` and `learner-construction` checks;
+- preserve the seeded `artifactContract` exactly. Every Working artifact must exist in its
+  exhaustive Phase-1 inventory, every declared owner Working must introduce its artifact,
+  no earlier Working may contain it, retired artifacts disappear at and after their retirement
+  section, and every shipped artifact remains listed in the final Working. The runtime entrypoint,
+  every non-placeholder proof `expectedFiles` path, and package
+  `requirementsFile`/`artifactPath` must all be declared `ships` artifacts;
+- preserve `artifactContract.delivery` exactly. `[acceptance].artifact` must equal its mode. For
+  runtime delivery, `[runtime].entryFile` must equal its artifact path. For package delivery, the
+  final proof must remain `mode = "package"` and its `artifactPath` and `requirementsFile` must
+  equal the Phase-1 paths; source-only acceptance is not an allowed downgrade;
+- section capabilities exactly equal the capabilities owned by its lessons, and section
+  `doneWhen.checks` retains `section-source`, `section-replay`, and `continuity`;
+- preserve the seeded `languageMastery.language`, level, capability spine, foundation-role
+  mapping, and structured performances. Include every `language-*` capability in
+  `graduateCapabilities` and give it one
+  real lesson teaching owner. Treat every word in a capability id as binding semantic scope. Its
+  owner is the cumulative boundary: component families may have explicit owners in earlier
+  prerequisite lessons, but every claimed component must be taught no later than the capability
+  owner. If a component would be taught afterward, move the umbrella owner later or fail because
+  Phase 1 should have split families with materially different first-use points. Coverage-profile
+  token groups are satisfied across the full spine and never require unrelated families to share
+  one capability id. Before submission, make a private capability-owner audit table with one row
+  per language capability, every semantic family named by its id, and each family's exact mechanism
+  owner; the capability owner must be at or after the latest row entry. Fill each performance's
+  `capabilityIds`, but never change its seeded
+  Working, kind, rationale requirement, or description;
+- at Finish 3–5, distribute every declared language capability—including the seven foundation
+  roles data, control, decomposition, structured abstraction, modularity, failure, and
+  verification—across the late graded performances. Map each performance only to capabilities its
+  seeded novel task materially exercises; make the performances different and complementary, and
+  let their combined union cover the spine. Never attach the complete spine to every performance
+  or invent unrelated task requirements to force coverage. Practice every language capability in
+  at least two Workings, and make the final Working require the complete language spine as a
+  cumulative graduation boundary; its performance mapping remains the subset exercised by its
+  novel task. A framework-only extension cannot satisfy language mastery;
+- give every section a non-empty `languagePractice` list drawn from the language spine. Its
+  Working must require every listed capability, so the project continually applies the language
+  instead of relegating it to disconnected introductory snippets;
+- at Finish 3–5, preserve the sealed foundation and verification cadence in actual owners, not
+  merely promise wording. Every mapped foundation capability owner must be no later than the Arc
+  midpoint, and the learner-authored verification owner must be no later than the section after
+  decomposition first becomes usable. Retrieve verification across representative later Workings;
+  hidden replay does not satisfy this learner-owned cadence;
+- every Working has `masteryPerformances = []` except the seeded late performance Workings, whose
+  IDs must match exactly. Phase 3 will repeat those IDs in `[freestyle].masteryPerformances` and
+  attach rubric rows that explicitly grade the mapped language capabilities and rationale;
+- every planned obligation has a real later target and typed evidence locations, capability IDs,
+  proof IDs, acceptance IDs, and an observable result. Its `location` is an existing file relative
+  to the origin section (for example `section.toml` or `lessons/l02.toml`); every
+  `doneWhen.evidenceLocations` entry is an existing file relative to the target section, with an
+  optional `#anchor`. Never use repository-global `sections/sNN/...` paths—the Phase-2 gate proves
+  these references resolve before sealing.
+
+For course-map version 4, preserve and complete the language-neutral `mechanismContract`.
+Capabilities state broad outcomes; mechanisms name the concrete required keyword, syntax form,
+operator, API, tool action, or technical term. Give each mechanism a stable kebab-case `id`, a
+plain `label`, a language-neutral kebab-case `kind` (for example `syntax-form`, `api`, or
+`tool-action`), and exactly one lesson `owner`. Every lesson node includes `introduces = []` and
+lists exactly the mechanisms it first teaches. Every Working node includes `mechanisms = []` and
+lists every mechanism its eventual learner-visible brief, rubric, proof, or hidden replay will
+unavoidably require. An owner must occur no later than any use. The Phase-3 author repeats these
+sealed declarations at each demand site; undeclared first use is a blocking prerequisite failure,
+not an invitation to infer that a nearby capability covered it. Every introduced mechanism must
+also materially support its own section's Working or an unavoidable immediate prerequisite for
+that Working. Do not introduce the next catalog item without a milestone need, teach a prerequisite
+after its dependent use, or create a near-duplicate label for the same mechanism later.
+
+Use this shape (with course-specific values):
+`"mechanismContract":{"version":1,"coverageStart":"s01","mechanisms":[{"id":"...","label":"...","kind":"syntax-form","owner":"s01.l01"}]}`.
+Lesson nodes carry `"introduces":["..."]`; Working nodes carry
+`"mechanisms":["..."]`. Empty arrays are explicit.
+
+For course-map version 4, every lesson and Working node must also include
+`validationDependencies = []`. Put the exact package spec in that array on every node whose
+authored examples, exercises, hidden replay, checks, or promised capability require a third-party
+package. The union of node packages must exactly equal `[runtime].validationDependencies` in
+`tome.toml`. This declaration is Phase 2's responsibility because Phase 3 section workers cannot
+edit the manifest. A node that teaches or relies on a third-party verification library must place
+that library's exact package specification on its nodes and in the manifest even when an earlier
+section already uses a different package.
+
+Apply the **dependency installability rule** before choosing any exact package spec. Resolve the
+selected runtime's actual interpreter or toolchain version and target platform, then verify every
+declared spec is currently available and installable through that runtime's declared isolated
+package command. Never guess a remembered version or select a stale pin merely because its API is
+familiar. Phase 2 is not complete until the exact union can provision in the validation
+environment; an unavailable or runtime-incompatible release must be replaced with a verified
+compatible spec without changing the learning contract.
+
+Do not invent a completion/checkmark field. Do not change seeded section IDs, titles, promises,
+acceptance order, or continuity requirements. The Phase-2 gate rejects unknown keys, gaps,
+duplicates, cycles, missing owners, graded use before teaching, and incomplete proof packets;
+the transition alone seals the normalized map. It also rejects a project-complete skeleton whose
+language capabilities have no owner, cumulative Working practice, or structured late assessment;
+a mislabeled verification capability, flat lesson graph, or artifact-lifecycle mismatch also
+blocks the seal. These are deterministic local checks and do not invoke an AI reviewer.
+Phase 3 cannot begin without that seal.
+
+The learner-facing runtime scaffold contains only a blank editor file or unavoidable
+behavior-free tool metadata. Do not seed project structure, implementation, reusable subsystems,
+filled data/configuration, tests, maps, documentation, assets, packaging, or delivery files.
+Keep the tome runtime overrides `starterCode = ""` and `scaffoldCommand = []`; hidden replay
+steps may reconstruct the proof project, but the learner's initial workspace remains theirs.
+Where the platform permits, make the learner create even the entry file and project shell. Phase
+3 lessons teach with disposable examples and each Working makes the learner create or assemble
+the corresponding canonical artifacts; hidden referenceSteps alone reconstruct the complete
+replayable non-media solution for the harness. Media remains learner-sourced and unbundled.
 Copy Arc scenario order into `[acceptance]`; choose `package` for promised delivery,
 otherwise `runtime`. Package runtimes need delivery argv.
 

@@ -11,6 +11,19 @@ listener_pids() {
   fuser -n tcp "$PORT" 2>/dev/null | xargs || true
 }
 
+open_arcanum() {
+  [[ "${ARCANUM_NO_OPEN:-0}" == "1" ]] && return 0
+
+  if command -v xdg-open >/dev/null 2>&1; then
+    nohup xdg-open "$URL" >/dev/null 2>&1 </dev/null &
+  elif command -v gio >/dev/null 2>&1; then
+    nohup gio open "$URL" >/dev/null 2>&1 </dev/null &
+  else
+    nohup python3 -c 'import sys, webbrowser; webbrowser.open(sys.argv[1])' "$URL" \
+      >/dev/null 2>&1 </dev/null &
+  fi
+}
+
 # A desktop relaunch must never sever a live author session. When the existing server reports
 # an active build, keep it intact; ordinary idle relaunches still restart to pick up new code.
 pids="$(listener_pids)"
@@ -19,6 +32,7 @@ if [[ -n "$pids" ]]; then
     python3 -c 'import json,sys; print(len(json.load(sys.stdin).get("jobs", [])))' 2>/dev/null || true)"
   if [[ "$active_jobs" =~ ^[1-9][0-9]*$ ]]; then
     echo "ARCANUM is already lit with $active_jobs active author session(s) → $URL"
+    open_arcanum
     exit 0
   fi
 

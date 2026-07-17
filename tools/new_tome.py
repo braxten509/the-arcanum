@@ -6,7 +6,7 @@ content and TODO markers telling the author-AI exactly what to replace. The
 skeleton passes validate_tome.py as-is, so you start from green and only ever
 have errors you introduced. It refuses to overwrite an existing tome folder.
 
-    python3 tools/new_tome.py <id> [--name N] [--language L] [--runtime R] [--sections N]
+    python3 tools/new_tome.py <id> --sections N [--name N] [--language L] [--runtime R]
 
 No attacks bank is written — author tomes/<id>/attacks_src.toml later, then run
 python3 tools/gen_attacks.py <id> to generate attacks.toml. Stdlib only.
@@ -15,6 +15,11 @@ import argparse
 import os
 import re
 import sys
+
+try:
+    from buildlib.course.limits import MAX_SECTIONS, MIN_SECTIONS, section_count_error
+except ModuleNotFoundError:
+    from tools.buildlib.course.limits import MAX_SECTIONS, MIN_SECTIONS, section_count_error
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOMES_DIR = os.path.join(REPO, "tomes")
@@ -46,14 +51,11 @@ favicon = ">_"                      # TODO: 1-2 character browser-tab glyph
 name = "@@RUNTIME@@"                # a global-configs/runtimes/<name>.toml id
 project = "@@PROJECT@@"             # TODO: the workspace project/folder name
 language = "@@LANGUAGE@@"           # display name, used in grader/oracle prompts
+starterCode = ""                   # learner authors the canonical entry file
+scaffoldCommand = []               # learner assembles project structure/configuration
 # packages = false                 # true only for dotnet/NuGet tomes
 # externalWorkspace = true         # ONLY for courses whose real work lives in the player's
                                    # own external tools; the player chooses its location.
-# starterCode inherits from the language TOML; override it here if you want a
-# different first-run entry file:
-# starterCode = '''
-# TODO: the entry file's first contents
-# '''
 
 [content]
 sections = [@@SECTIONS_ARRAY@@]     # ordered section ids; each maps to sections/<id>/
@@ -321,14 +323,12 @@ observable = "TODO: what the learner sees when the example works."
 failure = "TODO: one likely failure and how to recognize it."
 practice = "@@SID@@-l01-e1"
 
-[[lessons.artifactSteps]]           # visible, exact edits replayed in one disposable project
+[[lessons.artifactSteps]]           # visible work order; never reveal canonical implementation
 id = "@@SID@@-l01-project-step"
 path = "replace-me.txt"
-mode = "write"                     # write | replace | rewrite | append | delete
-instruction = "TODO: exact file, working directory, action, and verification."
-content = '''
-TODO: complete learner-visible file content
-'''
+mode = "author"                    # learner authors this path; hidden referenceSteps replay it
+instruction = "TODO: exact path, behavior, constraints, commands, and diagnostics—no solution."
+checks = ["TODO: specific observable result the learner can run or inspect."]
 
 [[lessons.readings]]               # optional: 1-2 high-quality official docs
 label = "TODO: official docs"
@@ -406,13 +406,14 @@ def main():
     ap.add_argument("--language", default="Python", help="display language name (default: Python)")
     ap.add_argument("--runtime", default="python",
                     help="runtime id — a global-configs/runtimes/<name>.toml (default: python)")
-    ap.add_argument("--sections", type=int, default=1, help="number of starter sections (default: 1)")
+    ap.add_argument("--sections", type=int, required=True,
+                    help=f"section count, from {MIN_SECTIONS} through {MAX_SECTIONS} inclusive")
     args = ap.parse_args()
 
     if not ID_RE.fullmatch(args.id):
         sys.exit(f"error: tome id {args.id!r} must match [A-Za-z0-9_-]+")
-    if args.sections < 1:
-        sys.exit("error: --sections must be at least 1")
+    if not MIN_SECTIONS <= args.sections <= MAX_SECTIONS:
+        sys.exit("error: " + section_count_error(args.sections))
 
     tome_path = os.path.join(TOMES_DIR, args.id)
     if os.path.exists(tome_path):
@@ -441,7 +442,10 @@ def main():
 
     # scaffold flat, then convert to the split-folder layout (banks + per-section folders)
     # by reusing the round-trip-proven splitter — one source of truth for the layout.
-    import split_tome
+    try:
+        from maintenance import split_tome
+    except ModuleNotFoundError:
+        from tools.maintenance import split_tome
     split_tome.QUIET = True  # the new tome was never "flat" to the user; hide the internal churn
     split_tome.migrate_manifest(tome_path)
     for sid in sids:

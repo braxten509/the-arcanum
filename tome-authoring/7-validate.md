@@ -1,7 +1,7 @@
 # 7. Validate before you ship, then run the checklist
 
 **Scaffold from `tools/new_tome.py` and validate mechanically first.** `python3
-tools/new_tome.py <id>` writes a complete, valid skeleton (every required table
+tools/new_tome.py <id> --sections N` writes a bounds-valid skeleton (every required table
 filled with placeholders and TODO markers) — begin there so you never fight a
 structural error you introduced by hand. Before you ship, run:
 
@@ -161,7 +161,7 @@ items below (voice, anti-template variety, balance) are still yours to run:
 - [ ] NEW language only: `[completions]` reaches full C# parity — all baseline
       keys populated, plus every parity key the language's features call for
       (`declTypes` if statically typed, `enumRegex`/`recordRegex` if it has those,
-      `memberExtends`/`fallback`/`internalKeys`); `node tools/test_completions.js`
+      `memberExtends`/`fallback`/`internalKeys`); `node tools/tests/web/test_completions.js`
       passes with scenarios added for it (see §5's parity table)
 - [ ] Nothing authored inside `save/`
 - [ ] No stray files left outside `tomes/<id>/` — no generator/build/scratch

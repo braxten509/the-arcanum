@@ -1,0 +1,123 @@
+#!/usr/bin/env python3
+import sys as _bootstrap_sys
+from pathlib import Path as _BootstrapPath
+_BOOTSTRAP_REPO = _BootstrapPath(__file__).resolve().parents[3]
+_bootstrap_sys.path[:0] = [str(_BOOTSTRAP_REPO), str(_BOOTSTRAP_REPO / "tools")]
+
+"""Durable discovery and status for one interactive tome author."""
+import json
+import os
+import sys
+import tempfile
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import arcanum.forge.build_state as state  # noqa: E402
+import arcanum.forge as forge  # noqa: E402
+import arcanum.post_routes.builds as build_routes  # noqa: E402
+import arcanum.tomes as tomes  # noqa: E402
+from arcanum.post_routes.builds import (_author, _authors, _phase_author,
+                                        _validator)  # noqa: E402
+
+
+class JsonHandler:
+    def send_json(self, payload, status=200):
+        return payload, status
+
+
+old_active_builds = build_routes.list_active_builds
+try:
+    build_routes.list_active_builds = lambda: [{"id": "live"}]
+    payload, status = build_routes.start_build(JsonHandler(), {})
+    assert status == 409 and "abandon the active tome" in payload["error"]
+finally:
+    build_routes.list_active_builds = old_active_builds
+
+
+def write_proc(root, pid, argv):
+    directory = os.path.join(root, str(pid))
+    os.makedirs(directory)
+    with open(os.path.join(directory, "cmdline"), "wb") as handle:
+        handle.write(b"\0".join(arg.encode() for arg in argv) + b"\0")
+
+
+with tempfile.TemporaryDirectory() as temp:
+    proc_root, build_root, tome_root = (os.path.join(temp, name)
+                                        for name in ("proc", "build", "tomes"))
+    os.makedirs(proc_root); os.makedirs(build_root)
+    os.makedirs(os.path.join(tome_root, "rune-bound"))
+    with open(os.path.join(tome_root, "rune-bound", "tome.toml"), "w", encoding="utf-8") as handle:
+        handle.write('[meta]\nid = "rune-bound"\nname = "RuneBound"\n')
+    plan = ("# BUILD PLAN — untitled-5\n\n## Concept\nA PyGame RPG.\n\n"
+            "- **Tome id renamed by the harness:** `untitled-5` → `rune-bound`\n")
+    with open(os.path.join(build_root, "untitled-5.plan.md"), "w", encoding="utf-8") as handle:
+        handle.write(plan)
+    with open(os.path.join(build_root, "untitled-5.progress"), "w", encoding="utf-8") as handle:
+        json.dump({"phase": 4, "phaseTitle": "Minigames", "state": "working",
+                   "phaseStartedAt": 100, "updatedAt": 101}, handle)
+    with open(os.path.join(build_root, "untitled-5.session.json"), "w", encoding="utf-8") as handle:
+        json.dump({"state": "paused", "sessionId": "abc", "kind": "codex-cli"}, handle)
+    write_proc(proc_root, 111, ["/usr/bin/python3", "-u", "/repo/tools/build_tome.py",
+                                "untitled-5", "--author", "codex-cli:gpt-5.6-sol"])
+    write_proc(proc_root, 222, ["/bin/sh", "-c", "echo tools/build_tome.py untitled-5"])
+
+    old = (forge.BUILD_DIR, state.BUILD_DIR, tomes.BUILD_DIR,
+           forge.TOMES_DIR, tomes.TOMES_DIR)
+    try:
+        forge.BUILD_DIR = state.BUILD_DIR = tomes.BUILD_DIR = build_root
+        forge.TOMES_DIR = tomes.TOMES_DIR = tome_root
+        found = forge._live_build_processes(proc_root)
+        assert [row["planid"] for row in found] == ["untitled-5"]
+        assert state.BUILD_TOTAL_PHASES == 8
+        assert state.load_build_progress("untitled-5")["phase"] == 4
+        assert state.load_author_session("untitled-5")["state"] == "paused"
+        active = forge.list_active_builds(proc_root)
+        assert active[0]["tome"] == "rune-bound" and active[0]["phase"] == 4
+        forge.jobs["local-job"] = {"kind": "build", "status": "running",
+                                   "tome": "untitled-5", "slug": "untitled-5",
+                                   "phase": 1, "phaseTitle": "starting"}
+        active = forge.list_active_builds(proc_root)
+        assert len(active) == 1 and not active[0]["external"]
+        assert active[0]["tome"] == "rune-bound" and active[0]["phase"] == 4
+        assert _author({"author": {"kind": "opencode-cli",
+                                   "model": "ollama/llama3.2:3b"}})
+        routed = _authors({"authors": {
+            "phase12": {"kind": "codex-cli", "model": "arc"},
+            "phase37": {"kind": "claude-cli", "model": "build", "effort": "high"},
+            "phase8": {"kind": "opencode-cli", "model": "finish"},
+        }})
+        assert _phase_author(routed, 2)["model"] == "arc"
+        assert _phase_author(routed, 3)["model"] == "build"
+        assert _phase_author(routed, 8)["model"] == "finish"
+        legacy = _authors({"author": {"kind": "codex-cli", "model": "one"}})
+        assert {row["model"] for row in legacy.values()} == {"one"}
+        assert _validator({"validator": {"kind": "claude-cli",
+                                          "model": "section-audit"}})["model"] == "section-audit"
+
+        # The visible timer measures only the current author work interval.
+        assert forge.author_activity_started_at("paused", "starting", 55, now=100) == 100
+        assert forge.author_activity_started_at("starting", "running", 100, now=101) == 100
+        assert forge.author_activity_started_at("running", "validating", 100, now=102) == 0
+        assert forge.author_activity_started_at("running", "starting", 100, now=103) == 103
+
+        # Discard/reuse cleanup owns the complete build namespace, including sealed maps,
+        # snapshots, course evidence, and future sidecars unknown to older cleanup lists.
+        stale = os.path.join(build_root, "untitled-6.course-map.json")
+        unrelated = os.path.join(build_root, "untitled-60.course-map.json")
+        with open(stale, "w", encoding="utf-8") as handle:
+            handle.write("{}")
+        with open(unrelated, "w", encoding="utf-8") as handle:
+            handle.write("{}")
+        evidence = os.path.join(build_root, "untitled-6.course-evidence")
+        os.makedirs(evidence)
+        with open(os.path.join(evidence, "s01.json"), "w", encoding="utf-8") as handle:
+            handle.write("{}")
+        forge._clear_build_terminal_state("untitled-6")
+        assert not os.path.exists(stale) and not os.path.exists(evidence)
+        assert os.path.exists(unrelated)
+    finally:
+        forge.jobs.pop("local-job", None)
+        (forge.BUILD_DIR, state.BUILD_DIR, tomes.BUILD_DIR,
+         forge.TOMES_DIR, tomes.TOMES_DIR) = old
+
+print("single-author process discovery: OK")

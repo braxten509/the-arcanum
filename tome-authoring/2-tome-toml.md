@@ -32,6 +32,10 @@ course. The full key set — including the compile/run/diagnostics keys not list
 above, and the optional `externalWorkspace` (§5) — is documented in §5 and, canonically,
 in the module docstring at the top of `runtimes/generic.py`.
 
+Bindery course-map builds must override `starterCode = ""` and
+`scaffoldCommand = []`. Their learner starts with an empty editor file and assembles every
+canonical project artifact; hidden `referenceSteps` reconstruct the private proof project.
+
 ### `[content]` (required)
 ```toml
 [content]
@@ -42,12 +46,11 @@ sections = ["s01", "s02", "s03"]   # ordered section ids; each maps to sections/
                                    # engine defaults to generated/attacks.toml (built by
                                    # gen_attacks.py). No duel bank? Just don't author one.
 ```
-**Let the material set the section count — do not force a fixed number.** Use as
-many operations as the subject genuinely needs: a focused mini-course might be
-4–6, a broad language from zero might be 12–15. More sections = more thorough,
-more workbench practice; fewer = tighter and faster. Pad nothing to hit a number,
-and cut nothing real to stay under one. Section ids are just ordered strings
-(`s01`, `a01`, `lvl1`, …) — the count is whatever the array length is.
+**Derive the section count from the contract, within 2 through 40 inclusive.** Work backward
+from graduate capabilities, project milestones, dependencies, and acceptance proof. Every
+section owns a necessary capability or integration milestone; removing one must break a stated
+requirement. Pad nothing, cut no required teaching, and do not lower the promised mastery to fit.
+Bindery-generated IDs are sequential `sNN` values in unlock order.
 
 ### `[defaults]` — a fresh save starts with these
 ```toml

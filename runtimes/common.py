@@ -20,6 +20,9 @@ SNIPPET_TIMEOUT = 10
 
 def atomic_write(path, data):
     """Power-outage-safe write: tmp file + fsync + rename."""
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         f.write(data)

@@ -11,7 +11,7 @@ import re
 
 
 PROOF_VERSION = 1
-STEP_MODES = frozenset(("write", "replace", "rewrite", "append", "delete"))
+STEP_MODES = frozenset(("author", "write", "replace", "rewrite", "append", "delete"))
 PROOF_MODES = frozenset(("run", "build", "guided", "package"))
 ACCEPTANCE_MODES = frozenset(("run", "guided"))
 ACCEPTANCE_ARTIFACTS = frozenset(("runtime", "package"))
@@ -176,10 +176,11 @@ def step_lists(section):
 
 
 def apply_step(project_dir, step):
-    """Apply one declarative learner edit inside a disposable project.
+    """Process one declarative learner step inside a disposable project.
 
-    No shell commands are accepted.  ``replace`` must identify exactly one old region,
-    which turns vague insertion-point prose into a deterministic validation failure.
+    ``author`` is an instruction-only work order and deliberately edits nothing. No shell
+    commands are accepted. ``replace`` must identify exactly one old region, which turns
+    vague insertion-point prose into a deterministic validation failure.
     """
     path = safe_project_path(step.get("path")) if isinstance(step, dict) else None
     if not path:
@@ -193,6 +194,10 @@ def apply_step(project_dir, step):
     mode = step.get("mode")
     if mode not in STEP_MODES:
         raise ValueError(f"unknown step mode {mode!r}")
+    if mode == "author":
+        # Learner-visible work order only. The learner writes this path in their own
+        # workspace; hidden referenceSteps reconstruct the solution for harness replay.
+        return
     if mode == "delete":
         if not os.path.isfile(full):
             raise ValueError(f"delete target {path!r} does not exist")

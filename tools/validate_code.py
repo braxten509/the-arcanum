@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""validate_code.py — no source file grows past the hard line.
+"""validate_code.py — keep source files and source directories navigable.
 
 A file over 500 lines is a file nobody reads to the end. This walks the repo and
 fails on any hand-written source file that crossed the line. One finding per
 line, longest first.
 
-    python3 tools/validate_code.py [path] [--max 500]
+    python3 tools/validate_code.py [path] [--max 500] [--max-files 8]
 
-Exit 0 = clean. Exit 1 = at least one file over the limit. Stdlib only.
+Exit 0 = clean. Exit 1 = at least one file or directory over a limit. Stdlib only.
 Vendored and generated trees are skipped — we did not write them and will not
 split them."""
 import argparse
@@ -15,7 +15,13 @@ import os
 import sys
 
 EXTS = (".py", ".js", ".mjs", ".cjs", ".ts", ".css", ".html", ".java", ".cs", ".sh")
-SKIP = {".git", "node_modules", "__pycache__", "monaco", "fonts", "generated", "dist", "build"}
+SKIP = {
+    ".git", "node_modules", "__pycache__", "monaco", "fonts", "generated", "dist",
+    "build", "obj",
+}
+DIRECTORY_COUNT_ROOT_SKIP = {
+    "tome-authoring", "tome-workflow", "sounds", "tmp", "runtimes",
+}
 
 HINT = """
 To fix: split the file, don't shave it. Cut on the seams that are already there
@@ -57,21 +63,48 @@ def offenders(root, limit):
     return sorted(out, reverse=True)
 
 
+def crowded_directories(root, limit):
+    """Return direct-file counts for included non-root directories over ``limit``.
+
+    Files in child directories never contribute to their parent's count. The
+    repository root and explicitly excluded asset, generated, and authoring
+    trees are outside this organization gate.
+    """
+    out = []
+    for base, dirs, files in os.walk(root):
+        is_root = os.path.abspath(base) == os.path.abspath(root)
+        excluded = SKIP | DIRECTORY_COUNT_ROOT_SKIP if is_root else SKIP
+        dirs[:] = [d for d in dirs if d not in excluded and not d.startswith(".")]
+        if is_root:
+            continue
+        if len(files) > limit:
+            out.append((len(files), os.path.relpath(base, root)))
+    return sorted(out, reverse=True)
+
+
 def main():
-    ap = argparse.ArgumentParser(description="Fail on any source file over the line limit.")
+    ap = argparse.ArgumentParser(
+        description="Fail on oversized source files or crowded source directories.")
     ap.add_argument("path", nargs="?", default=os.path.join(os.path.dirname(__file__), ".."),
                     help="tree to walk (default: the repo root)")
     ap.add_argument("--max", type=int, default=500, help="hard line limit (default: 500)")
+    ap.add_argument("--max-files", type=int, default=8,
+                    help="maximum direct files per included directory (default: 8)")
     args = ap.parse_args()
 
     found = offenders(os.path.abspath(args.path), args.max)
+    crowded = crowded_directories(os.path.abspath(args.path), args.max_files)
     for n, path in found:
         print(f"ERROR {path}: {n} lines, {n - args.max} over the {args.max}-line limit")
-    print(f"-- {len(found)} file(s) over {args.max} lines")
-    if found:
+    for n, path in crowded:
+        print(f"ERROR {path}: {n} direct files, "
+              f"{n - args.max_files} over the {args.max_files}-file limit")
+    print(f"-- {len(found)} file(s) over {args.max} lines; "
+          f"{len(crowded)} directory(s) over {args.max_files} direct files")
+    if found or crowded:
         print()
         print(HINT)
-    sys.exit(1 if found else 0)
+    sys.exit(1 if found or crowded else 0)
 
 
 if __name__ == "__main__":

@@ -6,39 +6,55 @@ ids, reviewer confidence, and files merely existing are never substitutes for th
 
 ## One cumulative disposable project
 
-The validator starts from the selected runtime's real scaffold. In Arc order it applies every
-lesson's `artifactSteps`, then that section's hidden freestyle `referenceSteps`. After each
+The validator starts from the selected runtime's real scaffold. Learner-facing seed content is
+limited to a blank editor file or unavoidable behavior-free tool metadata; it contains no project
+structure, behavior, decisions, data, tests, or assets. In Arc order it
+reads every lesson's learner-visible `artifactSteps`, applies only any explicitly replayable
+non-solution edits, then applies that section's hidden freestyle `referenceSteps`. After each
 section it reruns that milestone **and every still-active earlier milestone** against the new
 project state. The resulting project continues into the next section. A later chapter cannot
 erase a working earlier feature merely because its own local receipt still prints.
 Consequently:
 
+- Use `mode = "author"` for the normal lesson project step. It names the path, gives a precise
+  learner work order, and lists one or more `checks`, but contains no `content`, `find`, or
+  `preserves`. Replay deliberately makes no edit for this mode; the section's hidden
+  `referenceSteps` reconstruct what the learner must author.
 - `write` creates a path that does not exist, including in the runtime scaffold. Reusing
   `write` for an existing path is a hard error.
 - Prefer `replace` with `find` text that occurs exactly once. An unavoidable complete-file
   migration uses `mode = "rewrite"`, complete `content`, and `preserves = "all-active"`.
   Every active proof then reruns; the declaration is never accepted as evidence by itself.
 - Every step names its project-relative `path`, a stable `id`, a specific learner-visible
-  `instruction`, and one of `write`, `replace`, `rewrite`, `append`, or `delete`.
+  `instruction`, and one of `author`, `write`, `replace`, `rewrite`, `append`, or `delete`.
+- An `author` step also names specific observable `checks`. Its instruction may give paths,
+  requirements, constraints, commands, diagnostics, and expected behavior, but never project
+  implementation, ready-to-paste code, filled records, answer-bearing tests, or a rename-equivalent
+  solution.
 - `write`, `rewrite`, and `append` use `content`; `replace` uses both `find` and replacement `content`.
   `delete` names an existing file. Paths cannot be absolute, escape with `..`, or name media.
 - No shell command is part of the proof schema. Commands shown to a learner use a code block
   with `data-kind="terminal"`; execution remains owned by the selected runtime.
 
-Example lesson edit:
+Normal learner-authored lesson work order:
 
 ```toml
 [[lessons.artifactSteps]]
 id = "s02-add-player-state"
 path = "game/player.py"
-mode = "write"
-instruction = "From the project root, create game/player.py with this complete content, then run the chapter check."
-content = '''
-# complete learner-visible source
-'''
+mode = "author"
+instruction = "From the project root, author game/player.py so movement obeys the taught state and timing contracts. Do not copy the disposable lesson example."
+checks = [
+  "The focused movement check passes for both cardinal and diagonal input.",
+  "The ordinary launch moves the player at the same speed across different frame times.",
+]
 ```
 
-These steps are rendered beneath the lesson body. They are not hidden validator metadata.
+These work orders are rendered beneath the lesson body. They are not hidden validator metadata.
+Every canonical source/configuration/data/test/map/documentation/delivery answer belongs in the
+Working's hidden `referenceSteps`, which are stripped from the learner payload. Use the older edit
+modes in visible lesson steps only for genuinely non-solution setup; never use their `content` to
+give away part of the promised artifact.
 All HTML lesson code blocks must classify their promise as
 `data-kind="runnable|replacement|patch|pseudocode|terminal"`. Pseudocode may explain an idea,
 but acceptance-critical behavior must live in replayed source or a deterministic procedure.
@@ -60,8 +76,9 @@ teaching sequence; at higher levels the explanations may be more compact, but ne
 
 ## Independent Working reference
 
-Each `[freestyle]` has one or more `[[freestyle.referenceSteps]]` in the same edit format.
-They are a complete private solution to that chapter's Working, are stripped from the HTTP
+Each `[freestyle]` has one or more `[[freestyle.referenceSteps]]` using the replayable edit modes
+(`write`, `replace`, `rewrite`, `append`, `delete`; never `author`). They are a complete private
+solution to that chapter's Working, are stripped from the HTTP
 payload, and are applied only in the disposable validator project. They must satisfy every
 requirement and leave the canonical project state on which the next section depends.
 

@@ -12,17 +12,27 @@
      1 = zero, 2 = near zero with full foundations at a faster pace, 3 = beginner,
      4 = transfer learner, 5 = generalist, 6 = adjacent, 7 = practitioner,
      8 = fluent, 9 = advanced, and 10 = peer expert
-   - Breadth (1–10): how much of the topic's surface — one tight path to the
-     objective, or the whole territory (drives section count)
+     Start 1 uses deliberately low-density lessons with one foundational concept family at a
+     time. Start 2 uses moderate density and combines only tightly related material. Start 3 may
+     use dense, coherent lessons after prerequisites are secure. Lesson depth controls how
+     thoroughly material is taught; it does not override this pacing contract.
+   - Project scope (1–5): how large and complete the finished artifact is —
+     1 = a barely functional proof project, 2 = a compact prototype, 3 = a
+     complete small project, 4 = a substantial feature-rich project, and 5 = the
+     broadest feasible full-fledged project. It controls artifact systems, content,
+     polish, and delivery, never language coverage.
    - Lesson depth (1–10): how deep each lesson digs — just use it, or internals
-     and edge cases (drives lesson density)
-   - Mastery (1–5): what the student can do without step-by-step help after the
-     last chapter — 1 = explain and modify guided examples; 2 = complete familiar
-     small tasks and simple repairs; 3 = transfer concepts to novel real problems,
-     integrate/debug them, and justify choices independently; 4 = handle unfamiliar
-     variations and tradeoffs with minimal scaffolding; 5 = architect, validate, and
-     defend a substantial solution from goals and constraints. Starting level controls
-     the entrance; mastery controls how far scaffolding must fade by the exit.
+     and edge cases (drives lesson density). Mastery enforces a minimum floor of
+     3, 5, 7, 8, or 9 respectively; depth cannot undercut the selected finish.
+   - Mastery (1–5): how independently the student can use the declared implementation
+     language after the last chapter — 1 = explain and modify guided language examples;
+     2 = complete familiar language tasks and simple repairs; 3 = transfer language concepts
+     to novel real problems, integrate/debug them, and justify choices independently;
+     4 = handle unfamiliar language variations and tradeoffs with minimal scaffolding;
+     5 = architect, validate, and defend a substantial solution in the language from goals and
+     constraints. Starting level controls the entrance; mastery controls how far language
+     scaffolding must fade by the exit and owns the mandatory language breadth. The requested
+     project is its practice/proof vehicle; Project Scope cannot lower the language contract.
    - Tooling: work inside the engine's own workbench, in the real external
      project/IDE (`externalWorkspace`, §5), or both? — and for externals, which
      exact tool versions
@@ -50,7 +60,7 @@
    add? The number of ops is however many that arc needs (§2 `[content]`) — not a
    fixed target.
 2. **`tome.toml` skeleton.** Start from the generated skeleton — `python3
-   tools/new_tome.py <id> [--name N] [--language L] [--runtime R] [--sections N]`
+   tools/new_tome.py <id> --sections N [--name N] [--language L] [--runtime R]`
    writes every required table valid-by-default with TODO markers. Then fill it in:
    meta → runtime → content (section ids) → narrative (write the voice FIRST;
    everything else quotes it) → defaults.

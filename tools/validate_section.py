@@ -10,7 +10,17 @@ import os
 import sys
 import tomllib
 
+# Direct tool execution puts ``tools/`` rather than the repository root on
+# ``sys.path``.  The section gate imports both top-level ``buildlib`` modules and
+# the server-side ``arcanum`` package, so make that mixed CLI contract explicit.
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+
 from buildlib.continuity import validate_handoff
+from buildlib.course.alignment import validate_tome_alignment
+from buildlib.course_map import build_id_from_plan
+from buildlib.course.state import derive_course_state
 from buildlib.measure import validate
 from validatelib.phase3 import load_section_completion
 
@@ -70,7 +80,19 @@ def main():
             print(f"ERROR handoff: {line}")
     print(f"-- section {args.section} handoff: "
           f"{'clean' if handoff_clean else 'error(s)'}")
-    sys.exit(0 if tome_clean and not completion and handoff_clean else 1)
+    build_id = build_id_from_plan(os.path.abspath(args.plan))
+    try:
+        alignment_clean, alignment_report = validate_tome_alignment(
+            build_id, tome_path, args.section)
+        derive_course_state(build_id, write=False)
+    except ValueError as exc:
+        alignment_clean, alignment_report = False, str(exc)
+    if not alignment_clean:
+        for line in alignment_report.splitlines() or ["failed without a diagnostic"]:
+            print(f"ERROR course-map: {line}")
+    print(f"-- section {args.section} sealed-map alignment: "
+          f"{'clean' if alignment_clean else 'error(s)'}")
+    sys.exit(0 if tome_clean and not completion and handoff_clean and alignment_clean else 1)
 
 
 if __name__ == "__main__":

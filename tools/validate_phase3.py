@@ -7,6 +7,8 @@ import sys
 
 from buildlib import REPO
 from buildlib.measure import section_window_validator_argv, validator_argv
+from buildlib.course.alignment import validate_tome_alignment
+from buildlib.course_map import build_id_from_plan
 from validatelib.phase3 import tome_completion_problems, tome_section_ids
 
 
@@ -44,13 +46,22 @@ def main():
           f"{'clean' if not completion else f'{len(completion)} blocker(s)'}")
 
     ids = tome_section_ids(tome_path)
+    build_id = build_id_from_plan(os.path.abspath(args.plan))
+    try:
+        map_clean, map_report = validate_tome_alignment(build_id, tome_path)
+    except ValueError as exc:
+        map_clean, map_report = False, str(exc)
+    if not map_clean:
+        for line in map_report.splitlines() or ["failed without a diagnostic"]:
+            print(f"ERROR course-map: {line}")
+    print(f"-- Phase 3 sealed-map alignment: {'clean' if map_clean else 'error(s)'}")
     quality_clean = False
     if ids:
         quality_clean = _run(section_window_validator_argv(
             tid, ids[-1], os.path.relpath(os.path.abspath(args.plan), REPO)))
     else:
         print("ERROR quality-window: no sections are available for the final window")
-    return 0 if base_clean and not completion and quality_clean else 1
+    return 0 if base_clean and not completion and quality_clean and map_clean else 1
 
 
 if __name__ == "__main__":

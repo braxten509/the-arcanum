@@ -1,10 +1,36 @@
 """The narrow Phase-2 skeleton boundary and Phase-0 tooling contract."""
+import json
 import re
 
 from . import PLACEHOLDER_RE, err
 
 
 _CAPABILITY_ID = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+
+
+def check_phase2_artifact_alignment(build_id, manifest, sections, plan_path):
+    """Gate strict inventory against runtime, lifecycle, and proof-owned paths."""
+    from buildlib.course_map import proposal_path
+    from buildlib.course.dependencies import (
+        external_workspace_capability_alignment_problems,
+        validation_dependency_alignment_problems,
+    )
+    from buildlib.skeleton.integrity import phase2_alignment_problems
+    try:
+        with open(proposal_path(build_id), encoding="utf-8") as handle:
+            proposal = json.load(handle)
+        with open(plan_path, encoding="utf-8") as handle:
+            plan_text = handle.read()
+    except (OSError, json.JSONDecodeError) as exc:
+        err("phase-2-artifacts", f"cannot read strict artifact inputs: {exc}")
+        return
+    for problem in phase2_alignment_problems(
+            proposal.get("artifactContract"), plan_text, manifest, sections):
+        err("phase-2-artifacts", problem)
+    for problem in validation_dependency_alignment_problems(proposal, manifest):
+        err("phase-2-dependencies", problem)
+    for problem in external_workspace_capability_alignment_problems(proposal, manifest):
+        err("phase-2-course-map", problem)
 
 
 def check_phase2_skeleton(sections_data):

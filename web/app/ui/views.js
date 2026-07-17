@@ -141,8 +141,12 @@ export function renderLesson(sid, lid) {
       ? `<div class="artifact-code-label">FIND EXACTLY</div><pre><code>${esc(step.find)}</code></pre>` : "";
     const after = step.content != null
       ? `<div class="artifact-code-label">${step.mode === "replace" ? "REPLACE WITH" : "CONTENT"}</div><pre><code>${esc(step.content)}</code></pre>` : "";
-    return `<article class="artifact-step"><div class="artifact-step-head"><b>${esc(step.path || "")}</b><span>${esc(step.mode || "edit")}</span></div>
-      <p>${esc(step.instruction || "")}</p>${before}${after}</article>`;
+    const workChecks = Array.isArray(step.checks) ? step.checks : [];
+    const checks = workChecks.length
+      ? `<div class="artifact-code-label">PROVE IT</div><ul>${workChecks.map((check) => `<li>${esc(check)}</li>`).join("")}</ul>` : "";
+    const mode = step.mode === "author" ? "YOU BUILD" : (step.mode || "edit");
+    return `<article class="artifact-step"><div class="artifact-step-head"><b>${esc(step.path || "")}</b><span>${esc(mode)}</span></div>
+      <p>${esc(step.instruction || "")}</p>${before}${after}${checks}</article>`;
   }).join("");
   const assetGuides = (sec.assets || []).filter((asset) => asset.lesson === lid).map((asset) => `
     <article class="asset-guide"><div class="artifact-step-head"><b>${esc(asset.kind || "ASSET")} // ${esc(asset.destination || "")}</b><span>YOU SOURCE IT</span></div>

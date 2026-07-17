@@ -1,14 +1,14 @@
 import pygame
 import sys
-from game.settings import SCREEN_WIDTH, SCREEN_HEIGHT, BG_COLOR, FPS, TILE_SIZE
-from game.player import Player
-from game.tilemap import TileMap
-from game.camera import Camera
-from game.npc import NPC
-from game.enemy import Enemy
-from game.combat import CombatManager
-from game.inventory import Inventory, ITEM_DB
-from game.save_manager import SaveManager
+from game.world.settings import SCREEN_WIDTH, SCREEN_HEIGHT, BG_COLOR, FPS, TILE_SIZE
+from game.actors.player import Player
+from game.world.tilemap import TileMap
+from game.world.camera import Camera
+from game.actors.npc import NPC
+from game.actors.enemy import Enemy
+from game.systems.combat import CombatManager
+from game.systems.inventory import Inventory, ITEM_DB
+from game.systems.save_manager import SaveManager
 
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -183,8 +183,8 @@ while running:
 
     if PROOF_MODE:
         if "s08" in sys.argv:
-            from game.inventory import Inventory
-            from game.save_manager import SaveManager
+            from game.systems.inventory import Inventory
+            from game.systems.save_manager import SaveManager
             inv = Inventory()
             inv.add_item("health_potion", 1)
             inv.add_item("rusty_sword", 1)
@@ -201,7 +201,7 @@ while running:
             print(f"S08_OK player_hp=100 inv_slots={len(inv.slots)} equipped_weapon={inv.equipped['weapon']}")
             sys.exit(0)
         elif "s07" in sys.argv:
-            from game.inventory import Inventory
+            from game.systems.inventory import Inventory
             inv = Inventory()
             inv.add_item("health_potion", 1)
             inv.add_item("rusty_sword", 1)

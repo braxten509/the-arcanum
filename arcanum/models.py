@@ -8,8 +8,8 @@ import urllib.request
 from .config import (AGY_BIN, CLAUDE_BIN, CLI_EFFORTS, CLI_MODELS, CODEX_BIN,
                      OPENCODE_BIN, ROOT, agy_print_args, codex_no_mcp_args,
                      OPENCODE_FREE_IDS, OPENCODE_GO_FALLBACK, OPENCODE_MAPLE_IDS)
-from .ai_access import ensure_cli_access
-from tools.buildlib.agent_runtime import scoped_runner_command
+from .authoring.ai_access import ensure_cli_access
+from tools.buildlib.runtime.agent_runtime import scoped_runner_command
 
 
 class GraderConfigError(Exception):

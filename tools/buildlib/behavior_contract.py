@@ -60,7 +60,7 @@ def render(tid, before=None, data=None):
 
 def prompt(tid, sid):
     command = ('cd "$ARCANUM_REPO_ROOT" && ' + shlex.join(
-        ["python3", "tools/report_active_contract.py", f"tomes/{tid}", "--before", sid]))
+        ["python3", "tools/workflow/report_active_contract.py", f"tomes/{tid}", "--before", sid]))
     return ("\n\n===== ACTIVE BEHAVIOR CONTRACT =====\n"
             f"Immediately before editing {sid}, run and read:\n  {command}\n\n"
             "That command reads the current disk checkpoint, including an earlier section authored "

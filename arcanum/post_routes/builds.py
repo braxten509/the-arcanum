@@ -8,15 +8,15 @@ import threading
 import time
 import uuid
 
-from ..build_state import (BUILD_TOTAL_PHASES, build_result_status, load_author_session,
+from ..forge.build_state import (BUILD_TOTAL_PHASES, build_result_status, load_author_session,
                            save_active_owner)
 from ..config import (BUILD_DIR, CLI_EFFORTS, ROOT, TOMES_DIR, build_procs, jobs,
                       jobs_lock)
 from ..forge import (_clear_build_terminal_state, _plan_concept, _plan_gate, _resume_phase,
-                     _save_launch, external_build_process, fresh_tome_id, list_active_builds,
-                     watch_build, working_is_active)
+                     _save_launch, author_activity_started_at, external_build_process,
+                     fresh_tome_id, list_active_builds, watch_build, working_is_active)
 from ..tomes import plan_path, resolve_working_tid
-from tools.buildlib.phase_reset import find_plan_for_tome, reset_tome_to_phase
+from tools.buildlib.workflow.phase_reset import find_plan_for_tome, reset_tome_to_phase
 
 
 AUTHOR_KINDS = ("claude-cli", "antigravity-cli", "codex-cli", "opencode-cli")
@@ -38,9 +38,31 @@ def _author(body):
     return _agent(body.get("author"), "author")
 
 
+AUTHOR_PHASE_KEYS = ("phase12", "phase37", "phase8")
+
+
+def _authors(body):
+    """Validate the persisted phase-range author route, with legacy one-author fallback."""
+    values = body.get("authors") or (body.get("bindery") or {}).get("authors") or {}
+    if not values:
+        author = _author(body)
+        return {key: dict(author) for key in AUTHOR_PHASE_KEYS}
+    return {key: _agent(values.get(key), f"{key} author") for key in AUTHOR_PHASE_KEYS}
+
+
+def _phase_author(authors, phase):
+    key = "phase12" if int(phase) <= 2 else "phase37" if int(phase) <= 7 else "phase8"
+    return dict(authors[key])
+
+
 def _reviewer(body):
     value = body.get("reviewer")
     return _agent(value, "reviewer") if value else None
+
+
+def _validator(body):
+    value = body.get("validator") or (body.get("bindery") or {}).get("validator")
+    return _agent(value, "mandatory section validator")
 
 
 def _agent_spec(agent):
@@ -48,12 +70,18 @@ def _agent_spec(agent):
         f"@{agent['effort']}" if agent.get("effort") else "")
 
 
-def _launch(tid, author, concept, phase, gate_json=None, resume_id="", reviewer=None):
+def _launch(tid, author, concept, phase, gate_json=None, resume_id="", reviewer=None,
+            validator=None, authors=None):
     command = [sys.executable, "-u", os.path.join(ROOT, "tools", "build_tome.py"), tid,
                "--author", _agent_spec(author), "--concept", concept,
                "--from-phase", str(max(1, min(8, int(phase or 1))))]
+    if authors:
+        command += ["--phase-1-2-author", _agent_spec(authors["phase12"]),
+                    "--phase-3-7-author", _agent_spec(authors["phase37"]),
+                    "--phase-8-author", _agent_spec(authors["phase8"])]
     if reviewer:
         command += ["--reviewer", _agent_spec(reviewer)]
+    command += ["--validator", _agent_spec(validator)]
     if gate_json is not None:
         command += ["--gate-json", gate_json]
     if resume_id:
@@ -69,7 +97,10 @@ def _launch(tid, author, concept, phase, gate_json=None, resume_id="", reviewer=
                      "phaseTitle": "starting", "totalPhases": BUILD_TOTAL_PHASES,
                      "log": [], "pid": proc.pid, "startedAt": started,
                      "phaseStartedAt": started,
+                     "activityStartedAt": started,
                      "sessionAuthor": dict(author),
+                     "authorSchedule": {key: dict(value) for key, value in (authors or {}).items()},
+                     "sessionValidator": dict(validator),
                      "sessionReviewer": dict(reviewer) if reviewer else None,
                      "runner": f"{author['kind']} {author['model']}" + (
                          f" @{author['effort']}" if author.get("effort") else "")}
@@ -92,22 +123,26 @@ def start_build(h, body):
         return h.send_json({"ok": False,
                             "error": "tooling must be internal, external, or both"}, 400)
     try:
-        author, reviewer = _author(body), _reviewer(body)
+        authors, validator, reviewer = _authors(body), _validator(body), _reviewer(body)
     except ValueError as exc:
         return h.send_json({"ok": False, "error": str(exc)}, 400)
+    author = _phase_author(authors, 1)
     tid = fresh_tome_id("untitled")
     _clear_build_terminal_state(tid)
     gate = json.dumps({"prior_knowledge": str(body.get("prior_knowledge") or "").strip(),
                        "prior_level": str(body.get("prior_level") or "").strip(),
-                       "breadth": str(body.get("breadth") or "").strip(),
+                       "project_scope": str(body.get("project_scope") or "").strip(),
                        "depth": str(body.get("depth") or "").strip(),
                        "mastery": str(body.get("mastery") or "").strip(),
                        "tooling": tooling})
     launch = dict(body)
     launch["author"] = author
+    launch["authors"] = authors
+    launch["validator"] = validator
     launch["reviewer"] = reviewer or {}
     _save_launch(tid, launch, concept)
-    gid = _launch(tid, author, concept, 1, gate, reviewer=reviewer)
+    gid = _launch(tid, author, concept, 1, gate, reviewer=reviewer, validator=validator,
+                  authors=authors)
     return h.send_json({"ok": True, "jobId": gid, "tome": tid})
 
 
@@ -121,10 +156,6 @@ def resume_build(h, body):
     tid = resolve_working_tid(rid, text)
     if working_is_active(rid, tid):
         return h.send_json({"ok": False, "error": "that working is already active"}, 409)
-    try:
-        author, reviewer = _author(body), _reviewer(body)
-    except ValueError as exc:
-        return h.send_json({"ok": False, "error": str(exc)}, 400)
     phase = _resume_phase(rid, tid)
     try:
         forced = int(body.get("fromPhase") or 0)
@@ -133,11 +164,19 @@ def resume_build(h, body):
     if forced in range(1, 9):
         phase = forced
     if not os.path.isdir(os.path.join(TOMES_DIR, tid)):
-        subprocess.check_call([sys.executable, os.path.join(ROOT, "tools", "new_tome.py"), tid])
+        subprocess.check_call([sys.executable, os.path.join(ROOT, "tools", "new_tome.py"), tid,
+                               "--sections", "2"])
         phase = 1
+    try:
+        authors, validator, reviewer = _authors(body), _validator(body), _reviewer(body)
+    except ValueError as exc:
+        return h.send_json({"ok": False, "error": str(exc)}, 400)
+    author = _phase_author(authors, phase)
     launch = dict(body)
     launch.update(_plan_gate(text))
     launch["author"] = author
+    launch["authors"] = authors
+    launch["validator"] = validator
     launch["reviewer"] = reviewer or {}
     _save_launch(rid, launch, _plan_concept(text), text)
     previous = load_author_session(rid) or load_author_session(tid) or {}
@@ -153,7 +192,7 @@ def resume_build(h, body):
             except OSError:
                 pass
     gid = _launch(rid, author, _plan_concept(text), phase, resume_id=resume_id,
-                  reviewer=reviewer)
+                  reviewer=reviewer, validator=validator, authors=authors)
     return h.send_json({"ok": True, "jobId": gid, "tome": tid,
                         "continuedSession": bool(resume_id)})
 
@@ -181,8 +220,11 @@ def control_author(h, body, action):
     except (BrokenPipeError, OSError):
         return h.send_json({"ok": False, "error": "the author control lane closed"}, 409)
     with jobs_lock:
-        job["interactionState"] = ("pausing" if action == "pause" else
-                                   "resuming" if action == "resume" else "running")
+        state = ("pausing" if action == "pause" else
+                 "resuming" if action == "resume" else "running")
+        job["activityStartedAt"] = author_activity_started_at(
+            job.get("interactionState"), state, job.get("activityStartedAt", 0))
+        job["interactionState"] = state
     return h.send_json({"ok": True})
 
 
@@ -232,18 +274,10 @@ def discard_build(h, body):
     if working_is_active(rid, tid):
         return h.send_json({"ok": False,
                             "error": "cancel the active author before discarding"}, 409)
-    for key in {rid, tid}:
-        for suffix in ("plan.md", "launch.json", "progress", "section-progress.json",
-                       "active.json", "cancelled.json", "result.json", "session.json",
-                       "conversation.jsonl"):
-            try:
-                os.remove(os.path.join(BUILD_DIR, f"{key}.{suffix}"))
-            except OSError:
-                pass
-        shutil.rmtree(os.path.join(BUILD_DIR, f"{key}.phase-snapshots"),
-                      ignore_errors=True)
     tome = os.path.realpath(os.path.join(TOMES_DIR, tid))
     result = build_result_status(rid) or build_result_status(tid)
+    for key in {rid, tid}:
+        _clear_build_terminal_state(key)
     if ((not result or result.get("status") != "done")
             and os.path.dirname(tome) == os.path.realpath(TOMES_DIR)):
         shutil.rmtree(tome, ignore_errors=True)

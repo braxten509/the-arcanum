@@ -1,0 +1,161 @@
+[[lessons]]
+id = "s01-l02"
+title = "Raise an Isolated Lantern"
+teaches = ["isolated-python-environment", "tool-install", "language-environment-venv"]
+introduces = ["venv-create-environment", "venv-activate-environment", "venv-resolve-active-python", "python-module-invocation", "shell-source-script"]
+body = '''
+<p>Python can run from a system installation, but a project should not depend on whatever packages or settings happen to be shared across your machine. A <strong>virtual environment</strong> is a project-local Python environment. Creating it is this section’s installation action: Python builds an isolated executable layout and, by default, bootstraps a local <code>pip</code> installer inside it. That installs the tool boundary needed later without installing Pygame, pytest, or any project dependency yet.</p>
+<pre><code data-kind="terminal">python -m venv .venv
+source .venv/bin/activate
+python --version</code></pre>
+<p>Run these commands only after you have entered the project directory. Read <code>python -m venv .venv</code> in four parts: <code>python</code> selects the interpreter, <code>-m</code> tells that interpreter to locate a named Python module and run it as a command, <code>venv</code> is that standard-library module, and the final <code>.venv</code> is the destination argument. A disposable minimal example is <code>python -m venv .sandbox</code>; success creates a <code>.sandbox</code> environment directory and returns to the prompt. If Python reports that it cannot find <code>venv</code>, stop and repair the selected Python installation’s venv support from trusted platform documentation before retrying.</p>
+<p>On Linux and macOS, <code>source .venv/bin/activate</code> changes the current shell session. <code>source</code> is a shell command that reads and applies a script in the shell you are already using rather than starting a separate child shell. The following <code>.venv/bin/activate</code> is the script path. Applying it changes command lookup for this terminal, which is why the later <code>command -v python</code> result should point inside <code>.venv</code>. For disposable practice, <code>source .sandbox/bin/activate</code> applies the activation script from <code>.sandbox</code>. If the shell reports that the script is missing, confirm the environment name and current project directory before retrying.</p>
+<p>On Windows PowerShell, use the two commands below. In the activation command, <code>.\</code> means “from this current directory,” <code>.venv\Scripts</code> is the environment’s scripts directory, and <code>Activate.ps1</code> is the PowerShell activation script. The parentheses make <code>Get-Command python</code> resolve the command first; <code>.Source</code> then selects its executable path.</p>
+<pre><code data-kind="terminal">.\.venv\Scripts\Activate.ps1
+(Get-Command python).Source</code></pre>
+<p>The PowerShell path should end with <code>.venv\Scripts\python.exe</code>. If PowerShell reports that script execution is disabled, do not weaken system policy for this course. Open Command Prompt in the same project directory, run <code>.venv\Scripts\activate.bat</code>, and then run <code>where python</code>. The first result should end with <code>.venv\Scripts\python.exe</code>.</p>
+<p>Activation is not guesswork. After activation, ask the shell which program it resolves for the name <code>python</code>. On Linux and macOS, use the shell diagnostic below. Its output should be a path inside this project’s <code>.venv</code> directory. On PowerShell, use the resolution command above; on Command Prompt, inspect the first result from <code>where python</code>. This is terminal evidence about command resolution; it does not require writing or running Python source.</p>
+<pre><code data-kind="terminal">command -v python</code></pre>
+<p>If the reported path does not include the project’s <code>.venv</code> directory, return to the project root, activate the environment again, and repeat the path diagnostic. If environment creation fails, first rerun the Python version diagnostic from the previous lesson. An unavailable Python command must be repaired before the project can be isolated. Do not respond by creating a requirements file, installing dependencies, or starting game source; those steps belong later in the course.</p>
+<p>Activation affects only the current terminal session. Keep it active through the receipt loop in the next lesson. After you have saved and reread that receipt and run its final diagnostic, release the environment by entering <code>deactivate</code>. Activation adds that command to the current shell; running it removes the environment’s temporary command-selection changes without deleting <code>.venv</code>. The environment marker should disappear, and a path-resolution check should no longer select Python from this project’s <code>.venv</code>. If <code>deactivate</code> is unavailable, the environment is not active in that shell—inspect the current Python path rather than deleting anything. In a later session, return to the project root, activate <code>.venv</code> again, and repeat the shell path check before project work. This create, activate, inspect, and release lifecycle makes the selected environment observable.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // LOCAL BEFORE LATER</div><p>The .venv directory is tool metadata rather than a hand-authored game artifact. Keep it beside the project so a later terminal session has one obvious environment to activate.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "isolated-python-environment"
+purpose = "Give this project a local Python environment that does not borrow future dependencies from unrelated work."
+anatomy = "From the project root, ask Python to run its venv module with .venv as the environment directory."
+example = "The first terminal line creates a project-local environment."
+observable = "A .venv directory appears under the chosen project location."
+failure = "A failed creation command usually means the Python command from the earlier diagnostic is unavailable or unsuitable."
+practice = "s01-l02-e1"
+
+[[lessons.concepts]]
+id = "tool-install"
+purpose = "Install the isolated Python tool boundary that later declared dependencies will use."
+anatomy = "Run Python’s venv module to create the environment layout and bootstrap its local pip installer, then activate and inspect it without installing a project dependency."
+example = "The disposable python -m venv .sandbox command installs an isolated environment and its default local installer tooling."
+observable = "The environment directory appears, and the activated terminal resolves Python from that directory."
+failure = "A creation error or global executable path means the installation boundary was not created or selected; repair venv support or activation and repeat the checks."
+practice = "s01-l02-e1"
+
+[[lessons.concepts]]
+id = "language-environment-venv"
+purpose = "Use Python’s standard venv mechanism to select a repeatable interpreter for a project."
+anatomy = "Run the complete environment-creation command, activate .venv in the current shell, then ask the shell which python path it resolves."
+example = "The shell path diagnostic is a behavior-free example of checking the active interpreter selection."
+observable = "The executable path contains the project-local .venv directory."
+failure = "If the path omits .venv, the shell was not activated from this project."
+practice = "s01-l02-e3"
+
+[[lessons.concepts]]
+id = "venv-create-environment"
+purpose = "Create the local directory that contains this project’s isolated Python environment."
+anatomy = "From the project root, run python -m venv .venv."
+example = "The first line of the environment terminal sequence creates .venv."
+observable = "A .venv directory appears below the project root."
+failure = "A creation error means the preceding Python diagnostic must be repaired first."
+practice = "s01-l02-e1"
+
+[[lessons.concepts]]
+id = "venv-activate-environment"
+purpose = "Select the local environment for commands in the current terminal session."
+anatomy = "A Unix-like shell uses source .venv/bin/activate; PowerShell uses .\\.venv\\Scripts\\Activate.ps1; after the work is complete, deactivate removes that activation from the current shell without deleting the environment."
+example = "For disposable .sandbox, activate with the shell-specific script, inspect its Python path, and then enter deactivate to release the shell selection."
+observable = "Activation makes command resolution point inside bin or Scripts; deactivation removes the environment marker and the same shell no longer resolves Python through that environment."
+failure = "If PowerShell blocks scripts, use Command Prompt’s .venv\\Scripts\\activate.bat without changing policy; if deactivate is unavailable, inspect the path because that shell is not currently activated."
+practice = "s01-l02-d1"
+
+[[lessons.concepts]]
+id = "venv-resolve-active-python"
+purpose = "Inspect the executable path behind the active python command."
+anatomy = "Use command -v python on Unix-like shells; in PowerShell, (Get-Command python).Source resolves python and selects its executable source path."
+example = "After activating disposable .sandbox, use command -v python on Linux or macOS, or (Get-Command python).Source in PowerShell."
+observable = "The path includes the local environment and ends with bin/python or Scripts\\python.exe."
+failure = "A path outside .venv requires reactivation from the project root; in Command Prompt, use where python and inspect its first result."
+practice = "s01-l02-e2"
+
+[[lessons.concepts]]
+id = "python-module-invocation"
+purpose = "Run a named installed Python module as a terminal command through the selected interpreter."
+anatomy = "In python -m venv .sandbox, python selects the interpreter, -m requests module execution, venv names the module, and .sandbox is that module’s destination argument."
+example = "python -m venv .sandbox is a disposable module invocation that creates an isolated environment directory."
+observable = "Python returns without a module error and the requested .sandbox directory appears."
+failure = "A no-module or unavailable-venv diagnostic means the selected interpreter lacks usable venv support; repair that Python installation before retrying."
+practice = "s01-l02-e1"
+
+[[lessons.concepts]]
+id = "shell-source-script"
+purpose = "Apply an activation script to the current Unix-like shell so its command lookup changes in place."
+anatomy = "In source .sandbox/bin/activate, source reads and applies the script in the current shell, while .sandbox/bin/activate is the script path."
+example = "After creating disposable .sandbox, source .sandbox/bin/activate applies its activation settings to the current terminal."
+observable = "The prompt may gain an environment marker and command -v python resolves inside .sandbox."
+failure = "A missing-script message means the environment name, current directory, or creation step is wrong; confirm those facts and source the existing script again."
+practice = "s01-l02-d1"
+
+[[lessons.artifactSteps]]
+id = "s01-l02-create-environment"
+path = "toolchain-check.txt"
+mode = "author"
+instruction = "Before you author the later receipt, invoke Python’s venv module to install the project-local .venv tool boundary. On a Unix-like shell, source its activation script into the current session; on Windows, use the taught shell-appropriate activation command. Run an executable-path diagnostic and retain the observation you will summarize in the receipt; do not install project dependencies or create source/configuration/package files."
+checks = ["The learner can identify the interpreter, -m option, module name, and destination in the environment-creation command.", "The project directory contains .venv and its environment-local tooling after creation.", "On a Unix-like shell, source applies activation to the current session; the Windows learner uses the taught PowerShell or Command Prompt form.", "The active interpreter diagnostic shows a path inside the project’s .venv."]
+mechanisms = ["venv-create-environment", "venv-activate-environment", "venv-resolve-active-python", "python-module-invocation", "shell-source-script"]
+
+[[lessons.readings]]
+label = "Python documentation: venv"
+url = "https://docs.python.org/3/library/venv.html"
+
+[[lessons.exercises]]
+id = "s01-l02-e1"
+type = "fill"
+points = 20
+prompt = "Complete the option that tells Python to locate and run the venv module for this disposable environment."
+code = 'python ____ venv .sandbox'
+answer = "-m"
+hint = "Use the short option whose purpose is module invocation."
+mechanisms = ["venv-create-environment", "python-module-invocation"]
+
+[[lessons.exercises]]
+id = "s01-l02-e2"
+type = "mc"
+points = 15
+prompt = "What observation best confirms that activation selected this project’s environment rather than the system interpreter?"
+choices = ["The terminal prompt has a new color.", "The project folder has a text receipt.", "The executable path includes the project’s .venv directory.", "Python prints any version number."]
+answer = 2
+whyWrong = "Prompt styling and a version alone do not prove which interpreter was selected. The executable path provides the direct evidence."
+hint = "Choose the observation that identifies the actual program being run."
+explain = "The shell's command-resolution result identifies the python program that this terminal will invoke."
+mechanisms = ["venv-resolve-active-python"]
+
+[[lessons.exercises]]
+id = "s01-l02-d1"
+type = "type"
+points = 13
+reps = 2
+prompt = "Retype the Linux/macOS activation command exactly."
+code = 'source .venv/bin/activate'
+mechanisms = ["venv-activate-environment", "shell-source-script"]
+
+[[lessons.exercises]]
+id = "s01-l02-e3"
+type = "mc"
+points = 20
+prompt = "After the receipt is saved, reread, and diagnosed, which action releases .venv from the current shell without deleting the environment directory?"
+choices = ["Run deactivate and observe that command resolution no longer selects this project’s .venv.", "Delete .venv while it is active.", "Create requirements.txt.", "Install Pygame globally."]
+answer = 0
+whyWrong = "Deleting the environment is not a shell release, and project files or global packages do not reverse activation."
+hint = "Choose the command added by activation for ending the current shell selection."
+explain = "deactivate reverses the activation changes in the current terminal while preserving .venv for the next session."
+mechanisms = ["venv-activate-environment"]
+
+[[lessons.exercises]]
+id = "s01-l02-e4"
+type = "mc"
+points = 32
+prompt = "In Windows PowerShell, which ordered pair activates .venv and then proves the resolved Python path?"
+choices = [".\\.venv\\Scripts\\Activate.ps1, then (Get-Command python).Source", "source .venv/bin/activate, then command -v python", ".venv\\Scripts\\activate.bat, then pwd", "python .venv, then python --version"]
+answer = 0
+whyWrong = "The Unix-like commands use a different shell; activate.bat belongs to Command Prompt and pwd does not resolve Python; passing a directory to Python does not activate it."
+hint = "Choose the PowerShell script followed by PowerShell’s command-resolution expression."
+explain = "PowerShell activates with Activate.ps1 and reports the resolved executable through Get-Command’s Source property."
+mechanisms = ["venv-activate-environment", "venv-resolve-active-python"]

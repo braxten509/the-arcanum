@@ -3,6 +3,7 @@ import { $, closeModal, dropOverlay, esc, modal, sfx } from "../core/dom.js";
 import { enhanceSelect } from "../ui/menu.js";
 import { forgeEntry } from "./forge.js";
 import { mergeForgeTraceLines } from "./trace-lines.js";
+import { fallbackCourseControl } from "./course-control.js";
 
 export const FORGE_PHASES = ["Concept & arc", "Skeleton & voice", "Sections", "Minigames",
   "Economy", "Cosmetics", "Validate", "Student review"];
@@ -59,7 +60,7 @@ export function showTomePicker() {
       forgeState.textContent = busy ? "author busy" : "single author";
       forgeNote.textContent = busy
         ? "Finish or abandon the current working before forging another tome."
-        : "Commission one AI, watch its tools, and guide it while it writes.";
+        : "Route the key phase ranges to chosen AIs, watch their tools, and guide the working.";
       activeSlot.innerHTML = builds.map((build) => `<button class="tome-row forging" data-job="${esc(build.id)}" data-trace="${esc(build.traceId || build.id)}" data-state="${esc(build.interactionState || "running")}">
       <div class="jr-top"><span class="jr-name">${esc(build.name || "Untitled")}</span><span class="jr-tag num">${esc(build.interactionState || "authoring")}</span></div>
       <div class="jr-desc">Phase ${build.phase || 1} / 8 — ${esc(build.phaseTitle || "starting")}</div></button>`).join("");
@@ -87,11 +88,36 @@ function phaseLine(status, interactionState) {
   const active = ["running", "starting", "resuming"].includes(interactionState);
   if (active && status.phaseState) line += ` — ${status.phaseState}`;
   else if (interactionState) line += ` — ${interactionState}`;
-  if (active && status.phaseStartedAt) {
-    const seconds = Math.max(0, Math.floor(Date.now() / 1000 - status.phaseStartedAt));
+  if (active && status.activityStartedAt) {
+    const seconds = Math.max(0, Math.floor(Date.now() / 1000 - status.activityStartedAt));
     line += ` — ${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s`;
   }
   return line;
+}
+
+function paintCourseControl(overlay, control) {
+  const panel = $("#fp-course-control", overlay);
+  if (!control?.spine?.length) { panel.classList.add("hidden"); return; }
+  panel.classList.remove("hidden");
+  const validator = control.validatorAi || {};
+  const compactTokens = (value) => Number(value || 0) >= 1000000
+    ? `${(Number(value) / 1000000).toFixed(1)}M`
+    : Number(value || 0) >= 1000 ? `${(Number(value) / 1000).toFixed(1)}K` : String(Number(value || 0));
+  const validatorUsage = validator.apiCalls
+    ? ` · API ${validator.apiCalls} · ${compactTokens(validator.freshInputTokens)} FRESH · ${compactTokens(validator.cachedInputTokens)} CACHED · ${compactTokens(validator.cacheWriteTokens)} WRITE · ${compactTokens(validator.outputTokens)} OUT`
+    : "";
+  $("#fp-course-summary", panel).textContent = control.fallback
+    ? `SECTION MAP · ${control.currentIndex || 1}/${control.spine.length} · STATUS FALLBACK`
+    : `${control.openObligations || 0} OBLIGATIONS OPEN · ${control.dueObligations || 0} DUE NOW · VALIDATOR AI · ${validator.callCount || 0} CALLS${validatorUsage}`;
+  $("#fp-course-spine", panel).innerHTML = control.spine.map((row) =>
+    `<div class="forge-course-row${row.id === control.currentSection ? " current" : ""}" data-status="${esc(row.status)}"
+      aria-label="${esc(row.id)} ${esc(row.statusLabel)}: ${esc(row.title)}">
+      <span class="forge-course-mark" aria-hidden="true">${esc(row.mark)}</span><span class="num">${esc(row.id)}</span>
+      <span class="forge-course-title">${esc(row.title)}</span><span class="forge-course-milestone">${esc(row.milestone)}</span></div>`).join("");
+  const blockers = Array.isArray(control.blockers) ? control.blockers : [];
+  const blockerBox = $("#fp-course-blockers", panel);
+  blockerBox.classList.toggle("hidden", !blockers.length);
+  blockerBox.textContent = blockers.length ? `BLOCKED · ${blockers.join(" · ")}` : "";
 }
 
 function messageStamp(value) {
@@ -120,6 +146,11 @@ export function openBuildOverlay(jobId, traceId = jobId) {
       <div class="forge-session-badge" id="fp-session-state">ATTACHING</div></header>
     <div class="forge-phases">${FORGE_PHASES.map((title, index) => `<div class="forge-phase" data-ph="${index + 1}">
       <span class="num">${index + 1}</span><span>${esc(title)}</span><span class="fp-mark num"></span></div>`).join("")}</div>
+    <section class="forge-course-control hidden" id="fp-course-control" aria-label="Harness course control">
+      <div class="forge-course-head"><span>COURSE CONTROL</span><span id="fp-course-summary" class="num"></span></div>
+      <div class="forge-course-spine" id="fp-course-spine"></div>
+      <div class="forge-course-blockers hidden" id="fp-course-blockers" role="status"></div>
+    </section>
     <div class="forge-workbench">
       <section class="forge-terminal-panel"><div class="forge-panel-head"><span id="fp-trace-source">AUTHOR TOOL HISTORY</span><span id="fp-trace-count">0 CALLS</span></div>
         <div class="forge-terminal num" id="fp-trace-lines"><div class="forge-trace-empty">Attaching to the author's session log…</div></div></section>
@@ -132,12 +163,14 @@ export function openBuildOverlay(jobId, traceId = jobId) {
     </div>
     <div class="forge-fail-bar hidden" id="fp-fail">
       <div class="forge-fail-msg" id="fp-fail-msg"></div>
-      <div class="forge-ai-row">
-        <div class="forge-ai-choice"><select id="fp-alt-prov" class="cfg-select" aria-label="Replacement agent CLI"></select></div>
-        <div class="forge-ai-choice"><select id="fp-alt-model" class="cfg-select" aria-label="Replacement model"></select></div>
-        <div class="forge-ai-choice"><select id="fp-alt-eff" class="cfg-select" aria-label="Replacement effort"><option value="">DEFAULT</option></select></div>
+      <div class="forge-fail-controls">
+        <div class="forge-ai-row">
+          <div class="forge-ai-choice"><select id="fp-alt-prov" class="cfg-select" aria-label="Replacement agent CLI"></select></div>
+          <div class="forge-ai-choice"><select id="fp-alt-model" class="cfg-select" aria-label="Replacement model"></select></div>
+          <div class="forge-ai-choice"><select id="fp-alt-eff" class="cfg-select" aria-label="Replacement effort"><option value="">DEFAULT</option></select></div>
+        </div>
+        <div class="forge-console-actions"><button class="forge-console-btn" id="fp-alt-resume" type="button">RESUME WITH THIS AI</button></div>
       </div>
-      <div class="forge-console-actions"><button class="forge-console-btn primary" id="fp-alt-resume" type="button">RESUME WITH THIS AI</button></div>
     </div>
     <div class="forge-session-actions"><button class="btn danger" id="fp-cancel">ABANDON</button>
       <div><button class="btn quiet" id="fp-leave">LEAVE · WORK CONTINUES</button></div></div>
@@ -145,7 +178,9 @@ export function openBuildOverlay(jobId, traceId = jobId) {
   document.body.appendChild(overlay); forgeOverlay = overlay;
   $("#fp-leave", overlay).onclick = () => overlay.classList.add("hidden");
 
-  let lastStatus = null, conversationKey = "", traceKey = "", armed = 0, pauseTransition = "";
+  let lastStatus = null, retainedTooling = null, conversationKey = "", traceKey = "",
+      armed = 0, pauseTransition = "";
+  let fallbackKey = "", fallbackControl = null;
   const pause = $("#fp-pause", overlay), composer = $("#fp-composer", overlay),
         message = $("#fp-message", overlay);
   async function post(path, body = {}) {
@@ -272,6 +307,7 @@ export function openBuildOverlay(jobId, traceId = jobId) {
       row.classList.toggle("now", phase === current && status.phaseState !== "complete");
       $(".fp-mark", row).textContent = phase < current || (phase === current && status.phaseState === "complete") ? "✓" : phase === current ? "•" : "";
     });
+    paintCourseControl(overlay, status.courseControl);
     const traceAnchor = Number(tooling?.updatedAt) * 1000 || Date.now();
     const lines = mergeForgeTraceLines(tooling?.lines, status.logtail, traceAnchor);
     const nextTrace = lines.join("\0");
@@ -308,7 +344,7 @@ export function openBuildOverlay(jobId, traceId = jobId) {
       sfx("grade"); card.innerHTML = `<div class="grading-anim"><div class="faint forge-kicker">THE BINDERY // COMPLETE</div>
         <h2>${esc(status.name || status.tome || "The tome")}</h2><p>${status.sessionRole === "reviewer"
           ? "Eight authoring phases, a thorough independent review of every file, and clean shipping gates."
-          : "Eight phases, one continuous author session, and clean shipping gates."}</p>
+          : "Eight phases, phase-routed author sessions, and clean shipping gates."}</p>
         <div class="modal-actions"><button class="btn quiet" id="fp-later">LEAVE ON THE SHELF</button><button class="btn" id="fp-open">OPEN THE TOME</button></div></div>`;
       $("#fp-open", card).onclick = () => { localStorage.setItem("activeTome", status.tome); location.reload(); };
       $("#fp-later", card).onclick = close;
@@ -329,7 +365,22 @@ export function openBuildOverlay(jobId, traceId = jobId) {
       ]);
       const status = await statusResponse.json();
       const tooling = traceResponse?.ok ? await traceResponse.json() : null;
-      if (status.status === "running") paint(status, tooling);
+      if (tooling?.lines?.length || !retainedTooling) retainedTooling = tooling;
+      if (status.status === "running") {
+        if (!status.courseControl && Number(status.phase) === 3 && status.tome) {
+          const progress = status.sectionProgress || {};
+          const key = `${status.tome}:${progress.section || ""}:${progress.index || 0}:${progress.total || 0}`;
+          if (key !== fallbackKey) {
+            fallbackKey = key; fallbackControl = null;
+            try {
+              const response = await fetch(`/api/tome?tome=${encodeURIComponent(status.tome)}`);
+              if (response.ok) fallbackControl = fallbackCourseControl(await response.json(), status);
+            } catch { /* the next status change retries */ }
+          }
+          status.courseControl = fallbackControl;
+        }
+        paint(status, retainedTooling);
+      }
       else await finish(status);
     } catch { /* a later poll may reattach */ }
   }

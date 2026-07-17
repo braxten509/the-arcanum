@@ -189,6 +189,7 @@ export function popMenu(items, x, y, minW) {
 }
 // wraps a native <select> in a themed dropdown; the select stays the source of truth
 export function enhanceSelect(sel) {
+  if (sel.parentElement?.classList.contains("dd")) return;
   const wrap = document.createElement("div");
   wrap.className = "dd";
   wrap.style.cssText = sel.style.cssText;

@@ -12,17 +12,17 @@ import uuid
 
 from runtimes import common as rt_common
 from runtimes.common import atomic_write
-from tools.buildlib.validation_env import (ValidationEnvironmentError,
+from tools.buildlib.runtime.validation_env import (ValidationEnvironmentError,
                                             ensure_validation_environment,
                                             validation_subprocess_env)
 
-from .amender import clear_amend_state, load_amend_state, run_amender, save_amend_state
-from .build_state import record_cancelled_build
+from .authoring.amender import clear_amend_state, load_amend_state, run_amender, save_amend_state
+from .forge.build_state import record_cancelled_build
 from .config import (BUILD_DIR, CLI_EFFORTS, GLOBAL_STATE_KEYS, ROOT,
                      TOMES_DIR, amend_procs, build_procs, jobs, jobs_lock, read_settings,
                      write_settings)
 from .forge import _resume_phase, external_build_process
-from .grader import ask_oracle, run_grader, start_grader_smoke
+from .authoring.grader import ask_oracle, run_grader, start_grader_smoke
 from .post_routes.builds import (answer_runner_pause, control_author, discard_build,
                                  reset_build, resume_build, start_build)
 from .tomes import (external_workspace, has_progress, load_manifest, plan_path, project_dir,

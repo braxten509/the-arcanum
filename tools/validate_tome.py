@@ -18,21 +18,23 @@ from validatelib import ID_RE, _findings, err, load_toml, rel, set_build_phase, 
 from validatelib.attacks import check_attacks, check_attacks_sync, check_intrusions
 from validatelib.content import (check_anti_template, check_content, check_density,
                                  check_literal_newlines, check_section)
-from validatelib.coverage import check_capability_ledger, check_canonical_type_regressions
-from validatelib.depth import (check_economy_totals, check_freestyle_scope, check_name_drift,
+from validatelib.content.coverage import check_capability_ledger, check_canonical_type_regressions
+from validatelib.content.depth import (check_economy_totals, check_freestyle_scope, check_name_drift,
                                check_padded_prose, check_presolved_static,
                                check_self_answering, check_taught_before_used,
                                check_verbatim_prose)
 from validatelib.execute import check_snippets, check_starters_run
-from validatelib.phase2 import check_phase2_skeleton, check_tooling_contract
+from validatelib.phase2 import (check_phase2_artifact_alignment, check_phase2_skeleton,
+                                check_tooling_contract)
 from validatelib.proof import check_future_tome_proof
-from validatelib.structure import (check_badges, check_economy, check_layout, check_meta,
+from validatelib.content.structure import (check_badges, check_economy, check_layout, check_meta,
                                    check_narrative, check_placeholders, check_runtime,
                                    check_shop)
 from validatelib.themes import (check_sigil_palette_uniqueness, check_theme_distinctness,
                                 check_themes)
-from buildlib.validation_env import (ValidationEnvironmentError,
+from buildlib.runtime.validation_env import (ValidationEnvironmentError,
                                      ready_validation_environment)
+from buildlib.course.limits import MAX_SECTIONS, MIN_SECTIONS, section_count_error
 
 import tome_layout  # noqa: E402 — validatelib put REPO on sys.path; in lockstep with server
 
@@ -111,6 +113,8 @@ def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_sect
     if not isinstance(sections, list) or not sections:
         err(label, "[content] sections must be a non-empty array of section ids")
         sections = []
+    elif not MIN_SECTIONS <= len(sections) <= MAX_SECTIONS:
+        err(label, "[content] " + section_count_error(len(sections)))
 
     seen_ex, seen_les, seen_sid = set(), set(), set()
     sections_data = []
@@ -144,6 +148,21 @@ def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_sect
         check_tooling_contract(m, sections_data, label, tooling)
         check_future_tome_proof(tome_path, m, sections_data, run=False,
                                 plan_path=build_plan)
+        if build_plan:
+            from buildlib.course_map import build_id_from_plan, validate_proposal
+            build_id = build_id_from_plan(build_plan)
+            if not build_id:
+                err(label, "Phase 2 build plan path cannot identify its build id")
+            else:
+                try:
+                    proposal_clean, proposal_report = validate_proposal(build_id)
+                except ValueError as exc:
+                    proposal_clean, proposal_report = False, str(exc)
+                if not proposal_clean:
+                    err(label, proposal_report or "the complete course-map proposal is invalid")
+                else:
+                    check_phase2_artifact_alignment(
+                        build_id, m, sections_data, os.path.abspath(build_plan))
     else:
         quality_sections = (sections_data if prefix_ids is None else
                             [section for section in sections_data
@@ -267,7 +286,7 @@ def main():
         ap.error("--source-only requires executable --run-section validation")
 
     if args.phase_1_plan:
-        from buildlib.checkpoints import arc_written
+        from buildlib.workflow.checkpoints import arc_written
         plan = os.path.abspath(args.phase_1_plan)
         clean, report = arc_written(plan, rel(plan))
         if not clean:

@@ -34,7 +34,7 @@ tomes/<id>/
 each chapter as a single flat `sections/<sid>.toml`. Mixing is fine per file: a split
 bank sibling wins over the same table inline; a `sections/<sid>/` folder wins over a
 flat `sections/<sid>.toml`. To convert a flat tome to the split layout losslessly:
-`python3 tools/split_tome.py tomes/<id>`.
+`python3 tools/maintenance/split_tome.py tomes/<id>`.
 
 **Hard rules:**
 - The folder name is the tome **id**: letters, digits, `-`, `_` only.

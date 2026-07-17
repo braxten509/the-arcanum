@@ -1,4 +1,4 @@
-const VALIDATOR_LINE = /^(VALIDATOR COMMAND (?:START|COMPLETE|FAILED))\s+\[([0-9]+(?:\.[0-9]+)?)\](.*)$/;
+const VALIDATOR_LINE = /^((?:VALIDATOR COMMAND|AI VALIDATOR CALL) (?:START|COMPLETE|FAILED))\s+\[([0-9]+(?:\.[0-9]+)?)\](.*)$/;
 const CLOCK_LINE = /^(\d{2}):(\d{2}):(\d{2})\b/;
 
 function localClock(milliseconds) {
@@ -28,7 +28,7 @@ function validatorEntry(line) {
 /** Merge provider tool calls and harness validators into one chronological terminal feed. */
 export function mergeForgeTraceLines(toolLines, logtail, anchor = Date.now()) {
   const validatorLines = String(logtail || "").split("\n")
-    .filter((line) => /^VALIDATOR COMMAND (?:START|COMPLETE|FAILED)\b/.test(line));
+    .filter((line) => /^(?:VALIDATOR COMMAND|AI VALIDATOR CALL) (?:START|COMPLETE|FAILED)\b/.test(line));
   const rows = [...(Array.isArray(toolLines) ? toolLines : []), ...validatorLines]
     .map((line, index) => {
       const validator = validatorEntry(line);

@@ -9,7 +9,7 @@ as the reference and follow `tome-workflow/` for the order to work in.
 
 Before designing ANYTHING — before a single file, id, or section arc — ask the
 requester the **six** course-shaping questions (§6 step 0 lists them: prior
-knowledge, starting level, breadth, lesson depth, mastery, and tooling) and
+knowledge, starting level, project scope, lesson depth, mastery, and tooling) and
 **WAIT for their real answers.** Scaffold nothing and generate no TOML until they
 have answered.
 
