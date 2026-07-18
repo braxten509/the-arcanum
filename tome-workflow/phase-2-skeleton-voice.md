@@ -21,6 +21,8 @@ skeleton section's proof, concept-evidence, artifact-step, and reference-step pl
 for Phase 3 to replace; never downgrade the proof contract. Leave each lesson/freestyle with a
 valid placeholder `teaches`/`requires` id for Phase 3 to replace; do not disable the
 coverage contract.
+Preserve `[mastery].evidenceVersion = 1` and its Phase-0 `level` exactly. The central policy owns
+progression and grading thresholds; a tome cannot override them.
 
 Expand `.tome-build/BUILD_ID.course-map.proposal.json` into the complete Phase-3 skeleton while
 the learner-facing tome files remain placeholders. Preserve every seeded Phase-1 field and
@@ -114,6 +116,15 @@ and then introduce the real syntax later.
 - every Working has `masteryPerformances = []` except the seeded late performance Workings, whose
   IDs must match exactly. Phase 3 will repeat those IDs in `[freestyle].masteryPerformances` and
   attach rubric rows that explicitly grade the mapped language capabilities and rationale;
+- preserve the seeded `masteryEvidence` object exactly. For every declared `sNN.labNN`, add a
+  `mastery-lab` node at the corresponding point in that section. Its keys are `id`, `kind`,
+  `title`, `performanceKind`, `capabilityIds`, `cognitiveTasks`, `contextRelation`, `aidPolicy`,
+  `variantFamilyId`, `rationaleRequired`, `dependsOn`, `validationDependencies`, and `doneWhen`.
+  Copy the performance fields exactly, use all central cognitive tasks materially exercised by
+  that lab, depend on prior evidence rather than future nodes, and set
+  `doneWhen.checks = ["learner-evidence", "variant-proof"]`. A lab is standalone: it must not
+  modify or copy the cumulative project unless its sealed performance is explicitly a final-
+  project change request;
 - every planned obligation has a real later target and typed evidence locations, capability IDs,
   proof IDs, acceptance IDs, and an observable result. Its `location` is an existing file relative
   to the origin section (for example `section.toml` or `lessons/l02.toml`); every
@@ -121,7 +132,7 @@ and then introduce the real syntax later.
   optional `#anchor`. Never use repository-global `sections/sNN/...` paths—the Phase-2 gate proves
   these references resolve before sealing.
 
-For course-map version 4, preserve and complete the language-neutral `mechanismContract`.
+For course-map version 5, preserve and complete the language-neutral `mechanismContract`.
 Capabilities state broad outcomes; mechanisms name the concrete required keyword, syntax form,
 operator, API, tool action, or technical term. Give each mechanism a stable kebab-case `id`, a
 plain `label`, a language-neutral kebab-case `kind` (for example `syntax-form`, `api`, or
@@ -140,7 +151,7 @@ Use this shape (with course-specific values):
 Lesson nodes carry `"introduces":["..."]`; Working nodes carry
 `"mechanisms":["..."]`. Empty arrays are explicit.
 
-For course-map version 4, every lesson and Working node must also include
+For course-map version 5, every lesson, Working, and mastery-lab node must also include
 `validationDependencies = []`. Put the exact package spec in that array on every node whose
 authored examples, exercises, hidden replay, checks, or promised capability require a third-party
 package. The union of node packages must exactly equal `[runtime].validationDependencies` in

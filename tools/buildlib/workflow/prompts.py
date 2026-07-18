@@ -4,6 +4,7 @@ import re
 import sys
 
 from .checkpoints import ARC_CONTRACT, ARC_HEADING
+from ..mastery_evidence import load_policy
 
 
 GATE_QS = [
@@ -137,6 +138,8 @@ def learner_construction_contract():
 def mastery_contract(mastery):
     """Language-agnostic exit evidence written into every build plan."""
     title, outcome = MASTERY_LEVELS[mastery]
+    evidence = load_policy()
+    evidence_level = evidence.for_level(mastery)
     if mastery == 1:
         mastery_target = (
             "The requested project is primary. Teach the bare minimum of the declared language "
@@ -172,6 +175,17 @@ def mastery_contract(mastery):
     return (
         f"- **Finish {mastery}/5 — {title}:** {outcome}",
         "- **Language mastery contract:** 1",
+        f"- **Mastery evidence contract:** {evidence.version}",
+        "- **Evidence progression:** Resolve 100% of required lesson work and every blocking "
+        "due review before a Working unlocks. A Working passes only at 80/B or better with "
+        "every essential check green. Supported work resolves learning work but never counts "
+        "as independent mastery evidence; retries remain unlimited.",
+        f"- **Evidence profile {mastery}/5:** at least {evidence_level.late_performances} late "
+        f"performance(s), {evidence_level.standalone_labs} standalone mastery lab(s), "
+        f"{evidence_level.rationales} rationale/defense item(s), and "
+        f"{evidence_level.minimum_verified_variants} verified variants across at least "
+        f"{evidence_level.minimum_variation_axes} material axes per required lab family. "
+        f"Required cognitive tasks: {' -> '.join(evidence_level.cognitive_tasks)}.",
         "- **Language coverage profile:** 1",
         "- **Language foundation contract:** 2",
         "- **Skeleton integrity contract:** 3",

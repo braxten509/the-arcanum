@@ -23,51 +23,24 @@ from .adapters import (amend_course_map, build_id_from_plan,
                                   validate_map_locations, validate_tome_alignment)
 from ..course.dependencies import validation_dependency_alignment_problems
 from .seed import artifact_lifecycle_obligations, continuity_obligations
+from .schema import (CAPABILITY_RE, ID_RE, LAB_KEYS, LAB_RE, LESSON_KEYS, LESSON_RE,
+                     MAP_VERSION, MAX_PLANNED_LESSONS, MIN_PLANNED_LESSONS,
+                     OBLIGATION_DONE_KEYS, OBLIGATION_KEYS, OBLIGATION_KINDS,
+                     OBLIGATION_OPTIONAL_KEYS, OBLIGATION_RE, SECTION_CHECKS, SECTION_KEYS,
+                     SUPPORTED_MAP_VERSIONS,
+                     TOP_KEYS, WORKING_KEYS, done_when as _done_when, keys as _keys,
+                     obligation_done as _obligation_done, strings as _strings)
 from ..language_mastery.foundations import block_field
 from ..language_mastery import seed_contract as seed_language_mastery
 from ..language_mastery import validate_map_contract as validate_language_mastery
+from ..mastery_evidence import seed_contract as seed_mastery_evidence
+from ..mastery_evidence.map_contract import validate_map_contract as validate_mastery_evidence
 from ..mechanism_contract import seed_contract as seed_mechanism_contract
 from ..mechanism_contract import validate_map_contract as validate_mechanism_contract
 from ..skeleton.integrity import contract_problems as validate_artifact_contract
 from ..skeleton.integrity import graph_problems as validate_integrity_graph
 from ..skeleton.integrity import seed_contract as seed_artifact_contract
 from ..skeleton import parse_section_list
-
-MAP_VERSION = 4
-SUPPORTED_MAP_VERSIONS = (1, 2, 3, 4)
-MIN_PLANNED_LESSONS = 3
-MAX_PLANNED_LESSONS = 8
-ID_RE = re.compile(r"[A-Za-z0-9_-]+\Z")
-CAPABILITY_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
-SECTION_RE = re.compile(r"s\d{2}\Z")
-LESSON_RE = re.compile(r"(s\d{2})\.l(\d{2})\Z")
-OBLIGATION_RE = re.compile(r"s\d{2}-[a-z0-9][a-z0-9-]*\Z")
-OBLIGATION_KINDS = {
-    "future-requirement", "temporary-retirement", "contract-preservation", "plan-item",
-}
-SECTION_CHECKS = {"section-source", "section-replay", "continuity"}
-TOP_KEYS = {
-    "version", "revision", "buildId", "planSha256", "bounds", "graduateContract",
-    "graduateCapabilities", "masteryPerformances", "acceptanceScenarios", "sections",
-    "plannedObligations",
-}
-SECTION_KEYS = {
-    "id", "ordinal", "title", "promise", "capabilities", "dependsOn", "nodes",
-    "projectMilestone", "doneWhen",
-}
-LESSON_KEYS = {"id", "kind", "title", "teaches", "dependsOn", "doneWhen"}
-WORKING_KEYS = {
-    "id", "kind", "title", "requires", "dependsOn", "projectMilestone",
-    "learnerOwnedArtifacts", "doneWhen",
-}
-OBLIGATION_KEYS = {
-    "id", "origin", "target", "kind", "owner", "location", "requirement", "reason",
-    "doneWhen",
-}
-OBLIGATION_OPTIONAL_KEYS = {"supersedes", "revisionReason"}
-OBLIGATION_DONE_KEYS = {
-    "evidenceLocations", "capabilityIds", "proofIds", "acceptanceIds", "observedResult",
-}
 
 class CourseMapError(ValueError):
     """A map cannot become authoritative because its contract is incomplete."""
@@ -119,6 +92,14 @@ def seed_course_map(build_id, plan_file, write=True):
             f"Section list must contain {MIN_SECTIONS} through {MAX_SECTIONS} entries; "
             f"found {len(specs)}")
     ids = [spec.sid for spec in specs]
+    language_contract = seed_language_mastery(text, ids)
+    seed_sections = [{
+        "id": spec.sid, "ordinal": index, "title": spec.title,
+        "promise": spec.promise, "capabilities": [], "languagePractice": [],
+        "dependsOn": [], "nodes": [],
+        "projectMilestone": spec.promise,
+        "doneWhen": {"checks": sorted(SECTION_CHECKS)},
+    } for index, spec in enumerate(specs, 1)]
     value = {
         "version": MAP_VERSION, "revision": 1, "buildId": build_id,
         "planSha256": plan_contract_sha256(text),
@@ -126,22 +107,19 @@ def seed_course_map(build_id, plan_file, write=True):
         "graduateContract": block_field(text, "Graduate ledger"),
         "graduateCapabilities": [],
         "masteryPerformances": [_field(text, "Mastery proof")],
-        "languageMastery": seed_language_mastery(text, ids),
+        "languageMastery": language_contract,
         "mechanismContract": seed_mechanism_contract(ids),
         "acceptanceScenarios": _acceptance(text),
-        "sections": [{
-            "id": spec.sid, "ordinal": index, "title": spec.title,
-            "promise": spec.promise, "capabilities": [], "languagePractice": [],
-            "dependsOn": [], "nodes": [],
-            "projectMilestone": spec.promise,
-            "doneWhen": {"checks": sorted(SECTION_CHECKS)},
-        } for index, spec in enumerate(specs, 1)],
+        "sections": seed_sections,
         "plannedObligations": (continuity_obligations(text, ids)
                                + artifact_lifecycle_obligations(text, ids)),
     }
     artifact_contract = seed_artifact_contract(text)
     if artifact_contract is not None:
         value["artifactContract"] = artifact_contract
+    evidence_contract = seed_mastery_evidence(text, seed_sections, language_contract)
+    if evidence_contract is not None:
+        value["masteryEvidence"] = evidence_contract
     problems = validate_course_map(value, detailed=False)
     if problems:
         raise CourseMapError("Phase 1 course map is invalid:\n- " + "\n- ".join(problems))
@@ -151,61 +129,11 @@ def seed_course_map(build_id, plan_file, write=True):
     return value
 
 
-def _keys(value, expected, label, optional=()):
-    if not isinstance(value, dict):
-        return [f"{label} must be an object"]
-    missing = expected - set(value)
-    extra = set(value) - expected - set(optional)
-    out = []
-    if missing:
-        out.append(f"{label} is missing keys: {', '.join(sorted(missing))}")
-    if extra:
-        out.append(f"{label} has unknown keys: {', '.join(sorted(extra))}")
-    return out
-
-
-def _strings(values, label, *, allow_empty=False, maximum=160):
-    if not isinstance(values, list):
-        return [f"{label} must be an array"]
-    out = []
-    if not values and not allow_empty:
-        out.append(f"{label} must not be empty")
-    for index, value in enumerate(values):
-        if not isinstance(value, str) or not value.strip():
-            out.append(f"{label}[{index}] must be a non-empty string")
-        elif len(value) > maximum:
-            out.append(f"{label}[{index}] exceeds {maximum} characters")
-    if len(values) != len(set(v for v in values if isinstance(v, str))):
-        out.append(f"{label} contains duplicates")
-    return out
-
-
-def _done_when(value, label):
-    out = _keys(value, {"checks"}, label)
-    if isinstance(value, dict):
-        out += _strings(value.get("checks"), f"{label}.checks", maximum=80)
-    return out
-
-
-def _obligation_done(value, label):
-    out = _keys(value, OBLIGATION_DONE_KEYS, label)
-    if not isinstance(value, dict):
-        return out
-    for key in ("evidenceLocations", "capabilityIds", "proofIds", "acceptanceIds"):
-        out += _strings(value.get(key), f"{label}.{key}", allow_empty=True, maximum=240)
-    observed = value.get("observedResult")
-    if not isinstance(observed, str) or len(observed.strip()) < 8:
-        out.append(f"{label}.observedResult must state the required observable result")
-    elif len(observed) > 500:
-        out.append(f"{label}.observedResult exceeds 500 characters")
-    return out
-
-
 def validate_course_map(value, detailed=True, seed=None):
     """Return every schema/graph problem; never silently normalize omissions."""
     problems = _keys(value, TOP_KEYS, "course map",
                      optional={"digest", "languageMastery", "artifactContract",
-                               "mechanismContract"})
+                               "mechanismContract", "masteryEvidence"})
     if not isinstance(value, dict):
         return problems
     map_version = value.get("version")
@@ -266,7 +194,7 @@ def validate_course_map(value, detailed=True, seed=None):
         if not isinstance(nodes, list):
             problems.append(f"{label}.nodes must be an array")
             continue
-        lessons, workings, taught = [], [], []
+        lessons, workings, labs, taught = [], [], [], []
         for node_index, node in enumerate(nodes):
             nlabel = f"{label}.nodes[{node_index}]"
             if not isinstance(node, dict):
@@ -274,13 +202,14 @@ def validate_course_map(value, detailed=True, seed=None):
                 continue
             kind = node.get("kind")
             expected_keys = (LESSON_KEYS if kind == "lesson" else
-                             WORKING_KEYS if kind == "working" else set())
+                             WORKING_KEYS if kind == "working" else
+                             LAB_KEYS if kind == "mastery-lab" else set())
             if not expected_keys:
-                problems.append(f"{nlabel}.kind must be lesson or working")
+                problems.append(f"{nlabel}.kind must be lesson, working, or mastery-lab")
                 continue
             if map_version >= 2:
                 expected_keys = expected_keys | {"validationDependencies"}
-            if map_version >= 4:
+            if map_version >= 4 and kind in ("lesson", "working"):
                 expected_keys = expected_keys | {
                     "introduces" if kind == "lesson" else "mechanisms"}
             problems += _keys(node, expected_keys, nlabel,
@@ -293,7 +222,7 @@ def validate_course_map(value, detailed=True, seed=None):
                     problems.append(f"{nlabel}.id must be sequential {expected_id}")
                 taught += list(node.get("teaches") or [])
                 problems += _strings(node.get("teaches"), f"{nlabel}.teaches")
-            else:
+            elif kind == "working":
                 workings.append(node)
                 if nid != f"{sid}.working":
                     problems.append(f"{nlabel}.id must be {sid}.working")
@@ -302,6 +231,13 @@ def validate_course_map(value, detailed=True, seed=None):
                                      f"{nlabel}.learnerOwnedArtifacts")
                 if node.get("projectMilestone") != section.get("projectMilestone"):
                     problems.append(f"{nlabel}.projectMilestone must match its section milestone")
+            else:
+                labs.append(node)
+                expected_id = f"{sid}.lab{len(labs):02d}"
+                if nid != expected_id or not LAB_RE.fullmatch(str(nid or "")):
+                    problems.append(f"{nlabel}.id must be sequential {expected_id}")
+                problems += _strings(node.get("capabilityIds"), f"{nlabel}.capabilityIds")
+                problems += _strings(node.get("cognitiveTasks"), f"{nlabel}.cognitiveTasks")
             if not isinstance(node.get("title"), str) or not node["title"].strip():
                 problems.append(f"{nlabel}.title must be a non-empty string")
             problems += _strings(node.get("dependsOn"), f"{nlabel}.dependsOn", allow_empty=True)
@@ -378,6 +314,10 @@ def validate_course_map(value, detailed=True, seed=None):
     problems += validate_language_mastery(
         value.get("languageMastery"), sections, capability_owners, graduate, detailed,
         seed=language_seed if seed is not None else None)
+    evidence_seed = seed.get("masteryEvidence") if isinstance(seed, dict) else None
+    problems += validate_mastery_evidence(
+        value.get("masteryEvidence"), sections, detailed=detailed,
+        seed=evidence_seed if seed is not None else None)
     if "artifactContract" in value:
         problems += validate_artifact_contract(value.get("artifactContract"), sections, detailed)
     obligations = value.get("plannedObligations")
@@ -445,7 +385,8 @@ def validate_course_map(value, detailed=True, seed=None):
         if proposed != seed_sections:
             problems.append("Phase 2 may expand the approved section spine, not rewrite it")
         for key in ("buildId", "planSha256", "bounds", "graduateContract",
-                    "masteryPerformances", "acceptanceScenarios", "artifactContract"):
+                    "masteryPerformances", "acceptanceScenarios", "artifactContract",
+                    "masteryEvidence"):
             if value.get(key) != seed.get(key):
                 problems.append(f"Phase 2 may not alter sealed Phase 1 field {key}")
         proposed_obligations = {item.get("id"): item for item in obligations if isinstance(item, dict)}

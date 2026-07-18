@@ -84,6 +84,11 @@ levels, project behavior is not a substitute for language fluency. Follow the pl
 `Working-project boundary`, `Exceptional-step boundary`, `Language-through-project rule`,
 `Scaffold-fading rule`, and numbered
 `Mastery evidence` lines.
+Treat the numbered `Mastery evidence contract`, `Evidence progression`, and `Evidence profile`
+lines as machine-owned floors. The Arc must place every required performance in the late third,
+include the final Working, and use the stated number of standalone lab nodes and rationale items.
+No per-tome prose may lower 100% required-work completion, the 80/B Working threshold, essential
+checks, or the rule that supported work is not independent evidence.
 Every section's Working—not its lessons—owns the real canonical project changes. Plan lessons
 that teach mechanisms through disposable examples with different identifiers, values, and
 problem shapes; never plan a ready-to-paste project file, patch, filled record, test, map, or
@@ -147,6 +152,26 @@ Write these machine-owned language decisions before the ordinary mastery prose:
   unrelated project work to force coverage. The final Working's complete-spine `requires` is a
   cumulative graduation contract, distinct from the capability subset graded for its novel
   performance.
+
+Write the versioned evidence-engine fields immediately after the language performance fields:
+
+- `**Mastery cognitive tasks:** task -> task` repeats every task id in the selected `Evidence
+  profile` exactly once. These are language-neutral cognitive demands, not exercise renderer names.
+- `**Mastery evidence performances:**` is one physical semicolon-separated line. Each clause is
+  `id @ sNN.working|labNN = kind | context | aid | rationale|no-rationale | family|none |
+  capability-id, ...`. Use stable kebab-case IDs. A Working uses `none` as its family; each
+  standalone lab uses a stable variant-family ID. Use only the central profile's performance
+  floor, context distances, and aid policies. All selected Finish requirements must be satisfied:
+  late count, lab count, rationale count, final-Working inclusion, capability union, and context
+  distance. For Finish 2–5, graded evidence is `documentation-only` or `cold`.
+- `**Mastery retention:** language-* -> language-*` names every capability that needs later varied
+  retrieval. At Finish 3–5 this is the complete language spine; at Finish 1–2 it at least covers
+  every mapped foundation capability. Retention is scheduled by intervening learning units and
+  never blocks continued project work on wall-clock time.
+
+Reserve each declared `sNN.labNN` in the Section list's late course window. It is a standalone,
+isolated language task in a different/unrelated/unfamiliar context as required, not a disguised
+project patch. Phase 2 creates the actual `mastery-lab` map nodes and seals their variant families.
 
 Then write `**Mastery proof:**` naming those late graded language performances, the novel language
 transfer each demands, which exact implementation help is withheld, and where the learner records

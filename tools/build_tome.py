@@ -224,9 +224,10 @@ def main():
         do_gate_json(plan, args.tome_id, args.gate_json, args.concept)
         tome = os.path.join(REPO, "tomes", args.tome_id)
         if not os.path.isdir(tome):
+            gate = json.loads(args.gate_json)
             result = subprocess.run(
                 [sys.executable, os.path.join(REPO, "tools", "new_tome.py"), args.tome_id,
-                 "--sections", "2"],
+                 "--sections", "2", "--mastery", str(gate["mastery"])],
                 cwd=REPO)
             if result.returncode:
                 raise SystemExit("could not create the initial tome scaffold")

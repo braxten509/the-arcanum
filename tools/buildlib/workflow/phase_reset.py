@@ -249,7 +249,12 @@ def _load_snapshot(build_id, phase):
             "sidecars": os.path.join(root, "sidecars"), "tomeId": tid}
 
 
-def _fresh_tome(tid):
+def _mastery_from_plan(text):
+    match = re.search(r"(?im)^- \*\*Mastery \(1-5\):\*\*\s*([1-5])\s*$", str(text or ""))
+    return int(match.group(1)) if match else 1
+
+
+def _fresh_tome(tid, mastery=1):
     """Create a bounds-valid split scaffold under the active TOMES_DIR."""
     try:
         from tools.new_tome import SECTION_TEMPLATE, TOME_TEMPLATE, render, roman
@@ -266,6 +271,7 @@ def _fresh_tome(tid):
     manifest = render(TOME_TEMPLATE, {
         "ID": tid, "NAME": name, "RUNTIME": "python", "LANGUAGE": "Python",
         "PROJECT": project,
+        "MASTERY": str(mastery),
         "SECTIONS_ARRAY": ", ".join(f'"s{number:02d}"'
                                      for number in range(1, MIN_SECTIONS + 1)),
     })
@@ -417,7 +423,7 @@ def reset_tome_to_phase(tid, phase):
                 from ..course_map import seed_course_map
                 seed_course_map(build_id, plan)
         elif phase <= 2:
-            _fresh_tome(target_tid)
+            _fresh_tome(target_tid, _mastery_from_plan(plan_text))
             if phase == 2:
                 scaffold_sections(target_tid, plan, force=True,
                                   repo=os.path.dirname(TOMES_DIR))

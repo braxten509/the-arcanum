@@ -5,7 +5,10 @@ import tomllib
 
 from .. import REPO
 from ..language_mastery.foundations import required_by_plan as foundations_required
-from ..language_mastery import phase1_contract_problems, required_by_plan
+from ..language_mastery import (phase1_contract_problems, required_by_plan,
+                                seed_contract as seed_language_mastery)
+from ..mastery_evidence import (required_by_plan as mastery_evidence_required,
+                                seed_contract as seed_mastery_evidence)
 from ..skeleton.integrity import phase1_problems as skeleton_integrity_problems
 from ..skeleton.integrity import contract_version as skeleton_integrity_version
 from ..skeleton.integrity import required_by_plan as skeleton_integrity_required
@@ -44,6 +47,15 @@ ARC_CONTRACT = (
     "multiple tasks genuinely different and complementary, with each description limited\n"
     "to capabilities its task materially exercises and the combined set covering the\n"
     "required spine rather than repeating the whole checklist in every task);\n"
+    "Mastery cognitive tasks (one physical line containing the exact central task ids\n"
+    "for the selected Finish, separated by ` -> `); Mastery evidence performances\n"
+    "(one physical semicolon-separated line of `id @ sNN.working|labNN = kind |\n"
+    "context | aid | rationale|no-rationale | family|none | capability-id, ...`;\n"
+    "Working entries use family `none`; lab entries use a stable kebab family id;\n"
+    "use project, different, unrelated, or unfamiliar context and learning, limited,\n"
+    "documentation-only, or cold aid exactly as the selected central profile permits);\n"
+    "Mastery retention (one physical `language-* -> language-*` line covering every\n"
+    "capability whose later varied retrieval is required by the selected Finish);\n"
     "Language foundation coverage (one physical semicolon-separated line mapping each\n"
     "universal role exactly once: `data = language-*; control = language-*;\n"
     "decomposition = language-*; failure = language-*; verification = language-*`;\n"
@@ -132,6 +144,9 @@ def arc_written(plan_path, plan_rel):
         required_parts += ["Language mastery", "Language capability spine", "Language performances"]
     if foundations_required(text):
         required_parts += ["Language foundation coverage"]
+    if mastery_evidence_required(text):
+        required_parts += ["Mastery cognitive tasks", "Mastery evidence performances",
+                           "Mastery retention"]
     if skeleton_integrity_required(text):
         required_parts += ["Artifact ownership"]
     if skeleton_integrity_version(text) >= 3:
@@ -178,6 +193,16 @@ def arc_written(plan_path, plan_rel):
                      "integration-milestone promise of at least 20 characters")
     probs += phase1_contract_problems(
         text, body, [spec.sid for spec in specs], [spec.promise for spec in specs])
+    if mastery_evidence_required(text) and specs:
+        try:
+            language_contract = seed_language_mastery(text, [spec.sid for spec in specs])
+            seed_sections = [
+                {"id": spec.sid, "ordinal": ordinal, "nodes": []}
+                for ordinal, spec in enumerate(specs, 1)
+            ]
+            seed_mastery_evidence(text, seed_sections, language_contract)
+        except ValueError as exc:
+            probs.append(str(exc))
     continuity_match = re.search(r"(?i)\*\*Continuity map:\*\*", body)
     continuity_tail = body[continuity_match.end():] if continuity_match else ""
     continuity = re.split(r"(?m)^\*\*[^\n]+:\*\*", continuity_tail, maxsplit=1)[0]

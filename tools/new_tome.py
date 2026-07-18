@@ -6,7 +6,8 @@ content and TODO markers telling the author-AI exactly what to replace. The
 skeleton passes validate_tome.py as-is, so you start from green and only ever
 have errors you introduced. It refuses to overwrite an existing tome folder.
 
-    python3 tools/new_tome.py <id> --sections N [--name N] [--language L] [--runtime R]
+    python3 tools/new_tome.py <id> --sections N [--mastery 1-5] [--name N]
+                                      [--language L] [--runtime R]
 
 No attacks bank is written — author tomes/<id>/attacks_src.toml later, then run
 python3 tools/gen_attacks.py <id> to generate attacks.toml. Stdlib only.
@@ -64,6 +65,10 @@ capabilityLedger = true             # keep this: lessons declare `teaches`, caps
 proofVersion = 1                    # future-tome contract: replay learner edits + run milestones
 # OPTIONAL duel bank → generated/attacks.toml (the engine default). Do NOT hand-write it:
 # author attacks_src.toml, then run  python3 tools/gen_attacks.py @@ID@@
+
+[mastery]
+evidenceVersion = 1                # central, language-neutral evidence policy
+level = @@MASTERY@@                 # sealed Phase-0 Finish selection; never lower per tome
 
 [acceptance]
 version = 1
@@ -399,6 +404,8 @@ def main():
     ap.add_argument("--language", default="Python", help="display language name (default: Python)")
     ap.add_argument("--runtime", default="python",
                     help="runtime id — a global-configs/runtimes/<name>.toml (default: python)")
+    ap.add_argument("--mastery", type=int, default=1, choices=range(1, 6),
+                    help="selected evidence finish, from 1 through 5 (default: 1)")
     ap.add_argument("--sections", type=int, required=True,
                     help=f"section count, from {MIN_SECTIONS} through {MAX_SECTIONS} inclusive")
     args = ap.parse_args()
@@ -423,6 +430,7 @@ def main():
         "RUNTIME": args.runtime,
         "LANGUAGE": args.language,
         "PROJECT": project,
+        "MASTERY": str(args.mastery),
         "SECTIONS_ARRAY": ", ".join(f'"{s}"' for s in sids),
     })
     with open(os.path.join(tome_path, "tome.toml"), "w", encoding="utf-8") as f:

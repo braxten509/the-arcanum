@@ -24,6 +24,8 @@ def validate_semantic_contracts(value, capability_owners, section_ids, detailed)
                 checks = set((node.get("doneWhen") or {}).get("checks") or [])
                 required = ({"lesson-source", "learner-construction"}
                             if node.get("kind") == "lesson" else
+                            {"learner-evidence", "variant-proof"}
+                            if node.get("kind") == "mastery-lab" else
                             {"working-replay", "learner-construction"})
                 if checks != required:
                     problems.append(f"{node.get('id')}.doneWhen.checks must be exactly "
