@@ -16,7 +16,8 @@ from ..contracts import load_working_contract
 from ..grading.qualitative import AiQualitativeProvider
 from ..receipts import ReceiptStore
 from ..runner import AssessmentRequest, AssessmentService
-from ..sandbox import SandboxPolicy, SandboxRunner
+from ..sandbox import (SandboxPolicy, SandboxRunner, environment_for_runtime,
+                       policy_for_runtime)
 from ..scenarios import default_registry
 from ..snapshot import create_snapshot
 
@@ -151,15 +152,17 @@ class MasteryLabApplication:
         if not scenarios:
             return {"ok": True, "checks": [],
                     "output": "This lab has no learner-visible run check."}
-        environment = ensure_validation_environment(self.tome_id)
+        environment = environment_for_runtime(
+            self.runtime, ensure_validation_environment(self.tome_id))
         runner, registry = SandboxRunner(), default_registry()
+        policy = policy_for_runtime(self.runtime)
         with create_snapshot(workspace) as snapshot:
             prepare = getattr(self.runtime, "prepare_assessment_dependencies", None)
             if prepare:
                 prepare(snapshot.work)
             context = {"runtime": self.runtime, "sandbox": runner,
-                       "sandboxPolicy": SandboxPolicy(), "work": snapshot.work,
-                       "env": environment}
+                       "sandboxPolicy": policy, "work": snapshot.work,
+                       "home": snapshot.home, "env": environment}
             outcomes = [{"id": scenario.id, "kind": scenario.kind,
                          **registry.execute(scenario, context)} for scenario in scenarios]
         return {"ok": all(row.get("passed") for row in outcomes), "checks": outcomes,

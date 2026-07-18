@@ -7,13 +7,14 @@ import os
 from pathlib import Path
 import sys
 import tempfile
+import time
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path[:0] = [str(ROOT), str(ROOT / "tools")]
 
 from arcanum.assessment.receipts import ReceiptStore
 from arcanum.assessment.runner import AssessmentRequest, AssessmentService
-from arcanum.assessment.sandbox import SandboxRunner
+from arcanum.assessment.sandbox import SandboxPolicy, SandboxRunner
 from arcanum.assessment.snapshot import SnapshotError, SnapshotLimits, create_snapshot
 from arcanum.assessment.variants import VariantRepository, _tree_hash
 from arcanum_core.contracts.assessment import AssessmentContract
@@ -70,6 +71,21 @@ with tempfile.TemporaryDirectory() as temp:
             ["python3", "-c", "open('/home/arcanum-sandbox-escape','w').write('bad')"],
             cwd=snapshot.work)
         assert not denied["passed"], denied
+        clipped = SandboxRunner().run(
+            ["python3", "-c", "print('x' * 300000)"], cwd=snapshot.work,
+            policy=SandboxPolicy(output_bytes=1_000))
+        assert clipped["passed"] and clipped["outputClipped"], clipped
+        assert len(clipped["output"].encode()) <= 1_000
+        marker = Path(snapshot.work, "escaped-after-timeout")
+        timed_out = SandboxRunner().run(
+            ["python3", "-c",
+             "import os,time,pathlib; child=os.fork(); "
+             "(time.sleep(2), pathlib.Path('escaped-after-timeout').write_text('bad')) "
+             "if child == 0 else time.sleep(20)"],
+            cwd=snapshot.work, timeout=1)
+        assert timed_out["timedOut"] and not timed_out["passed"], timed_out
+        time.sleep(2)
+        assert not marker.exists(), "timed-out assessment child escaped process-group cleanup"
 
     runtime = CommandRuntime({
         "name": "test-python", "language": "Python", "command": ["python3"],

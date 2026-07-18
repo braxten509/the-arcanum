@@ -13,7 +13,8 @@ import tempfile
 from typing import Protocol
 
 from arcanum.assessment.receipts import canonical_hash
-from arcanum.assessment.sandbox import SandboxPolicy, SandboxRunner
+from arcanum.assessment.sandbox import (SandboxPolicy, SandboxRunner,
+                                        environment_for_runtime, policy_for_runtime)
 from arcanum.assessment.scenarios import default_registry
 from arcanum.assessment.snapshot import create_snapshot
 from arcanum.assessment.variants import _tree_hash
@@ -80,9 +81,11 @@ def _overlay(source: str, overlay: str, target: str) -> None:
 
 def _run_contract(runtime, contract: AssessmentContract, workspace: str,
                   sandbox: SandboxRunner, policy: SandboxPolicy) -> dict:
+    policy = policy_for_runtime(runtime, policy)
     with create_snapshot(workspace) as snapshot:
         context = {"runtime": runtime, "sandbox": sandbox, "sandboxPolicy": policy,
-                   "work": snapshot.work}
+                   "work": snapshot.work, "home": snapshot.home,
+                   "env": environment_for_runtime(runtime)}
         results = []
         for scenario in contract.scenarios:
             outcome = default_registry().execute(scenario, context)

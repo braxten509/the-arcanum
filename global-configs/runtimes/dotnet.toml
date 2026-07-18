@@ -10,7 +10,13 @@ packages = true
 
 runCommand = ["dotnet", "run", "--project", "{dir}"]
 snippetRunCommand = ["dotnet", "run", "--no-build", "--project", "{dir}"]
-buildCommand = ["dotnet", "build", "--nologo", "-v", "q"]
+# Assessment runs with networking disabled. Ignore unavailable remote feeds and disable
+# vulnerability-feed lookups while still restoring framework packs and cached packages.
+buildCommand = ["dotnet", "build", "--nologo", "-v", "q", "--ignore-failed-sources", "-p:NuGetAudit=false"]
+# Arch packages the ASP.NET reference pack separately from the SDK. This public targeting
+# pack is an explicit read-only toolchain resource; the rest of the user's home stays hidden.
+assessmentReadPaths = ["${HOME}/.nuget/packages/microsoft.aspnetcore.app.ref"]
+assessmentEnvironment = { NUGET_PACKAGES = "${HOME}/.nuget/packages", DOTNET_NOLOGO = "1", DOTNET_SKIP_FIRST_TIME_EXPERIENCE = "1" }
 scaffoldCommand = ["dotnet", "new", "console", "-n", "{project}", "-o", "{dir}", "--force"]
 packageCommand = ["dotnet", "add", "{dir}", "package", "{package}"]
 deliveryCreateCommand = ["dotnet", "new", "console", "--output", "{env}", "--force", "--no-restore"]

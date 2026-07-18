@@ -12,7 +12,8 @@ from .contracts import contract_digest
 from .grading.providers import (MissingQualitativeProvider, QualitativeProvider,
                                 QualitativeRequest)
 from .receipts import ReceiptStore, canonical_hash
-from .sandbox import SandboxPolicy, SandboxRunner
+from .sandbox import (SandboxPolicy, SandboxRunner, environment_for_runtime,
+                      policy_for_runtime)
 from .scenarios import ScenarioRegistry, default_registry
 from .grading.score import compose_assessment_grade
 from .snapshot import SnapshotLimits, create_snapshot
@@ -48,8 +49,8 @@ class AssessmentService:
         self.sandbox = sandbox or SandboxRunner()
         self.scenarios = scenarios or default_registry()
         self.snapshot_limits = snapshot_limits or SnapshotLimits()
-        self.sandbox_policy = sandbox_policy or SandboxPolicy()
-        self.environment = dict(environment or {})
+        self.sandbox_policy = policy_for_runtime(runtime, sandbox_policy)
+        self.environment = environment_for_runtime(runtime, environment)
 
     def assess(self, request: AssessmentRequest, contract: AssessmentContract) -> dict:
         contract_hash = contract_digest(contract)
@@ -71,7 +72,7 @@ class AssessmentService:
                 return {**cached, "cached": True}
             context = {"runtime": self.runtime, "sandbox": self.sandbox,
                        "sandboxPolicy": self.sandbox_policy, "work": snapshot.work,
-                       "env": self.environment}
+                       "home": snapshot.home, "env": self.environment}
             deterministic = []
             for scenario in contract.scenarios:
                 outcome = self.scenarios.execute(scenario, context)

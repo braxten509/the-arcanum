@@ -1,11 +1,14 @@
 """No-shell command execution inside a bounded bubblewrap sandbox."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from functools import lru_cache
 import os
 import resource
+import signal
 import shutil
 import subprocess
+import tempfile
 
 
 class SandboxUnavailable(RuntimeError):
@@ -24,14 +27,56 @@ class SandboxPolicy:
     )
 
 
-def _limits(policy: SandboxPolicy):
+def policy_for_runtime(runtime, policy: SandboxPolicy | None = None) -> SandboxPolicy:
+    """Merge only trusted profile-owned read resources into a sandbox policy."""
+    base = policy or SandboxPolicy()
+    read_paths = tuple(dict.fromkeys((
+        *base.read_paths, *getattr(runtime, "assessment_read_paths", ()))))
+    allowed = tuple(dict.fromkeys((
+        *base.allowed_environment,
+        *getattr(runtime, "assessment_environment", {}).keys())))
+    return replace(base, read_paths=read_paths, allowed_environment=allowed)
+
+
+def environment_for_runtime(runtime, environment: dict[str, str] | None = None) -> dict[str, str]:
+    configured = dict(getattr(runtime, "assessment_environment", {}))
+    configured.update(environment or {})
+    return configured
+
+
+@lru_cache(maxsize=1)
+def _systemd_scope() -> str:
+    """Return a working user-scope launcher for real-memory accounting."""
+    executable = shutil.which("systemd-run") or ""
+    if not executable:
+        return ""
+    try:
+        probe = subprocess.run(
+            [executable, "--user", "--scope", "--quiet",
+             "--property=MemoryMax=16777216", "/usr/bin/true"],
+            capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    return executable if probe.returncode == 0 else ""
+
+
+def _limits(policy: SandboxPolicy, address_space_limit: bool):
     def apply() -> None:
         resource.setrlimit(resource.RLIMIT_CPU, (policy.cpu_seconds, policy.cpu_seconds + 1))
-        resource.setrlimit(resource.RLIMIT_AS, (policy.memory_bytes, policy.memory_bytes))
+        if address_space_limit:
+            resource.setrlimit(resource.RLIMIT_AS, (policy.memory_bytes, policy.memory_bytes))
         resource.setrlimit(resource.RLIMIT_FSIZE, (100_000_000, 100_000_000))
         resource.setrlimit(resource.RLIMIT_NOFILE, (256, 256))
         os.setsid()
     return apply
+
+
+def _captured_output(handle, limit: int) -> tuple[str, bool]:
+    handle.flush()
+    handle.seek(0, os.SEEK_END)
+    size = handle.tell()
+    handle.seek(max(0, size - limit))
+    return handle.read().decode("utf-8", errors="replace").strip(), size > limit
 
 
 class SandboxRunner:
@@ -41,8 +86,8 @@ class SandboxRunner:
     def available(self) -> bool:
         return bool(self.executable and os.path.isfile(self.executable))
 
-    def _argv(self, command: list[str], cwd: str, policy: SandboxPolicy,
-              env: dict[str, str]) -> list[str]:
+    def _argv(self, command: list[str], cwd: str, home: str,
+              policy: SandboxPolicy, env: dict[str, str]) -> list[str]:
         if not self.available():
             raise SandboxUnavailable("bubblewrap isolation is required for learner evidence")
         argv = [self.executable, "--die-with-parent", "--new-session", "--unshare-pid",
@@ -61,42 +106,75 @@ class SandboxRunner:
                 mounted.add(real)
         argv += ["--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp",
                  "--bind", cwd, cwd, "--chdir", cwd]
+        if home != "/tmp":
+            argv += ["--bind", home, home]
         for key, value in sorted(env.items()):
             argv += ["--setenv", key, value]
         return [*argv, "--", *command]
 
     def run(self, command: list[str] | tuple[str, ...], *, cwd: str, stdin: str = "",
             timeout: int = 30, policy: SandboxPolicy | None = None,
-            env: dict[str, str] | None = None) -> dict:
+            env: dict[str, str] | None = None, home: str | None = None) -> dict:
         if not isinstance(command, (list, tuple)) or not command:
             raise ValueError("assessment command must be a non-empty argv array")
         if any(not isinstance(arg, str) or not arg or "\0" in arg for arg in command):
             raise ValueError("assessment argv contains an invalid argument")
         policy = policy or SandboxPolicy()
+        if policy.memory_bytes < 1 or policy.cpu_seconds < 1 or policy.output_bytes < 1:
+            raise ValueError("assessment resource limits must be positive")
         command = list(command)
         if not os.path.isabs(command[0]):
             resolved = shutil.which(command[0])
             if not resolved:
                 raise ValueError(f"assessment executable {command[0]!r} is unavailable")
             command[0] = resolved
+        real_cwd = os.path.realpath(cwd)
+        sandbox_home = os.path.realpath(home) if home else "/tmp"
+        if home:
+            assessment_root = os.path.dirname(real_cwd)
+            if (not os.path.isdir(sandbox_home)
+                    or os.path.commonpath((assessment_root, sandbox_home)) != assessment_root):
+                raise ValueError("assessment home must be inside the disposable snapshot")
         base_path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/bin"
-        clean_env = {"PATH": base_path, "HOME": "/tmp",
+        clean_env = {"PATH": base_path, "HOME": sandbox_home,
                      "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8"}
         for key, value in (env or {}).items():
             if key in policy.allowed_environment and isinstance(value, str) and "\0" not in value:
                 clean_env[key] = value
-        argv = self._argv(command, os.path.realpath(cwd), policy, clean_env)
+        argv = self._argv(command, real_cwd, sandbox_home, policy, clean_env)
+        scope = _systemd_scope()
+        address_space_limit = not bool(scope)
+        if scope:
+            argv = [scope, "--user", "--scope", "--quiet",
+                    f"--property=MemoryMax={policy.memory_bytes}",
+                    "--property=MemorySwapMax=0", "--", *argv]
         try:
-            process = subprocess.run(argv, input=stdin, text=True, capture_output=True,
-                                     timeout=timeout, preexec_fn=_limits(policy))
-            output = (process.stdout + ("\n" + process.stderr if process.stderr else "")).strip()
-            clipped = len(output.encode("utf-8", errors="replace")) > policy.output_bytes
-            if clipped:
-                output = output[-policy.output_bytes:]
-            return {"passed": process.returncode == 0, "argv": list(command),
-                    "exitCode": process.returncode, "output": output,
-                    "timedOut": False, "outputClipped": clipped}
-        except subprocess.TimeoutExpired as exc:
-            output = ((exc.stdout or "") + (exc.stderr or ""))[-policy.output_bytes:]
+            with tempfile.TemporaryFile(mode="w+b") as capture:
+                process = subprocess.Popen(
+                    argv, stdin=subprocess.PIPE, stdout=capture, stderr=subprocess.STDOUT,
+                    text=True, preexec_fn=_limits(policy, address_space_limit))
+                try:
+                    process.communicate(stdin, timeout=timeout)
+                except subprocess.TimeoutExpired:
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    process.communicate()
+                    output, clipped = _captured_output(capture, policy.output_bytes)
+                    return {"passed": False, "argv": list(command), "exitCode": None,
+                            "output": output, "timedOut": True,
+                            "outputClipped": clipped,
+                            "memoryBoundary": "cgroup-v2" if scope
+                            else "rlimit-address-space"}
+                output, clipped = _captured_output(capture, policy.output_bytes)
+                return {"passed": process.returncode == 0, "argv": list(command),
+                        "exitCode": process.returncode, "output": output,
+                        "timedOut": False, "outputClipped": clipped,
+                        "memoryBoundary": "cgroup-v2" if scope
+                        else "rlimit-address-space"}
+        except OSError as exc:
             return {"passed": False, "argv": list(command), "exitCode": None,
-                    "output": output, "timedOut": True, "outputClipped": False}
+                    "output": f"assessment process could not start: {exc}",
+                    "timedOut": False, "outputClipped": False,
+                    "memoryBoundary": "cgroup-v2" if scope else "rlimit-address-space"}

@@ -45,6 +45,7 @@ class WorkspaceSnapshot:
     root: str
     source: str
     work: str
+    home: str
     workspace_hash: str
     manifest: tuple[dict, ...]
     limits: SnapshotLimits
@@ -98,7 +99,9 @@ def create_snapshot(workspace: str, *, parent: str | None = None,
         raise SnapshotError("learner workspace is not an existing directory")
     root = tempfile.mkdtemp(prefix="arcanum-assessment-", dir=parent)
     source, work = os.path.join(root, "source"), os.path.join(root, "work")
+    home = os.path.join(root, "home")
     os.makedirs(source)
+    os.makedirs(home, mode=0o700)
     manifest, total = [], 0
     try:
         for dirpath, dirnames, filenames in os.walk(source_root, followlinks=False):
@@ -139,7 +142,8 @@ def create_snapshot(workspace: str, *, parent: str | None = None,
         os.chmod(source, 0o555)
         with open(os.path.join(root, "manifest.json"), "w", encoding="utf-8") as handle:
             json.dump(manifest, handle, sort_keys=True, separators=(",", ":"))
-        return WorkspaceSnapshot(root, source, work, _hash_manifest(manifest), tuple(manifest), limits)
+        return WorkspaceSnapshot(
+            root, source, work, home, _hash_manifest(manifest), tuple(manifest), limits)
     except Exception:
         shutil.rmtree(root, ignore_errors=True)
         raise

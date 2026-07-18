@@ -118,7 +118,8 @@ def command_scenario(scenario: Scenario, context: dict) -> dict:
         scenario.command_ref, context["work"], scenario.args)
     result = context["sandbox"].run(
         command, cwd=context["work"], stdin=scenario.stdin, timeout=scenario.timeout,
-        policy=context.get("sandboxPolicy"), env=context.get("env"))
+        policy=context.get("sandboxPolicy"), env=context.get("env"),
+        home=context.get("home"))
     passed, problems = evaluate_expectation(scenario.expect, result, context["work"])
     return {**result, "passed": bool(result.get("passed")) and passed, "problems": problems}
 

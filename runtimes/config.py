@@ -17,6 +17,7 @@ _ARGV_KEYS = (
     "validationProjectPackageCommand",
 )
 _LIST_KEYS = ("validationDependencies", "excludeDirs", "codeExt")
+_TRUSTED_ASSESSMENT_KEYS = ("assessmentReadPaths", "assessmentEnvironment")
 
 
 class RuntimeConfigurationError(ValueError):
@@ -62,6 +63,21 @@ class RuntimeConfig:
                     f"runtime {name!r} assessment command {command_id!r} must be argv")
             normalized_assessment[str(command_id)] = tuple(argv)
         values["assessmentCommands"] = MappingProxyType(normalized_assessment)
+        read_paths = values.get("assessmentReadPaths") or ()
+        if (not isinstance(read_paths, (list, tuple))
+                or not all(isinstance(path, str) and path and "\x00" not in path
+                           for path in read_paths)):
+            raise RuntimeConfigurationError(
+                f"runtime {name!r} assessmentReadPaths must be a string array")
+        values["assessmentReadPaths"] = tuple(read_paths)
+        assessment_environment = values.get("assessmentEnvironment") or {}
+        if (not isinstance(assessment_environment, dict)
+                or any(not isinstance(key, str) or not key
+                       or not isinstance(value, str) or "\x00" in value
+                       for key, value in assessment_environment.items())):
+            raise RuntimeConfigurationError(
+                f"runtime {name!r} assessmentEnvironment must be a string table")
+        values["assessmentEnvironment"] = MappingProxyType(dict(assessment_environment))
         for key in ("buildTimeout", "runTimeout"):
             if key in values and (not isinstance(values[key], int) or values[key] < 1):
                 raise RuntimeConfigurationError(f"runtime {name!r} {key} must be positive")
@@ -110,6 +126,11 @@ class RuntimeConfigRepository:
         values = dict(override or {})
         values.setdefault("name", DEFAULT_RUNTIME)
         defaults = self.load_defaults(str(values["name"]))
+        forbidden = sorted(key for key in _TRUSTED_ASSESSMENT_KEYS if key in values)
+        if forbidden:
+            raise RuntimeConfigurationError(
+                "tome runtime overrides cannot grant assessment host access: "
+                + ", ".join(forbidden))
         return RuntimeConfig.parse({**defaults, **values})
 
     def names(self) -> tuple[str, ...]:

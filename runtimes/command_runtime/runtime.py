@@ -35,6 +35,13 @@ class CommandRuntime(WorkspaceMixin, DiagnosticsMixin, SnippetMixin, ExecutionMi
             str(name): list(argv) for name, argv in
             (cfg.get("assessmentCommands") or {}).items()
         }
+        self.assessment_read_paths = tuple(
+            os.path.realpath(os.path.expandvars(os.path.expanduser(path)))
+            for path in (cfg.get("assessmentReadPaths") or ()))
+        self.assessment_environment = {
+            str(key): os.path.expandvars(value) for key, value in
+            (cfg.get("assessmentEnvironment") or {}).items()
+        }
         self.diag_re = cfg.get("diagRegex") or ""
         self.entry = cfg.get("entryFile") or "main.txt"
         self.starter = cfg.get("starterCode") or ""
