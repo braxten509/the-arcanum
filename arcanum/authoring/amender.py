@@ -182,6 +182,7 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
     prior report the agent should read before making a change the player commissioned."""
     if job_manager is None or processes is None or ai is None:
         raise RuntimeError("Binder requires explicit job, process, and AI services")
+    checkpointed = False
     req = request_text[:4000]
     report_rel = os.path.join("reviews", f"{jid}-{time.strftime('%Y%m%d-%H%M%S')}.md") if review else ""
     # what the agent may and may not touch. reset_ok lifts ONLY the progress-preserving rules
@@ -280,13 +281,15 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
         cmd, input_mode = list(invocation.argv), invocation.input_mode
         if not review:  # review edits nothing under tomes/ — no checkpoint needed
             checkpoint_tome(jid)
+            checkpointed = True
         rc, timed_out, logtail = _run_agent_turn(
             job_id, cmd, prompt, input_mode, invocation.environment,
             invocation.cwd, job_manager, processes)
         if job_manager.status(job_id).get("status") == "cancelled":
             clear_amend_state(jid)  # the player stayed the quill; nothing to resume
-            if not review:
+            if checkpointed:
                 rollback_tome(jid)  # discard the half-finished edit
+                checkpointed = False
             return  # the kill is not an error
         if timed_out:
             raise RuntimeError(f"timed out after {AMEND_TIMEOUT}s:\n" + "\n".join(logtail[-20:]))
@@ -313,6 +316,7 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
             job_manager.update(job_id, status="done", summary=summary,
                                validator="No tome files changed.", validatorOk=True)
             clear_checkpoint(jid)
+            checkpointed = False
             clear_amend_state(jid)
             return
         job_manager.append(
@@ -338,6 +342,7 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
             if cancelled:
                 clear_amend_state(jid)
                 rollback_tome(jid)
+                checkpointed = False
                 return
             if timed_out:
                 raise RuntimeError(f"repair timed out after {AMEND_TIMEOUT}s:\n"
@@ -356,6 +361,7 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
                            validator=(v.stdout + v.stderr).strip()[-2000:],
                            validatorOk=v.returncode == 0)
         clear_checkpoint(jid)
+        checkpointed = False
         clear_amend_state(jid)  # the run finished; the edit is on disk, nothing to resume
         if broad:  # broad runs are long/unattended — ping the operator on the outcome
             if v.returncode == 0:
@@ -364,14 +370,19 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
                 notify(f"⚠ The Binder needs you — {jid}",
                        "The broad change finished but the validator found flaws. Open the Binder to mend them.", priority=1)
     except Exception as e:
-        if not review:
-            rollback_tome(jid)  # a half-finished tome is worse than none — back to the checkpoint
+        recovery_error = ""
+        if checkpointed:
+            try:
+                rollback_tome(jid)  # a half-finished tome is worse than none
+            except Exception as rollback_error:
+                recovery_error = f"\n\nCheckpoint recovery also failed: {rollback_error}"
         stopped = job_manager.status(job_id).get("status") == "running"
         if stopped:
             job_manager.update(
                 job_id, status="error",
                 error=(str(e)[:800] +
-                       "\n\nThe tome was restored to its pre-Binder checkpoint."))
+                       ("\n\nThe tome was restored to its pre-Binder checkpoint."
+                        if checkpointed and not recovery_error else recovery_error)))
         if stopped:
             _mark_amend_state(jid, "error")  # left on disk so the Binder can offer to resume it
         if stopped:  # a real failure/timeout, not a user cancel — you may be away, so ping to retry
