@@ -2,7 +2,7 @@
 import re
 import subprocess
 
-from . import common
+import runtimes.common as common
 
 
 ORDINARY_LAUNCH_SMOKE_TIMEOUT = 4

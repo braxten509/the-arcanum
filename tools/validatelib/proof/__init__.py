@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from tome_proof import (CODE_KINDS, MEDIA_EXTENSIONS, PROOF_MODES, STEP_MODES,
                         is_media_path, media_mentions, proof_enabled, safe_project_path)
 
-from .. import REPO, _findings, err, rel, warn
+from .. import REPO, current_findings, err, rel, warn
 from .contract import check_proof_contract
 from .runtime import clear_evidence, replay
 
@@ -374,7 +374,7 @@ def check_future_tome_proof(tome_path, manifest, sections, run=False, run_sectio
         clear_evidence(tome_path)
     check_no_bundled_media(tome_path, manifest)
     proof_sections = _authored_prefix(sections, run_section)
-    before, step_ids, urls = len(_findings), set(), set()
+    before, step_ids, urls = len(current_findings()), set(), set()
     runtime_config = manifest.get("runtime")
     allow_guided = (isinstance(runtime_config, dict)
                     and runtime_config.get("externalWorkspace") is True)
@@ -408,7 +408,8 @@ def check_future_tome_proof(tome_path, manifest, sections, run=False, run_sectio
                                            str(declared[-1])))
     check_proof_contract(manifest, proof_sections, plan_path=plan_path,
                          allow_guided=allow_guided, course_complete=course_complete)
-    if run and len(_findings) == before and not any(item[0] == "ERROR" for item in _findings):
+    if (run and len(current_findings()) == before
+            and not any(item.severity.value == "error" for item in current_findings())):
         replay(tome_path, manifest, sections, run_section,
                persist=not bool(run_section), source_only=source_only)
     if run and not run_section and urls:

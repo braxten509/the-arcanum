@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from arcanum.forge import (_resume_phase, external_build_process, forge_name,
                            list_active_builds, list_workings)
 from arcanum.forge.build_state import record_cancelled_build
-from arcanum.post_routes import builds
+from arcanum.authoring.adapters import forge_lifecycle as builds
 from ..adapters.phase_reset import PhaseResetService
 from ..read_models.forge_status import ForgeStatusService
 

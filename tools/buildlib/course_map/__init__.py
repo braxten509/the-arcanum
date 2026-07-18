@@ -14,13 +14,11 @@ import re
 from .. import BUILD_DIR, REPO
 from ..course.limits import MAX_SECTIONS, MIN_SECTIONS
 from .codec import canonical_bytes, digest
-from .locations import section_reference_problem
+from .locations import section_reference_problem, validate_locations
 from .plan import acceptance as _acceptance
 from .plan import field as _field
 from .plan import plan_contract_sha256
 from .contracts import validate_semantic_contracts
-from .adapters import (amend_course_map, build_id_from_plan,
-                                  validate_map_locations, validate_tome_alignment)
 from ..course.dependencies import validation_dependency_alignment_problems
 from .seed import artifact_lifecycle_obligations, continuity_obligations
 from .schema import (CAPABILITY_RE, ID_RE, LAB_KEYS, LAB_RE, LESSON_KEYS, LESSON_RE,
@@ -44,6 +42,17 @@ from ..skeleton import parse_section_list
 
 class CourseMapError(ValueError):
     """A map cannot become authoritative because its contract is incomplete."""
+
+
+def build_id_from_plan(plan_file):
+    name = os.path.basename(str(plan_file or ""))
+    suffix = ".plan.md"
+    candidate = name[:-len(suffix)] if name.endswith(suffix) else ""
+    return candidate if ID_RE.fullmatch(candidate) else ""
+
+
+def validate_map_locations(build_id, value):
+    return validate_locations(build_id, value, build_dir=BUILD_DIR, repo=REPO)
 
 def _path(build_id, suffix):
     if not ID_RE.fullmatch(str(build_id or "")):

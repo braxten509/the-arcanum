@@ -16,7 +16,9 @@ from ..contracts import load_working_contract
 from ..grading.qualitative import AiQualitativeProvider
 from ..receipts import ReceiptStore
 from ..runner import AssessmentRequest, AssessmentService
-from ..sandbox import SandboxPolicy
+from ..sandbox import SandboxPolicy, SandboxRunner
+from ..scenarios import default_registry
+from ..snapshot import create_snapshot
 
 
 class AssessmentApplication:
@@ -90,8 +92,9 @@ class AssessmentApplication:
 
 
 class MasteryLabApplication:
-    def __init__(self, tome_root: str, save_root: str, runtime):
+    def __init__(self, tome_root: str, save_root: str, runtime, tome_id: str):
         self.tome_root, self.save_root, self.runtime = tome_root, save_root, runtime
+        self.tome_id = tome_id
         self.repository = VariantRepository(tome_root, save_root)
         self.workspaces = LabWorkspaceStore(save_root)
 
@@ -128,3 +131,37 @@ class MasteryLabApplication:
             self.repository.abandon(performance.variant_family_id)
         self.repository.assign(performance.variant_family_id, exclude=excluded)
         return self.assignment(node_id)
+
+    def run_public_checks(self, node_id: str, files: list[dict]) -> dict:
+        """Run only learner-visible checks in a disposable sandbox; issue no evidence."""
+        _evidence, performance = performance_for(self.tome_root, node_id)
+        assignment = self.repository.assignment(performance.variant_family_id)
+        if not assignment:
+            raise VariantUnavailable("this mastery lab has no active assignment")
+        item = next((row for row in self.repository.verified_variants(
+            performance.variant_family_id)
+                     if row["manifest"]["variantId"] == assignment["variantId"]), None)
+        if not item:
+            raise VariantUnavailable("the assigned mastery-lab variant is no longer verified")
+        self.workspaces.write(performance.variant_family_id, assignment["variantId"], files)
+        workspace = self.workspaces.path(
+            performance.variant_family_id, assignment["variantId"])
+        contract = load_variant_assessment(item["root"])
+        scenarios = [scenario for scenario in contract.scenarios if scenario.public]
+        if not scenarios:
+            return {"ok": True, "checks": [],
+                    "output": "This lab has no learner-visible run check."}
+        environment = ensure_validation_environment(self.tome_id)
+        runner, registry = SandboxRunner(), default_registry()
+        with create_snapshot(workspace) as snapshot:
+            prepare = getattr(self.runtime, "prepare_assessment_dependencies", None)
+            if prepare:
+                prepare(snapshot.work)
+            context = {"runtime": self.runtime, "sandbox": runner,
+                       "sandboxPolicy": SandboxPolicy(), "work": snapshot.work,
+                       "env": environment}
+            outcomes = [{"id": scenario.id, "kind": scenario.kind,
+                         **registry.execute(scenario, context)} for scenario in scenarios]
+        return {"ok": all(row.get("passed") for row in outcomes), "checks": outcomes,
+                "output": "\n\n".join(str(row.get("output") or "") for row in outcomes
+                                      if row.get("output"))}

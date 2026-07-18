@@ -7,13 +7,15 @@ import sys
 import threading
 import time
 
-from ..forge.build_state import (BUILD_TOTAL_PHASES, build_result_status, load_author_session,
-                                 load_section_progress, save_active_owner)
-from ..config import BUILD_DIR, CLI_EFFORTS, ROOT
-from ..forge import (_clear_build_terminal_state, _plan_concept, _plan_gate, _resume_phase,
-                     _save_launch, author_activity_started_at, external_build_process,
-                     fresh_tome_id, list_active_builds, watch_build, working_is_active)
-from ..authoring.adapters.status_log import load_status_lines
+from ...forge.build_state import (BUILD_TOTAL_PHASES, build_result_status,
+                                  load_author_session, load_section_progress,
+                                  save_active_owner)
+from ...config import BUILD_DIR, CLI_EFFORTS, ROOT
+from ...forge import (_clear_build_terminal_state, _plan_concept, _plan_gate,
+                      _resume_phase, _save_launch, author_activity_started_at,
+                      external_build_process, fresh_tome_id, list_active_builds,
+                      watch_build, working_is_active)
+from .status_log import load_status_lines
 
 
 AUTHOR_KINDS = ("claude-cli", "antigravity-cli", "codex-cli", "opencode-cli")

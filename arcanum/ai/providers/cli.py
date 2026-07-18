@@ -7,9 +7,10 @@ import subprocess
 from arcanum.platform.agent_commands import scoped_runner_command
 
 from ..access import ensure_cli_access, ensure_remote_access
+from ..contracts.errors import ProviderConfigurationError
 from ...config import (AGY_BIN, CLAUDE_BIN, CODEX_BIN, OPENCODE_BIN, ROOT,
                        agy_print_args, codex_no_mcp_args)
-from ..models import AiRequest, AiResponse
+from ..models import AiInvocation, AiRequest, AiResponse
 
 
 class _CliProvider:
@@ -18,20 +19,27 @@ class _CliProvider:
     def command(self, request: AiRequest) -> tuple[list[str], str]:
         raise NotImplementedError
 
-    def complete(self, request: AiRequest) -> AiResponse:
+    def invocation(self, request: AiRequest) -> AiInvocation:
         command, input_mode = self.command(request)
         command = scoped_runner_command(
-            self.provider_id, command, request.workspace, [], ROOT)
+            self.provider_id, command, request.workspace,
+            list(request.writable_paths), ROOT,
+            readonly_paths=request.readonly_paths, web_allowed=request.web_allowed)
         ensure_cli_access(
             f"{self.provider_id} {request.model}".strip(), command, input_mode)
         environment = {key: value for key, value in os.environ.items() if key != "CLAUDECODE"}
         environment.update(ARCANUM_REPO_ROOT=ROOT, ARCANUM_TOME_ROOT=request.workspace,
                            PYTHONDONTWRITEBYTECODE="1")
+        return AiInvocation(tuple(command), input_mode, environment, request.workspace)
+
+    def complete(self, request: AiRequest) -> AiResponse:
+        invocation = self.invocation(request)
+        command, input_mode = list(invocation.argv), invocation.input_mode
         process = subprocess.run(
             command + ([request.input] if input_mode == "arg" else []),
             input=request.input if input_mode == "stdin" else None,
             capture_output=True, text=True, timeout=request.timeout,
-            env=environment, cwd=request.workspace)
+            env=invocation.environment, cwd=invocation.cwd)
         if process.returncode:
             raise RuntimeError(f"exit {process.returncode}: {process.stderr[:500]}")
         return AiResponse(self.provider_id, request.model, process.stdout,
@@ -55,9 +63,9 @@ class AntigravityCliProvider(_CliProvider):
 
     def command(self, request: AiRequest) -> tuple[list[str], str]:
         if request.model:
-            from ...models import GraderConfigError, agy_models
+            from .discovery import agy_models
             if request.model not in agy_models():
-                raise GraderConfigError(
+                raise ProviderConfigurationError(
                     f"model {request.model!r} does not exist in agy; run `agy models`")
         command = [AGY_BIN, "--dangerously-skip-permissions",
                    *agy_print_args(request.timeout)]
@@ -70,7 +78,7 @@ class CodexCliProvider(_CliProvider):
     provider_id = "codex-cli"
 
     def command(self, request: AiRequest) -> tuple[list[str], str]:
-        command = [CODEX_BIN, "--search", "exec", "--skip-git-repo-check",
+        command = [CODEX_BIN, "exec", "--skip-git-repo-check",
                    "-s", "read-only", *codex_no_mcp_args()]
         if request.model:
             command += ["-m", request.model]

@@ -12,9 +12,10 @@ from ..amender import clear_amend_state, load_amend_state, run_amender, save_ame
 
 
 class BinderService:
-    def __init__(self, jobs, processes):
+    def __init__(self, jobs, processes, ai):
         self.jobs = jobs
         self.processes = processes
+        self.ai = ai
 
     def start(self, tome_id: str, body: dict) -> tuple[dict, int]:
         request_text = str(body.get("request") or "").strip()
@@ -43,7 +44,7 @@ class BinderService:
         threading.Thread(
             target=run_amender,
             args=(job_id, tome_id, request_text, kind, model, effort, broad, iterate,
-                  reset_ok, review, review_path, self.jobs, self.processes),
+                  reset_ok, review, review_path, self.jobs, self.processes, self.ai),
             daemon=True).start()
         return {"ok": True, "jobId": job_id}, 200
 

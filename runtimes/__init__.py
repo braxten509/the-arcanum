@@ -1,79 +1,60 @@
-"""Runtime registry. A tome names its runtime (`[runtime] name = "..."`) and the server
-dispatches compile/run/diagnostics/package ops to it.
+"""Language-neutral runtime protocol, registry, and compatibility functions."""
+from __future__ import annotations
 
-Every language is pure TOML config, executed by the one config-driven engine in
-generic.py (commands + placeholders + regex diagnostics — see its docstring for the
-full key reference). Adding a language never requires Python: drop a
-`global-configs/runtimes/<name>.toml` describing the commands and any tome can use
-it with `[runtime] name = "<name>"`. Keys in the language toml are defaults; the
-tome's [runtime] table overrides them."""
 import os
-import re
-import tomllib
+from functools import lru_cache
 
-from . import generic
+from .command_runtime import CommandRuntime
+from .config import DEFAULT_RUNTIME, RuntimeConfigRepository
+from .protocol import Runtime
+from .registry import RuntimeRegistry
 
-_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                    "global-configs", "runtimes")
-DEFAULT = "dotnet"  # tomes that name no runtime get this (back-compat)
+@lru_cache(maxsize=1)
+def default_registry() -> RuntimeRegistry:
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return RuntimeRegistry.from_root(root)
 
 
 def lang_config(name):
-    """Defaults from global-configs/runtimes/<name>.toml, or {} if there is no such file."""
-    if not name or not re.fullmatch(r"[A-Za-z0-9_-]+", name):
-        return {}
     try:
-        with open(os.path.join(_DIR, name + ".toml"), "rb") as f:
-            return tomllib.load(f)
-    except FileNotFoundError:
+        return default_registry().configs.load_defaults(name)
+    except ValueError:
         return {}
 
 
-def resolve_config(cfg):
-    """A tome's [runtime] table merged over its language-toml defaults."""
-    cfg = dict(cfg or {})
-    cfg.setdefault("name", DEFAULT)
-    return {**lang_config(cfg["name"]), **cfg}
+def resolve_config(config):
+    return default_registry().configs.resolve(config).to_dict()
 
 
-def for_config(cfg):
-    """The runtime for a tome's [runtime] table: one config-driven engine, any language."""
-    return generic.CommandRuntime(resolve_config(cfg))
+def for_config(config):
+    return default_registry().for_config(config)
 
 
-def snippet_config(cfg):
-    """Return the trusted runtime config for isolated snippets and challenge solutions.
-
-    Sealed proof-v1 tomes deliberately set scaffoldCommand to an empty array so the learner
-    starts from a blank editor. Isolated snippets still need the language's disposable
-    project scaffold. Keep validation-package declarations from the tome, but do not reuse
-    its cumulative project layout for a one-program scratch run.
-    """
-    cfg = dict(cfg or {})
-    cfg.setdefault("name", DEFAULT)
-    defaults = lang_config(cfg["name"])
-    if cfg.get("scaffoldCommand") != [] or not defaults.get("scaffoldCommand"):
-        return cfg
-    scratch = {"name": cfg["name"]}
-    for key in ("validationDependencies", "validationProjectPackageCommand",
-                "validationPackageCommand", "validationEnv"):
-        if key in cfg:
-            scratch[key] = cfg[key]
-    return scratch
+def snippet_config(config):
+    runtime = default_registry()
+    values = dict(config or {})
+    values.setdefault("name", DEFAULT_RUNTIME)
+    defaults = runtime.configs.load_defaults(values["name"])
+    if values.get("scaffoldCommand") != [] or not defaults.get("scaffoldCommand"):
+        return values
+    return {key: value for key, value in values.items()
+            if key == "name" or key in {"validationDependencies",
+                                        "validationProjectPackageCommand",
+                                        "validationPackageCommand", "validationEnv"}}
 
 
-def for_snippets(cfg):
-    """Runtime for lesson labs, diagnostics, and duel reference solutions."""
-    return for_config(snippet_config(cfg))
+def for_snippets(config):
+    return default_registry().for_snippets(config)
 
 
 def get(name):
-    """Runtime by language-toml name (used by /api/health)."""
-    return for_config({"name": name or DEFAULT})
+    return default_registry().get(name)
 
 
 def names():
-    try:
-        return sorted(f[:-5] for f in os.listdir(_DIR) if f.endswith(".toml"))
-    except OSError:
-        return []
+    return list(default_registry().names())
+
+
+__all__ = ["CommandRuntime", "Runtime", "RuntimeConfigRepository", "RuntimeRegistry",
+           "default_registry", "for_config", "for_snippets", "get", "lang_config",
+           "names", "resolve_config", "snippet_config"]

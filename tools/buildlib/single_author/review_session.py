@@ -2,7 +2,14 @@
 import os
 
 from .. import BUILD_DIR, REPO
-from . import full_review
+from ..measure import validate_live_smoke, validate_shipping
+from .full_review import evidence_path, prompt as review_prompt, validate_report
+from .gate import context
+from .session.support import append_conversation as _append_conversation
+
+
+def append_conversation(build_id, kind, text, **extra):
+    return _append_conversation(BUILD_DIR, build_id, kind, text, **extra)
 
 
 class ReviewerSessionMixin:
@@ -33,7 +40,7 @@ class ReviewerSessionMixin:
                 continue
             switched = self.apply_author(control)
             message = str(control.get("text") or "").strip()
-            prompt = full_review.prompt(self.build_id, self.current_tome())
+            prompt = review_prompt(self.build_id, self.current_tome())
             if message:
                 prompt = message + "\n\n" + prompt
             verb = "Retrying" if retrying else "Resuming"
@@ -43,21 +50,17 @@ class ReviewerSessionMixin:
             return prompt, ("user" if message else "harness"), text
 
     def run_reviewer(self):
-        # Resolve these through the package facade at call time. Besides preserving
-        # the long-standing public seam, this keeps test and operator overrides local.
-        from . import (append_conversation, context, validate_live_smoke,
-                       validate_shipping)
         if not self.reviewer:
             return 0
         self.kind, self.model, self.effort = self.reviewer
         self.session_id = ""
         self.role = "reviewer"
         try:
-            os.remove(full_review.evidence_path(self.build_id))
+            os.remove(evidence_path(self.build_id))
         except OSError:
             pass
         tid = self.current_tome()
-        prompt = full_review.prompt(self.build_id, tid)
+        prompt = review_prompt(self.build_id, tid)
         conversation_kind, conversation_text = "harness", (
             "The optional independent reviewer is starting a thorough full-tome review. "
             "It must read every authored file; sampling is forbidden.")
@@ -66,7 +69,7 @@ class ReviewerSessionMixin:
             if outcome == "stopped":
                 break
             if outcome == "message":
-                prompt = message + "\n\n" + full_review.prompt(
+                prompt = message + "\n\n" + review_prompt(
                     self.build_id, self.current_tome())
                 conversation_kind, conversation_text = "user", message
                 continue
@@ -82,7 +85,7 @@ class ReviewerSessionMixin:
                 continue
             self.state("validating", stage="full-review")
             tid = self.current_tome()
-            evidence_ok, evidence_report = full_review.validate_report(self.build_id, tid)
+            evidence_ok, evidence_report = validate_report(self.build_id, tid)
             ctx = context(self.build_id)
             shipping_ok, shipping = validate_shipping(tid, ctx["tooling"], ctx["plan"])
             smoke_ok, smoke = validate_live_smoke(tid) if shipping_ok else (False, "")
@@ -98,7 +101,7 @@ class ReviewerSessionMixin:
                 "STRICT SHIPPING:\n" + shipping if not shipping_ok else "",
                 "LIVE SMOKE:\n" + smoke if shipping_ok and not smoke_ok else "",
             ) if part)
-            prompt = full_review.prompt(self.build_id, tid, report)
+            prompt = review_prompt(self.build_id, tid, report)
             conversation_kind, conversation_text = "harness", (
                 "The exhaustive reviewer pass did not clear its mechanical double-check. "
                 "The exact report was returned to the same reviewer session.")

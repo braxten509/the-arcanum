@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import tome_layout
 from buildlib.continuity import validate_handoff
-from validatelib import _findings, load_toml, rel
+from validatelib import clear_findings, current_findings, load_toml, rel
 from validatelib.content import check_anti_template, check_content, check_density
 from validatelib.content.coverage import check_capability_ledger, check_canonical_type_regressions
 from validatelib.content.depth import (check_freestyle_scope, check_name_drift,
@@ -74,7 +74,7 @@ def main():
         if not clean:
             problems.append(report or f"section {sid} handoff failed without a diagnostic")
 
-    _findings.clear()
+    clear_findings()
     if sections_data:
         # Only the completed prefix participates: Phase-2 placeholders in future
         # sections cannot dilute medians or manufacture false template findings.
@@ -91,8 +91,9 @@ def main():
         check_presolved_static(manifest, sections_data)
         check_name_drift(sections_data)
         check_self_answering(sections_data)
-    for level, label, message in _findings:
-        problems.append(f"{level} {label}: {message}")
+    for finding in current_findings():
+        problems.append(
+            f"{finding.severity.value.upper()} {finding.location}: {finding.message}")
 
     if problems:
         for problem in problems:

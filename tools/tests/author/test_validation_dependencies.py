@@ -24,7 +24,7 @@ from buildlib.course_map import validation_dependency_alignment_problems
 from buildlib.course.dependencies import external_workspace_capability_alignment_problems
 from runtimes import common as runtime_common
 from runtimes import snippet_config
-from runtimes.generic import CommandRuntime
+from runtimes.command_runtime import CommandRuntime
 
 
 def test_environment_dependencies_are_isolated_cached_and_exported():

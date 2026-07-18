@@ -5,8 +5,6 @@ import glob
 import json
 import os
 
-from runtimes import for_config, for_snippets
-
 from .assembly import assemble_public_tome
 from .build_ids import resolve_working_id
 from .filesystem import ManifestRepository
@@ -14,9 +12,10 @@ from .paths import TomePaths
 
 
 class TomeCatalogService:
-    def __init__(self, paths: TomePaths, manifests: ManifestRepository):
-        self.paths = paths
-        self.manifests = manifests
+    def __init__(self, paths: TomePaths, manifests: ManifestRepository,
+                 runtime_registry):
+        self.paths, self.manifests = paths, manifests
+        self.runtime_registry = runtime_registry
 
     def resolve_working_id(self, plan_id: str, text: str) -> str:
         return resolve_working_id(plan_id, text, self.paths.settings.tomes_root)
@@ -78,14 +77,19 @@ class TomeCatalogService:
         return self.manifests.load(tome_id)
 
     def assemble(self, tome_id: str) -> dict:
-        return assemble_public_tome(self.manifest(tome_id), self.paths.tome(tome_id),
-                                    self.paths.settings.skins_root)
+        manifest = self.manifest(tome_id)
+        resolved = self.runtime_registry.configs.resolve(
+            manifest.get("runtime") or {}).to_dict()
+        return assemble_public_tome(manifest, self.paths.tome(tome_id),
+                                    self.paths.settings.skins_root, resolved)
 
     def runtime(self, tome_id: str):
-        return for_config((self.manifest(tome_id).get("runtime") or {}))
+        return self.runtime_registry.for_config(
+            self.manifest(tome_id).get("runtime") or {})
 
     def snippet_runtime(self, tome_id: str):
-        return for_snippets((self.manifest(tome_id).get("runtime") or {}))
+        return self.runtime_registry.for_snippets(
+            self.manifest(tome_id).get("runtime") or {})
 
     def project_name(self, tome_id: str) -> str:
         return (self.manifest(tome_id).get("runtime") or {}).get("project", "Project")

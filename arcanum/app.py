@@ -4,6 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 import os
 
+from runtimes import RuntimeRegistry
+
 from .ai import AiService, build_default_ai_service
 from .authoring.services import BinderService, ForgeService, LegacyGradingService
 from .assessment.use_cases import AssessmentApplication, MasteryLabApplication
@@ -18,6 +20,7 @@ from .workspace import WorkspaceService
 @dataclass(frozen=True)
 class AppServices:
     settings: Settings
+    runtimes: RuntimeRegistry
     catalog: TomeCatalogService
     workspaces: WorkspaceService
     user_settings: UserSettingsStore
@@ -46,7 +49,7 @@ class AppServices:
     def mastery_labs(self, tome_id: str) -> MasteryLabApplication:
         return MasteryLabApplication(
             self.catalog.paths.tome(tome_id), self.workspaces.ensure_save(tome_id),
-            self.catalog.runtime(tome_id))
+            self.catalog.runtime(tome_id), tome_id)
 
 
 def create_app_services(settings: Settings | None = None) -> AppServices:
@@ -54,7 +57,8 @@ def create_app_services(settings: Settings | None = None) -> AppServices:
     os.makedirs(settings.cache_root, exist_ok=True)
     os.makedirs(settings.tomes_root, exist_ok=True)
     paths = TomePaths(settings)
-    catalog = TomeCatalogService(paths, ManifestRepository(paths))
+    runtime_registry = RuntimeRegistry.from_root(settings.root)
+    catalog = TomeCatalogService(paths, ManifestRepository(paths), runtime_registry)
     workspaces = WorkspaceService(catalog, paths)
     jobs = JobManager(InMemoryJobStore())
     user_settings = UserSettingsStore(settings.user_settings_path)
@@ -63,8 +67,8 @@ def create_app_services(settings: Settings | None = None) -> AppServices:
     states = LearnerStateService(workspaces, jobs, user_settings)
     execution = ExecutionService(catalog, workspaces)
     legacy_grading = LegacyGradingService(jobs, catalog, workspaces, ai)
-    binder = BinderService(jobs, processes)
+    binder = BinderService(jobs, processes, ai)
     forge = ForgeService(settings, jobs, processes, catalog)
-    return AppServices(settings, catalog, workspaces, user_settings,
+    return AppServices(settings, runtime_registry, catalog, workspaces, user_settings,
                        jobs, processes, ai, states, execution, legacy_grading, binder,
                        forge)

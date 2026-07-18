@@ -21,6 +21,7 @@ from arcanum import forge
 from arcanum.catalog import ManifestRepository, TomeCatalogService, TomePaths
 from arcanum.forge import build_state
 from arcanum.settings import Settings
+from runtimes import RuntimeRegistry
 from tools.buildlib import continuity, course_map
 from tools.buildlib.course import control as course_control
 from tools.buildlib.course import state as course_state
@@ -224,7 +225,8 @@ def exercise_legacy_fallback(root, phase):
                                 str(Path(root, "skins")),
                                 str(Path(root, "settings.toml")), 8777)
             paths = TomePaths(settings)
-            catalog = TomeCatalogService(paths, ManifestRepository(paths))
+            catalog = TomeCatalogService(paths, ManifestRepository(paths),
+                                         RuntimeRegistry.from_root(root))
             workings = forge.list_workings(JobManager(), catalog)
         assert [(row["id"], row["tome"], row["phase"]) for row in workings] == [
             ("build", "demo", 3)

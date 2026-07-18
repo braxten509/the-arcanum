@@ -6,7 +6,7 @@ import shutil
 import subprocess
 import tempfile
 
-from .. import common
+import runtimes.common as common
 from .templates import substitute
 
 MAX_FILES = 400

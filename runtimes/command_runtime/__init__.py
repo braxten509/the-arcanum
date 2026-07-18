@@ -1,8 +1,5 @@
-"""Cohesive mixins used by the TOML-driven CommandRuntime facade."""
+"""Cohesive operations and public TOML-driven command runtime."""
 
-from .diagnostics import DiagnosticsMixin
-from .execution import ExecutionMixin
-from .snippets import SnippetMixin
-from .workspace import WorkspaceMixin
+from .runtime import CommandRuntime
 
-__all__ = ["DiagnosticsMixin", "ExecutionMixin", "SnippetMixin", "WorkspaceMixin"]
+__all__ = ["CommandRuntime"]

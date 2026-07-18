@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import os
 
-from runtimes import get as get_runtime, names as runtime_names
-
 from arcanum.ai.catalog import model_census
 from arcanum.config import CLAUDE_BIN
 
@@ -16,7 +14,8 @@ class HealthEndpoints:
         self.services = services
 
     def health(self, _request) -> Response:
-        available = {name: get_runtime(name).available() for name in runtime_names()}
+        available = {name: self.services.runtimes.get(name).available()
+                     for name in self.services.runtimes.names()}
         for tome in self.services.catalog.list():
             if tome.get("runtime") not in available:
                 try:

@@ -8,9 +8,6 @@ import tomllib
 import tome_layout
 from tome_proof import public_section
 
-from runtimes import resolve_config as resolve_runtime_config
-
-
 def _read_toml(path: str) -> dict:
     with open(path, "rb") as handle:
         return tomllib.load(handle)
@@ -47,7 +44,8 @@ def list_skins(skins_root: str) -> list[dict]:
     return out
 
 
-def assemble_public_tome(manifest: dict, tome_root: str, skins_root: str) -> dict:
+def assemble_public_tome(manifest: dict, tome_root: str, skins_root: str,
+                         runtime_config: dict) -> dict:
     if not str((manifest.get("narrative") or {}).get("objective") or "").strip():
         tome_id = (manifest.get("meta") or {}).get("id") or os.path.basename(tome_root)
         raise ValueError(f"tome {tome_id!r}: [narrative] objective is required — "
@@ -58,7 +56,7 @@ def assemble_public_tome(manifest: dict, tome_root: str, skins_root: str) -> dic
         tome_root, (manifest.get("content") or {}).get("attacks", "generated/attacks.toml"))
     attacks = _read_toml(attack_path).get("tiers", []) if os.path.isfile(attack_path) else []
     payload = tome_layout.merge_banks(dict(manifest), tome_root)
-    payload["runtime"] = resolve_runtime_config(manifest.get("runtime") or {})
+    payload["runtime"] = runtime_config
     payload["sections"] = sections
     payload["masteryLabs"] = public_mastery_labs(tome_root)
     evidence_path = os.path.join(tome_root, "generated", "mastery-evidence.json")

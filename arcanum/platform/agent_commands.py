@@ -60,18 +60,21 @@ def _replace_flag_value(cmd, flag, value):
     return out
 
 
-def _claude_command(cmd, repo):
+def _claude_command(cmd, repo, web_allowed=True):
     out = _replace_flag_value(cmd, "--permission-mode", "auto")
     # A one-shot grader used to pass `--tools ""`; remove it so repo reads, trusted Python,
     # and current-source lookup are actually available. Bubblewrap remains the write boundary.
     while "--tools" in out:
         i = out.index("--tools")
         del out[i:i + 2]
-    settings = {
-        "permissions": {"allow": [
+    allowed = [
             f"Read(//{repo.lstrip('/')}/**)", "Bash", "Edit", "Write", "MultiEdit",
-            "NotebookEdit", "WebSearch", "WebFetch(domain:*)",
-        ]},
+            "NotebookEdit",
+        ]
+    if web_allowed:
+        allowed += ["WebSearch", "WebFetch(domain:*)"]
+    settings = {
+        "permissions": {"allow": allowed},
         # The outer mount namespace is authoritative and works uniformly for every provider.
         # Avoid stacking Claude's nested sandbox, which cannot express file-level sidecars.
         "sandbox": {"enabled": False},
@@ -79,12 +82,14 @@ def _claude_command(cmd, repo):
     return [*out, "--settings", json.dumps(settings, separators=(",", ":"))]
 
 
-def _codex_command(cmd):
+def _codex_command(cmd, web_allowed=True):
     out = list(cmd)
     exec_i = out.index("exec") if "exec" in out else 1
-    if "--search" not in out:
+    if web_allowed and "--search" not in out:
         out.insert(exec_i, "--search")
         exec_i += 1
+    if not web_allowed:
+        out = [item for item in out if item != "--search"]
     if "resume" in out[exec_i + 1:]:
         # `codex exec resume` has no -s/--sandbox flag. The outer bwrap is the actual
         # project boundary, so use Codex's explicit externally-sandboxed automation mode.
@@ -105,11 +110,11 @@ def _opencode_command(cmd):
     return out
 
 
-def _normalized_command(provider, cmd, repo):
+def _normalized_command(provider, cmd, repo, web_allowed=True):
     if provider == "claude":
-        return _claude_command(cmd, repo)
+        return _claude_command(cmd, repo, web_allowed)
     if provider == "codex":
-        return _codex_command(cmd)
+        return _codex_command(cmd, web_allowed)
     if provider == "opencode":
         return _opencode_command(cmd)
     # Antigravity has no narrower unattended approval mode. The outer mount namespace
@@ -120,7 +125,8 @@ def _normalized_command(provider, cmd, repo):
     return out
 
 
-def scoped_runner_command(name, cmd, cwd, writable_paths, repo, readonly_paths=()):
+def scoped_runner_command(name, cmd, cwd, writable_paths, repo, readonly_paths=(),
+                          web_allowed=True):
     """Wrap one agent CLI with repo-read/web/temp plus explicitly scoped project writes.
 
     `writable_paths` must already exist. They may be directories (normal tome/section work)
@@ -163,7 +169,8 @@ def scoped_runner_command(name, cmd, cwd, writable_paths, repo, readonly_paths=(
             continue
         wrapped.extend(("--ro-bind", path, path))
     wrapped.extend(("--chdir", cwd))
-    return [*wrapped, *resolve_bin(_normalized_command(provider, cmd, repo))]
+    return [*wrapped, *resolve_bin(_normalized_command(
+        provider, cmd, repo, web_allowed))]
 
 
 def section_runner_command(name, cmd, section_dir, repo, writable_sidecars=()):

@@ -11,10 +11,13 @@ Exit 0 = clean (WARNs allowed). Exit 1 = at least one ERROR. Stdlib only.
 The checks live in tools/validatelib/ (see its __init__ for the module map);
 this file is the CLI + the orchestrator."""
 import argparse
+import json
 import os
 import sys
 
-from validatelib import ID_RE, _findings, err, load_toml, rel, set_build_phase, warn
+from validatelib import ID_RE, err, load_toml, rel, replace_findings, warn
+from arcanum_core.findings import Severity
+from validatelib.engine import CheckRegistry, CheckSpec, ValidationContext
 from validatelib.attacks import check_attacks, check_attacks_sync, check_intrusions
 from validatelib.content import (check_anti_template, check_content, check_density,
                                  check_literal_newlines, check_section)
@@ -42,9 +45,12 @@ from buildlib.course.limits import MAX_SECTIONS, MIN_SECTIONS, section_count_err
 import tome_layout  # noqa: E402 — validatelib put REPO on sys.path; in lockstep with server
 
 
-def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_section=None,
-             require_proof_v1=False, build_plan=None, source_only=False):
-    tome_path = os.path.abspath(tome_path.rstrip(os.sep))
+def _legacy_validation_check(context: ValidationContext):
+    tome_path = os.path.abspath(context.tome_path.rstrip(os.sep))
+    run, tooling = context.run, context.tooling
+    phase2_skeleton, run_section = context.phase2_skeleton, context.run_section
+    require_proof_v1, build_plan = context.require_proof_v1, context.build_plan
+    source_only = context.source_only
     tome_id = os.path.basename(tome_path)
     manifest = os.path.join(tome_path, "tome.toml")
     label = rel(manifest)
@@ -56,6 +62,7 @@ def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_sect
     if e:
         err(label, e)
         return
+    context.manifest = m
     if run:
         try:
             # Harness launches already carry this environment. Activating it here as
@@ -146,15 +153,7 @@ def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_sect
         if prefix_ids is None or str(sid) in prefix_ids:
             check_section(sdata, sid, slabel, seen_ex, seen_les)
         sections_data.append(sdata)
-    for finding in validate_mastery_evidence(
-            tome_path, m, sections_data, build_plan=build_plan,
-            phase2_skeleton=phase2_skeleton,
-            include_variants=not phase2_skeleton and not bool(run_section)):
-        if finding.severity.value == "error":
-            err(finding.location, f"[{finding.code}] {finding.message}")
-        else:
-            warn(finding.location, f"[{finding.code}] {finding.message}",
-                 phase=finding.phase or 7)
+    context.sections = sections_data
     if phase2_skeleton:
         check_phase2_skeleton(sections_data)
         check_tooling_contract(m, sections_data, label, tooling)
@@ -233,17 +232,62 @@ def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_sect
         try:
             from arcanum.catalog import create_catalog
             payload = create_catalog(installed_root.rsplit(os.sep, 1)[0]).assemble(tome_id)
+            context.public_payload = payload
             if len(payload.get("sections", [])) != len(sections_data):
                 err("loader", f"assembled payload has {len(payload.get('sections', []))} section(s), "
                     f"validator loaded {len(sections_data)}")
-            if evidence_payload_privacy_enabled(m):
-                for finding in payload_findings(payload):
-                    err(finding.location, f"[{finding.code}] {finding.message}")
         except Exception as ex:
             err("loader", f"the server's assemble_tome() path failed: {type(ex).__name__}: {ex}")
     else:
         warn("advisory", "server assembly was skipped because this tome is outside the repo's "
              "tomes/ directory; install it there to exercise the /api/tome loader path")
+
+
+def _mastery_validation_check(context: ValidationContext):
+    return validate_mastery_evidence(
+        os.path.abspath(context.tome_path), context.manifest, context.sections,
+        build_plan=context.build_plan, phase2_skeleton=context.phase2_skeleton,
+        include_variants=not context.phase2_skeleton and not bool(context.run_section))
+
+
+def _payload_privacy_check(context: ValidationContext):
+    if (context.public_payload is None
+            or not evidence_payload_privacy_enabled(context.manifest)):
+        return ()
+    return payload_findings(context.public_payload)
+
+
+def _validator_registry() -> CheckRegistry:
+    registry = CheckRegistry()
+    registry.register(CheckSpec(
+        "legacy-tome-contracts", 1, _legacy_validation_check,
+        cost="process", capabilities=("filesystem", "runtime-when-enabled")))
+    registry.register(CheckSpec(
+        "mastery-evidence-contract", 1, _mastery_validation_check,
+        capabilities=("mastery-evidence",)))
+    registry.register(CheckSpec(
+        "learner-payload-privacy", 1, _payload_privacy_check,
+        capabilities=("public-payload",)))
+    checks = registry.check_ids()
+    for profile in ("fast", "phase2", "section", "strict", "shipping"):
+        registry.profile(profile, checks)
+    return registry
+
+
+VALIDATOR_REGISTRY = _validator_registry()
+
+
+def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_section=None,
+             require_proof_v1=False, build_plan=None, source_only=False,
+             build_phase=None):
+    context = ValidationContext(
+        tome_path=os.path.abspath(tome_path.rstrip(os.sep)), run=bool(run),
+        tooling=tooling, phase2_skeleton=bool(phase2_skeleton),
+        run_section=run_section, require_proof_v1=bool(require_proof_v1),
+        build_plan=build_plan, source_only=bool(source_only), build_phase=build_phase)
+    findings = VALIDATOR_REGISTRY.run(context.profile, context)
+    replace_findings(findings)
+    return findings
 
 
 def main():
@@ -289,6 +333,8 @@ def main():
                     help="harness-owned future-tome gate: proofVersion = 1 cannot be removed")
     ap.add_argument("--build-plan", metavar="PATH", default=None,
                     help="Phase-1 plan whose machine-readable acceptance scenarios must match")
+    ap.add_argument("--format", choices=("text", "json"), default="text",
+                    help="render the stable human report or a versioned Finding JSON document")
     args = ap.parse_args()
 
     if args.phase_1_plan and args.phase_2_skeleton:
@@ -309,20 +355,19 @@ def main():
         print(f"-- {os.path.basename(plan)}: {'clean' if clean else '1 error(s)'} [Phase 1 Arc]")
         sys.exit(0 if clean else 1)
 
-    set_build_phase(args.build_phase)
-    validate(args.tome, run=args.run, tooling=args.tooling,
-             phase2_skeleton=args.phase_2_skeleton, run_section=args.run_section,
-             require_proof_v1=args.require_proof_v1, build_plan=args.build_plan,
-             source_only=args.source_only)
-
-    errors = sum(1 for f in _findings if f[0] == "ERROR")
-    suppressed = sum(1 for f in _findings if args.phase_only and f[0] == "WARN")
-    reported = [finding for finding in _findings
-                if not (args.phase_only and finding[0] == "WARN")]
-    warns = sum(1 for f in reported if f[0] == "WARN")
-    hard = sum(1 for lv, lbl, _ in reported if lv == "WARN" and lbl != "advisory")
-    for level, lbl, msg in reported:
-        print(f"{level} {lbl}: {msg}")
+    findings = validate(
+        args.tome, run=args.run, tooling=args.tooling,
+        phase2_skeleton=args.phase_2_skeleton, run_section=args.run_section,
+        require_proof_v1=args.require_proof_v1, build_plan=args.build_plan,
+        source_only=args.source_only, build_phase=args.build_phase)
+    errors = sum(1 for finding in findings if finding.severity is Severity.ERROR)
+    suppressed = sum(1 for finding in findings
+                     if args.phase_only and finding.severity is Severity.WARNING)
+    reported = [finding for finding in findings
+                if not (args.phase_only and finding.severity is Severity.WARNING)]
+    warns = sum(1 for finding in reported if finding.severity is Severity.WARNING)
+    hard = sum(1 for finding in reported
+               if finding.severity is Severity.WARNING and not finding.advisory)
     strict_note = f", {hard} hard-gate warn(s) [--strict]" if args.strict and hard else ""
     deferred_note = (f" [{suppressed} later-phase warning(s) deferred]"
                      if suppressed else "")
@@ -332,8 +377,22 @@ def main():
         mode_note += " [source acceptance only; package deferred]"
     if args.build_phase is not None:
         mode_note += f" [Phase {args.build_phase} owned-warning gate]"
-    print(f"-- {os.path.basename(os.path.abspath(args.tome.rstrip(os.sep)))}: "
-          f"{errors} error(s), {warns} warning(s){strict_note}{deferred_note}{mode_note}")
+    tome_name = os.path.basename(os.path.abspath(args.tome.rstrip(os.sep)))
+    if args.format == "json":
+        print(json.dumps({
+            "version": 1,
+            "tome": tome_name,
+            "findings": [finding.to_dict() for finding in reported],
+            "summary": {"errors": errors, "warnings": warns,
+                        "hardWarnings": hard, "suppressed": suppressed,
+                        "strict": bool(args.strict)},
+        }, ensure_ascii=False, separators=(",", ":")))
+    else:
+        for finding in reported:
+            level = "ERROR" if finding.severity is Severity.ERROR else "WARN"
+            print(f"{level} {finding.location}: {finding.message}")
+        print(f"-- {tome_name}: {errors} error(s), {warns} warning(s)"
+              f"{strict_note}{deferred_note}{mode_note}")
     sys.exit(1 if errors or (args.strict and hard) else 0)
 
 

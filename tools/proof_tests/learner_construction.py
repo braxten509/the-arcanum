@@ -2,7 +2,7 @@
 import copy
 
 from tome_proof import public_section
-from validatelib import _findings
+from validatelib import clear_findings, legacy_current_findings
 from validatelib.proof import _check_blank_learner_scaffold, _check_lesson
 
 
@@ -50,17 +50,19 @@ def check_learner_author_work_order(section_factory, findings_for, assert_error)
 def check_sealed_map_work_order_boundary(section_factory):
     authored = section_factory()
     lesson = authored["lessons"][0]
-    _findings.clear()
+    clear_findings()
     _check_lesson(authored, lesson, "sealed-map", set(), work_orders_only=True)
-    assert not [item for item in _findings if item[0] == "ERROR"], _findings
+    findings = legacy_current_findings()
+    assert not [item for item in findings if item[0] == "ERROR"], findings
 
     replay_leak = copy.deepcopy(lesson)
     replay_leak["artifactSteps"] = [copy.deepcopy(
         authored["freestyle"]["referenceSteps"][0])]
-    _findings.clear()
+    clear_findings()
     _check_lesson(authored, replay_leak, "sealed-map", set(), work_orders_only=True)
+    findings = legacy_current_findings()
     assert any(level == "ERROR" and "mode 'author'" in message
-               for level, _label, message in _findings), _findings
+               for level, _label, message in findings), findings
 
     work_order = copy.deepcopy(lesson)
     work_order["artifactSteps"] = [{
@@ -68,15 +70,18 @@ def check_sealed_map_work_order_boundary(section_factory):
         "instruction": "Author main.py from the taught contract and run its focused proof.",
         "checks": ["The focused proof prints the required milestone and exits cleanly."],
     }]
-    _findings.clear()
+    clear_findings()
     _check_lesson(authored, work_order, "sealed-map", set(), work_orders_only=True)
-    assert not [item for item in _findings if item[0] == "ERROR"], _findings
+    findings = legacy_current_findings()
+    assert not [item for item in findings if item[0] == "ERROR"], findings
 
-    _findings.clear()
+    clear_findings()
     _check_blank_learner_scaffold({"runtime": {"name": "python"}})
+    findings = legacy_current_findings()
     assert any(level == "ERROR" and "empty starterCode" in message
-               for level, _label, message in _findings), _findings
-    _findings.clear()
+               for level, _label, message in findings), findings
+    clear_findings()
     _check_blank_learner_scaffold({
         "runtime": {"name": "python", "starterCode": "", "scaffoldCommand": []}})
-    assert not [item for item in _findings if item[0] == "ERROR"], _findings
+    findings = legacy_current_findings()
+    assert not [item for item in findings if item[0] == "ERROR"], findings

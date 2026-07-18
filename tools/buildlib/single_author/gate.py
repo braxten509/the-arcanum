@@ -8,10 +8,9 @@ import subprocess
 import time
 
 from .. import BUILD_DIR, REPO
-from ..measure import (phase3_validator_argv, preflight_validator_runtime,
-                      section_source_validator_argv, validate, validate_live_smoke,
-                      validate_phase3, validate_section, validate_shipping,
-                      validator_argv)
+from ..authoring import standard_phase_registry
+from ..measure import (preflight_validator_runtime, section_source_validator_argv,
+                       validate_phase3, validate_section)
 from ..workflow.prompts import LEARNER_CONSTRUCTION_INSTRUCTION, read_tooling
 from ..workflow.phase_reset import capture_phase_snapshot
 from ..workflow.section_progress import write_section_progress
@@ -19,16 +18,15 @@ from ..continuity import continuity_prompt, prepare_handoff
 from ..course.control import append_course_control
 from ..course_map import CourseMapError, load_course_map, map_path
 from ..course.state import (derive_course_state, record_section_failure,
-                           record_section_verification, refresh_course_verifications)
+                           record_section_verification)
 from ..prerequisites.review import review_prerequisites
 from ..mechanism_contract import candidate_with_findings
-from ..mastery_evidence import export_mastery_contract, validate_semantic_review
 from ..course.amend import amend_course_map
 from arcanum.catalog.build_ids import resolve_working_id
 from tools.validatelib.phase3 import tome_section_ids
 
-PHASES = ("Concept & arc", "Skeleton & voice", "Sections", "Minigames",
-          "Economy", "Cosmetics", "Validate", "Student review")
+PHASE_REGISTRY = standard_phase_registry()
+PHASES = tuple(definition.title for definition in PHASE_REGISTRY.definitions())
 
 
 def _read(path, default=None):
@@ -64,7 +62,7 @@ def current_unit(build_id, fallback_phase=1, require_gate=False):
     progress = _read(os.path.join(BUILD_DIR, f"{build_id}.progress"), {}) or {}
     phase = int(progress.get("phase") or fallback_phase)
     state = str(progress.get("state") or "working")
-    if phase == 3:
+    if PHASE_REGISTRY.get(phase).unit_kind == "section":
         section = _read(os.path.join(BUILD_DIR, f"{build_id}.section-progress.json"), {}) or {}
         if section.get("section") and (not require_gate or section.get("state") in
                                        ("validating", "complete")):
@@ -83,7 +81,7 @@ def ensure_unit(build_id, fallback_phase=1):
     phase = int(progress.get("phase") or fallback_phase)
     if not progress:
         _write_phase(build_id, phase, "working")
-    if phase == 3:
+    if PHASE_REGISTRY.get(phase).unit_kind == "section":
         section_path = os.path.join(BUILD_DIR, f"{build_id}.section-progress.json")
         section = _read(section_path, {}) or {}
         ctx = context(build_id)
@@ -109,7 +107,7 @@ def ensure_unit(build_id, fallback_phase=1):
 def label(unit):
     return (f"Phase 3 section {unit['section']} ({unit['index']}/{unit['total']})"
             if unit["kind"] == "section" else
-            f"Phase {unit['phase']} — {PHASES[unit['phase'] - 1]}")
+            f"Phase {unit['phase']} — {PHASE_REGISTRY.get(unit['phase']).title}")
 
 
 def validate_unit(build_id, unit):
@@ -180,44 +178,12 @@ def validate_unit(build_id, unit):
                 record_section_failure(build_id, unit["section"], full)
                 return False, report
         return True, report
-    phase = int(unit["phase"])
-    if phase == 1:
-        ok, report = validate(build_id, phase=1, plan_rel=ctx["plan"])
-    elif phase == 2:
-        ok, report = validate(ctx["tid"], phase=2, tooling=ctx["tooling"], run=False,
-                              plan_rel=ctx["plan"])
-    elif phase == 3:
-        ok, report = validate_phase3(ctx["tid"], ctx["tooling"], ctx["plan"], ())
-    elif phase in (4, 5, 6):
-        ok, report = validate(ctx["tid"], phase=phase, tooling=ctx["tooling"], run=False,
-                              plan_rel=ctx["plan"], phase_only=True)
-    else:
-        generation_report = ""
-        if phase == 7:
-            generated = subprocess.run(
-                ["python3", "tools/gen_mastery_labs.py", ctx["tid"],
-                 "--build-id", build_id], cwd=REPO, capture_output=True, text=True)
-            generation_report = (generated.stdout + generated.stderr).strip()
-            if generated.returncode:
-                return False, "MASTERY VARIANT GENERATION:\n" + generation_report
-        if phase == 8:
-            review_ok, review_report = validate_semantic_review(
-                BUILD_DIR, build_id, os.path.join(REPO, "tomes", ctx["tid"]))
-            if not review_ok:
-                return False, "MASTERY SEMANTIC REVIEW:\n" + review_report
-            generation_report = review_report
-        ok, report = validate_shipping(ctx["tid"], ctx["tooling"], ctx["plan"])
-        report = "\n".join(part for part in (generation_report, report) if part)
-        if ok:
-            try:
-                refresh_course_verifications(build_id, report)
-            except ValueError as exc:
-                return False, "\n".join(part for part in (report, str(exc)) if part)
-            smoke_ok, smoke = validate_live_smoke(ctx["tid"])
-            return smoke_ok, "\n".join(part for part in (report, smoke) if part)
-    if ok and phase in (1, 2):
+    definition = PHASE_REGISTRY.get(int(unit["phase"]))
+    ok, report = definition.validate(build_id, ctx)
+    if ok and definition.transition_command:
         transition = subprocess.run(
-            ["python3", "tools/workflow/author_phase_transition.py", build_id, str(phase)],
+            ["python3", "tools/workflow/author_phase_transition.py", build_id,
+             str(definition.phase)],
             cwd=REPO, capture_output=True, text=True)
         transition_report = (transition.stdout + transition.stderr).strip()
         return transition.returncode == 0, "\n".join(
@@ -229,7 +195,8 @@ def _write_phase(build_id, phase, state):
     path = os.path.join(BUILD_DIR, f"{build_id}.progress")
     prior = _read(path, {}) or {}
     started = prior.get("phaseStartedAt") if prior.get("phase") == phase else time.time()
-    _write(path, {"phase": phase, "phaseTitle": PHASES[phase - 1], "state": state,
+    _write(path, {"phase": phase, "phaseTitle": PHASE_REGISTRY.get(phase).title,
+                  "state": state,
                   "phaseStartedAt": started, "updatedAt": time.time()})
 
 
@@ -258,21 +225,20 @@ def advance_unit(build_id, unit):
         _write_phase(build_id, 4, "working")
         _capture_phase_start(build_id, 4)
         return current_unit(build_id, 4)
-    phase = int(unit["phase"])
-    _write_phase(build_id, phase, "complete")
-    if phase == 8:
+    definition = PHASE_REGISTRY.get(int(unit["phase"]))
+    _write_phase(build_id, definition.phase, "complete")
+    if definition.on_exit:
+        definition.on_exit(build_id, context(build_id))
+    successor = PHASE_REGISTRY.next(definition.phase)
+    if successor is None:
         return None
-    if phase == 2:
-        ctx = context(build_id)
-        export_mastery_contract(
-            load_course_map(build_id), os.path.join(REPO, "tomes", ctx["tid"]))
-    _write_phase(build_id, phase + 1, "working")
-    if phase + 1 == 3:
+    _write_phase(build_id, successor.phase, "working")
+    if successor.unit_kind == "section":
         sections = tome_section_ids(os.path.join(REPO, "tomes", context(build_id)["tid"]))
         first = sections[0] if sections else "s01"
         write_section_progress(build_id, first, 1, max(1, len(sections)), "authoring")
-    _capture_phase_start(build_id, phase + 1)
-    return current_unit(build_id, phase + 1)
+    _capture_phase_start(build_id, successor.phase)
+    return current_unit(build_id, successor.phase)
 
 
 def self_validation_commands(build_id, unit):
@@ -282,31 +248,7 @@ def self_validation_commands(build_id, unit):
         commands = [section_source_validator_argv(
             ctx["tid"], unit["section"], ctx["tooling"], ctx["plan"])]
     else:
-        phase = int(unit["phase"])
-        if phase == 1:
-            commands = [validator_argv(ctx["tid"], phase=1, plan_rel=ctx["plan"])]
-        elif phase == 2:
-            commands = [validator_argv(
-                ctx["tid"], phase=2, tooling=ctx["tooling"], run=False,
-                plan_rel=ctx["plan"])]
-        elif phase == 3:
-            commands = [phase3_validator_argv(
-                ctx["tid"], ctx["tooling"], ctx["plan"], run=True)]
-        elif phase in (4, 5, 6):
-            commands = [validator_argv(
-                ctx["tid"], phase=phase, tooling=ctx["tooling"], run=False,
-                plan_rel=ctx["plan"], phase_only=True)]
-        else:
-            commands = ([] if phase != 7 else [[
-                "python3", "tools/gen_mastery_labs.py", ctx["tid"],
-                "--build-id", build_id,
-            ]]) + ([] if phase != 8 else [[
-                "python3", "tools/validate_mastery_review.py", build_id, ctx["tid"],
-            ]]) + [
-                phase3_validator_argv(
-                    ctx["tid"], ctx["tooling"], ctx["plan"], run=True, strict=True),
-                ["python3", "tools/smoke_tome.py", ctx["tid"]],
-            ]
+        commands = PHASE_REGISTRY.get(unit["phase"]).self_checks(build_id, ctx)
     return [shlex.join(command) for command in commands]
 
 
@@ -316,19 +258,7 @@ def preflight_unit(build_id, unit):
     if unit["kind"] == "section":
         entrypoints = ("tools/validate_section.py",)
     else:
-        phase = int(unit["phase"])
-        if phase in (3, 7, 8):
-            entrypoints = ("tools/validate_phase3.py",)
-        else:
-            entrypoints = ("tools/validate_tome.py",)
-        if phase in (1, 2):
-            entrypoints += ("tools/workflow/author_phase_transition.py",)
-        if phase in (7, 8):
-            entrypoints += ("tools/smoke_tome.py",)
-        if phase == 7:
-            entrypoints += ("tools/gen_mastery_labs.py",)
-        if phase == 8:
-            entrypoints += ("tools/validate_mastery_review.py",)
+        entrypoints = PHASE_REGISTRY.get(unit["phase"]).preflight_entrypoints
     preflight_validator_runtime(ctx["tid"], entrypoints)
 
 

@@ -14,7 +14,7 @@ from ..course_map import load_course_map
 from ..continuity import (SUPPORTED_HANDOFF_VERSIONS, handoff_digest,
                          handoff_discoveries, handoff_path, read_handoff,
                          validate_handoff)
-from ..prerequisites import records as prerequisite_records
+import tools.buildlib.prerequisites.records as prerequisite_records
 from arcanum.catalog.build_ids import resolve_working_id
 
 

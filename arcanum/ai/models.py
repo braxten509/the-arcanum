@@ -17,6 +17,8 @@ class AiRequest:
     effort: str = ""
     api_key: str = ""
     custom_command: str = ""
+    writable_paths: tuple[str, ...] = ()
+    readonly_paths: tuple[str, ...] = ()
     trace: dict = field(default_factory=dict)
 
 
@@ -26,3 +28,11 @@ class AiResponse:
     model: str
     text: str
     trace: dict = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class AiInvocation:
+    argv: tuple[str, ...]
+    input_mode: str
+    environment: dict[str, str]
+    cwd: str

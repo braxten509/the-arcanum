@@ -5,7 +5,7 @@ import tempfile
 
 from tome_proof import safe_project_path
 
-from . import common
+import runtimes.common as common
 
 
 def _delivery_cache_dir():

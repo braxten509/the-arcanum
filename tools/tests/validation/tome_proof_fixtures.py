@@ -1,7 +1,7 @@
 """Reusable manifests, sections, and finding assertions for proof tests."""
 import tempfile
 
-from validatelib import _findings
+from validatelib import clear_findings, legacy_current_findings
 from validatelib.proof import check_future_tome_proof
 
 def manifest():
@@ -80,12 +80,12 @@ else:
 
 
 def findings_for(data, run=False, manifest_data=None, source_only=False):
-    _findings.clear()
+    clear_findings()
     with tempfile.TemporaryDirectory() as root:
         check_future_tome_proof(
             root, manifest_data or manifest(), [data], run=run,
             source_only=source_only)
-    return list(_findings)
+    return list(legacy_current_findings())
 
 
 def assert_error(data, needle):

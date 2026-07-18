@@ -50,6 +50,7 @@ def build_router(services: AppServices) -> Router:
     router.get("/api/assessment/status", assessments.status)
     router.get("/api/mastery-lab", labs.get_assignment)
     router.post("/api/mastery-lab/workspace", labs.save_workspace)
+    router.post("/api/mastery-lab/run", labs.run)
     router.post("/api/mastery-lab/retry", labs.retry)
     router.post("/api/mastery/support", labs.support)
     router.get("/api/evidence/export", labs.evidence_export)

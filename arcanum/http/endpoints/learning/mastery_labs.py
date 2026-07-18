@@ -31,6 +31,13 @@ class MasteryLabEndpoints:
         return ok(self.services.mastery_labs(request.tome_id()).retry(
             str(body.get("nodeId") or "")))
 
+    def run(self, request) -> Response:
+        body = request.json()
+        if set(body) - {"nodeId", "files", "tome"}:
+            raise ValueError("mastery-lab run request has unsupported fields")
+        return ok(self.services.mastery_labs(request.tome_id()).run_public_checks(
+            str(body.get("nodeId") or ""), body.get("files") or []))
+
     def support(self, request) -> Response:
         body = request.json()
         if set(body) - {"nodeId", "kind", "tome"}:

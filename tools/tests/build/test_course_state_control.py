@@ -14,6 +14,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from buildlib import continuity, course_map
+from buildlib.course.amend import amend_course_map
 from buildlib.course import control as course_control
 from buildlib.course import state as course_state
 from buildlib.prerequisites import review as prerequisite_review
@@ -165,7 +166,7 @@ with tempfile.TemporaryDirectory() as root:
         })
         candidate = copy.deepcopy(course_map.load_course_map("demo"))
         candidate["plannedObligations"].append(replacement)
-        course = course_map.amend_course_map(
+        course = amend_course_map(
             "demo", candidate, "Consolidate an active obligation through the audited path")
         amended_state = course_state.derive_course_state("demo")
         assert amended_state["sections"][0]["status"] == "verified"
@@ -219,7 +220,7 @@ with tempfile.TemporaryDirectory() as root:
 
         candidate = copy.deepcopy(course_map.load_course_map("demo"))
         candidate["sections"][2]["title"] = "Audited Delivered Integration"
-        course_map.amend_course_map(
+        amend_course_map(
             "demo", candidate, "Clarify only the final integration title after review")
         amended = course_state.derive_course_state("demo")
         assert [row["status"] for row in amended["sections"]] == [

@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from dataclasses import dataclass
 from typing import Callable
 
 from arcanum_core.contracts.assessment import Scenario
@@ -60,21 +61,56 @@ def evaluate_expectation(expect: dict, result: dict, work_root: str) -> tuple[bo
     return not problems, problems
 
 
+@dataclass(frozen=True)
+class ScenarioAdapter:
+    """One explicitly versioned assessment scenario implementation."""
+
+    kind: str
+    handler: Callable
+    version: int
+    capabilities: tuple[str, ...]
+
+
 class ScenarioRegistry:
     def __init__(self):
-        self._handlers: dict[str, Callable] = {}
+        self._entries: dict[str, ScenarioAdapter] = {}
 
-    def register(self, kind: str, handler: Callable) -> None:
-        if kind in self._handlers:
-            raise ValueError(f"duplicate assessment scenario kind {kind!r}")
-        self._handlers[kind] = handler
+    def register(self, adapter: ScenarioAdapter) -> None:
+        if not isinstance(adapter, ScenarioAdapter):
+            raise TypeError("scenario registration requires a ScenarioAdapter")
+        if not adapter.kind:
+            raise ValueError("assessment scenario kind cannot be empty")
+        if adapter.kind in self._entries:
+            raise ValueError(f"duplicate assessment scenario kind {adapter.kind!r}")
+        if adapter.version < 1:
+            raise ValueError(f"assessment scenario {adapter.kind!r} needs a positive version")
+        if not adapter.capabilities or any(not item for item in adapter.capabilities):
+            raise ValueError(f"assessment scenario {adapter.kind!r} needs capabilities")
+        if not callable(adapter.handler):
+            raise TypeError(f"assessment scenario {adapter.kind!r} needs a handler")
+        self._entries[adapter.kind] = adapter
+
+    def get(self, kind: str) -> ScenarioAdapter:
+        try:
+            return self._entries[kind]
+        except KeyError as exc:
+            available = ", ".join(sorted(self._entries)) or "none"
+            raise ValueError(
+                f"unregistered assessment scenario kind {kind!r}; available: {available}"
+            ) from exc
+
+    def entries(self) -> tuple[ScenarioAdapter, ...]:
+        return tuple(self._entries[key] for key in sorted(self._entries))
+
+    def validate_references(self, kinds: list[str] | tuple[str, ...]) -> None:
+        missing = sorted(set(kinds).difference(self._entries))
+        if missing:
+            raise ValueError(
+                "unregistered assessment scenario references: " + ", ".join(missing)
+            )
 
     def execute(self, scenario: Scenario, context: dict) -> dict:
-        try:
-            handler = self._handlers[scenario.kind]
-        except KeyError as exc:
-            raise ValueError(f"unregistered assessment scenario kind {scenario.kind!r}") from exc
-        return handler(scenario, context)
+        return self.get(scenario.kind).handler(scenario, context)
 
 
 def command_scenario(scenario: Scenario, context: dict) -> dict:
@@ -95,8 +131,17 @@ def guided_scenario(_scenario: Scenario, _context: dict) -> dict:
 
 def default_registry() -> ScenarioRegistry:
     registry = ScenarioRegistry()
-    for kind in ("build", "run", "structured-output", "produced-file", "driver",
-                 "package", "cold-launch"):
-        registry.register(kind, command_scenario)
-    registry.register("guided-observation", guided_scenario)
+    command_capabilities = {
+        "build": ("process", "exit-code"),
+        "run": ("process", "stdout", "stdin"),
+        "structured-output": ("process", "json-output"),
+        "produced-file": ("process", "filesystem-output"),
+        "driver": ("process", "runtime-driver"),
+        "package": ("process", "package-output"),
+        "cold-launch": ("process", "cold-launch"),
+    }
+    for kind, capabilities in command_capabilities.items():
+        registry.register(ScenarioAdapter(kind, command_scenario, 1, capabilities))
+    registry.register(ScenarioAdapter(
+        "guided-observation", guided_scenario, 1, ("human-observation",)))
     return registry

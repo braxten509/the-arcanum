@@ -17,7 +17,7 @@ from arcanum.assessment.sandbox import SandboxRunner
 from arcanum.assessment.snapshot import SnapshotError, SnapshotLimits, create_snapshot
 from arcanum.assessment.variants import VariantRepository, _tree_hash
 from arcanum_core.contracts.assessment import AssessmentContract
-from runtimes.generic import CommandRuntime
+from runtimes.command_runtime import CommandRuntime
 
 
 def contract(expect="READY"):

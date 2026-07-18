@@ -5,7 +5,7 @@ import json
 import os
 import subprocess
 
-from .. import common
+import runtimes.common as common
 from .templates import file_argv, substitute
 
 SNIPPET_MAX = 20_000

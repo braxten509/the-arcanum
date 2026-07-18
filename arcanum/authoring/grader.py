@@ -12,7 +12,7 @@ from runtimes.common import atomic_write
 from ..config import GRADE_TIMEOUT, GRADER_MODELS, ORACLE_TIMEOUT, read_json
 from ..jobs import JobManager
 from ..ai import AiRequest, AiService
-from ..models import GraderConfigError
+from ..ai.contracts.errors import ProviderConfigurationError
 
 FALLBACK_GRADER = "qwen2.5:14b"  # strongest installed Ollama model; overridable per-request from settings
 ORACLE_MODEL = "llama3.1:8b"
@@ -203,7 +203,7 @@ def run_grader(job_id, payload, jid, job_manager: JobManager, catalog, workspace
             result = _grade_with_ai(ai, kind, model, prompt, tome_root,
                                     key=key, command=command, effort=effort)
             return finish(result, model)
-        except GraderConfigError as e:
+        except ProviderConfigurationError as e:
             # a misconfiguration (e.g. a model that doesn't exist): surface it as-is
             # and STOP — silently grading with the local fallback would hide the mistake.
             job_manager.update(job_id, status="error", error=f"{kind}: {e}")

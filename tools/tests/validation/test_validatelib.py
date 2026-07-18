@@ -18,7 +18,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from validatelib import REPO, _findings, set_build_phase, warn  # noqa: E402
+from validatelib import (REPO, clear_findings, legacy_current_findings,
+                         set_build_phase, warn)  # noqa: E402
 from validatelib.content import (check_content, check_exercise, check_freestyle, check_section,
                                  is_shouting_title)  # noqa: E402
 from validatelib.content.coverage import (check_capability_ledger,
@@ -34,7 +35,8 @@ from validatelib.themes import (check_sigil_palette_uniqueness,
 
 
 def findings():
-    out, _findings[:] = list(_findings), []
+    out = list(legacy_current_findings())
+    clear_findings()
     return out
 
 

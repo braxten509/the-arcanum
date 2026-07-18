@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tools.buildlib import single_author  # noqa: E402
 from tools.buildlib.single_author import full_review  # noqa: E402
+from tools.buildlib.single_author import review_session  # noqa: E402
 from tools.buildlib.single_author import AuthorSession, _resume_command, author_prompt  # noqa: E402
 
 
@@ -64,23 +65,25 @@ session = AuthorSession("demo", "claude-cli", "opus", "", "", "both",
 session._review_turn = lambda *_args, **_kwargs: ("complete", "")
 session.state = lambda *_args, **_kwargs: None
 old_report = full_review.validate_report
-old_shipping, old_smoke, old_context = (single_author.validate_shipping,
-                                        single_author.validate_live_smoke,
-                                        single_author.context)
-old_append = single_author.append_conversation
+old_shipping, old_smoke, old_context = (review_session.validate_shipping,
+                                        review_session.validate_live_smoke,
+                                        review_session.context)
+old_append = review_session.append_conversation
 try:
     full_review.validate_report = lambda *_args: (True, "complete inventory")
-    single_author.validate_shipping = lambda *_args: (True, "strict clean")
-    single_author.validate_live_smoke = lambda *_args: (True, "smoke clean")
-    single_author.context = lambda _bid: {"tooling": "both", "plan": ".tome-build/demo.plan.md"}
-    single_author.append_conversation = lambda *_args, **_kwargs: None
+    review_session.validate_report = lambda *_args: (True, "complete inventory")
+    review_session.validate_shipping = lambda *_args: (True, "strict clean")
+    review_session.validate_live_smoke = lambda *_args: (True, "smoke clean")
+    review_session.context = lambda _bid: {"tooling": "both", "plan": ".tome-build/demo.plan.md"}
+    review_session.append_conversation = lambda *_args, **_kwargs: None
     assert session.run_reviewer() == 0
     assert (session.role, session.kind, session.model, session.session_id) == (
         "reviewer", "codex-cli", "gpt-5.6-sol", "")
 finally:
     full_review.validate_report = old_report
-    single_author.validate_shipping, single_author.validate_live_smoke = old_shipping, old_smoke
-    single_author.context = old_context
-    single_author.append_conversation = old_append
+    review_session.validate_report = old_report
+    review_session.validate_shipping, review_session.validate_live_smoke = old_shipping, old_smoke
+    review_session.context = old_context
+    review_session.append_conversation = old_append
 
 print("same-session Phase 8 plus optional exhaustive review: OK")

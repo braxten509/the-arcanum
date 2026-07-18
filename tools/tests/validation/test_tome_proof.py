@@ -16,7 +16,7 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from validatelib import _findings  # noqa: E402
+from validatelib.session import legacy_findings as findings  # noqa: E402
 from validatelib.proof import runtime as proof_runtime  # noqa: E402
 from validatelib.proof import check_future_tome_proof, check_no_bundled_media  # noqa: E402
 from buildlib import review_evidence  # noqa: E402
@@ -116,22 +116,22 @@ def check_harness_owned_review():
 def check_bundled_media_gate():
     with tempfile.TemporaryDirectory() as root:
         Path(root, "generated-by-ai.png").write_bytes(b"not really an image")
-        _findings.clear()
+        findings.clear()
         check_no_bundled_media(root, manifest())
         assert any(level == "ERROR" and "media file is bundled" in message
-                   for level, _label, message in _findings), _findings
+                   for level, _label, message in findings), findings
         generated = manifest()
         generated["runtime"]["starterCode"] = "from PIL import Image\nImage.new('RGB', (8, 8))"
-        _findings.clear()
+        findings.clear()
         check_no_bundled_media(root, generated)
         assert any(level == "ERROR" and "media synthesis" in message
-                   for level, _label, message in _findings), _findings
+                   for level, _label, message in findings), findings
         dependent = manifest()
         dependent["runtime"]["starterCode"] = "open('assets/player.png', 'rb')"
-        _findings.clear()
+        findings.clear()
         check_no_bundled_media(root, dependent)
         assert any(level == "ERROR" and "initial scaffold asset-free" in message
-                   for level, _label, message in _findings), _findings
+                   for level, _label, message in findings), findings
 
 
 def check_section_gate_ignores_future_scaffolds():
@@ -144,18 +144,18 @@ def check_section_gate_ignores_future_scaffolds():
     scoped_manifest = manifest()
     scoped_manifest["content"]["sections"] = ["s01", "s02"]
 
-    _findings.clear()
+    findings.clear()
     with tempfile.TemporaryDirectory() as root:
         check_future_tome_proof(
             root, scoped_manifest, [authored, future], run=False, run_section="s01")
-    assert not [finding for finding in _findings if finding[0] == "ERROR"], _findings
+    assert not [finding for finding in findings if finding[0] == "ERROR"], findings
 
     # The exact same future placeholder must remain visible to the complete Phase-3 gate.
-    _findings.clear()
+    findings.clear()
     with tempfile.TemporaryDirectory() as root:
         check_future_tome_proof(root, scoped_manifest, [authored, future], run=False)
     assert any(level == "ERROR" and "without matching structured concept evidence" in message
-               for level, _label, message in _findings), _findings
+               for level, _label, message in findings), findings
 
 
 def check_truncated_prefix_does_not_run_final_acceptance():
@@ -228,20 +228,20 @@ elif "--arcanum-proof" in sys.argv and "s02" in sys.argv:
 
 def check_cumulative_regression_contract():
     scoped, sections = two_section_regression()
-    _findings.clear()
+    findings.clear()
     with tempfile.TemporaryDirectory() as root:
         check_future_tome_proof(root, scoped, sections, run=True)
     assert any("s02 regression: active proof s01 failed" in message
-               for _level, _label, message in _findings), _findings
+               for _level, _label, message in findings), findings
 
     overwrite = copy.deepcopy(sections)
     overwrite[1]["freestyle"]["referenceSteps"][0]["mode"] = "write"
     overwrite[1]["freestyle"]["referenceSteps"][0].pop("preserves")
-    _findings.clear()
+    findings.clear()
     with tempfile.TemporaryDirectory() as root:
         check_future_tome_proof(root, scoped, overwrite, run=True)
     assert any("write target 'main.py' already exists" in message
-               for _level, _label, message in _findings), _findings
+               for _level, _label, message in findings), findings
 
     missing_declaration = copy.deepcopy(sections[1])
     missing_declaration["freestyle"]["referenceSteps"][0].pop("preserves")
@@ -250,11 +250,11 @@ def check_cumulative_regression_contract():
     dropped = copy.deepcopy(sections)
     dropped[1]["proof"]["supersedes"] = ["s01"]
     dropped[1]["proof"]["protects"] = ["second-result"]
-    _findings.clear()
+    findings.clear()
     with tempfile.TemporaryDirectory() as root:
         check_future_tome_proof(root, scoped, dropped, run=False)
     assert any("replacement proof drops active capabilities" in message
-               for _level, _label, message in _findings), _findings
+               for _level, _label, message in findings), findings
 
 
 def check_acceptance_scenario_gate():
@@ -304,10 +304,10 @@ def check_persisted_reconstruction_evidence():
     with tempfile.TemporaryDirectory() as root:
         tome = Path(root, "tomes", "demo")
         tome.mkdir(parents=True)
-        _findings.clear()
+        findings.clear()
         with patch.object(proof_runtime, "REPO", root):
             check_future_tome_proof(str(tome), manifest(), [section()], run=True)
-        assert not [finding for finding in _findings if finding[0] == "ERROR"], _findings
+        assert not [finding for finding in findings if finding[0] == "ERROR"], findings
         project = Path(root, ".tome-build", "demo.learner-project")
         evidence_path = Path(root, ".tome-build", "demo.proof-evidence.json")
         assert (project / "main.py").is_file(), project
@@ -385,10 +385,10 @@ def main():
 
     legacy = manifest()
     legacy["content"].pop("proofVersion")
-    _findings.clear()
+    findings.clear()
     with tempfile.TemporaryDirectory() as root:
         check_future_tome_proof(root, legacy, [{}], run=True)
-    assert not _findings, "legacy tomes must remain outside proof-v1"
+    assert not findings, "legacy tomes must remain outside proof-v1"
     check_section_gate_ignores_future_scaffolds()
     check_truncated_prefix_does_not_run_final_acceptance()
     check_bundled_media_gate()

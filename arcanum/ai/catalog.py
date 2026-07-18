@@ -7,8 +7,8 @@ import urllib.request
 
 from arcanum.config import (AGY_BIN, CLAUDE_BIN, CLI_EFFORTS, CLI_MODEL_EFFORTS,
                             CLI_MODELS, CODEX_BIN, OPENCODE_BIN)
-from arcanum.models import (agy_models, codex_models, ollama_bindery_models,
-                            opencode_models)
+from .providers.discovery import (agy_models, codex_models, ollama_bindery_models,
+                                  opencode_models)
 
 
 def model_census() -> dict:

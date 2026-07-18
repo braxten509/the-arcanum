@@ -1,7 +1,7 @@
 """AI application service and explicit default composition."""
 from __future__ import annotations
 
-from .models import AiRequest, AiResponse
+from .models import AiInvocation, AiRequest, AiResponse
 from .providers import (AnthropicProvider, AntigravityCliProvider, ClaudeCliProvider,
                         CodexCliProvider, CustomCommandProvider, OllamaProvider,
                         OpenAiProvider, OpenCodeCliProvider)
@@ -14,6 +14,9 @@ class AiService:
 
     def complete(self, provider_id: str, request: AiRequest) -> AiResponse:
         return self.providers.complete(provider_id, request)
+
+    def invocation(self, provider_id: str, request: AiRequest) -> AiInvocation:
+        return self.providers.invocation(provider_id, request)
 
 
 def build_default_ai_service() -> AiService:

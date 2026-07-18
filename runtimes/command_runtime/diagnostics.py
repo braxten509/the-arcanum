@@ -5,7 +5,7 @@ import os
 import re
 import subprocess
 
-from .. import common
+import runtimes.common as common
 from .templates import file_argv
 
 

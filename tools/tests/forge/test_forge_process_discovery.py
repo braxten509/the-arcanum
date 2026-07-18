@@ -15,12 +15,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import arcanum.forge.build_state as state  # noqa: E402
 import arcanum.forge as forge  # noqa: E402
-import arcanum.post_routes.builds as build_routes  # noqa: E402
+import arcanum.authoring.adapters.forge_lifecycle as build_routes  # noqa: E402
 from arcanum.catalog import ManifestRepository, TomeCatalogService, TomePaths  # noqa: E402
 from arcanum.jobs import JobManager, ProcessStore  # noqa: E402
 from arcanum.settings import Settings  # noqa: E402
-from arcanum.post_routes.builds import (_author, _authors, _phase_author,
-                                        _resume_session_id, _validator)  # noqa: E402
+from runtimes import RuntimeRegistry  # noqa: E402
+from arcanum.authoring.adapters.forge_lifecycle import (  # noqa: E402
+    _author, _authors, _phase_author, _resume_session_id, _validator)
 
 
 class JsonHandler:
@@ -90,7 +91,8 @@ with tempfile.TemporaryDirectory() as temp:
                         os.path.join(temp, "skins"),
                         os.path.join(temp, "settings.toml"), 8777)
     paths = TomePaths(settings)
-    catalog = TomeCatalogService(paths, ManifestRepository(paths))
+    catalog = TomeCatalogService(paths, ManifestRepository(paths),
+                                 RuntimeRegistry.from_root(temp))
     old = (forge.BUILD_DIR, state.BUILD_DIR)
     try:
         job_manager = JobManager()

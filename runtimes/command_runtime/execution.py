@@ -5,7 +5,9 @@ import os
 import re
 import subprocess
 
-from .. import assessment_commands, common, launch_probe
+import runtimes.assessment_commands as assessment_commands
+import runtimes.common as common
+import runtimes.launch_probe as launch_probe
 from .templates import file_argv, substitute
 
 

@@ -3,7 +3,7 @@
 A tome declares *what* it needs with ``[runtime].validationDependencies``.  The
 named runtime declares *how* environment-scoped packages are provisioned with
 argv-only commands and environment substitutions.  Project-scoped package
-managers are handled by ``runtimes.generic.CommandRuntime`` inside each scratch
+managers are handled by ``runtimes.command_runtime.CommandRuntime`` inside each scratch
 project instead (for example, NuGet packages in a temporary .NET project).
 
 Nothing here installs into a learner workspace or the host interpreter.  Shared

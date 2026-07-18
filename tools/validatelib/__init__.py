@@ -26,6 +26,10 @@ SKINS_DIR = os.path.join(REPO, "skins")
 
 sys.path.insert(0, REPO)  # for tome_layout (shared split-tome layout, in lockstep with server)
 
+from .session import (add_error, add_warning, clear_findings, current_findings,
+                      finding_scope, legacy_current_findings, replace_findings,
+                      set_build_phase)
+
 # The 22-ink theme contract (tome-authoring/2-tome-toml.md § [[themes]], mirrored in
 # the web css's "Theme palettes are injected" vellum block). Every palette
 # MUST define exactly these.
@@ -56,28 +60,12 @@ ID_RE = re.compile(r"[A-Za-z0-9_-]+")
 # lowercase "todo" appears in honest prose; lorem any case)
 PLACEHOLDER_RE = re.compile(r"\bTODO\b|\bFIXME\b|(?i:lorem ipsum)")
 
-_findings = []  # (level, file_label, msg)
-_build_phase = None
-
-
 def err(label, msg):
-    _findings.append(("ERROR", label, msg))
-
-
-def set_build_phase(phase=None):
-    """Select the phase whose authored obligations must already be complete.
-
-    Direct validator-library callers keep the historical WARN behavior.  The tome
-    harness supplies a phase, so a warning owned by that phase (or an earlier one)
-    becomes an ERROR immediately instead of accumulating as Phase-7 cleanup debt.
-    """
-    global _build_phase
-    _build_phase = int(phase) if phase is not None else None
+    add_error(label, msg)
 
 
 def warn(label, msg, *, phase=7):
-    owned = label != "advisory" and _build_phase is not None and phase <= _build_phase
-    _findings.append(("ERROR" if owned else "WARN", label, msg))
+    add_warning(label, msg, phase=phase)
 
 
 def rel(path):

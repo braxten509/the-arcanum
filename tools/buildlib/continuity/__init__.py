@@ -23,6 +23,7 @@ from .schema import (CONTRACT_KEYS, FULFILLMENT_KEYS, HANDOFF_KEYS,
                                 exact_keys as _exact_keys,
                                 has_completion_key as _has_completion_key,
                                 strings as _strings)
+from .receipt_acceptance import accepted_prior_sections
 
 
 def handoff_dir(tid):
@@ -262,15 +263,7 @@ def _prior_obligations(tid, sid, ids, course):
                   and item.get("supersedes")}
     out = {item["id"]: item for item in planned
            if item.get("origin") in ids[:ids.index(sid)] and item["id"] not in superseded}
-    accepted = set()
-    if course:
-        try:
-            from ..course.state import derive_course_state
-            state = derive_course_state(course["buildId"], write=False)
-            accepted = {row["id"] for row in state["sections"]
-                        if row["status"] == "verified"}
-        except (OSError, ValueError, KeyError):
-            accepted = set()
+    accepted = accepted_prior_sections(tid, sid, ids, course, handoff_digest, BUILD_DIR)
     for origin in ids[:ids.index(sid)]:
         if origin not in accepted:
             continue

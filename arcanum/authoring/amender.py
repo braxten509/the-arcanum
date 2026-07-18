@@ -9,17 +9,15 @@ import sys
 import threading
 import time
 
-from ..config import (AGY_BIN, BUILD_DIR, CLAUDE_BIN, CODEX_BIN, OPENCODE_BIN, ROOT,
-                     agy_print_args, codex_no_mcp_args)
+from ..config import BUILD_DIR, ROOT
 from ..jobs import JobManager, ProcessStore
-from ..ai.access import ensure_cli_access
+from ..ai import AiRequest, AiService
 from ..forge import ANSI_RE, notify
-from arcanum.platform.agent_commands import scoped_runner_command
 
 AMEND_TIMEOUT = 900  # seconds for one small-change agent run
 
 
-# An amend job lives in the in-memory `jobs` dict, so a server restart (or the runner
+# An amend job lives in the configured JobStore, so a server restart (or the runner
 # dying from lost usage) loses it. We also mirror the essentials to disk so the Binder
 # can offer to resume a cut-short amendment. One file per tome — only one amend runs per
 # tome at a time. Written running on start; cleared on success/cancel; left on error or a
@@ -174,7 +172,7 @@ def _validate_amendment(jid):
 
 def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, iterate=False, reset_ok=False,
                 review=False, review_path="", job_manager: JobManager | None = None,
-                processes: ProcessStore | None = None):
+                processes: ProcessStore | None = None, ai: AiService | None = None):
     """Background worker: a headless CLI edits tomes/<jid>/ under the configuration
     guide, then validate_tome.py checks it and may trigger one bounded repair turn.
     The agent edits with whatever file tools its CLI has (codex reads/edits THROUGH
@@ -188,8 +186,8 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
     review=True: read-only survey — the agent writes a findings report to reviews/
     and changes nothing else; request_text is an optional focus. review_path names a
     prior report the agent should read before making a change the player commissioned."""
-    if job_manager is None or processes is None:
-        raise RuntimeError("Binder requires explicit job and process services")
+    if job_manager is None or processes is None or ai is None:
+        raise RuntimeError("Binder requires explicit job, process, and AI services")
     req = request_text[:4000]
     report_rel = os.path.join("reviews", f"{jid}-{time.strftime('%Y%m%d-%H%M%S')}.md") if review else ""
     # what the agent may and may not touch. reset_ok lifts ONLY the progress-preserving rules
@@ -270,27 +268,7 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
                "use /tmp freely. Project writes are enforced by the harness: "
                + (f"only {report_rel} is writable for this review."
                   if review else f"the complete tome at tomes/{jid}/ is writable; other project paths are read-only."))
-    # Same provider commands as the tome builder; the shared runtime below supplies
-    # auto-approval, web, repo read/execute, /tmp, and the tome/report write boundary.
-    cmds = {
-        "claude-cli": [CLAUDE_BIN, "-p", "--permission-mode", "auto"]
-                      + (["--model", model] if model else [])
-                      + (["--effort", effort] if effort else []),
-        "antigravity-cli": [AGY_BIN, "--dangerously-skip-permissions"]
-                           + agy_print_args(AMEND_TIMEOUT)
-                           + (["--model", model] if model else []) + ["--print"],
-        # personal MCP servers off (codex-desktop's node_repl hangs headless) — the Binder needs none
-        "codex-cli": [CODEX_BIN, "--search", "exec", "--skip-git-repo-check", "-s", "workspace-write", *codex_no_mcp_args()]
-                     + (["-m", model] if model else [])
-                     + (["-c", f"model_reasoning_effort={effort}"] if effort else []) + ["-"],
-        "opencode-cli": [OPENCODE_BIN, "run", "--auto"]
-                        + (["-m", model] if model else [])
-                        + (["--variant", effort] if effort else []),
-    }
     try:
-        cmd = cmds.get(kind)
-        if not cmd:
-            raise ValueError(f"unknown binder kind {kind!r}")
         tome_root = os.path.join(ROOT, "tomes", jid)
         if review:
             report_abs = os.path.join(ROOT, report_rel)
@@ -299,16 +277,18 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
             writable = [report_abs]
         else:
             writable = [tome_root]
-        cmd = scoped_runner_command(kind, cmd, tome_root, writable, ROOT)
-        input_mode = "stdin" if kind == "codex-cli" else "arg"
-        ensure_cli_access(f"Binder {kind} {model}".strip(), cmd, input_mode)
+        invocation = ai.invocation(kind, AiRequest(
+            role="binder-review" if review else "binder-amend",
+            model=model, input=prompt, timeout=AMEND_TIMEOUT, workspace=tome_root,
+            allowed_tools=("read", "write", "shell"), web_allowed=True,
+            effort=effort, writable_paths=tuple(writable),
+            trace={"jobId": job_id, "tome": jid}))
+        cmd, input_mode = list(invocation.argv), invocation.input_mode
         if not review:  # review edits nothing under tomes/ — no checkpoint needed
             checkpoint_tome(jid)
-        env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
-        env.update(ARCANUM_REPO_ROOT=ROOT, ARCANUM_TOME_ROOT=tome_root,
-                   PYTHONDONTWRITEBYTECODE="1")
         rc, timed_out, logtail = _run_agent_turn(
-            job_id, cmd, prompt, input_mode, env, tome_root, job_manager, processes)
+            job_id, cmd, prompt, input_mode, invocation.environment,
+            invocation.cwd, job_manager, processes)
         if job_manager.status(job_id).get("status") == "cancelled":
             clear_amend_state(jid)  # the player stayed the quill; nothing to resume
             if not review:
@@ -357,7 +337,8 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
                              "all in-scope failures without undoing the requested amendment, rerun "
                              "the validator yourself until clean, then stop.\n\n" + report)
             rc, timed_out, logtail = _run_agent_turn(
-                job_id, cmd, repair_prompt, input_mode, env, tome_root,
+                job_id, cmd, repair_prompt, input_mode, invocation.environment,
+                invocation.cwd,
                 job_manager, processes)
             cancelled = job_manager.status(job_id).get("status") == "cancelled"
             if cancelled:

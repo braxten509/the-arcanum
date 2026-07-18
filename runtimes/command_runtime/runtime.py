@@ -1,28 +1,21 @@
-"""Compatibility facade for the single TOML-driven command runtime.
-
-Language behavior remains configuration-only. Cohesive filesystem, diagnostic,
-snippet, and execution operations live under :mod:`runtimes.command_runtime`.
-
-Important runtime TOML keys include ``command``, ``runCommand``, ``buildCommand``,
-``checkCommand``, ``scaffoldCommand``, ``packageCommand``, ``entryFile``,
-``validationDependencies``, and the optional trusted ``assessmentCommands`` table.
-All command values are argv arrays; shell strings are never accepted.
-"""
+"""One validated, configuration-driven runtime for every language profile."""
 from __future__ import annotations
 
 import os
 import shutil
 
-from .command_runtime import (DiagnosticsMixin, ExecutionMixin, SnippetMixin,
-                              WorkspaceMixin)
+from ..config import RuntimeConfig
+from .diagnostics import DiagnosticsMixin
+from .execution import ExecutionMixin
+from .snippets import SnippetMixin
+from .workspace import WorkspaceMixin
 
 RUN_TIMEOUT = 60
 
 
 class CommandRuntime(WorkspaceMixin, DiagnosticsMixin, SnippetMixin, ExecutionMixin):
-    """One configuration-driven runtime for every supported language."""
-
-    def __init__(self, cfg):
+    def __init__(self, config):
+        cfg = config if isinstance(config, RuntimeConfig) else RuntimeConfig.parse(config)
         self.NAME = cfg.get("name") or "custom"
         self.LANGUAGE = cfg.get("language") or self.NAME
         self.cmd = list(cfg.get("command") or [])
@@ -39,9 +32,8 @@ class CommandRuntime(WorkspaceMixin, DiagnosticsMixin, SnippetMixin, ExecutionMi
             project_package = self.package_cmd
         self.validation_project_package_cmd = list(project_package)
         self.assessment_commands = {
-            str(name): list(argv)
-            for name, argv in (cfg.get("assessmentCommands") or {}).items()
-            if isinstance(argv, list)
+            str(name): list(argv) for name, argv in
+            (cfg.get("assessmentCommands") or {}).items()
         }
         self.diag_re = cfg.get("diagRegex") or ""
         self.entry = cfg.get("entryFile") or "main.txt"

@@ -15,6 +15,7 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from buildlib import course_map
+from buildlib.course.amend import amend_course_map
 from buildlib.course_map.seed import artifact_lifecycle_obligations
 from buildlib.skeleton import parse_section_list
 
@@ -117,7 +118,7 @@ with tempfile.TemporaryDirectory() as root:
         candidate = copy.deepcopy(sealed)
         candidate["sections"][1]["title"] = "Audited Final Title"
         with patch("buildlib.course.state.invalidate_from") as invalidate:
-            sealed = course_map.amend_course_map(
+            sealed = amend_course_map(
                 "demo", candidate, "Clarify the final milestone without changing its contract")
         invalidate.assert_called_once_with("demo", "s02")
         assert sealed["revision"] == 2
@@ -136,12 +137,12 @@ with tempfile.TemporaryDirectory() as root:
         with patch("buildlib.course.state.derive_course_state", return_value={
                 "activeObligations": [original_obligation]}), \
                 patch("buildlib.course.state.invalidate_from"):
-            sealed = course_map.amend_course_map(
+            sealed = amend_course_map(
                 "demo", superseding, "Supersede the active contract through the audited path")
         assert sealed["plannedObligations"][-1]["supersedes"] == original_obligation["id"]
 
         try:
-            course_map.amend_course_map(
+            amend_course_map(
                 "demo", sealed, "Attempt an audited but content-free plan revision")
             raise AssertionError("a no-op amendment created a new sealed revision")
         except course_map.CourseMapError as exc:
