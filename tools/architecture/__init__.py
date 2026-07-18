@@ -1,0 +1,1 @@
+"""Static architecture policy enforcement."""

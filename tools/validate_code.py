@@ -95,17 +95,28 @@ def main():
 
     found = offenders(os.path.abspath(args.path), args.max)
     crowded = crowded_directories(os.path.abspath(args.path), args.max_files)
+    architecture = ()
+    policy_path = os.path.join(os.path.abspath(args.path), "global-configs",
+                               "architecture-policy.toml")
+    if os.path.isfile(policy_path):
+        sys.path.insert(0, os.path.abspath(args.path))
+        from tools.architecture.models import load_policy
+        from tools.architecture.rules import check_all
+        architecture = check_all(os.path.abspath(args.path), load_policy(policy_path))
     for n, path in found:
         print(f"ERROR {path}: {n} lines, {n - args.max} over the {args.max}-line limit")
     for n, path in crowded:
         print(f"ERROR {path}: {n} direct files, "
               f"{n - args.max_files} over the {args.max_files}-file limit")
+    for finding in architecture:
+        print(finding.render())
     print(f"-- {len(found)} file(s) over {args.max} lines; "
-          f"{len(crowded)} directory(s) over {args.max_files} direct files")
+          f"{len(crowded)} directory(s) over {args.max_files} direct files; "
+          f"{len(architecture)} architecture violation(s)")
     if found or crowded:
         print()
         print(HINT)
-    sys.exit(1 if found or crowded else 0)
+    sys.exit(1 if found or crowded or architecture else 0)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,44 @@
+version = 1
+
+[python]
+scanRoots = ["arcanum_core", "arcanum", "runtimes", "tools/buildlib", "tools/validatelib"]
+pureRoots = ["arcanum_core"]
+pureForbiddenImports = [
+  "arcanum", "runtimes", "tools", "os", "shutil", "subprocess",
+  "tempfile", "glob", "socket", "urllib", "http", "requests", "threading",
+  "multiprocessing"
+]
+serverRoots = ["arcanum"]
+serverForbiddenImports = ["tools.buildlib", "tools.validatelib"]
+deprecatedModules = [
+  "arcanum.routes_get", "arcanum.routes_post", "arcanum.tomes",
+  "arcanum.post_routes", "runtimes.generic",
+  "tools.buildlib.runtime.agent_runtime", "tools.buildlib.runtime.validation_env"
+]
+configForbiddenNames = ["jobs", "jobs_lock", "build_procs", "amend_procs"]
+compositionModules = ["arcanum.app", "arcanum.ai.service", "arcanum.http.composition"]
+
+[javascript]
+root = "web/app"
+apiAdapters = ["web/app/core/api-client.js"]
+bootstrapAdapters = ["web/app/core/bootstrap.js"]
+stateAdapters = ["web/app/core/store.js"]
+domainRoots = ["web/app/domains"]
+forbiddenGlobals = ["window.TOME", "window.SECTIONS"]
+domTokens = ["document.", "window.", "querySelector(", "getElementById(", "innerHTML"]
+
+[registries]
+httpComposition = "arcanum/http/composition.py"
+endpointRoot = "arcanum/http/endpoints"
+aiComposition = "arcanum/ai/service.py"
+providerRoot = "arcanum/ai/providers"
+validatorComposition = "tools/validate_tome.py"
+authoringComposition = "tools/buildlib/authoring/phases.py"
+scenarioComposition = "arcanum/assessment/scenarios.py"
+interactionComposition = "web/app/game/interactions/index.js"
+cognitiveComposition = "web/app/mastery/cognitive.js"
+routeComposition = "web/app/main.js"
+
+[facades]
+maxLines = 120
+allowed = ["runtimes/__init__.py", "arcanum/catalog/__init__.py"]
