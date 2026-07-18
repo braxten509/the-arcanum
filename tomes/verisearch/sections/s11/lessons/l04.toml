@@ -22,6 +22,7 @@ body = '''
 <p>The fragment illustrates explicit selection and omits implementations. Catch bad arguments separately from invalid source configuration, source-local errors, provider transport/schema errors, cancellation, and unexpected application failure. Dispose HTTP responses and processes at their owning boundaries, and avoid printing raw provider output or secrets in a diagnostic.</p>
 <p>Stable exits make the CLI scriptable: one conventional scheme is 0 for a completed search including no evidence, 2 for invalid invocation, 130 for cancellation, and 1 for configuration or runtime failure. Document whichever consistent mapping you choose.</p>
 <div class="callout"><p>No silent fallback is both a truth guarantee and a debugging aid: the visible failure names the boundary that actually broke.</p></div>
+<div class="callout csharp-transfer"><p><strong>C#/.NET transfer:</strong> In C#, resource disposal, cancellation, and ordinary failure are separate mechanisms: <code>using</code> owns cleanup, tokens carry stop requests, and typed exceptions describe failed operations. Resilience preserves those distinctions rather than converting every terminal state into an empty success.</p></div>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // FAILURE INJECTION</div><p>Make each adapter throw one controlled exception in tests. Assert which layer translates it, which details remain, and which downstream collaborators receive zero calls.</p></div>
 '''
 

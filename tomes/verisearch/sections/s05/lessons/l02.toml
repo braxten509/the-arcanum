@@ -16,7 +16,9 @@ body = '''
 <pre><code data-kind="replacement">Path.GetFileName(<span class="s">"/a/b/report.md"</span>)      <span class="c">// "report.md"</span>
 Path.GetExtension(<span class="s">"report.md"</span>)           <span class="c">// ".md"</span>
 Path.GetDirectoryName(<span class="s">"/a/b/report.md"</span>)  <span class="c">// "/a/b"</span></code></pre>
-<div class="callout">If you ever see a literal <code>~</code> failing in file APIs — that's the tell. The shell expands <code>~</code>; your program must use GetFolderPath. This bug ships to production weekly, worldwide.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<div class="callout">If you ever see a literal <code>~</code> failing in file APIs — that's the tell. The shell expands <code>~</code>; your program must use GetFolderPath. This bug ships to production weekly, worldwide.</div>
+<div class="callout csharp-transfer"><p><strong>C#/.NET transfer:</strong> .NET path APIs do not ask a shell to interpret a path, so <code>~</code> is not automatically expanded. Use <code>Path</code>, <code>Environment.GetFolderPath</code>, <code>Directory</code>, and an explicit base directory; the process working directory and <code>AppContext.BaseDirectory</code> are different locations.</p></div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>More of the Path toolbox:</strong> <code>Path.GetFullPath("../x")</code> resolves relatives · <code>Path.ChangeExtension(p, ".bak")</code> · <code>Path.GetTempPath()</code> the temp dir · <code>Path.DirectorySeparatorChar</code> is <code>/</code> or <code>\</code> per-OS (Combine handles this so you never type it).</p>
 <p><strong>Useful SpecialFolders</strong> beyond UserProfile: <code>ApplicationData</code> (~/.config on Linux, AppData\Roaming on Windows — arguably the MOST correct home for config), <code>Desktop</code>, <code>MyDocuments</code>. Verisearch's <code>~/.verisearch</code> convention follows classic Unix tools; ApplicationData follows OS guidelines. Either is defensible — pick one and be consistent.</p></div>
 '''

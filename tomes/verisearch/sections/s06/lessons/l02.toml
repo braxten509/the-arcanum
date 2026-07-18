@@ -28,7 +28,9 @@ p, pre           <span class="c">→ every &lt;p&gt; AND every &lt;pre&gt;</span
 article p        <span class="c">→ &lt;p&gt; anywhere inside &lt;article&gt;</span>
 .intro           <span class="c">→ anything with class="intro"</span>
 #main            <span class="c">→ the element with id="main"</span>
-p.intro          <span class="c">→ &lt;p&gt; with class "intro"</span></code></pre><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+p.intro          <span class="c">→ &lt;p&gt; with class "intro"</span></code></pre>
+<div class="callout csharp-transfer"><p><strong>C#/.NET transfer:</strong> AngleSharp arrives through a NuGet <code>PackageReference</code> and exposes .NET interfaces for documents and elements. Keep those library types inside the extraction adapter so the rest of the C# program is not coupled to one parser's object model.</p></div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>Configuration flavors:</strong> <code>Configuration.Default</code> parses strings you hand it; <code>.WithDefaultLoader()</code> adds networking so OpenAsync(url) can fetch. Verisearch uses the first — your HttpClient stays the single door to the network (one place for timeouts, headers, robots checks).</p>
 <p><strong>Encoding & malformed HTML:</strong> AngleSharp detects charset from headers/meta tags and repairs broken markup with the SAME algorithm browsers use — unclosed tags, orphaned &lt;/div&gt;s — you get the tree the user would have seen.</p>
 <p><strong>Selector escalation path</strong> when a site fights you: try <code>article p</code> → fall back to <code>main p</code> → fall back to <code>p</code> with junk-removal + crumb filtering. Code that degrades selector-by-selector survives redesigns.</p></div>

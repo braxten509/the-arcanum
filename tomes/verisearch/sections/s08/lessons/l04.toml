@@ -18,6 +18,7 @@ body = '''
 <p>This broad catch is appropriate only at a named containment boundary where the error is retained. Do not return an empty <code>SourceDocument</code>, because later extraction would mistake failure for a successfully empty page. The nullable <code>Document</code>, <code>Ok</code> property, and <code>Error</code> make the state explicit.</p>
 <p>The renderer can later report <code>3/4 sources fetched</code> and list the failed label. It must not expose a stack trace during normal operation, but tests and optional verbose output may preserve exception details.</p>
 <div class="callout">A timeout is not merely another dead page when the token guards the whole run. The filter on <code>OperationCanceledException</code> keeps cancellation control flowing upward.</div>
+<div class="callout csharp-transfer"><p><strong>C#/.NET transfer:</strong> C# exception filters can distinguish a caller-requested cancellation before a general catch executes. Preserve <code>OperationCanceledException</code> as cancellation and translate only failures the current boundary can name; broad catches erase the Task's meaningful terminal state.</p></div>
 <div class="field-notes"><div class="fn-head">MARGINALIA // DATA INSTEAD OF SILENCE</div><p>Partial success is honest only if failure remains visible. The eventual <code>PipelineResult</code> therefore carries source errors alongside verified quotes; an empty quote list alone cannot distinguish “nothing relevant” from “nothing fetched.”</p></div>
 '''
 

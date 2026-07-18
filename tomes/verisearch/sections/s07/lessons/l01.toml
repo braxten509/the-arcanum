@@ -27,7 +27,9 @@ x =&gt; { <span class="k">var</span> y = x * 2; <span class="k">return</span> y;
     .ToList();</code></pre>
 <p>Lambdas also <strong>capture</strong> variables from the surrounding scope (a "closure"):</p>
 <pre><code data-kind="replacement"><span class="k">var</span> requested = <span class="k">new</span> HashSet&lt;<span class="k">string</span>&gt;(labels, StringComparer.OrdinalIgnoreCase);
-<span class="k">var</span> keep = config.Sources.Where(source =&gt; requested.Contains(source.Label));</code></pre><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<span class="k">var</span> keep = config.Sources.Where(source =&gt; requested.Contains(source.Label));</code></pre>
+<div class="callout csharp-transfer"><p><strong>C#/.NET transfer:</strong> A C# lambda is converted according to its target type—commonly a delegate, and sometimes an expression tree. Captured locals are lifted into a compiler-generated closure object, so capture can extend lifetime and observe later mutation rather than freezing a value automatically.</p></div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>The loop-capture trap</strong> — the classic closure bug: lambdas created in a loop all capture the SAME variable in old C# <code>for</code> loops. Modern <code>foreach</code> gives each iteration a fresh variable, so <code>foreach (var u in urls) tasks.Add(Scrape(u));</code> is safe — but if a captured value must be frozen, copy it to a local first.</p>
 <p><strong>Method groups:</strong> when a lambda just forwards to a method—<code>sources.Where(source =&gt; IsWeb(source))</code>—you can pass the method name directly: <code>sources.Where(IsWeb)</code>. Cleaner, same behavior.</p>
 <p><strong>Static lambdas:</strong> <code>static x =&gt; x * 2</code> — the compiler guarantees no capture, no allocation. A micro-optimization to recognize, not chase.</p></div>

@@ -34,6 +34,7 @@ Console.WriteLine(uri.AbsolutePath); <span class="c">// /rfc/rfc8446.html</span>
     Console.WriteLine(<span class="s">$"{source.Label}: {host}"</span>);
 }</code></pre>
 <div class="callout">Reject malformed configuration before any network call. Never “repair” a scheme or host by guessing what the user meant.</div>
+<div class="callout csharp-transfer"><p><strong>C#/.NET transfer:</strong> <code>Uri</code> parses and normalizes address structure, but constructing one is not a complete security or product-policy check. C# code must still require an absolute URI, admit specific schemes, and decide how comparisons and local-file access work.</p></div>
 <div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>Subdomains are distinct hosts.</strong> <code>www.ietf.org</code> and <code>datatracker.ietf.org</code> do not automatically become <code>ietf.org</code>. Verisearch retains the exact configured URL instead of trimming or grouping names by guesswork.</p>
 <p><strong>Keep escaping and parsing separate.</strong> <code>Uri.EscapeDataString</code> prepares one value before it is inserted into a query string. <code>Uri.TryCreate</code> parses a complete configured address. One protects construction; the other validates interpretation.</p></div>

@@ -5,6 +5,21 @@ import { FORGE_PHASE_NAMES, openBuildOverlay } from "./bindery.js";
 import { enhanceSelect } from "../ui/menu.js";
 import { showResumeChooser } from "./workings.js";
 
+// Keep the level names aligned with tools/buildlib/workflow/prompts.py PRIOR_LEVELS.
+// The UI copy makes the compression boundary explicit; the free-text field remains the
+// exhaustive whitelist of what the learner actually knows.
+const PRIOR_KNOWLEDGE_LEVELS = {
+  1: ["FROM ZERO", "Nothing is skipped. Setup, first run, terminology, syntax, APIs, and tools are taught one concept family at a time with repeated guided practice."],
+  2: ["NEAR ZERO", "Nothing is skipped. The same foundations as Level 1 are taught with less repetition and a moderate pace."],
+  3: ["BEGINNER", "Nothing is skipped. Foundations are taught from the ground up; closely related ideas may be combined after their prerequisites are secure."],
+  4: ["TRANSFER LEARNER", "General programming ideas named in Prior Knowledge are compressed. Subject-specific syntax, tooling, APIs, and unfamiliar semantics are still taught."],
+  5: ["GENERALIST", "Basic programming workflow and familiar control or data concepts are compressed. The subject's idioms, tools, APIs, and project conventions are still taught."],
+  6: ["ADJACENT", "Shared concepts from the neighboring experience you list receive a brief bridge. Subject-specific mechanics, differences, and integration are taught directly."],
+  7: ["PRACTITIONER", "Routine fundamentals are assumed and not retaught step by step. Course-specific APIs, constraints, failure modes, and project integration remain."],
+  8: ["FLUENT", "Common syntax, setup, and routine workflows are compressed to quick checks. Time shifts to integration, uncommon mechanisms, tradeoffs, and failure handling."],
+  9: ["ADVANCED", "Introductory and routine implementation is assumed. Lessons concentrate on internals, architecture, edge cases, diagnostics, and difficult tradeoffs."],
+  10: ["EXPERT", "Only relevant non-obvious or project-specific material is taught. The course treats you as a peer, while mastery and final-project evidence remain required."],
+};
 const PROJECT_SCOPE_LEVELS = {
   1: ["MINIMAL PROOF", "A barely functional proof project: one complete workflow and only the pieces needed to demonstrate the course skills."],
   2: ["SMALL SLICE", "A compact prototype with a few connected features and a clear end-to-end workflow."],
@@ -46,7 +61,8 @@ function showForgeModal(resume) {
       <textarea id="fg-concept" rows="4" placeholder="What should this teach, and what should the learner build?"></textarea></div>
     <div class="forge-field">${fieldHead("PRIOR KNOWLEDGE", "List only what the learner already knows. Start 1 uses low-density lessons, Start 2 uses moderate density, and Start 3 permits dense related material after prerequisites are secure. The level never invents prerequisites.")}
       <input id="fg-prior" type="text" placeholder="languages, tools, or none">
-      <div class="forge-depth"><input id="fg-prior-level" type="range" min="1" max="10" value="5"><span id="fg-prior-level-val" class="forge-depth-val num">5</span></div></div>
+      <div class="forge-depth"><input id="fg-prior-level" type="range" min="1" max="10" value="5" aria-label="Prior knowledge level" aria-describedby="fg-prior-level-summary"><span id="fg-prior-level-val" class="forge-depth-val num">5</span></div>
+      <p class="forge-prior-summary" id="fg-prior-level-summary" aria-live="polite" aria-atomic="true"></p></div>
     <div class="forge-field"><label>TOOLING</label><div class="forge-tooling">
       <label class="forge-check"><input id="fg-tool-internal" name="fg-tooling" value="internal" type="radio"> Internal <i class="dim">browser workbench</i></label>
       <label class="forge-check"><input id="fg-tool-external" name="fg-tooling" value="external" type="radio"> External <i class="dim">real tools taught</i></label>
@@ -121,7 +137,14 @@ function showForgeModal(resume) {
   }
   const scope = $("#fg-project-scope", root), scopeSummary = $("#fg-project-scope-summary", root),
         depth = $("#fg-depth", root), depthSummary = $("#fg-depth-summary", root),
-        mastery = $("#fg-mastery", root);
+        mastery = $("#fg-mastery", root), priorLevel = $("#fg-prior-level", root),
+        priorSummary = $("#fg-prior-level-summary", root);
+  const basePriorInput = priorLevel.oninput;
+  priorLevel.oninput = () => {
+    basePriorInput();
+    const [title, summary] = PRIOR_KNOWLEDGE_LEVELS[Number(priorLevel.value)];
+    priorSummary.innerHTML = `<b>${esc(title)}</b><span>${esc(summary)}</span><small>Entrance pacing changes; Language Mastery still owns the exit skills and final evidence.</small>`;
+  };
   const baseScopeInput = scope.oninput;
   scope.oninput = () => {
     baseScopeInput();
@@ -137,6 +160,7 @@ function showForgeModal(resume) {
     depth.dispatchEvent(new Event("input"));
     depthSummary.textContent = `Mastery ${mastery.value} requires depth ${floor}/10 or higher.`;
   };
+  priorLevel.dispatchEvent(new Event("input"));
   scope.dispatchEvent(new Event("input"));
   mastery.dispatchEvent(new Event("input"));
 

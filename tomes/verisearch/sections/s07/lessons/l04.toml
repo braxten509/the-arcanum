@@ -21,7 +21,9 @@ Console.WriteLine(retained.Count());      <span class="c">// runs every check</s
 minimum = 80;
 <span class="k">var</span> list = q2.ToList();     <span class="c">// filters with 80, not 20 — the lambda reads minimum at RUN time</span></code></pre>
 <p>Consequence #3 — laziness is a <em>feature</em> for big data: <code>File.ReadLines(path).Where(...).First()</code> stops reading the file at the first match. Eager <code>ReadAllLines</code> would slurp gigabytes.</p>
-<div class="callout">Rule of thumb for Verisearch: INSIDE a pipeline method, stay lazy (return IEnumerable). At the BOUNDARY — returning results to a caller, storing to a field, crossing a try/catch — ToList().</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<div class="callout">Rule of thumb for Verisearch: INSIDE a pipeline method, stay lazy (return IEnumerable). At the BOUNDARY — returning results to a caller, storing to a field, crossing a try/catch — ToList().</div>
+<div class="callout csharp-transfer"><p><strong>C#/.NET transfer:</strong> A variable holding <code>IEnumerable&lt;T&gt;</code> may hold a recipe rather than a snapshot. Each enumeration can rerun source access and lambda code; <code>ToList</code> or <code>ToArray</code> creates a stable materialized boundary when later async work must use one fixed selection.</p></div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>yield return — build your own lazy sequences:</strong></p>
 <pre><code data-kind="replacement">IEnumerable&lt;string&gt; ReadNonBlankLines(string path)
 {

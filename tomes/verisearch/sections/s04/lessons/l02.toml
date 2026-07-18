@@ -22,7 +22,9 @@ body = '''
 <span class="k">var</span> http = <span class="k">new</span> HttpClient();
 <span class="k">string</span> body = <span class="k">await</span> http.GetStringAsync(<span class="s">"https://example.com"</span>);
 Console.WriteLine(body.Length);</code></pre>
-<div class="callout">Two sins THORNE never forgives: <code>.Result</code> or <code>.Wait()</code> on a Task (blocks, can deadlock — just await), and <code>async void</code> (uncatchable exceptions — always return Task).</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<div class="callout">Two sins THORNE never forgives: <code>.Result</code> or <code>.Wait()</code> on a Task (blocks, can deadlock — just await), and <code>async void</code> (uncatchable exceptions — always return Task).</div>
+<div class="callout csharp-transfer"><p><strong>C#/.NET transfer:</strong> An <code>async</code> C# method is compiled into a state machine and normally returns <code>Task</code> or <code>Task&lt;T&gt;</code>. A Task represents eventual completion, not necessarily a new thread; I/O can remain asynchronous without occupying a worker thread while it waits.</p></div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>What actually happens at await:</strong> the method is sliced at each await into continuations. When the awaited Task completes, the method RESUMES after that point. That's why async doesn't block: between slices, the thread does other work.</p>
 <p><strong>async all the way up:</strong> your Main is already async with top-level statements. If some method can't be async, don't block with <code>.Result</code> — refactor the caller instead.</p>
 <p><strong>Exceptions in tasks</strong> are stored, then re-thrown when awaited — so try/catch around an await works exactly like sync code. (Old-style <code>.Wait()</code>/<code>.Result</code> wrap them in AggregateException — one more reason to just await.)</p>

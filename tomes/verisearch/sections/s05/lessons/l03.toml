@@ -18,6 +18,7 @@ public sealed record CatalogDocument(IReadOnlyList&lt;CatalogEntry&gt;? Sources)
 <p>The nullable properties acknowledge that user JSON may omit values. The admitted source type should be stricter after validation. You may choose properties instead of positional records, a custom converter, or another readable shape.</p>
 <p>AI provider settings do not have to live in this file. CLI arguments, environment variables, a separate provider configuration document, or an adapter-specific wrapper are all valid. Keeping source authority separate from provider transport makes it easier to switch between local, hosted, API, and CLI AI without rewriting the catalog.</p>
 <div class="callout"><p>Configuration names available sources. It never maps factual question words to a source or lookup algorithm.</p></div>
+<div class="callout csharp-transfer"><p><strong>C#/.NET transfer:</strong> C# lets the serialization-edge record remain nullable while the admitted domain record is strict. That two-type conversion is valuable because the compiler can then enforce that validated code no longer carries avoidable <code>string?</code> values.</p></div>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // EXTERNAL SHAPE TO DOMAIN</div><p>Deserialize first, validate second, translate third. Each stage has a different failure: malformed JSON, invalid policy, or an admitted typed value.</p></div>
 '''
 

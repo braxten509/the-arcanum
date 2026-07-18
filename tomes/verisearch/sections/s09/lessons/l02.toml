@@ -23,6 +23,7 @@ foreach (string argument in configuredArguments)
 <p>Do not send the API key to logs, tests, the AI prompt, or the report. Environment variables are one acceptable learning-scale source; hosted deployments may use a secret manager. Test both adapters with a fake process or HTTP handler so failure, cancellation, and malformed output are controlled.</p>
 <p>A provider may offer tool calling, web search, or citations. Verisearch does not rely on those claims. The adapter asks the model to select from the exact passages C# supplied, and the common verifier later checks every proposed substring.</p>
 <div class="callout"><p>Transport failure is not a relevance signal. Never catch it and switch to keyword rules, first-passage selection, or an unlabeled mock.</p></div>
+<div class="callout csharp-transfer"><p><strong>C#/.NET transfer:</strong> For a CLI adapter, <code>ProcessStartInfo.ArgumentList</code> passes arguments without shell re-parsing and redirected streams expose the provider protocol. For HTTP, a reusable <code>HttpClient</code> and a boundary-local DTO keep vendor details out of the common interface.</p></div>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // ARGUMENTS ARE DATA</div><p><code>ArgumentList</code> and redirected standard input preserve spaces and punctuation without shell parsing. Concatenated command strings blur executable, arguments, and user content into one unsafe value.</p></div>
 '''
 

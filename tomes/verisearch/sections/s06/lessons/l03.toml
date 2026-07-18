@@ -11,6 +11,7 @@ body = '''
 <span class="k">string</span> stableText = Regex.Replace(ordinarySpaces, <span class="s">@"\s+"</span>, <span class="s">" "</span>).Trim();</code></pre>
 <p>This representation is exact for Verisearch's contract: every displayed quote must be an ordinal substring of one normalized passage. The README must say that HTML whitespace is normalized, so “verbatim” is not confused with the page's raw bytes. Store the source on every passage; an integer without its source is not an attribution.</p>
 <div class="callout">Never normalize the proposal separately. Normalize once during extraction, send that stored value to the configured AI, then verify against that same stored value.</div>
+<div class="callout csharp-transfer"><p><strong>C#/.NET transfer:</strong> C# strings are immutable sequences represented as UTF-16. Operations such as <code>Split</code>, <code>Join</code>, and replacement create new strings; choose ordinal comparison when the contract is exact stored text rather than culture-aware human sorting.</p></div>
 <div class="field-notes"><div class="fn-head">MARGINALIA // STABILITY BEFORE CLEVERNESS</div><p>Short-element filtering is a heuristic, not truth. Keep the threshold visible and tested. If a source routinely uses short authoritative statements, lower it in one place instead of smuggling special cases into the model prompt.</p></div>
 '''
 

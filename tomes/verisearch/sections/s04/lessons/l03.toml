@@ -38,7 +38,9 @@ HttpResponseMessage resp = <span class="k">await</span> http.GetAsync(url);
 <p>Pass a cancellation token through every real request. This gives the caller one way to stop a slow page or Ctrl+C cancellation:</p>
 <pre><code data-kind="replacement"><span class="k">using var</span> timeout = <span class="k">new</span> CancellationTokenSource(TimeSpan.FromSeconds(15));
 <span class="k">using</span> HttpResponseMessage response = <span class="k">await</span> http.GetAsync(source.Url, timeout.Token);
-response.EnsureSuccessStatusCode();</code></pre><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+response.EnsureSuccessStatusCode();</code></pre>
+<div class="callout csharp-transfer"><p><strong>C#/.NET transfer:</strong> <code>HttpClient</code> is intended to be reused and accepts cancellation on asynchronous calls. The response is an owned disposable value, while a supplied <code>HttpMessageHandler</code> gives .NET tests a natural seam for controlled HTTP without a live server.</p></div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>Status code families:</strong> 2xx success · 3xx redirect (HttpClient follows most automatically) · 4xx you messed up (404 not found, 403 forbidden, 429 slow down) · 5xx they messed up. <code>resp.EnsureSuccessStatusCode()</code> throws on any non-2xx — the quick version of the if-check.</p>
 <p><strong>Headers you'll actually set:</strong> <code>http.DefaultRequestHeaders.UserAgent.ParseAdd("Verisearch/1.0")</code> once at startup; per-request headers go on an <code>HttpRequestMessage</code> if you ever need them.</p>
 <p><strong>POST in one line</strong> (for later): <code>await http.PostAsJsonAsync(url, myObject)</code> — serializes and sends. The GetFromJsonAsync/PostAsJsonAsync family (namespace <code>System.Net.Http.Json</code>) fuses HTTP + JSON and skips manual Deserialize entirely.</p></div>

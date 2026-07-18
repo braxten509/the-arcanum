@@ -25,7 +25,9 @@ body = '''
 
 <span class="c">// and now a pipeline reads from left to right:</span>
 <span class="k">var</span> retained = passages.WithMinimumLength(20).OrderBy(p =&gt; p.Id);</code></pre>
-<div class="callout">The production workshop keeps verification in a named <code>QuoteVerifier</code> class because it also owns deduplication and a maximum count. This extension is a focused syntax specimen, not a second verifier to paste into the project.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+<div class="callout">The production workshop keeps verification in a named <code>QuoteVerifier</code> class because it also owns deduplication and a maximum count. This extension is a focused syntax specimen, not a second verifier to paste into the project.</div>
+<div class="callout csharp-transfer"><p><strong>C#/.NET transfer:</strong> An extension method is static compile-time call syntax, not monkey-patching and not a new virtual member. A real instance method wins over an extension, and the namespace imports in scope determine which extensions the compiler can consider.</p></div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>Resolution rules:</strong> a REAL instance method always beats an extension with the same name; extensions are found only if their namespace is <code>using</code>-imported. If IntelliSense can't see your extension, check the namespace import first.</p>
 <p><strong>Extending interfaces</strong> is the power move: extend <code>IEnumerable&lt;Passage&gt;</code> and every sequence of passages—arrays, lists, lazy queries—gets your verb. That is how LINQ itself works.</p>
 <p><strong>When NOT to:</strong> if the method needs private state of the class, it belongs INSIDE the class. Extensions are for verbs composed from the type's public surface. Keep their names concrete so a beginner can predict the comparison before stepping through it.</p></div>

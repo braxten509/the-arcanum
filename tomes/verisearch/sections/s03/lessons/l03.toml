@@ -20,7 +20,9 @@ Console.WriteLine(a);             <span class="c">// PassageDraft { Id = 1, Text
 <ul>
 <li>Identity plus changing state over time (a running fetch session whose counters increase) → <code>class</code></li>
 <li>A value that just is its data (source rows, passages, proposals, verified quotes) → <code>record</code></li>
-</ul><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
+</ul>
+<div class="callout csharp-transfer"><p><strong>C#/.NET transfer:</strong> A <code>record class</code> is still a reference type, but C# synthesizes value-oriented equality, printing, and <code>with</code> copying; positional records also gain deconstruction. Records are not deeply immutable: a record can still expose mutable properties or hold mutable collections.</p></div>
+<div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>Why records equal by value:</strong> the compiler generates <code>Equals</code>/<code>GetHashCode</code> over all positional members. Two draft values with the same members compare equal; classes normally ask “same object in memory?”, which is a different question.</p>
 <p><strong>Records still get bodies:</strong> you can add methods, computed properties, even extra constructors inside <code>record X(...) { }</code> braces.</p>
 <p><strong>Deconstruction</strong> comes free with positional records: <code>var (id, text) = passage;</code> — pull members into locals by position.</p>

@@ -19,6 +19,7 @@ public sealed record ProposalEnvelope(IReadOnlyList&lt;Proposal&gt; Quotes);</co
 <p>System.Text.Json can use records, properties, source generation, or explicit options. Decide whether provider output is case-sensitive and document the choice. Reject trailing commentary unless the provider adapter explicitly and safely extracts its documented structured field; do not scrape the first braces from arbitrary prose.</p>
 <p>Test an empty list, missing fields, unknown fields if your policy disallows them, an unknown passage id, excessive proposals, and a quote one character different from the source. Some failures belong to deserialization and some to verification. Preserve that distinction so diagnostics name the broken boundary.</p>
 <div class="callout"><p>A structured proposal is still untrusted AI output. Only the common C# verifier can create the value accepted by reporting.</p></div>
+<div class="callout csharp-transfer"><p><strong>C#/.NET transfer:</strong> Typed deserialization proves only that JSON could be mapped into a CLR shape. Nullable analysis, <code>required</code> members, and serializer-required properties catch different classes of omission; none proves that a quote occurs in the referenced passage.</p></div>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // SCHEMA PRESSURE</div><p>If a field is not needed for deterministic lookup or diagnostics, ask why the model is allowed to supply it. Smaller external shapes reduce the number of claims that can cross the boundary.</p></div>
 '''
 

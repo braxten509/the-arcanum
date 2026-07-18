@@ -15,6 +15,7 @@ SourceCatalogDocument? catalog =
 <p>Use <code>JsonSerializerOptions</code> intentionally. Case-insensitive input may help user-authored configuration; strict external AI output can make mistakes easier to diagnose. Records, properties, explicit attributes, or source-generated contexts are all valid design choices at this level. Keep the choice local and test it with exact strings.</p>
 <p>Malformed JSON raises <code>JsonException</code>. Catch it where you can name the file or provider boundary, then preserve the original cause. Never convert malformed provider output into an empty successful answer, because that hides a failed semantic operation.</p>
 <div class="callout"><p>JSON is a transport shape, not a trust level. A proposal remains unverified even after perfectly typed deserialization.</p></div>
+<div class="callout csharp-transfer"><p><strong>C#/.NET transfer:</strong> <code>System.Text.Json</code> maps external JSON into declared CLR shapes, but nullable annotations and successful deserialization do not perform domain validation. Its defaults and options—property naming, case matching, converters, required members—belong at the adapter boundary rather than in trusted records.</p></div>
 <div class="field-notes"><div class="fn-head">FIELD NOTES // TWO SCHEMAS</div><p>User configuration and AI response data have different owners and failure policies. Give them separate C# shapes even if both happen to contain strings and arrays.</p></div>
 '''
 
