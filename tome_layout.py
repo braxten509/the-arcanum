@@ -13,7 +13,9 @@ folder (the split layout). Both load to the identical result:
     badges.toml        [[badges]]            (else inline)
     intrusions.toml    [[tiers]] hex-defense (else [[progression.intrusionTiers]] inline)
     attacks.toml       [[tiers]] spell-duel  (unchanged, single file)
-    sections/<sid>/    section.toml + freestyle.toml + lessons/*.toml  (else flat sections/<sid>.toml)
+    sections/<sid>/    section.toml + freestyle.toml + lessons/*.toml; evidence-version
+                       tomes also carry hidden assessment.toml and mastery-labs/ packages
+                       (else flat sections/<sid>.toml)
 """
 import os
 import glob

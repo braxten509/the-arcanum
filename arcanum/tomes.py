@@ -2,6 +2,7 @@
 import glob
 import os
 import re
+import tomllib
 
 import tome_layout  # shared split-tome layout, kept in lockstep with tools/validate_tome.py
 from tome_proof import public_section
@@ -133,9 +134,31 @@ def assemble_tome(jid):
     payload = tome_layout.merge_banks(dict(m), jdir)  # fold in themes/shop/badges/intrusions siblings
     payload["runtime"] = resolve_runtime_config(m.get("runtime", {}))  # language-toml defaults merged in
     payload["sections"] = sections
+    payload["masteryLabs"] = public_mastery_labs(jdir)
     payload["attacks"] = attacks
     payload["skins"] = list_skins()
     return payload
+
+
+def public_mastery_labs(jdir):
+    """Learner-safe authored lab metadata; generated hidden packages stay server-only."""
+    labs = []
+    for path in sorted(glob.glob(os.path.join(
+            jdir, "sections", "*", "mastery-labs", "*.toml"))):
+        try:
+            with open(path, "rb") as handle:
+                raw = tomllib.load(handle)
+        except (OSError, tomllib.TOMLDecodeError):
+            continue
+        lab = dict(raw.get("masteryLab") or {})
+        if not lab:
+            continue
+        labs.append({"masteryLab": lab,
+                     "requirements": list(raw.get("requirements") or []),
+                     "rubric": [{key: value for key, value in row.items()
+                                 if key in {"id", "criterion", "weight", "kind"}}
+                                for row in raw.get("rubric") or []]})
+    return labs
 
 
 def runtime_for(jid):

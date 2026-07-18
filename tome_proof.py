@@ -5,6 +5,7 @@ mean three different things by "proved".  Version 1 is opt-in through the scaffo
 ``[content].proofVersion`` key; older installed tomes keep their legacy behavior.
 """
 import hashlib
+import copy
 import json
 import os
 import re
@@ -246,10 +247,16 @@ def apply_step(project_dir, step):
 
 def public_section(section):
     """Copy a loaded section while removing hidden answer material from HTTP payloads."""
-    copied = dict(section)
+    copied = copy.deepcopy(section)
     freestyle = copied.get("freestyle")
     if isinstance(freestyle, dict):
         freestyle = dict(freestyle)
         freestyle.pop("referenceSteps", None)
         copied["freestyle"] = freestyle
+    for lesson in copied.get("lessons") or []:
+        if not isinstance(lesson, dict):
+            continue
+        for exercise in lesson.get("exercises") or []:
+            if isinstance(exercise, dict):
+                exercise.pop("solution", None)
     return copied

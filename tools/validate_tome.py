@@ -32,6 +32,8 @@ from validatelib.content.structure import (check_badges, check_economy, check_la
                                    check_shop)
 from validatelib.themes import (check_sigil_palette_uniqueness, check_theme_distinctness,
                                 check_themes)
+from validatelib.mastery_evidence import validate_mastery_evidence
+from validatelib.mastery_evidence.payload import payload_findings
 from buildlib.runtime.validation_env import (ValidationEnvironmentError,
                                      ready_validation_environment)
 from buildlib.course.limits import MAX_SECTIONS, MIN_SECTIONS, section_count_error
@@ -143,6 +145,15 @@ def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_sect
         if prefix_ids is None or str(sid) in prefix_ids:
             check_section(sdata, sid, slabel, seen_ex, seen_les)
         sections_data.append(sdata)
+    for finding in validate_mastery_evidence(
+            tome_path, m, sections_data, build_plan=build_plan,
+            phase2_skeleton=phase2_skeleton,
+            include_variants=not phase2_skeleton and not bool(run_section)):
+        if finding.severity.value == "error":
+            err(finding.location, f"[{finding.code}] {finding.message}")
+        else:
+            warn(finding.location, f"[{finding.code}] {finding.message}",
+                 phase=finding.phase or 7)
     if phase2_skeleton:
         check_phase2_skeleton(sections_data)
         check_tooling_contract(m, sections_data, label, tooling)
@@ -224,6 +235,8 @@ def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_sect
             if len(payload.get("sections", [])) != len(sections_data):
                 err("loader", f"assembled payload has {len(payload.get('sections', []))} section(s), "
                     f"validator loaded {len(sections_data)}")
+            for finding in payload_findings(payload):
+                err(finding.location, f"[{finding.code}] {finding.message}")
         except Exception as ex:
             err("loader", f"the server's assemble_tome() path failed: {type(ex).__name__}: {ex}")
     else:

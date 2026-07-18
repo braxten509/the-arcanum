@@ -49,6 +49,8 @@ def check_layout(tome_path, m):
     content = m.get("content", {}) if isinstance(m.get("content"), dict) else {}
     sections = {str(s) for s in (content.get("sections") or [])}
     attacks_name = str(content.get("attacks") or "generated/attacks.toml").replace(os.sep, "/")
+    evidence = ((m.get("mastery") or {}).get("evidenceVersion") == 1
+                if isinstance(m.get("mastery"), dict) else False)
     fixed = {"tome.toml", "themes.toml", "shop.toml", "badges.toml", "intrusions.toml",
              "attacks_src.toml", "attacks.toml", attacks_name,
              "generated/README.md"}  # the tooling's DO-NOT-EDIT marker for generated/
@@ -60,7 +62,15 @@ def check_layout(tome_path, m):
         if flat:
             return flat.group(1) in sections
         deep = re.fullmatch(r"sections/([A-Za-z0-9_-]+)/(?:(?:section|freestyle)\.toml|lessons/[^/]+\.toml)", p)
-        return bool(deep) and deep.group(1) in sections
+        if deep:
+            return deep.group(1) in sections
+        if evidence:
+            hidden = re.fullmatch(
+                r"sections/([A-Za-z0-9_-]+)/(?:assessment\.toml|assessment/[^/]+(?:/[^/]+)*|"
+                r"mastery-labs/[A-Za-z0-9_.-]+(?:\.toml|/[^/]+(?:/[^/]+)*))", p)
+            generated = re.fullmatch(r"generated/mastery-labs/[^/]+/[^/]+/[^/]+(?:/[^/]+)*", p)
+            return (bool(hidden) and hidden.group(1) in sections) or bool(generated)
+        return False
 
     legit_tomls, stray = [], []
     for dirpath, dirs, files in os.walk(tome_path):

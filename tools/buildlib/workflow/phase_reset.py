@@ -257,10 +257,12 @@ def _mastery_from_plan(text):
 def _fresh_tome(tid, mastery=1):
     """Create a bounds-valid split scaffold under the active TOMES_DIR."""
     try:
-        from tools.new_tome import SECTION_TEMPLATE, TOME_TEMPLATE, render, roman
+        from tools.new_tome import (ASSESSMENT_TEMPLATE, SECTION_TEMPLATE, TOME_TEMPLATE,
+                                    render, roman)
         from tools.maintenance import split_tome
     except ModuleNotFoundError:  # build_tome.py imports buildlib with tools/ on sys.path
-        from new_tome import SECTION_TEMPLATE, TOME_TEMPLATE, render, roman
+        from new_tome import (ASSESSMENT_TEMPLATE, SECTION_TEMPLATE, TOME_TEMPLATE,
+                              render, roman)
         from maintenance import split_tome
     tome = os.path.join(TOMES_DIR, tid)
     if os.path.exists(tome):
@@ -286,6 +288,9 @@ def _fresh_tome(tid, mastery=1):
         split_tome.migrate_manifest(tome)
         for number in range(1, MIN_SECTIONS + 1):
             split_tome.migrate_section(tome, f"s{number:02d}")
+            _atomic_text(os.path.join(tome, "sections", f"s{number:02d}",
+                                      "assessment.toml"),
+                         ASSESSMENT_TEMPLATE.lstrip("\n"))
     finally:
         split_tome.QUIET = previous_quiet
 
