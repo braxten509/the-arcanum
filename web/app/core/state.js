@@ -1,5 +1,6 @@
 /* The wizard's ledger — the one mutable save state, its autosave, and the ink LED. */
 import { BADGES, J, RANKS, TID } from "./config.js";
+import { evidenceDefaults, migrateState } from "../mastery/evidence.js";
 
 export let S = null;
 let saveTimer = null, savePending = false;
@@ -8,13 +9,15 @@ let loadDefaulted = false; // true when loadState fell back to a fresh default (
 // real play, not just settings — mirrors the server's has_progress guard
 const hasProgress = (s) => !!(s && (s.earned || s.credits || s.hexesEnabled === false ||
   (s.ex && Object.keys(s.ex).length) || (s.read && Object.keys(s.read).length) ||
-  (s.badges && Object.keys(s.badges).length) || (s.fs && Object.keys(s.fs).length)));
+  (s.badges && Object.keys(s.badges).length) || (s.fs && Object.keys(s.fs).length) ||
+  (s.exerciseEvidence && Object.keys(s.exerciseEvidence).length) ||
+  (s.assessmentReceipts && Object.keys(s.assessmentReceipts).length)));
 
 const DEFAULT_STATE = () => {
   const jd = (window.TOME && window.TOME.defaults) || {};
   const dTheme = jd.theme || "vellum", dai = jd.ai || {};
   return {
-    v: 1, booted: false, credits: 0, earned: 0, hexesEnabled: true,
+    v: 2, booted: false, credits: 0, earned: 0, hexesEnabled: true,
     ex: {}, read: {}, fs: {},
     inv: { oracle: 0, skip: 0, firewall: 0, x2: 0, xray: 0, vpn: 0 },
     oracleLog: [],
@@ -26,6 +29,7 @@ const DEFAULT_STATE = () => {
     badges: {}, stats: { correct: 0, wrong: 0, runs: 0, subs: 0, streak: 0, bestStreak: 0, intrusionW: 0, intrusionL: 0, atkW: 0, atkL: 0, atkWins: {}, reviews: 0 },
     buffers: {}, nav: { view: "home", sec: null, lesson: null },
     workspace: { enabled: false, dir: "" }, // student opt-in: build in your own editor at this dir instead of the built-in workbench
+    ...evidenceDefaults(),
   };
 };
 
@@ -35,6 +39,7 @@ export async function loadState() {
     const data = await r.json();
     loadDefaulted = !Object.keys(data).length;
     S = loadDefaulted ? DEFAULT_STATE() : Object.assign(DEFAULT_STATE(), data);
+    S = migrateState(S, { ...(window.TOME || {}), sections: window.SECTIONS || [] });
     S.inv = Object.assign(DEFAULT_STATE().inv, S.inv);
     S.stats = Object.assign(DEFAULT_STATE().stats, S.stats);
     // saves from before the wind had its own slider: it used to ride the crackle volume

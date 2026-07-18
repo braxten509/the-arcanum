@@ -46,7 +46,7 @@ export function paintOracleBtn() {
   const ob = $("#b-oracle"); if (ob) ob.innerHTML = `${ico("orb")} CONSULT THE ORACLE ${n}`;
 }
 
-export function askOracle(label, detail, selection) {
+export function askOracle(label, detail, selection, evidence = {}) {
   if ((S.inv.oracle || 0) < 1) {
     modal(`<h2>WAKE THE ORACLE?</h2>
       <p class="dim">One question whispered into the crystal — an AI spirit dwelling in this very machine (Ollama). Each scrying answers a single question.</p>
@@ -55,7 +55,7 @@ export function askOracle(label, detail, selection) {
         if (!spend(ORACLE_COST)) return;
         S.inv.oracle = (S.inv.oracle || 0) + 1;
         sfx("peddler"); save(); paintOracleBtn();
-        askOracle(label, detail, selection);
+        askOracle(label, detail, selection, evidence);
       }]]);
     return;
   }
@@ -94,7 +94,13 @@ export function askOracle(label, detail, selection) {
     } catch (err) { data = { ok: false, answer: "server error: " + err }; }
     out.textContent = data.answer;
     if (data.ok) {
-      (S.oracleLog = S.oracleLog || []).push({ q, a: data.answer, ctx: label, at: Date.now() });
+      if (typeof evidence.onUse === "function") evidence.onUse();
+      const at = Date.now();
+      (S.oracleLog = S.oracleLog || []).push({
+        q, a: data.answer, ctx: label, at,
+        nodeId: evidence.nodeId || "", capabilityIds: evidence.capabilityIds || [],
+        responseId: data.responseId || `local-${at}`,
+      });
       S.inv.oracle--;
       save();
       paintOracleBtn();

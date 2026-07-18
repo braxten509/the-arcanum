@@ -6,6 +6,8 @@ import { askOracle, oracleContext } from "../bench/oracle.js";
 import { addCredits, attemptMultiplier, comboBonus, grantBadge, lessonDone, spend, updateHud } from "./progress.js";
 import { burst, castSigil, lastCastAt } from "./sigil.js";
 import { S, save } from "../core/state.js";
+import { isEvidenceTome } from "../mastery/policy.js";
+import { recordAttempt, recordReview, recordSupport } from "../mastery/evidence.js";
 
 const EX_LABEL = { mc: "CHOOSE WISELY", fill: "COMPLETE THE RUNE", text: "SPEAK THE WORD", type: "COPYING DRILL", write: "INSCRIPTION" };
 
@@ -18,23 +20,35 @@ const EX_LABEL = { mc: "CHOOSE WISELY", fill: "COMPLETE THE RUNE", text: "SPEAK 
 // covers only mc/fill/text. A hit pushes the item further out; a miss brings
 // it right back.
 const REVIEWABLE = new Set(["mc", "fill", "text"]);
+const REVIEW_TASKS = new Set(["predict", "trace", "explain", "complete", "debug", "test-design"]);
 const REVIEW_STEPS = [1, 2, 4, 8, 16]; // Leitner intervals: lessons-completed units AND days
 const DAY = 86400000;
 export const GATE_MIN = 5; // due items before the gate bars a doorway
 const lessonsCompleted = () => window.SECTIONS.reduce((n, s) => n + s.lessons.filter(lessonDone).length, 0);
 function scheduleReview(st, ok) {
   st.box = ok ? Math.min((st.box || 1) + 1, REVIEW_STEPS.length) : 1;
-  st.due = lessonsCompleted() + REVIEW_STEPS[st.box - 1];
-  st.dueT = Date.now() + REVIEW_STEPS[st.box - 1] * DAY;
+  st.reviewUnresolved = !ok;
+  st.due = ok ? lessonsCompleted() + REVIEW_STEPS[st.box - 1] : lessonsCompleted();
+  st.dueT = ok ? Date.now() + REVIEW_STEPS[st.box - 1] * DAY : Date.now();
+  if (ok) st.reviewVariantIndex = (st.reviewVariantIndex || 0) + 1;
+}
+const isReviewable = (exercise) => REVIEWABLE.has(exercise.type)
+  || (exercise.type !== "type" && REVIEW_TASKS.has(exercise.cognitiveTask));
+function variedReview(exercise, state) {
+  const variants = Array.isArray(exercise.reviewVariants) ? exercise.reviewVariants : [];
+  if (!variants.length) return exercise;
+  const variant = variants[(state.reviewVariantIndex || 0) % variants.length];
+  return { ...exercise, ...variant, id: exercise.id, capabilities: exercise.capabilities || [] };
 }
 export function reviewDue() {
   const clock = lessonsCompleted(), now = Date.now(), out = [];
   for (const sec of window.SECTIONS)
     for (const l of sec.lessons)
       for (const e of (l.exercises || [])) {
-        if (!REVIEWABLE.has(e.type)) continue;
+        if (!isReviewable(e)) continue;
         const st = S.ex[e.id];
-        if (st && st.ok && ((st.due != null && st.due <= clock) || (st.dueT != null && st.dueT <= now))) out.push({ e, st });
+        if (st && st.ok && (st.reviewUnresolved || (st.due != null && st.due <= clock)
+            || (st.dueT != null && st.dueT <= now))) out.push({ e: variedReview(e, st), st });
       }
   return out.sort((a, b) => (a.st.due || 0) - (b.st.due || 0));
 }
@@ -47,7 +61,7 @@ export function backfillReview() {
   for (const sec of window.SECTIONS)
     for (const l of sec.lessons)
       for (const e of (l.exercises || [])) {
-        if (!REVIEWABLE.has(e.type)) continue;
+        if (!isReviewable(e)) continue;
         const st = S.ex[e.id];
         if (!st || !st.ok) continue;
         if (st.due == null) { st.box = 1; st.due = clock + REVIEW_STEPS[0]; changed = true; }
@@ -89,7 +103,7 @@ function refreshReviewBanners() {
 export function startReview(onPass) {
   const due = reviewDue().slice(0, 8); // a short round; the rest surface next time
   if (!due.length) { toast("Nothing is due for review — your seals hold.", "ok"); if (onPass) onPass(); return; }
-  const graded = new Set(); // grade each item once per round, on its first outcome
+  const corrected = new Set();
   let passed = false;
   const overlay = document.createElement("div");
   overlay.className = "grade-overlay review-overlay";
@@ -105,18 +119,19 @@ export function startReview(onPass) {
     <div class="review-scroll" style="overflow:auto;margin-top:14px;flex:1;display:flex;flex-direction:column;gap:14px"></div>`;
   const scroll = $(".review-scroll", overlay);
   const closeBtn = $("#rv-close", overlay);
-  const updateCount = () => { const c = $("#rv-count", overlay); if (c) c.textContent = `${graded.size}/${due.length} re-forged`; };
+  const updateCount = () => { const c = $("#rv-count", overlay); if (c) c.textContent = `${corrected.size}/${due.length} corrected`; };
   due.forEach(({ e, st }, i) => {
     scroll.appendChild(exerciseEl(e, i, true, (ok) => {
-      if (graded.has(e.id)) return;
-      graded.add(e.id);
+      if (corrected.has(e.id)) return;
       scheduleReview(st, ok);
+      if (isEvidenceTome(window.TOME)) recordReview(S, e, ok);
       S.stats.reviews = (S.stats.reviews || 0) + 1;
+      if (ok) corrected.add(e.id);
       save(); updateCount();
-      if (graded.size >= due.length) {
+      if (corrected.size >= due.length) {
         passed = true;
         refreshReviewBanners();
-        toast("Review complete — the old seals are re-forged.", "ok");
+        toast("Review complete — every fading seal was corrected.", "ok");
         closeBtn.className = "btn";
         closeBtn.innerHTML = onPass
           ? `${ico("check")} CONTINUE — THE WAY IS OPEN`
@@ -139,6 +154,10 @@ export function exerciseEl(e, idx, redo, onReview) {
   const mult = noDecay ? 1 : attemptMultiplier(st.a);
   const worth = Math.round(e.points * mult);
   const totalReps = e.reps || 1;
+  const evidenceTome = isEvidenceTome(window.TOME);
+  const aidPolicy = e.aidPolicy || "learning";
+  const allowGuidance = !evidenceTome || ["learning", "limited"].includes(aidPolicy);
+  const allowScroll = !evidenceTome || aidPolicy === "learning";
 
   wrap.innerHTML = `
     <div class="ex-head">
@@ -156,9 +175,9 @@ export function exerciseEl(e, idx, redo, onReview) {
     <div class="ex-foot">
       <span class="ex-verdict"></span>
       <span style="display:flex;gap:8px">
-        ${!st.ok && e.hint ? `<button class="btn quiet b-hint">${ico("bulb")} WHISPERED HINT (${HINT_COST}${gp()})</button>` : ""}
-        ${!st.ok ? `<button class="btn quiet b-orc" title="the candle's hint is the author's fixed nudge; the Oracle is a living spirit you can question">${ico("orb")} ASK THE ORACLE</button>` : ""}
-        ${!st.ok && S.inv.skip > 0 ? `<button class="btn quiet b-skip">${ico("scroll")} SCROLL OF REVELATION</button>` : ""}
+        ${!st.ok && e.hint && allowGuidance ? `<button class="btn quiet b-hint">${ico("bulb")} WHISPERED HINT (${HINT_COST}${gp()})</button>` : ""}
+        ${!st.ok && allowGuidance ? `<button class="btn quiet b-orc" title="the candle's hint is the author's fixed nudge; the Oracle is a living spirit you can question">${ico("orb")} ASK THE ORACLE</button>` : ""}
+        ${!st.ok && S.inv.skip > 0 && allowScroll ? `<button class="btn quiet b-skip">${ico("scroll")} SCROLL OF REVELATION</button>` : ""}
         ${st.ok && !redo ? `<button class="btn quiet b-redo">RECAST FOR SPORT</button>` : ""}
         ${redo && !onReview ? `<button class="btn quiet b-done">MARK COMPLETE</button>` : ""}
         ${!st.ok || redo ? `<button class="btn b-check">${e.type === "write" ? "INSCRIBE + CAST" : "CAST"}</button>` : ""}
@@ -171,7 +190,11 @@ export function exerciseEl(e, idx, redo, onReview) {
   let getAnswer = () => "";
 
   if (st.ok && !redo) {
-    input.innerHTML = `<div class="dim" style="font-size:13px">${ico("check")} Passed${st.skipped ? " (by scroll)" : ""}. ${e.explain ? esc(e.explain) : ""}</div>`;
+    const evidence = evidenceTome && S.exerciseEvidence && S.exerciseEvidence[e.id];
+    const completion = evidence && evidence.resolved
+      ? (evidence.independent ? "Completed independently" : "Completed with support")
+      : `Passed${st.skipped ? " (by scroll)" : ""}`;
+    input.innerHTML = `<div class="dim" style="font-size:13px">${ico("check")} ${completion}. ${e.explain ? esc(e.explain) : ""}${evidence && evidence.supportUsed ? " This capability may return later in a varied independent form." : ""}</div>`;
     $(".ex-verdict", wrap).className = "ex-verdict ok";
     $(".ex-verdict", wrap).textContent = "THE SEAL HOLDS";
   } else if (e.type === "mc") {
@@ -242,7 +265,8 @@ export function exerciseEl(e, idx, redo, onReview) {
     const pts = Math.round(e.points * liveMult * (1 + bonus) * (S.inv.x2 > 0 ? 2 : 1));
     if (S.inv.x2 > 0) S.inv.x2--;
     st.ok = true; st.pts = pts; S.stats.correct++;
-    if (REVIEWABLE.has(e.type)) scheduleReview(st, true); // enroll this recall item in spaced review
+    if (evidenceTome) recordAttempt(S, e, { resolved: true, variantId: e.variantId || "" });
+    if (isReviewable(e)) scheduleReview(st, true); // enroll this recall item in spaced review
     if (!noDecay) {
       S.stats.streak++;
       S.stats.bestStreak = Math.max(S.stats.bestStreak || 0, S.stats.streak);
@@ -264,6 +288,7 @@ export function exerciseEl(e, idx, redo, onReview) {
       return;
     }
     S.stats.wrong++;
+    if (evidenceTome) recordAttempt(S, e, { resolved: false, variantId: e.variantId || "" });
     castFeedback(false);
     if (noDecay) {
       verdict.className = "ex-verdict no";
@@ -358,6 +383,7 @@ export function exerciseEl(e, idx, redo, onReview) {
   if (bHint) bHint.onclick = () => {
     const reveal = () => {
       st.hint = true;
+      if (evidenceTome) recordSupport(S, e, "hint");
       const h = $(".ex-hint", wrap);
       h.classList.remove("hidden");
       h.textContent = "THE CANDLE WHISPERS :: " + e.hint;
@@ -382,14 +408,21 @@ export function exerciseEl(e, idx, redo, onReview) {
     const draft = getAnswer();
     if (typeof draft === "string" && draft.trim() && draft.trim() !== (e.starter || "").trim())
       detail += `\n\nSTUDENT'S CURRENT ATTEMPT:\n${draft.slice(0, 3000)}`;
-    askOracle(`${c.label} / TRIAL ${roman(idx + 1)}`, detail, "");
+    askOracle(`${c.label} / TRIAL ${roman(idx + 1)}`, detail, "", {
+      nodeId: e.id, capabilityIds: e.capabilities || [],
+      onUse: evidenceTome ? () => recordSupport(S, e, "oracle") : null,
+    });
   };
 
   const bSkip = $(".b-skip", wrap);
   if (bSkip) bSkip.onclick = () => {
-    modal(`<h2>UNROLL A SCROLL OF REVELATION?</h2><p class="dim">The answer writes itself; the trial is sealed at its full ${e.points}${gp()}. You carry ${S.inv.skip}.</p>`,
+    modal(`<h2>UNROLL A SCROLL OF REVELATION?</h2><p class="dim">The answer writes itself and resolves this learning activity at its full ${e.points}${gp()}. It will be marked <b>Completed with support</b>, does not prove independent capability, and may return later in a different form. You carry ${S.inv.skip}.</p>`,
       [["NOT YET", "quiet"], ["UNROLL IT", "", () => {
         S.inv.skip--; st.ok = true; st.skipped = true; st.pts = e.points;
+        if (evidenceTome) {
+          recordSupport(S, e, "scroll");
+          recordAttempt(S, e, { resolved: true, variantId: e.variantId || "" });
+        }
         addCredits(e.points, true);
         toast(`THE SCROLL BURNS AS IT READS ITSELF // <b>+${e.points}</b> ${coin()}`);
         wrap.replaceWith(exerciseEl(e, idx));

@@ -4,6 +4,7 @@ import { $, esc, ico, sfx, toast } from "../core/dom.js";
 import { S, save } from "../core/state.js";
 import { renderHome, renderLesson, renderSection, renderShop } from "../ui/views.js";
 import { renderFreestyle } from "../bench/workbench.js";
+import { isEvidenceTome, lessonResolved, sectionResolution, workingPassed } from "../mastery/policy.js";
 
 // ------------------------------------------------------------ economy
 export function rank() {
@@ -56,20 +57,33 @@ export function sectionExercises(sec) {
   return out;
 }
 export function sectionSolvedFrac(sec) {
+  if (isEvidenceTome(window.TOME)) return sectionResolution(sec, S).fraction;
   const exs = sectionExercises(sec);
   if (!exs.length) return 1;
   return exs.filter((e) => S.ex[e.id] && S.ex[e.id].ok).length / exs.length;
 }
-export function freestyleUnlocked(sec) { return !!S.spellAll || sectionSolvedFrac(sec) >= 0.7; }
+export function freestyleUnlocked(sec) {
+  if (S.spellAll) return true;
+  if (isEvidenceTome(window.TOME)) {
+    // The review gate performs the final due-item check immediately before navigation.
+    return (sec.lessons || []).every((lesson) => lessonResolved(lesson, S));
+  }
+  return sectionSolvedFrac(sec) >= 0.7;
+}
 export function fsBest(sid) { return (S.fs[sid] && S.fs[sid].best) || null; }
-export function sectionPassed(sec) { const b = fsBest(sec.id); return b && b.total >= 60; }
+export function sectionPassed(sec) {
+  const best = fsBest(sec.id);
+  return isEvidenceTome(window.TOME) ? workingPassed(best) : !!(best && best.total >= 60);
+}
 export function sectionUnlocked(i) { return !!S.spellAll || i === 0 || sectionPassed(window.SECTIONS[i - 1]); }
 export function sectionProgress(sec) {
-  return sectionSolvedFrac(sec) * 0.7 + (sectionPassed(sec) ? 0.3 : 0);
+  const lessonWeight = isEvidenceTome(window.TOME) ? 0.8 : 0.7;
+  return sectionSolvedFrac(sec) * lessonWeight + (sectionPassed(sec) ? 1 - lessonWeight : 0);
 }
 // a lesson is "completed" once every one of its exercises is cracked
 // (lessons without exercises count once they've been opened/read)
 export function lessonDone(l) {
+  if (isEvidenceTome(window.TOME)) return lessonResolved(l, S);
   return l.exercises && l.exercises.length
     ? l.exercises.every((e) => S.ex[e.id] && S.ex[e.id].ok)
     : !!S.read[l.id];
@@ -114,7 +128,13 @@ export function renderSidebar() {
       <span class="op-state">${passed ? ico("check", "done") : unlocked ? "" : ico("lock", "lock")}</span>
       <span class="op-bar"><i style="width:${Math.round(sectionProgress(sec) * 100)}%"></i></span>`;
     b.onclick = () => {
-      if (!unlocked) { toast("THE PAGE IS SEALED // finish the previous chapter's Great Working first (grade D or better).", "bad"); return; }
+      if (!unlocked) {
+        const threshold = isEvidenceTome(window.TOME)
+          ? "80/B or better with every essential check green"
+          : "grade D or better";
+        toast(`THE PAGE IS SEALED // finish the previous chapter's Great Working first (${threshold}).`, "bad");
+        return;
+      }
       go("section", sec.id);
     };
     nav.appendChild(b);
