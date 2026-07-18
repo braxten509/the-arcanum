@@ -17,6 +17,7 @@ from arcanum.ai import (AiRequest, AiResponse, AiRoleRegistry, AiRoleSpec, AiSer
 from arcanum.ai.json_response import parse_json_object
 from arcanum.assessment.grading.providers import QualitativeRequest
 from arcanum.assessment.grading.qualitative import AiQualitativeProvider
+from arcanum.assessment.use_cases.catalog import working_performance
 from arcanum.http.router import Router
 from arcanum.jobs import (JobHandlerRegistry, JobHandlerSpec, JobManager,
                           ProcessStore)
@@ -159,5 +160,18 @@ with tempfile.TemporaryDirectory() as temp:
     course = {"masteryEvidence": evidence}
     path = export_mastery_contract(course, str(root / "tome"))
     assert json.loads(Path(path).read_text()) == evidence
+    resolved, sealed = working_performance(
+        str(root / "tome"), "s01", ("language-data",))
+    assert resolved.level == 1 and sealed.id == "final-proof"
+    _resolved, formative = working_performance(
+        str(root / "tome"), "s02", ("language-data",))
+    assert formative.id == "chapter-working-s02"
+    assert formative.aid_policy == "learning" and formative.node_id == "s02.working"
+    try:
+        working_performance(str(root / "tome"), "s03", ("invented",))
+    except ValueError as exc:
+        assert "at least one declared capability" in str(exc)
+    else:
+        raise AssertionError("a Working without a declared capability was accepted")
 
 print("mastery application-service tests: OK")

@@ -32,6 +32,38 @@ def performance_for(tome_root: str, node_id: str) -> tuple[
     return contract, matches[0]
 
 
+def working_performance(tome_root: str, section_id: str,
+                        capability_ids: tuple[str, ...]) -> tuple[
+                            MasteryEvidenceContract, PerformanceObligation]:
+    """Resolve a chapter Working without widening the sealed mastery claim.
+
+    Every Working in an evidence-version tome is deterministically assessed for the
+    chapter B gate.  Only the late Workings named by the sealed evidence contract are
+    mastery performances, though.  Earlier Workings receive a stable formative receipt
+    that can populate the capability ledger without becoming a required mastery seal.
+    """
+    contract = load_mastery_contract(tome_root)
+    node_id = f"{section_id}.working"
+    matches = [row for row in contract.performances if row.node_id == node_id]
+    if len(matches) > 1:
+        raise ValueError(f"node {node_id!r} names more than one sealed mastery performance")
+    if matches:
+        return contract, matches[0]
+    known = tuple(dict.fromkeys(
+        capability_id for capability_id in capability_ids
+        if capability_id in contract.capability_ids))
+    if not known:
+        raise ValueError(
+            f"chapter Working {node_id!r} must assess at least one declared capability")
+    performance_id = f"chapter-working-{section_id}"
+    if any(row.id == performance_id for row in contract.performances):
+        raise ValueError(
+            f"formative Working id {performance_id!r} collides with a sealed performance")
+    return contract, PerformanceObligation(
+        performance_id, node_id, "guided-modification", known, "project",
+        "learning", False, "")
+
+
 def authored_lab(tome_root: str, node_id: str) -> tuple[str, dict]:
     matches = []
     pattern = os.path.join(tome_root, "sections", "*", "mastery-labs", "*.toml")

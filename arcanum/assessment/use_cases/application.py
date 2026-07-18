@@ -9,7 +9,8 @@ from runtimes.validation_environment import ensure_validation_environment
 from arcanum.ai import AiService
 from arcanum.assessment.variants import VariantRepository, VariantUnavailable
 
-from .catalog import authored_lab, load_variant_assessment, performance_for
+from .catalog import (authored_lab, load_variant_assessment, performance_for,
+                      working_performance)
 from .lab_workspaces import LabWorkspaceStore
 from .public import public_receipt
 from ..contracts import load_working_contract
@@ -49,10 +50,14 @@ class AssessmentApplication:
 
     def assess_working(self, section_id: str, rationale: str, learning_store) -> dict:
         node_id = f"{section_id}.working"
-        evidence, performance = performance_for(self.tome_root, node_id)
         section = tome_layout.load_section(self.tome_root, section_id)
         contract = load_working_contract(
             self.tome_root, section_id, section.get("freestyle") or {})
+        capabilities = tuple(dict.fromkeys(
+            capability_id for requirement in contract.requirements
+            for capability_id in requirement.capability_ids))
+        evidence, performance = working_performance(
+            self.tome_root, section_id, capabilities)
         if performance.rationale_required and not rationale.strip():
             raise ValueError("this performance requires a learner rationale")
         request = AssessmentRequest(
