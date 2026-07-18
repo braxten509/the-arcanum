@@ -1,6 +1,9 @@
 # Phase 7 — Validate (mandatory)
 
-Run the Phase 7 commands in `tome-workflow/single-author.md` as the shipping gate: fix every ERROR and every
+Read `tome-authoring/10-mastery-evidence.md`. First run
+`python3 tools/gen_mastery_labs.py <tome-id> --build-id <build-id>` so every required offline
+variant pool is generated and executable-verified. Then run the remaining Phase 7 commands in
+`tome-workflow/single-author.md` as the shipping gate: fix every ERROR and every
 non-`advisory` WARN until `--strict` exits zero. The validator owns schema, layout,
 density, runtime execution, capability ordering, anti-template measurements, bank
 contracts, and installed-loader assembly; respond to its exact findings instead of
@@ -11,6 +14,12 @@ For proof-v1 it also reruns the ship-lifecycle proof matrix, the exact Phase-1 a
 scenarios, the persisted final learner reconstruction, its ordinary no-flag cold start, one
 negative challenge per scenario, and any clean-environment package/build/launch gate. A prose
 receipt or literal all-true JSON object is not a substitute.
+
+For evidence-version tomes the strict gate also proves sealed-map delivery, exercise metadata,
+structured requirements, hidden-to-public scenario linkage, safe runtime command references,
+reference/mutation outcomes, variant hashes, structural diversity, and HTTP payload stripping.
+Generation is content-addressed: an unchanged verified candidate may be reused, but a full audit
+still checks every shipped receipt and rejects a tampered package.
 
 Then perform the judgments code cannot prove:
 

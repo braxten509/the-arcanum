@@ -1,6 +1,7 @@
 # Phase 8 — Student review & gap-fill (mandatory)
 
-Read `tome-authoring/9-proof-and-assets.md`. Reconcile contradictions, then prove the course
+Read `tome-authoring/9-proof-and-assets.md` and `tome-authoring/10-mastery-evidence.md`.
+Reconcile contradictions, then prove the course
 as a first-time learner using only declared prerequisites. You are the same continuous author,
 so compensate deliberately for familiarity: execute the written path from a clean workspace,
 trust artifacts and output over memory, and treat every missing learner step as blocking.
@@ -115,6 +116,20 @@ Audit these semantic contracts:
    rename-only twin. At least one must grade a recorded rationale. Fail a course that gives any
    canonical implementation in lesson material, or gives the decisive integration and then
    grades only a receipt, framework behavior, or trivial project route without language evidence.
+10. **Evidence semantic congruence.** For every sealed capability, compare its declared label with
+    the concept, worked example, exercise prompt/action, and learner-visible path that supposedly
+    teaches and practices it. For every sealed performance, compare the public requirement,
+    scenario contract, cognitive task, context distance, withheld help, and rationale demand with
+    what the learner actually does. Fail label-only coverage, indiscriminate full-spine mappings,
+    trivial renames, hidden architecture, or claims broader than the observed work. Answer directly
+    whether a learner following the original prompt and visible path can build the promised result
+    independently—not merely whether the reference project passes.
+
+Record that audit in `.tome-build/BUILD_ID.mastery-semantic-review.json` using the exact §10
+schema. Include every capability and performance in sealed order, cite concrete evidence, record
+each repaired finding, and leave `unresolvedFindings` empty. Run
+`python3 tools/validate_mastery_review.py BUILD_ID CURRENT_TOME`; the harness, not the reviewer,
+derives PASS from this receipt plus executable evidence.
 
 Resolve behavior from the approved arc, `meta.description`, acceptance journey, and runtime,
 not majority wording. Repair any authored file or selected runtime. Proof-v1 PASS is derived

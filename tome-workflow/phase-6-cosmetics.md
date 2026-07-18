@@ -12,3 +12,6 @@ distance, reference, earned-theme, consumable, and badge-id contracts.
 
 Produce `themes.toml`, `shop.toml`, and `badges.toml`. A tome recolors the existing study;
 do not add CSS or anything under `skins/`.
+
+Cosmetics, badges, attacks, and minigames remain presentation, rewards, or practice. They do not
+change required-work, independent-evidence, review, Working-grade, or mastery state.

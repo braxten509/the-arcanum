@@ -1,6 +1,7 @@
 # Phase 3 — Sections (the course)
 
-Read `tome-workflow/support/section-author.md` and `tome-authoring/9-proof-and-assets.md`,
+Read `tome-workflow/support/section-author.md`, `tome-authoring/9-proof-and-assets.md`, and
+`tome-authoring/10-mastery-evidence.md`,
 then author in Arc order, one complete section at a time: brief, lessons/exercises, and
 cumulative freestyle. Each section adds its promised capability to the evolving project.
 Never test material that this or an earlier lesson has not taught.
@@ -16,6 +17,14 @@ necessary intermediate prerequisite that must occur before the Working, with `mo
 no answer content. Put one complete implementation of the Working only in the section's hidden
 `referenceSteps`. Apply this in every section, including s01; scaffold fading changes task size and
 hint detail, never who writes the real artifact.
+
+For an evidence-version tome, copy every exercise's sealed capability/cognitive/scaffold/context/
+aid obligation into its TOML, author exact structured public Working requirements and rubric rows,
+and put deterministic scenarios in the section's private `assessment.toml`. A scenario may test
+only a public requirement and must call a registered generic runtime command. Author each sealed
+mastery-lab family, its public/hidden directories, and its full blueprint pool in the assigned
+section. Do not place a hidden check, reference answer, mutation, or blueprint in learner-visible
+TOML or public files.
 
 The harness gives each section a fresh author session after the preceding section validates.
 Stay in that session for the assigned section and all of its repair turns; do not begin the next

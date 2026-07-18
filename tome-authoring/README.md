@@ -25,3 +25,4 @@ The order to work in is `tome-workflow/` (start at its README).
 | §7 | [7-validate.md](7-validate.md) | Validate, the layout contract, the checklist |
 | §8 | [8-skins.md](8-skins.md) | Global skins — platform-level, NOT a tome deliverable |
 | §9 | [9-proof-and-assets.md](9-proof-and-assets.md) | Replayable learner edits, runtime milestones, and human-sourced media |
+| §10 | [10-mastery-evidence.md](10-mastery-evidence.md) | Versioned learner evidence, hidden assessment, verified mastery labs, and semantic review |

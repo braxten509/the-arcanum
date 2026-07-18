@@ -22,7 +22,7 @@ from ..course.state import (derive_course_state, record_section_failure,
                            record_section_verification, refresh_course_verifications)
 from ..prerequisites.review import review_prerequisites
 from ..mechanism_contract import candidate_with_findings
-from ..mastery_evidence import export_mastery_contract
+from ..mastery_evidence import export_mastery_contract, validate_semantic_review
 from ..course.amend import amend_course_map
 from arcanum.tomes import resolve_working_tid
 from tools.validatelib.phase3 import tome_section_ids
@@ -192,7 +192,22 @@ def validate_unit(build_id, unit):
         ok, report = validate(ctx["tid"], phase=phase, tooling=ctx["tooling"], run=False,
                               plan_rel=ctx["plan"], phase_only=True)
     else:
+        generation_report = ""
+        if phase == 7:
+            generated = subprocess.run(
+                ["python3", "tools/gen_mastery_labs.py", ctx["tid"],
+                 "--build-id", build_id], cwd=REPO, capture_output=True, text=True)
+            generation_report = (generated.stdout + generated.stderr).strip()
+            if generated.returncode:
+                return False, "MASTERY VARIANT GENERATION:\n" + generation_report
+        if phase == 8:
+            review_ok, review_report = validate_semantic_review(
+                BUILD_DIR, build_id, os.path.join(REPO, "tomes", ctx["tid"]))
+            if not review_ok:
+                return False, "MASTERY SEMANTIC REVIEW:\n" + review_report
+            generation_report = review_report
         ok, report = validate_shipping(ctx["tid"], ctx["tooling"], ctx["plan"])
+        report = "\n".join(part for part in (generation_report, report) if part)
         if ok:
             try:
                 refresh_course_verifications(build_id, report)
@@ -282,7 +297,12 @@ def self_validation_commands(build_id, unit):
                 ctx["tid"], phase=phase, tooling=ctx["tooling"], run=False,
                 plan_rel=ctx["plan"], phase_only=True)]
         else:
-            commands = [
+            commands = ([] if phase != 7 else [[
+                "python3", "tools/gen_mastery_labs.py", ctx["tid"],
+                "--build-id", build_id,
+            ]]) + ([] if phase != 8 else [[
+                "python3", "tools/validate_mastery_review.py", build_id, ctx["tid"],
+            ]]) + [
                 phase3_validator_argv(
                     ctx["tid"], ctx["tooling"], ctx["plan"], run=True, strict=True),
                 ["python3", "tools/smoke_tome.py", ctx["tid"]],
@@ -305,6 +325,10 @@ def preflight_unit(build_id, unit):
             entrypoints += ("tools/workflow/author_phase_transition.py",)
         if phase in (7, 8):
             entrypoints += ("tools/smoke_tome.py",)
+        if phase == 7:
+            entrypoints += ("tools/gen_mastery_labs.py",)
+        if phase == 8:
+            entrypoints += ("tools/validate_mastery_review.py",)
     preflight_validator_runtime(ctx["tid"], entrypoints)
 
 

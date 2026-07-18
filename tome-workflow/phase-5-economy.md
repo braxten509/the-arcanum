@@ -7,4 +7,10 @@ hint/oracle costs so mid-course purchases and late-game trophies both exist. Lan
 top rank within about 15% of fixed face value; combos, S ranks, and successful defenses
 can bridge a modest positive gap, while a large negative gap ends progression too early.
 
+Support never buys mastery. Scroll of Revelation resolves the current activity as `supported`,
+does not demonstrate its capabilities independently, and schedules a varied retrieval opportunity.
+Hints and Oracle use are recorded on the attempt the same way; they do not subtract permanent
+mastery points. Purchases cannot bypass a Working or mastery-lab gate, and limited currency must
+never be required to repair supported evidence.
+
 → **Produce:** a balanced `[economy]`.

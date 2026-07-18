@@ -95,12 +95,17 @@ Phase-0 `TOOLING` value literally.
   sealed map, derived state, receipts, prior handoffs, marks, or checkmarks.
 - Phases 4–6: self-check with, and then let the harness repeat,
   `python3 tools/validate_tome.py tomes/CURRENT_TOME --build-phase N --phase-only --no-run --tooling TOOLING --build-plan .tome-build/BUILD_ID.plan.md`.
-- Phase 7: self-check with
+- Phase 7: generate and executable-verify the offline mastery-lab bank first with
+  `python3 tools/gen_mastery_labs.py CURRENT_TOME --build-id BUILD_ID`, then self-check with
   `python3 tools/validate_phase3.py tomes/CURRENT_TOME --plan .tome-build/BUILD_ID.plan.md --tooling TOOLING --strict`,
-  then `python3 tools/smoke_tome.py CURRENT_TOME`. The harness repeats both; all runs must exit 0.
-- Phase 8: do the semantic first-time-student review yourself and mark the phase validating.
-  Then self-check with the Phase-7 strict and smoke commands before marking validating. The
-  harness repeats both. A clean validator is necessary but does not replace the complete semantic review.
+  then `python3 tools/smoke_tome.py CURRENT_TOME`. The harness repeats generation and both gates;
+  all runs must exit 0.
+- Phase 8: do the semantic first-time-student review and write the exact
+  `.tome-build/BUILD_ID.mastery-semantic-review.json` receipt from
+  `tome-authoring/10-mastery-evidence.md`. Self-check with
+  `python3 tools/validate_mastery_review.py BUILD_ID CURRENT_TOME`, then the Phase-7 strict and
+  smoke commands before marking validating. The harness repeats all three checks. A clean
+  validator is necessary but does not replace the complete semantic review.
 
 Phase-focused validators may defer later-phase warnings. Do not edit future-phase banks to
 silence deferred counts. Never weaken an earlier proof or remove content merely to make a gate

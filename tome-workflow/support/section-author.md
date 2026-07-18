@@ -6,13 +6,22 @@ initial read of the plan, named guides, sealed section, handoffs, tome metadata,
 section sources; do not reread each item in a separate tool turn. Batch later independent reads
 and searches, and group related artifact edits in one coherent patch whenever practical.
 Read the plan and Arc, `tome.toml`, this section's scaffold, and earlier owners of reused
-work. Read `tome-authoring/9-proof-and-assets.md`; consult
+work. Read `tome-authoring/9-proof-and-assets.md` and, for evidence-version tomes,
+`tome-authoring/10-mastery-evidence.md`; consult
 `tome-authoring/3-chapters.md` for TOML or pedagogy details.
 
 Before drafting prose, replace placeholder capability ids. Each lesson's `teaches` names
 concrete abilities or API contracts in stable kebab-case; the freestyle's cumulative
 `requires` lists exactly what its checklist and rubric exercise. Every requirement must
 be completely taught by this or an earlier lesson.
+
+For an evidence-version tome, treat the sealed evidence fields as the same kind of immutable
+obligation as mechanisms. Every exercise declares whether it is required, the capability subset it
+actually exercises, its cognitive task, scaffold, context family, and aid policy. Every Working
+uses stable structured public requirements, deterministic/qualitative rubric rows totaling 100,
+and a private `assessment.toml` whose scenarios map only to those public IDs. Essential behavior
+must be executable. If this section owns a mastery-lab node, author the aligned family TOML and
+blueprints here; generation and verification occur at the Phase 7 harness boundary.
 
 Obey the sealed language-neutral mechanism ledger. Copy each lesson node's `introduces` exactly
 to its `[[lessons]]` table and give every introduced mechanism its own complete

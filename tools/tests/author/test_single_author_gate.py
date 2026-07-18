@@ -120,10 +120,12 @@ with tempfile.TemporaryDirectory() as root:
         assert "--no-run" in phase2_checks[0]
         shipping_checks = gate.self_validation_commands(
             "build", {"kind": "phase", "phase": 7, "state": "working"})
-        assert len(shipping_checks) == 2
-        assert "tools/validate_phase3.py" in shipping_checks[0]
-        assert "--strict" in shipping_checks[0]
-        assert shipping_checks[1] == "python3 tools/smoke_tome.py course"
+        assert len(shipping_checks) == 3
+        assert shipping_checks[0] == (
+            "python3 tools/gen_mastery_labs.py course --build-id build")
+        assert "tools/validate_phase3.py" in shipping_checks[1]
+        assert "--strict" in shipping_checks[1]
+        assert shipping_checks[2] == "python3 tools/smoke_tome.py course"
 
 wrapped = scoped_shell_command("true", "/")
 assert "--unshare-pid" in wrapped and "--proc" in wrapped
