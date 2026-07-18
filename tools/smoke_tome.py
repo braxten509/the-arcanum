@@ -9,14 +9,23 @@ on a configured provider.
 import argparse
 import json
 import os
+from pathlib import Path
 import re
 import sys
 import time
+import tomllib
 import urllib.error
 import urllib.parse
 import urllib.request
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+import tome_layout
 from validatelib import norm_lines
+
+
+TOMES_ROOT = ROOT / "tomes"
 
 
 class SmokeError(RuntimeError):
@@ -58,6 +67,22 @@ def _first_reference_lab(sections):
     return None, None, None
 
 
+def _authored_sections(tome_id):
+    """Load trusted reference material without adding it to the learner payload."""
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", str(tome_id or "")):
+        raise SmokeError("installed tome id is invalid")
+    tome_root = TOMES_ROOT / tome_id
+    manifest_path = tome_root / "tome.toml"
+    try:
+        with manifest_path.open("rb") as handle:
+            manifest = tomllib.load(handle)
+        section_ids = (manifest.get("content") or {}).get("sections") or []
+        return [tome_layout.load_section(str(tome_root), section_id)
+                for section_id in section_ids]
+    except (OSError, tomllib.TOMLDecodeError, KeyError, TypeError, ValueError) as exc:
+        raise SmokeError(f"trusted authored tome could not be loaded: {exc}") from exc
+
+
 def _accepted(exercise, output):
     expected = exercise.get("expect")
     if isinstance(expected, str) and expected.strip():
@@ -83,7 +108,7 @@ def smoke_tome(tome_id, base_url, timeout=30, poll_interval=0.1):
     if not lessons or not str(lessons[0].get("body") or "").strip():
         raise SmokeError(f"first section {first.get('id')!r} has no renderable lesson")
 
-    section, lesson, lab = _first_reference_lab(sections)
+    section, lesson, lab = _first_reference_lab(_authored_sections(tome_id))
     if lab is None:
         raise SmokeError("no write lab carries a reference solution for runtime smoke testing")
     ran = _request(base_url, f"/api/runsnippet?{query}", {

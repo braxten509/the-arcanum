@@ -33,8 +33,7 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json({"sections": [{
                 "id": "s01", "lessons": [{
                     "id": "s01-l01", "body": "A real rendered lesson",
-                    "exercises": [{"id": "w1", "type": "write",
-                                   "solution": "print('OK')", "expect": "OK"}],
+                    "exercises": [{"id": "w1", "type": "write"}],
                 }], "freestyle": {"rubric": [{"criterion": "Works", "weight": 100}]},
             }]})
         if self.path.startswith("/api/grade/status?"):
@@ -73,9 +72,13 @@ def main():
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        checks = smoke_tome(
-            "demo", f"http://127.0.0.1:{server.server_address[1]}", timeout=2,
-            poll_interval=0.01)
+        authored = [{"id": "s01", "lessons": [{"id": "s01-l01", "exercises": [{
+            "id": "w1", "type": "write", "solution": "print('OK')", "expect": "OK",
+        }]}]}]
+        with patch("smoke_tome._authored_sections", return_value=authored):
+            checks = smoke_tome(
+                "demo", f"http://127.0.0.1:{server.server_address[1]}", timeout=2,
+                poll_interval=0.01)
         assert len(checks) == 4
         assert any("/api/runsnippet" in check for check in checks)
         assert checks[-1].endswith("`done`")
