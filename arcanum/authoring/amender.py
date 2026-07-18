@@ -129,10 +129,7 @@ def _run_agent_turn(job_id, cmd, prompt, input_mode, env, cwd,
 
     def kill_timeout():
         timed_out["v"] = True
-        try:
-            os.killpg(os.getpgid(p.pid), signal.SIGKILL)
-        except (ProcessLookupError, PermissionError):
-            pass
+        processes.terminate(job_id, signal.SIGKILL)
 
     watchdog = threading.Timer(AMEND_TIMEOUT, kill_timeout)
     watchdog.start()
@@ -151,10 +148,7 @@ def _run_agent_turn(job_id, cmd, prompt, input_mode, env, cwd,
         rc = p.wait()
         pump.join(15)
         if pump.is_alive():
-            try:
-                os.killpg(p.pid, signal.SIGKILL)
-            except (ProcessLookupError, PermissionError):
-                pass
+            processes.terminate_process(p, signal.SIGKILL)
             pump.join(5)
     finally:
         watchdog.cancel()

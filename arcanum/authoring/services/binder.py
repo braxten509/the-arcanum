@@ -1,7 +1,6 @@
 """Binder amendment job application service."""
 from __future__ import annotations
 
-import os
 import signal
 import threading
 import time
@@ -49,15 +48,11 @@ class BinderService:
         return {"ok": True, "jobId": job_id}, 200
 
     def cancel(self, job_id: str) -> tuple[dict, int]:
-        job, process = self.jobs.status(job_id), self.processes.get(job_id)
+        job = self.jobs.status(job_id)
         if not (job.get("kind") == "binder-amend" and job.get("status") == "running"):
             return {"ok": False, "error": "no running amendment with that id"}, 404
         self.jobs.cancel(job_id)
-        if process:
-            try:
-                os.killpg(os.getpgid(process.pid), signal.SIGKILL)
-            except (ProcessLookupError, PermissionError):
-                process.kill()
+        self.processes.terminate(job_id, signal.SIGKILL)
         return {"ok": True}, 200
 
     def dismiss(self, tome_id: str) -> tuple[dict, int]:

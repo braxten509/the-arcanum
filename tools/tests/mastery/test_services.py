@@ -17,7 +17,8 @@ from arcanum.ai.json_response import parse_json_object
 from arcanum.assessment.grading.providers import QualitativeRequest
 from arcanum.assessment.grading.qualitative import AiQualitativeProvider
 from arcanum.http.router import Router
-from arcanum.jobs import JobManager
+from arcanum.jobs import (JobHandlerRegistry, JobHandlerSpec, JobManager,
+                          ProcessStore)
 from arcanum.learning import LearningStateStore
 from tools.buildlib.mastery_evidence.delivery import export_mastery_contract
 
@@ -48,7 +49,15 @@ scored = qualitative.score(QualitativeRequest(
     (("main.txt", "learner choice"),), "because"))
 assert scored.scores[0]["score"] == 10 and len(scored.evidence_hash) == 64
 
-manager = JobManager()
+job_registry = JobHandlerRegistry()
+job_registry.register(JobHandlerSpec("fixture", 1, ("test-execution",), "managed"))
+try:
+    job_registry.register(JobHandlerSpec("fixture", 1, ("duplicate",), "managed"))
+except ValueError:
+    pass
+else:
+    raise AssertionError("duplicate job registration was accepted")
+manager = JobManager(registry=job_registry)
 release = threading.Event()
 job = manager.start("fixture", lambda _job_id: (release.wait(2), {"value": 7})[1], node="x")
 assert manager.find_running(kind="fixture", node="x")["id"] == job["id"]
@@ -58,12 +67,36 @@ for _ in range(100):
         break
     time.sleep(0.01)
 assert manager.status(job["id"])["result"] == {"value": 7}
+assert [event["sequence"] for event in manager.events(job["id"])] == [1, 2, 3]
+assert "events" not in manager.status(job["id"]), "events leaked into the result payload"
 cancel_release = threading.Event()
 cancelled = manager.start("fixture", lambda _job_id: (cancel_release.wait(2), {})[1])
 manager.cancel(cancelled["id"])
 cancel_release.set()
 time.sleep(0.03)
 assert manager.status(cancelled["id"])["status"] == "cancelled"
+try:
+    manager.create("unknown")
+except ValueError as exc:
+    assert "available: fixture" in str(exc)
+else:
+    raise AssertionError("an unknown job kind was accepted")
+
+
+class FakeProcess:
+    pid = 999_999_999
+
+    def __init__(self):
+        self.signals = []
+
+    def send_signal(self, value):
+        self.signals.append(value)
+
+
+processes, fake = ProcessStore(), FakeProcess()
+processes.put("owned", fake)
+assert processes.terminate("owned") and fake.signals
+assert processes.get("owned") is None
 
 router = Router()
 router.get("/x", lambda _request: None)

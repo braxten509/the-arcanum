@@ -1,7 +1,6 @@
 """Server-side adapter for the interactive authoring lifecycle."""
 from __future__ import annotations
 
-import os
 import signal
 from types import SimpleNamespace
 
@@ -57,9 +56,10 @@ class ForgeService:
         slug = (job.get("slug") or job.get("tome")) if is_build else build_id
         tome = job.get("tome") if is_build else None
         phase = job.get("phase", 0) if is_build else 0
+        terminated = False
         if running:
             self.jobs.cancel(build_id)
-            self.processes.pop(build_id)
+            terminated = self.processes.terminate(build_id, signal.SIGTERM)
         if not is_build:
             process = external_build_process(build_id)
             if not process:
@@ -75,14 +75,8 @@ class ForgeService:
         if running:
             record_cancelled_build(
                 slug, tome, phase, forge_name(tome, self.catalog) or tome)
-        if running and pid:
-            try:
-                if hasattr(os, "killpg"):
-                    os.killpg(os.getpgid(pid), signal.SIGTERM)
-                else:
-                    os.kill(pid, signal.SIGTERM)
-            except (ProcessLookupError, PermissionError, OSError):
-                pass
+        if running and pid and not terminated:
+            self.processes.terminate_pid(pid, signal.SIGTERM)
         status = "cancelled" if running else job.get("status")
         return {"ok": True, "status": status}, 200
 

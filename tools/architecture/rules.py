@@ -143,6 +143,7 @@ def check_registries(root: str, policy: dict) -> list[Violation]:
     for key, needle in (("validatorComposition", "CheckSpec("),
                         ("authoringComposition", "PhaseDefinition("),
                         ("scenarioComposition", "ScenarioAdapter("),
+                        ("jobComposition", "JobHandlerSpec("),
                         ("interactionComposition", ".register("),
                         ("cognitiveComposition", ".register("),
                         ("routeComposition", "registerRoute(")):
