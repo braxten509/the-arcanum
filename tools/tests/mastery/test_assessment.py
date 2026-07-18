@@ -132,7 +132,9 @@ with tempfile.TemporaryDirectory() as temp:
     public = repository.public_package("transfer", first["variantId"])
     assert all("answer" not in row["path"] for row in public["files"])
     repository.abandon("transfer")
-    second = repository.assign("transfer", exclude=(first["variantId"],))
+    second = repository.retry("transfer")
     assert second["variantId"] != first["variantId"]
+    third = repository.retry("transfer")
+    assert third["variantId"] != second["variantId"]
 
 print("mastery snapshot/assessment/variant tests: OK")

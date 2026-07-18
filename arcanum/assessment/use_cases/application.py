@@ -131,11 +131,7 @@ class MasteryLabApplication:
 
     def retry(self, node_id: str) -> dict:
         _evidence, performance = performance_for(self.tome_root, node_id)
-        current = self.repository.assignment(performance.variant_family_id)
-        excluded = (current["variantId"],) if current else ()
-        if current:
-            self.repository.abandon(performance.variant_family_id)
-        self.repository.assign(performance.variant_family_id, exclude=excluded)
+        self.repository.retry(performance.variant_family_id)
         return self.assignment(node_id)
 
     def run_public_checks(self, node_id: str, files: list[dict]) -> dict:

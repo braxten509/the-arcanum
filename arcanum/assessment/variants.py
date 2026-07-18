@@ -111,6 +111,17 @@ class VariantRepository:
         atomic_write(self.assignment_path, json.dumps(assignments, indent=2, sort_keys=True) + "\n")
         return current
 
+    def retry(self, family_id: str) -> dict:
+        """Abandon the current attempt, if needed, and issue a different variant."""
+        assignments = self._assignments()
+        previous = assignments.get(family_id)
+        excluded = ()
+        if isinstance(previous, dict) and previous.get("variantId"):
+            excluded = (str(previous["variantId"]),)
+            if not previous.get("abandoned"):
+                self.abandon(family_id)
+        return self.assign(family_id, exclude=excluded)
+
     def public_package(self, family_id: str, variant_id: str) -> dict:
         item = next((row for row in self._variants(family_id)
                      if row["manifest"]["variantId"] == variant_id), None)
