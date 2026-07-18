@@ -5,8 +5,6 @@ from dataclasses import dataclass
 import json
 import urllib.parse
 
-from arcanum.tomes import resolve_tome
-
 
 @dataclass
 class Request:
@@ -14,12 +12,14 @@ class Request:
     method: str
     path: str
     query: dict[str, list[str]]
+    tome_resolver: object | None = None
     _body: dict | None = None
 
     @classmethod
-    def from_handler(cls, handler, method: str) -> "Request":
+    def from_handler(cls, handler, method: str, tome_resolver=None) -> "Request":
         parsed = urllib.parse.urlparse(handler.path)
-        return cls(handler, method, parsed.path, urllib.parse.parse_qs(parsed.query))
+        return cls(handler, method, parsed.path, urllib.parse.parse_qs(parsed.query),
+                   tome_resolver)
 
     def json(self) -> dict:
         if self._body is None:
@@ -34,5 +34,11 @@ class Request:
         return str((self.query.get(name) or [default])[0])
 
     def tome_id(self) -> str:
-        body_hint = self._body.get("tome") if isinstance(self._body, dict) else None
-        return resolve_tome(self.value("tome") or body_hint)
+        if not callable(self.tome_resolver):
+            raise RuntimeError("request has no configured tome resolver")
+        body_hint = None
+        if self.method.upper() == "POST" and not self.value("tome"):
+            body_hint = self.json().get("tome")
+        elif isinstance(self._body, dict):
+            body_hint = self._body.get("tome")
+        return self.tome_resolver(self.value("tome") or body_hint)

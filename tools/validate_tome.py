@@ -33,9 +33,10 @@ from validatelib.content.structure import (check_badges, check_economy, check_la
 from validatelib.themes import (check_sigil_palette_uniqueness, check_theme_distinctness,
                                 check_themes)
 from validatelib.mastery_evidence import validate_mastery_evidence
-from validatelib.mastery_evidence.payload import payload_findings
-from buildlib.runtime.validation_env import (ValidationEnvironmentError,
-                                     ready_validation_environment)
+from validatelib.mastery_evidence.payload import (evidence_payload_privacy_enabled,
+                                                  payload_findings)
+from runtimes.validation_environment import (ValidationEnvironmentError,
+                                             ready_validation_environment)
 from buildlib.course.limits import MAX_SECTIONS, MIN_SECTIONS, section_count_error
 
 import tome_layout  # noqa: E402 — validatelib put REPO on sys.path; in lockstep with server
@@ -230,13 +231,14 @@ def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_sect
         pass
     elif os.path.realpath(os.path.dirname(tome_path)) == installed_root:
         try:
-            from arcanum.tomes import assemble_tome
-            payload = assemble_tome(tome_id)
+            from arcanum.catalog import create_catalog
+            payload = create_catalog(installed_root.rsplit(os.sep, 1)[0]).assemble(tome_id)
             if len(payload.get("sections", [])) != len(sections_data):
                 err("loader", f"assembled payload has {len(payload.get('sections', []))} section(s), "
                     f"validator loaded {len(sections_data)}")
-            for finding in payload_findings(payload):
-                err(finding.location, f"[{finding.code}] {finding.message}")
+            if evidence_payload_privacy_enabled(m):
+                for finding in payload_findings(payload):
+                    err(finding.location, f"[{finding.code}] {finding.message}")
         except Exception as ex:
             err("loader", f"the server's assemble_tome() path failed: {type(ex).__name__}: {ex}")
     else:

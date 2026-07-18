@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tools.buildlib.single_author import gate  # noqa: E402
 from tools.buildlib import measure  # noqa: E402
 from tools.buildlib.workflow import section_progress  # noqa: E402
-from tools.buildlib.runtime.agent_runtime import scoped_runner_command, scoped_shell_command  # noqa: E402
+from arcanum.platform.agent_commands import scoped_runner_command, scoped_shell_command  # noqa: E402
 from tools.buildlib import single_author  # noqa: E402
 from tools.buildlib.single_author import runtime as single_author_runtime  # noqa: E402
 
@@ -54,7 +54,7 @@ with tempfile.TemporaryDirectory() as root:
 
     with patch.object(gate, "BUILD_DIR", build_dir), patch.object(gate, "REPO", root), \
             patch.object(section_progress, "BUILD_DIR", build_dir), \
-            patch.object(gate, "resolve_working_tid", return_value="course"), \
+            patch.object(gate, "resolve_working_id", return_value="course"), \
             patch.object(gate, "tome_section_ids", return_value=["s01", "s02"]), \
             patch.object(gate, "map_path", return_value=map_file), \
             patch.object(gate, "load_course_map", return_value=course), \

@@ -21,6 +21,39 @@ class JobManager:
                 return value
         return None
 
+    def create(self, kind: str, *, job_id: str | None = None,
+               status: str = "running", **fields) -> dict:
+        """Create a caller-driven job without exposing repository mutation."""
+        job_id = job_id or uuid.uuid4().hex[:12]
+        self.store.create(JobRecord(job_id, kind, "queued", fields=fields))
+        if status != "queued":
+            self.store.update(job_id, status=status)
+        return self.status(job_id)
+
+    def all(self, *, kind: str | None = None, status: str | None = None) -> tuple[dict, ...]:
+        rows = tuple(record.to_dict() for record in self.store.all())
+        return tuple(row for row in rows
+                     if (kind is None or row.get("kind") == kind)
+                     and (status is None or row.get("status") == status))
+
+    def update(self, job_id: str, *, status: str | None = None, **fields) -> dict:
+        return self.store.update(job_id, status=status, **fields).to_dict()
+
+    def transform(self, job_id: str, transform) -> dict:
+        return self.store.transform(job_id, transform).to_dict()
+
+    def append(self, job_id: str, field: str, value, *, limit: int | None = None,
+               **fields) -> dict:
+        def mutate(status, current):
+            values = list(current.get(field) or [])
+            values.append(value)
+            if limit is not None:
+                values = values[-limit:]
+            current.update(fields)
+            current[field] = values
+            return status, current
+        return self.transform(job_id, mutate)
+
     def start(self, kind: str, handler: Callable[[str], dict], *,
               job_id: str | None = None, **fields) -> dict:
         job_id = job_id or uuid.uuid4().hex[:12]
@@ -54,3 +87,6 @@ class JobManager:
     def status(self, job_id: str) -> dict:
         record = self.store.get(job_id)
         return record.to_dict() if record else {"status": "unknown"}
+
+    def is_running(self, job_id: str) -> bool:
+        return self.status(job_id).get("status") == "running"

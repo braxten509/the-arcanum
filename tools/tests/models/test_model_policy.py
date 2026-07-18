@@ -11,7 +11,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from arcanum.post_routes.builds import _author, _reviewer  # noqa: E402
-from arcanum.routes_get import model_census  # noqa: E402
+from arcanum.ai.catalog import model_census  # noqa: E402
 from tools.buildlib.runtime.runners import author_runner  # noqa: E402
 
 

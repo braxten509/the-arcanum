@@ -1,4 +1,4 @@
-"""Shared OS boundary for every agentic AI CLI launched by the Arcanum.
+"""Shared platform boundary for every agentic AI CLI launched by Arcanum.
 
 The repository is readable and executable, network access is retained, system/provider
 temporary state is writable, and project writes are limited to explicit task paths.

@@ -1,4 +1,4 @@
-"""Read-only local repository tools exposed to API-backed grader/oracle models."""
+"""Read-only local repository tools exposed to API-backed AI roles."""
 import json
 import os
 import shutil

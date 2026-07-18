@@ -15,7 +15,7 @@ from ..continuity import (SUPPORTED_HANDOFF_VERSIONS, handoff_digest,
                          handoff_discoveries, handoff_path, read_handoff,
                          validate_handoff)
 from ..prerequisites import records as prerequisite_records
-from arcanum.tomes import resolve_working_tid
+from arcanum.catalog.build_ids import resolve_working_id
 
 
 STATE_VERSION = 1
@@ -109,7 +109,7 @@ def _context(build_id):
             text = handle.read()
     except OSError:
         text = ""
-    return resolve_working_tid(build_id, text), plan
+    return resolve_working_id(build_id, text, os.path.join(REPO, "tomes")), plan
 
 
 def _section_path(tid, sid):

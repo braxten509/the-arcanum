@@ -6,18 +6,14 @@ import subprocess
 import sys
 import threading
 import time
-import uuid
 
 from ..forge.build_state import (BUILD_TOTAL_PHASES, build_result_status, load_author_session,
                                  load_section_progress, save_active_owner)
-from ..config import (BUILD_DIR, CLI_EFFORTS, ROOT, TOMES_DIR, build_procs, jobs,
-                      jobs_lock)
+from ..config import BUILD_DIR, CLI_EFFORTS, ROOT
 from ..forge import (_clear_build_terminal_state, _plan_concept, _plan_gate, _resume_phase,
                      _save_launch, author_activity_started_at, external_build_process,
                      fresh_tome_id, list_active_builds, watch_build, working_is_active)
-from ..tomes import plan_path, resolve_working_tid
-from tools.buildlib.workflow.phase_reset import find_plan_for_tome, reset_tome_to_phase
-from tools.buildlib.status_log import load_status_lines
+from ..authoring.adapters.status_log import load_status_lines
 
 
 AUTHOR_KINDS = ("claude-cli", "antigravity-cli", "codex-cli", "opencode-cli")
@@ -85,8 +81,8 @@ def _agent_spec(agent):
         f"@{agent['effort']}" if agent.get("effort") else "")
 
 
-def _launch(tid, author, concept, phase, gate_json=None, resume_id="", reviewer=None,
-            validator=None, authors=None):
+def _launch(tid, author, concept, phase, services, gate_json=None, resume_id="",
+            reviewer=None, validator=None, authors=None):
     command = [sys.executable, "-u", os.path.join(ROOT, "tools", "build_tome.py"), tid,
                "--author", _agent_spec(author), "--concept", concept,
                "--from-phase", str(max(1, min(8, int(phase or 1))))]
@@ -104,30 +100,28 @@ def _launch(tid, author, concept, phase, gate_json=None, resume_id="", reviewer=
     proc = subprocess.Popen(command, cwd=ROOT, stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             text=True, bufsize=1, start_new_session=True)
-    gid = uuid.uuid4().hex[:12]
     started = time.time()
-    with jobs_lock:
-        jobs[gid] = {"status": "running", "interactionState": "starting",
-                     "kind": "build", "tome": tid, "slug": tid, "phase": phase,
-                     "phaseTitle": "starting", "totalPhases": BUILD_TOTAL_PHASES,
-                     "log": [], "pid": proc.pid, "startedAt": started,
-                     "phaseStartedAt": started,
-                     "activityStartedAt": started,
-                     "statusLog": load_status_lines(tid),
-                     "sessionAuthor": dict(author),
-                     "authorSchedule": {key: dict(value) for key, value in (authors or {}).items()},
-                     "sessionValidator": dict(validator),
-                     "sessionReviewer": dict(reviewer) if reviewer else None,
-                     "runner": f"{author['kind']} {author['model']}" + (
-                         f" @{author['effort']}" if author.get("effort") else "")}
-        build_procs[gid] = proc
+    job = services.jobs.create(
+        "build", interactionState="starting", tome=tid, slug=tid, phase=phase,
+        phaseTitle="starting", totalPhases=BUILD_TOTAL_PHASES, log=[], pid=proc.pid,
+        startedAt=started, phaseStartedAt=started, activityStartedAt=started,
+        statusLog=load_status_lines(tid, build_dir=services.settings.build_root),
+        authorSchedule={key: dict(value) for key, value in (authors or {}).items()},
+        sessionValidator=dict(validator),
+        sessionReviewer=dict(reviewer) if reviewer else None,
+        runner=f"{author['kind']} {author['model']}" + (
+            f" @{author['effort']}" if author.get("effort") else ""))
+    gid = job["id"]
+    services.processes.put(gid, proc)
     save_active_owner(tid, gid, proc.pid)
-    threading.Thread(target=watch_build, args=(gid, proc), daemon=True).start()
+    threading.Thread(target=watch_build,
+                     args=(gid, proc, services.jobs, services.processes,
+                           services.catalog), daemon=True).start()
     return gid
 
 
-def start_build(h, body):
-    if list_active_builds():
+def start_build(h, body, services):
+    if list_active_builds(services.jobs, services.catalog):
         return h.send_json({"ok": False,
                             "error": "finish or abandon the active tome before forging another"},
                            409)
@@ -143,7 +137,7 @@ def start_build(h, body):
     except ValueError as exc:
         return h.send_json({"ok": False, "error": str(exc)}, 400)
     author = _phase_author(authors, 1)
-    tid = fresh_tome_id("untitled")
+    tid = fresh_tome_id("untitled", services.jobs, services.catalog)
     _clear_build_terminal_state(tid)
     gate = json.dumps({"prior_knowledge": str(body.get("prior_knowledge") or "").strip(),
                        "prior_level": str(body.get("prior_level") or "").strip(),
@@ -157,29 +151,29 @@ def start_build(h, body):
     launch["validator"] = validator
     launch["reviewer"] = reviewer or {}
     _save_launch(tid, launch, concept)
-    gid = _launch(tid, author, concept, 1, gate, reviewer=reviewer, validator=validator,
-                  authors=authors)
+    gid = _launch(tid, author, concept, 1, services, gate, reviewer=reviewer,
+                  validator=validator, authors=authors)
     return h.send_json({"ok": True, "jobId": gid, "tome": tid})
 
 
-def resume_build(h, body):
+def resume_build(h, body, services):
     rid = str(body.get("id") or "")
-    plan = plan_path(rid)
+    plan = services.catalog.paths.plan(rid)
     if not os.path.exists(plan):
         return h.send_json({"ok": False, "error": "no such working"}, 404)
     with open(plan, encoding="utf-8") as handle:
         text = handle.read()
-    tid = resolve_working_tid(rid, text)
-    if working_is_active(rid, tid):
+    tid = services.catalog.resolve_working_id(rid, text)
+    if working_is_active(services.jobs, services.catalog, rid, tid):
         return h.send_json({"ok": False, "error": "that working is already active"}, 409)
-    phase = _resume_phase(rid, tid)
+    phase = _resume_phase(rid, tid, services.catalog)
     try:
         forced = int(body.get("fromPhase") or 0)
     except (TypeError, ValueError):
         forced = 0
     if forced in range(1, 9):
         phase = forced
-    if not os.path.isdir(os.path.join(TOMES_DIR, tid)):
+    if not os.path.isdir(services.catalog.paths.tome(tid)):
         subprocess.check_call([sys.executable, os.path.join(ROOT, "tools", "new_tome.py"), tid,
                                "--sections", "2"])
         phase = 1
@@ -206,17 +200,17 @@ def resume_build(h, body):
                 os.remove(os.path.join(BUILD_DIR, f"{key}.{stale}.json"))
             except OSError:
                 pass
-    gid = _launch(rid, author, _plan_concept(text), phase, resume_id=resume_id,
-                  reviewer=reviewer, validator=validator, authors=authors)
+    gid = _launch(rid, author, _plan_concept(text), phase, services,
+                  resume_id=resume_id, reviewer=reviewer, validator=validator,
+                  authors=authors)
     return h.send_json({"ok": True, "jobId": gid, "tome": tid,
                         "continuedSession": bool(resume_id)})
 
 
-def control_author(h, body, action):
+def control_author(h, body, action, services):
     bid = str(body.get("id") or "")
-    with jobs_lock:
-        job = jobs.get(bid)
-        proc = build_procs.get(bid)
+    job = services.jobs.status(bid)
+    proc = services.processes.get(bid)
     if not job or job.get("kind") != "build" or job.get("status") != "running" or not proc:
         return h.send_json({"ok": False, "error": "no live author session"}, 404)
     payload = {"type": action}
@@ -234,12 +228,12 @@ def control_author(h, body, action):
         proc.stdin.flush()
     except (BrokenPipeError, OSError):
         return h.send_json({"ok": False, "error": "the author control lane closed"}, 409)
-    with jobs_lock:
-        state = ("pausing" if action == "pause" else
-                 "resuming" if action == "resume" else "running")
-        job["activityStartedAt"] = author_activity_started_at(
-            job.get("interactionState"), state, job.get("activityStartedAt", 0))
-        job["interactionState"] = state
+    state = ("pausing" if action == "pause" else
+             "resuming" if action == "resume" else "running")
+    services.jobs.update(
+        bid, activityStartedAt=author_activity_started_at(
+            job.get("interactionState"), state, job.get("activityStartedAt", 0)),
+        interactionState=state)
     return h.send_json({"ok": True})
 
 
@@ -248,7 +242,7 @@ def answer_runner_pause(h, body):
     return h.send_json({"ok": False, "error": "this build uses one interactive author"}, 410)
 
 
-def reset_build(h, body, tid):
+def reset_build(h, body, tid, services):
     """Return a completed tome to one exact build phase and erase its learner save."""
     try:
         phase = int(body.get("phase") or 0)
@@ -261,43 +255,45 @@ def reset_build(h, body, tid):
         return h.send_json({"ok": False,
                             "error": "the destructive tome and phase confirmation is required"}, 400)
     try:
-        build_id, _path, _text = find_plan_for_tome(tid)
+        build_id, _path, _text = services.phase_reset.find_plan_for_tome(tid)
     except ValueError as exc:
         return h.send_json({"ok": False, "error": str(exc)}, 404)
-    if working_is_active(build_id, tid):
+    if working_is_active(services.jobs, services.catalog, build_id, tid):
         return h.send_json({"ok": False,
                             "error": "cancel the active author before resetting this tome"}, 409)
-    with jobs_lock:
-        busy = any(job.get("status") == "running"
-                   and ({job.get("tome"), job.get("slug")} & {tid, build_id})
-                   for job in jobs.values())
+    busy = any({job.get("tome"), job.get("slug")} & {tid, build_id}
+               for job in services.jobs.all(status="running"))
     if busy:
         return h.send_json({"ok": False,
                             "error": "finish or cancel the active tome job before resetting"}, 409)
-    result = reset_tome_to_phase(tid, phase)
+    try:
+        result = services.phase_reset.reset(tid, phase)
+    except RuntimeError as exc:
+        return h.send_json({"ok": False, "error": str(exc)}, 500)
     return h.send_json({"ok": True, **result})
 
 
-def discard_build(h, body):
+def discard_build(h, body, services):
     rid = str(body.get("id") or "")
     if (body.get("confirm") != "discard-draft"
             or str(body.get("confirmWorking") or "") != rid):
         return h.send_json({"ok": False,
                             "error": "the matching draft deletion confirmation is required"}, 400)
-    plan = plan_path(rid)
+    plan = services.catalog.paths.plan(rid)
     if not os.path.exists(plan):
         return h.send_json({"ok": False, "error": "no such working"}, 404)
     with open(plan, encoding="utf-8") as handle:
         text = handle.read()
-    tid = resolve_working_tid(rid, text)
-    if working_is_active(rid, tid):
+    tid = services.catalog.resolve_working_id(rid, text)
+    if working_is_active(services.jobs, services.catalog, rid, tid):
         return h.send_json({"ok": False,
                             "error": "cancel the active author before discarding"}, 409)
-    tome = os.path.realpath(os.path.join(TOMES_DIR, tid))
+    tome = os.path.realpath(services.catalog.paths.tome(tid))
     result = build_result_status(rid) or build_result_status(tid)
     for key in {rid, tid}:
         _clear_build_terminal_state(key)
     if ((not result or result.get("status") != "done")
-            and os.path.dirname(tome) == os.path.realpath(TOMES_DIR)):
+            and os.path.dirname(tome) == os.path.realpath(
+                services.settings.tomes_root)):
         shutil.rmtree(tome, ignore_errors=True)
     return h.send_json({"ok": True})

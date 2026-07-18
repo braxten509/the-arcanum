@@ -221,9 +221,9 @@ def replay(tome_path, manifest, sections, run_section=None, persist=False,
     from runtimes import for_config, resolve_config
     from runtimes.delivery import package_project, run_artifact
     try:
-        from buildlib.runtime.validation_env import headless_validation_env
+        from runtimes.validation_environment import headless_validation_env
     except ModuleNotFoundError:
-        from tools.buildlib.runtime.validation_env import headless_validation_env
+        from runtimes.validation_environment import headless_validation_env
 
     target = list(sections)
     if run_section:

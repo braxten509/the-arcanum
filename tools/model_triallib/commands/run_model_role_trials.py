@@ -20,7 +20,7 @@ from pathlib import Path
 REPO = str(_COMMAND_REPO)
 sys.path.insert(0, REPO)
 
-from tools.buildlib.runtime.agent_runtime import scoped_runner_command  # noqa: E402
+from arcanum.platform.agent_commands import scoped_runner_command  # noqa: E402
 from tools.buildlib.runtime.runners import _spec_to_runner  # noqa: E402
 from tools.model_triallib.fixtures import TRIAL_MODELS, create_workspace  # noqa: E402
 from tools.model_triallib.grading import baseline_hashes, grade_workspace  # noqa: E402

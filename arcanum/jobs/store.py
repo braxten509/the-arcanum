@@ -39,3 +39,30 @@ class InMemoryJobStore:
             value = JobRecord(current.id, current.kind, target, current.created_at, merged)
             self._records[job_id] = value
             return deepcopy(value)
+
+    def replace_fields(self, job_id: str, fields: dict, *,
+                       status: str | None = None) -> JobRecord:
+        """Replace a record's payload atomically while preserving its identity metadata."""
+        with self._lock:
+            current = self._records.get(job_id)
+            if not current:
+                raise KeyError(job_id)
+            target = status or current.status
+            validate_transition(current.status, target)
+            value = JobRecord(current.id, current.kind, target, current.created_at,
+                              deepcopy(fields))
+            self._records[job_id] = value
+            return deepcopy(value)
+
+    def transform(self, job_id: str, transform) -> JobRecord:
+        """Apply one payload/status transformation under the repository lock."""
+        with self._lock:
+            current = self._records.get(job_id)
+            if not current:
+                raise KeyError(job_id)
+            status, fields = transform(current.status, deepcopy(current.fields))
+            validate_transition(current.status, status)
+            value = JobRecord(current.id, current.kind, status, current.created_at,
+                              deepcopy(fields))
+            self._records[job_id] = value
+            return deepcopy(value)

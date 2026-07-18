@@ -1,9 +1,7 @@
-"""Paths, constants, tiny IO helpers, and the shared in-memory job registry.
-Everything here is import-safe (no side effects beyond mkdir of cache/tomes)."""
+"""Stable path/config constants and small configuration codecs."""
 import json
 import os
 import shutil
-import threading
 import tomllib
 
 from runtimes.common import atomic_write
@@ -119,15 +117,6 @@ MIME = {".html": "text/html", ".js": "text/javascript", ".css": "text/css",
         ".json": "application/json", ".svg": "image/svg+xml", ".woff2": "font/woff2",
         ".ttf": "font/ttf", ".map": "application/json", ".png": "image/png", ".toml": "text/plain"}
 
-# ---------------------------------------------------------------- shared job registry
-# One registry for grading, forge-build, and amend jobs (build jobs carry "kind": "build",
-# amend jobs "kind": "amend"). Guarded by jobs_lock everywhere.
-jobs = {}  # id -> {status, result, error}
-jobs_lock = threading.Lock()
-amend_procs = {}  # amend job id -> Popen, kept out of `jobs` so status stays JSON-safe
-build_procs = {}  # build job id -> interactive single-author Popen (stdin is the control lane)
-
-
 def read_json(path, default):
     try:
         with open(path, encoding="utf-8") as f:
@@ -181,7 +170,3 @@ SETTINGS_HEADER = ("# global-configs/settings.toml — the reader-wide settings 
 def write_settings(d):
     os.makedirs(os.path.dirname(GLOBAL_SETTINGS), exist_ok=True)
     atomic_write(GLOBAL_SETTINGS, SETTINGS_HEADER + dump_toml(d))
-
-
-os.makedirs(CACHE_DIR, exist_ok=True)
-os.makedirs(TOMES_DIR, exist_ok=True)

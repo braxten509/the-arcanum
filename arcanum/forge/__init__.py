@@ -1,6 +1,4 @@
-"""Tome-forge build jobs: launching/watching builds, Pushover pings, and
-resuming abandoned builds. Build jobs live in the shared config.jobs registry
-with "kind": "build"."""
+"""Tome-forge process observation and durable build-state adapters."""
 import glob
 import json
 import os
@@ -9,11 +7,11 @@ import shutil
 import threading
 import time
 
-from ..config import BUILD_DIR, CLI_EFFORTS, TOMES_DIR, build_procs, jobs, jobs_lock
+from ..config import BUILD_DIR, CLI_EFFORTS
+from ..jobs import JobManager, ProcessStore
 from .build_state import (BUILD_PHASE_TITLES, BUILD_TOTAL_PHASES, build_result_status,
                           cancelled_build_status, load_active_owner, load_build_progress,
                           record_build_result, remove_active_owner)
-from ..tomes import load_manifest, resolve_working_tid
 from .tool_trace import mirror_tool_trace
 from .notify import notify
 
@@ -45,55 +43,48 @@ def author_activity_started_at(previous, current, started=0, now=None):
     return started
 
 
-def fresh_tome_id(name):
+def fresh_tome_id(name, job_manager: JobManager, catalog):
     """Slugify a course name into an unused tomes/<id>. The setup creates the initial
     scaffold, and new_tome.py refuses an existing dir, so the id must be fresh (including
     ids claimed by builds still running that haven't scaffolded yet)."""
     s = re.sub(r"-{2,}", "-", re.sub(r"[^a-z0-9-]", "-", name.lower().strip())).strip("-")[:32].strip("-") or "tome"
-    with jobs_lock:
-        claimed = {j.get("tome") for j in jobs.values()
-                   if j.get("kind") == "build" and j.get("status") == "running"}
+    claimed = {job.get("tome") for job in job_manager.all(kind="build", status="running")}
     tid, n = s, 1  # untitled, then untitled-1, untitled-2, … on collision
     # A prior build's plan under this slug also blocks it: Phase 2 renames the tome dir
     # but leaves the plan under the launch slug, and reusing it would OVERWRITE that
     # record (this clobbered writforge's plan when a second "untitled" launch reused it).
-    while (os.path.exists(os.path.join(TOMES_DIR, tid)) or tid in claimed
-           or os.path.exists(os.path.join(BUILD_DIR, f"{tid}.plan.md"))):
+    while (os.path.exists(catalog.paths.tome(tid)) or tid in claimed
+           or os.path.exists(catalog.paths.plan(tid))):
         tid, n = f"{s}-{n}", n + 1
     return tid
 
 
-def forge_name(tid):
+def forge_name(tid, catalog):
     """The themed name the author-AI chose — meta.name, once Phase 2 has written
     tome.toml. None before that (the overlay then falls back to the folder id)."""
     try:
-        return (load_manifest(tid).get("meta") or {}).get("name") or None
+        return (catalog.manifest(tid).get("meta") or {}).get("name") or None
     except Exception:
         return None
 
 
-def watch_build(gid, proc):
+def watch_build(gid, proc, job_manager: JobManager, processes: ProcessStore, catalog):
     """Reader thread: stream harness stdout into the job, tracking '> Phase N — title' lines."""
     # stdout is the deliberately concise forge narration. The AI CLI's own JSONL is the
     # source of truth for real Bash/read/patch calls, mirrored separately into three UI rows.
     if getattr(proc, "pid", None):
-        with jobs_lock:
-            trace_build_id = (jobs.get(gid) or {}).get("slug") or ""
+        trace_build_id = job_manager.status(gid).get("slug") or ""
         threading.Thread(target=mirror_tool_trace,
                          args=(gid, proc.pid, trace_build_id), daemon=True).start()
     for line in proc.stdout:
         line = ANSI_RE.sub("", line.rstrip("\n"))
         m = BUILD_PHASE_RE.match(line)
-        with jobs_lock:
-            job = jobs.get(gid)
-            if not job:
-                break
-            job["log"].append(line)
-            del job["log"][:-400]
+        def record(status, job):
+            log = [*(job.get("log") or []), line][-400:]
+            job["log"] = log
             status_line = forge_status_line(line)
             if status_line:
-                job.setdefault("statusLog", []).append(status_line)
-                del job["statusLog"][:-120]
+                job["statusLog"] = [*(job.get("statusLog") or []), status_line][-120:]
             if m:
                 job["phase"] = int(m.group(1))
                 job["phaseTitle"] = m.group(2).strip()
@@ -105,32 +96,39 @@ def watch_build(gid, proc):
                 job["activityStartedAt"] = author_activity_started_at(
                     job.get("interactionState"), state, job.get("activityStartedAt", 0))
                 job["interactionState"] = state
+            return status, job
+        try:
+            job_manager.transform(gid, record)
+        except KeyError:
+            break
     rc = proc.wait()
     tome = final = slug = phase_title = failure = None
     phase = 0
-    with jobs_lock:
-        job = jobs.get(gid)
-        build_procs.pop(gid, None)
-        slug = (job.get("slug") or job.get("tome")) if job else None
-        if job and job.get("status") == "running":  # cancel sets its own status first
-            externally_cancelled = bool(slug and cancelled_build_status(slug))
-            job["status"] = "cancelled" if externally_cancelled else ("done" if rc == 0 else "error")
-            if rc != 0 and not externally_cancelled:
-                job["error"] = "\n".join(job["log"][-30:])
-            job["activityStartedAt"] = 0
-        if job:
-            final, tome = job.get("status"), job.get("tome")
-            phase, phase_title, failure = job.get("phase", 0), job.get("phaseTitle", ""), job.get("error", "")
+    processes.pop(gid)
+    job = job_manager.status(gid)
+    slug = (job.get("slug") or job.get("tome")) if job.get("status") != "unknown" else None
+    if job.get("status") == "running":  # cancel sets its own status first
+        externally_cancelled = bool(slug and cancelled_build_status(slug))
+        target = "cancelled" if externally_cancelled else ("done" if rc == 0 else "error")
+        fields = {"activityStartedAt": 0}
+        if rc != 0 and not externally_cancelled:
+            fields["error"] = "\n".join((job.get("log") or [])[-30:])
+        job = job_manager.update(gid, status=target, **fields)
+    if job.get("status") != "unknown":
+        final, tome = job.get("status"), job.get("tome")
+        phase, phase_title = job.get("phase", 0), job.get("phaseTitle", "")
+        failure = job.get("error", "")
     if slug:
         try:
             with open(os.path.join(BUILD_DIR, f"{slug}.plan.md"), encoding="utf-8") as handle:
-                tome = resolve_working_tid(slug, handle.read())
+                tome = catalog.resolve_working_id(slug, handle.read())
         except OSError:
             pass
         remove_active_owner(slug)
         if final in ("done", "error", "cancelled"):
-            record_build_result(slug, tome, final, phase, phase_title, failure)
-    nm = forge_name(tome) or tome or "The tome"
+            record_build_result(slug, tome, final, phase, phase_title, failure,
+                                forge_name(tome, catalog) or tome)
+    nm = forge_name(tome, catalog) or tome or "The tome"
     if final == "done":
         notify("✓ Tome forged", f"{nm} finished — ready in the Bindery.")
     elif final == "error":  # a user cancel sets status 'cancelled', so this only fires on real failures
@@ -267,7 +265,7 @@ def _write_progress(tome, phase):
         pass
 
 
-def _resume_phase(planid, tid):
+def _resume_phase(planid, tid, catalog):
     """Which phase to restart at. Prefer the sidecar the live build wrote; for a legacy build
     with none, infer from disk (a scaffolded tome.toml means Phase 2 finished → resume Phase 3)."""
     for key in (tid, planid):
@@ -276,7 +274,7 @@ def _resume_phase(planid, tid):
                 return max(1, min(8, int(json.load(f).get("phase", 1))))
         except (OSError, ValueError):
             continue
-    tdir = os.path.join(TOMES_DIR, tid)
+    tdir = catalog.paths.tome(tid)
     if os.path.isfile(os.path.join(tdir, "tome.toml")):
         return 3
     return 2 if os.path.isdir(tdir) else 1
@@ -347,21 +345,21 @@ def _live_trace_jobs(proc_root="/proc"):
     return found
 
 
-def list_active_builds(proc_root="/proc"):
+def list_active_builds(job_manager: JobManager, catalog, proc_root="/proc"):
     """All live tome builds, including harnesses owned by another server process."""
-    with jobs_lock:
-        snapshots = [(bid, dict(j)) for bid, j in jobs.items()
-                     if j.get("kind") == "build" and j.get("status") == "running"]
+    snapshots = [(job["id"], job)
+                 for job in job_manager.all(kind="build", status="running")]
     local = []
     for bid, job in snapshots:
         slug, tid = job.get("slug") or job.get("tome"), job.get("tome")
         try:
             with open(os.path.join(BUILD_DIR, f"{slug}.plan.md"), encoding="utf-8") as handle:
-                tid = resolve_working_tid(slug, handle.read())
+                tid = catalog.resolve_working_id(slug, handle.read())
         except OSError:
             pass
         progress = load_build_progress(slug) or load_build_progress(tid) or {}
-        local.append({"id": bid, "tome": tid, "slug": slug, "name": forge_name(tid),
+        local.append({"id": bid, "tome": tid, "slug": slug,
+                      "name": forge_name(tid, catalog),
                       "phase": progress.get("phase", job.get("phase")),
                       "phaseTitle": progress.get("phaseTitle", job.get("phaseTitle")),
                       "status": job.get("status"),
@@ -378,12 +376,12 @@ def list_active_builds(proc_root="/proc"):
                 text = f.read()
         except OSError:
             continue
-        tid = resolve_working_tid(planid, text)
+        tid = catalog.resolve_working_id(planid, text)
         if planid in claimed or tid in claimed:
             continue
-        phase = _resume_phase(planid, tid)
+        phase = _resume_phase(planid, tid, catalog)
         row = {"id": planid, "tome": tid, "slug": planid,
-               "name": forge_name(tid) or tid, "phase": phase,
+               "name": forge_name(tid, catalog) or tid, "phase": phase,
                "phaseTitle": BUILD_PHASE_TITLES[phase], "status": "running",
                "totalPhases": BUILD_TOTAL_PHASES, "external": True}
         trace_id = load_active_owner(planid, proc["pid"]) or legacy_traces.get(proc["pid"])
@@ -396,10 +394,10 @@ def list_active_builds(proc_root="/proc"):
     return local + external
 
 
-def working_is_active(*ids):
+def working_is_active(job_manager: JobManager, catalog, *ids):
     wanted = {i for i in ids if i}
     return any(wanted.intersection((j.get("slug"), j.get("tome")))
-               for j in list_active_builds())
+               for j in list_active_builds(job_manager, catalog))
 
 
 def external_build_process(planid, proc_root="/proc"):
@@ -407,13 +405,13 @@ def external_build_process(planid, proc_root="/proc"):
                  if proc.get("planid") == planid), None)
 
 
-def list_workings():
+def list_workings(job_manager: JobManager, catalog):
     """Stopped, failed, or cancelled builds worth resuming.
 
     Durable results are authoritative; Harness ground truth remains only as the legacy
     completion marker for builds that predate result sidecars.
     """
-    active = {value for j in list_active_builds()
+    active = {value for j in list_active_builds(job_manager, catalog)
               for value in (j.get("slug"), j.get("tome")) if value}
     out = []
     for pp in glob.glob(os.path.join(BUILD_DIR, "*.plan.md")):
@@ -428,19 +426,20 @@ def list_workings():
             continue
         if not result and "Harness ground truth" in text:  # legacy completed run
             continue
-        tid = resolve_working_tid(planid, text)
+        tid = catalog.resolve_working_id(planid, text)
         if tid in active or planid in active:         # currently being forged, not abandoned
             continue
         launch = _load_launch(tid, planid)
         durable = result or build_result_status(tid) or {}
         failure = str(durable.get("error") or "")
         tooling = tooling_conflict_details(text, failure)
-        resume_phase = _resume_phase(planid, tid)
+        resume_phase = _resume_phase(planid, tid, catalog)
         authors = launch.get("authors") or {}
         phase_key = "phase12" if resume_phase <= 2 else "phase37" if resume_phase <= 7 else "phase8"
         author = authors.get(phase_key) or launch.get("author") or (launch.get("runners") or {}).get(
             str(resume_phase)) or (launch.get("runners") or {}).get("default") or {}
-        out.append({"id": planid, "tome": tid, "name": forge_name(tid) or tid,
+        out.append({"id": planid, "tome": tid,
+                    "name": forge_name(tid, catalog) or tid,
                     "concept": launch.get("concept") or _plan_concept(text),
                     "phase": resume_phase,
                     "bindery": launch.get("bindery") or {},

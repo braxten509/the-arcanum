@@ -20,7 +20,7 @@ from .inventory import (
     shrink_marks,
     shrinkage,
 )
-from ..runtime.validation_env import ensure_validation_environment, validation_subprocess_env
+from runtimes.validation_environment import ensure_validation_environment, validation_subprocess_env
 
 PHASE3_VALIDATOR = os.path.join(REPO, "tools", "validate_phase3.py")
 LIVE_SMOKE = os.path.join(REPO, "tools", "smoke_tome.py")

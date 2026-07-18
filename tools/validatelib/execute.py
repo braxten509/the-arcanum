@@ -9,9 +9,9 @@ import subprocess
 import tempfile
 
 try:  # tools/validate_tome.py imports validatelib; package callers import tools.validatelib.
-    from buildlib.runtime.validation_env import headless_validation_env
+    from runtimes.validation_environment import headless_validation_env
 except ModuleNotFoundError:  # pragma: no cover - exercised by repo-root package imports
-    from tools.buildlib.runtime.validation_env import headless_validation_env
+    from runtimes.validation_environment import headless_validation_env
 
 from . import err, lang_config, load_toml, norm_lines, warn
 from .attacks import load_intrusion_tiers

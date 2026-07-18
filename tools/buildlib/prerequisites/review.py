@@ -12,7 +12,7 @@ import urllib.request
 
 from .. import BUILD_DIR, REPO, VALIDATOR_FAILURE_DIR
 from ..status_log import emit_status_line
-from ..runtime.agent_runtime import scoped_runner_command
+from arcanum.platform.agent_commands import scoped_runner_command
 from ..runtime.events import assistant_text, session_id_from_line, usage_from_line
 from ..course.alignment import actual_lesson_id
 from ..course_map import load_course_map
@@ -28,7 +28,7 @@ from .result import (FINDING_KEYS, RESULT_KEYS,
                      validate_detailed as _validate_detailed)
 from ..workflow.prompts import START_PACING
 from ..runtime.runners import author_runner
-from arcanum.tomes import resolve_working_tid
+from arcanum.catalog.build_ids import resolve_working_id
 
 
 MAX_SECTION_PACKET_CHARS = 200_000
@@ -90,7 +90,7 @@ def _context(build_id):
             text = handle.read()
     except OSError:
         text = ""
-    return resolve_working_tid(build_id, text)
+    return resolve_working_id(build_id, text, os.path.join(REPO, "tomes"))
 
 
 def _node_file(tid, node):

@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 
 import tome_layout
-from tools.buildlib.runtime.validation_env import ensure_validation_environment
+from runtimes.validation_environment import ensure_validation_environment
 
 from arcanum.ai import AiService
 from arcanum.assessment.variants import VariantRepository, VariantUnavailable

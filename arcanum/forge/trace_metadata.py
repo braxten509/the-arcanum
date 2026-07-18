@@ -2,7 +2,7 @@
 import json
 import os
 
-from tools.buildlib.runtime.events import usage_from_line
+from arcanum.ai.events import usage_from_line
 
 
 def trace_session_id(source):

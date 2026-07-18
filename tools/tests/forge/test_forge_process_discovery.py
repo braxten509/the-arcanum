@@ -9,13 +9,16 @@ import json
 import os
 import sys
 import tempfile
+from types import SimpleNamespace
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import arcanum.forge.build_state as state  # noqa: E402
 import arcanum.forge as forge  # noqa: E402
 import arcanum.post_routes.builds as build_routes  # noqa: E402
-import arcanum.tomes as tomes  # noqa: E402
+from arcanum.catalog import ManifestRepository, TomeCatalogService, TomePaths  # noqa: E402
+from arcanum.jobs import JobManager, ProcessStore  # noqa: E402
+from arcanum.settings import Settings  # noqa: E402
 from arcanum.post_routes.builds import (_author, _authors, _phase_author,
                                         _resume_session_id, _validator)  # noqa: E402
 
@@ -26,14 +29,16 @@ class JsonHandler:
 
 
 old_active_builds = build_routes.list_active_builds
+services = SimpleNamespace(jobs=JobManager(), processes=ProcessStore(), catalog=None)
 try:
-    build_routes.list_active_builds = lambda: [{"id": "live"}]
-    payload, status = build_routes.start_build(JsonHandler(), {})
+    build_routes.list_active_builds = lambda _jobs, _catalog: [{"id": "live"}]
+    payload, status = build_routes.start_build(JsonHandler(), {}, services)
     assert status == 409 and "abandon the active tome" in payload["error"]
 finally:
     build_routes.list_active_builds = old_active_builds
 
-payload, status = build_routes.discard_build(JsonHandler(), {"id": "draft-one"})
+payload, status = build_routes.discard_build(
+    JsonHandler(), {"id": "draft-one"}, services)
 assert status == 400 and "confirmation is required" in payload["error"]
 
 current = {"role": "author", "kind": "codex-cli", "model": "terra",
@@ -80,22 +85,26 @@ with tempfile.TemporaryDirectory() as temp:
                                 "untitled-5", "--author", "codex-cli:gpt-5.6-sol"])
     write_proc(proc_root, 222, ["/bin/sh", "-c", "echo tools/build_tome.py untitled-5"])
 
-    old = (forge.BUILD_DIR, state.BUILD_DIR, tomes.BUILD_DIR,
-           forge.TOMES_DIR, tomes.TOMES_DIR)
+    settings = Settings(temp, os.path.join(temp, "web"), tome_root,
+                        os.path.join(temp, "cache"), build_root,
+                        os.path.join(temp, "skins"),
+                        os.path.join(temp, "settings.toml"), 8777)
+    paths = TomePaths(settings)
+    catalog = TomeCatalogService(paths, ManifestRepository(paths))
+    old = (forge.BUILD_DIR, state.BUILD_DIR)
     try:
-        forge.BUILD_DIR = state.BUILD_DIR = tomes.BUILD_DIR = build_root
-        forge.TOMES_DIR = tomes.TOMES_DIR = tome_root
+        job_manager = JobManager()
+        forge.BUILD_DIR = state.BUILD_DIR = build_root
         found = forge._live_build_processes(proc_root)
         assert [row["planid"] for row in found] == ["untitled-5"]
         assert state.BUILD_TOTAL_PHASES == 8
         assert state.load_build_progress("untitled-5")["phase"] == 4
         assert state.load_author_session("untitled-5")["state"] == "paused"
-        active = forge.list_active_builds(proc_root)
+        active = forge.list_active_builds(job_manager, catalog, proc_root)
         assert active[0]["tome"] == "rune-bound" and active[0]["phase"] == 4
-        forge.jobs["local-job"] = {"kind": "build", "status": "running",
-                                   "tome": "untitled-5", "slug": "untitled-5",
-                                   "phase": 1, "phaseTitle": "starting"}
-        active = forge.list_active_builds(proc_root)
+        job_manager.create("build", job_id="local-job", tome="untitled-5",
+                           slug="untitled-5", phase=1, phaseTitle="starting")
+        active = forge.list_active_builds(job_manager, catalog, proc_root)
         assert len(active) == 1 and not active[0]["external"]
         assert active[0]["tome"] == "rune-bound" and active[0]["phase"] == 4
         assert _author({"author": {"kind": "opencode-cli",
@@ -135,8 +144,6 @@ with tempfile.TemporaryDirectory() as temp:
         assert not os.path.exists(stale) and not os.path.exists(evidence)
         assert os.path.exists(unrelated)
     finally:
-        forge.jobs.pop("local-job", None)
-        (forge.BUILD_DIR, state.BUILD_DIR, tomes.BUILD_DIR,
-         forge.TOMES_DIR, tomes.TOMES_DIR) = old
+        forge.BUILD_DIR, state.BUILD_DIR = old
 
 print("single-author process discovery: OK")

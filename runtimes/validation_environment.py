@@ -19,9 +19,8 @@ import shutil
 import subprocess
 import tomllib
 
-from .. import BUILD_DIR, REPO
-
-
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BUILD_DIR = os.path.join(REPO, ".tome-build")
 RUNTIME_CONFIG_DIR = os.path.join(REPO, "global-configs", "runtimes")
 ENV_ROOT = os.path.join(BUILD_DIR, "validation-envs")
 _ENV_TOKEN = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")

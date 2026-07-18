@@ -11,4 +11,6 @@ class Settings:
     tomes_root: str
     cache_root: str
     build_root: str
+    skins_root: str
+    user_settings_path: str
     port: int

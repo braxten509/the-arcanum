@@ -12,7 +12,7 @@ import traceback
 
 from .. import BUILD_DIR, REPO
 from ..ai_costs import ensure_cost_totals, record_ai_turn
-from ..runtime.agent_runtime import scoped_runner_command
+from arcanum.platform.agent_commands import scoped_runner_command
 from .gate import (advance_unit, context, current_unit, ensure_unit, label,
                           next_prompt, preflight_unit, repair_prompt, unit_prompt,
                           validate_unit)
@@ -35,7 +35,7 @@ from .runtime import runner_stdin as _runner_stdin
 from .runtime import session_id_from_line as _session_id_from_line
 from .runtime import usage_from_line as _usage_from_line
 from arcanum.forge import notify
-from arcanum.tomes import resolve_working_tid
+from arcanum.catalog.build_ids import resolve_working_id
 from arcanum.forge.tool_trace import (_descendants, runner_session, trace_model,
                                       trace_session_id)
 
@@ -76,7 +76,8 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin, ReviewerSessionM
     def current_tome(self):
         try:
             with open(os.path.join(BUILD_DIR, f"{self.build_id}.plan.md"), encoding="utf-8") as handle:
-                return resolve_working_tid(self.build_id, handle.read())
+                return resolve_working_id(
+                    self.build_id, handle.read(), os.path.join(REPO, "tomes"))
         except OSError:
             return self.build_id
 

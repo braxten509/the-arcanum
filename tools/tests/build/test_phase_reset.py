@@ -17,8 +17,10 @@ ROOT = str(_BOOTSTRAP_REPO)
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-from arcanum import forge, tomes
+from arcanum import forge
+from arcanum.catalog import ManifestRepository, TomeCatalogService, TomePaths
 from arcanum.forge import build_state
+from arcanum.settings import Settings
 from tools.buildlib import continuity, course_map
 from tools.buildlib.course import control as course_control
 from tools.buildlib.course import state as course_state
@@ -136,7 +138,6 @@ def exercise_phase(root, phase):
 
     phase_reset.BUILD_DIR = str(build_dir)
     phase_reset.TOMES_DIR = str(tomes_dir)
-    tomes.TOMES_DIR = str(tomes_dir)
     configure_modules(root, build_dir)
     result = phase_reset.reset_tome_to_phase("demo", phase)
 
@@ -169,7 +170,6 @@ def exercise_legacy_fallback(root, phase):
     tomes_dir.mkdir(parents=True)
     phase_reset.BUILD_DIR = str(build_dir)
     phase_reset.TOMES_DIR = str(tomes_dir)
-    tomes.TOMES_DIR = str(tomes_dir)
     configure_modules(root, build_dir)
     phase_reset._fresh_tome("demo")
     current = tomes_dir / "demo"
@@ -216,11 +216,16 @@ def exercise_legacy_fallback(root, phase):
     assert (build_dir / "build.phase-snapshots" / f"phase-{phase}").is_dir()
     if phase == 3:
         with (patch.object(forge, "BUILD_DIR", str(build_dir)),
-              patch.object(forge, "TOMES_DIR", str(tomes_dir)),
               patch.object(build_state, "BUILD_DIR", str(build_dir)),
-              patch.object(forge, "jobs", {}),
               patch.object(forge, "_live_build_processes", return_value=[])):
-            workings = forge.list_workings()
+            from arcanum.jobs import JobManager
+            settings = Settings(str(root), str(Path(root, "web")), str(tomes_dir),
+                                str(Path(root, "cache")), str(build_dir),
+                                str(Path(root, "skins")),
+                                str(Path(root, "settings.toml")), 8777)
+            paths = TomePaths(settings)
+            catalog = TomeCatalogService(paths, ManifestRepository(paths))
+            workings = forge.list_workings(JobManager(), catalog)
         assert [(row["id"], row["tome"], row["phase"]) for row in workings] == [
             ("build", "demo", 3)
         ]
@@ -242,7 +247,6 @@ def exercise_failed_reset_rolls_back(root):
     write(build_dir / "build.phase-snapshots" / "phase-5" / "keep.txt", "later")
     phase_reset.BUILD_DIR = str(build_dir)
     phase_reset.TOMES_DIR = str(tomes_dir)
-    tomes.TOMES_DIR = str(tomes_dir)
     configure_modules(root, build_dir)
 
     with patch.object(phase_reset, "_fallback_phase_boundary",
@@ -265,7 +269,6 @@ def exercise_course_sidecar_snapshot(root):
     build_dir, tomes_dir = Path(root, ".tome-build"), Path(root, "tomes")
     build_dir.mkdir(parents=True)
     phase_reset.BUILD_DIR, phase_reset.TOMES_DIR = str(build_dir), str(tomes_dir)
-    tomes.TOMES_DIR = str(tomes_dir)
     configure_modules(root, build_dir)
     phase_reset._fresh_tome("demo")
     plan = build_dir / "demo.plan.md"
@@ -331,7 +334,7 @@ def exercise_phase1_refreshes_machine_contract():
 
 def main():
     modules = (course_map, course_state, continuity, prerequisite_review, course_control)
-    old = (phase_reset.BUILD_DIR, phase_reset.TOMES_DIR, tomes.TOMES_DIR,
+    old = (phase_reset.BUILD_DIR, phase_reset.TOMES_DIR,
            [(module, module.BUILD_DIR, module.REPO) for module in modules])
     try:
         for phase in range(1, 9):
@@ -345,8 +348,8 @@ def main():
             exercise_course_sidecar_snapshot(root)
         exercise_phase1_refreshes_machine_contract()
     finally:
-        phase_reset.BUILD_DIR, phase_reset.TOMES_DIR, tomes.TOMES_DIR = old[:3]
-        for module, build_dir, repo in old[3]:
+        phase_reset.BUILD_DIR, phase_reset.TOMES_DIR = old[:2]
+        for module, build_dir, repo in old[2]:
             module.BUILD_DIR, module.REPO = build_dir, repo
     print("phase reset tests: OK")
 

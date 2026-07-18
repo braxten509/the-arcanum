@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from arcanum.app import AppServices
 
-from ..response import Response, ok
+from ...response import Response, ok
 
 ALLOWED_SUBMISSION_KEYS = frozenset({"sectionId", "nodeId", "rationale", "tome"})
 

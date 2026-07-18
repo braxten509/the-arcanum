@@ -24,7 +24,7 @@ from ..prerequisites.review import review_prerequisites
 from ..mechanism_contract import candidate_with_findings
 from ..mastery_evidence import export_mastery_contract, validate_semantic_review
 from ..course.amend import amend_course_map
-from arcanum.tomes import resolve_working_tid
+from arcanum.catalog.build_ids import resolve_working_id
 from tools.validatelib.phase3 import tome_section_ids
 
 PHASES = ("Concept & arc", "Skeleton & voice", "Sections", "Minigames",
@@ -55,7 +55,7 @@ def context(build_id):
             text = handle.read()
     except OSError:
         text = ""
-    tid = resolve_working_tid(build_id, text)
+    tid = resolve_working_id(build_id, text, os.path.join(REPO, "tomes"))
     return {"build": build_id, "tid": tid, "plan": plan_rel,
             "tooling": read_tooling(plan)}
 

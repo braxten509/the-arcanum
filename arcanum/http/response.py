@@ -11,7 +11,7 @@ class Response:
 
 
 def ok(body: dict | None = None, status: int = 200) -> Response:
-    return Response(body or {"ok": True}, status)
+    return Response({"ok": True} if body is None else body, status)
 
 
 def error(message: str, status: int = 400) -> Response:

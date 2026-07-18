@@ -1,0 +1,1 @@
+"""Durable authoring status projections."""

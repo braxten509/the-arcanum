@@ -14,8 +14,8 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from arcanum.config import jobs
 from arcanum.authoring.grader import start_grader_smoke
+from arcanum.jobs import JobManager
 from smoke_tome import smoke_tome
 
 
@@ -59,10 +59,14 @@ class _Handler(BaseHTTPRequestHandler):
 def main():
     assembled = {"sections": [{"id": "s01", "freestyle": {
         "rubric": [{"criterion": "Works", "weight": 100}]}}]}
-    with patch("arcanum.authoring.grader.assemble_tome", return_value=assembled):
-        response, status = start_grader_smoke("demo", {"sectionId": "s01"})
+    jobs = JobManager()
+    class Catalog:
+        def assemble(self, _tome_id):
+            return assembled
+    response, status = start_grader_smoke(
+        "demo", {"sectionId": "s01"}, jobs, Catalog())
     assert status == 200 and response["ok"]
-    job = jobs.pop(response["jobId"])
+    job = jobs.status(response["jobId"])
     assert job["status"] == "done" and job["result"]["smoke"] is True
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)

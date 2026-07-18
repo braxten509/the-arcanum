@@ -5,36 +5,66 @@ from dataclasses import dataclass
 import os
 
 from .ai import AiService, build_default_ai_service
+from .authoring.services import BinderService, ForgeService, LegacyGradingService
 from .assessment.use_cases import AssessmentApplication, MasteryLabApplication
+from .catalog import ManifestRepository, TomeCatalogService, TomePaths
+from .execution import ExecutionService
 from .jobs import InMemoryJobStore, JobManager, ProcessStore
-from .learning import LearningStateStore
-from .settings import Settings, load_settings
-from .config import read_settings
-from .tomes import (project_dir, runtime_for, save_dir, state_path, tome_dir)
+from .learning import LearnerStateService, LearningStateStore
+from .settings import Settings, UserSettingsStore, load_settings
+from .workspace import WorkspaceService
 
 
 @dataclass(frozen=True)
 class AppServices:
     settings: Settings
+    catalog: TomeCatalogService
+    workspaces: WorkspaceService
+    user_settings: UserSettingsStore
     jobs: JobManager
     processes: ProcessStore
     ai: AiService
+    states: LearnerStateService
+    execution: ExecutionService
+    legacy_grading: LegacyGradingService
+    binder: BinderService
+    forge: ForgeService
 
     def learning(self, tome_id: str) -> LearningStateStore:
-        root = save_dir(tome_id)
-        return LearningStateStore(state_path(tome_id), os.path.join(root, "evidence-log.jsonl"))
+        root = self.workspaces.ensure_save(tome_id)
+        return LearningStateStore(self.workspaces.state_path(tome_id),
+                                  os.path.join(root, "evidence-log.jsonl"))
 
     def assessment(self, tome_id: str) -> AssessmentApplication:
         return AssessmentApplication(
-            ai=self.ai, tome_root=tome_dir(tome_id), save_root=save_dir(tome_id),
-            runtime=runtime_for(tome_id), workspace=project_dir(tome_id),
-            settings=read_settings(), tome_id=tome_id)
+            ai=self.ai, tome_root=self.catalog.paths.tome(tome_id),
+            save_root=self.workspaces.ensure_save(tome_id),
+            runtime=self.catalog.runtime(tome_id),
+            workspace=self.workspaces.project_dir(tome_id),
+            settings=self.user_settings.read(), tome_id=tome_id)
 
     def mastery_labs(self, tome_id: str) -> MasteryLabApplication:
-        return MasteryLabApplication(tome_dir(tome_id), save_dir(tome_id),
-                                    runtime_for(tome_id))
+        return MasteryLabApplication(
+            self.catalog.paths.tome(tome_id), self.workspaces.ensure_save(tome_id),
+            self.catalog.runtime(tome_id))
 
 
 def create_app_services(settings: Settings | None = None) -> AppServices:
-    return AppServices(settings or load_settings(), JobManager(InMemoryJobStore()),
-                       ProcessStore(), build_default_ai_service())
+    settings = settings or load_settings()
+    os.makedirs(settings.cache_root, exist_ok=True)
+    os.makedirs(settings.tomes_root, exist_ok=True)
+    paths = TomePaths(settings)
+    catalog = TomeCatalogService(paths, ManifestRepository(paths))
+    workspaces = WorkspaceService(catalog, paths)
+    jobs = JobManager(InMemoryJobStore())
+    user_settings = UserSettingsStore(settings.user_settings_path)
+    processes = ProcessStore()
+    ai = build_default_ai_service()
+    states = LearnerStateService(workspaces, jobs, user_settings)
+    execution = ExecutionService(catalog, workspaces)
+    legacy_grading = LegacyGradingService(jobs, catalog, workspaces, ai)
+    binder = BinderService(jobs, processes)
+    forge = ForgeService(settings, jobs, processes, catalog)
+    return AppServices(settings, catalog, workspaces, user_settings,
+                       jobs, processes, ai, states, execution, legacy_grading, binder,
+                       forge)

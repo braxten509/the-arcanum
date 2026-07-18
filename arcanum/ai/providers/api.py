@@ -4,8 +4,8 @@ from __future__ import annotations
 import json
 import urllib.request
 
-from ...authoring.ai_access import ensure_remote_access
-from ...authoring.repo_tools import anthropic_tools, execute as execute_tool, openai_tools
+from ..access import ensure_remote_access
+from ..repository_tools import anthropic_tools, execute as execute_tool, openai_tools
 from ..models import AiRequest, AiResponse
 
 

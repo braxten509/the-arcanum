@@ -19,7 +19,7 @@ from .. import BUILD_DIR, REPO
 from .checkpoints import ARC_CONTRACT, ARC_HEADING
 from ..course.limits import MIN_SECTIONS
 from ..skeleton import scaffold_sections
-from arcanum.tomes import resolve_working_tid
+from arcanum.catalog.build_ids import resolve_working_id
 
 
 TOMES_DIR = os.path.join(REPO, "tomes")
@@ -105,7 +105,7 @@ def find_plan_for_tome(tid):
             text = _read_text(path)
         except OSError:
             continue
-        if build_id == tid or resolve_working_tid(build_id, text) == tid:
+        if build_id == tid or resolve_working_id(build_id, text, TOMES_DIR) == tid:
             matches.append((os.path.getmtime(path), build_id, path, text))
     if not matches:
         raise ValueError("this tome has no Bindery build plan, so it cannot be reset by phase")
@@ -200,7 +200,7 @@ def capture_phase_snapshot(build_id, phase, replace=False):
         raise ValueError("phase must be between 1 and 8")
     plan = os.path.join(BUILD_DIR, f"{build_id}.plan.md")
     text = _read_text(plan)
-    tid = resolve_working_tid(build_id, text)
+    tid = resolve_working_id(build_id, text, TOMES_DIR)
     tome = os.path.join(TOMES_DIR, _valid_id(tid))
     if not os.path.isfile(os.path.join(tome, "tome.toml")):
         raise ValueError(f"cannot snapshot missing tomes/{tid}/tome.toml")

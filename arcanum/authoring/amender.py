@@ -1,19 +1,20 @@
-"""The Binder (amend a tome): a scoped CLI edits tomes/<jid>/, then validate_tome.py
-checks it and may return one exact-report repair turn. Amend jobs live in the shared
-config.jobs registry with "kind": "amend"."""
+"""The Binder: scoped amendment execution behind explicit job/process services."""
 import json
 import os
+import re
 import signal
+import shutil
 import subprocess
 import sys
 import threading
 import time
 
 from ..config import (AGY_BIN, BUILD_DIR, CLAUDE_BIN, CODEX_BIN, OPENCODE_BIN, ROOT,
-                     agy_print_args, amend_procs, codex_no_mcp_args, jobs, jobs_lock)
-from .ai_access import ensure_cli_access
+                     agy_print_args, codex_no_mcp_args)
+from ..jobs import JobManager, ProcessStore
+from ..ai.access import ensure_cli_access
 from ..forge import ANSI_RE, notify
-from tools.buildlib.runtime.agent_runtime import scoped_runner_command
+from arcanum.platform.agent_commands import scoped_runner_command
 
 AMEND_TIMEOUT = 900  # seconds for one small-change agent run
 
@@ -51,30 +52,55 @@ def clear_amend_state(tome):
         pass
 
 
-def _git(*args):
-    try:
-        return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, timeout=60)
-    except (OSError, subprocess.TimeoutExpired):
-        return None
+def _checkpoint_path(jid):
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", str(jid or "")):
+        raise ValueError("invalid tome id")
+    return os.path.join(BUILD_DIR, "binder-checkpoints", jid)
+
+
+def _tree_signature(root):
+    rows = []
+    for directory, names, files in os.walk(root):
+        names[:] = sorted(name for name in names if name != "save")
+        for name in sorted(files):
+            path = os.path.join(directory, name)
+            relative = os.path.relpath(path, root)
+            with open(path, "rb") as handle:
+                rows.append((relative, handle.read()))
+    return rows
 
 
 def checkpoint_tome(jid):
-    """Commit tomes/<jid> as-is before the Binder touches it (no-op if clean), so a
-    failed run can be rolled back completely. save/ is gitignored and unaffected."""
-    _git("add", "-A", "--", f"tomes/{jid}")
-    _git("commit", "-m", f"Binder checkpoint: {jid}", "--", f"tomes/{jid}")  # exits non-zero if nothing changed — fine
+    """Copy authored content to a bounded recovery sidecar; never mutate Git state."""
+    source, checkpoint = os.path.join(ROOT, "tomes", jid), _checkpoint_path(jid)
+    if os.path.isdir(checkpoint):
+        shutil.rmtree(checkpoint)
+    os.makedirs(os.path.dirname(checkpoint), exist_ok=True)
+    shutil.copytree(source, checkpoint, ignore=shutil.ignore_patterns("save"))
+
+
+def clear_checkpoint(jid):
+    shutil.rmtree(_checkpoint_path(jid), ignore_errors=True)
 
 
 def rollback_tome(jid):
-    """Restore tomes/<jid> to the checkpoint: revert tracked edits, drop new files."""
-    _git("checkout", "HEAD", "--", f"tomes/{jid}")
-    _git("clean", "-fd", "--", f"tomes/{jid}")
+    """Restore authored content from the sidecar while preserving learner save data."""
+    target, checkpoint = os.path.join(ROOT, "tomes", jid), _checkpoint_path(jid)
+    if not os.path.isdir(checkpoint):
+        raise RuntimeError("Binder recovery checkpoint is missing")
+    for name in os.listdir(target):
+        if name == "save":
+            continue
+        path = os.path.join(target, name)
+        shutil.rmtree(path) if os.path.isdir(path) and not os.path.islink(path) else os.remove(path)
+    shutil.copytree(checkpoint, target, dirs_exist_ok=True)
+    clear_checkpoint(jid)
 
 
 def tome_has_changes(jid):
-    """Tracked or untracked tome changes since the Binder checkpoint."""
-    result = _git("status", "--short", "--", f"tomes/{jid}")
-    return bool(result and result.stdout.strip())
+    """Compare authored files against the bounded pre-run checkpoint."""
+    return _tree_signature(os.path.join(ROOT, "tomes", jid)) != _tree_signature(
+        _checkpoint_path(jid))
 
 
 def _mark_amend_state(tome, status):
@@ -84,7 +110,8 @@ def _mark_amend_state(tome, status):
         save_amend_state(st)
 
 
-def _run_agent_turn(job_id, cmd, prompt, input_mode, env, cwd):
+def _run_agent_turn(job_id, cmd, prompt, input_mode, env, cwd,
+                    job_manager: JobManager, processes: ProcessStore):
     """Run one scoped Binder turn and stream it to the existing job log."""
     stdin_data = prompt if input_mode == "stdin" else None
     full_cmd = cmd + ([prompt] if input_mode == "arg" else [])
@@ -92,8 +119,7 @@ def _run_agent_turn(job_id, cmd, prompt, input_mode, env, cwd):
                          stdin=(subprocess.DEVNULL if stdin_data is None else subprocess.PIPE),
                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
                          env=env, cwd=cwd, start_new_session=True)
-    with jobs_lock:
-        amend_procs[job_id] = p
+    processes.put(job_id, p)
     if stdin_data is not None:
         try:
             p.stdin.write(stdin_data)
@@ -116,12 +142,10 @@ def _run_agent_turn(job_id, cmd, prompt, input_mode, env, cwd):
     def pump_output():
         for line in p.stdout:
             line = ANSI_RE.sub("", line.rstrip("\n"))
-            with jobs_lock:
-                job = jobs.get(job_id)
-                if not job:
-                    break
-                job["log"].append(line)
-                del job["log"][:-400]
+            try:
+                job_manager.append(job_id, "log", line, limit=400)
+            except KeyError:
+                break
 
     pump = threading.Thread(target=pump_output, daemon=True)
     pump.start()
@@ -136,10 +160,8 @@ def _run_agent_turn(job_id, cmd, prompt, input_mode, env, cwd):
             pump.join(5)
     finally:
         watchdog.cancel()
-        with jobs_lock:
-            amend_procs.pop(job_id, None)
-    with jobs_lock:
-        logtail = list(jobs.get(job_id, {}).get("log", []))
+        processes.pop(job_id)
+    logtail = list(job_manager.status(job_id).get("log", []))
     return rc, timed_out["v"], logtail
 
 
@@ -151,7 +173,8 @@ def _validate_amendment(jid):
 
 
 def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, iterate=False, reset_ok=False,
-                review=False, review_path=""):
+                review=False, review_path="", job_manager: JobManager | None = None,
+                processes: ProcessStore | None = None):
     """Background worker: a headless CLI edits tomes/<jid>/ under the configuration
     guide, then validate_tome.py checks it and may trigger one bounded repair turn.
     The agent edits with whatever file tools its CLI has (codex reads/edits THROUGH
@@ -165,6 +188,8 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
     review=True: read-only survey — the agent writes a findings report to reviews/
     and changes nothing else; request_text is an optional focus. review_path names a
     prior report the agent should read before making a change the player commissioned."""
+    if job_manager is None or processes is None:
+        raise RuntimeError("Binder requires explicit job and process services")
     req = request_text[:4000]
     report_rel = os.path.join("reviews", f"{jid}-{time.strftime('%Y%m%d-%H%M%S')}.md") if review else ""
     # what the agent may and may not touch. reset_ok lifts ONLY the progress-preserving rules
@@ -283,13 +308,12 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
         env.update(ARCANUM_REPO_ROOT=ROOT, ARCANUM_TOME_ROOT=tome_root,
                    PYTHONDONTWRITEBYTECODE="1")
         rc, timed_out, logtail = _run_agent_turn(
-            job_id, cmd, prompt, input_mode, env, tome_root)
-        with jobs_lock:
-            if jobs.get(job_id, {}).get("status") == "cancelled":
-                clear_amend_state(jid)  # the player stayed the quill; nothing to resume
-                if not review:
-                    rollback_tome(jid)  # discard the half-finished edit
-                return  # the kill is not an error
+            job_id, cmd, prompt, input_mode, env, tome_root, job_manager, processes)
+        if job_manager.status(job_id).get("status") == "cancelled":
+            clear_amend_state(jid)  # the player stayed the quill; nothing to resume
+            if not review:
+                rollback_tome(jid)  # discard the half-finished edit
+            return  # the kill is not an error
         if timed_out:
             raise RuntimeError(f"timed out after {AMEND_TIMEOUT}s:\n" + "\n".join(logtail[-20:]))
         if rc != 0:
@@ -303,10 +327,7 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
                     f.write("\n".join(logtail).strip() + "\n")
             with open(report_abs, encoding="utf-8") as f:
                 report = f.read().strip()
-            with jobs_lock:
-                job = jobs.get(job_id)
-                if job:
-                    job.update(status="done", summary=report[-4000:] or summary,
+            job_manager.update(job_id, status="done", summary=report[-4000:] or summary,
                                reportPath=report_rel, validatorOk=True)
             clear_amend_state(jid)
             notify("✓ The Binder's survey is done",
@@ -315,32 +336,30 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
         if not tome_has_changes(jid):
             # The request may have been a question, or the requested state already held.
             # Do not turn an unrelated pre-existing validator finding into an unsolicited edit.
-            with jobs_lock:
-                job = jobs.get(job_id)
-                if job:
-                    job.update(status="done", summary=summary, validator="No tome files changed.",
-                               validatorOk=True)
+            job_manager.update(job_id, status="done", summary=summary,
+                               validator="No tome files changed.", validatorOk=True)
+            clear_checkpoint(jid)
             clear_amend_state(jid)
             return
-        with jobs_lock:  # the log streams to the bench — say the agent is done, the wait is the candle's
-            job = jobs.get(job_id)
-            if job:
-                job["log"].append("── the hand rests; the candle now inspects the work (validator — a few minutes) ──")
+        job_manager.append(
+            job_id, "log",
+            "── the hand rests; the candle now inspects the work (validator — a few minutes) ──",
+            limit=400)
         v = _validate_amendment(jid)
         if v.returncode != 0:
             report = (v.stdout + v.stderr).strip()
-            with jobs_lock:
-                job = jobs.get(job_id)
-                if job:
-                    job["log"].append("── exact validator report returned to the hand; one repair turn begins ──")
+            job_manager.append(
+                job_id, "log",
+                "── exact validator report returned to the hand; one repair turn begins ──",
+                limit=400)
             repair_prompt = (prompt + "\n\n===== HARNESS REPAIR TURN =====\n"
                              "The independent validator failed. Read every finding below, repair "
                              "all in-scope failures without undoing the requested amendment, rerun "
                              "the validator yourself until clean, then stop.\n\n" + report)
             rc, timed_out, logtail = _run_agent_turn(
-                job_id, cmd, repair_prompt, input_mode, env, tome_root)
-            with jobs_lock:
-                cancelled = jobs.get(job_id, {}).get("status") == "cancelled"
+                job_id, cmd, repair_prompt, input_mode, env, tome_root,
+                job_manager, processes)
+            cancelled = job_manager.status(job_id).get("status") == "cancelled"
             if cancelled:
                 clear_amend_state(jid)
                 rollback_tome(jid)
@@ -352,15 +371,16 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
                 raise RuntimeError(f"repair exit {rc}:\n" + "\n".join(logtail[-20:]))
             summary = "\n".join(logtail)[-2000:].strip()
             v = _validate_amendment(jid)
-        with jobs_lock:
-            job = jobs.get(job_id)
-            if job:
-                job["log"].append("── the candle is satisfied: the work holds (validator passed) ──"
-                                  if v.returncode == 0 else
-                                  "── the candle gutters: the validator found flaws (see its report below) ──")
-                job.update(status="done", summary=summary,
+        job_manager.append(
+            job_id, "log",
+            ("── the candle is satisfied: the work holds (validator passed) ──"
+             if v.returncode == 0 else
+             "── the candle gutters: the validator found flaws (see its report below) ──"),
+            limit=400)
+        job_manager.update(job_id, status="done", summary=summary,
                            validator=(v.stdout + v.stderr).strip()[-2000:],
                            validatorOk=v.returncode == 0)
+        clear_checkpoint(jid)
         clear_amend_state(jid)  # the run finished; the edit is on disk, nothing to resume
         if broad:  # broad runs are long/unattended — ping the operator on the outcome
             if v.returncode == 0:
@@ -371,11 +391,12 @@ def run_amender(job_id, jid, request_text, kind, model, effort="", broad=False, 
     except Exception as e:
         if not review:
             rollback_tome(jid)  # a half-finished tome is worse than none — back to the checkpoint
-        with jobs_lock:
-            job = jobs.get(job_id)
-            stopped = bool(job and job.get("status") == "running")
-            if stopped:
-                job.update(status="error", error=(str(e)[:800] + "\n\nThe tome was restored to its pre-Binder checkpoint."))
+        stopped = job_manager.status(job_id).get("status") == "running"
+        if stopped:
+            job_manager.update(
+                job_id, status="error",
+                error=(str(e)[:800] +
+                       "\n\nThe tome was restored to its pre-Binder checkpoint."))
         if stopped:
             _mark_amend_state(jid, "error")  # left on disk so the Binder can offer to resume it
         if stopped:  # a real failure/timeout, not a user cancel — you may be away, so ping to retry

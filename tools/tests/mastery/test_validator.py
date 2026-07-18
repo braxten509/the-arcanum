@@ -12,7 +12,8 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path[:0] = [str(ROOT), str(ROOT / "tools")]
 
 from tools.validatelib.mastery_evidence import validate_mastery_evidence
-from tools.validatelib.mastery_evidence.payload import payload_findings
+from tools.validatelib.mastery_evidence.payload import (evidence_payload_privacy_enabled,
+                                                        payload_findings)
 
 
 MANIFEST = {
@@ -108,5 +109,7 @@ with tempfile.TemporaryDirectory() as temp:
 
     assert payload_findings({"sections": [{"assessment": {"scenarios": []}}]})
     assert not payload_findings({"sections": [{"freestyle": {"requirements": []}}]})
+    assert evidence_payload_privacy_enabled(MANIFEST)
+    assert not evidence_payload_privacy_enabled({"mastery": {"level": 3}})
 
 print("mastery authored-contract validator tests: OK")

@@ -6,7 +6,7 @@ import json
 from arcanum.app import AppServices
 from arcanum.assessment.use_cases.public import public_receipt
 
-from ..response import Response, ok
+from ...response import Response, ok
 
 
 class MasteryLabEndpoints:

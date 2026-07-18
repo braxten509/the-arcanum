@@ -8,18 +8,17 @@ import os
 import subprocess
 import sys
 import threading
-import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from arcanum import routes_get, routes_post
 from arcanum.app import create_app_services
 from arcanum.config import PORT, ROOT
-from arcanum.http.composition import build_evidence_router
-from arcanum.tomes import list_tomes, resolve_tome, save_dir
+from arcanum.http.composition import build_router
+from arcanum.http.static import StaticFileServer
 
 
 SERVICES = create_app_services()
-ROUTER = build_evidence_router(SERVICES)
+ROUTER = build_router(SERVICES)
+STATIC = StaticFileServer(SERVICES.settings)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -37,21 +36,16 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def read_body(self):
-        n = int(self.headers.get("Content-Length", 0))
-        return json.loads(self.rfile.read(n) or b"{}")
-
-    def query_tome(self):
-        q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-        return resolve_tome((q.get("tome") or [""])[0])
-
     def do_GET(self):
         if not ROUTER.dispatch(self, "GET"):
-            routes_get.handle(self)
+            if self.path.split("?", 1)[0].startswith("/api/"):
+                self.send_json({"error": "not found"}, 404)
+            else:
+                STATIC.serve(self)
 
     def do_POST(self):
         if not ROUTER.dispatch(self, "POST"):
-            routes_post.handle(self)
+            self.send_json({"error": "not found"}, 404)
 
 
 if __name__ == "__main__":
@@ -60,8 +54,8 @@ if __name__ == "__main__":
             ROOT, "tools", "maintenance", "sync_ollama.py")], timeout=30)
     except Exception as e:  # never let a config-sync hiccup block the server
         print(f"sync-ollama: skipped ({e})")
-    for j in list_tomes():
-        save_dir(j["id"])  # regenerate any deleted save/ dir → fresh course
+    for tome in SERVICES.catalog.list():
+        SERVICES.workspaces.ensure_save(tome["id"])  # regenerate deleted save/ → fresh course
     port = int(sys.argv[1]) if len(sys.argv) > 1 else PORT
     srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     url = f"http://localhost:{port}"

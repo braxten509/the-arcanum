@@ -13,7 +13,7 @@ sys.path[:0] = [ROOT, os.path.join(ROOT, "tools")]
 
 from arcanum.ai import AiRequest, build_default_ai_service
 from arcanum.ai.json_response import parse_json_object
-from arcanum.tomes import load_manifest, runtime_for, tome_dir
+from arcanum.catalog import create_catalog
 from tools.buildlib import BUILD_DIR
 from tools.buildlib.mastery_evidence import load_policy
 from tools.buildlib.mastery_evidence.variants import VariantGenerator
@@ -68,18 +68,20 @@ def main() -> None:
             raise SystemExit(f"cannot read the build's generation provider: {exc}")
     if not provider or not model:
         parser.error("provide --provider and --model, or a --build-id with a launch record")
-    root = tome_dir(args.tome)
+    catalog = create_catalog(ROOT)
+    root = catalog.paths.tome(args.tome)
+    manifest = catalog.manifest(args.tome)
     reviewer = CliSemanticReviewer(provider, model, root)
-    generator = VariantGenerator(runtime_for(args.tome), reviewer)
+    generator = VariantGenerator(catalog.runtime(args.tome), reviewer)
     matches = []
-    for section in (load_manifest(args.tome).get("content") or {}).get("sections") or []:
+    for section in (manifest.get("content") or {}).get("sections") or []:
         lab_root = os.path.join(root, "sections", str(section), "mastery-labs")
         if not os.path.isdir(lab_root):
             continue
         matches += [os.path.join(lab_root, name) for name in sorted(os.listdir(lab_root))
                     if name.endswith(".toml") and (not args.lab or name == args.lab)]
     if not matches:
-        level = int((load_manifest(args.tome).get("mastery") or {}).get("level") or 0)
+        level = int((manifest.get("mastery") or {}).get("level") or 0)
         if level in range(1, 6) and load_policy().for_level(level).standalone_labs == 0:
             print("no mastery lab is required by this evidence profile")
             return

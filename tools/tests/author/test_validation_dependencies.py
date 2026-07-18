@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from buildlib import measure
-from buildlib.runtime import validation_env
+from runtimes import validation_environment as validation_env
 from buildlib.course_map import validation_dependency_alignment_problems
 from buildlib.course.dependencies import external_workspace_capability_alignment_problems
 from runtimes import common as runtime_common

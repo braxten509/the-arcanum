@@ -4,9 +4,9 @@ from __future__ import annotations
 import os
 import subprocess
 
-from tools.buildlib.runtime.agent_runtime import scoped_runner_command
+from arcanum.platform.agent_commands import scoped_runner_command
 
-from ...authoring.ai_access import ensure_cli_access, ensure_remote_access
+from ..access import ensure_cli_access, ensure_remote_access
 from ...config import (AGY_BIN, CLAUDE_BIN, CODEX_BIN, OPENCODE_BIN, ROOT,
                        agy_print_args, codex_no_mcp_args)
 from ..models import AiRequest, AiResponse
@@ -45,6 +45,8 @@ class ClaudeCliProvider(_CliProvider):
         command = [CLAUDE_BIN, "-p", "--permission-mode", "auto"]
         if request.model:
             command += ["--model", request.model]
+        if request.effort:
+            command += ["--effort", request.effort]
         return command, "arg"
 
 
@@ -72,6 +74,8 @@ class CodexCliProvider(_CliProvider):
                    "-s", "read-only", *codex_no_mcp_args()]
         if request.model:
             command += ["-m", request.model]
+        if request.effort:
+            command += ["-c", f"model_reasoning_effort={request.effort}"]
         return [*command, "-"], "stdin"
 
 
@@ -82,6 +86,8 @@ class OpenCodeCliProvider(_CliProvider):
         command = [OPENCODE_BIN, "run", "--auto"]
         if request.model:
             command += ["-m", request.model]
+        if request.effort:
+            command += ["--variant", request.effort]
         return command, "arg"
 
 
@@ -98,5 +104,5 @@ class OllamaProvider:
             role=request.role, model=model, input=request.input, timeout=request.timeout,
             workspace=request.workspace, response_schema=request.response_schema,
             allowed_tools=request.allowed_tools, web_allowed=request.web_allowed,
-            trace=request.trace))
+            effort=request.effort, trace=request.trace))
         return AiResponse(self.provider_id, request.model, response.text, response.trace)

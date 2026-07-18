@@ -8,8 +8,9 @@ from .response import Response
 
 
 class Router:
-    def __init__(self) -> None:
+    def __init__(self, tome_resolver=None) -> None:
         self._routes: dict[tuple[str, str], object] = {}
+        self._tome_resolver = tome_resolver
 
     def register(self, method: str, path: str, endpoint) -> None:
         key = (method.upper(), path)
@@ -24,7 +25,7 @@ class Router:
         self.register("POST", path, endpoint)
 
     def dispatch(self, handler, method: str) -> bool:
-        request = Request.from_handler(handler, method)
+        request = Request.from_handler(handler, method, self._tome_resolver)
         endpoint = self._routes.get((method.upper(), request.path))
         if not endpoint:
             return False

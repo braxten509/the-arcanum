@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import subprocess
 
-from tools.buildlib.runtime.agent_runtime import scoped_shell_command
+from arcanum.platform.agent_commands import scoped_shell_command
 
-from ...authoring.ai_access import ensure_command_access
+from ..access import ensure_command_access
 from ..models import AiRequest, AiResponse
 
 

@@ -1,5 +1,4 @@
-"""Freestyle grading (all backends) and the oracle mentor. Grading runs as a
-background job in the shared config.jobs registry."""
+"""Legacy freestyle grading and Oracle role services."""
 import difflib
 import hashlib
 import json
@@ -7,37 +6,31 @@ import os
 import re
 import subprocess
 import time
-import urllib.request
-import uuid
 
 from runtimes.common import atomic_write
 
-from ..config import CACHE_DIR, GRADE_TIMEOUT, GRADER_MODELS, ORACLE_TIMEOUT, ROOT, jobs, jobs_lock, read_json
-from .ai_access import ensure_command_access, ensure_remote_access
-from ..models import GraderConfigError, cli_text
-from .repo_tools import anthropic_tools, execute as execute_repo_tool, openai_tools
-from tools.buildlib.runtime.agent_runtime import scoped_shell_command
-from ..tomes import assemble_tome, grades_dir, project_dir, runtime_for
+from ..config import GRADE_TIMEOUT, GRADER_MODELS, ORACLE_TIMEOUT, read_json
+from ..jobs import JobManager
+from ..ai import AiRequest, AiService
+from ..models import GraderConfigError
 
 FALLBACK_GRADER = "qwen2.5:14b"  # strongest installed Ollama model; overridable per-request from settings
 ORACLE_MODEL = "llama3.1:8b"
 
 
-def start_grader_smoke(jid, payload):
+def start_grader_smoke(jid, payload, job_manager: JobManager, catalog):
     """Create a deterministic completed job for the live route/status smoke gate."""
     sid = str(payload.get("sectionId") or "")
-    loaded = assemble_tome(jid)
+    loaded = catalog.assemble(jid)
     section = next((item for item in (loaded.get("sections") or [])
                     if str(item.get("id")) == sid), None)
     rubric = ((section or {}).get("freestyle") or {}).get("rubric") or []
     if not section or not rubric:
         return {"ok": False, "error": "smoke section or freestyle rubric is missing"}, 400
-    job_id = uuid.uuid4().hex[:12]
     result = {"total": 0, "grade": "F", "scores": [],
               "model": "deterministic route smoke", "smoke": True}
-    with jobs_lock:
-        jobs[job_id] = {"status": "done", "section": sid, "tome": jid,
-                        "result": result, "smoke": True}
+    job = job_manager.completed("grade-working", result, section=sid, tome=jid, smoke=True)
+    job_id = job["id"]
     return {"ok": True, "jobId": job_id, "smoke": True}, 200
 
 
@@ -145,114 +138,26 @@ missing or broken functionality, bugs, or code-quality issues the rubric explici
     return "\n".join(parts)
 
 
-def grade_with_ollama(prompt, model, tome_root):
-    """Run local Ollama models through OpenCode so they receive the same tools/boundary."""
-    ensure_remote_access("ollama", model)
-    routed = model if model.startswith("ollama/") else "ollama/" + model
-    text = cli_text("opencode-cli", prompt + "\n\nRespond with ONLY the JSON grade object.",
-                    routed, GRADE_TIMEOUT, tome_root)
-    return extract_json(text)
+def _grade_with_ai(ai: AiService, provider: str, model: str, prompt: str,
+                   tome_root: str, *, key: str = "", command: str = "",
+                   effort: str = "") -> dict:
+    response = ai.complete(provider, AiRequest(
+        role="legacy-working-grader", model=model, input=prompt,
+        timeout=GRADE_TIMEOUT, workspace=tome_root,
+        allowed_tools=("read_repo_file", "list_repo_files", "run_repo_python"),
+        web_allowed=True, effort=effort, api_key=key, custom_command=command,
+        response_schema={"scores": "array", "total": "number", "grade": "string"},
+        trace={"legacy": True}))
+    return extract_json(response.text)
 
 
-def grade_with_claude_cli(prompt, model, tome_root):
-    return extract_json(cli_text("claude-cli", prompt, model, GRADE_TIMEOUT, tome_root))
-
-
-def grade_with_agy_cli(prompt, model, tome_root):
-    """Antigravity CLI (`agy`) print mode: one-shot, non-interactive, JSON from stdout.
-    Uses the user's Google login — no API key, mirroring the claude CLI path."""
-    return extract_json(cli_text("antigravity-cli", prompt, model, GRADE_TIMEOUT, tome_root))
-
-
-def grade_with_codex_cli(prompt, model, tome_root):
-    """Codex CLI (ChatGPT login) non-interactively: prompt on stdin, JSON from stdout."""
-    return extract_json(cli_text("codex-cli", prompt, model, GRADE_TIMEOUT, tome_root))
-
-
-def grade_with_opencode_cli(prompt, model, tome_root):
-    return extract_json(cli_text("opencode-cli", prompt, model, GRADE_TIMEOUT, tome_root))
-
-
-def grade_with_command(prompt, command, tome_root):
-    """Any AI CLI the user configures ('Other' provider): the grading prompt is piped
-    to the command's stdin, the JSON grade is parsed from its stdout. Runs via the
-    shell so the user can supply flags/pipes; cwd is the read-only tome boundary."""
-    if not command.strip():
-        raise ValueError("no command configured")
-    cmd = scoped_shell_command(command, tome_root)
-    ensure_command_access(cmd, tome_root)
-    p = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
-                       timeout=GRADE_TIMEOUT, cwd=tome_root)
-    if p.returncode != 0:
-        raise RuntimeError(f"exit {p.returncode}: {p.stderr[:500]}")
-    return extract_json(p.stdout)
-
-
-def grade_with_anthropic(prompt, model, key, tome_root):
-    ensure_remote_access("anthropic", model, key)
-    messages = [{"role": "user", "content": prompt}]
-    tools = [{"type": "web_search_20250305", "name": "web_search", "max_uses": 5},
-             {"type": "web_fetch_20250910", "name": "web_fetch"}, *anthropic_tools()]
-    for _ in range(8):
-        body = json.dumps({"model": model, "max_tokens": 4096,
-                           "messages": messages, "tools": tools}).encode()
-        req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=body, headers={
-            "x-api-key": key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=GRADE_TIMEOUT) as r:
-            data = json.loads(r.read())
-        calls = [b for b in data.get("content", []) if b.get("type") == "tool_use"]
-        if not calls:
-            return extract_json("".join(b.get("text", "") for b in data.get("content", [])))
-        messages.append({"role": "assistant", "content": data["content"]})
-        results = []
-        for call in calls:
-            try:
-                output = execute_repo_tool(call["name"], call.get("input") or {}, tome_root)
-                results.append({"type": "tool_result", "tool_use_id": call["id"], "content": output})
-            except Exception as exc:
-                results.append({"type": "tool_result", "tool_use_id": call["id"],
-                                "content": str(exc), "is_error": True})
-        messages.append({"role": "user", "content": results})
-    raise RuntimeError("Anthropic grader exceeded 8 local tool rounds")
-
-
-def grade_with_openai(prompt, model, key, tome_root):
-    ensure_remote_access("openai", model, key)
-    next_input, previous = prompt, None
-    for _ in range(8):
-        body = {"model": model, "input": next_input,
-                "tools": [{"type": "web_search"}, *openai_tools()]}
-        if previous:
-            body["previous_response_id"] = previous
-        req = urllib.request.Request("https://api.openai.com/v1/responses",
-                                     data=json.dumps(body).encode(), headers={
-            "Authorization": "Bearer " + key, "Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=GRADE_TIMEOUT) as r:
-            data = json.loads(r.read())
-        calls = [item for item in data.get("output", []) if item.get("type") == "function_call"]
-        if not calls:
-            text = "".join(str(c.get("text") or "") for item in data.get("output", [])
-                           if item.get("type") == "message" for c in item.get("content", [])
-                           if c.get("type") in ("output_text", "text"))
-            return extract_json(text)
-        next_input = []
-        for call in calls:
-            try:
-                output = execute_repo_tool(call["name"], json.loads(call.get("arguments") or "{}"), tome_root)
-            except Exception as exc:
-                output = json.dumps({"error": str(exc)})
-            next_input.append({"type": "function_call_output", "call_id": call["call_id"],
-                               "output": output})
-        previous = data["id"]
-    raise RuntimeError("OpenAI grader exceeded 8 local tool rounds")
-
-
-def run_grader(job_id, payload, jid):
+def run_grader(job_id, payload, jid, job_manager: JobManager, catalog, workspaces,
+               ai: AiService):
     # jid comes from the request handler (query param) — the body has no tome key,
     # so resolving here again would misroute grading to the first installed tome
-    rt = runtime_for(jid)
-    pdir = project_dir(jid)
-    gdir = grades_dir(jid)
+    rt = catalog.runtime(jid)
+    pdir = workspaces.project_dir(jid)
+    gdir = workspaces.grades_dir(jid)
     sid = payload.get("sectionId", "x")
     files = rt.collect_code(pdir)
     ws_hash = hashlib.sha256(json.dumps(files, sort_keys=True).encode()).hexdigest()
@@ -262,6 +167,7 @@ def run_grader(job_id, payload, jid):
     g = payload.get("grader") or {}
     kind, model, key = g.get("kind", "claude-cli"), g.get("model", ""), g.get("key", "")
     command = g.get("command", "")  # only used by the "other" (custom CLI) provider
+    effort = str(g.get("effort") or "")
     grader_sig = f"{kind}/{model}"  # recorded with the judgement; NOT part of the cache key
 
     # identical code to the last judged submission → the same grade stands, even if the
@@ -271,19 +177,17 @@ def run_grader(job_id, payload, jid):
     if last and last.get("hash") == ws_hash and last.get("result"):
         result = dict(last["result"])
         result["cached"] = True
-        with jobs_lock:
-            jobs[job_id] = {"status": "done", "result": result}
+        job_manager.update(job_id, status="done", result=result)
         return
 
     prompt = build_grade_prompt(payload, files, last, rt, pdir)
-    tome_root = os.path.join(ROOT, "tomes", jid)
+    tome_root = catalog.paths.tome(jid)
     last_err = "no model attempted"
 
     def finish(result, model):
         result["model"] = model
         result["gradedAt"] = time.time()
-        with jobs_lock:
-            jobs[job_id] = {"status": "done", "result": result}
+        job_manager.update(job_id, status="done", result=result)
         atomic_write(os.path.join(gdir, f"{sid}-{int(time.time())}.json"),
                      json.dumps(result, indent=2))
         atomic_write(last_path, json.dumps(
@@ -294,24 +198,15 @@ def run_grader(job_id, payload, jid):
     else:
         attempts = [(kind, model, key)]
 
-    graders = {"claude-cli": lambda: grade_with_claude_cli(prompt, model, tome_root),
-               "antigravity-cli": lambda: grade_with_agy_cli(prompt, model, tome_root),
-               "codex-cli": lambda: grade_with_codex_cli(prompt, model, tome_root),
-               "opencode-cli": lambda: grade_with_opencode_cli(prompt, model, tome_root),
-               "anthropic": lambda: grade_with_anthropic(prompt, model, key, tome_root),
-               "openai": lambda: grade_with_openai(prompt, model, key, tome_root),
-               "ollama": lambda: grade_with_ollama(prompt, model, tome_root),
-               "other": lambda: grade_with_command(prompt, command, tome_root)}
     for kind, model, key in attempts:
         try:
-            if kind not in graders:
-                raise ValueError(f"unknown grader kind {kind!r}")
-            return finish(graders[kind](), model)
+            result = _grade_with_ai(ai, kind, model, prompt, tome_root,
+                                    key=key, command=command, effort=effort)
+            return finish(result, model)
         except GraderConfigError as e:
             # a misconfiguration (e.g. a model that doesn't exist): surface it as-is
             # and STOP — silently grading with the local fallback would hide the mistake.
-            with jobs_lock:
-                jobs[job_id] = {"status": "error", "error": f"{kind}: {e}"}
+            job_manager.update(job_id, status="error", error=f"{kind}: {e}")
             return
         except subprocess.TimeoutExpired:
             last_err = f"{kind}/{model}: timed out after {GRADE_TIMEOUT}s"
@@ -322,14 +217,15 @@ def run_grader(job_id, payload, jid):
     fb = payload.get("fallbackModel") or FALLBACK_GRADER
     if not (kind == "ollama" and model == fb):
         try:
-            return finish(grade_with_ollama(prompt, fb, tome_root), fb + " (local fallback)")
+            result = _grade_with_ai(ai, "ollama", fb, prompt, tome_root)
+            return finish(result, fb + " (local fallback)")
         except Exception as e:
             last_err += f"; ollama {fb}: {str(e)[:300]}"
-    with jobs_lock:
-        jobs[job_id] = {"status": "error", "error": last_err}
+    job_manager.update(job_id, status="error", error=last_err)
 
 
-def ask_oracle(question, context, model=None, language="code", kind="ollama", jid=""):
+def ask_oracle(question, context, model=None, language="code", kind="ollama", jid="",
+               *, ai: AiService, catalog, key: str = "", effort: str = ""):
     """One question to the selected oracle backend — a local Ollama model (default)
     or any of the login CLIs (claude/agy/codex). Returns text or a friendly error."""
     prompt = (
@@ -342,20 +238,15 @@ def ask_oracle(question, context, model=None, language="code", kind="ollama", ji
         "the web for current documentation; do not modify project files.\n"
         f"CURRENT LESSON CONTEXT: {context[:12000]}\n\nSTUDENT QUESTION (they are programming in {language}): {question[:2000]}"
     )
-    if kind in ("claude-cli", "antigravity-cli", "codex-cli", "opencode-cli"):
-        try:
-            tome_root = os.path.join(ROOT, "tomes", jid)
-            answer = cli_text(kind, prompt, model or "", ORACLE_TIMEOUT, tome_root).strip()
-            return {"ok": True, "answer": answer or "(the oracle said nothing)",
-                    "model": model or kind}
-        except Exception as e:
-            return {"ok": False, "answer": f"THE ORB IS DARK — the {kind} spirit did not answer ({str(e)[:300]})"}
-    model = model or ORACLE_MODEL
+    model = model or (ORACLE_MODEL if kind == "ollama" else "")
     try:
-        ensure_remote_access("ollama", model)
-        tome_root = os.path.join(ROOT, "tomes", jid)
-        routed = model if model.startswith("ollama/") else "ollama/" + model
-        answer = cli_text("opencode-cli", prompt, routed, ORACLE_TIMEOUT, tome_root).strip()
+        answer = ai.complete(kind, AiRequest(
+            role="oracle", model=model, input=prompt, timeout=ORACLE_TIMEOUT,
+            workspace=catalog.paths.tome(jid),
+            allowed_tools=("read_repo_file", "list_repo_files", "run_repo_python"),
+            web_allowed=True, effort=effort, api_key=key,
+            trace={"tome": jid})).text.strip()
         return {"ok": True, "answer": answer or "(the oracle said nothing)", "model": model}
     except Exception as e:
-        return {"ok": False, "answer": f"THE ORB IS DARK — AI access phase 0 failed ({e})"}
+        return {"ok": False,
+                "answer": f"THE ORB IS DARK — the {kind} spirit did not answer ({str(e)[:300]})"}

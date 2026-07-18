@@ -1,4 +1,4 @@
-"""Bounded, cached Phase-0 accessibility checks for every AI workflow."""
+"""Bounded, cached accessibility checks for every AI provider adapter."""
 import json
 import hashlib
 import subprocess
@@ -8,12 +8,47 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from tools.buildlib.runtime.liveness import preflight_auth
-
-
 _CACHE_TTL = 600
 _cache = {}
 _lock = threading.Lock()
+_AUTH_MARKERS = ("not logged in", "you are not logged into", "authentication required",
+                 "please visit", "please log in", "please sign in", "not authenticated",
+                 "authentication interrupted", "oauth")
+
+
+def _preflight_cli(command, input_mode):
+    ping = "Reply with the single word READY and nothing else."
+    full = [*command, ping] if input_mode == "arg" else list(command)
+    try:
+        process = subprocess.Popen(
+            full, text=True,
+            stdin=(subprocess.DEVNULL if input_mode == "arg" else subprocess.PIPE),
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    except OSError as exc:
+        return False, f"could not launch {command[0]!r}: {exc}"
+    if input_mode != "arg":
+        try:
+            process.stdin.write(ping)
+            process.stdin.close()
+        except (BrokenPipeError, OSError):
+            pass
+    watchdog = threading.Timer(45, process.kill)
+    watchdog.start()
+    output = []
+    try:
+        for line in process.stdout:
+            output.append(line)
+            if any(marker in line.lower() for marker in _AUTH_MARKERS):
+                process.kill()
+                break
+    finally:
+        watchdog.cancel()
+    code = process.wait()
+    text = "".join(output)
+    if code != 0 or any(marker in text.lower() for marker in _AUTH_MARKERS):
+        tail = " | ".join(text.strip().splitlines()[-4:]) or "(no output)"
+        return False, tail
+    return True, "ok"
 
 
 def _cached(key):
@@ -31,7 +66,7 @@ def ensure_cli_access(label, cmd, input_mode):
     key = ("cli", tuple(cmd), input_mode)
     if _cached(key):
         return
-    ok, detail = preflight_auth(cmd, input_mode, label)
+    ok, detail = _preflight_cli(cmd, input_mode)
     if not ok:
         raise RuntimeError(f"AI ACCESS PHASE 0 failed for {label}: {detail}")
     _mark(key)

@@ -9,6 +9,12 @@ HIDDEN_KEYS = {"referenceSteps", "solution", "assessment", "scenarios", "hidden"
                "reference", "mutations", "expectRegex", "expectExact", "verificationReceipt"}
 
 
+def evidence_payload_privacy_enabled(manifest: dict) -> bool:
+    """Legacy payloads keep their historical shape; evidence contracts opt in."""
+    mastery = manifest.get("mastery") if isinstance(manifest, dict) else None
+    return isinstance(mastery, dict) and mastery.get("evidenceVersion") is not None
+
+
 def payload_findings(payload: dict) -> list[Finding]:
     findings = []
 

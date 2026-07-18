@@ -5,18 +5,10 @@ import re
 import time
 
 from ..config import BUILD_DIR
-from ..tomes import load_manifest
 
 BUILD_TOTAL_PHASES = 8
 BUILD_PHASE_TITLES = ("Gate", "Concept & arc", "Skeleton & voice", "Sections",
                       "Minigames", "Economy", "Cosmetics", "Validate", "Student review")
-
-
-def _tome_name(tid):
-    try:
-        return (load_manifest(tid).get("meta") or {}).get("name") or tid
-    except Exception:
-        return tid
 
 
 def _path(slug, suffix):
@@ -102,10 +94,10 @@ def load_author_session(tid):
         return None
 
 
-def record_build_result(slug, tid, status, phase=0, phase_title="", error=""):
+def record_build_result(slug, tid, status, phase=0, phase_title="", error="", name=""):
     phase = max(0, min(8, int(phase or 0)))
     data = {"status": status, "kind": "build", "id": slug, "slug": slug,
-            "tome": tid, "name": _tome_name(tid), "phase": phase,
+            "tome": tid, "name": name or tid, "phase": phase,
             "phaseTitle": phase_title or BUILD_PHASE_TITLES[phase],
             "totalPhases": BUILD_TOTAL_PHASES, "finishedAt": time.time()}
     if error:
@@ -127,10 +119,10 @@ def build_result_status(slug):
         return None
 
 
-def record_cancelled_build(slug, tid, phase):
+def record_cancelled_build(slug, tid, phase, name=""):
     phase = max(0, min(8, int(phase or 0)))
     data = {"status": "cancelled", "kind": "build", "id": slug, "slug": slug,
-            "tome": tid, "name": _tome_name(tid), "phase": phase,
+            "tome": tid, "name": name or tid, "phase": phase,
             "phaseTitle": BUILD_PHASE_TITLES[phase], "totalPhases": BUILD_TOTAL_PHASES,
             "cancelledAt": time.time()}
     try:
@@ -138,7 +130,7 @@ def record_cancelled_build(slug, tid, phase):
             json.dump(data, f)
     except OSError:
         pass
-    record_build_result(slug, tid, "cancelled", phase, data["phaseTitle"])
+    record_build_result(slug, tid, "cancelled", phase, data["phaseTitle"], name=name)
     return data
 
 
