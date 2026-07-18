@@ -22,3 +22,5 @@ class PhaseDefinition:
     transition_command: bool = False
     final: bool = False
     on_exit: ExitHook | None = None
+    version: int = 0
+    capabilities: tuple[str, ...] = ()

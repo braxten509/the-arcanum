@@ -18,6 +18,11 @@ class PhaseRegistry:
             raise ValueError(f"duplicate authoring phase id {definition.phase_id!r}")
         if definition.unit_kind not in {"phase", "section"}:
             raise ValueError(f"unknown authoring unit kind {definition.unit_kind!r}")
+        if definition.version < 1:
+            raise ValueError(f"authoring phase {definition.phase_id!r} needs a positive version")
+        if (not definition.capabilities
+                or any(not isinstance(item, str) or not item for item in definition.capabilities)):
+            raise ValueError(f"authoring phase {definition.phase_id!r} needs capabilities")
         self._definitions[definition.phase] = definition
         self._ids[definition.phase_id] = definition.phase
 
@@ -27,7 +32,7 @@ class PhaseRegistry:
             raise ValueError("authoring phase ordinals must be contiguous from 1")
         if phases and not self._definitions[phases[-1]].final:
             raise ValueError("the last authoring phase must be terminal")
-        if any(item.final for item in list(self._definitions.values())[:-1]):
+        if any(self._definitions[phase].final for phase in phases[:-1]):
             raise ValueError("only the last authoring phase may be terminal")
         return self
 
@@ -35,7 +40,16 @@ class PhaseRegistry:
         try:
             return self._definitions[int(phase)]
         except (KeyError, TypeError, ValueError) as exc:
-            raise ValueError(f"unknown authoring phase {phase!r}") from exc
+            available = ", ".join(str(item) for item in sorted(self._definitions)) or "none"
+            raise ValueError(
+                f"unknown authoring phase {phase!r}; available: {available}"
+            ) from exc
+
+    def validate_references(self, phases: list[int] | tuple[int, ...]) -> None:
+        missing = sorted(set(phases).difference(self._definitions))
+        if missing:
+            raise ValueError("unknown authoring phase references: "
+                             + ", ".join(str(item) for item in missing))
 
     def next(self, phase: int) -> PhaseDefinition | None:
         current = self.get(phase)
