@@ -79,3 +79,18 @@ The theming contract: each tome ships `[[themes]]` palettes (parchment inks —
 `bg1` is the parchment, `bg0` the table wood, `slab`/`slab-tx` the terminal
 stone, `candle` the light color) and the engine draws the same candlelit study
 around whichever course is open.
+
+## Mastery evidence verification
+
+The deterministic learner journey has a disposable real-Chromium integration test:
+
+```sh
+python3 tools/tests/browser/test_mastery_journey.py
+```
+
+It installs marked temporary evidence and legacy tomes, starts an isolated server,
+captures screenshots under `.cache/mastery-browser-journey/`, and removes both fixtures.
+The browser test requires the Python `playwright` package and Chromium; neither is needed
+to run Arcanum itself. Repository validation can prove the contract and runtime, but not
+better learning outcomes. Use [MASTERY-EVIDENCE-PILOT.md](MASTERY-EVIDENCE-PILOT.md) before
+making an efficacy, transfer, or retention claim.
