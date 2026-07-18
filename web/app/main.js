@@ -95,6 +95,37 @@ async function init() {
   $("#hud-credits-btn").onclick = () => go("shop");
   $("#hud-rank-btn").onclick = () => go("home");
 
+  // the tower window: lift your eyes from the ledger to the sky above the desk.
+  // The wall's sky follows the study's clock through eight watches of the day.
+  const wall = $("#wall");
+  const skyPhase = () => {
+    const h = new Date().getHours();
+    // ponytail: fixed civil hours; a solar calculation could drift these with the seasons
+    if (h < 4) return "midnight";
+    if (h < 6) return "early-morning";
+    if (h < 8) return "sunrise";
+    if (h < 11) return "morning";
+    if (h < 15) return "midday";
+    if (h < 18) return "late-afternoon";
+    if (h < 20) return "sunset";
+    if (h < 23) return "early-night";
+    return "midnight";
+  };
+  const paintSky = () => { wall.dataset.phase = skyPhase(); };
+  paintSky();
+  setInterval(paintSky, 60000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) paintSky(); });
+  const lookVertical = (up) => {
+    document.body.classList.toggle("looking-up", up);
+    wall.inert = !up;
+    (up ? $("#wall-down") : $("#hud-lookup")).focus({ preventScroll: true });
+  };
+  $("#hud-lookup").onclick = () => lookVertical(true);
+  $("#wall-down").onclick = () => lookVertical(false);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && document.body.classList.contains("looking-up")) lookVertical(false);
+  });
+
   // audio: init prefs, start the hearthfire on the first user gesture (autoplay policy)
   if (window.GhostAudio) {
     GhostAudio.init(getState().audio);
