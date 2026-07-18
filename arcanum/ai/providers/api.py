@@ -11,6 +11,8 @@ from ..models import AiRequest, AiResponse
 
 class AnthropicProvider:
     provider_id = "anthropic"
+    version = 1
+    capabilities = ("completion", "remote-api", "structured-response")
 
     def complete(self, request: AiRequest) -> AiResponse:
         ensure_remote_access(self.provider_id, request.model, request.api_key)
@@ -52,6 +54,8 @@ class AnthropicProvider:
 
 class OpenAiProvider:
     provider_id = "openai"
+    version = 1
+    capabilities = ("completion", "remote-api", "structured-response")
 
     def complete(self, request: AiRequest) -> AiResponse:
         ensure_remote_access(self.provider_id, request.model, request.api_key)

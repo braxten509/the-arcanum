@@ -8,5 +8,7 @@ from .models import AiRequest, AiResponse
 
 class AiProvider(Protocol):
     provider_id: str
+    version: int
+    capabilities: tuple[str, ...]
 
     def complete(self, request: AiRequest) -> AiResponse: ...

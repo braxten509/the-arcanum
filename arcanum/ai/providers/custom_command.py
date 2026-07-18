@@ -11,6 +11,8 @@ from ..models import AiRequest, AiResponse
 
 class CustomCommandProvider:
     provider_id = "other"
+    version = 1
+    capabilities = ("completion", "custom-command")
 
     def complete(self, request: AiRequest) -> AiResponse:
         if not request.custom_command.strip():

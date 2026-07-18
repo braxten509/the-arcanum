@@ -15,6 +15,13 @@ class ProviderRegistry:
             raise ValueError("AI provider needs a stable provider_id")
         if provider_id in self._providers:
             raise ValueError(f"duplicate AI provider {provider_id!r}")
+        version = getattr(provider, "version", None)
+        capabilities = getattr(provider, "capabilities", None)
+        if not isinstance(version, int) or version < 1:
+            raise ValueError(f"AI provider {provider_id!r} needs a positive version")
+        if (not isinstance(capabilities, tuple) or not capabilities
+                or any(not isinstance(item, str) or not item for item in capabilities)):
+            raise ValueError(f"AI provider {provider_id!r} needs tuple capabilities")
         self._providers[provider_id] = provider
 
     def complete(self, provider_id: str, request: AiRequest) -> AiResponse:
@@ -37,3 +44,6 @@ class ProviderRegistry:
 
     def ids(self) -> tuple[str, ...]:
         return tuple(sorted(self._providers))
+
+    def entries(self) -> tuple[AiProvider, ...]:
+        return tuple(self._providers[key] for key in sorted(self._providers))

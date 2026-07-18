@@ -22,6 +22,7 @@ assert policy["registries"]["interactionComposition"] == "web/app/game/interacti
 assert policy["registries"]["cognitiveComposition"] == "web/app/mastery/cognitive.js"
 assert policy["registries"]["routeComposition"] == "web/app/main.js"
 assert policy["registries"]["jobComposition"] == "arcanum/jobs/registry.py"
+assert policy["registries"]["aiRoleComposition"] == "arcanum/ai/roles/composition.py"
 
 with tempfile.TemporaryDirectory() as temporary:
     root = Path(temporary)

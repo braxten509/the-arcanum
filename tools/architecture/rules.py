@@ -144,6 +144,7 @@ def check_registries(root: str, policy: dict) -> list[Violation]:
                         ("authoringComposition", "PhaseDefinition("),
                         ("scenarioComposition", "ScenarioAdapter("),
                         ("jobComposition", "JobHandlerSpec("),
+                        ("aiRoleComposition", "AiRoleSpec("),
                         ("interactionComposition", ".register("),
                         ("cognitiveComposition", ".register("),
                         ("routeComposition", "registerRoute(")):

@@ -12,7 +12,8 @@ import time
 ROOT = Path(__file__).resolve().parents[3]
 sys.path[:0] = [str(ROOT), str(ROOT / "tools")]
 
-from arcanum.ai import AiRequest, AiResponse, AiService, ProviderRegistry
+from arcanum.ai import (AiRequest, AiResponse, AiRoleRegistry, AiRoleSpec, AiService,
+                        ProviderRegistry)
 from arcanum.ai.json_response import parse_json_object
 from arcanum.assessment.grading.providers import QualitativeRequest
 from arcanum.assessment.grading.qualitative import AiQualitativeProvider
@@ -25,6 +26,8 @@ from tools.buildlib.mastery_evidence.delivery import export_mastery_contract
 
 class FixedProvider:
     provider_id = "fixed"
+    version = 1
+    capabilities = ("completion", "test-double")
 
     def complete(self, request: AiRequest) -> AiResponse:
         text = ('noise {"scores":[{"id":"design","score":12,'
@@ -40,14 +43,31 @@ except ValueError:
     pass
 else:
     raise AssertionError("duplicate AI provider registration was accepted")
+assert all(provider.version == 1 and provider.capabilities for provider in registry.entries())
+roles = AiRoleRegistry()
+roles.register(AiRoleSpec("qualitative-grader", 1, ("structured-score",)))
+try:
+    roles.register(AiRoleSpec("qualitative-grader", 1, ("duplicate",)))
+except ValueError:
+    pass
+else:
+    raise AssertionError("duplicate AI role registration was accepted")
 assert parse_json_object('{"message":"brace } in a string","ok":true}')["ok"]
-qualitative = AiQualitativeProvider(AiService(registry), "fixed", "test-model", str(ROOT))
+qualitative = AiQualitativeProvider(
+    AiService(registry, roles), "fixed", "test-model", str(ROOT))
 scored = qualitative.score(QualitativeRequest(
     "fixture", "s01.working", "Test", ({"id": "design", "criterion": "Design", "weight": 20},),
     ({"id": "check", "kind": "run", "passed": True},),
     ({"id": "result", "text": "Produce it", "essential": True},),
     (("main.txt", "learner choice"),), "because"))
 assert scored.scores[0]["score"] == 10 and len(scored.evidence_hash) == 64
+try:
+    AiService(registry, roles).complete("fixed", AiRequest(
+        role="unknown-role", model="x", input="x", timeout=1, workspace=str(ROOT)))
+except ValueError as exc:
+    assert "available: qualitative-grader" in str(exc)
+else:
+    raise AssertionError("an unknown AI role was accepted")
 
 job_registry = JobHandlerRegistry()
 job_registry.register(JobHandlerSpec("fixture", 1, ("test-execution",), "managed"))

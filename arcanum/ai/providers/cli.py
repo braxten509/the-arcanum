@@ -15,6 +15,8 @@ from ..models import AiInvocation, AiRequest, AiResponse
 
 class _CliProvider:
     provider_id = ""
+    version = 1
+    capabilities = ("completion", "streaming-invocation", "tool-policy", "web-policy")
 
     def command(self, request: AiRequest) -> tuple[list[str], str]:
         raise NotImplementedError
@@ -101,6 +103,8 @@ class OpenCodeCliProvider(_CliProvider):
 
 class OllamaProvider:
     provider_id = "ollama"
+    version = 1
+    capabilities = ("completion", "local-model")
 
     def __init__(self, transport: _CliProvider | None = None):
         self.transport = transport or OpenCodeCliProvider()
