@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import os
 from pathlib import Path
 import sys
@@ -14,6 +15,8 @@ sys.path[:0] = [str(ROOT), str(ROOT / "tools")]
 from tools.validatelib.mastery_evidence import validate_mastery_evidence
 from tools.validatelib.mastery_evidence.payload import (evidence_payload_privacy_enabled,
                                                         payload_findings)
+from tools.tests.mastery.authoring.fixture import write_labs
+from tools.tests.mastery.fixtures import future_map
 
 
 MANIFEST = {
@@ -111,5 +114,24 @@ with tempfile.TemporaryDirectory() as temp:
     assert not payload_findings({"sections": [{"freestyle": {"requirements": []}}]})
     assert evidence_payload_privacy_enabled(MANIFEST)
     assert not evidence_payload_privacy_enabled({"mastery": {"level": 3}})
+
+with tempfile.TemporaryDirectory() as temp:
+    tome = Path(temp)
+    contract, _sections = future_map(3)
+    (tome / "generated").mkdir(parents=True)
+    (tome / "generated" / "mastery-evidence.json").write_text(
+        json.dumps(contract), encoding="utf-8")
+    write_labs(tome, contract)
+    manifest = copy.deepcopy(MANIFEST)
+    manifest["mastery"]["level"] = 3
+    findings = validate_mastery_evidence(
+        str(tome), manifest, [], include_variants=False)
+    assert not any(item.code in {"mastery.lab.node", "mastery.lab.missing"}
+                   for item in findings), [item.to_dict() for item in findings]
+
+    (tome / "generated" / "mastery-evidence.json").unlink()
+    findings = validate_mastery_evidence(
+        str(tome), manifest, [], include_variants=False)
+    assert any(item.code == "mastery.lab.node" for item in findings)
 
 print("mastery authored-contract validator tests: OK")
