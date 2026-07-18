@@ -254,8 +254,11 @@ async function init() {
 
   const nav = getState().nav || { view: "home" };
   const validSec = nav.sec && secById(nav.sec);
+  const validLab = nav.sec && (tome().masteryLabs || []).some(
+    (entry) => (entry.masteryLab || {}).nodeId === nav.sec);
   if (nav.view === "lesson" && validSec && validSec.lessons.some((l) => l.id === nav.lesson)) go("lesson", nav.sec, nav.lesson);
   else if ((nav.view === "section" || nav.view === "freestyle") && validSec) go(nav.view, nav.sec);
+  else if (nav.view === "mastery-lab" && validLab) go("mastery-lab", nav.sec);
   else if (nav.view === "shop") go("shop");
   else go("home");
 

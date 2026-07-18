@@ -48,8 +48,17 @@ function checkLabel(check) {
   return String(check.id || check.kind || "BEHAVIOR").replace(/[-_]/g, " ").toUpperCase();
 }
 
+function scoreBlock(rows, label) {
+  if (!rows.length) return "";
+  return `<div class="assessment-qualitative"><span class="assessment-kicker">${label}</span>${rows.map(
+    (score) => `<div><b>${esc(score.criterion || score.id)}</b><span>${Number(score.score || 0)}/10</span><p>${esc(score.comment || "")}</p></div>`).join("")}</div>`;
+}
+
 export function assessmentEvidenceHtml(receipt) {
   const checks = receipt.checks || [];
+  const scores = receipt.scores || [];
+  const deterministicScores = scores.filter((score) => score.kind === "deterministic");
+  const qualitativeScores = scores.filter((score) => score.kind === "qualitative");
   const failedRequirements = [...new Set(checks.filter((check) => !check.passed)
     .flatMap((check) => check.requirementIds || []))];
   const verdict = receipt.essentialPassed
@@ -66,8 +75,8 @@ export function assessmentEvidenceHtml(receipt) {
       || '<p class="dim">No deterministic checks were reported.</p>'}</div>
     ${failedRequirements.length ? `<div class="assessment-failures"><b>FAILED PUBLIC REQUIREMENTS</b><ul>${failedRequirements.map(
       (id) => `<li><code>${esc(id)}</code></li>`).join("")}</ul></div>` : ""}
-    ${(receipt.scores || []).length ? `<div class="assessment-qualitative"><span class="assessment-kicker">QUALITATIVE REVIEW</span>${receipt.scores.map(
-      (score) => `<div><b>${esc(score.criterion || score.id)}</b><span>${Number(score.score || 0)}/10</span><p>${esc(score.comment || "")}</p></div>`).join("")}</div>` : ""}
+    ${scoreBlock(deterministicScores, "DETERMINISTIC RUBRIC")}
+    ${scoreBlock(qualitativeScores, "QUALITATIVE REVIEW")}
     ${receipt.feedback ? `<p class="assessment-feedback">${esc(receipt.feedback)}</p>` : ""}
   </section>`;
 }
