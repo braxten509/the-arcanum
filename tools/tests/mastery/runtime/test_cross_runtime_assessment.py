@@ -6,6 +6,7 @@ from pathlib import Path
 import shutil
 import sys
 import tempfile
+import tomllib
 
 ROOT = Path(__file__).resolve().parents[4]
 sys.path[:0] = [str(ROOT), str(ROOT / "tools")]
@@ -59,6 +60,13 @@ def request(runtime_name: str, workspace: Path) -> AssessmentRequest:
 
 assert shutil.which("python3"), "interpreted runtime fixture requires python3"
 assert shutil.which("dotnet"), "compiled runtime fixture requires dotnet"
+
+for profile_name in (ROOT / "global-configs" / "runtimes").glob("*.toml"):
+    with profile_name.open("rb") as handle:
+        declared = tomllib.load(handle)
+    assert declared.get("version") == 1 and declared.get("capabilities"), profile_name.name
+    profile = for_config({"name": profile_name.stem})
+    assert profile.VERSION == 1 and profile.CAPABILITIES, profile_name.name
 
 with tempfile.TemporaryDirectory() as temporary:
     root = Path(temporary)

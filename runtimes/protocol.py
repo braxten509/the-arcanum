@@ -7,6 +7,8 @@ from typing import Protocol
 class Runtime(Protocol):
     NAME: str
     LANGUAGE: str
+    VERSION: int
+    CAPABILITIES: tuple[str, ...]
 
     def available(self) -> bool: ...
     def scaffold(self, project_dir: str, project_name: str) -> str: ...

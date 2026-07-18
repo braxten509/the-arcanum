@@ -16,7 +16,7 @@ _ARGV_KEYS = (
     "scaffoldCommand", "packageCommand", "validationPackageCommand",
     "validationProjectPackageCommand",
 )
-_LIST_KEYS = ("validationDependencies", "excludeDirs", "codeExt")
+_LIST_KEYS = ("validationDependencies", "excludeDirs", "codeExt", "capabilities")
 _TRUSTED_ASSESSMENT_KEYS = ("assessmentReadPaths", "assessmentEnvironment")
 
 
@@ -35,6 +35,12 @@ class RuntimeConfig:
         if not _ID.fullmatch(name):
             raise RuntimeConfigurationError(f"invalid runtime name {name!r}")
         values["name"] = name
+        # Ad-hoc legacy tome runtimes predate registry metadata. Keep them loadable behind
+        # an explicit compatibility capability; checked-in profiles declare both fields.
+        values.setdefault("version", 1)
+        values.setdefault("capabilities", ("legacy-runtime",))
+        if not isinstance(values.get("version"), int) or values["version"] < 1:
+            raise RuntimeConfigurationError(f"runtime {name!r} needs a positive version")
         for key in _ARGV_KEYS:
             if key not in values:
                 continue
@@ -51,6 +57,8 @@ class RuntimeConfig:
                     raise RuntimeConfigurationError(
                         f"runtime {name!r} {key} must be a string array")
                 values[key] = tuple(value)
+        if not values.get("capabilities") or any(not item for item in values["capabilities"]):
+            raise RuntimeConfigurationError(f"runtime {name!r} needs capabilities")
         assessment = values.get("assessmentCommands") or {}
         if not isinstance(assessment, dict):
             raise RuntimeConfigurationError(

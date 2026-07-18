@@ -24,7 +24,7 @@ class SemanticPass:
 class PythonProofSandbox:
     """Deterministic process-port fake; SandboxRunner itself has separate boundary tests."""
 
-    def run(self, command, *, cwd, stdin="", timeout=30, policy=None, env=None):
+    def run(self, command, *, cwd, stdin="", timeout=30, policy=None, env=None, home=None):
         source = (Path(cwd) / "main.py").read_text()
         if "compileall" in command:
             output, passed = "", True

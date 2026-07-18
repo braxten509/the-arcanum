@@ -18,7 +18,7 @@ class SemanticPass:
 class PythonProofSandbox:
     """Process-port fake; the real sandbox boundary has its own executable tests."""
 
-    def run(self, command, *, cwd, stdin="", timeout=30, policy=None, env=None):
+    def run(self, command, *, cwd, stdin="", timeout=30, policy=None, env=None, home=None):
         source = (Path(cwd) / "main.py").read_text(encoding="utf-8")
         if "compileall" in command:
             output = ""

@@ -18,6 +18,8 @@ class CommandRuntime(WorkspaceMixin, DiagnosticsMixin, SnippetMixin, ExecutionMi
         cfg = config if isinstance(config, RuntimeConfig) else RuntimeConfig.parse(config)
         self.NAME = cfg.get("name") or "custom"
         self.LANGUAGE = cfg.get("language") or self.NAME
+        self.VERSION = int(cfg.get("version"))
+        self.CAPABILITIES = tuple(cfg.get("capabilities") or ())
         self.cmd = list(cfg.get("command") or [])
         self.run_cmd = list(cfg.get("runCommand") or [])
         self.snippet_run_cmd = list(cfg.get("snippetRunCommand") or [])
