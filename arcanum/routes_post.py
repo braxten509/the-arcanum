@@ -27,7 +27,8 @@ from .post_routes.builds import (answer_runner_pause, control_author, discard_bu
                                  reset_build, resume_build, start_build)
 from .tomes import (external_workspace, has_progress, load_manifest, plan_path, project_dir,
                     project_name, resolve_tome, resolve_working_tid, runtime_for,
-                    save_dir, scratch_base, state_path, tome_dir, write_files)
+                    save_dir, scratch_base, snippet_runtime_for, state_path, tome_dir,
+                    write_files)
 
 
 def handle(h):
@@ -91,7 +92,7 @@ def handle(h):
                                           body.get("model"), lang,
                                           body.get("kind") or "ollama", jid))
         if path == "/api/runsnippet":
-            rt = runtime_for(jid)
+            rt = snippet_runtime_for(jid)
             try:
                 ensure_validation_environment(jid)
                 env = validation_subprocess_env(jid)
@@ -100,7 +101,7 @@ def handle(h):
             return h.send_json(rt.run_snippet(scratch_base(rt.NAME), body.get("code", ""),
                                               body.get("stdin", ""), env=env))
         if path == "/api/snippetdiag":
-            rt = runtime_for(jid)
+            rt = snippet_runtime_for(jid)
             try:
                 ensure_validation_environment(jid)
                 env = validation_subprocess_env(jid)

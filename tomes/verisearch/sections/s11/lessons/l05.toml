@@ -1,85 +1,22 @@
 [[lessons]]
 id = "s11-l05"
-teaches = ["composition-root"]
+teaches = ["language-cli-packaging"]
 title = "Workshop — Replace the Demos with the Real Entrypoint"
 body = '''
-<p>Before editing <code>Program.cs</code>, create <code>MockQuoteSelector.cs</code>. It is deterministic plumbing, not an offline AI:</p>
-<pre><code><span class="k">public sealed class</span> MockQuoteSelector : IQuoteSelector
-{
-    <span class="k">public</span> Task&lt;QuoteBatch&gt; SelectAsync(<span class="k">string</span> question,
-        IReadOnlyList&lt;Passage&gt; passages, CancellationToken ct = <span class="k">default</span>)
-    {
-        ct.ThrowIfCancellationRequested();
-        Passage? first = passages.FirstOrDefault();
-        QuoteBatch batch = first <span class="k">is null</span>
-            ? <span class="k">new</span> QuoteBatch([])
-            : <span class="k">new</span> QuoteBatch([<span class="k">new</span> QuoteProposal(first.Id, first.Text)]);
-        <span class="k">return</span> Task.FromResult(batch);
-    }
-}</code></pre>
-<p>Now replace—not append to—temporary top-level demos in <code>Program.cs</code>. Keep the entrypoint order visible:</p>
-<pre><code>CommandLineOptions options;
-<span class="k">try</span>
-{
-    options = CommandLineOptions.Parse(args);
-}
-<span class="k">catch</span> (ArgumentException ex)
-{
-    Console.Error.WriteLine(ex.Message);
-    Console.Error.WriteLine(CommandLineOptions.Usage);
-    <span class="k">return</span> 2;
-}
 
-<span class="k">if</span> (options.ShowHelp)
+<p>Now retire temporary demonstrations and author the real entrypoint. No finished composition root is supplied. Your own architecture must turn parsed user intent into one end-to-end execution while keeping provider choice, truth verification, and presentation separate.</p>
+<p>At startup, parse help and invalid input before external work. Load the user-owned catalog, resolve explicit source choices, create infrastructure with deliberate lifetimes, select the configured AI adapter, and invoke the pipeline once. Render once from verified output. Return stable exits for success, invalid usage, ordinary failure, and cancellation.</p>
+<p>The provider branch may choose a real CLI adapter, a local or hosted HTTP adapter, or an explicit test mock. It must not inspect question words. Live mode without valid AI configuration fails clearly. No catch block may replace the AI with keyword matching, a source-specific recipe, the first passage, all passages, or mock output.</p>
+<pre><code data-kind="replacement">IAiQuoteSelector selector = options.Provider switch
 {
-    Console.WriteLine(CommandLineOptions.Usage);
-    <span class="k">return</span> 0;
-}
-
-<span class="k">try</span>
-{
-    AppConfig config = <span class="k">new</span> ConfigLoader().LoadOrCreate();
-    List&lt;SourceSpec&gt; sources = <span class="k">new</span> SourcePolicy().Select(config, options.SourceLabels);
-    <span class="k">if</span> (sources.Count == 0)
-        <span class="k">throw new</span> InvalidOperationException(<span class="s">"no usable configured sources"</span>);
-
-    <span class="k">using var</span> http = <span class="k">new</span> HttpClient { Timeout = TimeSpan.FromSeconds(15) };
-    http.DefaultRequestHeaders.UserAgent.ParseAdd(<span class="s">"Verisearch/1.0"</span>);
-    ISourceFetcher fetcher = <span class="k">new</span> SourceFetcher(http);
-    <span class="k">var</span> batch = <span class="k">new</span> SourceBatch(fetcher);
-    IPageExtractor extractor = <span class="k">new</span> PageExtractor();
-    IQuoteSelector selector = options.Mock
-        ? <span class="k">new</span> MockQuoteSelector()
-        : <span class="k">new</span> OllamaQuoteSelector(http, config);
-    <span class="k">var</span> pipeline = <span class="k">new</span> Pipeline(batch, extractor, selector,
-        <span class="k">new</span> QuoteVerifier(), config.MaxQuotes);
-
-    <span class="k">using var</span> cts = <span class="k">new</span> CancellationTokenSource(TimeSpan.FromSeconds(45));
-    PipelineResult result = <span class="k">await</span> pipeline.RunAsync(
-        options.Question, sources, options.Mock, cts.Token);
-    <span class="k">new</span> ReportRenderer().Render(options.Question, result.Quotes,
-        result.RejectedProposals, result.SourceErrors, result.Mock, options.Verbose);
-    <span class="k">return</span> 0;
-}
-<span class="k">catch</span> (OperationCanceledException)
-{
-    Console.Error.WriteLine(<span class="s">"canceled"</span>);
-    <span class="k">return</span> 130;
-}
-<span class="k">catch</span> (HttpRequestException ex)
-{
-    Console.Error.WriteLine(<span class="s">$"live AI request failed: {ex.Message}"</span>);
-    Console.Error.WriteLine(<span class="s">"Start Ollama, check ollamaUrl and model in ~/.verisearch/config.json, then run ollama pull &lt;model&gt;."</span>);
-    <span class="k">return</span> 1;
-}
-<span class="k">catch</span> (Exception ex)
-{
-    Console.Error.WriteLine(<span class="s">$"verisearch failed: {ex.Message}"</span>);
-    <span class="k">return</span> 1;
-}</code></pre>
-<p>Build, then remove obsolete demo declarations and calls named in the Working. A duplicate-type compiler error tells you an old teaching model survived; search its exact name and keep the canonical declaration.</p>
-<div class="callout">Run mock deliberately with <code>dotnet run -- "fixture question" --mock</code>. A normal live command contains no mock flag and must never reach MockQuoteSelector.</div>
-<div class="field-notes"><div class="fn-head">MARGINALIA // FINAL OWNERSHIP MAP</div><p>Program owns construction and user-facing errors. Pipeline owns sequence. Components own one transformation. QuoteVerifier owns proof. ReportRenderer owns appearance. If a future edit does not fit one owner, introduce a named boundary rather than hiding it in Program.</p></div>
+    "configured-real-provider" =&gt; BuildConfiguredProvider(options),
+    "explicit-test-mock" =&gt; BuildClearlyLabeledMock(),
+    _ =&gt; throw new InvalidOperationException("Unsupported provider")
+};</code></pre>
+<p>The fragment illustrates an explicit mode seam and deliberately omits implementations. Choose names and configuration appropriate to your application. If API keys are needed, read them from an environment or secret store and never print them. If a CLI is launched, pass the whole prompt through standard input or a structured file and arguments through an argument list.</p>
+<p>Re-run all earlier tests after integration. Add one fixture journey from question through report, plus a negative control that changes an exact quote by one character. Then run the program manually in explicit mock mode only to examine UX; label that output. A live provider run belongs in the final chapter's evidence.</p>
+<div class="callout"><p>Compiler errors about duplicate types often mean a workshop experiment survived beside the real implementation. Trace ownership and retire obsolete demos; do not rename duplicates until both accidentally compile.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ENTRYPOINT BUDGET</div><p>The entrypoint may compose and translate top-level outcomes. If it extracts HTML, verifies quotes, or constructs citations itself, move that behavior behind the boundary that owns it.</p></div>
 '''
 
 [[lessons.readings]]
@@ -106,7 +43,7 @@ reps = 2
 prompt = "Retype the one explicit mode branch twice."
 code = '''IQuoteSelector selector = options.Mock
     ? new MockQuoteSelector()
-    : new OllamaQuoteSelector(http, config);'''
+    : new ConfiguredAiSelector(http, config);'''
 
 [[lessons.exercises]]
 id = "s11-l05-e2"
@@ -158,3 +95,19 @@ public sealed class LiveSelector : ISelector { public string Name => "LIVE"; }
 public sealed class MockSelector : ISelector { public string Name => "MOCK"; }
 '''
 hint = "Return mock ? new MockSelector() : new LiveSelector(), then interpolate Name after the prefix."
+
+[[lessons.concepts]]
+id = "language-cli-packaging"
+purpose = "Design a predictable command surface and deliver a runnable artifact from the same source and project metadata."
+anatomy = "Parse arguments without a shell, return stable exit codes, build or publish through dotnet, then launch the produced path with a real command."
+example = "The disposable examples in Workshop — Replace the Demos with the Real Entrypoint isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Workshop — Replace the Demos with the Real Entrypoint supplies the disposable observation point."
+observable = "Help, invalid input, ordinary execution, and the published binary each produce their documented outcome. Confirm it while practicing Workshop — Replace the Demos with the Real Entrypoint."
+failure = "Ambiguous arguments, embedded secrets, or an unlaunched publish directory leave the program unproved."
+practice = "s11-l05-e1"
+
+[[lessons.artifactSteps]]
+id = "s11-l05-author-artifact"
+path = "src/Verisearch/App.cs"
+mode = "author"
+instruction = "Use the C# ideas from Workshop — Replace the Demos with the Real Entrypoint to author or revise this learner-owned path toward the chapter behavior: Independently integrate the complete search path from behavior contracts and tests, choosing the architecture. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["The complete fixture journey yields one verified quote, one rejected fabrication, and one visible source failure through the learner's architecture.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

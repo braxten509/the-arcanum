@@ -142,6 +142,11 @@ def runtime_for(jid):
     return runtime_for_config(load_manifest(jid).get("runtime", {}))
 
 
+def snippet_runtime_for(jid):
+    from runtimes import for_snippets
+    return for_snippets(load_manifest(jid).get("runtime", {}))
+
+
 def project_name(jid):
     return load_manifest(jid).get("runtime", {}).get("project", "Project")
 

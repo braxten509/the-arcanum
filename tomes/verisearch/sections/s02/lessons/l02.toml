@@ -1,11 +1,11 @@
 [[lessons]]
 id = "s02-l02"
-teaches = ["switch-expressions"]
+teaches = ["language-control-flow"]
 title = "switch — statements, expressions, and the reading of patterns"
 body = '''
 
 <p>When one value must be held against many possibilities, <code>switch</code> outshines a ladder of ifs. The elder <strong>statement</strong> form:</p>
-<pre><code><span class="k">switch</span> (command)
+<pre><code data-kind="replacement"><span class="k">switch</span> (command)
 {
     <span class="k">case</span> <span class="s">"quit"</span>:
     <span class="k">case</span> <span class="s">"exit"</span>:              <span class="c">// two cases, one handling</span>
@@ -19,14 +19,14 @@ body = '''
         <span class="k">break</span>;
 }</code></pre>
 <p>Modern C# adds the <strong>switch expression</strong> — it <em>yields a value</em>, wields <code>=&gt;</code>, and takes <code>_</code> as the catch-all. This is the form the vestibule uses to distinguish commands from a complete question:</p>
-<pre><code><span class="k">string</span> kind = normalized <span class="k">switch</span>
+<pre><code data-kind="replacement"><span class="k">string</span> kind = normalized <span class="k">switch</span>
 {
     <span class="s">"quit"</span> <span class="k">or</span> <span class="s">"exit"</span> =&gt; <span class="s">"Stop"</span>,
     <span class="s">"help"</span>           =&gt; <span class="s">"Help"</span>,
     _                =&gt; <span class="s">"Question"</span>
 };</code></pre>
 <p>Patterns reach beyond exact values — you may match ranges and conditions:</p>
-<pre><code><span class="k">string</span> size = question.Length <span class="k">switch</span>
+<pre><code data-kind="replacement"><span class="k">string</span> size = question.Length <span class="k">switch</span>
 {
     &gt;= 80 =&gt; <span class="s">"Long"</span>,
     &gt;= 20 =&gt; <span class="s">"Medium"</span>,
@@ -35,7 +35,8 @@ body = '''
 <div class="callout">This chapter's seal literally reads "can wield switch <em>expressions</em>, not merely statements." THORNE will inspect the input boundary for one.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>when guards</strong> lay conditions upon any pattern arm: <code>{ Length: &gt; 100 } when text.Contains("RFC") =&gt; ...</code>. Bind patterns with <code>and</code>/<code>or</code>/<code>not</code>: <code>&gt;= 4.0 and &lt; 8.0 =&gt; "mid"</code>.</p>
 <p><strong>Exhaustiveness:</strong> if a switch expression may receive a value no arm matches, the compiler WARNS you — and at casting time it throws <code>SwitchExpressionException</code>. The <code>_</code> arm is your net; always weave one unless you match a closed enum whole.</p>
-<p><strong>Statement vs expression — the choosing:</strong> must you RUN different runes per case? Statement. Must you PICK a value per case? Expression. The tome's divining picks values → expression.</p></div>'''
+<p><strong>Statement vs expression — the choosing:</strong> must you RUN different runes per case? Statement. Must you PICK a value per case? Expression. The tome's divining picks values → expression.</p></div>
+'''
 
 [[lessons.readings]]
 label = "Microsoft Learn — \"switch expression\""
@@ -121,3 +122,19 @@ string kind = normalized switch
 Console.WriteLine(kind);
 '''
 hint = "Normalize only for comparison, pass that value through the switch expression, then WriteLine the result."
+
+[[lessons.concepts]]
+id = "language-control-flow"
+purpose = "Express choices and repetition from program state without turning question words into a search-routing policy."
+anatomy = "Evaluate a boolean or pattern, enter the matching branch, repeat only while the loop condition holds, and keep an explicit exit path."
+example = "The disposable examples in switch — statements, expressions, and the reading of patterns isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson switch — statements, expressions, and the reading of patterns supplies the disposable observation point."
+observable = "Distinct inputs take the intended branches and the loop terminates under its documented condition. Confirm it while practicing switch — statements, expressions, and the reading of patterns."
+failure = "A missing default, stale loop variable, or keyword-based product branch produces surprising or nonterminating behavior."
+practice = "s02-l02-e1"
+
+[[lessons.artifactSteps]]
+id = "s02-l02-author-artifact"
+path = "src/Verisearch/CliOptions.cs"
+mode = "author"
+instruction = "Use the C# ideas from switch — statements, expressions, and the reading of patterns to author or revise this learner-owned path toward the chapter behavior: Prepare a whole question and command surface while refusing keyword-driven lookup routing. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["A whole punctuation-bearing question survives preparation, while help, quit, blank, and oversized inputs take distinct observable paths.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

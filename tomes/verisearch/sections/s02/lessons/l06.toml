@@ -1,11 +1,11 @@
 [[lessons]]
 id = "s02-l06"
-teaches = ["exceptions"]
+teaches = ["language-exceptions-resources"]
 title = "Exceptions — try / catch / finally"
 body = '''
 
 <p>When something impossible occurs mid-casting — a failed parse, a missing leaf, a dead road — .NET <strong>throws an exception</strong>. Left unanswered, it fells your working with a stack trace for an epitaph. <code>try/catch</code> is the binding circle:</p>
-<pre><code><span class="k">try</span>
+<pre><code data-kind="replacement"><span class="k">try</span>
 {
     <span class="k">int</span> max = <span class="k">int</span>.Parse(userInput);     <span class="c">// may throw FormatException</span>
     Console.WriteLine(<span class="s">$"max sources: {max}"</span>);
@@ -32,7 +32,8 @@ body = '''
 <p><strong>The lineage of exceptions</strong> (you catch by kind, so know the common houses): <code>FormatException</code> a failed parse · <code>ArgumentException</code>/<code>ArgumentNullException</code> a bad parameter · <code>InvalidOperationException</code> "not now, not like this" · <code>KeyNotFoundException</code> · <code>IOException</code> troubled leaves · <code>HttpRequestException</code> a dead road. All descend from <code>Exception</code>.</p>
 <p><strong>Throwing your own:</strong> <code>throw new ArgumentException("query is empty", nameof(query));</code> — <code>nameof</code> keeps the parameter's name true through any renaming.</p>
 <p><strong>Throw vs return — the design choice:</strong> rare-and-dire → throw. Expected-and-common (a seeker mistypes a number) → the Try-rite or a default. Exceptions cost speed and clarity when made into everyday paths.</p>
-<p><strong>A glimpse of <code>using</code>:</strong> <code>using var file = File.OpenRead(path);</code> closes the leaf even if an exception flies — a compiler-woven try/finally. The full telling waits in Chapter V.</p></div>'''
+<p><strong>A glimpse of <code>using</code>:</strong> <code>using var file = File.OpenRead(path);</code> closes the leaf even if an exception flies — a compiler-woven try/finally. The full telling waits in Chapter V.</p></div>
+'''
 
 [[lessons.readings]]
 label = "Microsoft Learn — \"Exceptions and errors\""
@@ -98,3 +99,19 @@ if (int.TryParse(raw, out int n)) Console.WriteLine($"ok {n}");
 else Console.WriteLine("bad input");
 '''
 hint = "if (int.TryParse(line, out int n)) ... else ..."
+
+[[lessons.concepts]]
+id = "language-exceptions-resources"
+purpose = "Preserve useful failures while releasing files, HTTP responses, processes, and cancellation resources deterministically."
+anatomy = "Catch only at the boundary that can add meaning, let cancellation propagate, and use using or disposal for owned resources."
+example = "The disposable examples in Exceptions — try / catch / finally isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Exceptions — try / catch / finally supplies the disposable observation point."
+observable = "Ordinary failures become actionable outcomes, cancellation stays cancellation, and owned resources close on every path. Confirm it while practicing Exceptions — try / catch / finally."
+failure = "A broad silent catch or forgotten disposal converts evidence into hidden failure and leaks operating-system resources."
+practice = "s02-l06-e1"
+
+[[lessons.artifactSteps]]
+id = "s02-l06-author-artifact"
+path = "src/Verisearch/CliOptions.cs"
+mode = "author"
+instruction = "Use the C# ideas from Exceptions — try / catch / finally to author or revise this learner-owned path toward the chapter behavior: Prepare a whole question and command surface while refusing keyword-driven lookup routing. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["A whole punctuation-bearing question survives preparation, while help, quit, blank, and oversized inputs take distinct observable paths.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

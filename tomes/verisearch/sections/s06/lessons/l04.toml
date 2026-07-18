@@ -1,29 +1,30 @@
 [[lessons]]
 id = "s06-l04"
-teaches = ["fetch-etiquette"]
+teaches = ["language-exceptions-resources"]
 title = "Scraping etiquette — robots.txt, rate limits, honest headers"
 body = '''
 
 <p>A fetcher without manners can become someone else's outage. Verisearch is a quiet tool: it reads only the small set of pages the user selected. Keep it polite and make each configured publisher's terms part of the user's source decision.</p>
 <p><strong>1. Check the site policy.</strong> Many sites publish crawler rules at <code>https://site.example/robots.txt</code>:</p>
-<pre><code>User-agent: *
+<pre><code data-kind="replacement">User-agent: *
 Disallow: /admin/
 Disallow: /search
 Crawl-delay: 2</code></pre>
 <p>Do not build a three-line “robots parser” and assume it implements the standard. Groups, longest-match precedence, wildcards, and allow rules matter. For this beginner artifact, consult the rules and terms for the few configured pages during setup; if automatic policy enforcement becomes a feature, use a tested implementation and add it as its own explicit boundary.</p>
 <p><strong>2. Identify yourself.</strong> Anonymous blank user-agents look like attacks:</p>
-<pre><code>http.DefaultRequestHeaders.UserAgent.ParseAdd(<span class="s">"Verisearch/1.0 (research tool)"</span>);</code></pre>
+<pre><code data-kind="replacement">http.DefaultRequestHeaders.UserAgent.ParseAdd(<span class="s">"Verisearch/1.0 (research tool)"</span>);</code></pre>
 <p><strong>3. Bound traffic.</strong> Set a timeout, pass cancellation, and do not start an unbounded number of requests to one host. If a server returns HTTP 429, record the source failure and honor <code>Retry-After</code> before any deliberate retry. The course's core path makes one request per selected URL and never loops forever.</p>
-<pre><code>http.Timeout = TimeSpan.FromSeconds(15);</code></pre>
+<pre><code data-kind="replacement">http.Timeout = TimeSpan.FromSeconds(15);</code></pre>
 <p><strong>4. Contain each source failure.</strong> A dead link, 403, timeout, or unacceptable media type becomes one named <code>FetchOutcome</code> in Chapter VIII. Other selected sources may continue, but the report does not hide the failure or substitute another page.</p>
 <div class="callout">Project boundary: public pages the user is permitted to read, tiny request volume, and exact quotations with attribution. Do not fetch content behind authentication, evade access controls, ignore publisher rules, or ship copied source material with the application.</div><div class="field-notes"><div class="fn-head">MARGINALIA // POLICY IS REAL CODE</div>
 <p><strong>HTTP 429 Too Many Requests</strong> explicitly asks the client to slow down and may carry a <code>Retry-After</code> header. A production retry policy needs a maximum attempt count, cancellation, and tests. The beginner build records the failure instead of quietly spinning.</p>
 <p><strong>Cache policy documents per host</strong> if you later automate checks. Fetching the same policy once for every page merely creates more traffic in the name of reducing traffic.</p>
-<p><strong>Evidence selection and permission are separate.</strong> A configured URL says the user wants that source considered; it does not override terms, authentication, copyright, or rate limits.</p></div>'''
+<p><strong>Evidence selection and permission are separate.</strong> A configured URL says the user wants that source considered; it does not override terms, authentication, copyright, or rate limits.</p></div>
+'''
 
 [[lessons.readings]]
-label = "ZenRows — Web scraping in C#: best practices"
-url = "https://www.zenrows.com/blog/web-scraping-in-c"
+label = "RFC 9309 — Robots Exclusion Protocol"
+url = "https://www.rfc-editor.org/info/rfc9309/"
 essential = false
 
 [[lessons.readings]]
@@ -88,3 +89,19 @@ string action = status switch
 Console.WriteLine(action);
 '''
 hint = "Use a switch expression with the 200–299 range before the exact 429 arm."
+
+[[lessons.concepts]]
+id = "language-exceptions-resources"
+purpose = "Preserve useful failures while releasing files, HTTP responses, processes, and cancellation resources deterministically."
+anatomy = "Catch only at the boundary that can add meaning, let cancellation propagate, and use using or disposal for owned resources."
+example = "The disposable examples in Scraping etiquette — robots.txt, rate limits, honest headers isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Scraping etiquette — robots.txt, rate limits, honest headers supplies the disposable observation point."
+observable = "Ordinary failures become actionable outcomes, cancellation stays cancellation, and owned resources close on every path. Confirm it while practicing Scraping etiquette — robots.txt, rate limits, honest headers."
+failure = "A broad silent catch or forgotten disposal converts evidence into hidden failure and leaks operating-system resources."
+practice = "s06-l04-e1"
+
+[[lessons.artifactSteps]]
+id = "s06-l04-author-artifact"
+path = "src/Verisearch/PassageExtractor.cs"
+mode = "author"
+instruction = "Use the C# ideas from Scraping etiquette — robots.txt, rate limits, honest headers to author or revise this learner-owned path toward the chapter behavior: Turn HTML or text into stable nonduplicated passages used identically by AI selection and C# verification. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["The same fixture produces the same passage ids twice and a nested list paragraph appears exactly once.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

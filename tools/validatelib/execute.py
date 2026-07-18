@@ -15,6 +15,7 @@ except ModuleNotFoundError:  # pragma: no cover - exercised by repo-root package
 
 from . import err, lang_config, load_toml, norm_lines, warn
 from .attacks import load_intrusion_tiers
+from .runtime_scratch import scratch_runtime_config
 
 
 # Untouched starters are expected to stop quickly.  A graphical game loop that never
@@ -39,7 +40,9 @@ def _resolve_run_command(m):
     return argv("command"), argv("checkCommand"), entry, timeout
 
 
-_CODE_BLOCK = re.compile(r"<pre><code[^>]*>(.*?)</code></pre>", re.S)
+_CODE_BLOCK = re.compile(
+    r"<pre><code(?P<attrs>[^>]*)>(?P<body>.*?)</code></pre>", re.S | re.I)
+_CODE_KIND = re.compile(r"\bdata-kind\s*=\s*(['\"])([^'\"]+)\1", re.I)
 _TAG = re.compile(r"<[^>]+>")
 
 
@@ -58,38 +61,51 @@ def check_snippets(m, sections_data):
     in this validator reads the samples as code — the prose checks only count words.
 
     A teaching snippet is usually a fragment: it names things an earlier block declared, and
-    imports a sibling module that does not exist beside it. So only blocks matching
-    [runtime].snippetEntry — the ones claiming to be a whole program — are built, and
-    diagnostics matching [runtime].diagIgnore (the artifacts of judging a snippet alone) are
-    dropped. What survives is the sample failing on its own terms.
+    imports a sibling module that does not exist beside it. Proof-v1 therefore classifies each
+    block: only data-kind="runnable" promises a complete program and is compiled here;
+    replacement, patch, pseudocode, and terminal blocks are checked by their owning artifact
+    proof instead. Legacy tomes use [runtime].snippetEntry to identify whole programs.
 
-    Language-neutral by construction: checkCommand builds, diagRegex parses its output, and
-    the three snippet keys hold every per-language judgment. To light up a new language, set
-    snippetEntry and run this against a tome already known good: each surviving diagnostic is
-    either a real bug or an artifact to name in diagIgnore. Until snippetEntry is set the
-    check cannot judge, and it says so with an advisory WARN rather than passing silently — Java is the
-    standing example, its samples trailing loose statements after a class and extending
-    supertypes that live outside the file."""
+    Language-neutral by construction: checkCommand may check one file, while buildCommand uses
+    the runtime's calibrated scratch project; diagRegex parses either output. To light up a
+    legacy language, set snippetEntry. To light up proof-v1, provide a build/check path and
+    classify complete examples as runnable. Every surviving diagnostic is either a real bug or
+    an explicitly named diagIgnore artifact."""
     rt = m.get("runtime", {}) or {}
-    merged = {**lang_config(rt.get("name") or "custom"), **rt}
-    chk, pat, rx = merged.get("checkCommand"), merged.get("snippetEntry"), merged.get("diagRegex")
-    if not (isinstance(chk, list) and chk and pat and rx):
+    runtime_name = rt.get("name") or "custom"
+    language_defaults = lang_config(runtime_name)
+    merged = {**language_defaults, **rt}
+    chk = merged.get("checkCommand")
+    build = merged.get("buildCommand")
+    pat = merged.get("snippetEntry")
+    rx = merged.get("diagRegex")
+    matches = [match for sd in sections_data
+               for les in (sd.get("lessons") or []) if isinstance(les, dict)
+               for match in _CODE_BLOCK.finditer(str(les.get("body") or ""))]
+    runnable_count = sum(
+        1 for match in matches
+        if (_CODE_KIND.search(match.group("attrs"))
+            and _CODE_KIND.search(match.group("attrs")).group(2).strip().lower() == "runnable"))
+    legacy_count = sum(1 for match in matches if not _CODE_KIND.search(match.group("attrs")))
+    has_check = isinstance(chk, list) and bool(chk)
+    has_project_build = isinstance(build, list) and bool(build)
+    can_select = runnable_count > 0 or (legacy_count > 0 and bool(pat))
+    if not (rx and can_select and (has_check or has_project_build)):
         # Language not calibrated for snippet checking (or it cannot build a lone file).
         # Say so instead of passing silently: a clean run must never read as "the samples
         # build" when they were never compiled. Advisory, not hard-gate — the fix is a
         # language-TOML calibration (§5), not something a tome author can do per-tome.
-        nblocks = sum(len(_CODE_BLOCK.findall(str(les.get("body") or "")))
-                      for sd in sections_data
-                      for les in (sd.get("lessons") or []) if isinstance(les, dict))
-        if nblocks:
-            need = "checkCommand + snippetEntry + diagRegex"
-            warn("advisory", f"{nblocks} lesson code block(s) were never compile-checked — "
+        promised = runnable_count or legacy_count
+        if promised:
+            need = "checkCommand or buildCommand, plus diagRegex and runnable classification"
+            warn("advisory", f"{promised} runnable/legacy lesson code block(s) were never "
+                 "compile-checked — "
                  f"runtime {merged.get('name') or 'custom'!r} is not calibrated for snippet "
                  f"checking (needs {need} in its language TOML; see §5). A clean run does "
                  "not vouch for these samples.")
         return
     try:
-        entry_re = re.compile(pat, re.M)
+        entry_re = re.compile(pat, re.M) if pat else None
         diag_re = re.compile(rx, re.M)
         ignore = merged.get("diagIgnore") or []
         ignore_re = re.compile("|".join(ignore), re.I) if ignore else None
@@ -131,29 +147,41 @@ def check_snippets(m, sections_data):
 
     project_rt = None
     project_tmp = None
-    project_packages = bool(merged.get("validationDependencies")
-                            and (merged.get("validationProjectPackageCommand")
-                                 or (merged.get("packageCommand")
-                                     and not merged.get("validationPackageCommand"))))
-    if project_packages:
+    if has_project_build:
         try:
             from runtimes import for_config as runtime_for_config
-            candidate = runtime_for_config(rt)
+            # Course-map tomes deliberately override scaffoldCommand with [] so learners
+            # start from a blank editor. Snippet compilation is a language calibration task,
+            # so use the global runtime's scratch scaffold and carry only validation-package
+            # settings from the tome. This keeps C# examples buildable without seeding the
+            # learner's project or teaching a dotnet special case to the validator.
+            candidate = runtime_for_config(scratch_runtime_config(rt))
             if candidate.available() and (candidate.build_cmd or candidate.check_cmd):
                 project_rt = candidate
                 project_tmp = tempfile.TemporaryDirectory()
         except Exception:
             project_rt = None
             project_tmp = None
+    if not project_rt and not has_check:
+        warn("run", f"runtime {runtime_name!r} declares a project build for lesson snippets, "
+             "but its calibrated scratch runtime is unavailable; runnable samples were not "
+             "compiled", phase=3)
+        return
 
     try:
         for sd in sections_data:
             for les in (sd.get("lessons") or []):
                 if not isinstance(les, dict):
                     continue
-                for i, block in enumerate(_CODE_BLOCK.findall(str(les.get("body") or ""))):
-                    src = _snippet_source(block)
-                    frag = not entry_re.search(src)
+                for i, match in enumerate(
+                        _CODE_BLOCK.finditer(str(les.get("body") or ""))):
+                    kind_match = _CODE_KIND.search(match.group("attrs"))
+                    kind = kind_match.group(2).strip().lower() if kind_match else ""
+                    if kind and kind != "runnable":
+                        continue
+                    src = _snippet_source(match.group("body"))
+                    frag = False if kind == "runnable" else not (
+                        entry_re and entry_re.search(src))
                     if frag:
                         if not (frag_re and frag_re.search(src)):
                             continue  # neither program nor code fragment (output, transcript, diagram)
@@ -300,7 +328,7 @@ def check_starters_run(tome_path, m, sections_data, include_banks=True):
         # exact path instead of returning early and silently skipping every solution.
         try:
             from runtimes import for_config as runtime_for_config
-            candidate = runtime_for_config(m.get("runtime", {}))
+            candidate = runtime_for_config(scratch_runtime_config(m.get("runtime", {})))
             can_build = bool(candidate.build_cmd or candidate.check_cmd)
             can_run = bool(candidate.snippet_run_cmd or candidate.run_cmd or candidate.cmd)
             if candidate.available() and can_build and can_run:

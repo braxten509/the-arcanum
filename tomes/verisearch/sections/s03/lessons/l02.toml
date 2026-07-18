@@ -1,11 +1,11 @@
 [[lessons]]
 id = "s03-l02"
-teaches = ["properties-constructors"]
+teaches = ["language-classes-records"]
 title = "Properties, constructors & object initializers"
 body = '''
 
 <p>Public fields work, but C# convention is <strong>properties</strong> — field-like syntax with control over reading and writing:</p>
-<pre><code><span class="k">public class</span> SourceDraft
+<pre><code data-kind="replacement"><span class="k">public class</span> SourceDraft
 {
     <span class="k">public string</span> Label { <span class="k">get</span>; <span class="k">init</span>; } = <span class="s">""</span>; <span class="c">// init: set once at creation, then read-only</span>
     <span class="k">public string</span> Url { <span class="k">get</span>; <span class="k">init</span>; } = <span class="s">""</span>;
@@ -16,7 +16,7 @@ body = '''
 }</code></pre>
 <p>Accessor cheat-sheet: <code>{ get; set; }</code> read/write · <code>{ get; init; }</code> write only during construction · <code>=&gt; expr</code> computed each read.</p>
 <p>A <strong>constructor</strong> runs at <code>new</code> time and forces required data in:</p>
-<pre><code><span class="k">public class</span> SourceDraft
+<pre><code data-kind="replacement"><span class="k">public class</span> SourceDraft
 {
     <span class="k">public string</span> Label { <span class="k">get</span>; }
     <span class="k">public string</span> Url { <span class="k">get</span>; }
@@ -29,12 +29,13 @@ body = '''
 }
 <span class="k">var</span> source = <span class="k">new</span> SourceDraft(<span class="s">"RFC 8446"</span>, <span class="s">"https://example.test/rfc"</span>);</code></pre>
 <p><strong>Object initializer</strong> syntax sets properties inline at creation — great with <code>init</code>:</p>
-<pre><code><span class="k">var</span> source = <span class="k">new</span> SourceDraft { Label = <span class="s">"RFC 8446"</span>, Url = <span class="s">"https://example.test/rfc"</span> };</code></pre>
+<pre><code data-kind="replacement"><span class="k">var</span> source = <span class="k">new</span> SourceDraft { Label = <span class="s">"RFC 8446"</span>, Url = <span class="s">"https://example.test/rfc"</span> };</code></pre>
 <p>This example stores an address; it does not infer whether the publisher is authoritative. In the finished artifact, the user decides which <code>SourceSpec</code> records belong in configuration. A constructor can require necessary data, while Chapter V validation explains what makes that data usable.</p><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>required</strong> — make callers provide a property with no constructor boilerplate: <code>public required string Label { get; init; }</code>. Forgetting it at creation is a compile error.</p>
 <p><strong>Constructor overloading:</strong> a class can offer several constructors with different parameters; one can call another with <code>: this(...)</code> to avoid duplication.</p>
 <p><strong>Validation may belong at a boundary:</strong> a constructor can reject a blank label, but external JSON usually deserializes first and reports all policy errors together. Choose the location that gives the caller the most useful repair information.</p>
-<p><strong>Expression-bodied members:</strong> one-liner methods and properties read well as arrows: <code>public override string ToString() =&gt; $"{Label}: {Url}";</code></p></div>'''
+<p><strong>Expression-bodied members:</strong> one-liner methods and properties read well as arrows: <code>public override string ToString() =&gt; $"{Label}: {Url}";</code></p></div>
+'''
 
 [[lessons.readings]]
 label = "Microsoft Learn — \"Properties\""
@@ -109,3 +110,19 @@ public class SourceDraft
 }
 '''
 hint = "The constructor assigns both get-only properties. Print with interpolation; bool displays as True."
+
+[[lessons.concepts]]
+id = "language-classes-records"
+purpose = "Model identity, behavior, and immutable data with an appropriate C# class or record."
+anatomy = "Choose class for owned behavior or identity and record for value-like data, then define construction and accessible members deliberately."
+example = "The disposable examples in Properties, constructors & object initializers isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Properties, constructors & object initializers supplies the disposable observation point."
+observable = "Instances carry the required facts and equality or mutation follows the selected type's intended semantics. Confirm it while practicing Properties, constructors & object initializers."
+failure = "Public mutation on trusted data or duplicate competing models lets invalid state cross the artifact."
+practice = "s03-l02-e1"
+
+[[lessons.artifactSteps]]
+id = "s03-l02-author-artifact"
+path = "src/Verisearch/Domain.cs"
+mode = "author"
+instruction = "Use the C# ideas from Properties, constructors & object initializers to author or revise this learner-owned path toward the chapter behavior: Model sources, passages, AI proposals, and verified quotations so untrusted output cannot impersonate proof. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["Controlled model data shows that proposals cannot supply the label or URL later carried by a verified quotation.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

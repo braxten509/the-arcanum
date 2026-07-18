@@ -1,16 +1,16 @@
 [[lessons]]
 id = "s08-l02"
-teaches = ["task-when-all"]
+teaches = ["language-async-cancellation"]
 title = "Task.WhenAll — Start Together, Await Together"
 body = '''
 <p>The concurrency pattern has two distinct moments: start every operation, then await the group. Chapter VII's deferred-execution lesson matters here because a lazy <code>Select</code> does not call its lambda until it is enumerated.</p>
-<pre><code>List&lt;Task&lt;FetchOutcome&gt;&gt; tasks = sources
+<pre><code data-kind="replacement">List&lt;Task&lt;FetchOutcome&gt;&gt; tasks = sources
     .Select(source =&gt; FetchOneAsync(source, ct))
     .ToList();                         <span class="c">// enumerate now; calls start now</span>
 
 FetchOutcome[] outcomes = <span class="k">await</span> Task.WhenAll(tasks);</code></pre>
 <p>Do not put <code>await</code> inside the loop that starts each fetch:</p>
-<pre><code><span class="k">foreach</span> (SourceSpec source <span class="k">in</span> sources)
+<pre><code data-kind="replacement"><span class="k">foreach</span> (SourceSpec source <span class="k">in</span> sources)
 {
     FetchOutcome outcome = <span class="k">await</span> FetchOneAsync(source, ct);
     results.Add(outcome);              <span class="c">// next fetch starts only after this one ends</span>
@@ -90,3 +90,19 @@ static async Task<string> B() { await Task.Delay(5); return "beta"; }
 static async Task<string> C() { await Task.Delay(15); return "gamma"; }
 '''
 hint = "Task.WhenAll(A(), B(), C()) returns a string array in that input order."
+
+[[lessons.concepts]]
+id = "language-async-cancellation"
+purpose = "Coordinate I/O-bound work without blocking threads, serializing independent work, or swallowing cancellation."
+anatomy = "Return Task or Task<T>, await asynchronous operations, pass one CancellationToken, and use Task.WhenAll when independent work may overlap."
+example = "The disposable examples in Task.WhenAll — Start Together, Await Together isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Task.WhenAll — Start Together, Await Together supplies the disposable observation point."
+observable = "Independent reads overlap, completion resumes with typed results, and cancellation reaches the top boundary. Confirm it while practicing Task.WhenAll — Start Together, Await Together."
+failure = "Using Result, Wait, await-inside-loop, or catching cancellation as an ordinary error breaks responsiveness."
+practice = "s08-l02-e1"
+
+[[lessons.artifactSteps]]
+id = "s08-l02-author-artifact"
+path = "src/Verisearch/SourceBatch.cs"
+mode = "author"
+instruction = "Use the C# ideas from Task.WhenAll — Start Together, Await Together to author or revise this learner-owned path toward the chapter behavior: Read independent sources concurrently while preserving successful evidence, failed-source diagnostics, and cancellation. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["Two delayed reads overlap, one ordinary failure remains visible beside a success, and cancellation propagates separately.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

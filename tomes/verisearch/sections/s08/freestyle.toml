@@ -1,37 +1,85 @@
 [freestyle]
-title = "THE WORKING: The Source Batch"
-requires = ["source-fetcher", "source-policy", "task-lifecycle", "task-when-all", "cancellation-token", "failure-containment", "source-batch"]
-brief = "Create <code>SourceBatch.cs</code> and fetch the sources admitted by Chapter VII.<ul><li>Use the workshop’s <code>FetchOutcome</code> record and inject the existing <code>SourceFetcher</code>.</li><li>Start one <code>FetchOneAsync</code> task per source with a materialized LINQ <code>Select</code>, then await one <code>Task.WhenAll</code>. Do not await inside the batch loop.</li><li>Pass one <code>CancellationToken</code> through every fetch. Preserve whole-batch cancellation while converting ordinary source exceptions into visible outcomes.</li><li>Print a temporary fixture report showing label, OK/FAIL, seconds, and error. Keep returned data independent of terminal rendering.</li><li>Demonstrate two successful mock sources, one controlled failure, and a canceled batch.</li><li>Run <code>dotnet build</code>; remove temporary report code from <code>SourceBatch</code> itself.</li></ul>"
-reward = 500
-packages = []
-xray = "THORNE times three delayed fixtures, injects one source exception, then cancels the token. Sequential fetches, swallowed cancellation, lost error text, or Console output inside SourceBatch all break the binding."
+title = "THE WORKING: CONCURRENCY AND PARTIAL FAILURE"
+brief = '''
+<p><strong>Outcome:</strong> Read independent sources concurrently while preserving successful evidence, failed-source diagnostics, and cancellation.</p><p>Author the project edits yourself. The hidden replay proves one possible implementation, but it is never shown and does not define your architecture.</p><ul><li>Coordinate independent source reads so they overlap rather than waiting serially inside a loop.</li><li>Represent a successful document and an ordinary failed-source diagnostic without erasing either outcome.</li><li>Pass one cancellation token through every read and keep requested cancellation distinct from ordinary partial failure.</li><li>Author controlled-delay, one-success-one-failure, and cancellation tests with observable timing or synchronization gates.</li><li>Preserve source order in the resulting collection unless an alternative order is explicitly documented and tested.</li></ul>
+'''
+requires = ["language-project-toolchain", "language-namespaces-modularity", "language-types-nullability", "language-methods-scope", "language-control-flow", "language-collections-generics", "language-exceptions-resources", "language-classes-records", "language-linq-lambdas", "language-testing-debugging", "language-async-cancellation", "language-serialization-io", "language-interfaces-polymorphism"]
+reward = 560
+xray = "The grader inspects saved C# and project metadata, runs the chapter proof and cumulative regressions, changes a load-bearing input, and checks the observable chapter contract: Two delayed reads overlap, one ordinary failure remains visible beside a success, and cancellation propagates separately."
 
 [freestyle.badge]
 id = "badge-s08"
-name = "MASTER OF MANY HANDS"
-desc = "Fetched chosen pages together while accounting for every failed errand."
+name = "CONDUCTOR OF ERRANDS"
+desc = "Coordinated overlapping I/O, partial failure, and cancellation."
 
 [[freestyle.rubric]]
-criterion = "True concurrency"
+criterion = "Observable concurrency"
 weight = 25
-desc = "All per-source tasks start before one Task.WhenAll; no await-inside-loop serializes them."
+desc = "Coordinate independent source reads so they overlap rather than waiting serially inside a loop."
 
 [[freestyle.rubric]]
-criterion = "Outcome boundary"
+criterion = "Partial-failure preservation"
 weight = 20
-desc = "FetchOutcome distinguishes a real SourceDocument from an error and retains source identity and timing."
+desc = "Represent a successful document and an ordinary failed-source diagnostic without erasing either outcome."
 
 [[freestyle.rubric]]
-criterion = "Cancellation"
+criterion = "Cancellation semantics"
 weight = 20
-desc = "The same token reaches SourceFetcher and requested batch cancellation propagates upward."
+desc = "Pass one cancellation token through every read and keep requested cancellation distinct from ordinary partial failure."
 
 [[freestyle.rubric]]
-criterion = "Partial failure"
+criterion = "Outcome modeling"
 weight = 20
-desc = "One ordinary source failure remains visible without discarding successful documents or throwing the whole batch."
+desc = "Author controlled-delay, one-success-one-failure, and cancellation tests with observable timing or synchronization gates."
 
 [[freestyle.rubric]]
-criterion = "C# craft"
+criterion = "Controlled async tests"
 weight = 15
-desc = "PascalCase types and methods, camelCase locals, four-space indentation, Allman braces, and no UI concerns in SourceBatch."
+desc = "Preserve source order in the resulting collection unless an alternative order is explicitly documented and tested."
+
+[[freestyle.referenceSteps]]
+id = "s08-write-source-batch"
+path = "src/Verisearch/SourceBatch.cs"
+mode = "write"
+instruction = "Private replay coordinates independent reads, partial failure, and cancellation."
+content = '''
+using System.Diagnostics;
+
+namespace Verisearch;
+
+public sealed class SourceBatch(ISourceReader reader)
+{
+    public async Task<IReadOnlyList<SourceReadOutcome>> ReadAsync(
+        IReadOnlyList<SourceSpec> sources,
+        CancellationToken cancellationToken)
+    {
+        Task<SourceReadOutcome>[] tasks = sources
+            .Select(source => ReadOneAsync(source, cancellationToken))
+            .ToArray();
+        return await Task.WhenAll(tasks);
+    }
+
+    private async Task<SourceReadOutcome> ReadOneAsync(
+        SourceSpec source,
+        CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            SourceDocument document = await reader.ReadAsync(source, cancellationToken);
+            return new SourceReadOutcome(source, document, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            return new SourceReadOutcome(
+                source,
+                null,
+                $"{exception.GetType().Name} after {stopwatch.Elapsed.TotalSeconds:F2}s: {exception.Message}");
+        }
+    }
+}
+'''

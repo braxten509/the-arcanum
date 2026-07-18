@@ -1,11 +1,11 @@
 [[lessons]]
 id = "s03-l01"
-teaches = ["classes-objects"]
+teaches = ["language-classes-records"]
 title = "Classes & objects — blueprints and instances"
 body = '''
 
 <p>A <strong>class</strong> is a blueprint: data (fields/properties) plus behavior (methods) bundled under one name. An <strong>object</strong> is one concrete instance made from it with <code>new</code>:</p>
-<pre><code><span class="k">public class</span> PageDraft
+<pre><code data-kind="replacement"><span class="k">public class</span> PageDraft
 {
     <span class="k">public string</span> Label = <span class="s">""</span>;        <span class="c">// fields (we'll upgrade these to properties next lesson)</span>
     <span class="k">public string</span> Html = <span class="s">""</span>;
@@ -15,7 +15,7 @@ body = '''
         Console.WriteLine(<span class="s">$"{Label}: {Html.Length} characters"</span>);
     }
 }</code></pre>
-<pre><code><span class="k">var</span> page1 = <span class="k">new</span> PageDraft();          <span class="c">// instance #1</span>
+<pre><code data-kind="replacement"><span class="k">var</span> page1 = <span class="k">new</span> PageDraft();          <span class="c">// instance #1</span>
 page1.Label = <span class="s">"RFC 8446"</span>;
 page1.Html = <span class="s">"&lt;main&gt;TLS 1.3&lt;/main&gt;"</span>;
 
@@ -27,7 +27,8 @@ page1.Describe();                         <span class="c">// RFC 8446: 20 charac
 <div class="callout">The examples in the first five lessons are tiny syntax specimens, not files to add to Verisearch. The workshop at the end of this chapter supplies the canonical product types and exact filenames.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>Access modifiers:</strong> <code>public</code> anyone · <code>private</code> this class only (the default!) · <code>internal</code> this project only. Start private, open up only what callers need — small surface, fewer regrets.</p>
 <p><strong>static</strong> means "belongs to the TYPE, not an instance": <code>Math.Max</code>, <code>int.Parse</code> — no object needed. An instance method secretly receives <code>this</code> (the object it was called on); a static method has no <code>this</code>.</p>
-<p><strong>null and the ? annotation:</strong> a reference variable holding no object is <code>null</code>; touching its members throws <code>NullReferenceException</code> — THE classic crash. With <code>&lt;Nullable&gt;enable&lt;/Nullable&gt;</code> the compiler tracks it: <code>string?</code> means "may be null, check me", plain <code>string</code> means "never null". Tools: <code>?.</code> (safe navigation — <code>obj?.Method()</code> skips the call if null) and <code>??</code> (fallback).</p></div>'''
+<p><strong>null and the ? annotation:</strong> a reference variable holding no object is <code>null</code>; touching its members throws <code>NullReferenceException</code> — THE classic crash. With <code>&lt;Nullable&gt;enable&lt;/Nullable&gt;</code> the compiler tracks it: <code>string?</code> means "may be null, check me", plain <code>string</code> means "never null". Tools: <code>?.</code> (safe navigation — <code>obj?.Method()</code> skips the call if null) and <code>??</code> (fallback).</p></div>
+'''
 
 [[lessons.readings]]
 label = "Microsoft Learn — \"Classes and objects tutorial\""
@@ -108,3 +109,19 @@ public class PassageDraft
 }
 '''
 hint = "Top-level code first (new PassageDraft {...}, then call), class declaration after it."
+
+[[lessons.concepts]]
+id = "language-classes-records"
+purpose = "Model identity, behavior, and immutable data with an appropriate C# class or record."
+anatomy = "Choose class for owned behavior or identity and record for value-like data, then define construction and accessible members deliberately."
+example = "The disposable examples in Classes & objects — blueprints and instances isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Classes & objects — blueprints and instances supplies the disposable observation point."
+observable = "Instances carry the required facts and equality or mutation follows the selected type's intended semantics. Confirm it while practicing Classes & objects — blueprints and instances."
+failure = "Public mutation on trusted data or duplicate competing models lets invalid state cross the artifact."
+practice = "s03-l01-e1"
+
+[[lessons.artifactSteps]]
+id = "s03-l01-author-artifact"
+path = "src/Verisearch/Domain.cs"
+mode = "author"
+instruction = "Use the C# ideas from Classes & objects — blueprints and instances to author or revise this learner-owned path toward the chapter behavior: Model sources, passages, AI proposals, and verified quotations so untrusted output cannot impersonate proof. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["Controlled model data shows that proposals cannot supply the label or URL later carried by a verified quotation.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

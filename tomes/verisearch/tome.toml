@@ -1,10 +1,9 @@
-
 [meta]
 id = "verisearch"
 name = "The Liber Veritatis"
-description = "Learn C# from nothing by forging the Liber Veritatis: a local AI-assisted CLI that proposes precise quotations from sources you choose, then prints only text C# verifies exists verbatim in those sources, with citations it owns."
+description = "Reach intermediate C# by building and publishing a flexible AI-assisted evidence CLI: the user chooses sources, a real configurable AI selects quotations semantically, and C# verifies exact text and owns every citation."
 author = "THE ARCANUM"
-version = "3.0.0"
+version = "4.0.0"
 favicon = "✦"
 
 [runtime]
@@ -13,17 +12,30 @@ project = "Verisearch"
 language = "C#"
 packages = true
 editorLang = "csharp"
-entryFile = "Program.cs"
+entryFile = "src/Verisearch/Program.cs"
+projectFile = "Verisearch.slnx"
 newFileExt = ".cs"
-starterCode = '''
-Console.WriteLine("Verisearch v0.1");
-'''
+starterCode = ""
+scaffoldCommand = []
+buildCommand = ["dotnet", "build", "Verisearch.slnx", "--nologo", "-v", "q"]
+runCommand = ["dotnet", "run", "--no-build", "--project", "{dir}/src/Verisearch/Verisearch.csproj", "--"]
+validationDependencies = []
+deliveryCreateCommand = ["dotnet", "new", "console", "--output", "{env}", "--force", "--no-restore"]
+deliveryInstallCommand = ["dotnet", "restore", "{requirements}", "--force-evaluate", "--nologo"]
+deliveryBuildCommand = ["dotnet", "publish", "{requirements}", "--configuration", "Release", "--output", "{dir}/dist", "--nologo"]
 
 [content]
 sections = ["s01", "s02", "s03", "s04", "s05", "s06", "s07", "s08", "s09", "s10", "s11", "s12"]
 capabilityLedger = true
-# attacks bank is machine-generated to generated/attacks.toml (the engine default) —
-# author attacks_src.toml and run: python3 tools/gen_attacks.py verisearch
+proofVersion = 1
+
+[acceptance]
+version = 1
+mode = "run"
+artifact = "package"
+runArgs = ["--arcanum-acceptance"]
+scenarios = ["parse-whole-question", "honor-user-source-choice", "extract-stable-passages", "invoke-configured-ai", "reject-fabricated-quote", "preserve-source-attribution", "survive-partial-source-failure", "render-cited-report", "clean-package-launch"]
+controls = ["input"]
 
 [defaults]
 theme = "vellum"
@@ -46,7 +58,7 @@ attackStakePerDiff = 20
 attackWinPerDiff = 15
 
 [narrative]
-objective = "Forge the LIBER VERITATIS — a real C# command-line artifact that asks a local AI to propose precise evidence from user-chosen sources, accepts only quotations proven to be exact source substrings, attaches citations from trusted C# data, and never presents a paraphrase as a quote."
+objective = "Reach Mastery 3 C# by independently building the LIBER VERITATIS: a real provider-flexible program where the user chooses sources, AI selects evidence by meaning, and deterministic C# admits only exact source quotations with source-owned citations."
 title = "ARCANUM // LIBER VERITATIS"
 logo = "LIBER VERITATIS"
 opsLabel = "CHAPTERS"
@@ -56,9 +68,9 @@ studentTerm = "apprentice"
 gradeScale = "S|A|B|C|D|F"
 currency = "gold"
 currencyShort = "gp"
-completeText = "THE TOME IS FORGED. EVERY SEAL IS SET."
-bootLines = ["The match flares. The candle takes the flame.", "By its light: a tome of {N} chapters, bound in patience and C#.", "Its name is LIBER VERITATIS — the Book of True Words.", "Finished, it will work true magic: asked a question, it compels", "trusted texts to speak their OWN words back — exact, attributed, unbent.", "No paraphrase. No embellishment. The Whisper of Distortion, which twists", "all retellings, holds no power over words quoted whole.", "On the first page, in a cramped and impatient hand:", "\"Apprentice. Every rune of C# you learn here feeds the tome. Pass the", " trials, earn your gold, kit out your desk — and when I say WORK,", " you forge. I judge. Fairly, which is worse.\"  — THORNE", "The tome falls open where you left it. Take up your quill."]
-gradingLines = ["your pages are carried up the tower stair...", "MAGISTER THORNE unties the ribbon. Slowly. On purpose.", "he reads with the candle low and the lens high...", "the work is weighed against the judgement chart...", "he muttered something. impossible to tell if it was praise.", "he compares your runes against the binding terms...", "a raven waits at the window to carry the verdict back...", "he has dipped his quill in the red ink. bracing recommended."]
+completeText = "THE TOME WORKS. THE EVIDENCE SURVIVES. THE APPRENTICE CHOSE THE DESIGN."
+bootLines = ["The match flares. The candle takes the flame.", "The Liber Veritatis begins as an empty C# project, not a copied answer.", "Fourteen language capabilities form the spine from data and control to tests and delivery.", "The seeker chooses the sources. The whole question crosses one semantic AI boundary.", "No keyword table decides which lookup ritual to perform.", "AI may propose. It may not certify itself.", "C# compares exact text and restores source-owned attribution.", "Local model, API wrapper, or CLI adapter: the provider is a replaceable edge.", "A deterministic mock exists only for tests and identifies itself plainly.", "Two late Workings remove the rails: integrate, extend, diagnose, and justify.", "A clean package must repeat the same acceptance journey.", "Take up your quill. The first build is yours."]
+gradingLines = ["the project is compiled before the prose is believed...", "the whole question is traced across the selected-source boundary...", "the AI proposal is compared with the exact stored passage...", "citation ownership is followed back to C# data...", "a deliberate source failure tests the degradation path...", "the rationale is weighed against the implemented C# choice...", "the published executable repeats the negative controls..."]
 
 [progression]
 attackTime = 180
@@ -69,4 +81,4 @@ blackIcePerDiffCap = 2
 [progression.earnedTheme]
 id = "starlit"
 name = "STARLIT FOLIO"
-desc = "Near-black night vellum, silver script, a thread of won gold. Proof you answered every rival who came calling."
+desc = "Near-black night vellum, silver script, and the proof of an independently shipped C# artifact."

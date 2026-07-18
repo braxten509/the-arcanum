@@ -1,37 +1,304 @@
 [freestyle]
-title = "THE WORKING: The Binding of the Tome"
-requires = ["interfaces", "dependency-injection", "pipeline-orchestration", "degradation-policy", "composition-root"]
-brief = "Bind the exact files from the workshops into one executable.<ul><li>Add <code>Interfaces.cs</code>; make SourceFetcher, PageExtractor, and OllamaQuoteSelector implement their contracts. Add the explicit <code>MockQuoteSelector</code> and update SourceBatch to depend on ISourceFetcher.</li><li>Add the final <code>PipelineResult</code> model and <code>Pipeline.cs</code>. The flow is configured source list → concurrent fetch outcomes → per-source passages → structured proposals → exact verifier → result.</li><li>Replace temporary Program.cs demos with the workshop’s composition root: parse, load, select sources, construct one HttpClient and all collaborators, run once, render once, return a stable exit code.</li><li>Only Program.cs chooses live versus mock from <code>--mock</code>. No catch block anywhere may replace Ollama with a keyword, mock, or all-passages selector.</li><li>Run four acceptance rehearsals: explicit mock success, one source failure plus one success, no verified quotes, and live Ollama unavailable.</li><li>Delete obsolete SearchResult, SearxngClient, TrustEngine, PageScraper, RelevanceScanner, VerbatimQuote, and temporary demo calls if they remain in the learner project.</li></ul>"
-reward = 700
-packages = []
-xray = "THORNE searches for one HttpClient construction, one composition root, and no obsolete search/fallback types. He injects one fabricated proposal and one failed page, stops Ollama in live mode, then runs --mock. Every visible behavior must agree with the selected mode and only VerifiedQuote may reach the renderer."
+title = "THE WORKING: NOVEL INTEGRATION PERFORMANCE"
+brief = '''
+<p><strong>Outcome:</strong> Independently integrate the complete search path from behavior contracts and tests, choosing the architecture.</p><p>Author the project edits yourself. The hidden replay proves one possible implementation, but it is never shown and does not define your architecture.</p><ul><li>Without receiving a pipeline or composition root, integrate user source choice, concurrent reads, stable extraction, real semantic AI proposals, exact verification, and rendering.</li><li>Choose the architecture, type names, files, provider construction, and dependency boundaries; keep the entrypoint focused on composition and top-level outcomes.</li><li>Author an end-to-end controlled fixture containing a punctuation-heavy whole question, two sources, one source failure, one exact quote, and one fabrication.</li><li>Diagnose at least one cross-boundary integration failure from compiler or test evidence and record why the repaired boundary owns the change.</li><li>Run ordinary help, invalid input, explicit mock, unavailable live provider, and the integrated fixture while preserving every earlier regression.</li></ul>
+'''
+requires = ["language-project-toolchain", "language-namespaces-modularity", "language-types-nullability", "language-methods-scope", "language-control-flow", "language-collections-generics", "language-exceptions-resources", "language-classes-records", "language-linq-lambdas", "language-testing-debugging", "language-async-cancellation", "language-serialization-io", "language-interfaces-polymorphism", "language-cli-packaging"]
+reward = 665
+xray = "The grader inspects saved C# and project metadata, runs the chapter proof and cumulative regressions, changes a load-bearing input, and checks the observable chapter contract: The complete fixture journey yields one verified quote, one rejected fabrication, and one visible source failure through the learner's architecture."
+masteryPerformances = ["language-performance-s11-01"]
 
 [freestyle.badge]
 id = "badge-s11"
-name = "BINDER OF THE TOME"
-desc = "Sewed every boundary into one inspectable proposal-and-proof flow."
+name = "INDEPENDENT BINDER"
+desc = "Integrated the entire functioning search path without a supplied architecture."
 
 [[freestyle.rubric]]
-criterion = "End-to-end contracts"
+criterion = "Independent C# integration"
 weight = 25
-desc = "Configured sources flow through fetch, extraction, selection, verification, and rendering with canonical types only."
+desc = "Without receiving a pipeline or composition root, integrate user source choice, concurrent reads, stable extraction, real semantic AI proposals, exact verification, and rendering."
+masteryPerformance = "language-performance-s11-01"
+languageCapabilities = ["language-project-toolchain", "language-types-nullability", "language-control-flow", "language-collections-generics", "language-methods-scope", "language-classes-records", "language-interfaces-polymorphism", "language-namespaces-modularity", "language-exceptions-resources", "language-linq-lambdas", "language-async-cancellation", "language-serialization-io", "language-testing-debugging", "language-cli-packaging"]
 
 [[freestyle.rubric]]
-criterion = "Composition"
+criterion = "Architecture coherence"
 weight = 20
-desc = "Program.cs constructs one HttpClient and the concrete object graph; collaborators receive dependencies through constructors."
+desc = "Choose the architecture, type names, files, provider construction, and dependency boundaries; keep the entrypoint focused on composition and top-level outcomes."
 
 [[freestyle.rubric]]
-criterion = "Truth boundary"
-weight = 25
-desc = "Pipeline returns only C#-verified quotes with source-owned attribution; obsolete direct/proposal output paths are gone."
+criterion = "End-to-end truth boundary"
+weight = 20
+desc = "Author an end-to-end controlled fixture containing a punctuation-heavy whole question, two sources, one source failure, one exact quote, and one fabrication."
 
 [[freestyle.rubric]]
-criterion = "Failure and mode behavior"
+criterion = "Failure diagnosis"
+weight = 20
+desc = "Diagnose at least one cross-boundary integration failure from compiler or test evidence and record why the repaired boundary owns the change."
+
+[[freestyle.rubric]]
+criterion = "Regression and launch behavior"
 weight = 15
-desc = "Partial source failure survives, live AI failure exits clearly, and mock occurs only when explicitly selected and labeled."
+desc = "Run ordinary help, invalid input, explicit mock, unavailable live provider, and the integrated fixture while preserving every earlier regression."
 
-[[freestyle.rubric]]
-criterion = "C# craft"
-weight = 15
-desc = "PascalCase types/methods, camelCase locals, four-space indentation, Allman braces, one responsibility per file, and no dead demo code."
+[[freestyle.referenceSteps]]
+id = "s11-write-search-pipeline"
+path = "src/Verisearch/SearchPipeline.cs"
+mode = "write"
+instruction = "Private replay integrates selected sources, shared passages, semantic proposals, and exact verification."
+content = '''
+namespace Verisearch;
+
+public sealed class SearchPipeline(
+    SourceBatch sourceBatch,
+    IPassageExtractor extractor,
+    IAiQuoteSelector selector,
+    QuoteVerifier verifier,
+    int maximumQuotes,
+    bool isMock)
+{
+    public async Task<SearchResult> RunAsync(
+        string question,
+        IReadOnlyList<SourceSpec> sources,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<SourceReadOutcome> outcomes = await sourceBatch.ReadAsync(
+            sources,
+            cancellationToken);
+        IReadOnlyList<Passage> passages = outcomes
+            .Where(outcome => outcome.Document is not null)
+            .SelectMany(outcome => extractor.Extract(outcome.Document!))
+            .ToList();
+
+        if (passages.Count == 0)
+        {
+            return new SearchResult([], outcomes, 0, isMock);
+        }
+
+        QuoteBatch proposals = await selector.SelectAsync(
+            question,
+            passages,
+            cancellationToken);
+        VerificationResult verified = verifier.Verify(passages, proposals, maximumQuotes);
+        return new SearchResult(
+            verified.Quotes,
+            outcomes,
+            verified.RejectedCount,
+            isMock);
+    }
+}
+'''
+[[freestyle.referenceSteps]]
+id = "s11-write-application"
+path = "src/Verisearch/App.cs"
+mode = "write"
+instruction = "Private replay composes one real provider path or explicit mock without keyword or silent fallback logic."
+content = '''
+namespace Verisearch;
+
+public static class App
+{
+    public static async Task<int> RunAsync(string[] args)
+    {
+        if (args is ["--arcanum-proof", string proofId])
+        {
+            return await ProofHarness.RunAsync(proofId);
+        }
+
+        CliOptions options;
+        try
+        {
+            options = CliOptions.Parse(args);
+        }
+        catch (ArgumentException exception)
+        {
+            Console.Error.WriteLine(exception.Message);
+            Console.Error.WriteLine(CliOptions.Usage);
+            return 2;
+        }
+
+        if (options.ShowHelp)
+        {
+            Console.WriteLine(CliOptions.Usage);
+            return 0;
+        }
+
+        try
+        {
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+            IReadOnlyList<SourceSpec> catalog = await SourceCatalog.LoadAsync(
+                options.CatalogPath,
+                cancellation.Token);
+            IReadOnlyList<SourceSpec> sources = SourceSelection.Select(
+                catalog,
+                options.SourceLabels);
+
+            using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+            httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Verisearch/4.0");
+            IAiQuoteSelector selector = CreateSelector(options);
+            var pipeline = new SearchPipeline(
+                new SourceBatch(new SourceReader(httpClient)),
+                new PassageExtractor(),
+                selector,
+                new QuoteVerifier(),
+                options.MaxQuotes,
+                options.Provider == "mock");
+            SearchResult result = await pipeline.RunAsync(
+                options.Question,
+                sources,
+                cancellation.Token);
+            Console.WriteLine(new ReportRenderer().Compose(options.Question, result));
+            return 0;
+        }
+        catch (OperationCanceledException)
+        {
+            Console.Error.WriteLine("verisearch canceled or timed out");
+            return 130;
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine($"verisearch failed: {exception.Message}");
+            return 1;
+        }
+    }
+
+    private static IAiQuoteSelector CreateSelector(CliOptions options)
+    {
+        return options.Provider switch
+        {
+            "mock" => new ExplicitMockAiQuoteSelector(),
+            "cli" when !string.IsNullOrWhiteSpace(options.AiCommand) =>
+                new CliAiQuoteSelector(
+                    options.AiCommand,
+                    options.AiArguments,
+                    options.MaxQuotes),
+            "cli" => throw new InvalidOperationException(
+                "the real cli provider requires --ai-command; no non-AI fallback will be used"),
+            _ => throw new InvalidOperationException($"unsupported AI provider: {options.Provider}")
+        };
+    }
+}
+'''
+[[freestyle.referenceSteps]]
+id = "s11-rewrite-entry"
+path = "src/Verisearch/Program.cs"
+mode = "rewrite"
+instruction = "Private replay reduces the entrypoint to the learner-owned application boundary."
+preserves = "all-active"
+content = '''
+using Verisearch;
+
+return await App.RunAsync(args);
+'''
+[[freestyle.referenceSteps]]
+id = "s11-rewrite-proof-harness"
+path = "src/Verisearch/ProofHarness.cs"
+mode = "rewrite"
+instruction = "Private replay preserves earlier receipts and adds the novel integrated fixture journey."
+preserves = "all-active"
+content = '''
+namespace Verisearch;
+
+public static class ProofHarness
+{
+    public static async Task<int> RunAsync(string proofId)
+    {
+        if (proofId == "s04")
+        {
+            string prepared = CliOptions.PrepareQuestion("whole   text");
+            if (prepared != "whole text")
+            {
+                return 1;
+            }
+            Console.WriteLine("S04_OK question=whole text");
+            return 0;
+        }
+        if (proofId == "s09")
+        {
+            SourceSpec source = new("Source", new Uri("https://example.test/source"));
+            Passage passage = new("p-one", source, "An exact source sentence stays intact.");
+            VerificationResult verification = new QuoteVerifier().Verify(
+                [passage],
+                new QuoteBatch([
+                    new QuoteProposal(passage.Id, "exact source sentence"),
+                    new QuoteProposal(passage.Id, "fabricated sentence")
+                ]),
+                3);
+            bool verificationPassed = verification.Quotes is [var quote]
+                && verification.RejectedCount == 1
+                && quote.SourceLabel == source.Label
+                && quote.SourceUri == source.Uri;
+            if (!verificationPassed)
+            {
+                return 1;
+            }
+            Console.WriteLine("S09_OK accepted=1 rejected=1 attribution=source");
+            return 0;
+        }
+        if (proofId != "s11")
+        {
+            Console.Error.WriteLine($"unknown proof id: {proofId}");
+            return 2;
+        }
+
+        var good = new SourceSpec("Good", new Uri("https://example.test/good"));
+        var failed = new SourceSpec("Failed", new Uri("https://example.test/failed"));
+        var selector = new ProofSelector();
+        var pipeline = new SearchPipeline(
+            new SourceBatch(new ProofReader(good)),
+            new PassageExtractor(),
+            selector,
+            new QuoteVerifier(),
+            3,
+            false);
+        SearchResult result = await pipeline.RunAsync(
+            "What does the record say?",
+            [good, failed],
+            CancellationToken.None);
+        bool passed = result.Quotes.Count == 1
+            && result.RejectedCount == 1
+            && result.Sources.Count(item => !item.Succeeded) == 1
+            && selector.SeenQuestion == "What does the record say?";
+        if (!passed)
+        {
+            Console.Error.WriteLine("s11 proof failed");
+            return 1;
+        }
+        Console.WriteLine("S11_OK quotes=1 rejected=1 failures=1");
+        return 0;
+    }
+
+    private sealed class ProofReader(SourceSpec good) : ISourceReader
+    {
+        public Task<SourceDocument> ReadAsync(
+            SourceSpec source,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (source != good)
+            {
+                throw new HttpRequestException("controlled source failure");
+            }
+            const string html = "<main><p>The archive records a complete and exact statement for verification.</p></main>";
+            return Task.FromResult(new SourceDocument(source, html));
+        }
+    }
+
+    private sealed class ProofSelector : IAiQuoteSelector
+    {
+        public string? SeenQuestion { get; private set; }
+
+        public Task<QuoteBatch> SelectAsync(
+            string question,
+            IReadOnlyList<Passage> passages,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            SeenQuestion = question;
+            return Task.FromResult(new QuoteBatch([
+                new QuoteProposal(passages[0].Id, "The archive records a complete and exact statement"),
+                new QuoteProposal(passages[0].Id, "fabricated ending")
+            ]));
+        }
+    }
+}
+'''

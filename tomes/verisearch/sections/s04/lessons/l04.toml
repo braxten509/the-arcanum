@@ -1,34 +1,21 @@
 [[lessons]]
 id = "s04-l04"
-teaches = ["json-mapping"]
+teaches = ["language-serialization-io"]
 title = "System.Text.Json — JSON In, Typed Data Out"
 body = '''
-<p>JSON is text with a defined shape. <code>System.Text.Json</code>, included with .NET, maps that text to C# records and back. Verisearch will use it for configuration, Ollama requests, and Ollama responses, so learn one dependable pathway now.</p>
-<pre><code>{
-  <span class="s">"label"</span>: <span class="s">"RFC 8446"</span>,
-  <span class="s">"url"</span>: <span class="s">"https://learn.microsoft.com/en-us/dotnet/csharp/tour-of-csharp/overview"</span>,
-  <span class="s">"trust"</span>: 10
-}</code></pre>
-<pre><code><span class="k">using</span> System.Text.Json;
 
-<span class="k">public record</span> SourceRow(<span class="k">string</span> Label, <span class="k">string</span> Url, <span class="k">double</span> Trust);
+<p>JSON is external text with a defined grammar. <code>System.Text.Json</code>, included with .NET, maps that text to declared C# shapes and back. Verisearch uses typed JSON at boundaries such as the source catalog and structured AI proposal envelopes, regardless of which provider transport the learner chooses.</p>
+<pre><code data-kind="replacement">public sealed record SourceEntry(string Label, string Url);
+public sealed record SourceCatalogDocument(IReadOnlyList&lt;SourceEntry&gt; Sources);
 
-<span class="k">var</span> options = <span class="k">new</span> JsonSerializerOptions
-{
-    PropertyNameCaseInsensitive = <span class="k">true</span>
-};
-
-SourceRow? row = JsonSerializer.Deserialize&lt;SourceRow&gt;(json, options);</code></pre>
-<p><code>Deserialize&lt;T&gt;</code> returns <code>T?</code>: malformed data may throw <code>JsonException</code>, while the JSON literal <code>null</code> legitimately produces null. Check both. Lowercase JSON names do not match PascalCase properties under the serializer's strict default, which is why this course creates one shared options object with case-insensitive reads.</p>
-<p>For HTTP, <code>System.Net.Http.Json</code> adds helpers:</p>
-<pre><code><span class="k">using</span> System.Net.Http.Json;
-
-HttpResponseMessage response = <span class="k">await</span> http.PostAsJsonAsync(<span class="s">"api/path"</span>, request, ct);
-ResponseBody? body = <span class="k">await</span> response.Content.ReadFromJsonAsync&lt;ResponseBody&gt;(cancellationToken: ct);</code></pre>
-<p>The helpers serialize the request and deserialize the response, but they do not decide whether a failed status is acceptable. Call <code>response.EnsureSuccessStatusCode()</code> or branch on <code>IsSuccessStatusCode</code> before trusting the body.</p>
-<div class="callout">Never solve a JSON mismatch with a chain of string replacements. Print a bounded piece of the raw payload, compare it to the C# record, and fix names, nesting, or nullability. That habit will save Chapter IX.</div>
-<div class="field-notes"><div class="fn-head">MARGINALIA // MISSING, NULL, AND DEFAULT</div>
-<p>A missing numeric property becomes zero on a non-nullable <code>int</code>; explicit JSON null cannot. Use nullable types when absence matters, then validate after deserialization. Serialization with <code>WriteIndented = true</code> produces human-readable config. The serializer understands nested records and lists, so model the actual shape instead of parsing with regular expressions.</p></div>
+SourceCatalogDocument? catalog =
+    JsonSerializer.Deserialize&lt;SourceCatalogDocument&gt;(json);</code></pre>
+<p>The fragment shows a declared shape. Deserialization can still return <code>null</code>, and syntactically valid JSON may carry empty labels, duplicate entries, or unsupported addresses. Parsing proves structure only; validation establishes the application's policy afterward.</p>
+<p>Provider adapters follow the same principle without sharing provider-specific types. A CLI wrapper might receive a common request through standard input. A hosted API adapter might serialize its vendor envelope and translate the response at the edge. Both return the same untrusted proposal model to the pipeline. Do not spread one provider's JSON properties through domain records.</p>
+<p>Use <code>JsonSerializerOptions</code> intentionally. Case-insensitive input may help user-authored configuration; strict external AI output can make mistakes easier to diagnose. Records, properties, explicit attributes, or source-generated contexts are all valid design choices at this level. Keep the choice local and test it with exact strings.</p>
+<p>Malformed JSON raises <code>JsonException</code>. Catch it where you can name the file or provider boundary, then preserve the original cause. Never convert malformed provider output into an empty successful answer, because that hides a failed semantic operation.</p>
+<div class="callout"><p>JSON is a transport shape, not a trust level. A proposal remains unverified even after perfectly typed deserialization.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TWO SCHEMAS</div><p>User configuration and AI response data have different owners and failure policies. Give them separate C# shapes even if both happen to contain strings and arrays.</p></div>
 '''
 
 [[lessons.readings]]
@@ -105,3 +92,19 @@ Console.WriteLine($"{row.Label} @ {row.Trust}");
 public record SourceRow(string Label, string Url, double Trust);
 '''
 hint = "Create JsonSerializerOptions, call Deserialize<SourceRow>, then read Label and Trust."
+
+[[lessons.concepts]]
+id = "language-serialization-io"
+purpose = "Move typed data across file, JSON, HTTP, process, and terminal boundaries without confusing external text with trusted objects."
+anatomy = "Select an I/O API, await or dispose it correctly, serialize or deserialize a declared shape, then validate the resulting values."
+example = "The disposable examples in System.Text.Json — JSON In, Typed Data Out isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson System.Text.Json — JSON In, Typed Data Out supplies the disposable observation point."
+observable = "Valid input becomes the intended typed data and malformed input produces a specific boundary diagnostic. Confirm it while practicing System.Text.Json — JSON In, Typed Data Out."
+failure = "Scraping loosely structured text or overwriting invalid user data destroys the evidence needed to repair it."
+practice = "s04-l04-e1"
+
+[[lessons.artifactSteps]]
+id = "s04-l04-author-artifact"
+path = "tests/Verisearch.Tests/QuestionPreparationTests.cs"
+mode = "author"
+instruction = "Use the C# ideas from System.Text.Json — JSON In, Typed Data Out to author or revise this learner-owned path toward the chapter behavior: Introduce tests early, then read one chosen source through an asynchronous, replaceable boundary. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["An early test changes from green to red under a deliberate bad input, and an async source read remains replaceable without live networking.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

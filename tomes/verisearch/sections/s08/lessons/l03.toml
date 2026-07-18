@@ -1,11 +1,11 @@
 [[lessons]]
 id = "s08-l03"
-teaches = ["cancellation-token"]
+teaches = ["language-async-cancellation"]
 title = "CancellationToken — pulling the plug politely"
 body = '''
 
 <p>Async work you can't cancel is a hostage situation. .NET's cooperative cancellation has three pieces:</p>
-<pre><code><span class="c">// 1. The SOURCE — the hand on the plug</span>
+<pre><code data-kind="replacement"><span class="c">// 1. The SOURCE — the hand on the plug</span>
 <span class="k">using var</span> cts = <span class="k">new</span> CancellationTokenSource();
 cts.CancelAfter(TimeSpan.FromSeconds(10));      <span class="c">// auto-cancel: a batch-wide timeout</span>
 
@@ -16,7 +16,7 @@ CancellationToken token = cts.Token;
 <span class="k">string</span> html = <span class="k">await</span> http.GetStringAsync(url, token);
 <span class="k">await</span> Task.Delay(1000, token);</code></pre>
 <p>When the token fires, in-flight operations throw <code>OperationCanceledException</code> (HttpClient sometimes surfaces <code>TaskCanceledException</code>, its subclass). Catch it and treat as "canceled", not "crashed":</p>
-<pre><code><span class="k">try</span>
+<pre><code data-kind="replacement"><span class="k">try</span>
 {
     <span class="k">var</span> html = <span class="k">await</span> http.GetStringAsync(url, token);
 }
@@ -29,7 +29,8 @@ CancellationToken token = cts.Token;
 <div class="callout">Convention: CancellationToken is the LAST parameter of every async method you write: <code>ScrapeAsync(string url, CancellationToken ct = default)</code>. Adopting it now saves refactoring every signature later.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>Linked tokens</strong> — combine "user hit Ctrl+C" with "30s deadline": <code>CancellationTokenSource.CreateLinkedTokenSource(userToken, deadlineToken)</code> — the linked token fires when EITHER does. The orchestrator makes one; every component just accepts a token and doesn't care why it fires.</p>
 <p><strong>Hooking Ctrl+C in a console app:</strong> <code>Console.CancelKeyPress += (s, e) =&gt; { e.Cancel = true; cts.Cancel(); };</code> — e.Cancel=true stops the process from dying instantly so your cleanup and "canceled by operator" message can run.</p>
-<p><strong>Checking in your own loops:</strong> <code>ct.ThrowIfCancellationRequested()</code> at the top of each iteration, or <code>ct.IsCancellationRequested</code> for a graceful wind-down without an exception.</p></div>'''
+<p><strong>Checking in your own loops:</strong> <code>ct.ThrowIfCancellationRequested()</code> at the top of each iteration, or <code>ct.IsCancellationRequested</code> for a graceful wind-down without an exception.</p></div>
+'''
 
 [[lessons.readings]]
 label = "Microsoft Learn — \"Cancellation in managed threads\""
@@ -105,3 +106,19 @@ catch (OperationCanceledException)
 }
 '''
 hint = "catch (TaskCanceledException) — or its base OperationCanceledException. Either works."
+
+[[lessons.concepts]]
+id = "language-async-cancellation"
+purpose = "Coordinate I/O-bound work without blocking threads, serializing independent work, or swallowing cancellation."
+anatomy = "Return Task or Task<T>, await asynchronous operations, pass one CancellationToken, and use Task.WhenAll when independent work may overlap."
+example = "The disposable examples in CancellationToken — pulling the plug politely isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson CancellationToken — pulling the plug politely supplies the disposable observation point."
+observable = "Independent reads overlap, completion resumes with typed results, and cancellation reaches the top boundary. Confirm it while practicing CancellationToken — pulling the plug politely."
+failure = "Using Result, Wait, await-inside-loop, or catching cancellation as an ordinary error breaks responsiveness."
+practice = "s08-l03-e1"
+
+[[lessons.artifactSteps]]
+id = "s08-l03-author-artifact"
+path = "src/Verisearch/SourceBatch.cs"
+mode = "author"
+instruction = "Use the C# ideas from CancellationToken — pulling the plug politely to author or revise this learner-owned path toward the chapter behavior: Read independent sources concurrently while preserving successful evidence, failed-source diagnostics, and cancellation. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["Two delayed reads overlap, one ordinary failure remains visible beside a success, and cancellation propagates separately.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

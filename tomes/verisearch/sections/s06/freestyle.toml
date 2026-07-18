@@ -1,37 +1,148 @@
 [freestyle]
-title = "THE WORKING: The Passage Extractor"
-requires = ["html-dom", "anglesharp-parse", "passage-cleaning", "fetch-etiquette", "page-extractor"]
-brief = "Continue the same project and build the deterministic extraction boundary.<ul><li>Create <code>PageExtractor.cs</code> from the workshop. It accepts a fetched <code>SourceDocument</code>; it never performs HTTP itself.</li><li>Parse with AngleSharp, prefer <code>main</code> then <code>article</code> then body, and extract useful prose elements without duplicating nested text.</li><li>Normalize whitespace once, filter only clearly unusable crumbs, assign stable one-based passage ids, and preserve the original <code>SourceSpec</code> on every result.</li><li>Add an explicit local fixture containing menus plus three real passages. Print each id and exact normalized text.</li><li>State in a code comment that the same stored <code>Passage.Text</code> goes to Ollama and <code>QuoteVerifier</code>.</li><li>Run <code>dotnet build</code> and verify the fixture produces the same output on two runs.</li></ul>"
-reward = 400
-packages = ["AngleSharp"]
-xray = "THORNE hides content inside main and article, adds noisy navigation and irregular whitespace, and runs extraction twice. He rejects networking inside PageExtractor, unstable numbering, duplicated descendants, or any word-level rewriting."
+title = "THE WORKING: EXTRACT TEXT ONCE"
+brief = '''
+<p><strong>Outcome:</strong> Turn HTML or text into stable nonduplicated passages used identically by AI selection and C# verification.</p><p>Author the project edits yourself. The hidden replay proves one possible implementation, but it is never shown and does not define your architecture.</p><ul><li>Add a DOM parser or another justified structural parser and record the exact dependency in project metadata.</li><li>Extract meaningful HTML or text containers into stable passages while filtering structural noise by a general documented policy.</li><li>Normalize whitespace once and use the resulting exact text identically for AI prompting and C# verification.</li><li>Author fixtures for nested elements, duplicate descendants, repeated whitespace, ignored navigation, and deterministic identifiers.</li><li>Prove a nested sentence occurs once and two runs over the same input produce the same ids and text.</li></ul>
+'''
+requires = ["language-project-toolchain", "language-namespaces-modularity", "language-types-nullability", "language-methods-scope", "language-control-flow", "language-collections-generics", "language-exceptions-resources", "language-classes-records", "language-linq-lambdas", "language-testing-debugging", "language-async-cancellation", "language-serialization-io", "language-interfaces-polymorphism"]
+reward = 490
+xray = "The grader inspects saved C# and project metadata, runs the chapter proof and cumulative regressions, changes a load-bearing input, and checks the observable chapter contract: The same fixture produces the same passage ids twice and a nested list paragraph appears exactly once."
 
 [freestyle.badge]
 id = "badge-s06"
-name = "HARVESTER OF PAGES"
-desc = "Turned untidy HTML into stable, source-owned passages without bending their words."
+name = "PASSAGE CARTOGRAPHER"
+desc = "Produced stable nonduplicated text shared by AI and verification."
 
 [[freestyle.rubric]]
-criterion = "DOM boundary"
+criterion = "Structural extraction"
+weight = 25
+desc = "Add a DOM parser or another justified structural parser and record the exact dependency in project metadata."
+
+[[freestyle.rubric]]
+criterion = "Stable shared text"
 weight = 20
-desc = "PageExtractor parses SourceDocument HTML and performs no network or terminal work."
+desc = "Extract meaningful HTML or text containers into stable passages while filtering structural noise by a general documented policy."
 
 [[freestyle.rubric]]
-criterion = "Deterministic passages"
-weight = 25
-desc = "Container selection, element selection, normalization, filtering, and one-based ids are stable and non-duplicating."
+criterion = "Duplicate prevention"
+weight = 20
+desc = "Normalize whitespace once and use the resulting exact text identically for AI prompting and C# verification."
 
 [[freestyle.rubric]]
-criterion = "Truth preservation"
-weight = 25
-desc = "Words and punctuation are not edited; the stored Passage.Text is the single model-and-verifier representation."
+criterion = "Deterministic identifiers"
+weight = 20
+desc = "Author fixtures for nested elements, duplicate descendants, repeated whitespace, ignored navigation, and deterministic identifiers."
 
 [[freestyle.rubric]]
-criterion = "Source continuity"
+criterion = "Fixture proof"
 weight = 15
-desc = "Every Passage retains the exact SourceSpec from its SourceDocument and the fixture demonstrates it."
+desc = "Prove a nested sentence occurs once and two runs over the same input produce the same ids and text."
 
-[[freestyle.rubric]]
-criterion = "C# craft"
-weight = 15
-desc = "PascalCase types and methods, camelCase locals, four-space indentation, Allman braces, focused methods, and readable names."
+[[freestyle.referenceSteps]]
+id = "s06-rewrite-app-project"
+path = "src/Verisearch/Verisearch.csproj"
+mode = "rewrite"
+instruction = "Private replay preserves strict project settings and declares the DOM dependency."
+preserves = "all-active"
+content = '''
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AngleSharp" Version="1.5.2" />
+  </ItemGroup>
+
+</Project>
+'''
+[[freestyle.referenceSteps]]
+id = "s06-write-passage-extractor"
+path = "src/Verisearch/PassageExtractor.cs"
+mode = "write"
+instruction = "Private replay adds stable nonduplicating passage extraction over the shared representation."
+content = '''
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.RegularExpressions;
+using AngleSharp.Dom;
+using AngleSharp.Html.Parser;
+
+namespace Verisearch;
+
+public sealed partial class PassageExtractor : IPassageExtractor
+{
+    public IReadOnlyList<Passage> Extract(SourceDocument document)
+    {
+        var parser = new HtmlParser();
+        IDocument parsed = parser.ParseDocument(document.Content);
+        IElement? scope = parsed.QuerySelector("main")
+            ?? parsed.QuerySelector("article")
+            ?? parsed.Body;
+
+        var texts = new List<string>();
+        if (scope is not null)
+        {
+            foreach (IElement element in scope.QuerySelectorAll("p, li, blockquote"))
+            {
+                if (HasSelectedAncestor(element, scope))
+                {
+                    continue;
+                }
+                AddIfUseful(texts, element.TextContent);
+            }
+        }
+        if (texts.Count == 0)
+        {
+            foreach (string block in BlankLine().Split(document.Content))
+            {
+                AddIfUseful(texts, block);
+            }
+        }
+
+        return texts.Select((text, index) => new Passage(
+            StableId(document.Source, index, text),
+            document.Source,
+            text)).ToList();
+    }
+
+    private static bool HasSelectedAncestor(IElement element, IElement scope)
+    {
+        for (IElement? parent = element.ParentElement; parent is not null && parent != scope;
+             parent = parent.ParentElement)
+        {
+            if (parent.LocalName is "p" or "li" or "blockquote")
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void AddIfUseful(List<string> texts, string raw)
+    {
+        string text = Whitespace().Replace(raw, " ").Trim();
+        if (text.Length is >= 30 and <= 4000 && !texts.Contains(text, StringComparer.Ordinal))
+        {
+            texts.Add(text);
+        }
+    }
+
+    private static string StableId(SourceSpec source, int index, string text)
+    {
+        byte[] bytes = Encoding.UTF8.GetBytes($"{source.Uri}\0{index}\0{text}");
+        string digest = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+        return $"p-{digest[..12]}";
+    }
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex Whitespace();
+
+    [GeneratedRegex(@"\r?\n\s*\r?\n")]
+    private static partial Regex BlankLine();
+}
+'''

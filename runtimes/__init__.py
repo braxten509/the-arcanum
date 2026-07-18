@@ -41,6 +41,32 @@ def for_config(cfg):
     return generic.CommandRuntime(resolve_config(cfg))
 
 
+def snippet_config(cfg):
+    """Return the trusted runtime config for isolated snippets and challenge solutions.
+
+    Sealed proof-v1 tomes deliberately set scaffoldCommand to an empty array so the learner
+    starts from a blank editor. Isolated snippets still need the language's disposable
+    project scaffold. Keep validation-package declarations from the tome, but do not reuse
+    its cumulative project layout for a one-program scratch run.
+    """
+    cfg = dict(cfg or {})
+    cfg.setdefault("name", DEFAULT)
+    defaults = lang_config(cfg["name"])
+    if cfg.get("scaffoldCommand") != [] or not defaults.get("scaffoldCommand"):
+        return cfg
+    scratch = {"name": cfg["name"]}
+    for key in ("validationDependencies", "validationProjectPackageCommand",
+                "validationPackageCommand", "validationEnv"):
+        if key in cfg:
+            scratch[key] = cfg[key]
+    return scratch
+
+
+def for_snippets(cfg):
+    """Runtime for lesson labs, diagnostics, and duel reference solutions."""
+    return for_config(snippet_config(cfg))
+
+
 def get(name):
     """Runtime by language-toml name (used by /api/health)."""
     return for_config({"name": name or DEFAULT})

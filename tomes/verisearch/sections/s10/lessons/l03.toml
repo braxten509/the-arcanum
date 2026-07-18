@@ -1,48 +1,17 @@
 [[lessons]]
 id = "s10-l03"
-teaches = ["cli-options"]
+teaches = ["language-cli-packaging"]
 title = "Parse a Small CLI Without Another Framework"
 body = '''
-<p>Verisearch has four user-facing inputs: one question, repeatable <code>--source LABEL</code> choices, <code>--mock</code>, and <code>--verbose</code>. That grammar is small enough to teach directly. Create <code>CommandLineOptions.cs</code> and keep parsing separate from <code>Program.cs</code>.</p>
-<pre><code><span class="k">public sealed record</span> CommandLineOptions(<span class="k">string</span> Question,
-    List&lt;<span class="k">string</span>&gt; SourceLabels, <span class="k">bool</span> Mock, <span class="k">bool</span> Verbose, <span class="k">bool</span> ShowHelp)
-{
-    <span class="k">public const string</span> Usage = <span class="s">"verisearch \"question\" [--source LABEL] [--mock] [--verbose]"</span>;
 
-    <span class="k">public static</span> CommandLineOptions Parse(<span class="k">string</span>[] args)
-    {
-        <span class="k">if</span> (args.Contains(<span class="s">"--help"</span>))
-            <span class="k">return new</span>(<span class="s">""</span>, [], <span class="k">false</span>, <span class="k">false</span>, <span class="k">true</span>);
-
-        <span class="k">string</span>? question = <span class="k">null</span>;
-        <span class="k">var</span> labels = <span class="k">new</span> List&lt;<span class="k">string</span>&gt;();
-        <span class="k">bool</span> mock = <span class="k">false</span>;
-        <span class="k">bool</span> verbose = <span class="k">false</span>;
-
-        <span class="k">for</span> (<span class="k">int</span> i = 0; i &lt; args.Length; i++)
-        {
-            <span class="k">switch</span> (args[i])
-            {
-                <span class="k">case</span> <span class="s">"--source"</span> <span class="k">when</span> i + 1 &lt; args.Length:
-                    labels.Add(args[++i]);
-                    <span class="k">break</span>;
-                <span class="k">case</span> <span class="s">"--mock"</span>: mock = <span class="k">true</span>; <span class="k">break</span>;
-                <span class="k">case</span> <span class="s">"--verbose"</span>: verbose = <span class="k">true</span>; <span class="k">break</span>;
-                <span class="k">default</span>:
-                    <span class="k">if</span> (args[i].StartsWith(<span class="s">"-"</span>) || question <span class="k">is not null</span>)
-                        <span class="k">throw new</span> ArgumentException(<span class="s">$"unexpected argument: {args[i]}"</span>);
-                    question = args[i];
-                    <span class="k">break</span>;
-            }
-        }
-        <span class="k">if</span> (<span class="k">string</span>.IsNullOrWhiteSpace(question))
-            <span class="k">throw new</span> ArgumentException(<span class="s">"a question is required"</span>);
-        <span class="k">return new</span>(question, labels, mock, verbose, <span class="k">false</span>);
-    }
-}</code></pre>
-<p>Shell quotes keep a multiword question in one argument: <code>dotnet run -- "What changed?" --source RFC</code>. The double dash belongs to <code>dotnet run</code>; it passes later tokens to your program.</p>
-<div class="callout">The <code>--mock</code> flag selects a different implementation explicitly. It is not an exception handler and must never be enabled automatically.</div>
-<div class="field-notes"><div class="fn-head">MARGINALIA // FRIENDLY FAILURES</div><p><code>Program.cs</code> catches <code>ArgumentException</code>, prints the message plus <code>Usage</code>, and exits 2. Help prints usage and exits 0. These exit codes let scripts distinguish success, bad input, and later runtime failure.</p></div>
+<p>A command-line interface is a public grammar. It should preserve the user's whole question, collect explicit source choices, and configure an AI boundary without relying on shell tricks or secret defaults.</p>
+<p>Decide whether the question is positional, supplied through an option, or read from standard input. In every design, pass it as one value to the application. The shell may require quotation marks around spaces, but those quotation marks are not part of the C# value. Do not split the question into keywords and route different words to different lookup implementations.</p>
+<pre><code data-kind="terminal">$ verisearch "What changed between the two accounts?"     --source archive --source handbook     --provider cli --ai-command my-ai-wrapper</code></pre>
+<p>The command is a usage example, not a required parser or provider name. A learner may choose local model arguments, an API-backed adapter configured by environment, a plugin directory, or another explicit scheme. Secrets must not appear in committed source or ordinary reports.</p>
+<p>For a small surface, a loop and <code>switch</code> can parse arguments safely. Every value-taking option must check for a following token. Unknown flags, duplicate singleton options, invalid limits, and missing questions need stable nonzero exits. Repeated source and AI-argument options should retain order. Help should return without starting network or AI work.</p>
+<p>Use <code>ProcessStartInfo.ArgumentList</code> when launching another program rather than concatenating a shell command. Argument arrays prevent spaces and punctuation from changing meaning. If you choose an HTTP provider, validate its endpoint and read its API key from configuration or environment at the boundary.</p>
+<div class="callout"><p>Provider configuration selects an implementation. It must never select a keyword recipe. The configured AI receives the entire question and the admitted passages.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // PARSER MATRIX</div><p>List help, valid input, missing option value, unknown option, repeated source, absent AI configuration, and a punctuation-heavy question. Assign an expected exit and whether external work may start.</p></div>
 '''
 
 [[lessons.readings]]
@@ -55,9 +24,9 @@ id = "s10-l03-e1"
 type = "mc"
 points = 20
 prompt = "Why must a multiword question be quoted in the shell command?"
-choices = ["C# strings always need shell quotes", "The shell must pass it as one argument instead of several tokens", "Ollama reads only quoted JSON", "Spectre.Console requires quotes"]
+choices = ["C# strings always need shell quotes", "The shell must pass it as one argument instead of several tokens", "the configured AI reads only quoted JSON", "Spectre.Console requires quotes"]
 answer = 1
-whyWrong = "This is shell tokenization, not a requirement of C# strings, Ollama, or Spectre. Quotes preserve one positional argument."
+whyWrong = "This is shell tokenization, not a requirement of C# strings, the configured AI, or Spectre. Quotes preserve one positional argument."
 explain = "The parser permits one non-flag question token, so the shell must keep the words together."
 hint = "Inspect what arrives in args[]."
 
@@ -76,9 +45,9 @@ id = "s10-l03-e3"
 type = "mc"
 points = 20
 prompt = "Why should invalid CLI input return a nonzero exit code?"
-choices = ["To make output red", "So scripts and callers can detect failure", "Because Console.WriteLine returns an int", "To stop Ollama"]
+choices = ["To make output red", "So scripts and callers can detect failure", "Because Console.WriteLine returns an int", "To stop the configured AI"]
 answer = 1
-whyWrong = "Color and Ollama are unrelated, and Console.WriteLine returns void. Process status is a machine-readable success signal."
+whyWrong = "Color and the configured AI are unrelated, and Console.WriteLine returns void. Process status is a machine-readable success signal."
 explain = "Exit 0 means successful handling; a nonzero status distinguishes an error even when output is redirected."
 hint = "Think of another program invoking Verisearch."
 
@@ -116,3 +85,19 @@ for (int i = 0; i < tokens.Length; i++)
 Console.WriteLine(string.Join(",", labels));
 '''
 hint = "When the current token is --source, increment i and add the next token."
+
+[[lessons.concepts]]
+id = "language-cli-packaging"
+purpose = "Design a predictable command surface and deliver a runnable artifact from the same source and project metadata."
+anatomy = "Parse arguments without a shell, return stable exit codes, build or publish through dotnet, then launch the produced path with a real command."
+example = "The disposable examples in Parse a Small CLI Without Another Framework isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Parse a Small CLI Without Another Framework supplies the disposable observation point."
+observable = "Help, invalid input, ordinary execution, and the published binary each produce their documented outcome. Confirm it while practicing Parse a Small CLI Without Another Framework."
+failure = "Ambiguous arguments, embedded secrets, or an unlaunched publish directory leave the program unproved."
+practice = "s10-l03-e1"
+
+[[lessons.artifactSteps]]
+id = "s10-l03-author-artifact"
+path = "src/Verisearch/ReportRenderer.cs"
+mode = "author"
+instruction = "Use the C# ideas from Parse a Small CLI Without Another Framework to author or revise this learner-owned path toward the chapter behavior: Expose a predictable CLI and render only verified quotations, citations, source failures, and explicit test-mode state. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["Help and invalid arguments have stable exits, and the report contains only verified quote values with C#-owned citations.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

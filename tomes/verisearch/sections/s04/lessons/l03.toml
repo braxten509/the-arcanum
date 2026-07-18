@@ -1,11 +1,11 @@
 [[lessons]]
 id = "s04-l03"
-teaches = ["http-client"]
+teaches = ["language-async-cancellation"]
 title = "HttpClient — GET requests done right"
 body = '''
 
 <p><code>HttpClient</code> is your wire to the web. The two calls you'll use constantly:</p>
-<pre><code><span class="k">var</span> http = <span class="k">new</span> HttpClient();
+<pre><code data-kind="replacement"><span class="k">var</span> http = <span class="k">new</span> HttpClient();
 http.Timeout = TimeSpan.FromSeconds(10);       <span class="c">// never wait forever</span>
 
 <span class="c">// simple: URL → body string (throws on network failure)</span>
@@ -22,7 +22,7 @@ HttpResponseMessage resp = <span class="k">await</span> http.GetAsync(url);
     Console.WriteLine(<span class="s">$"HTTP {(int)resp.StatusCode} from {url}"</span>);   <span class="c">// 404, 500, ...</span>
 }</code></pre>
 <p>What can go wrong — and does, constantly:</p>
-<pre><code><span class="k">try</span>
+<pre><code data-kind="replacement"><span class="k">try</span>
 {
     <span class="k">string</span> body = <span class="k">await</span> http.GetStringAsync(url);
 }
@@ -36,12 +36,13 @@ HttpResponseMessage resp = <span class="k">await</span> http.GetAsync(url);
 }</code></pre>
 <p><strong>The one lifetime rule:</strong> create ONE <code>HttpClient</code> and reuse it for the whole program. New-ing one per request leaks sockets and eventually starves the OS. (Chapter VIII goes deeper.)</p>
 <p>Pass a cancellation token through every real request. This gives the caller one way to stop a slow page or Ctrl+C cancellation:</p>
-<pre><code><span class="k">using var</span> timeout = <span class="k">new</span> CancellationTokenSource(TimeSpan.FromSeconds(15));
+<pre><code data-kind="replacement"><span class="k">using var</span> timeout = <span class="k">new</span> CancellationTokenSource(TimeSpan.FromSeconds(15));
 <span class="k">using</span> HttpResponseMessage response = <span class="k">await</span> http.GetAsync(source.Url, timeout.Token);
 response.EnsureSuccessStatusCode();</code></pre><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>Status code families:</strong> 2xx success · 3xx redirect (HttpClient follows most automatically) · 4xx you messed up (404 not found, 403 forbidden, 429 slow down) · 5xx they messed up. <code>resp.EnsureSuccessStatusCode()</code> throws on any non-2xx — the quick version of the if-check.</p>
 <p><strong>Headers you'll actually set:</strong> <code>http.DefaultRequestHeaders.UserAgent.ParseAdd("Verisearch/1.0")</code> once at startup; per-request headers go on an <code>HttpRequestMessage</code> if you ever need them.</p>
-<p><strong>POST in one line</strong> (for later): <code>await http.PostAsJsonAsync(url, myObject)</code> — serializes and sends. The GetFromJsonAsync/PostAsJsonAsync family (namespace <code>System.Net.Http.Json</code>) fuses HTTP + JSON and skips manual Deserialize entirely.</p></div>'''
+<p><strong>POST in one line</strong> (for later): <code>await http.PostAsJsonAsync(url, myObject)</code> — serializes and sends. The GetFromJsonAsync/PostAsJsonAsync family (namespace <code>System.Net.Http.Json</code>) fuses HTTP + JSON and skips manual Deserialize entirely.</p></div>
+'''
 
 [[lessons.readings]]
 label = "Microsoft Learn — \"Make HTTP requests with HttpClient\""
@@ -102,3 +103,19 @@ points = 12
 prompt = "The bounded, cancellable GET shape. Once."
 code = '''using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 using HttpResponseMessage response = await http.GetAsync(source.Url, timeout.Token);'''
+
+[[lessons.concepts]]
+id = "language-async-cancellation"
+purpose = "Coordinate I/O-bound work without blocking threads, serializing independent work, or swallowing cancellation."
+anatomy = "Return Task or Task<T>, await asynchronous operations, pass one CancellationToken, and use Task.WhenAll when independent work may overlap."
+example = "The disposable examples in HttpClient — GET requests done right isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson HttpClient — GET requests done right supplies the disposable observation point."
+observable = "Independent reads overlap, completion resumes with typed results, and cancellation reaches the top boundary. Confirm it while practicing HttpClient — GET requests done right."
+failure = "Using Result, Wait, await-inside-loop, or catching cancellation as an ordinary error breaks responsiveness."
+practice = "s04-l03-e1"
+
+[[lessons.artifactSteps]]
+id = "s04-l03-author-artifact"
+path = "tests/Verisearch.Tests/QuestionPreparationTests.cs"
+mode = "author"
+instruction = "Use the C# ideas from HttpClient — GET requests done right to author or revise this learner-owned path toward the chapter behavior: Introduce tests early, then read one chosen source through an asynchronous, replaceable boundary. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["An early test changes from green to red under a deliberate bad input, and an async source read remains replaceable without live networking.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

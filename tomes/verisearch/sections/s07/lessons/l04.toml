@@ -1,29 +1,29 @@
 [[lessons]]
 id = "s07-l04"
-teaches = ["deferred-execution"]
+teaches = ["language-linq-lambdas"]
 title = "Lazy evaluation — LINQ's hidden foot-gun"
 body = '''
 
 <p>A LINQ query is a <strong>description of work, not the work</strong>. Nothing runs until something enumerates it:</p>
-<pre><code><span class="k">var</span> q = passages.Where(p =&gt; { Console.WriteLine(<span class="s">$"testing {p.Id}"</span>); <span class="k">return</span> p.Text.Length &gt;= 20; });
+<pre><code data-kind="replacement"><span class="k">var</span> q = passages.Where(p =&gt; { Console.WriteLine(<span class="s">$"testing {p.Id}"</span>); <span class="k">return</span> p.Text.Length &gt;= 20; });
 Console.WriteLine(<span class="s">"query built"</span>);
 <span class="c">// output so far: "query built" — the Where has NOT run!</span>
 
 <span class="k">foreach</span> (<span class="k">var</span> passage <span class="k">in</span> q) { }  <span class="c">// NOW "testing ..." prints — enumeration triggers it</span></code></pre>
 <p>Consequence #1 — <strong>multiple enumeration</strong> re-runs the whole pipeline:</p>
-<pre><code><span class="k">var</span> retained = passages.Where(ExpensiveLengthCheck);
+<pre><code data-kind="replacement"><span class="k">var</span> retained = passages.Where(ExpensiveLengthCheck);
 Console.WriteLine(retained.Count());      <span class="c">// runs every check</span>
 <span class="k">foreach</span> (<span class="k">var</span> passage <span class="k">in</span> retained) Print(passage); <span class="c">// runs every check AGAIN</span></code></pre>
 <p>Fix: materialize once with <code>.ToList()</code> when you'll use results more than once, or when you want the work to happen NOW (e.g., inside a try/catch — a lazy query throws where it's <em>enumerated</em>, not where it's <em>written</em>).</p>
 <p>Consequence #2 — <strong>captured variables evaluate late</strong>:</p>
-<pre><code><span class="k">int</span> minimum = 20;
+<pre><code data-kind="replacement"><span class="k">int</span> minimum = 20;
 <span class="k">var</span> q2 = passages.Where(p =&gt; p.Text.Length &gt;= minimum);
 minimum = 80;
 <span class="k">var</span> list = q2.ToList();     <span class="c">// filters with 80, not 20 — the lambda reads minimum at RUN time</span></code></pre>
 <p>Consequence #3 — laziness is a <em>feature</em> for big data: <code>File.ReadLines(path).Where(...).First()</code> stops reading the file at the first match. Eager <code>ReadAllLines</code> would slurp gigabytes.</p>
 <div class="callout">Rule of thumb for Verisearch: INSIDE a pipeline method, stay lazy (return IEnumerable). At the BOUNDARY — returning results to a caller, storing to a field, crossing a try/catch — ToList().</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>yield return — build your own lazy sequences:</strong></p>
-<pre><code>IEnumerable&lt;string&gt; ReadNonBlankLines(string path)
+<pre><code data-kind="replacement">IEnumerable&lt;string&gt; ReadNonBlankLines(string path)
 {
     foreach (var line in File.ReadLines(path))   <span class="c">// itself lazy!</span>
     {
@@ -31,11 +31,12 @@ minimum = 80;
     }
 }</code></pre>
 <p>The method body does not run until enumerated, produces one element at a time, and can stop early—<code>ReadNonBlankLines(path).First()</code> reads only as far as the first useful line. This is the machinery under LINQ; the lazy behavior should now feel predictable.</p>
-<p><strong>Detecting multiple enumeration:</strong> if a debugger hit inside your Where lambda fires twice as often as expected, you enumerated twice. Materialize at boundaries; profile before optimizing further.</p></div>'''
+<p><strong>Detecting multiple enumeration:</strong> if a debugger hit inside your Where lambda fires twice as often as expected, you enumerated twice. Materialize at boundaries; profile before optimizing further.</p></div>
+'''
 
 [[lessons.readings]]
 label = "Microsoft Learn — \"Deferred execution\""
-url = "https://learn.microsoft.com/en-us/dotnet/csharp/linq/get-started/deferred-execution-lazy-evaluation"
+url = "https://learn.microsoft.com/en-us/dotnet/standard/linq/deferred-execution-lazy-evaluation"
 essential = false
 
 [[lessons.exercises]]
@@ -104,3 +105,19 @@ IEnumerable<string> Scans()
 }
 '''
 hint = "Three yield return statements (or a loop). Method after top-level code."
+
+[[lessons.concepts]]
+id = "language-linq-lambdas"
+purpose = "Transform collections declaratively while understanding when a sequence actually executes."
+anatomy = "Write a lambda parameter and expression, compose the needed LINQ operators, then materialize once at the boundary that needs stable data."
+example = "The disposable examples in Lazy evaluation — LINQ's hidden foot-gun isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Lazy evaluation — LINQ's hidden foot-gun supplies the disposable observation point."
+observable = "The resulting sequence has the expected order and contents and is enumerated at a deliberate time. Confirm it while practicing Lazy evaluation — LINQ's hidden foot-gun."
+failure = "Capturing mutable state or enumerating a deferred query repeatedly can change results between observations."
+practice = "s07-l04-e1"
+
+[[lessons.artifactSteps]]
+id = "s07-l04-author-artifact"
+path = "src/Verisearch/SourceSelection.cs"
+mode = "author"
+instruction = "Use the C# ideas from Lazy evaluation — LINQ's hidden foot-gun to author or revise this learner-owned path toward the chapter behavior: Honor source labels selected by the user, preserving order and rejecting unknown entries before networking. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["Requested labels preserve user order, an unknown label fails before I/O, and the question text never selects or rewrites a source.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

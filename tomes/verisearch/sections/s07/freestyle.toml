@@ -1,37 +1,76 @@
 [freestyle]
-title = "THE WORKING: The Source Admission Ward"
-requires = ["json-config", "lambdas-delegates", "linq-advanced", "extension-methods", "deferred-execution", "uri-validation", "source-policy"]
-brief = "Add <code>SourcePolicy.cs</code> to the evolving project.<ul><li>Accept only <code>SourceSpec</code> values already present in the validated <code>AppConfig</code>. When <code>--source LABEL</code> values are supplied, match those labels case-insensitively; when none are supplied, select all configured sources.</li><li>Validate web URLs as absolute HTTP/HTTPS and fixture URLs as <code>mock://</code>. Reject malformed entries before fetching.</li><li>Deduplicate exact URLs case-insensitively and materialize once with <code>ToList</code>. Preserve configuration order in all-sources mode and user request order in explicit mode.</li><li>If a requested label is absent, stop with a message naming it. Never search for a substitute, infer a domain score, or ask Ollama which source is authoritative.</li><li>Demonstrate all-sources mode, two-label ordering, duplicate URLs, and an unknown label with local records.</li><li>Run <code>dotnet build</code> before wiring this policy into later networking.</li></ul>"
-reward = 450
-packages = []
-xray = "THORNE requests one mixed-case label, repeats a URL, adds a malformed web address, and names a source not in config. He expects a small deterministic policy—not search, guessed trust, or a silent substitute."
+title = "THE WORKING: SOURCE ADMISSION WITHOUT KEYWORD ROUTING"
+brief = '''
+<p><strong>Outcome:</strong> Honor source labels selected by the user, preserving order and rejecting unknown entries before networking.</p><p>Author the project edits yourself. The hidden replay proves one possible implementation, but it is never shown and does not define your architecture.</p><ul><li>Resolve source labels explicitly supplied by the user against the catalog before networking begins.</li><li>Choose and document duplicate and no-label behavior while preserving first-request order and rejecting unknown labels.</li><li>Use LINQ and lambdas deliberately, then materialize the admitted collection once before asynchronous work.</li><li>Prove with a spy that an unknown source causes zero reads and that changing question words does not change source selection.</li><li>Keep safe URI admission and optional local-file support explicit; never ask AI or keyword rules to invent a source.</li></ul>
+'''
+requires = ["language-project-toolchain", "language-namespaces-modularity", "language-types-nullability", "language-methods-scope", "language-control-flow", "language-collections-generics", "language-exceptions-resources", "language-classes-records", "language-linq-lambdas", "language-testing-debugging", "language-async-cancellation", "language-serialization-io", "language-interfaces-polymorphism"]
+reward = 525
+xray = "The grader inspects saved C# and project metadata, runs the chapter proof and cumulative regressions, changes a load-bearing input, and checks the observable chapter contract: Requested labels preserve user order, an unknown label fails before I/O, and the question text never selects or rewrites a source."
 
 [freestyle.badge]
 id = "badge-s07"
-name = "KEEPER OF THE SHELVES"
-desc = "Bound the working to sources the seeker actually chose."
+name = "KEEPER OF SOURCE CHOICE"
+desc = "Made authority explicit, ordered, and independent of question keywords."
 
 [[freestyle.rubric]]
-criterion = "Configured-only admission"
+criterion = "User-owned source choice"
 weight = 25
-desc = "Every selected source originates in AppConfig; unknown requested labels produce a clear failure."
+desc = "Resolve source labels explicitly supplied by the user against the catalog before networking begins."
 
 [[freestyle.rubric]]
-criterion = "URI rules"
+criterion = "Order and duplicates"
 weight = 20
-desc = "Web and LocalFixture kinds enforce their distinct absolute URI schemes before fetching."
+desc = "Choose and document duplicate and no-label behavior while preserving first-request order and rejecting unknown labels."
 
 [[freestyle.rubric]]
-criterion = "LINQ boundary"
+criterion = "LINQ materialization"
 weight = 20
-desc = "Selection, case-insensitive URL deduplication, stable input ordering, and one final ToList are readable and not multiply enumerated."
+desc = "Use LINQ and lambdas deliberately, then materialize the admitted collection once before asynchronous work."
 
 [[freestyle.rubric]]
-criterion = "Trust ownership"
+criterion = "Pre-I/O rejection"
 weight = 20
-desc = "No discovered substitute, inferred domain authority, or AI-authored trust enters the selected list."
+desc = "Prove with a spy that an unknown source causes zero reads and that changing question words does not change source selection."
 
 [[freestyle.rubric]]
-criterion = "C# craft"
+criterion = "Question independence"
 weight = 15
-desc = "PascalCase types and methods, camelCase locals, four-space indentation, Allman braces, and short policy helpers."
+desc = "Keep safe URI admission and optional local-file support explicit; never ask AI or keyword rules to invent a source."
+
+[[freestyle.referenceSteps]]
+id = "s07-write-source-selection"
+path = "src/Verisearch/SourceSelection.cs"
+mode = "write"
+instruction = "Private replay resolves explicit user labels in order and rejects unknown labels before I/O."
+content = '''
+namespace Verisearch;
+
+public static class SourceSelection
+{
+    public static IReadOnlyList<SourceSpec> Select(
+        IReadOnlyList<SourceSpec> catalog,
+        IReadOnlyList<string> requestedLabels)
+    {
+        if (requestedLabels.Count == 0)
+        {
+            return catalog.ToList();
+        }
+
+        var byLabel = catalog.ToDictionary(source => source.Label, StringComparer.OrdinalIgnoreCase);
+        var selected = new List<SourceSpec>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string requested in requestedLabels)
+        {
+            if (!byLabel.TryGetValue(requested, out SourceSpec? source))
+            {
+                throw new InvalidOperationException($"source is not in the chosen catalog: {requested}");
+            }
+            if (seen.Add(source.Label))
+            {
+                selected.Add(source);
+            }
+        }
+        return selected;
+    }
+}
+'''

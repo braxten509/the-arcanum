@@ -17,6 +17,7 @@ from buildlib import course_map
 from buildlib.workflow.checkpoints import arc_written
 from buildlib.language_mastery import (authored_mastery_problems, phase1_contract_problems,
                                        seed_contract, validate_map_contract)
+from buildlib.language_mastery.coverage import coverage_problems, profile_for
 from buildlib.workflow.prompts import write_plan
 
 
@@ -104,6 +105,24 @@ ARC_V2_LEVEL2 = (ARC
                  .replace("Python — Finish 3/5", "Python — Finish 2/5"))
 assert not phase1_contract_problems(ARC_V2_LEVEL2, ARC_V2_LEVEL2, IDS), (
     "Mastery 2 must retain the five-role project-first contract without forcing classes")
+
+C_SHARP_LEVEL3 = [
+    "language-project-toolchain", "language-types-nullability", "language-control-flow",
+    "language-collections-generics", "language-methods-scope", "language-classes-records",
+    "language-interfaces-polymorphism", "language-namespaces-modularity",
+    "language-exceptions-resources", "language-linq-lambdas",
+    "language-async-cancellation", "language-serialization-io",
+    "language-testing-debugging", "language-cli-packaging",
+]
+csharp_profile = profile_for("C#", 3)
+assert csharp_profile["language"] == "c" and csharp_profile["minimumCapabilities"] == 14
+assert not coverage_problems(
+    "C#", 3, C_SHARP_LEVEL3,
+    expected_area_ids=[area["id"] for area in csharp_profile["areas"]],
+    require_distinct_groups=True)
+assert any("async-and-cancellation" in problem for problem in coverage_problems(
+    "C#", 3, [cap for cap in C_SHARP_LEVEL3 if cap != "language-async-cancellation"],
+    require_distinct_groups=True))
 
 
 def mapped_contract():

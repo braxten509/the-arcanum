@@ -1,45 +1,20 @@
 [[lessons]]
 id = "s04-l05"
-teaches = ["source-fetcher"]
+teaches = ["language-interfaces-polymorphism"]
 title = "Workshop — Fetch One Explicit Source"
 body = '''
-<p>The first real network component should be smaller than a search engine. Verisearch begins with a source the user explicitly chose, fetches its HTML, and preserves its identity in a <code>SourceDocument</code>. Discovery can be added later; exact quotation does not require a search provider.</p>
-<p>Create <code>SourceFetcher.cs</code>:</p>
-<pre><code><span class="k">public class</span> SourceFetcher
+
+<p>The chapter Working combines asynchronous I/O, typed data, and an early test without handing you a production implementation. Your task is to design one replaceable operation that reads exactly the source it receives. It must not discover sources from question words, pick a preferred website, or manufacture a successful document after failure.</p>
+<p>Start from behavior. Given a valid HTTP source and a non-cancelled token, the operation returns content paired with the same source identity. A non-success HTTP status becomes a specific failure. Cancellation remains cancellation. A test must be able to substitute the I/O edge so it never depends on the public internet.</p>
+<pre><code data-kind="replacement">public interface ITextReader
 {
-    <span class="k">private readonly</span> HttpClient _http;
-
-    <span class="k">public</span> SourceFetcher(HttpClient http)
-    {
-        _http = http;
-    }
-
-    <span class="k">public async</span> Task&lt;SourceDocument&gt; FetchAsync(SourceSpec source,
-        CancellationToken ct = <span class="k">default</span>)
-    {
-        <span class="k">if</span> (source.Kind == SourceKind.LocalFixture)
-        {
-            <span class="k">string</span> fixture = <span class="s">"&lt;main&gt;&lt;p&gt;A verified local passage.&lt;/p&gt;&lt;/main&gt;"</span>;
-            <span class="k">return new</span> SourceDocument(source, fixture);
-        }
-
-        <span class="k">using var</span> response = <span class="k">await</span> _http.GetAsync(source.Url, ct);
-        response.EnsureSuccessStatusCode();
-
-        <span class="k">string</span> mediaType = response.Content.Headers.ContentType?.MediaType ?? <span class="s">""</span>;
-        <span class="k">if</span> (!mediaType.Contains(<span class="s">"html"</span>, StringComparison.OrdinalIgnoreCase))
-        {
-            <span class="k">throw new</span> InvalidOperationException(<span class="s">$"expected HTML, received {mediaType}"</span>);
-        }
-
-        <span class="k">string</span> html = <span class="k">await</span> response.Content.ReadAsStringAsync(ct);
-        <span class="k">return new</span> SourceDocument(source, html);
-    }
+    Task&lt;string&gt; ReadAsync(Uri uri, CancellationToken cancellationToken);
 }</code></pre>
-<p>The constructor receives an <code>HttpClient</code>; it does not create one per request. Chapter XI will name this pattern dependency injection, but you can use it now: <code>var fetcher = new SourceFetcher(http);</code>. The explicit local fixture is not a secret fallback. The caller selects <code>LocalFixture</code>, output labels it, and the same <code>SourceDocument</code> path continues into later stages.</p>
-<p>Keep exceptions meaningful at this boundary. A bad URL, failed status, cancellation, or non-HTML response should not become an empty string that looks successful. The batch chapter will decide which failures are survivable.</p>
-<div class="field-notes"><div class="fn-head">MARGINALIA // WHY SEARCH IS NOT THE FOUNDATION</div>
-<p>Public search APIs vary, require keys, or disable JSON. A quotation verifier should remain useful when the user supplies a URL directly. Making explicit sources the core also gives the user control over trust. An optional discovery adapter can produce more <code>SourceSpec</code> values later without changing fetching, extraction, or verification.</p></div>
+<p>This fragment demonstrates the size of a useful seam. You may instead return a document record, inject an <code>HttpMessageHandler</code>, wrap file and web readers behind one interface, or use another design you can test. Keep ownership explicit: whichever component creates an <code>HttpClient</code> should also decide its lifetime; a per-request client hidden inside the reader is difficult to configure and can exhaust sockets in larger programs.</p>
+<p>Write the test first for one controlled response. Assert the requested URI, the preserved source identity, and the returned body. Add a second case for a non-success status or cancellation. Run it green, introduce one deliberate defect, observe red, then repair it. This is the first proof that the learner can use a test to locate a boundary rather than merely copy a finished file.</p>
+<p>When you author the real project edit, choose names and file placement that fit the model from Chapter III. Keep <code>Program.cs</code> as a temporary demonstration or proof entrypoint; do not bind the complete application yet. Later Workings will add configuration, extraction, concurrency, AI, and rendering.</p>
+<div class="callout"><p>A mock source reader may be deterministic because reading is an infrastructure seam. It must not be presented as a factual search result. The final AI mock has an even stricter rule: explicit test mode only, visibly labeled.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ASYNC IS CONTAGIOUS BY DESIGN</div><p>Return <code>Task&lt;T&gt;</code> from the I/O boundary and await it upward. Avoid <code>.Result</code> and <code>.Wait()</code>; they conceal the asynchronous contract and make cancellation harder to reason about.</p></div>
 '''
 
 [[lessons.readings]]
@@ -101,3 +76,19 @@ public record SourceSpec(string Label, string Url, SourceKind Kind);
 public record SourceDocument(SourceSpec Source, string Html);
 '''
 hint = "Return new SourceDocument(source, the HTML string), then read document.Source.Label and document.Html.Length."
+
+[[lessons.concepts]]
+id = "language-interfaces-polymorphism"
+purpose = "Name a behavioral seam so real providers and test doubles can be substituted without changing the pipeline's truth rules."
+anatomy = "Declare the smallest useful interface member, implement it in separate concrete types, and depend on the interface at the caller boundary."
+example = "The disposable examples in Workshop — Fetch One Explicit Source isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Workshop — Fetch One Explicit Source supplies the disposable observation point."
+observable = "Two implementations can satisfy the same caller while verification and reporting remain unchanged. Confirm it while practicing Workshop — Fetch One Explicit Source."
+failure = "An interface that exposes provider details or verified output lets one implementation bypass the common contract."
+practice = "s04-l05-e1"
+
+[[lessons.artifactSteps]]
+id = "s04-l05-author-artifact"
+path = "tests/Verisearch.Tests/QuestionPreparationTests.cs"
+mode = "author"
+instruction = "Use the C# ideas from Workshop — Fetch One Explicit Source to author or revise this learner-owned path toward the chapter behavior: Introduce tests early, then read one chosen source through an asynchronous, replaceable boundary. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["An early test changes from green to red under a deliberate bad input, and an async source read remains replaceable without live networking.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

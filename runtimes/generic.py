@@ -373,8 +373,12 @@ class CommandRuntime:
                                        capture_output=True, text=True, timeout=self.build_timeout)
                 except (subprocess.TimeoutExpired, OSError):
                     return {"ok": False, "diags": []}
-                diags = [d for d in self._parse_diags(p.stdout + p.stderr, sdir, self.entry)
+                output = p.stdout + p.stderr
+                diags = [d for d in self._parse_diags(output, sdir, self.entry)
                          if d["file"].endswith(self.entry)]
+                if p.returncode and not diags:
+                    return {"ok": False, "diags": [],
+                            "output": output.strip() or "scratch project build failed"}
                 return {"ok": True, "diags": diags}
             path = os.path.join(sdir, "check-" + self.entry)
             common.atomic_write(path, code)

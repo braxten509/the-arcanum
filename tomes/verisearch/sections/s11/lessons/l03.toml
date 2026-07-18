@@ -1,55 +1,19 @@
 [[lessons]]
 id = "s11-l03"
-teaches = ["pipeline-orchestration"]
+teaches = ["language-namespaces-modularity"]
 title = "Pipeline — One Method That Tells the Truth"
 body = '''
-<p>Add the final result record to <code>Models.cs</code>:</p>
-<pre><code><span class="k">public sealed record</span> PipelineResult(List&lt;VerifiedQuote&gt; Quotes,
-    List&lt;<span class="k">string</span>&gt; SourceErrors, <span class="k">int</span> RejectedProposals,
-    <span class="k">int</span> SourcesAttempted, <span class="k">int</span> SourcesFetched, <span class="k">bool</span> Mock);</code></pre>
-<p>Then create <code>Pipeline.cs</code>. Its method reads in the same order as the product claim: fetch configured sources, extract passages, request proposals, verify exact text, return facts for the renderer.</p>
-<pre><code><span class="k">public async</span> Task&lt;PipelineResult&gt; RunAsync(<span class="k">string</span> question,
-    IReadOnlyList&lt;SourceSpec&gt; sources, <span class="k">bool</span> mock,
-    CancellationToken ct = <span class="k">default</span>)
-{
-    List&lt;FetchOutcome&gt; outcomes = <span class="k">await</span> _batch.FetchAllAsync(sources, ct);
-    <span class="k">var</span> errors = outcomes.Where(o =&gt; !o.Ok)
-        .Select(o =&gt; <span class="s">$"{o.Source.Label}: {o.Error}"</span>).ToList();
-    <span class="k">var</span> quotes = <span class="k">new</span> List&lt;VerifiedQuote&gt;();
-    <span class="k">int</span> rejected = 0;
 
-    <span class="k">foreach</span> (FetchOutcome outcome <span class="k">in</span> outcomes.Where(o =&gt; o.Ok))
-    {
-        List&lt;Passage&gt; passages;
-        <span class="k">try</span>
-        {
-            passages = <span class="k">await</span> _extractor.ExtractAsync(outcome.Document!);
-        }
-        <span class="k">catch</span> (Exception ex)
-        {
-            errors.Add(<span class="s">$"{outcome.Source.Label}: extraction failed: {ex.Message}"</span>);
-            <span class="k">continue</span>;
-        }
-        <span class="k">if</span> (passages.Count == 0)
-        {
-            errors.Add(<span class="s">$"{outcome.Source.Label}: no usable passages"</span>);
-            <span class="k">continue</span>;
-        }
-
-        <span class="k">int</span> remaining = _maxQuotes - quotes.Count;
-        <span class="k">if</span> (remaining == 0) <span class="k">break</span>;
-        QuoteBatch proposals = <span class="k">await</span> _selector.SelectAsync(question, passages, ct);
-        VerificationBatch proof = _verifier.Verify(proposals.Quotes, passages, remaining);
-        quotes.AddRange(proof.Accepted);
-        rejected += proof.Rejected;
-    }
-
-    <span class="k">return new</span> PipelineResult(quotes, errors, rejected, sources.Count,
-        outcomes.Count(o =&gt; o.Ok), mock);
-}</code></pre>
-<p>There is no search stage, no inferred trust, no proposal rendering, and no fallback catch around <code>_selector</code>. If live Ollama is unavailable, its exception reaches <code>Program.cs</code>, which can name the required service accurately.</p>
-<div class="callout">The pipeline returns data and never calls Console or AnsiConsole. The same PipelineResult can feed the current terminal renderer or a future JSON renderer without changing truth logic.</div>
-<div class="field-notes"><div class="fn-head">MARGINALIA // FAILURE OWNERSHIP</div><p>Fetching and extraction fail per source, so healthy sources continue. Model availability is mode-wide, so a live selector failure stops the live run. The boundary follows the scope of each failure rather than one generic “catch everything” rule.</p></div>
+<p>The pipeline is a behavioral sequence, not necessarily one class or one giant method. Its job is to preserve contracts across source selection, concurrent reading, extraction, semantic AI selection, deterministic verification, and reporting.</p>
+<p>Write the sequence as arrows before coding. Mark which values are trusted, which are external, and where cancellation or partial failure may occur. The AI must receive the whole question and the stable passages from the sources the user selected. Its output remains proposals. Only the verifier may pair exact quote text with source-owned attribution.</p>
+<pre><code data-kind="pseudocode">selected sources -&gt; read outcomes -&gt; stable passages
+whole question + stable passages -&gt; AI proposals
+proposals + same passages -&gt; verified quotations -&gt; report</code></pre>
+<p>This is pseudocode architecture. You may implement a coordinator, compose functions, use application services, or choose another understandable structure. Keep the composition root at the outer edge so provider and infrastructure choices do not leak into domain verification.</p>
+<p>Decide how the program behaves when all sources fail, some fail, no passages remain, the AI returns malformed JSON, every proposal is rejected, or cancellation arrives. Ordinary source failures can coexist with successful evidence. AI unavailability is not permission to run a non-AI relevance algorithm. Exact verification has no fuzzy or case-insensitive fallback unless your product explicitly changes its claim—and this tome's claim is ordinal source containment.</p>
+<p>Build an integration fixture using test doubles for I/O and AI. Feed a punctuation-bearing whole question, two sources, one controlled failure, one exact proposal, and one fabricated proposal. Assert calls and final output data. This fixture becomes the rehearsal for the independent Working, not a substitute for a real configured AI run later.</p>
+<div class="callout"><p>The late performance is graded on reconciled behavior and C# capability use, not resemblance to the hidden replay architecture.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DRAW DEPENDENCY ARROWS</div><p>Domain verification should not point toward a CLI process, HTTP client, console library, or environment variable. Those arrows belong at adapters and composition.</p></div>
 '''
 
 [[lessons.readings]]
@@ -73,7 +37,7 @@ id = "s11-l03-e2"
 type = "mc"
 points = 20
 prompt = "One fetched page produces no usable passages. What should the orchestrator do?"
-choices = ["Record that source error and continue with other sources", "Send empty HTML to Ollama", "Invent a passage", "Crash every source"]
+choices = ["Record that source error and continue with other sources", "Send empty HTML to the configured AI", "Invent a passage", "Crash every source"]
 answer = 0
 whyWrong = "The model cannot use an empty batch, invention breaks truth, and a page-local problem should not erase healthy sources."
 explain = "The reason remains visible in SourceErrors while the run continues."
@@ -123,3 +87,19 @@ static string RunPipeline(List<string> sources)
 }
 '''
 hint = "Use a Count == 0 guard clause, then return the happy-path count."
+
+[[lessons.concepts]]
+id = "language-namespaces-modularity"
+purpose = "Split a growing C# program into discoverable files and namespaces with one clear owner per responsibility."
+anatomy = "Place related types under a namespace, keep the entrypoint as composition, and reference public contracts instead of copying declarations."
+example = "The disposable examples in Pipeline — One Method That Tells the Truth isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Pipeline — One Method That Tells the Truth supplies the disposable observation point."
+observable = "The whole solution builds with one definition for each concept and dependencies point in an understandable direction. Confirm it while practicing Pipeline — One Method That Tells the Truth."
+failure = "Duplicate types, circular ownership, or business logic in Program.cs makes later integration brittle."
+practice = "s11-l03-e1"
+
+[[lessons.artifactSteps]]
+id = "s11-l03-author-artifact"
+path = "src/Verisearch/App.cs"
+mode = "author"
+instruction = "Use the C# ideas from Pipeline — One Method That Tells the Truth to author or revise this learner-owned path toward the chapter behavior: Independently integrate the complete search path from behavior contracts and tests, choosing the architecture. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["The complete fixture journey yields one verified quote, one rejected fabrication, and one visible source failure through the learner's architecture.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

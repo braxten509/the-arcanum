@@ -1,26 +1,27 @@
 [[lessons]]
 id = "s12-l02"
-teaches = ["contract-tests"]
+teaches = ["language-testing-debugging"]
 title = "Test the Boundaries Where False Quotes Could Escape"
 body = '''
-<p>Prioritize tests by damage. Verisearch's highest-cost regression is presenting altered or misattributed text as verified evidence. Build this deterministic suite before testing decorative output.</p>
-<ol><li><strong>QuoteVerifier:</strong> exact substring accepted; changed case, punctuation, unknown id, empty text, duplicate, and over-limit proposals rejected.</li><li><strong>Attribution:</strong> accepted label and URL equal the matched <code>Passage.Source</code>, regardless of any surrounding test data.</li><li><strong>Structured response parsing:</strong> a fixed valid inner JSON string becomes <code>QuoteBatch</code>; malformed JSON throws. Extract parsing into <code>OllamaQuoteSelector.ParseBatch</code> so tests need no server.</li><li><strong>PageExtractor:</strong> fixed HTML yields normalized stable passages, excludes navigation, and retains the exact <code>SourceSpec</code>.</li><li><strong>SourcePolicy:</strong> unknown labels and invalid schemes cannot become selected sources.</li></ol>
-<pre><code>[Theory]
-[InlineData(<span class="s">"Exact source words."</span>, <span class="k">true</span>)]
-[InlineData(<span class="s">"exact source words."</span>, <span class="k">false</span>)]
-[InlineData(<span class="s">"Exact source words"</span>, <span class="k">true</span>)]
-[InlineData(<span class="s">"Invented source words."</span>, <span class="k">false</span>)]
-<span class="k">public void</span> Verify_Candidate_AcceptsOnlyActualSubstrings(<span class="k">string</span> candidate, <span class="k">bool</span> expected)
+
+<p>Prioritize tests by damage. Verisearch's highest-cost regression is presenting altered or misattributed model text as verified evidence. Build a deterministic truth-boundary suite before testing decorative output.</p>
+<ol><li><strong>Exact verifier:</strong> accept an interior ordinal substring; reject changed case, punctuation, unknown id, blank text, duplicates according to policy, and proposals beyond the cap.</li><li><strong>Attribution:</strong> prove the accepted label and URI equal the matched C# passage source even when surrounding AI-shaped data claims something else.</li><li><strong>Provider adapter:</strong> give a fixed valid structured response, malformed JSON, excessive output, nonzero process or HTTP failure, and cancellation without contacting a live service.</li><li><strong>Extraction:</strong> fixed HTML produces stable nonduplicated passage text and ids.</li><li><strong>Integration:</strong> a recording AI sees the whole question, one exact proposal renders, one fabrication is rejected, and one failed source remains visible.</li></ol>
+<pre><code data-kind="replacement">[Theory]
+[InlineData("Exact source words.", true)]
+[InlineData("exact source words.", false)]
+[InlineData("Exact source words", true)]
+[InlineData("Invented source words.", false)]
+public void CandidateAcceptanceMatchesOrdinalContainment(string candidate, bool expected)
 {
-    VerificationBatch result = _verifier.Verify(
-        [<span class="k">new</span> QuoteProposal(1, candidate)], _passages, 5);
-    Assert.Equal(expected, result.Accepted.Count == 1);
+    bool actual = "Before. Exact source words. After."
+        .Contains(candidate, StringComparison.Ordinal);
+    Assert.Equal(expected, actual);
 }</code></pre>
-<p>The no-period candidate is correctly accepted because it is still a contiguous exact substring. Tests must reflect the actual product contract, not a hidden preference for sentence boundaries.</p>
-<p>Do not hit a live URL or model in unit tests. Those services change, fail, and respond nondeterministically. Unit tests provide fixed HTML and JSON values. The acceptance workshop separately proves that the installed services can talk end to end.</p>
-<p>Beginner checkpoint: make one test fail deliberately, read its expected-versus-actual message, then undo only that deliberate change.</p>
-<div class="callout">Do not test that System.Text.Json parses JSON in general or that Spectre draws a panel. Test your schema boundary, your exactness decision, your attribution ownership, and your extraction rules.</div>
-<div class="field-notes"><div class="fn-head">MARGINALIA // A PARSER SEAM</div><p>Move the inner deserialization into <code>public static QuoteBatch ParseBatch(string json)</code> and have <code>SelectAsync</code> call it. The method remains small and deterministic; tests no longer need to fake HttpClient just to prove malformed model content is rejected.</p></div>
+<p>The no-period candidate is correctly accepted because it is still a contiguous exact substring. Tests must state the actual contract, not invent a hidden whole-sentence requirement.</p>
+<p>Unit tests should not need a changing URL, credentials, or a live model. Use a fake process, controlled HTTP handler, or provider test server to isolate transport and parsing. Separately, the learner's final evidence includes one real configured AI run. These proofs answer different questions: deterministic tests protect behavior; the live run proves environment integration.</p>
+<p>Make one assertion fail deliberately, read the first expected-versus-actual message, and repair only the implicated boundary. Add a mutation that changes source attribution while leaving the proposal untouched; the output citation must follow the source.</p>
+<div class="callout"><p>Do not test a provider SDK in general. Test your adapter translation, limits, cancellation, exact verifier, and ownership rules.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DAMAGE ORDER</div><p>A color regression is visible. A false quote can look convincing. Spend the earliest and strongest negative controls where an undetected error would be most misleading.</p></div>
 '''
 
 [[lessons.readings]]
@@ -33,7 +34,7 @@ id = "s12-l02-e1"
 type = "mc"
 points = 25
 prompt = "Which is the highest-value first production test for Verisearch?"
-choices = ["A live Ollama call", "Terminal border color", "Download speed", "QuoteVerifier rejects text absent from Passage.Text"]
+choices = ["A live configured-AI call", "Terminal border color", "Download speed", "QuoteVerifier rejects text absent from Passage.Text"]
 answer = 3
 whyWrong = "Live services and performance are environment-dependent, while border color does not protect truth. The exact-match gate carries the product's central risk."
 explain = "A fast deterministic verifier test catches the regression that could let a fabricated quote escape."
@@ -43,10 +44,10 @@ hint = "Test the strongest promise first."
 id = "s12-l02-e2"
 type = "mc"
 points = 25
-prompt = "Why should the unit test for inner model JSON avoid the real Ollama server?"
-choices = ["A fixed string isolates parsing and remains deterministic", "Ollama forbids tests", "HTTP cannot run under xUnit", "A search API is required too"]
+prompt = "Why should the unit test for inner model JSON avoid the real configured AI service?"
+choices = ["A fixed string isolates parsing and remains deterministic", "AI providers forbid tests", "HTTP cannot run under xUnit", "A search API is required too"]
 answer = 0
-whyWrong = "xUnit can perform HTTP and Ollama does not forbid tests, but external behavior would make this parsing test flaky and unfocused."
+whyWrong = "xUnit can perform HTTP and the configured AI does not forbid tests, but external behavior would make this parsing test flaky and unfocused."
 explain = "Feed ParseBatch exact valid and invalid strings; acceptance tests own live connectivity."
 hint = "One test should have one reason to fail."
 
@@ -107,3 +108,19 @@ int passed = cases.Count(test =>
 Console.WriteLine($"{passed}/{cases.Length} green");
 '''
 hint = "Count cases where ordinal Contains equals the expected Boolean."
+
+[[lessons.concepts]]
+id = "language-testing-debugging"
+purpose = "Turn a C# promise into an executable check and diagnose failures from the earliest broken boundary."
+anatomy = "Arrange controlled inputs, invoke one behavior, assert an observable result, then use compiler, test, or debugger output to localize a failing case."
+example = "The disposable examples in Test the Boundaries Where False Quotes Could Escape isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Test the Boundaries Where False Quotes Could Escape supplies the disposable observation point."
+observable = "The check passes for a valid case and fails when its load-bearing input is deliberately changed. Confirm it while practicing Test the Boundaries Where False Quotes Could Escape."
+failure = "A test that prints a prepared success receipt or requires live network state cannot distinguish a regression."
+practice = "s12-l02-e1"
+
+[[lessons.artifactSteps]]
+id = "s12-l02-author-artifact"
+path = "tests/Verisearch.Tests/TruthBoundaryTests.cs"
+mode = "author"
+instruction = "Use the C# ideas from Test the Boundaries Where False Quotes Could Escape to author or revise this learner-owned path toward the chapter behavior: Add an original capability, diagnose a cross-boundary defect, defend a C# design choice, and publish the working program. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["Tests, live AI evidence, negative controls, the original extension, and the published executable all succeed from documented commands.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

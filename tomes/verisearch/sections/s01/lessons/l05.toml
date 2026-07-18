@@ -1,11 +1,11 @@
 [[lessons]]
 id = "s01-l05"
-teaches = ["input-loop"]
+teaches = ["language-control-flow"]
 title = "The listening loop — repeat until 'quit'"
 body = '''
 
 <p>A vestibule is a loop: <strong>R</strong>ead a line, <strong>E</strong>valuate it, <strong>P</strong>rint an answer, <strong>L</strong>oop. You have not formally studied loops yet (that is Chapter II) — but today you need only one pattern:</p>
-<pre><code><span class="k">while</span> (<span class="k">true</span>)                       <span class="c">// repeat until the end of days...</span>
+<pre><code data-kind="replacement"><span class="k">while</span> (<span class="k">true</span>)                       <span class="c">// repeat until the end of days...</span>
 {
     Console.Write(<span class="s">"&gt; "</span>);
     <span class="k">string</span> line = Console.ReadLine() ?? <span class="s">"quit"</span>;
@@ -28,7 +28,8 @@ body = '''
 <div class="callout">This very skeleton is the tome's entryway for the next eleven chapters. Everything you forge later — search, harvesting, weighing — hangs from this loop.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>Culture-safe casing:</strong> THORNE's favorite nitpick — <code>ToLower()</code> obeys the machine's locale (the Turkish 'I' is infamous for breaking it). For comparisons, declare your intent instead: <code>line.Equals("quit", StringComparison.OrdinalIgnoreCase)</code>. The same wisdom holds for Contains/StartsWith — each accepts a <code>StringComparison</code>.</p>
 <p><strong>Guard clauses:</strong> deal with the strange cases first and step aside early — <code>if (line == "") continue;</code> — rather than nesting the happy path in ever-deeper ifs. Flat runes read; nested runes hide.</p>
-<p><strong>while vs do-while:</strong> <code>while</code> tests before the first turn (it may run zero times); <code>do { } while (cond);</code> tests after (it always runs once). Listening loops are naturally <code>while (true)</code> + <code>break</code> — the leaving-condition lives mid-body, after the hearing.</p></div>'''
+<p><strong>while vs do-while:</strong> <code>while</code> tests before the first turn (it may run zero times); <code>do { } while (cond);</code> tests after (it always runs once). Listening loops are naturally <code>while (true)</code> + <code>break</code> — the leaving-condition lives mid-body, after the hearing.</p></div>
+'''
 
 [[lessons.readings]]
 label = "Microsoft Learn — \"Iteration statements\""
@@ -103,3 +104,19 @@ while (true)
 }
 '''
 hint = "while(true) { var l = Console.ReadLine() ?? \"quit\"; if quit → print goodbye, break; else WriteLine($\"> {l}\"); }"
+
+[[lessons.concepts]]
+id = "language-control-flow"
+purpose = "Express choices and repetition from program state without turning question words into a search-routing policy."
+anatomy = "Evaluate a boolean or pattern, enter the matching branch, repeat only while the loop condition holds, and keep an explicit exit path."
+example = "The disposable examples in The listening loop — repeat until 'quit' isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson The listening loop — repeat until 'quit' supplies the disposable observation point."
+observable = "Distinct inputs take the intended branches and the loop terminates under its documented condition. Confirm it while practicing The listening loop — repeat until 'quit'."
+failure = "A missing default, stale loop variable, or keyword-based product branch produces surprising or nonterminating behavior."
+practice = "s01-l05-e1"
+
+[[lessons.artifactSteps]]
+id = "s01-l05-author-artifact"
+path = "src/Verisearch/Program.cs"
+mode = "author"
+instruction = "Use the C# ideas from The listening loop — repeat until 'quit' to author or revise this learner-owned path toward the chapter behavior: Create the solution and a small question-listening console without receiving production code. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["The solution builds and the console path accepts, displays, and exits from learner-provided text without crashing on missing input.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

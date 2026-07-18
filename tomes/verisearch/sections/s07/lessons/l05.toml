@@ -1,11 +1,11 @@
 [[lessons]]
 id = "s07-l05"
-teaches = ["uri-validation"]
+teaches = ["language-types-nullability"]
 title = "Reading Web Addresses — Safe URI Admission"
 body = '''
 
 <p><code>SourcePolicy</code> cannot admit a configured web address until it knows the address is absolute and uses HTTP or HTTPS. A URL is structured data, not a string to carve apart with <code>Split('/')</code>. C# already has the right instrument: <code>Uri</code>.</p>
-<pre><code><span class="k">string</span> raw = <span class="s">"https://www.ietf.org/rfc/rfc8446.html?view=all"</span>;
+<pre><code data-kind="replacement"><span class="k">string</span> raw = <span class="s">"https://www.ietf.org/rfc/rfc8446.html?view=all"</span>;
 <span class="k">var</span> uri = <span class="k">new</span> Uri(raw);
 
 Console.WriteLine(uri.Scheme);       <span class="c">// https</span>
@@ -13,7 +13,7 @@ Console.WriteLine(uri.Host);         <span class="c">// www.ietf.org</span>
 Console.WriteLine(uri.AbsolutePath); <span class="c">// /rfc/rfc8446.html</span></code></pre>
 <p>The three properties answer different questions. <code>Scheme</code> names the protocol, <code>Host</code> names the server, and <code>AbsolutePath</code> names the path on that server. Admission needs the scheme; attribution retains the complete configured URL.</p>
 <p>Configuration is still input. <code>new Uri(raw)</code> throws when the text is malformed, so source admission uses the non-throwing gate:</p>
-<pre><code><span class="k">static bool</span> TryGetWebHost(<span class="k">string</span> raw, <span class="k">out string</span> host)
+<pre><code data-kind="replacement"><span class="k">static bool</span> TryGetWebHost(<span class="k">string</span> raw, <span class="k">out string</span> host)
 {
     host = <span class="s">""</span>;
     <span class="k">if</span> (!Uri.TryCreate(raw, UriKind.Absolute, <span class="k">out</span> Uri? uri))
@@ -26,7 +26,7 @@ Console.WriteLine(uri.AbsolutePath); <span class="c">// /rfc/rfc8446.html</span>
     <span class="k">return</span> host.Length &gt; 0;
 }</code></pre>
 <p><code>UriKind.Absolute</code> rejects fragments such as <code>docs/page.html</code> that lack a scheme and host. The second ward admits only HTTP and HTTPS; a syntactically valid <code>file:</code> address is still not a web source. The production policy applies this to <code>SourceSpec.Url</code>. A label lookup may select a configured record, but it must never manufacture a new one:</p>
-<pre><code><span class="k">var</span> byLabel = config.Sources.ToDictionary(
+<pre><code data-kind="replacement"><span class="k">var</span> byLabel = config.Sources.ToDictionary(
     source =&gt; source.Label, StringComparer.OrdinalIgnoreCase);
 <span class="k">if</span> (byLabel.TryGetValue(requestedLabel, <span class="k">out</span> SourceSpec? source)
     &amp;&amp; TryGetWebHost(source.Url, <span class="k">out string</span> host))
@@ -36,7 +36,8 @@ Console.WriteLine(uri.AbsolutePath); <span class="c">// /rfc/rfc8446.html</span>
 <div class="callout">Reject malformed configuration before any network call. Never “repair” a scheme or host by guessing what the user meant.</div>
 <div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>Subdomains are distinct hosts.</strong> <code>www.ietf.org</code> and <code>datatracker.ietf.org</code> do not automatically become <code>ietf.org</code>. Verisearch retains the exact configured URL instead of trimming or grouping names by guesswork.</p>
-<p><strong>Keep escaping and parsing separate.</strong> <code>Uri.EscapeDataString</code> prepares one value before it is inserted into a query string. <code>Uri.TryCreate</code> parses a complete configured address. One protects construction; the other validates interpretation.</p></div>'''
+<p><strong>Keep escaping and parsing separate.</strong> <code>Uri.EscapeDataString</code> prepares one value before it is inserted into a query string. <code>Uri.TryCreate</code> parses a complete configured address. One protects construction; the other validates interpretation.</p></div>
+'''
 
 [[lessons.readings]]
 label = "Microsoft Learn — Uri class reference"
@@ -126,3 +127,19 @@ foreach (string raw in urls)
 }
 '''
 hint = "Inside the foreach, combine Uri.TryCreate with an HTTP-or-HTTPS scheme check; print uri.Host.ToLowerInvariant() only when both gates pass."
+
+[[lessons.concepts]]
+id = "language-types-nullability"
+purpose = "Represent facts with C# types and make the possibility of missing data explicit."
+anatomy = "Choose a type, declare a name, initialize it, and handle nullable values before member access or conversion."
+example = "The disposable examples in Reading Web Addresses — Safe URI Admission isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Reading Web Addresses — Safe URI Admission supplies the disposable observation point."
+observable = "The compiler accepts the assignments and every missing-value path has an intentional outcome. Confirm it while practicing Reading Web Addresses — Safe URI Admission."
+failure = "A nullable warning or invalid conversion shows that the value contract and the code disagree."
+practice = "s07-l05-d1"
+
+[[lessons.artifactSteps]]
+id = "s07-l05-author-artifact"
+path = "src/Verisearch/SourceSelection.cs"
+mode = "author"
+instruction = "Use the C# ideas from Reading Web Addresses — Safe URI Admission to author or revise this learner-owned path toward the chapter behavior: Honor source labels selected by the user, preserving order and rejecting unknown entries before networking. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["Requested labels preserve user order, an unknown label fails before I/O, and the question text never selects or rewrites a source.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

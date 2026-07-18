@@ -13,12 +13,17 @@ snippetRunCommand = ["dotnet", "run", "--no-build", "--project", "{dir}"]
 buildCommand = ["dotnet", "build", "--nologo", "-v", "q"]
 scaffoldCommand = ["dotnet", "new", "console", "-n", "{project}", "-o", "{dir}", "--force"]
 packageCommand = ["dotnet", "add", "{dir}", "package", "{package}"]
+deliveryCreateCommand = ["dotnet", "new", "console", "--output", "{env}", "--force", "--no-restore"]
+deliveryInstallCommand = ["dotnet", "restore", "{requirements}", "--force-evaluate", "--nologo"]
+deliveryBuildCommand = ["dotnet", "publish", "{requirements}", "--configuration", "Release", "--output", "{dir}/dist", "--nologo"]
 projectFile = "{project}.csproj"
 codeExt = [".cs", ".csproj", ".yaml", ".yml", ".json", ".md"]
 # MSBuild diagnostic lines: Program.cs(12,5): error CS1002: ; expected [proj.csproj]
 diagRegex = '^(?P<file>.+?)\((?P<line>\d+),(?P<col>\d+)\): (?P<sev>error|warning) (?P<code>\w+): (?P<msg>.*?)(?: \[.+\])?$'
 
-# No snippetEntry: dotnet ships no checkCommand, so nothing can build a lone file.
+# Complete lesson programs carry this explicit marker. The validator builds them inside
+# the runtime's disposable dotnet project; fragments remain owned by cumulative project proof.
+snippetEntry = '^\s*//\s*Complete runnable example'
 
 # Editor completions (keywords, snippets, dot-members) — served to the client via
 # TOME.runtime and rendered by the generic provider in web/editor.js. Ported verbatim

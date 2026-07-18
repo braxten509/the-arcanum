@@ -1,27 +1,28 @@
 [[lessons]]
 id = "s07-l02"
-teaches = ["linq-advanced"]
+teaches = ["language-linq-lambdas"]
 title = "The LINQ arsenal — GroupBy, Distinct, Aggregate, Zip"
 body = '''
 
 <p>Beyond Where/Select/OrderBy, four seekers do the heavy analytical lifting:</p>
 <p><strong>GroupBy</strong> — bucket items by a key. Each group has a <code>.Key</code> and is itself enumerable:</p>
-<pre><code><span class="k">var</span> bySource = passages.GroupBy(p =&gt; p.Source.Label);
+<pre><code data-kind="replacement"><span class="k">var</span> bySource = passages.GroupBy(p =&gt; p.Source.Label);
 <span class="k">foreach</span> (<span class="k">var</span> group <span class="k">in</span> bySource)
     Console.WriteLine(<span class="s">$"{group.Key}: {group.Count()} passages"</span>);
 <span class="c">// RFC 8446: 14 passages</span></code></pre>
 <p><strong>Distinct / DistinctBy</strong> — dedupe. Configuration can accidentally repeat one URL under multiple labels:</p>
-<pre><code><span class="k">var</span> unique = sources.DistinctBy(source =&gt; source.Url, StringComparer.OrdinalIgnoreCase);</code></pre>
+<pre><code data-kind="replacement"><span class="k">var</span> unique = sources.DistinctBy(source =&gt; source.Url, StringComparer.OrdinalIgnoreCase);</code></pre>
 <p><strong>Aggregate</strong> — fold everything into one value, carrying an accumulator:</p>
-<pre><code><span class="k">double</span> product = scores.Aggregate(1.0, (acc, s) =&gt; acc * s);
+<pre><code data-kind="replacement"><span class="k">double</span> product = scores.Aggregate(1.0, (acc, s) =&gt; acc * s);
 <span class="c">// like Sum, but you define the combining step. Use for anything "cumulative".</span></code></pre>
 <p><strong>Zip</strong> — pair up two sequences element-by-element:</p>
-<pre><code><span class="k">var</span> summaries = labels.Zip(counts, (label, count) =&gt; <span class="s">$"{label} → {count}"</span>);</code></pre>
+<pre><code data-kind="replacement"><span class="k">var</span> summaries = labels.Zip(counts, (label, count) =&gt; <span class="s">$"{label} → {count}"</span>);</code></pre>
 <p>And the aggregation shorthands you'll reach for daily: <code>Count(pred)</code>, <code>Sum(sel)</code>, <code>Average(sel)</code>, <code>Min/Max(sel)</code>, <code>Any(pred)</code> (at least one?), <code>All(pred)</code> (every one?), <code>First/FirstOrDefault(pred)</code>.</p>
 <div class="callout"><code>First</code> on an empty sequence THROWS. <code>FirstOrDefault</code> returns null/default. In pipeline code that eats real-world data, OrDefault is almost always what you meant.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>SelectMany</strong> — flatten a list of lists: 5 pages each yielding a List of quotes → one flat quote stream: <code>outcomes.SelectMany(o =&gt; o.Quotes)</code>. You WILL need this in Chapter XI.</p>
 <p><strong>ThenBy</strong> — tie-breakers: <code>.OrderBy(source =&gt; source.Label).ThenBy(source =&gt; source.Url)</code>. LINQ's OrderBy is <em>stable</em>: equal keys retain their original relative order.</p>
-<p><strong>Chunk(n)</strong> splits a long sequence into bounded batches. <strong>ToDictionary / ToHashSet</strong> materialize lookup structures: <code>passages.ToDictionary(p =&gt; p.Id)</code> is the verifier's id lookup in one call.</p></div>'''
+<p><strong>Chunk(n)</strong> splits a long sequence into bounded batches. <strong>ToDictionary / ToHashSet</strong> materialize lookup structures: <code>passages.ToDictionary(p =&gt; p.Id)</code> is the verifier's id lookup in one call.</p></div>
+'''
 
 [[lessons.readings]]
 label = "Microsoft Learn — \"Working with LINQ\" tutorial"
@@ -111,3 +112,19 @@ foreach (var group in words.GroupBy(word => word.Length).OrderBy(group => group.
     Console.WriteLine($"{group.Key}:{group.Count()}");
 '''
 hint = "words.GroupBy(w => w.Length).OrderBy(g => g.Key) then $\"{g.Key}:{g.Count()}\"."
+
+[[lessons.concepts]]
+id = "language-linq-lambdas"
+purpose = "Transform collections declaratively while understanding when a sequence actually executes."
+anatomy = "Write a lambda parameter and expression, compose the needed LINQ operators, then materialize once at the boundary that needs stable data."
+example = "The disposable examples in The LINQ arsenal — GroupBy, Distinct, Aggregate, Zip isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson The LINQ arsenal — GroupBy, Distinct, Aggregate, Zip supplies the disposable observation point."
+observable = "The resulting sequence has the expected order and contents and is enumerated at a deliberate time. Confirm it while practicing The LINQ arsenal — GroupBy, Distinct, Aggregate, Zip."
+failure = "Capturing mutable state or enumerating a deferred query repeatedly can change results between observations."
+practice = "s07-l02-e1"
+
+[[lessons.artifactSteps]]
+id = "s07-l02-author-artifact"
+path = "src/Verisearch/SourceSelection.cs"
+mode = "author"
+instruction = "Use the C# ideas from The LINQ arsenal — GroupBy, Distinct, Aggregate, Zip to author or revise this learner-owned path toward the chapter behavior: Honor source labels selected by the user, preserving order and rejecting unknown entries before networking. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["Requested labels preserve user order, an unknown label fails before I/O, and the question text never selects or rewrites a source.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

@@ -1,17 +1,17 @@
 [[lessons]]
 id = "s10-l01"
-teaches = ["spectre-markup"]
+teaches = ["language-serialization-io"]
 title = "AnsiConsole & markup — color as information"
 body = '''
 
 <p><code>dotnet add package Spectre.Console</code>. The entry point is <code>AnsiConsole</code>, and its markup syntax is BBCode-style square brackets:</p>
-<pre><code><span class="k">using</span> Spectre.Console;
+<pre><code data-kind="replacement"><span class="k">using</span> Spectre.Console;
 
 AnsiConsole.MarkupLine(<span class="s">"[green]trusted[/] · [yellow]caution[/] · [red]unverified[/]"</span>);
 AnsiConsole.MarkupLine(<span class="s">"[bold underline]SOURCE 1[/] [dim]— ietf.org[/]"</span>);
 AnsiConsole.MarkupLine(<span class="s">"[green3_1 on grey11]themed like your rig[/]"</span>);</code></pre>
 <p>Color should CARRY MEANING, not decorate. Verisearch's convention — the trust traffic light:</p>
-<pre><code><span class="k">static string</span> TrustMarkup(<span class="k">double</span> score) =&gt; score <span class="k">switch</span>
+<pre><code data-kind="replacement"><span class="k">static string</span> TrustMarkup(<span class="k">double</span> score) =&gt; score <span class="k">switch</span>
 {
     &gt;= 7.0 =&gt; <span class="s">$"[green]{score:F1}/10[/]"</span>,
     &gt;= 4.0 =&gt; <span class="s">$"[yellow]{score:F1}/10[/]"</span>,
@@ -19,12 +19,13 @@ AnsiConsole.MarkupLine(<span class="s">"[green3_1 on grey11]themed like your rig
 };</code></pre>
 <p>(<code>{score:F1}</code> is numeric formatting — F1 = one decimal place. Also handy: <code>{n:N0}</code> thousands separators, <code>{p:P0}</code> percentages.)</p>
 <p><strong>The injection trap:</strong> scraped text goes into your output. What if a page title contains <code>[red]</code>? Markup breaks — or lies. Escape ALL untrusted text:</p>
-<pre><code>AnsiConsole.MarkupLine(<span class="s">$"title: {Markup.Escape(result.Title)}"</span>);
+<pre><code data-kind="replacement">AnsiConsole.MarkupLine(<span class="s">$"title: {Markup.Escape(result.Title)}"</span>);
 <span class="c">// or use interpolation-safe: AnsiConsole.MarkupLineInterpolated($"title: {result.Title}");</span></code></pre>
 <p>Same lesson as SQL injection and XSS, in miniature: <em>data and markup must never mix unescaped</em>. Scraped titles are attacker-controlled input to your terminal.</p><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>Style vocabulary:</strong> <code>[bold]</code> <code>[dim]</code> <code>[italic]</code> <code>[underline]</code> <code>[strikethrough]</code>, colors by name (<code>[green]</code>, 256-color names like <code>[green3_1]</code>) or hex <code>[#4cc38a]</code>, backgrounds via <code>on</code>: <code>[white on red]</code>. Stack them space-separated; close ANY run with <code>[/]</code>.</p>
 <p><strong>Manual escaping:</strong> markup-significant brackets double: <code>[[</code> renders [, <code>]]</code> renders ]. That's literally all Markup.Escape does — but call the method, don't hand-roll it in six places.</p>
-<p><strong>Terminal detection:</strong> Spectre auto-degrades on dumb terminals and honors the <code>NO_COLOR</code> convention. Never encode meaning ONLY in color — the trust score prints the number too, which is also your accessibility story.</p></div>'''
+<p><strong>Terminal detection:</strong> Spectre auto-degrades on dumb terminals and honors the <code>NO_COLOR</code> convention. Never encode meaning ONLY in color — the trust score prints the number too, which is also your accessibility story.</p></div>
+'''
 
 [[lessons.readings]]
 label = "Spectre.Console — official docs"
@@ -89,3 +90,19 @@ string title = "[red]INJECTED[/]";
 Console.WriteLine(title.Replace("[", "[[").Replace("]", "]]"));
 '''
 hint = "title.Replace(\"[\", \"[[\").Replace(\"]\", \"]]\")"
+
+[[lessons.concepts]]
+id = "language-serialization-io"
+purpose = "Move typed data across file, JSON, HTTP, process, and terminal boundaries without confusing external text with trusted objects."
+anatomy = "Select an I/O API, await or dispose it correctly, serialize or deserialize a declared shape, then validate the resulting values."
+example = "The disposable examples in AnsiConsole & markup — color as information isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson AnsiConsole & markup — color as information supplies the disposable observation point."
+observable = "Valid input becomes the intended typed data and malformed input produces a specific boundary diagnostic. Confirm it while practicing AnsiConsole & markup — color as information."
+failure = "Scraping loosely structured text or overwriting invalid user data destroys the evidence needed to repair it."
+practice = "s10-l01-e1"
+
+[[lessons.artifactSteps]]
+id = "s10-l01-author-artifact"
+path = "src/Verisearch/ReportRenderer.cs"
+mode = "author"
+instruction = "Use the C# ideas from AnsiConsole & markup — color as information to author or revise this learner-owned path toward the chapter behavior: Expose a predictable CLI and render only verified quotations, citations, source failures, and explicit test-mode state. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["Help and invalid arguments have stable exits, and the report contains only verified quote values with C#-owned citations.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

@@ -1,11 +1,11 @@
 [[lessons]]
 id = "s08-l01"
-teaches = ["task-lifecycle"]
+teaches = ["language-async-cancellation"]
 title = "Tasks under the hood — what await actually does"
 body = '''
 
 <p>A <code>Task</code> is a promise-shaped object: "work is in flight; here's a handle to its eventual result (or its exception)." Crucial mental model — <strong>I/O-bound tasks don't use a thread while waiting</strong>. When you await an HTTP response, no thread sits blocked; the OS notifies .NET when bytes arrive and your method <em>resumes</em>.</p>
-<pre><code>Task&lt;<span class="k">string</span>&gt; download = http.GetStringAsync(url);   <span class="c">// work STARTS here</span>
+<pre><code data-kind="replacement">Task&lt;<span class="k">string</span>&gt; download = http.GetStringAsync(url);   <span class="c">// work STARTS here</span>
 Console.WriteLine(<span class="s">"request in flight..."</span>);          <span class="c">// runs immediately — not blocked!</span>
 <span class="k">string</span> html = <span class="k">await</span> download;                       <span class="c">// suspend HERE until done</span></code></pre>
 <p>That gap between starting and awaiting is the whole trick of concurrency: <strong>start several, then await them</strong>.</p>
@@ -15,7 +15,8 @@ Console.WriteLine(<span class="s">"request in flight..."</span>);          <span
 <div class="callout">CPU-bound work (heavy math, parsing megabytes) is different: that needs a thread, and <code>Task.Run(() =&gt; ...)</code> moves it to the thread pool. Verisearch is almost entirely I/O-bound — network waits — so async/await without Task.Run is the right shape.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>The thread pool</strong> is a set of pre-warmed worker threads .NET manages for you. <code>Task.Run(work)</code> queues CPU work onto it; async I/O uses NO thread while waiting (the OS signals completion). Rule: I/O → async/await; heavy CPU → Task.Run; never Task.Run around something already async.</p>
 <p><strong>Console apps have no SynchronizationContext</strong> — continuations resume on any pool thread. This is why you may see <code>ConfigureAwait(false)</code> in library code: it's an opt-out of context capture that matters in UI apps; in your console tool it's a no-op you can ignore.</p>
-<p><strong>AggregateException</strong> is what <code>.Wait()</code>/<code>.Result</code> wrap failures in — awaiting unwraps to the real exception. One more reason the blocking calls are banned.</p></div>'''
+<p><strong>AggregateException</strong> is what <code>.Wait()</code>/<code>.Result</code> wrap failures in — awaiting unwraps to the real exception. One more reason the blocking calls are banned.</p></div>
+'''
 
 [[lessons.readings]]
 label = "Microsoft Learn — \"Async scenarios\""
@@ -87,3 +88,19 @@ stopwatch.Stop();
 Console.WriteLine(stopwatch.ElapsedMilliseconds < 180 ? "parallel confirmed" : "sequential detected");
 '''
 hint = "var sw = Stopwatch.StartNew(); var t1 = Task.Delay(100); var t2 = Task.Delay(100); await t1; await t2; check sw.ElapsedMilliseconds."
+
+[[lessons.concepts]]
+id = "language-async-cancellation"
+purpose = "Coordinate I/O-bound work without blocking threads, serializing independent work, or swallowing cancellation."
+anatomy = "Return Task or Task<T>, await asynchronous operations, pass one CancellationToken, and use Task.WhenAll when independent work may overlap."
+example = "The disposable examples in Tasks under the hood — what await actually does isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Tasks under the hood — what await actually does supplies the disposable observation point."
+observable = "Independent reads overlap, completion resumes with typed results, and cancellation reaches the top boundary. Confirm it while practicing Tasks under the hood — what await actually does."
+failure = "Using Result, Wait, await-inside-loop, or catching cancellation as an ordinary error breaks responsiveness."
+practice = "s08-l01-e1"
+
+[[lessons.artifactSteps]]
+id = "s08-l01-author-artifact"
+path = "src/Verisearch/SourceBatch.cs"
+mode = "author"
+instruction = "Use the C# ideas from Tasks under the hood — what await actually does to author or revise this learner-owned path toward the chapter behavior: Read independent sources concurrently while preserving successful evidence, failed-source diagnostics, and cancellation. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["Two delayed reads overlap, one ordinary failure remains visible beside a success, and cancellation propagates separately.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

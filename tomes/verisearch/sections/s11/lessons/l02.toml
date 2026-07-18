@@ -1,38 +1,31 @@
 [[lessons]]
 id = "s11-l02"
-teaches = ["dependency-injection"]
+teaches = ["language-interfaces-polymorphism"]
 title = "Dependency Injection — Receive, Do Not Hide"
 body = '''
-<p>Constructor injection means a class receives collaborators rather than constructing them inside itself. This makes dependencies visible, keeps one <code>HttpClient</code> lifetime, and lets tests supply fakes.</p>
-<pre><code><span class="k">public sealed class</span> Pipeline
-{
-    <span class="k">private readonly</span> SourceBatch _batch;
-    <span class="k">private readonly</span> IPageExtractor _extractor;
-    <span class="k">private readonly</span> IQuoteSelector _selector;
-    <span class="k">private readonly</span> QuoteVerifier _verifier;
-    <span class="k">private readonly int</span> _maxQuotes;
 
-    <span class="k">public</span> Pipeline(SourceBatch batch, IPageExtractor extractor,
-        IQuoteSelector selector, QuoteVerifier verifier, <span class="k">int</span> maxQuotes)
+<p>Constructor injection means a class receives collaborators rather than hiding construction inside its methods. Dependencies become visible, tests can supply controlled implementations, and resource lifetimes have one understandable owner.</p>
+<pre><code data-kind="replacement">public sealed class SearchCoordinator
+{
+    private readonly ISourceReader _reader;
+    private readonly ISemanticSelector _selector;
+
+    public SearchCoordinator(ISourceReader reader, ISemanticSelector selector)
     {
-        _batch = batch;
-        _extractor = extractor;
+        _reader = reader;
         _selector = selector;
-        _verifier = verifier;
-        _maxQuotes = maxQuotes;
     }
 }</code></pre>
-<p><code>Program.cs</code> is the composition root: the one place allowed to know concrete choices. Read the graph before writing it:</p>
-<pre><code>one HttpClient
-  ├─&gt; SourceFetcher ─&gt; SourceBatch
-  └─&gt; OllamaQuoteSelector (LIVE only)
-
-PageExtractor + selected IQuoteSelector + QuoteVerifier + SourceBatch
-  └─&gt; Pipeline</code></pre>
-<p>Construct leaves first and pass each completed object into its consumer. The exact startup code arrives in the final workshop, after the interfaces and failure policy are fixed. This separation keeps a beginner from debugging object construction and orchestration in the same edit.</p>
-<p>Update <code>SourceBatch</code> so its field and constructor use <code>ISourceFetcher</code> instead of the concrete class. No service-container package is needed. Manual construction is ordinary dependency injection and is easier to debug in a CLI with this few objects.</p>
-<div class="callout">The conditional selector is the only mode switch. Do not put “try Ollama, then new MockQuoteSelector” inside Pipeline; that would reintroduce silent fallback.</div>
-<div class="field-notes"><div class="fn-head">MARGINALIA // OBJECT GRAPH</div><p>Read construction from leaves upward: HttpClient → SourceFetcher → SourceBatch; config plus HttpClient → selector; those collaborators → Pipeline. If a constructor error appears, fix the earliest mismatched contract rather than adding parameterless constructors.</p></div>
+<p>This disposable example demonstrates receipt and storage only. Your architecture may coordinate through functions, smaller services, or a differently named type. Do not copy a constructor merely to match the hidden replay.</p>
+<p>The <strong>composition root</strong> is the outer startup location that knows concrete choices. It may parse explicit provider configuration, create an <code>HttpClient</code> or process adapter, construct the object graph, and invoke the application. Inner code depends on common contracts. A useful dependency sketch is:</p>
+<pre><code data-kind="pseudocode">configured source adapters + configured real AI adapter
+    -&gt; learner-chosen coordinator
+    -&gt; exact verifier
+    -&gt; verified-only renderer</code></pre>
+<p>The sketch is pseudocode, not a class list. Build leaves first, pass completed collaborators upward, and decide who disposes each owned resource. A CLI this size does not require a service-container package; manual constructor injection is ordinary dependency injection and often easier to debug.</p>
+<p>Test the graph with a fixture reader and recording AI selector. The recording selector should observe the whole question and passages, while the common verifier rejects a fabricated proposal. A second test can construct a different real-adapter-shaped fake without changing coordinator code.</p>
+<div class="callout"><p>Provider choice happens once from explicit configuration. A catch block inside the pipeline must never construct a mock or keyword selector.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // OWNERSHIP ARROWS</div><p>If two services need the same long-lived HTTP client, create it at an outer owner and inject it. If a subprocess belongs to one request, its adapter creates and disposes it inside that request.</p></div>
 '''
 
 [[lessons.readings]]
@@ -108,3 +101,19 @@ public sealed class Pipeline
 }
 '''
 hint = "The root calls new Pipeline(new MockWorker()); Pipeline stores IWorker and calls Run."
+
+[[lessons.concepts]]
+id = "language-interfaces-polymorphism"
+purpose = "Name a behavioral seam so real providers and test doubles can be substituted without changing the pipeline's truth rules."
+anatomy = "Declare the smallest useful interface member, implement it in separate concrete types, and depend on the interface at the caller boundary."
+example = "The disposable examples in Dependency Injection — Receive, Do Not Hide isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Dependency Injection — Receive, Do Not Hide supplies the disposable observation point."
+observable = "Two implementations can satisfy the same caller while verification and reporting remain unchanged. Confirm it while practicing Dependency Injection — Receive, Do Not Hide."
+failure = "An interface that exposes provider details or verified output lets one implementation bypass the common contract."
+practice = "s11-l02-e1"
+
+[[lessons.artifactSteps]]
+id = "s11-l02-author-artifact"
+path = "src/Verisearch/App.cs"
+mode = "author"
+instruction = "Use the C# ideas from Dependency Injection — Receive, Do Not Hide to author or revise this learner-owned path toward the chapter behavior: Independently integrate the complete search path from behavior contracts and tests, choosing the architecture. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["The complete fixture journey yields one verified quote, one rejected fabrication, and one visible source failure through the learner's architecture.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

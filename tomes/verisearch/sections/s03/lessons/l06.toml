@@ -1,30 +1,18 @@
 [[lessons]]
 id = "s03-l06"
-teaches = ["canonical-models"]
+teaches = ["language-namespaces-modularity"]
 title = "Workshop — Establish the Canonical Models"
 body = '''
-<p>The preceding lessons used small types to teach classes, records, enums, and LINQ. Now the project needs one canonical vocabulary that every later chapter will share. Create <code>Models.cs</code>; do not leave competing demonstration versions of <code>SearchResult</code> or <code>Source</code> in other files.</p>
-<pre><code><span class="k">public enum</span> SourceKind
-{
-    Web,
-    LocalFixture
-}
 
-<span class="k">public record</span> SourceSpec(<span class="k">string</span> Label, <span class="k">string</span> Url, <span class="k">double</span> Trust, SourceKind Kind);
-<span class="k">public record</span> SourceDocument(SourceSpec Source, <span class="k">string</span> Html);
-<span class="k">public record</span> Passage(<span class="k">int</span> Id, <span class="k">string</span> Text, SourceSpec Source);
-<span class="k">public record</span> QuoteProposal(<span class="k">int</span> PassageId, <span class="k">string</span> Quote);
-<span class="k">public record</span> QuoteBatch(List&lt;QuoteProposal&gt; Quotes);
-<span class="k">public record</span> VerifiedQuote(<span class="k">string</span> Text, <span class="k">string</span> SourceLabel,
-    <span class="k">string</span> Url, <span class="k">int</span> PassageId);</code></pre>
-<p>These names encode the product's trust boundary. A <code>QuoteProposal</code> is merely model output and must never be rendered. A <code>VerifiedQuote</code> is created later by C# only after exact source matching. The URL is absent from <code>QuoteProposal</code> on purpose: the model cannot invent attribution when it does not own that field.</p>
-<p>Use one type per line at first, even though C# permits terse declarations. The compiler can then point to a specific name. In <code>Program.cs</code>, create a tiny smoke test:</p>
-<pre><code><span class="k">var</span> source = <span class="k">new</span> SourceSpec(<span class="s">"C# overview"</span>, <span class="s">"https://learn.microsoft.com/en-us/dotnet/csharp/tour-of-csharp/overview"</span>, 10, SourceKind.Web);
-<span class="k">var</span> passage = <span class="k">new</span> Passage(7, <span class="s">"The exact source words."</span>, source);
-Console.WriteLine(<span class="s">$"{passage.Id}: {passage.Source.Label}"</span>);</code></pre>
-<p>Run <code>dotnet build</code> before moving on. If the compiler says a type already exists, search the project and remove the obsolete demonstration declaration—not the canonical one in <code>Models.cs</code>. If it cannot find <code>List&lt;T&gt;</code>, confirm implicit usings remain enabled in the project file or add <code>using System.Collections.Generic;</code>.</p>
-<div class="field-notes"><div class="fn-head">MARGINALIA // WHY PROPOSAL AND VERIFIED ARE DIFFERENT TYPES</div>
-<p>Using separate record types makes an unsafe state harder to use accidentally. A renderer that accepts only <code>VerifiedQuote</code> cannot be handed raw model JSON without a compiler error. This is a C# version of making illegal states unrepresentable: types carry security and truth guarantees, not merely data shape.</p></div>
+<p>This workshop is a <strong>modeling rehearsal</strong>, not a production-file handoff. You now know classes, records, properties, constructors, enums, and first LINQ. Use those tools to draw a trust boundary in disposable code before deciding how your own Verisearch project will be organized.</p>
+<p>Begin with four facts that the eventual program must represent: a source chosen by the user, a document read from that source, a stable passage extracted from the document, and a quote proposed by an AI. A fifth value represents a quotation that C# has actually verified. The last two must not be interchangeable. If the AI-facing shape contains a source label or URL, the model can impersonate attribution. If the verified shape can be constructed from raw response JSON without a containment check, the type name promises more than the program proved.</p>
+<p>Sketch the information flow on paper. For every field, write its owner and the first boundary allowed to create it. Source identity begins in configuration. Passage text begins in the source document. A proposal begins outside the trust boundary. Verified attribution is copied from the matched passage only after an ordinal substring check. Your record names and file layout may differ from the examples; the ownership rules may not.</p>
+<pre><code data-kind="replacement">public sealed record Candidate(string PassageId, string Text);
+public sealed record AdmittedText(string Text, string SourceLabel, Uri SourceUri);</code></pre>
+<p>The two-line fragment is intentionally incomplete. It demonstrates different shapes, not the architecture you must copy. Try a second design in which constructors are private or verification returns a result object containing accepted and rejected counts. Compare which design makes an invalid state harder to express.</p>
+<p>Then test equality and mutation in a tiny scratch program. Records use value-oriented equality, which is useful for controlled fixture data. Classes are often a better home for behavior or owned resources. Nullable annotations should describe reality: a failed source read may have no document, but a successfully admitted quotation must always have text and source identity.</p>
+<div class="callout"><p>The Working asks for observable ownership, not canonical filenames. You may combine small records, choose different names, or use richer result types as long as unverified AI output cannot cross into verified reporting.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TRY TO FORGE A LIE</div><p>Attempt to construct the value your renderer will accept using only an invented AI response. If that is easy, the model boundary is too wide. Repair the ownership seam before writing networking code.</p></div>
 '''
 
 [[lessons.readings]]
@@ -37,9 +25,9 @@ id = "s03-l06-e1"
 type = "mc"
 points = 20
 prompt = "Why is the source URL deliberately absent from <code>QuoteProposal</code>?"
-choices = ["C# records cannot hold URLs", "The model must not own attribution; C# attaches it from the matched Passage", "URLs are added by Spectre.Console", "Ollama adds URLs automatically"]
+choices = ["C# records cannot hold URLs", "The model must not own attribution; C# attaches it from the matched Passage", "URLs are added by Spectre.Console", "the configured AI adds URLs automatically"]
 answer = 1
-whyWrong = "Records can hold strings and neither Spectre nor Ollama supplies trustworthy attribution. The program attaches source identity from its own passage data after verification."
+whyWrong = "Records can hold strings and neither Spectre nor the configured AI supplies trustworthy attribution. The program attaches source identity from its own passage data after verification."
 explain = "Separating model proposals from C#-owned source metadata prevents invented citations from entering the report."
 hint = "Which component has trustworthy source identity?"
 
@@ -77,3 +65,19 @@ public record SourceSpec(string Label, string Url, double Trust);
 public record Passage(int Id, string Text, SourceSpec Source);
 '''
 hint = "Construct SourceSpec first, pass it into Passage, then read nested properties through passage.Source."
+
+[[lessons.concepts]]
+id = "language-namespaces-modularity"
+purpose = "Split a growing C# program into discoverable files and namespaces with one clear owner per responsibility."
+anatomy = "Place related types under a namespace, keep the entrypoint as composition, and reference public contracts instead of copying declarations."
+example = "The disposable examples in Workshop — Establish the Canonical Models isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Workshop — Establish the Canonical Models supplies the disposable observation point."
+observable = "The whole solution builds with one definition for each concept and dependencies point in an understandable direction. Confirm it while practicing Workshop — Establish the Canonical Models."
+failure = "Duplicate types, circular ownership, or business logic in Program.cs makes later integration brittle."
+practice = "s03-l06-e1"
+
+[[lessons.artifactSteps]]
+id = "s03-l06-author-artifact"
+path = "src/Verisearch/Domain.cs"
+mode = "author"
+instruction = "Use the C# ideas from Workshop — Establish the Canonical Models to author or revise this learner-owned path toward the chapter behavior: Model sources, passages, AI proposals, and verified quotations so untrusted output cannot impersonate proof. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["Controlled model data shows that proposals cannot supply the label or URL later carried by a verified quotation.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

@@ -1,46 +1,19 @@
 [[lessons]]
 id = "s06-l05"
-teaches = ["page-extractor"]
+teaches = ["language-interfaces-polymorphism"]
 title = "Workshop — Assemble PageExtractor"
 body = '''
-<p>Create <code>PageExtractor.cs</code>. This workshop is a full replacement boundary, not a fragment to blend with the old demonstration scraper. It receives HTML already fetched in Chapter IV and returns canonical passages from Chapter III.</p>
-<pre><code><span class="k">using</span> System.Text.RegularExpressions;
-<span class="k">using</span> AngleSharp;
-<span class="k">using</span> AngleSharp.Dom;
 
-<span class="k">public sealed class</span> PageExtractor
-{
-    <span class="k">public async</span> Task&lt;List&lt;Passage&gt;&gt; ExtractAsync(SourceDocument document)
-    {
-        <span class="k">var</span> context = BrowsingContext.New(Configuration.Default);
-        IDocument parsed = <span class="k">await</span> context.OpenAsync(request =&gt; request.Content(document.Html));
-        IElement scope = parsed.QuerySelector(<span class="s">"main"</span>)
-            ?? parsed.QuerySelector(<span class="s">"article"</span>)
-            ?? parsed.Body
-            ?? parsed.DocumentElement;
-
-        <span class="k">var</span> passages = <span class="k">new</span> List&lt;Passage&gt;();
-        <span class="k">foreach</span> (IElement element <span class="k">in</span> scope.QuerySelectorAll(<span class="s">"p, li, blockquote"</span>))
-        {
-            <span class="k">string</span> text = Normalize(element.TextContent);
-            <span class="k">if</span> (text.Length &lt; 20)
-                <span class="k">continue</span>;
-
-            passages.Add(<span class="k">new</span> Passage(passages.Count + 1, text, document.Source));
-        }
-        <span class="k">return</span> passages;
-    }
-
-    <span class="k">private static string</span> Normalize(<span class="k">string</span> text)
-    {
-        <span class="k">string</span> ordinarySpaces = text.Replace(<span class="s">'\u00A0'</span>, <span class="s">' '</span>);
-        <span class="k">return</span> Regex.Replace(ordinarySpaces, <span class="s">@"\s+"</span>, <span class="s">" "</span>).Trim();
-    }
-}</code></pre>
-<p>Compile immediately. If <code>AngleSharp</code> is unknown, run <code>dotnet add package AngleSharp</code> from the project directory. If <code>Passage</code> or <code>SourceDocument</code> is unknown, return to <code>Models.cs</code>; do not recreate a slightly different record in this file.</p>
-<p>Test with a local <code>SourceDocument</code>, not a live site. Include a <code>&lt;nav&gt;</code> outside <code>&lt;main&gt;</code>, irregular whitespace, and at least three paragraphs. Print the results, run twice, and compare. Delete that temporary print loop after the Working; the fixture returns in the test project during Chapter XII.</p>
-<div class="callout">A passage id is only meaningful inside the source batch presented to one model call. Chapter XI processes one source at a time, so two pages may both have passage 1 without confusing attribution.</div>
-<div class="field-notes"><div class="fn-head">MARGINALIA // A SMALL, TESTABLE SEAM</div><p>Receiving <code>SourceDocument</code> makes the extractor deterministic: tests supply HTML strings without internet access. The network boundary and parsing boundary can now fail independently and report which part actually broke.</p></div>
+<p>Extraction turns source material into the stable units seen by both the AI and the verifier. This is where a subtle mismatch can invalidate the whole truth boundary: if the prompt contains rewritten text but verification compares a different representation, exact quotation becomes arbitrary.</p>
+<p>Design one extraction policy and use its output everywhere downstream. For HTML, a DOM parser can select meaningful containers such as paragraphs, list items, or block quotations. Avoid traversing both a container and a selected descendant when that repeats the same words. For plain text, split on a documented structural boundary. Normalize whitespace once, after structural extraction, without paraphrasing punctuation or wording.</p>
+<pre><code data-kind="replacement">static string Normalize(string text) =&gt;
+    string.Join(' ', text.Split((char[]?)null,
+        StringSplitOptions.RemoveEmptyEntries));</code></pre>
+<p>The fragment is a local transform, not a complete extractor. You choose minimum length, container policy, and identifier strategy. Stable identifiers may be deterministic hashes, source-scoped ordinals, or another reproducible scheme. They must not depend on iteration accidents or random values. If two sources can both contain a passage “1,” include source identity in lookup or make identifiers globally unique.</p>
+<p>Author fixtures rather than relying on a changing website. Include nested <code>&lt;li&gt;&lt;p&gt;...&lt;/p&gt;&lt;/li&gt;</code>, repeated whitespace, ignored navigation, two sources with similar text, and a second extraction of the same input. Assert that nested prose appears once, wording remains exact after the chosen normalization, and identifiers repeat.</p>
+<p>AngleSharp is one valid DOM choice, not the product algorithm. The factual relevance decision still belongs to a real AI later. The extractor may discard structural noise by a general documented policy; it must not route “who,” “when,” or other question keywords into different selectors or source-specific lookup rules.</p>
+<div class="callout"><p>The learner owns the extraction architecture. The invariant is shared representation: AI sees the same passage text and id that deterministic C# later verifies.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DUPLICATION PROBE</div><p>Count a distinctive nested sentence in the final passage collection. A visual spot check can miss duplicate evidence; an exact count exposes it.</p></div>
 '''
 
 [[lessons.readings]]
@@ -84,9 +57,9 @@ id = "s06-l05-e3"
 type = "mc"
 points = 18
 prompt = "Two different source pages both produce passage id 1. Why is this safe in the designed pipeline?"
-choices = ["Integers are globally unique", "Each model call and verification batch is scoped to one source whose SourceSpec remains attached", "Ollama renumbers everything", "The renderer discards source identity"]
+choices = ["Integers are globally unique", "Each model call and verification batch is scoped to one source whose SourceSpec remains attached", "the configured AI renumbers everything", "The renderer discards source identity"]
 answer = 1
-whyWrong = "The integers are not globally unique, Ollama does not own numbering, and the renderer retains attribution. Source-scoped batches disambiguate them."
+whyWrong = "The integers are not globally unique, the configured AI does not own numbering, and the renderer retains attribution. Source-scoped batches disambiguate them."
 explain = "Passage identity is the pair of its source-owned batch and local id."
 hint = "Look beyond the integer to the Passage record."
 
@@ -125,3 +98,19 @@ static void AddPassage(List<Passage> passages, string raw)
 public record Passage(int Id, string Text);
 '''
 hint = "Trim first; return for a short string; use passages.Count + 1 before Add."
+
+[[lessons.concepts]]
+id = "language-interfaces-polymorphism"
+purpose = "Name a behavioral seam so real providers and test doubles can be substituted without changing the pipeline's truth rules."
+anatomy = "Declare the smallest useful interface member, implement it in separate concrete types, and depend on the interface at the caller boundary."
+example = "The disposable examples in Workshop — Assemble PageExtractor isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Workshop — Assemble PageExtractor supplies the disposable observation point."
+observable = "Two implementations can satisfy the same caller while verification and reporting remain unchanged. Confirm it while practicing Workshop — Assemble PageExtractor."
+failure = "An interface that exposes provider details or verified output lets one implementation bypass the common contract."
+practice = "s06-l05-e1"
+
+[[lessons.artifactSteps]]
+id = "s06-l05-author-artifact"
+path = "src/Verisearch/PassageExtractor.cs"
+mode = "author"
+instruction = "Use the C# ideas from Workshop — Assemble PageExtractor to author or revise this learner-owned path toward the chapter behavior: Turn HTML or text into stable nonduplicated passages used identically by AI selection and C# verification. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["The same fixture produces the same passage ids twice and a nested list paragraph appears exactly once.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

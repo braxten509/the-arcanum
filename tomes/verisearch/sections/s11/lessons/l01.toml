@@ -1,33 +1,23 @@
 [[lessons]]
 id = "s11-l01"
-teaches = ["interfaces"]
+teaches = ["language-interfaces-polymorphism"]
 title = "Interfaces — Name Only the Real Seams"
 body = '''
-<p>An interface declares what a component can do without choosing how it does it. Verisearch has three useful seams: fetching can be replaced by deterministic HTML in tests, extraction can be isolated, and quote selection has live Ollama plus an explicit deterministic mock selector.</p>
-<pre><code><span class="k">public interface</span> ISourceFetcher
-{
-    Task&lt;SourceDocument&gt; FetchAsync(SourceSpec source,
-        CancellationToken ct = <span class="k">default</span>);
-}
 
-<span class="k">public interface</span> IPageExtractor
+<p>An interface declares what a component can do without deciding how it does it. Use interfaces where substitution protects a real boundary: source reading can use HTTP, files, or fixtures; semantic quote selection can use a local model, hosted API, CLI wrapper, or explicit test double; reporting may have multiple formats if the learner chooses that extension.</p>
+<pre><code data-kind="replacement">public interface ISemanticSelector
 {
-    Task&lt;List&lt;Passage&gt;&gt; ExtractAsync(SourceDocument document);
-}
-
-<span class="k">public interface</span> IQuoteSelector
-{
-    Task&lt;QuoteBatch&gt; SelectAsync(<span class="k">string</span> question,
-        IReadOnlyList&lt;Passage&gt; passages, CancellationToken ct = <span class="k">default</span>);
+    Task&lt;ProposalBatch&gt; SelectAsync(
+        string wholeQuestion,
+        IReadOnlyList&lt;Passage&gt; passages,
+        CancellationToken cancellationToken);
 }</code></pre>
-<p>Create <code>Interfaces.cs</code>, then update three class declarations:</p>
-<pre><code><span class="k">public sealed class</span> SourceFetcher : ISourceFetcher
-<span class="k">public sealed class</span> PageExtractor : IPageExtractor
-<span class="k">public sealed class</span> OllamaQuoteSelector : IQuoteSelector</code></pre>
-<p>The compiler now checks that each method signature matches its promise. <code>MockQuoteSelector</code> also implements <code>IQuoteSelector</code>, but it exists only for <code>--mock</code> and tests. It proposes the first complete passage from a known fixture, making plumbing deterministic; its output is still sent through <code>QuoteVerifier</code> and visibly labeled.</p>
-<p>Do not add interfaces for <code>ReportRenderer</code>, <code>SourcePolicy</code>, or <code>QuoteVerifier</code> merely for symmetry. Each has one small deterministic implementation and tests can call it directly. Add abstraction when a real alternate or test boundary earns it.</p>
-<div class="callout">Interfaces do not make untrusted output safe. <code>IQuoteSelector</code> returns <code>QuoteBatch</code>, not <code>VerifiedQuote</code>; every implementation remains on the proposal side of the proof gate.</div>
-<div class="field-notes"><div class="fn-head">MARGINALIA // NAMING AND CONTRACTS</div><p>C# convention prefixes interfaces with <code>I</code>. The compiler does not require this, but the name instantly tells a reader that a field may hold different implementations. Keep each interface narrow so consumers depend only on what they use.</p></div>
+<p>The fragment names a behavior without provider details. Your contract may use different names and models. It must return proposals, not verified quotations, so every implementation remains on the untrusted side of the exact-text gate.</p>
+<p>A real CLI adapter and a hosted HTTP adapter can both satisfy this contract. An explicit deterministic test double can also satisfy it, but only tests or visibly selected mock mode may construct that double. The pipeline should not know which concrete provider was chosen and should not inspect question words to select one.</p>
+<p>Avoid interfaces for ceremony. A small deterministic exact verifier may remain concrete if no alternate behavior is desirable. An interface that mirrors every member of one class adds navigation without creating a useful seam. Prefer the smallest contract a caller genuinely needs.</p>
+<p>Use a polymorphism experiment in disposable code: place two harmless implementations in an <code>IReadOnlyList&lt;ISemanticSelector&gt;</code>, call both through the interface, and observe that the caller remains unchanged. Then inspect your project dependencies. Provider request envelopes, credentials, process types, and HTTP response types should not appear in the common contract.</p>
+<div class="callout"><p>Substitutability applies to transport and model choice. It never permits an implementation to bypass C# verification or replace AI semantics with keyword routing.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CONTRACT PRESSURE</div><p>Try adding a second real provider on paper. If that requires changing the pipeline or verified result type, provider knowledge has leaked past the adapter boundary.</p></div>
 '''
 
 [[lessons.readings]]
@@ -51,7 +41,7 @@ id = "s11-l01-e2"
 type = "mc"
 points = 20
 prompt = "Which pair are legitimate implementations of one Verisearch interface?"
-choices = ["QuoteProposal and VerifiedQuote", "Panel and Rule", "OllamaQuoteSelector and MockQuoteSelector", "Program.cs and the project file"]
+choices = ["QuoteProposal and VerifiedQuote", "Panel and Rule", "ConfiguredAiSelector and MockQuoteSelector", "Program.cs and the project file"]
 answer = 2
 whyWrong = "The other pairs are different data states, widgets, or file roles. Both selectors accept passages and return quote proposals."
 explain = "Live and explicitly mocked selection share IQuoteSelector without weakening the result type."
@@ -80,7 +70,7 @@ code = '''public interface IQuoteSelector
         IReadOnlyList<Passage> passages, CancellationToken ct = default);
 }
 
-public sealed class OllamaQuoteSelector : IQuoteSelector'''
+public sealed class ConfiguredAiSelector : IQuoteSelector'''
 
 [[lessons.exercises]]
 id = "s11-l01-w1"
@@ -102,3 +92,19 @@ public sealed class LiveSelector : ISelector { public string Select() => "live";
 public sealed class MockSelector : ISelector { public string Select() => "mock"; }
 '''
 hint = "Both classes implement the same method; loop through List<ISelector>."
+
+[[lessons.concepts]]
+id = "language-interfaces-polymorphism"
+purpose = "Name a behavioral seam so real providers and test doubles can be substituted without changing the pipeline's truth rules."
+anatomy = "Declare the smallest useful interface member, implement it in separate concrete types, and depend on the interface at the caller boundary."
+example = "The disposable examples in Interfaces — Name Only the Real Seams isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Interfaces — Name Only the Real Seams supplies the disposable observation point."
+observable = "Two implementations can satisfy the same caller while verification and reporting remain unchanged. Confirm it while practicing Interfaces — Name Only the Real Seams."
+failure = "An interface that exposes provider details or verified output lets one implementation bypass the common contract."
+practice = "s11-l01-e1"
+
+[[lessons.artifactSteps]]
+id = "s11-l01-author-artifact"
+path = "src/Verisearch/App.cs"
+mode = "author"
+instruction = "Use the C# ideas from Interfaces — Name Only the Real Seams to author or revise this learner-owned path toward the chapter behavior: Independently integrate the complete search path from behavior contracts and tests, choosing the architecture. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["The complete fixture journey yields one verified quote, one rejected fabrication, and one visible source failure through the learner's architecture.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

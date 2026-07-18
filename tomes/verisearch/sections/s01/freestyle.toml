@@ -1,37 +1,76 @@
 [freestyle]
-title = "THE WORKING: The Listening Vestibule"
-requires = ["dotnet-project", "top-level-statements", "csharp-types", "console-io", "input-loop"]
-brief = "Turn <code>Program.cs</code> into the tome's front door — the mouth that will one day speak true quotes.<ul><li>Greets the seeker when it wakes</li><li>Prompts with <code>&gt; </code> and hears questions in a loop</li><li>Echoes each question back in quotes, with a \"(The question is heard — the deeper magic is not yet bound)\" note</li><li>Bows out politely on <code>quit</code></li><li>Prove it with the WHISPER box (e.g. <code>What are the TLS 1.3 cipher suites?\\nquit</code>)</li></ul>"
-reward = 200
-packages = []
-xray = "THORNE strikes gold from the tally for: dying at Ctrl+D (a null ReadLine), quit that only answers to exact lowercase, a missing > prompt (he feeds it whispers and reads the transcript), and a waking line buried inside the loop so it repeats every turn. He grants favor for a `?? \"\"` guard and for 'continue' on empty lines."
+title = "THE WORKING: C# STARTS HERE"
+brief = '''
+<p><strong>Outcome:</strong> Create the solution and a small question-listening console without receiving production code.</p><p>Author the project edits yourself. The hidden replay proves one possible implementation, but it is never shown and does not define your architecture.</p><ul><li>Create a solution and console application from the blank editor scaffold; choose sensible project and namespace names and keep generated output out of authored source.</li><li>Author a small question-listening path that handles a missing line, displays the entered text, and exits intentionally.</li><li>Use nullable annotations, typed locals, one helper method, and a branch or loop you can explain from input to output.</li><li>Build from the solution root, deliberately introduce one compiler error, read the first diagnostic, repair only that cause, and build cleanly again.</li><li>Keep lesson snippets disposable: the learner-owned entrypoint must be written from the behavior above, not copied from a hidden production file.</li></ul>
+'''
+requires = ["language-project-toolchain", "language-namespaces-modularity", "language-types-nullability", "language-methods-scope", "language-control-flow"]
+reward = 315
+xray = "The grader inspects saved C# and project metadata, runs the chapter proof and cumulative regressions, changes a load-bearing input, and checks the observable chapter contract: The solution builds and the console path accepts, displays, and exits from learner-provided text without crashing on missing input."
 
 [freestyle.badge]
 id = "badge-s01"
-name = "THE FIRST FLAME"
-desc = "Lit the vestibule — the front door of the whole tome."
+name = "FIRST FORGING"
+desc = "Built and repaired a learner-authored C# solution from an empty entry file."
 
 [[freestyle.rubric]]
-criterion = "It takes the flame & runs"
+criterion = "Toolchain ownership"
 weight = 25
-desc = "dotnet build succeeds; the working runs without collapsing on ordinary input."
+desc = "Create a solution and console application from the blank editor scaffold; choose sensible project and namespace names and keep generated output out of authored source."
 
 [[freestyle.rubric]]
-criterion = "The listening loop holds"
-weight = 25
-desc = "Prompt loop works; quit exits cleanly (case/space tolerant); empty lines handled."
-
-[[freestyle.rubric]]
-criterion = "It speaks as commissioned"
+criterion = "Typed input behavior"
 weight = 20
-desc = "Waking line, quoted echo, 'not yet bound' note, parting word."
+desc = "Author a small question-listening path that handles a missing line, displays the entered text, and exits intentionally."
 
 [[freestyle.rubric]]
-criterion = "String craft"
-weight = 15
-desc = "Uses interpolation ($\"...\"), Trim/ToLower where fitting, null-safe ReadLine."
+criterion = "Control and method boundary"
+weight = 20
+desc = "Use nullable annotations, typed locals, one helper method, and a branch or loop you can explain from input to output."
 
 [[freestyle.rubric]]
-criterion = "A fair hand"
+criterion = "Diagnostic repair"
+weight = 20
+desc = "Build from the solution root, deliberately introduce one compiler error, read the first diagnostic, repair only that cause, and build cleanly again."
+
+[[freestyle.rubric]]
+criterion = "Learner-authored structure"
 weight = 15
-desc = "Names follow C# convention (camelCase locals, PascalCase for any methods/types); each brace on its own line (Allman, the C# standard); even indentation; no dead runes left on the page."
+desc = "Keep lesson snippets disposable: the learner-owned entrypoint must be written from the behavior above, not copied from a hidden production file."
+
+[[freestyle.referenceSteps]]
+id = "s01-write-solution"
+path = "Verisearch.slnx"
+mode = "write"
+instruction = "Private replay creates the minimal app-only solution container."
+content = '''
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Verisearch/Verisearch.csproj" />
+  </Folder>
+</Solution>
+'''
+[[freestyle.referenceSteps]]
+id = "s01-write-app-project"
+path = "src/Verisearch/Verisearch.csproj"
+mode = "write"
+instruction = "Private replay creates strict nullable C# project metadata."
+content = '''
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>
+'''
+[[freestyle.referenceSteps]]
+id = "s01-rewrite-entry"
+path = "src/Verisearch/Program.cs"
+mode = "rewrite"
+instruction = "Private replay replaces the blank scaffold with the first buildable learner entrypoint."
+preserves = "all-active"
+content = '''
+Console.WriteLine("Verisearch learner project is ready.");
+'''

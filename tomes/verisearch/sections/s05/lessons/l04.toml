@@ -1,26 +1,22 @@
 [[lessons]]
 id = "s05-l04"
-teaches = ["config-validation"]
+teaches = ["language-testing-debugging"]
 title = "Validate Configuration — Reject Ambiguity Early"
 body = '''
-<p>Deserialization proves only that JSON can become the shape of <code>AppConfig</code>. It does not prove that the values are usable. Validation is the next, separate step. Keeping those steps separate makes an error precise: malformed punctuation is a JSON problem; an empty model name is a configuration-policy problem.</p>
-<p>Write the rules down before writing the method. Verisearch requires:</p>
-<ol><li>a nonblank model name;</li><li>an absolute HTTP or HTTPS Ollama address;</li><li><code>MaxQuotes</code> between one and ten;</li><li>at least one configured source;</li><li>a nonblank, case-insensitively unique label for every source;</li><li>a user-authored trust value from zero through ten; and</li><li>a URL scheme that agrees with <code>SourceKind</code>.</li></ol>
-<p>The final rule needs actual URI parsing. Do not inspect a URL with <code>StartsWith("http")</code>; malformed strings can share that prefix. Practice the non-throwing gate independently:</p>
-<pre><code><span class="k">static string</span>? ExplainBadWebAddress(<span class="k">string</span> value)
-{
-    <span class="k">if</span> (!Uri.TryCreate(value, UriKind.Absolute, <span class="k">out</span> Uri? parsed))
-        <span class="k">return</span> <span class="s">"URL must be absolute"</span>;
 
-    <span class="k">bool</span> web = parsed.Scheme == Uri.UriSchemeHttp
-        || parsed.Scheme == Uri.UriSchemeHttps;
-    <span class="k">return</span> web ? <span class="k">null</span> : <span class="s">"web source must use HTTP or HTTPS"</span>;
-}</code></pre>
-<p>A nullable return is useful for one tiny rule: null means no complaint. The complete workshop uses <code>List&lt;string&gt;</code> because a learner should see every problem in one run instead of repairing and rerunning the file seven times. It also branches on <code>SourceKind</code>, admitting <code>mock://</code> only for the clearly labeled local fixture.</p>
-<p>Missing and invalid are different states. When the file is absent, a documented default may be created because no user policy exists yet. When the file exists but parsing or validation fails, keep it untouched, print its exact path, and stop. Never “repair” a label, URL, trust value, or model name silently; those are the user's choices.</p>
-<div class="callout">Beginner recovery loop: read the first diagnostic, open the printed file, change one value, save, and run again. A JSON line-and-byte location points to text syntax. A named validation rule points to a value.</div>
-<div class="field-notes"><div class="fn-head">MARGINALIA // THE WORKSHOP IS CANONICAL</div>
-<p>This lesson isolates the reasoning and one URI helper. Do not create a second production validator from it. The next lesson gives the complete <code>ConfigLoader.cs</code>, including the one list-returning method the finished project keeps and tests.</p></div>
+<p>Validation converts parseable catalog data into admitted source policy. Perform it before networking so failures are fast, local, and testable.</p>
+<p>At minimum, require a non-empty source collection; trimmed nonblank labels; a documented case comparison for uniqueness; an absolute address; and a scheme supported by the chosen reader. If local files are supported, keep that source kind explicit rather than accepting every URI accidentally.</p>
+<pre><code data-kind="replacement">if (!Uri.TryCreate(candidate.Url, UriKind.Absolute, out Uri? uri))
+{
+    throw new InvalidOperationException("source URL must be absolute");
+}
+</code></pre>
+<p>The fragment isolates one check. A complete validator should include the entry label and catalog path in diagnostics without echoing credentials. Return a result type or throw focused exceptions—either can work if invalid and empty states are unambiguous.</p>
+<p>Reject duplicate labels according to the same comparer later selection uses. Otherwise configuration may load successfully but a user request becomes ambiguous. Preserve first-declared order in the admitted list.</p>
+<p>Do not validate provider-specific model names or endpoints inside the source catalog unless your own design deliberately combines those concerns and you can defend the tradeoff. A CLI provider may need an executable and argument list; an API provider may need an endpoint and environment-held key. Those are adapter configuration contracts, not source-authority rules.</p>
+<p>Test one failure at a time: blank label, duplicate under the selected comparison, relative URL, unsupported scheme, missing collection, and a valid ordered catalog. Assert that no source reader was called for invalid policy.</p>
+<div class="callout"><p>Validation protects explicit user intent. It must not add replacement sources, guess a missing URL, or inspect question keywords.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DIAGNOSTIC PRECISION</div><p>“Invalid configuration” names no repair. “catalog.json: source 'Archive' needs an absolute http, https, or file URL” names the owner, entry, and rule.</p></div>
 '''
 
 [[lessons.readings]]
@@ -96,3 +92,19 @@ static List<string> Validate(int maxQuotes)
 }
 '''
 hint = "Create a list, add one item for an out-of-range value, return the list."
+
+[[lessons.concepts]]
+id = "language-testing-debugging"
+purpose = "Turn a C# promise into an executable check and diagnose failures from the earliest broken boundary."
+anatomy = "Arrange controlled inputs, invoke one behavior, assert an observable result, then use compiler, test, or debugger output to localize a failing case."
+example = "The disposable examples in Validate Configuration — Reject Ambiguity Early isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Validate Configuration — Reject Ambiguity Early supplies the disposable observation point."
+observable = "The check passes for a valid case and fails when its load-bearing input is deliberately changed. Confirm it while practicing Validate Configuration — Reject Ambiguity Early."
+failure = "A test that prints a prepared success receipt or requires live network state cannot distinguish a regression."
+practice = "s05-l04-e1"
+
+[[lessons.artifactSteps]]
+id = "s05-l04-author-artifact"
+path = "src/Verisearch/SourceCatalog.cs"
+mode = "author"
+instruction = "Use the C# ideas from Validate Configuration — Reject Ambiguity Early to author or revise this learner-owned path toward the chapter behavior: Load a user-owned catalog of source labels and URLs without rewriting invalid input or inventing authority. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["A valid catalog loads in order, and malformed or invalid existing JSON is diagnosed without being overwritten.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

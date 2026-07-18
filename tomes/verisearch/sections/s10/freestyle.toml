@@ -1,37 +1,89 @@
 [freestyle]
-title = "THE WORKING: The Verified Report"
-requires = ["cli-options", "spectre-markup", "spectre-widgets", "report-renderer", "verified-output"]
-brief = "Give the existing project a safe command surface and report.<ul><li>Add <code>CommandLineOptions.cs</code> with question, repeatable <code>--source LABEL</code>, <code>--mock</code>, <code>--verbose</code>, and <code>--help</code>. Bad input prints usage and exits nonzero.</li><li>Install only <code>Spectre.Console</code>. Keep argument parsing in project code; do not add Spectre.Console.Cli.</li><li>Create <code>ReportRenderer.cs</code> from the workshop. Its public signature accepts only <code>VerifiedQuote</code> plus failure/count metadata—never <code>QuoteProposal</code> or raw model strings.</li><li>Escape the question, quote, label, URL, and errors. Print every complete verified quote with source label, URL, and passage id.</li><li>Show an unmistakable MOCK banner only when <code>--mock</code> was explicitly supplied; design honest zero-quote and partial-source-failure states.</li><li>Run a markup-injection fixture containing <code>[red]FORGED[/]</code>, then <code>dotnet build</code> and visually inspect narrow-terminal wrapping.</li></ul>"
-reward = 550
-packages = ["Spectre.Console"]
-xray = "THORNE tries unknown flags, a missing --source value, markup in every external string, zero verified quotes, and one failed source. He also searches the renderer signature for QuoteProposal: if raw model output can enter, the illumination is counterfeit."
+title = "THE WORKING: CLI AND OUTPUT CONTRACTS"
+brief = '''
+<p><strong>Outcome:</strong> Expose a predictable CLI and render only verified quotations, citations, source failures, and explicit test-mode state.</p><p>Author the project edits yourself. The hidden replay proves one possible implementation, but it is never shown and does not define your architecture.</p><ul><li>Author a predictable CLI for a whole question, repeated explicit source choices, provider configuration, limits, help, and invalid input.</li><li>Keep executable arguments as data and secrets outside committed source; provider choice is configuration rather than question classification.</li><li>Design one or more output formats that accept only verified quotation data, source failures, rejection counts, and explicit mode state.</li><li>Escape external text for the chosen medium and keep exact stored quotation text unchanged.</li><li>Test stable exit codes, markup characters, no verified quotes, partial failure, C#-owned citations, and an unmistakable non-factual mock banner.</li></ul>
+'''
+requires = ["language-project-toolchain", "language-namespaces-modularity", "language-types-nullability", "language-methods-scope", "language-control-flow", "language-collections-generics", "language-exceptions-resources", "language-classes-records", "language-linq-lambdas", "language-testing-debugging", "language-async-cancellation", "language-serialization-io", "language-interfaces-polymorphism", "language-cli-packaging"]
+reward = 630
+xray = "The grader inspects saved C# and project metadata, runs the chapter proof and cumulative regressions, changes a load-bearing input, and checks the observable chapter contract: Help and invalid arguments have stable exits, and the report contains only verified quote values with C#-owned citations."
 
 [freestyle.badge]
 id = "badge-s10"
-name = "ILLUMINATOR"
-desc = "Made verified evidence legible without letting untrusted markup or proposals cross the page."
+name = "SCRIBE OF VERIFIED REPORTS"
+desc = "Exposed a predictable CLI and rendered only admitted evidence."
 
 [[freestyle.rubric]]
-criterion = "CLI behavior"
-weight = 20
-desc = "Question, repeatable source labels, help, mock, and verbose parse predictably; invalid input gives usage and nonzero status."
-
-[[freestyle.rubric]]
-criterion = "Verified-only boundary"
+criterion = "Predictable CLI"
 weight = 25
-desc = "ReportRenderer can consume VerifiedQuote but no proposal or raw model response type."
+desc = "Author a predictable CLI for a whole question, repeated explicit source choices, provider configuration, limits, help, and invalid input."
 
 [[freestyle.rubric]]
-criterion = "Markup safety"
+criterion = "Safe provider configuration"
 weight = 20
-desc = "Every externally controlled string is escaped; bracket markup cannot alter the report."
+desc = "Keep executable arguments as data and secrets outside committed source; provider choice is configuration rather than question classification."
 
 [[freestyle.rubric]]
-criterion = "Honest report design"
+criterion = "Verified-only output"
 weight = 20
-desc = "Full quotes, citations, visible mock mode, empty state, rejected count, and partial errors are readable and distinct."
+desc = "Design one or more output formats that accept only verified quotation data, source failures, rejection counts, and explicit mode state."
 
 [[freestyle.rubric]]
-criterion = "C# craft"
+criterion = "Escaping and empty states"
+weight = 20
+desc = "Escape external text for the chosen medium and keep exact stored quotation text unchanged."
+
+[[freestyle.rubric]]
+criterion = "Exit and mode evidence"
 weight = 15
-desc = "PascalCase types and methods, camelCase locals, four-space indentation, Allman braces, and rendering isolated from pipeline logic."
+desc = "Test stable exit codes, markup characters, no verified quotes, partial failure, C#-owned citations, and an unmistakable non-factual mock banner."
+
+[[freestyle.referenceSteps]]
+id = "s10-write-report-renderer"
+path = "src/Verisearch/ReportRenderer.cs"
+mode = "write"
+instruction = "Private replay renders only verified values, failures, and explicit mock state."
+content = '''
+using System.Text;
+
+namespace Verisearch;
+
+public sealed class ReportRenderer : IReportRenderer
+{
+    public string Compose(string question, SearchResult result)
+    {
+        var report = new StringBuilder();
+        report.AppendLine("VERISEARCH // VERIFIED EVIDENCE");
+        if (result.IsMock)
+        {
+            report.AppendLine("MODE: EXPLICIT MOCK AI — NOT A FACTUAL SEARCH RESULT");
+        }
+        report.AppendLine($"Question: {question}");
+        report.AppendLine();
+
+        if (result.Quotes.Count == 0)
+        {
+            report.AppendLine("No exact quotation survived verification.");
+        }
+        else
+        {
+            for (int index = 0; index < result.Quotes.Count; index++)
+            {
+                VerifiedQuote quote = result.Quotes[index];
+                report.AppendLine($"QUOTE {index + 1}");
+                report.AppendLine(quote.Quote);
+                report.AppendLine($"Source: {quote.SourceLabel}");
+                report.AppendLine($"URL: {quote.SourceUri}");
+                report.AppendLine($"Passage: {quote.PassageId}");
+                report.AppendLine();
+            }
+        }
+
+        foreach (SourceReadOutcome source in result.Sources.Where(item => !item.Succeeded))
+        {
+            report.AppendLine($"SOURCE FAILED [{source.Source.Label}]: {source.Error}");
+        }
+        report.AppendLine($"Rejected AI proposals: {result.RejectedCount}");
+        return report.ToString().TrimEnd();
+    }
+}
+'''

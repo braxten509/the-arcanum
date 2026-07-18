@@ -1,37 +1,104 @@
 [freestyle]
-title = "THE WORKING: The Skeleton of the Tome"
-requires = ["classes-objects", "properties-constructors", "records", "enums", "linq-basics", "canonical-models"]
-brief = "Create the one model file the rest of Verisearch will share.<ul><li>Add <code>Models.cs</code> containing exactly the workshop's <code>SourceKind</code>, <code>SourceSpec</code>, <code>SourceDocument</code>, <code>Passage</code>, <code>QuoteProposal</code>, <code>QuoteBatch</code>, and <code>VerifiedQuote</code></li><li>Delete or rename any earlier syntax specimen that collides; do not keep two meanings for <code>Source</code>, <code>Passage</code>, or a proposal</li><li>In <code>Program.cs</code>, add a temporary <code>demo</code> branch that constructs two SourceSpecs and three Passages, filters passages shorter than 20 characters with LINQ, and prints <code>&lt;id&gt;: &lt;label&gt;</code></li><li>Keep the Chapter I loop and Chapter II question boundary intact</li><li>Run <code>dotnet build</code>, then exercise both <code>demo</code> and an ordinary question</li></ul><div class=\"callout\"><strong>Canonical means future chapters edit these records deliberately.</strong> Examples in earlier lessons taught syntax; <code>Models.cs</code> now owns the product contract.</div>"
-reward = 300
-packages = []
-xray = "THORNE compiles every file together, rejects duplicate demonstration types, verifies QuoteProposal has no URL field, and checks that VerifiedQuote carries C#-owned source label and URL. He runs the demo through the existing loop and expects the LINQ result to be computed from the list."
+title = "THE WORKING: DATA MODELS AND OWNERSHIP"
+brief = '''
+<p><strong>Outcome:</strong> Model sources, passages, AI proposals, and verified quotations so untrusted output cannot impersonate proof.</p><p>Author the project edits yourself. The hidden replay proves one possible implementation, but it is never shown and does not define your architecture.</p><ul><li>Model chosen sources, read documents, stable passages, untrusted AI quote proposals, verified quotations, and per-source outcomes.</li><li>Keep source labels and URIs out of the AI proposal shape so attribution can only be restored from C#-owned passage data.</li><li>Choose records, classes, enums, nullability, and result shapes according to behavior; names and file boundaries are yours.</li><li>Use a disposable LINQ observation to inspect model data without turning it into production routing logic.</li><li>Attempt to construct a reportable quotation from invented AI JSON alone; revise the boundary until that path cannot bypass verification.</li></ul>
+'''
+requires = ["language-project-toolchain", "language-namespaces-modularity", "language-types-nullability", "language-methods-scope", "language-control-flow", "language-collections-generics", "language-exceptions-resources", "language-classes-records", "language-linq-lambdas"]
+reward = 385
+xray = "The grader inspects saved C# and project metadata, runs the chapter proof and cumulative regressions, changes a load-bearing input, and checks the observable chapter contract: Controlled model data shows that proposals cannot supply the label or URL later carried by a verified quotation."
 
 [freestyle.badge]
 id = "badge-s03"
-name = "SHAPER OF FORMS"
-desc = "Raised the skeleton of forms the whole tome hangs on."
+name = "WARDEN OF TRUSTED SHAPES"
+desc = "Separated model proposals from C#-verified evidence and source ownership."
 
 [[freestyle.rubric]]
-criterion = "Compiles & runs"
-weight = 20
-desc = "Builds clean; demo output renders."
-
-[[freestyle.rubric]]
-criterion = "Canonical records & enum"
+criterion = "Trust-state modeling"
 weight = 25
-desc = "Models.cs contains the specified source, passage, proposal, batch, and verified records plus SourceKind with stable names."
+desc = "Model chosen sources, read documents, stable passages, untrusted AI quote proposals, verified quotations, and per-source outcomes."
 
 [[freestyle.rubric]]
-criterion = "Verification boundary in types"
+criterion = "Attribution ownership"
 weight = 20
-desc = "Raw model proposals cannot carry attribution and cannot be passed off as VerifiedQuote without an explicit verification step."
+desc = "Keep source labels and URIs out of the AI proposal shape so attribution can only be restored from C#-owned passage data."
 
 [[freestyle.rubric]]
-criterion = "LINQ demo"
+criterion = "C# type judgment"
+weight = 20
+desc = "Choose records, classes, enums, nullability, and result shapes according to behavior; names and file boundaries are yours."
+
+[[freestyle.rubric]]
+criterion = "Queryable data"
+weight = 20
+desc = "Use a disposable LINQ observation to inspect model data without turning it into production routing logic."
+
+[[freestyle.rubric]]
+criterion = "Invalid-state resistance"
 weight = 15
-desc = "Where/OrderBy chain filters short passages and preserves stable id order from the constructed list."
+desc = "Attempt to construct a reportable quotation from invented AI JSON alone; revise the boundary until that path cannot bypass verification."
 
-[[freestyle.rubric]]
-criterion = "Organization & readability"
-weight = 20
-desc = "One type per file (or close), consistent naming (PascalCase types/properties), no dead code."
+[[freestyle.referenceSteps]]
+id = "s03-write-domain"
+path = "src/Verisearch/Domain.cs"
+mode = "write"
+instruction = "Private replay adds separate source, passage, proposal, verified, outcome, and interface contracts."
+content = '''
+namespace Verisearch;
+
+public sealed record SourceSpec(string Label, Uri Uri);
+
+public sealed record SourceDocument(SourceSpec Source, string Content);
+
+public sealed record Passage(string Id, SourceSpec Source, string Text);
+
+public sealed record QuoteProposal(string PassageId, string Quote);
+
+public sealed record QuoteBatch(IReadOnlyList<QuoteProposal> Quotes);
+
+public sealed record VerifiedQuote(
+    string PassageId,
+    string Quote,
+    string SourceLabel,
+    Uri SourceUri);
+
+public sealed record SourceReadOutcome(
+    SourceSpec Source,
+    SourceDocument? Document,
+    string? Error)
+{
+    public bool Succeeded => Document is not null;
+}
+
+public sealed record VerificationResult(
+    IReadOnlyList<VerifiedQuote> Quotes,
+    int RejectedCount);
+
+public sealed record SearchResult(
+    IReadOnlyList<VerifiedQuote> Quotes,
+    IReadOnlyList<SourceReadOutcome> Sources,
+    int RejectedCount,
+    bool IsMock);
+
+public interface ISourceReader
+{
+    Task<SourceDocument> ReadAsync(SourceSpec source, CancellationToken cancellationToken);
+}
+
+public interface IPassageExtractor
+{
+    IReadOnlyList<Passage> Extract(SourceDocument document);
+}
+
+public interface IAiQuoteSelector
+{
+    Task<QuoteBatch> SelectAsync(
+        string question,
+        IReadOnlyList<Passage> passages,
+        CancellationToken cancellationToken);
+}
+
+public interface IReportRenderer
+{
+    string Compose(string question, SearchResult result);
+}
+'''

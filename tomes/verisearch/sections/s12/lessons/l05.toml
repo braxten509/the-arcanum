@@ -1,13 +1,16 @@
 [[lessons]]
 id = "s12-l05"
-teaches = ["acceptance-run"]
+teaches = ["language-testing-debugging"]
 title = "Acceptance Journey — Prove Every Boundary from the Entrypoint"
 body = '''
-<p>Unit tests prove components; acceptance proves the assembled command. Run this ladder in order and save the command plus outcome in <code>RELEASE-CHECK.md</code>. Do not paste raw model reasoning or private page contents.</p>
-<ol><li><strong>Build and tests:</strong> <code>dotnet build</code>, then <code>dotnet test Verisearch.Tests/Verisearch.Tests.csproj</code> from the parent directory.</li><li><strong>Explicit fixture:</strong> keep a configured <code>LocalFixture</code> source labeled <code>Local fixture</code>, then run <code>dotnet run --project Verisearch -- "What does the fixture say?" --source "Local fixture" --mock --verbose</code>. Require the MOCK banner, a verified quote, source label, <code>mock://</code> URL, passage id, and rejected count.</li><li><strong>Fabrication attack:</strong> add or run the test whose proposal text does not occur in its passage. Require zero accepted and one rejected; then restore no production rule because rejection is success.</li><li><strong>Partial source failure:</strong> configure one valid fixture and one deliberately unreachable web source. Require the fixture result plus a visible source error—not a crash or silence.</li><li><strong>Live AI:</strong> run <code>ollama list</code>, <code>curl http://localhost:11434/api/tags</code>, and a command against a chosen public source. Check every printed quote by searching its cited page text.</li><li><strong>Live failure:</strong> stop Ollama temporarily and repeat without <code>--mock</code>. Require an actionable error, no quotes, and nonzero status. Restart the service afterward.</li><li><strong>Published path:</strong> publish for the current RID, run that executable's <code>--help</code>, then its explicit fixture command.</li></ol>
-<p>Model wording and selection can vary, so live acceptance does not assert a particular quote. It asserts invariants: every displayed quote is a verified substring, every citation comes from C# passage data, and absence or failure never turns into invented evidence.</p>
-<div class="callout">The partial-failure rehearsal must use a URL you control or a reserved unreachable local address. Do not hammer a public site merely to manufacture an error.</div>
-<div class="field-notes"><div class="fn-head">MARGINALIA // BINARY HEALTH CALL</div><p>Record PASS or FAIL for each rung with one line of evidence. If a rung fails, repair and rerun it plus every later rung; downstream proof built on a broken earlier boundary is not evidence.</p></div>
+
+<p>The final acceptance journey proves the program from its public boundaries. Run it after the creative extension and rationale are complete, and record exact commands plus concise observations.</p>
+<ol><li><strong>Build and tests:</strong> restore, build the solution, and run all unit and integration tests from documented locations.</li><li><strong>Whole question:</strong> use punctuation and multiple words; prove the configured AI adapter received it as one value.</li><li><strong>User source choice:</strong> select two catalog labels in a deliberate order, then challenge an unknown label and prove zero source reads.</li><li><strong>Stable extraction:</strong> run a nested fixture twice and compare passage text, ids, and duplicate count.</li><li><strong>Real AI:</strong> configure a local, hosted, API, or CLI model of your choice; run against learner-chosen sources and inspect every displayed quote in its cited extracted text.</li><li><strong>Fabrication control:</strong> alter one proposed quote by one character and require rejection with no rendered evidence.</li><li><strong>Failure policy:</strong> make one source fail while one succeeds, then separately make the configured AI unavailable. Partial source evidence survives; AI failure stays a clear nonzero failure with no fallback.</li><li><strong>Explicit mock:</strong> select test mode knowingly and require an unmistakable non-factual label.</li><li><strong>Creative extension:</strong> exercise the original feature and a negative case that would fail if its core behavior were removed.</li><li><strong>Package:</strong> publish, launch the produced executable from another working directory, and repeat help plus the deterministic acceptance controls.</li></ol>
+<p>For every scenario, vary one load-bearing input and observe the promised scenario fail before restoring it. This prevents a prepared PASS receipt from impersonating exercised behavior.</p>
+<p>The live AI run cannot be made deterministic by the course harness and must not expose a key. Record provider kind, model identifier where applicable, source labels, and whether exact proposals verified. The deterministic fixture proves code; the live observation proves configured integration.</p>
+<p>Finally diagnose one cross-boundary defect from the earliest compiler, test, process, HTTP, schema, verification, or package evidence. Write why the repaired component owned the change and what credible alternative you rejected.</p>
+<div class="callout"><p>Completion means a working published C# program, a genuine semantic AI route, exact source verification, creative transfer, and honest failure—not resemblance to one reference architecture.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // INDEPENDENCE CHECK</div><p>Remove the course text from view. Using only your README and tests, rebuild the mental model of source ownership, provider substitution, proposal status, verification, and delivery. Any unexplained seam is final documentation work.</p></div>
 '''
 
 [[lessons.readings]]
@@ -47,7 +50,7 @@ hint = "The same status was established at the composition root."
 id = "s12-l05-e3"
 type = "mc"
 points = 18
-prompt = "What must the stopped-Ollama live test prove?"
+prompt = "What must the unavailable-provider live test prove?"
 choices = ["Mock starts automatically", "Keyword matching supplies quotes", "The command fails clearly and emits no impersonated evidence", "Every passage is printed"]
 answer = 2
 whyWrong = "Automatic alternative modes and all-passages output change the requested behavior and can masquerade as AI evidence."
@@ -67,3 +70,19 @@ solution = '''var rungs = new[] { true, true, true, true, true };
 Console.WriteLine(rungs.All(passed => passed) ? "PASS" : "FAIL");
 '''
 hint = "Use All with a lambda returning each Boolean."
+
+[[lessons.concepts]]
+id = "language-testing-debugging"
+purpose = "Turn a C# promise into an executable check and diagnose failures from the earliest broken boundary."
+anatomy = "Arrange controlled inputs, invoke one behavior, assert an observable result, then use compiler, test, or debugger output to localize a failing case."
+example = "The disposable examples in Acceptance Journey — Prove Every Boundary from the Entrypoint isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Acceptance Journey — Prove Every Boundary from the Entrypoint supplies the disposable observation point."
+observable = "The check passes for a valid case and fails when its load-bearing input is deliberately changed. Confirm it while practicing Acceptance Journey — Prove Every Boundary from the Entrypoint."
+failure = "A test that prints a prepared success receipt or requires live network state cannot distinguish a regression."
+practice = "s12-l05-e1"
+
+[[lessons.artifactSteps]]
+id = "s12-l05-author-artifact"
+path = "tests/Verisearch.Tests/TruthBoundaryTests.cs"
+mode = "author"
+instruction = "Use the C# ideas from Acceptance Journey — Prove Every Boundary from the Entrypoint to author or revise this learner-owned path toward the chapter behavior: Add an original capability, diagnose a cross-boundary defect, defend a C# design choice, and publish the working program. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["Tests, live AI evidence, negative controls, the original extension, and the published executable all succeed from documented commands.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

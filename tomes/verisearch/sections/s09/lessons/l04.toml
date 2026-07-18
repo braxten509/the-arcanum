@@ -1,118 +1,85 @@
 [[lessons]]
 id = "s09-l04"
-teaches = ["quote-verification"]
-title = "QuoteVerifier — Exact Text or Rejection"
+teaches = ["language-testing-debugging"]
+title = "The verifier — ordinal text and source-owned citations"
 body = '''
-<p>The model has now returned a typed <code>QuoteBatch</code>, but every item is still a proposal. <code>QuoteVerifier.cs</code> turns a proposal into a <code>VerifiedQuote</code> only when its passage exists and its quote is a non-empty, case-sensitive, ordinal substring of the stored passage text.</p>
-<pre><code><span class="k">public sealed class</span> QuoteVerifier
+
+<p>The verifier is the deterministic half of the product promise. It receives stable passages and untrusted proposals. For each proposal, it locates the named passage, rejects missing or blank values, and requires the proposed quote to occur as an exact ordinal substring of that passage's stored text.</p>
+<p>Ordinal comparison treats the code units as written. It does not fold case, normalize punctuation again, stem words, calculate similarity, or ask the AI whether its own answer is close enough. This makes acceptance explainable: either the exact candidate occurs in the same text shown to the model or it does not.</p>
+<pre><code data-kind="replacement">int location = passage.Text.IndexOf(proposal.Quote, StringComparison.Ordinal);
+if (location &lt; 0)
 {
-    <span class="k">public</span> VerificationBatch Verify(IEnumerable&lt;QuoteProposal&gt; proposals,
-        IReadOnlyList&lt;Passage&gt; passages, <span class="k">int</span> maxQuotes)
-    {
-        <span class="k">var</span> accepted = <span class="k">new</span> List&lt;VerifiedQuote&gt;();
-        <span class="k">var</span> seen = <span class="k">new</span> HashSet&lt;(<span class="k">int</span>, <span class="k">string</span>)&gt;();
-        <span class="k">int</span> rejected = 0;
-
-        <span class="k">foreach</span> (QuoteProposal proposal <span class="k">in</span> proposals)
-        {
-            Passage? passage = passages.FirstOrDefault(p =&gt; p.Id == proposal.PassageId);
-            <span class="k">bool</span> valid = accepted.Count &lt; maxQuotes
-                &amp;&amp; passage <span class="k">is not null</span>
-                &amp;&amp; !<span class="k">string</span>.IsNullOrWhiteSpace(proposal.Quote)
-                &amp;&amp; passage.Text.Contains(proposal.Quote, StringComparison.Ordinal)
-                &amp;&amp; seen.Add((proposal.PassageId, proposal.Quote));
-
-            <span class="k">if</span> (!valid)
-            {
-                rejected++;
-                <span class="k">continue</span>;
-            }
-
-            accepted.Add(<span class="k">new</span> VerifiedQuote(proposal.Quote, passage!.Source.Label,
-                passage.Source.Url, passage.Id));
-        }
-        <span class="k">return new</span> VerificationBatch(accepted, rejected);
-    }
+    return Rejected("quote is not an exact passage substring");
 }</code></pre>
-<p>Add <code>VerificationBatch(List&lt;VerifiedQuote&gt; Accepted, int Rejected)</code> to <code>Models.cs</code>. Notice what the model does not control: source label, URL, or final type. C# copies those fields from the matched passage. A model-supplied URL is impossible because <code>QuoteProposal</code> has no URL member.</p>
-<p><code>StringComparison.Ordinal</code> compares exact UTF-16 code units without case folding or culture rules. Do not trim, correct punctuation, use fuzzy similarity, or ignore case. If the model misses by one character, reject and report the count; never quietly edit it into validity.</p>
-<div class="callout">The renderer will accept only <code>VerifiedQuote</code>. This type boundary prevents raw model content from reaching the terminal by accident.</div>
-<div class="field-notes"><div class="fn-head">MARGINALIA // EXACTNESS AND NORMALIZATION</div><p>The exact match is against the normalized <code>Passage.Text</code> created once in Chapter VI. The README discloses whitespace normalization. No second normalization occurs here, so the model and verifier compare the same stored representation.</p></div>
+<p>The fragment shows the decisive comparison without prescribing result types. Before it, lookup must bind the proposal to one known passage. After it, C# creates a verified value by copying quote text plus the passage's source label and URI. Never copy attribution from AI output.</p>
+<p>Set a maximum accepted count outside or inside the verifier and handle duplicates intentionally. A useful result can carry accepted quotes, rejected count, and bounded diagnostics without exposing raw provider prose to the renderer. Keep rejection ordinary; models can propose imperfect candidates without crashing the application.</p>
+<p>Tests are the proof. Supply one exact interior substring, the same words with changed case, a one-character fabrication, an unknown id, a duplicate, and more candidates than the cap. Assert accepted text and source-owned attribution. Then mutate the source URI while leaving the proposal unchanged; the rendered citation should follow the source, proving ownership.</p>
+<div class="callout"><p>AI chooses by meaning. C# verifies by exact evidence. Neither replaces the other, and no keyword rules appear in this boundary.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // A TYPE IS A CLAIM</div><p>Name the admitted type only after the comparison succeeds. If callers can construct it freely, enforce the invariant through module visibility, factories, or tests and make the ownership rule unmistakable.</p></div>
 '''
 
 [[lessons.readings]]
-label = "Microsoft Learn — String.Contains with StringComparison"
-url = "https://learn.microsoft.com/en-us/dotnet/api/system.string.contains"
+label = "Microsoft Learn — Best practices for comparing strings in .NET"
+url = "https://learn.microsoft.com/en-us/dotnet/standard/base-types/best-practices-strings"
+essential = true
+
+[[lessons.readings]]
+label = "Microsoft Learn — Records"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/record"
 essential = false
 
 [[lessons.exercises]]
 id = "s09-l04-e1"
 type = "mc"
 points = 20
-prompt = "The proposal has the right passage id but changes one letter's case. What should QuoteVerifier do?"
-choices = ["Accept it as close enough", "Lowercase both strings", "Reject it", "Ask the renderer to repair it"]
+prompt = "Which comparison matches the tome's exact-quotation promise?"
+choices = ["Culture-sensitive contains", "Case-insensitive similarity", "StringComparison.Ordinal substring containment", "A second AI judgment"]
 answer = 2
-whyWrong = "Case folding or renderer repair changes the exact-source contract. Ordinal containment rejects the altered candidate."
-explain = "A quotation earns the verified type only when the proposal occurs exactly in Passage.Text."
-hint = "The comparison mode is Ordinal, not OrdinalIgnoreCase."
+whyWrong = "Culture, fuzzy matching, and model self-review can admit wording not present exactly in the stored passage."
+hint = "The verifier compares the code units as written."
+explain = "Ordinal containment gives a direct deterministic relation to the stored passage."
 
 [[lessons.exercises]]
 id = "s09-l04-e2"
 type = "mc"
 points = 20
-prompt = "A proposal names passage 900, but the current source batch has ids 1 through 12. What survives?"
-choices = ["The quote with an unknown citation", "Passage 12", "Nothing from that proposal", "A newly created passage 900"]
-answer = 2
-whyWrong = "The verifier neither invents a passage nor substitutes the nearest id. An unknown id has no source-owned text to prove against."
-explain = "The proposal increments the rejected count and produces no VerifiedQuote."
-hint = "FirstOrDefault finds no passage."
+prompt = "Where does an accepted quote's source URL come from?"
+choices = ["The proposal JSON", "The matched C# passage and its source", "A keyword table", "The report renderer"]
+answer = 1
+whyWrong = "AI output and presentation cannot own attribution; keyword tables are forbidden relevance routing."
+hint = "Trace ownership backward from the verified value."
+explain = "The verifier copies attribution from the matched passage's source."
 
 [[lessons.exercises]]
 id = "s09-l04-e3"
-type = "mc"
+type = "fill"
 points = 20
-prompt = "Why does C# attach the URL after matching instead of accepting a URL from the model?"
-choices = ["JSON cannot hold URLs", "Source attribution must come from the program's own Passage data", "Ollama always omits URLs", "Spectre.Console requires it"]
-answer = 1
-whyWrong = "JSON can hold strings, model behavior can change, and Spectre does not establish provenance. The matched passage is the trustworthy owner."
-explain = "Removing URL from QuoteProposal makes invented attribution unavailable by construction."
-hint = "Which object entered the pipeline before the AI call?"
+prompt = "Complete the exact substring search."
+code = "passage.Text.____(proposal.Quote, StringComparison.Ordinal)"
+answer = "IndexOf"
+accept = ["indexof"]
+hint = "This method returns -1 when the substring is absent."
 
 [[lessons.exercises]]
 id = "s09-l04-d1"
 type = "type"
 points = 14
 reps = 2
-prompt = "Retype the exact containment gate twice."
-code = '''bool exact = passage is not null
-    && !string.IsNullOrWhiteSpace(proposal.Quote)
-    && passage.Text.Contains(proposal.Quote, StringComparison.Ordinal);'''
+prompt = "Retype the rejection condition twice."
+code = "if (location < 0) return Rejected();"
 
-[[lessons.exercises]]
-id = "s09-l04-w1"
-type = "write"
-points = 38
-prompt = "Given one source passage and three proposals, count exact ordinal substring matches. Only <code>Exact source words.</code> with identical case and punctuation should pass."
-starter = '''string passage = "Before. Exact source words. After.";
-var proposals = new List<string>
-{
-    "Exact source words.",
-    "exact source words.",
-    "Exact source terms."
-};
+[[lessons.concepts]]
+id = "language-testing-debugging"
+purpose = "Turn a C# promise into an executable check and diagnose failures from the earliest broken boundary."
+anatomy = "Arrange controlled inputs, invoke one behavior, assert an observable result, then use compiler, test, or debugger output to localize a failing case."
+example = "The disposable examples in The verifier — ordinal text and source-owned citations isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson The verifier — ordinal text and source-owned citations supplies the disposable observation point."
+observable = "The check passes for a valid case and fails when its load-bearing input is deliberately changed. Confirm it while practicing The verifier — ordinal text and source-owned citations."
+failure = "A test that prints a prepared success receipt or requires live network state cannot distinguish a regression."
+practice = "s09-l04-e1"
 
-Console.WriteLine("NOT VERIFIED");
-'''
-expect = "1 accepted 2 rejected"
-solution = '''string passage = "Before. Exact source words. After.";
-var proposals = new List<string>
-{
-    "Exact source words.",
-    "exact source words.",
-    "Exact source terms."
-};
-
-int accepted = proposals.Count(quote => passage.Contains(quote, StringComparison.Ordinal));
-Console.WriteLine($"{accepted} accepted {proposals.Count - accepted} rejected");
-'''
-hint = "Count proposals for which passage.Contains(quote, StringComparison.Ordinal) is true, then subtract from Count."
+[[lessons.artifactSteps]]
+id = "s09-l04-author-artifact"
+path = "src/Verisearch/AiSelection.cs"
+mode = "author"
+instruction = "Use the C# ideas from The verifier — ordinal text and source-owned citations to author or revise this learner-owned path toward the chapter behavior: Connect any real AI provider through a narrow adapter, demand structured quote proposals, and verify every quote in C#. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["A real configured AI adapter receives the complete question, exact proposals cross the verifier, and a one-character fabrication is rejected.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

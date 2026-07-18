@@ -26,7 +26,7 @@ from validatelib.content.coverage import (check_capability_ledger,
 from validatelib.content.depth import (check_economy_totals, check_padded_prose,
                                check_taught_before_used, check_verbatim_prose)  # noqa: E402
 from validatelib.execute import (STARTER_RUN_TIMEOUT, _project_build_result, _run_one_file,
-                                 check_starters_run)  # noqa: E402
+                                 check_snippets, check_starters_run)  # noqa: E402
 from validatelib.phase2 import check_tooling_contract  # noqa: E402
 from validatelib.content.structure import check_meta, check_placeholders, check_runtime  # noqa: E402
 from validatelib.themes import (check_sigil_palette_uniqueness,
@@ -208,6 +208,52 @@ def main():
          "msg": "; expected"},
     ]}, "Program.cs")
     assert not ok and "; expected" in detail, "project compiler error escaped the build gate"
+
+    # Proof-v1 code kinds are promises, not decoration. Project-only runtimes must compile
+    # each runnable block in their trusted scratch scaffold while ignoring fragments and
+    # terminal transcripts that the cumulative artifact proof owns.
+    class FakeProjectRuntime:
+        build_cmd = ["fake-build"]
+        check_cmd = []
+
+        def __init__(self):
+            self.sources = []
+
+        def available(self):
+            return True
+
+        def snippet_diagnostics(self, _scratch, source):
+            self.sources.append(source)
+            if "BROKEN_RUNNABLE" in source:
+                return {"ok": True, "diags": [{
+                    "file": "Program.cs", "line": 1, "col": 1, "sev": "error",
+                    "msg": "synthetic C# compiler rejection",
+                }]}
+            return {"ok": True, "diags": []}
+
+    fake_runtime = FakeProjectRuntime()
+    classified = [{"id": "s01", "lessons": [{
+        "id": "s01-l01",
+        "body": ('<pre><code data-kind="terminal">BROKEN_RUNNABLE</code></pre>'
+                 '<pre><code data-kind="replacement">BROKEN_RUNNABLE</code></pre>'
+                 '<pre><code data-kind="runnable">// Complete runnable example\n'
+                 'Console.WriteLine("checked");</code></pre>'),
+    }]}]
+    with patch("runtimes.for_config", return_value=fake_runtime) as runtime_factory:
+        check_snippets({"runtime": {"name": "dotnet", "scaffoldCommand": []}}, classified)
+    assert not findings(), "non-runnable proof-v1 blocks leaked into snippet compilation"
+    assert len(fake_runtime.sources) == 1 and "checked" in fake_runtime.sources[0]
+    scratch_config = runtime_factory.call_args.args[0]
+    assert scratch_config == {"name": "dotnet"}, scratch_config
+
+    classified[0]["lessons"][0]["body"] = (
+        '<pre><code data-kind="runnable">// Complete runnable example\n'
+        'BROKEN_RUNNABLE</code></pre>')
+    with patch("runtimes.for_config", return_value=fake_runtime):
+        check_snippets({"runtime": {"name": "dotnet", "scaffoldCommand": []}}, classified)
+    got = findings()
+    assert any(lv == "ERROR" and "synthetic C# compiler rejection" in msg
+               for lv, _, msg in got), got
 
     # 2d. missing points / reward / mc bool answer — the NaN-purse class of breakage.
     check_exercise({"id": "p1", "type": "text", "answer": "x", "hint": "h"}, "L", set())

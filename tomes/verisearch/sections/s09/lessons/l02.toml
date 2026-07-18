@@ -1,79 +1,92 @@
 [[lessons]]
 id = "s09-l02"
-teaches = ["ollama-http-api"]
-title = "Call Ollama’s Chat API with Built-In HTTP JSON"
+teaches = ["language-exceptions-resources"]
+title = "Adapters — CLI, local service, or hosted API"
 body = '''
-<p>Verisearch needs no Ollama-specific NuGet client. The API is ordinary HTTP and JSON, so Chapter IV's <code>HttpClient</code> and <code>System.Net.Http.Json</code> helpers keep the dependency surface small.</p>
-<pre><code><span class="k">using</span> System.Net.Http.Json;
-<span class="k">using</span> System.Text.Json;
 
-<span class="c">// request is an anonymous object with model, messages, stream, format, and options</span>
-<span class="k">using</span> HttpResponseMessage response = <span class="k">await</span> http.PostAsJsonAsync(
-    <span class="s">$"{config.OllamaUrl.TrimEnd('/')}/api/chat"</span>, request, ct);
-response.EnsureSuccessStatusCode();
-
-<span class="k">string</span> outerJson = <span class="k">await</span> response.Content.ReadAsStringAsync(ct);
-OllamaChatResponse result = JsonSerializer.Deserialize&lt;OllamaChatResponse&gt;(
-    outerJson, <span class="k">new</span> JsonSerializerOptions { PropertyNameCaseInsensitive = <span class="k">true</span> })
-    ?? <span class="k">throw new</span> InvalidOperationException(<span class="s">"Ollama returned an empty response"</span>);</code></pre>
-<p>The anonymous request object mirrors the documented wire fields: the configured model; a system message plus user prompt; <code>stream = false</code>; the schema in <code>format</code>; and temperature zero in <code>options</code>. The workshop assembles that complete object. Add two response records to <code>Models.cs</code> now:</p>
-<pre><code><span class="k">public sealed record</span> OllamaMessage(<span class="k">string</span> Content);
-<span class="k">public sealed record</span> OllamaChatResponse(OllamaMessage Message);</code></pre>
-<p><code>stream = false</code> asks for one JSON response. Streaming is useful for prose shown token by token, but Verisearch cannot display unverified model text and needs the complete structured payload before checking it. Simpler is safer here.</p>
-<p><code>EnsureSuccessStatusCode</code> preserves HTTP failure instead of trying to deserialize an error document as a chat response. At the application boundary, translate connection refusal into a precise instruction: start Ollama, confirm the configured URL, and pull the configured model. Do not catch it and silently run keyword matching.</p>
-<div class="callout">Reuse the same long-lived <code>HttpClient</code> configured in Program.cs. The source fetcher and Ollama selector can share it because each request has its own URL, headers, and cancellation token.</div>
-<div class="field-notes"><div class="fn-head">MARGINALIA // RESPONSE ENVELOPE</div><p>The assistant text lives in <code>result.Message.Content</code>. That content is itself JSON only because the next lesson requests structured output; the outer chat response and inner quote payload are two serialization boundaries.</p></div>
+<p>An adapter translates one provider-neutral request into a concrete transport. A CLI adapter is especially flexible: the configured executable may be a local model command, a script that calls a hosted API with an environment-held key, or another AI tool. An HTTP adapter can call a provider directly. Both must preserve the same semantic contract.</p>
+<p>For a CLI, avoid invoking a shell. Put the executable in <code>ProcessStartInfo.FileName</code>, add each configured argument through <code>ArgumentList</code>, redirect standard input and output, and set <code>UseShellExecute</code> to false. Serialize one request object to standard input, close it, read output and error streams asynchronously, wait with cancellation, and require a successful exit.</p>
+<pre><code data-kind="replacement">var start = new ProcessStartInfo
+{
+    FileName = configuredExecutable,
+    RedirectStandardInput = true,
+    RedirectStandardOutput = true,
+    RedirectStandardError = true,
+    UseShellExecute = false
+};
+foreach (string argument in configuredArguments)
+{
+    start.ArgumentList.Add(argument);
+}</code></pre>
+<p>The fragment is transport anatomy, not a complete adapter. A robust design also owns process disposal, handles a process that never starts, caps response size, preserves actionable stderr, and kills the child tree when cancellation requires it.</p>
+<p>For HTTP, reuse a configured <code>HttpClient</code>, serialize a declared request, authenticate without embedding secrets in source, call the endpoint asynchronously, demand success, cap or stream the body, and deserialize only the provider-specific envelope at the adapter edge. Translate it into the provider-neutral proposal shape before returning.</p>
+<p>Do not send the API key to logs, tests, the AI prompt, or the report. Environment variables are one acceptable learning-scale source; hosted deployments may use a secret manager. Test both adapters with a fake process or HTTP handler so failure, cancellation, and malformed output are controlled.</p>
+<p>A provider may offer tool calling, web search, or citations. Verisearch does not rely on those claims. The adapter asks the model to select from the exact passages C# supplied, and the common verifier later checks every proposed substring.</p>
+<div class="callout"><p>Transport failure is not a relevance signal. Never catch it and switch to keyword rules, first-passage selection, or an unlabeled mock.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ARGUMENTS ARE DATA</div><p><code>ArgumentList</code> and redirected standard input preserve spaces and punctuation without shell parsing. Concatenated command strings blur executable, arguments, and user content into one unsafe value.</p></div>
 '''
 
 [[lessons.readings]]
-label = "Ollama API — Generate a chat message"
-url = "https://docs.ollama.com/api/chat"
-essential = false
+label = "Microsoft Learn — ProcessStartInfo.ArgumentList"
+url = "https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.processstartinfo.argumentlist"
+essential = true
 
 [[lessons.readings]]
-label = "Microsoft Learn — HttpClient JSON extensions"
-url = "https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/httpclient-extensions"
+label = "Microsoft Learn — HttpClient guidelines"
+url = "https://learn.microsoft.com/en-us/dotnet/fundamentals/networking/http/httpclient-guidelines"
 essential = false
 
 [[lessons.exercises]]
 id = "s09-l02-e1"
-type = "fill"
+type = "mc"
 points = 20
-prompt = "Complete the built-in extension that posts an object as JSON."
-code = '''using HttpResponseMessage response = await http.____(url, request, ct);'''
-answer = "PostAsJsonAsync"
-hint = "Its name states the HTTP verb, representation, and asynchronous behavior."
+prompt = "Why add CLI arguments through <code>ProcessStartInfo.ArgumentList</code>?"
+choices = ["It asks the shell to quote them", "It preserves arguments as separate data without shell parsing", "It encrypts API keys", "It verifies model output"]
+answer = 1
+whyWrong = "ArgumentList avoids a shell; it does not encrypt secrets or verify quotations."
+hint = "Executable, arguments, and prompt should not become one command string."
+explain = "Structured arguments preserve spaces and punctuation without command-string concatenation."
 
 [[lessons.exercises]]
 id = "s09-l02-e2"
 type = "mc"
 points = 20
-prompt = "Why does the course set <code>stream = false</code> for quotation selection?"
-choices = ["Ollama cannot stream", "The program needs one complete structured payload before any verification and displays no raw model tokens", "HttpClient forbids streams", "It makes the model truthful"]
-answer = 1
-whyWrong = "Ollama and HttpClient support streaming, and the option does not establish truth. Non-streaming simplifies the verify-before-display boundary."
-explain = "The entire inner JSON document is parsed and checked before a user sees a quotation."
-hint = "Would partial unverified JSON be useful to render?"
+prompt = "Where should a hosted-provider API key be obtained?"
+choices = ["A committed C# constant", "The report footer", "Environment or an appropriate secret store", "The AI response"]
+answer = 2
+whyWrong = "Committed source, output, and provider responses are inappropriate secret locations."
+hint = "Choose configuration that is not checked into source."
+explain = "Read secrets at the adapter boundary from environment or managed secret storage."
 
 [[lessons.exercises]]
 id = "s09-l02-e3"
-type = "mc"
+type = "fill"
 points = 20
-prompt = "Live mode calls Ollama but the connection is refused. What should Verisearch do?"
-choices = ["Silently switch to keyword matching", "Print model-looking fixture output", "Fail clearly with setup guidance and a nonzero exit code", "Return every passage"]
-answer = 2
-whyWrong = "Each alternative impersonates the AI or changes relevance behavior without permission. Live mode must disclose that its required service is unavailable."
-explain = "The explicit --mock mode remains available for learning and deterministic tests."
-hint = "Do not let degraded behavior masquerade as the requested mode."
+prompt = "Complete the process setting that prevents shell execution."
+code = "UseShellExecute = ____"
+answer = "false"
+hint = "Redirected standard streams require the direct-process path."
 
 [[lessons.exercises]]
 id = "s09-l02-d1"
 type = "type"
 points = 14
 reps = 2
-prompt = "Retype the HTTP status and response-envelope boundary twice."
-code = '''using HttpResponseMessage response = await http.PostAsJsonAsync(url, request, ct);
-response.EnsureSuccessStatusCode();
-OllamaChatResponse result = await response.Content
-    .ReadFromJsonAsync<OllamaChatResponse>(cancellationToken: ct)
-    ?? throw new InvalidOperationException("Ollama returned an empty response");'''
+prompt = "Retype the safe argument addition twice."
+code = "start.ArgumentList.Add(argument);"
+
+[[lessons.concepts]]
+id = "language-exceptions-resources"
+purpose = "Preserve useful failures while releasing files, HTTP responses, processes, and cancellation resources deterministically."
+anatomy = "Catch only at the boundary that can add meaning, let cancellation propagate, and use using or disposal for owned resources."
+example = "The disposable examples in Adapters — CLI, local service, or hosted API isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Adapters — CLI, local service, or hosted API supplies the disposable observation point."
+observable = "Ordinary failures become actionable outcomes, cancellation stays cancellation, and owned resources close on every path. Confirm it while practicing Adapters — CLI, local service, or hosted API."
+failure = "A broad silent catch or forgotten disposal converts evidence into hidden failure and leaks operating-system resources."
+practice = "s09-l02-e1"
+
+[[lessons.artifactSteps]]
+id = "s09-l02-author-artifact"
+path = "src/Verisearch/AiSelection.cs"
+mode = "author"
+instruction = "Use the C# ideas from Adapters — CLI, local service, or hosted API to author or revise this learner-owned path toward the chapter behavior: Connect any real AI provider through a narrow adapter, demand structured quote proposals, and verify every quote in C#. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["A real configured AI adapter receives the complete question, exact proposals cross the verifier, and a one-character fabrication is rejected.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

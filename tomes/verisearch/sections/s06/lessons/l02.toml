@@ -1,11 +1,11 @@
 [[lessons]]
 id = "s06-l02"
-teaches = ["anglesharp-parse"]
+teaches = ["language-project-toolchain"]
 title = "AngleSharp — parse HTML like a browser"
 body = '''
 
 <p>AngleSharp (<code>dotnet add package AngleSharp</code>) parses HTML with the same algorithm real browsers use — so even broken markup parses the way a browser would render it. Two ways in:</p>
-<pre><code><span class="k">using</span> AngleSharp;
+<pre><code data-kind="replacement"><span class="k">using</span> AngleSharp;
 <span class="k">using</span> AngleSharp.Dom;
 
 <span class="c">// Option A: you already have the HTML string (your HttpClient fetched it)</span>
@@ -17,13 +17,13 @@ IDocument doc = <span class="k">await</span> context.OpenAsync(req =&gt; req.Con
 IDocument doc2 = <span class="k">await</span> context2.OpenAsync(<span class="s">"https://example.com"</span>);</code></pre>
 <p>Prefer Option A for Verisearch — your HttpClient already handles timeouts, headers, and errors; keep one door to the network. Build immediately after adding the package so package errors stay separate from selector errors.</p>
 <p>Querying uses <strong>CSS selectors</strong> — the same syntax as browser dev tools:</p>
-<pre><code>IElement? first = doc.QuerySelector(<span class="s">"h1"</span>);                <span class="c">// first match or null</span>
+<pre><code data-kind="replacement">IElement? first = doc.QuerySelector(<span class="s">"h1"</span>);                <span class="c">// first match or null</span>
 <span class="k">var</span> blocks = doc.QuerySelectorAll(<span class="s">"p, pre, blockquote"</span>);  <span class="c">// every match</span>
 
 <span class="k">foreach</span> (IElement el <span class="k">in</span> blocks)
     Console.WriteLine(<span class="s">$"&lt;{el.TagName.ToLower()}&gt; {el.TextContent[..Math.Min(60, el.TextContent.Length)]}"</span>);</code></pre>
 <p>Selector crash course:</p>
-<pre><code>p                <span class="c">→ every &lt;p&gt;</span>
+<pre><code data-kind="replacement">p                <span class="c">→ every &lt;p&gt;</span>
 p, pre           <span class="c">→ every &lt;p&gt; AND every &lt;pre&gt;</span>
 article p        <span class="c">→ &lt;p&gt; anywhere inside &lt;article&gt;</span>
 .intro           <span class="c">→ anything with class="intro"</span>
@@ -31,7 +31,8 @@ article p        <span class="c">→ &lt;p&gt; anywhere inside &lt;article&gt;</
 p.intro          <span class="c">→ &lt;p&gt; with class "intro"</span></code></pre><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>Configuration flavors:</strong> <code>Configuration.Default</code> parses strings you hand it; <code>.WithDefaultLoader()</code> adds networking so OpenAsync(url) can fetch. Verisearch uses the first — your HttpClient stays the single door to the network (one place for timeouts, headers, robots checks).</p>
 <p><strong>Encoding & malformed HTML:</strong> AngleSharp detects charset from headers/meta tags and repairs broken markup with the SAME algorithm browsers use — unclosed tags, orphaned &lt;/div&gt;s — you get the tree the user would have seen.</p>
-<p><strong>Selector escalation path</strong> when a site fights you: try <code>article p</code> → fall back to <code>main p</code> → fall back to <code>p</code> with junk-removal + crumb filtering. Code that degrades selector-by-selector survives redesigns.</p></div>'''
+<p><strong>Selector escalation path</strong> when a site fights you: try <code>article p</code> → fall back to <code>main p</code> → fall back to <code>p</code> with junk-removal + crumb filtering. Code that degrades selector-by-selector survives redesigns.</p></div>
+'''
 
 [[lessons.readings]]
 label = "AngleSharp — official docs"
@@ -44,8 +45,8 @@ url = "https://github.com/AngleSharp/AngleSharp/blob/devel/docs/tutorials/03-Exa
 essential = false
 
 [[lessons.readings]]
-label = "ZenRows — AngleSharp tutorial"
-url = "https://www.zenrows.com/blog/anglesharp"
+label = "AngleSharp — source and project guide"
+url = "https://github.com/AngleSharp/AngleSharp"
 essential = false
 
 [[lessons.readings]]
@@ -93,3 +94,19 @@ code = '''
 var context = BrowsingContext.New(Configuration.Default);
 IDocument doc = await context.OpenAsync(req => req.Content(html));
 var blocks = doc.QuerySelectorAll("h1, h2, h3, p, pre, li, blockquote");'''
+
+[[lessons.concepts]]
+id = "language-project-toolchain"
+purpose = "Create, restore, compile, and inspect a real .NET project so C# work is judged by the toolchain."
+anatomy = "Read the project file and source path, run the relevant dotnet command, then use the first compiler diagnostic as the repair starting point."
+example = "The disposable examples in AngleSharp — parse HTML like a browser isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson AngleSharp — parse HTML like a browser supplies the disposable observation point."
+observable = "A build completes and names the expected assembly without an error diagnostic. Confirm it while practicing AngleSharp — parse HTML like a browser."
+failure = "Editing generated bin or obj output, or skipping the build, hides the source of a failure."
+practice = "s06-l02-e1"
+
+[[lessons.artifactSteps]]
+id = "s06-l02-author-artifact"
+path = "src/Verisearch/PassageExtractor.cs"
+mode = "author"
+instruction = "Use the C# ideas from AngleSharp — parse HTML like a browser to author or revise this learner-owned path toward the chapter behavior: Turn HTML or text into stable nonduplicated passages used identically by AI selection and C# verification. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["The same fixture produces the same passage ids twice and a nested list paragraph appears exactly once.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

@@ -1,37 +1,179 @@
 [freestyle]
-title = "THE WORKING: The Question Boundary"
-requires = ["input-loop", "conditions", "switch-expressions", "loops", "lists-arrays", "dictionaries", "exceptions", "method-design"]
-brief = "Deepen the existing vestibule without replacing its working loop.<ul><li>Add <code>ClassifyInput(string raw)</code>; use one switch expression to return <code>quit</code>, <code>help</code>, or <code>question</code> after trimming and lowercasing only for command comparison</li><li>Add <code>TryPrepareQuestion(string raw, out string question, out string error)</code> from the workshop; it collapses harmless whitespace, rejects empty or over-500-character input, and preserves all meaningful question text</li><li>For a question, print <code>[Ready] Question: &lt;whole question&gt;</code>; for help, print the three accepted input forms; for invalid input, print <code>[Input] &lt;error&gt;</code></li><li>Do not extract search terms, remove stop words, or score relevance—the later local AI receives the whole prepared question</li><li>Run <code>dotnet build</code>, then test a one-word question, punctuation, capitals, doubled spaces, blank input, <code>help</code>, and mixed-case <code>QUIT</code></li></ul><div class=\"callout\"><strong>Patch, do not restart:</strong> keep Chapter I's greeting and loop. Add the two local methods after the loop in the same <code>Program.cs</code>. Chapter III will move stable data into files after classes have been taught.</div>"
-reward = 250
-packages = []
-xray = "THORNE tests the two methods separately before he runs the loop. He passes a one-word question, punctuation, doubled spaces, capitals, blanks, help, and mixed-case quit; confirms the complete question survives; and verifies Chapter I's greeting and prompt still work."
+title = "THE WORKING: CONTROL WITHOUT QUERY RULES"
+brief = '''
+<p><strong>Outcome:</strong> Prepare a whole question and command surface while refusing keyword-driven lookup routing.</p><p>Author the project edits yourself. The hidden replay proves one possible implementation, but it is never shown and does not define your architecture.</p><ul><li>Design a small command surface for help, quit, a whole factual question, blank input, and an explicit maximum length.</li><li>Preserve a punctuation-bearing question as one semantic value; whitespace preparation may be general, but question words may not select sources or lookup recipes.</li><li>Use a collection for repeated values and a keyed collection where lookup is genuinely useful; handle missing keys deliberately.</li><li>Separate parsing or preparation into methods with narrow scope, and distinguish invalid user input from unexpected program failure.</li><li>Demonstrate every branch and loop exit with controlled terminal inputs and retain a clean solution build.</li></ul>
+'''
+requires = ["language-project-toolchain", "language-namespaces-modularity", "language-types-nullability", "language-methods-scope", "language-control-flow", "language-collections-generics", "language-exceptions-resources"]
+reward = 350
+xray = "The grader inspects saved C# and project metadata, runs the chapter proof and cumulative regressions, changes a load-bearing input, and checks the observable chapter contract: A whole punctuation-bearing question survives preparation, while help, quit, blank, and oversized inputs take distinct observable paths."
 
 [freestyle.badge]
 id = "badge-s02"
-name = "KEEPER OF QUESTIONS"
-desc = "Preserved a seeker's whole question while turning bad input aside."
+name = "KEEPER OF WHOLE QUESTIONS"
+desc = "Preserved user meaning through typed control flow without factual keyword routing."
 
 [[freestyle.rubric]]
-criterion = "It takes the flame & runs"
-weight = 20
-desc = "Forges clean; survives strange input without unhandled exceptions."
-
-[[freestyle.rubric]]
-criterion = "Conservative preparation"
+criterion = "Whole-question grammar"
 weight = 25
-desc = "Whitespace is normalized, invalid length is reported, and words, punctuation, and case are not discarded from questions."
+desc = "Design a small command surface for help, quit, a whole factual question, blank input, and an explicit maximum length."
 
 [[freestyle.rubric]]
-criterion = "Named method boundaries"
+criterion = "Branch and loop behavior"
 weight = 20
-desc = "Preparation and command classification are separate methods with clear parameters and returned values; classification uses a switch expression."
+desc = "Preserve a punctuation-bearing question as one semantic value; whitespace preparation may be general, but question words may not select sources or lookup recipes."
 
 [[freestyle.rubric]]
-criterion = "Vessels of many, used well"
+criterion = "Collection choice"
 weight = 20
-desc = "Sensible use of Split options and string.Join; no home-made relevance or authority algorithm enters the artifact."
+desc = "Use a collection for repeated values and a keyed collection where lookup is genuinely useful; handle missing keys deliberately."
 
 [[freestyle.rubric]]
-criterion = "Utterance & a fair hand"
+criterion = "Error boundary"
+weight = 20
+desc = "Separate parsing or preparation into methods with narrow scope, and distinguish invalid user input from unexpected program failure."
+
+[[freestyle.rubric]]
+criterion = "No rigid routing"
 weight = 15
-desc = "Matches the [Ready]/[Input] forms; conventional C# names, four-space indentation, and Allman braces."
+desc = "Demonstrate every branch and loop exit with controlled terminal inputs and retain a clean solution build."
+
+[[freestyle.referenceSteps]]
+id = "s02-write-cli-options"
+path = "src/Verisearch/CliOptions.cs"
+mode = "write"
+instruction = "Private replay adds whole-question preparation and an explicit option grammar without keyword routing."
+content = '''
+namespace Verisearch;
+
+public sealed record CliOptions(
+    string Question,
+    string CatalogPath,
+    IReadOnlyList<string> SourceLabels,
+    string Provider,
+    string? AiCommand,
+    IReadOnlyList<string> AiArguments,
+    int MaxQuotes,
+    bool ShowHelp)
+{
+    public const string Usage = """
+        Verisearch — AI-proposed, C#-verified quotations
+
+        Usage:
+          verisearch "WHOLE QUESTION" [options]
+
+        Options:
+          --catalog PATH       JSON source catalog (default: verisearch.sources.json)
+          --source LABEL       Select a catalog source; repeat to preserve your order
+          --provider cli|mock  cli is the real AI path; mock is explicit test plumbing
+          --ai-command PATH    AI program that reads the JSON prompt on stdin
+          --ai-arg VALUE       One AI-program argument; repeat as needed
+          --max-quotes N       Maximum accepted proposals, 1 through 20
+          --help               Show this text
+
+        Example with a local model CLI:
+          verisearch "What changed?" --source release-notes --provider cli \
+            --ai-command ollama --ai-arg run --ai-arg qwen3:8b
+        """;
+
+    public static CliOptions Parse(IReadOnlyList<string> args)
+    {
+        if (args.Count == 0)
+        {
+            return new CliOptions("", "verisearch.sources.json", [], "cli", null, [], 5, true);
+        }
+
+        string? question = null;
+        string catalogPath = "verisearch.sources.json";
+        string provider = "cli";
+        string? aiCommand = null;
+        int maxQuotes = 5;
+        bool showHelp = false;
+        var sourceLabels = new List<string>();
+        var aiArguments = new List<string>();
+
+        for (int index = 0; index < args.Count; index++)
+        {
+            string argument = args[index];
+            switch (argument)
+            {
+                case "--help" or "-h":
+                    showHelp = true;
+                    break;
+                case "--catalog":
+                    catalogPath = NextValue(args, ref index, argument);
+                    break;
+                case "--source":
+                    sourceLabels.Add(NextValue(args, ref index, argument));
+                    break;
+                case "--provider":
+                    provider = NextValue(args, ref index, argument).ToLowerInvariant();
+                    break;
+                case "--ai-command":
+                    aiCommand = NextValue(args, ref index, argument);
+                    break;
+                case "--ai-arg":
+                    aiArguments.Add(NextValue(args, ref index, argument));
+                    break;
+                case "--max-quotes":
+                    string rawMaximum = NextValue(args, ref index, argument);
+                    if (!int.TryParse(rawMaximum, out maxQuotes) || maxQuotes is < 1 or > 20)
+                    {
+                        throw new ArgumentException("--max-quotes must be a whole number from 1 through 20");
+                    }
+                    break;
+                default:
+                    if (argument.StartsWith("-", StringComparison.Ordinal))
+                    {
+                        throw new ArgumentException($"unknown option: {argument}");
+                    }
+                    if (question is not null)
+                    {
+                        throw new ArgumentException("pass the whole question as one quoted argument");
+                    }
+                    question = PrepareQuestion(argument);
+                    break;
+            }
+        }
+
+        if (provider is not ("cli" or "mock"))
+        {
+            throw new ArgumentException("--provider must be cli or mock");
+        }
+        if (!showHelp && string.IsNullOrWhiteSpace(question))
+        {
+            throw new ArgumentException("a non-empty whole question is required");
+        }
+
+        return new CliOptions(
+            question ?? "",
+            catalogPath,
+            sourceLabels,
+            provider,
+            aiCommand,
+            aiArguments,
+            maxQuotes,
+            showHelp);
+    }
+
+    public static string PrepareQuestion(string raw)
+    {
+        string prepared = string.Join(' ', raw.Split(
+            (char[]?)null,
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        if (prepared.Length > 1000)
+        {
+            throw new ArgumentException("the question must be 1000 characters or fewer");
+        }
+        return prepared;
+    }
+
+    private static string NextValue(IReadOnlyList<string> args, ref int index, string option)
+    {
+        if (++index >= args.Count || string.IsNullOrWhiteSpace(args[index]))
+        {
+            throw new ArgumentException($"{option} needs a value");
+        }
+        return args[index];
+    }
+}
+'''

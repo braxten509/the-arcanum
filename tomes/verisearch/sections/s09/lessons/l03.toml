@@ -1,112 +1,89 @@
 [[lessons]]
 id = "s09-l03"
-teaches = ["structured-quote-schema"]
-title = "Structured Output — Ask for Exact Quote Proposals"
+teaches = ["language-serialization-io"]
+title = "Structured proposals — JSON is shape, not truth"
 body = '''
-<p>A good prompt explains the task; a JSON schema constrains the response shape. Ollama's chat request accepts a schema in its <code>format</code> field. Verisearch requests an object containing a bounded array of <code>passageId</code> and <code>quote</code> pairs.</p>
-<pre><code>response object
-└── quotes: array, zero through ten items
-    └── each item is an object with exactly two required fields
-        ├── passageId: integer
-        └── quote: non-empty string</code></pre>
-<p>The outer object and every item reject additional fields. That matters because the model has no place to submit a URL, source label, explanation, or confidence score. The workshop supplies the complete machine-readable schema once the prompt shape is clear.</p>
-<p>Place it in the request alongside <code>options = new { temperature = 0 }</code>. First make a small draft from the question, a result limit, and the exact stored passage strings. The next workshop turns this idea into the canonical helper:</p>
-<pre><code><span class="k">int</span> limit = 5;
-<span class="k">string</span> numberedPassages = <span class="k">string</span>.Join(Environment.NewLine,
-    passages.Select(item =&gt; <span class="s">$"[{item.Id}] {item.Text}"</span>));
 
-<span class="k">string</span> draftPrompt = <span class="s">$"""
-Question to answer:
-{question}
+<p>Free-form model prose is difficult to validate. Ask the AI for one small structured document whose schema represents proposals, not proof. A useful proposal identifies a supplied passage and repeats a candidate substring. It does not contain a source URL, confidence-as-truth, or a preformatted citation.</p>
+<p>The prompt should state the whole question, enumerate stable passage ids and exact text, prohibit invented wording, cap the number of proposals, and demand JSON only. Keep this instruction identical across question topics. Adding branches such as “if the question contains <em>date</em>, search a timeline” recreates the rigid rules the AI boundary exists to avoid.</p>
+<pre><code data-kind="runnable">// Complete runnable example
+using System.Text.Json;
 
-Untrusted source passages:
-{numberedPassages}
+const string response = """{"Quotes":[{"PassageId":"p1","Quote":"exact words"}]}""";
+ProposalEnvelope? envelope = JsonSerializer.Deserialize&lt;ProposalEnvelope&gt;(response);
+Console.WriteLine(envelope?.Quotes.Single().PassageId);
 
-Choose zero through {limit} useful quotations. Copy a continuous, case-exact
-span from the passage with the reported id. Do not rewrite or splice text.
-Return an empty list when these passages contain no answer.
-"""</span>;</code></pre>
-<p>The page text is labeled untrusted because a page may contain instructions aimed at the model. The system message repeats that content is data, the task rules appear after the passages, and the schema permits only the two proposal fields. Those measures narrow prompt injection, but none proves a quotation. Only <code>QuoteVerifier</code> does that.</p>
-<p>At this checkpoint, print neither the prompt nor the response in the final program; both can contain page data that does not belong in routine terminal logs.</p>
-<div class="callout">Structured output establishes syntax, not truth. A perfectly shaped fabricated quote remains rejected in the next lesson.</div>
-<div class="field-notes"><div class="fn-head">MARGINALIA // WHY THE MODEL RETURNS TEXT</div><p>Indices-only selection prevented fabricated text but forced C# to print whole passages. Returning a proposed substring lets the AI perform the useful semantic extraction while C# retains final authority through an exact containment test. The prompt limit guides the model; the later verifier is the enforcement point.</p></div>
+public sealed record Proposal(string PassageId, string Quote);
+public sealed record ProposalEnvelope(IReadOnlyList&lt;Proposal&gt; Quotes);</code></pre>
+<p>The complete example demonstrates typed deserialization in isolation. Production code still needs response-size limits, required-value checks, proposal-count limits, duplicate handling, cancellation, and provider-envelope translation. Valid JSON proves syntax and shape only. It does not prove that the passage id exists or that the quote occurs in that passage.</p>
+<p>System.Text.Json can use records, properties, source generation, or explicit options. Decide whether provider output is case-sensitive and document the choice. Reject trailing commentary unless the provider adapter explicitly and safely extracts its documented structured field; do not scrape the first braces from arbitrary prose.</p>
+<p>Test an empty list, missing fields, unknown fields if your policy disallows them, an unknown passage id, excessive proposals, and a quote one character different from the source. Some failures belong to deserialization and some to verification. Preserve that distinction so diagnostics name the broken boundary.</p>
+<div class="callout"><p>A structured proposal is still untrusted AI output. Only the common C# verifier can create the value accepted by reporting.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SCHEMA PRESSURE</div><p>If a field is not needed for deterministic lookup or diagnostics, ask why the model is allowed to supply it. Smaller external shapes reduce the number of claims that can cross the boundary.</p></div>
 '''
 
 [[lessons.readings]]
-label = "Ollama — Structured outputs"
-url = "https://docs.ollama.com/capabilities/structured-outputs"
+label = "Microsoft Learn — How to deserialize JSON in .NET"
+url = "https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/deserialization"
 essential = true
+
+[[lessons.readings]]
+label = "Microsoft Learn — Immutable types with System.Text.Json"
+url = "https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/immutability"
+essential = false
 
 [[lessons.exercises]]
 id = "s09-l03-e1"
 type = "mc"
 points = 20
-prompt = "Why must the instructions allow an empty <code>quotes</code> array?"
-choices = ["JSON requires empty arrays", "The model needs an honest representation for no supporting passage instead of pressure to invent one", "It disables Ollama", "It skips C# verification"]
+prompt = "What does successful JSON deserialization prove about an AI proposal?"
+choices = ["It is factually true", "Its syntax and declared shape were readable", "Its citation is authoritative", "Its quote occurs in a source"]
 answer = 1
-whyWrong = "JSON does not require emptiness, and an empty result neither disables Ollama nor bypasses verification. It provides a valid no-evidence answer."
-explain = "A system that cannot say “none” is pushed toward false positives."
-hint = "What should happen when the sources do not answer the question?"
+whyWrong = "Truth, attribution, and exact containment require separate deterministic checks."
+hint = "A parser understands structure, not evidence."
+explain = "Deserialization establishes a typed shape only."
 
 [[lessons.exercises]]
 id = "s09-l03-e2"
-type = "mc"
+type = "fill"
 points = 20
-prompt = "What does <code>$\"\"\" ... \"\"\"</code> create in modern C#?"
-choices = ["A regular expression", "An interpolated raw string literal", "A JSON object", "A comment block"]
-answer = 1
-whyWrong = "The syntax is a C# interpolated raw string. Its contents may happen to describe JSON or a prompt, but the syntax itself creates a string."
-explain = "Raw delimiters reduce escaping, while the leading dollar enables brace interpolation."
-hint = "The dollar sign and triple double-quotes each contribute one property."
+prompt = "Complete the generic API that reads a proposal envelope from JSON text."
+code = "JsonSerializer.____<ProposalEnvelope>(response)"
+answer = "Deserialize"
+accept = ["deserialize"]
+hint = "The operation reverses serialization."
 
 [[lessons.exercises]]
 id = "s09-l03-e3"
 type = "mc"
 points = 20
-prompt = "What does the JSON schema prove about a returned quote?"
-choices = ["It exists in the source", "It answers the question", "Only that the response follows the requested data shape", "It came from a trusted URL"]
+prompt = "Which field should be absent from the AI proposal schema?"
+choices = ["Passage id", "Candidate quote text", "Source URL authored by the model", "A bounded list of proposals"]
 answer = 2
-whyWrong = "A schema cannot inspect source containment, relevance, or source policy. Those are separate program checks."
-explain = "Shape validation is valuable, but exact truth still needs deterministic comparison with Passage.Text."
-hint = "Syntax and semantics are different gates."
+whyWrong = "Passage identity and quote text support later verification; source attribution must come from C#-owned passage data."
+hint = "The model must not impersonate authority."
+explain = "C# restores the source URL after matching the proposal to a passage."
 
 [[lessons.exercises]]
 id = "s09-l03-d1"
 type = "type"
 points = 14
 reps = 2
-prompt = "Retype the non-negotiable proposal rules twice."
-code = '''Every quote must be one contiguous, case-exact substring copied from
-the passage carrying that passageId. Never paraphrase or combine fragments.
-If there is no evidence, return an empty quotes array.'''
+prompt = "Retype the small untrusted proposal shape twice."
+code = "public sealed record Proposal(string PassageId, string Quote);"
 
-[[lessons.exercises]]
-id = "s09-l03-w1"
-type = "write"
-points = 38
-prompt = "Number the three starter passages with one-based ids in the exact <code>[id] text</code> format sent to Ollama, one per line."
-starter = '''var passages = new List<string>
-{
-    "TLS 1.3 intro",
-    "cipher suites list",
-    "session resumption"
-};
+[[lessons.concepts]]
+id = "language-serialization-io"
+purpose = "Move typed data across file, JSON, HTTP, process, and terminal boundaries without confusing external text with trusted objects."
+anatomy = "Select an I/O API, await or dispose it correctly, serialize or deserialize a declared shape, then validate the resulting values."
+example = "The disposable examples in Structured proposals — JSON is shape, not truth isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Structured proposals — JSON is shape, not truth supplies the disposable observation point."
+observable = "Valid input becomes the intended typed data and malformed input produces a specific boundary diagnostic. Confirm it while practicing Structured proposals — JSON is shape, not truth."
+failure = "Scraping loosely structured text or overwriting invalid user data destroys the evidence needed to repair it."
+practice = "s09-l03-e1"
 
-Console.WriteLine("NOT NUMBERED");
-'''
-expect = '''[1] TLS 1.3 intro
-[2] cipher suites list
-[3] session resumption'''
-solution = '''var passages = new List<string>
-{
-    "TLS 1.3 intro",
-    "cipher suites list",
-    "session resumption"
-};
-
-for (int index = 0; index < passages.Count; index++)
-{
-    Console.WriteLine($"[{index + 1}] {passages[index]}");
-}
-'''
-hint = "Loop from index 0 and display index + 1."
+[[lessons.artifactSteps]]
+id = "s09-l03-author-artifact"
+path = "src/Verisearch/AiSelection.cs"
+mode = "author"
+instruction = "Use the C# ideas from Structured proposals — JSON is shape, not truth to author or revise this learner-owned path toward the chapter behavior: Connect any real AI provider through a narrow adapter, demand structured quote proposals, and verify every quote in C#. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["A real configured AI adapter receives the complete question, exact proposals cross the verifier, and a one-character fabrication is rejected.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

@@ -1,27 +1,24 @@
 [[lessons]]
 id = "s04-l01"
-teaches = ["nuget-packages"]
+teaches = ["language-testing-debugging"]
 title = "NuGet — the .NET package bazaar"
 body = '''
 
-<p>NuGet is .NET's package registry — like npm or pip, but for .NET. Verisearch deliberately keeps its dependency list small: built-in .NET handles HTTP, JSON, files, and the Ollama API; packages are reserved for HTML parsing, terminal rendering, and tests.</p>
-<pre><code>$ dotnet add package AngleSharp          <span class="c">// installs the newest version</span>
-$ dotnet add package AngleSharp --version 1.1.2</code></pre>
-<p>The dependency lands in your <code>.csproj</code>:</p>
-<pre><code>&lt;ItemGroup&gt;
-  &lt;PackageReference Include=<span class="s">"AngleSharp"</span> Version=<span class="s">"1.1.2"</span> /&gt;
-&lt;/ItemGroup&gt;</code></pre>
-<p>Next <code>dotnet build</code> downloads it automatically. Everything you'll use this tome:</p>
-<ul>
-<li><code>AngleSharp</code> — HTML parsing (Chapter VI)</li>
-<li><code>Spectre.Console</code> — rich terminal output (Chapter X)</li>
-<li><code>xunit</code> packages — the test project (Chapter XII)</li>
-</ul>
-<p><code>HttpClient</code> and <code>System.Text.Json</code> need <strong>no package</strong> — they ship with .NET.</p>
-<div class="callout">In the desk's scroll, the PACKAGES button runs <code>dotnet add package</code> for you. Vet what you install — every package is code you're trusting with your machine. Check the download count and the repo before adding anything exotic.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
-<p><strong>Versions are semver:</strong> MAJOR.MINOR.PATCH — 16.2.0 → 16.2.1 is a fix, → 17.0.0 may break your code. <code>dotnet add package X</code> takes the latest stable; pin with <code>--version</code> when reproducibility matters.</p>
-<p><strong>Transitive dependencies:</strong> installing AngleSharp may pull packages IT needs. <code>dotnet list package</code> shows direct deps; <code>--include-transitive</code> shows the whole tree.</p>
-<p><strong>Restore:</strong> <code>dotnet restore</code> downloads everything the csproj references (build runs it implicitly). Fresh clone of a project? Restore is why it just works — the packages folder is never committed.</p></div>'''
+<p>NuGet supplies versioned .NET libraries, while a test project supplies a second executable view of your code. Add both ideas early: packages should solve a bounded infrastructure problem, and tests should begin before the pipeline is crowded with network and AI behavior.</p>
+<p>A package reference belongs in a project file. The command below is a disposable example; substitute the project and package that your experiment actually uses:</p>
+<pre><code data-kind="terminal">$ dotnet add ./Scratch/Scratch.csproj package Some.Package
+$ dotnet restore ./Scratch/Scratch.csproj
+$ dotnet list ./Scratch/Scratch.csproj package</code></pre>
+<p>The first command edits project metadata, restore resolves the declared graph, and list lets you inspect the direct result. Do not copy a package merely because a tutorial used it. Check its official documentation, license, supported target framework, and current stable version. Commit the project metadata, not the generated package cache.</p>
+<p>A sibling xUnit project references the application project rather than copying its source. That allows a test to call a public boundary and gives the compiler one solution-wide view of both projects:</p>
+<pre><code data-kind="terminal">$ dotnet new xunit -n Scratch.Tests
+$ dotnet add Scratch.Tests/Scratch.Tests.csproj reference Scratch/Scratch.csproj
+$ dotnet test</code></pre>
+<p>The first Verisearch tests should be small and deterministic. Preparing a whole question, rejecting blank input, or preserving punctuation needs no network. Arrange one controlled input, invoke one public behavior, and assert one observable result. Then deliberately break the behavior and confirm that the test becomes red. A test that never fails under a load-bearing mutation is ceremony, not evidence.</p>
+<p>Package installation and test design are separate decisions. <code>System.Text.Json</code> and <code>HttpClient</code> already ship with .NET; a DOM parser such as AngleSharp is an external package. xUnit belongs to the test project. The production project should not acquire test-only dependencies merely to make setup convenient.</p>
+<div class="callout"><p>Record exact versions in project metadata, but let the learner choose architecture. This chapter requires an early test seam and replaceable source I/O; it does not require a class with a prescribed name.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // FIRST DIAGNOSTIC FIRST</div><p>A restore failure concerns dependency resolution; a compiler failure concerns source or project configuration; a red assertion concerns behavior. Read the first failing boundary before changing code.</p></div>
+'''
 
 [[lessons.readings]]
 label = "Microsoft Learn — \"NuGet package basics\""
@@ -66,3 +63,19 @@ prompt = "The install command and what it writes to your csproj. Twice."
 code = '''
 dotnet add package AngleSharp
 <PackageReference Include="AngleSharp" Version="1.1.2" />'''
+
+[[lessons.concepts]]
+id = "language-testing-debugging"
+purpose = "Turn a C# promise into an executable check and diagnose failures from the earliest broken boundary."
+anatomy = "Arrange controlled inputs, invoke one behavior, assert an observable result, then use compiler, test, or debugger output to localize a failing case."
+example = "The disposable examples in NuGet — the .NET package bazaar isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson NuGet — the .NET package bazaar supplies the disposable observation point."
+observable = "The check passes for a valid case and fails when its load-bearing input is deliberately changed. Confirm it while practicing NuGet — the .NET package bazaar."
+failure = "A test that prints a prepared success receipt or requires live network state cannot distinguish a regression."
+practice = "s04-l01-e1"
+
+[[lessons.artifactSteps]]
+id = "s04-l01-author-artifact"
+path = "tests/Verisearch.Tests/QuestionPreparationTests.cs"
+mode = "author"
+instruction = "Use the C# ideas from NuGet — the .NET package bazaar to author or revise this learner-owned path toward the chapter behavior: Introduce tests early, then read one chosen source through an asynchronous, replaceable boundary. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["An early test changes from green to red under a deliberate bad input, and an async source read remains replaceable without live networking.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

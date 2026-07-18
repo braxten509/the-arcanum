@@ -1,37 +1,257 @@
 [freestyle]
-title = "THE WORKING: The Proposal-and-Proof Gate"
-requires = ["json-mapping", "http-client", "canonical-models", "page-extractor", "ollama-setup", "ollama-http-api", "structured-quote-schema", "quote-verification", "quote-selector"]
-brief = "Add the local AI boundary without replacing any earlier project files.<ul><li>Create <code>OllamaQuoteSelector.cs</code> from the workshop. Use the official <code>/api/chat</code> HTTP endpoint, <code>stream = false</code>, temperature zero, and the exact quote JSON schema; install no Ollama client package.</li><li>Send one source’s stored numbered passages as untrusted data. Ask for at most the configured count of contiguous, case-exact substrings; permit an empty array.</li><li>Deserialize the inner response into <code>QuoteBatch</code>. Invalid HTTP, envelope, or inner JSON must fail clearly; do not scrape numbers or prose from malformed output.</li><li>Create <code>QuoteVerifier.cs</code>. It alone creates <code>VerifiedQuote</code> records after ordinal substring matching and C#-owned attribution.</li><li>Add an explicit <code>--mock</code> fixture selector only for a known local passage. Label its terminal mode MOCK. Live mode with Ollama unavailable must return a clear error and nonzero exit code.</li><li>Test exact, altered, fabricated, unknown-id, duplicate, empty, and over-limit proposal batches before a live call.</li></ul>"
-reward = 550
-packages = []
-xray = "THORNE supplies valid JSON containing one invented quote, one exact quote with a false model-owned URL attempt, a duplicate, and an unknown passage id. Only the exact source substring may emerge, with the URL copied from Passage. He then stops Ollama and checks that live mode fails instead of invoking hidden keyword logic."
+title = "THE WORKING: A SWAPPABLE SEMANTIC AI BOUNDARY"
+brief = '''
+<p><strong>Outcome:</strong> Connect any real AI provider through a narrow adapter, demand structured quote proposals, and verify every quote in C#.</p><p>Author the project edits yourself. The hidden replay proves one possible implementation, but it is never shown and does not define your architecture.</p><ul><li>Define a provider-neutral semantic AI interface receiving the complete question and stable admitted passages and returning untrusted quote proposals.</li><li>Implement one real provider route of your choice: local CLI, local HTTP model, hosted API, or a configured wrapper; keep provider details inside its adapter.</li><li>Demand a bounded structured proposal schema, handle process or HTTP resources and cancellation, and keep credentials out of source and output.</li><li>Implement ordinal C# substring verification, rejection accounting, limits, duplicate policy, and attribution copied only from matched passages.</li><li>Prove exact, one-character-fabricated, unknown-id, provider-failure, and explicit-mock cases; live failure must never trigger keyword rules or silent mock behavior.</li></ul>
+'''
+requires = ["language-project-toolchain", "language-namespaces-modularity", "language-types-nullability", "language-methods-scope", "language-control-flow", "language-collections-generics", "language-exceptions-resources", "language-classes-records", "language-linq-lambdas", "language-testing-debugging", "language-async-cancellation", "language-serialization-io", "language-interfaces-polymorphism"]
+reward = 595
+xray = "The grader inspects saved C# and project metadata, runs the chapter proof and cumulative regressions, changes a load-bearing input, and checks the observable chapter contract: A real configured AI adapter receives the complete question, exact proposals cross the verifier, and a one-character fabrication is rejected."
 
 [freestyle.badge]
 id = "badge-s09"
-name = "SPIRIT-BINDER"
-desc = "Gave the spirit semantic work while reserving truth and attribution for deterministic C#."
+name = "BOUNDARY OF PROPOSAL AND PROOF"
+desc = "Connected a real semantic AI while keeping exact admission in C#."
 
 [[freestyle.rubric]]
-criterion = "Official HTTP integration"
+criterion = "Real semantic AI boundary"
+weight = 25
+desc = "Define a provider-neutral semantic AI interface receiving the complete question and stable admitted passages and returning untrusted quote proposals."
+
+[[freestyle.rubric]]
+criterion = "Provider adapter quality"
 weight = 20
-desc = "Uses HttpClient /api/chat with structured format, non-streaming response, cancellation, status checks, and no wrapper package."
+desc = "Implement one real provider route of your choice: local CLI, local HTTP model, hosted API, or a configured wrapper; keep provider details inside its adapter."
 
 [[freestyle.rubric]]
-criterion = "Proposal contract"
+criterion = "Structured untrusted proposals"
 weight = 20
-desc = "Prompt and schema request bounded passageId plus contiguous exact quote text and allow an honest empty result."
+desc = "Demand a bounded structured proposal schema, handle process or HTTP resources and cancellation, and keep credentials out of source and output."
 
 [[freestyle.rubric]]
-criterion = "Deterministic proof"
-weight = 30
-desc = "Only ordinal substrings with valid ids become VerifiedQuote; duplicates, fabrications, empties, and excess results are rejected."
+criterion = "Exact verifier and attribution"
+weight = 20
+desc = "Implement ordinal C# substring verification, rejection accounting, limits, duplicate policy, and attribution copied only from matched passages."
 
 [[freestyle.rubric]]
-criterion = "Mode honesty"
+criterion = "No silent fallback"
 weight = 15
-desc = "Mock is explicit and labeled; live Ollama failure is actionable and never silently replaced with keyword matching."
+desc = "Prove exact, one-character-fabricated, unknown-id, provider-failure, and explicit-mock cases; live failure must never trigger keyword rules or silent mock behavior."
 
-[[freestyle.rubric]]
-criterion = "C# craft"
-weight = 15
-desc = "PascalCase types and methods, camelCase locals, four-space indentation, Allman braces, focused selector/verifier files, and no raw model output rendering."
+[[freestyle.referenceSteps]]
+id = "s09-write-ai-selection"
+path = "src/Verisearch/AiSelection.cs"
+mode = "write"
+instruction = "Private replay adds a real configurable CLI AI adapter plus an explicitly labeled test mock."
+content = '''
+using System.Diagnostics;
+using System.Text.Json;
+
+namespace Verisearch;
+
+public sealed class CliAiQuoteSelector(
+    string command,
+    IReadOnlyList<string> arguments,
+    int maximumQuotes) : IAiQuoteSelector
+{
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    public async Task<QuoteBatch> SelectAsync(
+        string question,
+        IReadOnlyList<Passage> passages,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(command))
+        {
+            throw new InvalidOperationException("the cli AI provider needs --ai-command");
+        }
+
+        string prompt = JsonSerializer.Serialize(new
+        {
+            task = "Interpret the whole question by meaning and propose supporting quotations.",
+            question,
+            rules = new[]
+            {
+                "Return one JSON object and no markdown.",
+                "Use the shape {\"quotes\":[{\"passageId\":\"...\",\"quote\":\"...\"}]}",
+                "Every quote must be one contiguous, case-exact substring of its passage.",
+                $"Return at most {maximumQuotes} proposals; an empty array is honest.",
+                "Do not invent URLs, labels, sources, lookup categories, or keyword routing."
+            },
+            passages = passages.Select(passage => new
+            {
+                passageId = passage.Id,
+                sourceLabel = passage.Source.Label,
+                text = passage.Text
+            })
+        });
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = command,
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        foreach (string argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        using var process = new Process { StartInfo = startInfo };
+        if (!process.Start())
+        {
+            throw new InvalidOperationException($"AI command did not start: {command}");
+        }
+        await process.StandardInput.WriteAsync(prompt.AsMemory(), cancellationToken);
+        process.StandardInput.Close();
+        Task<string> standardOutput = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        Task<string> standardError = process.StandardError.ReadToEndAsync(cancellationToken);
+        await process.WaitForExitAsync(cancellationToken);
+        string output = await standardOutput;
+        string error = await standardError;
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException(
+                $"AI command exited {process.ExitCode}: {error.Trim()}");
+        }
+
+        AiResponse? response;
+        try
+        {
+            response = JsonSerializer.Deserialize<AiResponse>(output, JsonOptions);
+        }
+        catch (JsonException exception)
+        {
+            throw new InvalidOperationException(
+                "AI output was not the required quote-proposal JSON object",
+                exception);
+        }
+        if (response?.Quotes is null)
+        {
+            throw new InvalidOperationException("AI output did not contain a quotes array");
+        }
+        if (response.Quotes.Count > maximumQuotes)
+        {
+            throw new InvalidOperationException(
+                $"AI returned {response.Quotes.Count} proposals; limit is {maximumQuotes}");
+        }
+        return new QuoteBatch(response.Quotes);
+    }
+
+    private sealed record AiResponse(List<QuoteProposal>? Quotes);
+}
+
+public sealed class ExplicitMockAiQuoteSelector : IAiQuoteSelector
+{
+    public Task<QuoteBatch> SelectAsync(
+        string question,
+        IReadOnlyList<Passage> passages,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        QuoteBatch batch = passages.Count == 0
+            ? new QuoteBatch([])
+            : new QuoteBatch([new QuoteProposal(passages[0].Id, passages[0].Text)]);
+        return Task.FromResult(batch);
+    }
+}
+'''
+[[freestyle.referenceSteps]]
+id = "s09-write-quote-verifier"
+path = "src/Verisearch/QuoteVerifier.cs"
+mode = "write"
+instruction = "Private replay adds ordinal containment, bounded admission, and source-owned attribution."
+content = '''
+namespace Verisearch;
+
+public sealed class QuoteVerifier
+{
+    public VerificationResult Verify(
+        IReadOnlyList<Passage> passages,
+        QuoteBatch proposals,
+        int maximumQuotes)
+    {
+        var byId = passages.ToDictionary(passage => passage.Id, StringComparer.Ordinal);
+        var seen = new HashSet<(string PassageId, string Quote)>();
+        var verified = new List<VerifiedQuote>();
+        int rejected = 0;
+
+        foreach (QuoteProposal proposal in proposals.Quotes)
+        {
+            if (verified.Count >= maximumQuotes
+                || string.IsNullOrEmpty(proposal.PassageId)
+                || string.IsNullOrEmpty(proposal.Quote)
+                || !byId.TryGetValue(proposal.PassageId, out Passage? passage)
+                || !passage.Text.Contains(proposal.Quote, StringComparison.Ordinal)
+                || !seen.Add((proposal.PassageId, proposal.Quote)))
+            {
+                rejected++;
+                continue;
+            }
+
+            verified.Add(new VerifiedQuote(
+                passage.Id,
+                proposal.Quote,
+                passage.Source.Label,
+                passage.Source.Uri));
+        }
+
+        return new VerificationResult(verified, rejected);
+    }
+}
+'''
+[[freestyle.referenceSteps]]
+id = "s09-rewrite-proof-harness"
+path = "src/Verisearch/ProofHarness.cs"
+mode = "rewrite"
+instruction = "Private replay preserves the early proof and adds a fabricated-quote negative control."
+preserves = "all-active"
+content = '''
+namespace Verisearch;
+
+public static class ProofHarness
+{
+    public static Task<int> RunAsync(string proofId)
+    {
+        if (proofId == "s04")
+        {
+            string prepared = CliOptions.PrepareQuestion("whole   text");
+            if (prepared != "whole text")
+            {
+                return Task.FromResult(1);
+            }
+            Console.WriteLine("S04_OK question=whole text");
+            return Task.FromResult(0);
+        }
+        if (proofId != "s09")
+        {
+            Console.Error.WriteLine($"unknown proof id: {proofId}");
+            return Task.FromResult(2);
+        }
+        SourceSpec source = new("Source", new Uri("https://example.test/source"));
+        Passage passage = new("p-one", source, "An exact source sentence stays intact.");
+        VerificationResult result = new QuoteVerifier().Verify(
+            [passage],
+            new QuoteBatch([
+                new QuoteProposal(passage.Id, "exact source sentence"),
+                new QuoteProposal(passage.Id, "fabricated sentence")
+            ]),
+            3);
+        bool passed = result.Quotes is [var quote]
+            && result.RejectedCount == 1
+            && quote.SourceLabel == source.Label
+            && quote.SourceUri == source.Uri;
+        if (!passed)
+        {
+            return Task.FromResult(1);
+        }
+        Console.WriteLine("S09_OK accepted=1 rejected=1 attribution=source");
+        return Task.FromResult(0);
+    }
+}
+'''

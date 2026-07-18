@@ -48,7 +48,8 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     try:  # mirror locally-pulled ollama models into opencode's config so new ones are runnable
-        subprocess.run([sys.executable, os.path.join(ROOT, "tools", "sync_ollama.py")], timeout=30)
+        subprocess.run([sys.executable, os.path.join(
+            ROOT, "tools", "maintenance", "sync_ollama.py")], timeout=30)
     except Exception as e:  # never let a config-sync hiccup block the server
         print(f"sync-ollama: skipped ({e})")
     for j in list_tomes():

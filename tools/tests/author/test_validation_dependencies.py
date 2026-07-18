@@ -23,6 +23,7 @@ from buildlib.runtime import validation_env
 from buildlib.course_map import validation_dependency_alignment_problems
 from buildlib.course.dependencies import external_workspace_capability_alignment_problems
 from runtimes import common as runtime_common
+from runtimes import snippet_config
 from runtimes.generic import CommandRuntime
 
 
@@ -130,6 +131,22 @@ def test_runtime_atomic_write_creates_nested_entry_parent():
         runtime_common.atomic_write(entry, "print('ready')\n")
         assert pathlib.Path(entry).read_text(encoding="utf-8") == "print('ready')\n"
         assert not pathlib.Path(entry + ".tmp").exists()
+
+
+def test_blank_learner_scaffold_keeps_language_snippet_scaffold():
+    sealed = {
+        "name": "dotnet",
+        "entryFile": "src/App/Program.cs",
+        "projectFile": "App.slnx",
+        "scaffoldCommand": [],
+        "validationDependencies": ["Example.Package"],
+    }
+    assert snippet_config(sealed) == {
+        "name": "dotnet",
+        "validationDependencies": ["Example.Package"],
+    }
+    ordinary = {"name": "dotnet", "project": "Demo"}
+    assert snippet_config(ordinary) == ordinary
 
 
 def test_automated_validation_environment_cannot_reach_the_desktop():

@@ -1,11 +1,12 @@
 [[lessons]]
 id = "s01-l02"
-teaches = ["top-level-statements"]
+teaches = ["language-namespaces-modularity"]
 title = "The shape of an incantation — top-level statements & namespaces"
 body = '''
 
 <p>The old masters made you raise a class and a <code>Main</code> method just to utter one line. Modern C# lets <code>Program.cs</code> begin casting from its first rune — these are <strong>top-level statements</strong>:</p>
-<pre><code><span class="c">// Program.cs — this IS a complete incantation</span>
+<pre><code data-kind="runnable">// Complete runnable example
+<span class="c">// Program.cs — this IS a complete incantation</span>
 Console.WriteLine(<span class="s">"Verisearch v0.1"</span>);</code></pre>
 <p>Read that line from the outside inward:</p>
 <ol>
@@ -16,7 +17,7 @@ Console.WriteLine(<span class="s">"Verisearch v0.1"</span>);</code></pre>
 </ol>
 <div class="callout"><strong>Call versus declaration:</strong> <code>Console.WriteLine("hi");</code> calls an existing method. <code>static void Main(string[] args)</code> declares a method: it gives the method a name, inputs, and return type. On a first pass, recognize the difference; Chapter III will teach you to shape behavior of your own.</div>
 <p>Behind the veil the compiler still writes the elder form. You will meet it in other wizards' work, so learn its face:</p>
-<pre><code><span class="k">namespace</span> Verisearch;
+<pre><code data-kind="replacement"><span class="k">namespace</span> Verisearch;
 
 <span class="k">class</span> Program
 {
@@ -34,7 +35,8 @@ Console.WriteLine(<span class="s">"Verisearch v0.1"</span>);</code></pre>
 <p><strong>Comments:</strong> <code>// to the line's end</code> and <code>/* a bound passage */</code>. Comments explain WHY, not what — <code>// increment i</code> above <code>i++</code> is scribble.</p>
 <p><strong>Case sensitivity:</strong> <code>Console</code>, <code>console</code>, and <code>CONSOLE</code> are three different names; only the first exists. Most novice "it does not exist" complaints are casing.</p>
 <p><strong>The law of names:</strong> letters/digits/underscore, never beginning with a digit, never a keyword. The conventions every guild follows: <code>PascalCase</code> for types/methods/properties, <code>camelCase</code> for locals and parameters.</p>
-<p><strong>What the compiler writes for you:</strong> your top-level statements literally become a hidden <code>Main(string[] args)</code> — the <code>args</code> variable is even at hand in top-level runes. One leaf per working may use top-level statements; every other leaf holds types.</p></div>'''
+<p><strong>What the compiler writes for you:</strong> your top-level statements literally become a hidden <code>Main(string[] args)</code> — the <code>args</code> variable is even at hand in top-level runes. One leaf per working may use top-level statements; every other leaf holds types.</p></div>
+'''
 
 [[lessons.readings]]
 label = "Microsoft Learn — \"C# for Beginners\" video series (ep. 1–5)"
@@ -108,3 +110,19 @@ Console.WriteLine("the candle is lit");
 Console.WriteLine("the tome lies open");
 '''
 hint = "Two WriteLine calls. Order of statements = order of utterance."
+
+[[lessons.concepts]]
+id = "language-namespaces-modularity"
+purpose = "Split a growing C# program into discoverable files and namespaces with one clear owner per responsibility."
+anatomy = "Place related types under a namespace, keep the entrypoint as composition, and reference public contracts instead of copying declarations."
+example = "The disposable examples in The shape of an incantation — top-level statements & namespaces isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson The shape of an incantation — top-level statements & namespaces supplies the disposable observation point."
+observable = "The whole solution builds with one definition for each concept and dependencies point in an understandable direction. Confirm it while practicing The shape of an incantation — top-level statements & namespaces."
+failure = "Duplicate types, circular ownership, or business logic in Program.cs makes later integration brittle."
+practice = "s01-l02-e1"
+
+[[lessons.artifactSteps]]
+id = "s01-l02-author-artifact"
+path = "src/Verisearch/Program.cs"
+mode = "author"
+instruction = "Use the C# ideas from The shape of an incantation — top-level statements & namespaces to author or revise this learner-owned path toward the chapter behavior: Create the solution and a small question-listening console without receiving production code. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["The solution builds and the console path accepts, displays, and exits from learner-provided text without crashing on missing input.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

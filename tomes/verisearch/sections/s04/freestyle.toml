@@ -1,37 +1,200 @@
 [freestyle]
-title = "THE WORKING: The Far-Speaking Rite"
-requires = ["records", "async-await", "http-client", "json-mapping", "source-fetcher"]
-brief = '''Add the first complete project service without removing the existing loop.<ul><li>Create <code>SourceFetcher.cs</code> exactly from the workshop: constructor-injected HttpClient and <code>FetchAsync(SourceSpec, CancellationToken)</code></li><li>For <code>SourceKind.Web</code>, enforce a successful response and HTML media type before constructing SourceDocument</li><li>For <code>SourceKind.LocalFixture</code>, load a clearly labeled HTML fixture through the same SourceDocument result type</li><li>Add a temporary <code>fetch-demo</code> command that chooses the fixture, awaits FetchAsync, and prints source label plus HTML length</li><li>Run <code>dotnet build</code>, the fixture demo, and one explicit live URL if networking is available</li><li>Do not add SearXNG, API keys, or search discovery; they are outside the core quotation contract</li></ul><div class="callout"><strong>Lifecycle:</strong> <code>fetch-demo</code> is a visible diagnostic retained until Chapter XI replaces demo commands with the final pipeline.</div>'''
-reward = 350
-packages = []
-xray = "THORNE substitutes a controlled HttpMessageHandler, verifies the supplied HttpClient is reused, feeds a failed status and a non-HTML success, and checks both remain visible failures. He also runs LocalFixture with networking disabled and confirms output labels it as a fixture."
+title = "THE WORKING: ASYNC I/O AND THE FIRST TESTS"
+brief = '''
+<p><strong>Outcome:</strong> Introduce tests early, then read one chosen source through an asynchronous, replaceable boundary.</p><p>Author the project edits yourself. The hidden replay proves one possible implementation, but it is never shown and does not define your architecture.</p><ul><li>Add a sibling xUnit test project and reference the application project without placing test packages in production metadata.</li><li>Author early tests proving whole-question preservation and at least one invalid-input path; mutate a load-bearing line to observe red before repair.</li><li>Design an asynchronous, replaceable source-reading boundary that reads exactly the supplied source and passes cancellation.</li><li>Use a controlled HTTP handler, fixture, or alternate reader so tests cover success and failure without depending on the public network.</li><li>Keep the full application unwired for now, but preserve a clean solution build and deterministic chapter proof.</li></ul>
+'''
+requires = ["language-project-toolchain", "language-namespaces-modularity", "language-types-nullability", "language-methods-scope", "language-control-flow", "language-collections-generics", "language-exceptions-resources", "language-classes-records", "language-linq-lambdas", "language-testing-debugging", "language-async-cancellation", "language-serialization-io", "language-interfaces-polymorphism"]
+reward = 420
+xray = "The grader inspects saved C# and project metadata, runs the chapter proof and cumulative regressions, changes a load-bearing input, and checks the observable chapter contract: An early test changes from green to red under a deliberate bad input, and an async source read remains replaceable without live networking."
 
 [freestyle.badge]
 id = "badge-s04"
-name = "FAR-SPEAKER"
-desc = "The tome can fetch one chosen source without losing who spoke."
+name = "TESTER AT THE GATE"
+desc = "Introduced executable tests and a replaceable asynchronous source boundary."
 
 [[freestyle.rubric]]
-criterion = "Compiles & runs (fixture path counts)"
-weight = 20
-desc = "Builds clean; fetch-demo produces a SourceDocument from the explicit local fixture."
+criterion = "Early executable tests"
+weight = 25
+desc = "Add a sibling xUnit test project and reference the application project without placing test packages in production metadata."
 
 [[freestyle.rubric]]
-criterion = "Async correctness"
+criterion = "Async source contract"
 weight = 20
-desc = "async/await used end to end; no .Result/.Wait(); Task<SourceDocument> signature."
+desc = "Author early tests proving whole-question preservation and at least one invalid-input path; mutate a load-bearing line to observe red before repair."
 
 [[freestyle.rubric]]
-criterion = "HTTP hygiene"
+criterion = "Replaceable I/O"
 weight = 20
-desc = "Injected reused HttpClient, cancellation, status and media-type handling."
+desc = "Design an asynchronous, replaceable source-reading boundary that reads exactly the supplied source and passes cancellation."
 
 [[freestyle.rubric]]
-criterion = "Explicit fixture boundary"
+criterion = "Failure and cancellation"
 weight = 20
-desc = "LocalFixture is selected explicitly, labeled honestly, and returns the same SourceDocument shape."
+desc = "Use a controlled HTTP handler, fixture, or alternate reader so tests cover success and failure without depending on the public network."
 
 [[freestyle.rubric]]
-criterion = "Structure & readability"
-weight = 20
-desc = "SourceFetcher in its own file, canonical models reused, temporary demo clearly isolated."
+criterion = "Solution integration"
+weight = 15
+desc = "Keep the full application unwired for now, but preserve a clean solution build and deterministic chapter proof."
+
+[[freestyle.referenceSteps]]
+id = "s04-write-source-reader"
+path = "src/Verisearch/SourceReader.cs"
+mode = "write"
+instruction = "Private replay adds cancellable source I/O behind the established interface."
+content = '''
+using System.Net.Http.Headers;
+
+namespace Verisearch;
+
+public sealed class SourceReader(HttpClient httpClient) : ISourceReader
+{
+    public async Task<SourceDocument> ReadAsync(
+        SourceSpec source,
+        CancellationToken cancellationToken)
+    {
+        if (source.Uri.IsFile)
+        {
+            string local = await File.ReadAllTextAsync(source.Uri.LocalPath, cancellationToken);
+            return new SourceDocument(source, local);
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, source.Uri);
+        using HttpResponseMessage response = await httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        response.EnsureSuccessStatusCode();
+        MediaTypeHeaderValue? mediaType = response.Content.Headers.ContentType;
+        if (mediaType is not null
+            && !mediaType.MediaType!.StartsWith("text/", StringComparison.OrdinalIgnoreCase)
+            && !mediaType.MediaType.Equals("application/xhtml+xml", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"{source.Label}: expected textual content, received {mediaType.MediaType}");
+        }
+        string content = await response.Content.ReadAsStringAsync(cancellationToken);
+        return new SourceDocument(source, content);
+    }
+}
+'''
+[[freestyle.referenceSteps]]
+id = "s04-write-test-project"
+path = "tests/Verisearch.Tests/Verisearch.Tests.csproj"
+mode = "write"
+instruction = "Private replay creates the sibling xUnit project and application reference."
+content = '''
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Verisearch\Verisearch.csproj" />
+  </ItemGroup>
+
+</Project>
+'''
+[[freestyle.referenceSteps]]
+id = "s04-write-question-tests"
+path = "tests/Verisearch.Tests/QuestionPreparationTests.cs"
+mode = "write"
+instruction = "Private replay adds early whole-question and limit checks."
+content = '''
+using Verisearch;
+
+namespace Verisearch.Tests;
+
+public sealed class QuestionPreparationTests
+{
+    [Fact]
+    public void PrepareQuestion_PreservesWholePunctuatedQuestion()
+    {
+        const string raw = "  What changed, and why?  ";
+        string prepared = CliOptions.PrepareQuestion(raw);
+        Assert.Equal("What changed, and why?", prepared);
+    }
+
+    [Fact]
+    public void PrepareQuestion_RejectsOversizedInput()
+    {
+        Assert.Throws<ArgumentException>(() =>
+            CliOptions.PrepareQuestion(new string('q', 1001)));
+    }
+}
+'''
+[[freestyle.referenceSteps]]
+id = "s04-rewrite-solution"
+path = "Verisearch.slnx"
+mode = "rewrite"
+instruction = "Private replay preserves the app and adds the test project to solution-wide builds."
+preserves = "all-active"
+content = '''
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Verisearch/Verisearch.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Verisearch.Tests/Verisearch.Tests.csproj" />
+  </Folder>
+</Solution>
+'''
+[[freestyle.referenceSteps]]
+id = "s04-write-proof-harness"
+path = "src/Verisearch/ProofHarness.cs"
+mode = "write"
+instruction = "Private replay adds the first deterministic section receipt."
+content = '''
+namespace Verisearch;
+
+public static class ProofHarness
+{
+    public static Task<int> RunAsync(string proofId)
+    {
+        if (proofId != "s04")
+        {
+            Console.Error.WriteLine($"unknown proof id: {proofId}");
+            return Task.FromResult(2);
+        }
+        string prepared = CliOptions.PrepareQuestion("whole   text");
+        if (prepared != "whole text")
+        {
+            return Task.FromResult(1);
+        }
+        Console.WriteLine("S04_OK question=whole text");
+        return Task.FromResult(0);
+    }
+}
+'''
+[[freestyle.referenceSteps]]
+id = "s04-rewrite-entry"
+path = "src/Verisearch/Program.cs"
+mode = "rewrite"
+instruction = "Private replay preserves the ordinary entry and admits only the explicit proof argument."
+preserves = "all-active"
+content = '''
+using Verisearch;
+
+if (args is ["--arcanum-proof", string proofId])
+{
+    return await ProofHarness.RunAsync(proofId);
+}
+
+Console.WriteLine("Verisearch learner project is ready.");
+return 0;
+'''

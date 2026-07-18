@@ -1,36 +1,37 @@
 [[lessons]]
 id = "s03-l04"
-teaches = ["enums"]
+teaches = ["language-types-nullability"]
 title = "Enums — a fixed set of named choices"
 body = '''
 
 <p>Some values come from a closed list. In this project, a source is either a real web page or the deterministic local fixture—never an arbitrary spelling. An <code>enum</code> encodes that:</p>
-<pre><code><span class="k">public enum</span> SourceKind
+<pre><code data-kind="replacement"><span class="k">public enum</span> SourceKind
 {
     Web,            <span class="c">// = 0 under the hood</span>
     LocalFixture    <span class="c">// = 1</span>
 }</code></pre>
-<pre><code>SourceKind kind = SourceKind.Web;
+<pre><code data-kind="replacement">SourceKind kind = SourceKind.Web;
 
 <span class="k">if</span> (kind == SourceKind.Web)
     Console.WriteLine(<span class="s">"fetch with HttpClient"</span>);
 
 Console.WriteLine(kind);              <span class="c">// prints "Web" — the NAME, readable</span></code></pre>
 <p>Enums love switch expressions — and the compiler warns you if you forget a case:</p>
-<pre><code><span class="k">string</span> route = kind <span class="k">switch</span>
+<pre><code data-kind="replacement"><span class="k">string</span> route = kind <span class="k">switch</span>
 {
     SourceKind.Web =&gt; <span class="s">"http"</span>,
     SourceKind.LocalFixture =&gt; <span class="s">"fixture"</span>,
     _ =&gt; <span class="s">"unsupported"</span>
 };</code></pre>
 <p>Parsing text into an enum is useful when loading Chapter V's JSON configuration:</p>
-<pre><code><span class="k">var</span> kind = Enum.Parse&lt;SourceKind&gt;(<span class="s">"Web"</span>);             <span class="c">// throws on garbage</span>
+<pre><code data-kind="replacement"><span class="k">var</span> kind = Enum.Parse&lt;SourceKind&gt;(<span class="s">"Web"</span>);             <span class="c">// throws on garbage</span>
 <span class="k">bool</span> ok = Enum.TryParse&lt;SourceKind&gt;(input, <span class="k">true</span>, <span class="k">out var</span> parsed); <span class="c">// safe, case-insensitive</span></code></pre>
 <div class="callout">Why not strings? <code>"LocalFixure"</code> compiles as a string and fails later. <code>SourceKind.LocalFixure</code> does not compile. Enums move spelling bugs from runtime to compile time.</div><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>Under the hood</strong> each member is an integer (0, 1… by default). You can cast in either direction, but the project should use names because they carry meaning.</p>
 <p><strong>Enumerate an enum:</strong> <code>Enum.GetValues&lt;SourceKind&gt;()</code> gives every member—handy for help text and validation messages.</p>
 <p><strong>Watch the cast trap:</strong> <code>(SourceKind)999</code> compiles and produces a nonsense value because enums are not range-checked. Validate external input with <code>Enum.TryParse</code> plus <code>Enum.IsDefined</code>, or let <code>JsonStringEnumConverter</code> parse followed by configuration validation.</p>
-<p><strong>[Flags]</strong> enums pack multiple options into one value with bitwise OR (<code>FileAccess.Read | FileAccess.Write</code>) — recognize the pattern; you won't need to build one for Verisearch.</p></div>'''
+<p><strong>[Flags]</strong> enums pack multiple options into one value with bitwise OR (<code>FileAccess.Read | FileAccess.Write</code>) — recognize the pattern; you won't need to build one for Verisearch.</p></div>
+'''
 
 [[lessons.readings]]
 label = "Microsoft Learn — \"Enumeration types\""
@@ -107,3 +108,19 @@ else
 public enum SourceKind { Web, LocalFixture }
 '''
 hint = "Use Enum.TryParse<SourceKind>(raw, true, out var kind), then switch on kind."
+
+[[lessons.concepts]]
+id = "language-types-nullability"
+purpose = "Represent facts with C# types and make the possibility of missing data explicit."
+anatomy = "Choose a type, declare a name, initialize it, and handle nullable values before member access or conversion."
+example = "The disposable examples in Enums — a fixed set of named choices isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Enums — a fixed set of named choices supplies the disposable observation point."
+observable = "The compiler accepts the assignments and every missing-value path has an intentional outcome. Confirm it while practicing Enums — a fixed set of named choices."
+failure = "A nullable warning or invalid conversion shows that the value contract and the code disagree."
+practice = "s03-l04-e1"
+
+[[lessons.artifactSteps]]
+id = "s03-l04-author-artifact"
+path = "src/Verisearch/Domain.cs"
+mode = "author"
+instruction = "Use the C# ideas from Enums — a fixed set of named choices to author or revise this learner-owned path toward the chapter behavior: Model sources, passages, AI proposals, and verified quotations so untrusted output cannot impersonate proof. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["Controlled model data shows that proposals cannot supply the label or URL later carried by a verified quotation.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

@@ -1,55 +1,18 @@
 [[lessons]]
 id = "s07-l06"
-teaches = ["source-policy"]
+teaches = ["language-collections-generics"]
 title = "Workshop — Make Source Choice Explicit"
 body = '''
-<p>Create <code>SourcePolicy.cs</code>. This is an admission filter, not a search engine and not a credibility oracle. Its inputs are the validated sources from <code>AppConfig</code> plus zero or more labels supplied by the user. Every output record must therefore be traceable to configuration.</p>
-<pre><code><span class="k">public sealed class</span> SourcePolicy
-{
-    <span class="k">public</span> List&lt;SourceSpec&gt; Select(AppConfig config,
-        IReadOnlyCollection&lt;<span class="k">string</span>&gt; requestedLabels)
-    {
-        IEnumerable&lt;SourceSpec&gt; candidates;
-        <span class="k">if</span> (requestedLabels.Count == 0)
-        {
-            candidates = config.Sources;
-        }
-        <span class="k">else</span>
-        {
-            List&lt;<span class="k">string</span>&gt; missing = requestedLabels
-                .Where(label =&gt; !config.Sources.Any(source =&gt;
-                    source.Label.Equals(label, StringComparison.OrdinalIgnoreCase)))
-                .ToList();
-            <span class="k">if</span> (missing.Count &gt; 0)
-                <span class="k">throw new</span> ArgumentException(<span class="s">$"unknown source: {string.Join(", ", missing)}"</span>);
 
-            candidates = requestedLabels.Select(label =&gt; config.Sources.First(source =&gt;
-                source.Label.Equals(label, StringComparison.OrdinalIgnoreCase)));
-        }
-
-        <span class="k">return</span> candidates
-            .Where(IsAdmissible)
-            .DistinctBy(source =&gt; source.Url, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-    }
-
-    <span class="k">private static bool</span> IsAdmissible(SourceSpec source)
-    {
-        <span class="k">if</span> (!Uri.TryCreate(source.Url, UriKind.Absolute, <span class="k">out</span> Uri? uri))
-            <span class="k">return false</span>;
-
-        <span class="k">return</span> source.Kind <span class="k">switch</span>
-        {
-            SourceKind.Web =&gt; uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps,
-            SourceKind.LocalFixture =&gt; uri.Scheme == <span class="s">"mock"</span>,
-            _ =&gt; <span class="k">false</span>
-        };
-    }
-}</code></pre>
-<p>Use <code>System.Linq</code> if implicit usings are disabled. Read the method from top to bottom: begin with configured candidates; prove every requested name exists; map labels back to configured records; validate; deduplicate; materialize. No-label mode preserves configuration order, while explicit labels preserve the user's request order. Each intermediate name tells a beginner what changed.</p>
-<p><code>Trust</code> is not generated or interpreted here. It is metadata the user wrote in configuration and may be displayed later. Quote correctness comes from exact matching; no trust value converts a fabricated proposal into a verified quotation.</p>
-<div class="callout">If every configured source is inadmissible, return an empty list and let the application boundary report “no usable configured sources.” Do not fill the silence with an unchosen website.</div>
-<div class="field-notes"><div class="fn-head">MARGINALIA // POLICY IS NOT DISCOVERY</div><p>An optional discovery feature could someday suggest new <code>SourceSpec</code> candidates for the user to approve. It must remain outside this core. The quotation pipeline starts only after approval, so changes in a public search service cannot decide what becomes evidence.</p></div>
+<p>Source admission is a user-intent boundary. The question explains what evidence the learner wants; it does not secretly choose where the program searches. The source labels supplied by the user must be resolved against the configured catalog before any network operation begins.</p>
+<p>Write behavior cases first. Repeated <code>--source</code> options preserve first-request order. Comparison may be case-insensitive if documented. Duplicate requests should have an intentional outcome. An unknown label must name the problem and stop before I/O instead of falling back to all sources. If the user supplies no labels, you may require at least one or deliberately select the configured set—document the choice.</p>
+<pre><code data-kind="replacement">var requested = new[] { "Archive", "Guide", "archive" };
+var firstOccurrences = requested.Distinct(StringComparer.OrdinalIgnoreCase);</code></pre>
+<p>This disposable LINQ fragment illustrates an ordering-preserving operation. It does not dictate how your catalog is indexed or how errors are represented. A dictionary can make lookup explicit; a join can preserve ordering; a small selection object can carry errors. Materialize the final sequence exactly once before later asynchronous work begins.</p>
+<p>URI admission belongs beside source policy, not AI relevance. Accept only absolute HTTP or HTTPS addresses for web readers, or introduce a separately explicit local-file source type. Never “repair” an unknown label by asking the model to invent a URL. Never inspect question keywords to choose a catalog entry. Those approaches turn a transparent user choice into rigid or unreviewable routing.</p>
+<p>Use a spy reader in a test to prove an unknown label causes zero reads. Use a punctuation-heavy whole question to prove selection is unaffected by its words. Then prove source order survives into the admitted collection.</p>
+<div class="callout"><p>The user may be creative about source types and CLI syntax. The non-negotiable product promise is that source authority remains explicit and observable.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // NEGATIVE OBSERVATION</div><p>“No I/O happened” is an observable result when the test double counts calls. It is stronger than merely asserting that an exception was thrown.</p></div>
 '''
 
 [[lessons.readings]]
@@ -62,7 +25,7 @@ id = "s07-l06-e1"
 type = "mc"
 points = 20
 prompt = "What is the only valid origin of a SourceSpec returned by <code>SourcePolicy.Select</code>?"
-choices = ["An Ollama suggestion", "A public search result", "The validated AppConfig supplied by the user", "A hardcoded domain list"]
+choices = ["An AI suggestion", "A public search result", "The validated AppConfig supplied by the user", "A hardcoded domain list"]
 answer = 2
 whyWrong = "The AI, public discovery, and compiled domain lists do not own source choice. The method narrows the user's validated configuration."
 explain = "Configured-only admission makes every consulted source intentional and inspectable."
@@ -118,3 +81,19 @@ var selected = requested
 Console.WriteLine($"selected={string.Join(",", selected)}");
 '''
 hint = "Map each request with First plus Equals(...OrdinalIgnoreCase), Distinct, then string.Join the selected values."
+
+[[lessons.concepts]]
+id = "language-collections-generics"
+purpose = "Store ordered and keyed values with type-safe collection contracts."
+anatomy = "Choose List<T>, an array, or Dictionary<TKey,TValue>, supply its type arguments, add values, then retrieve them through a safe operation."
+example = "The disposable examples in Workshop — Make Source Choice Explicit isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Workshop — Make Source Choice Explicit supplies the disposable observation point."
+observable = "The collection preserves the promised order or key relationship and rejects the wrong element type at compile time. Confirm it while practicing Workshop — Make Source Choice Explicit."
+failure = "A bare missing-key index or accidental multiple enumeration can turn ordinary input into a crash or inconsistent result."
+practice = "s07-l06-e1"
+
+[[lessons.artifactSteps]]
+id = "s07-l06-author-artifact"
+path = "src/Verisearch/SourceSelection.cs"
+mode = "author"
+instruction = "Use the C# ideas from Workshop — Make Source Choice Explicit to author or revise this learner-owned path toward the chapter behavior: Honor source labels selected by the user, preserving order and rejecting unknown entries before networking. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["Requested labels preserve user order, an unknown label fails before I/O, and the question text never selects or rewrites a source.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

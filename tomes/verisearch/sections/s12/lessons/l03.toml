@@ -1,23 +1,17 @@
 [[lessons]]
 id = "s12-l03"
-teaches = ["dotnet-publish"]
+teaches = ["language-cli-packaging"]
 title = "Publish and Run the Artifact You Will Actually Ship"
 body = '''
-<p><code>dotnet run</code> proves the SDK can build and launch the project. A release test must execute the published artifact itself. First identify the current platform:</p>
-<pre><code>dotnet --info</code></pre>
-<p>Choose its runtime identifier: <code>linux-x64</code>, <code>linux-arm64</code>, <code>win-x64</code>, <code>osx-x64</code>, or <code>osx-arm64</code>. On 64-bit Linux:</p>
-<pre><code>dotnet publish Verisearch/Verisearch.csproj \
-  -c Release -r linux-x64 --self-contained true \
-  -p:PublishSingleFile=true -p:PublishTrimmed=false \
-  -o ./release/linux-x64</code></pre>
-<p>If the terminal is already inside the project, replace the first path with <code>Verisearch.csproj</code>. The explicit output directory makes the artifact easy to find. Then run the artifact, not the project:</p>
-<pre><code>./release/linux-x64/Verisearch --help
-./release/linux-x64/Verisearch <span class="s">"What does the fixture say?"</span> --mock</code></pre>
-<p><code>--self-contained true</code> bundles the target .NET runtime. <code>PublishSingleFile</code> asks for one main executable. Platform-specific native files may still appear for some dependencies or settings, so inspect the output rather than promising one file by memory.</p>
-<p>This course deliberately disables trimming. Trimming removes code based on static reachability and can break libraries or serializers that discover members dynamically. A beginner release gains little from adding that risk. If a later maintainer enables trimming, the full published-binary acceptance journey—not merely <code>dotnet build</code>—must pass.</p>
-<p>Publishing does not bundle Ollama or a model. Live mode still requires an accessible Ollama server and the configured model tag. The executable does bundle application code and the .NET runtime; its README states both boundaries.</p>
-<div class="callout">Copy the exact command and resulting artifact path into the release notes. “Publish succeeded” without running that path is incomplete evidence.</div>
-<div class="field-notes"><div class="fn-head">MARGINALIA // ONE RID PER ARTIFACT</div><p>A self-contained executable targets one operating system and architecture. Create separate output directories for other RIDs and test each on its target; renaming a Linux binary does not make it a Windows binary.</p></div>
+
+<p><code>dotnet publish</code> creates the artifact a user will actually launch. A successful debug run does not prove that output, dependencies, executable permissions, or startup behavior survive delivery.</p>
+<pre><code data-kind="terminal">$ dotnet publish ./src/YourApp/YourApp.csproj     --configuration Release     --runtime linux-x64     --self-contained true     -p:PublishSingleFile=true     --output ./dist</code></pre>
+<p>The command is an example for one runtime identifier. Choose the RID matching the target system and document it. Self-contained means the selected .NET runtime is bundled with the application. It does not bundle a local model service, hosted API, credentials, source pages, or an arbitrary external AI command.</p>
+<p>Run the exact file under <code>dist</code>. Check <code>--help</code>, invalid invocation, the acceptance fixture, and one ordinary configured-provider path where the environment permits. If the program launches another AI CLI, that executable remains an external requirement. If it calls an API, network access and credentials remain external requirements.</p>
+<p>Publish from a clean project state after tests. Inspect output size and filenames, but do not infer success from their presence. A single-file application can still fail at startup because it assumed <code>Assembly.Location</code>, a working directory, or a development-only file. Resolve user-supplied paths explicitly and use <code>Environment.ProcessPath</code> when the running executable path is the fact you need.</p>
+<p>The course's package proof launches the built artifact and repeats positive and negative acceptance controls. Your learner evidence should additionally show that the documented provider setup works on your environment without committing secrets.</p>
+<div class="callout"><p>Delivery proof covers the C# program. External AI requirements must remain explicit rather than silently replaced when absent.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CLEAN LAUNCH</div><p>Change the working directory before launching the published path. If behavior changes unintentionally, a relative-path assumption is part of the product contract whether you documented it or not.</p></div>
 '''
 
 [[lessons.readings]]
@@ -30,9 +24,9 @@ id = "s12-l03-e1"
 type = "mc"
 points = 20
 prompt = "What does <code>--self-contained true</code> mean?"
-choices = ["It bundles the selected .NET runtime with the application", "It bundles Ollama and the model", "It supports every OS in one file", "It removes configuration"]
+choices = ["It bundles the selected .NET runtime with the application", "It bundles the configured AI and the model", "It supports every OS in one file", "It removes configuration"]
 answer = 0
-whyWrong = "Ollama, models, configuration, and other operating systems remain separate concerns. Self-contained refers to the selected .NET runtime."
+whyWrong = "the configured AI, models, configuration, and other operating systems remain separate concerns. Self-contained refers to the selected .NET runtime."
 explain = "A machine without the SDK can run the RID-specific artifact."
 hint = "Ask which runtime normally executes a .NET assembly."
 
@@ -63,3 +57,19 @@ points = 14
 reps = 2
 prompt = "Retype the Linux release command twice."
 code = '''dotnet publish Verisearch.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o ./release/linux-x64'''
+
+[[lessons.concepts]]
+id = "language-cli-packaging"
+purpose = "Design a predictable command surface and deliver a runnable artifact from the same source and project metadata."
+anatomy = "Parse arguments without a shell, return stable exit codes, build or publish through dotnet, then launch the produced path with a real command."
+example = "The disposable examples in Publish and Run the Artifact You Will Actually Ship isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Publish and Run the Artifact You Will Actually Ship supplies the disposable observation point."
+observable = "Help, invalid input, ordinary execution, and the published binary each produce their documented outcome. Confirm it while practicing Publish and Run the Artifact You Will Actually Ship."
+failure = "Ambiguous arguments, embedded secrets, or an unlaunched publish directory leave the program unproved."
+practice = "s12-l03-e1"
+
+[[lessons.artifactSteps]]
+id = "s12-l03-author-artifact"
+path = "tests/Verisearch.Tests/TruthBoundaryTests.cs"
+mode = "author"
+instruction = "Use the C# ideas from Publish and Run the Artifact You Will Actually Ship to author or revise this learner-owned path toward the chapter behavior: Add an original capability, diagnose a cross-boundary defect, defend a C# design choice, and publish the working program. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["Tests, live AI evidence, negative controls, the original extension, and the published executable all succeed from documented commands.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

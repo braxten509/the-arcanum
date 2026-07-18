@@ -1,16 +1,16 @@
 [[lessons]]
 id = "s06-l03"
-teaches = ["passage-cleaning"]
+teaches = ["language-methods-scope"]
 title = "Clean Passages Without Rewriting Their Words"
 body = '''
 <p>Raw <code>TextContent</code> can contain line breaks, tabs, non-breaking spaces, and page furniture. Verisearch needs a stable representation: the model must see the same <code>Passage.Text</code> that C# later checks. Clean structure and spacing, but never correct grammar, swap punctuation, summarize, or add missing words.</p>
 <p>First choose a likely content container. Prefer <code>&lt;main&gt;</code>, then <code>&lt;article&gt;</code>, then the document body. Within it, select prose-bearing elements such as paragraphs, list items, and block quotes. Avoid selecting both a container and all of its descendants, which would duplicate text.</p>
 <ol><li>Choose one content root.</li><li>Visit its prose elements in document order.</li><li>Normalize each element once.</li><li>Skip only clearly unusable crumbs.</li><li>Assign the next id after acceptance, not before filtering.</li></ol>
 <p>Normalize only whitespace that HTML rendering already treats as spacing:</p>
-<pre><code><span class="k">string</span> ordinarySpaces = rawText.Replace(<span class="s">'\u00A0'</span>, <span class="s">' '</span>);
+<pre><code data-kind="replacement"><span class="k">string</span> ordinarySpaces = rawText.Replace(<span class="s">'\u00A0'</span>, <span class="s">' '</span>);
 <span class="k">string</span> stableText = Regex.Replace(ordinarySpaces, <span class="s">@"\s+"</span>, <span class="s">" "</span>).Trim();</code></pre>
 <p>This representation is exact for Verisearch's contract: every displayed quote must be an ordinal substring of one normalized passage. The README must say that HTML whitespace is normalized, so “verbatim” is not confused with the page's raw bytes. Store the source on every passage; an integer without its source is not an attribution.</p>
-<div class="callout">Never normalize the proposal separately. Normalize once during extraction, send that stored value to Ollama, then verify against that same stored value.</div>
+<div class="callout">Never normalize the proposal separately. Normalize once during extraction, send that stored value to the configured AI, then verify against that same stored value.</div>
 <div class="field-notes"><div class="fn-head">MARGINALIA // STABILITY BEFORE CLEVERNESS</div><p>Short-element filtering is a heuristic, not truth. Keep the threshold visible and tested. If a source routinely uses short authoritative statements, lower it in one place instead of smuggling special cases into the model prompt.</p></div>
 '''
 
@@ -23,10 +23,10 @@ essential = false
 id = "s06-l03-e1"
 type = "mc"
 points = 25
-prompt = "Why must normalization happen before passages are sent to Ollama?"
-choices = ["Ollama cannot read newlines", "The model and verifier must operate on the identical stored text", "Regex makes sources trusted", "It converts HTML to JSON"]
+prompt = "Why must normalization happen before passages are sent to the configured AI?"
+choices = ["the configured AI cannot read newlines", "The model and verifier must operate on the identical stored text", "Regex makes sources trusted", "It converts HTML to JSON"]
 answer = 1
-whyWrong = "Ollama can receive newlines, regex does not establish trust, and JSON is a different boundary. One stored representation prevents verification drift."
+whyWrong = "the configured AI can receive newlines, regex does not establish trust, and JSON is a different boundary. One stored representation prevents verification drift."
 explain = "Extract once, store once, and reuse that exact string for proposal and proof."
 hint = "Compare the string seen during selection with the string checked later."
 
@@ -89,3 +89,19 @@ static string Normalize(string text)
 }
 '''
 hint = "Use Regex.Replace with the pattern @\"\\s+\", then Trim."
+
+[[lessons.concepts]]
+id = "language-methods-scope"
+purpose = "Give one transformation a named boundary with deliberate inputs, output, and variable lifetime."
+anatomy = "Declare the return type, method name, typed parameters, body, and return path; keep locals inside the narrowest useful scope."
+example = "The disposable examples in Clean Passages Without Rewriting Their Words isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Clean Passages Without Rewriting Their Words supplies the disposable observation point."
+observable = "Callers can exercise the behavior from its result without depending on hidden global state. Confirm it while practicing Clean Passages Without Rewriting Their Words."
+failure = "A method that reads unrelated globals or has an incomplete return path makes tests and reuse unreliable."
+practice = "s06-l03-e1"
+
+[[lessons.artifactSteps]]
+id = "s06-l03-author-artifact"
+path = "src/Verisearch/PassageExtractor.cs"
+mode = "author"
+instruction = "Use the C# ideas from Clean Passages Without Rewriting Their Words to author or revise this learner-owned path toward the chapter behavior: Turn HTML or text into stable nonduplicated passages used identically by AI selection and C# verification. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["The same fixture produces the same passage ids twice and a nested list paragraph appears exactly once.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

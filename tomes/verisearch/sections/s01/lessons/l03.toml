@@ -1,30 +1,31 @@
 [[lessons]]
 id = "s01-l03"
-teaches = ["csharp-types"]
+teaches = ["language-types-nullability"]
 title = "Vessels & their natures — the four types you'll use constantly"
 body = '''
 
 <p>C# is <strong>statically typed</strong>: every vessel (variable) has a nature, fixed at forging time. The compiler uses these natures to catch your errors before the spell is ever cast — that is a gift, not a chore.</p>
-<pre><code><span class="k">string</span> query = <span class="s">"TLS 1.3 cipher suites"</span>;  <span class="c">// text</span>
+<pre><code data-kind="replacement"><span class="k">string</span> query = <span class="s">"TLS 1.3 cipher suites"</span>;  <span class="c">// text</span>
 <span class="k">int</span> maxSources = 5;                       <span class="c">// whole numbers</span>
 <span class="k">double</span> trustScore = 9.5;                  <span class="c">// numbers with a fractional part</span>
 <span class="k">bool</span> isTrusted = <span class="k">true</span>;                    <span class="c">// true/false</span></code></pre>
 <p>Each declaration follows the same four-part pattern: <code>type name = value;</code>. The single <code>=</code> means “place the value on the right into the vessel on the left.” It does <em>not</em> ask whether two values are equal; that comparison uses <code>==</code>. When the runes blur, point to each part and name it before you cast.</p>
 <p><code>var</code> lets the compiler divine the nature from the right-hand side. The vessel is still strongly typed — <code>var</code> is shorthand, not wild magic:</p>
-<pre><code><span class="k">var</span> mode = <span class="s">"live"</span>;         <span class="c">// mode is a string, forever</span>
+<pre><code data-kind="replacement"><span class="k">var</span> mode = <span class="s">"live"</span>;         <span class="c">// mode is a string, forever</span>
 engine = 42;               <span class="c">// FORGE REFUSES — an int cannot fill a string vessel</span></code></pre>
 <p><strong>String interpolation</strong> is how you weave values into text — set <code>$</code> before the quote and <code>{expressions}</code> within:</p>
-<pre><code><span class="k">string</span> domain = <span class="s">"ietf.org"</span>;
+<pre><code data-kind="replacement"><span class="k">string</span> domain = <span class="s">"ietf.org"</span>;
 <span class="k">double</span> score = 9.5;
 Console.WriteLine(<span class="s">$"[{domain}] trust: {score}/10"</span>);
 <span class="c">// utters: [ietf.org] trust: 9.5/10</span></code></pre>
 <p>Turning text into numbers (a seeker's input is ALWAYS text):</p>
-<pre><code><span class="k">int</span> n = <span class="k">int</span>.Parse(<span class="s">"42"</span>);            <span class="c">// throws if it is not a number</span>
+<pre><code data-kind="replacement"><span class="k">int</span> n = <span class="k">int</span>.Parse(<span class="s">"42"</span>);            <span class="c">// throws if it is not a number</span>
 <span class="k">bool</span> ok = <span class="k">int</span>.TryParse(<span class="s">"42"</span>, <span class="k">out int</span> m);  <span class="c">// safe: ok=false on nonsense</span></code></pre><div class="field-notes"><div class="fn-head">MARGINALIA // THE DEEPER CUT — IN THORNE'S HAND</div>
 <p><strong>The rest of the numeric family:</strong> <code>long</code> (vast whole numbers), <code>decimal</code> (coin — exact decimal arithmetic, use it for anything financial), <code>float</code> (a smaller, faster double, rarely needed), <code>char</code> (ONE character, single quotes: <code>'A'</code>).</p>
 <p><strong>Value vs reference natures — the great divide:</strong> value natures (<code>int</code>, <code>double</code>, <code>bool</code>, <code>char</code>, structs, enums) copy their substance on assignment; reference natures (<code>string</code>, arrays, <code>List</code>, classes) copy a <em>pointer</em> to shared substance. This one distinction explains half of C#'s behavior — it returns in Chapter III.</p>
 <p><strong>Conversions:</strong> widening happens silently (<code>int → double</code>, nothing lost); narrowing demands an explicit cast: <code>int n = (int)9.7;</code> → 9 (it truncates, it does not round). <code>const double MinTrust = 3.0;</code> declares a value that may never change — use it for numbers that would otherwise be nameless.</p>
-<p><strong>Interpolation flourishes:</strong> format marks follow a colon — <code>{score:F1}</code> one decimal, <code>{n:N0}</code> thousands separators, <code>{p:P0}</code> percent. Alignment: <code>{name,-20}</code> pads to 20, left-aligned.</p></div>'''
+<p><strong>Interpolation flourishes:</strong> format marks follow a colon — <code>{score:F1}</code> one decimal, <code>{n:N0}</code> thousands separators, <code>{p:P0}</code> percent. Alignment: <code>{name,-20}</code> pads to 20, left-aligned.</p></div>
+'''
 
 [[lessons.readings]]
 label = "Microsoft Learn — \"The C# type system\""
@@ -102,3 +103,19 @@ bool trusted = true;
 Console.WriteLine($"target {domain} scored {score} of 10, trusted: {trusted}");
 '''
 hint = "$\"target {domain} scored {score} of 10, trusted: {trusted}\" — mark that C# utters bools as True/False, capitalized."
+
+[[lessons.concepts]]
+id = "language-types-nullability"
+purpose = "Represent facts with C# types and make the possibility of missing data explicit."
+anatomy = "Choose a type, declare a name, initialize it, and handle nullable values before member access or conversion."
+example = "The disposable examples in Vessels & their natures — the four types you'll use constantly isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Vessels & their natures — the four types you'll use constantly supplies the disposable observation point."
+observable = "The compiler accepts the assignments and every missing-value path has an intentional outcome. Confirm it while practicing Vessels & their natures — the four types you'll use constantly."
+failure = "A nullable warning or invalid conversion shows that the value contract and the code disagree."
+practice = "s01-l03-e1"
+
+[[lessons.artifactSteps]]
+id = "s01-l03-author-artifact"
+path = "src/Verisearch/Program.cs"
+mode = "author"
+instruction = "Use the C# ideas from Vessels & their natures — the four types you'll use constantly to author or revise this learner-owned path toward the chapter behavior: Create the solution and a small question-listening console without receiving production code. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["The solution builds and the console path accepts, displays, and exits from learner-provided text without crashing on missing input.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

@@ -1,35 +1,33 @@
 [[lessons]]
 id = "s12-l04"
-teaches = ["release-docs"]
+teaches = ["language-namespaces-modularity"]
 title = "Document the Exact Product, Requirements, and Limits"
 body = '''
-<p>A stranger should understand Verisearch before installing anything. Write <code>README.md</code> in this order:</p>
-<pre><code># Verisearch
 
-One paragraph: local AI proposes precise evidence from user-chosen pages;
-C# prints only exact substrings and attaches source-owned citations.
+<p>A stranger should understand the exact product before installing a model, creating an API key, or choosing sources. Write a README that leads with the evidence promise and then gives tested setup paths.</p>
+<pre><code data-kind="replacement"># Your project name
+
+One paragraph: the user chooses sources; a configured real AI proposes
+semantically relevant exact substrings; C# verifies and cites them.
 
 ## Example
-## Install and requirements
-## Quick start
-## Configuration
+## Requirements and provider options
+## Source catalog
 ## How proposal and verification work
-## Mock mode
-## Limitations
-## Test and publish</code></pre>
-<p>The example shows the command and representative output with a complete quote, source label, URL, and passage id. State that live mode requires Ollama plus the configured model and that source pages come from <code>~/.verisearch/config.json</code>. Include a minimal valid JSON configuration that the learner actually tested.</p>
-<p>The “How it works” section must preserve the trust boundary in plain language:</p>
-<ol><li>The user chooses sources.</li><li>C# fetches and normalizes visible HTML text into passages.</li><li>Ollama proposes contiguous quote substrings and passage ids.</li><li>C# rejects anything not found exactly with ordinal comparison.</li><li>C# copies label and URL from its own passage record.</li></ol>
-<p>Document mock mode as a deterministic fixture for learning and tests, not an offline relevance algorithm. Its output is labeled and may select an entire fixture passage. Live failure never enables it automatically.</p>
-<p>Be equally clear about limits: HTML whitespace is normalized; client-rendered JavaScript content may not be present; paywalled or authenticated pages are unsupported; configured trust is a user preference, not a fact-check; exact source presence does not prove the source itself is correct; no search/discovery service is built in; and local models can miss relevant passages.</p>
-<p><code>--help</code> prints the same usage grammar as the README. Run every copied command. A documentation example that never worked is another fabricated output.</p>
-<div class="callout">The product guarantees source containment and attribution ownership—not universal truth, exhaustive research, or credibility scoring. Precise limits make the real guarantee stronger.</div>
-<div class="field-notes"><div class="fn-head">MARGINALIA // REPRODUCIBLE EXAMPLES</div><p>Use a public stable document for a live example and a bundled/local HTML fixture for mock. Mark representative output as such, record the model tag, and avoid claiming identical model selection across machines.</p></div>
+## Explicit mock mode
+## Tests and publish
+## Limitations</code></pre>
+<p>Document the real provider route or routes your program supports. A learner may show a local-model CLI, hosted API adapter, local HTTP service, wrapper command, or more than one. Explain how configuration selects it, how secrets are supplied without committing them, and what failure looks like. If Ollama appears, present it as one optional CLI example rather than a required architecture.</p>
+<p>Include a minimal source catalog that you actually tested. Explain the trust boundary in plain language: the user chooses source authority; C# extracts stable passages; the configured AI receives the whole question and proposes candidate substrings; C# requires ordinal containment in the named passage; C# attaches that passage's source-owned label and URI.</p>
+<p>Describe deterministic mock mode as test or demonstration plumbing, selected explicitly and labeled non-factual. It never activates because a real provider failed. Run every copied build, test, provider, and publish command.</p>
+<p>State limits precisely. Exact containment proves displayed text occurs in the stored extraction, not that a source is current, correct, complete, or unbiased. Dynamic, authenticated, non-text, or inaccessible sources can fail. Extraction policy may normalize whitespace. Models may miss relevant text. The program does not discover web-wide authority unless the learner explicitly adds and documents a different source-admission feature that still honors user control.</p>
+<div class="callout"><p>Provider flexibility and source transparency make the guarantee stronger: implementation may vary, while proposal-versus-proof remains invariant.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // REPRODUCIBLE EXAMPLES</div><p>Record provider version or model identifier where useful, mark representative nondeterministic output, and keep a deterministic fixture beside the live example so future readers can still reproduce the truth checks.</p></div>
 '''
 
 [[lessons.readings]]
 label = "Microsoft Learn — Create a README for a .NET repository"
-url = "https://learn.microsoft.com/en-us/contribute/content/how-to-write-use-markdown"
+url = "https://learn.microsoft.com/en-us/contribute/content/markdown-reference"
 essential = false
 
 [[lessons.exercises]]
@@ -59,7 +57,7 @@ id = "s12-l04-e3"
 type = "mc"
 points = 20
 prompt = "Which limitation must the README state?"
-choices = ["Exact substring verification proves every source is correct", "Verisearch includes web-wide search", "Exact presence does not establish source credibility or completeness", "Mock mode is equivalent to Ollama"]
+choices = ["Exact substring verification proves every source is correct", "Verisearch includes web-wide search", "Exact presence does not establish source credibility or completeness", "Mock mode is equivalent to a real configured AI"]
 answer = 2
 whyWrong = "The other claims overstate or misdescribe the product. Exact matching proves provenance within extracted text, not external truth."
 explain = "User-owned source selection and transparent limits remain necessary."
@@ -73,6 +71,22 @@ reps = 2
 prompt = "Retype the five-step trust boundary twice."
 code = '''1. User chooses sources.
 2. C# extracts stable passages.
-3. Ollama proposes exact substrings.
+3. the configured AI proposes exact substrings.
 4. C# verifies ordinal containment.
 5. C# attaches source-owned citations.'''
+
+[[lessons.concepts]]
+id = "language-namespaces-modularity"
+purpose = "Split a growing C# program into discoverable files and namespaces with one clear owner per responsibility."
+anatomy = "Place related types under a namespace, keep the entrypoint as composition, and reference public contracts instead of copying declarations."
+example = "The disposable examples in Document the Exact Product, Requirements, and Limits isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Document the Exact Product, Requirements, and Limits supplies the disposable observation point."
+observable = "The whole solution builds with one definition for each concept and dependencies point in an understandable direction. Confirm it while practicing Document the Exact Product, Requirements, and Limits."
+failure = "Duplicate types, circular ownership, or business logic in Program.cs makes later integration brittle."
+practice = "s12-l04-e1"
+
+[[lessons.artifactSteps]]
+id = "s12-l04-author-artifact"
+path = "tests/Verisearch.Tests/TruthBoundaryTests.cs"
+mode = "author"
+instruction = "Use the C# ideas from Document the Exact Product, Requirements, and Limits to author or revise this learner-owned path toward the chapter behavior: Add an original capability, diagnose a cross-boundary defect, defend a C# design choice, and publish the working program. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["Tests, live AI evidence, negative controls, the original extension, and the published executable all succeed from documented commands.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]

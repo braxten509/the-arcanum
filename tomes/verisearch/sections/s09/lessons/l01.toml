@@ -1,68 +1,86 @@
 [[lessons]]
 id = "s09-l01"
-teaches = ["ollama-setup"]
-title = "Run a Local Model with Ollama"
+teaches = ["language-interfaces-polymorphism"]
+title = "The semantic seam — AI proposes, C# proves"
 body = '''
-<p>Ollama runs a language model on the learner's own machine and exposes a local HTTP API. Verisearch uses it for one bounded judgment: given a question and numbered passages, propose short exact substrings that answer the question. The model does not fetch pages, choose source authority, verify its own words, or author citations.</p>
-<p>Install Ollama from its official instructions for your operating system. On Linux, the official installation command is:</p>
-<pre><code>curl -fsSL https://ollama.com/install.sh | sh</code></pre>
-<p>Then open a terminal and run these checks one at a time:</p>
-<pre><code>ollama --version
-ollama pull qwen3:4b
-ollama run qwen3:4b</code></pre>
-<p>Enter a short message to prove the model loads; use <code>/bye</code> to leave the interactive session. The local API normally listens on <code>http://localhost:11434</code>. Depending on the installation, Ollama may already run as a service; otherwise <code>ollama serve</code> starts it in a terminal. A simple health check is <code>curl http://localhost:11434/api/tags</code>.</p>
-<p><code>qwen3:4b</code> is the course default because it is small enough for many local machines while supporting structured output. It is configuration, not a compiled constant: a learner may choose another installed model after checking memory and performance. The course should still use one known model during debugging so a model change is not confused with a C# bug.</p>
-<p>Local does not mean trusted. Model output is untrusted input just like JSON from a network service. Chapter IX will deserialize its proposed shape, cap it, match ids, and require an exact source substring before creating a <code>VerifiedQuote</code>.</p>
-<div class="callout">If the machine cannot run the model yet, continue only with the explicit <code>--mock</code> learning path. The terminal must label that output MOCK; live mode must fail clearly rather than silently changing algorithms.</div>
-<div class="field-notes"><div class="fn-head">MARGINALIA // THREE SEPARATE FAILURES</div><p>“Command not found” means installation or PATH. “Connection refused” means the API service is not running. “Model not found” means the server is alive but the configured tag has not been pulled. Diagnose those states separately before editing C#.</p></div>
+
+<p>Verisearch needs an AI because relevance is semantic. A question such as “What does the witness imply about the delay?” cannot be answered responsibly by a table that maps words such as <em>when</em>, <em>who</em>, or <em>delay</em> to predetermined lookups. The program must send the <strong>whole question</strong> and the admitted source passages to a genuinely configured model.</p>
+<p>The model's role is deliberately narrow: propose exact substrings from those passages that help answer the question. It does not choose source authority, fetch arbitrary pages, certify its own text, or author the final citation. This same contract can be implemented by a local model server, a hosted API using a key, an installed CLI, or a learner-written wrapper around another provider.</p>
+<pre><code data-kind="replacement">public interface ISemanticQuoteSelector
+{
+    Task&lt;ProposalBatch&gt; SelectAsync(
+        string wholeQuestion,
+        IReadOnlyList&lt;Passage&gt; passages,
+        CancellationToken cancellationToken);
+}</code></pre>
+<p>The fragment illustrates a provider-neutral seam. You may choose different names or shapes. Keep the return type explicitly untrusted. A proposal contains only enough information to locate a passage and propose quote text. Source labels and URLs remain on C#-owned passage data so the model cannot manufacture attribution.</p>
+<p>Provider selection comes from explicit configuration—not question content. For example, a command-line flag might choose <code>local-cli</code> or <code>hosted-api</code>, after which the selected adapter receives every factual question through the same contract. A deterministic mock may implement that contract only for tests and must be selected explicitly and labeled as non-factual output.</p>
+<p>Write contract tests with a spy selector. Assert that punctuation and spacing in the prepared whole question reach it as one string, that all admitted passages arrive, and that cancellation is passed. These tests prove transport behavior; they do not pretend the spy performed semantic reasoning.</p>
+<div class="callout"><p>Hard rule: no keyword-to-source, keyword-to-tool, or keyword-to-answer routing may replace the AI. If live AI configuration is absent or fails, live mode reports failure.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TWO KINDS OF DETERMINISM</div><p>C# deterministically controls source admission and quote verification. The AI semantically proposes candidates. Confusing those responsibilities either makes search rigid or lets the model certify itself.</p></div>
 '''
 
 [[lessons.readings]]
-label = "Ollama — Linux installation"
-url = "https://docs.ollama.com/linux"
+label = "Microsoft Learn — Interfaces"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/types/interfaces"
 essential = true
 
 [[lessons.readings]]
-label = "Ollama — qwen3 model tags"
-url = "https://ollama.com/library/qwen3/tags"
+label = "Microsoft Learn — Cancellation in managed threads"
+url = "https://learn.microsoft.com/en-us/dotnet/standard/threading/cancellation-in-managed-threads"
 essential = false
 
 [[lessons.exercises]]
 id = "s09-l01-e1"
 type = "mc"
 points = 20
-prompt = "Why is Ollama allowed to produce only a <code>QuoteProposal</code>, not a <code>VerifiedQuote</code>?"
-choices = ["Models cannot return JSON", "C# must independently prove exact text and attach source-owned attribution", "Records cannot cross HTTP", "Ollama has no local API"]
+prompt = "Why must Verisearch use a real AI at the quote-selection boundary?"
+choices = ["To color the terminal", "To make a semantic relevance judgment from the whole question and passages", "To create source URLs", "To certify its own quotations"]
 answer = 1
-whyWrong = "Ollama can return JSON through its local API and C# can deserialize it. The separate type exists because model output has not earned the verifier's guarantee."
-explain = "Proposal and proof remain different states, enforced by different C# types."
-hint = "Which component owns the source URL and exact-match check?"
+whyWrong = "Presentation, source authority, and verification are C# responsibilities; the AI is needed for semantic relevance rather than rigid keyword routing."
+hint = "Which task depends on meaning rather than exact containment?"
+explain = "The AI proposes relevant exact substrings from the full question and supplied passages."
 
 [[lessons.exercises]]
 id = "s09-l01-e2"
-type = "text"
+type = "mc"
 points = 20
-prompt = "Which TCP port does Ollama use in the course's default local URL?"
-answer = "11434"
-hint = "Read the digits after localhost in the API address."
+prompt = "What may choose between a CLI adapter and an HTTP adapter?"
+choices = ["Question keywords", "Explicit provider configuration", "The first passage", "A source title"]
+answer = 1
+whyWrong = "Provider choice is configuration; factual words must not trigger different lookup recipes."
+hint = "The choice should be visible before a factual question is interpreted."
+explain = "Explicit configuration selects an implementation behind the same semantic contract."
 
 [[lessons.exercises]]
 id = "s09-l01-e3"
-type = "mc"
+type = "text"
 points = 20
-prompt = "What security posture should Verisearch take toward local model output?"
-choices = ["Trust it because it is local", "Trust only JSON syntax", "Treat it as untrusted data until deterministic C# checks pass", "Display it first and verify later"]
-answer = 2
-whyWrong = "Local execution and valid syntax do not prove truth, while displaying before verification breaks the product promise."
-explain = "Deserialization proves shape; QuoteVerifier proves the exact source relation."
-hint = "Location is not a truth guarantee."
+prompt = "What portion of the user's question must cross the AI boundary?"
+answer = "the whole question"
+accept = ["whole question", "entire question", "full question"]
+hint = "It is one value, not a bag of routing keywords."
 
 [[lessons.exercises]]
 id = "s09-l01-d1"
 type = "type"
 points = 14
 reps = 2
-prompt = "Retype the three setup checks twice."
-code = '''ollama --version
-ollama pull qwen3:4b
-curl http://localhost:11434/api/tags'''
+prompt = "Retype the provider-neutral return boundary twice."
+code = "Task<ProposalBatch> SelectAsync(string wholeQuestion, IReadOnlyList<Passage> passages, CancellationToken cancellationToken);"
+
+[[lessons.concepts]]
+id = "language-interfaces-polymorphism"
+purpose = "Name a behavioral seam so real providers and test doubles can be substituted without changing the pipeline's truth rules."
+anatomy = "Declare the smallest useful interface member, implement it in separate concrete types, and depend on the interface at the caller boundary."
+example = "The disposable examples in The semantic seam — AI proposes, C# proves isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson The semantic seam — AI proposes, C# proves supplies the disposable observation point."
+observable = "Two implementations can satisfy the same caller while verification and reporting remain unchanged. Confirm it while practicing The semantic seam — AI proposes, C# proves."
+failure = "An interface that exposes provider details or verified output lets one implementation bypass the common contract."
+practice = "s09-l01-e1"
+
+[[lessons.artifactSteps]]
+id = "s09-l01-author-artifact"
+path = "src/Verisearch/AiSelection.cs"
+mode = "author"
+instruction = "Use the C# ideas from The semantic seam — AI proposes, C# proves to author or revise this learner-owned path toward the chapter behavior: Connect any real AI provider through a narrow adapter, demand structured quote proposals, and verify every quote in C#. Choose your own type names, method boundaries, and file organization; the lesson examples are disposable and are not a production template."
+checks = ["A real configured AI adapter receives the complete question, exact proposals cross the verifier, and a one-character fabrication is rejected.", "The complete solution builds from saved source, and a deliberately changed load-bearing input makes the relevant check fail before repair."]
