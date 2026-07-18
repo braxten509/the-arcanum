@@ -4,18 +4,20 @@ import { $, esc, modal, sfx, toast } from "../core/dom.js";
 import { codePad, firstDiff, normCode } from "./code.js";
 import { addCredits, grantBadge, lessonDone, sectionPassed, updateHud } from "./progress.js";
 import { castSigil } from "./sigil.js";
-import { S, save } from "../core/state.js";
+import { getState, save } from "../core/store.js";
+import { sections } from "../core/bootstrap.js";
+import { apiFetch } from "../core/api-client.js";
 
 // ------------------------------------------------------------ HEX DEFENSE
 // random hexes: inscribe a real working counter-spell against the sandglass or bleed coin.
 // stdlib-only challenges — the snippet sandbox has no packages.
 export function intrusionEligible() {
-  return S.booted && !$("#modal-root").firstChild && !document.querySelector(".grade-overlay")
-    && window.SECTIONS.some((sec) => sec.lessons.some(lessonDone));
+  return getState().booted && !$("#modal-root").firstChild && !document.querySelector(".grade-overlay")
+    && sections().some((sec) => sec.lessons.some(lessonDone));
 }
 
 export function startIntrusion() {
-  const passed = window.SECTIONS.filter(sectionPassed).length;
+  const passed = sections().filter(sectionPassed).length;
   const unlocked = INTRUSION_TIERS.filter((t) => t.min <= passed);
   if (!unlocked.length) return;
   const tier = Math.random() < 0.7 ? unlocked[unlocked.length - 1] : unlocked[Math.floor(Math.random() * unlocked.length)];
@@ -73,20 +75,20 @@ export function startIntrusion() {
     castSigil($(".grade-card", overlay) || overlay, won);
     overlay.remove();
     if (won) {
-      S.stats.intrusionW = (S.stats.intrusionW || 0) + 1;
+      getState().stats.intrusionW = (getState().stats.intrusionW || 0) + 1;
       sfx("grade");
       toast(`THE HEX SHATTERS ON YOUR DOORSTEP // <b>+${tier.bounty}</b> ${coin()} bounty.`);
       addCredits(tier.bounty, true);
       grantBadge("first-defense");
     } else {
-      S.stats.intrusionL = (S.stats.intrusionL || 0) + 1;
-      if (S.inv.firewall > 0) {
-        S.inv.firewall--;
-        toast(`STRUCK — YOUR WARD ABSORBED IT (${S.inv.firewall} charges left)`, "warn");
+      getState().stats.intrusionL = (getState().stats.intrusionL || 0) + 1;
+      if (getState().inv.firewall > 0) {
+        getState().inv.firewall--;
+        toast(`STRUCK — YOUR WARD ABSORBED IT (${getState().inv.firewall} charges left)`, "warn");
       } else {
-        const loss = Math.min(S.credits, Math.max(5, Math.round(S.credits * 0.10)));
-        S.credits -= loss;
-        S.stats.streak = 0;
+        const loss = Math.min(getState().credits, Math.max(5, Math.round(getState().credits * 0.10)));
+        getState().credits -= loss;
+        getState().stats.streak = 0;
         updateHud();
         toast(`THE HEX LANDS // <b>-${loss}</b> ${coin()} torn from your purse. Your chant is broken.`, "bad");
       }
@@ -105,7 +107,7 @@ export function startIntrusion() {
     out.textContent = runLabel() + " — the counter-spell takes shape...";
     let data;
     try {
-      const r = await fetch("/api/runsnippet", {
+      const r = await apiFetch("/api/runsnippet", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: hkEd ? hkEd.getValue() : "", stdin: "" }),
       });
@@ -128,11 +130,11 @@ export function startIntrusion() {
 // against whatever was armed when submit was clicked. No coin for winning — wins bank
 // toward the exclusive earned theme (10 qualifying: max 2 per circle, final circle uncapped).
 // Losing/yielding/timing out forfeits a 20×circle stake and breaks the chant.
-const attackDiff = () => Math.min(window.ATTACK_TIERS.length, window.SECTIONS.filter(sectionPassed).length);
+const attackDiff = () => Math.min(window.ATTACK_TIERS.length, sections().filter(sectionPassed).length);
 
 export function atkQualifying() {
   let q = 0;
-  for (const [d, w] of Object.entries(S.stats.atkWins || {}))
+  for (const [d, w] of Object.entries(getState().stats.atkWins || {}))
     q += (+d === window.ATTACK_TIERS.length ? w : Math.min(BLACKICE_CAP, w)); // per-difficulty cap, final difficulty uncapped
   return q;
 }
@@ -141,8 +143,8 @@ export function initiateAttack() {
   if (document.querySelector(".grade-overlay") || $("#modal-root").firstChild) return;
   const d = attackDiff();
   if (d < 1) { toast("THE WAND STAYS COLD // seal your first chapter before challenging a rival.", "bad"); return; }
-  const stake = Math.min(S.credits, ATK_STAKE_PER * d);
-  const earnedUnlocked = EARNED_THEME && S.themes[EARNED_THEME.id];
+  const stake = Math.min(getState().credits, ATK_STAKE_PER * d);
+  const earnedUnlocked = EARNED_THEME && getState().themes[EARNED_THEME.id];
   const prize = (!EARNED_THEME || earnedUnlocked)
     ? `every 2nd victory at this circle pays <b>${ATK_WIN_PER * d}</b> ${coin()}`
     : `${BLACKICE_N} qualifying victories win the <b>${EARNED_THEME.name}</b> ink (${atkQualifying()}/${BLACKICE_N}, at most ${BLACKICE_CAP} counted per circle)`;
@@ -227,27 +229,27 @@ function startAttack(d, stake) {
     castSigil($(".grade-card", overlay) || overlay, won);
     overlay.remove();
     if (won) {
-      S.stats.atkW = (S.stats.atkW || 0) + 1;
-      S.stats.atkWins = S.stats.atkWins || {};
-      S.stats.atkWins[d] = (S.stats.atkWins[d] || 0) + 1;
+      getState().stats.atkW = (getState().stats.atkW || 0) + 1;
+      getState().stats.atkWins = getState().stats.atkWins || {};
+      getState().stats.atkWins[d] = (getState().stats.atkWins[d] || 0) + 1;
       sfx("grade");
       toast(`THE RIVAL LOWERS THEIR WAND // a duel of the ${roman(d)} circle is yours.`);
       const q = atkQualifying();
       if (q >= 1) grantBadge("atk-1");
       if (q >= 5) grantBadge("atk-5");
-      if (q >= BLACKICE_N && EARNED_THEME && !S.themes[EARNED_THEME.id]) {
-        S.themes[EARNED_THEME.id] = true;
+      if (q >= BLACKICE_N && EARNED_THEME && !getState().themes[EARNED_THEME.id]) {
+        getState().themes[EARNED_THEME.id] = true;
         grantBadge("atk-ice");
         toast(`WON, NOT BOUGHT // <b>${EARNED_THEME.name}</b> — equip it at the peddler's table.`, "warn");
-      } else if (EARNED_THEME && S.themes[EARNED_THEME.id] && S.stats.atkWins[d] % 2 === 0) {
+      } else if (EARNED_THEME && getState().themes[EARNED_THEME.id] && getState().stats.atkWins[d] % 2 === 0) {
         addCredits(ATK_WIN_PER * d); // post-theme trickle: every 2nd win at the current circle pays
       }
       save();
     } else {
-      S.stats.atkL = (S.stats.atkL || 0) + 1;
-      const loss = Math.min(S.credits, stake);
-      S.credits -= loss;
-      S.stats.streak = 0;
+      getState().stats.atkL = (getState().stats.atkL || 0) + 1;
+      const loss = Math.min(getState().credits, stake);
+      getState().credits -= loss;
+      getState().stats.streak = 0;
       updateHud();
       toast(`THE DUEL IS LOST // your <b>-${loss}</b> ${coin()} stake is forfeit. Your chant is broken.`, "bad");
       save();
@@ -266,7 +268,7 @@ function startAttack(d, stake) {
     out.textContent = runLabel() + " — your riposte takes shape...";
     let data;
     try {
-      const r = await fetch("/api/runsnippet", {
+      const r = await apiFetch("/api/runsnippet", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: atkEd ? atkEd.getValue() : "", stdin: "" }),
       });

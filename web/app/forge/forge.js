@@ -1,9 +1,11 @@
 /* Commission one complete tome through a persisted, phase-scoped AI author route. */
 import { $, closeModal, esc, modal, paintRange, toast } from "../core/dom.js";
-import { prepareStateReset, resumeStateSaves } from "../core/state.js";
-import { FORGE_PHASE_NAMES, openBuildOverlay } from "./bindery.js";
+import { prepareStateReset, resumeStateSaves } from "../core/store.js";
+import { FORGE_PHASE_NAMES } from "./phases.js";
 import { enhanceSelect } from "../ui/menu.js";
 import { showResumeChooser } from "./workings.js";
+import { apiFetch } from "../core/api-client.js";
+import { dispatchCommand } from "../core/commands.js";
 
 // Keep the level names aligned with tools/buildlib/workflow/prompts.py PRIOR_LEVELS.
 // The UI copy makes the compression boundary explicit; the free-text field remains the
@@ -30,7 +32,7 @@ const PROJECT_SCOPE_LEVELS = {
 const MASTERY_DEPTH_FLOORS = { 1: 3, 2: 5, 3: 7, 4: 8, 5: 9 };
 
 export function forgeEntry() {
-  fetch("/api/buildtome/resumable").then((r) => r.json()).then((data) => {
+  apiFetch("/api/buildtome/resumable").then((r) => r.json()).then((data) => {
     const workings = data.workings || [];
     workings.length ? showResumeChooser(workings, showForgeModal) : showForgeModal();
   }).catch(() => showForgeModal());
@@ -297,7 +299,7 @@ function showForgeModal(resume) {
     syncResumePoint();
   }
 
-  fetch("/api/models").then((response) => response.json()).then((data) => {
+  apiFetch("/api/models").then((response) => response.json()).then((data) => {
     providers = (data.bindery || []).filter((item) => item.installed !== false && (item.models || []).length);
     const providerOptions = providers.map((item) => `<option value="${esc(item.id)}">${esc(item.label)}</option>`).join("")
       || `<option value="">NO AGENT CLI FOUND</option>`;
@@ -383,7 +385,7 @@ function showForgeModal(resume) {
       if (resetPrepared) await prepareStateReset();
       begin.dataset.busy = "true"; begin.disabled = true; begin.textContent = "RESTORING THE PHASE BOUNDARY…";
       try {
-        const resetResponse = await fetch(`/api/buildtome/reset?tome=${encodeURIComponent(resume.tome)}`, {
+        const resetResponse = await apiFetch(`/api/buildtome/reset?tome=${encodeURIComponent(resume.tome)}`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ tome: resume.tome, phase: restartPhase,
             confirm: "reset-tome-build", confirmTome: resume.tome }),
@@ -408,7 +410,7 @@ function showForgeModal(resume) {
     };
     begin.dataset.busy = "true"; begin.disabled = true; begin.textContent = "OPENING THE SESSION…";
     try {
-      const response = await fetch(resume ? "/api/buildtome/resume" : "/api/buildtome", {
+      const response = await apiFetch(resume ? "/api/buildtome/resume" : "/api/buildtome", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
       });
       const data = await response.json();
@@ -420,7 +422,7 @@ function showForgeModal(resume) {
         location.reload();
         return;
       }
-      closeModal(() => openBuildOverlay(data.jobId));
+      closeModal(() => dispatchCommand("forge.open-overlay", data.jobId));
     } catch (error) {
       if (resetDone) {
         sessionStorage.setItem("phaseResetNotice",

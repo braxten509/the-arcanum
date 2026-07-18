@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { applyAssessmentReceipt, migrateState, recordAttempt, recordSupport } from "../../../web/app/mastery/evidence.js";
 import { blockingReviewCount, deriveMasteryStatus, lessonResolved, workingPassed } from "../../../web/app/mastery/policy.js";
-import { abandonVariant, assignVariant } from "../../../web/app/mastery/variants.js";
+import { abandonVariant, assignVariant, syncVariantAssignment } from "../../../web/app/mastery/variants.js";
+import { cognitiveTasks, independentEvidenceEligible } from "../../../web/app/mastery/cognitive.js";
 
 const exercise = { id: "x1", type: "write", required: true, scaffold: "independent", capabilities: ["language-data"] };
 const tome = { mastery: { evidenceVersion: 1, level: 3 }, sections: [{ lessons: [{ id: "l1", exercises: [exercise] }] }] };
@@ -33,5 +34,18 @@ assert.equal(assignVariant(fresh, { familyId: "transfer-family", variantId: "v2"
   "refresh cannot reroll an active assignment");
 abandonVariant(fresh, "transfer-family", "now");
 assert.equal(assignVariant(fresh, { familyId: "transfer-family", variantId: "v2", variantHash: "e".repeat(64) }).variantId, "v2");
+const serverAssignment = syncVariantAssignment(fresh, {
+  familyId: "transfer-family", variantId: "v3", variantHash: "d".repeat(64), attempt: 3,
+});
+assert.equal(serverAssignment.variantId, "v3", "server authority replaces stale browser assignment");
+
+for (const task of cognitiveTasks.names().map((id) => cognitiveTasks.get(id))) {
+  assert.equal(task.version, 1);
+  assert.ok(task.capabilities.length, `${task.id} declares capabilities`);
+}
+assert.equal(independentEvidenceEligible({ interaction: "runnable-code", cognitiveTask: "build", scaffold: "cold" }), true);
+assert.equal(independentEvidenceEligible({ interaction: "copy-code", cognitiveTask: "build", scaffold: "cold" }), false);
+assert.equal(independentEvidenceEligible({ interaction: "runnable-code", cognitiveTask: "recall", scaffold: "cold" }), false);
+assert.equal(independentEvidenceEligible({ interaction: "runnable-code", cognitiveTask: "build", scaffold: "guided" }), false);
 
 console.log("mastery state/progression tests: OK");

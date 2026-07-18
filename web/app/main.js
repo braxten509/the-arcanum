@@ -9,13 +9,18 @@ import { initiateAttack, intrusionEligible, startIntrusion } from "./game/duel.j
 import { backfillReview } from "./game/exercise.js";
 import "./ui/menu.js";
 import { askOracle, grabSelection, oracleContext, paintOracleBtn, showOracleLog } from "./bench/oracle.js";
-import { go, secById } from "./game/progress.js";
+import { renderSidebar, secById } from "./game/progress.js";
 import { showStudySettings } from "./ui/settings.js";
 import { burst, setLastCastAt } from "./game/sigil.js";
-import { S, loadState, save } from "./core/state.js";
+import { getState, loadState, save } from "./core/store.js";
 import "./ui/tooltip.js";
-import { showCodeBook } from "./ui/views.js";
-import { models, saveWorkspace } from "./bench/workbench.js";
+import { renderHome, renderLesson, renderSection, renderShop, showCodeBook } from "./ui/views.js";
+import { collectFiles, currentWorkbench, currentWorking, renderFreestyle, saveWorkspace, workbenchHasFiles } from "./bench/workbench.js";
+import { bootstrapCatalog, tome } from "./core/bootstrap.js";
+import { apiFetch } from "./core/api-client.js";
+import { registerCommand } from "./core/commands.js";
+import { go, registerRoute, registerSidebar } from "./core/router.js";
+import { renderMasteryLab } from "./mastery/lab.js";
 
 async function bootSequence() {
   const boot = $("#boot"), txt = $("#boot-text");
@@ -34,19 +39,36 @@ async function bootSequence() {
   }
   await new Promise((r) => setTimeout(r, skip ? 0 : 600));
   boot.classList.add("hidden");
-  S.booted = true; save();
+  getState().booted = true; save();
 }
 
 async function init() {
   await window.tomeReady;   // the active tome's data must be present before we render
-  applyTomeConfig();
+  bootstrapCatalog();
+  const visualConfig = applyTomeConfig();
+  $("#side-ops-label").textContent = visualConfig.opsLabel;
+  registerCommand("settings.open", showStudySettings);
+  registerCommand("forge.open-overlay", openBuildOverlay);
+  registerCommand("oracle.context", oracleContext);
+  registerCommand("oracle.ask", askOracle);
+  registerCommand("working.files", collectFiles);
+  registerCommand("working.section", currentWorking);
+  registerCommand("working.save", saveWorkspace);
+  registerCommand("working.open", renderFreestyle);
+  registerRoute("home", () => { renderHome(); $("#hud-op").textContent = "— your ledger"; });
+  registerRoute("shop", () => { renderShop(); $("#hud-op").textContent = "— the peddler's wares"; });
+  registerRoute("section", (section) => renderSection(section));
+  registerRoute("lesson", (section, lesson) => renderLesson(section, lesson));
+  registerRoute("freestyle", (section) => renderFreestyle(section));
+  registerRoute("mastery-lab", (nodeId) => renderMasteryLab(nodeId));
+  registerSidebar(renderSidebar);
   await loadState();
   backfillReview(); // enroll recall items solved before spaced review (or its time clock) existed
-  document.body.dataset.theme = S.theme || (window.TOME.defaults && window.TOME.defaults.theme) || "vellum";
+  document.body.dataset.theme = getState().theme || (tome().defaults && tome().defaults.theme) || "vellum";
   refreshCoins();   // the HUD purse is inked in index.html; re-ink it for the active palette
   window.GhostEditor.boot(() => {
     const out = {};
-    for (const [p2, m] of Object.entries(models)) out[p2] = m.getValue();
+    for (const [p2, m] of currentWorkbench().models) out[p2] = m.getValue();
     return out;
   });
 
@@ -75,7 +97,7 @@ async function init() {
 
   // audio: init prefs, start the hearthfire on the first user gesture (autoplay policy)
   if (window.GhostAudio) {
-    GhostAudio.init(S.audio);
+    GhostAudio.init(getState().audio);
     const kick = () => { GhostAudio.userGesture(); document.removeEventListener("pointerdown", kick); document.removeEventListener("keydown", kick); };
     document.addEventListener("pointerdown", kick);
     document.addEventListener("keydown", kick);
@@ -84,13 +106,13 @@ async function init() {
     document.addEventListener("pointermove", warm);
     const bAmb = $("#hud-ambience"), bSfx = $("#hud-sfx");
     const paint = () => {
-      bAmb.style.opacity = S.audio.ambience ? "1" : ".35";
-      bSfx.style.opacity = S.audio.sfx ? "1" : ".35";
-      bAmb.title = S.audio.ambience ? "The hearthfire crackles (click to bank it)" : "The hearthfire is banked (click to stoke it)";
-      bSfx.title = S.audio.sfx ? "The study makes its little sounds" : "The study is silent";
+      bAmb.style.opacity = getState().audio.ambience ? "1" : ".35";
+      bSfx.style.opacity = getState().audio.sfx ? "1" : ".35";
+      bAmb.title = getState().audio.ambience ? "The hearthfire crackles (click to bank it)" : "The hearthfire is banked (click to stoke it)";
+      bSfx.title = getState().audio.sfx ? "The study makes its little sounds" : "The study is silent";
     };
-    bAmb.onclick = () => { S.audio.ambience = !S.audio.ambience; GhostAudio.setAmbience(S.audio.ambience); paint(); save(); };
-    bSfx.onclick = () => { S.audio.sfx = !S.audio.sfx; paint(); save(); if (S.audio.sfx) GhostAudio.sfx("tick"); };
+    bAmb.onclick = () => { getState().audio.ambience = !getState().audio.ambience; GhostAudio.setAmbience(getState().audio.ambience); paint(); save(); };
+    bSfx.onclick = () => { getState().audio.sfx = !getState().audio.sfx; paint(); save(); if (getState().audio.sfx) GhostAudio.sfx("tick"); };
     paint();
   }
 
@@ -187,7 +209,7 @@ async function init() {
   document.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "s") {
       e.preventDefault();
-      if (S.nav.view === "freestyle" && Object.keys(models).length) saveWorkspace(true);
+      if (getState().nav.view === "freestyle" && workbenchHasFiles()) saveWorkspace(true);
       else toast("No scroll is unrolled — there is nothing to blot.", "warn");
     }
   }, true);
@@ -195,13 +217,13 @@ async function init() {
   // typing SFX: one delegated listener covers drill boxes, inputs, and Monaco's inputarea.
   // capture phase — Monaco stopPropagation()s command keys (Backspace etc.) before they'd bubble here
   document.addEventListener("keydown", (e) => {
-    if (!S.audio.sfx || !window.GhostAudio) return;
+    if (!getState().audio.sfx || !window.GhostAudio) return;
     const t = e.target;
     if (!t.matches || !t.matches("textarea, input[type=text]")) return;
     if (e.key.length === 1 || ["Enter", "Backspace", "Tab", "Delete"].includes(e.key)) GhostAudio.keyclick(e.key);
   }, true);
 
-  if (!S.booted) await bootSequence();
+  if (!getState().booted) await bootSequence();
   $("#shell").classList.remove("hidden");
   const resetBuildJob = sessionStorage.getItem("openResetBuildJob");
   const resetNotice = sessionStorage.getItem("phaseResetNotice");
@@ -217,20 +239,20 @@ async function init() {
     if (document.hidden) { intrusionNextAt = Math.max(intrusionNextAt, Date.now() + 60000); return; }
     // A disabled scheduler continually moves its deadline forward. Re-enabling therefore
     // starts a fresh 10–15 minute window instead of releasing an attack that became overdue.
-    if (S.hexesEnabled === false) { intrusionNextAt = Date.now() + intrusionDelay(); return; }
+    if (getState().hexesEnabled === false) { intrusionNextAt = Date.now() + intrusionDelay(); return; }
     if (Date.now() < intrusionNextAt || !intrusionEligible()) return;
     intrusionNextAt = Date.now() + intrusionDelay();
-    if (S.inv.vpn > 0) {
-      S.inv.vpn--;
+    if (getState().inv.vpn > 0) {
+      getState().inv.vpn--;
       sfx("tick");
-      toast(`Your CLOAK OF UNSEEING turned a rival's hex aside (${S.inv.vpn} charges left)`, "warn");
+      toast(`Your CLOAK OF UNSEEING turned a rival's hex aside (${getState().inv.vpn} charges left)`, "warn");
       save();
       return;
     }
     startIntrusion();
   }, 30000);
 
-  const nav = S.nav || { view: "home" };
+  const nav = getState().nav || { view: "home" };
   const validSec = nav.sec && secById(nav.sec);
   if (nav.view === "lesson" && validSec && validSec.lessons.some((l) => l.id === nav.lesson)) go("lesson", nav.sec, nav.lesson);
   else if ((nav.view === "section" || nav.view === "freestyle") && validSec) go(nav.view, nav.sec);
@@ -239,8 +261,8 @@ async function init() {
 
   // health check
   try {
-    const h = await (await fetch("/api/health")).json();
-    const rtName = (window.TOME.runtime && window.TOME.runtime.name) || "custom";
+    const h = await (await apiFetch("/api/health")).json();
+    const rtName = (tome().runtime && tome().runtime.name) || "custom";
     const rtOk = (h.runtimes || {})[rtName];
     if (!rtOk) toast(`THE FORGE IS COLD: ${rtName} was not found — CAST THE SPELL will fail.`, "warn");
     if (!h.claude) toast("THE TOWER IS DARK: claude CLI not found — the Magister cannot judge.", "warn");
@@ -254,7 +276,7 @@ async function init() {
       toast(`The bindery is still forging <b>${esc(b.name || b.tome)}</b> — Phase ${b.phase}/9. The shelf of tomes holds its progress.`, "warn");
     } else if (hint) {
       try {
-        const st = await (await fetch("/api/buildtome/status?id=" + encodeURIComponent(hint))).json();
+        const st = await (await apiFetch("/api/buildtome/status?id=" + encodeURIComponent(hint))).json();
         if (st.status === "done") toast(`The bindery finished <b>${esc(st.name || st.tome || "your tome")}</b> — it waits on the shelf.`, "warn");
         else if (st.status === "error") toast("The last working in the bindery failed — its partial pages remain in /tomes.", "bad");
       } catch { /* server unreachable; the shelf will tell them later */ }

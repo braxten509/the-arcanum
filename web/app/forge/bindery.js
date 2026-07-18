@@ -4,20 +4,19 @@ import { enhanceSelect } from "../ui/menu.js";
 import { forgeEntry } from "./forge.js";
 import { mergeForgeTraceLines } from "./trace-lines.js";
 import { fallbackCourseControl, formatCourseBlockers } from "./course-control.js";
-
-export const FORGE_PHASES = ["Concept & arc", "Skeleton & voice", "Sections", "Minigames",
-  "Economy", "Cosmetics", "Validate", "Student review"];
-export const FORGE_PHASE_NAMES = ["", ...FORGE_PHASES];
+import { activeTome, tomeList } from "../core/bootstrap.js";
+import { apiFetch } from "../core/api-client.js";
+import { FORGE_PHASES } from "./phases.js";
 
 let forgeOverlay = null;
 let forgePoll = 0;
 
 export async function fetchActiveBuilds({ failClosed = false } = {}) {
   try {
-    const builds = (await (await fetch("/api/buildtome/active")).json()).jobs || [];
+    const builds = (await (await apiFetch("/api/buildtome/active")).json()).jobs || [];
     return await Promise.all(builds.map(async (build) => {
       try {
-        const status = await (await fetch(`/api/buildtome/status?id=${encodeURIComponent(build.id)}`)).json();
+        const status = await (await apiFetch(`/api/buildtome/status?id=${encodeURIComponent(build.id)}`)).json();
         return { ...build, ...status, id: build.id };
       } catch { return build; }
     }));
@@ -29,7 +28,7 @@ export async function fetchActiveBuilds({ failClosed = false } = {}) {
 }
 
 export function showTomePicker() {
-  const list = window.TOMES_LIST || [], active = window.__ACTIVE_TOME;
+  const list = tomeList(), active = activeTome();
   const rows = list.filter((tome) => !tome.draft).map((tome) => `
     <button class="tome-row${tome.id === active ? " active" : ""}" data-tome="${esc(tome.id)}"${tome.id === active ? " disabled" : ""}>
       <div class="jr-top"><span class="jr-name">${esc(tome.name || tome.id)}</span><span class="jr-tag num">${esc(tome.runtime || "")}${tome.sectionCount != null ? ` · ${tome.sectionCount} chapters` : ""}</span></div>
@@ -188,7 +187,7 @@ export function openBuildOverlay(jobId, traceId = jobId) {
   const pause = $("#fp-pause", overlay), composer = $("#fp-composer", overlay),
         message = $("#fp-message", overlay);
   async function post(path, body = {}) {
-    const response = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" },
+    const response = await apiFetch(path, { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: jobId, ...body }) });
     const data = await response.json();
     if (!data.ok) throw new Error(data.error || "request failed");
@@ -244,7 +243,7 @@ export function openBuildOverlay(jobId, traceId = jobId) {
   async function armAltPicker(current) {
     if (altProviders) return;
     try {
-      const data = await (await fetch("/api/models")).json();
+      const data = await (await apiFetch("/api/models")).json();
       altProviders = (data.bindery || []).filter((item) => item.installed !== false && (item.models || []).length);
     } catch { return; /* a later failure poll retries */ }
     [altProv, altModel, altEff].forEach(enhanceSelect);
@@ -364,8 +363,8 @@ export function openBuildOverlay(jobId, traceId = jobId) {
   async function tick() {
     try {
       const [statusResponse, traceResponse] = await Promise.all([
-        fetch(`/api/buildtome/status?id=${encodeURIComponent(jobId)}`),
-        fetch(`/.forge-trace/${encodeURIComponent(traceId)}.json?t=${Date.now()}`, { cache: "no-store" }).catch(() => null),
+        apiFetch(`/api/buildtome/status?id=${encodeURIComponent(jobId)}`),
+        apiFetch(`/.forge-trace/${encodeURIComponent(traceId)}.json?t=${Date.now()}`, { cache: "no-store" }).catch(() => null),
       ]);
       const status = await statusResponse.json();
       const tooling = traceResponse?.ok ? await traceResponse.json() : null;
@@ -377,7 +376,7 @@ export function openBuildOverlay(jobId, traceId = jobId) {
           if (key !== fallbackKey) {
             fallbackKey = key; fallbackControl = null;
             try {
-              const response = await fetch(`/api/tome?tome=${encodeURIComponent(status.tome)}`);
+              const response = await apiFetch(`/api/tome?tome=${encodeURIComponent(status.tome)}`);
               if (response.ok) fallbackControl = fallbackCourseControl(await response.json(), status);
             } catch { /* the next status change retries */ }
           }

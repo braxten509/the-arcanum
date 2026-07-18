@@ -1,5 +1,6 @@
 /* The small tools of the study: selectors, escaping, icons, toasts, modals, sfx. */
-import { S } from "./state.js";
+import { getState } from "./store.js";
+import { tome } from "./bootstrap.js";
 
 export const $ = (sel, root) => (root || document).querySelector(sel);
 export const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -75,14 +76,14 @@ const COIN_ICONS = {
 // the active palette (tome theme or global skin) may name its coin face
 const coinGlyph = () => {
   const id = document.body.dataset.theme;
-  const bank = [...((window.TOME && window.TOME.themes) || []), ...((window.TOME && window.TOME.skins) || [])];
+  const bank = [...(tome().themes || []), ...(tome().skins || [])];
   const t = bank.find((x) => x.id === id);
   return (t && COIN_ICONS[t.coin]) || ICONS.coin;
 };
 export const refreshCoins = () => document.querySelectorAll("svg.ico-coin").forEach((el) => { el.innerHTML = coinGlyph(); });
 export const ico = (name, cls) => `<svg viewBox="0 0 16 16" class="ico ${name === "coin" ? "ico-coin " : ""}${cls || ""}">${(name === "coin" ? coinGlyph() : ICONS[name]) || ""}</svg>`;
 
-export const sfx = (n) => { if (window.GhostAudio && S.audio.sfx) window.GhostAudio.sfx(n); };
+export const sfx = (n) => { if (window.GhostAudio && getState().audio.sfx) window.GhostAudio.sfx(n); };
 
 export function toast(html, kind) {
   const t = document.createElement("div");
@@ -96,7 +97,8 @@ export function toast(html, kind) {
 // HTML fields, styled by body class). code editors (Monaco) stay monospace — cursive reads
 // rough there, since Monaco assumes fixed-width metrics.
 export function applyPen() {
-  const p = S.pen || (S.pen = { trials: true, drill: true });
+  const state = getState();
+  const p = state.pen || (state.pen = { trials: true, drill: true });
   document.body.classList.toggle("pen-trials", p.trials !== false);
   document.body.classList.toggle("pen-drill", p.drill !== false);
 }

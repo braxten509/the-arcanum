@@ -3,6 +3,7 @@ import fs from "node:fs";
 
 const setup = fs.readFileSync("web/app/forge/forge.js", "utf8");
 const session = fs.readFileSync("web/app/forge/bindery.js", "utf8");
+const phases = fs.readFileSync("web/app/forge/phases.js", "utf8");
 const workings = fs.readFileSync("web/app/forge/workings.js", "utf8");
 const menu = fs.readFileSync("web/app/ui/menu.js", "utf8");
 const traceLines = fs.readFileSync("web/app/forge/trace-lines.js", "utf8");
@@ -15,9 +16,9 @@ const resetCss = fs.readFileSync("web/css/overlay/bindery/binder-reset.css", "ut
 const sessionCss = fs.readFileSync("web/css/overlay/bindery/session.css", "utf8");
 const launcher = fs.readFileSync("start.sh", "utf8");
 const main = fs.readFileSync("web/app/main.js", "utf8");
-const routesGet = fs.readFileSync("arcanum/routes_get.py", "utf8");
+const forgeStatus = fs.readFileSync("arcanum/authoring/read_models/forge_status.py", "utf8");
 const { fallbackCourseControl, formatCourseBlockers } = await import("../../../web/app/forge/course-control.js");
-const phaseMatch = session.match(/export const FORGE_PHASES = \[([\s\S]*?)\];/);
+const phaseMatch = phases.match(/export const FORGE_PHASES = Object\.freeze\(\[([\s\S]*?)\]\);/);
 assert.ok(phaseMatch);
 assert.equal((phaseMatch[1].match(/"[^"]+"/g) || []).length, 8);
 assert.match(setup, /PHASE AUTHORS/);
@@ -91,7 +92,7 @@ assert.match(session, /fetchActiveBuilds\(\{ failClosed: true \}\)/);
 assert.match(session, /forgeButton\.disabled = busy/);
 assert.match(session, /setTimeout\(refreshActiveBuilds, 3000\)/);
 assert.match(session, /Finish or abandon the current working/);
-assert.match(session, /fetch\(`\/api\/buildtome\/status\?id=/);
+assert.match(session, /apiFetch\(`\/api\/buildtome\/status\?id=/);
 assert.match(session, /data-trace="\$\{esc\(build\.traceId \|\| build\.id\)\}"/);
 assert.match(session, /openBuildOverlay\(button\.dataset\.job, button\.dataset\.trace\)/);
 assert.match(session, /\/api\/buildtome\/pause/);
@@ -122,8 +123,8 @@ assert.match(session, /retainedTooling/);
 assert.match(fs.readFileSync("tools/buildlib/single_author/__init__.py", "utf8"), /self\.state\("starting", pid=self\.child\.pid\)/);
 assert.match(session, /id="fp-model">ATTACHING/);
 assert.match(session, /status\.sessionAuthor \|\| \{\}/);
-assert.match(routesGet, /session\.get\("actualModel"\) or session\.get\("model"\)/);
-assert.match(routesGet, /"requestedModel": session\.get\("model"\)/);
+assert.match(forgeStatus, /session\.get\("actualModel"\) or session\.get\("model"\)/);
+assert.match(forgeStatus, /"requestedModel": session\.get\("model"\)/);
 assert.match(session, /author\.model/);
 assert.match(baseCss, /#fp-phase\[data-state="pausing"\]/);
 assert.match(baseCss, /#fp-phase\[data-state="validating"\]/);
@@ -162,7 +163,7 @@ assert.equal((resetOptions.match(/<option value="[1-8]">/g) || []).length, 8);
 assert.match(binder, /Every authored section is replaced by fresh Phase 3 placeholders/);
 assert.match(session, /fallbackCourseControl/);
 assert.match(session, /STATUS FALLBACK/);
-assert.match(routesGet, /courseControlError/);
+assert.match(forgeStatus, /courseControlError/);
 const fallback = fallbackCourseControl({ sections: [
   { id: "s01", title: "First", build: "Build the first slice." },
   { id: "s02", title: "Second", build: "Build the second slice." },

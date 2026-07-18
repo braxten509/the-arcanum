@@ -1,5 +1,6 @@
 /* State migration and evidence mutations. Callers own persistence and rendering. */
 import { SAVE_VERSION, isEvidenceTome } from "./policy.js";
+import { independentEvidenceEligible } from "./cognitive.js";
 
 const own = (value) => (value && typeof value === "object" && !Array.isArray(value) ? value : {});
 const array = (value) => (Array.isArray(value) ? value : []);
@@ -74,9 +75,7 @@ export function recordAttempt(state, exercise, { resolved = false, variantId = "
   if (variantId) record.lastVariantId = variantId;
   if (!resolved) return record;
   record.resolved = true;
-  const evidenceEligible = exercise.type !== "type"
-    && ["independent", "cold"].includes(exercise.scaffold)
-    && !record.supportUsed;
+  const evidenceEligible = independentEvidenceEligible(exercise) && !record.supportUsed;
   record.independent = evidenceEligible;
   for (const capabilityId of record.capabilityIds) {
     const capability = capabilityRecord(state, capabilityId);

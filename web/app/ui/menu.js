@@ -2,12 +2,14 @@
    Animate: unfurl top→bottom in, retract bottom→top out. */
 import { $, closeModal, modal, sfx, toast } from "../core/dom.js";
 import { askOracle, oracleContext } from "../bench/oracle.js";
-import { addCredits, go } from "../game/progress.js";
-import { showStudySettings } from "./settings.js";
+import { addCredits } from "../game/progress.js";
 import { castSigil } from "../game/sigil.js";
-import { prepareStateReset, resumeStateSaves, S, save } from "../core/state.js";
+import { prepareStateReset, resumeStateSaves, getState, save } from "../core/store.js";
 import { showCodeBook } from "./views.js";
 import { parseSpellCode } from "./spell-codes.js";
+import { apiFetch } from "../core/api-client.js";
+import { dispatchCommand } from "../core/commands.js";
+import { go } from "../core/router.js";
 
 let popOpen = null; // { el, owner, onClose }
 export function closePop(instant) {
@@ -53,7 +55,7 @@ function shedPixels(el) {
 // Cast-a-spell codes are intentional debug/practice controls. Progress-shaped changes
 // go through the real economy/save paths; random-hex control persists per tome.
 function castSpellPrompt() {
-  const hexesOn = S.hexesEnabled !== false;
+  const hexesOn = getState().hexesEnabled !== false;
   modal(`<h2>CAST A SPELL</h2><p class="dim">Speak the incantation.</p>
     <input type="text" id="spell-code" style="width:100%" placeholder="the words of the spell" spellcheck="false" autocomplete="off">
     <div class="spell-ledger" aria-label="Known spell codes">
@@ -69,28 +71,28 @@ function castSpellPrompt() {
     const spell = parseSpellCode($("#spell-code").value);
     closeModal(() => {
       let repaint = false;
-      if (spell.kind === "unlock-all") { S.spellAll = true; repaint = true; }
-      else if (spell.kind === "lock-all") { delete S.spellAll; repaint = true; }
+      if (spell.kind === "unlock-all") { getState().spellAll = true; repaint = true; }
+      else if (spell.kind === "lock-all") { delete getState().spellAll; repaint = true; }
       else if (spell.kind === "gold") {
-        if (!Number.isSafeInteger(S.credits + spell.amount) || !Number.isSafeInteger(S.earned + spell.amount)) {
+        if (!Number.isSafeInteger(getState().credits + spell.amount) || !Number.isSafeInteger(getState().earned + spell.amount)) {
           toast("THE PURSE REJECTS THE SPELL // that amount is too vast", "bad");
           return castSigil(null, false);
         }
         addCredits(spell.amount);
       }
       else if (spell.kind === "disable-hex") {
-        S.hexesEnabled = false;
+        getState().hexesEnabled = false;
         save();
         toast("RANDOM HEXES STILLED // rival ambushes are disabled", "warn");
       } else if (spell.kind === "enable-hex") {
-        S.hexesEnabled = true;
+        getState().hexesEnabled = true;
         save();
         toast("RANDOM HEXES RESTORED // the next rival may strike in 10–15 minutes");
       } else if (spell.kind === "reset-progress") {
         return showResetProgressConfirm();
       } else return castSigil(null, false); // unknown words — the spell fizzles
       castSigil(null, true);
-      if (repaint) go(S.nav.view, S.nav.sec, S.nav.lesson); // seals lift/return in place
+      if (repaint) go(getState().nav.view, getState().nav.sec, getState().nav.lesson); // seals lift/return in place
     });
   };
   document.querySelectorAll("#modal-root .modal-actions .btn")[1].onclick = cast;
@@ -115,7 +117,7 @@ function showResetProgressConfirm() {
     closeModal(async () => {
       try {
         await castSigil(null, true);
-        const r = await fetch("/api/state/reset", {
+        const r = await apiFetch("/api/state/reset", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ confirm: "reset-progress" }),
         });
@@ -300,7 +302,7 @@ document.addEventListener("contextmenu", (ev) => {
     { label: "OPEN THE GRIMOIRE", on: () => showCodeBook() },
     { label: "THE PEDDLER", on: () => go("shop") },
     "-",
-    { label: "TRIM THE WICK (SETTINGS)", on: () => showStudySettings() },
+    { label: "TRIM THE WICK (SETTINGS)", on: () => dispatchCommand("settings.open") },
   ], ev.clientX, ev.clientY);
 });
 document.addEventListener("mousedown", (ev) => {

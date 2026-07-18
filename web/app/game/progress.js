@@ -1,16 +1,16 @@
 /* Economy, chapter progress, the HUD, the sidebar, and navigation. */
 import { ATTEMPT_MULT, BADGES, COMBO_CAP, COMBO_STEP, RANKS, coin, roman } from "../core/config.js";
 import { $, esc, ico, sfx, toast } from "../core/dom.js";
-import { S, save } from "../core/state.js";
-import { renderHome, renderLesson, renderSection, renderShop } from "../ui/views.js";
-import { renderFreestyle } from "../bench/workbench.js";
-import { isEvidenceTome, lessonResolved, sectionResolution, workingPassed } from "../mastery/policy.js";
+import { getState, save } from "../core/store.js";
+import { isEvidenceTome, lessonResolved, sectionResolution, workingPassed, workingUnlocked } from "../mastery/policy.js";
+import { sections, tome } from "../core/bootstrap.js";
+import { go } from "../core/router.js";
 
 // ------------------------------------------------------------ economy
 export function rank() {
   let r = RANKS[0], next = null;
   for (let i = 0; i < RANKS.length; i++) {
-    if (S.earned >= RANKS[i][0]) r = RANKS[i];
+    if (getState().earned >= RANKS[i][0]) r = RANKS[i];
     else { next = RANKS[i]; break; }
   }
   return { name: r[1], floor: r[0], next };
@@ -19,8 +19,8 @@ export function rank() {
 export function addCredits(n, silentToast) {
   if (n === 0) return;
   const before = rank().name;
-  S.credits += n;
-  if (n > 0) S.earned += n;
+  getState().credits += n;
+  if (n > 0) getState().earned += n;
   const after = rank().name;
   updateHud();
   if (!silentToast && n > 0) toast(`<b>+${n}</b> ${coin()}`);
@@ -32,20 +32,20 @@ export function addCredits(n, silentToast) {
 }
 
 export function spend(n) {
-  if (S.credits < n) { toast(`Your purse is light. Need <b>${n}</b> ${coin()}, have ${S.credits}.`, "bad"); return false; }
-  S.credits -= n; updateHud(); save(); return true;
+  if (getState().credits < n) { toast(`Your purse is light. Need <b>${n}</b> ${coin()}, have ${getState().credits}.`, "bad"); return false; }
+  getState().credits -= n; updateHud(); save(); return true;
 }
 
 export function grantBadge(id, name, desc) {
-  if (S.badges[id]) return;
+  if (getState().badges[id]) return;
   const b = BADGES[id];
   name = name || (b && b.name) || id;
   desc = desc || (b && b.desc) || "";
-  S.badges[id] = { name, desc, at: Date.now() };
+  getState().badges[id] = { name, desc, at: Date.now() };
   toast(`${ico("seal")} SIGIL PRESSED // <b>${esc(name)}</b>`, "warn");
-  if (window.GhostAudio && S.audio.sfx) window.GhostAudio.sfx("badge");
+  if (window.GhostAudio && getState().audio.sfx) window.GhostAudio.sfx("badge");
   save();
-  if (S.nav && S.nav.view === "home") renderHome(); // the ledger shows sigils live
+  if (getState().nav && getState().nav.view === "home") renderHome(); // the ledger shows sigils live
 }
 
 export function attemptMultiplier(a) { return ATTEMPT_MULT[Math.min(a, ATTEMPT_MULT.length - 1)]; }
@@ -57,49 +57,48 @@ export function sectionExercises(sec) {
   return out;
 }
 export function sectionSolvedFrac(sec) {
-  if (isEvidenceTome(window.TOME)) return sectionResolution(sec, S).fraction;
+  if (isEvidenceTome(tome())) return sectionResolution(sec, getState()).fraction;
   const exs = sectionExercises(sec);
   if (!exs.length) return 1;
-  return exs.filter((e) => S.ex[e.id] && S.ex[e.id].ok).length / exs.length;
+  return exs.filter((e) => getState().ex[e.id] && getState().ex[e.id].ok).length / exs.length;
 }
 export function freestyleUnlocked(sec) {
-  if (S.spellAll) return true;
-  if (isEvidenceTome(window.TOME)) {
-    // The review gate performs the final due-item check immediately before navigation.
-    return (sec.lessons || []).every((lesson) => lessonResolved(lesson, S));
+  if (getState().spellAll) return true;
+  if (isEvidenceTome(tome())) {
+    return workingUnlocked(sec, sections(), getState());
   }
   return sectionSolvedFrac(sec) >= 0.7;
 }
-export function fsBest(sid) { return (S.fs[sid] && S.fs[sid].best) || null; }
+export function fsBest(sid) { return (getState().fs[sid] && getState().fs[sid].best) || null; }
 export function sectionPassed(sec) {
   const best = fsBest(sec.id);
-  return isEvidenceTome(window.TOME) ? workingPassed(best) : !!(best && best.total >= 60);
+  return isEvidenceTome(tome()) ? workingPassed(best) : !!(best && best.total >= 60);
 }
-export function sectionUnlocked(i) { return !!S.spellAll || i === 0 || sectionPassed(window.SECTIONS[i - 1]); }
+export function sectionUnlocked(i) { return !!getState().spellAll || i === 0 || sectionPassed(sections()[i - 1]); }
 export function sectionProgress(sec) {
-  const lessonWeight = isEvidenceTome(window.TOME) ? 0.8 : 0.7;
+  const lessonWeight = isEvidenceTome(tome()) ? 0.8 : 0.7;
   return sectionSolvedFrac(sec) * lessonWeight + (sectionPassed(sec) ? 1 - lessonWeight : 0);
 }
 // a lesson is "completed" once every one of its exercises is cracked
 // (lessons without exercises count once they've been opened/read)
 export function lessonDone(l) {
-  if (isEvidenceTome(window.TOME)) return lessonResolved(l, S);
+  if (isEvidenceTome(tome())) return lessonResolved(l, getState());
   return l.exercises && l.exercises.length
-    ? l.exercises.every((e) => S.ex[e.id] && S.ex[e.id].ok)
-    : !!S.read[l.id];
+    ? l.exercises.every((e) => getState().ex[e.id] && getState().ex[e.id].ok)
+    : !!getState().read[l.id];
 }
 
 // ------------------------------------------------------------ HUD + sidebar
-export function comboBonus() { return Math.min(COMBO_CAP, Math.max(0, (S.stats.streak - 1) * COMBO_STEP)); }
+export function comboBonus() { return Math.min(COMBO_CAP, Math.max(0, (getState().stats.streak - 1) * COMBO_STEP)); }
 
 export function updateHud() {
-  $("#hud-credits").textContent = S.credits;
+  $("#hud-credits").textContent = getState().credits;
   $("#hud-rank").textContent = rank().name;
-  const passed = window.SECTIONS.filter(sectionPassed).length;
-  $("#side-progress").textContent = passed + "/" + window.SECTIONS.length;
+  const passed = sections().filter(sectionPassed).length;
+  $("#side-progress").textContent = passed + "/" + sections().length;
   const combo = $("#hud-combo");
   if (combo) {
-    if (S.stats.streak >= 2) {
+    if (getState().stats.streak >= 2) {
       combo.classList.remove("hidden");
       combo.textContent = `COMBO x${(1 + comboBonus()).toFixed(2)}`;
     } else combo.classList.add("hidden");
@@ -117,11 +116,11 @@ export function updateHud() {
 export function renderSidebar() {
   const nav = $("#ops-list");
   nav.innerHTML = "";
-  window.SECTIONS.forEach((sec, i) => {
+  sections().forEach((sec, i) => {
     const unlocked = sectionUnlocked(i);
     const passed = sectionPassed(sec);
     const b = document.createElement("button");
-    b.className = "op-item" + (unlocked ? "" : " locked") + (S.nav.sec === sec.id && S.nav.view !== "home" && S.nav.view !== "shop" ? " active" : "");
+    b.className = "op-item" + (unlocked ? "" : " locked") + (getState().nav.sec === sec.id && getState().nav.view !== "home" && getState().nav.view !== "shop" ? " active" : "");
     b.innerHTML = `
       <span class="op-num">${roman(i + 1)}</span>
       <span class="op-name">${esc(sec.short || sec.codename)}</span>
@@ -129,7 +128,7 @@ export function renderSidebar() {
       <span class="op-bar"><i style="width:${Math.round(sectionProgress(sec) * 100)}%"></i></span>`;
     b.onclick = () => {
       if (!unlocked) {
-        const threshold = isEvidenceTome(window.TOME)
+        const threshold = isEvidenceTome(tome())
           ? "80/B or better with every essential check green"
           : "grade D or better";
         toast(`THE PAGE IS SEALED // finish the previous chapter's Great Working first (${threshold}).`, "bad");
@@ -142,23 +141,4 @@ export function renderSidebar() {
   updateHud();
 }
 
-// ------------------------------------------------------------ navigation
-export function go(view, sec, lesson, pageSound = true) {
-  const moved = !S.nav || S.nav.view !== view || S.nav.sec !== (sec || null) || S.nav.lesson !== (lesson || null);
-  S.nav = { view, sec: sec || null, lesson: lesson || null };
-  save();
-  for (const v of document.querySelectorAll(".view")) v.classList.add("hidden");
-  // the Great Working unrolls a wider scroll and sweeps the desk clear
-  $("#parchment").classList.toggle("wide", view === "freestyle");
-  const hudOp = $("#hud-op");
-  if (view === "home") { renderHome(); hudOp.textContent = "— your ledger"; }
-  else if (view === "shop") { renderShop(); hudOp.textContent = "— the peddler's wares"; }
-  else if (view === "section") { renderSection(sec); }
-  else if (view === "lesson") { renderLesson(sec, lesson); }
-  else if (view === "freestyle") { renderFreestyle(sec); }
-  renderSidebar();
-  $("#main").scrollTop = 0;
-  if (moved && pageSound) sfx("page");
-}
-
-export const secById = (id) => window.SECTIONS.find((s2) => s2.id === id);
+export const secById = (id) => sections().find((section) => section.id === id);

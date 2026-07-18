@@ -4,24 +4,34 @@ import { J, SRANK_MULT, editorLang, entryFile, externalByAuthor, externalDir, ex
 import { $, closeModal, esc, ico, modal, sfx, toast } from "../core/dom.js";
 import { reviewBanner, wireReview } from "../game/exercise.js";
 import { paintSubmitBtn, submitForGrading } from "../game/grading.js";
-import { fsBest, go, secById } from "../game/progress.js";
+import { fsBest, secById } from "../game/progress.js";
 import { castSigil } from "../game/sigil.js";
-import { S, save } from "../core/state.js";
+import { getState, save } from "../core/store.js";
 import { externalEditorModal, openExternalFolder, openStarterFile, seedWorkspace } from "./workspace.js";
+import { apiFetch } from "../core/api-client.js";
+import { go } from "../core/router.js";
+import { tome } from "../core/bootstrap.js";
+import { isEvidenceTome } from "../mastery/policy.js";
+import { performanceForNode } from "../mastery/assessment.js";
+import { WorkbenchSession } from "./session.js";
 
-export let ed = null;               // monaco editor instance
-export let models = {};             // path -> monaco model
-export let activeFile = null;
-export let fsSection = null;
+const workingSession = new WorkbenchSession("cumulative-working");
+let workingSection = null;
+export const currentWorking = () => workingSection;
+export const currentWorkbench = () => workingSession;
+export const workbenchHasFiles = () => workingSession.models.size > 0;
 
 export async function renderFreestyle(sid) {
   const sec = secById(sid);
-  fsSection = sec;
+  workingSection = sec;
   const v = $("#view-freestyle");
   v.classList.remove("hidden");
   $("#hud-op").textContent = "— the great working";
   const best = fsBest(sid);
-  const xrayOn = S.fs[sid] && S.fs[sid].xray;
+  const xrayOn = getState().fs[sid] && getState().fs[sid].xray;
+  const evidenceMode = isEvidenceTome(tome());
+  const performance = performanceForNode(tome(), `${sid}.working`);
+  const requirements = Array.isArray(sec.freestyle.requirements) ? sec.freestyle.requirements : [];
 
   v.innerHTML = `
     <div id="fs-wrap">
@@ -32,7 +42,7 @@ export async function renderFreestyle(sid) {
           <div class="fs-title">${esc(sec.freestyle.title)}</div>
         </div>
         <div class="fs-actions">
-          ${best ? `<span class="tag ac num">BEST: ${esc(best.grade)} ${best.total}/100</span>` : ""}
+          ${best ? `<span class="tag ${best.essentialPassed === false ? "warn" : "ac"} num">BEST: ${best.essentialPassed === false ? "INCOMPLETE" : esc(best.grade)} ${best.total}/100</span>` : ""}
           ${externalMode()
             ? (externalDir()
                 ? `<button class="btn quiet" id="b-openext" title="Open ${esc(externalDir())} in your file explorer">${ico("file")} OPEN IN FILE EXPLORER</button><button class="btn quiet" id="b-extern" title="${esc(externalDir())}">${ico("quill")} EDITOR PATH</button>`
@@ -41,7 +51,7 @@ export async function renderFreestyle(sid) {
           ${!externalMode() && (J().runtime && J().runtime.packages) !== false ? `<button class="btn quiet" id="b-pkg">${ico("pkg")} REAGENTS</button>` : ""}
           ${!externalMode() ? `<button class="btn quiet" id="b-save">${ico("quill")} BLOT THE PAGE</button>` : ""}
           <button class="btn ghost" id="b-run">${ico("play")} CAST THE SPELL</button>
-          <button class="btn" id="b-submit">${ico("upload")} PRESENT TO ${esc(persona())}</button>
+          <button class="btn" id="b-submit">${ico("upload")} ${evidenceMode ? "SUBMIT FOR ASSESSMENT" : `PRESENT TO ${esc(persona())}`}</button>
         </div>
       </div>
       <div id="fs-cols">
@@ -94,21 +104,24 @@ export async function renderFreestyle(sid) {
         <div id="fs-right">
           <h3>THE COMMISSION</h3>
           <div class="fs-brief">${sec.freestyle.brief.replace(/<ul>[\s\S]*?<\/ul>/, "")}</div>
-          ${(sec.freestyle.brief.match(/<ul>[\s\S]*?<\/ul>/) || []).map((u) =>
-            `<h3 style="margin-top:18px">IT MUST</h3><div class="fs-brief">${u}</div>`).join("")}
+          ${requirements.length ? `<h3 style="margin-top:18px">PUBLIC REQUIREMENTS</h3><ol class="working-requirements">${requirements.map(
+            (requirement) => `<li data-essential="${requirement.essential !== false}"><code>${esc(requirement.id)}</code><span>${esc(requirement.text)}</span>${requirement.essential !== false ? "<b>ESSENTIAL</b>" : ""}</li>`).join("")}</ol>`
+            : (sec.freestyle.brief.match(/<ul>[\s\S]*?<\/ul>/) || []).map((u) =>
+              `<h3 style="margin-top:18px">IT MUST</h3><div class="fs-brief">${u}</div>`).join("")}
           <h3 style="margin-top:18px">THE JUDGEMENT CHART <span class="dim" style="letter-spacing:0;font-style:italic">(${esc(persona())} weighs against exactly this)</span></h3>
           <table class="rubric-table">
             ${sec.freestyle.rubric.map((r) => `<tr><td class="rw num">${r.weight}%</td><td><b>${esc(r.criterion)}</b><span class="rubric-desc">${esc(r.desc)}</span></td></tr>`).join("")}
           </table>
-          <h3 style="margin-top:18px">PAYMENT</h3>
-          <div style="font-size:12.5px" class="dim">
-            Base <span class="num">${sec.freestyle.reward}</span>${gp()} scaled by the judgement. An S pays <span class="num">${Math.round(sec.freestyle.reward * SRANK_MULT)}</span>${gp()}.
-            A C (70+) presses the <b>${esc(sec.freestyle.badge.name)}</b> sigil. A D (60+) unseals the next chapter.
-            Presenting again pays only the improvement over your best.
-          </div>
+          ${evidenceMode ? `<h3 style="margin-top:18px">EVIDENCE STANDARD</h3>
+            <div class="assessment-standard"><b>Every essential scenario must pass.</b><span>80/B or better is required. Deterministic build and behavior evidence appears before qualitative feedback.</span><span>A supported result can resolve work, but only an eligible submission counts as independent evidence.</span></div>
+            ${performance?.rationaleRequired ? `<label class="rationale-field"><span>RATIONALE / DEFENSE</span><textarea id="fs-rationale" rows="5" placeholder="Explain the decisions and tradeoffs in your implementation."></textarea></label>` : ""}`
+            : `<h3 style="margin-top:18px">PAYMENT</h3><div style="font-size:12.5px" class="dim">
+              Base <span class="num">${sec.freestyle.reward}</span>${gp()} scaled by the judgement. An S pays <span class="num">${Math.round(sec.freestyle.reward * SRANK_MULT)}</span>${gp()}.
+              A C (70+) presses the <b>${esc(sec.freestyle.badge.name)}</b> sigil. A D (60+) unseals the next chapter.
+              Presenting again pays only the improvement over your best.</div>`}
           ${sec.freestyle.xray ? (xrayOn
             ? `<h3 style="margin-top:18px">SCRYING LENS <span class="tag warn">HELD TO THE PAGE</span></h3><p style="font-size:12.5px" class="dim">${sec.freestyle.xray}</p>`
-            : `<button class="btn quiet" id="b-xray" style="margin-top:16px">${ico("eye")} RAISE THE SCRYING LENS (${S.inv.xray || 0} owned)</button>`) : ""}
+            : `<button class="btn quiet" id="b-xray" style="margin-top:16px">${ico("eye")} RAISE THE SCRYING LENS (${getState().inv.xray || 0} owned)</button>`) : ""}
         </div>
       </div>
     </div>`;
@@ -119,18 +132,16 @@ export async function renderFreestyle(sid) {
   // xray
   const bx = $("#b-xray", v);
   if (bx) bx.onclick = () => {
-    if ((S.inv.xray || 0) < 1) { toast("You carry no Scrying Lens. The peddler grinds them.", "bad"); return; }
+    if ((getState().inv.xray || 0) < 1) { toast("You carry no Scrying Lens. The peddler grinds them.", "bad"); return; }
     modal(`<h2>RAISE THE SCRYING LENS?</h2><p class="dim">The lens shatters after one use — but ${esc(persona())}'s private judging notes for this working stay revealed forever.</p>`,
-      [["LOWER IT", "quiet"], ["LOOK THROUGH", "", () => { S.inv.xray--; (S.fs[sid] = S.fs[sid] || {}).xray = true; save(); renderFreestyle(sid); }]]);
+      [["LOWER IT", "quiet"], ["LOOK THROUGH", "", () => { getState().inv.xray--; (getState().fs[sid] = getState().fs[sid] || {}).xray = true; save(); renderFreestyle(sid); }]]);
   };
 
   // external-editor mode: no built-in editor. The student edits in their own IDE
   // and CAST/PRESENT operate on their folder — the server resolves the directory,
   // so we send no buffers (collectFiles() is [] with no models, never clobbering it).
   if (externalMode()) {
-    if (ed) { ed.dispose(); ed = null; }
-    for (const m of Object.values(models)) m.dispose();
-    models = {}; activeFile = null;
+    workingSession.dispose();
     // a required-external course starts with no folder chosen — CAST/PRESENT
     // must send the student to pick one, never run against the scaffolded dir.
     const needFolder = () => { if (externalDir()) return false; toast("Choose your project folder first.", "warn"); externalEditorModal(sid); return true; };
@@ -143,7 +154,7 @@ export async function renderFreestyle(sid) {
     const bo = $("#b-openext", v); if (bo) bo.onclick = () => openExternalFolder(externalDir());
     const bs = $("#b-seed", v); if (bs) bs.onclick = () => seedWorkspace(externalDir(), "");
     const bb = $("#b-builtin", v); if (bb) bb.onclick = () => {
-      S.workspace = { enabled: false, dir: (S.workspace && S.workspace.dir) || "" };
+      getState().workspace = { enabled: false, dir: (getState().workspace && getState().workspace.dir) || "" };
       save(); renderFreestyle(sid);
     };
     v.querySelectorAll(".sf-item").forEach((li) => li.onclick = () => openStarterFile(li.dataset.rel));
@@ -155,21 +166,19 @@ export async function renderFreestyle(sid) {
   await window.GhostEditor.monacoReady;
   const host = $("#editor-host", v);
   host.innerHTML = "";
-  if (ed) { ed.dispose(); ed = null; }
-  for (const m of Object.values(models)) m.dispose();
-  models = {};
-  ed = window.GhostEditor.create(host, S.theme);
+  workingSession.dispose();
+  workingSession.editor = window.GhostEditor.create(host, getState().theme);
 
   let files = [];
   try {
-    const r = await fetch("/api/workspace");
+    const r = await apiFetch("/api/workspace");
     const data = await r.json();
     if (!data.exists) {
       termPrint(`No workshop yet — laying out a fresh one for ${projName()}...`);
-      const sr = await fetch("/api/scaffold", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const sr = await apiFetch("/api/scaffold", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
       const sd = await sr.json();
       termPrint(sd.ok ? `The workshop stands: ${projName()} (${entryFile()} is yours to inscribe).` : "THE SCAFFOLDING COLLAPSED: " + (sd.error || ""), !sd.ok);
-      const r2 = await fetch("/api/workspace");
+      const r2 = await apiFetch("/api/workspace");
       files = (await r2.json()).files || [];
     } else files = data.files || [];
   } catch (err) { termPrint("Could not reach server: " + err, true); }
@@ -177,17 +186,18 @@ export async function renderFreestyle(sid) {
   // merge crash-recovered buffers over disk state
   const byPath = {};
   for (const f of files) byPath[f.path] = f.content;
-  for (const [p2, c] of Object.entries(S.buffers)) byPath[p2] = c;
+  for (const [p2, c] of Object.entries(getState().buffers)) byPath[p2] = c;
   if (!Object.keys(byPath).length) byPath[entryFile()] = (J().runtime && J().runtime.starterCode) || 'Console.WriteLine("Verisearch v0.1");\n';
 
   window.GhostEditor._getAllBuffers = () => {
     const out = {};
-    for (const [p2, m] of Object.entries(models)) out[p2] = m.getValue();
+    for (const [p2, m] of workingSession.models) out[p2] = m.getValue();
     return out;
   };
 
   for (const [p2, content] of Object.entries(byPath)) addFileModel(p2, content);
-  const first = Object.keys(models).find((p2) => p2.endsWith(newFileExt())) || Object.keys(models)[0];
+  const paths = [...workingSession.models.keys()];
+  const first = paths.find((p2) => p2.endsWith(newFileExt())) || paths[0];
   switchFile(first);
   renderTabs();
   scheduleDiagnostics();
@@ -206,13 +216,13 @@ function addFileModel(path, content) {
   const lang = path.endsWith(newFileExt()) ? editorLang() : path.endsWith(".csproj") ? "xml" : path.endsWith(".json") ? "json" : path.match(/\.ya?ml$/) ? "yaml" : "plaintext";
   const m = monaco.editor.createModel(content, lang);
   m.onDidChangeContent(() => {
-    S.buffers[path] = m.getValue();
+    getState().buffers[path] = m.getValue();
     save();
     const tab = document.querySelector(`.ftab[data-path="${CSS.escape(path)}"] .dirty`);
     if (tab) tab.classList.remove("hidden");
     if (path.endsWith(newFileExt()) || path.endsWith(".csproj")) scheduleDiagnostics();
   });
-  models[path] = m;
+  workingSession.models.set(path, m);
 }
 
 // real compiler squiggles: on idle, build the workspace server-side and mark CS errors/warnings
@@ -222,13 +232,13 @@ function scheduleDiagnostics() {
   diagTimer = setTimeout(runDiagnostics, 1500);
 }
 async function runDiagnostics() {
-  const live = Object.entries(models).filter(([, m]) => !m.isDisposed());
+  const live = [...workingSession.models].filter(([, m]) => !m.isDisposed());
   if (!window.monaco || !live.length) return;
   if (diagBusy) { diagAgain = true; return; }
   diagBusy = true;
   let data = null;
   try {
-    const r = await fetch("/api/diagnostics", {
+    const r = await apiFetch("/api/diagnostics", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ files: live.map(([path, m]) => ({ path, content: m.getValue() })) }),
     });
@@ -257,11 +267,11 @@ function renderTabs() {
   const tabs = $("#file-tabs");
   if (!tabs) return;
   tabs.innerHTML = "";
-  for (const p2 of Object.keys(models).sort()) {
+  for (const p2 of [...workingSession.models.keys()].sort()) {
     const t = document.createElement("button");
-    t.className = "ftab" + (p2 === activeFile ? " active" : "");
+    t.className = "ftab" + (p2 === workingSession.activePath ? " active" : "");
     t.dataset.path = p2;
-    t.innerHTML = `${esc(p2)}<span class="dirty ${S.buffers[p2] !== undefined ? "" : "hidden"}"></span>`;
+    t.innerHTML = `${esc(p2)}<span class="dirty ${getState().buffers[p2] !== undefined ? "" : "hidden"}"></span>`;
     t.onclick = () => switchFile(p2);
     tabs.appendChild(t);
   }
@@ -274,9 +284,9 @@ function renderTabs() {
     nfBtn.onclick = () => {
       const name = $("#nf-name").value.trim();
       closeModal(() => {
-        if (!name || models[name]) return;
+        if (!name || workingSession.models.has(name)) return;
         addFileModel(name, name.endsWith(".cs") ? `namespace ${projName()};\n\n` : "");
-        S.buffers[name] = models[name].getValue();
+        getState().buffers[name] = workingSession.models.get(name).getValue();
         switchFile(name); save();
       });
     };
@@ -286,21 +296,21 @@ function renderTabs() {
 }
 
 function switchFile(path) {
-  if (!models[path]) return;
-  activeFile = path;
-  ed.setModel(models[path]);
+  if (!workingSession.models.has(path)) return;
+  workingSession.activePath = path;
+  workingSession.editor.setModel(workingSession.models.get(path));
   renderTabs();
-  ed.focus();
+  workingSession.editor.focus();
 }
 
 export function collectFiles() {
-  return Object.entries(models).map(([path, m]) => ({ path, content: m.getValue() }));
+  return workingSession.files();
 }
 
 export async function saveWorkspace(announce) {
   try {
-    await fetch("/api/workspace", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ files: collectFiles() }) });
-    S.buffers = {}; save();
+    await apiFetch("/api/workspace", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ files: collectFiles() }) });
+    getState().buffers = {}; save();
     document.querySelectorAll(".ftab .dirty").forEach((d) => d.classList.add("hidden"));
     if (announce) { toast("The ink is dry — your pages are safe on disk."); sfx("saved"); }
   } catch (err) { toast("The ink would not take: " + err, "bad"); }
@@ -327,19 +337,19 @@ async function runProject() {
   btn.onmouseenter = showCancel;
   btn.onmousemove = showCancel;
   btn.onmouseleave = () => { if (running) btn.textContent = "CASTING..."; };
-  btn.onclick = () => { if (running) fetch("/api/runcancel", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }); };
+  btn.onclick = () => { if (running) apiFetch("/api/runcancel", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }); };
   if (sub) sub.disabled = true;
   clearTimeout(diagTimer); // don't let a queued diagnostics build contend with this run
   termPrint("$ " + runLabel() + "    // " + new Date().toLocaleTimeString());
-  S.stats.runs++; save();
+  getState().stats.runs++; save();
   try {
     const stdin = ($("#stdin-box").value || "").replace(/\\n/g, "\n");
-    const r = await fetch("/api/run", {
+    const r = await apiFetch("/api/run", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ files: collectFiles(), stdin }),
     });
     const data = await r.json();
-    S.buffers = {}; save();
+    getState().buffers = {}; save();
     document.querySelectorAll(".ftab .dirty").forEach((d) => d.classList.add("hidden"));
     termPrint(data.output || "(the stone stays silent)", !data.ok);
     termPrint(data.ok ? "── the spell completed, exit 0 ──" : "── the casting failed ──", !data.ok);
@@ -369,7 +379,7 @@ function packageModal(sec) {
     if (!name) return;
     installBtn.disabled = true; installBtn.textContent = "DECANTING...";
     try {
-      const r = await fetch("/api/addpackage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ package: name }) });
+      const r = await apiFetch("/api/addpackage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ package: name }) });
       const data = await r.json();
       $("#pkg-out").textContent = data.output || "";
       toast(data.ok ? `Reagent <b>${esc(name)}</b> is in the folio.` : "The reagent refused the flask — read the residue.", data.ok ? "" : "bad");

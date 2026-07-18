@@ -1,6 +1,7 @@
 /* Resume or discard stopped single-author workings. */
 import { $, closeModal, esc, ico, modal, toast } from "../core/dom.js";
-import { FORGE_PHASE_NAMES } from "./bindery.js";
+import { FORGE_PHASE_NAMES } from "./phases.js";
+import { apiFetch } from "../core/api-client.js";
 
 
 export function showResumeChooser(workings, showForgeModal) {
@@ -48,7 +49,7 @@ function showDiscardConfirm(working, workings, showForgeModal) {
     discard.disabled = true;
     discard.textContent = "DELETING…";
     try {
-      const response = await fetch("/api/buildtome/discard", { method: "POST",
+      const response = await apiFetch("/api/buildtome/discard", { method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: working.id, confirm: "discard-draft", confirmWorking: working.id }) });
       const data = await response.json();

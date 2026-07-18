@@ -1,15 +1,15 @@
 /* The trials: every exercise type, the spaced-review round, and answer checking. */
-import { HINT_COST, coin, gp, roman, runLabel } from "../core/config.js";
+import { HINT_COST, coin, gp, roman } from "../core/config.js";
 import { $, esc, ico, modal, sfx, toast } from "../core/dom.js";
-import { codePad, firstDiff, normCode } from "./code.js";
-import { askOracle, oracleContext } from "../bench/oracle.js";
 import { addCredits, attemptMultiplier, comboBonus, grantBadge, lessonDone, spend, updateHud } from "./progress.js";
 import { burst, castSigil, lastCastAt } from "./sigil.js";
-import { S, save } from "../core/state.js";
+import { getState, save } from "../core/store.js";
 import { isEvidenceTome } from "../mastery/policy.js";
 import { recordAttempt, recordReview, recordSupport } from "../mastery/evidence.js";
-
-const EX_LABEL = { mc: "CHOOSE WISELY", fill: "COMPLETE THE RUNE", text: "SPEAK THE WORD", type: "COPYING DRILL", write: "INSCRIPTION" };
+import { sections, tome } from "../core/bootstrap.js";
+import { dispatchCommand } from "../core/commands.js";
+import { interactions } from "./interactions/index.js";
+import { cognitivePolicy } from "../mastery/cognitive.js";
 
 // ------------------------------------------------------------ SPACED REVIEW
 // Retrieval practice of already-solved recall items, resurfaced on a Leitner
@@ -20,11 +20,10 @@ const EX_LABEL = { mc: "CHOOSE WISELY", fill: "COMPLETE THE RUNE", text: "SPEAK 
 // covers only mc/fill/text. A hit pushes the item further out; a miss brings
 // it right back.
 const REVIEWABLE = new Set(["mc", "fill", "text"]);
-const REVIEW_TASKS = new Set(["predict", "trace", "explain", "complete", "debug", "test-design"]);
 const REVIEW_STEPS = [1, 2, 4, 8, 16]; // Leitner intervals: lessons-completed units AND days
 const DAY = 86400000;
 export const GATE_MIN = 5; // due items before the gate bars a doorway
-const lessonsCompleted = () => window.SECTIONS.reduce((n, s) => n + s.lessons.filter(lessonDone).length, 0);
+const lessonsCompleted = () => sections().reduce((n, section) => n + section.lessons.filter(lessonDone).length, 0);
 function scheduleReview(st, ok) {
   st.box = ok ? Math.min((st.box || 1) + 1, REVIEW_STEPS.length) : 1;
   st.reviewUnresolved = !ok;
@@ -33,7 +32,7 @@ function scheduleReview(st, ok) {
   if (ok) st.reviewVariantIndex = (st.reviewVariantIndex || 0) + 1;
 }
 const isReviewable = (exercise) => REVIEWABLE.has(exercise.type)
-  || (exercise.type !== "type" && REVIEW_TASKS.has(exercise.cognitiveTask));
+  || (exercise.type !== "type" && cognitivePolicy(exercise)?.reviewable);
 function variedReview(exercise, state) {
   const variants = Array.isArray(exercise.reviewVariants) ? exercise.reviewVariants : [];
   if (!variants.length) return exercise;
@@ -42,11 +41,11 @@ function variedReview(exercise, state) {
 }
 export function reviewDue() {
   const clock = lessonsCompleted(), now = Date.now(), out = [];
-  for (const sec of window.SECTIONS)
+  for (const sec of sections())
     for (const l of sec.lessons)
       for (const e of (l.exercises || [])) {
         if (!isReviewable(e)) continue;
-        const st = S.ex[e.id];
+        const st = getState().ex[e.id];
         if (st && st.ok && (st.reviewUnresolved || (st.due != null && st.due <= clock)
             || (st.dueT != null && st.dueT <= now))) out.push({ e: variedReview(e, st), st });
       }
@@ -58,11 +57,11 @@ export function reviewDue() {
 export function backfillReview() {
   const clock = lessonsCompleted(), now = Date.now();
   let changed = false;
-  for (const sec of window.SECTIONS)
+  for (const sec of sections())
     for (const l of sec.lessons)
       for (const e of (l.exercises || [])) {
         if (!isReviewable(e)) continue;
-        const st = S.ex[e.id];
+        const st = getState().ex[e.id];
         if (!st || !st.ok) continue;
         if (st.due == null) { st.box = 1; st.due = clock + REVIEW_STEPS[0]; changed = true; }
         if (st.dueT == null) { st.dueT = now + REVIEW_STEPS[(st.box || 1) - 1] * DAY; changed = true; }
@@ -124,8 +123,8 @@ export function startReview(onPass) {
     scroll.appendChild(exerciseEl(e, i, true, (ok) => {
       if (corrected.has(e.id)) return;
       scheduleReview(st, ok);
-      if (isEvidenceTome(window.TOME)) recordReview(S, e, ok);
-      S.stats.reviews = (S.stats.reviews || 0) + 1;
+      if (isEvidenceTome(tome())) recordReview(getState(), e, ok);
+      getState().stats.reviews = (getState().stats.reviews || 0) + 1;
       if (ok) corrected.add(e.id);
       save(); updateCount();
       if (corrected.size >= due.length) {
@@ -145,23 +144,24 @@ export function startReview(onPass) {
 }
 
 export function exerciseEl(e, idx, redo, onReview) {
-  const st = S.ex[e.id] || (S.ex[e.id] = { a: 0, ok: false, pts: 0, hint: false, reps: 0 });
+  const st = getState().ex[e.id] || (getState().ex[e.id] = { a: 0, ok: false, pts: 0, hint: false, reps: 0 });
   if (st.reps === undefined) st.reps = 0;
   redo = !!redo && st.ok; // recast-for-sport: a passed trial made interactive again — transient, touches no state
   const wrap = document.createElement("div");
   wrap.className = "exercise" + (st.ok ? " solved" : "");
-  const noDecay = e.type === "type" || e.type === "write"; // practice is safe: no point decay, no combo reset
+  const interactionSpec = interactions.get(e.interaction || e.type);
+  const noDecay = !!interactionSpec.noDecay;
   const mult = noDecay ? 1 : attemptMultiplier(st.a);
   const worth = Math.round(e.points * mult);
   const totalReps = e.reps || 1;
-  const evidenceTome = isEvidenceTome(window.TOME);
+  const evidenceTome = isEvidenceTome(tome());
   const aidPolicy = e.aidPolicy || "learning";
   const allowGuidance = !evidenceTome || ["learning", "limited"].includes(aidPolicy);
   const allowScroll = !evidenceTome || aidPolicy === "learning";
 
   wrap.innerHTML = `
     <div class="ex-head">
-      <span>TRIAL ${roman(idx + 1)} // ${EX_LABEL[e.type] || "SPEAK THE WORD"}${e.type === "type" && totalReps > 1 && !st.ok ? ` — PASS ${st.reps + 1}/${totalReps}` : ""}</span>
+      <span>TRIAL ${roman(idx + 1)} // ${interactionSpec.label}${interactionSpec.repetitions && totalReps > 1 && !st.ok ? ` — PASS ${st.reps + 1}/${totalReps}` : ""}</span>
       <span class="ex-pts num">${redo ? "FOR SPORT — NOTHING OWED, NOTHING EARNED" : st.ok ? `+${st.pts} EARNED` : `WORTH ${worth}${gp()}${mult < 1 ? " (diminished)" : ""}`}</span>
     </div>
     <div class="ex-body">
@@ -177,69 +177,37 @@ export function exerciseEl(e, idx, redo, onReview) {
       <span style="display:flex;gap:8px">
         ${!st.ok && e.hint && allowGuidance ? `<button class="btn quiet b-hint">${ico("bulb")} WHISPERED HINT (${HINT_COST}${gp()})</button>` : ""}
         ${!st.ok && allowGuidance ? `<button class="btn quiet b-orc" title="the candle's hint is the author's fixed nudge; the Oracle is a living spirit you can question">${ico("orb")} ASK THE ORACLE</button>` : ""}
-        ${!st.ok && S.inv.skip > 0 && allowScroll ? `<button class="btn quiet b-skip">${ico("scroll")} SCROLL OF REVELATION</button>` : ""}
+        ${!st.ok && getState().inv.skip > 0 && allowScroll ? `<button class="btn quiet b-skip">${ico("scroll")} SCROLL OF REVELATION</button>` : ""}
         ${st.ok && !redo ? `<button class="btn quiet b-redo">RECAST FOR SPORT</button>` : ""}
         ${redo && !onReview ? `<button class="btn quiet b-done">MARK COMPLETE</button>` : ""}
-        ${!st.ok || redo ? `<button class="btn b-check">${e.type === "write" ? "INSCRIBE + CAST" : "CAST"}</button>` : ""}
+        ${!st.ok || redo ? `<button class="btn b-check">${interactionSpec.buttonLabel || "CAST"}</button>` : ""}
       </span>
     </div>`;
 
   if (e.code) $("pre code", wrap).textContent = e.code;
   if (e.expect && e.type === "write") $(".lab-expect pre code", wrap).textContent = e.expect;
   const input = $(".ex-input", wrap);
-  let getAnswer = () => "";
+  let interaction = null;
 
   if (st.ok && !redo) {
-    const evidence = evidenceTome && S.exerciseEvidence && S.exerciseEvidence[e.id];
+    const evidence = evidenceTome && getState().exerciseEvidence && getState().exerciseEvidence[e.id];
     const completion = evidence && evidence.resolved
       ? (evidence.independent ? "Completed independently" : "Completed with support")
       : `Passed${st.skipped ? " (by scroll)" : ""}`;
     input.innerHTML = `<div class="dim" style="font-size:13px">${ico("check")} ${completion}. ${e.explain ? esc(e.explain) : ""}${evidence && evidence.supportUsed ? " This capability may return later in a varied independent form." : ""}</div>`;
     $(".ex-verdict", wrap).className = "ex-verdict ok";
     $(".ex-verdict", wrap).textContent = "THE SEAL HOLDS";
-  } else if (e.type === "mc") {
-    input.innerHTML = `<div class="choices">${e.choices.map((c, i) =>
-      `<label class="choice"><input type="radio" name="${e.id}" value="${i}"><span>${esc(c)}</span></label>`).join("")}</div>`;
-    input.querySelectorAll(".choice").forEach((c) => c.addEventListener("click", () => {
-      input.querySelectorAll(".choice").forEach((x) => x.classList.remove("sel"));
-      c.classList.add("sel");
-    }));
-    getAnswer = () => { const r = input.querySelector("input:checked"); return r ? +r.value : -1; };
-  } else if (e.type === "type") {
-    input.innerHTML = `<textarea class="drill-box" data-nopaste="1" rows="${Math.max(2, (e.code || "").split("\n").length + 1)}" spellcheck="false" placeholder="copy it out by hand — the hand remembers what the eye forgets; conjured paste is barred"></textarea>`;
-    const box = $("textarea", input);
-    box.addEventListener("paste", (ev) => { ev.preventDefault(); toast("No pasting by sorcery. The quill only, apprentice.", "warn"); });
-    box.addEventListener("drop", (ev) => ev.preventDefault());
-    box.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); $(".b-check", wrap).click(); }
-      if (ev.key === "Tab") { ev.preventDefault(); const s0 = box.selectionStart; box.setRangeText("    ", s0, box.selectionEnd, "end"); }
-    });
-    getAnswer = () => box.value;
-  } else if (e.type === "write") {
-    input.innerHTML = `
-      <div class="code-pad"></div>
-      ${e.stdin ? `<div class="faint" style="font-size:11px;margin-top:4px">STDIN fed to your program: <code>${esc(e.stdin.replace(/\n/g, "\\n"))}</code></div>` : ""}
-      <pre class="lab-out hidden"></pre>`;
-    let pe = null;
-    window.GhostEditor.monacoReady.then(() => {
-      pe = codePad($(".code-pad", input), e.starter || "",
-        () => { const b = $(".b-check", wrap); if (b) b.click(); });
-    });
-    getAnswer = () => (pe ? pe.getValue() : "");
   } else {
-    input.innerHTML = `<div class="ex-answer-row"><input type="text" placeholder="${e.type === "fill" ? "what completes the rune?" : "write your answer"}" spellcheck="false"></div>`;
-    const field = $("input", input);
-    field.addEventListener("keydown", (ev) => { if (ev.key === "Enter") $(".b-check", wrap).click(); });
-    getAnswer = () => field.value;
+    interaction = interactionSpec.create({ exercise: e, input, wrap, state: st, toast });
   }
 
   const verdict = $(".ex-verdict", wrap);
 
   // the spell's voice with no charge; the cursor already threw its motes on the CAST press.
   // only a run inscription (write) earns the full drawn sigil — trials stay quick.
-  const spellVoice = (ok) => { if (window.GhostAudio && S.audio.sfx) window.GhostAudio.spellHit(ok); };
+  const spellVoice = (ok) => { if (window.GhostAudio && getState().audio.sfx) window.GhostAudio.spellHit(ok); };
   const castFeedback = (ok) => {
-    if (e.type === "write") return castSigil($(".b-check", wrap) || wrap, ok); // the inscription: the full sigil is drawn
+    if (interactionSpec.fullSigil) return castSigil($(".b-check", wrap) || wrap, ok); // the inscription: the full sigil is drawn
     spellVoice(ok);                                                            // a trial: the spell's voice, no charge...
     const btn = $(".b-check", wrap);                                           // ...and motes burst from the button's heart —
     const r = btn && btn.isConnected ? btn.getBoundingClientRect() : null;     // gone already? burst where it sat when pressed
@@ -262,19 +230,19 @@ export function exerciseEl(e, idx, redo, onReview) {
     const bonus = noDecay ? 0 : comboBonus();
     // recompute — the render-time `mult` goes stale when miss() bumps st.a without re-rendering
     const liveMult = noDecay ? 1 : attemptMultiplier(st.a);
-    const pts = Math.round(e.points * liveMult * (1 + bonus) * (S.inv.x2 > 0 ? 2 : 1));
-    if (S.inv.x2 > 0) S.inv.x2--;
-    st.ok = true; st.pts = pts; S.stats.correct++;
-    if (evidenceTome) recordAttempt(S, e, { resolved: true, variantId: e.variantId || "" });
+    const pts = Math.round(e.points * liveMult * (1 + bonus) * (getState().inv.x2 > 0 ? 2 : 1));
+    if (getState().inv.x2 > 0) getState().inv.x2--;
+    st.ok = true; st.pts = pts; getState().stats.correct++;
+    if (evidenceTome) recordAttempt(getState(), e, { resolved: true, variantId: e.variantId || "" });
     if (isReviewable(e)) scheduleReview(st, true); // enroll this recall item in spaced review
     if (!noDecay) {
-      S.stats.streak++;
-      S.stats.bestStreak = Math.max(S.stats.bestStreak || 0, S.stats.streak);
-      if (S.stats.streak === 10) grantBadge("combo-10");
+      getState().stats.streak++;
+      getState().stats.bestStreak = Math.max(getState().stats.bestStreak || 0, getState().stats.streak);
+      if (getState().stats.streak === 10) grantBadge("combo-10");
     }
     addCredits(pts, true);
     castFeedback(true);
-    toast(`THE SEAL HOLDS // <b>+${pts}</b> ${coin()}${bonus > 0 ? ` <span class="dim">(chant x${(1 + bonus).toFixed(2)})</span>` : ""}${S.inv.x2 > 0 ? ` (catalyst: ${S.inv.x2} left)` : ""}`);
+    toast(`THE SEAL HOLDS // <b>+${pts}</b> ${coin()}${bonus > 0 ? ` <span class="dim">(chant x${(1 + bonus).toFixed(2)})</span>` : ""}${getState().inv.x2 > 0 ? ` (catalyst: ${getState().inv.x2} left)` : ""}`);
     wrap.replaceWith(exerciseEl(e, idx));
   }
 
@@ -287,19 +255,19 @@ export function exerciseEl(e, idx, redo, onReview) {
       if (onReview) onReview(false);
       return;
     }
-    S.stats.wrong++;
-    if (evidenceTome) recordAttempt(S, e, { resolved: false, variantId: e.variantId || "" });
+    getState().stats.wrong++;
+    if (evidenceTome) recordAttempt(getState(), e, { resolved: false, variantId: e.variantId || "" });
     castFeedback(false);
     if (noDecay) {
       verdict.className = "ex-verdict no";
       verdict.textContent = msg || "NOT QUITE — study it and try again (drills carry no penalty)";
-    } else if (S.inv.firewall > 0) {
-      S.inv.firewall--;
+    } else if (getState().inv.firewall > 0) {
+      getState().inv.firewall--;
       verdict.className = "ex-verdict no";
-      verdict.textContent = `MISCAST — YOUR WARD ABSORBED IT (${S.inv.firewall} charges left)`;
+      verdict.textContent = `MISCAST — YOUR WARD ABSORBED IT (${getState().inv.firewall} charges left)`;
     } else {
       st.a++;
-      S.stats.streak = 0;
+      getState().stats.streak = 0;
       updateHud();
       verdict.className = "ex-verdict no";
       verdict.textContent = `THE SPELL FIZZLES — now worth ${Math.round(e.points * attemptMultiplier(st.a))}${gp()}`;
@@ -315,63 +283,21 @@ export function exerciseEl(e, idx, redo, onReview) {
 
   const bCheck = $(".b-check", wrap);
   if (bCheck) bCheck.onclick = async () => {
-    const ans = getAnswer();
+    const ans = interaction.getAnswer();
     if (ans === -1 || String(ans).trim() === "") { verdict.className = "ex-verdict no"; verdict.textContent = "THE PAGE IS BLANK"; return; }
-
-    if (e.type === "type") {
-      const diff = firstDiff(ans, e.code);
-      if (diff) {
-        miss(`LINE ${diff.line}: expected «${diff.expected}» got «${diff.got}»${diff.hint}`);
-        return;
-      }
-      if (redo) { solve(); return; } // a recast is a single pass — the reps ladder stays untouched
+    const outcome = await interaction.validate(ans);
+    if (!outcome.passed) { miss(outcome.message); interaction.onIncorrect?.(); return; }
+    if (interactionSpec.repetitions && !redo) {
       st.reps++;
       if (st.reps < totalReps) {
-        sfx("tick");
-        castFeedback(true);
-        save();
+        sfx("tick"); castFeedback(true); save();
         toast(`PASS ${st.reps}/${totalReps} COMPLETE // again — from memory, not from looking`);
-        const fresh = exerciseEl(e, idx);
-        wrap.replaceWith(fresh);
-        const ta = fresh.querySelector("textarea");
-        if (ta) ta.focus();     // keep the operator's hands where they were
-      } else solve();
-      return;
-    }
-
-    if (e.type === "write") {
-      bCheck.disabled = true; bCheck.textContent = "INSCRIBING...";
-      const out = $(".lab-out", wrap);
-      out.classList.remove("hidden");
-      out.textContent = runLabel() + " — the forge takes your inscription...";
-      let data;
-      try {
-        const r = await fetch("/api/runsnippet", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code: ans, stdin: e.stdin || "" }),
-        });
-        data = await r.json();
-      } catch (err) { data = { ok: false, output: "server error: " + err }; }
-      bCheck.disabled = false; bCheck.textContent = "INSCRIBE + CAST";
-      out.textContent = data.output || "(the stone stays silent)";
-      if (!data.ok) { miss("THE FORGE REJECTED IT — read its complaint, mend the inscription, cast again (no penalty)"); return; }
-      const pass = e.expectRe ? new RegExp(e.expectRe, "m").test(data.output) : normCode(data.output) === normCode(e.expect || "");
-      if (pass) solve();
-      else {
-        const d = e.expectRe ? null : firstDiff(data.output, e.expect || "");
-        miss(d ? `IT CASTS, BUT LINE ${d.line} differs: expected «${d.expected}» got «${d.got}»${d.hint}` : "IT CASTS, BUT THE UTTERANCE DOES NOT MATCH THE TARGET");
-      }
-      return;
-    }
-
-    if (checkAnswer(e, ans)) solve();
-    else {
-      miss();
-      if (e.type === "mc") {
-        const selEl = input.querySelector(".choice.sel");
-        if (selEl) { selEl.classList.add("wrong"); setTimeout(() => selEl.classList.remove("wrong"), 900); }
+        const fresh = exerciseEl(e, idx); wrap.replaceWith(fresh);
+        fresh.querySelector("textarea")?.focus();
+        return;
       }
     }
+    solve();
   };
 
   const bRedo = $(".b-redo", wrap);
@@ -383,14 +309,14 @@ export function exerciseEl(e, idx, redo, onReview) {
   if (bHint) bHint.onclick = () => {
     const reveal = () => {
       st.hint = true;
-      if (evidenceTome) recordSupport(S, e, "hint");
+      if (evidenceTome) recordSupport(getState(), e, "hint");
       const h = $(".ex-hint", wrap);
       h.classList.remove("hidden");
       h.textContent = "THE CANDLE WHISPERS :: " + e.hint;
       bHint.remove(); save();
     };
     if (st.hint) { reveal(); return; }
-    modal(`<h2>BUY A WHISPERED HINT?</h2><p class="dim">The candle knows, but it charges: <b>${HINT_COST}</b> ${coin()} (you have <span class="num">${S.credits}</span>).</p>`,
+    modal(`<h2>BUY A WHISPERED HINT?</h2><p class="dim">The candle knows, but it charges: <b>${HINT_COST}</b> ${coin()} (you have <span class="num">${getState().credits}</span>).</p>`,
       [["KEEP YOUR COIN", "quiet"], [`PAY ${HINT_COST}${gp()}`, "", () => { if (spend(HINT_COST)) reveal(); }]]);
   };
 
@@ -399,29 +325,29 @@ export function exerciseEl(e, idx, redo, onReview) {
   // student's current attempt (hints stay distinct: fixed authored nudges).
   const bOrc = $(".b-orc", wrap);
   if (bOrc) bOrc.onclick = () => {
-    const c = oracleContext();
+    const c = dispatchCommand("oracle.context");
     const plain = document.createElement("div");
     plain.innerHTML = e.prompt || "";
-    let detail = `${c.detail}\n\nTHE TRIAL THE STUDENT IS ASKING ABOUT (${EX_LABEL[e.type] || "SPEAK THE WORD"}):\n${plain.textContent.trim()}`;
+    let detail = `${c.detail}\n\nTHE TRIAL THE STUDENT IS ASKING ABOUT (${interactionSpec.label}):\n${plain.textContent.trim()}`;
     if (e.code) detail += `\n\nCODE SHOWN WITH THE TRIAL:\n${e.code}`;
     if (e.type === "write" && e.expect) detail += `\n\nREQUIRED OUTPUT:\n${e.expect}`;
-    const draft = getAnswer();
+    const draft = interaction?.getAnswer();
     if (typeof draft === "string" && draft.trim() && draft.trim() !== (e.starter || "").trim())
       detail += `\n\nSTUDENT'S CURRENT ATTEMPT:\n${draft.slice(0, 3000)}`;
-    askOracle(`${c.label} / TRIAL ${roman(idx + 1)}`, detail, "", {
+    dispatchCommand("oracle.ask", `${c.label} / TRIAL ${roman(idx + 1)}`, detail, "", {
       nodeId: e.id, capabilityIds: e.capabilities || [],
-      onUse: evidenceTome ? () => recordSupport(S, e, "oracle") : null,
+      onUse: evidenceTome ? () => recordSupport(getState(), e, "oracle") : null,
     });
   };
 
   const bSkip = $(".b-skip", wrap);
   if (bSkip) bSkip.onclick = () => {
-    modal(`<h2>UNROLL A SCROLL OF REVELATION?</h2><p class="dim">The answer writes itself and resolves this learning activity at its full ${e.points}${gp()}. It will be marked <b>Completed with support</b>, does not prove independent capability, and may return later in a different form. You carry ${S.inv.skip}.</p>`,
+    modal(`<h2>UNROLL A SCROLL OF REVELATION?</h2><p class="dim">The answer writes itself and resolves this learning activity at its full ${e.points}${gp()}. It will be marked <b>Completed with support</b>, does not prove independent capability, and may return later in a different form. You carry ${getState().inv.skip}.</p>`,
       [["NOT YET", "quiet"], ["UNROLL IT", "", () => {
-        S.inv.skip--; st.ok = true; st.skipped = true; st.pts = e.points;
+        getState().inv.skip--; st.ok = true; st.skipped = true; st.pts = e.points;
         if (evidenceTome) {
-          recordSupport(S, e, "scroll");
-          recordAttempt(S, e, { resolved: true, variantId: e.variantId || "" });
+          recordSupport(getState(), e, "scroll");
+          recordAttempt(getState(), e, { resolved: true, variantId: e.variantId || "" });
         }
         addCredits(e.points, true);
         toast(`THE SCROLL BURNS AS IT READS ITSELF // <b>+${e.points}</b> ${coin()}`);
@@ -430,14 +356,4 @@ export function exerciseEl(e, idx, redo, onReview) {
   };
 
   return wrap;
-}
-
-function normalize(s2) {
-  return String(s2).trim().toLowerCase().replace(/\s+/g, " ").replace(/;$/, "").replace(/^["']|["']$/g, "");
-}
-function checkAnswer(e, ans) {
-  if (e.type === "mc") return ans === e.answer;
-  const norm = normalize(ans);
-  const targets = [e.answer].concat(e.accept || []).map(normalize);
-  return targets.includes(norm);
 }

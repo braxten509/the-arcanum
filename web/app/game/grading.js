@@ -1,26 +1,37 @@
 /* Presenting a Great Working to the tower, and the judgement that comes back. */
 import { GRADING_LINES, J, SRANK_MULT, coin, graderTitle, langName, persona } from "../core/config.js";
 import { $, dropOverlay, esc, ico, modal, sfx, toast } from "../core/dom.js";
-import { addCredits, fsBest, go, grantBadge, renderSidebar, sectionPassed } from "./progress.js";
-import { S, save } from "../core/state.js";
-import { collectFiles, fsSection, saveWorkspace } from "../bench/workbench.js";
+import { addCredits, fsBest, grantBadge, renderSidebar, sectionPassed } from "./progress.js";
+import { getState, save } from "../core/store.js";
+import { sections, tome } from "../core/bootstrap.js";
+import { apiFetch } from "../core/api-client.js";
+import { dispatchCommand } from "../core/commands.js";
+import { go } from "../core/router.js";
+import { isEvidenceTome } from "../mastery/policy.js";
+import { applyAssessmentReceipt } from "../mastery/evidence.js";
+import { assessmentBusy, assessmentEvidenceHtml, submitAssessment } from "../mastery/assessment.js";
 
 const gradingJobs = {}; // sectionId -> jobId while a grade is in flight
 
 export function paintSubmitBtn() {
   const b = $("#b-submit");
-  if (!b || !fsSection) return;
-  const busy = !!gradingJobs[fsSection.id];
+  const section = dispatchCommand("working.section");
+  if (!b || !section) return;
+  const evidence = isEvidenceTome(tome());
+  const busy = evidence ? assessmentBusy(`${section.id}.working`) : !!gradingJobs[section.id];
   b.disabled = busy;
-  b.innerHTML = busy ? `${ico("upload")} BEING JUDGED...` : `${ico("upload")} PRESENT TO ${esc(persona())}`;
+  b.innerHTML = busy ? `${ico("upload")} ASSESSING...` : evidence
+    ? `${ico("upload")} SUBMIT FOR ASSESSMENT`
+    : `${ico("upload")} PRESENT TO ${esc(persona())}`;
 }
 
 export async function submitForGrading() {
-  const sec = fsSection;
+  const sec = dispatchCommand("working.section");
+  if (isEvidenceTome(tome())) return submitEvidenceWorking(sec);
   if (gradingJobs[sec.id]) { toast(`${persona()} already holds this working. One judgement at a time.`, "warn"); return; }
   gradingJobs[sec.id] = "pending";
   paintSubmitBtn();
-  await saveWorkspace(false);
+  await dispatchCommand("working.save", false);
   const overlay = document.createElement("div");
   overlay.className = "grade-overlay";
   overlay.innerHTML = `<div class="grade-card"><div class="grading-anim">
@@ -38,23 +49,23 @@ export async function submitForGrading() {
   }, 5000);
   $("#grade-hide", overlay).onclick = () => overlay.classList.add("hidden");
 
-  S.stats.subs++; save();
+  getState().stats.subs++; save();
 
   let jobId = null;
   try {
-    const r = await fetch("/api/grade", {
+    const r = await apiFetch("/api/grade", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         sectionId: sec.id, sectionTitle: sec.codename + " — " + sec.title,
         brief: sec.freestyle.brief.replace(/<[^>]+>/g, ""),
         rubric: sec.freestyle.rubric,
-        files: collectFiles(),
+        files: dispatchCommand("working.files"),
         language: langName(),
         persona: (J().narrative && J().narrative.graderPersona) || "PATCH",
         studentTerm: (J().narrative && J().narrative.studentTerm) || "recruit",
         gradeScale: (J().narrative && J().narrative.gradeScale) || "S|A|B|C|D|F",
-        fallbackModel: S.ai.grader,
-        grader: { kind: S.ai.graderKind, model: S.ai.graderModel, key: S.ai.keys[S.ai.graderKind] || "", command: S.ai.graderCommand || "" },
+        fallbackModel: getState().ai.grader,
+        grader: { kind: getState().ai.graderKind, model: getState().ai.graderModel, key: getState().ai.keys[getState().ai.graderKind] || "", command: getState().ai.graderCommand || "" },
       }),
     });
     jobId = (await r.json()).jobId;
@@ -69,7 +80,7 @@ export async function submitForGrading() {
 
   const poll = setInterval(async () => {
     let st;
-    try { st = await (await fetch("/api/grade/status?id=" + jobId)).json(); } catch { return; }
+    try { st = await (await apiFetch("/api/grade/status?id=" + jobId)).json(); } catch { return; }
     if (st.status === "running") return;
     clearInterval(poll); clearInterval(lineTimer);
     overlay.remove();
@@ -83,6 +94,45 @@ export async function submitForGrading() {
   }, 3000);
 }
 
+async function submitEvidenceWorking(sec) {
+  if (assessmentBusy(`${sec.id}.working`)) return;
+  const rationale = ($("#fs-rationale")?.value || "").trim();
+  paintSubmitBtn();
+  await dispatchCommand("working.save", false);
+  const overlay = document.createElement("div");
+  overlay.className = "grade-overlay";
+  overlay.innerHTML = `<div class="grade-card assessment-wait"><span class="assessment-kicker">LEARNER WORKSPACE SNAPSHOT</span>
+    <h2>Running deterministic evidence first</h2><p class="dim" id="assessment-stage">Preparing an isolated copy of your work…</p></div>`;
+  document.body.appendChild(overlay);
+  try {
+    const receipt = await submitAssessment({
+      sectionId: sec.id, rationale,
+      onStatus: () => {
+        paintSubmitBtn();
+        const stage = $("#assessment-stage", overlay);
+        if (stage) stage.textContent = "Building, running essential scenarios, then scoring the declared rubric…";
+      },
+    });
+    applyAssessmentReceipt(getState(), receipt.performanceId, receipt);
+    getState().fs[sec.id] = Object.assign(getState().fs[sec.id] || {}, { best: {
+      total: Number(receipt.weightedTotal || 0), grade: receipt.grade,
+      essentialPassed: !!receipt.essentialPassed, independent: !!receipt.independent,
+      at: Date.now(), receiptHash: receipt.receiptHash,
+    }});
+    save();
+    overlay.innerHTML = `<div class="grade-card">${assessmentEvidenceHtml(receipt)}
+      <div class="modal-actions"><button class="btn" id="assessment-close">RETURN TO THE WORKING</button></div></div>`;
+    $("#assessment-close", overlay).onclick = () => dropOverlay(overlay, () => {
+      renderSidebar(); paintSubmitBtn();
+    });
+  } catch (error) {
+    overlay.innerHTML = `<div class="grade-card"><span class="assessment-kicker">ASSESSMENT COULD NOT COMPLETE</span>
+      <h2>Your workspace is unchanged</h2><p>${esc(error.message || error)}</p>
+      <div class="modal-actions"><button class="btn quiet" id="assessment-close">RETURN TO THE WORKING</button></div></div>`;
+    $("#assessment-close", overlay).onclick = () => dropOverlay(overlay);
+  } finally { paintSubmitBtn(); }
+}
+
 function showGradeResult(sec, res) {
   const total = Math.max(0, Math.min(100, Math.round(res.total || 0)));
   const grade = String(res.grade || (total >= 90 ? "A" : total >= 80 ? "B" : total >= 70 ? "C" : total >= 60 ? "D" : "F")).toUpperCase();
@@ -94,17 +144,17 @@ function showGradeResult(sec, res) {
 
   const isBest = !prev || total > prev.total;
   if (isBest) {
-    S.fs[sec.id] = Object.assign(S.fs[sec.id] || {}, { best: { total, grade, awarded: Math.max(ptsFull, prevPts), at: Date.now() } });
+    getState().fs[sec.id] = Object.assign(getState().fs[sec.id] || {}, { best: { total, grade, awarded: Math.max(ptsFull, prevPts), at: Date.now() } });
   }
   if (delta > 0) addCredits(delta, true);
   if (total >= 70) grantBadge(sec.freestyle.badge.id, sec.freestyle.badge.name, sec.freestyle.badge.desc);
   if (grade === "S") grantBadge(sec.id + "-s-rank", "S-RANK: " + sec.codename, "Flawless execution on " + sec.freestyle.title + ".");
-  const allDone = window.SECTIONS.every(sectionPassed);
+  const allDone = sections().every(sectionPassed);
   if (allDone) grantBadge("ghost-protocol");
   save();
 
   if (total >= 60) sfx("grade");                                             // the harp answers a passing judgement
-  else if (window.GhostAudio && S.audio.sfx) GhostAudio.spellHit(false);     // a failing one miscasts — no ding
+  else if (window.GhostAudio && getState().audio.sfx) GhostAudio.spellHit(false);     // a failing one miscasts — no ding
   const overlay = document.createElement("div");
   overlay.className = "grade-overlay";
   overlay.innerHTML = `<div class="grade-card">
@@ -140,8 +190,8 @@ function showGradeResult(sec, res) {
   $("#gr-close", overlay).onclick = () => dropOverlay(overlay, renderSidebar);
   const nx = $("#gr-next", overlay);
   if (nx) nx.onclick = () => dropOverlay(overlay, () => {
-    const i = window.SECTIONS.indexOf(sec);
-    if (i < window.SECTIONS.length - 1) go("section", window.SECTIONS[i + 1].id);
+    const i = sections().indexOf(sec);
+    if (i < sections().length - 1) go("section", sections()[i + 1].id);
     else go("home");
   });
 }

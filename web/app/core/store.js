@@ -1,8 +1,9 @@
-/* The wizard's ledger — the one mutable save state, its autosave, and the ink LED. */
-import { BADGES, J, RANKS, TID } from "./config.js";
+/* The wizard's ledger — the single mutable state and its persistence boundary. */
+import { apiFetch } from "./api-client.js";
+import { getCatalog, tomeId } from "./bootstrap.js";
 import { evidenceDefaults, migrateState } from "../mastery/evidence.js";
 
-export let S = null;
+let currentState = null;
 let saveTimer = null, savePending = false;
 let saveInFlight = null, saveResetting = false;
 let loadDefaulted = false; // true when loadState fell back to a fresh default (server empty/unreachable)
@@ -14,7 +15,7 @@ const hasProgress = (s) => !!(s && (s.earned || s.credits || s.hexesEnabled === 
   (s.assessmentReceipts && Object.keys(s.assessmentReceipts).length)));
 
 const DEFAULT_STATE = () => {
-  const jd = (window.TOME && window.TOME.defaults) || {};
+  const jd = getCatalog().tome.defaults || {};
   const dTheme = jd.theme || "vellum", dai = jd.ai || {};
   return {
     v: 2, booted: false, credits: 0, earned: 0, hexesEnabled: true,
@@ -35,42 +36,51 @@ const DEFAULT_STATE = () => {
 
 export async function loadState() {
   try {
-    const r = await fetch("/api/state");
+    const r = await apiFetch("/api/state");
     const data = await r.json();
     loadDefaulted = !Object.keys(data).length;
-    S = loadDefaulted ? DEFAULT_STATE() : Object.assign(DEFAULT_STATE(), data);
-    S = migrateState(S, { ...(window.TOME || {}), sections: window.SECTIONS || [] });
-    S.inv = Object.assign(DEFAULT_STATE().inv, S.inv);
-    S.stats = Object.assign(DEFAULT_STATE().stats, S.stats);
+    currentState = loadDefaulted ? DEFAULT_STATE() : Object.assign(DEFAULT_STATE(), data);
+    const catalog = getCatalog();
+    currentState = migrateState(currentState, { ...catalog.tome, sections: catalog.sections });
+    currentState.inv = Object.assign(DEFAULT_STATE().inv, currentState.inv);
+    currentState.stats = Object.assign(DEFAULT_STATE().stats, currentState.stats);
     // saves from before the wind had its own slider: it used to ride the crackle volume
-    if (S.audio && S.audio.wind === undefined && typeof S.audio.volume === "number") S.audio.wind = S.audio.volume;
-    S.audio = Object.assign(DEFAULT_STATE().audio, S.audio);
-    S.pen = Object.assign(DEFAULT_STATE().pen, S.pen);
-    S.ai = Object.assign(DEFAULT_STATE().ai, S.ai);
-    S.ai.keys = Object.assign(DEFAULT_STATE().ai.keys, S.ai.keys);
-    S.workspace = Object.assign(DEFAULT_STATE().workspace, S.workspace);
+    if (currentState.audio && currentState.audio.wind === undefined && typeof currentState.audio.volume === "number") currentState.audio.wind = currentState.audio.volume;
+    currentState.audio = Object.assign(DEFAULT_STATE().audio, currentState.audio);
+    currentState.pen = Object.assign(DEFAULT_STATE().pen, currentState.pen);
+    currentState.ai = Object.assign(DEFAULT_STATE().ai, currentState.ai);
+    currentState.ai.keys = Object.assign(DEFAULT_STATE().ai.keys, currentState.ai.keys);
+    currentState.workspace = Object.assign(DEFAULT_STATE().workspace, currentState.workspace);
     // saves from the old terminal era: carry the music toggle over to the hearthfire,
     // and re-home anyone equipped with a theme that no longer exists
-    if (S.audio.ambience === undefined && S.audio.music !== undefined) S.audio.ambience = !!S.audio.music;
-    const known = new Set([...(J().themes || []), ...(J().skins || [])].map((t) => t.id));
-    if (!known.has(S.theme)) S.theme = DEFAULT_STATE().theme;
-    S.themes[DEFAULT_STATE().theme] = true;
+    if (currentState.audio.ambience === undefined && currentState.audio.music !== undefined) currentState.audio.ambience = !!currentState.audio.music;
+    const tome = catalog.tome;
+    const known = new Set([...(tome.themes || []), ...(tome.skins || [])].map((theme) => theme.id));
+    if (!known.has(currentState.theme)) currentState.theme = DEFAULT_STATE().theme;
+    currentState.themes[DEFAULT_STATE().theme] = true;
     // sigils pressed under an older telling keep their ids; re-read name/desc from today's registry
-    const reg = Object.assign({}, BADGES);
-    for (const sec of window.SECTIONS || []) if (sec.freestyle && sec.freestyle.badge) reg[sec.freestyle.badge.id] = sec.freestyle.badge;
-    for (const [id, b] of Object.entries(S.badges || {})) if (reg[id]) { b.name = reg[id].name; b.desc = reg[id].desc; }
+    const reg = Object.fromEntries((tome.badges || []).map((badge) => [badge.id, badge]));
+    for (const sec of catalog.sections) if (sec.freestyle && sec.freestyle.badge) reg[sec.freestyle.badge.id] = sec.freestyle.badge;
+    for (const [id, badge] of Object.entries(currentState.badges || {})) if (reg[id]) { badge.name = reg[id].name; badge.desc = reg[id].desc; }
     // title sigils from the terminal era: same coin thresholds, new names — carry them across
     const OLD_RANK_FLOOR = { "rank-script-kiddie": 0, "rank-code-monkey": 400, "rank-shell-jockey": 1000, "rank-packet-rat": 2000, "rank-cipherpunk": 3500, "rank-netrunner": 5000, "rank-black-hat": 6800, "rank-root-daemon": 9000, "rank-gh0st": 12000 };
+    const ranks = (tome.economy && tome.economy.ranks) || [[0, "APPRENTICE"]];
     for (const [id, floor] of Object.entries(OLD_RANK_FLOOR)) {
-      if (!S.badges[id]) continue;
-      const r = RANKS.find((x) => x[0] === floor);
-      const old = S.badges[id];
-      delete S.badges[id];
+      if (!currentState.badges[id]) continue;
+      const r = ranks.find((x) => x[0] === floor);
+      const old = currentState.badges[id];
+      delete currentState.badges[id];
       if (!r) continue;
       const nid = "rank-" + r[1].toLowerCase().replace(/\s+/g, "-");
-      S.badges[nid] = { name: "TITLE: " + r[1], desc: "Attained the title of " + r[1] + ".", at: old.at };
+      currentState.badges[nid] = { name: "TITLE: " + r[1], desc: "Attained the title of " + r[1] + ".", at: old.at };
     }
-  } catch { S = DEFAULT_STATE(); loadDefaulted = true; }
+  } catch { currentState = DEFAULT_STATE(); loadDefaulted = true; }
+  return currentState;
+}
+
+export function getState() {
+  if (!currentState) throw new Error("application state was read before loadState");
+  return currentState;
 }
 
 export function save(now) {
@@ -79,7 +89,7 @@ export function save(now) {
   // let an autosave write that blank state over a real save on disk — hold off
   // until there's actual progress to persist. a real save resumes the moment
   // the wizard earns anything. (server refuses this too, as a backstop.)
-  if (loadDefaulted && !hasProgress(S)) return;
+  if (loadDefaulted && !hasProgress(currentState)) return;
   savePending = true;
   setLed("saving");
   clearTimeout(saveTimer);
@@ -87,7 +97,7 @@ export function save(now) {
     if (saveResetting) return;
     let request = null;
     try {
-      request = fetch("/api/state", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(S) });
+      request = apiFetch("/api/state", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(currentState) });
       saveInFlight = request;
       await request;
       savePending = false;
@@ -118,7 +128,7 @@ export function resumeStateSaves() {
 }
 window.addEventListener("beforeunload", () => {
   // sendBeacon bypasses the fetch shim, so scope it to the active tome explicitly
-  if (savePending) navigator.sendBeacon("/api/state?tome=" + encodeURIComponent(TID()), new Blob([JSON.stringify(S)], { type: "application/json" }));
+  if (savePending) navigator.sendBeacon("/api/state?tome=" + encodeURIComponent(tomeId()), new Blob([JSON.stringify(currentState)], { type: "application/json" }));
 });
 setInterval(() => { if (savePending) save(true); }, 15000);
 

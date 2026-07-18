@@ -1,8 +1,9 @@
 /* The student's own folder: seeding starter files, previewing them, and choosing the path. */
 import { externalDir } from "../core/config.js";
 import { $, closeModal, esc, modal, sfx, toast } from "../core/dom.js";
-import { S, save } from "../core/state.js";
-import { renderFreestyle } from "./workbench.js";
+import { getState, save } from "../core/store.js";
+import { apiFetch } from "../core/api-client.js";
+import { dispatchCommand } from "../core/commands.js";
 
 // seed the tome's starter files into the student's own folder. mode: "" checks first
 // (seeds silently if nothing is there, else prompts), "missing" adds only absent files,
@@ -11,7 +12,7 @@ export async function seedWorkspace(dir, mode) {
   if (!dir) return false;
   let d;
   try {
-    const r = await fetch("/api/seedworkspace", {
+    const r = await apiFetch("/api/seedworkspace", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ dir, mode: mode || "" }),
     });
@@ -56,7 +57,7 @@ export async function openStarterFile(rel) {
   const actions = $("#modal-root .modal-actions"); if (actions) actions.prepend(copyBtn);
   let content = "";
   try {
-    const r = await fetch("/api/starterfile?path=" + encodeURIComponent(rel));
+    const r = await apiFetch("/api/starterfile?path=" + encodeURIComponent(rel));
     const j = await r.json();
     content = j.ok ? (j.content || "(this file has no starter content)") : ("(" + (j.error || "could not load") + ")");
   } catch (e) { content = "(could not load: " + e + ")"; }
@@ -72,7 +73,7 @@ export async function openStarterFile(rel) {
 export async function openExternalFolder(dir) {
   if (!dir) return;
   try {
-    const r = await fetch("/api/openpath", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dir }) });
+    const r = await apiFetch("/api/openpath", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dir }) });
     const d = await r.json();
     if (!d.ok) toast("Could not open the folder: " + (d.error || "unknown"), "bad");
   } catch (e) { toast("Could not open the folder: " + e, "bad"); }
@@ -80,7 +81,7 @@ export async function openExternalFolder(dir) {
 
 // pick a folder the student builds in with their own editor; validated server-side
 export function externalEditorModal(sid) {
-  const cur = (S.workspace && S.workspace.dir) || externalDir() || "";
+  const cur = (getState().workspace && getState().workspace.dir) || externalDir() || "";
   modal(`<h2>USE YOUR OWN EDITOR</h2>
     <p class="dim">Point the workbench at a folder you build in your own IDE (IntelliJ, VS Code, a real project). <b>CAST</b> and <b>PRESENT</b> then run and grade that folder instead of the built-in editor — the engine only reads it, and never edits, scaffolds, or resets your project.</p>
     <input type="text" id="ext-dir" style="width:100%" placeholder="/home/you/projects/MyBuild" value="${esc(cur)}" spellcheck="false">
@@ -94,14 +95,14 @@ export function externalEditorModal(sid) {
     if (!dir) { msg.textContent = "Enter a folder path."; return; }
     msg.textContent = "checking the path...";
     try {
-      const r = await fetch("/api/checkdir?path=" + encodeURIComponent(dir));
+      const r = await apiFetch("/api/checkdir?path=" + encodeURIComponent(dir));
       const d = await r.json();
       if (!d.abs) { msg.textContent = "Use an ABSOLUTE path (it must start with / )."; return; }
       if (!d.isdir) { msg.textContent = "No folder exists there — create it first, or fix the path."; return; }
     } catch (e) { msg.textContent = "Could not check the path: " + e; return; }
-    S.workspace = { enabled: true, dir };
+    getState().workspace = { enabled: true, dir };
     save();
-    closeModal(() => { renderFreestyle(sid); seedWorkspace(dir, ""); });
+    closeModal(() => { dispatchCommand("working.open", sid); seedWorkspace(dir, ""); });
   };
   setTimeout(() => { const f = $("#ext-dir"); if (f) f.focus(); }, 50);
 }

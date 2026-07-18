@@ -1,17 +1,8 @@
-/* Tome config — every tunable the active Tome may override, plus the neutral fallbacks.
-   Importing this installs the tome-scoping fetch shim. */
-import { $ } from "./dom.js";
-import { S } from "./state.js";
+/* Tome config — neutral fallbacks projected from the bootstrapped catalog. */
+import { sections, tome, tomeId } from "./bootstrap.js";
+import { getState } from "./store.js";
 
-// every /api/* request is transparently scoped to the active tome
-export const TID = () => (window.tid ? window.tid() : "verisearch");
-const _fetch = window.fetch.bind(window);
-window.fetch = (url, opts) => {
-  if (typeof url === "string" && url.startsWith("/api/") && !/[?&]tome=/.test(url)) {
-    url += (url.includes("?") ? "&" : "?") + "tome=" + encodeURIComponent(TID());
-  }
-  return _fetch(url, opts);
-};
+export const TID = tomeId;
 
 // ------------- tome config: neutral fallbacks only — every tome provides its own
 // (a tome that omits a table gets these minimal defaults, never another course's content)
@@ -49,7 +40,7 @@ export let ATK_STAGE_AT = [0, 60, 120]; // seconds elapsed when each directive a
 
 // pull every tunable from the active Tome (falls back to the defaults above)
 export function applyTomeConfig() {
-  const j = window.TOME || {}, e = j.economy || {}, n = j.narrative || {}, p = j.progression || {};
+  const j = tome(), e = j.economy || {}, n = j.narrative || {}, p = j.progression || {};
   if (e.ranks) RANKS = e.ranks;
   // the five engine power-ups always exist (mechanics never break); a tome reflavors them by id,
   // and any it omits fall back to these generic defaults. oracle stays opt-in (needs a mentor model).
@@ -68,8 +59,7 @@ export function applyTomeConfig() {
   if (e.attackStakePerDiff != null) ATK_STAKE_PER = e.attackStakePerDiff;
   if (e.attackWinPerDiff != null) ATK_WIN_PER = e.attackWinPerDiff;
   if (n.gradingLines) GRADING_LINES = n.gradingLines;
-  if (n.opsLabel) $("#side-ops-label").textContent = n.opsLabel;
-  if (n.bootLines) BOOT_LINES = n.bootLines.map((l) => l.replace("{N}", String((window.SECTIONS || []).length)));
+  if (n.bootLines) BOOT_LINES = n.bootLines.map((line) => line.replace("{N}", String(sections().length)));
   if (p.intrusionTiers) INTRUSION_TIERS = p.intrusionTiers;
   if (p.attackTime != null) ATK_TIME = p.attackTime;
   if (p.attackStages) ATK_STAGE_AT = p.attackStages;
@@ -78,16 +68,18 @@ export function applyTomeConfig() {
   BADGES = {};
   for (const b of (j.badges || [])) BADGES[b.id] = b;
   EARNED_THEME = p.earnedTheme || null;
+  return { opsLabel: n.opsLabel || "CHAPTERS" };
 }
 
-export const J = () => window.TOME || {};
+export const J = tome;
 export const persona = () => (J().narrative && J().narrative.graderPersona) || "THE MAGISTER";
 // the tower's name plate: names the grader ACTUALLY selected in settings, not the
 // tome's flavor text — "OPUS 4.8 // MAGISTER THORNE", "QWEN3:14B // MAGISTER THORNE"
 const GRADER_KIND_NAME = { "claude-cli": "CLAUDE", "antigravity-cli": "ANTIGRAVITY", "codex-cli": "CODEX", "opencode-cli": "OPENCODE", anthropic: "ANTHROPIC", openai: "OPENAI", ollama: "OLLAMA", other: "A CUSTOM SCRIBE" };
 export function graderTitle() {
-  const m = ((S && S.ai && S.ai.graderModel) || "").replace(/^claude-/, "").replace(/-(\d+)-(\d+)$/, " $1.$2").replace(/-/g, " ");
-  const who = (m || GRADER_KIND_NAME[S && S.ai && S.ai.graderKind] || "THE TOWER").toUpperCase();
+  const state = getState();
+  const m = ((state.ai && state.ai.graderModel) || "").replace(/^claude-/, "").replace(/-(\d+)-(\d+)$/, " $1.$2").replace(/-/g, " ");
+  const who = (m || GRADER_KIND_NAME[state.ai && state.ai.graderKind] || "THE TOWER").toUpperCase();
   return `${who} // ${persona()}`;
 }
 export const coin = () => (J().narrative && J().narrative.currency) || "coin";      // "80 coin"
@@ -108,10 +100,10 @@ export const runLabel = () => {
 // and CAST/PRESENT operate on that folder. A course can REQUIRE external mode via
 // [runtime] externalWorkspace = true (a real toolchain, e.g. a Gradle mod), but the
 // folder is always the student's — the tome never hardwires a path. Any tome can also
-// be switched to external mode by the student via S.workspace (read after boot).
+// be switched to external mode by the student via getState().workspace (read after boot).
 export const externalByAuthor = () => !!(J().runtime && J().runtime.externalWorkspace);
-export const externalMode = () => externalByAuthor() || !!(S && S.workspace && S.workspace.enabled);
-export const externalDir = () => (S && S.workspace && S.workspace.dir) || "";
+export const externalMode = () => externalByAuthor() || !!getState().workspace.enabled;
+export const externalDir = () => getState().workspace.dir || "";
 // the files a fresh project needs (entry file, plus a project marker like a .csproj) —
 // for the workbench file list and for seeding a student's own folder. `location` is set
 // only when the file must live in a specific subdirectory of the project.

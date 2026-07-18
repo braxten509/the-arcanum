@@ -1,5 +1,6 @@
 /* Inline monaco pads and the code comparison used by drills, labs, hexes and duels. */
-import { S } from "../core/state.js";
+import { getState } from "../core/store.js";
+import { apiFetch } from "../core/api-client.js";
 
 // normalize code for typing-drill / lab-output comparison:
 // trims line ends, collapses internal whitespace runs, drops blank lines
@@ -27,7 +28,7 @@ export function codePad(host, value, onCtrlEnter) {
   for (let i = pads.length - 1; i >= 0; i--) // sweep editors whose DOM is gone
     if (!pads[i].host.isConnected) { pads[i].ed.dispose(); pads.splice(i, 1); }
   host.style.height = Math.min(30, Math.max(12, value.split("\n").length + 4)) * 22 + 26 + "px";
-  const pe = window.GhostEditor.create(host, S.theme);
+  const pe = window.GhostEditor.create(host, getState().theme);
   pe.setValue(value);
   if (onCtrlEnter) pe.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, onCtrlEnter);
   pads.push({ host, ed: pe });
@@ -39,7 +40,7 @@ export function codePad(host, value, onCtrlEnter) {
     busy = true;
     let data = null;
     try {
-      const r = await fetch("/api/snippetdiag", {
+      const r = await apiFetch("/api/snippetdiag", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: pe.getValue() }),
       });

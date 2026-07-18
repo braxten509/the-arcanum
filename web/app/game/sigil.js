@@ -45,7 +45,7 @@ function readToml(txt, into) {
   }
   return into;
 }
-const loadToml = (file, into) => fetch(file).then((r) => r.text()).then((t) => readToml(t, into)).catch(() => {}); // missing file: baked defaults stand
+const loadToml = (file, into) => apiFetch(file).then((r) => r.text()).then((t) => readToml(t, into)).catch(() => {}); // missing file: baked defaults stand
 loadToml("global-configs/sigil.toml", SIG);
 const GALACTIC = {
   a: [[[0, 6], [1.1, 6], [1.1, 1.5], [1.5, .4], [2.5, .4], [3, 1.1], [3, 2.5]]],
@@ -448,3 +448,4 @@ export function castSigil(anchor, ok) {
   });
 }
 window.castSigil = castSigil; // console-reachable: lets you audition a palette's sigil colors
+import { apiFetch } from "../core/api-client.js";

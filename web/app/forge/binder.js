@@ -2,8 +2,9 @@
    course, guided by course-configuration-guide.md; validated after.
    The [PROVIDER][MODEL][EFFORT] cascade is the bindery's, fed by /api/models. */
 import { $, esc, mdLite, modal, toast } from "../core/dom.js";
-import { prepareStateReset, resumeStateSaves } from "../core/state.js";
+import { prepareStateReset, resumeStateSaves } from "../core/store.js";
 import { enhanceSelect } from "../ui/menu.js";
+import { apiFetch } from "../core/api-client.js";
 
 let binderPoll = null;   // one watcher at a time, even across bench visits
 
@@ -136,7 +137,7 @@ export function showBinder() {
   // Fetch failures retry quietly before the toast — a hiccup mid-startup is not "server down".
   // fillBindery sits in .then's SUCCESS slot only, so its own errors never trigger the toast.
   const loadModels = (attempt = 0) => {
-    fetch("/api/models").then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    apiFetch("/api/models").then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(fillBindery, () => {
         if (attempt < 2) { setTimeout(() => loadModels(attempt + 1), 800 * (attempt + 1)); return; }
         k.prov.innerHTML = '<option value="">—</option>'; k.prov.disabled = true;
@@ -186,7 +187,7 @@ export function showBinder() {
     await prepareStateReset();
     let resetDone = false;
     try {
-      const response = await fetch("/api/buildtome/reset", {
+      const response = await apiFetch("/api/buildtome/reset", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phase, confirm: "reset-tome-build",
           confirmTome: window.__ACTIVE_TOME }),
@@ -197,7 +198,7 @@ export function showBinder() {
       const author = { kind: provider.kind, model: k.model.value,
         ...(k.eff.value ? { effort: k.eff.value } : {}) };
       try {
-        const resumeResponse = await fetch("/api/buildtome/resume", {
+        const resumeResponse = await apiFetch("/api/buildtome/resume", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id: reset.id, fromPhase: phase, author, bindery: { author } }),
         });
@@ -321,7 +322,7 @@ export function showBinder() {
         rs.checked = !!st.resetOk; syncReset();
         runWithHand(prov, model, eff);
       },
-      onDismiss: () => { fetch("/api/amend/dismiss", { method: "POST" }).catch(() => {}); },
+      onDismiss: () => { apiFetch("/api/amend/dismiss", { method: "POST" }).catch(() => {}); },
     });
   }
   // watch one server-side job. The job outlives this dialog — leaving the bench
@@ -339,7 +340,7 @@ export function showBinder() {
     cx.onclick = async () => {
       cx.disabled = true;
       try {
-        const r = await (await fetch("/api/amend/cancel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: jobId }) })).json();
+        const r = await (await apiFetch("/api/amend/cancel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: jobId }) })).json();
         if (!r.ok) throw new Error(r.error || "the server would not stay the quill");
       } catch (e) {
         toast("Could not cancel: " + esc(String(e.message || e)) + " — if the server predates this button, restart it.", "bad");
@@ -350,7 +351,7 @@ export function showBinder() {
     clearInterval(binderPoll);
     binderPoll = setInterval(async () => {
       let st;
-      try { st = await (await fetch("/api/amend/status?id=" + encodeURIComponent(jobId))).json(); } catch { return; }
+      try { st = await (await apiFetch("/api/amend/status?id=" + encodeURIComponent(jobId))).json(); } catch { return; }
       if (isBroad && st.logtail != null) { out.innerHTML = mdLite(st.logtail || "the binder works…"); out.scrollTop = out.scrollHeight; }
       if (st.status === "running") return;
       clearInterval(binderPoll);
@@ -399,7 +400,7 @@ export function showBinder() {
     out.classList.remove("hidden");
     out.textContent = "the quill is dipped...";
     try {
-      const r = await (await fetch("/api/amend", {
+      const r = await (await apiFetch("/api/amend", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ request: q, kind: p.kind, model: k.model.value, effort: k.eff.value || undefined, broad: bd.checked, iterate: it.checked, resetOk: rs.checked, review: rv.checked, reviewPath: (!rv.checked && lastReview) || undefined }),
       })).json();
@@ -413,7 +414,7 @@ export function showBinder() {
   // On open: reattach to a job still inking in this server, else offer to resume one a lost
   // server/runner cut short. Runs after the model list loads so the resume card has hands to pick.
   function reattachOrResume() {
-    fetch("/api/amend/current").then((r) => r.json()).then((d) => {
+    apiFetch("/api/amend/current").then((r) => r.json()).then((d) => {
       if (d.jobId) {
         const q = $("#binder-q");
         if (q && !q.value) q.value = d.request || "";
@@ -422,7 +423,7 @@ export function showBinder() {
         watch(d.jobId, !!(d.broad || d.review));
         return;
       }
-      fetch("/api/amend/resumable").then((r) => r.json()).then((rd) => {
+      apiFetch("/api/amend/resumable").then((r) => r.json()).then((rd) => {
         if (rd && rd.resumable) binderResume(rd.resumable);
       }).catch(() => { /* nothing to resume */ });
     }).catch(() => { /* no reattach; the bench still works */ });

@@ -2,15 +2,17 @@
 import { ORACLE_COST, gp, langName, newFileExt } from "../core/config.js";
 import { $, esc, ico, modal, sfx } from "../core/dom.js";
 import { secById, spend } from "../game/progress.js";
-import { S, save } from "../core/state.js";
-import { activeFile, ed, models } from "./workbench.js";
+import { getState, save } from "../core/store.js";
+import { currentWorkbench } from "./workbench.js";
+import { apiFetch } from "../core/api-client.js";
 
 // what the operator has highlighted right now: Monaco selection, textarea/input selection, or page text.
 // call from pointerdown — by click time the browser has already collapsed document selections.
 export function grabSelection() {
-  if (S.nav && S.nav.view === "freestyle" && ed && ed.getModel()) {
-    const s2 = ed.getSelection();
-    if (s2 && !s2.isEmpty()) return ed.getModel().getValueInRange(s2);
+  const workbench = currentWorkbench();
+  if (getState().nav && getState().nav.view === "freestyle" && workbench.editor && workbench.editor.getModel()) {
+    const s2 = workbench.editor.getSelection();
+    if (s2 && !s2.isEmpty()) return workbench.editor.getModel().getValueInRange(s2);
   }
   const ae = document.activeElement;
   if (ae && (ae.tagName === "TEXTAREA" || ae.tagName === "INPUT") && ae.selectionStart !== ae.selectionEnd)
@@ -20,7 +22,7 @@ export function grabSelection() {
 
 // context for a global oracle ask, based on where the operator currently is
 export function oracleContext() {
-  const nav = S.nav || {};
+  const nav = getState().nav || {};
   const sec = nav.sec && secById(nav.sec);
   let label = "global", detail = `no specific lesson open — general ${langName()} question`;
   if (nav.view === "lesson" && sec) {
@@ -30,9 +32,10 @@ export function oracleContext() {
   } else if (nav.view === "freestyle" && sec) {
     label = `${sec.codename} / freestyle`;
     detail = `${sec.codename} — ${sec.title} / freestyle build: ${sec.build}`;
-    const m = activeFile && models[activeFile];
-    if (activeFile && activeFile.endsWith(newFileExt()) && m && !m.isDisposed())
-      detail += `\n\nSTUDENT'S CURRENT FILE (${activeFile}):\n${m.getValue()}`;
+    const activeFile = workbench.activePath;
+    const model = activeFile && workbench.models.get(activeFile);
+    if (activeFile && activeFile.endsWith(newFileExt()) && model && !model.isDisposed())
+      detail += `\n\nSTUDENT'S CURRENT FILE (${activeFile}):\n${model.getValue()}`;
   } else if (sec) {
     label = sec.codename;
     detail = `${sec.codename} — ${sec.title}`;
@@ -41,26 +44,26 @@ export function oracleContext() {
 }
 
 export function paintOracleBtn() {
-  const n = `(${S.inv.oracle || 0})`;
+  const n = `(${getState().inv.oracle || 0})`;
   const hit = $("#obj-orb .obj-hit"); if (hit) hit.title = `Ask the Oracle a question — ${n} left`;
   const ob = $("#b-oracle"); if (ob) ob.innerHTML = `${ico("orb")} CONSULT THE ORACLE ${n}`;
 }
 
 export function askOracle(label, detail, selection, evidence = {}) {
-  if ((S.inv.oracle || 0) < 1) {
+  if ((getState().inv.oracle || 0) < 1) {
     modal(`<h2>WAKE THE ORACLE?</h2>
       <p class="dim">One question whispered into the crystal — an AI spirit dwelling in this very machine (Ollama). Each scrying answers a single question.</p>
-      <p>The orb demands: <b class="num">${ORACLE_COST}</b>${gp()} — your purse holds <span class="num">${S.credits}</span>${gp()}.</p>`,
+      <p>The orb demands: <b class="num">${ORACLE_COST}</b>${gp()} — your purse holds <span class="num">${getState().credits}</span>${gp()}.</p>`,
       [["LET IT SLEEP", "quiet"], [`PAY (${ORACLE_COST}${gp()})`, "", () => {
         if (!spend(ORACLE_COST)) return;
-        S.inv.oracle = (S.inv.oracle || 0) + 1;
+        getState().inv.oracle = (getState().inv.oracle || 0) + 1;
         sfx("peddler"); save(); paintOracleBtn();
         askOracle(label, detail, selection, evidence);
       }]]);
     return;
   }
   modal(`<h2>CONSULT THE ORACLE</h2>
-    <p class="dim">One question to the spirit in the crystal. Consumes one scrying — you hold ${S.inv.oracle}.</p>
+    <p class="dim">One question to the spirit in the crystal. Consumes one scrying — you hold ${getState().inv.oracle}.</p>
     ${selection ? `<div class="faint" style="font-size:10.5px;letter-spacing:.14em;margin-bottom:4px">THE ORB REFLECTS YOUR SELECTION</div>
     <pre style="max-height:110px;overflow:auto;margin:0 0 10px;padding:8px;border:1px solid var(--line-hi);border-radius:3px;font-family:var(--mono);font-size:12px"><code></code></pre>` : ""}
     <textarea id="oracle-q" rows="3" style="width:100%" placeholder="e.g. why does ReadLine return null? what's the difference between var and int?"></textarea>
@@ -80,12 +83,12 @@ export function askOracle(label, detail, selection, evidence = {}) {
     out.textContent = "gazing into the glass...";
     let data;
     try {
-      const r = await fetch("/api/oracle", {
+      const r = await apiFetch("/api/oracle", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           question: q,
-          model: S.ai.oracle,
-          kind: S.ai.oracleKind || "ollama",
+          model: getState().ai.oracle,
+          kind: getState().ai.oracleKind || "ollama",
           language: langName(),
           context: detail + (selection ? `\n\nTHE STUDENT HIGHLIGHTED THIS TEXT (their question likely refers to it):\n${selection.slice(0, 2000)}` : ""),
         }),
@@ -96,12 +99,12 @@ export function askOracle(label, detail, selection, evidence = {}) {
     if (data.ok) {
       if (typeof evidence.onUse === "function") evidence.onUse();
       const at = Date.now();
-      (S.oracleLog = S.oracleLog || []).push({
+      (getState().oracleLog = getState().oracleLog || []).push({
         q, a: data.answer, ctx: label, at,
         nodeId: evidence.nodeId || "", capabilityIds: evidence.capabilityIds || [],
         responseId: data.responseId || `local-${at}`,
       });
-      S.inv.oracle--;
+      getState().inv.oracle--;
       save();
       paintOracleBtn();
       askBtn.remove();   // one question per scrying — pay again for the next
@@ -115,7 +118,7 @@ export function askOracle(label, detail, selection, evidence = {}) {
 }
 
 export function showOracleLog() {
-  const rows = (S.oracleLog || []).slice().reverse().map((e) =>
+  const rows = (getState().oracleLog || []).slice().reverse().map((e) =>
     `<div style="margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--line)">
       <div class="dim" style="font-size:11px">${new Date(e.at).toLocaleString()} — ${esc(e.ctx || "")}</div>
       <div style="margin:6px 0"><b>&gt; ${esc(e.q)}</b></div>

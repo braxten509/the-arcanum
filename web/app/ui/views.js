@@ -5,17 +5,21 @@ import { $, esc, ico, modal, refreshCoins, sfx, toast } from "../core/dom.js";
 import { atkQualifying } from "../game/duel.js";
 import { GATE_MIN, exerciseEl, reviewBanner, reviewDue, reviewGate, startReview, wireReview } from "../game/exercise.js";
 import { askOracle, grabSelection } from "../bench/oracle.js";
-import { freestyleUnlocked, fsBest, go, lessonDone, rank, secById, sectionExercises, sectionPassed, sectionSolvedFrac, sectionUnlocked, spend } from "../game/progress.js";
-import { S, save } from "../core/state.js";
+import { freestyleUnlocked, fsBest, lessonDone, rank, secById, sectionExercises, sectionPassed, sectionSolvedFrac, sectionUnlocked, spend } from "../game/progress.js";
+import { getState, save } from "../core/store.js";
+import { sections, tome } from "../core/bootstrap.js";
+import { go } from "../core/router.js";
+import { masteryPanelHtml, sectionLabsHtml } from "../mastery/ledger-view.js";
+import { exerciseEvidence, isEvidenceTome, requiredExercises, workingStatus } from "../mastery/policy.js";
 
 // ------------------------------------------------------------ HOME
 export function renderHome() {
   const v = $("#view-home");
   v.classList.remove("hidden");
   const r = rank();
-  const nextSec = window.SECTIONS.find((sec, i) => sectionUnlocked(i) && !sectionPassed(sec));
-  const badges = Object.entries(S.badges).sort((a, b2) => a[1].at - b2[1].at);
-  const pct = r.next ? Math.min(100, Math.round(((S.earned - r.floor) / (r.next[0] - r.floor)) * 100)) : 100;
+  const nextSec = sections().find((sec, i) => sectionUnlocked(i) && !sectionPassed(sec));
+  const badges = Object.entries(getState().badges).sort((a, b2) => a[1].at - b2[1].at);
+  const pct = r.next ? Math.min(100, Math.round(((getState().earned - r.floor) / (r.next[0] - r.floor)) * 100)) : 100;
 
   v.innerHTML = `
     <div class="crumb">${esc((J().narrative && J().narrative.logo) || "ARCANUM")} — your ledger</div>
@@ -30,22 +34,22 @@ export function renderHome() {
           <div class="rank-name">${r.name}</div>
           <div class="rank-next">
             ${r.next
-              ? `<span class="dim" style="font-size:12.5px">next: ${r.next[1]} at <span class="num">${r.next[0]}</span> lifetime ${coin()} (<span class="num">${S.earned}</span> earned)</span><div class="meter"><i style="width:${pct}%"></i></div>`
+              ? `<span class="dim" style="font-size:12.5px">next: ${r.next[1]} at <span class="num">${r.next[0]}</span> lifetime ${coin()} (<span class="num">${getState().earned}</span> earned)</span><div class="meter"><i style="width:${pct}%"></i></div>`
               : `<span class="dim">The highest title. Even the candle bows a little.</span>`}
           </div>
         </div>
-        <div class="stat-row"><span>TITLES EARNED</span><b class="num">${RANKS.filter((x) => S.earned >= x[0]).length} / ${RANKS.length}</b></div>
-        <div class="stat-row"><span>${coin().toUpperCase()} IN YOUR PURSE</span><b class="num">${S.credits}</b></div>
-        <div class="stat-row"><span>LIFETIME EARNED</span><b class="num">${S.earned}</b></div>
-        <div class="stat-row"><span>TRIALS PASSED</span><b class="num">${Object.values(S.ex).filter((e) => e.ok).length}</b></div>
-        <div class="stat-row"><span>MISCASTS SURVIVED</span><b class="num">${S.stats.wrong}</b></div>
-        <div class="stat-row"><span>SPELLS CAST</span><b class="num">${S.stats.runs}</b></div>
-        <div class="stat-row"><span>WORKINGS PRESENTED</span><b class="num">${S.stats.subs}</b></div>
-        <div class="stat-row"><span>CHAPTERS SEALED</span><b class="num">${window.SECTIONS.filter(sectionPassed).length} / ${window.SECTIONS.length}</b></div>
-        <div class="stat-row"><span>HEXES BROKEN</span><b class="num">${S.stats.intrusionW || 0} / ${(S.stats.intrusionW || 0) + (S.stats.intrusionL || 0)}</b></div>
-        <div class="stat-row"><span>DUELS WON</span><b class="num">${S.stats.atkW || 0} / ${(S.stats.atkW || 0) + (S.stats.atkL || 0)}</b></div>
-        <div class="stat-row"><span>REVIEWS RE-FORGED</span><b class="num">${S.stats.reviews || 0}</b></div>
-        ${EARNED_THEME ? `<div class="stat-row"><span>${esc(EARNED_THEME.name)} PROGRESS</span><b class="num">${S.themes[EARNED_THEME.id] ? "WON" : atkQualifying() + " / " + BLACKICE_N}</b></div>` : ""}
+        <div class="stat-row"><span>TITLES EARNED</span><b class="num">${RANKS.filter((x) => getState().earned >= x[0]).length} / ${RANKS.length}</b></div>
+        <div class="stat-row"><span>${coin().toUpperCase()} IN YOUR PURSE</span><b class="num">${getState().credits}</b></div>
+        <div class="stat-row"><span>LIFETIME EARNED</span><b class="num">${getState().earned}</b></div>
+        <div class="stat-row"><span>TRIALS PASSED</span><b class="num">${Object.values(getState().ex).filter((e) => e.ok).length}</b></div>
+        <div class="stat-row"><span>MISCASTS SURVIVED</span><b class="num">${getState().stats.wrong}</b></div>
+        <div class="stat-row"><span>SPELLS CAST</span><b class="num">${getState().stats.runs}</b></div>
+        <div class="stat-row"><span>WORKINGS PRESENTED</span><b class="num">${getState().stats.subs}</b></div>
+        <div class="stat-row"><span>CHAPTERS SEALED</span><b class="num">${sections().filter(sectionPassed).length} / ${sections().length}</b></div>
+        <div class="stat-row"><span>HEXES BROKEN</span><b class="num">${getState().stats.intrusionW || 0} / ${(getState().stats.intrusionW || 0) + (getState().stats.intrusionL || 0)}</b></div>
+        <div class="stat-row"><span>DUELS WON</span><b class="num">${getState().stats.atkW || 0} / ${(getState().stats.atkW || 0) + (getState().stats.atkL || 0)}</b></div>
+        <div class="stat-row"><span>REVIEWS RE-FORGED</span><b class="num">${getState().stats.reviews || 0}</b></div>
+        ${EARNED_THEME ? `<div class="stat-row"><span>${esc(EARNED_THEME.name)} PROGRESS</span><b class="num">${getState().themes[EARNED_THEME.id] ? "WON" : atkQualifying() + " / " + BLACKICE_N}</b></div>` : ""}
         ${nextSec ? `
         <div class="continue-strip">
           <div>
@@ -58,7 +62,7 @@ export function renderHome() {
       </div>
       <div>
         <h2 style="margin-top:0">YOUR SATCHEL</h2>
-        ${SHOP.filter((s2) => s2.kind === "consumable").map((item) => `<div class="stat-row"><span>${ico(item.ico)} ${item.name}</span><b class="num">${S.inv[item.id] || 0}</b></div>`).join("")}
+        ${SHOP.filter((s2) => s2.kind === "consumable").map((item) => `<div class="stat-row"><span>${ico(item.ico)} ${item.name}</span><b class="num">${getState().inv[item.id] || 0}</b></div>`).join("")}
         <h2>SIGILS <span class="dim num" style="font-weight:400">(${badges.length})</span></h2>
         <div class="badge-grid cascade">
           ${badges.length ? badges.map(([id, b2], i) => `
@@ -68,9 +72,12 @@ export function renderHome() {
             </div>`).join("") : `<div class="dim" style="grid-column:1/-1">No sigils pressed yet. Complete a chapter's Great Working to earn your first.</div>`}
         </div>
       </div>
-    </div>`;
+    </div>
+    ${masteryPanelHtml(tome(), sections(), getState())}`;
   const cont = $("#btn-continue");
   if (cont) cont.onclick = () => go("section", nextSec.id);
+  v.querySelectorAll("[data-mastery-lab]").forEach((button) =>
+    button.onclick = () => go("mastery-lab", button.dataset.masteryLab));
 }
 
 // ------------------------------------------------------------ SECTION
@@ -82,6 +89,8 @@ export function renderSection(sid) {
   const frac = sectionSolvedFrac(sec);
   const fsOpen = freestyleUnlocked(sec);
   const best = fsBest(sid);
+  const evidenceMode = isEvidenceTome(tome());
+  const workingLabel = workingStatus(best, fsOpen);
 
   v.innerHTML = `
     <div class="crumb"><button data-nav="home">LEDGER</button> / ${esc(sec.codename)}</div>
@@ -95,13 +104,18 @@ export function renderSection(sid) {
     <h2>THE MASTER'S LESSONS <span class="dim" style="font-family:var(--fell);font-size:12.5px;letter-spacing:0">(study each, then face its trials for ${coin()})</span></h2>
     <div class="lesson-list cascade">
       ${sec.lessons.map((l, i) => {
-        const total = l.exercises.length;
-        const done = l.exercises.filter((e) => S.ex[e.id] && S.ex[e.id].ok).length;
+        const exercises = evidenceMode ? requiredExercises(l) : l.exercises;
+        const total = exercises.length;
+        const done = evidenceMode
+          ? exercises.filter((exercise) => exerciseEvidence(getState(), exercise).resolved).length
+          : exercises.filter((e) => getState().ex[e.id] && getState().ex[e.id].ok).length;
+        const independent = evidenceMode
+          ? exercises.filter((exercise) => exerciseEvidence(getState(), exercise).independent).length : 0;
         const pts = l.exercises.reduce((a, e) => a + e.points, 0);
         return `<button class="lesson-row" data-lesson="${l.id}" style="--i:${i}">
           <span class="l-num">${roman(i + 1)}</span>
           <span>${esc(l.title)}</span>
-          <span class="l-pts num">${done}/${total} · ${pts}${gp()}</span>
+          <span class="l-pts num">${evidenceMode ? `${done}/${total} resolved · ${independent}/${total} independent` : `${done}/${total} · ${pts}${gp()}`}</span>
           <span class="l-state">${done === total && total > 0 ? ico("check") : ""}</span>
         </button>`;
       }).join("")}
@@ -113,18 +127,22 @@ export function renderSection(sid) {
           <b>${esc(sec.freestyle.title)}</b>
           <div class="dim" style="font-size:12.5px;margin-top:4px">
             ${fsOpen
-              ? (best ? `Best judgement: <b class="num">${esc(best.grade)} (${best.total}/100)</b> — present it again to improve.` : `The scroll awaits. Write real code, be judged by ${esc(persona())}, earn up to <span class="num">${Math.round(sec.freestyle.reward * SRANK_MULT)}</span> ${coin()}.`)
+              ? (best ? `${evidenceMode ? "Working status" : "Best judgement"}: <b class="num">${esc(workingLabel)} (${best.total}/100)</b> — ${evidenceMode ? "every essential behavior must remain green" : "present it again to improve"}.` : evidenceMode ? `Working status: <b>ready</b> — submit an isolated snapshot for deterministic evidence and a B-or-better assessment.` : `The scroll awaits. Write real code, be judged by ${esc(persona())}, earn up to <span class="num">${Math.round(sec.freestyle.reward * SRANK_MULT)}</span> ${coin()}.`)
+              : evidenceMode ? `Working status: <b>${esc(workingLabel)}</b> — resolve every required activity and clear due review before assessment.`
               : `SEALED — pass <span class="num">${Math.ceil(sectionExercises(sec).length * 0.7)}</span> of <span class="num">${sectionExercises(sec).length}</span> trials to break the seal (<span class="num">${Math.round(frac * 100)}%</span> done, need 70%).`}
           </div>
         </div>
         <button class="btn ${fsOpen ? "" : "quiet"}" id="btn-fs" ${fsOpen ? "" : "disabled"}>${ico("scroll")} UNROLL THE SCROLL</button>
       </div>
-    </div>`;
+    </div>
+    ${sectionLabsHtml(tome(), sid, getState())}`;
   v.querySelectorAll("[data-lesson]").forEach((b) => (b.onclick = () => go("lesson", sid, b.dataset.lesson)));
   $("[data-nav=home]", v).onclick = () => go("home");
   wireReview(v);
   const fsBtn = $("#btn-fs", v);
   if (fsBtn && fsOpen) fsBtn.onclick = () => reviewGate(() => go("freestyle", sid));
+  v.querySelectorAll("[data-mastery-lab]").forEach((button) =>
+    button.onclick = () => go("mastery-lab", button.dataset.masteryLab));
 }
 
 // ------------------------------------------------------------ LESSON
@@ -135,7 +153,7 @@ export function renderLesson(sid, lid) {
   const v = $("#view-lesson");
   v.classList.remove("hidden");
   $("#hud-op").textContent = "— " + sec.codename.toLowerCase() + ", lesson " + roman(li + 1).toLowerCase();
-  S.read[lid] = true;
+  getState().read[lid] = true;
   const projectSteps = (l.artifactSteps || []).map((step) => {
     const before = step.mode === "replace" && step.find != null
       ? `<div class="artifact-code-label">FIND EXACTLY</div><pre><code>${esc(step.find)}</code></pre>` : "";
@@ -167,7 +185,7 @@ export function renderLesson(sid, lid) {
     </div>` : ""}
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
       <h2>THE TRIALS</h2>
-      <button class="btn quiet" id="b-oracle">${ico("orb")} CONSULT THE ORACLE (${S.inv.oracle || 0})</button>
+      <button class="btn quiet" id="b-oracle">${ico("orb")} CONSULT THE ORACLE (${getState().inv.oracle || 0})</button>
     </div>
     <div id="ex-list"></div>
     <div class="lesson-nav">
@@ -184,7 +202,7 @@ export function renderLesson(sid, lid) {
   const fillTrials = () => l.exercises.forEach((e, i) => exList.appendChild(exerciseEl(e, i)));
   // the review gate: a lesson with unpassed trials is barred while a real
   // backlog of old seals is due — the body and readings above stay free
-  const fresh = l.exercises.some((e) => !(S.ex[e.id] && S.ex[e.id].ok));
+  const fresh = l.exercises.some((e) => !(getState().ex[e.id] && getState().ex[e.id].ok));
   const nDue = reviewDue().length;
   if (fresh && nDue >= GATE_MIN) {
     exList.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;padding:16px;border:1px solid var(--line-hi);border-radius:var(--rad);background:var(--ac-bg)">
@@ -204,7 +222,7 @@ export function renderLesson(sid, lid) {
 export function showCodeBook() {
   const scratch = document.createElement("div");
   const ops = [];
-  for (const sec of window.SECTIONS) {
+  for (const sec of sections()) {
     const lessons = [];
     for (const l of sec.lessons || []) {
       if (!lessonDone(l)) continue;
@@ -242,9 +260,9 @@ export function renderShop() {
     <p class="dim">A hooded figure spreads a cloth of curiosities across the corner of your table. Spend the ${coin()} your trials have earned. No refunds — the peddler has already forgotten your face.</p>
     <div class="shop-grid cascade">
       ${SHOP.map((item, i) => {
-        const owned = item.kind === "theme" ? S.themes[item.theme] : null;
-        const invCount = item.kind === "consumable" ? (S.inv[item.id] || 0) : 0;
-        const active = item.kind === "theme" && S.theme === item.theme;
+        const owned = item.kind === "theme" ? getState().themes[item.theme] : null;
+        const invCount = item.kind === "consumable" ? (getState().inv[item.id] || 0) : 0;
+        const active = item.kind === "theme" && getState().theme === item.theme;
         return `<div class="shop-item" style="--i:${i}">
           ${ico(item.kind === "theme" ? "ink" : item.ico, "s-ico")}
           <span class="s-name">${item.name}</span>
@@ -257,13 +275,13 @@ export function renderShop() {
           ${item.kind === "consumable" ? `<span class="s-own num">in your satchel: ${item.charges ? `${invCount} charges` : invCount}</span>` : ""}
         </div>`;
       }).join("")}
-      ${EARNED_THEME ? `<div class="shop-item" style="--i:${SHOP.length};${S.themes[EARNED_THEME.id] ? "" : "opacity:.55"}">
-        ${ico(S.themes[EARNED_THEME.id] ? "ink" : "lock", "s-ico")}
+      ${EARNED_THEME ? `<div class="shop-item" style="--i:${SHOP.length};${getState().themes[EARNED_THEME.id] ? "" : "opacity:.55"}">
+        ${ico(getState().themes[EARNED_THEME.id] ? "ink" : "lock", "s-ico")}
         <span class="s-name">${esc(EARNED_THEME.name)}</span>
-        ${S.themes[EARNED_THEME.id]
-          ? `<button class="btn ${S.theme === EARNED_THEME.id ? "quiet" : "ghost"}" data-equip="${esc(EARNED_THEME.id)}" ${S.theme === EARNED_THEME.id ? "disabled" : ""}>${S.theme === EARNED_THEME.id ? "IN USE" : "USE THIS INK"}</button>`
+        ${getState().themes[EARNED_THEME.id]
+          ? `<button class="btn ${getState().theme === EARNED_THEME.id ? "quiet" : "ghost"}" data-equip="${esc(EARNED_THEME.id)}" ${getState().theme === EARNED_THEME.id ? "disabled" : ""}>${getState().theme === EARNED_THEME.id ? "IN USE" : "USE THIS INK"}</button>`
           : `<button class="btn ghost" disabled>NOT FOR SALE</button>`}
-        <span class="s-desc">${S.themes[EARNED_THEME.id]
+        <span class="s-desc">${getState().themes[EARNED_THEME.id]
           ? esc(EARNED_THEME.desc || "")
           : `The peddler will not name a price. Win ${BLACKICE_N} qualifying SPELL DUELS to claim it (at most ${BLACKICE_CAP} counted per circle). Progress: ${atkQualifying()}/${BLACKICE_N}.`}</span>
       </div>` : ""}
@@ -271,19 +289,19 @@ export function renderShop() {
   $("[data-nav=home]", v).onclick = () => go("home");
   v.querySelectorAll("[data-buy]").forEach((b) => (b.onclick = () => {
     const item = SHOP.find((x) => x.id === b.dataset.buy);
-    modal(`<h2>BUY ${esc(item.name)}?</h2><p class="dim">${item.desc}</p><p>The peddler asks <b class="num">${item.cost}</b>${gp()} — your purse holds <span class="num">${S.credits}</span>${gp()}.</p>`,
+    modal(`<h2>BUY ${esc(item.name)}?</h2><p class="dim">${item.desc}</p><p>The peddler asks <b class="num">${item.cost}</b>${gp()} — your purse holds <span class="num">${getState().credits}</span>${gp()}.</p>`,
       [["WALK AWAY", "quiet"], ["SHAKE ON IT", "", () => {
         if (!spend(item.cost)) return;
-        if (item.kind === "theme") { S.themes[item.theme] = true; toast(`The ink and vellum are yours. Put them to use from the peddler's table.`); }
-        else { S.inv[item.id] = (S.inv[item.id] || 0) + (item.charges || 1); toast(`<b>${esc(item.name)}</b> slipped into your satchel.`); }
+        if (item.kind === "theme") { getState().themes[item.theme] = true; toast(`The ink and vellum are yours. Put them to use from the peddler's table.`); }
+        else { getState().inv[item.id] = (getState().inv[item.id] || 0) + (item.charges || 1); toast(`<b>${esc(item.name)}</b> slipped into your satchel.`); }
         sfx("peddler"); // same voice as the satchel desk object
         save(); renderShop();
       }]]);
   }));
   v.querySelectorAll("[data-equip]").forEach((b) => (b.onclick = () => {
-    S.theme = b.dataset.equip;
-    document.body.dataset.theme = S.theme;
-    window.GhostEditor.setTheme(S.theme);
+    getState().theme = b.dataset.equip;
+    document.body.dataset.theme = getState().theme;
+    window.GhostEditor.setTheme(getState().theme);
     refreshCoins();
     save(); renderShop();
   }));
