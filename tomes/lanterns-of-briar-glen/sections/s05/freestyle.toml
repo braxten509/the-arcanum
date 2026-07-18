@@ -1,36 +1,133 @@
 [freestyle]
-title = "THE WORKING: TODO"
-brief = "TODO: the in-world commission.<ul><li>TODO requirement one (state exact output/tokens)</li><li>TODO requirement two</li></ul>"
-requires = ["s05-phase3-placeholder"]           # TODO: exact ids taught by this/earlier lessons
-reward = 150
-xray = "TODO: the grader's private notes — the specific pitfalls it docks and the style it rewards, truthful to the rubric below."
+title = "THE WORKING: FORKS IN THE BRIAR"
+brief = '''<p>Rowan hands you six fixed trail commands, wayfinder. Turn the learner-authored <code>game.py</code> receipt into a deterministic controller that proves each command changes or observes the established state through Python control flow.</p><ul><li>Preserve the carried-forward numeric state, normalized command text, inventory, player-state mapping, discoveries, coordinate, and an independent pre-turn inventory snapshot. The normalized look command must be the first entry in one six-command saved sequence; the remaining routes are pickup, rest, search, an unknown command, and leave, in that order.</li><li>Use one numeric turn limit equal to the sequence size. A <code>for</code> loop over <code>range()</code> must retrieve each command by its current index, increment a turns-taken name exactly once, print the numbered turn, and route it through one <code>if</code>/<code>elif</code>/<code>else</code> chain.</li><li>The lookup route adds a new discovery; pickup appends one new item only when absent; rest raises the established health by two; the unknown route prints a fallback. Leave prints its outcome and then breaks the outer loop.</li><li>The search route owns a four-entry collection with an irrelevant marker before the lantern key and an entry after it. Use a position-controlled <code>while</code> loop bounded at four. Retrieve and advance before any <code>continue</code>, do not print the ignored marker, print relevant inspected entries, and when the lantern key is found add it to discoveries, derive an open-path Boolean, print the result, and <code>break</code> only the inner search.</li><li>After the loop, print summaries derived from the real changed state. The transcript must show six turns and end with the observations <code>Turns taken: 6</code>, <code>Found lantern key: True</code>, <code>Path open: True</code>, and <code>Final health: 12</code>; it must also distinguish the changed inventory from the unchanged pre-turn snapshot.</li><li>Save and read <code>game.py</code>, then run <code>python game.py</code> twice from the external project root with <code>.venv</code> active. Both transcripts must match. Do not add input, functions, tests, exceptions, classes, modules, file I/O, dependencies, Pygame, package material, or another project path.</li></ul>'''
+requires = ["conditional-command-routing", "bounded-turn-loop", "loop-control-search", "text-trail-controller", "language-control-branch-loop", "language-values-expressions-data", "language-collections-list-dict-set-tuple"]
+mechanisms = ["terminal-print-working-directory", "terminal-change-directory", "terminal-check-python-version", "venv-create-environment", "venv-activate-environment", "venv-resolve-active-python", "editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file", "python-literal-values", "python-name-binding", "python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators", "python-print-call", "python-string-literal", "python-string-concatenation", "python-f-string", "string-strip-method", "string-lower-method", "string-split-method", "python-list-literal", "python-list-indexing", "list-append-method", "python-dict-literal", "python-dict-key-access", "dict-get-method", "python-set-literal", "python-membership-operators", "set-add-method", "python-tuple-literal", "collection-copy-method", "python-if-statement", "python-elif-clause", "python-else-clause", "python-for-statement", "python-in-loop-target", "python-range-call", "python-while-statement", "python-break-statement", "python-continue-statement", "bounded-loop-invariant"]
+reward = 180
+xray = "Trace the learner's saved state rather than rewarding a printed imitation. The grader checks a six-turn indexed range loop, one exclusive route chain, once-per-turn counting, an advancing four-entry while search whose continue cannot stall, nearest-loop break behavior, and summaries derived from mutated health, inventory, discoveries, and path state. Dock input, functions, tests, exceptions, classes, modules, file I/O, dependencies, Pygame, packages, new paths, hard-coded final receipts, unsafe bounds, or an inventory snapshot made after mutation. Reward descriptive snake_case, 4-space blocks, aligned branch structure, one space around operators, and compact PEP 8-readable lines."
 
-[[freestyle.referenceSteps]]        # hidden from learners; validator replays a real solution
-id = "s05-freestyle-reference"
-path = "replace-me.txt"
+[[freestyle.referenceSteps]]
+id = "s05-rewrite-collection-receipt-as-bounded-controller"
+path = "game.py"
 mode = "rewrite"
 preserves = "all-active"
-instruction = "TODO: exact private reference edit that satisfies this Working."
-content = '''
-TODO: complete reference content
+mechanisms = ["python-literal-values", "python-name-binding", "python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators", "python-print-call", "python-string-literal", "python-string-concatenation", "python-f-string", "string-strip-method", "string-lower-method", "string-split-method", "python-list-literal", "python-list-indexing", "list-append-method", "python-dict-literal", "python-dict-key-access", "dict-get-method", "python-set-literal", "python-membership-operators", "set-add-method", "python-tuple-literal", "collection-copy-method", "python-if-statement", "python-elif-clause", "python-else-clause", "python-for-statement", "python-in-loop-target", "python-range-call", "python-while-statement", "python-break-statement", "python-continue-statement", "bounded-loop-invariant"]
+instruction = "Private replay rewrites the cumulative source as the bounded deterministic text-trail controller while preserving all earlier value, text, and collection contracts."
+content = '''health = 10
+lantern_oil = 3
+remaining_oil = lantern_oil - 1
+lantern_lit = health > 0 and remaining_oil > 0
+
+traveler_name = "Mira"
+status_lead = "Lantern status for " + traveler_name
+status_line = f"{status_lead}: {health} health, {remaining_oil} oil, lit={lantern_lit}"
+
+raw_command = "  LOOK WAYSTONE  "
+normalized_command = raw_command.strip().lower()
+command_parts = normalized_command.split()
+
+inventory = ["waystone map", "rations"]
+inventory_snapshot = inventory.copy()
+player_state = {"health": health, "title": "Wayfinder"}
+discoveries = {"north gate"}
+camp_coordinate = (4, 7)
+
+commands = [
+    normalized_command,
+    "take moonleaf",
+    "rest",
+    "search briar",
+    "sing",
+    "leave",
+]
+turn_limit = 6
+turns_taken = 0
+path_open = False
+
+print(status_line)
+print("Normalized command:", normalized_command)
+print("Command words:", command_parts)
+print("Pack before trail:", inventory)
+print("First packed item:", inventory[0])
+print("Player health:", player_state["health"])
+print("Unknown camp:", player_state.get("camp", "unknown"))
+discoveries.add("north gate")
+print("Known north gate:", "north gate" in discoveries)
+print("Coordinates:", camp_coordinate)
+
+for turn_index in range(turn_limit):
+    command = commands[turn_index]
+    turns_taken = turns_taken + 1
+    print(f"Turn {turns_taken}: {command}")
+
+    if command == "look waystone":
+        discoveries.add("waystone")
+        print("The waystone points north.")
+    elif command == "take moonleaf" and "moonleaf" not in inventory:
+        inventory.append("moonleaf")
+        print("Moonleaf packed.")
+    elif command == "rest":
+        health = health + 2
+        print(f"Health restored: {health}")
+    elif command == "search briar":
+        search_marks = ["thorns", "old ribbon", "lantern key", "deep mud"]
+        search_index = 0
+        while search_index < 4:
+            search_mark = search_marks[search_index]
+            search_index = search_index + 1
+            if search_mark == "old ribbon":
+                continue
+            print("Search:", search_mark)
+            if search_mark == "lantern key":
+                discoveries.add("lantern key")
+                path_open = "lantern key" in discoveries
+                print("Lantern key found.")
+                break
+    elif command == "leave":
+        print("Trail closed.")
+        break
+    else:
+        print("Unknown command.")
+
+print("Turns taken:", turns_taken)
+print("Pack after trail:", inventory)
+print("Snapshot before trail:", inventory_snapshot)
+print("Found lantern key:", "lantern key" in discoveries)
+print("Path open:", path_open)
+print("Final health:", health)
 '''
 
 [freestyle.badge]
 id = "badge-s05"
-name = "TODO BADGE"
-desc = "TODO: one sentence."
-
-[[freestyle.rubric]]               # weights MUST sum to exactly 100
-criterion = "Compiles & runs"
-weight = 40
-desc = "TODO: build succeeds; runs without crashing on normal input."
+name = "BRANCH READER"
+desc = "Turned a fixed command trail into bounded, observable state changes."
 
 [[freestyle.rubric]]
-criterion = "Meets the brief"
-weight = 40
-desc = "TODO: every requirement in the checklist is present and correct."
+criterion = "Exclusive Command Routing"
+weight = 26
+mechanisms = ["python-if-statement", "python-elif-clause", "python-else-clause", "python-comparison-operators", "python-boolean-operators", "python-membership-operators", "list-append-method", "set-add-method", "python-arithmetic-operators", "python-print-call"]
+desc = "One if/elif/else chain routes each selected command exactly once, derives lookup, pickup, rest, search, leave, and unknown outcomes from established state, and visibly changes health, inventory, discoveries, or path state where required."
 
 [[freestyle.rubric]]
-criterion = "Clean style"
+criterion = "Bounded Turn Sequence"
+weight = 22
+mechanisms = ["python-for-statement", "python-in-loop-target", "python-range-call", "python-list-literal", "python-list-indexing", "python-name-binding", "python-arithmetic-operators", "python-f-string", "bounded-loop-invariant"]
+desc = "A six-item saved sequence and equal numeric limit drive an indexed range loop; turns-taken advances exactly once per selected command, the numbered transcript stays ordered, and leave stops only after the sixth route is counted and printed."
+
+[[freestyle.rubric]]
+criterion = "Controlled Inner Search"
 weight = 20
-desc = "TODO: name this language's real naming AND layout conventions (research its style guide)."
+mechanisms = ["python-while-statement", "python-continue-statement", "python-break-statement", "python-list-indexing", "python-comparison-operators", "python-name-binding", "python-arithmetic-operators", "set-add-method"]
+desc = "The four-entry while search has an explicit finite boundary, advances before any continue, suppresses the irrelevant marker, stops at the lantern key before the following entry, records the discovery, and does not accidentally end the outer controller."
+
+[[freestyle.rubric]]
+criterion = "Cumulative State Evidence"
+weight = 17
+mechanisms = ["python-literal-values", "python-name-binding", "python-print-call", "python-string-concatenation", "python-f-string", "string-strip-method", "string-lower-method", "string-split-method", "python-list-literal", "python-dict-literal", "python-dict-key-access", "dict-get-method", "python-set-literal", "python-tuple-literal", "collection-copy-method"]
+desc = "The saved source preserves prior numeric, text, list, dict, set, tuple, normalization, and snapshot roles; both runs match, and final summaries read the real mutated names rather than printing substitute constants."
+
+[[freestyle.rubric]]
+criterion = "Python Craft and Boundary Discipline"
+weight = 15
+mechanisms = ["editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file", "python-name-binding", "python-if-statement", "python-for-statement", "python-while-statement"]
+desc = "game.py uses descriptive snake_case names, 4-space indentation, aligned if/elif/else clauses, one space around operators, and readable compact lines consistent with PEP 8, without input, functions, tests, exceptions, classes, modules, file I/O, dependencies, Pygame, packages, or new paths."

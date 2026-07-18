@@ -19,7 +19,8 @@ from arcanum.forge.tool_trace import (_claude_session_from_processes,
                                 antigravity_tool_events, claude_tool_events,
                                 codex_tool_events, format_tool_event,
                                 opencode_tool_events, OpenCodeFollower,
-                                SessionFollower, trace_session_id, TraceSource)
+                                SessionFollower, trace_model, trace_session_id, trace_usage,
+                                TraceSource)
 
 
 codex_record = {
@@ -80,6 +81,33 @@ try:
     assert trace_session_id(TraceSource("codex", codex_session)) == "019f-session-id"
 finally:
     os.unlink(codex_session)
+
+with tempfile.NamedTemporaryFile("w", delete=False) as handle:
+    codex_models = handle.name
+    handle.write(json.dumps({"type": "turn_context",
+                             "payload": {"model": "gpt-5.6-terra"}}) + "\n")
+    handle.write(json.dumps({"type": "event_msg", "payload": {
+        "type": "thread_settings_applied",
+        "thread_settings": {"model": "gpt-5.6-sol"}}}) + "\n")
+try:
+    assert trace_model(TraceSource("codex", codex_models)) == "gpt-5.6-sol"
+    assert trace_model(TraceSource("claude", codex_models)) == ""
+finally:
+    os.unlink(codex_models)
+
+with tempfile.NamedTemporaryFile("w", delete=False) as handle:
+    codex_usage = handle.name
+    handle.write(json.dumps({"type": "event_msg", "payload": {
+        "type": "token_count", "info": {"total_token_usage": {
+            "input_tokens": 1200, "cached_input_tokens": 800, "output_tokens": 30,
+        }}}}) + "\n")
+try:
+    assert trace_usage(TraceSource("codex", codex_usage)) == {
+        "inputTokens": 1200, "cachedInputTokens": 800, "outputTokens": 30,
+        "freshInputTokens": 400,
+    }
+finally:
+    os.unlink(codex_usage)
 
 with tempfile.TemporaryDirectory() as tmp:
     proc_root = os.path.join(tmp, "proc")

@@ -1,0 +1,128 @@
+[[lessons]]
+id = "s09-l02"
+title = "Protect Player Invariants"
+teaches = ["player-method-invariants"]
+introduces = ["python-instance-attribute", "python-instance-method"]
+body = '''
+<p>A useful object does more than store values; it protects the promises those values must keep. An <strong>instance attribute</strong> is data attached to one player, such as <code>player.health</code>. An <strong>instance method</strong> is behavior attached to that player’s recipe, such as a rest action that changes only that player’s health. Methods still receive <code>self</code> first, which makes their target explicit.</p>
+<pre><code data-kind="runnable"><span class="k">class</span> Campfire:
+    <span class="k">def</span> __init__(self, warmth):
+        self.warmth = warmth
+
+    <span class="k">def</span> tend(self):
+        self.warmth = self.warmth + 1
+        <span class="k">return</span> self.warmth
+
+
+fire = Campfire(2)
+<span class="k">print</span>(fire.tend())
+</code></pre>
+<p>The call <code>fire.tend()</code> makes Python supply <code>fire</code> as <code>self</code>. The method updates that one object, returns the new warmth, and prints <code>3</code>. A second campfire would not change. That is exactly the boundary Briar Glen needs: resting belongs with the player whose health changes, while command routing still belongs to the already-tested command handler.</p>
+<p>Choose an invariant before writing the method: an invariant is a condition the object should preserve whenever its public behavior finishes. For this chapter, health must not begin below zero, and the rest method must increase the current player’s health by the existing trail amount. Put the constructor’s rejection at the object boundary using the already-known <code>ValueError</code>; do not scatter competing health checks through every caller. The method should be short, name its target through <code>self</code>, and leave route decisions, inventory, discoveries, files, and cleanup outside the player.</p>
+<p>Test the invariant and the mutation with fresh instances. Arrange one player, call the method, assert the returned result and its changed attribute. Separately, attempt construction with a disallowed health value and assert that the expected error is observed. These are behavior claims about the object, not tests of the spelling of its source. Keep the earlier invalid-command test: it should now prove that command rejection leaves the player object unchanged.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ONE RESPONSIBILITY, NOT A KINGDOM</div><p>Giving Player a rest method does not make it owner of the whole game. The handler still routes commands; a later chapter will introduce collaborating objects deliberately.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "player-method-invariants"
+purpose = "Keep player state and its small state-changing behavior together while preserving explicit object promises."
+anatomy = "Store instance attributes in __init__, define a method with self first, validate a constructor invariant, mutate only self’s relevant attribute, and return an observable result."
+example = "Campfire.tend changes only the constructed fire’s warmth and returns the new value."
+observable = "Calling tend on warmth 2 prints 3 while another object would remain unchanged."
+failure = "Putting route or inventory behavior inside Player blurs the boundary before composition is taught."
+practice = "s09-l02-w1"
+
+[[lessons.concepts]]
+id = "python-instance-attribute"
+purpose = "Store data on one particular constructed object."
+anatomy = "Assign through self.attribute in an initializer or method, then read through instance.attribute."
+example = "self.warmth stores warmth on the current Campfire."
+observable = "fire.warmth reflects the state after fire.tend()."
+failure = "A local variable disappears when the method returns and cannot represent object state."
+practice = "s09-l02-w1"
+
+[[lessons.concepts]]
+id = "python-instance-method"
+purpose = "Attach behavior to a class so a call acts on its receiving object."
+anatomy = "Define an indented function with self first and call it through an instance using dot notation."
+example = "fire.tend() supplies fire as self to Campfire.tend."
+observable = "The method returns the changed warmth for the called object."
+failure = "Calling the method on the class without an instance leaves self unsupplied."
+practice = "s09-l02-w1"
+
+[[lessons.artifactSteps]]
+id = "s09-l02-give-player-a-rest-boundary"
+path = "game.py"
+mode = "author"
+mechanisms = ["python-instance-attribute", "python-instance-method", "python-self-parameter", "python-exception-types", "python-raise-statement", "editor-edit-file", "editor-save-file", "terminal-invoke-saved-file"]
+instruction = "Reopen learner-authored game.py. Add a small Player method for the existing rest health change and enforce the chosen nonnegative starting-health invariant at construction using the already-taught ValueError boundary. Update the existing command handler to ask the supplied Player to perform its own health change, while preserving its route result, narrow recovery, completion record, inventory, discoveries, and normal transcript. Save and run python game.py; do not add another class, inheritance, input, storage, context managers, Pygame, or package work."
+checks = ["The rest command changes the supplied Player’s health through its method and still leaves the route decision unchanged.", "A disallowed starting health is rejected at Player construction instead of being silently normalized."]
+
+[[lessons.readings]]
+label = "Python language reference: class definitions"
+url = "https://docs.python.org/3/reference/compound_stmts.html#class-definitions"
+
+[[lessons.exercises]]
+id = "s09-l02-e1"
+type = "fill"
+points = 20
+mechanisms = ["python-instance-method", "python-self-parameter"]
+prompt = "Complete the first parameter that lets this disposable method change the receiving lantern."
+code = '''def brighten(____):
+    self.glow = self.glow + 1'''
+answer = "self"
+hint = "The receiving object is named by the conventional first parameter."
+whyWrong = "The method needs a reference to the particular lantern being changed; the class recipe alone is not that object."
+
+[[lessons.exercises]]
+id = "s09-l02-e2"
+type = "mc"
+points = 18
+mechanisms = ["python-instance-attribute", "python-instance-method"]
+prompt = "Which boundary best fits the existing Briar Glen rest behavior after Player is introduced?"
+choices = ["A global health assignment inside every command branch", "A Player method that updates that player’s health", "A second inventory class that owns health", "A Pygame event handler that changes health"]
+answer = 1
+whyWrong = "The current section gives behavior to one Player object. Global state, composition, and Pygame are different boundaries that are not being introduced here."
+hint = "Choose the option whose receiver is the hero whose state changes."
+explain = "Resting is a small behavior of the player whose health it changes."
+
+[[lessons.exercises]]
+id = "s09-l02-e3"
+type = "text"
+points = 18
+mechanisms = ["python-exception-types"]
+prompt = "A constructor must reject a starting health below zero. What earlier ordinary exception type can make that invalid value visible to the caller?"
+answer = "ValueError"
+hint = "Use the standard exception already used for an invalid command value."
+whyWrong = "The problem is an unacceptable value supplied at a boundary, not a missing name or a recovered normal route."
+
+[[lessons.exercises]]
+id = "s09-l02-d1"
+type = "type"
+points = 13
+reps = 2
+mechanisms = ["python-instance-method", "python-instance-attribute", "python-return-statement"]
+prompt = "Retype this disposable method that updates one object and returns its new value."
+code = '''def refill(self):
+    self.charges = self.charges + 1
+    return self.charges'''
+
+[[lessons.exercises]]
+id = "s09-l02-w1"
+type = "write"
+points = 34
+mechanisms = ["python-class-statement", "python-init-method", "python-self-parameter", "python-instance-attribute", "python-instance-method", "python-return-statement", "python-print-call"]
+prompt = "Write a disposable program defining Satchel with an initializer that stores a count. Give it add_one, which increases that instance’s count by one and returns it. Construct a satchel with count 4 and print the returned result of add_one. This is not a Briar Glen artifact."
+expect = "5"
+solution = '''class Satchel:
+    def __init__(self, count):
+        self.count = count
+
+    def add_one(self):
+        self.count = self.count + 1
+        return self.count
+
+
+satchel = Satchel(4)
+print(satchel.add_one())'''
+hint = "The method changes self.count, returns that same updated attribute, and the final print calls the method on the constructed satchel."

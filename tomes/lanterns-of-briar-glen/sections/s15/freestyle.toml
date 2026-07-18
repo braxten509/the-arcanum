@@ -1,36 +1,205 @@
 [freestyle]
-title = "THE WORKING: TODO"
-brief = "TODO: the in-world commission.<ul><li>TODO requirement one (state exact output/tokens)</li><li>TODO requirement two</li></ul>"
-requires = ["s15-phase3-placeholder"]           # TODO: exact ids taught by this/earlier lessons
-reward = 150
-xray = "TODO: the grader's private notes — the specific pitfalls it docks and the style it rewards, truthful to the rubric below."
+title = "THE WORKING: CLOSE WHAT YOU OPEN"
+brief = '''<p>Rowan needs a save boundary that finishes every resource lifetime without deciding where a real game should persist. You will author every project edit and every check; no project implementation, test body, save record, or temporary file is supplied.</p><ul><li>Continue the learner-owned package artifacts <code>briar_glen/__init__.py</code>, <code>briar_glen/main.py</code>, <code>briar_glen/domain.py</code>, and <code>tests/test_game.py</code> unchanged unless a focused regression requires repair. In <code>briar_glen/storage.py</code>, preserve the existing plain JSON schema, codec names, caller-supplied path, and narrow missing/corrupt read result. Replace manual file-close anatomy with context-managed read and write lifetimes; explain which expected read exceptions still recover and which unrelated errors propagate.</li><li>Author a save write that first creates a named temporary text file beside the supplied destination, serializes the established player record into it while its context is active, then replaces the destination only after that context has left normally. Do not create directories, select a home path, wire saving into startup, add Pygame or CLI work, or silently overwrite an error with a no-save result.</li><li>Extend <code>tests/test_storage.py</code> with learner-authored arrange/act/assert evidence that an existing destination is replaced by a complete new record and that an injected temporary-write failure closes the resource, removes the leftover temporary path, and still raises the original error. Keep the prior mapping, text round-trip, file round-trip, missing-input, and malformed-input checks.</li><li>From the external project root, run <code>python -m pytest -q</code> until it reports <code>21 passed</code>. Read a failure location before changing only the implicated lifetime, replacement order, cleanup branch, or assertion. This is evidence for later restore progress, not runtime persistence or packaged relaunch.</li></ul>'''
+requires = ["context-managed-resource", "atomic-save-replacement", "resource-failure-verification", "language-context-resource-cleanup", "language-test-verification", "language-exception-error-handling", "language-file-path-actions", "language-standard-library-pathlib", "language-json-data-serialization"]
+mechanisms = ["terminal-print-working-directory", "terminal-change-directory", "terminal-check-python-version", "venv-create-environment", "venv-activate-environment", "venv-resolve-active-python", "editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file", "python-literal-values", "python-name-binding", "python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators", "python-print-call", "python-string-literal", "python-string-concatenation", "python-f-string", "string-strip-method", "string-lower-method", "string-split-method", "python-list-literal", "python-list-indexing", "list-append-method", "python-dict-literal", "python-dict-key-access", "dict-get-method", "python-set-literal", "python-membership-operators", "set-add-method", "python-tuple-literal", "collection-copy-method", "python-if-statement", "python-elif-clause", "python-else-clause", "python-for-statement", "python-in-loop-target", "python-range-call", "python-while-statement", "python-break-statement", "python-continue-statement", "bounded-loop-invariant", "python-def-statement", "python-function-call", "python-parameters-arguments", "python-return-statement", "pure-function-boundary", "mutating-function-boundary", "pip-install-exact-spec", "pytest-module-invocation", "python-import-statement", "pytest-test-function", "python-assert-statement", "arrange-act-assert", "pytest-failure-location", "red-green-rerun-cycle", "python-exception-types", "python-raise-statement", "python-try-statement", "python-except-clause", "python-else-exception-clause", "exception-recovery-boundary", "exception-propagation", "python-finally-clause", "python-class-statement", "python-init-method", "python-self-parameter", "python-instance-construction", "python-instance-attribute", "python-instance-method", "python-identity-operator", "collaborating-object-responsibility", "constructor-dependency-injection", "object-ownership", "method-delegation", "composition-over-inheritance", "collaborator-test-seam", "terminal-create-package-directories", "python-package-directory", "python-init-module", "python-module-file", "entry-domain-module-separation", "python-module-execution", "prototype-retirement", "python-absolute-import", "python-relative-import", "python-main-name-guard", "python-all-export-list", "module-dependency-direction", "circular-import-traceback", "python-open-call", "text-file-read-method", "text-file-write-method", "text-file-close-method", "text-file-mode", "utf8-text-encoding", "pathlib-path-constructor", "pathlib-path-join-operator", "pathlib-parent-property", "pathlib-cwd-method", "pathlib-home-method", "pathlib-exists-method", "pathlib-mkdir-method", "project-relative-user-data-path", "json-object-schema", "json-supported-values", "json-dumps-function", "json-loads-function", "json-dump-function", "json-load-function", "json-decode-error", "python-with-statement", "python-as-target", "python-context-manager-protocol", "named-temporary-file-call", "os-replace-call", "pathlib-unlink-method"]
+reward = 260
+xray = "The grader expects the earlier narrow missing/corrupt recovery to remain distinct from deterministic resource cleanup. Reward a caller-supplied destination, with-managed JSON read and named temporary write, replacement only after temporary context exit, and cleanup that removes an abandoned temporary path then re-raises an unexpected write error. Evidence must establish successful replacement and an injected write failure whose resource closes and temporary path vanishes. Dock manual close calls, broad no-save recovery, early replacement, destination deletion, runtime wiring, home-path policy, Pygame, CLI, packaging, or durable-relaunch claims."
 
-[[freestyle.referenceSteps]]        # hidden from learners; validator replays a real solution
-id = "s15-freestyle-reference"
-path = "replace-me.txt"
+[[freestyle.referenceSteps]]
+id = "s15-rewrite-storage-lifetimes"
+path = "briar_glen/storage.py"
 mode = "rewrite"
 preserves = "all-active"
-instruction = "TODO: exact private reference edit that satisfies this Working."
-content = '''
-TODO: complete reference content
-'''
+mechanisms = ["python-import-statement", "python-with-statement", "python-as-target", "python-context-manager-protocol", "named-temporary-file-call", "os-replace-call", "pathlib-path-constructor", "pathlib-parent-property", "pathlib-exists-method", "pathlib-unlink-method", "json-dump-function", "json-load-function", "python-try-statement", "python-except-clause", "exception-propagation", "exception-recovery-boundary"]
+instruction = "Private replay preserves the s14 JSON mapping and narrow read recovery while replacing manual close calls with deterministic contexts, then writes through a neighboring named temporary file and replaces only after successful closure. Cleanup removes an abandoned temporary path and re-raises an unexpected write error."
+content = '''import json
+import os
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 
-[freestyle.badge]
-id = "badge-s15"
-name = "TODO BADGE"
-desc = "TODO: one sentence."
+from .domain import Inventory, Player, QuestState
 
-[[freestyle.rubric]]               # weights MUST sum to exactly 100
-criterion = "Compiles & runs"
-weight = 40
-desc = "TODO: build succeeds; runs without crashing on normal input."
+
+def player_to_record(player):
+    return {
+        "name": player.name,
+        "health": player.health,
+        "inventory": player.inventory.items.copy(),
+        "discoveries": list(player.quest_state.discoveries),
+        "path_open": player.quest_state.path_open,
+    }
+
+
+def record_to_player(record):
+    inventory = Inventory(record["inventory"])
+    quest_state = QuestState(set(record["discoveries"]))
+    quest_state.path_open = record["path_open"]
+    return Player(record["name"], record["health"], inventory, quest_state)
+
+
+def encode_player(player):
+    return json.dumps(player_to_record(player))
+
+
+def decode_player(saved_text):
+    return record_to_player(json.loads(saved_text))
+
+
+def save_player(player, save_path, temporary_factory=NamedTemporaryFile):
+    destination = Path(save_path)
+    temporary_path = None
+    try:
+        with temporary_factory(
+            mode="w",
+            encoding="utf-8",
+            dir=destination.parent,
+            delete=False,
+        ) as temporary_file:
+            temporary_path = Path(temporary_file.name)
+            json.dump(player_to_record(player), temporary_file)
+        os.replace(temporary_path, destination)
+    except Exception:
+        if temporary_path is not None and temporary_path.exists():
+            temporary_path.unlink()
+        raise
+
+
+def load_player(save_path):
+    try:
+        with open(save_path, "r", encoding="utf-8") as save_file:
+            record = json.load(save_file)
+    except FileNotFoundError:
+        return None
+    except json.JSONDecodeError:
+        return None
+    return record_to_player(record)'''
+
+[[freestyle.referenceSteps]]
+id = "s15-rewrite-storage-tests"
+path = "tests/test_storage.py"
+mode = "rewrite"
+preserves = "all-active"
+mechanisms = ["python-import-statement", "pathlib-path-constructor", "pathlib-exists-method", "python-class-statement", "python-init-method", "python-instance-attribute", "python-with-statement", "python-try-statement", "python-except-clause", "python-raise-statement", "pathlib-unlink-method", "pytest-test-function", "python-assert-statement", "arrange-act-assert", "json-dump-function", "python-open-call", "text-file-write-method", "text-file-close-method", "named-temporary-file-call", "os-replace-call"]
+instruction = "Private replay preserves all s14 mapping and recovery checks, then adds one complete-destination replacement check and one injected temporary-write failure check that proves context exit, abandoned-path cleanup, and re-raised error."
+content = '''from pathlib import Path
+
+from briar_glen import Inventory, Player, QuestState, decode_player, encode_player, load_player, player_to_record, save_player
+
+
+def make_player():
+    inventory = Inventory(["rations", "moonleaf"])
+    quest_state = QuestState({"waystone", "lantern key"})
+    quest_state.path_open = True
+    return Player("Mira", 12, inventory, quest_state)
+
+
+def test_player_record_keeps_represented_facts():
+    record = player_to_record(make_player())
+    assert record["name"] == "Mira"
+    assert record["health"] == 12
+    assert record["inventory"] == ["rations", "moonleaf"]
+    assert set(record["discoveries"]) == {"waystone", "lantern key"}
+    assert record["path_open"] is True
+
+
+def test_text_round_trip_rebuilds_fresh_player():
+    player = make_player()
+    restored_player = decode_player(encode_player(player))
+    assert restored_player is not player
+    assert restored_player.inventory is not player.inventory
+    assert restored_player.name == "Mira"
+    assert restored_player.health == 12
+    assert restored_player.inventory.items == ["rations", "moonleaf"]
+    assert restored_player.quest_state.discoveries == {"waystone", "lantern key"}
+    assert restored_player.quest_state.path_open is True
+
+
+def test_file_round_trip_restores_player():
+    save_path = Path("s14-round-trip.json")
+    save_player(make_player(), save_path)
+    restored_player = load_player(save_path)
+    assert restored_player.name == "Mira"
+    assert restored_player.inventory.items == ["rations", "moonleaf"]
+    assert restored_player.quest_state.path_open is True
+
+
+def test_missing_save_returns_no_player():
+    assert load_player(Path("s14-missing-player.json")) is None
+
+
+def test_corrupt_save_returns_no_player():
+    save_path = Path("s14-corrupt-player.json")
+    save_file = open(save_path, "w", encoding="utf-8")
+    save_file.write("{not json")
+    save_file.close()
+    assert load_player(save_path) is None
+
+
+def test_atomic_save_replaces_existing_record():
+    save_path = Path("s15-replaced-player.json")
+    old_file = open(save_path, "w", encoding="utf-8")
+    old_file.write('{"name": "old traveler"}')
+    old_file.close()
+    save_player(make_player(), save_path)
+    restored_player = load_player(save_path)
+    assert restored_player.name == "Mira"
+    assert restored_player.inventory.items == ["rations", "moonleaf"]
+
+
+class FailingTemporaryFile:
+    def __init__(self, temporary_path):
+        self.name = temporary_path
+        self.closed = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exception_type, exception, traceback):
+        self.closed = True
+
+    def write(self, text):
+        raise OSError("briar wind interrupted the write")
+
+
+def test_failed_temporary_write_closes_removes_and_propagates():
+    temporary_path = Path("s15-interrupted-player.tmp")
+    temporary_file = open(temporary_path, "w", encoding="utf-8")
+    temporary_file.close()
+    resource = FailingTemporaryFile(temporary_path)
+
+    def failing_temporary_factory(mode, encoding, dir, delete):
+        return resource
+
+    raised = False
+    try:
+        save_player(make_player(), Path("s15-interrupted-player.json"), failing_temporary_factory)
+    except OSError:
+        raised = True
+    assert raised is True
+    assert resource.closed is True
+    assert temporary_path.exists() is False'''
 
 [[freestyle.rubric]]
-criterion = "Meets the brief"
-weight = 40
-desc = "TODO: every requirement in the checklist is present and correct."
+id = "s15-context-lifetime"
+weight = 25
+mechanisms = ["python-with-statement", "python-as-target", "python-context-manager-protocol", "json-load-function", "json-dump-function"]
+criterion = "Storage read and temporary write lifetimes are context-managed while the s14 JSON mapping and narrow expected read behavior remain intact."
 
 [[freestyle.rubric]]
-criterion = "Clean style"
-weight = 20
-desc = "TODO: name this language's real naming AND layout conventions (research its style guide)."
+id = "s15-atomic-replacement"
+weight = 30
+mechanisms = ["named-temporary-file-call", "os-replace-call", "pathlib-path-constructor", "pathlib-parent-property"]
+criterion = "A supplied destination is replaced only after a neighboring named temporary file is complete and its context has exited normally."
+
+[[freestyle.rubric]]
+id = "s15-failure-cleanup"
+weight = 30
+mechanisms = ["pathlib-exists-method", "pathlib-unlink-method", "python-try-statement", "exception-propagation", "collaborator-test-seam"]
+criterion = "An injected temporary-write failure proves resource exit and abandoned-path removal while preserving propagation of the original error."
+
+[[freestyle.rubric]]
+id = "s15-regression-evidence"
+weight = 15
+mechanisms = ["pytest-module-invocation", "pytest-test-function", "python-assert-statement", "arrange-act-assert"]
+criterion = "The learner retains prior storage evidence, adds focused replacement and cleanup checks, and reaches 21 passing tests without runtime integration."

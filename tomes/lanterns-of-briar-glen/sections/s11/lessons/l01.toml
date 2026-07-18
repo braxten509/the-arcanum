@@ -1,84 +1,113 @@
 [[lessons]]
 id = "s11-l01"
 title = "Create the Package Tree"
-teaches = ["s11-phase3-placeholder"]            # TODO: stable kebab-case capabilities this lesson teaches
+teaches = ["package-file-layout"]
+introduces = ["terminal-create-package-directories", "python-package-directory", "python-init-module"]
 body = '''
-<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
-<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
-<p>TODO: an optional deeper-cut appendix.</p></div>
-'''
+<p>A Python package begins as a directory with a deliberate name and an <code>__init__.py</code> file inside it. The directory gives related modules one home; the initializer tells Python that the directory is a package boundary. This is a location and naming decision, not a second program. Briar Glen’s source will move beneath <code>briar_glen/</code>, while the external project root still holds <code>tests/</code> and the existing environment.</p>
+<pre><code data-kind="terminal">mkdir briar_glen
+touch briar_glen/__init__.py
+ls briar_glen</code></pre>
+<p>Run those commands from the project root after activating the established environment. Read the path character by character: <code>mkdir</code> creates the package directory, and <code>touch</code> creates its initializer inside that directory. The expected listing contains <code>__init__.py</code>. If the terminal says the parent does not exist, check <code>pwd</code>; do not create the same package inside <code>tests/</code> or <code>.venv</code>.</p>
+<p>The initializer may remain behavior-free for this chapter. Its job is to establish the package’s boundary, not to run the trail or collect a list of exports. The domain module and executable entry come in the next lessons. Keeping the initializer quiet matters: importing a package should not secretly start the six-turn journey or print its transcript.</p>
+<p>Use the exact lowercase underscore spelling <code>briar_glen</code>. Python module names are path-like identifiers, so a misspelling creates a different import location rather than a friendly alias. A package tree is useful because it lets tests and later runtime code name the domain without reaching into a root-level prototype. It does not erase the evidence the existing trail already earned.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ONE HOME</div><p>Do not add a generic helpers directory “for later.” A package is a boundary for actual related modules. Start with the small tree the current migration needs, then let later sections add only boundaries they teach.</p></div>'''
 
-[[lessons.concepts]]                # one complete first-use proof for every `teaches` id
-id = "s11-phase3-placeholder"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
-practice = "s11-l01-e1"
+[[lessons.concepts]]
+id = "package-file-layout"
+purpose = "Place related Briar Glen modules in one named package so their boundary is visible in the project tree."
+anatomy = "From the project root, create briar_glen, create briar_glen/__init__.py inside it, save the initializer, then inspect that directory."
+example = "The terminal block creates a disposable package directory and shows its initializer in the listing."
+observable = "The project tree contains briar_glen/__init__.py before a domain or entry module is added."
+failure = "Creating __init__.py at the root or placing briar_glen inside tests leaves the intended package boundary absent."
+practice = "s11-l01-w1"
 
-[[lessons.artifactSteps]]           # visible work order; never reveal canonical implementation
-id = "s11-l01-project-step"
-path = "replace-me.txt"
-mode = "author"                    # learner authors this path; hidden referenceSteps replay it
-instruction = "TODO: exact path, behavior, constraints, commands, and diagnostics—no solution."
-checks = ["TODO: specific observable result the learner can run or inspect."]
+[[lessons.concepts]]
+id = "terminal-create-package-directories"
+purpose = "Create the exact directory that will hold related Python modules."
+anatomy = "Confirm the project root, run mkdir with one package name, then list that path before creating files inside it."
+example = "mkdir briar_glen followed by ls briar_glen makes the new location observable."
+observable = "The terminal lists the intended package directory at the project root."
+failure = "A wrong current directory creates a similarly named folder in the wrong project location."
+practice = "s11-l01-w1"
 
-[[lessons.readings]]               # optional: 1-2 high-quality official docs
-label = "TODO: official docs"
-url = "https://example.com/TODO"
+[[lessons.concepts]]
+id = "python-package-directory"
+purpose = "Use a directory as the shared location for Python modules that form one program boundary."
+anatomy = "Choose a lowercase package name, create that directory at the project root, and place its initializer and related modules inside it."
+example = "briar_glen is the package directory in the terminal example."
+observable = "The package name appears once as a directory containing its Python files."
+failure = "Scattering the entry and domain modules across unrelated root paths hides their relationship."
+practice = "s11-l01-w1"
+
+[[lessons.concepts]]
+id = "python-init-module"
+purpose = "Mark the directory as the package boundary with an initializer module that has no runtime side effects."
+anatomy = "Create __init__.py inside the package directory, save it, and leave trail execution to the later entry module."
+example = "touch briar_glen/__init__.py creates the initializer named by the terminal example."
+observable = "The package directory contains a saved __init__.py file and importing the package does not print a trail."
+failure = "Putting the initializer beside the directory rather than inside it fails to establish the named package location."
+practice = "s11-l01-w1"
+
+[[lessons.artifactSteps]]
+id = "s11-l01-create-package-boundary"
+path = "briar_glen/__init__.py"
+mode = "author"
+mechanisms = ["terminal-create-package-directories", "python-package-directory", "python-init-module", "editor-create-file", "editor-save-file", "terminal-read-saved-file"]
+instruction = "From the learner’s external project root, create the briar_glen directory, then create and save briar_glen/__init__.py inside it. Keep this initializer behavior-free: do not put a trail run, imports, exports, tests, or copied game behavior there. List the directory and read the saved initializer. Do not move game.py or create the domain or entry module yet."
+checks = ["The project root contains briar_glen/__init__.py, not a nested package under tests or .venv.", "Reading the initializer shows no trail behavior or output-producing code."]
+
+[[lessons.readings]]
+label = "Python tutorial: modules"
+url = "https://docs.python.org/3/tutorial/modules.html"
 
 [[lessons.exercises]]
 id = "s11-l01-e1"
 type = "mc"
-points = 15
-prompt = "TODO: a multiple-choice question?"
-choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
-answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
-whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
-hint = "TODO: an exercise-specific hint."
-explain = "TODO: shown after solving."
+points = 18
+mechanisms = ["python-package-directory", "python-init-module"]
+prompt = "Where does the initializer for a disposable cairn package belong?"
+choices = ["cairn/__init__.py", "__init__.py beside cairn", "tests/cairn.py", ".venv/cairn"]
+answer = 0
+whyWrong = "The initializer belongs inside the named package directory; root, test, and environment paths describe different boundaries."
+hint = "Put the file inside the directory whose package name it establishes."
+explain = "cairn/__init__.py marks cairn as the package location."
 
 [[lessons.exercises]]
 id = "s11-l01-e2"
-type = "text"
+type = "fill"
 points = 20
-prompt = "TODO: a free-text question."
-answer = "TODO"
-# accept = ["TODO alternate"]      # optional true alternates only
-hint = "TODO: an exercise-specific hint."
+mechanisms = ["python-init-module"]
+prompt = "Complete the conventional initializer filename."
+code = "cairn/____.py"
+answer = "__init__"
+hint = "It has two underscores on each side of init."
 
 [[lessons.exercises]]
 id = "s11-l01-e3"
-type = "fill"
-points = 20
-prompt = "TODO: fill the blank."
-code = 'answer = ____'             # the ____ marks where the answer goes
-answer = "TODO"
-hint = "TODO: an exercise-specific hint."
+type = "text"
+points = 18
+mechanisms = ["terminal-create-package-directories"]
+prompt = "Why should you confirm the project root before creating a package directory?"
+answer = "So the package is created in the intended project rather than a wrong location"
+accept = ["to avoid creating it in the wrong directory", "so it is not created under tests or the environment"]
+hint = "Think about what a relative mkdir path depends on."
 
 [[lessons.exercises]]
 id = "s11-l01-d1"
-type = "type"                      # typing drill: retype the code; no point decay
+type = "type"
 points = 12
 reps = 2
-prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
-code = 'print("TODO")'
+mechanisms = ["terminal-create-package-directories", "python-init-module"]
+prompt = "Retype this disposable package setup command."
+code = "touch cairn/__init__.py"
 
 [[lessons.exercises]]
 id = "s11-l01-w1"
-type = "write"                     # CODE LAB: runs on the real runtime; no point decay
-points = 30
-prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
-# starter = '''
-# TODO: prefilled editor code / the exercise's data
-# '''
-expect = '''
-TODO EXACT OUTPUT'''
-# REQUIRED before shipping: a complete program that passes. Never shown to the
-# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
-# solution = '''
-# TODO
-# '''
-hint = "TODO: an exercise-specific hint."
+type = "write"
+points = 35
+mechanisms = ["terminal-create-package-directories", "python-package-directory", "python-init-module", "python-print-call"]
+prompt = "Write a disposable one-file program at lookout/__init__.py that prints boundary ready when it is run directly. This is only a path-and-file practice task, not a Briar Glen artifact."
+expect = "boundary ready"
+solution = '''print("boundary ready")'''
+hint = "This practice file uses one print call; the Briar Glen initializer remains behavior-free."

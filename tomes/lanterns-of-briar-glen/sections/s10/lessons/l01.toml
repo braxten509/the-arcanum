@@ -1,84 +1,125 @@
 [[lessons]]
 id = "s10-l01"
 title = "Give Objects Distinct Jobs"
-teaches = ["s10-phase3-placeholder"]            # TODO: stable kebab-case capabilities this lesson teaches
+teaches = ["collaborator-responsibilities"]
+introduces = ["collaborating-object-responsibility", "constructor-dependency-injection"]
 body = '''
-<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
-<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
-<p>TODO: an optional deeper-cut appendix.</p></div>
-'''
+<p>Last chapter gave one <code>Player</code> a shape. That did not mean every trail fact belongs to Player. Before making another class, name the change that should send you looking for it. A pack changes when an item is gained or inspected. A quest record changes when a discovery is marked or a route becomes open. A player changes when health or identity changes. Those are three jobs, so they deserve three collaborators rather than one swelling record.</p>
+<p>Composition starts with responsibility, not syntax. A small object owns the data that its own methods protect. In this disposable example, <code>SupplyPouch</code> owns its list and the operation that adds to it; the traveler merely receives a pouch through the constructor. The constructor dependency is explicit: the caller can see which collaborator must exist before the traveler does.</p>
+<pre><code data-kind="runnable"><span class="k">class</span> SupplyPouch:
+    <span class="k">def</span> add(<span class="n">self</span>, <span class="n">supply</span>):
+        <span class="n">self</span>.supplies.append(<span class="n">supply</span>)
 
-[[lessons.concepts]]                # one complete first-use proof for every `teaches` id
-id = "s10-phase3-placeholder"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
-practice = "s10-l01-e1"
+<span class="k">class</span> TrailWalker:
+    <span class="k">def</span> __init__(<span class="n">self</span>, <span class="n">pouch</span>):
+        <span class="n">self</span>.pouch = <span class="n">pouch</span></code></pre>
+<p>This is not inheritance. Neither class claims to be a more specialized version of the other. One object has another object. Keep the data path visible: construct the pouch, pass it in, then ask the pouch to change its own collection. A constructor parameter is not ceremonial; it records a dependency and makes later tests able to supply a fresh collaborator.</p>
+<p>For Briar Glen, do not invent a generic manager or move the route controller into a class. Retain the existing functions and error boundary. First identify the smallest stable jobs: inventory owns items, quest state owns discoveries and route status, and Player owns its own health while holding the supplied collaborators. This separation is useful only if the current trail actually calls those collaborators, so the Working will preserve the existing observations while moving each responsibility to its owner.</p>
+<p>If adding an item forces you to edit a Player health method, the responsibilities are tangled. If a quest rule needs the player name only for a message, pass the needed value rather than moving the entire quest into Player. The goal is a readable object graph with visible reasons for each mutation.</p>'''
 
-[[lessons.artifactSteps]]           # visible work order; never reveal canonical implementation
-id = "s10-l01-project-step"
-path = "replace-me.txt"
-mode = "author"                    # learner authors this path; hidden referenceSteps replay it
-instruction = "TODO: exact path, behavior, constraints, commands, and diagnostics—no solution."
-checks = ["TODO: specific observable result the learner can run or inspect."]
+[[lessons.concepts]]
+id = "collaborator-responsibilities"
+purpose = "Give each changing part of the trail domain one clear job, so a later feature has an obvious home instead of enlarging Player into an all-knowing record."
+anatomy = "Inventory owns item membership and mutation; QuestState owns discoveries and route progress; Player owns health and public actions. Collaboration happens through named methods, not through one object storing every list and flag."
+example = "A player action can request inventory.add_item('moss-key') while a quest action can request quest.search_briar(); neither request makes Player the owner of items or discoveries."
+observable = "A fresh inventory changes only when its own method runs, and a fresh quest can report a discovery without needing a player instance."
+failure = "Putting items, discoveries, route flags, and health into one class hides ownership, so unrelated changes must all edit the same object and tests cannot isolate a domain rule."
+practice = "s10-l01-w1"
 
-[[lessons.readings]]               # optional: 1-2 high-quality official docs
-label = "TODO: official docs"
-url = "https://example.com/TODO"
+[[lessons.concepts]]
+id = "collaborating-object-responsibility"
+purpose = "Give each collaborator one coherent kind of state change so the trail can be extended without making one object a dumping ground."
+anatomy = "Name the changing data, name the operation that changes it, then assign both to the same object with the narrowest useful job."
+example = "SupplyPouch owns supplies and add; TrailWalker only stores the supplied pouch."
+observable = "After pouch.add, the pouch list changes while the walker has not gained a duplicate list."
+failure = "Putting items, health, and quest flags into one class makes unrelated changes travel through the same boundary."
+practice = "s10-l01-w1"
+
+[[lessons.concepts]]
+id = "constructor-dependency-injection"
+purpose = "Make required collaborators visible at construction so ownership and test setup are explicit."
+anatomy = "Construct the collaborator first, pass it as an initializer argument, and store that exact object as an instance attribute."
+example = "TrailWalker receives pouch and keeps it at self.pouch."
+observable = "A supplied pouch can be inspected after construction through the walker’s attribute."
+failure = "Constructing a hidden new pouch inside every method disconnects the caller’s state from the object being used."
+practice = "s10-l01-w1"
+
+[[lessons.artifactSteps]]
+id = "s10-l01-separate-trail-jobs"
+path = "game.py"
+mode = "author"
+mechanisms = ["collaborating-object-responsibility", "constructor-dependency-injection", "python-class-statement", "python-init-method", "python-self-parameter", "python-instance-construction", "python-instance-attribute", "editor-edit-file", "editor-save-file", "terminal-read-saved-file"]
+instruction = "Reopen learner-authored game.py. Plan three top-level collaborators for the existing trail: an inventory owner, a quest-state owner, and Player. Construct inventory and quest state first, pass both into Player’s initializer, and retain only the responsibilities each object needs. Preserve the established six commands, values, recovery boundary, completion records, and transcript; do not add inheritance, new input, files, modules, Pygame, or a parallel game path. Save and reread the file before continuing."
+checks = ["The saved source visibly constructs inventory and quest-state collaborators before the Player that receives them.", "No collaborator duplicates another object’s mutable collection."]
+
+[[lessons.readings]]
+label = "Python tutorial: classes"
+url = "https://docs.python.org/3/tutorial/classes.html"
 
 [[lessons.exercises]]
 id = "s10-l01-e1"
 type = "mc"
-points = 15
-prompt = "TODO: a multiple-choice question?"
-choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
-answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
-whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
-hint = "TODO: an exercise-specific hint."
-explain = "TODO: shown after solving."
+points = 18
+mechanisms = ["collaborating-object-responsibility"]
+prompt = "Which responsibility belongs most directly to a disposable QuestLog collaborator?"
+choices = ["Changing the traveler’s health", "Adding a discovered shrine name", "Parsing command-line flags", "Opening a Pygame window"]
+answer = 1
+whyWrong = "Health belongs to the traveler, and command-line and window work are later boundaries. A discovery is quest state."
+hint = "Choose the action that changes quest knowledge."
+explain = "A quest collaborator owns discoveries and rules derived from them."
 
 [[lessons.exercises]]
 id = "s10-l01-e2"
-type = "text"
+type = "fill"
 points = 20
-prompt = "TODO: a free-text question."
-answer = "TODO"
-# accept = ["TODO alternate"]      # optional true alternates only
-hint = "TODO: an exercise-specific hint."
+mechanisms = ["constructor-dependency-injection", "python-init-method", "python-self-parameter", "python-instance-attribute"]
+prompt = "Store the supplied disposable pouch on the current walker."
+code = "____.pouch = pouch"
+answer = "self"
+hint = "Use the current instance reference from an initializer."
 
 [[lessons.exercises]]
 id = "s10-l01-e3"
-type = "fill"
-points = 20
-prompt = "TODO: fill the blank."
-code = 'answer = ____'             # the ____ marks where the answer goes
-answer = "TODO"
-hint = "TODO: an exercise-specific hint."
+type = "text"
+points = 18
+mechanisms = ["constructor-dependency-injection"]
+prompt = "Why does passing a collaborator into a constructor help a test create isolated state?"
+answer = "The test can construct and supply a fresh collaborator for that one object"
+accept = ["it lets the test supply a fresh collaborator", "a test can pass in fresh state"]
+hint = "Think about who creates the dependency."
 
 [[lessons.exercises]]
 id = "s10-l01-d1"
-type = "type"                      # typing drill: retype the code; no point decay
+type = "type"
 points = 12
 reps = 2
-prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
-code = 'print("TODO")'
+mechanisms = ["constructor-dependency-injection", "python-init-method", "python-self-parameter", "python-instance-attribute"]
+prompt = "Retype this disposable constructor that records an explicit collaborator."
+code = '''def __init__(self, ledger):
+    self.ledger = ledger'''
 
 [[lessons.exercises]]
 id = "s10-l01-w1"
-type = "write"                     # CODE LAB: runs on the real runtime; no point decay
-points = 30
-prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
-# starter = '''
-# TODO: prefilled editor code / the exercise's data
-# '''
-expect = '''
-TODO EXACT OUTPUT'''
-# REQUIRED before shipping: a complete program that passes. Never shown to the
-# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
-# solution = '''
-# TODO
-# '''
-hint = "TODO: an exercise-specific hint."
+type = "write"
+points = 35
+mechanisms = ["collaborating-object-responsibility", "constructor-dependency-injection", "python-class-statement", "python-init-method", "python-self-parameter", "python-instance-construction", "python-instance-attribute", "python-list-literal", "list-append-method", "python-print-call"]
+prompt = "Write a disposable program with a Crate class that stores a supplied list as labels and has add_label(label), and a Courier class that stores a supplied crate. Construct an empty-label Crate, construct a Courier with it, ask the courier’s crate to add east, then print the crate labels. This is not a Briar Glen artifact."
+expect = "['east']"
+solution = '''class Crate:
+    def __init__(self, labels):
+        self.labels = labels
+
+    def add_label(self, label):
+        self.labels.append(label)
+
+
+class Courier:
+    def __init__(self, crate):
+        self.crate = crate
+
+
+crate = Crate([])
+courier = Courier(crate)
+courier.crate.add_label("east")
+print(crate.labels)'''
+hint = "Construct the collaborator first and pass the same object into Courier."

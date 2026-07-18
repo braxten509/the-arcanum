@@ -1,0 +1,127 @@
+[[lessons]]
+id = "s04-l02"
+title = "Key the Player State"
+teaches = ["player-state-mapping"]
+introduces = ["python-dict-literal", "python-dict-key-access", "dict-get-method"]
+body = '''
+<p>An inventory answers “what is in order?” Player facts answer a different question: “which value belongs to this named property?” Python uses a <strong>dictionary</strong>, often shortened to <strong>dict</strong>, for keyed state. Curly braces construct a dict. Each entry pairs a key with a value using a colon, and commas separate entries. A key is the label used to retrieve a value later.</p>
+<pre><code data-kind="runnable">scout_state = {"health": 7, "title": "Guide"}
+print(scout_state)
+print(scout_state["health"])
+</code></pre>
+<p>The first print exposes the mapping. The second puts the key <code>"health"</code> in brackets after the mapping name and retrieves <code>7</code>. This is key access, not list indexing: <code>"health"</code> is a label rather than a position. Spell the key exactly. A direct lookup is strong when that field must exist; a misspelling or absent key raises a <code>KeyError</code>, which is useful evidence that the promised state was never recorded.</p>
+<p>Sometimes absence is expected. The <code>get()</code> method asks for a key and can name a fallback value. The first argument is the requested key, and the second is what to return if it is missing. It does not insert that fallback into the dictionary. Compare the two observations below: the known title comes from the mapping, while the unknown camp reports a safe displayed default.</p>
+<pre><code data-kind="runnable">scout_state = {"health": 7, "title": "Guide"}
+print(scout_state["title"])
+print(scout_state.get("camp", "unknown"))
+</code></pre>
+<p>That run prints <code>Guide</code> and <code>unknown</code>. Do not swap the colon for an equals sign inside a dict literal, and do not write <code>scout_state.get["camp"]</code>: method calls use parentheses. The mapping keeps each fact attached to a purpose, which makes a later class migration much easier to reason about than a row of unrelated names.</p>
+<p>In the Working, add one named player-state mapping to the saved project. Retrieve one known carried-forward value directly and display one missing optional field with <code>get()</code> and a default. You are not accepting player input or changing state through decisions yet. Keep the exact distinction clear: list positions are for the pack; descriptive keys are for the player record.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // REQUIRED OR OPTIONAL</div><p>Use direct key access when a missing value means broken state. Use get with a visible default when absence is an ordinary, expected condition that the current transcript can explain.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "player-state-mapping"
+purpose = "Keep named player facts together and retrieve required or optional facts by their descriptive keys."
+anatomy = "Construct curly-brace key-value pairs, use mapping[key] for a required fact, and call mapping.get(key, default) for an optional displayed fact."
+example = "The scout_state examples retrieve health and title directly, then display a missing camp with a fallback."
+observable = "The terminal shows a known mapped value and then unknown without creating a camp field."
+failure = "A misspelled direct key raises KeyError, while get without parentheses is not a method call."
+practice = "s04-l02-e4"
+
+[[lessons.concepts]]
+id = "python-dict-literal"
+purpose = "Create a keyed collection that attaches each player value to a descriptive label."
+anatomy = "Open curly brace, write a quoted key, colon, value, comma-separated additional pair, and close curly brace."
+example = "scout_state = {\"health\": 7, \"title\": \"Guide\"} constructs the disposable mapping."
+observable = "Printing scout_state displays both labels with their values."
+failure = "Using equals signs inside the braces is not dictionary entry syntax."
+practice = "s04-l02-e5"
+
+[[lessons.concepts]]
+id = "python-dict-key-access"
+purpose = "Retrieve one required dictionary value by the key that names it."
+anatomy = "Write the mapping name followed by square brackets containing the exact quoted key."
+example = "scout_state[\"health\"] retrieves the value attached to health."
+observable = "The first example prints 7 after the mapping display."
+failure = "A missing or misspelled key raises KeyError rather than selecting a list position."
+practice = "s04-l02-e2"
+
+[[lessons.concepts]]
+id = "dict-get-method"
+purpose = "Retrieve an optional dictionary value while showing a chosen fallback if its key is absent."
+anatomy = "Write mapping name, dot, get, parentheses, requested key, comma, and fallback value."
+example = "scout_state.get(\"camp\", \"unknown\") supplies the displayed fallback."
+observable = "The second example prints unknown without a crash."
+failure = "Bracket syntax after get does not call the method, and the fallback is not added to the mapping."
+practice = "s04-l02-e4"
+
+[[lessons.artifactSteps]]
+id = "s04-l02-author-player-mapping"
+path = "game.py"
+mode = "author"
+mechanisms = ["python-dict-literal", "python-dict-key-access", "dict-get-method", "python-name-binding", "python-print-call", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file"]
+instruction = "Extend saved game.py with one named player-state dictionary whose keys describe its values. Print a required carried-forward player value through direct key access, then print an absent optional location through get() with a readable fallback. Preserve the list observations and all earlier state. Save, read, and run the file with .venv active. Do not add input, branches, loops, functions, set or tuple behavior, files, dependencies, Pygame, package material, or a new project path."
+checks = ["A known player field is retrieved by its exact key rather than a numeric position.", "The saved run makes an absent optional field visible through a default and does not add that field to the mapping."]
+
+[[lessons.readings]]
+label = "Python mapping types"
+url = "https://docs.python.org/3/library/stdtypes.html#mapping-types-dict"
+
+[[lessons.exercises]]
+id = "s04-l02-e1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["python-dict-literal"]
+prompt = "Retype this disposable player-state mapping exactly."
+code = 'scout_state = {"health": 7, "title": "Guide"}'
+
+[[lessons.exercises]]
+id = "s04-l02-e2"
+type = "fill"
+points = 21
+mechanisms = ["python-dict-key-access"]
+prompt = "Complete the direct lookup that retrieves the value stored under the title label."
+code = 'print(scout_state[____])'
+answer = '"title"'
+hint = "Use the quoted key paired with Guide in the mapping."
+
+[[lessons.exercises]]
+id = "s04-l02-e3"
+type = "mc"
+points = 18
+mechanisms = ["dict-get-method"]
+prompt = "If camp is absent from scout_state, which expression displays a fallback of unknown without raising a missing-key error?"
+choices = ['scout_state["camp"]', 'scout_state.get["camp", "unknown"]', 'scout_state.get("camp", "unknown")', 'scout_state.append("camp")']
+answer = 2
+whyWrong = "Direct brackets require the key to exist, brackets after get do not call a method, and append belongs to lists rather than mappings."
+hint = "The safe lookup is a method call with both the requested key and fallback inside parentheses."
+explain = "get returns the fallback only when the requested key is absent."
+
+[[lessons.exercises]]
+id = "s04-l02-e4"
+type = "write"
+points = 32
+mechanisms = ["python-dict-literal", "python-dict-key-access", "dict-get-method", "python-print-call"]
+prompt = "Write a disposable program that creates beacon_state with keys \"signal\" mapped to 4 and \"color\" mapped to \"blue\". Print the signal through direct key access, then print the fallback \"none\" for a missing \"keeper\" key using get()."
+expect = '''4
+none'''
+solution = '''beacon_state = {"signal": 4, "color": "blue"}
+print(beacon_state["signal"])
+print(beacon_state.get("keeper", "none"))
+'''
+hint = "Use square brackets only for the known signal key; use get with two arguments for keeper."
+
+[[lessons.exercises]]
+id = "s04-l02-e5"
+type = "fill"
+points = 17
+mechanisms = ["python-dict-literal", "python-dict-key-access", "python-string-literal", "string-strip-method", "string-lower-method", "python-name-binding", "python-print-call"]
+prompt = "Reuse the earlier text-normalization pattern to complete the dictionary value. The saved mapping should print amber through its note key."
+code = '''raw_note = "  AMBER  "
+normalized_note = raw_note.strip().lower()
+trail_state = {"note": ____}
+print(trail_state["note"])'''
+answer = "normalized_note"
+hint = "Use the name that holds the trimmed, lowercase text rather than quoting a second text literal."

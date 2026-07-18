@@ -1,84 +1,138 @@
 [[lessons]]
 id = "s09-l01"
 title = "Define a Player Type"
-teaches = ["s09-phase3-placeholder"]            # TODO: stable kebab-case capabilities this lesson teaches
+teaches = ["player-object-model"]
+introduces = ["python-class-statement", "python-init-method", "python-self-parameter", "python-instance-construction"]
 body = '''
-<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
-<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
-<p>TODO: an optional deeper-cut appendix.</p></div>
+<p>Until now, Briar Glen has carried the traveler’s health in a mapping passed from function to function. That is useful evidence of explicit state, but the traveler now has a coherent shape: a <strong>class</strong> is a recipe for objects that carry related data and behavior. Write <code>class Player:</code> at top level. Its indented body defines what every player instance will have; it does not itself create Mira.</p>
+<pre><code data-kind="runnable"><span class="k">class</span> TrailMarker:
+    <span class="k">def</span> __init__(self, label):
+        self.label = label
+
+
+marker = TrailMarker(<span class="s">"east gate"</span>)
+<span class="k">print</span>(marker.label)
+</code></pre>
+<p>The special method named <code>__init__</code> runs when construction makes a new object. Its first parameter is conventionally named <code>self</code>. Python supplies that argument for the particular object being initialized, so the caller writes <code>TrailMarker("east gate")</code>, not a separate value for <code>self</code>. The assignment <code>self.label = label</code> stores an instance attribute on that one object. The sample prints <code>east gate</code>; making another marker would create a separate object with its own label.</p>
+<p>For the trail, choose a focused <code>Player</code> constructor with the hero facts that genuinely belong to one hero: a name and health. Do not move the independent pack, discoveries, command list, or route result inside the object. Those will become an explicit composition question later. In this section, the point is to migrate one state record into one object without turning every nearby collection into a field merely because it is available.</p>
+<p>Construction is a boundary worth testing. Arrange a fresh player in a test, then assert the observable attributes rather than depending on the terminal transcript. A constructor typo commonly appears as <code>AttributeError</code> when later code reads a name that was never assigned; a missing indented body is a syntax error before the program runs. Read the first error location, repair the class boundary, and rerun the focused suite. Keep the saved six-command trail and its existing exception recovery intact while its former health mapping becomes a player instance.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // RECIPE AND RESULT</div><p><code>Player</code> names the recipe. The value returned by <code>Player(...)</code> is a particular player object. Keep those two levels distinct when reading a traceback or writing an assertion.</p></div>
 '''
 
-[[lessons.concepts]]                # one complete first-use proof for every `teaches` id
-id = "s09-phase3-placeholder"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
-practice = "s09-l01-e1"
+[[lessons.concepts]]
+id = "player-object-model"
+purpose = "Model one coherent game participant with a class recipe and independently constructed objects."
+anatomy = "Declare the class, define __init__ with self first, assign instance attributes from constructor arguments, then call the class to construct an object."
+example = "The disposable TrailMarker recipe constructs a marker whose label can be read from that instance."
+observable = "Printing marker.label shows the value stored on the constructed object."
+failure = "Using the class recipe where an instance is needed leaves no per-object attributes to read."
+practice = "s09-l01-w1"
 
-[[lessons.artifactSteps]]           # visible work order; never reveal canonical implementation
-id = "s09-l01-project-step"
-path = "replace-me.txt"
-mode = "author"                    # learner authors this path; hidden referenceSteps replay it
-instruction = "TODO: exact path, behavior, constraints, commands, and diagnostics—no solution."
-checks = ["TODO: specific observable result the learner can run or inspect."]
+[[lessons.concepts]]
+id = "python-class-statement"
+purpose = "Declare a reusable recipe for related state and behavior."
+anatomy = "Write class, a capitalized type name, a colon, and an indented body."
+example = "class TrailMarker: begins the disposable recipe."
+observable = "Python can evaluate the class name before any marker is constructed."
+failure = "A missing colon or indentation prevents Python from parsing the class body."
+practice = "s09-l01-w1"
 
-[[lessons.readings]]               # optional: 1-2 high-quality official docs
-label = "TODO: official docs"
-url = "https://example.com/TODO"
+[[lessons.concepts]]
+id = "python-init-method"
+purpose = "Initialize a newly constructed object at its creation boundary."
+anatomy = "Define __init__ inside the class and give it self plus the incoming values it needs."
+example = "TrailMarker.__init__ receives label while construction is occurring."
+observable = "Construction completes with the promised instance data available."
+failure = "A misspelled __init__ is an ordinary method and will not run automatically."
+practice = "s09-l01-w1"
+
+[[lessons.concepts]]
+id = "python-self-parameter"
+purpose = "Refer to the particular object receiving an initializer or method call."
+anatomy = "Put self first in an instance method definition and use self.attribute for that object’s stored data."
+example = "self.label names the label on the marker currently being initialized."
+observable = "Two constructed markers can retain different labels."
+failure = "Assigning only to label leaves no attribute stored on the object."
+practice = "s09-l01-w1"
+
+[[lessons.concepts]]
+id = "python-instance-construction"
+purpose = "Create a concrete object from a class recipe."
+anatomy = "Call the class name with constructor arguments and bind the returned instance to a variable."
+example = "marker = TrailMarker(\"east gate\") constructs one marker."
+observable = "The bound marker value exposes its initialized attribute."
+failure = "Calling the class with the wrong number of arguments reports a constructor TypeError."
+practice = "s09-l01-w1"
+
+[[lessons.artifactSteps]]
+id = "s09-l01-shape-the-player"
+path = "game.py"
+mode = "author"
+mechanisms = ["python-class-statement", "python-init-method", "python-self-parameter", "python-instance-construction", "editor-edit-file", "editor-save-file", "terminal-read-saved-file"]
+instruction = "In learner-authored game.py, replace only the existing player-state mapping representation with a top-level Player class and one constructed player. Give the object the hero name and health facts that prior trail code needs, then update existing reads to use the object’s attributes. Preserve separate inventory and discovery collections, the existing commands, error boundary, completion records, and terminal observations. Save, reread the file, and run python game.py from the external project root; do not add inheritance, another class, files, packages, Pygame, or a new artifact."
+checks = ["The saved source constructs one Player and every migrated health/name read traces to that object.", "The six-turn run still ends with Turns taken: 6 and Final health: 12."]
+
+[[lessons.readings]]
+label = "Python tutorial: classes"
+url = "https://docs.python.org/3/tutorial/classes.html"
+
+[[lessons.exercises]]
+id = "s09-l01-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["python-class-statement", "python-init-method", "python-self-parameter"]
+prompt = "Retype this disposable initializer that stores a supplied trail label on its object."
+code = '''class TrailMark:
+    def __init__(self, label):
+        self.label = label'''
 
 [[lessons.exercises]]
 id = "s09-l01-e1"
 type = "mc"
-points = 15
-prompt = "TODO: a multiple-choice question?"
-choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
-answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
-whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
-hint = "TODO: an exercise-specific hint."
-explain = "TODO: shown after solving."
+points = 18
+mechanisms = ["python-init-method", "python-instance-construction"]
+prompt = "When does Python call __init__ in the TrailMarker example?"
+choices = ["When marker.label is printed", "When TrailMarker(\"east gate\") constructs an instance", "When the class statement is parsed", "Only after a separate manual call"]
+answer = 1
+whyWrong = "The class statement creates a recipe, while reading an attribute only uses an already-created object. __init__ is invoked by construction."
+hint = "Look for the expression that asks Python to make a new object."
+explain = "Calling the class name constructs an instance and invokes its initializer."
 
 [[lessons.exercises]]
 id = "s09-l01-e2"
-type = "text"
+type = "fill"
 points = 20
-prompt = "TODO: a free-text question."
-answer = "TODO"
-# accept = ["TODO alternate"]      # optional true alternates only
-hint = "TODO: an exercise-specific hint."
+mechanisms = ["python-self-parameter"]
+prompt = "Complete the object reference that stores the supplied rank on the current disposable scout."
+code = "____.rank = rank"
+answer = "self"
+hint = "Use the conventional first parameter of an instance method."
+whyWrong = "The assignment must target the particular object being initialized, not a free name or the class recipe."
 
 [[lessons.exercises]]
 id = "s09-l01-e3"
-type = "fill"
-points = 20
-prompt = "TODO: fill the blank."
-code = 'answer = ____'             # the ____ marks where the answer goes
-answer = "TODO"
-hint = "TODO: an exercise-specific hint."
-
-[[lessons.exercises]]
-id = "s09-l01-d1"
-type = "type"                      # typing drill: retype the code; no point decay
-points = 12
-reps = 2
-prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
-code = 'print("TODO")'
+type = "text"
+points = 18
+mechanisms = ["python-class-statement", "python-instance-construction"]
+prompt = "What is the name for the concrete value produced by calling a class recipe such as TrailMarker with constructor arguments?"
+answer = "instance"
+accept = ["an instance", "object"]
+hint = "It is one particular result made from a reusable recipe."
+whyWrong = "The class is the reusable recipe; the constructed value is the particular object that carries its own data."
 
 [[lessons.exercises]]
 id = "s09-l01-w1"
-type = "write"                     # CODE LAB: runs on the real runtime; no point decay
-points = 30
-prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
-# starter = '''
-# TODO: prefilled editor code / the exercise's data
-# '''
-expect = '''
-TODO EXACT OUTPUT'''
-# REQUIRED before shipping: a complete program that passes. Never shown to the
-# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
-# solution = '''
-# TODO
-# '''
-hint = "TODO: an exercise-specific hint."
+type = "write"
+points = 34
+mechanisms = ["python-class-statement", "python-init-method", "python-self-parameter", "python-instance-construction", "python-print-call"]
+prompt = "Write a disposable program that defines Beacon with an initializer accepting color and stores it on the instance. Construct a Beacon with the color amber and print its color exactly once. This is not a Briar Glen artifact."
+expect = "amber"
+solution = '''class Beacon:
+    def __init__(self, color):
+        self.color = color
+
+
+beacon = Beacon("amber")
+print(beacon.color)'''
+hint = "The initializer assigns the incoming color to an attribute on self, then the print reads that attribute from the constructed beacon."

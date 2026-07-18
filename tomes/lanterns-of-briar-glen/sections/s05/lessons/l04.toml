@@ -1,0 +1,139 @@
+[[lessons]]
+id = "s05-l04"
+title = "Drive the Text Trail"
+teaches = ["text-trail-controller", "language-control-branch-loop"]
+introduces = ["bounded-loop-invariant"]
+body = '''
+<p>A controller joins state, selection, routing, and repetition into one readable order. Its most important promise is not merely “there is a loop.” It needs an <strong>invariant</strong>: a fact that remains true before and after every completed pass. For this milestone, the bounded-loop invariant is that the completed count starts at zero, rises by one for each routed turn, and never exceeds the declared limit. The saved list and limit agree, so every index is valid.</p>
+<p>This disposable parcel inspector demonstrates the shape without commands, inventory, discoveries, or game outcomes.</p>
+<pre><code data-kind="runnable">weights = [101, 98, 0, 104]
+maximum_checks = 4
+checks_completed = 0
+
+for check_index in range(maximum_checks):
+    weight = weights[check_index]
+    checks_completed = checks_completed + 1
+    if weight == 0:
+        print("empty parcel")
+        break
+    elif weight &lt; 100:
+        print("light parcel")
+    else:
+        print("standard parcel")
+
+print("checks", checks_completed)
+</code></pre>
+<p>The output classifies the first two parcels, reports the empty third parcel, and finishes with <code>checks 3</code>. Although the maximum is four, <code>break</code> ends the loop early. The invariant still holds: the completed count equals the number of routed values and remains between zero and four. The fourth list item is never inspected.</p>
+<p>Trace a bounded controller in this order: select the current item, record that one turn began, route it through exactly one branch, perform its state change, then decide whether to stop. Moving the count outside the loop would record the wrong number. Incrementing in only some branches would make output depend on command type rather than turns processed. Using an unconditional <code>while True</code> would hide the finite boundary and is outside this milestone.</p>
+<p>Your text-trail controller retrieves earlier language rather than replacing it. The normalized command becomes the first saved turn. Branches compare strings and Boolean state. List mutation records a pickup, set mutation records a discovery, arithmetic changes health, and a tuple still represents fixed coordinates. A nested bounded search can break without ending the outer turn controller; the explicit leave route owns the outer break.</p>
+<p>Run the complete source twice. A deterministic controller produces the same ordered transcript both times. If turns differ, inspect saved data and branch order. There is still no input or framework event loop: those later boundaries will reuse this control knowledge after functions, tests, errors, objects, modules, and typing are secure.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // STATE, NOT CLAIMS</div><p>A summary is evidence only when it prints names changed by the controller. Prewriting <code>True</code>, a final list, or a turn count can imitate one run without proving the transitions.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "text-trail-controller"
+purpose = "Drive a deterministic sequence of saved text commands through one ordered state-changing controller."
+anatomy = "Select the current saved command, count the turn, route one branch, mutate established state, honor inner search control, and stop the outer loop only at the leave route or bound."
+example = "The parcel inspector demonstrates the same select-count-route-stop order with a different non-game problem."
+observable = "The Working prints ordered turn lines followed by summaries derived from the changed state."
+failure = "Scattered branches, copied final output, or a stop applied to the wrong loop makes the transcript disagree with actual transitions."
+practice = "s05-l04-e5"
+
+[[lessons.concepts]]
+id = "language-control-branch-loop"
+purpose = "Combine Python conditions, exclusive branch chains, finite for loops, conditional while loops, and explicit loop control to transform data observably."
+anatomy = "Evaluate comparisons and Boolean expressions, choose the first matching branch, repeat over a finite boundary, update progress, and use continue or break only for named control decisions."
+example = "The four lessons move from exclusive ferry routing through counted inspection and bounded search to the parcel controller."
+observable = "A deterministic run shows which routes occurred, how many passes completed, what was skipped, where execution stopped, and which state changed."
+failure = "A loop without progress, a broad branch placed first, or a hard-coded summary can appear plausible while violating the control contract."
+practice = "s05-l04-e5"
+
+[[lessons.concepts]]
+id = "bounded-loop-invariant"
+purpose = "State and preserve a checkable fact that guarantees a loop remains within its intended boundary."
+anatomy = "Name the upper bound and progress value, initialize progress, update it once per processed item, and confirm every continue or break path preserves zero through bound."
+example = "The parcel inspector keeps checks_completed equal to processed parcels and no greater than maximum_checks."
+observable = "The final checks line agrees with the number of classification lines even when break stops early."
+failure = "Updating only some paths or bypassing progress before continue breaks the count-and-bound promise."
+practice = "s05-l04-e5"
+
+[[lessons.artifactSteps]]
+id = "s05-l04-author-text-trail-controller"
+path = "game.py"
+mode = "author"
+mechanisms = ["bounded-loop-invariant", "python-if-statement", "python-elif-clause", "python-else-clause", "python-for-statement", "python-in-loop-target", "python-range-call", "python-while-statement", "python-break-statement", "python-continue-statement", "python-list-literal", "python-list-indexing", "list-append-method", "python-dict-key-access", "dict-get-method", "python-membership-operators", "set-add-method", "collection-copy-method", "python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators", "python-f-string", "string-strip-method", "string-lower-method", "string-split-method", "python-name-binding", "python-print-call", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file"]
+instruction = "Finish learner-authored game.py as one cumulative deterministic text-trail controller. Make the saved normalized look command the first of six saved turns, followed by pickup, rest, search, one unknown command, and leave. Keep the turn limit equal to the sequence size; update turns-taken exactly once per selected command; route each command once; let the inner search stop only itself; and let leave print its outcome before stopping the outer loop. Print pre-turn observations and a final summary derived from changed health, inventory, discoveries, path state, and turns, including an unchanged inventory snapshot. Preserve earlier value, text, list, dict, set, and tuple roles. Save, read, and run python game.py twice from the project root with .venv active. Do not add input, functions, tests, exceptions, classes, modules, files, dependencies, Pygame, package material, or another path."
+checks = ["Both saved runs produce the same six numbered turns and the same derived summary, with leave ending the outer controller after its own message.", "The final state reports six turns, health 12, a newly packed item, the unchanged pre-turn snapshot, a discovered lantern key, and an open path; no summary value is a substitute literal for the state changed in the loop."]
+
+[[lessons.readings]]
+label = "Python control flow tools"
+url = "https://docs.python.org/3/tutorial/controlflow.html"
+
+[[lessons.exercises]]
+id = "s05-l04-e1"
+type = "text"
+points = 20
+mechanisms = ["bounded-loop-invariant"]
+prompt = "A bounded controller has maximum_steps equal to 5. State the relationship that completed_steps must preserve if it starts at zero and rises once per processed step."
+answer = "completed_steps stays between 0 and maximum_steps and equals the number of processed steps"
+accept = ["0 <= completed_steps <= maximum_steps and it counts processed steps", "it never exceeds 5 and matches the steps processed"]
+hint = "Name both the allowed bounds and what the counter represents."
+
+[[lessons.exercises]]
+id = "s05-l04-e2"
+type = "mc"
+points = 19
+mechanisms = ["python-break-statement", "python-for-statement", "bounded-loop-invariant"]
+prompt = "A controller increments its counter once at the start of every loop pass, then a stop branch executes break. What should the final counter represent?"
+choices = ["Only passes that did not reach break", "The declared maximum regardless of early stop", "Every processed pass including the stopping pass", "The number of branch conditions written in source"]
+answer = 2
+whyWrong = "The stopping pass was selected and processed before break, so excluding it is off by one. Early stop can keep the count below the maximum, and source condition count is unrelated."
+hint = "Decide whether the stopping item was actually processed before the loop exited."
+explain = "Incrementing once per selected pass includes the pass whose route decides to stop."
+
+[[lessons.exercises]]
+id = "s05-l04-e3"
+type = "fill"
+points = 21
+mechanisms = ["python-for-statement", "python-in-loop-target", "python-list-literal"]
+prompt = "Complete the earlier collection name so this retrieval loop visits each established carried item."
+code = '''for carried_item in ____:
+    print(carried_item)'''
+answer = "inventory"
+hint = "Reuse the named growable pack collection established in the previous section."
+
+[[lessons.exercises]]
+id = "s05-l04-e4"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["python-name-binding", "python-arithmetic-operators", "bounded-loop-invariant"]
+prompt = "Retype the once-per-pass progress update exactly."
+code = "checks_completed = checks_completed + 1"
+
+[[lessons.exercises]]
+id = "s05-l04-e5"
+type = "write"
+points = 35
+mechanisms = ["bounded-loop-invariant", "python-for-statement", "python-in-loop-target", "python-range-call", "python-if-statement", "python-elif-clause", "python-else-clause", "python-break-statement", "python-list-literal", "python-list-indexing", "python-name-binding", "python-arithmetic-operators", "python-print-call"]
+prompt = "Write a disposable parcel controller for weights = [105, 95, 0, 110], maximum_checks = 4, and checks_completed = 0. Loop over range(maximum_checks), retrieve the indexed weight, increment checks_completed once, print standard for a weight at least 100, light for a lower nonzero weight, and empty then break for zero. After the loop print checks and the derived count. Produce exactly the output below."
+expect = '''standard
+light
+empty
+checks 3'''
+solution = '''weights = [105, 95, 0, 110]
+maximum_checks = 4
+checks_completed = 0
+for check_index in range(maximum_checks):
+    weight = weights[check_index]
+    checks_completed = checks_completed + 1
+    if weight == 0:
+        print("empty")
+        break
+    elif weight < 100:
+        print("light")
+    else:
+        print("standard")
+print("checks", checks_completed)
+'''
+hint = "Count immediately after retrieval, test zero before the lower-weight branch, and print the count only after the loop."

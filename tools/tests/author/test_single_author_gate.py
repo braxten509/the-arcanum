@@ -155,6 +155,7 @@ assert "model_auto_compact_token_limit=80000" in initial_codex
 resumed_codex = single_author_runtime.resume_command(
     "codex-cli", "gpt-5.6-terra", "medium", "session", "continue")[1]
 assert "model_auto_compact_token_limit=80000" in resumed_codex
+assert resumed_codex[resumed_codex.index("-m") + 1] == "gpt-5.6-terra"
 
 with tempfile.TemporaryDirectory() as root:
     writable = os.path.join(root, "build")

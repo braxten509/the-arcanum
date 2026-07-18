@@ -1,44 +1,51 @@
 [freestyle]
-title = "THE WORKING: THE EXTERNAL TRAILHEAD"
-brief = '''<p>Rowan will not hand you a game skeleton. Establish the real workspace that will hold <em>Lanterns of Briar Glen</em> and leave one behavior-free receipt behind.</p><ul><li>Print and identify an existing personal location you control, create the project child there, and enter only that known child. If the target already exists, use the taught shell-specific listing action to inspect it before entering; never mix with an unrelated directory.</li><li>Use Python’s module-invocation option to run <code>venv</code> and install a project-local <code>.venv</code> tool boundary. Activate it using the command appropriate to your terminal—on a Unix-like shell, source the activation script into the current session—and confirm that the active <code>python</code> resolves from that environment.</li><li>Using your editor, create <code>toolchain-check.txt</code>. It must be plain text only: identify the workspace, record the Python version you observed, state that the project environment was active, and state that you saved and reread the file. Do not create requirements files, install project dependencies, add configuration, package metadata, or game source.</li><li>Save the receipt; read it with <code>cat</code> on Linux/macOS, <code>Get-Content</code> in PowerShell, or <code>type</code> in Command Prompt; and invoke a Python version diagnostic while the environment remains active. If the diagnostic points outside <code>.venv</code>, repair activation. When all observations are complete, run <code>deactivate</code> and confirm the current shell no longer selects Python from this project’s environment.</li></ul>'''
+title = "THE WORKING: The External Trailhead"
+brief = '''Rowan needs a trustworthy trail marker before any game construction begins.<ul><li>Choose an external folder for Lanterns of Briar Glen and use a terminal to arrive at that folder; do not create Python source, requirements, configuration, package metadata, or install dependencies.</li><li>Create and activate a <code>.venv</code> there, then use terminal diagnostics to distinguish its Python from a system Python.</li><li>Using your editor, create and save <code>toolchain-check.txt</code> as a behavior-free receipt. It must identify the workspace, record the activated-environment Python path or name, and record the observed Python version.</li><li>Read the saved receipt from the terminal and rerun <code>python --version</code>. Keep the receipt as plain text only; s02 will retire it after the first source program runs.</li></ul>'''
 requires = ["workspace-orientation", "isolated-python-environment", "external-file-action-loop", "tool-navigate", "tool-diagnose", "tool-install", "tool-create-open", "tool-edit-save", "tool-run-test", "language-environment-venv"]
-mechanisms = ["terminal-print-working-directory", "terminal-change-directory", "terminal-check-python-version", "venv-create-environment", "venv-activate-environment", "venv-resolve-active-python", "editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file", "terminal-create-project-directory", "editor-open-session", "plain-text-receipt-format", "python-module-invocation", "shell-source-script"]
+mechanisms = ["terminal-print-working-directory", "terminal-change-directory", "terminal-check-python-version", "venv-create-environment", "venv-activate-environment", "venv-resolve-active-python", "editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file"]
 reward = 150
-xray = "Check for a learner-created plain-text receipt, an environment local to the project, and evidence that the terminal and editor saw the same saved file. Dock invented Python source, dependency installation, package metadata, or a diagnostic that silently used a global interpreter. The receipt records observations; it is not a program."
+xray = "Rowan checks that the receipt is a saved, readable plain-text observation from the activated environment—not a source file, dependency list, or invented screenshot. He also checks that the terminal evidence and editor action are both real."
 
 [[freestyle.referenceSteps]]
 id = "s01-create-toolchain-receipt"
 path = "toolchain-check.txt"
 mode = "write"
-instruction = "Create the private replay receipt as plain text after the external workspace and its isolated environment have been prepared."
+mechanisms = ["editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file"]
+instruction = "Create the private replay receipt representing the learner's saved external-tool check."
 content = '''
-External Trailhead Receipt
-Workspace: chosen and inspected
-Python: diagnostic completed
-Environment: project-local .venv active
-Editor loop: created, saved, and reread
+Lanterns of Briar Glen external tool receipt
+workspace: external project root confirmed
+environment: .venv activated
+python: environment interpreter resolved
+diagnostic: python --version observed
+receipt: saved in an editor and read in a terminal
 '''
-mechanisms = ["editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file", "editor-open-session", "plain-text-receipt-format"]
 
 [freestyle.badge]
 id = "badge-s01"
-name = "TRAILHEAD KEEPER"
-desc = "You can prove where a Python workspace lives and which interpreter is standing watch."
+name = "TRAILHEAD LIT"
+desc = "Marked a real workspace and verified the lantern's Python path."
 
 [[freestyle.rubric]]
-criterion = "Workspace and Environment Evidence"
-weight = 40
-desc = "The learner identifies a controlled existing parent, creates and safely enters the project child, inspects any pre-existing target, invokes Python’s venv module to install the local tool boundary, applies shell-appropriate activation, confirms the active Python belongs to it, and releases the shell with deactivate after the evidence loop."
-mechanisms = ["terminal-print-working-directory", "terminal-change-directory", "terminal-check-python-version", "venv-create-environment", "venv-activate-environment", "venv-resolve-active-python", "terminal-create-project-directory", "python-module-invocation", "shell-source-script"]
+criterion = "Workspace And Terminal Orientation"
+weight = 25
+desc = "The learner can show the chosen project root, use a change-directory action deliberately, and use a working-directory diagnostic before creating project material."
+mechanisms = ["terminal-print-working-directory", "terminal-change-directory"]
 
 [[freestyle.rubric]]
-criterion = "Saved Receipt Loop"
-weight = 40
-desc = "toolchain-check.txt is learner-authored plain text, saved through an editor, and reread with the taught Linux/macOS, PowerShell, or Command Prompt command for the learner’s actual terminal."
-mechanisms = ["editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "editor-open-session", "plain-text-receipt-format"]
+criterion = "Isolated Interpreter Evidence"
+weight = 25
+desc = "A .venv is created and activated; the learner compares the resolved active Python with the system context and records an observed Python version without installing a dependency."
+mechanisms = ["terminal-check-python-version", "venv-create-environment", "venv-activate-environment", "venv-resolve-active-python"]
 
 [[freestyle.rubric]]
-criterion = "Bounded Setup"
+criterion = "Saved Behavior-Free Receipt"
+weight = 30
+desc = "toolchain-check.txt is plain text, identifies the workspace and activated interpreter evidence, survives save and terminal readback, and contains no source, requirements, configuration, package metadata, or dependency command."
+mechanisms = ["editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file"]
+
+[[freestyle.rubric]]
+criterion = "Observed Evidence, Not Guesswork"
 weight = 20
-desc = "The trailhead stays behavior-free: no source, dependency, configuration, metadata, or package command appears before the next section."
-mechanisms = ["terminal-invoke-saved-file"]
+desc = "The receipt's workspace, active-interpreter context, and Python version come from the learner's terminal observations; saved readback and the repeated version diagnostic agree with those observations."
+mechanisms = ["terminal-check-python-version", "venv-resolve-active-python", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file"]

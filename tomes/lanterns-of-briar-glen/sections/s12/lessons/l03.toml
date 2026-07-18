@@ -1,0 +1,145 @@
+[[lessons]]
+id = "s12-l03"
+title = "Expose a Public Surface"
+teaches = ["package-public-api", "language-import-public-boundary"]
+introduces = ["python-all-export-list", "module-dependency-direction", "circular-import-traceback"]
+body = '''
+<p>A package can contain many names without inviting every caller to depend on all of them. Its public surface is the intentional set that the package initializer gathers and documents with <code>__all__</code>. In <code>briar_glen/__init__.py</code>, use a relative import to bring the established domain seams into the package, then write a list of the exact public names. Tests should import those names from <code>briar_glen</code>, not reach through an accidental internal route.</p>
+<pre><code data-kind="runnable">from .signals import ring
+
+__all__ = ["ring"]</code></pre>
+<p><code>__all__</code> is a public-intent list; it does not create new behavior or magically prevent every possible direct internal import. Its value is that readers, callers, and future maintainers can see the supported door. For the existing trail, expose only the tested domain classes and helpers already needed by <code>tests/test_game.py</code>. Keep the trail runner owned by the entry-to-domain route rather than promoting it as a package convenience.</p>
+<p>Read the dependency direction out loud: tests → package public surface → domain; entry → domain. The domain has no arrow back to the package initializer or entry. A circular import breaks that direction. Python may report that a name cannot be imported from a partially initialized module. Treat that exact diagnosis as a stop signal: compare the saved modules’ import directions before changing behavior. Do not “fix” that symptom by copying a class, moving startup into <code>__init__.py</code>, or adding a fallback import. Remove the backward dependency shown by that map and preserve one owner for each rule.</p>
+<h3>Worked diagnosis: a disposable cycle</h3>
+<p>Make this throwaway package in a scratch directory, not in Briar Glen. Its names and purpose are deliberately unrelated to the trail. The entry imports <code>torch</code>; <code>torch</code> asks <code>scout</code> for a report before it has assigned <code>flame</code>; then <code>scout</code> reaches back for that not-yet-created name.</p>
+<pre><code data-kind="pseudocode"># ember_loop/__main__.py
+from ember_loop import torch
+
+# ember_loop/torch.py
+from ember_loop.scout import report
+
+flame = "amber"
+print(report)
+
+# ember_loop/scout.py
+from ember_loop.torch import flame
+
+report = f"Scout saw {flame}"</code></pre>
+<p>Add an empty <code>ember_loop/__init__.py</code>, then, from the scratch directory’s parent, run <code>python -m ember_loop</code>. Python reports this observable diagnosis:</p>
+<pre><code data-kind="terminal">ImportError: cannot import name 'flame' from partially initialized module 'ember_loop.torch' (most likely due to a circular import)</code></pre>
+<p>The supplied file layout has arrows <code>__main__ → torch → scout → torch</code>. The repeated <code>torch</code> marks the loop, and the attempted import of <code>flame</code> explains why it is only partially initialized. Repair the disposable shape by removing the backward arrow—for example, give the shared value one dependency-free owner or pass it into the consumer—then rerun the same command and confirm that this diagnostic is gone. Do not copy this experiment into the project.</p>
+<p>Finish by reading the initializer, entry, domain, and tests together. The initializer should have only its relative imports and public-name list; the entry should have its absolute domain import plus its guard; the domain should remain reusable and startup-free. Run the module entry and pytest from the project root. This chapter diagnoses a circular-import shape with a disposable example; it does not intentionally create a broken circular import in Briar Glen.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // KEEP THE MAP ONE-WAY</div><p>A partially initialized-module message is evidence of an import cycle, not proof that Python needs a duplicate definition. Use the saved dependency map to check that each import points one way.</p></div>'''
+
+[[lessons.concepts]]
+id = "package-public-api"
+purpose = "Offer callers a small intentional package-level set of supported domain names."
+anatomy = "In the initializer, relatively import selected domain names and list exactly those public names in __all__; point callers at the package path."
+example = "The signals example gathers ring and records it as the sole public name."
+observable = "tests/test_game.py can import its established seams from briar_glen while the domain remains the single behavior owner."
+failure = "Making callers import arbitrary internals turns implementation details into accidental promises."
+practice = "s12-l03-w1"
+
+[[lessons.concepts]]
+id = "language-import-public-boundary"
+purpose = "Design a clear package import boundary with an explicit public surface, a guarded entry, and one-way dependencies."
+anatomy = "Give the entry an absolute domain import, give the initializer relative public imports plus __all__, keep tests at the package surface, and keep the domain independent of startup modules."
+example = "The three Briar Glen roles form entry to domain, package to domain, and tests to package paths."
+observable = "The entry still runs the deterministic trail and focused tests import supported names without import-time startup."
+failure = "A public surface that starts the program or a domain that imports its entry blurs the boundary and risks a cycle."
+practice = "s12-l03-w1"
+
+[[lessons.concepts]]
+id = "python-all-export-list"
+purpose = "Record the package names intentionally presented as its public surface."
+anatomy = "Assign __all__ to a list of quoted names that the initializer has made available."
+example = "__all__ = [\"ring\"] records the selected name in the disposable initializer example."
+observable = "A reader can inspect the initializer and see which supported names package callers should use."
+failure = "Listing an unimported or misspelled name makes the advertised surface disagree with the available name."
+practice = "s12-l03-w1"
+
+[[lessons.concepts]]
+id = "module-dependency-direction"
+purpose = "Keep module dependencies flowing from callers and entry points toward reusable domain rules."
+anatomy = "Draw each import as an arrow, let tests use the package surface and the entry use the domain, then ensure the domain has no arrow back upward."
+example = "tests to briar_glen to domain and main to domain are the two permitted reading paths."
+observable = "Imports resolve without a partially initialized-module diagnostic, and domain tests remain independent of startup."
+failure = "A domain import of the initializer or entry creates a backward arrow that can turn into a cycle."
+practice = "s12-l03-w1"
+
+[[lessons.concepts]]
+id = "circular-import-traceback"
+purpose = "Recognize a circular-import diagnostic and use a dependency map to identify a backward module dependency."
+anatomy = "Match the partially initialized-module diagnosis to the supplied modules, draw the imports shown in the saved dependency map, find the loop, and remove the backward dependency without copying the owned behavior."
+example = "The disposable ember_loop run reaches torch to scout to torch and reports that flame cannot be imported from the partially initialized torch module."
+observable = "Running python -m ember_loop in the scratch example ends with the partially initialized torch ImportError; after removing its backward arrow, that diagnostic is absent."
+failure = "Duplicating a definition can hide the symptom while leaving two competing behavior owners."
+practice = "s12-l03-w1"
+
+[[lessons.artifactSteps]]
+id = "s12-l03-author-public-surface"
+path = "briar_glen/__init__.py"
+mode = "author"
+mechanisms = ["python-all-export-list", "module-dependency-direction", "circular-import-traceback", "python-relative-import", "python-absolute-import", "python-import-statement", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "pytest-module-invocation"]
+instruction = "Author briar_glen/__init__.py as the public surface: relatively import only the established test seams from domain.py and write __all__ with exactly those supported names. Update tests/test_game.py to import those seams from briar_glen, while keeping main.py’s absolute dependency on domain.py and leaving domain.py free of imports back to main or the initializer. Read all four saved files as one dependency map, run python -m briar_glen.main and python -m pytest -q, and, if the partial-initialization diagnosis appears, reread the saved dependency map for a backward import. Do not expose the runner as a package shortcut, copy domain behavior, add new game rules, CLI parsing, files, storage, Pygame, annotations, or deliberately install a circular import."
+checks = ["The initializer visibly contains a relative domain import and an __all__ list of the supported test seams; tests use the briar_glen package surface.", "The dependency reading path is tests to package to domain and main to domain, with no domain import back upward; module run and focused tests remain clean."]
+
+[[lessons.readings]]
+label = "Python reference: import statement"
+url = "https://docs.python.org/3/reference/simple_stmts.html#the-import-statement"
+
+[[lessons.exercises]]
+id = "s12-l03-e1"
+type = "mc"
+points = 18
+mechanisms = ["python-all-export-list"]
+prompt = "What is the clearest purpose of __all__ in a package initializer?"
+choices = ["It executes the package entry", "It records the names the package intentionally presents", "It makes every internal name private by force", "It installs missing dependencies"]
+answer = 1
+whyWrong = "__all__ records public intent; it neither starts a program, enforces complete privacy, nor installs software."
+hint = "Think of it as a visible list at the package door."
+explain = "The list communicates the supported names callers should request from the package."
+
+[[lessons.exercises]]
+id = "s12-l03-e2"
+type = "fill"
+points = 20
+mechanisms = ["python-all-export-list"]
+prompt = "Complete the conventional public-export variable name."
+code = "____ = [\"ring\"]"
+answer = "__all__"
+hint = "It has two underscores on each side of all."
+
+[[lessons.exercises]]
+id = "s12-l03-e3"
+type = "text"
+points = 18
+mechanisms = ["module-dependency-direction", "circular-import-traceback"]
+prompt = "Python reports that a name cannot be imported from a partially initialized module. What should you inspect first?"
+answer = "The saved modules’ import directions for a circular dependency"
+accept = ["the saved import direction map for a backward dependency", "the circular dependency in the saved module map"]
+hint = "Do not copy a missing class yet; compare the saved module relationships."
+explain = "The saved one-way map lets you inspect for the backward import that forms a loop."
+
+[[lessons.exercises]]
+id = "s12-l03-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["python-all-export-list", "python-relative-import"]
+prompt = "Retype this disposable public-surface fragment."
+code = '''from .signals import ring
+
+__all__ = ["ring"]'''
+
+[[lessons.exercises]]
+id = "s12-l03-w1"
+type = "write"
+points = 35
+mechanisms = ["python-all-export-list", "module-dependency-direction", "circular-import-traceback", "python-list-literal", "python-list-indexing", "python-string-literal", "python-print-call"]
+prompt = "Write a disposable program that records glow as the only name in __all__ and prints that one listed name. Then write one sentence naming the safe direction of dependencies between an entry, initializer, and domain and why a circular path violates it. Do not create a Briar Glen artifact."
+expect = "glow"
+solution = '''__all__ = ["glow"]
+
+print(__all__[0])'''
+hint = "Put the quoted name in a one-item list, then print its first item."

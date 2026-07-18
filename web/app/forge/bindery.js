@@ -3,7 +3,7 @@ import { $, closeModal, dropOverlay, esc, modal, sfx } from "../core/dom.js";
 import { enhanceSelect } from "../ui/menu.js";
 import { forgeEntry } from "./forge.js";
 import { mergeForgeTraceLines } from "./trace-lines.js";
-import { fallbackCourseControl } from "./course-control.js";
+import { fallbackCourseControl, formatCourseBlockers } from "./course-control.js";
 
 export const FORGE_PHASES = ["Concept & arc", "Skeleton & voice", "Sections", "Minigames",
   "Economy", "Cosmetics", "Validate", "Student review"];
@@ -95,20 +95,23 @@ function phaseLine(status, interactionState) {
   return line;
 }
 
-function paintCourseControl(overlay, control) {
+function paintCourseControl(overlay, control, sessionUsage) {
   const panel = $("#fp-course-control", overlay);
   if (!control?.spine?.length) { panel.classList.add("hidden"); return; }
   panel.classList.remove("hidden");
-  const validator = control.validatorAi || {};
   const compactTokens = (value) => Number(value || 0) >= 1000000
     ? `${(Number(value) / 1000000).toFixed(1)}M`
     : Number(value || 0) >= 1000 ? `${(Number(value) / 1000).toFixed(1)}K` : String(Number(value || 0));
-  const validatorUsage = validator.apiCalls
-    ? ` · API ${validator.apiCalls} · ${compactTokens(validator.freshInputTokens)} FRESH · ${compactTokens(validator.cachedInputTokens)} CACHED · ${compactTokens(validator.cacheWriteTokens)} WRITE · ${compactTokens(validator.outputTokens)} OUT`
+  const usage = sessionUsage || {};
+  const hasSessionUsage = ["inputTokens", "freshInputTokens", "cachedInputTokens",
+    "cacheWriteTokens", "outputTokens"].some((key) => Number(usage[key] || 0) > 0);
+  const usageText = hasSessionUsage
+    ? ` · ${compactTokens(usage.freshInputTokens)} FRESH · ${compactTokens(usage.cachedInputTokens)} CACHED · ${compactTokens(usage.cacheWriteTokens)} WRITE · ${compactTokens(usage.outputTokens)} OUT`
     : "";
-  $("#fp-course-summary", panel).textContent = control.fallback
+  const summary = control.fallback
     ? `SECTION MAP · ${control.currentIndex || 1}/${control.spine.length} · STATUS FALLBACK`
-    : `${control.openObligations || 0} OBLIGATIONS OPEN · ${control.dueObligations || 0} DUE NOW · VALIDATOR AI · ${validator.callCount || 0} CALLS${validatorUsage}`;
+    : `${control.openObligations || 0} OBLIGATIONS OPEN · ${control.dueObligations || 0} DUE NOW`;
+  $("#fp-course-summary", panel).textContent = summary + usageText;
   $("#fp-course-spine", panel).innerHTML = control.spine.map((row) =>
     `<div class="forge-course-row${row.id === control.currentSection ? " current" : ""}" data-status="${esc(row.status)}"
       aria-label="${esc(row.id)} ${esc(row.statusLabel)}: ${esc(row.title)}">
@@ -116,8 +119,9 @@ function paintCourseControl(overlay, control) {
       <span class="forge-course-title">${esc(row.title)}</span><span class="forge-course-milestone">${esc(row.milestone)}</span></div>`).join("");
   const blockers = Array.isArray(control.blockers) ? control.blockers : [];
   const blockerBox = $("#fp-course-blockers", panel);
-  blockerBox.classList.toggle("hidden", !blockers.length);
-  blockerBox.textContent = blockers.length ? `BLOCKED · ${blockers.join(" · ")}` : "";
+  const blockerText = formatCourseBlockers(blockers);
+  blockerBox.classList.toggle("hidden", !blockerText);
+  blockerBox.textContent = blockerText;
 }
 
 function messageStamp(value) {
@@ -307,7 +311,7 @@ export function openBuildOverlay(jobId, traceId = jobId) {
       row.classList.toggle("now", phase === current && status.phaseState !== "complete");
       $(".fp-mark", row).textContent = phase < current || (phase === current && status.phaseState === "complete") ? "✓" : phase === current ? "•" : "";
     });
-    paintCourseControl(overlay, status.courseControl);
+    paintCourseControl(overlay, status.courseControl, tooling?.usage);
     const traceAnchor = Number(tooling?.updatedAt) * 1000 || Date.now();
     const lines = mergeForgeTraceLines(tooling?.lines, status.logtail, traceAnchor);
     const nextTrace = lines.join("\0");

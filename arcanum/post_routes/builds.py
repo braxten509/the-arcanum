@@ -9,7 +9,7 @@ import time
 import uuid
 
 from ..forge.build_state import (BUILD_TOTAL_PHASES, build_result_status, load_author_session,
-                           save_active_owner)
+                                 load_section_progress, save_active_owner)
 from ..config import (BUILD_DIR, CLI_EFFORTS, ROOT, TOMES_DIR, build_procs, jobs,
                       jobs_lock)
 from ..forge import (_clear_build_terminal_state, _plan_concept, _plan_gate, _resume_phase,
@@ -17,9 +17,24 @@ from ..forge import (_clear_build_terminal_state, _plan_concept, _plan_gate, _re
                      fresh_tome_id, list_active_builds, watch_build, working_is_active)
 from ..tomes import plan_path, resolve_working_tid
 from tools.buildlib.workflow.phase_reset import find_plan_for_tome, reset_tome_to_phase
+from tools.buildlib.status_log import load_status_lines
 
 
 AUTHOR_KINDS = ("claude-cli", "antigravity-cli", "codex-cli", "opencode-cli")
+
+
+def _resume_session_id(previous, author, phase, section=""):
+    """Resume only the same model's exact phase/section session."""
+    if (previous.get("role") != "author"
+            or previous.get("kind") != author.get("kind")
+            or previous.get("model") != author.get("model")
+            or (previous.get("actualModel")
+                and previous.get("actualModel") != author.get("model"))
+            or int(previous.get("phase") or 0) != int(phase)):
+        return ""
+    if int(phase) == 3 and str(previous.get("section") or "") != str(section or ""):
+        return ""
+    return str(previous.get("sessionId") or "")
 
 
 def _agent(value, role):
@@ -98,6 +113,7 @@ def _launch(tid, author, concept, phase, gate_json=None, resume_id="", reviewer=
                      "log": [], "pid": proc.pid, "startedAt": started,
                      "phaseStartedAt": started,
                      "activityStartedAt": started,
+                     "statusLog": load_status_lines(tid),
                      "sessionAuthor": dict(author),
                      "authorSchedule": {key: dict(value) for key, value in (authors or {}).items()},
                      "sessionValidator": dict(validator),
@@ -180,9 +196,8 @@ def resume_build(h, body):
     launch["reviewer"] = reviewer or {}
     _save_launch(rid, launch, _plan_concept(text), text)
     previous = load_author_session(rid) or load_author_session(tid) or {}
-    same_cli = (previous.get("kind") == author["kind"]
-                and previous.get("model") == author["model"])
-    resume_id = str(previous.get("sessionId") or "") if same_cli else ""
+    section = (load_section_progress(rid) or {}).get("section", "") if phase == 3 else ""
+    resume_id = _resume_session_id(previous, author, phase, section)
     # A resumed build is no longer cancelled: a stale cancel marker here made a later
     # clean finish record as "cancelled" instead of "done" (the untitled-6 loop).
     for key in {rid, tid}:
@@ -265,6 +280,10 @@ def reset_build(h, body, tid):
 
 def discard_build(h, body):
     rid = str(body.get("id") or "")
+    if (body.get("confirm") != "discard-draft"
+            or str(body.get("confirmWorking") or "") != rid):
+        return h.send_json({"ok": False,
+                            "error": "the matching draft deletion confirmation is required"}, 400)
     plan = plan_path(rid)
     if not os.path.exists(plan):
         return h.send_json({"ok": False, "error": "no such working"}, 404)

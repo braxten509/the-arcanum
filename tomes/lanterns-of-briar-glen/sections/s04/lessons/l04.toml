@@ -1,0 +1,130 @@
+[[lessons]]
+id = "s04-l04"
+title = "Fix Coordinates and Copy State"
+teaches = ["coordinate-record", "language-collections-list-dict-set-tuple"]
+introduces = ["python-tuple-literal", "collection-copy-method"]
+body = '''
+<p>Some game facts are a small fixed record, not a pack to grow. A coordinate such as horizontal and vertical position belongs together and should not silently gain another component during this milestone. Python uses a <strong>tuple</strong> for an ordered fixed collection. Parentheses and a comma make a tuple literal. Keep both numbers under one name, then print the record as one unit.</p>
+<pre><code data-kind="runnable">camp_coordinate = (3, 8)
+print(camp_coordinate)
+</code></pre>
+<p>The terminal displays <code>(3, 8)</code>. The comma is significant: parentheses alone only group an expression. A one-value tuple needs a trailing comma, but a two-coordinate record already has the separating comma it needs. Do not use a tuple for the inventory because its fixed shape would contradict the requirement to append a new item. Collection choice is a contract: list for ordered growth, dict for named facts, set for uniqueness, and tuple for a fixed positional record.</p>
+<p>Mutable collections create a second problem: a later mutation can erase your evidence of an earlier state. A list variable is a name pointing at one list. Assigning that name to another variable does not make an independent inventory. Use the list <code>copy()</code> method to create a separate shallow copy before changing the original list.</p>
+<pre><code data-kind="runnable">morning_pack = ["flint", "water"]
+pack_snapshot = morning_pack.copy()
+morning_pack.append("moss")
+print(pack_snapshot)
+print(morning_pack)
+</code></pre>
+<p>The first line remains <code>['flint', 'water']</code>; the second includes moss. The copy records the old top-level list values while the original receives the append. In this chapter the inventory is flat text, so a shallow copy is enough. Nested collections need a later, more deliberate discussion; do not infer that every possible nested object becomes independent here.</p>
+<p>The Working combines the four collection promises in the one saved source. Capture an inventory snapshot before its change, then print that snapshot after the original has grown. Add one fixed coordinate record and print it. Keep the previous values and text available, but do not revive the old three-line transcript: this chapter supersedes it with a broader collection receipt. There is still no interactive game loop; these values are compact evidence that later world, collision, and inventory work can retrieve.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // COPY BEFORE THE CHANGE</div><p>A snapshot only proves an earlier state if it exists before mutation. If your snapshot also gains the new item, check whether you copied the list before append and whether you used copy() rather than a second name for the same list.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "coordinate-record"
+purpose = "Keep two fixed coordinate values together as one ordered record."
+anatomy = "Open parenthesis, write the first coordinate, comma, second coordinate, close parenthesis, then bind and print the tuple."
+example = "camp_coordinate = (3, 8) shows the complete fixed coordinate record."
+observable = "Running the example displays (3, 8) as one record."
+failure = "Omitting the comma changes a tuple expression into ordinary grouping, and using a list weakens the fixed-record promise."
+practice = "s04-l04-e3"
+
+[[lessons.concepts]]
+id = "language-collections-list-dict-set-tuple"
+purpose = "Choose list, dictionary, set, or tuple according to ordered growth, keyed facts, uniqueness, or fixed-record needs."
+anatomy = "Identify the collection rule first, construct the matching shape, and use only the operation that belongs to that shape."
+example = "The four lessons contrast pack append, player-key lookup, discovery membership, and camp-coordinate printing."
+observable = "The Working transcript exposes each collection rule through a different before, after, retrieval, or membership observation."
+failure = "Using an index for a set, append for a tuple, or a numeric position for named player facts breaks the collection contract."
+practice = "s04-l04-e4"
+
+[[lessons.concepts]]
+id = "python-tuple-literal"
+purpose = "Create a small fixed ordered record such as a coordinate pair."
+anatomy = "Write parenthesis, the first value, a comma, the second value, and closing parenthesis."
+example = "camp_coordinate = (3, 8) creates the tuple printed in the first example."
+observable = "The terminal displays the two values in parentheses separated by a comma."
+failure = "Parentheses without a tuple-making comma merely group an expression."
+practice = "s04-l04-e5"
+
+[[lessons.concepts]]
+id = "collection-copy-method"
+purpose = "Preserve an independent shallow snapshot of a flat list before the original changes."
+anatomy = "Write the original list name, dot, copy, empty parentheses, and bind the returned list to a snapshot name before mutation."
+example = "pack_snapshot = morning_pack.copy() occurs before morning_pack.append(\"moss\")."
+observable = "The snapshot print omits moss while the original pack print includes it."
+failure = "A second assignment names the same mutable list, so both names show the later append."
+practice = "s04-l04-e3"
+
+[[lessons.artifactSteps]]
+id = "s04-l04-author-coordinate-and-snapshot"
+path = "game.py"
+mode = "author"
+mechanisms = ["python-tuple-literal", "collection-copy-method", "list-append-method", "python-list-literal", "python-name-binding", "python-print-call", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file"]
+instruction = "Finish the learner-authored game.py collection receipt. Before the existing inventory mutation, make a named independent list snapshot; after the mutation, print the snapshot so it proves the earlier flat-pack state. Add and print one named two-value coordinate tuple. Preserve list, mapping, and discovery observations plus carried-forward values and text. Save, read, and run the file with the active environment. Do not add input, branches, loops, functions, files, dependencies, Pygame, package material, or another project path."
+checks = ["The printed snapshot does not contain the item appended to the original inventory.", "The coordinate prints as one parenthesized two-value record, while each other collection keeps its own stated role."]
+
+[[lessons.readings]]
+label = "Python sequence types"
+url = "https://docs.python.org/3/library/stdtypes.html#sequence-types-list-tuple-range"
+
+[[lessons.exercises]]
+id = "s04-l04-e1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["python-tuple-literal"]
+prompt = "Retype this disposable fixed coordinate record exactly."
+code = "camp_coordinate = (3, 8)"
+
+[[lessons.exercises]]
+id = "s04-l04-e2"
+type = "fill"
+points = 21
+mechanisms = ["collection-copy-method"]
+prompt = "Complete the method call that creates an independent flat-list snapshot before trail_pack changes."
+code = "pack_snapshot = trail_pack.____"
+answer = "copy()"
+hint = "Use the list method that returns a separate shallow list."
+
+[[lessons.exercises]]
+id = "s04-l04-e3"
+type = "write"
+points = 34
+mechanisms = ["python-list-literal", "collection-copy-method", "list-append-method", "python-tuple-literal", "python-print-call"]
+prompt = "Write a disposable program that creates creek_pack with \"cup\" and \"cloth\", copies it to creek_snapshot, appends \"herb\" to creek_pack, creates ford_coordinate as (6, 2), then prints creek_snapshot, creek_pack, and ford_coordinate in that order."
+expect = '''['cup', 'cloth']
+['cup', 'cloth', 'herb']
+(6, 2)'''
+solution = '''creek_pack = ["cup", "cloth"]
+creek_snapshot = creek_pack.copy()
+creek_pack.append("herb")
+ford_coordinate = (6, 2)
+print(creek_snapshot)
+print(creek_pack)
+print(ford_coordinate)
+'''
+hint = "Call copy before append; the coordinate is its own parenthesized pair."
+
+[[lessons.exercises]]
+id = "s04-l04-e4"
+type = "mc"
+points = 19
+mechanisms = ["collection-copy-method"]
+prompt = "After records = [\"gate\"] and snapshot = records.copy(), records.append(\"tower\"), which result demonstrates an independent snapshot?"
+choices = ['snapshot prints [\"gate\"] while records prints [\"gate\", \"tower\"]', 'snapshot and records both print [\"gate\", \"tower\"]', 'snapshot is used as a key to retrieve tower', 'records is indexed to prove the set has no duplicates']
+answer = 0
+whyWrong = "Matching changed lists suggest a shared object, dictionary keys serve a different collection role, and indexing does not establish set uniqueness."
+hint = "A copied list keeps the state that existed before the append."
+explain = "copy creates a new flat-list container, so the later append changes only records."
+
+[[lessons.exercises]]
+id = "s04-l04-e5"
+type = "fill"
+points = 14
+mechanisms = ["python-tuple-literal"]
+prompt = "Complete the second value of this fixed coordinate tuple."
+code = "ford_coordinate = (6, ____)"
+answer = "2"
+hint = "A two-value tuple uses a comma between its coordinate values."

@@ -1,36 +1,71 @@
 [freestyle]
-title = "THE WORKING: TODO"
-brief = "TODO: the in-world commission.<ul><li>TODO requirement one (state exact output/tokens)</li><li>TODO requirement two</li></ul>"
-requires = ["s07-phase3-placeholder"]           # TODO: exact ids taught by this/earlier lessons
-reward = 150
-xray = "TODO: the grader's private notes — the specific pitfalls it docks and the style it rewards, truthful to the rubric below."
+title = "THE WORKING: PROOF BEFORE PROGRESS"
+brief = '''<p>Rowan places a proof lantern beside the learner-authored text trail. Reopen and save the existing <code>game.py</code>, then author the first persistent verification file at <code>tests/test_game.py</code>. The trail remains deterministic and terminal-based while its existing seams gain repeatable evidence.</p><ul><li>From the external project root, activate the established <code>.venv</code>, install exactly <code>pytest==9.1.1</code> with the active Python, and confirm it with <code>python -m pytest --version</code>. Do not create requirements or package metadata yet.</li><li>Create the <code>tests</code> directory with <code>mkdir tests</code> and confirm it exists, then create and save <code>tests/test_game.py</code> inside it. Import only existing behavior from <code>game.py</code>; do not duplicate the game, copy the transcript, or change the six saved commands, bounded controller, existing state, or final observations.</li><li>Author two focused pytest checks using arrange, act, assert. Give each a descriptive <code>test_lowercase_with_underscores</code> name, use four-space function bodies, leave two blank lines between top-level definitions, and use blank lines only to show arrange, act, and assert phase changes. One must prove an existing pure helper’s exact returned value. One must arrange fresh explicit mutable state inside its own test, call an existing mutating command/helper once, then prove its intended state change and returned route decision. Do not create mutable module-level test state.</li><li>Deliberately make one saved expectation wrong once, run <code>python -m pytest -q</code>, and read the failed test name, test-file line, assertion, expected value, and actual value. Repair only that mismatch, save, and rerun the same command until it reports <code>2 passed</code>.</li><li>Read the saved test source and run the green suite again from the project root with <code>.venv</code> active. Do not add input, exceptions, classes, modules, files beyond <code>tests/test_game.py</code>, dependencies beyond pytest, Pygame, package material, or another project path.</li></ul>'''
+requires = ["venv-test-tooling", "learner-authored-checks", "red-green-verification-loop", "language-test-verification", "language-environment-venv", "language-functions-decomposition"]
+mechanisms = ["terminal-print-working-directory", "terminal-change-directory", "terminal-check-python-version", "venv-create-environment", "venv-activate-environment", "venv-resolve-active-python", "editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file", "python-literal-values", "python-name-binding", "python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators", "python-print-call", "python-string-literal", "python-string-concatenation", "python-f-string", "string-strip-method", "string-lower-method", "string-split-method", "python-list-literal", "python-list-indexing", "list-append-method", "python-dict-literal", "python-dict-key-access", "dict-get-method", "python-set-literal", "python-membership-operators", "set-add-method", "python-tuple-literal", "collection-copy-method", "python-if-statement", "python-elif-clause", "python-else-clause", "python-for-statement", "python-in-loop-target", "python-range-call", "python-while-statement", "python-break-statement", "python-continue-statement", "bounded-loop-invariant", "python-def-statement", "python-function-call", "python-parameters-arguments", "python-return-statement", "pure-function-boundary", "mutating-function-boundary", "pip-install-exact-spec", "pytest-module-invocation", "python-import-statement", "pytest-test-function", "python-assert-statement", "arrange-act-assert", "pytest-failure-location", "red-green-rerun-cycle", "tests-directory-creation"]
+reward = 200
+xray = "The grader follows each test from its import to an existing seam and checks that it observes real return values or explicit state changes rather than copied output. It expects the active environment to own pytest 9.1.1, two independent arrange/act/assert checks, one observed red failure repaired to green, and a final compact 2 passed result. Dock copied game logic, shared mutable setup, deleted or weakened checks, changed trail behavior, global installation assumptions, or premature exceptions, classes, modules, file work, Pygame, package material, and paths. Reward narrow names, exact expectations, and readable Python test layout."
 
-[[freestyle.referenceSteps]]        # hidden from learners; validator replays a real solution
-id = "s07-freestyle-reference"
-path = "replace-me.txt"
-mode = "rewrite"
-preserves = "all-active"
-instruction = "TODO: exact private reference edit that satisfies this Working."
-content = '''
-TODO: complete reference content
+[[freestyle.referenceSteps]]
+id = "s07-write-behavioral-tests"
+path = "tests/test_game.py"
+mode = "write"
+mechanisms = ["python-import-statement", "pytest-test-function", "python-assert-statement", "arrange-act-assert", "python-def-statement", "python-function-call", "python-dict-literal", "python-list-literal", "python-set-literal", "python-dict-key-access", "mutating-function-boundary", "pure-function-boundary"]
+instruction = "Private replay creates the first learner-owned pytest module against existing pure and stateful game seams without changing the deterministic trail."
+content = '''from game import handle_command, turn_line
+
+
+def test_turn_line_returns_numbered_command():
+    turn_number = 3
+    command = "rest"
+
+    actual_line = turn_line(turn_number, command)
+
+    assert actual_line == "Turn 3: rest"
+
+
+def test_rest_command_changes_supplied_state_and_keeps_traveling():
+    inventory = []
+    player_state = {"health": 10}
+    discoveries = set()
+
+    route_result = handle_command("rest", inventory, player_state, discoveries)
+
+    assert player_state["health"] == 12
+    assert route_result == {"path_open": False, "keep_traveling": True}
 '''
 
 [freestyle.badge]
 id = "badge-s07"
-name = "TODO BADGE"
-desc = "TODO: one sentence."
-
-[[freestyle.rubric]]               # weights MUST sum to exactly 100
-criterion = "Compiles & runs"
-weight = 40
-desc = "TODO: build succeeds; runs without crashing on normal input."
+name = "PROOF LANTERN"
+desc = "Made Briar Glen’s first behavior promises rerunnable evidence."
 
 [[freestyle.rubric]]
-criterion = "Meets the brief"
-weight = 40
-desc = "TODO: every requirement in the checklist is present and correct."
-
-[[freestyle.rubric]]
-criterion = "Clean style"
+criterion = "Active Environment and Runner"
 weight = 20
-desc = "TODO: name this language's real naming AND layout conventions (research its style guide)."
+mechanisms = ["venv-activate-environment", "venv-resolve-active-python", "pip-install-exact-spec", "pytest-module-invocation"]
+desc = "The established .venv owns exactly pytest 9.1.1, its version is checked through the active Python, and the suite is run with python -m pytest -q from the external project root."
+
+[[freestyle.rubric]]
+criterion = "Focused Behavioral Checks"
+weight = 25
+mechanisms = ["python-import-statement", "pytest-test-function", "python-assert-statement", "arrange-act-assert", "pure-function-boundary", "mutating-function-boundary"]
+desc = "tests/test_game.py imports existing game behavior and contains two independent test_ functions: one proves a pure returned value, and one proves a deliberate supplied-state change plus route decision through fresh arrange/act/assert setup."
+
+[[freestyle.rubric]]
+criterion = "Evidence-Based Red to Green"
+weight = 20
+mechanisms = ["pytest-failure-location", "red-green-rerun-cycle", "pytest-module-invocation"]
+desc = "The learner can identify the named failed test, assertion line, and compared values from one deliberate mismatch, then repairs that exact mismatch and ends with python -m pytest -q reporting 2 passed."
+
+[[freestyle.rubric]]
+criterion = "Preserved Trail Contract"
+weight = 20
+mechanisms = ["python-function-call", "pure-function-boundary", "mutating-function-boundary", "bounded-loop-invariant"]
+desc = "The tests exercise existing seams without copying or replacing game.py; the saved six-command bounded text trail, explicit state flow, and prior final observations remain unchanged."
+
+[[freestyle.rubric]]
+criterion = "Python Test Craft"
+weight = 15
+mechanisms = ["pytest-test-function", "python-assert-statement", "arrange-act-assert", "python-def-statement", "editor-edit-file", "editor-save-file"]
+desc = "The saved test module uses descriptive lowercase_with_underscores test names, four-space indentation, two blank lines between top-level definitions, focused arrange/act/assert spacing, and no hidden mutable global test state."

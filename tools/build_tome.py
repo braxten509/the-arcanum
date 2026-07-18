@@ -211,6 +211,8 @@ def main():
     parser.add_argument("--from-phase", type=int, default=1, choices=range(1, 9))
     parser.add_argument("--resume-session", default="")
     args = parser.parse_args()
+    # Child validators use this stable launch slug for their durable Forge history.
+    os.environ["ARCANUM_BUILD_ID"] = args.tome_id
 
     os.makedirs(BUILD_DIR, exist_ok=True)
     plan = os.path.join(BUILD_DIR, f"{args.tome_id}.plan.md")

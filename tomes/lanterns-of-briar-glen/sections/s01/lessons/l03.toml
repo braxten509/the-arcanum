@@ -2,180 +2,166 @@
 id = "s01-l03"
 title = "Leave a Saved Tool Receipt"
 teaches = ["external-file-action-loop", "tool-create-open", "tool-edit-save", "tool-run-test"]
-introduces = ["editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file", "editor-open-session", "plain-text-receipt-format"]
+introduces = ["editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file"]
 body = '''
-<p>Open a code or plain-text editor from the operating system’s application launcher. Use its <strong>Open Folder</strong>, <strong>Open Workspace</strong>, or equivalent action and select your learner-created <code>lanterns-of-briar-glen</code> directory. The editor’s folder tree should name that root and show <code>.venv</code>. If it shows a parent directory or another project, close that workspace and open the intended directory before creating anything.</p>
-<p>A file does not become evidence when you see text in an editor. It becomes evidence when the saved file can be reopened and read by another tool. Finish the trailhead with one plain-text receipt named <code>toolchain-check.txt</code> at the project root. <strong>Plain text</strong> contains only characters and line breaks: no fonts, bold styling, tables, embedded images, or word-processor formatting. Use a code/plain-text editor and the exact <code>.txt</code> extension. A disposable <code>trail-note.txt</code> with two unstyled label-and-value lines is a safe way to practice the format. If formatting controls appear or the editor changes the extension, recreate the file in a plain-text editor. The real receipt is deliberately not Python source: it records your completed tool loop while the game is still unwritten.</p>
+<p>A toolchain is trustworthy only when an observation survives the trip from your editor to your terminal. This lesson creates the course's first and deliberately temporary artifact: <code>toolchain-check.txt</code>. It is a <strong>behavior-free receipt</strong>, not Python source, not configuration, not a dependency list, and not a substitute for the game that begins in s02.</p>
+<p>Open the external project folder in your editor. Create a new plain-text file at the project root named <code>toolchain-check.txt</code>. Then write a short receipt in your own words. It needs three facts you actually observed: the workspace location, the active Python path or environment name, and the Python version. Add one line saying that you saved the file. Do not copy a prewritten record; the value is that the facts came from your terminal.</p>
+<p>Saving is an action, not a feeling. Use the editor's Save command, then switch to the terminal that still has <code>.venv</code> active. Read the file back:</p>
 <pre><code data-kind="terminal">cat toolchain-check.txt
-python --version</code></pre>
-<p>First use your editor’s new-file action, give the file its exact name, and save it in the same project directory where you created <code>.venv</code>. Write a short factual record in your own words: identify the workspace, note the Python version you observed, state that the environment was active, and state that you saved and reread the receipt. Do not copy a prepared record and do not add code, package details, or dependencies. Saving is essential: an unsaved editor tab is not a file the terminal can inspect.</p>
-<p>Return to the activated terminal and use its own plain-text read command. On Linux or macOS, run <code>cat toolchain-check.txt</code>: <code>cat</code> sends the named file’s contents to the terminal. In PowerShell, run <code>Get-Content toolchain-check.txt</code>. If you followed the Command Prompt fallback from the environment lesson, run <code>type toolchain-check.txt</code>; in Command Prompt, <code>type</code> displays the named text file. Use only the route for the terminal you actually opened. Each successful route displays the saved characters and lines so you can compare them with the editor. A “No such file,” “cannot find,” or “path does not exist” message usually means you saved in a different folder, misspelled the name, or ran the command from the wrong directory. Correct the location, save again, and reread rather than creating a second receipt elsewhere.</p>
-<p>Then run <code>python --version</code> once more while the environment is active. This is your invocation diagnostic: it checks that the terminal can still execute the intended Python command after the editor loop. It is not permission to begin source work. The first game file arrives in the next section, after this receipt has done its one temporary job.</p>
-<div class="callout"><p>The loop has five distinct actions: create, edit, save, read, and invoke. If one is missing, a later “it works on my machine” claim has no trail you can follow.</p></div>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // RECOVERY, NOT DUPLICATION</div><p>When terminal output disagrees with your editor, use the path diagnostic and the file name to find the mismatch. Do not solve the uncertainty by scattering copies of the receipt across folders.</p></div>
+</code></pre>
+<p><code>cat</code> receives a file path and prints that file's saved bytes as text. The path is relative to the current working directory, so this is another reason l01 required a location check. If the terminal says it cannot find the file, first run <code>pwd</code>, then compare the filename and project root with the editor. If the output lacks your newest change, save again and rerun the read command. Do not solve either problem by creating a second receipt somewhere else.</p>
+<p>Finish with a tool invocation that is independent of the file content:</p>
+<pre><code data-kind="terminal">python --version
+</code></pre>
+<p>This is the first complete external-file action loop: create, open, edit, save, read, then run a diagnostic command in the same verified workspace. The diagnostic does not execute the receipt—plain text has no program behavior. It verifies that the selected Python still responds after you used the editor.</p>
+<div class="callout"><p>Keep the receipt small and factual. The next Working will retire it only after the first learner-authored Python source runs, so do not let it turn into an early program.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // READBACK BEATS MEMORY</div><p>Many setup mistakes are simply unsaved edits or terminals pointed at a sibling folder. Reading the exact saved path is faster and more reliable than explaining what you think you did.</p></div>
 '''
 
 [[lessons.concepts]]
 id = "external-file-action-loop"
-purpose = "Prove that an external editor and terminal operate on the same saved project file."
-anatomy = "Create one file in the editor, write observations, save it, read it in the terminal, then run a diagnostic command."
-example = "The terminal sequence reads the saved receipt and invokes the Python diagnostic."
-observable = "The terminal displays the same receipt text that the editor saved."
-failure = "A no-such-file message means the name, saved location, or terminal directory does not match."
+purpose = "Prove that an external editor and terminal agree about one saved, behavior-free artifact."
+anatomy = "Create and open the file, edit observed facts, save it, read that exact path in the terminal, then run a diagnostic."
+example = "The cat and python --version terminal blocks complete the readback-and-diagnostic sequence."
+observable = "The terminal prints the saved receipt and then prints a Python version."
+failure = "A missing file or stale text means the terminal location, filename, or editor save action needs correction."
 practice = "s01-l03-e1"
 
 [[lessons.concepts]]
 id = "tool-create-open"
-purpose = "Create a named file in the intended project directory and reopen it as a shared artifact."
-anatomy = "Use the editor’s new-file action, name the receipt exactly, save it at the project root, then open or read it again."
-example = "The Working names the receipt path and requires its terminal readback."
-observable = "A project-root toolchain-check.txt can be opened by the editor and named by the terminal."
-failure = "An untitled tab or a similarly named file in another directory is not the required artifact."
+purpose = "Create and open a named plain-text artifact in the selected external project root."
+anatomy = "Open the root in the editor, choose a new file, give it the exact filename, and keep it at the root."
+example = "The body names toolchain-check.txt as the temporary plain-text file."
+observable = "The editor shows one new file with that exact name in the external project folder."
+failure = "A file in a different folder is not the project receipt; compare the editor tree with the terminal's pwd output."
 practice = "s01-l03-e2"
 
 [[lessons.concepts]]
 id = "tool-edit-save"
-purpose = "Persist an editor change so other tools can inspect the exact text."
-anatomy = "Write the factual observations, use the editor save action, then compare the terminal readback."
-example = "The first paragraph distinguishes visible editor text from saved receipt text."
-observable = "Reading the file after saving returns the text the learner wrote."
-failure = "Different terminal text after an edit means the change was not saved or the wrong path was read."
+purpose = "Turn observed terminal facts into a durable text record rather than an unsaved editor buffer."
+anatomy = "Write factual lines, invoke the editor's Save action, and use terminal readback to inspect the saved result."
+example = "The receipt instructions require observed workspace, interpreter, version, and save facts."
+observable = "cat prints the latest facts that appear in the editor."
+failure = "If cat prints older content, the edit was not saved or a different path was read."
 practice = "s01-l03-e3"
 
 [[lessons.concepts]]
 id = "tool-run-test"
-purpose = "Run a behavior-free diagnostic command after saving to confirm the active toolchain remains usable."
-anatomy = "Keep the environment active, invoke python --version, and read its output as a tool diagnostic."
-example = "The second terminal line invokes the Python version check."
-observable = "The terminal prints a Python version while the project environment is active."
-failure = "A missing command or unexpected interpreter path requires an activation or installation repair before later work."
+purpose = "Run a small diagnostic after file work to confirm that the selected external Python still answers."
+anatomy = "Keep the environment active, invoke python, attach --version, and compare the result with the receipt."
+example = "The final python --version terminal block is the complete diagnostic invocation."
+observable = "Python prints its version and exits without opening a game or reading the receipt as source."
+failure = "An unavailable command or an unexpected interpreter path means return to the environment activation check before proceeding."
 practice = "s01-l03-e4"
 
 [[lessons.concepts]]
 id = "editor-create-file"
-purpose = "Create the receipt as a named file rather than leaving it as an untitled editor tab."
-anatomy = "Use the editor new-file action, enter the required filename, and choose the project root."
-example = "The Working names the sole receipt path."
-observable = "The editor identifies the file as toolchain-check.txt at the project root."
-failure = "An untitled tab or another folder does not produce the required receipt path."
+purpose = "Create the one temporary plain-text receipt at the confirmed external project root."
+anatomy = "Open the root in an editor, choose a new file, and name it toolchain-check.txt."
+example = "The lesson directs the learner to create toolchain-check.txt as plain text."
+observable = "The editor tree shows the named receipt at the project root."
+failure = "A similarly named file in another folder cannot serve as the verified project receipt."
 practice = "s01-l03-e2"
 
 [[lessons.concepts]]
 id = "editor-edit-file"
-purpose = "Enter factual tool observations into the newly created plain-text receipt."
-anatomy = "Open the named file and write the required observations in the editor."
-example = "The first lesson paragraph lists the observations that belong in the receipt."
-observable = "The editor displays the learner’s own observation text."
-failure = "Copied prepared content or code would violate the behavior-free receipt boundary."
+purpose = "Enter observed tooling facts in a receipt without turning that receipt into early project source."
+anatomy = "Write workspace, environment, version, and save observations in ordinary plain text."
+example = "The body lists the four facts the learner must observe and record in their own words."
+observable = "The open editor buffer contains a short factual, behavior-free record."
+failure = "Source, dependency, configuration, or package content breaks the receipt's temporary purpose."
 practice = "s01-l03-e1"
 
 [[lessons.concepts]]
 id = "editor-save-file"
-purpose = "Persist the editor’s text so a terminal can read the same file."
-anatomy = "Use the editor save action after editing the named receipt."
-example = "The first lesson paragraph explains why an unsaved tab cannot be inspected by the terminal."
-observable = "A terminal readback reflects the latest saved text."
-failure = "Older terminal content signals an unsaved edit or a different path."
-practice = "s01-l03-e1"
+purpose = "Commit the editor's current receipt text to the exact path the terminal will inspect."
+anatomy = "Use the editor Save action after editing, then compare terminal readback with the current buffer."
+example = "The save instructions come immediately before the cat command."
+observable = "A terminal read prints the latest factual receipt text."
+failure = "Older terminal output indicates an unsaved buffer or a different path."
+practice = "s01-l03-e3"
 
 [[lessons.concepts]]
 id = "terminal-read-saved-file"
-purpose = "Read the exact saved receipt through the terminal."
-anatomy = "From the project root, use cat followed by the filename on Linux/macOS, Get-Content followed by it in PowerShell, or type followed by it in Command Prompt."
-example = "cat toolchain-check.txt, Get-Content toolchain-check.txt, and type toolchain-check.txt are the three shell-specific routes taught here."
-observable = "The terminal displays the saved receipt text."
-failure = "A missing-file or missing-path diagnostic identifies a directory, filename, or save-location mismatch; first confirm that the read command matches the current shell."
-practice = "s01-l03-d1"
+purpose = "Inspect the saved receipt bytes from the terminal to prove editor and terminal agree."
+anatomy = "Run cat followed by toolchain-check.txt from the same external project root."
+example = "The cat toolchain-check.txt block is the complete readback command."
+observable = "The terminal prints the saved receipt content."
+failure = "A missing-file or stale-content result points to location, naming, or save work that needs correction."
+practice = "s01-l03-e1"
 
 [[lessons.concepts]]
 id = "terminal-invoke-saved-file"
-purpose = "Invoke a Python diagnostic after the editor and terminal file loop is complete."
-anatomy = "Keep .venv active and run python --version after the receipt readback."
-example = "The second line of the terminal block invokes the Python version diagnostic."
-observable = "The terminal prints a Python version after the receipt is read."
-failure = "A failed invocation calls for environment activation or Python-installation recovery."
+purpose = "Complete the file-action sequence with an observable terminal diagnostic while keeping the receipt non-executable."
+anatomy = "Read the saved receipt, then invoke python --version independently of the plain-text file content."
+example = "The final terminal block runs python --version after the cat readback."
+observable = "Python prints its version after the terminal has read the saved receipt."
+failure = "Attempting to execute the receipt as Python confuses a plain-text check with source code."
 practice = "s01-l03-e4"
 
-[[lessons.concepts]]
-id = "editor-open-session"
-purpose = "Open the external editor on the learner-created project directory before creating a file."
-anatomy = "Launch a code or plain-text editor, choose Open Folder or Open Workspace, and select lanterns-of-briar-glen."
-example = "For disposable practice, open a folder named editor-practice and confirm that name appears at the root of the editor tree."
-observable = "The editor folder tree names the selected root and shows only items that actually exist there."
-failure = "If the tree shows a parent or unrelated project, close that workspace and reopen the intended directory before creating a file."
-practice = "s01-l03-e2"
-
-[[lessons.concepts]]
-id = "plain-text-receipt-format"
-purpose = "Keep the temporary receipt behavior-free and readable by both the editor and terminal."
-anatomy = "Plain text is unstyled characters and line breaks saved with the exact .txt extension; it contains no fonts, tables, images, or word-processor formatting."
-example = "A disposable trail-note.txt can contain two learner-typed, unstyled label-and-value lines."
-observable = "The terminal displays the same visible characters and line breaks that the editor saved."
-failure = "If formatting controls appear or the extension changes, recreate the file in a code or plain-text editor with the exact .txt filename."
-practice = "s01-l03-e2"
-
 [[lessons.artifactSteps]]
-id = "s01-l03-save-toolchain-receipt"
+id = "s01-l03-write-toolchain-receipt"
 path = "toolchain-check.txt"
 mode = "author"
-instruction = "Open your code or plain-text editor on the project root, then author a plain-text receipt that records the workspace, observed Python version, active project environment, and that you saved and reread it. Save it, read the exact path with cat on Linux/macOS, Get-Content in PowerShell, or type in Command Prompt, then run a Python version diagnostic while the environment is active. After those observations are complete, release activation with deactivate. Do not create source, configuration, dependency, or package files."
-checks = ["The editor folder tree names the learner-created lanterns-of-briar-glen root.", "The receipt has the exact .txt name and contains only unstyled characters and line breaks.", "The learner uses the readback command for the current shell and sees the saved observations from project-root toolchain-check.txt.", "A Python version diagnostic succeeds after readback, then deactivate releases the current shell without deleting .venv or adding any game artifact."]
-mechanisms = ["editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file", "editor-open-session", "plain-text-receipt-format", "venv-activate-environment"]
+mechanisms = ["editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file"]
+instruction = "In the external project root, create and open toolchain-check.txt in your editor. Author a short plain-text receipt from your own observations: workspace location, active Python path or environment name, Python version, and confirmation of saving. Save it, read the exact path with cat, then run python --version. Do not add Python source, requirements, configuration, package metadata, or dependency commands."
+checks = ["cat toolchain-check.txt prints the saved receipt from the external project root.", "python --version runs while .venv is active and agrees with the recorded interpreter context."]
 
 [[lessons.readings]]
-label = "Python documentation: command line and environment"
-url = "https://docs.python.org/3/using/cmdline.html"
+label = "Python command-line options"
+url = "https://docs.python.org/3/using/cmdline.html#generic-options"
 
 [[lessons.exercises]]
 id = "s01-l03-e1"
 type = "mc"
-points = 15
-prompt = "An editor tab shows your receipt text, but the terminal readback shows older text. What is the most direct next action?"
-choices = ["Install a dependency.", "Create a second receipt in another folder.", "Save the editor file, then reread the same path.", "Rename the Python interpreter."]
-answer = 2
-whyWrong = "The mismatch is about persistence or path selection, not dependencies or interpreter names. Saving and rereading the same file tests the missing link."
-hint = "Choose the action that turns an editor change into disk content before inspecting it again."
-explain = "A terminal reads saved disk content, not unsaved editor state."
+points = 18
+mechanisms = ["editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file"]
+prompt = "After saving toolchain-check.txt, which command reads the file at the current terminal location without treating it as Python source?"
+choices = ["python toolchain-check.txt", "cat toolchain-check.txt", "python --version", "source .venv/bin/activate"]
+answer = 1
+whyWrong = "The receipt is plain text, so Python must not execute it. The version and activation commands serve different diagnostics; cat prints the saved file content."
+hint = "Choose the command that prints a text file's contents."
+explain = "cat reads a plain-text file and writes its contents to the terminal."
+
+[[lessons.exercises]]
+id = "s01-l03-e2"
+type = "fill"
+points = 22
+mechanisms = ["editor-create-file", "terminal-read-saved-file"]
+prompt = "Complete the terminal command that reads the temporary receipt after it has been saved."
+code = "cat ____"
+answer = "toolchain-check.txt"
+whyWrong = "The exact filename matters because the terminal readback and the next section's planned retirement both refer to this one temporary receipt."
+hint = "Use the hyphenated toolchain name and the .txt extension."
+
+[[lessons.exercises]]
+id = "s01-l03-e3"
+type = "text"
+points = 20
 mechanisms = ["editor-save-file", "terminal-read-saved-file"]
+prompt = "If the terminal prints an older version of a receipt you just changed in the editor, which editor action should you check before creating another file?"
+answer = "save"
+accept = ["save file"]
+whyWrong = "A terminal can only read what reached disk. Creating a second path hides the disagreement instead of proving the original file was saved."
+hint = "Use the editor command that commits the current buffer to disk."
+
+[[lessons.exercises]]
+id = "s01-l03-e4"
+type = "mc"
+points = 18
+mechanisms = ["terminal-invoke-saved-file"]
+prompt = "Which final diagnostic confirms that the active Python still responds after the receipt readback?"
+choices = ["cat toolchain-check.txt", "cd .venv", "python --version", "python toolchain-check.txt"]
+answer = 2
+whyWrong = "Reading the receipt checks saved text, not Python. Changing into .venv is not activation, and executing the receipt would incorrectly treat plain text as source."
+hint = "Reuse the Python identity diagnostic from the first lesson."
+explain = "python --version invokes the active interpreter for a small, observable diagnostic."
 
 [[lessons.exercises]]
 id = "s01-l03-d1"
 type = "type"
 points = 12
 reps = 2
-prompt = "Retype the terminal command that reads the saved receipt on Linux or macOS."
-code = 'cat toolchain-check.txt'
 mechanisms = ["terminal-read-saved-file"]
-
-[[lessons.exercises]]
-id = "s01-l03-e2"
-type = "mc"
-points = 20
-prompt = "Which editor sequence establishes both the correct workspace and a plain-text receipt?"
-choices = ["Open a code or plain-text editor on the intended project folder, confirm its name in the folder tree, then create a .txt file containing only unstyled characters and line breaks.", "Open a word processor on any folder and add bold headings, a table, and an image.", "Open a parent containing several projects and create a file without checking the active root.", "Create a Python source file containing executable setup code."]
-answer = 0
-whyWrong = "Rich formatting is not plain text, an unchecked parent risks the wrong project, and executable source is out of scope."
-hint = "Look for a visible project root and an unstyled .txt file."
-explain = "The editor tree proves placement, while unstyled characters and line breaks prove the receipt format."
-mechanisms = ["editor-open-session", "editor-create-file", "plain-text-receipt-format"]
-
-[[lessons.exercises]]
-id = "s01-l03-e3"
-type = "mc"
-points = 20
-prompt = "Which row correctly matches each permitted terminal with its receipt readback command?"
-choices = ["Every terminal: python toolchain-check.txt", "Linux/macOS: type toolchain-check.txt; PowerShell: cat toolchain-check.txt; Command Prompt: Get-Content toolchain-check.txt", "Every terminal: activate toolchain-check.txt", "Linux/macOS: cat toolchain-check.txt; PowerShell: Get-Content toolchain-check.txt; Command Prompt: type toolchain-check.txt"]
-answer = 3
-whyWrong = "The read commands are shell-specific, and the receipt is plain-text evidence rather than Python source or an activation script."
-hint = "Match cat with Unix-like shells, Get-Content with PowerShell, and type with Command Prompt."
-explain = "Each command displays the same saved text, but only in the shell whose syntax owns it."
-mechanisms = ["terminal-read-saved-file"]
-
-[[lessons.exercises]]
-id = "s01-l03-e4"
-type = "text"
-points = 33
-prompt = "After reading the saved receipt while <code>.venv</code> is active, which behavior-free diagnostic command should you run before ending the tool loop?"
-answer = "python --version"
-hint = "Repeat the interpreter diagnostic practiced before any project source exists."
-mechanisms = ["terminal-invoke-saved-file"]
+prompt = "Retype the terminal readback command exactly."
+code = "cat toolchain-check.txt"

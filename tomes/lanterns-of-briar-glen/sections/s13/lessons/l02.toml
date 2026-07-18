@@ -1,0 +1,120 @@
+[[lessons]]
+id = "s13-l02"
+title = "Build Paths from Inputs"
+teaches = ["portable-path-construction"]
+introduces = ["pathlib-path-constructor", "pathlib-path-join-operator", "pathlib-parent-property"]
+body = '''
+<p>A path is structured location data, not a sentence assembled with slashes. <code>pathlib.Path</code> gives Python a portable representation; the <code>/</code> operator joins a base path and one child name without assuming whether a machine displays separators as slashes or backslashes. The result is another Path, so it can be inspected, joined again, or handed to file actions later.</p>
+<pre><code data-kind="runnable">from pathlib import Path
+
+cache_root = Path("signal-cache")
+message_path = cache_root / "night" / "beacon.txt"
+print(message_path)
+print(message_path.parent)</code></pre>
+<p>Read this from left to right. <code>Path("signal-cache")</code> constructs the base. The first join produces a child under that base; the second produces the full message location. No directory has been created and no file has been opened. Construction is deliberately separate from action. The <code>parent</code> property asks for the directory immediately containing a path, so here it identifies the directory that would contain <code>beacon.txt</code>.</p>
+<p>That distinction matters in Briar Glen. A helper can receive a project root from its caller and return a project-relative note path. Another can receive a home directory and return a player-data directory. Tests can pass harmless Path values and assert the resulting shape. The helpers must not read the current working directory on their own, touch a real user directory, or choose a JSON filename yet. Their job is path construction, not persistence policy.</p>
+<p>A common failure is treating <code>"root" + "/" + "note.txt"</code> as a portable path plan. It is merely string construction and has no parent relationship or filesystem methods. Another is assuming <code>parent</code> creates a directory; it only describes one. Keep construction pure now, then the next lesson will inspect and create a chosen directory explicitly.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // PATHS ARE VALUES</div><p>Before an operation changes the filesystem, print or test the Path value. A path whose shape is visible is easier to carry from project root to a later player-data boundary.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "portable-path-construction"
+purpose = "Build portable project-relative and user-data path values from supplied roots."
+anatomy = "Construct a Path, join child components with /, and inspect parent when a containing directory is needed."
+example = "message_path joins signal-cache, night, and beacon.txt without touching the filesystem."
+observable = "Printing displays one composed path and its containing directory."
+failure = "Concatenated strings do not supply portable Path behavior or a parent property."
+practice = "s13-l02-w1"
+
+[[lessons.concepts]]
+id = "pathlib-path-constructor"
+purpose = "Create a Path value from one supplied location component."
+anatomy = "Import Path from pathlib and call Path with the base location."
+example = "cache_root is constructed from signal-cache."
+observable = "The base can be printed or joined with a later child."
+failure = "A plain string has no pathlib methods or path relationships."
+practice = "s13-l02-e1"
+
+[[lessons.concepts]]
+id = "pathlib-path-join-operator"
+purpose = "Add child components to a Path without hard-coding a separator."
+anatomy = "Put a Path on the left of / and one child name or Path on the right."
+example = "cache_root / night / beacon.txt builds the disposable message location."
+observable = "The resulting Path prints with the platform’s normal representation."
+failure = "Using + mixes string formatting with location construction and loses Path behavior."
+practice = "s13-l02-w1"
+
+[[lessons.concepts]]
+id = "pathlib-parent-property"
+purpose = "Inspect the immediate containing directory of a Path value."
+anatomy = "Read path.parent after constructing the child path."
+example = "message_path.parent identifies the disposable night directory."
+observable = "The printed parent omits the final beacon filename."
+failure = "parent describes a path; it does not create it or open a file."
+practice = "s13-l02-e2"
+
+[[lessons.artifactSteps]]
+id = "s13-l02-author-path-builders"
+path = "briar_glen/domain.py"
+mode = "author"
+mechanisms = ["pathlib-path-constructor", "pathlib-path-join-operator", "pathlib-parent-property", "python-def-statement", "python-parameters-arguments", "python-return-statement", "editor-edit-file", "editor-save-file"]
+instruction = "In learner-authored briar_glen/domain.py, import pathlib.Path and author two pure path helpers. One accepts a supplied project root and returns the project-relative text-note path your prior lifecycle will receive. The other accepts a supplied home directory and returns one hidden Briar Glen player-data directory. Use Path construction and / joins rather than concatenated separators; inspect the text path’s parent where the later lifecycle needs its containing directory. Do not call cwd, home, exists, mkdir, open, JSON, or a context manager in these pure constructors. Save the module."
+checks = ["Changing a supplied root changes only the returned path shape, without filesystem access.", "The text path’s parent is the project-relative containing directory, and the player-data result sits under the supplied home path."]
+
+[[lessons.readings]]
+label = "Python documentation: pathlib.Path"
+url = "https://docs.python.org/3/library/pathlib.html#basic-use"
+
+[[lessons.exercises]]
+id = "s13-l02-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["pathlib-path-constructor", "pathlib-path-join-operator"]
+prompt = "Retype this disposable path construction exactly."
+code = 'archive_path = Path("records") / "dawn.txt"'
+
+[[lessons.exercises]]
+id = "s13-l02-e1"
+type = "mc"
+points = 18
+mechanisms = ["pathlib-path-constructor", "pathlib-path-join-operator"]
+prompt = "Which expression preserves a portable Path while adding a child file?"
+choices = ['"records" + "/" + "dawn.txt"', 'Path("records") / "dawn.txt"', 'Path("records").write("dawn.txt")', '"records".parent']
+answer = 1
+whyWrong = "String concatenation is not Path construction, write is an unrelated action, and a string has no pathlib parent property."
+hint = "Start with a Path, then use the join operator."
+explain = "The / operator joins child components while retaining a Path value."
+
+[[lessons.exercises]]
+id = "s13-l02-e2"
+type = "fill"
+points = 18
+mechanisms = ["pathlib-parent-property"]
+prompt = "Complete the property that identifies the containing directory of a disposable file path."
+code = 'container = message_path.____'
+answer = "parent"
+hint = "It is a property, so no parentheses are needed."
+
+[[lessons.exercises]]
+id = "s13-l02-e3"
+type = "text"
+points = 18
+mechanisms = ["pathlib-path-constructor", "pathlib-path-join-operator"]
+prompt = "Why should a pure path helper accept a root path instead of silently choosing the author machine’s current directory?"
+answer = "A supplied root makes the returned path portable and testable without depending on one machine"
+hint = "Consider what a test can control."
+
+[[lessons.exercises]]
+id = "s13-l02-w1"
+type = "write"
+points = 35
+mechanisms = ["pathlib-path-constructor", "pathlib-path-join-operator", "pathlib-parent-property", "python-print-call"]
+prompt = "Write a disposable program that constructs Path(\"markers\") / \"west\" / \"bell.txt\", then prints that path and its parent. Do not create any directory or file."
+expect = "markers/west/bell.txt\nmarkers/west"
+solution = '''from pathlib import Path
+
+bell_path = Path("markers") / "west" / "bell.txt"
+print(bell_path)
+print(bell_path.parent)'''
+hint = "Construction and printing need no filesystem mutation."

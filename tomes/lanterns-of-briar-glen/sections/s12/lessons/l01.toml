@@ -1,84 +1,126 @@
 [[lessons]]
 id = "s12-l01"
 title = "Choose an Import Form"
-teaches = ["s12-phase3-placeholder"]            # TODO: stable kebab-case capabilities this lesson teaches
+teaches = ["import-form-selection"]
+introduces = ["python-absolute-import", "python-relative-import"]
 body = '''
-<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
-<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
-<p>TODO: an optional deeper-cut appendix.</p></div>
-'''
+<p>An import is a dependency promise: this code needs a name that another module owns. In an executable module, an <strong>absolute import</strong> names the package from the project root, such as <code>from briar_glen.domain import run_trail</code>. It tells a reader exactly which package supplies the callable when they run <code>python -m briar_glen.main</code>. Inside a package module, a <strong>relative import</strong> starts from that package: <code>from .domain import Player</code>. The dot means “the package containing this file,” not the current terminal directory.</p>
+<p>This disposable package gives both forms the context they need. The entry names its owner with the complete package path. The initializer is already inside <code>watchfire</code>, so its dot reaches the sibling route module.</p>
+<pre><code data-kind="pseudocode"># watchfire/routes.py
+def next_turn():
+    return "bridge"
 
-[[lessons.concepts]]                # one complete first-use proof for every `teaches` id
-id = "s12-phase3-placeholder"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
-practice = "s12-l01-e1"
+# watchfire/__init__.py
+from .routes import next_turn
 
-[[lessons.artifactSteps]]           # visible work order; never reveal canonical implementation
-id = "s12-l01-project-step"
-path = "replace-me.txt"
-mode = "author"                    # learner authors this path; hidden referenceSteps replay it
-instruction = "TODO: exact path, behavior, constraints, commands, and diagnostics—no solution."
-checks = ["TODO: specific observable result the learner can run or inspect."]
+public_turn = next_turn()
 
-[[lessons.readings]]               # optional: 1-2 high-quality official docs
-label = "TODO: official docs"
-url = "https://example.com/TODO"
+# watchfire/entry.py
+from watchfire.routes import next_turn
+from watchfire import public_turn
+
+print(next_turn())
+print(public_turn)</code></pre>
+<p>From the scratch directory’s parent, run the entry as a package module. Its two matching lines show that the absolute entry import and the relative initializer import both found the same sibling owner:</p>
+<pre><code data-kind="terminal">$ python -m watchfire.entry
+bridge
+bridge</code></pre>
+<p>These two forms are not interchangeable in every context. The absolute form suits a module entered through its full package name. The relative form suits a sibling module already living inside a package. The disposable names above do not create a project artifact. In Briar Glen, make <code>main.py</code> use the absolute package path to reach its one domain callable. Make <code>__init__.py</code> use a relative path to gather the approved names that callers may request from the package itself.</p>
+<p>Choose by dependency direction, not by what happens to work from one shell location. The entry depends on the domain. The package initializer depends on the domain to present selected names. The domain does not import the initializer or entry. That downward reading path keeps the reusable rules safe for tests and leaves startup to the entry. Before editing, read the three saved package files and identify the owner of each name. After editing, run the module command from the external project root, then run the focused tests.</p>
+<p>If Python reports <code>ModuleNotFoundError</code>, inspect the import spelling and run location before changing the domain. The normal entry route is the package-qualified import. Preserve the earlier section’s narrow compatibility branch only because its active proof also executes the saved <code>main.py</code> file directly: it may fall back to the sibling import only when that specific package lookup fails. That branch is not a second controller or a general import style. This chapter deliberately keeps the existing trail rules, tests, command loop, files, JSON, type hints, and runtime window out of scope. The new evidence is an honest, readable import route.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // NAME THE OWNER</div><p>When an import feels mysterious, read it as a sentence: “from this package and module, bring this owned name here.” The package-qualified path is a useful map for a future repair.</p></div>'''
+
+[[lessons.concepts]]
+id = "import-form-selection"
+purpose = "Select an import spelling that makes the dependency owner and package position clear."
+anatomy = "Use a package-qualified absolute path when an entry reaches into the package; use a dot-prefixed relative path when a package module reaches its sibling."
+example = "The watchfire entry imports next_turn through watchfire.routes, while its initializer reaches the same routes sibling through .routes."
+observable = "The module command resolves the saved package path and pytest can collect domain tests without a missing-module error."
+failure = "Choosing a file-path-dependent sibling import can work in one launch style but fail when the package is run with -m."
+practice = "s12-l01-w1"
+
+[[lessons.concepts]]
+id = "python-absolute-import"
+purpose = "Name a dependency by its complete package and module path."
+anatomy = "Write from, then the package name, a dot, the module name, import, and the owned name."
+example = "from watchfire.routes import next_turn in watchfire/entry.py is the absolute form in the disposable package walkthrough."
+observable = "python -m watchfire.entry prints bridge from the package-qualified entry import."
+failure = "A misspelled package or module segment produces an import diagnostic before the program begins its work."
+practice = "s12-l01-w1"
+
+[[lessons.concepts]]
+id = "python-relative-import"
+purpose = "Name a sibling dependency from inside the package that contains the importing module."
+anatomy = "Write from, one dot for the current package, the sibling module name, import, and the selected name."
+example = "from .routes import next_turn in watchfire/__init__.py is the relative form in the disposable package walkthrough."
+observable = "The same python -m watchfire.entry run prints bridge again after the initializer resolves its sibling-relative import."
+failure = "Using a relative import in a file launched as an ordinary loose script lacks the package context it needs."
+practice = "s12-l01-w1"
+
+[[lessons.artifactSteps]]
+id = "s12-l01-map-import-directions"
+path = "briar_glen/main.py"
+mode = "author"
+mechanisms = ["python-absolute-import", "python-relative-import", "python-import-statement", "python-try-statement", "python-except-clause", "python-exception-types", "terminal-read-saved-file", "editor-edit-file", "editor-save-file", "python-module-execution"]
+instruction = "Read the saved briar_glen/domain.py, briar_glen/main.py, and briar_glen/__init__.py from the external project root. In main.py, keep the package-qualified import for the existing trail callable as the normal route and preserve the earlier narrow ModuleNotFoundError fallback needed when the saved file is executed directly; in __init__.py, author a sibling-relative import for the selected public domain names. Preserve the existing domain behavior and do not add a new controller, CLI parser, storage code, or runtime loop. Save all edited files, read them back, and run python -m briar_glen.main from the project root."
+checks = ["main.py names its dependency with the briar_glen package path, while __init__.py names its sibling through a leading dot.", "The module run reaches the established deterministic trail rather than a replacement transcript or module-not-found diagnostic."]
+
+[[lessons.readings]]
+label = "Python tutorial: modules and packages"
+url = "https://docs.python.org/3/tutorial/modules.html#packages"
 
 [[lessons.exercises]]
 id = "s12-l01-e1"
 type = "mc"
-points = 15
-prompt = "TODO: a multiple-choice question?"
-choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
-answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
-whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
-hint = "TODO: an exercise-specific hint."
-explain = "TODO: shown after solving."
+points = 18
+mechanisms = ["python-absolute-import"]
+prompt = "Which disposable import lets a package entry obtain signal from beacon.domain by its full package path?"
+choices = ["from beacon.domain import signal", "from .domain import signal", "import signal from beacon.domain", "from domain import beacon.signal"]
+answer = 0
+whyWrong = "A relative import describes an inside-package position, while the other choices are not Python import grammar or reverse the owner and name."
+hint = "Start with from, then write the package and module separated by a dot."
+explain = "The absolute form names beacon.domain before the selected signal name."
 
 [[lessons.exercises]]
 id = "s12-l01-e2"
-type = "text"
+type = "fill"
 points = 20
-prompt = "TODO: a free-text question."
-answer = "TODO"
-# accept = ["TODO alternate"]      # optional true alternates only
-hint = "TODO: an exercise-specific hint."
+mechanisms = ["python-relative-import"]
+prompt = "Complete the sibling-relative import inside a disposable package initializer."
+code = "from ____.domain import signal"
+answer = "."
+hint = "One dot means the package containing this file."
 
 [[lessons.exercises]]
 id = "s12-l01-e3"
-type = "fill"
-points = 20
-prompt = "TODO: fill the blank."
-code = 'answer = ____'             # the ____ marks where the answer goes
-answer = "TODO"
-hint = "TODO: an exercise-specific hint."
+type = "text"
+points = 18
+mechanisms = ["python-absolute-import", "python-relative-import"]
+prompt = "Why can a bare sibling import be fragile for a package entry?"
+answer = "It depends on a file-path launch instead of the package context"
+accept = ["it may fail when the package is run with -m", "it does not name the package owner"]
+hint = "Compare a loose script launch with package module execution."
+explain = "A package-qualified import makes the dependency route explicit during module execution."
 
 [[lessons.exercises]]
 id = "s12-l01-d1"
-type = "type"                      # typing drill: retype the code; no point decay
+type = "type"
 points = 12
 reps = 2
-prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
-code = 'print("TODO")'
+mechanisms = ["python-absolute-import"]
+prompt = "Retype this disposable absolute import."
+code = "from beacon.domain import signal"
 
 [[lessons.exercises]]
 id = "s12-l01-w1"
-type = "write"                     # CODE LAB: runs on the real runtime; no point decay
-points = 30
-prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
-# starter = '''
-# TODO: prefilled editor code / the exercise's data
-# '''
-expect = '''
-TODO EXACT OUTPUT'''
-# REQUIRED before shipping: a complete program that passes. Never shown to the
-# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
-# solution = '''
-# TODO
-# '''
-hint = "TODO: an exercise-specific hint."
+type = "write"
+points = 35
+mechanisms = ["python-absolute-import", "python-relative-import", "python-import-statement", "python-def-statement", "python-return-statement", "python-function-call", "python-print-call"]
+prompt = "Write a disposable program with a function named route_mark that returns north, then call it and print the returned value. Below the program, write the absolute import that an entry would use for watchfire.routes and the relative import that watchfire/__init__.py would use for its routes sibling. Do not create a Briar Glen file."
+expect = "north"
+solution = '''def route_mark():
+    return "north"
+
+
+print(route_mark())'''
+hint = "The runnable program only needs the function and one print; the two import forms are written as answers below it."

@@ -1,0 +1,128 @@
+[[lessons]]
+id = "s04-l03"
+title = "Track Unique Discoveries"
+teaches = ["discovery-set"]
+introduces = ["python-set-literal", "python-membership-operators", "set-add-method"]
+body = '''
+<p>A list keeps order and accepts repeats. A discovered landmark needs another promise: recording the same landmark twice should still leave one discovery. Python uses a <strong>set</strong> for unique values. A nonempty set literal uses curly braces around comma-separated values, but it has no positional order. That is why a set is useful for “have we found this?” and unsuitable for “what was the first pack item?”</p>
+<pre><code data-kind="runnable">discoveries = {"oak bridge", "watch hill"}
+print(discoveries)
+</code></pre>
+<p>The terminal displays both values in braces, but do not rely on their displayed order. The useful invariant is uniqueness: each value appears once. To ask whether a discovery is recorded, use the membership operator <code>in</code>. It goes between the value being checked and the set being searched, and it produces a Boolean value that <code>print()</code> can show.</p>
+<pre><code data-kind="runnable">discoveries = {"oak bridge", "watch hill"}
+print("oak bridge" in discoveries)
+</code></pre>
+<p>This prints <code>True</code>. Membership does not add or remove anything; it simply answers whether the value is present. Reversing the operands changes the question and is not the set-membership form you need. Keep quotation marks around a text discovery so Python treats it as text rather than a name to retrieve.</p>
+<p>Use <code>add()</code> when the program records one discovery. The method changes the set in place. Adding a value already present is safe: the result still contains one copy. That is exactly the duplicate rule a discovery journal needs. The following example calls <code>add()</code> with a repeated landmark, then prints the set and its membership result.</p>
+<pre><code data-kind="runnable">discoveries = {"oak bridge"}
+discoveries.add("oak bridge")
+print(discoveries)
+print("oak bridge" in discoveries)
+</code></pre>
+<p>The set remains <code>{'oak bridge'}</code> and the membership result is <code>True</code>. Do not use <code>append()</code> here; that method belongs to a list and carries a different duplicate promise. In the Working, extend the same source with one named set, demonstrate an attempted repeated recording, and print both the unique result and a membership observation. The set can contain one item, which keeps its printed evidence deterministic while making the no-duplicates rule visible.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ORDER IS NOT A CONTRACT</div><p>When a collection represents a rule rather than a route, choose its observation carefully. Membership is stable evidence for a set; a numeric position would imply an order the set never promised.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "discovery-set"
+purpose = "Record discovered places once and ask whether a named place has already been recorded."
+anatomy = "Construct a curly-brace set, call add() to record one value, then place a quoted value before in and the set name to inspect membership."
+example = "The discoveries examples show a repeated oak bridge record leaving one value and a True membership result."
+observable = "The terminal displays one oak bridge inside a set and then True."
+failure = "append is a list method, and indexing a set invents an order the collection does not keep."
+practice = "s04-l03-e5"
+
+[[lessons.concepts]]
+id = "python-set-literal"
+purpose = "Create a collection whose values are unique rather than position-based."
+anatomy = "Open curly brace, write one or more comma-separated values, then close curly brace and bind the set."
+example = "discoveries = {\"oak bridge\", \"watch hill\"} constructs the disposable set."
+observable = "Printing discoveries shows values surrounded by curly braces."
+failure = "A set cannot promise a first or second position, even if a particular display happens to look ordered."
+practice = "s04-l03-e1"
+
+[[lessons.concepts]]
+id = "python-membership-operators"
+purpose = "Produce a Boolean answer about whether a value belongs to a collection."
+anatomy = "Write the searched value, the word in, and the collection name in that order."
+example = "\"oak bridge\" in discoveries produces the Boolean printed in the second example."
+observable = "The membership print displays True when the landmark has been recorded."
+failure = "Reversing the operands does not ask whether the text is a member of the set."
+practice = "s04-l03-e3"
+
+[[lessons.concepts]]
+id = "set-add-method"
+purpose = "Record one value in a set without creating a duplicate when it already exists."
+anatomy = "Write the set name, dot, add, parentheses, and the one value to record."
+example = "discoveries.add(\"oak bridge\") attempts a repeated record in the final runnable example."
+observable = "The printed set still contains only one oak bridge."
+failure = "Calling append on a set fails because add is the collection-specific mutation method."
+practice = "s04-l03-e5"
+
+[[lessons.artifactSteps]]
+id = "s04-l03-author-discovery-journal"
+path = "game.py"
+mode = "author"
+mechanisms = ["python-set-literal", "python-membership-operators", "set-add-method", "python-string-literal", "python-name-binding", "python-print-call", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file"]
+instruction = "Extend saved game.py with one named discovery set. Attempt to record the same fixed text discovery that it already contains, then print the set and a membership observation for that discovery. Preserve prior list and mapping observations. Save, read, and run the file from the project root. Do not index the set or add input, branches, loops, functions, tuple behavior, files, dependencies, Pygame, package material, or a new project path."
+checks = ["The repeated add leaves one copy of the discovery in the printed set.", "The membership print is a Boolean derived with in, not a manually written result."]
+
+[[lessons.readings]]
+label = "Python set types"
+url = "https://docs.python.org/3/library/stdtypes.html#set-types-set-frozenset"
+
+[[lessons.exercises]]
+id = "s04-l03-e1"
+type = "fill"
+points = 20
+mechanisms = ["python-set-literal"]
+prompt = "Complete the disposable unique collection containing both north arch and moss well."
+code = 'places = {"north arch", ____}'
+answer = '"moss well"'
+hint = "Add the second quoted place after the comma inside the braces."
+
+[[lessons.exercises]]
+id = "s04-l03-e2"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["set-add-method"]
+prompt = "Retype this disposable discovery record exactly."
+code = 'discoveries.add("oak bridge")'
+
+[[lessons.exercises]]
+id = "s04-l03-e3"
+type = "mc"
+points = 18
+mechanisms = ["python-membership-operators"]
+prompt = "Which expression checks whether mist pond has been recorded in discoveries?"
+choices = ['discoveries["mist pond"]', 'discoveries.append("mist pond")', 'discoveries in "mist pond"', '"mist pond" in discoveries']
+answer = 3
+whyWrong = "Sets do not use keyed lookup here, append changes a list-shaped collection, and reversing in asks a different question."
+hint = "Place the searched text on the left side of in."
+explain = "Membership reads naturally as value in collection."
+
+[[lessons.exercises]]
+id = "s04-l03-e4"
+type = "text"
+points = 19
+mechanisms = ["python-set-literal", "set-add-method"]
+prompt = "Why is a set a better journal for a landmark that must not be recorded twice than the ordered trail pack?"
+answer = "A set keeps unique values and ignores duplicate additions"
+accept = ["sets do not keep duplicate values", "the set enforces one copy of each discovery"]
+hint = "Compare the collection promises for duplicates, not their bracket shapes."
+
+[[lessons.exercises]]
+id = "s04-l03-e5"
+type = "write"
+points = 33
+mechanisms = ["python-set-literal", "set-add-method", "python-membership-operators", "python-print-call"]
+prompt = "Write a disposable program that creates a set named found_marks containing \"stone bell\", adds \"stone bell\" again, prints the set, then prints whether \"stone bell\" is in found_marks."
+expect = '''{'stone bell'}
+True'''
+solution = '''found_marks = {"stone bell"}
+found_marks.add("stone bell")
+print(found_marks)
+print("stone bell" in found_marks)
+'''
+hint = "Use add for the repeated record, then put the quoted mark before in for the final print."

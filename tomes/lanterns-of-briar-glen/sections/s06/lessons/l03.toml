@@ -1,0 +1,135 @@
+[[lessons]]
+id = "s06-l03"
+title = "Separate Pure from Mutating"
+teaches = ["pure-state-transition", "language-functions-decomposition"]
+introduces = ["pure-function-boundary", "mutating-function-boundary"]
+body = '''
+<p>Two functions can both be useful and still make different promises. A <strong>pure function</strong> calculates a result from supplied values without changing them or printing as part of the calculation. A <strong>mutating function</strong> deliberately changes a supplied mutable collection or mapping. Name that difference because it tells the caller what evidence to inspect after the call.</p>
+<pre><code data-kind="runnable">def is_quiet(steps):
+    return steps &lt; 4
+
+def record_marker(notes):
+    notes.append("quiet route")
+
+trail_notes = []
+print(is_quiet(3))
+record_marker(trail_notes)
+print(trail_notes)
+</code></pre>
+<p>The first function is pure: it returns <code>True</code> for the supplied number and has no reason to alter that number. The second is mutating: its parameter refers to the same list supplied by the caller, so the later list print visibly includes the new note. Neither promise is “better.” Use pure helpers for questions and formatting; use named mutating helpers for intentional inventory, discovery, or player-state changes. Keep the mutating action small enough that a reader can name exactly what changes.</p>
+<p>Read the boundaries carefully. <code>is_quiet(3)</code> returns a value for print. <code>record_marker(trail_notes)</code> changes the supplied list, so its useful evidence is the list after the call. Calling a mutating helper twice may record two changes; expecting it to behave like a pure calculation makes duplicate state look mysterious. Conversely, a pure helper that secretly appends or prints is harder to reuse and test later.</p>
+<p>In Briar Glen, leave the top-level loop responsible for the turn order. Give a pure helper a question such as whether the key is present or what a turn line says. Give a command or search helper the explicit state it intentionally changes, then return only the decision the outer controller needs. This is the seam the next chapter will verify with learner-authored tests, so do not add tests early.</p>
+<p>The example is disposable, not a project patch. In the Working, preserve every earlier state observation and transcript while replacing the monolith with small, named functions. If state looks wrong, locate the specific mutating call before changing a pure helper. If a question unexpectedly changes inventory or discoveries, the boundary was mislabeled or crossed.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // EFFECTS HAVE OWNERS</div><p>A function that mutates should make its target obvious in both its parameter list and its name. That discipline makes later tests and object boundaries much easier to design.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "pure-state-transition"
+purpose = "Choose whether a behavior should calculate a result without side effects or deliberately change supplied state."
+anatomy = "Pass explicit values into a pure helper and return its result; pass the intended mutable target into a mutating helper and inspect that target afterward."
+example = "is_quiet returns a Boolean without changing input, while record_marker appends to its supplied list."
+observable = "The Boolean print is derived from the argument and the later list print reveals the intentional mutation."
+failure = "A hidden append inside a supposed calculation or an uninspected mutation makes state changes hard to locate."
+practice = "s06-l03-w1"
+
+[[lessons.concepts]]
+id = "language-functions-decomposition"
+purpose = "Break a program into small named behaviors with explicit inputs, outputs, and effects."
+anatomy = "Identify one job, define it, pass required state, call it from the controller, return decisions, and keep mutations confined to named helpers."
+example = "The section progresses from one named action to explicit values and then to pure question and mutating record boundaries."
+observable = "game.py keeps its existing deterministic transcript while its command work is traceable to named helpers."
+failure = "A giant function, hidden state, or a helper that mixes unrelated effects defeats decomposition."
+practice = "s06-l03-w1"
+
+[[lessons.concepts]]
+id = "pure-function-boundary"
+purpose = "Calculate and return a result without changing supplied state."
+anatomy = "Receive values through parameters, calculate from them, and return the result without mutation or terminal output."
+example = "is_quiet receives steps and returns a comparison result."
+observable = "Calling is_quiet(3) prints True only because the caller chooses to print its returned value."
+failure = "Appending, changing a mapping, or printing inside the calculation adds an effect the caller cannot infer from the returned value alone."
+practice = "s06-l03-w1"
+
+[[lessons.concepts]]
+id = "mutating-function-boundary"
+purpose = "Perform one deliberate, visible change to explicitly supplied mutable state."
+anatomy = "Receive the target collection or mapping as a parameter, use its established mutation operation, and inspect the caller-owned state after the call."
+example = "record_marker receives notes and appends one text value."
+observable = "The list printed after the call contains quiet route."
+failure = "Mutating an unexplained outside name or calling a mutating helper twice can create surprising duplicated state."
+practice = "s06-l03-w1"
+
+[[lessons.artifactSteps]]
+id = "s06-l03-decompose-text-trail"
+path = "game.py"
+mode = "author"
+mechanisms = ["pure-function-boundary", "mutating-function-boundary", "python-def-statement", "python-function-call", "python-parameters-arguments", "python-return-statement", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file"]
+instruction = "Finish learner-authored game.py by replacing its long top-level trail work with small named helpers. Include at least one pure helper that returns a trail value without changing its inputs and named mutating helper(s) that change only explicit inventory, player-state, or discovery arguments. Keep the top-level six-turn controller, all carried-forward state roles, and the prior deterministic transcript. Save, read, and run twice with .venv active; if a state change is surprising, locate the mutating call and its supplied target. Do not add input, tests, exceptions, classes, modules, files, dependencies, Pygame, package material, or another project path."
+checks = ["A pure helper returns a value that the controller uses, while mutating helpers have explicit supplied targets and observable changed state.", "Both saved runs retain the six command routes and identical final trail summary."]
+
+[[lessons.readings]]
+label = "Python tutorial: defining functions"
+url = "https://docs.python.org/3/tutorial/controlflow.html#defining-functions"
+
+[[lessons.exercises]]
+id = "s06-l03-e1"
+type = "text"
+points = 18
+mechanisms = ["pure-function-boundary", "mutating-function-boundary"]
+prompt = "A helper receives an inventory list and calls append on it. Is it pure or mutating, and what observation proves your answer?"
+answer = "It is mutating; the inventory printed after the call contains the appended item"
+hint = "Ask whether the supplied collection changes, then name the post-call evidence."
+
+[[lessons.exercises]]
+id = "s06-l03-w1"
+type = "write"
+points = 36
+mechanisms = ["pure-function-boundary", "mutating-function-boundary", "python-def-statement", "python-function-call", "python-parameters-arguments", "python-return-statement", "list-append-method", "python-print-call"]
+prompt = "Write a disposable program with is_ready(oil) that returns whether oil is greater than 0 without changing oil, plus pack_note(notes) that appends ready to the supplied list. Start notes as an empty list, print is_ready(1), call pack_note(notes), then print notes. Produce exactly the output below."
+expect = '''True
+['ready']'''
+solution = '''def is_ready(oil):
+    return oil > 0
+
+def pack_note(notes):
+    notes.append("ready")
+
+notes = []
+print(is_ready(1))
+pack_note(notes)
+print(notes)
+'''
+hint = "Return the Boolean from the first helper; append inside the second helper to the list passed as its parameter."
+
+[[lessons.exercises]]
+id = "s06-l03-e2"
+type = "mc"
+points = 18
+mechanisms = ["pure-function-boundary"]
+prompt = "Which change would violate the promise of a pure helper that reports whether a lantern key is present?"
+choices = ["Returning a Boolean membership result", "Receiving discoveries as a parameter", "Adding a new discovery before returning", "Using the returned Boolean in an outer branch"]
+answer = 2
+whyWrong = "Returning a derived Boolean, receiving an input, and letting the caller branch are compatible with purity. Adding an item changes supplied state and creates a side effect."
+hint = "A pure helper may calculate from state, but it must not alter that state."
+explain = "Mutation belongs in a named mutating boundary, not in a function that promises only a question."
+
+[[lessons.exercises]]
+id = "s06-l03-e3"
+type = "fill"
+points = 20
+mechanisms = ["mutating-function-boundary", "list-append-method"]
+prompt = "Complete the established list operation that deliberately changes the supplied disposable notes list."
+code = '''def record_route(notes):
+    notes.____("north")'''
+answer = "append"
+hint = "Use the list method that adds one value at the end."
+
+[[lessons.exercises]]
+id = "s06-l03-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["pure-function-boundary", "python-def-statement", "python-return-statement"]
+prompt = "Retype this pure disposable question exactly."
+code = '''def has_signal(signals):
+    return "beacon" in signals'''

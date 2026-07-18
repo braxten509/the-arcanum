@@ -1,0 +1,141 @@
+[[lessons]]
+id = "s05-l03"
+title = "Control a Search"
+teaches = ["loop-control-search"]
+introduces = ["python-while-statement", "python-break-statement", "python-continue-statement"]
+body = '''
+<p>A counted <code>for</code> loop is ideal when every planned turn should be visited. A search has a different stopping rule: keep checking while a condition remains true, skip irrelevant entries, and stop as soon as the target appears. Python’s <code>while</code> statement reads <code>while</code>, a Boolean condition, a colon, and an indented body. It checks the condition before every pass. If the condition starts false, the body runs zero times.</p>
+<pre><code data-kind="runnable">drawer_tags = ["dust", "skip", "seal", "spare"]
+position = 0
+
+while position &lt; 4:
+    current_tag = drawer_tags[position]
+    position = position + 1
+    if current_tag == "skip":
+        continue
+    print(current_tag)
+    if current_tag == "seal":
+        print("seal found")
+        break
+</code></pre>
+<p>The output is <code>dust</code>, <code>seal</code>, then <code>seal found</code> on separate lines. The condition <code>position &lt; 4</code> is the search boundary. The body retrieves the current tag and advances <code>position</code> before any possible skip. Without that update, the condition could remain true forever and the program would keep inspecting the same item.</p>
+<p><code>continue</code> immediately skips the rest of the current pass and returns to the <code>while</code> condition. That is why <code>skip</code> is never printed. Put required progress before <code>continue</code>; otherwise the skipped pass may also skip the update that makes the loop finish. <code>break</code> immediately exits the nearest loop. When the seal appears, the final <code>spare</code> entry is never inspected. A break does not end the whole program: execution resumes at the first statement below the loop.</p>
+<p>The briar search follows this control shape with different state and observations. Its upper boundary guarantees exhaustion even if no useful object appears; <code>continue</code> ignores one irrelevant marker; <code>break</code> records a successful early stop. Keep that inner search separate from the outer bounded turn sequence. The nearest-loop rule means breaking the search does not automatically end the command controller.</p>
+<p>If a search hangs, inspect three facts in order: can its condition ever become false, does every possible pass advance the controlling value, and can a <code>continue</code> bypass that advance? Those observations are stronger than guessing at the final print.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // PROGRESS BEFORE SKIP</div><p>A bounded condition is only a promise when the loop changes the value used by that condition. Trace <code>position</code> as 0, 1, 2 rather than trusting the surrounding prose.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "loop-control-search"
+purpose = "Search a bounded collection, skip irrelevant entries, and stop immediately after the target is found."
+anatomy = "Initialize a position, test it against a finite boundary, retrieve and advance, continue past ignored entries, then break after recording the target."
+example = "The drawer-tag program demonstrates exhaustion, one skipped marker, and a successful early stop."
+observable = "The skipped tag and post-target tag are absent, while the target and found message are visible."
+failure = "Failing to advance on every possible path can leave the condition true forever."
+practice = "s05-l03-e5"
+
+[[lessons.concepts]]
+id = "python-while-statement"
+purpose = "Repeat an indented block while a Boolean condition remains true."
+anatomy = "Write while, a condition, a colon, then an indented body that makes observable progress toward ending the condition."
+example = "The drawer search repeats while position is less than four."
+observable = "The finite position trace lets the search inspect at most four entries."
+failure = "A condition whose controlling value never changes creates an unbounded loop."
+practice = "s05-l03-e5"
+
+[[lessons.concepts]]
+id = "python-break-statement"
+purpose = "Exit the nearest active loop immediately after a decisive result."
+anatomy = "Inside the loop and its matching condition, write break on its own indented line."
+example = "The drawer search breaks after printing that the seal was found."
+observable = "The spare tag after the seal is never printed."
+failure = "A break placed outside a loop is invalid, and a break in an inner loop does not exit an outer loop."
+practice = "s05-l03-e5"
+
+[[lessons.concepts]]
+id = "python-continue-statement"
+purpose = "Skip the remaining statements in the current loop pass and begin the next condition check."
+anatomy = "After identifying an ignored case inside a loop, write continue on its own indented line after required progress updates."
+example = "The skip tag returns directly to the while condition before the print statement."
+observable = "No line containing skip appears in the output."
+failure = "Continuing before the progress update can trap the loop on the same ignored value."
+practice = "s05-l03-e5"
+
+[[lessons.artifactSteps]]
+id = "s05-l03-author-controlled-search"
+path = "game.py"
+mode = "author"
+mechanisms = ["python-while-statement", "python-break-statement", "python-continue-statement", "python-if-statement", "python-comparison-operators", "python-list-literal", "python-list-indexing", "python-name-binding", "python-arithmetic-operators", "set-add-method", "python-print-call", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file"]
+instruction = "In the search route of learner-authored game.py, add a four-entry saved search collection containing an irrelevant marker before the target and at least one entry after it. Use a position-controlled while loop whose progress update occurs before any continue. Skip the irrelevant marker without printing it; print inspected relevant entries; when the lantern key is reached, add it to discoveries, set the path-open state from that event, print the finding, and break the inner search. Save, read, and run the source. If it does not terminate, trace the position value on every branch. Do not add input, functions, tests, files, dependencies, Pygame, package material, or another path."
+checks = ["The irrelevant marker and the entry after the lantern key are absent from search output, while the relevant entry before it and the key are visible.", "The search terminates by either its finite position boundary or its target break, and finding the key changes real discoveries and path state."]
+
+[[lessons.readings]]
+label = "Python break and continue statements"
+url = "https://docs.python.org/3/tutorial/controlflow.html#break-and-continue-statements"
+
+[[lessons.exercises]]
+id = "s05-l03-e1"
+type = "fill"
+points = 21
+mechanisms = ["python-break-statement"]
+prompt = "Complete the statement that exits this search immediately after the match."
+code = '''if marker == "gold":
+    print("found")
+    ____'''
+answer = "break"
+hint = "Use the loop-control statement that leaves the nearest loop."
+
+[[lessons.exercises]]
+id = "s05-l03-e2"
+type = "mc"
+points = 19
+mechanisms = ["python-continue-statement", "python-name-binding"]
+prompt = "In a position-controlled while search, where should the position update occur when an ignored entry may execute continue?"
+choices = ["Only after the loop has ended", "Before the possible continue", "Inside code that runs only after a successful break", "It is unnecessary because continue advances the position"]
+answer = 1
+whyWrong = "continue does not update state for you. An update after the skip may never run, while an update after break is unreachable and one after the loop cannot help the active condition."
+hint = "Ask which statements continue skips."
+explain = "Advancing before the possible skip guarantees progress on every pass."
+
+[[lessons.exercises]]
+id = "s05-l03-e3"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["python-while-statement", "python-name-binding", "python-arithmetic-operators"]
+prompt = "Retype this finite while loop exactly."
+code = '''step = 0
+while step < 2:
+    print(step)
+    step = step + 1'''
+
+[[lessons.exercises]]
+id = "s05-l03-e4"
+type = "text"
+points = 18
+mechanisms = ["python-break-statement"]
+prompt = "After break exits an inner search loop, where does Python continue executing?"
+answer = "At the first statement after the inner loop"
+accept = ["below the nearest loop", "with the first statement following that loop"]
+hint = "break exits the nearest loop, not the entire program."
+
+[[lessons.exercises]]
+id = "s05-l03-e5"
+type = "write"
+points = 35
+mechanisms = ["python-while-statement", "python-break-statement", "python-continue-statement", "python-list-literal", "python-list-indexing", "python-if-statement", "python-name-binding", "python-arithmetic-operators", "python-print-call"]
+prompt = "Write a disposable bounded search over tags = [\"reed\", \"ignore\", \"bell\", \"rope\"]. Use a position starting at 0 and while position is less than 4. Retrieve the current tag and advance position before any skip. Continue when the tag is ignore. Print each other visited tag; immediately after printing bell, break. The exact output is reed then bell on separate lines."
+expect = '''reed
+bell'''
+solution = '''tags = ["reed", "ignore", "bell", "rope"]
+position = 0
+while position < 4:
+    tag = tags[position]
+    position = position + 1
+    if tag == "ignore":
+        continue
+    print(tag)
+    if tag == "bell":
+        break
+'''
+hint = "Advance immediately after indexing, then place continue before print and break after printing bell."

@@ -11,13 +11,15 @@ import time
 import traceback
 
 from .. import BUILD_DIR, REPO
+from ..ai_costs import ensure_cost_totals, record_ai_turn
 from ..runtime.agent_runtime import scoped_runner_command
 from .gate import (advance_unit, context, current_unit, ensure_unit, label,
                           next_prompt, preflight_unit, repair_prompt, unit_prompt,
                           validate_unit)
 from . import full_review
 from ..measure import (ValidatorInfrastructureError, validate_live_smoke,
-                      validate_shipping)
+                       validate_shipping)
+from .review_session import ReviewerSessionMixin
 from .scope import author_paths
 from .session.controls import AuthorControlsMixin
 from .session.phase_state import PhaseAuthorStateMixin
@@ -30,10 +32,12 @@ from .runtime import initial_runner as _initial_runner
 from .runtime import opencode_output_session_id as _opencode_output_session_id
 from .runtime import resume_command as _resume_command
 from .runtime import runner_stdin as _runner_stdin
+from .runtime import session_id_from_line as _session_id_from_line
 from .runtime import usage_from_line as _usage_from_line
 from arcanum.forge import notify
 from arcanum.tomes import resolve_working_tid
-from arcanum.forge.tool_trace import _descendants, runner_session, trace_session_id
+from arcanum.forge.tool_trace import (_descendants, runner_session, trace_model,
+                                      trace_session_id)
 
 
 def append_conversation(build_id, kind, text, **extra):
@@ -44,7 +48,7 @@ def load_conversation(build_id, limit=120):
     return _load_conversation(BUILD_DIR, build_id, limit)
 
 
-class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin):
+class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin, ReviewerSessionMixin):
     def __init__(self, build_id, kind, model, effort, concept, tooling, from_phase=1,
                  resume_id="", reviewer=None, phase_authors=None):
         self.build_id, self.kind, self.model = build_id, kind, model
@@ -53,6 +57,8 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin):
         self.configure_phase_authors(kind, model, effort, phase_authors)
         self.reviewer = reviewer
         self.role = "author"
+        self.active_unit = None
+        self.actual_model = ""
         self.state_path = json_path(BUILD_DIR, build_id, "session")
         self.control_input = sys.stdin
         self.controls, self.child, self.stop = queue.Queue(), None, False
@@ -104,6 +110,12 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin):
             pass
 
     def run_turn(self, prompt, conversation_kind="system", conversation_text=""):
+        ensure_cost_totals(BUILD_DIR, self.build_id)
+        self.actual_model = ""
+        started_at = time.time()
+        cost_unit = current_unit(self.build_id, self.from_phase) or {
+            "kind": "phase", "phase": self.from_phase}
+        self.active_unit = cost_unit
         runner = (_resume_command(self.kind, self.model, self.effort, self.session_id, prompt)
                   if self.session_id else _initial_runner(self.kind, self.model, self.effort))
         display, cmd, input_mode = runner
@@ -129,6 +141,22 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin):
         # running until its durable session store is discoverable by the trace follower.
         self.state("starting", pid=self.child.pid)
         source, plain, harness_blocked, usage = None, [], "", None
+
+        def finish_cost(status):
+            try:
+                record_ai_turn(
+                    BUILD_DIR, self.build_id,
+                    phase=int(cost_unit.get("phase") or self.from_phase),
+                    section=cost_unit.get("section"), role=self.role,
+                    stage=("full-review" if self.role == "reviewer" else "author-turn"),
+                    kind=self.kind, model=self.actual_model or self.model, effort=self.effort,
+                    transport="cli", status=status, session_id=self.session_id,
+                    usage=usage,
+                    usage_mode=("cumulative" if self.kind == "codex-cli" else "turn"),
+                    started_at=started_at)
+            except Exception as exc:
+                print(f"AI cost logging warning: {exc}", flush=True)
+
         while True:
             try:
                 line = lines.get(timeout=.25)
@@ -138,6 +166,8 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin):
                 observed_usage = _usage_from_line(line)
                 if observed_usage:
                     usage = observed_usage
+                if not self.session_id:
+                    self.session_id = _session_id_from_line(line)
                 if self.kind == "opencode-cli" and not self.session_id:
                     self.session_id = _opencode_output_session_id(line)
                 answer = _assistant_text(line)
@@ -160,6 +190,7 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin):
                     source = runner_session(self.child.pid)
                 if source:
                     self.session_id = trace_session_id(source)
+                    self.actual_model = trace_model(source)
                     self.state("running", pid=self.child.pid)
             try:
                 control = self.controls.get_nowait()
@@ -171,9 +202,12 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin):
                     self.interrupt()
                     if action == "stop":
                         self.stop = True
+                        finish_cost("stopped")
                         return "stopped", ""
                     if action == "message":
+                        finish_cost("interrupted-for-message")
                         return "message", str(control.get("text") or "").strip()
+                    finish_cost("paused")
                     return "paused", ""
         rc = self.child.wait()
         if plain:
@@ -181,20 +215,27 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin):
                                 role=self.role)
         if not self.session_id and source:
             self.session_id = trace_session_id(source)
+        if source:
+            self.actual_model = trace_model(source) or self.actual_model
         if usage:
             path = os.path.join(BUILD_DIR, f"{self.build_id}.author-usage.jsonl")
             with open(path, "a", encoding="utf-8") as handle:
                 import json
                 handle.write(json.dumps({
                     "at": time.time(), "role": self.role, "kind": self.kind,
-                    "model": self.model, "effort": self.effort, "usage": usage,
+                    "model": self.actual_model or self.model,
+                    "requestedModel": self.model,
+                    "effort": self.effort, "usage": usage,
                 }, separators=(",", ":")) + "\n")
         if self.kind == "antigravity-cli":
             # AGY is plain text; the raw turn remains visible even without structured events.
             pass
         if harness_blocked:
+            finish_cost("harness-blocked")
             return "harness-blocked", harness_blocked
-        return ("complete" if rc == 0 else "failed"), ""
+        status = "complete" if rc == 0 else "failed"
+        finish_cost(status)
+        return status, ""
 
 
     def pause_for_validation_infrastructure(self, unit, exc):
@@ -216,100 +257,10 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin):
                priority=1)
         return self.await_validation_controls()
 
-    def _review_writable(self):
-        tid = self.current_tome()
-        writable = [BUILD_DIR, os.path.join(REPO, "tomes", tid)]
-        from ..measure import selected_runtime_config
-        runtime = selected_runtime_config(tid)
-        if runtime:
-            writable.append(os.path.join(REPO, "global-configs", "runtimes", runtime))
-        return writable
-
-    def _review_turn(self, prompt, conversation_kind="harness", conversation_text=""):
-        original = self._writable
-        self._writable = self._review_writable
-        try:
-            return self.run_turn(prompt, conversation_kind, conversation_text)
-        finally:
-            self._writable = original
-
-    def _await_reviewer_controls(self, retrying=False):
-        while True:
-            control = self.controls.get()
-            if control.get("type") == "stop":
-                self.stop = True
-                return None
-            if control.get("type") not in ("message", "resume"):
-                continue
-            switched = self.apply_author(control)
-            message = str(control.get("text") or "").strip()
-            prompt = full_review.prompt(self.build_id, self.current_tome())
-            if message:
-                prompt = message + "\n\n" + prompt
-            verb = "Retrying" if retrying else "Resuming"
-            text = message or (f"{verb} the thorough full-tome review"
-                               + (f" with {self.kind} {self.model} in a fresh session."
-                                  if switched else "."))
-            return prompt, ("user" if message else "harness"), text
-
-    def run_reviewer(self):
-        if not self.reviewer:
-            return 0
-        self.kind, self.model, self.effort = self.reviewer
-        self.session_id = ""
-        self.role = "reviewer"
-        try:
-            os.remove(full_review.evidence_path(self.build_id))
-        except OSError:
-            pass
-        tid = self.current_tome()
-        prompt = full_review.prompt(self.build_id, tid)
-        conversation_kind, conversation_text = "harness", (
-            "The optional independent reviewer is starting a thorough full-tome review. "
-            "It must read every authored file; sampling is forbidden.")
-        while not self.stop:
-            outcome, message = self._review_turn(prompt, conversation_kind, conversation_text)
-            if outcome == "stopped":
-                break
-            if outcome == "message":
-                prompt = message + "\n\n" + full_review.prompt(self.build_id, self.current_tome())
-                conversation_kind, conversation_text = "user", message
-                continue
-            if outcome in ("paused", "failed"):
-                error = ("The reviewer CLI exited unexpectedly. Resume it, or pick another "
-                         "AI to continue the exhaustive review in a fresh session.") if outcome == "failed" else ""
-                self.state("paused", **({"error": error} if error else {}))
-                resumed = self._await_reviewer_controls(retrying=outcome == "failed")
-                if resumed is None:
-                    break
-                prompt, conversation_kind, conversation_text = resumed
-                continue
-            self.state("validating", stage="full-review")
-            tid = self.current_tome()
-            evidence_ok, evidence_report = full_review.validate_report(self.build_id, tid)
-            ctx = context(self.build_id)
-            shipping_ok, shipping = validate_shipping(tid, ctx["tooling"], ctx["plan"])
-            smoke_ok, smoke = validate_live_smoke(tid) if shipping_ok else (False, "")
-            if evidence_ok and shipping_ok and smoke_ok:
-                append_conversation(self.build_id, "harness",
-                                    "The thorough full-tome review covered every authored file, "
-                                    "and strict shipping plus live-smoke verification passed.",
-                                    role="reviewer")
-                return 0
-            report = "\n\n".join(part for part in (
-                "REVIEW COVERAGE: " + evidence_report,
-                "STRICT SHIPPING:\n" + shipping if not shipping_ok else "",
-                "LIVE SMOKE:\n" + smoke if shipping_ok and not smoke_ok else "",
-            ) if part)
-            prompt = full_review.prompt(self.build_id, tid, report)
-            conversation_kind, conversation_text = "harness", (
-                "The exhaustive reviewer pass did not clear its mechanical double-check. "
-                "The exact report was returned to the same reviewer session.")
-        return 130
-
     def run(self):
         threading.Thread(target=self.read_controls, daemon=True).start()
         unit = ensure_unit(self.build_id, self.from_phase)
+        self.active_unit = unit
         # A restarted harness must honor a durable `validating` handoff before it
         # invokes the provider.  This recovers the current unit without paying the
         # author to repeat work that is already on disk.
@@ -446,6 +397,7 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin):
                 + (f" using {self.kind} {self.model} in a fresh unit session."
                    if reset else " in the shared Phase 1–2 planning session."))
             unit = next_unit
+            self.active_unit = next_unit
             if reset:
                 # Persist the empty session id before launching the successor. A
                 # harness crash in this narrow boundary must not let resume attach

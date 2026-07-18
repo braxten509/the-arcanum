@@ -1,84 +1,139 @@
 [[lessons]]
 id = "s03-l01"
 title = "Construct Status Text"
-teaches = ["s03-phase3-placeholder"]            # TODO: stable kebab-case capabilities this lesson teaches
+teaches = ["status-text-construction"]
+introduces = ["python-string-literal", "python-string-concatenation", "python-f-string"]
 body = '''
-<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
-<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
-<p>TODO: an optional deeper-cut appendix.</p></div>
+<p>The lantern’s numbers are useful, but a traveler needs a sentence that says what the numbers mean. A Python string is text. A string literal is text written directly between matching quotation marks. In this disposable example, the quoted words are values; Python does not treat them as names or terminal commands.</p>
+<pre><code data-kind="runnable">signal_word = "north"
+marker_text = "The marker points "
+</code></pre>
+<p>Read the assignment from left to right. The known assignment operator binds the name to the text on its right. The quotes are Python’s spelling of the text, not normally part of the stored value. A missing closing quote prevents Python from parsing. An unquoted word asks Python to find a name, which can cause a NameError. Use matching quotes. This trail uses double quotes so the text boundaries are easy to inspect.</p>
+<p>Concatenation joins strings with <code>+</code>. Both sides must be text. Here a lead and named direction become one report:</p>
+<pre><code data-kind="runnable">signal_word = "north"
+marker_text = "The marker points "
+report = marker_text + signal_word
+print(report)
+</code></pre>
+<p>The terminal prints <code>The marker points north</code>. The space at the end of <code>marker_text</code> matters because <code>+</code> adds no separator. If words fuse, inspect the literal boundaries before changing the value. Joining is clearest when text pieces themselves are the point.</p>
+<p>An f-string is better when a sentence needs existing values inserted into fixed text. Put <code>f</code> immediately before the opening quote, then put a known name inside braces.</p>
+<pre><code data-kind="runnable">beacon_count = 4
+report = f"Signals seen: {beacon_count}"
+print(report)
+</code></pre>
+<p>The result is <code>Signals seen: 4</code>. The braces identify the changing value. Without the leading <code>f</code>, braces are ordinary characters; a misspelled braced name causes the familiar lookup failure. Keep fixed wording outside braces and values inside them. Your Working uses its own status values, not either disposable report. It still has no input, choices, or game loop: this lesson only makes state readable.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TEXT HAS BOUNDARIES</div><p>Trace each quote, plus sign, and brace before running. Most early string mistakes are one missing boundary, not a mysterious message change.</p></div>
 '''
 
-[[lessons.concepts]]                # one complete first-use proof for every `teaches` id
-id = "s03-phase3-placeholder"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
+[[lessons.concepts]]
+id = "status-text-construction"
+purpose = "Create readable text that gives existing program state a human-facing meaning."
+anatomy = "Bind fixed text, join the text pieces for one lead, then use an f-string with braces around existing values for the changing part."
+example = "The marker report and Signals seen runnable examples show a joined lead and an interpolated value."
+observable = "Running the examples prints complete sentences whose fixed wording and inserted value can be traced."
+failure = "Fused words mean a missing literal space; literal braces mean the leading f was omitted."
+practice = "s03-l01-e4"
+
+[[lessons.concepts]]
+id = "python-string-literal"
+purpose = "Write fixed text directly in Python so it can be stored or combined."
+anatomy = "Open with a quote, write text characters, close with the matching quote, and assign the complete literal to a name."
+example = "\"north\" and \"The marker points \" are the string literals in the runnable example."
+observable = "After the assignments, the names refer to text values rather than unquoted Python names."
+failure = "An unmatched quote causes a syntax error; an unquoted word asks Python to resolve a name."
 practice = "s03-l01-e1"
 
-[[lessons.artifactSteps]]           # visible work order; never reveal canonical implementation
-id = "s03-l01-project-step"
-path = "replace-me.txt"
-mode = "author"                    # learner authors this path; hidden referenceSteps replay it
-instruction = "TODO: exact path, behavior, constraints, commands, and diagnostics—no solution."
-checks = ["TODO: specific observable result the learner can run or inspect."]
+[[lessons.concepts]]
+id = "python-string-concatenation"
+purpose = "Join text values into one longer text value."
+anatomy = "Place + between string-valued names or literals and assign the resulting text to a readable name."
+example = "marker_text + signal_word joins the disposable lead and direction into report."
+observable = "Running the marker example prints The marker points north as one line."
+failure = "A missing literal space makes adjacent words run together because + supplies no separator."
+practice = "s03-l01-e2"
 
-[[lessons.readings]]               # optional: 1-2 high-quality official docs
-label = "TODO: official docs"
-url = "https://example.com/TODO"
+[[lessons.concepts]]
+id = "python-f-string"
+purpose = "Insert an existing value into fixed text without manually converting it."
+anatomy = "Write f before the opening quote, fixed text, an existing name inside braces, and the closing quote."
+example = "f\"Signals seen: {beacon_count}\" inserts the disposable count."
+observable = "The example prints Signals seen: 4, not the braces and name characters."
+failure = "Missing f leaves braces as text; a misspelled braced name raises NameError."
+practice = "s03-l01-e3"
+
+[[lessons.artifactSteps]]
+id = "s03-l01-construct-waystone-status"
+path = "game.py"
+mode = "author"
+mechanisms = ["python-string-literal", "python-string-concatenation", "python-f-string", "python-name-binding"]
+instruction = "Reopen saved learner-authored game.py. Add named traveler text and a status lead, join the lead with the traveler text, then derive one named f-string status line using the already-established health, remaining oil, and lit values. Preserve carried-forward assignments. Do not add command text, input, control flow, functions, collection operations, dependencies, Pygame, package material, or files. Save the source."
+checks = ["The status lead is joined from string values with deliberate word spacing.", "The named status line reads as fixed text plus prior state inserted through an f-string."]
+
+[[lessons.readings]]
+label = "Python string literals"
+url = "https://docs.python.org/3/reference/lexical_analysis.html#string-and-bytes-literals"
 
 [[lessons.exercises]]
 id = "s03-l01-e1"
-type = "mc"
-points = 15
-prompt = "TODO: a multiple-choice question?"
-choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
-answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
-whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
-hint = "TODO: an exercise-specific hint."
-explain = "TODO: shown after solving."
+type = "fill"
+points = 20
+mechanisms = ["python-string-literal"]
+prompt = "Complete the disposable string literal that stores one trail word."
+code = "direction = ____"
+answer = "\"east\""
+accept = ["'east'"]
+hint = "Text needs matching quotation marks."
 
 [[lessons.exercises]]
 id = "s03-l01-e2"
-type = "text"
-points = 20
-prompt = "TODO: a free-text question."
-answer = "TODO"
-# accept = ["TODO alternate"]      # optional true alternates only
-hint = "TODO: an exercise-specific hint."
+type = "mc"
+points = 18
+mechanisms = ["python-string-concatenation"]
+prompt = "Which expression joins disposable text names heading and direction?"
+choices = ["heading = direction", "heading + direction", "heading and direction", "heading == direction"]
+answer = 1
+whyWrong = "= stores, and combines Boolean conditions, and == compares. + joins two string values."
+hint = "Choose the operator that makes one longer text value."
+explain = "Concatenation preserves both text values in order."
 
 [[lessons.exercises]]
 id = "s03-l01-e3"
 type = "fill"
 points = 20
-prompt = "TODO: fill the blank."
-code = 'answer = ____'             # the ____ marks where the answer goes
-answer = "TODO"
-hint = "TODO: an exercise-specific hint."
+mechanisms = ["python-f-string"]
+prompt = "Add the character that turns this earlier-state report into an f-string."
+code = 'report = ____"Trail width: {trail_width}"'
+answer = "f"
+hint = "It goes immediately before the opening quote."
+
+[[lessons.exercises]]
+id = "s03-l01-e4"
+type = "text"
+points = 18
+mechanisms = ["python-string-concatenation", "python-f-string"]
+prompt = "Why might a status report use + for its text lead and an f-string for a count?"
+answer = "Concatenation joins the text pieces and the f-string inserts the changing named value"
+accept = ["+ joins fixed text and an f-string inserts a value"]
+hint = "Separate joining words from placing a value in a sentence."
 
 [[lessons.exercises]]
 id = "s03-l01-d1"
-type = "type"                      # typing drill: retype the code; no point decay
+type = "type"
 points = 12
 reps = 2
-prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
-code = 'print("TODO")'
+mechanisms = ["python-f-string"]
+prompt = "Retype this disposable f-string assignment exactly."
+code = 'notice = f"Gates open: {gate_count}"'
 
 [[lessons.exercises]]
 id = "s03-l01-w1"
-type = "write"                     # CODE LAB: runs on the real runtime; no point decay
+type = "text"
 points = 30
-prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
-# starter = '''
-# TODO: prefilled editor code / the exercise's data
-# '''
-expect = '''
-TODO EXACT OUTPUT'''
-# REQUIRED before shipping: a complete program that passes. Never shown to the
-# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
-# solution = '''
-# TODO
-# '''
-hint = "TODO: an exercise-specific hint."
+mechanisms = ["python-string-literal", "python-string-concatenation", "python-f-string"]
+prompt = "Write a tiny disposable program that binds scout_name to \"Tavi\", joins \"Report for \" with scout_name into title, binds marker_count to 6, then prints an f-string containing title and marker_count."
+answer = '''scout_name = "Tavi"
+title = "Report for " + scout_name
+marker_count = 6
+print(f"{title}: {marker_count}")
+'''
+hint = "Join the text first, then place the title and number in braces."

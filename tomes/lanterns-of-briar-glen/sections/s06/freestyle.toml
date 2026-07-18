@@ -1,36 +1,166 @@
 [freestyle]
-title = "THE WORKING: TODO"
-brief = "TODO: the in-world commission.<ul><li>TODO requirement one (state exact output/tokens)</li><li>TODO requirement two</li></ul>"
-requires = ["s06-phase3-placeholder"]           # TODO: exact ids taught by this/earlier lessons
-reward = 150
-xray = "TODO: the grader's private notes — the specific pitfalls it docks and the style it rewards, truthful to the rubric below."
+title = "THE WORKING: NAME THE SMALL STEPS"
+brief = '''<p>Rowan asks you to make the working trail readable without changing what it proves. Reopen and save your learner-authored <code>game.py</code>; it remains one deterministic, bounded text adventure rather than a Pygame program.</p><ul><li>Preserve the carried-forward numeric lantern state, status and normalized command text, inventory and independent snapshot, player-state mapping, discoveries, coordinate, six saved commands, finite indexed turn loop, and bounded briar search. The normal run must still visibly route look, pickup, rest, search, unknown, and leave and end with <code>Turns taken: 6</code>, <code>Found lantern key: True</code>, <code>Path open: True</code>, and <code>Final health: 12</code>.</li><li>Replace the monolithic trail work with small descriptively named functions. Define each function before its first call. Keep the top-level loop responsible for selecting and counting the six saved commands; call helpers for display, a command route, and the briar search instead of hiding the finite controller.</li><li>Pass every command and state value a helper needs through explicit parameters. Return the route decision the outer controller needs, and use that returned value to decide whether the top-level loop continues. Do not use global-state shortcuts or hard-code a final summary.</li><li>Include at least one pure helper that returns a derived trail value without printing or changing any supplied input. Put deliberate inventory, player-state, or discovery changes only in named mutating helper(s) that receive their target explicitly. Keep their effects observable in the existing transcript.</li><li>Read the saved source and run <code>python game.py</code> twice from the external project root with <code>.venv</code> active. Both transcripts must match. Do not add input, tests, exceptions, classes, modules, files, dependencies, Pygame, package material, or another project path.</li></ul>'''
+requires = ["function-boundaries", "explicit-data-flow", "pure-state-transition", "language-functions-decomposition", "language-values-expressions-data", "language-control-branch-loop"]
+mechanisms = ["terminal-print-working-directory", "terminal-change-directory", "terminal-check-python-version", "venv-create-environment", "venv-activate-environment", "venv-resolve-active-python", "editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file", "python-literal-values", "python-name-binding", "python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators", "python-print-call", "python-string-literal", "python-string-concatenation", "python-f-string", "string-strip-method", "string-lower-method", "string-split-method", "python-list-literal", "python-list-indexing", "list-append-method", "python-dict-literal", "python-dict-key-access", "dict-get-method", "python-set-literal", "python-membership-operators", "set-add-method", "python-tuple-literal", "collection-copy-method", "python-if-statement", "python-elif-clause", "python-else-clause", "python-for-statement", "python-in-loop-target", "python-range-call", "python-while-statement", "python-break-statement", "python-continue-statement", "bounded-loop-invariant", "python-def-statement", "python-function-call", "python-parameters-arguments", "python-return-statement", "pure-function-boundary", "mutating-function-boundary"]
+reward = 190
+xray = "Trace the preserved transcript through real functions, not through a renamed printout. The grader checks that game.py keeps the bounded six-turn controller and all earlier state evidence while each helper has one job, receives explicit values, and returns a used decision when the controller needs one. A pure helper must not mutate or print; command and search helpers may mutate only their supplied targets. Dock hidden globals, copied final output, changed turn order, premature input/tests/errors/classes/modules/files/dependencies/Pygame/packages, or a new path. Reward function boundaries whose names reveal their one established behavior."
 
-[[freestyle.referenceSteps]]        # hidden from learners; validator replays a real solution
-id = "s06-freestyle-reference"
-path = "replace-me.txt"
+[[freestyle.referenceSteps]]
+id = "s06-rewrite-bounded-trail-as-functions"
+path = "game.py"
 mode = "rewrite"
 preserves = "all-active"
-instruction = "TODO: exact private reference edit that satisfies this Working."
-content = '''
-TODO: complete reference content
+mechanisms = ["python-literal-values", "python-name-binding", "python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators", "python-print-call", "python-string-literal", "python-string-concatenation", "python-f-string", "string-strip-method", "string-lower-method", "string-split-method", "python-list-literal", "python-list-indexing", "list-append-method", "python-dict-literal", "python-dict-key-access", "dict-get-method", "python-set-literal", "python-membership-operators", "set-add-method", "python-tuple-literal", "collection-copy-method", "python-if-statement", "python-elif-clause", "python-else-clause", "python-for-statement", "python-in-loop-target", "python-range-call", "python-while-statement", "python-break-statement", "python-continue-statement", "bounded-loop-invariant", "python-def-statement", "python-function-call", "python-parameters-arguments", "python-return-statement", "pure-function-boundary", "mutating-function-boundary"]
+instruction = "Private replay rewrites game.py as the same deterministic text-trail controller with explicit small function boundaries and no new project artifact."
+content = '''health = 10
+lantern_oil = 3
+remaining_oil = lantern_oil - 1
+lantern_lit = health > 0 and remaining_oil > 0
+
+traveler_name = "Mira"
+status_lead = "Lantern status for " + traveler_name
+status_line = f"{status_lead}: {health} health, {remaining_oil} oil, lit={lantern_lit}"
+
+raw_command = "  LOOK WAYSTONE  "
+normalized_command = raw_command.strip().lower()
+command_parts = normalized_command.split()
+
+inventory = ["waystone map", "rations"]
+inventory_snapshot = inventory.copy()
+player_state = {"health": health, "title": "Wayfinder"}
+discoveries = {"north gate"}
+camp_coordinate = (4, 7)
+
+
+def turn_line(turn_number, command):
+    return f"Turn {turn_number}: {command}"
+
+
+def has_lantern_key(trail_discoveries):
+    return "lantern key" in trail_discoveries
+
+
+def show_opening(status, command, parts, pack, state, trail_discoveries, coordinate):
+    print(status)
+    print("Normalized command:", command)
+    print("Command words:", parts)
+    print("Pack before trail:", pack)
+    print("First packed item:", pack[0])
+    print("Player health:", state["health"])
+    print("Unknown camp:", state.get("camp", "unknown"))
+    trail_discoveries.add("north gate")
+    print("Known north gate:", "north gate" in trail_discoveries)
+    print("Coordinates:", coordinate)
+
+
+def search_briar(trail_discoveries):
+    search_marks = ["thorns", "old ribbon", "lantern key", "deep mud"]
+    search_index = 0
+    while search_index < 4:
+        search_mark = search_marks[search_index]
+        search_index = search_index + 1
+        if search_mark == "old ribbon":
+            continue
+        print("Search:", search_mark)
+        if search_mark == "lantern key":
+            trail_discoveries.add("lantern key")
+            print("Lantern key found.")
+            break
+    return has_lantern_key(trail_discoveries)
+
+
+def handle_command(command, pack, state, trail_discoveries):
+    route_result = {"path_open": False, "keep_traveling": True}
+    if command == "look waystone":
+        trail_discoveries.add("waystone")
+        print("The waystone points north.")
+    elif command == "take moonleaf" and "moonleaf" not in pack:
+        pack.append("moonleaf")
+        print("Moonleaf packed.")
+    elif command == "rest":
+        state["health"] = state["health"] + 2
+        print(f"Health restored: {state['health']}")
+    elif command == "search briar":
+        route_result["path_open"] = search_briar(trail_discoveries)
+    elif command == "leave":
+        print("Trail closed.")
+        route_result["keep_traveling"] = False
+    else:
+        print("Unknown command.")
+    return route_result
+
+
+commands = [
+    normalized_command,
+    "take moonleaf",
+    "rest",
+    "search briar",
+    "sing",
+    "leave",
+]
+turn_limit = 6
+turns_taken = 0
+path_open = False
+
+show_opening(
+    status_line,
+    normalized_command,
+    command_parts,
+    inventory,
+    player_state,
+    discoveries,
+    camp_coordinate,
+)
+
+for turn_index in range(turn_limit):
+    command = commands[turn_index]
+    turns_taken = turns_taken + 1
+    print(turn_line(turns_taken, command))
+    route_result = handle_command(command, inventory, player_state, discoveries)
+    path_open = route_result["path_open"]
+    if route_result["keep_traveling"] == False:
+        break
+
+print("Turns taken:", turns_taken)
+print("Pack after trail:", inventory)
+print("Snapshot before trail:", inventory_snapshot)
+print("Found lantern key:", has_lantern_key(discoveries))
+print("Path open:", path_open)
+print("Final health:", player_state["health"])
 '''
 
 [freestyle.badge]
 id = "badge-s06"
-name = "TODO BADGE"
-desc = "TODO: one sentence."
-
-[[freestyle.rubric]]               # weights MUST sum to exactly 100
-criterion = "Compiles & runs"
-weight = 40
-desc = "TODO: build succeeds; runs without crashing on normal input."
+name = "TRAIL NAMER"
+desc = "Turned one long deterministic trail into explicit named behaviors."
 
 [[freestyle.rubric]]
-criterion = "Meets the brief"
-weight = 40
-desc = "TODO: every requirement in the checklist is present and correct."
+criterion = "Preserved Deterministic Trail"
+weight = 24
+mechanisms = ["python-for-statement", "python-range-call", "python-if-statement", "python-elif-clause", "python-else-clause", "python-while-statement", "python-break-statement", "python-continue-statement", "bounded-loop-invariant"]
+desc = "The top-level source still selects and counts the six saved commands in order, routes every established outcome, keeps the bounded search behavior, and derives the required final observations from actual state."
 
 [[freestyle.rubric]]
-criterion = "Clean style"
-weight = 20
-desc = "TODO: name this language's real naming AND layout conventions (research its style guide)."
+criterion = "Named Function Boundaries"
+weight = 23
+mechanisms = ["python-def-statement", "python-function-call"]
+desc = "Small descriptive functions are defined before their first calls and separate display, command routing, and search work without hiding or replacing the finite top-level controller."
+
+[[freestyle.rubric]]
+criterion = "Explicit Values and Returns"
+weight = 21
+mechanisms = ["python-parameters-arguments", "python-return-statement", "python-dict-key-access", "python-boolean-operators"]
+desc = "Helpers receive every needed command or state value as an explicit parameter, and the controller uses returned route decisions rather than global shortcuts or substituted final output."
+
+[[freestyle.rubric]]
+criterion = "Pure and Mutating Responsibilities"
+weight = 17
+mechanisms = ["pure-function-boundary", "mutating-function-boundary", "list-append-method", "set-add-method", "python-dict-key-access", "python-membership-operators"]
+desc = "At least one pure helper returns a derived trail value without printing or changing supplied inputs; named mutating helpers change only their explicit inventory, player-state, or discovery targets, with effects visible in the transcript."
+
+[[freestyle.rubric]]
+criterion = "Saved Artifact and Scope Discipline"
+weight = 15
+mechanisms = ["editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file", "python-def-statement"]
+desc = "The learner saves, reads, and invokes game.py from the established project while its named functions remain inside that one source artifact, without premature input, tests, exceptions, classes, modules, files, dependencies, Pygame, packages, or new paths."

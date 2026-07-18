@@ -1,0 +1,147 @@
+[[lessons]]
+id = "s08-l03"
+title = "Guarantee Ordinary Cleanup"
+teaches = ["ordinary-finally-cleanup", "language-exception-error-handling"]
+introduces = ["python-finally-clause"]
+body = '''
+<p>A recovery boundary decides what happens after one expected failure, but some ordinary bookkeeping must happen whether the turn succeeds, recovers, or lets an unrelated error continue upward. Python’s <strong>finally clause</strong> expresses that guarantee. It is not a file or resource manager—that comes later. Here it is a small, observable promise that one completed turn is recorded regardless of which prior branch ran.</p>
+<pre><code data-kind="runnable">def mark_attempt(is_open, finished_marks):
+    try:
+        if is_open == False:
+            raise ValueError("gate is closed")
+        return "crossed"
+    except ValueError:
+        return "wait"
+    finally:
+        finished_marks.append("gate attempt finished")
+
+
+marks = []
+print(mark_attempt(False, marks))
+print(marks)
+</code></pre>
+<p>Python reads this boundary in a fixed order. It enters <code>try</code>. A closed gate raises, so the matching <code>except</code> prepares the recovery value <code>wait</code>. Before that value actually leaves the function, <code>finally</code> runs and appends its bookkeeping mark. The result is therefore a recovery value and a one-item record. With <code>True</code>, the return from try also waits until finally records the same mark. A return does not skip finally.</p>
+<p>Use finally for a small action that genuinely must happen on both paths: record that a turn boundary completed, release a temporary game-mode flag, or restore a local invariant. Do not place the normal success behavior there; it would run after recovery too. Do not suppress a new exception in finally. If finally itself fails, it can replace the earlier failure and make diagnosis worse. Keep its action simple, explicit, and testable through state already owned by the caller.</p>
+<p>In Briar Glen, add an explicit supplied turn-completion collection at the controller boundary. The normal handler path belongs in <code>try</code> and <code>else</code>; recovery of the expected <code>ValueError</code> remains in <code>except</code>; finally records that this exact command’s boundary finished. The outer finite loop still receives a route decision and remains responsible for counting turns and stopping on leave. A type mistake or unrelated programming bug still propagates, but finally records the completed boundary before it does.</p>
+<p>Extend the regression suite with fresh collections. Prove both the recovered invalid command and a successful command leave exactly one corresponding completion record, while earlier validation and stateful tests stay focused. Run the saved suite with <code>python -m pytest -q</code>, read the source, and run <code>python game.py</code> twice. The deterministic transcript may now show the recovery and completion observations, but it must retain all six routes and carried-forward final state evidence.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // FINALLY MEANS EVERY EXIT PATH</div><p>Before putting an action in finally, say it aloud for success, recovery, and propagation. If it should not happen in all three cases, it belongs in a narrower branch.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "ordinary-finally-cleanup"
+purpose = "Perform one ordinary, observable bookkeeping action regardless of a successful result, expected recovery, or propagated failure."
+anatomy = "Place the normal operation in try, selective recovery in except, success-only work in else when needed, and the unconditional small action in finally."
+example = "mark_attempt appends one completion mark after either its recovered closed-gate result or successful crossing result."
+observable = "The returned recovery value prints before the caller observes one finished mark in the supplied list."
+failure = "Putting success-only work in finally makes it run after recovery too; raising inside finally can hide the original failure."
+practice = "s08-l03-w1"
+
+[[lessons.concepts]]
+id = "language-exception-error-handling"
+purpose = "Use ordinary exceptions, validation, narrow recovery, propagation, and guaranteed ordinary cleanup to make failure behavior explicit and testable."
+anatomy = "Raise ValueError before mutation, let it propagate to a prepared boundary, recover narrowly when appropriate, and record unconditional work in finally."
+example = "The chapter moves from ValueError validation to a narrow controller boundary and then to mark_attempt’s unconditional record."
+observable = "Invalid input raises ValueError, normal input takes the ordinary route, and both leave evidence of the completed boundary."
+failure = "A broad catch, hidden mutation before validation, or cleanup that masks an error makes the program’s failure contract unreliable."
+practice = "s08-l03-e1"
+
+[[lessons.concepts]]
+id = "python-finally-clause"
+purpose = "Run a small block after a try boundary no matter how its earlier branches exit."
+anatomy = "After the try and any matching except or else blocks, write finally, a colon, and the unconditional indented action."
+example = "finally appends gate attempt finished before mark_attempt returns from either branch."
+observable = "The supplied marks list gains one record for both the closed and open cases."
+failure = "Assuming a return skips finally causes missing cleanup records; putting a fragile new operation there can obscure the original failure."
+practice = "s08-l03-e2"
+
+[[lessons.artifactSteps]]
+id = "s08-l03-guarantee-turn-record"
+path = "game.py"
+mode = "author"
+mechanisms = ["python-finally-clause", "python-try-statement", "python-except-clause", "python-else-exception-clause", "python-function-call", "python-return-statement", "list-append-method", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file"]
+instruction = "In learner-authored game.py, preserve the current validation and narrow controller recovery boundary. Give that controller an explicit supplied completion-record collection and author a finally clause that records exactly one completed-boundary entry for every attempted saved command, including a recovered invalid command and a successful command. Keep normal route handling in the try/else path, recovery only for the expected ValueError, and unrelated failures propagating. Extend tests/test_game.py with fresh state and completion collections so regression checks prove one completion record on both a recovered and successful turn, while preserving earlier validation and state-change checks. Save and read both files; run python -m pytest -q and python game.py twice from the external project root. Do not add context managers, file I/O, input, modules, dependencies, Pygame, package material, or another project path."
+checks = ["Every turn attempt records one completion marker even when the invalid command is recovered or a successful command returns normally.", "Both saved game runs retain six turns, the original final state observations, the deterministic invalid-command recovery, and matching completion evidence."]
+
+[[lessons.readings]]
+label = "Python documentation: defining clean-up actions"
+url = "https://docs.python.org/3/tutorial/errors.html#defining-clean-up-actions"
+
+[[lessons.exercises]]
+id = "s08-l03-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["python-finally-clause", "list-append-method"]
+prompt = "Retype this disposable unconditional record exactly."
+code = '''finally:
+    finished_steps.append("attempt finished")'''
+
+[[lessons.exercises]]
+id = "s08-l03-e1"
+type = "mc"
+points = 18
+mechanisms = ["python-finally-clause", "list-append-method"]
+prompt = "Which action belongs in finally for a turn boundary that must leave evidence after success, expected recovery, and unrelated propagation?"
+choices = ["Print the successful route result", "Append one completed-turn record to the supplied collection", "Catch every exception and return success", "Change an invalid command into a valid one"]
+answer = 1
+whyWrong = "Success output belongs on the normal path, catching every failure hides evidence, and changing input rewrites the rule. A completion record is the same required bookkeeping on every exit path."
+hint = "Choose the action that is correct even if the protected work did not succeed."
+explain = "Finally is for unconditional work, not for success-only behavior or broad error suppression."
+
+[[lessons.exercises]]
+id = "s08-l03-e2"
+type = "fill"
+points = 20
+mechanisms = ["python-finally-clause"]
+prompt = "Complete the disposable clause that runs after either a normal or recovered path."
+code = '''try:
+    cross_bridge()
+____:
+    marks.append("crossing finished")'''
+answer = "finally"
+hint = "Use the clause whose work is guaranteed after the try boundary."
+
+[[lessons.exercises]]
+id = "s08-l03-e3"
+type = "mc"
+points = 18
+mechanisms = ["python-finally-clause"]
+prompt = "A try block returns a route decision. What happens to its finally block?"
+choices = ["It is skipped because return has already chosen a value", "It runs before the function finishes returning", "It runs only if except also ran", "It replaces the return with a successful value"]
+answer = 1
+whyWrong = "Finally is not skipped by return, is not limited to recovery, and does not itself convert a failure or result into success. It completes before the function exits."
+hint = "Finally promises to run on every exit path from the boundary."
+explain = "Python performs the finally action before the pending return leaves the function."
+
+[[lessons.exercises]]
+id = "s08-l03-e4"
+type = "text"
+points = 18
+mechanisms = ["python-finally-clause"]
+prompt = "Why is a fragile new operation in finally risky when the try block already raised an unrelated exception?"
+answer = "If finally raises too, it can replace or obscure the original exception and make the real cause harder to diagnose"
+hint = "Think about which error a caller sees if cleanup itself fails."
+
+[[lessons.exercises]]
+id = "s08-l03-w1"
+type = "write"
+points = 35
+mechanisms = ["python-raise-statement", "python-try-statement", "python-except-clause", "python-finally-clause", "python-def-statement", "python-if-statement", "python-return-statement", "python-function-call", "python-list-literal", "list-append-method", "python-print-call"]
+prompt = "Write a disposable program with record_crossing(is_open, records). If is_open is False, it must raise ValueError with bridge closed; the function must recover by returning wait, otherwise return cross. In finally, append crossing finished to the supplied records. Start records as an empty list, print record_crossing(False, records), then print records. Produce exactly the output below. This is not a Briar Glen artifact."
+expect = '''wait
+['crossing finished']'''
+solution = '''def record_crossing(is_open, records):
+    try:
+        if is_open == False:
+            raise ValueError("bridge closed")
+        return "cross"
+    except ValueError:
+        return "wait"
+    finally:
+        records.append("crossing finished")
+
+
+records = []
+print(record_crossing(False, records))
+print(records)'''
+hint = "Put the conditional raise in try, return the recovery value in except, and append only in finally."

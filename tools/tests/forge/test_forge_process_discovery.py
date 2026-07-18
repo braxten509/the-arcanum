@@ -17,7 +17,7 @@ import arcanum.forge as forge  # noqa: E402
 import arcanum.post_routes.builds as build_routes  # noqa: E402
 import arcanum.tomes as tomes  # noqa: E402
 from arcanum.post_routes.builds import (_author, _authors, _phase_author,
-                                        _validator)  # noqa: E402
+                                        _resume_session_id, _validator)  # noqa: E402
 
 
 class JsonHandler:
@@ -32,6 +32,25 @@ try:
     assert status == 409 and "abandon the active tome" in payload["error"]
 finally:
     build_routes.list_active_builds = old_active_builds
+
+payload, status = build_routes.discard_build(JsonHandler(), {"id": "draft-one"})
+assert status == 400 and "confirmation is required" in payload["error"]
+
+current = {"role": "author", "kind": "codex-cli", "model": "terra",
+           "phase": 3, "section": "s05", "sessionId": "same-unit"}
+assert _resume_session_id(current, {"kind": "codex-cli", "model": "terra"},
+                          3, "s05") == "same-unit"
+assert not _resume_session_id(current, {"kind": "codex-cli", "model": "terra"},
+                              3, "s06")
+assert not _resume_session_id(current, {"kind": "codex-cli", "model": "sol"},
+                              3, "s05")
+assert not _resume_session_id({**current, "actualModel": "sol"},
+                              {"kind": "codex-cli", "model": "terra"}, 3, "s05")
+assert _resume_session_id({**current, "actualModel": "terra"},
+                          {"kind": "codex-cli", "model": "terra"}, 3, "s05") == "same-unit"
+assert not _resume_session_id({"kind": "codex-cli", "model": "terra",
+                               "sessionId": "legacy-no-scope"},
+                              {"kind": "codex-cli", "model": "terra"}, 3, "s05")
 
 
 def write_proc(root, pid, argv):

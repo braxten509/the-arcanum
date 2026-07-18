@@ -1,84 +1,138 @@
 [[lessons]]
 id = "s05-l01"
 title = "Choose a Branch"
-teaches = ["s05-phase3-placeholder"]            # TODO: stable kebab-case capabilities this lesson teaches
+teaches = ["conditional-command-routing"]
+introduces = ["python-if-statement", "python-elif-clause", "python-else-clause"]
 body = '''
-<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
-<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
-<p>TODO: an optional deeper-cut appendix.</p></div>
+<p>A comparison produces a Boolean, but a <strong>branch</strong> makes that result choose behavior. Python begins a branch with <code>if</code>. Read it left to right: the keyword <code>if</code>, a Boolean condition, a colon, then an indented block that runs only when the condition is true. Python uses indentation as structure, so keep every statement in one block four spaces to the right. A missing colon causes a syntax error; uneven indentation usually produces an <code>IndentationError</code>.</p>
+<p>The disposable ferry signal below has three mutually exclusive outcomes. It is not the Briar Glen controller: it classifies weather data and changes no game state.</p>
+<pre><code data-kind="runnable">wind_speed = 14
+bridge_clear = False
+
+if wind_speed &gt; 20:
+    print("lower sails")
+elif wind_speed &gt; 10 and not bridge_clear:
+    print("wait at mooring")
+else:
+    print("cross the channel")
+</code></pre>
+<p>Running it prints <code>wait at mooring</code>. Python checks the <code>if</code> condition first. Because 14 is not greater than 20, it reaches <code>elif</code>, meaning “else, if this condition is true.” That condition combines a comparison with the earlier Boolean operator <code>and</code>. It succeeds, so Python runs that block and skips the remaining alternative. An <code>elif</code> has its own condition and colon; it belongs directly after an <code>if</code> block.</p>
+<p>The final <code>else</code> has no condition. It catches the case where every earlier condition was false. Only one block in this chain runs: the first matching one. Order therefore expresses priority. If the broadest rule comes first, it may hide a narrower rule below it. Change <code>wind_speed</code> to 8 and <code>bridge_clear</code> to <code>True</code>; the first two conditions fail and the terminal prints <code>cross the channel</code>.</p>
+<p>Command routing uses the same shape. Compare one normalized command with known text, perform the matching state change, and reserve <code>else</code> for an unknown command. Do not write several unrelated <code>if</code> statements when exactly one command should win: separate statements are tested independently, whereas one <code>if</code>/<code>elif</code>/<code>else</code> chain promises a single route.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // FIRST MATCH WINS</div><p>Trace a branch by writing true or false beside each condition from top to bottom. Stop at the first true condition. If the observed message surprises you, inspect condition order before changing the stored values.</p></div>
 '''
 
-[[lessons.concepts]]                # one complete first-use proof for every `teaches` id
-id = "s05-phase3-placeholder"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
-practice = "s05-l01-e1"
+[[lessons.concepts]]
+id = "conditional-command-routing"
+purpose = "Route one normalized command to exactly one matching behavior and provide a deliberate unknown-command fallback."
+anatomy = "Compare the command in an if condition, add ordered elif alternatives for other known commands, then finish with an else fallback."
+example = "The ferry-signal program demonstrates one first-match branch chain with three exclusive outcomes."
+observable = "Exactly one ferry message is printed for the saved weather state."
+failure = "Separate unrelated if statements or badly ordered conditions can run multiple behaviors or hide a more specific route."
+practice = "s05-l01-e5"
 
-[[lessons.artifactSteps]]           # visible work order; never reveal canonical implementation
-id = "s05-l01-project-step"
-path = "replace-me.txt"
-mode = "author"                    # learner authors this path; hidden referenceSteps replay it
-instruction = "TODO: exact path, behavior, constraints, commands, and diagnostics—no solution."
-checks = ["TODO: specific observable result the learner can run or inspect."]
+[[lessons.concepts]]
+id = "python-if-statement"
+purpose = "Run an indented block only when its Boolean condition is true."
+anatomy = "Write if, the condition, a colon, a newline, and a consistently indented block."
+example = "The wind_speed greater-than check is the first condition in the ferry example."
+observable = "Its block prints only when the saved speed exceeds the stated threshold."
+failure = "A missing colon or missing indentation prevents Python from parsing the block."
+practice = "s05-l01-e5"
 
-[[lessons.readings]]               # optional: 1-2 high-quality official docs
-label = "TODO: official docs"
-url = "https://example.com/TODO"
+[[lessons.concepts]]
+id = "python-elif-clause"
+purpose = "Test another condition only after every earlier branch in the same chain failed."
+anatomy = "After an if block, write elif, a new condition, a colon, and its indented block."
+example = "The bridge condition runs only after the stronger wind condition is false."
+observable = "With speed 14 and a blocked bridge, the middle message is the only output."
+failure = "Placing elif without a preceding if is invalid, while placing an overly broad branch first can make it unreachable."
+practice = "s05-l01-e5"
+
+[[lessons.concepts]]
+id = "python-else-clause"
+purpose = "Provide one fallback block when every condition above it is false."
+anatomy = "After the final conditional block, write else, a colon, and an indented block; do not add a condition."
+example = "The ferry example crosses the channel only when neither earlier rule matches."
+observable = "Changing the data to speed 8 and a clear bridge prints the fallback message."
+failure = "Adding a condition after else is invalid; use elif when another condition is required."
+practice = "s05-l01-e5"
+
+[[lessons.artifactSteps]]
+id = "s05-l01-author-command-branches"
+path = "game.py"
+mode = "author"
+mechanisms = ["python-if-statement", "python-elif-clause", "python-else-clause", "python-comparison-operators", "python-boolean-operators", "python-membership-operators", "list-append-method", "set-add-method", "python-name-binding", "python-print-call", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file"]
+instruction = "In learner-authored game.py, begin routing one saved normalized command through a single if/elif/else chain. Define observable routes for looking, taking an item only when it is not already carried, resting, searching, leaving, and an unknown-command fallback. Each matched route must print its outcome and any state change must use the established health, inventory, or discoveries rather than a prewritten result. Preserve prior state and keep the source deterministic; do not add input, loops yet, functions, tests, files, dependencies, Pygame, package material, or another path. Save, read, and run the file; diagnose syntax and indentation errors at the first traceback location."
+checks = ["A known saved command produces exactly its matching route, while an unmatched saved command reaches the fallback.", "The branch chain reads and changes established state rather than merely printing a claimed final state."]
+
+[[lessons.readings]]
+label = "Python if statements"
+url = "https://docs.python.org/3/tutorial/controlflow.html#if-statements"
 
 [[lessons.exercises]]
 id = "s05-l01-e1"
-type = "mc"
-points = 15
-prompt = "TODO: a multiple-choice question?"
-choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
-answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
-whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
-hint = "TODO: an exercise-specific hint."
-explain = "TODO: shown after solving."
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["python-if-statement", "python-elif-clause", "python-else-clause"]
+prompt = "Retype this complete disposable branch chain exactly."
+code = '''if signal == "red":
+    print("stop")
+elif signal == "amber":
+    print("wait")
+else:
+    print("go")'''
 
 [[lessons.exercises]]
 id = "s05-l01-e2"
 type = "text"
-points = 20
-prompt = "TODO: a free-text question."
-answer = "TODO"
-# accept = ["TODO alternate"]      # optional true alternates only
-hint = "TODO: an exercise-specific hint."
+points = 18
+mechanisms = ["python-if-statement", "python-elif-clause", "python-else-clause"]
+prompt = "In one branch chain, why can a broad true condition placed first prevent a narrower true condition below it from running?"
+answer = "Python runs the first matching branch and skips the rest of the chain"
+accept = ["the first true branch wins and later branches are skipped", "only the first matching block runs"]
+hint = "Trace the chain from its first condition and stop at the first true result."
 
 [[lessons.exercises]]
 id = "s05-l01-e3"
 type = "fill"
-points = 20
-prompt = "TODO: fill the blank."
-code = 'answer = ____'             # the ____ marks where the answer goes
-answer = "TODO"
-hint = "TODO: an exercise-specific hint."
+points = 21
+mechanisms = ["python-elif-clause", "python-dict-literal", "python-dict-key-access"]
+prompt = "Complete the clause that tests a second condition after the first condition failed, retrieving the keyed-state shape from s04."
+code = '''scout_state = {"tide_height": 6}
+if scout_state["tide_height"] > 8:
+    print("close dock")
+____ scout_state["tide_height"] > 4:
+    print("watch dock")'''
+answer = "elif"
+hint = "Use the conditional alternative that carries its own condition."
 
 [[lessons.exercises]]
-id = "s05-l01-d1"
-type = "type"                      # typing drill: retype the code; no point decay
-points = 12
-reps = 2
-prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
-code = 'print("TODO")'
+id = "s05-l01-e4"
+type = "mc"
+points = 19
+mechanisms = ["python-else-clause"]
+prompt = "Which line correctly begins the unconditional fallback of an existing Python branch chain?"
+choices = ["elif:", "else is True:", "if else:", "else:"]
+answer = 3
+whyWrong = "elif requires a condition, else never takes one, and 'if else' is not Python syntax. The fallback is the keyword followed directly by a colon."
+hint = "The fallback has no Boolean expression to test."
+explain = "else: begins the block used only when every earlier condition was false."
 
 [[lessons.exercises]]
-id = "s05-l01-w1"
-type = "write"                     # CODE LAB: runs on the real runtime; no point decay
-points = 30
-prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
-# starter = '''
-# TODO: prefilled editor code / the exercise's data
-# '''
-expect = '''
-TODO EXACT OUTPUT'''
-# REQUIRED before shipping: a complete program that passes. Never shown to the
-# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
-# solution = '''
-# TODO
-# '''
-hint = "TODO: an exercise-specific hint."
+id = "s05-l01-e5"
+type = "write"
+points = 33
+mechanisms = ["python-if-statement", "python-elif-clause", "python-else-clause", "python-comparison-operators", "python-print-call", "python-dict-literal", "python-dict-key-access"]
+prompt = "Retrieve keyed state from s04: write a disposable program that binds scout_state to a dictionary whose gauge value is 7. If that value is greater than 9 print high; else if it is greater than 4 print steady; otherwise print low. The program must print exactly steady."
+expect = '''steady'''
+solution = '''scout_state = {"gauge": 7}
+if scout_state["gauge"] > 9:
+    print("high")
+elif scout_state["gauge"] > 4:
+    print("steady")
+else:
+    print("low")
+'''
+hint = "Index the earlier keyed-state shape in both comparisons, and order the thresholds from higher to lower."

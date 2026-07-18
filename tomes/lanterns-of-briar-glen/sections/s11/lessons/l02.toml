@@ -1,0 +1,108 @@
+[[lessons]]
+id = "s11-l02"
+title = "Move the Domain Boundary"
+teaches = ["domain-module-extraction"]
+introduces = ["python-module-file", "entry-domain-module-separation"]
+body = '''
+<p>A package directory answers where related code lives; a module answers which file owns a responsibility. Move the existing classes and trail helpers into <code>briar_glen/domain.py</code>. That domain module owns the text-trail rules and a callable trail function. The entry module will only start that callable behavior. This separation is valuable because tests can import the rules without asking the executable entry to perform a full trail on import.</p>
+<pre><code data-kind="runnable"><span class="k">def</span> <span class="n">announce</span>(<span class="n">place</span>):
+    <span class="k">return</span> <span class="s">f"Arriving at {place}"</span></code></pre>
+<p>This disposable module-shaped example has one named callable boundary. Its function returns data instead of printing at import time. In Briar Glen, preserve the existing classes, validation, recovery, commands, and transcript inside the domain module; collect the current top-level setup and loop behind a descriptive callable. Do not redesign the trail just because its address changes.</p>
+<p>Move rather than copy. If <code>game.py</code> and <code>domain.py</code> both carry the trail, two sources can drift apart and the old prototype has not retired. First save the domain file, update the test import to name the domain boundary, and run the existing test suite. Only after those checks prove the module owns the behavior is the root file ready to leave the project.</p>
+<p>Entry/domain separation is about direction. The entry asks the domain to run; the domain does not reach back to start an entry. Tests also ask the domain for classes and functions. This chapter uses ordinary imports already familiar from the test suite; a later section will make the public import surface and relative-versus-absolute choices explicit. For now, keep the dependency one-way and keep the behavior observable.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // MOVE, THEN PROVE</div><p>If pytest reports that it cannot find a name, compare the saved test import with the saved domain file. Do not restore a duplicate definition in game.py just to silence the failure.</p></div>'''
+
+[[lessons.concepts]]
+id = "domain-module-extraction"
+purpose = "Give the trail’s reusable classes and functions one module home that tests and the entry can use without duplicating behavior."
+anatomy = "Create briar_glen/domain.py, move the established domain definitions into it, expose a callable that performs the existing trail, then change the existing test import to that module."
+example = "The announce function demonstrates a callable living in a module-shaped source file."
+observable = "pytest reaches the same focused checks after tests import Briar Glen behavior from briar_glen.domain."
+failure = "Keeping copied definitions in both game.py and domain.py creates two competing sources of trail behavior."
+practice = "s11-l02-w1"
+
+[[lessons.concepts]]
+id = "python-module-file"
+purpose = "Use one .py file as a named home for a coherent set of Python definitions."
+anatomy = "Create a lowercase .py file inside the package, save its definitions there, and name that file when importing its behavior."
+example = "domain.py is the module file that will contain the Briar Glen trail rules."
+observable = "The project tree shows briar_glen/domain.py and the test import names that module."
+failure = "A misspelled module filename cannot satisfy an import that names a different path."
+practice = "s11-l02-w1"
+
+[[lessons.concepts]]
+id = "entry-domain-module-separation"
+purpose = "Keep program start-up separate from reusable domain behavior so tests can inspect rules without running the entry journey."
+anatomy = "Put trail classes and functions in domain.py, keep the entry focused on calling one domain callable, and point tests at the domain seam."
+example = "announce is callable behavior; an entry would decide when to call it."
+observable = "Tests import domain behavior without producing the full trail transcript during collection."
+failure = "A domain module that runs the trail while it is imported makes tests noisy and hides the executable boundary."
+practice = "s11-l02-w1"
+
+[[lessons.artifactSteps]]
+id = "s11-l02-extract-trail-domain"
+path = "briar_glen/domain.py"
+mode = "author"
+mechanisms = ["python-module-file", "entry-domain-module-separation", "python-import-statement", "python-def-statement", "python-function-call", "editor-create-file", "editor-edit-file", "editor-save-file", "pytest-module-invocation"]
+instruction = "Create and save learner-authored briar_glen/domain.py. Move the established Inventory, QuestState, Player, command, validation, recovery, and deterministic six-turn trail behavior into this module, with a descriptive callable boundary for the complete trail. Update tests/test_game.py to import the existing test seams from briar_glen.domain. Preserve all 11 focused checks and the previous transcript; do not copy behavior into a second root file, add a public API policy, Pygame, storage, annotations, or new dependencies. Run python -m pytest -q from the project root."
+checks = ["tests/test_game.py imports existing behavior from briar_glen.domain and reports 11 passed.", "The domain module contains the existing rules without running the complete trail merely because tests import it."]
+
+[[lessons.readings]]
+label = "Python tutorial: modules"
+url = "https://docs.python.org/3/tutorial/modules.html"
+
+[[lessons.exercises]]
+id = "s11-l02-e1"
+type = "mc"
+points = 18
+mechanisms = ["entry-domain-module-separation"]
+prompt = "Which file should a focused test import when it needs a reusable trail rule?"
+choices = ["a copied root prototype", "the package initializer solely because it exists", "a future Pygame loop", "the domain module"]
+answer = 3
+whyWrong = "Tests need the reusable domain seam; duplicate prototypes, empty initializers, and future runtimes do not own the rule."
+hint = "Choose the module that owns classes and trail functions."
+explain = "The domain module is the testable home for the trail’s reusable behavior."
+
+[[lessons.exercises]]
+id = "s11-l02-e2"
+type = "fill"
+points = 20
+mechanisms = ["python-module-file"]
+prompt = "Complete the module path for the file that stores Briar Glen’s reusable trail rules."
+code = "briar_glen/____.py"
+answer = "domain"
+hint = "Name the file by its responsibility."
+
+[[lessons.exercises]]
+id = "s11-l02-e3"
+type = "text"
+points = 18
+mechanisms = ["python-module-file", "entry-domain-module-separation"]
+prompt = "Why is copying the trail into both game.py and domain.py a migration failure?"
+answer = "It leaves two sources of truth that can drift apart"
+accept = ["there are two competing copies of the behavior", "the prototype has not actually retired"]
+hint = "Think about which file a later repair should change."
+
+[[lessons.exercises]]
+id = "s11-l02-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["python-module-file", "python-def-statement"]
+prompt = "Retype this disposable domain callable."
+code = '''def trail_name():
+    return "north"'''
+
+[[lessons.exercises]]
+id = "s11-l02-w1"
+type = "write"
+points = 35
+mechanisms = ["python-module-file", "entry-domain-module-separation", "python-def-statement", "python-return-statement", "python-function-call", "python-print-call"]
+prompt = "Write a disposable module-shaped program defining a route_label function that returns east gate, call it once, and print the returned label. This is not a Briar Glen artifact."
+expect = "east gate"
+solution = '''def route_label():
+    return "east gate"
+
+
+print(route_label())'''
+hint = "The function returns the label; print happens at the separate call site."

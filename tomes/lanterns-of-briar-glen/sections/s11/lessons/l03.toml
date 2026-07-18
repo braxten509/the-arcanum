@@ -1,0 +1,117 @@
+[[lessons]]
+id = "s11-l03"
+title = "Run the Module Entry"
+teaches = ["module-entrypoint-parity", "language-module-package-boundaries"]
+introduces = ["python-module-execution", "prototype-retirement"]
+body = '''
+<p>The package now has a quiet initializer and a domain home. Its entry module is the small front door that imports the domain’s trail callable and invokes it. Run that front door as a module from the project root with <code>python -m briar_glen.main</code>. The <code>-m</code> flag asks Python to locate the named module through the package tree, so the command proves the package boundary rather than only a file path.</p>
+<pre><code data-kind="terminal">python -m briar_glen.main
+python -m pytest -q</code></pre>
+<p>Read the name from left to right: <code>briar_glen</code> is the package directory, and <code>main</code> is its entry module without the <code>.py</code> suffix. A successful run preserves the familiar opening, rejected saved command, search result, and final summary. The entry does not invent a second controller; it starts the existing domain behavior. If Python says it cannot find the module, return to the external project root and compare the directory, initializer, and module spellings.</p>
+<p>Parity is the migration’s proof: the old root script and the new module entry must not tell different stories. Read the saved files, run the module, then run the focused tests. Once both agree, remove the exact retired <code>game.py</code> prototype. Confirm it is absent rather than leaving a stale script that a future command could accidentally run. Tests remain at <code>tests/test_game.py</code>, now aimed at the domain seam.</p>
+<p>Retirement is not deletion for its own sake. It is the final step that makes the package the canonical project boundary. Do it only after the module path produces the same established behavior. This chapter does not yet define a public export list, a guarded entry point, a command-line interface, a runtime window, or persistence. It makes one truthful migration and leaves later boundaries for their own lessons.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ONE CANONICAL START</div><p>When a refactor “works” but both old and new launch paths remain, choose neither by habit. Compare the required behavior, prove the replacement, then retire the superseded artifact at its recorded boundary.</p></div>'''
+
+[[lessons.concepts]]
+id = "module-entrypoint-parity"
+purpose = "Prove that the new package entry starts the same established trail behavior as the retired single-file prototype."
+anatomy = "Save main.py as the entry, invoke python -m briar_glen.main from the project root, compare its visible trail evidence, then run pytest before retiring game.py."
+example = "The terminal block pairs the module invocation with the focused regression suite."
+observable = "The module run reaches the familiar final observations and pytest reports 11 passed."
+failure = "A new entry that prints a shorter substitute transcript or leaves tests pointing at game.py has not preserved parity."
+practice = "s11-l03-w1"
+
+[[lessons.concepts]]
+id = "language-module-package-boundaries"
+purpose = "Organize one program into a package, reusable domain module, and executable module entry with one canonical source of behavior."
+anatomy = "Create the package and initializer, move domain rules into domain.py, make main.py invoke that domain behavior, redirect tests, prove parity, then retire the root prototype."
+example = "briar_glen/__init__.py, domain.py, and main.py form the three-part package tree taught across this section."
+observable = "The package entry and domain tests work after game.py is absent."
+failure = "A root prototype that survives beside a copied package implementation leaves the boundary ambiguous."
+practice = "s11-l03-w1"
+
+[[lessons.concepts]]
+id = "python-module-execution"
+purpose = "Ask Python to execute an entry by its package-qualified module name."
+anatomy = "From the project root, run python, add -m, then provide the package and module names separated by a dot without .py."
+example = "python -m briar_glen.main is the terminal invocation shown above."
+observable = "Python runs the saved main module through the briar_glen package path."
+failure = "Running from inside the package directory or misspelling a segment produces a module-not-found diagnostic."
+practice = "s11-l03-w1"
+
+[[lessons.concepts]]
+id = "prototype-retirement"
+purpose = "Remove a temporary earlier artifact once its replacement has demonstrably become the canonical behavior."
+anatomy = "Prove the replacement module and tests, remove the exact obsolete path, confirm it is absent, then rerun the replacement command."
+example = "game.py retires only after briar_glen.main produces the established deterministic trail."
+observable = "The root no longer contains game.py while the package entry and test suite remain green."
+failure = "Deleting the prototype before the replacement runs leaves no verified path; keeping both leaves a stale competing path."
+practice = "s11-l03-w1"
+
+[[lessons.artifactSteps]]
+id = "s11-l03-run-package-entry"
+path = "briar_glen/main.py"
+mode = "author"
+mechanisms = ["python-module-execution", "prototype-retirement", "python-import-statement", "python-function-call", "terminal-invoke-saved-file", "terminal-read-saved-file", "pytest-module-invocation", "editor-create-file", "editor-edit-file", "editor-save-file"]
+instruction = "Create and save learner-authored briar_glen/main.py as the small entry that invokes the trail callable already owned by briar_glen/domain.py. From the external project root, run python -m briar_glen.main and compare the established six-turn observations, then run python -m pytest -q and confirm 11 passed. Only after both are clean, remove the exact root game.py prototype, confirm it is absent, and rerun the module entry. Do not add a public export list, guarded entrypoint policy, argument parsing, Pygame, storage, or a parallel controller."
+checks = ["python -m briar_glen.main produces the established deterministic trail after game.py is absent.", "python -m pytest -q reports 11 passed with tests importing the domain boundary."]
+
+[[lessons.readings]]
+label = "Python documentation: command line -m"
+url = "https://docs.python.org/3/using/cmdline.html#cmdoption-m"
+
+[[lessons.exercises]]
+id = "s11-l03-e1"
+type = "mc"
+points = 18
+mechanisms = ["python-module-execution"]
+prompt = "Which command runs a disposable package entry named beacon.main from its project root?"
+choices = ["python beacon/main", "python -m beacon/main.py", "python main.beacon", "python -m beacon.main"]
+answer = 3
+whyWrong = "Module execution uses dots between package and module names and omits the .py suffix."
+hint = "Use -m followed by a dotted module name."
+explain = "python -m beacon.main resolves beacon as the package and main as its module."
+
+[[lessons.exercises]]
+id = "s11-l03-e2"
+type = "fill"
+points = 20
+mechanisms = ["prototype-retirement"]
+prompt = "Complete the migration rule: prove the replacement first, then ____ the old prototype."
+code = "prove the replacement first, then ____ the old prototype"
+answer = "retire"
+hint = "Use the chapter’s word for removing a superseded artifact."
+
+[[lessons.exercises]]
+id = "s11-l03-e3"
+type = "text"
+points = 18
+mechanisms = ["python-module-execution", "prototype-retirement"]
+prompt = "What two checks establish parity before game.py retires?"
+answer = "Run the package module entry and run the focused pytest suite"
+accept = ["python -m briar_glen.main and python -m pytest -q", "the module run and the regression tests"]
+hint = "One check observes the trail; the other observes focused behavior seams."
+explain = "The module run proves the executable path, while pytest protects the domain seams."
+
+[[lessons.exercises]]
+id = "s11-l03-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["python-module-execution"]
+prompt = "Retype this disposable module command."
+code = "python -m beacon.main"
+
+[[lessons.exercises]]
+id = "s11-l03-w1"
+type = "write"
+points = 35
+mechanisms = ["python-module-execution", "prototype-retirement", "python-import-statement", "python-def-statement", "python-function-call", "python-print-call"]
+prompt = "Write a disposable program where a function named signal returns lantern, call it once, and print the returned value. Then state the dotted module command you would use if this file were beacon/main.py. This is not a Briar Glen artifact."
+expect = "lantern"
+solution = '''def signal():
+    return "lantern"
+
+
+print(signal())'''
+hint = "Keep the program independent; its path is only described in the prompt."

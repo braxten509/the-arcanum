@@ -34,20 +34,24 @@ def main():
         write(root, "nested/deep/huge.java", 20)
 
         found = offenders(root, 10)
-        for index in range(9):
+        for index in range(11):
             write(root, f"crowded/file-{index}.txt", 1)
+        for index in range(10):
+            write(root, f"exactly-ten/file-{index}.txt", 1)
         for index in range(20):
             write(root, f"parent/child-{index}/only.txt", 1)
         for excluded in ("__pycache__", "monaco", "tome-authoring", "tome-workflow",
-                         "sounds", "tmp", "runtimes"):
+                         "sounds", "tmp", "runtimes", "validator-failures"):
             for index in range(12):
                 write(root, f"{excluded}/excluded-{index}.txt", 1)
         for index in range(12):
             write(root, f"root-file-{index}.txt", 1)
-        crowded = crowded_directories(root, 8)
+        crowded = crowded_directories(root, 10)
 
     assert found == [(20, os.path.join("nested", "deep", "huge.java")), (12, "big.py")], found
-    assert crowded == [(9, "crowded")], crowded
+    assert crowded == [(11, "crowded")], crowded
+    with open(os.path.join(_BOOTSTRAP_REPO, ".gitignore"), encoding="utf-8") as handle:
+        assert "/validator-failures/" in handle.read()
     print("ok: line and direct-file limits enforced; children and excluded trees ignored")
 
 

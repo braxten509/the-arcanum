@@ -1,0 +1,125 @@
+[[lessons]]
+id = "s03-l03"
+title = "Parse a Trail Order"
+teaches = ["command-token-parsing", "language-strings-text"]
+introduces = ["string-split-method"]
+body = '''
+<p>A normalized trail order is still one piece of text. Sometimes you need to observe its words as separate pieces: a first word can name an action and another word can name what it mentions. This is parsing at its smallest boundary. Python’s <code>split()</code> method derives text pieces separated by whitespace. Today you only create and inspect that result. Choosing what a piece means, indexing it, changing it, or looping through it belongs to later chapters.</p>
+<pre><code data-kind="runnable">clean_order = "ring bell"
+order_pieces = clean_order.split()
+print(order_pieces)
+</code></pre>
+<p>Python retrieves <code>clean_order</code>, sees the dot, calls <code>split()</code>, and binds the result under <code>order_pieces</code>. The terminal displays <code>['ring', 'bell']</code>. The brackets and quoted pieces are Python’s display of the result. Do not write that bracketed display by hand: let <code>split()</code> derive it from the cleaned text.</p>
+<p>With no argument, <code>split()</code> uses whitespace boundaries. That makes it a good step after <code>strip().lower()</code>: outer whitespace is removed, letter case is predictable, and the word boundary becomes visible. Calling <code>split</code> without parentheses only names the method. A missing dot attaches the operation to nothing.</p>
+<pre><code data-kind="runnable">raw_order = "  RING BELL  "
+normalized_order = raw_order.strip().lower()
+order_pieces = normalized_order.split()
+print(order_pieces)
+</code></pre>
+<p>The output is again <code>['ring', 'bell']</code>. The order matters: parsing before normalization would retain uppercase letters in the displayed pieces. In the Working, extend the separate fixed order already in <code>game.py</code>; do not add another project file or a keyboard prompt. Print normalized text and derived pieces so one run proves every text stage. If brackets show one long quoted item, inspect the word boundary. If words retain capitals, repair normalization rather than hand-writing the parsed observation.</p>
+<p>This completes the first text boundary: you can write literals, join text, interpolate state, normalize a fixed order, and parse its words into an inspectable result. Collections, choices, handlers, and real-time play are intentionally ahead. Keeping this transcript small makes its transformations easy to prove and makes later changes traceable from raw text to cleaned text to displayed pieces.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // PARSE AFTER CLEANUP</div><p>When a later command behaves strangely, compare raw text, normalized text, and parsed pieces in that order.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "command-token-parsing"
+purpose = "Derive inspectable command text pieces from one normalized trail order."
+anatomy = "Use the named normalized command, write dot and split(), bind the returned pieces to a new name, then print that result."
+example = "The clean_order and raw_order runnable examples show text becoming displayed ring and bell pieces."
+observable = "Running the completed examples displays ['ring', 'bell'] after the source text is split."
+failure = "One long piece means a missing word boundary; retained capitals mean parsing skipped normalization."
+practice = "s03-l03-e3"
+
+[[lessons.concepts]]
+id = "language-strings-text"
+purpose = "Use Python text to construct status, normalize command spelling, and derive inspectable text pieces."
+anatomy = "Write string literals, join a fixed lead, interpolate state with an f-string, normalize with strip() and lower(), then split normalized text."
+example = "The section's status, normalization, and trail-order examples demonstrate the complete text path."
+observable = "The Working prints a status line, normalized command, and derived pieces in one deterministic transcript."
+failure = "Literal braces, outer spaces, capitals, or one unsplit phrase identify a missing text stage."
+practice = "s03-l03-e4"
+
+[[lessons.concepts]]
+id = "string-split-method"
+purpose = "Separate whitespace-delimited words in text into a derived result that can be inspected."
+anatomy = "Write a normalized string name, dot, split, and empty parentheses, then assign the returned pieces to a new name."
+example = "clean_order.split() derives order_pieces in the first runnable example."
+observable = "Printing order_pieces displays ['ring', 'bell'] in the terminal."
+failure = "split without () does not call the method, and splitting unnormalized text retains its capitals."
+practice = "s03-l03-e1"
+
+[[lessons.artifactSteps]]
+id = "s03-l03-parse-waystone-order"
+path = "game.py"
+mode = "author"
+mechanisms = ["string-split-method", "string-strip-method", "string-lower-method", "python-name-binding", "python-print-call"]
+instruction = "Reopen saved game.py. Use the already-normalized fixed trail order to derive a named parsed result with split(), then print it after the normalized command text. Keep the status first and make the complete saved run show the required three observations. Do not hand-write bracketed output or add indexing, collection operations, input, decisions, loops, functions, dependencies, Pygame, package material, or another project path. Save and read the file before running it from the project root."
+checks = ["The parsed observation derives from named normalized command text through split(), not copied brackets.", "One saved run shows status, normalized command, and separated pieces in order with no extra output."]
+
+[[lessons.readings]]
+label = "Python str.split"
+url = "https://docs.python.org/3/library/stdtypes.html#str.split"
+
+[[lessons.exercises]]
+id = "s03-l03-e1"
+type = "fill"
+points = 20
+mechanisms = ["string-split-method"]
+prompt = "Complete the method call that derives pieces from this disposable normalized order."
+code = "pieces = normalized_order.____"
+answer = "split()"
+hint = "Use the string method named for separating text."
+
+[[lessons.exercises]]
+id = "s03-l03-e2"
+type = "mc"
+points = 18
+mechanisms = ["string-split-method"]
+prompt = "What does print(\"ring bell\".split()) display?"
+choices = ["ring bell", "['ring', 'bell']", "['ring bell']", "An error because split requires an argument"]
+answer = 1
+whyWrong = "split() without an argument separates at whitespace; it does not keep the phrase whole or require a separator argument."
+hint = "There is one whitespace boundary between the words."
+explain = "The method derives two pieces and Python displays them quoted inside brackets."
+
+[[lessons.exercises]]
+id = "s03-l03-e3"
+type = "text"
+points = 18
+mechanisms = ["string-split-method"]
+prompt = "Why should parsed text come from the normalized command instead of the untidy original?"
+answer = "So the parsed pieces have the cleaned spacing and lowercase spelling"
+accept = ["normalization makes parsed words consistently lowercase and trimmed"]
+hint = "Recall what strip() and lower() establish before split()."
+
+[[lessons.exercises]]
+id = "s03-l03-e4"
+type = "text"
+points = 18
+mechanisms = ["string-split-method"]
+prompt = "Name the text stages in order from raw fixed order to displayed command pieces."
+answer = "String literal, strip(), lower(), split(), print"
+accept = ["raw string text, strip, lower, split, print"]
+hint = "Start with stored text and follow the transformations."
+
+[[lessons.exercises]]
+id = "s03-l03-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["string-split-method"]
+prompt = "Retype this disposable parsing assignment exactly."
+code = "pieces = normalized_order.split()"
+
+[[lessons.exercises]]
+id = "s03-l03-w1"
+type = "text"
+points = 30
+mechanisms = ["python-string-literal", "string-strip-method", "string-lower-method", "string-split-method", "python-print-call"]
+prompt = "Write a tiny disposable program that binds raw_route to \"  CROSS RIVER  \", derives normalized_route by trimming and lowercasing it, derives route_pieces by splitting normalized_route, and prints route_pieces."
+answer = '''raw_route = "  CROSS RIVER  "
+normalized_route = raw_route.strip().lower()
+route_pieces = normalized_route.split()
+print(route_pieces)
+'''
+hint = "Keep raw text, normalized text, and parsed pieces under separate names."

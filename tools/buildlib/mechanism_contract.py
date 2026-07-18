@@ -14,6 +14,26 @@ import re
 CONTRACT_KEYS = {"version", "coverageStart", "mechanisms"}
 MECHANISM_KEYS = {"id", "label", "kind", "owner"}
 ID_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
+DELETE_ACTION_TERMS = {"delete", "deletion", "remove", "removal", "unlink"}
+
+
+def _is_file_deletion_mechanism(record):
+    """Return whether a sealed tool action explicitly owns file removal."""
+    if not isinstance(record, dict) or record.get("kind") != "tool-action":
+        return False
+    words = set(re.findall(
+        r"[a-z0-9]+", f"{record.get('id', '')} {record.get('label', '')}".lower()))
+    return bool(words & DELETE_ACTION_TERMS)
+
+
+def _delete_step_problem(step, used, records, allowed, where):
+    if not isinstance(step, dict) or str(step.get("mode") or "").lower() != "delete":
+        return ""
+    declared = set(used) & set(allowed)
+    if any(_is_file_deletion_mechanism(records.get(mid)) for mid in declared):
+        return ""
+    return (f"{where} mode='delete' must declare an introduced file-deletion "
+            "tool-action mechanism")
 
 
 def seed_contract(section_ids):
@@ -117,6 +137,25 @@ def validate_map_contract(value, sections, positions, *, detailed, map_version):
         if introduced.get(mid) != owner:
             problems.append(
                 f"mechanism {mid!r} owner {owner!r} must exactly match one lesson introduces entry")
+    if detailed:
+        artifact_contract = value.get("artifactContract")
+        artifacts = (artifact_contract.get("artifacts")
+                     if isinstance(artifact_contract, dict) else [])
+        for index, artifact in enumerate(artifacts or []):
+            if not isinstance(artifact, dict) or artifact.get("disposition") != "retires":
+                continue
+            target = artifact.get("retireBy")
+            working_id = f"{target}.working"
+            available = {
+                mid for mid, record in records_by_id.items()
+                if positions.get(record.get("owner"), (999, 999))
+                <= positions.get(working_id, (-1, -1))
+            }
+            if not any(_is_file_deletion_mechanism(records_by_id.get(mid)) for mid in available):
+                problems.append(
+                    f"artifactContract.artifacts[{index}] retires {artifact.get('artifact')!r} "
+                    f"in {target}; a file-deletion tool-action mechanism must be owned "
+                    f"by or before {working_id}")
     return problems
 
 
@@ -164,16 +203,46 @@ def authored_problems(course, actual, sid):
         allowed_at_lesson = {mid for mid, record in records.items()
                              if positions.get(record.get("owner"), (999, 999))
                              <= positions.get(node.get("id"), (-1, -1))}
+        exercise_uses, exercise_rows, exercise_union = {}, {}, set()
         for index, exercise in enumerate(lesson.get("exercises") or []):
             used = _ids(exercise, f"{node['id']}.exercises[{index}]", problems)
+            exercise_union.update(used)
+            if isinstance(exercise, dict) and exercise.get("id"):
+                eid = str(exercise["id"])
+                exercise_uses[eid], exercise_rows[eid] = set(used), exercise
             unknown = set(used) - allowed_at_lesson
             if unknown:
                 problems.append(f"{node['id']}.exercises[{index}] uses unintroduced mechanisms {sorted(unknown)}")
+        step_union = set()
         for index, step in enumerate(lesson.get("artifactSteps") or []):
-            used = _ids(step, f"{node['id']}.artifactSteps[{index}]", problems)
+            where = f"{node['id']}.artifactSteps[{index}]"
+            used = _ids(step, where, problems)
+            step_union.update(used)
             unknown = set(used) - allowed_at_lesson
             if unknown:
                 problems.append(f"{node['id']}.artifactSteps[{index}] uses unintroduced mechanisms {sorted(unknown)}")
+            delete_problem = _delete_step_problem(
+                step, used, records, allowed_at_lesson, where)
+            if delete_problem:
+                problems.append(delete_problem)
+        introduced_set = set(node.get("introduces") or [])
+        if introduced_set - exercise_union:
+            problems.append(f"{node['id']} introduced mechanisms lack guided exercise demand: "
+                            f"{sorted(introduced_set - exercise_union)}")
+        if introduced_set - step_union:
+            problems.append(f"{node['id']} introduced mechanisms lack visible work-order demand: "
+                            f"{sorted(introduced_set - step_union)}")
+        for concept in lesson.get("concepts") or []:
+            if not isinstance(concept, dict):
+                continue
+            practice = str(concept.get("practice") or "")
+            if practice in exercise_rows and exercise_rows[practice].get("type") == "type":
+                problems.append(f"{node['id']} concept {concept.get('id')!r} uses typing drill "
+                                f"{practice!r} as its only guided practice")
+            if (concept.get("id") in introduced_set and practice in exercise_uses
+                    and concept["id"] not in exercise_uses[practice]):
+                problems.append(f"{node['id']} concept {concept['id']!r} practice {practice!r} "
+                                "does not declare that mechanism")
 
     working = next(node for node in planned.get("nodes") or [] if node.get("kind") == "working")
     freestyle = actual.get("freestyle") or {}
@@ -192,13 +261,18 @@ def authored_problems(course, actual, sid):
         if set(used) - declared_set:
             problems.append(f"{sid}.working.rubric[{index}] uses mechanisms absent from its Working")
     for index, step in enumerate(freestyle.get("referenceSteps") or []):
-        used = _ids(step, f"{sid}.working.referenceSteps[{index}]", problems)
+        where = f"{sid}.working.referenceSteps[{index}]"
+        used = _ids(step, where, problems)
         demand_union.update(used)
         if set(used) - allowed_working:
             problems.append(f"{sid}.working.referenceSteps[{index}] uses unintroduced mechanisms")
         if set(used) - declared_set:
             problems.append(
                 f"{sid}.working.referenceSteps[{index}] uses mechanisms absent from its Working")
+        delete_problem = _delete_step_problem(
+            step, used, records, allowed_working, where)
+        if delete_problem:
+            problems.append(delete_problem)
     proof_used = _ids(actual.get("proof") or {}, f"{sid}.proof", problems)
     demand_union.update(proof_used)
     if set(proof_used) - allowed_working:
@@ -223,14 +297,33 @@ def candidate_with_findings(course, sid, findings):
     records = candidate["mechanismContract"]["mechanisms"]
     known = {item["id"] for item in records}
     section = next(item for item in candidate["sections"] if item["id"] == sid)
+    section_order = {item.get("id"): index
+                     for index, item in enumerate(candidate.get("sections") or [])}
+    record_by_id = {item.get("id"): item for item in records if isinstance(item, dict)}
     nodes = {node["id"]: node for node in section["nodes"]}
     for finding in findings:
-        expected = MECHANISM_KEYS | {"demands"}
+        expected = MECHANISM_KEYS | {"demands", "closestExisting", "semanticDelta"}
         if not isinstance(finding, dict) or set(finding) != expected:
-            raise ValueError("each mechanism finding must contain id, label, kind, owner, demands")
+            raise ValueError(
+                "each mechanism finding must contain id, label, kind, owner, demands, "
+                "closestExisting, semanticDelta")
         mid, owner = finding["id"], finding["owner"]
         if mid in known or not ID_RE.fullmatch(str(mid or "")):
             raise ValueError(f"new mechanism id {mid!r} is invalid or already sealed")
+        closest = finding["closestExisting"]
+        if (not isinstance(closest, list) or not 1 <= len(closest) <= 3
+                or any(not isinstance(item, str) or item not in known for item in closest)
+                or len(set(closest)) != len(closest)):
+            raise ValueError("closestExisting must name one to three sealed mechanisms")
+        later = [item for item in closest if section_order.get(str(
+            record_by_id[item].get("owner") or "").split(".", 1)[0], 999)
+            > section_order.get(sid, -1)]
+        if later:
+            raise ValueError("a missing mechanism cannot be auto-added ahead of its closest "
+                             f"sealed future mechanism(s): {sorted(later)}")
+        if (not isinstance(finding["semanticDelta"], str)
+                or len(finding["semanticDelta"].strip()) < 12):
+            raise ValueError("semanticDelta must state a distinct non-spelling responsibility")
         if owner not in nodes or nodes[owner].get("kind") != "lesson":
             raise ValueError("a finding owner must be a lesson in the failing section")
         records.append({key: finding[key] for key in MECHANISM_KEYS})

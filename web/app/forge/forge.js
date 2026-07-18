@@ -76,7 +76,7 @@ function showForgeModal(resume) {
           </div>
           <div class="forge-validator-route">
             <div class="forge-validator-label"><b>VALIDATOR AI</b><span>MANDATORY · AFTER EVERY SECTION</span>
-              <button type="button" class="forge-help" aria-label="About Validator AI">i<span class="forge-tip">This read-only AI runs a prerequisite completeness audit after each section clears the mechanical gate. It receives one bounded packet, no tools, and a strict result schema. With an OpenAI key in Settings or OPENAI_API_KEY, Codex GPT validators use the lean Responses API and record fresh, cached, cache-write, reasoning, and output tokens; otherwise the login CLI remains the fallback. Luna escalates to Terra only for uncertainty, malformed output, or repeated failure.</span></button>
+              <button type="button" class="forge-help" aria-label="About Validator AI">i<span class="forge-tip">This read-only AI runs a prerequisite completeness audit after each section clears the mechanical gate. It receives one bounded packet and no tools. With an OpenAI key in Settings or OPENAI_API_KEY, Codex GPT validators use the lean Responses API and record token usage; otherwise the login CLI remains the fallback. One audit appears as one start and one final result. An evidence-backed Luna FAIL is authoritative even if optional amendment metadata is malformed; only uncertainty or an unusable response escalates to Terra.</span></button>
             </div>
             <div class="forge-ai-row">
               <div class="forge-ai-choice"><select id="fg-validator-prov" class="cfg-select" aria-label="Validator AI agent CLI"><option value="">LOADING CLIS…</option></select></div>

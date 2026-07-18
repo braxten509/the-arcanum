@@ -17,3 +17,18 @@ export function fallbackCourseControl(manifest, status) {
     }),
   };
 }
+
+export function formatCourseBlockers(blockers) {
+  const dueNow = [], blocked = [];
+  for (const value of Array.isArray(blockers) ? blockers : []) {
+    const text = String(value || "").trim();
+    if (!text) continue;
+    const match = text.match(/^(.+?) is due now$/i);
+    if (match) dueNow.push(match[1]);
+    else blocked.push(text);
+  }
+  return [
+    dueNow.length ? `DUE NOW · ${dueNow.join(" · ")}` : "",
+    blocked.length ? `BLOCKED · ${blocked.join(" · ")}` : "",
+  ].filter(Boolean).join(" · ");
+}

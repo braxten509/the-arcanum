@@ -1,84 +1,126 @@
 [[lessons]]
 id = "s04-l01"
 title = "Grow an Inventory"
-teaches = ["s04-phase3-placeholder"]            # TODO: stable kebab-case capabilities this lesson teaches
+teaches = ["inventory-sequence"]
+introduces = ["python-list-literal", "python-list-indexing", "list-append-method"]
 body = '''
-<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
-<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
-<p>TODO: an optional deeper-cut appendix.</p></div>
+<p>A trail pack is ordered: the thing at the front is not interchangeable with the thing farther in. Python represents an ordered, changeable sequence with a <strong>list</strong>. Write square brackets around comma-separated values to make a list literal. The bracketed values are called items. Bind the complete list to one descriptive name so the program can inspect and change the same pack later.</p>
+<pre><code data-kind="runnable">supply_pack = ["rope", "torch"]
+print(supply_pack)
+print(supply_pack[0])
+</code></pre>
+<p>The first print displays the whole list. The second uses <code>[0]</code> after the name to retrieve one item. Indexing begins at zero, so index <code>0</code> means the first position. It does not change the list. If a list has two items, valid positions are <code>0</code> and <code>1</code>; asking for <code>[2]</code> fails because that third position is absent. Read the brackets in context: brackets after an equals sign construct a list, while brackets after a list name retrieve an item.</p>
+<p>Lists earn their place in a game because they can grow. The <code>append()</code> method adds one new item at the end of an existing list. The dot says which list receives the operation; the parentheses carry the one item to add. It changes the original list, so print before and after when you need evidence of that mutation.</p>
+<pre><code data-kind="runnable">supply_pack = ["rope", "torch"]
+print(supply_pack)
+supply_pack.append("apple")
+print(supply_pack)
+</code></pre>
+<p>The output first shows <code>['rope', 'torch']</code>, then <code>['rope', 'torch', 'apple']</code>. Do not replace the list name with the result of <code>append()</code>; the method performs its change on the list and is not a new pack to assign. Likewise, <code>append(["apple"])</code> adds one nested list, not one ordinary item. Today you need one flat ordered pack.</p>
+<p>In the Working, reopen the learner-authored <code>game.py</code> and give the trail pack an observable before state, one indexed observation, and an after state following a single added item. The exact pack belongs to your project work, not to these disposable rope-and-torch examples. Keep the existing status and command material intact. A later lesson will add keyed player facts, discoveries with a different duplicate rule, and coordinates that should not grow.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // POSITION IS EVIDENCE</div><p>If the expected first item is wrong, inspect the list order before changing the index. An index reports the item already stored at that position; it does not search by meaning.</p></div>
 '''
 
-[[lessons.concepts]]                # one complete first-use proof for every `teaches` id
-id = "s04-phase3-placeholder"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
+[[lessons.concepts]]
+id = "inventory-sequence"
+purpose = "Represent an ordered, mutable trail pack and make its before-and-after state inspectable."
+anatomy = "Bind a square-bracket list literal, retrieve one position with a zero-based index, call append() on that name, then print the list around the mutation."
+example = "The supply_pack examples show construction, first-item retrieval, and one end-of-list addition."
+observable = "The terminal first shows two ordered items, then the same two followed by apple."
+failure = "An out-of-range index names a position that does not exist; a nested bracketed append adds a list instead of one item."
+practice = "s04-l01-e4"
+
+[[lessons.concepts]]
+id = "python-list-literal"
+purpose = "Create an ordered collection of values that can be changed later."
+anatomy = "Open square bracket, write comma-separated values, close square bracket, and bind the resulting list to a name."
+example = "supply_pack = [\"rope\", \"torch\"] constructs the first disposable pack."
+observable = "Printing supply_pack shows both quoted items inside brackets."
+failure = "Using parentheses creates a different collection shape, while missing commas fail to separate items."
 practice = "s04-l01-e1"
 
-[[lessons.artifactSteps]]           # visible work order; never reveal canonical implementation
-id = "s04-l01-project-step"
-path = "replace-me.txt"
-mode = "author"                    # learner authors this path; hidden referenceSteps replay it
-instruction = "TODO: exact path, behavior, constraints, commands, and diagnostics—no solution."
-checks = ["TODO: specific observable result the learner can run or inspect."]
+[[lessons.concepts]]
+id = "python-list-indexing"
+purpose = "Retrieve the value stored at one known zero-based list position."
+anatomy = "Write the list name followed immediately by square brackets containing the desired numeric position."
+example = "supply_pack[0] retrieves rope from the first position."
+observable = "The second print in the first example displays rope."
+failure = "Using index 1 retrieves the second item, and an absent position raises an index error."
+practice = "s04-l01-e2"
 
-[[lessons.readings]]               # optional: 1-2 high-quality official docs
-label = "TODO: official docs"
-url = "https://example.com/TODO"
+[[lessons.concepts]]
+id = "list-append-method"
+purpose = "Add one item to the end of an existing mutable list."
+anatomy = "Write the list name, dot, append, parentheses, and the single value to add."
+example = "supply_pack.append(\"apple\") changes the disposable pack before its second print."
+observable = "The after print contains apple after the original two items."
+failure = "Assigning append() to the list name loses the list reference because append changes the existing list."
+practice = "s04-l01-e4"
+
+[[lessons.artifactSteps]]
+id = "s04-l01-author-trail-pack"
+path = "game.py"
+mode = "author"
+mechanisms = ["python-list-literal", "python-list-indexing", "list-append-method", "python-name-binding", "python-print-call", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file"]
+instruction = "Reopen the saved learner-authored game.py. Add one named, flat ordered trail-pack list, print its initial state, print an observation retrieved from its first position, append one new pack item, and print the changed pack. Preserve every earlier status and command observation. Save, read, and run the file from the project root with the active environment. Do not add a second project file, input, branches, loops, functions, mappings, sets, tuples, dependencies, Pygame, package material, or persistence behavior."
+checks = ["The saved run distinguishes the pack before one mutation, the first indexed item, and the pack after the added item.", "The appended item is at the end of the same flat list, not inside a nested list."]
+
+[[lessons.readings]]
+label = "Python list documentation"
+url = "https://docs.python.org/3/tutorial/introduction.html#lists"
 
 [[lessons.exercises]]
 id = "s04-l01-e1"
-type = "mc"
-points = 15
-prompt = "TODO: a multiple-choice question?"
-choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
-answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
-whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
-hint = "TODO: an exercise-specific hint."
-explain = "TODO: shown after solving."
+type = "fill"
+points = 20
+mechanisms = ["python-list-literal"]
+prompt = "Complete the disposable collection literal so the displayed supply pack contains rope followed by torch."
+code = 'supply_pack = ["rope", ____]'
+answer = '"torch"'
+hint = "The second value must be a quoted string after the comma."
 
 [[lessons.exercises]]
 id = "s04-l01-e2"
-type = "text"
-points = 20
-prompt = "TODO: a free-text question."
-answer = "TODO"
-# accept = ["TODO alternate"]      # optional true alternates only
-hint = "TODO: an exercise-specific hint."
+type = "mc"
+points = 18
+mechanisms = ["python-list-indexing"]
+prompt = "Given trail_signs = [\"bridge\", \"gate\", \"tower\"], which expression retrieves bridge?"
+choices = ["trail_signs[1]", "trail_signs[0]", "trail_signs.append(\"bridge\")", "trail_signs[3]"]
+answer = 1
+whyWrong = "Index 1 is the second item, append changes the list instead of retrieving from it, and index 3 asks for a fourth item that is absent."
+hint = "Python counts the first stored position from zero."
+explain = "The first item occupies index 0."
 
 [[lessons.exercises]]
 id = "s04-l01-e3"
-type = "fill"
-points = 20
-prompt = "TODO: fill the blank."
-code = 'answer = ____'             # the ____ marks where the answer goes
-answer = "TODO"
-hint = "TODO: an exercise-specific hint."
-
-[[lessons.exercises]]
-id = "s04-l01-d1"
-type = "type"                      # typing drill: retype the code; no point decay
+type = "type"
 points = 12
 reps = 2
-prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
-code = 'print("TODO")'
+mechanisms = ["list-append-method"]
+prompt = "Retype this disposable list mutation exactly."
+code = 'supply_pack.append("apple")'
 
 [[lessons.exercises]]
-id = "s04-l01-w1"
-type = "write"                     # CODE LAB: runs on the real runtime; no point decay
-points = 30
-prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
-# starter = '''
-# TODO: prefilled editor code / the exercise's data
-# '''
-expect = '''
-TODO EXACT OUTPUT'''
-# REQUIRED before shipping: a complete program that passes. Never shown to the
-# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
-# solution = '''
-# TODO
-# '''
-hint = "TODO: an exercise-specific hint."
+id = "s04-l01-e4"
+type = "write"
+points = 32
+mechanisms = ["python-list-literal", "python-list-indexing", "list-append-method", "python-print-call"]
+prompt = "Write a disposable program that creates a list named river_tools containing \"pole\" and \"line\", prints its first item, appends \"hook\", then prints the changed list."
+expect = '''pole
+['pole', 'line', 'hook']'''
+solution = '''river_tools = ["pole", "line"]
+print(river_tools[0])
+river_tools.append("hook")
+print(river_tools)
+'''
+hint = "Use [0] for the first print, then call append on river_tools before the final print."
+
+[[lessons.exercises]]
+id = "s04-l01-e5"
+type = "text"
+points = 18
+mechanisms = ["list-append-method"]
+prompt = "Why does appending a new item leave the earlier pack items available in their original order?"
+answer = "append adds one item to the end of the existing list"
+accept = ["it mutates the existing list by adding at the end", "the original list is extended at its end"]
+hint = "Contrast adding to an existing sequence with rebuilding an unrelated sequence."

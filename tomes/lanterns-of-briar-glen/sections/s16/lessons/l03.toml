@@ -1,0 +1,108 @@
+[[lessons]]
+id = "s16-l03"
+title = "Build a Callback Factory"
+teaches = ["scoped-command-callback", "language-scope-closure-namespace"]
+introduces = ["callback-factory"]
+body = '''<p>The established command handler is the domain seam. A callback factory adds a small adapter around it rather than a replacement dispatcher. The factory accepts one command choice. Its returned callback accepts a Player and delegates to the existing handler with the remembered enclosing command and that local player. Validation, result text, and state mutation remain in the proven handler.</p><p>Keep the boundary explicit. The factory's command parameter becomes an enclosing read-only binding. The callback's player parameter is local when the callback is invoked. No mutable selected-command module global is needed, and a second factory call cannot overwrite the first callback's enclosing binding. Expose the new factory through the existing relative package import and public-name list so tests import it through <code>briar_glen</code>. Preserve every earlier export and leave the guarded main entrypoint alone; this is a domain design seam, not a Pygame, CLI, or persistence milestone.</p><p>Use focused evidence. One test proves a callback delegates a known command. One constructs two callbacks for different commands and proves their effects remain independent. One creates a callback with an invalid command and proves the existing ValueError still propagates. Run the established suite only after the learner-authored code and tests are in place, read a failure location, and repair only a name lookup, delegation, export, or assertion boundary. This prepares later command and dialogue dispatch without adding it now. Read the <a href="https://docs.python.org/3/library/functions.html#callable">Python callable documentation</a> for the wider term for an invoked function value.</p>'''
+
+[[lessons.concepts]]
+id = "scoped-command-callback"
+purpose = "Configure existing command behavior without duplicating the command handler."
+anatomy = "Factory receives command, callback receives Player, callback delegates both values to the established handler."
+example = "A rest callback remembers rest and later restores health on its supplied Player."
+observable = "The callback returns the same handler result and changes only the supplied Player."
+failure = "A second dispatcher duplicates validation and can drift from established command behavior."
+practice = "s16-l03-e01"
+
+[[lessons.concepts]]
+id = "language-scope-closure-namespace"
+purpose = "Use local and enclosing names deliberately at a package domain boundary."
+anatomy = "Command is an enclosing read; Player is a local parameter; package export exposes the factory."
+example = "Two factory calls produce callbacks with independent command bindings."
+observable = "The second callback setup cannot overwrite the first callback's command."
+failure = "A module-global selected command hides the boundary and makes callbacks share mutable state."
+practice = "s16-l03-e02"
+
+[[lessons.concepts]]
+id = "callback-factory"
+purpose = "Return a callable configured by one factory input."
+anatomy = "Define an inner function that references the outer parameter and return that inner function."
+example = "make_command_callback returns a callback that delegates the captured command."
+observable = "The returned callback can be called later with a Player."
+failure = "Returning a result instead of the inner function eliminates the later callback boundary."
+practice = "s16-l03-e02"
+
+[[lessons.readings]]
+label = "Python documentation: callable"
+url = "https://docs.python.org/3/library/functions.html#callable"
+why = "Connect the returned closure with Python's callable-value model."
+
+[[lessons.exercises]]
+id = "s16-l03-e01"
+type = "mc"
+points = 18
+prompt = "What should the returned trail callback receive when it is called?"
+choices = ["A Player", "A module-global command", "A save path", "A Pygame event"]
+answer = 0
+hint = "Configuration happens at factory time; state arrives at callback time."
+explain = "The callback accepts the explicit Player and delegates with its captured command."
+whyWrong = "The wrong answers move command state into globals, persistence, or a later runtime boundary."
+mechanisms = ["callback-factory", "python-parameters-arguments"]
+
+[[lessons.exercises]]
+id = "s16-l03-e02"
+type = "text"
+points = 20
+prompt = "Why do two factory calls preserve different command choices?"
+answer = "Each factory call creates a distinct enclosing binding for its returned callback"
+hint = "Compare separate enclosing environments with one shared global."
+mechanisms = ["python-closure-capture", "callback-factory"]
+
+[[lessons.exercises]]
+id = "s16-l03-e03"
+type = "type"
+points = 24
+prompt = "Run this disposable callback factory and report its output."
+code = '''def make_message(label):
+    def message(value):
+        return f"{label}: {value}"
+    return message
+
+print(make_message("beacon")("ready"))'''
+expect = "beacon: ready"
+hint = "The returned inner function reads the label from its enclosing factory call."
+mechanisms = ["callback-factory", "python-closure-capture", "python-def-statement", "python-return-statement"]
+
+[[lessons.exercises]]
+id = "s16-l03-e04"
+type = "fill"
+points = 18
+prompt = "Complete the public-boundary list name used to declare exported package names: ____."
+code = '''____ = ["existing_public_name", "make_command_callback"]'''
+answer = "__all__"
+hint = "It is the double-underscore export list already used by the package."
+mechanisms = ["callback-factory", "python-all-export-list"]
+
+[[lessons.artifactSteps]]
+id = "s16-l03-a01"
+path = "briar_glen/domain.py"
+mode = "author"
+instruction = "Learner-author a narrow command callback factory beside the established handler: capture one command in enclosing scope, accept Player in the returned callback, and delegate without mutable module state or duplicate validation."
+checks = ["The returned callback accepts a Player and calls the established handler.", "No module-level mutable selected-command binding or duplicate command dispatcher is added."]
+mechanisms = ["python-legb-resolution", "python-closure-capture", "callback-factory", "python-def-statement", "python-parameters-arguments", "python-return-statement"]
+
+[[lessons.artifactSteps]]
+id = "s16-l03-a02"
+path = "briar_glen/__init__.py"
+mode = "author"
+instruction = "Learner-author the existing relative import and public-name update for the factory while preserving every earlier exported name."
+checks = ["The package exposes the factory through the established relative import style.", "Every prior public name remains in the public-name list."]
+mechanisms = ["callback-factory", "python-relative-import", "python-all-export-list"]
+
+[[lessons.artifactSteps]]
+id = "s16-l03-a03"
+path = "tests/test_game.py"
+mode = "author"
+instruction = "Learner-author focused arrange/act/assert tests for delegation, independent callbacks, and invalid-command propagation while preserving every earlier test."
+checks = ["Tests construct two callbacks from different factory calls and prove their choices remain independent.", "A test observes the existing invalid-command error through the callback."]
+mechanisms = ["callback-factory", "python-closure-capture", "arrange-act-assert", "exception-propagation"]

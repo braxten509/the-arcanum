@@ -3,6 +3,7 @@ import fs from "node:fs";
 
 const setup = fs.readFileSync("web/app/forge/forge.js", "utf8");
 const session = fs.readFileSync("web/app/forge/bindery.js", "utf8");
+const workings = fs.readFileSync("web/app/forge/workings.js", "utf8");
 const menu = fs.readFileSync("web/app/ui/menu.js", "utf8");
 const traceLines = fs.readFileSync("web/app/forge/trace-lines.js", "utf8");
 const binder = fs.readFileSync("web/app/forge/binder.js", "utf8");
@@ -13,7 +14,7 @@ const sessionCss = fs.readFileSync("web/css/overlay/bindery/session.css", "utf8"
 const launcher = fs.readFileSync("start.sh", "utf8");
 const main = fs.readFileSync("web/app/main.js", "utf8");
 const routesGet = fs.readFileSync("arcanum/routes_get.py", "utf8");
-const { fallbackCourseControl } = await import("../../../web/app/forge/course-control.js");
+const { fallbackCourseControl, formatCourseBlockers } = await import("../../../web/app/forge/course-control.js");
 const phaseMatch = session.match(/export const FORGE_PHASES = \[([\s\S]*?)\];/);
 assert.ok(phaseMatch);
 assert.equal((phaseMatch[1].match(/"[^"]+"/g) || []).length, 8);
@@ -55,6 +56,10 @@ assert.match(setup, /I understand this erases authored work from the selected ph
 assert.match(setup, /confirm: "reset-tome-build"/);
 assert.match(setup, /fromPhase: restartPhase/);
 assert.match(setup, /\/api\/buildtome\/reset/);
+assert.match(workings, /aria-label="Delete draft tome"[\s\S]*ico\("x"\)/);
+assert.doesNotMatch(workings, /🗑|resume-trash/);
+assert.match(workings, /DELETE THIS DRAFT TOME\?[\s\S]*Are you sure\?/);
+assert.match(workings, /confirm: "discard-draft", confirmWorking: working\.id/);
 assert.doesNotMatch(setup, /THE DRAFTER|THE REVIEWER|quality|advised/);
 assert.match(setup, /id="fg-project-scope" type="range" min="1" max="5"/);
 assert.match(setup, /MINIMAL PROOF[\s\S]*FULL-FLEDGED PROJECT/);
@@ -66,7 +71,10 @@ assert.match(setup, /MASTERY_DEPTH_FLOORS/);
 assert.match(session, /AUTHOR TOOL HISTORY/);
 assert.match(session, /OBLIGATIONS OPEN/);
 assert.match(session, /DUE NOW/);
-assert.match(session, /VALIDATOR AI/);
+assert.doesNotMatch(session, /VALIDATOR AI/);
+assert.doesNotMatch(session, /validator\.callCount|API \$\{validator\.apiCalls\}/);
+assert.match(session, /paintCourseControl\(overlay, status\.courseControl, tooling\?\.usage\)/);
+assert.match(session, /usage\.freshInputTokens[\s\S]*usage\.cachedInputTokens[\s\S]*usage\.cacheWriteTokens[\s\S]*usage\.outputTokens/);
 assert.match(session, /id="tome-forge" disabled aria-busy="true"/);
 assert.match(session, /fetchActiveBuilds\(\{ failClosed: true \}\)/);
 assert.match(session, /forgeButton\.disabled = busy/);
@@ -103,6 +111,8 @@ assert.match(session, /retainedTooling/);
 assert.match(fs.readFileSync("tools/buildlib/single_author/__init__.py", "utf8"), /self\.state\("starting", pid=self\.child\.pid\)/);
 assert.match(session, /id="fp-model">ATTACHING/);
 assert.match(session, /status\.sessionAuthor \|\| \{\}/);
+assert.match(routesGet, /session\.get\("actualModel"\) or session\.get\("model"\)/);
+assert.match(routesGet, /"requestedModel": session\.get\("model"\)/);
 assert.match(session, /author\.model/);
 assert.match(baseCss, /#fp-phase\[data-state="pausing"\]/);
 assert.match(baseCss, /#fp-phase\[data-state="validating"\]/);
@@ -148,6 +158,10 @@ assert.equal(fallback.currentSection, "s02");
 assert.deepEqual(fallback.spine.map((row) => [row.id, row.status, row.mark]), [
   ["s01", "verified", "✓"], ["s02", "current", "▶"],
 ]);
+assert.equal(formatCourseBlockers(["s01-retire-s02-01 is due now"]),
+  "DUE NOW · s01-retire-s02-01");
+assert.equal(formatCourseBlockers(["s01-retire-s02-01 is due now", "s02: proof failed"]),
+  "DUE NOW · s01-retire-s02-01 · BLOCKED · s02: proof failed");
 assert.match(binder, /prepareStateReset\(\)/);
 assert.match(binder, /confirm: "reset-tome-build"/);
 assert.match(binder, /\/api\/buildtome\/reset/);

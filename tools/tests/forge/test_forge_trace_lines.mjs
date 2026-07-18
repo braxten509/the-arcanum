@@ -37,4 +37,12 @@ const afterMidnight = mergeForgeTraceLines([
 ], "", new Date(2026, 6, 16, 0, 1).getTime());
 assert.deepEqual(afterMidnight.map((line) => line.slice(0, 8)), ["23:59:58", "00:00:02"]);
 
+const fullAuthorTrace = Array.from({ length: 80 }, (_, index) =>
+  `${stamp(13, 0, index % 60)}  exec_command › author tool ${index}`);
+const retainedValidator = `AI VALIDATOR CALL COMPLETE [${epoch(12, 59, 59).toFixed(3)}] (PASS) › prerequisite completeness s01 › codex-cli gpt-5.6-luna`;
+const retained = mergeForgeTraceLines(fullAuthorTrace, retainedValidator,
+  new Date(2026, 6, 15, 13, 2).getTime());
+assert.equal(retained.length, 81);
+assert.ok(retained.some((line) => line.includes("AI VALIDATOR CALL COMPLETE")));
+
 console.log("forge trace chronology: OK");

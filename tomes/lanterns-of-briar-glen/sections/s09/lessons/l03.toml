@@ -1,0 +1,125 @@
+[[lessons]]
+id = "s09-l03"
+title = "Migrate State Under Tests"
+teaches = ["tested-class-migration", "language-class-object-abstraction"]
+introduces = ["python-identity-operator"]
+body = '''
+<p>A representation change is safe only when its observable promises still have evidence. Briar Glen’s migration replaces the old player-state mapping with a constructed <code>Player</code>, but it must preserve the six commands, invalid-command recovery, completion records, route decisions, and final health. Update tests as contracts: arrange a new player where they formerly arranged a mapping, call the real seam, then assert the player’s attribute and route result. Do not copy the command handler into a test or assert a whole printed transcript.</p>
+<pre><code data-kind="runnable"><span class="k">class</span> Wisp:
+    <span class="k">def</span> __init__(self, glow):
+        self.glow = glow
+
+
+first_wisp = Wisp(3)
+same_wisp = first_wisp
+other_wisp = Wisp(3)
+<span class="k">print</span>(first_wisp <span class="k">is</span> same_wisp)
+<span class="k">print</span>(first_wisp <span class="k">is</span> other_wisp)
+</code></pre>
+<p>The <strong>identity operator</strong> <code>is</code> asks whether two names point to the exact same object, not whether their attributes merely look alike. The sample prints <code>True</code>, then <code>False</code>. Both wisps can carry glow 3, but only <code>same_wisp</code> is another name for <code>first_wisp</code>. For Player, identity matters because a method or command must mutate the precise object supplied by its caller, not a newly made look-alike.</p>
+<p>Write a focused identity check beside the migration checks: create one player, give it a second name, create another player with matching constructor values, then assert the alias <code>is</code> the first and the separately constructed player <code>is not</code> the first. Use identity for objects and <code>==</code> for value comparisons such as health. The two questions are different, and confusing them makes a test pass for the wrong reason.</p>
+<p>Run the suite once after the migration and read the failure location if an old mapping lookup survives. Repair the named call site or assertion, not the test’s purpose. Then run the complete terminal trail twice to confirm its deterministic observations still agree. No runtime window, module boundary, package, persistence file, annotation, comprehension, generator, or composed collaborator belongs in this section. The Player class is a deliberate narrow step that later code can carry forward.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SAME VALUES, DIFFERENT OBJECTS</div><p>Two newly constructed players may start with equal health and names. That does not make them the same player. Identity answers “which object?”; equality answers “do these values compare alike?”</p></div>
+'''
+
+[[lessons.concepts]]
+id = "tested-class-migration"
+purpose = "Replace an existing state representation while keeping its observable behavior covered by focused tests."
+anatomy = "Arrange a fresh Player, call an existing real seam, assert the changed player attribute and route result, then preserve the prior error and completion-record checks."
+example = "A rest test supplies Player instead of a mapping and proves both health and the unchanged route decision."
+observable = "The regression suite passes while the six-turn terminal trail retains its final observations."
+failure = "Leaving a mapping lookup in a migrated seam causes an attribute or subscription failure that pytest locates."
+practice = "s09-l03-w1"
+
+[[lessons.concepts]]
+id = "language-class-object-abstraction"
+purpose = "Use classes, instances, attributes, methods, invariants, and identity to give one domain participant a coherent boundary."
+anatomy = "Define a class, construct an instance, initialize attributes, call an instance method, test its invariant and mutation, and distinguish aliases from separately created objects."
+example = "The Player migration keeps health behavior with the hero while route handling stays outside it."
+observable = "Tests can observe construction, rest behavior, invalid construction, and object identity without relying on a transcript."
+failure = "Moving unrelated collections and routing into Player prematurely turns a focused abstraction into untested composition."
+practice = "s09-l03-w1"
+
+[[lessons.concepts]]
+id = "python-identity-operator"
+purpose = "Determine whether two references name the same object."
+anatomy = "Use is or is not between object references, and reserve == for comparing values."
+example = "first_wisp is same_wisp is true while first_wisp is other_wisp is false."
+observable = "The disposable program prints True then False for its alias and separately constructed wisp."
+failure = "Using == for identity can confuse matching attributes with one shared object."
+practice = "s09-l03-w1"
+
+[[lessons.artifactSteps]]
+id = "s09-l03-prove-the-migration"
+path = "tests/test_game.py"
+mode = "author"
+mechanisms = ["python-identity-operator", "python-instance-construction", "python-instance-attribute", "python-instance-method", "python-import-statement", "pytest-test-function", "python-assert-statement", "arrange-act-assert", "pytest-module-invocation", "editor-edit-file", "editor-save-file"]
+instruction = "In learner-authored tests/test_game.py, replace only the old player-state fixtures with fresh Player instances and preserve every earlier behavior claim. Add focused checks for initialized attributes, the Player rest method and its invariant, and alias-versus-separate-instance identity. Keep the existing invalid-command recovery and completion-record checks, use fresh objects per test, save, and run python -m pytest -q from the external project root. Do not create answer-bearing fixtures, copy game logic, add another test path, add composition, or introduce runtime or package behavior."
+checks = ["The saved suite verifies the class migration through real game seams and reports 8 passed.", "One test distinguishes an alias of a Player from a separately constructed Player with matching values."]
+
+[[lessons.readings]]
+label = "Python expressions: identity comparisons"
+url = "https://docs.python.org/3/reference/expressions.html#is-not"
+
+[[lessons.exercises]]
+id = "s09-l03-e1"
+type = "mc"
+points = 18
+mechanisms = ["python-identity-operator"]
+prompt = "Two newly constructed Wisp objects both have glow 3. Which expression asks whether they are the exact same object?"
+choices = ["first_wisp is second_wisp", "first_wisp == second_wisp", "first_wisp.glow = second_wisp.glow", "Wisp(first_wisp) == second_wisp"]
+answer = 0
+whyWrong = "Value equality and copying-looking expressions do not ask whether both names refer to one object. The is operator is the identity question."
+hint = "Choose the comparison operator that asks about object reference, not matching stored values."
+explain = "is compares identity: whether two references name one particular object."
+
+[[lessons.exercises]]
+id = "s09-l03-e2"
+type = "fill"
+points = 20
+mechanisms = ["python-identity-operator", "python-instance-construction"]
+prompt = "Complete the identity comparison that should be true after the second name is assigned directly from the first disposable player."
+code = "assert original ____ alias"
+answer = "is"
+hint = "The second variable names the already constructed object rather than a new one."
+whyWrong = "The assertion asks whether both variables refer to one object, not whether two values merely compare alike."
+
+[[lessons.exercises]]
+id = "s09-l03-e3"
+type = "text"
+points = 18
+mechanisms = ["arrange-act-assert"]
+prompt = "After replacing a state mapping with Player, what kind of test setup should each stateful regression check create so one test cannot leak mutations into another?"
+answer = "a fresh Player instance"
+accept = ["fresh player instance", "a new Player instance", "new Player instance"]
+hint = "Each arrange phase needs its own independently constructed object."
+whyWrong = "Reusing a mutated object makes test order affect results. A new Player for each test preserves an independent arrange phase."
+
+[[lessons.exercises]]
+id = "s09-l03-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["python-identity-operator", "python-assert-statement"]
+prompt = "Retype this disposable identity assertion for two names of one object."
+code = "assert lantern is trail_lantern"
+
+[[lessons.exercises]]
+id = "s09-l03-w1"
+type = "write"
+points = 35
+mechanisms = ["python-class-statement", "python-init-method", "python-self-parameter", "python-instance-construction", "python-instance-attribute", "python-identity-operator", "python-print-call"]
+prompt = "Write a disposable program defining MapPin with an initializer that stores a zone. Construct one pin with zone ridge, bind a second name directly to that pin, construct another MapPin with zone ridge, then print whether the direct alias is the first pin and whether the separately constructed pin is the first pin. This is not a Briar Glen artifact."
+expect = '''True
+False'''
+solution = '''class MapPin:
+    def __init__(self, zone):
+        self.zone = zone
+
+
+first_pin = MapPin("ridge")
+alias_pin = first_pin
+other_pin = MapPin("ridge")
+print(first_pin is alias_pin)
+print(first_pin is other_pin)'''
+hint = "The direct assignment preserves one object reference; calling MapPin again constructs a different object even with the same zone."

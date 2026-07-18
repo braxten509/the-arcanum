@@ -1,0 +1,107 @@
+[[lessons]]
+id = "s06-l02"
+title = "Pass State Explicitly"
+teaches = ["explicit-data-flow"]
+introduces = ["python-parameters-arguments", "python-return-statement"]
+body = '''
+<p>A function boundary should not make state disappear. A <strong>parameter</strong> is a local name in a function definition; an <strong>argument</strong> is the value supplied by a call. They line up by position. This gives a reader a visible answer to “where did this function get that value?” instead of relying on a distant name.</p>
+<pre><code data-kind="runnable">def label_distance(steps):
+    return f"steps: {steps}"
+
+trail_steps = 3
+message = label_distance(trail_steps)
+print(message)
+</code></pre>
+<p>Here <code>steps</code> is the parameter and <code>trail_steps</code> is the argument. The <code>return</code> statement sends the f-string result back to the call expression, where it is stored in <code>message</code>. The observable output is <code>steps: 3</code>. A return is different from <code>print</code>: print makes a terminal observation, while return gives the calling code a value it can store, compare, or display later.</p>
+<p>Read the flow in order: bind a value outside the function, call the function with that value, bind the argument to the parameter for this call, compute inside the body, return one result, then use the result at the call site. If you write <code>label_distance()</code> without its required argument, Python reports that the call is missing a value. If a function only prints when the caller needs a decision, the caller has no returned result to use.</p>
+<p>Explicit flow also makes refactoring safer. In the Working, the turn formatter receives a turn number and command; the handler receives the command and the state it is allowed to inspect or change. A helper that needs the discoveries set receives that set. Do not reach backward for hidden state, and do not introduce globals, classes, modules, tests, or keyboard input. Those boundaries have later owners.</p>
+<p>Keep the distance example disposable. Its names and output are not a recipe for Briar Glen. Use its shape to trace the Working’s own named values from call to parameter to return. Inspect whether every path that should provide a result actually reaches its return statement.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // FOLLOW THE VALUE</div><p>When debugging a function, point to the argument at the call, the matching parameter in the definition, and the receiving name after the call. That three-point trail exposes missing or swapped data.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "explicit-data-flow"
+purpose = "Make the values a function needs and produces visible at its call boundary."
+anatomy = "Pass required arguments into parameters, compute from those local names, return the needed result, and bind or use it at the call site."
+example = "label_distance receives trail_steps as steps and returns a display message to message."
+observable = "The program prints a message derived from the supplied value rather than a hidden distant name."
+failure = "A missing argument or a print used where a returned decision is needed breaks the caller's data flow."
+practice = "s06-l02-w1"
+
+[[lessons.concepts]]
+id = "python-parameters-arguments"
+purpose = "Supply a function with the specific values it needs for one call."
+anatomy = "Put parameter names inside the definition parentheses and matching argument expressions inside the call parentheses."
+example = "steps is the parameter; trail_steps is the argument in label_distance(trail_steps)."
+observable = "The returned message contains the supplied three-step value."
+failure = "Calling without a required argument leaves Python unable to bind the parameter."
+practice = "s06-l02-w1"
+
+[[lessons.concepts]]
+id = "python-return-statement"
+purpose = "Send a computed value from a function back to the call expression."
+anatomy = "Write return followed by the value expression the caller needs."
+example = "return f\"steps: {steps}\" supplies the message to the outer assignment."
+observable = "message receives the returned text and the outer print displays it."
+failure = "A function that only prints cannot provide a value for a later calculation or decision."
+practice = "s06-l02-w1"
+
+[[lessons.artifactSteps]]
+id = "s06-l02-author-explicit-flow"
+path = "game.py"
+mode = "author"
+mechanisms = ["python-parameters-arguments", "python-return-statement", "python-function-call", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file"]
+instruction = "Extend learner-authored game.py so each newly named helper receives the command or established state it needs through parameters, and return any decision the top-level controller must use. Keep the six saved commands and their deterministic output. Save, read, and run twice with .venv active; if a call reports a missing positional argument, compare its parentheses with the definition. Do not add global-state shortcuts, input, tests, exceptions, classes, modules, files, dependencies, Pygame, package material, or another project path."
+checks = ["Each helper’s required values are visible as arguments at its call and parameters at its definition.", "A returned command decision is used by the bounded controller rather than replaced with a prewritten final result."]
+
+[[lessons.readings]]
+label = "Python tutorial: more on defining functions"
+url = "https://docs.python.org/3/tutorial/controlflow.html#more-on-defining-functions"
+
+[[lessons.exercises]]
+id = "s06-l02-e1"
+type = "fill"
+points = 20
+mechanisms = ["python-return-statement"]
+prompt = "Complete the statement that sends the computed disposable marker text back to its caller."
+code = '''def make_marker(number):
+    ____ f"mark {number}"'''
+answer = "return"
+hint = "Use the keyword that hands a value back to the call expression."
+
+[[lessons.exercises]]
+id = "s06-l02-e2"
+type = "mc"
+points = 18
+mechanisms = ["python-parameters-arguments", "python-return-statement"]
+prompt = "In report_count(count), which phrase correctly identifies count at the definition and crates at the call report_count(crates)?"
+choices = ["Both are parameters", "count is an argument and crates is a parameter", "count is a parameter and crates is an argument", "Both are return values"]
+answer = 2
+whyWrong = "The definition declares a parameter name; the call supplies an argument expression. Neither name becomes a return value merely by appearing in parentheses."
+hint = "Look at whether the name appears in def or at a call site."
+explain = "Parameters receive values inside a definition, while arguments supply values at a call."
+
+[[lessons.exercises]]
+id = "s06-l02-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["python-parameters-arguments", "python-return-statement"]
+prompt = "Retype this disposable value-in/value-out helper exactly."
+code = '''def double_signal(signal):
+    return signal + signal'''
+
+[[lessons.exercises]]
+id = "s06-l02-w1"
+type = "write"
+points = 35
+mechanisms = ["python-def-statement", "python-function-call", "python-parameters-arguments", "python-return-statement", "python-f-string", "python-print-call"]
+prompt = "Write a disposable program with format_flag(color, count) that returns the text flag: blue x2. Call it with the values blue and 2, store the result in flag_text, and print it. Produce exactly the output below."
+expect = "flag: blue x2"
+solution = '''def format_flag(color, count):
+    return f"flag: {color} x{count}"
+
+flag_text = format_flag("blue", 2)
+print(flag_text)
+'''
+hint = "The definition needs two parameters, and return belongs inside its indented body."

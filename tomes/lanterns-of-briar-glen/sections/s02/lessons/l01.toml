@@ -1,84 +1,108 @@
 [[lessons]]
 id = "s02-l01"
 title = "Give State a Name"
-teaches = ["s02-phase3-placeholder"]            # TODO: stable kebab-case capabilities this lesson teaches
+teaches = ["python-state-model"]
+introduces = ["python-literal-values", "python-name-binding"]
 body = '''
-<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
-<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
-<p>TODO: an optional deeper-cut appendix.</p></div>
+<p>A game cannot react to a lantern until it has facts to react <em>to</em>. In Python, a value is one piece of information held by the program at a moment: a whole number, a decimal number, or a Boolean truth value. A literal is the value written directly in code. In the disposable trail-marker example below, <code>12</code> and <code>False</code> are literals. They are not names and they do not change themselves.</p>
+<pre><code data-kind="runnable">marker_height = 12
+path_clear = False
+</code></pre>
+<p>Read the first line from left to right. <code>marker_height</code> is a name chosen by the programmer. <code>=</code> is assignment: it stores the value on the right under the name on the left. It does not ask whether two things are equal; comparisons arrive in the next lesson. The next line gives a second name a Boolean value. Trace the two assignments on paper: after the first line, <code>marker_height</code> refers to <code>12</code>; after the second, <code>path_clear</code> refers to <code>False</code>. This lesson deliberately creates state without displaying it. The section’s final lesson will introduce the call that exposes saved state in the terminal.</p>
+<p>Names turn an anonymous number into state with a job. A good name tells a future reader what the value means without forcing them to decode its history. Python convention uses lowercase words separated by underscores, such as <code>marker_height</code>. Avoid a name that begins with a number, contains spaces, or differs only by capitalization from another name. Python is case-sensitive: <code>Path_Clear</code> and <code>path_clear</code> are different names.</p>
+<p>For now, think of assignment as placing labeled cards on Rowan’s table. Later lessons will replace or combine cards, but this first step is simply choosing factual values and binding them to readable names. If you run a line that mentions a name before assigning it, Python reports a <code>NameError</code>. That error means Python has no labeled card by that name yet; check spelling and make sure the assignment occurs first.</p>
+<p>Your project source will use different names and facts from this marker example. Create the file yourself, save it, and keep it small: this chapter owns observable state, not a game loop or a Pygame window. The useful question is not “did I type a number?” but “can another person see what this named value represents?”</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // A NAME IS A PROMISE</div><p>When a value changes later, a name keeps the explanation attached to the value. Choose names for the game’s meaning, not for where you happen to type them.</p></div>
 '''
 
-[[lessons.concepts]]                # one complete first-use proof for every `teaches` id
-id = "s02-phase3-placeholder"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
+[[lessons.concepts]]
+id = "python-state-model"
+purpose = "Represent the current facts of a program as values with meaningful names."
+anatomy = "Choose a literal value, choose a lowercase_snake_case name, place = between the name and value, then read the assignment as storing the right side under the left-side name."
+example = "The marker_height and path_clear runnable example shows two named facts."
+observable = "Reading the two assignments shows that marker_height refers to 12 and path_clear refers to False after those lines execute."
+failure = "A NameError means the name was misspelled or used before an assignment created it."
 practice = "s02-l01-e1"
 
-[[lessons.artifactSteps]]           # visible work order; never reveal canonical implementation
-id = "s02-l01-project-step"
-path = "replace-me.txt"
-mode = "author"                    # learner authors this path; hidden referenceSteps replay it
-instruction = "TODO: exact path, behavior, constraints, commands, and diagnostics—no solution."
-checks = ["TODO: specific observable result the learner can run or inspect."]
+[[lessons.concepts]]
+id = "python-literal-values"
+purpose = "Write a concrete number or Boolean directly so Python has an initial fact to store."
+anatomy = "Place a whole number such as 12 or a Boolean spelled True or False on the right side of an assignment."
+example = "12 and False are the literals in the runnable marker example."
+observable = "The right side of each assignment visibly contains the concrete numeric or Boolean fact that will be stored."
+failure = "Writing true or false in lowercase does not create Python Boolean literals."
+practice = "s02-l01-e2"
 
-[[lessons.readings]]               # optional: 1-2 high-quality official docs
-label = "TODO: official docs"
-url = "https://example.com/TODO"
+[[lessons.concepts]]
+id = "python-name-binding"
+purpose = "Associate a readable Python name with a value so later code can refer to the state."
+anatomy = "Write a valid lowercase_snake_case name, then =, then the value to bind to that name."
+example = "marker_height = 12 binds the number to a readable name."
+observable = "Tracing marker_height = 12 records that later uses of marker_height will retrieve the bound value 12."
+failure = "A space or leading number makes an invalid name, while a spelling mismatch produces a NameError."
+practice = "s02-l01-e3"
+
+[[lessons.artifactSteps]]
+id = "s02-l01-create-game-state"
+path = "game.py"
+mode = "author"
+mechanisms = ["python-literal-values", "python-name-binding"]
+instruction = "At the external project root, create and save game.py in your editor. Author named literal state for the future traveler’s health, lantern oil, and an initial lantern condition. Use readable lowercase_snake_case names and one assignment per line. Do not copy the disposable marker example or add expressions, input, collections, functions, dependencies, Pygame, or package files yet."
+checks = ["The editor shows a saved game.py at the project root, not inside .venv.", "Each initial game fact has a readable name and a literal value, with no NameError caused by a name used before assignment."]
+
+[[lessons.readings]]
+label = "Python assignment statements"
+url = "https://docs.python.org/3/reference/simple_stmts.html#assignment-statements"
 
 [[lessons.exercises]]
 id = "s02-l01-e1"
 type = "mc"
-points = 15
-prompt = "TODO: a multiple-choice question?"
-choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
-answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
-whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
-hint = "TODO: an exercise-specific hint."
-explain = "TODO: shown after solving."
+points = 18
+mechanisms = ["python-name-binding"]
+prompt = "In marker_height = 12, what is marker_height?"
+choices = ["A name bound to a value", "A literal number", "A comparison result", "A command-line argument"]
+answer = 0
+whyWrong = "The number is the literal; a comparison has not happened, and no command-line arguments appear in this assignment."
+hint = "Look at which side of = receives the label."
+explain = "marker_height is the readable name that refers to the stored number."
 
 [[lessons.exercises]]
 id = "s02-l01-e2"
-type = "text"
+type = "fill"
 points = 20
-prompt = "TODO: a free-text question."
-answer = "TODO"
-# accept = ["TODO alternate"]      # optional true alternates only
-hint = "TODO: an exercise-specific hint."
+mechanisms = ["python-literal-values"]
+prompt = "Complete the Boolean literal that records a closed gate in this disposable example."
+code = "gate_open = ____"
+answer = "False"
+hint = "Python Boolean literals begin with a capital letter."
 
 [[lessons.exercises]]
 id = "s02-l01-e3"
-type = "fill"
-points = 20
-prompt = "TODO: fill the blank."
-code = 'answer = ____'             # the ____ marks where the answer goes
-answer = "TODO"
-hint = "TODO: an exercise-specific hint."
+type = "text"
+points = 18
+mechanisms = ["python-name-binding"]
+prompt = "Why does Python raise NameError when a line uses a name that has not been assigned yet?"
+answer = "Python has no value bound to that name yet"
+accept = ["the name has not been assigned a value", "no value is bound to that name"]
+hint = "Think of assignment as making a label point to a value."
 
 [[lessons.exercises]]
 id = "s02-l01-d1"
-type = "type"                      # typing drill: retype the code; no point decay
+type = "type"
 points = 12
 reps = 2
-prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
-code = 'print("TODO")'
+mechanisms = ["python-literal-values", "python-name-binding"]
+prompt = "Retype this disposable state assignment exactly."
+code = "bridge_length = 12"
 
 [[lessons.exercises]]
 id = "s02-l01-w1"
-type = "write"                     # CODE LAB: runs on the real runtime; no point decay
+type = "text"
 points = 30
-prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
-# starter = '''
-# TODO: prefilled editor code / the exercise's data
-# '''
-expect = '''
-TODO EXACT OUTPUT'''
-# REQUIRED before shipping: a complete program that passes. Never shown to the
-# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
-# solution = '''
-# TODO
-# '''
-hint = "TODO: an exercise-specific hint."
+mechanisms = ["python-literal-values", "python-name-binding"]
+prompt = "Write a tiny disposable program with river_depth bound to the whole-number literal 4 and ford_open bound to the Boolean literal False."
+answer = '''river_depth = 4
+ford_open = False
+'''
+accept = ["river_depth = 4 and ford_open = False"]
+hint = "Use one readable assignment per named fact."

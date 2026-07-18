@@ -1,0 +1,138 @@
+[[lessons]]
+id = "s14-l02"
+title = "Encode and Decode JSON"
+teaches = ["json-codec-boundary"]
+introduces = ["json-dumps-function", "json-loads-function", "json-dump-function", "json-load-function"]
+body = '''
+<p>The schema is Python data. A JSON codec is the next boundary: it makes text from that data, or makes data from text. Import the standard-library <code>json</code> module rather than writing a text format by hand. The paired names tell you where the text lives: <code>dumps</code> and <code>loads</code> operate on strings; <code>dump</code> and <code>load</code> operate on an already-open file object.</p>
+<pre><code data-kind="runnable">import json
+
+marker = {"site": "reed", "count": 3}
+saved_text = json.dumps(marker)
+restored_marker = json.loads(saved_text)
+print(saved_text)
+print(restored_marker["count"])</code></pre>
+<p>The first print is JSON text. The second uses a Python dictionary again, because <code>loads</code> parsed that text. This distinction matters: do not call <code>json.load</code> on a path, and do not pass a file object to <code>json.loads</code>. The file lifecycle from the prior chapter still chooses a supplied path, opens it with UTF-8, and closes it. This chapter supplies the codec operation while that file is open.</p>
+<p>In the storage module, keep mapping separate from codec work. A string helper can call <code>json.dumps</code> after the record builder and call <code>json.loads</code> before the record decoder. A file helper can call <code>json.dump</code> on the same record after opening a caller-supplied save path for writing, and call <code>json.load</code> after opening it for reading. Each helper should have one direction and a clear return value. The package initializer can export the focused storage seam, but importing the package must still not save, load, create a directory, or start the trail.</p>
+<p>Do not solve future resource cleanup here with a context manager. Keep the explicit open, codec, and close anatomy visible so the next chapter can improve that boundary deliberately. Likewise, do not make a permanent automatic save location or wire saving into the game loop; durable relaunch belongs later. For now, a caller supplies the path and asks the storage boundary to write or read one player record. That makes the round trip testable without changing a live game session.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE S IN DUMPS</div><p>The trailing <code>s</code> is a useful mnemonic: dumps produces a string, while dump writes through a stream that is already open.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "json-codec-boundary"
+purpose = "Keep plain-data mapping separate from the JSON text and file operations that carry that data across storage."
+anatomy = "Use dumps and loads for strings, dump and load for already-open file objects, and pass decoded records back to the schema converter."
+example = "The marker record becomes saved_text with dumps, then becomes a Python record again with loads before any domain reconstruction."
+observable = "A text round trip yields a new record whose count field can be indexed and printed."
+failure = "Passing a path to load or a file object to loads confuses the file lifecycle with JSON parsing."
+practice = "s14-l02-e1"
+
+[[lessons.concepts]]
+id = "json-dumps-function"
+purpose = "Encode a JSON-supported Python value into JSON text."
+anatomy = "Import json, pass the record to json.dumps, and receive a string for later transport or parsing."
+example = "json.dumps(marker) produces saved_text from the disposable marker record."
+observable = "The first print displays JSON object text with the marker fields."
+failure = "Passing a set or Player object to dumps fails because those are not JSON-supported values."
+practice = "s14-l02-e2"
+
+[[lessons.concepts]]
+id = "json-loads-function"
+purpose = "Parse JSON text into ordinary Python data before domain reconstruction."
+anatomy = "Pass a JSON string to json.loads, then inspect the resulting dictionary or list before decoding domain objects."
+example = "json.loads(saved_text) returns restored_marker."
+observable = "The second print retrieves the numeric count through a dictionary key."
+failure = "Passing a file object to loads confuses string parsing with file reading."
+practice = "s14-l02-e3"
+
+[[lessons.concepts]]
+id = "json-dump-function"
+purpose = "Write a JSON-supported record through an already-open writable text file."
+anatomy = "Open the caller-supplied path with UTF-8 writing, pass the record and file object to json.dump, then explicitly close the file."
+example = "The Working storage writer applies json.dump after the earlier file lifecycle acquires its file object."
+observable = "Reading the saved path later yields JSON text representing the player record."
+failure = "Passing a path directly to dump skips the required open-file boundary."
+practice = "s14-l02-w1"
+
+[[lessons.concepts]]
+id = "json-load-function"
+purpose = "Read and parse one JSON value from an already-open readable text file."
+anatomy = "Open the supplied path for UTF-8 reading, pass the file object to json.load, close it, then send the returned record to the decoder."
+example = "The Working storage reader calls json.load before it rebuilds a Player."
+observable = "A saved player record becomes a fresh Player whose represented facts can be checked."
+failure = "Calling load on a path string or assuming it returns a Player bypasses the separate file and domain boundaries."
+practice = "s14-l02-e1"
+
+[[lessons.artifactSteps]]
+id = "s14-l02-codec-work-order"
+path = "briar_glen/storage.py"
+mode = "author"
+mechanisms = ["json-dumps-function", "json-loads-function", "json-dump-function", "json-load-function", "python-import-statement", "python-open-call", "text-file-mode", "utf8-text-encoding", "text-file-close-method", "python-def-statement", "python-return-statement", "editor-edit-file", "editor-save-file", "terminal-read-saved-file"]
+instruction = "In learner-authored briar_glen/storage.py, preserve the pure schema mappers. Import json and author a text codec pair that converts between the record and JSON text, plus a supplied-path save/load pair that uses the earlier explicit UTF-8 open and close lifecycle with json.dump and json.load. Keep the file object, not a path, as the argument to dump/load. Extend briar_glen/__init__.py only with the focused storage names callers and tests need; do not add startup behavior, a save directory choice, automatic persistence, a context manager, Pygame, CLI arguments, or a second game."
+checks = ["The string codec round trip returns a new Player with the represented name, health, inventory, discoveries, and path state.", "The file codec accepts a supplied path, visibly opens and closes it, and leaves the six-turn package entry unchanged."]
+
+[[lessons.readings]]
+label = "Python json encoding and decoding"
+url = "https://docs.python.org/3/library/json.html#basic-usage"
+
+[[lessons.exercises]]
+id = "s14-l02-e1"
+type = "mc"
+points = 18
+mechanisms = ["json-load-function", "json-loads-function"]
+prompt = "Which codec call reads JSON from a file object that was already opened for text reading?"
+choices = ["json.loads(file_object)", "json.dump(record, file_object)", "json.load(file_object)", "json.dumps(record)"]
+answer = 2
+whyWrong = "loads parses a string and dump writes to a file object. load is the paired operation that parses from an already-open readable file."
+hint = "Choose the operation without the final s that takes a readable file object."
+explain = "json.load consumes JSON from an open file; json.loads consumes JSON text already held in a string."
+
+[[lessons.exercises]]
+id = "s14-l02-e2"
+type = "fill"
+points = 20
+mechanisms = ["json-dumps-function"]
+prompt = "Complete the disposable expression that turns the record into JSON text."
+code = 'saved_text = json.____(record)'
+answer = "dumps"
+hint = "Use the encoder name with an s because the result is a string."
+
+[[lessons.exercises]]
+id = "s14-l02-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["json-dumps-function", "json-loads-function", "python-import-statement"]
+prompt = "Retype this disposable text codec round trip exactly."
+code = '''import json
+text = json.dumps({"rank": 2})
+record = json.loads(text)'''
+
+[[lessons.exercises]]
+id = "s14-l02-e3"
+type = "text"
+points = 18
+mechanisms = ["json-loads-function", "json-load-function"]
+prompt = "What is the boundary difference between loads and load?"
+answer = "loads parses JSON text from a string while load parses JSON from an already-open file object"
+hint = "Name both input kinds, not merely that they both decode JSON."
+
+[[lessons.exercises]]
+id = "s14-l02-w1"
+type = "write"
+points = 35
+mechanisms = ["json-dump-function", "json-load-function", "python-open-call", "text-file-close-method", "text-file-mode", "utf8-text-encoding", "python-import-statement", "python-print-call"]
+prompt = 'Write a disposable program that imports json, opens codec-practice.json for UTF-8 writing, dumps the record {"gate": "east", "open": true}, closes it, reopens the file for UTF-8 reading, loads the record, closes it, and prints the gate value. This is not a Briar Glen artifact.'
+expect = "east"
+solution = '''import json
+
+record = {"gate": "east", "open": True}
+save_file = open("codec-practice.json", "w", encoding="utf-8")
+json.dump(record, save_file)
+save_file.close()
+
+save_file = open("codec-practice.json", "r", encoding="utf-8")
+restored_record = json.load(save_file)
+save_file.close()
+print(restored_record["gate"])'''
+hint = "Use dump and load with the open file object; give both open calls the matching UTF-8 encoding."

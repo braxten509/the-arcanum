@@ -1,36 +1,51 @@
 [freestyle]
-title = "THE WORKING: TODO"
-brief = "TODO: the in-world commission.<ul><li>TODO requirement one (state exact output/tokens)</li><li>TODO requirement two</li></ul>"
-requires = ["s02-phase3-placeholder"]           # TODO: exact ids taught by this/earlier lessons
+title = "THE WORKING: VALUES BY LANTERNLIGHT"
+brief = '''<p>Rowan needs the first living marker, wayfinder. In the external project root that already contains <code>.venv</code>, create and save <code>game.py</code> yourself. Then meet this observable contract:</p><ul><li>Represent a starting health of <code>10</code> and a starting lantern-oil count of <code>3</code> with named values.</li><li>Use a numeric expression to model spending one unit of oil, then use comparisons and a Boolean expression to determine whether a living traveler with oil can keep the lantern lit.</li><li>Use one print call to report the resulting observable state exactly as <code>10 2 True</code> when you run <code>python game.py</code> from the project root with <code>.venv</code> active. Do not add input, loops, functions, collections, files, dependencies, Pygame, or package material yet.</li><li>After the saved source has produced that result, use <code>rm toolchain-check.txt</code> to remove that exact temporary receipt. Read <code>game.py</code> back in the terminal and rerun it to confirm the source—not the retired receipt—is now the trail marker.</li></ul>'''
+requires = ["python-state-model", "state-expression-rules", "source-smoke-receipt", "language-values-expressions-data"]
+mechanisms = ["terminal-print-working-directory", "terminal-change-directory", "terminal-check-python-version", "venv-create-environment", "venv-activate-environment", "venv-resolve-active-python", "editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file", "python-literal-values", "python-name-binding", "python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators", "python-print-call", "terminal-delete-file"]
 reward = 150
-xray = "TODO: the grader's private notes — the specific pitfalls it docks and the style it rewards, truthful to the rubric below."
+xray = "Look for learner-authored game.py rather than a copied lesson example. Confirm the values are named, the oil result comes from arithmetic, the final Boolean comes from comparisons joined by a Boolean expression, and one real print call produces the exact source-smoke line. Deduct for a retained toolchain receipt, hard-coded final truth without a comparison, unrelated future features, or a script that needs arguments to produce its evidence. Prefer clear lowercase_snake_case names and one readable assignment per line."
 
-[[freestyle.referenceSteps]]        # hidden from learners; validator replays a real solution
-id = "s02-freestyle-reference"
-path = "replace-me.txt"
-mode = "rewrite"
-preserves = "all-active"
-instruction = "TODO: exact private reference edit that satisfies this Working."
-content = '''
-TODO: complete reference content
+[[freestyle.referenceSteps]]
+id = "s02-write-game-source"
+path = "game.py"
+mode = "write"
+mechanisms = ["python-literal-values", "python-name-binding", "python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators", "python-print-call"]
+instruction = "Private replay writes the learner-authored first source milestone after its visible construction work order."
+content = '''health = 10
+lantern_oil = 3
+remaining_oil = lantern_oil - 1
+lantern_lit = health > 0 and remaining_oil > 0
+
+print(health, remaining_oil, lantern_lit)
 '''
+
+[[freestyle.referenceSteps]]
+id = "s02-retire-toolchain-receipt"
+path = "toolchain-check.txt"
+mode = "delete"
+mechanisms = ["terminal-delete-file"]
+instruction = "Private replay retires the temporary behavior-free receipt only after the first saved Python source has been established."
 
 [freestyle.badge]
 id = "badge-s02"
-name = "TODO BADGE"
-desc = "TODO: one sentence."
-
-[[freestyle.rubric]]               # weights MUST sum to exactly 100
-criterion = "Compiles & runs"
-weight = 40
-desc = "TODO: build succeeds; runs without crashing on normal input."
+name = "LANTERN ACCOUNTANT"
+desc = "Named the first Briar Glen state and made its light observable."
 
 [[freestyle.rubric]]
-criterion = "Meets the brief"
-weight = 40
-desc = "TODO: every requirement in the checklist is present and correct."
+criterion = "Named state and arithmetic"
+weight = 35
+mechanisms = ["python-literal-values", "python-name-binding", "python-arithmetic-operators"]
+desc = "game.py uses clearly named literal state for health and oil, then derives the post-spend oil amount with a numeric expression instead of reporting an unexplained result."
 
 [[freestyle.rubric]]
-criterion = "Clean style"
-weight = 20
-desc = "TODO: name this language's real naming AND layout conventions (research its style guide)."
+criterion = "Decision from expressions"
+weight = 35
+mechanisms = ["python-comparison-operators", "python-boolean-operators"]
+desc = "The lit result comes from meaningful comparisons joined by a Boolean expression, so the reported truth follows the current state rather than a hard-coded final answer."
+
+[[freestyle.rubric]]
+criterion = "Saved source evidence and retirement"
+weight = 30
+mechanisms = ["editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file", "python-print-call", "terminal-delete-file"]
+desc = "The learner-created, saved game.py prints exactly 10 2 True when run with the active environment; toolchain-check.txt is removed only after that source run, and no future-stage project material appears."

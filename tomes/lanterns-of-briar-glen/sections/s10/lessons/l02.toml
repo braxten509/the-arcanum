@@ -1,0 +1,136 @@
+[[lessons]]
+id = "s10-l02"
+title = "Delegate through Ownership"
+teaches = ["object-ownership-delegation"]
+introduces = ["object-ownership", "method-delegation", "composition-over-inheritance"]
+body = '''
+<p>After you can name the jobs, decide who owns each collaborator. Ownership here means a clear object is responsible for keeping and using a collaborator as part of its state. In Briar Glen, Player owns the particular inventory and quest state supplied at construction. That does not mean Player reimplements their work. Ownership creates a route for delegation: Player can ask its inventory to add an item and ask quest state to record a discovery.</p>
+<p>Delegation is a small but important sentence in code: “this object needs that job; the collaborator performs it.” In the disposable example, <code>Ranger.collect</code> does not touch a list itself. It calls <code>self.pack.store</code>. The Pack remains the only owner of its list operation, and Ranger remains the place that describes a player-facing collection action.</p>
+<pre><code data-kind="runnable"><span class="k">class</span> Pack:
+    <span class="k">def</span> store(<span class="n">self</span>, <span class="n">item</span>):
+        <span class="n">self</span>.items.append(<span class="n">item</span>)
+
+<span class="k">class</span> Ranger:
+    <span class="k">def</span> collect(<span class="n">self</span>, <span class="n">item</span>):
+        <span class="k">return</span> <span class="n">self</span>.pack.store(<span class="n">item</span>)</code></pre>
+<p>Composition is the relationship “has a,” not “is a.” A Player has an Inventory; Player is not an Inventory. Do not reach for a base class just because several words appear together. Inheritance would claim a Player is a special kind of quest or pack, which is false and would blur state ownership.</p>
+<p>Keep delegation narrow. The existing command handler still decides which command was requested and retains its ValueError boundary. Once it has selected an allowed action, it should ask the supplied Player, inventory, or quest state to do the state-specific work. The collaborator should not know about six-turn loop control or error recovery. This keeps the earlier pure and mutating seams honest: route orchestration stays in functions, mutable facts stay with their owner.</p>
+<p>At the end of the Working, a rest goes to Player, a moonleaf goes through the inventory boundary, and a briar search updates quest state. If those three methods all live in Player, the refactor did not create composition. If no object owns the collaborators, their lifetime is unclear. Explicit construction, stored attributes, and one small delegated call at a time make the trail easier to test and later extend.</p>'''
+
+[[lessons.concepts]]
+id = "object-ownership-delegation"
+purpose = "Make the route of a request visible: Player coordinates the command, while the collaborator that owns the relevant state applies its own rule."
+anatomy = "Construction receives collaborators, stores their references, and exposes a narrow player method. That method calls inventory.add_item or quest.search_briar instead of mutating an items list or discoveries set itself."
+example = "player.pack_item('moss-key') delegates to player.inventory.add_item('moss-key'); player.search_quest() delegates to player.quest.search_briar()."
+observable = "A test can supply fresh collaborators, invoke the public Player method, and observe the collaborator's result without inspecting unrelated player fields."
+failure = "A Player method that edits self.inventory.items directly violates the collaborator's boundary; inheritance would add a false is-a relationship instead of showing the player has an inventory and a quest."
+practice = "s10-l02-w1"
+
+[[lessons.concepts]]
+id = "object-ownership"
+purpose = "State clearly which object retains a collaborator as part of its lasting domain state."
+anatomy = "Receive a collaborator during construction, assign it to one instance attribute, and use that attribute for the object’s related behavior."
+example = "Ranger retains the supplied pack as self.pack."
+observable = "The same supplied Pack is still reachable through the Ranger after construction."
+failure = "Creating replacement collaborators inside commands loses the previously accumulated state."
+practice = "s10-l02-w1"
+
+[[lessons.concepts]]
+id = "method-delegation"
+purpose = "Route a request to the collaborator whose responsibility matches the work instead of duplicating its mutation."
+anatomy = "Select an action at the caller boundary, call the collaborator method through its stored attribute, then use the returned result only when needed."
+example = "Ranger.collect delegates to self.pack.store(item)."
+observable = "After collect, the Pack changes through store while Ranger has not manipulated Pack.items directly."
+failure = "Copying append logic into Ranger creates two places that must agree about pack rules."
+practice = "s10-l02-w1"
+
+[[lessons.concepts]]
+id = "composition-over-inheritance"
+purpose = "Choose a has-a collaborator relationship when objects have distinct jobs rather than claiming an incorrect is-a hierarchy."
+anatomy = "Ask whether one object is truly a specialized kind of the other; if not, construct the collaborator and store it as an attribute."
+example = "A Ranger has a Pack; Ranger is not a kind of Pack."
+observable = "The classes can change their separate data without a shared base-class contract."
+failure = "An inheritance tree used only to share nearby data gives the wrong relationship and entangles responsibilities."
+practice = "s10-l02-w1"
+
+[[lessons.readings]]
+label = "Python tutorial: classes"
+url = "https://docs.python.org/3/tutorial/classes.html"
+
+[[lessons.artifactSteps]]
+id = "s10-l02-delegate-trail-mutations"
+path = "game.py"
+mode = "author"
+mechanisms = ["object-ownership", "method-delegation", "composition-over-inheritance", "python-instance-attribute", "python-instance-method", "python-function-call", "python-return-statement", "list-append-method", "set-add-method", "editor-edit-file", "editor-save-file", "terminal-invoke-saved-file"]
+instruction = "In learner-authored game.py, give the inventory and quest-state collaborators narrow methods for the existing pack and discovery/route changes. Make Player retain the supplied collaborators and delegate only the relevant player-facing actions to them. Keep command selection, ValueError recovery, completion records, the six-turn loop, and final observations outside those collaborators. Do not add a base class, inheritance syntax, a new class family, file work, Pygame, or a replacement game loop. Save and run python game.py twice from the external project root."
+checks = ["The existing moonleaf action reaches the inventory through delegation, and the briar action reaches quest state through its own boundary.", "Both runs retain the established final observations and have matching transcripts."]
+
+[[lessons.exercises]]
+id = "s10-l02-e1"
+type = "mc"
+points = 18
+mechanisms = ["composition-over-inheritance"]
+prompt = "Which statement describes the appropriate relationship between a disposable Explorer and Journal?"
+choices = ["Explorer is a Journal", "Journal is an Explorer", "Explorer has a Journal", "Explorer inherits every Journal entry"]
+answer = 2
+whyWrong = "The objects have different jobs; neither is a specialized kind of the other, and inherited entries hide ownership."
+hint = "Choose the has-a relationship."
+explain = "Composition says an Explorer has a Journal collaborator."
+
+[[lessons.exercises]]
+id = "s10-l02-e2"
+type = "fill"
+points = 20
+mechanisms = ["method-delegation", "python-return-statement"]
+prompt = "Complete the delegated disposable call."
+code = "return self.pack.____(item)"
+answer = "store"
+hint = "Use the Pack method that owns adding an item."
+
+[[lessons.exercises]]
+id = "s10-l02-e3"
+type = "text"
+points = 18
+mechanisms = ["object-ownership"]
+prompt = "What is the risk of constructing a fresh Inventory inside every take command?"
+answer = "Previously collected items are lost because each command uses a different inventory"
+accept = ["it loses the accumulated items", "the inventory state is replaced each command"]
+hint = "Think about whether a new object remembers old mutations."
+
+[[lessons.exercises]]
+id = "s10-l02-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["method-delegation", "python-instance-attribute", "python-function-call"]
+prompt = "Retype this disposable delegated call."
+code = "self.journal.record(place)"
+
+[[lessons.exercises]]
+id = "s10-l02-w1"
+type = "write"
+points = 35
+mechanisms = ["object-ownership", "method-delegation", "composition-over-inheritance", "python-class-statement", "python-init-method", "python-self-parameter", "python-instance-attribute", "python-instance-method", "python-list-literal", "list-append-method", "python-function-call", "python-print-call"]
+prompt = "Write a disposable program with a Journal that stores an empty entries list and records a supplied place, and an Explorer that stores a supplied Journal and has visit(place) which delegates to the Journal. Construct both objects, visit ford through Explorer, and print the Journal entries. This is not a Briar Glen artifact."
+expect = "['ford']"
+solution = '''class Journal:
+    def __init__(self):
+        self.entries = []
+
+    def record(self, place):
+        self.entries.append(place)
+
+
+class Explorer:
+    def __init__(self, journal):
+        self.journal = journal
+
+    def visit(self, place):
+        self.journal.record(place)
+
+
+journal = Journal()
+explorer = Explorer(journal)
+explorer.visit("ford")
+print(journal.entries)'''
+hint = "Explorer stores Journal; visit calls the Journal method rather than appending itself."

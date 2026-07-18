@@ -1,84 +1,136 @@
 [[lessons]]
 id = "s07-l01"
 title = "Install the Test Runner"
-teaches = ["s07-phase3-placeholder"]            # TODO: stable kebab-case capabilities this lesson teaches
+teaches = ["venv-test-tooling"]
+introduces = ["pip-install-exact-spec", "pytest-module-invocation", "python-import-statement", "tests-directory-creation"]
 body = '''
-<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
-<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
-<p>TODO: an optional deeper-cut appendix.</p></div>
+<p>A test runner is a program that executes small checks and reports which promise held. In this trail, that runner is <strong>pytest</strong>. It belongs inside the existing <code>.venv</code>, not in a mystery Python installation elsewhere on the machine. Activate the environment first, then use its active <code>python</code> to install the exact required version: <code>python -m pip install pytest==9.1.1</code>. The <code>-m</code> form asks this particular interpreter to run pip, which keeps the installation attached to the environment you just checked.</p>
+<p>Confirm the result with <code>python -m pytest --version</code>. Later, the same pattern becomes <code>python -m pytest -q</code>: <code>python</code> selects the active interpreter, <code>-m</code> selects the installed module, and <code>-q</code> requests a compact report. If the command says that pytest cannot be found, stop and check the active environment and the exact install command rather than installing globally. A version that differs from the requirement is also evidence to repair before writing tests.</p>
+<p>Tests live in a separate learner-authored file so the game remains ordinary game behavior. From the external project root, make the missing <code>tests</code> directory with <code>mkdir tests</code>, then create <code>tests/test_game.py</code> inside it. This directory-creation step changes the project structure once so the test module has a real home; confirm it exists before opening the new file. A test module needs an <strong>import statement</strong> to name behavior from another saved Python file. Its general shape is <code>from file_name import behavior_name</code>; the source file name has no <code>.py</code> suffix. Importing is not copying the game into the test file. It makes a chosen existing function available for a check.</p>
+<p>The project names and exact test selection are your own work in the Working. For now, use this unrelated disposable import shape to read the direction: <code>from beacon_math import count_glows</code>. Python reads <code>from</code>, identifies the source module, then binds the selected public name in the current file. A misspelled module or behavior name produces an import diagnostic before pytest can run a check; compare the spelling with the saved source.</p>
+<p>Do not install Pygame, add requirements files, or create a second game path. Save and inspect the real test module after making it. The next lesson supplies the shape of a behavioral check; this lesson establishes the reliable environment and boundary that will run it.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ASK THE ACTIVE PYTHON</div><p><code>python -m pytest</code> makes the interpreter visible in the command, so it is easier to diagnose than assuming a bare command points at the intended environment.</p></div>
 '''
 
-[[lessons.concepts]]                # one complete first-use proof for every `teaches` id
-id = "s07-phase3-placeholder"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
+[[lessons.concepts]]
+id = "venv-test-tooling"
+purpose = "Install and run the required test runner with the project’s active virtual environment."
+anatomy = "Activate .venv, use python -m pip with the exact pytest version, verify it, then invoke python -m pytest."
+example = "The lesson’s exact install and version commands use the active python rather than a global executable."
+observable = "The version command identifies pytest from the active environment."
+failure = "A module-not-found result means the selected python did not receive pytest or the environment is not active."
 practice = "s07-l01-e1"
 
-[[lessons.artifactSteps]]           # visible work order; never reveal canonical implementation
-id = "s07-l01-project-step"
-path = "replace-me.txt"
-mode = "author"                    # learner authors this path; hidden referenceSteps replay it
-instruction = "TODO: exact path, behavior, constraints, commands, and diagnostics—no solution."
-checks = ["TODO: specific observable result the learner can run or inspect."]
+[[lessons.concepts]]
+id = "pip-install-exact-spec"
+purpose = "Place the required pytest version in the selected virtual environment."
+anatomy = "Run python -m pip install followed by pytest==9.1.1 after activation."
+example = "The install command pins pytest instead of accepting an unknown version."
+observable = "A later version query reports the installed runner."
+failure = "A different version or missing module means the requirement was not installed into this environment."
+practice = "s07-l01-e1"
 
-[[lessons.readings]]               # optional: 1-2 high-quality official docs
-label = "TODO: official docs"
-url = "https://example.com/TODO"
+[[lessons.concepts]]
+id = "pytest-module-invocation"
+purpose = "Run pytest through the same Python interpreter that owns the project environment."
+anatomy = "Write python, then -m, then pytest, followed by an optional runner flag such as -q."
+example = "python -m pytest --version asks the active interpreter to locate pytest."
+observable = "pytest prints its version or, later, its compact test result."
+failure = "If pytest cannot be found, verify activation and installation instead of guessing which bare pytest command ran."
+practice = "s07-l01-e1"
+
+[[lessons.concepts]]
+id = "python-import-statement"
+purpose = "Make selected saved behavior available to a separate test module without copying its implementation."
+anatomy = "Use from, the source file’s module name without .py, import, and the chosen existing behavior name."
+example = "from beacon_math import count_glows is a disposable boundary between a test file and another source file."
+observable = "The imported name can be called from the receiving file."
+failure = "A misspelled module or behavior name stops collection with an import diagnostic."
+practice = "s07-l01-e2"
+
+[[lessons.concepts]]
+id = "tests-directory-creation"
+purpose = "Create the project directory that will contain learner-authored test modules."
+anatomy = "From the external project root, run mkdir tests, confirm the tests directory exists, then create tests/test_game.py inside it."
+example = "mkdir tests makes the one directory required before the first test file can be saved."
+observable = "The project root contains a tests directory before tests/test_game.py is created."
+failure = "Trying to save tests/test_game.py before its parent directory exists leaves no test-module location."
+practice = "s07-l01-e4"
+
+[[lessons.artifactSteps]]
+id = "s07-l01-establish-pytest-boundary"
+path = "tests/test_game.py"
+mode = "author"
+mechanisms = ["pip-install-exact-spec", "pytest-module-invocation", "python-import-statement", "tests-directory-creation", "venv-activate-environment", "venv-resolve-active-python", "editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file"]
+instruction = "From the learner’s external project root, activate .venv and install pytest==9.1.1 with the active python. Confirm its version with python -m pytest --version. Create the tests directory with mkdir tests, confirm that directory exists, then create and save tests/test_game.py inside it. Give that learner-authored module an import that selects only existing game.py behavior the next lessons will check. Read the saved module. If collection later reports an import error, compare both names with the saved game.py. Do not copy game behavior, add a test function yet, install any other dependency, or add Pygame, packages, files, or a new project path."
+checks = ["python -m pytest --version reports pytest 9.1.1 from the active environment.", "tests exists before tests/test_game.py is created and saved as a learner-authored boundary that imports existing behavior rather than duplicating game.py."]
+
+[[lessons.readings]]
+label = "pytest documentation: get started"
+url = "https://docs.pytest.org/en/stable/getting-started.html"
+
+[[lessons.exercises]]
+id = "s07-l01-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["pip-install-exact-spec"]
+prompt = "Retype the exact disposable install command for the required runner."
+code = "python -m pip install pytest==9.1.1"
 
 [[lessons.exercises]]
 id = "s07-l01-e1"
 type = "mc"
-points = 15
-prompt = "TODO: a multiple-choice question?"
-choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
-answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
-whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
-hint = "TODO: an exercise-specific hint."
-explain = "TODO: shown after solving."
+points = 18
+mechanisms = ["pip-install-exact-spec", "pytest-module-invocation", "venv-activate-environment"]
+prompt = "With the project environment active, which command most directly proves that this active Python can locate pytest?"
+choices = ["pip pytest", "python pytest", "python -m pytest --version", "pytest install --version"]
+answer = 2
+whyWrong = "pip pytest is not a query, python pytest treats pytest as a file, and pytest install is not pytest syntax. The module invocation asks the active interpreter to locate pytest."
+hint = "Look for the command that contains both the selected interpreter and -m."
+explain = "python -m pytest --version exposes the interpreter-to-runner connection before any tests are collected."
 
 [[lessons.exercises]]
 id = "s07-l01-e2"
-type = "text"
+type = "fill"
 points = 20
-prompt = "TODO: a free-text question."
-answer = "TODO"
-# accept = ["TODO alternate"]      # optional true alternates only
-hint = "TODO: an exercise-specific hint."
+mechanisms = ["python-import-statement"]
+prompt = "Complete the disposable statement that selects count_glows from beacon_math."
+code = "from beacon_math ____ count_glows"
+answer = "import"
+hint = "Use the keyword that brings one named behavior into this file."
 
 [[lessons.exercises]]
 id = "s07-l01-e3"
-type = "fill"
-points = 20
-prompt = "TODO: fill the blank."
-code = 'answer = ____'             # the ____ marks where the answer goes
-answer = "TODO"
-hint = "TODO: an exercise-specific hint."
+type = "text"
+points = 18
+mechanisms = ["python-import-statement", "pytest-module-invocation"]
+prompt = "A test run stops during collection with an error saying it cannot import a name. What two saved spellings should you compare before changing game behavior?"
+answer = "The source module name and the imported behavior name"
+hint = "An import boundary has one name for the file and one for the behavior it requests."
 
 [[lessons.exercises]]
-id = "s07-l01-d1"
-type = "type"                      # typing drill: retype the code; no point decay
-points = 12
-reps = 2
-prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
-code = 'print("TODO")'
+id = "s07-l01-e4"
+type = "mc"
+points = 16
+mechanisms = ["tests-directory-creation"]
+prompt = "The project root has game.py but no tests directory. Which action creates the required home before you save tests/test_game.py?"
+choices = ["mkdir tests", "python -m pytest tests", "from tests import game", "pip install tests"]
+answer = 0
+whyWrong = "The runner command does not create project structure, an import cannot create a folder, and tests is a learner-created project directory rather than a dependency."
+hint = "Choose the command that changes the project’s directory structure."
+explain = "mkdir tests creates the parent directory before the learner creates the test file inside it."
 
 [[lessons.exercises]]
 id = "s07-l01-w1"
-type = "write"                     # CODE LAB: runs on the real runtime; no point decay
-points = 30
-prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
-# starter = '''
-# TODO: prefilled editor code / the exercise's data
-# '''
-expect = '''
-TODO EXACT OUTPUT'''
-# REQUIRED before shipping: a complete program that passes. Never shown to the
-# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
-# solution = '''
-# TODO
-# '''
-hint = "TODO: an exercise-specific hint."
+type = "write"
+points = 34
+mechanisms = ["python-def-statement", "python-function-call", "python-return-statement", "python-print-call", "python-string-literal"]
+prompt = "Write one disposable Python file that defines runner_note(), returns the text runner ready, calls it once, and prints the returned value. Produce exactly the output below. This tiny file is only a prior-knowledge retrieval; install and import work stays in the terminal and project work order."
+expect = "runner ready"
+solution = '''def runner_note():
+    return "runner ready"
+
+
+print(runner_note())'''
+hint = "Define the value-returning helper before the print that calls it."

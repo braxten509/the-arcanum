@@ -73,10 +73,21 @@ Phase-0 `TOOLING` value literally.
   read-only bounded packet containing all sealed lessons plus the Working. It audits first-use
   prerequisite completeness, must cite every sealed node to pass, and returns failures to the
   current section's repair session. With an OpenAI key in Settings or `OPENAI_API_KEY`, a Codex GPT
-  validator uses one no-tools Responses API Structured Output call; without it, the installed
+  validator uses no-tools Responses API Structured Output; without it, the installed
   login CLI is the fallback.
-  Luna escalates to Terra only for uncertainty, malformed output, or a repeated non-pass. The
-  packet is content-digest cached, so an unchanged clean section is not charged twice.
+  A bounded, evidence-backed Luna FAIL is authoritative even when optional amendment metadata is
+  malformed; the harness returns its readable reasons and discards the unusable proposal. A
+  malformed PASS is never accepted. Luna escalates to Terra only after an unusable response or an
+  explicit UNCERTAIN result. A proposed missing mechanism must identify the
+  nearest sealed owner and a genuinely distinct semantic responsibility; platform or syntax
+  spellings of the same operation remain teaching evidence under that existing owner. The packet
+  is content-digest cached, so an unchanged clean section is not charged twice.
+  Every non-PASS AI call and every failed final section gate is also written as its own timestamped
+  JSON record under `validator-failures/BUILD_ID/`; this audit history is Git-ignored, excluded from
+  the direct-file-count gate, and is not collapsed into the latest section failure.
+  Forge also persists the newest 500 mechanical and AI validator lifecycle lines in
+  `.tome-build/BUILD_ID.status-log.jsonl`, so restarting or resuming cannot erase them from the
+  chronological tool-history view. Older builds recover AI completions from their call ledger.
   Every Phase-3 assignment ends with one regenerated `HARNESS COURSE CONTROL` block. Preserve
   its full spine and active ledger, write only the current handoff-v3 claim, and never edit its
   sealed map, derived state, receipts, prior handoffs, marks, or checkmarks.
@@ -92,3 +103,11 @@ Phase-0 `TOOLING` value literally.
 Phase-focused validators may defer later-phase warnings. Do not edit future-phase banks to
 silence deferred counts. Never weaken an earlier proof or remove content merely to make a gate
 green. Existing proof-v1 files require exact replacement or an all-active rewrite.
+
+The harness records every author, repair, prerequisite-validator, and optional full-review AI
+invocation in `.tome-build/BUILD_ID.ai-costs.jsonl`. That detail ledger retains the 500 rows
+nearest to the current time. Lifetime accounting is independent of that retention window:
+`.tome-build/BUILD_ID.ai-cost-totals.jsonl` always contains one line for each Phase 1–8 total and
+one line for every sealed Phase-3 section total. Each line includes normalized token counts,
+API-equivalent dollars, direct Responses API dollars, and an explicit incomplete-pricing marker
+if a provider/model has no verified rate.

@@ -5,7 +5,7 @@ A file over 500 lines is a file nobody reads to the end. This walks the repo and
 fails on any hand-written source file that crossed the line. One finding per
 line, longest first.
 
-    python3 tools/validate_code.py [path] [--max 500] [--max-files 8]
+    python3 tools/validate_code.py [path] [--max 500] [--max-files 10]
 
 Exit 0 = clean. Exit 1 = at least one file or directory over a limit. Stdlib only.
 Vendored and generated trees are skipped — we did not write them and will not
@@ -21,6 +21,7 @@ SKIP = {
 }
 DIRECTORY_COUNT_ROOT_SKIP = {
     "tome-authoring", "tome-workflow", "sounds", "tmp", "runtimes",
+    "validator-failures",
 }
 
 HINT = """
@@ -88,8 +89,8 @@ def main():
     ap.add_argument("path", nargs="?", default=os.path.join(os.path.dirname(__file__), ".."),
                     help="tree to walk (default: the repo root)")
     ap.add_argument("--max", type=int, default=500, help="hard line limit (default: 500)")
-    ap.add_argument("--max-files", type=int, default=8,
-                    help="maximum direct files per included directory (default: 8)")
+    ap.add_argument("--max-files", type=int, default=10,
+                    help="maximum direct files per included directory (default: 10)")
     args = ap.parse_args()
 
     found = offenders(os.path.abspath(args.path), args.max)

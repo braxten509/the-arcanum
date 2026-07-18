@@ -1,0 +1,127 @@
+[[lessons]]
+id = "s10-l03"
+title = "Verify Collaborators"
+teaches = ["composed-domain-verification", "language-composition-design"]
+introduces = ["collaborator-test-seam"]
+body = '''
+<p>Composition changes the route a behavior travels, so a useful test must observe that route rather than merely reprint the final transcript. Start with fresh collaborators. Construct an Inventory, a QuestState, and a Player that receives both. Then call a real seam such as a player-facing collection method or the existing command handler. Assert the collaborator that owns the change has changed, and assert unrelated state has not.</p>
+<p>A collaborator test seam is the small public behavior where objects meet: a constructor argument, stored attribute, delegated method call, or existing handler parameter. It is not a test that searches source text for a class name. Source-shape tests would pass even if the command still mutates the wrong record. Instead, arrange state, act through the real boundary, and assert the observable ownership result.</p>
+<pre><code data-kind="runnable"><span class="n">pack</span> = Pack()
+<span class="n">ranger</span> = Ranger(<span class="n">pack</span>)
+
+<span class="n">ranger</span>.collect(<span class="s">"flare"</span>)
+
+<span class="k">assert</span> <span class="n">pack</span>.items == [<span class="s">"flare"</span>]</code></pre>
+<p>Fresh state matters more now because composition gives multiple mutable objects. Each test should build the objects it needs; no test should reuse a pack, quest state, or Player left behind by another test. Preserve the earlier invalid-command test as well: validation must still happen before any collaborator is asked to mutate. A recovered invalid turn should leave inventory, quest state, and Player health unchanged while its completion record still gains one entry.</p>
+<p>Do not mock a collaborator just to avoid constructing a three-line domain object. These small real collaborators are the subject of the test. A focused direct test proves each owner, while one command-level test proves delegation reaches the owner. Together they show why this milestone would break if the objects were collapsed back into one Player record: there would be no distinct inventory or quest seam left to inspect.</p>
+<p>Run the established pytest command after the refactor. A failure that points to a changed list, set, route flag, or health value is evidence about responsibility. Repair the one indicated collaborator or delegation call, rerun, and retain the deterministic terminal transcript as a second independent check.</p>'''
+
+[[lessons.concepts]]
+id = "composed-domain-verification"
+purpose = "Verify the composed design at both levels: collaborators keep their own rules correct, and Player sends requests through their public methods."
+anatomy = "Arrange fresh Inventory and QuestState objects, pass them into Player, act through a collaborator or a Player method, then assert the owned state and returned result. Keep command transcript checks as a separate public-behavior seam."
+example = "A test can call player.pack_item('moss-key') and assert 'moss-key' in inventory.items, then call player.search_quest() and assert the quest reports the first discovery."
+observable = "The suite reaches 11 passing checks, including direct collaborator checks, delegation checks using fresh objects, and the preserved invalid-command and bounded-turn checks."
+failure = "Only testing a final transcript can conceal ownership mistakes, while only testing a list in isolation can miss a broken Player delegation path."
+practice = "s10-l03-w1"
+
+[[lessons.concepts]]
+id = "collaborator-test-seam"
+purpose = "Verify that collaborating objects meet through a real, observable construction or delegation boundary."
+anatomy = "Arrange fresh collaborators, call a real method or handler, assert the owner’s state and any required unchanged neighboring state."
+example = "Ranger.collect changes the supplied Pack list through its stored collaborator."
+observable = "The Pack contains flare after the call, while the test did not inspect implementation text."
+failure = "A transcript-only or source-text test can miss that the wrong object performed the mutation."
+practice = "s10-l03-w1"
+
+[[lessons.concepts]]
+id = "language-composition-design"
+purpose = "Design a domain from objects that collaborate by explicit has-a ownership and narrow delegation."
+anatomy = "Separate responsibilities, construct dependencies explicitly, store owned collaborators, delegate each mutation to its owner, and test the seams."
+example = "A Player receives Inventory and QuestState, then delegates pack and quest work to them."
+observable = "Tests can independently observe inventory, quest, and player changes after real commands."
+failure = "A single all-purpose object or incorrect inheritance hierarchy prevents independent responsibility checks."
+practice = "s10-l03-w1"
+
+[[lessons.artifactSteps]]
+id = "s10-l03-prove-the-collaboration"
+path = "tests/test_game.py"
+mode = "author"
+mechanisms = ["collaborator-test-seam", "python-instance-construction", "python-instance-attribute", "python-instance-method", "python-function-call", "python-import-statement", "pytest-test-function", "python-assert-statement", "arrange-act-assert", "pytest-module-invocation", "editor-edit-file", "editor-save-file"]
+instruction = "In learner-authored tests/test_game.py, preserve all eight earlier class and error-boundary checks with fresh composed fixtures. Add focused real-seam checks for inventory ownership, quest-state ownership, and delegation from the supplied Player or command handler to each collaborator. Assert an invalid command still leaves every collaborator unchanged before recovery. Do not test source text, copy the transcript, use mocks, introduce a new dependency, package work, storage, or runtime behavior. Save and run python -m pytest -q from the external project root until it reports 11 passed."
+checks = ["The saved suite constructs fresh Inventory, QuestState, and Player collaborators where mutation is under test.", "The suite reports 11 passed and includes both direct collaborator and command-level delegation evidence."]
+
+[[lessons.readings]]
+label = "pytest: getting started"
+url = "https://docs.pytest.org/en/stable/getting-started.html"
+
+[[lessons.exercises]]
+id = "s10-l03-e1"
+type = "mc"
+points = 18
+mechanisms = ["collaborator-test-seam", "arrange-act-assert"]
+prompt = "Which assertion best proves a delegated disposable collect action reached the Pack collaborator?"
+choices = ["assert 'collect' in source_text", "assert pack.items == ['flare']", "assert ranger.__class__.__name__ == 'Ranger'", "assert printed_lines[0] == 'Trail begins'"]
+answer = 1
+whyWrong = "Source shape, class labels, and copied output do not prove the supplied Pack received the mutation."
+hint = "Inspect the collaborator responsible for stored items."
+explain = "A behavior test observes Pack’s state after a real call."
+
+[[lessons.exercises]]
+id = "s10-l03-e2"
+type = "fill"
+points = 20
+mechanisms = ["python-assert-statement", "collaborator-test-seam"]
+prompt = "Complete the disposable assertion for a delegated item result."
+code = "assert pack.items ____ ['flare']"
+answer = "=="
+hint = "Use the comparison operator that checks list contents."
+
+[[lessons.exercises]]
+id = "s10-l03-e3"
+type = "text"
+points = 18
+mechanisms = ["arrange-act-assert"]
+prompt = "Why should each composed state test construct fresh collaborators?"
+answer = "So mutations from one test cannot leak into another test"
+accept = ["to prevent state leaking between tests", "so tests are isolated from earlier mutations"]
+hint = "Mutable inventories and quest records remember changes."
+
+[[lessons.exercises]]
+id = "s10-l03-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["collaborator-test-seam", "python-assert-statement"]
+prompt = "Retype this disposable ownership assertion."
+code = "assert journal.entries == ['ford']"
+
+[[lessons.exercises]]
+id = "s10-l03-w1"
+type = "write"
+points = 35
+mechanisms = ["collaborator-test-seam", "python-class-statement", "python-init-method", "python-self-parameter", "python-instance-construction", "python-instance-attribute", "python-instance-method", "python-list-literal", "list-append-method", "python-function-call", "python-assert-statement", "python-print-call"]
+prompt = "Write a disposable program with a Ledger that stores notes and records one note, and a Scout that stores a supplied Ledger and delegates mark(note) to it. Construct fresh objects, call mark on west, assert the Ledger notes equal ['west'], then print verified. This is not a Briar Glen artifact."
+expect = "verified"
+solution = '''class Ledger:
+    def __init__(self):
+        self.notes = []
+
+    def record(self, note):
+        self.notes.append(note)
+
+
+class Scout:
+    def __init__(self, ledger):
+        self.ledger = ledger
+
+    def mark(self, note):
+        self.ledger.record(note)
+
+
+ledger = Ledger()
+scout = Scout(ledger)
+scout.mark("west")
+assert ledger.notes == ["west"]
+print("verified")'''
+hint = "Assert the state owned by Ledger after calling through Scout."

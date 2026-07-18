@@ -1,26 +1,47 @@
-# Section s15 — scaffolded by tools/new_tome.py. Replace every TODO.
-# One lesson with one of each core exercise type is shown; author 3-5 lessons per
-# section and 4-6 mixed exercises per lesson (see § sections/<sid>.toml).
 id = "s15"
 codename = "CHAPTER XV // CLOSE WHAT YOU OPEN"
 short = "Close What You Open"
-title = "Enter and Leave a Resource"
-build = "own language-context-resource-cleanup separately and after ordinary failures through with-protocol anatomy, deterministic close behavior, temporary-write replacement, and cleanup-on-error checks applied to the established storage boundary before any runtime resource is acquired."
-brief = "TODO: Phase 3 authors Close What You Open from the approved Arc."
+title = "Close What You Open"
+build = "Own context-managed resource cleanup after ordinary failures through with-protocol anatomy, deterministic close behavior, temporary-write replacement, and cleanup-on-error checks at the established storage boundary."
+brief = '''<p>A save boundary has two jobs. It decides which expected read problems become a no-save result, and it releases every resource it acquires. The earlier storage chapter already made the first decision for a missing or malformed save. This chapter preserves that decision and adds the second responsibility without turning the feature into automatic persistence. You will replace manual close calls with a context-managed lifetime, write new JSON to a neighboring temporary file, and replace the caller-supplied destination only after the temporary write has finished.</p><p>A failure still has a name and still travels outward unless the earlier storage boundary explicitly recovers it. The project remains a package trail, not a Pygame runtime or durable save system. Your focused proof is that a successful replacement restores new player facts, while an interrupted temporary write closes its resource, removes its temporary path, and re-raises the original write error.</p>'''
 
 [proof]
-mode = "run"                       # run | build | guided | package (package only in final section)
-expectedFiles = ["replace-me.txt"] # TODO: source/config files that must exist after this chapter
-runArgs = ["--arcanum-proof", "s15"]
-expect = "TODO: exact deterministic milestone output"
-
-# Media is NEVER authored by the tome AI. When this chapter needs a sprite, sound,
-# music track, font, image, or video, add one or more [[assets]] sourcing guides:
-# [[assets]]
-# id = "player-sprite"
-# kind = "sprite"
-# lesson = "s15-l01"
-# destination = "assets/player.png"
-# sourceGuidance = "Explain how the learner chooses, downloads, renames, and places it."
-# licenseGuidance = "Explain the license/attribution step the learner must perform."
-# sources = [{ label = "Trusted asset library", url = "https://...", license = "..." }]
+mode = "run"
+expectedFiles = ["tests/test_game.py", "briar_glen/__init__.py", "briar_glen/main.py", "briar_glen/domain.py", "briar_glen/storage.py", "tests/test_storage.py"]
+runArgs = ["-m", "pytest", "-q"]
+expect = '''Lantern status for Mira: 10 health, 2 oil, lit=True
+Normalized command: look waystone
+Command words: ['look', 'waystone']
+Pack before trail: ['waystone map', 'rations']
+First packed item: waystone map
+Player health: 10
+Known north gate: True
+Coordinates: (4, 7)
+Turn 1: look waystone
+The waystone points north.
+Turn cleanup: look waystone
+Turn 2: take moonleaf
+Moonleaf packed.
+Turn cleanup: take moonleaf
+Turn 3: rest
+Health restored: 12
+Turn cleanup: rest
+Turn 4: search briar
+Search: thorns
+Search: lantern key
+Lantern key found.
+Turn cleanup: search briar
+Turn 5: sing
+Invalid command: Unknown command: sing
+Turn cleanup: sing
+Turn 6: leave
+Trail closed.
+Turn cleanup: leave
+Turns taken: 6
+Pack after trail: ['waystone map', 'rations', 'moonleaf']
+Snapshot before trail: ['waystone map', 'rations']
+Found lantern key: True
+Path open: False
+Final health: 12
+Completed turns: ['look waystone', 'take moonleaf', 'rest', 'search briar', 'sing', 'leave']'''
+mechanisms = ["terminal-print-working-directory", "terminal-change-directory", "terminal-check-python-version", "venv-create-environment", "venv-activate-environment", "venv-resolve-active-python", "editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file", "python-literal-values", "python-name-binding", "python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators", "python-print-call", "python-string-literal", "python-string-concatenation", "python-f-string", "string-strip-method", "string-lower-method", "string-split-method", "python-list-literal", "python-list-indexing", "list-append-method", "python-dict-literal", "python-dict-key-access", "dict-get-method", "python-set-literal", "python-membership-operators", "set-add-method", "python-tuple-literal", "collection-copy-method", "python-if-statement", "python-elif-clause", "python-else-clause", "python-for-statement", "python-in-loop-target", "python-range-call", "python-while-statement", "python-break-statement", "python-continue-statement", "bounded-loop-invariant", "python-def-statement", "python-function-call", "python-parameters-arguments", "python-return-statement", "pure-function-boundary", "mutating-function-boundary", "pip-install-exact-spec", "pytest-module-invocation", "python-import-statement", "pytest-test-function", "python-assert-statement", "arrange-act-assert", "pytest-failure-location", "red-green-rerun-cycle", "python-exception-types", "python-raise-statement", "python-try-statement", "python-except-clause", "python-else-exception-clause", "exception-recovery-boundary", "exception-propagation", "python-finally-clause", "python-class-statement", "python-init-method", "python-self-parameter", "python-instance-construction", "python-instance-attribute", "python-instance-method", "python-identity-operator", "collaborating-object-responsibility", "constructor-dependency-injection", "object-ownership", "method-delegation", "composition-over-inheritance", "collaborator-test-seam", "terminal-create-package-directories", "python-package-directory", "python-init-module", "python-module-file", "entry-domain-module-separation", "python-module-execution", "prototype-retirement", "python-absolute-import", "python-relative-import", "python-main-name-guard", "python-all-export-list", "module-dependency-direction", "circular-import-traceback", "python-open-call", "text-file-read-method", "text-file-write-method", "text-file-close-method", "text-file-mode", "utf8-text-encoding", "pathlib-path-constructor", "pathlib-path-join-operator", "pathlib-parent-property", "pathlib-cwd-method", "pathlib-home-method", "pathlib-exists-method", "pathlib-mkdir-method", "project-relative-user-data-path", "json-object-schema", "json-supported-values", "json-dumps-function", "json-loads-function", "json-dump-function", "json-load-function", "json-decode-error", "python-with-statement", "python-as-target", "python-context-manager-protocol", "named-temporary-file-call", "os-replace-call", "pathlib-unlink-method"]

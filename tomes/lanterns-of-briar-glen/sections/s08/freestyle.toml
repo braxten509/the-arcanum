@@ -1,36 +1,306 @@
 [freestyle]
-title = "THE WORKING: TODO"
-brief = "TODO: the in-world commission.<ul><li>TODO requirement one (state exact output/tokens)</li><li>TODO requirement two</li></ul>"
-requires = ["s08-phase3-placeholder"]           # TODO: exact ids taught by this/earlier lessons
-reward = 150
-xray = "TODO: the grader's private notes — the specific pitfalls it docks and the style it rewards, truthful to the rubric below."
+title = "THE WORKING: FAILURES WITH NAMES"
+brief = '''<p>Rowan hands you a trail ledger with one rule: a bad command must be visible as a broken rule, not a disguised success. Reopen and save the learner-authored <code>game.py</code> and <code>tests/test_game.py</code>. The project remains one deterministic six-turn text trail; you are adding ordinary exception behavior and its proof, not a second game.</p><ul><li>Keep the existing values, text normalization, inventory and independent snapshot, player-state mapping, discoveries, coordinate, functions, six saved commands, finite indexed turn loop, bounded briar search, and final observations. The normal run must still end with <code>Turns taken: 6</code>, <code>Found lantern key: True</code>, <code>Path open: True</code>, and <code>Final health: 12</code>.</li><li>Author a validation seam that checks the existing allowed command vocabulary before the existing mutating command behavior runs. A valid command must preserve its established route; an invalid text command must raise <code>ValueError</code> before it can change inventory, player state, or discoveries. Do not turn it into a normal fallback inside the validator.</li><li>At the turn-controller boundary, author a narrow <code>try</code>/<code>except</code>/<code>else</code> flow around the existing command call. Recover only the expected <code>ValueError</code> with one deterministic message and a continuing route decision. Keep normal handler results in <code>else</code>. Do not use a bare catch or conceal unrelated defects as player mistakes.</li><li>Give that controller an explicit supplied completion-record collection. Author a <code>finally</code> action that records exactly one completion entry for every attempted command, including one recovered invalid command and a successful command. Keep success-only work out of <code>finally</code>; do not add context managers, files, or resource cleanup yet.</li><li>Extend <code>tests/test_game.py</code> with fresh-state regression checks. Preserve the earlier pure and mutating checks; prove the core invalid-command rejection, the recovered invalid turn’s unchanged game state and continuing decision, and one completion record for both a recovered and a successful turn. Save and read both files, then run <code>python -m pytest -q</code> until it reports <code>5 passed</code>. Run <code>python game.py</code> twice from the external project root with <code>.venv</code> active; both transcripts must match.</li></ul>'''
+requires = ["domain-validation-errors", "recovery-propagation-boundary", "ordinary-finally-cleanup", "language-exception-error-handling", "language-functions-decomposition", "language-test-verification"]
+mechanisms = ["terminal-print-working-directory", "terminal-change-directory", "terminal-check-python-version", "venv-create-environment", "venv-activate-environment", "venv-resolve-active-python", "editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file", "python-literal-values", "python-name-binding", "python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators", "python-print-call", "python-string-literal", "python-string-concatenation", "python-f-string", "string-strip-method", "string-lower-method", "string-split-method", "python-list-literal", "python-list-indexing", "list-append-method", "python-dict-literal", "python-dict-key-access", "dict-get-method", "python-set-literal", "python-membership-operators", "set-add-method", "python-tuple-literal", "collection-copy-method", "python-if-statement", "python-elif-clause", "python-else-clause", "python-for-statement", "python-in-loop-target", "python-range-call", "python-while-statement", "python-break-statement", "python-continue-statement", "bounded-loop-invariant", "python-def-statement", "python-function-call", "python-parameters-arguments", "python-return-statement", "pure-function-boundary", "mutating-function-boundary", "pip-install-exact-spec", "pytest-module-invocation", "python-import-statement", "pytest-test-function", "python-assert-statement", "arrange-act-assert", "pytest-failure-location", "red-green-rerun-cycle", "python-exception-types", "python-raise-statement", "python-try-statement", "python-except-clause", "python-else-exception-clause", "exception-recovery-boundary", "exception-propagation", "python-finally-clause"]
+reward = 210
+xray = "The grader traces each invalid command from validation to recovery and the completion record, then checks the saved tests observe actual seams rather than copied transcript text. It expects ValueError before mutation, a narrow controller catch with normal work in else, honest propagation for unrelated failures, and finally bookkeeping on both recovered and successful turns. Dock bare catches, swallowed defects, altered six-turn order, missing old tests, shared mutable test state, a cleanup action that pretends to be resource management, new paths, input, files, context managers, dependencies beyond pytest, Pygame, or package work. Reward descriptive snake_case names, 4-space indentation, two blank lines between top-level definitions, focused arrange/act/assert spacing, and readable compact lines consistent with PEP 8."
 
-[[freestyle.referenceSteps]]        # hidden from learners; validator replays a real solution
-id = "s08-freestyle-reference"
-path = "replace-me.txt"
+[[freestyle.referenceSteps]]
+id = "s08-rewrite-trail-with-error-boundary"
+path = "game.py"
 mode = "rewrite"
 preserves = "all-active"
-instruction = "TODO: exact private reference edit that satisfies this Working."
-content = '''
-TODO: complete reference content
+mechanisms = ["python-exception-types", "python-raise-statement", "python-try-statement", "python-except-clause", "python-else-exception-clause", "exception-recovery-boundary", "exception-propagation", "python-finally-clause", "python-def-statement", "python-function-call", "python-parameters-arguments", "python-return-statement", "python-if-statement", "python-elif-clause", "python-else-clause", "python-for-statement", "python-range-call", "python-while-statement", "python-break-statement", "python-continue-statement", "python-list-literal", "list-append-method", "python-dict-literal", "python-dict-key-access", "python-set-literal", "set-add-method", "python-membership-operators", "python-print-call", "python-f-string", "pure-function-boundary", "mutating-function-boundary", "bounded-loop-invariant"]
+instruction = "Private replay preserves the six-turn text trail while rejecting invalid commands with ValueError, recovering only at the controller, and recording every completed turn."
+content = '''health = 10
+lantern_oil = 3
+remaining_oil = lantern_oil - 1
+lantern_lit = health > 0 and remaining_oil > 0
+
+traveler_name = "Mira"
+status_lead = "Lantern status for " + traveler_name
+status_line = f"{status_lead}: {health} health, {remaining_oil} oil, lit={lantern_lit}"
+
+raw_command = "  LOOK WAYSTONE  "
+normalized_command = raw_command.strip().lower()
+command_parts = normalized_command.split()
+
+inventory = ["waystone map", "rations"]
+inventory_snapshot = inventory.copy()
+player_state = {"health": health, "title": "Wayfinder"}
+discoveries = {"north gate"}
+camp_coordinate = (4, 7)
+
+def turn_line(turn_number, command):
+    return f"Turn {turn_number}: {command}"
+
+
+def has_lantern_key(trail_discoveries):
+    return "lantern key" in trail_discoveries
+
+
+def validate_command(command):
+    allowed_commands = [
+        "look waystone",
+        "take moonleaf",
+        "rest",
+        "search briar",
+        "leave",
+    ]
+    if command not in allowed_commands:
+        raise ValueError("Unknown command: " + command)
+    return command
+
+
+def show_opening(status, command, parts, pack, state, trail_discoveries, coordinate):
+    print(status)
+    print("Normalized command:", command)
+    print("Command words:", parts)
+    print("Pack before trail:", pack)
+    print("First packed item:", pack[0])
+    print("Player health:", state["health"])
+    print("Unknown camp:", state.get("camp", "unknown"))
+    trail_discoveries.add("north gate")
+    print("Known north gate:", "north gate" in trail_discoveries)
+    print("Coordinates:", coordinate)
+
+
+def search_briar(trail_discoveries):
+    search_marks = ["thorns", "old ribbon", "lantern key", "deep mud"]
+    search_index = 0
+    while search_index < 4:
+        search_mark = search_marks[search_index]
+        search_index = search_index + 1
+        if search_mark == "old ribbon":
+            continue
+        print("Search:", search_mark)
+        if search_mark == "lantern key":
+            trail_discoveries.add("lantern key")
+            print("Lantern key found.")
+            break
+    return has_lantern_key(trail_discoveries)
+
+
+def handle_command(command, pack, state, trail_discoveries):
+    validate_command(command)
+    route_result = {"path_open": False, "keep_traveling": True}
+    if command == "look waystone":
+        trail_discoveries.add("waystone")
+        print("The waystone points north.")
+    elif command == "take moonleaf" and "moonleaf" not in pack:
+        pack.append("moonleaf")
+        print("Moonleaf packed.")
+    elif command == "rest":
+        state["health"] = state["health"] + 2
+        print(f"Health restored: {state['health']}")
+    elif command == "search briar":
+        route_result["path_open"] = search_briar(trail_discoveries)
+    elif command == "leave":
+        print("Trail closed.")
+        route_result["keep_traveling"] = False
+    return route_result
+
+
+def run_turn(command, pack, state, trail_discoveries, completed_commands):
+    try:
+        route_result = handle_command(command, pack, state, trail_discoveries)
+    except ValueError as error:
+        print("Invalid command:", error)
+        return {"path_open": False, "keep_traveling": True}
+    else:
+        return route_result
+    finally:
+        completed_commands.append(command)
+        print("Turn cleanup:", command)
+
+
+commands = [
+    normalized_command,
+    "take moonleaf",
+    "rest",
+    "search briar",
+    "sing",
+    "leave",
+]
+turn_limit = 6
+turns_taken = 0
+path_open = False
+completed_commands = []
+
+show_opening(
+    status_line,
+    normalized_command,
+    command_parts,
+    inventory,
+    player_state,
+    discoveries,
+    camp_coordinate,
+)
+
+for turn_index in range(turn_limit):
+    command = commands[turn_index]
+    turns_taken = turns_taken + 1
+    print(turn_line(turns_taken, command))
+    route_result = run_turn(
+        command,
+        inventory,
+        player_state,
+        discoveries,
+        completed_commands,
+    )
+    path_open = route_result["path_open"]
+    if route_result["keep_traveling"] == False:
+        break
+
+print("Turns taken:", turns_taken)
+print("Pack after trail:", inventory)
+print("Snapshot before trail:", inventory_snapshot)
+print("Found lantern key:", has_lantern_key(discoveries))
+print("Path open:", path_open)
+print("Final health:", player_state["health"])
+print("Completed turns:", completed_commands)
+'''
+
+[[freestyle.referenceSteps]]
+id = "s08-replace-regression-tests"
+path = "tests/test_game.py"
+mode = "replace"
+find = '''from game import handle_command, turn_line
+
+
+def test_turn_line_returns_numbered_command():
+    turn_number = 3
+    command = "rest"
+
+    actual_line = turn_line(turn_number, command)
+
+    assert actual_line == "Turn 3: rest"
+
+
+def test_rest_command_changes_supplied_state_and_keeps_traveling():
+    inventory = []
+    player_state = {"health": 10}
+    discoveries = set()
+
+    route_result = handle_command("rest", inventory, player_state, discoveries)
+
+    assert player_state["health"] == 12
+    assert route_result == {"path_open": False, "keep_traveling": True}
+'''
+mechanisms = ["python-import-statement", "pytest-test-function", "python-assert-statement", "arrange-act-assert", "python-exception-types", "python-try-statement", "python-except-clause", "exception-recovery-boundary", "python-function-call", "python-dict-literal", "python-list-literal", "python-set-literal", "python-dict-key-access", "list-append-method", "mutating-function-boundary", "pure-function-boundary"]
+instruction = "Private replay extends the existing learner-authored test module with invalid-command, recovery, and finally-record regression evidence."
+content = '''from game import handle_command, run_turn, turn_line
+
+
+def test_turn_line_returns_numbered_command():
+    turn_number = 3
+    command = "rest"
+
+    actual_line = turn_line(turn_number, command)
+
+    assert actual_line == "Turn 3: rest"
+
+
+def test_rest_command_changes_supplied_state_and_keeps_traveling():
+    inventory = []
+    player_state = {"health": 10}
+    discoveries = set()
+
+    route_result = handle_command("rest", inventory, player_state, discoveries)
+
+    assert player_state["health"] == 12
+    assert route_result == {"path_open": False, "keep_traveling": True}
+
+
+def test_invalid_command_raises_value_error_before_mutation():
+    inventory = []
+    player_state = {"health": 10}
+    discoveries = set()
+    was_rejected = False
+
+    try:
+        handle_command("sing", inventory, player_state, discoveries)
+    except ValueError:
+        was_rejected = True
+
+    assert was_rejected == True
+    assert inventory == []
+    assert player_state == {"health": 10}
+    assert discoveries == set()
+
+
+def test_invalid_turn_recovers_and_records_completion():
+    inventory = []
+    player_state = {"health": 10}
+    discoveries = set()
+    completed_commands = []
+
+    route_result = run_turn(
+        "sing",
+        inventory,
+        player_state,
+        discoveries,
+        completed_commands,
+    )
+
+    assert route_result == {"path_open": False, "keep_traveling": True}
+    assert inventory == []
+    assert player_state == {"health": 10}
+    assert discoveries == set()
+    assert completed_commands == ["sing"]
+
+
+def test_successful_turn_records_completion():
+    inventory = []
+    player_state = {"health": 10}
+    discoveries = set()
+    completed_commands = []
+
+    route_result = run_turn(
+        "rest",
+        inventory,
+        player_state,
+        discoveries,
+        completed_commands,
+    )
+
+    assert route_result == {"path_open": False, "keep_traveling": True}
+    assert player_state["health"] == 12
+    assert completed_commands == ["rest"]
 '''
 
 [freestyle.badge]
 id = "badge-s08"
-name = "TODO BADGE"
-desc = "TODO: one sentence."
-
-[[freestyle.rubric]]               # weights MUST sum to exactly 100
-criterion = "Compiles & runs"
-weight = 40
-desc = "TODO: build succeeds; runs without crashing on normal input."
+name = "STEADY LANTERN"
+desc = "Made Briar Glen’s invalid turns explicit, recoverable, and accounted for."
 
 [[freestyle.rubric]]
-criterion = "Meets the brief"
-weight = 40
-desc = "TODO: every requirement in the checklist is present and correct."
+criterion = "ValueError Validation Boundary"
+weight = 23
+mechanisms = ["python-exception-types", "python-raise-statement", "exception-propagation", "python-membership-operators"]
+desc = "game.py raises ValueError for an invalid command before the existing handler mutates supplied inventory, player state, or discoveries; valid saved commands preserve their established route behavior."
 
 [[freestyle.rubric]]
-criterion = "Clean style"
-weight = 20
-desc = "TODO: name this language's real naming AND layout conventions (research its style guide)."
+criterion = "Narrow Recovery and Honest Propagation"
+weight = 22
+mechanisms = ["python-try-statement", "python-except-clause", "python-else-exception-clause", "exception-recovery-boundary", "exception-propagation"]
+desc = "Only the turn controller catches the expected ValueError, reports its deterministic fallback, returns a continuing decision, and keeps normal handler results in else without a bare catch or disguised unrelated defect."
+
+[[freestyle.rubric]]
+criterion = "Guaranteed Ordinary Turn Record"
+weight = 18
+mechanisms = ["python-finally-clause", "list-append-method"]
+desc = "The controller’s finally action records exactly one explicit completion entry for both a recovered invalid turn and a successful turn, without claiming file or resource cleanup."
+
+[[freestyle.rubric]]
+criterion = "Focused Regression Evidence"
+weight = 22
+mechanisms = ["pytest-test-function", "python-assert-statement", "arrange-act-assert", "python-exception-types", "python-try-statement", "python-except-clause", "python-finally-clause", "pytest-module-invocation"]
+desc = "tests/test_game.py preserves the earlier pure and stateful checks and adds fresh-state checks for ValueError rejection, recovered unchanged state plus continuing decision, and one completion record on recovered and successful turns; python -m pytest -q reports 5 passed."
+
+[[freestyle.rubric]]
+criterion = "Python Boundary Craft"
+weight = 15
+mechanisms = ["python-def-statement", "pytest-test-function", "editor-edit-file", "editor-save-file"]
+desc = "The saved source and test module use descriptive snake_case function and variable names, four-space indentation, two blank lines between top-level definitions, focused arrange/act/assert spacing, and compact readable PEP 8-style lines."

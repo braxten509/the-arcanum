@@ -14,6 +14,7 @@ from ..course_map import load_course_map
 from ..continuity import (SUPPORTED_HANDOFF_VERSIONS, handoff_digest,
                          handoff_discoveries, handoff_path, read_handoff,
                          validate_handoff)
+from ..prerequisites import records as prerequisite_records
 from arcanum.tomes import resolve_working_tid
 
 
@@ -373,12 +374,17 @@ def record_section_failure(build_id, sid, report):
             os.remove(receipt_path(build_id, affected))
         except OSError:
             pass
-    text = str(report or "deterministic validation failed")[-12000:]
+    full_text = str(report or "deterministic validation failed")
+    text = full_text[-12000:]
+    section_hash = section_digest(tid, sid)
     _atomic_json(failure_path(build_id, sid), {
         "version": 1, "section": sid, "mapDigest": course["digest"],
-        "sectionSha256": section_digest(tid, sid), "report": text,
+        "sectionSha256": section_hash, "report": text,
         "reportSha256": _sha_bytes(text.encode("utf-8")),
     })
+    prerequisite_records.archive_section_failure(
+        os.path.join(REPO, "validator-failures"), build_id, sid, full_text,
+        map_digest=course["digest"], section_sha256=section_hash)
     return derive_course_state(build_id)
 
 

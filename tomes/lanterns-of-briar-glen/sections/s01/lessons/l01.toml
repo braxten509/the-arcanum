@@ -2,154 +2,128 @@
 id = "s01-l01"
 title = "Orient the Real Workspace"
 teaches = ["workspace-orientation", "tool-navigate", "tool-diagnose"]
-introduces = ["terminal-print-working-directory", "terminal-change-directory", "terminal-check-python-version", "terminal-create-project-directory", "terminal-open-session"]
+introduces = ["terminal-print-working-directory", "terminal-change-directory", "terminal-check-python-version"]
 body = '''
-<p>A project begins with a place, not a filename. Open Terminal from the application launcher on Linux or macOS, or open PowerShell from the Start menu on Windows. A command window with a prompt and blinking cursor proves the session is ready. If a browser, editor search box, or Python interactive prompt opens, close it and launch Terminal or PowerShell instead.</p>
-<p>Your terminal always has a <strong>current working directory</strong>: the folder commands treat as “here.” A normally opened terminal starts in your personal home directory, but do not assume that—run <code>pwd</code> and read the path. If it names your own home or another personal folder you control, that existing directory can be the parent for this project. Do not copy a placeholder such as <code>path/to/project</code>: a usable path must identify a directory that already exists. This first trail avoids that guess entirely by creating a child in the printed current directory and then entering the child by its known name. <code>mkdir</code> means “make directory”; the name after it is the new child directory.</p>
+<p>Before the grove has a map, it needs a real place to live. Your <strong>workspace</strong> is the folder you choose for the entire learner-authored project. The terminal has its own current location, called the working directory. A command affects that location unless you give it another path, so a calm first habit is to ask where you are before asking a tool to do work.</p>
 <pre><code data-kind="terminal">pwd
-mkdir lanterns-of-briar-glen
-cd lanterns-of-briar-glen
+</code></pre>
+<p><code>pwd</code> means “print working directory.” It reports a path; it does not create anything. Compare that path with the folder you intended to use. If it is wrong, move the terminal with <code>cd</code>, short for “change directory.” In this disposable example, the folder name is not part of Lanterns of Briar Glen:</p>
+<pre><code data-kind="terminal">cd ~/practice-camp
 pwd
-python --version</code></pre>
-<p>Read that sequence left to right. <code>pwd</code> exposes the existing parent you will use. <code>mkdir lanterns-of-briar-glen</code> creates a child there and is usually silent when it succeeds. Because you just chose that child’s name, <code>cd lanterns-of-briar-glen</code> does not require you to invent a filesystem path: it enters the known child. The final <code>pwd</code> must end with <code>lanterns-of-briar-glen</code>. Finally, <code>python --version</code> asks the interpreter available through your terminal to identify itself. It does not create a source file and it does not install anything.</p>
-<p>If <code>mkdir</code> reports that the directory already exists, inspect that exact target before entering it. From its parent, use <code>ls -A lanterns-of-briar-glen</code> on Linux or macOS, or <code>Get-ChildItem -Force lanterns-of-briar-glen</code> in PowerShell. The command names the target after the inspection command; no listed entries means it is empty, while any names are contents that already exist. If the existing target is not the intended empty project directory, stop rather than overwriting or mixing with it. If an inspection command reports that the target cannot be found, check the spelling and the parent printed by <code>pwd</code>. If <code>cd</code> reports that the just-created child does not exist, stop and compare its name with the preceding <code>mkdir</code> command. If <code>python</code> is not found, try <code>python3 --version</code> on Linux or macOS, or repair the Python installation or launcher before the next lesson. Capture the actual diagnostic in your own notes; the Working will ask you to place only a short observation in a plain-text receipt.</p>
-<div class="callout"><p>Do not make <code>game.py</code>, <code>requirements.txt</code>, or a package while orienting. This trailhead deliberately proves navigation and diagnosis before it asks you to author project material.</p></div>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // A PATH IS EVIDENCE</div><p>A terminal prompt may abbreviate a long path with <code>~</code>. <code>pwd</code> is the reliable witness: it prints the fully resolved location that later commands will use.</p></div>
+</code></pre>
+<p>Read this as two ordered actions: <code>cd</code> receives a folder path and makes it the terminal's new location; the following <code>pwd</code> reports the result. A missing-folder message means the path was typed incorrectly or has not been created yet. Do not guess which location is active—ask again with <code>pwd</code>.</p>
+<p>Next, diagnose the Python command that this terminal can currently find:</p>
+<pre><code data-kind="terminal">python --version
+</code></pre>
+<p><code>python</code> names the command; <code>--version</code> asks it to print its version and exit. This is a diagnostic, not a game program and not an installation. If your system reports that <code>python</code> is unknown, try <code>python3 --version</code>, note the result, and use the spelling that your system provides until the next lesson gives the environment its own interpreter. A version result proves only that a Python command answered; it does not yet prove which Python you will use for the project.</p>
+<div class="callout"><p>Keep your first terminal transcript boring. At this trailhead, location and interpreter identity are the only facts worth proving.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TWO KINDS OF SAFETY</div><p>A path check prevents commands from landing in the wrong folder. A version check prevents you from assuming that an available Python is the one your project will later use. They are small observations with different jobs.</p></div>
 '''
 
 [[lessons.concepts]]
 id = "workspace-orientation"
-purpose = "Identify the exact directory that will hold the learner-owned project."
-anatomy = "Open a terminal, print and identify the existing personal directory, create a named child there, enter that known child, then print the location again."
-example = "The terminal sequence uses the printed starting directory as the parent and enters only the child it just created."
-observable = "The final printed path is the project directory the learner chose."
-failure = "A missing-directory message means the supplied path is wrong or has not been created."
+purpose = "Identify the external folder that will hold the learner-authored project before any project material exists."
+anatomy = "Choose the folder, run pwd, then compare the printed path with the folder you intended."
+example = "The pwd terminal block reports the current folder without changing it."
+observable = "The terminal prints one path that matches the chosen workspace."
+failure = "A surprising path means the terminal is aimed elsewhere; do not create files until pwd reports the intended folder."
 practice = "s01-l01-e1"
 
 [[lessons.concepts]]
 id = "tool-navigate"
-purpose = "Move a terminal session to the intended workspace instead of creating files wherever the shell happened to open."
-anatomy = "Create a child with a known name, use cd with that child name, then confirm the resulting location with pwd."
-example = "After mkdir lantern-practice, cd lantern-practice enters the directory whose name the learner just supplied."
-observable = "Commands after cd operate from the printed project location."
-failure = "If pwd still shows the old location, the directory change did not succeed."
+purpose = "Move a terminal deliberately so later external-tool actions affect the intended folder."
+anatomy = "Type cd, provide a folder path, press Enter, then run pwd to verify the new location."
+example = "The disposable practice-camp example shows cd followed by pwd."
+observable = "The second command prints the folder selected by cd."
+failure = "A no-such-file-or-directory message means the supplied path is not available as written."
 practice = "s01-l01-e2"
 
 [[lessons.concepts]]
 id = "tool-diagnose"
-purpose = "Ask the terminal which Python interpreter command is currently available before relying on it."
-anatomy = "Run python --version and read either its version line or its not-found diagnostic."
-example = "The final terminal line is a behavior-free Python diagnostic."
-observable = "A successful command prints a Python version without making a project file."
-failure = "A command-not-found result signals an installation or launcher-path problem, not a game-code error."
+purpose = "Ask a command-line tool for evidence instead of assuming it is ready."
+anatomy = "Invoke python and attach the --version option so it reports identity information and exits."
+example = "The python --version terminal block is the complete diagnostic example."
+observable = "Python prints a version or the terminal reports that the command name is unavailable."
+failure = "An unavailable-command message is evidence to record and investigate, not a reason to invent a project file."
 practice = "s01-l01-e3"
 
 [[lessons.concepts]]
 id = "terminal-print-working-directory"
-purpose = "Print the terminal location before a project command depends on it."
-anatomy = "Enter pwd and read the one path it returns."
-example = "The first and third lines of the terminal sequence use pwd."
-observable = "The terminal prints the current directory path."
-failure = "An unexpected path means the terminal opened somewhere other than the intended workspace."
+purpose = "Make the terminal reveal the folder that its next relative-path command will use."
+anatomy = "Run pwd before a file-creating command and compare its one-line path with the intended workspace."
+example = "The first terminal block contains pwd by itself."
+observable = "The terminal prints the current working-directory path without creating a file."
+failure = "If the printed path is unexpected, stop and navigate before creating material."
 practice = "s01-l01-e1"
 
 [[lessons.concepts]]
 id = "terminal-change-directory"
-purpose = "Move the terminal into a directory whose location is already known to exist."
-anatomy = "Enter cd followed by the name of the child just created in the current directory, then confirm with pwd."
-example = "After mkdir lantern-practice, cd lantern-practice enters that known child without a placeholder path."
-observable = "The following pwd reports the selected directory."
-failure = "A no-such-file message identifies a path that needs correction."
+purpose = "Set the current terminal location deliberately before later commands use relative paths."
+anatomy = "Run cd with a folder path, then follow it with pwd to prove the new location."
+example = "The disposable cd ~/practice-camp example changes location before its second pwd."
+observable = "The confirming pwd reports the directory named by the successful change-directory action."
+failure = "A missing-directory diagnostic means correct or create the intended folder outside this lesson's artifact work."
 practice = "s01-l01-e2"
 
 [[lessons.concepts]]
 id = "terminal-check-python-version"
-purpose = "Ask the available Python command to report its version."
-anatomy = "Enter python followed by the --version option."
-example = "The final terminal line is the version diagnostic."
-observable = "Python prints its version or reports that the command is unavailable."
-failure = "A not-found result is an environment or installation issue to repair before continuing."
+purpose = "Ask the Python command for a small identity diagnostic before trusting it for project work."
+anatomy = "Invoke python with --version and read the version or unavailable-command diagnostic it returns."
+example = "The final terminal block uses python --version."
+observable = "The terminal prints a Python version or a concrete command-resolution failure."
+failure = "If the command is unavailable, record the exact result and use the system's available spelling while investigating."
 practice = "s01-l01-e3"
-
-[[lessons.concepts]]
-id = "terminal-create-project-directory"
-purpose = "Create the learner-owned project directory before any project artifact exists."
-anatomy = "Enter mkdir followed by the new child-directory name while the terminal is in the printed parent; if the target already exists, inspect it with ls -A on Linux/macOS or Get-ChildItem -Force in PowerShell before entering it."
-example = "From a disposable parent, mkdir lantern-practice creates a child named lantern-practice."
-observable = "Creation returns without error and entering the child makes pwd end with its name; inspection of an empty existing target lists no entries."
-failure = "If the name already exists and inspection lists contents, stop rather than overwriting or mixing with that directory."
-practice = "s01-l01-e4"
-
-[[lessons.concepts]]
-id = "terminal-open-session"
-purpose = "Open the operating-system command interface where workspace commands run."
-anatomy = "Use the application launcher for Terminal on Linux or macOS, or the Start menu for PowerShell on Windows, then type at its prompt."
-example = "Open Terminal or PowerShell and use pwd as a harmless orientation command."
-observable = "A command window shows a prompt and cursor, and pwd prints a filesystem path."
-failure = "A browser, editor search box, or Python prompt is the wrong interface; close it and open Terminal or PowerShell."
-practice = "s01-l01-e1"
 
 [[lessons.artifactSteps]]
 id = "s01-l01-orient-workspace"
 path = "toolchain-check.txt"
 mode = "author"
-instruction = "Do not create the receipt yet. Open Terminal or PowerShell, identify the printed current directory as an existing personal parent you control, create and enter the project child that will eventually contain toolchain-check.txt, then verify the location and available Python before any project file exists. If that target name already exists, inspect its contents with the taught command for your shell and stop unless it is the intended empty project directory."
-checks = ["The operating-system command interface is open and its printed current directory identifies an existing personal parent.", "A newly created child is entered by its known name, or an existing target is inspected and confirmed empty before entry; the final directory ends with lanterns-of-briar-glen.", "The Python version diagnostic either prints a version or gives a concrete installation/launcher issue to resolve."]
-mechanisms = ["terminal-print-working-directory", "terminal-change-directory", "terminal-check-python-version", "terminal-create-project-directory", "terminal-open-session"]
+mechanisms = ["terminal-print-working-directory", "terminal-change-directory", "terminal-check-python-version"]
+instruction = "Before creating the receipt in l03, use the terminal to arrive at your chosen external project folder. Run a working-directory check, correct the location with a change-directory action if needed, then run a Python version diagnostic. Do not create this path or any project material yet."
+checks = ["pwd reports the chosen external project folder.", "A Python version diagnostic produces either a version observation or a specific unavailable-command diagnostic."]
 
 [[lessons.readings]]
-label = "Python documentation: using Python on Unix platforms"
-url = "https://docs.python.org/3/using/unix.html"
+label = "Python command-line reference"
+url = "https://docs.python.org/3/using/cmdline.html"
 
 [[lessons.exercises]]
 id = "s01-l01-e1"
 type = "mc"
-points = 15
-prompt = "Which first-use sequence opens and checks the correct command interface?"
-choices = ["Open Terminal or PowerShell from the operating-system launcher, type pwd at its prompt, and read the path.", "Open a browser and type pwd into its address bar.", "Open a Python interactive prompt and type pwd as Python code.", "Open a word processor and type pwd into a document."]
-answer = 0
-whyWrong = "Browser fields, Python prompts, and documents do not execute operating-system workspace commands."
-hint = "Choose the interface that presents an operating-system command prompt."
-explain = "Terminal or PowerShell supplies the prompt where pwd can report the current directory."
-mechanisms = ["terminal-open-session", "terminal-print-working-directory"]
+points = 18
+mechanisms = ["terminal-print-working-directory"]
+prompt = "You have opened a terminal but cannot tell whether it points at your new project folder. Which command gives that evidence without changing any files?"
+choices = ["cd", "pwd", "python --version", "mkdir"]
+answer = 1
+whyWrong = "Changing directories may be useful later, but it does not first report the current location. A version diagnostic identifies Python, not the terminal's folder; mkdir would create material before the location is proved."
+hint = "Choose the command whose name expands to print working directory."
+explain = "pwd reports the terminal's current working directory."
 
 [[lessons.exercises]]
 id = "s01-l01-e2"
-type = "type"
+type = "text"
 points = 20
-reps = 2
-prompt = "Retype the sequence that creates a disposable child in the current directory and then enters that known child."
-code = '''mkdir lantern-practice
-cd lantern-practice'''
-mechanisms = ["terminal-create-project-directory", "terminal-change-directory"]
+mechanisms = ["terminal-change-directory", "terminal-print-working-directory"]
+prompt = "After a location check shows the wrong folder, what terminal command family changes the working directory before you verify it again?"
+answer = "cd"
+whyWrong = "The task is to move the terminal's current location. A reporting command can confirm the move, but it cannot make it."
+hint = "Use the two-letter abbreviation for change directory."
+
+[[lessons.exercises]]
+id = "s01-l01-e3"
+type = "fill"
+points = 22
+mechanisms = ["terminal-check-python-version"]
+prompt = "Complete the diagnostic so Python reports its installed version and then exits."
+code = "python ____"
+answer = "--version"
+whyWrong = "A bare command starts Python interactively; the two-hyphen option asks it to print identity information instead."
+hint = "Use the option with two hyphens that names the information you want."
 
 [[lessons.exercises]]
 id = "s01-l01-d1"
 type = "type"
 points = 12
 reps = 2
-prompt = "Retype this diagnostic exactly."
-code = 'python --version'
-mechanisms = ["terminal-check-python-version"]
-
-[[lessons.exercises]]
-id = "s01-l01-e3"
-type = "fill"
-points = 20
-prompt = "Complete the terminal command that asks the currently resolved interpreter to report its version."
-code = 'python ____'
-answer = "--version"
-hint = "Use the double-hyphen option that names the information you want."
-mechanisms = ["terminal-check-python-version"]
-
-[[lessons.exercises]]
-id = "s01-l01-e4"
-type = "mc"
-points = 30
-prompt = "A target named lantern-practice already exists. Which pair safely inspects that exact directory before you decide whether it is empty?"
-choices = ["Linux/macOS: python lantern-practice; PowerShell: python lantern-practice", "Linux/macOS: ls -A lantern-practice; PowerShell: Get-ChildItem -Force lantern-practice", "Both: create project files inside it and inspect later", "Both: overwrite the directory without reading it"]
-answer = 1
-whyWrong = "Running Python does not list directory contents, and writing or overwriting before inspection can damage or mix with existing work."
-hint = "Choose the commands that list even normally hidden entries in the named target."
-explain = "The shell-specific listing commands reveal whether the existing target already contains anything."
-mechanisms = ["terminal-create-project-directory"]
+mechanisms = ["terminal-print-working-directory"]
+prompt = "Retype the location diagnostic exactly before you use it in your own terminal."
+code = "pwd"

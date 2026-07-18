@@ -1,36 +1,61 @@
 [freestyle]
-title = "THE WORKING: TODO"
-brief = "TODO: the in-world commission.<ul><li>TODO requirement one (state exact output/tokens)</li><li>TODO requirement two</li></ul>"
-requires = ["s03-phase3-placeholder"]           # TODO: exact ids taught by this/earlier lessons
+title = "THE WORKING: WORDS ON THE WAYSTONE"
+brief = '''<p>Rowan needs the first readable marker, wayfinder. Reopen the learner-authored <code>game.py</code> in the external project root and extend it without replacing the carried-forward health, oil, arithmetic, comparison, Boolean, or observable-state contract.</p><ul><li>Add named string state for a traveler and status lead. Construct the lead by joining text, then use an f-string to make one status line from the existing health, remaining oil, and lit decision.</li><li>Add separate fixed trail-order text with outer spaces and uppercase letters. Derive normalized command text by removing its outer whitespace and lowercasing it, then derive named command pieces by splitting the normalized text.</li><li>Read the saved file and run <code>python game.py</code> with <code>.venv</code> active. Output must be exactly <code>Lantern status for Mira: 10 health, 2 oil, lit=True</code>, then <code>look waystone</code>, then <code>['look', 'waystone']</code>, one line each.</li><li>Do not add keyboard input, arguments, branches, loops, functions, collection operations, files, dependencies, Pygame, package material, or new project paths.</li></ul>'''
+requires = ["status-text-construction", "command-normalization", "command-token-parsing", "language-strings-text", "language-values-expressions-data"]
+mechanisms = ["terminal-print-working-directory", "terminal-change-directory", "terminal-check-python-version", "venv-create-environment", "venv-activate-environment", "venv-resolve-active-python", "editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file", "python-literal-values", "python-name-binding", "python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators", "python-print-call", "python-string-literal", "python-string-concatenation", "python-f-string", "string-strip-method", "string-lower-method", "string-split-method"]
 reward = 150
-xray = "TODO: the grader's private notes — the specific pitfalls it docks and the style it rewards, truthful to the rubric below."
+xray = "Look for a learner-authored extension, not copied lesson code. The status joins text and interpolates named prior state; a distinct fixed command is stripped, lowercased, and split after normalization. Confirm the exact transcript and no premature input, control flow, functions, collection manipulation, dependencies, Pygame, package, file, or persistence behavior."
 
-[[freestyle.referenceSteps]]        # hidden from learners; validator replays a real solution
-id = "s03-freestyle-reference"
-path = "replace-me.txt"
-mode = "rewrite"
-preserves = "all-active"
-instruction = "TODO: exact private reference edit that satisfies this Working."
-content = '''
-TODO: complete reference content
+[[freestyle.referenceSteps]]
+id = "s03-extend-game-with-waystone-text"
+path = "game.py"
+mode = "replace"
+mechanisms = ["python-literal-values", "python-name-binding", "python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators", "python-print-call", "python-string-literal", "python-string-concatenation", "python-f-string", "string-strip-method", "string-lower-method", "string-split-method"]
+instruction = "Private replay extends the learner-authored source with the section's text construction, normalization, parsing, and exact transcript."
+find = '''health = 10
+lantern_oil = 3
+remaining_oil = lantern_oil - 1
+lantern_lit = health > 0 and remaining_oil > 0
+
+print(health, remaining_oil, lantern_lit)
+'''
+content = '''health = 10
+lantern_oil = 3
+remaining_oil = lantern_oil - 1
+lantern_lit = health > 0 and remaining_oil > 0
+
+traveler_name = "Mira"
+status_lead = "Lantern status for " + traveler_name
+status_line = f"{status_lead}: {health} health, {remaining_oil} oil, lit={lantern_lit}"
+
+raw_command = "  LOOK WAYSTONE  "
+normalized_command = raw_command.strip().lower()
+command_parts = normalized_command.split()
+
+print(status_line)
+print(normalized_command)
+print(command_parts)
 '''
 
 [freestyle.badge]
 id = "badge-s03"
-name = "TODO BADGE"
-desc = "TODO: one sentence."
-
-[[freestyle.rubric]]               # weights MUST sum to exactly 100
-criterion = "Compiles & runs"
-weight = 40
-desc = "TODO: build succeeds; runs without crashing on normal input."
+name = "WAYSTONE READER"
+desc = "Turned lantern state and one trail order into inspectable text."
 
 [[freestyle.rubric]]
-criterion = "Meets the brief"
-weight = 40
-desc = "TODO: every requirement in the checklist is present and correct."
+criterion = "Constructed Status Text"
+weight = 35
+mechanisms = ["python-string-literal", "python-string-concatenation", "python-f-string", "python-name-binding", "python-print-call"]
+desc = "game.py keeps earlier state, joins a named string lead with traveler text, and uses an f-string to report named health, remaining oil, and lit state in the required first line."
 
 [[freestyle.rubric]]
-criterion = "Clean style"
-weight = 20
-desc = "TODO: name this language's real naming AND layout conventions (research its style guide)."
+criterion = "Normalized and Parsed Command"
+weight = 35
+mechanisms = ["python-string-literal", "string-strip-method", "string-lower-method", "string-split-method", "python-name-binding", "python-print-call"]
+desc = "A distinct fixed command contains outer whitespace and uppercase letters; named derived text strips, lowercases, and splits it before the required second and third observations are printed."
+
+[[freestyle.rubric]]
+criterion = "Saved Source Evidence"
+weight = 30
+mechanisms = ["editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file", "python-print-call"]
+desc = "Saved learner-authored game.py prints the complete three-line transcript exactly with the active environment and contains no premature future-stage behavior."

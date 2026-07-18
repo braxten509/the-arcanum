@@ -1,84 +1,129 @@
 [[lessons]]
 id = "s08-l01"
 title = "Name Invalid State"
-teaches = ["s08-phase3-placeholder"]            # TODO: stable kebab-case capabilities this lesson teaches
+teaches = ["domain-validation-errors"]
+introduces = ["python-exception-types", "python-raise-statement"]
 body = '''
-<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
-<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
-<p>TODO: an optional deeper-cut appendix.</p></div>
+<p>The trail already has named functions and tests, but its unknown-command branch treats every bad request as ordinary travel. That loses useful information. A command that is not part of the trail’s allowed vocabulary is not a successful route with an unusual print; it is <strong>invalid state at a domain boundary</strong>. Python represents that distinction with an exception.</p>
+<pre><code data-kind="runnable">def require_lit(lantern_is_lit):
+    if lantern_is_lit == False:
+        raise ValueError("lantern is unlit")
+    return "trail may continue"
+
+
+print(require_lit(True))
+</code></pre>
+<p><code>ValueError</code> is Python’s ordinary exception type for an unacceptable value. The message explains the local rule without choosing a game route. A later <code>raise</code> stops the normal path instead of returning a pretend success value.</p>
+<p>Read <code>raise ValueError("lantern is unlit")</code> from left to right: <code>raise</code> stops the ordinary path, the type says the value is unacceptable, and the text records the local reason. Nothing after that raise in the same call runs. The valid branch returns the usual result, so callers can still use a normal returned value when the precondition holds. Do not use an exception to choose between normal routes such as rest and search; those are already valid commands. Use it when a caller crosses a rule the command layer cannot accept.</p>
+<p>For Briar Glen, make the allowed commands explicit in a validation helper before the mutating command handler acts. Raise <code>ValueError</code> for an unknown saved command with a useful reason. Keep that validation limited to the command-vocabulary rule; unrelated failures must not be relabeled as a player typo. The handler will initially let the ordinary failure travel upward; the next lesson decides where recovery belongs.</p>
+<p>Run the existing tests before and after the change. Add a focused regression check that proves the validator rejects an invalid command with <code>ValueError</code>, while the earlier pure and stateful promises remain intact. The example is disposable. Your learner-authored allowed vocabulary, error text, and tests belong in the Working, not in this lesson.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // A FAILURE SHOULD SAY WHAT RULE BROKE</div><p>A broad fallback message can hide whether spelling, type, or game rule failed. An ordinary exception and its message preserve that distinction for the boundary that will decide what to do next.</p></div>
 '''
 
-[[lessons.concepts]]                # one complete first-use proof for every `teaches` id
-id = "s08-phase3-placeholder"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
-practice = "s08-l01-e1"
+[[lessons.concepts]]
+id = "domain-validation-errors"
+purpose = "Reject a value that crosses a domain rule with an ordinary failure before state can change."
+anatomy = "Define the allowed state, test the incoming value before mutation, and raise ValueError with a useful reason when the rule does not hold."
+example = "require_lit rejects the disposable unlit state instead of returning a false success route."
+observable = "A valid lantern prints trail may continue; an unlit lantern stops ordinary return flow with ValueError."
+failure = "Treating an invalid command as an ordinary route makes callers unable to distinguish a bad request from normal game behavior."
+practice = "s08-l01-w1"
 
-[[lessons.artifactSteps]]           # visible work order; never reveal canonical implementation
-id = "s08-l01-project-step"
-path = "replace-me.txt"
-mode = "author"                    # learner authors this path; hidden referenceSteps replay it
-instruction = "TODO: exact path, behavior, constraints, commands, and diagnostics—no solution."
-checks = ["TODO: specific observable result the learner can run or inspect."]
+[[lessons.concepts]]
+id = "python-exception-types"
+purpose = "Use the built-in ValueError name to identify an unacceptable value at a validation boundary."
+anatomy = "Write ValueError after raise, provide a parenthesized text reason, and place it in the invalid branch before mutation."
+example = "raise ValueError(\"lantern is unlit\") identifies the disposable lantern-rule failure."
+observable = "ValueError and its reason appear when that failure is raised instead of blending into a generic successful route."
+failure = "Using a generic success value for a rule violation erases the reason a caller needs to recover or report it."
+practice = "s08-l01-e2"
 
-[[lessons.readings]]               # optional: 1-2 high-quality official docs
-label = "TODO: official docs"
-url = "https://example.com/TODO"
+[[lessons.concepts]]
+id = "python-raise-statement"
+purpose = "Stop normal execution and signal a specific failure when a required rule is not met."
+anatomy = "Write raise, construct the selected exception type with an explanatory text value, and place it in the invalid branch before any unsafe action."
+example = "raise ValueError(\"lantern is unlit\") ends the invalid disposable branch."
+observable = "The valid call returns its text; the invalid call does not continue to a normal result."
+failure = "Putting the raise after a mutation lets invalid state change the project before the boundary reports it."
+practice = "s08-l01-e3"
+
+[[lessons.artifactSteps]]
+id = "s08-l01-name-command-validation"
+path = "game.py"
+mode = "author"
+mechanisms = ["python-exception-types", "python-raise-statement", "python-if-statement", "python-membership-operators", "python-def-statement", "python-return-statement", "editor-edit-file", "editor-save-file", "terminal-read-saved-file"]
+instruction = "In learner-authored game.py, author a validation helper that checks command text before the current mutating handler changes inventory, player state, or discoveries; make valid commands continue through the existing behavior and make an invalid command raise ValueError with a useful reason. Keep unrelated failures visible rather than relabeling them as an unknown command. Save and read the source, then extend tests/test_game.py with a focused fresh-state regression check that proves the invalid command is rejected while the two earlier checks still express their existing promises. Do not recover the error, add input, change the six command order, modules, files, dependencies, Pygame, or another path."
+checks = ["The validation boundary rejects an invalid text command with ValueError before a mutating route can change supplied state.", "The saved pytest suite contains the earlier two behavioral checks plus a focused invalid-command regression check."]
+
+[[lessons.readings]]
+label = "Python documentation: errors and exceptions"
+url = "https://docs.python.org/3/tutorial/errors.html"
+
+[[lessons.exercises]]
+id = "s08-l01-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["python-exception-types"]
+prompt = "Retype this disposable invalid-value branch exactly."
+code = '''if gate_is_closed:
+    raise ValueError("gate is closed")'''
 
 [[lessons.exercises]]
 id = "s08-l01-e1"
 type = "mc"
-points = 15
-prompt = "TODO: a multiple-choice question?"
-choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
-answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
-whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
-hint = "TODO: an exercise-specific hint."
-explain = "TODO: shown after solving."
+points = 18
+mechanisms = ["python-exception-types"]
+prompt = "A supplied command is text but is not in the game’s allowed command list. Which failure best communicates that rule?"
+choices = ["Return a successful rest result", "Raise ValueError with an explanation", "Convert the command to an empty list", "Print a warning and mutate inventory anyway"]
+answer = 1
+whyWrong = "A successful result hides the violation, conversion changes the input shape without explaining the rule, and a print plus mutation lets invalid state affect the game. ValueError preserves the reason before mutation."
+hint = "Choose the option that says both that the command is invalid and what category of rule rejected it."
+explain = "ValueError gives the recovery boundary a precise signal instead of pretending the request was a normal route."
 
 [[lessons.exercises]]
 id = "s08-l01-e2"
-type = "text"
+type = "fill"
 points = 20
-prompt = "TODO: a free-text question."
-answer = "TODO"
-# accept = ["TODO alternate"]      # optional true alternates only
-hint = "TODO: an exercise-specific hint."
+mechanisms = ["python-exception-types"]
+prompt = "Complete the disposable invalid branch with Python’s built-in exception type for an unacceptable value."
+code = '''if map_name == "":
+    raise ____("map name is missing")'''
+answer = "ValueError"
+hint = "Use the built-in exception type for an unacceptable value."
 
 [[lessons.exercises]]
 id = "s08-l01-e3"
 type = "fill"
 points = 20
-prompt = "TODO: fill the blank."
-code = 'answer = ____'             # the ____ marks where the answer goes
-answer = "TODO"
-hint = "TODO: an exercise-specific hint."
+mechanisms = ["python-raise-statement"]
+prompt = "Complete the disposable invalid branch so it signals the unacceptable value."
+code = '''if token == "":
+    ____ ValueError("token is empty")'''
+answer = "raise"
+hint = "Use the statement that stops the ordinary path with an exception."
 
 [[lessons.exercises]]
-id = "s08-l01-d1"
-type = "type"                      # typing drill: retype the code; no point decay
-points = 12
-reps = 2
-prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
-code = 'print("TODO")'
+id = "s08-l01-e4"
+type = "text"
+points = 18
+mechanisms = ["python-raise-statement"]
+prompt = "Why should a command validator raise before calling a helper that mutates a supplied inventory or discovery set?"
+answer = "So invalid input cannot change state before the failure is reported"
+hint = "Compare the order of validation and a state-changing action."
 
 [[lessons.exercises]]
 id = "s08-l01-w1"
-type = "write"                     # CODE LAB: runs on the real runtime; no point decay
-points = 30
-prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
-# starter = '''
-# TODO: prefilled editor code / the exercise's data
-# '''
-expect = '''
-TODO EXACT OUTPUT'''
-# REQUIRED before shipping: a complete program that passes. Never shown to the
-# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
-# solution = '''
-# TODO
-# '''
-hint = "TODO: an exercise-specific hint."
+type = "write"
+points = 35
+mechanisms = ["python-exception-types", "python-raise-statement", "python-def-statement", "python-if-statement", "python-return-statement", "python-function-call", "python-print-call", "python-boolean-operators"]
+prompt = "Write a disposable program that defines sip_allowed(has_water), raises ValueError with the text flask is empty when has_water is False, otherwise returns sip allowed, then calls and prints sip_allowed(True). Produce exactly the output below. This is not a Briar Glen artifact."
+expect = "sip allowed"
+solution = '''def sip_allowed(has_water):
+    if has_water == False:
+        raise ValueError("flask is empty")
+    return "sip allowed"
+
+
+print(sip_allowed(True))'''
+hint = "Put raise ValueError in the false branch, and return the ordinary result after that branch."

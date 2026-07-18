@@ -10,23 +10,29 @@ import time
 import urllib.error
 import urllib.request
 
-from .. import BUILD_DIR, REPO
+from .. import BUILD_DIR, REPO, VALIDATOR_FAILURE_DIR
+from ..status_log import emit_status_line
 from ..runtime.agent_runtime import scoped_runner_command
+from ..runtime.events import assistant_text, session_id_from_line, usage_from_line
 from ..course.alignment import actual_lesson_id
 from ..course_map import load_course_map
 from .prompt import (DYNAMIC_MARKER,
                                   format_repair_prompt as _format_repair_prompt,
                                   prerequisite_prompt as _prompt,
                                   result_schema as _result_schema)
+from . import records as _records
+from .result import (FINDING_KEYS, RESULT_KEYS,
+                     actionable_failure as _actionable_failure,
+                     extract_json as _extract_json,
+                     validate as _validate,
+                     validate_detailed as _validate_detailed)
 from ..workflow.prompts import START_PACING
 from ..runtime.runners import author_runner
 from arcanum.tomes import resolve_working_tid
 
 
-RESULT_KEYS = {"outcome", "citations", "reasons", "missingMechanisms"}
-FINDING_KEYS = {"id", "label", "kind", "owner", "demands"}
 MAX_SECTION_PACKET_CHARS = 200_000
-AUDIT_CONTRACT_VERSION = 3
+AUDIT_CONTRACT_VERSION = 5
 RESPONSES_URL = "https://api.openai.com/v1/responses"
 API_TIMEOUT_SECONDS = 900
 API_MAX_OUTPUT_TOKENS = 2_500
@@ -37,15 +43,15 @@ def result_path(build_id, sid):
 
 
 def calls_path(build_id):
-    return os.path.join(BUILD_DIR, f"{build_id}.prerequisite-review.calls.jsonl")
+    return _records.calls_path(BUILD_DIR, build_id)
+
+
+def validator_failure_dir(build_id):
+    return _records.failure_dir(VALIDATOR_FAILURE_DIR, build_id)
 
 
 def review_call_count(build_id):
-    try:
-        with open(calls_path(build_id), encoding="utf-8") as handle:
-            return sum(1 for line in handle if line.strip())
-    except OSError:
-        return 0
+    return _records.review_call_count(BUILD_DIR, build_id)
 
 
 def _read(path, default=None):
@@ -119,17 +125,16 @@ def section_evidence_packet(build_id, section):
     performances = [item for item in (course.get("languageMastery") or {}).get(
         "performances", []) if item.get("workingId") in performance_ids]
     mechanism_contract = course.get("mechanismContract")
+    section_order = {item.get("id"): index
+                     for index, item in enumerate(course.get("sections") or [])}
+    current_index = section_order.get(section.get("id"), -1)
+    records = list((mechanism_contract or {}).get("mechanisms") or [])
+    available = [item for item in records if section_order.get(
+        str(item.get("owner") or "").split(".", 1)[0], 999) <= current_index]
+    future = [[item.get("id"), item.get("owner")] for item in records
+              if item not in available]
     if isinstance(mechanism_contract, dict):
-        section_order = {item.get("id"): index
-                         for index, item in enumerate(course.get("sections") or [])}
-        current_index = section_order.get(section.get("id"), -1)
-        mechanism_contract = {
-            **mechanism_contract,
-            "mechanisms": [item for item in mechanism_contract.get("mechanisms") or []
-                           if section_order.get(
-                               str(item.get("owner") or "").split(".", 1)[0], 999)
-                           <= current_index],
-        }
+        mechanism_contract = {**mechanism_contract, "mechanisms": available}
     packet = json.dumps({
         "mapVersion": 1,
         "section": section,
@@ -139,6 +144,8 @@ def section_evidence_packet(build_id, section):
         "mechanismContract": mechanism_contract,
         "sources": sources,
     }, ensure_ascii=False, sort_keys=True, indent=2)
+    packet += ("\n\n===== SEALED FUTURE MECHANISM INDEX [id, owner] =====\n"
+               + json.dumps(future, ensure_ascii=False, separators=(",", ":")))
     packet += "\n\n" + "\n\n".join(source_blocks)
     if len(packet) > MAX_SECTION_PACKET_CHARS:
         raise ValueError(
@@ -147,26 +154,19 @@ def section_evidence_packet(build_id, section):
     return packet, sources
 
 
-def _extract_json(raw):
-    if isinstance(raw, dict):
-        return raw
-    text = str(raw or "").strip()
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        matches = re.findall(r"\{(?:[^{}]|\{[^{}]*\})*\}", text, re.S)
-        for candidate in reversed(matches):
-            try:
-                return json.loads(candidate)
-            except json.JSONDecodeError:
-                continue
-    return None
-
-
 def _cli_adapter(prompt, validator):
     spec = f"{validator['kind']}:{validator['model']}" + (
         f"@{validator['effort']}" if validator.get("effort") else "")
     display, command, input_mode = author_runner(spec, "--validator-ai")
+    kind = str(validator.get("kind") or "")
+    if kind == "codex-cli":
+        position = command.index("-") if "-" in command else len(command)
+        command[position:position] = ["--json"]
+    elif kind == "claude-cli":
+        command += ["--output-format", "stream-json", "--verbose"]
+    elif kind == "opencode-cli":
+        position = command.index("run") + 1
+        command[position:position] = ["--format", "json"]
     if input_mode == "arg":
         command = [*command, prompt]
     wrapped = scoped_runner_command(display, command, REPO, [], REPO)
@@ -175,7 +175,21 @@ def _cli_adapter(prompt, validator):
         capture_output=True, text=True, timeout=900)
     if process.returncode:
         raise RuntimeError(f"validator process exited {process.returncode}")
-    return process.stdout, {"transport": "cli", "model": validator["model"], "usage": None}
+    answers, usage, session_id = [], None, ""
+    for line in process.stdout.splitlines():
+        answer = assistant_text(line)
+        if answer:
+            answers.append(answer)
+        observed = usage_from_line(line)
+        if observed:
+            usage = observed
+        if not session_id:
+            session_id = session_id_from_line(line)
+    return ("\n".join(answers) if answers else process.stdout), {
+        "transport": "cli", "kind": kind, "model": validator["model"],
+        "effort": validator.get("effort", ""), "usage": usage,
+        "sessionId": session_id,
+    }
 
 
 def _response_text(response):
@@ -268,7 +282,8 @@ def _api_adapter(prompt, validator, key=None):
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
         raise RuntimeError(f"Responses API request failed: {exc}") from exc
     return _response_text(value), {
-        "transport": "responses-api", "model": validator["model"], "usage": _usage(value),
+        "transport": "responses-api", "kind": "openai-api",
+        "model": validator["model"], "effort": effort, "usage": _usage(value),
         "responseId": str(value.get("id") or ""),
     }
 
@@ -283,116 +298,23 @@ def _default_adapter(prompt, validator):
     return _cli_adapter(prompt, validator)
 
 
-def _validate_detailed(raw, sources, sid):
-    value = _extract_json(raw)
-    failures = []
-    if not isinstance(value, dict) or set(value) != RESULT_KEYS:
-        failures.append(f"response keys must be exactly {sorted(RESULT_KEYS)}")
-        value = value if isinstance(value, dict) else {}
-    outcome = value.get("outcome")
-    if outcome not in ("PASS", "FAIL", "UNCERTAIN"):
-        failures.append("outcome must be PASS, FAIL, or UNCERTAIN")
-        outcome = "FAIL"
-    expected = {(item["path"], item["node"]) for item in sources}
-    citations, cited = value.get("citations"), set()
-    if not isinstance(citations, list):
-        failures.append("citations must be an array")
-        citations = []
-    for citation in citations:
-        if not isinstance(citation, dict) or set(citation) != {"path", "node"}:
-            failures.append("each citation must contain exactly path and node")
-            continue
-        pair = (citation.get("path"), citation.get("node"))
-        if pair not in expected:
-            failures.append("citation is outside the bounded section packet")
-        else:
-            cited.add(pair)
-    if outcome == "PASS" and cited != expected:
-        failures.append("PASS must cite every sealed section node")
-    reasons = value.get("reasons")
-    if (not isinstance(reasons, list) or not reasons
-            or any(not isinstance(reason, str) or not reason.strip() for reason in reasons)):
-        failures.append("reasons must be a non-empty string array")
-        reasons = []
-    findings = value.get("missingMechanisms")
-    if not isinstance(findings, list):
-        failures.append("missingMechanisms must be an array")
-        findings = []
-    valid_nodes = {item["node"] for item in sources}
-    valid_lessons = {node for node in valid_nodes if ".l" in node}
-    cleaned = []
-    for finding in findings:
-        if not isinstance(finding, dict) or set(finding) != FINDING_KEYS:
-            failures.append("each missing mechanism must contain id, label, kind, owner, demands")
-            continue
-        demands = finding.get("demands")
-        if (finding.get("owner") not in valid_lessons or not isinstance(demands, list)
-                or not demands or any(demand not in valid_nodes for demand in demands)):
-            failures.append("missing mechanism owner/demands must name current sealed nodes")
-            continue
-        cleaned.append(finding)
-    if outcome == "PASS" and findings:
-        failures.append("PASS cannot contain missing mechanisms")
-    if failures:
-        outcome = "FAIL"
-        reasons = [*reasons, *failures]
-    return ({"status": outcome, "citations": citations, "reasons": reasons,
-             "missingMechanisms": cleaned}, bool(failures))
+def _append_call(build_id, sid, packet, result, meta, *, raw=None, stage="audit",
+                 escalated_from="", malformed=False):
+    return _records.append_ai_call(
+        BUILD_DIR, VALIDATOR_FAILURE_DIR, build_id, sid, packet, result, meta,
+        raw=raw, stage=stage, escalated_from=escalated_from, malformed=malformed,
+        contract=AUDIT_CONTRACT_VERSION)
 
 
-def _validate(raw, sources, sid):
-    return _validate_detailed(raw, sources, sid)[0]
-
-
-def _previous_nonpass(build_id, sid, model):
-    count = 0
-    try:
-        with open(calls_path(build_id), encoding="utf-8") as handle:
-            for line in handle:
-                row = json.loads(line)
-                if (row.get("contract") == AUDIT_CONTRACT_VERSION
-                        and row.get("section") == sid and row.get("model") == model
-                        and not row.get("malformed")
-                        and row.get("status") in ("FAIL", "UNCERTAIN")):
-                    count += 1
-    except (OSError, ValueError):
-        pass
-    return count
-
-
-def _append_call(build_id, sid, packet, result, meta, *, escalated_from="",
-                 malformed=False):
-    row = {"at": time.time(), "contract": AUDIT_CONTRACT_VERSION,
-           "section": sid, "packetChars": len(packet),
-           "status": result["status"], "transport": meta.get("transport", "test-adapter"),
-           "model": meta.get("model", ""), "usage": meta.get("usage")}
-    if meta.get("responseId"):
-        row["responseId"] = meta["responseId"]
-    if escalated_from:
-        row["escalatedFrom"] = escalated_from
-    if malformed:
-        row["malformed"] = True
-    with open(calls_path(build_id), "a", encoding="utf-8") as handle:
-        handle.write(json.dumps(row, separators=(",", ":")) + "\n")
+def _append_infrastructure_failure(build_id, sid, packet, validator, error, *,
+                                   stage="audit", escalated_from=""):
+    return _records.append_ai_infrastructure_failure(
+        BUILD_DIR, VALIDATOR_FAILURE_DIR, build_id, sid, packet, validator, error,
+        stage=stage, contract=AUDIT_CONTRACT_VERSION, escalated_from=escalated_from)
 
 
 def review_usage_summary(build_id):
-    totals = {"inputTokens": 0, "freshInputTokens": 0, "cachedInputTokens": 0,
-              "cacheWriteTokens": 0, "outputTokens": 0, "reasoningTokens": 0,
-              "totalTokens": 0}
-    api_calls = 0
-    try:
-        with open(calls_path(build_id), encoding="utf-8") as handle:
-            for line in handle:
-                usage = json.loads(line).get("usage")
-                if not isinstance(usage, dict):
-                    continue
-                api_calls += 1
-                for key in totals:
-                    totals[key] += int(usage.get(key) or 0)
-    except (OSError, ValueError, TypeError):
-        pass
-    return {"apiCalls": api_calls, **totals}
+    return _records.review_usage_summary(BUILD_DIR, build_id)
 
 
 def _invoke(prompt, validator, adapter):
@@ -412,6 +334,9 @@ def review_prerequisites(build_id, sid, *, adapter=None):
     if not validator.get("kind") or not validator.get("model"):
         raise RuntimeError("mandatory section audit has no Validator AI configuration")
     course = load_course_map(build_id)
+    known_mechanisms = {
+        item.get("id") for item in (course.get("mechanismContract") or {}).get(
+            "mechanisms", []) if isinstance(item, dict) and item.get("id")}
     section = next(item for item in course["sections"] if item["id"] == sid)
     packet, sources = section_evidence_packet(build_id, section)
     packet += "\n\n===== EXHAUSTIVE PRIOR KNOWLEDGE =====\n" + prior
@@ -428,52 +353,62 @@ def review_prerequisites(build_id, sid, *, adapter=None):
     prompt = _prompt(packet, sid, sources, prior, start)
     audit_label = (f"prerequisite completeness {sid} › "
                    f"{validator.get('kind')} {validator.get('model')}")
-    print(f"AI VALIDATOR CALL START [{time.time():.3f}] › {audit_label}", flush=True)
+    emit_status_line(f"AI VALIDATOR CALL START [{time.time():.3f}] › {audit_label}",
+                     build_id, build_dir=BUILD_DIR)
     try:
         raw, meta = _invoke(prompt, validator, adapter)
     except Exception as exc:
-        print(f"AI VALIDATOR CALL FAILED [{time.time():.3f}] › {audit_label}", flush=True)
+        _append_infrastructure_failure(build_id, sid, packet, validator, exc)
+        emit_status_line(f"AI VALIDATOR CALL FAILED [{time.time():.3f}] › {audit_label}",
+                         build_id, build_dir=BUILD_DIR)
         raise RuntimeError(f"section Validator AI infrastructure failed: {exc}") from exc
-    result, malformed = _validate_detailed(raw, sources, sid)
-    print(f"AI VALIDATOR CALL COMPLETE [{time.time():.3f}] ({result['status']}) › "
-          f"{audit_label}", flush=True)
+    result, errors = _validate_detailed(raw, sources, sid, known_mechanisms)
+    malformed = bool(errors)
     model = str(validator.get("model") or "")
-    previous_nonpass = _previous_nonpass(build_id, sid, model)
-    _append_call(build_id, sid, packet, result, meta, malformed=malformed)
-    if malformed:
-        repair_label = (f"prerequisite completeness {sid} format repair › "
-                        f"{validator.get('kind')} {validator.get('model')}")
-        print(f"AI VALIDATOR CALL START [{time.time():.3f}] › {repair_label}", flush=True)
+    _append_call(build_id, sid, packet, result, meta, raw=raw, malformed=malformed)
+    actionable = _actionable_failure(raw, result, sources)
+    if malformed and actionable is None:
         try:
             repaired_raw, repair_meta = _invoke(
-                _format_repair_prompt(prompt, raw), validator, adapter)
-        except Exception:
-            print(f"AI VALIDATOR CALL FAILED [{time.time():.3f}] › {repair_label}",
-                  flush=True)
+                _format_repair_prompt(prompt, raw, errors, known_mechanisms),
+                validator, adapter)
+        except Exception as exc:
+            _append_infrastructure_failure(
+                build_id, sid, packet, validator, exc, stage="format-repair")
         else:
-            result, malformed = _validate_detailed(repaired_raw, sources, sid)
-            print(f"AI VALIDATOR CALL COMPLETE [{time.time():.3f}] ({result['status']}) › "
-                  f"{repair_label}", flush=True)
-            _append_call(build_id, sid, packet, result, repair_meta,
-                         malformed=malformed)
-    should_escalate = ("luna" in model.lower() and (
-        malformed or result["status"] == "UNCERTAIN"
-        or (result["status"] == "FAIL" and previous_nonpass > 0)))
+            result, errors = _validate_detailed(
+                repaired_raw, sources, sid, known_mechanisms)
+            malformed = bool(errors)
+            _append_call(build_id, sid, packet, result, repair_meta, raw=repaired_raw,
+                         stage="format-repair", malformed=malformed)
+            actionable = _actionable_failure(repaired_raw, result, sources)
+    if actionable is not None:
+        result, malformed = actionable, False
+    should_escalate = ("luna" in model.lower()
+                       and (malformed or result["status"] == "UNCERTAIN"))
+    final_label = audit_label
     if should_escalate:
         terra = {**validator, "model": re.sub("luna", "terra", model,
                                                flags=re.IGNORECASE),
                  "effort": validator.get("effort") or "medium"}
-        terra_label = (f"prerequisite completeness {sid} escalation › "
-                       f"{terra.get('kind')} {terra.get('model')}")
-        print(f"AI VALIDATOR CALL START [{time.time():.3f}] › {terra_label}", flush=True)
+        why = "UNCERTAIN" if result["status"] == "UNCERTAIN" else "unusable output"
+        final_label = (f"prerequisite completeness {sid} › {terra.get('kind')} "
+                       f"{terra.get('model')} (after Luna {why})")
         try:
             raw, terra_meta = _invoke(prompt, terra, adapter)
         except Exception as exc:
-            print(f"AI VALIDATOR CALL FAILED [{time.time():.3f}] › {terra_label}", flush=True)
+            _append_infrastructure_failure(
+                build_id, sid, packet, terra, exc, stage="escalation",
+                escalated_from=model)
+            emit_status_line(
+                f"AI VALIDATOR CALL FAILED [{time.time():.3f}] › {final_label}", build_id,
+                build_dir=BUILD_DIR)
             raise RuntimeError(f"section Validator AI escalation failed: {exc}") from exc
-        result, _malformed = _validate_detailed(raw, sources, sid)
-        print(f"AI VALIDATOR CALL COMPLETE [{time.time():.3f}] ({result['status']}) › "
-              f"{terra_label}", flush=True)
-        _append_call(build_id, sid, packet, result, terra_meta, escalated_from=model)
+        result, _errors = _validate_detailed(raw, sources, sid, known_mechanisms)
+        _append_call(build_id, sid, packet, result, terra_meta, raw=raw,
+                     stage="escalation", escalated_from=model)
+    emit_status_line(
+        f"AI VALIDATOR CALL COMPLETE [{time.time():.3f}] ({result['status']}) › "
+        f"{final_label}", build_id, build_dir=BUILD_DIR)
     _write(result_path(build_id, sid), {"fingerprint": fingerprint, "result": result})
     return {**result, "cached": False}

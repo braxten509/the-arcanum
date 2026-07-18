@@ -1,26 +1,49 @@
-# Section s11 — scaffolded by tools/new_tome.py. Replace every TODO.
-# One lesson with one of each core exercise type is shown; author 3-5 lessons per
-# section and 4-6 mixed exercises per lesson (see § sections/<sid>.toml).
 id = "s11"
 codename = "CHAPTER XI // BOUNDARIES IN THE GROVE"
 short = "Boundaries in the Grove"
-title = "Create the Package Tree"
-build = "own language-module-package-boundaries by learner-authoring the briar_glen package, its entrypoint and domain module, moving the canonical behavior out of game.py, preserving tests, and retiring the single-file artifact only after module execution matches prior behavior."
-brief = "TODO: Phase 3 authors Boundaries in the Grove from the approved Arc."
+title = "Boundaries in the Grove"
+build = "Move the verified text-trail domain into a learner-authored briar_glen package whose module entry preserves the existing behavior."
+brief = '''<p>The trail has outgrown one root file. Rowan now gives it a real package boundary: a named directory that groups related modules without changing what the trail does. You will make the package tree yourself, move the domain behavior out of <code>game.py</code>, and make a module entry run that same deterministic journey. The evidence is continuity, not a new feature: the tests and visible six-turn trail must still agree after the old single-file artifact retires.</p>'''
 
 [proof]
-mode = "run"                       # run | build | guided | package (package only in final section)
-expectedFiles = ["replace-me.txt"] # TODO: source/config files that must exist after this chapter
+mode = "run"
+mechanisms = ["terminal-change-directory", "venv-activate-environment", "terminal-read-saved-file", "terminal-invoke-saved-file", "python-import-statement", "python-module-execution", "prototype-retirement", "pytest-module-invocation"]
+expectedFiles = ["briar_glen/__init__.py", "briar_glen/domain.py", "briar_glen/main.py", "tests/test_game.py"]
 runArgs = ["--arcanum-proof", "s11"]
-expect = "TODO: exact deterministic milestone output"
-
-# Media is NEVER authored by the tome AI. When this chapter needs a sprite, sound,
-# music track, font, image, or video, add one or more [[assets]] sourcing guides:
-# [[assets]]
-# id = "player-sprite"
-# kind = "sprite"
-# lesson = "s11-l01"
-# destination = "assets/player.png"
-# sourceGuidance = "Explain how the learner chooses, downloads, renames, and places it."
-# licenseGuidance = "Explain the license/attribution step the learner must perform."
-# sources = [{ label = "Trusted asset library", url = "https://...", license = "..." }]
+supersedes = ["s09", "s10"]
+protects = ["bounded-turn-loop", "collaborator-responsibilities", "command-normalization", "command-token-parsing", "composed-domain-verification", "conditional-command-routing", "coordinate-record", "discovery-set", "domain-module-extraction", "domain-validation-errors", "explicit-data-flow", "external-file-action-loop", "function-boundaries", "inventory-sequence", "isolated-python-environment", "language-class-object-abstraction", "language-collections-list-dict-set-tuple", "language-composition-design", "language-control-branch-loop", "language-environment-venv", "language-exception-error-handling", "language-functions-decomposition", "language-module-package-boundaries", "language-strings-text", "language-test-verification", "language-values-expressions-data", "learner-authored-checks", "loop-control-search", "module-entrypoint-parity", "object-ownership-delegation", "ordinary-finally-cleanup", "package-file-layout", "player-method-invariants", "player-object-model", "player-state-mapping", "pure-state-transition", "python-state-model", "recovery-propagation-boundary", "red-green-verification-loop", "source-smoke-receipt", "state-expression-rules", "status-text-construction", "tested-class-migration", "text-trail-controller", "tool-create-open", "tool-diagnose", "tool-edit-save", "tool-install", "tool-navigate", "tool-run-test", "venv-test-tooling", "workspace-orientation"]
+expect = '''Lantern status for Mira: 10 health, 2 oil, lit=True
+Normalized command: look waystone
+Command words: ['look', 'waystone']
+Pack before trail: ['waystone map', 'rations']
+First packed item: waystone map
+Player health: 10
+Known north gate: True
+Coordinates: (4, 7)
+Turn 1: look waystone
+The waystone points north.
+Turn cleanup: look waystone
+Turn 2: take moonleaf
+Moonleaf packed.
+Turn cleanup: take moonleaf
+Turn 3: rest
+Health restored: 12
+Turn cleanup: rest
+Turn 4: search briar
+Search: thorns
+Search: lantern key
+Lantern key found.
+Turn cleanup: search briar
+Turn 5: sing
+Invalid command: Unknown command: sing
+Turn cleanup: sing
+Turn 6: leave
+Trail closed.
+Turn cleanup: leave
+Turns taken: 6
+Pack after trail: ['waystone map', 'rations', 'moonleaf']
+Snapshot before trail: ['waystone map', 'rations']
+Found lantern key: True
+Path open: False
+Final health: 12
+Completed turns: ['look waystone', 'take moonleaf', 'rest', 'search briar', 'sing', 'leave']'''

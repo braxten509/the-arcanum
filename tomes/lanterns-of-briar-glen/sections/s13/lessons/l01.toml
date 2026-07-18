@@ -1,84 +1,162 @@
 [[lessons]]
 id = "s13-l01"
 title = "Own the Text File Lifecycle"
-teaches = ["s13-phase3-placeholder"]            # TODO: stable kebab-case capabilities this lesson teaches
+teaches = ["text-file-lifecycle", "language-file-path-actions"]
+introduces = ["python-open-call", "text-file-read-method", "text-file-write-method", "text-file-close-method", "text-file-mode", "utf8-text-encoding"]
 body = '''
-<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
-<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
-<p>TODO: an optional deeper-cut appendix.</p></div>
+<p>A text file is not a string that happens to live elsewhere. Python gives you a file object only after you <code>open</code> a path with a deliberate mode and encoding. A lifecycle has a beginning, useful work, and a visible ending: open the file, write or read its text, then close it. Keeping those steps separate now makes the resource boundary inspectable before a later chapter introduces the shorter <code>with</code> form and JSON.</p>
+<pre><code data-kind="runnable">note_file = open("camp-note.txt", "w", encoding="utf-8")
+note_file.write("moonlight\n")
+note_file.close()
+
+note_file = open("camp-note.txt", "r", encoding="utf-8")
+saved_note = note_file.read()
+note_file.close()
+print(saved_note.strip())</code></pre>
+<p>Here <code>"w"</code> means write text, while <code>"r"</code> means read text. The encoding is named on both opens so the same UTF-8 text rule is explicit rather than dependent on a computer’s default. <code>write</code> sends characters to an already-open writable file; it does not choose the path or close the file. <code>read</code> retrieves the available text from an already-open readable file. Closing is a separate final action: after <code>close()</code>, that particular file object is no longer the place to read or write.</p>
+<p>The example is a disposable camp note, not Briar Glen’s eventual save format. Do not add JSON, a context manager, automatic cleanup, a CLI flag, or a global save location yet. In the Working, the package will own a small helper that accepts a path supplied by the caller. That separation lets tests reason about a path without silently using the author machine.</p>
+<p>Read a failure literally. Opening a path for reading before the file exists produces a file-not-found error; opening in the wrong mode makes the later operation invalid. A misspelled encoding is also an input mistake, not an invitation to catch every exception. First inspect the saved path, mode, and action. The earlier narrow-exception discipline remains in force: this lesson explains ordinary file actions, not recovery policy.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CLOSE IS A PROMISE</div><p>Write down the lifecycle in order before coding it: path, mode, UTF-8, action, close. Later, <code>with</code> will make the ending safer; today you need to be able to see what that ending replaces.</p></div>
 '''
 
-[[lessons.concepts]]                # one complete first-use proof for every `teaches` id
-id = "s13-phase3-placeholder"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
+[[lessons.concepts]]
+id = "text-file-lifecycle"
+purpose = "Treat opening, using, and closing a text file as one explicit boundary."
+anatomy = "Open a path with a mode and UTF-8 encoding, call read or write on the returned file object, then close that object."
+example = "The disposable camp note is written, closed, reopened for reading, and closed again."
+observable = "Its saved text prints after the read lifecycle completes."
+failure = "Reading a missing file or using a write-only object for reading exposes a wrong path or mode."
+practice = "s13-l01-w1"
+
+[[lessons.concepts]]
+id = "language-file-path-actions"
+purpose = "Perform portable, explicit actions on text stored at a chosen path."
+anatomy = "Choose the path, select read or write mode, name UTF-8, perform one text action, and close."
+example = "The same disposable note uses a write lifecycle and a separate read lifecycle."
+observable = "The printed note comes from text retrieved from the saved file."
+failure = "Treating a file object as a string or leaving its lifecycle implicit makes the boundary hard to inspect."
 practice = "s13-l01-e1"
 
-[[lessons.artifactSteps]]           # visible work order; never reveal canonical implementation
-id = "s13-l01-project-step"
-path = "replace-me.txt"
-mode = "author"                    # learner authors this path; hidden referenceSteps replay it
-instruction = "TODO: exact path, behavior, constraints, commands, and diagnostics—no solution."
-checks = ["TODO: specific observable result the learner can run or inspect."]
+[[lessons.concepts]]
+id = "python-open-call"
+purpose = "Acquire a file object for a named path and access mode."
+anatomy = "Call open with a path, mode, and encoding and store the returned file object."
+example = "open creates each disposable camp-note file object."
+observable = "The following read or write call has a file object on which to operate."
+failure = "A path that cannot be opened reports an operating-system error before a read or write happens."
+practice = "s13-l01-e1"
 
-[[lessons.readings]]               # optional: 1-2 high-quality official docs
-label = "TODO: official docs"
-url = "https://example.com/TODO"
+[[lessons.concepts]]
+id = "text-file-read-method"
+purpose = "Retrieve text from an open readable file."
+anatomy = "Open with r, call read(), store its returned text, and close the file."
+example = "saved_note receives the camp note’s contents."
+observable = "The stripped saved text prints to the terminal."
+failure = "Calling read on a closed or write-only file cannot retrieve the saved text."
+practice = "s13-l01-w1"
+
+[[lessons.concepts]]
+id = "text-file-write-method"
+purpose = "Send text to an open writable file."
+anatomy = "Open with w, call write with text, then close the file."
+example = "The first lifecycle writes moonlight and a newline."
+observable = "A later independent read sees the written text."
+failure = "Writing after close or to a read-only file uses the object outside its mode."
+practice = "s13-l01-w1"
+
+[[lessons.concepts]]
+id = "text-file-close-method"
+purpose = "End one explicit file-object lifecycle after its intended action."
+anatomy = "Call close() once the read or write operation for that file object is complete."
+example = "Each camp-note object is closed before the next lifecycle begins."
+observable = "The code visibly has an ending for both opened resources."
+failure = "Skipping close leaves lifecycle ownership unclear and is not a substitute for later context-managed cleanup."
+practice = "s13-l01-e2"
+
+[[lessons.concepts]]
+id = "text-file-mode"
+purpose = "Choose whether an open file is intended for reading or writing."
+anatomy = "Use r for a readable existing text file and w for a writable text file."
+example = "The first camp-note open uses w; the second uses r."
+observable = "The right action succeeds for each chosen file object."
+failure = "A mode/action mismatch fails instead of changing the file as intended."
+practice = "s13-l01-e2"
+
+[[lessons.concepts]]
+id = "utf8-text-encoding"
+purpose = "State the text character rule used when a file is opened."
+anatomy = "Pass encoding=\"utf-8\" to both the write and read open calls."
+example = "The disposable note names UTF-8 twice, once per lifecycle."
+observable = "Both operations agree on how characters become stored bytes and back."
+failure = "Relying on an unstated machine default makes portability harder to reason about."
+practice = "s13-l01-e3"
+
+[[lessons.artifactSteps]]
+id = "s13-l01-author-text-lifecycle"
+path = "briar_glen/domain.py"
+mode = "author"
+mechanisms = ["python-open-call", "text-file-read-method", "text-file-write-method", "text-file-close-method", "text-file-mode", "utf8-text-encoding", "editor-edit-file", "editor-save-file", "terminal-read-saved-file"]
+instruction = "In learner-authored briar_glen/domain.py, author one small package helper whose caller supplies a text-file path and text. Make its lifecycle inspectable: open for UTF-8 writing, write the supplied text, close; reopen the same supplied path for UTF-8 reading, read the text, close; and return the retrieved text. Keep this ordinary lifecycle separate from the existing trail controller. Save and read the file. Do not introduce JSON, with statements, deletion, command-line options, user-home selection, Pygame, or automatic persistence."
+checks = ["The saved helper visibly has a write lifecycle and a separate read lifecycle, each ending with close().", "Its returned text is the same supplied text when called with a writable existing-parent path."]
+
+[[lessons.readings]]
+label = "Python documentation: open and text file methods"
+url = "https://docs.python.org/3/library/functions.html#open"
+
+[[lessons.exercises]]
+id = "s13-l01-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["python-open-call", "text-file-mode", "utf8-text-encoding"]
+prompt = "Retype this disposable UTF-8 write acquisition exactly."
+code = 'log_file = open("trail.txt", "w", encoding="utf-8")'
 
 [[lessons.exercises]]
 id = "s13-l01-e1"
 type = "mc"
-points = 15
-prompt = "TODO: a multiple-choice question?"
-choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
-answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
-whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
-hint = "TODO: an exercise-specific hint."
-explain = "TODO: shown after solving."
+points = 18
+mechanisms = ["python-open-call", "text-file-mode", "text-file-write-method"]
+prompt = "Which sequence writes text through an explicitly opened text file?"
+choices = ["Open with r, call read, then close", "Open with w and UTF-8, call write, then close", "Call close before open, then call write", "Store a path string and assume it writes itself"]
+answer = 1
+whyWrong = "Reading does not write, a closed object cannot accept text, and a path alone performs no file action."
+hint = "Match the mode to the intended action."
+explain = "A writable UTF-8 file object is acquired before write, then its lifecycle is ended with close."
 
 [[lessons.exercises]]
 id = "s13-l01-e2"
-type = "text"
-points = 20
-prompt = "TODO: a free-text question."
-answer = "TODO"
-# accept = ["TODO alternate"]      # optional true alternates only
-hint = "TODO: an exercise-specific hint."
+type = "fill"
+points = 18
+mechanisms = ["text-file-close-method", "text-file-mode"]
+prompt = "Complete the disposable lifecycle ending after its one write."
+code = '''log_file.write("ember")
+log_file.____()'''
+answer = "close"
+hint = "Name the method that ends this object’s lifecycle."
 
 [[lessons.exercises]]
 id = "s13-l01-e3"
-type = "fill"
-points = 20
-prompt = "TODO: fill the blank."
-code = 'answer = ____'             # the ____ marks where the answer goes
-answer = "TODO"
-hint = "TODO: an exercise-specific hint."
-
-[[lessons.exercises]]
-id = "s13-l01-d1"
-type = "type"                      # typing drill: retype the code; no point decay
-points = 12
-reps = 2
-prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
-code = 'print("TODO")'
+type = "text"
+points = 18
+mechanisms = ["utf8-text-encoding", "text-file-read-method"]
+prompt = "Why should a text reader name UTF-8 when its paired writer named UTF-8?"
+answer = "So the reader and writer use the same explicit character encoding"
+hint = "Think about the rule that turns characters into stored bytes and back."
 
 [[lessons.exercises]]
 id = "s13-l01-w1"
-type = "write"                     # CODE LAB: runs on the real runtime; no point decay
-points = 30
-prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
-# starter = '''
-# TODO: prefilled editor code / the exercise's data
-# '''
-expect = '''
-TODO EXACT OUTPUT'''
-# REQUIRED before shipping: a complete program that passes. Never shown to the
-# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
-# solution = '''
-# TODO
-# '''
-hint = "TODO: an exercise-specific hint."
+type = "write"
+points = 35
+mechanisms = ["python-open-call", "text-file-read-method", "text-file-write-method", "text-file-close-method", "text-file-mode", "utf8-text-encoding", "python-print-call"]
+prompt = "Write a disposable program that writes the exact text comet to a UTF-8 file named practice-note.txt, closes it, reopens it for reading, prints the recovered text, and closes that reader. This is not a Briar Glen artifact."
+expect = "comet"
+solution = '''note_file = open("practice-note.txt", "w", encoding="utf-8")
+note_file.write("comet")
+note_file.close()
+
+note_file = open("practice-note.txt", "r", encoding="utf-8")
+recovered_note = note_file.read()
+note_file.close()
+print(recovered_note)'''
+hint = "Use two separate file objects: one writable and one readable."

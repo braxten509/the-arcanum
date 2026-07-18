@@ -1,0 +1,116 @@
+id = "s15-l03"
+title = "Prove Cleanup on Failure"
+introduces = ["pathlib-unlink-method"]
+teaches = ["resource-failure-verification", "language-context-resource-cleanup"]
+
+[[lessons]]
+id = "s15-l03"
+title = "Prove Cleanup on Failure"
+teaches = ["resource-failure-verification", "language-context-resource-cleanup"]
+introduces = ["pathlib-unlink-method"]
+body = '''<p>A successful save cannot prove the failure route. Arrange a controlled temporary resource whose write operation raises an ordinary write error. It should record whether its context exited, and its temporary path should exist before the call. Invoke the storage write boundary through its small supplier seam. After catching the expected error in the test, assert three separate observations: exit behavior ran, the abandoned temporary path is gone, and the original error was still raised.</p><p>The cleanup branch has a narrow job. It may check whether a temporary path was established and call <code>temporary_path.unlink</code> on that temporary path. It must not delete the existing destination, return a successful result, or turn every exception into the no-save result used for missing and malformed reads. Re-raising keeps the s08 exception contract visible: the caller can diagnose an unexpected write failure, while the storage boundary leaves its temporary resource and filesystem state tidy.</p><p>Author this evidence alongside the earlier five storage tests. Use a disposable path and a purpose-built failing collaborator; do not inspect source text or rely on a hidden fixture. Retain the successful replacement check from the last lesson. When the full suite reaches 21 passing tests, you have proof of cleanup at the storage seam only. Runtime acquisition, Pygame cleanup, durable save placement, and package delivery remain later work.</p>'''
+
+[[lessons.readings]]
+label = "pathlib: Path.unlink"
+url = "https://docs.python.org/3/library/pathlib.html#pathlib.Path.unlink"
+why = "Review the deletion operation so cleanup targets only an established abandoned temporary path."
+
+[[lessons.exercises]]
+id = "s15-l03-e01"
+type = "mc"
+points = 18
+prompt = "After an injected temporary-write error, which result best preserves the storage contract?"
+choices = ["Delete the destination and return None", "Return success because the context exited", "Keep the temporary path", "Remove the temporary path and re-raise the write error"]
+answer = 3
+mechanisms = ["pathlib-unlink-method", "exception-propagation", "python-context-manager-protocol"]
+explain = "Cleanup handles the abandoned path; propagation keeps the unexpected error observable."
+whyWrong = "The wrong choices either destroy the last destination, hide failure, or retain abandoned state."
+hint = "Cleanup should affect only the temporary path while preserving the unexpected error."
+
+[[lessons.exercises]]
+id = "s15-l03-e02"
+type = "fill"
+points = 18
+prompt = "Complete the cleanup call for an established temporary path: <code>temporary_path.____()</code>"
+code = "temporary_path.____()"
+answer = "unlink"
+mechanisms = ["pathlib-unlink-method"]
+explain = "<code>unlink()</code> removes the path targeted by cleanup."
+hint = "Use pathlib's method for removing one file path."
+
+[[lessons.exercises]]
+id = "s15-l03-e03"
+type = "type"
+points = 24
+reps = 2
+prompt = "Type a disposable cleanup script that creates <code>loose-note.txt</code>, raises and catches an <code>OSError</code>, removes the path if it exists, then prints <code>cleared</code>."
+code = '''from pathlib import Path
+
+temporary_path = Path("loose-note.txt")
+with open(temporary_path, "w", encoding="utf-8") as loose_note:
+    loose_note.write("briar")
+
+try:
+    raise OSError("interrupted")
+except OSError:
+    if temporary_path.exists():
+        temporary_path.unlink()
+    print("cleared")'''
+solution = '''from pathlib import Path
+
+temporary_path = Path("loose-note.txt")
+with open(temporary_path, "w", encoding="utf-8") as loose_note:
+    loose_note.write("briar")
+
+try:
+    raise OSError("interrupted")
+except OSError:
+    if temporary_path.exists():
+        temporary_path.unlink()
+    print("cleared")'''
+expect = "cleared"
+mechanisms = ["pathlib-path-constructor", "python-with-statement", "python-try-statement", "python-except-clause", "python-raise-statement", "pathlib-exists-method", "pathlib-unlink-method"]
+
+[[lessons.exercises]]
+id = "s15-l03-e04"
+type = "text"
+points = 20
+prompt = "List the three observations your failure test must assert, then explain why returning None weakens ordinary exception semantics."
+answer = "The test observes context exit, removal of the established temporary path, and propagation of the write error. Returning None would hide an unexpected error as though it were an expected no-save read result."
+hint = "Name one observation about the resource, one about the path, and one about control flow."
+mechanisms = ["python-context-manager-protocol", "pathlib-unlink-method", "exception-propagation", "arrange-act-assert"]
+
+[[lessons.concepts]]
+id = "resource-failure-verification"
+purpose = "Prove cleanup behavior through an injected write failure rather than a successful path alone."
+anatomy = "Arrange a failing resource and temporary path, act through a supplier seam, then assert exit, removal, and propagation."
+example = "A disposable failing writer records exit and raises an OSError."
+observable = "Three assertions show closure, no leftover path, and a raised error."
+failure = "A happy-path test cannot establish what happens during an interrupted write."
+practice = "s15-l03-e04"
+
+[[lessons.concepts]]
+id = "language-context-resource-cleanup"
+purpose = "Combine deterministic context exit with narrowly targeted cleanup when a write fails."
+anatomy = "Leave the resource through its context, unlink only an established temporary path, and re-raise the unexpected error."
+example = "An interrupted disposable write cleans its temporary path without deleting the destination."
+observable = "A test sees both exit and missing temporary path after the expected error."
+failure = "Returning a no-save result for every error hides the unexpected failure."
+practice = "s15-l03-e01"
+
+[[lessons.concepts]]
+id = "pathlib-unlink-method"
+purpose = "Remove a known abandoned temporary path during cleanup."
+anatomy = "Check that the temporary path exists, then call unlink only on that path."
+example = "The loose disposable note is removed after its controlled error."
+observable = "The path no longer exists after cleanup."
+failure = "Deleting the destination would destroy the last complete record."
+practice = "s15-l03-e02"
+
+[[lessons.artifactSteps]]
+id = "s15-l03-a01"
+path = "tests/test_storage.py"
+mode = "author"
+instruction = "Author arrange/act/assert evidence for complete destination replacement and an injected temporary-write failure. The failure check must observe context exit, temporary-path removal, and propagation of the expected write error while retaining earlier storage checks."
+mechanisms = ["pathlib-unlink-method", "pathlib-exists-method", "collaborator-test-seam", "python-try-statement", "exception-propagation", "pytest-test-function", "python-assert-statement", "arrange-act-assert"]
+checks = ["The injected write failure records context exit and leaves no established temporary path.", "The expected write error reaches the test instead of becoming a no-save result."]

@@ -1,7 +1,7 @@
 """Phase-aware writable and protected paths for the persistent tome author."""
 import os
 
-from .. import BUILD_DIR, REPO
+from .. import BUILD_DIR, REPO, VALIDATOR_FAILURE_DIR
 from ..continuity import handoff_dir, handoff_path
 from ..course_map import amendment_path, map_path, proposal_path, seed_path
 from ..course.state import evidence_dir, failure_dir, state_path
@@ -31,11 +31,12 @@ def author_paths(build_id, from_phase, tid, unit):
     protected = [seed_path(build_id), map_path(build_id), state_path(build_id),
                  amendment_path(build_id), evidence_dir(build_id), failure_dir(build_id),
                  prerequisite_calls_path(build_id),
+                 os.path.join(VALIDATOR_FAILURE_DIR, build_id),
                  os.path.join(BUILD_DIR, f"{build_id}.prerequisite-reviews"),
                  os.path.join(BUILD_DIR, f"{build_id}.phase-snapshots"),
                  os.path.join(BUILD_DIR, f"{build_id}.course-control.log.jsonl")]
     for suffix in ("launch.json", "session.json", "active.json", "result.json",
-                   "cancelled.json", "conversation.jsonl"):
+                   "cancelled.json", "conversation.jsonl", "status-log.jsonl"):
         protected.append(os.path.join(BUILD_DIR, f"{build_id}.{suffix}"))
     if phase != 1:
         protected.append(os.path.join(BUILD_DIR, f"{build_id}.plan.md"))

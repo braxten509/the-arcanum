@@ -1,0 +1,116 @@
+[[lessons]]
+id = "s14-l03"
+title = "Verify Round Trips and Corruption"
+teaches = ["storage-roundtrip-verification", "language-json-data-serialization"]
+introduces = ["json-decode-error"]
+body = '''
+<p>A save feature earns trust when it has two kinds of evidence. First, a round trip starts with meaningful state, maps it to a record, crosses the JSON boundary, and rebuilds a fresh player with the same represented facts. Second, the reader has a named response when no save exists or the saved text is malformed. Neither case is proven by looking at a file once.</p>
+<pre><code data-kind="runnable">import json
+
+try:
+    json.loads("{not a record")
+except json.JSONDecodeError:
+    print("corrupt save")</code></pre>
+<p><code>JSONDecodeError</code> is the specific parsing error for text that is not valid JSON. It is not evidence that every possible schema problem should be hidden. Keep the narrow recovery at the storage read boundary: an absent path may mean no saved progress, and malformed JSON may mean this save cannot be restored. Return one documented no-save result for those expected cases. Let unrelated programming errors and invalid domain data remain visible so a test or traceback can locate the broken contract.</p>
+<p>Author <code>tests/test_storage.py</code> beside the earlier <code>tests/test_game.py</code>. Arrange a fresh Player with independent inventory and quest collaborators; act by building a record, encoding and decoding text, and then using the supplied-path storage seam; assert the rebuilt player has the original name, health, inventory contents, discoveries, and path-open value. Add separate checks for a missing supplied path and for a path containing malformed JSON text. The two failure checks are not substitutes for the happy round trip: they prove a deliberate recovery boundary.</p>
+<p>Run <code>python -m pytest -q</code> from the external project root until it reports <code>19 passed</code>. If an assertion fails, read the location, decide whether the mapper, codec, or expected recovery is wrong, repair that one boundary, and rerun. Keep tests focused: do not start the six-turn trail, auto-save, choose a home directory, add context-managed cleanup, or use Pygame. The later persistence milestone will choose a durable location and wire this verified seam into real play.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // EQUAL FACTS, NEW OBJECTS</div><p>A good decoded Player is a new object with equal represented facts. Identity is not the promise of persistence; faithful state is.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "storage-roundtrip-verification"
+purpose = "Prove the storage boundary preserves represented facts through both JSON text and a supplied file path, while expected unreadable input has a deliberate result."
+anatomy = "Arrange independent domain collaborators, act through mapping and codec seams, then assert restored facts and separately assert the documented result for missing and malformed input."
+example = "The Working adds checks for record facts, text round trip, file round trip, missing input, and corrupt JSON input."
+observable = "The complete suite reports 19 passed after the tests compare equal facts rather than Player identity."
+failure = "Only opening a save by hand or asserting object identity leaves the mapping, reconstruction, and recovery promises unproven."
+practice = "s14-l03-e3"
+
+[[lessons.concepts]]
+id = "language-json-data-serialization"
+purpose = "Use Python's JSON facilities to serialize supported data and deserialize it before rebuilding the domain model."
+anatomy = "Map domain state to plain values, encode or write JSON, read or parse it, and decode the record through a focused boundary."
+example = "The player record crosses the string and supplied-file JSON seams without adding runtime persistence behavior."
+observable = "A new Player has the saved name, health, inventory, discoveries, and path-open value after a successful round trip."
+failure = "Treating JSON text as a live object graph loses the explicit conversion and error boundaries that serialization requires."
+practice = "s14-l03-w1"
+
+[[lessons.concepts]]
+id = "json-decode-error"
+purpose = "Identify malformed JSON as a specific expected parsing failure at the storage read boundary."
+anatomy = "Place only the JSON parse in a narrow try block, catch json.JSONDecodeError, close the explicitly opened file on that expected branch, and return the documented no-save result."
+example = "The disposable json.loads call catches json.JSONDecodeError and prints corrupt save."
+observable = "Invalid object text prints the recovery marker instead of producing a decoded record."
+failure = "A broad except would hide unrelated programmer errors; treating malformed JSON as a valid record would send bad data into the domain decoder."
+practice = "s14-l03-e1"
+
+[[lessons.artifactSteps]]
+id = "s14-l03-verification-work-order"
+path = "tests/test_storage.py"
+mode = "author"
+mechanisms = ["json-decode-error", "json-dumps-function", "json-loads-function", "json-dump-function", "json-load-function", "pytest-test-function", "python-assert-statement", "arrange-act-assert", "python-try-statement", "python-except-clause", "python-exception-types", "python-open-call", "text-file-write-method", "text-file-close-method", "pathlib-path-constructor", "editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "pytest-module-invocation", "pytest-failure-location", "red-green-rerun-cycle"]
+instruction = "Create learner-authored tests/test_storage.py. Import the public storage and domain seams, then author arrange/act/assert checks that: compare a fresh player record with its represented facts; round-trip a fresh player through JSON text; round-trip one through a supplied harmless save path; return the documented no-save result for a missing supplied path; and return that result for a supplied path containing malformed JSON. Preserve tests/test_game.py and the six-turn entry. Run python -m pytest -q from the external project root, read failures by location, and repair only the mapper, codec, recovery boundary, or assertion implicated until it reports 19 passed. Do not add fixtures, automatic saving, a home-directory selection, a context manager, deletion, Pygame, CLI arguments, or a second game."
+checks = ["The stored and restored player facts match after both text and file JSON round trips, while the restored Player and collaborators are newly constructed objects.", "Missing and malformed supplied save paths each produce the documented no-save result, and the complete saved suite reports 19 passed."]
+
+[[lessons.readings]]
+label = "Python json JSONDecodeError"
+url = "https://docs.python.org/3/library/json.html#json.JSONDecodeError"
+
+[[lessons.exercises]]
+id = "s14-l03-e1"
+type = "mc"
+points = 18
+mechanisms = ["json-decode-error", "python-except-clause"]
+prompt = "Which exception should the storage reader catch when json.load encounters malformed JSON text?"
+choices = ["KeyError", "FileNotFoundError", "ValueError", "json.JSONDecodeError"]
+answer = 3
+whyWrong = "A missing record key and an absent file are different boundaries. json.JSONDecodeError specifically reports invalid JSON syntax during parsing."
+hint = "Choose the json-module exception named for decoding invalid JSON."
+explain = "Catch the parse error narrowly, then keep unexpected schema and programming faults visible."
+
+[[lessons.exercises]]
+id = "s14-l03-e2"
+type = "fill"
+points = 20
+mechanisms = ["json-decode-error", "python-except-clause"]
+prompt = "Complete the narrow disposable recovery clause for invalid JSON text."
+code = '''try:
+    record = json.loads(saved_text)
+except json.____:
+    record = None'''
+answer = "JSONDecodeError"
+hint = "Use the exact decode exception exposed by the json module."
+
+[[lessons.exercises]]
+id = "s14-l03-e3"
+type = "text"
+points = 18
+mechanisms = ["arrange-act-assert"]
+prompt = "What must a storage round-trip assertion compare instead of Player object identity?"
+answer = "The represented player facts such as name health inventory discoveries and path-open state"
+hint = "Decoding intentionally makes fresh collaborators, so name the values the schema promises to preserve."
+
+[[lessons.exercises]]
+id = "s14-l03-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["pytest-test-function", "python-assert-statement", "arrange-act-assert"]
+prompt = "Retype this disposable round-trip assertion exactly."
+code = '''restored = decode_marker(encoded)
+assert restored["torch"] == 6'''
+
+[[lessons.exercises]]
+id = "s14-l03-w1"
+type = "write"
+points = 35
+mechanisms = ["json-loads-function", "json-decode-error", "python-try-statement", "python-except-clause", "python-print-call", "python-import-statement"]
+prompt = "Write a disposable program that imports json, tries to parse the malformed text [broken, catches json.JSONDecodeError, and prints exactly unreadable. This is not a Briar Glen artifact."
+expect = "unreadable"
+solution = '''import json
+
+try:
+    json.loads("[broken")
+except json.JSONDecodeError:
+    print("unreadable")'''
+hint = "Put only the json.loads call in try and name json.JSONDecodeError in the matching except clause."

@@ -1,0 +1,115 @@
+[[lessons]]
+id = "s03-l02"
+title = "Normalize Commands"
+teaches = ["command-normalization"]
+introduces = ["string-strip-method", "string-lower-method"]
+body = '''
+<p>Text from a human or a saved note often carries harmless surface differences. A trail order with extra outer spaces should mean the same thing as the clean version, and <code>LOOK</code> should not become a different word because it is capitalized. Before a later chapter decides what a command means, derive one consistent spelling. This is normalization: keep the raw text for inspection and bind a cleaned result under another name.</p>
+<p>A method is an operation written after a value with a dot and parentheses. The <code>strip()</code> method removes whitespace from the beginning and end of a string, not from between its words.</p>
+<pre><code data-kind="runnable">raw_note = "  Open Gate  "
+trimmed_note = raw_note.strip()
+print(trimmed_note)
+</code></pre>
+<p>Python retrieves <code>raw_note</code>, calls the operation after the dot, and binds the result to <code>trimmed_note</code>. The terminal prints <code>Open Gate</code>; the original name still has its original spaces. Writing <code>strip</code> without parentheses refers to the operation instead of calling it. A middle space remaining is correct because the method only addresses the edges.</p>
+<p>The <code>lower()</code> method derives a version with lowercase letters. It also leaves the original value unchanged. Apply it after trimming so the cleanup order is explicit:</p>
+<pre><code data-kind="runnable">raw_note = "  Open Gate  "
+trimmed_note = raw_note.strip()
+normalized_note = trimmed_note.lower()
+print(normalized_note)
+</code></pre>
+<p>The output is <code>open gate</code>. The compact form, <code>raw_note.strip().lower()</code>, calls <code>strip()</code> first, then calls <code>lower()</code> on its result. It is safe to use after you can read the order aloud. Neither method asks for keyboard input, decides an action, or changes game state. Those responsibilities remain later.</p>
+<p>In the Working, add a separate fixed trail order with outer spaces and uppercase letters. Bind its cleaned result to a clear new name and print it as a separate observation. If outer spaces remain, check that <code>strip()</code> includes parentheses. If capitals remain, check that <code>lower()</code> is called on the trimmed text rather than merely mentioned in a comment. Keep raw and normalized names separate so the evidence reveals where a mismatch began.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DERIVE, DO NOT ERASE</div><p>Raw text records what arrived; normalized text records the rule you applied. Two names make both facts inspectable.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "command-normalization"
+purpose = "Derive a consistent command-text form before later code interprets its meaning."
+anatomy = "Start with raw text, call strip() for outer whitespace, call lower() on that result, and bind the normalized text to a separate name."
+example = "The raw_note, trimmed_note, and normalized_note runnable example performs both cleanup rules."
+observable = "Running it prints open gate while raw_note still records the original surface form."
+failure = "Remaining outer spaces mean strip() was not called; capitals mean lower() was skipped or used on the wrong value."
+practice = "s03-l02-e3"
+
+[[lessons.concepts]]
+id = "string-strip-method"
+purpose = "Remove whitespace from the two outer edges of text without changing its interior words."
+anatomy = "Write a string name, dot, strip, and empty parentheses, then assign the returned text to a new name."
+example = "raw_note.strip() derives trimmed_note in the first example."
+observable = "Printing trimmed_note shows Open Gate without leading or trailing spaces."
+failure = "strip without () refers to a method instead of producing cleaned text."
+practice = "s03-l02-e1"
+
+[[lessons.concepts]]
+id = "string-lower-method"
+purpose = "Derive lowercase text so capitalization does not create a separate spelling."
+anatomy = "Write a string name, dot, lower, and empty parentheses, then assign the lowercase result to a new name."
+example = "trimmed_note.lower() derives normalized_note in the second example."
+observable = "Printing normalized_note shows open gate in lowercase."
+failure = "Omitting parentheses or applying lower() to another name leaves the needed result unavailable."
+practice = "s03-l02-e2"
+
+[[lessons.artifactSteps]]
+id = "s03-l02-normalize-waystone-order"
+path = "game.py"
+mode = "author"
+mechanisms = ["python-string-literal", "string-strip-method", "string-lower-method", "python-name-binding"]
+instruction = "Reopen saved game.py. Beneath the status work, author a separate fixed trail-order string containing outer whitespace and uppercase letters. Derive a named normalized command by calling strip() then lower(), and add an observable print of that normalized text. Preserve status behavior. Do not add input, command decisions, loops, functions, collection operations, dependencies, Pygame, package material, or files. Save the source."
+checks = ["Raw command text remains distinct from the normalized result.", "Saved output is lowercase with outer whitespace removed while interior separation remains text."]
+
+[[lessons.readings]]
+label = "Python string methods"
+url = "https://docs.python.org/3/library/stdtypes.html#string-methods"
+
+[[lessons.exercises]]
+id = "s03-l02-e1"
+type = "fill"
+points = 20
+mechanisms = ["string-strip-method"]
+prompt = "Complete the method call that removes outer spaces from this disposable note."
+code = "clean_note = raw_note.____"
+answer = "strip()"
+hint = "The method name describes removing material from the edges."
+
+[[lessons.exercises]]
+id = "s03-l02-e2"
+type = "mc"
+points = 18
+mechanisms = ["string-lower-method"]
+prompt = "Which result does raw_word.lower() produce when raw_word contains \"NORTH\"?"
+choices = ["A new lowercase text value", "The original uppercase spelling", "A text value with new outer spaces", "A numeric value"]
+answer = 0
+whyWrong = "lower() derives lowercase text; it neither adds spaces nor converts text into a number."
+hint = "Read the method name as a letter-case transformation."
+explain = "The original raw_word remains available while the call supplies lowercase text to print."
+
+[[lessons.exercises]]
+id = "s03-l02-e3"
+type = "text"
+points = 18
+mechanisms = ["string-strip-method", "string-lower-method"]
+prompt = "Why keep raw command text and normalized command text under separate names?"
+answer = "So you can compare the original text with the cleaned derived result"
+accept = ["to inspect both the original and normalized value"]
+hint = "Think about what evidence remains when both names exist."
+
+[[lessons.exercises]]
+id = "s03-l02-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["string-strip-method", "string-lower-method"]
+prompt = "Retype this disposable normalization assignment exactly."
+code = "normalized_note = raw_note.strip().lower()"
+
+[[lessons.exercises]]
+id = "s03-l02-w1"
+type = "text"
+points = 30
+mechanisms = ["python-string-literal", "string-strip-method", "string-lower-method", "python-print-call"]
+prompt = "Write a tiny disposable program that binds raw_signal to \"  RING BELL  \", derives cleaned_signal by trimming and lowercasing it, then prints cleaned_signal."
+answer = '''raw_signal = "  RING BELL  "
+cleaned_signal = raw_signal.strip().lower()
+print(cleaned_signal)
+'''
+hint = "Call the two cleanup methods on the raw text before printing the derived name."

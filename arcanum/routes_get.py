@@ -17,6 +17,7 @@ from .forge import forge_name, list_active_builds, list_workings
 from .models import agy_models, codex_models, ollama_bindery_models, opencode_models
 from tools.buildlib.single_author import load_conversation
 from tools.buildlib.course.state import public_course_status
+from tools.buildlib.status_log import load_status_lines
 from .tomes import (assemble_tome, list_tomes, project_dir, project_name, runtime_for,
                     state_path, resolve_working_tid)
 
@@ -77,6 +78,7 @@ def handle(h):
         bid = (q.get("id") or [""])[0]
         with jobs_lock:
             job = jobs.get(bid)
+            live_status_lines = list((job or {}).get("statusLog", []))
             if not job or job.get("kind") != "build":
                 out = None
             else:
@@ -88,13 +90,18 @@ def handle(h):
                 out["name"] = forge_name(job.get("tome"))
                 # The forge terminal is a status surface, not a mirror of runner stdout.
                 # Raw output remains in job["log"] and feeds the failure report below.
-                out["logtail"] = "\n".join(job.get("statusLog", [])[-40:])
         if out is None:
             out = next((j for j in list_active_builds()
                         if j.get("external") and j.get("id") == bid), None)
         if out is None:
             out = build_result_status(bid) or cancelled_build_status(bid) or {"status": "unknown"}
         stable = out.get("slug") or bid
+        durable_status_lines = load_status_lines(stable)
+        combined_status_lines = []
+        for line in [*durable_status_lines, *live_status_lines]:
+            if line not in combined_status_lines:
+                combined_status_lines.append(line)
+        out["logtail"] = "\n".join(combined_status_lines[-500:])
         try:
             with open(os.path.join(BUILD_DIR, f"{stable}.plan.md"), encoding="utf-8") as handle:
                 current_tome = resolve_working_tid(stable, handle.read())
@@ -118,8 +125,11 @@ def handle(h):
                 out["activityStartedAt"] = float(session.get("updatedAt") or 0)
             out["sessionId"] = session.get("sessionId")
             out["sessionError"] = str(session.get("error") or "")
+            actual_model = session.get("actualModel") or session.get("model")
             out["sessionAuthor"] = {"kind": session.get("kind"),
-                                    "model": session.get("model"),
+                                    "model": actual_model,
+                                    "requestedModel": session.get("model"),
+                                    "actualModel": session.get("actualModel"),
                                     "effort": session.get("effort")}
             out["sessionRole"] = str(session.get("role") or "author")
         out["conversation"] = load_conversation(stable, 120)

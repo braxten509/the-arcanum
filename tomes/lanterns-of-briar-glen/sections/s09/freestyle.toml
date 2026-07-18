@@ -1,36 +1,331 @@
 [freestyle]
-title = "THE WORKING: TODO"
-brief = "TODO: the in-world commission.<ul><li>TODO requirement one (state exact output/tokens)</li><li>TODO requirement two</li></ul>"
-requires = ["s09-phase3-placeholder"]           # TODO: exact ids taught by this/earlier lessons
-reward = 150
-xray = "TODO: the grader's private notes — the specific pitfalls it docks and the style it rewards, truthful to the rubric below."
+title = "THE WORKING: A HERO WITH A SHAPE"
+brief = '''<p>Rowan sets the old state record beside a blank character sheet. Reopen and save the learner-authored <code>game.py</code> and <code>tests/test_game.py</code>. The terminal trail remains a deterministic six-turn proof; migrate only the hero into one <code>Player</code> object and make its promises observable.</p><ul><li>Preserve the existing values, text normalization, separate inventory and snapshot, discoveries, coordinate, functions, six commands, finite indexed loop, bounded briar search, ValueError validation, narrow recovery, completion records, and final observations. The normal run must still end with <code>Turns taken: 6</code>, <code>Found lantern key: True</code>, <code>Path open: True</code>, and <code>Final health: 12</code>.</li><li>In <code>game.py</code>, author one top-level <code>Player</code> class. Construct the existing hero from a name and health, expose those facts as instance attributes, reject a below-zero starting health with the already-known <code>ValueError</code>, and give Player one small rest method that performs the established health increase and returns its result. Keep route decisions, inventory, discoveries, command validation, recovery, and completion bookkeeping outside Player. Do not add a second class, inheritance, or a collaborator object.</li><li>Replace the existing player-state mapping representation and all of its reads in the real seams with the constructed Player. The existing command handler must ask its supplied Player to rest; an invalid command must still leave that same object and the separate collections unchanged before recovery. The saved terminal transcript remains deterministic across two runs.</li><li>In <code>tests/test_game.py</code>, preserve the five earlier focused behavior checks while changing their state fixtures to fresh Player instances. Add three learner-authored checks: construction exposes the intended attributes, rest changes only the supplied player and returns its result while the constructor rejects below-zero health, and an alias is the same object while a separately constructed matching player is not. Use arrange, act, assert with fresh state in every test. Do not test by copying the trail or by inspecting implementation text.</li><li>Read both saved files. With the established <code>.venv</code> active from the external project root, run <code>python -m pytest -q</code> until it reports <code>8 passed</code>, then run <code>python game.py</code> twice and compare the final observations. Do not add input, files, context managers, modules, packages, annotations, Pygame, dependencies, or another project path.</li></ul>'''
+requires = ["player-object-model", "player-method-invariants", "tested-class-migration", "language-class-object-abstraction", "language-test-verification", "language-exception-error-handling"]
+mechanisms = ["terminal-print-working-directory", "terminal-change-directory", "terminal-check-python-version", "venv-create-environment", "venv-activate-environment", "venv-resolve-active-python", "editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file", "python-literal-values", "python-name-binding", "python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators", "python-print-call", "python-string-literal", "python-string-concatenation", "python-f-string", "string-strip-method", "string-lower-method", "string-split-method", "python-list-literal", "python-list-indexing", "list-append-method", "python-dict-literal", "python-dict-key-access", "dict-get-method", "python-set-literal", "python-membership-operators", "set-add-method", "python-tuple-literal", "collection-copy-method", "python-if-statement", "python-elif-clause", "python-else-clause", "python-for-statement", "python-in-loop-target", "python-range-call", "python-while-statement", "python-break-statement", "python-continue-statement", "bounded-loop-invariant", "python-def-statement", "python-function-call", "python-parameters-arguments", "python-return-statement", "pure-function-boundary", "mutating-function-boundary", "pip-install-exact-spec", "pytest-module-invocation", "python-import-statement", "pytest-test-function", "python-assert-statement", "arrange-act-assert", "pytest-failure-location", "red-green-rerun-cycle", "python-exception-types", "python-raise-statement", "python-try-statement", "python-except-clause", "python-else-exception-clause", "exception-recovery-boundary", "exception-propagation", "python-finally-clause", "python-class-statement", "python-init-method", "python-self-parameter", "python-instance-construction", "python-instance-attribute", "python-instance-method", "python-identity-operator"]
+reward = 220
+xray = "The grader follows the old player-state representation into one Player object and expects the existing trail behavior to survive. It checks a focused class boundary with name and health attributes, a nonnegative construction invariant, a Player rest method, explicit object identity evidence, and eight independent tests that preserve all earlier exception and completion-record claims. Dock a second class, inheritance, composition, global replacement state, copied logic, transcript-only tests, shared mutable test fixtures, a weakened invalid-command check, altered six-turn behavior, or any premature files, modules, annotations, Pygame, packages, or dependencies. Reward narrow responsibilities, descriptive snake_case names, four-space indentation, two blank lines between top-level definitions, and proof that the class migration is real rather than cosmetic."
 
-[[freestyle.referenceSteps]]        # hidden from learners; validator replays a real solution
-id = "s09-freestyle-reference"
-path = "replace-me.txt"
+[[freestyle.referenceSteps]]
+id = "s09-rewrite-trail-with-player"
+path = "game.py"
 mode = "rewrite"
 preserves = "all-active"
-instruction = "TODO: exact private reference edit that satisfies this Working."
-content = '''
-TODO: complete reference content
+mechanisms = ["python-class-statement", "python-init-method", "python-self-parameter", "python-instance-construction", "python-instance-attribute", "python-instance-method", "python-exception-types", "python-raise-statement", "python-try-statement", "python-except-clause", "python-else-exception-clause", "python-finally-clause", "python-def-statement", "python-function-call", "python-parameters-arguments", "python-return-statement", "python-if-statement", "python-elif-clause", "python-else-clause", "python-for-statement", "python-range-call", "python-while-statement", "python-break-statement", "python-continue-statement", "python-list-literal", "list-append-method", "python-dict-literal", "python-dict-key-access", "python-set-literal", "set-add-method", "python-membership-operators", "python-print-call", "python-f-string", "mutating-function-boundary", "bounded-loop-invariant"]
+instruction = "Private replay migrates only the player-state record to a Player object while preserving the six-turn trail, its command boundary, and completion records."
+content = '''health = 10
+lantern_oil = 3
+remaining_oil = lantern_oil - 1
+lantern_lit = health > 0 and remaining_oil > 0
+
+
+class Player:
+    def __init__(self, name, health):
+        if health < 0:
+            raise ValueError("Health cannot be negative")
+        self.name = name
+        self.health = health
+
+    def rest(self):
+        self.health = self.health + 2
+        return self.health
+
+
+traveler_name = "Mira"
+player = Player(traveler_name, health)
+status_lead = "Lantern status for " + player.name
+status_line = f"{status_lead}: {player.health} health, {remaining_oil} oil, lit={lantern_lit}"
+
+raw_command = "  LOOK WAYSTONE  "
+normalized_command = raw_command.strip().lower()
+command_parts = normalized_command.split()
+
+inventory = ["waystone map", "rations"]
+inventory_snapshot = inventory.copy()
+discoveries = {"north gate"}
+camp_coordinate = (4, 7)
+
+
+def turn_line(turn_number, command):
+    return f"Turn {turn_number}: {command}"
+
+
+def has_lantern_key(trail_discoveries):
+    return "lantern key" in trail_discoveries
+
+
+def validate_command(command):
+    allowed_commands = [
+        "look waystone",
+        "take moonleaf",
+        "rest",
+        "search briar",
+        "leave",
+    ]
+    if command not in allowed_commands:
+        raise ValueError("Unknown command: " + command)
+    return command
+
+
+def show_opening(status, command, parts, pack, trail_player, trail_discoveries, coordinate):
+    print(status)
+    print("Normalized command:", command)
+    print("Command words:", parts)
+    print("Pack before trail:", pack)
+    print("First packed item:", pack[0])
+    print("Player health:", trail_player.health)
+    print("Unknown camp:", "unknown")
+    trail_discoveries.add("north gate")
+    print("Known north gate:", "north gate" in trail_discoveries)
+    print("Coordinates:", coordinate)
+
+
+def search_briar(trail_discoveries):
+    search_marks = ["thorns", "old ribbon", "lantern key", "deep mud"]
+    search_index = 0
+    while search_index < 4:
+        search_mark = search_marks[search_index]
+        search_index = search_index + 1
+        if search_mark == "old ribbon":
+            continue
+        print("Search:", search_mark)
+        if search_mark == "lantern key":
+            trail_discoveries.add("lantern key")
+            print("Lantern key found.")
+            break
+    return has_lantern_key(trail_discoveries)
+
+
+def handle_command(command, pack, trail_player, trail_discoveries):
+    validate_command(command)
+    route_result = {"path_open": False, "keep_traveling": True}
+    if command == "look waystone":
+        trail_discoveries.add("waystone")
+        print("The waystone points north.")
+    elif command == "take moonleaf" and "moonleaf" not in pack:
+        pack.append("moonleaf")
+        print("Moonleaf packed.")
+    elif command == "rest":
+        restored_health = trail_player.rest()
+        print(f"Health restored: {restored_health}")
+    elif command == "search briar":
+        route_result["path_open"] = search_briar(trail_discoveries)
+    elif command == "leave":
+        print("Trail closed.")
+        route_result["keep_traveling"] = False
+    return route_result
+
+
+def run_turn(command, pack, trail_player, trail_discoveries, completed_commands):
+    try:
+        route_result = handle_command(command, pack, trail_player, trail_discoveries)
+    except ValueError as error:
+        print("Invalid command:", error)
+        return {"path_open": False, "keep_traveling": True}
+    else:
+        return route_result
+    finally:
+        completed_commands.append(command)
+        print("Turn cleanup:", command)
+
+
+commands = [
+    normalized_command,
+    "take moonleaf",
+    "rest",
+    "search briar",
+    "sing",
+    "leave",
+]
+turn_limit = 6
+turns_taken = 0
+path_open = False
+completed_commands = []
+
+show_opening(
+    status_line,
+    normalized_command,
+    command_parts,
+    inventory,
+    player,
+    discoveries,
+    camp_coordinate,
+)
+
+for turn_index in range(turn_limit):
+    command = commands[turn_index]
+    turns_taken = turns_taken + 1
+    print(turn_line(turns_taken, command))
+    route_result = run_turn(
+        command,
+        inventory,
+        player,
+        discoveries,
+        completed_commands,
+    )
+    path_open = route_result["path_open"]
+    if route_result["keep_traveling"] == False:
+        break
+
+print("Turns taken:", turns_taken)
+print("Pack after trail:", inventory)
+print("Snapshot before trail:", inventory_snapshot)
+print("Found lantern key:", has_lantern_key(discoveries))
+print("Path open:", path_open)
+print("Final health:", player.health)
+print("Completed turns:", completed_commands)
+'''
+
+[[freestyle.referenceSteps]]
+id = "s09-replace-player-regression-tests"
+path = "tests/test_game.py"
+mode = "replace"
+find = '''from game import handle_command, run_turn, turn_line
+'''
+mechanisms = ["python-import-statement", "pytest-test-function", "python-assert-statement", "arrange-act-assert", "python-instance-construction", "python-instance-attribute", "python-instance-method", "python-identity-operator", "python-exception-types", "python-try-statement", "python-except-clause", "python-function-call", "python-list-literal", "python-set-literal", "list-append-method", "mutating-function-boundary", "pure-function-boundary"]
+instruction = "Private replay preserves the five earlier tests while migrating fixtures to Player and adding construction, invariant, method, and identity evidence."
+content = '''from game import Player, handle_command, run_turn, turn_line
+
+
+def test_turn_line_returns_numbered_command():
+    turn_number = 3
+    command = "rest"
+
+    actual_line = turn_line(turn_number, command)
+
+    assert actual_line == "Turn 3: rest"
+
+
+def test_rest_command_changes_supplied_player_and_keeps_traveling():
+    inventory = []
+    player = Player("Mira", 10)
+    discoveries = set()
+
+    route_result = handle_command("rest", inventory, player, discoveries)
+
+    assert player.health == 12
+    assert route_result == {"path_open": False, "keep_traveling": True}
+
+
+def test_invalid_command_raises_value_error_before_player_mutation():
+    inventory = []
+    player = Player("Mira", 10)
+    discoveries = set()
+    was_rejected = False
+
+    try:
+        handle_command("sing", inventory, player, discoveries)
+    except ValueError:
+        was_rejected = True
+
+    assert was_rejected == True
+    assert inventory == []
+    assert player.health == 10
+    assert discoveries == set()
+
+
+def test_invalid_turn_recovers_and_records_completion():
+    inventory = []
+    player = Player("Mira", 10)
+    discoveries = set()
+    completed_commands = []
+
+    route_result = run_turn(
+        "sing",
+        inventory,
+        player,
+        discoveries,
+        completed_commands,
+    )
+
+    assert route_result == {"path_open": False, "keep_traveling": True}
+    assert inventory == []
+    assert player.health == 10
+    assert discoveries == set()
+    assert completed_commands == ["sing"]
+
+
+def test_successful_turn_records_completion():
+    inventory = []
+    player = Player("Mira", 10)
+    discoveries = set()
+    completed_commands = []
+
+    route_result = run_turn(
+        "rest",
+        inventory,
+        player,
+        discoveries,
+        completed_commands,
+    )
+
+    assert route_result == {"path_open": False, "keep_traveling": True}
+    assert player.health == 12
+    assert completed_commands == ["rest"]
+
+
+def test_player_construction_exposes_name_and_health():
+    player = Player("Mira", 10)
+
+    assert player.name == "Mira"
+    assert player.health == 10
+
+
+def test_player_rest_returns_new_health_and_rejects_negative_start():
+    player = Player("Mira", 10)
+    was_rejected = False
+
+    restored_health = player.rest()
+    try:
+        Player("Mira", -1)
+    except ValueError:
+        was_rejected = True
+
+    assert restored_health == 12
+    assert player.health == 12
+    assert was_rejected == True
+
+
+def test_player_identity_distinguishes_alias_from_new_instance():
+    player = Player("Mira", 10)
+    alias = player
+    other_player = Player("Mira", 10)
+
+    assert alias is player
+    assert other_player is not player
 '''
 
 [freestyle.badge]
 id = "badge-s09"
-name = "TODO BADGE"
-desc = "TODO: one sentence."
-
-[[freestyle.rubric]]               # weights MUST sum to exactly 100
-criterion = "Compiles & runs"
-weight = 40
-desc = "TODO: build succeeds; runs without crashing on normal input."
+name = "SHAPED HERO"
+desc = "Gave Briar Glen’s traveler a tested object boundary."
 
 [[freestyle.rubric]]
-criterion = "Meets the brief"
-weight = 40
-desc = "TODO: every requirement in the checklist is present and correct."
+criterion = "Player Object Boundary"
+weight = 24
+mechanisms = ["python-class-statement", "python-init-method", "python-self-parameter", "python-instance-construction", "python-instance-attribute"]
+desc = "game.py defines one focused Player class, constructs the hero from name and health, and migrates the former player-state reads to that object without moving independent collections into it."
 
 [[freestyle.rubric]]
-criterion = "Clean style"
+criterion = "Methods and Invariants"
 weight = 20
-desc = "TODO: name this language's real naming AND layout conventions (research its style guide)."
+mechanisms = ["python-instance-method", "python-instance-attribute", "python-exception-types", "python-raise-statement", "python-return-statement"]
+desc = "Player rejects below-zero starting health and owns the established rest mutation plus returned health, while command routing and recovery remain outside the class."
+
+[[freestyle.rubric]]
+criterion = "Preserved Trail and Error Contract"
+weight = 20
+mechanisms = ["python-function-call", "python-try-statement", "python-except-clause", "python-else-exception-clause", "python-finally-clause", "exception-recovery-boundary", "bounded-loop-invariant"]
+desc = "The six-command trail, ValueError-before-mutation rule, narrow recovery, completion records, route decisions, and final observations survive the representation migration."
+
+[[freestyle.rubric]]
+criterion = "Class Migration Evidence"
+weight = 24
+mechanisms = ["python-import-statement", "pytest-test-function", "python-assert-statement", "arrange-act-assert", "python-instance-construction", "python-instance-method", "python-identity-operator", "pytest-module-invocation"]
+desc = "tests/test_game.py preserves all five prior checks with fresh Player fixtures and adds focused construction, invariant/method, and alias-versus-new-instance identity evidence; python -m pytest -q reports 8 passed."
+
+[[freestyle.rubric]]
+criterion = "Focused Python Craft"
+weight = 12
+mechanisms = ["editor-edit-file", "editor-save-file", "python-def-statement", "python-self-parameter", "python-assert-statement"]
+desc = "The saved source uses descriptive lowercase_snake_case names, four-space indentation, two blank lines between top-level definitions, focused arrange/act/assert spacing, and one narrowly responsible Player class."

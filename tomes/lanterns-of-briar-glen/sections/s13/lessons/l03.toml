@@ -1,0 +1,134 @@
+[[lessons]]
+id = "s13-l03"
+title = "Create and Inspect Directories"
+teaches = ["directory-state-actions"]
+introduces = ["pathlib-cwd-method", "pathlib-home-method", "pathlib-exists-method", "pathlib-mkdir-method"]
+body = '''
+<p>Construction describes where a path would be; directory actions ask what is actually present. <code>Path.cwd()</code> returns the current working directory, while <code>Path.home()</code> returns the current user’s home directory. These are observations of the running process, so keep them at the outer boundary rather than burying them in a pure constructor. Once you have a chosen directory Path, <code>exists()</code> reports whether something is there and <code>mkdir()</code> creates the directory when it is absent.</p>
+<pre><code data-kind="runnable">from pathlib import Path
+
+trail_root = Path.cwd()
+player_home = Path.home()
+practice_dir = trail_root / "path-practice"
+if not practice_dir.exists():
+    practice_dir.mkdir()
+print(practice_dir.exists())
+print(player_home)</code></pre>
+<p>The conditional is important. Calling <code>mkdir()</code> is an action with a real result; it is not a query. First ask <code>exists()</code>. If the directory is absent, create it. If it is already there, leave it alone. This chapter’s player-data helper is still supplied a home path so its shape stays testable. A later application boundary can call <code>Path.home()</code>, pass the result in, and ensure the returned directory exists.</p>
+<p>Do not make a directory merely by asking for <code>parent</code>, and do not assume a project-relative path is the same as a user-data path. The former is anchored at a project root a caller chooses; the latter belongs under a home directory and must not be mixed with package source. The Working asks for both so the learner can defend which location is being used.</p>
+<p>Failures need the same evidence-first approach as earlier sections. If creation fails, report the chosen Path and check whether its parent is an existing writable location; do not catch every operating-system error or invent cleanup. There is no deletion lesson here. The later resource-cleanup section will own deterministic release and replacement strategy, so preserve this narrow directory action.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ASK, THEN ACT</div><p>Put <code>exists()</code> immediately before the branch that decides whether <code>mkdir()</code> is needed. The visible decision prevents an already-present directory from being treated like a fresh one.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "directory-state-actions"
+purpose = "Inspect a chosen directory and create it only when it is absent."
+anatomy = "Obtain a boundary root, build the directory path, ask exists(), branch, and call mkdir() only on the absent path."
+example = "practice_dir is created only after its existence check is false."
+observable = "The final exists() print is true whether the directory was already present or just created."
+failure = "Treating a query as creation or calling mkdir unconditionally obscures the directory’s prior state."
+practice = "s13-l03-w1"
+
+[[lessons.concepts]]
+id = "pathlib-cwd-method"
+purpose = "Obtain the running process’s current working directory as a Path."
+anatomy = "Call Path.cwd() at an outer boundary that needs the current project location."
+example = "trail_root receives the disposable program’s current directory."
+observable = "Joining a child to trail_root produces a path beneath the execution location."
+failure = "Using cwd inside a pure constructor makes results depend on hidden process state."
+practice = "s13-l03-e1"
+
+[[lessons.concepts]]
+id = "pathlib-home-method"
+purpose = "Obtain the current user’s home directory as a Path at a runtime boundary."
+anatomy = "Call Path.home() where the program deliberately chooses a user-data root."
+example = "player_home is printed as an observed user-specific location."
+observable = "The terminal displays a Path for the running user’s home directory."
+failure = "Hard-coding one author’s home path makes a portable program machine-specific."
+practice = "s13-l03-e2"
+
+[[lessons.concepts]]
+id = "pathlib-exists-method"
+purpose = "Ask whether a Path currently exists before deciding on a directory action."
+anatomy = "Call exists() and use its Boolean result in an if condition."
+example = "practice_dir.exists() controls whether mkdir runs."
+observable = "The final print reports true after the guarded decision."
+failure = "An existence check does not create the directory it observes."
+practice = "s13-l03-w1"
+
+[[lessons.concepts]]
+id = "pathlib-mkdir-method"
+purpose = "Create a selected directory when the surrounding branch has established it is absent."
+anatomy = "Call mkdir() on the absent directory Path inside the false-exists branch."
+example = "practice_dir.mkdir() is reached only when no practice directory exists."
+observable = "A later exists() reports the directory is available."
+failure = "Unconditional creation ignores the observed state and can raise when the path is already present."
+practice = "s13-l03-e3"
+
+[[lessons.artifactSteps]]
+id = "s13-l03-author-directory-boundary"
+path = "briar_glen/domain.py"
+mode = "author"
+mechanisms = ["pathlib-cwd-method", "pathlib-home-method", "pathlib-exists-method", "pathlib-mkdir-method", "python-if-statement", "python-return-statement", "editor-edit-file", "editor-save-file", "terminal-invoke-saved-file"]
+instruction = "In learner-authored briar_glen/domain.py, keep the supplied-home path helper pure and author one separate directory boundary that receives the selected player-data directory, checks whether it exists, creates it only when absent, and returns that directory. At the caller boundary, practice obtaining project and home roots with Path.cwd() and Path.home() before passing paths onward; do not hard-code a user path. Save the module and run its existing package entry so the six-turn trail remains unchanged. Do not add recursive creation options, deletion, JSON, context managers, CLI parsing, Pygame, or a permanent save operation."
+checks = ["An already-existing supplied directory remains available without a second creation action.", "An absent supplied player-data directory is created by the guarded branch and returned as a Path."]
+
+[[lessons.readings]]
+label = "Python documentation: pathlib queries and directories"
+url = "https://docs.python.org/3/library/pathlib.html#querying-file-type-and-status"
+
+[[lessons.exercises]]
+id = "s13-l03-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["pathlib-exists-method", "pathlib-mkdir-method"]
+prompt = "Retype this disposable guarded directory action exactly."
+code = '''if not cache_dir.exists():
+    cache_dir.mkdir()'''
+
+[[lessons.exercises]]
+id = "s13-l03-e1"
+type = "mc"
+points = 18
+mechanisms = ["pathlib-cwd-method"]
+prompt = "Which call obtains the current working directory as a Path?"
+choices = ["Path.cwd()", "Path.parent()", "Path.exists()", "Path.mkdir()"]
+answer = 0
+whyWrong = "parent describes a related path, exists asks a question, and mkdir changes directory state; none obtain the process working directory."
+hint = "The method name abbreviates current working directory."
+explain = "Path.cwd() is the current-working-directory boundary observation."
+
+[[lessons.exercises]]
+id = "s13-l03-e2"
+type = "fill"
+points = 18
+mechanisms = ["pathlib-home-method"]
+prompt = "Complete the call that observes the active user’s root directory."
+code = 'player_home = Path.____()'
+answer = "home"
+hint = "Use the location associated with the active user, not the project process."
+
+[[lessons.exercises]]
+id = "s13-l03-e3"
+type = "text"
+points = 18
+mechanisms = ["pathlib-exists-method", "pathlib-mkdir-method"]
+prompt = "Why should exists() be checked before calling mkdir() for this chapter’s simple directory boundary?"
+answer = "It lets the program create only an absent directory and preserve an already existing one"
+hint = "Separate the observation from the state-changing action."
+
+[[lessons.exercises]]
+id = "s13-l03-w1"
+type = "write"
+points = 35
+mechanisms = ["pathlib-path-constructor", "pathlib-exists-method", "pathlib-mkdir-method", "python-if-statement", "python-print-call"]
+prompt = "Write a disposable program that constructs Path(\"practice-dir\"), creates it only if it does not exist, then prints the exact Boolean result of exists()."
+expect = "True"
+solution = '''from pathlib import Path
+
+practice_dir = Path("practice-dir")
+if not practice_dir.exists():
+    practice_dir.mkdir()
+print(practice_dir.exists())'''
+hint = "The final existence check must occur after the guarded action."

@@ -1,0 +1,105 @@
+[[lessons]]
+id = "s12-l02"
+title = "Guard the Entry Point"
+teaches = ["guarded-entrypoint"]
+introduces = ["python-main-name-guard"]
+body = '''
+<p>Importing a module should make its definitions available; it should not silently begin the adventure. Python gives a module the special name <code>__main__</code> only when that module is the chosen program entry. When another module imports it, <code>__name__</code> is its package-qualified module name instead. The main-name guard uses that difference to keep startup deliberate.</p>
+<pre><code data-kind="runnable">def begin_watch():
+    print("watch begins")
+
+
+if __name__ == "__main__":
+    begin_watch()</code></pre>
+<p>The definition is always available after import. The call happens only when Python executes this module as the entry. In Briar Glen, move the established startup call behind a small <code>main()</code> function in <code>briar_glen/main.py</code>, then place the one call to <code>main()</code> inside the guard. Keep the existing domain’s six-turn behavior unchanged: the entry decides when to start it; the domain still owns what happens after it starts.</p>
+<p>Prove both sides of the boundary. Running <code>python -m briar_glen.main</code> must still show the known trail. Importing <code>briar_glen.main</code> while pytest collects <code>tests/test_game.py</code> must stay quiet; definitions may load, but the complete trail must not run. This is why a guard is a behavior boundary, not decoration. It keeps tests focused and prevents an import from accidentally triggering a user-facing journey.</p>
+<p>Do not use the guard to hide an error, duplicate the controller, add command-line options, or make the domain import the entry. A failing entry belongs in the usual traceback and existing exception rules. If the module run produces nothing, inspect whether the guarded call is present and correctly indented. If importing starts the trail, inspect whether a call remains at top level outside the guard.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DEFINE, THEN DECIDE</div><p>A module can expose useful names at import time and reserve side effects for its chosen execution path. Read the guard as the explicit decision point.</p></div>'''
+
+[[lessons.concepts]]
+id = "guarded-entrypoint"
+purpose = "Separate importing reusable entry definitions from deliberately starting the program."
+anatomy = "Define a small entry function, compare __name__ with the string __main__, and call that function only inside the indented guard body."
+example = "begin_watch is defined for import, while the runnable example invokes it only inside the guard."
+observable = "python -m briar_glen.main starts the familiar trail, while pytest collection can import briar_glen.main without starting it."
+failure = "A top-level startup call outside the guard makes importing the module perform the full trail unexpectedly."
+practice = "s12-l02-w1"
+
+[[lessons.concepts]]
+id = "python-main-name-guard"
+purpose = "Use Python’s execution-name comparison to run startup code only for the selected entry module."
+anatomy = "Write if __name__ == \"__main__\", indent the startup call below it, and leave definitions above it."
+example = "if __name__ == \"__main__\" controls the begin_watch call in the runnable example."
+observable = "The guarded call runs during direct module execution but not merely because another module imports the file."
+failure = "A misspelled name or a call outside the indented block defeats the intended execution boundary."
+practice = "s12-l02-w1"
+
+[[lessons.artifactSteps]]
+id = "s12-l02-guard-trail-entry"
+path = "briar_glen/main.py"
+mode = "author"
+mechanisms = ["python-main-name-guard", "python-def-statement", "python-function-call", "python-import-statement", "python-try-statement", "python-except-clause", "python-exception-types", "python-module-execution", "terminal-invoke-saved-file", "editor-edit-file", "editor-save-file"]
+instruction = "In the learner-authored briar_glen/main.py, keep the existing absolute domain import as the normal route, preserve the earlier narrow ModuleNotFoundError fallback needed by direct saved-file proof, and author a small main function that invokes the existing trail callable once. Put the call to main behind a correctly spelled __name__ == __main__ guard. Do not put a trail call at top level, change domain.py’s rules, add arguments, broaden the fallback, or create a second controller. Save it, run python -m briar_glen.main from the external project root, then run python -m pytest -q so test collection proves the import does not start the trail."
+checks = ["The package module command still reaches Final health: 12 and the established final trail observations.", "pytest reports its focused checks without the six-turn transcript appearing during test collection."]
+
+[[lessons.readings]]
+label = "Python documentation: __main__"
+url = "https://docs.python.org/3/library/__main__.html"
+
+[[lessons.exercises]]
+id = "s12-l02-e1"
+type = "mc"
+points = 18
+mechanisms = ["python-main-name-guard"]
+prompt = "When does the indented call in a main-name guard run?"
+choices = ["Whenever any module imports the file", "Only when Python executes that module as the selected entry", "Only after pytest fails", "Whenever a package initializer is empty"]
+answer = 1
+whyWrong = "Importing exposes definitions but does not make the module the selected entry; tests and initializer contents do not control this comparison."
+hint = "The special name changes for the chosen start module."
+explain = "The guard reserves the call for entry execution."
+
+[[lessons.exercises]]
+id = "s12-l02-e2"
+type = "fill"
+points = 20
+mechanisms = ["python-main-name-guard"]
+prompt = "Complete the special execution-name string in this guard."
+code = 'if __name__ == "____":'
+answer = "__main__"
+hint = "It has two underscores before and after main."
+
+[[lessons.exercises]]
+id = "s12-l02-e3"
+type = "text"
+points = 18
+mechanisms = ["python-main-name-guard"]
+prompt = "Why is a top-level trail call a problem for a module that tests import?"
+answer = "Importing it would start the trail during test collection"
+accept = ["it causes import-time side effects", "tests would run the full trail just by importing the module"]
+hint = "Consider what pytest must do before it can run test functions."
+explain = "The guard keeps imports available without triggering startup behavior."
+
+[[lessons.exercises]]
+id = "s12-l02-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["python-main-name-guard"]
+prompt = "Retype this disposable entry guard."
+code = '''if __name__ == "__main__":
+    begin_watch()'''
+
+[[lessons.exercises]]
+id = "s12-l02-w1"
+type = "write"
+points = 35
+mechanisms = ["python-main-name-guard", "python-def-statement", "python-function-call", "python-print-call"]
+prompt = "Write a disposable program that defines light_beacon to print ready, then uses a main-name guard to call it. Running the program must print ready. This is not a Briar Glen artifact."
+expect = "ready"
+solution = '''def light_beacon():
+    print("ready")
+
+
+if __name__ == "__main__":
+    light_beacon()'''
+hint = "Put the definition above the guard and indent the one call below the if line."

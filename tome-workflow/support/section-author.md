@@ -19,11 +19,17 @@ to its `[[lessons]]` table and give every introduced mechanism its own complete
 `[[lessons.concepts]]` evidence plus guided exercise. Copy the Working node's `mechanisms`
 exactly to `[freestyle]`. Add `mechanisms = []`, even when empty, to every exercise, visible
 artifact step, hidden reference step, rubric row, and `[proof]`; list every concrete mechanism
-that demand requires. Declarations never substitute for teaching. The deterministic gate checks
-known IDs, ownership order, and map/file alignment; a separate cached prerequisite audit examines
+that demand requires. Every introduced mechanism must appear in its named guided-practice
+exercise's `mechanisms` and in at least one visible artifact step; a concept may not point at an
+exercise that omits the mechanism it claims to practice, and a typing drill cannot be its only
+guided practice. Declarations never substitute for
+teaching. The deterministic gate checks known IDs, ownership order, practice/work-order coverage,
+and map/file alignment; a separate cached prerequisite audit examines
 the actual prose, code, commands, checklist, rubric, proof, and replay for omissions. If that audit
 discovers a real undeclared mechanism, only the harness may add it through the audited map-
 amendment path, after which this section must teach and declare it before validation can pass.
+The harness refuses to auto-add a near-duplicate ahead of its closest sealed future owner; simplify
+an incidental authored route instead of pulling later curriculum forward under a new name.
 
 Before drafting, walk the Working backward from every checklist item, rubric row, proof action,
 validation dependency, artifact change, and hidden replay step to the learner's declared prior

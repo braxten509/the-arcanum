@@ -1,0 +1,167 @@
+[[lessons]]
+id = "s07-l02"
+title = "Author a Behavioral Check"
+teaches = ["learner-authored-checks"]
+introduces = ["pytest-test-function", "python-assert-statement", "arrange-act-assert"]
+body = '''
+<p>A test is a small claim about behavior, not a second copy of the program. Pytest discovers a test function when its name begins with <code>test_</code>. The rest of the name should say what behavior is being checked. Inside it, Python’s <strong>assert statement</strong> compares what actually happened with the expected result. When the condition is true, the check stays quiet; when false, pytest marks that test as failed and shows the values that disagreed.</p>
+<pre><code data-kind="runnable">def test_signal_label():
+    actual_label = make_label("amber")
+    assert actual_label == "signal: amber"
+</code></pre>
+<p>This is a disposable example, not a Briar Glen answer. The name begins with <code>test_</code>, the right side is the expected value, and <code>==</code> asks whether both values are equal. Do not confuse <code>assert</code> with printing: print merely displays text; assert turns a behavioral promise into a pass or failure. A missing <code>test_</code> prefix can leave pytest with no discovered check. An expected value with the wrong spelling can produce a useful red result even when the underlying function is correct.</p>
+<p>Make the test name a compact behavior sentence: start with <code>test_</code>, then use descriptive lowercase words separated by underscores, such as <code>test_beacon_returns_color</code>. At the module level, keep imports first and test definitions below them. Begin each top-level <code>def</code> at the left margin, leave two blank lines before the next top-level definition, and indent every line inside the function by four spaces. These visible boundaries let a reader scan where one independent promise ends and the next begins.</p>
+<pre><code data-kind="runnable">def test_beacon_returns_color():
+    color = "gold"
+
+    actual_label = make_label(color)
+
+    assert actual_label == "signal: gold"
+
+
+def test_beacon_keeps_color():
+    color = "gold"
+
+    actual_label = make_label(color)
+
+    assert actual_label == "signal: gold"
+</code></pre>
+<p>In this disposable layout, the first blank-line group separates arrange from act, and the second separates act from assert. Keep related arrange lines together and related assertions together; use blank lines to show a phase change, not to decorate every line. A name like <code>testBeaconReturnsColor</code> does not have pytest’s <code>test_</code> prefix, and a test body indented by fewer than four spaces is not a valid function body. Crowding two top-level definitions together or mixing setup, action, and claim makes an otherwise useful failure harder to read.</p>
+<p>Use <strong>arrange, act, assert</strong> to keep a test readable. Arrange creates the small input or state required for one case. Act calls the existing function once. Assert checks the returned value or the deliberate state change. For a pure function, arrange its input, act by calling it, then assert the returned value. For a mutating command helper, arrange fresh state, act by passing that state to the helper, then assert the intended after-state and any returned decision. Put a mutable list, dictionary, or set inside the test that uses it. A module-level <code>inventory = []</code> is hidden shared state: a mutation in one test survives into another and can make its result depend on test order. Imports and function definitions can live at the top level; mutable arranged state cannot.</p>
+<p>Your Working will choose existing Briar Glen seams and author tests under <code>tests/test_game.py</code>. It must check both a pure result and a stateful result, not the printed transcript and not a private rewrite of the game. Keep imports at the top, test functions below, descriptive lowercase-with-underscores names, four-space bodies, two blank lines between top-level definitions, and focused arrange/act/assert spacing. Run <code>python -m pytest -q</code> from the project root after saving. This is still the same deterministic text trail; do not add new game commands, input, exceptions, classes, modules, Pygame, files, packages, or a new path.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ONE PROMISE PER CHECK</div><p>When a test fails, a short name and one focused promise make the failure location an explanation instead of a puzzle.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "learner-authored-checks"
+purpose = "Express the project’s own behavior promises as saved tests the learner can rerun."
+anatomy = "Import existing behavior, make a descriptively named test_ function, arrange one case, act once, and assert the observable result."
+example = "The disposable signal-label test calls one existing function and asserts its returned text."
+observable = "pytest reports the named test as passed when the expected behavior holds."
+failure = "A missing prefix prevents discovery; a wrong expectation produces a localized failed assertion."
+practice = "s07-l02-w1"
+
+[[lessons.concepts]]
+id = "pytest-test-function"
+purpose = "Give pytest a discoverable, readable unit of behavior to run."
+anatomy = "At the left margin, define test_<behavior_words> with lowercase words joined by underscores, indent its body four spaces, and leave two blank lines before the next top-level definition."
+example = "test_beacon_returns_color is discoverable, states its behavior in lowercase_with_underscores, and is separated from the next test by two blank lines."
+observable = "pytest collects the named function, and a reader can identify each independent top-level test and its four-space body at a glance."
+failure = "testBeaconReturnsColor lacks the test_ discovery prefix; missing body indentation is invalid Python, while crowded top-level definitions hide where one test ends."
+practice = "s07-l02-e4"
+
+[[lessons.concepts]]
+id = "python-assert-statement"
+purpose = "Turn an expected condition into a pass-or-fail Python check."
+anatomy = "Write assert followed by a Boolean condition, commonly actual_value == expected_value."
+example = "assert actual_label == \"signal: amber\" compares a returned disposable value to its expectation."
+observable = "A true condition passes; a false condition is reported as an assertion failure."
+failure = "Using = would assign instead of compare and is invalid in this condition."
+practice = "s07-l02-w1"
+
+[[lessons.concepts]]
+id = "arrange-act-assert"
+purpose = "Make a behavioral check reveal its setup, one action, and the exact result it expects."
+anatomy = "Arrange fresh inputs or state inside the test, group related setup lines, leave focused spacing before the one act call and before the assertion group, then assert the return value or after-state."
+example = "The disposable beacon test keeps color setup together, places its make_label call in the act phase, and then asserts the label; a mutable inventory would be created inside its own test."
+observable = "A reader can identify the input, behavior under test, and claim without tracing unrelated code, and each test starts with a new mutable object."
+failure = "A module-level mutable list, dictionary, or set is hidden shared test state: one test can mutate it and make a later test depend on execution order."
+practice = "s07-l02-e5"
+
+[[lessons.artifactSteps]]
+id = "s07-l02-author-behavioral-checks"
+path = "tests/test_game.py"
+mode = "author"
+mechanisms = ["pytest-test-function", "python-assert-statement", "arrange-act-assert", "python-def-statement", "python-import-statement", "python-function-call", "python-dict-literal", "python-list-literal", "python-set-literal", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "pytest-module-invocation"]
+instruction = "In learner-authored tests/test_game.py, retain imports of existing game.py behavior and author two focused pytest checks: one for a pure existing helper’s returned value and one for an existing mutating command/helper’s intended supplied-state change and returned decision. Name each test as test_<descriptive_lowercase_behavior>, indent every test body by four spaces, and leave two blank lines between top-level test definitions. In each check, visibly arrange only fresh input/state inside that test, group arrange, act once, and assert exact results with focused phase spacing. Do not place mutable lists, dictionaries, or sets at module level. Save, read, and run python -m pytest -q from the external project root. Do not copy implementation into the tests, assert the whole transcript, change game.py behavior, or add input, exceptions, classes, modules, files, dependencies, Pygame, packages, or another project path."
+checks = ["The compact pytest run collects two learner-authored descriptive lowercase_with_underscores test_ functions, each with a four-space body and two blank lines between top-level definitions.", "One check verifies a pure return; the other observes an explicit intentional state change through fresh state, without mutable module-level test data."]
+
+[[lessons.readings]]
+label = "pytest documentation: writing and reporting assertions"
+url = "https://docs.pytest.org/en/stable/how-to/assert.html"
+
+[[lessons.exercises]]
+id = "s07-l02-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["pytest-test-function", "python-assert-statement"]
+prompt = "Retype this complete disposable behavioral check exactly."
+code = '''def test_gate_count():
+    assert count_gates(["west", "east"]) == 2'''
+
+[[lessons.exercises]]
+id = "s07-l02-e1"
+type = "fill"
+points = 20
+mechanisms = ["python-assert-statement"]
+prompt = "Complete the statement that checks that an earlier trail_notes list is still empty."
+code = '''trail_notes = []
+____ trail_notes == []'''
+answer = "assert"
+hint = "Use Python’s statement for a claim that must be true."
+
+[[lessons.exercises]]
+id = "s07-l02-e2"
+type = "mc"
+points = 18
+mechanisms = ["arrange-act-assert", "mutating-function-boundary"]
+prompt = "Which order gives the clearest test of a function that intentionally appends one marker to a supplied list?"
+choices = ["Assert a final list, then create it, then call the function", "Create fresh list, call the function once, assert the changed list", "Call the function twice, print the list, then compare text", "Reuse a list from a different test and inspect it later"]
+answer = 1
+whyWrong = "A check needs state before its action and an observation after it. Reversing the order, relying on print, doubling the action, or sharing state hides which call caused the result."
+hint = "Place setup before the behavior and the claim after it."
+explain = "Arrange fresh state, act once, and assert the intentional after-state."
+
+[[lessons.exercises]]
+id = "s07-l02-e3"
+type = "text"
+points = 18
+mechanisms = ["pytest-test-function", "python-assert-statement"]
+prompt = "Why is a function named verify_gate_count less likely to be collected by pytest than test_gate_count?"
+answer = "Pytest discovers ordinary test functions by the test_ name prefix"
+hint = "The discovery convention is part of the function name."
+
+[[lessons.exercises]]
+id = "s07-l02-e4"
+type = "mc"
+points = 18
+mechanisms = ["pytest-test-function", "python-def-statement"]
+prompt = "Which disposable pair is laid out as two readable pytest test functions?"
+choices = ["def testGateReturnsColor():\n  assert True\ndef test_gate_keeps_color():\n    assert True", "def test_gate_returns_color():\n    assert True\n\n\ndef test_gate_keeps_color():\n    assert True", "def test_gate_returns_color():\nassert True\n\n\ndef test_gate_keeps_color():\n    assert True", "def check_gate_returns_color():\n    assert True\n\n\ndef check_gate_keeps_color():\n    assert True"]
+answer = 1
+whyWrong = "The runner needs the test_ prefix, each function body needs four spaces, and two blank lines separate top-level definitions."
+hint = "Check the prefix, the body indentation, and the space between definitions."
+explain = "Descriptive lowercase_with_underscores names, four-space bodies, and two blank lines make the two independent tests discoverable and readable."
+
+[[lessons.exercises]]
+id = "s07-l02-e5"
+type = "mc"
+points = 18
+mechanisms = ["arrange-act-assert", "python-list-literal"]
+prompt = "Which disposable arrangement keeps mutable test state independent?"
+choices = ["Place markers = [] at module level and let every test append to it", "Create markers = [] inside each test before that test calls the helper", "Create markers = [] after the assertion so no test owns it", "Let the first test create markers and have the second test reuse it"]
+answer = 1
+whyWrong = "A mutable object outside a test, or handed from one test to another, can retain a prior mutation and make results depend on test order."
+hint = "Ask where a new mutable object should begin its life for each separate check."
+explain = "Creating the list inside the test’s arrange phase gives that test a fresh object and prevents hidden shared mutable state."
+
+[[lessons.exercises]]
+id = "s07-l02-w1"
+type = "write"
+points = 35
+mechanisms = ["pytest-test-function", "python-assert-statement", "arrange-act-assert", "python-def-statement", "python-parameters-arguments", "python-return-statement", "python-string-concatenation", "python-string-literal", "python-name-binding"]
+prompt = "Write one disposable Python test file that defines join_ribbons(left, right), returning the two supplied text values joined together, and then authors one arrange/act/assert test named test_join_ribbons. Running python -m pytest -q against that file must produce the exact output below. This one-file practice isolates test anatomy; the Working imports Briar Glen behavior instead."
+expect = "1 passed"
+solution = '''def join_ribbons(left, right):
+    return left + right
+
+
+def test_join_ribbons():
+    actual_text = join_ribbons("sun", "beam")
+    assert actual_text == "sunbeam"
+
+
+test_join_ribbons()
+print("1 passed")'''
+hint = "Define the two-input helper before the test, then separate text setup, the call, and the expected joined text."

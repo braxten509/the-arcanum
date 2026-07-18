@@ -32,6 +32,7 @@ class PhaseAuthorStateMixin:
         reset = identity_changed or validated_unit_boundary
         if reset:
             self.session_id = ""
+            self.actual_model = ""
         return reset
 
     def activate_phase_author(self, phase):
@@ -44,10 +45,18 @@ class PhaseAuthorStateMixin:
         return identity_changed
 
     def state(self, state, **extra):
+        unit = getattr(self, "active_unit", None) or {}
         payload = {"buildId": self.build_id, "state": state, "kind": self.kind,
                    "model": self.model, "effort": self.effort,
                    "role": self.role, "sessionId": self.session_id,
                    "updatedAt": time.time(), **extra}
+        if unit.get("phase"):
+            payload["phase"] = int(unit["phase"])
+        if unit.get("section"):
+            payload["section"] = str(unit["section"])
+        actual_model = str(getattr(self, "actual_model", "") or "")
+        if actual_model:
+            payload["actualModel"] = actual_model
         write_json(self.state_path, payload)
         print(f"AUTHOR SESSION {state}", flush=True)
 

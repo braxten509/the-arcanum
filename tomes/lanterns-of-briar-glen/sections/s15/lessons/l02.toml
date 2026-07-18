@@ -1,0 +1,112 @@
+id = "s15-l02"
+title = "Replace a Temporary Save"
+introduces = ["named-temporary-file-call", "os-replace-call"]
+teaches = ["atomic-save-replacement"]
+
+[[lessons]]
+id = "s15-l02"
+title = "Replace a Temporary Save"
+teaches = ["atomic-save-replacement"]
+introduces = ["named-temporary-file-call", "os-replace-call"]
+body = '''<p>A direct write to the destination can leave it half-written if writing fails. The safer boundary is a sequence: create a named temporary text file beside the caller's destination, write the complete JSON record while that file is active, leave its context so the file is closed, and only then use <code>os.replace</code> to replace the destination. “Beside” matters because replacement is intended for a source and destination on the same filesystem. A named temporary file gives the program a path it can hand to the replacement operation after the context has closed.</p><p>This is a state transition, not a magic durability claim. The old destination remains in place until the temporary write succeeds and its resource lifetime ends normally. If writing fails, there is no replacement; the next lesson adds cleanup proof for the leftover temporary path. Do not use this sequence to choose a home directory, create folders, or connect saving to the game loop. Those are later responsibilities.</p><p>For the project Working, preserve record conversion and the string codec. Author only the supplied-path file-write boundary: obtain the destination as a path, make a named temporary UTF-8 text file in its parent directory, serialize into it with the established JSON function, and replace the destination after the context. Keep the write seam testable so the following lesson can make a write fail deliberately. Your replacement test should begin with an existing destination and inspect restored facts, not search source text.</p>'''
+
+[[lessons.readings]]
+label = "Python tempfile: NamedTemporaryFile"
+url = "https://docs.python.org/3/library/tempfile.html#tempfile.NamedTemporaryFile"
+why = "Check lifetime and name behavior before using a named temporary file as a pre-replacement target."
+
+[[lessons.exercises]]
+id = "s15-l02-e01"
+type = "mc"
+points = 18
+prompt = "At which point may the destination be replaced?"
+choices = ["Before any JSON is written", "While the temporary file is active", "After the temporary context exits normally", "Only after choosing a home directory"]
+answer = 2
+mechanisms = ["named-temporary-file-call", "os-replace-call", "python-with-statement"]
+explain = "Replacement follows a complete temporary write and context exit."
+whyWrong = "The wrong choices confuse write-before-replace ordering with a location-policy decision."
+hint = "The replacement must not see a resource that is still actively being written."
+
+[[lessons.exercises]]
+id = "s15-l02-e02"
+type = "fill"
+points = 18
+prompt = "Complete the replacement call: <code>os.____(temporary_path, destination)</code>"
+code = "os.____(temporary_path, destination)"
+answer = "replace"
+mechanisms = ["os-replace-call"]
+explain = "The operation replaces the destination with the completed temporary path."
+hint = "Use the standard-library operation whose name describes a complete swap."
+
+[[lessons.exercises]]
+id = "s15-l02-e03"
+type = "type"
+points = 24
+reps = 2
+prompt = "Type a disposable script that writes <code>reed</code> to a named temporary UTF-8 file, remembers its path, replaces <code>reed.txt</code>, then reads and prints the destination."
+code = '''import os
+from tempfile import NamedTemporaryFile
+
+with NamedTemporaryFile(mode="w", encoding="utf-8", delete=False) as temporary:
+    temporary.write("reed")
+    temporary_path = temporary.name
+
+os.replace(temporary_path, "reed.txt")
+with open("reed.txt", "r", encoding="utf-8") as reed_file:
+    print(reed_file.read())'''
+solution = '''import os
+from tempfile import NamedTemporaryFile
+
+with NamedTemporaryFile(mode="w", encoding="utf-8", delete=False) as temporary:
+    temporary.write("reed")
+    temporary_path = temporary.name
+
+os.replace(temporary_path, "reed.txt")
+with open("reed.txt", "r", encoding="utf-8") as reed_file:
+    print(reed_file.read())'''
+expect = "reed"
+mechanisms = ["named-temporary-file-call", "os-replace-call", "python-with-statement", "python-as-target", "text-file-write-method", "text-file-read-method"]
+
+[[lessons.exercises]]
+id = "s15-l02-e04"
+type = "text"
+points = 20
+prompt = "Why should the temporary file live in the destination parent, and why is replacing before context exit the wrong order?"
+answer = "Keeping both paths together supports replacement on one filesystem, and waiting for context exit ensures the temporary content is complete and released before it becomes the destination."
+hint = "Connect path locality to replacement and context exit to a finished write."
+mechanisms = ["named-temporary-file-call", "os-replace-call", "pathlib-parent-property", "python-context-manager-protocol"]
+
+[[lessons.concepts]]
+id = "atomic-save-replacement"
+purpose = "Replace a supplied destination only after a complete neighboring temporary write."
+anatomy = "Create a named temporary file in the destination parent, write it in a context, then replace the destination after exit."
+example = "A disposable reed file is replaced only after the temporary text is complete."
+observable = "Reading the destination after replacement reports the new text."
+failure = "Replacing during an incomplete write can expose a partial save."
+practice = "s15-l02-e01"
+
+[[lessons.concepts]]
+id = "named-temporary-file-call"
+purpose = "Create a temporary resource that still has a path after its context exits."
+anatomy = "Request a named text temporary file and retain its name for the next step."
+example = "The disposable reed text is written through a named temporary resource."
+observable = "The remembered temporary path is passed to replacement."
+failure = "An unnamed or already-deleted resource cannot be used as the replacement source."
+practice = "s15-l02-e01"
+
+[[lessons.concepts]]
+id = "os-replace-call"
+purpose = "Swap a completed temporary path into the caller-visible destination."
+anatomy = "Pass the temporary path and destination in that order after context exit."
+example = "reed.txt receives the completed temporary text."
+observable = "Reading reed.txt prints reed."
+failure = "Replacing before the temporary context leaves breaks the intended order."
+practice = "s15-l02-e02"
+
+[[lessons.artifactSteps]]
+id = "s15-l02-a01"
+path = "briar_glen/storage.py"
+mode = "author"
+instruction = "Author the supplied-path temporary-write and replacement sequence around the existing JSON record. Use a named temporary UTF-8 text file in the destination parent, leave its context before replacement, and keep any test seam focused on the temporary-resource supplier."
+mechanisms = ["named-temporary-file-call", "os-replace-call", "pathlib-path-constructor", "pathlib-parent-property", "python-with-statement", "json-dump-function"]
+checks = ["A pre-existing supplied destination restores complete new player facts after the save helper returns.", "Destination replacement is reached only after the temporary write context ends normally."]

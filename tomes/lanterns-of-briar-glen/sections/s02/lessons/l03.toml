@@ -1,0 +1,150 @@
+[[lessons]]
+id = "s02-l03"
+title = "Run the First Source"
+teaches = ["source-smoke-receipt", "language-values-expressions-data"]
+introduces = ["python-print-call", "terminal-delete-file"]
+body = '''
+<p>A saved program needs an observable answer. Python’s <code>print</code> call sends values to the terminal so you can compare what the program calculated with what you intended. A call begins with the function name, then parentheses holding its arguments. In this disposable example, two named numeric values are arguments separated by a comma.</p>
+<pre><code data-kind="runnable">wind_speed = 7
+gust_speed = 9
+print(wind_speed, gust_speed)
+</code></pre>
+<p>Run it with <code>python</code> followed by the saved filename from the folder that contains that file. Python first reads the file, performs the assignments, then reaches <code>print</code>. The terminal shows <code>7 9</code>. The printed space is supplied by <code>print</code> between its arguments. Because the arguments are names, the displayed numbers come from state rather than a copied final line.</p>
+<p>Return to the external project root, activate <code>.venv</code> if the shell is new, and read your saved source before you run it:</p>
+<pre><code data-kind="terminal">cat game.py
+python game.py
+</code></pre>
+<p>Read this command left to right. <code>python</code> invokes the active interpreter established at the trailhead. <code>game.py</code> is the saved source path, relative to the project root. The program should not need input or command-line options for this smoke check. If the terminal says it cannot open <code>game.py</code>, run <code>pwd</code> and compare the terminal location with the editor’s project tree. If the output does not match the Working’s exact line, first read the saved file again; an unsaved buffer and a stale terminal path are more likely than a mysterious Python failure.</p>
+<p>This run is a source-smoke receipt: it proves that your editor, active interpreter, saved file, values, expressions, and output agree once. It is deliberately smaller than a game. When it succeeds, the old <code>toolchain-check.txt</code> has done its job.</p>
+<p>Deleting a file is its own terminal action. In a disposable folder, a command such as <code>rm old-note.txt</code> removes exactly the named file from the current directory:</p>
+<pre><code data-kind="terminal">pwd
+rm old-note.txt
+</code></pre>
+<p>Check <code>pwd</code> and the exact filename before pressing Enter. Do not use a wildcard, and do not treat deletion as an editor save: the named file is removed from the folder. If the terminal reports that the file does not exist, stop and check the location and spelling instead of broadening the command. For the Working, use <code>rm toolchain-check.txt</code> only after the successful source run, then rerun <code>python game.py</code>. The surviving evidence is now a real learner-authored source file.</p>
+<p>At this milestone, the data capability means you can choose literals, bind names, derive numeric and Boolean results, compare state, and make the result visible. Later sections will give those values text, collections, control flow, and a window; do not pull those features into this first receipt.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // OUTPUT IS A CHECKPOINT</div><p>Exact output is useful because it gives you a small fact to compare. It does not replace testing later; it makes the first source run inspectable now.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "source-smoke-receipt"
+purpose = "Run a saved source file through the active Python and compare its terminal output with one exact expected observation."
+anatomy = "Read the saved path, invoke the active python command, give it game.py as the relative source path, then compare the complete printed line with the Working contract."
+example = "The cat game.py and python game.py terminal block demonstrates the saved-source readback and run."
+observable = "The terminal prints the source-smoke line from the learner-authored game.py."
+failure = "A cannot-open-file message usually means the terminal is outside the project root; unexpected output means inspect the saved file before guessing."
+practice = "s02-l03-e2"
+
+[[lessons.concepts]]
+id = "language-values-expressions-data"
+purpose = "Use Python literals, names, arithmetic, comparisons, Boolean logic, and observable output to describe and inspect program state."
+anatomy = "Bind initial values, derive a numeric result, compare the relevant values, combine the Boolean conditions, and print the derived state."
+example = "The Working combines the earlier state and expression lessons, while the wind-speed example shows named values reaching output."
+observable = "The completed source run prints 10 2 True exactly."
+failure = "A hard-coded report can look correct once but does not prove that the output follows the named state and expressions."
+practice = "s02-l03-e3"
+
+[[lessons.concepts]]
+id = "python-print-call"
+purpose = "Make one or more computed values visible in the terminal."
+anatomy = "Write print, open parentheses, place one or more values as comma-separated arguments, close parentheses, and run the saved source file."
+example = "print(wind_speed, gust_speed) is the complete disposable print call."
+observable = "Running the example prints 7 9."
+failure = "A missing parenthesis prevents Python from parsing the call; a missing comma prevents separate values from becoming separate arguments."
+practice = "s02-l03-e1"
+
+[[lessons.concepts]]
+id = "terminal-delete-file"
+purpose = "Retire one known temporary file from the current project folder after its replacement evidence succeeds."
+anatomy = "Confirm the current directory, type rm followed by the exact filename, run the command once, and stop to diagnose any not-found message rather than broadening the target."
+example = "The disposable pwd and rm old-note.txt block demonstrates a bounded deletion; the Working applies the same action to toolchain-check.txt only after game.py runs successfully."
+observable = "The named temporary file is absent while the saved source remains and still runs."
+failure = "Deleting before replacement evidence succeeds loses the receipt too early; a wrong directory or filename can target the wrong file, and a wildcard makes the target unsafe."
+practice = "s02-l03-e5"
+
+[[lessons.artifactSteps]]
+id = "s02-l03-run-source-and-retire-receipt"
+path = "game.py"
+mode = "author"
+mechanisms = ["terminal-read-saved-file", "terminal-invoke-saved-file", "python-print-call", "terminal-delete-file"]
+instruction = "Reopen and save your learner-authored game.py. Add one print call that reports the state derived in the prior lessons, then from the external project root read the saved source with cat and run it with the active environment. Compare the entire line with the Working contract. Only after that successful source run, use rm toolchain-check.txt to remove that exact temporary receipt and rerun game.py. Do not add input, command-line parsing, branches, loops, functions, collections, files, dependencies, Pygame, or package material."
+checks = ["cat game.py shows the same saved source that python game.py executes.", "python game.py prints the exact Working line, and toolchain-check.txt is absent only after that source run."]
+
+[[lessons.readings]]
+label = "Python built-in print"
+url = "https://docs.python.org/3/library/functions.html#print"
+
+[[lessons.exercises]]
+id = "s02-l03-e1"
+type = "mc"
+points = 18
+mechanisms = ["python-print-call"]
+prompt = "What does the comma do in print(wind_speed, gust_speed)?"
+choices = ["It assigns gust_speed to wind_speed.", "It compares the two speeds.", "It separates two arguments to print.", "It comments out gust_speed."]
+answer = 2
+whyWrong = "Assignment uses =, comparison uses operators such as ==, and comments begin with #. The comma separates values passed to the call."
+hint = "Count the pieces inside the parentheses."
+explain = "print receives a label and a value as separate arguments."
+
+[[lessons.exercises]]
+id = "s02-l03-e2"
+type = "fill"
+points = 20
+mechanisms = ["terminal-invoke-saved-file"]
+prompt = "Complete the command used from a project root to run the current saved source file."
+code = "python ____"
+answer = "game.py"
+hint = "Supply the saved source filename after the active interpreter command."
+
+[[lessons.exercises]]
+id = "s02-l03-e3"
+type = "text"
+points = 18
+mechanisms = ["python-literal-values", "python-name-binding", "python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators", "python-print-call"]
+prompt = "Why is a print line that reads named, derived state stronger evidence than a line that only repeats a prewritten final result?"
+answer = "It shows the output comes from the program state and expressions"
+accept = ["the output is derived from named state and expressions", "it proves the displayed result follows the calculated state"]
+hint = "Think about whether changing the values could change the displayed result."
+
+[[lessons.exercises]]
+id = "s02-l03-e4"
+type = "mc"
+points = 18
+mechanisms = ["terminal-read-saved-file", "terminal-invoke-saved-file"]
+prompt = "python game.py says it cannot open the file. What should you check first?"
+choices = ["Install Pygame.", "Create a second source file somewhere else.", "Replace the source with the expected output text.", "Run pwd and compare the terminal location with the editor project root."]
+answer = 3
+whyWrong = "This chapter has no dependencies or Pygame, and duplicating or replacing source hides a path problem. Confirm the terminal location before changing code."
+hint = "The source path is relative to the current terminal folder."
+explain = "A saved file can be correct while the terminal is simply in the wrong directory."
+
+[[lessons.exercises]]
+id = "s02-l03-e5"
+type = "text"
+points = 18
+mechanisms = ["terminal-delete-file"]
+prompt = "After a successful disposable source check, what does rm old-note.txt change, and what two details should you confirm before running it?"
+answer = "It removes old-note.txt from the current folder; confirm the current directory and exact filename first"
+accept = ["removes the named file after checking pwd and the exact filename", "deletes old-note.txt from the current directory after confirming location and name"]
+hint = "Read the command target and the pwd safety check in the worked example."
+
+[[lessons.exercises]]
+id = "s02-l03-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["python-print-call"]
+prompt = "Retype this disposable print call exactly."
+code = 'print(wind_speed, gust_speed)'
+
+[[lessons.exercises]]
+id = "s02-l03-w1"
+type = "write"
+points = 30
+mechanisms = ["python-name-binding", "python-print-call"]
+prompt = "Write a disposable program that binds bell_count to 2 and echo_count to 3, then uses one print call to produce exactly 2 3."
+expect = '''2 3'''
+solution = '''bell_count = 2
+echo_count = 3
+print(bell_count, echo_count)
+'''
+hint = "Use both assigned names as separate print arguments."

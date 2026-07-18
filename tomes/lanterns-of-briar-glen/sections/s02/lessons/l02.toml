@@ -1,0 +1,138 @@
+[[lessons]]
+id = "s02-l02"
+title = "Combine Observable State"
+teaches = ["state-expression-rules"]
+introduces = ["python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators"]
+body = '''
+<p>Named values become useful when Python can combine them. An expression is code that Python evaluates to produce a value. Arithmetic operators work with numbers: <code>+</code> adds, <code>-</code> subtracts, <code>*</code> multiplies, and <code>/</code> divides. This disposable example starts with one number and derives another rather than writing the result twice.</p>
+<pre><code data-kind="runnable">torch_minutes = 9
+restored_minutes = torch_minutes + 4
+</code></pre>
+<p>The right side of the second assignment is an arithmetic expression. Python reads the stored <code>torch_minutes</code>, adds <code>4</code>, and binds the resulting <code>13</code> to <code>restored_minutes</code>. The original name still refers to <code>9</code>. If you accidentally write a word where a number belongs, Python cannot perform number arithmetic; the error tells you the operands are incompatible.</p>
+<p>A comparison asks a question and produces a Boolean. Use <code>&gt;</code> for greater than, <code>&lt;</code> for less than, <code>==</code> for equal to, and <code>!=</code> for not equal to. Notice the two equals signs in <code>==</code>: one equals sign assigns; two compare. Here, the comparison result can be inspected just like a number.</p>
+<pre><code data-kind="runnable">trail_width = 3
+wide_enough = trail_width &gt; 2
+</code></pre>
+<p>Sometimes one answer needs more than one condition. The Boolean operator <code>and</code> produces <code>True</code> only when both sides are true. <code>or</code> produces <code>True</code> when at least one side is true. <code>not</code> reverses one Boolean. Parentheses can make the grouping visible when an expression grows, but today keep each condition short enough to read. A misspelling such as <code>AND</code> is not the keyword <code>and</code>.</p>
+<pre><code data-kind="runnable">rope_intact = True
+path_clear = True
+may_cross = rope_intact and path_clear
+</code></pre>
+<p>Trace the examples in assignment order. <code>restored_minutes</code> ends bound to <code>13</code>, <code>wide_enough</code> ends bound to <code>True</code>, and <code>may_cross</code> ends bound to <code>True</code>. Your game state will use a numeric change and a decision derived from comparisons. Do not memorize a final result; trace each operand and ask what value the whole expression produces. The next lesson will teach how to display those stored results. That habit will keep later movement and quest rules explainable.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // = IS NOT ==</div><p>When Python rejects a condition or gives an unexpected truth value, read the operator aloud. “Store” and “is equal to” are different operations.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "state-expression-rules"
+purpose = "Derive new observable state from named values instead of treating every result as an unrelated fact."
+anatomy = "Read the operands, identify the arithmetic, comparison, or Boolean operator between them, evaluate the expression, then bind the resulting value to a name."
+example = "The torch, trail-width, and rope examples show numeric, comparison, and Boolean expressions."
+observable = "Tracing the assignments shows restored_minutes bound to 13, wide_enough bound to True, and may_cross bound to True."
+failure = "Using = where a comparison needs ==, or uppercase AND instead of and, changes the meaning or causes an error."
+practice = "s02-l02-e1"
+
+[[lessons.concepts]]
+id = "python-arithmetic-operators"
+purpose = "Calculate a new number from existing numeric state."
+anatomy = "Place +, -, *, or / between numeric operands, then assign the result to a name."
+example = "torch_minutes + 4 produces the restored_minutes value."
+observable = "Evaluating torch_minutes + 4 binds 13 to restored_minutes."
+failure = "A nonnumeric operand prevents Python from completing numeric arithmetic."
+practice = "s02-l02-e2"
+
+[[lessons.concepts]]
+id = "python-comparison-operators"
+purpose = "Ask whether values stand in a relationship and receive a Boolean answer."
+anatomy = "Place >, <, ==, or != between two values and read the whole expression as a yes-or-no question."
+example = "trail_width > 2 evaluates to the Boolean stored under wide_enough."
+observable = "Evaluating trail_width > 2 binds True to wide_enough."
+failure = "Using one = attempts assignment; a comparison for equality requires ==."
+practice = "s02-l02-e3"
+
+[[lessons.concepts]]
+id = "python-boolean-operators"
+purpose = "Combine or invert Boolean conditions to describe a multi-part rule."
+anatomy = "Put and or or between Boolean expressions, or place not before one Boolean expression."
+example = "rope_intact and path_clear combines two true conditions into may_cross."
+observable = "Evaluating rope_intact and path_clear binds True to may_cross when both named conditions are True."
+failure = "Writing AND in uppercase is not Python's lowercase and keyword."
+practice = "s02-l02-e4"
+
+[[lessons.artifactSteps]]
+id = "s02-l02-derive-lantern-state"
+path = "game.py"
+mode = "author"
+mechanisms = ["python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators"]
+instruction = "Reopen the saved game.py in the external editor. Extend the learner-authored initial state with one numeric expression that accounts for spending oil and one named Boolean result derived from comparisons about a living traveler and remaining oil. Keep the initial state visible, use lowercase Boolean keywords, and do not add branches, loops, functions, collections, input, files, dependencies, or Pygame. Save the file after editing."
+checks = ["The post-spend oil value is derived by arithmetic rather than duplicated as another initial literal.", "The lantern decision can be traced through comparisons and a Boolean operator; it is not merely a hard-coded final Boolean."]
+
+[[lessons.readings]]
+label = "Python expressions"
+url = "https://docs.python.org/3/reference/expressions.html"
+
+[[lessons.exercises]]
+id = "s02-l02-e1"
+type = "mc"
+points = 18
+mechanisms = ["python-comparison-operators"]
+prompt = "Which expression asks whether a disposable pack has exactly 3 rations?"
+choices = ["rations = 3", "rations and 3", "rations + 3", "rations == 3"]
+answer = 3
+whyWrong = "One = stores a value; and combines Booleans; + computes a number. Only == compares equality."
+hint = "Equality comparison uses two equal signs."
+explain = "rations == 3 evaluates to True or False without changing rations."
+
+[[lessons.exercises]]
+id = "s02-l02-e2"
+type = "fill"
+points = 20
+mechanisms = ["python-arithmetic-operators"]
+prompt = "Complete the operator that adds 2 to this disposable count."
+code = "new_count = old_count ____ 2"
+answer = "+"
+hint = "Choose the arithmetic symbol for addition."
+
+[[lessons.exercises]]
+id = "s02-l02-e3"
+type = "text"
+points = 18
+mechanisms = ["python-comparison-operators"]
+prompt = "What kind of value does the comparison 5 > 2 produce?"
+answer = "Boolean"
+accept = ["a Boolean", "True or False"]
+hint = "A comparison answers a yes-or-no question."
+
+[[lessons.exercises]]
+id = "s02-l02-e4"
+type = "mc"
+points = 18
+mechanisms = ["python-boolean-operators"]
+prompt = "If rope_intact is True and path_clear is False, what is rope_intact and path_clear?"
+choices = ["False", "True", "rope_intact", "An error because Booleans cannot be combined"]
+answer = 0
+whyWrong = "and needs both conditions to be True. It does not return the first name or reject Boolean operands."
+hint = "Ask whether both sides of and are true."
+explain = "True and False evaluates to False."
+
+[[lessons.exercises]]
+id = "s02-l02-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["python-arithmetic-operators"]
+prompt = "Retype this disposable arithmetic expression exactly."
+code = "restored_minutes = torch_minutes + 4"
+
+[[lessons.exercises]]
+id = "s02-l02-w1"
+type = "text"
+points = 30
+mechanisms = ["python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators"]
+prompt = "Write a disposable program that binds bridge_planks to 5, derives repaired_planks by adding 2, then binds safe_to_cross to whether repaired_planks is greater than 6 and bridge_open is True."
+answer = '''bridge_planks = 5
+bridge_open = True
+repaired_planks = bridge_planks + 2
+safe_to_cross = repaired_planks > 6 and bridge_open
+'''
+accept = ["bridge_planks = 5; bridge_open = True; repaired_planks = bridge_planks + 2; safe_to_cross = repaired_planks > 6 and bridge_open"]
+hint = "Create the numeric and Boolean state first, then bind the combined condition to a new readable name."

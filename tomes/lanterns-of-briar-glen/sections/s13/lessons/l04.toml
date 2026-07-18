@@ -1,0 +1,134 @@
+[[lessons]]
+id = "s13-l04"
+title = "Test Portable Path Behavior"
+teaches = ["path-failure-verification", "language-standard-library-pathlib"]
+introduces = ["project-relative-user-data-path"]
+body = '''
+<p>Portable path code earns trust when a test can change its roots without changing the machine. The established pytest loop already knows how to arrange a value, call a focused seam, and assert the result. Use that loop here with <code>Path</code> values: pass a project root to the project-relative helper, pass a home root to the player-data helper, and assert the returned paths have the intended shape. The test does not need to write a save file or inspect a real home directory.</p>
+<pre><code data-kind="runnable">from pathlib import Path
+
+def note_path(root):
+    return root / "trail-note.txt"
+
+def player_cache_path(home_root):
+    return home_root / ".trail-cache"
+
+def test_two_path_families_stay_under_supplied_roots():
+    project_root = Path("sample-project")
+    home_root = Path("sample-home")
+    assert note_path(project_root) == project_root / "trail-note.txt"
+    assert player_cache_path(home_root) == home_root / ".trail-cache"</code></pre>
+<p>This is an arrange/act/assert test. The arranged roots are intentionally harmless values, not <code>Path.cwd()</code> or <code>Path.home()</code>. The act calls each focused helper. Each assertion compares a complete Path result, including the expected child. If either helper silently reached for the author’s working directory, used the wrong root family, or joined the wrong child, the assertion would show the difference. That is path-failure verification: a narrow observable failure points to the path contract instead of a later missing-file symptom.</p>
+<p>Keep the two location families explicit. A project-relative note belongs below the supplied project root. A player-data directory belongs below a supplied home root and should use one hidden application directory. The later JSON section will decide what records go inside it; this section neither serializes game objects nor promises a load/save format. The later context-resource section will replace manual lifecycle management with a safer cleanup boundary. Do not pull either lesson forward.</p>
+<p>Add focused tests alongside the eleven established behavioral checks: one for each pure path shape and one for an already-existing directory passed to the guarded directory helper. The directory test may use the current directory because it only observes an existing Path and asserts the helper returns it; it must not remove anything. Run <code>python -m pytest -q</code>, read a failure by its assertion, repair only the path helper or expectation that disagrees, then rerun green.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ROOTS ARE TEST INPUTS</div><p>When a path rule accepts a root, the test owns that root. That is how a project can prove portability without making one developer’s computer the specification.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "path-failure-verification"
+purpose = "Use focused assertions to expose a wrong portable path before a later file action fails."
+anatomy = "Arrange a harmless root Path, call one path helper, compare the full returned Path, read an assertion failure, and rerun after one repair."
+example = "test_two_path_families_stay_under_supplied_roots compares both a project note and a player cache with complete expected paths."
+observable = "A mismatch names the test and displays the expected and actual Path values."
+failure = "Using the real author home or current directory as hidden helper input makes the contract untestable."
+practice = "s13-l04-w1"
+
+[[lessons.concepts]]
+id = "language-standard-library-pathlib"
+purpose = "Use pathlib from Python’s standard library to construct, inspect, and act on portable paths."
+anatomy = "Import Path, build values from roots, join children, inspect parent or existence, and make a guarded directory decision."
+example = "The chapter combines pure root-relative tests with one existing-directory assertion."
+observable = "pytest reports focused path checks passing alongside the established behavioral suite."
+failure = "Replacing Path behavior with separator strings removes the portable operations being verified."
+practice = "s13-l04-e1"
+
+[[lessons.concepts]]
+id = "project-relative-user-data-path"
+purpose = "Distinguish a path below a supplied project root from a player-data directory below a supplied home root."
+anatomy = "Pass a project root to the note-path helper, pass a home root to the data-directory helper, and keep each result in its own location family."
+example = "The disposable test compares sample-project/trail-note.txt and sample-home/.trail-cache rather than any real machine location."
+observable = "Each assertion identifies which supplied root determines the returned location."
+failure = "Putting user data inside package source or deriving it from an unstated author path confuses ownership and portability."
+practice = "s13-l04-w1"
+
+[[lessons.artifactSteps]]
+id = "s13-l04-author-path-tests"
+path = "tests/test_game.py"
+mode = "author"
+mechanisms = ["project-relative-user-data-path", "pathlib-path-constructor", "pathlib-path-join-operator", "pathlib-cwd-method", "pathlib-exists-method", "pytest-test-function", "python-assert-statement", "arrange-act-assert", "pytest-module-invocation", "editor-edit-file", "editor-save-file", "terminal-read-saved-file"]
+instruction = "In learner-authored tests/test_game.py, preserve the eleven established focused checks and author three more: one asserts the project-relative note helper returns the expected path under a supplied harmless root; one asserts the player-data helper returns the expected hidden directory under a supplied harmless home root; and one passes Path.cwd() to the directory helper and proves an existing directory remains available and is returned. Import the new package-level seams through briar_glen. Save and read the tests, then run python -m pytest -q from the external project root until it reports 14 passed. Do not test a real save file, remove paths, use JSON, add a fixture, alter the six-turn trail, or test Pygame behavior."
+checks = ["The path tests control their project and home roots rather than depending on an author machine.", "python -m pytest -q reports 14 passed while all earlier behavioral checks remain focused and green."]
+
+[[lessons.readings]]
+label = "pytest documentation: assertions"
+url = "https://docs.pytest.org/en/stable/how-to/assert.html"
+
+[[lessons.exercises]]
+id = "s13-l04-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["project-relative-user-data-path", "python-assert-statement"]
+prompt = "Retype these disposable path-shape assertions exactly; the first is project-relative and the second is user-data-relative."
+code = '''assert note_path(Path("demo-project")) == Path("demo-project") / "trail-note.txt"
+assert player_cache_path(Path("demo-home")) == Path("demo-home") / ".trail-cache"'''
+
+[[lessons.exercises]]
+id = "s13-l04-e1"
+type = "mc"
+points = 18
+mechanisms = ["project-relative-user-data-path", "pathlib-path-constructor"]
+prompt = "Which test input best proves a path helper does not secretly depend on one author machine?"
+choices = ["A supplied Path(\"sample-project\") root", "The developer’s copied home-directory string", "A screenshot of an existing directory", "A JSON record with a path field"]
+answer = 0
+whyWrong = "A supplied Path is controllable and portable; copied machine paths, screenshots, and JSON do not isolate the helper’s path construction."
+hint = "Choose the root the test can arrange itself."
+explain = "A harmless supplied root makes the expected result independent of the running machine."
+
+[[lessons.exercises]]
+id = "s13-l04-e2"
+type = "fill"
+points = 18
+mechanisms = ["pytest-module-invocation", "pytest-test-function"]
+prompt = "Complete the command that reruns the focused path and earlier behavior checks."
+code = 'python -m ____ -q'
+answer = "pytest"
+hint = "Use the established Python test runner module."
+
+[[lessons.exercises]]
+id = "s13-l04-e3"
+type = "text"
+points = 18
+mechanisms = ["project-relative-user-data-path"]
+prompt = "What distinguishes the two roots in this chapter’s path contract?"
+answer = "A project-relative path is built under a supplied project root, while player data is built under a supplied home root"
+hint = "Name both location families and their caller-supplied roots."
+
+[[lessons.exercises]]
+id = "s13-l04-w1"
+type = "write"
+points = 35
+mechanisms = ["project-relative-user-data-path", "pathlib-path-constructor", "pathlib-path-join-operator", "pytest-test-function", "python-assert-statement", "arrange-act-assert", "python-def-statement", "python-return-statement", "python-print-call"]
+prompt = "Write a disposable program that defines banner_path(project_root), returning project_root / \"banner.txt\", and cache_path(home_root), returning home_root / \".camp-cache\". Then define one test that passes Path(\"camp-project\") and Path(\"camp-home\"), asserting both exact returned Paths. Run the test function and print 1 passed. This is not a Briar Glen artifact."
+expect = "1 passed"
+solution = '''from pathlib import Path
+
+
+def banner_path(project_root):
+    return project_root / "banner.txt"
+
+
+def cache_path(home_root):
+    return home_root / ".camp-cache"
+
+
+def test_path_families():
+    project_path = banner_path(Path("camp-project"))
+    home_path = cache_path(Path("camp-home"))
+    assert project_path == Path("camp-project") / "banner.txt"
+    assert home_path == Path("camp-home") / ".camp-cache"
+
+
+test_path_families()
+print("1 passed")'''
+hint = "Use a different harmless arranged root for each location family, then build each expected Path from its matching root."

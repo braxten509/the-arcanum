@@ -1,84 +1,92 @@
 [[lessons]]
 id = "s16-l01"
 title = "Trace Name Resolution"
-teaches = ["s16-phase3-placeholder"]            # TODO: stable kebab-case capabilities this lesson teaches
-body = '''
-<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
-<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
-<p>TODO: an optional deeper-cut appendix.</p></div>
-'''
+teaches = ["namespace-resolution"]
+introduces = ["python-legb-resolution", "python-global-statement"]
+body = '''<p>Python evaluates a bare name by searching namespaces in order: Local, Enclosing, Global, then Builtins. This LEGB order is a traceable rule, not a guess. A parameter is a local binding. An assignment in a function creates a local binding unless a declaration changes where that assignment lands. A module-level name is global to that one module, which is why it is a poor hiding place for the command chosen by a later callback.</p><p>Reading a module constant needs no <code>global</code> declaration. The declaration matters when an assignment must rebind the module name. That rebinding creates cross-call shared state: a second setup can silently replace the first choice. The existing trail handler avoids this problem by receiving its Player explicitly; changing attributes through that local parameter mutates the supplied object but does not rebind a global name. Draw the binding sites before editing: the future factory parameter binds a command locally, its returned function will read that command from an enclosing scope, and the callback's Player parameter stays local at call time.</p><p>Use this distinction to diagnose a shadowing surprise. When a parameter and a module name share spelling, the local parameter wins. When an inner function assigns a same-spelled name without a declaration, it creates its own local and can no longer read the outer binding as intended. The next lesson will use a deliberate enclosing read; it will not use a mutable module-global selected command. Read the <a href="https://docs.python.org/3/reference/executionmodel.html#binding-of-names">Python binding-of-names reference</a>, then identify the handler and player parameter already present in the package.</p>'''
 
-[[lessons.concepts]]                # one complete first-use proof for every `teaches` id
-id = "s16-phase3-placeholder"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
-practice = "s16-l01-e1"
+[[lessons.concepts]]
+id = "namespace-resolution"
+purpose = "Predict where Python obtains a name before changing decomposed command behavior."
+anatomy = "Search local parameters and assignments, enclosing function bindings, module globals, then builtins."
+example = "A callback player parameter shadows no module state, while its remembered command is found in the enclosing factory call."
+observable = "A scratch call prints the supplied parameter rather than the same-spelled module value."
+failure = "Treating names as shared storage leads to accidental shadowing or a mutable selected-command global."
+practice = "s16-l01-e01"
 
-[[lessons.artifactSteps]]           # visible work order; never reveal canonical implementation
-id = "s16-l01-project-step"
-path = "replace-me.txt"
-mode = "author"                    # learner authors this path; hidden referenceSteps replay it
-instruction = "TODO: exact path, behavior, constraints, commands, and diagnostics—no solution."
-checks = ["TODO: specific observable result the learner can run or inspect."]
+[[lessons.concepts]]
+id = "python-legb-resolution"
+purpose = "Apply the Local, Enclosing, Global, Builtin lookup order."
+anatomy = "Start at the function call's local bindings and move outward only when a name is absent."
+example = "A local route parameter is read before a module route binding."
+observable = "Changing the argument changes the printed route."
+failure = "Expecting a module value to win over a parameter misdiagnoses shadowing."
+practice = "s16-l01-e02"
 
-[[lessons.readings]]               # optional: 1-2 high-quality official docs
-label = "TODO: official docs"
-url = "https://example.com/TODO"
+[[lessons.concepts]]
+id = "python-global-statement"
+purpose = "Recognize the narrow case where assignment must rebind a module name."
+anatomy = "Declare global only before assigning to that module binding; reads need no declaration."
+example = "The trail callback avoids global because it reads an enclosing command and receives Player explicitly."
+observable = "A local object mutation succeeds without rebinding a module variable."
+failure = "Using global for callback choice lets later setup overwrite earlier configuration."
+practice = "s16-l01-e03"
+
+[[lessons.readings]]
+label = "Python language reference: Binding of names"
+url = "https://docs.python.org/3/reference/executionmodel.html#binding-of-names"
+why = "Confirm lookup and binding rules before tracing the command callback."
 
 [[lessons.exercises]]
-id = "s16-l01-e1"
+id = "s16-l01-e01"
 type = "mc"
-points = 15
-prompt = "TODO: a multiple-choice question?"
-choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
-answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
-whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
-hint = "TODO: an exercise-specific hint."
-explain = "TODO: shown after solving."
+points = 18
+prompt = "A function parameter has the same name as a module variable. Which binding is read in the function?"
+choices = ["The local parameter", "The module variable", "A builtin", "The oldest binding"]
+answer = 0
+hint = "Begin with the L in LEGB."
+explain = "Local lookup occurs before global lookup."
+whyWrong = "The wrong answers confuse local lookup with later global or builtin fallback."
+mechanisms = ["python-legb-resolution"]
 
 [[lessons.exercises]]
-id = "s16-l01-e2"
+id = "s16-l01-e02"
+type = "fill"
+points = 18
+prompt = "Complete the lookup order: Local, Enclosing, Global, ____."
+code = "Local, Enclosing, Global, ____"
+answer = "Builtins"
+hint = "This is the final letter in LEGB."
+mechanisms = ["python-legb-resolution"]
+
+[[lessons.exercises]]
+id = "s16-l01-e03"
 type = "text"
 points = 20
-prompt = "TODO: a free-text question."
-answer = "TODO"
-# accept = ["TODO alternate"]      # optional true alternates only
-hint = "TODO: an exercise-specific hint."
+prompt = "When is a global declaration required?"
+answer = "When a function assigns to and must rebind a module-level name"
+hint = "Separate rebinding from merely reading."
+mechanisms = ["python-global-statement"]
 
 [[lessons.exercises]]
-id = "s16-l01-e3"
-type = "fill"
-points = 20
-prompt = "TODO: fill the blank."
-code = 'answer = ____'             # the ____ marks where the answer goes
-answer = "TODO"
-hint = "TODO: an exercise-specific hint."
+id = "s16-l01-e04"
+type = "type"
+points = 24
+prompt = "In a disposable scratch file, create a module variable and a same-named parameter, then print the parameter."
+code = '''route = "ridge"
 
-[[lessons.exercises]]
-id = "s16-l01-d1"
-type = "type"                      # typing drill: retype the code; no point decay
-points = 12
-reps = 2
-prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
-code = 'print("TODO")'
+def show(route):
+    print(route)
 
-[[lessons.exercises]]
-id = "s16-l01-w1"
-type = "write"                     # CODE LAB: runs on the real runtime; no point decay
-points = 30
-prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
-# starter = '''
-# TODO: prefilled editor code / the exercise's data
-# '''
-expect = '''
-TODO EXACT OUTPUT'''
-# REQUIRED before shipping: a complete program that passes. Never shown to the
-# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
-# solution = '''
-# TODO
-# '''
-hint = "TODO: an exercise-specific hint."
+show("ford")'''
+expect = "ford"
+hint = "Use a parameter spelling that matches the module name."
+mechanisms = ["python-legb-resolution"]
+
+[[lessons.artifactSteps]]
+id = "s16-l01-a01"
+path = "briar_glen/domain.py"
+mode = "author"
+instruction = "Create and remove a learner planning note that traces the future factory's local command parameter, enclosing command read, local Player parameter, and absence of mutable global command state."
+checks = ["The planning note names each LEGB location used by the future callback.", "The final domain module contains no mutable module-global selected command."]
+mechanisms = ["python-legb-resolution", "python-global-statement"]

@@ -1,36 +1,97 @@
 [freestyle]
-title = "THE WORKING: TODO"
-brief = "TODO: the in-world commission.<ul><li>TODO requirement one (state exact output/tokens)</li><li>TODO requirement two</li></ul>"
-requires = ["s04-phase3-placeholder"]           # TODO: exact ids taught by this/earlier lessons
-reward = 150
-xray = "TODO: the grader's private notes — the specific pitfalls it docks and the style it rewards, truthful to the rubric below."
+title = "THE WORKING: A PACK FOR THE ROAD"
+brief = '''<p>Rowan needs a trail receipt that proves each collection keeps the right promise, wayfinder. Reopen the learner-authored <code>game.py</code> in the external project root and replace the earlier text-only receipt with a collection receipt that still retains the carried-forward value and text state.</p><ul><li>Create a named, flat inventory list with two starting text items. Print its initial value, then print its first item through indexing. Make an independent snapshot before appending one new text item to the inventory, then print the changed inventory and the snapshot.</li><li>Create a named player-state dictionary that includes the carried-forward health and a text title. Print health through direct key access and print a missing optional camp value through <code>get()</code> with the fallback <code>unknown</code>.</li><li>Create a named discovery set containing one fixed landmark. Attempt to add that same landmark again, then print the set and print the Boolean membership result derived with <code>in</code>.</li><li>Create and print one named two-number coordinate tuple. Read the saved file and run <code>python game.py</code> with <code>.venv</code> active. The saved run must show the list before and after mutation, its indexed first item, player mapping observations, one-copy discovery evidence and membership, coordinates, and an unchanged pre-mutation snapshot.</li><li>Do not add keyboard input, arguments, branches, loops, functions, files, dependencies, Pygame, package material, or new project paths.</li></ul>'''
+requires = ["inventory-sequence", "player-state-mapping", "discovery-set", "coordinate-record", "language-collections-list-dict-set-tuple", "language-values-expressions-data", "language-strings-text"]
+mechanisms = ["terminal-print-working-directory", "terminal-change-directory", "terminal-check-python-version", "venv-create-environment", "venv-activate-environment", "venv-resolve-active-python", "editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file", "python-literal-values", "python-name-binding", "python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators", "python-print-call", "python-string-literal", "python-string-concatenation", "python-f-string", "string-strip-method", "string-lower-method", "string-split-method", "python-list-literal", "python-list-indexing", "list-append-method", "python-dict-literal", "python-dict-key-access", "dict-get-method", "python-set-literal", "python-membership-operators", "set-add-method", "python-tuple-literal", "collection-copy-method"]
+reward = 170
+xray = "Look for one learner-authored saved source that gives each collection a distinct job. The grader checks for an inventory before/after mutation and independent snapshot, direct and safe keyed player lookups, a duplicate-safe discovery set with derived membership, and a fixed coordinate tuple. Dock premature control flow, functions, input, files, dependencies, Pygame, package material, or copied output. Award clarity for snake_case names, 4-space indentation if any block is later introduced, one space around binary operators, and readable compact lines consistent with PEP 8."
 
-[[freestyle.referenceSteps]]        # hidden from learners; validator replays a real solution
-id = "s04-freestyle-reference"
-path = "replace-me.txt"
-mode = "rewrite"
-preserves = "all-active"
-instruction = "TODO: exact private reference edit that satisfies this Working."
-content = '''
-TODO: complete reference content
+[[freestyle.referenceSteps]]
+id = "s04-replace-text-receipt-with-collection-receipt"
+path = "game.py"
+mode = "replace"
+mechanisms = ["python-literal-values", "python-name-binding", "python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators", "python-print-call", "python-string-literal", "python-string-concatenation", "python-f-string", "string-strip-method", "string-lower-method", "string-split-method", "python-list-literal", "python-list-indexing", "list-append-method", "python-dict-literal", "python-dict-key-access", "dict-get-method", "python-set-literal", "python-membership-operators", "set-add-method", "python-tuple-literal", "collection-copy-method"]
+instruction = "Private replay replaces the prior text-only receipt with the cumulative collection receipt, retaining the earlier named value and text transformations while making each collection invariant observable."
+find = '''health = 10
+lantern_oil = 3
+remaining_oil = lantern_oil - 1
+lantern_lit = health > 0 and remaining_oil > 0
+
+traveler_name = "Mira"
+status_lead = "Lantern status for " + traveler_name
+status_line = f"{status_lead}: {health} health, {remaining_oil} oil, lit={lantern_lit}"
+
+raw_command = "  LOOK WAYSTONE  "
+normalized_command = raw_command.strip().lower()
+command_parts = normalized_command.split()
+
+print(status_line)
+print(normalized_command)
+print(command_parts)
+'''
+content = '''health = 10
+lantern_oil = 3
+remaining_oil = lantern_oil - 1
+lantern_lit = health > 0 and remaining_oil > 0
+
+traveler_name = "Mira"
+status_lead = "Lantern status for " + traveler_name
+status_line = f"{status_lead}: {health} health, {remaining_oil} oil, lit={lantern_lit}"
+
+raw_command = "  LOOK WAYSTONE  "
+normalized_command = raw_command.strip().lower()
+command_parts = normalized_command.split()
+
+inventory = ["waystone map", "rations"]
+inventory_snapshot = inventory.copy()
+player_state = {"health": health, "title": "Wayfinder"}
+discoveries = {"north gate"}
+camp_coordinate = (4, 7)
+
+print("Pack before shard:", inventory)
+print("First packed item:", inventory[0])
+inventory.append("lantern shard")
+print("Pack after shard:", inventory)
+print("Player health:", player_state["health"])
+print("Unknown camp:", player_state.get("camp", "unknown"))
+discoveries.add("north gate")
+print("Discoveries:", discoveries)
+print("Known north gate:", "north gate" in discoveries)
+print("Coordinates:", camp_coordinate)
+print("Snapshot before mutation:", inventory_snapshot)
 '''
 
 [freestyle.badge]
 id = "badge-s04"
-name = "TODO BADGE"
-desc = "TODO: one sentence."
-
-[[freestyle.rubric]]               # weights MUST sum to exactly 100
-criterion = "Compiles & runs"
-weight = 40
-desc = "TODO: build succeeds; runs without crashing on normal input."
+name = "PACK KEEPER"
+desc = "Chose a collection shape that keeps each trail fact honest."
 
 [[freestyle.rubric]]
-criterion = "Meets the brief"
-weight = 40
-desc = "TODO: every requirement in the checklist is present and correct."
+criterion = "Inventory Mutation and Snapshot"
+weight = 28
+mechanisms = ["python-list-literal", "python-list-indexing", "list-append-method", "collection-copy-method", "python-print-call"]
+desc = "game.py uses one named flat list, prints its initial state and first indexed item, copies it before one append, then visibly distinguishes the changed inventory from the unchanged snapshot."
 
 [[freestyle.rubric]]
-criterion = "Clean style"
+criterion = "Keyed Player State"
+weight = 22
+mechanisms = ["python-dict-literal", "python-dict-key-access", "dict-get-method", "python-print-call"]
+desc = "A named player-state dictionary includes carried-forward health and a text title, retrieves health through direct key access, and displays a missing optional camp through get() with unknown as its fallback."
+
+[[freestyle.rubric]]
+criterion = "Unique Discovery Evidence"
 weight = 20
-desc = "TODO: name this language's real naming AND layout conventions (research its style guide)."
+mechanisms = ["python-set-literal", "set-add-method", "python-membership-operators", "python-print-call"]
+desc = "A named set receives a repeated fixed discovery without retaining a second copy, and its printed membership result derives from the in operator rather than a written Boolean."
+
+[[freestyle.rubric]]
+criterion = "Fixed Coordinate and Cumulative Boundaries"
+weight = 15
+mechanisms = ["python-tuple-literal", "python-name-binding", "python-print-call", "python-string-concatenation", "python-f-string", "string-strip-method", "string-lower-method", "string-split-method"]
+desc = "A named two-number tuple is printed as one coordinate record, while carried-forward values and text transformations remain in the saved source without premature input, control flow, functions, files, dependencies, Pygame, package material, or new paths."
+
+[[freestyle.rubric]]
+criterion = "Python Craft and Saved Evidence"
+weight = 15
+mechanisms = ["editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file", "python-name-binding", "python-print-call"]
+desc = "The learner saves and runs one clear game.py, uses descriptive snake_case names, keeps compact lines readable, uses one space around binary operators, and follows PEP 8's 4-space indentation rule if a later block is introduced."

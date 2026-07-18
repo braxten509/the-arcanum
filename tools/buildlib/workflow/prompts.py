@@ -288,6 +288,14 @@ def calibration_contract(answers):
         "trace the create, edit, save, and invocation actions. "
         "Never invent a library- or project-specific alias for a general language prerequisite "
         "and then introduce the real mechanism later.",
+        "- **Mechanism identity rule:** A mechanism owns one transferable semantic "
+        "responsibility, not one spelling. Platform commands, executable aliases, flags, paths, "
+        "activation forms, UI routes, configuration syntaxes, and language/runtime/tool variants "
+        "share an owner when learner intent, preconditions, state transition or resource-lifecycle "
+        "duty, observable result, and failure interpretation are the same. Split only when a "
+        "demand adds a genuinely different state transition, lifecycle duty, observable contract, "
+        "or reusable reasoning responsibility. Apply this without assuming any particular "
+        "language, runtime, tool, operating system, or project.",
         "- **Observable-interaction closure rule:** Apply closure to every promise, Working, "
         "acceptance path, and control. Decompose obtaining input, producing output, advancing "
         "time, choosing nondeterministically, persisting state, releasing resources, and responding "

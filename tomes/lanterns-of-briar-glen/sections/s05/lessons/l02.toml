@@ -1,0 +1,127 @@
+[[lessons]]
+id = "s05-l02"
+title = "Repeat Bounded Turns"
+teaches = ["bounded-turn-loop"]
+introduces = ["python-for-statement", "python-in-loop-target", "python-range-call"]
+body = '''
+<p>Copying the same statement six times hides the rule that makes those actions a sequence. In this milestone, a <code>for</code> loop repeats one indented block for each value stored in a saved list. Read the header in order: <code>for</code>, a loop-target name, <code>in</code>, the saved list name, then a colon. On each pass Python binds the next list item to the target and runs the block. After the last list item, execution continues below the loop.</p>
+<pre><code data-kind="runnable">sample_labels = ["amber", "teal", "violet"]
+for label in sample_labels:
+    print(label)
+</code></pre>
+<p>The terminal prints the three labels on three lines. Here <code>label</code> is the loop target: a temporary name for the current list item. Writing <code>for sample_labels in label</code> reverses the roles and fails because the single current name is not the saved list that supplies the items. A missing colon or unindented body causes the same block errors you met with branches.</p>
+<p>Sometimes you need a known count rather than each value directly. Python’s <code>range()</code> call produces a sequence of integers suitable for counted repetition. With one argument, it begins at zero and stops <em>before</em> that argument.</p>
+<pre><code data-kind="runnable">for inspection_number in range(3):
+    print("inspection", inspection_number)
+</code></pre>
+<p>This prints inspection numbers 0, 1, and 2. It runs three times; it never produces 3. Treat the stop value as an exclusive boundary. An off-by-one mistake appears when you expect the stop itself to be included or add one without checking the required count.</p>
+<p>The Briar Glen milestone has a saved list of commands and a matching turn limit. A counted loop can use each generated number to index that list, reusing the list indexing you already own. That pairing creates a visible bound: no more than the declared number of commands can be routed. The command list and limit must agree; a larger limit eventually requests a list position that does not exist, while a smaller limit silently leaves commands unprocessed.</p>
+<p>This is still not a live game loop. It consumes a finite, learner-authored sequence so you can inspect control flow without keyboard events, clocks, or Pygame. Later runtime work will retrieve the same idea of a bound under a different owner.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // COUNT THE PASSES</div><p>When a counted loop surprises you, write the range values beside it before editing the body. For <code>range(3)</code>, the trace is exactly 0, 1, 2.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "bounded-turn-loop"
+purpose = "Process a finite saved sequence of turns without permitting an unbounded controller."
+anatomy = "Declare a turn limit that matches the saved sequence, iterate over that bounded range, retrieve one item per index, and keep the repeated work inside the loop block."
+example = "The inspection loop demonstrates a finite counted sequence before the Working applies the pattern to saved turns."
+observable = "The output contains exactly the declared number of numbered passes unless a later deliberate break stops it early."
+failure = "A limit larger than its list can request a missing index, while a smaller limit leaves saved work untouched."
+practice = "s05-l02-e5"
+
+[[lessons.concepts]]
+id = "python-for-statement"
+purpose = "Repeat one indented block once for every item in a finite saved list."
+anatomy = "Write for, the target name, in, the saved list name, a colon, then an indented body."
+example = "The sample-label loop prints one label during each pass."
+observable = "Three saved labels become three output lines in their list order."
+failure = "Missing the colon or leaving the body unindented prevents the loop from parsing correctly."
+practice = "s05-l02-e5"
+
+[[lessons.concepts]]
+id = "python-in-loop-target"
+purpose = "Name the current value supplied to a for loop on each pass."
+anatomy = "Place one descriptive target name between for and in; place the value-supplying iterable after in."
+example = "label receives amber, then teal, then violet from sample_labels."
+observable = "Printing the target inside the loop reveals a different current value on each pass."
+failure = "Swapping the target and iterable roles makes the loop read from the wrong object."
+practice = "s05-l02-e5"
+
+[[lessons.concepts]]
+id = "python-range-call"
+purpose = "Supply a predictable sequence of integers for counted repetition."
+anatomy = "Write range, opening parenthesis, the exclusive stop integer, closing parenthesis; use the result after in."
+example = "range(3) supplies 0, 1, and 2 to inspection_number."
+observable = "The inspection example prints exactly three numbered lines and never prints 3."
+failure = "Treating the stop as inclusive creates an off-by-one expectation."
+practice = "s05-l02-e5"
+
+[[lessons.artifactSteps]]
+id = "s05-l02-author-bounded-turns"
+path = "game.py"
+mode = "author"
+mechanisms = ["python-for-statement", "python-in-loop-target", "python-range-call", "python-list-literal", "python-list-indexing", "python-name-binding", "python-arithmetic-operators", "python-f-string", "python-print-call", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file"]
+instruction = "Extend learner-authored game.py with one finite saved command sequence and a matching numeric turn limit. Use a for loop over range(limit), retrieve exactly one command from the list through the current index, increment a turns-taken value, print the numbered turn, and route it through the existing branch chain. The eventual complete sequence must exercise looking, taking, resting, searching, an unknown command, and leaving in that order. Save, read, and run the source. If an IndexError appears, compare the range values with the list's valid positions. Do not add while, break, continue, input, functions, tests, files, dependencies, Pygame, package material, or another path yet."
+checks = ["Before any early-stop logic is added, the saved run prints one numbered turn per saved command in list order.", "The range boundary and command-list size agree, and each loop pass routes the command retrieved at its current index."]
+
+[[lessons.readings]]
+label = "Python for statements and range"
+url = "https://docs.python.org/3/tutorial/controlflow.html#for-statements"
+
+[[lessons.exercises]]
+id = "s05-l02-e1"
+type = "mc"
+points = 19
+mechanisms = ["python-range-call"]
+prompt = "Which values does range(4) supply to a one-argument counted loop?"
+choices = ["1, 2, 3, 4", "0, 1, 2, 3", "0, 1, 2, 3, 4", "4 only"]
+answer = 1
+whyWrong = "A one-argument range begins at zero, excludes its stop value, and supplies every integer in between; it neither starts at one nor yields only the boundary."
+hint = "The stop argument is not included."
+explain = "range(4) yields four values: 0 through 3."
+
+[[lessons.exercises]]
+id = "s05-l02-e2"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["python-for-statement", "python-in-loop-target", "python-range-call"]
+prompt = "Retype this complete counted loop exactly."
+code = '''for pass_number in range(2):
+    print(pass_number)'''
+
+[[lessons.exercises]]
+id = "s05-l02-e3"
+type = "fill"
+points = 21
+mechanisms = ["python-for-statement", "python-in-loop-target"]
+prompt = "Complete the keyword that separates the loop target from the collection supplying values."
+code = '''for lantern_color ____ colors:
+    print(lantern_color)'''
+answer = "in"
+hint = "Read the loop header aloud as 'for each color ___ colors.'"
+
+[[lessons.exercises]]
+id = "s05-l02-e4"
+type = "text"
+points = 18
+mechanisms = ["python-range-call", "python-list-indexing"]
+prompt = "A list has three items at positions 0, 1, and 2. Why does range(3) pair safely with those indexes?"
+answer = "It supplies exactly 0, 1, and 2 because the stop value 3 is excluded"
+accept = ["range(3) yields the three valid indexes 0 1 2", "its exclusive stop keeps the values within the list positions"]
+hint = "Write the generated integers and compare them with the stated positions."
+
+[[lessons.exercises]]
+id = "s05-l02-e5"
+type = "write"
+points = 34
+mechanisms = ["python-for-statement", "python-in-loop-target", "python-range-call", "python-list-literal", "python-list-indexing", "python-print-call"]
+prompt = "Write a disposable program with samples equal to [\"ash\", \"fern\", \"clay\"]. Use one for loop over range(3), retrieve each sample through the generated index, and print the index and sample. The exact output is the three lines shown below."
+expect = '''0 ash
+1 fern
+2 clay'''
+solution = '''samples = ["ash", "fern", "clay"]
+for sample_index in range(3):
+    print(sample_index, samples[sample_index])
+'''
+hint = "Use the range value both as the printed number and as the list index."

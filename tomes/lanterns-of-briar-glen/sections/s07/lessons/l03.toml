@@ -1,0 +1,127 @@
+[[lessons]]
+id = "s07-l03"
+title = "Read Red and Return Green"
+teaches = ["red-green-verification-loop", "language-test-verification"]
+introduces = ["pytest-failure-location", "red-green-rerun-cycle"]
+body = '''
+<p>A failed test is evidence, not an instruction to weaken the test or rewrite everything nearby. Pytest’s report names the failed test and points to the line containing the failed assertion. That <strong>failure location</strong> is the first place to read, then compare the actual value shown in the report with the expectation in the saved test and with the existing function’s intended contract.</p>
+<pre><code data-kind="runnable">def test_marker_text():
+    actual_text = marker_text("north")
+    assert actual_text == "south marker"
+</code></pre>
+<p>Assume the existing disposable function correctly formats the supplied direction. Pytest would mark this check red because the expectation says <code>south</code> while the arranged input is <code>north</code>. The report tells you which test failed and displays the disagreement. That is narrower and more useful than adding a print to the function or guessing at a broad change. A failure can expose a wrong expectation, a wrong implementation, or a mistaken understanding; evidence decides which.</p>
+<p>Use a <strong>red-green rerun cycle</strong>. First make one deliberate, temporary mismatch in a saved check so you can see how a failure is reported. Run <code>python -m pytest -q</code> and read the test name, test-file line, assertion, expected value, and actual value. Then repair the one source of the mismatch: correct the expectation if the behavior is already right, or correct the implementation if the specification says the behavior is wrong. Save, rerun the same command, and require green before moving on. The deliberate mismatch must not remain in the final test file.</p>
+<p>For Briar Glen, keep the tests independent. A pure seam should have a direct returned-value check; a mutating seam should arrange fresh collections or mappings and assert their after-state. If an import error happens before a test runs, it is a collection problem, not a failing behavior claim: repair the import spelling first, rerun, then read any assertion evidence. Do not add exception handling, debugging frameworks, Pygame, or a new game feature to silence a test.</p>
+<p>Green does not mean “the code is finished forever.” It means the specific promises you wrote currently agree with the saved source. This loop becomes the discipline that later protects class migration, saved JSON, the runtime seam, the novel blessing, and the delivered package.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // PRESERVE THE SYMPTOM</div><p>Before changing a line, record what pytest says failed. A precise symptom gives the repair a target and makes a later green result meaningful.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "red-green-verification-loop"
+purpose = "Use a controlled failure and repair to prove that a saved behavioral check can detect a mismatch."
+anatomy = "Create one temporary mismatch, run pytest, read its evidence, repair the responsible line, save, and rerun to green."
+example = "The disposable marker test expects south after arranging north, producing a deliberate red result."
+observable = "pytest first reports one failed assertion and later reports a passing suite after the mismatch is repaired."
+failure = "Leaving the deliberate mismatch saved makes the final project test suite remain red."
+practice = "s07-l03-w1"
+
+[[lessons.concepts]]
+id = "language-test-verification"
+purpose = "Use Python tests as repeatable evidence that pure results and explicit state changes meet their contracts."
+anatomy = "Import existing functions, arrange focused cases, call them, assert results, inspect failures, and rerun after a repair."
+example = "The chapter joins a pure result check and a stateful after-state check to one pytest run."
+observable = "The compact runner report counts passing checks after both promises hold."
+failure = "A green transcript without assertions cannot prove that later changes preserve the same behavior."
+practice = "s07-l03-w1"
+
+[[lessons.concepts]]
+id = "pytest-failure-location"
+purpose = "Locate the named test and assertion line where pytest observed a disagreement."
+anatomy = "Read the failed test name, file and line, assertion expression, expected value, and actual value in the report."
+example = "test_marker_text identifies the assertion whose north input conflicts with its south expectation."
+observable = "The report narrows the mismatch to one test file line instead of vaguely blaming the whole project."
+failure = "Changing unrelated code before reading the report can erase the symptom without repairing its cause."
+practice = "s07-l03-w1"
+
+[[lessons.concepts]]
+id = "red-green-rerun-cycle"
+purpose = "Return a known failing check to a saved passing result through one evidence-based repair."
+anatomy = "Run red, identify the mismatch, edit its responsible source or expectation, save, then rerun the same command."
+example = "Correcting the marker expectation to match its arranged north input returns the disposable test to green."
+observable = "The same pytest command changes from a failure report to a passing summary."
+failure = "Changing several unrelated lines makes it impossible to know which repair restored the contract."
+practice = "s07-l03-w1"
+
+[[lessons.artifactSteps]]
+id = "s07-l03-practice-red-green"
+path = "tests/test_game.py"
+mode = "author"
+mechanisms = ["pytest-failure-location", "red-green-rerun-cycle", "pytest-module-invocation", "python-assert-statement", "arrange-act-assert", "editor-edit-file", "editor-save-file", "terminal-read-saved-file"]
+instruction = "In the learner-authored tests/test_game.py, temporarily make one already-written expectation disagree with its known behavior without changing game.py. Save and run python -m pytest -q once. Read the failing test name, test-file line, assertion, expected value, and actual value. Repair only that deliberate mismatch, save, reread the test file, and rerun the same command until both checks pass. Preserve the final green checks. Do not hide a failure by deleting a test, broadening its expectation, copying implementation, or adding exceptions, classes, modules, Pygame, files, packages, or another project path."
+checks = ["The learner can point to a pytest failure location and explain the specific expected-versus-actual mismatch.", "The saved test file ends with two focused green behavioral checks and python -m pytest -q reports 2 passed."]
+
+[[lessons.readings]]
+label = "pytest documentation: how to write and report assertions"
+url = "https://docs.pytest.org/en/stable/how-to/assert.html"
+
+[[lessons.exercises]]
+id = "s07-l03-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["pytest-failure-location", "python-assert-statement"]
+prompt = "Retype this disposable assertion whose report will compare actual and expected values."
+code = "assert actual_color == \"blue\""
+
+[[lessons.exercises]]
+id = "s07-l03-e1"
+type = "mc"
+points = 18
+mechanisms = ["pytest-failure-location", "red-green-rerun-cycle"]
+prompt = "A saved test fails. Which next action preserves the most useful evidence?"
+choices = ["Delete the test so the suite is green", "Read the failed test name, assertion line, and actual-versus-expected report", "Add a broad try/except around the test", "Change every nearby function before rerunning"]
+answer = 1
+whyWrong = "Deleting or swallowing a check removes evidence, while broad edits obscure cause. The failure report identifies the exact claim and disagreement needed for a focused repair."
+hint = "Start with the information pytest already printed."
+explain = "The failure location and compared values identify which contract needs investigation."
+
+[[lessons.exercises]]
+id = "s07-l03-e2"
+type = "fill"
+points = 20
+mechanisms = ["red-green-rerun-cycle", "pytest-module-invocation"]
+prompt = "Complete the command used to rerun the compact installed test-runner suite after one repair."
+code = "python -m ____ -q"
+answer = "pytest"
+hint = "Use the installed test module’s name."
+
+[[lessons.exercises]]
+id = "s07-l03-e3"
+type = "text"
+points = 18
+mechanisms = ["red-green-rerun-cycle", "pytest-failure-location"]
+prompt = "A check arranged the value north but expected south. If the function’s documented behavior returns its supplied direction, what is the smallest responsible repair?"
+answer = "Correct the test expectation from south to north"
+hint = "The report and the stated function contract agree about the actual behavior."
+
+[[lessons.exercises]]
+id = "s07-l03-w1"
+type = "write"
+points = 35
+mechanisms = ["pytest-test-function", "python-assert-statement", "arrange-act-assert", "pytest-failure-location", "red-green-rerun-cycle", "python-def-statement", "python-if-statement", "python-return-statement"]
+prompt = "Write one disposable Python test file that defines mirror(direction), returning west for east and east for west. Author one test named test_mirror_east that first has the wrong expectation, run pytest to observe the failure, then repair the expectation and rerun. Submit the final saved green file; python -m pytest -q must produce exactly the output below. This is not a Briar Glen artifact."
+expect = "1 passed"
+solution = '''def mirror(direction):
+    if direction == "east":
+        return "west"
+    return "east"
+
+
+def test_mirror_east():
+    actual_direction = mirror("east")
+    assert actual_direction == "west"
+
+
+test_mirror_east()
+print("1 passed")'''
+hint = "The deliberate mismatch is a temporary observation step; the submitted assertion must match the function’s documented result."

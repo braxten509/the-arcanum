@@ -14,6 +14,7 @@ import sqlite3
 import time
 
 from ..config import BUILD_DIR, WEB
+from .trace_metadata import trace_model, trace_session_id, trace_usage
 
 TOOL_TRACE_LINES = 80
 TOOL_TRACE_CHARS = 360
@@ -170,26 +171,6 @@ def _claude_session_from_processes(pids, proc_root="/proc", projects_root=None):
         return None
     path = max(candidates)[1]
     return TraceSource("claude", path, os.path.basename(path).removesuffix(".jsonl"))
-
-
-def trace_session_id(source):
-    """Return the provider resume id represented by a discovered trace source."""
-    if not source:
-        return ""
-    if source.session_id:
-        return source.session_id
-    if source.provider == "claude":
-        return os.path.basename(source.path).removesuffix(".jsonl")
-    if source.provider == "codex":
-        try:
-            with open(source.path, encoding="utf-8") as handle:
-                for _ in range(20):
-                    row = json.loads(handle.readline())
-                    if row.get("type") == "session_meta":
-                        return str((row.get("payload") or {}).get("id") or "")
-        except (OSError, ValueError, json.JSONDecodeError):
-            return ""
-    return ""
 
 
 def _literal_command(source, start):
@@ -460,7 +441,7 @@ def mirror_tool_trace(job_id, build_pid, build_id="", interval=0.75):
     current_lines = []
     missing = 0
     last_payload = {"active": False, "provider": "", "sessionId": "",
-                    "updatedAt": time.time(), "lines": []}
+                    "updatedAt": time.time(), "usage": {}, "lines": []}
     _write_snapshot(job_id, last_payload)
     while os.path.exists(f"/proc/{int(build_pid)}"):
         current = runner_session(build_pid, _saved_session_id(build_id))
@@ -479,6 +460,7 @@ def mirror_tool_trace(job_id, build_pid, build_id="", interval=0.75):
                 "provider": provider,
                 "sessionId": trace_session_id(current),
                 "updatedAt": time.time(),
+                "usage": trace_usage(current),
                 "lines": [*history, *current_lines][-TOOL_TRACE_LINES:],
             }
             _write_snapshot(job_id, last_payload)

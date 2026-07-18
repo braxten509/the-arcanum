@@ -1,0 +1,98 @@
+[[lessons]]
+id = "s16-l02"
+title = "Capture a Choice"
+teaches = ["closure-capture"]
+introduces = ["python-nonlocal-statement", "python-closure-capture"]
+body = '''<p>A closure is a returned inner function that still uses a binding from an enclosing function after that outer call has finished. This gives configured behavior a stable, explicit choice. Call a factory with one command, receive a callback, and later call that callback with a Player. A second factory call gets a different enclosing binding, so it does not overwrite the first command as a shared module global would.</p><p>Reading an enclosing binding is ordinary closure capture. Rebinding it is different. If an inner function assigns to an outer name, Python would otherwise create a new local name; <code>nonlocal</code> declares that the assignment belongs to the nearest enclosing function binding. Use it only when the inner function truly owns changing that outer value. The trail callback only reads its remembered command, so it deliberately does not need nonlocal. A disposable counter is a safe place to practice the rebinding case without turning a read-only command choice into hidden mutable state.</p><p>Prove the distinction with independent callbacks. Arrange two factory calls with different choices and fresh Players. Invoke both callbacks and assert the second factory call did not change the first callback's behavior. This test is stronger than inspecting source because it observes lifetime after the factory has returned. It also protects against the common loop-capture error where several callbacks unexpectedly see one later loop value. Read the <a href="https://docs.python.org/3/reference/simple_stmts.html#the-nonlocal-statement">nonlocal reference</a>, then plan scope tests before authoring the package seam.</p>'''
+
+[[lessons.concepts]]
+id = "closure-capture"
+purpose = "Configure a later callback with one explicit choice without mutable module state."
+anatomy = "An outer factory binds a value, returns an inner function, and the inner function reads that enclosing binding later."
+example = "Two command factories return callbacks that remember different command text."
+observable = "Calling both callbacks changes only the Player supplied to each callback's delegated command."
+failure = "A shared selected-command global lets a later factory call overwrite an earlier callback's configuration."
+practice = "s16-l02-e01"
+
+[[lessons.concepts]]
+id = "python-nonlocal-statement"
+purpose = "Rebind a nearest enclosing value only when an inner function truly changes it."
+anatomy = "Place nonlocal before assignment in the inner function so the assignment targets the enclosing binding."
+example = "A disposable counter increments an outer total."
+observable = "Two counter calls return increasing values from one enclosing total."
+failure = "Without nonlocal, assignment creates a local binding and reading it first fails."
+practice = "s16-l02-e04"
+
+[[lessons.concepts]]
+id = "python-closure-capture"
+purpose = "Keep an enclosing read-only configuration available after the factory returns."
+anatomy = "Return an inner function that references the outer function parameter."
+example = "The callback reads its factory's command while receiving Player as its own local parameter."
+observable = "Two callbacks preserve distinct chosen commands."
+failure = "Capturing a changing loop binding or global value makes callbacks observe the wrong later choice."
+practice = "s16-l02-e04"
+
+[[lessons.readings]]
+label = "Python language reference: the nonlocal statement"
+url = "https://docs.python.org/3/reference/simple_stmts.html#the-nonlocal-statement"
+why = "Distinguish enclosing reads from enclosing rebinding."
+
+[[lessons.exercises]]
+id = "s16-l02-e01"
+type = "mc"
+points = 18
+prompt = "What does an inner function retain when it uses an outer binding after the outer call returns?"
+choices = ["An enclosing binding", "A rewritten module", "A builtin replacement", "A copied process global"]
+answer = 0
+hint = "Think about the factory call that created the function."
+explain = "The returned function closes over the enclosing binding."
+whyWrong = "The wrong answers confuse an enclosing binding with a shared global or rewritten module."
+mechanisms = ["python-closure-capture"]
+
+[[lessons.exercises]]
+id = "s16-l02-e02"
+type = "fill"
+points = 18
+prompt = "Complete the declaration needed when an inner function rebinds an outer variable: ____ total."
+code = "____ total"
+answer = "nonlocal"
+hint = "It names the nearest enclosing function scope."
+mechanisms = ["python-nonlocal-statement"]
+
+[[lessons.exercises]]
+id = "s16-l02-e03"
+type = "type"
+points = 24
+prompt = "Run this disposable counter and report its output."
+code = '''def make_counter():
+    total = 0
+    def count():
+        nonlocal total
+        total += 1
+        return total
+    return count
+
+counter = make_counter()
+print(counter())
+print(counter())'''
+expect = '''1
+2'''
+hint = "The inner assignment rebinds the outer total."
+mechanisms = ["python-nonlocal-statement", "python-closure-capture"]
+
+[[lessons.exercises]]
+id = "s16-l02-e04"
+type = "text"
+points = 20
+prompt = "What must a test observe to prove two callbacks have independent remembered choices?"
+answer = "Each callback must still perform its own chosen behavior after both factory calls have completed"
+hint = "The second factory call must not alter the first callback."
+mechanisms = ["python-nonlocal-statement", "python-closure-capture", "arrange-act-assert"]
+
+[[lessons.artifactSteps]]
+id = "s16-l02-a01"
+path = "tests/test_game.py"
+mode = "author"
+instruction = "Plan learner-authored arrange/act/assert tests for delegated behavior and two independently remembered commands using fresh Players; include a note explaining why the project callback reads rather than rebinds its command."
+checks = ["The plan calls for two separately created callbacks and fresh Players.", "The plan explicitly distinguishes read-only capture from nonlocal rebinding."]
+mechanisms = ["python-nonlocal-statement", "python-closure-capture", "arrange-act-assert"]

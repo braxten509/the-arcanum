@@ -1,84 +1,128 @@
+id = "s15-l01"
+title = "Enter and Leave a Resource"
+introduces = ["python-with-statement", "python-as-target", "python-context-manager-protocol"]
+teaches = ["context-managed-resource"]
+
 [[lessons]]
 id = "s15-l01"
 title = "Enter and Leave a Resource"
-teaches = ["s15-phase3-placeholder"]            # TODO: stable kebab-case capabilities this lesson teaches
-body = '''
-<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
-<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
-<p>TODO: an optional deeper-cut appendix.</p></div>
-'''
+teaches = ["context-managed-resource"]
+introduces = ["python-with-statement", "python-as-target", "python-context-manager-protocol"]
+body = '''<p>A resource is something acquired now and released later: an open text file is the example already familiar from the storage boundary. Manual <code>close()</code> calls make release depend on every route through a function. A context manager makes the lifetime structural instead. In a <code>with</code> statement, Python enters the manager, binds the active resource after <code>as</code>, runs the indented suite, and asks the manager to exit whether the suite finishes normally or raises. The variable after <code>as</code> names the active resource only inside the suite; it is not a promise that an unrelated error has been recovered.</p><p>Make that protocol visible before applying a built-in manager. In the disposable <code>TrailLatch</code> lab, <code>__enter__</code> prints <code>entered</code> and returns <code>self</code>, so the name after <code>as</code> is the same latch object. Its <code>__exit__</code> receives the exception details whenever the suite leaves, records <code>exited = True</code>, prints <code>exited</code>, and returns <code>False</code>. That false return is deliberate: it tells Python not to suppress the <code>OSError</code>. The outer <code>except OSError</code> therefore prints <code>propagated</code>, after the exit print, and the final <code>True</code> proves that cleanup happened before ordinary exception handling continued. These double-underscore method names are the protocol hooks that <code>with</code> calls; the latch is a throwaway learning collaborator, not a project type to copy into storage.</p><p>The storage reader already has two named outcomes: a missing path and malformed JSON return its documented no-save result. Those are decisions at the read boundary. A permission failure, programmer mistake, or write failure is not silently made successful by <code>with</code>. The context performs release; ordinary exception semantics still decide what propagates. That order lets a later cleanup branch remove an abandoned temporary file without swallowing the failure that made cleanup necessary.</p><p>Practice the shape away from the game. Then author the project change yourself: replace the storage module's manual read close sequence with a context-managed read, retain UTF-8 text handling, and preserve the two narrow expected recovery cases. Do not add automatic saving, choose a permanent location, or change package startup. In the Working, you will use the same lifetime rule for the temporary write and independently test a purpose-built collaborator.</p>'''
 
-[[lessons.concepts]]                # one complete first-use proof for every `teaches` id
-id = "s15-phase3-placeholder"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
-practice = "s15-l01-e1"
-
-[[lessons.artifactSteps]]           # visible work order; never reveal canonical implementation
-id = "s15-l01-project-step"
-path = "replace-me.txt"
-mode = "author"                    # learner authors this path; hidden referenceSteps replay it
-instruction = "TODO: exact path, behavior, constraints, commands, and diagnostics—no solution."
-checks = ["TODO: specific observable result the learner can run or inspect."]
-
-[[lessons.readings]]               # optional: 1-2 high-quality official docs
-label = "TODO: official docs"
-url = "https://example.com/TODO"
+[[lessons.readings]]
+label = "Python language reference: the with statement"
+url = "https://docs.python.org/3/reference/compound_stmts.html#the-with-statement"
+why = "Read the entering, binding, leaving, and exception order before changing the storage lifetime."
 
 [[lessons.exercises]]
-id = "s15-l01-e1"
+id = "s15-l01-e01"
 type = "mc"
-points = 15
-prompt = "TODO: a multiple-choice question?"
-choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
-answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
-whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
-hint = "TODO: an exercise-specific hint."
-explain = "TODO: shown after solving."
+points = 18
+prompt = "When the indented suite raises an exception, what does a context manager still get a chance to do?"
+choices = ["Convert every exception to None", "Run its exit behavior", "Replace the destination file", "Choose a save directory"]
+answer = 1
+mechanisms = ["python-with-statement", "python-context-manager-protocol"]
+explain = "Leaving the suite invokes exit behavior; whether an exception is recovered is separate."
+whyWrong = "The wrong choices confuse resource exit with recovery, replacement, or save-location policy."
+hint = "Think about what happens when the suite is left, even through an exception."
 
 [[lessons.exercises]]
-id = "s15-l01-e2"
+id = "s15-l01-e02"
+type = "fill"
+points = 18
+prompt = "Complete the disposable read binding: <code>with open(marker_path, \"r\", encoding=\"utf-8\") as ____:</code>"
+code = 'with open(marker_path, "r", encoding="utf-8") as ____:'
+answer = "marker_file"
+mechanisms = ["python-with-statement", "python-as-target", "python-open-call", "utf8-text-encoding"]
+explain = "The name after <code>as</code> refers to the active resource in the suite."
+hint = "Use a descriptive local name for the active file."
+
+[[lessons.exercises]]
+id = "s15-l01-e03"
+type = "write"
+points = 32
+prompt = "Write the disposable <code>TrailLatch</code> collaborator described in this lesson. Its <code>__enter__</code> must print <code>entered</code> and return itself; its <code>__exit__</code> must record <code>exited = True</code>, print <code>exited</code>, and return <code>False</code>. Use it in a <code>with</code> suite that prints whether the bound object is the latch, then raises <code>OSError(&quot;wind&quot;)</code>. Catch that error outside the context, print <code>propagated</code>, then print the recorded flag. Match this output exactly."
+solution = '''class TrailLatch:
+    def __init__(self):
+        self.exited = False
+
+    def __enter__(self):
+        print("entered")
+        return self
+
+    def __exit__(self, error_type, error, traceback):
+        self.exited = True
+        print("exited")
+        return False
+
+
+latch = TrailLatch()
+try:
+    with latch as active:
+        print(active is latch)
+        raise OSError("wind")
+except OSError:
+    print("propagated")
+
+print(latch.exited)'''
+expect = '''entered
+True
+exited
+propagated
+True'''
+hint = "Keep the <code>try</code> outside the <code>with</code>: the exit method must run before the outer handler can print <code>propagated</code>."
+mechanisms = ["python-class-statement", "python-init-method", "python-self-parameter", "python-instance-construction", "python-instance-attribute", "python-instance-method", "python-with-statement", "python-as-target", "python-context-manager-protocol", "python-try-statement", "python-except-clause", "python-raise-statement", "exception-propagation", "python-identity-operator", "python-boolean-operators", "python-print-call", "python-return-statement"]
+
+[[lessons.exercises]]
+id = "s15-l01-e04"
 type = "text"
 points = 20
-prompt = "TODO: a free-text question."
-answer = "TODO"
-# accept = ["TODO alternate"]      # optional true alternates only
-hint = "TODO: an exercise-specific hint."
+prompt = "In one or two sentences, distinguish releasing a resource from deciding that malformed JSON becomes a no-save result. Name one error you would still let propagate."
+answer = "A context manager releases an acquired resource; a narrow exception boundary decides only named expected recovery cases. An unexpected write or permission error should propagate."
+hint = "Separate the cleanup action from the policy choice about a specific expected error."
+mechanisms = ["python-context-manager-protocol", "exception-recovery-boundary", "exception-propagation", "json-decode-error"]
 
-[[lessons.exercises]]
-id = "s15-l01-e3"
-type = "fill"
-points = 20
-prompt = "TODO: fill the blank."
-code = 'answer = ____'             # the ____ marks where the answer goes
-answer = "TODO"
-hint = "TODO: an exercise-specific hint."
+[[lessons.concepts]]
+id = "context-managed-resource"
+purpose = "Use a context manager to make release of an acquired resource deterministic."
+anatomy = "Enter with, bind the active resource after as, run the suite, then leave through the manager's exit behavior."
+example = "The disposable TrailLatch enters, records its exit, and leaves an OSError for the outer handler."
+observable = "The lab prints entered, then exited, then propagated, followed by True for the recorded exit."
+failure = "Manual close paths can be skipped when a branch or exception changes control flow."
+practice = "s15-l01-e03"
 
-[[lessons.exercises]]
-id = "s15-l01-d1"
-type = "type"                      # typing drill: retype the code; no point decay
-points = 12
-reps = 2
-prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
-code = 'print("TODO")'
+[[lessons.concepts]]
+id = "python-with-statement"
+purpose = "Define a scoped resource lifetime."
+anatomy = "A with header enters a manager before the indented suite and exits it afterward."
+example = "The disposable note uses with open for each file lifetime."
+observable = "The printed note is read after the writing context finishes."
+failure = "Opening without a lifetime structure relies on every route remembering close."
+practice = "s15-l01-e02"
 
-[[lessons.exercises]]
-id = "s15-l01-w1"
-type = "write"                     # CODE LAB: runs on the real runtime; no point decay
-points = 30
-prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
-# starter = '''
-# TODO: prefilled editor code / the exercise's data
-# '''
-expect = '''
-TODO EXACT OUTPUT'''
-# REQUIRED before shipping: a complete program that passes. Never shown to the
-# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
-# solution = '''
-# TODO
-# '''
-hint = "TODO: an exercise-specific hint."
+[[lessons.concepts]]
+id = "python-as-target"
+purpose = "Bind the active context resource to a usable local name."
+anatomy = "Place a target after as in the with header."
+example = "camp_note names the active disposable file."
+observable = "The target supplies read or write inside the suite."
+failure = "Using an unbound name cannot access the active resource."
+practice = "s15-l01-e02"
+
+[[lessons.concepts]]
+id = "python-context-manager-protocol"
+purpose = "Understand that manager exit runs on normal and exceptional suite paths."
+anatomy = "__enter__ returns the bound resource; __exit__ receives the suite's exception details, records exit, and returns False when the error must continue outward."
+example = "TrailLatch implements both protocol methods around a deliberately raised OSError."
+observable = "Its output shows exit before the outer handler reports propagation, and the final flag is True."
+failure = "Returning a truthy value from __exit__ would suppress the OSError instead of letting the outer handler observe it."
+practice = "s15-l01-e03"
+
+[[lessons.artifactSteps]]
+id = "s15-l01-a01"
+path = "briar_glen/storage.py"
+mode = "author"
+instruction = "Author the context-managed read lifetime in the learner-owned storage helper. Preserve its plain-data schema, caller-supplied path, UTF-8 choice, and only the documented missing/corrupt read recovery; let unrelated failures propagate."
+mechanisms = ["python-with-statement", "python-as-target", "python-context-manager-protocol", "json-load-function", "exception-recovery-boundary", "exception-propagation"]
+checks = ["The read helper has no manual close call and still returns its documented no-save result only for absent or malformed supplied input.", "An unrelated read error is not converted to the documented no-save result."]

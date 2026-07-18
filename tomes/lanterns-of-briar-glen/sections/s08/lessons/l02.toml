@@ -1,0 +1,193 @@
+[[lessons]]
+id = "s08-l02"
+title = "Catch at a Boundary"
+teaches = ["recovery-propagation-boundary"]
+introduces = ["python-try-statement", "python-except-clause", "python-else-exception-clause", "exception-recovery-boundary", "exception-propagation"]
+body = '''
+<p>An ordinary exception is only half a contract. The next question is where it should be handled. The validator and command handler are close to the rule, so they should raise and let the failure <strong>propagate</strong>. The top-level turn controller is close to the player-visible consequence, so it may recover from the one expected bad-command error and continue the finite trail. Catching every error at the first function that notices it hides the boundary that needs to decide.</p>
+<pre><code data-kind="runnable">def read_signal(mark):
+    if mark != "clear":
+        raise ValueError("signal is obscured")
+    return "gate visible"
+
+
+def announce_signal(mark):
+    try:
+        message = read_signal(mark)
+    except ValueError as error:
+        print("Recover:", error)
+    else:
+        print("Proceed:", message)
+
+
+announce_signal("fog")
+announce_signal("clear")
+</code></pre>
+<p>A <code>try</code> block contains the call that may raise. If it raises the expected <code>ValueError</code>, Python skips the rest of that try block and enters the matching <code>except</code> block. The <code>as error</code> name is the caught problem, useful for a clear recovery message. The <code>else</code> block runs only when the try block finishes without that exception, keeping the ordinary successful output separate from recovery output.</p>
+<p>Read the first call: <code>read_signal("fog")</code> raises, so <code>message</code> is never assigned and the exception block prints a recovery observation. Read the second: no exception is raised, so the else block prints the success observation. Do not write a broad bare <code>except</code>. It can accidentally absorb a misspelled name, a broken calculation, or a wrong input type that should remain visible for diagnosis. Catch only the expected domain error where a known fallback exists.</p>
+<p>In Briar Glen, keep the domain validator and mutating handler free to propagate invalid-command failures. Around the one controller call that routes a saved turn, catch only the expected <code>ValueError</code>, report a deterministic fallback, and return the same kind of route decision the outer loop already understands. Let unrelated bugs propagate rather than disguising them as a player typo. The normal path belongs in <code>else</code>; that makes it impossible to accidentally print a successful route after a recovered invalid command.</p>
+<p>Add regression evidence with fresh state. One test should prove that the core validation seam still raises <code>ValueError</code>. Another should prove that the controller recovery boundary leaves the state unchanged, returns a continuing decision, and lets the finite trail move on. Keep earlier tests; a recovery test is not permission to delete the original domain contract.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // CATCH ONLY WHAT YOU CAN HONESTLY RECOVER</div><p>A recovery boundary owns a specific next action. If it has no meaningful recovery, let the exception keep traveling until a boundary can explain or repair it.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "recovery-propagation-boundary"
+purpose = "Place expected-error recovery at the layer that can choose a useful next action while preserving unrelated failures."
+anatomy = "Let the rule-owning helper raise, wrap the controller call in try, catch only its expected ValueError, place normal output in else, and return a decision for the outer flow."
+example = "announce_signal recovers from its known fog error while read_signal remains responsible for the rule."
+observable = "Fog prints a recovery message; clear input prints a proceed message; neither path pretends the other occurred."
+failure = "A broad catch turns unrelated programming mistakes into misleading normal game output."
+practice = "s08-l02-w1"
+
+[[lessons.concepts]]
+id = "python-try-statement"
+purpose = "Mark the small operation whose expected failure a nearby boundary is prepared to handle."
+anatomy = "Write try, a colon, and an indented block containing the one call or sequence that can raise the expected ValueError."
+example = "announce_signal places read_signal(mark) in its try block."
+observable = "The call either produces a value for the normal branch or transfers control to the matching exception branch."
+failure = "Putting unrelated work in try makes it unclear which operation a catch is actually recovering from."
+practice = "s08-l02-e2"
+
+[[lessons.concepts]]
+id = "python-except-clause"
+purpose = "Handle one selected exception type with an explicit recovery action."
+anatomy = "After try, write except, the expected exception type, optionally as a local error name, a colon, and an indented recovery block."
+example = "except ValueError as error prints the disposable recovery observation."
+observable = "Only a raised ValueError enters that branch; a successful call does not."
+failure = "A bare except catches failures the boundary did not understand and conceals their evidence."
+practice = "s08-l02-e3"
+
+[[lessons.concepts]]
+id = "python-else-exception-clause"
+purpose = "Keep ordinary post-call behavior separate from recovery behavior."
+anatomy = "After the matching except block, write else, a colon, and the statements that need the successful try result."
+example = "The disposable else block prints Proceed only when read_signal returns a message."
+observable = "The success line appears only for clear, while the recovery line appears only for fog."
+failure = "Printing success after the try without else can use a missing result when the call raised."
+practice = "s08-l02-e4"
+
+[[lessons.concepts]]
+id = "exception-recovery-boundary"
+purpose = "Give an expected, user-correctable failure a deterministic response without changing its domain rule."
+anatomy = "Select a controller or interface layer, catch the one expected ValueError there, report its recovery result, and return an ordinary decision."
+example = "announce_signal converts only the expected fog failure into a recovery message."
+observable = "The caller receives a known fallback instead of an unhandled expected invalid request."
+failure = "Recovering inside the validator mixes rule enforcement with presentation and makes later callers unable to choose their own response."
+practice = "s08-l02-e1"
+
+[[lessons.concepts]]
+id = "exception-propagation"
+purpose = "Allow a failure to travel from the rule-owning function to a boundary that can make the recovery decision."
+anatomy = "Raise at the validation rule, do not catch it there, and let the call stack reach a matching catch or an honest diagnostic."
+example = "read_signal raises its own rule failure and announce_signal decides whether to recover."
+observable = "The rule function does not print a fallback; the controller produces the visible response."
+failure = "Catching an error immediately after raising it prevents a higher boundary from distinguishing rule enforcement from player-facing recovery."
+practice = "s08-l02-e5"
+
+[[lessons.artifactSteps]]
+id = "s08-l02-place-turn-recovery"
+path = "game.py"
+mode = "author"
+mechanisms = ["python-try-statement", "python-except-clause", "python-else-exception-clause", "exception-recovery-boundary", "exception-propagation", "python-function-call", "python-return-statement", "editor-edit-file", "editor-save-file", "terminal-read-saved-file"]
+instruction = "In learner-authored game.py, preserve the validation helper as the place that raises ValueError for an invalid command and preserve the current mutating command seam as a propagating caller. At the existing finite turn-controller boundary, author a narrow try/except/else decision: recover only from that expected ValueError with one deterministic fallback and a continuing route decision, while the normal handler result is returned through else. Let unrelated defects propagate. Extend tests/test_game.py using fresh state so one check preserves the core invalid-command contract and one check proves recovery leaves game state unchanged and returns the continuing decision. Save and read both files, then run python -m pytest -q from the external project root. Do not add input, a broad catch, modules, files, dependencies, Pygame, or another project path."
+checks = ["A known invalid command recovers only at the turn boundary and does not mutate inventory, player state, or discoveries.", "Only the expected ValueError is recovered; unrelated defects remain visible, and the saved regression suite stays green."]
+
+[[lessons.readings]]
+label = "Python documentation: handling exceptions"
+url = "https://docs.python.org/3/tutorial/errors.html#handling-exceptions"
+
+[[lessons.exercises]]
+id = "s08-l02-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["python-try-statement", "python-except-clause"]
+prompt = "Retype this narrow disposable recovery boundary exactly."
+code = '''try:
+    read_marker("mist")
+except ValueError as error:
+    print(error)'''
+
+[[lessons.exercises]]
+id = "s08-l02-e1"
+type = "mc"
+points = 18
+mechanisms = ["exception-recovery-boundary", "exception-propagation"]
+prompt = "Where should a game’s unknown-command domain error be caught when only the turn controller knows how to continue the turn sequence?"
+choices = ["Inside a helper before validation", "Inside the validator before it raises", "At the turn controller around the command call", "Inside every helper that reads game state"]
+answer = 2
+whyWrong = "A helper before validation does not own the rule, the validator owns the rule and should signal it, and unrelated helpers do not own the player-facing next action. The controller can choose the continuing route."
+hint = "Choose the layer that owns the next turn after a bad command."
+explain = "Propagation keeps validation and recovery separate until the controller can make the meaningful decision."
+
+[[lessons.exercises]]
+id = "s08-l02-e2"
+type = "fill"
+points = 20
+mechanisms = ["python-try-statement"]
+prompt = "Complete the disposable boundary that marks the call which may raise."
+code = '''____:
+    report = inspect_path(marker)'''
+answer = "try"
+hint = "This keyword begins the protected call block."
+
+[[lessons.exercises]]
+id = "s08-l02-e3"
+type = "fill"
+points = 20
+mechanisms = ["python-except-clause"]
+prompt = "Complete the disposable clause so it catches only the expected ValueError."
+code = '''try:
+    inspect_path(marker)
+____ ValueError:
+    print("recover")'''
+answer = "except"
+hint = "Use the keyword that follows a try block to select one exception type."
+
+[[lessons.exercises]]
+id = "s08-l02-e4"
+type = "mc"
+points = 18
+mechanisms = ["python-else-exception-clause"]
+prompt = "Why place success-only use of a returned value in an exception else block?"
+choices = ["Else runs before try", "Else runs only when the try block did not raise the handled error", "Else catches every Python error", "Else repeats the exception message"]
+answer = 1
+whyWrong = "Else follows the try/except boundary; it does not catch errors or repeat recovery. It isolates statements that require the successful result."
+hint = "Ask whether the result exists after an exception interrupts the try block."
+explain = "The normal branch runs only after the protected call succeeds, so it cannot use a result that was never returned."
+
+[[lessons.exercises]]
+id = "s08-l02-e5"
+type = "text"
+points = 18
+mechanisms = ["exception-propagation", "exception-recovery-boundary"]
+prompt = "Why should an unrelated error from the command call propagate instead of being caught by the player-typo recovery boundary?"
+answer = "It is not the expected invalid text command, so catching it would hide a defect that needs diagnosis"
+hint = "Compare the expected invalid command with a failure the boundary did not promise to recover."
+
+[[lessons.exercises]]
+id = "s08-l02-w1"
+type = "write"
+points = 35
+mechanisms = ["python-exception-types", "python-raise-statement", "python-try-statement", "python-except-clause", "python-else-exception-clause", "python-def-statement", "python-if-statement", "python-return-statement", "python-function-call", "python-print-call"]
+prompt = "Write a disposable program with a route_status(is_clear) helper that raises ValueError with path is clouded when is_clear is False and otherwise returns path is clear, and an announce(is_clear) helper. announce must print recover after ValueError and print proceed: path is clear through an else block on a successful call. Call announce(False), then announce(True). Produce exactly the output below. This is not a Briar Glen artifact."
+expect = '''recover
+proceed: path is clear'''
+solution = '''def route_status(is_clear):
+    if is_clear == False:
+        raise ValueError("path is clouded")
+    return "path is clear"
+
+
+def announce(is_clear):
+    try:
+        message = route_status(is_clear)
+    except ValueError:
+        print("recover")
+    else:
+        print("proceed:", message)
+
+
+announce(False)
+announce(True)'''
+hint = "Raise in the rule helper, catch only ValueError in announce, and put the successful print in else."

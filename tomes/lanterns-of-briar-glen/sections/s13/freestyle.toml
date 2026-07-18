@@ -1,36 +1,165 @@
 [freestyle]
-title = "THE WORKING: TODO"
-brief = "TODO: the in-world commission.<ul><li>TODO requirement one (state exact output/tokens)</li><li>TODO requirement two</li></ul>"
-requires = ["s13-phase3-placeholder"]           # TODO: exact ids taught by this/earlier lessons
-reward = 150
-xray = "TODO: the grader's private notes — the specific pitfalls it docks and the style it rewards, truthful to the rubric below."
+title = "THE WORKING: PATHS THAT SURVIVE TRAVEL"
+brief = '''<p>Rowan needs the text trail to name locations without pinning it to this machine. You will author every change; no project file is supplied.</p><ul><li>In <code>briar_glen/domain.py</code>, use <code>pathlib.Path</code> to author pure helpers that build a project-relative trail-note path from a supplied project root and a hidden Briar Glen player-data directory from a supplied home root. Keep roots explicit and use <code>/</code> joins; the project helper’s text path must have an inspectable parent.</li><li>Author a small directory helper that receives the chosen player-data directory, checks <code>exists()</code>, creates it with <code>mkdir()</code> only when absent, and returns it. At an outer boundary, practice <code>Path.cwd()</code> and <code>Path.home()</code> as runtime roots before passing paths into helpers. Do not hard-code a user path or put player data in package source.</li><li>Author a text helper whose caller supplies a path and text. Make the lifecycle visible: open UTF-8 for writing, write, close; open UTF-8 for reading, read, close; return the retrieved text. Do not add JSON, <code>with</code>, deletion, atomic replacement, or automatic save/load behavior.</li><li>Extend <code>briar_glen/__init__.py</code> deliberately so the new focused seams remain part of the explicit public surface, and extend <code>tests/test_game.py</code> with three arrange/act/assert checks for the two supplied-root path shapes and an already-existing directory. Preserve the established 11 checks and six-turn package trail. From the external project root run <code>python -m pytest -q</code> until it reports <code>14 passed</code>. Do not add fixtures, Pygame, assets, CLI arguments, JSON, context managers, scope factories, comprehensions, generators, annotations, diagnostics, packaging metadata, or a second game.</li></ul>'''
+requires = ["text-file-lifecycle", "portable-path-construction", "directory-state-actions", "path-failure-verification", "language-file-path-actions", "language-standard-library-pathlib", "language-test-verification", "language-exception-error-handling"]
+mechanisms = ["terminal-print-working-directory", "terminal-change-directory", "terminal-check-python-version", "venv-create-environment", "venv-activate-environment", "venv-resolve-active-python", "editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file", "python-literal-values", "python-name-binding", "python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators", "python-print-call", "python-string-literal", "python-string-concatenation", "python-f-string", "string-strip-method", "string-lower-method", "string-split-method", "python-list-literal", "python-list-indexing", "list-append-method", "python-dict-literal", "python-dict-key-access", "dict-get-method", "python-set-literal", "python-membership-operators", "set-add-method", "python-tuple-literal", "collection-copy-method", "python-if-statement", "python-elif-clause", "python-else-clause", "python-for-statement", "python-in-loop-target", "python-range-call", "python-while-statement", "python-break-statement", "python-continue-statement", "bounded-loop-invariant", "python-def-statement", "python-function-call", "python-parameters-arguments", "python-return-statement", "pure-function-boundary", "mutating-function-boundary", "pip-install-exact-spec", "pytest-module-invocation", "python-import-statement", "pytest-test-function", "python-assert-statement", "arrange-act-assert", "pytest-failure-location", "red-green-rerun-cycle", "python-exception-types", "python-raise-statement", "python-try-statement", "python-except-clause", "python-else-exception-clause", "exception-recovery-boundary", "exception-propagation", "python-finally-clause", "python-class-statement", "python-init-method", "python-self-parameter", "python-instance-construction", "python-instance-attribute", "python-instance-method", "python-identity-operator", "collaborating-object-responsibility", "constructor-dependency-injection", "object-ownership", "method-delegation", "composition-over-inheritance", "collaborator-test-seam", "terminal-create-package-directories", "python-package-directory", "python-init-module", "python-module-file", "entry-domain-module-separation", "python-module-execution", "prototype-retirement", "python-absolute-import", "python-relative-import", "python-main-name-guard", "python-all-export-list", "module-dependency-direction", "circular-import-traceback", "python-open-call", "text-file-read-method", "text-file-write-method", "text-file-close-method", "text-file-mode", "utf8-text-encoding", "pathlib-path-constructor", "pathlib-path-join-operator", "pathlib-parent-property", "pathlib-cwd-method", "pathlib-home-method", "pathlib-exists-method", "pathlib-mkdir-method", "project-relative-user-data-path"]
+reward = 250
+xray = "The grader looks for explicit, portable roots and visible lifecycle ownership. Reward pure Path construction from supplied roots, a narrow exists-before-mkdir boundary, manual UTF-8 write/read/close anatomy, an expanded but startup-free public surface, and three focused tests that bring the preserved suite to 14 passed. Dock hard-coded home paths, separator strings, hidden cwd/home reads in pure helpers, unguarded mkdir, omitted close, tests that touch a real save file, broad exception swallowing, JSON or context-manager work pulled forward, behavior changes to the six-turn trail, fixtures, deletion, and source-text-only claims."
 
-[[freestyle.referenceSteps]]        # hidden from learners; validator replays a real solution
-id = "s13-freestyle-reference"
-path = "replace-me.txt"
+[[freestyle.referenceSteps]]
+id = "s13-add-pathlib-import"
+path = "briar_glen/domain.py"
+mode = "replace"
+find = "class Inventory:"
+mechanisms = ["python-import-statement", "pathlib-path-constructor"]
+instruction = "Private replay makes pathlib available before the existing domain types."
+content = '''from pathlib import Path
+
+
+class Inventory:'''
+
+[[freestyle.referenceSteps]]
+id = "s13-add-path-boundaries"
+path = "briar_glen/domain.py"
+mode = "replace"
+find = '''def turn_line(turn_number, command):
+    return f"Turn {turn_number}: {command}"'''
+mechanisms = ["pathlib-path-constructor", "pathlib-path-join-operator", "pathlib-parent-property", "pathlib-exists-method", "pathlib-mkdir-method", "python-open-call", "text-file-read-method", "text-file-write-method", "text-file-close-method", "text-file-mode", "utf8-text-encoding", "python-def-statement", "python-parameters-arguments", "python-return-statement", "python-if-statement"]
+instruction = "Private replay adds pure supplied-root path construction plus explicit directory and text lifecycles before the preserved trail helpers."
+content = '''def project_note_path(project_root):
+    return Path(project_root) / "trail-note.txt"
+
+
+def player_data_directory(home_root):
+    return Path(home_root) / ".lanterns-of-briar-glen"
+
+
+def ensure_data_directory(data_directory):
+    if not data_directory.exists():
+        data_directory.mkdir()
+    return data_directory
+
+
+def write_and_read_text(note_path, note_text):
+    note_file = open(note_path, "w", encoding="utf-8")
+    note_file.write(note_text)
+    note_file.close()
+
+    note_file = open(note_path, "r", encoding="utf-8")
+    saved_text = note_file.read()
+    note_file.close()
+    return saved_text
+
+
+def turn_line(turn_number, command):
+    return f"Turn {turn_number}: {command}"'''
+
+[[freestyle.referenceSteps]]
+id = "s13-rewrite-package-path-surface"
+path = "briar_glen/__init__.py"
 mode = "rewrite"
 preserves = "all-active"
-instruction = "TODO: exact private reference edit that satisfies this Working."
-content = '''
-TODO: complete reference content
-'''
+mechanisms = ["python-relative-import", "python-all-export-list", "python-import-statement"]
+instruction = "Private replay extends the existing startup-free package surface with the path seams."
+content = '''from .domain import (
+    Inventory,
+    Player,
+    QuestState,
+    ensure_data_directory,
+    handle_command,
+    player_data_directory,
+    project_note_path,
+    run_turn,
+    turn_line,
+    write_and_read_text,
+)
+
+__all__ = [
+    "Inventory",
+    "Player",
+    "QuestState",
+    "ensure_data_directory",
+    "handle_command",
+    "player_data_directory",
+    "project_note_path",
+    "run_turn",
+    "turn_line",
+    "write_and_read_text",
+]'''
+
+[[freestyle.referenceSteps]]
+id = "s13-extend-path-regression-tests"
+path = "tests/test_game.py"
+mode = "replace"
+find = '''from briar_glen import Inventory, Player, QuestState, handle_command, run_turn, turn_line
+from briar_glen.main import main'''
+mechanisms = ["python-import-statement", "pathlib-path-constructor", "pathlib-path-join-operator", "pathlib-cwd-method", "pathlib-exists-method", "pytest-test-function", "python-assert-statement", "arrange-act-assert"]
+instruction = "Private replay gives the preserved test module its new public imports and three focused portable-path checks."
+content = '''from pathlib import Path
+
+from briar_glen import (
+    Inventory,
+    Player,
+    QuestState,
+    ensure_data_directory,
+    handle_command,
+    player_data_directory,
+    project_note_path,
+    run_turn,
+    turn_line,
+)
+from briar_glen.main import main
+
+
+def test_project_note_path_uses_supplied_root():
+    project_root = Path("sample-project")
+    actual_path = project_note_path(project_root)
+    assert actual_path == Path("sample-project") / "trail-note.txt"
+
+
+def test_player_data_directory_uses_supplied_home():
+    home_root = Path("sample-home")
+    actual_path = player_data_directory(home_root)
+    assert actual_path == Path("sample-home") / ".lanterns-of-briar-glen"
+
+
+def test_existing_directory_remains_available():
+    current_directory = Path.cwd()
+    returned_directory = ensure_data_directory(current_directory)
+    assert returned_directory == current_directory
+    assert returned_directory.exists()'''
 
 [freestyle.badge]
 id = "badge-s13"
-name = "TODO BADGE"
-desc = "TODO: one sentence."
-
-[[freestyle.rubric]]               # weights MUST sum to exactly 100
-criterion = "Compiles & runs"
-weight = 40
-desc = "TODO: build succeeds; runs without crashing on normal input."
+name = "PATHFINDER'S LANTERN"
+desc = "Named portable places before the trail learned to preserve them."
 
 [[freestyle.rubric]]
-criterion = "Meets the brief"
-weight = 40
-desc = "TODO: every requirement in the checklist is present and correct."
+criterion = "Portable Path Contracts"
+weight = 25
+mechanisms = ["pathlib-path-constructor", "pathlib-path-join-operator", "pathlib-parent-property", "project-relative-user-data-path"]
+desc = "Pure helpers use Path and / to return a trail-note path below a supplied project root and a hidden data directory below a supplied home root; the note path has an inspectable parent and no helper hides an author-machine root."
 
 [[freestyle.rubric]]
-criterion = "Clean style"
+criterion = "Observed Directory Boundary"
 weight = 20
-desc = "TODO: name this language's real naming AND layout conventions (research its style guide)."
+mechanisms = ["pathlib-cwd-method", "pathlib-home-method", "pathlib-exists-method", "pathlib-mkdir-method", "python-if-statement"]
+desc = "The outer boundary can obtain cwd and home paths, while the directory helper checks a supplied directory, creates it only when absent, and returns it without deletion or broad recovery."
+
+[[freestyle.rubric]]
+criterion = "Explicit UTF-8 Text Lifecycle"
+weight = 20
+mechanisms = ["python-open-call", "text-file-read-method", "text-file-write-method", "text-file-close-method", "text-file-mode", "utf8-text-encoding"]
+desc = "A supplied-path helper visibly opens UTF-8 for writing, writes and closes, then opens UTF-8 for reading, reads and closes, and returns retrieved text without JSON or a context manager."
+
+[[freestyle.rubric]]
+criterion = "Focused Portable Evidence"
+weight = 25
+mechanisms = ["pytest-module-invocation", "pytest-test-function", "python-assert-statement", "arrange-act-assert"]
+desc = "The preserved suite imports public seams and contains three additional focused checks for both supplied-root path shapes and an existing directory; python -m pytest -q reports 14 passed without a real save-file test."
+
+[[freestyle.rubric]]
+criterion = "Boundary Craft and Continuity"
+weight = 10
+mechanisms = ["editor-edit-file", "editor-save-file", "terminal-read-saved-file", "python-relative-import", "python-all-export-list"]
+desc = "Saved files use descriptive snake_case names, four-space indentation, two blank lines between top-level definitions, and an explicit startup-free public surface while preserving the package’s established trail behavior."

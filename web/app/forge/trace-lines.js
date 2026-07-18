@@ -1,5 +1,6 @@
 const VALIDATOR_LINE = /^((?:VALIDATOR COMMAND|AI VALIDATOR CALL) (?:START|COMPLETE|FAILED))\s+\[([0-9]+(?:\.[0-9]+)?)\](.*)$/;
 const CLOCK_LINE = /^(\d{2}):(\d{2}):(\d{2})\b/;
+const MERGED_TRACE_LINES = 600;
 
 function localClock(milliseconds) {
   const date = new Date(milliseconds);
@@ -41,5 +42,7 @@ export function mergeForgeTraceLines(toolLines, logtail, anchor = Date.now()) {
     if (right.at == null) return -1;
     return left.at - right.at || left.index - right.index;
   });
-  return rows.slice(-80).map((row) => row.line);
+  // The provider contributes up to 80 tool rows while the durable harness contributes
+  // up to 500 status rows. Keep both budgets so author traffic cannot evict validator calls.
+  return rows.slice(-MERGED_TRACE_LINES).map((row) => row.line);
 }

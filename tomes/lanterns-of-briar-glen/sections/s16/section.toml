@@ -1,26 +1,291 @@
-# Section s16 — scaffolded by tools/new_tome.py. Replace every TODO.
-# One lesson with one of each core exercise type is shown; author 3-5 lessons per
-# section and 4-6 mixed exercises per lesson (see § sections/<sid>.toml).
 id = "s16"
 codename = "CHAPTER XVI // NAMES, SCOPE, AND REMEMBERED CHOICES"
 short = "Names, Scope, and Remembered Choices"
-title = "Trace Name Resolution"
-build = "own language-scope-closure-namespace separately from basic functions through local/global/nonlocal reasoning, closure capture, lifetime, and callback factories that configure commands without hidden mutable globals, retrieving decomposition and tests."
-brief = "TODO: Phase 3 authors Names, Scope, and Remembered Choices from the approved Arc."
+title = "Names, Scope, and Remembered Choices"
+build = "Own local, enclosing, global, and builtin name resolution; closure capture and nonlocal rebinding; then configure existing command behavior with callback factories that keep command choice explicit."
+brief = '''<p>Every name in a Python function is resolved through a namespace, not from a shared pool. This chapter makes that lookup order observable before using it in the Briar Glen package. You will distinguish local parameters from module globals, use <code>nonlocal</code> only when an inner function must rebind an enclosing name, and create callbacks that remember one chosen command without mutable module state.</p><p>The project remains a tested package trail. You will add a small factory around the existing command handler, expose it through the existing public boundary, and prove that two callbacks retain independent choices. There is no Pygame loop, CLI, save-policy, runtime integration, or second dispatcher in this section.</p>'''
 
 [proof]
-mode = "run"                       # run | build | guided | package (package only in final section)
-expectedFiles = ["replace-me.txt"] # TODO: source/config files that must exist after this chapter
-runArgs = ["--arcanum-proof", "s16"]
-expect = "TODO: exact deterministic milestone output"
+mode = "run"
+expectedFiles = ["tests/test_game.py", "briar_glen/__init__.py", "briar_glen/main.py", "briar_glen/domain.py", "briar_glen/storage.py", "tests/test_storage.py"]
+runArgs = ["-m", "pytest", "-q"]
+expect = '''Lantern status for Mira: 10 health, 2 oil, lit=True
+Normalized command: look waystone
+Command words: ['look', 'waystone']
+Pack before trail: ['waystone map', 'rations']
+First packed item: waystone map
+Player health: 10
+Known north gate: True
+Coordinates: (4, 7)
+Turn 1: look waystone
+The waystone points north.
+Turn cleanup: look waystone
+Turn 2: take moonleaf
+Moonleaf packed.
+Turn cleanup: take moonleaf
+Turn 3: rest
+Health restored: 12
+Turn cleanup: rest
+Turn 4: search briar
+Search: thorns
+Search: lantern key
+Lantern key found.
+Turn cleanup: search briar
+Turn 5: sing
+Invalid command: Unknown command: sing
+Turn cleanup: sing
+Turn 6: leave
+Trail closed.
+Turn cleanup: leave
+Turns taken: 6
+Pack after trail: ['waystone map', 'rations', 'moonleaf']
+Snapshot before trail: ['waystone map', 'rations']
+Found lantern key: True
+Path open: False
+Final health: 12
+Completed turns: ['look waystone', 'take moonleaf', 'rest', 'search briar', 'sing', 'leave']'''
+mechanisms = ["terminal-print-working-directory", "terminal-change-directory", "terminal-check-python-version", "venv-create-environment", "venv-activate-environment", "venv-resolve-active-python", "editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file", "python-literal-values", "python-name-binding", "python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators", "python-print-call", "python-string-literal", "python-string-concatenation", "python-f-string", "string-strip-method", "string-lower-method", "string-split-method", "python-list-literal", "python-list-indexing", "list-append-method", "python-dict-literal", "python-dict-key-access", "dict-get-method", "python-set-literal", "python-membership-operators", "set-add-method", "python-tuple-literal", "collection-copy-method", "python-if-statement", "python-elif-clause", "python-else-clause", "python-for-statement", "python-in-loop-target", "python-range-call", "python-while-statement", "python-break-statement", "python-continue-statement", "bounded-loop-invariant", "python-def-statement", "python-function-call", "python-parameters-arguments", "python-return-statement", "pure-function-boundary", "mutating-function-boundary", "pip-install-exact-spec", "pytest-module-invocation", "python-import-statement", "pytest-test-function", "python-assert-statement", "arrange-act-assert", "pytest-failure-location", "red-green-rerun-cycle", "python-exception-types", "python-raise-statement", "python-try-statement", "python-except-clause", "python-else-exception-clause", "exception-recovery-boundary", "exception-propagation", "python-finally-clause", "python-class-statement", "python-init-method", "python-self-parameter", "python-instance-construction", "python-instance-attribute", "python-instance-method", "python-identity-operator", "collaborating-object-responsibility", "constructor-dependency-injection", "object-ownership", "method-delegation", "composition-over-inheritance", "collaborator-test-seam", "terminal-create-package-directories", "python-package-directory", "python-init-module", "python-module-file", "entry-domain-module-separation", "python-module-execution", "prototype-retirement", "python-absolute-import", "python-relative-import", "python-main-name-guard", "python-all-export-list", "module-dependency-direction", "circular-import-traceback", "python-open-call", "text-file-read-method", "text-file-write-method", "text-file-close-method", "text-file-mode", "utf8-text-encoding", "pathlib-path-constructor", "pathlib-path-join-operator", "pathlib-parent-property", "pathlib-cwd-method", "pathlib-home-method", "pathlib-exists-method", "pathlib-mkdir-method", "project-relative-user-data-path", "json-object-schema", "json-supported-values", "json-dumps-function", "json-loads-function", "json-dump-function", "json-load-function", "json-decode-error", "python-with-statement", "python-as-target", "python-context-manager-protocol", "named-temporary-file-call", "os-replace-call", "pathlib-unlink-method", "python-legb-resolution", "python-global-statement", "python-nonlocal-statement", "python-closure-capture", "callback-factory"]
 
-# Media is NEVER authored by the tome AI. When this chapter needs a sprite, sound,
-# music track, font, image, or video, add one or more [[assets]] sourcing guides:
-# [[assets]]
-# id = "player-sprite"
-# kind = "sprite"
-# lesson = "s16-l01"
-# destination = "assets/player.png"
-# sourceGuidance = "Explain how the learner chooses, downloads, renames, and places it."
-# licenseGuidance = "Explain the license/attribution step the learner must perform."
-# sources = [{ label = "Trusted asset library", url = "https://...", license = "..." }]
+[freestyle]
+title = "THE WORKING: NAMES, SCOPE, AND REMEMBERED CHOICES"
+brief = '''<p>You will preserve the learner-owned package and tests, then author one narrow callback factory around the existing command handler. The factory receives a command choice, returns a callback that receives a Player, and reads its command from an enclosing scope. It does not use a mutable module-global command, duplicate the command handler, or alter main.py.</p><ul><li>In <code>briar_glen/domain.py</code>, add the factory beside the established handler. In <code>briar_glen/__init__.py</code>, expose it through the public import and <code>__all__</code> boundary while preserving all earlier names.</li><li>In <code>tests/test_game.py</code>, learner-author focused arrange/act/assert checks for delegated behavior, independent callbacks with different choices, and invalid-command propagation. Keep every earlier test and all storage behavior.</li><li>From the external project root, run <code>python -m pytest -q</code> until it reports <code>24 passed</code>. Read a failure location before repairing only a lookup, closure, delegation, export, or assertion boundary.</li></ul>'''
+requires = ["namespace-resolution", "closure-capture", "scoped-command-callback", "language-scope-closure-namespace", "language-functions-decomposition", "language-test-verification"]
+mechanisms = ["terminal-print-working-directory", "terminal-change-directory", "terminal-check-python-version", "venv-create-environment", "venv-activate-environment", "venv-resolve-active-python", "editor-create-file", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file", "python-literal-values", "python-name-binding", "python-arithmetic-operators", "python-comparison-operators", "python-boolean-operators", "python-print-call", "python-string-literal", "python-string-concatenation", "python-f-string", "string-strip-method", "string-lower-method", "string-split-method", "python-list-literal", "python-list-indexing", "list-append-method", "python-dict-literal", "python-dict-key-access", "dict-get-method", "python-set-literal", "python-membership-operators", "set-add-method", "python-tuple-literal", "collection-copy-method", "python-if-statement", "python-elif-clause", "python-else-clause", "python-for-statement", "python-in-loop-target", "python-range-call", "python-while-statement", "python-break-statement", "python-continue-statement", "bounded-loop-invariant", "python-def-statement", "python-function-call", "python-parameters-arguments", "python-return-statement", "pure-function-boundary", "mutating-function-boundary", "pip-install-exact-spec", "pytest-module-invocation", "python-import-statement", "pytest-test-function", "python-assert-statement", "arrange-act-assert", "pytest-failure-location", "red-green-rerun-cycle", "python-exception-types", "python-raise-statement", "python-try-statement", "python-except-clause", "python-else-exception-clause", "exception-recovery-boundary", "exception-propagation", "python-finally-clause", "python-class-statement", "python-init-method", "python-self-parameter", "python-instance-construction", "python-instance-attribute", "python-instance-method", "python-identity-operator", "collaborating-object-responsibility", "constructor-dependency-injection", "object-ownership", "method-delegation", "composition-over-inheritance", "collaborator-test-seam", "terminal-create-package-directories", "python-package-directory", "python-init-module", "python-module-file", "entry-domain-module-separation", "python-module-execution", "prototype-retirement", "python-absolute-import", "python-relative-import", "python-main-name-guard", "python-all-export-list", "module-dependency-direction", "circular-import-traceback", "python-open-call", "text-file-read-method", "text-file-write-method", "text-file-close-method", "text-file-mode", "utf8-text-encoding", "pathlib-path-constructor", "pathlib-path-join-operator", "pathlib-parent-property", "pathlib-cwd-method", "pathlib-home-method", "pathlib-exists-method", "pathlib-mkdir-method", "project-relative-user-data-path", "json-object-schema", "json-supported-values", "json-dumps-function", "json-loads-function", "json-dump-function", "json-load-function", "json-decode-error", "python-with-statement", "python-as-target", "python-context-manager-protocol", "named-temporary-file-call", "os-replace-call", "pathlib-unlink-method", "python-legb-resolution", "python-global-statement", "python-nonlocal-statement", "python-closure-capture", "callback-factory"]
+reward = 270
+xray = "The grader expects a real closure boundary: a factory captures one command choice in an enclosing scope and its returned callback delegates to the established handler with an explicit Player. Reward independent callback evidence and public-boundary preservation. Dock module-global command state, a duplicate dispatcher, copied handler logic, changed runtime entrypoint, Pygame, CLI, persistence policy, or any implementation supplied in learner-visible work."
+
+[[freestyle.referenceSteps]]
+id = "s16-rewrite-domain-callback"
+path = "briar_glen/domain.py"
+mode = "rewrite"
+preserves = "all-active"
+mechanisms = ["python-def-statement", "python-parameters-arguments", "python-return-statement", "python-legb-resolution", "python-closure-capture", "callback-factory", "python-function-call"]
+instruction = "Private replay preserves the entire established domain module and inserts make_command_callback after handle_command. Its inner callback reads the enclosing command and delegates to the existing handler with the supplied player."
+content = '''def make_command_callback(command):
+    def command_callback(player):
+        return handle_command(command, player)
+
+    return command_callback'''
+
+[[freestyle.referenceSteps]]
+id = "s16-rewrite-public-boundary"
+path = "briar_glen/__init__.py"
+mode = "rewrite"
+preserves = "all-active"
+mechanisms = ["python-relative-import", "python-all-export-list", "callback-factory"]
+instruction = "Private replay adds make_command_callback to the existing relative domain import and __all__ list while preserving every earlier public export."
+content = '''from .domain import make_command_callback
+
+__all__.append("make_command_callback")'''
+
+[[freestyle.referenceSteps]]
+id = "s16-rewrite-scope-tests"
+path = "tests/test_game.py"
+mode = "rewrite"
+preserves = "all-active"
+mechanisms = ["python-import-statement", "pytest-test-function", "python-assert-statement", "arrange-act-assert", "exception-propagation", "python-closure-capture", "callback-factory"]
+instruction = "Private replay preserves all earlier tests and imports the factory through briar_glen, then adds focused delegated-command, independent-closure, and propagated-invalid-command tests."
+content = '''def test_command_callback_delegates_its_remembered_command():
+    player = make_player()
+    rest_callback = make_command_callback("rest")
+    assert rest_callback(player) == "Health restored: 10"
+    assert player.health == 10
+
+
+def test_command_callbacks_keep_their_choices_independent():
+    rest_callback = make_command_callback("rest")
+    take_callback = make_command_callback("take moonleaf")
+    resting_player = make_player()
+    packing_player = make_player()
+    assert rest_callback(resting_player) == "Health restored: 10"
+    assert take_callback(packing_player) == "Moonleaf packed."
+    assert resting_player.inventory.items == ["rations"]
+    assert packing_player.health == 8
+
+
+def test_command_callback_propagates_invalid_command_errors():
+    invalid_callback = make_command_callback("sing")
+    with pytest.raises(ValueError, match="Unknown command: sing"):
+        invalid_callback(make_player())'''
+
+[[freestyle.rubric]]
+id = "s16-explicit-scope"
+weight = 35
+mechanisms = ["python-legb-resolution", "python-global-statement", "python-closure-capture", "callback-factory"]
+criterion = "The callback factory captures an explicit command choice in an enclosing scope rather than mutable module state and delegates to the established handler."
+
+[[freestyle.rubric]]
+id = "s16-closure-evidence"
+weight = 35
+mechanisms = ["python-closure-capture", "callback-factory", "pytest-test-function", "python-assert-statement", "arrange-act-assert", "exception-propagation"]
+criterion = "Focused tests establish delegation, independent choices from separate factory calls, and normal invalid-command propagation."
+
+[[freestyle.rubric]]
+id = "s16-preserved-boundaries"
+weight = 30
+mechanisms = ["python-relative-import", "python-all-export-list", "pytest-module-invocation", "red-green-rerun-cycle"]
+criterion = "The public package boundary exposes the factory while prior exports, storage behavior, and the guarded runtime entrypoint remain intact."
+
+[[lessons]]
+id = "s16-l01"
+title = "Trace Name Resolution"
+teaches = ["namespace-resolution"]
+introduces = ["python-legb-resolution", "python-global-statement"]
+body = '''<p>Python resolves a bare name through LEGB: local, enclosing, global, then builtin namespaces. A parameter is local. A name assigned inside a function is local unless a declaration changes its binding target. A module-level name is global to that module, not a universal location shared safely by every callback. Predict the lookup before running code: a parameter named <code>route</code> wins over a global <code>route</code>; an inner function can continue outward only when no nearer binding exists.</p><p>Reading a module constant does not require <code>global</code>. The <code>global</code> statement matters only when an assignment must rebind a module-level name. That rebinding creates a hidden dependency between calls, so it is not a sound place to remember the trail command. Existing domain functions already receive a Player explicitly and change that supplied object; that is mutation through a local parameter, not global rebinding. Trace each name by asking where it is bound, where it is read, and whether an assignment creates a new local.</p><p>In the next lesson, an inner callback deliberately reads an enclosing command binding. That is still explicit scope: the command is selected when the factory is called, while the player is selected when the callback is called. It avoids a shared selected-command global. Read the <a href="https://docs.python.org/3/reference/executionmodel.html#binding-of-names">Python binding-of-names reference</a>, then use the same reasoning to identify the existing handler and its player parameter before making a project edit.</p>'''
+
+[[lessons.readings]]
+label = "Python language reference: Binding of names"
+url = "https://docs.python.org/3/reference/executionmodel.html#binding-of-names"
+why = "Use the reference to distinguish local assignment, enclosing lookup, and deliberate global rebinding."
+
+[[lessons.exercises]]
+id = "s16-l01-e01"
+type = "mc"
+points = 15
+prompt = "A function parameter has the same name as a module variable. Which binding is read inside the function?"
+choices = ["The local parameter", "The module variable", "A builtin", "Whichever was assigned first"]
+answer = 0
+mechanisms = ["python-legb-resolution"]
+explain = "Local lookup precedes global lookup."
+whyWrong = "The other choices ignore LEGB order."
+hint = "Start at the function's local namespace."
+
+[[lessons.exercises]]
+id = "s16-l01-e02"
+type = "short"
+points = 15
+prompt = "State when a global declaration is needed."
+answer = "When a function assigns to and must rebind a module-level name; it is not needed merely to read that name."
+mechanisms = ["python-global-statement"]
+
+[[lessons.exercises]]
+id = "s16-l01-e03"
+type = "write"
+points = 20
+prompt = "In a disposable scratch file, make a module variable and a same-named function parameter, print the parameter, and record which binding won."
+mechanisms = ["python-legb-resolution"]
+
+[[lessons.exercises]]
+id = "s16-l01-e04"
+type = "inspect"
+points = 20
+prompt = "Inspect the existing command handler. Identify its local player parameter and explain why changing that player does not require global."
+mechanisms = ["python-legb-resolution", "python-global-statement"]
+
+[[lessons.artifactSteps]]
+id = "s16-l01-a01"
+path = "briar_glen/domain.py"
+instruction = "Create a temporary learner planning note that traces the local, enclosing, global, and builtin lookups the future callback will use. State why its command choice cannot be a mutable module global, then remove the note before delivery."
+mechanisms = ["python-legb-resolution", "python-global-statement"]
+
+[[lessons]]
+id = "s16-l02"
+title = "Capture a Choice"
+teaches = ["closure-capture"]
+introduces = ["python-nonlocal-statement", "python-closure-capture"]
+body = '''<p>A closure is a function that continues to use a binding from an enclosing function after that outer call has returned. Call an outer factory twice and you receive two callbacks with two distinct enclosing environments. This is the right shape when behavior needs one configured choice without creating shared mutable state. The callback factory for the trail will remember command text while accepting a Player later, at the moment behavior runs.</p><p>Reading an enclosing binding needs no declaration. Rebinding one does: <code>nonlocal</code> tells Python that an assignment belongs to the nearest enclosing function scope instead of creating a new local binding. Use it only when the inner function genuinely owns changing that outer value. The command callback has no reason to alter its remembered command, so its closure should read the binding without <code>nonlocal</code>. Learn the distinction with a disposable counter, then return to the project with the simpler read-only contract.</p><p>Test closure independence rather than trusting it. Make two callbacks from two factory calls, supply fresh players, invoke both callbacks, and observe that configuring the second did not overwrite the first. Be alert to loop-capture surprises too: a callback can look up a loop variable later than expected. An explicit factory call gives each callback its own stable binding. Read the <a href="https://docs.python.org/3/reference/simple_stmts.html#the-nonlocal-statement">nonlocal reference</a> before deciding whether an inner assignment belongs to local or enclosing scope.</p>'''
+
+[[lessons.readings]]
+label = "Python language reference: the nonlocal statement"
+url = "https://docs.python.org/3/reference/simple_stmts.html#the-nonlocal-statement"
+why = "Confirm when an inner assignment rebinds an enclosing name."
+
+[[lessons.exercises]]
+id = "s16-l02-e01"
+type = "mc"
+points = 15
+prompt = "What does an inner function retain when it reads a name from its outer function after that outer call returns?"
+choices = ["An enclosing binding", "A module rewrite", "A builtin replacement", "A copied global namespace"]
+answer = 0
+mechanisms = ["python-closure-capture"]
+explain = "The returned function closes over the enclosing binding."
+whyWrong = "Closure capture is neither a global rewrite nor builtin replacement."
+hint = "The outer factory call has already finished."
+
+[[lessons.exercises]]
+id = "s16-l02-e02"
+type = "short"
+points = 15
+prompt = "When must an inner function declare nonlocal for an outer name?"
+answer = "When it assigns to and must rebind that enclosing name."
+mechanisms = ["python-nonlocal-statement"]
+
+[[lessons.exercises]]
+id = "s16-l02-e03"
+type = "write"
+points = 20
+prompt = "In a disposable scratch file, create a counter factory whose inner function uses nonlocal to increment an outer total."
+mechanisms = ["python-nonlocal-statement", "python-closure-capture"]
+
+[[lessons.exercises]]
+id = "s16-l02-e04"
+type = "design"
+points = 20
+prompt = "Describe arrange, act, and assert steps proving two callbacks from two factory calls do not share one remembered command."
+mechanisms = ["python-closure-capture", "arrange-act-assert"]
+
+[[lessons.artifactSteps]]
+id = "s16-l02-a01"
+path = "tests/test_game.py"
+instruction = "Plan learner-authored tests for delegated behavior and independent remembered commands using fresh players. Do not add a project implementation while planning."
+mechanisms = ["python-closure-capture", "arrange-act-assert"]
+
+[[lessons]]
+id = "s16-l03"
+title = "Build a Callback Factory"
+teaches = ["scoped-command-callback", "language-scope-closure-namespace"]
+introduces = ["callback-factory"]
+body = '''<p>The established command handler is the project seam. A callback factory should not replace it. It receives one command choice, defines an inner callback that receives a Player, and delegates to that handler using the enclosing command plus the local player parameter. This keeps validation, result text, and state change in one existing behavior. The new factory only configures when that behavior will be used.</p><p>Keep the public boundary equally small. Add the factory to the package's existing relative import and public-name list so tests import it through <code>briar_glen</code>. Do not change the guarded main entrypoint, create a second dispatcher, add runtime input, or wire persistence. The callback's scope is the evidence: command text is a read-only enclosing binding, Player is explicit at invocation, and no mutable global can make later factory calls overwrite earlier choices.</p><p>Write three focused tests. One verifies a known callback delegates as the handler would. One makes callbacks for different commands and proves their effects stay independent. One verifies that an invalid remembered command still raises the existing ValueError. Run the established suite after the learner-authored changes and use any failure location to repair only scope, delegation, export, or assertion evidence. This narrow seam prepares later command and dialogue dispatch without prematurely adding that later feature. Python's <a href="https://docs.python.org/3/library/functions.html#callable">callable documentation</a> gives the wider vocabulary for values that can be invoked.</p>'''
+
+[[lessons.readings]]
+label = "Python documentation: callable"
+url = "https://docs.python.org/3/library/functions.html#callable"
+why = "Connect the returned closure with Python's callable-value model."
+
+[[lessons.exercises]]
+id = "s16-l03-e01"
+type = "sequence"
+points = 15
+prompt = "Order these events: choose a command, receive a callback, create a Player, call the callback, observe delegated behavior."
+answer = "choose a command; receive a callback; create a Player; call the callback; observe delegated behavior"
+mechanisms = ["callback-factory", "python-parameters-arguments", "python-return-statement"]
+
+[[lessons.exercises]]
+id = "s16-l03-e02"
+type = "short"
+points = 15
+prompt = "Why can two closure callbacks remember different commands while one module global cannot?"
+answer = "Each factory call creates a distinct enclosing binding; one module global is shared and can be overwritten."
+mechanisms = ["python-closure-capture", "callback-factory"]
+
+[[lessons.exercises]]
+id = "s16-l03-e03"
+type = "write"
+points = 20
+prompt = "In a disposable scratch file, write a factory that captures a label and returns a function that formats a supplied value."
+mechanisms = ["callback-factory", "python-closure-capture", "python-def-statement", "python-return-statement"]
+
+[[lessons.exercises]]
+id = "s16-l03-e04"
+type = "inspect"
+points = 20
+prompt = "Identify the existing handler to delegate to and the package public-boundary file to update. Confirm that main.py remains unchanged."
+mechanisms = ["callback-factory", "python-all-export-list"]
+
+[[lessons.artifactSteps]]
+id = "s16-l03-a01"
+path = "briar_glen/domain.py"
+instruction = "Learner-author a command callback factory beside the existing handler. It must capture one command choice in enclosing scope, accept a Player in the returned callback, and delegate to the established handler without mutable module state or duplicate validation."
+mechanisms = ["python-legb-resolution", "python-closure-capture", "callback-factory", "python-def-statement", "python-parameters-arguments", "python-return-statement"]
+
+[[lessons.artifactSteps]]
+id = "s16-l03-a02"
+path = "briar_glen/__init__.py"
+instruction = "Learner-author the existing public-boundary update for the factory while preserving every earlier public name."
+mechanisms = ["callback-factory", "python-relative-import", "python-all-export-list"]
+
+[[lessons.artifactSteps]]
+id = "s16-l03-a03"
+path = "tests/test_game.py"
+instruction = "Learner-author focused arrange/act/assert tests for delegation, independent callbacks, and invalid-command propagation; preserve all earlier tests."
+mechanisms = ["callback-factory", "python-closure-capture", "arrange-act-assert", "exception-propagation"]

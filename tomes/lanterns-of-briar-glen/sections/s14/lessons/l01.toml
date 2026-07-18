@@ -1,84 +1,120 @@
 [[lessons]]
 id = "s14-l01"
 title = "Map State to a Schema"
-teaches = ["s14-phase3-placeholder"]            # TODO: stable kebab-case capabilities this lesson teaches
+teaches = ["save-schema-mapping"]
+introduces = ["json-object-schema", "json-supported-values"]
 body = '''
-<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
-<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
-<p>TODO: an optional deeper-cut appendix.</p></div>
+<p>A save is a boundary between live Python objects and plain data. The player object owns other objects: an inventory has a list, and quest state has a set plus a Boolean. JSON cannot know how to rebuild those classes by itself. Give it a <strong>schema</strong>: a named object shape whose keys explain each stored fact and whose values are only JSON-supported kinds—object, array, string, number, Boolean, or null.</p>
+<pre><code data-kind="runnable">beacon = {
+    "name": "Nell",
+    "charge": 4,
+    "tokens": ["copper", "ash"],
+    "active": True,
+}
+print(beacon["name"])
+print(beacon["tokens"])</code></pre>
+<p>This disposable dictionary is already close to JSON’s data vocabulary. Its keys are strings. The number, strings, list, and Boolean can all become JSON values. A Python set cannot: it has no JSON set form. When Briar Glen maps quest discoveries, make a list for the save record; when it rebuilds the domain object, make a new set for the quest state. That is conversion, not a claim that the two shapes are identical.</p>
+<p>Keep the schema at a narrow storage boundary. The domain classes still own behavior such as adding inventory or recognizing a discovery. The storage module should ask for their observable state, build a record with stable field names, and later construct fresh collaborators from that record. Avoid storing the whole <code>Player</code> object, a class name, or a filesystem path inside the record. Those choices make the save depend on Python implementation details or one machine rather than the intended player facts.</p>
+<p>Start by writing down the required fields before you write an encoder: player name and health; inventory items; quest discoveries; and whether the path is open. Use direct, snake_case keys that match the meanings already established in the package. A later chapter can extend this schema for a completed quest and a durable player-data location; do not invent either feature now. A schema is useful precisely because a test can inspect it, compare it to a known player, and say which boundary lost a fact.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SHAPE BEFORE TEXT</div><p>Make the data record first. Encoding is a separate operation; separating them lets a failed round-trip tell you whether mapping or JSON text is at fault.</p></div>
 '''
 
-[[lessons.concepts]]                # one complete first-use proof for every `teaches` id
-id = "s14-phase3-placeholder"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
-practice = "s14-l01-e1"
+[[lessons.concepts]]
+id = "save-schema-mapping"
+purpose = "Deliberately map live player collaborators into a stable plain-data record and rebuild fresh collaborators from that record."
+anatomy = "Select the persisted facts, assign stable keys and JSON-supported values, convert Python-only collections at the boundary, then construct new domain objects during decoding."
+example = "The lesson maps the player name and health, inventory items, quest discoveries, and path-open value instead of placing a Player object in the record."
+observable = "A test can inspect every stored field and compare the rebuilt player facts without depending on object identity."
+failure = "Serializing a live Player or leaving discoveries as a set mixes Python implementation details with the JSON data contract."
+practice = "s14-l01-e3"
 
-[[lessons.artifactSteps]]           # visible work order; never reveal canonical implementation
-id = "s14-l01-project-step"
-path = "replace-me.txt"
-mode = "author"                    # learner authors this path; hidden referenceSteps replay it
-instruction = "TODO: exact path, behavior, constraints, commands, and diagnostics—no solution."
-checks = ["TODO: specific observable result the learner can run or inspect."]
+[[lessons.concepts]]
+id = "json-object-schema"
+purpose = "Represent the selected persistent facts with named JSON-object fields rather than a live Python object."
+anatomy = "Choose stable string keys, assign only JSON-supported values, and document how each domain attribute becomes one field."
+example = "The disposable beacon dictionary maps a name, number, list, and Boolean into a named record."
+observable = "Indexing the record prints Nell and the two-item token list."
+failure = "Putting a set or a Player instance directly into the record leaves the JSON codec without a supported representation."
+practice = "s14-l01-e2"
 
-[[lessons.readings]]               # optional: 1-2 high-quality official docs
-label = "TODO: official docs"
-url = "https://example.com/TODO"
+[[lessons.concepts]]
+id = "json-supported-values"
+purpose = "Recognize the value kinds JSON can encode and the Python conversions needed at the boundary."
+anatomy = "Use objects, arrays, strings, numbers, Booleans, and null; convert a Python-only collection such as a set before encoding and rebuild it after decoding."
+example = "The beacon record uses a dictionary, list, strings, integer, and True without placing a set in its value tree."
+observable = "The shown values can be inspected as ordinary Python data before any text codec is called."
+failure = "Treating a set as a JSON array silently changes the domain contract unless the decoder intentionally reconstructs the set."
+practice = "s14-l01-w1"
+
+[[lessons.artifactSteps]]
+id = "s14-l01-schema-work-order"
+path = "briar_glen/storage.py"
+mode = "author"
+mechanisms = ["json-object-schema", "json-supported-values", "python-dict-literal", "python-list-literal", "python-set-literal", "collection-copy-method", "python-def-statement", "python-return-statement", "editor-create-file", "editor-edit-file", "editor-save-file"]
+instruction = "Create learner-authored briar_glen/storage.py. From an existing Player, author a pure record-building helper with named fields for name, health, inventory items, discoveries, and path-open state. Convert the collection that JSON cannot represent into a JSON-supported shape, and author a separate decoder that rebuilds fresh Inventory, QuestState, and Player collaborators from a record. Keep paths, file opening, codec calls, and trail startup out of these two conversion helpers. Save and read the file."
+checks = ["The record contains only named JSON-supported values and does not contain a Player, Inventory, QuestState, Path, or set.", "A decoded record builds new collaborators whose inventory, discoveries, health, and path-open state match the represented facts."]
+
+[[lessons.readings]]
+label = "Python json module: supported mappings"
+url = "https://docs.python.org/3/library/json.html"
+
+[[lessons.exercises]]
+id = "s14-l01-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["json-object-schema", "python-dict-literal", "python-list-literal"]
+prompt = "Retype this disposable schema-shaped record exactly."
+code = '''signal = {
+    "label": "north",
+    "marks": [2, 5],
+}'''
 
 [[lessons.exercises]]
 id = "s14-l01-e1"
 type = "mc"
-points = 15
-prompt = "TODO: a multiple-choice question?"
-choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
-answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
-whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
-hint = "TODO: an exercise-specific hint."
-explain = "TODO: shown after solving."
+points = 18
+mechanisms = ["json-supported-values", "python-set-literal"]
+prompt = "Which value needs a deliberate conversion before it can appear in a JSON save record?"
+choices = ["A Boolean such as True", "A set of discovery strings", "A list of inventory strings", "An integer health value"]
+answer = 1
+whyWrong = "JSON directly represents Booleans, arrays, strings, and numbers. A Python set needs an explicit boundary conversion, commonly to a list."
+hint = "Compare each option with JSON’s object, array, string, number, Boolean, and null vocabulary."
+explain = "A set is Python-specific; choose its serialized representation and rebuild the domain collection on decode."
 
 [[lessons.exercises]]
 id = "s14-l01-e2"
-type = "text"
+type = "fill"
 points = 20
-prompt = "TODO: a free-text question."
-answer = "TODO"
-# accept = ["TODO alternate"]      # optional true alternates only
-hint = "TODO: an exercise-specific hint."
+mechanisms = ["json-object-schema", "python-dict-key-access"]
+prompt = "Complete the field lookup that reads the stored health from this disposable record."
+code = 'health = record[____]'
+answer = '"health"'
+hint = "Use the string key that names the numeric player fact, including its quotes."
 
 [[lessons.exercises]]
 id = "s14-l01-e3"
-type = "fill"
-points = 20
-prompt = "TODO: fill the blank."
-code = 'answer = ____'             # the ____ marks where the answer goes
-answer = "TODO"
-hint = "TODO: an exercise-specific hint."
-
-[[lessons.exercises]]
-id = "s14-l01-d1"
-type = "type"                      # typing drill: retype the code; no point decay
-points = 12
-reps = 2
-prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
-code = 'print("TODO")'
+type = "text"
+points = 18
+mechanisms = ["json-object-schema", "json-supported-values"]
+prompt = "Why should storage rebuild a new QuestState from represented discovery data instead of placing the live QuestState object in a record?"
+answer = "JSON stores plain supported data rather than live Python objects, so the decoder must rebuild the domain object from represented facts"
+hint = "Contrast a portable data record with an in-memory object that has behavior and identity."
 
 [[lessons.exercises]]
 id = "s14-l01-w1"
-type = "write"                     # CODE LAB: runs on the real runtime; no point decay
-points = 30
-prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
-# starter = '''
-# TODO: prefilled editor code / the exercise's data
-# '''
-expect = '''
-TODO EXACT OUTPUT'''
-# REQUIRED before shipping: a complete program that passes. Never shown to the
-# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
-# solution = '''
-# TODO
-# '''
-hint = "TODO: an exercise-specific hint."
+type = "write"
+points = 35
+mechanisms = ["json-object-schema", "json-supported-values", "python-dict-literal", "python-list-literal", "python-print-call"]
+prompt = 'Write a disposable program that creates a record for a scout named Ivo with 7 health, a list containing "rope" and "salt", and an active Boolean set to False. Print the name field, then the item list. This is not a Briar Glen artifact.'
+expect = '''Ivo
+['rope', 'salt']'''
+solution = '''record = {
+    "name": "Ivo",
+    "health": 7,
+    "items": ["rope", "salt"],
+    "active": False,
+}
+print(record["name"])
+print(record["items"])'''
+hint = "Build one dictionary with the requested supported values, then use bracket lookup for the two printed fields."

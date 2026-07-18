@@ -1,36 +1,524 @@
-[freestyle]
-title = "THE WORKING: TODO"
-brief = "TODO: the in-world commission.<ul><li>TODO requirement one (state exact output/tokens)</li><li>TODO requirement two</li></ul>"
-requires = ["s16-phase3-placeholder"]           # TODO: exact ids taught by this/earlier lessons
-reward = 150
-xray = "TODO: the grader's private notes — the specific pitfalls it docks and the style it rewards, truthful to the rubric below."
+id = "s16.working"
+title = "Working: Names, Scope, and Remembered Choices"
+summary = "Build and verify command callbacks that remember explicit choices through closures while preserving the established package and storage seams."
+requires = [
+  "namespace-resolution",
+  "closure-capture",
+  "scoped-command-callback",
+  "language-scope-closure-namespace",
+  "language-functions-decomposition",
+  "language-test-verification",
+]
+mechanisms = [
+  "python-legb-resolution",
+  "python-global-statement",
+  "python-nonlocal-statement",
+  "python-closure-capture",
+  "callback-factory",
+  "function-definition",
+  "function-parameters",
+  "function-return",
+  "exception-raise",
+  "exception-try-except",
+  "exception-else",
+  "exception-finally",
+  "test-arrange-act-assert",
+  "test-pytest-raises",
+  "test-subprocess",
+  "test-capture-output",
+  "class-definition",
+  "class-init",
+  "instance-attributes",
+  "instance-method",
+  "instance-identity",
+  "composition-ownership",
+  "composition-delegation",
+  "list-literal",
+  "list-index",
+  "list-append",
+  "list-copy",
+  "list-membership",
+  "list-mutation",
+  "dict-literal",
+  "dict-key-access",
+  "dict-membership",
+  "set-literal",
+  "set-add",
+  "set-membership",
+  "tuple-literal",
+  "tuple-unpack",
+  "if-elif-else",
+  "for-loop",
+  "while-loop",
+  "break-statement",
+  "path-construction",
+  "path-exists",
+  "path-mkdir",
+  "file-open",
+  "file-write",
+  "file-read",
+  "json-dump",
+  "json-load",
+  "context-manager-with",
+  "context-manager-cleanup",
+  "temporary-file-replace",
+]
 
-[[freestyle.referenceSteps]]        # hidden from learners; validator replays a real solution
-id = "s16-freestyle-reference"
-path = "replace-me.txt"
-mode = "rewrite"
-preserves = "all-active"
-instruction = "TODO: exact private reference edit that satisfies this Working."
-content = '''
-TODO: complete reference content
-'''
+[[artifactSteps]]
+id = "s16-working-plan"
+kind = "plan"
+path = "briar_glen/domain.py"
+instruction = "Review the existing command handler and write a learner-owned implementation plan: name the factory input, callback input, enclosing lookup, delegation target, package export update, and three focused tests. Keep the plan outside canonical source and remove it before delivery."
+mechanisms = ["python-legb-resolution", "python-closure-capture", "callback-factory"]
 
-[freestyle.badge]
-id = "badge-s16"
-name = "TODO BADGE"
-desc = "TODO: one sentence."
+[[artifactSteps]]
+id = "s16-working-domain"
+kind = "implementation"
+path = "briar_glen/domain.py"
+instruction = "Learner-author a callback factory that receives a command, returns a callback receiving a Player, and delegates to the existing command handler. The returned callback must read the command from its enclosing scope and must not introduce mutable module-global command state or a duplicate dispatcher."
+mechanisms = ["python-legb-resolution", "python-closure-capture", "callback-factory", "function-definition", "function-parameters", "function-return"]
 
-[[freestyle.rubric]]               # weights MUST sum to exactly 100
-criterion = "Compiles & runs"
-weight = 40
-desc = "TODO: build succeeds; runs without crashing on normal input."
+[[artifactSteps]]
+id = "s16-working-public-boundary"
+kind = "implementation"
+path = "briar_glen/__init__.py"
+instruction = "Learner-author the public import and public-name update for the callback factory. Preserve every prior exported name and keep the guarded main entrypoint unchanged."
+mechanisms = ["callback-factory"]
 
-[[freestyle.rubric]]
-criterion = "Meets the brief"
-weight = 40
-desc = "TODO: every requirement in the checklist is present and correct."
+[[artifactSteps]]
+id = "s16-working-tests"
+kind = "test"
+path = "tests/test_game.py"
+instruction = "Learner-author arrange/act/assert tests that prove command delegation, independent callbacks with different remembered choices, and invalid-command propagation. Keep earlier tests and add only focused scope evidence."
+mechanisms = ["python-closure-capture", "callback-factory", "test-arrange-act-assert", "exception-propagation"]
 
-[[freestyle.rubric]]
-criterion = "Clean style"
-weight = 20
-desc = "TODO: name this language's real naming AND layout conventions (research its style guide)."
+[[artifactSteps]]
+id = "s16-working-verify"
+kind = "verification"
+path = "tests/test_game.py"
+instruction = "Run the established pytest suite in the project environment. If it fails, use the traceback to locate the mistaken namespace or delegation boundary, repair only that evidence, and rerun until green."
+mechanisms = ["test-arrange-act-assert", "test-pytest-raises", "callback-factory"]
+
+[[referenceSteps]]
+id = "s16-rewrite-domain"
+kind = "implementation"
+path = "briar_glen/domain.py"
+instruction = "Replay the complete canonical domain module, preserving all earlier behavior and adding a narrow command callback factory after handle_command."
+content = """
+from pathlib import Path
+
+
+class Inventory:
+    def __init__(self, items):
+        self.items = list(items)
+
+    def add_item(self, item):
+        if item not in self.items:
+            self.items.append(item)
+
+
+class QuestState:
+    def __init__(self):
+        self.discoveries = set()
+        self.path_open = False
+
+    def mark_discovery(self, discovery):
+        self.discoveries.add(discovery)
+
+    def search_briar(self):
+        findings = ["thorns", "old ribbon", "lantern key", "deep mud"]
+        index = 0
+        while index < len(findings):
+            finding = findings[index]
+            index += 1
+            if finding == "old ribbon":
+                continue
+            print(f"Search: {finding}")
+            if finding == "lantern key":
+                self.mark_discovery(finding)
+                return "Lantern key found."
+        return "Nothing useful found."
+
+
+class Player:
+    def __init__(self, name, health, inventory, quest):
+        self.name = name
+        self.health = health
+        self.inventory = inventory
+        self.quest = quest
+
+    def rest(self):
+        self.health += 2
+        return f"Health restored: {self.health}"
+
+    def take_item(self, item):
+        self.inventory.add_item(item)
+        return f"{item.title()} packed."
+
+    def search_briar(self):
+        return self.quest.search_briar()
+
+
+def project_note_path(project_root):
+    return Path(project_root) / "trail-note.txt"
+
+
+def player_data_directory(home_root):
+    return Path(home_root) / ".lanterns-of-briar-glen"
+
+
+def ensure_data_directory(home_root):
+    destination = player_data_directory(home_root)
+    if not destination.exists():
+        destination.mkdir(parents=True)
+    return destination
+
+
+def write_and_read_text(path, text):
+    writer = open(path, "w", encoding="utf-8")
+    try:
+        writer.write(text)
+    finally:
+        writer.close()
+    reader = open(path, "r", encoding="utf-8")
+    try:
+        return reader.read()
+    finally:
+        reader.close()
+
+
+def turn_line(turn_number, command):
+    return f"Turn {turn_number}: {command}"
+
+
+def has_lantern_key(quest):
+    return "lantern key" in quest.discoveries
+
+
+def validate_command(command):
+    allowed_commands = [
+        "look waystone",
+        "take moonleaf",
+        "rest",
+        "search briar",
+        "leave",
+    ]
+    if command not in allowed_commands:
+        raise ValueError(f"Unknown command: {command}")
+    return command
+
+
+def show_opening(player):
+    print(f"Lantern status for {player.name}: {player.health} health, 2 oil, lit=True")
+    print("Normalized command: look waystone")
+    print("Command words: ['look', 'waystone']")
+    print(f"Pack before trail: {player.inventory.items}")
+    print(f"First packed item: {player.inventory.items[0]}")
+    print(f"Player health: {player.health}")
+    print("Known north gate: True")
+    print("Coordinates: (4, 7)")
+
+
+def handle_command(command, player):
+    command = validate_command(command)
+    if command == "look waystone":
+        return "The waystone points north."
+    if command == "take moonleaf":
+        return player.take_item("moonleaf")
+    if command == "rest":
+        return player.rest()
+    if command == "search briar":
+        return player.search_briar()
+    player.quest.path_open = False
+    return "Trail closed."
+
+
+def make_command_callback(command):
+    def command_callback(player):
+        return handle_command(command, player)
+
+    return command_callback
+
+
+def run_turn(turn_number, command, player):
+    print(turn_line(turn_number, command))
+    try:
+        print(handle_command(command, player))
+    except ValueError as error:
+        print(f"Invalid command: {error}")
+    else:
+        player.quest.mark_discovery(command)
+    finally:
+        print(f"Turn cleanup: {command}")
+
+
+def run_trail():
+    inventory = Inventory(["waystone map", "rations"])
+    quest = QuestState()
+    player = Player("Mira", 10, inventory, quest)
+    snapshot = inventory.items.copy()
+    show_opening(player)
+    commands = [
+        "look waystone",
+        "take moonleaf",
+        "rest",
+        "search briar",
+        "sing",
+        "leave",
+    ]
+    completed_turns = []
+    for turn_number in range(1, len(commands) + 1):
+        command = commands[turn_number - 1]
+        run_turn(turn_number, command, player)
+        completed_turns.append(command)
+    print(f"Turns taken: {len(commands)}")
+    print(f"Pack after trail: {inventory.items}")
+    print(f"Snapshot before trail: {snapshot}")
+    print(f"Found lantern key: {has_lantern_key(quest)}")
+    print(f"Path open: {quest.path_open}")
+    print(f"Final health: {player.health}")
+    print(f"Completed turns: {completed_turns}")
+"""
+mechanisms = ["python-legb-resolution", "python-closure-capture", "callback-factory", "function-definition", "function-parameters", "function-return", "exception-raise", "exception-try-except", "exception-else", "exception-finally"]
+
+[[referenceSteps]]
+id = "s16-rewrite-public-boundary"
+kind = "implementation"
+path = "briar_glen/__init__.py"
+instruction = "Replay the complete package public boundary with the callback factory added and every earlier export preserved."
+content = """
+from .domain import (
+    Inventory,
+    Player,
+    QuestState,
+    ensure_data_directory,
+    handle_command,
+    has_lantern_key,
+    make_command_callback,
+    player_data_directory,
+    project_note_path,
+    run_trail,
+    run_turn,
+    turn_line,
+    validate_command,
+    write_and_read_text,
+)
+from .storage import (
+    load_player,
+    player_from_record,
+    player_to_record,
+    save_player,
+)
+
+__all__ = [
+    "Inventory",
+    "Player",
+    "QuestState",
+    "ensure_data_directory",
+    "handle_command",
+    "has_lantern_key",
+    "load_player",
+    "make_command_callback",
+    "player_data_directory",
+    "player_from_record",
+    "player_to_record",
+    "project_note_path",
+    "run_trail",
+    "run_turn",
+    "save_player",
+    "turn_line",
+    "validate_command",
+    "write_and_read_text",
+]
+"""
+mechanisms = ["callback-factory"]
+
+[[referenceSteps]]
+id = "s16-rewrite-game-tests"
+kind = "test"
+path = "tests/test_game.py"
+instruction = "Replay the complete game-test module, preserving earlier tests and adding focused callback-factory evidence."
+content = """
+from pathlib import Path
+
+import pytest
+
+from briar_glen import (
+    Inventory,
+    Player,
+    QuestState,
+    ensure_data_directory,
+    handle_command,
+    make_command_callback,
+    player_data_directory,
+    project_note_path,
+    run_turn,
+    turn_line,
+)
+
+
+def make_player():
+    return Player("Nia", 8, Inventory(["rations"]), QuestState())
+
+
+def test_project_note_path_is_relative_to_the_given_root():
+    assert project_note_path(Path("camp")) == Path("camp") / "trail-note.txt"
+
+
+def test_player_data_directory_uses_the_given_home_root():
+    assert player_data_directory(Path("home")) == Path("home") / ".lanterns-of-briar-glen"
+
+
+def test_ensure_data_directory_creates_the_player_directory(tmp_path):
+    destination = ensure_data_directory(tmp_path)
+    assert destination == tmp_path / ".lanterns-of-briar-glen"
+    assert destination.is_dir()
+
+
+def test_turn_line_uses_the_turn_number_and_command():
+    assert turn_line(3, "rest") == "Turn 3: rest"
+
+
+def test_rest_command_changes_the_given_player():
+    player = make_player()
+    assert handle_command("rest", player) == "Health restored: 10"
+    assert player.health == 10
+
+
+def test_invalid_command_raises_value_error():
+    with pytest.raises(ValueError, match="Unknown command: sing"):
+        handle_command("sing", make_player())
+
+
+def test_run_turn_reports_invalid_commands_and_cleanup(capsys):
+    run_turn(1, "sing", make_player())
+    assert capsys.readouterr().out.splitlines() == [
+        "Turn 1: sing",
+        "Invalid command: Unknown command: sing",
+        "Turn cleanup: sing",
+    ]
+
+
+def test_run_turn_marks_a_successful_command(capsys):
+    player = make_player()
+    run_turn(1, "look waystone", player)
+    assert "look waystone" in player.quest.discoveries
+    assert capsys.readouterr().out.splitlines() == [
+        "Turn 1: look waystone",
+        "The waystone points north.",
+        "Turn cleanup: look waystone",
+    ]
+
+
+def test_player_keeps_its_constructor_attributes():
+    player = make_player()
+    assert player.name == "Nia"
+    assert player.health == 8
+    assert player.inventory.items == ["rations"]
+
+
+def test_player_rest_changes_its_own_health():
+    player = make_player()
+    assert player.rest() == "Health restored: 10"
+    assert player.health == 10
+
+
+def test_two_players_keep_distinct_identity_and_state():
+    first = make_player()
+    second = make_player()
+    first.rest()
+    assert first is not second
+    assert first.health == 10
+    assert second.health == 8
+
+
+def test_inventory_add_item_keeps_items_unique():
+    inventory = Inventory(["rations"])
+    inventory.add_item("rations")
+    inventory.add_item("moonleaf")
+    assert inventory.items == ["rations", "moonleaf"]
+
+
+def test_quest_state_records_a_discovery():
+    quest = QuestState()
+    quest.mark_discovery("lantern key")
+    assert "lantern key" in quest.discoveries
+
+
+def test_player_delegates_search_to_its_quest(capsys):
+    player = make_player()
+    assert player.search_briar() == "Lantern key found."
+    assert "lantern key" in player.quest.discoveries
+    assert capsys.readouterr().out.splitlines() == [
+        "Search: thorns",
+        "Search: lantern key",
+    ]
+
+
+def test_command_callback_delegates_its_remembered_command():
+    player = make_player()
+    rest_callback = make_command_callback("rest")
+    assert rest_callback(player) == "Health restored: 10"
+    assert player.health == 10
+
+
+def test_command_callbacks_keep_their_choices_independent():
+    rest_callback = make_command_callback("rest")
+    take_callback = make_command_callback("take moonleaf")
+    resting_player = make_player()
+    packing_player = make_player()
+    assert rest_callback(resting_player) == "Health restored: 10"
+    assert take_callback(packing_player) == "Moonleaf packed."
+    assert resting_player.inventory.items == ["rations"]
+    assert packing_player.health == 8
+
+
+def test_command_callback_propagates_invalid_command_errors():
+    invalid_callback = make_command_callback("sing")
+    with pytest.raises(ValueError, match="Unknown command: sing"):
+        invalid_callback(make_player())
+"""
+mechanisms = ["python-closure-capture", "callback-factory", "test-arrange-act-assert", "test-pytest-raises"]
+
+[[referenceSteps]]
+id = "s16-preserve-storage"
+kind = "preservation"
+path = "briar_glen/storage.py"
+instruction = "Keep the existing JSON storage, context-managed temporary write, replacement, and load behavior unchanged; this scope milestone does not alter persistence."
+mechanisms = ["context-manager-with", "context-manager-cleanup", "temporary-file-replace", "json-dump", "json-load"]
+
+[[referenceSteps]]
+id = "s16-preserve-storage-tests"
+kind = "preservation"
+path = "tests/test_storage.py"
+instruction = "Keep all established persistence and cleanup tests unchanged while adding only focused scope tests in tests/test_game.py."
+mechanisms = ["test-arrange-act-assert", "context-manager-cleanup", "temporary-file-replace"]
+
+[[referenceSteps]]
+id = "s16-preserve-main"
+kind = "preservation"
+path = "briar_glen/main.py"
+instruction = "Keep the guarded package entrypoint unchanged; callbacks are a domain seam, not a runtime-loop change."
+mechanisms = ["function-definition"]
+
+[[proofs]]
+id = "s16-working-replay"
+mode = "run"
+path = "tests/test_game.py"
+command = "python -m pytest -q"
+expect = "24 passed"
+mechanisms = ["python-legb-resolution", "python-closure-capture", "callback-factory", "test-arrange-act-assert", "test-pytest-raises"]
+
+[[rubrics]]
+criterion = "The delivered package exposes a callback factory that captures command configuration in an enclosing scope and delegates to the existing command handler."
+weight = 2
+mechanisms = ["python-legb-resolution", "python-closure-capture", "callback-factory", "function-definition", "function-parameters", "function-return"]
+
+[[rubrics]]
+criterion = "Focused tests prove delegated behavior, independent closure choices, and invalid-command propagation without changing existing runtime or storage behavior."
+weight = 2
+mechanisms = ["callback-factory", "test-arrange-act-assert", "exception-propagation", "exception-raise"]
+
+[badge]
+label = "Scope Pathfinder"
+description = "You used explicit namespaces and closures to configure behavior without hidden mutable globals."

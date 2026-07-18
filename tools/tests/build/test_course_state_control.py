@@ -140,6 +140,14 @@ with tempfile.TemporaryDirectory() as root:
         failed = course_state.record_section_failure("demo", "s01", "injected gate failure")
         assert failed["sections"][0]["status"] == "blocked"
         assert not os.path.exists(course_state.receipt_path("demo", "s01"))
+        archived = os.listdir(os.path.join(root, "validator-failures", "demo"))
+        assert len(archived) == 1 and archived[0].endswith(".json")
+        with open(os.path.join(root, "validator-failures", "demo", archived[0]),
+                  encoding="utf-8") as handle:
+            failure_record = json.load(handle)
+        assert failure_record["kind"] == "section-gate"
+        assert failure_record["recordedAt"].endswith("Z")
+        assert failure_record["reasons"] == ["injected gate failure"]
         course_state.record_section_verification("demo", "s01", "repaired checks passed")
 
         write(os.path.join(build, "demo.section-progress.json"),

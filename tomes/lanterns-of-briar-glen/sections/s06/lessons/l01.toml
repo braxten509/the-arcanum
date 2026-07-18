@@ -1,84 +1,122 @@
 [[lessons]]
 id = "s06-l01"
 title = "Define a Behavior"
-teaches = ["s06-phase3-placeholder"]            # TODO: stable kebab-case capabilities this lesson teaches
+teaches = ["function-boundaries"]
+introduces = ["python-def-statement", "python-function-call"]
 body = '''
-<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
-<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
-<p>TODO: an optional deeper-cut appendix.</p></div>
+<p>A long script can run correctly and still be difficult to change. A <strong>function</strong> gives one behavior a name and a boundary: the lines under that name run only when the program calls it. This is not a second program or a magic shortcut. It is a way to make one job—such as formatting one turn line—visible in the source.</p>
+<p>Use <code>def</code>, a descriptive behavior name, parentheses, and a colon to define the boundary. The indented block is its body. A call writes the same name with parentheses at the point where that behavior should happen. Read the disposable example from top to bottom: Python records the definition first, then reaches the call, enters the body, prints, and returns to the line below the call.</p>
+<pre><code data-kind="runnable">def ring_marker():
+    print("marker rings")
+
+print("before")
+ring_marker()
+print("after")
+</code></pre>
+<p>The observable result is <code>before</code>, then <code>marker rings</code>, then <code>after</code>. Defining <code>ring_marker</code> alone does not print anything. Forgetting the parentheses at the call site names the function instead of running it; placing the call above the definition asks for a name Python has not reached yet. A missing colon or a body that is not indented produces a syntax or indentation diagnostic at the definition.</p>
+<p>Functions are useful when a behavior has one purpose and a name that says what that purpose is. They are not a reason to hide every single line. In this chapter, use small functions for repeated display, one command decision, and the briar search, while keeping the saved command loop at top level where its finite order remains easy to inspect. The controller still owns six turns; functions only divide its work.</p>
+<p>Keep this disposable bell distinct from the project. Your Working must author its own functions inside <code>game.py</code>; it must not copy this example or create another project file. Save the source, read it in the terminal, and run it with the active environment. When output seems absent, first ask whether the definition was ever called. That question is more useful than adding stray print lines.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // NAME THE JOB</div><p>A good first function name describes an action, not a vague container. <code>show_opening</code> tells a reader what to expect; <code>do_stuff</code> postpones the explanation.</p></div>
 '''
 
-[[lessons.concepts]]                # one complete first-use proof for every `teaches` id
-id = "s06-phase3-placeholder"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
-practice = "s06-l01-e1"
+[[lessons.concepts]]
+id = "function-boundaries"
+purpose = "Give one coherent behavior a readable name and a controlled place to run."
+anatomy = "Define a descriptive name, indent its body, then call that name with parentheses at the intended execution point."
+example = "The disposable ring_marker example defines a display behavior and calls it between two observable lines."
+observable = "The marker line appears only between before and after because the call triggers the defined body."
+failure = "A definition without a call does nothing, while a missing colon or indentation prevents Python from forming the boundary."
+practice = "s06-l01-w1"
 
-[[lessons.artifactSteps]]           # visible work order; never reveal canonical implementation
-id = "s06-l01-project-step"
-path = "replace-me.txt"
-mode = "author"                    # learner authors this path; hidden referenceSteps replay it
-instruction = "TODO: exact path, behavior, constraints, commands, and diagnostics—no solution."
-checks = ["TODO: specific observable result the learner can run or inspect."]
+[[lessons.concepts]]
+id = "python-def-statement"
+purpose = "Declare a named function body for later execution."
+anatomy = "Write def, the function name, parentheses, a colon, then an indented body."
+example = "def ring_marker(): begins the disposable display behavior."
+observable = "Python accepts the definition but waits to run its body until a call occurs."
+failure = "Without the colon or indentation, Python reports the definition as invalid."
+practice = "s06-l01-w1"
 
-[[lessons.readings]]               # optional: 1-2 high-quality official docs
-label = "TODO: official docs"
-url = "https://example.com/TODO"
+[[lessons.concepts]]
+id = "python-function-call"
+purpose = "Execute a previously defined function at a specific point in program flow."
+anatomy = "Write the defined function name followed by opening and closing parentheses."
+example = "ring_marker() executes the indented print after the before line."
+observable = "The marker output appears at the call site rather than at definition time."
+failure = "Writing ring_marker without parentheses refers to the function instead of calling it."
+practice = "s06-l01-w1"
+
+[[lessons.artifactSteps]]
+id = "s06-l01-author-named-behaviors"
+path = "game.py"
+mode = "author"
+mechanisms = ["python-def-statement", "python-function-call", "editor-edit-file", "editor-save-file", "terminal-read-saved-file", "terminal-invoke-saved-file"]
+instruction = "Reopen learner-authored game.py and divide one already-established display or command behavior into a descriptively named function and a visible call. Preserve the six saved commands and deterministic transcript. Save, read, and run the file from the external project root with .venv active. If the named behavior does not appear, check that its call follows its definition. Do not add parameters, return values, input, tests, exceptions, classes, modules, files, dependencies, Pygame, package material, or another project path yet."
+checks = ["The saved run shows the same visible trail behavior at the point where the function is called.", "The definition has a colon and indented body, and every call uses parentheses."]
+
+[[lessons.readings]]
+label = "Python tutorial: defining functions"
+url = "https://docs.python.org/3/tutorial/controlflow.html#defining-functions"
+
+[[lessons.exercises]]
+id = "s06-l01-d1"
+type = "type"
+points = 12
+reps = 2
+mechanisms = ["python-def-statement"]
+prompt = "Retype this complete disposable function definition exactly."
+code = '''def light_beacon():
+    print("beacon lit")'''
 
 [[lessons.exercises]]
 id = "s06-l01-e1"
 type = "mc"
-points = 15
-prompt = "TODO: a multiple-choice question?"
-choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
-answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
-whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
-hint = "TODO: an exercise-specific hint."
-explain = "TODO: shown after solving."
+points = 18
+mechanisms = ["python-def-statement", "python-function-call"]
+prompt = "A file defines announce_gate() with one print inside it, then later contains announce_gate(). When does that inner print run?"
+choices = ["When Python reads def", "When Python reaches announce_gate()", "Only after a return statement", "Every time the file is saved"]
+answer = 1
+whyWrong = "def records a callable body; saving does not execute source, and return is not required for a print. The parentheses at the later call trigger the body."
+hint = "Separate defining a behavior from asking Python to perform it."
+explain = "A definition prepares the named body; a call executes it at its location in program flow."
 
 [[lessons.exercises]]
 id = "s06-l01-e2"
-type = "text"
+type = "fill"
 points = 20
-prompt = "TODO: a free-text question."
-answer = "TODO"
-# accept = ["TODO alternate"]      # optional true alternates only
-hint = "TODO: an exercise-specific hint."
+mechanisms = ["python-function-call"]
+prompt = "Complete the call that runs the already-defined disposable marker behavior."
+code = "____()"
+answer = "show_marker"
+hint = "Use the defined behavior name, then keep the call parentheses."
 
 [[lessons.exercises]]
 id = "s06-l01-e3"
-type = "fill"
-points = 20
-prompt = "TODO: fill the blank."
-code = 'answer = ____'             # the ____ marks where the answer goes
-answer = "TODO"
-hint = "TODO: an exercise-specific hint."
+type = "text"
+points = 18
+mechanisms = ["python-def-statement", "python-function-call"]
+prompt = "The earlier turn work used sample_labels. Why does the function definition in this separate snippet produce no output from its body when no later call appears?"
+code = '''sample_labels = ["look", "leave"]
 
-[[lessons.exercises]]
-id = "s06-l01-d1"
-type = "type"                      # typing drill: retype the code; no point decay
-points = 12
-reps = 2
-prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
-code = 'print("TODO")'
+def show_labels():
+    print(sample_labels)'''
+answer = "A definition records the function for later use; the body runs only when a call reaches it"
+hint = "Describe the difference between creating the boundary and entering it."
 
 [[lessons.exercises]]
 id = "s06-l01-w1"
-type = "write"                     # CODE LAB: runs on the real runtime; no point decay
-points = 30
-prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
-# starter = '''
-# TODO: prefilled editor code / the exercise's data
-# '''
-expect = '''
-TODO EXACT OUTPUT'''
-# REQUIRED before shipping: a complete program that passes. Never shown to the
-# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
-# solution = '''
-# TODO
-# '''
-hint = "TODO: an exercise-specific hint."
+type = "write"
+points = 34
+mechanisms = ["python-def-statement", "python-function-call", "python-print-call", "python-string-literal"]
+prompt = "Write a disposable program that defines signal_post(), whose body prints beacon ready. Then print trail starts, call signal_post(), and print trail continues. Produce exactly the output below."
+expect = '''trail starts
+beacon ready
+trail continues'''
+solution = '''def signal_post():
+    print("beacon ready")
+
+print("trail starts")
+signal_post()
+print("trail continues")
+'''
+hint = "Define the function before the first call, and place the call between the two outer prints."

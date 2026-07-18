@@ -8,6 +8,7 @@ import time
 import tomllib
 
 from .. import REPO, VALIDATOR
+from ..status_log import emit_status_line
 from .inventory import (
     RUNTIME_CONFIG_DIR,
     inventory,
@@ -64,7 +65,7 @@ def _run_harness_command(cmd, tid, announce=True):
     """
     rendered = shlex.join(cmd)
     if announce:
-        print(f"VALIDATOR COMMAND START [{time.time():.3f}] › {rendered}", flush=True)
+        emit_status_line(f"VALIDATOR COMMAND START [{time.time():.3f}] › {rendered}")
     try:
         # The author can introduce or change validationDependencies while writing the
         # Phase-2 manifest.  Provision at the harness boundary, after those declarations
@@ -75,14 +76,14 @@ def _run_harness_command(cmd, tid, announce=True):
             capture_output=True, text=True)
     except Exception as exc:
         if announce:
-            print(f"VALIDATOR COMMAND FAILED [{time.time():.3f}] "
-                  f"(exit unavailable) › {rendered}", flush=True)
+            emit_status_line(f"VALIDATOR COMMAND FAILED [{time.time():.3f}] "
+                             f"(exit unavailable) › {rendered}")
         raise ValidatorInfrastructureError(
             rendered, f"{type(exc).__name__}: {exc}") from exc
     if announce:
         state = "COMPLETE" if process.returncode == 0 else "FAILED"
-        print(f"VALIDATOR COMMAND {state} [{time.time():.3f}] "
-              f"(exit {process.returncode}) › {rendered}", flush=True)
+        emit_status_line(f"VALIDATOR COMMAND {state} [{time.time():.3f}] "
+                         f"(exit {process.returncode}) › {rendered}")
     report = _validator_report(process)
     if process.returncode != 0 and not _has_authored_findings(report):
         detail = f"exit {process.returncode}: {report or '(no output)'}"
