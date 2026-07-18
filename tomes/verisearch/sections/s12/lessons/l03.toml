@@ -1,69 +1,100 @@
+
 [[lessons]]
 id = "s12-l03"
-teaches = ["language-cli-packaging"]
-title = "Publish and Run the Artifact You Will Actually Ship"
+teaches = ["language-methods-scope"]
+title = "Read the Contract, Not the Domain"
 body = '''
-
-<p><code>dotnet publish</code> creates the artifact a user will actually launch. A successful debug run does not prove that output, dependencies, executable permissions, or startup behavior survive delivery.</p>
-<pre><code data-kind="terminal">$ dotnet publish ./src/YourApp/YourApp.csproj     --configuration Release     --runtime linux-x64     --self-contained true     -p:PublishSingleFile=true     --output ./dist</code></pre>
-<p>The command is an example for one runtime identifier. Choose the RID matching the target system and document it. Self-contained means the selected .NET runtime is bundled with the application. It does not bundle a local model service, hosted API, credentials, source pages, or an arbitrary external AI command.</p>
-<p>Run the exact file under <code>dist</code>. Check <code>--help</code>, invalid invocation, the acceptance fixture, and one ordinary configured-provider path where the environment permits. If the program launches another AI CLI, that executable remains an external requirement. If it calls an API, network access and credentials remain external requirements.</p>
-<p>Publish from a clean project state after tests. Inspect output size and filenames, but do not infer success from their presence. A single-file application can still fail at startup because it assumed <code>Assembly.Location</code>, a working directory, or a development-only file. Resolve user-supplied paths explicitly and use <code>Environment.ProcessPath</code> when the running executable path is the fact you need.</p>
-<p>The course's package proof launches the built artifact and repeats positive and negative acceptance controls. Your learner evidence should additionally show that the documented provider setup works on your environment without committing secrets.</p>
-<div class="callout"><p>Delivery proof covers the C# program. External AI requirements must remain explicit rather than silently replaced when absent.</p></div>
-<div class="callout csharp-transfer"><p><strong>C#/.NET transfer:</strong> <code>dotnet build</code> produces development outputs; <code>dotnet publish</code> resolves a deployment graph for a runtime and configuration. A self-contained single-file publish bundles the .NET runtime, but it is still managed .NET deployment—not automatically a native-AOT binary or a universal cross-platform executable.</p></div>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // CLEAN LAUNCH</div><p>Change the working directory before launching the published path. If behavior changes unintentionally, a relative-path assumption is part of the product contract whether you documented it or not.</p></div>
+<p>A transfer problem is deliberately unfamiliar in its nouns. A harbor manifest, clinic queue, sensor ledger, or trail inventory can make a capable programmer feel as if a new subject has erased their C#. It has not. The useful first move is to translate public behavior into a small set of typed facts, transformations, and observations before writing implementation.</p>
+<p>Start with the contract. Underline the input boundary, the outputs a caller can observe, the invalid cases named publicly, and any ordering or preservation promise. Then write a tiny table with four columns: example input, expected output, rule exercised, and one nearby counterexample. This is not architecture. It is a behavioral inventory that prevents domain vocabulary from choosing classes for you.</p>
+<pre><code data-kind="pseudocode">Input boundary  -> parse one record
+Valid rule      -> transform or store it
+Invalid rule    -> reject, preserve, or report
+Observation     -> output, exit code, or produced file</code></pre>
+<p>Only after the inventory should you choose a method boundary. A good first method accepts the smallest typed input needed to exercise one rule and returns a value that a test can inspect. Keep console reading, parsing, transformation, and rendering separable even if the final program remains small. That lets a malformed row fail at the parse boundary without erasing already accepted state.</p>
+<p>Do not search the cumulative Verisearch project for a class to rename. The foreign trial intentionally withholds that analogy. Reuse language capabilities—nullable flow, methods, collections, records, exceptions, and tests—not product names or its pipeline arrangement. If a public example seems to reveal the whole answer, invent a counterexample that differs in one load-bearing fact. If your design cannot predict it, the contract inventory is still incomplete.</p>
+<div class="callout"><p>Cold transfer is not guessing. It is disciplined reduction from foreign nouns to typed behavior and executable observations.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // A FAIR HIDDEN EDGE</div><p>A hidden assessment may vary values and named edge cases, but it cannot demand a private type name or an unannounced file. Build to the public contract; do not attempt to reverse-engineer the assessor.</p></div>
 '''
 
 [[lessons.readings]]
-label = "Microsoft Learn — dotnet publish"
-url = "https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-publish"
+label = "Microsoft Learn — Methods"
+url = "https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/methods"
 essential = false
 
 [[lessons.exercises]]
 id = "s12-l03-e1"
 type = "mc"
 points = 20
-prompt = "What does <code>--self-contained true</code> mean?"
-choices = ["It bundles the selected .NET runtime with the application", "It bundles the configured AI and the model", "It supports every OS in one file", "It removes configuration"]
-answer = 0
-whyWrong = "the configured AI, models, configuration, and other operating systems remain separate concerns. Self-contained refers to the selected .NET runtime."
-explain = "A machine without the SDK can run the RID-specific artifact."
-hint = "Ask which runtime normally executes a .NET assembly."
+required = true
+capabilities = ["language-methods-scope"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "verisearch-s12-methods-scope"
+aidPolicy = "limited"
+prompt = "A foreign brief names unfamiliar equipment. What should you identify before choosing classes?"
+choices = ["A renamed Verisearch pipeline", "Observable inputs, outputs, invalid cases, and preservation rules", "The hidden reference type names", "A framework package"]
+answer = 1
+whyWrong = "Product analogies and hidden architecture are not the contract; behavior is."
+hint = "Start from what a caller can supply and observe."
+explain = "A behavioral inventory separates the unfamiliar domain from the C# capabilities needed to implement it."
 
 [[lessons.exercises]]
 id = "s12-l03-e2"
-type = "fill"
+type = "mc"
 points = 20
-prompt = "Fill the runtime identifier for 64-bit Windows."
-code = '''dotnet publish -c Release -r ____ --self-contained true'''
-answer = "win-x64"
-hint = "Operating system abbreviation, hyphen, architecture."
+required = true
+capabilities = ["language-methods-scope"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "verisearch-s12-methods-scope"
+aidPolicy = "limited"
+prompt = "Why write one nearby counterexample for each public example?"
+choices = ["To guess secret tests", "To reveal which fact is load-bearing in the rule", "To avoid compiling", "To choose a longer class name"]
+answer = 1
+whyWrong = "The counterexample probes the boundary of the stated rule, not private implementation."
+hint = "Change one meaningful fact and predict the result."
+explain = "A close counterexample turns prose into a falsifiable behavioral claim."
 
 [[lessons.exercises]]
 id = "s12-l03-e3"
-type = "mc"
+type = "text"
 points = 20
-prompt = "Why does the beginner release use <code>PublishTrimmed=false</code>?"
-choices = ["Trimming changes the source URL", "Trimming can remove dynamically discovered code and must be validated separately", "Single-file requires false", "Release builds cannot trim"]
-answer = 1
-whyWrong = "Trimming does not alter source URLs, is compatible with some single-file releases, and can run in Release. Its dynamic-code risk is the reason to defer it."
-explain = "A larger known-good artifact is preferable to a smaller subtly broken first release."
-hint = "Static reachability cannot always see reflection."
+required = true
+capabilities = ["language-methods-scope"]
+cognitiveTask = "recall"
+scaffold = "guided"
+contextFamily = "verisearch-s12-methods-scope"
+aidPolicy = "limited"
+prompt = "What two-word phrase names the behavior a caller can see and a test can assert?"
+answer = "observable contract"
+accept = ["observable contract", "public contract"]
+hint = "It is public and testable rather than architectural."
 
 [[lessons.exercises]]
-id = "s12-l03-d1"
-type = "type"
-points = 14
-reps = 2
-prompt = "Retype the Linux release command twice."
-code = '''dotnet publish Verisearch.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o ./release/linux-x64'''
+id = "s12-l03-w1"
+type = "write"
+points = 35
+required = true
+capabilities = ["language-methods-scope"]
+cognitiveTask = "build"
+scaffold = "independent"
+contextFamily = "verisearch-s12-methods-scope"
+aidPolicy = "limited"
+prompt = "Given the integers 4, -1, 7, and -3, write a complete C# program that preserves valid positive values, counts rejected values, and prints exactly <code>accepted=2 rejected=2 total=11</code>. Choose your own method boundary."
+expect = "accepted=2 rejected=2 total=11"
+solution = '''
+int[] input = [4, -1, 7, -3];
+List<int> accepted = input.Where(value => value > 0).ToList();
+int rejected = input.Length - accepted.Count;
+Console.WriteLine($"accepted={accepted.Count} rejected={rejected} total={accepted.Sum()}");
+'''
+hint = "Filter positive values, derive the rejected count, and sum the preserved values."
 
 [[lessons.concepts]]
-id = "language-cli-packaging"
-purpose = "Design a predictable command surface and deliver a runnable artifact from the same source and project metadata."
-anatomy = "Parse arguments without a shell, return stable exit codes, build or publish through dotnet, then launch the produced path with a real command."
-example = "The disposable examples in Publish and Run the Artifact You Will Actually Ship isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Publish and Run the Artifact You Will Actually Ship supplies the disposable observation point."
-observable = "Help, invalid input, ordinary execution, and the published binary each produce their documented outcome. Confirm it while practicing Publish and Run the Artifact You Will Actually Ship."
-failure = "Ambiguous arguments, embedded secrets, or an unlaunched publish directory leave the program unproved."
+id = "language-methods-scope"
+purpose = "Reduce a foreign behavioral contract to named transformations with deliberate inputs, outputs, and variable lifetime."
+anatomy = "Inventory observable rules, choose one narrow typed boundary, and keep parsing, transformation, and rendering separable."
+example = "The positive-value reconciliation exercise uses foreign data without importing the cumulative project's architecture."
+observable = "Each method can be exercised from its inputs and returned observation without hidden global state."
+failure = "Renaming a familiar product class before understanding the contract produces accidental architecture and untestable assumptions."
 practice = "s12-l03-e1"

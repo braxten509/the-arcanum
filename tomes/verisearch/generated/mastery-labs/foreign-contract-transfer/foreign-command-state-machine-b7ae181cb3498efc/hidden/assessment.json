@@ -1,0 +1,138 @@
+{
+  "requirements": [
+    {
+      "capabilityIds": [],
+      "essential": true,
+      "id": "builds",
+      "text": "Build Verisearch.slnx on .NET 10 with nullable analysis and warnings-as-errors enabled."
+    },
+    {
+      "capabilityIds": [
+        "language-types-nullability",
+        "language-methods-scope",
+        "language-classes-records"
+      ],
+      "essential": true,
+      "id": "typed-decomposition",
+      "text": "Create sealed StateCommand and CommandResult records inside the supplied Program.cs. Inside CommandContract, implement `StateCommand? Parse(string line, char separator)` and `CommandResult Apply(string input, char separator, string failureMode, string outputOrder)`. Apply must call Parse for each retained segment and return the keys/total/invalid observation that the top-level program writes; dummy members plus a separate inline implementation do not satisfy this public structure contract."
+    },
+    {
+      "capabilityIds": [
+        "language-control-flow",
+        "language-collections-generics",
+        "language-methods-scope"
+      ],
+      "essential": true,
+      "id": "apply-commands",
+      "text": "The evaluator supplies at most 10,000 LF-delimited segments that are nonempty before CR handling; larger inputs are outside this contract. LF is the only delimiter and a final unterminated segment is processed. Discard only segments whose length is already zero, then remove one trailing CR from each retained segment; therefore a segment containing only CR becomes an empty malformed command and counts toward the bound, while any other CR is data. Each valid command is exactly SET<separator><key><separator><signed-Int32>: SET is uppercase; key is 1-16 ASCII characters beginning with lowercase a-z and followed only by lowercase a-z, digits, or underscore; the number is an optional ASCII + or - followed by one or more ASCII digits, leading zeroes are allowed, surrounding whitespace and non-ASCII digits are rejected, and the value must fit Int32. There is no quoting or escaping. A later SET replaces that key's value; malformed lines never change accepted state. State must support every valid key, not a fixed pair."
+    },
+    {
+      "capabilityIds": [
+        "language-control-flow",
+        "language-collections-generics"
+      ],
+      "essential": true,
+      "id": "emit-snapshot",
+      "text": "The supplied constants are this candidate's fixed compile-time assignment; no alternate order or runtime selector is required. Sort all currently present keys using exactly ordinal descending with StringComparer.Ordinal. Write UTF-8 stdout as exactly six lines: `domain=observatory-instrument`, `mode=1`, `order=ordinal descending`, `keys=` followed by every current key joined by commas without spaces (or exactly `keys=` for empty state), `total=` followed by the checked Int64 sum of current Int32 values, and `invalid=` followed by the malformed-line count for fixed mode 1 or zero for fixed mode 0. Terminate every line, including the sixth, with one LF (U+000A); emit no CR or other text. The 10,000-segment bound makes both the count and Int64 sum non-overflowing."
+    }
+  ],
+  "rubric": [
+    {
+      "assessmentIds": [
+        "builds",
+        "typed-source",
+        "replace-and-isolate",
+        "replace-existing-key"
+      ],
+      "criterion": "The assigned behavioral contract is satisfied by a clean build and varied runs.",
+      "id": "executable-contract",
+      "kind": "deterministic",
+      "weight": 100
+    }
+  ],
+  "scenarios": [
+    {
+      "args": [],
+      "capabilityIds": [],
+      "commandRef": "build",
+      "expect": {
+        "exitCode": 0
+      },
+      "id": "builds",
+      "kind": "build",
+      "public": true,
+      "requirementIds": [
+        "builds"
+      ],
+      "stdin": "",
+      "timeout": 180
+    },
+    {
+      "args": [],
+      "capabilityIds": [
+        "language-types-nullability",
+        "language-methods-scope",
+        "language-classes-records"
+      ],
+      "commandRef": "run",
+      "expect": {
+        "exitCode": 0,
+        "fileRegex": "(?s)sealed\\s+record\\s+StateCommand.*StateCommand\\?\\s+Parse\\s*\\(\\s*string\\s+line\\s*,\\s*char\\s+separator\\s*\\).*CommandResult\\s+Apply\\s*\\(\\s*string\\s+input\\s*,\\s*char\\s+separator\\s*,\\s*string\\s+failureMode\\s*,\\s*string\\s+outputOrder\\s*\\).*Dictionary<string,\\s*int>",
+        "path": "src/Verisearch/Program.cs"
+      },
+      "id": "typed-source",
+      "kind": "produced-file",
+      "public": false,
+      "requirementIds": [
+        "typed-decomposition"
+      ],
+      "stdin": "",
+      "timeout": 180
+    },
+    {
+      "args": [],
+      "capabilityIds": [
+        "language-control-flow",
+        "language-collections-generics",
+        "language-methods-scope"
+      ],
+      "commandRef": "run",
+      "expect": {
+        "exitCode": 0,
+        "regex": "\\Adomain=observatory-instrument\\nmode=1\\n(?=order=ordinal descending\\n)(?:order=ordinal ascending\\nkeys=alpha,beta|order=ordinal descending\\nkeys=beta,alpha)\\ntotal=7\\ninvalid=1\\Z"
+      },
+      "id": "replace-and-isolate",
+      "kind": "run",
+      "public": false,
+      "requirementIds": [
+        "apply-commands",
+        "emit-snapshot"
+      ],
+      "stdin": "SET:beta:4\nNOPE:ghost:9\nSET:alpha:3\n",
+      "timeout": 180
+    },
+    {
+      "args": [],
+      "capabilityIds": [
+        "language-control-flow",
+        "language-collections-generics",
+        "language-methods-scope"
+      ],
+      "commandRef": "run",
+      "expect": {
+        "exitCode": 0,
+        "regex": "\\Adomain=observatory-instrument\\nmode=1\\n(?=order=ordinal descending\\n)(?:order=ordinal ascending\\nkeys=alpha,beta|order=ordinal descending\\nkeys=beta,alpha)\\ntotal=7\\ninvalid=1\\Z"
+      },
+      "id": "replace-existing-key",
+      "kind": "run",
+      "public": false,
+      "requirementIds": [
+        "apply-commands",
+        "emit-snapshot"
+      ],
+      "stdin": "SET:beta:2\nSET:alpha:3\nSET:beta:4\nBROKEN\n",
+      "timeout": 180
+    }
+  ],
+  "version": 1
+}

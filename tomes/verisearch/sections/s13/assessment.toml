@@ -1,0 +1,52 @@
+version = 1
+
+[[scenarios]]
+id = "clean-build"
+kind = "build"
+requirementIds = ["s13-truth-boundary-verification"]
+capabilityIds = ["language-project-toolchain", "language-types-nullability", "language-control-flow", "language-collections-generics", "language-methods-scope", "language-classes-records", "language-interfaces-polymorphism", "language-namespaces-modularity", "language-exceptions-resources", "language-linq-lambdas", "language-async-cancellation", "language-serialization-io", "language-testing-debugging", "language-cli-packaging"]
+commandRef = "build"
+args = []
+stdin = ""
+exitCode = 0
+timeout = 180
+public = true
+
+[[scenarios]]
+id = "acceptance"
+kind = "structured-output"
+requirementIds = ["s13-truth-boundary-verification"]
+capabilityIds = ["language-project-toolchain", "language-types-nullability", "language-control-flow", "language-collections-generics", "language-methods-scope", "language-classes-records", "language-interfaces-polymorphism", "language-namespaces-modularity", "language-exceptions-resources", "language-linq-lambdas", "language-async-cancellation", "language-serialization-io", "language-testing-debugging", "language-cli-packaging"]
+commandRef = "run"
+args = ["--arcanum-acceptance"]
+stdin = ""
+expectJson = { version = 1, status = "PASS" }
+exitCode = 0
+timeout = 180
+public = false
+
+[[scenarios]]
+id = "publish"
+kind = "package"
+requirementIds = ["s13-documentation-and-clean-launch"]
+capabilityIds = ["language-project-toolchain", "language-types-nullability", "language-control-flow", "language-collections-generics", "language-methods-scope", "language-classes-records", "language-interfaces-polymorphism", "language-namespaces-modularity", "language-exceptions-resources", "language-linq-lambdas", "language-async-cancellation", "language-serialization-io", "language-testing-debugging", "language-cli-packaging"]
+commandRef = "publish"
+args = []
+stdin = ""
+expectFile = "dist/Verisearch"
+exitCode = 0
+timeout = 300
+public = false
+
+[[scenarios]]
+id = "cold-launch"
+kind = "cold-launch"
+requirementIds = ["s13-documentation-and-clean-launch"]
+capabilityIds = ["language-project-toolchain", "language-types-nullability", "language-control-flow", "language-collections-generics", "language-methods-scope", "language-classes-records", "language-interfaces-polymorphism", "language-namespaces-modularity", "language-exceptions-resources", "language-linq-lambdas", "language-async-cancellation", "language-serialization-io", "language-testing-debugging", "language-cli-packaging"]
+commandRef = "published-acceptance"
+args = []
+stdin = ""
+expectJson = { version = 1, status = "PASS" }
+exitCode = 0
+timeout = 180
+public = false

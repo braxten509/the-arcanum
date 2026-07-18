@@ -21,6 +21,13 @@ def diversity_problems(variants: list[dict], axes: list[str], threshold: float =
             problems.append(f"variation axis {axis!r} does not materially change across variants")
     for index, left in enumerate(variants):
         for right in variants[index + 1:]:
+            # Repeated axis assignments intentionally reuse one executable blueprint.
+            # Axis-value checks above own diversity within that blueprint; textual
+            # near-duplication is a problem only when supposedly distinct blueprints
+            # collapse onto the same challenge.
+            if (left.get("blueprintId") and
+                    left.get("blueprintId") == right.get("blueprintId")):
+                continue
             if similarity(left.get("brief", ""), right.get("brief", "")) >= threshold:
                 problems.append(
                     f"variants {left.get('variantId')!r} and {right.get('variantId')!r} are near-duplicates")

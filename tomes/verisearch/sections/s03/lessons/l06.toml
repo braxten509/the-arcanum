@@ -25,17 +25,33 @@ essential = false
 id = "s03-l06-e1"
 type = "mc"
 points = 20
+required = true
+capabilities = ["language-namespaces-modularity"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "verisearch-s03-namespaces-modularity"
+aidPolicy = "learning"
 prompt = "Why is the source URL deliberately absent from <code>QuoteProposal</code>?"
 choices = ["C# records cannot hold URLs", "The model must not own attribution; C# attaches it from the matched Passage", "URLs are added by Spectre.Console", "the configured AI adds URLs automatically"]
 answer = 1
 whyWrong = "Records can hold strings and neither Spectre nor the configured AI supplies trustworthy attribution. The program attaches source identity from its own passage data after verification."
 explain = "Separating model proposals from C#-owned source metadata prevents invented citations from entering the report."
 hint = "Which component has trustworthy source identity?"
+reviewVariants = [
+  { prompt = "Where should concrete object wiring live in a small CLI?", choices = ["One composition root", "Every domain record", "The renderer", "A duplicated namespace"], answer = 0 },
+  { prompt = "A type is declared twice after a replacement. What is the scoped repair?", choices = ["Find and remove the obsolete owner", "Rename both copies", "Disable compilation", "Add a third copy"], answer = 0 }
+]
 
 [[lessons.exercises]]
 id = "s03-l06-e2"
 type = "fill"
 points = 20
+required = true
+capabilities = ["language-namespaces-modularity"]
+cognitiveTask = "complete"
+scaffold = "guided"
+contextFamily = "verisearch-s03-namespaces-modularity"
+aidPolicy = "learning"
 prompt = "Complete the type that represents untrusted model output before exact matching."
 code = '''public record ____(int PassageId, string Quote);'''
 answer = "QuoteProposal"
@@ -45,6 +61,12 @@ hint = "It is a proposal, not yet a verified quote."
 id = "s03-l06-d1"
 type = "type"
 points = 14
+required = false
+capabilities = ["language-namespaces-modularity"]
+cognitiveTask = "complete"
+scaffold = "worked"
+contextFamily = "verisearch-s03-namespaces-modularity"
+aidPolicy = "learning"
 reps = 2
 prompt = "Retype the source-owned passage record twice."
 code = '''public record Passage(int Id, string Text, SourceSpec Source);'''
@@ -53,6 +75,12 @@ code = '''public record Passage(int Id, string Text, SourceSpec Source);'''
 id = "s03-l06-w1"
 type = "write"
 points = 38
+required = true
+capabilities = ["language-namespaces-modularity"]
+cognitiveTask = "test-design"
+scaffold = "guided"
+contextFamily = "verisearch-s03-namespaces-modularity"
+aidPolicy = "learning"
 prompt = "Define <code>SourceSpec</code> and <code>Passage</code> records with the workshop's fields. Create source label <code>RFC</code>, URL <code>https://example.test/rfc</code>, trust 10, then passage id 4 and print exactly <code>4 RFC 10</code>."
 starter = '''// Define the two records below the top-level statements.
 Console.WriteLine("NOT BUILT");

@@ -82,15 +82,18 @@ around whichever course is open.
 
 ## Mastery evidence verification
 
-The deterministic learner journey has a disposable real-Chromium integration test:
+The deterministic learner journey has a disposable real-browser integration test.
+Chromium remains the default, and the same journey can run in Firefox:
 
 ```sh
 python3 tools/tests/browser/test_mastery_journey.py
+python3 tools/tests/browser/test_mastery_journey.py --browser firefox
 ```
 
 It installs marked temporary evidence and legacy tomes, starts an isolated server,
 captures screenshots under `.cache/mastery-browser-journey/`, and removes both fixtures.
-The browser test requires the Python `playwright` package and Chromium; neither is needed
-to run Arcanum itself. Repository validation can prove the contract and runtime, but not
-better learning outcomes. Use [MASTERY-EVIDENCE-PILOT.md](MASTERY-EVIDENCE-PILOT.md) before
-making an efficacy, transfer, or retention claim.
+The browser test requires the Python `playwright` package plus the selected Playwright
+browser; neither is needed to run Arcanum itself. Repository validation can prove the
+contract and runtime, but not better learning outcomes. Use
+[MASTERY-EVIDENCE-PILOT.md](MASTERY-EVIDENCE-PILOT.md) before making an efficacy,
+transfer, or retention claim.

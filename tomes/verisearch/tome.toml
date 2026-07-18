@@ -3,7 +3,7 @@ id = "verisearch"
 name = "The Liber Veritatis"
 description = "Reach intermediate C# by building and publishing a flexible AI-assisted evidence CLI: the user chooses sources, a real configurable AI selects quotations semantically, and C# verifies exact text and owns every citation."
 author = "THE ARCANUM"
-version = "4.0.0"
+version = "5.0.0"
 favicon = "✦"
 
 [runtime]
@@ -17,17 +17,27 @@ projectFile = "Verisearch.slnx"
 newFileExt = ".cs"
 starterCode = ""
 scaffoldCommand = []
-buildCommand = ["dotnet", "build", "Verisearch.slnx", "--nologo", "-v", "q"]
+buildCommand = ["dotnet", "build", "Verisearch.slnx", "--nologo", "-v", "q", "--ignore-failed-sources", "-p:NuGetAudit=false"]
 runCommand = ["dotnet", "run", "--no-build", "--project", "{dir}/src/Verisearch/Verisearch.csproj", "--"]
 validationDependencies = []
 deliveryCreateCommand = ["dotnet", "new", "console", "--output", "{env}", "--force", "--no-restore"]
 deliveryInstallCommand = ["dotnet", "restore", "{requirements}", "--force-evaluate", "--nologo"]
 deliveryBuildCommand = ["dotnet", "publish", "{requirements}", "--configuration", "Release", "--output", "{dir}/dist", "--nologo"]
 
+
+[runtime.assessmentCommands]
+test = ["dotnet", "test", "{dir}/Verisearch.slnx", "--no-restore", "--nologo", "-v", "q", "-p:NuGetAudit=false"]
+publish = ["dotnet", "publish", "{dir}/src/Verisearch/Verisearch.csproj", "--configuration", "Release", "--output", "{dir}/dist", "--no-restore", "--nologo", "-p:NuGetAudit=false"]
+published-acceptance = ["{dir}/dist/Verisearch", "--arcanum-acceptance"]
+
 [content]
-sections = ["s01", "s02", "s03", "s04", "s05", "s06", "s07", "s08", "s09", "s10", "s11", "s12"]
+sections = ["s01", "s02", "s03", "s04", "s05", "s06", "s07", "s08", "s09", "s10", "s11", "s12", "s13"]
 capabilityLedger = true
 proofVersion = 1
+
+[mastery]
+evidenceVersion = 1
+level = 3
 
 [acceptance]
 version = 1
@@ -69,7 +79,7 @@ gradeScale = "S|A|B|C|D|F"
 currency = "gold"
 currencyShort = "gp"
 completeText = "THE TOME WORKS. THE EVIDENCE SURVIVES. THE APPRENTICE CHOSE THE DESIGN."
-bootLines = ["The match flares. The candle takes the flame.", "The Liber Veritatis begins as an empty C# project, not a copied answer.", "Fourteen language capabilities form the spine from data and control to tests and delivery.", "The seeker chooses the sources. The whole question crosses one semantic AI boundary.", "No keyword table decides which lookup ritual to perform.", "AI may propose. It may not certify itself.", "C# compares exact text and restores source-owned attribution.", "Local model, API wrapper, or CLI adapter: the provider is a replaceable edge.", "A deterministic mock exists only for tests and identifies itself plainly.", "Two late Workings remove the rails: integrate, extend, diagnose, and justify.", "A clean package must repeat the same acceptance journey.", "Take up your quill. The first build is yours."]
+bootLines = ["The match flares. The candle takes the flame.", "The Liber Veritatis begins as an empty C# project, not a copied answer.", "Fourteen language capabilities form the spine from data and control to tests and delivery.", "The seeker chooses the sources. The whole question crosses one semantic AI boundary.", "No keyword table decides which lookup ritual to perform.", "AI may propose. It may not certify itself.", "C# compares exact text and restores source-owned attribution.", "Local model, API wrapper, or CLI adapter: the provider is a replaceable edge.", "A deterministic mock exists only for tests and identifies itself plainly.", "Three late proofs remove the rails: integrate the project, transfer C# to an unrelated contract, then diagnose, justify, and publish.", "A clean package must repeat the same acceptance journey.", "Take up your quill. The first build is yours."]
 gradingLines = ["the project is compiled before the prose is believed...", "the whole question is traced across the selected-source boundary...", "the AI proposal is compared with the exact stored passage...", "citation ownership is followed back to C# data...", "a deliberate source failure tests the degradation path...", "the rationale is weighed against the implemented C# choice...", "the published executable repeats the negative controls..."]
 
 [progression]

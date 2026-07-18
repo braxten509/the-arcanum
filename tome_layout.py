@@ -16,6 +16,8 @@ folder (the split layout). Both load to the identical result:
     sections/<sid>/    section.toml + freestyle.toml + lessons/*.toml; evidence-version
                        tomes also carry hidden assessment.toml and mastery-labs/ packages
                        (else flat sections/<sid>.toml)
+    generated/mastery-evidence.json and generated/mastery-labs/...
+                       sealed learner descriptors and offline verified variant packages
 """
 import os
 import glob

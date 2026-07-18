@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Real Chromium journey through learning, Workings, mastery labs, and the ledger."""
+"""Real-browser journey through learning, Workings, mastery labs, and the ledger."""
 from __future__ import annotations
 
 import argparse
@@ -65,17 +65,16 @@ def _shot(page: Page, artifacts: Path, name: str) -> None:
 
 
 def _set_monaco(page: Page, host: str, source: str) -> None:
-    input_area = page.locator(f"{host} textarea.inputarea")
-    expect(input_area).to_be_visible(timeout=20_000)
-    page.locator(f"{host} .monaco-editor").click(position={"x": 120, "y": 28})
-    page.keyboard.press("Control+A")
-    page.keyboard.insert_text(source)
-    actual = page.evaluate("""host => {
+    editor_surface = page.locator(f"{host} .monaco-editor")
+    expect(editor_surface).to_be_visible(timeout=20_000)
+    actual = page.evaluate("""({host, source}) => {
       const root = document.querySelector(host);
       const editor = monaco.editor.getEditors().find(
         candidate => root.contains(candidate.getDomNode()));
-      return editor && editor.getValue();
-    }""", host)
+      if (!editor) return null;
+      editor.setValue(source);
+      return editor.getValue();
+    }""", {"host": host, "source": source})
     assert actual == source, (host, actual)
 
 
@@ -102,12 +101,15 @@ def _working_result(page: Page, passed: bool):
     return result
 
 
-def _run_journey(base_url: str, artifacts: Path) -> None:
+def _run_journey(base_url: str, artifacts: Path, browser_name: str) -> None:
     errors: list[str] = []
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(
-            executable_path="/usr/bin/chromium", headless=True,
-            args=["--no-sandbox", "--disable-dev-shm-usage"])
+        if browser_name == "chromium":
+            browser = playwright.chromium.launch(
+                executable_path="/usr/bin/chromium", headless=True,
+                args=["--no-sandbox", "--disable-dev-shm-usage"])
+        else:
+            browser = playwright.firefox.launch(headless=True)
         context = browser.new_context(viewport={"width": 1440, "height": 1000})
         page = context.new_page()
         page.emulate_media(reduced_motion="reduce")
@@ -277,15 +279,19 @@ def main() -> None:
     parser.add_argument(
         "--artifacts", type=Path,
         default=ROOT / ".cache" / "mastery-browser-journey")
+    parser.add_argument(
+        "--browser", choices=("chromium", "firefox"),
+        default=os.environ.get("ARCANUM_BROWSER", "chromium"),
+        help="browser engine used for the real integration journey")
     args = parser.parse_args()
     args.artifacts.mkdir(parents=True, exist_ok=True)
     _install()
     try:
         with _server() as base_url:
-            _run_journey(base_url, args.artifacts)
+            _run_journey(base_url, args.artifacts, args.browser)
     finally:
         _remove()
-    print(f"mastery browser journey: OK ({args.artifacts})")
+    print(f"mastery browser journey ({args.browser}): OK ({args.artifacts})")
 
 
 if __name__ == "__main__":

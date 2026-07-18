@@ -1,0 +1,187 @@
+{
+  "assessment": {
+    "requirements": [
+      {
+        "capabilityIds": [],
+        "essential": true,
+        "id": "builds",
+        "text": "Build Verisearch.slnx on .NET 10 with nullable analysis and warnings-as-errors enabled."
+      },
+      {
+        "capabilityIds": [
+          "language-types-nullability",
+          "language-methods-scope",
+          "language-classes-records"
+        ],
+        "essential": true,
+        "id": "typed-decomposition",
+        "text": "Create sealed StateCommand and CommandResult records inside the supplied Program.cs. Inside CommandContract, implement `StateCommand? Parse(string line, char separator)` and `CommandResult Apply(string input, char separator, string failureMode, string outputOrder)`. Apply must call Parse for each retained segment and return the keys/total/invalid observation that the top-level program writes; dummy members plus a separate inline implementation do not satisfy this public structure contract."
+      },
+      {
+        "capabilityIds": [
+          "language-control-flow",
+          "language-collections-generics",
+          "language-methods-scope"
+        ],
+        "essential": true,
+        "id": "apply-commands",
+        "text": "The evaluator supplies at most 10,000 LF-delimited segments that are nonempty before CR handling; larger inputs are outside this contract. LF is the only delimiter and a final unterminated segment is processed. Discard only segments whose length is already zero, then remove one trailing CR from each retained segment; therefore a segment containing only CR becomes an empty malformed command and counts toward the bound, while any other CR is data. Each valid command is exactly SET<separator><key><separator><signed-Int32>: SET is uppercase; key is 1-16 ASCII characters beginning with lowercase a-z and followed only by lowercase a-z, digits, or underscore; the number is an optional ASCII + or - followed by one or more ASCII digits, leading zeroes are allowed, surrounding whitespace and non-ASCII digits are rejected, and the value must fit Int32. There is no quoting or escaping. A later SET replaces that key's value; malformed lines never change accepted state. State must support every valid key, not a fixed pair."
+      },
+      {
+        "capabilityIds": [
+          "language-control-flow",
+          "language-collections-generics"
+        ],
+        "essential": true,
+        "id": "emit-snapshot",
+        "text": "The supplied constants are this candidate's fixed compile-time assignment; no alternate order or runtime selector is required. Sort all currently present keys using exactly {{output-order}} with StringComparer.Ordinal. Write UTF-8 stdout as exactly six lines: `domain={{domain}}`, `mode={{failure-mode}}`, `order={{output-order}}`, `keys=` followed by every current key joined by commas without spaces (or exactly `keys=` for empty state), `total=` followed by the checked Int64 sum of current Int32 values, and `invalid=` followed by the malformed-line count for fixed mode 1 or zero for fixed mode 0. Terminate every line, including the sixth, with one LF (U+000A); emit no CR or other text. The 10,000-segment bound makes both the count and Int64 sum non-overflowing."
+      }
+    ],
+    "rubric": [
+      {
+        "assessmentIds": [
+          "builds",
+          "typed-source",
+          "replace-and-isolate",
+          "replace-existing-key"
+        ],
+        "criterion": "The assigned behavioral contract is satisfied by a clean build and varied runs.",
+        "id": "executable-contract",
+        "kind": "deterministic",
+        "weight": 100
+      }
+    ],
+    "scenarios": [
+      {
+        "args": [],
+        "capabilityIds": [],
+        "commandRef": "build",
+        "expect": {
+          "exitCode": 0
+        },
+        "id": "builds",
+        "kind": "build",
+        "public": true,
+        "requirementIds": [
+          "builds"
+        ],
+        "stdin": "",
+        "timeout": 180
+      },
+      {
+        "args": [],
+        "capabilityIds": [
+          "language-types-nullability",
+          "language-methods-scope",
+          "language-classes-records"
+        ],
+        "commandRef": "run",
+        "expect": {
+          "exitCode": 0,
+          "fileRegex": "(?s)sealed\\s+record\\s+StateCommand.*StateCommand\\?\\s+Parse\\s*\\(\\s*string\\s+line\\s*,\\s*char\\s+separator\\s*\\).*CommandResult\\s+Apply\\s*\\(\\s*string\\s+input\\s*,\\s*char\\s+separator\\s*,\\s*string\\s+failureMode\\s*,\\s*string\\s+outputOrder\\s*\\).*Dictionary<string,\\s*int>",
+          "path": "src/Verisearch/Program.cs"
+        },
+        "id": "typed-source",
+        "kind": "produced-file",
+        "public": false,
+        "requirementIds": [
+          "typed-decomposition"
+        ],
+        "stdin": "",
+        "timeout": 180
+      },
+      {
+        "args": [],
+        "capabilityIds": [
+          "language-control-flow",
+          "language-collections-generics",
+          "language-methods-scope"
+        ],
+        "commandRef": "run",
+        "expect": {
+          "exitCode": 0,
+          "regex": "\\Adomain={{domain}}\\nmode={{failure-mode}}\\n(?=order={{output-order}}\\n)(?:order=ordinal ascending\\nkeys=alpha,beta|order=ordinal descending\\nkeys=beta,alpha)\\ntotal=7\\ninvalid={{failure-mode}}\\Z"
+        },
+        "id": "replace-and-isolate",
+        "kind": "run",
+        "public": false,
+        "requirementIds": [
+          "apply-commands",
+          "emit-snapshot"
+        ],
+        "stdin": "SET{{input-shape}}beta{{input-shape}}4\nNOPE{{input-shape}}ghost{{input-shape}}9\nSET{{input-shape}}alpha{{input-shape}}3\n",
+        "timeout": 180
+      },
+      {
+        "args": [],
+        "capabilityIds": [
+          "language-control-flow",
+          "language-collections-generics",
+          "language-methods-scope"
+        ],
+        "commandRef": "run",
+        "expect": {
+          "exitCode": 0,
+          "regex": "\\Adomain={{domain}}\\nmode={{failure-mode}}\\n(?=order={{output-order}}\\n)(?:order=ordinal ascending\\nkeys=alpha,beta|order=ordinal descending\\nkeys=beta,alpha)\\ntotal=7\\ninvalid={{failure-mode}}\\Z"
+        },
+        "id": "replace-existing-key",
+        "kind": "run",
+        "public": false,
+        "requirementIds": [
+          "apply-commands",
+          "emit-snapshot"
+        ],
+        "stdin": "SET{{input-shape}}beta{{input-shape}}2\nSET{{input-shape}}alpha{{input-shape}}3\nSET{{input-shape}}beta{{input-shape}}4\nBROKEN\n",
+        "timeout": 180
+      }
+    ],
+    "version": 1
+  },
+  "axes": {
+    "domain": [
+      "observatory-instrument",
+      "greenhouse-zone"
+    ],
+    "failure-mode": [
+      "1",
+      "0"
+    ],
+    "input-shape": [
+      ":",
+      "="
+    ],
+    "output-order": [
+      "ordinal ascending",
+      "ordinal descending"
+    ]
+  },
+  "brief": "Build an unrelated {{domain}} state register, not a search or citation feature. The executable reads commands only from standard input. The literal separator is '{{input-shape}}', failure observation mode is {{failure-mode}} (1 means count malformed lines; 0 means report zero), and the required key ordering is {{output-order}}. These are fixed candidate constants rather than runtime choices. The public requirements define the complete grammar, transition, bounds, newline rules, and six-line output contract; no command-line arguments or external files are used.",
+  "dependencies": [],
+  "difficulty": "novel C# transfer",
+  "hiddenFiles": {},
+  "id": "foreign-command-state-machine",
+  "mutations": {
+    "drops-assigned-values": {
+      "src/Verisearch/Program.cs": "using System.Globalization;\n\nconst string Domain = \"{{domain}}\";\nconst char Separator = '{{input-shape}}';\nconst string FailureMode = \"{{failure-mode}}\";\nconst string OutputOrder = \"{{output-order}}\";\n\nstring input = await Console.In.ReadToEndAsync();\nCommandResult result = CommandContract.Apply(input, Separator, FailureMode, OutputOrder);\nConsole.WriteLine($\"domain={Domain}\");\nConsole.WriteLine($\"mode={FailureMode}\");\nConsole.WriteLine($\"order={OutputOrder}\");\nConsole.WriteLine($\"keys={string.Join(',', result.Keys)}\");\nConsole.WriteLine($\"total={result.Total}\");\nConsole.WriteLine($\"invalid={result.InvalidObservation}\");\n\ninternal sealed record StateCommand(string Key, int Value);\ninternal sealed record CommandResult(IReadOnlyList<string> Keys, long Total, int InvalidObservation);\n\ninternal static class CommandContract\n{\n    internal static StateCommand? Parse(string line, char separator)\n    {\n        string[] fields = line.TrimEnd('\\r').Split(separator);\n        return fields.Length == 3\n            && fields[0] == \"SET\"\n            && IsIdentifier(fields[1])\n            && IsSignedAsciiInt32(fields[2], out int value)\n            ? new StateCommand(fields[1], value)\n            : null;\n    }\n\n    private static bool IsIdentifier(string text) =>\n        text.Length is >= 1 and <= 16\n        && text[0] is >= 'a' and <= 'z'\n        && text[1..].All(character => character is >= 'a' and <= 'z'\n                                            or >= '0' and <= '9' or '_');\n\n    private static bool IsSignedAsciiInt32(string text, out int value)\n    {\n        value = 0;\n        int firstDigit = text.StartsWith('+') || text.StartsWith('-') ? 1 : 0;\n        bool lexicalMatch = firstDigit < text.Length\n            && text[firstDigit..].All(character => character is >= '0' and <= '9');\n        return lexicalMatch\n            && int.TryParse(text, NumberStyles.AllowLeadingSign,\n                            CultureInfo.InvariantCulture, out value);\n    }\n\n    internal static CommandResult Apply(\n        string input, char separator, string failureMode, string outputOrder)\n    {\n        var state = new Dictionary<string, int>(StringComparer.Ordinal);\n        int malformed = 0;\n        foreach (string line in input.Split('\\n', StringSplitOptions.RemoveEmptyEntries))\n        {\n            StateCommand? command = Parse(line, separator);\n            if (command is null)\n            {\n                malformed++;\n                continue;\n            }\n            state[command.Key] = 0;\n        }\n        IEnumerable<string> ordered = outputOrder == \"ordinal ascending\"\n            ? state.Keys.Order(StringComparer.Ordinal)\n            : state.Keys.OrderDescending(StringComparer.Ordinal);\n        int observation = failureMode == \"1\" ? malformed : 0;\n        long total = state.Values.Aggregate(0L, (sum, value) => checked(sum + value));\n        return new CommandResult(ordered.ToArray(), total, observation);\n    }\n}\n"
+    },
+    "invents-invalid-observation": {
+      "src/Verisearch/Program.cs": "using System.Globalization;\n\nconst string Domain = \"{{domain}}\";\nconst char Separator = '{{input-shape}}';\nconst string FailureMode = \"{{failure-mode}}\";\nconst string OutputOrder = \"{{output-order}}\";\n\nstring input = await Console.In.ReadToEndAsync();\nCommandResult result = CommandContract.Apply(input, Separator, FailureMode, OutputOrder);\nConsole.WriteLine($\"domain={Domain}\");\nConsole.WriteLine($\"mode={FailureMode}\");\nConsole.WriteLine($\"order={OutputOrder}\");\nConsole.WriteLine($\"keys={string.Join(',', result.Keys)}\");\nConsole.WriteLine($\"total={result.Total}\");\nConsole.WriteLine($\"invalid={result.InvalidObservation}\");\n\ninternal sealed record StateCommand(string Key, int Value);\ninternal sealed record CommandResult(IReadOnlyList<string> Keys, long Total, int InvalidObservation);\n\ninternal static class CommandContract\n{\n    internal static StateCommand? Parse(string line, char separator)\n    {\n        string[] fields = line.TrimEnd('\\r').Split(separator);\n        return fields.Length == 3\n            && fields[0] == \"SET\"\n            && IsIdentifier(fields[1])\n            && IsSignedAsciiInt32(fields[2], out int value)\n            ? new StateCommand(fields[1], value)\n            : null;\n    }\n\n    private static bool IsIdentifier(string text) =>\n        text.Length is >= 1 and <= 16\n        && text[0] is >= 'a' and <= 'z'\n        && text[1..].All(character => character is >= 'a' and <= 'z'\n                                            or >= '0' and <= '9' or '_');\n\n    private static bool IsSignedAsciiInt32(string text, out int value)\n    {\n        value = 0;\n        int firstDigit = text.StartsWith('+') || text.StartsWith('-') ? 1 : 0;\n        bool lexicalMatch = firstDigit < text.Length\n            && text[firstDigit..].All(character => character is >= '0' and <= '9');\n        return lexicalMatch\n            && int.TryParse(text, NumberStyles.AllowLeadingSign,\n                            CultureInfo.InvariantCulture, out value);\n    }\n\n    internal static CommandResult Apply(\n        string input, char separator, string failureMode, string outputOrder)\n    {\n        var state = new Dictionary<string, int>(StringComparer.Ordinal);\n        int malformed = 0;\n        foreach (string line in input.Split('\\n', StringSplitOptions.RemoveEmptyEntries))\n        {\n            StateCommand? command = Parse(line, separator);\n            if (command is null)\n            {\n                malformed++;\n                continue;\n            }\n            state[command.Key] = command.Value;\n        }\n        IEnumerable<string> ordered = outputOrder == \"ordinal ascending\"\n            ? state.Keys.Order(StringComparer.Ordinal)\n            : state.Keys.OrderDescending(StringComparer.Ordinal);\n        int observation = 99;\n        long total = state.Values.Aggregate(0L, (sum, value) => checked(sum + value));\n        return new CommandResult(ordered.ToArray(), total, observation);\n    }\n}\n"
+    }
+  },
+  "publicExamples": [
+    "For separator ':', SET:alpha:+02 and SET:gamma_2:-0 are lexically valid; SET:Alpha:2, SET:alpha: 2, and set:alpha:2 are malformed.",
+    "Every distinct accepted key must appear in the ordered snapshot, so a fixed alpha/beta scalar implementation is insufficient.",
+    "The rationale is part of the submission, but the public prompt intentionally does not supply its trace or mutation evidence."
+  ],
+  "publicFiles": {
+    "Verisearch.slnx": "<Solution>\n  <Folder Name=\"/src/\">\n    <Project Path=\"src/Verisearch/Verisearch.csproj\" />\n  </Folder>\n</Solution>\n",
+    "src/Verisearch/Program.cs": "\nconst string Domain = \"{{domain}}\";\nconst char Separator = '{{input-shape}}';\nconst string FailureMode = \"{{failure-mode}}\";\nconst string OutputOrder = \"{{output-order}}\";\n\nstring input = await Console.In.ReadToEndAsync();\nConsole.WriteLine($\"{Domain};{Separator};{FailureMode};{OutputOrder};{input.Length}\");\nConsole.WriteLine(\"NOT_IMPLEMENTED\");\n",
+    "src/Verisearch/Verisearch.csproj": "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n    <TargetFramework>net10.0</TargetFramework>\n    <ImplicitUsings>enable</ImplicitUsings>\n    <Nullable>enable</Nullable>\n    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>\n    <NuGetAudit>false</NuGetAudit>\n  </PropertyGroup>\n</Project>\n"
+  },
+  "referenceFiles": {
+    "src/Verisearch/Program.cs": "using System.Globalization;\n\nconst string Domain = \"{{domain}}\";\nconst char Separator = '{{input-shape}}';\nconst string FailureMode = \"{{failure-mode}}\";\nconst string OutputOrder = \"{{output-order}}\";\n\nstring input = await Console.In.ReadToEndAsync();\nCommandResult result = CommandContract.Apply(input, Separator, FailureMode, OutputOrder);\nConsole.WriteLine($\"domain={Domain}\");\nConsole.WriteLine($\"mode={FailureMode}\");\nConsole.WriteLine($\"order={OutputOrder}\");\nConsole.WriteLine($\"keys={string.Join(',', result.Keys)}\");\nConsole.WriteLine($\"total={result.Total}\");\nConsole.WriteLine($\"invalid={result.InvalidObservation}\");\n\ninternal sealed record StateCommand(string Key, int Value);\ninternal sealed record CommandResult(IReadOnlyList<string> Keys, long Total, int InvalidObservation);\n\ninternal static class CommandContract\n{\n    internal static StateCommand? Parse(string line, char separator)\n    {\n        string[] fields = line.TrimEnd('\\r').Split(separator);\n        return fields.Length == 3\n            && fields[0] == \"SET\"\n            && IsIdentifier(fields[1])\n            && IsSignedAsciiInt32(fields[2], out int value)\n            ? new StateCommand(fields[1], value)\n            : null;\n    }\n\n    private static bool IsIdentifier(string text) =>\n        text.Length is >= 1 and <= 16\n        && text[0] is >= 'a' and <= 'z'\n        && text[1..].All(character => character is >= 'a' and <= 'z'\n                                            or >= '0' and <= '9' or '_');\n\n    private static bool IsSignedAsciiInt32(string text, out int value)\n    {\n        value = 0;\n        int firstDigit = text.StartsWith('+') || text.StartsWith('-') ? 1 : 0;\n        bool lexicalMatch = firstDigit < text.Length\n            && text[firstDigit..].All(character => character is >= '0' and <= '9');\n        return lexicalMatch\n            && int.TryParse(text, NumberStyles.AllowLeadingSign,\n                            CultureInfo.InvariantCulture, out value);\n    }\n\n    internal static CommandResult Apply(\n        string input, char separator, string failureMode, string outputOrder)\n    {\n        var state = new Dictionary<string, int>(StringComparer.Ordinal);\n        int malformed = 0;\n        foreach (string line in input.Split('\\n', StringSplitOptions.RemoveEmptyEntries))\n        {\n            StateCommand? command = Parse(line, separator);\n            if (command is null)\n            {\n                malformed++;\n                continue;\n            }\n            state[command.Key] = command.Value;\n        }\n        IEnumerable<string> ordered = outputOrder == \"ordinal ascending\"\n            ? state.Keys.Order(StringComparer.Ordinal)\n            : state.Keys.OrderDescending(StringComparer.Ordinal);\n        int observation = failureMode == \"1\" ? malformed : 0;\n        long total = state.Values.Aggregate(0L, (sum, value) => checked(sum + value));\n        return new CommandResult(ordered.ToArray(), total, observation);\n    }\n}\n"
+  },
+  "starterBuildable": true,
+  "title": "{{domain}} state register",
+  "version": 1
+}

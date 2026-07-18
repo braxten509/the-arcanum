@@ -7,32 +7,76 @@ requires = ["language-project-toolchain", "language-namespaces-modularity", "lan
 reward = 420
 xray = "The grader inspects saved C# and project metadata, runs the chapter proof and cumulative regressions, changes a load-bearing input, and checks the observable chapter contract: An early test changes from green to red under a deliberate bad input, and an async source read remains replaceable without live networking."
 
+[[freestyle.requirements]]
+id = "s04-early-executable-tests"
+text = "Add a sibling xUnit test project and reference the application project without placing test packages in production metadata."
+essential = true
+capabilities = ["language-project-toolchain", "language-namespaces-modularity", "language-types-nullability", "language-methods-scope", "language-control-flow", "language-collections-generics", "language-exceptions-resources", "language-classes-records", "language-linq-lambdas", "language-testing-debugging", "language-async-cancellation", "language-serialization-io", "language-interfaces-polymorphism"]
+
+[[freestyle.requirements]]
+id = "s04-async-source-contract"
+text = "Author early tests proving whole-question preservation and at least one invalid-input path; mutate a load-bearing line to observe red before repair."
+essential = false
+capabilities = ["language-project-toolchain", "language-namespaces-modularity", "language-types-nullability", "language-methods-scope", "language-control-flow", "language-collections-generics", "language-exceptions-resources", "language-classes-records", "language-linq-lambdas", "language-testing-debugging", "language-async-cancellation", "language-serialization-io", "language-interfaces-polymorphism"]
+
+[[freestyle.requirements]]
+id = "s04-replaceable-i-o"
+text = "Design an asynchronous, replaceable source-reading boundary that reads exactly the supplied source and passes cancellation."
+essential = false
+capabilities = ["language-project-toolchain", "language-namespaces-modularity", "language-types-nullability", "language-methods-scope", "language-control-flow", "language-collections-generics", "language-exceptions-resources", "language-classes-records", "language-linq-lambdas", "language-testing-debugging", "language-async-cancellation", "language-serialization-io", "language-interfaces-polymorphism"]
+
+[[freestyle.requirements]]
+id = "s04-failure-and-cancellation"
+text = "Use a controlled HTTP handler, fixture, or alternate reader so tests cover success and failure without depending on the public network."
+essential = false
+capabilities = ["language-project-toolchain", "language-namespaces-modularity", "language-types-nullability", "language-methods-scope", "language-control-flow", "language-collections-generics", "language-exceptions-resources", "language-classes-records", "language-linq-lambdas", "language-testing-debugging", "language-async-cancellation", "language-serialization-io", "language-interfaces-polymorphism"]
+
+[[freestyle.requirements]]
+id = "s04-solution-integration"
+text = "Keep the full application unwired for now, but preserve a clean solution build and deterministic chapter proof."
+essential = false
+capabilities = ["language-project-toolchain", "language-namespaces-modularity", "language-types-nullability", "language-methods-scope", "language-control-flow", "language-collections-generics", "language-exceptions-resources", "language-classes-records", "language-linq-lambdas", "language-testing-debugging", "language-async-cancellation", "language-serialization-io", "language-interfaces-polymorphism"]
 [freestyle.badge]
 id = "badge-s04"
 name = "TESTER AT THE GATE"
 desc = "Introduced executable tests and a replaceable asynchronous source boundary."
 
 [[freestyle.rubric]]
+id = "s04-early-executable-tests"
+kind = "deterministic"
+assessmentIds = ["clean-build"]
 criterion = "Early executable tests"
 weight = 25
 desc = "Add a sibling xUnit test project and reference the application project without placing test packages in production metadata."
 
 [[freestyle.rubric]]
+id = "s04-async-source-contract"
+kind = "qualitative"
+assessmentIds = []
 criterion = "Async source contract"
 weight = 20
 desc = "Author early tests proving whole-question preservation and at least one invalid-input path; mutate a load-bearing line to observe red before repair."
 
 [[freestyle.rubric]]
+id = "s04-replaceable-i-o"
+kind = "qualitative"
+assessmentIds = []
 criterion = "Replaceable I/O"
 weight = 20
 desc = "Design an asynchronous, replaceable source-reading boundary that reads exactly the supplied source and passes cancellation."
 
 [[freestyle.rubric]]
+id = "s04-failure-and-cancellation"
+kind = "qualitative"
+assessmentIds = []
 criterion = "Failure and cancellation"
 weight = 20
 desc = "Use a controlled HTTP handler, fixture, or alternate reader so tests cover success and failure without depending on the public network."
 
 [[freestyle.rubric]]
+id = "s04-solution-integration"
+kind = "qualitative"
+assessmentIds = []
 criterion = "Solution integration"
 weight = 15
 desc = "Keep the full application unwired for now, but preserve a clean solution build and deterministic chapter proof."

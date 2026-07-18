@@ -43,17 +43,33 @@ essential = false
 id = "s02-l07-e1"
 type = "mc"
 points = 20
+required = true
+capabilities = ["language-methods-scope"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "verisearch-s02-methods-scope"
+aidPolicy = "learning"
 prompt = "In <code>static bool TryPrepareQuestion(...)</code>, what does <code>bool</code> promise?"
 choices = ["The type returned to the caller", "The type of every output value", "The name of the method", "The file that contains it"]
 answer = 0
 whyWrong = "The method name follows the return type, and locals may have many types. The return type is the contract for the value handed back to the caller."
 explain = "A non-void method must return a value compatible with the declared return type."
 hint = "Look immediately before the method name."
+reviewVariants = [
+  { prompt = "What makes a transformation independently testable?", choices = ["Typed inputs and an observable return", "Hidden globals", "Console output only", "A longer name"], answer = 0 },
+  { prompt = "Where should a temporary parse variable live?", choices = ["The narrowest scope that needs it", "A public global", "Every class", "The project file"], answer = 0 }
+]
 
 [[lessons.exercises]]
 id = "s02-l07-e2"
 type = "fill"
 points = 20
+required = true
+capabilities = ["language-methods-scope"]
+cognitiveTask = "complete"
+scaffold = "guided"
+contextFamily = "verisearch-s02-methods-scope"
+aidPolicy = "learning"
 prompt = "Complete the keyword that hands a computed value back to the caller."
 code = '''static int CountWords(string text)
 {
@@ -66,6 +82,12 @@ hint = "It ends this call and supplies its result."
 id = "s02-l07-d1"
 type = "type"
 points = 14
+required = false
+capabilities = ["language-methods-scope"]
+cognitiveTask = "complete"
+scaffold = "worked"
+contextFamily = "verisearch-s02-methods-scope"
+aidPolicy = "learning"
 reps = 2
 prompt = "Retype one small data-returning method twice."
 code = '''static string Normalize(string value)
@@ -77,6 +99,12 @@ code = '''static string Normalize(string value)
 id = "s02-l07-w1"
 type = "write"
 points = 36
+required = true
+capabilities = ["language-methods-scope"]
+cognitiveTask = "build"
+scaffold = "guided"
+contextFamily = "verisearch-s02-methods-scope"
+aidPolicy = "learning"
 prompt = "Write <code>static bool TryPrepare(string raw, out string question)</code>. Collapse repeated spaces, return false for an empty result, and otherwise return true without dropping words or punctuation. Call it with <code>\"  What  is TLS?  \"</code> and print <code>&lt;bool&gt; &lt;question&gt;</code>."
 starter = '''bool ok = TryPrepare("  What  is TLS?  ", out string question);
 Console.WriteLine("NOT IMPLEMENTED");

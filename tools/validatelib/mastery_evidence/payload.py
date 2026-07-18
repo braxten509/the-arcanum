@@ -21,7 +21,11 @@ def payload_findings(payload: dict) -> list[Finding]:
     def walk(value, path="payload"):
         if isinstance(value, dict):
             for key, child in value.items():
-                if key in HIDDEN_KEYS:
+                public_acceptance_ids = (
+                    key == "scenarios" and path == "payload.acceptance"
+                    and isinstance(child, list)
+                    and all(isinstance(item, str) for item in child))
+                if key in HIDDEN_KEYS and not public_acceptance_ids:
                     findings.append(error("mastery.payload.leak", path,
                                           f"learner payload exposes hidden key {key!r}", 7))
                 walk(child, f"{path}.{key}")

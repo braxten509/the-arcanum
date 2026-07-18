@@ -15,6 +15,7 @@ sys.path[:0] = [str(ROOT), str(ROOT / "tools")]
 from tools.validatelib.mastery_evidence import validate_mastery_evidence
 from tools.validatelib.mastery_evidence.payload import (evidence_payload_privacy_enabled,
                                                         payload_findings)
+from arcanum.catalog.assembly import _strip_evidence_bank_answers
 from tools.tests.mastery.authoring.fixture import write_labs
 from tools.tests.mastery.fixtures import future_map
 
@@ -112,8 +113,18 @@ with tempfile.TemporaryDirectory() as temp:
 
     assert payload_findings({"sections": [{"assessment": {"scenarios": []}}]})
     assert not payload_findings({"sections": [{"freestyle": {"requirements": []}}]})
+    assert not payload_findings({"acceptance": {"scenarios": ["ordinary-launch"]}})
     assert evidence_payload_privacy_enabled(MANIFEST)
     assert not evidence_payload_privacy_enabled({"mastery": {"level": 3}})
+
+    evidence_payload = {
+        "mastery": {"evidenceVersion": 1, "level": 3},
+        "progression": {"intrusionTiers": [{"pool": [
+            {"id": "hex-one", "starter": "incomplete", "solution": "private"}]}]},
+    }
+    _strip_evidence_bank_answers(evidence_payload)
+    challenge = evidence_payload["progression"]["intrusionTiers"][0]["pool"][0]
+    assert challenge == {"id": "hex-one", "starter": "incomplete"}
 
 with tempfile.TemporaryDirectory() as temp:
     tome = Path(temp)

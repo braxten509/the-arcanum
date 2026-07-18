@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import glob
+import copy
 import os
 import tomllib
 
@@ -44,6 +45,18 @@ def list_skins(skins_root: str) -> list[dict]:
     return out
 
 
+def _strip_evidence_bank_answers(payload: dict) -> None:
+    """Remove legacy client-unused reference answers from evidence-mode banks."""
+    mastery = payload.get("mastery") if isinstance(payload, dict) else None
+    if not isinstance(mastery, dict) or mastery.get("evidenceVersion") is None:
+        return
+    progression = payload.get("progression") or {}
+    for tier in progression.get("intrusionTiers") or []:
+        for challenge in (tier.get("pool") or []) if isinstance(tier, dict) else []:
+            if isinstance(challenge, dict):
+                challenge.pop("solution", None)
+
+
 def assemble_public_tome(manifest: dict, tome_root: str, skins_root: str,
                          runtime_config: dict) -> dict:
     if not str((manifest.get("narrative") or {}).get("objective") or "").strip():
@@ -55,7 +68,8 @@ def assemble_public_tome(manifest: dict, tome_root: str, skins_root: str,
     attack_path = os.path.join(
         tome_root, (manifest.get("content") or {}).get("attacks", "generated/attacks.toml"))
     attacks = _read_toml(attack_path).get("tiers", []) if os.path.isfile(attack_path) else []
-    payload = tome_layout.merge_banks(dict(manifest), tome_root)
+    payload = tome_layout.merge_banks(copy.deepcopy(manifest), tome_root)
+    _strip_evidence_bank_answers(payload)
     payload["runtime"] = runtime_config
     payload["sections"] = sections
     payload["masteryLabs"] = public_mastery_labs(tome_root)

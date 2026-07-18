@@ -1,0 +1,187 @@
+{
+  "assessment": {
+    "requirements": [
+      {
+        "capabilityIds": [],
+        "essential": true,
+        "id": "builds",
+        "text": "Build Verisearch.slnx on .NET 10 with nullable analysis and warnings-as-errors enabled."
+      },
+      {
+        "capabilityIds": [
+          "language-types-nullability",
+          "language-methods-scope",
+          "language-classes-records"
+        ],
+        "essential": true,
+        "id": "typed-decomposition",
+        "text": "Preserve a sealed LedgerRow record, a nullable LedgerRow? Parse method, and a named Reconcile method so parsing and accumulation remain separate."
+      },
+      {
+        "capabilityIds": [
+          "language-control-flow",
+          "language-collections-generics",
+          "language-methods-scope"
+        ],
+        "essential": true,
+        "id": "reconcile-records",
+        "text": "The evaluator supplies at most 10,000 LF-delimited segments that are nonempty before CR handling; larger inputs are outside this contract. LF is the only delimiter and a final unterminated segment is processed. Discard only segments whose length is already zero, then remove one trailing CR from each retained segment; therefore a segment containing only CR becomes an empty malformed record and counts toward the bound, while any other CR is data. A valid record is exactly <identifier><separator><amount>, with no quoting, escaping, or surrounding whitespace. An identifier is 1-16 ASCII characters: an uppercase A-Z first, then only uppercase A-Z, digits, or underscore. Amount is one or more ASCII digits, leading zeroes are allowed, signs, whitespace, non-ASCII digits, and values above Int32.MaxValue are rejected. Add duplicate-key amounts in a Dictionary<string,long>; a malformed record never erases valid state."
+      },
+      {
+        "capabilityIds": [
+          "language-control-flow",
+          "language-collections-generics"
+        ],
+        "essential": true,
+        "id": "emit-ledger",
+        "text": "The supplied constants are this candidate's fixed compile-time assignment; no runtime mode switch is required. Write exactly six lines: domain={{domain}}; policy={{failure-mode}}; order={{output-order}}; entries=every accepted key and its accumulated amount as comma-separated KEY:TOTAL pairs in ordinal {{output-order}} key order (or exactly entries= when none are accepted); total=the checked Int64 sum of all per-key totals; invalid={{failure-mode}} when at least one record is malformed, otherwise invalid=none. The 10,000-line bound makes each per-key total and the grand total non-overflowing."
+      }
+    ],
+    "rubric": [
+      {
+        "assessmentIds": [
+          "builds",
+          "typed-source",
+          "mixed-records",
+          "duplicate-and-trailing-invalid"
+        ],
+        "criterion": "The assigned behavioral contract is satisfied by a clean build and varied runs.",
+        "id": "executable-contract",
+        "kind": "deterministic",
+        "weight": 100
+      }
+    ],
+    "scenarios": [
+      {
+        "args": [],
+        "capabilityIds": [],
+        "commandRef": "build",
+        "expect": {
+          "exitCode": 0
+        },
+        "id": "builds",
+        "kind": "build",
+        "public": true,
+        "requirementIds": [
+          "builds"
+        ],
+        "stdin": "",
+        "timeout": 180
+      },
+      {
+        "args": [],
+        "capabilityIds": [
+          "language-types-nullability",
+          "language-methods-scope",
+          "language-classes-records"
+        ],
+        "commandRef": "run",
+        "expect": {
+          "exitCode": 0,
+          "fileRegex": "(?s)sealed\\s+record\\s+LedgerRow.*LedgerRow\\?\\s+Parse\\s*\\(.*Reconcile\\s*\\(.*Dictionary<string,\\s*long>",
+          "path": "src/Verisearch/Program.cs"
+        },
+        "id": "typed-source",
+        "kind": "produced-file",
+        "public": false,
+        "requirementIds": [
+          "typed-decomposition"
+        ],
+        "stdin": "",
+        "timeout": 180
+      },
+      {
+        "args": [],
+        "capabilityIds": [
+          "language-control-flow",
+          "language-collections-generics",
+          "language-methods-scope"
+        ],
+        "commandRef": "run",
+        "expect": {
+          "exitCode": 0,
+          "regex": "\\Adomain={{domain}}\\npolicy={{failure-mode}}\\n(?=order={{output-order}}\\n)(?:order=ascending\\nentries=A:2,B:7,C:2|order=descending\\nentries=C:2,B:7,A:2)\\ntotal=11\\ninvalid={{failure-mode}}\\Z"
+        },
+        "id": "mixed-records",
+        "kind": "run",
+        "public": false,
+        "requirementIds": [
+          "reconcile-records",
+          "emit-ledger"
+        ],
+        "stdin": "B{{input-shape}}3\nbroken\nC{{input-shape}}2\nA{{input-shape}}2\nB{{input-shape}}4\n",
+        "timeout": 180
+      },
+      {
+        "args": [],
+        "capabilityIds": [
+          "language-control-flow",
+          "language-collections-generics",
+          "language-methods-scope"
+        ],
+        "commandRef": "run",
+        "expect": {
+          "exitCode": 0,
+          "regex": "\\Adomain={{domain}}\\npolicy={{failure-mode}}\\n(?=order={{output-order}}\\n)(?:order=ascending\\nentries=A:2,B:7,C:2|order=descending\\nentries=C:2,B:7,A:2)\\ntotal=11\\ninvalid={{failure-mode}}\\Z"
+        },
+        "id": "duplicate-and-trailing-invalid",
+        "kind": "run",
+        "public": false,
+        "requirementIds": [
+          "reconcile-records",
+          "emit-ledger"
+        ],
+        "stdin": "C{{input-shape}}2\nB{{input-shape}}1\nA{{input-shape}}2\nB{{input-shape}}6\nmissing{{input-shape}}\n",
+        "timeout": 180
+      }
+    ],
+    "version": 1
+  },
+  "axes": {
+    "domain": [
+      "harbor-cargo",
+      "clinic-dose"
+    ],
+    "failure-mode": [
+      "quarantine",
+      "discard"
+    ],
+    "input-shape": [
+      "|",
+      ","
+    ],
+    "output-order": [
+      "ascending",
+      "descending"
+    ]
+  },
+  "brief": "Build a self-contained {{domain}} keyed quantity ledger, unrelated to source verification. The executable reads records only from standard input. Its literal separator is '{{input-shape}}', malformed-record status word is {{failure-mode}}, and per-key output order is ordinal {{output-order}}. These are fixed candidate constants rather than runtime choices. The public requirements fully define identifier and numeric syntax, bounds, newline rules, duplicate handling, malformed input, and the six-line output; no arguments or external files are used.",
+  "dependencies": [],
+  "difficulty": "novel C# transfer",
+  "hiddenFiles": {},
+  "id": "keyed-ledger-reconciliation",
+  "mutations": {
+    "ignores-assigned-key-order": {
+      "src/Verisearch/Program.cs": "using System.Globalization;\n\nconst string Domain = \"{{domain}}\";\nconst char Separator = '{{input-shape}}';\nconst string FailureMode = \"{{failure-mode}}\";\nconst string OutputOrder = \"{{output-order}}\";\n\nstring input = await Console.In.ReadToEndAsync();\nLedgerResult result = LedgerContract.Reconcile(input, Separator, FailureMode, OutputOrder);\nConsole.WriteLine($\"domain={Domain}\");\nConsole.WriteLine($\"policy={FailureMode}\");\nConsole.WriteLine($\"order={OutputOrder}\");\nConsole.WriteLine($\"entries={string.Join(',', result.Entries)}\");\nConsole.WriteLine($\"total={result.Total}\");\nConsole.WriteLine($\"invalid={result.InvalidStatus}\");\n\ninternal sealed record LedgerRow(string Key, int Amount);\ninternal sealed record LedgerResult(IReadOnlyList<string> Entries, long Total, string InvalidStatus);\n\ninternal static class LedgerContract\n{\n    internal static LedgerRow? Parse(string line, char separator)\n    {\n        string[] fields = line.TrimEnd('\\r').Split(separator);\n        return fields.Length == 2\n            && IsIdentifier(fields[0])\n            && IsUnsignedAsciiInt32(fields[1], out int amount)\n            ? new LedgerRow(fields[0], amount)\n            : null;\n    }\n\n    private static bool IsIdentifier(string text) =>\n        text.Length is >= 1 and <= 16\n        && text[0] is >= 'A' and <= 'Z'\n        && text[1..].All(character => character is >= 'A' and <= 'Z'\n                                            or >= '0' and <= '9' or '_');\n\n    private static bool IsUnsignedAsciiInt32(string text, out int amount)\n    {\n        amount = 0;\n        return text.Length > 0\n            && text.All(character => character is >= '0' and <= '9')\n            && int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out amount);\n    }\n\n    internal static LedgerResult Reconcile(\n        string input, char separator, string failureMode, string outputOrder)\n    {\n        var totals = new Dictionary<string, long>(StringComparer.Ordinal);\n        bool malformed = false;\n        foreach (string line in input.Split('\\n', StringSplitOptions.RemoveEmptyEntries))\n        {\n            LedgerRow? row = Parse(line, separator);\n            if (row is null)\n            {\n                malformed = true;\n                continue;\n            }\n            totals[row.Key] = checked(totals.GetValueOrDefault(row.Key) + row.Amount);\n        }\n        IEnumerable<KeyValuePair<string, long>> ordered = outputOrder == \"ascending\"\n            ? totals.OrderBy(item => item.Key, StringComparer.Ordinal)\n            : totals.OrderByDescending(item => item.Key, StringComparer.Ordinal);\n        string[] entries = [\"X:0\"];\n        string invalidStatus = malformed ? failureMode : \"none\";\n        long total = totals.Values.Aggregate(0L, (sum, value) => checked(sum + value));\n        return new LedgerResult(entries, total, invalidStatus);\n    }\n}\n"
+    },
+    "overwrites-duplicate-total": {
+      "src/Verisearch/Program.cs": "using System.Globalization;\n\nconst string Domain = \"{{domain}}\";\nconst char Separator = '{{input-shape}}';\nconst string FailureMode = \"{{failure-mode}}\";\nconst string OutputOrder = \"{{output-order}}\";\n\nstring input = await Console.In.ReadToEndAsync();\nLedgerResult result = LedgerContract.Reconcile(input, Separator, FailureMode, OutputOrder);\nConsole.WriteLine($\"domain={Domain}\");\nConsole.WriteLine($\"policy={FailureMode}\");\nConsole.WriteLine($\"order={OutputOrder}\");\nConsole.WriteLine($\"entries={string.Join(',', result.Entries)}\");\nConsole.WriteLine($\"total={result.Total}\");\nConsole.WriteLine($\"invalid={result.InvalidStatus}\");\n\ninternal sealed record LedgerRow(string Key, int Amount);\ninternal sealed record LedgerResult(IReadOnlyList<string> Entries, long Total, string InvalidStatus);\n\ninternal static class LedgerContract\n{\n    internal static LedgerRow? Parse(string line, char separator)\n    {\n        string[] fields = line.TrimEnd('\\r').Split(separator);\n        return fields.Length == 2\n            && IsIdentifier(fields[0])\n            && IsUnsignedAsciiInt32(fields[1], out int amount)\n            ? new LedgerRow(fields[0], amount)\n            : null;\n    }\n\n    private static bool IsIdentifier(string text) =>\n        text.Length is >= 1 and <= 16\n        && text[0] is >= 'A' and <= 'Z'\n        && text[1..].All(character => character is >= 'A' and <= 'Z'\n                                            or >= '0' and <= '9' or '_');\n\n    private static bool IsUnsignedAsciiInt32(string text, out int amount)\n    {\n        amount = 0;\n        return text.Length > 0\n            && text.All(character => character is >= '0' and <= '9')\n            && int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out amount);\n    }\n\n    internal static LedgerResult Reconcile(\n        string input, char separator, string failureMode, string outputOrder)\n    {\n        var totals = new Dictionary<string, long>(StringComparer.Ordinal);\n        bool malformed = false;\n        foreach (string line in input.Split('\\n', StringSplitOptions.RemoveEmptyEntries))\n        {\n            LedgerRow? row = Parse(line, separator);\n            if (row is null)\n            {\n                malformed = true;\n                continue;\n            }\n            totals[row.Key] = row.Amount;\n        }\n        IEnumerable<KeyValuePair<string, long>> ordered = outputOrder == \"ascending\"\n            ? totals.OrderBy(item => item.Key, StringComparer.Ordinal)\n            : totals.OrderByDescending(item => item.Key, StringComparer.Ordinal);\n        string[] entries = ordered.Select(item => $\"{item.Key}:{item.Value}\").ToArray();\n        string invalidStatus = malformed ? failureMode : \"none\";\n        long total = totals.Values.Aggregate(0L, (sum, value) => checked(sum + value));\n        return new LedgerResult(entries, total, invalidStatus);\n    }\n}\n"
+    }
+  },
+  "publicExamples": [
+    "For separator '|', BAY_2|0005 is lexically valid; bay|5, BAY|+5, and BAY| 5 are malformed.",
+    "Every distinct accepted identifier must appear with its own accumulated total, so a scalar grand-total-only implementation is insufficient.",
+    "The rationale is part of the submission, but the public prompt intentionally does not supply its trace or mutation evidence."
+  ],
+  "publicFiles": {
+    "Verisearch.slnx": "<Solution>\n  <Folder Name=\"/src/\">\n    <Project Path=\"src/Verisearch/Verisearch.csproj\" />\n  </Folder>\n</Solution>\n",
+    "src/Verisearch/Program.cs": "using System.Globalization;\n\nconst string Domain = \"{{domain}}\";\nconst char Separator = '{{input-shape}}';\nconst string FailureMode = \"{{failure-mode}}\";\nconst string OutputOrder = \"{{output-order}}\";\n\nstring input = await Console.In.ReadToEndAsync();\n_ = LedgerContract.Parse(input, Separator);\nConsole.WriteLine($\"domain={Domain}; mode={FailureMode}; order={OutputOrder}; input={input.Length}\");\nConsole.WriteLine(\"NOT_IMPLEMENTED\");\n\ninternal sealed record LedgerRow(string Key, int Amount);\n\ninternal static class LedgerContract\n{\n    internal static LedgerRow? Parse(string line, char separator) => null;\n}\n",
+    "src/Verisearch/Verisearch.csproj": "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n    <TargetFramework>net10.0</TargetFramework>\n    <ImplicitUsings>enable</ImplicitUsings>\n    <Nullable>enable</Nullable>\n    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>\n    <NuGetAudit>false</NuGetAudit>\n  </PropertyGroup>\n</Project>\n"
+  },
+  "referenceFiles": {
+    "src/Verisearch/Program.cs": "using System.Globalization;\n\nconst string Domain = \"{{domain}}\";\nconst char Separator = '{{input-shape}}';\nconst string FailureMode = \"{{failure-mode}}\";\nconst string OutputOrder = \"{{output-order}}\";\n\nstring input = await Console.In.ReadToEndAsync();\nLedgerResult result = LedgerContract.Reconcile(input, Separator, FailureMode, OutputOrder);\nConsole.WriteLine($\"domain={Domain}\");\nConsole.WriteLine($\"policy={FailureMode}\");\nConsole.WriteLine($\"order={OutputOrder}\");\nConsole.WriteLine($\"entries={string.Join(',', result.Entries)}\");\nConsole.WriteLine($\"total={result.Total}\");\nConsole.WriteLine($\"invalid={result.InvalidStatus}\");\n\ninternal sealed record LedgerRow(string Key, int Amount);\ninternal sealed record LedgerResult(IReadOnlyList<string> Entries, long Total, string InvalidStatus);\n\ninternal static class LedgerContract\n{\n    internal static LedgerRow? Parse(string line, char separator)\n    {\n        string[] fields = line.TrimEnd('\\r').Split(separator);\n        return fields.Length == 2\n            && IsIdentifier(fields[0])\n            && IsUnsignedAsciiInt32(fields[1], out int amount)\n            ? new LedgerRow(fields[0], amount)\n            : null;\n    }\n\n    private static bool IsIdentifier(string text) =>\n        text.Length is >= 1 and <= 16\n        && text[0] is >= 'A' and <= 'Z'\n        && text[1..].All(character => character is >= 'A' and <= 'Z'\n                                            or >= '0' and <= '9' or '_');\n\n    private static bool IsUnsignedAsciiInt32(string text, out int amount)\n    {\n        amount = 0;\n        return text.Length > 0\n            && text.All(character => character is >= '0' and <= '9')\n            && int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out amount);\n    }\n\n    internal static LedgerResult Reconcile(\n        string input, char separator, string failureMode, string outputOrder)\n    {\n        var totals = new Dictionary<string, long>(StringComparer.Ordinal);\n        bool malformed = false;\n        foreach (string line in input.Split('\\n', StringSplitOptions.RemoveEmptyEntries))\n        {\n            LedgerRow? row = Parse(line, separator);\n            if (row is null)\n            {\n                malformed = true;\n                continue;\n            }\n            totals[row.Key] = checked(totals.GetValueOrDefault(row.Key) + row.Amount);\n        }\n        IEnumerable<KeyValuePair<string, long>> ordered = outputOrder == \"ascending\"\n            ? totals.OrderBy(item => item.Key, StringComparer.Ordinal)\n            : totals.OrderByDescending(item => item.Key, StringComparer.Ordinal);\n        string[] entries = ordered.Select(item => $\"{item.Key}:{item.Value}\").ToArray();\n        string invalidStatus = malformed ? failureMode : \"none\";\n        long total = totals.Values.Aggregate(0L, (sum, value) => checked(sum + value));\n        return new LedgerResult(entries, total, invalidStatus);\n    }\n}\n"
+  },
+  "starterBuildable": true,
+  "title": "{{domain}} keyed ledger",
+  "version": 1
+}

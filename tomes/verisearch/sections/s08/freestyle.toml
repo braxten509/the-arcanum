@@ -7,32 +7,76 @@ requires = ["language-project-toolchain", "language-namespaces-modularity", "lan
 reward = 560
 xray = "The grader inspects saved C# and project metadata, runs the chapter proof and cumulative regressions, changes a load-bearing input, and checks the observable chapter contract: Two delayed reads overlap, one ordinary failure remains visible beside a success, and cancellation propagates separately."
 
+[[freestyle.requirements]]
+id = "s08-observable-concurrency"
+text = "Coordinate independent source reads so they overlap rather than waiting serially inside a loop."
+essential = true
+capabilities = ["language-project-toolchain", "language-namespaces-modularity", "language-types-nullability", "language-methods-scope", "language-control-flow", "language-collections-generics", "language-exceptions-resources", "language-classes-records", "language-linq-lambdas", "language-testing-debugging", "language-async-cancellation", "language-serialization-io", "language-interfaces-polymorphism"]
+
+[[freestyle.requirements]]
+id = "s08-partial-failure-preservation"
+text = "Represent a successful document and an ordinary failed-source diagnostic without erasing either outcome."
+essential = false
+capabilities = ["language-project-toolchain", "language-namespaces-modularity", "language-types-nullability", "language-methods-scope", "language-control-flow", "language-collections-generics", "language-exceptions-resources", "language-classes-records", "language-linq-lambdas", "language-testing-debugging", "language-async-cancellation", "language-serialization-io", "language-interfaces-polymorphism"]
+
+[[freestyle.requirements]]
+id = "s08-cancellation-semantics"
+text = "Pass one cancellation token through every read and keep requested cancellation distinct from ordinary partial failure."
+essential = false
+capabilities = ["language-project-toolchain", "language-namespaces-modularity", "language-types-nullability", "language-methods-scope", "language-control-flow", "language-collections-generics", "language-exceptions-resources", "language-classes-records", "language-linq-lambdas", "language-testing-debugging", "language-async-cancellation", "language-serialization-io", "language-interfaces-polymorphism"]
+
+[[freestyle.requirements]]
+id = "s08-outcome-modeling"
+text = "Author controlled-delay, one-success-one-failure, and cancellation tests with observable timing or synchronization gates."
+essential = false
+capabilities = ["language-project-toolchain", "language-namespaces-modularity", "language-types-nullability", "language-methods-scope", "language-control-flow", "language-collections-generics", "language-exceptions-resources", "language-classes-records", "language-linq-lambdas", "language-testing-debugging", "language-async-cancellation", "language-serialization-io", "language-interfaces-polymorphism"]
+
+[[freestyle.requirements]]
+id = "s08-controlled-async-tests"
+text = "Preserve source order in the resulting collection unless an alternative order is explicitly documented and tested."
+essential = false
+capabilities = ["language-project-toolchain", "language-namespaces-modularity", "language-types-nullability", "language-methods-scope", "language-control-flow", "language-collections-generics", "language-exceptions-resources", "language-classes-records", "language-linq-lambdas", "language-testing-debugging", "language-async-cancellation", "language-serialization-io", "language-interfaces-polymorphism"]
 [freestyle.badge]
 id = "badge-s08"
 name = "CONDUCTOR OF ERRANDS"
 desc = "Coordinated overlapping I/O, partial failure, and cancellation."
 
 [[freestyle.rubric]]
+id = "s08-observable-concurrency"
+kind = "deterministic"
+assessmentIds = ["clean-build"]
 criterion = "Observable concurrency"
 weight = 25
 desc = "Coordinate independent source reads so they overlap rather than waiting serially inside a loop."
 
 [[freestyle.rubric]]
+id = "s08-partial-failure-preservation"
+kind = "qualitative"
+assessmentIds = []
 criterion = "Partial-failure preservation"
 weight = 20
 desc = "Represent a successful document and an ordinary failed-source diagnostic without erasing either outcome."
 
 [[freestyle.rubric]]
+id = "s08-cancellation-semantics"
+kind = "qualitative"
+assessmentIds = []
 criterion = "Cancellation semantics"
 weight = 20
 desc = "Pass one cancellation token through every read and keep requested cancellation distinct from ordinary partial failure."
 
 [[freestyle.rubric]]
+id = "s08-outcome-modeling"
+kind = "qualitative"
+assessmentIds = []
 criterion = "Outcome modeling"
 weight = 20
 desc = "Author controlled-delay, one-success-one-failure, and cancellation tests with observable timing or synchronization gates."
 
 [[freestyle.rubric]]
+id = "s08-controlled-async-tests"
+kind = "qualitative"
+assessmentIds = []
 criterion = "Controlled async tests"
 weight = 15
 desc = "Preserve source order in the resulting collection unless an alternative order is explicitly documented and tested."

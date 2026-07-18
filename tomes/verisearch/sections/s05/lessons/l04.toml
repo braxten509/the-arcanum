@@ -29,17 +29,33 @@ essential = false
 id = "s05-l04-e1"
 type = "mc"
 points = 20
+required = true
+capabilities = ["language-testing-debugging"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "verisearch-s05-testing-debugging"
+aidPolicy = "learning"
 prompt = "Why should Validate return all discovered errors?"
 choices = ["C# forbids exceptions", "The learner can repair the file in one pass and tests can assert rules as data", "Lists automatically fix config", "JSON requires a list"]
 answer = 1
 whyWrong = "Exceptions remain available, lists do not repair values, and JSON imposes no such rule. Collecting errors improves repair and testing."
 explain = "Validation diagnostics are ordinary data until the application boundary decides to stop."
 hint = "Imagine rerunning after fixing only the first of four errors."
+reviewVariants = [
+  { prompt = "What proves an assertion is load-bearing?", choices = ["A deliberate bad input makes it fail before repair", "It always passes", "It prints PASS", "It needs live networking"], answer = 0 },
+  { prompt = "Where should diagnosis start after an integration failure?", choices = ["The earliest boundary whose observation diverges", "The last stack line only", "A random class", "The README"], answer = 0 }
+]
 
 [[lessons.exercises]]
 id = "s05-l04-e2"
 type = "mc"
 points = 20
+required = true
+capabilities = ["language-testing-debugging"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "verisearch-s05-testing-debugging"
+aidPolicy = "learning"
 prompt = "An existing config is malformed. What must ConfigLoader avoid?"
 choices = ["Printing its path", "Returning an error", "Overwriting the user's file with defaults", "Catching JsonException at the boundary"]
 answer = 2
@@ -51,6 +67,12 @@ hint = "Preserve user-owned state."
 id = "s05-l04-e3"
 type = "fill"
 points = 20
+required = true
+capabilities = ["language-testing-debugging"]
+cognitiveTask = "complete"
+scaffold = "guided"
+contextFamily = "verisearch-s05-testing-debugging"
+aidPolicy = "learning"
 prompt = "Complete the condition that keeps a quote limit inside the allowed range."
 code = '''if (config.MaxQuotes < 1 ____ config.MaxQuotes > 10)
     errors.Add("maxQuotes must be between 1 and 10");'''
@@ -61,6 +83,12 @@ hint = "Either side being true makes the value invalid."
 id = "s05-l04-d1"
 type = "type"
 points = 14
+required = false
+capabilities = ["language-testing-debugging"]
+cognitiveTask = "complete"
+scaffold = "worked"
+contextFamily = "verisearch-s05-testing-debugging"
+aidPolicy = "learning"
 reps = 2
 prompt = "Retype the non-destructive config rule twice."
 code = '''if (!File.Exists(path))
@@ -74,6 +102,12 @@ code = '''if (!File.Exists(path))
 id = "s05-l04-w1"
 type = "write"
 points = 38
+required = true
+capabilities = ["language-testing-debugging"]
+cognitiveTask = "build"
+scaffold = "guided"
+contextFamily = "verisearch-s05-testing-debugging"
+aidPolicy = "learning"
 prompt = "Write <code>Validate(int maxQuotes)</code> returning a list containing <code>range</code> only when the value is outside 1 through 10. Call it for 0, 5, and 11; print each error count on one line."
 starter = '''Console.WriteLine("NOT VALIDATED");
 

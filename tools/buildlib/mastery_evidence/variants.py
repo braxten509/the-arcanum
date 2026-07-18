@@ -270,11 +270,18 @@ class VariantGenerator:
                 "capabilityIds": lab.get("capabilityIds") or [],
                 "cognitiveTasks": lab.get("cognitiveTasks") or [],
                 "contextRelation": lab.get("contextRelation"), "axes": slots,
+                "rationaleRequired": lab.get("rationaleRequired") is True,
+                "rationalePrompt": lab.get("rationalePrompt") or (
+                    "Explain the design, why it meets the requirements, and how you verified it."),
                 "publicFiles": rendered.get("publicFiles") or {},
             }
             semantic = self.reviewer.review(semantic_input)
             if semantic.get("passed") is not True or not semantic.get("evidenceHash"):
-                raise VariantGenerationError("semantic reviewer rejected or failed to bind the candidate")
+                problems = [str(item).strip() for item in semantic.get("problems") or []
+                            if str(item).strip()]
+                detail = "; ".join(problems) if problems else "no bound semantic evidence"
+                raise VariantGenerationError(
+                    "semantic reviewer rejected or failed to bind the candidate: " + detail)
             verification = {
                 "version": 1, "starterRejected": True, "starter": starter_result,
                 "referencePassed": True, "reference": reference_result,

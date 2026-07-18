@@ -44,17 +44,33 @@ essential = false
 id = "s07-l01-e1"
 type = "mc"
 points = 20
+required = true
+capabilities = ["language-linq-lambdas"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "verisearch-s07-linq-lambdas"
+aidPolicy = "learning"
 prompt = "Which delegate type fits: takes a SourceSpec, returns a bool?"
 choices = ["Action<SourceSpec>", "Func<bool, SourceSpec>", "Func<SourceSpec, bool>", "Predicate<double>"]
 answer = 2
 whyWrong = "Action returns void, the second Func reverses input and output, and Predicate<double> accepts the wrong input type."
 explain = "<code>Func&lt;SourceSpec, bool&gt;</code> names the input first and the returned boolean last, matching a configured-source test."
 hint = "In Func, the LAST type parameter is the return type."
+reviewVariants = [
+  { prompt = "When should a deferred source-selection query become a stable list?", choices = ["At the boundary that needs fixed order and one evaluation", "Never", "Inside every predicate", "After rendering"], answer = 0 },
+  { prompt = "Which LINQ pair selects admitted values then stabilizes them?", choices = ["Where followed by ToList", "First followed by Remove", "Catch followed by Select", "Wait followed by Result"], answer = 0 }
+]
 
 [[lessons.exercises]]
 id = "s07-l01-e2"
 type = "mc"
 points = 20
+required = true
+capabilities = ["language-linq-lambdas"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "verisearch-s07-linq-lambdas"
+aidPolicy = "learning"
 prompt = "The key difference between Func and Action:"
 choices = ["Func is faster", "Action returns a value, Func doesn't", "Action can't take parameters", "Func returns a value, Action returns void"]
 answer = 3
@@ -66,6 +82,12 @@ hint = "Action = side effects only."
 id = "s07-l01-e3"
 type = "mc"
 points = 25
+required = true
+capabilities = ["language-linq-lambdas"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "verisearch-s07-linq-lambdas"
+aidPolicy = "learning"
 prompt = "What does <code>f(4)</code> return?"
 code = '''
 int factor = 3;
@@ -82,6 +104,12 @@ hint = "Closures capture the VARIABLE, not a snapshot of its value."
 id = "s07-l01-d1"
 type = "type"
 points = 14
+required = false
+capabilities = ["language-linq-lambdas"]
+cognitiveTask = "complete"
+scaffold = "worked"
+contextFamily = "verisearch-s07-linq-lambdas"
+aidPolicy = "learning"
 reps = 2
 prompt = "One Func, one Action, one call each. Twice — delegate syntax must be automatic before the LINQ arsenal."
 code = '''
@@ -94,6 +122,12 @@ log($"long enough: {isLong(sample)}");'''
 id = "s07-l01-w1"
 type = "write"
 points = 32
+required = true
+capabilities = ["language-linq-lambdas"]
+cognitiveTask = "build"
+scaffold = "guided"
+contextFamily = "verisearch-s07-linq-lambdas"
+aidPolicy = "learning"
 prompt = "Declare <code>Func&lt;int, int&gt; overclock = x =&gt; x * 2;</code> and print the result of applying it TWICE to 3 (function composition by nesting the calls)."
 expect = "12"
 solution = '''

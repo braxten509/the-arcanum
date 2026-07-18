@@ -68,6 +68,11 @@ for profile_name in (ROOT / "global-configs" / "runtimes").glob("*.toml"):
     profile = for_config({"name": profile_name.stem})
     assert profile.VERSION == 1 and profile.CAPABILITIES, profile_name.name
 
+dotnet_profile = for_config({"name": "dotnet"})
+nuget_cache = (Path.home() / ".nuget" / "packages").resolve()
+assert dotnet_profile.assessment_read_paths == (str(nuget_cache),)
+assert dotnet_profile.assessment_environment["NUGET_PACKAGES"] == str(nuget_cache)
+
 with tempfile.TemporaryDirectory() as temporary:
     root = Path(temporary)
     fixtures = {

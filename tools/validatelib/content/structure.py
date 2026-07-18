@@ -54,6 +54,8 @@ def check_layout(tome_path, m):
     fixed = {"tome.toml", "themes.toml", "shop.toml", "badges.toml", "intrusions.toml",
              "attacks_src.toml", "attacks.toml", attacks_name,
              "generated/README.md"}  # the tooling's DO-NOT-EDIT marker for generated/
+    if evidence:
+        fixed.add("generated/mastery-evidence.json")
 
     def legit(p):
         if p in fixed:

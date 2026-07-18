@@ -1,0 +1,110 @@
+[[lessons]]
+id = "s13-l02"
+teaches = ["language-namespaces-modularity"]
+title = "Document the Exact Product, Requirements, and Limits"
+body = '''
+
+<p>A stranger should understand the exact product before installing a model, creating an API key, or choosing sources. Write a README that leads with the evidence promise and then gives tested setup paths.</p>
+<pre><code data-kind="replacement"># Your project name
+
+One paragraph: the user chooses sources; a configured real AI proposes
+semantically relevant exact substrings; C# verifies and cites them.
+
+## Example
+## Requirements and provider options
+## Source catalog
+## How proposal and verification work
+## Explicit mock mode
+## Tests and publish
+## Limitations</code></pre>
+<p>Document the real provider route or routes your program supports. A learner may show a local-model CLI, hosted API adapter, local HTTP service, wrapper command, or more than one. Explain how configuration selects it, how secrets are supplied without committing them, and what failure looks like. If Ollama appears, present it as one optional CLI example rather than a required architecture.</p>
+<p>Include a minimal source catalog that you actually tested. Explain the trust boundary in plain language: the user chooses source authority; C# extracts stable passages; the configured AI receives the whole question and proposes candidate substrings; C# requires ordinal containment in the named passage; C# attaches that passage's source-owned label and URI.</p>
+<p>Describe deterministic mock mode as test or demonstration plumbing, selected explicitly and labeled non-factual. It never activates because a real provider failed. Run every copied build, test, provider, and publish command.</p>
+<p>State limits precisely. Exact containment proves displayed text occurs in the stored extraction, not that a source is current, correct, complete, or unbiased. Dynamic, authenticated, non-text, or inaccessible sources can fail. Extraction policy may normalize whitespace. Models may miss relevant text. The program does not discover web-wide authority unless the learner explicitly adds and documents a different source-admission feature that still honors user control.</p>
+<div class="callout"><p>Provider flexibility and source transparency make the guarantee stronger: implementation may vary, while proposal-versus-proof remains invariant.</p></div>
+<div class="callout csharp-transfer"><p><strong>C#/.NET transfer:</strong> The <code>.csproj</code> is executable build metadata, while README prose explains setup and product limits to humans. Nullable, analyzer, trimming, and publish warnings are evidence from the .NET toolchain; documentation should name them rather than pretending prose can override them.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // REPRODUCIBLE EXAMPLES</div><p>Record provider version or model identifier where useful, mark representative nondeterministic output, and keep a deterministic fixture beside the live example so future readers can still reproduce the truth checks.</p></div>
+'''
+
+[[lessons.readings]]
+label = "Microsoft Learn — Create a README for a .NET repository"
+url = "https://learn.microsoft.com/en-us/contribute/content/markdown-reference"
+essential = false
+
+[[lessons.exercises]]
+id = "s13-l02-e1"
+type = "mc"
+points = 20
+required = true
+capabilities = ["language-namespaces-modularity"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "verisearch-s13-namespaces-modularity"
+aidPolicy = "limited"
+prompt = "What should follow the one-paragraph README pitch?"
+choices = ["A concrete command and representative verified-output example", "The entire source code", "A marketing comparison", "A hidden limitations footnote"]
+answer = 0
+whyWrong = "Code dumps, comparisons, and buried caveats do not show a user the shortest successful path."
+explain = "A tested example makes the promised behavior tangible before setup detail."
+hint = "Show the destination before the map."
+
+[[lessons.exercises]]
+id = "s13-l02-e2"
+type = "mc"
+points = 20
+required = true
+capabilities = ["language-namespaces-modularity"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "verisearch-s13-namespaces-modularity"
+aidPolicy = "limited"
+prompt = "A useful <code>--help</code> description for <code>--mock</code> should explain…"
+choices = ["Only its data type", "What behavior it selects and that output is a labeled fixture", "The implementation's line count", "Nothing; the name is enough"]
+answer = 1
+whyWrong = "Types and code size do not tell users the behavioral consequence, while the name alone can be mistaken for an automatic fallback."
+explain = "CLI help should answer what changes and when to use it."
+hint = "Describe semantics, not syntax alone."
+
+[[lessons.exercises]]
+id = "s13-l02-e3"
+type = "mc"
+points = 20
+required = true
+capabilities = ["language-namespaces-modularity"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "verisearch-s13-namespaces-modularity"
+aidPolicy = "limited"
+prompt = "Which limitation must the README state?"
+choices = ["Exact substring verification proves every source is correct", "Verisearch includes web-wide search", "Exact presence does not establish source credibility or completeness", "Mock mode is equivalent to a real configured AI"]
+answer = 2
+whyWrong = "The other claims overstate or misdescribe the product. Exact matching proves provenance within extracted text, not external truth."
+explain = "User-owned source selection and transparent limits remain necessary."
+hint = "Separate quotation integrity from source correctness."
+
+[[lessons.exercises]]
+id = "s13-l02-d1"
+type = "type"
+points = 14
+required = false
+capabilities = ["language-namespaces-modularity"]
+cognitiveTask = "complete"
+scaffold = "worked"
+contextFamily = "verisearch-s13-namespaces-modularity"
+aidPolicy = "limited"
+reps = 2
+prompt = "Retype the five-step trust boundary twice."
+code = '''1. User chooses sources.
+2. C# extracts stable passages.
+3. the configured AI proposes exact substrings.
+4. C# verifies ordinal containment.
+5. C# attaches source-owned citations.'''
+
+[[lessons.concepts]]
+id = "language-namespaces-modularity"
+purpose = "Split a growing C# program into discoverable files and namespaces with one clear owner per responsibility."
+anatomy = "Place related types under a namespace, keep the entrypoint as composition, and reference public contracts instead of copying declarations."
+example = "The disposable examples in Document the Exact Product, Requirements, and Limits isolate this capability before the learner chooses how it belongs in the cumulative project. The lesson Document the Exact Product, Requirements, and Limits supplies the disposable observation point."
+observable = "The whole solution builds with one definition for each concept and dependencies point in an understandable direction. Confirm it while practicing Document the Exact Product, Requirements, and Limits."
+failure = "Duplicate types, circular ownership, or business logic in Program.cs makes later integration brittle."
+practice = "s13-l02-e1"
