@@ -19,6 +19,9 @@ class SandboxPolicy:
     cpu_seconds: int = 120
     output_bytes: int = 200_000
     read_paths: tuple[str, ...] = ()
+    allowed_environment: tuple[str, ...] = (
+        "LANG", "LC_ALL", "PATH", "VIRTUAL_ENV", "DOTNET_ROOT", "JAVA_HOME",
+    )
 
 
 def _limits(policy: SandboxPolicy):
@@ -80,7 +83,7 @@ class SandboxRunner:
         clean_env = {"PATH": base_path, "HOME": "/tmp",
                      "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8"}
         for key, value in (env or {}).items():
-            if key in {"LANG", "LC_ALL"} and isinstance(value, str):
+            if key in policy.allowed_environment and isinstance(value, str) and "\0" not in value:
                 clean_env[key] = value
         argv = self._argv(command, os.path.realpath(cwd), policy, clean_env)
         try:

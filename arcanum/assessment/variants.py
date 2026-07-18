@@ -129,4 +129,9 @@ class VariantRepository:
         return {"version": 1, "familyId": family_id, "variantId": variant_id,
                 "variantHash": manifest["contentHash"], "title": manifest.get("title", ""),
                 "brief": manifest.get("brief", ""), "requirements": manifest.get("requirements", []),
+                "publicExamples": manifest.get("publicExamples", []),
+                "difficulty": manifest.get("difficulty", ""),
+                "estimatedMinutes": manifest.get("estimatedMinutes"),
+                "rationalePrompt": manifest.get("rationalePrompt", ""),
+                "aidPolicy": manifest.get("aidPolicy", ""),
                 "axes": manifest.get("axes", {}), "files": files}

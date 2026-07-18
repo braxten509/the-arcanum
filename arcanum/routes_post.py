@@ -23,6 +23,7 @@ from .config import (BUILD_DIR, CLI_EFFORTS, GLOBAL_STATE_KEYS, ROOT,
                      write_settings)
 from .forge import _resume_phase, external_build_process
 from .authoring.grader import ask_oracle, run_grader, start_grader_smoke
+from .learning import LearningStateStore
 from .post_routes.builds import (answer_runner_pause, control_author, discard_build,
                                  reset_build, resume_build, start_build)
 from .tomes import (external_workspace, has_progress, load_manifest, plan_path, project_dir,
@@ -232,6 +233,9 @@ def save_state(h, body, jid):
             g.update(took)
             write_settings(g)
     p = state_path(jid)
+    evidence_store = LearningStateStore(
+        p, os.path.join(save_dir(jid), "evidence-log.jsonl"))
+    body = evidence_store.merge_client(body)
     # never let a fresh default silently erase real progress. if the
     # save on disk has progress and the incoming one doesn't, refuse
     # (a genuine reset deletes the save dir, it doesn't POST empty).

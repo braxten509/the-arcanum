@@ -33,7 +33,8 @@ def compose_grade(criteria: Iterable[dict], returned_scores: Iterable[dict],
     returned = tuple(returned_scores)
     ids = [str(item.get("id") or "") for item in criteria]
     by_id = {str(item.get("id") or ""): item for item in returned}
-    if not ids or len(ids) != len(set(ids)) or set(ids) != set(by_id):
+    if (not ids or len(ids) != len(set(ids)) or len(returned) != len(by_id)
+            or set(ids) != set(by_id)):
         raise ValueError("returned criterion IDs must exactly match the rubric")
     if sum(int(item.get("weight") or 0) for item in criteria) != 100:
         raise ValueError("rubric weights must total 100")

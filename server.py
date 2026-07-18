@@ -12,8 +12,14 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from arcanum import routes_get, routes_post
+from arcanum.app import create_app_services
 from arcanum.config import PORT, ROOT
+from arcanum.http.composition import build_evidence_router
 from arcanum.tomes import list_tomes, resolve_tome, save_dir
+
+
+SERVICES = create_app_services()
+ROUTER = build_evidence_router(SERVICES)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -40,10 +46,12 @@ class Handler(BaseHTTPRequestHandler):
         return resolve_tome((q.get("tome") or [""])[0])
 
     def do_GET(self):
-        routes_get.handle(self)
+        if not ROUTER.dispatch(self, "GET"):
+            routes_get.handle(self)
 
     def do_POST(self):
-        routes_post.handle(self)
+        if not ROUTER.dispatch(self, "POST"):
+            routes_post.handle(self)
 
 
 if __name__ == "__main__":

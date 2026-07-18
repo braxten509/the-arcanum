@@ -215,6 +215,14 @@ def handle(h):
         parts = full[len(jr) + 1:].split(os.sep)
         if len(parts) > 1 and parts[1] == "save":  # tomes/<jid>/save/** is user data — never serve
             return h.send_json({"error": "not found"}, 404)
+        relative_parts = parts[1:]
+        hidden_variant = (len(relative_parts) >= 2 and relative_parts[0] == "generated"
+                          and relative_parts[1] == "mastery-labs")
+        hidden_authored = any(part in {"assessment", "hidden", "reference", "mutations",
+                                                    "blueprints"} for part in relative_parts)
+        section_contract = ("sections" in relative_parts and full.endswith(".toml"))
+        if hidden_variant or hidden_authored or section_contract:
+            return h.send_json({"error": "not found"}, 404)
     allowed = [os.path.realpath(x) for x in (WEB, TOMES_DIR, os.path.join(ROOT, "monaco"), SKINS_DIR,
                                              os.path.join(ROOT, "sounds"), os.path.join(ROOT, "global-configs"))]
     if not any(full.startswith(a + os.sep) or full == a for a in allowed) or not os.path.isfile(full):

@@ -1,4 +1,4 @@
-"""Role-neutral qualitative-review port used by the assessment application service."""
+"""Role-neutral qualitative-review port used by assessment."""
 from __future__ import annotations
 
 from dataclasses import dataclass

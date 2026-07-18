@@ -215,7 +215,10 @@ def has_progress(s):
         return False
     if s.get("earned") or s.get("credits"):
         return True
-    return any(s.get(k) for k in ("ex", "read", "badges", "fs"))
+    return any(s.get(k) for k in (
+        "ex", "read", "badges", "fs", "exerciseEvidence", "capabilityEvidence",
+        "masteryLabs", "assessmentReceipts",
+    ))
 
 
 def grades_dir(jid):

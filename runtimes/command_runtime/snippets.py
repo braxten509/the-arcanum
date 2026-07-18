@@ -12,6 +12,10 @@ SNIPPET_MAX = 20_000
 
 
 class SnippetMixin:
+    def prepare_assessment_dependencies(self, project_dir):
+        """Provision only trusted runtime-declared dependencies in a disposable snapshot."""
+        self._install_validation_project_dependencies(project_dir)
+
     def _snippet_dir(self, scratch_base):
         if not self.scaffold_cmd:
             os.makedirs(scratch_base, exist_ok=True)

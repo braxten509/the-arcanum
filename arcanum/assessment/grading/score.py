@@ -1,4 +1,4 @@
-"""Compose deterministic scenario ownership with bounded qualitative scores."""
+"""Compose deterministic ownership with bounded qualitative scores."""
 from __future__ import annotations
 
 from arcanum_core.contracts.assessment import AssessmentContract

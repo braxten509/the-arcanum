@@ -5,11 +5,9 @@ import subprocess
 import time
 import urllib.request
 
-from .config import (AGY_BIN, CLAUDE_BIN, CLI_EFFORTS, CLI_MODELS, CODEX_BIN,
-                     OPENCODE_BIN, ROOT, agy_print_args, codex_no_mcp_args,
+from .config import (AGY_BIN, CLI_EFFORTS, CLI_MODELS, CODEX_BIN,
+                     OPENCODE_BIN,
                      OPENCODE_FREE_IDS, OPENCODE_GO_FALLBACK, OPENCODE_MAPLE_IDS)
-from .authoring.ai_access import ensure_cli_access
-from tools.buildlib.runtime.agent_runtime import scoped_runner_command
 
 
 class GraderConfigError(Exception):
@@ -130,43 +128,10 @@ def cli_text(kind, prompt, model, timeout, tome_root):
       wrong model.
     - codex: prompt on stdin; empty model uses the user's ~/.codex config default.
     - opencode: prompt as an argument; supports Go, free hosted, and Ollama models."""
-    if kind == "claude-cli":
-        cmd = [CLAUDE_BIN, "-p", "--permission-mode", "auto"]
-        if model:
-            cmd += ["--model", model]
-        input_mode = "arg"
-    elif kind == "antigravity-cli":
-        if model and model not in agy_models():
-            raise GraderConfigError(
-                f"model {model!r} does not exist in agy — run `agy models` for valid names "
-                "(agy would otherwise silently answer with its default)")
-        cmd = [AGY_BIN, "--dangerously-skip-permissions", *agy_print_args(timeout)]
-        if model:
-            cmd += ["--model", model]
-        cmd += ["--print"]
-        input_mode = "arg"
-    elif kind == "codex-cli":
-        cmd = [CODEX_BIN, "--search", "exec", "--skip-git-repo-check", "-s", "read-only",
-               *codex_no_mcp_args()]
-        if model:
-            cmd += ["-m", model]
-        cmd += ["-"]
-        input_mode = "stdin"
-    elif kind == "opencode-cli":
-        cmd = [OPENCODE_BIN, "run", "--auto"]
-        if model:
-            cmd += ["-m", model]
-        input_mode = "arg"
-    else:
-        raise ValueError(f"unknown CLI kind {kind!r}")
-    cmd = scoped_runner_command(kind, cmd, tome_root, [], ROOT)
-    ensure_cli_access(f"{kind} {model}".strip(), cmd, input_mode)
-    env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
-    env.update(ARCANUM_REPO_ROOT=ROOT, ARCANUM_TOME_ROOT=tome_root,
-               PYTHONDONTWRITEBYTECODE="1")
-    p = subprocess.run(cmd + ([prompt] if input_mode == "arg" else []),
-                       input=(prompt if input_mode == "stdin" else None),
-                       capture_output=True, text=True, timeout=timeout, env=env, cwd=tome_root)
-    if p.returncode != 0:
-        raise RuntimeError(f"exit {p.returncode}: {p.stderr[:500]}")
-    return p.stdout
+    from .ai import AiRequest, build_default_ai_service
+
+    response = build_default_ai_service().complete(kind, AiRequest(
+        role="legacy-text", model=model, input=prompt, timeout=timeout,
+        workspace=tome_root, web_allowed=True,
+        allowed_tools=("read_file", "search_files", "run_python")))
+    return response.text
