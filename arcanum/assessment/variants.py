@@ -17,9 +17,9 @@ class VariantUnavailable(ValueError):
 def _tree_hash(root: str) -> str:
     digest = hashlib.sha256()
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = sorted(name for name in dirnames if name not in {"hidden", "reference", "mutations"})
+        dirnames.sort()
         for name in sorted(filenames):
-            if name == "manifest.json":
+            if name in {"manifest.json", "verification.json"}:
                 continue
             full = os.path.join(dirpath, name)
             if os.path.islink(full):
@@ -69,6 +69,10 @@ class VariantRepository:
                 continue
             variants.append({"root": root, "manifest": manifest})
         return variants
+
+    def verified_variants(self, family_id: str) -> tuple[dict, ...]:
+        """Return the strict accepted set without exposing mutable repository state."""
+        return tuple(self._variants(family_id))
 
     def assignment(self, family_id: str) -> dict | None:
         current = self._assignments().get(family_id)

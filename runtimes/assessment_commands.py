@@ -13,7 +13,7 @@ def _sub(argv, **subs):
 
 def resolve(runtime, command_ref, project_dir, args=()):
     if command_ref == "build":
-        argv = list(runtime.build_cmd)
+        argv = list(runtime.build_cmd or runtime.assessment_commands.get("build") or [])
         if not argv and runtime.check_cmd:
             raise ValueError("per-file check runtimes need a declared assessment build command")
     elif command_ref == "run":
