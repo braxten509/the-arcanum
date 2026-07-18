@@ -52,6 +52,13 @@ def check_sealed_map_work_order_boundary(section_factory):
     lesson = authored["lessons"][0]
     _findings.clear()
     _check_lesson(authored, lesson, "sealed-map", set(), work_orders_only=True)
+    assert not [item for item in _findings if item[0] == "ERROR"], _findings
+
+    replay_leak = copy.deepcopy(lesson)
+    replay_leak["artifactSteps"] = [copy.deepcopy(
+        authored["freestyle"]["referenceSteps"][0])]
+    _findings.clear()
+    _check_lesson(authored, replay_leak, "sealed-map", set(), work_orders_only=True)
     assert any(level == "ERROR" and "mode 'author'" in message
                for level, _label, message in _findings), _findings
 

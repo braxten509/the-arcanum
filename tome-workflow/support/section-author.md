@@ -17,14 +17,15 @@ be completely taught by this or an earlier lesson.
 Obey the sealed language-neutral mechanism ledger. Copy each lesson node's `introduces` exactly
 to its `[[lessons]]` table and give every introduced mechanism its own complete
 `[[lessons.concepts]]` evidence plus guided exercise. Copy the Working node's `mechanisms`
-exactly to `[freestyle]`. Add `mechanisms = []`, even when empty, to every exercise, visible
-artifact step, hidden reference step, rubric row, and `[proof]`; list every concrete mechanism
-that demand requires. Every introduced mechanism must appear in its named guided-practice
-exercise's `mechanisms` and in at least one visible artifact step; a concept may not point at an
+exactly to `[freestyle]`. Add `mechanisms = []`, even when empty, to every exercise, hidden
+reference step, rubric row, and `[proof]`, plus any exceptional visible artifact step; list every
+concrete mechanism that demand requires. Every introduced mechanism must appear in its named
+guided-practice exercise's `mechanisms` and in the chapter Working's declared mechanisms, where a
+rubric, proof action, or hidden replay step demonstrates real demand. A concept may not point at an
 exercise that omits the mechanism it claims to practice, and a typing drill cannot be its only
-guided practice. Declarations never substitute for
-teaching. The deterministic gate checks known IDs, ownership order, practice/work-order coverage,
-and map/file alignment; a separate cached prerequisite audit examines
+guided practice. Declarations never substitute for teaching. The deterministic gate checks known
+IDs, ownership order, guided-practice coverage, Working-demand coverage, and map/file alignment; a
+separate cached prerequisite audit examines
 the actual prose, code, commands, checklist, rubric, proof, and replay for omissions. If that audit
 discovers a real undeclared mechanism, only the harness may add it through the audited map-
 amendment path, after which this section must teach and declare it before validation can pass.
@@ -61,17 +62,17 @@ Preserve cumulative artifact truth and make it machine-replayable:
 - At every transition, explicitly remove, replace, isolate, or intentionally ship temporary
   prompts, fixtures, demo mutations, debug output, mock data, and placeholder assets recorded
   in the Arc or earlier handoffs.
-- Give every teaching lesson its required visible `artifactSteps` as non-solution project work
-  orders, give Workings complete hidden `referenceSteps`, and give sections `[proof]`. Use
-  `mode = "author"` for the normal work order: it names the learner-owned path and observable
-  checks but applies no starter content during replay. Visible steps
-  state the file/path, required behavior, constraints, commands, diagnostics, and observable
-  checks; they never contain production-ready project content, exact implementation patches,
-  filled records, answer-bearing tests, or decisive integration. The hidden referenceSteps
-  reconstruct what the learner must author. Run the active-contract report: validation replays
-  from the real scaffold and reruns every active proof. Prose proves nothing. Proofs ship by
-  default; `supersedes` requires a genuine migration and `protects` covering inherited
-  capabilities.
+- Give every chapter Working a complete learner-visible brief, complete hidden `referenceSteps`,
+  and a section `[proof]`. The Working is the normal project work order: it states the outcome,
+  requirements, constraints, commands, diagnostics, observable checks, and which design decisions
+  remain the learner's. Do not repeat it beneath every teaching lesson. Omit lesson
+  `artifactSteps` normally; use an exceptional `mode = "author"` step only when a real intermediate
+  prerequisite must occur before the Working. Such a step names the path and observable check but
+  contains no production-ready project content, patch, filled record, answer-bearing test, decisive
+  integration, or restatement of the Working. Hidden referenceSteps reconstruct what the learner
+  authors in the Working. Run the active-contract report: validation replays from the real scaffold
+  and reruns every active proof. Prose proves nothing. Proofs ship by default; `supersedes` requires
+  a genuine migration and `protects` covering inherited capabilities.
 - Trace the actual program from its first executable step after the freestyle. A learner must
   not need to infer a deletion, insertion point, asset, value, working directory, or API.
 

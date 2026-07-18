@@ -8,18 +8,24 @@ ids, reviewer confidence, and files merely existing are never substitutes for th
 
 The validator starts from the selected runtime's real scaffold. Learner-facing seed content is
 limited to a blank editor file or unavoidable behavior-free tool metadata; it contains no project
-structure, behavior, decisions, data, tests, or assets. In Arc order it
-reads every lesson's learner-visible `artifactSteps`, applies only any explicitly replayable
-non-solution edits, then applies that section's hidden freestyle `referenceSteps`. After each
-section it reruns that milestone **and every still-active earlier milestone** against the new
-project state. The resulting project continues into the next section. A later chapter cannot
-erase a working earlier feature merely because its own local receipt still prints.
+structure, behavior, decisions, data, tests, or assets. In Arc order it applies any exceptional
+lesson-level prerequisite steps, then applies that section Working's hidden `referenceSteps`.
+After each section it reruns that milestone **and every still-active earlier milestone** against
+the new project state. The resulting project continues into the next section. A later chapter
+cannot erase a working earlier feature merely because its own local receipt still prints.
 Consequently:
 
-- Use `mode = "author"` for the normal lesson project step. It names the path, gives a precise
-  learner work order, and lists one or more `checks`, but contains no `content`, `find`, or
-  `preserves`. Replay deliberately makes no edit for this mode; the section's hidden
-  `referenceSteps` reconstruct what the learner must author.
+- The section's `[freestyle]` Working is the normal learner-visible project assignment. Its brief,
+  checklist, rubric, and xray define the outcome, constraints, commands, diagnostics, observable
+  acceptance, and a meaningful space for the learner to choose architecture, names, and file
+  organization. Hidden `referenceSteps` reconstruct one valid implementation for replay without
+  defining the learner's design.
+- Omit lesson `artifactSteps` normally. Lessons teach and assess mechanisms with disposable
+  examples; they do not repeatedly assign slices of the chapter project before the Working.
+- Use an exceptional lesson `mode = "author"` step only when a genuinely necessary intermediate
+  prerequisite must happen before the Working. It names the path and one or more observable
+  `checks`, contains no `content`, `find`, or `preserves`, and must not restate the Working. Replay
+  deliberately makes no edit for this mode.
 - `write` creates a path that does not exist, including in the runtime scaffold. Reusing
   `write` for an existing path is a hard error.
 - Prefer `replace` with `find` text that occurs exactly once. An unavoidable complete-file
@@ -36,25 +42,25 @@ Consequently:
 - No shell command is part of the proof schema. Commands shown to a learner use a code block
   with `data-kind="terminal"`; execution remains owned by the selected runtime.
 
-Normal learner-authored lesson work order:
+Rare learner-visible intermediate prerequisite:
 
 ```toml
 [[lessons.artifactSteps]]
-id = "s02-add-player-state"
+id = "s02-confirm-project-layout"
 path = "game/player.py"
 mode = "author"
-instruction = "From the project root, author game/player.py so movement obeys the taught state and timing contracts. Do not copy the disposable lesson example."
+instruction = "Before the Working, locate the learner-owned player module and confirm the chapter's movement seam has one named insertion point. Do not implement movement yet."
 checks = [
-  "The focused movement check passes for both cardinal and diagonal input.",
-  "The ordinary launch moves the player at the same speed across different frame times.",
+  "The saved module has one documented insertion point and the unchanged earlier build still passes.",
 ]
 ```
 
-These work orders are rendered beneath the lesson body. They are not hidden validator metadata.
-Every canonical source/configuration/data/test/map/documentation/delivery answer belongs in the
-Working's hidden `referenceSteps`, which are stripped from the learner payload. Use the older edit
-modes in visible lesson steps only for genuinely non-solution setup; never use their `content` to
-give away part of the promised artifact.
+When present, these exceptional steps render beneath the lesson body. A normal lesson has none.
+Every ordinary project requirement belongs in the Working brief, and every canonical
+source/configuration/data/test/map/documentation/delivery answer belongs in the Working's hidden
+`referenceSteps`, which are stripped from the learner payload. Use the older edit modes in visible
+lesson steps only for genuinely non-solution setup; never use their `content` to give away part of
+the promised artifact.
 All HTML lesson code blocks must classify their promise as
 `data-kind="runnable|replacement|patch|pseudocode|terminal"`. Pseudocode may explain an idea,
 but acceptance-critical behavior must live in replayed source or a deterministic procedure.

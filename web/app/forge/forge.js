@@ -143,7 +143,7 @@ function showForgeModal(resume) {
   priorLevel.oninput = () => {
     basePriorInput();
     const [title, summary] = PRIOR_KNOWLEDGE_LEVELS[Number(priorLevel.value)];
-    priorSummary.innerHTML = `<b>${esc(title)}</b><span>${esc(summary)}</span><small>Entrance pacing changes; Language Mastery still owns the exit skills and final evidence.</small>`;
+    priorSummary.innerHTML = `<b>${esc(title)}</b><span>${esc(summary)}</span>`;
   };
   const baseScopeInput = scope.oninput;
   scope.oninput = () => {

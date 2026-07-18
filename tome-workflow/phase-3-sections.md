@@ -8,11 +8,14 @@ Never test material that this or an earlier lesson has not taught.
 The learner authors every part of that evolving project. Lesson bodies and exercises may use
 small disposable worked examples, but they may not provide canonical source, configuration,
 data, tests, maps, documentation, delivery files, production-ready stubs, ready-to-paste
-patches, or rename-equivalent solutions. Visible `artifactSteps` use `mode = "author"` as work
-orders containing paths, requirements, constraints, commands, diagnostics, and observable checks—not answer
-delivery. Put the complete project edits only in the section's hidden `referenceSteps`, and make
-the Working require the learner to produce them. Apply this in every section, including s01;
-scaffold fading changes task size and hint detail, never who writes the real artifact.
+patches, or rename-equivalent solutions. The section's learner-visible Working owns the ordinary
+cumulative project assignment: give it a concrete outcome, requirements, constraints, commands,
+diagnostics, observable acceptance, and meaningful implementation choices. Do not repeat that
+assignment beneath every lesson. Omit lesson `artifactSteps` normally; use one only for a genuinely
+necessary intermediate prerequisite that must occur before the Working, with `mode = "author"` and
+no answer content. Put one complete implementation of the Working only in the section's hidden
+`referenceSteps`. Apply this in every section, including s01; scaffold fading changes task size and
+hint detail, never who writes the real artifact.
 
 The harness gives each section a fresh author session after the preceding section validates.
 Stay in that session for the assigned section and all of its repair turns; do not begin the next

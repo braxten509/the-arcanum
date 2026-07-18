@@ -166,7 +166,7 @@ def learner_project_path(repo, tid):
 
 
 def step_lists(section):
-    """Yield visible lesson steps then the hidden capstone reference steps."""
+    """Yield any exceptional lesson steps, then the hidden Working reference steps."""
     for lesson in section.get("lessons") or []:
         if isinstance(lesson, dict):
             yield str(lesson.get("id") or "lesson"), lesson.get("artifactSteps") or []

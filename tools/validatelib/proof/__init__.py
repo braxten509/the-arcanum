@@ -110,8 +110,6 @@ def _check_lesson(section, lesson, where, step_ids, work_orders_only=False):
         err(where, f"{lid}: concept evidence has ids not declared by teaches: {sorted(extras)}")
 
     steps = lesson.get("artifactSteps") or []
-    if taught_ids and not steps:
-        err(where, f"{lid}: a teaching lesson needs visible artifactSteps in the evolving project")
     for step in steps:
         if (work_orders_only and isinstance(step, dict)
                 and step.get("mode") != "author"):
@@ -127,8 +125,9 @@ def _check_lesson(section, lesson, where, step_ids, work_orders_only=False):
         if kind not in CODE_KINDS:
             err(where, f"{lid}: code block {number} needs data-kind="
                        f"{'|'.join(sorted(CODE_KINDS))}")
-    if taught_ids and not blocks and not steps:
-        err(where, f"{lid}: teaches capabilities without code/procedure evidence")
+    # Structured concept evidence and its named graded practice own the teaching proof. Some
+    # design, diagnosis, and tool-procedure lessons legitimately need no code block, and an
+    # optional project work order must never be used as a substitute for teaching evidence.
 
 
 def _asset_sources(section, lesson_ids, where, urls):

@@ -268,7 +268,7 @@ expect = "TODO: exact deterministic milestone output"
 
 [freestyle]
 title = "THE WORKING: TODO"
-brief = "TODO: the in-world commission.<ul><li>TODO requirement one (state exact output/tokens)</li><li>TODO requirement two</li></ul>"
+brief = "TODO: the complete learner-visible chapter project assignment. State the outcome, flexible implementation choices, constraints, commands, diagnostics, and observable acceptance here.<ul><li>TODO requirement one</li><li>TODO requirement two</li></ul>"
 requires = ["replace-me"]           # TODO: exact ids taught by this/earlier lessons
 reward = 150
 xray = "TODO: the grader's private notes — the specific pitfalls it docks and the style it rewards, truthful to the rubric below."
@@ -322,13 +322,6 @@ example = "TODO: point to the complete worked example in this lesson."
 observable = "TODO: what the learner sees when the example works."
 failure = "TODO: one likely failure and how to recognize it."
 practice = "@@SID@@-l01-e1"
-
-[[lessons.artifactSteps]]           # visible work order; never reveal canonical implementation
-id = "@@SID@@-l01-project-step"
-path = "replace-me.txt"
-mode = "author"                    # learner authors this path; hidden referenceSteps replay it
-instruction = "TODO: exact path, behavior, constraints, commands, and diagnostics—no solution."
-checks = ["TODO: specific observable result the learner can run or inspect."]
 
 [[lessons.readings]]               # optional: 1-2 high-quality official docs
 label = "TODO: official docs"

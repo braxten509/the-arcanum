@@ -190,7 +190,8 @@ sources = [{ label = "Asset library", url = "https://example.com/assets", licens
         loaded = tome_layout.load_section(root, "s01")
         assert loaded["proof"]["mode"] == "run"
         assert loaded["assets"][0]["destination"] == "assets/player.png"
-        assert loaded["lessons"][0]["concepts"] and loaded["lessons"][0]["artifactSteps"]
+        assert loaded["lessons"][0]["concepts"]
+        assert not loaded["lessons"][0].get("artifactSteps")
         assert loaded["freestyle"]["referenceSteps"]
 
 
@@ -214,15 +215,12 @@ if "--arcanum-acceptance" in sys.argv:
 elif "--arcanum-proof" in sys.argv and "s02" in sys.argv:
     print("second")
 '''
-    lesson["artifactSteps"] = [{"id": "s02-main", "path": "main.py", "mode": "rewrite",
-                                "preserves": "all-active",
-                                "instruction": "Replace the current project with the second milestone implementation.",
-                                "content": bad_source}]
     second["freestyle"]["requires"] = ["second-result"]
     second["freestyle"]["referenceSteps"] = [{
-        "id": "s02-reference", "path": "main.py", "mode": "append",
-        "instruction": "Append one final newline after verifying the second milestone behavior.",
-        "content": "\n"}]
+        "id": "s02-reference", "path": "main.py", "mode": "rewrite",
+        "preserves": "all-active",
+        "instruction": "Privately reconstruct the complete second milestone implementation.",
+        "content": bad_source}]
     scoped = manifest()
     scoped["content"]["sections"] = ["s01", "s02"]
     return scoped, [first, second]
@@ -237,8 +235,8 @@ def check_cumulative_regression_contract():
                for _level, _label, message in _findings), _findings
 
     overwrite = copy.deepcopy(sections)
-    overwrite[1]["lessons"][0]["artifactSteps"][0]["mode"] = "write"
-    overwrite[1]["lessons"][0]["artifactSteps"][0].pop("preserves")
+    overwrite[1]["freestyle"]["referenceSteps"][0]["mode"] = "write"
+    overwrite[1]["freestyle"]["referenceSteps"][0].pop("preserves")
     _findings.clear()
     with tempfile.TemporaryDirectory() as root:
         check_future_tome_proof(root, scoped, overwrite, run=True)
@@ -246,7 +244,7 @@ def check_cumulative_regression_contract():
                for _level, _label, message in _findings), _findings
 
     missing_declaration = copy.deepcopy(sections[1])
-    missing_declaration["lessons"][0]["artifactSteps"][0].pop("preserves")
+    missing_declaration["freestyle"]["referenceSteps"][0].pop("preserves")
     assert_error(missing_declaration, "must declare preserves = 'all-active'")
 
     dropped = copy.deepcopy(sections)
@@ -261,12 +259,10 @@ def check_cumulative_regression_contract():
 
 def check_acceptance_scenario_gate():
     bad = section()
-    for _owner, steps in (("lesson", bad["lessons"][0]["artifactSteps"]),
-                          ("freestyle", bad["freestyle"]["referenceSteps"])):
-        for step in steps:
-            step["content"] = step["content"].replace(', "finished-result": finished', "")
-            if "find" in step:
-                step["find"] = step["find"].replace(', "finished-result": finished', "")
+    for step in bad["freestyle"]["referenceSteps"]:
+        step["content"] = step["content"].replace(', "finished-result": finished', "")
+        if "find" in step:
+            step["find"] = step["find"].replace(', "finished-result": finished', "")
     replay = findings_for(bad, run=True)
     assert any("acceptance scenarios must exactly report every planned id as a boolean" in message
                for _level, _label, message in replay), replay
@@ -331,7 +327,8 @@ def main():
     assert not [finding for finding in clean if finding[0] == "ERROR"], clean
     public = public_section(section())
     assert "referenceSteps" not in public["freestyle"]
-    assert public["lessons"][0]["artifactSteps"], "learner-visible project steps were stripped"
+    assert not public["lessons"][0].get("artifactSteps"), (
+        "ordinary lessons should leave project construction to the chapter Working")
 
     bad = section()
     bad["lessons"][0]["concepts"] = []
@@ -354,15 +351,15 @@ def main():
     assert not [f for f in findings_for(sourced) if f[0] == "ERROR"]
 
     bad = section()
-    bad["lessons"][0]["artifactSteps"][0]["path"] = "assets/generated.png"
+    bad["freestyle"]["referenceSteps"][0]["path"] = "assets/generated.png"
     assert_error(bad, "AI-authored media is forbidden")
 
     bad = section()
-    bad["lessons"][0]["artifactSteps"][0]["content"] += "\nfrom PIL import Image\nImage.new('RGB', (8, 8))\n"
+    bad["freestyle"]["referenceSteps"][0]["content"] += "\nfrom PIL import Image\nImage.new('RGB', (8, 8))\n"
     assert_error(bad, "synthesizes or embeds media")
 
     bad = section()
-    bad["lessons"][0]["artifactSteps"][0]["content"] += (
+    bad["freestyle"]["referenceSteps"][0]["content"] += (
         "\nimport pygame\npygame.mixer.Sound(buffer=b'generated sound')\n")
     assert_error(bad, "synthesizes or embeds media")
 

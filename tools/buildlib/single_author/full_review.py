@@ -57,7 +57,7 @@ harness evidence. Do not spawn another reviewer. The harness will independently 
 shipping validation and live smoke checks after you stop.
 
 NON-NEGOTIABLE LEARNER CONSTRUCTION: {LEARNER_CONSTRUCTION_INSTRUCTION} Compare every visible
-starter, code block, exercise solution, and artifactStep against the hidden reference project;
+starter, code block, exercise solution, and any exceptional artifactStep against the hidden reference project;
 production-ready overlap or a rename-equivalent solution is a blocking finding in every section,
 not only in the final language-mastery performances. Treat the project as the cumulative
 practice/proof vehicle; do not accept working project behavior as a substitute for fluency in

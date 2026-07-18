@@ -260,8 +260,9 @@ verification mechanisms to distinct capabilities; it never substitutes framework
 Finish 3–5, routine failure handling cannot be scoped out and the late graded performances must
 exercise every mapped foundation. The learner creates or assembles
 every canonical project artifact
-from the first section onward. Fade support across the whole course by shrinking work orders, increasing
-hint distance, and broadening specifications—not by first supplying production code and later
+from the first section onward. Fade support across the whole course by making early Workings
+smaller and more explicit, increasing hint distance, and broadening later specifications—not by
+first supplying production code and later
 withholding it. Complete worked examples must be small and disposable, with different
 identifiers, values, and problem shapes from the real project. The validator's hidden reference
 solution and reconstructed final project prove that the task is solvable; only the student's
@@ -271,12 +272,15 @@ Every section's Working must apply its sealed `languagePractice` capabilities so
 does not stop after introductory snippets. At Finish 3, use at least two late graded language
 transfer performances across the course, including the final Working. They must require a novel
 extension, integration, or diagnosis rather than mechanical copying, renaming, or constant
-changes, and at least one must grade a recorded rationale for a taught language choice. Learner-visible
-`artifactSteps` are implementation-free work orders: they may state paths, requirements,
-constraints, commands, diagnostics, and observable checks, but may not provide canonical
-prerequisites, interfaces, fixtures, tests, filled data, or code. Every complete project answer
-belongs only in hidden `referenceSteps`. Finish 4–5 broadens and complicates the learner-owned
-work; Finish 1–2 uses smaller tasks and more explicit checks without giving away artifact content.
+changes, and at least one must grade a recorded rationale for a taught language choice. Each
+chapter Working is the learner-visible project work order and must preserve meaningful
+implementation choices while stating requirements, constraints, commands, diagnostics, and
+observable checks. Do not repeat that work order beneath every lesson. Omit lesson
+`artifactSteps` unless a genuinely necessary intermediate prerequisite must occur before the
+Working; even then it may not provide canonical interfaces, fixtures, tests, filled data, or code.
+Every complete project answer belongs only in hidden `referenceSteps`. Finish 4–5 broadens and
+complicates the learner-owned work; Finish 1–2 uses smaller Workings and more explicit checks
+without giving away artifact content.
 
 - **Interleave — don't only test the concept a lesson just taught.** The weakest
   habit of an AI author is a course where every exercise quizzes the current lesson
@@ -416,8 +420,8 @@ the section count to that arc (§2, `[content]`), not to a target number.
 
 **The Working is where the project is constructed, not where lesson code is recopied.** Apply this
 to every section, not only late mastery sections. Compare its checklist with all learner-visible
-code, exercise solutions, starters, and artifact steps. If those surfaces already implement any
-canonical project requirement—or a version needing only renamed identifiers or changed
+code, exercise solutions, starters, and any exceptional artifact steps. If those surfaces already
+implement any canonical project requirement—or a version needing only renamed identifiers or changed
 constants—the learner did not author that part of the artifact. Keep the hidden `referenceSteps`
 complete so the harness can prove the task, while the learner receives requirements, constraints,
 diagnostics, and observable acceptance checks.

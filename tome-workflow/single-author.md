@@ -11,9 +11,11 @@ Across every phase, preserve learner ownership of the promised artifact. The lea
 assembles all canonical project structure, source, configuration, data, tests, maps,
 documentation, asset selection and placement, packaging, and delivery files. Seed only a blank
 editor file or unavoidable behavior-free tool metadata—never project material.
-Lessons teach with disposable examples and implementation-free `mode = "author"` work orders;
-complete project solutions exist only in hidden `referenceSteps`. Beginner support changes the
-size and clarity of the assignment, never who writes the real project.
+Lessons teach with disposable examples; each section's learner-visible Working owns the ordinary
+cumulative project assignment, and complete project solutions exist only in hidden
+`referenceSteps`. Omit lesson `artifactSteps` unless a genuinely necessary intermediate
+prerequisite must occur before the Working. Beginner support changes the size and clarity of the
+Working, never who writes the real project.
 
 Use the stable build id from your opening prompt for every `report_tome_progress.py` call.
 After Phase 2, `author_phase_transition.py` may rename the tome; use the printed

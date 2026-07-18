@@ -33,7 +33,7 @@ assert.match(priorLevelMatch[1], /4: \["TRANSFER LEARNER", "General programming 
 assert.match(priorLevelMatch[1], /10: \["EXPERT", "Only relevant non-obvious/);
 assert.match(setup, /id="fg-prior-level"[^>]*aria-describedby="fg-prior-level-summary"/);
 assert.match(setup, /id="fg-prior-level-summary" aria-live="polite" aria-atomic="true"/);
-assert.match(setup, /Entrance pacing changes; Language Mastery still owns the exit skills and final evidence/);
+assert.doesNotMatch(setup, /Entrance pacing changes; Language Mastery still owns the exit skills and final evidence/);
 assert.match(setup, /aria-label="Author agent CLI"/);
 assert.match(setup, /aria-label="Author model"/);
 assert.match(setup, /aria-label="Author effort"/);

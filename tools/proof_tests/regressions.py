@@ -10,7 +10,7 @@ def check_clean_package_gate(section, manifest, findings_for):
     packaged["proof"] = {"mode": "package", "expectedFiles": ["main.py", "requirements.txt"],
                          "requirementsFile": "requirements.txt",
                          "packageArgs": ["fixture-build"], "artifactPath": "dist/proof-app"}
-    packaged["lessons"][0]["artifactSteps"].append({
+    packaged["freestyle"]["referenceSteps"].append({
         "id": "s01-requirements", "path": "requirements.txt", "mode": "write",
         "instruction": "Create the exact dependency manifest used by the clean package proof.",
         "content": "fixture-dependency==1\n"})

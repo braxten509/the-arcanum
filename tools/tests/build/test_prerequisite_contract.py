@@ -43,8 +43,7 @@ assert any("owner must name" in item or "match" in item for item in
 
 actual = {
     "lessons": [{"id": "s01-l01", "introduces": ["function-definition"],
-                 "exercises": [{"mechanisms": ["function-definition"]}],
-                 "artifactSteps": [{"mechanisms": ["function-definition"]}]}],
+                 "exercises": [{"mechanisms": ["function-definition"]}]}],
     "freestyle": {"mechanisms": ["function-definition"],
                   "rubric": [{"mechanisms": ["function-definition"]}],
                   "referenceSteps": [{"mechanisms": ["function-definition"]}]},
@@ -55,10 +54,14 @@ missing_guided = json.loads(json.dumps(actual))
 missing_guided["lessons"][0]["exercises"][0]["mechanisms"] = []
 assert any("lack guided exercise demand" in item for item in
            authored_problems(course, missing_guided, "s01"))
-missing_visible = json.loads(json.dumps(actual))
-missing_visible["lessons"][0]["artifactSteps"][0]["mechanisms"] = []
-assert any("lack visible work-order demand" in item for item in
-           authored_problems(course, missing_visible, "s01"))
+missing_working_course = json.loads(json.dumps(course))
+missing_working_course["sections"][0]["nodes"][1]["mechanisms"] = []
+missing_working = json.loads(json.dumps(actual))
+missing_working["freestyle"]["mechanisms"] = []
+missing_working["freestyle"]["rubric"][0]["mechanisms"] = []
+missing_working["freestyle"]["referenceSteps"][0]["mechanisms"] = []
+assert any("absent from the chapter Working demand" in item for item in
+           authored_problems(missing_working_course, missing_working, "s01"))
 typing_only = json.loads(json.dumps(actual))
 typing_only["lessons"][0]["exercises"][0].update({"id": "s01-l01-d1", "type": "type"})
 typing_only["lessons"][0]["concepts"] = [
@@ -77,8 +80,8 @@ undeclared_delete["freestyle"]["referenceSteps"][0].update({
 assert any("mode='delete' must declare an introduced file-deletion" in item for item in
            authored_problems(course, undeclared_delete, "s01"))
 undeclared_lesson_delete = json.loads(json.dumps(actual))
-undeclared_lesson_delete["lessons"][0]["artifactSteps"][0].update({
-    "mode": "delete", "mechanisms": ["function-definition"]})
+undeclared_lesson_delete["lessons"][0]["artifactSteps"] = [{
+    "mode": "delete", "mechanisms": ["function-definition"]}]
 assert any("s01.l01.artifactSteps[0] mode='delete'" in item for item in
            authored_problems(course, undeclared_lesson_delete, "s01"))
 
@@ -92,10 +95,10 @@ declared_delete = json.loads(json.dumps(actual))
 declared_delete["lessons"][0]["introduces"].append("terminal-delete-file")
 declared_delete["lessons"][0]["exercises"][0]["mechanisms"].append(
     "terminal-delete-file")
-declared_delete["lessons"][0]["artifactSteps"][0].update({
+declared_delete["lessons"][0]["artifactSteps"] = [{
     "mode": "delete",
     "mechanisms": ["function-definition", "terminal-delete-file"],
-})
+}]
 declared_delete["freestyle"]["mechanisms"].append("terminal-delete-file")
 declared_delete["freestyle"]["referenceSteps"][0].update({
     "mode": "delete",

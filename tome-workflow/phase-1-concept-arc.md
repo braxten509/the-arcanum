@@ -81,7 +81,8 @@ language taught and learner-authored; Mastery 2 is project-first with deliberate
 breadth; Mastery 3–5 is language-first, with the project as integration and proof. At those higher
 levels, project behavior is not a substitute for language fluency. Follow the plan's exact
 `Entry/exit separation`, `Learner-construction rule`, `Worked-example boundary`,
-`Visible-step boundary`, `Language-through-project rule`, `Scaffold-fading rule`, and numbered
+`Working-project boundary`, `Exceptional-step boundary`, `Language-through-project rule`,
+`Scaffold-fading rule`, and numbered
 `Mastery evidence` lines.
 Every section's Working—not its lessons—owns the real canonical project changes. Plan lessons
 that teach mechanisms through disposable examples with different identifiers, values, and

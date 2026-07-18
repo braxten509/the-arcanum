@@ -195,7 +195,7 @@ def authored_problems(course, actual, sid):
                        if node.get("kind") == "lesson"]
     actual_lessons = [lesson for lesson in actual.get("lessons") or []
                       if isinstance(lesson, dict)]
-    problems = []
+    problems, introduced_by_lesson = [], {}
     for node, lesson in zip(planned_lessons, actual_lessons):
         introduced = lesson.get("introduces")
         if list(introduced or []) != list(node.get("introduces") or []):
@@ -213,11 +213,9 @@ def authored_problems(course, actual, sid):
             unknown = set(used) - allowed_at_lesson
             if unknown:
                 problems.append(f"{node['id']}.exercises[{index}] uses unintroduced mechanisms {sorted(unknown)}")
-        step_union = set()
         for index, step in enumerate(lesson.get("artifactSteps") or []):
             where = f"{node['id']}.artifactSteps[{index}]"
             used = _ids(step, where, problems)
-            step_union.update(used)
             unknown = set(used) - allowed_at_lesson
             if unknown:
                 problems.append(f"{node['id']}.artifactSteps[{index}] uses unintroduced mechanisms {sorted(unknown)}")
@@ -226,12 +224,10 @@ def authored_problems(course, actual, sid):
             if delete_problem:
                 problems.append(delete_problem)
         introduced_set = set(node.get("introduces") or [])
+        introduced_by_lesson[node["id"]] = introduced_set
         if introduced_set - exercise_union:
             problems.append(f"{node['id']} introduced mechanisms lack guided exercise demand: "
                             f"{sorted(introduced_set - exercise_union)}")
-        if introduced_set - step_union:
-            problems.append(f"{node['id']} introduced mechanisms lack visible work-order demand: "
-                            f"{sorted(introduced_set - step_union)}")
         for concept in lesson.get("concepts") or []:
             if not isinstance(concept, dict):
                 continue
@@ -253,6 +249,11 @@ def authored_problems(course, actual, sid):
                        if positions.get(record.get("owner"), (999, 999))
                        <= positions.get(working.get("id"), (-1, -1))}
     declared_set, demand_union = set(declared), set()
+    for lesson_id, introduced_set in introduced_by_lesson.items():
+        missing = introduced_set - declared_set
+        if missing:
+            problems.append(f"{lesson_id} introduced mechanisms are absent from the chapter "
+                            f"Working demand: {sorted(missing)}")
     for index, rubric in enumerate(freestyle.get("rubric") or []):
         used = _ids(rubric, f"{sid}.working.rubric[{index}]", problems)
         demand_union.update(used)

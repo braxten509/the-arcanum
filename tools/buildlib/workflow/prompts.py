@@ -97,11 +97,14 @@ LEARNER_CONSTRUCTION_INSTRUCTION = (
     "placement, packaging, and delivery. Seed only a blank editor file or unavoidable behavior-free "
     "tool metadata—never project material. Do not give them any starter implementation, "
     "production-ready stub, ready-to-paste file or patch, filled record, answer-bearing test, or "
-    "decisive integration. Learner-visible lessons may teach with small disposable examples that "
-    "use different identifiers, values, and problem shapes, and may state paths, requirements, "
-    "constraints, commands, diagnostics, and observable checks. Treat visible artifactSteps as "
-    "work orders, never answer delivery; complete replayable non-media solutions belong only in "
-    "hidden referenceSteps, while media remains learner-sourced rather than bundled."
+    "decisive integration. Make each section's learner-visible Working the canonical project "
+    "assignment: state its outcome, flexible implementation choices, constraints, commands, "
+    "diagnostics, and observable acceptance there. Lessons teach with small disposable examples "
+    "that use different identifiers, values, and problem shapes; do not repeat the chapter Working "
+    "beneath every lesson. Omit lesson artifactSteps normally. Use one only for a genuinely necessary "
+    "intermediate prerequisite that must happen before the Working, and keep it a work order rather "
+    "than answer delivery. Complete replayable non-media solutions belong only in hidden "
+    "referenceSteps, while media remains learner-sourced rather than bundled."
 )
 
 
@@ -118,11 +121,16 @@ def learner_construction_contract():
         "examples whose identifiers, values, and problem shape differ from the canonical project. "
         "Examples explain a mechanism; they are not pieces the learner can copy or lightly rename "
         "into the promised artifact.",
-        "- **Visible-step boundary:** Learner-visible artifactSteps state exact paths, goals, "
-        "constraints, commands, diagnostics, and observable checks as work orders, but never reveal "
-        "content that satisfies a canonical project requirement. Put the complete replayable "
-        "non-media answer only in hidden referenceSteps; media remains learner-sourced rather than "
-        "bundled.",
+        "- **Working-project boundary:** Each section's learner-visible Working is the ordinary "
+        "cumulative project assignment. It states the outcome, required behavior, constraints, "
+        "commands, diagnostics, observable acceptance, and a meaningful surface for learner design "
+        "choices. Put the complete replayable non-media answer only in hidden referenceSteps; media "
+        "remains learner-sourced rather than bundled.",
+        "- **Exceptional-step boundary:** Omit lesson artifactSteps normally; lessons teach and "
+        "practice with disposable examples instead of repeatedly assigning the chapter project. Add "
+        "an artifactStep only when a genuinely necessary intermediate prerequisite must occur before "
+        "the Working. It may state a path and observable checks but never reveal canonical project "
+        "content or duplicate the Working.",
     )
 
 

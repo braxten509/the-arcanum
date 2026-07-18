@@ -66,7 +66,8 @@ def _selftest():
     assert "report_section_progress.py" in assignment
     assert "tools/validate_section.py tomes/sample s04" in assignment
     assert "--source-only" in assignment and "do not substitute ad-hoc" in assignment.lower()
-    assert "Treat visible artifactSteps as work orders, never answer delivery" in assignment
+    assert "Make each section's learner-visible Working the canonical project assignment" in assignment
+    assert "Omit lesson artifactSteps normally" in assignment
     continuation = continuation_prompt("sample")
     assert continuation == "Continue."
     assert _author("codex-cli:gpt-5.6-sol@high") == (
@@ -127,7 +128,7 @@ def _mastery_selftest():
             assert "structured abstraction, modularity" in contract
         assert "Language-through-project rule" in contract
         assert "The learner creates or assembles every canonical project structure" in contract
-        assert "never reveal content that satisfies a canonical project requirement" in contract
+        assert "Each section's learner-visible Working is the ordinary" in contract
         assert "never learner ownership of the canonical artifact" in contract
         rendered[level] = contract
     assert len(set(rendered.values())) == 5

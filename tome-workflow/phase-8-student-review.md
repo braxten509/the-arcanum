@@ -78,7 +78,7 @@ Audit these semantic contracts:
    late chapters, asset-generation shortcuts, or an unachievable `meta.description`. Media
    needs a licensed sourcing guide, exact placement, and a proof path that works without it.
 8. **Learner construction.** Compare every learner-visible code block, exercise solution,
-   starter, and `artifactStep` with the reconstructed canonical project and hidden
+   starter, and any exceptional `artifactStep` with the reconstructed canonical project and hidden
    `referenceSteps`. Fail the course if any visible material supplies production-ready project
    structure/source/configuration/data/tests/maps/docs/asset placement/packaging/delivery, a
    ready-to-paste patch, a filled record, an answer-bearing test, or a rename-equivalent

@@ -58,9 +58,9 @@ def prerequisite_prompt(packet, sid, sources, prior, start):
         }],
     }, separators=(",", ":"))
     return f"""Audit first-use prerequisite completeness for one beginner course section. This is
-a language-agnostic audit, not a broad quality review. Inspect every learner-visible demand:
-lesson exercises, artifact steps, Working brief, rubrics, proof command, and the hidden reference
-solution as evidence of what the Working actually requires. For every required keyword, syntax
+    a language-agnostic audit, not a broad quality review. Inspect every learner-visible demand:
+lesson exercises, the Working brief and rubrics, proof command, hidden reference solution, and any
+exceptional lesson artifact step. For every required keyword, syntax
 form, operator, API, tool action, or technical term outside the provided whitelist, verify that its
 sealed mechanism has an owner no later than first use and that the owner's lesson explains purpose,
 stepwise anatomy, a minimal worked example with observable output, one likely failure, and guided
