@@ -70,10 +70,14 @@ export function workingStatus(best, ready) {
   return workingPassed(best) ? String(best.grade || "B").toUpperCase() : "incomplete";
 }
 
-export function evidenceCounts(state) {
-  const records = Object.values((state && state.capabilityEvidence) || {});
+export function evidenceCounts(state, capabilityIds) {
+  const evidence = (state && state.capabilityEvidence) || {};
+  const ids = Array.isArray(capabilityIds)
+    ? [...new Set(capabilityIds.filter((id) => typeof id === "string" && id.length > 0))]
+    : Object.keys(evidence);
+  const records = ids.map((id) => evidence[id] || {});
   return {
-    total: records.length,
+    total: ids.length,
     demonstrated: records.filter((record) => record.independent).length,
     due: records.filter((record) => record.due).length,
     retained: records.filter((record) => record.retained).length,

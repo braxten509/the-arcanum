@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { applyAssessmentReceipt, migrateState, recordAttempt, recordSupport } from "../../../web/app/mastery/evidence.js";
-import { blockingReviewCount, deriveMasteryStatus, lessonResolved, workingPassed } from "../../../web/app/mastery/policy.js";
+import { blockingReviewCount, deriveMasteryStatus, evidenceCounts, lessonResolved, workingPassed } from "../../../web/app/mastery/policy.js";
 import { abandonVariant, assignVariant, syncVariantAssignment } from "../../../web/app/mastery/variants.js";
 import { cognitiveTasks, independentEvidenceEligible } from "../../../web/app/mastery/cognitive.js";
 
@@ -14,6 +14,15 @@ assert.equal(lessonResolved(tome.sections[0].lessons[0], state), true);
 assert.equal(migrateState(state, tome).v, 2, "migration is idempotent");
 
 const fresh = migrateState({ ex: {}, read: {} }, tome);
+assert.deepEqual(evidenceCounts(fresh, ["language-data", "language-control"]), {
+  total: 2, demonstrated: 0, due: 0, retained: 0,
+}, "the sealed capability contract supplies the fresh-ledger denominator");
+assert.deepEqual(evidenceCounts({ capabilityEvidence: {
+  "language-data": { independent: true, due: true },
+  stale: { independent: true, retained: true },
+} }, ["language-data", "language-control", "language-data"]), {
+  total: 2, demonstrated: 1, due: 1, retained: 0,
+}, "undeclared and duplicate capability records cannot distort contract counts");
 recordSupport(fresh, exercise, "hint");
 assert.equal(recordAttempt(fresh, exercise, { resolved: true }).independent, false);
 assert.equal(fresh.capabilityEvidence["language-data"].supported, true);

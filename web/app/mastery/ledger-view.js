@@ -13,7 +13,7 @@ export function labsForSection(tome, sectionId) {
 
 export function masteryPanelHtml(tome, sections, state) {
   if (!tome.masteryEvidence) return "";
-  const counts = evidenceCounts(state);
+  const counts = evidenceCounts(state, tome.masteryEvidence.capabilityIds);
   const resolutions = (sections || []).map((section) => sectionResolution(section, state));
   const resolved = resolutions.reduce((total, row) => total + row.resolved, 0);
   const required = resolutions.reduce((total, row) => total + row.required, 0);
