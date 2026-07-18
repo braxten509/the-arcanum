@@ -9,6 +9,7 @@ from arcanum_core.findings import Finding, Severity
 from buildlib.course_map import build_id_from_plan, map_path, proposal_path
 
 from .exercises import exercise_findings
+from .delivery import delivery_findings
 from .labs import lab_findings
 from .schema import manifest_findings
 from .variants import variant_findings
@@ -53,5 +54,6 @@ def validate_mastery_evidence(tome_root: str, manifest: dict, sections: list[dic
     if 1 <= level <= 5:
         findings += lab_findings(tome_root, level, course_map)
         if include_variants:
+            findings += delivery_findings(tome_root, manifest, course_map)
             findings += variant_findings(tome_root, os.path.join(tome_root, "save"), level)
     return findings

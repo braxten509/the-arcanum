@@ -51,9 +51,12 @@ def blueprint() -> dict:
     return {
         "version": 1, "id": "record-transform", "title": "{{domain}} {{shape}} transform",
         "brief": "Reconcile {{domain}} records delivered as {{shape}} input and emit the result.",
+        "difficulty": "introductory transfer", "starterBuildable": True,
         "axes": {"domain": ["harbor", "clinic", "archive"],
                  "shape": ["rows", "events"]},
-        "publicFiles": {"main.py": 'print("WRONG")\n'}, "hiddenFiles": {},
+        "publicFiles": {"main.py": 'print("WRONG")\n'},
+        "publicExamples": ["A valid run emits the declared domain and input shape."],
+        "hiddenFiles": {},
         "referenceFiles": {"main.py": 'print("READY {{domain}} {{shape}}")\n'},
         "mutations": {"omits-domain": {"main.py": 'print("READY {{shape}}")\n'},
                       "omits-shape": {"main.py": 'print("READY {{domain}}")\n'}},
@@ -110,7 +113,8 @@ newVariantOnRetry = true
     assert len(repository.verified_variants("transfer")) == 6
     package = repository.public_package("transfer", first.variant_ids[0])
     assert set(package) == {"version", "familyId", "variantId", "variantHash", "title",
-                            "brief", "requirements", "axes", "files"}
+                            "brief", "requirements", "publicExamples", "difficulty",
+                            "estimatedMinutes", "rationalePrompt", "aidPolicy", "axes", "files"}
     assert not any("hidden" in str(value) or "reference" in str(value)
                    for value in package.values())
 

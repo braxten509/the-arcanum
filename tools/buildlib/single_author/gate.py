@@ -22,6 +22,7 @@ from ..course.state import (derive_course_state, record_section_failure,
                            record_section_verification, refresh_course_verifications)
 from ..prerequisites.review import review_prerequisites
 from ..mechanism_contract import candidate_with_findings
+from ..mastery_evidence import export_mastery_contract
 from ..course.amend import amend_course_map
 from arcanum.tomes import resolve_working_tid
 from tools.validatelib.phase3 import tome_section_ids
@@ -246,6 +247,10 @@ def advance_unit(build_id, unit):
     _write_phase(build_id, phase, "complete")
     if phase == 8:
         return None
+    if phase == 2:
+        ctx = context(build_id)
+        export_mastery_contract(
+            load_course_map(build_id), os.path.join(REPO, "tomes", ctx["tid"]))
     _write_phase(build_id, phase + 1, "working")
     if phase + 1 == 3:
         sections = tome_section_ids(os.path.join(REPO, "tomes", context(build_id)["tid"]))

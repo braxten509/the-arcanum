@@ -26,6 +26,13 @@ class VariantGenerationError(ValueError):
     pass
 
 
+BLUEPRINT_KEYS = frozenset({
+    "version", "id", "title", "brief", "difficulty", "starterBuildable",
+    "axes", "publicFiles", "publicExamples", "hiddenFiles", "referenceFiles",
+    "mutations", "dependencies", "assessment",
+})
+
+
 class SemanticReviewer(Protocol):
     def review(self, candidate: dict) -> dict: ...
 
@@ -98,8 +105,14 @@ def _load_blueprints(family_root: str) -> list[dict]:
     for name in names:
         with open(os.path.join(root, name), encoding="utf-8") as handle:
             value = json.load(handle)
-        if value.get("version") != 1 or not value.get("id"):
-            raise VariantGenerationError(f"blueprint {name!r} has an invalid version/id")
+        if set(value) != BLUEPRINT_KEYS or value.get("version") != 1 or not value.get("id"):
+            raise VariantGenerationError(
+                f"blueprint {name!r} must use exactly the version-1 candidate schema")
+        if (not isinstance(value.get("starterBuildable"), bool)
+                or not str(value.get("difficulty") or "").strip()
+                or not isinstance(value.get("publicExamples"), list)):
+            raise VariantGenerationError(
+                f"blueprint {name!r} needs difficulty, starterBuildable, and publicExamples")
         blueprints.append(value)
     return blueprints
 
@@ -235,6 +248,13 @@ class VariantGenerator:
                 shutil.rmtree(verification_root, ignore_errors=True)
             if starter_result["passed"]:
                 raise VariantGenerationError("starter already passes the essential assessment")
+            starter_build = next((row for row in starter_result["scenarios"]
+                                  if row.get("id") and row.get("argv")
+                                  and row.get("id") in {scenario.id for scenario in contract.scenarios
+                                                       if scenario.kind == "build"}), None)
+            if rendered.get("starterBuildable") and (
+                    not starter_build or not starter_build.get("passed")):
+                raise VariantGenerationError("blueprint promises a buildable starter, but it does not build")
             if not reference_result["passed"]:
                 raise VariantGenerationError("reference solution fails its assessment")
             if not all(row["rejected"] for row in mutation_results):
@@ -242,6 +262,7 @@ class VariantGenerator:
             semantic_input = {
                 "familyId": family_id, "variantId": variant_id,
                 "title": rendered.get("title"), "brief": rendered.get("brief"),
+                "publicExamples": rendered.get("publicExamples") or [],
                 "requirements": rendered.get("assessment", {}).get("requirements") or [],
                 "capabilityIds": lab.get("capabilityIds") or [],
                 "cognitiveTasks": lab.get("cognitiveTasks") or [],
@@ -263,10 +284,24 @@ class VariantGenerator:
                 "version": 1, "familyId": family_id, "variantId": variant_id,
                 "blueprintId": blueprint["id"], "verified": True,
                 "title": rendered.get("title", ""), "brief": rendered.get("brief", ""),
+                "publicExamples": list(rendered.get("publicExamples") or []),
+                "difficulty": rendered.get("difficulty"),
+                "estimatedMinutes": lab.get("estimatedMinutes"),
+                "rationalePrompt": lab.get("rationalePrompt") or (
+                    "Explain the design, why it meets the requirements, and how you verified it."),
+                "aidPolicy": lab.get("aidPolicy"),
                 "requirements": rendered.get("assessment", {}).get("requirements") or [],
                 "capabilityIds": list(lab.get("capabilityIds") or []),
                 "cognitiveTasks": list(lab.get("cognitiveTasks") or []),
                 "axes": slots, "dependencies": list(rendered.get("dependencies") or []),
+                "structuralSignature": canonical_hash({
+                    "blueprintId": blueprint["id"],
+                    "publicExtensions": sorted({os.path.splitext(path)[1]
+                                                for path in rendered.get("publicFiles") or {}}),
+                    "scenarioKinds": [scenario.kind for scenario in contract.scenarios],
+                    "requirementCount": len(contract.requirements),
+                    "mutationCount": len(mutation_rows),
+                }),
                 "verificationHash": canonical_hash(verification, omit=("receiptHash",)),
             }
             manifest["contentHash"] = _tree_hash(temporary)

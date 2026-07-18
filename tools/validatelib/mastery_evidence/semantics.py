@@ -25,3 +25,8 @@ def diversity_problems(variants: list[dict], axes: list[str], threshold: float =
                 problems.append(
                     f"variants {left.get('variantId')!r} and {right.get('variantId')!r} are near-duplicates")
     return problems
+
+
+def structural_signature_count(variants: list[dict]) -> int:
+    return len({str(item.get("structuralSignature") or "") for item in variants}
+               - {""})
