@@ -71,8 +71,8 @@ body.looking-up #shell {
     --sun-x 2.4s ease, --sun-y 2.4s ease, --sun-o 2.4s ease,
     --moon-x 2.4s ease, --moon-y 2.4s ease, --moon-o 2.4s ease,
     --star-o 2.4s ease;
-  /* running-bond ashlar: one staggered two-course tile drawn as inline SVG,
-     top-lit block edges and soft mottling laid over it */
+  /* generated stonebrick material, kept at the parchment surface's 3:2 ratio;
+     the light layers remain procedural so the wall follows the live candle */
   background-color: #272119;
   background-image:
     radial-gradient(120% 60% at 50% 112%, rgba(var(--candle), .17), transparent 60%),
@@ -80,14 +80,17 @@ body.looking-up #shell {
     radial-gradient(560px 340px at 22% 26%, rgba(255, 244, 214, .05), transparent 70%),
     radial-gradient(640px 420px at 80% 70%, rgba(0, 0, 0, .18), transparent 70%),
     radial-gradient(700px 480px at 45% 90%, rgba(0, 0, 0, .12), transparent 70%),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='220'%3E%3Crect width='240' height='220' fill='%23272119'/%3E%3Cg%3E%3Crect x='0' y='3' width='117' height='104' rx='2' fill='%23453e34'/%3E%3Crect x='120' y='3' width='117' height='104' rx='2' fill='%23413a30'/%3E%3Crect x='-57' y='113' width='114' height='104' rx='2' fill='%23423b32'/%3E%3Crect x='60' y='113' width='117' height='104' rx='2' fill='%23463f35'/%3E%3Crect x='180' y='113' width='117' height='104' rx='2' fill='%23403930'/%3E%3C/g%3E%3Cg fill='%23fff6de' fill-opacity='.05'%3E%3Crect x='2' y='3' width='113' height='2'/%3E%3Crect x='122' y='3' width='113' height='2'/%3E%3Crect x='-55' y='113' width='110' height='2'/%3E%3Crect x='62' y='113' width='113' height='2'/%3E%3Crect x='182' y='113' width='113' height='2'/%3E%3C/g%3E%3C/svg%3E");
+    url("/assets/surfaces/tower-wall-stonebrick-3x2-v1.webp?v=1");
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
 }
 
 body.looking-up #wall {
   transform: perspective(1300px) translate3d(0, 0, 0) rotateX(0deg);
 }
 
-/* stone grain: the parchment fibers, blended down to mineral */
+/* a trace of the study's common surface grain binds wall and parchment */
 #wall::before {
   content: "";
   position: absolute;
@@ -95,7 +98,7 @@ body.looking-up #wall {
   pointer-events: none;
   background: url("/assets/surfaces/parchment-fibers-neutral-v1.webp") repeat center / 560px;
   mix-blend-mode: overlay;
-  opacity: .16;
+  opacity: .07;
 }
 
 /* the sky's light spilling from the window onto the stones */
@@ -104,25 +107,19 @@ body.looking-up #wall {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(340px 520px at 67% 44%, var(--glow), transparent 70%);
+  background: radial-gradient(400px 540px at 50% 46%, var(--glow), transparent 70%);
 }
 
 /* ------------------------------------------------------------- the window */
 .w-window {
   position: absolute;
   z-index: 1;
-  left: 56%;
-  top: 9vh;
-  width: min(27vw, 44vh);
-  aspect-ratio: 10 / 19;
-  max-height: 74vh;
-  border-radius: 50% 50% 6px 6px / 42% 42% 6px 6px;
-  border: 13px solid #4c443a;
-  box-shadow:
-    0 0 0 4px #241f18,
-    0 26px 60px rgba(0, 0, 0, .5),
-    inset 0 0 0 3px rgba(0, 0, 0, .5),
-    inset 0 14px 44px rgba(0, 0, 0, .6);
+  left: 50%;
+  bottom: 1.3dvh;
+  height: 210dvh;
+  aspect-ratio: 2 / 3;
+  transform: translateX(-50%) scaleX(1.12);
+  transform-origin: 50% 100%;
 }
 
 .w-window i {
@@ -131,10 +128,23 @@ body.looking-up #wall {
 }
 
 .w-sky {
-  inset: 0;
+  z-index: 0;
+  top: 53%;
+  right: 15.5%;
+  bottom: 7.2%;
+  left: 15.2%;
   overflow: hidden;
-  border-radius: inherit;
   background: linear-gradient(var(--sky-top), var(--sky-mid) 55%, var(--sky-low) 92%);
+}
+
+.w-frame {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
 .w-sun {
@@ -207,16 +217,6 @@ body.looking-up #wall {
     linear-gradient(112deg, rgba(255, 255, 255, .09) 6%, transparent 26% 58%, rgba(255, 255, 255, .045) 82%),
     repeating-linear-gradient(64deg, rgba(16, 12, 8, .26) 0 1.4px, transparent 1.4px 36px),
     repeating-linear-gradient(-64deg, rgba(16, 12, 8, .26) 0 1.4px, transparent 1.4px 36px);
-}
-
-.w-sill {
-  left: -26px;
-  right: -26px;
-  bottom: -36px;
-  height: 26px;
-  border-radius: 3px;
-  background: linear-gradient(#5a5045, #3a332b 60%, #2a241d);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 246, 220, .18);
 }
 
 #wall-down {
@@ -334,9 +334,4 @@ body.looking-up #wall {
     display: none;
   }
 
-  .w-window {
-    left: 50%;
-    margin-left: min(-13.5vw, -22vh);
-    width: min(54vw, 44vh);
-  }
 }

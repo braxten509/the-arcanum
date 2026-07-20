@@ -91,6 +91,11 @@ def _run_harness_command(cmd, tid, announce=True):
     return process
 
 
+def run_harness_command(cmd, tid, announce=True):
+    """Run one trusted deterministic check with standard finding classification."""
+    return _run_harness_command(cmd, tid, announce=announce)
+
+
 def preflight_validator_runtime(tid, entrypoints):
     """Import each exact CLI entrypoint before a paid author turn starts.
 

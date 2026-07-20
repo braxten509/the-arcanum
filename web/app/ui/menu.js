@@ -311,6 +311,9 @@ document.addEventListener("mousedown", (ev) => {
 document.addEventListener("keydown", (ev) => {
   if (ev.key === "Escape" && popOpen) { ev.stopPropagation(); closePop(); }
 }, true);
-addEventListener("scroll", () => closePop(), true);
+addEventListener("scroll", (ev) => {
+  if (popOpen && popOpen.el.contains(ev.target)) return; // scrolling the popup's own list, not the page
+  closePop();
+}, true);
 addEventListener("resize", () => closePop());
 window.popMenu = popMenu; // editor.js serves monaco right-clicks through this

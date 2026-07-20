@@ -78,6 +78,9 @@ class ReviewerSessionMixin:
                          "AI to continue the exhaustive review in a fresh session.") \
                     if outcome == "failed" else ""
                 self.state("paused", **({"error": error} if error else {}))
+                if error:
+                    append_conversation(self.build_id, "harness", "\n\n".join(
+                        part for part in (error, message) if part))
                 resumed = self._await_reviewer_controls(retrying=outcome == "failed")
                 if resumed is None:
                     break

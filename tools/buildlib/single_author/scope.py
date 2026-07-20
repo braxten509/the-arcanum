@@ -33,6 +33,7 @@ def author_paths(build_id, from_phase, tid, unit):
                  prerequisite_calls_path(build_id),
                  os.path.join(VALIDATOR_FAILURE_DIR, build_id),
                  os.path.join(BUILD_DIR, f"{build_id}.prerequisite-reviews"),
+                 os.path.join(BUILD_DIR, f"{build_id}.phase-ai-reviews"),
                  os.path.join(BUILD_DIR, f"{build_id}.phase-snapshots"),
                  os.path.join(BUILD_DIR, f"{build_id}.course-control.log.jsonl")]
     for suffix in ("launch.json", "session.json", "active.json", "result.json",

@@ -23,9 +23,11 @@ from arcanum.forge import build_state
 from arcanum.settings import Settings
 from runtimes import RuntimeRegistry
 from tools.buildlib import continuity, course_map
+from tools.buildlib.ai_costs import record_ai_turn, turns_path
 from tools.buildlib.course import control as course_control
 from tools.buildlib.course import state as course_state
 from tools.buildlib.prerequisites import review as prerequisite_review
+from tools.buildlib.status_log import append_status_line, load_status_lines
 from tools.buildlib.workflow import phase_reset
 from tools.buildlib.workflow.checkpoints import ARC_CONTRACT, ARC_HEADING
 
@@ -121,6 +123,38 @@ def snapshot(build_dir, phase):
         write(root / "sidecars" / "demo.learner-project" / "main.py", "print('ok')\n")
 
 
+def seed_cost_history(build_dir):
+    for phase in range(1, 9):
+        record_ai_turn(
+            str(build_dir), "build", phase=phase,
+            **({"section": "s01"} if phase == 3 else {}),
+            role="author", stage=f"phase-{phase}", kind="codex-cli",
+            model="gpt-5.6-luna", transport="cli",
+            session_id=f"phase-{phase}", usage_mode="cumulative",
+            usage={"inputTokens": phase * 100, "outputTokens": phase * 10},
+            ended_at=1000 + phase)
+        append_status_line(
+            "build", f"GPT API-EQUIVALENT COST COMPLETE [{1000 + phase}.000] › "
+            f"PHASE {phase} TOTAL › ${phase}.00", build_dir=str(build_dir),
+            at=1000 + phase)
+        append_status_line(
+            "build", f"AI VALIDATOR CALL COMPLETE [{1000 + phase}.500] (PASS) › "
+            f"section quality s0{phase} › codex-cli luna", build_dir=str(build_dir),
+            at=1000.5 + phase)
+
+
+def assert_cost_boundary(build_dir, phase):
+    with open(turns_path(str(build_dir), "build"), encoding="utf-8") as handle:
+        retained = [json.loads(line) for line in handle if line.strip()]
+    assert [row["phase"] for row in retained] == list(range(1, phase))
+    lines = load_status_lines("build", build_dir=str(build_dir))
+    cost_lines = [line for line in lines if line.startswith("GPT API-EQUIVALENT COST")]
+    assert [int(line.split("PHASE ", 1)[1].split()[0]) for line in cost_lines] \
+        == list(range(1, phase))
+    assert not [line for line in lines
+                if line.startswith(("VALIDATOR COMMAND", "AI VALIDATOR CALL"))]
+
+
 def exercise_phase(root, phase):
     build_dir, tomes_dir = Path(root, ".tome-build"), Path(root, "tomes")
     build_dir.mkdir(parents=True)
@@ -140,6 +174,7 @@ def exercise_phase(root, phase):
     phase_reset.BUILD_DIR = str(build_dir)
     phase_reset.TOMES_DIR = str(tomes_dir)
     configure_modules(root, build_dir)
+    seed_cost_history(build_dir)
     result = phase_reset.reset_tome_to_phase("demo", phase)
 
     expected_tid = "build" if phase <= 2 else "demo"
@@ -163,6 +198,7 @@ def exercise_phase(root, phase):
     assert (build_dir / "demo.handoffs").exists() == (phase >= 4)
     assert (build_dir / "demo.proof-evidence.json").exists() == (phase >= 8)
     assert (build_dir / "demo.learner-project").exists() == (phase >= 8)
+    assert_cost_boundary(build_dir, phase)
 
 
 def exercise_legacy_fallback(root, phase):
@@ -193,6 +229,7 @@ def exercise_legacy_fallback(root, phase):
     write(build_dir / "demo.proof-evidence.json", '{"valid":true}')
     write(build_dir / "demo.learner-project" / "main.py", "print('ok')\n")
     write(build_dir / "demo.findings.json", '{"findings":[]}')
+    seed_cost_history(build_dir)
 
     result = phase_reset.reset_tome_to_phase("demo", phase)
     target_tid = "build" if phase <= 2 else "demo"
@@ -214,6 +251,7 @@ def exercise_legacy_fallback(root, phase):
     assert (build_dir / "demo.handoffs").exists() == (phase >= 4)
     assert (build_dir / "demo.proof-evidence.json").exists() == (phase >= 8)
     assert not (build_dir / "demo.findings.json").exists()
+    assert_cost_boundary(build_dir, phase)
     assert (build_dir / "build.phase-snapshots" / f"phase-{phase}").is_dir()
     if phase == 3:
         with (patch.object(forge, "BUILD_DIR", str(build_dir)),
@@ -250,6 +288,9 @@ def exercise_failed_reset_rolls_back(root):
     phase_reset.BUILD_DIR = str(build_dir)
     phase_reset.TOMES_DIR = str(tomes_dir)
     configure_modules(root, build_dir)
+    seed_cost_history(build_dir)
+    original_costs = {suffix: (build_dir / f"build.{suffix}").read_bytes()
+                      for suffix in phase_reset.COST_SIDECARS}
 
     with patch.object(phase_reset, "_fallback_phase_boundary",
                       side_effect=RuntimeError("injected reset failure")):
@@ -265,6 +306,8 @@ def exercise_failed_reset_rolls_back(root):
     assert (build_dir / "build.progress").is_file()
     assert (build_dir / "demo.handoffs" / "s01.json").is_file()
     assert (build_dir / "build.phase-snapshots" / "phase-5" / "keep.txt").is_file()
+    assert {suffix: (build_dir / f"build.{suffix}").read_bytes()
+            for suffix in phase_reset.COST_SIDECARS} == original_costs
 
 
 def exercise_course_sidecar_snapshot(root):
@@ -299,6 +342,64 @@ def exercise_course_sidecar_snapshot(root):
     assert rebuilt["sourceDigest"] == original_state["sourceDigest"]
     assert json.loads((build_dir / "demo.handoffs" / "s01.json").read_text()) == {
         "snapshot": "kept"}
+
+
+def exercise_section_rewind(root):
+    build_dir, tomes_dir = Path(root, ".tome-build"), Path(root, "tomes")
+    build_dir.mkdir(parents=True)
+    phase_reset.BUILD_DIR, phase_reset.TOMES_DIR = str(build_dir), str(tomes_dir)
+    configure_modules(root, build_dir)
+    phase_reset._fresh_tome("demo")
+    plan = build_dir / "demo.plan.md"
+    write(plan, PLAN_HEAD + ARC)
+    seed = course_map.seed_course_map("demo", str(plan))
+    write(course_map.proposal_path("demo"), json.dumps(detailed_map(seed)))
+    course_map.seal_course_map("demo")
+    write(build_dir / "demo.launch.json", json.dumps({
+        "gate": {"prior_level": "5"},
+        "validator": {"kind": "codex-cli", "model": "validator"},
+    }))
+    for sid in ("s01", "s02"):
+        write(build_dir / "demo.handoffs" / f"{sid}.json", '{"version":3}')
+        write(course_state.receipt_path("demo", sid), '{"version":1}')
+        write(course_state.failure_path("demo", sid), '{"report":"stale"}')
+    write(build_dir / "demo.conversation.jsonl", '{"role":"harness"}\n')
+    write(build_dir / "demo.section-progress.json", '{"section":"s02"}')
+    write(build_dir / "demo.result.json", '{"status":"done"}')
+    append_status_line("demo", "AI VALIDATOR CALL COMPLETE [900.000] (FAIL) › "
+                       "section quality s02 › claude-cli haiku",
+                       build_dir=str(build_dir), at=900)
+    append_status_line("demo", "GPT API-EQUIVALENT COST COMPLETE [901.000] › "
+                       "PHASE 2 TOTAL › $7.80", build_dir=str(build_dir), at=901)
+
+    result = phase_reset.reset_tome_to_section("demo", "s02")
+
+    assert result == {"id": "demo", "tome": "demo", "phase": 3, "section": "s02",
+                      "phaseTitle": phase_reset.PHASE_TITLES[3], "usedSnapshot": False}
+    for name in (build_dir / "demo.handoffs" / "s01.json",
+                 Path(course_state.receipt_path("demo", "s01")),
+                 Path(course_state.failure_path("demo", "s01"))):
+        assert name.exists(), name
+    for name in (build_dir / "demo.handoffs" / "s02.json",
+                 Path(course_state.receipt_path("demo", "s02")),
+                 Path(course_state.failure_path("demo", "s02")),
+                 build_dir / "demo.conversation.jsonl",
+                 build_dir / "demo.section-progress.json",
+                 build_dir / "demo.result.json"):
+        assert not name.exists(), name
+    progress = json.loads((build_dir / "demo.progress").read_text())
+    assert progress["phase"] == 3 and progress["state"] == "working"
+    assert json.loads(Path(course_state.state_path("demo")).read_text())["sections"][1][
+        "status"] != "verified"
+    # The tool history the operator sees is rebuilt from here; the cost ledger is not.
+    assert load_status_lines("demo", build_dir=str(build_dir)) == [
+        "GPT API-EQUIVALENT COST COMPLETE [901.000] › PHASE 2 TOTAL › $7.80"]
+    for bad in ("s03", "nope", ""):
+        try:
+            phase_reset.reset_tome_to_section("demo", bad)
+        except ValueError:
+            continue
+        raise AssertionError(f"accepted invalid section {bad!r}")
 
 
 def exercise_phase1_refreshes_machine_contract():
@@ -348,6 +449,8 @@ def main():
             exercise_failed_reset_rolls_back(root)
         with tempfile.TemporaryDirectory() as root:
             exercise_course_sidecar_snapshot(root)
+        with tempfile.TemporaryDirectory() as root:
+            exercise_section_rewind(root)
         exercise_phase1_refreshes_machine_contract()
     finally:
         phase_reset.BUILD_DIR, phase_reset.TOMES_DIR = old[:2]

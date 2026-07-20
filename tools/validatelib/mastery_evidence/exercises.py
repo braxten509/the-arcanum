@@ -79,7 +79,15 @@ def exercise_findings(sections: list[dict], known_capabilities: set[str]) -> lis
     findings = []
     for section in sections:
         sid = str(section.get("id") or "?")
-        for lesson in section.get("lessons") or []:
+        for index, lesson in enumerate(section.get("lessons") or []):
+            if not isinstance(lesson, dict):
+                findings.append(error(
+                    "mastery.lesson.shape",
+                    f"sections/{sid}:lesson[{index}]",
+                    "lesson entries must be [[lessons]] tables",
+                    3,
+                ))
+                continue
             lid = str(lesson.get("id") or "?")
             exercises = [row for row in lesson.get("exercises") or [] if isinstance(row, dict)]
             for index, exercise in enumerate(exercises):

@@ -1,0 +1,223 @@
+[[lessons]]
+id = "s01-l02"
+title = "Lay Out Data in the Cabinet"
+teaches = [
+  "nasm-source-data-foundation",
+  "language-static-data-strings-addressing",
+]
+introduces = [
+  "nasm-section-directive",
+  "nasm-global-extern-directives",
+  "nasm-data-reserve-directives",
+  "nasm-label-addressing",
+  "nasm-static-string-layout",
+]
+body = '''
+<p>Assembly source is not a free-form script. NASM groups bytes into <strong>sections</strong> the linker understands. For a tiny disposable sketch named <code>beacon_pad.asm</code> (not the court file), start by naming where code and data live:</p>
+<pre><code data-kind="runnable">section .data
+section .bss
+section .text
+</code></pre>
+<p><code>section .data</code> holds initialized read-write data. <code>section .bss</code> reserves uninitialized space. <code>section .text</code> holds instructions. Read each directive left to right: the keyword <code>section</code>, then the section name. Wrong section placement is a common reason labels assemble but link or load oddly later.</p>
+<p>Symbols that other object files must see use <code>global</code>. Symbols defined elsewhere use <code>extern</code>. A disposable export looks like this:</p>
+<pre><code data-kind="runnable">global beacon_mark
+extern puts
+</code></pre>
+<p><code>global beacon_mark</code> exports that label. <code>extern puts</code> promises some other object will define <code>puts</code>. You do not need the C library in the Working yet; this pair only teaches the two directives.</p>
+<p>Data directives place or reserve bytes. Initialized forms include <code>db</code> (define byte), <code>dw</code>, <code>dd</code>, and <code>dq</code>. Reservation forms include <code>resb</code>, <code>resw</code>, <code>resd</code>, and <code>resq</code>. A static message is a labeled sequence of bytes ending with a zero terminator:</p>
+<pre><code data-kind="runnable">section .data
+beacon_msg db "pad-ok", 0
+beacon_hits dd 0
+section .bss
+beacon_scratch resb 16
+</code></pre>
+<p>Read <code>beacon_msg db "pad-ok", 0</code> as: label <code>beacon_msg</code> marks the address of the first byte; <code>db</code> places the characters; the final <code>0</code> is the C-style string terminator. The label is the address—not the characters themselves floating unbound. Later instructions can refer to <code>beacon_msg</code> when they need that address.</p>
+<p>Labels are names for locations. In <code>.text</code> they mark instruction addresses; in data sections they mark data addresses. Addressing a label means using that name where an address or memory operand is required. For this chapter you only need to place labels and understand they name locations; later chapters load and store through them more heavily.</p>
+<div class="callout"><p>Disposable names only: <code>beacon_msg</code>, <code>beacon_hits</code>, and <code>beacon_pad.asm</code> are practice shapes. The Working will use your own labels inside <code>src/pong.asm</code>.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // ZERO TERMINATORS</div>
+<p>A string without a trailing <code>0</code> is just bytes. C APIs and many diagnostics expect a zero terminator. When Mara asks for a static string in the Working, include that final zero byte on purpose.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "nasm-source-data-foundation"
+purpose = "Structure a NASM file with sections, symbols, and data so the assembler has a coherent object layout."
+anatomy = "Declare sections, optional global/extern symbols, then labeled data or code under the correct section."
+example = "The beacon_pad section and data blocks are the complete foundation sketch."
+observable = "The assembler accepts the file structure without section or syntax errors on those directives."
+failure = "Mixing code bytes into .data or omitting section lines produces assemble diagnostics."
+practice = "s01-l02-e1"
+
+[[lessons.concepts]]
+id = "language-static-data-strings-addressing"
+purpose = "Place immutable-at-rest message bytes in memory and name their starting address with a label."
+anatomy = "Under .data, write a label, db with characters, and a trailing 0; use the label as the string address."
+example = "beacon_msg db \"pad-ok\", 0 is the static string example."
+observable = "The object contains those bytes at the labeled address."
+failure = "Forgetting the trailing 0 leaves a non-terminated byte sequence."
+practice = "s01-l02-e2"
+
+[[lessons.concepts]]
+id = "nasm-section-directive"
+purpose = "Tell NASM which output section the following lines belong to."
+anatomy = "Write section followed by .data, .bss, or .text before the lines for that region."
+example = "The three section lines at the start of the sketch."
+observable = "Later data and instructions assemble into the named regions."
+failure = "Omitting section .text before instructions confuses layout."
+practice = "s01-l02-e1"
+
+[[lessons.concepts]]
+id = "nasm-global-extern-directives"
+purpose = "Export a symbol to other objects or import a symbol defined elsewhere."
+anatomy = "global name exports; extern name imports a name defined in another translation unit."
+example = "global beacon_mark and extern puts in the disposable pair."
+observable = "The object file advertises or expects those symbol names at link time."
+failure = "Forgetting global on an entry symbol yields undefined reference at link."
+practice = "s01-l02-e3"
+
+[[lessons.concepts]]
+id = "nasm-data-reserve-directives"
+purpose = "Place initialized values or reserve uninitialized space with NASM data forms."
+anatomy = "Use db/dd/dq for initialized data and resb/resd-style forms in .bss for reservations."
+example = "beacon_hits dd 0 and beacon_scratch resb 16."
+observable = "Initialized values appear in .data; .bss grows by the reserved size."
+failure = "Using resb in .text or instructions in .bss is the wrong section pairing."
+practice = "s01-l02-e4"
+
+[[lessons.concepts]]
+id = "nasm-label-addressing"
+purpose = "Name a memory or instruction location so other lines can refer to it."
+anatomy = "Write label: or label before a definition; later operands may use that label as an address."
+example = "beacon_msg labels the first byte of the string."
+observable = "References to the label resolve to that location at assemble/link time."
+failure = "Typos in the label name produce undefined-symbol diagnostics."
+practice = "s01-l02-e5"
+
+[[lessons.concepts]]
+id = "nasm-static-string-layout"
+purpose = "Encode a zero-terminated character sequence as static bytes."
+anatomy = "db \"characters\", 0 under a label in .data."
+example = "beacon_msg db \"pad-ok\", 0"
+observable = "Bytes for each character plus a final zero sit contiguously."
+failure = "Missing , 0 omits the terminator."
+practice = "s01-l02-e2"
+
+[[lessons.readings]]
+label = "NASM manual — sections and other assembler directives"
+url = "https://www.nasm.us/xdoc/2.16.03/html/nasmdoc6.html"
+
+[[lessons.exercises]]
+id = "s01-l02-e1"
+type = "mc"
+required = true
+capabilities = ["language-static-data-strings-addressing"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "beacon-sections"
+aidPolicy = "learning"
+points = 16
+mechanisms = ["nasm-section-directive"]
+prompt = "Which directive places the following lines into the instruction region of a NASM object?"
+choices = [
+  "section .text",
+  "section .note",
+  "global .text",
+  "extern .text",
+]
+answer = 0
+whyWrong = "global/extern manage symbols, not section membership. .note is not the ordinary instruction section taught here."
+hint = "Instructions live in the section whose name means text."
+explain = "section .text is the standard instruction section."
+
+[[lessons.exercises]]
+id = "s01-l02-e2"
+type = "fill"
+required = true
+capabilities = ["language-static-data-strings-addressing"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "beacon-string"
+aidPolicy = "learning"
+points = 18
+mechanisms = ["nasm-static-string-layout", "nasm-data-reserve-directives"]
+prompt = "Complete the disposable static string so it is zero-terminated."
+code = "beacon_msg db \"pad-ok\", ____"
+answer = "0"
+hint = "The terminator is a numeric zero byte."
+
+[[lessons.exercises]]
+id = "s01-l02-e3"
+type = "mc"
+required = true
+capabilities = ["language-static-data-strings-addressing"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "beacon-symbols"
+aidPolicy = "learning"
+points = 16
+mechanisms = ["nasm-global-extern-directives"]
+prompt = "You need other object files to call your label `beacon_mark`. Which directive exports it?"
+choices = [
+  "extern beacon_mark",
+  "global beacon_mark",
+  "section beacon_mark",
+  "db beacon_mark",
+]
+answer = 1
+whyWrong = "extern imports a name defined elsewhere; section and db do not export symbols."
+hint = "Export uses the directive named global."
+explain = "global advertises the symbol to the linker."
+
+[[lessons.exercises]]
+id = "s01-l02-e4"
+type = "text"
+required = true
+capabilities = ["language-static-data-strings-addressing"]
+cognitiveTask = "recall"
+scaffold = "guided"
+contextFamily = "beacon-reserve"
+aidPolicy = "learning"
+points = 16
+mechanisms = ["nasm-data-reserve-directives"]
+prompt = "Which NASM directive form defines initialized byte data (as used for characters in the beacon string)?"
+answer = "db"
+accept = ["DB", "define byte"]
+hint = "Two letters: define byte."
+
+[[lessons.exercises]]
+id = "s01-l02-e5"
+type = "mc"
+required = true
+capabilities = ["language-static-data-strings-addressing"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "beacon-label"
+aidPolicy = "learning"
+points = 16
+mechanisms = ["nasm-label-addressing"]
+prompt = "In `beacon_msg db \"pad-ok\", 0`, what does the name `beacon_msg` represent?"
+choices = [
+  "The runtime length of the string only",
+  "A CPU register that holds the letters",
+  "A Make variable expanded at assemble time",
+  "The address of the first byte of that data",
+]
+answer = 3
+whyWrong = "The label names a location. It is not automatically the length, a register, or a Make variable."
+hint = "Labels mark locations in the object."
+explain = "References to beacon_msg mean that address."
+
+[[lessons.exercises]]
+id = "s01-l02-d1"
+type = "type"
+required = false
+capabilities = ["language-static-data-strings-addressing"]
+cognitiveTask = "recall"
+scaffold = "worked"
+contextFamily = "beacon-type"
+aidPolicy = "learning"
+points = 10
+reps = 2
+mechanisms = ["nasm-static-string-layout"]
+prompt = "Retype the disposable zero-terminated string line exactly."
+code = "beacon_msg db \"pad-ok\", 0"
+

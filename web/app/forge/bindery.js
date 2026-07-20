@@ -2,7 +2,8 @@
 import { $, closeModal, dropOverlay, esc, modal, sfx } from "../core/dom.js";
 import { enhanceSelect } from "../ui/menu.js";
 import { forgeEntry } from "./forge.js";
-import { mergeForgeTraceLines } from "./trace-lines.js";
+import { fallbackForgeRunningCost, forgeHarnessValidationState, formatForgeRunningCost,
+  formatForgeWeeklyUsage, mergeForgeConversationCosts, mergeForgeTraceLines } from "./trace-lines.js";
 import { fallbackCourseControl, formatCourseBlockers } from "./course-control.js";
 import { activeTome, tomeList } from "../core/bootstrap.js";
 import { apiFetch } from "../core/api-client.js";
@@ -146,7 +147,10 @@ export function openBuildOverlay(jobId, traceId = jobId) {
     <header class="forge-session-head"><div><div class="faint forge-kicker">THE BINDERY // SINGLE AUTHOR</div>
       <h2 id="fp-name">Reattaching…</h2><div class="forge-session-meta"><div id="fp-phase">Phase 1 / 8 — starting</div>
         <div class="forge-session-model"><span>MODEL</span><strong id="fp-model">ATTACHING…</strong></div></div></div>
-      <div class="forge-session-badge" id="fp-session-state">ATTACHING</div></header>
+      <div class="forge-session-status"><div class="forge-session-badge" id="fp-session-state">ATTACHING</div>
+        <div class="forge-running-cost hidden" id="fp-running-cost" aria-live="polite" aria-atomic="true">
+          <div class="forge-running-cost-total"><span>Running Cost:</span><output id="fp-running-cost-value">$0.00</output></div>
+          <em id="fp-weekly-usage">(0.00% weekly usage)</em></div></div></header>
     <div class="forge-phases">${FORGE_PHASES.map((title, index) => `<div class="forge-phase" data-ph="${index + 1}">
       <span class="num">${index + 1}</span><span>${esc(title)}</span><span class="fp-mark num"></span></div>`).join("")}</div>
     <section class="forge-course-control hidden" id="fp-course-control" aria-label="Harness course control">
@@ -172,7 +176,7 @@ export function openBuildOverlay(jobId, traceId = jobId) {
           <div class="forge-ai-choice"><select id="fp-alt-model" class="cfg-select" aria-label="Replacement model"></select></div>
           <div class="forge-ai-choice"><select id="fp-alt-eff" class="cfg-select" aria-label="Replacement effort"><option value="">DEFAULT</option></select></div>
         </div>
-        <div class="forge-console-actions"><button class="forge-console-btn" id="fp-alt-resume" type="button">RESUME WITH THIS AI</button></div>
+        <button class="btn" id="fp-alt-resume" type="button">RESUME WITH THIS AI</button>
       </div>
     </div>
     <div class="forge-session-actions"><button class="btn danger" id="fp-cancel">ABANDON</button>
@@ -294,6 +298,18 @@ export function openBuildOverlay(jobId, traceId = jobId) {
       : status.runner || "ATTACHING…";
     $("#fp-session-state", overlay).textContent = state.toUpperCase();
     $("#fp-session-state", overlay).dataset.state = state;
+    const cost = status.gptRunningCost
+      || fallbackForgeRunningCost(status.conversation, status.logtail);
+    const currentGpt = /^gpt-/i.test(String(author.model || ""));
+    const runningCost = $("#fp-running-cost", overlay);
+    runningCost.classList.toggle("hidden", !currentGpt);
+    $("#fp-running-cost-value", overlay).textContent = cost
+      ? formatForgeRunningCost(cost) : "$0.00";
+    $("#fp-weekly-usage", overlay).textContent = cost
+      ? formatForgeWeeklyUsage(cost) : "(0.00% weekly usage)";
+    runningCost.title = cost?.gptUnpricedTurns
+      ? "Cumulative GPT API-equivalent cost is partial because at least one GPT turn lacked token usage."
+      : "Cumulative GPT API-equivalent cost for this build.";
     $("#fp-session-id", overlay).textContent = status.sessionId ? `SESSION ${status.sessionId.slice(0, 12)}` : "SESSION STARTING";
     const reviewerActive = status.sessionRole === "reviewer";
     $("#fp-trace-source", overlay).dataset.role = reviewerActive ? "reviewer" : "author";
@@ -323,17 +339,20 @@ export function openBuildOverlay(jobId, traceId = jobId) {
       $("#fp-trace-source", overlay).textContent = `${String(tooling?.provider || (reviewerActive ? "REVIEWER" : "AUTHOR")).toUpperCase()} TOOL HISTORY`;
       $("#fp-trace-count", overlay).textContent = `${lines.length} CALL${lines.length === 1 ? "" : "S"}`;
     }
-    const conversation = Array.isArray(status.conversation) ? status.conversation : [];
+    const conversation = mergeForgeConversationCosts(status.conversation, status.logtail);
     const nextConversation = conversation.map((row) => `${row.at}:${row.kind}:${row.text}`).join("\0");
     if (nextConversation !== conversationKey) {
       conversationKey = nextConversation; const box = $("#fp-conversation", overlay);
       const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 50;
       box.innerHTML = conversation.length ? conversation.map((row) => {
         const stamp = messageStamp(row.at);
-        return `<div class="forge-chat ${esc(row.kind)}"><div class="forge-chat-meta">
-          <span class="forge-chat-role">${row.kind === "user" ? "YOU" : row.kind === "assistant" ? (row.role === "reviewer" ? "REVIEWER" : "AUTHOR") : row.kind === "harness" ? "HARNESS" : "SESSION"}</span>
+        const isCost = String(row.eventKey || "").startsWith("gpt-cost:");
+        const validationState = forgeHarnessValidationState(row);
+        const validationMark = validationState === "pass" ? "✓" : validationState === "fail" ? "×" : "";
+        return `<div class="forge-chat ${esc(row.kind)}${isCost ? " cost" : ""}${validationState ? ` validation-${validationState}` : ""}"><div class="forge-chat-meta">
+          <span class="forge-chat-role">${isCost ? "COST" : row.kind === "user" ? "YOU" : row.kind === "assistant" ? (row.role === "reviewer" ? "REVIEWER" : "AUTHOR") : row.kind === "harness" ? "HARNESS" : "SESSION"}</span>
           ${stamp ? `<time datetime="${esc(stamp.iso)}">${esc(stamp.label)}</time>` : ""}</div>
-          <div class="forge-chat-text">${esc(row.text)}</div></div>`;
+          <div class="forge-chat-text">${validationMark ? `<span class="forge-validation-mark" aria-hidden="true">${validationMark}</span>` : ""}<span class="forge-chat-copy">${esc(row.text)}</span></div></div>`;
       }).join("") : `<div class="forge-chat-empty">Waiting for the author…</div>`;
       if (nearBottom) box.scrollTop = box.scrollHeight;
     }

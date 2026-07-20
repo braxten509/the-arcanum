@@ -60,8 +60,8 @@ ID_RE = re.compile(r"[A-Za-z0-9_-]+")
 # lowercase "todo" appears in honest prose; lorem any case)
 PLACEHOLDER_RE = re.compile(r"\bTODO\b|\bFIXME\b|(?i:lorem ipsum)")
 
-def err(label, msg):
-    add_error(label, msg)
+def err(label, msg, *, phase=0):
+    add_error(label, msg, phase=phase)
 
 
 def warn(label, msg, *, phase=7):

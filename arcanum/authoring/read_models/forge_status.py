@@ -7,7 +7,8 @@ from arcanum.forge import forge_name, list_active_builds
 from arcanum.forge.build_state import (build_result_status, cancelled_build_status,
                                        load_author_session, load_build_progress,
                                        load_section_progress)
-from .durable_status import load_conversation, public_course_status
+from .durable_status import (load_conversation, load_gpt_running_cost,
+                             public_course_status)
 from ..adapters.status_log import load_status_lines
 
 
@@ -72,6 +73,8 @@ class ForgeStatusService:
             output["sessionRole"] = str(session.get("role") or "author")
         output["conversation"] = load_conversation(
             self.settings.build_root, stable, 120)
+        output["gptRunningCost"] = load_gpt_running_cost(
+            self.settings.build_root, stable)
         try:
             output["courseControl"] = public_course_status(
                 self.settings.build_root, stable)

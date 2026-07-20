@@ -2,7 +2,7 @@
 import json
 import re
 
-from . import PLACEHOLDER_RE, err
+from . import PLACEHOLDER_RE, REPO, err
 
 
 _CAPABILITY_ID = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
@@ -12,10 +12,14 @@ def check_phase2_artifact_alignment(build_id, manifest, sections, plan_path):
     """Gate strict inventory against runtime, lifecycle, and proof-owned paths."""
     from buildlib.course_map import proposal_path
     from buildlib.course.dependencies import (
+        concrete_tool_mechanism_alignment_problems,
         external_workspace_capability_alignment_problems,
+        literal_command_target_alignment_problems,
+        runtime_delivery_alignment_problems,
         validation_dependency_alignment_problems,
     )
     from buildlib.skeleton.integrity import phase2_alignment_problems
+    from runtimes.config import RuntimeConfigRepository, RuntimeConfigurationError
     try:
         with open(proposal_path(build_id), encoding="utf-8") as handle:
             proposal = json.load(handle)
@@ -31,6 +35,17 @@ def check_phase2_artifact_alignment(build_id, manifest, sections, plan_path):
         err("phase-2-dependencies", problem)
     for problem in external_workspace_capability_alignment_problems(proposal, manifest):
         err("phase-2-course-map", problem)
+    for problem in concrete_tool_mechanism_alignment_problems(proposal, manifest):
+        err("phase-2-course-map", problem)
+    try:
+        runtime = RuntimeConfigRepository.from_root(REPO).resolve(
+            manifest.get("runtime") if isinstance(manifest, dict) else {}).to_dict()
+    except RuntimeConfigurationError:
+        runtime = {}  # check_runtime already owns the more precise configuration diagnostic.
+    for problem in literal_command_target_alignment_problems(proposal, runtime, sections):
+        err("phase-2-course-map", problem)
+    for problem in runtime_delivery_alignment_problems(proposal, runtime):
+        err("phase-2-runtime", problem)
 
 
 def check_phase2_skeleton(sections_data):

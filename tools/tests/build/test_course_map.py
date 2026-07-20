@@ -16,6 +16,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from buildlib import course_map
 from buildlib.course.amend import amend_course_map
+from buildlib.course.limits import (mastery_section_cap,
+                                    mastery_section_count_error)
 from buildlib.course_map.seed import artifact_lifecycle_obligations
 from buildlib.skeleton import parse_section_list
 
@@ -217,6 +219,10 @@ for rejected in (1, 41):
         assert "2 through 40" in str(exc)
 assert len(parse_section_list(section_list(2))) == 2
 assert len(parse_section_list(section_list(40))) == 40
+assert [mastery_section_cap(1, scope) for scope in range(1, 6)] == [4, 6, 8, 10, 12]
+assert mastery_section_cap(2, 1) == 40
+assert not mastery_section_count_error(8, 1, 3)
+assert "at most 8 sections" in mastery_section_count_error(9, 1, 3)
 retirements = artifact_lifecycle_obligations(
     "**Artifact lifecycle:** s01's temporary fixture is replaced in s02; "
     "s02's fallback deliberately ships", ["s01", "s02"])

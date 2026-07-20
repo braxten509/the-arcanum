@@ -104,7 +104,8 @@ The canonical count strips HTML tags then splits on whitespace; never substitute
 filler. From the third section onward, make an exercise reuse an earlier code identifier. Mechanical
 proof recognizes underscore/camelCase names in code/answer surfaces, not kebab-case capability prose.
 
-For Start 1–3, the prior-knowledge answer is the complete assumption boundary. At the first
+Starting level is the complete entry baseline; optional prior-knowledge details add only the
+concrete skills they name. For Start 1–3, at the first
 required use of every unlisted keyword, syntax form, operator, API, tool action, or technical
 term, explain its purpose in plain language, read its parts or steps in order, show a minimal
 worked example with an observable result, name one likely failure, and give guided practice

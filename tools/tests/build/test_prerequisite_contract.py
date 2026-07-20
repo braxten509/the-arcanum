@@ -181,17 +181,67 @@ with tempfile.TemporaryDirectory() as root:
                            "phase12": {"kind": "claude-cli", "model": "arc"},
                            "phase37": {"kind": "codex-cli", "model": "sections"},
                            "phase8": {"kind": "opencode-cli", "model": "finish"}},
-                       "gate": {"prior_level": "2", "prior_knowledge": "names and literals"}},
+                       "gate": {"prior_level": "2", "prior_knowledge": "names and literals",
+                                "depth": "7", "mastery": "3"}},
                       handle)
         assert prerequisite_review._configuration("demo")[1]["model"] == "audit"
         sources = [{"path": "tomes/demo/sections/s01/lessons/l01.toml", "node": "s01.l01"},
                    {"path": "tomes/demo/sections/s01/freestyle.toml", "node": "s01.working"}]
+        citations = [{"path": item["path"], "node": item["node"]} for item in sources]
+        def audit_result(outcome="PASS", reasons=None, missing=None, quality=None):
+            quality = list(quality or [])
+            failed = {(item["path"], item["node"]) for item in quality}
+            return {
+                "outcome": outcome, "citations": citations,
+                "reasons": list(reasons or ["Every node has concrete teaching and practice evidence."]),
+                "missingMechanisms": list(missing or []),
+                "nodeReviews": [{
+                    "path": item["path"], "node": item["node"],
+                    "judgment": "FAIL" if (item["path"], item["node"]) in failed else "PASS",
+                    "evidenceLines": [1, 1],
+                    "evidence": "Concrete teaching and independent practice appear in this source.",
+                } for item in sources],
+                "qualityFindings": quality,
+            }
+        bounded_sources = [{**item, "lineCount": 5} for item in sources]
+        # The shared global policy treats an explicit FAIL plus explanation as usable even
+        # when the envelope is not JSON. FAIL is conservative; it must not spend another
+        # same-model call just to reformat the answer. A loose PASS remains fail-closed.
+        _parsed, _errors, readable_text_fail = prerequisite_review._classify_output(
+            "verdict: FAIL\nsummary: The cited lesson omits an actionable prerequisite.",
+            bounded_sources, "s01", {"function-definition"})
+        assert readable_text_fail.result["status"] == "FAIL"
+        assert not readable_text_fail.unusable
+        _parsed, _errors, unsupported_text_pass = prerequisite_review._classify_output(
+            "verdict: PASS\nsummary: Everything appears complete.",
+            bounded_sources, "s01", {"function-definition"})
+        assert unsupported_text_pass.unusable
+        incomplete_pass = audit_result()
+        incomplete_pass["nodeReviews"] = incomplete_pass["nodeReviews"][:-1]
+        rejected, errors = prerequisite_review._validate_detailed(
+            incomplete_pass, bounded_sources, "s01", {"function-definition"})
+        assert rejected["status"] == "FAIL"
+        assert any("exactly one row" in error for error in errors)
+
+        shallow = [{
+            "path": sources[0]["path"], "node": sources[0]["node"],
+            "category": "practice-quality", "evidenceLines": [2, 4],
+            "evidence": "The prompt reproduces the complete worked answer from the lesson.",
+            "requiredRepair": "Replace it with a different-context construction or debugging task.",
+        }]
+        quality_fail, errors = prerequisite_review._validate_detailed(
+            audit_result("FAIL", ["Independent practice is missing."], quality=shallow),
+            bounded_sources, "s01", {"function-definition"})
+        assert not errors and quality_fail["status"] == "FAIL"
+        assert quality_fail["qualityFindings"][0]["category"] == "practice-quality"
+        wrapped_pass, errors = prerequisite_review._validate_detailed(
+            "Result follows:\n```json\n" + json.dumps(audit_result()) + "\n```",
+            bounded_sources, "s01", {"function-definition"})
+        assert not errors and wrapped_pass["status"] == "PASS"
         calls = []
         def adapter(prompt, _reviewer):
             calls.append(prompt)
-            return {"outcome": "PASS", "citations": sources,
-                    "reasons": ["Every required mechanism has complete first-use evidence."],
-                    "missingMechanisms": []}
+            return audit_result()
         with patch.object(prerequisite_review, "load_course_map", return_value=course), \
                 patch.object(prerequisite_review, "section_evidence_packet",
                              return_value=("bounded packet", sources)):
@@ -201,7 +251,9 @@ with tempfile.TemporaryDirectory() as root:
         assert second["status"] == "PASS" and second["cached"]
         assert len(calls) == 1
         assert not os.path.exists(prerequisite_review.validator_failure_dir("demo"))
-        assert "Start is 2/3 (MODERATE DENSITY)" in calls[0]
+        assert "Start is 2/10 (MODERATE DENSITY)" in calls[0]
+        assert "LESSON DEPTH: 7/10" in calls[0]
+        assert "LANGUAGE MASTERY: 3/5" in calls[0]
         assert "one major concept family per lesson" in calls[0]
         assert "Lesson Depth controls explanatory thoroughness" in calls[0]
         assert "observable-interaction" in calls[0]
@@ -211,6 +263,27 @@ with tempfile.TemporaryDirectory() as root:
         assert "demands is ALWAYS a JSON ARRAY" in calls[0]
         assert '"demands":["s01.l01","s01.working"]' in calls[0]
         assert '"closestExisting":["nearest-sealed-mechanism"]' in calls[0]
+        assert "copying a lesson example" in calls[0]
+        assert "The Liber Veritatis" in calls[0]
+        assert "one review for every VALID SOURCE/NODE PAIR" in calls[0]
+        assert "fixed 2,500-output-token validator budget" in calls[0]
+
+        # The quality audit is mandatory above the beginner prerequisite-pacing range too.
+        with open(os.path.join(root, "advanced.launch.json"), "w", encoding="utf-8") as handle:
+            json.dump({"validator": {"kind": "claude-cli", "model": "audit"},
+                       "gate": {"prior_level": "7", "prior_knowledge": "routine fundamentals",
+                                "depth": "8", "mastery": "4"}}, handle)
+        advanced_calls = []
+        def advanced_adapter(prompt, _reviewer):
+            advanced_calls.append(prompt)
+            return audit_result()
+        with patch.object(prerequisite_review, "load_course_map", return_value=course), \
+                patch.object(prerequisite_review, "section_evidence_packet",
+                             return_value=("bounded packet", sources)):
+            advanced = prerequisite_review.review_prerequisites(
+                "advanced", "s01", adapter=advanced_adapter)
+        assert advanced["status"] == "PASS" and len(advanced_calls) == 1
+        assert "Start is 7/10 (PRIOR-KNOWLEDGE CALIBRATED)" in advanced_calls[0]
 
         # An evidence-backed FAIL is actionable even when optional amendment
         # metadata is malformed. The author gets its reasons; no retry or Terra call occurs.
@@ -229,8 +302,8 @@ with tempfile.TemporaryDirectory() as root:
                        "closestExisting": ["broad-capability-not-a-mechanism"],
                        "semanticDelta": "Calling existing behavior is distinct from defining it.",
                        "demands": ["s01.l01", "s01.working"]}
-            return {"outcome": "FAIL", "citations": sources,
-                    "reasons": ["A definitive audit finding."],
+            return {"verdict": "FAIL", "citations": sources,
+                    "summary": "A definitive audit finding.",
                     "missingMechanisms": [finding]}
         trace = io.StringIO()
         with redirect_stdout(trace), \
@@ -259,17 +332,22 @@ with tempfile.TemporaryDirectory() as root:
         assert archived["stage"] == "audit" and archived["malformed"] is True
         assert archived["recordedAt"].endswith("Z") and archived["blockerSignature"]
 
-        # A malformed PASS is not safe. Luna gets one precise schema repair prompt.
+        # A complete bounded PASS with harmless schema drift is normalized locally;
+        # formatting alone never spends a second model call.
         os.remove(prerequisite_review.result_path("demo", "s01"))
         os.remove(prerequisite_review.calls_path("demo"))
         routed, prompts = [], []
-        def malformed_pass_then_repaired(prompt, reviewer):
+        def readable_malformed_pass(prompt, reviewer):
             routed.append(reviewer["model"])
             prompts.append(prompt)
-            value = {"outcome": "PASS", "citations": sources,
-                     "reasons": ["All sealed nodes are complete."], "missingMechanisms": []}
-            if "FORMAT CORRECTION RETRY" not in prompt:
-                value["unexpected"] = True
+            value = audit_result(reasons=["All sealed nodes are complete."])
+            value["status"] = value.pop("outcome")
+            value["summary"] = value.pop("reasons")[0]
+            for review in value["nodeReviews"]:
+                review["verdict"] = review.pop("judgment")
+                review["lines"] = "1-1"
+                review.pop("evidenceLines")
+            value["unexpected"] = True
             return value
         trace = io.StringIO()
         with redirect_stdout(trace), \
@@ -277,15 +355,17 @@ with tempfile.TemporaryDirectory() as root:
                 patch.object(prerequisite_review, "section_evidence_packet",
                              return_value=("repair packet", sources)):
             repaired = prerequisite_review.review_prerequisites(
-                "demo", "s01", adapter=malformed_pass_then_repaired)
+                "demo", "s01", adapter=readable_malformed_pass)
         assert repaired["status"] == "PASS"
-        assert routed == ["gpt-5.6-luna", "gpt-5.6-luna"]
-        assert "MECHANICAL ERRORS TO CORRECT" in prompts[1]
-        assert '"function-definition"' in prompts[1]
+        assert routed == ["gpt-5.6-luna"]
+        assert "UNUSABLE RESPONSE RECOVERY RETRY" not in prompts[0]
         trace_lines = [line for line in trace.getvalue().splitlines()
                        if line.startswith("AI VALIDATOR CALL")]
         assert len(trace_lines) == 2 and "CALL START" in trace_lines[0]
         assert "CALL COMPLETE" in trace_lines[1] and "(PASS)" in trace_lines[1]
+        with open(prerequisite_review.calls_path("demo"), encoding="utf-8") as handle:
+            pass_row = json.loads(handle.read())
+        assert pass_row["status"] == "PASS" and pass_row["malformed"] is True
 
         # A prior definitive Luna failure must never turn a later definitive
         # Luna failure into an escalation merely because it is repeated.
@@ -293,9 +373,15 @@ with tempfile.TemporaryDirectory() as root:
         routed = []
         def definitive_fail(_prompt, reviewer):
             routed.append(reviewer["model"])
-            return {"outcome": "FAIL", "citations": sources,
-                    "reasons": ["The sealed mechanism exists but its teaching is incomplete."],
-                    "missingMechanisms": []}
+            quality = [{
+                "path": sources[0]["path"], "node": sources[0]["node"],
+                "category": "teaching-depth", "evidenceLines": [1, 1],
+                "evidence": "The mechanism is named but its failure path is not explained.",
+                "requiredRepair": "Add the observable failure, diagnosis, and guided recovery practice.",
+            }]
+            return audit_result(
+                "FAIL", ["The sealed mechanism exists but its teaching is incomplete."],
+                quality=quality)
         with patch.object(prerequisite_review, "load_course_map", return_value=course), \
                 patch.object(prerequisite_review, "section_evidence_packet",
                              return_value=("changed bounded packet", sources)):
@@ -303,7 +389,7 @@ with tempfile.TemporaryDirectory() as root:
                 "demo", "s01", adapter=definitive_fail)
         assert definitive["status"] == "FAIL"
         assert routed == ["gpt-5.6-luna"]
-        assert len(os.listdir(prerequisite_review.validator_failure_dir("demo"))) == 3
+        assert len(os.listdir(prerequisite_review.validator_failure_dir("demo"))) == 2
 
         # Luna is the cheap first pass. Uncertainty escalates exactly once to Terra,
         # with no author/tool session involved in either test adapter invocation.
@@ -318,8 +404,7 @@ with tempfile.TemporaryDirectory() as root:
         def uncertain_then_terra(_prompt, reviewer):
             routed.append(reviewer["model"])
             outcome = "UNCERTAIN" if "luna" in reviewer["model"] else "PASS"
-            return {"outcome": outcome, "citations": sources,
-                    "reasons": ["Escalation fixture."], "missingMechanisms": []}
+            return audit_result(outcome, ["Escalation fixture."])
         trace = io.StringIO()
         with redirect_stdout(trace), \
                 patch.object(prerequisite_review, "load_course_map", return_value=course), \
@@ -329,12 +414,14 @@ with tempfile.TemporaryDirectory() as root:
                 "demo", "s01", adapter=uncertain_then_terra)
         assert escalated["status"] == "PASS"
         assert routed == ["gpt-5.6-luna", "gpt-5.6-terra"]
-        assert len(os.listdir(prerequisite_review.validator_failure_dir("demo"))) == 4
+        assert len(os.listdir(prerequisite_review.validator_failure_dir("demo"))) == 3
         trace_lines = [line for line in trace.getvalue().splitlines()
                        if line.startswith("AI VALIDATOR CALL")]
-        assert len(trace_lines) == 2 and "CALL START" in trace_lines[0]
-        assert "CALL COMPLETE" in trace_lines[1] and "(PASS)" in trace_lines[1]
-        assert "after Luna UNCERTAIN" in trace.getvalue()
+        assert len(trace_lines) == 4
+        assert "CALL START" in trace_lines[0]
+        assert "CALL COMPLETE" in trace_lines[1] and "(UNCERTAIN)" in trace_lines[1]
+        assert "CALL START" in trace_lines[2] and "escalation" in trace_lines[2]
+        assert "CALL COMPLETE" in trace_lines[3] and "(PASS)" in trace_lines[3]
         archived_statuses = []
         for name in os.listdir(prerequisite_review.validator_failure_dir("demo")):
             with open(os.path.join(prerequisite_review.validator_failure_dir("demo"), name),
@@ -358,7 +445,7 @@ with tempfile.TemporaryDirectory() as root:
             assert "infrastructure failed" in str(exc)
         else:
             raise AssertionError("validator infrastructure failure was not surfaced")
-        assert len(os.listdir(prerequisite_review.validator_failure_dir("demo"))) == 5
+        assert len(os.listdir(prerequisite_review.validator_failure_dir("demo"))) == 4
         with open(prerequisite_review.calls_path("demo"), encoding="utf-8") as handle:
             infrastructure_row = json.loads(handle.read())
         assert infrastructure_row["status"] == "ERROR"
@@ -367,9 +454,8 @@ with tempfile.TemporaryDirectory() as root:
         # The direct API request has no tools or Flex routing, uses Structured Output,
         # and places the stable policy before the dynamic section packet.
         response_value = {
-            "id": "resp_test", "output_text": json.dumps({
-                "outcome": "PASS", "citations": sources, "reasons": ["clean"],
-                "missingMechanisms": []}),
+            "id": "resp_test", "output_text": json.dumps(
+                audit_result(reasons=["clean"])),
             "usage": {"input_tokens": 1200, "input_tokens_details": {
                 "cached_tokens": 800, "cache_write_tokens": 200},
                 "output_tokens": 40, "output_tokens_details": {"reasoning_tokens": 12},
@@ -395,9 +481,11 @@ with tempfile.TemporaryDirectory() as root:
         assert "tools" not in payload and "service_tier" not in payload
         assert payload["text"]["format"]["type"] == "json_schema"
         assert payload["text"]["format"]["strict"] is True
+        assert payload["text"]["format"]["name"] == "arcanum_section_quality_audit"
         assert payload["input"][0]["role"] == "developer"
         assert payload["input"][1]["role"] == "user"
         assert payload["prompt_cache_options"] == {"mode": "explicit"}
+        assert payload["max_output_tokens"] == 2500
         assert meta["usage"] == {"inputTokens": 1200, "freshInputTokens": 200,
                                   "cachedInputTokens": 800, "cacheWriteTokens": 200, "outputTokens": 40,
                                   "reasoningTokens": 12, "totalTokens": 1240}
@@ -405,4 +493,4 @@ with tempfile.TemporaryDirectory() as root:
         prerequisite_review.BUILD_DIR = old_build
         prerequisite_review.VALIDATOR_FAILURE_DIR = old_failure_root
 
-print("prerequisite mechanism/audit tests: OK")
+print("section quality/prerequisite audit tests: OK")

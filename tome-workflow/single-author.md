@@ -53,16 +53,35 @@ Phase-0 `TOOLING` value literally.
 
 - Phase 1: self-check with `python3 tools/validate_tome.py tomes/BUILD_ID --phase-1-plan .tome-build/BUILD_ID.plan.md`;
   the harness repeats it,
-  then the deterministic Phase-1 transition after a clean result.
+  then sends the complete plan plus operator calibration to the configured mandatory read-only
+  Validator AI. Its bounded, line-cited audit must pass concept alignment, learner calibration,
+  scope feasibility, arc sequencing, learner ownership, and proof/delivery coherence before the
+  deterministic Phase-1 transition can run. Helpful findings return to the same planning repair
+  session; the AI never edits files or expands the requested scope.
 - Phase 2: fill the deterministic skeleton. The harness gate is
   `python3 tools/validate_tome.py tomes/BUILD_ID --phase-2-skeleton --build-phase 2 --no-run --tooling TOOLING --build-plan .tome-build/BUILD_ID.plan.md`.
   Run that exact command as the self-check; the harness repeats it.
   Also complete `.tome-build/BUILD_ID.course-map.proposal.json`; learner-facing section files
   remain Phase-3 placeholders while the proposal names every stable lesson/Working node,
   capability, dependency, learner-owned artifact, obligation, and typed completion packet.
-  After a clean result, the harness validates and seals that map, runs the deterministic
-  Phase-2 transition, and retains its
+  After the mechanical result is clean, the mandatory read-only Validator AI receives the sealed
+  Phase-1 plan as authority plus the complete proposal, manifest, and selected runtime profile. It
+  audits arc fidelity,
+  prerequisite order, pacing, capability coverage, cumulative project continuity, planned Working
+  independence, runtime/delivery feasibility, and voice/skeleton coherence. Only an AI PASS lets
+  the harness validate and seal that map, run the deterministic Phase-2 transition, and retain its
   `CURRENT_TOME` output for every later command.
+  Planning Validator AI calls request ordinary Markdown explanation and evidence, not JSON or a
+  response schema. A PASS/FAIL/UNCERTAIN heading and short criterion sections are recommended only;
+  no heading, field name, order, punctuation, or citation spelling is required. The harness infers
+  ordinary prose when necessary and returns the original Markdown unchanged to the author. A useful
+  unlabeled report therefore never buys a formatting retry: an ambiguous substantive report keeps
+  the gate closed so the author can read it. Luna receives one recovery retry only for empty,
+  truncated, or near-empty output, and goes to Terra only for still-unusable output or a substantive
+  UNCERTAIN. Section reviews retain optional structured details for automatic mechanism-ledger
+  amendments, but harmless representation drift does not cause another model call. Usable verdicts
+  are content-and-model fingerprint cached; any evidence repair changes the packet and forces a
+  fresh call.
 - Phase 3: author one whole section at a time in Arc order. The harness sets its `authoring`
   marker before resuming you. Self-check with
   `python3 tools/validate_section.py tomes/CURRENT_TOME sNN --plan .tome-build/BUILD_ID.plan.md --tooling TOOLING --source-only`.
@@ -72,21 +91,28 @@ Phase-0 `TOOLING` value literally.
   It reports `complete` only when clean, then starts a fresh Phases 3–7 unit session for the next section.
   After the last section, the harness also runs the full Phase-3 gate before advancing.
   After the complete mechanical gate passes, the configured mandatory Validator AI receives one
-  read-only bounded packet containing all sealed lessons plus the Working. It audits first-use
-  prerequisite completeness, must cite every sealed node to pass, and returns failures to the
-  current section's repair session. With an OpenAI key in Settings or `OPENAI_API_KEY`, a Codex GPT
+  read-only bounded packet containing all sealed lessons plus the Working. It audits teaching
+  quality, learner independence, and first-use prerequisite completeness. A PASS must cite every
+  sealed node and provide one concrete, in-file line-bounded review for every lesson and the
+  Working; helpful quality defects return only their cited repairs to the current section's repair
+  session. This same compact call runs at every Start level and stays capped at 2,500 output tokens;
+  it does not add a second reviewer pass. With an OpenAI key in Settings or `OPENAI_API_KEY`, a Codex GPT
   validator uses no-tools Responses API Structured Output; without it, the installed
   login CLI is the fallback.
-  A bounded, evidence-backed Luna FAIL is authoritative even when optional amendment metadata is
-  malformed; the harness returns its readable reasons and discards the unusable proposal. A
-  malformed PASS is never accepted. Luna escalates to Terra only after an unusable response or an
-  explicit UNCERTAIN result. A proposed missing mechanism must identify the
+  The shared readable-verdict policy above governs every section call. A proposed missing mechanism
+  must identify the
   nearest sealed owner and a genuinely distinct semantic responsibility; platform or syntax
   spellings of the same operation remain teaching evidence under that existing owner. The packet
   is content-digest cached, so an unchanged clean section is not charged twice.
-  Every non-PASS AI call and every failed final section gate is also written as its own timestamped
-  JSON record under `validator-failures/BUILD_ID/`; this audit history is Git-ignored, excluded from
-  the direct-file-count gate, and is not collapsed into the latest section failure.
+  Every non-PASS AI call and every failed final section gate is also written under
+  `validator-failures/BUILD_ID/`; Phase-1/2 planning reviews are timestamped Markdown files containing
+  the original report, while structured Phase-3 section/final-gate records remain JSON. This audit
+  history is Git-ignored, excluded from the direct-file-count gate, and is not collapsed into the
+  latest section failure.
+  The operating target for the Phase-3 author plus this Validator AI is $1–2 API-equivalent per
+  section. Initial author prompts require one bounded context render plus batched reads/edits; a
+  failed gate returns a compact repair packet and exact self-check without rerendering the initial
+  section context or adding a second review pass. Lifetime section totals include both roles.
   Forge also persists the newest 500 mechanical and AI validator lifecycle lines in
   `.tome-build/BUILD_ID.status-log.jsonl`, so restarting or resuming cannot erase them from the
   chronological tool-history view. Older builds recover AI completions from their call ledger.
@@ -111,10 +137,23 @@ Phase-focused validators may defer later-phase warnings. Do not edit future-phas
 silence deferred counts. Never weaken an earlier proof or remove content merely to make a gate
 green. Existing proof-v1 files require exact replacement or an all-active rewrite.
 
-The harness records every author, repair, prerequisite-validator, and optional full-review AI
+The harness records every author, repair, planning-validator, prerequisite-validator, and optional
+full-review AI
 invocation in `.tome-build/BUILD_ID.ai-costs.jsonl`. That detail ledger retains the 500 rows
 nearest to the current time. Lifetime accounting is independent of that retention window:
 `.tome-build/BUILD_ID.ai-cost-totals.jsonl` always contains one line for each Phase 1–8 total and
 one line for every sealed Phase-3 section total. Each line includes normalized token counts,
 API-equivalent dollars, direct Responses API dollars, and an explicit incomplete-pricing marker
-if a provider/model has no verified rate.
+if a provider/model has no verified rate. At every clean phase boundary, and after every clean
+Phase-3 section, the Forge trace prints a **GPT-only API-equivalent cost** when at least one priced
+GPT model participated. Claude, OpenCode, and other non-GPT turns never receive or contribute to a
+dollar estimate. The Phase-3 completion amount is calculated as the sum of the displayed section
+amounts, so it must equal those section lines exactly. Totals survive harness resumes and accumulate
+model changes; cumulative Codex usage is differenced by provider session before each turn is priced
+at the GPT model that actually produced that delta. The optional full-tome reviewer is included in
+Phase 8 when it uses a priced GPT model. An ordinary resume preserves these totals. A destructive
+restart from Phase N transactionally removes AI turns, totals, and visible cost-completion events
+owned by Phase N and every later phase while preserving earlier-phase totals. Provider cumulative
+counter baselines may remain as non-billable internal metadata solely to prevent discarded usage
+from reappearing after a same-session resume or model change; restarting from Phase 1 therefore
+displays only new post-restart cost.

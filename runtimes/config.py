@@ -14,9 +14,13 @@ _ID = re.compile(r"^[A-Za-z0-9_-]+$")
 _ARGV_KEYS = (
     "command", "runCommand", "snippetRunCommand", "buildCommand", "checkCommand",
     "scaffoldCommand", "packageCommand", "validationPackageCommand",
-    "validationProjectPackageCommand",
+    "validationProjectPackageCommand", "deliveryCreateCommand",
+    "deliveryResolveCommand", "deliveryInstallCommand", "deliveryBuildCommand",
 )
-_LIST_KEYS = ("validationDependencies", "excludeDirs", "codeExt", "capabilities")
+_LIST_KEYS = (
+    "validationDependencies", "excludeDirs", "codeExt", "capabilities",
+    "commandTargetTools",
+)
 _TRUSTED_ASSESSMENT_KEYS = ("assessmentReadPaths", "assessmentEnvironment")
 
 

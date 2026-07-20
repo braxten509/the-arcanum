@@ -15,82 +15,25 @@ import shutil
 import tempfile
 import time
 
-from .. import BUILD_DIR, REPO
-from .checkpoints import ARC_CONTRACT, ARC_HEADING
-from ..course.limits import MIN_SECTIONS
-from ..skeleton import scaffold_sections
+from ... import BUILD_DIR, REPO
+from ...ai_costs import rewind_ai_costs
+from ...course.limits import MIN_SECTIONS
+from ...skeleton import scaffold_sections
+from ...status_log import rewind_status_log
 from arcanum.catalog.build_ids import resolve_working_id
+
+from .contracts import (AI_COST_SIDECARS, COST_SIDECARS, COURSE_MAP_SIDECARS,
+                        COURSE_SEED_SIDECARS, COURSE_STATE_SIDECARS, ECONOMY_SCAFFOLD,
+                        PHASE3_SIDECARS, PHASE7_SIDECARS, PHASE8_SIDECARS, PHASE_TITLES,
+                        TERMINAL_SUFFIXES, _replace_economy)
+from .files import (ID_RE, _atomic_json, _atomic_text, _copy_item, _read_text, _remove,
+                    _valid_id)
+from .plan_text import (CALIBRATION_RE, GATE_LABELS, GROUND_TRUTH_RE, RENAME_RE,
+                        _mastery_from_plan, reset_plan_text)
 
 
 TOMES_DIR = os.path.join(REPO, "tomes")
-PHASE_TITLES = ("", "Concept & arc", "Skeleton & voice", "Sections", "Minigames",
-                "Economy", "Cosmetics", "Validate", "Student review")
-ID_RE = re.compile(r"[A-Za-z0-9_-]+")
-GROUND_TRUTH_RE = re.compile(r"(?m)^## Harness ground truth\b")
-RENAME_RE = re.compile(
-    r"(?m)^\s*-\s*\*\*Tome id renamed by the harness:\*\*[^\n]*(?:\n|$)")
-CALIBRATION_RE = re.compile(r"(?ms)^## Calibration contract\n.*?(?=^## Arc\b)")
-GATE_LABELS = ("Prior knowledge", "Starting level (1-10)", "Project scope (1-5)",
-               "Lesson depth (1-10)", "Mastery (1-5)", "Tooling")
-
-ECONOMY_SCAFFOLD = """[economy]
-# TODO: rebalance once your exercise/freestyle points are set (see § [economy]).
-ranks = [[0, "NOVICE"], [400, "ADEPT"], [1000, "MASTER"]]
-hintCost = 50
-oracleCost = 10
-attemptMultipliers = [1, 0.6, 0.3]
-comboStep = 0.05
-comboCap = 0.5
-sRankMultiplier = 1.5
-attackStakePerDiff = 20
-attackWinPerDiff = 15
-
-"""
-
-TERMINAL_SUFFIXES = (
-    "active.json", "cancelled.json", "result.json", "session.json",
-    "conversation.jsonl", "amend.json", "progress", "section-progress.json",
-)
-PHASE3_SIDECARS = ("handoffs", "sections-done")
-COURSE_SEED_SIDECARS = ("course-map.seed.json", "course-map.proposal.json")
-COURSE_MAP_SIDECARS = ("course-map.json", "course-map.amendments.json")
-COURSE_STATE_SIDECARS = ("course-state.json", "course-evidence", "course-failures",
-                          "course-control.log.jsonl")
-PHASE7_SIDECARS = ("proof-evidence.json", "shrink-ok", "learner-project")
-PHASE8_SIDECARS = ("findings.json", "verdict")
-
-
-def _valid_id(value):
-    value = str(value or "")
-    if not ID_RE.fullmatch(value):
-        raise ValueError(f"invalid tome/build id {value!r}")
-    return value
-
-
-def _atomic_text(path, text):
-    temp = path + ".tmp"
-    with open(temp, "w", encoding="utf-8") as handle:
-        handle.write(text)
-    os.replace(temp, path)
-
-
-def _atomic_json(path, value):
-    _atomic_text(path, json.dumps(value, ensure_ascii=False, separators=(",", ":")) + "\n")
-
-
-def _read_text(path):
-    with open(path, encoding="utf-8") as handle:
-        return handle.read()
-
-
-def _remove(path):
-    if os.path.isdir(path) and not os.path.islink(path):
-        shutil.rmtree(path)
-    else:
-        try:
-            os.remove(path)
-        except FileNotFoundError:
-            pass
+SECTION_RE = re.compile(r"s[0-9]{2,3}")
 
 
 def find_plan_for_tome(tid):
@@ -113,69 +56,12 @@ def find_plan_for_tome(tid):
     return build_id, path, text
 
 
-def reset_plan_text(text, phase):
-    """Remove completion evidence and return the plan shape valid at ``phase`` start."""
-    phase = int(phase)
-    if phase not in range(1, 9):
-        raise ValueError("phase must be between 1 and 8")
-    match = GROUND_TRUTH_RE.search(text)
-    if match:
-        text = text[:match.start()].rstrip() + "\n"
-    if phase == 1:
-        from .prompts import calibration_contract
-        answers = []
-        for label in GATE_LABELS:
-            answer = re.search(
-                rf"(?im)^- \*\*{re.escape(label)}:\*\*\s*(\S.*)$", text)
-            if not answer:
-                answers = []
-                break
-            answers.append((label, answer.group(1).strip()))
-        if not answers:
-            # Phase snapshots from before Project Scope used Breadth 1–10. Preserve their
-            # intent through the documented 2:1 compatibility mapping.
-            legacy_labels = list(GATE_LABELS)
-            legacy_labels[2] = "Breadth (1-10)"
-            legacy_answers = []
-            for label in legacy_labels:
-                answer = re.search(
-                    rf"(?im)^- \*\*{re.escape(label)}:\*\*\s*(\S.*)$", text)
-                if not answer:
-                    legacy_answers = []
-                    break
-                legacy_answers.append((label, answer.group(1).strip()))
-            if legacy_answers:
-                breadth = int(legacy_answers[2][1])
-                legacy_answers[2] = ("Project scope (1-5)",
-                                     str(max(1, min(5, (breadth + 1) // 2))))
-                answers = legacy_answers
-        if answers:
-            refreshed = "## Calibration contract\n" + calibration_contract(answers) + "\n"
-            if CALIBRATION_RE.search(text):
-                text = CALIBRATION_RE.sub(refreshed, text, count=1)
-        head, marker, _old_arc = text.partition("## Arc")
-        if not marker:
-            raise ValueError("the build plan has no Arc boundary to reset")
-        return head + ARC_HEADING + ARC_CONTRACT
-    if phase == 2:
-        text = RENAME_RE.sub("", text)
-    return text.rstrip() + "\n"
-
-
 def snapshot_root(build_id):
     return os.path.join(BUILD_DIR, f"{_valid_id(build_id)}.phase-snapshots")
 
 
 def snapshot_path(build_id, phase):
     return os.path.join(snapshot_root(build_id), f"phase-{int(phase)}")
-
-
-def _copy_item(source, target):
-    if os.path.isdir(source) and not os.path.islink(source):
-        shutil.copytree(source, target)
-    else:
-        os.makedirs(os.path.dirname(target), exist_ok=True)
-        shutil.copy2(source, target)
 
 
 def _baseline_sidecars(build_id, tid, phase):
@@ -249,11 +135,6 @@ def _load_snapshot(build_id, phase):
             "sidecars": os.path.join(root, "sidecars"), "tomeId": tid}
 
 
-def _mastery_from_plan(text):
-    match = re.search(r"(?im)^- \*\*Mastery \(1-5\):\*\*\s*([1-5])\s*$", str(text or ""))
-    return int(match.group(1)) if match else 1
-
-
 def _fresh_tome(tid, mastery=1):
     """Create a bounds-valid split scaffold under the active TOMES_DIR."""
     try:
@@ -295,15 +176,6 @@ def _fresh_tome(tid, mastery=1):
         split_tome.QUIET = previous_quiet
 
 
-def _replace_economy(manifest):
-    text = _read_text(manifest)
-    updated, count = re.subn(r"(?ms)^\[economy\][^\n]*\n.*?(?=^\[|\Z)",
-                             ECONOMY_SCAFFOLD, text, count=1)
-    if count != 1:
-        raise ValueError("tome.toml has no top-level [economy] block to reset")
-    _atomic_text(manifest, updated)
-
-
 def _fallback_phase_boundary(tome, tid, plan, phase):
     """Reconstruct a phase boundary for builds created before snapshots existed."""
     if phase <= 3:
@@ -320,7 +192,7 @@ def _fallback_phase_boundary(tome, tid, plan, phase):
 
 def _clear_sidecars(keys, phase, everything=False):
     for key in {_valid_id(value) for value in keys if value}:
-        for suffix in TERMINAL_SUFFIXES + PHASE8_SIDECARS:
+        for suffix in TERMINAL_SUFFIXES + PHASE8_SIDECARS + COST_SIDECARS:
             _remove(os.path.join(BUILD_DIR, f"{key}.{suffix}"))
         if everything or phase <= 1:
             for suffix in COURSE_SEED_SIDECARS:
@@ -351,7 +223,7 @@ def _stage_sidecars(keys, transaction):
     os.makedirs(target, exist_ok=True)
     suffixes = (TERMINAL_SUFFIXES + COURSE_SEED_SIDECARS + COURSE_MAP_SIDECARS
                 + PHASE3_SIDECARS + COURSE_STATE_SIDECARS
-                + PHASE7_SIDECARS + PHASE8_SIDECARS)
+                + PHASE7_SIDECARS + PHASE8_SIDECARS + COST_SIDECARS)
     for key in {_valid_id(value) for value in keys if value}:
         for suffix in suffixes:
             source = os.path.join(BUILD_DIR, f"{key}.{suffix}")
@@ -385,6 +257,44 @@ def _restore_later_snapshots(build_id, source):
     os.makedirs(snapshot_root(build_id), exist_ok=True)
     for name in os.listdir(source):
         os.replace(os.path.join(source, name), os.path.join(snapshot_root(build_id), name))
+
+
+def reset_tome_to_section(tid, sid):
+    """Rewind Phase 3 to one section start, keeping every earlier section's work.
+
+    Section completion is derived, never stored: a section counts as done because it
+    owns a current verification receipt and handoff.  Dropping those from ``sid``
+    onward is the whole rewind — the author re-authors the section over its own stale
+    files exactly as it does after a validator failure.
+    """
+    tid = _valid_id(tid)
+    if not SECTION_RE.fullmatch(str(sid or "")):
+        raise ValueError(f"invalid section id {sid!r}")
+    build_id, _plan, _text = find_plan_for_tome(tid)
+    from ...course_map import load_course_map
+    ids = [section["id"] for section in load_course_map(build_id)["sections"]]
+    if sid not in ids:
+        raise ValueError(f"{sid} is not a section of this tome")
+    keys = {_valid_id(value) for value in (build_id, tid) if value}
+    for key in keys:
+        for section in ids[ids.index(sid):]:
+            for suffix in ("handoffs", "course-evidence", "course-failures"):
+                _remove(os.path.join(BUILD_DIR, f"{key}.{suffix}", f"{section}.json"))
+        for suffix in TERMINAL_SUFFIXES:
+            if suffix != "progress":
+                _remove(os.path.join(BUILD_DIR, f"{key}.{suffix}"))
+    for key in keys:
+        if os.path.exists(os.path.join(BUILD_DIR, f"{key}.status-log.jsonl")):
+            rewind_status_log(key, 3, build_dir=BUILD_DIR)
+    now = time.time()
+    _atomic_json(os.path.join(BUILD_DIR, f"{build_id}.progress"), {
+        "phase": 3, "phaseTitle": PHASE_TITLES[3], "state": "working",
+        "phaseStartedAt": now, "updatedAt": now,
+    })
+    from ...course.state import derive_course_state
+    derive_course_state(build_id)
+    return {"id": build_id, "tome": tid, "phase": 3, "section": sid,
+            "phaseTitle": PHASE_TITLES[3], "usedSnapshot": False}
 
 
 def reset_tome_to_phase(tid, phase):
@@ -425,7 +335,7 @@ def reset_tome_to_phase(tid, phase):
             _restore_snapshot_sidecars(snapshot)
             if phase == 2 and not os.path.isfile(os.path.join(
                     BUILD_DIR, f"{build_id}.course-map.seed.json")):
-                from ..course_map import seed_course_map
+                from ...course_map import seed_course_map
                 seed_course_map(build_id, plan)
         elif phase <= 2:
             _fresh_tome(target_tid, _mastery_from_plan(plan_text))
@@ -447,7 +357,7 @@ def reset_tome_to_phase(tid, phase):
 
         if phase == 2 and not os.path.isfile(os.path.join(
                 BUILD_DIR, f"{build_id}.course-map.seed.json")):
-            from ..course_map import seed_course_map
+            from ...course_map import seed_course_map
             seed_course_map(build_id, plan)
 
         os.makedirs(os.path.join(target_tome, "save"), exist_ok=True)
@@ -459,8 +369,15 @@ def reset_tome_to_phase(tid, phase):
         if not snapshot:
             capture_phase_snapshot(build_id, phase, replace=True)
         if os.path.isfile(os.path.join(BUILD_DIR, f"{build_id}.course-map.json")):
-            from ..course.state import derive_course_state
+            from ...course.state import derive_course_state
             derive_course_state(build_id)
+        _copy_staged_sidecars(state_backup, COST_SIDECARS)
+        for key in {_valid_id(value) for value in (build_id, tid, target_tid) if value}:
+            if any(os.path.exists(os.path.join(BUILD_DIR, f"{key}.{suffix}"))
+                   for suffix in AI_COST_SIDECARS):
+                rewind_ai_costs(BUILD_DIR, key, phase)
+            if os.path.exists(os.path.join(BUILD_DIR, f"{key}.status-log.jsonl")):
+                rewind_status_log(key, phase, build_dir=BUILD_DIR)
         shutil.rmtree(transaction, ignore_errors=True)
         return {"id": build_id, "tome": target_tid, "phase": phase,
                 "phaseTitle": PHASE_TITLES[phase], "usedSnapshot": bool(snapshot)}
@@ -474,7 +391,7 @@ def reset_tome_to_phase(tid, phase):
                               TERMINAL_SUFFIXES + COURSE_SEED_SIDECARS
                               + COURSE_MAP_SIDECARS + PHASE3_SIDECARS
                               + COURSE_STATE_SIDECARS
-                              + PHASE7_SIDECARS + PHASE8_SIDECARS)
+                              + PHASE7_SIDECARS + PHASE8_SIDECARS + COST_SIDECARS)
         _restore_later_snapshots(build_id, snapshot_backup)
         if os.path.exists(backup):
             os.replace(backup, current_tome)

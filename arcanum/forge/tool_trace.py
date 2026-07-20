@@ -14,6 +14,7 @@ import sqlite3
 import time
 
 from ..config import BUILD_DIR, WEB
+from ..jobs.processes import descendants as _descendants
 from .trace_metadata import trace_model, trace_session_id, trace_usage
 
 TOOL_TRACE_LINES = 80
@@ -35,31 +36,14 @@ class TraceSource:
     session_id: str = ""
 
 
-def _descendants(root_pid):
-    """Return root_pid and its current descendants from Linux /proc."""
-    children = {}
-    try:
-        proc_entries = os.listdir("/proc")
-    except OSError:
-        return []
-    for entry in proc_entries:
-        if not entry.isdigit():
-            continue
-        try:
-            with open(f"/proc/{entry}/stat", encoding="utf-8") as handle:
-                fields = handle.read().rpartition(")")[2].split()
-            children.setdefault(int(fields[1]), []).append(int(entry))
-        except (OSError, ValueError, IndexError):
-            continue
-    found, stack = [], [int(root_pid)]
-    while stack:
-        pid = stack.pop()
-        found.append(pid)
-        stack.extend(children.get(pid, ()))
-    return found
+def _trace_path_matches_session(provider, path, session_id):
+    """Keep a discovered transcript bound to the CLI-emitted session id."""
+    if not session_id or provider not in ("codex", "claude"):
+        return True
+    return str(path).endswith(f"{session_id}.jsonl")
 
 
-def runner_session(root_pid, opencode_session_id=None):
+def runner_session(root_pid, session_id=None):
     """Find the real session store owned by this build's live worker."""
     candidates = []
     pids = _descendants(root_pid)
@@ -91,16 +75,17 @@ def runner_session(root_pid, opencode_session_id=None):
                                                            agy.group(2))))
                         except OSError:
                             pass
-            if not provider or not os.path.isfile(target):
+            if (not provider or not os.path.isfile(target)
+                    or not _trace_path_matches_session(provider, target, session_id)):
                 continue
             try:
                 stamp = os.stat(target).st_mtime_ns
             except OSError:
                 continue
-            session_id = (os.path.basename(target).removesuffix(".jsonl")
-                          if provider == "claude" else "")
-            candidates.append((stamp, TraceSource(provider, target, session_id)))
-    opencode = _opencode_session_from_processes(pids, session_id=opencode_session_id)
+            source_session_id = (os.path.basename(target).removesuffix(".jsonl")
+                                 if provider == "claude" else "")
+            candidates.append((stamp, TraceSource(provider, target, source_session_id)))
+    opencode = _opencode_session_from_processes(pids, session_id=session_id)
     if opencode:
         candidates.append(opencode)
     if not candidates:
@@ -444,31 +429,37 @@ def mirror_tool_trace(job_id, build_pid, build_id="", interval=0.75):
                     "updatedAt": time.time(), "usage": {}, "lines": []}
     _write_snapshot(job_id, last_payload)
     while os.path.exists(f"/proc/{int(build_pid)}"):
-        current = runner_session(build_pid, _saved_session_id(build_id))
-        if current:
-            missing = 0
-            provider = current.provider
-            if not follower or follower.source != current:
-                history.extend(current_lines)
-                current_lines = []
-                follower = _follower(current)
-            events = follower.poll()
-            current_lines = [format_tool_event(event)
-                             for event in events[-TOOL_TRACE_LINES:]]
-            last_payload = {
-                "active": True,
-                "provider": provider,
-                "sessionId": trace_session_id(current),
-                "updatedAt": time.time(),
-                "usage": trace_usage(current),
-                "lines": [*history, *current_lines][-TOOL_TRACE_LINES:],
-            }
-            _write_snapshot(job_id, last_payload)
-        else:
-            missing += 1
-            # A paused author has no live child, but its history is still the session truth.
-            if missing >= 3:
-                last_payload = {**last_payload, "active": False, "updatedAt": time.time()}
+        try:
+            current = runner_session(build_pid, _saved_session_id(build_id))
+            if current:
+                missing = 0
+                provider = current.provider
+                if not follower or follower.source != current:
+                    history.extend(current_lines)
+                    current_lines = []
+                    follower = _follower(current)
+                events = follower.poll()
+                current_lines = [format_tool_event(event)
+                                 for event in events[-TOOL_TRACE_LINES:]]
+                last_payload = {
+                    "active": True,
+                    "provider": provider,
+                    "sessionId": trace_session_id(current),
+                    "updatedAt": time.time(),
+                    "usage": trace_usage(current),
+                    "lines": [*history, *current_lines][-TOOL_TRACE_LINES:],
+                }
                 _write_snapshot(job_id, last_payload)
+            else:
+                missing += 1
+                # A paused author has no live child, but its history is still the session truth.
+                if missing >= 3:
+                    last_payload = {**last_payload, "active": False, "updatedAt": time.time()}
+                    _write_snapshot(job_id, last_payload)
+        except Exception as exc:
+            # This thread is the only writer of the tool-history pane. Dying here blanks it
+            # for the rest of the build with nothing on screen to say why — a provider's
+            # store is a moving target, so one bad poll costs a poll, not the run's history.
+            print(f"tool trace warning: {exc!r}", flush=True)
         time.sleep(max(0.2, float(interval)))
     _write_snapshot(job_id, {**last_payload, "active": False, "updatedAt": time.time()})

@@ -1,8 +1,9 @@
 # Phase 0 — 🚦 GATE: six course-shaping questions (NEVER skip)
 
-Read **§0** and **§6 step 0**. Collect all six gate answers: prior knowledge,
+Read **§0** and **§6 step 0**. Collect all six gate settings: optional prior knowledge,
 starting level, project scope, lesson depth, mastery, and tooling. **WAIT for the user's
-real answers.** The
+real choices.** Prior knowledge may be left blank; in that case, Starting level is the sole
+entry baseline. The
 **Tooling** answer (internal / external / both) is expanded inside the plan's
 **Calibration contract** — obey it: it decides whether `externalWorkspace` is allowed
 and whether the real external tools must be taught. Starting level and mastery are
@@ -24,7 +25,7 @@ Calibration contract expands each mastery number into concrete graded language e
 phases must follow that exact text.
 
 This gate is absolute. **Even in an autonomous / automode run, interrupt the run and
-ask** — you can break out of automode, so do it. Never answer for the user, never
-assume defaults, never proceed unanswered.
+ask** — you can break out of automode, so do it. Never answer for the user or invent
+prior-knowledge details. An explicitly blank optional prior-knowledge answer is valid.
 
 → **Produce:** the user's six answers. Nothing else exists until they arrive.

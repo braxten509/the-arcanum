@@ -4,17 +4,20 @@ import re
 import sys
 
 from .checkpoints import ARC_CONTRACT, ARC_HEADING
+from ..course.limits import mastery_section_cap
 from ..mastery_evidence import load_policy
 
 
 GATE_QS = [
-    ("Prior knowledge", "What can the student already do?"),
+    ("Prior knowledge", "What can the student already do? (optional; leave blank to use Starting level only)"),
     ("Starting level (1-10)", "How much does the student know about this subject?"),
     ("Project scope (1-5)", "How large and complete should the finished project be?"),
     ("Lesson depth (1-10)", "How deeply should each included mechanism be taught?"),
     ("Mastery (1-5)", "How independently must the student use the course's declared language after the last chapter? Levels 1–2 remain project-first; levels 3–5 make language mastery primary."),
     ("Tooling", "internal, external, or both?"),
 ]
+
+PRIOR_KNOWLEDGE_UNSPECIFIED = "Not specified; use Starting level as the sole entry baseline."
 
 PROJECT_SCOPE_LEVELS = {
     1: ("MINIMAL PROOF", "A barely functional proof project: one complete workflow and only "
@@ -34,7 +37,7 @@ PROJECT_SCOPE_LEVELS = {
 MASTERY_DEPTH_FLOORS = {1: 3, 2: 5, 3: 7, 4: 8, 5: 9}
 
 MASTERY_LEVELS = {
-    1: ("ACQUAINTED", "Can explain core language mechanisms and safely modify guided language examples."),
+    1: ("MINIMUM BUILD PATH", "Learns only the language and tooling required to build the requested project from scratch, with guided explanation and modification rather than broad fluency."),
     2: ("FUNCTIONAL", "Can use the language for familiar small tasks and repair simple faults without step-by-step help."),
     3: ("CAPABLE", "Can transfer language concepts to novel real problems, integrate and debug the result, and justify language-level choices independently."),
     4: ("ADVANCED", "Can use the language across unfamiliar variations, important tradeoffs, internals, and power tools with minimal scaffolding."),
@@ -61,12 +64,12 @@ MASTERY_EVIDENCE = {
 }
 
 PRIOR_LEVELS = {
-    1: ("FROM ZERO", "Assume only stated prior knowledge; teach setup, first run, and every required construct from first principles at a deliberately low-density pace."),
+    1: ("FROM ZERO", "Assume no subject knowledge; teach setup, first run, and every required construct from first principles at a deliberately low-density pace."),
     2: ("NEAR ZERO", "Cover level-1 fundamentals at a moderate pace with less repetition, never fewer concepts."),
     3: ("BEGINNER", "Teach the subject from the ground up; dense lessons are allowed after their prerequisites are secure."),
-    4: ("TRANSFER LEARNER", "Compress only transferable concepts supported by prior knowledge."),
+    4: ("TRANSFER LEARNER", "Compress general transferable concepts; use optional prior-knowledge details to tailor the bridge."),
     5: ("GENERALIST", "Assume general practice, not subject expertise; teach focused foundations."),
-    6: ("ADJACENT", "Bridge the stated neighboring experience to this subject explicitly."),
+    6: ("ADJACENT", "Bridge typical neighboring-domain experience to this subject; use optional details to tailor the bridge."),
     7: ("PRACTITIONER", "Assume routine fundamentals; introduce course-specific APIs and constraints."),
     8: ("FLUENT", "Focus on integration, tradeoffs, and failure modes; teach uncommon material."),
     9: ("ADVANCED", "Focus on internals, architecture, edge cases, and difficult tradeoffs."),
@@ -242,8 +245,6 @@ def mastery_contract(mastery):
 def gate_errors(answers):
     values = {label: str(value or "").strip() for label, value in answers}
     errors = []
-    if not values.get("Prior knowledge"):
-        errors.append("Prior knowledge is required; use 'none' when appropriate")
     for label, maximum in (("Starting level (1-10)", 10), ("Project scope (1-5)", 5),
                            ("Lesson depth (1-10)", 10), ("Mastery (1-5)", 5)):
         raw = values.get(label, "")
@@ -287,10 +288,12 @@ def calibration_contract(answers):
     scope_title, scope_summary = PROJECT_SCOPE_LEVELS[project_scope]
     lines = [
         f"- **Start {start}/10 — {PRIOR_LEVELS[start][0]}:** {PRIOR_LEVELS[start][1]}",
-        "- **Assumption boundary:** Prior knowledge is an exhaustive whitelist, not evidence "
-        "that nearby skills are safe to assume.",
+        "- **Assumption boundary:** Starting level is the complete entry baseline. Prior "
+        "knowledge is optional; when supplied, treat it as an exhaustive list of additional "
+        "concrete skills, not evidence that nearby skills are safe to assume. When omitted, "
+        "make no specific experience assumptions beyond the selected Start definition.",
         "- **Prerequisite topology rule:** Before sealing the Arc or course map, perform a "
-        "cold-start dependency walk from the prior-knowledge whitelist through every Working and "
+        "cold-start dependency walk from the entry baseline through every Working and "
         "the final acceptance journey. Inventory every unavoidable language mechanism, library or "
         "runtime API, tool action, configuration or data-format rule, and technical term demanded "
         "by the milestone, learner-owned artifacts, rubric, proof, validation, or hidden replay. "
@@ -301,7 +304,7 @@ def calibration_contract(answers):
         "- **Transitive prerequisite closure rule:** Teaching a dependent mechanism never "
         "implicitly teaches the mechanisms that make its smallest meaningful example possible. "
         "For every planned owner, expand each mechanism through that transitive prerequisite "
-        "closure. Every prerequisite outside the prior-knowledge whitelist must have an earlier "
+        "closure. Every prerequisite outside the entry baseline must have an earlier "
         "owner; at Start 1–3, another lesson in the same section counts only when it is earlier. "
         "If the smallest example contains an unlisted syntax form, API, tool action, data-format "
         "rule, or term, that item is a prerequisite even when the learner could copy it blindly. "
@@ -337,6 +340,26 @@ def calibration_contract(answers):
         "a later owner to a demand already present, or invent a near-duplicate mechanism to disguise "
         "use before teaching.",
     ]
+    if tooling in ("external", "both"):
+        lines.append(
+            "- **External clean-start rule:** The first Section-list milestone must own the "
+            "real toolchain's installation or setup and an observable version, check, or "
+            "diagnostic verification before it demands project source. Repeat that clean-start "
+            "setup and verification in Acceptance proof; a machine where the tools happen to "
+            "already exist is not the declared zero-entry journey.")
+    lines.extend((
+        "- **Failure-path prerequisite rule:** Own the mapped control-flow and decomposition "
+        "foundations before the mapped failure-handling foundation, including literal lesson "
+        "order when they share a section. A library cleanup branch cannot be the learner's "
+        "first unexplained comparison, jump, call, or return path.",
+        "- **Bounded-modification consistency rule:** When a graded guided modification names "
+        "an exact numeric bound, repeat that same exact invariant in its Section-list promise "
+        "and Mastery proof. Do not let a vague range change replace the graded contract.",
+        "- **Reproducible-delivery proof rule:** If Finished tool or the final milestone promises "
+        "a reproducible, deterministic, or byte-identical package/archive, Acceptance proof "
+        "must create it at least twice from clean input, normalize ordering and volatile archive "
+        "metadata, and compare hashes, checksums, digests, or bytes.",
+    ))
     if mastery >= 3:
         lines.append(
             "- **Foundation cadence rule:** At Mastery 3–5, place every mapped language "
@@ -352,6 +375,17 @@ def calibration_contract(answers):
             "do not substitute for learner-owned verification. If basic checking/testing and "
             "tool-driven diagnosis mature at materially different points, declare separate "
             "capability ids rather than back-loading both under one umbrella.")
+    if mastery == 1:
+        section_cap = mastery_section_cap(mastery, project_scope)
+        lines.append(
+            f"- **Mastery-1 minimum-path budget:** Use the fewest honest project milestones and "
+            f"no more than {section_cap} sections for Project Scope {project_scope}/5. Teach only "
+            "language, API, tooling, diagnosis, and delivery mechanisms that the requested "
+            "artifact or its acceptance proof actually requires. Combine adjacent prerequisites "
+            "as ordered lessons inside the first project milestone that uses them; do not create "
+            "standalone language-survey sections. Starting Level may increase explanation, "
+            "practice, and lesson count, but never increases this section budget."
+        )
     if start <= 3:
         pacing_title, pacing_summary = START_PACING[start]
         lines.append(
@@ -368,14 +402,19 @@ def calibration_contract(answers):
         lines.append(
             "- **Enforcement:** Phase 2 seals a language-neutral mechanism owner ledger; Phase 3 "
             "declares mechanisms on every learner demand. Deterministic ordering checks run "
-            "before one compact, content-digest-cached prerequisite completeness audit.")
+            "before one compact, content-digest-cached teaching-quality, learner-independence, "
+            "and prerequisite-completeness audit. PASS requires line-bounded evidence for every "
+            "lesson and Working; typed defects return only the cited repairs to the same section.")
         lines.append(
             "- **Curriculum capacity rule:** Derive lesson and section counts from the dependency "
             "walk and calibrated concept-family load. Three lessons is a schema minimum, not a "
-            "planning default. Use the available lesson capacity, and at Start 1–2 split the Arc "
-            "into more honest lessons or sections when independent foundations would otherwise be "
-            "compressed. If one section would need more than eight lessons, split it in Phase 1; "
-            "never hide the overflow inside broad labels or lower the graduate contract.")
+            "planning default. Use the available lesson capacity, and at Start 1–2 split material "
+            "into honest ordered lessons when independent foundations would otherwise be compressed. "
+            "Starting Level alone never creates another project section. If one section would need "
+            "more than eight lessons, split it only within the selected Mastery section budget; at "
+            "Mastery 1, first remove nonessential language breadth and consolidate lessons around "
+            "the project milestone they immediately enable. Never hide overflow inside broad labels "
+            "or lower the promised project contract.")
     lines.extend([
         f"- **Project scope {project_scope}/5 — {scope_title}:** {scope_summary}",
         "- **Scope/mastery separation:** Project scope controls the size, content, systems, and "
@@ -398,6 +437,11 @@ def calibration_contract(answers):
 
 
 def write_plan(plan_path, tid, answers, concept=None):
+    answers = [
+        (key, PRIOR_KNOWLEDGE_UNSPECIFIED if key == "Prior knowledge" and not str(value or "").strip()
+         else str(value or "").strip())
+        for key, value in answers
+    ]
     with open(plan_path, "w", encoding="utf-8") as handle:
         handle.write(f"# BUILD PLAN — {tid}\n\n")
         if concept:

@@ -1,6 +1,7 @@
 """Provider session identity, applied model, and cumulative token metadata."""
 import json
 import os
+from datetime import datetime
 
 from arcanum.ai.events import usage_from_line
 
@@ -49,9 +50,14 @@ def trace_model(source):
     return model
 
 
-def trace_usage(source):
-    """Return cumulative usage for the provider session represented by this trace."""
+def trace_usage(source, before=None):
+    """Return cumulative usage for a trace, optionally before an epoch boundary."""
     if not source:
+        return {}
+    # OpenCode's trace is its shared SQLite database, not a JSONL transcript: reading it
+    # as text throws UnicodeDecodeError on the first binary byte. There are no usage rows
+    # to find that way, so do not open it at all.
+    if source.provider == "opencode":
         return {}
     latest = None
     try:
@@ -61,6 +67,15 @@ def trace_usage(source):
                     row = json.loads(line)
                 except (ValueError, json.JSONDecodeError):
                     continue
+                if before is not None:
+                    try:
+                        recorded_at = datetime.fromisoformat(
+                            str(row.get("timestamp") or "").replace("Z", "+00:00")
+                        ).timestamp()
+                    except (TypeError, ValueError):
+                        continue
+                    if recorded_at > float(before):
+                        continue
                 payload = row.get("payload") or {}
                 if (source.provider == "codex" and row.get("type") == "event_msg"
                         and payload.get("type") == "token_count"):
@@ -70,6 +85,6 @@ def trace_usage(source):
                         latest = usage_from_line(json.dumps({"usage": usage})) or latest
                 else:
                     latest = usage_from_line(line) or latest
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         return {}
     return latest or {}

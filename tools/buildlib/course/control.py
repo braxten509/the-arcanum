@@ -98,7 +98,7 @@ def prompt_tail(build_id, section_id=None, *, state=None, log=True):
             detail = (f"learner creates {', '.join(node['learnerOwnedArtifacts'])} | "
                       f"requires {', '.join(node['requires'])}")
             if node.get("masteryPerformances"):
-                detail += " | language performances " + ", ".join(node["masteryPerformances"])
+                detail += " | mastery performances " + ", ".join(node["masteryPerformances"])
         add(f"node:{node['id']}",
             f"{row['mark']} {node['id']} — {node['title']} | {detail} | done when {_done(node['doneWhen'])}")
 

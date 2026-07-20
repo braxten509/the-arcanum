@@ -14,6 +14,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from buildlib import course_map
+from buildlib.course_map.mastery_performances import expected_working_performances
 from buildlib.workflow.checkpoints import arc_written
 from buildlib.language_mastery import (authored_mastery_problems, phase1_contract_problems,
                                        seed_contract, validate_map_contract)
@@ -148,6 +149,23 @@ def mapped_contract():
 mapped, sections, owners = mapped_contract()
 assert not validate_map_contract(mapped, sections, owners, mapped["capabilityIds"], True)
 
+central_id = "central-evidence-s03"
+combined_course = {
+    "languageMastery": mapped,
+    "masteryEvidence": {"performances": [{"id": central_id, "nodeId": "s03.working"}]},
+}
+combined_expected = expected_working_performances(combined_course)
+assert combined_expected["s03.working"] == [
+    "language-performance-s03-01", "language-performance-s03-02", central_id]
+combined_sections = copy.deepcopy(sections)
+combined_sections[2]["nodes"][0]["masteryPerformances"] = combined_expected["s03.working"]
+assert not validate_map_contract(
+    mapped, combined_sections, owners, mapped["capabilityIds"], True,
+    expected_working_performances=combined_expected)
+assert any("must exactly match" in item and central_id in item for item in validate_map_contract(
+    mapped, sections, owners, mapped["capabilityIds"], True,
+    expected_working_performances=combined_expected))
+
 framework_only = copy.deepcopy(mapped)
 framework_only["performances"][1]["capabilityIds"] = []
 assert any("assess every foundation capability" in item
@@ -239,7 +257,7 @@ with tempfile.TemporaryDirectory() as tome:
     ids = [item["id"] for item in mapped["performances"]]
     with open(os.path.join(root, "freestyle.toml"), "w", encoding="utf-8") as handle:
         handle.write(f'''[freestyle]
-masteryPerformances = {json.dumps(ids)}
+masteryPerformances = {json.dumps([*ids, "central-evidence-s03"])}
 
 [[freestyle.rubric]]
 criterion = "Independent language boundary"
@@ -381,13 +399,33 @@ COMPLETE_ARC = """
 **Artifact lifecycle:** `src/journal.py` deliberately ships; `dist/journal` deliberately ships; `requirements.txt` deliberately ships; s01 temporary debug output is removed in s03.
 **Artifact ownership:** src/journal.py @ s01.working -> ships; dist/journal @ s03.working -> ships; requirements.txt @ s03.working -> ships
 **Delivery contract:** mode = package; artifact = dist/journal; requirements = requirements.txt
-**Acceptance proof:** From a clean folder, create the Python package, run its tests, record and query journal data, recover from a malformed record, complete the novel extension, and launch the delivered command.
+**Acceptance proof:** From a clean folder, install or configure Python and its test runner, verify their reported versions, create the Python package, run its tests, record and query journal data, recover from a malformed record, complete the novel extension, and launch the delivered command.
 **Acceptance scenarios:** creates-package -> records-entry -> recovers-error -> language-transfer-proved
 **Section list:**
-1. **s01 — Establish Python Foundations:** establish language-syntax-values, language-control-flow, language-functions, language-scope, language-testing-verification, language-debug-diagnosis, and language-environment-venv
+1. **s01 — Establish Python Foundations:** install or set up Python and its test runner, verify their versions, then establish language-syntax-values, language-control-flow, language-functions, language-scope, language-testing-verification, language-debug-diagnosis, and language-environment-venv
 2. **s02 — Model Journal Data:** teach language-collections, language-comprehensions, language-iteration, language-class-objects, language-composition, language-modules-packages, language-import-boundaries, language-typing, language-files-paths, language-json-data-serialization, language-standard-library-pathlib, language-exceptions, and language-context-resources
 3. **s03 — Transfer and Deliver:** apply language-cli-argparse and language-packaging-pyproject in independent delivery
 """
+
+# Finish 1 is machine-bounded as the minimum from-scratch project path. Beginner
+# pacing may create more lessons, but it cannot silently expand Scope 3 past eight
+# project milestones.
+with tempfile.TemporaryDirectory() as root:
+    plan = os.path.join(root, "minimum-path.plan.md")
+    answers = [("Prior knowledge", ""), ("Starting level (1-10)", "1"),
+               ("Project scope (1-5)", "3"), ("Lesson depth (1-10)", "5"),
+               ("Mastery (1-5)", "1"), ("Tooling", "external")]
+    write_plan(plan, "minimum-path", answers, "Build a compact tool")
+    section_lines = "\n".join(
+        f"{number}. **s{number:02d} — Milestone {number}:** build a distinct required "
+        f"project capability and observable acceptance stage {number}"
+        for number in range(1, 10))
+    overloaded_arc = (COMPLETE_ARC.split("**Section list:**", 1)[0]
+                      + "**Section list:**\n" + section_lines + "\n")
+    with open(plan, "a", encoding="utf-8") as handle:
+        handle.write(overloaded_arc)
+    clean, report = arc_written(plan, "minimum-path.plan.md")
+    assert not clean and "at most 8 sections" in report, report
 
 with tempfile.TemporaryDirectory() as root:
     plan = os.path.join(root, "complete.plan.md")
@@ -399,12 +437,25 @@ with tempfile.TemporaryDirectory() as root:
         handle.write(COMPLETE_ARC)
     clean, report = arc_written(plan, "complete.plan.md")
     assert clean, report
+    base = open(plan, encoding="utf-8").read()
+    overlong = base.replace(
+        "establish language-syntax-values, language-control-flow, language-functions, "
+        "language-scope, language-testing-verification, language-debug-diagnosis, and "
+        "language-environment-venv",
+        "establish language-syntax-values, language-control-flow, language-functions, "
+        "language-scope, language-testing-verification, language-debug-diagnosis, and "
+        "language-environment-venv; " + "preserve observable project evidence " * 8)
+    with open(plan, "w", encoding="utf-8") as handle:
+        handle.write(overlong)
+    clean, report = arc_written(plan, "complete.plan.md")
+    assert not clean and "sections[0].promise exceeds 360 characters" in report, report
+    with open(plan, "w", encoding="utf-8") as handle:
+        handle.write(base)
     with open(plan, encoding="utf-8") as handle:
         profiled = seed_contract(handle.read(), IDS)
     assert profiled["coverageProfileVersion"] == 1
     assert "packaging" in profiled["coverageAreaIds"]
     assert len(profiled["capabilityIds"]) >= 14
-    base = open(plan, encoding="utf-8").read()
     with open(plan, "w", encoding="utf-8") as handle:
         handle.write(base.replace(
             "language-environment-venv -> language-cli-argparse",

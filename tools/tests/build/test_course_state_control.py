@@ -10,6 +10,7 @@ import json
 import os
 import sys
 import tempfile
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -213,7 +214,11 @@ with tempfile.TemporaryDirectory() as root:
         stale = course_state.derive_course_state("demo")
         assert [row["status"] for row in stale["sections"]] == ["blocked", "blocked", "blocked"]
         assert stale["activeObligations"][0]["id"] == "s02-plan-s03-consolidated"
-        refreshed = course_state.refresh_course_verifications("demo", "clean cumulative replay")
+        with patch.object(prerequisite_review, "review_prerequisites",
+                          return_value={"status": "PASS"}) as section_audit:
+            refreshed = course_state.refresh_course_verifications(
+                "demo", "clean cumulative replay")
+        assert section_audit.call_count == 3
         assert [row["status"] for row in refreshed["sections"]] == [
             "verified", "verified", "verified"]
         assert not refreshed["activeObligations"]
@@ -235,8 +240,11 @@ with tempfile.TemporaryDirectory() as root:
         shared_stale = course_state.derive_course_state("demo")
         assert [row["status"] for row in shared_stale["sections"]] == [
             "blocked", "blocked", "blocked"]
-        shared_refreshed = course_state.refresh_course_verifications(
-            "demo", "clean replay after shared evidence change")
+        with patch.object(prerequisite_review, "review_prerequisites",
+                          return_value={"status": "PASS"}) as section_audit:
+            shared_refreshed = course_state.refresh_course_verifications(
+                "demo", "clean replay after shared evidence change")
+        assert section_audit.call_count == 3
         assert all(row["status"] == "verified" for row in shared_refreshed["sections"])
 
     finally:

@@ -1,0 +1,61 @@
+version = 1
+capabilities = ["project", "build", "run", "assessment"]
+
+# NASM x86-64 Assembly project assembled by Make, linked by GCC with SDL2,
+# and executed from the learner-owned external workspace.
+language = "x86-64 Assembly (NASM)"
+entryFile = "src/pong.asm"
+projectFile = "Makefile"
+newFileExt = ".asm"
+editorLang = "nasm"
+runLabel = "make && ./build/register-rally-pong"
+
+# The runtime owns only process orchestration. Source, build rules, flags, and
+# every output remain learner-authored project artifacts.
+command = ["bash", "-lc", "make && exec ./build/register-rally-pong \"$@\"", "_"]
+
+# The final package proof appends its learner-authored Make target.
+deliveryCreateCommand = ["mkdir", "-p", "{env}"]
+deliveryInstallCommand = ["bash", "-lc", "test -f \"$1\"", "_", "{requirements}"]
+deliveryBuildCommand = ["make", "package"]
+deliveryTimeout = 120
+
+checkCommand = ["bash", "-lc", "make -n 2>&1"]
+diagRegex = '^(?P<file>[^:]+):(?P<line>\d+): (?P<sev>error|warning): (?P<msg>.*)$'
+snippetEntry = '^\s*global\s+(?:_start|main)'
+diagIgnore = [
+  'not defined',
+  'changed during code generation',
+]
+
+starterCode = ""
+codeExt = [".asm"]
+
+[completions]
+keywords = [
+  "mov", "add", "sub", "imul", "idiv", "inc", "dec", "neg",
+  "xor", "or", "and", "not", "shl", "shr", "sar",
+  "push", "pop", "cmp", "test", "jmp", "je", "jne", "jg", "jge",
+  "jl", "jle", "jz", "jnz", "ja", "jb", "jae", "jbe", "call", "ret",
+  "lea", "nop", "section", "global", "extern", "db", "dw", "dd", "dq",
+  "equ", "resb", "resw", "resd", "resq", "times", "byte", "word", "dword", "qword",
+  "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp",
+  "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
+  "eax", "ebx", "ecx", "edx", "esi", "edi", "ebp", "esp"
+]
+snippets = [
+  ["section", "section directive", "section .${1:text}"],
+  ["mov", "move value", "mov ${1:dest}, ${2:src}"],
+  ["add", "add", "add ${1:dest}, ${2:src}"],
+  ["sub", "subtract", "sub ${1:dest}, ${2:src}"],
+  ["push", "push onto stack", "push ${1:reg}"],
+  ["pop", "pop from stack", "pop ${1:reg}"],
+  ["xor", "exclusive or", "xor ${1:dest}, ${2:src}"],
+  ["cmp-jump", "compare and branch", "cmp ${1:left}, ${2:right}\n    je ${3:label}"],
+  ["call", "call a procedure", "call ${1:procedure}"],
+  ["return", "return from a procedure", "ret"],
+]
+
+[assessmentCommands]
+build = ["make"]
+check = ["make", "check"]

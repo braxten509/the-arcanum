@@ -8,15 +8,15 @@ import { apiFetch } from "../core/api-client.js";
 import { dispatchCommand } from "../core/commands.js";
 
 // Keep the level names aligned with tools/buildlib/workflow/prompts.py PRIOR_LEVELS.
-// The UI copy makes the compression boundary explicit; the free-text field remains the
-// exhaustive whitelist of what the learner actually knows.
+// The slider is the complete baseline; optional text names concrete experience that can
+// tailor transfer without implying adjacent skills.
 const PRIOR_KNOWLEDGE_LEVELS = {
   1: ["FROM ZERO", "Nothing is skipped. Setup, first run, terminology, syntax, APIs, and tools are taught one concept family at a time with repeated guided practice."],
   2: ["NEAR ZERO", "Nothing is skipped. The same foundations as Level 1 are taught with less repetition and a moderate pace."],
   3: ["BEGINNER", "Nothing is skipped. Foundations are taught from the ground up; closely related ideas may be combined after their prerequisites are secure."],
-  4: ["TRANSFER LEARNER", "General programming ideas named in Prior Knowledge are compressed. Subject-specific syntax, tooling, APIs, and unfamiliar semantics are still taught."],
+  4: ["TRANSFER LEARNER", "General transferable concepts are compressed. Optional Prior Knowledge details can tailor the bridge; subject-specific syntax, tooling, APIs, and unfamiliar semantics are still taught."],
   5: ["GENERALIST", "Basic programming workflow and familiar control or data concepts are compressed. The subject's idioms, tools, APIs, and project conventions are still taught."],
-  6: ["ADJACENT", "Shared concepts from the neighboring experience you list receive a brief bridge. Subject-specific mechanics, differences, and integration are taught directly."],
+  6: ["ADJACENT", "Nearby subject experience is assumed and receives a brief bridge. Optional Prior Knowledge details can tailor it; subject-specific mechanics, differences, and integration are taught directly."],
   7: ["PRACTITIONER", "Routine fundamentals are assumed and not retaught step by step. Course-specific APIs, constraints, failure modes, and project integration remain."],
   8: ["FLUENT", "Common syntax, setup, and routine workflows are compressed to quick checks. Time shifts to integration, uncommon mechanisms, tradeoffs, and failure handling."],
   9: ["ADVANCED", "Introductory and routine implementation is assumed. Lessons concentrate on internals, architecture, edge cases, diagnostics, and difficult tradeoffs."],
@@ -28,6 +28,13 @@ const PROJECT_SCOPE_LEVELS = {
   3: ["COMPLETE SMALL PROJECT", "A coherent small project with several integrated features, persistent state where relevant, and a clear completion condition."],
   4: ["SUBSTANTIAL PROJECT", "A substantial project with deeper functionality, robust behavior, testing, polish, and complete delivery."],
   5: ["FULL-FLEDGED PROJECT", "The broadest feasible finished project: multiple developed subsystems, broad coverage, polished behavior, testing, and packaged delivery where supported."],
+};
+const MASTERY_LEVELS = {
+  1: ["ACQUAINTED", "Can explain core language mechanisms and safely modify guided language examples."],
+  2: ["FUNCTIONAL", "Can use the language for familiar small tasks and repair simple faults without step-by-step help."],
+  3: ["CAPABLE", "Can transfer language concepts to novel real problems, integrate and debug the result, and justify language-level choices independently."],
+  4: ["ADVANCED", "Can use the language across unfamiliar variations, important tradeoffs, internals, and power tools with minimal scaffolding."],
+  5: ["EXPERT", "Can architect a substantial solution in the language from goals and constraints, validate it, and defend consequential language and design tradeoffs."],
 };
 const MASTERY_DEPTH_FLOORS = { 1: 3, 2: 5, 3: 7, 4: 8, 5: 9 };
 
@@ -43,6 +50,12 @@ function fieldHead(label, help) {
     aria-label="About ${esc(label)}">i<span class="forge-tip">${help}</span></button></div>`;
 }
 
+/** "" = resume, "3" = whole phase, "3:s05" = one Phase-3 section onward. */
+function restartPoint(value) {
+  const [phase, section] = String(value || "").split(":");
+  return { phase: Number(phase) || 0, section: section || "" };
+}
+
 function showForgeModal(resume) {
   const currentPhase = resume ? Math.max(1, Math.min(8, Number(resume.phase) || 1)) : 0;
   const resumeField = resume ? `<div class="forge-field forge-resume-field">
@@ -51,9 +64,11 @@ function showForgeModal(resume) {
         <option value="">RESUME FROM CURRENT · PHASE ${currentPhase} · ${esc(FORGE_PHASE_NAMES[currentPhase] || "")}</option>
         ${Array.from({ length: currentPhase }, (_, index) => index + 1).map((phase) =>
           `<option value="${phase}">RESTART FROM PHASE ${phase} · ${esc(FORGE_PHASE_NAMES[phase] || "")}</option>`).join("")}
+        ${(currentPhase === 3 ? resume.sections || [] : []).map((section) =>
+          `<option value="3:${esc(section.id)}">RESTART FROM PHASE 3 · SECTION ${esc(String(section.id).toUpperCase())} · ${esc(section.title || "")}</option>`).join("")}
       </select>
       <label class="forge-resume-ack hidden" id="fg-resume-ack-wrap"><input type="checkbox" id="fg-resume-ack">
-        <span>I understand this erases authored work from the selected phase onward.</span></label>
+        <span id="fg-resume-ack-text">I understand this erases authored work from the selected phase onward.</span></label>
     </div>` : "";
   modal(`<h2>THE BINDERY</h2>
     <p class="dim forge-intro">Choose who owns the foundational arc, the main construction,
@@ -61,8 +76,8 @@ function showForgeModal(resume) {
       fresh while failed units keep their repair session.</p>
     <div class="forge-field"><label for="fg-concept">COURSE CONCEPT</label>
       <textarea id="fg-concept" rows="4" placeholder="What should this teach, and what should the learner build?"></textarea></div>
-    <div class="forge-field">${fieldHead("PRIOR KNOWLEDGE", "List only what the learner already knows. Start 1 uses low-density lessons, Start 2 uses moderate density, and Start 3 permits dense related material after prerequisites are secure. The level never invents prerequisites.")}
-      <input id="fg-prior" type="text" placeholder="languages, tools, or none">
+    <div class="forge-field">${fieldHead("PRIOR KNOWLEDGE (OPTIONAL)", "The slider is the complete starting baseline. Add languages or tools only to account for specific transferable experience; written details never imply nearby skills. Start 1 uses low-density lessons, Start 2 uses moderate density, and Start 3 permits dense related material after prerequisites are secure.")}
+      <input id="fg-prior" type="text" placeholder="Optional: languages or tools you already know">
       <div class="forge-depth"><input id="fg-prior-level" type="range" min="1" max="10" value="5" aria-label="Prior knowledge level" aria-describedby="fg-prior-level-summary"><span id="fg-prior-level-val" class="forge-depth-val num">5</span></div>
       <p class="forge-prior-summary" id="fg-prior-level-summary" aria-live="polite" aria-atomic="true"></p></div>
     <div class="forge-field"><label>TOOLING</label><div class="forge-tooling">
@@ -70,7 +85,7 @@ function showForgeModal(resume) {
       <label class="forge-check"><input id="fg-tool-external" name="fg-tooling" value="external" type="radio"> External <i class="dim">real tools taught</i></label>
     </div></div>
     <div class="forge-dials">
-      <div class="forge-field">${fieldHead("LANGUAGE MASTERY", "How independently and broadly the learner can use the declared implementation language at the end. The project is the cumulative practice and proof vehicle, not the mastery target.")}<div class="forge-depth"><input id="fg-mastery" type="range" min="1" max="5" value="3" aria-label="Language mastery"><span id="fg-mastery-val" class="forge-depth-val num">3</span></div><p class="forge-dial-summary">Mastery owns required language breadth and cannot be lowered by Project Scope.</p></div>
+      <div class="forge-field">${fieldHead("LANGUAGE MASTERY", "How independently and broadly the learner can use the declared implementation language at the end. The project is the cumulative practice and proof vehicle, not the mastery target.")}<div class="forge-depth"><input id="fg-mastery" type="range" min="1" max="5" value="3" aria-label="Language mastery" aria-describedby="fg-mastery-summary"><span id="fg-mastery-val" class="forge-depth-val num">3</span></div><p class="forge-dial-summary" id="fg-mastery-summary" aria-live="polite" aria-atomic="true"></p></div>
       <div class="forge-field">${fieldHead("LESSON DEPTH", "How far each included mechanism is explained and debugged. Language Mastery enforces a minimum floor.")}<div class="forge-depth"><input id="fg-depth" type="range" min="1" max="10" value="7" aria-label="Lesson depth" aria-describedby="fg-depth-summary"><span id="fg-depth-val" class="forge-depth-val num">7</span></div><p class="forge-dial-summary" id="fg-depth-summary"></p></div>
       <div class="forge-field">${fieldHead("PROJECT SCOPE", "How large, complete, and polished the finished project should be. It does not reduce language coverage.")}<div class="forge-depth"><input id="fg-project-scope" type="range" min="1" max="5" value="3" aria-label="Project scope" aria-describedby="fg-project-scope-summary"><span id="fg-project-scope-val" class="forge-depth-val num">3</span></div><p class="forge-dial-summary" id="fg-project-scope-summary" aria-live="polite"></p></div>
     </div>
@@ -93,8 +108,8 @@ function showForgeModal(resume) {
             <div class="forge-ai-choice"><select id="fg-author-37-eff" class="cfg-select" aria-label="Phases 3 through 7 author effort" disabled><option value="">DEFAULT</option></select></div>
           </div>
           <div class="forge-validator-route">
-            <div class="forge-validator-label"><b>VALIDATOR AI</b><span>MANDATORY · AFTER EVERY SECTION</span>
-              <button type="button" class="forge-help" aria-label="About Validator AI">i<span class="forge-tip">This read-only AI runs a prerequisite completeness audit after each section clears the mechanical gate. It receives one bounded packet and no tools. With an OpenAI key in Settings or OPENAI_API_KEY, Codex GPT validators use the lean Responses API and record token usage; otherwise the login CLI remains the fallback. One audit appears as one start and one final result. An evidence-backed Luna FAIL is authoritative even if optional amendment metadata is malformed; only uncertainty or an unusable response escalates to Terra.</span></button>
+            <div class="forge-validator-label"><b>VALIDATOR AI</b><span>MANDATORY · PHASES 1–2 + EVERY SECTION</span>
+              <button type="button" class="forge-help" aria-label="About Validator AI">i<span class="forge-tip">This read-only AI runs after the Phase 1 and Phase 2 mechanical gates, before either transition, then after every Phase 3 section clears its mechanical gate. The planning calls audit the concept arc and course map; section calls audit teaching completeness, learner independence, and prerequisite completeness. Each call receives one bounded, line-citable packet with no tools and returns typed defects to the current unit's repair session. With an OpenAI key in Settings or OPENAI_API_KEY, Codex GPT validators use the lean Responses API and record token usage; otherwise the login CLI remains the fallback. Only uncertainty or an unusable Luna response escalates to Terra.</span></button>
             </div>
             <div class="forge-ai-row">
               <div class="forge-ai-choice"><select id="fg-validator-prov" class="cfg-select" aria-label="Validator AI agent CLI"><option value="">LOADING CLIS…</option></select></div>
@@ -140,6 +155,7 @@ function showForgeModal(resume) {
   const scope = $("#fg-project-scope", root), scopeSummary = $("#fg-project-scope-summary", root),
         depth = $("#fg-depth", root), depthSummary = $("#fg-depth-summary", root),
         mastery = $("#fg-mastery", root), priorLevel = $("#fg-prior-level", root),
+        masterySummary = $("#fg-mastery-summary", root),
         priorSummary = $("#fg-prior-level-summary", root);
   const basePriorInput = priorLevel.oninput;
   priorLevel.oninput = () => {
@@ -156,7 +172,10 @@ function showForgeModal(resume) {
   const baseMasteryInput = mastery.oninput;
   mastery.oninput = () => {
     baseMasteryInput();
-    const floor = MASTERY_DEPTH_FLOORS[Number(mastery.value)];
+    const level = Number(mastery.value);
+    const [title, summary] = MASTERY_LEVELS[level];
+    masterySummary.innerHTML = `<b>${esc(title)}</b><span>${esc(summary)}</span>`;
+    const floor = MASTERY_DEPTH_FLOORS[level];
     if (!resume && Number(depth.value) < floor) depth.value = String(floor);
     if (!resume) depth.min = String(floor);
     depth.dispatchEvent(new Event("input"));
@@ -289,8 +308,11 @@ function showForgeModal(resume) {
   toolingInputs.forEach((input) => input.addEventListener("change", syncBegin));
   const syncResumePoint = () => {
     if (!resumePhase) return;
-    const phase = Number(resumePhase.value || 0);
+    const { phase, section } = restartPoint(resumePhase.value);
     resumeAckWrap.classList.toggle("hidden", !phase);
+    $("#fg-resume-ack-text", root).textContent = section
+      ? `I understand this erases authored work from section ${section.toUpperCase()} onward.`
+      : "I understand this erases authored work from the selected phase onward.";
     syncBegin();
   };
   if (resumePhase) {
@@ -377,7 +399,7 @@ function showForgeModal(resume) {
     if (reviewer) localStorage.setItem("binderyReviewer", JSON.stringify(reviewer));
     const tooling = external ? "external" : "internal";
     let resumeId = resume?.id;
-    const restartPhase = Number(resumePhase?.value || 0);
+    const { phase: restartPhase, section: restartSection } = restartPoint(resumePhase?.value);
     let resetPrepared = false, resetDone = false;
     if (resume && restartPhase) {
       if (!resumeAck.checked) return;
@@ -388,6 +410,7 @@ function showForgeModal(resume) {
         const resetResponse = await apiFetch(`/api/buildtome/reset?tome=${encodeURIComponent(resume.tome)}`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ tome: resume.tome, phase: restartPhase,
+            ...(restartSection ? { section: restartSection } : {}),
             confirm: "reset-tome-build", confirmTome: resume.tome }),
         });
         const reset = await resetResponse.json();

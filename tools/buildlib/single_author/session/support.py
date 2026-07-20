@@ -62,13 +62,17 @@ Work on exactly the phase or Phase-3 section named in the final instruction. Whe
 run only the exact self-check command given in that assignment, repair its reported failures until
 it exits cleanly, set that unit's progress marker to `validating`, and end your turn. Do not invent
 ad-hoc substitutes, run a deterministic phase transition, or begin the next unit. The harness
-independently validates while you are stopped, checkpoints a clean unit, returns failures to this
-unit's warm repair session, and assigns clean successors to a fresh session. Preserve correct
+independently runs the unit's mechanical gate while you are stopped, then its mandatory Validator
+AI gate for Phase 1, Phase 2, or a Phase-3 section. It checkpoints only a fully clean unit, returns
+failures to this unit's warm repair session, and assigns clean successors to a fresh session.
+Preserve correct
 work already on disk and honor earlier phase contracts as immutable inputs.
 
 If the assigned self-check crashes before it can report structured `ERROR` or `WARN` findings,
 do not rerun it and do not edit repository tooling. Answer once with `HARNESS_BLOCKED:` plus the
-bootstrap diagnostic, then stop. The harness will pause without starting another author turn.
+raw bootstrap diagnostic, then stop. The harness will independently reproduce that exact check:
+structured findings return as an ordinary repair packet, while a reproduced infrastructure crash
+pauses and retries mechanically after resume without starting another author turn.
 
 Continue this checkpoint cycle until the harness ends this unit session or reaches Phase 8.
 Do not spawn another author or reviewer yourself.

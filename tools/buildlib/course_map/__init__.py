@@ -15,6 +15,7 @@ from .. import BUILD_DIR, REPO
 from ..course.limits import MAX_SECTIONS, MIN_SECTIONS
 from .codec import canonical_bytes, digest
 from .locations import section_reference_problem, validate_locations
+from .mastery_performances import expected_working_performances
 from .plan import acceptance as _acceptance
 from .plan import field as _field
 from .plan import plan_contract_sha256
@@ -89,12 +90,8 @@ def _read_json(path):
         raise CourseMapError(f"{os.path.relpath(path, REPO)} is missing or invalid JSON: {exc}") from exc
 
 
-def seed_course_map(build_id, plan_file, write=True):
-    try:
-        with open(plan_file, encoding="utf-8") as handle:
-            text = handle.read()
-    except OSError as exc:
-        raise CourseMapError(f"could not read plan {plan_file}: {exc}") from exc
+def preview_course_map(build_id, text):
+    """Build and validate the Phase-1 seed without writing transition artifacts."""
     specs = parse_section_list(text)
     if not MIN_SECTIONS <= len(specs) <= MAX_SECTIONS:
         raise CourseMapError(
@@ -132,6 +129,16 @@ def seed_course_map(build_id, plan_file, write=True):
     problems = validate_course_map(value, detailed=False)
     if problems:
         raise CourseMapError("Phase 1 course map is invalid:\n- " + "\n- ".join(problems))
+    return value
+
+
+def seed_course_map(build_id, plan_file, write=True):
+    try:
+        with open(plan_file, encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError as exc:
+        raise CourseMapError(f"could not read plan {plan_file}: {exc}") from exc
+    value = preview_course_map(build_id, text)
     if write:
         _atomic_json(seed_path(build_id), value)
         _atomic_json(proposal_path(build_id), value)
@@ -322,7 +329,8 @@ def validate_course_map(value, detailed=True, seed=None):
     language_seed = seed.get("languageMastery") if isinstance(seed, dict) else None
     problems += validate_language_mastery(
         value.get("languageMastery"), sections, capability_owners, graduate, detailed,
-        seed=language_seed if seed is not None else None)
+        seed=language_seed if seed is not None else None,
+        expected_working_performances=expected_working_performances(value))
     evidence_seed = seed.get("masteryEvidence") if isinstance(seed, dict) else None
     problems += validate_mastery_evidence(
         value.get("masteryEvidence"), sections, detailed=detailed,

@@ -94,6 +94,12 @@ with tempfile.TemporaryDirectory() as temp:
                                          include_variants=False)
     assert any(item.code == "mastery.exercise.metadata" for item in findings)
 
+    malformed_lesson = copy.deepcopy(SECTION)
+    malformed_lesson["lessons"] = ["readings", "concepts", "exercises"]
+    findings = validate_mastery_evidence(str(tome), MANIFEST, [malformed_lesson],
+                                         include_variants=False)
+    assert sum(item.code == "mastery.lesson.shape" for item in findings) == 3
+
     copying = copy.deepcopy(SECTION)
     exercise = copying["lessons"][0]["exercises"][0]
     exercise.update(type="type", cognitiveTask="recall", scaffold="cold")

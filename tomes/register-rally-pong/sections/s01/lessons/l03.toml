@@ -1,0 +1,193 @@
+[[lessons]]
+id = "s01-l03"
+title = "Move the First Register Score"
+teaches = ["register-integer-foundation"]
+introduces = [
+  "x64-general-registers",
+  "nasm-mov-instruction",
+  "nasm-integer-add-sub",
+  "nasm-xor-zeroing",
+]
+body = '''
+<p>The CPU keeps fast integer values in <strong>registers</strong>. On x86-64, general-purpose names include <code>rax</code>, <code>rbx</code>, <code>rcx</code>, <code>rdx</code>, <code>rsi</code>, <code>rdi</code>, and <code>r8</code>–<code>r15</code>. Narrower views of the same storage exist: <code>eax</code> is the low 32 bits of <code>rax</code>; <code>ax</code>, <code>al</code> are smaller slices. For status and many C ABI results you will care about <code>eax</code> soon; this lesson first moves plain integer scores.</p>
+<p>The workhorse instruction is <code>mov</code>. It copies a value into a register or memory operand. A disposable tally sketch (not paddle state) looks like:</p>
+<pre><code data-kind="runnable">mov eax, 4
+mov ebx, 3
+</code></pre>
+<p>Read <code>mov eax, 4</code> as destination first, source second: put 4 into <code>eax</code>. NASM uses this destination, source order. Swapping them in your head is a frequent beginner error when reading diagnostics.</p>
+<p>Integer add and subtract update a destination by a source:</p>
+<pre><code data-kind="runnable">add eax, ebx
+sub eax, 1
+</code></pre>
+<p>After <code>mov eax, 4</code> and <code>mov ebx, 3</code>, <code>add eax, ebx</code> leaves 7 in <code>eax</code>. Then <code>sub eax, 1</code> leaves 6. These are ordinary two's-complement integer operations on the register width you named.</p>
+<p>Zeroing a register can use <code>mov eax, 0</code>, but the idiomatic short form is exclusive-or with itself:</p>
+<pre><code data-kind="runnable">xor eax, eax
+</code></pre>
+<p><code>xor eax, eax</code> sets every bit of <code>eax</code> to zero because each bit XOR itself is 0. Assemblers and reviewers recognize this as deliberate zeroing. You will use it when a process should return success status zero.</p>
+<p>Trace one disposable sequence end to end:</p>
+<pre><code data-kind="runnable">mov ecx, 10
+add ecx, 5
+sub ecx, 3
+xor edx, edx
+</code></pre>
+<p>After the first three lines <code>ecx</code> holds 12. After the fourth, <code>edx</code> holds 0. No memory and no game objects are involved—only register integer foundation.</p>
+<div class="callout"><p>Keep identifiers disposable: <code>ecx</code> tallies here are not canonical paddle coordinates. The Working will apply the same instructions to its own status path.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WIDTHS</div>
+<p>Writing <code>eax</code> affects the low 32 bits of <code>rax</code> (and zero-extends into the upper half on x86-64 for many ops). Prefer the width the ABI or your data size requires; this chapter's status path uses 32-bit <code>eax</code>.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "register-integer-foundation"
+purpose = "Hold and update integer values in CPU registers with mov, add, sub, and zeroing."
+anatomy = "Choose a register name and width, mov an initial value, then add/sub or xor-zero as needed."
+example = "The ecx tally trace and xor eax, eax examples."
+observable = "Register values match the arithmetic you wrote when single-stepped or reasoned line by line."
+failure = "Reversing mov operands or mixing unrelated widths without care yields wrong totals."
+practice = "s01-l03-e1"
+
+[[lessons.concepts]]
+id = "x64-general-registers"
+purpose = "Name the general-purpose x86-64 registers and their common 32-bit views."
+anatomy = "Use names like rax/eax, rbx/ebx, rcx/ecx, rdx/edx and r8–r15 for integer work."
+example = "The lesson's register list and the eax/ecx examples."
+observable = "Instructions accept those register names in operands."
+failure = "Invented register names fail to assemble."
+practice = "s01-l03-e2"
+
+[[lessons.concepts]]
+id = "nasm-mov-instruction"
+purpose = "Copy a value into a destination register or memory operand."
+anatomy = "mov destination, source with NASM destination-first order."
+example = "mov eax, 4 in the tally sketch."
+observable = "The destination holds the source value after the instruction."
+failure = "Thinking source comes first leads to reversed operand bugs."
+practice = "s01-l03-e3"
+
+[[lessons.concepts]]
+id = "nasm-integer-add-sub"
+purpose = "Add or subtract integers in registers."
+anatomy = "add dest, src adds src into dest; sub dest, src subtracts src from dest."
+example = "add eax, ebx then sub eax, 1 in the lesson."
+observable = "The destination register shows the new total."
+failure = "Using the wrong destination leaves the value you care about unchanged."
+practice = "s01-l03-e4"
+
+[[lessons.concepts]]
+id = "nasm-xor-zeroing"
+purpose = "Clear a register by xoring it with itself."
+anatomy = "xor reg, reg sets that register to zero."
+example = "xor eax, eax and xor edx, edx in the lesson."
+observable = "The register reads as zero afterward."
+failure = "xor eax, ebx zeroizes only where bits match, not a full clear of eax unless ebx equals eax."
+practice = "s01-l03-e5"
+
+[[lessons.readings]]
+label = "NASM manual — instruction reference overview"
+url = "https://www.nasm.us/xdoc/2.16.03/html/nasmdoc0.html"
+
+[[lessons.exercises]]
+id = "s01-l03-e1"
+type = "mc"
+required = true
+capabilities = ["language-integer-arithmetic-coordinate-updates"]
+cognitiveTask = "trace"
+scaffold = "guided"
+contextFamily = "tally-trace"
+aidPolicy = "learning"
+points = 18
+mechanisms = ["nasm-mov-instruction", "nasm-integer-add-sub"]
+prompt = "After `mov eax, 4` then `mov ebx, 3` then `add eax, ebx` then `sub eax, 1`, what value is in `eax`?"
+choices = ["6", "7", "4", "3"]
+answer = 0
+whyWrong = "add makes 7; the following sub 1 yields 6. Stopping after add or ignoring sub misses the trace."
+hint = "Apply each line in order to eax."
+explain = "4+3=7; 7-1=6."
+
+[[lessons.exercises]]
+id = "s01-l03-e2"
+type = "text"
+required = true
+capabilities = ["language-integer-arithmetic-coordinate-updates"]
+cognitiveTask = "recall"
+scaffold = "guided"
+contextFamily = "reg-names"
+aidPolicy = "learning"
+points = 16
+mechanisms = ["x64-general-registers"]
+prompt = "What is the usual 32-bit name for the low half of the `rax` register (used for many status values)?"
+answer = "eax"
+accept = ["EAX"]
+hint = "Replace the leading r with e for the 32-bit historical name."
+
+[[lessons.exercises]]
+id = "s01-l03-e3"
+type = "fill"
+required = true
+capabilities = ["language-integer-arithmetic-coordinate-updates"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "mov-order"
+aidPolicy = "learning"
+points = 16
+mechanisms = ["nasm-mov-instruction"]
+prompt = "Complete the destination for a mov that loads the immediate ten (destination first), matching the first register written in the disposable tally trace."
+code = "mov ____, 10"
+answer = "ecx"
+accept = ["ECX"]
+hint = "That trace began by loading ten into the register spelled e-c-x."
+
+[[lessons.exercises]]
+id = "s01-l03-e4"
+type = "mc"
+required = true
+capabilities = ["language-integer-arithmetic-coordinate-updates"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "add-sub"
+aidPolicy = "learning"
+points = 16
+mechanisms = ["nasm-integer-add-sub"]
+prompt = "Which pair updates `ecx` upward by 5 and then downward by 3?"
+choices = [
+  "sub ecx, 5 then add ecx, 3 only as a single instruction",
+  "mov ecx, add",
+  "add ecx, 5 then sub ecx, 3",
+  "xor ecx, 5 then xor ecx, 3",
+]
+answer = 2
+whyWrong = "mov cannot take add as an immediate name; xor is not ordinary decimal add/sub."
+hint = "Use add and sub with immediate sources."
+explain = "add and sub are the integer update pair taught here."
+
+[[lessons.exercises]]
+id = "s01-l03-e5"
+type = "fill"
+required = true
+capabilities = ["language-integer-arithmetic-coordinate-updates"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "xor-zero"
+aidPolicy = "learning"
+points = 16
+mechanisms = ["nasm-xor-zeroing"]
+prompt = "Complete the idiomatic zeroing form by naming the same register on both sides."
+code = "xor ebx, ____"
+answer = "ebx"
+accept = ["EBX"]
+hint = "Xor the destination with itself."
+
+[[lessons.exercises]]
+id = "s01-l03-d1"
+type = "type"
+required = false
+capabilities = ["language-integer-arithmetic-coordinate-updates"]
+cognitiveTask = "recall"
+scaffold = "worked"
+contextFamily = "xor-type"
+aidPolicy = "learning"
+points = 10
+reps = 2
+mechanisms = ["nasm-xor-zeroing"]
+prompt = "Retype the zeroing form exactly."
+code = "xor eax, eax"
+

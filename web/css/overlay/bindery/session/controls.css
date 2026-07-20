@@ -1,0 +1,175 @@
+/* Composer, failure recovery, session actions, and responsive layout ------- */
+.forge-composer {
+  flex: 0 0 auto;
+  border-top: 1px solid color-mix(in srgb, var(--slab-tx) 13%, transparent);
+  background: color-mix(in srgb, var(--slab) 92%, var(--bg0));
+}
+
+.forge-composer textarea {
+  width: 100%;
+  min-height: 70px;
+  padding: 10px 11px;
+  resize: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--slab-tx);
+  font: var(--forge-body-size)/1.45 var(--fell);
+}
+
+.forge-composer textarea::placeholder {
+  color: color-mix(in srgb, var(--slab-tx) 48%, transparent);
+  font: inherit;
+  opacity: 1;
+}
+
+.forge-composer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 8px 8px 11px;
+  font: var(--forge-meta-size)/1 var(--mono);
+}
+
+.forge-console-actions {
+  display: flex;
+  gap: 7px;
+}
+
+.forge-console-btn {
+  min-height: 26px;
+  padding: 4px 9px;
+  border: 1px solid color-mix(in srgb, var(--slab-tx) 35%, transparent);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--slab-tx) 7%, transparent);
+  color: color-mix(in srgb, var(--slab-tx) 82%, transparent);
+  font: 10.5px/1 var(--arch);
+  letter-spacing: .1em;
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease, transform .16s ease;
+}
+
+.forge-console-btn:hover:not(:disabled),
+.forge-console-btn:focus-visible {
+  border-color: color-mix(in srgb, var(--slab-tx) 68%, transparent);
+  background: color-mix(in srgb, var(--slab-tx) 12%, transparent);
+  outline: none;
+}
+
+.forge-console-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.forge-console-btn.primary {
+  border-color: var(--ac);
+  background: var(--ac);
+  color: var(--ac-tx);
+}
+
+.forge-console-btn:disabled {
+  opacity: .45;
+  cursor: default;
+}
+
+.forge-fail-bar {
+  display: grid;
+  gap: 8px;
+  margin-top: 13px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--bad) 55%, transparent);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--bad) 9%, transparent);
+}
+
+.forge-fail-msg {
+  /* Parchment, not the dark panel: partner the red with ink, not the slab's cream. */
+  color: color-mix(in srgb, var(--bad) 72%, var(--tx));
+  font: var(--forge-body-size)/1.45 var(--fell);
+}
+
+.forge-fail-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.forge-fail-controls .forge-ai-row {
+  min-width: 0;
+}
+
+/* This bar sits on the card's parchment beside the parchment dropdowns, so it wears
+   the card's own control height rather than the dark panel's compact console metrics. */
+/* .cfg-select is the pre-enhancement face of the same control: the picker only becomes
+   a .dd-btn once /api/models answers, and both faces must stand at the card's height. */
+.forge-fail-controls .dd-btn,
+.forge-fail-controls .cfg-select,
+.forge-fail-controls .btn {
+  box-sizing: border-box;
+  height: var(--ctl-h);
+}
+
+.forge-fail-controls .btn {
+  font-size: var(--forge-body-size);
+}
+
+.forge-session-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 13px;
+}
+
+.forge-session-actions > div {
+  display: flex;
+  gap: 8px;
+}
+
+.forge-session-actions .btn {
+  font-size: var(--forge-body-size);
+}
+
+@media (max-width: 820px) {
+  .forge-dials {
+    grid-template-columns: 1fr;
+  }
+
+  .forge-ai-row {
+    grid-template-columns: 1fr;
+  }
+
+  .forge-fail-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .forge-progress .forge-session-card {
+    width: 96vw;
+    padding: 16px;
+  }
+
+  .forge-progress .forge-phases {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .forge-workbench {
+    grid-template-columns: 1fr;
+  }
+
+  .forge-terminal-panel {
+    border-right: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--slab-tx) 15%, transparent);
+  }
+
+  .forge-terminal,
+  .forge-conversation {
+    height: 220px;
+  }
+
+  .forge-session-actions,
+  .forge-session-actions > div {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+}

@@ -14,6 +14,13 @@ runLabel = "nasm -f elf64 main.asm && ld main.o -o a.out && ./a.out"
 # $0 inside bash -c is the first positional arg = the file path.
 command = ["bash", "-c", "nasm -f elf64 \"$0\" -o \"$0.o\" 2>&1 && ld \"$0.o\" -o \"$0.bin\" && \"$0.bin\"; EC=$?; rm -f \"$0.o\" \"$0.bin\"; exit $EC"]
 
+# Isolated delivery workflow for learner-authored Make projects. The final
+# package proof appends its Make target to deliveryBuildCommand.
+deliveryCreateCommand = ["mkdir", "-p", "{env}"]
+deliveryInstallCommand = ["bash", "-lc", "test -s \"$1\" && cp \"$1\" \"$2/REQUIREMENTS.md\"", "_", "{requirements}", "{env}"]
+deliveryBuildCommand = ["make"]
+deliveryTimeout = 120
+
 # Syntax check: assemble only, send object to /dev/null
 checkCommand = ["bash", "-c", "nasm -f elf64 \"$0\" -o /dev/null 2>&1 || true"]
 

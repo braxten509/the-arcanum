@@ -40,6 +40,20 @@ configuration, entrypoint, or integration that relies on untaught mechanisms. If
 cannot support this order within the allowed lesson capacity, fail the proposal instead of hiding
 the conflict in broad labels.
 
+Make a second pass over executable command demands before sealing. Copy every literal command from
+each section milestone, Working, acceptance route, proof, and package argument list into the owner
+audit. A distinct subcommand, task-runner rule, or Make target is a distinct mechanism: demanding
+`make run`, `make package`, and `make release` requires concrete owners for all three before those
+commands appear, not one broad "Makefile" capability. Put each owned mechanism in the demanding
+Working's `mechanisms` list. The Phase-2 gate infers Make target semantics from a `Makefile` or a
+direct Make runtime; a runtime with another first-positional target tool declares it through
+`commandTargetTools = ["tool"]`.
+
+For `externalWorkspace = true`, broad `tool-install` and `tool-deliver` capabilities are not enough.
+Their section Workings must include concrete, already-owned `tool-action` mechanisms that actually
+set up/provision the workspace and package/copy/stage the deliverable. Name the real learner action,
+not a synonym for the capability.
+
 Compute transitive prerequisite closure, not only the visible demand list. For each mechanism, ask
 what its smallest meaningful example must contain or invoke. Every unlisted syntax form, API, tool
 action, data-format rule, or technical term in that example needs an earlier owner; at Start 1–3,
@@ -113,9 +127,11 @@ and then introduce the real syntax later.
   midpoint, and the learner-authored verification owner must be no later than the section after
   decomposition first becomes usable. Retrieve verification across representative later Workings;
   hidden replay does not satisfy this learner-owned cadence;
-- every Working has `masteryPerformances = []` except the seeded late performance Workings, whose
-  IDs must match exactly. Phase 3 will repeat those IDs in `[freestyle].masteryPerformances` and
-  attach rubric rows that explicitly grade the mapped language capabilities and rationale;
+- every Working has `masteryPerformances = []` unless a seeded performance targets it. For a
+  targeted Working, use the exact ordered union of its IDs: seeded `languageMastery` performance
+  IDs first, followed by any non-lab `masteryEvidence` performance IDs, with duplicates removed.
+  Phase 3 will repeat that complete list in `[freestyle].masteryPerformances` and attach rubric rows
+  that explicitly grade the mapped capabilities and rationale;
 - preserve the seeded `masteryEvidence` object exactly. For every declared `sNN.labNN`, add a
   `mastery-lab` node at the corresponding point in that section. Its keys are `id`, `kind`,
   `title`, `performanceKind`, `capabilityIds`, `cognitiveTasks`, `contextRelation`, `aidPolicy`,
@@ -174,8 +190,11 @@ duplicates, cycles, missing owners, graded use before teaching, and incomplete p
 the transition alone seals the normalized map. It also rejects a project-complete skeleton whose
 language capabilities have no owner, cumulative Working practice, or structured late assessment;
 a mislabeled verification capability, flat lesson graph, or artifact-lifecycle mismatch also
-blocks the seal. These are deterministic local checks and do not invoke an AI reviewer.
-Phase 3 cannot begin without that seal.
+blocks the seal. These are deterministic local checks. After they pass, the harness separately
+sends the sealed Phase-1 plan, complete proposal, manifest, and selected runtime profile to the
+mandatory read-only Validator AI; repair only its cited Phase-2 findings. That review is ordinary
+Markdown whose suggested layout is optional; no response field names are required, and the author
+receives it unchanged. Phase 3 cannot begin until both gates pass and the transition seals the map.
 
 The learner-facing runtime scaffold contains only a blank editor file or unavoidable
 behavior-free tool metadata. Do not seed project structure, implementation, reusable subsystems,
@@ -198,6 +217,15 @@ tome-specific overrides in the tome's `[runtime]` table.
 The runtime must scaffold, truthfully build/check, and accept safe proof arguments on its real
 run command. Never bypass it with a tome-controlled shell command.
 
+For package delivery, read `runtimes/delivery.py` as well as §5 and trace the exact argv lifecycle.
+Every delivery command runs with cwd set to the learner project. `{env}` is a fresh dependency or
+staging directory; it does not contain the learner's Makefile or source tree. `{requirements}` and
+`{artifact}` are absolute paths inside the learner project, and final `packageArgs` are appended to
+`deliveryBuildCommand`. Therefore never `cd` to `{env}` and try to build unstaged project sources.
+Build from project cwd. If this runtime itself promises to copy the built artifact to a clean
+location, declare the sealed paths as the paired `deliveryArtifact` and `deliveryRequirements`
+values and make `deliveryBuildCommand` consume both `{artifact}` and `{env}` while staging it.
+
 If any authored solution, starter, or executable sample imports a third-party package,
 declare every such package in the tome as `validationDependencies = ["package", ...]`.
 Never embed a host-specific path, temporary install directory, shell-time package install,
@@ -212,5 +240,5 @@ references cannot be ambiguous, but leave its body as an explicit Phase 3 placeh
 The `--phase-2-skeleton` check deliberately ignores Phase 3 density, readings, prose,
 exercise-variety, and TODO-clearance warnings; never try to satisfy those here. Produce
 the complete green skeleton and, only when needed, its reusable runtime configuration.
-Do not rename the tome folder yourself; run the Phase-2 transition command from
-`single-author.md`, which renames it safely and prints the new current id.
+Do not rename the tome folder or run the Phase-2 transition yourself. The harness does so only
+after the mechanical and Validator AI gates pass, then prints the new current id.

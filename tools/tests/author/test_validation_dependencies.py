@@ -6,6 +6,7 @@ _bootstrap_sys.path[:0] = [str(_BOOTSTRAP_REPO), str(_BOOTSTRAP_REPO / "tools")]
 
 """Focused regressions for runtime-neutral validation dependency provisioning."""
 import builtins
+import copy
 import json
 import os
 import pathlib
@@ -21,7 +22,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from buildlib import measure
 from runtimes import validation_environment as validation_env
 from buildlib.course_map import validation_dependency_alignment_problems
-from buildlib.course.dependencies import external_workspace_capability_alignment_problems
+from buildlib.course.dependencies import (
+    concrete_tool_mechanism_alignment_problems,
+    delivery_build_cwd_problem,
+    external_workspace_capability_alignment_problems,
+    literal_command_target_alignment_problems,
+    runtime_delivery_alignment_problems,
+)
 from runtimes import common as runtime_common
 from runtimes import snippet_config
 from runtimes.command_runtime import CommandRuntime
@@ -261,6 +268,103 @@ def test_phase2_keeps_external_workspace_map_achievable():
         {"sections": []}, {"runtime": {"externalWorkspace": False}})
 
 
+def _phase2_mechanism_map():
+    return {
+        "version": 4,
+        "artifactContract": {"version": 3, "delivery": {
+            "mode": "package", "artifact": "dist/demo", "requirements": "REQS.md",
+        }},
+        "mechanismContract": {"version": 1, "coverageStart": "s01", "mechanisms": [
+            {"id": "venv-environment-setup", "label": "venv environment setup command",
+             "kind": "tool-action", "owner": "s01.l01"},
+            {"id": "copy-release-package", "label": "copy release package action",
+             "kind": "tool-action", "owner": "s02.l01"},
+        ]},
+        "sections": [
+            {"id": "s01", "projectMilestone": "Prepare the workspace.", "nodes": [
+                {"id": "s01.l01", "kind": "lesson", "teaches": ["tool-install"],
+                 "introduces": ["venv-environment-setup"]},
+                {"id": "s01.working", "kind": "working",
+                 "mechanisms": ["venv-environment-setup"]},
+            ]},
+            {"id": "s02", "projectMilestone": "Deliver the project.", "nodes": [
+                {"id": "s02.l01", "kind": "lesson", "teaches": ["tool-deliver"],
+                 "introduces": ["copy-release-package"]},
+                {"id": "s02.working", "kind": "working",
+                 "mechanisms": ["venv-environment-setup", "copy-release-package"]},
+            ]},
+        ],
+    }
+
+
+def test_phase2_requires_concrete_setup_and_delivery_actions():
+    proposal = _phase2_mechanism_map()
+    manifest = {"runtime": {"externalWorkspace": True}}
+    assert not concrete_tool_mechanism_alignment_problems(proposal, manifest)
+
+    vague = copy.deepcopy(proposal)
+    vague["mechanismContract"]["mechanisms"][0].update({
+        "id": "generic-workspace-command", "label": "generic workspace command",
+    })
+    vague["sections"][0]["nodes"][0]["introduces"] = ["generic-workspace-command"]
+    vague["sections"][0]["nodes"][1]["mechanisms"] = ["generic-workspace-command"]
+    problems = concrete_tool_mechanism_alignment_problems(vague, manifest)
+    assert any("tool-install" in problem and "concrete matching" in problem
+               for problem in problems)
+
+    missing_delivery = copy.deepcopy(proposal)
+    missing_delivery["sections"][-1]["nodes"][-1]["mechanisms"].remove(
+        "copy-release-package")
+    problems = concrete_tool_mechanism_alignment_problems(missing_delivery, manifest)
+    assert any("tool-deliver" in problem for problem in problems)
+
+
+def test_phase2_binds_literal_make_targets_and_package_args_to_mechanisms():
+    proposal = _phase2_mechanism_map()
+    proposal["sections"][-1]["projectMilestone"] = (
+        "Verify with `make run`, then deliver with `make package`.")
+    proposal["sections"][-1]["nodes"][-1]["projectMilestone"] = (
+        proposal["sections"][-1]["projectMilestone"])
+    proposal["mechanismContract"]["mechanisms"].extend([
+        {"id": "make-run-target", "label": "Make run target", "kind": "configuration-rule",
+         "owner": "s02.l01"},
+        {"id": "make-package-target", "label": "Make package target",
+         "kind": "configuration-rule", "owner": "s02.l01"},
+        {"id": "make-release-target", "label": "Make release target",
+         "kind": "configuration-rule", "owner": "s02.l01"},
+    ])
+    working = proposal["sections"][-1]["nodes"][-1]
+    working["mechanisms"].append("make-run-target")
+    runtime = {"projectFile": "Makefile", "deliveryBuildCommand": ["make"]}
+    proof_sections = [{}, {"proof": {"packageArgs": ["release"]}}]
+
+    problems = literal_command_target_alignment_problems(proposal, runtime, proof_sections)
+    assert any("`make package`" in problem for problem in problems)
+    assert any("`make release`" in problem for problem in problems)
+    working["mechanisms"].extend(["make-package-target", "make-release-target"])
+    assert not literal_command_target_alignment_problems(proposal, runtime, proof_sections)
+
+
+def test_phase2_rejects_delivery_builds_from_the_fresh_env():
+    proposal = _phase2_mechanism_map()
+    bad = {"deliveryBuildCommand": [
+        "bash", "-lc", 'cd "$2" && make package', "_", "{artifact}", "{env}",
+    ]}
+    assert "changes cwd to {env}" in delivery_build_cwd_problem(bad)
+
+    staged = {
+        "deliveryArtifact": "dist/demo", "deliveryRequirements": "REQS.md",
+        "deliveryBuildCommand": [
+            "bash", "-lc", 'install -m 0755 "$1" "$2/demo"', "_",
+            "{artifact}", "{env}",
+        ],
+    }
+    assert not runtime_delivery_alignment_problems(proposal, staged)
+    mismatched = {**staged, "deliveryArtifact": "dist/wrong"}
+    assert any("must exactly equal" in problem
+               for problem in runtime_delivery_alignment_problems(proposal, mismatched))
+
+
 def main():
     test_environment_dependencies_are_isolated_cached_and_exported()
     test_ready_environment_cache_hit_is_read_only()
@@ -272,6 +376,9 @@ def main():
     test_unstructured_validator_failure_is_harness_owned()
     test_phase2_reconciles_node_packages_before_manifest_becomes_read_only()
     test_phase2_keeps_external_workspace_map_achievable()
+    test_phase2_requires_concrete_setup_and_delivery_actions()
+    test_phase2_binds_literal_make_targets_and_package_args_to_mechanisms()
+    test_phase2_rejects_delivery_builds_from_the_fresh_env()
     print("ok validation dependencies: isolation/cache + live snippet + headless execution")
 
 

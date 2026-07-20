@@ -1,4 +1,4 @@
-"""Mandatory, cached first-use completeness audit for beginner courses."""
+"""Mandatory, cached teaching-quality and first-use completeness audit."""
 from __future__ import annotations
 
 import hashlib
@@ -13,29 +13,31 @@ import urllib.request
 from .. import BUILD_DIR, REPO, VALIDATOR_FAILURE_DIR
 from ..status_log import emit_status_line
 from arcanum.platform.agent_commands import scoped_runner_command
+from arcanum.jobs.stall import StalledProcess, run_watched
 from ..runtime.events import assistant_text, session_id_from_line, usage_from_line
 from ..course.alignment import actual_lesson_id
 from ..course_map import load_course_map
+from ..validator_policy import resolve_validator_output
 from .prompt import (DYNAMIC_MARKER,
-                                  format_repair_prompt as _format_repair_prompt,
+                                  pacing_contract,
                                   prerequisite_prompt as _prompt,
-                                  result_schema as _result_schema)
+                                  result_schema as _result_schema,
+                                  unusable_response_retry_prompt as _recovery_retry_prompt)
 from . import records as _records
-from .result import (FINDING_KEYS, RESULT_KEYS,
-                     actionable_failure as _actionable_failure,
-                     extract_json as _extract_json,
-                     validate as _validate,
+from .result import (evidence_supports_verdict,
                      validate_detailed as _validate_detailed)
-from ..workflow.prompts import START_PACING
 from ..runtime.runners import author_runner
 from arcanum.catalog.build_ids import resolve_working_id
 
 
 MAX_SECTION_PACKET_CHARS = 200_000
-AUDIT_CONTRACT_VERSION = 5
+AUDIT_CONTRACT_VERSION = 8
 RESPONSES_URL = "https://api.openai.com/v1/responses"
 API_TIMEOUT_SECONDS = 900
 API_MAX_OUTPUT_TOKENS = 2_500
+# Idle means no CPU anywhere in the tree and no established provider connection, so this
+# is not a patience budget: a thinking model and a running tool both keep the clock at 0.
+STALL_SECONDS = float(os.environ.get("ARCANUM_STALL_SECONDS", "10"))
 
 
 def result_path(build_id, sid):
@@ -78,9 +80,17 @@ def _configuration(build_id):
         start = int(gate.get("prior_level") or 0)
     except (TypeError, ValueError):
         start = 0
+    try:
+        depth = int(gate.get("depth") or 0)
+    except (TypeError, ValueError):
+        depth = 0
+    try:
+        mastery = int(gate.get("mastery") or 0)
+    except (TypeError, ValueError):
+        mastery = 0
     bindery = launch.get("bindery") or {}
     validator = launch.get("validator") or bindery.get("validator") or {}
-    return start, validator, str(gate.get("prior_knowledge") or "")
+    return start, validator, str(gate.get("prior_knowledge") or ""), depth, mastery
 
 
 def _context(build_id):
@@ -116,7 +126,8 @@ def section_evidence_packet(build_id, section):
         except OSError as exc:
             raise ValueError(
                 f"validator evidence file is unavailable: {relative}: {exc}") from exc
-        sources.append({"path": relative, "node": node["id"]})
+        sources.append({"path": relative, "node": node["id"],
+                        "lineCount": max(1, len(lines))})
         numbered = "\n".join(
             f"{index:04d}: {line}" for index, line in enumerate(lines, 1))
         source_blocks.append(
@@ -170,13 +181,18 @@ def _cli_adapter(prompt, validator):
     if input_mode == "arg":
         command = [*command, prompt]
     wrapped = scoped_runner_command(display, command, REPO, [], REPO)
-    process = subprocess.run(
-        wrapped, cwd=REPO, input=prompt if input_mode == "stdin" else None,
-        capture_output=True, text=True, timeout=900)
-    if process.returncode:
-        raise RuntimeError(f"validator process exited {process.returncode}")
+    returncode, stdout, stalled = run_watched(
+        wrapped, cwd=REPO, stdin_text=prompt if input_mode == "stdin" else None,
+        seconds=STALL_SECONDS, timeout=900)
+    # A stall that arrives after the verdict is the CLI failing to exit, not failing to
+    # answer. Keep the output and let the usual malformed-result path judge it; only an
+    # empty stall is an infrastructure failure.
+    if stalled and not stdout.strip():
+        raise StalledProcess(STALL_SECONDS)
+    if returncode and not stalled:
+        raise RuntimeError(f"validator process exited {returncode}")
     answers, usage, session_id = [], None, ""
-    for line in process.stdout.splitlines():
+    for line in stdout.splitlines():
         answer = assistant_text(line)
         if answer:
             answers.append(answer)
@@ -205,9 +221,9 @@ def _response_text(response):
             if content.get("type") == "output_text" and isinstance(content.get("text"), str):
                 blocks.append(content["text"])
             elif content.get("type") == "refusal":
-                raise RuntimeError("Validator AI refused the bounded prerequisite audit")
+                raise RuntimeError("Validator AI refused the bounded quality audit")
     if not blocks:
-        raise RuntimeError("Responses API returned no structured output text")
+        raise RuntimeError("Responses API returned no output text")
     return "\n".join(blocks)
 
 
@@ -241,7 +257,10 @@ def _openai_key():
         return ""
 
 
-def _api_adapter(prompt, validator, key=None):
+def _api_adapter(prompt, validator, key=None, *, schema=None,
+                 schema_name="arcanum_section_quality_audit",
+                 cache_key=None, max_output_tokens=API_MAX_OUTPUT_TOKENS,
+                 plain_text=False):
     key = str(key or _openai_key()).strip()
     if not key:
         raise RuntimeError("no OpenAI API key is configured in Settings or OPENAI_API_KEY")
@@ -251,6 +270,12 @@ def _api_adapter(prompt, validator, key=None):
     effort = str(validator.get("effort") or "medium")
     if effort not in ("none", "minimal", "low", "medium", "high", "xhigh"):
         effort = "medium"
+    text_config = {"verbosity": "low"}
+    if not plain_text:
+        text_config["format"] = {
+            "type": "json_schema", "name": schema_name,
+            "strict": True, "schema": schema or _result_schema(),
+        }
     payload = {
         "model": validator["model"],
         "reasoning": {"effort": effort},
@@ -261,12 +286,10 @@ def _api_adapter(prompt, validator, key=None):
             }]},
             {"role": "user", "content": [{"type": "input_text", "text": dynamic.strip()}]},
         ],
-        "text": {"verbosity": "low", "format": {
-            "type": "json_schema", "name": "arcanum_prerequisite_audit",
-            "strict": True, "schema": _result_schema(),
-        }},
-        "max_output_tokens": API_MAX_OUTPUT_TOKENS,
-        "prompt_cache_key": f"arcanum-prerequisite-v{AUDIT_CONTRACT_VERSION}",
+        "text": text_config,
+        "max_output_tokens": int(max_output_tokens),
+        "prompt_cache_key": (cache_key
+                             or f"arcanum-section-quality-v{AUDIT_CONTRACT_VERSION}"),
         "prompt_cache_options": {"mode": "explicit"},
         "store": False,
     }
@@ -288,14 +311,27 @@ def _api_adapter(prompt, validator, key=None):
     }
 
 
-def _default_adapter(prompt, validator):
+def invoke_validator(prompt, validator, *, adapter=None, schema=None,
+                     schema_name="arcanum_section_quality_audit", cache_key=None,
+                     max_output_tokens=API_MAX_OUTPUT_TOKENS, plain_text=False):
+    """Run one configured, read-only Validator AI call with an optional strict schema."""
+    if adapter:
+        return adapter(prompt, validator), {
+            "transport": "test-adapter", "model": validator.get("model", ""), "usage": None}
     # Codex login remains the zero-API-cost fallback. When an API key is present,
     # the read-only Validator AI uses one no-tools Structured Output request instead.
     key = _openai_key()
     if (validator.get("kind") == "codex-cli" and key
             and str(validator.get("model") or "").startswith("gpt-")):
-        return _api_adapter(prompt, validator, key)
+        return _api_adapter(
+            prompt, validator, key, schema=schema, schema_name=schema_name,
+            cache_key=cache_key, max_output_tokens=max_output_tokens,
+            plain_text=plain_text)
     return _cli_adapter(prompt, validator)
+
+
+def _default_adapter(prompt, validator):
+    return invoke_validator(prompt, validator)
 
 
 def _append_call(build_id, sid, packet, result, meta, *, raw=None, stage="audit",
@@ -318,19 +354,21 @@ def review_usage_summary(build_id):
 
 
 def _invoke(prompt, validator, adapter):
-    if adapter:
-        return adapter(prompt, validator), {
-            "transport": "test-adapter", "model": validator.get("model", ""), "usage": None}
-    return _default_adapter(prompt, validator)
+    return invoke_validator(prompt, validator, adapter=adapter)
+
+
+def _classify_output(raw, sources, sid, known_mechanisms):
+    parsed, errors = _validate_detailed(raw, sources, sid, known_mechanisms)
+    output = resolve_validator_output(
+        raw, parsed, errors,
+        lambda value, outcome: evidence_supports_verdict(value, outcome, sources))
+    return parsed, errors, output
 
 
 def review_prerequisites(build_id, sid, *, adapter=None):
-    start, validator, prior = _configuration(build_id)
-    if start > 3:
-        return {"status": "not-required", "reasons": [], "missingMechanisms": [],
-                "cached": False}
+    start, validator, prior, depth, mastery = _configuration(build_id)
     if start < 1:
-        raise RuntimeError("prerequisite audit cannot read the sealed starting level")
+        raise RuntimeError("section-quality audit cannot read the sealed starting level")
     if not validator.get("kind") or not validator.get("model"):
         raise RuntimeError("mandatory section audit has no Validator AI configuration")
     course = load_course_map(build_id)
@@ -339,9 +377,12 @@ def review_prerequisites(build_id, sid, *, adapter=None):
             "mechanisms", []) if isinstance(item, dict) and item.get("id")}
     section = next(item for item in course["sections"] if item["id"] == sid)
     packet, sources = section_evidence_packet(build_id, section)
-    packet += "\n\n===== EXHAUSTIVE PRIOR KNOWLEDGE =====\n" + prior
-    packet += (f"\n\n===== LESSON PACING =====\nStart {start}/3 — "
-               f"{START_PACING[start][0]}: {START_PACING[start][1]}")
+    packet += "\n\n===== OPTIONAL PRIOR-KNOWLEDGE DETAILS =====\n" + (prior or "Not specified")
+    pacing_title, pacing_summary = pacing_contract(start)
+    packet += (f"\n\n===== LESSON PACING =====\nStart {start}/10 — "
+               f"{pacing_title}: {pacing_summary}")
+    packet += (f"\n\n===== QUALITY CALIBRATION =====\nLesson depth {depth or 'unrecorded'}/10; "
+               f"language mastery {mastery or 'unrecorded'}/5")
     fingerprint_input = json.dumps({
         "contract": AUDIT_CONTRACT_VERSION, "packet": packet,
         "validator": {key: validator.get(key) for key in ("kind", "model", "effort")},
@@ -350,8 +391,8 @@ def review_prerequisites(build_id, sid, *, adapter=None):
     cached = _read(result_path(build_id, sid), {}) or {}
     if cached.get("fingerprint") == fingerprint and isinstance(cached.get("result"), dict):
         return {**cached["result"], "cached": True}
-    prompt = _prompt(packet, sid, sources, prior, start)
-    audit_label = (f"prerequisite completeness {sid} › "
+    prompt = _prompt(packet, sid, sources, prior, start, depth, mastery)
+    audit_label = (f"section quality {sid} › "
                    f"{validator.get('kind')} {validator.get('model')}")
     emit_status_line(f"AI VALIDATOR CALL START [{time.time():.3f}] › {audit_label}",
                      build_id, build_dir=BUILD_DIR)
@@ -362,38 +403,55 @@ def review_prerequisites(build_id, sid, *, adapter=None):
         emit_status_line(f"AI VALIDATOR CALL FAILED [{time.time():.3f}] › {audit_label}",
                          build_id, build_dir=BUILD_DIR)
         raise RuntimeError(f"section Validator AI infrastructure failed: {exc}") from exc
-    result, errors = _validate_detailed(raw, sources, sid, known_mechanisms)
-    malformed = bool(errors)
+    parsed, errors, output = _classify_output(raw, sources, sid, known_mechanisms)
     model = str(validator.get("model") or "")
-    _append_call(build_id, sid, packet, result, meta, raw=raw, malformed=malformed)
-    actionable = _actionable_failure(raw, result, sources)
-    if malformed and actionable is None:
+    _append_call(
+        build_id, sid, packet,
+        output.result if output.recovered_verdict else parsed,
+        meta, raw=raw, malformed=output.malformed)
+    emit_status_line(
+        f"AI VALIDATOR CALL COMPLETE [{time.time():.3f}] "
+        f"({output.result['status']}) › {audit_label}",
+        build_id, build_dir=BUILD_DIR)
+    if output.unusable:
+        retry_label = (f"section quality {sid} recovery-retry › "
+                       f"{validator.get('kind')} {validator.get('model')}")
+        emit_status_line(f"AI VALIDATOR CALL START [{time.time():.3f}] › {retry_label}",
+                         build_id, build_dir=BUILD_DIR)
         try:
             repaired_raw, repair_meta = _invoke(
-                _format_repair_prompt(prompt, raw, errors, known_mechanisms),
+                _recovery_retry_prompt(prompt, raw, errors, known_mechanisms),
                 validator, adapter)
         except Exception as exc:
             _append_infrastructure_failure(
-                build_id, sid, packet, validator, exc, stage="format-repair")
+                build_id, sid, packet, validator, exc, stage="recovery-retry")
+            emit_status_line(
+                f"AI VALIDATOR CALL FAILED [{time.time():.3f}] › {retry_label}",
+                build_id, build_dir=BUILD_DIR)
         else:
-            result, errors = _validate_detailed(
+            parsed, errors, output = _classify_output(
                 repaired_raw, sources, sid, known_mechanisms)
-            malformed = bool(errors)
-            _append_call(build_id, sid, packet, result, repair_meta, raw=repaired_raw,
-                         stage="format-repair", malformed=malformed)
-            actionable = _actionable_failure(repaired_raw, result, sources)
-    if actionable is not None:
-        result, malformed = actionable, False
+            _append_call(
+                build_id, sid, packet,
+                output.result if output.recovered_verdict else parsed,
+                repair_meta, raw=repaired_raw,
+                stage="recovery-retry", malformed=output.malformed)
+            emit_status_line(
+                f"AI VALIDATOR CALL COMPLETE [{time.time():.3f}] "
+                f"({output.result['status']}) › {retry_label}",
+                build_id, build_dir=BUILD_DIR)
+    result = output.result
     should_escalate = ("luna" in model.lower()
-                       and (malformed or result["status"] == "UNCERTAIN"))
-    final_label = audit_label
+                       and (output.unusable or result["status"] == "UNCERTAIN"))
     if should_escalate:
         terra = {**validator, "model": re.sub("luna", "terra", model,
                                                flags=re.IGNORECASE),
                  "effort": validator.get("effort") or "medium"}
-        why = "UNCERTAIN" if result["status"] == "UNCERTAIN" else "unusable output"
-        final_label = (f"prerequisite completeness {sid} › {terra.get('kind')} "
-                       f"{terra.get('model')} (after Luna {why})")
+        escalation_label = (f"section quality {sid} escalation › {terra.get('kind')} "
+                            f"{terra.get('model')}")
+        emit_status_line(
+            f"AI VALIDATOR CALL START [{time.time():.3f}] › {escalation_label}",
+            build_id, build_dir=BUILD_DIR)
         try:
             raw, terra_meta = _invoke(prompt, terra, adapter)
         except Exception as exc:
@@ -401,14 +459,20 @@ def review_prerequisites(build_id, sid, *, adapter=None):
                 build_id, sid, packet, terra, exc, stage="escalation",
                 escalated_from=model)
             emit_status_line(
-                f"AI VALIDATOR CALL FAILED [{time.time():.3f}] › {final_label}", build_id,
+                f"AI VALIDATOR CALL FAILED [{time.time():.3f}] › {escalation_label}", build_id,
                 build_dir=BUILD_DIR)
             raise RuntimeError(f"section Validator AI escalation failed: {exc}") from exc
-        result, _errors = _validate_detailed(raw, sources, sid, known_mechanisms)
-        _append_call(build_id, sid, packet, result, terra_meta, raw=raw,
-                     stage="escalation", escalated_from=model)
-    emit_status_line(
-        f"AI VALIDATOR CALL COMPLETE [{time.time():.3f}] ({result['status']}) › "
-        f"{final_label}", build_id, build_dir=BUILD_DIR)
-    _write(result_path(build_id, sid), {"fingerprint": fingerprint, "result": result})
+        parsed, _errors, output = _classify_output(
+            raw, sources, sid, known_mechanisms)
+        _append_call(
+            build_id, sid, packet,
+            output.result if output.recovered_verdict else parsed,
+            terra_meta, raw=raw,
+            stage="escalation", escalated_from=model, malformed=output.malformed)
+        result = output.result
+        emit_status_line(
+            f"AI VALIDATOR CALL COMPLETE [{time.time():.3f}] ({result['status']}) › "
+            f"{escalation_label}", build_id, build_dir=BUILD_DIR)
+    if not output.unusable and result["status"] != "UNCERTAIN":
+        _write(result_path(build_id, sid), {"fingerprint": fingerprint, "result": result})
     return {**result, "cached": False}

@@ -7,12 +7,13 @@ import os
 import tempfile
 import time
 from datetime import datetime, timezone
+from decimal import Decimal, ROUND_HALF_UP
 
 
 TURN_LIMIT = 500
 USAGE_KEYS = ("inputTokens", "freshInputTokens", "cachedInputTokens",
               "cacheWriteTokens", "outputTokens", "reasoningTokens", "totalTokens")
-PRICING_VERSION = "openai-standard-2026-07-17"
+PRICING_VERSION = "openai-standard-2026-07-18"
 PRICING_SOURCE = "https://developers.openai.com/api/docs/pricing"
 
 # USD per one million tokens. Unknown models remain logged with an explicitly
@@ -25,6 +26,8 @@ MODEL_PRICES = {
     "gpt-5.6-luna": {"freshInput": 1.0, "cachedInput": 0.1,
                      "cacheWriteInput": 1.25, "output": 6.0},
 }
+GPT_MODELS = frozenset(MODEL_PRICES)
+USD_CENT = Decimal("0.01")
 
 
 def turns_path(build_dir, build_id):
@@ -124,6 +127,31 @@ def _delta(current, previous):
     return {key: current[key] - int(previous.get(key) or 0) for key in USAGE_KEYS}
 
 
+def _counter_key(role, kind, session_id):
+    return "|".join((str(role), str(kind), str(session_id)))
+
+
+def _previous_counter(counters, role, kind, model, session_id):
+    """Read new session-scoped counters and migrate the former model-scoped key.
+
+    Codex can resume one cumulative-usage session with a different model. The model
+    must select the rate for the new delta, but it must not reset the token counter.
+    """
+    key = _counter_key(role, kind, session_id)
+    if key in counters:
+        return key, counters[key]
+    legacy = "|".join((str(role), str(kind), str(model), str(session_id)))
+    if legacy in counters:
+        return key, counters[legacy]
+    prefix, suffix = f"{role}|{kind}|", f"|{session_id}"
+    candidates = [value for name, value in counters.items()
+                  if str(name).startswith(prefix) and str(name).endswith(suffix)
+                  and isinstance(value, dict)]
+    previous = max(candidates, key=lambda value: int(value.get("totalTokens") or 0),
+                   default=None)
+    return key, previous
+
+
 def _cost(model, usage):
     rates = MODEL_PRICES.get(str(model or ""))
     if not usage or not rates:
@@ -139,12 +167,33 @@ def _cost(model, usage):
 
 def _bucket():
     return {"turnCount": 0, "pricedTurns": 0, "unpricedTurns": 0,
+            "gptTurnCount": 0, "gptUnpricedTurns": 0,
             "usage": {key: 0 for key in USAGE_KEYS},
             "apiEquivalentUsd": 0.0, "directApiUsd": 0.0}
 
 
-def _add(bucket, usage, equivalent, direct):
+def _normalize_bucket(bucket):
+    defaults = _bucket()
+    for key, value in defaults.items():
+        if key == "usage":
+            current = bucket.setdefault("usage", {})
+            for usage_key in USAGE_KEYS:
+                current.setdefault(usage_key, 0)
+        elif key not in bucket:
+            # Older ledgers predate GPT-specific completeness counters. Every
+            # priced turn in those ledgers used one of the verified GPT rates.
+            bucket[key] = (int(bucket.get("pricedTurns") or 0)
+                           if key == "gptTurnCount" else value)
+    return bucket
+
+
+def _add(bucket, usage, equivalent, direct, *, gpt_model=False):
+    _normalize_bucket(bucket)
     bucket["turnCount"] += 1
+    if gpt_model:
+        bucket["gptTurnCount"] += 1
+        if equivalent is None:
+            bucket["gptUnpricedTurns"] += 1
     if equivalent is None:
         bucket["unpricedTurns"] += 1
     else:
@@ -158,6 +207,20 @@ def _add(bucket, usage, equivalent, direct):
             bucket["usage"][key] += usage[key]
 
 
+def _combined_buckets(values):
+    combined = _bucket()
+    for raw in values:
+        value = _normalize_bucket(raw)
+        for key in ("turnCount", "pricedTurns", "unpricedTurns",
+                    "gptTurnCount", "gptUnpricedTurns"):
+            combined[key] += int(value.get(key) or 0)
+        for key in USAGE_KEYS:
+            combined["usage"][key] += int(value["usage"].get(key) or 0)
+        for key in ("apiEquivalentUsd", "directApiUsd"):
+            combined[key] = round(float(combined[key]) + float(value.get(key) or 0), 9)
+    return combined
+
+
 def _section_ids(build_dir, build_id, state):
     path = os.path.join(build_dir, f"{build_id}.course-map.json")
     course = _read_json(path, {})
@@ -168,12 +231,16 @@ def _section_ids(build_dir, build_id, state):
 
 
 def _summary_row(build_id, scope, value, *, phase, section=None):
+    value = _normalize_bucket(value)
     return {
         "version": 1, "type": scope, "buildId": build_id,
         "phase": phase, **({"section": section} if section else {}),
         "turnCount": value["turnCount"], "pricedTurns": value["pricedTurns"],
         "unpricedTurns": value["unpricedTurns"],
         "pricingComplete": value["unpricedTurns"] == 0,
+        "gptTurnCount": value["gptTurnCount"],
+        "gptUnpricedTurns": value["gptUnpricedTurns"],
+        "gptPricingComplete": value["gptUnpricedTurns"] == 0,
         "usage": value["usage"],
         "apiEquivalentUsd": round(float(value["apiEquivalentUsd"]), 9),
         "directApiUsd": round(float(value["directApiUsd"]), 9),
@@ -184,12 +251,17 @@ def _summary_row(build_id, scope, value, *, phase, section=None):
 def _write_totals(build_dir, build_id, state):
     phases = state.setdefault("phases", {})
     sections = state.setdefault("sections", {})
+    section_ids = _section_ids(build_dir, build_id, state)
+    section_values = [sections.setdefault(section, _bucket())
+                      for section in section_ids]
     rows = []
     for phase in range(1, 9):
-        value = phases.setdefault(str(phase), _bucket())
+        stored = phases.setdefault(str(phase), _bucket())
+        # Phase 3 is definitionally the sum of its sealed section units. Do not
+        # let an unattributed or rounded phase bucket drift from those rows.
+        value = _combined_buckets(section_values) if phase == 3 else stored
         rows.append(_summary_row(build_id, "phase-total", value, phase=phase))
-    for section in _section_ids(build_dir, build_id, state):
-        value = sections.setdefault(section, _bucket())
+    for section, value in zip(section_ids, section_values):
         rows.append(_summary_row(build_id, "section-total", value,
                                  phase=3, section=section))
     _atomic_jsonl(totals_path(build_dir, build_id), rows)
@@ -198,7 +270,7 @@ def _write_totals(build_dir, build_id, state):
 def record_ai_turn(build_dir, build_id, *, phase, role, stage, kind, model,
                    effort="", transport="cli", status="complete", section=None,
                    session_id="", usage=None, usage_mode="turn", started_at=None,
-                   ended_at=None, response_id=""):
+                   ended_at=None, response_id="", usage_baseline=None):
     """Append one AI invocation and update non-trimmable lifetime totals."""
     if transport == "test-adapter":
         return None
@@ -212,19 +284,26 @@ def record_ai_turn(build_dir, build_id, *, phase, role, stage, kind, model,
         state = _read_json(_state_path(build_dir, build_id), {})
         state.setdefault("version", 1)
         counters = state.setdefault("lastCounters", {})
-        counter_key = "|".join((str(role), str(kind), str(model), str(session_id)))
         turn_usage = current_usage
         if current_usage and usage_mode == "cumulative" and session_id:
-            turn_usage = _delta(current_usage, counters.get(counter_key))
+            counter_key, previous = _previous_counter(
+                counters, role, kind, model, session_id)
+            if usage_baseline is not None:
+                # A resumed provider thread may predate this build or ledger. Its
+                # trace supplies the exact counter immediately before this turn,
+                # so lifetime history can never be charged to the current unit.
+                previous = _usage(usage_baseline)
+            turn_usage = _delta(current_usage, previous)
             counters[counter_key] = current_usage
         equivalent, rates = _cost(model, turn_usage)
+        gpt_model = str(model or "") in GPT_MODELS
         direct = equivalent if transport == "responses-api" and equivalent is not None else 0.0
         phase = int(phase)
         phase_bucket = state.setdefault("phases", {}).setdefault(str(phase), _bucket())
-        _add(phase_bucket, turn_usage, equivalent, direct)
+        _add(phase_bucket, turn_usage, equivalent, direct, gpt_model=gpt_model)
         if phase == 3 and section:
             section_bucket = state.setdefault("sections", {}).setdefault(str(section), _bucket())
-            _add(section_bucket, turn_usage, equivalent, direct)
+            _add(section_bucket, turn_usage, equivalent, direct, gpt_model=gpt_model)
         row = {
             "version": 1, "type": "ai-turn", "buildId": build_id,
             "at": ended_at,
@@ -236,6 +315,9 @@ def record_ai_turn(build_dir, build_id, *, phase, role, stage, kind, model,
             "transport": str(transport), "sessionId": str(session_id or ""),
             "usage": turn_usage, "usageMode": str(usage_mode),
             "counterUsage": current_usage if usage_mode == "cumulative" else None,
+            "counterBaseline": (_usage(usage_baseline)
+                                if usage_mode == "cumulative"
+                                and usage_baseline is not None else None),
             "pricingStatus": ("priced" if equivalent is not None
                               else "usage-unavailable" if not turn_usage else "model-unpriced"),
             "pricingVersion": PRICING_VERSION, "pricingSource": PRICING_SOURCE,
@@ -258,6 +340,115 @@ def record_ai_turn(build_dir, build_id, *, phase, role, stage, kind, model,
     finally:
         fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
         lock.close()
+
+
+def rewind_ai_costs(build_dir, build_id, phase):
+    """Discard visible accounting for ``phase`` onward after a phase restart.
+
+    Provider cumulative-counter baselines remain internal so a resumed provider
+    session cannot make discarded tokens reappear in the rebuilt phase.
+    """
+    phase = int(phase)
+    if phase not in range(1, 9):
+        raise ValueError("phase must be between 1 and 8")
+    lock = open(_lock_path(build_dir, build_id), "a+", encoding="utf-8")
+    try:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        prior = _read_json(_state_path(build_dir, build_id), {})
+        all_rows = _read_jsonl(turns_path(build_dir, build_id))
+        retained = []
+        for row in all_rows:
+            try:
+                if int(row.get("phase") or 0) < phase:
+                    retained.append(row)
+            except (TypeError, ValueError):
+                retained.append(row)
+        # State buckets are non-trimmable lifetime totals; the detail journal is
+        # intentionally capped at TURN_LIMIT and therefore cannot rebuild them.
+        phases = {}
+        for key, value in (prior.get("phases") or {}).items():
+            try:
+                if int(key) < phase:
+                    phases[str(key)] = value
+            except (TypeError, ValueError):
+                continue
+        state = {
+            "version": 1,
+            "lastCounters": dict(prior.get("lastCounters") or {}),
+            "phases": phases,
+            "sections": (dict(prior.get("sections") or {}) if phase > 3 else {}),
+        }
+        _atomic_jsonl(turns_path(build_dir, build_id), retained)
+        _write_totals(build_dir, build_id, state)
+        state["updatedAt"] = time.time()
+        _atomic_json(_state_path(build_dir, build_id), state)
+        return len(all_rows) - len(retained)
+    finally:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+        lock.close()
+
+
+def gpt_completion_cost(build_dir, build_id, *, phase, section=None):
+    """Return the GPT-only API-equivalent cost at one sealed unit boundary."""
+    phase = int(phase)
+    lock = open(_lock_path(build_dir, build_id), "a+", encoding="utf-8")
+    try:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_SH)
+        state = _read_json(_state_path(build_dir, build_id), {})
+        if phase == 3 and section is None:
+            section_ids = _section_ids(build_dir, build_id, state)
+            buckets = [_normalize_bucket((state.get("sections") or {}).get(sid, _bucket()))
+                       for sid in section_ids]
+            value = _combined_buckets(buckets)
+            # The visible Phase-3 amount is the exact sum of the visible,
+            # cent-rounded section amounts, as requested by the UI contract.
+            displayed = sum(
+                (Decimal(str(bucket.get("apiEquivalentUsd") or 0)).quantize(
+                    USD_CENT, rounding=ROUND_HALF_UP) for bucket in buckets), Decimal("0"))
+        else:
+            values = state.get("sections") if section else state.get("phases")
+            key = str(section) if section else str(phase)
+            value = _normalize_bucket((values or {}).get(key, _bucket()))
+            displayed = Decimal(str(value.get("apiEquivalentUsd") or 0)).quantize(
+                USD_CENT, rounding=ROUND_HALF_UP)
+        if int(value.get("gptTurnCount") or 0) == 0:
+            return None
+        return {
+            "phase": phase, **({"section": str(section)} if section else {}),
+            "sectionCount": len(section_ids) if phase == 3 and section is None else None,
+            "gptTurnCount": int(value.get("gptTurnCount") or 0),
+            "gptUnpricedTurns": int(value.get("gptUnpricedTurns") or 0),
+            "apiEquivalentUsd": round(float(value.get("apiEquivalentUsd") or 0), 9),
+            "displayUsd": float(displayed),
+            "pricingVersion": PRICING_VERSION, "pricingSource": PRICING_SOURCE,
+        }
+    finally:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+        lock.close()
+
+
+def completed_cost_line(build_dir, build_id, *, phase, section=None, at=None):
+    """Format one user-facing GPT-only completion line, or nothing for non-GPT units."""
+    report = gpt_completion_cost(
+        build_dir, build_id, phase=phase, section=section)
+    if not report:
+        return ""
+    if section:
+        target = f"PHASE 3 SECTION {section}"
+    elif int(phase) == 3:
+        target = f"PHASE 3 TOTAL · SUM OF {report['sectionCount']} SECTIONS"
+    else:
+        target = f"PHASE {int(phase)} TOTAL"
+    priced = report["gptTurnCount"] - report["gptUnpricedTurns"]
+    amount = (f"${report['displayUsd']:.2f}" if priced
+              else "UNAVAILABLE")
+    if priced and report["gptUnpricedTurns"]:
+        amount += "+"
+    if report["gptUnpricedTurns"]:
+        amount += (f" · PARTIAL: {report['gptUnpricedTurns']} GPT TURN"
+                   f"{'S' if report['gptUnpricedTurns'] != 1 else ''} LACKED TOKEN USAGE")
+    return (f"GPT API-EQUIVALENT COST COMPLETE [{float(at or time.time()):.3f}] "
+            f"› {target} › {amount}")
 
 
 def ensure_cost_totals(build_dir, build_id):

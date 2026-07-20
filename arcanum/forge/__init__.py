@@ -405,6 +405,25 @@ def external_build_process(planid, proc_root="/proc"):
                  if proc.get("planid") == planid), None)
 
 
+def _restartable_sections(*keys):
+    """Phase-3 sections the Binder may rewind to: every one already started."""
+    sections = []
+    for key in keys:
+        try:
+            with open(os.path.join(BUILD_DIR, f"{key}.course-state.json"),
+                      encoding="utf-8") as handle:
+                sections = json.load(handle).get("sections") or []
+        except (OSError, ValueError, json.JSONDecodeError):
+            continue
+        if sections:
+            break
+    return [{"id": row["id"], "title": row.get("title") or row["id"],
+             "status": row.get("status") or "planned"}
+            for row in sections
+            if isinstance(row, dict) and row.get("id")
+            and row.get("status") != "planned"]
+
+
 def list_workings(job_manager: JobManager, catalog):
     """Stopped, failed, or cancelled builds worth resuming.
 
@@ -442,6 +461,7 @@ def list_workings(job_manager: JobManager, catalog):
                     "name": forge_name(tid, catalog) or tid,
                     "concept": launch.get("concept") or _plan_concept(text),
                     "phase": resume_phase,
+                    "sections": _restartable_sections(planid, tid) if resume_phase == 3 else [],
                     "bindery": launch.get("bindery") or {},
                     "author": author,
                     "authors": authors,

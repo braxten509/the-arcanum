@@ -9,7 +9,9 @@
 - course  alignment, amendment, control, dependencies, limits, and derived state
 - language_mastery  capability planning, map validation, and authored evidence
 - continuity  handoff-v3 discoveries and typed fulfillment evidence
-- prerequisites  mandatory cached post-section Validator AI gate and prompt
+- validator_policy  shared readable-verdict versus unusable-output classification
+- planning_review  mandatory cached Phase-1 arc and Phase-2 map Validator AI gates
+- prerequisites  mandatory cached post-section teaching-quality/prerequisite AI gate and prompt
 - review_evidence  proof-v1 evidence derived from execution
 Shared paths/constants live here."""
 import os

@@ -32,10 +32,10 @@ class PhaseResetService:
         _modified, build_id, path, text = max(matches)
         return build_id, path, text
 
-    def reset(self, tome_id: str, phase: int) -> dict:
+    def reset(self, tome_id: str, phase: int, section: str = "") -> dict:
         command = [sys.executable, os.path.join(
             self.settings.root, "tools", "workflow", "reset_tome_phase.py"),
-                   tome_id, str(phase)]
+                   tome_id, str(phase), *([section] if section else [])]
         completed = subprocess.run(command, cwd=self.settings.root, capture_output=True,
                                    text=True, timeout=300)
         lines = [line for line in completed.stdout.splitlines() if line.strip()]

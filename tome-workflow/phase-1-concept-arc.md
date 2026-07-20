@@ -20,15 +20,23 @@ milestone. Apply the removal test: deleting any section must break a named gradu
 project milestone, continuity dependency, or acceptance requirement. If the honest arc cannot fit
 inside the bound, fail Phase 1; never exceed it, compress away required teaching, lower the finish,
 or defer the missing scope to a later phase.
+At Mastery 1, the plan's `Mastery-1 minimum-path budget` is a stricter machine-enforced ceiling:
+this is the shortest honest route from the entry baseline to building the requested project from
+scratch. Teach only mechanisms demanded by that artifact and its acceptance proof. Combine
+prerequisites as ordered lessons inside the earliest project milestone they enable; do not turn
+the five language-foundation roles into five survey sections. Starting Level may add explanation,
+practice, and lessons, but it does not add project milestones or raise the Mastery-1 ceiling.
 Respect every gate answer. Record the real difficulty spine, graduate CAN/CANNOT boundary,
 and daily drivers. Low starts need fundamentals and toolchain work before domain work.
-For Start 1–3, treat the prior-knowledge answer as an exhaustive whitelist and order the
+Use Starting level as the complete entry baseline. Prior knowledge is optional; when present,
+treat it as an exhaustive list of additional concrete skills and do not infer nearby skills.
+For Start 1–3, order the
 arc so every required keyword, syntax form, operator, API, tool action, and technical term
 is introduced before first use. Start 2 changes pace and repetition, not fundamental
 coverage; a construct cannot disappear from the teaching sequence merely because the
 learner is not at absolute zero.
 
-Before writing the Section list, perform a cold-start dependency walk from that whitelist through
+Before writing the Section list, perform a cold-start dependency walk from that entry baseline through
 every proposed Working and the final acceptance journey. For each Working, enumerate every
 unavoidable language mechanism, library or runtime API, tool action, configuration or data-format
 rule, and technical term demanded by its milestone, learner-owned artifacts, rubric, proof,
@@ -69,7 +77,9 @@ each still receives complete first-use teaching and guided practice. Never combi
 foundations merely to reduce the lesson or section count. Derive each section's likely lesson count
 from this concept-family load: three lessons is the schema minimum, not a default. Use the available
 capacity through eight lessons, and split the Arc into more sections if honest low-start teaching
-would exceed it.
+would exceed it and the selected Mastery section budget permits the split. At Mastery 1, first
+remove nonessential language breadth and consolidate the remaining ordered lessons around the
+project milestone they directly enable; Starting Level alone never justifies another section.
 
 Starting level and mastery are separate axes. Starting level controls the support at the
 entrance; mastery controls how independently the learner uses the declared language at the exit.
@@ -226,4 +236,9 @@ Make cross-section state explicit:
   Phase 2's section tree and section-level seed map; prose paragraphs, a different id/order,
   an unnecessary promise, or a count outside the bound does not pass the gate.
 
-Produce only the completed Arc in the plan. Phase 2 turns it into tome files.
+Produce only the completed Arc in the plan. After the mechanical gate, the harness sends this
+plan and the operator calibration to the mandatory read-only Validator AI. Repair only its cited
+Phase-1 findings, rerun the assigned mechanical self-check, and hand the phase back at
+`validating`; only an AI PASS permits the Phase-1 transition. Phase 2 then turns the sealed Arc
+into tome files. The reviewer writes an evidence-backed Markdown explanation; its suggested layout
+is optional, no field names are required, and the original report is returned to the author unchanged.

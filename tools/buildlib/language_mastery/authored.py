@@ -18,6 +18,10 @@ def authored_mastery_problems(course, tome_path, through=None):
     for item in contract.get("performances") or []:
         if isinstance(item, dict):
             by_working.setdefault(item.get("workingId"), []).append(item)
+    language_ids = {
+        item.get("id") for records in by_working.values() for item in records
+        if isinstance(item.get("id"), str)
+    }
     problems = []
     for section in selected:
         sid = section.get("id")
@@ -30,8 +34,9 @@ def authored_mastery_problems(course, tome_path, through=None):
             problems.append(f"{sid} cannot load for language-mastery evidence: {exc}")
             continue
         freestyle = actual.get("freestyle") or {}
-        actual_ids = list(freestyle.get("masteryPerformances") or []) \
-            if isinstance(freestyle, dict) else []
+        actual_ids = ([item for item in (freestyle.get("masteryPerformances") or [])
+                       if item in language_ids]
+                      if isinstance(freestyle, dict) else [])
         expected_ids = [item["id"] for item in expected]
         if actual_ids != expected_ids:
             problems.append(

@@ -1,6 +1,7 @@
 """Interactive single-author tome build lifecycle."""
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -15,7 +16,6 @@ from ...forge import (_clear_build_terminal_state, _plan_concept, _plan_gate,
                       _resume_phase, _save_launch, author_activity_started_at,
                       external_build_process, fresh_tome_id, list_active_builds,
                       watch_build, working_is_active)
-from .status_log import load_status_lines
 
 
 AUTHOR_KINDS = ("claude-cli", "antigravity-cli", "codex-cli", "opencode-cli")
@@ -107,7 +107,9 @@ def _launch(tid, author, concept, phase, services, gate_json=None, resume_id="",
         "build", interactionState="starting", tome=tid, slug=tid, phase=phase,
         phaseTitle="starting", totalPhases=BUILD_TOTAL_PHASES, log=[], pid=proc.pid,
         startedAt=started, phaseStartedAt=started, activityStartedAt=started,
-        statusLog=load_status_lines(tid, build_dir=services.settings.build_root),
+        # Only this run's lines. The read model already prepends the durable log, and a
+        # copy taken at launch would outlive anything that clears it.
+        statusLog=[],
         authorSchedule={key: dict(value) for key, value in (authors or {}).items()},
         sessionValidator=dict(validator),
         sessionReviewer=dict(reviewer) if reviewer else None,
@@ -252,6 +254,11 @@ def reset_build(h, body, tid, services):
         phase = 0
     if phase not in range(1, 9):
         return h.send_json({"ok": False, "error": "phase must be between 1 and 8"}, 400)
+    section = str(body.get("section") or "")
+    if section and (phase != 3 or not re.fullmatch(r"s[0-9]{2,3}", section)):
+        return h.send_json({"ok": False,
+                            "error": "a section restart requires phase 3 and a valid section id"},
+                           400)
     if (body.get("confirm") != "reset-tome-build"
             or str(body.get("confirmTome") or "") != tid):
         return h.send_json({"ok": False,
@@ -269,7 +276,7 @@ def reset_build(h, body, tid, services):
         return h.send_json({"ok": False,
                             "error": "finish or cancel the active tome job before resetting"}, 409)
     try:
-        result = services.phase_reset.reset(tid, phase)
+        result = services.phase_reset.reset(tid, phase, section)
     except RuntimeError as exc:
         return h.send_json({"ok": False, "error": str(exc)}, 500)
     return h.send_json({"ok": True, **result})

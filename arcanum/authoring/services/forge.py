@@ -1,13 +1,14 @@
 """Server-side adapter for the interactive authoring lifecycle."""
 from __future__ import annotations
 
-import signal
 from types import SimpleNamespace
 
 from arcanum.forge import (_resume_phase, external_build_process, forge_name,
                            list_active_builds, list_workings)
 from arcanum.forge.build_state import record_cancelled_build
 from arcanum.authoring.adapters import forge_lifecycle as builds
+from arcanum.authoring.adapters.status_log import clear_run_history
+from ..read_models.durable_status import clear_conversation
 from ..adapters.phase_reset import PhaseResetService
 from ..read_models.forge_status import ForgeStatusService
 
@@ -56,10 +57,10 @@ class ForgeService:
         slug = (job.get("slug") or job.get("tome")) if is_build else build_id
         tome = job.get("tome") if is_build else None
         phase = job.get("phase", 0) if is_build else 0
-        terminated = False
         if running:
             self.jobs.cancel(build_id)
-            terminated = self.processes.terminate(build_id, signal.SIGTERM)
+            handle = self.processes.pop(build_id)
+            pid = getattr(handle, "pid", None) or pid
         if not is_build:
             process = external_build_process(build_id)
             if not process:
@@ -75,8 +76,17 @@ class ForgeService:
         if running:
             record_cancelled_build(
                 slug, tome, phase, forge_name(tome, self.catalog) or tome)
-        if running and pid and not terminated:
-            self.processes.terminate_pid(pid, signal.SIGTERM)
+        if running and pid:
+            # The worker, the sandbox and the author CLI each own a separate process
+            # group, so abandoning has to sweep the tree rather than one group.
+            self.processes.terminate_tree(pid)
+        if running:
+            # Sidecars are keyed by either id, and both panes narrate the run that just
+            # ended — a resume starts a new one. The ai-cost ledger behind the running
+            # total is a separate record and is not touched.
+            for key in {build_id, slug, tome} - {None, ""}:
+                clear_run_history(key)
+                clear_conversation(self.settings.build_root, key)
         status = "cancelled" if running else job.get("status")
         return {"ok": True, "status": status}, 200
 

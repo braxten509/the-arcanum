@@ -25,7 +25,7 @@ def _list_of_strings(value, label, *, allow_empty=False, maximum=500):
     return problems
 
 def validate_map_contract(contract, sections, capability_owners, graduate_capabilities,
-                          detailed, seed=None):
+                          detailed, seed=None, expected_working_performances=None):
     """Validate language capability ownership, cumulative practice, and graded transfer."""
     if contract is None:
         return []
@@ -133,7 +133,9 @@ def validate_map_contract(contract, sections, capability_owners, graduate_capabi
             if missing_practice:
                 problems.append(f"{working.get('id')} must require every languagePractice id: "
                                 + ", ".join(missing_practice))
-            expected = [item.get("id") for item in working_ids.get(working.get("id"), [])]
+            expected = ([item.get("id") for item in working_ids.get(working.get("id"), [])]
+                        if expected_working_performances is None else
+                        list(expected_working_performances.get(working.get("id"), [])))
             if list(working.get("masteryPerformances") or []) != expected:
                 problems.append(
                     f"{working.get('id')}.masteryPerformances must exactly match {expected}")

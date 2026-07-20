@@ -3,19 +3,17 @@ from __future__ import annotations
 
 import os
 import queue
-import signal
 import subprocess
 import sys
 import threading
-import time
 import traceback
 
 from .. import BUILD_DIR, REPO
-from ..ai_costs import ensure_cost_totals, record_ai_turn
-from arcanum.platform.agent_commands import scoped_runner_command
+from ..course.state import tree_digest
 from .gate import (advance_unit, context, current_unit, ensure_unit, label,
-                          next_prompt, preflight_unit, repair_prompt, unit_prompt,
-                          validate_unit)
+                          mark_unit_validating, next_prompt, preflight_unit,
+                          repair_prompt, report_completed_unit_cost, unit_prompt,
+                          validate_author_self_check, validate_unit)
 from . import full_review
 from ..measure import (ValidatorInfrastructureError, validate_live_smoke,
                        validate_shipping)
@@ -23,6 +21,8 @@ from .review_session import ReviewerSessionMixin
 from .scope import author_paths
 from .session.controls import AuthorControlsMixin
 from .session.phase_state import PhaseAuthorStateMixin
+from .session.turn import AuthorTurnMixin
+from .session.turn import authoritative_session_id as _authoritative_session_id
 from .session.support import (append_conversation as _append_conversation,
                                      author_prompt, continuation_prompt,
                                      harness_blocked_message as _harness_blocked_message,
@@ -36,8 +36,6 @@ from .runtime import session_id_from_line as _session_id_from_line
 from .runtime import usage_from_line as _usage_from_line
 from arcanum.forge import notify
 from arcanum.catalog.build_ids import resolve_working_id
-from arcanum.forge.tool_trace import (_descendants, runner_session, trace_model,
-                                      trace_session_id)
 
 
 def append_conversation(build_id, kind, text, **extra):
@@ -48,7 +46,17 @@ def load_conversation(build_id, limit=120):
     return _load_conversation(BUILD_DIR, build_id, limit)
 
 
-class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin, ReviewerSessionMixin):
+def _author_state_fingerprint(paths):
+    """Hash only author-writable content, excluding logs and session metadata."""
+    return tuple(
+        (os.path.abspath(path), tree_digest(path))
+        for path in sorted(set(paths))
+        if os.path.exists(path)
+    )
+
+
+class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
+                    ReviewerSessionMixin, AuthorTurnMixin):
     def __init__(self, build_id, kind, model, effort, concept, tooling, from_phase=1,
                  resume_id="", reviewer=None, phase_authors=None):
         self.build_id, self.kind, self.model = build_id, kind, model
@@ -81,167 +89,16 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin, ReviewerSessionM
         except OSError:
             return self.build_id
 
-    def interrupt(self):
-        child = self.child
-        if not child or child.poll() is not None:
-            return
-        pids = _descendants(child.pid)
-        groups = set()
-        for pid in pids:
-            try:
-                groups.add(os.getpgid(pid))
-            except OSError:
-                pass
-        for sig, grace in ((signal.SIGINT, 8), (signal.SIGTERM, 3), (signal.SIGKILL, 0)):
-            for group in groups:
-                try:
-                    os.killpg(group, sig)
-                except OSError:
-                    pass
-            deadline = time.monotonic() + grace
-            while grace and time.monotonic() < deadline:
-                if not any(os.path.exists(f"/proc/{pid}") for pid in pids):
-                    break
-                time.sleep(.1)
-            if not any(os.path.exists(f"/proc/{pid}") for pid in pids):
-                break
-        try:
-            child.wait(timeout=1)
-        except subprocess.TimeoutExpired:
-            pass
-
-    def run_turn(self, prompt, conversation_kind="system", conversation_text=""):
-        ensure_cost_totals(BUILD_DIR, self.build_id)
-        self.actual_model = ""
-        started_at = time.time()
-        cost_unit = current_unit(self.build_id, self.from_phase) or {
-            "kind": "phase", "phase": self.from_phase}
-        self.active_unit = cost_unit
-        runner = (_resume_command(self.kind, self.model, self.effort, self.session_id, prompt)
-                  if self.session_id else _initial_runner(self.kind, self.model, self.effort))
-        display, cmd, input_mode = runner
-        if input_mode == "arg":
-            cmd = [*cmd, prompt]
-        wrapped = scoped_runner_command(display, cmd, REPO, self._writable(), REPO,
-                                        readonly_paths=self._readonly())
-        append_conversation(self.build_id, conversation_kind,
-                            conversation_text or prompt)
-        self.child = subprocess.Popen(wrapped, cwd=REPO, stdin=_runner_stdin(input_mode),
-                                      stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                      text=True, bufsize=1, start_new_session=True)
-        if input_mode == "stdin":
-            self.child.stdin.write(prompt)
-            self.child.stdin.close()
-        lines = queue.Queue()
-        def reader():
-            for raw in self.child.stdout:
-                lines.put(raw.rstrip("\n"))
-            lines.put(None)
-        threading.Thread(target=reader, daemon=True).start()
-        # Popen only proves the provider process exists. Do not claim the author is
-        # running until its durable session store is discoverable by the trace follower.
-        self.state("starting", pid=self.child.pid)
-        source, plain, harness_blocked, usage = None, [], "", None
-
-        def finish_cost(status):
-            try:
-                record_ai_turn(
-                    BUILD_DIR, self.build_id,
-                    phase=int(cost_unit.get("phase") or self.from_phase),
-                    section=cost_unit.get("section"), role=self.role,
-                    stage=("full-review" if self.role == "reviewer" else "author-turn"),
-                    kind=self.kind, model=self.actual_model or self.model, effort=self.effort,
-                    transport="cli", status=status, session_id=self.session_id,
-                    usage=usage,
-                    usage_mode=("cumulative" if self.kind == "codex-cli" else "turn"),
-                    started_at=started_at)
-            except Exception as exc:
-                print(f"AI cost logging warning: {exc}", flush=True)
-
-        while True:
-            try:
-                line = lines.get(timeout=.25)
-                if line is None:
-                    break
-                print(line, flush=True)
-                observed_usage = _usage_from_line(line)
-                if observed_usage:
-                    usage = observed_usage
-                if not self.session_id:
-                    self.session_id = _session_id_from_line(line)
-                if self.kind == "opencode-cli" and not self.session_id:
-                    self.session_id = _opencode_output_session_id(line)
-                answer = _assistant_text(line)
-                if answer:
-                    append_conversation(self.build_id, "assistant", answer, role=self.role)
-                    if _harness_blocked_message(answer):
-                        harness_blocked = answer
-                elif self.kind == "antigravity-cli":
-                    plain.append(line)
-            except queue.Empty:
-                pass
-            if not source and self.child.poll() is None:
-                # OpenCode stores every process in one SQLite database. Its structured
-                # stdout is the only authoritative process-to-session association; a
-                # newest-session-by-directory guess can attach another terminal's work.
-                if self.kind == "opencode-cli":
-                    if self.session_id:
-                        source = runner_session(self.child.pid, self.session_id)
-                else:
-                    source = runner_session(self.child.pid)
-                if source:
-                    self.session_id = trace_session_id(source)
-                    self.actual_model = trace_model(source)
-                    self.state("running", pid=self.child.pid)
-            try:
-                control = self.controls.get_nowait()
-            except queue.Empty:
-                control = None
-            if control:
-                action = control.get("type")
-                if action in ("pause", "message", "stop"):
-                    self.interrupt()
-                    if action == "stop":
-                        self.stop = True
-                        finish_cost("stopped")
-                        return "stopped", ""
-                    if action == "message":
-                        finish_cost("interrupted-for-message")
-                        return "message", str(control.get("text") or "").strip()
-                    finish_cost("paused")
-                    return "paused", ""
-        rc = self.child.wait()
-        if plain:
-            append_conversation(self.build_id, "assistant", "\n".join(plain)[-20000:],
-                                role=self.role)
-        if not self.session_id and source:
-            self.session_id = trace_session_id(source)
-        if source:
-            self.actual_model = trace_model(source) or self.actual_model
-        if usage:
-            path = os.path.join(BUILD_DIR, f"{self.build_id}.author-usage.jsonl")
-            with open(path, "a", encoding="utf-8") as handle:
-                import json
-                handle.write(json.dumps({
-                    "at": time.time(), "role": self.role, "kind": self.kind,
-                    "model": self.actual_model or self.model,
-                    "requestedModel": self.model,
-                    "effort": self.effort, "usage": usage,
-                }, separators=(",", ":")) + "\n")
-        if self.kind == "antigravity-cli":
-            # AGY is plain text; the raw turn remains visible even without structured events.
-            pass
-        if harness_blocked:
-            finish_cost("harness-blocked")
-            return "harness-blocked", harness_blocked
-        status = "complete" if rc == 0 else "failed"
-        finish_cost(status)
-        return status, ""
-
-
     def pause_for_validation_infrastructure(self, unit, exc):
         """Surface a harness-owned failure and wait; the author cannot repair it."""
-        detail = f"{type(exc).__name__}: {exc}"
+        # subprocess errors stringify their whole argv, and the validator prompt is one of
+        # those arguments: several KB of evidence packet burying the one useful clause.
+        if isinstance(exc, subprocess.TimeoutExpired):
+            detail = f"{type(exc).__name__}: validator timed out after {exc.timeout:.0f}s"
+        elif isinstance(exc, subprocess.CalledProcessError):
+            detail = f"{type(exc).__name__}: validator exited {exc.returncode}"
+        else:
+            detail = f"{type(exc).__name__}: {exc}"
         print("HARNESS VALIDATION INFRASTRUCTURE FAILURE", flush=True)
         if sys.exc_info()[0] is not None:
             traceback.print_exc()
@@ -257,6 +114,20 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin, ReviewerSessionM
                f"{self.current_tome()}: {label(unit)} is paused before another author call.",
                priority=1)
         return self.await_validation_controls()
+
+    def pause_for_author_cycle(self, unit):
+        """Stop a repeated no-handoff file state before paying for another turn."""
+        message = (
+            f"The harness detected a repeated authored-file state for {label(unit)} without a "
+            "validating handoff. This is a no-progress repair cycle, commonly caused by "
+            "contradictory self-check findings. No further author turn was started. Reconcile "
+            "the validator contract or authored state, then resume this same unit.")
+        append_conversation(self.build_id, "harness", message)
+        self.state("paused", gate="author-no-progress-cycle", error=message)
+        notify("\u2717 Tome repair cycle paused",
+               f"{self.current_tome()}: {label(unit)} repeated an authored state.",
+               priority=1)
+        return self.await_controls(retrying=True)
 
     def run(self):
         threading.Thread(target=self.read_controls, daemon=True).start()
@@ -274,6 +145,7 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin, ReviewerSessionM
         conversation_kind = "harness"
         conversation_text = f"Assigned {label(unit)}. The harness will validate when the author stops."
         deferred_message, deferred_switch = "", False
+        nonvalidating_states = {}
 
         def decorate_deferred(base_prompt, target_unit, default_kind, default_text):
             nonlocal deferred_message, deferred_switch
@@ -320,22 +192,61 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin, ReviewerSessionM
                     unit = (current_unit(self.build_id, self.from_phase,
                                          require_gate=True)
                             or ensure_unit(self.build_id, self.from_phase))
-                    resumed = self.pause_for_validation_infrastructure(
-                        unit, ValidatorInfrastructureError("author self-check", message))
-                    if resumed is None:
+                    self_check_ok = None
+                    self_check_report = ""
+                    ready_unit = None
+                    # Never trust a provider-authored infrastructure label. Reproduce
+                    # the exact deterministic self-check first; structured findings go
+                    # back as authored repairs, while genuine crashes pause and re-probe
+                    # mechanically after resume before any further paid author call.
+                    while self_check_ok is None and not self.stop:
+                        try:
+                            self_check_ok, self_check_report = validate_author_self_check(
+                                self.build_id, unit)
+                            if self_check_ok:
+                                ready_unit = mark_unit_validating(self.build_id, unit)
+                                if not ready_unit:
+                                    raise ValidatorInfrastructureError(
+                                        "author self-check handoff",
+                                        "clean self-check did not produce a validating marker")
+                        except Exception as exc:
+                            self_check_ok = None
+                            resumed = self.pause_for_validation_infrastructure(unit, exc)
+                            if resumed is None:
+                                break
+                            resumed_message, switched = resumed
+                            deferred_message = "\n\n".join(
+                                part for part in (deferred_message, resumed_message) if part)
+                            deferred_switch = deferred_switch or switched
+                    if self_check_ok is None:
                         break
-                    message, switched = resumed
-                    deferred_message = "\n\n".join(
-                        part for part in (deferred_message, message) if part)
-                    deferred_switch = deferred_switch or switched
-                    validate_first = current_unit(
-                        self.build_id, self.from_phase, require_gate=True) is not None
+                    if self_check_ok:
+                        unit = ready_unit
+                        append_conversation(
+                            self.build_id, "harness",
+                            f"The independently reproduced self-check for {label(unit)} is clean. "
+                            "The harness marked it validating and will run the authoritative gate "
+                            "without another author turn.")
+                        validate_first = True
+                        continue
+                    prompt = repair_prompt(self.build_id, unit, self_check_report)
+                    conversation_kind, conversation_text = "harness", (
+                        f"The author reported HARNESS_BLOCKED for {label(unit)}, but the "
+                        "independently reproduced self-check returned structured authored "
+                        "findings. The report was returned to the same author session.")
+                    prompt, conversation_kind, conversation_text = decorate_deferred(
+                        prompt, unit, conversation_kind, conversation_text)
                     continue
                 if outcome in ("paused", "failed"):
                     if outcome == "failed":
-                        self.state("paused", error=(
-                            "The author CLI exited unexpectedly. Resume it, or pick "
-                            "another AI to take over in a fresh session."))
+                        error = ("The author CLI exited unexpectedly. Resume it, or pick "
+                                 "another AI to take over in a fresh session.")
+                        self.state("paused", error=error)
+                        # The recovery bar states the failure; the conversation is where the
+                        # run is read back later, so the crash belongs in the transcript too —
+                        # with whatever the CLI said on its way out.
+                        append_conversation(self.build_id, "harness", "\n\n".join(
+                            part for part in (error, message) if part))
                         notify("✗ Author AI failed",
                                f"{self.current_tome()}: {self.kind} {self.model} crashed. "
                                "Open its forge session to retry or switch AI.", priority=1)
@@ -349,12 +260,27 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin, ReviewerSessionM
                 unit = current_unit(self.build_id, self.from_phase, require_gate=True)
                 if not unit:
                     unit = ensure_unit(self.build_id, self.from_phase)
+                    unit_key = (unit.get("kind"), int(unit.get("phase") or 0),
+                                str(unit.get("section") or ""))
+                    fingerprint = _author_state_fingerprint(self._writable())
+                    seen = nonvalidating_states.setdefault(unit_key, set())
+                    if fingerprint in seen:
+                        resumed = self.pause_for_author_cycle(unit)
+                        seen.clear()
+                        if resumed is None:
+                            break
+                        prompt, conversation_kind, conversation_text = resumed
+                        continue
+                    seen.add(fingerprint)
                     prompt = (f"You stopped before handing off {label(unit)}. Finish only that unit, "
                               "run its assigned exact self-check, set its progress marker to "
                               "validating, and stop.\n\n" + unit_prompt(self.build_id, unit))
                     conversation_kind, conversation_text = "harness", (
                         f"{label(unit)} was not marked validating; returning it to the same author session.")
                     continue
+                nonvalidating_states.pop(
+                    (unit.get("kind"), int(unit.get("phase") or 0),
+                     str(unit.get("section") or "")), None)
             else:
                 unit = current_unit(self.build_id, self.from_phase, require_gate=True)
                 if not unit:
@@ -381,6 +307,13 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin, ReviewerSessionM
                 prompt, conversation_kind, conversation_text = decorate_deferred(
                     prompt, unit, conversation_kind, conversation_text)
                 continue
+            defer_phase8_cost = (unit.get("kind") == "phase"
+                                 and int(unit.get("phase") or 0) == 8)
+            if not defer_phase8_cost:
+                # Report before advancing the durable marker. If the harness dies
+                # on this boundary, resume revalidates and replaces the same scoped
+                # line instead of permanently skipping the completed unit's cost.
+                report_completed_unit_cost(self.build_id, unit)
             next_unit = advance_unit(self.build_id, unit)
             if next_unit is None:
                 append_conversation(self.build_id, "harness",
@@ -389,6 +322,7 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin, ReviewerSessionM
                 if reviewer_result:
                     self.state("stopped")
                     return reviewer_result
+                report_completed_unit_cost(self.build_id, unit)
                 self.state("complete")
                 return 0
             prompt = next_prompt(self.build_id, unit, next_unit, report)

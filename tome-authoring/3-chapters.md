@@ -302,8 +302,9 @@ without giving away artifact content.
   complete example) → `fill` (the same code with one load-bearing token blanked) →
   `write` (build it from scratch). Don't jump lesson prose straight to a from-zero
   lab for a brand-new idea.
-- **First use must be an introduction, not an appearance.** At Start 1–3, treat the
-  stated prior knowledge as exhaustive. Before requiring any unlisted keyword,
+- **First use must be an introduction, not an appearance.** Starting level is the complete
+  entry baseline; optional prior-knowledge details add only the concrete skills they name.
+  At Start 1–3, before requiring any unlisted keyword,
   syntax form, operator, API, tool action, or technical term, explain its purpose in
   plain language, walk through its parts or steps, show a minimal worked example and
   observable result, name a likely failure, and provide guided practice. A reading

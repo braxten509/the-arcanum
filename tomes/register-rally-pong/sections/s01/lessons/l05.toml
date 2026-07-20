@@ -1,0 +1,326 @@
+[[lessons]]
+id = "s01-l05"
+title = "Wire the Build Scoreboard"
+teaches = [
+  "tool-run-test",
+  "make-assembly-link-pipeline",
+]
+introduces = [
+  "make-target-prerequisite-recipe",
+  "make-variable-expansion",
+  "nasm-elf64-object-command",
+  "cc-sdl2-link-command",
+  "make-build-check-run-targets",
+  "s01-working-outcome-choices",
+  "s01-working-constraints-commands",
+  "s01-working-diagnostics-acceptance",
+]
+body = '''
+<p>Make turns a file of rules into a repeatable scoreboard. A <strong>target</strong> names a goal, <strong>prerequisites</strong> name what it needs, and a <strong>recipe</strong> is one or more tab-indented shell lines. A disposable bench (not the court paths) might say:</p>
+<pre><code data-kind="runnable">ASM ?= nasm
+OBJ = build/signal-bench.o
+BIN = build/signal-bench
+
+build: $(BIN)
+
+$(OBJ): src/signal_bench.asm
+	mkdir -p build
+	$(ASM) -f elf64 -o $@ $&lt;
+
+$(BIN): $(OBJ)
+	cc -no-pie -o $@ $^ $(shell pkg-config --libs sdl2)
+</code></pre>
+<p>Read a rule as: target, colon, prerequisites; then tabbed recipes. <code>$(ASM)</code> expands the variable <code>ASM</code>. <code>$@</code> is the target path; <code>$&lt;</code> is the first prerequisite; <code>$^</code> is all prerequisites. Recipes must start with a real tab character—spaces alone are a classic Make diagnostic.</p>
+<p>The assemble command for this course's Linux objects is NASM in ELF64 form:</p>
+<pre><code data-kind="terminal">nasm -f elf64 -o build/signal-bench.o src/signal_bench.asm
+</code></pre>
+<p><code>-f elf64</code> selects the object format. <code>-o</code> names the output object. The final argument is the source path. An assemble error prints file and line—fix the first error before linking.</p>
+<p>Linking uses the C compiler driver so the C runtime and SDL2 libraries can join the object. Flags come from pkg-config:</p>
+<pre><code data-kind="terminal">cc -no-pie -o build/signal-bench build/signal-bench.o $(pkg-config --libs sdl2)
+</code></pre>
+<p><code>pkg-config --libs sdl2</code> expands to linker flags (often <code>-lSDL2</code>). You may not call SDL yet; linking keeps the library available for later chapters. Undefined-reference errors name missing symbols; pkg-config package errors mean SDL2 dev files are not visible.</p>
+<p>Name three driver targets learners will expect in the Working: <code>build</code> produces the binary, <code>check</code> runs a non-interactive verification (for s01, run the binary and require status zero), and <code>run</code> launches the program. Example shape:</p>
+<pre><code data-kind="runnable">check: $(BIN)
+	./$(BIN)
+
+run: $(BIN)
+	./$(BIN)
+</code></pre>
+<p>Before the Working, memorize its public scoreboard. <strong>Outcome and choices:</strong> you author source, Makefile, object, and executable; you choose label names, Make variables, and target split. <strong>Constraints and commands:</strong> ELF64 objects, exported <code>main</code> that returns status with <code>ret</code>, link with SDL2 via pkg-config; use version checks, <code>make</code>/<code>make build</code>, <code>make check</code>, and <code>make run</code>. <strong>Diagnostics and acceptance:</strong> isolate assemble vs link vs SDL2 lookup vs non-zero status; acceptance requires <code>src/pong.asm</code>, <code>Makefile</code>, <code>build/register-rally-pong.o</code>, <code>build/register-rally-pong</code>, and <code>make check</code> exiting zero.</p>
+<div class="callout"><p>Lesson recipes use <code>signal-bench</code> paths on purpose. Copying them unchanged into the court will miss the required Register Rally artifact names.</p></div>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TABS</div>
+<p>If Make says missing separator, the recipe line almost always began with spaces instead of a tab. Fix the whitespace before rewriting logic.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "tool-run-test"
+purpose = "Drive build and check commands to obtain a pass/fail observation."
+anatomy = "Run make build or make check from the project root and read the exit status and messages."
+example = "The check and run target sketches and the Working command list."
+observable = "make check exits zero when the binary status path succeeds."
+failure = "A non-zero make status means read the first assemble, link, or program error."
+practice = "s01-l05-e1"
+
+[[lessons.concepts]]
+id = "make-assembly-link-pipeline"
+purpose = "Connect NASM assemble and cc link steps through Make into a named binary."
+anatomy = "Variables, object rule with nasm -f elf64, link rule with cc and pkg-config SDL2 libs, plus build/check/run targets."
+example = "The signal-bench Makefile fragment in the lesson."
+observable = "make produces the object and binary paths declared by the rules."
+failure = "Skipping the object step or SDL2 libs yields link errors."
+practice = "s01-l05-e2"
+
+[[lessons.concepts]]
+id = "make-target-prerequisite-recipe"
+purpose = "Declare what to build, what it depends on, and the tabbed commands that produce it."
+anatomy = "target: prereqs then tab-indented recipe lines."
+example = "The $(OBJ) and $(BIN) rules in the disposable Makefile."
+observable = "Make runs recipes only when prerequisites require it."
+failure = "Space-indented recipes trigger missing separator errors."
+practice = "s01-l05-e3"
+
+[[lessons.concepts]]
+id = "make-variable-expansion"
+purpose = "Define reusable values and expand them with $(NAME) inside rules."
+anatomy = "NAME = value or NAME ?= value, then $(NAME) in prerequisites or recipes."
+example = "ASM ?= nasm and $(ASM) in the assemble recipe."
+observable = "Expanded commands show the variable's value."
+failure = "Typos in variable names expand empty and break commands."
+practice = "s01-l05-e4"
+
+[[lessons.concepts]]
+id = "nasm-elf64-object-command"
+purpose = "Assemble a .asm source into an ELF64 object file."
+anatomy = "nasm -f elf64 -o object.o source.asm"
+example = "The terminal nasm -f elf64 line for signal-bench."
+observable = "The object file path is created."
+failure = "Wrong -f format or bad path prints an assemble diagnostic."
+practice = "s01-l05-e5"
+
+[[lessons.concepts]]
+id = "cc-sdl2-link-command"
+purpose = "Link the object with the C runtime and SDL2 libraries from pkg-config."
+anatomy = "cc -no-pie -o binary object.o $(pkg-config --libs sdl2)"
+example = "The cc link terminal example in the lesson."
+observable = "An executable binary is produced."
+failure = "Missing sdl2 pkg-config data or undefined main fails the link."
+practice = "s01-l05-e6"
+
+[[lessons.concepts]]
+id = "make-build-check-run-targets"
+purpose = "Expose build, check, and run entry points for humans and tools."
+anatomy = "Phony or ordinary targets named build, check, and run with recipes that build or launch."
+example = "check/run sketches depending on $(BIN)."
+observable = "make build, make check, and make run are invocable."
+failure = "A check that never runs the binary cannot prove status zero."
+practice = "s01-l05-e1"
+
+[[lessons.concepts]]
+id = "s01-working-outcome-choices"
+purpose = "Know the Working outcome and which design choices remain yours."
+anatomy = "Outcome: source, Makefile, object, executable; choices: labels, Make variables, target decomposition."
+example = "The outcome and choices paragraph before the Working."
+observable = "You can state required paths without demanding one label spelling."
+failure = "Treating lesson signal-bench names as mandatory court names."
+practice = "s01-l05-e7"
+
+[[lessons.concepts]]
+id = "s01-working-constraints-commands"
+purpose = "Know the fixed constraints and commands the Working will demand."
+anatomy = "ELF64, main+ret status, SDL2 via pkg-config; commands: versions, make, make check, make run."
+example = "The constraints and commands paragraph in this lesson."
+observable = "You can list the commands without opening SDL."
+failure = "Skipping version checks or inventing unrelated toolchains."
+practice = "s01-l05-e7"
+
+[[lessons.concepts]]
+id = "s01-working-diagnostics-acceptance"
+purpose = "Know how failures split and what acceptance looks like."
+anatomy = "Isolate assemble, link, SDL2 lookup, and status errors; accept named artifacts and make check zero."
+example = "The diagnostics and acceptance paragraph in this lesson."
+observable = "You can map an error message to one failure family."
+failure = "Blaming SDL when nasm never ran."
+practice = "s01-l05-e8"
+
+[[lessons.readings]]
+label = "GNU Make — introduction to Makefiles"
+url = "https://www.gnu.org/software/make/manual/html_node/Introduction.html"
+
+[[lessons.exercises]]
+id = "s01-l05-e1"
+type = "mc"
+required = true
+capabilities = ["language-invariant-checks-debug-diagnosis"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "make-check-run"
+aidPolicy = "learning"
+points = 15
+mechanisms = ["make-build-check-run-targets"]
+prompt = "For s01, what should a `check` target primarily do after the binary exists?"
+choices = [
+  "Run the binary so a zero process status can be observed",
+  "Open an SDL window and wait for a human click",
+  "Delete src/pong.asm to force a rebuild later",
+  "Install apt packages again on every invocation",
+]
+answer = 0
+whyWrong = "Windowed play, deleting source, or reinstalling packages are not the s01 check contract."
+hint = "check is non-interactive verification via status."
+explain = "make check runs the program and expects success status."
+
+[[lessons.exercises]]
+id = "s01-l05-e2"
+type = "mc"
+required = true
+capabilities = ["language-invariant-checks-debug-diagnosis"]
+cognitiveTask = "trace"
+scaffold = "guided"
+contextFamily = "pipeline-order"
+aidPolicy = "learning"
+points = 15
+mechanisms = ["nasm-elf64-object-command", "cc-sdl2-link-command"]
+prompt = "In the taught pipeline, which order is correct?"
+choices = [
+  "Link first, then assemble the binary into an .asm file",
+  "Only run pkg-config; NASM is optional",
+  "Assemble with nasm -f elf64 to an object, then link with cc and pkg-config SDL2 libs",
+  "Only cat the Makefile; Make never runs recipes",
+]
+answer = 2
+whyWrong = "Link needs an object; pkg-config alone is not a build; Make exists to run recipes."
+hint = "Object first, then link."
+explain = "Assemble then link is the pipeline."
+
+[[lessons.exercises]]
+id = "s01-l05-e3"
+type = "text"
+required = true
+capabilities = ["language-invariant-checks-debug-diagnosis"]
+cognitiveTask = "recall"
+scaffold = "guided"
+contextFamily = "make-tab"
+aidPolicy = "learning"
+points = 14
+mechanisms = ["make-target-prerequisite-recipe"]
+prompt = "Recipe lines under a Make rule must begin with which kind of whitespace character?"
+answer = "tab"
+accept = ["a tab", "Tab", "TAB", "\\t"]
+hint = "Not spaces—the character Make historically requires."
+
+[[lessons.exercises]]
+id = "s01-l05-e4"
+type = "fill"
+required = true
+capabilities = ["language-invariant-checks-debug-diagnosis"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "make-var"
+aidPolicy = "learning"
+points = 14
+mechanisms = ["make-variable-expansion"]
+prompt = "Complete the expansion of the assembler-command variable from the disposable Makefile (the variable was given a default with ?=)."
+code = "$(____) -f elf64 -o $@ $<"
+answer = "ASM"
+hint = "Three capital letters naming the assembler tool variable."
+
+[[lessons.exercises]]
+id = "s01-l05-e5"
+type = "fill"
+required = true
+capabilities = ["language-invariant-checks-debug-diagnosis"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "nasm-elf"
+aidPolicy = "learning"
+points = 14
+mechanisms = ["nasm-elf64-object-command"]
+prompt = "Complete the format flag for Linux x86-64 objects."
+code = "nasm -f ____ -o build/signal-bench.o src/signal_bench.asm"
+answer = "elf64"
+hint = "ELF, 64-bit."
+
+[[lessons.exercises]]
+id = "s01-l05-e6"
+type = "mc"
+required = true
+capabilities = ["language-status-results-cleanup-failure"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "sdl-link"
+aidPolicy = "learning"
+points = 14
+mechanisms = ["cc-sdl2-link-command"]
+prompt = "Which fragment correctly pulls SDL2 linker flags while linking with cc?"
+choices = [
+  "pkg-config --modversion sdl2 as the only link step",
+  "nasm -f elf64 --libs sdl2",
+  "cc without libraries when main is missing on purpose",
+  "$(shell pkg-config --libs sdl2) on the cc link line",
+]
+answer = 3
+whyWrong = "modversion only prints a version; NASM does not take --libs sdl2; omitting libs when you need SDL2 fails later readiness."
+hint = "pkg-config --libs belongs on the link line."
+explain = "--libs supplies -lSDL2-style flags to cc."
+
+[[lessons.exercises]]
+id = "s01-l05-e7"
+type = "mc"
+required = true
+capabilities = ["language-static-data-strings-addressing"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "working-brief"
+aidPolicy = "learning"
+points = 14
+mechanisms = ["s01-working-outcome-choices", "s01-working-constraints-commands"]
+prompt = "Which statement matches the Working outcome and constraints?"
+choices = [
+  "Only paste signal-bench names and never create src/pong.asm",
+  "Author src/pong.asm and Makefile so build produces build/register-rally-pong.o and build/register-rally-pong; main returns status; link uses pkg-config SDL2",
+  "Skip Make and always double-click a prebuilt binary from the tome",
+  "Open SDL windows in s01 before main exists",
+]
+answer = 1
+whyWrong = "Lesson disposable names are not the court artifacts; prebuilt binaries and early SDL windows are out of scope."
+hint = "Required paths are named in the Working scoreboard paragraph."
+explain = "Learner authors court paths under fixed constraints."
+
+[[lessons.exercises]]
+id = "s01-l05-e8"
+type = "mc"
+required = true
+capabilities = ["language-invariant-checks-debug-diagnosis"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "working-diag"
+aidPolicy = "learning"
+points = 14
+mechanisms = ["s01-working-diagnostics-acceptance"]
+prompt = "`nasm` reports a syntax error on line 3, but you were about to debug SDL2. What should you do first?"
+choices = [
+  "Ignore nasm and only reinstall libsdl2-dev repeatedly",
+  "Delete the Makefile permanently",
+  "Assume make check passed because the editor buffer looks fine",
+  "Fix the assembly diagnostic before treating it as an SDL2 link problem",
+]
+answer = 3
+whyWrong = "SDL reinstalls and deleting Make do not fix assemble errors; unsaved editor text is not acceptance."
+hint = "Isolate assemble vs link vs SDL2 vs status."
+explain = "Acceptance needs a clean assemble before link and check."
+
+[[lessons.exercises]]
+id = "s01-l05-d1"
+type = "type"
+required = false
+capabilities = ["language-invariant-checks-debug-diagnosis"]
+cognitiveTask = "recall"
+scaffold = "worked"
+contextFamily = "nasm-type"
+aidPolicy = "learning"
+points = 10
+reps = 2
+mechanisms = ["nasm-elf64-object-command"]
+prompt = "Retype the disposable assemble command exactly."
+code = "nasm -f elf64 -o build/signal-bench.o src/signal_bench.asm"
+

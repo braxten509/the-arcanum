@@ -28,14 +28,17 @@ def models_dev_efforts():
     return output
 
 
-def opencode_models():
-    lines = []
+def _opencode_model_lines():
     try:
         process = subprocess.run([OPENCODE_BIN, "models"], capture_output=True,
                                  text=True, timeout=20)
-        lines = [line.strip() for line in process.stdout.splitlines() if line.strip()]
+        return [line.strip() for line in process.stdout.splitlines() if line.strip()]
     except (OSError, subprocess.TimeoutExpired):
-        pass
+        return []
+
+
+def opencode_models():
+    lines = _opencode_model_lines()
     go = [line for line in lines if line.startswith("opencode-go/")] \
         or list(OPENCODE_GO_FALLBACK)
     maple = [model for model in OPENCODE_MAPLE_IDS if not lines or model in lines]
@@ -48,6 +51,20 @@ def opencode_models():
     return ([row(model, "") for model in go]
             + [row(model, "Maple") for model in maple]
             + [row(model, "FREE") for model in free])
+
+
+def opencode_zen_models():
+    """The `opencode/*` gateway (OpenCode's own Zen plan) — everything `opencode
+    models` lists under that prefix, paid and free alike."""
+    lines = _opencode_model_lines()
+    zen = [line for line in lines if line.startswith("opencode/")]
+    efforts = models_dev_efforts()
+
+    def row(model):
+        label = "FREE" if model in OPENCODE_FREE_IDS else ""
+        return [model, model.split("/", 1)[-1], label, efforts.get(model, [])]
+
+    return [row(model) for model in zen]
 
 
 def ollama_bindery_models():

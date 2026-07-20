@@ -9,7 +9,8 @@ import argparse
 import os
 
 from buildlib import BUILD_DIR
-from buildlib.workflow.checkpoints import finalize_arc, maybe_rename
+from buildlib.workflow.checkpoints import (finalize_arc, maybe_rename,
+                                           preflight_arc_transition)
 from buildlib.course_map import seed_course_map, seal_course_map
 from buildlib.skeleton import scaffold_sections
 
@@ -21,6 +22,10 @@ def main():
     args = parser.parse_args()
     plan = os.path.join(BUILD_DIR, f"{args.build_id}.plan.md")
     if args.phase == 1:
+        # Fail on every plan-derived seed invariant before mutating the plan or
+        # replacing section scaffolds.  The author's Phase-1 validator runs this
+        # same side-effect-free preflight.
+        preflight_arc_transition(plan, args.build_id)
         finalize_arc(plan)
         specs = scaffold_sections(args.build_id, plan)
         seed_course_map(args.build_id, plan)

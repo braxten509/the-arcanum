@@ -40,8 +40,9 @@ Audit these semantic contracts:
    ordinary no-flag launch and every negative challenge. Green is a prerequisite, not proof of
    semantics. Verify acceptance drives real public or domain behavior; controls may inject input,
    clock, seed, or frame limit, but not directly assign the promised outcome or saved state.
-7. **Calibration.** Enforce every Phase 0 answer and treat prior knowledge
-   as exhaustive. Apply the plan's current Calibration contract over any older paraphrase
+7. **Calibration.** Enforce every Phase 0 setting. Treat Starting level as the complete entry
+   baseline and any optional prior-knowledge details as an exhaustive list of only the concrete
+   skills named. Apply the plan's current Calibration contract over any older paraphrase
    without changing the user's recorded number. At Start 1–3, each unlisted
    keyword, syntax form, operator, API, tool
    action, or technical term needs, before required use, a plain-language purpose,

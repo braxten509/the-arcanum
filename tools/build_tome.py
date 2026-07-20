@@ -14,9 +14,9 @@ if REPO_ROOT not in sys.path:
 from buildlib import BUILD_DIR, REPO
 from buildlib.single_author.gate import unit_prompt
 from buildlib.workflow.checkpoints import ARC_PARTS
-from buildlib.workflow.prompts import (MASTERY_DEPTH_FLOORS, START_PACING, TOOLING_POLICY, do_gate_json,
-                              gate_errors, learner_construction_contract, mastery_contract,
-                              write_plan)
+from buildlib.workflow.prompts import (MASTERY_DEPTH_FLOORS, START_PACING, TOOLING_POLICY,
+                              calibration_contract, do_gate_json, gate_errors,
+                              learner_construction_contract, mastery_contract, write_plan)
 from buildlib.workflow.phase_reset import capture_phase_snapshot
 from buildlib.single_author import full_review
 from buildlib.single_author import AuthorSession, author_prompt, continuation_prompt
@@ -103,7 +103,7 @@ def _selftest():
 
 def _mastery_selftest():
     signatures = {
-        1: ("safely modify guided language examples", "Project completion alone is not evidence"),
+        1: ("requested project from scratch", "Project completion alone is not evidence"),
         2: ("familiar language task", "language-level fault repair"),
         3: ("at least two graded late language-transfer performances", "language choice"),
         4: ("late language performances", "competing language tradeoffs"),
@@ -158,6 +158,35 @@ def _mastery_selftest():
                             ("Tooling", tooling),
                         ]
                         assert not gate_errors(answers)
+
+    # The slider-selected Starting Level is sufficient; free-text prior knowledge is optional.
+    blank_prior = [
+        ("Prior knowledge", ""),
+        ("Starting level (1-10)", "5"),
+        ("Project scope (1-5)", "3"),
+        ("Lesson depth (1-10)", "7"),
+        ("Mastery (1-5)", "3"),
+        ("Tooling", "internal"),
+    ]
+    assert not gate_errors(blank_prior)
+    with tempfile.TemporaryDirectory() as root:
+        path = os.path.join(root, "blank-prior.md")
+        write_plan(path, "blank-prior", blank_prior, "Teach a tool")
+        with open(path, encoding="utf-8") as handle:
+            plan = handle.read()
+        assert "Prior knowledge:** Not specified; use Starting level as the sole entry baseline." in plan
+
+    minimum_path = calibration_contract([
+        ("Prior knowledge", ""),
+        ("Starting level (1-10)", "1"),
+        ("Project scope (1-5)", "3"),
+        ("Lesson depth (1-10)", "5"),
+        ("Mastery (1-5)", "1"),
+        ("Tooling", "external"),
+    ])
+    assert "Mastery-1 minimum-path budget" in minimum_path
+    assert "no more than 8 sections" in minimum_path
+    assert "Starting Level alone never creates another project section" in minimum_path
 
     # Generate every Start x Mastery x Tooling plan and verify the selected mastery prompt
     # is present alone while the low-start first-use boundary remains independent of it.

@@ -1,0 +1,62 @@
+version = 1
+
+[[scenarios]]
+id = "clean-build"
+kind = "build"
+requirementIds = ["s01-toolchain-dirs", "s01-source-main", "s01-makefile-pipeline", "s01-object-and-bin", "s01-check-zero"]
+capabilityIds = [
+  "language-static-data-strings-addressing",
+  "language-integer-arithmetic-coordinate-updates",
+  "language-status-results-cleanup-failure",
+  "language-invariant-checks-debug-diagnosis",
+]
+commandRef = "build"
+args = []
+stdin = ""
+expect = { exitCode = 0 }
+timeout = 120
+public = true
+
+[[scenarios]]
+id = "make-check-zero"
+kind = "run"
+requirementIds = ["s01-check-zero", "s01-object-and-bin"]
+capabilityIds = [
+  "language-status-results-cleanup-failure",
+  "language-invariant-checks-debug-diagnosis",
+]
+commandRef = "check"
+args = []
+stdin = ""
+expect = { exitCode = 0 }
+timeout = 60
+public = true
+
+[[scenarios]]
+id = "ordinary-cold-launch"
+kind = "cold-launch"
+requirementIds = ["s01-object-and-bin", "s01-check-zero"]
+capabilityIds = [
+  "language-status-results-cleanup-failure",
+  "language-invariant-checks-debug-diagnosis",
+]
+commandRef = "run"
+args = []
+stdin = ""
+expect = { exitCode = 0 }
+timeout = 60
+public = true
+
+[[scenarios]]
+id = "package-placeholder-s01"
+kind = "package"
+requirementIds = ["s01-makefile-pipeline"]
+capabilityIds = [
+  "language-invariant-checks-debug-diagnosis",
+]
+commandRef = "build"
+args = []
+stdin = ""
+expect = { exitCode = 0 }
+timeout = 60
+public = false

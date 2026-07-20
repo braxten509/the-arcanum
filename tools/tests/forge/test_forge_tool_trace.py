@@ -16,11 +16,18 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from arcanum.forge.tool_trace import (_claude_session_from_processes,
                                 _opencode_session_from_processes,
+                                _trace_path_matches_session,
                                 antigravity_tool_events, claude_tool_events,
                                 codex_tool_events, format_tool_event,
                                 opencode_tool_events, OpenCodeFollower,
                                 SessionFollower, trace_model, trace_session_id, trace_usage,
                                 TraceSource)
+
+
+assert _trace_path_matches_session(
+    "codex", "/sessions/rollout-now-actual-thread.jsonl", "actual-thread")
+assert not _trace_path_matches_session(
+    "codex", "/sessions/rollout-now-stale-thread.jsonl", "actual-thread")
 
 
 codex_record = {
@@ -106,6 +113,7 @@ try:
         "inputTokens": 1200, "cachedInputTokens": 800, "outputTokens": 30,
         "freshInputTokens": 400,
     }
+    assert trace_usage(TraceSource("codex", codex_usage), before=0) == {}
 finally:
     os.unlink(codex_usage)
 
@@ -155,5 +163,8 @@ with tempfile.TemporaryDirectory() as tmp:
     follower = OpenCodeFollower(found[1])
     assert [event["detail"] for event in follower.poll()] == [
         "echo 0", "echo 1", "echo 2", "echo 3", "echo 4"]
+    # This trace is a binary database. Reading it as text killed the mirror thread, which
+    # left the tool-history pane empty for the whole build with nothing to say why.
+    assert trace_usage(found[1]) == {}
 
 print("forge tool trace: OK")

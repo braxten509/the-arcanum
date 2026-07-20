@@ -4,8 +4,12 @@ import re
 import tomllib
 
 from .. import REPO
-from ..language_mastery.foundations import required_by_plan as foundations_required
-from ..language_mastery import (phase1_contract_problems, required_by_plan,
+from ..course.limits import mastery_section_count_error
+from ..language_mastery.foundations import (block_field as arc_block_field,
+                                            contract_version as foundation_contract_version,
+                                            coverage as foundation_coverage,
+                                            required_by_plan as foundations_required)
+from ..language_mastery import (performance_specs, phase1_contract_problems, required_by_plan,
                                 seed_contract as seed_language_mastery)
 from ..mastery_evidence import (required_by_plan as mastery_evidence_required,
                                 seed_contract as seed_mastery_evidence)
@@ -114,6 +118,172 @@ def acceptance_scenarios(plan_path):
     return items
 
 
+def preflight_arc_transition(plan_path, build_id=None):
+    """Run every plan-derived Phase-1 transition invariant without writing files."""
+    try:
+        with open(plan_path, encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError as exc:
+        raise ValueError(f"could not read plan {plan_path}: {exc}") from exc
+    # The real transition removes this authoring schema before seeding the map.
+    # Preview the identical logical plan so instructions cannot classify as promises
+    # and the preview hash/schema exactly match the eventual transition input.
+    finalized = text.replace(ARC_CONTRACT, "", 1)
+    from ..course_map import build_id_from_plan, preview_course_map
+    resolved = build_id or build_id_from_plan(plan_path) or "phase-1-preflight"
+    return preview_course_map(resolved, finalized)
+
+
+_TOOL_SETUP = re.compile(
+    r"\b(?:install(?:ation|ed|ing)?|set\s*up|setup|provision(?:ed|ing)?|"
+    r"configure(?:d|s|ing)?|acquire(?:d|s|ing)?|bootstrap(?:ped|s|ping)?)\b", re.I)
+_TOOL_VERIFICATION = re.compile(
+    r"\b(?:verif(?:y|ies|ied|ication)|version(?:s|ed|ing)?|check(?:s|ed|ing)?|"
+    r"diagnos(?:e|es|ed|is|tic|tics)|probe(?:d|s|ing)?)\b|--version\b", re.I)
+_REPRODUCIBLE_DELIVERY = re.compile(
+    r"\b(?:reproducible|byte[- ]identical)\b[^\n.;]{0,80}"
+    r"\b(?:archive|package|bundle|artifact)\b|"
+    r"\b(?:archive|package|bundle|artifact)\b[^\n.;]{0,80}"
+    r"\b(?:reproducible|byte[- ]identical)\b|"
+    r"\bdeterministic(?:ally)?\s+(?:source\s+)?"
+    r"(?:archive|package|bundle|artifact)\b|"
+    r"\b(?:archive|package|bundle|artifact)\b\s+(?:is\s+)?deterministic\b", re.I)
+_REPEAT_PROOF = re.compile(
+    r"\b(?:twice|repeat(?:ed|s|ing)?|two\s+(?:clean\s+)?"
+    r"(?:builds?|packages?|archives?|bundles?|artifacts?))\b", re.I)
+_DIGEST_PROOF = re.compile(
+    r"\b(?:sha(?:-?\d+)?|hash(?:es|ed|ing)?|checksum(?:s)?|digest(?:s)?|"
+    r"byte[- ]identical|identical\s+bytes?)\b", re.I)
+_NORMALIZATION_PROOF = re.compile(
+    r"\b(?:normaliz(?:e|es|ed|ing|ation)|sorted\s+(?:file|path)|fixed\s+timestamp|"
+    r"source[_-]date[_-]epoch|deterministic\s+metadata)\b", re.I)
+_EXACT_BOUND = re.compile(
+    r"\b(?:exactly|only)\s+(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b",
+    re.I)
+_BOUND_CONTEXT = re.compile(
+    r"\b(?:accept(?:s|ed|ing)?|reject(?:s|ed|ing)?|valid(?:ate|ates|ated|ation)?|"
+    r"target|limit|range|threshold|count|score|rule|bound|maximum|minimum)\b", re.I)
+
+
+def _first_promise_position(capability, specs):
+    pattern = re.compile(
+        rf"(?<![a-z0-9-]){re.escape(str(capability or '').casefold())}(?![a-z0-9-])")
+    for ordinal, spec in enumerate(specs, 1):
+        match = pattern.search(spec.promise.casefold())
+        if match:
+            return ordinal, match.start()
+    return None
+
+
+def _repeats_exact_bound(text, value):
+    return bool(re.search(
+        rf"\b(?:exactly|only)\s+{re.escape(value)}\b", str(text or ""), re.I))
+
+
+def phase1_operational_problems(text, body, specs):
+    """Mechanically reject recurring Arc defects that do not need an AI judgment."""
+    problems = []
+    tooling_match = re.search(
+        r"(?im)^- \*\*Tooling:\*\*\s*(internal|external|both)\s*$", text)
+    tooling = tooling_match.group(1).casefold() if tooling_match else ""
+    acceptance = arc_block_field(body, "Acceptance proof")
+    finished = arc_block_field(body, "Finished tool")
+    mastery_proof = arc_block_field(body, "Mastery proof")
+
+    if tooling in ("external", "both") and specs:
+        first = specs[0].promise
+        if not (_TOOL_SETUP.search(first) and _TOOL_VERIFICATION.search(first)):
+            problems.append(
+                f"external tooling requires {specs[0].sid}'s Section-list promise to own "
+                "both real-tool installation/setup and an observable version, check, or "
+                "diagnostic verification before project source is demanded")
+        if not (_TOOL_SETUP.search(acceptance) and _TOOL_VERIFICATION.search(acceptance)):
+            problems.append(
+                "external tooling requires **Acceptance proof:** to start from real-tool "
+                "installation/setup and verify the resulting environment before the build")
+
+    # A declared failure path depends on control flow and decomposition. When their first
+    # owner is the same section, the Section-list promise is itself an ordered contract.
+    if foundations_required(text) and specs:
+        mastery = re.search(r"(?im)^- \*\*Mastery \(1-5\):\*\*\s*([1-5])\s*$", text)
+        mapped, mapping_problems = foundation_coverage(
+            body, version=foundation_contract_version(text),
+            level=int(mastery.group(1)) if mastery else 0)
+        if not mapping_problems:
+            failure = _first_promise_position(mapped.get("failure"), specs)
+            for role in ("control", "decomposition"):
+                prerequisite = _first_promise_position(mapped.get(role), specs)
+                if failure and prerequisite and prerequisite > failure:
+                    problems.append(
+                        f"the mapped {role} foundation {mapped[role]} must be owned before "
+                        f"the mapped failure foundation {mapped['failure']} in the ordered "
+                        "Section list")
+
+    # If the Arc promises byte reproducibility, the clean-start proof must actually vary
+    # the build invocation and compare normalized output bytes. A single green package is
+    # delivery proof, not reproducibility proof.
+    final_promise = specs[-1].promise if specs else ""
+    if _REPRODUCIBLE_DELIVERY.search(finished + "\n" + final_promise):
+        missing = []
+        if not _REPEAT_PROOF.search(acceptance):
+            missing.append("produce the clean package/archive at least twice")
+        if not _NORMALIZATION_PROOF.search(acceptance):
+            missing.append("normalize ordering and volatile archive metadata")
+        if not _DIGEST_PROOF.search(acceptance):
+            missing.append("compare hashes, checksums, digests, or identical bytes")
+        if missing:
+            problems.append(
+                "the promised reproducible delivery needs **Acceptance proof:** to "
+                + ", ".join(missing))
+
+    # A guided bounded modification is safer when its exact invariant is repeated at the
+    # three authority boundaries that later phases consume. This prevents a vague range
+    # change in the Section list from silently replacing an exact graded requirement.
+    performances, performance_problems = performance_specs(body)
+    if not performance_problems:
+        by_sid = {spec.sid: spec.promise for spec in specs}
+        for performance in performances:
+            if performance.get("kind") != "guided-modification":
+                continue
+            description = performance["description"]
+            bounds = {
+                match.group(1).casefold()
+                for match in _EXACT_BOUND.finditer(description)
+                if _BOUND_CONTEXT.search(
+                    description[max(0, match.start() - 80):match.end() + 80])
+            }
+            sid = performance["workingId"].split(".", 1)[0]
+            for bound in sorted(bounds):
+                if not _repeats_exact_bound(by_sid.get(sid, ""), bound):
+                    problems.append(
+                        f"{performance['workingId']} grades the exact bound {bound!r}; "
+                        f"the {sid} Section-list promise must repeat it as `exactly {bound}` "
+                        f"or `only {bound}`")
+                if not _repeats_exact_bound(mastery_proof, bound):
+                    problems.append(
+                        f"{performance['workingId']} grades the exact bound {bound!r}; "
+                        "**Mastery proof:** must repeat the same invariant")
+
+    start_match = re.search(
+        r"(?im)^- \*\*Starting level \(1-10\):\*\*\s*(10|[1-9])\s*$", text)
+    if specs and start_match and int(start_match.group(1)) <= 2:
+        for spec in specs:
+            steps = spec.promise.count("->") + 1
+            if "lesson" not in spec.promise.casefold() or steps < 4:
+                continue
+            if steps > 8:
+                problems.append(
+                    f"{spec.sid}'s explicit lesson route has {steps} steps; Start 1-2 "
+                    "Section-list routes may name at most eight before the milestone must be "
+                    "narrowed or honestly split within the section budget")
+            if ("practice" not in spec.promise.casefold()
+                    or "working" not in spec.promise.casefold()):
+                problems.append(
+                    f"{spec.sid}'s explicit Start 1-2 lesson route must promise guided "
+                    "practice before the mechanisms are combined in its Working")
+    return problems
+
+
 def arc_written(plan_path, plan_rel):
     """Phase 1's whole deliverable is the plan's '## Arc' section — gate on that artifact,
     not the runner's exit code. A runner that answers conversationally (agy has repeatedly
@@ -184,6 +354,17 @@ def arc_written(plan_path, plan_rel):
         specs = parse_section_list(body)
     except ValueError as exc:
         probs.append(f"the **Section list:** is not machine-scaffoldable: {exc}")
+    if specs:
+        probs.extend(phase1_operational_problems(text, body, specs))
+    mastery_match = re.search(
+        r"(?im)^- \*\*Mastery \(1-5\):\*\*\s*([1-5])\s*$", text)
+    scope_match = re.search(
+        r"(?im)^- \*\*Project scope \(1-5\):\*\*\s*([1-5])\s*$", text)
+    if specs and mastery_match and scope_match:
+        budget_error = mastery_section_count_error(
+            len(specs), int(mastery_match.group(1)), int(scope_match.group(1)))
+        if budget_error:
+            probs.append(budget_error)
     if skeleton_integrity_required(text):
         probs.extend(skeleton_integrity_problems(text, body, [spec.sid for spec in specs]))
     promises = [spec.promise for spec in specs]
@@ -238,6 +419,11 @@ def arc_written(plan_path, plan_rel):
     if len(body) < ARC_MIN_CHARS:
         probs.append(f"the arc is only {len(body)} chars — a real arc is far longer "
                      f"(minimum {ARC_MIN_CHARS})")
+    if not probs:
+        try:
+            preflight_arc_transition(plan_path)
+        except ValueError as exc:
+            probs.append(f"Phase-1 transition preflight failed: {exc}")
     if not probs:
         return True, ""
     return False, (f"The '## Arc' section of {plan_rel} is incomplete — "

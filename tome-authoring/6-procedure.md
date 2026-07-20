@@ -5,9 +5,9 @@
    and wait for the answers; the answers reshape every later step. This holds in
    EVERY run mode: even under autonomous/automode, interrupt the run and ask — never
    answer on the user's behalf, assume defaults, or proceed unanswered. The six:
-   - Prior knowledge: "What can you already do — which languages/tools do you
-     know?" (a Minecraft-mod tome for a Java veteran skips Java fundamentals;
-     for a newcomer it must teach them)
+   - Prior knowledge (optional): "What can you already do — which languages/tools do you
+     know?" Leave blank to use Starting level as the sole entry baseline. When supplied,
+     the details name only those concrete skills; they do not imply nearby knowledge.
    - Starting level (1–10): how much they already know about THIS subject —
      1 = zero, 2 = near zero with full foundations at a faster pace, 3 = beginner,
      4 = transfer learner, 5 = generalist, 6 = adjacent, 7 = practitioner,

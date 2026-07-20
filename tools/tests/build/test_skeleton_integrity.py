@@ -55,6 +55,25 @@ trailing_records, trailing_problems = artifact_inventory(
 assert trailing_records and any("stable relative path" in item for item in trailing_problems)
 v3_seed = seed_contract("- **Skeleton integrity contract:** 3\n" + V3_PLAN_BODY)
 assert v3_seed["version"] == 3 and v3_seed["delivery"] == delivery
+RUNTIME_PLAN_BODY = """
+**Finished tool:** A learner-authored source entrypoint run from its project workspace.
+**Artifact lifecycle:** `src/app.txt` ships.
+**Artifact ownership:** src/app.txt @ s01.working -> ships
+**Delivery contract:** mode = runtime; artifact = src/app.txt; requirements = none
+**Section list:**
+1. **s01 — Establish:** establish the learner-owned implementation
+2. **s02 — Verify:** verify the cumulative implementation in its project workspace
+"""
+runtime_full_plan = (
+    "- **Skeleton integrity contract:** 3\n"
+    "- **Delivery-lock rule:** A packaged, standalone, installable, or distributable "
+    "promise requires package mode.\n"
+    "## Arc (Phase 1 fills this in, later phases read it)\n"
+    + RUNTIME_PLAN_BODY)
+assert not phase1_problems(
+    runtime_full_plan, RUNTIME_PLAN_BODY, ["s01", "s02"])
+assert seed_contract(runtime_full_plan)["delivery"] == {
+    "mode": "runtime", "artifact": "src/app.txt", "requirements": None}
 runtime_downgrade = V3_PLAN_BODY.replace(
     "mode = package; artifact = dist/app; requirements = requirements.txt",
     "mode = runtime; artifact = src/app.txt; requirements = none")

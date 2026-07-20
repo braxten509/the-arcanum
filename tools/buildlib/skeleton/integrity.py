@@ -21,6 +21,24 @@ PACKAGE_PROMISE_RE = re.compile(
     re.I)
 
 
+def _package_promise_scope(text):
+    """Exclude machine-owned calibration prose from delivery classification.
+
+    A complete build plan necessarily explains that packaged or distributable
+    outcomes require package mode.  Treating that instruction as an authored
+    promise made every runtime Arc fail only when the Phase-1 transition seeded
+    the course map.  Full plans are therefore classified from their authored Arc;
+    callers that already pass an Arc body retain the same behavior.
+    """
+    value = str(text or "")
+    match = re.search(r"(?im)^## Arc(?:\s.*)?$", value)
+    return value[match.end():] if match else value
+
+
+def _promises_package(text):
+    return bool(PACKAGE_PROMISE_RE.search(_package_promise_scope(text)))
+
+
 def contract_version(text):
     match = re.search(
         rf"(?im)^- \*\*{re.escape(CONTRACT_MARKER)}:\*\*\s*([0-9]+)\s*$",
@@ -196,7 +214,7 @@ def phase1_problems(text, body, section_ids):
                 problems.append(
                     "Delivery contract paths must be declared `ships` in Artifact ownership: "
                     + ", ".join(missing))
-            if PACKAGE_PROMISE_RE.search(body) and delivery["mode"] != "package":
+            if _promises_package(body) and delivery["mode"] != "package":
                 problems.append(
                     "the Arc promises packaging or standalone distribution, so Delivery "
                     "contract mode must be package; remove the promise or package the artifact")
@@ -225,7 +243,7 @@ def seed_contract(text):
             raise ValueError(
                 "invalid delivery contract: paths must be shipped artifacts: "
                 + ", ".join(missing))
-        if PACKAGE_PROMISE_RE.search(text) and delivery["mode"] != "package":
+        if _promises_package(text) and delivery["mode"] != "package":
             raise ValueError(
                 "invalid delivery contract: packaging promise requires package mode")
         contract["delivery"] = delivery

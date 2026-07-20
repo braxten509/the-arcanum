@@ -105,6 +105,8 @@ with tempfile.TemporaryDirectory() as root:
         repair = gate.repair_prompt("build", last, "bad")
         assert "wherever they occur in the cumulative tome" in repair
         assert "--source-only" in repair, repair
+        assert "complete repair packet" in repair
+        assert "render_section_context.py" not in repair
         section_prompt = gate.unit_prompt("build", ready)
         assert "tools/validate_section.py tomes/course s01" in section_prompt
         assert ("python3 tools/workflow/report_section_progress.py build s01 1 2 validating"
@@ -112,6 +114,7 @@ with tempfile.TemporaryDirectory() as root:
         assert "--source-only" in section_prompt
         assert "do not substitute ad-hoc" in section_prompt.lower()
         assert "HARNESS_BLOCKED:" in section_prompt
+        assert "$1–2 API-equivalent per section" in section_prompt
         assert section_prompt.endswith("HARNESS COURSE CONTROL")
         phase2_checks = gate.self_validation_commands(
             "build", {"kind": "phase", "phase": 2, "state": "working"})
@@ -142,6 +145,9 @@ with tempfile.TemporaryDirectory() as root:
 
 assert single_author._opencode_output_session_id(json.dumps({
     "type": "step_start", "sessionID": "session-exact"})) == "session-exact"
+assert single_author._authoritative_session_id(
+    "stale-resume", '{"type":"thread.started","thread_id":"actual-thread"}'
+) == "actual-thread"
 
 repo = str(_BOOTSTRAP_REPO)
 for helper in ("workflow/report_tome_progress.py", "workflow/report_section_progress.py",
@@ -207,7 +213,8 @@ with tempfile.TemporaryDirectory() as root:
     with patch.object(gate, "BUILD_DIR", build_dir), patch.object(gate, "REPO", root), \
             patch.object(single_author, "BUILD_DIR", build_dir), \
             patch.object(single_author, "preflight_unit"), \
-            patch.object(single_author, "validate_unit", return_value=(True, "clean")):
+            patch.object(single_author, "validate_unit", return_value=(True, "clean")), \
+            patch.object(single_author, "report_completed_unit_cost") as report_cost:
         gate._write_phase("warm", 7, "working")
         session = FakeWarmSession()
         assert session.run() == 0
@@ -217,6 +224,7 @@ with tempfile.TemporaryDirectory() as root:
         assert "HARNESS VALIDATION PASSED for Phase 7" in session.prompts[1]
         assert "Continue with Phase 8" in session.prompts[1]
         assert "active unit author" in session.prompts[1]
+        assert [call.args[1]["phase"] for call in report_cost.call_args_list] == [7, 8]
         assert session.states[-1][0] == "complete"
 
 
@@ -285,6 +293,52 @@ with tempfile.TemporaryDirectory() as root:
         assert not any(state == "paused" for state, _extra in session.states)
 
 
+class OscillatingNoHandoffSession(single_author.AuthorSession):
+    def __init__(self, authored_path):
+        super().__init__(
+            "cycle", "codex-cli", "test", "", "", "external", 2, "warm-session")
+        self.authored_path = authored_path
+        self.prompts = []
+        self.states = []
+
+    def read_controls(self):
+        return
+
+    def state(self, state, **extra):
+        self.states.append((state, extra))
+
+    def run_turn(self, prompt, conversation_kind="system", conversation_text=""):
+        self.prompts.append(prompt)
+        value = "A\n" if len(self.prompts) % 2 else "B\n"
+        with open(self.authored_path, "w", encoding="utf-8") as handle:
+            handle.write(value)
+        return "complete", ""
+
+
+# A repeated A -> B -> A authored state is a proven repair cycle, not progress.
+# Pause before paying for a fourth provider turn; unique repair states remain unlimited.
+with tempfile.TemporaryDirectory() as root:
+    build_dir = os.path.join(root, ".tome-build")
+    os.makedirs(build_dir)
+    authored_path = os.path.join(root, "proposal.json")
+    with open(authored_path, "w", encoding="utf-8") as handle:
+        handle.write("initial\n")
+    with patch.object(gate, "BUILD_DIR", build_dir), patch.object(gate, "REPO", root), \
+            patch.object(single_author, "BUILD_DIR", build_dir), \
+            patch.object(single_author, "preflight_unit"), \
+            patch.object(single_author, "author_paths", return_value=([authored_path], [])), \
+            patch.object(single_author, "notify"):
+        gate._write_phase("cycle", 2, "working")
+        session = OscillatingNoHandoffSession(authored_path)
+        session.controls.put({"type": "stop"})
+        assert session.run() == 130
+        assert len(session.prompts) == 3
+        paused = [extra for state_name, extra in session.states if state_name == "paused"]
+        assert len(paused) == 1
+        assert paused[0]["gate"] == "author-no-progress-cycle"
+        assert "No further author turn was started" in paused[0]["error"]
+
+
 # A durable validating marker is recovered mechanically after a harness restart;
 # the already-authored unit is never sent through another paid provider turn.
 with tempfile.TemporaryDirectory() as root:
@@ -313,6 +367,9 @@ with tempfile.TemporaryDirectory() as root:
     with patch.object(gate, "BUILD_DIR", build_dir), patch.object(gate, "REPO", root), \
             patch.object(single_author, "BUILD_DIR", build_dir), \
             patch.object(single_author, "preflight_unit"), \
+            patch.object(single_author, "validate_author_self_check", side_effect=(
+                measure.ValidatorInfrastructureError(
+                    "python3 tools/validate_section.py", "ModuleNotFoundError: validator"))), \
             patch.object(single_author, "validate_unit") as validate, \
             patch.object(single_author.traceback, "print_exc"), \
             patch.object(single_author, "notify"):
@@ -324,6 +381,55 @@ with tempfile.TemporaryDirectory() as root:
         validate.assert_not_called()
         assert any(state_name == "paused" for state_name, _extra in session.states)
         preflight.assert_not_called()
+
+
+# A provider cannot turn structured authored findings into an infrastructure pause
+# merely by prefixing its answer with HARNESS_BLOCKED.
+class BlockedThenHandoffSession(ExplicitBlockedSession):
+    def run_turn(self, prompt, conversation_kind="system", conversation_text=""):
+        self.prompts.append(prompt)
+        if len(self.prompts) == 1:
+            return "harness-blocked", "HARNESS_BLOCKED: claimed infrastructure failure"
+        gate._write_phase("warm", 8, "validating")
+        return "complete", ""
+
+
+with tempfile.TemporaryDirectory() as root:
+    build_dir = os.path.join(root, ".tome-build")
+    os.makedirs(build_dir)
+    with patch.object(gate, "BUILD_DIR", build_dir), patch.object(gate, "REPO", root), \
+            patch.object(single_author, "BUILD_DIR", build_dir), \
+            patch.object(single_author, "preflight_unit"), \
+            patch.object(single_author, "validate_author_self_check", return_value=(
+                False, "ERROR authored.toml: repair this field")), \
+            patch.object(single_author, "validate_unit", return_value=(True, "clean")), \
+            patch.object(single_author, "notify"):
+        gate._write_phase("warm", 8, "working")
+        session = BlockedThenHandoffSession()
+        assert session.run() == 0
+        assert len(session.prompts) == 2
+        assert "ERROR authored.toml: repair this field" in session.prompts[1]
+        assert not any(state_name == "paused" for state_name, _extra in session.states)
+
+
+# If the reproduced self-check is already clean, the harness writes the trusted
+# validating marker and runs the authoritative gate without another author turn.
+with tempfile.TemporaryDirectory() as root:
+    build_dir = os.path.join(root, ".tome-build")
+    os.makedirs(build_dir)
+    with patch.object(gate, "BUILD_DIR", build_dir), patch.object(gate, "REPO", root), \
+            patch.object(single_author, "BUILD_DIR", build_dir), \
+            patch.object(single_author, "preflight_unit"), \
+            patch.object(single_author, "validate_author_self_check", return_value=(
+                True, "clean")), \
+            patch.object(single_author, "validate_unit", return_value=(True, "clean")) as validate, \
+            patch.object(single_author, "notify"):
+        gate._write_phase("warm", 8, "working")
+        session = ExplicitBlockedSession()
+        assert session.run() == 0
+        assert len(session.prompts) == 1
+        validate.assert_called_once()
+        assert not any(state_name == "paused" for state_name, _extra in session.states)
 
 
 # An unstructured validator crash pauses after one author handoff instead of
@@ -366,5 +472,21 @@ with tempfile.TemporaryDirectory() as root:
         session.controls.put({"type": "stop"})
         assert session.run() == 130
         assert session.prompts == []
+
+# A timed-out validator must report the timeout, not re-print the prompt it was sent.
+# TimeoutExpired stringifies its whole argv, and the prompt is one of those arguments.
+prompt_argv = ["opencode", "run", "-m", "free/model", "EVIDENCE PACKET " + "x" * 6000]
+message = []
+session = UnlimitedRepairSession()
+session.state = lambda *args, **kwargs: None
+session.await_validation_controls = lambda: 130
+with patch.object(single_author, "append_conversation",
+                  lambda build_id, kind, text: message.append(text)), \
+        patch.object(single_author, "notify"):
+    session.pause_for_validation_infrastructure(
+        {"kind": "section", "section": "s01", "index": 1, "total": 8},
+        subprocess.TimeoutExpired(prompt_argv, 900))
+assert message and "timed out after 900s" in message[0], message
+assert "EVIDENCE PACKET" not in message[0], len(message[0])
 
 print("single-author mechanical gates: OK")

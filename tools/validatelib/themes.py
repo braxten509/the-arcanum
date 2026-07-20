@@ -165,7 +165,7 @@ def _themes_from_tome(tome_dir):
 
 
 def check_sigil_palette_uniqueness(m, tome_path, label, tomes_root=None):
-    """Hard-error identical four-ink sigil sets anywhere in the tome library.
+    """Hard-error identical four-ink sigil sets at the owning Phase 6 gate.
 
     Platform skins under skins/ are intentionally outside this scan: global
     themes may share a sigil set with any tome. Fingerprints are color sets, so
@@ -205,7 +205,8 @@ def check_sigil_palette_uniqueness(m, tome_path, label, tomes_root=None):
             colors = ", ".join(str((theme.get("vars", {}) or {}).get(key)) for key in SIGIL_KEYS)
             err(label, f"[[themes]] {theme.get('id')!r}: sigil color set [{colors}] duplicates "
                        f"{', '.join(sorted(set(duplicates)))} — every authored tome theme must "
-                       "change at least one of sigil-1…sigil-4; global skin themes are exempt")
+                       "change at least one of sigil-1…sigil-4; global skin themes are exempt",
+                phase=6)
 
 
 # Below this mean channel distance two palettes read as the same look. The

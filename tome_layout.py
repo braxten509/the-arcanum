@@ -58,7 +58,12 @@ def load_section(tome_dir, section_id):
                 section["freestyle"] = freestyle["freestyle"]
         lessons = []
         for lesson_path in sorted(glob.glob(os.path.join(folder, "lessons", "*.toml"))):
-            lessons += _read(lesson_path).get("lessons", [])
+            lesson_rows = _read(lesson_path).get("lessons")
+            if (not isinstance(lesson_rows, list) or not lesson_rows
+                    or any(not isinstance(row, dict) for row in lesson_rows)):
+                raise ValueError(
+                    f"{lesson_path} must contain one or more [[lessons]] tables")
+            lessons += lesson_rows
         section["lessons"] = lessons
         return section
     return _read(os.path.join(tome_dir, "sections", str(section_id) + ".toml"))

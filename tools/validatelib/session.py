@@ -51,8 +51,15 @@ def set_build_phase(phase: int | None = None) -> None:
 
 
 def add_error(location: str, message: str, *, code: str = "", phase: int = 0) -> None:
-    finding = Finding(Severity.ERROR, code or _code(location), str(location),
-                      str(message), int(phase or 0), False)
+    owner = int(phase or 0)
+    build_phase = _BUILD_PHASE.get()
+    # Standalone/full validation keeps errors hard. During an incremental build,
+    # an explicitly later-owned error is deferred until its authoring phase instead
+    # of deadlocking an earlier worker that cannot legally edit the owning files.
+    severity = (Severity.WARNING if owner and build_phase is not None
+                and owner > int(build_phase) else Severity.ERROR)
+    finding = Finding(severity, code or _code(location), str(location),
+                      str(message), owner, False)
     _CURRENT.set((*_CURRENT.get(), finding))
 
 

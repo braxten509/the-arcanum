@@ -8,7 +8,7 @@ import urllib.request
 from arcanum.config import (AGY_BIN, CLAUDE_BIN, CLI_EFFORTS, CLI_MODEL_EFFORTS,
                             CLI_MODELS, CODEX_BIN, OPENCODE_BIN)
 from .providers.discovery import (agy_models, codex_models, ollama_bindery_models,
-                                  opencode_models)
+                                  opencode_models, opencode_zen_models)
 
 
 def model_census() -> dict:
@@ -45,6 +45,7 @@ def model_census() -> dict:
 
     opencode_ok = installed["opencode-cli"]
     opencode_rows = opencode_models() if opencode_ok else []
+    zen_rows = opencode_zen_models() if opencode_ok else []
     local_rows = ollama_bindery_models() if opencode_ok else []
     output["bindery"] = [
         {"id": "claude-cli", "label": "Claude CLI", "kind": "claude-cli",
@@ -56,9 +57,11 @@ def model_census() -> dict:
          "installed": installed["antigravity-cli"]},
         {"id": "codex-cli", "label": "Codex CLI", "kind": "codex-cli",
          "models": codex_rows, "installed": installed["codex-cli"]},
-        {"id": "opencode-cli", "label": "OpenCode CLI", "kind": "opencode-cli",
+        {"id": "opencode-cli", "label": "OpenCode CLI (Go)", "kind": "opencode-cli",
          "models": opencode_rows, "installed": opencode_ok},
-        {"id": "local", "label": "Local", "kind": "opencode-cli",
+        {"id": "opencode-zen", "label": "OpenCode CLI (Zen)", "kind": "opencode-cli",
+         "models": zen_rows, "installed": opencode_ok and bool(zen_rows)},
+        {"id": "local", "label": "OpenCode CLI (Local)", "kind": "opencode-cli",
          "models": local_rows, "installed": opencode_ok and bool(local_rows)},
     ]
     return output

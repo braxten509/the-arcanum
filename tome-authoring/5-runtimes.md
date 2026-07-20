@@ -8,8 +8,9 @@ cover interpreted AND compiled languages. A language is one file,
 overrides. **Four ship: `dotnet`, `python`, `java`, and `odin`** — `odin.toml` is the
 canonical "add a language with zero code" example (read them all).
 
-**The module docstring at the top of `runtimes/generic.py` is the authoritative,
-complete key reference.** Every key is optional unless marked; each is a top-level
+**The module docstring at the top of `runtimes/generic.py` is authoritative for ordinary
+run/build configuration; `runtimes/delivery.py` is authoritative for package delivery.** Every
+key is optional unless marked; each is a top-level
 key of the language TOML (and equally of a tome's `[runtime]` table):
 
 | key | purpose |
@@ -22,6 +23,7 @@ key of the language TOML (and equally of a tome's `[runtime]` table):
 | `diagRegex` | single-quoted regex, Python named groups `(?P<file>)(?P<line>)(?P<col>)(?P<sev>)(?P<code>)(?P<msg>)` (all optional), matched over check/build output |
 | `scaffoldCommand` | create a project; `{project}`/`{dir}` substituted. Default: write `entryFile` = `starterCode` |
 | `projectFile` | file that marks a scaffolded project; `{project}` substituted (e.g. `"{project}.csproj"`). Default: `entryFile` |
+| `commandTargetTools` | optional array of task runners whose non-option positional arguments name distinct target/rule mechanisms. Make is inferred automatically from a `Makefile` or direct `make` runtime command |
 | `packageCommand` | install a package; `{dir}`/`{package}` substituted. Default: packages unsupported |
 | `validationDependencies` | **tome-level** array of packages required by authored solutions, starters, or executable samples. This declares what validation needs; keep it out of the reusable language TOML |
 | `validationCreateCommand` | create a shared isolated validation environment; `{dir}` substituted. Optional when `validationPackageCommand` can populate a plain directory |
@@ -29,8 +31,10 @@ key of the language TOML (and equally of a tome's `[runtime]` table):
 | `validationEnv` | environment-name → value table applied to the worker and independent harness gates; `{dir}` and existing environment placeholders such as `{PATH}` are expanded |
 | `validationProjectPackageCommand` | install one dependency into each validator-created scratch project; `{dir}`/`{package}` substituted. Defaults to `packageCommand` when no environment installer is configured |
 | `deliveryCreateCommand` | create a fresh final-proof environment; `{env}` substituted |
+| `deliveryResolveCommand` | optional dependency-resolution preflight using `{env}`/`{requirements}` |
 | `deliveryInstallCommand` | install the learner project's exact manifest; `{env}`/`{requirements}` substituted |
 | `deliveryBuildCommand` | real packager argv; final `[proof].packageArgs` are appended |
+| `deliveryArtifact` / `deliveryRequirements` | optional paired clean-staging declarations; when present they must exactly equal the sealed proof paths and `deliveryBuildCommand` must consume `{artifact}` and `{env}` |
 | `entryFile` | the file `command` runs / the scaffold writes (e.g. `"main.py"`) |
 | `starterCode` | the entry file's contents written by the default scaffold |
 | `newFileExt` | default extension for the NEW FILE button |
@@ -47,6 +51,21 @@ key of the language TOML (and equally of a tome's `[runtime]` table):
 | `snippetHoist` | regex: fragment lines lifted above the wrap before compiling (imports, package headers) |
 | `snippetFragmentSkip` | regex: fragment shapes no wrap can make judgeable (Odin: a `case` list whose `switch` header lives in the prose) — skipped outright |
 | `snippetFragmentIgnore` | extra `diagIgnore`-style regexes applied to fragments only: the cascades a forgiven undeclared name causes downstream (`invalid type` fields, ambiguous overloads on unknown-typed arguments). Whole programs never get these passes |
+
+### Package-delivery execution model
+
+`runtimes/delivery.py` executes create, resolve, install, and build argv in that order, always with
+cwd set to the learner project. It expands `{dir}` to that project, `{env}` to its fresh
+`.arcanum-delivery-env`, and `{requirements}`/`{artifact}` to absolute paths inside the project.
+The fresh environment is not a copy of the learner source tree. Do not change cwd to `{env}` and
+expect a project file or source to exist there: build from project cwd, or explicitly stage inputs
+by path. The final proof's `packageArgs` are appended verbatim to `deliveryBuildCommand`; a direct
+target-style command such as `["make"]` therefore treats `packageArgs = ["package"]` as the
+`package` target and the Phase-2 mechanism contract must own that exact target.
+
+When the runtime owns a clean-location copy, set both `deliveryArtifact` and
+`deliveryRequirements`, then use `{artifact}` as the source and `{env}` as the destination in the
+build argv. Those declarations are an executable audit contract, not descriptive metadata.
 
 ```toml
 # global-configs/runtimes/odin.toml — the zero-code language example

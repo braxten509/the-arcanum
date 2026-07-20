@@ -195,6 +195,22 @@ sources = [{ label = "Asset library", url = "https://example.com/assets", licens
         assert loaded["freestyle"]["referenceSteps"]
 
 
+def check_split_layout_rejects_malformed_lesson_table():
+    with tempfile.TemporaryDirectory() as root:
+        section_root = Path(root, "sections", "s01")
+        (section_root / "lessons").mkdir(parents=True)
+        (section_root / "section.toml").write_text('id = "s01"\n', encoding="utf-8")
+        (section_root / "lessons" / "l01.toml").write_text(
+            'id = "l01"\n[[lessons.readings]]\ntitle = "Reference"\n',
+            encoding="utf-8")
+        try:
+            tome_layout.load_section(root, "s01")
+        except ValueError as exc:
+            assert "must contain one or more [[lessons]] tables" in str(exc)
+        else:
+            raise AssertionError("malformed split lesson was accepted")
+
+
 def two_section_regression():
     first = section()
     second = copy.deepcopy(section())
@@ -394,6 +410,7 @@ def main():
     check_bundled_media_gate()
     check_harness_owned_review()
     check_split_layout_round_trip()
+    check_split_layout_rejects_malformed_lesson_table()
     check_cumulative_regression_contract()
     check_acceptance_scenario_gate()
     check_ordinary_launch_and_anti_fake_gates()
