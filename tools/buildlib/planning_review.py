@@ -330,9 +330,9 @@ def _append_infrastructure_failure(build_id, phase, packet, validator, error, *,
         audit_kind="planning")
 
 
-def _invoke(prompt, validator, phase, adapter=None):
+def _invoke(prompt, validator, phase, adapter=None, live=None):
     return invoke_validator(
-        prompt, validator, adapter=adapter,
+        prompt, validator, adapter=adapter, live=live,
         cache_key=f"arcanum-phase-{phase}-quality-v{AUDIT_CONTRACT_VERSION}",
         max_output_tokens=MAX_OUTPUT_TOKENS, plain_text=True)
 
@@ -365,7 +365,7 @@ def review_planning_phase(build_id, phase, tid, *, adapter=None):
     emit_status_line(f"AI VALIDATOR CALL START [{time.time():.3f}] › {label}",
                      build_id, build_dir=BUILD_DIR)
     try:
-        raw, meta = _invoke(prompt, validator, phase, adapter)
+        raw, meta = _invoke(prompt, validator, phase, adapter, (build_id, label))
     except Exception as exc:
         _append_infrastructure_failure(build_id, phase, packet, validator, exc)
         emit_status_line(f"AI VALIDATOR CALL FAILED [{time.time():.3f}] › {label}",
@@ -386,7 +386,8 @@ def review_planning_phase(build_id, phase, tid, *, adapter=None):
                          build_id, build_dir=BUILD_DIR)
         try:
             repaired_raw, repair_meta = _invoke(
-                _recovery_retry_prompt(prompt, raw, errors, phase), validator, phase, adapter)
+                _recovery_retry_prompt(prompt, raw, errors, phase), validator, phase,
+                adapter, (build_id, retry_label))
         except Exception as exc:
             _append_infrastructure_failure(
                 build_id, phase, packet, validator, exc, stage="recovery-retry")
@@ -418,7 +419,8 @@ def review_planning_phase(build_id, phase, tid, *, adapter=None):
             f"AI VALIDATOR CALL START [{time.time():.3f}] › {escalation_label}",
             build_id, build_dir=BUILD_DIR)
         try:
-            raw, terra_meta = _invoke(prompt, terra, phase, adapter)
+            raw, terra_meta = _invoke(prompt, terra, phase, adapter,
+                                      (build_id, escalation_label))
         except Exception as exc:
             _append_infrastructure_failure(
                 build_id, phase, packet, terra, exc, stage="escalation",

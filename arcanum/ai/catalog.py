@@ -8,7 +8,8 @@ import urllib.request
 from arcanum.config import (AGY_BIN, CLAUDE_BIN, CLI_EFFORTS, CLI_MODEL_EFFORTS,
                             CLI_MODELS, CODEX_BIN, OPENCODE_BIN)
 from .providers.discovery import (agy_models, codex_models, ollama_bindery_models,
-                                  opencode_models, opencode_zen_models)
+                                  opencode_models, opencode_zen_models,
+                                  openrouter_models)
 
 
 def model_census() -> dict:
@@ -47,6 +48,9 @@ def model_census() -> dict:
     opencode_rows = opencode_models() if opencode_ok else []
     zen_rows = opencode_zen_models() if opencode_ok else []
     local_rows = ollama_bindery_models() if opencode_ok else []
+    router_rows = openrouter_models() if opencode_ok else []
+    # the grader/oracle picker lists by kind, so OpenRouter ids join the opencode-cli pool
+    providers["opencode-cli"] += [row[0] for row in router_rows]
     output["bindery"] = [
         {"id": "claude-cli", "label": "Claude CLI", "kind": "claude-cli",
          "models": rows(CLI_MODELS["claude-cli"], "claude-cli"),
@@ -63,5 +67,7 @@ def model_census() -> dict:
          "models": zen_rows, "installed": opencode_ok and bool(zen_rows)},
         {"id": "local", "label": "OpenCode CLI (Local)", "kind": "opencode-cli",
          "models": local_rows, "installed": opencode_ok and bool(local_rows)},
+        {"id": "openrouter", "label": "OpenRouter", "kind": "opencode-cli",
+         "models": router_rows, "installed": opencode_ok and bool(router_rows)},
     ]
     return output

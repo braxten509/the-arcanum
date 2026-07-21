@@ -114,12 +114,17 @@ class StalledProcess(RuntimeError):
         self.output = output
 
 
-def run_watched(command, *, cwd=None, stdin_text=None, seconds=10.0, timeout=900.0):
+def run_watched(command, *, cwd=None, stdin_text=None, seconds=10.0, timeout=900.0,
+                on_tick=None):
     """Run a CLI, killing it once its tree goes provably idle.
 
     Returns ``(returncode, output, stalled)``.  A CLI that stalls *after* producing its
     answer is common enough to matter: this repo's opencode build hangs on completion
     instead of exiting, so the caller gets the output and the flag, not an exception.
+
+    ``on_tick(cpu_percent, output_so_far)`` runs about once a second for callers that
+    report progress.  It is advisory: a raising callback must never kill the run it is
+    only describing, so its exceptions are swallowed.
     """
     import subprocess
     import threading
@@ -147,6 +152,8 @@ def run_watched(command, *, cwd=None, stdin_text=None, seconds=10.0, timeout=900
 
     deadline = time.monotonic() + float(timeout)
     stalled = False
+    ticks, sampled_at = tree_ticks(process.pid), time.monotonic()
+    hertz = os.sysconf("SC_CLK_TCK") or 100
     while process.poll() is None:
         if watch.wedged():
             stalled = True
@@ -154,6 +161,15 @@ def run_watched(command, *, cwd=None, stdin_text=None, seconds=10.0, timeout=900
         if time.monotonic() >= deadline:
             break
         time.sleep(1.0)
+        if on_tick is not None:
+            now, moved = time.monotonic(), tree_ticks(process.pid)
+            span = now - sampled_at
+            cpu = (moved - ticks) / hertz / span * 100 if span > 0 else 0.0
+            ticks, sampled_at = moved, now
+            try:
+                on_tick(cpu, "".join(chunks))
+            except Exception:
+                pass
     if process.poll() is None:
         from .processes import ProcessStore
         ProcessStore.terminate_tree(process.pid)
@@ -195,6 +211,25 @@ def demo() -> None:
 
     rc, output, stalled = run_watched(["sh", "-c", "echo quick"], seconds=5.0)
     assert (rc, output.strip(), stalled) == (0, "quick", False), (rc, output, stalled)
+
+    # on_tick reports live CPU and the output so far, and a raising callback must not
+    # take the run down with it: it only describes work it does not own.
+    # The burner must not fork per iteration: ticks of a reaped child land in cutime,
+    # which tree_ticks does not read, so a `date`-driven loop would look idle.
+    ticks = []
+    rc, output, _ = run_watched(
+        ["sh", "-c", "echo one; timeout 3 sh -c 'while :; do :; done'; exit 0"],
+        seconds=30.0, on_tick=lambda cpu, text: ticks.append((cpu, text)))
+    assert rc == 0 and ticks, (rc, ticks)
+    assert max(cpu for cpu, _ in ticks) > 50, ticks
+    assert ticks[-1][1].strip() == "one", ticks[-1]
+
+    def explode(cpu, text):
+        raise RuntimeError("an advisory callback must never kill the run")
+
+    rc, output, _ = run_watched(
+        ["sh", "-c", "sleep 2; echo survived"], seconds=30.0, on_tick=explode)
+    assert (rc, output.strip()) == (0, "survived"), (rc, output)
 
     print("stall watch: OK")
 

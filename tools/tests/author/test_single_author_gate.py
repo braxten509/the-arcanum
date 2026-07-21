@@ -15,11 +15,17 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tools.buildlib.single_author import gate  # noqa: E402
-from tools.buildlib import measure  # noqa: E402
+from tools.buildlib import brief_exception, measure  # noqa: E402
 from tools.buildlib.workflow import section_progress  # noqa: E402
 from arcanum.platform.agent_commands import scoped_runner_command, scoped_shell_command  # noqa: E402
 from tools.buildlib import single_author  # noqa: E402
 from tools.buildlib.single_author import runtime as single_author_runtime  # noqa: E402
+from author.sessions import (BlockedThenHandoffSession,  # noqa: E402
+                             ExplicitBlockedSession,
+                             FakeWarmSession,
+                             OscillatingNoHandoffSession,
+                             RoutedWarmSession,
+                             UnlimitedRepairSession)
 
 
 # Provider streams may contain JSON primitives or malformed nested rows. They are
@@ -188,25 +194,6 @@ with tempfile.TemporaryDirectory() as root:
     assert open(current, encoding="utf-8").read() == "authored"
 
 
-class FakeWarmSession(single_author.AuthorSession):
-    def __init__(self):
-        super().__init__("warm", "codex-cli", "test", "", "", "external", 7, "warm-session")
-        self.prompts = []
-        self.states = []
-
-    def read_controls(self):
-        return
-
-    def state(self, state, **extra):
-        self.states.append((state, extra))
-
-    def run_turn(self, prompt, conversation_kind="system", conversation_text=""):
-        self.prompts.append(prompt)
-        active = gate.current_unit("warm", 7)
-        gate._write_phase("warm", active["phase"], "validating")
-        return "complete", ""
-
-
 with tempfile.TemporaryDirectory() as root:
     build_dir = os.path.join(root, ".tome-build")
     os.makedirs(build_dir)
@@ -228,25 +215,6 @@ with tempfile.TemporaryDirectory() as root:
         assert session.states[-1][0] == "complete"
 
 
-class RoutedWarmSession(FakeWarmSession):
-    def __init__(self):
-        single_author.AuthorSession.__init__(
-            self, "routed", "codex-cli", "sections", "high", "", "external", 7,
-            "sections-warm", phase_authors={
-                "phase12": ("claude-cli", "arc", "high"),
-                "phase37": ("codex-cli", "sections", "high"),
-                "phase8": ("opencode-cli", "student-review", "max"),
-            })
-        self.prompts = []
-        self.states = []
-
-    def run_turn(self, prompt, conversation_kind="system", conversation_text=""):
-        self.prompts.append(prompt)
-        active = gate.current_unit("routed", 7)
-        gate._write_phase("routed", active["phase"], "validating")
-        return "complete", ""
-
-
 with tempfile.TemporaryDirectory() as root:
     build_dir = os.path.join(root, ".tome-build")
     os.makedirs(build_dir)
@@ -263,12 +231,6 @@ with tempfile.TemporaryDirectory() as root:
         assert len(session.prompts) == 2
         assert "active unit author" in session.prompts[1]
         assert "Continue with Phase 8" in session.prompts[1]
-
-
-class UnlimitedRepairSession(FakeWarmSession):
-    def __init__(self):
-        super().__init__()
-        self.from_phase = 8
 
 
 with tempfile.TemporaryDirectory() as root:
@@ -291,28 +253,6 @@ with tempfile.TemporaryDirectory() as root:
         assert attempts[0] == 13
         assert len(session.prompts) == 13
         assert not any(state == "paused" for state, _extra in session.states)
-
-
-class OscillatingNoHandoffSession(single_author.AuthorSession):
-    def __init__(self, authored_path):
-        super().__init__(
-            "cycle", "codex-cli", "test", "", "", "external", 2, "warm-session")
-        self.authored_path = authored_path
-        self.prompts = []
-        self.states = []
-
-    def read_controls(self):
-        return
-
-    def state(self, state, **extra):
-        self.states.append((state, extra))
-
-    def run_turn(self, prompt, conversation_kind="system", conversation_text=""):
-        self.prompts.append(prompt)
-        value = "A\n" if len(self.prompts) % 2 else "B\n"
-        with open(self.authored_path, "w", encoding="utf-8") as handle:
-            handle.write(value)
-        return "complete", ""
 
 
 # A repeated A -> B -> A authored state is a proven repair cycle, not progress.
@@ -354,12 +294,6 @@ with tempfile.TemporaryDirectory() as root:
         assert session.prompts == []
 
 
-class ExplicitBlockedSession(UnlimitedRepairSession):
-    def run_turn(self, prompt, conversation_kind="system", conversation_text=""):
-        self.prompts.append(prompt)
-        return "harness-blocked", "HARNESS_BLOCKED: validator import failed"
-
-
 # The explicit author-side circuit breaker is terminal until an operator resumes it.
 with tempfile.TemporaryDirectory() as root:
     build_dir = os.path.join(root, ".tome-build")
@@ -381,17 +315,6 @@ with tempfile.TemporaryDirectory() as root:
         validate.assert_not_called()
         assert any(state_name == "paused" for state_name, _extra in session.states)
         preflight.assert_not_called()
-
-
-# A provider cannot turn structured authored findings into an infrastructure pause
-# merely by prefixing its answer with HARNESS_BLOCKED.
-class BlockedThenHandoffSession(ExplicitBlockedSession):
-    def run_turn(self, prompt, conversation_kind="system", conversation_text=""):
-        self.prompts.append(prompt)
-        if len(self.prompts) == 1:
-            return "harness-blocked", "HARNESS_BLOCKED: claimed infrastructure failure"
-        gate._write_phase("warm", 8, "validating")
-        return "complete", ""
 
 
 with tempfile.TemporaryDirectory() as root:
@@ -486,6 +409,19 @@ with patch.object(single_author, "append_conversation",
     session.pause_for_validation_infrastructure(
         {"kind": "section", "section": "s01", "index": 1, "total": 8},
         subprocess.TimeoutExpired(prompt_argv, 900))
+assert message and "timed out after 900s" in message[0], message
+assert "EVIDENCE PACKET" not in message[0], len(message[0])
+
+# The real path wraps the timeout in a RuntimeError first, so the raise site must
+# compress the cause too; a wrapper built with str(exc) smuggles the packet back in.
+message.clear()
+with patch.object(single_author, "append_conversation",
+                  lambda build_id, kind, text: message.append(text)), \
+        patch.object(single_author, "notify"):
+    session.pause_for_validation_infrastructure(
+        {"kind": "section", "section": "s01", "index": 1, "total": 8},
+        RuntimeError("section Validator AI infrastructure failed: " + brief_exception(
+            subprocess.TimeoutExpired(prompt_argv, 900))))
 assert message and "timed out after 900s" in message[0], message
 assert "EVIDENCE PACKET" not in message[0], len(message[0])
 

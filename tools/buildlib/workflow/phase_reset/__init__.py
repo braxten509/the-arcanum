@@ -18,7 +18,7 @@ import time
 from ... import BUILD_DIR, REPO
 from ...ai_costs import rewind_ai_costs
 from ...course.limits import MIN_SECTIONS
-from ...skeleton import scaffold_sections
+from ...skeleton import is_scaffold, rebuild_section_scaffold, scaffold_sections
 from ...status_log import rewind_status_log
 from arcanum.catalog.build_ids import resolve_working_id
 
@@ -264,18 +264,36 @@ def reset_tome_to_section(tid, sid):
 
     Section completion is derived, never stored: a section counts as done because it
     owns a current verification receipt and handoff.  Dropping those from ``sid``
-    onward is the whole rewind — the author re-authors the section over its own stale
-    files exactly as it does after a validator failure.
+    onward is most of the rewind.
+
+    The authored trees from ``sid`` onward are moved aside as well, not left in place.
+    A restart that leaves gate-clean files on disk is not a restart: the author reads
+    them, finds them already passing, writes only a handoff, and marks the section
+    validating without authoring or researching anything.  Files are stashed under the
+    build's reset-stash rather than deleted, so a mistaken restart stays recoverable.
+
+    Each cleared section is rebuilt back to its Phase-2 scaffold instead of being left
+    absent, and sections that are still unauthored scaffolds are not touched at all.
+    Wiping the stubs would rewind Phase 2 as well as Phase 3, and an author whose
+    scaffold is missing goes hunting for a section shape wherever it can find one --
+    including other tomes.
     """
     tid = _valid_id(tid)
     if not SECTION_RE.fullmatch(str(sid or "")):
         raise ValueError(f"invalid section id {sid!r}")
-    build_id, _plan, _text = find_plan_for_tome(tid)
+    build_id, plan, _text = find_plan_for_tome(tid)
     from ...course_map import load_course_map
     ids = [section["id"] for section in load_course_map(build_id)["sections"]]
     if sid not in ids:
         raise ValueError(f"{sid} is not a section of this tome")
     keys = {_valid_id(value) for value in (build_id, tid) if value}
+    stash = os.path.join(BUILD_DIR, f"{build_id}.reset-stash", f"{time.strftime('%Y%m%dT%H%M%S')}-{sid}")
+    for section in ids[ids.index(sid):]:
+        authored = os.path.join(TOMES_DIR, tid, "sections", section)
+        if os.path.isdir(authored) and not is_scaffold(authored):
+            os.makedirs(stash, exist_ok=True)
+            os.replace(authored, os.path.join(stash, section))
+            rebuild_section_scaffold(tid, section, plan, tomes_dir=TOMES_DIR)
     for key in keys:
         for section in ids[ids.index(sid):]:
             for suffix in ("handoffs", "course-evidence", "course-failures"):

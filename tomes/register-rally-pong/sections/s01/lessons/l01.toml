@@ -1,319 +1,107 @@
 [[lessons]]
 id = "s01-l01"
-title = "Open the Rally Workshop"
-teaches = [
-  "tool-install",
-  "tool-navigate",
-  "tool-create-open",
-  "tool-edit-save",
-  "tool-diagnose",
-  "workspace-toolchain-diagnosis",
-  "editor-file-action-loop",
-]
-introduces = [
-  "terminal-install-toolchain-packages",
-  "terminal-create-project-directories",
-  "editor-create-open-file",
-  "editor-edit-save-file",
-  "terminal-check-nasm-version",
-  "terminal-check-make-version",
-  "terminal-check-cc-version",
-  "pkg-config-check-sdl2",
-]
+title = "TODO: Open the Rally Workshop"
+teaches = ["s01-phase3-placeholder"]            # TODO: stable kebab-case capabilities this lesson teaches
 body = '''
-<p>Mara powers the cabinet only after the workshop answers. Your <strong>workspace</strong> is the external folder you choose for Register Rally. A terminal has a current location; relative paths land there. Before any game source exists, install tools, prove versions, create folders, and practice the editor save loop on a disposable note—not on the canonical project files.</p>
-<p>On clean Debian or Ubuntu x86-64, install the packages this course needs. One common form (adjust if your distribution uses a different package manager spelling):</p>
-<pre><code data-kind="terminal">sudo apt-get update
-sudo apt-get install -y nasm build-essential make pkg-config libsdl2-dev
-</code></pre>
-<p>Read that as ordered actions: refresh package indexes, then install NASM (assembler), a C toolchain (<code>cc</code> via build-essential), GNU Make, <code>pkg-config</code>, and SDL2 development files. A package-not-found message means the name or repository is wrong—fix the exact diagnostic before inventing source files.</p>
-<p>Aim the terminal at a disposable practice folder, not yet the final court:</p>
-<pre><code data-kind="terminal">mkdir -p ~/signal-bench/notes
-cd ~/signal-bench
-pwd
-</code></pre>
-<p><code>mkdir -p</code> creates nested directories without failing if they already exist. <code>cd</code> changes the terminal location. <code>pwd</code> prints the working directory so you can compare it with the folder you intended. A missing-directory error means the path was mistyped.</p>
-<p>Diagnose each tool with a version check. These commands report identity and exit; they do not build the game:</p>
-<pre><code data-kind="terminal">nasm -v
-make --version
-cc --version
-pkg-config --modversion sdl2
-</code></pre>
-<p><code>nasm -v</code> should print a NASM version line. <code>make --version</code> and <code>cc --version</code> print tool banners. <code>pkg-config --modversion sdl2</code> prints the installed SDL2 version string when the <code>.pc</code> file is visible. An unknown-command or package-not-found result is evidence that install is incomplete—record it and repair packages before trusting later assemble or link steps.</p>
-<p>Open your editor on a disposable receipt path such as <code>~/signal-bench/notes/tool-pulse.txt</code>. Create the file if needed, type one short observation (workspace path and one version line you actually saw), save, then confirm from the terminal with a read command such as <code>cat notes/tool-pulse.txt</code>. That loop—create or open, edit, save, re-read—is the editor file action habit you will reuse when the Working asks for real source.</p>
-<div class="callout"><p>Keep this lesson behavior-free for the game: no <code>src/pong.asm</code>, no Makefile, no SDL window. Prove tools and the save loop first.</p></div>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // FOUR VERSION LIGHTS</div>
-<p>Four separate diagnostics matter because failures split: missing NASM blocks assembly; missing <code>cc</code> blocks linking; missing Make blocks the recipe driver; missing SDL2 <code>pkg-config</code> data blocks the flags later chapters need. One green light does not prove the others.</p></div>
+<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
+<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
+<p>TODO: an optional deeper-cut appendix.</p></div>
 '''
 
-[[lessons.concepts]]
-id = "tool-install"
-purpose = "Place the declared Linux packages on the machine before any assemble or link step."
-anatomy = "Use the distribution package manager to install nasm, build-essential, make, pkg-config, and libsdl2-dev, then read success or package errors."
-example = "The apt-get install terminal block is the complete install example."
-observable = "The package manager finishes without error and the tools become invocable by name."
-failure = "A package-not-found or permission error means install did not complete; do not skip to source."
+[[lessons.concepts]]                # one complete first-use proof for every `teaches` id
+id = "s01-phase3-placeholder"
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s01-l01-e1"
 
-[[lessons.concepts]]
-id = "tool-navigate"
-purpose = "Point the terminal at the folder where later relative paths should land."
-anatomy = "Create directories if needed, run cd with a path, then pwd to verify the location."
-example = "The signal-bench mkdir/cd/pwd example shows deliberate navigation."
-observable = "pwd prints the intended practice folder path."
-failure = "A no-such-file message means the path is wrong or the folder was never created."
-practice = "s01-l01-e2"
-
-[[lessons.concepts]]
-id = "tool-create-open"
-purpose = "Bring a file into the editor so it can receive text."
-anatomy = "Choose a path, create the file if absent, and open it in the editor."
-example = "Opening notes/tool-pulse.txt in the disposable bench is the create-open example."
-observable = "The editor shows the named file ready for typing."
-failure = "Editing the wrong path means later terminal reads will not see your text."
-practice = "s01-l01-e3"
-
-[[lessons.concepts]]
-id = "tool-edit-save"
-purpose = "Change file contents and persist them to disk."
-anatomy = "Type or revise text in the editor, then save so the filesystem copy updates."
-example = "Saving the disposable tool-pulse receipt after typing an observation."
-observable = "A terminal read of the path shows the new text after save."
-failure = "Unsaved buffers look correct on screen but cat still shows the old file."
-practice = "s01-l01-e3"
-
-[[lessons.concepts]]
-id = "tool-diagnose"
-purpose = "Ask each tool for a small identity result instead of assuming readiness."
-anatomy = "Invoke the tool with its version option and read the printed banner or error."
-example = "The four version commands form the diagnostic set."
-observable = "Each command prints a version line or a concrete unavailable-command error."
-failure = "Skipping diagnostics hides which package is missing when a later build fails."
-practice = "s01-l01-e4"
-
-[[lessons.concepts]]
-id = "workspace-toolchain-diagnosis"
-purpose = "Treat install plus the four version checks as one readiness gate for the workshop."
-anatomy = "Install packages, then run nasm, make, cc, and pkg-config SDL2 diagnostics and keep the observed lines."
-example = "The install block followed by the four version checks is the full gate."
-observable = "All four diagnostics return usable version text in the same terminal session."
-failure = "One missing diagnostic still means the toolchain is not ready for the Working."
-practice = "s01-l01-e4"
-
-[[lessons.concepts]]
-id = "editor-file-action-loop"
-purpose = "Move evidence from the editor to the filesystem and confirm it with the terminal."
-anatomy = "Create or open, edit, save, then read the path from the terminal."
-example = "The tool-pulse.txt create-edit-save-cat loop is the complete action loop."
-observable = "Terminal readback matches what you saved."
-failure = "If cat disagrees with the editor, save again or confirm the path."
-practice = "s01-l01-e3"
-
-[[lessons.concepts]]
-id = "terminal-install-toolchain-packages"
-purpose = "Install NASM, the C toolchain, Make, pkg-config, and SDL2 development files with the package manager."
-anatomy = "Run the package install command listing those packages and resolve any reported package errors."
-example = "The sudo apt-get install line lists the required packages."
-observable = "Install completes and the package tools become available as commands."
-failure = "Permission denied or unable to locate package stops the install until corrected."
-practice = "s01-l01-e1"
-
-[[lessons.concepts]]
-id = "terminal-create-project-directories"
-purpose = "Create folders that will hold notes or later project paths."
-anatomy = "Run mkdir -p with the nested path you want, then verify with pwd or ls."
-example = "mkdir -p ~/signal-bench/notes creates the disposable tree."
-observable = "The directories exist and can be entered with cd."
-failure = "Permission or path typos leave the tree incomplete."
-practice = "s01-l01-e2"
-
-[[lessons.concepts]]
-id = "editor-create-open-file"
-purpose = "Start an editor buffer on a chosen path."
-anatomy = "Name the path, create if missing, open it so typing has a target."
-example = "Opening notes/tool-pulse.txt is the create-open mechanism example."
-observable = "The editor title or tab shows that path."
-failure = "Opening a different file means saves will not update the path you later cat."
-practice = "s01-l01-e3"
-
-[[lessons.concepts]]
-id = "editor-edit-save-file"
-purpose = "Write text into the buffer and flush it to disk."
-anatomy = "Edit the buffer contents, issue save, then optionally re-open or cat to confirm."
-example = "Saving the disposable receipt after typing a version observation."
-observable = "Disk contents match the buffer after save."
-failure = "Forgetting save leaves the terminal reading stale data."
-practice = "s01-l01-e3"
-
-[[lessons.concepts]]
-id = "terminal-check-nasm-version"
-purpose = "Prove the assembler command is installed and printable."
-anatomy = "Run nasm -v and read the version line or command-not-found error."
-example = "The nasm -v line in the diagnostic block."
-observable = "A NASM version string prints."
-failure = "command not found means install NASM before any assembly attempt."
-practice = "s01-l01-e5"
-
-[[lessons.concepts]]
-id = "terminal-check-make-version"
-purpose = "Prove GNU Make is installed before writing recipes."
-anatomy = "Run make --version and read the banner."
-example = "The make --version line in the diagnostic block."
-observable = "Make prints its version banner."
-failure = "Missing make means recipe files cannot be driven yet."
-practice = "s01-l01-e5"
-
-[[lessons.concepts]]
-id = "terminal-check-cc-version"
-purpose = "Prove a C compiler driver exists for later linking."
-anatomy = "Run cc --version and read the compiler identity line."
-example = "The cc --version line in the diagnostic block."
-observable = "The compiler prints a version banner."
-failure = "Missing cc blocks the link step even if NASM works."
-practice = "s01-l01-e6"
-
-[[lessons.concepts]]
-id = "pkg-config-check-sdl2"
-purpose = "Prove SDL2 development metadata is visible to pkg-config."
-anatomy = "Run pkg-config --modversion sdl2 and read the version or package error."
-example = "The pkg-config --modversion sdl2 line in the diagnostic block."
-observable = "A version string such as a dotted SDL2 release prints."
-failure = "Package sdl2 was not found in the pkg-config search path means libsdl2-dev is missing or misinstalled."
-practice = "s01-l01-e6"
-
-[[lessons.readings]]
-label = "NASM documentation — installation and invocation"
-url = "https://www.nasm.us/docs.php"
+[[lessons.readings]]               # optional: 1-2 high-quality official docs
+label = "TODO: official docs"
+url = "https://example.com/TODO"
 
 [[lessons.exercises]]
 id = "s01-l01-e1"
 type = "mc"
 required = true
-capabilities = ["language-invariant-checks-debug-diagnosis"]
-cognitiveTask = "explain"
+capabilities = ["replace-me"]
+cognitiveTask = "predict"
 scaffold = "guided"
-contextFamily = "rally-toolchain-install"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 15
-mechanisms = ["terminal-install-toolchain-packages"]
-prompt = "On a clean Debian/Ubuntu workshop, which action installs the assembler and SDL2 development files before any game source exists?"
-choices = [
-  "Create src/pong.asm first so the package manager knows what to install",
-  "Run the package manager install for nasm, build-essential, make, pkg-config, and libsdl2-dev",
-  "Only install a text editor; the assembler is optional for this course",
-  "Run make check before any packages exist to auto-download tools",
-]
-answer = 1
-whyWrong = "Source and Make checks cannot install missing system packages. The editor alone does not provide NASM or SDL2 headers/libs."
-hint = "Look at the ordered apt-get install example in the lesson."
-explain = "Package installation is the first workshop gate; source comes only after tools answer."
+prompt = "TODO: a multiple-choice question?"
+choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
+answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
+whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
+hint = "TODO: an exercise-specific hint."
+explain = "TODO: shown after solving."
 
 [[lessons.exercises]]
 id = "s01-l01-e2"
 type = "text"
 required = true
-capabilities = ["language-invariant-checks-debug-diagnosis"]
-cognitiveTask = "recall"
+capabilities = ["replace-me"]
+cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "rally-toolchain-navigate"
+contextFamily = "replace-context"
 aidPolicy = "learning"
-points = 18
-mechanisms = ["terminal-create-project-directories"]
-prompt = "Which terminal command creates nested directories and does not fail if they already exist (as in the signal-bench example)?"
-answer = "mkdir -p"
-accept = ["mkdir -p ", "mkdir --parents"]
-hint = "It is mkdir with a short option that means create parent paths."
+points = 20
+prompt = "TODO: a free-text question."
+answer = "TODO"
+# accept = ["TODO alternate"]      # optional true alternates only
+hint = "TODO: an exercise-specific hint."
 
 [[lessons.exercises]]
 id = "s01-l01-e3"
-type = "mc"
-required = true
-capabilities = ["language-invariant-checks-debug-diagnosis"]
-cognitiveTask = "trace"
-scaffold = "guided"
-contextFamily = "rally-editor-loop"
-aidPolicy = "learning"
-points = 18
-mechanisms = ["editor-create-open-file", "editor-edit-save-file"]
-prompt = "You typed a version note in the editor but `cat notes/tool-pulse.txt` still shows the old text. What step is missing in the editor file action loop?"
-choices = [
-  "Delete the project root and reinstall the operating system",
-  "Run pkg-config before every keystroke",
-  "Save the buffer to disk, then re-read the path from the terminal",
-  "Rename the file to src/pong.asm so cat can see it",
-]
-answer = 2
-whyWrong = "Reinstalling the OS or renaming into the canonical source path does not fix an unsaved buffer. pkg-config does not flush editor buffers."
-hint = "The loop is create/open, edit, save, then terminal readback."
-explain = "Save persists the buffer; terminal read confirms the filesystem copy."
-
-[[lessons.exercises]]
-id = "s01-l01-e4"
-type = "mc"
-required = true
-capabilities = ["language-invariant-checks-debug-diagnosis"]
-cognitiveTask = "predict"
-scaffold = "guided"
-contextFamily = "rally-toolchain-diagnose"
-aidPolicy = "learning"
-points = 18
-mechanisms = ["terminal-check-nasm-version", "terminal-check-make-version", "terminal-check-cc-version", "pkg-config-check-sdl2"]
-prompt = "After install, which set of commands forms the workspace toolchain diagnosis before you trust assemble or link?"
-choices = [
-  "only cat /etc/os-release",
-  "only ./build/register-rally-pong",
-  "only git status",
-  "nasm -v ; make --version ; cc --version ; pkg-config --modversion sdl2",
-]
-answer = 3
-whyWrong = "OS release, a missing binary, or git status do not prove NASM, Make, cc, and SDL2 pkg-config are ready."
-hint = "Four separate version lights are named in the lesson."
-explain = "Each diagnostic isolates a different tool family."
-
-[[lessons.exercises]]
-id = "s01-l01-e5"
 type = "fill"
 required = true
-capabilities = ["language-invariant-checks-debug-diagnosis"]
+capabilities = ["replace-me"]
 cognitiveTask = "complete"
 scaffold = "completion"
-contextFamily = "rally-nasm-make-version"
+contextFamily = "replace-context"
 aidPolicy = "learning"
-points = 16
-mechanisms = ["terminal-check-nasm-version", "terminal-check-make-version"]
-prompt = "Complete the assembler version diagnostic."
-code = "nasm ____"
-answer = "-v"
-hint = "NASM's short version flag is a single hyphen and the letter v."
-
-[[lessons.exercises]]
-id = "s01-l01-e6"
-type = "fill"
-required = true
-capabilities = ["language-invariant-checks-debug-diagnosis"]
-cognitiveTask = "complete"
-scaffold = "completion"
-contextFamily = "rally-cc-sdl-version"
-aidPolicy = "learning"
-points = 16
-mechanisms = ["terminal-check-cc-version", "pkg-config-check-sdl2"]
-prompt = "Complete the pkg-config probe that prints the installed development package version for the graphics library this course will link later."
-code = "pkg-config --modversion ____"
-answer = "sdl2"
-hint = "Use the lowercase package name pkg-config expects for SDL 2."
+points = 20
+prompt = "TODO: fill the blank."
+code = 'answer = ____'             # the ____ marks where the answer goes
+answer = "TODO"
+hint = "TODO: an exercise-specific hint."
 
 [[lessons.exercises]]
 id = "s01-l01-d1"
-type = "type"
-required = false
-capabilities = ["language-invariant-checks-debug-diagnosis"]
+type = "type"                      # typing drill: retype the code; no point decay
+required = true
+capabilities = ["replace-me"]
 cognitiveTask = "recall"
 scaffold = "worked"
-contextFamily = "rally-toolchain-type"
+contextFamily = "replace-context"
 aidPolicy = "learning"
-points = 10
+points = 12
 reps = 2
-mechanisms = ["terminal-check-nasm-version"]
-prompt = "Retype the NASM version diagnostic exactly."
-code = "nasm -v"
+prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
+code = 'print("TODO")'
 
+[[lessons.exercises]]
+id = "s01-l01-w1"
+type = "write"                     # CODE LAB: runs on the real runtime; no point decay
+required = true
+capabilities = ["replace-me"]
+cognitiveTask = "build"
+scaffold = "guided"
+contextFamily = "replace-context"
+aidPolicy = "learning"
+points = 30
+prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
+# starter = '''
+# TODO: prefilled editor code / the exercise's data
+# '''
+expect = '''
+TODO EXACT OUTPUT'''
+# REQUIRED before shipping: a complete program that passes. Never shown to the
+# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
+# solution = '''
+# TODO
+# '''
+hint = "TODO: an exercise-specific hint."

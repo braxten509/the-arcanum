@@ -6,6 +6,7 @@ import os
 import re
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
+from ..adapters import validator_live
 from ..adapters.status_log import load_status_lines
 
 
@@ -51,10 +52,15 @@ def load_conversation(build_root: str, build_id: str, limit: int = 120) -> list[
     except (OSError, ValueError, json.JSONDecodeError):
         rows = []
     costs = _cost_conversation_rows(build_root, build_id)
-    cost_keys = {row["eventKey"] for row in costs}
+    # The in-flight validator row is replaced on every poll, never appended, so it
+    # updates in place and retires itself when the call ends.
+    live = validator_live.row(build_root, build_id)
+    cost_keys = {row["eventKey"] for row in costs} | {validator_live.EVENT_KEY}
     merged = [row for row in rows if isinstance(row, dict)
               and row.get("eventKey") not in cost_keys]
     merged.extend(costs)
+    if live:
+        merged.append(live)
     merged.sort(key=lambda row: float(row.get("at") or 0))
     return merged[-max(1, int(limit)):]
 

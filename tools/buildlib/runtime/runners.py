@@ -34,7 +34,7 @@ CLI_RUNNERS = {
     },
     "opencode-cli": {
         "cmd": ["opencode", "run", "--auto", "-m", "{model}"], "input": "arg",
-        "efforts": ("none", "minimal", "low", "medium", "high", "max"),
+        "efforts": ("none", "minimal", "low", "medium", "high", "xhigh", "max"),
         "effortArgs": ["--variant", "{effort}"],
     },
 }

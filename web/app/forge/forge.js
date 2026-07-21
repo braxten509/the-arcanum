@@ -38,6 +38,20 @@ const MASTERY_LEVELS = {
 };
 const MASTERY_DEPTH_FLOORS = { 1: 3, 2: 5, 3: 7, 4: 8, 5: 9 };
 
+// Four bindery pools share kind "opencode-cli" (Go, Zen, Local, OpenRouter), so a saved
+// {kind, model} matched on kind alone always lands on whichever is listed first and the
+// model never restores. That silently downgraded a resumed M3 author to the Go pool's
+// first model (deepseek-v4-flash) and, because the harness only resumes a session when
+// the model matches exactly (_resume_session_id in forge_lifecycle.py), turned every
+// resume into a restart. ponytail: the saved model id disambiguates — each pool's ids
+// carry its own prefix. Only kind/model/effort survive a resume (see _agent), so there
+// is no provider id to match on. Shared with bindery.js's failure picker; both restore
+// paths must agree or the bug comes back on whichever one is missed.
+export const matchProvider = (pools, saved) => saved && (
+  (pools || []).find((item) => item.kind === saved.kind
+    && (item.models || []).some((row) => row[0] === saved.model))
+  || (pools || []).find((item) => item.kind === saved.kind));
+
 export function forgeEntry() {
   apiFetch("/api/buildtome/resumable").then((r) => r.json()).then((data) => {
     const workings = data.workings || [];
@@ -236,6 +250,7 @@ function showForgeModal(resume) {
     reviewProv, reviewModel, reviewEffort].forEach(enhanceSelect);
   if (resumePhase) enhanceSelect(resumePhase);
   let providers = [];
+  const findProvider = (saved) => matchProvider(providers, saved);
   const fillAuthorEfforts = (picker) => {
     const provider = providers.find((item) => item.id === picker.prov.value);
     const row = provider && (provider.models || []).find((item) => item[0] === picker.model.value);
@@ -333,7 +348,7 @@ function showForgeModal(resume) {
       ? resume.authors : storedAuthors || { phase12: legacySaved, phase37: legacySaved, phase8: legacySaved };
     for (const picker of authorPickers) {
       const saved = savedAuthors?.[picker.key] || legacySaved;
-      const match = saved && providers.find((item) => item.kind === saved.kind || item.id === saved.prov);
+      const match = findProvider(saved);
       if (match) picker.prov.value = match.id;
       fillAuthorModels(picker);
       if (saved?.model && [...picker.model.options].some((option) => option.value === saved.model))
@@ -349,8 +364,7 @@ function showForgeModal(resume) {
       ? { kind: "codex-cli", model: "gpt-5.6-luna", effort: "medium" } : null;
     const savedValidator = resume?.validator || storedValidator || recommendedValidator
       || savedAuthors?.phase37 || legacySaved;
-    const validatorMatch = savedValidator && providers.find((item) =>
-      item.kind === savedValidator.kind || item.id === savedValidator.prov);
+    const validatorMatch = findProvider(savedValidator);
     if (validatorMatch) validatorProv.value = validatorMatch.id;
     fillAuthorModels(validatorPicker);
     if (savedValidator?.model && [...validatorModel.options].some((option) =>
@@ -361,7 +375,7 @@ function showForgeModal(resume) {
     const savedReviewer = resume?.reviewer && resume.reviewer.model
       ? resume.reviewer : JSON.parse(localStorage.getItem("binderyReviewer") || "null");
     reviewEnabled.checked = !!(resume?.reviewer && resume.reviewer.model);
-    const reviewMatch = savedReviewer && providers.find((item) => item.kind === savedReviewer.kind || item.id === savedReviewer.prov);
+    const reviewMatch = findProvider(savedReviewer);
     if (reviewMatch) reviewProv.value = reviewMatch.id;
     fillReviewModels();
     if (savedReviewer?.model && [...reviewModel.options].some((option) => option.value === savedReviewer.model)) reviewModel.value = savedReviewer.model;

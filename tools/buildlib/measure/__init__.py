@@ -7,7 +7,7 @@ import subprocess
 import time
 import tomllib
 
-from .. import REPO, VALIDATOR
+from .. import REPO, VALIDATOR, brief_exception
 from ..status_log import emit_status_line
 from .inventory import (
     RUNTIME_CONFIG_DIR,
@@ -78,8 +78,7 @@ def _run_harness_command(cmd, tid, announce=True):
         if announce:
             emit_status_line(f"VALIDATOR COMMAND FAILED [{time.time():.3f}] "
                              f"(exit unavailable) › {rendered}")
-        raise ValidatorInfrastructureError(
-            rendered, f"{type(exc).__name__}: {exc}") from exc
+        raise ValidatorInfrastructureError(rendered, brief_exception(exc)) from exc
     if announce:
         state = "COMPLETE" if process.returncode == 0 else "FAILED"
         emit_status_line(f"VALIDATOR COMMAND {state} [{time.time():.3f}] "
@@ -126,8 +125,7 @@ def preflight_validator_runtime(tid, entrypoints):
     except ValidatorInfrastructureError:
         raise
     except Exception as exc:
-        raise ValidatorInfrastructureError(
-            rendered, f"{type(exc).__name__}: {exc}") from exc
+        raise ValidatorInfrastructureError(rendered, brief_exception(exc)) from exc
 
 
 def validator_argv(tid, phase=None, tooling=None, run=None, strict=None, plan_rel=None,

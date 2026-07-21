@@ -26,3 +26,18 @@ VALIDATOR_FAILURE_DIR = os.path.join(REPO, "validator-failures")
 # kills, retries, or replaces an author based on liveness heuristics.
 PING_INTERVAL_DEFAULT = 30
 DEAD_PINGS_DEFAULT = 2
+
+
+def brief_exception(exc):
+    """One-line cause, never the argv a subprocess error stringifies.
+
+    The validator prompt is a several-KB evidence packet passed as an argv element, so
+    ``str(TimeoutExpired)`` buries the one useful clause under the whole packet. Wrapping
+    layers re-stringify it, so every raise site that reports a cause must use this.
+    """
+    import subprocess
+    if isinstance(exc, subprocess.TimeoutExpired):
+        return f"timed out after {float(exc.timeout):.0f}s"
+    if isinstance(exc, subprocess.CalledProcessError):
+        return f"exited {exc.returncode}"
+    return f"{type(exc).__name__}: {exc}"

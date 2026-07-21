@@ -283,6 +283,20 @@ def readable_guidance(raw):
     return list(dict.fromkeys(guidance))[:12]
 
 
+def _self_contradicted(result):
+    """True when a validated result carries defects its own PASS claims are absent.
+
+    Reads the post-validation result, not the raw response, so only defects that survived
+    per-item checks — the ones an author can actually act on — can force the downgrade.
+    """
+    if not isinstance(result, dict):
+        return False
+    return bool(result.get("qualityFindings") or result.get("missingMechanisms")
+                or result.get("findings")
+                or any(isinstance(row, dict) and row.get("judgment") != "PASS"
+                       for row in result.get("nodeReviews") or ()))
+
+
 def recover_readable_verdict(raw, result, evidence_supports):
     """Normalize an operationally usable verdict despite harmless schema drift.
 
@@ -303,6 +317,15 @@ def recover_readable_verdict(raw, result, evidence_supports):
         return None
     if not reasons:
         return None
+    # A PASS that files its own actionable repairs is not envelope drift; the model already
+    # resolved the question against itself and we take it at its word. Every recorded repair is
+    # worth making, so "it does not block passage" is not a reason to drop it. Downgrading is
+    # stricter than the PASS it replaces, so nothing bypasses the gate, and a second call would
+    # only re-read the findings already in hand. Prefer the validated reasons, which carry the
+    # contradiction itself alongside the model's own.
+    if outcome == "PASS" and _self_contradicted(result):
+        outcome = "FAIL"
+        reasons = result.get("reasons") or reasons
     recovered = {**result, "status": outcome, "reasons": reasons}
     if guidance:
         recovered["guidance"] = guidance

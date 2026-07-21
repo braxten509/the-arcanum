@@ -3,9 +3,123 @@
 The repository is readable and executable, network access is retained, system/provider
 temporary state is writable, and project writes are limited to explicit task paths.
 """
+import ast
 import json
 import os
+import py_compile
 import shutil
+
+
+# Validator code an author must never read. Every author prompt already says "do not
+# inspect validator implementation to guess at hidden checks"; an author that greps it
+# anyway is writing to the checker instead of to the learner, so the boundary is enforced
+# here rather than left advisory. Each package is replaced by a mirror holding only the
+# modules the author's own self-check imports, compiled to sourceless bytecode.
+#
+# The two tiers differ in how much they actually hide. A module the mirror OMITS is gone
+# outright. A module it KEEPS is bytecode: no source, no comments, no line-level control
+# flow, and the greps a real author ran come back empty -- but identifiers and string
+# literals survive, so `strings` still recovers error text. Keep as little as possible.
+SEALED_PACKAGES = {
+    # The deterministic section gate. The author is told to run it until it exits zero,
+    # so every module has to stay; bytecode is the most that can be hidden.
+    "tools/validatelib": (),
+    # The Validator AI. Tracing the author's own self-check shows it imports prompt,
+    # result, and transport but never calls into them -- the only live entry points are
+    # review_call_count/review_usage_summary, which both delegate to records.py. So the
+    # rubric ships as a stub that satisfies review.py's `from .prompt import ...` and
+    # raises if anything ever actually reaches for it.
+    "tools/buildlib/prerequisites": ("prompt.py", "result.py", "transport.py"),
+}
+
+_STUB_PREAMBLE = '''"""Sealed inside the author sandbox: names only, no implementation."""
+
+
+class _Sealed:
+    def __init__(self, name):
+        self._sealed_name = name
+
+    def _refuse(self, *_args, **_kwargs):
+        raise RuntimeError(
+            f"{self._sealed_name} is sealed inside the author sandbox; the harness "
+            "runs the Validator AI itself, outside this boundary")
+
+    __call__ = _refuse
+    __getattr__ = _refuse
+    __iter__ = _refuse
+    __str__ = _refuse
+
+'''
+
+
+def _stub_source(path):
+    """A same-shaped stand-in for one sealed module: its public names, no bodies.
+
+    Importers bind these names at module load, so the stub must expose every one or the
+    import fails. Each is a sentinel that raises on use rather than a plausible default,
+    so a future code path that genuinely needs the real module fails loudly instead of
+    grading against an empty rubric.
+    """
+    with open(path, encoding="utf-8") as handle:
+        tree = ast.parse(handle.read())
+    names = []
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.append(node.name)
+        elif isinstance(node, ast.Assign):
+            names.extend(t.id for t in node.targets if isinstance(t, ast.Name))
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            names.append(node.target.id)
+    return _STUB_PREAMBLE + "".join(
+        f"{name} = _Sealed({name!r})\n"
+        for name in dict.fromkeys(n for n in names if not n.startswith("__")))
+
+
+def _bytecode_mirror(repo, relative, stubbed=()):
+    """Build (or refresh) the sourceless-bytecode copy of one sealed package.
+
+    Modules named in ``stubbed`` are replaced by name-only stand-ins; the rest are
+    compiled from their real source. Nothing readable is written either way.
+    """
+    source = os.path.join(repo, relative)
+    mirror = os.path.join(repo, ".cache", "sealed-bytecode", relative.replace("/", "."))
+    modules = [(root, name)
+               for root, _dirs, files in os.walk(source) for name in sorted(files)
+               if name.endswith(".py")]
+    newest = max((os.path.getmtime(os.path.join(root, name))
+                  for root, name in modules), default=0)
+    # ponytail: rebuilt whenever a source file is newer than the mirror. Two authors
+    # starting at once may build it twice and write identical bytes; a lock would cost
+    # more than the duplicated work.
+    if os.path.isdir(mirror) and os.path.getmtime(mirror) >= newest:
+        return mirror
+    staging = f"{mirror}.staging-{os.getpid()}"
+    shutil.rmtree(staging, ignore_errors=True)
+    for root, name in modules:
+        origin = os.path.join(root, name)
+        target = os.path.join(staging, os.path.relpath(root, source), name)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        if name in stubbed:
+            with open(target, "w", encoding="utf-8") as handle:
+                handle.write(_stub_source(origin))
+            origin = target
+        py_compile.compile(origin, cfile=target + "c", doraise=True)
+        if os.path.exists(target):        # keep bytecode only; source never ships
+            os.unlink(target)
+    os.makedirs(os.path.dirname(mirror), exist_ok=True)
+    shutil.rmtree(mirror, ignore_errors=True)
+    os.replace(staging, mirror)
+    return mirror
+
+
+def _sealed_binds(repo):
+    """``--ro-bind`` pairs replacing each sealed package with its bytecode mirror."""
+    binds = []
+    for relative, stubbed in SEALED_PACKAGES.items():
+        target = os.path.join(repo, relative)
+        if os.path.isdir(target):
+            binds.extend(("--ro-bind", _bytecode_mirror(repo, relative, stubbed), target))
+    return binds
 
 
 def resolve_bin(cmd):
@@ -168,6 +282,8 @@ def scoped_runner_command(name, cmd, cwd, writable_paths, repo, readonly_paths=(
         if not os.path.exists(path):
             continue
         wrapped.extend(("--ro-bind", path, path))
+    # Last, so the bytecode mirrors win over any broader repo mount above them.
+    wrapped.extend(_sealed_binds(os.path.realpath(repo)))
     wrapped.extend(("--chdir", cwd))
     return [*wrapped, *resolve_bin(_normalized_command(
         provider, cmd, repo, web_allowed))]

@@ -7,14 +7,14 @@ import os
 import re
 import subprocess
 import time
-import urllib.error
-import urllib.request
 
-from .. import BUILD_DIR, REPO, VALIDATOR_FAILURE_DIR
+from .. import BUILD_DIR, REPO, VALIDATOR_FAILURE_DIR, brief_exception
 from ..status_log import emit_status_line
 from arcanum.platform.agent_commands import scoped_runner_command
 from arcanum.jobs.stall import StalledProcess, run_watched
 from ..runtime.events import assistant_text, session_id_from_line, usage_from_line
+from arcanum.ai.events import step_tokens_from_line
+from arcanum.authoring.adapters import validator_live
 from ..course.alignment import actual_lesson_id
 from ..course_map import load_course_map
 from ..validator_policy import resolve_validator_output
@@ -26,15 +26,17 @@ from .prompt import (DYNAMIC_MARKER,
 from . import records as _records
 from .result import (evidence_supports_verdict,
                      validate_detailed as _validate_detailed)
+from . import transport
+# Re-exported so callers and tests keep addressing these through this module; the
+# call sites below go through `transport.` so patching the transport module works.
+from .transport import (API_MAX_OUTPUT_TOKENS, API_TIMEOUT_SECONDS,
+                        AUDIT_CONTRACT_VERSION, RESPONSES_URL,
+                        _api_adapter, _openai_key)
 from ..runtime.runners import author_runner
 from arcanum.catalog.build_ids import resolve_working_id
 
 
 MAX_SECTION_PACKET_CHARS = 200_000
-AUDIT_CONTRACT_VERSION = 8
-RESPONSES_URL = "https://api.openai.com/v1/responses"
-API_TIMEOUT_SECONDS = 900
-API_MAX_OUTPUT_TOKENS = 2_500
 # Idle means no CPU anywhere in the tree and no established provider connection, so this
 # is not a patience budget: a thinking model and a running tool both keep the clock at 0.
 STALL_SECONDS = float(os.environ.get("ARCANUM_STALL_SECONDS", "10"))
@@ -165,7 +167,36 @@ def section_evidence_packet(build_id, section):
     return packet, sources
 
 
-def _cli_adapter(prompt, validator):
+# The pane rebuilds its whole conversation whenever any row's text changes, which drops
+# a live text selection. Sampling stays per-second for an honest CPU average; only the
+# published row is throttled, so the operator keeps a usable pane during a long gate.
+LIVE_PUBLISH_SECONDS = 5.0
+
+
+def _live_tick(build_id, label, started):
+    """Publish CPU and tokens-so-far for the call in flight, a few seconds apart."""
+    seen, totals, samples, published = 0, {}, [], 0.0
+
+    def tick(cpu, output):
+        nonlocal seen, totals, samples, published
+        cut = output.rfind("\n", seen) + 1  # never parse a half-written line
+        for line in output[seen:cut].splitlines():
+            step = step_tokens_from_line(line)
+            if step:
+                totals = {key: totals.get(key, 0) + value
+                          for key, value in step.items()}
+        seen = max(seen, cut)
+        samples.append(max(0.0, float(cpu)))
+        if time.time() - published < LIVE_PUBLISH_SECONDS:
+            return
+        published = time.time()
+        validator_live.publish(BUILD_DIR, build_id, label=label, started=started,
+                               cpu=sum(samples) / len(samples), tokens=totals)
+        samples.clear()
+    return tick
+
+
+def _cli_adapter(prompt, validator, live=None):
     spec = f"{validator['kind']}:{validator['model']}" + (
         f"@{validator['effort']}" if validator.get("effort") else "")
     display, command, input_mode = author_runner(spec, "--validator-ai")
@@ -181,9 +212,16 @@ def _cli_adapter(prompt, validator):
     if input_mode == "arg":
         command = [*command, prompt]
     wrapped = scoped_runner_command(display, command, REPO, [], REPO)
-    returncode, stdout, stalled = run_watched(
-        wrapped, cwd=REPO, stdin_text=prompt if input_mode == "stdin" else None,
-        seconds=STALL_SECONDS, timeout=900)
+    build_id, label = live if live else ("", "")
+    try:
+        returncode, stdout, stalled = run_watched(
+            wrapped, cwd=REPO, stdin_text=prompt if input_mode == "stdin" else None,
+            seconds=STALL_SECONDS, timeout=900,
+            on_tick=_live_tick(build_id, label, time.time()) if build_id else None)
+    finally:
+        # The row describes a call in flight; every exit path must retire it.
+        if build_id:
+            validator_live.clear(BUILD_DIR, build_id)
     # A stall that arrives after the verdict is the CLI failing to exit, not failing to
     # answer. Keep the output and let the usual malformed-result path judge it; only an
     # empty stall is an infrastructure failure.
@@ -201,133 +239,31 @@ def _cli_adapter(prompt, validator):
             usage = observed
         if not session_id:
             session_id = session_id_from_line(line)
-    return ("\n".join(answers) if answers else process.stdout), {
+    return ("\n".join(answers) if answers else stdout), {
         "transport": "cli", "kind": kind, "model": validator["model"],
         "effort": validator.get("effort", ""), "usage": usage,
         "sessionId": session_id,
     }
 
 
-def _response_text(response):
-    if isinstance(response.get("output_text"), str):
-        return response["output_text"]
-    blocks = []
-    for item in response.get("output") or []:
-        if not isinstance(item, dict):
-            continue
-        for content in item.get("content") or []:
-            if not isinstance(content, dict):
-                continue
-            if content.get("type") == "output_text" and isinstance(content.get("text"), str):
-                blocks.append(content["text"])
-            elif content.get("type") == "refusal":
-                raise RuntimeError("Validator AI refused the bounded quality audit")
-    if not blocks:
-        raise RuntimeError("Responses API returned no output text")
-    return "\n".join(blocks)
-
-
-def _usage(response):
-    usage = response.get("usage") or {}
-    inputs = usage.get("input_tokens_details") or {}
-    outputs = usage.get("output_tokens_details") or {}
-    input_tokens = int(usage.get("input_tokens") or 0)
-    cached_tokens = int(inputs.get("cached_tokens") or 0)
-    cache_write_tokens = int(inputs.get("cache_write_tokens") or 0)
-    return {
-        "inputTokens": input_tokens,
-        "freshInputTokens": max(0, input_tokens - cached_tokens - cache_write_tokens),
-        "cachedInputTokens": cached_tokens,
-        "cacheWriteTokens": cache_write_tokens,
-        "outputTokens": int(usage.get("output_tokens") or 0),
-        "reasoningTokens": int(outputs.get("reasoning_tokens") or 0),
-        "totalTokens": int(usage.get("total_tokens") or 0),
-    }
-
-
-def _openai_key():
-    key = str(os.environ.get("OPENAI_API_KEY") or "").strip()
-    if key:
-        return key
-    try:
-        from arcanum.config import read_settings
-        return str((((read_settings().get("ai") or {}).get("keys") or {}).get("openai"))
-                   or "").strip()
-    except (OSError, TypeError, ValueError):
-        return ""
-
-
-def _api_adapter(prompt, validator, key=None, *, schema=None,
-                 schema_name="arcanum_section_quality_audit",
-                 cache_key=None, max_output_tokens=API_MAX_OUTPUT_TOKENS,
-                 plain_text=False):
-    key = str(key or _openai_key()).strip()
-    if not key:
-        raise RuntimeError("no OpenAI API key is configured in Settings or OPENAI_API_KEY")
-    static, marker, dynamic = prompt.partition(DYNAMIC_MARKER)
-    if not marker:
-        raise RuntimeError("Validator AI prompt is missing its stable/dynamic cache boundary")
-    effort = str(validator.get("effort") or "medium")
-    if effort not in ("none", "minimal", "low", "medium", "high", "xhigh"):
-        effort = "medium"
-    text_config = {"verbosity": "low"}
-    if not plain_text:
-        text_config["format"] = {
-            "type": "json_schema", "name": schema_name,
-            "strict": True, "schema": schema or _result_schema(),
-        }
-    payload = {
-        "model": validator["model"],
-        "reasoning": {"effort": effort},
-        "input": [
-            {"role": "developer", "content": [{
-                "type": "input_text", "text": static.strip(),
-                "prompt_cache_breakpoint": {"mode": "explicit"},
-            }]},
-            {"role": "user", "content": [{"type": "input_text", "text": dynamic.strip()}]},
-        ],
-        "text": text_config,
-        "max_output_tokens": int(max_output_tokens),
-        "prompt_cache_key": (cache_key
-                             or f"arcanum-section-quality-v{AUDIT_CONTRACT_VERSION}"),
-        "prompt_cache_options": {"mode": "explicit"},
-        "store": False,
-    }
-    request = urllib.request.Request(
-        RESPONSES_URL, data=json.dumps(payload).encode("utf-8"), method="POST",
-        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"})
-    try:
-        with urllib.request.urlopen(request, timeout=API_TIMEOUT_SECONDS) as response:
-            value = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", "replace")[-1200:]
-        raise RuntimeError(f"Responses API HTTP {exc.code}: {detail}") from exc
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-        raise RuntimeError(f"Responses API request failed: {exc}") from exc
-    return _response_text(value), {
-        "transport": "responses-api", "kind": "openai-api",
-        "model": validator["model"], "effort": effort, "usage": _usage(value),
-        "responseId": str(value.get("id") or ""),
-    }
-
-
 def invoke_validator(prompt, validator, *, adapter=None, schema=None,
                      schema_name="arcanum_section_quality_audit", cache_key=None,
-                     max_output_tokens=API_MAX_OUTPUT_TOKENS, plain_text=False):
+                     max_output_tokens=API_MAX_OUTPUT_TOKENS, plain_text=False,
+                     live=None):
     """Run one configured, read-only Validator AI call with an optional strict schema."""
     if adapter:
         return adapter(prompt, validator), {
             "transport": "test-adapter", "model": validator.get("model", ""), "usage": None}
     # Codex login remains the zero-API-cost fallback. When an API key is present,
     # the read-only Validator AI uses one no-tools Structured Output request instead.
-    key = _openai_key()
+    key = transport._openai_key()
     if (validator.get("kind") == "codex-cli" and key
             and str(validator.get("model") or "").startswith("gpt-")):
-        return _api_adapter(
+        return transport._api_adapter(
             prompt, validator, key, schema=schema, schema_name=schema_name,
             cache_key=cache_key, max_output_tokens=max_output_tokens,
             plain_text=plain_text)
-    return _cli_adapter(prompt, validator)
+    return _cli_adapter(prompt, validator, live)
 
 
 def _default_adapter(prompt, validator):
@@ -353,8 +289,8 @@ def review_usage_summary(build_id):
     return _records.review_usage_summary(BUILD_DIR, build_id)
 
 
-def _invoke(prompt, validator, adapter):
-    return invoke_validator(prompt, validator, adapter=adapter)
+def _invoke(prompt, validator, adapter, live=None):
+    return invoke_validator(prompt, validator, adapter=adapter, live=live)
 
 
 def _classify_output(raw, sources, sid, known_mechanisms):
@@ -397,12 +333,13 @@ def review_prerequisites(build_id, sid, *, adapter=None):
     emit_status_line(f"AI VALIDATOR CALL START [{time.time():.3f}] › {audit_label}",
                      build_id, build_dir=BUILD_DIR)
     try:
-        raw, meta = _invoke(prompt, validator, adapter)
+        raw, meta = _invoke(prompt, validator, adapter, (build_id, audit_label))
     except Exception as exc:
         _append_infrastructure_failure(build_id, sid, packet, validator, exc)
         emit_status_line(f"AI VALIDATOR CALL FAILED [{time.time():.3f}] › {audit_label}",
                          build_id, build_dir=BUILD_DIR)
-        raise RuntimeError(f"section Validator AI infrastructure failed: {exc}") from exc
+        raise RuntimeError(
+            f"section Validator AI infrastructure failed: {brief_exception(exc)}") from exc
     parsed, errors, output = _classify_output(raw, sources, sid, known_mechanisms)
     model = str(validator.get("model") or "")
     _append_call(
@@ -421,7 +358,7 @@ def review_prerequisites(build_id, sid, *, adapter=None):
         try:
             repaired_raw, repair_meta = _invoke(
                 _recovery_retry_prompt(prompt, raw, errors, known_mechanisms),
-                validator, adapter)
+                validator, adapter, (build_id, retry_label))
         except Exception as exc:
             _append_infrastructure_failure(
                 build_id, sid, packet, validator, exc, stage="recovery-retry")
@@ -453,7 +390,7 @@ def review_prerequisites(build_id, sid, *, adapter=None):
             f"AI VALIDATOR CALL START [{time.time():.3f}] › {escalation_label}",
             build_id, build_dir=BUILD_DIR)
         try:
-            raw, terra_meta = _invoke(prompt, terra, adapter)
+            raw, terra_meta = _invoke(prompt, terra, adapter, (build_id, escalation_label))
         except Exception as exc:
             _append_infrastructure_failure(
                 build_id, sid, packet, terra, exc, stage="escalation",
@@ -461,7 +398,8 @@ def review_prerequisites(build_id, sid, *, adapter=None):
             emit_status_line(
                 f"AI VALIDATOR CALL FAILED [{time.time():.3f}] › {escalation_label}", build_id,
                 build_dir=BUILD_DIR)
-            raise RuntimeError(f"section Validator AI escalation failed: {exc}") from exc
+            raise RuntimeError(
+                f"section Validator AI escalation failed: {brief_exception(exc)}") from exc
         parsed, _errors, output = _classify_output(
             raw, sources, sid, known_mechanisms)
         _append_call(

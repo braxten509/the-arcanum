@@ -367,6 +367,33 @@ with tempfile.TemporaryDirectory() as root:
             pass_row = json.loads(handle.read())
         assert pass_row["status"] == "PASS" and pass_row["malformed"] is True
 
+        # A PASS that files its own actionable repairs contradicts itself. Take the repairs and
+        # fail: a defect the model called non-blocking is still a defect worth fixing, and a
+        # second call would only return the findings already in hand.
+        os.remove(prerequisite_review.result_path("demo", "s01"))
+        os.remove(prerequisite_review.calls_path("demo"))
+        routed = []
+        def contradicted_pass(_prompt, reviewer):
+            routed.append(reviewer["model"])
+            value = audit_result(quality=[{
+                "path": sources[0]["path"], "node": sources[0]["node"],
+                "category": "teaching-depth", "evidenceLines": [1, 1],
+                "evidence": "The mechanism is named but its failure path is not explained.",
+                "requiredRepair": "Add the observable failure, diagnosis, and guided recovery.",
+            }])
+            for review in value["nodeReviews"]:
+                review["judgment"] = "PASS"  # the contradiction: repairs filed, every node clean
+            return value
+        with redirect_stdout(io.StringIO()), \
+                patch.object(prerequisite_review, "load_course_map", return_value=course), \
+                patch.object(prerequisite_review, "section_evidence_packet",
+                             return_value=("repair packet", sources)):
+            contradicted = prerequisite_review.review_prerequisites(
+                "demo", "s01", adapter=contradicted_pass)
+        assert contradicted["status"] == "FAIL"
+        assert routed == ["gpt-5.6-luna"], "a self-contradicting PASS must not spend a retry"
+        assert len(contradicted["qualityFindings"]) == 1, "the filed repair was dropped"
+
         # A prior definitive Luna failure must never turn a later definitive
         # Luna failure into an escalation merely because it is repeated.
         os.remove(prerequisite_review.result_path("demo", "s01"))
@@ -389,7 +416,7 @@ with tempfile.TemporaryDirectory() as root:
                 "demo", "s01", adapter=definitive_fail)
         assert definitive["status"] == "FAIL"
         assert routed == ["gpt-5.6-luna"]
-        assert len(os.listdir(prerequisite_review.validator_failure_dir("demo"))) == 2
+        assert len(os.listdir(prerequisite_review.validator_failure_dir("demo"))) == 3
 
         # Luna is the cheap first pass. Uncertainty escalates exactly once to Terra,
         # with no author/tool session involved in either test adapter invocation.
@@ -414,7 +441,7 @@ with tempfile.TemporaryDirectory() as root:
                 "demo", "s01", adapter=uncertain_then_terra)
         assert escalated["status"] == "PASS"
         assert routed == ["gpt-5.6-luna", "gpt-5.6-terra"]
-        assert len(os.listdir(prerequisite_review.validator_failure_dir("demo"))) == 3
+        assert len(os.listdir(prerequisite_review.validator_failure_dir("demo"))) == 4
         trace_lines = [line for line in trace.getvalue().splitlines()
                        if line.startswith("AI VALIDATOR CALL")]
         assert len(trace_lines) == 4
@@ -445,7 +472,7 @@ with tempfile.TemporaryDirectory() as root:
             assert "infrastructure failed" in str(exc)
         else:
             raise AssertionError("validator infrastructure failure was not surfaced")
-        assert len(os.listdir(prerequisite_review.validator_failure_dir("demo"))) == 4
+        assert len(os.listdir(prerequisite_review.validator_failure_dir("demo"))) == 5
         with open(prerequisite_review.calls_path("demo"), encoding="utf-8") as handle:
             infrastructure_row = json.loads(handle.read())
         assert infrastructure_row["status"] == "ERROR"

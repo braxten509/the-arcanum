@@ -7,6 +7,10 @@ PORT="${1:-8777}"
 ROOT="$PWD"
 URL="http://localhost:$PORT"
 
+# The Forge shells out to `opencode run`, which inherits this. Without it the
+# built-in websearch tool is hidden from the author, leaving it webfetch-only.
+export OPENCODE_ENABLE_EXA=1
+
 listener_pids() {
   fuser -n tcp "$PORT" 2>/dev/null | xargs || true
 }

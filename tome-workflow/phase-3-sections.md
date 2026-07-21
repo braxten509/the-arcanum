@@ -6,6 +6,25 @@ then author in Arc order, one complete section at a time: brief, lessons/exercis
 cumulative freestyle. Each section adds its promised capability to the evolving project.
 Never test material that this or an earlier lesson has not taught.
 
+Draw the teaching from this tome alone. Never take lesson shape, exercise mix, concept ordering,
+pacing, Working phrasing, or prose from another tome under `tomes/`, from another build's state
+under `.tome-build/`, or from an archived attempt at this section; a finished section elsewhere is
+not a template and its choices prove nothing about this plan. Reusing them produces the stamped
+material the quality audit rejects as `template-or-filler`. For TOML format, use this section's
+scaffold, `tome-authoring/3-chapters.md`, `10-mastery-evidence.md`, and the validator's own
+precise schema findings — never a neighboring tome.
+
+Establish current external truth before writing any prose. For each section, use `websearch` to
+locate authoritative sources for every API, library, version, command, flag, and error message the
+section teaches, and `webfetch` to read the primary documentation rather than trusting a search
+snippet or your own recall. Prefer official documentation, release notes, and changelogs over blog
+posts and tutorials. Confirm that every version number, function signature, and default you state
+matches the current published source, and that anything presented as current behavior has not been
+deprecated or renamed. Where sources disagree or a detail cannot be confirmed, teach the
+conservative version and say so plainly instead of inventing a specific. Research is a
+precondition for drafting, not a repair step: complete it before the first lesson body, not after
+the validator or reviewer objects.
+
 The learner authors every part of that evolving project. Lesson bodies and exercises may use
 small disposable worked examples, but they may not provide canonical source, configuration,
 data, tests, maps, documentation, delivery files, production-ready stubs, ready-to-paste

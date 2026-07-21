@@ -22,6 +22,7 @@ from arcanum.settings import Settings  # noqa: E402
 from runtimes import RuntimeRegistry  # noqa: E402
 from arcanum.authoring.adapters.forge_lifecycle import (  # noqa: E402
     _author, _authors, _phase_author, _resume_session_id, _validator)
+from arcanum.authoring.read_models.forge_status import ForgeStatusService  # noqa: E402
 
 
 class JsonHandler:
@@ -123,6 +124,34 @@ with tempfile.TemporaryDirectory() as temp:
         assert {row["model"] for row in legacy.values()} == {"one"}
         assert _validator({"validator": {"kind": "claude-cli",
                                           "model": "section-audit"}})["model"] == "section-audit"
+
+        # A validator-infrastructure pause retries the VALIDATOR, not the author: the swap
+        # rewrites the launch record the gate re-reads and leaves the author session alone.
+        with open(os.path.join(build_root, "untitled-5.launch.json"), "w",
+                  encoding="utf-8") as handle:
+            json.dump({"author": {"kind": "codex-cli", "model": "sol"},
+                       "validator": {"kind": "codex-cli", "model": "old-judge"},
+                       "concept": "A PyGame RPG.", "gate": {"depth": "3"}}, handle)
+        sent = []
+        services.jobs = job_manager
+        services.processes.put("local-job", SimpleNamespace(
+            stdin=SimpleNamespace(write=sent.append, flush=lambda: None)))
+        payload, code = build_routes.control_author(
+            JsonHandler(), {"id": "local-job",
+                            "validator": {"kind": "claude-cli", "model": "new-judge"}},
+            "resume", services)
+        assert code == 200 and payload["ok"], payload
+        assert json.loads(sent[0]) == {"type": "resume"}
+        saved = forge._load_launch("untitled-5")
+        assert saved["validator"] == {"kind": "claude-cli", "model": "new-judge",
+                                      "effort": ""}
+        assert saved["author"]["model"] == "sol" and saved["gate"]["depth"] == "3"
+        # The status read model reports the swapped validator straight from the launch
+        # record, so it is right after a server restart and for reattached builds too.
+        status_reader = ForgeStatusService(settings, job_manager, catalog)
+        live = status_reader.get("local-job")
+        assert live["sessionValidator"]["model"] == "new-judge"
+        assert live["sessionGate"] == "" and live["sessionRole"] == "author"
 
         # The visible timer measures only the current author work interval.
         assert forge.author_activity_started_at("paused", "starting", 55, now=100) == 100

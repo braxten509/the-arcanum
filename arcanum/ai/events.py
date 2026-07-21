@@ -87,6 +87,39 @@ def usage_from_line(line: str) -> dict | None:
     return normalized or None
 
 
+def step_tokens_from_line(line: str) -> dict | None:
+    """Return one completed step's token counts, for live progress display.
+
+    Deliberately narrower than ``usage_from_line``: this reads opencode's per-step
+    ``step_finish`` schema, whose counts a caller can sum as steps land.  Schemas that
+    report cumulative per-turn usage are not wired here, because summing those would
+    double count; they stay pending until the turn ends and usage is recorded.
+    """
+    try:
+        row = json.loads(line)
+    except ValueError:
+        return None
+    if not isinstance(row, dict):
+        return None
+    part = row.get("part")
+    tokens = part.get("tokens") if isinstance(part, dict) else None
+    if not isinstance(tokens, dict):
+        return None
+
+    def count(value) -> int:
+        return int(value) if isinstance(value, (int, float)) else 0
+
+    cache = tokens.get("cache") if isinstance(tokens.get("cache"), dict) else {}
+    fresh = count(tokens.get("input"))
+    counts = {
+        "input": fresh + count(cache.get("read")) + count(cache.get("write")),
+        "output": count(tokens.get("output")),
+        "reasoning": count(tokens.get("reasoning")),
+    }
+    counts["total"] = count(tokens.get("total")) or sum(counts.values())
+    return counts if counts["total"] else None
+
+
 def opencode_output_session_id(line: str) -> str:
     try:
         row = json.loads(line)

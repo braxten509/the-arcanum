@@ -10,6 +10,27 @@ work. Read `tome-authoring/9-proof-and-assets.md` and, for evidence-version tome
 `tome-authoring/10-mastery-evidence.md`; consult
 `tome-authoring/3-chapters.md` for TOML or pedagogy details.
 
+Author the teaching from this tome alone. Never take lesson shape, exercise mix, concept ordering,
+pacing, Working phrasing, or any prose from another tome under `tomes/`, from another build's state
+under `.tome-build/`, or from an archived attempt at this section. Another tome's finished section
+is not a template and its choices are not evidence about this plan; reusing them is how sections
+come out stamped from a mold, which the quality audit records as `template-or-filler`. Your sources
+for what to teach are the bounded packet, the sealed map, the plan, this tome's own earlier
+sections, and this section's scaffold.
+
+The TOML format is the exception, and the scaffold already carries it. Its fields, tables, and
+required keys are this section's format reference; `tome-authoring/3-chapters.md` and
+`10-mastery-evidence.md` document the rest, and `validate_section.py` reports schema faults
+precisely. Read those rather than another tome. If a format question survives all of them, run the
+gate and let it name the fault.
+
+Before drafting prose, research this section's external subject matter online. Use `websearch` to
+locate authoritative sources and `webfetch` to read the primary documentation for every API,
+library, version, command, flag, and error message this section teaches; prefer official
+documentation and release notes over tutorials and over your own recall. Verify each version
+number, signature, and default against the published source, and prefer a conservative claim to an
+invented specific when a detail cannot be confirmed. Do this before the first lesson body.
+
 Before drafting prose, replace placeholder capability ids. Each lesson's `teaches` names
 concrete abilities or API contracts in stable kebab-case; the freestyle's cumulative
 `requires` lists exactly what its checklist and rubric exercise. Every requirement must
@@ -84,6 +105,15 @@ Preserve cumulative artifact truth and make it machine-replayable:
   a genuine migration and `protects` covering inherited capabilities.
 - Trace the actual program from its first executable step after the freestyle. A learner must
   not need to infer a deletion, insertion point, asset, value, working directory, or API.
+
+If a sealed mechanism cannot be demonstrated meaningfully in this Working — the milestone does not
+need it, or every honest route to it belongs in a later section — say so and leave it undone rather
+than satisfying it in form. A declaration the reference never exercises, arithmetic a later step
+discards, a value computed and never read, or a token placed to match a required spelling is worse
+than an unmet demand: it clears the mechanical gate and teaches the learner a lie. Report the
+conflict through the assigned validation path, naming the mechanism id and why no honest route
+exists here, and leave the reference honest. An unmet demand is a repairable finding the harness
+can see; a faked one is not.
 
 Teach before testing. Use complete, disposable worked examples before faded `fill` and
 independent `write` work when a mechanism is new. A worked example uses different identifiers,

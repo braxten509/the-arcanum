@@ -147,6 +147,63 @@ def _assert_replaceable(sections_path):
                          + shown + (" ..." if len(authored) > 5 else ""))
 
 
+SCAFFOLD_MARKER = "scaffolded by tools/new_tome.py"
+
+
+def is_scaffold(section_dir):
+    """True when a section directory is still an unauthored Phase-2 stub.
+
+    Phase 2 fills the plan's title and promise but leaves the generator banner and the
+    TODO markers; Phase 3 authoring rewrites the file and the banner goes with it.
+    """
+    try:
+        with open(os.path.join(section_dir, "section.toml"), encoding="utf-8") as handle:
+            return SCAFFOLD_MARKER in handle.read(4096)
+    except OSError:
+        return False
+
+
+def rebuild_section_scaffold(tid, sid, plan_path, tomes_dir=None):
+    """Put one section back to its Phase-2 stub, leaving every other section alone.
+
+    A Phase-3 restart has to clear authored prose without leaving the section empty: the
+    author is told to read its scaffold, and with nothing there it goes looking for shape
+    in whatever else is on disk. Rebuilding from the same plan Arc keeps that read local.
+
+    ``tomes_dir`` is explicit because callers rebind their own tome root; deriving it from
+    ``REPO`` here would write into the real repository instead.
+    """
+    tomes_dir = tomes_dir or os.path.join(REPO, "tomes")
+    specs = read_section_list(plan_path)
+    number, spec = next(((index, item) for index, item in enumerate(specs, 1)
+                         if item.sid == sid), (0, None))
+    if spec is None:
+        raise ValueError(f"{sid} is not in the plan Arc at {plan_path}")
+    try:
+        from maintenance import split_tome
+    except ModuleNotFoundError:  # imported by server.py as tools.buildlib.skeleton
+        from tools.maintenance import split_tome
+    sections_path = os.path.join(tomes_dir, tid, "sections")
+    os.makedirs(tomes_dir, exist_ok=True)
+    temp_root = tempfile.mkdtemp(prefix=f".{tid}-{sid}-scaffold-", dir=tomes_dir)
+    old_quiet = split_tome.QUIET
+    split_tome.QUIET = True
+    try:
+        os.makedirs(os.path.join(temp_root, "sections"))
+        with open(os.path.join(temp_root, "sections", sid + ".toml"),
+                  "w", encoding="utf-8") as handle:
+            handle.write(_render_section(spec, number))
+        split_tome.migrate_section(temp_root, sid)
+        os.makedirs(sections_path, exist_ok=True)
+        shutil.rmtree(os.path.join(sections_path, sid), ignore_errors=True)
+        os.replace(os.path.join(temp_root, "sections", sid),
+                   os.path.join(sections_path, sid))
+    finally:
+        split_tome.QUIET = old_quiet
+        shutil.rmtree(temp_root, ignore_errors=True)
+    return spec
+
+
 def scaffold_sections(tid, plan_path, force=False, repo=REPO):
     """Replace a fresh tome's sections with one deterministic stub per Arc entry."""
     tome_path = os.path.join(repo, "tomes", tid)

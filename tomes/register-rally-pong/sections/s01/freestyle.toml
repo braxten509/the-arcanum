@@ -1,269 +1,51 @@
 [freestyle]
-title = "THE WORKING: Raise the First Executable"
-brief = '''
-<p><strong>Outcome:</strong> From an empty project root, install and verify the declared Linux toolchain, then author the first Register Rally artifacts so <code>make</code> produces <code>build/register-rally-pong.o</code> and <code>build/register-rally-pong</code>, and <code>make check</code> exits zero.</p>
-<p><strong>Your choices:</strong> label names inside the source, Make variable names, and how you split targets—so long as the named paths and observable checks hold.</p>
-<ul>
-<li>Install on clean Debian/Ubuntu x86-64: NASM, build-essential, Make, pkg-config, and libsdl2-dev. Record <code>nasm -v</code>, <code>make --version</code>, <code>cc --version</code>, and <code>pkg-config --modversion sdl2</code> before writing source.</li>
-<li>Create project directories you need (at least a place for source and a place for build products).</li>
-<li>Author <code>src/pong.asm</code>: NASM sections, at least one static zero-terminated string under a label, an exported <code>main</code> for the C runtime, integer register work (including a zeroed status path), and <code>ret</code> so process status is visible.</li>
-<li>Author a root <code>Makefile</code> with variables, tabbed recipes, a NASM ELF64 assemble step into <code>build/register-rally-pong.o</code>, a link step that pulls SDL2 flags from <code>pkg-config</code> into <code>build/register-rally-pong</code>, plus <code>build</code>, <code>check</code>, and <code>run</code> targets.</li>
-<li><strong>Commands:</strong> version diagnostics, then <code>make</code> / <code>make build</code>, <code>make check</code>, and <code>make run</code> from the project root.</li>
-<li><strong>Diagnostics:</strong> separate assembly errors, link/undefined-symbol errors, missing SDL2 <code>pkg-config</code> results, and a non-zero process status from <code>main</code>.</li>
-<li><strong>Acceptance:</strong> <code>src/pong.asm</code> and <code>Makefile</code> exist; <code>build/register-rally-pong.o</code> and <code>build/register-rally-pong</code> exist after build; <code>make check</code> exits zero. Do not open an SDL window yet—later chapters own graphics.</li>
-</ul>
-'''
-requires = [
-  "tool-install",
-  "tool-navigate",
-  "tool-create-open",
-  "tool-edit-save",
-  "tool-diagnose",
-  "tool-run-test",
-  "workspace-toolchain-diagnosis",
-  "editor-file-action-loop",
-  "nasm-source-data-foundation",
-  "language-static-data-strings-addressing",
-  "register-integer-foundation",
-  "c-main-status-contract",
-  "make-assembly-link-pipeline",
-]
-mechanisms = [
-  "terminal-install-toolchain-packages",
-  "terminal-create-project-directories",
-  "editor-create-open-file",
-  "editor-edit-save-file",
-  "terminal-check-nasm-version",
-  "terminal-check-make-version",
-  "terminal-check-cc-version",
-  "pkg-config-check-sdl2",
-  "nasm-section-directive",
-  "nasm-global-extern-directives",
-  "nasm-data-reserve-directives",
-  "nasm-label-addressing",
-  "nasm-static-string-layout",
-  "x64-general-registers",
-  "nasm-mov-instruction",
-  "nasm-integer-add-sub",
-  "nasm-xor-zeroing",
-  "c-main-entry-symbol",
-  "c-main-return-status",
-  "nasm-ret-instruction",
-  "make-target-prerequisite-recipe",
-  "make-variable-expansion",
-  "nasm-elf64-object-command",
-  "cc-sdl2-link-command",
-  "make-build-check-run-targets",
-  "s01-working-outcome-choices",
-  "s01-working-constraints-commands",
-  "s01-working-diagnostics-acceptance",
-]
-reward = 180
-xray = "Mara checks real version diagnostics before source, learner-authored paths only, ELF64 main that returns status through eax/ret, Make recipes that assemble then link with pkg-config SDL2 libs, and make check exiting zero. She docks pasted lesson labels renamed into the project, missing object/bin paths, and a check that never runs the binary."
+title = "THE WORKING: TODO"
+brief = "TODO: the complete learner-visible chapter project assignment. State the outcome, flexible implementation choices, constraints, commands, diagnostics, and observable acceptance here.<ul><li>TODO requirement one</li><li>TODO requirement two</li></ul>"
+requires = ["s01-phase3-placeholder"]           # TODO: exact ids taught by this/earlier lessons
+reward = 150
+xray = "TODO: the grader's private notes — the specific pitfalls it docks and the style it rewards, truthful to the rubric below."
 
 [[freestyle.requirements]]
-id = "s01-toolchain-dirs"
-text = "Install and verify NASM, Make, cc, and SDL2 via pkg-config; create the source and build directories you will use."
+id = "replace-essential-behavior"
+text = "TODO: one observable public requirement; preserve learner implementation freedom."
 essential = true
-capabilities = ["language-invariant-checks-debug-diagnosis"]
+capabilities = ["replace-me"]
 
-[[freestyle.requirements]]
-id = "s01-source-main"
-text = "Author src/pong.asm with NASM sections, a labeled zero-terminated static string, exported main, register integer work, and ret so process status is visible."
-essential = true
-capabilities = [
-  "language-static-data-strings-addressing",
-  "language-integer-arithmetic-coordinate-updates",
-  "language-status-results-cleanup-failure",
-]
-
-[[freestyle.requirements]]
-id = "s01-makefile-pipeline"
-text = "Author a root Makefile with variables, tabbed recipes, ELF64 assemble into build/register-rally-pong.o, and SDL2 link via pkg-config into build/register-rally-pong, plus build, check, and run targets."
-essential = true
-capabilities = ["language-invariant-checks-debug-diagnosis", "language-status-results-cleanup-failure"]
-
-[[freestyle.requirements]]
-id = "s01-object-and-bin"
-text = "After make/build, both build/register-rally-pong.o and build/register-rally-pong exist at those exact paths."
-essential = true
-capabilities = ["language-invariant-checks-debug-diagnosis"]
-
-[[freestyle.requirements]]
-id = "s01-check-zero"
-text = "make check exits zero using the learner-authored status path; isolate assembly, link, SDL2 lookup, and status failures when it does not."
-essential = true
-capabilities = ["language-status-results-cleanup-failure", "language-invariant-checks-debug-diagnosis"]
-
-[[freestyle.referenceSteps]]
-id = "s01-write-makefile"
-path = "Makefile"
-mode = "write"
-mechanisms = [
-  "make-target-prerequisite-recipe",
-  "make-variable-expansion",
-  "nasm-elf64-object-command",
-  "cc-sdl2-link-command",
-  "make-build-check-run-targets",
-  "s01-working-outcome-choices",
-  "s01-working-constraints-commands",
-  "s01-working-diagnostics-acceptance",
-  "terminal-install-toolchain-packages",
-  "terminal-check-nasm-version",
-  "terminal-check-make-version",
-  "terminal-check-cc-version",
-  "pkg-config-check-sdl2",
-]
-instruction = "Private replay writes the learner-owned Make pipeline for assemble, SDL2 link, check, and run."
-content = '''
-ASM ?= nasm
-CC ?= cc
-OBJDIR := build
-SRC := src/pong.asm
-OBJ := $(OBJDIR)/register-rally-pong.o
-BIN := $(OBJDIR)/register-rally-pong
-SDL_LIBS := $(shell pkg-config --libs sdl2)
-
-.PHONY: all build check run clean
-
-all: build
-
-build: $(BIN)
-
-$(OBJ): $(SRC)
-	mkdir -p $(OBJDIR)
-	$(ASM) -f elf64 -o $@ $<
-
-$(BIN): $(OBJ)
-	$(CC) -no-pie -o $@ $^ $(SDL_LIBS)
-
-check: $(BIN)
-	./$(BIN)
-
-run: $(BIN)
-	./$(BIN)
-
-clean:
-	rm -f $(OBJ) $(BIN)
-'''
-
-[[freestyle.referenceSteps]]
-id = "s01-write-source"
-path = "src/pong.asm"
+[[freestyle.referenceSteps]]        # hidden from learners; validator replays a real solution
+id = "s01-freestyle-reference"
+path = "replace-me.txt"
 mode = "rewrite"
 preserves = "all-active"
-mechanisms = [
-  "terminal-create-project-directories",
-  "editor-create-open-file",
-  "editor-edit-save-file",
-  "nasm-section-directive",
-  "nasm-global-extern-directives",
-  "nasm-data-reserve-directives",
-  "nasm-label-addressing",
-  "nasm-static-string-layout",
-  "x64-general-registers",
-  "nasm-mov-instruction",
-  "nasm-integer-add-sub",
-  "nasm-xor-zeroing",
-  "c-main-entry-symbol",
-  "c-main-return-status",
-  "nasm-ret-instruction",
-]
-instruction = "Private replay replaces the blank entry scaffold with the s01 foundation source."
+instruction = "TODO: exact private reference edit that satisfies this Working."
 content = '''
-section .data
-    rally_tag db "register-rally-s01", 0
-
-section .text
-    global main
-
-main:
-    mov eax, 1
-    add eax, 2
-    sub eax, 3
-    xor eax, eax
-    ret
+TODO: complete reference content
 '''
 
 [freestyle.badge]
 id = "badge-s01"
-name = "CABINET POWERED"
-desc = "Verified the toolchain and raised the first learner-authored executable."
+name = "TODO BADGE"
+desc = "TODO: one sentence."
 
-[[freestyle.rubric]]
-id = "s01-toolchain-evidence"
-kind = "qualitative"
-assessmentIds = []
-criterion = "Toolchain install and version evidence"
-weight = 15
-desc = "Packages are installed; nasm -v, make --version, cc --version, and pkg-config --modversion sdl2 are observed before source is trusted."
-mechanisms = [
-  "terminal-install-toolchain-packages",
-  "terminal-check-nasm-version",
-  "terminal-check-make-version",
-  "terminal-check-cc-version",
-  "pkg-config-check-sdl2",
-]
-
-[[freestyle.rubric]]
-id = "s01-source-structure"
-kind = "qualitative"
-assessmentIds = []
-criterion = "Source structure and status path"
-weight = 25
-desc = "src/pong.asm uses sections, a labeled zero-terminated string, exported main, register integer ops including zeroing, and ret for process status."
-mechanisms = [
-  "editor-create-open-file",
-  "editor-edit-save-file",
-  "nasm-section-directive",
-  "nasm-global-extern-directives",
-  "nasm-data-reserve-directives",
-  "nasm-label-addressing",
-  "nasm-static-string-layout",
-  "x64-general-registers",
-  "nasm-mov-instruction",
-  "nasm-integer-add-sub",
-  "nasm-xor-zeroing",
-  "c-main-entry-symbol",
-  "c-main-return-status",
-  "nasm-ret-instruction",
-]
-
-[[freestyle.rubric]]
-id = "s01-make-pipeline"
+[[freestyle.rubric]]               # weights MUST sum to exactly 100
+id = "build-evidence"
+criterion = "Compiles & runs"
+weight = 40
 kind = "deterministic"
-assessmentIds = ["clean-build"]
-criterion = "Make assemble and SDL2 link pipeline"
-weight = 30
-desc = "Makefile variables and recipes assemble ELF64 into build/register-rally-pong.o and link with pkg-config SDL2 libs into build/register-rally-pong."
-mechanisms = [
-  "terminal-create-project-directories",
-  "make-target-prerequisite-recipe",
-  "make-variable-expansion",
-  "nasm-elf64-object-command",
-  "cc-sdl2-link-command",
-  "make-build-check-run-targets",
-]
+assessmentIds = ["replace-build-check"]
+desc = "TODO: build succeeds; runs without crashing on normal input."
 
 [[freestyle.rubric]]
-id = "s01-check-acceptance"
+id = "behavior-evidence"
+criterion = "Meets the brief"
+weight = 40
 kind = "deterministic"
-assessmentIds = ["make-check-zero"]
-criterion = "Check exits zero with named artifacts"
+assessmentIds = ["replace-behavior-check"]
+desc = "TODO: every requirement in the checklist is present and correct."
+
+[[freestyle.rubric]]
+id = "design-quality"
+criterion = "Clean style"
 weight = 20
-desc = "Named object and executable exist; make check runs the binary and exits zero; diagnostics separate assembly, link, SDL2, and status failures."
-mechanisms = [
-  "s01-working-constraints-commands",
-  "s01-working-diagnostics-acceptance",
-]
-
-[[freestyle.rubric]]
-id = "s01-learner-choices"
 kind = "qualitative"
 assessmentIds = []
-criterion = "Learner-owned names and target shape"
-weight = 10
-desc = "Label names, Make variables, and target decomposition remain the learner's while the required paths and checks stay fixed."
-mechanisms = [
-  "s01-working-outcome-choices",
-]
+desc = "TODO: name this language's real naming AND layout conventions (research its style guide)."

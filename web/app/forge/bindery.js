@@ -1,7 +1,7 @@
 /* Tome shelf plus the persistent author's interactive workbench. */
 import { $, closeModal, dropOverlay, esc, modal, sfx } from "../core/dom.js";
 import { enhanceSelect } from "../ui/menu.js";
-import { forgeEntry } from "./forge.js";
+import { forgeEntry, matchProvider } from "./forge.js";
 import { fallbackForgeRunningCost, forgeHarnessValidationState, formatForgeRunningCost,
   formatForgeWeeklyUsage, mergeForgeConversationCosts, mergeForgeTraceLines } from "./trace-lines.js";
 import { fallbackCourseControl, formatCourseBlockers } from "./course-control.js";
@@ -225,7 +225,7 @@ export function openBuildOverlay(jobId, traceId = jobId) {
   const fail = $("#fp-fail", overlay), failMsg = $("#fp-fail-msg", overlay),
         altProv = $("#fp-alt-prov", overlay), altModel = $("#fp-alt-model", overlay),
         altEff = $("#fp-alt-eff", overlay), altResume = $("#fp-alt-resume", overlay);
-  let altProviders = null;
+  let altProviders = null, altRole = "";
   const fillAltEfforts = () => {
     const provider = (altProviders || []).find((item) => item.id === altProv.value);
     const row = provider && (provider.models || []).find((item) => item[0] === altModel.value);
@@ -244,15 +244,18 @@ export function openBuildOverlay(jobId, traceId = jobId) {
   };
   altProv.onchange = fillAltModels;
   altModel.onchange = fillAltEfforts;
-  async function armAltPicker(current) {
-    if (altProviders) return;
-    try {
-      const data = await (await apiFetch("/api/models")).json();
-      altProviders = (data.bindery || []).filter((item) => item.installed !== false && (item.models || []).length);
-    } catch { return; /* a later failure poll retries */ }
-    [altProv, altModel, altEff].forEach(enhanceSelect);
+  async function armAltPicker(current, role) {
+    if (altRole === role) return;
+    if (!altProviders) {
+      try {
+        const data = await (await apiFetch("/api/models")).json();
+        altProviders = (data.bindery || []).filter((item) => item.installed !== false && (item.models || []).length);
+      } catch { return; /* a later failure poll retries */ }
+      [altProv, altModel, altEff].forEach(enhanceSelect);
+    }
+    altRole = role;
     altProv.innerHTML = altProviders.map((item) => `<option value="${esc(item.id)}">${esc(item.label)}</option>`).join("");
-    const match = current && altProviders.find((item) => item.kind === current.kind);
+    const match = matchProvider(altProviders, current);
     if (match) altProv.value = match.id;
     fillAltModels();
     if (current?.model && [...altModel.options].some((option) => option.value === current.model)) altModel.value = current.model;
@@ -263,8 +266,13 @@ export function openBuildOverlay(jobId, traceId = jobId) {
     const provider = (altProviders || []).find((item) => item.id === altProv.value);
     if (!provider || !altModel.value) return;
     altResume.disabled = true;
-    const author = { kind: provider.kind, model: altModel.value, ...(altEff.value ? { effort: altEff.value } : {}) };
-    try { await post("/api/buildtome/continue", { author }); fail.classList.add("hidden"); }
+    const agent = { kind: provider.kind, model: altModel.value, ...(altEff.value ? { effort: altEff.value } : {}) };
+    try {
+      await post("/api/buildtome/continue",
+                 altRole === "validator" ? { validator: agent } : { author: agent });
+      fail.classList.add("hidden");
+      altRole = ""; // the next failure re-arms from whichever agent is down then
+    }
     catch (error) { altResume.title = String(error.message || error); }
     finally { altResume.disabled = false; }
     tick();
@@ -319,7 +327,15 @@ export function openBuildOverlay(jobId, traceId = jobId) {
     pause.disabled = state === "pausing" || state === "resuming" || state === "validating";
     const authorDown = state === "paused" && status.sessionError;
     fail.classList.toggle("hidden", !authorDown);
-    if (authorDown) { failMsg.textContent = status.sessionError; armAltPicker(status.sessionAuthor); }
+    if (authorDown) {
+      // A validator-infrastructure pause still reports role "author": the paid author
+      // never ran, so the retry belongs to the validator AI, not the author.
+      const downRole = status.sessionGate === "validator-infrastructure" ? "validator"
+        : reviewerActive ? "reviewer" : "author";
+      failMsg.textContent = status.sessionError;
+      altResume.textContent = `RESUME ${downRole.toUpperCase()} WITH THIS AI`;
+      armAltPicker(downRole === "validator" ? status.sessionValidator : status.sessionAuthor, downRole);
+    }
     overlay.querySelectorAll(".forge-phase").forEach((row) => {
       const phase = Number(row.dataset.ph), current = Number(status.phase || 1);
       row.classList.toggle("done", phase < current || (phase === current && status.phaseState === "complete"));

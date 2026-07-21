@@ -3,12 +3,11 @@ from __future__ import annotations
 
 import os
 import queue
-import subprocess
 import sys
 import threading
 import traceback
 
-from .. import BUILD_DIR, REPO
+from .. import BUILD_DIR, REPO, brief_exception
 from ..course.state import tree_digest
 from .gate import (advance_unit, context, current_unit, ensure_unit, label,
                           mark_unit_validating, next_prompt, preflight_unit,
@@ -93,12 +92,7 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
         """Surface a harness-owned failure and wait; the author cannot repair it."""
         # subprocess errors stringify their whole argv, and the validator prompt is one of
         # those arguments: several KB of evidence packet burying the one useful clause.
-        if isinstance(exc, subprocess.TimeoutExpired):
-            detail = f"{type(exc).__name__}: validator timed out after {exc.timeout:.0f}s"
-        elif isinstance(exc, subprocess.CalledProcessError):
-            detail = f"{type(exc).__name__}: validator exited {exc.returncode}"
-        else:
-            detail = f"{type(exc).__name__}: {exc}"
+        detail = brief_exception(exc)
         print("HARNESS VALIDATION INFRASTRUCTURE FAILURE", flush=True)
         if sys.exc_info()[0] is not None:
             traceback.print_exc()

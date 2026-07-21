@@ -13,7 +13,7 @@ sys.path.insert(0, ROOT)
 from tools.buildlib import ai_costs
 from tools.buildlib import planning_review
 from tools.buildlib.prerequisites import records as review_records
-from tools.buildlib.prerequisites import review as validator_transport
+from tools.buildlib.prerequisites import transport as validator_transport
 
 
 def audit_report(phase, sources, outcome="PASS", fail_criterion=""):

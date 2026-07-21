@@ -12,10 +12,11 @@ from ...forge.build_state import (BUILD_TOTAL_PHASES, build_result_status,
                                   load_author_session, load_section_progress,
                                   save_active_owner)
 from ...config import BUILD_DIR, CLI_EFFORTS, ROOT
-from ...forge import (_clear_build_terminal_state, _plan_concept, _plan_gate,
-                      _resume_phase, _save_launch, author_activity_started_at,
-                      external_build_process, fresh_tome_id, list_active_builds,
-                      watch_build, working_is_active)
+from ...forge import (_clear_build_terminal_state, _load_launch, _plan_concept,
+                      _plan_gate, _resume_phase, _save_launch,
+                      author_activity_started_at, external_build_process,
+                      fresh_tome_id, list_active_builds, watch_build,
+                      working_is_active)
 
 
 AUTHOR_KINDS = ("claude-cli", "antigravity-cli", "codex-cli", "opencode-cli")
@@ -227,6 +228,17 @@ def control_author(h, body, action, services):
             payload["author"] = _author(body)
         except ValueError as exc:
             return h.send_json({"ok": False, "error": str(exc)}, 400)
+    if action in ("message", "resume") and body.get("validator"):
+        try:
+            validator = _validator(body)
+        except ValueError as exc:
+            return h.send_json({"ok": False, "error": str(exc)}, 400)
+        # The gate re-reads launch.json on every run, so rewriting it retargets the
+        # next mechanical check without restarting the harness or the author session.
+        stable = job.get("slug") or job.get("tome") or bid
+        launch = _load_launch(stable)
+        _save_launch(stable, {**launch, "validator": validator},
+                     str(launch.get("concept") or ""))
     try:
         proc.stdin.write(json.dumps(payload, ensure_ascii=False) + "\n")
         proc.stdin.flush()

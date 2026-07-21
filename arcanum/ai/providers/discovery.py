@@ -9,7 +9,8 @@ import urllib.request
 
 from arcanum.config import (AGY_BIN, CLI_EFFORTS, CLI_MODELS, CODEX_BIN,
                             OPENCODE_BIN, OPENCODE_FREE_IDS,
-                            OPENCODE_GO_FALLBACK, OPENCODE_MAPLE_IDS)
+                            OPENCODE_GO_FALLBACK, OPENCODE_MAPLE_IDS,
+                            OPENROUTER_IDS)
 
 
 def models_dev_efforts():
@@ -65,6 +66,15 @@ def opencode_zen_models():
         return [model, model.split("/", 1)[-1], label, efforts.get(model, [])]
 
     return [row(model) for model in zen]
+
+
+def openrouter_models():
+    """OpenRouter ids surfaced through the OpenCode CLI. Same known-ID-filtered-by-
+    live-availability shape as the Maple list."""
+    lines = _opencode_model_lines()
+    efforts = models_dev_efforts()
+    return [[model, model.split("/", 1)[-1], "", efforts.get(model, [])]
+            for model in OPENROUTER_IDS if not lines or model in lines]
 
 
 def ollama_bindery_models():

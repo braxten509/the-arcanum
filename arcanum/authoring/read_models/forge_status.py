@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 
-from arcanum.forge import forge_name, list_active_builds
+from arcanum.forge import _load_launch, forge_name, list_active_builds
 from arcanum.forge.build_state import (build_result_status, cancelled_build_status,
                                        load_author_session, load_build_progress,
                                        load_section_progress)
@@ -71,6 +71,15 @@ class ForgeStatusService:
                 "effort": session.get("effort"),
             }
             output["sessionRole"] = str(session.get("role") or "author")
+            # Which agent a paused build is actually waiting on: a validator-infrastructure
+            # pause keeps role "author" but the retry belongs to the validator.
+            output["sessionGate"] = str(session.get("gate") or "")
+        # The launch record, not the job, owns the validator: it survives a server restart
+        # and is what the gate re-reads, so a swapped validator shows up here immediately.
+        launch = _load_launch(stable, output.get("tome") or "")
+        validator = launch.get("validator") or (launch.get("bindery") or {}).get("validator")
+        if validator:
+            output["sessionValidator"] = validator
         output["conversation"] = load_conversation(
             self.settings.build_root, stable, 120)
         output["gptRunningCost"] = load_gpt_running_cost(

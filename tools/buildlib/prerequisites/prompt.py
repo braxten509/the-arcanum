@@ -153,7 +153,15 @@ selected concept family is coherent at the sealed Start pace and the learner-vis
 
 The section Working passes only when every required operation is taught before use, the brief and
 rubric agree, the hidden reference is feasible, and a learner who followed only the visible path
-can complete it. The learner must construct, adapt, diagnose, or justify something substantive and
+can complete it. Hold the hidden reference to the same standard as a lesson worked example,
+because it is what a learner compares their own attempt against. It must exercise every mechanism
+it declares rather than merely listing it, and every operation it performs must affect the
+artifact's observable result. FAIL a reference that declares a mechanism absent from what it
+actually writes, that computes or stores a value the rest of the step discards, or that satisfies a
+required demand by its literal form while demonstrating nothing a learner could learn from. When
+the author instead states plainly that a sealed mechanism has no honest route in this section, treat
+that as an ordinary unmet demand naming the conflict, not as deception; it is the outcome this gate
+prefers over a satisfied-in-form reference. The learner must construct, adapt, diagnose, or justify something substantive and
 retain meaningful implementation choices. FAIL if success is mainly copying a lesson example,
 renaming a supplied solution, transcribing the starter, following a hidden assumption, or matching
 one leaked output. The rubric must grade observable behavior and the section's promised capability,

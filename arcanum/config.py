@@ -69,7 +69,7 @@ CLI_EFFORTS = {
     # opencode's --variant reasoning effort — a permissive ALLOWLIST here (the real per-model
     # values come from models.dev in the bindery). "none" appears on some models (e.g.
     # north-mini-code-free). Local ollama models take no variant.
-    "opencode-cli": ["none", "minimal", "low", "medium", "high", "max"],
+    "opencode-cli": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
 }
 
 # Claude Code accepts one provider-wide --effort flag, but the API support is
@@ -104,6 +104,15 @@ OPENCODE_FREE_IDS = [
 # list's known-ID-filtered-by-live-availability pattern.
 OPENCODE_MAPLE_IDS = [
     "mapleai/glm-5-2",
+]
+# OpenRouter (openrouter/*) via the OpenCode CLI. Routing is pinned to Novita in
+# ~/.config/opencode/opencode.jsonc; here we only choose which ids to surface.
+OPENROUTER_IDS = [
+    "openrouter/deepseek/deepseek-v4-pro",
+    "openrouter/minimax/minimax-m3",
+    "openrouter/openai/gpt-5.6-luna",
+    "openrouter/openai/gpt-5.6-terra",
+    "openrouter/thinkingmachines/inkling",
 ]
 
 # Settings that follow the READER, not the tome — audio, pen (handwritten ink), and the

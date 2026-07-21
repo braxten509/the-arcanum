@@ -372,7 +372,27 @@ def exercise_section_rewind(root):
     append_status_line("demo", "GPT API-EQUIVALENT COST COMPLETE [901.000] › "
                        "PHASE 2 TOTAL › $7.80", build_dir=str(build_dir), at=901)
 
+    sections_dir = Path(phase_reset.TOMES_DIR) / "demo" / "sections"
+    authored = sections_dir / "s02" / "section.toml"
+    write(authored, 'id = "s02"\ncodename = "AUTHORED"\ntitle = "authored prose"\n')
+
     result = phase_reset.reset_tome_to_section("demo", "s02")
+
+    # The authored tree is stashed, not deleted, and comes back as its own Phase-2 scaffold.
+    # Leaving the section empty would rewind Phase 2 as well, and an author with no scaffold
+    # goes hunting for a section shape wherever it can find one, including other tomes.
+    assert "AUTHORED" not in authored.read_text()
+    assert phase_reset.is_scaffold(str(sections_dir / "s02")), "s02 was not rebuilt"
+    stashed = list((build_dir / "demo.reset-stash").glob("*/s02/section.toml"))
+    assert len(stashed) == 1 and "AUTHORED" in stashed[0].read_text()
+
+    # Restarting a section that is already an untouched scaffold has nothing to rewind, so
+    # it must not stash or rewrite anything a second time.
+    scaffold_before = authored.read_text()
+    phase_reset.reset_tome_to_section("demo", "s02")
+    assert authored.read_text() == scaffold_before, "a scaffold must survive untouched"
+    assert len(list((build_dir / "demo.reset-stash").glob("*/s02/section.toml"))) == 1, \
+        "restarting a scaffold must not create a second stash entry"
 
     assert result == {"id": "demo", "tome": "demo", "phase": 3, "section": "s02",
                       "phaseTitle": phase_reset.PHASE_TITLES[3], "usedSnapshot": False}
