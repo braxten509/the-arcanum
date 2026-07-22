@@ -1,8 +1,8 @@
 """OpenAI Responses API transport for the Validator AI.
 
-The no-tools, Structured Output request used whenever an API key is present and
-the configured validator is a gpt- model. The CLI transport stays in review.py,
-where the tests rebind its runner seams.
+The section reviewer uses this as a no-tools plain-text request. The optional
+schema parameters remain available to other direct callers. CLI transport stays
+in review.py, where tests rebind its runner seams.
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from .prompt import DYNAMIC_MARKER, result_schema as _result_schema
 
 
 # 10: a declared "no honest route" is an unmet demand, not deception.
-AUDIT_CONTRACT_VERSION = 10
+AUDIT_CONTRACT_VERSION = 11
 RESPONSES_URL = "https://api.openai.com/v1/responses"
 API_TIMEOUT_SECONDS = 900
 API_MAX_OUTPUT_TOKENS = 2_500

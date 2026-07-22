@@ -12,7 +12,10 @@ from buildlib import BUILD_DIR
 from buildlib.workflow.checkpoints import (finalize_arc, maybe_rename,
                                            preflight_arc_transition)
 from buildlib.course_map import seed_course_map, seal_course_map
-from buildlib.skeleton import scaffold_sections
+from buildlib.course_map.author_spec import initialize_author_spec, materialize_author_spec
+from buildlib.phase2_research import initialize_ledger
+from buildlib.workflow.prompts import read_tooling
+from buildlib.skeleton import hydrate_section_scaffolds, scaffold_sections
 
 
 def main():
@@ -28,14 +31,19 @@ def main():
         preflight_arc_transition(plan, args.build_id)
         finalize_arc(plan)
         specs = scaffold_sections(args.build_id, plan)
-        seed_course_map(args.build_id, plan)
+        seed = seed_course_map(args.build_id, plan)
+        initialize_author_spec(args.build_id, seed)
+        initialize_ledger(args.build_id, read_tooling(plan))
         print(f"Prepared Phase 2: {len(specs)} section skeletons and a complete-map proposal "
               f"in tomes/{args.build_id}.")
     else:
+        materialize_author_spec(args.build_id)
         sealed = seal_course_map(args.build_id)
         current = maybe_rename(args.build_id, plan)
+        hydrated = hydrate_section_scaffolds(current, sealed)
         print(f"SEALED_COURSE_MAP={sealed['digest']}")
         print(f"CURRENT_TOME={current}")
+        print(f"HYDRATED_SECTION_SCAFFOLDS={len(hydrated)}")
 
 
 if __name__ == "__main__":

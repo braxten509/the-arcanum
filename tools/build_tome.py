@@ -22,16 +22,25 @@ from buildlib.single_author import full_review
 from buildlib.single_author import AuthorSession, author_prompt, continuation_prompt
 
 
-def _author(value):
+def _agent(value, allowed, role):
     kind, separator, rest = str(value or "").partition(":")
     model, effort_separator, effort = rest.rpartition("@")
     if not separator:
-        raise argparse.ArgumentTypeError("author must be KIND:MODEL[@EFFORT]")
+        raise argparse.ArgumentTypeError(f"{role} must be KIND:MODEL[@EFFORT]")
     if not effort_separator:
         model, effort = rest, ""
-    if kind not in ("claude-cli", "antigravity-cli", "codex-cli", "opencode-cli") or not model:
-        raise argparse.ArgumentTypeError("author must name one defined agent CLI and model")
+    if kind not in allowed or not model:
+        raise argparse.ArgumentTypeError(
+            f"{role} must use one of {', '.join(allowed)} and name a model")
     return kind, model, effort
+
+
+def _author(value):
+    return _agent(value, ("claude-cli", "codex-cli"), "author")
+
+
+def _validator(value):
+    return _agent(value, ("claude-cli", "codex-cli", "openai-api"), "validator")
 
 
 def _persist_validator(build_id, spec, gate_json=None):
@@ -72,6 +81,13 @@ def _selftest():
     assert continuation == "Continue."
     assert _author("codex-cli:gpt-5.6-sol@high") == (
         "codex-cli", "gpt-5.6-sol", "high")
+    assert _validator("openai-api:gpt-5.6-luna@medium") == (
+        "openai-api", "gpt-5.6-luna", "medium")
+    try:
+        _author("opencode-cli:openrouter/example")
+        raise AssertionError("OpenCode must not be accepted for tome authoring")
+    except argparse.ArgumentTypeError:
+        pass
     review = full_review.prompt("sample", "sample")
     assert "THOROUGH FULL-TOME REVIEW" in review
     assert "READ EVERYTHING" in review and "NO SAMPLING" in review
@@ -86,10 +102,10 @@ def _selftest():
     routed = AuthorSession("sample", "claude-cli", "arc", "high", "", "both", 1,
                            phase_authors={"phase12": ("claude-cli", "arc", "high"),
                                           "phase37": ("codex-cli", "sections", "medium"),
-                                          "phase8": ("opencode-cli", "review", "max")})
+                                          "phase8": ("codex-cli", "review", "max")})
     assert routed.phase_author(2) == ("claude-cli", "arc", "high")
     assert routed.phase_author(3) == ("codex-cli", "sections", "medium")
-    assert routed.phase_author(8) == ("opencode-cli", "review", "max")
+    assert routed.phase_author(8) == ("codex-cli", "review", "max")
     routed.session_id = "phase-1-planning"
     assert not routed.activate_unit_author(
         {"kind": "phase", "phase": 1}, {"kind": "phase", "phase": 2})
@@ -232,7 +248,7 @@ def main():
     parser.add_argument("--phase-1-2-author", type=_author)
     parser.add_argument("--phase-3-7-author", type=_author)
     parser.add_argument("--phase-8-author", type=_author)
-    parser.add_argument("--validator", required=True, type=_author,
+    parser.add_argument("--validator", required=True, type=_validator,
                         help="mandatory KIND:MODEL[@EFFORT] post-section validator AI")
     parser.add_argument("--reviewer", type=_author,
                         help="optional KIND:MODEL[@EFFORT] for an exhaustive post-build reviewer")

@@ -147,6 +147,17 @@ def read_settings():
         return {}
 
 
+def openai_api_configured():
+    """Whether Forge can use its explicit Codex API validator transport."""
+    if str(os.environ.get("OPENAI_API_KEY") or "").strip():
+        return True
+    try:
+        return bool(str(((((read_settings().get("ai") or {}).get("keys") or {})
+                          .get("openai")) or "")).strip())
+    except (OSError, TypeError, ValueError):
+        return False
+
+
 def _toml_value(v):
     if isinstance(v, bool):          # before int: bool is an int subclass
         return "true" if v else "false"

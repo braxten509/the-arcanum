@@ -9,6 +9,8 @@ import copy
 import hashlib
 import os
 import sys
+import tempfile
+import tomllib
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -16,6 +18,9 @@ from buildlib import course_map
 from buildlib.skeleton.integrity import (artifact_inventory, delivery_contract,
                                          phase1_problems, phase2_alignment_problems,
                                          seed_contract)
+from buildlib.skeleton import hydrate_section_scaffolds
+from maintenance import split_tome
+from new_tome import SECTION_TEMPLATE, render
 
 
 PLAN_BODY = """
@@ -258,5 +263,48 @@ substituted_path = copy.deepcopy(proof_sections)
 substituted_path[-1]["proof"]["artifactPath"] = "dist/easier-output"
 assert any("artifactPath must exactly preserve" in item for item in phase2_alignment_problems(
     v3_contract, V3_PLAN_BODY, v3_manifest, substituted_path))
+
+# Phase 2 must materialize its sealed node contract into every untouched scaffold.
+# Phase 3 should author content, not pay a model to rediscover lesson count and ids.
+with tempfile.TemporaryDirectory() as root:
+    tome = os.path.join(root, "tomes", "demo")
+    os.makedirs(os.path.join(tome, "sections"))
+    flat = os.path.join(tome, "sections", "s01.toml")
+    with open(flat, "w", encoding="utf-8") as handle:
+        handle.write(render(SECTION_TEMPLATE, {"SID": "s01", "ROMAN": "I"}).lstrip("\n"))
+    quiet = split_tome.QUIET
+    split_tome.QUIET = True
+    try:
+        split_tome.migrate_section(tome, "s01")
+    finally:
+        split_tome.QUIET = quiet
+    sealed = {"sections": [{"id": "s01", "nodes": [
+        {"id": "s01.l01", "kind": "lesson", "title": "First exact lesson",
+         "teaches": ["cap-a"], "introduces": ["mechanism-a"],
+         "validationDependencies": []},
+        {"id": "s01.l02", "kind": "lesson", "title": "Second exact lesson",
+         "teaches": ["cap-b"], "introduces": ["mechanism-b"],
+         "validationDependencies": ["example-package"]},
+        {"id": "s01.working", "kind": "working", "title": "Exact Working",
+         "requires": ["cap-a", "cap-b"],
+         "mechanisms": ["mechanism-a", "mechanism-b"],
+         "validationDependencies": ["example-package"],
+         "masteryPerformances": ["transfer-proof"]},
+    ]}]}
+    assert hydrate_section_scaffolds(
+        "demo", sealed, tomes_dir=os.path.join(root, "tomes")) == ["s01"]
+    lesson_dir = os.path.join(tome, "sections", "s01", "lessons")
+    assert sorted(os.listdir(lesson_dir)) == ["l01.toml", "l02.toml"]
+    with open(os.path.join(lesson_dir, "l02.toml"), "rb") as handle:
+        lesson = tomllib.load(handle)["lessons"][0]
+    assert lesson["id"] == "s01-l02" and lesson["teaches"] == ["cap-b"]
+    assert lesson["introduces"] == ["mechanism-b"]
+    assert lesson["validationDependencies"] == ["example-package"]
+    with open(os.path.join(tome, "sections", "s01", "freestyle.toml"), "rb") as handle:
+        working = tomllib.load(handle)["freestyle"]
+    assert working["requires"] == ["cap-a", "cap-b"]
+    assert working["mechanisms"] == ["mechanism-a", "mechanism-b"]
+    assert working["masteryPerformances"] == ["transfer-proof"]
+    assert os.path.isfile(os.path.join(tome, "sections", "s01", "assessment.toml"))
 
 print("skeleton-integrity contract tests: OK")

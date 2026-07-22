@@ -1,5 +1,5 @@
-const DURABLE_LINE = /^((?:(?:VALIDATOR COMMAND|AI VALIDATOR CALL) (?:START|COMPLETE|FAILED)|GPT API-EQUIVALENT COST COMPLETE))\s+\[([0-9]+(?:\.[0-9]+)?)\](.*)$/;
-const GPT_COST_LINE = /^GPT API-EQUIVALENT COST COMPLETE \[([0-9]+(?:\.[0-9]+)?)\] › PHASE ([1-8]) (?:(?:SECTION ([A-Za-z0-9_-]+))|TOTAL)\b/;
+const DURABLE_LINE = /^((?:(?:VALIDATOR COMMAND|AI VALIDATOR CALL) (?:START|COMPLETE|FAILED)|(?:AI API-EQUIVALENT COST COMPLETE|GPT API-EQUIVALENT COST COMPLETE)))\s+\[([0-9]+(?:\.[0-9]+)?)\](.*)$/;
+const GPT_COST_LINE = /^(?:AI API-EQUIVALENT COST COMPLETE|GPT API-EQUIVALENT COST COMPLETE) \[([0-9]+(?:\.[0-9]+)?)\] › PHASE ([1-8]) (?:(?:SECTION ([A-Za-z0-9_-]+))|TOTAL)\b/;
 const CLOCK_LINE = /^(\d{2}):(\d{2}):(\d{2})\b/;
 const MERGED_TRACE_LINES = 600;
 const WEEKLY_USAGE_USD_PER_PERCENT = 1.4;
@@ -31,14 +31,14 @@ function durableEntry(line) {
 function formatCostConversationText(text) {
   let visible = String(text || "")
     .replace(/ \[[0-9]+(?:\.[0-9]+)?\](?=\s*›)/, "")
-    .replace(/^GPT API-EQUIVALENT COST COMPLETE\b\s*›\s*/i, "")
+    .replace(/^(?:AI API-EQUIVALENT COST COMPLETE|GPT API-EQUIVALENT COST COMPLETE)\b\s*›\s*/i, "")
     .replace(/^PHASE ([1-8]) SECTION ([A-Za-z0-9_-]+)\b/, "Phase $1 section $2")
     .replace(/^PHASE ([1-8]) TOTAL\b/, "Phase $1 total")
     .replace(/· SUM OF ([0-9]+) SECTIONS?\b/, (_match, count) =>
       `· sum of ${count} ${count === "1" ? "section" : "sections"}`)
     .replace(/\bUNAVAILABLE\b/, "Unavailable")
-    .replace(/· PARTIAL: ([0-9]+) GPT TURNS? LACKED TOKEN USAGE\b/, (_match, count) =>
-      `· Partial: ${count} GPT ${count === "1" ? "turn" : "turns"} lacked token usage`);
+    .replace(/· PARTIAL: ([0-9]+) (?:AI|GPT) TURNS? LACKED TOKEN USAGE\b/, (_match, count) =>
+      `· Partial: ${count} AI ${count === "1" ? "turn" : "turns"} lacked token usage`);
   if (/\([^)]*weekly usage\)/i.test(visible)) return visible;
   const amount = visible.match(/\$([0-9]+(?:\.[0-9]+)?)(\+)?(?=\s|$)/);
   if (amount) {
@@ -146,7 +146,7 @@ export function formatForgeWeeklyUsage(report) {
 /** Merge provider tool calls and durable harness events into one chronological terminal feed. */
 export function mergeForgeTraceLines(toolLines, logtail, anchor = Date.now()) {
   const durableLines = String(logtail || "").split("\n")
-    .filter((line) => /^(?:(?:VALIDATOR COMMAND|AI VALIDATOR CALL) (?:START|COMPLETE|FAILED)|GPT API-EQUIVALENT COST COMPLETE)\b/.test(line));
+    .filter((line) => /^(?:(?:VALIDATOR COMMAND|AI VALIDATOR CALL) (?:START|COMPLETE|FAILED)|(?:AI API-EQUIVALENT COST COMPLETE|GPT API-EQUIVALENT COST COMPLETE))\b/.test(line));
   const rows = [...(Array.isArray(toolLines) ? toolLines : []), ...durableLines]
     .map((line, index) => {
       const durable = durableEntry(line);

@@ -204,9 +204,8 @@ with tempfile.TemporaryDirectory() as root:
                 "qualityFindings": quality,
             }
         bounded_sources = [{**item, "lineCount": 5} for item in sources]
-        # The shared global policy treats an explicit FAIL plus explanation as usable even
-        # when the envelope is not JSON. FAIL is conservative; it must not spend another
-        # same-model call just to reformat the answer. A loose PASS remains fail-closed.
+        # Plain PASS and FAIL prose are both usable; neither spends another call merely
+        # to satisfy a response envelope.
         _parsed, _errors, readable_text_fail = prerequisite_review._classify_output(
             "verdict: FAIL\nsummary: The cited lesson omits an actionable prerequisite.",
             bounded_sources, "s01", {"function-definition"})
@@ -215,7 +214,8 @@ with tempfile.TemporaryDirectory() as root:
         _parsed, _errors, unsupported_text_pass = prerequisite_review._classify_output(
             "verdict: PASS\nsummary: Everything appears complete.",
             bounded_sources, "s01", {"function-definition"})
-        assert unsupported_text_pass.unusable
+        assert unsupported_text_pass.result["status"] == "PASS"
+        assert not unsupported_text_pass.unusable
         incomplete_pass = audit_result()
         incomplete_pass["nodeReviews"] = incomplete_pass["nodeReviews"][:-1]
         rejected, errors = prerequisite_review._validate_detailed(
@@ -285,8 +285,8 @@ with tempfile.TemporaryDirectory() as root:
         assert advanced["status"] == "PASS" and len(advanced_calls) == 1
         assert "Start is 7/10 (PRIOR-KNOWLEDGE CALIBRATED)" in advanced_calls[0]
 
-        # An evidence-backed FAIL is actionable even when optional amendment
-        # metadata is malformed. The author gets its reasons; no retry or Terra call occurs.
+        # An evidence-backed FAIL is actionable even when optional amendment metadata
+        # cannot be extracted. The author gets its prose; no retry or model switch occurs.
         os.remove(prerequisite_review.result_path("demo", "s01"))
         os.remove(prerequisite_review.calls_path("demo"))
         with open(os.path.join(root, "demo.launch.json"), "w", encoding="utf-8") as handle:
@@ -295,7 +295,7 @@ with tempfile.TemporaryDirectory() as root:
                        "gate": {"prior_level": "2", "prior_knowledge": "names and literals"}},
                       handle)
         routed = []
-        def actionable_malformed(_prompt, reviewer):
+        def actionable_form_free(_prompt, reviewer):
             routed.append(reviewer["model"])
             finding = {"id": "function-call", "label": "function call",
                        "kind": "syntax-form", "owner": "s01.l01",
@@ -311,7 +311,7 @@ with tempfile.TemporaryDirectory() as root:
                 patch.object(prerequisite_review, "section_evidence_packet",
                              return_value=("bounded packet", sources)):
             actionable = prerequisite_review.review_prerequisites(
-                "demo", "s01", adapter=actionable_malformed)
+                "demo", "s01", adapter=actionable_form_free)
         assert actionable["status"] == "FAIL"
         assert actionable["reasons"] == ["A definitive audit finding."]
         assert actionable["missingMechanisms"] == []
@@ -322,22 +322,21 @@ with tempfile.TemporaryDirectory() as root:
         assert "CALL COMPLETE" in trace_lines[1] and "(FAIL)" in trace_lines[1]
         with open(prerequisite_review.calls_path("demo"), encoding="utf-8") as handle:
             rows = [json.loads(line) for line in handle]
-        assert len(rows) == 1 and rows[0]["malformed"] is True
+        assert len(rows) == 1 and not rows[0].get("malformed", False)
         assert rows[0]["contract"] == prerequisite_review.AUDIT_CONTRACT_VERSION
         failure_files = sorted(os.listdir(prerequisite_review.validator_failure_dir("demo")))
         assert len(failure_files) == 1
         with open(os.path.join(prerequisite_review.validator_failure_dir("demo"),
                                failure_files[0]), encoding="utf-8") as handle:
             archived = json.load(handle)
-        assert archived["stage"] == "audit" and archived["malformed"] is True
+        assert archived["stage"] == "audit" and not archived.get("malformed", False)
         assert archived["recordedAt"].endswith("Z") and archived["blockerSignature"]
 
-        # A complete bounded PASS with harmless schema drift is normalized locally;
-        # formatting alone never spends a second model call.
+        # A readable PASS needs no normalization or second model call.
         os.remove(prerequisite_review.result_path("demo", "s01"))
         os.remove(prerequisite_review.calls_path("demo"))
         routed, prompts = [], []
-        def readable_malformed_pass(prompt, reviewer):
+        def readable_form_free_pass(prompt, reviewer):
             routed.append(reviewer["model"])
             prompts.append(prompt)
             value = audit_result(reasons=["All sealed nodes are complete."])
@@ -355,17 +354,16 @@ with tempfile.TemporaryDirectory() as root:
                 patch.object(prerequisite_review, "section_evidence_packet",
                              return_value=("repair packet", sources)):
             repaired = prerequisite_review.review_prerequisites(
-                "demo", "s01", adapter=readable_malformed_pass)
+                "demo", "s01", adapter=readable_form_free_pass)
         assert repaired["status"] == "PASS"
         assert routed == ["gpt-5.6-luna"]
-        assert "UNUSABLE RESPONSE RECOVERY RETRY" not in prompts[0]
         trace_lines = [line for line in trace.getvalue().splitlines()
                        if line.startswith("AI VALIDATOR CALL")]
         assert len(trace_lines) == 2 and "CALL START" in trace_lines[0]
         assert "CALL COMPLETE" in trace_lines[1] and "(PASS)" in trace_lines[1]
         with open(prerequisite_review.calls_path("demo"), encoding="utf-8") as handle:
             pass_row = json.loads(handle.read())
-        assert pass_row["status"] == "PASS" and pass_row["malformed"] is True
+        assert pass_row["status"] == "PASS" and not pass_row.get("malformed", False)
 
         # A PASS that files its own actionable repairs contradicts itself. Take the repairs and
         # fail: a defect the model called non-blocking is still a defect worth fixing, and a
@@ -418,8 +416,8 @@ with tempfile.TemporaryDirectory() as root:
         assert routed == ["gpt-5.6-luna"]
         assert len(os.listdir(prerequisite_review.validator_failure_dir("demo"))) == 3
 
-        # Luna is the cheap first pass. Uncertainty escalates exactly once to Terra,
-        # with no author/tool session involved in either test adapter invocation.
+        # Plain prose and ambiguity are readable FAIL packets. They never buy a
+        # formatting retry or a call to another model.
         os.remove(prerequisite_review.result_path("demo", "s01"))
         os.remove(prerequisite_review.calls_path("demo"))
         with open(os.path.join(root, "demo.launch.json"), "w", encoding="utf-8") as handle:
@@ -428,33 +426,32 @@ with tempfile.TemporaryDirectory() as root:
                        "gate": {"prior_level": "2", "prior_knowledge": "names and literals"}},
                       handle)
         routed = []
-        def uncertain_then_terra(_prompt, reviewer):
+        def ambiguous_validator(_prompt, reviewer):
             routed.append(reviewer["model"])
-            outcome = "UNCERTAIN" if "luna" in reviewer["model"] else "PASS"
-            return audit_result(outcome, ["Escalation fixture."])
+            return "I cannot verify the cleanup path. Add explicit cleanup teaching."
         trace = io.StringIO()
         with redirect_stdout(trace), \
                 patch.object(prerequisite_review, "load_course_map", return_value=course), \
                 patch.object(prerequisite_review, "section_evidence_packet",
                              return_value=("bounded packet", sources)):
-            escalated = prerequisite_review.review_prerequisites(
-                "demo", "s01", adapter=uncertain_then_terra)
-        assert escalated["status"] == "PASS"
-        assert routed == ["gpt-5.6-luna", "gpt-5.6-terra"]
+            ambiguous = prerequisite_review.review_prerequisites(
+                "demo", "s01", adapter=ambiguous_validator)
+        assert ambiguous["status"] == "FAIL"
+        assert "cleanup path" in ambiguous["reasons"][0]
+        assert routed == ["gpt-5.6-luna"]
         assert len(os.listdir(prerequisite_review.validator_failure_dir("demo"))) == 4
         trace_lines = [line for line in trace.getvalue().splitlines()
                        if line.startswith("AI VALIDATOR CALL")]
-        assert len(trace_lines) == 4
+        assert len(trace_lines) == 2
         assert "CALL START" in trace_lines[0]
-        assert "CALL COMPLETE" in trace_lines[1] and "(UNCERTAIN)" in trace_lines[1]
-        assert "CALL START" in trace_lines[2] and "escalation" in trace_lines[2]
-        assert "CALL COMPLETE" in trace_lines[3] and "(PASS)" in trace_lines[3]
+        assert "CALL COMPLETE" in trace_lines[1] and "(FAIL)" in trace_lines[1]
         archived_statuses = []
         for name in os.listdir(prerequisite_review.validator_failure_dir("demo")):
             with open(os.path.join(prerequisite_review.validator_failure_dir("demo"), name),
                       encoding="utf-8") as handle:
                 archived_statuses.append(json.load(handle)["status"])
-        assert "UNCERTAIN" in archived_statuses
+        assert "FAIL" in archived_statuses
+        assert os.path.exists(prerequisite_review.result_path("demo", "s01"))
 
         # Provider/transport failures have no verdict, but they are still one
         # validator failure and must receive their own timestamped record.
@@ -478,8 +475,8 @@ with tempfile.TemporaryDirectory() as root:
         assert infrastructure_row["status"] == "ERROR"
         assert infrastructure_row["infrastructure"] is True
 
-        # The direct API request has no tools or Flex routing, uses Structured Output,
-        # and places the stable policy before the dynamic section packet.
+        # The section-review API request has no tools, Flex routing, or response schema;
+        # it places the stable policy before the dynamic section packet.
         response_value = {
             "id": "resp_test", "output_text": json.dumps(
                 audit_result(reasons=["clean"])),
@@ -501,14 +498,12 @@ with tempfile.TemporaryDirectory() as root:
             "packet", "s01", sources, "names and literals", 2)
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}), \
                 patch.object(urllib.request, "urlopen", side_effect=fake_urlopen):
-            _raw, meta = prerequisite_review._api_adapter(
-                api_prompt, {"kind": "codex-cli", "model": "gpt-5.6-luna",
-                             "effort": "medium"})
+            _raw, meta = prerequisite_review._invoke(
+                api_prompt, {"kind": "openai-api", "model": "gpt-5.6-luna",
+                             "effort": "medium"}, None)
         payload = captured["payload"]
         assert "tools" not in payload and "service_tier" not in payload
-        assert payload["text"]["format"]["type"] == "json_schema"
-        assert payload["text"]["format"]["strict"] is True
-        assert payload["text"]["format"]["name"] == "arcanum_section_quality_audit"
+        assert payload["text"] == {"verbosity": "low"}
         assert payload["input"][0]["role"] == "developer"
         assert payload["input"][1]["role"] == "user"
         assert payload["prompt_cache_options"] == {"mode": "explicit"}

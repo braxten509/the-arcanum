@@ -31,10 +31,6 @@ def audit_report(phase, sources, outcome="PASS", fail_criterion=""):
                 f"{criterion} does not yet pass. `{citation_path}:1-1` leaves the "
                 "dependency ambiguous. Repair only that statement so the route teaches "
                 "the prerequisite before it is demanded, while preserving clean work.")
-        elif outcome == "UNCERTAIN":
-            paragraphs.append(
-                f"{criterion} cannot be decided from `{citation_path}:1-1`; the bounded "
-                "evidence omits the information needed for a reliable judgment.")
         else:
             paragraphs.append(
                 f"{criterion} is supported by `{citation_path}:1-1`, which keeps the "
@@ -128,12 +124,12 @@ with tempfile.TemporaryDirectory() as root:
                              side_effect=fake_urlopen):
             raw, api_meta = planning_review._invoke(
                 planning_review.planning_prompt(1, phase1_packet, phase1_sources),
-                {"kind": "codex-cli", "model": "gpt-5.6-luna", "effort": "medium"},
+                {"kind": "openai-api", "model": "gpt-5.6-luna", "effort": "medium"},
                 1)
         assert raw.startswith("PASS")
         assert api_meta["transport"] == "responses-api"
         assert captured["payload"]["text"] == {"verbosity": "low"}
-        assert captured["payload"]["prompt_cache_key"] == "arcanum-phase-1-quality-v3"
+        assert captured["payload"]["prompt_cache_key"] == "arcanum-phase-1-quality-v6"
         assert captured["payload"]["max_output_tokens"] == 2500
         assert "tools" not in captured["payload"]
 
@@ -174,6 +170,13 @@ with tempfile.TemporaryDirectory() as root:
         assert "prerequisite-order" in phase2_prompt
         assert "Learner-facing lessons are still intentional placeholders" in " ".join(
             phase2_prompt.split())
+        followup_prompt = planning_review.planning_prompt(
+            2, phase2_packet, phase2_sources,
+            prior_review={"status": "FAIL", "report": "FAIL: preserve the five-lesson spine."})
+        assert "PREVIOUS REVIEW REPAIR CONTRACT" in followup_prompt
+        assert "verify every prior finding is fixed" in " ".join(followup_prompt.split())
+        assert "preserve the five-lesson spine" in followup_prompt
+        assert "exact per-section lessonCount values" in followup_prompt
 
         # Presentation is not a contract. Helpful prose with a verdict is usable even
         # without headings, criterion records, field names, or prescribed citations.
@@ -196,9 +199,9 @@ with tempfile.TemporaryDirectory() as root:
             "never provides a clear overall disposition for the harness.",
             2, phase2_sources)
         assert not errors and inferred["status"] == "FAIL"
-        _result, errors = planning_review.validate_result(
+        terse_pass, errors = planning_review.validate_result(
             "PASS — looks good.", 2, phase2_sources)
-        assert errors and "usable" in errors[-1]
+        assert not errors and terse_pass["status"] == "PASS"
 
         # A useful FAIL is authoritative and cached after one Luna call in both phases.
         # The exact Markdown is archived and handed to the author unchanged.
@@ -239,38 +242,34 @@ with tempfile.TemporaryDirectory() as root:
         assert "arc-sequencing does not yet pass" in archive_text
         assert "prerequisite-order does not yet pass" in archive_text
 
-        # Only truly unusable output spends a recovery call. Once the retry is useful,
-        # it is accepted without a Terra escalation.
+        # A terse but readable answer is a normal FAIL packet. It never buys a
+        # formatting retry or a call to another model.
         remove_cached("demo", 1)
         routed, prompts = [], []
 
-        def unusable_then_recovered(prompt, validator):
+        def terse_failure(prompt, validator):
             routed.append(validator["model"])
             prompts.append(prompt)
-            if "UNUSABLE RESPONSE RECOVERY RETRY" not in prompt:
-                return "No usable review."
-            return audit_report(1, phase1_sources)
+            return "Needs repair."
 
-        recovered = planning_review.review_planning_phase(
-            "demo", 1, "course", adapter=unusable_then_recovered)
-        assert recovered["status"] == "PASS"
-        assert routed == ["gpt-5.6-luna", "gpt-5.6-luna"]
-        assert "UNUSABLE RESPONSE RECOVERY RETRY" in prompts[1]
+        terse = planning_review.review_planning_phase(
+            "demo", 1, "course", adapter=terse_failure)
+        assert terse["status"] == "FAIL"
+        assert routed == ["gpt-5.6-luna"]
+        assert terse["report"] == "Needs repair."
 
-        # A substantive UNCERTAIN verdict is usable, so Luna is not retried; Terra is
-        # invoked once to resolve the gate.
+        # Ambiguity is a FAIL, not a third stopping state, and still costs one call.
         remove_cached("demo", 1)
         routed = []
 
-        def uncertain_then_terra(_prompt, validator):
+        def ambiguous_validator(_prompt, validator):
             routed.append(validator["model"])
-            outcome = "UNCERTAIN" if "luna" in validator["model"] else "PASS"
-            return audit_report(1, phase1_sources, outcome=outcome)
+            return "I cannot verify the dependency order from the supplied evidence."
 
-        escalated = planning_review.review_planning_phase(
-            "demo", 1, "course", adapter=uncertain_then_terra)
-        assert escalated["status"] == "PASS"
-        assert routed == ["gpt-5.6-luna", "gpt-5.6-terra"]
+        ambiguous = planning_review.review_planning_phase(
+            "demo", 1, "course", adapter=ambiguous_validator)
+        assert ambiguous["status"] == "FAIL"
+        assert routed == ["gpt-5.6-luna"]
 
         try:
             planning_review.review_planning_phase(

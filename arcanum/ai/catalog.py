@@ -6,7 +6,8 @@ import os
 import urllib.request
 
 from arcanum.config import (AGY_BIN, CLAUDE_BIN, CLI_EFFORTS, CLI_MODEL_EFFORTS,
-                            CLI_MODELS, CODEX_BIN, OPENCODE_BIN)
+                            CLI_MODELS, CODEX_BIN, OPENCODE_BIN,
+                            openai_api_configured)
 from .providers.discovery import (agy_models, codex_models, ollama_bindery_models,
                                   opencode_models, opencode_zen_models,
                                   openrouter_models)
@@ -44,6 +45,15 @@ def model_census() -> dict:
         efforts = CLI_MODEL_EFFORTS.get(kind, {})
         return [[model, model, "", efforts.get(model, [])] for model in models]
 
+    if not codex_rows:
+        codex_rows = [[model, model, "", list(CLI_EFFORTS["codex-cli"])]
+                      for model in CLI_MODELS["codex-cli"]]
+        providers["codex-cli"] = [row[0] for row in codex_rows]
+    api_efforts = {"none", "minimal", "low", "medium", "high", "xhigh"}
+    codex_api_rows = [list(row[:3]) + [[effort for effort in (row[3] or [])
+                                       if effort in api_efforts]]
+                      for row in codex_rows if str(row[0]).startswith("gpt-")]
+
     opencode_ok = installed["opencode-cli"]
     opencode_rows = opencode_models() if opencode_ok else []
     zen_rows = opencode_zen_models() if opencode_ok else []
@@ -51,23 +61,21 @@ def model_census() -> dict:
     router_rows = openrouter_models() if opencode_ok else []
     # the grader/oracle picker lists by kind, so OpenRouter ids join the opencode-cli pool
     providers["opencode-cli"] += [row[0] for row in router_rows]
+    api_configured = openai_api_configured()
+    tome_cli_roles = ["author", "validator", "reviewer"]
+    # Tome creation/resume is intentionally narrower than the reader's general AI
+    # catalog. Keep unsupported pools out of the payload so stale browser state cannot
+    # rediscover OpenCode, OpenRouter, Antigravity, Zen, or local models.
     output["bindery"] = [
         {"id": "claude-cli", "label": "Claude CLI", "kind": "claude-cli",
          "models": rows(CLI_MODELS["claude-cli"], "claude-cli"),
-         "installed": installed["claude-cli"]},
-        {"id": "antigravity-cli", "label": "Antigravity CLI",
-         "kind": "antigravity-cli",
-         "models": rows(providers["antigravity-cli"], "antigravity-cli"),
-         "installed": installed["antigravity-cli"]},
+         "installed": installed["claude-cli"], "roles": tome_cli_roles},
         {"id": "codex-cli", "label": "Codex CLI", "kind": "codex-cli",
-         "models": codex_rows, "installed": installed["codex-cli"]},
-        {"id": "opencode-cli", "label": "OpenCode CLI (Go)", "kind": "opencode-cli",
-         "models": opencode_rows, "installed": opencode_ok},
-        {"id": "opencode-zen", "label": "OpenCode CLI (Zen)", "kind": "opencode-cli",
-         "models": zen_rows, "installed": opencode_ok and bool(zen_rows)},
-        {"id": "local", "label": "OpenCode CLI (Local)", "kind": "opencode-cli",
-         "models": local_rows, "installed": opencode_ok and bool(local_rows)},
-        {"id": "openrouter", "label": "OpenRouter", "kind": "opencode-cli",
-         "models": router_rows, "installed": opencode_ok and bool(router_rows)},
+         "models": codex_rows, "installed": installed["codex-cli"],
+         "roles": tome_cli_roles},
+        {"id": "openai-api", "label": ("Codex API" if api_configured
+                                          else "Codex API · key required"),
+         "kind": "openai-api", "models": codex_api_rows, "installed": True,
+         "configured": api_configured, "roles": ["validator"]},
     ]
     return output

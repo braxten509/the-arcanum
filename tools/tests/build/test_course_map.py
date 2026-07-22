@@ -15,6 +15,8 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from buildlib import course_map
+from buildlib.course_map import author_spec
+from buildlib import phase2_research
 from buildlib.course.amend import amend_course_map
 from buildlib.course.limits import (mastery_section_cap,
                                     mastery_section_count_error)
@@ -26,6 +28,7 @@ PLAN = """# BUILD PLAN — demo
 **Graduate ledger:** The learner can build and verify the promised tool.
 **Mastery proof:** The final Working requires independent transfer and a justified choice.
 **Acceptance scenarios:** starts-clean -> finishes-clean
+**Lesson counts:** s01=3; s02=3
 **Continuity map:**
 s01 -> s02: preserve the public value contract through the final integration
 **Artifact lifecycle:** no temporary artifact ships
@@ -96,7 +99,11 @@ def section_list(count):
 
 with tempfile.TemporaryDirectory() as root:
     old_build, old_repo = course_map.BUILD_DIR, course_map.REPO
+    old_author_build, old_author_repo = author_spec.BUILD_DIR, author_spec.REPO
+    old_research_build, old_research_repo = phase2_research.BUILD_DIR, phase2_research.REPO
     course_map.BUILD_DIR, course_map.REPO = os.path.join(root, ".tome-build"), root
+    author_spec.BUILD_DIR, author_spec.REPO = course_map.BUILD_DIR, root
+    phase2_research.BUILD_DIR, phase2_research.REPO = course_map.BUILD_DIR, root
     os.makedirs(course_map.BUILD_DIR)
     plan = os.path.join(course_map.BUILD_DIR, "demo.plan.md")
     with open(plan, "w", encoding="utf-8") as handle:
@@ -104,6 +111,15 @@ with tempfile.TemporaryDirectory() as root:
     try:
         seed = course_map.seed_course_map("demo", plan)
         assert len(seed["sections"]) == 2
+        assert seed["version"] == 6
+        assert [section["lessonCount"] for section in seed["sections"]] == [3, 3]
+        author_spec.initialize_author_spec("demo", seed)
+        assert author_spec.materialize_author_spec("demo") == seed
+        phase2_research.initialize_ledger("demo", "external")
+        research_ok, research_report = phase2_research.validate_ledger("demo")
+        assert not research_ok and "official or primary source" in research_report
+        phase2_research.initialize_ledger("demo", "internal")
+        assert phase2_research.validate_ledger("demo")[0]
         proposal = detailed(seed)
         for sid in ("s01", "s02"):
             os.makedirs(os.path.join(root, "tomes", "demo", "sections", sid,
@@ -210,6 +226,8 @@ with tempfile.TemporaryDirectory() as root:
             assert "planSha256" in str(exc)
     finally:
         course_map.BUILD_DIR, course_map.REPO = old_build, old_repo
+        author_spec.BUILD_DIR, author_spec.REPO = old_author_build, old_author_repo
+        phase2_research.BUILD_DIR, phase2_research.REPO = old_research_build, old_research_repo
 
 for rejected in (1, 41):
     try:

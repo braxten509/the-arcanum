@@ -240,7 +240,7 @@ def _normalized_command(provider, cmd, repo, web_allowed=True):
 
 
 def scoped_runner_command(name, cmd, cwd, writable_paths, repo, readonly_paths=(),
-                          web_allowed=True):
+                          hidden_paths=(), web_allowed=True):
     """Wrap one agent CLI with repo-read/web/temp plus explicitly scoped project writes.
 
     `writable_paths` must already exist. They may be directories (normal tome/section work)
@@ -282,6 +282,18 @@ def scoped_runner_command(name, cmd, cwd, writable_paths, repo, readonly_paths=(
         if not os.path.exists(path):
             continue
         wrapped.extend(("--ro-bind", path, path))
+    # Recovery/audit history is harness-only. In particular, hiding .git prevents a
+    # restarted author from reconstructing the abandoned unit with `git show`.
+    hidden = [os.path.join(os.path.realpath(repo), ".git"), *hidden_paths]
+    for raw in hidden:
+        path = os.path.realpath(raw)
+        if not os.path.exists(path) or path in seen:
+            continue
+        seen.add(path)
+        if os.path.isdir(path):
+            wrapped.extend(("--tmpfs", path))
+        else:
+            wrapped.extend(("--ro-bind", "/dev/null", path))
     # Last, so the bytecode mirrors win over any broader repo mount above them.
     wrapped.extend(_sealed_binds(os.path.realpath(repo)))
     wrapped.extend(("--chdir", cwd))

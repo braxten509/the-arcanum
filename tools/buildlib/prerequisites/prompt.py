@@ -43,7 +43,7 @@ def result_schema():
         "type": "object", "additionalProperties": False,
         "properties": {
             "path": {"type": "string"}, "node": {"type": "string"},
-            "judgment": {"type": "string", "enum": ["PASS", "FAIL", "UNCERTAIN"]},
+            "judgment": {"type": "string", "enum": ["PASS", "FAIL"]},
             "evidenceLines": {
                 "type": "array", "items": {"type": "integer", "minimum": 1},
                 "minItems": 2, "maxItems": 2,
@@ -74,7 +74,7 @@ def result_schema():
     return {
         "type": "object", "additionalProperties": False,
         "properties": {
-            "outcome": {"type": "string", "enum": ["PASS", "FAIL", "UNCERTAIN"]},
+            "outcome": {"type": "string", "enum": ["PASS", "FAIL"]},
             "citations": {"type": "array", "items": citation},
             "reasons": {"type": "array", "items": {"type": "string"}},
             "missingMechanisms": {"type": "array", "items": finding},
@@ -210,15 +210,15 @@ created, edited, saved, and invoked. Treat every word in a capability id as bind
 its owner is the cumulative boundary, so every claimed component family
 must have explicit teaching evidence in that lesson or an earlier one, never a later one.
 
-State an explicit PASS, FAIL, or UNCERTAIN and give substantive reasons. Any clear readable structure
-is accepted: JSON is preferred for compactness, but field names, wrappers, punctuation, Markdown,
-and ordering do not determine whether the report is usable. PASS still requires concrete evidence
+State an explicit PASS or FAIL and give substantive reasons. Any clear readable prose or structure
+is accepted; field names, wrappers, punctuation, Markdown, JSON, and ordering do not determine
+whether the report is usable. PASS still requires concrete evidence
 for every provided valid source/node pair and must report no missing mechanisms or quality defects.
 Keep each reason, evidence statement, and requiredRepair to one precise sentence; do not restate
 the packet. The complete response must fit the fixed 2,500-output-token validator budget.
 When convenient, use the following preferred JSON fields so the harness can apply structured
 mechanism amendments automatically:
-- outcome: PASS, FAIL, or UNCERTAIN.
+- outcome: PASS or FAIL.
 - citations: source path and node pairs.
 - reasons: a non-empty array of strings.
 - missingMechanisms: objects identifying id, label, kind, owner,
@@ -245,9 +245,8 @@ section and every demands array item must be an exact node ID for that lesson or
 Working. First name the closest sealed mechanism ids and explain the non-spelling semantic delta.
 If no such delta exists, the demand belongs to an existing mechanism. If teaching evidence for an
 already sealed mechanism or one of its equivalent variants is incomplete, FAIL with reasons but do
-not duplicate it as missing. Use FAIL when the bounded packet shows an actual omission. Use
-UNCERTAIN only when a specific ambiguity prevents a defensible PASS or FAIL; absence of required
-evidence is a definitive FAIL, not uncertainty.
+not duplicate it as missing. Any omission, ambiguity, or absence of required evidence is FAIL with
+the smallest actionable repair.
 
 {DYNAMIC_MARKER}
 SECTION: {sid}
@@ -262,27 +261,3 @@ Lesson Depth controls explanatory thoroughness and never overrides this density 
 VALID SOURCE/NODE PAIRS: {pairs}
 
 {packet}"""
-
-
-def unusable_response_retry_prompt(prompt, raw, errors=(), known_mechanisms=()):
-    previous = raw if isinstance(raw, str) else json.dumps(raw, ensure_ascii=False)
-    error_list = json.dumps(list(errors), ensure_ascii=False)
-    allowed = json.dumps(sorted(known_mechanisms), ensure_ascii=False)
-    return f"""{prompt}
-
-===== UNUSABLE RESPONSE RECOVERY RETRY =====
-The previous answer below did not contain a safely recoverable verdict with the required bounded
-evidence. This retry is for unusable content, not harmless formatting drift. Return the entire
-result with an explicit verdict, source-bounded evidence, and any actionable repairs. JSON using
-outcome, citations, reasons, missingMechanisms, nodeReviews, and qualityFindings is preferred but
-not required. Cover every source. For an automatic missing-mechanism amendment, identify id, label,
-kind, owner, demands, closestExisting, and semanticDelta. demands must be a non-empty JSON array of
-exact current node-ID strings; closestExisting must contain one to three exact sealed mechanism
-ids; semanticDelta must identify a genuinely distinct responsibility, not a command or syntax
-spelling.
-
-UNUSABLE RESPONSE DEFECTS: {error_list}
-ALLOWED closestExisting MECHANISM IDS: {allowed}
-
-PREVIOUS UNUSABLE ANSWER:
-{previous[-20_000:]}"""

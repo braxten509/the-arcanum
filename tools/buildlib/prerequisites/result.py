@@ -1,8 +1,7 @@
 """Schema validation for mandatory section-quality AI results."""
 from __future__ import annotations
 
-from ..validator_policy import (extract_json, readable_line_ranges, readable_outcome,
-                                recover_readable_failure)
+from ..validator_policy import extract_json
 
 
 RESULT_KEYS = {"outcome", "citations", "reasons", "missingMechanisms",
@@ -34,8 +33,8 @@ def validate_detailed(raw, sources, sid, known_mechanisms=()):
         failures.append(f"response keys must be exactly {sorted(RESULT_KEYS)}")
         value = value if isinstance(value, dict) else {}
     outcome = value.get("outcome")
-    if outcome not in ("PASS", "FAIL", "UNCERTAIN"):
-        failures.append("outcome must be PASS, FAIL, or UNCERTAIN")
+    if outcome not in ("PASS", "FAIL"):
+        failures.append("outcome must be PASS or FAIL")
         outcome = "FAIL"
     expected_order = [(item["path"], item["node"]) for item in sources]
     expected = set(expected_order)
@@ -114,8 +113,8 @@ def validate_detailed(raw, sources, sid, known_mechanisms=()):
         if index >= len(expected_order) or pair != expected_order[index]:
             failures.append("nodeReviews must follow the exact bounded source order")
             continue
-        if review.get("judgment") not in ("PASS", "FAIL", "UNCERTAIN"):
-            failures.append("node review judgment must be PASS, FAIL, or UNCERTAIN")
+        if review.get("judgment") not in ("PASS", "FAIL"):
+            failures.append("node review judgment must be PASS or FAIL")
             continue
         if not _valid_line_range(review.get("evidenceLines"), line_counts.get(pair, 0)):
             failures.append("node review evidenceLines must be an in-file inclusive line range")
@@ -175,82 +174,3 @@ def validate_detailed(raw, sources, sid, known_mechanisms=()):
 
 def validate(raw, sources, sid, known_mechanisms=()):
     return validate_detailed(raw, sources, sid, known_mechanisms)[0]
-
-
-def _bounded_evidence_pairs(value, sources):
-    expected = {(item["path"], item["node"]) for item in sources}
-    by_path = {}
-    line_counts = {}
-    for item in sources:
-        by_path.setdefault(item["path"], []).append(item["node"])
-        line_counts[(item["path"], item["node"])] = int(item.get("lineCount") or 0)
-    observed = set()
-    for key in ("citations", "nodeReviews", "qualityFindings", "checks", "findings"):
-        rows = value.get(key)
-        if not isinstance(rows, list):
-            continue
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-            path, node = row.get("path"), row.get("node")
-            if not path and not node:
-                continue
-            if node is None:
-                candidates = by_path.get(path) or []
-                if len(candidates) != 1:
-                    return None
-                node = candidates[0]
-            pair = (path, node)
-            if pair not in expected:
-                return None
-            line_value = row.get("evidenceLines", row.get("lines"))
-            if line_value is not None:
-                ranges = readable_line_ranges(line_value)
-                line_count = line_counts[pair]
-                if (not ranges or any(start < 1 or start > end
-                                      or (line_count and end > line_count)
-                                      for start, end in ranges)):
-                    return None
-            observed.add(pair)
-    return observed
-
-
-def failure_evidence_is_bounded(value, sources):
-    """Accept schema-drifted FAIL evidence only when every named source remains bounded."""
-    return bool(_bounded_evidence_pairs(value, sources))
-
-
-def evidence_supports_verdict(value, outcome, sources):
-    """Prove a readable section verdict retains its bounded semantic evidence."""
-    observed = _bounded_evidence_pairs(value, sources)
-    if not observed:
-        return False
-    if outcome != "PASS":
-        return True
-    expected_order = [(item["path"], item["node"]) for item in sources]
-    reviews = value.get("nodeReviews")
-    if not isinstance(reviews, list):
-        reviews = value.get("checks")
-    if not isinstance(reviews, list) or len(reviews) != len(expected_order):
-        return False
-    for index, review in enumerate(reviews):
-        if not isinstance(review, dict):
-            return False
-        pair = (review.get("path"), review.get("node"))
-        if pair != expected_order[index] or readable_outcome(review) != "PASS":
-            return False
-        ranges = readable_line_ranges(
-            review.get("evidenceLines", review.get("lines")))
-        line_count = int(sources[index].get("lineCount") or 0)
-        if (not ranges or any(start < 1 or start > end
-                              or (line_count and end > line_count)
-                              for start, end in ranges)):
-            return False
-    return not any(value.get(key) for key in (
-        "missingMechanisms", "qualityFindings", "findings"))
-
-
-def actionable_failure(raw, result, sources):
-    """Keep a bounded FAIL readable when optional detail metadata is invalid."""
-    return recover_readable_failure(
-        raw, result, lambda value: failure_evidence_is_bounded(value, sources))

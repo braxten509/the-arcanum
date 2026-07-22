@@ -7,6 +7,8 @@ import subprocess
 from .. import REPO
 from ..course.state import refresh_course_verifications
 from ..course_map import load_course_map
+from ..course_map.author_spec import materialize_author_spec
+from ..phase2_research import validate_ledger
 from ..mastery_evidence import export_mastery_contract, validate_semantic_review
 from ..measure import (phase3_validator_argv, validate, validate_live_smoke,
                        validate_phase3, validate_shipping, validator_argv)
@@ -18,7 +20,14 @@ def _phase1(build_id: str, context: dict) -> tuple[bool, str]:
     return validate(build_id, phase=1, plan_rel=context["plan"])
 
 
-def _phase2(_build_id: str, context: dict) -> tuple[bool, str]:
+def _phase2(build_id: str, context: dict) -> tuple[bool, str]:
+    research_ok, research_report = validate_ledger(build_id)
+    if not research_ok:
+        return False, research_report
+    try:
+        materialize_author_spec(build_id)
+    except ValueError as exc:
+        return False, f"PHASE 2 AUTHOR SPEC:\n{exc}"
     return validate(context["tid"], phase=2, tooling=context["tooling"], run=False,
                     plan_rel=context["plan"])
 
@@ -78,6 +87,12 @@ def _phase1_commands(_build_id: str, context: dict) -> list[list[str]]:
     return [validator_argv(context["tid"], phase=1, plan_rel=context["plan"])]
 
 
+def _phase2_commands(build_id: str, context: dict) -> list[list[str]]:
+    return [["python3", "tools/workflow/materialize_phase2_map.py", build_id],
+            validator_argv(context["tid"], phase=2, tooling=context["tooling"], run=False,
+                           plan_rel=context["plan"])]
+
+
 def _phase3_commands(_build_id: str, context: dict) -> list[list[str]]:
     return [phase3_validator_argv(
         context["tid"], context["tooling"], context["plan"], run=True)]
@@ -112,8 +127,10 @@ def standard_phase_registry() -> PhaseRegistry:
                         transition_command=True, version=1,
                         capabilities=("plan-contract", "course-map-seed", "phase-transition")),
         PhaseDefinition(2, "skeleton-voice", "Skeleton & voice", _phase2,
-                        _validator(2),
-                        ("tools/validate_tome.py", "tools/workflow/author_phase_transition.py"),
+                        _phase2_commands,
+                        ("tools/validate_tome.py", "tools/workflow/author_phase_transition.py",
+                         "tools/workflow/context/render_phase2_context.py",
+                         "tools/workflow/materialize_phase2_map.py"),
                         transition_command=True, on_exit=_export_mastery, version=1,
                         capabilities=("skeleton-contract", "course-map-seal", "mastery-export")),
         PhaseDefinition(3, "sections", "Sections", _phase3, _phase3_commands,

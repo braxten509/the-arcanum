@@ -134,7 +134,7 @@ def seed_cost_history(build_dir):
             usage={"inputTokens": phase * 100, "outputTokens": phase * 10},
             ended_at=1000 + phase)
         append_status_line(
-            "build", f"GPT API-EQUIVALENT COST COMPLETE [{1000 + phase}.000] › "
+            "build", f"AI API-EQUIVALENT COST COMPLETE [{1000 + phase}.000] › "
             f"PHASE {phase} TOTAL › ${phase}.00", build_dir=str(build_dir),
             at=1000 + phase)
         append_status_line(
@@ -148,7 +148,7 @@ def assert_cost_boundary(build_dir, phase):
         retained = [json.loads(line) for line in handle if line.strip()]
     assert [row["phase"] for row in retained] == list(range(1, phase))
     lines = load_status_lines("build", build_dir=str(build_dir))
-    cost_lines = [line for line in lines if line.startswith("GPT API-EQUIVALENT COST")]
+    cost_lines = [line for line in lines if line.startswith("AI API-EQUIVALENT COST")]
     assert [int(line.split("PHASE ", 1)[1].split()[0]) for line in cost_lines] \
         == list(range(1, phase))
     assert not [line for line in lines
@@ -168,6 +168,20 @@ def exercise_phase(root, phase):
     write(build_dir / "demo.findings.json", '{"findings":[]}')
     write(build_dir / "demo.proof-evidence.json", '{"stale":true}')
     write(build_dir / "demo.learner-project" / "stale.py", "stale\n")
+    for review_phase in (1, 2):
+        write(build_dir / "build.phase-ai-reviews" / f"phase-{review_phase}.json",
+              json.dumps({"phase": review_phase}))
+    write(build_dir / "build.prerequisite-reviews" / "s01.json", '{"status":"FAIL"}')
+    write(build_dir / "build.prerequisite-review.calls.jsonl", "".join(
+        json.dumps({"phase": call_phase,
+                    "section": "s01" if call_phase == 3 else None}) + "\n"
+        for call_phase in (1, 2, 3)))
+    archive = Path(root, "validator-failures", "build")
+    for unit in ("phase-1", "phase-2", "s01"):
+        write(archive / f"time__{unit}__failure.json", "{}")
+    write(build_dir / "build.author-usage.jsonl", "{}\n")
+    write(build_dir / "build.conversation.jsonl.bak", "{}\n")
+    write(build_dir / "build.reset-stash" / "old" / "s01" / "section.toml", "old")
     for number in range(1, 9):
         snapshot(build_dir, number)
 
@@ -199,6 +213,26 @@ def exercise_phase(root, phase):
     assert (build_dir / "demo.proof-evidence.json").exists() == (phase >= 8)
     assert (build_dir / "demo.learner-project").exists() == (phase >= 8)
     assert_cost_boundary(build_dir, phase)
+    assert not (build_dir / "build.author-usage.jsonl").exists()
+    assert not (build_dir / "build.conversation.jsonl.bak").exists()
+    assert not (build_dir / "build.reset-stash").exists()
+    retained_reviews = sorted(path.stem for path in
+                              (build_dir / "build.phase-ai-reviews").glob("*.json"))
+    assert retained_reviews == [f"phase-{number}" for number in (1, 2)
+                                if number < phase]
+    calls = []
+    try:
+        calls = [json.loads(line)["phase"] for line in
+                 (build_dir / "build.prerequisite-review.calls.jsonl").read_text().splitlines()]
+    except FileNotFoundError:
+        pass
+    assert calls == [number for number in (1, 2, 3) if number < phase]
+    retained_archives = sorted(path.name for path in archive.glob("*"))
+    expected_archives = [f"time__phase-{number}__failure.json"
+                         for number in (1, 2) if number < phase]
+    if phase > 3:
+        expected_archives.append("time__s01__failure.json")
+    assert retained_archives == sorted(expected_archives)
 
 
 def exercise_legacy_fallback(root, phase):
@@ -366,10 +400,26 @@ def exercise_section_rewind(root):
     write(build_dir / "demo.conversation.jsonl", '{"role":"harness"}\n')
     write(build_dir / "demo.section-progress.json", '{"section":"s02"}')
     write(build_dir / "demo.result.json", '{"status":"done"}')
+    write(build_dir / "demo.author-usage.jsonl", "{}\n")
+    write(build_dir / "demo.conversation.jsonl.bak", "{}\n")
+    write(build_dir / "demo.reset-stash" / "old" / "s02" / "section.toml", "OLD")
+    write(build_dir / "demo.prerequisite-review.calls.jsonl", "".join((
+        json.dumps({"phase": 3, "unit": "s01", "section": "s01"}) + "\n",
+        json.dumps({"phase": 3, "unit": "s02", "section": "s02"}) + "\n",
+    )))
+    archive = Path(root, "validator-failures", "demo")
+    write(archive / "time__s01__failure.json", "{}")
+    write(archive / "time__s02__failure.json", "{}")
+    for section, ended in (("s01", 800), ("s02", 810)):
+        record_ai_turn(
+            str(build_dir), "demo", phase=3, section=section,
+            role="author", stage="section", kind="codex-cli", model="gpt-5.6-luna",
+            transport="cli", session_id=section, usage_mode="turn",
+            usage={"inputTokens": 100, "outputTokens": 10}, ended_at=ended)
     append_status_line("demo", "AI VALIDATOR CALL COMPLETE [900.000] (FAIL) › "
                        "section quality s02 › claude-cli haiku",
                        build_dir=str(build_dir), at=900)
-    append_status_line("demo", "GPT API-EQUIVALENT COST COMPLETE [901.000] › "
+    append_status_line("demo", "AI API-EQUIVALENT COST COMPLETE [901.000] › "
                        "PHASE 2 TOTAL › $7.80", build_dir=str(build_dir), at=901)
 
     sections_dir = Path(phase_reset.TOMES_DIR) / "demo" / "sections"
@@ -378,21 +428,18 @@ def exercise_section_rewind(root):
 
     result = phase_reset.reset_tome_to_section("demo", "s02")
 
-    # The authored tree is stashed, not deleted, and comes back as its own Phase-2 scaffold.
-    # Leaving the section empty would rewind Phase 2 as well, and an author with no scaffold
-    # goes hunting for a section shape wherever it can find one, including other tomes.
+    # The authored tree comes back as its own Phase-2 scaffold, while the abandoned
+    # attempt is deleted after the rollback-safe reset transaction succeeds.
     assert "AUTHORED" not in authored.read_text()
     assert phase_reset.is_scaffold(str(sections_dir / "s02")), "s02 was not rebuilt"
-    stashed = list((build_dir / "demo.reset-stash").glob("*/s02/section.toml"))
-    assert len(stashed) == 1 and "AUTHORED" in stashed[0].read_text()
+    assert not (build_dir / "demo.reset-stash").exists()
 
     # Restarting a section that is already an untouched scaffold has nothing to rewind, so
     # it must not stash or rewrite anything a second time.
     scaffold_before = authored.read_text()
     phase_reset.reset_tome_to_section("demo", "s02")
     assert authored.read_text() == scaffold_before, "a scaffold must survive untouched"
-    assert len(list((build_dir / "demo.reset-stash").glob("*/s02/section.toml"))) == 1, \
-        "restarting a scaffold must not create a second stash entry"
+    assert not (build_dir / "demo.reset-stash").exists()
 
     assert result == {"id": "demo", "tome": "demo", "phase": 3, "section": "s02",
                       "phaseTitle": phase_reset.PHASE_TITLES[3], "usedSnapshot": False}
@@ -413,7 +460,15 @@ def exercise_section_rewind(root):
         "status"] != "verified"
     # The tool history the operator sees is rebuilt from here; the cost ledger is not.
     assert load_status_lines("demo", build_dir=str(build_dir)) == [
-        "GPT API-EQUIVALENT COST COMPLETE [901.000] › PHASE 2 TOTAL › $7.80"]
+        "AI API-EQUIVALENT COST COMPLETE [901.000] › PHASE 2 TOTAL › $7.80"]
+    assert not (build_dir / "demo.author-usage.jsonl").exists()
+    assert not (build_dir / "demo.conversation.jsonl.bak").exists()
+    assert [json.loads(line)["section"] for line in
+            (build_dir / "demo.prerequisite-review.calls.jsonl").read_text().splitlines()] \
+        == ["s01"]
+    assert sorted(path.name for path in archive.glob("*")) == ["time__s01__failure.json"]
+    with open(turns_path(str(build_dir), "demo"), encoding="utf-8") as handle:
+        assert [json.loads(line)["section"] for line in handle if line.strip()] == ["s01"]
     for bad in ("s03", "nope", ""):
         try:
             phase_reset.reset_tome_to_section("demo", bad)

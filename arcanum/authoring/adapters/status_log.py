@@ -20,7 +20,7 @@ _AI_COMPLETE_RE = re.compile(
 _VALIDATOR_RE = re.compile(
     r"^(?:VALIDATOR COMMAND|AI VALIDATOR CALL) (?:START|COMPLETE|FAILED)\b")
 _GPT_COST_RE = re.compile(
-    r"^GPT API-EQUIVALENT COST COMPLETE \[[0-9]+(?:\.[0-9]+)?\] "
+    r"^(?:AI|GPT) API-EQUIVALENT COST COMPLETE \[[0-9]+(?:\.[0-9]+)?\] "
     r"› PHASE ([1-8]) (?:(SECTION [A-Za-z0-9_-]+)|TOTAL)\b")
 
 
@@ -132,6 +132,37 @@ def rewind_status_log(build_id: str, phase: int, *, build_dir: str = BUILD_DIR) 
                 if not _VALIDATOR_RE.search(line)
                 and not (_gpt_cost_scope(line)
                          and int(_gpt_cost_scope(line)[0]) >= phase)]
+    _write_rows(path, retained, time.time())
+    return len(rows) - len(retained)
+
+
+def rewind_status_log_sections(build_id: str, sections, *,
+                               build_dir: str = BUILD_DIR) -> int:
+    """Drop visible Phase-3 history for restarted sections, retaining earlier units."""
+    build_id = _valid_build_id(build_id)
+    sections = {str(section) for section in sections}
+    if not build_id or not sections:
+        raise ValueError("valid build id and at least one section are required")
+    path = status_path(build_dir, build_id)
+    rows = _read_rows(path)
+
+    def owned(line: str) -> bool:
+        scope = _gpt_cost_scope(line)
+        if scope and scope[0] == "3":
+            if scope[1] == "TOTAL":
+                return True
+            return scope[1].removeprefix("SECTION ") in sections
+        match = _AI_COMPLETE_RE.search(line)
+        if match:
+            target = match.group(3)
+            section = re.search(r"\b(s[0-9]{2,3})\b", target)
+            return bool(section and section.group(1) in sections)
+        if line.startswith("VALIDATOR COMMAND"):
+            # Command rows are transient and do not carry a stable section field.
+            return True
+        return False
+
+    retained = [(at, line) for at, line in rows if not owned(line)]
     _write_rows(path, retained, time.time())
     return len(rows) - len(retained)
 

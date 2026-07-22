@@ -78,12 +78,14 @@ class ForgeStatusService:
         # and is what the gate re-reads, so a swapped validator shows up here immediately.
         launch = _load_launch(stable, output.get("tome") or "")
         validator = launch.get("validator") or (launch.get("bindery") or {}).get("validator")
+        output["sectionCostLimitUsd"] = launch.get("sectionCostLimitUsd", 2.0)
         if validator:
             output["sessionValidator"] = validator
         output["conversation"] = load_conversation(
             self.settings.build_root, stable, 120)
-        output["gptRunningCost"] = load_gpt_running_cost(
-            self.settings.build_root, stable)
+        running_cost = load_gpt_running_cost(self.settings.build_root, stable)
+        output["aiRunningCost"] = running_cost
+        output["gptRunningCost"] = running_cost  # older browser compatibility
         try:
             output["courseControl"] = public_course_status(
                 self.settings.build_root, stable)

@@ -52,6 +52,19 @@ assert [item["id"] for item in contract["performances"]] == [
 wrong_target = ARC.replace("Python — Finish 3/5", "Pygame — Finish 3/5")
 assert any("repeat **Language:**" in item
            for item in phase1_contract_problems(wrong_target, wrong_target, IDS))
+missing_graduate_language = ARC.replace(
+    "The learner CAN design, test, debug, and refactor Python modules,\n"
+    "including routine failure recovery and verification; still CANNOT maintain a distributed Python service.",
+    "The learner CAN design, test, debug, and refactor modules, including routine failure "
+    "recovery and verification; still CANNOT maintain a distributed service.")
+assert any("repeat the exact **Language:** value `Python`" in item
+           for item in phase1_contract_problems(
+               missing_graduate_language, missing_graduate_language, IDS))
+lowercase_boundary = ARC.replace("CAN design", "can design").replace(
+    "CANNOT maintain", "cannot maintain")
+assert any("uppercase `CAN` and `CANNOT`" in item
+           for item in phase1_contract_problems(
+               lowercase_boundary, lowercase_boundary, IDS))
 project_caps = ARC.replace("language-control-flow", "player-movement")
 assert any("language-*" in item
            for item in phase1_contract_problems(project_caps, project_caps, IDS))
@@ -288,6 +301,7 @@ print("language-mastery contract tests: OK")
 
 FULL_PLAN = ARC + """
 **Acceptance scenarios:** boots-clean -> language-transfer-proved
+**Lesson counts:** s01=3; s02=3; s03=3
 **Continuity map:** s01 -> s03: preserve the language module boundary through final transfer
 **Artifact lifecycle:** no temporary artifact ships
 **Section list:**
@@ -401,6 +415,7 @@ COMPLETE_ARC = """
 **Delivery contract:** mode = package; artifact = dist/journal; requirements = requirements.txt
 **Acceptance proof:** From a clean folder, install or configure Python and its test runner, verify their reported versions, create the Python package, run its tests, record and query journal data, recover from a malformed record, complete the novel extension, and launch the delivered command.
 **Acceptance scenarios:** creates-package -> records-entry -> recovers-error -> language-transfer-proved
+**Lesson counts:** s01=3; s02=3; s03=3
 **Section list:**
 1. **s01 — Establish Python Foundations:** install or set up Python and its test runner, verify their versions, then establish language-syntax-values, language-control-flow, language-functions, language-scope, language-testing-verification, language-debug-diagnosis, and language-environment-venv
 2. **s02 — Model Journal Data:** teach language-collections, language-comprehensions, language-iteration, language-class-objects, language-composition, language-modules-packages, language-import-boundaries, language-typing, language-files-paths, language-json-data-serialization, language-standard-library-pathlib, language-exceptions, and language-context-resources

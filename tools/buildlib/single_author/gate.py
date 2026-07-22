@@ -19,6 +19,8 @@ from ..workflow.section_progress import write_section_progress
 from ..continuity import continuity_prompt, prepare_handoff
 from ..course.control import append_course_control
 from ..course_map import CourseMapError, load_course_map, map_path
+from ..course_map.author_spec import initialize_author_spec, spec_root
+from ..phase2_research import initialize_ledger, ledger_path
 from ..course.state import (derive_course_state, record_section_failure,
                            record_section_verification)
 from ..prerequisites.review import review_prerequisites
@@ -265,7 +267,7 @@ def advance_unit(build_id, unit):
 
 
 def report_completed_unit_cost(build_id, unit):
-    """Publish GPT-only API-equivalent cost at one harness-sealed boundary."""
+    """Publish Claude/GPT API-equivalent cost at one harness-sealed boundary."""
     scopes = [(int(unit["phase"]), unit.get("section"))]
     if (unit.get("kind") == "section"
             and int(unit.get("index") or 0) == int(unit.get("total") or -1)):
@@ -327,6 +329,11 @@ def preflight_unit(build_id, unit):
         entrypoints = ("tools/validate_section.py",)
     else:
         entrypoints = PHASE_REGISTRY.get(unit["phase"]).preflight_entrypoints
+        if int(unit["phase"]) == 2:
+            if not os.path.isdir(spec_root(build_id)):
+                initialize_author_spec(build_id)
+            if not os.path.isfile(ledger_path(build_id)):
+                initialize_ledger(build_id, ctx["tooling"])
     preflight_validator_runtime(ctx["tid"], entrypoints)
 
 
@@ -337,8 +344,10 @@ def self_validation_prompt(build_id, unit):
                     "`--source-only`." if unit["kind"] == "section" else "")
     return (
         "Before handing off, run only the exact self-check command(s) below. Read the complete "
-        "report; if a command exits nonzero, repair only this assigned unit from those findings "
-        "and rerun until every command exits zero. Do not inspect validator implementation to "
+        "report. Run each command at most once in this turn. If a command exits nonzero with "
+        "structured ERROR/WARN findings, do not repair or rerun it in this turn; answer once with "
+        "HARNESS_REPAIR_REQUIRED: plus a one-line summary, then stop. The harness will reproduce "
+        "the check and return one complete bounded repair packet. Do not inspect validator implementation to "
         "guess at hidden checks, and do not substitute ad-hoc schema/replay/quality scripts. "
         "If it crashes before structured ERROR/WARN findings, answer once with HARNESS_BLOCKED: "
         "and the diagnostic, then stop; never spend another turn retrying repository tooling.\n"
@@ -366,12 +375,48 @@ def repair_prompt(build_id, unit, report):
     return (f"HARNESS VALIDATION FAILED for {label(unit)}. {scope} in the same "
             "session. Preserve clean work. Treat the report below as the complete repair packet: "
             "do not rerender the section context, repeat initial discovery, or broaden the edit. "
-            "Read only cited files/ranges needed for the findings and batch related fixes into one "
-            "coherent patch. After the repair, rerun the assigned exact self-check until it exits "
-            "zero; do not replace it with manual validator imitation.\n\n"
+            "Read only cited files/ranges needed for the findings and batch all related fixes into one "
+            "coherent patch. After the repair, run the assigned exact self-check once; do not replace "
+            "it with manual validator imitation or serialize one finding per turn.\n\n"
             f"{str(report or 'validator failed')[-12000:]}\n\n"
             f"{self_validation_prompt(build_id, unit)} Then run exactly `{marker}` and stop so "
             "the harness can independently validate the repair.")
+
+
+# A full section plus hidden replay is too large for one upstream generation, while one
+# lesson per turn repeatedly charges the same warm context. The stable boundary is all
+# lessons in one batch, followed by one Working/assessment/handoff turn.
+LESSON_BATCH_INSTRUCTION = (
+    "Use TWO COHERENT AUTHORING BATCHES for this section. In the first turn, research the "
+    "section's external facts, then author EVERY sealed planned lesson completely in one batch. "
+    "Stop after all lesson files without authoring the Working, assessment, handoff, self-check, "
+    "or progress marker. The harness returns you to this same session once, retaining the bounded "
+    "context. In the second turn, author the Working, assessment, and handoff together, then use "
+    "the self-check and marker instructions below.")
+
+
+def continue_prompt(build_id, unit):
+    """Return the author to the same unit after it stopped without a handoff.
+
+    For a section this is the expected two-batch boundary rather than a stall, so it must
+    not re-send unit_prompt, whose section branch
+    re-runs render_section_context and the continuity packet the author already has. A
+    genuine stall is caught by the no-progress fingerprint in single_author.run(), which
+    compares author-writable state across turns, so this prompt never has to police it.
+    """
+    if unit["kind"] != "section":
+        return (f"You stopped before handing off {label(unit)}. Finish only that unit, "
+                "run its assigned exact self-check, set its progress marker to "
+                "validating, and stop.\n\n" + unit_prompt(build_id, unit))
+    marker = (f"python3 tools/workflow/report_section_progress.py {build_id} {unit['section']} "
+              f"{unit['index']} {unit['total']} validating")
+    return (f"Continuing {label(unit)} in the same bounded session. Do not rerender the "
+            "section context, reread the phase guide, or repeat discovery. Verify that every "
+            "sealed planned lesson is complete. If an interrupted first batch left any lesson "
+            "incomplete, finish ALL remaining lessons together and stop again before the Working. "
+            "Otherwise author the Working, assessment, and handoff together, then "
+            f"{self_validation_prompt(build_id, unit)} Then run exactly `{marker}` and stop "
+            "so the harness can independently validate the complete section.")
 
 
 def unit_prompt(build_id, unit):
@@ -380,19 +425,32 @@ def unit_prompt(build_id, unit):
               if unit["kind"] == "section" else
               f"python3 tools/workflow/report_tome_progress.py {build_id} {unit['phase']} validating")
     construction = (f" {LEARNER_CONSTRUCTION_INSTRUCTION}" if unit["kind"] == "section" else "")
+    rhythm = (f" {LESSON_BATCH_INSTRUCTION}" if unit["kind"] == "section" else "")
     prompt = (f"Continue with {label(unit)}. Read its phase guide, then complete exactly this unit."
-              f"{construction} "
+              f"{construction}{rhythm} "
               f"{self_validation_prompt(build_id, unit)} Then run exactly `{marker}` "
               "and stop so the harness can independently validate it.")
     if unit["kind"] != "section":
+        if int(unit.get("phase") or 0) == 2:
+            prompt += (
+                f" Begin with exactly `python3 tools/workflow/context/render_phase2_context.py {build_id}`. "
+                "That bounded packet replaces broad repository discovery. Edit only the compact "
+                "Phase-2 author files it names; the exact self-check deterministically materializes "
+                "the full proposal. Complete every section plan in one coherent batch. If external "
+                "tooling is selected, use web search only for facts that affect installation, current "
+                "commands, APIs, compatibility, or delivery; cite no more than six official or primary "
+                "sources in the research ledger. Later authors reuse that ledger. Target no more than "
+                "$2 API-equivalent for initial Phase 2 planning; avoid rereading generated proposal JSON."
+            )
         return prompt
     prompt += (
-        f" Begin with exactly `python3 tools/workflow/render_section_context.py {build_id} "
+        f" Begin with exactly `python3 tools/workflow/context/render_section_context.py {build_id} "
         f"{unit['section']}`; that bounded packet replaces scattered initial discovery reads. "
         "After it, batch independent file reads and searches into one tool call and group related "
         "file edits into one coherent patch whenever the artifacts permit it. Do not inspect one "
         "known file per tool round trip. The operating target for the Phase 3 author plus its "
-        "mandatory Validator AI is $1–2 API-equivalent per section; meet the complete quality "
+        "mandatory Validator AI is $1–2 API-equivalent per section for Codex authors; Claude "
+        "authors may use up to $4. Meet the complete quality "
         "contract within that target by using this bounded packet once and avoiding redundant "
         "discovery or speculative rewrites."
     )

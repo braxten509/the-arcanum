@@ -163,7 +163,162 @@ def is_scaffold(section_dir):
         return False
 
 
-def rebuild_section_scaffold(tid, sid, plan_path, tomes_dir=None):
+def _toml_array(values):
+    return "[" + ", ".join(json.dumps(str(value), ensure_ascii=False)
+                            for value in (values or [])) + "]"
+
+
+def _replace_first_field(text, key, rendered):
+    changed, count = re.subn(
+        rf"(?m)^{re.escape(key)}\s*=\s*[^\n]+$", f"{key} = {rendered}", text, count=1)
+    if count != 1:
+        raise ValueError(f"section scaffold has no {key} field")
+    return changed
+
+
+def _insert_after_first_field(text, key, lines):
+    match = re.search(rf"(?m)^{re.escape(key)}\s*=\s*[^\n]+$", text)
+    if not match:
+        raise ValueError(f"section scaffold has no {key} field")
+    return text[:match.end()] + "\n" + "\n".join(lines) + text[match.end():]
+
+
+def _lesson_scaffold(template, node):
+    """Bind one generic lesson template to its sealed Phase-2 node."""
+    node_id = str(node["id"]).replace(".", "-")
+    teaches = list(node.get("teaches") or [])
+    introduces = list(node.get("introduces") or [])
+    dependencies = list(node.get("validationDependencies") or [])
+    text = re.sub(r"s\d{2}-l01", node_id, template)
+    text = _replace_first_field(text, "id", json.dumps(node_id))
+    text = _replace_first_field(
+        text, "title", json.dumps("TODO: " + str(node.get("title") or node_id),
+                                  ensure_ascii=False))
+    text = _replace_first_field(text, "teaches", _toml_array(teaches))
+    text = _insert_after_first_field(text, "teaches", (
+        f"introduces = {_toml_array(introduces)}",
+        f"validationDependencies = {_toml_array(dependencies)}",
+    ))
+
+    # Give every sealed capability/mechanism an explicit evidence slot. Phase 3
+    # replaces the TODO prose and may distribute practices more finely, but it no
+    # longer has to infer ids or lesson ownership from validator failures.
+    concepts = []
+    for concept_id in dict.fromkeys([*teaches, *introduces]):
+        concepts.append(
+            "[[lessons.concepts]]\n"
+            f"id = {json.dumps(concept_id)}\n"
+            "purpose = \"TODO: plain-language purpose.\"\n"
+            "anatomy = \"TODO: read its parts or procedure in order.\"\n"
+            "example = \"TODO: point to the complete worked example in this lesson.\"\n"
+            "observable = \"TODO: what the learner sees when the example works.\"\n"
+            "failure = \"TODO: one likely failure and how to recognize it.\"\n"
+            f"practice = {json.dumps(node_id + '-e1')}\n")
+    text, count = re.subn(
+        r"(?s)\[\[lessons\.concepts\]\].*?(?=\[\[lessons\.readings\]\])",
+        "\n".join(concepts) + "\n", text, count=1)
+    if count != 1:
+        raise ValueError("lesson scaffold has no concepts block")
+    text = text.replace('capabilities = ["replace-me"]',
+                        f"capabilities = {_toml_array(teaches)}")
+    # The first guided exercise is the initial mechanical coverage slot. The
+    # author is expected to distribute demands honestly while replacing TODOs.
+    text = text.replace("cognitiveTask = \"predict\"",
+                        f"mechanisms = {_toml_array(introduces)}\n"
+                        "cognitiveTask = \"predict\"", 1)
+    text = text.replace("cognitiveTask = \"explain\"",
+                        "mechanisms = []\ncognitiveTask = \"explain\"", 1)
+    text = text.replace("cognitiveTask = \"complete\"",
+                        "mechanisms = []\ncognitiveTask = \"complete\"", 1)
+    text = text.replace("cognitiveTask = \"recall\"",
+                        "mechanisms = []\ncognitiveTask = \"recall\"", 1)
+    text = text.replace("cognitiveTask = \"build\"",
+                        "mechanisms = []\ncognitiveTask = \"build\"", 1)
+    return text
+
+
+def _working_scaffold(text, node):
+    requires = list(node.get("requires") or [])
+    mechanisms = list(node.get("mechanisms") or [])
+    dependencies = list(node.get("validationDependencies") or [])
+    mastery = list(node.get("masteryPerformances") or [])
+    text = _replace_first_field(
+        text, "title", json.dumps("THE WORKING: " + str(node.get("title") or "TODO"),
+                                  ensure_ascii=False))
+    text = _replace_first_field(text, "requires", _toml_array(requires))
+    text = _insert_after_first_field(text, "requires", (
+        f"mechanisms = {_toml_array(mechanisms)}",
+        f"validationDependencies = {_toml_array(dependencies)}",
+        f"masteryPerformances = {_toml_array(mastery)}",
+    ))
+    text = text.replace("instruction = \"TODO: exact private reference edit that satisfies "
+                        "this Working.\"",
+                        "mechanisms = " + _toml_array(mechanisms) + "\n"
+                        "instruction = \"TODO: exact private reference edit that satisfies "
+                        "this Working.\"")
+    text = text.replace("kind = \"deterministic\"",
+                        "kind = \"deterministic\"\nmechanisms = []")
+    text = text.replace("kind = \"qualitative\"",
+                        "kind = \"qualitative\"\nmechanisms = []")
+    return text
+
+
+def hydrate_section_scaffolds(tid, course, tomes_dir=None, only=None):
+    """Materialize sealed lesson/Working obligations into untouched scaffolds.
+
+    Authored sections are never changed. This runs after Phase 2 seals the map and
+    is also used when a Phase-3 section reset rebuilds one fresh scaffold.
+    """
+    tomes_dir = tomes_dir or os.path.join(REPO, "tomes")
+    wanted = set(only or [])
+    hydrated = []
+    for section in course.get("sections") or []:
+        sid = str(section.get("id") or "")
+        if not sid or (wanted and sid not in wanted):
+            continue
+        section_dir = os.path.join(tomes_dir, tid, "sections", sid)
+        if not is_scaffold(section_dir):
+            continue
+        lessons = [node for node in section.get("nodes") or []
+                   if node.get("kind") == "lesson"]
+        working = next((node for node in section.get("nodes") or []
+                        if node.get("kind") == "working"), None)
+        lesson_dir = os.path.join(section_dir, "lessons")
+        template_path = os.path.join(lesson_dir, "l01.toml")
+        if not lessons or not working or not os.path.isfile(template_path):
+            raise ValueError(f"{sid} sealed scaffold is missing lessons or Working")
+        with open(template_path, encoding="utf-8") as handle:
+            lesson_template = handle.read()
+        with open(os.path.join(section_dir, "freestyle.toml"), encoding="utf-8") as handle:
+            freestyle = handle.read()
+        with open(os.path.join(section_dir, "section.toml"), encoding="utf-8") as handle:
+            section_text = handle.read()
+        section_text = section_text.replace(
+            "mode = \"run\"", "mode = \"run\"\nmechanisms = []", 1)
+        with open(os.path.join(section_dir, "section.toml"), "w", encoding="utf-8") as handle:
+            handle.write(section_text)
+        for name in os.listdir(lesson_dir):
+            if name.endswith(".toml"):
+                os.remove(os.path.join(lesson_dir, name))
+        for index, node in enumerate(lessons, 1):
+            with open(os.path.join(lesson_dir, f"l{index:02d}.toml"),
+                      "w", encoding="utf-8") as handle:
+                handle.write(_lesson_scaffold(lesson_template, node))
+        with open(os.path.join(section_dir, "freestyle.toml"), "w", encoding="utf-8") as handle:
+            handle.write(_working_scaffold(freestyle, working))
+        assessment = os.path.join(section_dir, "assessment.toml")
+        if not os.path.isfile(assessment):
+            try:
+                from scaffold import ASSESSMENT_TEMPLATE
+            except ModuleNotFoundError:
+                from tools.scaffold import ASSESSMENT_TEMPLATE
+            with open(assessment, "w", encoding="utf-8") as handle:
+                handle.write(ASSESSMENT_TEMPLATE.lstrip("\n"))
+        hydrated.append(sid)
+    return hydrated
+
+
+def rebuild_section_scaffold(tid, sid, plan_path, tomes_dir=None, course=None):
     """Put one section back to its Phase-2 stub, leaving every other section alone.
 
     A Phase-3 restart has to clear authored prose without leaving the section empty: the
@@ -201,6 +356,8 @@ def rebuild_section_scaffold(tid, sid, plan_path, tomes_dir=None):
     finally:
         split_tome.QUIET = old_quiet
         shutil.rmtree(temp_root, ignore_errors=True)
+    if course:
+        hydrate_section_scaffolds(tid, course, tomes_dir=tomes_dir, only=(sid,))
     return spec
 
 

@@ -11,7 +11,8 @@ sys.path.insert(0, ROOT)
 
 from tools.buildlib.status_log import (STATUS_LOG_LINES, append_status_line,
                                        clear_run_history, load_status_lines,
-                                       rewind_status_log, status_path)
+                                       rewind_status_log, rewind_status_log_sections,
+                                       status_path)
 from arcanum.authoring.read_models.durable_status import (clear_conversation,
                                                           load_conversation)
 
@@ -29,20 +30,20 @@ with tempfile.TemporaryDirectory() as folder:
         "s01 › codex-cli luna",
     ]
     append_status_line(
-        build, "GPT API-EQUIVALENT COST COMPLETE [102.000] › "
+        build, "AI API-EQUIVALENT COST COMPLETE [102.000] › "
         "PHASE 3 SECTION s01 › $1.25", build_dir=folder, at=102)
     append_status_line(
-        build, "GPT API-EQUIVALENT COST COMPLETE [103.000] › "
+        build, "AI API-EQUIVALENT COST COMPLETE [103.000] › "
         "PHASE 3 TOTAL · SUM OF 1 SECTIONS › $1.25", build_dir=folder, at=103)
     append_status_line(
-        build, "GPT API-EQUIVALENT COST COMPLETE [104.000] › "
+        build, "AI API-EQUIVALENT COST COMPLETE [104.000] › "
         "PHASE 3 SECTION s01 › $1.40", build_dir=folder, at=104)
     cost_lines = [line for line in load_status_lines(build, build_dir=folder)
-                  if line.startswith("GPT API-EQUIVALENT COST")]
+                  if line.startswith("AI API-EQUIVALENT COST")]
     assert cost_lines == [
-        "GPT API-EQUIVALENT COST COMPLETE [103.000] › "
+        "AI API-EQUIVALENT COST COMPLETE [103.000] › "
         "PHASE 3 TOTAL · SUM OF 1 SECTIONS › $1.25",
-        "GPT API-EQUIVALENT COST COMPLETE [104.000] › "
+        "AI API-EQUIVALENT COST COMPLETE [104.000] › "
         "PHASE 3 SECTION s01 › $1.40",
     ]
     # Two Phase-3 cost rows plus the two validator rows the rewind invalidated.
@@ -102,7 +103,7 @@ with tempfile.TemporaryDirectory() as folder:
     build = "phase-boundary"
     for phase in (1, 3, 4):
         append_status_line(
-            build, f"GPT API-EQUIVALENT COST COMPLETE [{phase}.000] › "
+            build, f"AI API-EQUIVALENT COST COMPLETE [{phase}.000] › "
             f"PHASE {phase} TOTAL › ${phase}.00", build_dir=folder, at=phase)
     # Validator traffic describes work the rewind erased, so all of it goes while the
     # earlier phases keep their spend on the ledger.
@@ -117,6 +118,30 @@ with tempfile.TemporaryDirectory() as folder:
     assert load_status_lines(build, build_dir=folder) == []
 
 with tempfile.TemporaryDirectory() as folder:
+    build = "section-boundary"
+    append_status_line(
+        build, "AI VALIDATOR CALL COMPLETE [1.000] (PASS) › "
+        "section quality s01 › codex-cli luna", build_dir=folder, at=1)
+    append_status_line(
+        build, "AI API-EQUIVALENT COST COMPLETE [2.000] › "
+        "PHASE 3 SECTION s01 › $1.00", build_dir=folder, at=2)
+    append_status_line(
+        build, "AI VALIDATOR CALL COMPLETE [3.000] (FAIL) › "
+        "section quality s02 › codex-cli luna", build_dir=folder, at=3)
+    append_status_line(
+        build, "AI API-EQUIVALENT COST COMPLETE [4.000] › "
+        "PHASE 3 SECTION s02 › $2.00", build_dir=folder, at=4)
+    append_status_line(
+        build, "AI API-EQUIVALENT COST COMPLETE [5.000] › "
+        "PHASE 3 TOTAL › $3.00", build_dir=folder, at=5)
+    assert rewind_status_log_sections(build, ["s02"], build_dir=folder) == 3
+    assert load_status_lines(build, build_dir=folder) == [
+        "AI VALIDATOR CALL COMPLETE [1.000] (PASS) › "
+        "section quality s01 › codex-cli luna",
+        "AI API-EQUIVALENT COST COMPLETE [2.000] › PHASE 3 SECTION s01 › $1.00",
+    ]
+
+with tempfile.TemporaryDirectory() as folder:
     build = "abandoned"
     with open(os.path.join(folder, f"{build}.launch.json"), "w", encoding="utf-8") as handle:
         json.dump({"validator": {"kind": "codex-cli"}}, handle)
@@ -127,7 +152,7 @@ with tempfile.TemporaryDirectory() as folder:
     append_status_line(build, "VALIDATOR COMMAND START [100.500] › python3 validate.py s02",
                        build_dir=folder, at=100.5)
     append_status_line(
-        build, "GPT API-EQUIVALENT COST COMPLETE [101.000] › PHASE 2 TOTAL › $7.80",
+        build, "AI API-EQUIVALENT COST COMPLETE [101.000] › PHASE 2 TOTAL › $7.80",
         build_dir=folder, at=101)
     assert len(load_status_lines(build, build_dir=folder)) == 3
     # Abandoning empties both panes. The validator's own call journal is never
@@ -151,14 +176,14 @@ with tempfile.TemporaryDirectory() as folder:
         handle.write(json.dumps({"at": 103, "kind": "harness",
                                  "text": "Next phase assigned."}) + "\n")
     append_status_line(
-        build, "GPT API-EQUIVALENT COST COMPLETE [102.000] › "
+        build, "AI API-EQUIVALENT COST COMPLETE [102.000] › "
         "PHASE 1 TOTAL › $0.86", build_dir=folder, at=102)
     visible = load_conversation(folder, build)
     assert [row["at"] for row in visible] == [100, 102.0, 103]
     assert visible[1] == {
         "at": 102.0,
         "kind": "harness",
-        "text": "GPT API-EQUIVALENT COST COMPLETE › PHASE 1 TOTAL › $0.86",
+        "text": "AI API-EQUIVALENT COST COMPLETE › PHASE 1 TOTAL › $0.86",
         "eventKey": "gpt-cost:1:total",
     }
     # Abandoning drops the transcript, and clearing the log takes the cost rows with it.

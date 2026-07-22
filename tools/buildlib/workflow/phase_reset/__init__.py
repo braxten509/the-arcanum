@@ -16,10 +16,10 @@ import tempfile
 import time
 
 from ... import BUILD_DIR, REPO
-from ...ai_costs import rewind_ai_costs
+from ...ai_costs import rewind_ai_cost_sections, rewind_ai_costs
 from ...course.limits import MIN_SECTIONS
 from ...skeleton import is_scaffold, rebuild_section_scaffold, scaffold_sections
-from ...status_log import rewind_status_log
+from ...status_log import rewind_status_log, rewind_status_log_sections
 from arcanum.catalog.build_ids import resolve_working_id
 
 from .contracts import (AI_COST_SIDECARS, COST_SIDECARS, COURSE_MAP_SIDECARS,
@@ -28,12 +28,18 @@ from .contracts import (AI_COST_SIDECARS, COST_SIDECARS, COURSE_MAP_SIDECARS,
                         TERMINAL_SUFFIXES, _replace_economy)
 from .files import (ID_RE, _atomic_json, _atomic_text, _copy_item, _read_text, _remove,
                     _valid_id)
+from .evidence import (RESTART_EVIDENCE_SIDECARS, rewind_phase_evidence,
+                       rewind_section_evidence)
 from .plan_text import (CALIBRATION_RE, GATE_LABELS, GROUND_TRUTH_RE, RENAME_RE,
                         _mastery_from_plan, reset_plan_text)
 
 
 TOMES_DIR = os.path.join(REPO, "tomes")
 SECTION_RE = re.compile(r"s[0-9]{2,3}")
+
+
+def _validator_failure_root():
+    return os.path.join(os.path.dirname(TOMES_DIR), "validator-failures")
 
 
 def find_plan_for_tome(tid):
@@ -192,7 +198,8 @@ def _fallback_phase_boundary(tome, tid, plan, phase):
 
 def _clear_sidecars(keys, phase, everything=False):
     for key in {_valid_id(value) for value in keys if value}:
-        for suffix in TERMINAL_SUFFIXES + PHASE8_SIDECARS + COST_SIDECARS:
+        for suffix in (TERMINAL_SUFFIXES + PHASE8_SIDECARS + COST_SIDECARS
+                       + RESTART_EVIDENCE_SIDECARS):
             _remove(os.path.join(BUILD_DIR, f"{key}.{suffix}"))
         if everything or phase <= 1:
             for suffix in COURSE_SEED_SIDECARS:
@@ -223,7 +230,8 @@ def _stage_sidecars(keys, transaction):
     os.makedirs(target, exist_ok=True)
     suffixes = (TERMINAL_SUFFIXES + COURSE_SEED_SIDECARS + COURSE_MAP_SIDECARS
                 + PHASE3_SIDECARS + COURSE_STATE_SIDECARS
-                + PHASE7_SIDECARS + PHASE8_SIDECARS + COST_SIDECARS)
+                + PHASE7_SIDECARS + PHASE8_SIDECARS + COST_SIDECARS
+                + RESTART_EVIDENCE_SIDECARS)
     for key in {_valid_id(value) for value in keys if value}:
         for suffix in suffixes:
             source = os.path.join(BUILD_DIR, f"{key}.{suffix}")
@@ -259,6 +267,37 @@ def _restore_later_snapshots(build_id, source):
         os.replace(os.path.join(source, name), os.path.join(snapshot_root(build_id), name))
 
 
+def _stage_failure_archives(keys, transaction):
+    target = os.path.join(transaction, "validator-failures")
+    os.makedirs(target, exist_ok=True)
+    archive_root = _validator_failure_root()
+    for key in {_valid_id(value) for value in keys if value}:
+        source = os.path.join(archive_root, key)
+        if os.path.exists(source):
+            os.replace(source, os.path.join(target, key))
+    return target
+
+
+def _copy_failure_archives(source):
+    if not os.path.isdir(source):
+        return
+    archive_root = _validator_failure_root()
+    os.makedirs(archive_root, exist_ok=True)
+    for name in os.listdir(source):
+        _copy_item(os.path.join(source, name), os.path.join(archive_root, name))
+
+
+def _restore_failure_archives(source):
+    if not os.path.isdir(source):
+        return
+    archive_root = _validator_failure_root()
+    os.makedirs(archive_root, exist_ok=True)
+    for name in os.listdir(source):
+        target = os.path.join(archive_root, name)
+        _remove(target)
+        os.replace(os.path.join(source, name), target)
+
+
 def reset_tome_to_section(tid, sid):
     """Rewind Phase 3 to one section start, keeping every earlier section's work.
 
@@ -269,8 +308,9 @@ def reset_tome_to_section(tid, sid):
     The authored trees from ``sid`` onward are moved aside as well, not left in place.
     A restart that leaves gate-clean files on disk is not a restart: the author reads
     them, finds them already passing, writes only a handoff, and marks the section
-    validating without authoring or researching anything.  Files are stashed under the
-    build's reset-stash rather than deleted, so a mistaken restart stays recoverable.
+    validating without authoring or researching anything. Files are staged only while
+    the reset transaction is in progress, then deleted after a successful restart so
+    a future author cannot mine the abandoned attempt.
 
     Each cleared section is rebuilt back to its Phase-2 scaffold instead of being left
     absent, and sections that are still unauthored scaffolds are not touched at all.
@@ -283,27 +323,47 @@ def reset_tome_to_section(tid, sid):
         raise ValueError(f"invalid section id {sid!r}")
     build_id, plan, _text = find_plan_for_tome(tid)
     from ...course_map import load_course_map
-    ids = [section["id"] for section in load_course_map(build_id)["sections"]]
+    course = load_course_map(build_id)
+    ids = [section["id"] for section in course["sections"]]
     if sid not in ids:
         raise ValueError(f"{sid} is not a section of this tome")
     keys = {_valid_id(value) for value in (build_id, tid) if value}
-    stash = os.path.join(BUILD_DIR, f"{build_id}.reset-stash", f"{time.strftime('%Y%m%dT%H%M%S')}-{sid}")
-    for section in ids[ids.index(sid):]:
-        authored = os.path.join(TOMES_DIR, tid, "sections", section)
-        if os.path.isdir(authored) and not is_scaffold(authored):
-            os.makedirs(stash, exist_ok=True)
-            os.replace(authored, os.path.join(stash, section))
-            rebuild_section_scaffold(tid, section, plan, tomes_dir=TOMES_DIR)
+    reset_sections = ids[ids.index(sid):]
+    transaction = tempfile.mkdtemp(prefix=".section-reset-", dir=TOMES_DIR)
+    moved = []
+    try:
+        for section in reset_sections:
+            authored = os.path.join(TOMES_DIR, tid, "sections", section)
+            if os.path.isdir(authored) and not is_scaffold(authored):
+                staged = os.path.join(transaction, section)
+                os.replace(authored, staged)
+                moved.append((authored, staged))
+                rebuild_section_scaffold(
+                    tid, section, plan, tomes_dir=TOMES_DIR, course=course)
+    except Exception:
+        for authored, staged in reversed(moved):
+            _remove(authored)
+            if os.path.exists(staged):
+                os.replace(staged, authored)
+        shutil.rmtree(transaction, ignore_errors=True)
+        raise
+    shutil.rmtree(transaction, ignore_errors=True)
     for key in keys:
-        for section in ids[ids.index(sid):]:
+        for section in reset_sections:
             for suffix in ("handoffs", "course-evidence", "course-failures"):
                 _remove(os.path.join(BUILD_DIR, f"{key}.{suffix}", f"{section}.json"))
         for suffix in TERMINAL_SUFFIXES:
             if suffix != "progress":
                 _remove(os.path.join(BUILD_DIR, f"{key}.{suffix}"))
     for key in keys:
+        rewind_section_evidence(
+            BUILD_DIR, _validator_failure_root(), key, reset_sections)
+        if any(os.path.exists(os.path.join(BUILD_DIR, f"{key}.{suffix}"))
+               for suffix in AI_COST_SIDECARS):
+            rewind_ai_cost_sections(BUILD_DIR, key, reset_sections)
         if os.path.exists(os.path.join(BUILD_DIR, f"{key}.status-log.jsonl")):
-            rewind_status_log(key, 3, build_dir=BUILD_DIR)
+            rewind_status_log_sections(key, reset_sections, build_dir=BUILD_DIR)
+        _remove(os.path.join(BUILD_DIR, f"{key}.reset-stash"))
     now = time.time()
     _atomic_json(os.path.join(BUILD_DIR, f"{build_id}.progress"), {
         "phase": 3, "phaseTitle": PHASE_TITLES[3], "state": "working",
@@ -338,9 +398,11 @@ def reset_tome_to_phase(tid, phase):
     backup = os.path.join(transaction, "original-tome")
     state_backup = os.path.join(transaction, "build-state")
     snapshot_backup = os.path.join(transaction, "later-snapshots")
+    failure_backup = os.path.join(transaction, "validator-failures")
     moved_tome = False
     try:
         _stage_sidecars((build_id, tid, target_tid), transaction)
+        _stage_failure_archives((build_id, tid, target_tid), transaction)
         _stage_later_snapshots(build_id, phase, transaction)
         os.replace(current_tome, backup)
         moved_tome = True
@@ -390,7 +452,11 @@ def reset_tome_to_phase(tid, phase):
             from ...course.state import derive_course_state
             derive_course_state(build_id)
         _copy_staged_sidecars(state_backup, COST_SIDECARS)
+        _copy_staged_sidecars(state_backup, RESTART_EVIDENCE_SIDECARS)
+        _copy_failure_archives(failure_backup)
         for key in {_valid_id(value) for value in (build_id, tid, target_tid) if value}:
+            rewind_phase_evidence(
+                BUILD_DIR, _validator_failure_root(), key, phase)
             if any(os.path.exists(os.path.join(BUILD_DIR, f"{key}.{suffix}"))
                    for suffix in AI_COST_SIDECARS):
                 rewind_ai_costs(BUILD_DIR, key, phase)
@@ -409,7 +475,9 @@ def reset_tome_to_phase(tid, phase):
                               TERMINAL_SUFFIXES + COURSE_SEED_SIDECARS
                               + COURSE_MAP_SIDECARS + PHASE3_SIDECARS
                               + COURSE_STATE_SIDECARS
-                              + PHASE7_SIDECARS + PHASE8_SIDECARS + COST_SIDECARS)
+                              + PHASE7_SIDECARS + PHASE8_SIDECARS + COST_SIDECARS
+                              + RESTART_EVIDENCE_SIDECARS)
+        _restore_failure_archives(failure_backup)
         _restore_later_snapshots(build_id, snapshot_backup)
         if os.path.exists(backup):
             os.replace(backup, current_tome)

@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import re
 
-MAP_VERSION = 5
-SUPPORTED_MAP_VERSIONS = (1, 2, 3, 4, 5)
+MAP_VERSION = 6
+SUPPORTED_MAP_VERSIONS = (1, 2, 3, 4, 5, 6)
 MIN_PLANNED_LESSONS = 3
 MAX_PLANNED_LESSONS = 8
 ID_RE = re.compile(r"[A-Za-z0-9_-]+\Z")

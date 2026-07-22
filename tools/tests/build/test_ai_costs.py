@@ -10,7 +10,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))))
 sys.path.insert(0, ROOT)
 
-from tools.buildlib.ai_costs import (completed_cost_line, ensure_cost_totals,
+from tools.buildlib.ai_costs import (api_equivalent_completion_cost,
+                                     completed_cost_line, ensure_cost_totals,
                                      gpt_completion_cost, record_ai_turn,
                                      rewind_ai_costs, totals_path, turns_path)
 from arcanum.authoring.read_models.durable_status import load_gpt_running_cost
@@ -30,6 +31,26 @@ assert claude_usage["inputTokens"] == 110
 assert claude_usage["freshInputTokens"] == 20
 assert claude_usage["cachedInputTokens"] == 80
 assert claude_usage["cacheWriteTokens"] == 10
+
+with tempfile.TemporaryDirectory() as folder:
+    record_ai_turn(
+        folder, "claude-priced", phase=3, section="s01", role="author",
+        stage="author-turn", kind="claude-cli", model="claude-sonnet-5",
+        transport="cli", usage={"freshInputTokens": 100_000,
+                                "cachedInputTokens": 100_000,
+                                "cacheWriteTokens": 100_000,
+                                "outputTokens": 100_000}, ended_at=900)
+    claude_cost = api_equivalent_completion_cost(
+        folder, "claude-priced", phase=3, section="s01")
+    assert claude_cost["apiEquivalentUsd"] == 1.47
+    assert claude_cost["apiTurnCount"] == 1 and claude_cost["gptTurnCount"] == 0
+    assert completed_cost_line(
+        folder, "claude-priced", phase=3, section="s01", at=901) == (
+            "AI API-EQUIVALENT COST COMPLETE [901.000] › "
+            "PHASE 3 SECTION s01 › $1.47")
+    running = load_gpt_running_cost(folder, "claude-priced")
+    assert running["aiTurnCount"] == 1 and running["claudeTurnCount"] == 1
+    assert running["displayUsd"] == 1.47
 
 
 with tempfile.TemporaryDirectory() as folder:
@@ -112,10 +133,10 @@ with tempfile.TemporaryDirectory() as folder:
     assert phase3["gptTurnCount"] == 2
     assert completed_cost_line(
         folder, build, phase=3, section="s01", at=1200) == (
-            "GPT API-EQUIVALENT COST COMPLETE [1200.000] › "
+            "AI API-EQUIVALENT COST COMPLETE [1200.000] › "
             "PHASE 3 SECTION s01 › $1.00")
     assert completed_cost_line(folder, build, phase=3, at=1201) == (
-        "GPT API-EQUIVALENT COST COMPLETE [1201.000] › "
+        "AI API-EQUIVALENT COST COMPLETE [1201.000] › "
         "PHASE 3 TOTAL · SUM OF 2 SECTIONS › $1.60")
     record_ai_turn(
         folder, build, phase=1, role="author", stage="planning",
@@ -156,7 +177,7 @@ with tempfile.TemporaryDirectory() as folder:
     assert phase2["gptTurnCount"] == 3 and phase2["turnCount"] == 3
     assert phase2["apiEquivalentUsd"] == 0.00075
     assert completed_cost_line(folder, build, phase=2, at=1303).startswith(
-        "GPT API-EQUIVALENT COST COMPLETE [1303.000] › PHASE 2 TOTAL › $")
+        "AI API-EQUIVALENT COST COMPLETE [1303.000] › PHASE 2 TOTAL › $")
     assert load_gpt_running_cost(folder, build)["gptTurnCount"] == 3
 
 with tempfile.TemporaryDirectory() as folder:
@@ -258,7 +279,7 @@ with tempfile.TemporaryDirectory() as folder:
         kind="codex-cli", model="gpt-5.6-luna", transport="cli",
         usage=None, ended_at=3100)
     assert completed_cost_line(folder, "missing-usage", phase=1, at=3101).endswith(
-        "› UNAVAILABLE · PARTIAL: 1 GPT TURN LACKED TOKEN USAGE")
+        "› UNAVAILABLE · PARTIAL: 1 AI TURN LACKED TOKEN USAGE")
     running = load_gpt_running_cost(folder, "missing-usage")
     assert running["gptPricedTurns"] == 0
     assert running["gptUnpricedTurns"] == 1

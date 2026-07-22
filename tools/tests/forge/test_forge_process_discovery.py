@@ -21,7 +21,8 @@ from arcanum.jobs import JobManager, ProcessStore  # noqa: E402
 from arcanum.settings import Settings  # noqa: E402
 from runtimes import RuntimeRegistry  # noqa: E402
 from arcanum.authoring.adapters.forge_lifecycle import (  # noqa: E402
-    _author, _authors, _phase_author, _resume_session_id, _validator)
+    _author, _authors, _phase_author, _resume_session_id, _reviewer, _section_cost_limit,
+    _validator)
 from arcanum.authoring.read_models.forge_status import ForgeStatusService  # noqa: E402
 
 
@@ -58,6 +59,13 @@ assert _resume_session_id({**current, "actualModel": "terra"},
 assert not _resume_session_id({"kind": "codex-cli", "model": "terra",
                                "sessionId": "legacy-no-scope"},
                               {"kind": "codex-cli", "model": "terra"}, 3, "s05")
+assert _section_cost_limit({}) == 2.0
+assert _section_cost_limit({"sectionCostLimitUsd": "3.5"}) == 3.5
+try:
+    _section_cost_limit({"sectionCostLimitUsd": 11})
+    raise AssertionError("an invalid section hard stop was accepted")
+except ValueError:
+    pass
 
 
 def write_proc(root, pid, argv):
@@ -110,12 +118,16 @@ with tempfile.TemporaryDirectory() as temp:
         active = forge.list_active_builds(job_manager, catalog, proc_root)
         assert len(active) == 1 and not active[0]["external"]
         assert active[0]["tome"] == "rune-bound" and active[0]["phase"] == 4
-        assert _author({"author": {"kind": "opencode-cli",
-                                   "model": "ollama/llama3.2:3b"}})
+        try:
+            _author({"author": {"kind": "opencode-cli",
+                                "model": "ollama/llama3.2:3b"}})
+            raise AssertionError("OpenCode must be rejected for tome authoring")
+        except ValueError as exc:
+            assert "Claude CLI or Codex CLI" in str(exc)
         routed = _authors({"authors": {
             "phase12": {"kind": "codex-cli", "model": "arc"},
             "phase37": {"kind": "claude-cli", "model": "build", "effort": "high"},
-            "phase8": {"kind": "opencode-cli", "model": "finish"},
+            "phase8": {"kind": "codex-cli", "model": "finish"},
         }})
         assert _phase_author(routed, 2)["model"] == "arc"
         assert _phase_author(routed, 3)["model"] == "build"
@@ -124,6 +136,22 @@ with tempfile.TemporaryDirectory() as temp:
         assert {row["model"] for row in legacy.values()} == {"one"}
         assert _validator({"validator": {"kind": "claude-cli",
                                           "model": "section-audit"}})["model"] == "section-audit"
+        old_key = os.environ.get("OPENAI_API_KEY")
+        os.environ["OPENAI_API_KEY"] = "test-only"
+        try:
+            api_validator = _validator({"validator": {
+                "kind": "openai-api", "model": "gpt-5.6-luna", "effort": "medium"}})
+            assert api_validator["kind"] == "openai-api"
+        finally:
+            if old_key is None:
+                os.environ.pop("OPENAI_API_KEY", None)
+            else:
+                os.environ["OPENAI_API_KEY"] = old_key
+        try:
+            _reviewer({"reviewer": {"kind": "openai-api", "model": "gpt-5.6-sol"}})
+            raise AssertionError("Codex API is validator-only")
+        except ValueError:
+            pass
 
         # A validator-infrastructure pause retries the VALIDATOR, not the author: the swap
         # rewrites the launch record the gate re-reads and leaves the author session alone.

@@ -38,15 +38,8 @@ const MASTERY_LEVELS = {
 };
 const MASTERY_DEPTH_FLOORS = { 1: 3, 2: 5, 3: 7, 4: 8, 5: 9 };
 
-// Four bindery pools share kind "opencode-cli" (Go, Zen, Local, OpenRouter), so a saved
-// {kind, model} matched on kind alone always lands on whichever is listed first and the
-// model never restores. That silently downgraded a resumed M3 author to the Go pool's
-// first model (deepseek-v4-flash) and, because the harness only resumes a session when
-// the model matches exactly (_resume_session_id in forge_lifecycle.py), turned every
-// resume into a restart. ponytail: the saved model id disambiguates — each pool's ids
-// carry its own prefix. Only kind/model/effort survive a resume (see _agent), so there
-// is no provider id to match on. Shared with bindery.js's failure picker; both restore
-// paths must agree or the bug comes back on whichever one is missed.
+// Saved routes persist kind/model/effort rather than the display-pool id. Match the exact
+// model first so the API and CLI pools stay distinct even when catalogs evolve.
 export const matchProvider = (pools, saved) => saved && (
   (pools || []).find((item) => item.kind === saved.kind
     && (item.models || []).some((row) => row[0] === saved.model))
@@ -102,9 +95,10 @@ function showForgeModal(resume) {
       <div class="forge-field">${fieldHead("LANGUAGE MASTERY", "How independently and broadly the learner can use the declared implementation language at the end. The project is the cumulative practice and proof vehicle, not the mastery target.")}<div class="forge-depth"><input id="fg-mastery" type="range" min="1" max="5" value="3" aria-label="Language mastery" aria-describedby="fg-mastery-summary"><span id="fg-mastery-val" class="forge-depth-val num">3</span></div><p class="forge-dial-summary" id="fg-mastery-summary" aria-live="polite" aria-atomic="true"></p></div>
       <div class="forge-field">${fieldHead("LESSON DEPTH", "How far each included mechanism is explained and debugged. Language Mastery enforces a minimum floor.")}<div class="forge-depth"><input id="fg-depth" type="range" min="1" max="10" value="7" aria-label="Lesson depth" aria-describedby="fg-depth-summary"><span id="fg-depth-val" class="forge-depth-val num">7</span></div><p class="forge-dial-summary" id="fg-depth-summary"></p></div>
       <div class="forge-field">${fieldHead("PROJECT SCOPE", "How large, complete, and polished the finished project should be. It does not reduce language coverage.")}<div class="forge-depth"><input id="fg-project-scope" type="range" min="1" max="5" value="3" aria-label="Project scope" aria-describedby="fg-project-scope-summary"><span id="fg-project-scope-val" class="forge-depth-val num">3</span></div><p class="forge-dial-summary" id="fg-project-scope-summary" aria-live="polite"></p></div>
+      <div class="forge-field">${fieldHead("SECTION HARD STOP", "Pause before another paid Phase 3 repair once a Codex-authored section reaches this API-equivalent cost. Claude-authored sections receive twice this allowance.")}<div class="forge-depth"><input id="fg-section-cost-limit" type="range" min="1" max="10" step="0.5" value="2" aria-label="Phase 3 section hard stop"><span id="fg-section-cost-limit-val" class="forge-depth-val num">$2</span></div><p class="forge-dial-summary">Per section · Claude limit is 2×</p></div>
     </div>
     ${resumeField}
-    <div class="forge-field forge-author-field">${fieldHead("PHASE AUTHORS", "Choose freely from every installed agent CLI and model. Phase 1 and 2 may share one planning session. From Phase 3 onward, every clean phase or section starts a fresh unit session, while validator failures return to the current unit's warm repair session.")}
+    <div class="forge-field forge-author-field">${fieldHead("PHASE AUTHORS", "Choose Claude CLI or Codex CLI. Phase 1 and 2 may share one planning session. From Phase 3 onward, every clean phase or section starts a fresh unit session, while validator failures return to the current unit's warm repair session.")}
       <div class="forge-author-route">
         <div class="forge-author-route-label"><b>PHASES 1–2</b><span>ARC + SKELETON</span></div>
         <div class="forge-ai-row">
@@ -123,10 +117,10 @@ function showForgeModal(resume) {
           </div>
           <div class="forge-validator-route">
             <div class="forge-validator-label"><b>VALIDATOR AI</b><span>MANDATORY · PHASES 1–2 + EVERY SECTION</span>
-              <button type="button" class="forge-help" aria-label="About Validator AI">i<span class="forge-tip">This read-only AI runs after the Phase 1 and Phase 2 mechanical gates, before either transition, then after every Phase 3 section clears its mechanical gate. The planning calls audit the concept arc and course map; section calls audit teaching completeness, learner independence, and prerequisite completeness. Each call receives one bounded, line-citable packet with no tools and returns typed defects to the current unit's repair session. With an OpenAI key in Settings or OPENAI_API_KEY, Codex GPT validators use the lean Responses API and record token usage; otherwise the login CLI remains the fallback. Only uncertainty or an unusable Luna response escalates to Terra.</span></button>
+              <button type="button" class="forge-help" aria-label="About Validator AI">i<span class="forge-tip">This read-only AI runs after the Phase 1 and Phase 2 mechanical gates, before either transition, then audits teaching completeness, learner independence, and prerequisite completeness after every Phase 3 section clears its mechanical gate. Choose Claude CLI, Codex CLI, or the distinct Codex API transport through the OpenAI Responses API. Codex API requires an OpenAI key in Settings or OPENAI_API_KEY and never silently falls back to a CLI. Each call receives one bounded, line-citable packet with no tools and returns typed defects to the current unit's repair session.</span></button>
             </div>
             <div class="forge-ai-row">
-              <div class="forge-ai-choice"><select id="fg-validator-prov" class="cfg-select" aria-label="Validator AI agent CLI"><option value="">LOADING CLIS…</option></select></div>
+              <div class="forge-ai-choice"><select id="fg-validator-prov" class="cfg-select" aria-label="Validator AI provider"><option value="">LOADING AI…</option></select></div>
               <div class="forge-ai-choice"><select id="fg-validator-model" class="cfg-select" aria-label="Validator AI model" disabled><option value="">—</option></select></div>
               <div class="forge-ai-choice"><select id="fg-validator-eff" class="cfg-select" aria-label="Validator AI effort" disabled><option value="">DEFAULT</option></select></div>
             </div>
@@ -145,7 +139,7 @@ function showForgeModal(resume) {
     <div class="forge-field forge-reviewer-field">
       <div class="forge-reviewer-head">
         <span class="forge-reviewer-title">THOROUGH REVIEWER AI</span>
-        <button type="button" class="forge-help" aria-label="About thorough reviewer AI">i<span class="forge-tip">Choose any installed agent and model. After Phase 8 is clean, this independent AI reads every authored file from beginning to end—no sampling—reviews the entire tome, and fixes anything it sees fit. The harness then repeats strict shipping and live-smoke verification.</span></button>
+        <button type="button" class="forge-help" aria-label="About thorough reviewer AI">i<span class="forge-tip">Choose Claude CLI or Codex CLI. After Phase 8 is clean, this independent AI reads every authored file from beginning to end—no sampling—reviews the entire tome, and fixes anything it sees fit. The harness then repeats strict shipping and live-smoke verification.</span></button>
       </div>
       <label class="forge-reviewer-toggle" for="fg-review-enabled">
         <input id="fg-review-enabled" type="checkbox" aria-controls="fg-review-options">
@@ -166,6 +160,14 @@ function showForgeModal(resume) {
     const input = $(`#fg-${name}`, root), value = $(`#fg-${name}-val`, root);
     input.oninput = () => { value.textContent = input.value; paintRange(input); };
   }
+  const sectionCostLimit = $("#fg-section-cost-limit", root);
+  sectionCostLimit.value = String(resume?.sectionCostLimitUsd
+    || localStorage.getItem("binderySectionCostLimitUsd") || "2");
+  sectionCostLimit.oninput = () => {
+    $("#fg-section-cost-limit-val", root).textContent = `$${Number(sectionCostLimit.value).toFixed(1).replace(/\.0$/, "")}`;
+    paintRange(sectionCostLimit);
+  };
+  sectionCostLimit.dispatchEvent(new Event("input"));
   const scope = $("#fg-project-scope", root), scopeSummary = $("#fg-project-scope-summary", root),
         depth = $("#fg-depth", root), depthSummary = $("#fg-depth-summary", root),
         mastery = $("#fg-mastery", root), priorLevel = $("#fg-prior-level", root),
@@ -249,8 +251,8 @@ function showForgeModal(resume) {
     validatorProv, validatorModel, validatorEffort,
     reviewProv, reviewModel, reviewEffort].forEach(enhanceSelect);
   if (resumePhase) enhanceSelect(resumePhase);
-  let providers = [];
-  const findProvider = (saved) => matchProvider(providers, saved);
+  let providers = [], authorProviders = [], validatorProviders = [], reviewerProviders = [];
+  const findProvider = (saved, pool = providers) => matchProvider(pool, saved);
   const fillAuthorEfforts = (picker) => {
     const provider = providers.find((item) => item.id === picker.prov.value);
     const row = provider && (provider.models || []).find((item) => item[0] === picker.model.value);
@@ -338,17 +340,24 @@ function showForgeModal(resume) {
 
   apiFetch("/api/models").then((response) => response.json()).then((data) => {
     providers = (data.bindery || []).filter((item) => item.installed !== false && (item.models || []).length);
-    const providerOptions = providers.map((item) => `<option value="${esc(item.id)}">${esc(item.label)}</option>`).join("")
-      || `<option value="">NO AGENT CLI FOUND</option>`;
-    for (const picker of requiredPickers) picker.prov.innerHTML = providerOptions;
-    reviewProv.innerHTML = providerOptions;
+    const roleProviders = (role) => providers.filter((item) => (item.roles || []).includes(role));
+    authorProviders = roleProviders("author");
+    validatorProviders = roleProviders("validator");
+    reviewerProviders = roleProviders("reviewer");
+    const options = (pool, empty) => pool.map((item) =>
+      `<option value="${esc(item.id)}">${esc(item.label)}</option>`).join("")
+      || `<option value="">${empty}</option>`;
+    const authorOptions = options(authorProviders, "NO AUTHOR CLI FOUND");
+    for (const picker of authorPickers) picker.prov.innerHTML = authorOptions;
+    validatorPicker.prov.innerHTML = options(validatorProviders, "NO VALIDATOR FOUND");
+    reviewProv.innerHTML = options(reviewerProviders, "NO REVIEWER CLI FOUND");
     const legacySaved = resume?.author || JSON.parse(localStorage.getItem("binderyAuthor") || "null");
     const storedAuthors = JSON.parse(localStorage.getItem("binderyAuthors") || "null");
     const savedAuthors = resume?.authors && Object.keys(resume.authors).length
       ? resume.authors : storedAuthors || { phase12: legacySaved, phase37: legacySaved, phase8: legacySaved };
     for (const picker of authorPickers) {
       const saved = savedAuthors?.[picker.key] || legacySaved;
-      const match = findProvider(saved);
+      const match = findProvider(saved, authorProviders);
       if (match) picker.prov.value = match.id;
       fillAuthorModels(picker);
       if (saved?.model && [...picker.model.options].some((option) => option.value === saved.model))
@@ -358,13 +367,13 @@ function showForgeModal(resume) {
         picker.effort.value = saved.effort;
     }
     const storedValidator = JSON.parse(localStorage.getItem("binderyValidator") || "null");
-    const lunaProvider = providers.find((item) => item.kind === "codex-cli"
+    const lunaProvider = validatorProviders.find((item) => item.kind === "codex-cli"
       && (item.models || []).some((row) => row[0] === "gpt-5.6-luna"));
     const recommendedValidator = lunaProvider
       ? { kind: "codex-cli", model: "gpt-5.6-luna", effort: "medium" } : null;
     const savedValidator = resume?.validator || storedValidator || recommendedValidator
       || savedAuthors?.phase37 || legacySaved;
-    const validatorMatch = findProvider(savedValidator);
+    const validatorMatch = findProvider(savedValidator, validatorProviders);
     if (validatorMatch) validatorProv.value = validatorMatch.id;
     fillAuthorModels(validatorPicker);
     if (savedValidator?.model && [...validatorModel.options].some((option) =>
@@ -375,7 +384,7 @@ function showForgeModal(resume) {
     const savedReviewer = resume?.reviewer && resume.reviewer.model
       ? resume.reviewer : JSON.parse(localStorage.getItem("binderyReviewer") || "null");
     reviewEnabled.checked = !!(resume?.reviewer && resume.reviewer.model);
-    const reviewMatch = findProvider(savedReviewer);
+    const reviewMatch = findProvider(savedReviewer, reviewerProviders);
     if (reviewMatch) reviewProv.value = reviewMatch.id;
     fillReviewModels();
     if (savedReviewer?.model && [...reviewModel.options].some((option) => option.value === savedReviewer.model)) reviewModel.value = savedReviewer.model;
@@ -399,6 +408,8 @@ function showForgeModal(resume) {
         ...(picker.effort.value ? { effort: picker.effort.value } : {}) }];
     }));
     const author = authors.phase12;
+    const sectionCostLimitUsd = Number(sectionCostLimit.value);
+    localStorage.setItem("binderySectionCostLimitUsd", String(sectionCostLimitUsd));
     localStorage.setItem("binderyAuthors", JSON.stringify(authors));
     localStorage.setItem("binderyAuthor", JSON.stringify(author));
     const validatorProvider = providers.find((item) => item.id === validatorProv.value);
@@ -438,12 +449,14 @@ function showForgeModal(resume) {
       }
     }
     const payload = resume ? { id: resumeId, ...(restartPhase ? { fromPhase: restartPhase } : {}),
-      author, authors, validator, reviewer, bindery: { author, authors, validator, reviewer } } : {
+      sectionCostLimitUsd, author, authors, validator, reviewer,
+      bindery: { author, authors, validator, reviewer } } : {
       concept: concept.value.trim(), prior_knowledge: $("#fg-prior", root).value.trim(),
       prior_level: $("#fg-prior-level", root).value,
       project_scope: $("#fg-project-scope", root).value,
       depth: $("#fg-depth", root).value, mastery: $("#fg-mastery", root).value,
-      tooling, author, authors, validator, reviewer, bindery: { author, authors, validator, reviewer },
+      tooling, sectionCostLimitUsd, author, authors, validator, reviewer,
+      bindery: { author, authors, validator, reviewer },
     };
     begin.dataset.busy = "true"; begin.disabled = true; begin.textContent = "OPENING THE SESSION…";
     try {

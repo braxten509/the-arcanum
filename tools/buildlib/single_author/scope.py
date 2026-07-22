@@ -4,6 +4,8 @@ import os
 from .. import BUILD_DIR, REPO, VALIDATOR_FAILURE_DIR
 from ..continuity import handoff_dir, handoff_path
 from ..course_map import amendment_path, map_path, proposal_path, seed_path
+from ..course_map.author_spec import spec_root
+from ..phase2_research import ledger_path
 from ..course.state import evidence_dir, failure_dir, state_path
 from ..prerequisites.review import calls_path as prerequisite_calls_path
 
@@ -17,7 +19,8 @@ def author_paths(build_id, from_phase, tid, unit):
     else:
         tome = os.path.join(REPO, "tomes", tid)
         if phase == 2:
-            writable.extend((tome, proposal_path(build_id),
+            writable.extend((tome, proposal_path(build_id), spec_root(build_id),
+                             ledger_path(build_id),
                              os.path.join(REPO, "global-configs", "runtimes")))
         elif phase == 3 and (unit or {}).get("kind") == "section":
             writable.extend((os.path.join(tome, "sections", unit["section"]),
@@ -36,6 +39,8 @@ def author_paths(build_id, from_phase, tid, unit):
                  os.path.join(BUILD_DIR, f"{build_id}.phase-ai-reviews"),
                  os.path.join(BUILD_DIR, f"{build_id}.phase-snapshots"),
                  os.path.join(BUILD_DIR, f"{build_id}.course-control.log.jsonl")]
+    if phase != 2:
+        protected.extend((spec_root(build_id), ledger_path(build_id)))
     for suffix in ("launch.json", "session.json", "active.json", "result.json",
                    "cancelled.json", "conversation.jsonl", "status-log.jsonl"):
         protected.append(os.path.join(BUILD_DIR, f"{build_id}.{suffix}"))
@@ -53,3 +58,18 @@ def author_paths(build_id, from_phase, tid, unit):
         protected.append(handoff_dir(tid))
     return ([path for path in writable if os.path.exists(path)],
             [path for path in protected if os.path.exists(path)])
+
+
+def author_hidden_paths(build_id):
+    """Historical attempt data that a restarted author must never inspect."""
+    paths = [
+        os.path.join(VALIDATOR_FAILURE_DIR, build_id),
+        os.path.join(BUILD_DIR, f"{build_id}.phase-ai-reviews"),
+        os.path.join(BUILD_DIR, f"{build_id}.prerequisite-reviews"),
+        prerequisite_calls_path(build_id),
+        os.path.join(BUILD_DIR, f"{build_id}.phase-snapshots"),
+        os.path.join(BUILD_DIR, f"{build_id}.reset-stash"),
+        os.path.join(BUILD_DIR, f"{build_id}.author-usage.jsonl"),
+        os.path.join(BUILD_DIR, f"{build_id}.conversation.jsonl.bak"),
+    ]
+    return [path for path in paths if os.path.exists(path)]

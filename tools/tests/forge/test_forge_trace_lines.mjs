@@ -18,7 +18,7 @@ const merged = mergeForgeTraceLines([
   `VALIDATOR COMMAND COMPLETE [${epoch(12, 40, 18, 876).toFixed(3)}] (exit 0) › python3 tools/validate_section.py tomes/hollowmere s05`,
   `AI VALIDATOR CALL START [${epoch(12, 41, 1).toFixed(3)}] › section quality s05 › codex-cli gpt-5.6-sol`,
   `AI VALIDATOR CALL COMPLETE [${epoch(12, 41, 9).toFixed(3)}] (PASS) › section quality s05 › codex-cli gpt-5.6-sol`,
-  `GPT API-EQUIVALENT COST COMPLETE [${epoch(12, 41, 10).toFixed(3)}] › PHASE 3 SECTION s05 › $1.44`,
+  `AI API-EQUIVALENT COST COMPLETE [${epoch(12, 41, 10).toFixed(3)}] › PHASE 3 SECTION s05 › $1.44`,
   `VALIDATOR COMMAND START [${epoch(12, 45, 59, 654).toFixed(3)}] › python3 tools/validate_section.py tomes/hollowmere s06`,
   `VALIDATOR COMMAND COMPLETE [${epoch(12, 46, 6, 871).toFixed(3)}] (exit 0) › python3 tools/validate_section.py tomes/hollowmere s06`,
 ].join("\n"), new Date(2026, 6, 15, 12, 47).getTime());
@@ -32,14 +32,14 @@ assert.match(merged[1], /^12:40:13  VALIDATOR COMMAND START ›/);
 assert.match(merged[2], /^12:40:18  VALIDATOR COMMAND COMPLETE \(exit 0\) ›/);
 assert.match(merged[3], /^12:41:01  AI VALIDATOR CALL START ›/);
 assert.match(merged[4], /^12:41:09  AI VALIDATOR CALL COMPLETE \(PASS\) ›/);
-assert.match(merged[5], /^12:41:10  GPT API-EQUIVALENT COST COMPLETE › PHASE 3 SECTION s05 › \$1\.44/);
+assert.match(merged[5], /^12:41:10  AI API-EQUIVALENT COST COMPLETE › PHASE 3 SECTION s05 › \$1\.44/);
 assert.ok(merged.every((line) => !/\[\d{10}/.test(line)), merged.join("\n"));
 
 const conversation = mergeForgeConversationCosts([
   { at: epoch(12, 41, 9), kind: "harness", text: "Validation passed." },
   { at: epoch(12, 41, 11), kind: "assistant", text: "Starting the next unit." },
 ], [
-  `GPT API-EQUIVALENT COST COMPLETE [${epoch(12, 41, 10).toFixed(3)}] › PHASE 3 SECTION s05 › $1.44`,
+  `AI API-EQUIVALENT COST COMPLETE [${epoch(12, 41, 10).toFixed(3)}] › PHASE 3 SECTION s05 › $1.44`,
 ].join("\n"));
 assert.deepEqual(conversation.map((row) => row.kind), ["harness", "harness", "assistant"]);
 assert.equal(conversation[1].eventKey, "gpt-cost:3:s05");
@@ -49,18 +49,18 @@ assert.equal(conversation[1].text,
 const resumedConversation = mergeForgeConversationCosts([
   ...conversation,
   { at: epoch(12, 41, 12), kind: "harness", text: "Unrelated checkpoint." },
-], `GPT API-EQUIVALENT COST COMPLETE [${epoch(12, 41, 13).toFixed(3)}] › PHASE 3 SECTION s05 › $1.51`);
+], `AI API-EQUIVALENT COST COMPLETE [${epoch(12, 41, 13).toFixed(3)}] › PHASE 3 SECTION s05 › $1.51`);
 assert.equal(resumedConversation.filter((row) => row.eventKey === "gpt-cost:3:s05").length, 1);
 assert.equal(resumedConversation.find((row) => row.eventKey === "gpt-cost:3:s05").text,
   "Phase 3 section s05 › $1.51 (1.08% weekly usage)");
 
 const phaseTotalConversation = mergeForgeConversationCosts([], [
-  `GPT API-EQUIVALENT COST COMPLETE [${epoch(12, 42, 0).toFixed(3)}] › PHASE 1 TOTAL › $3.82`,
+  `AI API-EQUIVALENT COST COMPLETE [${epoch(12, 42, 0).toFixed(3)}] › PHASE 1 TOTAL › $3.82`,
 ].join("\n"));
 assert.equal(phaseTotalConversation[0].text,
   "Phase 1 total › $3.82 (2.73% weekly usage)");
 const requestedPhase2Format = mergeForgeConversationCosts([], [
-  `GPT API-EQUIVALENT COST COMPLETE [${epoch(12, 42, 1).toFixed(3)}] › PHASE 2 TOTAL › $3.04`,
+  `AI API-EQUIVALENT COST COMPLETE [${epoch(12, 42, 1).toFixed(3)}] › PHASE 2 TOTAL › $3.04`,
 ].join("\n"));
 assert.equal(requestedPhase2Format[0].text,
   "Phase 2 total › $3.04 (2.17% weekly usage)");
@@ -75,15 +75,15 @@ assert.equal(forgeHarnessValidationState(phaseTotalConversation[0]), "");
 
 const running = fallbackForgeRunningCost([
   { at: epoch(12, 30, 0), kind: "harness", eventKey: "gpt-cost:1:total",
-    text: "GPT API-EQUIVALENT COST COMPLETE › PHASE 1 TOTAL › $0.78" },
+    text: "AI API-EQUIVALENT COST COMPLETE › PHASE 1 TOTAL › $0.78" },
   { at: epoch(12, 31, 0), kind: "harness", eventKey: "gpt-cost:2:total",
-    text: "GPT API-EQUIVALENT COST COMPLETE › PHASE 2 TOTAL › $0.44" },
+    text: "AI API-EQUIVALENT COST COMPLETE › PHASE 2 TOTAL › $0.44" },
   { at: epoch(12, 32, 0), kind: "harness", eventKey: "gpt-cost:3:s01",
-    text: "GPT API-EQUIVALENT COST COMPLETE › PHASE 3 SECTION s01 › $1.00" },
+    text: "AI API-EQUIVALENT COST COMPLETE › PHASE 3 SECTION s01 › $1.00" },
   { at: epoch(12, 33, 0), kind: "harness", eventKey: "gpt-cost:3:s02",
-    text: "GPT API-EQUIVALENT COST COMPLETE › PHASE 3 SECTION s02 › $1.12" },
+    text: "AI API-EQUIVALENT COST COMPLETE › PHASE 3 SECTION s02 › $1.12" },
   { at: epoch(12, 34, 0), kind: "harness", eventKey: "gpt-cost:3:total",
-    text: "GPT API-EQUIVALENT COST COMPLETE › PHASE 3 TOTAL · SUM OF 2 SECTIONS › $2.12" },
+    text: "AI API-EQUIVALENT COST COMPLETE › PHASE 3 TOTAL · SUM OF 2 SECTIONS › $2.12" },
 ], "");
 assert.equal(running.displayUsd, 3.34);
 assert.equal(formatForgeRunningCost(running), "$3.34");
@@ -91,13 +91,13 @@ assert.equal(formatForgeWeeklyUsage({ displayUsd: 4.07, gptPricedTurns: 1 }),
   "(2.91% weekly usage)");
 
 const partialRunning = fallbackForgeRunningCost([], [
-  `GPT API-EQUIVALENT COST COMPLETE [${epoch(13, 1, 0).toFixed(3)}] › PHASE 1 TOTAL › $0.81+ · PARTIAL: 1 GPT TURN LACKED TOKEN USAGE`,
+  `AI API-EQUIVALENT COST COMPLETE [${epoch(13, 1, 0).toFixed(3)}] › PHASE 1 TOTAL › $0.81+ · PARTIAL: 1 AI TURN LACKED TOKEN USAGE`,
 ].join("\n"));
 const partialConversation = mergeForgeConversationCosts([], [
-  `GPT API-EQUIVALENT COST COMPLETE [${epoch(13, 1, 0).toFixed(3)}] › PHASE 1 TOTAL › $0.81+ · PARTIAL: 1 GPT TURN LACKED TOKEN USAGE`,
+  `AI API-EQUIVALENT COST COMPLETE [${epoch(13, 1, 0).toFixed(3)}] › PHASE 1 TOTAL › $0.81+ · PARTIAL: 1 AI TURN LACKED TOKEN USAGE`,
 ].join("\n"));
 assert.equal(partialConversation[0].text,
-  "Phase 1 total › $0.81+ (0.58% weekly usage) · Partial: 1 GPT turn lacked token usage");
+  "Phase 1 total › $0.81+ (0.58% weekly usage) · Partial: 1 AI turn lacked token usage");
 assert.equal(formatForgeRunningCost(partialRunning), "$0.81");
 assert.equal(formatForgeRunningCost({ displayUsd: 0, gptPricedTurns: 0,
   gptUnpricedTurns: 1 }), "UNAVAILABLE");

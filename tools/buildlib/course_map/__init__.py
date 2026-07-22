@@ -18,6 +18,7 @@ from .locations import section_reference_problem, validate_locations
 from .mastery_performances import expected_working_performances
 from .plan import acceptance as _acceptance
 from .plan import field as _field
+from .plan import lesson_counts as _lesson_counts
 from .plan import plan_contract_sha256
 from .contracts import validate_semantic_contracts
 from ..course.dependencies import validation_dependency_alignment_problems
@@ -98,6 +99,7 @@ def preview_course_map(build_id, text):
             f"Section list must contain {MIN_SECTIONS} through {MAX_SECTIONS} entries; "
             f"found {len(specs)}")
     ids = [spec.sid for spec in specs]
+    counts = _lesson_counts(text, ids)
     language_contract = seed_language_mastery(text, ids)
     seed_sections = [{
         "id": spec.sid, "ordinal": index, "title": spec.title,
@@ -105,9 +107,10 @@ def preview_course_map(build_id, text):
         "dependsOn": [], "nodes": [],
         "projectMilestone": spec.promise,
         "doneWhen": {"checks": sorted(SECTION_CHECKS)},
+        **({"lessonCount": counts[spec.sid]} if counts else {}),
     } for index, spec in enumerate(specs, 1)]
     value = {
-        "version": MAP_VERSION, "revision": 1, "buildId": build_id,
+        "version": MAP_VERSION if counts else 5, "revision": 1, "buildId": build_id,
         "planSha256": plan_contract_sha256(text),
         "bounds": {"minSections": MIN_SECTIONS, "maxSections": MAX_SECTIONS},
         "graduateContract": block_field(text, "Graduate ledger"),
@@ -184,7 +187,9 @@ def validate_course_map(value, detailed=True, seed=None):
     positions = {}
     for index, section in enumerate(sections, 1):
         label = f"sections[{index - 1}]"
-        problems += _keys(section, SECTION_KEYS, label, optional={"languagePractice"})
+        expected_section_keys = (SECTION_KEYS | {"lessonCount"}
+                                 if map_version >= 6 else SECTION_KEYS)
+        problems += _keys(section, expected_section_keys, label, optional={"languagePractice"})
         if not isinstance(section, dict):
             continue
         sid = section.get("id")
@@ -193,6 +198,11 @@ def validate_course_map(value, detailed=True, seed=None):
             problems.append(f"{label} must be sequential id {expected} with ordinal {index}")
         section_ids.append(sid)
         positions[sid] = (index, -1)
+        if map_version >= 6 and (not isinstance(section.get("lessonCount"), int)
+                                 or not MIN_PLANNED_LESSONS <= section["lessonCount"] <= MAX_PLANNED_LESSONS):
+            problems.append(
+                f"{label}.lessonCount must be an integer from {MIN_PLANNED_LESSONS} "
+                f"through {MAX_PLANNED_LESSONS}")
         for key, limit in (("title", 120), ("promise", 360), ("projectMilestone", 360)):
             if not isinstance(section.get(key), str) or not section[key].strip():
                 problems.append(f"{label}.{key} must be a non-empty string")
@@ -276,6 +286,11 @@ def validate_course_map(value, detailed=True, seed=None):
             problems.append(
                 f"{label} must contain {MIN_PLANNED_LESSONS} through "
                 f"{MAX_PLANNED_LESSONS} planned lessons so its sealed map can satisfy Phase 3")
+        if detailed and map_version >= 6 and isinstance(section.get("lessonCount"), int) \
+                and len(lessons) != section["lessonCount"]:
+            problems.append(
+                f"{label} must contain exactly {section['lessonCount']} planned lessons "
+                "sealed by Phase 1")
         if detailed and len(workings) != 1:
             problems.append(f"{label} must contain exactly one Working")
         if detailed and set(taught) != set(section.get("capabilities") or []):
@@ -395,9 +410,11 @@ def validate_course_map(value, detailed=True, seed=None):
     if seed:
         if any(isinstance(item, dict) and "supersedes" in item for item in obligations):
             problems.append("Phase 2 cannot supersede obligations; use the audited amendment path")
-        seed_sections = [(s.get("id"), s.get("ordinal"), s.get("title"), s.get("promise"))
+        seed_sections = [(s.get("id"), s.get("ordinal"), s.get("title"), s.get("promise"),
+                          s.get("lessonCount"))
                          for s in seed.get("sections", [])]
-        proposed = [(s.get("id"), s.get("ordinal"), s.get("title"), s.get("promise"))
+        proposed = [(s.get("id"), s.get("ordinal"), s.get("title"), s.get("promise"),
+                     s.get("lessonCount"))
                     for s in sections if isinstance(s, dict)]
         if proposed != seed_sections:
             problems.append("Phase 2 may expand the approved section spine, not rewrite it")

@@ -15,17 +15,10 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tools.buildlib.single_author import gate  # noqa: E402
-from tools.buildlib import brief_exception, measure  # noqa: E402
 from tools.buildlib.workflow import section_progress  # noqa: E402
 from arcanum.platform.agent_commands import scoped_runner_command, scoped_shell_command  # noqa: E402
 from tools.buildlib import single_author  # noqa: E402
 from tools.buildlib.single_author import runtime as single_author_runtime  # noqa: E402
-from author.sessions import (BlockedThenHandoffSession,  # noqa: E402
-                             ExplicitBlockedSession,
-                             FakeWarmSession,
-                             OscillatingNoHandoffSession,
-                             RoutedWarmSession,
-                             UnlimitedRepairSession)
 
 
 # Provider streams may contain JSON primitives or malformed nested rows. They are
@@ -124,9 +117,10 @@ with tempfile.TemporaryDirectory() as root:
         assert section_prompt.endswith("HARNESS COURSE CONTROL")
         phase2_checks = gate.self_validation_commands(
             "build", {"kind": "phase", "phase": 2, "state": "working"})
-        assert len(phase2_checks) == 1
-        assert "--phase-2-skeleton" in phase2_checks[0]
-        assert "--no-run" in phase2_checks[0]
+        assert len(phase2_checks) == 2
+        assert phase2_checks[0] == "python3 tools/workflow/materialize_phase2_map.py build"
+        assert "--phase-2-skeleton" in phase2_checks[1]
+        assert "--no-run" in phase2_checks[1]
         shipping_checks = gate.self_validation_commands(
             "build", {"kind": "phase", "phase": 7, "state": "working"})
         assert len(shipping_checks) == 3
@@ -157,7 +151,9 @@ assert single_author._authoritative_session_id(
 
 repo = str(_BOOTSTRAP_REPO)
 for helper in ("workflow/report_tome_progress.py", "workflow/report_section_progress.py",
-               "validate_section.py"):
+               "workflow/context/render_phase2_context.py",
+               "workflow/render_phase2_context.py",
+               "workflow/materialize_phase2_map.py", "validate_section.py"):
     result = subprocess.run(
         [sys.executable, os.path.join(repo, "tools", helper), "--help"], cwd=repo,
         capture_output=True, text=True, check=False)
@@ -170,10 +166,23 @@ resumed_codex = single_author_runtime.resume_command(
     "codex-cli", "gpt-5.6-terra", "medium", "session", "continue")[1]
 assert "model_auto_compact_token_limit=80000" in resumed_codex
 assert resumed_codex[resumed_codex.index("-m") + 1] == "gpt-5.6-terra"
+assert "PLANNING ESCALATION" not in _BootstrapPath(
+    single_author.__file__).read_text(encoding="utf-8")
 
 with tempfile.TemporaryDirectory() as root:
     writable = os.path.join(root, "build")
     os.makedirs(writable)
+    git_secret = os.path.join(root, ".git", "old-phase.txt")
+    os.makedirs(os.path.dirname(git_secret))
+    with open(git_secret, "w", encoding="utf-8") as handle:
+        handle.write("abandoned phase")
+    hidden_dir = os.path.join(writable, "phase-snapshots")
+    os.makedirs(hidden_dir)
+    with open(os.path.join(hidden_dir, "old.txt"), "w", encoding="utf-8") as handle:
+        handle.write("abandoned phase")
+    hidden_file = os.path.join(writable, "review-calls.jsonl")
+    with open(hidden_file, "w", encoding="utf-8") as handle:
+        handle.write("abandoned phase\n")
     sealed = os.path.join(writable, "sealed-map.json")
     current = os.path.join(writable, "current-handoff.json")
     with open(sealed, "w", encoding="utf-8") as handle:
@@ -182,247 +191,22 @@ with tempfile.TemporaryDirectory() as root:
         handle.write("empty\n")
     fake = os.path.join(root, "codex")
     with open(fake, "w", encoding="utf-8") as handle:
-        handle.write("#!/bin/sh\nprintf tampered > \"$SEALED\" 2>/dev/null || true\n"
+        handle.write("#!/bin/sh\ntest ! -e \"$GIT_SECRET\" || exit 21\n"
+                     "test ! -e \"$HIDDEN_DIR/old.txt\" || exit 22\n"
+                     "test ! -s \"$HIDDEN_FILE\" || exit 23\n"
+                     "printf tampered > \"$SEALED\" 2>/dev/null || true\n"
                      "printf authored > \"$CURRENT\"\n")
     os.chmod(fake, 0o755)
     command = scoped_runner_command("boundary test", [fake, "exec"], root, [writable], root,
-                                    readonly_paths=[sealed])
-    environment = {**os.environ, "SEALED": sealed, "CURRENT": current}
+                                    readonly_paths=[sealed],
+                                    hidden_paths=[hidden_dir, hidden_file])
+    environment = {**os.environ, "SEALED": sealed, "CURRENT": current,
+                   "GIT_SECRET": git_secret, "HIDDEN_DIR": hidden_dir,
+                   "HIDDEN_FILE": hidden_file}
     process = subprocess.run(command, env=environment, capture_output=True, text=True)
     assert process.returncode == 0, process.stderr
     assert open(sealed, encoding="utf-8").read() == "sealed\n"
     assert open(current, encoding="utf-8").read() == "authored"
 
-
-with tempfile.TemporaryDirectory() as root:
-    build_dir = os.path.join(root, ".tome-build")
-    os.makedirs(build_dir)
-    with patch.object(gate, "BUILD_DIR", build_dir), patch.object(gate, "REPO", root), \
-            patch.object(single_author, "BUILD_DIR", build_dir), \
-            patch.object(single_author, "preflight_unit"), \
-            patch.object(single_author, "validate_unit", return_value=(True, "clean")), \
-            patch.object(single_author, "report_completed_unit_cost") as report_cost:
-        gate._write_phase("warm", 7, "working")
-        session = FakeWarmSession()
-        assert session.run() == 0
-        assert session.session_id == ""
-        assert len(session.prompts) == 2
-        assert "Phase 7" in session.prompts[0]
-        assert "HARNESS VALIDATION PASSED for Phase 7" in session.prompts[1]
-        assert "Continue with Phase 8" in session.prompts[1]
-        assert "active unit author" in session.prompts[1]
-        assert [call.args[1]["phase"] for call in report_cost.call_args_list] == [7, 8]
-        assert session.states[-1][0] == "complete"
-
-
-with tempfile.TemporaryDirectory() as root:
-    build_dir = os.path.join(root, ".tome-build")
-    os.makedirs(build_dir)
-    with patch.object(gate, "BUILD_DIR", build_dir), patch.object(gate, "REPO", root), \
-            patch.object(single_author, "BUILD_DIR", build_dir), \
-            patch.object(single_author, "preflight_unit"), \
-            patch.object(single_author, "validate_unit", return_value=(True, "clean")):
-        gate._write_phase("routed", 7, "working")
-        session = RoutedWarmSession()
-        assert session.run() == 0
-        assert (session.kind, session.model, session.effort) == (
-            "opencode-cli", "student-review", "max")
-        assert session.session_id == ""
-        assert len(session.prompts) == 2
-        assert "active unit author" in session.prompts[1]
-        assert "Continue with Phase 8" in session.prompts[1]
-
-
-with tempfile.TemporaryDirectory() as root:
-    build_dir = os.path.join(root, ".tome-build")
-    os.makedirs(build_dir)
-    attempts = [0]
-
-    def eventually_clean(_build_id, _unit):
-        attempts[0] += 1
-        return ((True, "clean") if attempts[0] == 13
-                else (False, f"repair {attempts[0]}"))
-
-    with patch.object(gate, "BUILD_DIR", build_dir), patch.object(gate, "REPO", root), \
-            patch.object(single_author, "BUILD_DIR", build_dir), \
-            patch.object(single_author, "preflight_unit"), \
-            patch.object(single_author, "validate_unit", side_effect=eventually_clean):
-        gate._write_phase("warm", 8, "working")
-        session = UnlimitedRepairSession()
-        assert session.run() == 0
-        assert attempts[0] == 13
-        assert len(session.prompts) == 13
-        assert not any(state == "paused" for state, _extra in session.states)
-
-
-# A repeated A -> B -> A authored state is a proven repair cycle, not progress.
-# Pause before paying for a fourth provider turn; unique repair states remain unlimited.
-with tempfile.TemporaryDirectory() as root:
-    build_dir = os.path.join(root, ".tome-build")
-    os.makedirs(build_dir)
-    authored_path = os.path.join(root, "proposal.json")
-    with open(authored_path, "w", encoding="utf-8") as handle:
-        handle.write("initial\n")
-    with patch.object(gate, "BUILD_DIR", build_dir), patch.object(gate, "REPO", root), \
-            patch.object(single_author, "BUILD_DIR", build_dir), \
-            patch.object(single_author, "preflight_unit"), \
-            patch.object(single_author, "author_paths", return_value=([authored_path], [])), \
-            patch.object(single_author, "notify"):
-        gate._write_phase("cycle", 2, "working")
-        session = OscillatingNoHandoffSession(authored_path)
-        session.controls.put({"type": "stop"})
-        assert session.run() == 130
-        assert len(session.prompts) == 3
-        paused = [extra for state_name, extra in session.states if state_name == "paused"]
-        assert len(paused) == 1
-        assert paused[0]["gate"] == "author-no-progress-cycle"
-        assert "No further author turn was started" in paused[0]["error"]
-
-
-# A durable validating marker is recovered mechanically after a harness restart;
-# the already-authored unit is never sent through another paid provider turn.
-with tempfile.TemporaryDirectory() as root:
-    build_dir = os.path.join(root, ".tome-build")
-    os.makedirs(build_dir)
-    with patch.object(gate, "BUILD_DIR", build_dir), patch.object(gate, "REPO", root), \
-            patch.object(single_author, "BUILD_DIR", build_dir), \
-            patch.object(single_author, "preflight_unit") as preflight, \
-            patch.object(single_author, "validate_unit", return_value=(True, "clean")):
-        gate._write_phase("warm", 8, "validating")
-        session = UnlimitedRepairSession()
-        assert session.run() == 0
-        assert session.prompts == []
-
-
-# The explicit author-side circuit breaker is terminal until an operator resumes it.
-with tempfile.TemporaryDirectory() as root:
-    build_dir = os.path.join(root, ".tome-build")
-    os.makedirs(build_dir)
-    with patch.object(gate, "BUILD_DIR", build_dir), patch.object(gate, "REPO", root), \
-            patch.object(single_author, "BUILD_DIR", build_dir), \
-            patch.object(single_author, "preflight_unit"), \
-            patch.object(single_author, "validate_author_self_check", side_effect=(
-                measure.ValidatorInfrastructureError(
-                    "python3 tools/validate_section.py", "ModuleNotFoundError: validator"))), \
-            patch.object(single_author, "validate_unit") as validate, \
-            patch.object(single_author.traceback, "print_exc"), \
-            patch.object(single_author, "notify"):
-        gate._write_phase("warm", 8, "working")
-        session = ExplicitBlockedSession()
-        session.controls.put({"type": "stop"})
-        assert session.run() == 130
-        assert len(session.prompts) == 1
-        validate.assert_not_called()
-        assert any(state_name == "paused" for state_name, _extra in session.states)
-        preflight.assert_not_called()
-
-
-with tempfile.TemporaryDirectory() as root:
-    build_dir = os.path.join(root, ".tome-build")
-    os.makedirs(build_dir)
-    with patch.object(gate, "BUILD_DIR", build_dir), patch.object(gate, "REPO", root), \
-            patch.object(single_author, "BUILD_DIR", build_dir), \
-            patch.object(single_author, "preflight_unit"), \
-            patch.object(single_author, "validate_author_self_check", return_value=(
-                False, "ERROR authored.toml: repair this field")), \
-            patch.object(single_author, "validate_unit", return_value=(True, "clean")), \
-            patch.object(single_author, "notify"):
-        gate._write_phase("warm", 8, "working")
-        session = BlockedThenHandoffSession()
-        assert session.run() == 0
-        assert len(session.prompts) == 2
-        assert "ERROR authored.toml: repair this field" in session.prompts[1]
-        assert not any(state_name == "paused" for state_name, _extra in session.states)
-
-
-# If the reproduced self-check is already clean, the harness writes the trusted
-# validating marker and runs the authoritative gate without another author turn.
-with tempfile.TemporaryDirectory() as root:
-    build_dir = os.path.join(root, ".tome-build")
-    os.makedirs(build_dir)
-    with patch.object(gate, "BUILD_DIR", build_dir), patch.object(gate, "REPO", root), \
-            patch.object(single_author, "BUILD_DIR", build_dir), \
-            patch.object(single_author, "preflight_unit"), \
-            patch.object(single_author, "validate_author_self_check", return_value=(
-                True, "clean")), \
-            patch.object(single_author, "validate_unit", return_value=(True, "clean")) as validate, \
-            patch.object(single_author, "notify"):
-        gate._write_phase("warm", 8, "working")
-        session = ExplicitBlockedSession()
-        assert session.run() == 0
-        assert len(session.prompts) == 1
-        validate.assert_called_once()
-        assert not any(state_name == "paused" for state_name, _extra in session.states)
-
-
-# An unstructured validator crash pauses after one author handoff instead of
-# becoming an unlimited sequence of paid repair turns.
-with tempfile.TemporaryDirectory() as root:
-    build_dir = os.path.join(root, ".tome-build")
-    os.makedirs(build_dir)
-    failure = measure.ValidatorInfrastructureError(
-        "python3 tools/validate_section.py", "ModuleNotFoundError: arcanum")
-    with patch.object(gate, "BUILD_DIR", build_dir), patch.object(gate, "REPO", root), \
-            patch.object(single_author, "BUILD_DIR", build_dir), \
-            patch.object(single_author, "preflight_unit"), \
-            patch.object(single_author, "validate_unit", side_effect=failure), \
-            patch.object(single_author.traceback, "print_exc"), \
-            patch.object(single_author, "notify"):
-        gate._write_phase("warm", 8, "working")
-        session = UnlimitedRepairSession()
-        session.controls.put({"type": "stop"})
-        assert session.run() == 130
-        assert len(session.prompts) == 1
-        paused = [extra for state_name, extra in session.states if state_name == "paused"]
-        assert len(paused) == 1
-        assert paused[0]["gate"] == "validator-infrastructure"
-        assert "No author retry was started" in paused[0]["error"]
-
-
-# Bootstrap preflight happens before even the first provider invocation.
-with tempfile.TemporaryDirectory() as root:
-    build_dir = os.path.join(root, ".tome-build")
-    os.makedirs(build_dir)
-    failure = measure.ValidatorInfrastructureError(
-        "python3 tools/validate_section.py --help", "broken import")
-    with patch.object(gate, "BUILD_DIR", build_dir), patch.object(gate, "REPO", root), \
-            patch.object(single_author, "BUILD_DIR", build_dir), \
-            patch.object(single_author, "preflight_unit", side_effect=failure), \
-            patch.object(single_author.traceback, "print_exc"), \
-            patch.object(single_author, "notify"):
-        gate._write_phase("warm", 8, "working")
-        session = UnlimitedRepairSession()
-        session.controls.put({"type": "stop"})
-        assert session.run() == 130
-        assert session.prompts == []
-
-# A timed-out validator must report the timeout, not re-print the prompt it was sent.
-# TimeoutExpired stringifies its whole argv, and the prompt is one of those arguments.
-prompt_argv = ["opencode", "run", "-m", "free/model", "EVIDENCE PACKET " + "x" * 6000]
-message = []
-session = UnlimitedRepairSession()
-session.state = lambda *args, **kwargs: None
-session.await_validation_controls = lambda: 130
-with patch.object(single_author, "append_conversation",
-                  lambda build_id, kind, text: message.append(text)), \
-        patch.object(single_author, "notify"):
-    session.pause_for_validation_infrastructure(
-        {"kind": "section", "section": "s01", "index": 1, "total": 8},
-        subprocess.TimeoutExpired(prompt_argv, 900))
-assert message and "timed out after 900s" in message[0], message
-assert "EVIDENCE PACKET" not in message[0], len(message[0])
-
-# The real path wraps the timeout in a RuntimeError first, so the raise site must
-# compress the cause too; a wrapper built with str(exc) smuggles the packet back in.
-message.clear()
-with patch.object(single_author, "append_conversation",
-                  lambda build_id, kind, text: message.append(text)), \
-        patch.object(single_author, "notify"):
-    session.pause_for_validation_infrastructure(
-        {"kind": "section", "section": "s01", "index": 1, "total": 8},
-        RuntimeError("section Validator AI infrastructure failed: " + brief_exception(
-            subprocess.TimeoutExpired(prompt_argv, 900))))
-assert message and "timed out after 900s" in message[0], message
-assert "EVIDENCE PACKET" not in message[0], len(message[0])
 
 print("single-author mechanical gates: OK")

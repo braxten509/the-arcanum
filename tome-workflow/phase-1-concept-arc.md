@@ -192,8 +192,9 @@ Working; they may reuse learner-authored interfaces and checks, but cannot be me
 of lesson examples.
 
 Keep scope cuts in the internal Graduate ledger; Phase 2 shelf copy stays positive.
-The Graduate ledger must separately state what the learner CAN and still CANNOT do in the
-declared language. Each Section-list promise should identify how that project milestone advances
+The Graduate ledger must repeat the complete `Language` value verbatim and separately state what
+the learner `CAN` and still `CANNOT` do, using those uppercase words. Do not substitute an alias,
+abbreviation, or broader family name for the declared language. Each Section-list promise should identify how that project milestone advances
 or retrieves the language capabilities it materially needs so Phase 2 can keep practice cumulative
 without assigning unrelated mechanisms merely to distribute the spine.
 
@@ -231,10 +232,15 @@ Make cross-section state explicit:
   never plan AI-made assets, and keep the machine proof independent of them.
 - `Acceptance scenarios`: one line of unique kebab ids separated by ` -> `, covering meaningful
   behavior, persistence/quit, and promised delivery. Phase 2 and execution preserve it exactly.
+- `Lesson counts`: one physical line with every section id in order, exactly like
+  `s01=5; s02=4`. Choose each count from 3 through 8 from the cold-start dependency load and
+  lesson pacing. Phase 2 must materialize exactly these counts and may not reinterpret them.
 - `Section list`: one physical line per section, sequential, exactly
   `1. **s01 — Title:** capability/build promise`. The harness parses these lines to create
-  Phase 2's section tree and section-level seed map; prose paragraphs, a different id/order,
-  an unnecessary promise, or a count outside the bound does not pass the gate.
+  Phase 2's section tree and section-level seed map. Keep every promise between 20 and 360
+  characters; the same text becomes the sealed `projectMilestone`, so a longer line produces two
+  reports for one root defect. Prose paragraphs, a different id/order, an unnecessary promise, or
+  a count outside the bound does not pass the gate.
 
 Produce only the completed Arc in the plan. After the mechanical gate, the harness sends this
 plan and the operator calibration to the mandatory read-only Validator AI. Repair only its cited

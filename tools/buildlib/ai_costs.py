@@ -9,24 +9,13 @@ import time
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 
+from .costing import (GPT_MODELS, MODEL_PRICES, PRICED_MODELS, PRICING_SOURCE,
+                      PRICING_VERSION)
+
 
 TURN_LIMIT = 500
 USAGE_KEYS = ("inputTokens", "freshInputTokens", "cachedInputTokens",
               "cacheWriteTokens", "outputTokens", "reasoningTokens", "totalTokens")
-PRICING_VERSION = "openai-standard-2026-07-18"
-PRICING_SOURCE = "https://developers.openai.com/api/docs/pricing"
-
-# USD per one million tokens. Unknown models remain logged with an explicitly
-# incomplete dollar total; token accounting must never invent a price.
-MODEL_PRICES = {
-    "gpt-5.6-sol": {"freshInput": 5.0, "cachedInput": 0.5,
-                    "cacheWriteInput": 6.25, "output": 30.0},
-    "gpt-5.6-terra": {"freshInput": 2.5, "cachedInput": 0.25,
-                      "cacheWriteInput": 3.125, "output": 15.0},
-    "gpt-5.6-luna": {"freshInput": 1.0, "cachedInput": 0.1,
-                     "cacheWriteInput": 1.25, "output": 6.0},
-}
-GPT_MODELS = frozenset(MODEL_PRICES)
 USD_CENT = Decimal("0.01")
 
 
@@ -167,6 +156,8 @@ def _cost(model, usage):
 
 def _bucket():
     return {"turnCount": 0, "pricedTurns": 0, "unpricedTurns": 0,
+            "apiTurnCount": 0, "apiUnpricedTurns": 0,
+            "claudeTurnCount": 0,
             "gptTurnCount": 0, "gptUnpricedTurns": 0,
             "usage": {key: 0 for key in USAGE_KEYS},
             "apiEquivalentUsd": 0.0, "directApiUsd": 0.0}
@@ -182,14 +173,26 @@ def _normalize_bucket(bucket):
         elif key not in bucket:
             # Older ledgers predate GPT-specific completeness counters. Every
             # priced turn in those ledgers used one of the verified GPT rates.
-            bucket[key] = (int(bucket.get("pricedTurns") or 0)
-                           if key == "gptTurnCount" else value)
+            if key in ("apiTurnCount", "gptTurnCount"):
+                bucket[key] = int(bucket.get("gptTurnCount")
+                                  or bucket.get("pricedTurns") or 0)
+            elif key == "apiUnpricedTurns":
+                bucket[key] = int(bucket.get("gptUnpricedTurns") or 0)
+            else:
+                bucket[key] = value
     return bucket
 
 
-def _add(bucket, usage, equivalent, direct, *, gpt_model=False):
+def _add(bucket, usage, equivalent, direct, *, tracked_model=False,
+         claude_model=False, gpt_model=False):
     _normalize_bucket(bucket)
     bucket["turnCount"] += 1
+    if tracked_model:
+        bucket["apiTurnCount"] += 1
+        if equivalent is None:
+            bucket["apiUnpricedTurns"] += 1
+    if claude_model:
+        bucket["claudeTurnCount"] += 1
     if gpt_model:
         bucket["gptTurnCount"] += 1
         if equivalent is None:
@@ -212,6 +215,8 @@ def _combined_buckets(values):
     for raw in values:
         value = _normalize_bucket(raw)
         for key in ("turnCount", "pricedTurns", "unpricedTurns",
+                    "apiTurnCount", "apiUnpricedTurns",
+                    "claudeTurnCount",
                     "gptTurnCount", "gptUnpricedTurns"):
             combined[key] += int(value.get(key) or 0)
         for key in USAGE_KEYS:
@@ -238,6 +243,10 @@ def _summary_row(build_id, scope, value, *, phase, section=None):
         "turnCount": value["turnCount"], "pricedTurns": value["pricedTurns"],
         "unpricedTurns": value["unpricedTurns"],
         "pricingComplete": value["unpricedTurns"] == 0,
+        "apiTurnCount": value["apiTurnCount"],
+        "apiUnpricedTurns": value["apiUnpricedTurns"],
+        "apiPricingComplete": value["apiUnpricedTurns"] == 0,
+        "claudeTurnCount": value["claudeTurnCount"],
         "gptTurnCount": value["gptTurnCount"],
         "gptUnpricedTurns": value["gptUnpricedTurns"],
         "gptPricingComplete": value["gptUnpricedTurns"] == 0,
@@ -296,14 +305,20 @@ def record_ai_turn(build_dir, build_id, *, phase, role, stage, kind, model,
             turn_usage = _delta(current_usage, previous)
             counters[counter_key] = current_usage
         equivalent, rates = _cost(model, turn_usage)
+        tracked_model = str(model or "") in PRICED_MODELS
+        claude_model = str(model or "").startswith("claude-")
         gpt_model = str(model or "") in GPT_MODELS
         direct = equivalent if transport == "responses-api" and equivalent is not None else 0.0
         phase = int(phase)
         phase_bucket = state.setdefault("phases", {}).setdefault(str(phase), _bucket())
-        _add(phase_bucket, turn_usage, equivalent, direct, gpt_model=gpt_model)
+        _add(phase_bucket, turn_usage, equivalent, direct,
+             tracked_model=tracked_model, claude_model=claude_model,
+             gpt_model=gpt_model)
         if phase == 3 and section:
             section_bucket = state.setdefault("sections", {}).setdefault(str(section), _bucket())
-            _add(section_bucket, turn_usage, equivalent, direct, gpt_model=gpt_model)
+            _add(section_bucket, turn_usage, equivalent, direct,
+                 tracked_model=tracked_model, claude_model=claude_model,
+                 gpt_model=gpt_model)
         row = {
             "version": 1, "type": "ai-turn", "buildId": build_id,
             "at": ended_at,
@@ -388,8 +403,13 @@ def rewind_ai_costs(build_dir, build_id, phase):
         lock.close()
 
 
-def gpt_completion_cost(build_dir, build_id, *, phase, section=None):
-    """Return the GPT-only API-equivalent cost at one sealed unit boundary."""
+def rewind_ai_cost_sections(build_dir, build_id, sections):
+    from .costing.rewind import rewind_sections
+    return rewind_sections(build_dir, build_id, sections)
+
+
+def api_equivalent_completion_cost(build_dir, build_id, *, phase, section=None):
+    """Return priced Claude/GPT API-equivalent cost at one unit boundary."""
     phase = int(phase)
     lock = open(_lock_path(build_dir, build_id), "a+", encoding="utf-8")
     try:
@@ -411,11 +431,13 @@ def gpt_completion_cost(build_dir, build_id, *, phase, section=None):
             value = _normalize_bucket((values or {}).get(key, _bucket()))
             displayed = Decimal(str(value.get("apiEquivalentUsd") or 0)).quantize(
                 USD_CENT, rounding=ROUND_HALF_UP)
-        if int(value.get("gptTurnCount") or 0) == 0:
+        if int(value.get("apiTurnCount") or 0) == 0:
             return None
         return {
             "phase": phase, **({"section": str(section)} if section else {}),
             "sectionCount": len(section_ids) if phase == 3 and section is None else None,
+            "apiTurnCount": int(value.get("apiTurnCount") or 0),
+            "apiUnpricedTurns": int(value.get("apiUnpricedTurns") or 0),
             "gptTurnCount": int(value.get("gptTurnCount") or 0),
             "gptUnpricedTurns": int(value.get("gptUnpricedTurns") or 0),
             "apiEquivalentUsd": round(float(value.get("apiEquivalentUsd") or 0), 9),
@@ -427,9 +449,15 @@ def gpt_completion_cost(build_dir, build_id, *, phase, section=None):
         lock.close()
 
 
+def gpt_completion_cost(build_dir, build_id, *, phase, section=None):
+    """Compatibility alias for the provider-neutral completion-cost report."""
+    return api_equivalent_completion_cost(
+        build_dir, build_id, phase=phase, section=section)
+
+
 def completed_cost_line(build_dir, build_id, *, phase, section=None, at=None):
-    """Format one user-facing GPT-only completion line, or nothing for non-GPT units."""
-    report = gpt_completion_cost(
+    """Format one user-facing Claude/GPT API-equivalent completion line."""
+    report = api_equivalent_completion_cost(
         build_dir, build_id, phase=phase, section=section)
     if not report:
         return ""
@@ -439,15 +467,15 @@ def completed_cost_line(build_dir, build_id, *, phase, section=None, at=None):
         target = f"PHASE 3 TOTAL · SUM OF {report['sectionCount']} SECTIONS"
     else:
         target = f"PHASE {int(phase)} TOTAL"
-    priced = report["gptTurnCount"] - report["gptUnpricedTurns"]
+    priced = report["apiTurnCount"] - report["apiUnpricedTurns"]
     amount = (f"${report['displayUsd']:.2f}" if priced
               else "UNAVAILABLE")
-    if priced and report["gptUnpricedTurns"]:
+    if priced and report["apiUnpricedTurns"]:
         amount += "+"
-    if report["gptUnpricedTurns"]:
-        amount += (f" · PARTIAL: {report['gptUnpricedTurns']} GPT TURN"
-                   f"{'S' if report['gptUnpricedTurns'] != 1 else ''} LACKED TOKEN USAGE")
-    return (f"GPT API-EQUIVALENT COST COMPLETE [{float(at or time.time()):.3f}] "
+    if report["apiUnpricedTurns"]:
+        amount += (f" · PARTIAL: {report['apiUnpricedTurns']} AI TURN"
+                   f"{'S' if report['apiUnpricedTurns'] != 1 else ''} LACKED TOKEN USAGE")
+    return (f"AI API-EQUIVALENT COST COMPLETE [{float(at or time.time()):.3f}] "
             f"› {target} › {amount}")
 
 

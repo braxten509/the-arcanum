@@ -47,7 +47,9 @@ TOML or public files.
 
 The harness gives each section a fresh author session after the preceding section validates.
 Stay in that session for the assigned section and all of its repair turns; do not begin the next
-section yourself. Begin with the assignment's `render_section_context.py` command instead of a
+section yourself. The first turn researches and authors every sealed lesson in one batch, then
+stops before the Working. The same session returns for one Working/assessment/handoff batch.
+Begin with the assignment's `render_section_context.py` command instead of a
 series of one-file discovery calls. Batch independent reads/searches and apply related edits as
 one coherent patch when possible. Gate each section before advancing and reopen its files from
 disk. Repairs target only failures and never wipe the
@@ -77,7 +79,9 @@ locations plus real capability, proof, and acceptance IDs. Do not add `complete`
 `verified` fields. The final section may create no future obligation and must leave the active
 ledger empty. After authoring the assigned section and handoff, run exactly:
 `python3 tools/validate_section.py tomes/CURRENT_TOME sNN --plan .tome-build/BUILD_ID.plan.md --tooling TOOLING --source-only`.
-Read the complete report, repair only its findings, and rerun until it exits zero. This command
+Read the complete report. Run it at most once per author turn; when it reports structured findings,
+answer `HARNESS_REPAIR_REQUIRED:` and stop so the harness can return one aggregate repair packet.
+This command
 owns the pre-handoff TOML, pedagogy, replay, proof-source, and continuity checks. Do not inspect
 validator source to guess at extra checks or replace it with hand-written parsing, replay,
 word-count, exercise-distribution, or schema scripts. Then mark the section `validating` and

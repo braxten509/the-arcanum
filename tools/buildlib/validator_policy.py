@@ -14,7 +14,7 @@ _JSON_PUNCTUATION = frozenset(',:[]{}"')
 def _normalized_verdict(value):
     if not isinstance(value, str):
         return ""
-    match = re.match(r"(?i)^\s*(PASS|FAIL|UNCERTAIN)\b", value)
+    match = re.match(r"(?i)^\s*(PASS|FAIL)\b", value)
     return match.group(1).upper() if match else ""
 
 
@@ -74,33 +74,6 @@ def _repair_json_verdict(text, *, max_edits=2):
             # Bound malformed-input work while retaining all nearby one/two-character fixes.
             frontier = following[:512]
     return None
-
-
-def _textual_verdict(raw):
-    """Return an explicit prose/JSON-ish verdict and explanation when JSON is unparseable."""
-    if isinstance(raw, dict):
-        return "", []
-    text = str(raw or "").strip()
-    if not text:
-        return "", []
-    match = re.search(
-        r'(?im)(?:(?:^|[\s{,])["\']?(?:outcome|status|verdict|judgment|result|'
-        r'decision|assessment|conclusion|overall(?:\s+(?:verdict|assessment))?)'
-        r'["\']?\s*[:=\-]\s*["\']?(PASS|FAIL|UNCERTAIN)\b|'
-        r'^\s*(?:#{1,6}\s*)?(PASS|FAIL|UNCERTAIN)\b)', text)
-    if not match:
-        return "", []
-    outcome = next(group for group in match.groups() if group).upper()
-    reason = re.search(
-        r'(?is)["\']?(?:reasons?|summary|explanation|analysis|details|message|report)'
-        r'["\']?\s*:\s*(?:\[\s*)?'
-        r'["\'](.{12,1200}?)["\'](?:\s*\]|\s*[,}])', text)
-    if reason:
-        return outcome, [reason.group(1).strip()]
-    remainder = re.sub(r'^[\s:;,.\-–—]+', '', text[match.end():]).strip()
-    if len(remainder) >= 12:
-        return outcome, [remainder[:1200]]
-    return "", []
 
 
 @dataclass(frozen=True)
@@ -230,7 +203,7 @@ def readable_guidance(raw):
             candidates.extend(
                 {"criterion": check.get("criterion"), **item}
                 for item in rows if isinstance(item, dict))
-        if readable_outcome(check) in ("FAIL", "UNCERTAIN") and not rows:
+        if readable_outcome(check) == "FAIL" and not rows:
             evidence = _first_text(check, (
                 "evidence", "issue", "problem", "reason", "explanation", "description"))
             evidence = evidence or next(iter(readable_reasons(check)), "")
@@ -281,85 +254,3 @@ def readable_guidance(raw):
         guidance.append(f"{label} at {location}: {detail}")
     # Preserve order while preventing repeated aliases from duplicating the same guidance.
     return list(dict.fromkeys(guidance))[:12]
-
-
-def _self_contradicted(result):
-    """True when a validated result carries defects its own PASS claims are absent.
-
-    Reads the post-validation result, not the raw response, so only defects that survived
-    per-item checks — the ones an author can actually act on — can force the downgrade.
-    """
-    if not isinstance(result, dict):
-        return False
-    return bool(result.get("qualityFindings") or result.get("missingMechanisms")
-                or result.get("findings")
-                or any(isinstance(row, dict) and row.get("judgment") != "PASS"
-                       for row in result.get("nodeReviews") or ()))
-
-
-def recover_readable_verdict(raw, result, evidence_supports):
-    """Normalize an operationally usable verdict despite harmless schema drift.
-
-    Formatting alone never justifies another model call. FAIL stays conservative, UNCERTAIN has a
-    stronger-reviewer route, and domain validators prove the evidence required to trust PASS.
-    """
-    value = extract_json(raw)
-    outcome = readable_outcome(value)
-    reasons = readable_reasons(value)
-    guidance = readable_guidance(raw)
-    if outcome not in ("PASS", "FAIL", "UNCERTAIN"):
-        outcome, textual_reasons = _textual_verdict(raw)
-        reasons = reasons or textual_reasons
-    elif not reasons and not guidance:
-        _textual_outcome, reasons = _textual_verdict(raw)
-    reasons = reasons or guidance
-    if outcome not in ("PASS", "FAIL", "UNCERTAIN"):
-        return None
-    if not reasons:
-        return None
-    # A PASS that files its own actionable repairs is not envelope drift; the model already
-    # resolved the question against itself and we take it at its word. Every recorded repair is
-    # worth making, so "it does not block passage" is not a reason to drop it. Downgrading is
-    # stricter than the PASS it replaces, so nothing bypasses the gate, and a second call would
-    # only re-read the findings already in hand. Prefer the validated reasons, which carry the
-    # contradiction itself alongside the model's own.
-    if outcome == "PASS" and _self_contradicted(result):
-        outcome = "FAIL"
-        reasons = result.get("reasons") or reasons
-    recovered = {**result, "status": outcome, "reasons": reasons}
-    if guidance:
-        recovered["guidance"] = guidance
-    # A definitive FAIL is conservative and actionable, while UNCERTAIN already has a
-    # stronger-reviewer route. Neither needs another same-model call merely to repair its
-    # envelope. PASS remains evidence-complete so malformed output can never bypass the gate.
-    if outcome in ("FAIL", "UNCERTAIN"):
-        return recovered
-    try:
-        supported = bool(evidence_supports(value, outcome))
-    except (AttributeError, KeyError, TypeError, ValueError):
-        supported = False
-    if not supported:
-        return None
-    return recovered
-
-
-def recover_readable_failure(raw, result, evidence_is_bounded):
-    """Compatibility wrapper for callers interested only in authoritative FAIL output."""
-    recovered = recover_readable_verdict(
-        raw, result,
-        lambda value, outcome: outcome == "FAIL" and evidence_is_bounded(value))
-    return recovered if recovered and recovered.get("status") == "FAIL" else None
-
-
-def resolve_validator_output(raw, result, errors, evidence_supports):
-    """Classify one parsed response without equating every schema defect to unusable output."""
-    malformed = bool(errors)
-    if not malformed:
-        return ValidatorOutput(result=result, malformed=False, unusable=False,
-                               recovered_verdict=False)
-    recovered = recover_readable_verdict(raw, result, evidence_supports)
-    if recovered is not None:
-        return ValidatorOutput(result=recovered, malformed=True, unusable=False,
-                               recovered_verdict=True)
-    return ValidatorOutput(result=result, malformed=True, unusable=True,
-                           recovered_verdict=False)

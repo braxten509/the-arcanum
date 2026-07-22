@@ -1,0 +1,101 @@
+# ARCANUM tome manifest — scaffolded by tools/new_tome.py.
+# Replace every TODO, then run:  python3 tools/validate_tome.py tomes/untitled-7
+# Read tome-authoring/2-tome-toml.md before filling this in — every key here is documented there.
+
+[meta]
+id = "untitled-7"                       # MUST equal the folder name
+name = "Register Rally Pong"
+description = "Build and ship a Linux desktop Pong game in NASM and SDL2. Assemble the court, input, scoring, deterministic checks, and a copied delivery artifact."
+author = "Arcanum"
+version = "0.1.0"
+favicon = "P>"
+
+[runtime]
+name = "nasm-make-sdl2"
+project = "RegisterRallyPong"
+language = "x86-64 Assembly (NASM)"
+starterCode = ""                   # learner authors the canonical entry file
+scaffoldCommand = []               # learner assembles project structure/configuration
+externalWorkspace = true
+validationDependencies = []
+# packages = false                 # true only for dotnet/NuGet tomes
+# externalWorkspace = true         # ONLY for courses whose real work lives in the player's
+                                   # own external tools; the player chooses its location.
+
+[content]
+sections = ["s01", "s02", "s03", "s04", "s05", "s06", "s07", "s08"]  # ordered section ids; each maps to sections/<id>/
+capabilityLedger = true             # keep this: lessons declare `teaches`, capstones
+                                    # declare cumulative `requires`; validator proves order
+proofVersion = 1                    # future-tome contract: replay learner edits + run milestones
+# OPTIONAL duel bank → generated/attacks.toml (the engine default). Do NOT hand-write it:
+# author attacks_src.toml, then run  python3 tools/gen_attacks.py untitled-7
+
+[mastery]
+evidenceVersion = 1                # central, language-neutral evidence policy
+level = 1                 # sealed Phase-0 Finish selection; never lower per tome
+
+[acceptance]
+version = 1
+mode = "package"
+artifact = "package"
+runArgs = ["--arcanum-acceptance"]
+scenarios = ["toolchain-build", "window-close", "paddle-control", "ball-score", "round-reset", "safe-quit", "copied-package-launch"]
+controls = ["input", "clock", "seed", "frame-limit"]
+
+[defaults]
+theme = "service-bay"
+
+[defaults.ai]
+oracle = "llama3.1:8b"
+grader = "qwen2.5:14b"
+graderKind = "claude-cli"
+graderModel = "claude-opus-4-8"
+
+[economy]
+# TODO: rebalance once your exercise/freestyle points are set (see § [economy]).
+ranks = [[0, "NOVICE"], [400, "ADEPT"], [1000, "MASTER"]]
+hintCost = 50
+oracleCost = 10
+attemptMultipliers = [1, 0.6, 0.3]
+comboStep = 0.05
+comboCap = 0.5
+sRankMultiplier = 1.5
+attackStakePerDiff = 20
+attackWinPerDiff = 15
+
+[narrative]
+objective = "Restore a failing arcade service bay by assembling, proving, and packaging a learner-owned NASM and SDL2 Pong circuit."
+title = "ARCANUM // REGISTER RALLY"
+logo = "PONG64 // SERVICE BAY"
+opsLabel = "BAY STATIONS"
+graderPersona = "SWITCH // BOARD TECHNICIAN"
+studentTerm = "bench runner"
+currency = "charge"
+currencyShort = "ch"
+gradeScale = "S|A|B|C|D|F"
+bootLines = [
+  "SERVICE BAY 07 // cabinet signal detected.",
+  "REGISTER RALLY // {N} stations queued.",
+  "SWITCH: bench runner, the court board is dark.",
+  "Toolchain voltage must read clean before any sprite wakes.",
+  "Every wire, routine, test, and crate is your own assembly.",
+  "Clock control online. Input bus waiting.",
+  "No borrowed cabinet image. Build the playable circuit.",
+  "Score line and shutdown rail require proof.",
+  "Final dispatch must launch from the copied crate.",
+  "BAY STATUS // ready for first signal."
+]
+gradingLines = [
+  "SWITCH traces the signal path.",
+  "The scope waits for observable evidence.",
+  "Checking the clock, input, and score rails.",
+  "A named scenario is loading on the bench.",
+  "Inspecting cleanup order before the power relay drops.",
+  "Comparing the copied crate with the live circuit.",
+  "BAY VERDICT // compiling the service report."
+]
+
+# --- the peddler's shop -------------------------------------------------------
+# Every tome stocks these FIVE engine power-ups. The mechanic is fixed by `id`;
+# reflavor name/desc/cost/ico to this course's world (validator requires all 5,
+# each filled). oracle is an optional 6th (needs an [runtime] oracle model).

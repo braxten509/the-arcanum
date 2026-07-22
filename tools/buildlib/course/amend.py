@@ -27,6 +27,17 @@ def _upgrade_location_contract(value, prior_version):
         ]
 
 
+def _upgrade_lesson_count_contract(value, prior_version):
+    """Seal the already-authored lesson count when an older map enters v6."""
+    if int(prior_version or 0) >= 6:
+        return
+    for section in value.get("sections", []):
+        if isinstance(section, dict):
+            section["lessonCount"] = sum(
+                1 for node in section.get("nodes") or []
+                if isinstance(node, dict) and node.get("kind") == "lesson")
+
+
 def amend_course_map(build_id, candidate, reason):
     if not isinstance(reason, str) or len(reason.strip()) < 12:
         raise CourseMapError("an amendment needs a specific reason of at least 12 characters")
@@ -35,9 +46,16 @@ def amend_course_map(build_id, candidate, reason):
     old = load_course_map(build_id)
     revised = copy.deepcopy(candidate)
     revised.pop("digest", None)
-    revised["version"], revised["revision"] = MAP_VERSION, old["revision"] + 1
     _upgrade_location_contract(revised, old.get("version"))
     _upgrade_mechanism_contract(revised, old.get("version"))
+    # An amendment preserves a legacy schema rather than manufacturing new Phase-1
+    # authority after authoring has begun. New builds already enter at MAP_VERSION.
+    if int(old.get("version") or 0) >= 6:
+        _upgrade_lesson_count_contract(revised, old.get("version"))
+        revised["version"] = MAP_VERSION
+    else:
+        revised["version"] = old.get("version")
+    revised["revision"] = old["revision"] + 1
     for key in ("buildId", "planSha256", "bounds"):
         if revised.get(key) != old.get(key):
             raise CourseMapError(f"an amendment may not change {key}")

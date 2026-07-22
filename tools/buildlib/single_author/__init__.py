@@ -8,16 +8,17 @@ import threading
 import traceback
 
 from .. import BUILD_DIR, REPO, brief_exception
+from ..ai_costs import api_equivalent_completion_cost
 from ..course.state import tree_digest
-from .gate import (advance_unit, context, current_unit, ensure_unit, label,
-                          mark_unit_validating, next_prompt, preflight_unit,
+from .gate import (advance_unit, context, continue_prompt, current_unit, ensure_unit,
+                          label, mark_unit_validating, next_prompt, preflight_unit,
                           repair_prompt, report_completed_unit_cost, unit_prompt,
                           validate_author_self_check, validate_unit)
 from . import full_review
 from ..measure import (ValidatorInfrastructureError, validate_live_smoke,
                        validate_shipping)
 from .review_session import ReviewerSessionMixin
-from .scope import author_paths
+from .scope import author_hidden_paths, author_paths
 from .session.controls import AuthorControlsMixin
 from .session.phase_state import PhaseAuthorStateMixin
 from .session.turn import AuthorTurnMixin
@@ -54,6 +55,25 @@ def _author_state_fingerprint(paths):
     )
 
 
+def section_repair_limit_reached(failures, cost, *, hard_cost=2.0, max_failures=2):
+    """Return true when another section repair needs explicit operator authorization."""
+    return (int(failures) >= int(max_failures)
+            or bool(cost and float(cost.get("apiEquivalentUsd") or 0) >= float(hard_cost)))
+
+
+def configured_section_cost_limit(build_id, claude_author=False):
+    """Read the Forge's persisted base limit; Claude receives the declared 2x allowance."""
+    path = os.path.join(BUILD_DIR, f"{build_id}.launch.json")
+    try:
+        import json
+        with open(path, encoding="utf-8") as handle:
+            base = float(json.load(handle).get("sectionCostLimitUsd", 2.0))
+    except (OSError, TypeError, ValueError):
+        base = 2.0
+    base = min(10.0, max(1.0, base))
+    return base * (2.0 if claude_author else 1.0)
+
+
 class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
                     ReviewerSessionMixin, AuthorTurnMixin):
     def __init__(self, build_id, kind, model, effort, concept, tooling, from_phase=1,
@@ -79,6 +99,9 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
         unit = current_unit(self.build_id, self.from_phase) or {
             "kind": "phase", "phase": self.from_phase}
         return author_paths(self.build_id, self.from_phase, self.current_tome(), unit)[1]
+
+    def _hidden(self):
+        return author_hidden_paths(self.build_id)
 
     def current_tome(self):
         try:
@@ -123,6 +146,34 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
                priority=1)
         return self.await_controls(retrying=True)
 
+    def pause_for_section_repair_limit(self, unit, report, failures, cost):
+        """Require an explicit operator decision before another runaway repair turn."""
+        amount = (f"${cost['displayUsd']:.2f}" if cost else "unpriced/unknown")
+        message = (f"{label(unit)} paused at {amount} after {failures} failed "
+                   f"validation{'s' if failures != 1 else ''}. Choose an AI to retry.")
+        append_conversation(
+            self.build_id, "harness",
+            message + "\n\nLatest validator report:\n\n"
+            + str(report or "validator failed")[-12000:])
+        self.state("paused", gate="section-repair-budget", error=message,
+                   repairFailures=failures,
+                   sectionCostUsd=(cost or {}).get("displayUsd"))
+        notify("✗ Section repair budget paused",
+               f"{self.current_tome()}: {label(unit)} needs an explicit repair decision.",
+               priority=1)
+        return self.await_validation_controls()
+
+    def pause_for_planning_stall(self, unit, report):
+        message = (f"{label(unit)} paused because the same repair is repeating without "
+                   "measurable progress. Confirm or choose another AI to retry.")
+        append_conversation(
+            self.build_id, "harness", message + "\n\nLatest validator report:\n\n"
+            + str(report or "validator failed")[-12000:])
+        self.state("paused", gate="planning-stall", error=message)
+        notify("✗ Planning repair loop paused",
+               f"{self.current_tome()}: {label(unit)} stopped making progress.", priority=1)
+        return self.await_validation_controls()
+
     def run(self):
         threading.Thread(target=self.read_controls, daemon=True).start()
         unit = ensure_unit(self.build_id, self.from_phase)
@@ -140,6 +191,9 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
         conversation_text = f"Assigned {label(unit)}. The harness will validate when the author stops."
         deferred_message, deferred_switch = "", False
         nonvalidating_states = {}
+        section_repair_failures = {}
+        section_budget_warned = set()
+        planning_failure_states = {}
 
         def decorate_deferred(base_prompt, target_unit, default_kind, default_text):
             nonlocal deferred_message, deferred_switch
@@ -157,6 +211,32 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
                                  f"{self.model} in a fresh session.")
             deferred_message, deferred_switch = "", False
             return base_prompt, next_kind, next_text
+
+        def pause_if_planning_stuck(target_unit, report):
+            """Pause only a repeated no-progress planning loop; never enforce money limits."""
+            nonlocal deferred_message, deferred_switch
+            phase = int(target_unit.get("phase") or 0)
+            if target_unit.get("kind") != "phase" or phase not in (1, 2):
+                return False
+            unit_key = ("phase", phase, "")
+            fingerprint = _author_state_fingerprint(self._writable())
+            report_text = str(report or "validator failed").strip()
+            prior = planning_failure_states.get(unit_key, {})
+            repeats = (int(prior.get("repeats") or 0) + 1
+                       if prior.get("report") == report_text else 1)
+            unchanged = bool(prior and prior.get("fingerprint") == fingerprint)
+            planning_failure_states[unit_key] = {
+                "fingerprint": fingerprint, "report": report_text, "repeats": repeats}
+            if unchanged or repeats >= 3:
+                resumed = self.pause_for_planning_stall(target_unit, report)
+                if resumed is None:
+                    return True
+                message, switched = resumed
+                planning_failure_states.pop(unit_key, None)
+                deferred_message = "\n\n".join(
+                    part for part in (deferred_message, message) if part)
+                deferred_switch = deferred_switch or switched
+            return False
 
         while not self.stop:
             if not validate_first:
@@ -182,7 +262,7 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
                     prompt = message + "\n\n" + unit_prompt(self.build_id, unit)
                     conversation_kind, conversation_text = "user", message
                     continue
-                if outcome == "harness-blocked":
+                if outcome in ("harness-blocked", "repair-required"):
                     unit = (current_unit(self.build_id, self.from_phase,
                                          require_gate=True)
                             or ensure_unit(self.build_id, self.from_phase))
@@ -223,11 +303,15 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
                             "without another author turn.")
                         validate_first = True
                         continue
+                    if pause_if_planning_stuck(unit, self_check_report):
+                        break
                     prompt = repair_prompt(self.build_id, unit, self_check_report)
+                    claimed = ("reported HARNESS_REPAIR_REQUIRED"
+                               if outcome == "repair-required" else
+                               "reported HARNESS_BLOCKED, but the independently reproduced check")
                     conversation_kind, conversation_text = "harness", (
-                        f"The author reported HARNESS_BLOCKED for {label(unit)}, but the "
-                        "independently reproduced self-check returned structured authored "
-                        "findings. The report was returned to the same author session.")
+                        f"The author {claimed} for {label(unit)}. Structured authored findings "
+                        "were aggregated and returned to the same author session.")
                     prompt, conversation_kind, conversation_text = decorate_deferred(
                         prompt, unit, conversation_kind, conversation_text)
                     continue
@@ -266,10 +350,13 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
                         prompt, conversation_kind, conversation_text = resumed
                         continue
                     seen.add(fingerprint)
-                    prompt = (f"You stopped before handing off {label(unit)}. Finish only that unit, "
-                              "run its assigned exact self-check, set its progress marker to "
-                              "validating, and stop.\n\n" + unit_prompt(self.build_id, unit))
+                    # A section normally reaches here once between its all-lessons batch and its
+                    # Working/assessment batch. The fingerprint check still catches an actual
+                    # stall or an interrupted batch that makes no further progress.
+                    prompt = continue_prompt(self.build_id, unit)
                     conversation_kind, conversation_text = "harness", (
+                        f"{label(unit)} is not finished; returning it to the same author session."
+                        if unit.get("kind") == "section" else
                         f"{label(unit)} was not marked validating; returning it to the same author session.")
                     continue
                 nonvalidating_states.pop(
@@ -295,6 +382,52 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
                 validate_first = True
                 continue
             if not ok:
+                unit_key = (unit.get("kind"), int(unit.get("phase") or 0),
+                            str(unit.get("section") or ""))
+                phase = int(unit.get("phase") or 0)
+                if pause_if_planning_stuck(unit, report):
+                    break
+                if unit.get("kind") == "section":
+                    section_repair_failures[unit_key] = (
+                        section_repair_failures.get(unit_key, 0) + 1)
+                failures = section_repair_failures.get(unit_key, 0)
+                cost = (api_equivalent_completion_cost(
+                    BUILD_DIR, self.build_id, phase=3, section=unit.get("section"))
+                        if unit.get("kind") == "section" else None)
+                claude_author = self.kind == "claude-cli"
+                configured_hard_cost = configured_section_cost_limit(
+                    self.build_id, claude_author)
+                hard_cost = float(os.environ.get(
+                    "ARCANUM_CLAUDE_SECTION_COST_LIMIT_USD" if claude_author
+                    else "ARCANUM_SECTION_COST_LIMIT_USD",
+                    str(configured_hard_cost)))
+                warn_cost = float(os.environ.get(
+                    "ARCANUM_CLAUDE_SECTION_COST_WARN_USD" if claude_author
+                    else "ARCANUM_SECTION_COST_WARN_USD",
+                    str(hard_cost * 0.75)))
+                max_failures = int(os.environ.get("ARCANUM_SECTION_REPAIR_FAILURES", "2"))
+                if (unit.get("kind") == "section" and cost
+                        and float(cost["apiEquivalentUsd"]) >= warn_cost
+                        and unit_key not in section_budget_warned):
+                    section_budget_warned.add(unit_key)
+                    warning = (f"SECTION COST WARNING › {label(unit)} › "
+                               f"${cost['displayUsd']:.2f} API-equivalent; the next failed gate "
+                               f"pauses at ${hard_cost:.2f} or {max_failures} failures.")
+                    print(warning, flush=True)
+                    append_conversation(self.build_id, "harness", warning)
+                if (unit.get("kind") == "section"
+                        and section_repair_limit_reached(
+                            failures, cost, hard_cost=hard_cost,
+                            max_failures=max_failures)):
+                    resumed = self.pause_for_section_repair_limit(
+                        unit, report, failures, cost)
+                    if resumed is None:
+                        break
+                    message, switched = resumed
+                    section_repair_failures[unit_key] = 0
+                    deferred_message = "\n\n".join(
+                        part for part in (deferred_message, message) if part)
+                    deferred_switch = deferred_switch or switched
                 prompt = repair_prompt(self.build_id, unit, report)
                 conversation_kind, conversation_text = "harness", (
                     f"Validation failed for {label(unit)}. The report was returned to the same author session.")

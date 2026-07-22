@@ -12,7 +12,7 @@ from ..adapters.status_log import load_status_lines
 
 _BUILD_ID = re.compile(r"^[A-Za-z0-9_-]+$")
 _GPT_COST = re.compile(
-    r"^GPT API-EQUIVALENT COST COMPLETE "
+    r"^(?:AI|GPT) API-EQUIVALENT COST COMPLETE "
     r"\[(?P<at>[0-9]+(?:\.[0-9]+)?)\] › PHASE (?P<phase>[1-8]) "
     r"(?:(?:SECTION (?P<section>[A-Za-z0-9_-]+))|TOTAL)\b")
 _USD_CENT = Decimal("0.01")
@@ -82,7 +82,7 @@ def _dollars(value) -> Decimal:
 
 
 def load_gpt_running_cost(build_root: str, build_id: str) -> dict | None:
-    """Project the cumulative GPT API-equivalent total from the durable ledger.
+    """Project cumulative Claude/GPT API-equivalent cost from the durable ledger.
 
     The displayed lifetime amount is the sum of the same cent-rounded units shown
     at phase boundaries. Phase 3 keeps its stricter contract: its displayed unit
@@ -109,11 +109,17 @@ def load_gpt_running_cost(build_root: str, build_id: str) -> dict | None:
               and int(row.get("phase")) in range(1, 9)}
     if not phases:
         return None
-    gpt_turns = sum(max(0, int(row.get("gptTurnCount") or 0))
+    api_turns = sum(max(0, int(row.get("apiTurnCount")
+                               if row.get("apiTurnCount") is not None
+                               else row.get("gptTurnCount") or 0))
                     for row in phases.values())
-    if not gpt_turns:
+    if not api_turns:
         return None
-    gpt_unpriced = sum(max(0, int(row.get("gptUnpricedTurns") or 0))
+    api_unpriced = sum(max(0, int(row.get("apiUnpricedTurns")
+                                  if row.get("apiUnpricedTurns") is not None
+                                  else row.get("gptUnpricedTurns") or 0))
+                       for row in phases.values())
+    claude_turns = sum(max(0, int(row.get("claudeTurnCount") or 0))
                        for row in phases.values())
     sections = [row for row in rows if row.get("type") == "section-total"
                 and int(row.get("phase") or 0) == 3]
@@ -127,14 +133,20 @@ def load_gpt_running_cost(build_root: str, build_id: str) -> dict | None:
                 _USD_CENT, rounding=ROUND_HALF_UP)
     raw_total = sum((_dollars(row.get("apiEquivalentUsd"))
                      for row in phases.values()), Decimal("0"))
-    priced_turns = max(0, gpt_turns - gpt_unpriced)
+    priced_turns = max(0, api_turns - api_unpriced)
     source = next((row for row in phases.values()
                    if row.get("pricingVersion") or row.get("pricingSource")), {})
     return {
-        "gptTurnCount": gpt_turns,
+        "aiTurnCount": api_turns,
+        "aiPricedTurns": priced_turns,
+        "aiUnpricedTurns": api_unpriced,
+        "aiPricingComplete": api_unpriced == 0,
+        "claudeTurnCount": claude_turns,
+        # Compatibility aliases for older Forge clients.
+        "gptTurnCount": api_turns,
         "gptPricedTurns": priced_turns,
-        "gptUnpricedTurns": gpt_unpriced,
-        "gptPricingComplete": gpt_unpriced == 0,
+        "gptUnpricedTurns": api_unpriced,
+        "gptPricingComplete": api_unpriced == 0,
         "apiEquivalentUsd": round(float(raw_total), 9),
         "displayUsd": float(displayed),
         "pricingVersion": source.get("pricingVersion"),

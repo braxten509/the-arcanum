@@ -24,10 +24,23 @@ coverage contract.
 Preserve `[mastery].evidenceVersion = 1` and its Phase-0 `level` exactly. The central policy owns
 progression and grading thresholds; a tome cannot override them.
 
-Expand `.tome-build/BUILD_ID.course-map.proposal.json` into the complete Phase-3 skeleton while
-the learner-facing tome files remain placeholders. Preserve every seeded Phase-1 field and
-planned obligation. For every section, assign stable kebab-case capability IDs, earlier
-dependencies, the project milestone, and every planned lesson plus exactly one Working:
+Begin with `python3 tools/workflow/context/render_phase2_context.py BUILD_ID`. It prints the sealed lesson
+spine and the small author-spec files for this build. Edit only those compact files, the research
+ledger, tome skeleton, and any required reusable runtime; do not hand-maintain or repeatedly read
+the generated `course-map.proposal.json`. The exact Phase-2 self-check first runs
+`python3 tools/workflow/materialize_phase2_map.py BUILD_ID`, which deterministically combines the
+sealed seed with the author spec.
+
+For external tooling, research only facts that affect current installation, commands, APIs,
+compatibility, or delivery. Record at most six official or primary sources in the bounded research
+ledger printed by the context command. Phase 3 receives that ledger in every section packet and
+must reuse it before repeating web research.
+
+Expand the compact author spec into the complete Phase-3 skeleton while the learner-facing tome
+files remain placeholders. Preserve every seeded Phase-1 field and planned obligation. Materialize
+exactly each sealed `lessonCount`; do not add, remove, or regroup lessons in Phase 2. For every
+section, assign stable kebab-case capability IDs, earlier dependencies, the project milestone, and
+every planned lesson plus exactly one Working:
 
 Before assigning nodes, perform a cold-start dependency walk in section order. For every Working,
 inventory the unavoidable language mechanisms, library or runtime APIs, tool actions,
@@ -78,8 +91,8 @@ and then introduce the real syntax later.
   related support; Start 3 may group multiple closely related families after prerequisites are
   secure. Do not hide density by giving one mechanism id to several independently teachable
   syntax forms, APIs, tool actions, or technical terms; split them into honest mechanism owners.
-  Three lessons is the minimum, not the target: derive an honest count through eight from the
-  section's dependency load, and fail an overfull section rather than compressing it;
+  the Phase-1 count is authority: fit the dependency walk honestly into those named lesson slots,
+  and fail back to the sealed planning contract rather than silently changing the count;
 - the Working uses `sNN.working`, requires only capabilities taught in this or an earlier section,
   depends on its section's final lesson, repeats the section milestone, lists every learner-owned
   artifact, and includes
@@ -148,7 +161,7 @@ and then introduce the real syntax later.
   optional `#anchor`. Never use repository-global `sections/sNN/...` paths—the Phase-2 gate proves
   these references resolve before sealing.
 
-For course-map version 5, preserve and complete the language-neutral `mechanismContract`.
+For course-map version 6, preserve and complete the language-neutral `mechanismContract`.
 Capabilities state broad outcomes; mechanisms name the concrete required keyword, syntax form,
 operator, API, tool action, or technical term. Give each mechanism a stable kebab-case `id`, a
 plain `label`, a language-neutral kebab-case `kind` (for example `syntax-form`, `api`, or
@@ -167,7 +180,7 @@ Use this shape (with course-specific values):
 Lesson nodes carry `"introduces":["..."]`; Working nodes carry
 `"mechanisms":["..."]`. Empty arrays are explicit.
 
-For course-map version 5, every lesson, Working, and mastery-lab node must also include
+For course-map version 6, every lesson, Working, and mastery-lab node must also include
 `validationDependencies = []`. Put the exact package spec in that array on every node whose
 authored examples, exercises, hidden replay, checks, or promised capability require a third-party
 package. The union of node packages must exactly equal `[runtime].validationDependencies` in

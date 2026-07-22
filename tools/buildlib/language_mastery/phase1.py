@@ -109,9 +109,15 @@ def phase1_contract_problems(text, body, section_ids, section_promises=None):
         problems.append(
             "**Mastery proof:** must explicitly name the language whose independence is graded")
     graduate = block_field(body, "Graduate ledger")
-    if language and language.casefold() not in graduate.casefold():
+    language_named = bool(language and re.search(
+        rf"(?<![\w-]){re.escape(language)}(?![\w-])", graduate, re.I))
+    if language and not language_named:
         problems.append(
-            "**Graduate ledger:** must state what the learner CAN and CANNOT do in the language")
+            "**Graduate ledger:** must repeat the exact **Language:** value "
+            f"`{language}` so the graduate boundary is language-specific")
+    if not re.search(r"\bCAN\b", graduate) or not re.search(r"\bCANNOT\b", graduate):
+        problems.append(
+            "**Graduate ledger:** must contain separate uppercase `CAN` and `CANNOT` clauses")
     return problems
 
 

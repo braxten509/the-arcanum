@@ -17,15 +17,11 @@ from arcanum.ai.events import step_tokens_from_line
 from arcanum.authoring.adapters import validator_live
 from ..course.alignment import actual_lesson_id
 from ..course_map import load_course_map
-from ..validator_policy import resolve_validator_output
-from .prompt import (DYNAMIC_MARKER,
-                                  pacing_contract,
-                                  prerequisite_prompt as _prompt,
-                                  result_schema as _result_schema,
-                                  unusable_response_retry_prompt as _recovery_retry_prompt)
+from ..validator_policy import (ValidatorOutput, extract_json, readable_guidance,
+                                readable_outcome, readable_reasons)
+from .prompt import DYNAMIC_MARKER, pacing_contract, prerequisite_prompt as _prompt
 from . import records as _records
-from .result import (evidence_supports_verdict,
-                     validate_detailed as _validate_detailed)
+from .result import validate_detailed as _validate_detailed
 from . import transport
 # Re-exported so callers and tests keep addressing these through this module; the
 # call sites below go through `transport.` so patching the transport module works.
@@ -222,9 +218,8 @@ def _cli_adapter(prompt, validator, live=None):
         # The row describes a call in flight; every exit path must retire it.
         if build_id:
             validator_live.clear(BUILD_DIR, build_id)
-    # A stall that arrives after the verdict is the CLI failing to exit, not failing to
-    # answer. Keep the output and let the usual malformed-result path judge it; only an
-    # empty stall is an infrastructure failure.
+    # A stall that arrives after readable output is the CLI failing to exit, not failing
+    # to answer. Keep that output; only an empty stall is an infrastructure failure.
     if stalled and not stdout.strip():
         raise StalledProcess(STALL_SECONDS)
     if returncode and not stalled:
@@ -254,11 +249,12 @@ def invoke_validator(prompt, validator, *, adapter=None, schema=None,
     if adapter:
         return adapter(prompt, validator), {
             "transport": "test-adapter", "model": validator.get("model", ""), "usage": None}
-    # Codex login remains the zero-API-cost fallback. When an API key is present,
-    # the read-only Validator AI uses one no-tools Structured Output request instead.
-    key = transport._openai_key()
-    if (validator.get("kind") == "codex-cli" and key
-            and str(validator.get("model") or "").startswith("gpt-")):
+    # CLI and API are deliberately separate Forge choices. Never turn a Codex CLI
+    # selection into billable API traffic merely because a key happens to exist.
+    if validator.get("kind") == "openai-api":
+        key = transport._openai_key()
+        if not str(validator.get("model") or "").startswith("gpt-"):
+            raise RuntimeError("Codex API validators require a gpt- model")
         return transport._api_adapter(
             prompt, validator, key, schema=schema, schema_name=schema_name,
             cache_key=cache_key, max_output_tokens=max_output_tokens,
@@ -290,14 +286,45 @@ def review_usage_summary(build_id):
 
 
 def _invoke(prompt, validator, adapter, live=None):
-    return invoke_validator(prompt, validator, adapter=adapter, live=live)
+    return invoke_validator(
+        prompt, validator, adapter=adapter, live=live, plain_text=True)
 
 
 def _classify_output(raw, sources, sid, known_mechanisms):
     parsed, errors = _validate_detailed(raw, sources, sid, known_mechanisms)
-    output = resolve_validator_output(
-        raw, parsed, errors,
-        lambda value, outcome: evidence_supports_verdict(value, outcome, sources))
+    text = (raw.strip() if isinstance(raw, str)
+            else json.dumps(raw, ensure_ascii=False, default=str).strip()
+            if raw is not None else "")
+    value = extract_json(raw)
+    outcome = readable_outcome(value)
+    if outcome not in ("PASS", "FAIL"):
+        explicit = re.search(
+            r"(?im)^\s*(?:#{1,6}\s*)?(?:\*\*|__)?(?:overall\s+)?"
+            r"(?:(?:verdict|assessment|conclusion)\s*[:=—-]\s*)?"
+            r"(?:\*\*|__)?(PASS|FAIL)\b", text)
+        if explicit:
+            outcome = explicit.group(1).upper()
+        elif re.search(
+                r"(?i)\b(?:passes?|passed)\s+(?:the\s+)?(?:review|audit|gate|criteria)\b|"
+                r"\bno\s+(?:material\s+)?(?:defects?|findings?|repairs?|blockers?|issues?)\b",
+                text):
+            outcome = "PASS"
+        else:
+            outcome = "FAIL"
+    guidance = readable_guidance(raw)
+    reasons = readable_reasons(value)
+    if not reasons:
+        reasons = [text[:12000]] if text else ["Validator AI returned no readable response."]
+    # Preserve optional structured findings when present, but never reject readable prose or
+    # spend another call merely because it did not follow the suggested JSON shape.
+    result = {**parsed, "status": outcome, "reasons": reasons}
+    if guidance:
+        result["guidance"] = guidance
+    if outcome == "PASS" and (result.get("missingMechanisms")
+                               or result.get("qualityFindings")):
+        result["status"] = "FAIL"
+    output = ValidatorOutput(
+        result=result, malformed=False, unusable=not bool(text), recovered_verdict=True)
     return parsed, errors, output
 
 
@@ -341,7 +368,6 @@ def review_prerequisites(build_id, sid, *, adapter=None):
         raise RuntimeError(
             f"section Validator AI infrastructure failed: {brief_exception(exc)}") from exc
     parsed, errors, output = _classify_output(raw, sources, sid, known_mechanisms)
-    model = str(validator.get("model") or "")
     _append_call(
         build_id, sid, packet,
         output.result if output.recovered_verdict else parsed,
@@ -350,67 +376,7 @@ def review_prerequisites(build_id, sid, *, adapter=None):
         f"AI VALIDATOR CALL COMPLETE [{time.time():.3f}] "
         f"({output.result['status']}) › {audit_label}",
         build_id, build_dir=BUILD_DIR)
-    if output.unusable:
-        retry_label = (f"section quality {sid} recovery-retry › "
-                       f"{validator.get('kind')} {validator.get('model')}")
-        emit_status_line(f"AI VALIDATOR CALL START [{time.time():.3f}] › {retry_label}",
-                         build_id, build_dir=BUILD_DIR)
-        try:
-            repaired_raw, repair_meta = _invoke(
-                _recovery_retry_prompt(prompt, raw, errors, known_mechanisms),
-                validator, adapter, (build_id, retry_label))
-        except Exception as exc:
-            _append_infrastructure_failure(
-                build_id, sid, packet, validator, exc, stage="recovery-retry")
-            emit_status_line(
-                f"AI VALIDATOR CALL FAILED [{time.time():.3f}] › {retry_label}",
-                build_id, build_dir=BUILD_DIR)
-        else:
-            parsed, errors, output = _classify_output(
-                repaired_raw, sources, sid, known_mechanisms)
-            _append_call(
-                build_id, sid, packet,
-                output.result if output.recovered_verdict else parsed,
-                repair_meta, raw=repaired_raw,
-                stage="recovery-retry", malformed=output.malformed)
-            emit_status_line(
-                f"AI VALIDATOR CALL COMPLETE [{time.time():.3f}] "
-                f"({output.result['status']}) › {retry_label}",
-                build_id, build_dir=BUILD_DIR)
     result = output.result
-    should_escalate = ("luna" in model.lower()
-                       and (output.unusable or result["status"] == "UNCERTAIN"))
-    if should_escalate:
-        terra = {**validator, "model": re.sub("luna", "terra", model,
-                                               flags=re.IGNORECASE),
-                 "effort": validator.get("effort") or "medium"}
-        escalation_label = (f"section quality {sid} escalation › {terra.get('kind')} "
-                            f"{terra.get('model')}")
-        emit_status_line(
-            f"AI VALIDATOR CALL START [{time.time():.3f}] › {escalation_label}",
-            build_id, build_dir=BUILD_DIR)
-        try:
-            raw, terra_meta = _invoke(prompt, terra, adapter, (build_id, escalation_label))
-        except Exception as exc:
-            _append_infrastructure_failure(
-                build_id, sid, packet, terra, exc, stage="escalation",
-                escalated_from=model)
-            emit_status_line(
-                f"AI VALIDATOR CALL FAILED [{time.time():.3f}] › {escalation_label}", build_id,
-                build_dir=BUILD_DIR)
-            raise RuntimeError(
-                f"section Validator AI escalation failed: {brief_exception(exc)}") from exc
-        parsed, _errors, output = _classify_output(
-            raw, sources, sid, known_mechanisms)
-        _append_call(
-            build_id, sid, packet,
-            output.result if output.recovered_verdict else parsed,
-            terra_meta, raw=raw,
-            stage="escalation", escalated_from=model, malformed=output.malformed)
-        result = output.result
-        emit_status_line(
-            f"AI VALIDATOR CALL COMPLETE [{time.time():.3f}] ({result['status']}) › "
-            f"{escalation_label}", build_id, build_dir=BUILD_DIR)
-    if not output.unusable and result["status"] != "UNCERTAIN":
+    if not output.unusable:
         _write(result_path(build_id, sid), {"fingerprint": fingerprint, "result": result})
     return {**result, "cached": False}

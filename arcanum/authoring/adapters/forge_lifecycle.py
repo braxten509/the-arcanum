@@ -11,7 +11,7 @@ import time
 from ...forge.build_state import (BUILD_TOTAL_PHASES, build_result_status,
                                   load_author_session, load_section_progress,
                                   save_active_owner)
-from ...config import BUILD_DIR, CLI_EFFORTS, ROOT
+from ...config import BUILD_DIR, CLI_EFFORTS, ROOT, openai_api_configured
 from ...forge import (_clear_build_terminal_state, _load_launch, _plan_concept,
                       _plan_gate, _resume_phase, _save_launch,
                       author_activity_started_at, external_build_process,
@@ -19,7 +19,9 @@ from ...forge import (_clear_build_terminal_state, _load_launch, _plan_concept,
                       working_is_active)
 
 
-AUTHOR_KINDS = ("claude-cli", "antigravity-cli", "codex-cli", "opencode-cli")
+CLI_KINDS = ("claude-cli", "codex-cli")
+VALIDATOR_KINDS = (*CLI_KINDS, "openai-api")
+API_EFFORTS = ("none", "minimal", "low", "medium", "high", "xhigh")
 
 
 def _resume_session_id(previous, author, phase, section=""):
@@ -36,14 +38,18 @@ def _resume_session_id(previous, author, phase, section=""):
     return str(previous.get("sessionId") or "")
 
 
-def _agent(value, role):
+def _agent(value, role, allowed=CLI_KINDS):
     value = value or {}
     kind = str(value.get("kind") or "")
     model = str(value.get("model") or "").strip()
     effort = str(value.get("effort") or "").strip()
-    if kind not in AUTHOR_KINDS or not model:
-        raise ValueError(f"choose any installed CLI provider and model for the {role}")
-    if effort and effort not in CLI_EFFORTS.get(kind, ()):
+    if kind not in allowed or not model:
+        choices = "Claude CLI or Codex CLI"
+        if "openai-api" in allowed:
+            choices += ", or Codex API"
+        raise ValueError(f"choose {choices} and a model for the {role}")
+    efforts = API_EFFORTS if kind == "openai-api" else CLI_EFFORTS.get(kind, ())
+    if effort and effort not in efforts:
         raise ValueError(f"{kind} does not support effort {effort!r}")
     return {"kind": kind, "model": model, "effort": effort}
 
@@ -76,7 +82,21 @@ def _reviewer(body):
 
 def _validator(body):
     value = body.get("validator") or (body.get("bindery") or {}).get("validator")
-    return _agent(value, "mandatory section validator")
+    validator = _agent(value, "mandatory section validator", VALIDATOR_KINDS)
+    if validator["kind"] == "openai-api" and not openai_api_configured():
+        raise ValueError(
+            "Codex API requires an OpenAI key in Settings or OPENAI_API_KEY")
+    return validator
+
+
+def _section_cost_limit(body):
+    try:
+        value = float(body.get("sectionCostLimitUsd", 2.0))
+    except (TypeError, ValueError):
+        raise ValueError("section hard stop must be a dollar amount") from None
+    if not 1.0 <= value <= 10.0:
+        raise ValueError("section hard stop must be between $1 and $10")
+    return round(value * 2) / 2
 
 
 def _agent_spec(agent):
@@ -139,6 +159,7 @@ def start_build(h, body, services):
                             "error": "tooling must be internal, external, or both"}, 400)
     try:
         authors, validator, reviewer = _authors(body), _validator(body), _reviewer(body)
+        section_cost_limit = _section_cost_limit(body)
     except ValueError as exc:
         return h.send_json({"ok": False, "error": str(exc)}, 400)
     author = _phase_author(authors, 1)
@@ -155,6 +176,7 @@ def start_build(h, body, services):
     launch["authors"] = authors
     launch["validator"] = validator
     launch["reviewer"] = reviewer or {}
+    launch["sectionCostLimitUsd"] = section_cost_limit
     _save_launch(tid, launch, concept)
     gid = _launch(tid, author, concept, 1, services, gate, reviewer=reviewer,
                   validator=validator, authors=authors)
@@ -184,6 +206,7 @@ def resume_build(h, body, services):
         phase = 1
     try:
         authors, validator, reviewer = _authors(body), _validator(body), _reviewer(body)
+        section_cost_limit = _section_cost_limit(body)
     except ValueError as exc:
         return h.send_json({"ok": False, "error": str(exc)}, 400)
     author = _phase_author(authors, phase)
@@ -193,6 +216,7 @@ def resume_build(h, body, services):
     launch["authors"] = authors
     launch["validator"] = validator
     launch["reviewer"] = reviewer or {}
+    launch["sectionCostLimitUsd"] = section_cost_limit
     _save_launch(rid, launch, _plan_concept(text), text)
     previous = load_author_session(rid) or load_author_session(tid) or {}
     section = (load_section_progress(rid) or {}).get("section", "") if phase == 3 else ""
@@ -228,16 +252,24 @@ def control_author(h, body, action, services):
             payload["author"] = _author(body)
         except ValueError as exc:
             return h.send_json({"ok": False, "error": str(exc)}, 400)
+    launch_changes = {}
     if action in ("message", "resume") and body.get("validator"):
         try:
             validator = _validator(body)
         except ValueError as exc:
             return h.send_json({"ok": False, "error": str(exc)}, 400)
-        # The gate re-reads launch.json on every run, so rewriting it retargets the
-        # next mechanical check without restarting the harness or the author session.
+        launch_changes["validator"] = validator
+    if action in ("message", "resume") and "sectionCostLimitUsd" in body:
+        try:
+            launch_changes["sectionCostLimitUsd"] = _section_cost_limit(body)
+        except ValueError as exc:
+            return h.send_json({"ok": False, "error": str(exc)}, 400)
+    if launch_changes:
+        # The gate re-reads launch.json on every run, so these settings take effect
+        # without restarting the harness or the author session.
         stable = job.get("slug") or job.get("tome") or bid
         launch = _load_launch(stable)
-        _save_launch(stable, {**launch, "validator": validator},
+        _save_launch(stable, {**launch, **launch_changes},
                      str(launch.get("concept") or ""))
     try:
         proc.stdin.write(json.dumps(payload, ensure_ascii=False) + "\n")

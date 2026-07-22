@@ -20,7 +20,7 @@ from ..runtime import runner_stdin
 from ..runtime import session_id_from_line
 from ..runtime import usage_from_line
 from .support import append_conversation as _append_conversation
-from .support import harness_blocked_message
+from .support import harness_blocked_message, repair_required_message
 from arcanum.forge.tool_trace import (_descendants, runner_session, trace_model,
                                       trace_session_id)
 from arcanum.forge.trace_metadata import trace_usage
@@ -86,7 +86,8 @@ class AuthorTurnMixin:
         if input_mode == "arg":
             cmd = [*cmd, prompt]
         wrapped = scoped_runner_command(display, cmd, REPO, self._writable(), REPO,
-                                        readonly_paths=self._readonly())
+                                        readonly_paths=self._readonly(),
+                                        hidden_paths=self._hidden())
         append_conversation(self.build_id, conversation_kind,
                             conversation_text or prompt)
         self.child = subprocess.Popen(wrapped, cwd=REPO, stdin=runner_stdin(input_mode),
@@ -106,7 +107,7 @@ class AuthorTurnMixin:
         # Popen only proves the provider process exists. Do not claim the author is
         # running until its durable session store is discoverable by the trace follower.
         self.state("starting", pid=self.child.pid)
-        source, plain, harness_blocked, usage = None, [], "", None
+        source, plain, harness_blocked, repair_required, usage = None, [], "", "", None
         # stderr is folded into stdout, so a crashing CLI's complaint arrives as plain
         # text among the structured events. Keep the last few for the failure report.
         # ponytail: "not JSON" is the whole test; providers that emit prose on success
@@ -162,6 +163,8 @@ class AuthorTurnMixin:
                     append_conversation(self.build_id, "assistant", answer, role=self.role)
                     if harness_blocked_message(answer):
                         harness_blocked = answer
+                    if repair_required_message(answer):
+                        repair_required = answer
                 elif self.kind == "antigravity-cli":
                     plain.append(line)
             except queue.Empty:
@@ -234,6 +237,9 @@ class AuthorTurnMixin:
         if self.kind == "antigravity-cli":
             # AGY is plain text; the raw turn remains visible even without structured events.
             pass
+        if repair_required:
+            finish_cost("repair-required")
+            return "repair-required", repair_required
         if harness_blocked:
             finish_cost("harness-blocked")
             return "harness-blocked", harness_blocked

@@ -1,6 +1,10 @@
 # Section author contract
 
 Author each section as one addition to the evolving project.
+Use two coherent authoring batches in the same section session: research first, then author every
+sealed lesson together and stop; on return, author the Working, assessment, and handoff together.
+If an interrupted first batch left lessons incomplete, finish all remaining lessons together and
+stop once more before the Working. Never split a healthy section into one lesson per turn.
 Run the assignment's bounded `render_section_context.py` command first. Treat that packet as the
 initial read of the plan, named guides, sealed section, handoffs, tome metadata, and current
 section sources; do not reread each item in a separate tool turn. Batch later independent reads
@@ -31,7 +35,9 @@ documentation and release notes over tutorials and over your own recall. Verify 
 number, signature, and default against the published source, and prefer a conservative claim to an
 invented specific when a detail cannot be confirmed. Do this before the first lesson body.
 
-Before drafting prose, replace placeholder capability ids. Each lesson's `teaches` names
+The Phase-2 transition has already expanded untouched scaffolds to the exact sealed lesson count,
+ids, titles, capabilities, mechanisms, and validation dependencies. Preserve those generated
+contract fields while replacing TODO content. Each lesson's `teaches` names
 concrete abilities or API contracts in stable kebab-case; the freestyle's cumulative
 `requires` lists exactly what its checklist and rubric exercise. Every requirement must
 be completely taught by this or an earlier lesson.

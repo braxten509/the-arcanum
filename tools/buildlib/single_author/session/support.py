@@ -59,8 +59,9 @@ guide under `tome-workflow/` plus the references it explicitly names. Files on d
 NON-NEGOTIABLE LEARNER CONSTRUCTION: {LEARNER_CONSTRUCTION_INSTRUCTION}
 
 Work on exactly the phase or Phase-3 section named in the final instruction. When it is authored,
-run only the exact self-check command given in that assignment, repair its reported failures until
-it exits cleanly, set that unit's progress marker to `validating`, and end your turn. Do not invent
+run only the exact self-check command given in that assignment once. If it reports findings, stop
+with `HARNESS_REPAIR_REQUIRED:` so the harness can aggregate and return one bounded repair packet.
+When the check exits cleanly, set that unit's progress marker to `validating` and end your turn. Do not invent
 ad-hoc substitutes, run a deterministic phase transition, or begin the next unit. The harness
 independently runs the unit's mechanical gate while you are stopped, then its mandatory Validator
 AI gate for Phase 1, Phase 2, or a Phase-3 section. It checkpoints only a fully clean unit, returns
@@ -89,3 +90,7 @@ def continuation_prompt(_build_id):
 
 def harness_blocked_message(text):
     return str(text or "").lstrip().startswith("HARNESS_BLOCKED:")
+
+
+def repair_required_message(text):
+    return str(text or "").lstrip().startswith("HARNESS_REPAIR_REQUIRED:")

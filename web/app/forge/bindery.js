@@ -172,11 +172,13 @@ export function openBuildOverlay(jobId, traceId = jobId) {
       <div class="forge-fail-msg" id="fp-fail-msg"></div>
       <div class="forge-fail-controls">
         <div class="forge-ai-row">
-          <div class="forge-ai-choice"><select id="fp-alt-prov" class="cfg-select" aria-label="Replacement agent CLI"></select></div>
+          <div class="forge-ai-choice"><select id="fp-alt-prov" class="cfg-select" aria-label="Replacement AI provider"></select></div>
           <div class="forge-ai-choice"><select id="fp-alt-model" class="cfg-select" aria-label="Replacement model"></select></div>
           <div class="forge-ai-choice"><select id="fp-alt-eff" class="cfg-select" aria-label="Replacement effort"><option value="">DEFAULT</option></select></div>
         </div>
-        <button class="btn" id="fp-alt-resume" type="button">RESUME WITH THIS AI</button>
+        <label class="forge-cost-limit hidden" id="fp-alt-cost-wrap"><span>SECTION STOP</span>
+          <input id="fp-alt-cost" type="number" min="1" max="10" step="0.5" value="2" aria-label="Phase 3 section hard stop in dollars"></label>
+        <button class="btn" id="fp-alt-resume" type="button">RESUME AUTHOR WITH THIS AI</button>
       </div>
     </div>
     <div class="forge-session-actions"><button class="btn danger" id="fp-cancel">ABANDON</button>
@@ -224,10 +226,13 @@ export function openBuildOverlay(jobId, traceId = jobId) {
   };
   const fail = $("#fp-fail", overlay), failMsg = $("#fp-fail-msg", overlay),
         altProv = $("#fp-alt-prov", overlay), altModel = $("#fp-alt-model", overlay),
-        altEff = $("#fp-alt-eff", overlay), altResume = $("#fp-alt-resume", overlay);
-  let altProviders = null, altRole = "";
+        altEff = $("#fp-alt-eff", overlay), altResume = $("#fp-alt-resume", overlay),
+        altCostWrap = $("#fp-alt-cost-wrap", overlay), altCost = $("#fp-alt-cost", overlay);
+  altCost.value = localStorage.getItem("binderySectionCostLimitUsd") || "2";
+  altCost.onchange = () => localStorage.setItem("binderySectionCostLimitUsd", altCost.value);
+  let altProviders = null, activeAltProviders = [], altRole = "";
   const fillAltEfforts = () => {
-    const provider = (altProviders || []).find((item) => item.id === altProv.value);
+    const provider = activeAltProviders.find((item) => item.id === altProv.value);
     const row = provider && (provider.models || []).find((item) => item[0] === altModel.value);
     const levels = (row && row[3]) || [];
     altEff.innerHTML = `<option value="">DEFAULT</option>` + levels.map((level) =>
@@ -235,7 +240,7 @@ export function openBuildOverlay(jobId, traceId = jobId) {
     altEff.disabled = !levels.length;
   };
   const fillAltModels = () => {
-    const provider = (altProviders || []).find((item) => item.id === altProv.value);
+    const provider = activeAltProviders.find((item) => item.id === altProv.value);
     const rows = (provider && provider.models) || [];
     altModel.innerHTML = rows.map(([id, label, tag]) => `<option value="${esc(id)}">${esc(label)}${tag ? ` · ${esc(tag)}` : ""}</option>`).join("")
       || `<option value="">NO MODELS</option>`;
@@ -254,8 +259,9 @@ export function openBuildOverlay(jobId, traceId = jobId) {
       [altProv, altModel, altEff].forEach(enhanceSelect);
     }
     altRole = role;
-    altProv.innerHTML = altProviders.map((item) => `<option value="${esc(item.id)}">${esc(item.label)}</option>`).join("");
-    const match = matchProvider(altProviders, current);
+    activeAltProviders = altProviders.filter((item) => (item.roles || []).includes(role));
+    altProv.innerHTML = activeAltProviders.map((item) => `<option value="${esc(item.id)}">${esc(item.label)}</option>`).join("");
+    const match = matchProvider(activeAltProviders, current);
     if (match) altProv.value = match.id;
     fillAltModels();
     if (current?.model && [...altModel.options].some((option) => option.value === current.model)) altModel.value = current.model;
@@ -263,13 +269,17 @@ export function openBuildOverlay(jobId, traceId = jobId) {
     if (current?.effort && [...altEff.options].some((option) => option.value === current.effort)) altEff.value = current.effort;
   }
   altResume.onclick = async () => {
-    const provider = (altProviders || []).find((item) => item.id === altProv.value);
+    const provider = activeAltProviders.find((item) => item.id === altProv.value);
     if (!provider || !altModel.value) return;
     altResume.disabled = true;
     const agent = { kind: provider.kind, model: altModel.value, ...(altEff.value ? { effort: altEff.value } : {}) };
+    const payload = altRole === "validator" ? { validator: agent } : { author: agent };
+    if (!altCostWrap.classList.contains("hidden")) {
+      payload.sectionCostLimitUsd = Number(altCost.value);
+      localStorage.setItem("binderySectionCostLimitUsd", altCost.value);
+    }
     try {
-      await post("/api/buildtome/continue",
-                 altRole === "validator" ? { validator: agent } : { author: agent });
+      await post("/api/buildtome/continue", payload);
       fail.classList.add("hidden");
       altRole = ""; // the next failure re-arms from whichever agent is down then
     }
@@ -306,18 +316,19 @@ export function openBuildOverlay(jobId, traceId = jobId) {
       : status.runner || "ATTACHING…";
     $("#fp-session-state", overlay).textContent = state.toUpperCase();
     $("#fp-session-state", overlay).dataset.state = state;
-    const cost = status.gptRunningCost
+    const cost = status.aiRunningCost || status.gptRunningCost
       || fallbackForgeRunningCost(status.conversation, status.logtail);
-    const currentGpt = /^gpt-/i.test(String(author.model || ""));
+    const currentTracked = /^(?:gpt-|claude-)/i.test(String(author.model || ""));
     const runningCost = $("#fp-running-cost", overlay);
-    runningCost.classList.toggle("hidden", !currentGpt);
+    runningCost.classList.toggle("hidden", !currentTracked);
     $("#fp-running-cost-value", overlay).textContent = cost
       ? formatForgeRunningCost(cost) : "$0.00";
-    $("#fp-weekly-usage", overlay).textContent = cost
-      ? formatForgeWeeklyUsage(cost) : "(0.00% weekly usage)";
-    runningCost.title = cost?.gptUnpricedTurns
-      ? "Cumulative GPT API-equivalent cost is partial because at least one GPT turn lacked token usage."
-      : "Cumulative GPT API-equivalent cost for this build.";
+    $("#fp-weekly-usage", overlay).textContent = cost?.claudeTurnCount
+      ? "(Claude/GPT API-equivalent total)"
+      : cost ? formatForgeWeeklyUsage(cost) : "(0.00% weekly usage)";
+    runningCost.title = cost?.aiUnpricedTurns || cost?.gptUnpricedTurns
+      ? "Cumulative AI API-equivalent cost is partial because at least one tracked turn lacked token usage."
+      : "Cumulative Claude and GPT API-equivalent cost for this build.";
     $("#fp-session-id", overlay).textContent = status.sessionId ? `SESSION ${status.sessionId.slice(0, 12)}` : "SESSION STARTING";
     const reviewerActive = status.sessionRole === "reviewer";
     $("#fp-trace-source", overlay).dataset.role = reviewerActive ? "reviewer" : "author";
@@ -333,6 +344,10 @@ export function openBuildOverlay(jobId, traceId = jobId) {
       const downRole = status.sessionGate === "validator-infrastructure" ? "validator"
         : reviewerActive ? "reviewer" : "author";
       failMsg.textContent = status.sessionError;
+      const sectionBudget = status.sessionGate === "section-repair-budget";
+      altCostWrap.classList.toggle("hidden", !sectionBudget);
+      if (sectionBudget && document.activeElement !== altCost)
+        altCost.value = String(status.sectionCostLimitUsd || 2);
       altResume.textContent = `RESUME ${downRole.toUpperCase()} WITH THIS AI`;
       armAltPicker(downRole === "validator" ? status.sessionValidator : status.sessionAuthor, downRole);
     }

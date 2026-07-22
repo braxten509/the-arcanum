@@ -115,7 +115,8 @@ export function showBinder() {
   rv.addEventListener("change", () => { if (rv.checked) bd.checked = false; persist(); syncDesc(); });
   rs.addEventListener("change", () => { persist(); syncReset(); });
   const fillBindery = (d) => {
-    BINDERY = (d.bindery || []).filter((p) => p.installed !== false);
+    BINDERY = (d.bindery || []).filter((p) => p.installed !== false
+      && (p.roles || []).includes("author"));
     k.prov.innerHTML = '<option value="">PICK A MODEL</option>' + BINDERY.map((p) => `<option value="${esc(p.id)}">${esc(p.label)}</option>`).join("");
     k.prov.disabled = false;
     const has = (sel, v) => [...sel.options].some((o) => o.value === v);

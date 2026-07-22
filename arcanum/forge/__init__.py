@@ -467,6 +467,7 @@ def list_workings(job_manager: JobManager, catalog):
                     "authors": authors,
                     "validator": launch.get("validator") or {},
                     "reviewer": launch.get("reviewer") or {},
+                    "sectionCostLimitUsd": launch.get("sectionCostLimitUsd", 2.0),
                     "gate": launch.get("gate") or _plan_gate(text),
                     "toolingConflict": tooling["conflict"],
                     "requiredTooling": tooling["required"],
