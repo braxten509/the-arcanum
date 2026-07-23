@@ -1,48 +1,102 @@
 [[lessons]]
 id = "s01-l06"
-title = "TODO: Assemble and Link the Native Binary"
+title = "Assemble and Link the Native Binary"
 teaches = ["native-build-pipeline"]
 introduces = ["nasm-elf64-dwarf-object-build", "gcc-sdl2-link-and-make-targets"]
 validationDependencies = []
-# Phase 3 replaces this placeholder with IDs from this section's research.toml.
-researchSources = ["replace-source"]
+researchSources = ["nasm-manual", "gnu-make", "sysv-abi"]
 body = '''
-<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
-<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
-<p>TODO: an optional deeper-cut appendix.</p></div>
+<p>You've written assembly programs as single files and assembled them by hand. A real project has multiple steps: assemble the source to an object file, link in external libraries, produce a runnable executable, and repeat the sequence every time you change the source. A Makefile remembers the recipe so you don't have to.</p>
+
+<p>Create a disposable Makefile, <code>pipeline-makefile</code>, to build <code>call-demo.asm</code> from the previous lesson:</p>
+
+<pre><code data-kind="runnable"># pipeline-makefile — build an assembly program that calls the C library
+ASM := nasm
+ASMFLAGS := -f elf64 -g -F dwarf
+LINK := gcc
+LINKFLAGS := -no-pie
+
+call-demo: call-demo.o
+        $(LINK) $(LINKFLAGS) -o $@ $^
+
+call-demo.o: call-demo.asm
+        $(ASM) $(ASMFLAGS) -o $@ $<
+
+.PHONY: clean
+clean:
+        rm -f call-demo call-demo.o</code></pre>
+
+<p>Read each rule:</p>
+
+<ul>
+<li><p><code>ASM := nasm</code> defines a variable. <code>:=</code> means "evaluate once, never recompute." From now on, <code>$(ASM)</code> expands to <code>nasm</code> wherever it appears.</p></li>
+<li><p><code>ASMFLAGS := -f elf64 -g -F dwarf</code> — the <code>-f elf64</code> tells NASM to produce a 64-bit ELF object file (the format Linux uses). <code>-g -F dwarf</code> embeds DWARF debug information into the object file so GDB can show source lines and variable names. Without it, GDB sees only raw disassembly.</p></li>
+<li><p><code>LINK := gcc</code> uses GCC as the linker driver. You could use <code>ld</code> directly, but then you'd need to manually specify the C library (<code>-lc</code>), the startup objects (<code>crt1.o</code> etc.), and the dynamic linker path. GCC handles all of that automatically.</p></li>
+<li><p><code>call-demo: call-demo.o</code> is a <strong>target rule</strong>. The target <code>call-demo</code> depends on the prerequisite <code>call-demo.o</code>. If the prerequisite file is newer than the target (or the target doesn't exist), Make runs the recipe line underneath.</p></li>
+<li><p>The recipe line <code>$(LINK) $(LINKFLAGS) -o $@ $^</code> uses two automatic variables: <code>$@</code> expands to the target name (<code>call-demo</code>) and <code>$^</code> expands to all prerequisites (<code>call-demo.o</code>). The <code>-o $@</code> names the output file.</p></li>
+<li><p>The second rule says: <code>call-demo.o</code> depends on <code>call-demo.asm</code>. <code>$@</code> is the <code>.o</code> file, <code>$<</code> is the first (and only) prerequisite — the <code>.asm</code> source.</p></li>
+<li><p><code>.PHONY: clean</code> tells Make: "clean is not a file. Always run the recipe when someone types <code>make clean</code>, even if a file named <code>clean</code> happens to exist."</p></li>
+</ul>
+
+<p>Copy <code>call-demo.asm</code> from lesson l05 into the same directory as <code>pipeline-makefile</code> and run:</p>
+
+<pre><code data-kind="runnable">make -f pipeline-makefile
+./call-demo
+echo $?</code></pre>
+
+<p>The first time, Make runs both rules: assemble <code>.asm</code> to <code>.o</code>, then link <code>.o</code> to executable. Run <code>make -f pipeline-makefile</code> again. It prints <code>make: 'call-demo' is up to date.</code> — no work to do, because the source hasn't changed.</p>
+
+<p>Now touch the source and rebuild:</p>
+
+<pre><code data-kind="runnable">touch call-demo.asm
+make -f pipeline-makefile</code></pre>
+
+<p>Make sees that <code>call-demo.asm</code> is newer than <code>call-demo.o</code>, so it reassembles. It then sees that <code>call-demo.o</code> is newer than <code>call-demo</code>, so it relinks. This dependency chain is the heart of every build system: change one file, rebuild only what depends on it.</p>
+
+<p>For Paddle Vector, we'll need SDL2. The linker flags come from <code>pkg-config</code>:</p>
+
+<pre><code data-kind="bash">pkg-config --cflags --libs sdl2</code></pre>
+
+<p>On a typical Debian system this prints something like <code>-I/usr/include/SDL2 -D_REENTRANT -L/usr/lib/x86_64-linux-gnu -lSDL2</code>. The <code>--cflags</code> part (<code>-I...</code>, <code>-D...</code>) tells the compiler where to find SDL header files — not needed for assembly since we call SDL functions directly. The <code>--libs</code> part (<code>-lSDL2</code>) tells the linker which library to search. We'll use <code>$(shell pkg-config --libs sdl2)</code> inside the Makefile so the linker always has the right flags for the current machine.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // -g AND BINARY SIZE</div>
+<p>The -g flag doubles or triples the size of the object file because it embeds source filenames, line numbers, and every label name. This debug information makes GDB usable. When you're ready to ship the final program, you can omit -g for a smaller binary — but for every lesson and Working in this course, keep it. The debugger is your primary verification tool, and a missing debug build is a missing proof step.</p></div>
 '''
 
 [[lessons.concepts]]
 id = "native-build-pipeline"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
+purpose = "Build a NASM assembly program from source to executable using a Makefile with two rules: assemble .asm to .o with nasm -f elf64 -g -F dwarf, and link .o to executable with gcc plus SDL2 flags from pkg-config, so that editing the source and typing make rebuilds only the changed parts."
+anatomy = "A Makefile defines variables (ASM, ASMFLAGS, LINK, LINKFLAGS) and rules (target: prerequisites [TAB] recipe). nasm -f elf64 produces an ELF64 object; the -g -F dwarf flags embed debug info. gcc links with pkg-config --libs sdl2 for SDL2 symbols. Automatic variables ($@, $<, $^) avoid repeating filenames."
+example = "The pipeline-makefile showing assembly and link rules with automatic variables, plus a clean target."
+observable = "make builds the executable on first run. Subsequent make runs print 'up to date.' touch source && make rebuilds. make clean removes .o and executable. ls confirms file presence."
+failure = "Using spaces instead of a TAB character in the recipe line produces 'Makefile:N: *** missing separator. Stop.' Forgetting to export pkg-config flags means the linker cannot find -lSDL2 and produces 'undefined reference to SDL_Init.'"
 practice = "s01-l06-e1"
 
 [[lessons.concepts]]
 id = "nasm-elf64-dwarf-object-build"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
+purpose = "Run nasm -f elf64 -g -F dwarf source.asm -o source.o to produce a 64-bit ELF object file containing machine code plus DWARF debug information so GDB can map instructions back to source lines and labels."
+anatomy = "-f elf64 selects the 64-bit ELF output format. -g enables debug symbol generation. -F dwarf selects the DWARF debug format (the standard on Linux). -o names the output file. Together they produce a .o file that the linker can consume and GDB can inspect."
+example = "The call-demo.o rule in pipeline-makefile."
+observable = "The .o file appears after assembly. objdump -d -M intel source.o shows disassembled instructions with label names. file source.o reports 'ELF 64-bit LSB relocatable.'"
+failure = "Omitting -g means GDB shows only disassembly with no source lines or label names — every breakpoint must be set by raw address. Omitting -F dwarf may work but produces stabs-format debug info that modern GDB handles poorly."
 practice = "s01-l06-e1"
 
 [[lessons.concepts]]
 id = "gcc-sdl2-link-and-make-targets"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
+purpose = "Use gcc object.o -o executable $(pkg-config --libs sdl2) to link a NASM-produced object file against SDL2 and the C runtime, producing a native ELF executable that can call SDL_Init, SDL_CreateWindow, and every other SDL2 function declared with extern."
+anatomy = "gcc takes one or more .o files and resolves all external symbols against the specified libraries. pkg-config --libs sdl2 expands to the linker flags (-lSDL2 and library search paths). The resulting executable contains machine code from the .o plus calls through the PLT to the SDL2 shared library."
+example = "The link rule in pipeline-makefile using $(LINK) $(LINKFLAGS) -o $@ $^."
+observable = "The executable appears, file reports ELF 64-bit LSB executable, and ./executable runs. Under ldd executable, libSDL2-2.0.so.0 is listed as a dynamic dependency."
+failure = "Linking with ld instead of gcc produces 'undefined reference to SDL_Init' because ld does not auto-link SDL2 or the C runtime startup objects. Linking without pkg-config --libs sdl2 produces the same error because -lSDL2 is missing."
 practice = "s01-l06-e1"
 
-[[lessons.readings]]               # optional: 1-2 high-quality official docs
-label = "TODO: official docs"
-url = "https://example.com/TODO"
+[[lessons.readings]]
+label = "NASM Manual: The -f Flag and Output Formats"
+url = "https://www.nasm.us/doc/nasmdoc7.html"
+
+[[lessons.readings]]
+label = "GNU Make Manual: Rule Introduction"
+url = "https://www.gnu.org/software/make/manual/html_node/Rule-Introduction.html"
 
 [[lessons.exercises]]
 id = "s01-l06-e1"
@@ -52,83 +106,76 @@ capabilities = ["native-build-pipeline"]
 mechanisms = ["nasm-elf64-dwarf-object-build", "gcc-sdl2-link-and-make-targets"]
 cognitiveTask = "predict"
 scaffold = "guided"
-contextFamily = "replace-context"
+contextFamily = "build-pipeline"
 aidPolicy = "learning"
 points = 15
-prompt = "TODO: a multiple-choice question?"
-choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
-answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
-whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
-hint = "TODO: an exercise-specific hint."
-explain = "TODO: shown after solving."
+prompt = "You change the assembly source file hello.asm and run make. Make reassembles hello.o but does NOT relink the hello executable. What is the most likely cause?"
+choices = ["The Makefile's link rule lists the wrong prerequisite or uses the wrong automatic variable", "NASM failed to update the timestamp on the .o file", "Make ran out of memory and skipped the link step", "The linker refuses to overwrite an existing executable"]
+answer = 0
+whyWrong = "If the .asm changed and .o was reassembled, the .o timestamp is now newer than the executable. The only reason Make would skip relink is if the link rule's prerequisites don't include the .o file, or the automatic variable is wrong. NASM always updates file timestamps. Make doesn't skip steps due to memory pressure. The linker happily overwrites executables."
+hint = "What are the prerequisites listed in the link target's dependency line?"
+explain = "Make checks whether a target is out of date by comparing its timestamp with its listed prerequisites. If the link rule says hello: hello.asm (source .asm instead of object .o), Make would try to link the .asm file directly (failing) or skip the link because the source is already newer than the target from the previous build. The correct prerequisite is the .o file produced by the assembly step."
 
 [[lessons.exercises]]
 id = "s01-l06-e2"
-type = "text"
-required = true
-capabilities = ["native-build-pipeline"]
-mechanisms = []
-cognitiveTask = "explain"
-scaffold = "guided"
-contextFamily = "replace-context"
-aidPolicy = "learning"
-points = 20
-prompt = "TODO: a free-text question."
-answer = "TODO"
-# accept = ["TODO alternate"]      # optional true alternates only
-hint = "TODO: an exercise-specific hint."
-
-[[lessons.exercises]]
-id = "s01-l06-e3"
 type = "fill"
 required = true
 capabilities = ["native-build-pipeline"]
-mechanisms = []
+mechanisms = ["nasm-elf64-dwarf-object-build"]
 cognitiveTask = "complete"
 scaffold = "completion"
-contextFamily = "replace-context"
+contextFamily = "build-pipeline"
 aidPolicy = "learning"
 points = 20
-prompt = "TODO: fill the blank."
-code = 'answer = ____'             # the ____ marks where the answer goes
-answer = "TODO"
-hint = "TODO: an exercise-specific hint."
+prompt = "Complete the NASM command that assembles a 64-bit ELF object file with DWARF debug symbols:"
+code = 'nasm ____ elf64 ____ dwarf source.asm -o source.o'
+answer = "-f -g -F"
+hint = "The -f flag chooses the output format, and -F chooses the debug format."
+explain = "-f elf64 selects the 64-bit ELF object format (required for x86-64 Linux). -g enables debug symbol generation. -F dwarf selects the DWARF debug format, which GDB understands to show source lines, label names, and variable types in assembly programs."
 
 [[lessons.exercises]]
-id = "s01-l06-d1"
-type = "type"                      # typing drill: retype the code; no point decay
+id = "s01-l06-e3"
+type = "text"
 required = true
 capabilities = ["native-build-pipeline"]
-mechanisms = []
-cognitiveTask = "recall"
-scaffold = "worked"
-contextFamily = "replace-context"
+mechanisms = ["gcc-sdl2-link-and-make-targets"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "build-pipeline"
 aidPolicy = "learning"
-points = 12
-reps = 2
-prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
-code = 'print("TODO")'
+points = 20
+prompt = "A classmate writes a Makefile with this link rule: `pong: pong.asm` with recipe `gcc -o pong pong.asm -lSDL2`. They run make and see: `gcc: error: pong.asm: linker input file unused because linking not done`. Explain what is wrong and what the prerequisite and recipe should be."
+answer = "The prerequisite should be pong.o (the assembled object file), not pong.asm (the assembly source). GCC needs an object file (.o), not an assembly source (.asm), as linker input. The Makefile needs two rules: one to assemble .asm to .o with nasm, and another to link .o to executable with gcc. The .asm file is the prerequisite of the assembly rule, not the link rule."
+hint = "What kind of file does gcc expect when it is linking? What tool turns .asm into that format?"
 
 [[lessons.exercises]]
 id = "s01-l06-w1"
-type = "write"                     # CODE LAB: runs on the real runtime; no point decay
+type = "write"
 required = true
 capabilities = ["native-build-pipeline"]
-mechanisms = []
+mechanisms = ["nasm-elf64-dwarf-object-build", "gcc-sdl2-link-and-make-targets"]
 cognitiveTask = "build"
 scaffold = "guided"
-contextFamily = "replace-context"
+contextFamily = "build-pipeline"
 aidPolicy = "learning"
 points = 30
-prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
-# starter = '''
-# TODO: prefilled editor code / the exercise's data
-# '''
+prompt = "Write a Makefile for the sum-two.asm program from lesson l05. It should have three targets: sum-two (the executable, built from the .o file), sum-two.o (the object file, built from the source), and clean (which removes both the executable and the object file). Use variables for the assembler, assembler flags, and linker same as the pipeline Makefile. Run make, then ./sum-two, then echo $?, then make clean, and confirm with ls that the built files are gone."
+hint = "Copy the structure of pipeline-makefile but replace call-demo with sum-two and link with ld instead of gcc since sum-two has no C library calls."
 expect = '''
-TODO EXACT OUTPUT'''
-# REQUIRED before shipping: a complete program that passes. Never shown to the
-# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
-# solution = '''
-# TODO
-# '''
-hint = "TODO: an exercise-specific hint."
+44
+Makefile  sum-two.asm'''
+solution = '''
+ASM := nasm
+ASMFLAGS := -f elf64 -g -F dwarf
+LINK := ld
+
+sum-two: sum-two.o
+\t$(LINK) -o $@ $^
+
+sum-two.o: sum-two.asm
+\t$(ASM) $(ASMFLAGS) -o $@ $<
+
+.PHONY: clean
+clean:
+\trm -f sum-two sum-two.o
+'''

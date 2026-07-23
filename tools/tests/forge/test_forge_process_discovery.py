@@ -59,6 +59,11 @@ assert _resume_session_id({**current, "actualModel": "terra"},
 assert not _resume_session_id({"kind": "codex-cli", "model": "terra",
                                "sessionId": "legacy-no-scope"},
                               {"kind": "codex-cli", "model": "terra"}, 3, "s05")
+assert not _resume_session_id(
+    {"role": "author", "kind": "opencode-cli", "model": "openrouter/deepseek",
+     "phase": 3, "section": "s05", "sessionId": "orphan"},
+    {"kind": "opencode-cli", "model": "openrouter/deepseek"}, 3, "s05",
+    build_id="missing-build")
 assert _section_cost_limit({}) == 2.0
 assert _section_cost_limit({}, 4.0) == 4.0
 assert _section_cost_limit({"sectionCostLimitUsd": "3.5"}) == 3.5

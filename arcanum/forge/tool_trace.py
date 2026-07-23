@@ -15,6 +15,7 @@ import time
 
 from ..config import BUILD_DIR, WEB
 from ..jobs.processes import descendants as _descendants
+from .trace_sources.mounts import host_mount_path
 from .trace_metadata import trace_model, trace_session_id, trace_usage
 
 TOOL_TRACE_LINES = 80
@@ -95,8 +96,9 @@ def runner_session(root_pid, session_id=None):
 
 def _opencode_session_from_processes(pids, proc_root="/proc", session_id=None):
     """Find the newest OpenCode DB session belonging to a live worker process."""
-    # A build trace passes an empty string until OpenCode emits its authoritative id.
-    # Do not repeatedly open the shared database during that write-sensitive startup.
+    # Empty string remains the explicit "wait for the emitted id" mode for any legacy
+    # caller whose database might be shared. ``None`` permits process-owned discovery;
+    # Forge author workers use it because their database is isolated per unit.
     if session_id == "":
         return None
     candidates = []
@@ -109,10 +111,24 @@ def _opencode_session_from_processes(pids, proc_root="/proc", session_id=None):
                 continue
             cwd = os.readlink(os.path.join(pdir, "cwd"))
             started_ms = int(os.stat(pdir).st_ctime * 1000) - 2000
-            db_path = next((os.readlink(os.path.join(pdir, "fd", fd)).removesuffix(" (deleted)")
-                            for fd in os.listdir(os.path.join(pdir, "fd"))
-                            if os.path.basename(os.readlink(os.path.join(pdir, "fd", fd))
-                                                .removesuffix(" (deleted)")) == "opencode.db"), None)
+            db_path = None
+            for fd in os.listdir(os.path.join(pdir, "fd")):
+                try:
+                    target = os.readlink(
+                        os.path.join(pdir, "fd", fd)).removesuffix(" (deleted)")
+                except OSError:
+                    continue
+                if os.path.basename(target) != "opencode.db":
+                    continue
+                # `/proc/<pid>/fd` prints the conventional in-namespace path. Translate
+                # its bind mount back to the host source; opening the conventional path
+                # would expose the shared DB, while SQLite canonicalizes `/proc/pid/root`
+                # and can pair the isolated main file with the wrong WAL.
+                db_path = (host_mount_path(pdir, target, proc_root)
+                           if os.path.isabs(target) else os.path.join(pdir, "fd", fd))
+                if os.path.isfile(db_path):
+                    break
+                db_path = None
             if not db_path or not os.path.isfile(db_path):
                 continue
             with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=0.2) as db:
@@ -430,7 +446,11 @@ def mirror_tool_trace(job_id, build_pid, build_id="", interval=0.75):
     _write_snapshot(job_id, last_payload)
     while os.path.exists(f"/proc/{int(build_pid)}"):
         try:
-            current = runner_session(build_pid, _saved_session_id(build_id))
+            # A blank saved ID means OpenCode has not flushed its structured stdout yet.
+            # The author process nevertheless owns a private per-unit database, so attach
+            # to the live row behind that process rather than leaving Forge blind.
+            session_hint = _saved_session_id(build_id) or None
+            current = runner_session(build_pid, session_hint)
             if current:
                 missing = 0
                 provider = current.provider

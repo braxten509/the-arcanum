@@ -24,7 +24,7 @@ CLI_KINDS = ("claude-cli", "codex-cli", "opencode-cli")
 VALIDATOR_KINDS = CLI_KINDS
 
 
-def _resume_session_id(previous, author, phase, section=""):
+def _resume_session_id(previous, author, phase, section="", build_id=""):
     """Resume only the same model's exact phase/section session."""
     if (previous.get("role") != "author"
             or previous.get("kind") != author.get("kind")
@@ -35,7 +35,17 @@ def _resume_session_id(previous, author, phase, section=""):
         return ""
     if int(phase) == 3 and str(previous.get("section") or "") != str(section or ""):
         return ""
-    return str(previous.get("sessionId") or "")
+    session_id = str(previous.get("sessionId") or "")
+    if author.get("kind") == "opencode-cli":
+        # OpenCode session IDs are meaningful only alongside the per-unit SQLite row.
+        # A pre-isolation or interrupted startup may have emitted an ID without ever
+        # persisting it. Passing that orphan to a fresh database guarantees another
+        # immediate failure, so fail closed to a clean same-unit start.
+        from arcanum.platform.agent_scratch import provider_session_exists
+        if not build_id or not provider_session_exists(
+                "opencode", build_id, "author", phase, section, session_id):
+            return ""
+    return session_id
 
 
 def _agent(value, role, allowed=CLI_KINDS):
@@ -224,7 +234,7 @@ def resume_build(h, body, services):
     _save_launch(rid, launch, _plan_concept(text), text)
     previous = load_author_session(rid) or load_author_session(tid) or {}
     section = (load_section_progress(rid) or {}).get("section", "") if phase == 3 else ""
-    resume_id = _resume_session_id(previous, author, phase, section)
+    resume_id = _resume_session_id(previous, author, phase, section, build_id=rid)
     # A resumed build is no longer cancelled: a stale cancel marker here made a later
     # clean finish record as "cancelled" instead of "done" (the untitled-6 loop).
     for key in {rid, tid}:

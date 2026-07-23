@@ -13,6 +13,7 @@ from ...ai_costs import ensure_cost_totals, record_ai_turn
 from arcanum.platform.agent_commands import scoped_runner_command
 from ..gate import current_unit
 from ..runtime import assistant_text
+from ..runtime import error_text
 from ..runtime import initial_runner
 from ..runtime import opencode_output_session_id
 from ..runtime import resume_command
@@ -151,7 +152,10 @@ class AuthorTurnMixin:
                     break
                 print(line, flush=True)
                 stall.poke()
-                if line.strip() and not line.lstrip().startswith("{"):
+                structured_error = error_text(line)
+                if structured_error:
+                    noise = [*noise, structured_error][-5:]
+                elif line.strip() and not line.lstrip().startswith("{"):
                     noise = [*noise, line.strip()][-5:]
                 observed_usage = usage_from_line(line)
                 if observed_usage:
@@ -176,12 +180,12 @@ class AuthorTurnMixin:
             except queue.Empty:
                 pass
             if not source and self.child.poll() is None:
-                # OpenCode stores every process in one SQLite database. Its structured
-                # stdout is the only authoritative process-to-session association; a
-                # newest-session-by-directory guess can attach another terminal's work.
                 if self.kind == "opencode-cli":
-                    if self.session_id:
-                        source = runner_session(self.child.pid, self.session_id)
+                    # This worker's OpenCode database is isolated by role/phase/section.
+                    # Discover the live row from the process while stdout is buffered;
+                    # an emitted ID still takes precedence and causes reattachment above.
+                    source = runner_session(
+                        self.child.pid, self.session_id if self.session_id else None)
                 elif self.kind in ("codex-cli", "claude-cli"):
                     if output_session_id:
                         source = runner_session(self.child.pid, output_session_id)

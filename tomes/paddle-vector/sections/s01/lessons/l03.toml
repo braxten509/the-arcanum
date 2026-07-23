@@ -1,48 +1,107 @@
 [[lessons]]
 id = "s01-l03"
-title = "TODO: Lay Out Integer State"
+title = "Lay Out Integer State"
 teaches = ["language-data-layout-and-integer-state"]
 introduces = ["nasm-integer-data-and-addressed-state", "nasm-static-cstring-pointer-and-sdl-error-output"]
 validationDependencies = []
-# Phase 3 replaces this placeholder with IDs from this section's research.toml.
-researchSources = ["replace-source"]
+researchSources = ["nasm-manual", "sdl2-wiki"]
 body = '''
-<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
-<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
-<p>TODO: an optional deeper-cut appendix.</p></div>
+<p>An assembly program models the machine's memory as labelled boxes. Every box has a size (one byte, two bytes, four bytes, eight bytes), a name (the label to its left), and the power to contain any integer that fits.</p>
+
+<p>NASM gives you two kinds of space for your data:</p>
+
+<ul>
+<li><strong>The <code>section .data</code> region</strong> holds bytes whose starting values you know ahead of time. When the program loads, those bytes already contain your numbers.</li>
+<li><strong>The <code>section .bss</code> region</strong> reserves space for bytes you will fill later. It starts at zero but doesn't store any initial value in the file itself — the operating system zeros it for you at load time.</li>
+</ul>
+
+<p>We'll use <code>.data</code> for named constants — window dimensions, the title string — and <code>.bss</code> for variables whose values change while the program runs, like paddle positions and scores.</p>
+
+<p>Create a disposable file, <code>layout-demo.asm</code>, and fill it with this demonstration:</p>
+
+<pre><code data-kind="runnable">; layout-demo.asm — explore sections, data sizes, and labels
+BITS 64
+DEFAULT REL
+
+section .data
+    court_w:    dd 800
+    court_h:    dd 600
+    name:       db "window", 0
+
+section .bss
+    score_left:  resd 1
+    score_right: resd 1
+
+section .text
+global _start
+_start:
+    mov     eax, [court_w]
+    mov     ebx, [court_h]
+    ; eax now holds 800, ebx holds 600
+
+    mov     eax, 60
+    xor     edi, edi
+    syscall</code></pre>
+
+<p>Let's read each part from the top:</p>
+
+<ul>
+<li><p><code>BITS 64</code> tells NASM "we are writing 64-bit code." Without it, the assembler may default to 16 or 32 bits and produce wrong instruction encodings.</p></li>
+<li><p><code>DEFAULT REL</code> tells NASM "when you write <code>[court_w]</code>, interpret the address as a RIP-relative displacement." This is required for modern position-independent executables (PIE), which let the operating system load the program at a different address each run for security.</p></li>
+<li><p><code>section .data</code> begins the initialized-data region. Every line after this switch until the next <code>section</code> directive belongs to <code>.data</code>.</p></li>
+<li><p><code>court_w: dd 800</code> does three things at once: (1) the label <code>court_w:</code> names a location in memory; (2) <code>dd</code> (define doubleword) reserves 4 bytes; (3) <code>800</code> writes the integer 800 into those 4 bytes. The label's <em>value</em> is the address; the label's <em>content</em> is what sits at that address — in this case, the number 800.</p></li>
+<li><p><code>db "window", 0</code> lays down the bytes <code>w i n d o w</code> followed by a single zero byte. That trailing zero is a null terminator — it tells C functions like <code>SDL_GetError</code> "the string ends here."</p></li>
+<li><p><code>section .bss</code> begins the uninitialized region.</p></li>
+<li><p><code>score_left: resd 1</code> reserves one doubleword (4 bytes). <code>resd</code> only takes a count — it never accepts an initial value. The label <code>score_left</code> names that reserved space. At load time, those bytes are zero.</p></li>
+<li><p><code>section .text</code> begins the executable code region.</p></li>
+<li><p><code>global _start</code> exports the <code>_start</code> label so the linker can find it. The entrypoint must be named <code>_start</code> when you are not linking against the C runtime.</p></li>
+<li><p><code>mov eax, [court_w]</code> reads 4 bytes from the address labelled <code>court_w</code> and puts them into the 32-bit register <code>eax</code>. Writing <code>eax</code> (the low 32 bits of <code>rax</code>) automatically zeroes the high 32 bits of <code>rax</code>. The brackets <code>[]</code> mean "the memory at", not the address itself.</p></li>
+<li><p><code>mov eax, 60</code> loads the Linux syscall number for <code>sys_exit</code>. <code>xor edi, edi</code> sets the exit code to zero. <code>syscall</code> asks the kernel to terminate the process.</p></li>
+</ul>
+
+<p>Assemble, link, and run it:</p>
+
+<pre><code data-kind="runnable">nasm -f elf64 layout-demo.asm -o layout-demo.o
+ld layout-demo.o -o layout-demo
+./layout-demo
+echo $?</code></pre>
+
+<p><code>echo $?</code> prints the exit code of the last command — 0 if the program finished cleanly. The program doesn't print anything visible because we haven't called <code>write()</code>, but it loads data from two labelled locations, then exits.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SIZE MATTERS</div>
+<p>The suffixes on <code>mov</code> are not optional. <code>mov eax, [court_w]</code> reads exactly 4 bytes because <code>eax</code> is a 32-bit destination. If you wrote <code>mov rax, [court_w]</code>, NASM would read 8 bytes starting at <code>court_w</code> — absorbing the next 4 bytes of memory into the high half of <code>rax</code>, which might be anything. The bracket operand's size is determined by the register on the other side: a 32-bit register reads 4 bytes, a 16-bit register reads 2 bytes, and an 8-bit register reads 1 byte. If NASM cannot decide the size (e.g. <code>mov [score_left], 5</code>), it will error with "operation size not specified" and you must add a size keyword: <code>mov dword [score_left], 5</code>.</p></div>
 '''
 
 [[lessons.concepts]]
 id = "language-data-layout-and-integer-state"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
+purpose = "Organize a NASM program into .data (initialized constants), .bss (zero-initialized variables), and .text (executable code) sections, then use data directives (db, dd, resd) with labels to name memory locations and mov with bracket addressing to load and store integer values."
+anatomy = "BITS 64 and DEFAULT REL set 64-bit mode with RIP-relative addressing. section .data holds db/dd labelled data; section .bss holds resd reserved space; section .text contains instructions. Labels name memory addresses. mov reg, [label] loads memory into a register; mov [label], reg stores a register into memory. Register size determines operand size: eax reads/writes 4 bytes; rax 8 bytes."
+example = "The layout-demo.asm program, demonstrating every section type, both data directives, and label-referencing loads."
+observable = "The program assembles, links, runs, and exits 0. Under GDB, info registers shows eax = 800 and ebx = 600 after the first two instructions."
+failure = "Forgetting DEFAULT REL causes 'relocation R_X86_64_32S against .data can not be used when making a PIE object' at link time. Using rax to load a dd label reads 8 bytes, potentially grabbing garbage from the next data slot."
 practice = "s01-l03-e1"
 
 [[lessons.concepts]]
 id = "nasm-integer-data-and-addressed-state"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
+purpose = "Use NASM data directives (db for byte, dw for word, dd for doubleword, dq for quadword) in .data to declare initialized integer constants, and resb/resw/resd/resq in .bss to reserve uninitialized space, all addressed through labels that serve as named memory pointers."
+anatomy = "label: dd value declares a 4-byte integer at label. label: resd 1 reserves 4 bytes at label. Bracketed labels (e.g. [court_w]) dereference the address to access the stored value. The mov instruction copies between register and memory using the register's size to determine how many bytes to transfer."
+example = "The layout-demo.asm data section showing dd for 4-byte integers and resd for 4-byte reservations, loaded via mov eax, [court_w]."
+observable = "Under GDB: x/1dw &court_w displays 800; x/2dw &score_left displays 0 0 (zero-initialized)."
+failure = "Forgetting the brackets: mov eax, court_w loads the address of court_w into eax, not the value 800. Writing to a .data label declared with dd 0 is fine; writing to a .text label causes a segmentation fault because .text is mapped read-execute, not read-write."
 practice = "s01-l03-e1"
 
 [[lessons.concepts]]
 id = "nasm-static-cstring-pointer-and-sdl-error-output"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
+purpose = "Declare null-terminated byte strings in .data using db with a trailing 0, then pass their address (not their content) to C functions like SDL_GetError that expect a const char* — a pointer to the first byte of a zero-terminated character array."
+anatomy = "db 'string', 0 lays out ASCII bytes followed by a zero terminator. The label before the db points to the first character. A C function expecting const char* receives that address in rdi. The function reads bytes from that address until it hits the zero byte — it never knows how long the string was declared."
+example = "In layout-demo.asm: name: db 'window', 0. The label name's value is the address of 'w'; the memory at name contains the bytes 77 69 6e 64 6f 77 00."
+observable = "Under GDB: x/s &name prints 'window'. x/7cb &name prints the seven bytes individually."
+failure = "Forgetting the trailing 0 means the C function reads past the end of the declared bytes into whatever follows in .data — a buffer over-read that prints garbage or, in rare cases, segfaults when the scan hits unmapped memory."
 practice = "s01-l03-e1"
 
-[[lessons.readings]]               # optional: 1-2 high-quality official docs
-label = "TODO: official docs"
-url = "https://example.com/TODO"
+[[lessons.readings]]
+label = "NASM Manual: Section Directives and Data Definitions"
+url = "https://www.nasm.us/doc/nasmdoc3.html"
 
 [[lessons.exercises]]
 id = "s01-l03-e1"
@@ -52,83 +111,97 @@ capabilities = ["language-data-layout-and-integer-state"]
 mechanisms = ["nasm-integer-data-and-addressed-state", "nasm-static-cstring-pointer-and-sdl-error-output"]
 cognitiveTask = "predict"
 scaffold = "guided"
-contextFamily = "replace-context"
+contextFamily = "data-layout"
 aidPolicy = "learning"
 points = 15
-prompt = "TODO: a multiple-choice question?"
-choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
-answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
-whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
-hint = "TODO: an exercise-specific hint."
-explain = "TODO: shown after solving."
+prompt = "You write `count: dd 42` in section .data and then `mov rax, count` in section .text. What ends up in rax after the mov executes?"
+choices = ["The memory address of count, not the value 42", "The value 42 in the low 32 bits, zero-extended to 64", "NASM refuses to assemble because rax is 64-bit but dd is 32-bit", "Zero, because .data values cannot be read by mov"]
+answer = 0
+whyWrong = "Without brackets, the operand count is an immediate value — the address of the label. To read the 4-byte value stored there, you need mov eax, [count] (brackets dereference the pointer). NASM does not reject mov rax with a 32-bit data label because the label's address is a 64-bit value regardless of what size data sits at that address."
+hint = "Does the instruction have brackets [] around the label name?"
+explain = "In NASM, a bare label name like count means 'the address where count lives'. Square brackets [count] mean 'the contents of memory at the address count'. So mov rax, count loads the 64-bit address number, while mov eax, [count] loads the 32-bit integer that was stored at that address by dd 42."
 
 [[lessons.exercises]]
 id = "s01-l03-e2"
-type = "text"
-required = true
-capabilities = ["language-data-layout-and-integer-state"]
-mechanisms = []
-cognitiveTask = "explain"
-scaffold = "guided"
-contextFamily = "replace-context"
-aidPolicy = "learning"
-points = 20
-prompt = "TODO: a free-text question."
-answer = "TODO"
-# accept = ["TODO alternate"]      # optional true alternates only
-hint = "TODO: an exercise-specific hint."
-
-[[lessons.exercises]]
-id = "s01-l03-e3"
 type = "fill"
 required = true
 capabilities = ["language-data-layout-and-integer-state"]
-mechanisms = []
+mechanisms = ["nasm-integer-data-and-addressed-state"]
 cognitiveTask = "complete"
 scaffold = "completion"
-contextFamily = "replace-context"
+contextFamily = "data-layout"
 aidPolicy = "learning"
 points = 20
-prompt = "TODO: fill the blank."
-code = 'answer = ____'             # the ____ marks where the answer goes
-answer = "TODO"
-hint = "TODO: an exercise-specific hint."
+prompt = "Complete the directive that reserves room for one 8-byte integer variable in the .bss section, initialized to zero when the program loads:"
+code = 'big_counter: ____ 1'
+answer = "resq"
+hint = "The 'q' suffix stands for quadword, which is 8 bytes on x86-64."
+explain = "resq reserves one quadword (8 bytes) in .bss. The matching data-definition directive for initialized .data would be dq. The full set: resb (1 byte), resw (2 bytes), resd (4 bytes), resq (8 bytes)."
+
+[[lessons.exercises]]
+id = "s01-l03-e3"
+type = "text"
+required = true
+capabilities = ["language-data-layout-and-integer-state"]
+mechanisms = ["nasm-static-cstring-pointer-and-sdl-error-output"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "data-layout"
+aidPolicy = "learning"
+points = 20
+prompt = "You declare `err_msg: db 'BAD', 10, 0` in .data. In GDB, you type `x/s &err_msg` and see `BAD\\n` followed by random characters. Then you realize you typed `err_msg: db 'BAD', 10` without the trailing `, 0`. Explain what the `x/s` command is doing and why the missing zero byte matters to string-reading functions."
+answer = "The x/s command reads bytes starting at the address and prints them as ASCII characters until it reaches a zero byte. Without the trailing 0, it continues reading past the intended string into whatever bytes happen to follow in .data — constants, padding, or other strings — until it hits the next zero byte, which might be many bytes away. This is a buffer over-read. Functions like SDL_GetError that return C strings work the same way: the zero byte is the contract that says 'stop here.'"
+hint = "How does a function like puts or SDL_GetError know where a string ends in memory?"
 
 [[lessons.exercises]]
 id = "s01-l03-d1"
-type = "type"                      # typing drill: retype the code; no point decay
+type = "type"
 required = true
 capabilities = ["language-data-layout-and-integer-state"]
-mechanisms = []
+mechanisms = ["nasm-integer-data-and-addressed-state"]
 cognitiveTask = "recall"
 scaffold = "worked"
-contextFamily = "replace-context"
+contextFamily = "data-layout"
 aidPolicy = "learning"
 points = 12
 reps = 2
-prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
-code = 'print("TODO")'
+prompt = "Retype this assembly program that defines two integer constants and loads them into registers. (Ctrl+Enter submits.)"
+code = 'BITS 64\nDEFAULT REL\n\nsection .data\n    width:  dd 640\n    height: dd 480\n\nsection .text\nglobal _start\n_start:\n    mov   eax, [width]\n    mov   ebx, [height]\n    mov   eax, 60\n    xor   edi, edi\n    syscall'
 
 [[lessons.exercises]]
 id = "s01-l03-w1"
-type = "write"                     # CODE LAB: runs on the real runtime; no point decay
+type = "write"
 required = true
 capabilities = ["language-data-layout-and-integer-state"]
-mechanisms = []
+mechanisms = ["nasm-integer-data-and-addressed-state", "nasm-static-cstring-pointer-and-sdl-error-output"]
 cognitiveTask = "build"
 scaffold = "guided"
-contextFamily = "replace-context"
+contextFamily = "data-layout"
 aidPolicy = "learning"
 points = 30
-prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
-# starter = '''
-# TODO: prefilled editor code / the exercise's data
-# '''
+prompt = "Write a program called count-three.asm that reserves three 4-byte variables in .bss named a, b, and c, then loads each one into a different register (eax, ebx, ecx), adds the first two into ecx (overwriting the old value of c), adds 1 to that sum, and exits with the final value as the exit code (put it in edi before the sys_exit syscall). Assemble, link, run, and check with echo $? — the exit code should be 1."
+hint = "The add instruction works like mov but adds instead of replacing: add ecx, eax does ecx = ecx + eax. To increment by 1, use inc ecx."
 expect = '''
-TODO EXACT OUTPUT'''
-# REQUIRED before shipping: a complete program that passes. Never shown to the
-# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
-# solution = '''
-# TODO
-# '''
-hint = "TODO: an exercise-specific hint."
+1'''
+solution = '''
+BITS 64
+DEFAULT REL
+
+section .bss
+    a: resd 1
+    b: resd 1
+    c: resd 1
+
+section .text
+global _start
+_start:
+    mov     eax, [a]
+    mov     ebx, [b]
+    mov     ecx, [c]
+    add     ecx, eax
+    add     ecx, ebx
+    inc     ecx
+    mov     edi, ecx
+    mov     eax, 60
+    syscall
+'''

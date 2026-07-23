@@ -103,7 +103,19 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
                  resume_id="", reviewer=None, phase_authors=None):
         self.build_id, self.kind, self.model = build_id, kind, model
         self.effort, self.concept, self.tooling = effort, concept, tooling
-        self.from_phase, self.session_id = from_phase, resume_id
+        self.from_phase, self.session_id = from_phase, str(resume_id or "")
+        if self.kind == "opencode-cli" and self.session_id:
+            # The lifecycle normally filters orphan IDs before launch, but a web server
+            # that predates a sandbox migration can still pass one to a new worker.
+            # Recheck against the actual unit database at the last responsible boundary.
+            from arcanum.platform.agent_scratch import provider_session_exists
+            unit = current_unit(self.build_id, self.from_phase) or {
+                "kind": "phase", "phase": self.from_phase}
+            if not provider_session_exists(
+                    "opencode", self.build_id, "author",
+                    int(unit.get("phase") or self.from_phase),
+                    str(unit.get("section") or ""), self.session_id):
+                self.session_id = ""
         self.configure_phase_authors(kind, model, effort, phase_authors)
         self.reviewer = reviewer
         self.role = "author"

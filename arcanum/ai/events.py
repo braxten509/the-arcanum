@@ -28,6 +28,33 @@ def assistant_text(line: str) -> str:
     return ""
 
 
+def error_text(line: str) -> str:
+    """Recover a concise provider error from one structured CLI event."""
+    try:
+        row = json.loads(line)
+    except ValueError:
+        return ""
+    if not isinstance(row, dict):
+        return ""
+    values = []
+    if row.get("type") == "error":
+        values.append(row.get("message"))
+    error = row.get("error")
+    if isinstance(error, dict):
+        values.append(error.get("message") or error.get("name"))
+    elif isinstance(error, str):
+        values.append(error)
+    payload = row.get("payload")
+    if isinstance(payload, dict):
+        nested = payload.get("error")
+        if isinstance(nested, dict):
+            values.append(nested.get("message") or nested.get("name"))
+        elif isinstance(nested, str):
+            values.append(nested)
+    return next((str(value).strip() for value in reversed(values)
+                 if str(value or "").strip()), "")
+
+
 def usage_from_line(line: str) -> dict | None:
     """Normalize provider turn-usage rows without assuming one CLI schema."""
     try:

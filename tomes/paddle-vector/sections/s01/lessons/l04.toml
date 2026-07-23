@@ -1,39 +1,106 @@
 [[lessons]]
 id = "s01-l04"
-title = "TODO: Drive Decisions with Flags"
+title = "Drive Decisions with Flags"
 teaches = ["language-branch-loop-control"]
 introduces = ["nasm-compare-branch-loop-control"]
 validationDependencies = []
-# Phase 3 replaces this placeholder with IDs from this section's research.toml.
-researchSources = ["replace-source"]
+researchSources = ["nasm-manual", "sysv-abi"]
 body = '''
-<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
-<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
-<p>TODO: an optional deeper-cut appendix.</p></div>
+<p>So far every program we've written runs in a straight line from <code>_start</code> to <code>syscall</code> — every instruction executes exactly once, in order. Real programs choose. They look at a value, compare it to another, and go one of two ways. That decision is a branch.</p>
+
+<p>Branches work through a two-step dance:</p>
+
+<ol>
+<li><code>cmp left, right</code> subtracts <em>right</em> from <em>left</em>, throws away the result, but <strong>remembers the outcome</strong> in a hidden register called <code>rflags</code>. Every comparison sets or clears tiny one-bit flags: Zero Flag (ZF) if the result was zero, Sign Flag (SF) if the result was negative, Carry Flag (CF) if the subtraction needed a borrow.</li>
+<li>A conditional jump like <code>je</code> (jump if equal) reads those flags and either moves the instruction pointer to a new label —or falls through to the next instruction.</li>
+</ol>
+
+<p>Write a disposable file, <code>branch-demo.asm</code>:</p>
+
+<pre><code data-kind="runnable">; branch-demo.asm — compare two values and branch
+BITS 64
+DEFAULT REL
+
+section .data
+    result: db 0
+
+section .text
+global _start
+_start:
+    mov     ecx, 7
+    mov     edx, 5
+    cmp     ecx, edx
+    jg      .bigger         ; jump if ecx > edx (signed)
+
+    mov     byte [result], 0
+    jmp     .done
+
+.bigger:
+    mov     byte [result], 1
+
+.done:
+    mov     edi, [result]
+    mov     eax, 60
+    syscall</code></pre>
+
+<p>Step through it:</p>
+
+<ul>
+<li><code>mov ecx, 7</code> and <code>mov edx, 5</code> put our two values in registers.</li>
+<li><code>cmp ecx, edx</code> computes <code>7 - 5 = 2</code>. The result is positive and not zero, so ZF = 0 and SF = 0. The actual 2 is discarded — only the flags survive.</li>
+<li><code>jg .bigger</code> reads the flags: "jump if greater (signed)" means "take the branch when ZF = 0 AND SF = OF." Since 7 > 5, the branch is taken and execution jumps to the instruction after the <code>.bigger</code> label.</li>
+<li><code>mov byte [result], 1</code> stores 1 into the result byte. The <code>byte</code> keyword tells NASM "I'm writing exactly 1 byte" because NASM cannot infer the size from a pure immediate value like <code>1</code>.</li>
+<li>The <code>.done</code> section loads result into edi and calls exit.</li>
+</ul>
+
+<p>When <code>ecx</code> is greater, the path through <code>.bigger</code> executes and the fall-through <code>mov byte [result], 0</code> is skipped entirely. The <code>jmp .done</code> is an unconditional branch — it always jumps, no flags checked. Without it, the "not bigger" path would fall through into <code>.bigger</code> and always set result to 1 anyway.</p>
+
+<p>Here are the conditional jumps you'll use most:</p>
+
+<table>
+<tr><th>Instruction</th><th>Meaning</th><th>Condition</th></tr>
+<tr><td><code>je</code></td><td>jump if equal</td><td>ZF = 1</td></tr>
+<tr><td><code>jne</code></td><td>jump if not equal</td><td>ZF = 0</td></tr>
+<tr><td><code>jg</code></td><td>jump if greater (signed)</td><td>ZF = 0 AND SF = OF</td></tr>
+<tr><td><code>jl</code></td><td>jump if less (signed)</td><td>SF != OF</td></tr>
+<tr><td><code>jge</code></td><td>jump if greater-or-equal</td><td>SF = OF</td></tr>
+<tr><td><code>jle</code></td><td>jump if less-or-equal</td><td>ZF = 1 OR SF != OF</td></tr>
+</table>
+
+<p>Assemble and run:</p>
+
+<pre><code data-kind="runnable">nasm -f elf64 branch-demo.asm -o branch-demo.o
+ld branch-demo.o -o branch-demo
+./branch-demo
+echo $?</code></pre>
+
+<p>The exit code is 1 (because 7 > 5, so we stored 1 in result). Change <code>mov ecx, 5</code> to <code>mov ecx, 3</code>, rebuild, and run again — the exit code becomes 0.</p>
+
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SIGNED VS UNSIGNED</div>
+<p>There are two families of conditional jumps: signed (<code>jg</code>, <code>jl</code>, <code>jge</code>, <code>jle</code>) and unsigned (<code>ja</code>, <code>jb</code>, <code>jae</code>, <code>jbe</code>). They read the same flags but interpret them differently. For window dimensions and SDL return codes — all non-negative — either family works. But when comparing a return value against a negative error sentinel like <code>cmp eax, 0</code> followed by <code>jl</code>, you want the signed version because a negative number interpreted as unsigned overflows to a huge positive number and <code>jb</code> (below) would never fire. For all the comparisons in this course, the signed family (<code>jg</code>, <code>jl</code>, <code>jge</code>, <code>jle</code>) is correct.</p></div>
 '''
 
 [[lessons.concepts]]
 id = "language-branch-loop-control"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
+purpose = "Use cmp to compare two register or immediate values, setting processor flags, then use conditional jumps (je, jne, jg, jl, jge, jle) and unconditional jmp to direct execution to different labelled code paths so the program can choose, repeat, or skip blocks based on computed state."
+anatomy = "cmp A, B subtracts B from A and sets ZF/SF/CF/OF in rflags. A conditional jump reads those flags and either transfers control to its label operand (jump taken) or continues to the next instruction (jump not taken). jmp always jumps. Labels ending with : mark jump targets."
+example = "The branch-demo.asm program showing cmp ecx, edx; jg .bigger; the fall-through path; and the unconditional jmp .done to avoid falling into the taken-branch path."
+observable = "With ecx=7, edx=5, echo $? prints 1. With ecx=3, edx=5, echo $? prints 0. Under GDB, stepi shows rip jumping to .bigger or falling through to the next instruction."
+failure = "Forgetting the unconditional jmp .done after the fall-through path causes execution to 'fall into' the .bigger label anyway — both paths execute, which is almost never intended. Using the wrong signedness jump (e.g. ja instead of jg) when comparing signed integers produces the opposite answer for negative numbers."
 practice = "s01-l04-e1"
 
 [[lessons.concepts]]
 id = "nasm-compare-branch-loop-control"
-purpose = "TODO: plain-language purpose."
-anatomy = "TODO: read its parts or procedure in order."
-example = "TODO: point to the complete worked example in this lesson."
-observable = "TODO: what the learner sees when the example works."
-failure = "TODO: one likely failure and how to recognize it."
+purpose = "Apply the cmp+jcc (conditional jump) pattern to evaluate integer comparisons against constants or other registers, and layer an unconditional jmp to create loop-back edges (backward jumps) or skip-forward patterns that build multi-way decisions, early exits, and counted repetitions."
+anatomy = "The compare-branch pattern: set up values in registers, cmp them, jcc to a labelled target. For a loop: initialize a counter, do work, decrement the counter, cmp counter to zero, jne back to the loop top. The loop's forward path falls through when the condition becomes false."
+example = "The branch-demo.asm compare-branch path; the body mentions loop construction with a counter and jne back to the top as a composition technique."
+observable = "A loop counting down from 5 to 0 fires the loop body five times, then falls through. Under GDB, stepi shows rip jumping backward five times and then falling through when the counter reaches zero."
+failure = "An infinite loop occurs when the counter is never modified or the comparison always produces the 'jump' outcome. Off-by-one: cmp counter, 0; jne .loop will run one extra iteration if the counter starts at 1 but is decremented after the comparison rather than before it."
 practice = "s01-l04-e1"
 
-[[lessons.readings]]               # optional: 1-2 high-quality official docs
-label = "TODO: official docs"
-url = "https://example.com/TODO"
+[[lessons.readings]]
+label = "NASM Manual: The Netwide Assembler — Instructions"
+url = "https://www.nasm.us/doc/nasmdocb.html"
 
 [[lessons.exercises]]
 id = "s01-l04-e1"
@@ -43,83 +110,111 @@ capabilities = ["language-branch-loop-control"]
 mechanisms = ["nasm-compare-branch-loop-control"]
 cognitiveTask = "predict"
 scaffold = "guided"
-contextFamily = "replace-context"
+contextFamily = "branch-control"
 aidPolicy = "learning"
 points = 15
-prompt = "TODO: a multiple-choice question?"
-choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
-answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
-whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
-hint = "TODO: an exercise-specific hint."
-explain = "TODO: shown after solving."
+prompt = "What happens when `cmp eax, ebx` is immediately followed by `je .equal` — but there is no other jump and the `.equal` label is 10 lines further down?"
+choices = ["If eax equals ebx, execution jumps to .equal; otherwise execution continues through the intervening 10 lines and then reaches .equal anyway", "If eax does not equal ebx, the program crashes because no matching branch was found", "NASM refuses to assemble because a cmp must always have an else-path", "The cmp instruction itself performs the jump"]
+answer = 0
+whyWrong = "cmp does not branch — it only sets flags. The conditional jump that follows it may or may not take the branch. If the branch is not taken, execution falls through to the next instruction in sequence, which may be the 'else' path or, if there is no jmp after the else path, may accidentally slide into the .equal label. Labels are not barriers; they are just named addresses. Execution passes through them unless a jump directs it elsewhere."
+hint = "Think about what happens when the condition is false — where does the instruction pointer go?"
+explain = "Labels are just name tags on addresses. They don't block execution or create scope boundaries. After je .equal does not jump, the CPU simply executes the next instruction in memory, then the next, and eventually reaches the .equal label — executing code that was meant only for the 'equal' case. That's why an if-else almost always needs an unconditional jmp after the 'else' path to skip over the 'if' path."
 
 [[lessons.exercises]]
 id = "s01-l04-e2"
-type = "text"
-required = true
-capabilities = ["language-branch-loop-control"]
-mechanisms = []
-cognitiveTask = "explain"
-scaffold = "guided"
-contextFamily = "replace-context"
-aidPolicy = "learning"
-points = 20
-prompt = "TODO: a free-text question."
-answer = "TODO"
-# accept = ["TODO alternate"]      # optional true alternates only
-hint = "TODO: an exercise-specific hint."
-
-[[lessons.exercises]]
-id = "s01-l04-e3"
 type = "fill"
 required = true
 capabilities = ["language-branch-loop-control"]
-mechanisms = []
+mechanisms = ["nasm-compare-branch-loop-control"]
 cognitiveTask = "complete"
 scaffold = "completion"
-contextFamily = "replace-context"
+contextFamily = "branch-control"
 aidPolicy = "learning"
 points = 20
-prompt = "TODO: fill the blank."
-code = 'answer = ____'             # the ____ marks where the answer goes
-answer = "TODO"
-hint = "TODO: an exercise-specific hint."
+prompt = "Complete the conditional jump that branches to .loop if the value in ecx is not yet zero:"
+code = '''
+    dec     ecx
+    cmp     ecx, 0
+    ____    .loop'''
+answer = "jne"
+hint = "After dec ecx, ZF is set to 1 if ecx became zero. Which jump takes the branch when ZF = 0?"
+explain = "jne (jump if not equal) reads the ZF flag. If ZF is 0 (ecx is not zero), it jumps to .loop. If ZF is 1 (ecx reached zero), execution falls through to the next instruction after the loop. jne and jnz are aliases for the same opcode."
+
+[[lessons.exercises]]
+id = "s01-l04-e3"
+type = "text"
+required = true
+capabilities = ["language-branch-loop-control"]
+mechanisms = ["nasm-compare-branch-loop-control"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "branch-control"
+aidPolicy = "learning"
+points = 20
+prompt = "Your classmate writes: `mov eax, -1; cmp eax, 0; jb .negative`. They expect the jump to fire because -1 looks 'below' zero. In GDB, the jump is not taken. Explain why."
+answer = "jb is an unsigned comparison. When eax holds -1 (which is 0xFFFFFFFF in 32 bits), the unsigned interpretation is 4,294,967,295 — far above zero. The cmp sets CF (borrow) but jb reads CF as 'below' in the unsigned sense, and 4 billion is not below 0. The correct signed comparison is jl (jump if less), which reads SF and OF, recognizing -1 as negative."
+hint = "Check which flag family jb uses versus jl. What does -1 look like as an unsigned 32-bit value?"
 
 [[lessons.exercises]]
 id = "s01-l04-d1"
-type = "type"                      # typing drill: retype the code; no point decay
+type = "type"
 required = true
 capabilities = ["language-branch-loop-control"]
-mechanisms = []
+mechanisms = ["nasm-compare-branch-loop-control"]
 cognitiveTask = "recall"
 scaffold = "worked"
-contextFamily = "replace-context"
+contextFamily = "branch-control"
 aidPolicy = "learning"
 points = 12
 reps = 2
-prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
-code = 'print("TODO")'
+prompt = "Retype this program that counts down from 5 to 0 and exits with the final count as the exit code. (Ctrl+Enter submits.)"
+code = 'BITS 64\n\nsection .text\nglobal _start\n_start:\n    mov     ecx, 5\n.loop:\n    cmp     ecx, 0\n    je      .done\n    dec     ecx\n    jmp     .loop\n.done:\n    mov     edi, ecx\n    mov     eax, 60\n    syscall'
 
 [[lessons.exercises]]
 id = "s01-l04-w1"
-type = "write"                     # CODE LAB: runs on the real runtime; no point decay
+type = "write"
 required = true
 capabilities = ["language-branch-loop-control"]
-mechanisms = []
+mechanisms = ["nasm-compare-branch-loop-control"]
 cognitiveTask = "build"
 scaffold = "guided"
-contextFamily = "replace-context"
+contextFamily = "branch-control"
 aidPolicy = "learning"
 points = 30
-prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
-# starter = '''
-# TODO: prefilled editor code / the exercise's data
-# '''
+prompt = "Write a program called sign-check.asm that loads a value from a labelled dd constant into eax, then branches on three cases: if the value is positive (greater than 0), store 1 in a .bss byte named flag; if zero, store 0; if negative, store 2. The program must exit with the flag value as the exit code. Test with at least two different constant values."
+hint = "Use cmp eax, 0; jg .positive; je .zero; jl .negative as a three-way branch chain. Remember that if the positive path falls through into the zero path, you need a jmp to prevent it."
 expect = '''
-TODO EXACT OUTPUT'''
-# REQUIRED before shipping: a complete program that passes. Never shown to the
-# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
-# solution = '''
-# TODO
-# '''
-hint = "TODO: an exercise-specific hint."
+1'''
+solution = '''
+BITS 64
+DEFAULT REL
+
+section .data
+    val: dd 42
+
+section .bss
+    flag: resb 1
+
+section .text
+global _start
+_start:
+    mov     eax, [val]
+    cmp     eax, 0
+    jg      .positive
+    je      .zero
+    jl      .negative
+
+.positive:
+    mov     byte [flag], 1
+    jmp     .done
+.zero:
+    mov     byte [flag], 0
+    jmp     .done
+.negative:
+    mov     byte [flag], 2
+
+.done:
+    movzx   edi, byte [flag]
+    mov     eax, 60
+    syscall
+'''

@@ -312,6 +312,16 @@ resumed_codex = single_author_runtime.resume_command(
     "codex-cli", "gpt-5.6-terra", "medium", "session", "continue")[1]
 assert "model_auto_compact_token_limit=80000" in resumed_codex
 assert resumed_codex[resumed_codex.index("-m") + 1] == "gpt-5.6-terra"
+with patch.object(single_author, "current_unit", return_value={
+        "kind": "section", "phase": 3, "section": "s01"}), \
+        patch("arcanum.platform.agent_scratch.provider_session_exists",
+              return_value=False) as session_available:
+    migrated_opencode = single_author.AuthorSession(
+        "build", "opencode-cli", "openrouter/deepseek/deepseek-v4-pro", "",
+        "course", "external", from_phase=3, resume_id="orphan")
+assert migrated_opencode.session_id == ""
+session_available.assert_called_once_with(
+    "opencode", "build", "author", 3, "s01", "orphan")
 assert "PLANNING ESCALATION" not in _BootstrapPath(
     single_author.__file__).read_text(encoding="utf-8")
 

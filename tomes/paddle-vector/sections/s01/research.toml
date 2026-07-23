@@ -1,7 +1,37 @@
 version = 1
 
 [[sources]]
-id = "replace-source"
-url = "https://example.com/TODO"
-authority = "TODO: primary official documentation or release notes."
-claims = ["TODO: the specific API, command, version, or behavior verified from this source."]
+id = "nasm-manual"
+url = "https://www.nasm.us/doc/"
+authority = "NASM official documentation, chapters 3 (directives), 7 (output formats), 11 (64-bit code)."
+claims = ["NASM syntax for sections (.text, .data, .bss), data directives (db, dw, dd, dq, resb etc.), equ, labels, and 64-bit elf64 output format with DEFAULT REL and wrt ..plt for position-independent code.", "NASM 2.15+ supports DUP and ? syntax for initialized/uninitialized data."]
+
+[[sources]]
+id = "sdl2-wiki"
+url = "https://wiki.libsdl.org/SDL2/"
+authority = "SDL2 official wiki, documenting SDL_Init, SDL_CreateWindow, SDL_DestroyWindow, SDL_Quit, SDL_GetError, SDL_Delay, and SDL_PollEvent with exact signatures, return values, and error conventions for SDL 2.x."
+claims = ["SDL_Init takes Uint32 flags, returns 0 on success or negative error code on failure; call SDL_GetError() for diagnostics.", "SDL_CreateWindow takes title, x, y, w, h, Uint32 flags and returns SDL_Window* or NULL on failure.", "SDL_DestroyWindow takes SDL_Window* and is safe to call on NULL.", "SDL_Quit cleans up all initialized subsystems and is safe to call even after init errors.", "SDL_GetError() returns a const char* to the last error message set on the current thread.", "SDL_Delay(Uint32 ms) waits at least the specified milliseconds.", "SDL_PollEvent takes SDL_Event*, returns 1 if an event was dequeued, 0 if none are pending."]
+
+[[sources]]
+id = "sysv-abi"
+url = "https://uclibc.org/docs/psABI-x86_64.pdf"
+authority = "System V Application Binary Interface AMD64 Architecture Processor Supplement, the binding ABI for Linux x86-64 calling conventions."
+claims = ["Integer arguments passed in RDI, RSI, RDX, RCX, R8, R9; return value in RAX.", "Stack must be 16-byte aligned immediately before a CALL instruction (RSP + 8 is a multiple of 16 on function entry after the return address push).", "RBX, RBP, R12-R15 are callee-saved; RAX, RCX, RDX, RSI, RDI, R8-R11 are call-clobbered.", "For variadic functions, AL must contain the number of XMM registers used for floating-point args (zero for integer-only calls).", "Red zone: 128 bytes below RSP that leaf functions may use without adjusting RSP."]
+
+[[sources]]
+id = "gnu-gdb"
+url = "https://sourceware.org/gdb/documentation/"
+authority = "GDB official documentation for the GNU Debugger, covering breakpoints, stepi/nexti, info registers, print, x (examine), display, and layout commands for x86-64 debugging."
+claims = ["break <label> sets a breakpoint; run starts execution; stepi (si) single-steps one machine instruction.", "info registers displays all register values; print/x $rax prints a register in hex; x/8xg $rsp examines eight 8-byte stack slots.", "display /x $rax auto-displays a register after each step; layout regs and layout asm activate TUI split-screen mode.", "Running gdb ./executable starts a session; quit exits."]
+
+[[sources]]
+id = "gnu-make"
+url = "https://www.gnu.org/software/make/manual/"
+authority = "GNU Make official manual, documenting targets, prerequisites, recipes, automatic variables ($@, $<, $^), .PHONY, and implicit rules."
+claims = ["A Makefile target rule has the form target: prerequisites [TAB] recipe.", "$@ expands to target name; $< to first prerequisite; $^ to all prerequisites.", ".PHONY marks targets that don't correspond to files.", "pkg-config --cflags --libs sdl2 produces compiler and linker flags for SDL2 when run in a recipe with $(shell ...)."]
+
+[[sources]]
+id = "debian-packages"
+url = "https://packages.debian.org/stable/"
+authority = "Debian/Ubuntu package repositories providing canonical package names: nasm, build-essential (gcc, make, etc.), pkg-config, gdb, and libsdl2-dev."
+claims = ["sudo apt update && sudo apt install -y nasm build-essential pkg-config gdb libsdl2-dev installs the complete toolchain on Debian/Ubuntu.", "nasm -v prints NASM version; gcc --version prints GCC version; make --version prints GNU Make version; pkg-config --modversion sdl2 prints SDL2 version; gdb --version prints GDB version."]

@@ -17,6 +17,7 @@ folder = tempfile.mkdtemp(prefix="author-failure-")
 turn.BUILD_DIR = folder
 turn.initial_runner = lambda kind, model, effort: (
     "fake", ["sh", "-c", "echo '{\"type\":\"noise\"}'; "
+             "echo '{\"type\":\"error\",\"error\":{\"message\":\"OpenCode database is read-only\"}}'; "
              "echo 'Provider rate limit exceeded' >&2; exit 3"], "none")
 turn.scoped_runner_command = lambda display, cmd, *args, **kwargs: cmd
 turn.ensure_cost_totals = lambda *args, **kwargs: None
@@ -34,6 +35,7 @@ assert outcome == "failed", outcome
 # The exit code alone says nothing; the CLI's own last words are the diagnosis.
 assert "exit code 3" in message, message
 assert "Provider rate limit exceeded" in message, message
+assert "OpenCode database is read-only" in message, message
 # Structured events are the turn's transcript, not its crash report.
 assert "noise" not in message, message
 

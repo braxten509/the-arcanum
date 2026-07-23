@@ -2,7 +2,7 @@
 import os
 import subprocess
 
-from ..runtime.events import (assistant_text, opencode_output_session_id,
+from ..runtime.events import (assistant_text, error_text, opencode_output_session_id,
                               session_id_from_line, usage_from_line)
 from ..runtime.runners import author_runner
 

@@ -321,9 +321,21 @@ def scoped_runner_command(name, cmd, cwd, writable_paths, repo, readonly_paths=(
         for path in system_both:
             if path == "/dev":
                 wrapped.extend(("--dev-bind", "/dev", "/dev"))
+            elif state_scope is not None:
+                # Give each role/phase/section its own ordinary /tmp. Mounting the whole
+                # build scratch root would expose sibling provider sessions and create a
+                # cross-unit cheating path.
+                from .agent_scratch import path as scratch_path
+                from .agent_scratch import unit_temp
+                if os.path.realpath(path) == os.path.realpath(
+                        scratch_path(state_scope["build_id"])):
+                    path = unit_temp(
+                        state_scope["build_id"], state_scope["role"],
+                        state_scope["phase"], state_scope.get("section") or "")
+                    wrapped.extend(("--bind", path, "/tmp", "--setenv", "TMPDIR", "/tmp"))
+                else:
+                    wrapped.extend(("--bind", path, path))
             elif path.startswith("/tmp/arcanum/"):
-                # The host directory remains build-specific, while ordinary tools inside
-                # the namespace keep their conventional private /tmp location.
                 wrapped.extend(("--bind", path, "/tmp", "--setenv", "TMPDIR", "/tmp"))
             else:
                 wrapped.extend(("--bind", path, path))
@@ -357,12 +369,12 @@ def scoped_runner_command(name, cmd, cwd, writable_paths, repo, readonly_paths=(
                 wrapped.extend(("--bind", temp_root, temp_root))
     memory_dirs = _persistent_memory_dirs(provider, cwd)
     if state_scope is not None:
-        from .agent_scratch import provider_state
-        source, target = provider_state(provider, state_scope["build_id"], state_scope["role"],
-                                        state_scope["phase"], state_scope.get("section") or "")
-        state_mounts = [(source, target)]
-        # The state directory itself is unit-scoped, so any provider memory path inside it
-        # has no earlier-unit history to reveal and can persist for same-unit resume.
+        from .agent_scratch import provider_state_mounts
+        state_mounts = provider_state_mounts(
+            provider, state_scope["build_id"], state_scope["role"],
+            state_scope["phase"], state_scope.get("section") or "")
+        # Every provider state root is unit-scoped. Same-unit resume persists, while
+        # host and sibling-unit histories are absent rather than merely read-only.
         memory_dirs = []
     else:
         state_mounts = [(path, path) for path in _state_dirs(provider)]

@@ -138,10 +138,21 @@ with tempfile.TemporaryDirectory() as tmp:
     proc_root = os.path.join(tmp, "proc")
     pdir = os.path.join(proc_root, "321")
     os.makedirs(os.path.join(pdir, "fd"))
+    os.makedirs(os.path.join(proc_root, "self"))
     with open(os.path.join(pdir, "cmdline"), "wb") as handle:
         handle.write(b"/home/user/.local/bin/opencode\0run\0")
     os.symlink("/repo/tomes/live", os.path.join(pdir, "cwd"))
-    database = os.path.join(tmp, "opencode.db")
+    namespace_root = os.path.join(tmp, "namespace")
+    conventional = "/home/user/.local/share/opencode/opencode.db"
+    database = os.path.join(namespace_root, "private-state", "opencode.db")
+    os.makedirs(os.path.dirname(database))
+    with open(os.path.join(pdir, "mountinfo"), "w", encoding="utf-8") as handle:
+        handle.write(
+            "50 40 0:99 /private-state /home/user/.local/share/opencode "
+            "rw - tmpfs tmpfs rw\n")
+    with open(os.path.join(proc_root, "self", "mountinfo"), "w",
+              encoding="utf-8") as handle:
+        handle.write(f"60 40 0:99 / {namespace_root} rw - tmpfs tmpfs rw\n")
     now = int(time.time() * 1000)
     with sqlite3.connect(database) as db:
         db.execute("CREATE TABLE session (id text, directory text, time_created integer, time_updated integer)")
@@ -153,9 +164,10 @@ with tempfile.TemporaryDirectory() as tmp:
                     "state": {"input": {"command": f"echo {number}"}}}
             db.execute("INSERT INTO part VALUES (?, ?, ?, ?)",
                        (f"part-{number}", "session-live", now + number, json.dumps(data)))
-    os.symlink(database, os.path.join(pdir, "fd", "3"))
+    os.symlink(conventional, os.path.join(pdir, "fd", "3"))
     found = _opencode_session_from_processes([321], proc_root)
-    assert found and found[1] == TraceSource("opencode", database, "session-live"), found
+    assert found and found[1] == TraceSource(
+        "opencode", database, "session-live"), found
     assert _opencode_session_from_processes(
         [321], proc_root, session_id="session-live")[1] == TraceSource(
             "opencode", database, "session-live")
