@@ -29,6 +29,7 @@ sys.path.insert(0, REPO)  # for tome_layout (shared split-tome layout, in lockst
 from .session import (add_error, add_warning, clear_findings, current_findings,
                       finding_scope, legacy_current_findings, replace_findings,
                       set_build_phase)
+from runtimes.config import RuntimeConfigurationError, find_runtime_profile
 
 # The 22-ink theme contract (tome-authoring/2-tome-toml.md § [[themes]], mirrored in
 # the web css's "Theme palettes are injected" vellum block). Every palette
@@ -114,17 +115,25 @@ def global_skin_ids():
     return ids
 
 
-def runtime_resolves(name):
-    """True if global-configs/runtimes/<name>.toml exists (mirrors the engine's
-    lang_config lookup in runtimes/__init__.py)."""
+def runtime_path(name):
+    """Return a named profile from the categorized runtime tree, or an empty string."""
     if not name or not ID_RE.fullmatch(name):
-        return False
-    return os.path.isfile(os.path.join(RUNTIMES_DIR, name + ".toml"))
+        return ""
+    try:
+        return find_runtime_profile(RUNTIMES_DIR, name)
+    except RuntimeConfigurationError:
+        return ""
+
+
+def runtime_resolves(name):
+    """True if the named runtime profile exists."""
+    return bool(runtime_path(name))
 
 
 def lang_config(name):
     """The language TOML's keys, or {} if it is missing/unparseable."""
-    if not runtime_resolves(name):
+    path = runtime_path(name)
+    if not path:
         return {}
-    data, _ = load_toml(os.path.join(RUNTIMES_DIR, name + ".toml"))
+    data, _ = load_toml(path)
     return data or {}

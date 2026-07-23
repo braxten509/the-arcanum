@@ -61,7 +61,7 @@ def request(runtime_name: str, workspace: Path) -> AssessmentRequest:
 assert shutil.which("python3"), "interpreted runtime fixture requires python3"
 assert shutil.which("dotnet"), "compiled runtime fixture requires dotnet"
 
-for profile_name in (ROOT / "global-configs" / "runtimes").glob("*.toml"):
+for profile_name in (ROOT / "global-configs" / "runtimes").rglob("*.toml"):
     with profile_name.open("rb") as handle:
         declared = tomllib.load(handle)
     assert declared.get("version") == 1 and declared.get("capabilities"), profile_name.name

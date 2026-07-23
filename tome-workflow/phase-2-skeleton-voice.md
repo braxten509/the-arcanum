@@ -302,8 +302,9 @@ replayable non-media solution for the harness. Media remains learner-sourced and
 Copy Arc scenario order into `[acceptance]`; choose `package` for promised delivery,
 otherwise `runtime`. Package runtimes need delivery argv.
 
-Every tome names a reusable runtime file. If `global-configs/runtimes/<name>.toml` is
-missing or incomplete, this phase may create or repair it. Read **§5**, copy an existing
+Every tome names a reusable runtime file by basename. If no matching `<name>.toml`
+exists under `global-configs/runtimes/`, or it is incomplete, this phase may create or
+repair it. Read **§5**, copy an existing
 runtime's TOML shape, use a toolchain installed on this host, and include the language's
 run/check/scaffold, diagnostics, starter, syntax, and completion configuration. Keep
 tome-specific overrides in the tome's `[runtime]` table.

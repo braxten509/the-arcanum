@@ -2,11 +2,12 @@
 
 **No language is built into Python.** One engine — `runtimes/generic.py` — runs
 every language from TOML alone: commands, placeholders, and regex diagnostics that
-cover interpreted AND compiled languages. A language is one file,
-`global-configs/runtimes/<name>.toml`; a tome selects it with `[runtime] name =
-"<name>"`, and any key in that file is a default the tome's `[runtime]` table
-overrides. **Four ship: `dotnet`, `python`, `java`, and `odin`** — `odin.toml` is the
-canonical "add a language with zero code" example (read them all).
+cover interpreted AND compiled languages. A language is one file under
+`global-configs/runtimes/`, optionally grouped in a category directory; a tome selects
+the file by its basename with `[runtime] name = "<name>"`. Basenames are unique across
+the tree, and any key in that file is a default the tome's `[runtime]` table overrides.
+**Four ship: `dotnet`, `python`, `java`, and `odin`** — `odin.toml` is the canonical
+"add a language with zero code" example (read them all).
 
 **The module docstring at the top of `runtimes/generic.py` is authoritative for ordinary
 run/build configuration; `runtimes/delivery.py` is authoritative for package delivery.** Every
@@ -85,8 +86,8 @@ main :: proc() { fmt.println("hello") }
 Any command the host can run works: `["bash"]`, `["deno", "run"]`, `["lua"]`, … The
 engine accepts `command`/`runCommand` (and the other keys) declared directly in a
 tome's `[runtime]` table, but a SHIPPED tome always names a language file: the
-validator hard-fails a `[runtime] name` with no `global-configs/runtimes/<name>.toml`
-(create one — it's zero code), and any runtime command whose binary isn't installed
+validator hard-fails a `[runtime] name` with no matching TOML anywhere under
+`global-configs/runtimes/` (create one — it's zero code), and any runtime command whose binary isn't installed
 on the host. Keep the tome's own `[runtime]` table for tome-specific overrides. Omit
 both `checkCommand` and `buildCommand` and the course simply has no editor squiggles.
 

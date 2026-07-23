@@ -5,7 +5,7 @@ from .. import BUILD_DIR, REPO, VALIDATOR_FAILURE_DIR
 from ..continuity import handoff_dir, handoff_path
 from ..course_map import amendment_path, map_path, proposal_path, seed_path
 from ..course_map.author_spec import spec_root
-from ..phase2_research import ledger_path
+from ..phase2.research import ledger_path
 from ..course.state import evidence_dir, failure_dir, state_path
 from ..prerequisites.review import calls_path as prerequisite_calls_path
 

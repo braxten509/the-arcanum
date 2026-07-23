@@ -63,16 +63,15 @@ def shrink_marks(path):
 def runtime_config_inventory(root=RUNTIME_CONFIG_DIR):
     """Return content hashes for the shared runtime-directory write audit."""
     out = {}
-    try:
-        names = os.listdir(root)
-    except OSError:
-        return out
-    for name in names:
-        path = os.path.join(root, name)
-        if os.path.isfile(path):
+    for base, directories, names in os.walk(root):
+        directories[:] = sorted(
+            child for child in directories if not child.startswith("."))
+        for name in sorted(names):
+            path = os.path.join(base, name)
+            relative = os.path.relpath(path, root).replace(os.sep, "/")
             try:
                 with open(path, "rb") as handle:
-                    out[name] = hashlib.sha256(handle.read()).hexdigest()
+                    out[relative] = hashlib.sha256(handle.read()).hexdigest()
             except OSError:
                 pass
     return out

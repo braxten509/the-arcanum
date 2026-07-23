@@ -5,7 +5,7 @@ import json
 import os
 import re
 
-from . import BUILD_DIR, REPO
+from .. import BUILD_DIR, REPO
 
 MAX_SOURCES = 6
 

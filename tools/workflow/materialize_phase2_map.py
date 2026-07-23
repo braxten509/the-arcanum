@@ -9,7 +9,7 @@ sys.path[:0] = [str(REPO), str(REPO / "tools")]
 from buildlib.course_map.author_spec import (materialize_author_preview,
                                              materialize_author_spec)
 from buildlib.course_map import CourseMapError
-from buildlib.phase2_research import validate_ledger
+from buildlib.phase2.research import validate_ledger
 
 
 def main(argv=None):

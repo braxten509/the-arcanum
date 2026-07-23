@@ -19,7 +19,7 @@ if REPO not in sys.path:
 from tools.buildlib.single_author.gate import context  # noqa: E402
 from tools.buildlib.continuity import handoff_path  # noqa: E402
 from tools.buildlib.course_map import load_course_map  # noqa: E402
-from tools.buildlib.phase2_research import ledger_path  # noqa: E402
+from tools.buildlib.phase2.research import ledger_path  # noqa: E402
 from tools.buildlib.section_quality_contract import (  # noqa: E402
     section_quality_contract_packet,
     section_quality_settings,

@@ -19,6 +19,8 @@ import shutil
 import subprocess
 import tomllib
 
+from .config import find_runtime_profile
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BUILD_DIR = os.path.join(REPO, ".tome-build")
 RUNTIME_CONFIG_DIR = os.path.join(REPO, "global-configs", "runtimes")
@@ -68,9 +70,9 @@ def validation_runtime_config(tid):
     defaults = {}
     if isinstance(name, str) and re.fullmatch(r"[A-Za-z0-9_-]+", name):
         try:
-            defaults = _load_toml(os.path.join(RUNTIME_CONFIG_DIR, name + ".toml"))
-        except FileNotFoundError:
-            pass
+            profile = find_runtime_profile(RUNTIME_CONFIG_DIR, name)
+            if profile:
+                defaults = _load_toml(profile)
         except tomllib.TOMLDecodeError as exc:
             raise ValidationEnvironmentError(
                 f"runtime {name!r} cannot be read for dependency provisioning: {exc}") from exc

@@ -13,7 +13,7 @@ from buildlib.workflow.checkpoints import (finalize_arc, maybe_rename,
                                            preflight_arc_transition)
 from buildlib.course_map import seed_course_map, seal_course_map
 from buildlib.course_map.author_spec import initialize_author_spec, materialize_author_spec
-from buildlib.phase2_research import initialize_ledger
+from buildlib.phase2.research import initialize_ledger
 from buildlib.workflow.prompts import read_tooling
 from buildlib.skeleton import hydrate_section_scaffolds, scaffold_sections
 

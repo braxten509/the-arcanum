@@ -49,7 +49,7 @@ version = "0.1.0"
 favicon = ">_"                      # TODO: 1-2 character browser-tab glyph
 
 [runtime]
-name = "@@RUNTIME@@"                # a global-configs/runtimes/<name>.toml id
+name = "@@RUNTIME@@"                # basename of a TOML under global-configs/runtimes/
 project = "@@PROJECT@@"             # TODO: the workspace project/folder name
 language = "@@LANGUAGE@@"           # display name, used in grader/oracle prompts
 starterCode = ""                   # learner authors the canonical entry file
@@ -260,7 +260,7 @@ def main():
     ap.add_argument("--name", help="display name (default: derived from the id)")
     ap.add_argument("--language", default="Python", help="display language name (default: Python)")
     ap.add_argument("--runtime", default="python",
-                    help="runtime id — a global-configs/runtimes/<name>.toml (default: python)")
+                    help="runtime id — a unique TOML basename under global-configs/runtimes/ (default: python)")
     ap.add_argument("--mastery", type=int, default=1, choices=range(1, 6),
                     help="selected evidence finish, from 1 through 5 (default: 1)")
     ap.add_argument("--sections", type=int, required=True,

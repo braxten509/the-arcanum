@@ -3,7 +3,7 @@ import os
 import re
 import shutil
 
-from ... import ID_RE, RUNTIMES_DIR, err, load_toml, rel, runtime_resolves, warn
+from ... import ID_RE, err, load_toml, rel, runtime_path, runtime_resolves, warn
 
 
 def check_runtime(m, tome_id, label):
@@ -15,24 +15,25 @@ def check_runtime(m, tome_id, label):
     runtime_name = str(name)
     if not ID_RE.fullmatch(runtime_name):
         err(label, f"[runtime] name {name!r} must match [A-Za-z0-9_-]+")
-    runtime_path = os.path.join(RUNTIMES_DIR, runtime_name + ".toml")
+    profile_path = runtime_path(runtime_name)
     runtime_data = {}
     if not runtime_resolves(runtime_name):
-        err(label, f"[runtime] name {name!r} has no global-configs/runtimes/{name}.toml — "
+        err(label, f"[runtime] name {name!r} has no uniquely named {name}.toml under "
+                   "global-configs/runtimes/ — "
                    "every tome ships on a NAMED runtime file, so the language is reusable "
                    "and reviewable. CREATE that file now (zero code — command, checkCommand, "
                    "diagRegex, starterCode…; read tome-authoring/5-runtimes.md and copy the "
-                   "shape of any existing global-configs/runtimes/*.toml), keeping only "
+                   "shape of any existing runtime TOML), keeping only "
                    "tome-specific tweaks in this table")
     else:
-        runtime_data, runtime_error = load_toml(runtime_path)
+        runtime_data, runtime_error = load_toml(profile_path)
         if runtime_error:
-            err(rel(runtime_path), runtime_error)
+            err(rel(profile_path), runtime_error)
             runtime_data = {}
     merged = {**(runtime_data or {}), **rt}
 
     def source_label(key):
-        return label if key in rt else rel(runtime_path)
+        return label if key in rt else rel(profile_path)
 
     # Phase 2 and Phase 8 may author this shared config. Validate the generic runtime's
     # executable schema here, before a malformed value reaches list(), re.compile(), or

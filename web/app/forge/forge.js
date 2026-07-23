@@ -6,6 +6,7 @@ import { enhanceSelect } from "../ui/menu.js";
 import { showResumeChooser } from "./workings.js";
 import { apiFetch } from "../core/api-client.js";
 import { dispatchCommand } from "../core/commands.js";
+import { fieldHead, restartPoint } from "./modal/helpers.js";
 
 // Keep the level names aligned with tools/buildlib/workflow/prompts.py PRIOR_LEVELS.
 // The slider is the complete baseline; optional text names concrete experience that can
@@ -50,17 +51,6 @@ export function forgeEntry() {
     const workings = data.workings || [];
     workings.length ? showResumeChooser(workings, showForgeModal) : showForgeModal();
   }).catch(() => showForgeModal());
-}
-
-function fieldHead(label, help) {
-  return `<div class="forge-lbl"><label>${label}</label><button type="button" class="forge-help"
-    aria-label="About ${esc(label)}">i<span class="forge-tip">${help}</span></button></div>`;
-}
-
-/** "" = resume, "3" = whole phase, "3:s05" = one Phase-3 section onward. */
-function restartPoint(value) {
-  const [phase, section] = String(value || "").split(":");
-  return { phase: Number(phase) || 0, section: section || "" };
 }
 
 function showForgeModal(resume) {

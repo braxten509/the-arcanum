@@ -13,7 +13,7 @@ sys.path[:0] = [str(REPO), str(REPO / "tools")]
 from buildlib import BUILD_DIR
 from buildlib.course_map import _read_json, seed_path
 from buildlib.course_map.author_spec import spec_root
-from buildlib.phase2_research import ledger_path
+from buildlib.phase2.research import ledger_path
 from buildlib.phase2_audit import audit_path, phase2_authority
 from arcanum.catalog.build_ids import resolve_working_id
 

@@ -28,6 +28,24 @@ class RuntimeConfigurationError(ValueError):
     pass
 
 
+def find_runtime_profile(directory: str, name: str) -> str:
+    """Resolve one named profile across the categorized runtime tree."""
+    if not name or not _ID.fullmatch(str(name)):
+        return ""
+    filename = str(name) + ".toml"
+    matches = []
+    for base, directories, files in os.walk(directory):
+        directories[:] = sorted(
+            child for child in directories if not child.startswith("."))
+        if filename in files:
+            matches.append(os.path.join(base, filename))
+    if len(matches) > 1:
+        relative = [os.path.relpath(path, directory) for path in matches]
+        raise RuntimeConfigurationError(
+            f"runtime {name!r} has duplicate profiles: {', '.join(relative)}")
+    return matches[0] if matches else ""
+
+
 @dataclass(frozen=True)
 class RuntimeConfig:
     values: Mapping[str, object]
@@ -122,12 +140,12 @@ class RuntimeConfigRepository:
     def load_defaults(self, name: str) -> dict:
         if not name or not _ID.fullmatch(str(name)):
             raise RuntimeConfigurationError(f"invalid runtime name {name!r}")
-        path = os.path.join(self.directory, str(name) + ".toml")
+        path = find_runtime_profile(self.directory, str(name))
+        if not path:
+            return {}
         try:
             with open(path, "rb") as handle:
                 value = tomllib.load(handle)
-        except FileNotFoundError:
-            return {}
         except (OSError, tomllib.TOMLDecodeError) as exc:
             raise RuntimeConfigurationError(f"cannot load runtime {name!r}: {exc}") from exc
         if not isinstance(value, dict):
@@ -146,8 +164,10 @@ class RuntimeConfigRepository:
         return RuntimeConfig.parse({**defaults, **values})
 
     def names(self) -> tuple[str, ...]:
-        try:
-            return tuple(sorted(name[:-5] for name in os.listdir(self.directory)
-                                if name.endswith(".toml") and _ID.fullmatch(name[:-5])))
-        except OSError:
-            return ()
+        names = []
+        for _base, directories, files in os.walk(self.directory):
+            directories[:] = sorted(
+                child for child in directories if not child.startswith("."))
+            names.extend(name[:-5] for name in files
+                         if name.endswith(".toml") and _ID.fullmatch(name[:-5]))
+        return tuple(sorted(names))

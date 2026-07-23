@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from buildlib import course_map
 from buildlib.course_map import author_spec
-from buildlib import phase2_research
+from buildlib.phase2 import research as phase2_research
 from buildlib.course.amend import _top_level_changes, amend_course_map
 from buildlib.course.limits import (mastery_section_cap,
                                     mastery_section_count_error)

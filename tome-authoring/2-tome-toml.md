@@ -13,7 +13,7 @@
 ### `[runtime]` — the programming language (required)
 | key | type | notes |
 |---|---|---|
-| `name` | string | runtime id → `global-configs/runtimes/<name>.toml`. **No language is built into Python; every one is a TOML.** Shipped: `"dotnet"`, `"python"`, `"java"`, `"odin"`. Any other id works if a matching TOML is shipped, or if you set `command`/`runCommand` directly in this table (§5) |
+| `name` | string | runtime id → the uniquely named `<name>.toml` under `global-configs/runtimes/` (category directories are allowed). **No language is built into Python; every one is a TOML.** Shipped: `"dotnet"`, `"python"`, `"java"`, `"odin"`. Any other id works if a matching TOML is shipped, or if you set `command`/`runCommand` directly in this table (§5) |
 | `project` | string | workspace project/folder name, e.g. `"Verisearch"` |
 | `language` | string | display name; also used in grader/oracle prompts, e.g. `"C#"` |
 | `packages` | bool | show the PACKAGES button (dotnet/NuGet only) |
@@ -24,7 +24,7 @@
 | `runLabel` | string | command shown in run/compile flavor text, e.g. `"python3 main.py"` |
 | `validationDependencies` | string[] | third-party packages required to execute authored solutions/starters/samples during validation. The harness installs these only in an isolated validation environment or scratch project; it never changes the learner project or system runtime (§5) |
 
-Every key in `global-configs/runtimes/<name>.toml` is a **default** that this
+Every key in the matching runtime TOML is a **default** that this
 tome's `[runtime]` table overrides key-by-key (`{language TOML} ∪ {your [runtime]}`,
 your value winning). A typical tome sets only `name` and `project` and inherits the
 rest; override `starterCode` (or any other key) when the default is wrong for this
