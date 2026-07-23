@@ -68,7 +68,7 @@ assert.equal(requestedPhase2Format[0].text,
 assert.equal(forgeHarnessValidationState({ kind: "harness",
   text: "Validation passed for Phase 1 — Concept & arc. Continuing with Phase 2." }), "pass");
 assert.equal(forgeHarnessValidationState({ kind: "harness",
-  text: "Validation failed for Phase 1 — Concept & arc. The report was returned." }), "fail");
+  text: "Validation failed for Phase 1 — Concept & arc. The report was returned. (4 issues found)" }), "fail");
 assert.equal(forgeHarnessValidationState({ kind: "harness",
   text: "The author repaired Phase 1 and returned it to the harness." }), "");
 assert.equal(forgeHarnessValidationState(phaseTotalConversation[0]), "");

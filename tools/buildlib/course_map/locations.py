@@ -44,11 +44,15 @@ def validate_locations(build_id, value, *, build_dir, repo):
         if not isinstance(item, dict):
             continue
         label = f"plannedObligations[{index}]"
+        done_when = item.get("doneWhen")
+        evidence_locations = (done_when.get("evidenceLocations")
+                              if isinstance(done_when, dict) else [])
+        if not isinstance(evidence_locations, list):
+            evidence_locations = []
         references = [
             (item.get("location"), item.get("origin"), "location", False),
             *[(raw, item.get("target"), f"doneWhen.evidenceLocations[{location_index}]", True)
-              for location_index, raw in enumerate(
-                  ((item.get("doneWhen") or {}).get("evidenceLocations") or []))],
+              for location_index, raw in enumerate(evidence_locations)],
         ]
         for raw, sid, field, allow_fragment in references:
             problem = section_reference_problem(raw, allow_fragment=allow_fragment)

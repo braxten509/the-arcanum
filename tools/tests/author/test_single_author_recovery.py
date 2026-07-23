@@ -5,6 +5,7 @@ _BOOTSTRAP_REPO = _BootstrapPath(__file__).resolve().parents[3]
 _bootstrap_sys.path[:0] = [str(_BOOTSTRAP_REPO), str(_BOOTSTRAP_REPO / "tools")]
 
 """The sole author's recovery, repair-cycle, and cost-stop behaviors across warm sessions."""
+import json
 import os
 import subprocess
 import sys
@@ -49,6 +50,43 @@ class StalledPlanningRepairSession(PlanningSelfCheckRepairSession):
     def run_turn(self, prompt, conversation_kind="system", conversation_text=""):
         self.prompts.append(prompt)
         return "repair-required", "HARNESS_REPAIR_REQUIRED: exact language missing"
+
+
+class OscillatingPlanningValidationSession(PlanningSelfCheckRepairSession):
+    def __init__(self, authored_path):
+        single_author.AuthorSession.__init__(
+            self, "planning-cycle", "codex-cli", "gpt-5.6-terra", "high",
+            "concept", "external", 2, "terra-session")
+        self.authored_path = authored_path
+        self.prompts = []
+        self.states = []
+
+    def run_turn(self, prompt, conversation_kind="system", conversation_text=""):
+        self.prompts.append(prompt)
+        value = "A\n" if len(self.prompts) % 2 else "B\n"
+        with open(self.authored_path, "w", encoding="utf-8") as handle:
+            handle.write(value)
+        gate._write_phase("planning-cycle", 2, "validating")
+        return "complete", ""
+
+
+class PlanningContractConflictSession(single_author.AuthorSession):
+    def __init__(self):
+        super().__init__(
+            "planning-conflict", "codex-cli", "gpt-5.6-terra", "high",
+            "concept", "external", 2, "terra-session")
+        self.prompts = []
+        self.states = []
+
+    def read_controls(self):
+        return
+
+    def state(self, state, **extra):
+        self.states.append((state, extra))
+
+    def run_turn(self, prompt, conversation_kind="system", conversation_text=""):
+        self.prompts.append(prompt)
+        raise AssertionError("a sealed planning conflict was routed to the author")
 
 
 with tempfile.TemporaryDirectory() as root:
@@ -151,6 +189,53 @@ with tempfile.TemporaryDirectory() as root:
         assert session.prompts == []
 
 
+# A Validator-AI finding that can only be repaired in the sealed Phase-1 plan
+# pauses at the harness. Resuming retries validation, never the Phase-2 author.
+with tempfile.TemporaryDirectory() as root:
+    build_dir = os.path.join(root, ".tome-build")
+    os.makedirs(build_dir)
+    conflict = (
+        "-- planning-conflict: mechanical gate clean\n"
+        "# CONTRACT CONFLICT\n\nThe sealed arc and lesson count cannot both be satisfied.")
+    with patch.object(gate, "BUILD_DIR", build_dir), patch.object(gate, "REPO", root), \
+            patch.object(single_author, "BUILD_DIR", build_dir), \
+            patch.object(single_author, "validate_unit", return_value=(False, conflict)), \
+            patch.object(single_author, "append_conversation"), \
+            patch.object(single_author, "notify"):
+        gate._write_phase("planning-conflict", 2, "validating")
+        session = PlanningContractConflictSession()
+        session.controls.put({"type": "stop"})
+        assert session.run() == 130
+        assert session.prompts == []
+        paused = [extra for state, extra in session.states if state == "paused"]
+        assert paused[-1]["gate"] == "planning-contract-conflict"
+        assert "No author or alternate-AI retry was started" in paused[-1]["error"]
+        assert "without an author turn" in paused[-1]["error"]
+
+
+# A durable planning-review fingerprint cycle carries a harness marker across
+# worker restarts and pauses before either AI receives another turn.
+with tempfile.TemporaryDirectory() as root:
+    build_dir = os.path.join(root, ".tome-build")
+    os.makedirs(build_dir)
+    cycle_report = (
+        "HARNESS_PLANNING_CONTRACT_CYCLE\n\n"
+        "# FAIL\n\nThis exact Phase-2 evidence already received this finding.")
+    with patch.object(gate, "BUILD_DIR", build_dir), patch.object(gate, "REPO", root), \
+            patch.object(single_author, "BUILD_DIR", build_dir), \
+            patch.object(single_author, "validate_unit", return_value=(False, cycle_report)), \
+            patch.object(single_author, "append_conversation"), \
+            patch.object(single_author, "notify"):
+        gate._write_phase("planning-conflict", 2, "validating")
+        session = PlanningContractConflictSession()
+        session.controls.put({"type": "stop"})
+        assert session.run() == 130
+        assert session.prompts == []
+        paused = [extra for state, extra in session.states if state == "paused"]
+        assert paused[-1]["gate"] == "planning-contract-stall"
+        assert "No author or alternate-AI retry was started" in paused[-1]["error"]
+
+
 # An ordinary Phase 1 repair stays on the selected model and warm session, with no
 # planning budget stop or automatic escalation.
 with tempfile.TemporaryDirectory() as root:
@@ -192,8 +277,36 @@ with tempfile.TemporaryDirectory() as root:
         assert (session.kind, session.model, session.session_id) == (
             "codex-cli", "gpt-5.6-terra", "terra-session")
         paused = [extra for state, extra in session.states if state == "paused"]
-        assert paused[-1]["gate"] == "planning-stall"
-        assert "same repair is repeating" in paused[-1]["error"]
+        assert paused[-1]["gate"] == "planning-contract-stall"
+        assert "No author or alternate-AI retry was started" in paused[-1]["error"]
+        assert "without an author turn" in paused[-1]["error"]
+
+
+# A -> B -> A across completed Phase-2 handoffs is a validator-contract oscillation.
+# Stop on the repeated authored state instead of paying for another repair turn.
+with tempfile.TemporaryDirectory() as root:
+    build_dir = os.path.join(root, ".tome-build")
+    authored_path = os.path.join(root, "audit.json")
+    os.makedirs(build_dir)
+    with open(authored_path, "w", encoding="utf-8") as handle:
+        handle.write("initial\n")
+    reports = iter(("split the family", "merge the family", "split the family"))
+    with patch.object(gate, "BUILD_DIR", build_dir), patch.object(gate, "REPO", root), \
+            patch.object(single_author, "BUILD_DIR", build_dir), \
+            patch.object(single_author, "preflight_unit"), \
+            patch.object(single_author, "author_paths", return_value=([authored_path], [])), \
+            patch.object(single_author, "validate_unit",
+                         side_effect=lambda *_args: (False, next(reports))), \
+            patch.object(single_author, "append_conversation"), \
+            patch.object(single_author, "notify"):
+        gate._write_phase("planning-cycle", 2, "working")
+        session = OscillatingPlanningValidationSession(authored_path)
+        session.controls.put({"type": "stop"})
+        assert session.run() == 130
+        assert len(session.prompts) == 3
+        paused = [extra for state, extra in session.states if state == "paused"]
+        assert paused[-1]["gate"] == "planning-contract-stall"
+        assert "alternate-AI retry was started" in paused[-1]["error"]
 
 
 # The explicit author-side circuit breaker is terminal until an operator resumes it.
@@ -355,10 +468,11 @@ assert "ALL remaining lessons together" in resume_section, resume_section
 assert "Working, assessment, and handoff together" in resume_section, resume_section
 assert "render_section_context.py" not in resume_section, resume_section
 assert "Read its phase guide" not in resume_section, resume_section
-# the last turn still carries the gate, so the section can actually be handed off
+# The last turn carries the exact complete mechanical check and the trusted marker.
 assert ("python3 tools/workflow/report_section_progress.py build s01 1 8 validating"
         in resume_section), resume_section
-assert "tools/validate_section.py tomes/build s01" in resume_section, resume_section
+assert "tools/validate_section.py" in resume_section, resume_section
+assert "--source-only" not in resume_section, resume_section
 
 # Phases are one unit, not a series of lessons, so their return prompt is unchanged.
 resume_phase = gate.continue_prompt("build", phase)
@@ -371,14 +485,47 @@ assert "EVERY sealed planned lesson" in opening, opening
 assert "TWO COHERENT AUTHORING BATCHES" in opening, opening
 assert "ONE LESSON PER TURN" not in opening, opening
 assert "TWO COHERENT AUTHORING BATCHES" not in gate.unit_prompt("build", phase)
-assert "HARNESS_REPAIR_REQUIRED:" in opening
+assert "HARNESS_REPAIR_REQUIRED" not in opening
+assert "HARNESS_BLOCKED" in opening
+assert "ALWAYS run every listed command" in opening
 
-# Cost and repeated-failure governors are independent: an unpriced model still pauses
-# after repeated failures, while a priced GPT section pauses as soon as it crosses $2.
-assert not single_author.section_repair_limit_reached(1, None)
-assert single_author.section_repair_limit_reached(2, None)
+# The section governor is cost-only. Repeated validation failures do not pause an
+# unpriced section; a priced section pauses only when it reaches its chosen hard stop.
+assert not single_author.section_repair_limit_reached(None)
 assert not single_author.section_repair_limit_reached(
-    1, {"apiEquivalentUsd": 1.999})
+    {"apiEquivalentUsd": 1.999})
 assert single_author.section_repair_limit_reached(
-    1, {"apiEquivalentUsd": 2.0})
+    {"apiEquivalentUsd": 2.0})
+assert not single_author.section_repair_limit_reached(
+    {"apiEquivalentUsd": 200.0}, hard_cost=None)
+with tempfile.TemporaryDirectory() as cost_root:
+    with open(os.path.join(cost_root, "unlimited.launch.json"), "w",
+              encoding="utf-8") as handle:
+        json.dump({"sectionCostLimitUsd": None}, handle)
+    with open(os.path.join(cost_root, "numeric.launch.json"), "w",
+              encoding="utf-8") as handle:
+        json.dump({"sectionCostLimitUsd": 14.125}, handle)
+    with patch.object(single_author, "BUILD_DIR", cost_root):
+        assert single_author.configured_section_cost_limit("unlimited") is None
+        assert single_author.configured_section_cost_limit(
+            "unlimited", claude_author=True) is None
+        assert single_author.configured_section_cost_limit("numeric") == 14.125
+        assert single_author.configured_section_cost_limit(
+            "numeric", claude_author=True) == 28.25
+
+# A saved Codex thread that exits 1 before emitting any model output gets one
+# fresh-session retry. Real diagnostics and already-fresh failures remain visible.
+from buildlib.single_author.session.recovery import (
+    codex_fresh_session_recovery_prompt, recoverable_codex_resume_failure)
+assert recoverable_codex_resume_failure(
+    "codex-cli", "author", "saved-thread", "exit code 1")
+assert not recoverable_codex_resume_failure(
+    "codex-cli", "author", "", "exit code 1")
+assert not recoverable_codex_resume_failure(
+    "codex-cli", "author", "saved-thread", "exit code 1\nprovider quota exhausted")
+assert not recoverable_codex_resume_failure(
+    "claude-cli", "author", "saved-thread", "exit code 1")
+fresh_recovery = codex_fresh_session_recovery_prompt("Phase 3 section s01")
+assert "fresh session" in fresh_recovery
+assert "files on disk" in fresh_recovery
 print("single-author recovery behaviors: OK")

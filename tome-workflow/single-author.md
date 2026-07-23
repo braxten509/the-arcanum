@@ -29,24 +29,29 @@ lessons in one batch, then the Working/assessment/handoff in one batch:
 2. Read `tome-workflow/phase-N-*.md` and only its named references. Reopen the plan and
    relevant authored files. Preserve valid earlier work.
 3. Do the phase completely.
-4. Run only the exact self-check listed below for the assigned unit, at most once per author turn.
-   If it returns structured findings, stop with `HARNESS_REPAIR_REQUIRED:`; the harness reproduces
-   the check and returns one aggregate repair packet. Do not inspect
-   validator implementation to predict hidden checks or substitute hand-written schema, replay,
-   word-count, or quality scripts for the named command.
+4. Run only the exact mechanical commands in the assignment whenever useful and always after the
+   unit is complete. Repair their authored findings and rerun without a one-run limit until every
+   exact command exits 0. Never run or imitate the Validator AI, a transition, or hand-written
+   substitutes.
 5. For a phase, run `python3 tools/workflow/report_tome_progress.py BUILD_ID N validating`. For a
    Phase-3 section, run `python3 tools/workflow/report_section_progress.py BUILD_ID sNN INDEX TOTAL validating`.
    Then **stop your turn**.
-6. The harness independently runs the authoritative gate below. It marks a clean unit complete
+6. The harness independently reruns the same complete mechanical gate, then starts the Validator AI
+   when the unit has one. It marks a fully clean unit complete
    and starts the next unit with its configured author. Phase 1→2 may retain the planning session;
    every later clean boundary is fresh even when it reuses the same provider and model. If the
    gate fails, it resumes the current unit session with the complete
-   report; repair all cited findings as one coherent batch, run its exact self-check once, mark it
-   validating again, and stop again.
+   report; repair all cited findings as one coherent batch, mark it validating again, and stop.
 
-Run only the validator command assigned to the current unit. Never run a deterministic
-phase-transition command or mark a unit complete yourself. Those actions belong to the harness,
-which prevents you from starting later work before the current mechanical gate is clean.
+Never run a Validator AI, an unassigned check, a deterministic phase-transition command, or mark a
+unit complete yourself. Exact assigned validators, materializers, generators, and smoke commands
+are transparent author self-checks and may be rerun until clean; only the harness classifies the
+authoritative repeat and advances.
+For Phase 1, Phase 2, and every Phase-3 section, the unit assignment embeds the exact binding
+semantic-authority block used in the Validator AI prompt. The author and validator may receive
+different role, evidence, and output-format instructions, but never different quality, scope,
+density, delivery, prerequisite, or repair rules. The Phase-2 and section context renderers also
+carry the same generated authority values so dynamic calibration cannot drift.
 For a Phase-3 section, the harness pauses before another paid repair after two failed authoritative
 gates or once the recorded AI API-equivalent total reaches $2.00 for a Codex author or $4.00 for a
 Claude author. An explicit resume authorizes
@@ -55,19 +60,24 @@ one more bounded repair; switching the section author starts that repair in a fr
 The plan is `.tome-build/BUILD_ID.plan.md`. Substitute `CURRENT_TOME`, `BUILD_ID`, and the
 Phase-0 `TOOLING` value literally.
 
-- Phase 1: self-check with `python3 tools/validate_tome.py tomes/BUILD_ID --phase-1-plan .tome-build/BUILD_ID.plan.md`;
-  the harness repeats it,
-  then sends the complete plan plus operator calibration to the configured mandatory read-only
+- Phase 1: the author runs the exact Phase-1 mechanical gate until clean and marks the phase
+  `validating`. The harness repeats it, then sends the complete plan plus operator calibration to the configured mandatory read-only
   Validator AI. Its bounded, line-cited audit must pass concept alignment, learner calibration,
   scope feasibility, arc sequencing, learner ownership, and proof/delivery coherence before the
   deterministic Phase-1 transition can run. Helpful findings return to the same planning repair
   session; the AI never edits files or expands the requested scope.
-- Phase 2: fill the deterministic skeleton. The harness gate is
-  `python3 tools/validate_tome.py tomes/BUILD_ID --phase-2-skeleton --build-phase 2 --no-run --tooling TOOLING --build-plan .tome-build/BUILD_ID.plan.md`.
-  Run that exact command as the self-check; the harness repeats it.
-  Also complete `.tome-build/BUILD_ID.course-map.proposal.json`; learner-facing section files
-  remain Phase-3 TODO scaffolds while the proposal names every stable lesson/Working node,
-  capability, dependency, learner-owned artifact, obligation, and typed completion packet.
+- Phase 2: fill the deterministic skeleton. The assignment gives an exact preview materializer plus
+  `validate_tome.py` command. Run both until clean. The preview lives inside the writable compact
+  source root; it never replaces the protected proposal. After handoff, the harness reruns those
+  same commands and only then publishes the deterministic protected proposal.
+  Complete only the compact files under `.tome-build/BUILD_ID.course-map-author/`, including
+  `audit.json`, plus the bounded Phase-2 research ledger and permitted manifest, skeleton, and
+  reusable-runtime fields.
+  The harness materializes `.tome-build/BUILD_ID.course-map.proposal.json` from those authored
+  sources and the sealed seed; the proposal is generated, read-only evidence. Learner-facing
+  section files remain Phase-3 TODO scaffolds while the compact sources name every stable
+  lesson/Working node, capability, dependency, learner-owned artifact, obligation, and typed
+  completion packet.
   After the mechanical result is clean, the mandatory read-only Validator AI receives the sealed
   Phase-1 plan as authority plus the complete proposal, manifest, and selected runtime profile. It
   audits arc fidelity,
@@ -83,18 +93,21 @@ Phase-0 `TOOLING` value literally.
   the gate closed so the author can read it. The selected Validator AI is never automatically
   replaced by a different model. Any readable response is accepted without a formatting or schema
   retry; ambiguous evidence is an ordinary FAIL and returns to the author with a concrete repair.
+  The sole exception is an explicit `# CONTRACT CONFLICT`: when the validator proves that only a
+  sealed Phase-1 change could resolve the defect, the harness pauses the same validation gate
+  without an author or alternate-model retry.
   Section reviews retain optional structured details for automatic mechanism-ledger
   amendments, but harmless representation drift does not cause another model call. Usable verdicts
-  are content-and-model fingerprint cached; any evidence repair changes the packet and forces a
-  fresh call.
+  are content-and-model fingerprint cached. A genuinely new evidence fingerprint forces a fresh
+  call; returning to any prior failed fingerprint is a durable planning-contract cycle, so the
+  harness pauses without another validator or author turn even after a worker restart.
 - Phase 3: author one whole section at a time in Arc order. The harness sets its `authoring`
-  marker before resuming you. Self-check with
-  `python3 tools/validate_section.py tomes/CURRENT_TOME sNN --plan .tome-build/BUILD_ID.plan.md --tooling TOOLING --source-only`.
-  This is the only pre-handoff structural/replay check: do not recreate its checks manually.
-  After it exits zero, report `validating` and stop. The harness runs the stricter complete gate
+  marker before resuming you. After authoring, run the complete gate
   `python3 tools/validate_section.py tomes/CURRENT_TOME sNN --plan .tome-build/BUILD_ID.plan.md --tooling TOOLING`.
-  It reports `complete` only when clean, then starts a fresh Phases 3–7 unit session for the next section.
-  After the last section, the harness also runs the full Phase-3 gate before advancing.
+  Repair and rerun it until clean, mark the section `validating`, and stop. The harness repeats that
+  command and reports `complete` only when clean, then starts a fresh Phases 3–7 unit session for the next section.
+  The final-section assignment also includes the full Phase-3 command; the author runs it after the
+  section command, and the harness repeats both before starting the section Validator AI.
   After the complete mechanical gate passes, the configured mandatory Validator AI receives one
   read-only bounded packet containing all sealed lessons plus the Working. It audits teaching
   quality, learner independence, and first-use prerequisite completeness. A PASS must cite every
@@ -122,27 +135,22 @@ Phase-0 `TOOLING` value literally.
   The operating target for the Phase-3 author plus this Validator AI is $1–2 API-equivalent per
   section for Codex authors; Claude authors may use up to $4. Initial author prompts require one bounded context render, one all-lessons batch, and
   one Working/assessment/handoff batch; a
-  failed gate returns a compact repair packet and exact self-check without rerendering the initial
-  section context or adding a second review pass. A self-check runs once per author turn and its
-  structured findings return as one aggregate packet. Lifetime section totals include both roles.
+  failed gate returns one compact repair packet without rerendering the initial section context or
+  adding a second review pass. Lifetime section totals include both roles.
   Forge also persists the newest 500 mechanical and AI validator lifecycle lines in
   `.tome-build/BUILD_ID.status-log.jsonl`, so restarting or resuming cannot erase them from the
   chronological tool-history view. Older builds recover AI completions from their call ledger.
   Every Phase-3 assignment ends with one regenerated `HARNESS COURSE CONTROL` block. Preserve
   its full spine and active ledger, write only the current handoff-v3 claim, and never edit its
   sealed map, derived state, receipts, prior handoffs, marks, or checkmarks.
-- Phases 4–6: self-check with, and then let the harness repeat,
+- Phases 4–6: the author runs, and after handoff the harness independently repeats,
   `python3 tools/validate_tome.py tomes/CURRENT_TOME --build-phase N --phase-only --no-run --tooling TOOLING --build-plan .tome-build/BUILD_ID.plan.md`.
-- Phase 7: generate and executable-verify the offline mastery-lab bank first with
-  `python3 tools/gen_mastery_labs.py CURRENT_TOME --build-id BUILD_ID`, then self-check with
-  `python3 tools/validate_phase3.py tomes/CURRENT_TOME --plan .tome-build/BUILD_ID.plan.md --tooling TOOLING --strict`,
-  then `python3 tools/smoke_tome.py CURRENT_TOME`. The harness repeats generation and both gates;
-  all runs must exit 0.
+- Phase 7: the author runs the assigned generation, strict Phase-3, and live-smoke commands until
+  clean. After handoff, the harness independently repeats all three.
 - Phase 8: do the semantic first-time-student review and write the exact
   `.tome-build/BUILD_ID.mastery-semantic-review.json` receipt from
-  `tome-authoring/10-mastery-evidence.md`. Self-check with
-  `python3 tools/validate_mastery_review.py BUILD_ID CURRENT_TOME`, then the Phase-7 strict and
-  smoke commands before marking validating. The harness repeats all three checks. A clean
+  `tome-authoring/10-mastery-evidence.md`, then run the assigned mastery-review, strict, and smoke
+  commands until clean and mark the phase `validating`. The harness independently repeats them. A clean
   validator is necessary but does not replace the complete semantic review.
 
 Phase-focused validators may defer later-phase warnings. Do not edit future-phase banks to

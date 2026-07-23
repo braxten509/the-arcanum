@@ -178,6 +178,7 @@ def mastery_contract(mastery):
     return (
         f"- **Finish {mastery}/5 — {title}:** {outcome}",
         "- **Language mastery contract:** 1",
+        "- **Language practice contract:** 1",
         f"- **Mastery evidence contract:** {evidence.version}",
         "- **Evidence progression:** Resolve 100% of required lesson work and every blocking "
         "due review before a Working unlocks. A Working passes only at 80/B or better with "
@@ -231,6 +232,11 @@ def mastery_contract(mastery):
         "contract line: `mode = runtime|package; artifact = path; requirements = path|none`. "
         "Every path is a normalized project-relative POSIX identifier with no leading, trailing, "
         "or doubled slash and no `.` or `..` segment. "
+        "Runtime is source-workspace delivery: its artifact is the source entrypoint and its "
+        "requirements value is always `none`. The requirements slot is never a generic source "
+        "inventory or build entrypoint; put other shipped source, configuration, build, test, and "
+        "documentation paths in Artifact ownership/lifecycle and prove their clean-start use in "
+        "Acceptance proof. "
         "A packaged, standalone, installable, or distributable promise requires package mode. "
         "The harness seals this choice and its exact paths; Phase 2 cannot downgrade package "
         "acceptance to source execution or substitute a different output.",
@@ -304,8 +310,10 @@ def calibration_contract(answers):
         "- **Transitive prerequisite closure rule:** Teaching a dependent mechanism never "
         "implicitly teaches the mechanisms that make its smallest meaningful example possible. "
         "For every planned owner, expand each mechanism through that transitive prerequisite "
-        "closure. Every prerequisite outside the entry baseline must have an earlier "
-        "owner; at Start 1–3, another lesson in the same section counts only when it is earlier. "
+        "closure. Every prerequisite outside the entry baseline needs a teaching owner. At Start "
+        "1–3, a prerequisite may share its dependent's lesson only when both serve that lesson's "
+        "one coherent pedagogical family and the prerequisite comes first in the Phase-2 ordered "
+        "introduction list; a cross-family prerequisite requires an earlier lesson. "
         "If the smallest example contains an unlisted syntax form, API, tool action, data-format "
         "rule, or term, that item is a prerequisite even when the learner could copy it blindly. "
         "For an API, trace how its inputs and resources are created, obtained, and released. For "
@@ -319,7 +327,9 @@ def calibration_contract(answers):
         "share an owner when learner intent, preconditions, state transition or resource-lifecycle "
         "duty, observable result, and failure interpretation are the same. Split only when a "
         "demand adds a genuinely different state transition, lifecycle duty, observable contract, "
-        "or reusable reasoning responsibility. Apply this without assuming any particular "
+        "or reusable reasoning responsibility. This decides mechanism identity, not lesson-family "
+        "count: distinct mechanisms may share one pedagogical family when they form one coherent "
+        "teach-practice-observe loop. Apply this without assuming any particular "
         "language, runtime, tool, operating system, or project.",
         "- **Observable-interaction closure rule:** Apply closure to every promise, Working, "
         "acceptance path, and control. Decompose obtaining input, producing output, advancing "

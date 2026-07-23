@@ -176,8 +176,11 @@ export function openBuildOverlay(jobId, traceId = jobId) {
           <div class="forge-ai-choice"><select id="fp-alt-model" class="cfg-select" aria-label="Replacement model"></select></div>
           <div class="forge-ai-choice"><select id="fp-alt-eff" class="cfg-select" aria-label="Replacement effort"><option value="">DEFAULT</option></select></div>
         </div>
-        <label class="forge-cost-limit hidden" id="fp-alt-cost-wrap"><span>SECTION STOP</span>
-          <input id="fp-alt-cost" type="number" min="1" max="10" step="0.5" value="2" aria-label="Phase 3 section hard stop in dollars"></label>
+        <label class="forge-cost-limit hidden" id="fp-alt-cost-wrap">
+          <span class="forge-cost-limit-label">SECTION STOP</span>
+          <span class="forge-cost-input"><span class="forge-cost-currency" aria-hidden="true">$</span>
+            <input id="fp-alt-cost" type="number" step="any" value="2" inputmode="decimal" aria-label="Phase 3 section hard stop in dollars"></span>
+        </label>
         <button class="btn" id="fp-alt-resume" type="button">RESUME AUTHOR WITH THIS AI</button>
       </div>
     </div>
@@ -228,9 +231,20 @@ export function openBuildOverlay(jobId, traceId = jobId) {
         altProv = $("#fp-alt-prov", overlay), altModel = $("#fp-alt-model", overlay),
         altEff = $("#fp-alt-eff", overlay), altResume = $("#fp-alt-resume", overlay),
         altCostWrap = $("#fp-alt-cost-wrap", overlay), altCost = $("#fp-alt-cost", overlay);
-  altCost.value = localStorage.getItem("binderySectionCostLimitUsd") || "2";
-  altCost.onchange = () => localStorage.setItem("binderySectionCostLimitUsd", altCost.value);
-  let altProviders = null, activeAltProviders = [], altRole = "";
+  const storedAltCost = Number(localStorage.getItem("binderySectionCostLimitUsd"));
+  altCost.value = Number.isFinite(storedAltCost) && storedAltCost > 0
+    ? String(storedAltCost) : "2";
+  const validAltCost = () => Number.isFinite(Number(altCost.value))
+    && Number(altCost.value) > 0;
+  altCost.oninput = () => {
+    altCost.dataset.edited = "true";
+    altCost.setCustomValidity("");
+  };
+  altCost.onchange = () => {
+    if (validAltCost())
+      localStorage.setItem("binderySectionCostLimitUsd", altCost.value);
+  };
+  let altProviders = null, activeAltProviders = [], altRole = "", sectionBudgetKey = "";
   const fillAltEfforts = () => {
     const provider = activeAltProviders.find((item) => item.id === altProv.value);
     const row = provider && (provider.models || []).find((item) => item[0] === altModel.value);
@@ -271,6 +285,11 @@ export function openBuildOverlay(jobId, traceId = jobId) {
   altResume.onclick = async () => {
     const provider = activeAltProviders.find((item) => item.id === altProv.value);
     if (!provider || !altModel.value) return;
+    if (!altCostWrap.classList.contains("hidden") && !validAltCost()) {
+      altCost.setCustomValidity("Enter a positive dollar amount.");
+      altCost.reportValidity();
+      return;
+    }
     altResume.disabled = true;
     const agent = { kind: provider.kind, model: altModel.value, ...(altEff.value ? { effort: altEff.value } : {}) };
     const payload = altRole === "validator" ? { validator: agent } : { author: agent };
@@ -346,8 +365,13 @@ export function openBuildOverlay(jobId, traceId = jobId) {
       failMsg.textContent = status.sessionError;
       const sectionBudget = status.sessionGate === "section-repair-budget";
       altCostWrap.classList.toggle("hidden", !sectionBudget);
-      if (sectionBudget && document.activeElement !== altCost)
-        altCost.value = String(status.sectionCostLimitUsd || 2);
+      const nextBudgetKey = sectionBudget ? String(status.sessionError || "section-budget") : "";
+      if (nextBudgetKey !== sectionBudgetKey) {
+        sectionBudgetKey = nextBudgetKey;
+        delete altCost.dataset.edited;
+      }
+      if (sectionBudget && !altCost.dataset.edited && document.activeElement !== altCost)
+        altCost.value = String(status.sectionCostLimitUsd ?? 2);
       altResume.textContent = `RESUME ${downRole.toUpperCase()} WITH THIS AI`;
       armAltPicker(downRole === "validator" ? status.sessionValidator : status.sessionAuthor, downRole);
     }

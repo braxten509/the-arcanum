@@ -19,6 +19,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from buildlib.mechanism_contract import (authored_problems, candidate_with_findings,
                                          validate_map_contract)
 from buildlib.prerequisites import review as prerequisite_review
+from buildlib.section_quality_contract import (SECTION_QUALITY_CONTRACT,
+                                                section_quality_authority,
+                                                section_quality_contract_packet)
 
 
 lesson = {"id": "s01.l01", "kind": "lesson", "introduces": ["function-definition"]}
@@ -36,6 +39,29 @@ course = {
 }
 positions = {"s01": (1, -1), "s01.l01": (1, 0), "s01.working": (1, 1)}
 assert not validate_map_contract(course, [section], positions, detailed=True, map_version=4)
+
+cumulative_course = json.loads(json.dumps(course))
+cumulative_course["sections"][0]["nodes"][1]["learnerOwnedArtifacts"] = ["src/main.ext"]
+cumulative_course["sections"].append({
+    "id": "s02", "nodes": [
+        {"id": "s02.l01", "kind": "lesson", "introduces": []},
+        {"id": "s02.working", "kind": "working", "mechanisms": [],
+         "learnerOwnedArtifacts": ["src/main.ext"]},
+    ],
+})
+cumulative_positions = {
+    "s01": (0, -1), "s01.l01": (0, 0), "s01.working": (0, 1),
+    "s02": (1, -1), "s02.l01": (1, 0), "s02.working": (1, 1),
+}
+cumulative_problems = validate_map_contract(
+    cumulative_course, cumulative_course["sections"], cumulative_positions,
+    detailed=True, map_version=4)
+assert any("omits their cumulative Working mechanisms" in item
+           and "function-definition" in item for item in cumulative_problems)
+cumulative_course["sections"][1]["nodes"][1]["mechanisms"] = ["function-definition"]
+assert not validate_map_contract(
+    cumulative_course, cumulative_course["sections"], cumulative_positions,
+    detailed=True, map_version=4)
 too_late = json.loads(json.dumps(course))
 too_late["mechanismContract"]["mechanisms"][0]["owner"] = "s01.l02"
 assert any("owner must name" in item or "match" in item for item in
@@ -255,11 +281,12 @@ with tempfile.TemporaryDirectory() as root:
         assert "LESSON DEPTH: 7/10" in calls[0]
         assert "LANGUAGE MASTERY: 3/5" in calls[0]
         assert "one major concept family per lesson" in calls[0]
-        assert "Lesson Depth controls explanatory thoroughness" in calls[0]
+        normalized_prompt = " ".join(calls[0].split())
+        assert "Lesson Depth controls explanatory thoroughness" in normalized_prompt
         assert "observable-interaction" in calls[0]
         assert "does not own the operations that interpret or act" in " ".join(calls[0].split())
         assert "one transferable semantic responsibility, not one surface spelling" in calls[0]
-        assert "They do not get separate owners merely because their tokens differ" in calls[0]
+        assert "They do not get separate owners merely because their tokens differ" in normalized_prompt
         assert "demands is ALWAYS a JSON ARRAY" in calls[0]
         assert '"demands":["s01.l01","s01.working"]' in calls[0]
         assert '"closestExisting":["nearest-sealed-mechanism"]' in calls[0]
@@ -267,6 +294,24 @@ with tempfile.TemporaryDirectory() as root:
         assert "The Liber Veritatis" in calls[0]
         assert "one review for every VALID SOURCE/NODE PAIR" in calls[0]
         assert "fixed 2,500-output-token validator budget" in calls[0]
+        assert SECTION_QUALITY_CONTRACT in calls[0]
+        assert "mechanisms co-owned by the same sealed lesson" in calls[0]
+        assert "Do not reclassify them as separate families" in calls[0]
+        assert "copied verbatim from nearby prose or code is not independent" in calls[0]
+        assert "whole-section coverage sweep" in calls[0]
+        assert "all five facts" in calls[0]
+        assert "clean mechanical gate as semantic evidence" in calls[0]
+        shared_authority = section_quality_authority(2, "names and literals", 7, 3)
+        assert calls[0].count(shared_authority) == 1
+        assert prerequisite_review.section_policy_fingerprint(
+            2, "names and literals", 7, 3) != prerequisite_review.section_policy_fingerprint(
+                2, "names and literals", 8, 3)
+        assert section_quality_contract_packet() == {
+            "version": 3,
+            "text": SECTION_QUALITY_CONTRACT,
+            "settings": {"start": 0, "prior": "", "depth": 0, "mastery": 0},
+            "authorityText": section_quality_authority(),
+        }
 
         # The quality audit is mandatory above the beginner prerequisite-pacing range too.
         with open(os.path.join(root, "advanced.launch.json"), "w", encoding="utf-8") as handle:

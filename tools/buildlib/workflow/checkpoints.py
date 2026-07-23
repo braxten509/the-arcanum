@@ -10,6 +10,7 @@ from ..language_mastery.foundations import (block_field as arc_block_field,
                                             coverage as foundation_coverage,
                                             required_by_plan as foundations_required)
 from ..language_mastery import (performance_specs, phase1_contract_problems, required_by_plan,
+                                practice_required_by_plan,
                                 seed_contract as seed_language_mastery)
 from ..mastery_evidence import (required_by_plan as mastery_evidence_required,
                                 seed_contract as seed_mastery_evidence)
@@ -235,6 +236,8 @@ def arc_written(plan_path, plan_rel):
         else tuple(part for part in ARC_PARTS if part != "Mastery proof"))
     if required_by_plan(text):
         required_parts += ["Language mastery", "Language capability spine", "Language performances"]
+    if practice_required_by_plan(text):
+        required_parts += ["Language practice allocation"]
     if foundations_required(text):
         required_parts += ["Language foundation coverage"]
     if mastery_evidence_required(text):
@@ -388,6 +391,20 @@ def finalize_arc(plan_path):
 KEBAB_SPLIT = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")  # camel boundary -> hyphen (§6 one-name rule)
 
 
+def _renamed_manifest_text(text, old_id, new_id):
+    """Patch machine-owned identity plus scaffold comments after a tome-folder rename.
+
+    Only full-line comments receive the broad id substitution. Authored TOML values may
+    legitimately contain the old text, so they remain untouched except for [meta].id.
+    """
+    patched = re.sub(
+        r'(?m)^(id\s*=\s*)"[^"]*"', rf'\g<1>"{new_id}"', text, count=1)
+    return "".join(
+        line.replace(old_id, new_id) if line.lstrip().startswith("#") else line
+        for line in patched.splitlines(keepends=True)
+    )
+
+
 def maybe_rename(tid, plan_path):
     """Filesystem surgery is the harness's job, not an agent's: when [runtime] project
     implies a different kebab-case id (§6: ManaWeaver -> mana-weaver, never the
@@ -413,10 +430,11 @@ def maybe_rename(tid, plan_path):
     os.rename(os.path.join(REPO, "tomes", tid), target)
     tpath = os.path.join(target, "tome.toml")
     txt = open(tpath, encoding="utf-8").read()
-    with open(tpath, "w", encoding="utf-8") as f:  # [meta] id is the first id = "…" line
-        f.write(re.sub(r'(?m)^(id\s*=\s*)"[^"]*"', rf'\g<1>"{new}"', txt, count=1))
+    with open(tpath, "w", encoding="utf-8") as f:
+        f.write(_renamed_manifest_text(txt, tid, new))
     with open(plan_path, "a", encoding="utf-8") as f:
         f.write(f"\n- **Tome id renamed by the harness:** `{tid}` → `{new}` "
                 f"(kebab-case of project {project!r}); all later phases use tomes/{new}/\n")
-    print(f"  · renamed tomes/{tid} -> tomes/{new} (kebab-case of project {project!r}); meta.id patched")
+    print(f"  · renamed tomes/{tid} -> tomes/{new} (kebab-case of project {project!r}); "
+          "meta.id and scaffold comments patched")
     return new

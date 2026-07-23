@@ -174,6 +174,9 @@ def _save_launch(tid, body, concept, plan_text=""):
             pass
     if not any(gate.values()):
         gate = previous.get("gate") or (_plan_gate(plan_text) if plan_text else {})
+    section_cost_limit = (body.get("sectionCostLimitUsd")
+                          if "sectionCostLimitUsd" in body
+                          else previous.get("sectionCostLimitUsd", 2.0))
     try:
         with open(os.path.join(BUILD_DIR, f"{tid}.launch.json"), "w", encoding="utf-8") as f:
             json.dump({"bindery": body.get("bindery") or previous.get("bindery") or {},
@@ -182,6 +185,7 @@ def _save_launch(tid, body, concept, plan_text=""):
                        "validator": body.get("validator") or previous.get("validator") or {},
                        "reviewer": (body.get("reviewer") or {}) if "reviewer" in body
                        else previous.get("reviewer") or {},
+                       "sectionCostLimitUsd": section_cost_limit,
                        "concept": concept, "gate": gate}, f)
     except OSError:
         pass
@@ -467,7 +471,11 @@ def list_workings(job_manager: JobManager, catalog):
                     "authors": authors,
                     "validator": launch.get("validator") or {},
                     "reviewer": launch.get("reviewer") or {},
-                    "sectionCostLimitUsd": launch.get("sectionCostLimitUsd", 2.0),
+                    # Null is the durable unlimited sentinel. Only a genuinely missing
+                    # legacy setting receives the historical $2 default.
+                    "sectionCostLimitUsd": (
+                        launch["sectionCostLimitUsd"]
+                        if "sectionCostLimitUsd" in launch else 2.0),
                     "gate": launch.get("gate") or _plan_gate(text),
                     "toolingConflict": tooling["conflict"],
                     "requiredTooling": tooling["required"],

@@ -3,24 +3,27 @@ capabilities = ["project", "build", "run", "assessment"]
 
 # NASM x86-64 Assembly project assembled by Make, linked by GCC with SDL2,
 # and executed from the learner-owned external workspace.
-language = "x86-64 Assembly (NASM)"
-entryFile = "src/pong.asm"
+language = "NASM x86-64 assembly for Linux (System V AMD64 ABI)"
+entryFile = "src/main.asm"
 projectFile = "Makefile"
 newFileExt = ".asm"
 editorLang = "nasm"
-runLabel = "make && ./build/register-rally-pong"
+runLabel = "make build && ./build/register-rally-pong"
 
 # The runtime owns only process orchestration. Source, build rules, flags, and
 # every output remain learner-authored project artifacts.
-command = ["bash", "-lc", "make && exec ./build/register-rally-pong \"$@\"", "_"]
+command = ["bash", "-lc", "set -eu; src=\"$1\"; scratch=\"$(mktemp -d)\"; trap 'rm -rf -- \"$scratch\"' EXIT; nasm -f elf64 -g -F dwarf -o \"$scratch/example.o\" \"$src\"; gcc -no-pie -Wl,--build-id=none -o \"$scratch/example\" \"$scratch/example.o\" $(pkg-config --cflags --libs sdl2); \"$scratch/example\"", "_", "{file}"]
+runCommand = ["bash", "-lc", 'set -eu; make -s build; exec ./build/register-rally-pong "$@"', "_"]
+commandTargetTools = ["make"]
 
 # The final package proof appends its learner-authored Make target.
 deliveryCreateCommand = ["mkdir", "-p", "{env}"]
-deliveryInstallCommand = ["bash", "-lc", "test -f \"$1\"", "_", "{requirements}"]
-deliveryBuildCommand = ["make", "package"]
+deliveryResolveCommand = ["bash", "-lc", 'set -eu; test -f "$1"; command -v nasm >/dev/null; command -v gcc >/dev/null; command -v make >/dev/null; command -v pkg-config >/dev/null; pkg-config --exists sdl2', "_", "{requirements}"]
+deliveryInstallCommand = ["make", "-f", "{requirements}", "-n", "package"]
+deliveryBuildCommand = ["make"]
 deliveryTimeout = 120
 
-checkCommand = ["bash", "-lc", "make -n 2>&1"]
+checkCommand = ["nasm", "-f", "elf64", "-g", "-F", "dwarf", "-o", "/dev/null", "{file}"]
 diagRegex = '^(?P<file>[^:]+):(?P<line>\d+): (?P<sev>error|warning): (?P<msg>.*)$'
 snippetEntry = '^\s*global\s+(?:_start|main)'
 diagIgnore = [
@@ -30,6 +33,21 @@ diagIgnore = [
 
 starterCode = ""
 codeExt = [".asm"]
+
+[syntax]
+lineComment = ";"
+strings = ["\"", "'"]
+keywords = [
+  "section", "global", "extern", "default", "rel", "wrt", "db", "dw", "dd", "dq",
+  "equ", "resb", "resw", "resd", "resq", "times", "byte", "word", "dword", "qword",
+  "mov", "lea", "add", "sub", "imul", "idiv", "inc", "dec", "neg", "xor", "or", "and",
+  "not", "shl", "shr", "sar", "push", "pop", "cmp", "test", "jmp", "je", "jne", "jg",
+  "jge", "jl", "jle", "jz", "jnz", "ja", "jb", "jae", "jbe", "call", "ret", "nop"
+]
+types = [
+  "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp", "r8", "r9", "r10", "r11",
+  "r12", "r13", "r14", "r15", "eax", "ebx", "ecx", "edx", "esi", "edi", "ebp", "esp"
+]
 
 [completions]
 keywords = [
@@ -45,6 +63,9 @@ keywords = [
 ]
 snippets = [
   ["section", "section directive", "section .${1:text}"],
+  ["main", "System V main entry", "global main\nsection .text\nmain:\n    xor eax, eax\n    ret"],
+  ["extern", "external C symbol", "extern ${1:SDL_Init}"],
+  ["data", "initialized data section", "section .data\n${1:name}: dd ${2:0}"],
   ["mov", "move value", "mov ${1:dest}, ${2:src}"],
   ["add", "add", "add ${1:dest}, ${2:src}"],
   ["sub", "subtract", "sub ${1:dest}, ${2:src}"],
@@ -54,8 +75,18 @@ snippets = [
   ["cmp-jump", "compare and branch", "cmp ${1:left}, ${2:right}\n    je ${3:label}"],
   ["call", "call a procedure", "call ${1:procedure}"],
   ["return", "return from a procedure", "ret"],
+  ["proc", "procedure label", "${1:procedure}:\n    $0\n    ret"],
 ]
+types = []
+classRegex = '^\\s*([A-Za-z_.$?][A-Za-z0-9_.$?#@~]*)\\s*:\\s*\\n([\\s\\S]*?)(?=^\\S|\\z)'
+methodRegex = '^\\s*([A-Za-z_.$?][A-Za-z0-9_.$?#@~]*)\\s*:'
+ctorRegex = '^([A-Za-z_.$?][A-Za-z0-9_.$?#@~]*)$'
+
+[completions.members]
+
+[completions.returns]
 
 [assessmentCommands]
-build = ["make"]
+build = ["make", "build"]
 check = ["make", "check"]
+test = ["make", "test"]

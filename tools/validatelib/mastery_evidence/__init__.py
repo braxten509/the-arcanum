@@ -23,11 +23,15 @@ def _read(path: str) -> str:
         return ""
 
 
-def _map(build_plan: str | None) -> dict | None:
-    if not build_plan:
+def _map(build_plan: str | None, phase2_proposal: str | None = None) -> dict | None:
+    if phase2_proposal:
+        paths = (phase2_proposal,)
+    elif build_plan:
+        build_id = build_id_from_plan(build_plan)
+        paths = (map_path(build_id), proposal_path(build_id))
+    else:
         return None
-    build_id = build_id_from_plan(build_plan)
-    for path in (map_path(build_id), proposal_path(build_id)):
+    for path in paths:
         try:
             return json.load(open(path, encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
@@ -56,11 +60,13 @@ def _shipped_map(tome_root: str) -> dict | None:
 def validate_mastery_evidence(tome_root: str, manifest: dict, sections: list[dict], *,
                               build_plan: str | None = None,
                               phase2_skeleton: bool = False,
+                              phase2_proposal: str | None = None,
                               include_variants: bool = True) -> list[Finding]:
     mastery = manifest.get("mastery")
     if not isinstance(mastery, dict):
         return []
-    plan_text, course_map = _read(build_plan) if build_plan else "", _map(build_plan)
+    plan_text = _read(build_plan) if build_plan else ""
+    course_map = _map(build_plan, phase2_proposal)
     findings = manifest_findings(manifest, os.path.join(tome_root, "tome.toml"),
                                  plan_text=plan_text, course_map=course_map)
     if phase2_skeleton:

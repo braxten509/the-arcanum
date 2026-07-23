@@ -10,22 +10,21 @@ import py_compile
 import shutil
 
 
-# Validator code an author must never read. Every author prompt already says "do not
-# inspect validator implementation to guess at hidden checks"; an author that greps it
-# anyway is writing to the checker instead of to the learner, so the boundary is enforced
-# here rather than left advisory. Each package is replaced by a mirror holding only the
-# modules the author's own self-check imports, compiled to sourceless bytecode.
+# Validator code an author must never read or run. The harness exclusively executes gates;
+# authors only edit their assigned unit and mark it validating. The boundary remains sealed
+# here so an author cannot inspect checker implementation to shape content around hidden checks.
+# Each package is replaced by a sourceless-bytecode mirror for import compatibility with shared
+# read-only helpers; no author workflow depends on executing a validator.
 #
 # The two tiers differ in how much they actually hide. A module the mirror OMITS is gone
 # outright. A module it KEEPS is bytecode: no source, no comments, no line-level control
 # flow, and the greps a real author ran come back empty -- but identifiers and string
 # literals survive, so `strings` still recovers error text. Keep as little as possible.
 SEALED_PACKAGES = {
-    # The deterministic section gate. The author is told to run it until it exits zero,
-    # so every module has to stay; bytecode is the most that can be hidden.
+    # The deterministic section gate stays sourceless inside the author sandbox.
     "tools/validatelib": (),
-    # The Validator AI. Tracing the author's own self-check shows it imports prompt,
-    # result, and transport but never calls into them -- the only live entry points are
+    # Shared author-side imports reach review bookkeeping but not the Validator AI. The only
+    # permitted live entry points are
     # review_call_count/review_usage_summary, which both delegate to records.py. So the
     # rubric ships as a stub that satisfies review.py's `from .prompt import ...` and
     # raises if anything ever actually reaches for it.
@@ -162,6 +161,46 @@ def _state_dirs(provider):
     return [p for p in candidates if os.path.exists(p)]
 
 
+def _persistent_memory_dirs(provider, cwd):
+    """Provider memory stores to replace with empty, process-local filesystems.
+
+    Session/auth state remains writable through ``_state_dirs`` so resume and accounting keep
+    working. These narrower mounts win later and make existing memory invisible while ensuring any
+    attempted write disappears with the worker process.
+    """
+    home = os.path.expanduser("~")
+    if provider == "codex":
+        candidates = [os.path.join(home, ".codex", "memories")]
+    elif provider == "claude":
+        claude = os.path.join(home, ".claude")
+        candidates = [os.path.join(claude, "memory"),
+                      os.path.join(claude, "agent-memory")]
+        projects = os.path.join(claude, "projects")
+        project_key = os.path.realpath(cwd).replace(os.sep, "-")
+        candidates.append(os.path.join(projects, project_key, "memory"))
+        try:
+            for entry in os.scandir(projects):
+                memory = os.path.join(entry.path, "memory")
+                if entry.is_dir() and os.path.isdir(memory):
+                    candidates.append(memory)
+        except OSError:
+            pass
+    else:
+        return []
+    paths = []
+    for candidate in candidates:
+        # Bubblewrap cannot place a nested mount on a missing target beneath the read-only root.
+        # Create only the empty provider-owned mount point before entering the namespace.
+        try:
+            os.makedirs(candidate, exist_ok=True)
+        except OSError:
+            continue
+        path = os.path.realpath(candidate)
+        if os.path.isdir(path) and path not in paths:
+            paths.append(path)
+    return paths
+
+
 def _replace_flag_value(cmd, flag, value):
     out = list(cmd)
     if flag in out:
@@ -176,6 +215,12 @@ def _replace_flag_value(cmd, flag, value):
 
 def _claude_command(cmd, repo, web_allowed=True):
     out = _replace_flag_value(cmd, "--permission-mode", "auto")
+    if "--safe-mode" not in out:
+        # Harness prompts are self-contained. User hooks, project customizations,
+        # and auto-memory can block a completed read-only validator or scoped author
+        # on unrelated repository checks, so every harness-owned Claude role runs
+        # without those ambient behaviors while retaining normal OAuth/session auth.
+        out.insert(1, "--safe-mode")
     # A one-shot grader used to pass `--tools ""`; remove it so repo reads, trusted Python,
     # and current-source lookup are actually available. Bubblewrap remains the write boundary.
     while "--tools" in out:
@@ -188,6 +233,8 @@ def _claude_command(cmd, repo, web_allowed=True):
     if web_allowed:
         allowed += ["WebSearch", "WebFetch(domain:*)"]
     settings = {
+        # Keep resumable session history, but disable Claude's separate cross-session auto-memory.
+        "autoMemoryEnabled": False,
         "permissions": {"allow": allowed},
         # The outer mount namespace is authoritative and works uniformly for every provider.
         # Avoid stacking Claude's nested sandbox, which cannot express file-level sidecars.
@@ -199,6 +246,11 @@ def _claude_command(cmd, repo, web_allowed=True):
 def _codex_command(cmd, web_allowed=True):
     out = list(cmd)
     exec_i = out.index("exec") if "exec" in out else 1
+    memory_setting = "features.memories=false"
+    if not any(out[index:index + 2] == ["-c", memory_setting]
+               for index in range(len(out) - 1)):
+        out[exec_i:exec_i] = ["-c", memory_setting]
+        exec_i += 2
     if web_allowed and "--search" not in out:
         out.insert(exec_i, "--search")
         exec_i += 1
@@ -260,10 +312,14 @@ def scoped_runner_command(name, cmd, cwd, writable_paths, repo, readonly_paths=(
         # A large store can leave the CLI alive but permanently pre-session, so a
         # headless forge run must not block author startup on that maintenance path.
         wrapped.extend(("--setenv", "OPENCODE_DISABLE_PRUNE", "true"))
+    elif provider == "claude":
+        # Native belt-and-suspenders guard: Claude does not even initialize auto-memory.
+        wrapped.extend(("--setenv", "CLAUDE_CODE_DISABLE_AUTO_MEMORY", "1"))
     # /tmp is the system's root temporary directory. Honour /temp too on hosts that have it.
     for temp_root in ("/tmp", "/temp"):
         if os.path.isdir(temp_root):
             wrapped.extend(("--bind", temp_root, temp_root))
+    memory_dirs = _persistent_memory_dirs(provider, cwd)
     mounts = [*_state_dirs(provider), *writable_paths]
     seen = set()
     for raw in mounts:
@@ -294,6 +350,11 @@ def scoped_runner_command(name, cmd, cwd, writable_paths, repo, readonly_paths=(
             wrapped.extend(("--tmpfs", path))
         else:
             wrapped.extend(("--ro-bind", "/dev/null", path))
+    # Provider state is broadly writable for auth/session continuity, but persistent memory is
+    # neither an input nor an output of a tome job. Empty process-local overlays prevent workers
+    # from reading old tome memories and make attempted memory writes non-persistent.
+    for path in memory_dirs:
+        wrapped.extend(("--tmpfs", path))
     # Last, so the bytecode mirrors win over any broader repo mount above them.
     wrapped.extend(_sealed_binds(os.path.realpath(repo)))
     wrapped.extend(("--chdir", cwd))

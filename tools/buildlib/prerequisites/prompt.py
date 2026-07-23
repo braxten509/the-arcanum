@@ -3,20 +3,12 @@ from __future__ import annotations
 
 import json
 
-from ..workflow.prompts import START_PACING
+from arcanum.ai import NO_TOME_MEMORY_POLICY
+
+from ..section_quality_contract import section_quality_authority
 
 
 DYNAMIC_MARKER = "===== DYNAMIC AUDIT INPUT ====="
-
-
-def pacing_contract(start):
-    return START_PACING.get(start, (
-        "PRIOR-KNOWLEDGE CALIBRATED",
-        "Omit fundamentals covered by the selected Starting Level and any concrete optional "
-        "prior-knowledge details, but never expand those details to nearby skills. Teach every "
-        "course-specific, uncommon, or non-obvious mechanism completely before use. Do not "
-        "dilute advanced material with remedial repetition or compress unrelated new ideas.",
-    ))
 
 
 def result_schema():
@@ -89,7 +81,7 @@ def result_schema():
 def prerequisite_prompt(packet, sid, sources, prior, start, depth=0, mastery=0):
     pairs = json.dumps([{"path": item["path"], "node": item["node"]}
                         for item in sources], ensure_ascii=False, separators=(",", ":"))
-    pacing_title, pacing_summary = pacing_contract(start)
+    authority = section_quality_authority(start, prior, depth, mastery)
     example = json.dumps({
         "outcome": "FAIL",
         "citations": [{"path": "tomes/example/sections/s01/lessons/l01.toml",
@@ -115,100 +107,15 @@ def prerequisite_prompt(packet, sid, sources, prior, start, depth=0, mastery=0):
             "requiredRepair": "Replace it with a new-context construction or debugging task and a non-revealing hint.",
         }],
     }, separators=(",", ":"))
-    depth_label = f"{depth}/10" if depth else "not recorded (apply the ordinary full standard)"
-    mastery_label = (f"{mastery}/5" if mastery else
-                     "not recorded (still require an independently achievable Working)")
     return f"""Audit teaching quality, learner independence, and first-use prerequisite
 completeness for one course section. This is a language-, runtime-, tool-, and project-neutral
-reference-tome quality gate. The target is the pedagogical standard of the shipped reference tome,
-The Liber Veritatis, not its topic, phrasing, section count, or exercise grid. Inspect every
-citable source in full.
-Numerical density, valid TOML, and a clean runtime are necessary but never sufficient for PASS.
+reference-tome quality gate. Inspect every citable source in full.
 
-Inspect every learner-visible demand:
-lesson exercises, the Working brief and rubrics, proof command, hidden reference solution, and any
-exceptional lesson artifact step. For every required keyword, syntax
-form, operator, API, tool action, or technical term outside the declared entry baseline, verify that its
-sealed mechanism has an owner no later than first use and that the owner's lesson explains purpose,
-stepwise anatomy, a minimal worked example with observable output, one likely failure, and guided
-practice before independent use. Do not flag an optional implementation choice when the
-specification permits a taught route.
+{NO_TOME_MEMORY_POLICY}
 
-Audit teaching quality separately from prerequisite ownership. A lesson passes only when its
-selected concept family is coherent at the sealed Start pace and the learner-visible path:
-- explains purpose and mental model in plain language, then anatomy or procedure step by step;
-- contains a minimal worked example or demonstration with an observable result and explains why
-  that result follows, rather than presenting unexplained copyable material;
-- teaches at least one realistic failure, how the learner recognizes it, and how to diagnose or
-  recover from it; at high lesson depth, it also covers relevant limits, tradeoffs, and non-happy
-  paths without padding the word count;
-- provides guided practice followed by a materially different recall, trace, explain, debug,
-  modify, test-design, or construct action appropriate to the topic. A prompt answered verbatim by
-  nearby prose or code is not independent practice. Retyping may build fluency but cannot be the
-  only proof of understanding;
-- gives exercise-specific feedback and a graduated hint that unlocks reasoning without revealing
-  the final response, exact code, or exact sequence of actions; and
-- uses linked readings as anchors or extensions, never as a substitute for teaching required
-  course material.
+{authority}
 
-The section Working passes only when every required operation is taught before use, the brief and
-rubric agree, the hidden reference is feasible, and a learner who followed only the visible path
-can complete it. Hold the hidden reference to the same standard as a lesson worked example,
-because it is what a learner compares their own attempt against. It must exercise every mechanism
-it declares rather than merely listing it, and every operation it performs must affect the
-artifact's observable result. FAIL a reference that declares a mechanism absent from what it
-actually writes, that computes or stores a value the rest of the step discards, or that satisfies a
-required demand by its literal form while demonstrating nothing a learner could learn from. When
-the author instead states plainly that a sealed mechanism has no honest route in this section, treat
-that as an ordinary unmet demand naming the conflict, not as deception; it is the outcome this gate
-prefers over a satisfied-in-form reference. The learner must construct, adapt, diagnose, or justify something substantive and
-retain meaningful implementation choices. FAIL if success is mainly copying a lesson example,
-renaming a supplied solution, transcribing the starter, following a hidden assumption, or matching
-one leaked output. The rubric must grade observable behavior and the section's promised capability,
-not surface tokens. Check cumulative continuity: later steps may retrieve earlier learning but may
-not silently replace, contradict, or bypass learner-owned work.
-
-At Mastery 3 or above, require transferable language reasoning rather than project-only mimicry:
-the section must make the learner retrieve earlier capabilities, make implementation choices,
-interpret failures, and use the language's verification loop where relevant. At lower Mastery,
-the smaller graduate boundary is still real: do not waive independent construction inside the
-declared scope. Reject repeated template prose, filler, duplicated practice in new labels, factual
-contradictions, impossible commands, and examples whose claimed observable result does not follow.
-Do not demand an artificial exercise-type quota or a fixed lesson length; judge the learning work.
-
-The sealed section promise and projectMilestone define required curriculum scope. Authored lesson,
-Working, rubric, diagnostic, recovery, and replay details are repairable evidence, not authority to
-expand that scope. If an unowned mechanism appears only because the author chose an unnecessarily
-mechanism-heavy route and the sealed milestone can be met with existing owners, FAIL with a reason
-to simplify or replace that route and leave missingMechanisms empty. Propose a new mechanism only
-when it is unavoidable for the sealed milestone itself.
-
-A mechanism is one transferable semantic responsibility, not one surface spelling. Before
-proposing anything missing, compare the demand with all sealed mechanisms available by first use
-using learner intent, preconditions, state transition or resource-lifecycle responsibility,
-observable result, and failure interpretation. Platform-specific commands, executable aliases,
-flags, paths, activation spellings, UI routes, configuration syntaxes, and language/runtime/tool
-variants are evidence or anatomy under an existing mechanism when those properties are the same.
-They do not get separate owners merely because their tokens differ. Split mechanisms only when the
-demand adds a genuinely different state transition, lifecycle duty, observable contract, or
-reusable reasoning responsibility. This rule is language-, runtime-, tool-, and project-neutral.
-
-Audit transitive prerequisites too. For each mechanism, inspect the smallest meaningful example
-or procedure that teaches it. Every unlisted syntax form, API, tool action, data-format rule, or
-technical term required by that example needs an earlier owner; a dependent mechanism cannot count
-as teaching its own prerequisite, and copyable unexplained material is still missing teaching.
-The packet contains the mechanisms available by this section plus a compact sealed future index of
-[id, owner] pairs. A future mechanism is not available yet. If a current demand matches one of
-those later mechanisms, report the late owner as a FAIL reason and do not propose a duplicate.
-Trace how each API input or resource is created, obtained, and released. Apply observable-interaction
-closure to the learner-visible brief, rubric, proof, replay, acceptance path, and
-controls: every concrete operation needed to obtain and inspect input, produce output, advance
-time, make a nondeterministic choice, persist state, release a resource, or respond to the observed
-result needs an earlier owner. Acquiring a stream, event, handle, or resource does not own the
-operations that interpret or act on its contents. Trace how each tool or data/configuration file is
-created, edited, saved, and invoked. Treat every word in a capability id as binding semantic scope:
-its owner is the cumulative boundary, so every claimed component family
-must have explicit teaching evidence in that lesson or an earlier one, never a later one.
+Apply the shared authority above to every valid source/node pair in the bounded evidence.
 
 State an explicit PASS or FAIL and give substantive reasons. Any clear readable prose or structure
 is accepted; field names, wrappers, punctuation, Markdown, JSON, and ordering do not determine
@@ -250,14 +157,6 @@ the smallest actionable repair.
 
 {DYNAMIC_MARKER}
 SECTION: {sid}
-OPTIONAL PRIOR-KNOWLEDGE DETAILS: {prior!r}
-START LEVEL: {start}/10 ({pacing_title})
-LESSON DEPTH: {depth_label}
-LANGUAGE MASTERY: {mastery_label}
-The selected Start is {start}/10 ({pacing_title}).
-BINDING LESSON-DENSITY RULE: {pacing_summary}
-Starting level controls cognitive-load packaging, step size, repetition, and pace;
-Lesson Depth controls explanatory thoroughness and never overrides this density rule.
 VALID SOURCE/NODE PAIRS: {pairs}
 
 {packet}"""

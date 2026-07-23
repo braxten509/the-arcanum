@@ -65,7 +65,7 @@ def _selftest():
     prompt = author_prompt("sample", "Teach a tool", "both", 3)
     assert "active unit author" in prompt and "reaches Phase 8" in prompt
     assert "START OR RESUME AT PHASE: 3" in prompt
-    assert "exact self-check command" in prompt and "progress marker to `validating`" in prompt
+    assert "exact mechanical checks" in prompt and "progress marker to `validating`" in prompt
     assert "NON-NEGOTIABLE LEARNER CONSTRUCTION" in prompt
     assert "Every canonical project artifact must be created or assembled by the learner" in prompt
     _mastery_selftest()
@@ -73,8 +73,8 @@ def _selftest():
     assignment = unit_prompt("sample", section)
     assert "Phase 3 section s04 (4/8)" in assignment
     assert "report_section_progress.py" in assignment
-    assert "tools/validate_section.py tomes/sample s04" in assignment
-    assert "--source-only" in assignment and "do not substitute ad-hoc" in assignment.lower()
+    assert "tools/validate_section.py" in assignment
+    assert "ALWAYS run every listed command" in assignment
     assert "Make each section's learner-visible Working the canonical project assignment" in assignment
     assert "Omit lesson artifactSteps normally" in assignment
     continuation = continuation_prompt("sample")
@@ -132,6 +132,7 @@ def _mastery_selftest():
         assert f"Mastery evidence {level}/5" in contract
         assert all(text in contract for text in required)
         assert "Language mastery contract:** 1" in contract
+        assert "Language practice contract:** 1" in contract
         assert "Language foundation contract:** 2" in contract
         assert all(role in contract for role in
                    ("data", "control", "decomposition", "failure handling", "verification"))

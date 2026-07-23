@@ -32,7 +32,17 @@ def initialize_ledger(build_id, tooling):
     return path
 
 
-def validate_ledger(build_id):
+def _tooling_from_plan(build_id):
+    try:
+        with open(os.path.join(BUILD_DIR, f"{build_id}.plan.md"), encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError:
+        return ""
+    match = re.search(r"(?im)^- \*\*Tooling:\*\*\s*(internal|external|both)\s*$", text)
+    return match.group(1).lower() if match else ""
+
+
+def validate_ledger(build_id, tooling=None):
     path = ledger_path(build_id)
     relative = os.path.relpath(path, REPO)
     try:
@@ -49,6 +59,11 @@ def validate_ledger(build_id):
         sources = []
     if len(sources) > MAX_SOURCES:
         problems.append(f"sources must contain at most {MAX_SOURCES} entries")
+    selected_tooling = str(tooling or _tooling_from_plan(build_id)).strip().lower()
+    expected_required = selected_tooling in ("external", "both")
+    if selected_tooling in ("internal", "external", "both") and value.get("required") is not expected_required:
+        problems.append(
+            f"required must be {str(expected_required).lower()} for Tooling {selected_tooling}")
     if value.get("required") is True and not sources:
         problems.append("external tooling requires at least one official or primary source")
     for index, source in enumerate(sources):

@@ -166,14 +166,16 @@ def _legacy_validation_check(context: ValidationContext):
                 err(label, "Phase 2 build plan path cannot identify its build id")
             else:
                 try:
-                    proposal_clean, proposal_report = validate_proposal(build_id)
+                    proposal_clean, proposal_report = validate_proposal(
+                        build_id, context.phase2_proposal)
                 except ValueError as exc:
                     proposal_clean, proposal_report = False, str(exc)
                 if not proposal_clean:
                     err(label, proposal_report or "the complete course-map proposal is invalid")
                 else:
                     check_phase2_artifact_alignment(
-                        build_id, m, sections_data, os.path.abspath(build_plan))
+                        build_id, m, sections_data, os.path.abspath(build_plan),
+                        context.phase2_proposal)
     else:
         quality_sections = (sections_data if prefix_ids is None else
                             [section for section in sections_data
@@ -247,6 +249,7 @@ def _mastery_validation_check(context: ValidationContext):
     return validate_mastery_evidence(
         os.path.abspath(context.tome_path), context.manifest, context.sections,
         build_plan=context.build_plan, phase2_skeleton=context.phase2_skeleton,
+        phase2_proposal=context.phase2_proposal,
         include_variants=not context.phase2_skeleton and not bool(context.run_section))
 
 
@@ -279,12 +282,13 @@ VALIDATOR_REGISTRY = _validator_registry()
 
 def validate(tome_path, run=False, tooling=None, phase2_skeleton=False, run_section=None,
              require_proof_v1=False, build_plan=None, source_only=False,
-             build_phase=None):
+             build_phase=None, phase2_proposal=None):
     context = ValidationContext(
         tome_path=os.path.abspath(tome_path.rstrip(os.sep)), run=bool(run),
         tooling=tooling, phase2_skeleton=bool(phase2_skeleton),
         run_section=run_section, require_proof_v1=bool(require_proof_v1),
-        build_plan=build_plan, source_only=bool(source_only), build_phase=build_phase)
+        build_plan=build_plan, source_only=bool(source_only), build_phase=build_phase,
+        phase2_proposal=phase2_proposal)
     findings = VALIDATOR_REGISTRY.run(context.profile, context)
     replace_findings(findings)
     return findings
@@ -329,6 +333,9 @@ def main():
     ap.add_argument("--phase-2-skeleton", action="store_true",
                     help="Phase 2 warm-context mode: validate the complete one-placeholder-lesson "
                          "skeleton without Phase 3 density/prose checks or TODO warnings")
+    ap.add_argument(
+        "--phase-2-proposal", metavar="PATH", default=None,
+        help="deterministic compact-spec preview used by the Phase-2 author self-check")
     ap.add_argument("--require-proof-v1", action="store_true",
                     help="harness-owned future-tome gate: proofVersion = 1 cannot be removed")
     ap.add_argument("--build-plan", metavar="PATH", default=None,
@@ -343,6 +350,8 @@ def main():
         ap.error("--phase-only requires --build-phase")
     if args.phase_only and args.strict:
         ap.error("--phase-only and --strict are mutually exclusive; strict shipping reports all warnings")
+    if args.phase_2_proposal and not args.phase_2_skeleton:
+        ap.error("--phase-2-proposal requires --phase-2-skeleton")
     if args.source_only and (not args.run or not args.run_section):
         ap.error("--source-only requires executable --run-section validation")
 
@@ -359,7 +368,9 @@ def main():
         args.tome, run=args.run, tooling=args.tooling,
         phase2_skeleton=args.phase_2_skeleton, run_section=args.run_section,
         require_proof_v1=args.require_proof_v1, build_plan=args.build_plan,
-        source_only=args.source_only, build_phase=args.build_phase)
+        source_only=args.source_only, build_phase=args.build_phase,
+        phase2_proposal=(os.path.abspath(args.phase_2_proposal)
+                         if args.phase_2_proposal else None))
     errors = sum(1 for finding in findings if finding.severity is Severity.ERROR)
     suppressed = sum(1 for finding in findings
                      if args.phase_only and finding.severity is Severity.WARNING)

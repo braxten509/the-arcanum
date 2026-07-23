@@ -498,6 +498,9 @@ def exercise_phase1_refreshes_machine_contract():
     assert "**Pacing/depth separation:**" in reset
     assert "**Prerequisite topology rule:**" in reset
     assert "**Transitive prerequisite closure rule:**" in reset
+    assert "a cross-family prerequisite requires an earlier lesson" in reset
+    assert "comes first in the Phase-2 ordered introduction list" in reset
+    assert "This decides mechanism identity, not lesson-family count" in reset
     assert "**Observable-interaction closure rule:**" in reset
     assert "**Capability honesty rule:**" in reset
     assert "**Foundation cadence rule:**" in reset

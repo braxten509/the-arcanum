@@ -43,8 +43,11 @@ def _lab_problems(node: dict, performance, label: str) -> list[str]:
         problems.append(f"{label}.cognitiveTasks must be a non-empty array")
     elif any(item not in COGNITIVE_TASKS for item in tasks):
         problems.append(f"{label}.cognitiveTasks contains an unsupported task")
-    checks = set((node.get("doneWhen") or {}).get("checks") or ())
-    if checks != LAB_CHECKS:
+    done_when = node.get("doneWhen")
+    raw_checks = done_when.get("checks") if isinstance(done_when, dict) else None
+    checks = (set(raw_checks) if isinstance(raw_checks, list)
+              and all(isinstance(item, str) for item in raw_checks) else None)
+    if checks is not None and checks != LAB_CHECKS:
         problems.append(f"{label}.doneWhen.checks must be exactly {sorted(LAB_CHECKS)}")
     dependencies = node.get("validationDependencies")
     if not isinstance(dependencies, list) or any(not isinstance(item, str) for item in dependencies):

@@ -1,0 +1,73 @@
+version = 1
+capabilities = ["project", "build", "run", "assessment"]
+
+language = "NASM x86-64 Assembly on Linux (System V AMD64 ABI)"
+entryFile = "src/pong.asm"
+projectFile = "Makefile"
+newFileExt = ".asm"
+editorLang = "nasm"
+runLabel = "make build && ./build/paddle-vector"
+
+# The runtime supplies process orchestration only. The learner authors the
+# source tree, Make rules, checks, documentation, and resulting executable.
+command = ["bash", "-lc", "set -eu; src=\"$1\"; scratch=\"$(mktemp -d)\"; trap 'rm -rf -- \"$scratch\"' EXIT; nasm -f elf64 -g -F dwarf -o \"$scratch/example.o\" \"$src\"; gcc -no-pie -Wl,--build-id=none -o \"$scratch/example\" \"$scratch/example.o\" $(pkg-config --cflags --libs sdl2); \"$scratch/example\"", "_", "{file}"]
+runCommand = ["bash", "-lc", "set -eu; make -s build; exec ./build/paddle-vector \"$@\"", "_"]
+commandTargetTools = ["make"]
+
+checkCommand = ["nasm", "-f", "elf64", "-g", "-F", "dwarf", "-o", "/dev/null", "{file}"]
+diagRegex = '^(?P<file>[^:]+):(?P<line>\d+): (?P<sev>error|warning): (?P<msg>.*)$'
+snippetEntry = '^\s*global\s+(?:_start|main)'
+diagIgnore = ["not defined", "changed during code generation"]
+starterCode = ""
+codeExt = [".asm"]
+
+[syntax]
+lineComment = ";"
+strings = ["\"", "'"]
+keywords = [
+  "section", "global", "extern", "default", "rel", "db", "dw", "dd", "dq",
+  "equ", "resb", "resw", "resd", "resq", "byte", "word", "dword", "qword",
+  "mov", "lea", "add", "sub", "imul", "idiv", "inc", "dec", "xor", "and", "or",
+  "cmp", "test", "jmp", "je", "jne", "jg", "jge", "jl", "jle", "ja", "jae",
+  "jb", "jbe", "call", "ret", "push", "pop",
+]
+types = [
+  "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp",
+  "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
+  "eax", "ebx", "ecx", "edx", "esi", "edi", "ebp", "esp",
+]
+
+[completions]
+keywords = [
+  "section", "global", "extern", "default", "rel", "db", "dw", "dd", "dq",
+  "equ", "resb", "resw", "resd", "resq", "mov", "lea", "add", "sub", "imul",
+  "xor", "and", "or", "cmp", "test", "jmp", "je", "jne", "jg", "jge", "jl",
+  "jle", "ja", "jae", "jb", "jbe", "call", "ret", "push", "pop", "rax", "rbx",
+  "rcx", "rdx", "rsi", "rdi", "rbp", "rsp", "r8", "r9", "r10", "r11", "r12",
+  "r13", "r14", "r15", "eax", "ebx", "ecx", "edx", "esi", "edi", "ebp", "esp",
+]
+snippets = [
+  ["section", "section directive", "section .${1:text}"],
+  ["main", "System V main entry", "global main\nsection .text\nmain:\n    xor eax, eax\n    ret"],
+  ["extern", "external C symbol", "extern ${1:SDL_Init}"],
+  ["data", "initialized integer", "section .data\n${1:name}: dd ${2:0}"],
+  ["reserve", "reserved storage", "section .bss\n${1:name}: resd ${2:1}"],
+  ["move", "move value", "mov ${1:dest}, ${2:src}"],
+  ["compare", "compare and branch", "cmp ${1:left}, ${2:right}\n    je ${3:label}"],
+  ["call", "external or local call", "call ${1:procedure}"],
+  ["procedure", "procedure label", "${1:procedure}:\n    $0\n    ret"],
+  ["loop", "back-edge loop", "${1:loop}:\n    $0\n    jmp ${1:loop}"],
+]
+types = []
+classRegex = '^\\s*([A-Za-z_.$?][A-Za-z0-9_.$?#@~]*)\\s*:\\s*\\n([\\s\\S]*?)(?=^\\S|\\z)'
+methodRegex = '^\\s*([A-Za-z_.$?][A-Za-z0-9_.$?#@~]*)\\s*:'
+ctorRegex = '^([A-Za-z_.$?][A-Za-z0-9_.$?#@~]*)$'
+
+[completions.members]
+
+[completions.returns]
+
+[assessmentCommands]
+build = ["make", "build"]
+check = ["make", "check"]
+test = ["make", "check"]

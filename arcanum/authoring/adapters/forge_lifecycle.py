@@ -1,5 +1,6 @@
 """Interactive single-author tome build lifecycle."""
 import json
+import math
 import os
 import re
 import shutil
@@ -89,14 +90,21 @@ def _validator(body):
     return validator
 
 
-def _section_cost_limit(body):
+def _section_cost_limit(body, default=2.0):
+    raw = body["sectionCostLimitUsd"] if "sectionCostLimitUsd" in body else default
+    if raw is None or (
+            isinstance(raw, str)
+            and raw.strip().lower() in {"unlimited", "no-limit", "no limit", "none"}):
+        return None
     try:
-        value = float(body.get("sectionCostLimitUsd", 2.0))
+        value = float(raw)
     except (TypeError, ValueError):
-        raise ValueError("section hard stop must be a dollar amount") from None
-    if not 1.0 <= value <= 10.0:
-        raise ValueError("section hard stop must be between $1 and $10")
-    return round(value * 2) / 2
+        raise ValueError(
+            "section hard stop must be a dollar amount or unlimited") from None
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(
+            "section hard stop must be greater than $0 or unlimited")
+    return value
 
 
 def _agent_spec(agent):
@@ -204,9 +212,11 @@ def resume_build(h, body, services):
         subprocess.check_call([sys.executable, os.path.join(ROOT, "tools", "new_tome.py"), tid,
                                "--sections", "2"])
         phase = 1
+    previous_launch = _load_launch(rid, tid)
     try:
         authors, validator, reviewer = _authors(body), _validator(body), _reviewer(body)
-        section_cost_limit = _section_cost_limit(body)
+        section_cost_limit = _section_cost_limit(
+            body, previous_launch.get("sectionCostLimitUsd", 2.0))
     except ValueError as exc:
         return h.send_json({"ok": False, "error": str(exc)}, 400)
     author = _phase_author(authors, phase)

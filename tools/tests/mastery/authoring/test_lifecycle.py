@@ -72,6 +72,7 @@ try:
             plan_text = plan_path.read_text(encoding="utf-8")
             assert f"- **Mastery (1-5):** {level}" in plan_text
             assert "- **Mastery evidence contract:** 1" in plan_text
+            assert "- **Language practice contract:** 1" in plan_text
 
             contract, map_sections = future_map(level)
             assert validate_map_contract(contract, map_sections) == []

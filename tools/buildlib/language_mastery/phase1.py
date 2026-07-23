@@ -12,6 +12,7 @@ from .foundations import contract_version as foundation_contract_version
 from .foundations import coverage as foundation_coverage
 from .foundations import phase1_problems as foundation_phase1_problems
 from .foundations import required_by_plan as foundations_required
+from .practice import practice_allocations
 from .shared import (CONTRACT_VERSION, LANGUAGE_CAPABILITY, _field, _gate_int,
                      _performance_rule_problems, capability_spine, performance_specs,
                      required_by_plan)
@@ -100,6 +101,9 @@ def phase1_contract_problems(text, body, section_ids, section_promises=None):
     problems.extend(foundation_phase1_problems(text, body, level, capabilities))
     problems.extend(_phase1_cadence_problems(
         text, body, level, capabilities, section_promises or []))
+    _allocations, allocation_problems = practice_allocations(
+        text, section_ids, capabilities)
+    problems.extend(allocation_problems)
     records, parse_problems = performance_specs(body)
     problems.extend(parse_problems)
     if not parse_problems:

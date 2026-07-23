@@ -20,6 +20,10 @@ from tools.buildlib.single_author.gate import context  # noqa: E402
 from tools.buildlib.continuity import handoff_path  # noqa: E402
 from tools.buildlib.course_map import load_course_map  # noqa: E402
 from tools.buildlib.phase2_research import ledger_path  # noqa: E402
+from tools.buildlib.section_quality_contract import (  # noqa: E402
+    section_quality_contract_packet,
+    section_quality_settings,
+)
 
 
 MAX_PACKET_CHARS = 180_000
@@ -40,6 +44,7 @@ def _read(relative):
 
 def render(build_id, sid):
     ctx = context(build_id)
+    quality_settings = section_quality_settings(os.path.join(REPO, ".tome-build"), build_id)
     course = load_course_map(build_id)
     sections = course.get("sections") or []
     section = next((item for item in sections if item.get("id") == sid), None)
@@ -72,6 +77,9 @@ def render(build_id, sid):
         "languageMastery": course.get("languageMastery"),
         "relatedPlannedObligations": related_obligations,
         "acceptanceScenarios": course.get("acceptanceScenarios") or [],
+        # This is the exact stable policy the Validator AI receives. Keeping it in
+        # the bounded author packet prevents author/validator prompt drift.
+        "sectionQualityContract": section_quality_contract_packet(**quality_settings),
         "phase2Research": _read(os.path.relpath(ledger_path(build_id), REPO)),
         "workflowSources": [
             _read("tome-workflow/phase-3-sections.md"),

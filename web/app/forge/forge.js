@@ -95,7 +95,7 @@ function showForgeModal(resume) {
       <div class="forge-field">${fieldHead("LANGUAGE MASTERY", "How independently and broadly the learner can use the declared implementation language at the end. The project is the cumulative practice and proof vehicle, not the mastery target.")}<div class="forge-depth"><input id="fg-mastery" type="range" min="1" max="5" value="3" aria-label="Language mastery" aria-describedby="fg-mastery-summary"><span id="fg-mastery-val" class="forge-depth-val num">3</span></div><p class="forge-dial-summary" id="fg-mastery-summary" aria-live="polite" aria-atomic="true"></p></div>
       <div class="forge-field">${fieldHead("LESSON DEPTH", "How far each included mechanism is explained and debugged. Language Mastery enforces a minimum floor.")}<div class="forge-depth"><input id="fg-depth" type="range" min="1" max="10" value="7" aria-label="Lesson depth" aria-describedby="fg-depth-summary"><span id="fg-depth-val" class="forge-depth-val num">7</span></div><p class="forge-dial-summary" id="fg-depth-summary"></p></div>
       <div class="forge-field">${fieldHead("PROJECT SCOPE", "How large, complete, and polished the finished project should be. It does not reduce language coverage.")}<div class="forge-depth"><input id="fg-project-scope" type="range" min="1" max="5" value="3" aria-label="Project scope" aria-describedby="fg-project-scope-summary"><span id="fg-project-scope-val" class="forge-depth-val num">3</span></div><p class="forge-dial-summary" id="fg-project-scope-summary" aria-live="polite"></p></div>
-      <div class="forge-field">${fieldHead("SECTION HARD STOP", "Pause before another paid Phase 3 repair once a Codex-authored section reaches this API-equivalent cost. Claude-authored sections receive twice this allowance.")}<div class="forge-depth"><input id="fg-section-cost-limit" type="range" min="1" max="10" step="0.5" value="2" aria-label="Phase 3 section hard stop"><span id="fg-section-cost-limit-val" class="forge-depth-val num">$2</span></div><p class="forge-dial-summary">Per section · Claude limit is 2×</p></div>
+      <div class="forge-field">${fieldHead("SECTION HARD STOP", "Pause before another paid Phase 3 repair once a Codex-authored section reaches this API-equivalent cost. Move the slider fully right to disable the cap. Claude-authored sections receive twice the numeric allowance.")}<div class="forge-depth"><input id="fg-section-cost-limit" type="range" min="1" max="10.5" step="0.5" value="2" aria-label="Phase 3 section hard stop" aria-describedby="fg-section-cost-limit-summary"><span id="fg-section-cost-limit-val" class="forge-depth-val forge-cost-depth-val num">$2</span></div><p class="forge-dial-summary" id="fg-section-cost-limit-summary">Per section · Rightmost is no limit · Claude numeric limit is 2×</p></div>
     </div>
     ${resumeField}
     <div class="forge-field forge-author-field">${fieldHead("PHASE AUTHORS", "Choose Claude CLI or Codex CLI. Phase 1 and 2 may share one planning session. From Phase 3 onward, every clean phase or section starts a fresh unit session, while validator failures return to the current unit's warm repair session.")}
@@ -161,10 +161,20 @@ function showForgeModal(resume) {
     input.oninput = () => { value.textContent = input.value; paintRange(input); };
   }
   const sectionCostLimit = $("#fg-section-cost-limit", root);
-  sectionCostLimit.value = String(resume?.sectionCostLimitUsd
-    || localStorage.getItem("binderySectionCostLimitUsd") || "2");
+  const hasResumeCostLimit = Boolean(resume)
+    && Object.prototype.hasOwnProperty.call(resume, "sectionCostLimitUsd");
+  const savedCostLimit = localStorage.getItem("binderySectionCostLimitUsd");
+  const initialCostLimit = hasResumeCostLimit ? resume.sectionCostLimitUsd : savedCostLimit;
+  const numericCostLimit = Number(initialCostLimit);
+  sectionCostLimit.value = initialCostLimit === null || initialCostLimit === "unlimited"
+    ? sectionCostLimit.max
+    : Number.isFinite(numericCostLimit) && numericCostLimit >= 1 && numericCostLimit <= 10
+      ? String(numericCostLimit) : "2";
   sectionCostLimit.oninput = () => {
-    $("#fg-section-cost-limit-val", root).textContent = `$${Number(sectionCostLimit.value).toFixed(1).replace(/\.0$/, "")}`;
+    const unlimited = Number(sectionCostLimit.value) >= Number(sectionCostLimit.max);
+    $("#fg-section-cost-limit-val", root).textContent = unlimited
+      ? "NO LIMIT"
+      : `$${Number(sectionCostLimit.value).toFixed(1).replace(/\.0$/, "")}`;
     paintRange(sectionCostLimit);
   };
   sectionCostLimit.dispatchEvent(new Event("input"));
@@ -367,11 +377,17 @@ function showForgeModal(resume) {
         picker.effort.value = saved.effort;
     }
     const storedValidator = JSON.parse(localStorage.getItem("binderyValidator") || "null");
-    const lunaProvider = validatorProviders.find((item) => item.kind === "codex-cli"
-      && (item.models || []).some((row) => row[0] === "gpt-5.6-luna"));
-    const recommendedValidator = lunaProvider
-      ? { kind: "codex-cli", model: "gpt-5.6-luna", effort: "medium" } : null;
-    const savedValidator = resume?.validator || storedValidator || recommendedValidator
+    const solProvider = validatorProviders.find((item) => item.kind === "codex-cli"
+      && (item.models || []).some((row) => row[0] === "gpt-5.6-sol"));
+    const recommendedValidator = solProvider
+      ? { kind: "codex-cli", model: "gpt-5.6-sol", effort: "high" } : null;
+    const priorValidator = resume?.validator || storedValidator;
+    // Luna@medium was the old automatic default, not a reviewer-qualified choice. Migrate
+    // that exact legacy default while preserving deliberate custom model/effort selections.
+    const legacyLunaDefault = priorValidator?.kind === "codex-cli"
+      && priorValidator.model === "gpt-5.6-luna"
+      && priorValidator.effort === "medium";
+    const savedValidator = (!legacyLunaDefault && priorValidator) || recommendedValidator
       || savedAuthors?.phase37 || legacySaved;
     const validatorMatch = findProvider(savedValidator, validatorProviders);
     if (validatorMatch) validatorProv.value = validatorMatch.id;
@@ -408,8 +424,11 @@ function showForgeModal(resume) {
         ...(picker.effort.value ? { effort: picker.effort.value } : {}) }];
     }));
     const author = authors.phase12;
-    const sectionCostLimitUsd = Number(sectionCostLimit.value);
-    localStorage.setItem("binderySectionCostLimitUsd", String(sectionCostLimitUsd));
+    const sectionCostLimitUsd = Number(sectionCostLimit.value) >= Number(sectionCostLimit.max)
+      ? null : Number(sectionCostLimit.value);
+    localStorage.setItem(
+      "binderySectionCostLimitUsd",
+      sectionCostLimitUsd === null ? "unlimited" : String(sectionCostLimitUsd));
     localStorage.setItem("binderyAuthors", JSON.stringify(authors));
     localStorage.setItem("binderyAuthor", JSON.stringify(author));
     const validatorProvider = providers.find((item) => item.id === validatorProv.value);

@@ -17,9 +17,10 @@ from arcanum.ai.events import step_tokens_from_line
 from arcanum.authoring.adapters import validator_live
 from ..course.alignment import actual_lesson_id
 from ..course_map import load_course_map
+from ..section_quality_contract import pacing_contract, section_quality_settings
 from ..validator_policy import (ValidatorOutput, extract_json, readable_guidance,
                                 readable_outcome, readable_reasons)
-from .prompt import DYNAMIC_MARKER, pacing_contract, prerequisite_prompt as _prompt
+from .prompt import DYNAMIC_MARKER, prerequisite_prompt as _prompt
 from . import records as _records
 from .result import validate_detailed as _validate_detailed
 from . import transport
@@ -36,6 +37,9 @@ MAX_SECTION_PACKET_CHARS = 200_000
 # Idle means no CPU anywhere in the tree and no established provider connection, so this
 # is not a patience budget: a thinking model and a running tool both keep the clock at 0.
 STALL_SECONDS = float(os.environ.get("ARCANUM_STALL_SECONDS", "10"))
+# Short provider throttles should not strand a mechanically clean unit. These retries stay
+# bounded so an account/session quota still returns control to the operator promptly.
+TRANSIENT_VALIDATOR_RETRY_DELAYS = (2.0, 8.0, 20.0)
 
 
 def result_path(build_id, sid):
@@ -73,22 +77,11 @@ def _write(path, value):
 
 def _configuration(build_id):
     launch = _read(os.path.join(BUILD_DIR, f"{build_id}.launch.json"), {}) or {}
-    gate = launch.get("gate") or {}
-    try:
-        start = int(gate.get("prior_level") or 0)
-    except (TypeError, ValueError):
-        start = 0
-    try:
-        depth = int(gate.get("depth") or 0)
-    except (TypeError, ValueError):
-        depth = 0
-    try:
-        mastery = int(gate.get("mastery") or 0)
-    except (TypeError, ValueError):
-        mastery = 0
+    settings = section_quality_settings(BUILD_DIR, build_id)
     bindery = launch.get("bindery") or {}
     validator = launch.get("validator") or bindery.get("validator") or {}
-    return start, validator, str(gate.get("prior_knowledge") or ""), depth, mastery
+    return (settings["start"], validator, settings["prior"], settings["depth"],
+            settings["mastery"])
 
 
 def _context(build_id):
@@ -192,6 +185,60 @@ def _live_tick(build_id, label, started):
     return tick
 
 
+def _cli_failure_detail(output):
+    """Recover the provider's useful failure text from a structured CLI stream."""
+    messages = []
+    for line in str(output or "").splitlines():
+        try:
+            row = json.loads(line)
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(row, dict):
+            continue
+        values = []
+        if row.get("type") == "error":
+            values.append(row.get("message"))
+        error = row.get("error")
+        if isinstance(error, dict):
+            values.append(error.get("message"))
+        elif isinstance(error, str):
+            values.append(error)
+        payload = row.get("payload")
+        if isinstance(payload, dict):
+            error = payload.get("error")
+            if isinstance(error, dict):
+                values.append(error.get("message"))
+            elif isinstance(error, str):
+                values.append(error)
+        for value in values:
+            text = re.sub(r"\s+", " ", str(value or "")).strip()
+            if text and text not in messages:
+                messages.append(text)
+    if messages:
+        return messages[-1][:1200]
+    # Some CLIs still fail with plain stderr. Preserve a bounded tail instead of
+    # collapsing every provider/auth/quota error to an unactionable exit code.
+    tail = [re.sub(r"\s+", " ", line).strip()
+            for line in str(output or "").splitlines() if line.strip()]
+    return " | ".join(tail[-4:])[-1200:]
+
+
+def _transient_cli_failure(detail):
+    """Distinguish short provider throttles from quotas that require operator action."""
+    normalized = re.sub(r"\s+", " ", str(detail or "")).strip().lower()
+    if not normalized:
+        return False
+    if any(marker in normalized for marker in (
+            "usage limit", "session limit", "weekly limit", "monthly limit",
+            "billing limit", "credit balance", "resets at", "resets ")):
+        return False
+    return any(marker in normalized for marker in (
+        "rate_limit", "rate limit", "too many requests", "http 429", "status 429",
+        "resource_exhausted", "resource exhausted", "temporarily unavailable",
+        "server overloaded", "overloaded_error", "capacity temporarily",
+    ))
+
+
 def _cli_adapter(prompt, validator, live=None):
     spec = f"{validator['kind']}:{validator['model']}" + (
         f"@{validator['effort']}" if validator.get("effort") else "")
@@ -201,7 +248,14 @@ def _cli_adapter(prompt, validator, live=None):
         position = command.index("-") if "-" in command else len(command)
         command[position:position] = ["--json"]
     elif kind == "claude-cli":
-        command += ["--output-format", "stream-json", "--verbose"]
+        command += ["--safe-mode", "--output-format", "stream-json", "--verbose"]
+        # Claude's ordinary author runner accepts the prompt as argv. A complete
+        # section-audit packet can exceed Linux/bwrap's per-argument limit, while
+        # print mode supports the same text over stdin without changing semantics.
+        # Safe mode also disables user hooks and memory customizations: a read-only
+        # validator must return after its report instead of entering an unrelated
+        # repository stop-hook loop.
+        input_mode = "stdin"
     elif kind == "opencode-cli":
         position = command.index("run") + 1
         command[position:position] = ["--format", "json"]
@@ -210,20 +264,34 @@ def _cli_adapter(prompt, validator, live=None):
     wrapped = scoped_runner_command(display, command, REPO, [], REPO)
     build_id, label = live if live else ("", "")
     try:
-        returncode, stdout, stalled = run_watched(
-            wrapped, cwd=REPO, stdin_text=prompt if input_mode == "stdin" else None,
-            seconds=STALL_SECONDS, timeout=900,
-            on_tick=_live_tick(build_id, label, time.time()) if build_id else None)
+        for attempt in range(len(TRANSIENT_VALIDATOR_RETRY_DELAYS) + 1):
+            returncode, stdout, stalled = run_watched(
+                wrapped, cwd=REPO, stdin_text=prompt if input_mode == "stdin" else None,
+                seconds=STALL_SECONDS, timeout=900,
+                on_tick=_live_tick(build_id, label, time.time()) if build_id else None)
+            # A stall that arrives after readable output is the CLI failing to exit, not failing
+            # to answer. Keep that output; only an empty stall is an infrastructure failure.
+            if stalled and not stdout.strip():
+                raise StalledProcess(STALL_SECONDS)
+            if returncode and not stalled:
+                detail = _cli_failure_detail(stdout)
+                if (_transient_cli_failure(detail)
+                        and attempt < len(TRANSIENT_VALIDATOR_RETRY_DELAYS)):
+                    delay = TRANSIENT_VALIDATOR_RETRY_DELAYS[attempt]
+                    print(
+                        f"AI VALIDATOR TRANSIENT RETRY {attempt + 1}/"
+                        f"{len(TRANSIENT_VALIDATOR_RETRY_DELAYS)} in {delay:g}s › "
+                        f"{detail[:240]}", flush=True)
+                    time.sleep(delay)
+                    continue
+                raise RuntimeError(
+                    f"validator process exited {returncode}"
+                    + (f": {detail}" if detail else ""))
+            break
     finally:
         # The row describes a call in flight; every exit path must retire it.
         if build_id:
             validator_live.clear(BUILD_DIR, build_id)
-    # A stall that arrives after readable output is the CLI failing to exit, not failing
-    # to answer. Keep that output; only an empty stall is an infrastructure failure.
-    if stalled and not stdout.strip():
-        raise StalledProcess(STALL_SECONDS)
-    if returncode and not stalled:
-        raise RuntimeError(f"validator process exited {returncode}")
     answers, usage, session_id = [], None, ""
     for line in stdout.splitlines():
         answer = assistant_text(line)
@@ -290,6 +358,14 @@ def _invoke(prompt, validator, adapter, live=None):
         prompt, validator, adapter=adapter, live=live, plain_text=True)
 
 
+def section_policy_fingerprint(start, prior, depth, mastery):
+    """Invalidate cached judgments whenever shared or role-specific prompt policy changes."""
+    stable = _prompt("", "", [], prior, start, depth, mastery).split(
+        DYNAMIC_MARKER, 1)[0]
+    material = f"{AUDIT_CONTRACT_VERSION}\n{stable}"
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
 def _classify_output(raw, sources, sid, known_mechanisms):
     parsed, errors = _validate_detailed(raw, sources, sid, known_mechanisms)
     text = (raw.strip() if isinstance(raw, str)
@@ -348,6 +424,7 @@ def review_prerequisites(build_id, sid, *, adapter=None):
                f"language mastery {mastery or 'unrecorded'}/5")
     fingerprint_input = json.dumps({
         "contract": AUDIT_CONTRACT_VERSION, "packet": packet,
+        "policyFingerprint": section_policy_fingerprint(start, prior, depth, mastery),
         "validator": {key: validator.get(key) for key in ("kind", "model", "effort")},
     }, ensure_ascii=False, sort_keys=True)
     fingerprint = hashlib.sha256(fingerprint_input.encode("utf-8")).hexdigest()

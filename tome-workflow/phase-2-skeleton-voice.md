@@ -27,9 +27,78 @@ progression and grading thresholds; a tome cannot override them.
 Begin with `python3 tools/workflow/context/render_phase2_context.py BUILD_ID`. It prints the sealed lesson
 spine and the small author-spec files for this build. Edit only those compact files, the research
 ledger, tome skeleton, and any required reusable runtime; do not hand-maintain or repeatedly read
-the generated `course-map.proposal.json`. The exact Phase-2 self-check first runs
-`python3 tools/workflow/materialize_phase2_map.py BUILD_ID`, which deterministically combines the
-sealed seed with the author spec.
+the generated `course-map.proposal.json`. Run the exact assigned preview materializer and mechanical
+validator whenever useful and always after the unit is complete; repair and rerun until both exit
+0. After handoff, the harness independently repeats those same checks, publishes the protected
+proposal from the sealed seed and author spec, and then starts the Validator AI.
+In the compact `course.json`, `languageMastery` contains only the seeded performance IDs and
+their Phase-2-owned `capabilityIds`; every other language-mastery field remains sealed in the seed.
+
+The manifest `[acceptance]` table describes executable proof; it does not repeat the sealed
+delivery record. Its `mode` is `run` or `guided`, and its `artifact` is the discriminator `runtime`
+or `package`. A package-delivery course therefore uses `mode = "run"` and
+`artifact = "package"`. Keep the exact delivery artifact and requirements paths in the sealed
+`artifactContract.delivery` record and the final section's package proof. Never put
+`mode = "package"`, a file path, `requirements`, or a nested `sealedDelivery` table under
+`[acceptance]`.
+
+The bounded packet also names `audit.json`. This language-neutral sidecar is mandatory author
+work, not prose documentation. New runs use version 2 and give it exactly `version`,
+`mechanisms`, `capabilityCoverage`, `continuityCoverage`, `failurePaths`, and
+`artifactProduction`. Version 1 remains
+readable only so an already-running Phase 2 is not invalidated underneath its author:
+
+- `mechanisms` contains exactly one row for every mechanism in `mechanisms.json`, using
+  `{"id":"...","family":"...","dependsOn":["..."],"productionDependsOn":["..."]}`.
+  `family` groups only one coherent
+  pedagogical concept or operation family at the lesson level; it is not a one-row-per-verb or
+  one-row-per-state-transition category. Concrete mechanisms may share a family when they form one
+  teach-practice-observe loop—for example a decision and its displayed result, an action and its
+  verification, a deliberately triggered failure and observation of that failure path, or a guided
+  change and its evidence. Do not merge independently teachable foundations merely to meet a
+  density limit. `dependsOn` names every concrete prerequisite
+  mechanism needed by the smallest meaningful example. A same-lesson dependency is valid only
+  within that one family and only when the prerequisite occurs first in the lesson's ordered
+  `introduces` list; a cross-family prerequisite needs an earlier lesson. Working demand lists
+  must be transitively closed over those edges. `productionDependsOn` is the narrower subset of
+  those prerequisites whose concrete operations are required to create an artifact containing or
+  implementing this mechanism. It must never invent an edge outside `dependsOn` closure.
+- `capabilityCoverage` contains exactly one row per taught capability, using
+  `{"capability":"...","mechanisms":["..."]}`. Name every concrete semantic component of that
+  capability. The gate rejects a capability claimed before any named component mechanism's lesson
+  owner, including an umbrella capability whose final component is introduced in the same lesson
+  after its prerequisites.
+- `continuityCoverage` contains exactly one row per planned obligation, using
+  `{"obligation":"...","mechanisms":["..."]}`. Name the concrete operations that the target
+  Working must retain for that obligation. The gate rejects a target Working that drops any named
+  mechanism, so a final delivery cannot silently lose an earlier diagnostic, cleanup, integration,
+  verification, or other sealed continuity contract.
+- `failurePaths` uses
+  `{"id":"...","status":["..."],"branches":["..."],"diagnostics":["..."],"cleanup":["..."]}`
+  for each planned failure route. A branch must depend on the observed status and must not depend
+  on its later diagnostic or cleanup. Diagnostics depend on a status observation. When the route
+  owns resources, cleanup depends on the failure branch; `cleanup` may be empty only when no
+  cleanup operation is truthfully required. These roles are language-neutral lifecycle
+  responsibilities.
+- `artifactProduction` contains exactly one row for every sealed artifact, using
+  `{"artifact":"...","ownerWorking":"sNN.working","mode":"authored|generated|copied|packaged","inputs":["..."],"mechanisms":["..."]}`.
+  `authored` begins without artifact inputs. `generated` may have zero artifact inputs when a tool
+  truthfully creates the artifact from parameters or a non-artifact template. `copied` and
+  `packaged` each name at least one earlier or same-Working artifact input. Every mode's mechanism
+  list must name the concrete operations that actually create that artifact, not a nearby broad
+  capability, and must be transitively closed over those mechanisms' `productionDependsOn` edges.
+
+When tooling is external or both, the first section must teach `tool-install` and the observable
+`tool-diagnose` verification before the first lesson that teaches `tool-edit-save`. The gate checks
+this from the language-neutral capability owners rather than recognizing a compiler, framework,
+package manager, or file extension.
+
+This is language agnostic: families describe responsibilities such as a source layout, build
+pipeline, resource lifecycle, deterministic control, or delivery transition. They never assume a
+particular keyword, compiler, package manager, framework, or file extension. The Validator AI
+checks semantic honesty, while the materializer mechanically rejects missing rows, unknown edges,
+cycles, late prerequisites, non-closed Working demands, false artifact ownership, and lesson-family
+density beyond the selected Starting level.
 
 For external tooling, research only facts that affect current installation, commands, APIs,
 compatibility, or delivery. Record at most six official or primary sources in the bounded research
@@ -69,9 +138,10 @@ not a synonym for the capability.
 
 Compute transitive prerequisite closure, not only the visible demand list. For each mechanism, ask
 what its smallest meaningful example must contain or invoke. Every unlisted syntax form, API, tool
-action, data-format rule, or technical term in that example needs an earlier owner; at Start 1–3,
-a same-section prerequisite counts only from an earlier lesson. A dependent construct cannot be
-used as the vehicle that supposedly teaches its own prerequisite. For an API, trace how its inputs
+action, data-format rule, or technical term in that example needs an earlier owner. At Start 1–3,
+a same-lesson prerequisite counts only when it shares the lesson's coherent family and comes first
+in the ordered `introduces` list; a cross-family prerequisite needs an earlier lesson. A dependent
+construct cannot be used as the vehicle that supposedly teaches its own prerequisite. For an API, trace how its inputs
 and resources are created, obtained, and released. Apply observable-interaction closure to every
 section promise, Working, acceptance path, and control: list the concrete operations needed to
 obtain and inspect input, produce output, advance time, make nondeterministic choices, persist
@@ -83,7 +153,10 @@ actions. Do not invent a library- or project-specific mechanism label for genera
 and then introduce the real syntax later.
 
 - lesson nodes use sequential `sNN.lNN` IDs, name what they teach, and carry a non-empty typed
-  `doneWhen.checks` packet. Except for `s01.l01`, every lesson names prerequisite evidence;
+  `doneWhen.checks` packet. `doneWhen` is always a JSON object, never a bare array. Use exactly
+  `"doneWhen": {"checks": ["learner-construction", "lesson-source"]}` for lessons and
+  `"doneWhen": {"checks": ["learner-construction", "working-replay"]}` for Workings; mastery
+  labs use the exact object shown below. Except for `s01.l01`, every lesson names prerequisite evidence;
   each later lesson in a section depends on the immediately previous lesson, and each later
   section starts from an earlier Working;
 - lesson-node granularity obeys the plan's exact `Lesson pacing` line. Start 1 assigns one
@@ -91,8 +164,10 @@ and then introduce the real syntax later.
   related support; Start 3 may group multiple closely related families after prerequisites are
   secure. Do not hide density by giving one mechanism id to several independently teachable
   syntax forms, APIs, tool actions, or technical terms; split them into honest mechanism owners.
-  the Phase-1 count is authority: fit the dependency walk honestly into those named lesson slots,
-  and fail back to the sealed planning contract rather than silently changing the count;
+  The Phase-1 count is authority: fit the dependency walk honestly into those named lesson slots.
+  If no compliant Phase-2 repair can satisfy mutually incompatible sealed requirements, the
+  Validator AI must report `# CONTRACT CONFLICT`; the harness pauses without returning that
+  impossible repair to the Phase-2 author;
 - the Working uses `sNN.working`, requires only capabilities taught in this or an earlier section,
   depends on its section's final lesson, repeats the section milestone, lists every learner-owned
   artifact, and includes
@@ -132,9 +207,12 @@ and then introduce the real syntax later.
   at least two Workings, and make the final Working require the complete language spine as a
   cumulative graduation boundary; its performance mapping remains the subset exercised by its
   novel task. A framework-only extension cannot satisfy language mastery;
-- give every section a non-empty `languagePractice` list drawn from the language spine. Its
-  Working must require every listed capability, so the project continually applies the language
-  instead of relegating it to disconnected introductory snippets;
+- preserve every section's non-empty seeded `languagePractice` minimum from Phase 1. Add truthful
+  later retrieval when useful, but never remove or replace a seeded capability. Each section's
+  Working must require and materially exercise every listed capability through real language work;
+  tooling, framework, build, packaging, or story activity alone does not qualify. If a seeded
+  minimum cannot be implemented honestly without changing its sealed milestone or ownership,
+  report a contract conflict rather than manufacturing a Phase-2 owner;
 - at Finish 3–5, preserve the sealed foundation and verification cadence in actual owners, not
   merely promise wording. Every mapped foundation capability owner must be no later than the Arc
   midpoint, and the learner-authored verification owner must be no later than the section after
@@ -204,10 +282,13 @@ the transition alone seals the normalized map. It also rejects a project-complet
 language capabilities have no owner, cumulative Working practice, or structured late assessment;
 a mislabeled verification capability, flat lesson graph, or artifact-lifecycle mismatch also
 blocks the seal. These are deterministic local checks. After they pass, the harness separately
-sends the sealed Phase-1 plan, complete proposal, manifest, and selected runtime profile to the
-mandatory read-only Validator AI; repair only its cited Phase-2 findings. That review is ordinary
-Markdown whose suggested layout is optional; no response field names are required, and the author
-receives it unchanged. Phase 3 cannot begin until both gates pass and the transition seals the map.
+sends the sealed Phase-1 plan, generated proposal, compact author files, audit, research ledger,
+manifest, selected runtime profile, and the shared Phase-2 authority block to the mandatory
+read-only Validator AI; repair only its cited Phase-2 findings. That review is ordinary Markdown
+whose suggested layout is optional and no response field names are required. The author receives
+ordinary reports unchanged; a durable repeated-evidence marker or explicit contract conflict stays
+at the harness without an author turn. Phase 3 cannot begin until both gates pass and the transition
+seals the map.
 
 The learner-facing runtime scaffold contains only a blank editor file or unavoidable
 behavior-free tool metadata. Do not seed project structure, implementation, reusable subsystems,

@@ -51,9 +51,29 @@ def _shape_findings(freestyle: dict, location: str) -> list[Finding]:
     return findings
 
 
+def _final_section_id(manifest: dict, sections: list[dict]) -> str:
+    """Resolve finality from the complete manifest, not a section-scoped packet.
+
+    Phase-3 validation intentionally supplies only the authored prefix (and some
+    execution paths narrow that further to the current section).  Treating the
+    last loaded row as the course final therefore makes every partial gate demand
+    final delivery evidence.  The manifest owns the complete section order; the
+    loaded rows remain a compatibility fallback for older direct callers.
+    """
+    content = manifest.get("content") if isinstance(manifest, dict) else None
+    declared = content.get("sections") if isinstance(content, dict) else None
+    if (isinstance(declared, list) and declared
+            and all(isinstance(item, str) and item for item in declared)):
+        return declared[-1]
+    for section in reversed(sections):
+        if isinstance(section, dict) and section.get("id"):
+            return str(section["id"])
+    return ""
+
+
 def working_findings(tome_root: str, manifest: dict, sections: list[dict]) -> list[Finding]:
     findings = []
-    final_id = str(sections[-1].get("id")) if sections else ""
+    final_id = _final_section_id(manifest, sections)
     runtime = resolve_runtime_config(manifest.get("runtime") or {})
     registered = set((runtime.get("assessmentCommands") or {}).keys()) | {"run"}
     if runtime.get("buildCommand") or "build" in registered:

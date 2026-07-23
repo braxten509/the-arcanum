@@ -14,8 +14,8 @@ import urllib.request
 from .prompt import DYNAMIC_MARKER, result_schema as _result_schema
 
 
-# 10: a declared "no honest route" is an unmet demand, not deception.
-AUDIT_CONTRACT_VERSION = 11
+# 13: the full semantic authority and calibration are identical for author and validator.
+AUDIT_CONTRACT_VERSION = 13
 RESPONSES_URL = "https://api.openai.com/v1/responses"
 API_TIMEOUT_SECONDS = 900
 API_MAX_OUTPUT_TOKENS = 2_500

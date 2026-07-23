@@ -3,6 +3,8 @@ import json
 import os
 import time
 
+from arcanum.ai import NO_TOME_MEMORY_POLICY
+
 from ...workflow.prompts import LEARNER_CONSTRUCTION_INSTRUCTION
 
 
@@ -46,6 +48,8 @@ assigned unit. Phase 1 and Phase 2 may share their planning session; after that,
 a fresh session after every validated phase or Phase-3 section. The operator may pause you and
 later send guidance while your current unit session is active.
 
+{NO_TOME_MEMORY_POLICY}
+
 BUILD ID: {build_id}
 CURRENT TOME ID: {build_id} (Phase 2's transition command may rename it; follow its output.)
 CONCEPT: {concept}
@@ -58,22 +62,24 @@ guide under `tome-workflow/` plus the references it explicitly names. Files on d
 
 NON-NEGOTIABLE LEARNER CONSTRUCTION: {LEARNER_CONSTRUCTION_INSTRUCTION}
 
-Work on exactly the phase or Phase-3 section named in the final instruction. When it is authored,
-run only the exact self-check command given in that assignment once. If it reports findings, stop
-with `HARNESS_REPAIR_REQUIRED:` so the harness can aggregate and return one bounded repair packet.
-When the check exits cleanly, set that unit's progress marker to `validating` and end your turn. Do not invent
-ad-hoc substitutes, run a deterministic phase transition, or begin the next unit. The harness
-independently runs the unit's mechanical gate while you are stopped, then its mandatory Validator
-AI gate for Phase 1, Phase 2, or a Phase-3 section. It checkpoints only a fully clean unit, returns
-failures to this unit's warm repair session, and assigns clean successors to a fresh session.
+Work on exactly the phase or Phase-3 section named in the final instruction. Run only the exact
+mechanical checks listed in that assignment whenever they help and always before handoff. Repair
+and rerun them without a one-run limit until every exact command exits 0. Do not run or imitate the
+Validator AI, deterministic phase transitions, or ad-hoc substitute checks. For Phase 1, Phase 2,
+and each Phase-3 section, your unit assignment contains the exact binding semantic-authority block
+embedded in the Validator AI prompt. Apply it while drafting; role-specific read-only review and
+output-format instructions are the only intentional prompt differences. After the authoring
+work and exact mechanical checks are clean, set only that unit's progress marker to `validating`
+and end your turn. The harness independently reruns the same complete mechanical gate while you
+are stopped, then runs the mandatory Validator AI for Phase 1, Phase 2, or a Phase-3 section. It
+checkpoints only a fully clean unit, returns failures to this unit's warm repair session, and
+assigns clean successors to a fresh session.
 Preserve correct
 work already on disk and honor earlier phase contracts as immutable inputs.
 
-If the assigned self-check crashes before it can report structured `ERROR` or `WARN` findings,
-do not rerun it and do not edit repository tooling. Answer once with `HARNESS_BLOCKED:` plus the
-raw bootstrap diagnostic, then stop. The harness will independently reproduce that exact check:
-structured findings return as an ordinary repair packet, while a reproduced infrastructure crash
-pauses and retries mechanically after resume without starting another author turn.
+If an exact mechanical command cannot start or crashes before structured `ERROR`/`WARN` findings,
+report `HARNESS_BLOCKED:` once with the raw diagnostic and stop. Do not repair repository tooling.
+The harness reproduces and owns infrastructure failures without charging another author turn.
 
 Continue this checkpoint cycle until the harness ends this unit session or reaches Phase 8.
 Do not spawn another author or reviewer yourself.

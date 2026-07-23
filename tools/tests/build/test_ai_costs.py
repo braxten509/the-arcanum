@@ -288,6 +288,7 @@ with tempfile.TemporaryDirectory() as folder:
 original_runner = prerequisite_review.author_runner
 original_scope = prerequisite_review.scoped_runner_command
 original_run = prerequisite_review.run_watched
+original_retry_delays = prerequisite_review.TRANSIENT_VALIDATOR_RETRY_DELAYS
 try:
     prerequisite_review.author_runner = lambda spec, context: (
         spec, ["codex", "exec", "-"], "stdin")
@@ -307,9 +308,66 @@ try:
     assert meta["sessionId"] == "validator-session"
     assert meta["usage"]["freshInputTokens"] == 20
     assert meta["usage"]["cachedInputTokens"] == 80
+
+    prerequisite_review.run_watched = lambda command, **kwargs: (1, "\n".join((
+        '{"type":"thread.started","thread_id":"validator-session"}',
+        '{"type":"error","message":"You have hit your usage limit; retry next week."}',
+        '{"type":"turn.failed","error":{"message":'
+        '"You have hit your usage limit; retry next week."}}',
+    )), False)
+    try:
+        prerequisite_review._cli_adapter(
+            "bounded", {"kind": "codex-cli", "model": "gpt-5.6-luna",
+                        "effort": "high"})
+        raise AssertionError("a failed validator CLI must raise")
+    except RuntimeError as exc:
+        assert str(exc) == (
+            "validator process exited 1: "
+            "You have hit your usage limit; retry next week.")
+
+    transient_calls = []
+    transient_results = iter((
+        (1, '{"type":"error","message":"rate_limit"}', False),
+        (0, '\n'.join((
+            '{"type":"thread.started","thread_id":"retried-validator"}',
+            '{"type":"item.completed","item":{"type":"agent_message",'
+            '"text":"{\\"outcome\\":\\"PASS\\"}"}}',
+        )), False),
+    ))
+    prerequisite_review.TRANSIENT_VALIDATOR_RETRY_DELAYS = (0,)
+    def transient_run(command, **kwargs):
+        transient_calls.append(command)
+        return next(transient_results)
+    prerequisite_review.run_watched = transient_run
+    raw, meta = prerequisite_review._cli_adapter(
+        "bounded", {"kind": "codex-cli", "model": "gpt-5.6-luna",
+                    "effort": "high"})
+    assert raw == '{"outcome":"PASS"}'
+    assert meta["sessionId"] == "retried-validator"
+    assert len(transient_calls) == 2
+
+    captured = {}
+    prerequisite_review.author_runner = lambda spec, context: (
+        spec, ["claude", "-p", "--model", "audit"], "arg")
+    def claude_run(command, **kwargs):
+        captured["command"] = command
+        captured["stdin"] = kwargs.get("stdin_text")
+        return (0, '{"type":"assistant","message":{"content":['
+                '{"type":"text","text":"PASS"}]}}', False)
+    prerequisite_review.run_watched = claude_run
+    raw, meta = prerequisite_review._cli_adapter(
+        "large bounded packet", {"kind": "claude-cli", "model": "audit",
+                                 "effort": "medium"})
+    assert raw == "PASS"
+    assert captured["stdin"] == "large bounded packet"
+    assert "large bounded packet" not in captured["command"]
+    assert captured["command"][-4:] == [
+        "--safe-mode", "--output-format", "stream-json", "--verbose"]
+    assert meta["kind"] == "claude-cli"
 finally:
     prerequisite_review.author_runner = original_runner
     prerequisite_review.scoped_runner_command = original_scope
     prerequisite_review.run_watched = original_run
+    prerequisite_review.TRANSIENT_VALIDATOR_RETRY_DELAYS = original_retry_delays
 
 print("AI turn costs and phase/section totals: OK")

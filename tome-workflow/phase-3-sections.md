@@ -50,8 +50,8 @@ Stay in that session for the assigned section and all of its repair turns; do no
 section yourself. The first turn researches and authors every sealed lesson in one batch, then
 stops before the Working. The same session returns for one Working/assessment/handoff batch.
 Begin with the assignment's `render_section_context.py` command instead of a
-series of one-file discovery calls. Batch independent reads/searches and apply related edits as
-one coherent patch when possible. Gate each section before advancing and reopen its files from
+series of one-file discovery calls. Batch independent reads/searches and apply related edits in
+one coherent edit pass using small valid patch operations. Gate each section before advancing and reopen its files from
 disk. Repairs target only failures and never wipe the
 tree. Phase-focused gates hide later-phase warning
 details. A deferred count is informational: do not edit badges, shop, themes, economy,
@@ -77,20 +77,21 @@ future requirements or temporary retirements under `discoveries`, with a
 real later target and typed `doneWhen`; and give due fulfillments exact current-section evidence
 locations plus real capability, proof, and acceptance IDs. Do not add `complete`, `completed`, or
 `verified` fields. The final section may create no future obligation and must leave the active
-ledger empty. After authoring the assigned section and handoff, run exactly:
-`python3 tools/validate_section.py tomes/CURRENT_TOME sNN --plan .tome-build/BUILD_ID.plan.md --tooling TOOLING --source-only`.
-Read the complete report. Run it at most once per author turn; when it reports structured findings,
-answer `HARNESS_REPAIR_REQUIRED:` and stop so the harness can return one aggregate repair packet.
-This command
-owns the pre-handoff TOML, pedagogy, replay, proof-source, and continuity checks. Do not inspect
+ledger empty. After authoring the assigned section and handoff, run the assignment's exact complete
+mechanical section gate. Repair and rerun it without a one-run limit until it exits 0, then mark the
+section `validating` and stop. The harness independently repeats the TOML, pedagogy, replay,
+proof-source, continuity, and complete section gate.
+For the final section, the assignment additionally lists the whole-Phase-3 command. Run it after
+the section command; the harness repeats both mechanical gates before the Validator AI.
+It returns one aggregate repair packet to this same session when findings remain. Do not inspect
 validator source to guess at extra checks or replace it with hand-written parsing, replay,
-word-count, exercise-distribution, or schema scripts. Then mark the section `validating` and
-stop; the harness independently repeats the complete gate without `--source-only`.
+word-count, exercise-distribution, or schema scripts.
 
 Use the plan's calibration and `[narrative]` voice. Before changing a recurring type, file,
 API, asset, or workflow, search all earlier sections. Preserve canonical contracts, retire
-temporary scaffolding on schedule, and align feedback with final code. Run the active-contract
-report before each section. `write` creates only; otherwise use exact replacement or an
+temporary scaffolding on schedule, and align feedback with final code. Use the active-contract
+state in the bounded packet; the harness runs its report after handoff. `write` creates only;
+otherwise use exact replacement or an
 all-active rewrite. The gate reruns active proofs. Repair later regressions without weakening
 earlier proofs. Acceptance controls input/time/seed/frame limit but drives real behavior.
 

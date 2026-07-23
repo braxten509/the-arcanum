@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 import os
 
+from arcanum.ai import NO_TOME_MEMORY_POLICY
+
 from .. import BUILD_DIR, REPO
 from ..measure import selected_runtime_config
 from ..workflow.prompts import LEARNER_CONSTRUCTION_INSTRUCTION
@@ -39,6 +41,8 @@ def prompt(build_id, tid, repair_report=""):
     repair = (f"\n\nTHE HARNESS REJECTED THE PREVIOUS PASS:\n{repair_report[-18000:]}\n"
               if repair_report else "")
     return f"""You are the optional independent reviewer for a completed Arcanum tome.
+
+{NO_TOME_MEMORY_POLICY}
 
 THOROUGH FULL-TOME REVIEW — READ EVERYTHING — NO SAMPLING.
 

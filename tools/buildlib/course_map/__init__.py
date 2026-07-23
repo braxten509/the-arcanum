@@ -1,8 +1,9 @@
 """Sealed long-course map contract shared by the Bindery authoring gates.
 
-Phase 1 creates a section-level seed and a writable Phase-2 proposal.  Phase 2
-fills every lesson/Working node, then the harness normalizes and seals the map.
-Only this module writes the authoritative map; authors receive it read-only.
+Phase 1 creates a section-level seed, compact Phase-2 author sources, and an
+initial generated proposal. Phase 2 fills every lesson/Working node through the
+compact sources; the harness rematerializes and seals the proposal. Only the
+harness writes generated or authoritative maps; authors receive them read-only.
 """
 from __future__ import annotations
 
@@ -28,7 +29,8 @@ from .schema import (CAPABILITY_RE, ID_RE, LAB_KEYS, LAB_RE, LESSON_KEYS, LESSON
                      OBLIGATION_DONE_KEYS, OBLIGATION_KEYS, OBLIGATION_KINDS,
                      OBLIGATION_OPTIONAL_KEYS, OBLIGATION_RE, SECTION_CHECKS, SECTION_KEYS,
                      SUPPORTED_MAP_VERSIONS,
-                     TOP_KEYS, WORKING_KEYS, done_when as _done_when, keys as _keys,
+                     TOP_KEYS, WORKING_KEYS, check_set as _check_set,
+                     done_when as _done_when, keys as _keys,
                      obligation_done as _obligation_done, strings as _strings)
 from ..language_mastery.foundations import block_field
 from ..language_mastery import seed_contract as seed_language_mastery
@@ -101,9 +103,16 @@ def preview_course_map(build_id, text):
     ids = [spec.sid for spec in specs]
     counts = _lesson_counts(text, ids)
     language_contract = seed_language_mastery(text, ids)
+    from ..language_mastery import practice_allocations
+    practices, practice_problems = practice_allocations(
+        text, ids, (language_contract or {}).get("capabilityIds") or [])
+    if practice_problems:
+        raise CourseMapError("Phase 1 language practice allocation is invalid:\n- "
+                             + "\n- ".join(practice_problems))
     seed_sections = [{
         "id": spec.sid, "ordinal": index, "title": spec.title,
-        "promise": spec.promise, "capabilities": [], "languagePractice": [],
+        "promise": spec.promise, "capabilities": [],
+        "languagePractice": list(practices.get(spec.sid) or []),
         "dependsOn": [], "nodes": [],
         "projectMilestone": spec.promise,
         "doneWhen": {"checks": sorted(SECTION_CHECKS)},
@@ -212,8 +221,8 @@ def validate_course_map(value, detailed=True, seed=None):
                              allow_empty=not detailed)
         problems += _strings(section.get("dependsOn"), f"{label}.dependsOn", allow_empty=True)
         problems += _done_when(section.get("doneWhen"), f"{label}.doneWhen")
-        checks = set((section.get("doneWhen") or {}).get("checks") or [])
-        if detailed and checks != SECTION_CHECKS:
+        checks = _check_set(section.get("doneWhen"))
+        if detailed and checks is not None and checks != SECTION_CHECKS:
             problems.append(f"{label}.doneWhen.checks must be exactly {sorted(SECTION_CHECKS)}")
         graph[sid] = list(section.get("dependsOn") or [])
         nodes = section.get("nodes")
@@ -297,6 +306,9 @@ def validate_course_map(value, detailed=True, seed=None):
             problems.append(f"{label}.capabilities must exactly match its lesson teaches owners")
     if len(section_ids) != len(set(section_ids)):
         problems.append("section ids contain duplicates")
+    if detailed and isinstance(seed, dict):
+        from ..language_mastery import seeded_practice_problems
+        problems += seeded_practice_problems(seed.get("sections"), sections)
     if len(node_ids) != len(set(node_ids)):
         problems.append("node ids contain duplicates")
     known = set(section_ids) | set(node_ids)
@@ -437,8 +449,10 @@ def validate_course_map(value, detailed=True, seed=None):
     return problems
 
 
-def validate_proposal(build_id):
-    seed, proposal = _read_json(seed_path(build_id)), _read_json(proposal_path(build_id))
+def validate_proposal(build_id, proposal_file=None):
+    """Validate the sealed proposal or a deterministic author-check preview."""
+    seed = _read_json(seed_path(build_id))
+    proposal = _read_json(proposal_file or proposal_path(build_id))
     problems = (validate_course_map(proposal, detailed=True, seed=seed)
                 + validate_map_locations(build_id, proposal))
     return (not problems, "" if not problems else "course-map proposal:\n- " + "\n- ".join(problems))

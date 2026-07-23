@@ -1,0 +1,743 @@
+[freestyle]
+title = "THE WORKING: Working: Make Both Paddles Respond"
+brief = """Extend the court you built in Chapter II into a two-player loop. You will author every change in your existing <code>src/pong.asm</code> and <code>Makefile</code>; the lesson labs were disposable and are not starter code. The finished program must keep SDL alive for many paced frames, move both paddles from one keyboard snapshot, and still reach the single cleanup path promptly when the window closes.<ul><li>Drain <code>SDL_PollEvent</code> to zero every frame. Inspect an event's type only after a successful poll, make <code>SDL_QUIT</code> set persistent quit state, and test that state before sampling, updating, rendering, or sleeping again.</li><li>After the event pump, call <code>SDL_GetKeyboardState</code> once per frame. Map W/S to the left paddle and Up/Down to the right. Compute the two axes independently so simultaneous players work; opposing keys for one paddle must cancel.</li><li>Choose an integer paddle speed from 4 through 8 pixels per update and leave a short source comment explaining the feel you intended. Use that same constant in live play and the deterministic check. Apply signed deltas to the existing rectangle y fields and clamp each result to <code>0 .. window_height - paddle_height</code>.</li><li>Use a 16 ms frame budget. Capture a frame start with <code>SDL_GetTicks</code>, derive its deadline, and call <code>SDL_Delay</code> only for the positive remainder after work. A late frame must continue without an underflowed delay.</li><li>Keep event draining, control sampling, paddle updating, court rendering, and pacing in ABI-safe procedures. The frame order is begin, drain, quit gate, sample, update, render, pace. Preserve every SDL status check and the renderer-before-window-before-SDL cleanup path from the learner-owned project.</li><li>Add <code>--arcanum-loop-check</code> and <code>make check-s03</code>. The check must feed controlled simultaneous input, a two-reading clock, and a one-frame limit through the same procedures used live. It must prove both boundary clamps, one 10 ms remainder from a 1000/1006 clock pair, one committed frame, and print exactly <code>PADDLES_OK</code>. It may initialize the controlled case, but it may not write the expected final paddle positions directly or skip rendering.</li><li>Add <code>make debug-replay-s03</code> so GDB stops after controls are sampled, after positions are updated, after the frame commits, and after renderer cleanup. Inspect both axes, both y fields, frame count, deadline or requested delay, and the cleared renderer handle.</li></ul><p>Build and check with <code>make clean &amp;&amp; make build</code>, <code>make check-s01</code>, <code>make check-s02</code>, and <code>make check-s03</code>. Run <code>make debug-replay-s03</code>, then <code>make run</code>; hold a key for each player together, push both paddles against both edges, and close the window during motion. If a paddle moves after release, verify the keyboard pointer is sampled after the event pump and no key byte is cached across frames. If a paddle crosses an edge, inspect the signed candidate and the height-derived maximum before the store. If the loop freezes or consumes a core, inspect the quit gate, unsigned tick difference, and positive-delay branch. Acceptance is observable when old checks still pass, <code>check-s03</code> prints exactly <code>PADDLES_OK</code>, GDB exposes the controlled state transitions and cleared renderer, both players can move simultaneously without leaving the court, motion remains paced, and closing the window exits cleanly.</p>"""
+requires = ["language-data-layout-and-integer-state", "language-branch-loop-control", "language-abi-procedures-and-register-discipline", "language-observable-debugging-and-verification", "event-queue-input", "keyboard-state-sampling", "paddle-state-update", "frame-clock-pacing", "responsive-loop-decomposition", "deterministic-loop-controls", "responsive-paddle-loop"]
+mechanisms = ["debian-toolchain-install", "toolchain-version-diagnostics", "workspace-directory-creation", "tool-edit-save", "nasm-source-layout", "makefile-authorship", "nasm-integer-data-and-addressed-state", "nasm-static-cstring-pointer-and-sdl-error-output", "nasm-compare-branch-loop-control", "sysv-abi-procedure-discipline", "nasm-elf64-dwarf-object-build", "gcc-sdl2-link-and-make-targets", "sdl-init-status-observation", "sdl-init-failure-branch", "sdl-init-error-diagnostic", "sdl-init-failure-cleanup", "sdl-window-status-observation", "sdl-window-failure-branch", "sdl-window-error-diagnostic", "sdl-window-failure-cleanup", "sdl-window-normal-cleanup", "deterministic-init-check", "gdb-state-inspection", "sdl-renderer-status-observation", "sdl-renderer-failure-branch", "sdl-renderer-error-diagnostic", "sdl-renderer-failure-cleanup", "sdl-renderer-normal-cleanup", "sdl-rect-compatible-integer-layout", "sdl-clear-fill-present-sequence", "render-status-observation", "render-failure-branch", "render-error-diagnostic", "render-failure-cleanup", "abi-safe-render-procedure-decomposition", "deterministic-court-check-and-gdb-proof", "sdl-event-poll-type-and-quit-dispatch", "sdl-keyboard-snapshot-and-scancode-indexing", "integer-paddle-delta-and-boundary-clamp", "sdl-ticks-deadline-and-delay-pacing", "abi-safe-poll-update-render-loop", "deterministic-input-clock-and-frame-limit-controls", "responsive-loop-check-gdb-and-live-proof"]
+validationDependencies = []
+masteryPerformances = []
+reward = 150
+xray = "Reward a learner-owned cumulative loop whose live and deterministic routes share event, input, update, render, and pace procedures. Dock type reads after an empty poll, cached keyboard bytes, serialized player controls, unsigned clamp errors, unconditional or underflowed delays, direct check-mode final-state writes, success tokens without state comparisons, and any exit that bypasses renderer-first cleanup. The speed choice is genuine only when one documented 4–8 constant drives both live movement and the controlled case."
+
+[[freestyle.requirements]]
+id = "s03-event-and-quit"
+text = "Every frame drains successful SDL events to an empty queue, dispatches SDL_QUIT into persistent state, and gates the remaining frame work so live quit reaches the existing single cleanup path without another update, render, or delay."
+essential = true
+capabilities = ["event-queue-input", "responsive-loop-decomposition", "language-branch-loop-control", "language-status-failure-and-resource-cleanup"]
+
+[[freestyle.requirements]]
+id = "s03-simultaneous-paddles"
+text = "One post-pump keyboard snapshot produces independent W/S and Up/Down axes, uses the learner's documented 4–8 speed choice, updates both existing rectangle y fields, cancels opposing keys, and clamps each paddle to court bounds."
+essential = true
+capabilities = ["keyboard-state-sampling", "paddle-state-update", "language-data-layout-and-integer-state", "language-branch-loop-control"]
+
+[[freestyle.requirements]]
+id = "s03-paced-loop"
+text = "ABI-safe procedures run begin, drain, quit gate, sample, update, render, and pace in order; a 16 ms tick deadline delays only by a positive remainder while all prior renderer status checks and cleanup ordering remain active."
+essential = true
+capabilities = ["frame-clock-pacing", "responsive-loop-decomposition", "language-abi-procedures-and-register-discipline", "native-window-lifecycle"]
+
+[[freestyle.requirements]]
+id = "s03-deterministic-proof"
+text = "The learner-authored Makefile preserves earlier checks and adds a one-frame loop check plus GDB replay that exercise controlled simultaneous input, 1000/1006 ticks, both boundary clamps, rendering, frame commit, and renderer cleanup through the live procedures; success prints exactly PADDLES_OK."
+essential = true
+capabilities = ["deterministic-loop-controls", "responsive-paddle-loop", "language-observable-debugging-and-verification"]
+
+[[freestyle.referenceSteps]]
+id = "s03-reference-source"
+path = "src/pong.asm"
+mode = "rewrite"
+preserves = "all-active"
+mechanisms = ["nasm-source-layout", "nasm-integer-data-and-addressed-state", "nasm-static-cstring-pointer-and-sdl-error-output", "nasm-compare-branch-loop-control", "sysv-abi-procedure-discipline", "sdl-init-status-observation", "sdl-init-failure-branch", "sdl-init-error-diagnostic", "sdl-init-failure-cleanup", "sdl-window-status-observation", "sdl-window-failure-branch", "sdl-window-error-diagnostic", "sdl-window-failure-cleanup", "sdl-window-normal-cleanup", "deterministic-init-check", "sdl-renderer-status-observation", "sdl-renderer-failure-branch", "sdl-renderer-error-diagnostic", "sdl-renderer-failure-cleanup", "sdl-renderer-normal-cleanup", "sdl-rect-compatible-integer-layout", "sdl-clear-fill-present-sequence", "render-status-observation", "render-failure-branch", "render-error-diagnostic", "render-failure-cleanup", "abi-safe-render-procedure-decomposition", "sdl-event-poll-type-and-quit-dispatch", "sdl-keyboard-snapshot-and-scancode-indexing", "integer-paddle-delta-and-boundary-clamp", "sdl-ticks-deadline-and-delay-pacing", "abi-safe-poll-update-render-loop", "deterministic-input-clock-and-frame-limit-controls"]
+instruction = "Privately replay one complete learner-authored source solution. It preserves the earlier deterministic modes, sends live and controlled operation through the same frame procedures, and exposes labels for the Makefile's debugger replay."
+content = '''
+default rel
+
+global main
+global controls_sampled
+global positions_updated
+global frame_committed
+global renderer_released
+
+extern SDL_Init
+extern SDL_Quit
+extern SDL_CreateWindow
+extern SDL_DestroyWindow
+extern SDL_CreateRenderer
+extern SDL_DestroyRenderer
+extern SDL_SetRenderDrawColor
+extern SDL_RenderClear
+extern SDL_RenderFillRect
+extern SDL_RenderPresent
+extern SDL_PollEvent
+extern SDL_GetKeyboardState
+extern SDL_GetTicks
+extern SDL_Delay
+extern SDL_GetError
+extern printf
+extern fprintf
+extern stderr
+
+%define SDL_INIT_VIDEO 0x20
+%define SDL_WINDOWPOS_CENTERED 0x2fff0000
+%define SDL_QUIT 0x100
+%define SCANCODE_W 26
+%define SCANCODE_S 22
+%define SCANCODE_UP 82
+%define SCANCODE_DOWN 81
+%define WINDOW_W 640
+%define WINDOW_H 400
+%define PADDLE_H 30
+%define PADDLE_SPEED 6       ; brisk without crossing the court too quickly
+%define FRAME_MS 16
+
+section .rodata
+window_title db "Paddle Vector", 0
+init_arg db "--arcanum-acceptance", 0
+court_arg db "--arcanum-court-check", 0
+loop_arg db "--arcanum-loop-check", 0
+init_ok db "INIT_OK", 10, 0
+court_ok db "COURT_OK", 10, 0
+paddles_ok db "PADDLES_OK", 10, 0
+loop_fail db "LOOP_CHECK_FAIL", 10, 0
+error_format db "%s: %s", 10, 0
+init_context db "SDL_Init failed", 0
+window_context db "SDL_CreateWindow failed", 0
+renderer_context db "SDL_CreateRenderer failed", 0
+render_context db "court render failed", 0
+controlled_ticks dd 1000, 1006
+
+section .data
+center_line dd 318, 0, 4, WINDOW_H
+left_paddle dd 28, 185, 10, PADDLE_H
+right_paddle dd 602, 185, 10, PADDLE_H
+ball_rect dd 316, 196, 8, 8
+
+section .bss
+argument_ptr resq 1
+window_handle resq 1
+renderer_handle resq 1
+exit_code resd 1
+sdl_ready resd 1
+check_mode resd 1
+quit_requested resd 1
+left_axis resd 1
+right_axis resd 1
+frame_started resd 1
+frame_deadline resd 1
+frame_count resd 1
+frame_limit resd 1
+controlled_mask resd 1
+controlled_tick_index resd 1
+requested_delay resd 1
+event_buffer resb 56
+
+section .text
+main:
+    push rbp
+    mov rbp, rsp
+
+    mov dword [exit_code], 1
+    mov dword [sdl_ready], 0
+    mov dword [check_mode], 0
+    mov qword [window_handle], 0
+    mov qword [renderer_handle], 0
+    mov qword [argument_ptr], 0
+
+    cmp edi, 2
+    jne .mode_ready
+    mov rax, [rsi + 8]
+    mov [argument_ptr], rax
+
+    mov rdi, rax
+    lea rsi, [init_arg]
+    call strings_equal
+    test eax, eax
+    jnz .select_init
+
+    mov rdi, [argument_ptr]
+    lea rsi, [court_arg]
+    call strings_equal
+    test eax, eax
+    jnz .select_court
+
+    mov rdi, [argument_ptr]
+    lea rsi, [loop_arg]
+    call strings_equal
+    test eax, eax
+    jz .mode_ready
+    mov dword [check_mode], 3
+    jmp .mode_ready
+
+.select_init:
+    mov dword [check_mode], 1
+    jmp .mode_ready
+
+.select_court:
+    mov dword [check_mode], 2
+
+.mode_ready:
+    mov edi, SDL_INIT_VIDEO
+    call SDL_Init
+    test eax, eax
+    js .init_failed
+    mov dword [sdl_ready], 1
+
+    lea rdi, [window_title]
+    mov esi, SDL_WINDOWPOS_CENTERED
+    mov edx, SDL_WINDOWPOS_CENTERED
+    mov ecx, WINDOW_W
+    mov r8d, WINDOW_H
+    xor r9d, r9d
+    call SDL_CreateWindow
+    test rax, rax
+    jz .window_failed
+    mov [window_handle], rax
+
+    cmp dword [check_mode], 1
+    jne .create_renderer
+    lea rdi, [init_ok]
+    xor eax, eax
+    call printf
+    mov dword [exit_code], 0
+    jmp .cleanup
+
+.create_renderer:
+    mov rdi, [window_handle]
+    mov esi, -1
+    xor edx, edx
+    call SDL_CreateRenderer
+    test rax, rax
+    jz .renderer_failed
+    mov [renderer_handle], rax
+
+    call initialize_rects
+
+    cmp dword [check_mode], 2
+    je .court_check
+    cmp dword [check_mode], 3
+    jne .run_loop
+    call prepare_loop_check
+
+.run_loop:
+    call run_frame_loop
+    test eax, eax
+    js .render_failed
+
+    cmp dword [check_mode], 3
+    jne .normal_exit
+    call verify_loop_check
+    test eax, eax
+    jz .loop_check_failed
+    lea rdi, [paddles_ok]
+    xor eax, eax
+    call printf
+    mov dword [exit_code], 0
+    jmp .cleanup
+
+.court_check:
+    call paint_court
+    test eax, eax
+    js .render_failed
+    lea rdi, [court_ok]
+    xor eax, eax
+    call printf
+    mov dword [exit_code], 0
+    jmp .cleanup
+
+.normal_exit:
+    mov dword [exit_code], 0
+    jmp .cleanup
+
+.init_failed:
+    lea rdi, [init_context]
+    call report_sdl_error
+    jmp .cleanup
+
+.window_failed:
+    lea rdi, [window_context]
+    call report_sdl_error
+    jmp .cleanup
+
+.renderer_failed:
+    lea rdi, [renderer_context]
+    call report_sdl_error
+    jmp .cleanup
+
+.render_failed:
+    lea rdi, [render_context]
+    call report_sdl_error
+    jmp .cleanup
+
+.loop_check_failed:
+    lea rdi, [loop_fail]
+    xor eax, eax
+    call printf
+    mov dword [exit_code], 2
+
+.cleanup:
+    mov rdi, [renderer_handle]
+    test rdi, rdi
+    jz renderer_released
+    call SDL_DestroyRenderer
+    mov qword [renderer_handle], 0
+
+renderer_released:
+    mov rdi, [window_handle]
+    test rdi, rdi
+    jz .window_released
+    call SDL_DestroyWindow
+    mov qword [window_handle], 0
+
+.window_released:
+    cmp dword [sdl_ready], 0
+    je .return
+    call SDL_Quit
+    mov dword [sdl_ready], 0
+
+.return:
+    mov eax, [exit_code]
+    leave
+    ret
+
+initialize_rects:
+    mov dword [center_line + 0], 318
+    mov dword [center_line + 4], 0
+    mov dword [center_line + 8], 4
+    mov dword [center_line + 12], WINDOW_H
+    mov dword [left_paddle + 0], 28
+    mov dword [left_paddle + 4], 185
+    mov dword [left_paddle + 8], 10
+    mov dword [left_paddle + 12], PADDLE_H
+    mov dword [right_paddle + 0], 602
+    mov dword [right_paddle + 4], 185
+    mov dword [right_paddle + 8], 10
+    mov dword [right_paddle + 12], PADDLE_H
+    mov dword [ball_rect + 0], 316
+    mov dword [ball_rect + 4], 196
+    mov dword [ball_rect + 8], 8
+    mov dword [ball_rect + 12], 8
+    ret
+
+prepare_loop_check:
+    mov dword [quit_requested], 0
+    mov dword [left_axis], 0
+    mov dword [right_axis], 0
+    mov dword [frame_count], 0
+    mov dword [frame_limit], 1
+    mov dword [controlled_mask], 9
+    mov dword [controlled_tick_index], 0
+    mov dword [requested_delay], 0
+    mov dword [left_paddle + 4], PADDLE_SPEED - 2
+    mov dword [right_paddle + 4], WINDOW_H - PADDLE_H - PADDLE_SPEED + 2
+    ret
+
+run_frame_loop:
+    push rbp
+    mov rbp, rsp
+
+.next_frame:
+    call begin_frame
+    call drain_events
+    cmp dword [quit_requested], 0
+    jne .done
+
+    call sample_controls
+controls_sampled:
+    call update_paddles
+positions_updated:
+    call paint_court
+    test eax, eax
+    js .return
+    call pace_frame
+    inc dword [frame_count]
+frame_committed:
+    cmp dword [check_mode], 3
+    jne .next_frame
+    mov eax, [frame_count]
+    cmp eax, [frame_limit]
+    jb .next_frame
+
+.done:
+    xor eax, eax
+.return:
+    leave
+    ret
+
+drain_events:
+    push rbp
+    mov rbp, rsp
+
+.poll:
+    lea rdi, [event_buffer]
+    call SDL_PollEvent
+    test eax, eax
+    jz .empty
+    cmp dword [event_buffer], SDL_QUIT
+    jne .poll
+    mov dword [quit_requested], 1
+    jmp .poll
+
+.empty:
+    leave
+    ret
+
+sample_controls:
+    push rbp
+    mov rbp, rsp
+
+    mov dword [left_axis], 0
+    mov dword [right_axis], 0
+    cmp dword [check_mode], 3
+    je .controlled
+
+    xor edi, edi
+    call SDL_GetKeyboardState
+    cmp byte [rax + SCANCODE_W], 0
+    je .live_left_down
+    dec dword [left_axis]
+.live_left_down:
+    cmp byte [rax + SCANCODE_S], 0
+    je .live_right_up
+    inc dword [left_axis]
+.live_right_up:
+    cmp byte [rax + SCANCODE_UP], 0
+    je .live_right_down
+    dec dword [right_axis]
+.live_right_down:
+    cmp byte [rax + SCANCODE_DOWN], 0
+    je .done
+    inc dword [right_axis]
+    jmp .done
+
+.controlled:
+    mov eax, [controlled_mask]
+    test eax, 1
+    jz .controlled_left_down
+    dec dword [left_axis]
+.controlled_left_down:
+    test eax, 2
+    jz .controlled_right_up
+    inc dword [left_axis]
+.controlled_right_up:
+    test eax, 4
+    jz .controlled_right_down
+    dec dword [right_axis]
+.controlled_right_down:
+    test eax, 8
+    jz .done
+    inc dword [right_axis]
+
+.done:
+    leave
+    ret
+
+update_paddles:
+    push rbp
+    mov rbp, rsp
+
+    lea rdi, [left_paddle]
+    mov esi, [left_axis]
+    mov edx, WINDOW_H
+    call update_one_paddle
+
+    lea rdi, [right_paddle]
+    mov esi, [right_axis]
+    mov edx, WINDOW_H
+    call update_one_paddle
+
+    leave
+    ret
+
+update_one_paddle:
+    mov eax, esi
+    imul eax, PADDLE_SPEED
+    add eax, [rdi + 4]
+    test eax, eax
+    jns near .upper_ready
+    xor eax, eax
+.upper_ready:
+    mov ecx, edx
+    sub ecx, [rdi + 12]
+    cmp eax, ecx
+    jle near .store
+    mov eax, ecx
+.store:
+    mov [rdi + 4], eax
+    ret
+
+begin_frame:
+    push rbp
+    mov rbp, rsp
+    call read_frame_ticks
+    mov [frame_started], eax
+    add eax, FRAME_MS
+    mov [frame_deadline], eax
+    leave
+    ret
+
+read_frame_ticks:
+    cmp dword [check_mode], 3
+    jne .live
+    mov ecx, [controlled_tick_index]
+    cmp ecx, 2
+    jb .indexed
+    mov ecx, 1
+.indexed:
+    mov eax, [controlled_ticks + rcx * 4]
+    inc dword [controlled_tick_index]
+    ret
+.live:
+    push rbp
+    mov rbp, rsp
+    call SDL_GetTicks
+    leave
+    ret
+
+pace_frame:
+    push rbp
+    mov rbp, rsp
+    call read_frame_ticks
+    sub eax, [frame_started]
+    cmp eax, FRAME_MS
+    jae .late
+    mov edi, FRAME_MS
+    sub edi, eax
+    mov [requested_delay], edi
+    cmp dword [check_mode], 3
+    je .done
+    call SDL_Delay
+    jmp .done
+.late:
+    mov dword [requested_delay], 0
+.done:
+    xor eax, eax
+    leave
+    ret
+
+paint_court:
+    push rbp
+    mov rbp, rsp
+
+    mov rdi, [renderer_handle]
+    xor esi, esi
+    xor edx, edx
+    xor ecx, ecx
+    mov r8d, 255
+    call SDL_SetRenderDrawColor
+    test eax, eax
+    js .failed
+
+    mov rdi, [renderer_handle]
+    call SDL_RenderClear
+    test eax, eax
+    js .failed
+
+    mov rdi, [renderer_handle]
+    mov esi, 255
+    mov edx, 255
+    mov ecx, 255
+    mov r8d, 255
+    call SDL_SetRenderDrawColor
+    test eax, eax
+    js .failed
+
+    lea rdi, [center_line]
+    call fill_court_rect
+    test eax, eax
+    js .failed
+    lea rdi, [left_paddle]
+    call fill_court_rect
+    test eax, eax
+    js .failed
+    lea rdi, [right_paddle]
+    call fill_court_rect
+    test eax, eax
+    js .failed
+    lea rdi, [ball_rect]
+    call fill_court_rect
+    test eax, eax
+    js .failed
+
+    mov rdi, [renderer_handle]
+    call SDL_RenderPresent
+    xor eax, eax
+    jmp .done
+
+.failed:
+    mov eax, -1
+.done:
+    leave
+    ret
+
+fill_court_rect:
+    push rbp
+    mov rbp, rsp
+    mov rsi, rdi
+    mov rdi, [renderer_handle]
+    call SDL_RenderFillRect
+    leave
+    ret
+
+verify_loop_check:
+    cmp dword [left_axis], -1
+    jne .failed
+    cmp dword [right_axis], 1
+    jne .failed
+    cmp dword [left_paddle + 4], 0
+    jne .failed
+    cmp dword [right_paddle + 4], WINDOW_H - PADDLE_H
+    jne .failed
+    cmp dword [frame_started], 1000
+    jne .failed
+    cmp dword [frame_deadline], 1016
+    jne .failed
+    cmp dword [controlled_tick_index], 2
+    jne .failed
+    cmp dword [requested_delay], 10
+    jne .failed
+    cmp dword [frame_count], 1
+    jne .failed
+    mov eax, 1
+    ret
+.failed:
+    xor eax, eax
+    ret
+
+strings_equal:
+.next:
+    mov al, [rdi]
+    cmp al, [rsi]
+    jne .different
+    test al, al
+    jz .same
+    inc rdi
+    inc rsi
+    jmp .next
+.same:
+    mov eax, 1
+    ret
+.different:
+    xor eax, eax
+    ret
+
+report_sdl_error:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 16
+    mov [rbp - 8], rdi
+    call SDL_GetError
+    mov rcx, rax
+    mov rdx, [rbp - 8]
+    mov rdi, [stderr]
+    lea rsi, [error_format]
+    xor eax, eax
+    call fprintf
+    leave
+    ret
+'''
+
+[[freestyle.referenceSteps]]
+id = "s03-reference-makefile"
+path = "Makefile"
+mode = "rewrite"
+preserves = "all-active"
+mechanisms = ["tool-edit-save", "makefile-authorship", "nasm-elf64-dwarf-object-build", "gcc-sdl2-link-and-make-targets", "deterministic-init-check", "gdb-state-inspection", "deterministic-court-check-and-gdb-proof", "responsive-loop-check-gdb-and-live-proof"]
+instruction = "Privately replay the learner-authored build, cumulative checks, and debugger recipe. The current check selects the deterministic loop route and earlier checks remain executable."
+content = '''
+NASM ?= nasm
+CC ?= gcc
+SDL2_CFLAGS := $(shell pkg-config --cflags sdl2)
+SDL2_LIBS := $(shell pkg-config --libs sdl2)
+
+.PHONY: all build run check-s01 check-s02 check-s03 debug debug-replay-s01 debug-replay-s02 debug-replay-s03 clean
+
+all: build
+
+build: pong
+
+build/pong.o: src/pong.asm
+	mkdir -p build
+	$(NASM) -f elf64 -g -F dwarf -o $@ $<
+
+pong: build/pong.o
+	$(CC) -no-pie -o $@ $< $(SDL2_LIBS)
+
+run: pong
+	./pong
+
+check-s01: pong
+	SDL_VIDEODRIVER=dummy ./pong --arcanum-acceptance > .check-s01.out
+	grep -qx 'INIT_OK' .check-s01.out
+
+check-s02: pong
+	SDL_VIDEODRIVER=dummy ./pong --arcanum-court-check > .check-s02.out
+	grep -qx 'COURT_OK' .check-s02.out
+
+check-s03: pong
+	SDL_VIDEODRIVER=dummy ./pong --arcanum-loop-check > .check-s03.out
+	grep -qx 'PADDLES_OK' .check-s03.out
+
+debug: pong
+	gdb -q ./pong
+
+debug-replay-s01: pong
+	SDL_VIDEODRIVER=dummy gdb -q ./pong -ex 'break renderer_released' -ex 'run --arcanum-acceptance' -ex 'x/gx &renderer_handle' -ex 'continue' -ex 'quit'
+
+debug-replay-s02: pong
+	SDL_VIDEODRIVER=dummy gdb -q ./pong -ex 'break paint_court' -ex 'run --arcanum-court-check' -ex 'x/4dw &left_paddle' -ex 'continue' -ex 'quit'
+
+debug-replay-s03: pong
+	SDL_VIDEODRIVER=dummy gdb -q ./pong -ex 'break controls_sampled' -ex 'break positions_updated' -ex 'break frame_committed' -ex 'break renderer_released' -ex 'run --arcanum-loop-check' -ex 'x/wd &left_axis' -ex 'x/wd &right_axis' -ex 'continue' -ex 'x/wd &left_paddle+4' -ex 'x/wd &right_paddle+4' -ex 'continue' -ex 'x/wd &frame_count' -ex 'x/wd &frame_deadline' -ex 'x/wd &requested_delay' -ex 'continue' -ex 'x/gx &renderer_handle' -ex 'continue' -ex 'quit'
+
+clean:
+	rm -rf build pong .check-s01.out .check-s02.out .check-s03.out
+'''
+
+[freestyle.badge]
+id = "badge-s03"
+name = "Frame Conductor"
+desc = "You coordinated two players, a clock, rendering, and responsive quit in one verified native loop."
+
+[[freestyle.rubric]]
+id = "s03-cumulative-lifecycle"
+criterion = "Preserves the native lifecycle"
+weight = 15
+kind = "deterministic"
+mechanisms = ["debian-toolchain-install", "toolchain-version-diagnostics", "workspace-directory-creation", "abi-safe-poll-update-render-loop", "sdl-renderer-normal-cleanup", "sdl-window-normal-cleanup"]
+assessmentIds = ["s03-clean-build", "s03-loop-check"]
+desc = "The learner-owned source and Makefile build, the loop uses ABI-safe procedure boundaries, render failures remain checked, and every normal or failure exit converges on renderer-before-window-before-SDL cleanup."
+
+[[freestyle.rubric]]
+id = "s03-event-input"
+criterion = "Drains and samples responsive input"
+weight = 15
+kind = "qualitative"
+mechanisms = ["sdl-event-poll-type-and-quit-dispatch", "sdl-keyboard-snapshot-and-scancode-indexing"]
+assessmentIds = []
+desc = "The queue is drained before state sampling, event type is read only after a successful poll, quit gates the rest of the frame, and one fresh snapshot yields independent cancelling axes for simultaneous players."
+
+[[freestyle.rubric]]
+id = "s03-movement-choice"
+criterion = "Applies a deliberate bounded motion rule"
+weight = 20
+kind = "qualitative"
+mechanisms = ["integer-paddle-delta-and-boundary-clamp", "nasm-integer-data-and-addressed-state"]
+assessmentIds = []
+desc = "One documented learner choice from 4–8 drives both live and controlled deltas; signed candidates update the existing y fields and both lower and height-derived upper bounds are enforced without hard-coded final check state."
+
+[[freestyle.rubric]]
+id = "s03-frame-pacing"
+criterion = "Paces complete frames by deadline"
+weight = 15
+kind = "qualitative"
+mechanisms = ["sdl-ticks-deadline-and-delay-pacing", "abi-safe-poll-update-render-loop"]
+assessmentIds = []
+desc = "The frame order is begin, drain, quit gate, sample, update, render, pace; a 16 ms deadline delays only by a positive remainder and late frames cannot create a wrapped sleep."
+
+[[freestyle.rubric]]
+id = "s03-loop-proof"
+criterion = "Proves controlled response through the real loop"
+weight = 25
+kind = "deterministic"
+mechanisms = ["deterministic-input-clock-and-frame-limit-controls", "responsive-loop-check-gdb-and-live-proof"]
+assessmentIds = ["s03-loop-check"]
+desc = "The one-frame route feeds simultaneous input and 1000/1006 ticks through the live procedures, verifies both clamps, a 10 ms remainder, render participation, and one frame commit, then emits exactly PADDLES_OK."
+
+[[freestyle.rubric]]
+id = "s03-observation"
+criterion = "Explains live and debugger evidence"
+weight = 10
+kind = "qualitative"
+mechanisms = ["gdb-state-inspection", "responsive-loop-check-gdb-and-live-proof"]
+assessmentIds = []
+desc = "The replay exposes axes, y fields, timing and frame state, and cleared renderer state; the learner also reports simultaneous live motion, edge behavior, pacing, and a clean close with a diagnosis tied to observed state."

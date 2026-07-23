@@ -1,0 +1,26 @@
+version = 1
+
+[[scenarios]]
+id = "s01-clean-build"
+kind = "build"
+requirementIds = ["s01-owned-workspace-and-tools", "s01-state-control-and-abi", "s01-window-lifetime", "s01-build-and-check"]
+capabilityIds = ["external-toolchain-ready", "assembly-workspace-authorship", "language-data-layout-and-integer-state", "language-branch-loop-control", "language-abi-procedures-and-register-discipline", "native-build-pipeline", "language-status-failure-and-resource-cleanup", "native-window-lifecycle"]
+commandRef = "build"
+args = []
+stdin = ""
+exitCode = 0
+timeout = 60
+public = true
+
+[[scenarios]]
+id = "s01-acceptance"
+kind = "run"
+requirementIds = ["s01-state-control-and-abi", "s01-window-lifetime", "s01-build-and-check"]
+capabilityIds = ["tool-run-test", "language-branch-loop-control", "language-status-failure-and-resource-cleanup", "native-window-lifecycle", "language-observable-debugging-and-verification"]
+commandRef = "run"
+args = ["--arcanum-acceptance"]
+stdin = ""
+expectRegex = '^INIT_OK\r?\n?$'
+exitCode = 0
+timeout = 20
+public = true

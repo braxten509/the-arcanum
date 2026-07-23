@@ -8,7 +8,13 @@ stop once more before the Working. Never split a healthy section into one lesson
 Run the assignment's bounded `render_section_context.py` command first. Treat that packet as the
 initial read of the plan, named guides, sealed section, handoffs, tome metadata, and current
 section sources; do not reread each item in a separate tool turn. Batch later independent reads
-and searches, and group related artifact edits in one coherent patch whenever practical.
+and searches, and group related artifact edits in one coherent edit pass using small valid patch
+operations.
+The packet's `sectionQualityContract` is the exact versioned policy also sent to the section
+Validator AI. Treat it as binding. In particular, Phase 2's sealed co-ownership is the authoritative
+concept-family allocation for lesson density: teach every co-owned mechanism completely and
+coherently, but do not split, defer, or move a sealed owner in response to an independent density
+reinterpretation.
 Read the plan and Arc, `tome.toml`, this section's scaffold, and earlier owners of reused
 work. Read `tome-authoring/9-proof-and-assets.md` and, for evidence-version tomes,
 `tome-authoring/10-mastery-evidence.md`; consult
@@ -26,7 +32,7 @@ The TOML format is the exception, and the scaffold already carries it. Its field
 required keys are this section's format reference; `tome-authoring/3-chapters.md` and
 `10-mastery-evidence.md` document the rest, and `validate_section.py` reports schema faults
 precisely. Read those rather than another tome. If a format question survives all of them, run the
-gate and let it name the fault.
+finish the authoring pass and let the harness gate name the fault after handoff.
 
 Before drafting prose, research this section's external subject matter online. Use `websearch` to
 locate authoritative sources and `webfetch` to read the primary documentation for every API,
@@ -79,7 +85,9 @@ conflict through the assigned validation path; Phase 3 prose cannot repair a bro
 
 Check transitive prerequisites through the smallest meaningful example of every introduced
 mechanism. Any unlisted syntax form, API, tool action, data-format rule, or term that example needs
-must be owned by an earlier lesson; a dependent mechanism cannot serve as evidence that its own
+must already have an owner. A prerequisite may share this lesson only when the Phase-2 audit puts
+it in the same coherent family and before its dependent in the ordered `introduces` list; otherwise
+an earlier lesson must own it. A dependent mechanism cannot serve as evidence that its own
 prerequisite was taught. Trace how every API input or resource is created, obtained, and released.
 Apply observable-interaction closure to the section promise, Working, acceptance path, and controls:
 every concrete operation needed to obtain and inspect input, produce output, advance time, make a
@@ -106,7 +114,7 @@ Preserve cumulative artifact truth and make it machine-replayable:
   prerequisite must occur before the Working. Such a step names the path and observable check but
   contains no production-ready project content, patch, filled record, answer-bearing test, decisive
   integration, or restatement of the Working. Hidden referenceSteps reconstruct what the learner
-  authors in the Working. Run the active-contract report: validation replays from the real scaffold
+  authors in the Working. The harness's active-contract validation replays from the real scaffold
   and reruns every active proof. Prose proves nothing. Proofs ship by default; `supersedes` requires
   a genuine migration and `protects` covering inherited capabilities.
 - Trace the actual program from its first executable step after the freestyle. A learner must
@@ -218,7 +226,8 @@ gates pass, and retains the closure archive after removing them from active cont
 The assignment's final `HARNESS COURSE CONTROL` block is authoritative and must remain the final
 block when you stop. It lists all sections, expands this section's sealed lesson/Working nodes,
 points to required prior owners, and carries every active obligation. Do not award its marks or
-rewrite its state; run the named check, report the real section validating, and stop.
+rewrite its state. Run the assignment's named mechanical check until it exits 0, report the real
+section validating, and stop. The harness repeats the check and returns its complete findings.
 
 Work in Arc order, repair each section gate before advancing, and reopen disk instead of trusting
 memory. Never edit the plan during Phase 3 or spawn another author.

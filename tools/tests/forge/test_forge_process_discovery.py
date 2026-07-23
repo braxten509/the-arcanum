@@ -60,10 +60,20 @@ assert not _resume_session_id({"kind": "codex-cli", "model": "terra",
                                "sessionId": "legacy-no-scope"},
                               {"kind": "codex-cli", "model": "terra"}, 3, "s05")
 assert _section_cost_limit({}) == 2.0
+assert _section_cost_limit({}, 4.0) == 4.0
 assert _section_cost_limit({"sectionCostLimitUsd": "3.5"}) == 3.5
+assert _section_cost_limit({"sectionCostLimitUsd": "13.14159"}) == 13.14159
+assert _section_cost_limit({"sectionCostLimitUsd": None}) is None
+assert _section_cost_limit({"sectionCostLimitUsd": "unlimited"}) is None
+assert _section_cost_limit({}, None) is None
 try:
-    _section_cost_limit({"sectionCostLimitUsd": 11})
-    raise AssertionError("an invalid section hard stop was accepted")
+    _section_cost_limit({"sectionCostLimitUsd": 0})
+    raise AssertionError("a non-positive section hard stop was accepted")
+except ValueError:
+    pass
+try:
+    _section_cost_limit({"sectionCostLimitUsd": "nan"})
+    raise AssertionError("a non-finite section hard stop was accepted")
 except ValueError:
     pass
 
@@ -166,7 +176,8 @@ with tempfile.TemporaryDirectory() as temp:
             stdin=SimpleNamespace(write=sent.append, flush=lambda: None)))
         payload, code = build_routes.control_author(
             JsonHandler(), {"id": "local-job",
-                            "validator": {"kind": "claude-cli", "model": "new-judge"}},
+                            "validator": {"kind": "claude-cli", "model": "new-judge"},
+                            "sectionCostLimitUsd": 4},
             "resume", services)
         assert code == 200 and payload["ok"], payload
         assert json.loads(sent[0]) == {"type": "resume"}
@@ -174,6 +185,17 @@ with tempfile.TemporaryDirectory() as temp:
         assert saved["validator"] == {"kind": "claude-cli", "model": "new-judge",
                                       "effort": ""}
         assert saved["author"]["model"] == "sol" and saved["gate"]["depth"] == "3"
+        assert saved["sectionCostLimitUsd"] == 4
+        # An unrelated launch-record update must retain the chosen hard stop.
+        forge._save_launch("untitled-5", {"reviewer": {}}, "A PyGame RPG.")
+        assert forge._load_launch("untitled-5")["sectionCostLimitUsd"] == 4
+        # Explicit null is the durable unlimited value and must survive later
+        # launch-record updates rather than being confused with a missing key.
+        forge._save_launch(
+            "untitled-5", {"sectionCostLimitUsd": None}, "A PyGame RPG.")
+        assert forge._load_launch("untitled-5")["sectionCostLimitUsd"] is None
+        forge._save_launch("untitled-5", {"reviewer": {}}, "A PyGame RPG.")
+        assert forge._load_launch("untitled-5")["sectionCostLimitUsd"] is None
         # The status read model reports the swapped validator straight from the launch
         # record, so it is right after a server restart and for reattached builds too.
         status_reader = ForgeStatusService(settings, job_manager, catalog)

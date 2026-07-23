@@ -1,0 +1,155 @@
+[[lessons]]
+id = "s01-l01"
+title = "Provision the Assembly Bench"
+teaches = ["external-toolchain-ready", "tool-install", "tool-diagnose"]
+introduces = ["debian-toolchain-install", "toolchain-version-diagnostics"]
+validationDependencies = []
+body = '''
+<p>Before a single instruction reaches the CPU, the bench must agree on a language, an object format, a linker, a library, and a debugger. On a Debian-family Linux machine, APT installs those parts from signed repositories. The command below requests NASM, GCC's standard build bundle, Make, SDL2 development files, <code>pkg-config</code>, and GDB. It changes the machine, so read the package list before answering the confirmation prompt.</p>
+<pre><code data-kind="terminal">sudo apt update
+sudo apt install nasm build-essential make pkg-config gdb libsdl2-dev</code></pre>
+<p><code>apt update</code> refreshes the repository index; it does not upgrade the system. <code>apt install</code> resolves and installs the named packages. The <code>libsdl2-dev</code> package matters: a runtime library can launch an existing game, while the development package also supplies metadata needed to link a new one.</p>
+<p>Installation is only a claim. Diagnose the actual command path and then ask each tool to identify itself:</p>
+<pre><code data-kind="terminal">command -v nasm gcc make pkg-config gdb
+nasm -v
+gcc --version
+make --version
+pkg-config --modversion sdl2
+gdb --version</code></pre>
+<p><code>command -v</code> should print one executable path per name. Version text proves that the shell can start the program; no particular version number is required. The SDL probe is different: <code>pkg-config</code> searches installed <code>.pc</code> metadata and prints SDL2's version. That proves the development metadata, not merely a runtime library, is visible.</p>
+<p>Use the failure message as a routing signal. <code>command not found</code> means the executable is absent or outside <code>PATH</code>. “Package sdl2 was not found” while other probes work points to <code>libsdl2-dev</code> or a custom <code>PKG_CONFIG_PATH</code>. An APT lock means another package operation owns the database; let it finish rather than deleting lock files. A repository or DNS error is a network/index problem, so repair connectivity and rerun <code>apt update</code>. Do not keep reinstalling tools whose probes already pass.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // THE QUIET GREEN LIGHT</div>
+<p>Most Unix tools report success with exit status zero. After one probe, <code>echo $?</code> prints that status. Text plus status zero is stronger evidence than the absence of an error message.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "external-toolchain-ready"
+purpose = "Establishes a Linux machine that can assemble, link, inspect, and debug an SDL2 program."
+anatomy = "Refresh package metadata, install the named packages, then verify commands and SDL2 metadata independently."
+example = "Run the installation and probe blocks in order on a Debian-family host."
+observable = "Every command has a path, each tool prints version text, and SDL2 prints a version number."
+failure = "Classify a failed probe as executable-path, development-metadata, package-lock, or network trouble before changing anything."
+practice = "s01-l01-e1"
+
+[[lessons.concepts]]
+id = "tool-install"
+purpose = "Installs the external programs and headers the course will call."
+anatomy = "Use sudo for the machine-wide APT operations, inspect the proposed packages, and confirm the transaction."
+example = "The first terminal block installs NASM, build tools, SDL2 development files, pkg-config, and GDB."
+observable = "APT completes without an error and later command probes start."
+failure = "An APT lock is ownership by another package process, not permission to remove a lock file."
+practice = "s01-l01-e1"
+
+[[lessons.concepts]]
+id = "tool-diagnose"
+purpose = "Turns vague setup trouble into a specific, repairable category."
+anatomy = "Check resolution with command -v, start the command with a version flag, then probe SDL2 metadata."
+example = "The second terminal block separates shell lookup from program startup and library discovery."
+observable = "Paths, version lines, and an SDL2 version identify exactly which layers work."
+failure = "A missing SDL2 module with working pkg-config indicates missing or undiscoverable development metadata."
+practice = "s01-l01-e1"
+
+[[lessons.concepts]]
+id = "debian-toolchain-install"
+purpose = "Provides a repeatable Debian-family installation route for the complete bench."
+anatomy = "Update the index once, install explicit package names, and preserve APT's diagnostic output."
+example = "The apt update and apt install commands are the worked procedure."
+observable = "APT reports completed package configuration."
+failure = "Repository or DNS errors require connectivity or source repair before another update."
+practice = "s01-l01-e1"
+
+[[lessons.concepts]]
+id = "toolchain-version-diagnostics"
+purpose = "Proves the installed commands and SDL2 build metadata are reachable by this shell."
+anatomy = "Resolve names first, print versions second, and interpret each failing layer separately."
+example = "The five-name command -v probe followed by tool-specific version commands."
+observable = "Five paths, ordinary version banners, and one SDL2 semantic version appear."
+failure = "Do not accept a runtime-only SDL installation when pkg-config cannot find sdl2."
+practice = "s01-l01-e1"
+
+[[lessons.readings]]               # optional: 1-2 high-quality official docs
+label = "Debian package management reference"
+url = "https://www.debian.org/doc/manuals/debian-reference/ch02.en.html"
+
+[[lessons.readings]]
+label = "pkg-config metadata guide"
+url = "https://people.freedesktop.org/~dbn/pkg-config-guide.html"
+
+[[lessons.exercises]]
+id = "s01-l01-e1"
+type = "mc"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = ["debian-toolchain-install", "toolchain-version-diagnostics"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "replace-context"
+aidPolicy = "learning"
+points = 15
+prompt = "After the real SDL2 probe succeeds, run pkg-config --modversion sdl2-paddle-practice and then echo $?. The invented module reports a nonzero status. Which failure layer did that observed result isolate?"
+choices = ["GDB startup", "A pkg-config module lookup", "NASM object generation", "A Make recipe"]
+answer = 1
+whyWrong = "The command reached pkg-config and failed while resolving one deliberately absent module; no debugger, assembler, or Make target participated."
+hint = "Classify the command that actually ran and the resource it attempted to locate."
+explain = "The nonzero status comes from pkg-config's module lookup. The successful real sdl2 probe distinguishes this controlled failure from a missing pkg-config executable or broken SDL2 installation."
+
+[[lessons.exercises]]
+id = "s01-l01-e2"
+type = "text"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = []
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "replace-context"
+aidPolicy = "learning"
+points = 20
+prompt = "Run pkg-config --modversion sdl2 by itself, then immediately run echo $?. Enter the status you actually observe right after the version probe prints its number."
+answer = "0"
+hint = "Zero is the shell's spelling for success; you already have the version text from the probe itself."
+
+[[lessons.exercises]]
+id = "s01-l01-e3"
+type = "fill"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = []
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "replace-context"
+aidPolicy = "learning"
+points = 20
+prompt = "Complete the non-mutating shell lookup that checks whether NASM resolves before you start it."
+code = '____ -v nasm'
+answer = "command"
+hint = "Use the shell builtin that reports how a name will be resolved."
+
+[[lessons.exercises]]
+id = "s01-l01-d1"
+type = "type"                      # typing drill: retype the code; no point decay
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = []
+cognitiveTask = "recall"
+scaffold = "worked"
+contextFamily = "replace-context"
+aidPolicy = "learning"
+points = 12
+reps = 2
+prompt = "Retype the SDL2 metadata probe exactly. (Ctrl+Enter submits.)"
+code = 'pkg-config --modversion sdl2'
+
+[[lessons.exercises]]
+id = "s01-l01-w1"
+type = "text"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = []
+cognitiveTask = "explain"
+scaffold = "independent"
+contextFamily = "replace-context"
+aidPolicy = "learning"
+points = 30
+prompt = "A teammate's assembler version probe says command not found while the SDL metadata probe succeeds. Enter the Debian/Ubuntu package that supplies the missing assembler."
+answer = "nasm"
+hint = "The working library probe does not repair a missing assembler executable."

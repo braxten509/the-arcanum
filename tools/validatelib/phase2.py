@@ -8,7 +8,8 @@ from . import PLACEHOLDER_RE, REPO, err
 _CAPABILITY_ID = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 
 
-def check_phase2_artifact_alignment(build_id, manifest, sections, plan_path):
+def check_phase2_artifact_alignment(build_id, manifest, sections, plan_path,
+                                    proposal_file=None):
     """Gate strict inventory against runtime, lifecycle, and proof-owned paths."""
     from buildlib.course_map import proposal_path
     from buildlib.course.dependencies import (
@@ -21,7 +22,7 @@ def check_phase2_artifact_alignment(build_id, manifest, sections, plan_path):
     from buildlib.skeleton.integrity import phase2_alignment_problems
     from runtimes.config import RuntimeConfigRepository, RuntimeConfigurationError
     try:
-        with open(proposal_path(build_id), encoding="utf-8") as handle:
+        with open(proposal_file or proposal_path(build_id), encoding="utf-8") as handle:
             proposal = json.load(handle)
         with open(plan_path, encoding="utf-8") as handle:
             plan_text = handle.read()

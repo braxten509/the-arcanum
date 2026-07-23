@@ -416,6 +416,7 @@ COMPLETE_ARC = """
 **Acceptance proof:** From a clean folder, install or configure Python and its test runner, verify their reported versions, create the Python package, run its tests, record and query journal data, recover from a malformed record, complete the novel extension, and launch the delivered command.
 **Acceptance scenarios:** creates-package -> records-entry -> recovers-error -> language-transfer-proved
 **Lesson counts:** s01=3; s02=3; s03=3
+**Language practice allocation:** s01 = language-syntax-values, language-control-flow; s02 = language-collections, language-exceptions; s03 = language-cli-argparse, language-packaging-pyproject
 **Section list:**
 1. **s01 — Establish Python Foundations:** install or set up Python and its test runner, verify their versions, then establish language-syntax-values, language-control-flow, language-functions, language-scope, language-testing-verification, language-debug-diagnosis, and language-environment-venv
 2. **s02 — Model Journal Data:** teach language-collections, language-comprehensions, language-iteration, language-class-objects, language-composition, language-modules-packages, language-import-boundaries, language-typing, language-files-paths, language-json-data-serialization, language-standard-library-pathlib, language-exceptions, and language-context-resources

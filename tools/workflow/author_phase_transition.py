@@ -34,8 +34,8 @@ def main():
         seed = seed_course_map(args.build_id, plan)
         initialize_author_spec(args.build_id, seed)
         initialize_ledger(args.build_id, read_tooling(plan))
-        print(f"Prepared Phase 2: {len(specs)} section skeletons and a complete-map proposal "
-              f"in tomes/{args.build_id}.")
+        print(f"Prepared Phase 2: {len(specs)} section skeletons in tomes/{args.build_id} "
+              f"and compact map sources in .tome-build/{args.build_id}.course-map-author.")
     else:
         materialize_author_spec(args.build_id)
         sealed = seal_course_map(args.build_id)

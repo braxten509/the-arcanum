@@ -395,6 +395,13 @@ def main():
     assert not [finding for finding in findings_for(bad, manifest_data=external)
                 if finding[0] == "ERROR"], "external guided proof should remain available"
 
+    invented_delivery = manifest()
+    invented_delivery["acceptance"]["sealedDelivery"] = {
+        "mode": "package", "artifact": "dist/app", "requirements": "requirements.txt"}
+    invented_findings = findings_for(section(), manifest_data=invented_delivery)
+    assert any(level == "ERROR" and "[acceptance] has unknown keys: sealedDelivery" in message
+               for level, _label, message in invented_findings), invented_findings
+
     bad = section()
     bad["proof"] = {"mode": "build", "expectedFiles": ["main.py"]}
     assert_error(bad, "final section of a non-external tome must use a deterministic run")

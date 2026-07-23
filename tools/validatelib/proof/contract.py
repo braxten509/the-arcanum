@@ -93,6 +93,13 @@ def _check_acceptance(manifest, sections, plan_path, allow_guided, course_comple
         err("proof", "[acceptance] version must be 1")
     mode = acceptance.get("mode")
     artifact = acceptance.get("artifact")
+    allowed = {
+        "version", "mode", "artifact", "runArgs", "scenarios", "controls",
+        "launchStdin", "guidedChecks",
+    }
+    unknown = sorted(set(acceptance) - allowed)
+    if unknown:
+        err("proof", "[acceptance] has unknown keys: " + ", ".join(unknown))
     if mode not in ACCEPTANCE_MODES:
         err("proof", f"[acceptance] mode must be one of {', '.join(sorted(ACCEPTANCE_MODES))}")
     if artifact not in ACCEPTANCE_ARTIFACTS:

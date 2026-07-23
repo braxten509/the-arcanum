@@ -123,11 +123,6 @@ class SandboxRunner:
         if policy.memory_bytes < 1 or policy.cpu_seconds < 1 or policy.output_bytes < 1:
             raise ValueError("assessment resource limits must be positive")
         command = list(command)
-        if not os.path.isabs(command[0]):
-            resolved = shutil.which(command[0])
-            if not resolved:
-                raise ValueError(f"assessment executable {command[0]!r} is unavailable")
-            command[0] = resolved
         real_cwd = os.path.realpath(cwd)
         sandbox_home = os.path.realpath(home) if home else "/tmp"
         if home:
@@ -141,6 +136,15 @@ class SandboxRunner:
         for key, value in (env or {}).items():
             if key in policy.allowed_environment and isinstance(value, str) and "\0" not in value:
                 clean_env[key] = value
+        if not os.path.isabs(command[0]):
+            # Resolve against the PATH that exists inside bubblewrap. The host PATH
+            # may prefer aliases such as /sbin/python3 even though /sbin is not one
+            # of the sandbox's mounted roots, producing an infrastructure-looking
+            # execvp failure before learner code can run.
+            resolved = shutil.which(command[0], path=clean_env["PATH"])
+            if not resolved:
+                raise ValueError(f"assessment executable {command[0]!r} is unavailable")
+            command[0] = resolved
         argv = self._argv(command, real_cwd, sandbox_home, policy, clean_env)
         scope = _systemd_scope()
         address_space_limit = not bool(scope)

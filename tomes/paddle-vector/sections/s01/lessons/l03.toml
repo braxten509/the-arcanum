@@ -1,0 +1,135 @@
+[[lessons]]
+id = "s01-l03"
+title = "Lay Out Integer State"
+teaches = ["language-data-layout-and-integer-state"]
+introduces = ["nasm-integer-data-and-addressed-state", "nasm-static-cstring-pointer-and-sdl-error-output"]
+validationDependencies = []
+body = '''
+<p>Assembly has no automatic “integer variable.” You reserve bytes, give their address a label, and choose an instruction width each time you read or write them. In this disposable meter—not the game—<code>dd</code> emits a 32-bit doubleword, <code>dq</code> emits a 64-bit quadword, and <code>db</code> emits bytes:</p>
+<pre><code data-kind="pseudocode">section .data
+    meter_value dd 18
+    meter_step  dd -3
+    error_fmt   db "meter failed: %s", 10, 0
+
+section .bss
+    device_ptr  resq 1</code></pre>
+<p><code>.data</code> contains initialized bytes in the object. <code>.bss</code> reserves zero-initialized storage without listing every zero in the file. <code>resq 1</code> reserves one pointer-sized slot. The final zero after the format bytes is the C-string terminator; <code>10</code> is a newline byte. SDL error functions later return a pointer to another zero-terminated string. A formatter can receive the address of <code>error_fmt</code> and that returned pointer, but it must never free SDL's internal error text.</p>
+<p>Square brackets mean “memory at this address.” Without brackets, a label is an address. With position-relative addressing, the intent is explicit:</p>
+<pre><code data-kind="pseudocode">mov eax, [rel meter_value]  ; EAX becomes 18
+add eax, [rel meter_step]   ; EAX becomes 15
+mov [rel meter_value], eax  ; stored value becomes 15
+lea rdi, [rel error_fmt]    ; RDI receives an address, not text bytes</code></pre>
+<p>Trace it one line at a time: the first load copies four bytes into <code>EAX</code>; the add changes the register; the final store changes memory. <code>lea</code> computes the label's address and does not dereference it. Matching widths is a contract: a <code>dd</code> should normally be accessed with a 32-bit register, while a pointer slot needs 64 bits.</p>
+<p>A frequent bug is <code>mov rdi, [rel error_fmt]</code>. That treats the first eight characters as a number instead of producing their address. Another is storing with <code>rax</code> into a <code>dd</code>, overwriting neighboring bytes. Diagnose both by writing a before/after table with separate columns for registers and labels. If the trace changes bytes you did not name, the access width is wrong.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // SIGNED IS AN INTERPRETATION</div><p>The bit pattern does not carry a signed tag. Later comparisons choose signed or unsigned branch meanings. For positions and scores, this course keeps declared widths consistent and states when negative values are meaningful.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "language-data-layout-and-integer-state"
+purpose = "Represents changing program state as named bytes with explicit widths and addresses."
+anatomy = "Declare initialized or reserved storage, load through [rel label], transform a register, then store deliberately."
+example = "The meter trace changes meter_value from 18 to 15."
+observable = "A before/after trace shows EAX and exactly one 32-bit slot changing."
+failure = "A mismatched access width overwrites adjacent state; an omitted dereference yields an address instead of a value."
+practice = "s01-l03-e1"
+
+[[lessons.concepts]]
+id = "nasm-integer-data-and-addressed-state"
+purpose = "Pairs NASM storage directives with width-matched loads and stores."
+anatomy = "Use dd for 32-bit integers, resq for a pointer slot, brackets to dereference, and rel for position-relative addresses."
+example = "The three meter instructions load 18, add -3, and store 15."
+observable = "The named 32-bit state ends at 15 while neighboring labels remain unchanged."
+failure = "Using RAX to store into dd writes eight bytes and can corrupt the next label."
+practice = "s01-l03-e1"
+
+[[lessons.concepts]]
+id = "nasm-static-cstring-pointer-and-sdl-error-output"
+purpose = "Prepares static diagnostic text and pointer storage for truthful SDL failure output."
+anatomy = "Emit format bytes plus newline and zero, reserve a quadword pointer, and use lea for the static string address."
+example = "error_fmt is a C string containing one %s slot for a later SDL error pointer."
+observable = "A byte trace ends with newline 10 and terminator 0; LEA yields its address."
+failure = "Dereferencing the label loads character bytes, and freeing SDL_GetError's returned pointer would violate SDL ownership."
+practice = "s01-l03-e1"
+
+[[lessons.readings]]               # optional: 1-2 high-quality official docs
+label = "NASM data declarations and effective addresses"
+url = "https://www.nasm.us/doc/nasm03.html"
+
+[[lessons.exercises]]
+id = "s01-l03-e1"
+type = "mc"
+required = true
+capabilities = ["language-data-layout-and-integer-state"]
+mechanisms = ["nasm-integer-data-and-addressed-state", "nasm-static-cstring-pointer-and-sdl-error-output"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "replace-context"
+aidPolicy = "learning"
+points = 15
+prompt = "Trace the meter example. Which pair describes the final meter_value and the value produced by lea rdi, [rel error_fmt]?"
+choices = ["15 and the string's address", "15 and its first eight bytes", "21 and the string's address", "18 and a null pointer"]
+answer = 0
+whyWrong = "The distractors confuse addition direction, a load with an address calculation, or ignore the store."
+hint = "Apply the signed step once, then distinguish LEA from MOV with brackets."
+explain = "18 + (-3) is 15, and LEA computes the label address without reading character bytes."
+
+[[lessons.exercises]]
+id = "s01-l03-e2"
+type = "text"
+required = true
+capabilities = ["language-data-layout-and-integer-state"]
+mechanisms = []
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "replace-context"
+aidPolicy = "learning"
+points = 20
+prompt = "A C string must end with one sentinel byte. Enter that byte as a decimal number."
+answer = "0"
+hint = "It is distinct from newline 10."
+
+[[lessons.exercises]]
+id = "s01-l03-e3"
+type = "fill"
+required = true
+capabilities = ["language-data-layout-and-integer-state"]
+mechanisms = []
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "replace-context"
+aidPolicy = "learning"
+points = 20
+prompt = "Complete the position-relative 32-bit load."
+code = 'mov eax, [____ meter_value]'
+answer = "rel"
+hint = "The keyword asks NASM to encode the address relative to the instruction pointer."
+
+[[lessons.exercises]]
+id = "s01-l03-d1"
+type = "type"                      # typing drill: retype the code; no point decay
+required = true
+capabilities = ["language-data-layout-and-integer-state"]
+mechanisms = []
+cognitiveTask = "recall"
+scaffold = "worked"
+contextFamily = "replace-context"
+aidPolicy = "learning"
+points = 12
+reps = 2
+prompt = "Retype the pointer-address instruction exactly. (Ctrl+Enter submits.)"
+code = 'lea rdi, [rel error_fmt]'
+
+[[lessons.exercises]]
+id = "s01-l03-w1"
+type = "text"
+required = true
+capabilities = ["language-data-layout-and-integer-state"]
+mechanisms = []
+cognitiveTask = "trace"
+scaffold = "independent"
+contextFamily = "replace-context"
+aidPolicy = "learning"
+points = 30
+prompt = "A different disposable layout declares, in this order, lives_left dd 5 then lives_bonus dd 2. Broken code runs mov eax, [rel lives_left] then add eax, [rel lives_bonus], then mistakenly stores the sum with mov [rel lives_left], rax instead of mov [rel lives_left], eax. Trace the widths involved and enter the decimal value left in lives_bonus once that mistaken 64-bit store completes."
+answer = "0"
+hint = "eax already holds the correct sum with zero above it in rax; an 8-byte store at lives_left writes four more bytes past it than a 4-byte store would."

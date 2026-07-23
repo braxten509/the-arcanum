@@ -7,11 +7,11 @@ import subprocess
 from .. import REPO
 from ..course.state import refresh_course_verifications
 from ..course_map import load_course_map
-from ..course_map.author_spec import materialize_author_spec
-from ..phase2_research import validate_ledger
+from ..course_map.author_spec import (materialize_author_spec, preview_path)
 from ..mastery_evidence import export_mastery_contract, validate_semantic_review
 from ..measure import (phase3_validator_argv, validate, validate_live_smoke,
-                       validate_phase3, validate_shipping, validator_argv)
+                       validate_phase3, validate_shipping, validator_argv,
+                       run_harness_command)
 from .models import PhaseDefinition
 from .registry import PhaseRegistry
 
@@ -21,15 +21,18 @@ def _phase1(build_id: str, context: dict) -> tuple[bool, str]:
 
 
 def _phase2(build_id: str, context: dict) -> tuple[bool, str]:
-    research_ok, research_report = validate_ledger(build_id)
-    if not research_ok:
-        return False, research_report
-    try:
-        materialize_author_spec(build_id)
-    except ValueError as exc:
-        return False, f"PHASE 2 AUTHOR SPEC:\n{exc}"
-    return validate(context["tid"], phase=2, tooling=context["tooling"], run=False,
-                    plan_rel=context["plan"])
+    reports = []
+    for command in _phase2_commands(build_id, context):
+        process = run_harness_command(command, context["tid"])
+        report = ((process.stdout or "") + (process.stderr or "")).strip()
+        if report:
+            reports.append(report)
+        if process.returncode:
+            return False, "\n".join(reports)
+    # The author and harness validated the same deterministic preview. Only the
+    # trusted harness now publishes that value to the protected proposal path.
+    materialize_author_spec(build_id)
+    return True, "\n".join(reports)
 
 
 def _phase3(_build_id: str, context: dict) -> tuple[bool, str]:
@@ -88,9 +91,11 @@ def _phase1_commands(_build_id: str, context: dict) -> list[list[str]]:
 
 
 def _phase2_commands(build_id: str, context: dict) -> list[list[str]]:
-    return [["python3", "tools/workflow/materialize_phase2_map.py", build_id],
-            validator_argv(context["tid"], phase=2, tooling=context["tooling"], run=False,
-                           plan_rel=context["plan"])]
+    preview = os.path.relpath(preview_path(build_id), REPO)
+    return [["python3", "tools/workflow/materialize_phase2_map.py", build_id, "--preview"],
+            [*validator_argv(
+                context["tid"], phase=2, tooling=context["tooling"], run=False,
+                plan_rel=context["plan"]), "--phase-2-proposal", preview]]
 
 
 def _phase3_commands(_build_id: str, context: dict) -> list[list[str]]:

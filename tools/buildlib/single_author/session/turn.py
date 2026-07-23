@@ -19,6 +19,7 @@ from ..runtime import resume_command
 from ..runtime import runner_stdin
 from ..runtime import session_id_from_line
 from ..runtime import usage_from_line
+from .recovery import with_codex_patch_safety
 from .support import append_conversation as _append_conversation
 from .support import harness_blocked_message, repair_required_message
 from arcanum.forge.tool_trace import (_descendants, runner_session, trace_model,
@@ -75,6 +76,7 @@ class AuthorTurnMixin:
 
     def run_turn(self, prompt, conversation_kind="system", conversation_text=""):
         ensure_cost_totals(BUILD_DIR, self.build_id)
+        prompt = with_codex_patch_safety(self.kind, self.role, prompt)
         self.actual_model = ""
         started_at = time.time()
         cost_unit = current_unit(self.build_id, self.from_phase) or {

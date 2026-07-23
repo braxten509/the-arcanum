@@ -1,6 +1,7 @@
 """One harness-owned author workflow with warm repairs and clean-unit session resets."""
 from __future__ import annotations
 
+import math
 import os
 import queue
 import sys
@@ -13,14 +14,23 @@ from ..course.state import tree_digest
 from .gate import (advance_unit, context, continue_prompt, current_unit, ensure_unit,
                           label, mark_unit_validating, next_prompt, preflight_unit,
                           repair_prompt, report_completed_unit_cost, unit_prompt,
-                          validate_author_self_check, validate_unit)
+                          validate_author_self_check, validate_unit,
+                          validation_failure_message, validation_issue_count)
 from . import full_review
 from ..measure import (ValidatorInfrastructureError, validate_live_smoke,
                        validate_shipping)
+from ..planning_review import (is_contract_conflict_report,
+                               is_planning_contract_cycle_report)
 from .review_session import ReviewerSessionMixin
 from .scope import author_hidden_paths, author_paths
 from .session.controls import AuthorControlsMixin
 from .session.phase_state import PhaseAuthorStateMixin
+from .session.recovery import (MAX_CODEX_FRESH_SESSION_RECOVERIES,
+                               MAX_CODEX_PATCH_RECOVERIES,
+                               codex_fresh_session_recovery_prompt,
+                               codex_patch_recovery_prompt,
+                               recoverable_codex_resume_failure,
+                               recoverable_codex_patch_failure)
 from .session.turn import AuthorTurnMixin
 from .session.turn import authoritative_session_id as _authoritative_session_id
 from .session.support import (append_conversation as _append_conversation,
@@ -55,10 +65,13 @@ def _author_state_fingerprint(paths):
     )
 
 
-def section_repair_limit_reached(failures, cost, *, hard_cost=2.0, max_failures=2):
-    """Return true when another section repair needs explicit operator authorization."""
-    return (int(failures) >= int(max_failures)
-            or bool(cost and float(cost.get("apiEquivalentUsd") or 0) >= float(hard_cost)))
+def section_repair_limit_reached(cost, *, hard_cost=2.0):
+    """Return true only when a section reaches its configured dollar limit."""
+    return bool(
+        hard_cost is not None
+        and cost
+        and float(cost.get("apiEquivalentUsd") or 0) >= float(hard_cost)
+    )
 
 
 def configured_section_cost_limit(build_id, claude_author=False):
@@ -67,10 +80,19 @@ def configured_section_cost_limit(build_id, claude_author=False):
     try:
         import json
         with open(path, encoding="utf-8") as handle:
-            base = float(json.load(handle).get("sectionCostLimitUsd", 2.0))
-    except (OSError, TypeError, ValueError):
+            raw = json.load(handle).get("sectionCostLimitUsd", 2.0)
+    except (OSError, ValueError):
+        raw = 2.0
+    if raw is None or (
+            isinstance(raw, str)
+            and raw.strip().lower() in {"unlimited", "no-limit", "no limit", "none"}):
+        return None
+    try:
+        base = float(raw)
+    except (TypeError, ValueError):
         base = 2.0
-    base = min(10.0, max(1.0, base))
+    if not math.isfinite(base) or base <= 0:
+        base = 2.0
     return base * (2.0 if claude_author else 1.0)
 
 
@@ -136,8 +158,8 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
         """Stop a repeated no-handoff file state before paying for another turn."""
         message = (
             f"The harness detected a repeated authored-file state for {label(unit)} without a "
-            "validating handoff. This is a no-progress repair cycle, commonly caused by "
-            "contradictory self-check findings. No further author turn was started. Reconcile "
+            "validating handoff. This is a no-progress repair cycle. No further author turn was "
+            "started. Reconcile "
             "the validator contract or authored state, then resume this same unit.")
         append_conversation(self.build_id, "harness", message)
         self.state("paused", gate="author-no-progress-cycle", error=message)
@@ -164,14 +186,32 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
         return self.await_validation_controls()
 
     def pause_for_planning_stall(self, unit, report):
-        message = (f"{label(unit)} paused because the same repair is repeating without "
-                   "measurable progress. Confirm or choose another AI to retry.")
+        message = (
+            f"{label(unit)} paused at a repeated planning-contract state. No author or "
+            "alternate-AI retry was started. Reconcile the harness/validator contract, then "
+            "resume this same validation gate without an author turn.")
         append_conversation(
             self.build_id, "harness", message + "\n\nLatest validator report:\n\n"
             + str(report or "validator failed")[-12000:])
-        self.state("paused", gate="planning-stall", error=message)
-        notify("✗ Planning repair loop paused",
-               f"{self.current_tome()}: {label(unit)} stopped making progress.", priority=1)
+        self.state("paused", gate="planning-contract-stall", error=message)
+        notify("✗ Planning contract paused",
+               f"{self.current_tome()}: {label(unit)} needs harness/validator reconciliation.",
+               priority=1)
+        return self.await_validation_controls()
+
+    def pause_for_planning_contract_conflict(self, unit, report):
+        """Keep an impossible sealed-plan finding away from the Phase-2 author."""
+        message = (
+            f"{label(unit)} paused because the Validator AI found an irreconcilable sealed "
+            "Phase-1 contract. No author or alternate-AI retry was started. Repair or rewind "
+            "the planning contract, then resume this same validation gate without an author turn.")
+        append_conversation(
+            self.build_id, "harness", message + "\n\nValidator report:\n\n"
+            + str(report or "contract conflict")[-12000:])
+        self.state("paused", gate="planning-contract-conflict", error=message)
+        notify("✗ Sealed planning contract paused",
+               f"{self.current_tome()}: {label(unit)} requires planning-contract repair.",
+               priority=1)
         return self.await_validation_controls()
 
     def run(self):
@@ -188,12 +228,16 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
                   author_prompt(self.build_id, self.concept, self.tooling, self.from_phase)
                   + "\n\n" + assignment)
         conversation_kind = "harness"
-        conversation_text = f"Assigned {label(unit)}. The harness will validate when the author stops."
+        conversation_text = (
+            f"Assigned {label(unit)}. The author runs the exact mechanical checks; the harness "
+            "independently repeats them after handoff.")
         deferred_message, deferred_switch = "", False
         nonvalidating_states = {}
         section_repair_failures = {}
         section_budget_warned = set()
         planning_failure_states = {}
+        codex_patch_recoveries = {}
+        codex_fresh_session_recoveries = {}
 
         def decorate_deferred(base_prompt, target_unit, default_kind, default_text):
             nonlocal deferred_message, deferred_switch
@@ -222,12 +266,19 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
             fingerprint = _author_state_fingerprint(self._writable())
             report_text = str(report or "validator failed").strip()
             prior = planning_failure_states.get(unit_key, {})
-            repeats = (int(prior.get("repeats") or 0) + 1
-                       if prior.get("report") == report_text else 1)
+            report_repeats = (int(prior.get("reportRepeats") or 0) + 1
+                              if prior.get("report") == report_text else 1)
             unchanged = bool(prior and prior.get("fingerprint") == fingerprint)
+            fingerprint_counts = dict(prior.get("fingerprintCounts") or {})
+            fingerprint_counts[fingerprint] = fingerprint_counts.get(fingerprint, 0) + 1
+            repeated_state = fingerprint_counts[fingerprint] >= 2
             planning_failure_states[unit_key] = {
-                "fingerprint": fingerprint, "report": report_text, "repeats": repeats}
-            if unchanged or repeats >= 3:
+                "fingerprint": fingerprint,
+                "fingerprintCounts": fingerprint_counts,
+                "report": report_text,
+                "reportRepeats": report_repeats,
+            }
+            if unchanged or repeated_state or report_repeats >= 3:
                 resumed = self.pause_for_planning_stall(target_unit, report)
                 if resumed is None:
                     return True
@@ -254,7 +305,48 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
                     continue
                 prompt, conversation_kind, conversation_text = decorate_deferred(
                     prompt, unit, conversation_kind, conversation_text)
+                resumed_session_id = self.session_id
                 outcome, message = self.run_turn(prompt, conversation_kind, conversation_text)
+                unit_key = (unit.get("kind"), int(unit.get("phase") or 0),
+                            str(unit.get("section") or ""))
+                patch_failure = recoverable_codex_patch_failure(
+                    self.kind, self.role, self.session_id, message)
+                resume_failure = recoverable_codex_resume_failure(
+                    self.kind, self.role, resumed_session_id, message)
+                if outcome == "failed" and patch_failure:
+                    recoveries = codex_patch_recoveries.get(unit_key, 0) + 1
+                    codex_patch_recoveries[unit_key] = recoveries
+                    if recoveries <= MAX_CODEX_PATCH_RECOVERIES:
+                        prompt = codex_patch_recovery_prompt(label(unit))
+                        conversation_kind, conversation_text = "harness", (
+                            f"Codex rejected a malformed author patch before applying it. "
+                            f"Automatically resuming the same {label(unit)} author session "
+                            f"(tool recovery {recoveries}/{MAX_CODEX_PATCH_RECOVERIES}).")
+                        continue
+                elif outcome == "failed" and resume_failure:
+                    recoveries = codex_fresh_session_recoveries.get(unit_key, 0) + 1
+                    codex_fresh_session_recoveries[unit_key] = recoveries
+                    if recoveries <= MAX_CODEX_FRESH_SESSION_RECOVERIES:
+                        self.session_id = ""
+                        self.actual_model = ""
+                        prompt = (
+                            author_prompt(
+                                self.build_id, self.concept, self.tooling,
+                                unit.get("phase", self.from_phase))
+                            + "\n\n"
+                            + codex_fresh_session_recovery_prompt(label(unit))
+                            + "\n\n"
+                            + prompt
+                        )
+                        conversation_kind, conversation_text = "harness", (
+                            f"The saved Codex author session exited before producing output. "
+                            f"Automatically retrying the same {label(unit)} with {self.model} "
+                            "in one fresh session; authored files and the complete repair packet "
+                            "are preserved.")
+                        continue
+                elif outcome != "failed":
+                    codex_patch_recoveries.pop(unit_key, None)
+                    codex_fresh_session_recoveries.pop(unit_key, None)
                 if outcome == "stopped":
                     break
                 if outcome == "message":
@@ -311,14 +403,20 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
                                "reported HARNESS_BLOCKED, but the independently reproduced check")
                     conversation_kind, conversation_text = "harness", (
                         f"The author {claimed} for {label(unit)}. Structured authored findings "
-                        "were aggregated and returned to the same author session.")
+                        "were aggregated and returned to the same author session. "
+                        f"({validation_issue_count(self_check_report)} issues found)")
                     prompt, conversation_kind, conversation_text = decorate_deferred(
                         prompt, unit, conversation_kind, conversation_text)
                     continue
                 if outcome in ("paused", "failed"):
                     if outcome == "failed":
-                        error = ("The author CLI exited unexpectedly. Resume it, or pick "
-                                 "another AI to take over in a fresh session.")
+                        error = (
+                            "The author CLI repeatedly emitted malformed patches and exhausted "
+                            "automatic same-session recovery. Resume it, or pick another AI to "
+                            "take over in a fresh session."
+                            if patch_failure else
+                            "The author CLI exited unexpectedly. Resume it, or pick another AI "
+                            "to take over in a fresh session.")
                         self.state("paused", error=error)
                         # The recovery bar states the failure; the conversation is where the
                         # run is read back later, so the crash belongs in the transcript too —
@@ -385,6 +483,28 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
                 unit_key = (unit.get("kind"), int(unit.get("phase") or 0),
                             str(unit.get("section") or ""))
                 phase = int(unit.get("phase") or 0)
+                if (unit.get("kind") == "phase" and phase in (1, 2)
+                        and is_planning_contract_cycle_report(report)):
+                    resumed = self.pause_for_planning_stall(unit, report)
+                    if resumed is None:
+                        break
+                    message, switched = resumed
+                    deferred_message = "\n\n".join(
+                        part for part in (deferred_message, message) if part)
+                    deferred_switch = deferred_switch or switched
+                    validate_first = True
+                    continue
+                if (unit.get("kind") == "phase" and phase == 2
+                        and is_contract_conflict_report(report)):
+                    resumed = self.pause_for_planning_contract_conflict(unit, report)
+                    if resumed is None:
+                        break
+                    message, switched = resumed
+                    deferred_message = "\n\n".join(
+                        part for part in (deferred_message, message) if part)
+                    deferred_switch = deferred_switch or switched
+                    validate_first = True
+                    continue
                 if pause_if_planning_stuck(unit, report):
                     break
                 if unit.get("kind") == "section":
@@ -397,28 +517,36 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
                 claude_author = self.kind == "claude-cli"
                 configured_hard_cost = configured_section_cost_limit(
                     self.build_id, claude_author)
-                hard_cost = float(os.environ.get(
+                hard_limit_name = (
                     "ARCANUM_CLAUDE_SECTION_COST_LIMIT_USD" if claude_author
-                    else "ARCANUM_SECTION_COST_LIMIT_USD",
-                    str(configured_hard_cost)))
-                warn_cost = float(os.environ.get(
-                    "ARCANUM_CLAUDE_SECTION_COST_WARN_USD" if claude_author
-                    else "ARCANUM_SECTION_COST_WARN_USD",
-                    str(hard_cost * 0.75)))
-                max_failures = int(os.environ.get("ARCANUM_SECTION_REPAIR_FAILURES", "2"))
+                    else "ARCANUM_SECTION_COST_LIMIT_USD")
+                hard_override = os.environ.get(hard_limit_name)
+                if hard_override is None:
+                    hard_cost = configured_hard_cost
+                elif hard_override.strip().lower() in {
+                        "unlimited", "no-limit", "no limit", "none"}:
+                    hard_cost = None
+                else:
+                    hard_cost = float(hard_override)
+                warn_cost = None
+                if hard_cost is not None:
+                    warn_cost = float(os.environ.get(
+                        "ARCANUM_CLAUDE_SECTION_COST_WARN_USD" if claude_author
+                        else "ARCANUM_SECTION_COST_WARN_USD",
+                        str(hard_cost * 0.75)))
                 if (unit.get("kind") == "section" and cost
+                        and warn_cost is not None
                         and float(cost["apiEquivalentUsd"]) >= warn_cost
                         and unit_key not in section_budget_warned):
                     section_budget_warned.add(unit_key)
                     warning = (f"SECTION COST WARNING › {label(unit)} › "
                                f"${cost['displayUsd']:.2f} API-equivalent; the next failed gate "
-                               f"pauses at ${hard_cost:.2f} or {max_failures} failures.")
+                               f"pauses after the section reaches ${hard_cost:.2f}.")
                     print(warning, flush=True)
                     append_conversation(self.build_id, "harness", warning)
                 if (unit.get("kind") == "section"
                         and section_repair_limit_reached(
-                            failures, cost, hard_cost=hard_cost,
-                            max_failures=max_failures)):
+                            cost, hard_cost=hard_cost)):
                     resumed = self.pause_for_section_repair_limit(
                         unit, report, failures, cost)
                     if resumed is None:
@@ -429,8 +557,8 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
                         part for part in (deferred_message, message) if part)
                     deferred_switch = deferred_switch or switched
                 prompt = repair_prompt(self.build_id, unit, report)
-                conversation_kind, conversation_text = "harness", (
-                    f"Validation failed for {label(unit)}. The report was returned to the same author session.")
+                conversation_kind, conversation_text = (
+                    "harness", validation_failure_message(unit, report))
                 prompt, conversation_kind, conversation_text = decorate_deferred(
                     prompt, unit, conversation_kind, conversation_text)
                 continue

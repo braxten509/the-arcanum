@@ -157,9 +157,9 @@ def prompt_tail(build_id, section_id=None, *, state=None, log=True):
     add("before-heading", "BEFORE STOPPING")
     add("before:1", "1. Complete only the assigned section.")
     add("before:2", "2. Write the exact current handoff proposal.")
-    add("before:3", "3. Run the assigned self-check and repair failures.")
+    add("before:3", "3. Run every assigned exact mechanical check until it exits clean.")
     add("before:4", "4. Mark the real section validating and stop.")
-    add("truth", "The AI cannot award checkmarks; the harness validates after it stops.")
+    add("truth", "The author self-checks mechanically; only the harness awards validation and advances.")
     add("footer", END_MARKER)
     rendered = "\n".join(text for _label, text in entries)
     if len(rendered) > MAX_CONTROL_CHARS:

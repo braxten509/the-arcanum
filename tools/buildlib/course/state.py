@@ -173,9 +173,17 @@ def _section_authored(section, tid):
 
 
 def required_checks(section):
-    checks = set((section.get("doneWhen") or {}).get("checks") or [])
+    done_when = section.get("doneWhen")
+    values = done_when.get("checks") if isinstance(done_when, dict) else []
+    checks = {item for item in values if isinstance(item, str)} \
+        if isinstance(values, list) else set()
     for node in section.get("nodes") or []:
-        checks.update((node.get("doneWhen") or {}).get("checks") or [])
+        if not isinstance(node, dict):
+            continue
+        done_when = node.get("doneWhen")
+        values = done_when.get("checks") if isinstance(done_when, dict) else []
+        if isinstance(values, list):
+            checks.update(item for item in values if isinstance(item, str))
     return sorted(checks)
 
 

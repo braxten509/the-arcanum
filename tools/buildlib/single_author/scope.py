@@ -19,7 +19,7 @@ def author_paths(build_id, from_phase, tid, unit):
     else:
         tome = os.path.join(REPO, "tomes", tid)
         if phase == 2:
-            writable.extend((tome, proposal_path(build_id), spec_root(build_id),
+            writable.extend((tome, spec_root(build_id),
                              ledger_path(build_id),
                              os.path.join(REPO, "global-configs", "runtimes")))
         elif phase == 3 and (unit or {}).get("kind") == "section":
@@ -46,8 +46,10 @@ def author_paths(build_id, from_phase, tid, unit):
         protected.append(os.path.join(BUILD_DIR, f"{build_id}.{suffix}"))
     if phase != 1:
         protected.append(os.path.join(BUILD_DIR, f"{build_id}.plan.md"))
-    if phase != 2:
-        protected.append(proposal_path(build_id))
+    # The proposal is always generated harness state. Phase 2 authors edit only
+    # the compact spec; their mechanical check writes a disposable preview inside
+    # that writable root, while only the harness publishes this protected file.
+    protected.append(proposal_path(build_id))
     if phase == 3 and (unit or {}).get("kind") == "section":
         current = handoff_path(tid, unit["section"])
         root = handoff_dir(tid)

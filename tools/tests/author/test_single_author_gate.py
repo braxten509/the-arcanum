@@ -15,10 +15,53 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tools.buildlib.single_author import gate  # noqa: E402
+from tools.buildlib.single_author import full_review  # noqa: E402
 from tools.buildlib.workflow import section_progress  # noqa: E402
 from arcanum.platform.agent_commands import scoped_runner_command, scoped_shell_command  # noqa: E402
+from arcanum.platform.agent_commands import _claude_command, _codex_command  # noqa: E402
+from arcanum.ai import NO_TOME_MEMORY_POLICY  # noqa: E402
 from tools.buildlib import single_author  # noqa: E402
 from tools.buildlib.single_author import runtime as single_author_runtime  # noqa: E402
+from tools.buildlib.single_author import scope as single_author_scope  # noqa: E402
+from tools.buildlib.authoring import phases as authoring_phases  # noqa: E402
+from tools.buildlib.planning_review import (planning_authority,
+                                            planning_dynamic_authority,
+                                            planning_prompt)  # noqa: E402
+from tools.buildlib.prerequisites.prompt import prerequisite_prompt  # noqa: E402
+from tools.buildlib.section_quality_contract import (  # noqa: E402
+    section_quality_authority,
+    section_quality_contract_packet,
+)
+from tools.workflow.context import render_section_context  # noqa: E402
+from tools.buildlib.single_author.session.support import author_prompt  # noqa: E402
+
+
+# Every persistent CLI role receives the same absolute no-tome-memory instruction. Root provider
+# instruction files cover fresh manual sessions in this checkout as well as harness-created turns.
+with patch.object(full_review, "inventory", return_value=[]):
+    role_prompts = (
+        author_prompt("build", "concept", "internal"),
+        planning_prompt(1, "", []),
+        planning_prompt(2, "", []),
+        prerequisite_prompt("", "s01", [], "", 1),
+        full_review.prompt("build", "course"),
+    )
+assert all(prompt.count(NO_TOME_MEMORY_POLICY) == 1 for prompt in role_prompts)
+for provider_file in ("AGENTS.md", "CLAUDE.md"):
+    provider_policy = (_BOOTSTRAP_REPO / provider_file).read_text(encoding="utf-8")
+    assert "Never save anything about Arcanum tomes" in provider_policy
+assert "memories = false" in (_BOOTSTRAP_REPO / ".codex" / "config.toml").read_text(
+    encoding="utf-8")
+assert json.loads((_BOOTSTRAP_REPO / ".claude" / "settings.json").read_text(
+    encoding="utf-8"))["autoMemoryEnabled"] is False
+codex_without_memory = _codex_command(["codex", "exec", "-"])
+codex_memory_setting = codex_without_memory.index("features.memories=false")
+assert codex_without_memory[codex_memory_setting - 1] == "-c"
+assert codex_memory_setting < codex_without_memory.index("exec")
+claude_without_memory = _claude_command(["claude", "-p"], str(_BOOTSTRAP_REPO))
+assert "--safe-mode" in claude_without_memory
+claude_settings = json.loads(claude_without_memory[claude_without_memory.index("--settings") + 1])
+assert claude_settings["autoMemoryEnabled"] is False
 
 
 # Provider streams may contain JSON primitives or malformed nested rows. They are
@@ -34,7 +77,24 @@ assert single_author_runtime.usage_from_line(
     '{"type":"turn.completed","usage":{"input_tokens":100,"cached_input_tokens":80,'
     '"output_tokens":12}}') == {
         "inputTokens": 100, "cachedInputTokens": 80, "outputTokens": 12,
-        "freshInputTokens": 20}
+    "freshInputTokens": 20}
+
+
+# The bounded author packet embeds the exact contract used by Validator AI, not a
+# separately maintained summary that can drift later.
+with tempfile.TemporaryDirectory() as packet_root, \
+        patch.object(render_section_context, "REPO", packet_root), \
+        patch.object(render_section_context, "context", return_value={
+            "tid": "course", "tooling": "external", "plan": "build.plan.md"}), \
+        patch.object(render_section_context, "load_course_map", return_value={
+            "sections": [{"id": "s01", "nodes": []}],
+            "plannedObligations": [], "acceptanceScenarios": []}), \
+        patch.object(render_section_context, "ledger_path",
+                     return_value=os.path.join(packet_root, "ledger.json")), \
+        patch.object(render_section_context, "handoff_path",
+                     return_value=os.path.join(packet_root, "handoff.json")):
+    bounded_packet = json.loads(render_section_context.render("build", "s01"))
+assert bounded_packet["sectionQualityContract"] == section_quality_contract_packet()
 
 
 with tempfile.TemporaryDirectory() as root:
@@ -44,6 +104,9 @@ with tempfile.TemporaryDirectory() as root:
     os.makedirs(tome_dir)
     with open(os.path.join(build_dir, "build.plan.md"), "w", encoding="utf-8") as handle:
         handle.write("- **Tooling:** external\n")
+    with open(os.path.join(build_dir, "build.launch.json"), "w", encoding="utf-8") as handle:
+        json.dump({"gate": {"prior_level": 2, "prior_knowledge": "names and literals",
+                            "depth": 7, "mastery": 3}}, handle)
     map_file = os.path.join(build_dir, "build.course-map.json")
     with open(map_file, "w", encoding="utf-8") as handle:
         handle.write("{}\n")
@@ -91,6 +154,14 @@ with tempfile.TemporaryDirectory() as root:
         assert not failed and "mechanical failure" in failed_report
         validator_call.assert_not_called()
 
+        with patch.object(gate, "validate_section", return_value=(True, "section clean")), \
+                patch.object(gate, "validate_phase3", return_value=(False, "full failure")), \
+                patch.object(gate, "record_section_failure"), \
+                patch.object(gate, "review_prerequisites") as validator_call:
+            failed, failed_report = gate.validate_unit("build", last)
+        assert not failed and "full failure" in failed_report
+        validator_call.assert_not_called()
+
         phase4 = gate.advance_unit("build", last)
         assert phase4 == {"kind": "phase", "phase": 4, "state": "working"}, phase4
         with open(os.path.join(build_dir, "build.progress"), encoding="utf-8") as handle:
@@ -100,27 +171,68 @@ with tempfile.TemporaryDirectory() as root:
         assert "PASSED" in resume and "Phase 4" in resume
         assert "python3 tools/workflow/report_tome_progress.py build 4 validating" in resume
         assert "BUILD_ID" not in resume
-        assert "--build-phase 4 --phase-only --no-run" in resume, resume
+        assert "--build-phase 4 --phase-only" in resume, resume
         repair = gate.repair_prompt("build", last, "bad")
         assert "wherever they occur in the cumulative tome" in repair
-        assert "--source-only" in repair, repair
+        assert "--source-only" not in repair, repair
+        assert "Do not run or imitate the Validator AI" in repair
+        assert "tools/validate_section.py" in repair
+        assert "tools/validate_phase3.py" in repair
         assert "complete repair packet" in repair
         assert "render_section_context.py" not in repair
+        assert repair.count(
+            section_quality_authority(2, "names and literals", 7, 3)) == 1
+        assert "whole-section coverage sweep" in repair
         section_prompt = gate.unit_prompt("build", ready)
-        assert "tools/validate_section.py tomes/course s01" in section_prompt
+        assert "tools/validate_section.py" in section_prompt
         assert ("python3 tools/workflow/report_section_progress.py build s01 1 2 validating"
                 in section_prompt)
-        assert "--source-only" in section_prompt
-        assert "do not substitute ad-hoc" in section_prompt.lower()
-        assert "HARNESS_BLOCKED:" in section_prompt
+        assert "--source-only" not in section_prompt
+        assert "ALWAYS run every listed command" in section_prompt
+        assert "HARNESS_BLOCKED" in section_prompt
+        assert "HARNESS_REPAIR_REQUIRED" not in section_prompt
         assert "$1–2 API-equivalent per section" in section_prompt
+        assert "sectionQualityContract" in section_prompt
+        assert "exact binding policy used by the Validator AI" in section_prompt
+        assert section_prompt.count(
+            section_quality_authority(2, "names and literals", 7, 3)) == 1
+        assert "whole-section coverage sweep" in section_prompt
+        assert "all five facts" in section_prompt
         assert section_prompt.endswith("HARNESS COURSE CONTROL")
+        phase1_prompt = gate.unit_prompt(
+            "build", {"kind": "phase", "phase": 1, "state": "working"})
+        assert phase1_prompt.count(planning_authority(1)) == 1
+        assert phase1_prompt.count(planning_dynamic_authority(
+            "build", 1, build_dir=build_dir)) == 1
+        assert "runtime repair must never put a Makefile" in phase1_prompt
+        phase1_repair = gate.repair_prompt(
+            "build", {"kind": "phase", "phase": 1, "state": "validating"}, "bad")
+        assert phase1_repair.count(planning_authority(1)) == 1
+        assert phase1_repair.count(planning_dynamic_authority(
+            "build", 1, build_dir=build_dir)) == 1
+        phase2_prompt = gate.unit_prompt(
+            "build", {"kind": "phase", "phase": 2, "state": "working"})
+        assert phase2_prompt.count(planning_authority(2)) == 1
+        assert phase2_prompt.count(planning_dynamic_authority(
+            "build", 2, build_dir=build_dir)) == 1
+        assert "authority block controls family meaning" in phase2_prompt
+        assert "other repairable paths it names" in phase2_prompt
+        assert "materialize_phase2_map.py build --preview" in phase2_prompt
+        assert "--phase-2-proposal" in phase2_prompt
+        phase2_repair = gate.repair_prompt(
+            "build", {"kind": "phase", "phase": 2, "state": "validating"}, "bad")
+        assert phase2_repair.count(planning_authority(2)) == 1
+        assert phase2_repair.count(planning_dynamic_authority(
+            "build", 2, build_dir=build_dir)) == 1
+        # Every phase exposes the same exact mechanical commands the harness repeats.
         phase2_checks = gate.self_validation_commands(
             "build", {"kind": "phase", "phase": 2, "state": "working"})
         assert len(phase2_checks) == 2
-        assert phase2_checks[0] == "python3 tools/workflow/materialize_phase2_map.py build"
+        assert phase2_checks[0] == (
+            "python3 tools/workflow/materialize_phase2_map.py build --preview")
         assert "--phase-2-skeleton" in phase2_checks[1]
         assert "--no-run" in phase2_checks[1]
+        assert "--phase-2-proposal" in phase2_checks[1]
         shipping_checks = gate.self_validation_commands(
             "build", {"kind": "phase", "phase": 7, "state": "working"})
         assert len(shipping_checks) == 3
@@ -129,6 +241,37 @@ with tempfile.TemporaryDirectory() as root:
         assert "tools/validate_phase3.py" in shipping_checks[1]
         assert "--strict" in shipping_checks[1]
         assert shipping_checks[2] == "python3 tools/smoke_tome.py course"
+        final_section_checks = gate.self_validation_commands("build", last)
+        assert len(final_section_checks) == 2
+        assert "tools/validate_section.py" in final_section_checks[0]
+        assert "tools/validate_phase3.py" in final_section_checks[1]
+        for phase in (1, 2, 4, 5, 6, 7, 8):
+            phase_unit = {"kind": "phase", "phase": phase, "state": "working"}
+            phase_prompt = gate.unit_prompt("build", phase_unit)
+            checks = gate.self_validation_commands("build", phase_unit)
+            assert checks and all(f"`{command}`" in phase_prompt for command in checks), (
+                phase, checks, phase_prompt)
+
+assert gate.validation_issue_count(
+    "ERROR plan: first\nWARN plan: second\n-- plan: 1 error(s), 1 warning(s)") == 2
+assert gate.validation_issue_count("-- tome: 3 error(s), 2 warning(s)") == 5
+assert gate.validation_issue_count("# FAIL\n\nIssues found: 4\n\nRepairs") == 4
+failure_text = gate.validation_failure_message(
+    {"kind": "phase", "phase": 1}, "ERROR plan: one")
+assert failure_text.endswith("(1 issues found)"), failure_text
+
+phase2_context = {
+    "tid": "course", "tooling": "external", "plan": ".tome-build/build.plan.md"}
+expected_phase2 = authoring_phases._phase2_commands("build", phase2_context)
+with patch.object(
+        authoring_phases, "run_harness_command",
+        side_effect=lambda command, _tid: subprocess.CompletedProcess(
+            command, 0, stdout="mechanical clean\n", stderr="")) as phase2_run, \
+        patch.object(authoring_phases, "materialize_author_spec") as publish_proposal:
+    phase2_ok, phase2_report = authoring_phases._phase2("build", phase2_context)
+assert phase2_ok and "mechanical clean" in phase2_report
+assert [call.args[0] for call in phase2_run.call_args_list] == expected_phase2
+publish_proposal.assert_called_once_with("build")
 
 wrapped = scoped_shell_command("true", "/")
 assert "--unshare-pid" in wrapped and "--proc" in wrapped
@@ -170,6 +313,47 @@ assert "PLANNING ESCALATION" not in _BootstrapPath(
     single_author.__file__).read_text(encoding="utf-8")
 
 with tempfile.TemporaryDirectory() as root:
+    build_dir = os.path.join(root, ".tome-build")
+    author_root = os.path.join(build_dir, "build.course-map-author")
+    proposal = os.path.join(build_dir, "build.course-map.proposal.json")
+    ledger = os.path.join(build_dir, "build.phase2-research.json")
+    tome = os.path.join(root, "tomes", "course")
+    runtimes = os.path.join(root, "global-configs", "runtimes")
+    for directory in (author_root, tome, runtimes):
+        os.makedirs(directory, exist_ok=True)
+    for path in (proposal, ledger):
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write("{}\n")
+    missing = lambda name: os.path.join(build_dir, "missing-" + name)
+    with patch.object(single_author_scope, "BUILD_DIR", build_dir), \
+            patch.object(single_author_scope, "REPO", root), \
+            patch.object(single_author_scope, "VALIDATOR_FAILURE_DIR",
+                         os.path.join(root, "validator-failures")), \
+            patch.object(single_author_scope, "proposal_path", return_value=proposal), \
+            patch.object(single_author_scope, "spec_root", return_value=author_root), \
+            patch.object(single_author_scope, "ledger_path", return_value=ledger), \
+            patch.object(single_author_scope, "seed_path",
+                         return_value=missing("seed")), \
+            patch.object(single_author_scope, "map_path",
+                         return_value=missing("map")), \
+            patch.object(single_author_scope, "amendment_path",
+                         return_value=missing("amendment")), \
+            patch.object(single_author_scope, "state_path",
+                         return_value=missing("state")), \
+            patch.object(single_author_scope, "evidence_dir",
+                         return_value=missing("evidence")), \
+            patch.object(single_author_scope, "failure_dir",
+                         return_value=missing("failure")), \
+            patch.object(single_author_scope, "prerequisite_calls_path",
+                         return_value=missing("calls")):
+        writable, protected = single_author_scope.author_paths(
+            "build", 2, "course", {"kind": "phase", "phase": 2})
+    assert author_root in writable and ledger in writable
+    assert tome in writable and runtimes in writable
+    assert proposal not in writable
+    assert proposal in protected
+
+with tempfile.TemporaryDirectory() as root:
     writable = os.path.join(root, "build")
     os.makedirs(writable)
     git_secret = os.path.join(root, ".git", "old-phase.txt")
@@ -207,6 +391,45 @@ with tempfile.TemporaryDirectory() as root:
     assert process.returncode == 0, process.stderr
     assert open(sealed, encoding="utf-8").read() == "sealed\n"
     assert open(current, encoding="utf-8").read() == "authored"
+
+
+# Claude and Codex keep auth/session state writable, but their persistent-memory subtrees are
+# empty process-local overlays: old content is invisible and attempted writes vanish on exit.
+with tempfile.TemporaryDirectory() as root:
+    fake_home = os.path.join(root, "home")
+    memory_dirs = {
+        "codex": os.path.join(fake_home, ".codex", "memories"),
+        "claude": os.path.join(fake_home, ".claude", "projects", "repo", "memory"),
+    }
+    os.makedirs(os.path.join(fake_home, ".claude", "agent-memory"))
+    for memory in memory_dirs.values():
+        os.makedirs(memory, exist_ok=True)
+        with open(os.path.join(memory, "old.txt"), "w", encoding="utf-8") as handle:
+            handle.write("stored tome memory\n")
+    for provider, memory in memory_dirs.items():
+        fake = os.path.join(root, provider)
+        with open(fake, "w", encoding="utf-8") as handle:
+            handle.write("#!/bin/sh\n"
+                         "test ! -e \"$MEMORY_DIR/old.txt\" || exit 31\n"
+                         "printf transient > \"$MEMORY_DIR/new.txt\" || exit 32\n"
+                         "test -e \"$MEMORY_DIR/new.txt\" || exit 33\n")
+        os.chmod(fake, 0o755)
+        with patch.dict(os.environ, {"HOME": fake_home}):
+            command = scoped_runner_command(
+                f"{provider} memory boundary", [fake, "exec"], root, [], root)
+            process = subprocess.run(
+                command, env={**os.environ, "MEMORY_DIR": memory},
+                capture_output=True, text=True)
+        assert process.returncode == 0, (provider, process.stdout, process.stderr)
+        assert command.count("--tmpfs") >= 1
+        if provider == "codex":
+            assert "features.memories=false" in command
+        else:
+            setting = command.index("--setenv")
+            assert command[setting:setting + 3] == [
+                "--setenv", "CLAUDE_CODE_DISABLE_AUTO_MEMORY", "1"]
+        assert os.path.exists(os.path.join(memory, "old.txt"))
+        assert not os.path.exists(os.path.join(memory, "new.txt"))
 
 
 print("single-author mechanical gates: OK")

@@ -15,6 +15,7 @@ class ValidationContext:
     build_plan: str | None = None
     source_only: bool = False
     build_phase: int | None = None
+    phase2_proposal: str | None = None
     manifest: dict = field(default_factory=dict)
     sections: list[dict] = field(default_factory=list)
     public_payload: dict | None = None

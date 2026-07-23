@@ -1,10 +1,9 @@
 # Phase 7 — Validate (mandatory)
 
-Read `tome-authoring/10-mastery-evidence.md`. First run
-`python3 tools/gen_mastery_labs.py <tome-id> --build-id <build-id>` so every required offline
-variant pool is generated and executable-verified. Then run the remaining Phase 7 commands in
-`tome-workflow/single-author.md` as the shipping gate: fix every ERROR and every
-non-`advisory` WARN until `--strict` exits zero. The validator owns schema, layout,
+Read `tome-authoring/10-mastery-evidence.md`. Complete the authored Phase-7 review work, then run
+every exact generation, strict-shipping, and smoke command in the assignment. Repair and rerun them
+until all exit 0, mark the phase `validating`, and stop. The harness independently repeats them and
+returns every ERROR and non-`advisory` WARN as one bounded repair packet. The validator owns schema, layout,
 density, runtime execution, capability ordering, anti-template measurements, bank
 contracts, and installed-loader assembly; respond to its exact findings instead of
 manually reproducing those checks.
@@ -31,7 +30,7 @@ Then perform the judgments code cannot prove:
 - external-tool courses teach the novice operating loop and final delivery;
 - the clean-start path works literally from setup through the promised result.
 
-Fix findings narrowly and preserve unrelated arrays and ids. Finally run the deterministic
-live gate `python3 tools/smoke_tome.py <tome-id>`; it checks boot/loader assembly, one lesson,
-one reference code lab, and the freestyle grader's real `done` lifecycle without spending
-grader-model tokens. Repair it to exit 0. Produce a playable tome with both gates clean.
+Fix returned findings narrowly and preserve unrelated arrays and ids, rerun every assigned exact
+mechanical command until clean, then mark the phase `validating` again. The deterministic live gate covers boot/loader
+assembly, one lesson, one reference code lab, and the freestyle grader's real `done` lifecycle.
+Produce a playable tome; run only the assigned checks and never imitate the Validator AI or invent substitutes.

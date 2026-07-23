@@ -81,6 +81,22 @@ def done_when(value, label):
     return out
 
 
+def check_set(value):
+    """Return a typed check set, or ``None`` when schema validation owns the defect.
+
+    Semantic validators run after shape validation so they can aggregate independent
+    findings.  They must not assume that a malformed author value became well typed
+    merely because the shape validator already reported it.
+    """
+    if not isinstance(value, dict):
+        return None
+    checks = value.get("checks")
+    if (not isinstance(checks, list)
+            or any(not isinstance(item, str) for item in checks)):
+        return None
+    return set(checks)
+
+
 def obligation_done(value, label):
     out = keys(value, OBLIGATION_DONE_KEYS, label)
     if not isinstance(value, dict):

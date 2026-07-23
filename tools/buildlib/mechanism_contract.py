@@ -138,6 +138,35 @@ def validate_map_contract(value, sections, positions, *, detailed, map_version):
             problems.append(
                 f"mechanism {mid!r} owner {owner!r} must exactly match one lesson introduces entry")
     if detailed:
+        prior_workings = []
+        for section in sections:
+            if not isinstance(section, dict):
+                continue
+            working = next((node for node in section.get("nodes") or []
+                            if isinstance(node, dict)
+                            and node.get("kind") == "working"), None)
+            if working is None:
+                continue
+            current_artifacts = {
+                item for item in working.get("learnerOwnedArtifacts") or []
+                if isinstance(item, str) and item
+            }
+            current_mechanisms = set(working.get("mechanisms") or [])
+            for prior in prior_workings:
+                shared = sorted(current_artifacts & prior["artifacts"])
+                if not shared:
+                    continue
+                missing = sorted(prior["mechanisms"] - current_mechanisms)
+                if missing:
+                    problems.append(
+                        f"{working.get('id')} retains learner-owned artifact(s) "
+                        f"{shared} from {prior['id']} but omits their cumulative "
+                        f"Working mechanisms: {missing}")
+            prior_workings.append({
+                "id": working.get("id"),
+                "artifacts": current_artifacts,
+                "mechanisms": current_mechanisms,
+            })
         artifact_contract = value.get("artifactContract")
         artifacts = (artifact_contract.get("artifacts")
                      if isinstance(artifact_contract, dict) else [])

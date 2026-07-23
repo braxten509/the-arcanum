@@ -79,6 +79,9 @@ timeout = 20
 public = false
 '''
 
+PARTIAL_ASSESSMENT = ASSESSMENT.split(
+    '[[scenarios]]\nid = "cold-launch"', 1)[0]
+
 
 with tempfile.TemporaryDirectory() as temp:
     tome = Path(temp)
@@ -87,6 +90,37 @@ with tempfile.TemporaryDirectory() as temp:
     clean = validate_mastery_evidence(str(tome), copy.deepcopy(MANIFEST),
                                       [copy.deepcopy(SECTION)], include_variants=False)
     assert not clean, "\n".join(item.message for item in clean)
+
+    # A section-scoped Phase-3 packet is not the course boundary. Final delivery
+    # requirements come from the manifest's complete section order, even when the
+    # validator receives only the current authored section.
+    scoped_manifest = copy.deepcopy(MANIFEST)
+    scoped_manifest["content"] = {"sections": ["s01", "s08"]}
+    scoped_manifest["acceptance"]["artifact"] = "package"
+    scoped_section = copy.deepcopy(SECTION)
+    scoped_section["freestyle"]["rubric"][0]["assessmentIds"] = ["builds", "runs"]
+    (tome / "sections" / "s01" / "assessment.toml").write_text(
+        PARTIAL_ASSESSMENT, encoding="utf-8")
+    scoped_findings = validate_mastery_evidence(
+        str(tome), scoped_manifest, [scoped_section], include_variants=False)
+    assert not any(item.code in {"mastery.assessment.cold-launch",
+                                 "mastery.assessment.package"}
+                   for item in scoped_findings), [item.to_dict() for item in scoped_findings]
+
+    final_section = copy.deepcopy(scoped_section)
+    final_section["id"] = "s08"
+    (tome / "sections" / "s08").mkdir(parents=True)
+    (tome / "sections" / "s08" / "assessment.toml").write_text(
+        PARTIAL_ASSESSMENT, encoding="utf-8")
+    final_findings = validate_mastery_evidence(
+        str(tome), scoped_manifest, [final_section], include_variants=False)
+    assert {item.code for item in final_findings} >= {
+        "mastery.assessment.cold-launch", "mastery.assessment.package"}, [
+            item.to_dict() for item in final_findings]
+
+    # Restore the complete fixture for the remaining independent cases.
+    (tome / "sections" / "s01" / "assessment.toml").write_text(
+        ASSESSMENT, encoding="utf-8")
 
     bad_exercise = copy.deepcopy(SECTION)
     del bad_exercise["lessons"][0]["exercises"][0]["cognitiveTask"]
@@ -150,5 +184,31 @@ with tempfile.TemporaryDirectory() as temp:
     findings = validate_mastery_evidence(
         str(tome), manifest, [], include_variants=False)
     assert any(item.code == "mastery.lab.node" for item in findings)
+
+with tempfile.TemporaryDirectory() as temp:
+    tome = Path(temp)
+    contract, sections = future_map(1)
+    preview = tome / "materialized-preview.json"
+    stale_proposal = tome / "course-map.proposal.json"
+    preview.write_text(json.dumps({"masteryEvidence": contract, "sections": sections}),
+                       encoding="utf-8")
+    stale_sections = copy.deepcopy(sections)
+    for section in stale_sections:
+        section["nodes"] = []
+    stale_proposal.write_text(
+        json.dumps({"masteryEvidence": contract, "sections": stale_sections}),
+        encoding="utf-8")
+
+    stale_findings = validate_mastery_evidence(
+        str(tome), MANIFEST, [], phase2_skeleton=True,
+        phase2_proposal=str(stale_proposal))
+    assert any("names missing node" in item.message for item in stale_findings), [
+        item.to_dict() for item in stale_findings]
+
+    preview_findings = validate_mastery_evidence(
+        str(tome), MANIFEST, [], phase2_skeleton=True,
+        phase2_proposal=str(preview))
+    assert not [item for item in preview_findings if item.code == "mastery.map.contract"], [
+        item.to_dict() for item in preview_findings]
 
 print("mastery authored-contract validator tests: OK")

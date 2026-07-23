@@ -50,13 +50,16 @@ Teaching a dependent mechanism does not implicitly teach the mechanisms needed t
 smallest meaningful example work. Expand every proposed mechanism through its transitive
 prerequisite closure. If that smallest example contains an unlisted syntax form, API, tool action,
 data-format rule, or technical term, give that prerequisite an earlier owner even when a learner
-could copy it without understanding it. At Start 1–3, a prerequisite in the same section counts
-only when an earlier lesson owns it. For each API, trace how its inputs and resources are created,
+could copy it without understanding it. At Start 1–3, a prerequisite may share its dependent's
+lesson only when both belong to that lesson's one coherent pedagogical family and the prerequisite
+comes first in its declared teaching order. A cross-family prerequisite requires an earlier lesson.
+For each API, trace how its inputs and resources are created,
 obtained, and released. Apply observable-interaction closure to every promise, acceptance path,
-and control: plan distinct owner families for the concrete operations needed to obtain and inspect
+and control: plan explicit mechanism owners for the concrete operations needed to obtain and inspect
 input, produce output, advance time, make nondeterministic choices, persist state, release
 resources, and respond to the observed result. Merely acquiring a stream, event, handle, or
-resource does not own the operations that interpret or act on its contents. For each tool or
+resource does not own the operations that interpret or act on its contents. Distinct mechanisms
+may still share one lesson family when they form one coherent teach-practice-observe loop. For each tool or
 data/configuration file, trace the create, edit, save, and invocation actions. Never use a library-
 or project-specific alias for a general language prerequisite and then introduce the real
 mechanism later.
@@ -122,6 +125,16 @@ Write these machine-owned language decisions before the ordinary mastery prose:
   when their prerequisite chains, milestone needs, or first-use points differ materially. Never
   combine an early family and a late family merely to include required keywords or place an
   umbrella owner before material taught only later.
+- `**Language practice allocation:** s01 = language-...; s02 = language-...` is one physical
+  semicolon-separated line naming every planned section exactly once. Give every section at least
+  one capability from the declared spine that its Working can truthfully exercise through a real
+  language operation while advancing that section's sealed milestone. The capability must be
+  taught by then. Tool installation, version checks, build or package commands, framework
+  configuration, and story activity alone are not language practice or learner-authored
+  verification. If a tooling-only or behavior-free first milestone cannot also contain an honest
+  language-bearing project change, redesign the Arc now; do not leave Phase 2 to invent source
+  work, move an owner, or mislabel tooling. Phase 2 must retain every allocation as a minimum and
+  may add truthful later retrieval.
 - `**Language foundation coverage:**` is one physical line mapping the universal roles `data`,
   `control`, `decomposition`, `failure`, and `verification` to five distinct ids from the
   capability spine. Map each role to the declared language's idiomatic mechanism; never use a
@@ -220,6 +233,9 @@ Make cross-section state explicit:
 - `Delivery contract`: one physical line exactly
   `mode = runtime|package; artifact = path; requirements = path|none`. Use `runtime` only when
   the promised final result is the source entrypoint itself, with `requirements = none`. Use
+  Artifact ownership/lifecycle and Acceptance proof—not the runtime `requirements` slot—to name
+  the other source, configuration, build, test, and documentation files used by a multi-file or
+  clean-rebuild project. A Makefile or project file is never a runtime requirements value. Use
   `package` whenever the Arc promises a packaged, standalone, installable, or distributable
   result; its artifact and requirements paths must be declared `ships`. This selection and its
   exact paths are sealed before Phase 2. Write every artifact, delivery, and requirements path as
@@ -242,9 +258,10 @@ Make cross-section state explicit:
   reports for one root defect. Prose paragraphs, a different id/order, an unnecessary promise, or
   a count outside the bound does not pass the gate.
 
-Produce only the completed Arc in the plan. After the mechanical gate, the harness sends this
-plan and the operator calibration to the mandatory read-only Validator AI. Repair only its cited
-Phase-1 findings, rerun the assigned mechanical self-check, and hand the phase back at
-`validating`; only an AI PASS permits the Phase-1 transition. Phase 2 then turns the sealed Arc
+Produce only the completed Arc in the plan. Run the assignment's exact mechanical gate whenever
+useful and repair/rerun it until clean before handoff. The harness repeats it, then sends this plan
+and the operator calibration to the mandatory read-only Validator AI. Repair only its cited Phase-1
+findings, rerun the mechanical gate, and hand the phase back at `validating`; only the harness's
+independent mechanical repeat plus an AI PASS permits the Phase-1 transition. Phase 2 then turns the sealed Arc
 into tome files. The reviewer writes an evidence-backed Markdown explanation; its suggested layout
 is optional, no field names are required, and the original report is returned to the author unchanged.

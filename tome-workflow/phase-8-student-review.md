@@ -128,11 +128,12 @@ Audit these semantic contracts:
 
 Record that audit in `.tome-build/BUILD_ID.mastery-semantic-review.json` using the exact §10
 schema. Include every capability and performance in sealed order, cite concrete evidence, record
-each repaired finding, and leave `unresolvedFindings` empty. Run
-`python3 tools/validate_mastery_review.py BUILD_ID CURRENT_TOME`; the harness, not the reviewer,
-derives PASS from this receipt plus executable evidence.
+each repaired finding, and leave `unresolvedFindings` empty. Run every exact mastery-review, strict,
+and smoke command in the assignment until all exit 0, mark the phase `validating`, and stop. The
+harness repeats those commands and derives authoritative PASS from this receipt plus executable evidence.
 
 Resolve behavior from the approved arc, `meta.description`, acceptance journey, and runtime,
 not majority wording. Repair any authored file or selected runtime. Proof-v1 PASS is derived
-from executed evidence, never from your own prose claim. Repeat the strict and live commands
-after every review repair and mark Phase 8 complete only when both remain clean.
+from executed evidence, never from your own prose claim. After every review repair, rerun every
+assigned mechanical check, mark Phase 8 `validating` again, and let the harness repeat the strict
+and live gates before it marks completion.
