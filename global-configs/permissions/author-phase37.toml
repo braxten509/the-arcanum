@@ -1,0 +1,82 @@
+# Permissions for the single author used during Phases 3 through 7.
+# Phase entries add to the common lists. {section_id} is valid only in Phase 3.
+# Usable placeholders:
+#   {build_id} — current build; available in every phase.
+#   {tome_id} — current tome; available in every phase.
+#   {phase} — active phase number; available in every phase.
+#   {section_id} — active section ID; available only in Phase 3.
+#   {previous_section_id} — immediately prior section ID; available only in Phase 3 when one exists.
+#   {section_index} and {section_count} — active section position; available only in Phase 3.
+#   {tooling} — configured tooling mode; available in every phase.
+
+[system]
+read = ["/usr", "/bin", "/lib", "/lib64", "/usr/local", "/etc", "/opt", "/proc"]
+write = []
+both = ["/tmp", "/dev"]
+execute = []
+
+[permissions]
+read = ["AGENTS.md", "CLAUDE.md", "tome-workflow/single-author.md"]
+write = []
+both = [".tome-build/{build_id}.progress"]
+execute = [
+  ["python3", "tools/report_tome_progress.py", "{build_id}", "{phase}", "validating"],
+  ["python3", "tools/validate_tome.py", "tomes/{tome_id}", "--build-phase", "{phase}", "--phase-only", "--no-run", "--tooling", "{tooling}", "--build-plan", ".tome-build/{build_id}.plan.md"],
+]
+
+[[phase]]
+number = 3
+read = [
+  ".tome-build/{build_id}.plan.md",
+  ".tome-build/{build_id}.course-map.json",
+  ".tome-build/{build_id}.phase2-research.json",
+  "tomes/{tome_id}/tome.toml",
+  "tome-workflow/phase-3-sections.md",
+  "tome-workflow/support/section-author.md",
+  "tome-authoring/9-proof-and-assets.md",
+  ".tome-build/{tome_id}.handoffs/{previous_section_id}.json",
+]
+both = [
+  "tomes/{tome_id}/sections/{section_id}",
+  ".tome-build/{tome_id}.handoffs/{section_id}.json",
+  ".tome-build/{build_id}.section-progress.json",
+]
+execute = [
+  ["python3", "tools/workflow/context/render_section_context.py", "{build_id}", "{section_id}"],
+  ["python3", "tools/report_section_progress.py", "{build_id}", "{section_id}", "{section_index}", "{section_count}", "validating"],
+  ["python3", "tools/validate_section.py", "tomes/{tome_id}", "{section_id}", "--plan", ".tome-build/{build_id}.plan.md", "--tooling", "{tooling}"],
+]
+
+[[phase]]
+number = 4
+read = ["tome-workflow/phase-4-minigames.md", "tomes/{tome_id}/tome.toml"]
+both = [
+  "tomes/{tome_id}/attacks_src.toml",
+  "tomes/{tome_id}/intrusions.toml",
+  "tomes/{tome_id}/generated/attacks.toml",
+]
+execute = [["python3", "tools/gen_attacks.py", "{tome_id}"]]
+
+[[phase]]
+number = 5
+read = ["tome-workflow/phase-5-economy.md"]
+both = ["tomes/{tome_id}/tome.toml"]
+
+[[phase]]
+number = 6
+read = ["tome-workflow/phase-6-cosmetics.md", "tomes/{tome_id}/tome.toml"]
+both = [
+  "tomes/{tome_id}/themes.toml",
+  "tomes/{tome_id}/shop.toml",
+  "tomes/{tome_id}/badges.toml",
+]
+
+[[phase]]
+number = 7
+read = ["tome-workflow/phase-7-validate.md", "tome-authoring/10-mastery-evidence.md"]
+both = ["tomes/{tome_id}"]
+execute = [
+  ["python3", "tools/gen_mastery_labs.py", "{tome_id}", "--build-id", "{build_id}"],
+  ["python3", "tools/validate_phase3.py", "tomes/{tome_id}", "--strict", "--run"],
+  ["python3", "tools/smoke_tome.py", "{tome_id}"],
+]

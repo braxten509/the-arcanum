@@ -292,7 +292,7 @@ def _normalized_command(provider, cmd, repo, web_allowed=True):
 
 
 def scoped_runner_command(name, cmd, cwd, writable_paths, repo, readonly_paths=(),
-                          hidden_paths=(), web_allowed=True):
+                          hidden_paths=(), web_allowed=True, permission_paths=None):
     """Wrap one agent CLI with repo-read/web/temp plus explicitly scoped project writes.
 
     `writable_paths` must already exist. They may be directories (normal tome/section work)
@@ -305,8 +305,38 @@ def scoped_runner_command(name, cmd, cwd, writable_paths, repo, readonly_paths=(
     cwd = os.path.realpath(cwd)
     if not os.path.exists(cwd):
         raise RuntimeError(f"AI runner cwd does not exist: {cwd}")
-    wrapped = [bwrap, "--die-with-parent", "--new-session", "--unshare-pid",
-               "--ro-bind", "/", "/", "--proc", "/proc", "--dev-bind", "/dev", "/dev"]
+    strict = permission_paths is not None
+    wrapped = [bwrap, "--die-with-parent", "--new-session", "--unshare-pid"]
+    if strict:
+        # Project access is declared in a role TOML. Keep the OS/runtime available without
+        # re-mounting the host root, which would defeat that declaration.
+        system_read = permission_paths.get("system_read") or []
+        system_both = permission_paths.get("system_both") or []
+        for path in system_read:
+            if path != "/proc":
+                wrapped.extend(("--ro-bind", path, path))
+        if "/proc" in system_read:
+            wrapped.extend(("--proc", "/proc"))
+        for path in system_both:
+            if path == "/dev":
+                wrapped.extend(("--dev-bind", "/dev", "/dev"))
+            else:
+                wrapped.extend(("--bind", path, path))
+        resolved = resolve_bin(_normalized_command(provider, cmd, repo, web_allowed))
+        for path in dict.fromkeys((os.path.dirname(resolved[0]),
+                                   os.path.dirname(os.path.realpath(resolved[0])),
+                                   os.path.expanduser("~/.local/lib"))):
+            if os.path.isdir(path):
+                wrapped.extend(("--ro-bind", path, path))
+        for path in dict.fromkeys([*(permission_paths.get("read") or []),
+                                   *(permission_paths.get("both") or []),
+                                   *(permission_paths.get("execute") or []),
+                                   *readonly_paths]):
+            if os.path.exists(path):
+                wrapped.extend(("--ro-bind", path, path))
+    else:
+        resolved = None
+        wrapped.extend(("--ro-bind", "/", "/", "--proc", "/proc", "--dev-bind", "/dev", "/dev"))
     if provider == "opencode":
         # OpenCode prunes its shared session database before creating a new session.
         # A large store can leave the CLI alive but permanently pre-session, so a
@@ -316,9 +346,10 @@ def scoped_runner_command(name, cmd, cwd, writable_paths, repo, readonly_paths=(
         # Native belt-and-suspenders guard: Claude does not even initialize auto-memory.
         wrapped.extend(("--setenv", "CLAUDE_CODE_DISABLE_AUTO_MEMORY", "1"))
     # /tmp is the system's root temporary directory. Honour /temp too on hosts that have it.
-    for temp_root in ("/tmp", "/temp"):
-        if os.path.isdir(temp_root):
-            wrapped.extend(("--bind", temp_root, temp_root))
+    if not strict:
+        for temp_root in ("/tmp", "/temp"):
+            if os.path.isdir(temp_root):
+                wrapped.extend(("--bind", temp_root, temp_root))
     memory_dirs = _persistent_memory_dirs(provider, cwd)
     mounts = [*_state_dirs(provider), *writable_paths]
     seen = set()
@@ -358,8 +389,8 @@ def scoped_runner_command(name, cmd, cwd, writable_paths, repo, readonly_paths=(
     # Last, so the bytecode mirrors win over any broader repo mount above them.
     wrapped.extend(_sealed_binds(os.path.realpath(repo)))
     wrapped.extend(("--chdir", cwd))
-    return [*wrapped, *resolve_bin(_normalized_command(
-        provider, cmd, repo, web_allowed))]
+    return [*wrapped, *(resolved if resolved is not None else resolve_bin(_normalized_command(
+        provider, cmd, repo, web_allowed)))]
 
 
 def section_runner_command(name, cmd, section_dir, repo, writable_sidecars=()):

@@ -5,6 +5,7 @@ from .. import BUILD_DIR, REPO
 from ..measure import validate_live_smoke, validate_shipping
 from .full_review import evidence_path, prompt as review_prompt, validate_report
 from .gate import context
+from .scope import profile_paths
 from .session.support import append_conversation as _append_conversation
 
 
@@ -15,20 +16,28 @@ def append_conversation(build_id, kind, text, **extra):
 class ReviewerSessionMixin:
     def _review_writable(self):
         tid = self.current_tome()
-        writable = [BUILD_DIR, os.path.join(REPO, "tomes", tid)]
         from ..measure import selected_runtime_config
         runtime = selected_runtime_config(tid)
-        if runtime:
-            writable.append(os.path.join(REPO, "global-configs", "runtimes", runtime))
-        return writable
+        profile = profile_paths("reviewer", build_id=self.build_id, tome_id=tid,
+                                phase=8, runtime_id=runtime or "")
+        return [*profile["write"], *profile["both"]]
 
     def _review_turn(self, prompt, conversation_kind="harness", conversation_text=""):
         original = self._writable
+        original_permissions = self._permission_paths
         self._writable = self._review_writable
+        self._permission_paths = self._review_permission_paths
         try:
             return self.run_turn(prompt, conversation_kind, conversation_text)
         finally:
             self._writable = original
+            self._permission_paths = original_permissions
+
+    def _review_permission_paths(self):
+        tid = self.current_tome()
+        from ..measure import selected_runtime_config
+        return profile_paths("reviewer", build_id=self.build_id, tome_id=tid, phase=8,
+                             runtime_id=selected_runtime_config(tid) or "")
 
     def _await_reviewer_controls(self, retrying=False):
         while True:

@@ -1,0 +1,28 @@
+# Read/write policy for the optional independent reviewer after Phase 8.
+# Usable placeholders:
+#   {build_id} — current build; available in this profile.
+#   {tome_id} — current tome; available in this profile.
+#   {phase} — always 8 for this profile.
+#   {runtime_id} — selected runtime ID; available only when the tome declares one.
+
+[system]
+read = ["/usr", "/bin", "/lib", "/lib64", "/usr/local", "/etc", "/opt", "/proc"]
+write = []
+both = ["/tmp", "/dev"]
+execute = []
+
+[permissions]
+read = [
+  "AGENTS.md",
+  "tome-workflow/single-author.md",
+  ".tome-build/{build_id}.plan.md",
+  ".tome-build/{build_id}.course-map.json",
+  "tomes/{tome_id}",
+]
+write = []
+both = [
+  "tomes/{tome_id}",
+  ".tome-build/{build_id}.review-evidence.json",
+  "global-configs/runtimes/{runtime_id}",
+]
+execute = []

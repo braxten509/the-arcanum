@@ -1,0 +1,44 @@
+# Permissions for the single author used during Phases 1 and 2.
+# Paths are repository-relative. Runtime placeholders are expanded only by the harness.
+# Usable placeholders:
+#   {build_id} — current build; available in every profile and phase.
+#   {tome_id} — current tome; available after the tome is resolved.
+#   {phase} — active phase number; available in every profile and phase.
+#   {tooling} — configured tooling mode; available when a tome plan exists.
+
+[system]
+read = ["/usr", "/bin", "/lib", "/lib64", "/usr/local", "/etc", "/opt", "/proc"]
+write = []
+both = ["/tmp", "/dev"]
+execute = []
+
+[permissions]
+read = [
+  "AGENTS.md",
+  "CLAUDE.md",
+  "tome-workflow/single-author.md",
+  "tome-workflow/phase-{phase}-*.md",
+]
+write = []
+both = [".tome-build/{build_id}.progress"]
+execute = [
+  ["python3", "tools/report_tome_progress.py", "{build_id}", "{phase}", "validating"],
+  ["python3", "tools/validate_tome.py", "tomes/{tome_id}", "--build-phase", "{phase}", "--phase-only", "--no-run", "--tooling", "{tooling}", "--build-plan", ".tome-build/{build_id}.plan.md"],
+]
+
+[[phase]]
+number = 1
+both = [".tome-build/{build_id}.plan.md"]
+
+[[phase]]
+number = 2
+both = [
+  "tomes/{tome_id}",
+  ".tome-build/{build_id}.course-map-author",
+  ".tome-build/{build_id}.phase2-research.json",
+  "global-configs/runtimes",
+]
+execute = [
+  ["python3", "tools/workflow/context/render_phase2_context.py", "{build_id}"],
+  ["python3", "tools/workflow/materialize_phase2_map.py", "{build_id}", "--preview"],
+]

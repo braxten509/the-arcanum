@@ -89,7 +89,8 @@ class AuthorTurnMixin:
             cmd = [*cmd, prompt]
         wrapped = scoped_runner_command(display, cmd, REPO, self._writable(), REPO,
                                         readonly_paths=self._readonly(),
-                                        hidden_paths=self._hidden())
+                                        hidden_paths=self._hidden(),
+                                        permission_paths=self._permission_paths())
         append_conversation(self.build_id, conversation_kind,
                             conversation_text or prompt)
         self.child = subprocess.Popen(wrapped, cwd=REPO, stdin=runner_stdin(input_mode),

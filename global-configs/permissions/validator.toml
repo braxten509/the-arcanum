@@ -1,0 +1,26 @@
+# Read-only mandatory Validator AI policy. It is used for Phases 1, 2,
+# and each Phase-3 section; Phases 4 through 8 use deterministic checks.
+# Usable placeholders:
+#   {build_id} — current build; available for every validator call.
+#   {tome_id} — current tome; available for every validator call.
+#   {phase} — audited phase number; available for every validator call.
+#   {section_id} — audited section ID; available only for a Phase-3 section audit.
+
+[system]
+read = ["/usr", "/bin", "/lib", "/lib64", "/usr/local", "/etc", "/opt", "/proc"]
+write = []
+both = ["/tmp", "/dev"]
+execute = []
+
+[permissions]
+read = [
+  "AGENTS.md",
+  "tome-workflow/phase-{phase}-*.md",
+  ".tome-build/{build_id}.plan.md",
+  ".tome-build/{build_id}.course-map.json",
+  ".tome-build/{build_id}.phase2-research.json",
+  "tomes/{tome_id}",
+]
+write = []
+both = []
+execute = []

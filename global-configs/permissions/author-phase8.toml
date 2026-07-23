@@ -1,0 +1,30 @@
+# Permissions for the author used during the final student-review phase.
+# Usable placeholders:
+#   {build_id} — current build; available in this profile.
+#   {tome_id} — current tome; available in this profile.
+#   {phase} — active phase number; available in this profile.
+#   {tooling} — configured tooling mode; available in this profile.
+
+[system]
+read = ["/usr", "/bin", "/lib", "/lib64", "/usr/local", "/etc", "/opt", "/proc"]
+write = []
+both = ["/tmp", "/dev"]
+execute = []
+
+[permissions]
+read = [
+  "AGENTS.md",
+  "CLAUDE.md",
+  "tome-workflow/single-author.md",
+  "tome-workflow/phase-8-student-review.md",
+  ".tome-build/{build_id}.plan.md",
+  ".tome-build/{build_id}.course-map.json",
+]
+write = []
+both = [".tome-build/{build_id}.progress", "tomes/{tome_id}"]
+execute = [
+  ["python3", "tools/report_tome_progress.py", "{build_id}", "8", "validating"],
+  ["python3", "tools/validate_mastery_review.py", "{build_id}", "{tome_id}"],
+  ["python3", "tools/validate_phase3.py", "tomes/{tome_id}", "--strict", "--run"],
+  ["python3", "tools/smoke_tome.py", "{tome_id}"],
+]

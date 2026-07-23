@@ -17,6 +17,7 @@ from .gate import (advance_unit, context, continue_prompt, current_unit, ensure_
                           validate_author_self_check, validate_unit,
                           validation_failure_message, validation_issue_count)
 from . import full_review
+from .scope import previous_section_id, profile_paths
 from ..measure import (ValidatorInfrastructureError, validate_live_smoke,
                        validate_shipping)
 from ..planning_review import (is_contract_conflict_report,
@@ -124,6 +125,18 @@ class AuthorSession(AuthorControlsMixin, PhaseAuthorStateMixin,
 
     def _hidden(self):
         return author_hidden_paths(self.build_id)
+
+    def _permission_paths(self):
+        unit = current_unit(self.build_id, self.from_phase) or {
+            "kind": "phase", "phase": self.from_phase}
+        phase = int(unit.get("phase") or self.from_phase)
+        name = "author-phase12" if phase <= 2 else "author-phase37" if phase <= 7 else "author-phase8"
+        return profile_paths(name, build_id=self.build_id, tome_id=self.current_tome(), phase=phase,
+                             section_id=str(unit.get("section") or ""),
+                             previous_section_id=previous_section_id(self.build_id, unit),
+                             section_index=str(unit.get("index") or ""),
+                             section_count=str(unit.get("total") or ""),
+                             tooling=self.tooling)
 
     def current_tome(self):
         try:
