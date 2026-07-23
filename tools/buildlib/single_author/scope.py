@@ -76,9 +76,18 @@ def profile_paths(name, *, build_id, tome_id, phase, section_id="", previous_sec
     for access in ("read", "write", "both", "execute"):
         key = f"system_{access}"
         resolved[key] = []
-        for path in system.get(access) or []:
+        for pattern in system.get(access) or []:
+            if not isinstance(pattern, str):
+                raise RuntimeError(f"permission profile {name!r} has a non-text system path")
+            try:
+                path = pattern.format_map(values)
+            except KeyError as exc:
+                raise RuntimeError(f"permission profile {name!r} has unknown placeholder {exc}") from exc
             if not isinstance(path, str) or not os.path.isabs(path) or path in ("/", "/home"):
                 raise RuntimeError(f"permission profile {name!r} has unsafe system path {path!r}")
+            if path.startswith("/tmp/arcanum/") and access in ("write", "both"):
+                from arcanum.platform.agent_scratch import prepare
+                prepare(build_id)
             if os.path.exists(path) and path not in resolved[key]:
                 resolved[key].append(path)
     return resolved

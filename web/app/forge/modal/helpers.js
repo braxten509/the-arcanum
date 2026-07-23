@@ -2,7 +2,7 @@ import { esc } from "../../core/dom.js";
 
 export function fieldHead(label, help) {
   return `<div class="forge-lbl"><label>${label}</label><button type="button" class="forge-help"
-    aria-label="About ${esc(label)}">i<span class="forge-tip">${help}</span></button></div>`;
+    aria-label="About ${esc(label)}"><span class="forge-help-mark" aria-hidden="true">i</span><span class="forge-tip">${help}</span></button></div>`;
 }
 
 /** "" = resume, "3" = whole phase, "3:s05" = one Phase-3 section onward. */

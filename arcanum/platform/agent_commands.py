@@ -320,6 +320,10 @@ def scoped_runner_command(name, cmd, cwd, writable_paths, repo, readonly_paths=(
         for path in system_both:
             if path == "/dev":
                 wrapped.extend(("--dev-bind", "/dev", "/dev"))
+            elif path.startswith("/tmp/arcanum/"):
+                # The host directory remains build-specific, while ordinary tools inside
+                # the namespace keep their conventional private /tmp location.
+                wrapped.extend(("--bind", path, "/tmp", "--setenv", "TMPDIR", "/tmp"))
             else:
                 wrapped.extend(("--bind", path, path))
         resolved = resolve_bin(_normalized_command(provider, cmd, repo, web_allowed))

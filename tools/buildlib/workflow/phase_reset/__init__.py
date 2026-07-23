@@ -21,6 +21,7 @@ from ...course.limits import MIN_SECTIONS
 from ...skeleton import is_scaffold, rebuild_section_scaffold, scaffold_sections
 from ...status_log import rewind_status_log, rewind_status_log_sections
 from arcanum.catalog.build_ids import resolve_working_id
+from arcanum.platform.agent_scratch import clear as clear_agent_scratch
 
 from .contracts import (AI_COST_SIDECARS, COST_SIDECARS, COURSE_MAP_SIDECARS,
                         COURSE_SEED_SIDECARS, COURSE_STATE_SIDECARS, ECONOMY_SCAFFOLD,
@@ -364,6 +365,7 @@ def reset_tome_to_section(tid, sid):
         if os.path.exists(os.path.join(BUILD_DIR, f"{key}.status-log.jsonl")):
             rewind_status_log_sections(key, reset_sections, build_dir=BUILD_DIR)
         _remove(os.path.join(BUILD_DIR, f"{key}.reset-stash"))
+    clear_agent_scratch(*keys)
     now = time.time()
     _atomic_json(os.path.join(BUILD_DIR, f"{build_id}.progress"), {
         "phase": 3, "phaseTitle": PHASE_TITLES[3], "state": "working",
@@ -462,6 +464,7 @@ def reset_tome_to_phase(tid, phase):
                 rewind_ai_costs(BUILD_DIR, key, phase)
             if os.path.exists(os.path.join(BUILD_DIR, f"{key}.status-log.jsonl")):
                 rewind_status_log(key, phase, build_dir=BUILD_DIR)
+        clear_agent_scratch(build_id, tid, target_tid)
         shutil.rmtree(transaction, ignore_errors=True)
         return {"id": build_id, "tome": target_tid, "phase": phase,
                 "phaseTitle": PHASE_TITLES[phase], "usedSnapshot": bool(snapshot)}

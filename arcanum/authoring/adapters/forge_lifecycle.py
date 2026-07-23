@@ -359,4 +359,6 @@ def discard_build(h, body, services):
             and os.path.dirname(tome) == os.path.realpath(
                 services.settings.tomes_root)):
         shutil.rmtree(tome, ignore_errors=True)
+        from arcanum.platform.agent_scratch import remove as remove_agent_scratch
+        remove_agent_scratch(rid, tid)
     return h.send_json({"ok": True})
