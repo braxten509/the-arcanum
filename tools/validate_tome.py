@@ -155,7 +155,7 @@ def _legacy_validation_check(context: ValidationContext):
         sections_data.append(sdata)
     context.sections = sections_data
     if phase2_skeleton:
-        check_phase2_skeleton(sections_data)
+        check_phase2_skeleton(sections_data, m)
         check_tooling_contract(m, sections_data, label, tooling)
         check_future_tome_proof(tome_path, m, sections_data, run=False,
                                 plan_path=build_plan)

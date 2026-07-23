@@ -10,7 +10,6 @@ import io
 import os
 import sys
 import tempfile
-import urllib.request
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
@@ -194,6 +193,33 @@ except ValueError as exc:
 else:
     raise AssertionError("future-neighbor mechanism was auto-added ahead of its owner")
 
+# The Validator AI packet includes the same section-local receipts and deterministic
+# scenarios that the mechanical hardened-evidence gate checks.
+with tempfile.TemporaryDirectory() as packet_root:
+    packet_section = os.path.join(packet_root, "tomes", "demo", "sections", "s01")
+    os.makedirs(os.path.join(packet_section, "lessons"))
+    for relative, text in (
+            ("lessons/l01.toml", "[[lessons]]\nid = \"s01-l01\"\n"),
+            ("freestyle.toml", "[freestyle]\ntitle = \"Working\"\n"),
+            ("research.toml", "version = 1\n"),
+            ("assessment.toml", "version = 1\n")):
+        with open(os.path.join(packet_section, relative), "w", encoding="utf-8") as handle:
+            handle.write(text)
+    old_repo = prerequisite_review.REPO
+    prerequisite_review.REPO = packet_root
+    try:
+        with patch.object(prerequisite_review, "_context", return_value="demo"), \
+                patch.object(prerequisite_review, "load_course_map", return_value=course):
+            packet, packet_sources = prerequisite_review.section_evidence_packet(
+                "demo", course["sections"][0])
+    finally:
+        prerequisite_review.REPO = old_repo
+    packet_paths = {item["path"] for item in packet_sources}
+    assert "tomes/demo/sections/s01/research.toml" in packet_paths
+    assert "tomes/demo/sections/s01/assessment.toml" in packet_paths
+    assert "SECTION RESEARCH RECEIPTS" in packet
+    assert "WORKING DETERMINISTIC SCENARIOS" in packet
+
 with tempfile.TemporaryDirectory() as root:
     old_build = prerequisite_review.BUILD_DIR
     old_failure_root = prerequisite_review.VALIDATOR_FAILURE_DIR
@@ -301,13 +327,16 @@ with tempfile.TemporaryDirectory() as root:
         assert "whole-section coverage sweep" in calls[0]
         assert "all five facts" in calls[0]
         assert "clean mechanical gate as semantic evidence" in calls[0]
+        assert "HARDENED SOURCE AND ADVERSARIAL EVIDENCE" in calls[0]
+        assert ("at least two distinct non-build deterministic scenarios"
+                in " ".join(calls[0].split()))
         shared_authority = section_quality_authority(2, "names and literals", 7, 3)
         assert calls[0].count(shared_authority) == 1
         assert prerequisite_review.section_policy_fingerprint(
             2, "names and literals", 7, 3) != prerequisite_review.section_policy_fingerprint(
                 2, "names and literals", 8, 3)
         assert section_quality_contract_packet() == {
-            "version": 3,
+            "version": 4,
             "text": SECTION_QUALITY_CONTRACT,
             "settings": {"start": 0, "prior": "", "depth": 0, "mastery": 0},
             "authorityText": section_quality_authority(),
@@ -520,42 +549,18 @@ with tempfile.TemporaryDirectory() as root:
         assert infrastructure_row["status"] == "ERROR"
         assert infrastructure_row["infrastructure"] is True
 
-        # The section-review API request has no tools, Flex routing, or response schema;
-        # it places the stable policy before the dynamic section packet.
-        response_value = {
-            "id": "resp_test", "output_text": json.dumps(
-                audit_result(reasons=["clean"])),
-            "usage": {"input_tokens": 1200, "input_tokens_details": {
-                "cached_tokens": 800, "cache_write_tokens": 200},
-                "output_tokens": 40, "output_tokens_details": {"reasoning_tokens": 12},
-                "total_tokens": 1240},
-        }
-        captured = {}
-        class FakeResponse:
-            def __enter__(self): return self
-            def __exit__(self, *_args): return False
-            def read(self): return json.dumps(response_value).encode("utf-8")
-        def fake_urlopen(request, timeout):
-            captured["payload"] = json.loads(request.data)
-            captured["timeout"] = timeout
-            return FakeResponse()
+        # Production section validators are deliberately CLI-only so their read-only
+        # permission profile and isolated unit state are always applied.
         api_prompt = prerequisite_review._prompt(
             "packet", "s01", sources, "names and literals", 2)
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}), \
-                patch.object(urllib.request, "urlopen", side_effect=fake_urlopen):
-            _raw, meta = prerequisite_review._invoke(
+        try:
+            prerequisite_review._invoke(
                 api_prompt, {"kind": "openai-api", "model": "gpt-5.6-luna",
                              "effort": "medium"}, None)
-        payload = captured["payload"]
-        assert "tools" not in payload and "service_tier" not in payload
-        assert payload["text"] == {"verbosity": "low"}
-        assert payload["input"][0]["role"] == "developer"
-        assert payload["input"][1]["role"] == "user"
-        assert payload["prompt_cache_options"] == {"mode": "explicit"}
-        assert payload["max_output_tokens"] == 2500
-        assert meta["usage"] == {"inputTokens": 1200, "freshInputTokens": 200,
-                                  "cachedInputTokens": 800, "cacheWriteTokens": 200, "outputTokens": 40,
-                                  "reasoningTokens": 12, "totalTokens": 1240}
+        except RuntimeError as exc:
+            assert "must use Claude CLI or Codex CLI" in str(exc)
+        else:
+            raise AssertionError("section validator accepted an unscoped direct API transport")
     finally:
         prerequisite_review.BUILD_DIR = old_build
         prerequisite_review.VALIDATOR_FAILURE_DIR = old_failure_root

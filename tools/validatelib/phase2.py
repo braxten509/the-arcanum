@@ -49,8 +49,12 @@ def check_phase2_artifact_alignment(build_id, manifest, sections, plan_path,
         err("phase-2-runtime", problem)
 
 
-def check_phase2_skeleton(sections_data):
+def check_phase2_skeleton(sections_data, manifest=None):
     """Require a useful stub, while mechanically preventing early course authoring."""
+    hardened_sources = (
+        isinstance(manifest, dict)
+        and (manifest.get("mastery") or {}).get("sourceEvidenceVersion") == 1
+    )
     taught = set()
     for index, section in enumerate(sections_data, 1):
         sid = str(section.get("id") or f"section-{index}")
@@ -86,6 +90,10 @@ def check_phase2_skeleton(sections_data):
             if len(valid_caps) != len(caps):
                 err("phase-2-skeleton", f"{sid}: placeholder lesson repeats a capability id")
         taught |= valid_caps
+        if hardened_sources and lesson.get("researchSources") != ["replace-source"]:
+            err("phase-2-skeleton",
+                f"{sid}: hardened Phase-2 placeholder lesson must keep lesson-level "
+                "`researchSources = [\"replace-source\"]` for Phase 3")
 
         freestyle = section.get("freestyle")
         if isinstance(freestyle, dict):

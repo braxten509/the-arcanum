@@ -7,9 +7,9 @@ import os
 from .workflow.prompts import START_PACING
 
 
-SECTION_QUALITY_CONTRACT_VERSION = 3
+SECTION_QUALITY_CONTRACT_VERSION = 4
 
-SECTION_QUALITY_CONTRACT = """===== BINDING SHARED SECTION QUALITY CONTRACT v3 =====
+SECTION_QUALITY_CONTRACT = """===== BINDING SHARED SECTION QUALITY CONTRACT v4 =====
 This exact contract governs both the Phase 3 author and the section Validator AI. If a looser or
 more general instruction conflicts with it, this contract controls.
 
@@ -64,6 +64,21 @@ PRACTICE AND FEEDBACK
   but must not reveal the final response, exact code, or exact action sequence.
 - Do not require an artificial exercise-type quota or fixed lesson length. Judge the actual
   learning work, observable evidence, and selected depth instead of surface density.
+
+HARDENED SOURCE AND ADVERSARIAL EVIDENCE
+- When `[mastery].sourceEvidenceVersion = 1`, complete the section's `research.toml` before
+  drafting. Keep only `version = 1` plus one or more primary-source receipts. Every receipt has
+  exactly `id`, HTTPS `url`, substantive `authority`, and specific `claims`; every lesson cites
+  one or more of those ids through its lesson-level `researchSources`, every lesson reading uses
+  one of that lesson's cited URLs, and no receipt is left unused.
+- Treat receipts as technical anchors, not as permission to copy documentation or omit teaching.
+  Verify that compatibility-sensitive claims, commands, APIs, and failure behavior agree with the
+  cited primary material and the executable route actually taught.
+- For the same hardened marker, every essential Working requirement needs at least two distinct
+  non-build deterministic scenarios: an ordinary observation plus a materially different
+  boundary, failure, or alternate-input observation. Those scenarios must cover the requirement's
+  capability ids and be linked from deterministic rubric rows. Repeated copies of one scenario,
+  compilation alone, or ungraded hidden checks do not satisfy this evidence.
 
 WORKING AND HIDDEN REFERENCE
 - Every required Working operation must be taught before use; the brief, requirements, rubric,

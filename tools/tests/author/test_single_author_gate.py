@@ -196,6 +196,9 @@ with tempfile.TemporaryDirectory() as root:
         assert "exact binding policy used by the Validator AI" in section_prompt
         assert section_prompt.count(
             section_quality_authority(2, "names and literals", 7, 3)) == 1
+        assert "HARDENED SOURCE AND ADVERSARIAL EVIDENCE" in section_prompt
+        assert ("at least two distinct non-build deterministic scenarios"
+                in " ".join(section_prompt.split()))
         assert "whole-section coverage sweep" in section_prompt
         assert "all five facts" in section_prompt
         assert section_prompt.endswith("HARNESS COURSE CONTROL")

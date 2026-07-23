@@ -21,6 +21,8 @@ from buildlib.skeleton.integrity import (artifact_inventory, delivery_contract,
 from buildlib.skeleton import hydrate_section_scaffolds
 from maintenance import split_tome
 from new_tome import SECTION_TEMPLATE, render
+from validatelib import clear_findings, current_findings
+from validatelib.phase2 import check_phase2_skeleton
 
 
 PLAN_BODY = """
@@ -300,6 +302,8 @@ with tempfile.TemporaryDirectory() as root:
     assert lesson["id"] == "s01-l02" and lesson["teaches"] == ["cap-b"]
     assert lesson["introduces"] == ["mechanism-b"]
     assert lesson["validationDependencies"] == ["example-package"]
+    assert lesson["researchSources"] == ["replace-source"]
+    assert "researchSources" not in lesson["readings"][0]
     with open(os.path.join(tome, "sections", "s01", "freestyle.toml"), "rb") as handle:
         working = tomllib.load(handle)["freestyle"]
     assert working["requires"] == ["cap-a", "cap-b"]
@@ -307,5 +311,21 @@ with tempfile.TemporaryDirectory() as root:
     assert working["masteryPerformances"] == ["transfer-proof"]
     assert os.path.isfile(os.path.join(tome, "sections", "s01", "assessment.toml"))
     assert os.path.isfile(os.path.join(tome, "sections", "s01", "research.toml"))
+
+# The Phase-2 validator guards the TOML ownership seam: placing researchSources
+# after [[lessons.readings]] silently makes it a reading field instead of a lesson field.
+phase2_section = tomllib.loads(
+    render(SECTION_TEMPLATE, {"SID": "s01", "ROMAN": "I"}))
+phase2_manifest = {"mastery": {"sourceEvidenceVersion": 1}}
+clear_findings()
+check_phase2_skeleton([phase2_section], phase2_manifest)
+assert not current_findings(), [item.to_dict() for item in current_findings()]
+broken_phase2 = copy.deepcopy(phase2_section)
+broken_phase2["lessons"][0]["readings"][0]["researchSources"] = (
+    broken_phase2["lessons"][0].pop("researchSources"))
+clear_findings()
+check_phase2_skeleton([broken_phase2], phase2_manifest)
+assert any("lesson-level" in item.message for item in current_findings())
+clear_findings()
 
 print("skeleton-integrity contract tests: OK")

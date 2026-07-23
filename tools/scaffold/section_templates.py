@@ -85,6 +85,9 @@ desc = "TODO: name this language's real naming AND layout conventions (research 
 id = "@@SID@@-l01"
 title = "TODO: lesson title"
 teaches = ["replace-me"]            # TODO: stable kebab-case capabilities this lesson teaches
+# Every authored lesson cites one or more IDs from this section's research.toml.
+# Phase 3 replaces this placeholder with receipts for the facts it actually teaches.
+researchSources = ["replace-source"]
 body = '''
 <p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
 <pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
@@ -104,10 +107,6 @@ practice = "@@SID@@-l01-e1"
 [[lessons.readings]]               # optional: 1-2 high-quality official docs
 label = "TODO: official docs"
 url = "https://example.com/TODO"
-
-# Every authored lesson cites one or more IDs from this section's research.toml.
-# Phase 3 replaces this placeholder with receipts for the facts it actually teaches.
-researchSources = ["replace-source"]
 
 [[lessons.exercises]]
 id = "@@SID@@-l01-e1"

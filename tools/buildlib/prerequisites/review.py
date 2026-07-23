@@ -28,6 +28,7 @@ from arcanum.catalog.build_ids import resolve_working_id
 
 
 MAX_SECTION_PACKET_CHARS = 200_000
+AUDIT_CONTRACT_VERSION = 9
 # Idle means no CPU anywhere in the tree and no established provider connection, so this
 # is not a patience budget: a thinking model and a running tool both keep the clock at 0.
 STALL_SECONDS = float(os.environ.get("ARCANUM_STALL_SECONDS", "10"))
@@ -117,6 +118,25 @@ def section_evidence_packet(build_id, section):
             f"{index:04d}: {line}" for index, line in enumerate(lines, 1))
         source_blocks.append(
             f"===== CITABLE SOURCE {node['id']} | {relative} =====\n{numbered}")
+    working = next((node for node in section.get("nodes") or []
+                    if node.get("kind") == "working"), None)
+    if working:
+        section_root = os.path.join(REPO, "tomes", tid, "sections", section["id"])
+        for name, label in (
+                ("research.toml", "SECTION RESEARCH RECEIPTS"),
+                ("assessment.toml", "WORKING DETERMINISTIC SCENARIOS")):
+            path = os.path.join(section_root, name)
+            if not os.path.isfile(path):
+                continue
+            relative = os.path.relpath(path, REPO).replace(os.sep, "/")
+            with open(path, encoding="utf-8") as handle:
+                lines = handle.read().splitlines()
+            sources.append({"path": relative, "node": working["id"],
+                            "lineCount": max(1, len(lines))})
+            numbered = "\n".join(
+                f"{index:04d}: {line}" for index, line in enumerate(lines, 1))
+            source_blocks.append(
+                f"===== CITABLE {label} {working['id']} | {relative} =====\n{numbered}")
     performance_ids = {node.get("id") for node in section.get("nodes") or []}
     performances = [item for item in (course.get("languageMastery") or {}).get(
         "performances", []) if item.get("workingId") in performance_ids]
@@ -353,9 +373,9 @@ def review_usage_summary(build_id):
 def _invoke(prompt, validator, adapter, live=None, *, build_id="", section=""):
     return invoke_validator(
         prompt, validator, adapter=adapter, live=live, plain_text=True,
-        permission_paths=validator_access(build_id, 3, section),
-        state_scope={"build_id": build_id, "role": "validator", "phase": 3,
-                     "section": section})
+        permission_paths=(validator_access(build_id, 3, section) if build_id else None),
+        state_scope=({"build_id": build_id, "role": "validator", "phase": 3,
+                      "section": section} if build_id else None))
 
 
 def section_policy_fingerprint(start, prior, depth, mastery):

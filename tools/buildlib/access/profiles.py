@@ -5,7 +5,7 @@ import glob
 import os
 import tomllib
 
-from ... import REPO
+from .. import REPO
 
 
 def profile_paths(name, *, build_id, tome_id, phase, section_id="", previous_section_id="",
