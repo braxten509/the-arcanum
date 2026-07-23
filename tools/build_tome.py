@@ -20,6 +20,7 @@ from buildlib.workflow.prompts import (MASTERY_DEPTH_FLOORS, START_PACING, TOOLI
 from buildlib.workflow.phase_reset import capture_phase_snapshot
 from buildlib.single_author import full_review
 from buildlib.single_author import AuthorSession, author_prompt, continuation_prompt
+from arcanum.config import OPENROUTER_IDS
 
 
 def _agent(value, allowed, role):
@@ -36,11 +37,17 @@ def _agent(value, allowed, role):
 
 
 def _author(value):
-    return _agent(value, ("claude-cli", "codex-cli"), "author")
+    value = _agent(value, ("claude-cli", "codex-cli", "opencode-cli"), "author")
+    if value[0] == "opencode-cli" and value[1] not in OPENROUTER_IDS:
+        raise argparse.ArgumentTypeError("author must use an approved OpenRouter model")
+    return value
 
 
 def _validator(value):
-    return _agent(value, ("claude-cli", "codex-cli", "openai-api"), "validator")
+    value = _agent(value, ("claude-cli", "codex-cli", "opencode-cli"), "validator")
+    if value[0] == "opencode-cli" and value[1] not in OPENROUTER_IDS:
+        raise argparse.ArgumentTypeError("validator must use an approved OpenRouter model")
+    return value
 
 
 def _persist_validator(build_id, spec, gate_json=None):
@@ -81,13 +88,18 @@ def _selftest():
     assert continuation == "Continue."
     assert _author("codex-cli:gpt-5.6-sol@high") == (
         "codex-cli", "gpt-5.6-sol", "high")
-    assert _validator("openai-api:gpt-5.6-luna@medium") == (
-        "openai-api", "gpt-5.6-luna", "medium")
     try:
-        _author("opencode-cli:openrouter/example")
-        raise AssertionError("OpenCode must not be accepted for tome authoring")
+        _validator("openai-api:gpt-5.6-luna@medium")
+        raise AssertionError("API validators must not be accepted for tome authoring")
     except argparse.ArgumentTypeError:
         pass
+    try:
+        _author("opencode-cli:openrouter/example")
+        raise AssertionError("unapproved OpenRouter models must not be accepted for tome authoring")
+    except argparse.ArgumentTypeError:
+        pass
+    approved_router = OPENROUTER_IDS[0]
+    assert _author(f"opencode-cli:{approved_router}")[:2] == ("opencode-cli", approved_router)
     review = full_review.prompt("sample", "sample")
     assert "THOROUGH FULL-TOME REVIEW" in review
     assert "READ EVERYTHING" in review and "NO SAMPLING" in review

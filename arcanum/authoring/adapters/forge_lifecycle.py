@@ -12,7 +12,7 @@ import time
 from ...forge.build_state import (BUILD_TOTAL_PHASES, build_result_status,
                                   load_author_session, load_section_progress,
                                   save_active_owner)
-from ...config import BUILD_DIR, CLI_EFFORTS, ROOT, openai_api_configured
+from ...config import BUILD_DIR, CLI_EFFORTS, OPENROUTER_IDS, ROOT
 from ...forge import (_clear_build_terminal_state, _load_launch, _plan_concept,
                       _plan_gate, _resume_phase, _save_launch,
                       author_activity_started_at, external_build_process,
@@ -20,9 +20,8 @@ from ...forge import (_clear_build_terminal_state, _load_launch, _plan_concept,
                       working_is_active)
 
 
-CLI_KINDS = ("claude-cli", "codex-cli")
-VALIDATOR_KINDS = (*CLI_KINDS, "openai-api")
-API_EFFORTS = ("none", "minimal", "low", "medium", "high", "xhigh")
+CLI_KINDS = ("claude-cli", "codex-cli", "opencode-cli")
+VALIDATOR_KINDS = CLI_KINDS
 
 
 def _resume_session_id(previous, author, phase, section=""):
@@ -45,11 +44,10 @@ def _agent(value, role, allowed=CLI_KINDS):
     model = str(value.get("model") or "").strip()
     effort = str(value.get("effort") or "").strip()
     if kind not in allowed or not model:
-        choices = "Claude CLI or Codex CLI"
-        if "openai-api" in allowed:
-            choices += ", or Codex API"
-        raise ValueError(f"choose {choices} and a model for the {role}")
-    efforts = API_EFFORTS if kind == "openai-api" else CLI_EFFORTS.get(kind, ())
+        raise ValueError(f"choose Claude CLI, Codex CLI, or approved OpenRouter model for the {role}")
+    if kind == "opencode-cli" and model not in OPENROUTER_IDS:
+        raise ValueError(f"choose an approved OpenRouter model for the {role}")
+    efforts = CLI_EFFORTS.get(kind, ())
     if effort and effort not in efforts:
         raise ValueError(f"{kind} does not support effort {effort!r}")
     return {"kind": kind, "model": model, "effort": effort}
@@ -83,11 +81,7 @@ def _reviewer(body):
 
 def _validator(body):
     value = body.get("validator") or (body.get("bindery") or {}).get("validator")
-    validator = _agent(value, "mandatory section validator", VALIDATOR_KINDS)
-    if validator["kind"] == "openai-api" and not openai_api_configured():
-        raise ValueError(
-            "Codex API requires an OpenAI key in Settings or OPENAI_API_KEY")
-    return validator
+    return _agent(value, "mandatory section validator", VALIDATOR_KINDS)
 
 
 def _section_cost_limit(body, default=2.0):

@@ -23,12 +23,6 @@ from ..validator_policy import (ValidatorOutput, extract_json, readable_guidance
 from .prompt import DYNAMIC_MARKER, prerequisite_prompt as _prompt
 from . import records as _records
 from .result import validate_detailed as _validate_detailed
-from . import transport
-# Re-exported so callers and tests keep addressing these through this module; the
-# call sites below go through `transport.` so patching the transport module works.
-from .transport import (API_MAX_OUTPUT_TOKENS, API_TIMEOUT_SECONDS,
-                        AUDIT_CONTRACT_VERSION, RESPONSES_URL,
-                        _api_adapter, _openai_key)
 from ..runtime.runners import author_runner
 from arcanum.catalog.build_ids import resolve_working_id
 
@@ -239,7 +233,14 @@ def _transient_cli_failure(detail):
     ))
 
 
-def _cli_adapter(prompt, validator, live=None):
+def validator_access(build_id, phase, section=""):
+    """Build the strict read-only mount set and isolated session identity for a validator."""
+    from ..access import profile_paths
+    return profile_paths("validator", build_id=build_id, tome_id=_context(build_id), phase=phase,
+                         section_id=section)
+
+
+def _cli_adapter(prompt, validator, live=None, permission_paths=None, state_scope=None):
     spec = f"{validator['kind']}:{validator['model']}" + (
         f"@{validator['effort']}" if validator.get("effort") else "")
     display, command, input_mode = author_runner(spec, "--validator-ai")
@@ -261,7 +262,9 @@ def _cli_adapter(prompt, validator, live=None):
         command[position:position] = ["--format", "json"]
     if input_mode == "arg":
         command = [*command, prompt]
-    wrapped = scoped_runner_command(display, command, REPO, [], REPO)
+    wrapped = scoped_runner_command(display, command, REPO, [], REPO,
+                                    permission_paths=permission_paths,
+                                    state_scope=state_scope)
     build_id, label = live if live else ("", "")
     try:
         for attempt in range(len(TRANSIENT_VALIDATOR_RETRY_DELAYS) + 1):
@@ -311,23 +314,17 @@ def _cli_adapter(prompt, validator, live=None):
 
 def invoke_validator(prompt, validator, *, adapter=None, schema=None,
                      schema_name="arcanum_section_quality_audit", cache_key=None,
-                     max_output_tokens=API_MAX_OUTPUT_TOKENS, plain_text=False,
-                     live=None):
+                     max_output_tokens=2_500, plain_text=False,
+                     live=None, permission_paths=None, state_scope=None):
     """Run one configured, read-only Validator AI call with an optional strict schema."""
     if adapter:
         return adapter(prompt, validator), {
             "transport": "test-adapter", "model": validator.get("model", ""), "usage": None}
-    # CLI and API are deliberately separate Forge choices. Never turn a Codex CLI
-    # selection into billable API traffic merely because a key happens to exist.
-    if validator.get("kind") == "openai-api":
-        key = transport._openai_key()
-        if not str(validator.get("model") or "").startswith("gpt-"):
-            raise RuntimeError("Codex API validators require a gpt- model")
-        return transport._api_adapter(
-            prompt, validator, key, schema=schema, schema_name=schema_name,
-            cache_key=cache_key, max_output_tokens=max_output_tokens,
-            plain_text=plain_text)
-    return _cli_adapter(prompt, validator, live)
+    if validator.get("kind") not in ("claude-cli", "codex-cli"):
+        raise RuntimeError("Validator AI must use Claude CLI or Codex CLI")
+    if permission_paths is None or state_scope is None:
+        raise RuntimeError("Validator AI requires a declared permission profile and unit state scope")
+    return _cli_adapter(prompt, validator, live, permission_paths, state_scope)
 
 
 def _default_adapter(prompt, validator):
@@ -353,9 +350,12 @@ def review_usage_summary(build_id):
     return _records.review_usage_summary(BUILD_DIR, build_id)
 
 
-def _invoke(prompt, validator, adapter, live=None):
+def _invoke(prompt, validator, adapter, live=None, *, build_id="", section=""):
     return invoke_validator(
-        prompt, validator, adapter=adapter, live=live, plain_text=True)
+        prompt, validator, adapter=adapter, live=live, plain_text=True,
+        permission_paths=validator_access(build_id, 3, section),
+        state_scope={"build_id": build_id, "role": "validator", "phase": 3,
+                     "section": section})
 
 
 def section_policy_fingerprint(start, prior, depth, mastery):
@@ -437,7 +437,8 @@ def review_prerequisites(build_id, sid, *, adapter=None):
     emit_status_line(f"AI VALIDATOR CALL START [{time.time():.3f}] › {audit_label}",
                      build_id, build_dir=BUILD_DIR)
     try:
-        raw, meta = _invoke(prompt, validator, adapter, (build_id, audit_label))
+        raw, meta = _invoke(prompt, validator, adapter, (build_id, audit_label),
+                            build_id=build_id, section=sid)
     except Exception as exc:
         _append_infrastructure_failure(build_id, sid, packet, validator, exc)
         emit_status_line(f"AI VALIDATOR CALL FAILED [{time.time():.3f}] › {audit_label}",

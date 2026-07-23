@@ -292,7 +292,8 @@ def _normalized_command(provider, cmd, repo, web_allowed=True):
 
 
 def scoped_runner_command(name, cmd, cwd, writable_paths, repo, readonly_paths=(),
-                          hidden_paths=(), web_allowed=True, permission_paths=None):
+                          hidden_paths=(), web_allowed=True, permission_paths=None,
+                          state_scope=None):
     """Wrap one agent CLI with repo-read/web/temp plus explicitly scoped project writes.
 
     `writable_paths` must already exist. They may be directories (normal tome/section work)
@@ -355,7 +356,17 @@ def scoped_runner_command(name, cmd, cwd, writable_paths, repo, readonly_paths=(
             if os.path.isdir(temp_root):
                 wrapped.extend(("--bind", temp_root, temp_root))
     memory_dirs = _persistent_memory_dirs(provider, cwd)
-    mounts = [*_state_dirs(provider), *writable_paths]
+    if state_scope is not None:
+        from .agent_scratch import provider_state
+        source, target = provider_state(provider, state_scope["build_id"], state_scope["role"],
+                                        state_scope["phase"], state_scope.get("section") or "")
+        state_mounts = [(source, target)]
+        # The state directory itself is unit-scoped, so any provider memory path inside it
+        # has no earlier-unit history to reveal and can persist for same-unit resume.
+        memory_dirs = []
+    else:
+        state_mounts = [(path, path) for path in _state_dirs(provider)]
+    mounts = [*writable_paths]
     seen = set()
     for raw in mounts:
         path = os.path.realpath(raw)
@@ -365,6 +376,12 @@ def scoped_runner_command(name, cmd, cwd, writable_paths, repo, readonly_paths=(
             raise RuntimeError(f"AI writable path does not exist: {path}")
         seen.add(path)
         wrapped.extend(("--bind", path, path))
+    for source, target in state_mounts:
+        source, target = os.path.realpath(source), os.path.realpath(target)
+        if source in seen:
+            continue
+        seen.add(source)
+        wrapped.extend(("--bind", source, target))
     # Re-seal harness-owned files/directories after any broader writable parent mount.
     # The later mount wins, so a writable .tome-build can still contain immutable maps,
     # state, receipts, snapshots, and prior handoffs.

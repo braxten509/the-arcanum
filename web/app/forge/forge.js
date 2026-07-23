@@ -107,7 +107,7 @@ function showForgeModal(resume) {
           </div>
           <div class="forge-validator-route">
             <div class="forge-validator-label"><b>VALIDATOR AI</b><span>MANDATORY · PHASES 1–2 + EVERY SECTION</span>
-              <button type="button" class="forge-help" aria-label="About Validator AI">i<span class="forge-tip">This read-only AI runs after the Phase 1 and Phase 2 mechanical gates, before either transition, then audits teaching completeness, learner independence, and prerequisite completeness after every Phase 3 section clears its mechanical gate. Choose Claude CLI, Codex CLI, or the distinct Codex API transport through the OpenAI Responses API. Codex API requires an OpenAI key in Settings or OPENAI_API_KEY and never silently falls back to a CLI. Each call receives one bounded, line-citable packet with no tools and returns typed defects to the current unit's repair session.</span></button>
+              <button type="button" class="forge-help" aria-label="About Validator AI">i<span class="forge-tip">This read-only AI runs after the Phase 1 and Phase 2 mechanical gates, before either transition, then audits teaching completeness, learner independence, and prerequisite completeness after every Phase 3 section clears its mechanical gate. Choose Claude CLI or Codex CLI. Each call receives one bounded, line-citable packet and returns typed defects to the current unit's repair session.</span></button>
             </div>
             <div class="forge-ai-row">
               <div class="forge-ai-choice"><select id="fg-validator-prov" class="cfg-select" aria-label="Validator AI provider"><option value="">LOADING AI…</option></select></div>

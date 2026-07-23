@@ -23,6 +23,11 @@ class _CliProvider:
 
     def invocation(self, request: AiRequest) -> AiInvocation:
         command, input_mode = self.command(request)
+        workspace = os.path.realpath(request.workspace)
+        tomes_root = os.path.join(ROOT, "tomes")
+        if os.path.commonpath((workspace, tomes_root)) == tomes_root:
+            raise ProviderConfigurationError(
+                "generic CLI tome work has no declared permission profile; use the Forge role runner")
         command = scoped_runner_command(
             self.provider_id, command, request.workspace,
             list(request.writable_paths), ROOT,

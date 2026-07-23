@@ -133,7 +133,7 @@ with tempfile.TemporaryDirectory() as temp:
                                 "model": "ollama/llama3.2:3b"}})
             raise AssertionError("OpenCode must be rejected for tome authoring")
         except ValueError as exc:
-            assert "Claude CLI or Codex CLI" in str(exc)
+            assert "approved OpenRouter model" in str(exc)
         routed = _authors({"authors": {
             "phase12": {"kind": "codex-cli", "model": "arc"},
             "phase37": {"kind": "claude-cli", "model": "build", "effort": "high"},
@@ -146,17 +146,12 @@ with tempfile.TemporaryDirectory() as temp:
         assert {row["model"] for row in legacy.values()} == {"one"}
         assert _validator({"validator": {"kind": "claude-cli",
                                           "model": "section-audit"}})["model"] == "section-audit"
-        old_key = os.environ.get("OPENAI_API_KEY")
-        os.environ["OPENAI_API_KEY"] = "test-only"
         try:
-            api_validator = _validator({"validator": {
+            _validator({"validator": {
                 "kind": "openai-api", "model": "gpt-5.6-luna", "effort": "medium"}})
-            assert api_validator["kind"] == "openai-api"
-        finally:
-            if old_key is None:
-                os.environ.pop("OPENAI_API_KEY", None)
-            else:
-                os.environ["OPENAI_API_KEY"] = old_key
+            raise AssertionError("Codex API validators must be rejected")
+        except ValueError:
+            pass
         try:
             _reviewer({"reviewer": {"kind": "openai-api", "model": "gpt-5.6-sol"}})
             raise AssertionError("Codex API is validator-only")

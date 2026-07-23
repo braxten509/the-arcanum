@@ -39,3 +39,34 @@ def remove(*build_ids: str) -> None:
         target = path(build_id)
         if os.path.isdir(target):
             shutil.rmtree(target)
+
+
+def provider_state(provider: str, build_id: str, role: str, phase: int,
+                   section: str = "") -> tuple[str, str]:
+    """Return an isolated provider-state source and its conventional home target.
+
+    Only credential/configuration files are bootstrapped from the host. Session records,
+    caches, and transcripts are never copied into a newly assigned unit.
+    """
+    provider = str(provider)
+    layouts = {
+        "codex": (".codex", ("auth.json", "config.toml")),
+        "claude": (".claude", (".credentials.json", "credentials.json", "settings.json")),
+        "opencode": (".config/opencode", ("auth.json", "config.json")),
+    }
+    if provider not in layouts:
+        raise ValueError(f"provider {provider!r} has no isolated state layout")
+    name, bootstrap = layouts[provider]
+    unit = os.path.join(prepare(build_id), "provider-state", str(role),
+                        f"phase-{int(phase)}", *( (f"section-{section}",) if section else () ),
+                        provider)
+    source = os.path.join(unit, name)
+    if not os.path.isdir(source):
+        os.makedirs(source, mode=0o700, exist_ok=True)
+        host = os.path.join(os.path.expanduser("~"), name)
+        for filename in bootstrap:
+            original = os.path.join(host, filename)
+            target = os.path.join(source, filename)
+            if os.path.isfile(original):
+                shutil.copy2(original, target)
+    return source, os.path.join(os.path.expanduser("~"), name)

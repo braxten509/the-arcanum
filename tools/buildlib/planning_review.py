@@ -11,7 +11,7 @@ from . import BUILD_DIR, REPO, VALIDATOR_FAILURE_DIR
 from .planning_review_parts import policy as _policy
 from .prerequisites import records as _records
 from .prerequisites.prompt import DYNAMIC_MARKER
-from .prerequisites.review import invoke_validator
+from .prerequisites.review import invoke_validator, validator_access
 from .status_log import emit_status_line
 
 AUDIT_CONTRACT_VERSION = _policy.AUDIT_CONTRACT_VERSION
@@ -231,11 +231,13 @@ def _append_infrastructure_failure(build_id, phase, packet, validator, error, *,
         audit_kind="planning")
 
 
-def _invoke(prompt, validator, phase, adapter=None, live=None):
+def _invoke(prompt, validator, phase, adapter=None, live=None, *, build_id=""):
     return invoke_validator(
         prompt, validator, adapter=adapter, live=live,
         cache_key=f"arcanum-phase-{phase}-quality-v{AUDIT_CONTRACT_VERSION}",
-        max_output_tokens=MAX_OUTPUT_TOKENS, plain_text=True)
+        max_output_tokens=MAX_OUTPUT_TOKENS, plain_text=True,
+        permission_paths=validator_access(build_id, phase),
+        state_scope={"build_id": build_id, "role": "validator", "phase": phase})
 
 
 def _classify_output(raw, phase, sources):
@@ -299,7 +301,8 @@ def review_planning_phase(build_id, phase, tid, *, adapter=None):
     emit_status_line(f"AI VALIDATOR CALL START [{time.time():.3f}] › {label}",
                      build_id, build_dir=BUILD_DIR)
     try:
-        raw, meta = _invoke(prompt, validator, phase, adapter, (build_id, label))
+        raw, meta = _invoke(prompt, validator, phase, adapter, (build_id, label),
+                            build_id=build_id)
     except Exception as exc:
         _append_infrastructure_failure(build_id, phase, packet, validator, exc)
         emit_status_line(f"AI VALIDATOR CALL FAILED [{time.time():.3f}] › {label}",

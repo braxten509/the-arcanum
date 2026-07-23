@@ -6,8 +6,7 @@ import os
 import urllib.request
 
 from arcanum.config import (AGY_BIN, CLAUDE_BIN, CLI_EFFORTS, CLI_MODEL_EFFORTS,
-                            CLI_MODELS, CODEX_BIN, OPENCODE_BIN,
-                            openai_api_configured)
+                            CLI_MODELS, CODEX_BIN, OPENCODE_BIN)
 from .providers.discovery import (agy_models, codex_models, ollama_bindery_models,
                                   opencode_models, opencode_zen_models,
                                   openrouter_models)
@@ -49,11 +48,6 @@ def model_census() -> dict:
         codex_rows = [[model, model, "", list(CLI_EFFORTS["codex-cli"])]
                       for model in CLI_MODELS["codex-cli"]]
         providers["codex-cli"] = [row[0] for row in codex_rows]
-    api_efforts = {"none", "minimal", "low", "medium", "high", "xhigh"}
-    codex_api_rows = [list(row[:3]) + [[effort for effort in (row[3] or [])
-                                       if effort in api_efforts]]
-                      for row in codex_rows if str(row[0]).startswith("gpt-")]
-
     opencode_ok = installed["opencode-cli"]
     opencode_rows = opencode_models() if opencode_ok else []
     zen_rows = opencode_zen_models() if opencode_ok else []
@@ -61,7 +55,6 @@ def model_census() -> dict:
     router_rows = openrouter_models() if opencode_ok else []
     # the grader/oracle picker lists by kind, so OpenRouter ids join the opencode-cli pool
     providers["opencode-cli"] += [row[0] for row in router_rows]
-    api_configured = openai_api_configured()
     tome_cli_roles = ["author", "validator", "reviewer"]
     # Tome creation/resume is intentionally narrower than the reader's general AI
     # catalog. Keep unsupported pools out of the payload so stale browser state cannot
@@ -73,9 +66,8 @@ def model_census() -> dict:
         {"id": "codex-cli", "label": "Codex CLI", "kind": "codex-cli",
          "models": codex_rows, "installed": installed["codex-cli"],
          "roles": tome_cli_roles},
-        {"id": "openai-api", "label": ("Codex API" if api_configured
-                                          else "Codex API · key required"),
-         "kind": "openai-api", "models": codex_api_rows, "installed": True,
-         "configured": api_configured, "roles": ["validator"]},
+        {"id": "openrouter", "label": "OpenRouter · OpenCode CLI", "kind": "opencode-cli",
+         "models": router_rows, "installed": installed["opencode-cli"],
+         "roles": tome_cli_roles},
     ]
     return output
