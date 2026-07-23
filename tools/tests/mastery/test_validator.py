@@ -157,6 +157,43 @@ with tempfile.TemporaryDirectory() as temp:
     assert evidence_payload_privacy_enabled(MANIFEST)
     assert not evidence_payload_privacy_enabled({"mastery": {"level": 3}})
 
+    # New tomes opt into receipts and adversarial Working evidence. A receipt must be
+    # attributable to the lesson and an essential behavior cannot live on one happy path.
+    hardened_manifest = copy.deepcopy(MANIFEST)
+    hardened_manifest["mastery"]["sourceEvidenceVersion"] = 1
+    hardened_section = copy.deepcopy(SECTION)
+    hardened_section["lessons"][0]["researchSources"] = ["python-print"]
+    hardened_section["lessons"][0]["readings"] = [{
+        "label": "Python print documentation",
+        "url": "https://docs.python.org/3/library/functions.html#print",
+    }]
+    (tome / "sections" / "s01" / "research.toml").write_text('''version = 1
+[[sources]]
+id = "python-print"
+url = "https://docs.python.org/3/library/functions.html#print"
+authority = "Official Python standard-library documentation."
+claims = ["print writes the requested observable result to standard output."]
+''', encoding="utf-8")
+    findings = validate_mastery_evidence(str(tome), hardened_manifest, [hardened_section],
+                                         include_variants=False)
+    assert not any(item.code.startswith("mastery.sources")
+                   or item.code.startswith("mastery.assessment.varied")
+                   for item in findings), [item.to_dict() for item in findings]
+
+    hardened_section["lessons"][0]["researchSources"] = ["invented-source"]
+    findings = validate_mastery_evidence(str(tome), hardened_manifest, [hardened_section],
+                                         include_variants=False)
+    assert any(item.code == "mastery.sources.lesson" for item in findings)
+    hardened_section["lessons"][0]["researchSources"] = ["python-print"]
+    hardened_section["freestyle"]["rubric"][0]["assessmentIds"] = ["builds", "runs"]
+    one_path = ASSESSMENT.split('[[scenarios]]\nid = "cold-launch"', 1)[0]
+    (tome / "sections" / "s01" / "assessment.toml").write_text(one_path, encoding="utf-8")
+    findings = validate_mastery_evidence(str(tome), hardened_manifest, [hardened_section],
+                                         include_variants=False)
+    assert any(item.code == "mastery.assessment.varied-evidence" for item in findings), [
+        item.to_dict() for item in findings]
+    (tome / "sections" / "s01" / "assessment.toml").write_text(ASSESSMENT, encoding="utf-8")
+
     evidence_payload = {
         "mastery": {"evidenceVersion": 1, "level": 3},
         "progression": {"intrusionTiers": [{"pool": [

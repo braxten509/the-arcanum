@@ -1,47 +1,37 @@
 [[lessons]]
 id = "s01-l04"
-title = "Drive Decisions with Flags"
+title = "TODO: Drive Decisions with Flags"
 teaches = ["language-branch-loop-control"]
 introduces = ["nasm-compare-branch-loop-control"]
 validationDependencies = []
 body = '''
-<p>The CPU does not execute an <code>if</code> object. It executes an instruction that sets condition flags, followed by a jump that interprets those flags. <code>cmp left, right</code> performs a subtraction for flags only; it stores neither result. In this disposable ticket counter, a zero count skips the work:</p>
-<pre><code data-kind="pseudocode">    mov ecx, 3
-.count:
-    cmp ecx, 0
-    je .done
-    dec ecx
-    jmp .count
-.done:
-    mov eax, ecx</code></pre>
-<p>Trace by labels. First <code>ECX</code> is 3. Each visit to <code>.count</code> compares it with zero. <code>je</code> means “jump if equal”; it is taken when the zero flag is set. Until then, <code>dec</code> subtracts one and the unconditional <code>jmp</code> closes the loop. The comparison sees 3, 2, 1, then 0, so <code>.done</code> receives zero.</p>
-<p>Ordering matters. Putting <code>dec ecx</code> before the first comparison changes a count of zero to -1 and the loop may never reach zero again. Omitting the unconditional back edge runs the body only once. Jumping to a misspelled label is an assembler error, while jumping to the wrong existing label assembles but produces wrong control flow.</p>
-<p>Use signed conditions when negative values carry meaning: <code>jl</code> and <code>jg</code> interpret sign and overflow flags after <code>cmp</code>. Use <code>jb</code> and <code>ja</code> for unsigned quantities. Equality branches such as <code>je</code>/<code>jne</code> do not have that signed/unsigned split. For a nonnegative loop count, equality with zero is the simplest boundary.</p>
-<p>A branch trace is your first verifier. Write one row per comparison with columns for <code>ECX</code>, “equal?”, and next label. This catches off-by-one errors before a debugger is involved. Then vary the initial count to 1 and 0. A correct pre-check loop executes its body once and zero times respectively. That variation is more useful than merely retyping the example.</p>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // LOCAL LABELS</div><p>NASM labels beginning with a dot are local to the preceding non-local label. They keep short branch names readable. A later procedure may reuse <code>.done</code> under its own non-local label without collision.</p></div>
+<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
+<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
+<p>TODO: an optional deeper-cut appendix.</p></div>
 '''
 
 [[lessons.concepts]]
 id = "language-branch-loop-control"
-purpose = "Turns integer state into explicit decisions and finite repetition."
-anatomy = "Set flags with cmp, choose a conditional edge, change loop state, and jump back to the test."
-example = "The ticket counter visits 3, 2, 1, and 0 before leaving."
-observable = "A four-row branch trace ends at .done with ECX equal to zero."
-failure = "A missing back edge runs once; a change before the initial test breaks the zero-input case."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s01-l04-e1"
 
 [[lessons.concepts]]
 id = "nasm-compare-branch-loop-control"
-purpose = "Provides the exact NASM compare, label, conditional jump, update, and back-edge pattern."
-anatomy = "cmp sets flags without storing; je selects equality; dec advances state; jmp repeats."
-example = "The .count/.done example is a pre-check countdown loop."
-observable = "Counts 3 and 1 terminate at zero, while count 0 skips the body."
-failure = "Choosing a signed branch for unsigned data, or the reverse, misinterprets high-bit values."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s01-l04-e1"
 
 [[lessons.readings]]               # optional: 1-2 high-quality official docs
-label = "NASM instruction syntax and effective addresses"
-url = "https://www.nasm.us/doc/nasm03.html"
+label = "TODO: official docs"
+url = "https://example.com/TODO"
 
 [[lessons.exercises]]
 id = "s01-l04-e1"
@@ -54,12 +44,12 @@ scaffold = "guided"
 contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 15
-prompt = "Trace the shown loop from ECX=3. How many times does cmp execute before .done?"
-choices = ["3", "1", "It never terminates", "4"]
-answer = 3
-whyWrong = "The body runs three times, but the terminating comparison at zero is also executed."
-hint = "Include the comparison that finally takes je."
-explain = "The comparisons observe 3, 2, 1, and 0: four executions."
+prompt = "TODO: a multiple-choice question?"
+choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
+answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
+whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
+hint = "TODO: an exercise-specific hint."
+explain = "TODO: shown after solving."
 
 [[lessons.exercises]]
 id = "s01-l04-e2"
@@ -72,9 +62,10 @@ scaffold = "guided"
 contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 20
-prompt = "Change the initial count to 1 and trace it. Enter the final ECX value."
-answer = "0"
-hint = "The body decrements once, then the next comparison exits."
+prompt = "TODO: a free-text question."
+answer = "TODO"
+# accept = ["TODO alternate"]      # optional true alternates only
+hint = "TODO: an exercise-specific hint."
 
 [[lessons.exercises]]
 id = "s01-l04-e3"
@@ -87,11 +78,10 @@ scaffold = "completion"
 contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 20
-prompt = "Complete the equality branch that exits when ECX is zero."
-code = '''cmp ecx, 0
-____ .done'''
-answer = "je"
-hint = "Use the jump whose condition means equal."
+prompt = "TODO: fill the blank."
+code = 'answer = ____'             # the ____ marks where the answer goes
+answer = "TODO"
+hint = "TODO: an exercise-specific hint."
 
 [[lessons.exercises]]
 id = "s01-l04-d1"
@@ -105,23 +95,29 @@ contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 12
 reps = 2
-prompt = "Retype the loop-closing instruction exactly. (Ctrl+Enter submits.)"
-code = 'jmp .count'
+prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
+code = 'print("TODO")'
 
 [[lessons.exercises]]
 id = "s01-l04-w1"
-type = "mc"
+type = "write"                     # CODE LAB: runs on the real runtime; no point decay
 required = true
 capabilities = ["language-branch-loop-control"]
 mechanisms = []
-cognitiveTask = "predict"
-scaffold = "independent"
+cognitiveTask = "build"
+scaffold = "guided"
 contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 30
-prompt = "A new countdown starts at 3, checks for equality with zero, subtracts 2, and jumps back. Your trace begins 3, 1, -1. Which diagnosis and repair preserve the two-count stride while making the equality exit reachable?"
-choices = ["It already terminates; keep 3", "It skips zero; start this countdown at 4", "The jump is missing; add a second back edge", "The comparison changes the counter; remove it"]
-answer = 1
-whyWrong = "The trace proves that an odd start and a stride of two pass around zero. Extra jumps or deleting the comparison cannot make equality reachable."
-hint = "Ask which parity the repeated subtraction preserves."
-explain = "Subtracting two preserves parity. Starting at 4 gives the trace 4, 2, 0, so the existing pre-check reaches its exit without underflow."
+prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
+# starter = '''
+# TODO: prefilled editor code / the exercise's data
+# '''
+expect = '''
+TODO EXACT OUTPUT'''
+# REQUIRED before shipping: a complete program that passes. Never shown to the
+# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
+# solution = '''
+# TODO
+# '''
+hint = "TODO: an exercise-specific hint."

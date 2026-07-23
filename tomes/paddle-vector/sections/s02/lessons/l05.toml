@@ -1,225 +1,132 @@
 [[lessons]]
 id = "s02-l05"
-title = "Inspect the Court State"
+title = "TODO: Inspect the Court State"
 teaches = ["court-rendering", "court-verification"]
 introduces = ["deterministic-court-check-and-gdb-proof"]
 validationDependencies = []
 body = '''
-<p>A rendered frame is even harder to eyeball-verify than a window: nobody can reliably confirm "yes, that rectangle is exactly at 40,40" by looking at a screenshot. The same two-part proof you already trust for a window — a deterministic headless check plus a GDB memory trace — extends directly to renderer and rectangle state, with one twist worth noticing before you rely on it.</p>
-<p>First compose the already-taught frame operations. This disposable wrapper clears the backbuffer, calls the ABI-safe rectangle procedure from the previous lesson, and presents only after every checkable operation succeeds. Its local SDL failures fetch a diagnostic; a failure already diagnosed inside <code>paint_dash_panels</code> simply propagates.</p>
-<pre><code data-kind="runnable">section .rodata
-    dash_ok_msg db "DASH_FRAME_OK", 0
-
-section .text
-paint_dash_court:
-    push rbp
-    mov rbp, rsp
-    mov rdi, [rel dash_renderer]
-    mov esi, 10
-    mov edx, 10
-    mov ecx, 20
-    mov r8d, 255
-    call SDL_SetRenderDrawColor
-    cmp eax, 0
-    jl .court_sdl_failed
-    mov rdi, [rel dash_renderer]
-    call SDL_RenderClear
-    cmp eax, 0
-    jl .court_sdl_failed
-    call paint_dash_panels
-    cmp eax, 0
-    jne .court_done
-    mov rdi, [rel dash_renderer]
-    call SDL_RenderPresent
-dash_presented:
-    xor eax, eax
-    jmp .court_done
-.court_sdl_failed:
-    call dash_report_error
-    mov eax, 1
-.court_done:
-    leave
-    ret
-
-dash_render_ready:
-    cmp byte [rel dash_check_mode], 1
-    jne .dash_continue
-    call paint_dash_court
-    cmp eax, 0
-    jne dash_shutdown
-    lea rdi, [rel dash_ok_msg]
-    call puts
-    jmp dash_shutdown
-.dash_continue:</code></pre>
-<p><code>dash_render_ready</code> sits immediately after the validated renderer handle is stored, exactly like <code>window_ready</code> sat after the window handle. Under a check invocation, it paints the panels, checks their status, and prints the fixed token only after success. It then jumps straight to shutdown. A failed draw takes the diagnostic-and-cleanup route without leaking a false success token.</p>
-<p>GDB proves the same moment from the debugger side. <code>break dash_render_ready</code> stops right where the renderer handle first becomes valid; <code>x/gx &dash_renderer</code> shows a nonzero pointer, the runtime evidence that <code>SDL_CreateRenderer</code> actually succeeded. From there, <code>x/4dw &warning_zone</code> examines four consecutive doublewords starting at that label — the <code>4</code> selects a count of four units, <code>d</code> formats each as a signed decimal, and <code>w</code> sizes each unit at four bytes, matching the <code>dd</code> fields exactly. The output should read <code>40 40 120 30</code>, x through h in order.</p>
-<p>Here is the twist: that rectangle inspection works at <em>any</em> breakpoint, even one set before <code>main</code> ever runs. <code>warning_zone</code>'s four fields are compiled directly into the binary's data section as constants — nothing computes them at runtime, so nothing has to "happen" first for them to be correct. Contrast that with <code>dash_renderer</code>, whose value is genuinely zero until <code>SDL_CreateRenderer</code> succeeds; inspecting it too early shows exactly that zero, honestly reflecting a resource that does not exist yet. Knowing which values are load-time constants and which are runtime results tells you when a breakpoint's position actually matters.</p>
-<pre><code data-kind="runnable">dash_shutdown:
-    call dash_cleanup_renderer
-dash_renderer_released:
-    call dash_cleanup_window
-    call SDL_Quit</code></pre>
-<p>The label—not a debugger command—belongs in the assembly. Set <code>break dash_renderer_released</code>, continue to it, then enter <code>x/gx &amp;dash_renderer</code> at the GDB prompt. Zero proves the guarded renderer release and slot clear completed before window cleanup began. If the symbol is unknown, rebuild the DWARF binary; if the first handle is zero, confirm the ready label follows the validated store rather than weakening the proof.</p>
-<p>Rehearse the tool operation without adding project material yet. On the learner-owned section-one executable, run <code>make debug</code>, enter <code>set environment SDL_VIDEODRIVER dummy</code>, set <code>break window_ready</code>, and enter <code>run --arcanum-acceptance</code>. Use <code>x/gx &amp;window_handle</code> for the live eight-byte pointer, then vary the operation to <code>x/2wx &amp;window_handle</code>: the same eight bytes appear as two four-byte hexadecimal units. Quit without changing the project. In the Working you will apply the already-explained <code>x/4dw</code> form to rectangle labels you author yourself.</p>
-<p>A batch replay turns those prompt commands into a repeatable Make target. <code>gdb -q -batch executable</code> suppresses the greeting, runs queued commands, and exits instead of opening an interactive prompt. Each <code>-ex 'command'</code> queues one GDB command in written order. Set the environment and every breakpoint before <code>run</code>; after the program stops, alternate an observation with <code>continue</code> to reach the next stop. In a Make recipe, the initial tab starts the shell command and each trailing backslash continues that same command on the following physical line.</p>
-<pre data-kind="pseudocode"><code>audit-dash: build/dash-lab
-&#9;gdb -q -batch ./build/dash-lab \
-&#9;  -ex 'set environment SDL_VIDEODRIVER dummy' \
-&#9;  -ex 'break dash_render_ready' \
-&#9;  -ex 'break dash_presented' \
-&#9;  -ex 'break dash_renderer_released' \
-&#9;  -ex 'run --dash-check' \
-&#9;  -ex 'x/gx &amp;dash_renderer' \
-&#9;  -ex 'x/4dw &amp;warning_zone' \
-&#9;  -ex 'continue' \
-&#9;  -ex 'continue' \
-&#9;  -ex 'x/gx &amp;dash_renderer' \
-&#9;  -ex 'continue'</code></pre>
-<p>This disposable example must stop at <code>dash_presented</code>, the label on the instruction immediately after <code>SDL_RenderPresent</code>, before it can prove cleanup. The first stop exposes a nonzero renderer and four decimal rectangle fields; the second proves presentation returned; the third exposes the cleared renderer slot. If a queued inspection reports that the program is not running, count stops and <code>continue</code> commands: one continuation probably skipped the intended label or let the process exit. If GDB cannot find a label, rebuild the debug executable before changing the replay.</p>
-<p>For guided practice, put a temporary target in a disposable <code>replay-lab.mk</code> beside the project and invoke it with <code>make -f replay-lab.mk target-name</code>; <code>-f</code> selects that scratch Makefile. Delete the scratch file after recording the observations. This exercises target construction without adding a solution target to the canonical project before the Working.</p>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // EXACT-MATCH STILL MEANS EXACT</div><p>The same brittleness from your window check applies here: any extra success-path output breaks a check expecting exactly one token. Keep SDL diagnostics confined to confirmed failure branches; emit the fixed token only after the complete frame procedure returns success.</p></div>
+<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
+<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
+<p>TODO: an optional deeper-cut appendix.</p></div>
 '''
 
 [[lessons.concepts]]
 id = "court-rendering"
-purpose = "Names the combined state a court's proof depends on: a live renderer plus correctly laid out rectangle data."
-anatomy = "A nonzero renderer handle from lesson one, paired with compile-time-constant rectangle fields from lesson two, both readable through GDB at the right breakpoint."
-example = "dash_render_ready is the single point where both pieces of court-rendering state are confirmed together."
-observable = "x/gx &dash_renderer and x/4dw &warning_zone both return meaningful values once dash_render_ready is reached."
-failure = "Checking the renderer handle without also checking the rectangle data can miss a court that opens correctly but draws the wrong shape."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s02-l05-e1"
 
 [[lessons.concepts]]
 id = "court-verification"
-purpose = "Establishes that a rendered court is proven the same two ways a window was: an exact deterministic token and a GDB memory trace."
-anatomy = "A check-mode branch that paints one frame and prints one fixed token, plus two breakpoints tracing renderer and rectangle state before and after renderer cleanup."
-example = "dash_render_ready's check-mode branch together with the ready and renderer-released breakpoints forms one complete verification pass."
-observable = "The check invocation prints exactly one token and exits cleanly; the GDB trace shows the renderer handle nonzero, then zero after cleanup."
-failure = "Relying on a screenshot or visual inspection instead of these two proofs cannot be automated or reliably repeated."
-practice = "s02-l05-e2"
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
+practice = "s02-l05-e1"
 
 [[lessons.concepts]]
 id = "deterministic-court-check-and-gdb-proof"
-purpose = "Combines a headless deterministic token with GDB memory inspection into one concrete proof procedure for rendered state."
-anatomy = "dash_render_ready branches on a check-mode flag to paint and print one token; an ordered batch-GDB target sets the dummy driver and three breakpoints before running, then inspects live state, the post-present boundary, and the cleared renderer slot."
-example = "The replay breaks at dash_render_ready, dash_presented, and dash_renderer_released, inspecting the handle and four rectangle words at the first stop and the cleared handle at the third."
-observable = "The renderer handle reads nonzero at dash_render_ready, execution stops immediately after presentation, and the handle reads exactly zero after dash_cleanup_renderer; the rectangle fields read 40 40 120 30."
-failure = "A misplaced breakpoint or mismatched number of continue commands can inspect the wrong state or let the process exit before the final observation."
-practice = "s02-l05-e3"
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
+practice = "s02-l05-e1"
 
-[[lessons.readings]]
-label = "GDB: Examining Memory"
-url = "https://sourceware.org/gdb/current/onlinedocs/gdb.html/Memory.html"
+[[lessons.readings]]               # optional: 1-2 high-quality official docs
+label = "TODO: official docs"
+url = "https://example.com/TODO"
 
 [[lessons.exercises]]
 id = "s02-l05-e1"
 type = "mc"
 required = true
-capabilities = ["language-observable-debugging-and-verification"]
+capabilities = ["court-rendering", "court-verification"]
 mechanisms = ["deterministic-court-check-and-gdb-proof"]
 cognitiveTask = "predict"
 scaffold = "guided"
-contextFamily = "dash-inspect-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 15
-prompt = "A breakpoint is set at the very first instruction of main, before create_dash_renderer has run. What does x/4dw &warning_zone show there?"
-choices = ["All zeros, since nothing has run yet", "An error, since the rectangle has not been created yet", "Garbage values that only become correct after main runs", "40 40 120 30, the same values it shows at any later breakpoint"]
-answer = 3
-whyWrong = "warning_zone is not zero-initialized, not created at runtime, and not garbage; it is a compile-time constant already present in the binary before main executes."
-hint = "Recall which kind of state is baked into the binary at assembly time versus which kind is computed while the program runs."
-explain = "warning_zone's four dd values are constants placed directly in the data section at assemble time; they exist in the loaded binary before a single instruction of main runs, unlike dash_renderer, which genuinely starts at zero until SDL_CreateRenderer succeeds."
+prompt = "TODO: a multiple-choice question?"
+choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
+answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
+whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
+hint = "TODO: an exercise-specific hint."
+explain = "TODO: shown after solving."
 
 [[lessons.exercises]]
 id = "s02-l05-e2"
 type = "text"
 required = true
-capabilities = ["language-observable-debugging-and-verification"]
-mechanisms = ["deterministic-court-check-and-gdb-proof"]
+capabilities = ["court-rendering", "court-verification"]
+mechanisms = []
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "dash-inspect-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 20
-prompt = "Explain why a deterministic check-mode token is a better proof of a painted frame than asking a human to look at the window."
-answer = "A human visual check cannot be automated, repeated exactly, or compared precisely, while a fixed token printed only on a successful paint can be diffed exactly against an expected string every time the check runs, making the proof repeatable and machine-verifiable."
-hint = "Think about what a script comparing two runs' output can do that a person looking at pixels cannot."
+prompt = "TODO: a free-text question."
+answer = "TODO"
+# accept = ["TODO alternate"]      # optional true alternates only
+hint = "TODO: an exercise-specific hint."
 
 [[lessons.exercises]]
 id = "s02-l05-e3"
 type = "fill"
 required = true
-capabilities = ["language-observable-debugging-and-verification"]
-mechanisms = ["deterministic-court-check-and-gdb-proof"]
+capabilities = ["court-rendering", "court-verification"]
+mechanisms = []
 cognitiveTask = "complete"
 scaffold = "completion"
-contextFamily = "dash-inspect-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 20
-prompt = "Complete the GDB command that reads warning_zone's four fields as signed 4-byte decimals."
-code = 'x/____ &warning_zone'
-answer = "4dw"
-hint = "Count of four, decimal format, word unit sized at four bytes."
-
-[[lessons.exercises]]
-id = "s02-l05-e4"
-type = "text"
-required = true
-capabilities = ["language-observable-debugging-and-verification"]
-mechanisms = ["deterministic-court-check-and-gdb-proof"]
-cognitiveTask = "modify"
-scaffold = "guided"
-contextFamily = "learner-window-debug-retrieval"
-aidPolicy = "learning"
-points = 25
-prompt = "Create a disposable `replay-lab.mk` beside your section-one project. Author an `audit-window` target whose prerequisite is the existing debug executable and whose one continued recipe runs GDB quietly in batch mode. Queue the dummy video driver, breakpoints at `window_ready` and `quit_sdl`, the `--arcanum-acceptance` run, a handle inspection at each stop, and the continuations needed to exit. Run `make -f replay-lab.mk audit-window`. Submit your learner-authored target text, the two exact handle values printed by GDB in stop order, and `nonzero zero` as a one-line summary. The summary alone is not evidence. If either observation disagrees, diagnose and retry; delete the scratch Makefile afterward."
-answer = "A complete response includes the authored audit-window target, a nonzero first handle value, an exactly zero second handle value, and the summary `nonzero zero`; the fixed summary without the target and observed values is incomplete."
-hint = "First check ordering: environment and both breakpoints must be queued before run, and each observation belongs after the stop it is meant to inspect. If a symbol is unknown, rebuild the DWARF executable; if the program exits before the second inspection, recount continuations."
+prompt = "TODO: fill the blank."
+code = 'answer = ____'             # the ____ marks where the answer goes
+answer = "TODO"
+hint = "TODO: an exercise-specific hint."
 
 [[lessons.exercises]]
 id = "s02-l05-d1"
-type = "type"
+type = "type"                      # typing drill: retype the code; no point decay
 required = true
-capabilities = ["language-observable-debugging-and-verification"]
+capabilities = ["court-rendering", "court-verification"]
 mechanisms = []
 cognitiveTask = "recall"
 scaffold = "worked"
-contextFamily = "dash-inspect-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 12
 reps = 2
-prompt = "Retype the check-mode branch condition exactly. (Ctrl+Enter submits.)"
-code = '''cmp byte [rel dash_check_mode], 1
-jne .dash_continue'''
+prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
+code = 'print("TODO")'
 
 [[lessons.exercises]]
 id = "s02-l05-w1"
-type = "mc"
+type = "write"                     # CODE LAB: runs on the real runtime; no point decay
 required = true
-capabilities = ["language-observable-debugging-and-verification"]
-mechanisms = ["deterministic-court-check-and-gdb-proof"]
-cognitiveTask = "predict"
-scaffold = "independent"
-contextFamily = "dash-inspect-lab"
+capabilities = ["court-rendering", "court-verification"]
+mechanisms = []
+cognitiveTask = "build"
+scaffold = "guided"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 30
-prompt = "A trainee moves the second x/gx &dash_renderer breakpoint to just after dash_cleanup_window instead of the dash_renderer_released boundary. What does the trace now fail to prove?"
-choices = ["Nothing changes; breakpoint position never affects a lifecycle trace", "That renderer release and slot clearing completed before window cleanup began", "That SDL_CreateRenderer originally succeeded", "That warning_zone's fields are compile-time constants"]
-answer = 1
-whyWrong = "The renderer handle's value by that point is unaffected by window cleanup, so it would still read zero either way; the earlier CreateRenderer success and the rectangle's compile-time nature are unrelated to where this particular breakpoint sits."
-hint = "Ask what specific ordering claim this breakpoint's position was meant to demonstrate."
-explain = "An observation after both cleanup operations only proves the renderer slot was eventually cleared. Stopping at dash_renderer_released isolates the exact boundary and proves the application's renderer-before-window cleanup sequence."
-
-[[lessons.exercises]]
-id = "s02-l05-w2"
-type = "text"
-required = true
-capabilities = ["language-observable-debugging-and-verification"]
-mechanisms = ["deterministic-court-check-and-gdb-proof"]
-cognitiveTask = "modify"
-scaffold = "independent"
-contextFamily = "window-register-batch-transfer"
-aidPolicy = "learning"
-points = 30
-prompt = "Independently author a second disposable batch target named `audit-window-flags` for the section-one debug executable. It must set the dummy driver, stop only at `window_ready`, run acceptance mode, execute `info registers rsp eflags`, advance exactly one instruction with `stepi`, inspect `eflags` again, and let the program finish. Run the target. Submit the target text plus the two observed EFLAGS lines, and explain whether the one instruction changed any displayed flag. Remove the scratch file afterward."
-answer = "A correct response contains an ordered `gdb -q -batch` recipe with environment and breakpoint commands before run, register inspection and stepi after the stop, a second EFLAGS inspection, and a final continue. Numeric EFLAGS output and the change explanation depend on the built executable."
-hint = "Build the queue by runtime order rather than copying the cleanup replay: setup, stop definition, run, first observation, one-instruction advance, second observation, finish. If batch mode exits early, identify which command expected a stopped process."
+prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
+# starter = '''
+# TODO: prefilled editor code / the exercise's data
+# '''
+expect = '''
+TODO EXACT OUTPUT'''
+# REQUIRED before shipping: a complete program that passes. Never shown to the
+# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
+# solution = '''
+# TODO
+# '''
+hint = "TODO: an exercise-specific hint."

@@ -1,149 +1,123 @@
 [[lessons]]
 id = "s03-l05"
-title = "Assemble the Responsive Loop"
+title = "TODO: Assemble the Responsive Loop"
 teaches = ["responsive-loop-decomposition"]
 introduces = ["abi-safe-poll-update-render-loop"]
 validationDependencies = []
 body = '''
-<p>The pieces now have an order. One frame records its start, drains events, reacts to quit, samples held controls, updates state, renders that state, and waits out any remaining budget. A responsive loop is this explicit orchestration repeated—not one giant procedure where call results and registers silently collide.</p>
-<p>This disposable transit display uses one procedure per responsibility. The names differ from the game, but the control boundary is the same:</p>
-<pre><code data-kind="runnable">display_loop:
-    push rbp
-    mov rbp, rsp
-.frame:
-    call begin_display_frame
-    call drain_notices
-    cmp byte [rel stop_display], 0
-    jne .clean_exit
-
-    call sample_switches
-    call advance_markers
-    call paint_display
-    cmp eax, 0
-    jne .failed
-    call finish_display_frame
-    jmp .frame
-
-.clean_exit:
-    xor eax, eax
-    jmp .done
-.failed:
-    mov eax, 1
-.done:
-    leave
-    ret</code></pre>
-<p>The prologue makes the stack 16-byte aligned before every nested call under the System V ABI already used by the project. Each called procedure must preserve <code>rbx</code>, <code>rbp</code>, and <code>r12</code>–<code>r15</code> if it changes them. Everything else is caller-saved. That is why durable loop state—quit flags, axes, rectangle coordinates, and ticks—belongs in named memory rather than in <code>rax</code> across calls.</p>
-<p>Order carries meaning. Beginning first establishes the timing boundary. Draining before sampling pumps SDL state and finds close requests. Testing <code>stop_display</code> immediately afterward prevents a requested quit from waiting behind update, render, and delay. Sampling precedes mutation; mutation precedes drawing, so the frame displays the newest position. A render failure is checked immediately while its return value is still in <code>eax</code>. Pacing comes last and only on a completed live frame.</p>
-<p>The loop returns a status instead of destroying resources itself. Its caller can route both zero and nonzero results through the existing exactly-once cleanup sequence. This preserves ownership: the code that created the renderer and window remains responsible for releasing them. Do not jump back into initialization or add a second cleanup copy inside the loop.</p>
-<p>A classic failure stores the quit condition only in <code>eax</code>, then calls another procedure before testing it. The next call legally overwrites <code>eax</code>, making quit intermittent. Diagnose that trace by stopping after each call and watching the register change. Recover by storing the event decision in memory and checking it at the documented boundary. Another failure renders before updating; controls appear one frame late. Trace the call order, not the rectangle math, to distinguish that orchestration bug.</p>
+<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
+<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
+<p>TODO: an optional deeper-cut appendix.</p></div>
 '''
 
 [[lessons.concepts]]
 id = "responsive-loop-decomposition"
-purpose = "Turns event, input, movement, rendering, and timing procedures into one readable frame lifecycle."
-anatomy = "Begin timing, drain and dispatch events, exit promptly if requested, sample controls, update state, render and check status, pace, then repeat."
-example = "display_loop is a disposable orchestration procedure whose caller still owns resource cleanup."
-observable = "Every successful frame follows the same ordered stages, quit skips the remaining frame work, and a render failure returns nonzero."
-failure = "A monolithic loop can hide stale input, one-frame-late rendering, unchecked failures, or duplicate cleanup behind tangled branches."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s03-l05-e1"
 
 [[lessons.concepts]]
 id = "abi-safe-poll-update-render-loop"
-purpose = "Preserves call alignment, register rules, return checks, and resource ownership while a native frame loop repeats."
-anatomy = "Use an aligned calling procedure, keep cross-call state in memory or preserved registers, observe EAX before another call, return status to the resource owner, and converge on one cleanup route."
-example = "display_loop checks stop_display after drain_notices and paint_display's status immediately after that call."
-observable = "GDB shows an aligned stack at each call, stable memory state across calls, and one status returned to the outer cleanup path."
-failure = "Keeping a quit or status result only in a caller-saved register lets the next call erase the decision."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s03-l05-e1"
 
-[[lessons.readings]]
-label = "System V AMD64 ABI: calling sequence"
-url = "https://refspecs.linuxbase.org/elf/x86_64-abi-0.99.pdf"
+[[lessons.readings]]               # optional: 1-2 high-quality official docs
+label = "TODO: official docs"
+url = "https://example.com/TODO"
 
 [[lessons.exercises]]
 id = "s03-l05-e1"
 type = "mc"
 required = true
-capabilities = ["language-branch-loop-control", "language-abi-procedures-and-register-discipline"]
+capabilities = ["responsive-loop-decomposition"]
 mechanisms = ["abi-safe-poll-update-render-loop"]
 cognitiveTask = "predict"
 scaffold = "guided"
-contextFamily = "transit-loop-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 15
-prompt = "drain_notices sets stop_display=1. Which call is next in display_loop?"
-choices = ["sample_switches", "finish_display_frame", "No frame-stage call; the loop returns through .clean_exit", "paint_display"]
-answer = 2
-whyWrong = "The quit flag is checked immediately after draining, before sampling, rendering, or pacing."
-hint = "Follow the conditional branch directly below drain_notices."
-explain = "The nonzero flag branches to .clean_exit, so the close request is not delayed by the rest of a frame."
+prompt = "TODO: a multiple-choice question?"
+choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
+answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
+whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
+hint = "TODO: an exercise-specific hint."
+explain = "TODO: shown after solving."
 
 [[lessons.exercises]]
 id = "s03-l05-e2"
 type = "text"
 required = true
-capabilities = ["language-branch-loop-control", "language-abi-procedures-and-register-discipline"]
-mechanisms = ["abi-safe-poll-update-render-loop"]
+capabilities = ["responsive-loop-decomposition"]
+mechanisms = []
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "transit-loop-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 20
-prompt = "Explain why paint_display's EAX result must be checked before calling finish_display_frame."
-answer = "EAX is caller-saved and finish_display_frame returns its own value, so calling it first would overwrite the render status and could hide a render failure."
-hint = "Which call owns the value currently in EAX?"
+prompt = "TODO: a free-text question."
+answer = "TODO"
+# accept = ["TODO alternate"]      # optional true alternates only
+hint = "TODO: an exercise-specific hint."
 
 [[lessons.exercises]]
 id = "s03-l05-e3"
 type = "fill"
 required = true
-capabilities = ["language-branch-loop-control", "language-abi-procedures-and-register-discipline"]
-mechanisms = ["abi-safe-poll-update-render-loop"]
+capabilities = ["responsive-loop-decomposition"]
+mechanisms = []
 cognitiveTask = "complete"
 scaffold = "completion"
-contextFamily = "transit-loop-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 20
-prompt = "Complete the immediate quit gate after the event-drain call."
-code = '''call drain_notices
-cmp byte [rel stop_display], 0
-____ .clean_exit'''
-answer = "jne"
-hint = "Branch when the stored flag differs from zero."
+prompt = "TODO: fill the blank."
+code = 'answer = ____'             # the ____ marks where the answer goes
+answer = "TODO"
+hint = "TODO: an exercise-specific hint."
 
 [[lessons.exercises]]
 id = "s03-l05-d1"
-type = "type"
+type = "type"                      # typing drill: retype the code; no point decay
 required = true
-capabilities = ["language-branch-loop-control", "language-abi-procedures-and-register-discipline"]
+capabilities = ["responsive-loop-decomposition"]
 mechanisms = []
 cognitiveTask = "recall"
 scaffold = "worked"
-contextFamily = "transit-loop-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 12
 reps = 2
-prompt = "Retype the core state-to-picture order exactly. (Ctrl+Enter submits.)"
-code = '''call sample_switches
-call advance_markers
-call paint_display
-cmp eax, 0
-jne .failed'''
+prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
+code = 'print("TODO")'
 
 [[lessons.exercises]]
 id = "s03-l05-w1"
-type = "mc"
+type = "write"                     # CODE LAB: runs on the real runtime; no point decay
 required = true
-capabilities = ["language-branch-loop-control", "language-abi-procedures-and-register-discipline"]
-mechanisms = ["abi-safe-poll-update-render-loop"]
-cognitiveTask = "debug"
-scaffold = "independent"
-contextFamily = "loop-order-review"
+capabilities = ["responsive-loop-decomposition"]
+mechanisms = []
+cognitiveTask = "build"
+scaffold = "guided"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 30
-prompt = "A loop samples controls, paints, then updates rectangle state. Input is correct in memory, but the picture always reflects the previous frame. Which reorder fixes the symptom without changing sampling?"
-choices = ["Paint, pace, then update", "Update after sampling and before painting", "Pace before draining events", "Destroy the renderer after sampling"]
-answer = 1
-whyWrong = "The visible frame must consume newly updated state; pacing position and resource destruction do not repair that data-flow order."
-hint = "Ask which state paint should read in the current frame."
-explain = "Sampling produces intent, update applies it to the rectangles, and painting must follow so it sees those new coordinates."
+prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
+# starter = '''
+# TODO: prefilled editor code / the exercise's data
+# '''
+expect = '''
+TODO EXACT OUTPUT'''
+# REQUIRED before shipping: a complete program that passes. Never shown to the
+# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
+# solution = '''
+# TODO
+# '''
+hint = "TODO: an exercise-specific hint."

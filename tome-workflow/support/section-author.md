@@ -40,6 +40,10 @@ library, version, command, flag, and error message this section teaches; prefer 
 documentation and release notes over tutorials and over your own recall. Verify each version
 number, signature, and default against the published source, and prefer a conservative claim to an
 invented specific when a detail cannot be confirmed. Do this before the first lesson body.
+If `[mastery].sourceEvidenceVersion = 1`, complete this section's `research.toml` before drafting:
+each source is a primary HTTPS source with a concrete checked claim, every lesson names source IDs
+through `researchSources`, and lesson readings are citations from that same receipt set. This is an
+audit trail for technical truth, not learner-facing filler.
 
 The Phase-2 transition has already expanded untouched scaffolds to the exact sealed lesson count,
 ids, titles, capabilities, mechanisms, and validation dependencies. Preserve those generated
@@ -55,6 +59,10 @@ uses stable structured public requirements, deterministic/qualitative rubric row
 and a private `assessment.toml` whose scenarios map only to those public IDs. Essential behavior
 must be executable. If this section owns a mastery-lab node, author the aligned family TOML and
 blueprints here; generation and verification occur at the Phase 7 harness boundary.
+For the hardened source-evidence contract, each essential requirement needs at least two distinct
+non-build scenarios and deterministic-rubric linkage for both; include its declared capabilities
+in each scenario. Use an ordinary path plus a boundary, failure, or alternate input—not two copies
+of the same launch.
 
 Obey the sealed language-neutral mechanism ledger. Copy each lesson node's `introduces` exactly
 to its `[[lessons]]` table and give every introduced mechanism its own complete

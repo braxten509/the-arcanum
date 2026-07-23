@@ -1,0 +1,249 @@
+[[lessons]]
+id = "s02-l03"
+title = "Paint One Complete Frame"
+teaches = ["sdl-rectangle-rendering"]
+introduces = ["sdl-clear-fill-present-sequence", "render-status-observation", "render-failure-branch", "render-error-diagnostic", "render-failure-cleanup"]
+validationDependencies = []
+body = '''
+<p>A renderer draws into a buffer nobody can see until you say so. Painting one complete frame follows a fixed three-step sequence: set a color and clear the buffer to it, set a color and fill each shape you want visible, then present the buffer so the window actually shows what you drew. If the checkable draw calls succeed but you skip the last step, the window stays on its previous contents because the new buffer was never presented.</p>
+<pre><code data-kind="runnable">paint_dash_frame:
+    push rbp
+    mov rbp, rsp
+    mov rdi, [rel dash_renderer]
+    mov esi, 10
+    mov edx, 10
+    mov ecx, 20
+    mov r8d, 255
+    call SDL_SetRenderDrawColor
+    cmp eax, 0
+    jl .paint_failed
+    mov rdi, [rel dash_renderer]
+    call SDL_RenderClear
+    cmp eax, 0
+    jl .paint_failed
+    mov rdi, [rel dash_renderer]
+    mov esi, 220
+    mov edx, 40
+    mov ecx, 40
+    mov r8d, 255
+    call SDL_SetRenderDrawColor
+    cmp eax, 0
+    jl .paint_failed
+    mov rdi, [rel dash_renderer]
+    lea rsi, [rel warning_zone]
+    call SDL_RenderFillRect
+    cmp eax, 0
+    jl .paint_failed
+    mov rdi, [rel dash_renderer]
+    call SDL_RenderPresent
+    xor eax, eax
+    jmp .paint_done
+.paint_failed:
+    call dash_report_error
+    mov eax, 1
+.paint_done:
+    leave
+    ret</code></pre>
+<p>Trace the order: background color, then <code>SDL_RenderClear</code>, then shape color, then <code>SDL_RenderFillRect</code>, then <code>SDL_RenderPresent</code>. Reversing clear and fill paints the shape and then erases it. Calling <code>SDL_RenderFillRect</code> before setting its own color reuses whatever color the clear left behind, so the rectangle silently comes out the wrong shade instead of failing.</p>
+<p><code>SDL_SetRenderDrawColor</code>, <code>SDL_RenderClear</code>, and <code>SDL_RenderFillRect</code> each return a status: zero on success, negative on failure. Every one of them gets the same treatment you already use for SDL_Init and renderer creation — compare, branch on failure, diagnose, and converge on one shared failure path. <code>SDL_RenderPresent</code> is different: SDL's documented contract gives it no return value at all, so there is nothing to compare and no failure branch to write for that call specifically. Recognizing which calls return a checkable status and which do not is part of reading SDL's contract correctly, not a rule you can guess from a call's name.</p>
+<p>The color components use the full 32-bit argument registers—<code>esi</code>, <code>edx</code>, <code>ecx</code>, and <code>r8d</code>—even though SDL consumes only their low eight bits. Writing the full registers makes the passed integer values unambiguous. A failure this deep into a frame reuses <code>dash_report_error</code> from the lifecycle lesson. The caller then treats a nonzero frame result as a fail-fast policy decision: do not present an incomplete frame or start another one; enter the existing cleanup path exactly once.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // PRESENT HAS A DIFFERENT CONTRACT</div><p><code>SDL_RenderPresent</code> returns <code>void</code>, so inventing a status comparison after it would inspect unrelated register contents. SDL also says the backbuffer is invalid after presentation: render a complete new frame from a clear, and present once at the end. A void return is not a promise that pixels reached every display device; it only means this API supplies no status value to branch on.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "sdl-rectangle-rendering"
+purpose = "Produces one visible frame by combining a background clear with one or more filled shapes before presenting."
+anatomy = "Set a color, clear; for each shape, set its color and fill it; present once at the end."
+example = "paint_dash_frame clears to a background color, fills warning_zone, then presents."
+observable = "The window shows the filled shape over the cleared background only after SDL_RenderPresent runs."
+failure = "Filling a shape before clearing paints it and then erases it on the next clear-fill-present pass."
+practice = "s02-l03-e1"
+
+[[lessons.concepts]]
+id = "sdl-clear-fill-present-sequence"
+purpose = "Fixes the order that makes a frame's contents match what was actually intended."
+anatomy = "Clear must run before any fill; every fill must run before the single present call at the end."
+example = "paint_dash_frame's three call groups run in exactly this order: clear, fill, present."
+observable = "Reordering fill before clear in a trace shows the shape being erased instead of shown."
+failure = "Omitting SDL_RenderPresent entirely leaves the window showing its previous contents forever, with no error reported."
+practice = "s02-l03-e1"
+
+[[lessons.concepts]]
+id = "render-status-observation"
+purpose = "Confirms each checkable draw call actually succeeded before the next one runs."
+anatomy = "Compare the returned eax against zero immediately after SDL_SetRenderDrawColor, SDL_RenderClear, or SDL_RenderFillRect."
+example = "cmp eax, 0 follows all four checkable call sites in paint_dash_frame: two color calls, one clear, and one fill."
+observable = "A zero result falls through to the next drawing step; a negative result diverts to .paint_failed."
+failure = "Treating SDL_RenderPresent as checkable and writing a comparison after it inspects a return value SDL never sets."
+practice = "s02-l03-e3"
+
+[[lessons.concepts]]
+id = "render-failure-branch"
+purpose = "Stops a frame the moment any checkable drawing call reports failure, before later steps build on an unsuccessful operation."
+anatomy = "jl .paint_failed follows each status comparison, sending control to one shared failure label."
+example = "All four jl .paint_failed instructions in paint_dash_frame target the same label."
+observable = "Once one drawing call fails, no later SDL_SetRenderDrawColor, SDL_RenderClear, or SDL_RenderFillRect in the same frame executes."
+failure = "Branching only after the last call in the sequence lets earlier failures pass through silently and reach a call that assumes success."
+practice = "s02-l03-e3"
+
+[[lessons.concepts]]
+id = "render-error-diagnostic"
+purpose = "Names SDL's own explanation for a mid-frame drawing failure instead of a generic message."
+anatomy = "On .paint_failed only, call the existing dash_report_error procedure, which fetches SDL_GetError and logs the current reason."
+example = "dash_report_error runs only from paint_dash_frame's .paint_failed label."
+observable = "The logged text includes SDL's current reason for the checkable call that reported failure."
+failure = "Reusing a diagnostic call from a different failure without re-fetching SDL_GetError can report an older, unrelated error."
+practice = "s02-l03-e2"
+
+[[lessons.concepts]]
+id = "render-failure-cleanup"
+purpose = "Routes a failed frame into the same full shutdown path as any other unrecoverable SDL failure, rather than continuing to loop."
+anatomy = "A nonzero return from paint_dash_frame is treated by its caller exactly like a failed renderer or window creation: proceed to cleanup and quit."
+example = "Tracing a failed SDL_RenderFillRect through paint_dash_frame's return value into the caller's existing cleanup path."
+observable = "No further frames are painted after a failure is reported; cleanup runs exactly once."
+failure = "Ignoring paint_dash_frame's return value violates the fail-fast policy, starts more drawing after an unsuccessful frame, and can repeat the same diagnostic instead of cleaning up."
+practice = "s02-l03-w1"
+
+[[lessons.readings]]
+label = "SDL2: SDL_RenderPresent"
+url = "https://wiki.libsdl.org/SDL2/SDL_RenderPresent"
+
+[[lessons.readings]]
+label = "SDL2: SDL_RenderFillRect"
+url = "https://wiki.libsdl.org/SDL2/SDL_RenderFillRect"
+
+[[lessons.exercises]]
+id = "s02-l03-e1"
+type = "mc"
+required = true
+capabilities = ["language-status-failure-and-resource-cleanup"]
+mechanisms = ["sdl-clear-fill-present-sequence"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "dash-frame-lab"
+aidPolicy = "learning"
+points = 15
+prompt = "A trainee reorders paint_dash_frame so SDL_RenderFillRect runs, then SDL_RenderClear, then SDL_RenderPresent. What appears in the window?"
+choices = ["The filled shape over the background color, same as before", "Only the cleared background color, with no shape visible", "The assembler refuses to build the reordered version", "SDL automatically restores the intended order"]
+answer = 1
+whyWrong = "NASM has no concept of a required call order to enforce, and SDL never reorders your calls for you; the fill is simply erased by the clear that runs after it."
+hint = "Present shows whatever the buffer holds at the moment it is called, not the full history of calls before it."
+explain = "SDL_RenderClear erases the entire buffer to the clear color, including anything drawn before it; running fill before clear means the shape is painted and then wiped out, so only the background survives to SDL_RenderPresent."
+
+[[lessons.exercises]]
+id = "s02-l03-e2"
+type = "text"
+required = true
+capabilities = ["language-status-failure-and-resource-cleanup"]
+mechanisms = ["render-error-diagnostic"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "dash-frame-lab"
+aidPolicy = "learning"
+points = 20
+prompt = "dash_report_error calls SDL_GetError fresh every time it runs, rather than reusing a message saved earlier. Explain why that matters here."
+answer = "Because any of three SDL APIs across four checkable call sites could be the one that failed, only a fresh SDL_GetError call at the moment of failure reports the reason for this specific failure instead of a stale message left over from an unrelated earlier call."
+hint = "paint_dash_frame contains four checkable call sites drawn from three SDL APIs, and each can report its own failure."
+explain = "SDL's error text is meaningful here because a checkable call just reported failure. Fetching it immediately preserves that call's reason; successful SDL calls do not promise to clear older error text, so a saved message could blame an unrelated operation."
+
+[[lessons.exercises]]
+id = "s02-l03-e4"
+type = "text"
+required = true
+capabilities = ["language-status-failure-and-resource-cleanup"]
+mechanisms = ["render-failure-cleanup"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "dash-frame-lab"
+aidPolicy = "learning"
+points = 20
+prompt = "A caller executes `call paint_dash_frame`, compares eax with zero, and jumps to its existing shutdown label when eax is nonzero. Explain what this caller branch guarantees after SDL_RenderFillRect fails."
+answer = "The failed frame returns a nonzero status, so the caller selects shutdown before starting or presenting another frame; the existing cleanup path then releases the renderer and window exactly once instead of retrying silently."
+hint = "Follow the value placed in eax at .paint_failed into the caller's next branch."
+
+[[lessons.exercises]]
+id = "s02-l03-e3"
+type = "fill"
+required = true
+capabilities = ["language-status-failure-and-resource-cleanup"]
+mechanisms = ["render-status-observation", "render-failure-branch"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "dash-frame-lab"
+aidPolicy = "learning"
+points = 20
+prompt = "Complete the branch that sends a failed status to the shared failure label."
+code = '''cmp eax, 0
+____ .paint_failed'''
+answer = "jl"
+hint = "SDL's checkable draw calls return negative on failure, not simply nonzero."
+
+[[lessons.exercises]]
+id = "s02-l03-d1"
+type = "type"
+required = true
+capabilities = ["language-status-failure-and-resource-cleanup"]
+mechanisms = []
+cognitiveTask = "recall"
+scaffold = "worked"
+contextFamily = "dash-frame-lab"
+aidPolicy = "learning"
+points = 12
+reps = 2
+prompt = "Retype the final present step of a frame exactly. (Ctrl+Enter submits.)"
+code = '''mov rdi, [rel dash_renderer]
+call SDL_RenderPresent'''
+
+[[lessons.exercises]]
+id = "s02-l03-w1"
+type = "mc"
+required = true
+capabilities = ["language-status-failure-and-resource-cleanup"]
+mechanisms = ["render-failure-cleanup"]
+cognitiveTask = "predict"
+scaffold = "independent"
+contextFamily = "dash-frame-lab"
+aidPolicy = "learning"
+points = 30
+prompt = "paint_dash_frame returns 1 after SDL_RenderFillRect fails. The caller ignores the return and starts another frame. Which application guarantee has definitely been broken?"
+choices = ["SDL automatically retries the skipped fill before the new frame", "The renderer handle has definitely become NULL", "A failed frame must enter the shared cleanup path before any later frame begins", "SDL_RenderPresent has returned a negative status"]
+answer = 2
+whyWrong = "SDL does not queue an automatic retry, the failure does not prove the stored handle became null, and SDL_RenderPresent has no status return."
+hint = "Recall what render-failure-cleanup says the caller should do instead of looping again."
+explain = "The section's fail-fast policy is explicit: a nonzero frame result converges on the existing cleanup-and-quit path. Ignoring that result definitely violates the policy and begins more work after an unsuccessful frame, regardless of whether a later SDL call might happen to succeed."
+
+[[lessons.exercises]]
+id = "s02-l03-w2"
+type = "mc"
+required = true
+capabilities = ["language-status-failure-and-resource-cleanup"]
+mechanisms = ["render-status-observation", "render-failure-branch", "render-error-diagnostic", "render-failure-cleanup"]
+cognitiveTask = "debug"
+scaffold = "independent"
+contextFamily = "dash-frame-lab"
+aidPolicy = "learning"
+points = 30
+prompt = "A trainee changes the branch after SDL_RenderClear from `jl .paint_failed` to `je .paint_failed`. Clear returns 0. Trace the consequence."
+choices = ["The successful clear is misclassified as failure, the diagnostic may report stale text, and the caller selects cleanup", "The frame continues normally because je means negative", "SDL_RenderPresent supplies the missing failure status", "NASM rejects je after cmp"]
+answer = 0
+whyWrong = "After `cmp eax, 0`, je means equal to zero, not negative; conditional jumps are valid here, and SDL_RenderPresent has no status return."
+hint = "Start with eax=0, determine whether ZF is set, then follow the shared failure return into the caller."
+explain = "A successful zero result sets ZF, so je wrongly enters .paint_failed. SDL_GetError is not trustworthy after this successful call and may expose stale text; eax becomes 1, causing the caller's fail-fast cleanup branch to run."
+
+[[lessons.exercises]]
+id = "s02-l03-w3"
+type = "mc"
+required = true
+capabilities = ["language-status-failure-and-resource-cleanup"]
+mechanisms = ["sdl-clear-fill-present-sequence"]
+cognitiveTask = "predict"
+scaffold = "independent"
+contextFamily = "dash-frame-lab"
+aidPolicy = "learning"
+points = 30
+prompt = "A trainee clears the backbuffer, presents it, and only then fills warning_zone without another present. Which result is justified by SDL's contract?"
+choices = ["The filled rectangle must appear immediately", "The presented frame shows the clear; drawing after present does not update that shown frame, and the next frame must begin with a fresh clear", "SDL automatically performs a second present", "SDL_RenderFillRect returns the number of pixels shown"]
+answer = 1
+whyWrong = "Drawing calls do not implicitly present, SDL_RenderFillRect returns only success or failure, and the backbuffer is not a persistent frame to reuse after presentation."
+hint = "Separate operations on the backbuffer from the single operation that makes a completed frame visible."
+explain = "Present makes the completed clear visible. A later fill is not part of that already-presented frame, and SDL says the backbuffer is invalid after present, so the correct next action is to clear and build a new complete frame before presenting again."

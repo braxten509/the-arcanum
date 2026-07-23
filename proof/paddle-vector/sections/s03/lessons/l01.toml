@@ -1,0 +1,148 @@
+[[lessons]]
+id = "s03-l01"
+title = "Drain the SDL Event Queue"
+teaches = ["event-queue-input"]
+introduces = ["sdl-event-poll-type-and-quit-dispatch"]
+validationDependencies = []
+body = '''
+<p>A window stays responsive only when its program empties SDL's pending-event queue regularly. Picture a numbered tray: the oldest notice is at the front, and a new notice may arrive while you work. <code>SDL_PollEvent</code> checks the front without waiting. It returns <code>1</code> and removes one event when the tray is nonempty; it returns <code>0</code> when no event is available. Therefore one call is not a queue drain. The controlling loop must keep polling until that zero.</p>
+<p>SDL2 defines <code>SDL_Event</code> as a union whose first four bytes are always the unsigned event <code>type</code>. On this x86-64 SDL2 route the union is padded to 56 bytes, so a 56-byte buffer can receive any event. <code>SDL_QUIT</code> has type value <code>0x100</code>. This disposable notice-panel procedure drains every notice and remembers a close request:</p>
+<pre><code data-kind="runnable">SDL_QUIT equ 0x100
+
+section .bss
+    notice_event: resb 56
+    stop_panel:   resb 1
+
+section .text
+extern SDL_PollEvent
+
+drain_notices:
+    push rbp
+    mov rbp, rsp
+.next:
+    lea rdi, [rel notice_event]
+    call SDL_PollEvent
+    test eax, eax
+    jz .empty
+    cmp dword [rel notice_event], SDL_QUIT
+    jne .next
+    mov byte [rel stop_panel], 1
+    jmp .next
+.empty:
+    leave
+    ret</code></pre>
+<p>Read the procedure in order. <code>lea</code> passes the buffer's address in <code>rdi</code>. The call writes one union and returns its availability result in <code>eax</code>. The zero branch happens before the buffer is inspected, because a zero return means no new event was written. When an event exists, <code>dword</code> reads exactly the four-byte type field. A quit sets persistent memory state, then polling continues so the queue is genuinely empty.</p>
+<p>The procedure records intent instead of jumping directly to cleanup. Its caller can test <code>stop_panel</code> at one deliberate loop boundary and use the already-established clean-exit path. The quit event might sit behind resize or mouse events, so polling only once per frame can delay close handling under a busy queue. Conversely, <code>SDL_PollEvent</code> is nonblocking: repeating until zero does not wait for the next event.</p>
+<p>A common failure is reading <code>notice_event</code> after a zero return. The buffer still contains the previous event, so the old quit value can be interpreted twice. Diagnose this by breaking after the call and comparing <code>eax</code> with the stored type; recover by branching on the return value first. SDL's event functions belong on the thread that created the video device, which is the same main-thread route used here.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // DRAIN, THEN DECIDE</div><p>Draining handles queue pressure; the stored stop flag handles control flow. Keeping those responsibilities separate makes later frame orchestration easier to inspect.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "event-queue-input"
+purpose = "Keeps a native window responsive by consuming every pending SDL event without blocking the frame."
+anatomy = "Repeatedly poll into one SDL_Event-sized buffer, branch on the return value, inspect the leading type field only when an event was returned, and stop when the queue is empty."
+example = "drain_notices empties a disposable notice queue and stores a stop request instead of bypassing shared cleanup."
+observable = "A close event sets stop_panel to 1 even when other queued events appear before it, and the procedure returns only after SDL_PollEvent reports zero."
+failure = "Polling once per frame can leave quit buried in a busy queue, while reading the buffer after a zero return reuses stale event data."
+practice = "s03-l01-e1"
+
+[[lessons.concepts]]
+id = "sdl-event-poll-type-and-quit-dispatch"
+purpose = "Connects SDL_PollEvent's availability result and SDL_Event's type field to one reliable quit-dispatch decision."
+anatomy = "Pass a 56-byte event buffer address, test EAX, compare the first dword with SDL_QUIT only after a one result, store a quit flag, and continue polling to zero."
+example = "The .next path in drain_notices demonstrates the complete poll, return test, type comparison, flag store, and repeat sequence."
+observable = "At a debugger stop after a returned quit event, EAX is 1, the first dword is 0x100, and stop_panel becomes 1."
+failure = "Testing the old buffer before EAX can dispatch an event that was not returned by the current poll."
+practice = "s03-l01-e1"
+
+[[lessons.readings]]
+label = "SDL2: SDL_PollEvent"
+url = "https://wiki.libsdl.org/SDL2/SDL_PollEvent"
+
+[[lessons.readings]]
+label = "SDL2: SDL_Event"
+url = "https://wiki.libsdl.org/SDL2/SDL_Event"
+
+[[lessons.exercises]]
+id = "s03-l01-e1"
+type = "mc"
+required = true
+capabilities = ["language-branch-loop-control"]
+mechanisms = ["sdl-event-poll-type-and-quit-dispatch"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "notice-queue-lab"
+aidPolicy = "learning"
+points = 15
+prompt = "The queue contains WINDOWEVENT, SDL_QUIT, then MOUSEMOTION. drain_notices polls until SDL_PollEvent returns 0. What state follows?"
+choices = ["Only WINDOWEVENT is removed and stop_panel stays 0", "All three events are removed and stop_panel is 1", "SDL_PollEvent blocks after MOUSEMOTION", "SDL_QUIT jumps directly to SDL_Quit"]
+answer = 1
+whyWrong = "The procedure repeats after every returned event, PollEvent does not block on an empty queue, and the quit branch stores a flag rather than calling cleanup."
+hint = "Trace one trip through .next for each queued item, then one final zero return."
+explain = "Each one return removes exactly one event. The quit event sets stop_panel, the next branch continues draining, and the final zero return ends the procedure."
+
+[[lessons.exercises]]
+id = "s03-l01-e2"
+type = "text"
+required = true
+capabilities = ["language-branch-loop-control"]
+mechanisms = ["sdl-event-poll-type-and-quit-dispatch"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "notice-queue-lab"
+aidPolicy = "learning"
+points = 20
+prompt = "Explain why the stored event type must not be compared when SDL_PollEvent has just returned 0."
+answer = "A zero return means SDL_PollEvent did not write a new event, so the buffer can still contain the previous event and comparing it would act on stale data."
+hint = "Ask whether the zero-return call promised to overwrite notice_event."
+
+[[lessons.exercises]]
+id = "s03-l01-e3"
+type = "fill"
+required = true
+capabilities = ["language-branch-loop-control"]
+mechanisms = ["sdl-event-poll-type-and-quit-dispatch"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "notice-queue-lab"
+aidPolicy = "learning"
+points = 20
+prompt = "Complete the four-byte type comparison for the disposable event buffer."
+code = 'cmp dword [rel notice_event], ____'
+answer = "SDL_QUIT"
+hint = "Use the SDL event-type constant that means the user requested application termination."
+
+[[lessons.exercises]]
+id = "s03-l01-d1"
+type = "type"
+required = true
+capabilities = ["language-branch-loop-control"]
+mechanisms = []
+cognitiveTask = "recall"
+scaffold = "worked"
+contextFamily = "notice-queue-lab"
+aidPolicy = "learning"
+points = 12
+reps = 2
+prompt = "Retype the nonblocking availability gate exactly. (Ctrl+Enter submits.)"
+code = '''call SDL_PollEvent
+test eax, eax
+jz .empty'''
+
+[[lessons.exercises]]
+id = "s03-l01-w1"
+type = "mc"
+required = true
+capabilities = ["language-branch-loop-control"]
+mechanisms = ["sdl-event-poll-type-and-quit-dispatch"]
+cognitiveTask = "debug"
+scaffold = "independent"
+contextFamily = "dispatch-review"
+aidPolicy = "learning"
+points = 30
+prompt = "A close action sometimes takes several frames. GDB shows SDL_PollEvent returning 1 every frame while the program makes exactly one poll before rendering. Which repair addresses the demonstrated cause?"
+choices = ["Increase the event buffer from 56 to 112 bytes", "Call SDL_Quit after every non-quit event", "Loop back to SDL_PollEvent after each returned event and leave only when it returns 0", "Read the event type before calling SDL_PollEvent"]
+answer = 2
+whyWrong = "The buffer already holds one complete event, cleanup is not appropriate for ordinary events, and reading before the call observes stale data."
+hint = "The trace proves there is still work in the queue after the single poll."
+explain = "One successful poll says only that one event was removed. Repeating until zero drains events ahead of quit and makes the close request visible in the same frame."

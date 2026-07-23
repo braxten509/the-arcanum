@@ -49,6 +49,7 @@ def _strings(value: object, label: str, *, allowed=None, minimum: int = 0) -> tu
 class MasteryDeclaration:
     evidence_version: int
     level: int
+    source_evidence_version: int | None = None
 
     @classmethod
     def from_dict(cls, value: object) -> "MasteryDeclaration | None":
@@ -56,12 +57,15 @@ class MasteryDeclaration:
             return None
         if not isinstance(value, dict):
             raise ValueError("mastery must be an object")
-        extra = set(value) - {"evidenceVersion", "level"}
+        extra = set(value) - {"evidenceVersion", "sourceEvidenceVersion", "level"}
         if extra:
             raise ValueError("mastery has unknown keys: " + ", ".join(sorted(extra)))
         version = _integer(value.get("evidenceVersion"), "mastery.evidenceVersion", 1, 1)
         level = _integer(value.get("level"), "mastery.level", 1, 5)
-        return cls(version, level)
+        source = value.get("sourceEvidenceVersion")
+        if source is not None:
+            source = _integer(source, "mastery.sourceEvidenceVersion", 1, 1)
+        return cls(version, level, source)
 
 
 @dataclass(frozen=True)

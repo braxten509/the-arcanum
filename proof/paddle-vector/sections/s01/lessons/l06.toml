@@ -1,0 +1,167 @@
+[[lessons]]
+id = "s01-l06"
+title = "Assemble and Link the Native Binary"
+teaches = ["native-build-pipeline"]
+introduces = ["nasm-elf64-dwarf-object-build", "gcc-sdl2-link-and-make-targets"]
+validationDependencies = []
+body = '''
+<p>NASM does not produce a Linux program in one leap. It translates source into an ELF64 <em>object</em>: machine code plus symbols and relocations. GCC then drives the linker, resolves external symbols, attaches the C startup code that calls <code>main</code>, and produces an executable. Keeping those stages separate makes failures legible.</p>
+<p>In a disposable <code>beacon-lab</code>, save this as <code>src/probe.asm</code>:</p>
+<pre><code data-kind="pseudocode">global main
+extern puts
+
+section .data
+    note db "beacon ready", 0
+
+section .text
+main:
+    push rbp
+    mov rbp, rsp
+    lea rdi, [rel note]
+    call puts
+    xor eax, eax
+    pop rbp
+    ret</code></pre>
+<p>The direct build is two commands. <code>-f elf64</code> is essential because NASM's default is a flat binary, not a linkable Linux object. <code>-g -F dwarf</code> records source-aware debug information. <code>-o</code> names the output. GCC receives the object before the SDL2 library flags; library order matters because linkers resolve earlier unresolved references against later libraries. <code>-no-pie</code> selects a non-PIE executable for this straightforward NASM route.</p>
+<pre><code data-kind="terminal">mkdir -p build
+nasm -f elf64 -g -F dwarf -o build/probe.o src/probe.asm
+gcc -no-pie -o probe build/probe.o $(pkg-config --libs sdl2)
+./probe</code></pre>
+<p>The last command prints <code>beacon ready</code>. Encode the same dependency graph in a Makefile you author:</p>
+<pre><code data-kind="pseudocode">SDL_LIBS := $(shell pkg-config --libs sdl2)
+
+.PHONY: all run clean
+all: probe
+
+build/probe.o: src/probe.asm
+	mkdir -p build
+	nasm -f elf64 -g -F dwarf -o $@ $&lt;
+
+probe: build/probe.o
+	gcc -no-pie -o $@ $&lt; $(SDL_LIBS)
+
+run: probe
+	./probe
+
+clean:
+	rm -f build/probe.o probe</code></pre>
+<p><code>$@</code> means the current target; <code>$&lt;</code> means its first prerequisite. Run <code>make clean</code>, <code>make</code>, then <code>make run</code>. A NASM line-number error belongs to the source/object stage. “Undefined reference” belongs to linking: check exported/extern names and library order. “No rule to make target” means a path in the dependency graph does not match disk. Repair the earliest failing stage rather than changing both commands at once.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // INCREMENTAL BUILDS</div><p>Run <code>make</code> again without edits. “Nothing to be done” means target timestamps prove the binary is current. Editing the source should rebuild the object and then the binary.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "native-build-pipeline"
+purpose = "Transforms learner-authored NASM source into a debuggable native executable through observable stages."
+anatomy = "Assemble ELF64/DWARF to an object, link the object and SDL flags with GCC, then invoke named Make targets."
+example = "The beacon-lab direct commands and equivalent Makefile build probe."
+observable = "An object and executable appear; make run prints beacon ready."
+failure = "Classify source diagnostics, undefined symbols, and missing prerequisites by the stage that emitted them."
+practice = "s01-l06-e1"
+
+[[lessons.concepts]]
+id = "nasm-elf64-dwarf-object-build"
+purpose = "Produces the 64-bit Linux object and source-line debug metadata needed downstream."
+anatomy = "Pass -f elf64, enable -g with -F dwarf, choose -o, then provide the .asm input."
+example = "NASM turns src/probe.asm into build/probe.o."
+observable = "NASM exits silently with status zero and the object exists."
+failure = "Omitting -f elf64 can produce the wrong flat-binary format; syntax errors cite source lines."
+practice = "s01-l06-e1"
+
+[[lessons.concepts]]
+id = "gcc-sdl2-link-and-make-targets"
+purpose = "Resolves C/SDL symbols into an executable and records repeatable build, run, and clean operations."
+anatomy = "Link object before pkg-config library flags; express object and binary prerequisites; use tabbed recipes and phony action targets."
+example = "The authored Makefile builds, runs, incrementally skips, and cleans probe."
+observable = "make run prints beacon ready and a second make reports the target current."
+failure = "Undefined references suggest names/order; missing separator indicates recipe indentation; missing target indicates a path mismatch."
+practice = "s01-l06-e1"
+
+[[lessons.readings]]               # optional: 1-2 high-quality official docs
+label = "NASM command-line and debug options"
+url = "https://www.nasm.us/doc/nasm02.html"
+
+[[lessons.readings]]
+label = "GCC linker options"
+url = "https://gcc.gnu.org/onlinedocs/gcc/Link-Options.html"
+
+[[lessons.exercises]]
+id = "s01-l06-e1"
+type = "mc"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = ["nasm-elf64-dwarf-object-build", "gcc-sdl2-link-and-make-targets"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "replace-context"
+aidPolicy = "learning"
+points = 15
+prompt = "Build and run beacon-lab. Then edit only its string and run make. Which stages should rerun?"
+choices = ["Only ./probe", "Neither stage", "The NASM object stage and then the GCC link stage", "Only pkg-config"]
+answer = 2
+whyWrong = "Changing source makes its object stale, and the binary depends on that object."
+hint = "Follow the prerequisite arrows from source to object to executable."
+explain = "Make rebuilds the changed source's object, then relinks the dependent executable."
+
+[[lessons.exercises]]
+id = "s01-l06-e2"
+type = "mc"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = []
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "replace-context"
+aidPolicy = "learning"
+points = 20
+prompt = "Run make run in beacon-lab. Which line belongs to the executable rather than Make's echoed commands?"
+choices = ["beacon ready", "probe ready", "SDL ready", "no output"]
+answer = 0
+whyWrong = "Only the C string passed to puts is program output; the other lines are absent from the source."
+hint = "Trace the address passed to puts."
+explain = "The note label contains beacon ready, so puts emits that line."
+
+[[lessons.exercises]]
+id = "s01-l06-e3"
+type = "fill"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = []
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "replace-context"
+aidPolicy = "learning"
+points = 20
+prompt = "Complete the NASM object-format option."
+code = 'nasm -f ____ -g -F dwarf -o build/probe.o src/probe.asm'
+answer = "elf64"
+hint = "Choose the 64-bit ELF object format, not NASM's flat-binary default."
+
+[[lessons.exercises]]
+id = "s01-l06-d1"
+type = "type"                      # typing drill: retype the code; no point decay
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = []
+cognitiveTask = "recall"
+scaffold = "worked"
+contextFamily = "replace-context"
+aidPolicy = "learning"
+points = 12
+reps = 2
+prompt = "Retype the SDL2 library-metadata command exactly. (Ctrl+Enter submits.)"
+code = 'pkg-config --libs sdl2'
+
+[[lessons.exercises]]
+id = "s01-l06-w1"
+type = "text"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = []
+cognitiveTask = "explain"
+scaffold = "independent"
+contextFamily = "replace-context"
+aidPolicy = "learning"
+points = 30
+prompt = "In the disposable build lab, add a learner-named Make target that depends on the existing object and prints your own marker. Run it once, then temporarily misspell that prerequisite and rerun it. When Make reports that it has no rule to make the misspelled prerequisite, name the failure layer."
+answer = "Make dependency graph"
+hint = "The assembler and linker cannot start until Make resolves the target's prerequisites."

@@ -14,6 +14,7 @@ from .labs import lab_findings
 from .schema import manifest_findings
 from .variants import variant_findings
 from .workings import working_findings
+from .sources import source_findings
 
 
 def _read(path: str) -> str:
@@ -75,6 +76,7 @@ def validate_mastery_evidence(tome_root: str, manifest: dict, sections: list[dic
     capabilities = set(
         (((alignment_map or {}).get("masteryEvidence") or {}).get("capabilityIds") or []))
     findings += exercise_findings(sections, capabilities)
+    findings += source_findings(tome_root, manifest, sections)
     findings += working_findings(tome_root, manifest, sections)
     level = mastery.get("level") if isinstance(mastery.get("level"), int) else 0
     if 1 <= level <= 5:

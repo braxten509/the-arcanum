@@ -19,13 +19,21 @@ def manifest_findings(manifest: dict, location: str, *, plan_text: str = "",
     if mastery is None:
         return []
     findings = []
-    if not isinstance(mastery, dict) or set(mastery) != {"evidenceVersion", "level"}:
+    allowed = {"evidenceVersion", "sourceEvidenceVersion", "level"}
+    if (not isinstance(mastery, dict)
+            or not {"evidenceVersion", "level"}.issubset(mastery)
+            or set(mastery) - allowed):
         return [error("mastery.manifest.shape", location,
-                      "[mastery] keys must be exactly evidenceVersion and level", 2)]
+                      "[mastery] keys must include evidenceVersion and level; optional "
+                      "sourceEvidenceVersion is 1", 2)]
     policy = load_policy()
     if mastery.get("evidenceVersion") != policy.version:
         findings.append(error("mastery.manifest.version", location,
                               f"[mastery] evidenceVersion must be {policy.version}", 2))
+    if ("sourceEvidenceVersion" in mastery
+            and mastery.get("sourceEvidenceVersion") != 1):
+        findings.append(error("mastery.manifest.source-version", location,
+                              "[mastery] sourceEvidenceVersion must be 1", 2))
     level = mastery.get("level")
     try:
         policy.for_level(level)

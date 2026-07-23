@@ -24,6 +24,10 @@ deprecated or renamed. Where sources disagree or a detail cannot be confirmed, t
 conservative version and say so plainly instead of inventing a specific. Research is a
 precondition for drafting, not a repair step: complete it before the first lesson body, not after
 the validator or reviewer objects.
+When `[mastery].sourceEvidenceVersion = 1`, replace the section's `research.toml` placeholder
+before drafting. Every lesson cites one or more `researchSources` IDs, and every reading points to
+one of that lesson's receipts. Each receipt states its primary HTTPS URL, authority, and exact
+checked claims; a broad home page or unused ceremonial source list does not count.
 
 The learner authors every part of that evolving project. Lesson bodies and exercises may use
 small disposable worked examples, but they may not provide canonical source, configuration,
@@ -44,6 +48,10 @@ only a public requirement and must call a registered generic runtime command. Au
 mastery-lab family, its public/hidden directories, and its full blueprint pool in the assigned
 section. Do not place a hidden check, reference answer, mutation, or blueprint in learner-visible
 TOML or public files.
+For every essential Working requirement, author at least two distinct non-build scenarios: an
+ordinary path plus a boundary, failure, or alternate-input path. Link both from deterministic
+rubric rows and preserve the requirement's capability IDs in each scenario. A build-only or
+duplicated happy-path check is not evidence that the learner built the behavior.
 
 The harness gives each section a fresh author session after the preceding section validates.
 Stay in that session for the assigned section and all of its repair turns; do not begin the next

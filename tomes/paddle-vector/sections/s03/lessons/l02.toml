@@ -1,153 +1,123 @@
 [[lessons]]
 id = "s03-l02"
-title = "Sample Both Paddles"
+title = "TODO: Sample Both Paddles"
 teaches = ["keyboard-state-sampling"]
 introduces = ["sdl-keyboard-snapshot-and-scancode-indexing"]
 validationDependencies = []
 body = '''
-<p>Events answer “what happened?”; continuous controls answer “what is held now?” SDL provides that second view through <code>SDL_GetKeyboardState</code>. It returns a pointer to SDL-owned bytes. Each byte is indexed by an <code>SDL_Scancode</code>: zero means released and one means pressed. SDL keeps the array alive for the application, so store or use the pointer but never free it.</p>
-<p>Drain events first. <code>SDL_PollEvent</code> also pumps SDL's input state, so the snapshot then reflects the current frame. A key pressed and released entirely between pumps may not appear in the snapshot; that is acceptable for held movement but explains why edge-triggered actions use event handling later. This disposable lift controller samples four held keys at once:</p>
-<pre><code data-kind="runnable">SDL_SCANCODE_I     equ 12
-SDL_SCANCODE_K     equ 14
-SDL_SCANCODE_UP    equ 82
-SDL_SCANCODE_DOWN  equ 81
-
-section .bss
-    west_axis: resd 1
-    east_axis: resd 1
-
-section .text
-extern SDL_GetKeyboardState
-
-sample_lifts:
-    push rbp
-    mov rbp, rsp
-    xor edi, edi
-    call SDL_GetKeyboardState
-    mov rdx, rax
-
-    movzx eax, byte [rdx + SDL_SCANCODE_K]
-    movzx ecx, byte [rdx + SDL_SCANCODE_I]
-    sub eax, ecx
-    mov [rel west_axis], eax
-
-    movzx eax, byte [rdx + SDL_SCANCODE_DOWN]
-    movzx ecx, byte [rdx + SDL_SCANCODE_UP]
-    sub eax, ecx
-    mov [rel east_axis], eax
-    leave
-    ret</code></pre>
-<p>The null argument in <code>edi</code> says the caller does not need SDL to write the array length. The returned pointer arrives in <code>rax</code> and is copied to <code>rdx</code> for indexing. <code>movzx</code> reads one byte and clears the rest of the 32-bit destination; without that clearing, old upper bits could corrupt the subtraction.</p>
-<p>For screen coordinates, down is positive. The west intent is therefore K minus I; the east intent is Down minus Up. One down key produces <code>1</code>, one up key produces <code>-1</code>, neither produces <code>0</code>, and opposing keys on the same side produce <code>1 - 1 = 0</code>. Crucially, the two calculations are independent. Holding I and Down at the same time records <code>-1</code> for west and <code>1</code> for east; an <code>else</code> chain would incorrectly allow only one paddle.</p>
-<p>For the actual control scheme, the official SDL2 scancode values are W=26, S=22, Up=82, and Down=81. Scancodes represent physical positions, unlike keycodes that describe layout-dependent symbols. A common bug indexes the byte array with an ASCII value such as <code>'W'</code>. The symptom is a motion key that never changes its sampled byte. Diagnose it in GDB by examining the byte at the official scancode index while holding the key, then correct the constant rather than changing movement code.</p>
+<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
+<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
+<p>TODO: an optional deeper-cut appendix.</p></div>
 '''
 
 [[lessons.concepts]]
 id = "keyboard-state-sampling"
-purpose = "Turns four simultaneously held controls into two signed per-frame movement intentions."
-anatomy = "After event pumping, obtain SDL's state-array pointer, read each control byte independently, and subtract up from down for each paddle."
-example = "sample_lifts converts I/K and arrow-key bytes into west_axis and east_axis without making the two sides mutually exclusive."
-observable = "Holding one up control stores -1, one down control stores 1, both controls on one side store 0, and controls on opposite sides coexist."
-failure = "An else-chain or one shared intent value prevents simultaneous two-player input."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s03-l02-e1"
 
 [[lessons.concepts]]
 id = "sdl-keyboard-snapshot-and-scancode-indexing"
-purpose = "Reads SDL's current keyboard snapshot safely by physical-key scancode."
-anatomy = "Call SDL_GetKeyboardState after polling, retain its returned pointer, index Uint8 entries with SDL_SCANCODE constants, and zero-extend each byte before arithmetic."
-example = "The four movzx operations in sample_lifts read distinct entries from the same SDL-owned array."
-observable = "A watched byte changes between 0 and 1 as its physical key is released and held after the next event pump."
-failure = "Using ASCII or keycode values as array indexes reads unrelated bytes and makes the intended control appear dead."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s03-l02-e1"
 
-[[lessons.readings]]
-label = "SDL2: SDL_GetKeyboardState"
-url = "https://wiki.libsdl.org/SDL2/SDL_GetKeyboardState"
-
-[[lessons.readings]]
-label = "SDL2: SDL_Scancode"
-url = "https://wiki.libsdl.org/SDL2/SDL_Scancode"
+[[lessons.readings]]               # optional: 1-2 high-quality official docs
+label = "TODO: official docs"
+url = "https://example.com/TODO"
 
 [[lessons.exercises]]
 id = "s03-l02-e1"
 type = "mc"
 required = true
-capabilities = ["language-data-layout-and-integer-state", "language-branch-loop-control"]
+capabilities = ["keyboard-state-sampling"]
 mechanisms = ["sdl-keyboard-snapshot-and-scancode-indexing"]
 cognitiveTask = "predict"
 scaffold = "guided"
-contextFamily = "lift-control-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 15
-prompt = "I and Down are held; K and Up are released. What do sample_lifts store?"
-choices = ["west_axis=1, east_axis=-1", "west_axis=0, east_axis=0", "west_axis=-1, east_axis=1", "west_axis=-1, east_axis=0"]
-answer = 2
-whyWrong = "Each side subtracts its up byte from its down byte, and the two sides are sampled independently."
-hint = "Compute K-I, then compute Down-Up."
-explain = "West is 0-1=-1 and east is 1-0=1, proving simultaneous opposite movement survives the snapshot."
+prompt = "TODO: a multiple-choice question?"
+choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
+answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
+whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
+hint = "TODO: an exercise-specific hint."
+explain = "TODO: shown after solving."
 
 [[lessons.exercises]]
 id = "s03-l02-e2"
 type = "text"
 required = true
-capabilities = ["language-data-layout-and-integer-state", "language-branch-loop-control"]
-mechanisms = ["sdl-keyboard-snapshot-and-scancode-indexing"]
+capabilities = ["keyboard-state-sampling"]
+mechanisms = []
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "lift-control-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 20
-prompt = "Why does sample_lifts use four independent byte reads instead of an if/else chain that stops after the first pressed key?"
-answer = "Independent reads preserve simultaneous controls for both sides and allow opposing keys on one side to cancel to zero, while an if/else chain would discard later held keys."
-hint = "Consider I and Down being held by two players in the same frame."
+prompt = "TODO: a free-text question."
+answer = "TODO"
+# accept = ["TODO alternate"]      # optional true alternates only
+hint = "TODO: an exercise-specific hint."
 
 [[lessons.exercises]]
 id = "s03-l02-e3"
 type = "fill"
 required = true
-capabilities = ["language-data-layout-and-integer-state", "language-branch-loop-control"]
-mechanisms = ["sdl-keyboard-snapshot-and-scancode-indexing"]
+capabilities = ["keyboard-state-sampling"]
+mechanisms = []
 cognitiveTask = "complete"
 scaffold = "completion"
-contextFamily = "lift-control-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 20
-prompt = "Complete the instruction that reads the one-byte W state and clears the rest of EAX."
-code = 'movzx eax, byte [rdx + ____]'
-answer = "SDL_SCANCODE_W"
-hint = "Use the physical-key enum constant, not ASCII 87."
+prompt = "TODO: fill the blank."
+code = 'answer = ____'             # the ____ marks where the answer goes
+answer = "TODO"
+hint = "TODO: an exercise-specific hint."
 
 [[lessons.exercises]]
 id = "s03-l02-d1"
-type = "type"
+type = "type"                      # typing drill: retype the code; no point decay
 required = true
-capabilities = ["language-data-layout-and-integer-state", "language-branch-loop-control"]
+capabilities = ["keyboard-state-sampling"]
 mechanisms = []
 cognitiveTask = "recall"
 scaffold = "worked"
-contextFamily = "lift-control-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 12
 reps = 2
-prompt = "Retype one signed-axis calculation exactly. (Ctrl+Enter submits.)"
-code = '''movzx eax, byte [rdx + SDL_SCANCODE_DOWN]
-movzx ecx, byte [rdx + SDL_SCANCODE_UP]
-sub eax, ecx'''
+prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
+code = 'print("TODO")'
 
 [[lessons.exercises]]
 id = "s03-l02-w1"
-type = "mc"
+type = "write"                     # CODE LAB: runs on the real runtime; no point decay
 required = true
-capabilities = ["language-data-layout-and-integer-state", "language-branch-loop-control"]
-mechanisms = ["sdl-keyboard-snapshot-and-scancode-indexing"]
-cognitiveTask = "debug"
-scaffold = "independent"
-contextFamily = "snapshot-diagnosis"
+capabilities = ["keyboard-state-sampling"]
+mechanisms = []
+cognitiveTask = "build"
+scaffold = "guided"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 30
-prompt = "A trainee indexes SDL_GetKeyboardState's returned pointer with decimal 87 for W. The watched byte stays zero while W is held. Which diagnosis is correct?"
-choices = ["The array requires an SDL scancode index; W is 26, not its ASCII code", "SDL_GetKeyboardState returns 32-bit integers, so every index must be multiplied by four", "The returned array must be freed and reacquired for each key", "W can only be read from SDL_QUIT events"]
-answer = 0
-whyWrong = "The array contains one Uint8 per scancode, remains SDL-owned, and is specifically intended for held-key state."
-hint = "Identify what kind of numbering SDL documents for this array."
-explain = "The snapshot index is SDL_SCANCODE_W, whose SDL2 value is 26. ASCII 87 selects a different scancode slot."
+prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
+# starter = '''
+# TODO: prefilled editor code / the exercise's data
+# '''
+expect = '''
+TODO EXACT OUTPUT'''
+# REQUIRED before shipping: a complete program that passes. Never shown to the
+# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
+# solution = '''
+# TODO
+# '''
+hint = "TODO: an exercise-specific hint."

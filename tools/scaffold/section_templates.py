@@ -105,6 +105,10 @@ practice = "@@SID@@-l01-e1"
 label = "TODO: official docs"
 url = "https://example.com/TODO"
 
+# Every authored lesson cites one or more IDs from this section's research.toml.
+# Phase 3 replaces this placeholder with receipts for the facts it actually teaches.
+researchSources = ["replace-source"]
+
 [[lessons.exercises]]
 id = "@@SID@@-l01-e1"
 type = "mc"
@@ -219,4 +223,16 @@ expectRegex = "TODO: observable varied behavior"
 exitCode = 0
 timeout = 20
 public = false
+"""
+
+
+# Section-local technical-source receipts. This is author evidence, not learner assessment.
+RESEARCH_TEMPLATE = r"""
+version = 1
+
+[[sources]]
+id = "replace-source"
+url = "https://example.com/TODO"
+authority = "TODO: primary official documentation or release notes."
+claims = ["TODO: the specific API, command, version, or behavior verified from this source."]
 """

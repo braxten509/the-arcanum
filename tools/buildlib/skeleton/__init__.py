@@ -314,6 +314,14 @@ def hydrate_section_scaffolds(tid, course, tomes_dir=None, only=None):
                 from tools.scaffold import ASSESSMENT_TEMPLATE
             with open(assessment, "w", encoding="utf-8") as handle:
                 handle.write(ASSESSMENT_TEMPLATE.lstrip("\n"))
+        research = os.path.join(section_dir, "research.toml")
+        if not os.path.isfile(research):
+            try:
+                from scaffold import RESEARCH_TEMPLATE
+            except ModuleNotFoundError:
+                from tools.scaffold import RESEARCH_TEMPLATE
+            with open(research, "w", encoding="utf-8") as handle:
+                handle.write(RESEARCH_TEMPLATE.lstrip("\n"))
         hydrated.append(sid)
     return hydrated
 

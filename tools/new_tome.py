@@ -21,6 +21,10 @@ try:
     from buildlib.course.limits import MAX_SECTIONS, MIN_SECTIONS, section_count_error
 except ModuleNotFoundError:
     from tools.buildlib.course.limits import MAX_SECTIONS, MIN_SECTIONS, section_count_error
+try:
+    from scaffold import RESEARCH_TEMPLATE
+except ModuleNotFoundError:
+    from tools.scaffold import RESEARCH_TEMPLATE
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOMES_DIR = os.path.join(REPO, "tomes")
@@ -68,6 +72,7 @@ proofVersion = 1                    # future-tome contract: replay learner edits
 
 [mastery]
 evidenceVersion = 1                # central, language-neutral evidence policy
+sourceEvidenceVersion = 1          # Phase-3 source receipts + adversarial Working evidence
 level = @@MASTERY@@                 # sealed Phase-0 Finish selection; never lower per tome
 
 [acceptance]
@@ -311,6 +316,9 @@ def main():
         with open(os.path.join(tome_path, "sections", sid, "assessment.toml"),
                   "w", encoding="utf-8") as handle:
             handle.write(ASSESSMENT_TEMPLATE.lstrip("\n"))
+        with open(os.path.join(tome_path, "sections", sid, "research.toml"),
+                  "w", encoding="utf-8") as handle:
+            handle.write(RESEARCH_TEMPLATE.lstrip("\n"))
 
     print(f"scaffolded tomes/{args.id}/ (split layout)")
     print(f"next: fill in the TODOs, then  python3 tools/validate_tome.py tomes/{args.id}")

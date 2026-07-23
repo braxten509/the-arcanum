@@ -79,6 +79,11 @@ requirement must have deterministic scenario coverage. Qualitative review may ju
 tradeoffs, maintainability, and design quality, but cannot override a failed build or essential
 scenario. Source similarity is never a criterion.
 
+When `[mastery].sourceEvidenceVersion = 1`, every essential requirement also needs at least two
+distinct non-build scenarios and each must be linked from a deterministic rubric row. Use varied
+inputs, a boundary, a failure mode, or an alternate command path. Compilation plus one happy-path
+run is insufficient evidence for essential behavior.
+
 ## Hidden Working assessment
 
 Place `assessment.toml` beside each section's `freestyle.toml`. It is authoring-only and the HTTP

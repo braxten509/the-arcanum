@@ -145,11 +145,11 @@ def _load_snapshot(build_id, phase):
 def _fresh_tome(tid, mastery=1):
     """Create a bounds-valid split scaffold under the active TOMES_DIR."""
     try:
-        from tools.new_tome import (ASSESSMENT_TEMPLATE, SECTION_TEMPLATE, TOME_TEMPLATE,
+        from tools.new_tome import (ASSESSMENT_TEMPLATE, RESEARCH_TEMPLATE, SECTION_TEMPLATE, TOME_TEMPLATE,
                                     render, roman)
         from tools.maintenance import split_tome
     except ModuleNotFoundError:  # build_tome.py imports buildlib with tools/ on sys.path
-        from new_tome import (ASSESSMENT_TEMPLATE, SECTION_TEMPLATE, TOME_TEMPLATE,
+        from new_tome import (ASSESSMENT_TEMPLATE, RESEARCH_TEMPLATE, SECTION_TEMPLATE, TOME_TEMPLATE,
                               render, roman)
         from maintenance import split_tome
     tome = os.path.join(TOMES_DIR, tid)
@@ -179,6 +179,9 @@ def _fresh_tome(tid, mastery=1):
             _atomic_text(os.path.join(tome, "sections", f"s{number:02d}",
                                       "assessment.toml"),
                          ASSESSMENT_TEMPLATE.lstrip("\n"))
+            _atomic_text(os.path.join(tome, "sections", f"s{number:02d}",
+                                      "research.toml"),
+                         RESEARCH_TEMPLATE.lstrip("\n"))
     finally:
         split_tome.QUIET = previous_quiet
 

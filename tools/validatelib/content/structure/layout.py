@@ -34,7 +34,7 @@ def check_layout(tome_path, m):
             return deep.group(1) in sections
         if evidence:
             hidden = re.fullmatch(
-                r"sections/([A-Za-z0-9_-]+)/(?:assessment\.toml|assessment/[^/]+(?:/[^/]+)*|"
+                r"sections/([A-Za-z0-9_-]+)/(?:assessment\.toml|research\.toml|assessment/[^/]+(?:/[^/]+)*|"
                 r"mastery-labs/[A-Za-z0-9_.-]+(?:\.toml|/[^/]+(?:/[^/]+)*))", p)
             generated = re.fullmatch(r"generated/mastery-labs/[^/]+/[^/]+/[^/]+(?:/[^/]+)*", p)
             return (bool(hidden) and hidden.group(1) in sections) or bool(generated)

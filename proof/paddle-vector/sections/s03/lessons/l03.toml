@@ -1,0 +1,141 @@
+[[lessons]]
+id = "s03-l03"
+title = "Update and Clamp Paddle State"
+teaches = ["paddle-state-update"]
+introduces = ["integer-paddle-delta-and-boundary-clamp"]
+validationDependencies = []
+body = '''
+<p>A sampled axis is only an intention: <code>-1</code>, <code>0</code>, or <code>1</code>. Movement turns it into a signed pixel delta and applies that delta to the rectangle's y field. Because the rectangle uses four 32-bit integers in x, y, w, h order, y is at byte offset 4 and height is at offset 12.</p>
+<p>The update also enforces an invariant: after every frame, the entire bar must remain inside the vertical play area. The smallest legal y is zero. The largest is <code>area_height - bar_height</code>, not the area height itself. This disposable cargo-bay helper applies both rules:</p>
+<pre><code data-kind="runnable">BAR_SPEED equ 7
+
+; rdi = address of x,y,w,h rectangle
+; esi = signed axis; edx = area height
+move_gate:
+    mov eax, esi
+    imul eax, BAR_SPEED
+    add dword [rdi + 4], eax
+
+    cmp dword [rdi + 4], 0
+    jge .check_bottom
+    mov dword [rdi + 4], 0
+
+.check_bottom:
+    mov eax, edx
+    sub eax, dword [rdi + 12]
+    cmp dword [rdi + 4], eax
+    jle .done
+    mov dword [rdi + 4], eax
+.done:
+    ret</code></pre>
+<p><code>imul eax, BAR_SPEED</code> multiplies the signed axis by seven, producing -7, 0, or 7. The add may temporarily put y outside the legal interval. That is expected; the next two stages repair it. First, a signed comparison catches y below zero. Second, the procedure computes the lower boundary from the current area and rectangle height, then catches y above that maximum. Signed jumps matter because a negative y interpreted as unsigned would look like a huge positive number.</p>
+<p>Clamping is assignment to the nearest legal boundary, not rejection of the whole move. If y is 3 and the delta is -7, the temporary result is -4 and the stored result becomes 0. If an area is 90 pixels high and the bar is 18 pixels high, the maximum y is 72. Starting at 70 and moving down produces 77, then clamps to 72. A zero axis still passes through the same checks, which can repair corrupted state instead of preserving it.</p>
+<p>Call the helper once for each rectangle with its own sampled axis. That keeps simultaneous control intact and centralizes the invariant. In the cumulative project, <code>left_paddle</code> and <code>right_paddle</code> already own x/y/w/h storage; movement should mutate their y fields rather than create a second set of coordinates that rendering never reads.</p>
+<p>A common off-by-height failure clamps y to <code>window_height</code>. The rectangle then starts at the bottom edge and disappears completely. Diagnose it by examining both y and height in GDB and checking whether <code>y + h &lt;= window_height</code>. Recover by computing the maximum as height minus rectangle height before comparing.</p>
+'''
+
+[[lessons.concepts]]
+id = "paddle-state-update"
+purpose = "Converts each paddle's sampled direction into visible rectangle-state movement while preserving court boundaries."
+anatomy = "Multiply a signed axis by a fixed pixel speed, add it to the rectangle y field, then clamp that field between zero and window height minus paddle height."
+example = "move_gate updates any x/y/w/h rectangle through a pointer, letting the caller use the same rule for two independent bars."
+observable = "Each nonzero axis changes y by the speed unless a boundary is reached; every completed update satisfies 0 <= y <= area_height-height."
+failure = "Maintaining separate movement coordinates that rendering does not read produces correct-looking debugger math but no visible motion."
+practice = "s03-l03-e1"
+
+[[lessons.concepts]]
+id = "integer-paddle-delta-and-boundary-clamp"
+purpose = "Implements signed fixed-step movement and repairs overshoot to the nearest legal boundary."
+anatomy = "Use signed multiplication and addition, a signed lower-bound comparison, derive the upper bound from area and object heights, then use a signed upper-bound comparison."
+example = "The BAR_SPEED path demonstrates both a -4-to-0 top clamp and a 77-to-72 bottom clamp."
+observable = "An overshooting update lands exactly on 0 or the computed maximum rather than wrapping, disappearing, or ignoring the move."
+failure = "Clamping against area_height instead of area_height-object_height permits the whole rectangle to move beyond the visible area."
+practice = "s03-l03-e1"
+
+[[lessons.readings]]
+label = "NASM: Signed multiply instruction"
+url = "https://www.nasm.us/xdoc/2.16.03/html/nasmdocb.html"
+
+[[lessons.exercises]]
+id = "s03-l03-e1"
+type = "mc"
+required = true
+capabilities = ["language-data-layout-and-integer-state", "language-branch-loop-control"]
+mechanisms = ["integer-paddle-delta-and-boundary-clamp"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "cargo-gate-lab"
+aidPolicy = "learning"
+points = 15
+prompt = "A gate has y=70 and h=18 in a 90-pixel area. Its axis is 1 and speed is 7. What y is stored after move_gate?"
+choices = ["77", "90", "72", "83"]
+answer = 2
+whyWrong = "The temporary 77 exceeds the legal maximum 90-18=72, so the upper clamp replaces it."
+hint = "Compute the maximum top coordinate before accepting the temporary y."
+explain = "The rectangle must fit entirely: 90-18 is 72. The move reaches 77, then clamps to 72."
+
+[[lessons.exercises]]
+id = "s03-l03-e2"
+type = "text"
+required = true
+capabilities = ["language-data-layout-and-integer-state", "language-branch-loop-control"]
+mechanisms = ["integer-paddle-delta-and-boundary-clamp"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "cargo-gate-lab"
+aidPolicy = "learning"
+points = 20
+prompt = "Explain why the lower-bound comparison must treat a temporary y of -4 as signed rather than unsigned."
+answer = "Signed comparison recognizes -4 as below zero; unsigned comparison interprets the same bit pattern as a very large positive value and misses the top-bound violation."
+hint = "The bits are unchanged; only the comparison's interpretation changes."
+
+[[lessons.exercises]]
+id = "s03-l03-e3"
+type = "fill"
+required = true
+capabilities = ["language-data-layout-and-integer-state", "language-branch-loop-control"]
+mechanisms = ["integer-paddle-delta-and-boundary-clamp"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "court-state-retrieval"
+aidPolicy = "learning"
+points = 20
+prompt = "Complete the store that clamps the learner-owned left_paddle's y field to the top boundary."
+code = 'mov dword [rel left_paddle + ____], 0'
+answer = "4"
+hint = "The SDL_Rect-compatible order is x, y, w, h, with each field four bytes."
+
+[[lessons.exercises]]
+id = "s03-l03-d1"
+type = "type"
+required = true
+capabilities = ["language-data-layout-and-integer-state", "language-branch-loop-control"]
+mechanisms = []
+cognitiveTask = "recall"
+scaffold = "worked"
+contextFamily = "cargo-gate-lab"
+aidPolicy = "learning"
+points = 12
+reps = 2
+prompt = "Retype the upper-bound derivation exactly. (Ctrl+Enter submits.)"
+code = '''mov eax, edx
+sub eax, dword [rdi + 12]
+cmp dword [rdi + 4], eax'''
+
+[[lessons.exercises]]
+id = "s03-l03-w1"
+type = "mc"
+required = true
+capabilities = ["language-data-layout-and-integer-state", "language-branch-loop-control"]
+mechanisms = ["integer-paddle-delta-and-boundary-clamp"]
+cognitiveTask = "debug"
+scaffold = "independent"
+contextFamily = "boundary-diagnosis"
+aidPolicy = "learning"
+points = 30
+prompt = "GDB shows y=500 and h=110 immediately after a downward update in a 500-pixel window. The rectangle is invisible. Which invariant and repair are correct?"
+choices = ["Require y+h<=500 and clamp y to 390", "Require y<=500 and keep y at 500", "Require y-h>=500 and clamp y to 610", "Require x+w<=500 and clamp x instead"]
+answer = 0
+whyWrong = "Vertical containment depends on the rectangle's top plus height, so the legal maximum top is 500-110."
+hint = "Ask where the rectangle's bottom edge lies when y is 500."
+explain = "The entire paddle must fit. Its largest legal y is window_height-paddle_height, which is 390."

@@ -23,6 +23,9 @@ valid placeholder `teaches`/`requires` id for Phase 3 to replace; do not disable
 coverage contract.
 Preserve `[mastery].evidenceVersion = 1` and its Phase-0 `level` exactly. The central policy owns
 progression and grading thresholds; a tome cannot override them.
+When `[mastery].sourceEvidenceVersion = 1` is present, preserve it and each preseeded
+`sections/<sid>/research.toml` placeholder. Phase 3 records concrete primary-source receipts after
+researching the actual section; Phase 2 must not remove that accountability contract.
 
 Begin with `python3 tools/workflow/context/render_phase2_context.py BUILD_ID`. It prints the sealed lesson
 spine and the small author-spec files for this build. Edit only those compact files, the research

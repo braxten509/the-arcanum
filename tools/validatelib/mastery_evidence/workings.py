@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import tomllib
+import json
 
 from arcanum_core.findings import Finding
 from arcanum_core.ids import is_stable_id
@@ -14,6 +15,52 @@ from .schema import error
 SCENARIO_KEYS = {"id", "kind", "requirementIds", "capabilityIds", "commandRef", "args",
                  "stdin", "expect", "expectRegex", "expectExact", "expectJson",
                  "expectFile", "expectFileRegex", "exitCode", "timeout", "public"}
+
+
+def _hardened(manifest: dict) -> bool:
+    return (manifest.get("mastery") or {}).get("sourceEvidenceVersion") == 1
+
+
+def _adversarial_requirement_findings(contract, location: str) -> list[Finding]:
+    """Reject happy-path-only evidence without dictating a language or implementation.
+
+    Two distinct non-build observations make a requirement survive more than a compilation
+    check. Rubric linkage makes that evidence visible to grading instead of leaving it as an
+    unscored private scenario.
+    """
+    findings = []
+    deterministic = [row for row in contract.rubric if row.kind == "deterministic"]
+    for requirement in contract.requirements:
+        if not requirement.essential:
+            continue
+        scenarios = [row for row in contract.scenarios
+                     if requirement.id in row.requirement_ids and row.kind != "build"]
+        if len(scenarios) < 2:
+            findings.append(error("mastery.assessment.varied-evidence", location,
+                                  f"essential requirement {requirement.id!r} needs at least two "
+                                  "non-build deterministic scenarios (ordinary plus boundary, "
+                                  "failure, or alternate input)", 3))
+            continue
+        signatures = {(row.kind, row.command_ref, row.args, row.stdin,
+                       json.dumps(row.expect, sort_keys=True, separators=(",", ":")))
+                      for row in scenarios}
+        if len(signatures) < 2:
+            findings.append(error("mastery.assessment.duplicate-evidence", location,
+                                  f"essential requirement {requirement.id!r} repeats the same "
+                                  "scenario; vary input, command path, or expected behavior", 3))
+        uncovered = [row.id for row in scenarios
+                     if not set(requirement.capability_ids).issubset(row.capability_ids)]
+        if uncovered:
+            findings.append(error("mastery.assessment.capability-trace", location,
+                                  f"scenario(s) {', '.join(uncovered)} omit capability IDs declared "
+                                  f"by essential requirement {requirement.id!r}", 3))
+        linked = {scenario_id for rubric in deterministic for scenario_id in rubric.assessment_ids}
+        missing_rubric = [row.id for row in scenarios if row.id not in linked]
+        if missing_rubric:
+            findings.append(error("mastery.assessment.rubric-trace", location,
+                                  f"scenario(s) {', '.join(missing_rubric)} for essential requirement "
+                                  f"{requirement.id!r} are not linked from a deterministic rubric row", 3))
+    return findings
 
 
 def _shape_findings(freestyle: dict, location: str) -> list[Finding]:
@@ -116,6 +163,8 @@ def working_findings(tome_root: str, manifest: dict, sections: list[dict]) -> li
         except (OSError, ValueError, tomllib.TOMLDecodeError) as exc:
             findings.append(error("mastery.assessment.contract", path, str(exc), 3))
             continue
+        if _hardened(manifest):
+            findings += _adversarial_requirement_findings(contract, path)
         kinds = {scenario.kind for scenario in contract.scenarios}
         if "build" not in kinds:
             findings.append(error("mastery.assessment.build", path,

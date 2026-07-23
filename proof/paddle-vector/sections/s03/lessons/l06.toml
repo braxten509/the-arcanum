@@ -1,0 +1,157 @@
+[[lessons]]
+id = "s03-l06"
+title = "Control Input and Time for Checks"
+teaches = ["deterministic-loop-controls"]
+introduces = ["deterministic-input-clock-and-frame-limit-controls"]
+validationDependencies = []
+body = '''
+<p>A live keyboard and scheduler are intentionally variable. That makes play possible, but it makes an exact automated check unreliable. Deterministic controls replace only those unpredictable inputs: a declared key mask supplies held controls, declared tick values supply time, and a frame limit ends the run. The real sampling interpretation, movement, rendering, and frame orchestration must still execute.</p>
+<p>The useful design is a seam, not a second implementation. A small reader chooses the source; downstream procedures consume the same values. This disposable conveyor example uses one bit mask and one synthetic clock step:</p>
+<pre><code data-kind="runnable">CHECK_UP       equ 1
+CHECK_DOWN     equ 2
+CHECK_FRAME_MS equ 16
+
+section .data
+    conveyor_check_mode: db 0
+    conveyor_mask:       db 0
+    controlled_tick:     dd 400
+    frames_run:          dd 0
+    frame_limit:         dd 3
+
+read_conveyor_axis:
+    cmp byte [rel conveyor_check_mode], 0
+    je .live
+    movzx eax, byte [rel conveyor_mask]
+    mov ecx, eax
+    and eax, CHECK_DOWN
+    shr eax, 1
+    and ecx, CHECK_UP
+    sub eax, ecx
+    ret
+.live:
+    ; live route samples SDL's keyboard snapshot
+    call sample_conveyor_keys
+    ret
+
+read_conveyor_ticks:
+    cmp byte [rel conveyor_check_mode], 0
+    je .live_clock
+    mov eax, [rel controlled_tick]
+    ret
+.live_clock:
+    call SDL_GetTicks
+    ret</code></pre>
+<p>In check mode, bit 0 contributes the up value and bit 1 contributes the down value after shifting it to zero or one. The same down-minus-up rule from keyboard sampling produces the axis. The clock reader returns a stored dword instead of consulting the wall clock. After a completed check frame, the harness route can add 16 to <code>controlled_tick</code> and one to <code>frames_run</code>. When <code>frames_run</code> reaches <code>frame_limit</code>, the ordinary loop returns to cleanup rather than waiting for a person to close the window.</p>
+<p>The controlled values must drive behavior, not assert the expected result. Directly writing a final rectangle y, frame count, or success token would bypass the procedure being checked. A strong diagnostic is mutation: temporarily remove the call that applies the axis. The deterministic check should then fail because the observed position no longer changes. If it still passes, the control route is probably assigning or printing an answer instead of exercising the loop.</p>
+<p>Keep live and controlled routes distinguishable only at the nondeterministic boundary. Both routes should call the same update, render, status-check, and cleanup procedures. A frame limit is also a safety control: a wrong input or clock value cannot hang continuous integration forever. Test the limit with equality or above after incrementing; a zero limit should be rejected by the check-mode setup or handled before entering the loop.</p>
+<p>A common failure increments synthetic time only when a delay would have occurred. A deliberately late controlled frame then stops the clock and makes later timing evidence meaningless. Advance the controlled clock according to the declared sequence at the same frame boundary every time, independent of whether the live route would sleep.</p>
+'''
+
+[[lessons.concepts]]
+id = "deterministic-loop-controls"
+purpose = "Makes a variable interactive loop replayable while preserving the same state transitions and rendering work used during play."
+anatomy = "Select controlled sources only for input and time, feed their values through the normal procedures, count completed frames, and return through normal cleanup at a fixed limit."
+example = "The conveyor readers choose mask or keyboard and stored tick or SDL_GetTicks without duplicating the downstream loop."
+observable = "The same mask, tick sequence, and frame limit produce the same final positions and frame count on every run."
+failure = "A check-only path that assigns final positions can pass even when the real update call is missing."
+practice = "s03-l06-e1"
+
+[[lessons.concepts]]
+id = "deterministic-input-clock-and-frame-limit-controls"
+purpose = "Provides explicit controls for held-key state, millisecond time, and bounded loop duration."
+anatomy = "Decode a bit mask to signed axes, return a stored tick in check mode, advance controlled time at each frame boundary, increment a frame counter, and exit at the declared limit."
+example = "conveyor_mask, controlled_tick, frames_run, and frame_limit form a complete disposable control set."
+observable = "GDB shows predictable axis values, ticks increasing by the chosen step, and exactly frame_limit completed iterations."
+failure = "Advancing controlled time conditionally or omitting the frame limit makes the check nondeterministic or capable of hanging."
+practice = "s03-l06-e1"
+
+[[lessons.readings]]
+label = "SDL2: SDL_GetKeyboardState"
+url = "https://wiki.libsdl.org/SDL2/SDL_GetKeyboardState"
+
+[[lessons.exercises]]
+id = "s03-l06-e1"
+type = "mc"
+required = true
+capabilities = ["language-data-layout-and-integer-state", "language-branch-loop-control", "language-observable-debugging-and-verification"]
+mechanisms = ["deterministic-input-clock-and-frame-limit-controls"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "conveyor-control-lab"
+aidPolicy = "learning"
+points = 15
+prompt = "conveyor_check_mode=1 and conveyor_mask=2. What does read_conveyor_axis return?"
+choices = ["-1", "2", "0", "1"]
+answer = 3
+whyWrong = "Bit 1 is normalized to one as the down contribution; bit 0 contributes zero, so down-up is one."
+hint = "Shift CHECK_DOWN's bit before subtracting CHECK_UP."
+explain = "Mask 2 means only down is held. The normalized calculation is 1-0=1."
+
+[[lessons.exercises]]
+id = "s03-l06-e2"
+type = "text"
+required = true
+capabilities = ["language-data-layout-and-integer-state", "language-branch-loop-control", "language-observable-debugging-and-verification"]
+mechanisms = ["deterministic-input-clock-and-frame-limit-controls"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "conveyor-control-lab"
+aidPolicy = "learning"
+points = 20
+prompt = "Why is directly storing the expected final y in check mode not valid evidence for the movement procedure?"
+answer = "It bypasses input decoding and the real update and clamp transition, so the check can pass even when the procedure under test is missing or broken."
+hint = "Ask whether changing or deleting the update procedure would change that check."
+
+[[lessons.exercises]]
+id = "s03-l06-e3"
+type = "fill"
+required = true
+capabilities = ["language-data-layout-and-integer-state", "language-branch-loop-control", "language-observable-debugging-and-verification"]
+mechanisms = ["deterministic-input-clock-and-frame-limit-controls"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "conveyor-control-lab"
+aidPolicy = "learning"
+points = 20
+prompt = "Complete the boundary that exits after the declared number of completed frames."
+code = '''mov eax, [rel frames_run]
+cmp eax, [rel frame_limit]
+____ .check_complete'''
+answer = "jae"
+hint = "Equality should exit, and an accidental overshoot should exit too."
+
+[[lessons.exercises]]
+id = "s03-l06-d1"
+type = "type"
+required = true
+capabilities = ["language-data-layout-and-integer-state", "language-branch-loop-control", "language-observable-debugging-and-verification"]
+mechanisms = []
+cognitiveTask = "recall"
+scaffold = "worked"
+contextFamily = "conveyor-control-lab"
+aidPolicy = "learning"
+points = 12
+reps = 2
+prompt = "Retype the controlled clock read exactly. (Ctrl+Enter submits.)"
+code = '''cmp byte [rel conveyor_check_mode], 0
+je .live_clock
+mov eax, [rel controlled_tick]
+ret'''
+
+[[lessons.exercises]]
+id = "s03-l06-w1"
+type = "mc"
+required = true
+capabilities = ["language-data-layout-and-integer-state", "language-branch-loop-control", "language-observable-debugging-and-verification"]
+mechanisms = ["deterministic-input-clock-and-frame-limit-controls"]
+cognitiveTask = "test-design"
+scaffold = "independent"
+contextFamily = "control-integrity-review"
+aidPolicy = "learning"
+points = 30
+prompt = "Which mutation best tests whether a deterministic paddle check truly exercises movement rather than printing a preselected answer?"
+choices = ["Rename the success token in both expected and actual output", "Remove the call to the real paddle-update procedure and confirm the check fails", "Increase the terminal font size", "Run the same answer-writing branch twice"]
+answer = 1
+whyWrong = "Changing labels or presentation does not test the behavioral path, and repeating a bypass still bypasses movement."
+hint = "Choose a mutation that should alter the observed position only if real movement is being exercised."
+explain = "If removing the real update call does not fail the check, the supposed proof is disconnected from the behavior it claims to verify."

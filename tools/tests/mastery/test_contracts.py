@@ -15,6 +15,8 @@ from arcanum_core.policies.grading import compose_grade
 
 assert MasteryDeclaration.from_dict(None) is None
 assert MasteryDeclaration.from_dict({"evidenceVersion": 1, "level": 3}).level == 3
+assert MasteryDeclaration.from_dict({"evidenceVersion": 1, "sourceEvidenceVersion": 1,
+                                    "level": 3}).source_evidence_version == 1
 
 contract = MasteryEvidenceContract.from_dict({
     "version": 1, "level": 3,

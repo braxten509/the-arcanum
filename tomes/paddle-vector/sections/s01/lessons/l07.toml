@@ -1,262 +1,174 @@
 [[lessons]]
 id = "s01-l07"
-title = "Open and Close the SDL Window"
+title = "TODO: Open and Close the SDL Window"
 teaches = ["language-status-failure-and-resource-cleanup", "native-window-lifecycle"]
 introduces = ["sdl-init-status-observation", "sdl-init-failure-branch", "sdl-init-error-diagnostic", "sdl-init-failure-cleanup", "sdl-window-status-observation", "sdl-window-failure-branch", "sdl-window-error-diagnostic", "sdl-window-failure-cleanup", "sdl-window-normal-cleanup"]
 validationDependencies = []
 body = '''
-<p>An SDL window is a resource with an ordered lifetime, not merely a picture. In a disposable <code>lifecycle-lab</code>, declare <code>SDL_Init</code>, <code>SDL_CreateWindow</code>, <code>SDL_GetError</code>, <code>SDL_Log</code>, <code>SDL_DestroyWindow</code>, and <code>SDL_Quit</code> as external procedures. Keep a zero-initialized <code>window_handle</code> in <code>.bss</code> and an integer <code>exit_code</code> initialized to failure. That pessimistic default makes every incomplete path fail unless it reaches the success decision.</p>
-<p>Two new NASM tools appear in this lab. <code>equ</code> binds a name to a constant value at assemble time; it allocates no storage and emits no instruction, it just lets later code write the name instead of repeating a magic number, and the assembler substitutes the literal everywhere the name appears. <code>section .rodata</code> holds initialized bytes the linker marks read-only, the right home for a fixed diagnostic string the program never rewrites; declare and fill it exactly like <code>.data</code> from the state lesson, just under this different section name and without write permission.</p>
-<p>Initialize video with <code>SDL_INIT_VIDEO equ 0x20</code> in <code>edi</code>. <code>SDL_Init</code> returns zero on success and a negative status on failure, so compare <code>eax</code> with zero and take a signed <code>jl</code> failure branch. Only after a reported failure, call <code>SDL_GetError</code>. Its returned pointer names SDL-owned text that you may log but must not modify or free. Move it from <code>rax</code> to the second integer argument register <code>rsi</code>, load an <code>SDL failure: %s</code> format into <code>rdi</code>, clear <code>eax</code> because <code>SDL_Log</code> is variadic, and call <code>SDL_Log</code>. The helper's balanced frame preserves call alignment. A stale SDL error string after a successful call proves nothing.</p>
-<pre><code data-kind="runnable">extern SDL_GetError
-extern SDL_Log
-
-section .rodata
-    error_format db "SDL failure: %s", 0
-
-section .text
-report_sdl_error:
-    push rbp
-    mov rbp, rsp
-    call SDL_GetError
-    mov rsi, rax
-    lea rdi, [rel error_format]
-    xor eax, eax
-    call SDL_Log
-    leave
-    ret</code></pre>
-<p>At procedure entry the return address leaves <code>rsp</code> eight bytes away from a 16-byte boundary; <code>push rbp</code> restores the required alignment before either call, and <code>leave</code> balances the frame. On a machine where SDL reports no usable video device, a representative terminal line is <code>INFO: SDL failure: No available video device</code>. SDL supplies the final reason and logging backend, so its wording or prefix may vary; the observable contract is that a confirmed failure logs <code>SDL failure:</code> followed by SDL's current explanation, while the process retains its nonzero result.</p>
-<p>After successful initialization, place the six <code>SDL_CreateWindow</code> arguments in ABI order: title pointer in <code>rdi</code>; x, y, width, and height in <code>esi</code>, <code>edx</code>, <code>ecx</code>, and <code>r8d</code>; flags in <code>r9d</code>. Use a small window, such as 480 by 270 at explicit coordinates. The return is either a non-null window pointer or null. Compare <code>rax</code> with zero before storing it. Never destroy a null or guessed pointer.</p>
-<p>Storing an immediate number directly into memory differs from the register-sourced stores in the state lesson: NASM cannot infer a width from a bare literal the way it can from a register operand, so a memory destination written with an immediate needs an explicit <code>byte</code>, <code>dword</code>, or <code>qword</code> prefix naming how many bytes to write. <code>mov dword [rel exit_code], 0</code> writes four zero bytes at that label; NASM refuses to assemble the same line without a prefix because it will not guess. A register source such as <code>mov [rel window_handle], rax</code> needs no prefix because RAX's own 64-bit width already says how much to store.</p>
-<pre><code data-kind="runnable">    mov edi, SDL_INIT_VIDEO
-    call SDL_Init
-    cmp eax, 0
-    jl .init_failed
-    ; load six CreateWindow arguments
-    call SDL_CreateWindow
-    cmp rax, 0
-    je .window_failed
-    mov [rel window_handle], rax
-    mov dword [rel exit_code], 0
-    jmp .cleanup
-.init_failed:
-    call report_sdl_error
-    jmp .cleanup
-.window_failed:
-    call report_sdl_error
-.cleanup:
-    mov rdi, [rel window_handle]
-    cmp rdi, 0
-    je .quit
-    call SDL_DestroyWindow
-.quit:
-    call SDL_Quit</code></pre>
-<p>Both failures and success converge on one cleanup label. If the handle is nonzero, destroy it exactly once; then call <code>SDL_Quit</code> exactly once. SDL documents <code>SDL_Quit</code> as safe even after initialization reports an error, so the init-failure path can share this tail. Return the unchanged failure code unless creation succeeded.</p>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // TRACE THE LIFETIME</div>
-<p>Trace init failure, window failure, and success. Destroy runs zero, zero, and one times; quit runs once in every case. A direct return leaks cleanup, while local cleanup followed by shared cleanup double-releases. This lab may close too quickly to see. Do not add an untaught delay or event loop: the next lesson pauses at a debugger label while the resource is live.</p></div>
+<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
+<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
+<p>TODO: an optional deeper-cut appendix.</p></div>
 '''
 
 [[lessons.concepts]]
 id = "language-status-failure-and-resource-cleanup"
-purpose = "Turn external return contracts into explicit success, failure, diagnostic, and release paths."
-anatomy = "Start pessimistically, inspect the documented return, branch before using a resource, report only a signaled error, converge paths on cleanup, and return a truthful status."
-example = "The lifecycle trace keeps exit_code failing until SDL initialization and window creation both succeed."
-observable = "Every simulated path has a predictable exit status and cleanup count."
-failure = "Returning from a failure label bypasses SDL_Quit; trace calls per path and route the label to the shared cleanup tail."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s01-l07-e1"
 
 [[lessons.concepts]]
 id = "native-window-lifecycle"
-purpose = "Own an SDL window from video-system initialization through conditional destruction and global shutdown."
-anatomy = "Initialize video, create and validate one window, retain its pointer, destroy that pointer once when present, then quit SDL once."
-example = "The disposable lifecycle stores SDL_CreateWindow's non-null result in window_handle before entering shared cleanup."
-observable = "A successful desktop run creates a native window resource and exits with status zero after releasing it."
-failure = "Destroying an unvalidated pointer can crash or corrupt lifetime state; initialize storage to zero and branch around destruction when it remains zero."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s01-l07-e1"
 
 [[lessons.concepts]]
 id = "sdl-init-status-observation"
-purpose = "Determine whether SDL's requested video subsystem became available before any window operation."
-anatomy = "Place SDL_INIT_VIDEO in edi, call SDL_Init, and immediately compare the signed eax return with zero."
-example = "The worked sequence uses cmp eax, 0 directly after SDL_Init."
-observable = "Zero continues toward creation; a negative value is available to the failure branch."
-failure = "Checking a later call's eax loses SDL_Init's status; inspect the return before issuing another call."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s01-l07-e1"
 
 [[lessons.concepts]]
 id = "sdl-init-failure-branch"
-purpose = "Prevent window creation after SDL reports that initialization failed."
-anatomy = "Follow cmp eax, 0 with signed jl to the initialization diagnostic, then jump to shared cleanup."
-example = "The worked branch reaches .init_failed only for a negative SDL_Init return."
-observable = "The failing path emits a diagnostic and never calls SDL_CreateWindow."
-failure = "Using jne wrongly treats only zero as success without expressing SDL's negative-failure contract; use the signed relation documented by SDL."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s01-l07-e1"
 
 [[lessons.concepts]]
 id = "sdl-init-error-diagnostic"
-purpose = "Attach SDL's current explanation to a confirmed initialization failure."
-anatomy = "On the failure branch, call SDL_GetError, treat rax as a borrowed C-string pointer, place it in rsi beside a format in rdi, clear eax for the variadic call, and invoke SDL_Log."
-example = "report_sdl_error retrieves the pointer only after .init_failed is selected."
-observable = "The terminal names the SDL reason instead of reporting only a generic failure."
-failure = "Calling SDL_GetError after success may show stale text; fetch it only in a branch whose preceding SDL call signaled failure."
-practice = "s01-l07-e2"
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
+practice = "s01-l07-e1"
 
 [[lessons.concepts]]
 id = "sdl-init-failure-cleanup"
-purpose = "Leave SDL in a known shutdown state even when video initialization fails."
-anatomy = "Keep the window handle zero, route the failure to cleanup, skip conditional destruction, call SDL_Quit once, and retain a nonzero exit code."
-example = "The .init_failed label reports the error and jumps to the same .cleanup used by all outcomes."
-observable = "The trace records zero destroys, one SDL_Quit, and a failing process status."
-failure = "Returning immediately after printing omits shutdown; make failure labels converge instead of returning."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s01-l07-e1"
 
 [[lessons.concepts]]
 id = "sdl-window-status-observation"
-purpose = "Distinguish a usable SDL window pointer from creation failure before storing or destroying it."
-anatomy = "Call SDL_CreateWindow with all six ABI arguments, compare returned rax with zero immediately, and store it only when nonzero."
-example = "The sequence branches before moving rax into window_handle."
-observable = "A successful path owns one nonzero handle; a failed path leaves zero in storage."
-failure = "Testing the old storage before saving rax always sees its initial zero; inspect the returned rax first."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s01-l07-e1"
 
 [[lessons.concepts]]
 id = "sdl-window-failure-branch"
-purpose = "Keep a null window result away from success state and destruction."
-anatomy = "Use cmp rax, 0 and je immediately after creation; the failure label diagnoses and joins cleanup without setting exit_code to zero."
-example = "The worked .window_failed route cannot execute the handle store or success assignment."
-observable = "Creation failure yields a diagnostic and nonzero process result with no destroy call."
-failure = "Setting success before validating rax makes null creation appear healthy; move the success assignment below the null branch."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s01-l07-e1"
 
 [[lessons.concepts]]
 id = "sdl-window-error-diagnostic"
-purpose = "Explain why a confirmed SDL_CreateWindow attempt returned null."
-anatomy = "Enter the null branch, call SDL_GetError before another SDL operation, and pass the borrowed text through the same ABI-safe variadic SDL_Log helper."
-example = "The .window_failed label calls the same ABI-correct report_sdl_error procedure as init failure."
-observable = "The terminal carries SDL's window-creation reason while the process still exits unsuccessfully."
-failure = "Freeing or editing the returned text violates SDL ownership; consume it as read-only borrowed text."
-practice = "s01-l07-e2"
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
+practice = "s01-l07-e1"
 
 [[lessons.concepts]]
 id = "sdl-window-failure-cleanup"
-purpose = "Release initialized SDL state without pretending a failed window exists."
-anatomy = "Leave window_handle zero, retain failure status, enter cleanup, skip SDL_DestroyWindow, and call SDL_Quit exactly once."
-example = "The null-result trace reaches .quit through the zero-handle comparison."
-observable = "The trace records no destroy, one quit, and nonzero exit."
-failure = "Calling SDL_DestroyWindow with rax after report_sdl_error passes the diagnostic call's return instead of the failed null result; destroy only the stored validated handle."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s01-l07-e1"
 
 [[lessons.concepts]]
 id = "sdl-window-normal-cleanup"
-purpose = "End a successful window lifetime without leaks or duplicate release."
-anatomy = "Store the validated pointer, mark success, enter cleanup, pass the stored pointer to SDL_DestroyWindow once, then invoke SDL_Quit once."
-example = "The success trace is the only route with a nonzero window_handle and zero exit_code."
-observable = "One window is created, destroyed once, SDL quits once, and the process returns zero."
-failure = "Destroying once before cleanup and again inside cleanup is a double release; make shared cleanup the sole owner of destruction."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s01-l07-e1"
 
-[[lessons.readings]]
-label = "SDL2: initialization, errors, windows, and shutdown"
-url = "https://wiki.libsdl.org/SDL2/CategoryInit"
-
-[[lessons.readings]]
-label = "SDL2: SDL_CreateWindow return contract"
-url = "https://wiki.libsdl.org/SDL2/SDL_CreateWindow"
+[[lessons.readings]]               # optional: 1-2 high-quality official docs
+label = "TODO: official docs"
+url = "https://example.com/TODO"
 
 [[lessons.exercises]]
 id = "s01-l07-e1"
 type = "mc"
 required = true
-capabilities = ["language-status-failure-and-resource-cleanup"]
+capabilities = ["language-status-failure-and-resource-cleanup", "native-window-lifecycle"]
 mechanisms = ["sdl-init-status-observation", "sdl-init-failure-branch", "sdl-init-error-diagnostic", "sdl-init-failure-cleanup", "sdl-window-status-observation", "sdl-window-failure-branch", "sdl-window-error-diagnostic", "sdl-window-failure-cleanup", "sdl-window-normal-cleanup"]
 cognitiveTask = "predict"
 scaffold = "guided"
 contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 15
-prompt = "Trace the disposable lifecycle when SDL_Init succeeds but SDL_CreateWindow returns null. Which destroy / quit / result sequence follows?"
-choices = ["destroy once / quit once / success", "destroy once / quit zero times / failure", "destroy zero times / quit once / failure", "destroy zero times / quit zero times / success"]
-answer = 2
-whyWrong = "The other choices either destroy a pointer that was never validated, skip the shared SDL shutdown, or report success after creation failed."
-hint = "Follow window_handle and exit_code: neither changes on the null-result branch."
-explain = "The zero handle skips SDL_DestroyWindow, shared cleanup still calls SDL_Quit, and the pessimistic failure code remains."
+prompt = "TODO: a multiple-choice question?"
+choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
+answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
+whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
+hint = "TODO: an exercise-specific hint."
+explain = "TODO: shown after solving."
 
 [[lessons.exercises]]
 id = "s01-l07-e2"
-type = "mc"
+type = "text"
 required = true
-capabilities = ["language-status-failure-and-resource-cleanup"]
-mechanisms = ["sdl-init-error-diagnostic", "sdl-window-error-diagnostic"]
-cognitiveTask = "predict"
+capabilities = ["language-status-failure-and-resource-cleanup", "native-window-lifecycle"]
+mechanisms = []
+cognitiveTask = "explain"
 scaffold = "guided"
 contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 20
-prompt = "SDL_Init returned a negative value and report_sdl_error has just called SDL_GetError. Which sequence passes the borrowed text to SDL_Log without violating the System V variadic-call rule?"
-choices = ["Move rax to rsi, load the format in rdi, clear eax, call SDL_Log", "Move rax to rsp, load the format in rbp, call SDL_Log", "Call SDL_Log first, then inspect SDL_GetError", "Free the pointer in rax, then pass it in rdi"]
-answer = 0
-whyWrong = "The alternatives misuse stack registers, reverse the diagnostic order, or free SDL-owned storage."
-hint = "The format is argument one, the %s value is argument two, and variadic vector-argument count travels in al."
-explain = "SDL_GetError returns borrowed text in rax. Moving that pointer to rsi, putting the format in rdi, and clearing eax prepares an ABI-safe variadic SDL_Log call."
+prompt = "TODO: a free-text question."
+answer = "TODO"
+# accept = ["TODO alternate"]      # optional true alternates only
+hint = "TODO: an exercise-specific hint."
 
 [[lessons.exercises]]
 id = "s01-l07-e3"
-type = "mc"
+type = "fill"
 required = true
-capabilities = ["language-status-failure-and-resource-cleanup"]
+capabilities = ["language-status-failure-and-resource-cleanup", "native-window-lifecycle"]
 mechanisms = []
-cognitiveTask = "predict"
-scaffold = "guided"
+cognitiveTask = "complete"
+scaffold = "completion"
 contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 20
-prompt = "After loading window_handle and comparing it with zero, which next instruction prevents destruction when no window was created?"
-choices = ["jne .quit", "je .quit", "call SDL_DestroyWindow", "jl .quit"]
-answer = 1
-whyWrong = "The guard must take the cleanup-skip edge on equality; the other choices destroy null, invert the condition, or use an irrelevant signed test."
-hint = "The branch is taken when the comparison says the stored pointer equals zero."
-explain = "je .quit skips SDL_DestroyWindow exactly when the stored pointer is null."
-
-[[lessons.exercises]]
-id = "s01-l07-e4"
-type = "fill"
-required = true
-capabilities = ["language-status-failure-and-resource-cleanup"]
-mechanisms = []
-cognitiveTask = "complete"
-scaffold = "guided"
-contextFamily = "replace-context"
-aidPolicy = "learning"
-points = 15
-prompt = "Complete the size prefix NASM requires when storing the immediate 0 into the 4-byte exit_code label."
-code = 'mov ____ [rel exit_code], 0'
-answer = "dword"
-hint = "Match the prefix to exit_code's declared width, the same width dd reserves."
-
-[[lessons.exercises]]
-id = "s01-l07-e5"
-type = "fill"
-required = true
-capabilities = ["language-status-failure-and-resource-cleanup"]
-mechanisms = ["sdl-init-failure-cleanup", "sdl-window-failure-cleanup", "sdl-window-normal-cleanup"]
-cognitiveTask = "modify"
-scaffold = "guided"
-contextFamily = "replace-context"
-aidPolicy = "learning"
-points = 25
-prompt = "A broken .window_failed label reads call report_sdl_error then ret, skipping .cleanup entirely so SDL_Quit never runs on this path. Complete the single instruction that restores the shared-cleanup routing so init failure, window failure, and success all still converge on exactly one destroy/quit owner."
-code = '''.window_failed:
-    call report_sdl_error
-    ____'''
-answer = "jmp .cleanup"
-hint = "Route to the same label every other outcome already reaches."
-explain = "jmp .cleanup makes every path share one destroy/quit owner: destroy runs zero times on both failure paths and once on success, while .quit's SDL_Quit still runs exactly once regardless of which path arrives."
+prompt = "TODO: fill the blank."
+code = 'answer = ____'             # the ____ marks where the answer goes
+answer = "TODO"
+hint = "TODO: an exercise-specific hint."
 
 [[lessons.exercises]]
 id = "s01-l07-d1"
 type = "type"                      # typing drill: retype the code; no point decay
 required = true
-capabilities = ["language-status-failure-and-resource-cleanup"]
+capabilities = ["language-status-failure-and-resource-cleanup", "native-window-lifecycle"]
 mechanisms = []
 cognitiveTask = "recall"
 scaffold = "worked"
@@ -264,21 +176,29 @@ contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 12
 reps = 2
-prompt = "Retype the status decision exactly. (Ctrl+Enter submits.)"
-code = '''cmp rax, 0
-je .window_failed'''
+prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
+code = 'print("TODO")'
 
 [[lessons.exercises]]
 id = "s01-l07-w1"
-type = "text"
+type = "write"                     # CODE LAB: runs on the real runtime; no point decay
 required = true
-capabilities = ["language-status-failure-and-resource-cleanup"]
+capabilities = ["language-status-failure-and-resource-cleanup", "native-window-lifecycle"]
 mechanisms = []
-cognitiveTask = "debug"
-scaffold = "independent"
+cognitiveTask = "build"
+scaffold = "guided"
 contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 30
-prompt = "A teammate's window_failure label now reads: call report_sdl_error, then call SDL_Quit, then jmp main_cleanup. init_failure and the shared main_cleanup tail (which itself ends with call SDL_Quit) are unchanged from the lesson body. Trace only the window-creation-failure path with this change in place. Enter the corrected number of times SDL_Quit should execute along that specific path once the duplicate call is removed and main_cleanup is the sole owner of shutdown again."
-answer = "1"
-hint = "Count every SDL_Quit reached while following window_failure's actual jumps to the end, then decide how many of those calls a single shared owner should keep."
+prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
+# starter = '''
+# TODO: prefilled editor code / the exercise's data
+# '''
+expect = '''
+TODO EXACT OUTPUT'''
+# REQUIRED before shipping: a complete program that passes. Never shown to the
+# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
+# solution = '''
+# TODO
+# '''
+hint = "TODO: an exercise-specific hint."

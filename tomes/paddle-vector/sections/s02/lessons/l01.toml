@@ -1,244 +1,159 @@
 [[lessons]]
 id = "s02-l01"
-title = "Create the Renderer Safely"
+title = "TODO: Create the Renderer Safely"
 teaches = ["sdl-renderer-lifecycle"]
 introduces = ["sdl-renderer-status-observation", "sdl-renderer-failure-branch", "sdl-renderer-error-diagnostic", "sdl-renderer-failure-cleanup", "sdl-renderer-normal-cleanup"]
 validationDependencies = []
 body = '''
-<p>A window is only a rectangle the operating system manages. It cannot draw a single pixel. Drawing needs a second resource: an <code>SDL_Renderer</code>, a drawing context bound to one window. You create it only after that window already exists, and you must release it before the window itself is destroyed. In this disposable <code>dash-lab</code>, assume <code>dash_window</code> already holds a validated window pointer from an earlier lifecycle, just like <code>window_handle</code> in your real project.</p>
-<p><code>SDL_CreateRenderer</code> takes three arguments: the window pointer, a driver <code>index</code>, and <code>flags</code>. Passing <code>-1</code> for <code>index</code> asks SDL to pick the first driver that satisfies your flags instead of naming one by number. <code>SDL_RENDERER_SOFTWARE</code>, defined as <code>0x1</code>, requests a software renderer. That narrows SDL's driver choice; it does not guarantee that every video backend can create one. The return is either a valid pointer or <code>NULL</code>, so the returned pointer and SDL's diagnostic—not an assumption about the machine—decide whether creation worked.</p>
-<pre><code data-kind="runnable">SDL_RENDERER_SOFTWARE equ 0x1
-
-section .bss
-    dash_renderer resq 1
-
-section .text
-create_dash_renderer:
-    push rbp
-    mov rbp, rsp
-    mov rdi, [rel dash_window]
-    mov esi, -1
-    mov edx, SDL_RENDERER_SOFTWARE
-    call SDL_CreateRenderer
-    cmp rax, 0
-    je .failed
-    mov [rel dash_renderer], rax
-    xor eax, eax
-    jmp .done
-.failed:
-    call dash_report_error
-    mov eax, 1
-.done:
-    leave
-    ret</code></pre>
-<p>Trace it: <code>rdi</code> carries the window pointer, <code>esi</code> the signed index, <code>edx</code> the flags. <code>cmp rax, 0</code> immediately after the call inspects the returned pointer before anything else can overwrite <code>rax</code>. Only a nonzero pointer is stored; the zero case skips straight to diagnosis. This is the same status-observation and failure-branch shape you already used for <code>SDL_Init</code> and <code>SDL_CreateWindow</code>, applied to a third SDL resource.</p>
-<p>A confirmed failure still deserves SDL's own explanation, never a generic message. <code>dash_report_error</code> repeats the ABI-safe pattern from your earlier lifecycle work: fetch the borrowed string from <code>SDL_GetError</code>, move it into the second argument register, load a fresh format string into the first, clear <code>eax</code> because <code>SDL_Log</code> is variadic, and call it.</p>
-<pre><code data-kind="runnable">section .rodata
-    dash_error_fmt db "renderer failure: %s", 0
-
-section .text
-dash_report_error:
-    push rbp
-    mov rbp, rsp
-    call SDL_GetError
-    mov rsi, rax
-    lea rdi, [rel dash_error_fmt]
-    xor eax, eax
-    call SDL_Log
-    leave
-    ret</code></pre>
-<p>Cleanup for a renderer follows the same guarded-destroy shape as a window. The renderer was created from a live window, so make that ownership dependency visible in your own shutdown design: release the child renderer while its parent window is still live, then release the window. Do not draw through the renderer after either resource has entered cleanup. Guard the renderer destroy with the stored handle, exactly like before:</p>
-<pre><code data-kind="runnable">dash_cleanup_renderer:
-    push rbp
-    mov rbp, rsp
-    mov rdi, [rel dash_renderer]
-    cmp rdi, 0
-    je .no_renderer
-    call SDL_DestroyRenderer
-    mov qword [rel dash_renderer], 0
-.no_renderer:
-    leave
-    ret</code></pre>
-<p>Trace both outcomes through this one block. When creation failed, <code>dash_renderer</code> never left zero, so the guard skips <code>SDL_DestroyRenderer</code> entirely — that is the failure-cleanup case. When creation succeeded, the guard finds a nonzero pointer, destroys it exactly once, and clears the slot — the normal-cleanup case. One block, two traced preconditions, just like your window's shared cleanup tail.</p>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY -1 AND SOFTWARE TOGETHER</div><p>The pair means “choose the first available driver that satisfies this software-renderer request.” It avoids hard-coding a numbered driver and avoids requiring acceleration, but creation can still fail. That is why the null comparison and immediate <code>SDL_GetError</code> path remain essential on both desktop and headless routes.</p></div>
+<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
+<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
+<p>TODO: an optional deeper-cut appendix.</p></div>
 '''
 
 [[lessons.concepts]]
 id = "sdl-renderer-lifecycle"
-purpose = "Owns the drawing context bound to an already-open window from creation through guarded release."
-anatomy = "Create only after the window exists, check the returned pointer, store it, and destroy it before the window using the same guarded-destroy shape as other SDL resources."
-example = "create_dash_renderer stores a validated SDL_RENDERER_SOFTWARE renderer over dash_window; dash_cleanup_renderer releases it first."
-observable = "A successful create leaves a nonzero pointer in dash_renderer; cleanup leaves it zero before the window is touched."
-failure = "Allowing window cleanup to begin before renderer cleanup obscures the ownership boundary and can leave later code attempting to use resources whose lifetime has ended."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s02-l01-e1"
 
 [[lessons.concepts]]
 id = "sdl-renderer-status-observation"
-purpose = "Determines whether SDL actually produced a usable renderer before any drawing call uses it."
-anatomy = "Place the window pointer, index, and flags in rdi/esi/edx, call SDL_CreateRenderer, then compare the returned rax with zero before storing it."
-example = "cmp rax, 0 runs immediately after call SDL_CreateRenderer in create_dash_renderer."
-observable = "A nonzero rax reaches the store; a zero rax reaches the failure label instead."
-failure = "Storing rax before comparing it can save a null pointer as if it were valid, corrupting every later draw call."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s02-l01-e1"
 
 [[lessons.concepts]]
 id = "sdl-renderer-failure-branch"
-purpose = "Keeps a failed renderer creation from ever being treated as a live drawing context."
-anatomy = "je .failed follows the zero comparison and routes to diagnosis instead of falling through to the store."
-example = "The .failed label in create_dash_renderer is reached only when rax was zero."
-observable = "The failure path never executes mov [rel dash_renderer], rax."
-failure = "Branching on the wrong flag or comparing before the call reads stale or unrelated data instead of this call's real result."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s02-l01-e1"
 
 [[lessons.concepts]]
 id = "sdl-renderer-error-diagnostic"
-purpose = "Attaches SDL's current explanation to a confirmed renderer-creation failure."
-anatomy = "On the failure branch only, call SDL_GetError, move its borrowed pointer to rsi, load a format string into rdi, clear eax for the variadic call, and call SDL_Log."
-example = "dash_report_error runs only from create_dash_renderer's .failed label."
-observable = "The terminal names SDL's actual reason instead of a generic failure line."
-failure = "Calling SDL_GetError after a call that succeeded can report stale text left over from an earlier failure."
-practice = "s02-l01-e2"
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
+practice = "s02-l01-e1"
 
 [[lessons.concepts]]
 id = "sdl-renderer-failure-cleanup"
-purpose = "Leaves renderer state honestly empty when creation never produced a usable pointer."
-anatomy = "Keep dash_renderer at its zero-initialized default and let the guarded destroy skip SDL_DestroyRenderer entirely."
-example = "Tracing create_dash_renderer's failure path into dash_cleanup_renderer shows the .no_renderer edge taken."
-observable = "Zero calls to SDL_DestroyRenderer occur on this traced path."
-failure = "Calling SDL_DestroyRenderer with whatever rax last held ignores the guard and can pass an unrelated or garbage pointer."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s02-l01-e1"
 
 [[lessons.concepts]]
 id = "sdl-renderer-normal-cleanup"
-purpose = "Releases a live renderer exactly once, before its window, when the resource truly exists."
-anatomy = "Load the stored pointer, confirm it is nonzero, call SDL_DestroyRenderer, then clear the stored slot."
-example = "Tracing create_dash_renderer's success path into dash_cleanup_renderer shows one destroy call and one cleared slot."
-observable = "dash_renderer reads nonzero before cleanup and exactly zero immediately after."
-failure = "Skipping the store-clear after destroying makes a second accidental cleanup call destroy the same pointer twice."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s02-l01-e1"
 
-[[lessons.readings]]
-label = "SDL2: SDL_CreateRenderer"
-url = "https://wiki.libsdl.org/SDL2/SDL_CreateRenderer"
-
-[[lessons.readings]]
-label = "SDL2: SDL_DestroyRenderer"
-url = "https://wiki.libsdl.org/SDL2/SDL_DestroyRenderer"
+[[lessons.readings]]               # optional: 1-2 high-quality official docs
+label = "TODO: official docs"
+url = "https://example.com/TODO"
 
 [[lessons.exercises]]
 id = "s02-l01-e1"
 type = "mc"
 required = true
-capabilities = ["language-status-failure-and-resource-cleanup"]
-mechanisms = ["sdl-renderer-status-observation", "sdl-renderer-failure-branch", "sdl-renderer-failure-cleanup", "sdl-renderer-normal-cleanup"]
+capabilities = ["sdl-renderer-lifecycle"]
+mechanisms = ["sdl-renderer-status-observation", "sdl-renderer-failure-branch", "sdl-renderer-error-diagnostic", "sdl-renderer-failure-cleanup", "sdl-renderer-normal-cleanup"]
 cognitiveTask = "predict"
 scaffold = "guided"
-contextFamily = "dash-renderer-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 15
-prompt = "In dash-lab, SDL_CreateRenderer returns NULL. Trace create_dash_renderer and then dash_cleanup_renderer. Which outcome is correct?"
-choices = ["dash_renderer remains at its zero-initialized value because the null branch skips the store, and cleanup calls SDL_DestroyRenderer zero times", "dash_renderer remains zero, but cleanup still calls SDL_DestroyRenderer once", "The zero return is stored anyway, and cleanup destroys it", "The failure branch is skipped and the store runs regardless"]
-answer = 0
-whyWrong = "The other choices either destroy an unvalidated pointer, store a null result as if it were live, or ignore the taken failure branch."
-hint = "Follow rax through cmp rax, 0 before deciding what dash_renderer ends up holding."
-explain = "je .failed diverts before the store, so dash_renderer keeps its zero default and the guarded destroy in cleanup finds nothing to release."
+prompt = "TODO: a multiple-choice question?"
+choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
+answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
+whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
+hint = "TODO: an exercise-specific hint."
+explain = "TODO: shown after solving."
 
 [[lessons.exercises]]
 id = "s02-l01-e2"
 type = "text"
 required = true
-capabilities = ["language-status-failure-and-resource-cleanup"]
-mechanisms = ["sdl-renderer-error-diagnostic"]
+capabilities = ["sdl-renderer-lifecycle"]
+mechanisms = []
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "dash-renderer-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 20
-prompt = "In dash_report_error, name the one SDL call that must run before SDL_Log can receive a meaningful reason string, and explain why calling it from the success path instead would be misleading."
-answer = "SDL_GetError"
-hint = "Only one call in the procedure retrieves SDL's own explanation; everything else formats and prints it."
-explain = "SDL_GetError must run first because SDL_Log only formats whatever pointer it is handed; calling SDL_GetError after a success can return stale text from an unrelated earlier failure, which would misreport a call that actually worked."
+prompt = "TODO: a free-text question."
+answer = "TODO"
+# accept = ["TODO alternate"]      # optional true alternates only
+hint = "TODO: an exercise-specific hint."
 
 [[lessons.exercises]]
 id = "s02-l01-e3"
 type = "fill"
 required = true
-capabilities = ["language-status-failure-and-resource-cleanup"]
-mechanisms = ["sdl-renderer-status-observation"]
+capabilities = ["sdl-renderer-lifecycle"]
+mechanisms = []
 cognitiveTask = "complete"
 scaffold = "completion"
-contextFamily = "dash-renderer-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 20
-prompt = "Complete the driver-index argument that lets SDL choose the first driver supporting your requested flags."
-code = 'mov esi, ____'
-answer = "-1"
-hint = "Naming a specific numbered driver is the alternative you are avoiding."
-
-[[lessons.exercises]]
-id = "s02-l01-e4"
-type = "text"
-required = true
-capabilities = ["language-status-failure-and-resource-cleanup"]
-mechanisms = ["sdl-renderer-normal-cleanup"]
-cognitiveTask = "trace"
-scaffold = "guided"
-contextFamily = "dash-renderer-lab"
-aidPolicy = "learning"
-points = 20
-prompt = "Trace two consecutive calls to dash_cleanup_renderer after successful creation. State the number of SDL_DestroyRenderer calls and the stored value after each cleanup call."
-answer = "SDL_DestroyRenderer runs once during the first cleanup and dash_renderer is then zero; the second cleanup sees zero, skips destruction, and leaves dash_renderer zero."
-hint = "The first call executes the store-clear before the second call reaches its guard."
+prompt = "TODO: fill the blank."
+code = 'answer = ____'             # the ____ marks where the answer goes
+answer = "TODO"
+hint = "TODO: an exercise-specific hint."
 
 [[lessons.exercises]]
 id = "s02-l01-d1"
-type = "type"
+type = "type"                      # typing drill: retype the code; no point decay
 required = true
-capabilities = ["language-status-failure-and-resource-cleanup"]
+capabilities = ["sdl-renderer-lifecycle"]
 mechanisms = []
 cognitiveTask = "recall"
 scaffold = "worked"
-contextFamily = "dash-renderer-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 12
 reps = 2
-prompt = "Retype the guarded renderer destroy exactly. (Ctrl+Enter submits.)"
-code = '''cmp rdi, 0
-je .no_renderer
-call SDL_DestroyRenderer'''
+prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
+code = 'print("TODO")'
 
 [[lessons.exercises]]
 id = "s02-l01-w1"
-type = "mc"
+type = "write"                     # CODE LAB: runs on the real runtime; no point decay
 required = true
-capabilities = ["language-status-failure-and-resource-cleanup"]
-mechanisms = ["sdl-renderer-normal-cleanup"]
-cognitiveTask = "predict"
-scaffold = "independent"
-contextFamily = "dash-renderer-lab"
+capabilities = ["sdl-renderer-lifecycle"]
+mechanisms = []
+cognitiveTask = "build"
+scaffold = "guided"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 30
-prompt = "A teammate removes the store that clears dash_renderer after SDL_DestroyRenderer. Shared cleanup is accidentally entered a second time. What is the most accurate diagnosis?"
-choices = ["The zero guard still skips the second destroy", "SDL automatically rewrites dash_renderer when the first destroy returns", "The stale nonzero slot passes the guard and can send the same released pointer to SDL_DestroyRenderer again", "The assembler refuses to call the same function twice"]
-answer = 2
-whyWrong = "Neither SDL nor NASM rewrites your stored handle for you, and the guard can only skip cleanup when the slot actually contains zero."
-hint = "Trace the stored slot, not a register: what value remains there after the first call if the clearing store is absent?"
-explain = "Without the explicit zero store, dash_renderer still contains the released address. A second cleanup sees that stale value as nonzero and attempts a second destroy, so clearing the owned slot is part of normal cleanup rather than cosmetic bookkeeping."
-
-[[lessons.exercises]]
-id = "s02-l01-w2"
-type = "mc"
-required = true
-capabilities = ["language-status-failure-and-resource-cleanup"]
-mechanisms = ["sdl-renderer-status-observation", "sdl-renderer-failure-branch", "sdl-renderer-error-diagnostic"]
-cognitiveTask = "debug"
-scaffold = "independent"
-contextFamily = "dash-renderer-lab"
-aidPolicy = "learning"
-points = 30
-prompt = "A trainee inserts `call SDL_GetError` between `call SDL_CreateRenderer` and `cmp rax, 0`, then stores rax on the apparent success path. What is wrong?"
-choices = ["Nothing; SDL_GetError preserves every caller-saved register", "The comparison and store now use SDL_GetError's string pointer instead of SDL_CreateRenderer's result", "SDL_GetError destroys the renderer automatically", "cmp can only follow arithmetic instructions"]
-answer = 1
-whyWrong = "rax is caller-saved, SDL_GetError does not release the renderer, and cmp may legally follow a call; the defect is observing the wrong call's return value."
-hint = "Which function supplied the value currently in rax when cmp executes?"
-explain = "Each call returns its own result in rax. Calling SDL_GetError first replaces the renderer result with an error-string pointer, so both the zero test and stored handle lose their connection to SDL_CreateRenderer. Observe and branch on the renderer result before making the diagnostic call."
+prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
+# starter = '''
+# TODO: prefilled editor code / the exercise's data
+# '''
+expect = '''
+TODO EXACT OUTPUT'''
+# REQUIRED before shipping: a complete program that passes. Never shown to the
+# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
+# solution = '''
+# TODO
+# '''
+hint = "TODO: an exercise-specific hint."

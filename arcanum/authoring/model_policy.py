@@ -124,6 +124,16 @@ MODEL_POLICY = {
         ("writer",),
         "Useful long-context author, but its compact Sections run returned a placebo acceptance receipt that did not exercise the repaired functions; Sections and Reviewer are disabled.",
     ),
+
+    # OpenRouter is a separately configured OpenCode route, pinned to the approved
+    # provider in the local OpenCode configuration.  It is intentionally the
+    # validator-backed Phase 3–7 stress hand: the stronger Phase 1–2 planner seals
+    # the map, the independent validator sees the full author prompt, and replay,
+    # source receipts, and adversarial Working evidence make shallow compliance fail.
+    "openrouter/deepseek/deepseek-v4-pro": _entry(
+        ("writer", "sections"),
+        "Approved OpenRouter-via-OpenCode DeepSeek V4 Pro route for the deliberately validator-backed construction hand. It may author Phases 3–7 at high effort under the sealed map and mandatory independent review, but it is not an independent reviewer or final student-review hand.",
+    ),
     "opencode-go/glm-5.1": _entry(
         (),
         "Capable long-horizon model, but it has the same $1.40/$4.40 price and lower current capability than GLM-5.2, so it is a dominated tome choice.",
@@ -258,6 +268,7 @@ MODEL_POWER = {
     "gpt-5.4-mini": 7,
     "opencode-go/deepseek-v4-flash": 7,
     "opencode-go/deepseek-v4-pro": 8,
+    "openrouter/deepseek/deepseek-v4-pro": 8,
     "opencode-go/glm-5.1": 8,
     "opencode-go/glm-5.2": 9,
     "mapleai/glm-5-2": 9,
@@ -346,6 +357,9 @@ EFFORT_PROFILES = {
     "opencode-go/deepseek-v4-flash": {"drafter": ("high",)},
     "opencode-go/deepseek-v4-pro": {
         "writer": ("high",)
+    },
+    "openrouter/deepseek/deepseek-v4-pro": {
+        "writer": ("high",), "sections": ("high",),
     },
     "opencode-go/glm-5.2": {
         "writer": ("high",),

@@ -1,0 +1,213 @@
+[[lessons]]
+id = "s01-l08"
+title = "Prove Initialization in Two Ways"
+teaches = ["language-observable-debugging-and-verification", "native-window-proof", "tool-run-test"]
+introduces = ["deterministic-init-check", "gdb-state-inspection", "process-entry-argument-access"]
+validationDependencies = []
+body = '''
+<p>A flash on screen is weak evidence: it is hard to repeat, and a remote or headless machine may have no desktop. Use two complementary proofs in the disposable <code>lifecycle-lab</code>. An automated check proves the initialization contract repeatedly. A debugger session proves that the native desktop path holds a real window before cleanup. Neither proof replaces the other.</p>
+<p>First interpret the process entry safely. The C runtime calls <code>main</code> with the nonnegative argument count in <code>edi</code> and an <code>argv</code> table pointer in <code>rsi</code>. Each table slot is eight bytes in this 64-bit program: <code>[rsi]</code> points to the executable name, <code>[rsi+8]</code> points to the first user argument only when <code>argc</code> is at least two, and <code>argv[argc]</code> is a null pointer. The table stores pointers to strings; it does not store the characters inline.</p>
+<p>Two new addressing forms appear here. <code>[reg]</code> means "the value stored at the address currently held in that register" — a runtime pointer dereference, unlike <code>[rel label]</code>'s fixed compile-time address. <code>[reg+disp]</code> adds a constant byte displacement before dereferencing, the right form for one fixed-size slot inside a table whose base address is only known at runtime, such as this eight-byte argv table. Trace it with <code>rsi</code> holding the table's base: <code>[rsi]</code> reads the pointer stored at that base, and <code>[rsi+8]</code> reads the next eight-byte slot, one full pointer width past it. A displacement that overshoots the table's live length — reading <code>[rsi+8]</code> when the table has no second slot — dereferences memory the process never guaranteed, an out-of-bounds read that may crash or return garbage; the bounds guard below exists precisely to keep the displacement inside a length the caller actually promised.</p>
+<p>Bounds checking must precede dereferencing. Compare <code>edi</code> with two and take the desktop path when it is smaller; reject counts greater than two as a different command shape. Only the equal case may load <code>[rsi+8]</code>. Do this before any call can overwrite caller-saved <code>edi</code> or <code>rsi</code>:</p>
+<pre><code data-kind="runnable">    cmp edi, 2
+    jl .desktop
+    jne .desktop
+    mov rdi, [rsi + 8]
+    lea rsi, [rel acceptance_token]
+    call strings_equal</code></pre>
+<p>Trace two launches. With only the executable name, <code>argc=1</code>, the first branch is taken and no argument pointer is read. With exactly one user argument, <code>argc=2</code>, the load obtains <code>argv[1]</code>. Loading first and checking later can dereference a nonexistent entry; using <code>[rsi+16]</code> instead silently selects the second user argument. After the safe load, a small leaf procedure compares that text with a null-terminated <code>--arcanum-acceptance</code> string. It advances both pointers only after equal bytes, returns one after equal null terminators, and returns zero on the first mismatch. Only the one result sets a byte-sized <code>check_mode</code>; any other command selects the desktop path.</p>
+<pre><code data-kind="runnable">strings_equal:
+.next:
+    mov al, [rdi]
+    cmp al, [rsi]
+    jne .different
+    cmp al, 0
+    je .equal
+    inc rdi
+    inc rsi
+    jmp .next
+.equal:
+    mov eax, 1
+    ret
+.different:
+    xor eax, eax
+    ret</code></pre>
+<p>Add a non-local <code>window_ready</code> label immediately after storing the validated window pointer. On the check-mode branch, print exactly <code>INIT_OK</code> and enter shared cleanup. Failures retain diagnostics and nonzero status. The finite desktop branch also cleans up in this lab; later sections extend that branch while preserving the check branch.</p>
+<p>Give Make a <code>check-s01</code> target that depends on the binary. SDL's <code>dummy</code> video driver provides a predictable no-display environment for this initialization check. A shell-captured variable is the wrong tool for an exact comparison: <code>$(...)</code> command substitution silently strips every trailing newline before anything is compared, so it cannot actually prove the process emitted <code>INIT_OK</code> followed by one newline and nothing else. Redirect standard output to a file instead, and let <code>cmp</code> compare that file against an expected file byte for byte:</p>
+<pre><code data-kind="pseudocode">.PHONY: check-s01
+check-s01: lifecycle_demo
+	SDL_VIDEODRIVER=dummy ./lifecycle_demo --arcanum-acceptance > check-s01.out
+	printf 'INIT_OK\n' > check-s01.expected
+	cmp check-s01.out check-s01.expected</code></pre>
+<p><code>cmp</code> reads two files and compares them byte by byte; it never trims whitespace or newlines first. When every byte matches, it exits zero and prints nothing. When the files first diverge, it prints the byte and line number of that first difference and exits with status one, which stops Make. <code>printf 'INIT_OK\n'</code> writes exactly eight bytes—the same seven ASCII characters <code>puts</code> emits plus the one newline <code>puts</code> always appends—so the two files can only match when the program's real, complete output is exactly that line.</p>
+<p>Run <code>make check-s01</code>, then inspect <code>echo $?</code>: zero means the binary exited successfully and <code>cmp</code> found the two files identical. A misspelled driver variable can accidentally test the desktop instead. Extra debug text, a missing trailing newline, or any other stray byte on standard output now surfaces as a specific first-difference offset instead of silently passing; direct diagnostics to standard error or remove accidental noise.</p>
+<p>Now rebuild with the taught DWARF flags on a machine with a graphical session and start <code>gdb -q ./lifecycle_demo</code>. At the prompt, set both boundaries with <code>break window_ready</code> and <code>break quit_sdl</code>, then enter <code>run</code>. At <code>window_ready</code>, <code>x/gx &amp;window_handle</code> must display a nonzero eight-byte value while the desktop window remains visible. Use <code>info registers rax rsp eflags</code> to inspect the returned handle, stack position, and current flags. Enter <code>stepi</code> once to execute the next <code>cmp</code>, then <code>info registers eflags</code> again. On the desktop path <code>check_mode</code> is zero, so comparing it with one clears ZF and the following <code>jne</code> will select normal success.</p>
+<p>Enter <code>continue</code> to stop at <code>quit_sdl</code>. This label is after <code>SDL_DestroyWindow</code> and the store that clears <code>window_handle</code>, but before <code>SDL_Quit</code>. Repeat <code>x/gx &amp;window_handle</code>; zero now proves the owned pointer was cleared during the cleanup path. Inspect <code>info registers rdi rsp eflags</code> to record machine state at that boundary, then enter <code>continue</code>. The ordinary desktop path does not select <code>check_mode</code>, so it exits normally without printing <code>INIT_OK</code>. Enter <code>quit</code> after GDB reports the process exit.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // INTERPRET FAILURES</div>
+<p>If <code>check-s01</code> passes but no native window appears in GDB, the headless contract is healthy but the desktop proof is still missing—check the graphical session and SDL diagnostic. If GDB says the label is unknown or shows no useful source information, confirm that NASM produced ELF64 DWARF data and that the linked binary was rebuilt. A zero stored handle means execution should never have reached <code>window_ready</code>; move the label below the validated store rather than weakening the assertion.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "language-observable-debugging-and-verification"
+purpose = "Turn invisible assembly state and control flow into repeatable evidence instead of relying on impressions."
+anatomy = "Expose stable output and exit status, stop at a named success boundary, inspect storage/registers/flags, step a decision, then stop again to inspect cleanup state before exit."
+example = "The lesson pairs exact INIT_OK checking with live-state and post-destruction breakpoints around one stepped comparison."
+observable = "The automated target exits zero, while GDB shows a nonzero live handle, the decision flags, and a cleared handle before normal exit."
+failure = "A success print placed before pointer validation can pass without a resource; anchor output and breakpoint after the validated store."
+practice = "s01-l08-e1"
+
+[[lessons.concepts]]
+id = "native-window-proof"
+purpose = "Demonstrate that the real graphical path owns a live native window, not merely that a headless check can exit."
+anatomy = "Run under a graphical session, break after the validated pointer store, see the held window, inspect nonzero storage, and continue until cleared storage confirms release."
+example = "The GDB procedure stops at window_ready before cleanup and at quit_sdl after window destruction."
+observable = "The window is visible beside a nonzero handle at the first stop, and the handle is zero at the cleanup stop."
+failure = "The dummy driver intentionally produces no desktop window; unset that test-only environment choice for the native proof."
+practice = "s01-l08-e1"
+
+[[lessons.concepts]]
+id = "tool-run-test"
+purpose = "Invoke a named project check, observe its process result, and use failure output to choose the next diagnosis."
+anatomy = "Build the dependency, run make check-s01, read its output, inspect echo $? immediately, and investigate either program status or output mismatch."
+example = "The Make recipe runs the disposable binary under SDL's dummy video driver and compares all standard output."
+observable = "make check-s01 and the immediately following echo $? both indicate zero on a clean result."
+failure = "Running another command before echo $? replaces the status; inspect it immediately or rerun the named check."
+practice = "s01-l08-e1"
+
+[[lessons.concepts]]
+id = "process-entry-argument-access"
+purpose = "Select an optional command mode without reading beyond the process argument-pointer table."
+anatomy = "Read argc from edi and the argv table base from rsi, require argc to cover the desired eight-byte slot, reject the wrong command shape, and only then dereference argv[1]."
+example = "The entry sequence checks argc against two before loading [rsi+8], so a desktop launch with argc=1 performs no argument read."
+observable = "A one-argument launch follows the desktop branch, while exactly one matching user argument can select check_mode."
+failure = "Loading [rsi+8] before proving argc is at least two can read a nonexistent argument; moving the bounds branch above the load removes the invalid access."
+practice = "s01-l08-e2"
+
+[[lessons.concepts]]
+id = "deterministic-init-check"
+purpose = "Prove the same initialization success contract without depending on a human seeing a transient desktop window."
+anatomy = "Guard argv access with argc, compare the exact acceptance argument through a bytewise assembly loop, select SDL_VIDEODRIVER=dummy, require successful exit, redirect standard output to a file, and use cmp to compare it byte-for-byte against an expected file."
+example = "strings_equal returns one only after matching null terminators, and the check-s01 recipe redirects the run's output before handing both files to cmp."
+observable = "The target exits zero only when the process succeeds and cmp reports the captured file identical to the expected file."
+failure = "Reading argv[1] when argc is less than two dereferences a nonexistent entry; check argc before loading the pointer. A shell-captured comparison would also hide a missing trailing newline, so cmp's byte-for-byte check replaces it."
+practice = "s01-l08-e1"
+
+[[lessons.concepts]]
+id = "gdb-state-inspection"
+purpose = "Pause assembly at a meaningful label and inspect the exact memory and registers that justify a claim."
+anatomy = "Open the rebuilt binary in GDB, set live-resource and cleanup breakpoints, run, examine eight-byte storage, inspect registers and eflags, step one instruction, continue, verify cleared storage, resume to exit, and quit."
+example = "The procedure inspects a nonzero handle at window_ready, steps its next comparison, then observes a zero handle at quit_sdl."
+observable = "GDB holds a visible window with nonzero storage, reports the comparison flags after one step, and later shows cleared storage before normal exit."
+failure = "An unknown label or missing source mapping usually means the binary is stale or lacks ELF64 DWARF data; a nonzero handle at quit_sdl means the clear store is missing or the cleanup breakpoint is misplaced."
+practice = "s01-l08-e1"
+
+[[lessons.readings]]
+label = "GDB manual: examining memory"
+url = "https://sourceware.org/gdb/current/onlinedocs/gdb.html/Memory.html"
+
+[[lessons.readings]]
+label = "SDL2 FAQ: selecting a video driver"
+url = "https://wiki.libsdl.org/SDL2/FAQUsingSDL"
+
+[[lessons.exercises]]
+id = "s01-l08-e1"
+type = "mc"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = ["deterministic-init-check", "gdb-state-inspection"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "replace-context"
+aidPolicy = "learning"
+points = 15
+prompt = "In the disposable lab, temporarily print TRACE before INIT_OK, run make check-s01, then remove TRACE and use GDB to break at window_ready and inspect window_handle. Suppose the first command fails but GDB shows a nonzero handle and a visible window. What does that evidence mean?"
+choices = ["Both proofs fail because any failed Make target makes the pointer null", "The exact-output check rejected extra standard output, while the native-window proof succeeded", "The deterministic check succeeded, but GDB cannot inspect assembly storage", "SDL cleanup failed because the debugger stopped the program"]
+answer = 1
+whyWrong = "The distractors conflate independent proofs, deny debugger-visible storage, or treat a temporary breakpoint as cleanup failure."
+hint = "Ask what each proof observes: complete captured text versus live pointer state."
+explain = "TRACE makes the captured output differ from the exact INIT_OK contract. The nonzero stored pointer and held desktop window independently prove the native resource exists."
+
+[[lessons.exercises]]
+id = "s01-l08-e2"
+type = "mc"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = ["process-entry-argument-access"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "replace-context"
+aidPolicy = "learning"
+points = 20
+prompt = "Trace the taught entry guard for a desktop launch with argc=1. What happens before SDL initialization?"
+choices = ["It loads argv[1] and compares an empty string", "It takes .desktop without reading an argument pointer", "It reads argv[2] because slots are four bytes", "It calls strings_equal with the executable name"]
+answer = 1
+whyWrong = "With argc below two, argv[1] is not available. The guard branches before the eight-byte pointer-table load or any string comparison."
+hint = "Follow the first comparison before evaluating the instruction beneath its branches."
+explain = "argc=1 makes the signed-less branch true, so no [rsi+8] dereference occurs and the normal desktop path remains selected."
+
+[[lessons.exercises]]
+id = "s01-l08-e3"
+type = "fill"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = []
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "replace-context"
+aidPolicy = "learning"
+points = 20
+prompt = "Complete the GDB command that examines one eight-byte value at the address of window_handle."
+code = '____ &window_handle'
+answer = "x/gx"
+hint = "Use GDB's examine-memory command with giant-word size and hexadecimal format."
+
+[[lessons.exercises]]
+id = "s01-l08-e4"
+type = "mc"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = ["deterministic-init-check"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "replace-context"
+aidPolicy = "learning"
+points = 20
+prompt = "check-s01 redirects the run into check-s01.out, writes printf 'INIT_OK\\n' into check-s01.expected, then runs cmp check-s01.out check-s01.expected. A teammate's build accidentally emits INIT_OK with no trailing newline. What does cmp report?"
+choices = ["Success, because cmp trims trailing newlines before comparing", "A mismatch, because check-s01.out is one byte shorter than check-s01.expected at the newline position", "Nothing; cmp only compares the two file sizes and prints no offset", "Success, because printf and puts always agree on newlines"]
+answer = 1
+whyWrong = "cmp performs a byte-for-byte comparison with no newline-trimming special case; it reports where the files actually diverge rather than silently passing or only checking total size."
+hint = "Count the bytes each file actually contains and find where they first stop matching."
+explain = "check-s01.expected holds eight bytes: INIT_OK plus one newline. Without that newline, check-s01.out is only seven bytes, so cmp reports the mismatch at that trailing position instead of silently passing."
+
+[[lessons.exercises]]
+id = "s01-l08-d1"
+type = "type"                      # typing drill: retype the code; no point decay
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = []
+cognitiveTask = "recall"
+scaffold = "worked"
+contextFamily = "replace-context"
+aidPolicy = "learning"
+points = 12
+reps = 2
+prompt = "Retype the deterministic invocation exactly. (Ctrl+Enter submits.)"
+code = 'SDL_VIDEODRIVER=dummy ./lifecycle_demo --arcanum-acceptance'
+
+[[lessons.exercises]]
+id = "s01-l08-w1"
+type = "mc"
+required = true
+capabilities = ["language-observable-debugging-and-verification"]
+mechanisms = ["process-entry-argument-access"]
+cognitiveTask = "predict"
+scaffold = "independent"
+contextFamily = "replace-context"
+aidPolicy = "learning"
+points = 30
+prompt = "A different program is launched as ./meter alpha beta. Its argv table has the executable pointer at +0, alpha at +8, beta at +16, and null at +24. After confirming argc is at least two, it loads [rsi+16] and calls that the first user argument. Which diagnosis and repair are correct?"
+choices = ["It read alpha; keep +16", "It read beta; use +8 for argv[1]", "It read the null sentinel; use +0", "It read inline characters; increment rsi by one"]
+answer = 1
+whyWrong = "argv is an eight-byte pointer table: +0 is argv[0], +8 is argv[1], and +16 is argv[2]. The characters live behind those pointers."
+hint = "Divide the byte displacement by the eight-byte slot width."
+explain = "A displacement of 16 selects slot two, beta. The first user argument is argv[1], loaded from [rsi+8] after the bounds check."

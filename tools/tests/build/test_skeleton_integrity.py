@@ -306,5 +306,6 @@ with tempfile.TemporaryDirectory() as root:
     assert working["mechanisms"] == ["mechanism-a", "mechanism-b"]
     assert working["masteryPerformances"] == ["transfer-proof"]
     assert os.path.isfile(os.path.join(tome, "sections", "s01", "assessment.toml"))
+    assert os.path.isfile(os.path.join(tome, "sections", "s01", "research.toml"))
 
 print("skeleton-integrity contract tests: OK")

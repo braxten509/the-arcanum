@@ -1,0 +1,135 @@
+[[lessons]]
+id = "s03-l07"
+title = "Prove Response and Timing"
+teaches = ["responsive-paddle-loop"]
+introduces = ["responsive-loop-check-gdb-and-live-proof"]
+validationDependencies = []
+body = '''
+<p>A moving window needs three complementary proofs. An exact check proves controlled state transitions; GDB proves the internal boundaries those transitions cross; a live run proves real keyboard and close-window interaction. None can replace the others. A fixed token alone can be faked, memory inspection alone does not prove replayability, and visual play alone is not exact.</p>
+<p>Start with the controlled route. A disposable loop check might run four frames with two independent axes and 16-ms synthetic clock steps, then print exactly:</p>
+<pre><code data-kind="terminal">LOOP_OK frames=4 west=-1 east=1 ticks=64</code></pre>
+<p>The check target captures the program's output, compares it byte-for-byte with that one line, and relies on the process exit status too. The token must be emitted only after the real poll, controlled sample, update, render, clock, frame-count, and ordinary cleanup path complete successfully. Change one expected position, remove the update call, or return failure: the target must fail. That mutation check distinguishes evidence from decorative output.</p>
+<p>Next place labels at meaningful instruction boundaries, not arbitrary line numbers: one immediately after controls are decoded, one after both rectangle y values are updated and clamped, and one after a completed frame advances its count and controlled tick. In batch GDB, queue breakpoints before <code>run</code>, inspect at each stop, then use one <code>continue</code> per next boundary:</p>
+<pre><code data-kind="terminal">gdb -q -batch ./build/loop-lab \
+  -ex 'break controls_sampled' \
+  -ex 'break positions_updated' \
+  -ex 'break frame_committed' \
+  -ex 'run --loop-check' \
+  -ex 'x/dw &amp;west_axis' \
+  -ex 'x/dw &amp;east_axis' \
+  -ex 'continue' \
+  -ex 'x/dw &amp;west_marker+4' \
+  -ex 'x/dw &amp;east_marker+4' \
+  -ex 'continue' \
+  -ex 'x/dw &amp;frames_run' \
+  -ex 'x/dw &amp;controlled_tick'</code></pre>
+<p><code>x/dw</code> examines one four-byte word as signed decimal, matching each <code>dd</code> field. The plus-four address reaches the y field of an x/y/w/h rectangle. Expected observations must follow from the declared input and starting state; record values rather than merely saying “looks right.” If GDB reports the program is no longer running, the replay has too many continuations or a missing breakpoint. If a symbol is unknown, rebuild the DWARF target before changing the proof.</p>
+<p>Rehearse the existing tool route now without adding project material: run <code>make check-s02</code>, then <code>make debug</code> and repeat one earlier breakpoint inspection of <code>left_paddle</code> with <code>x/4dw</code>. State which four fields you observed and why the second is y. This retrieves the already-owned debugger workflow before you adapt it in the Working.</p>
+<p>Finally launch the desktop route. Hold both players' controls at once, reverse both directions, push each paddle against both boundaries, and close the window while a movement key remains held. Observe independent motion, no rectangle leaving the court, stable pacing rather than runaway CPU-speed motion, and prompt exit through the single cleanup route. A live test that moves only one paddle never exercises simultaneous sampling; a check that never reaches a clamp never proves boundaries.</p>
+'''
+
+[[lessons.concepts]]
+id = "responsive-paddle-loop"
+purpose = "Establishes that the completed frame loop responds to two players, respects bounds and pacing, and remains promptly quittable."
+anatomy = "Combine an exact controlled replay, state-boundary inspection, and a live interaction matrix covering simultaneous keys, reversals, both clamps, pacing, and quit."
+example = "The disposable LOOP_OK replay, three debugger boundaries, and live two-control procedure demonstrate the complete proof shape."
+observable = "Controlled values match their declared inputs and clock, GDB exposes each transition, and the live window moves both paddles independently before a prompt clean exit."
+failure = "Testing one paddle or one evidence mode leaves simultaneous input, internal state, timing, or real close behavior unproven."
+practice = "s03-l07-e1"
+
+[[lessons.concepts]]
+id = "responsive-loop-check-gdb-and-live-proof"
+purpose = "Makes responsive-loop claims reproducible and resistant to hard-coded success output."
+anatomy = "Compare exact output and exit status, mutate a real transition to confirm failure, inspect signed dwords at ordered GDB labels, then perform a documented live control-and-quit matrix."
+example = "The loop-lab command stops at controls_sampled, positions_updated, and frame_committed before the live test exercises real devices."
+observable = "The exact target fails on a behavioral mutation, debugger values follow the declared state transitions, and live observations agree with the controlled route."
+failure = "A success token printed before work or a GDB replay with mismatched continue commands can report confidence without reaching the claimed boundary."
+practice = "s03-l07-e1"
+
+[[lessons.readings]]
+label = "GDB: Examining Memory"
+url = "https://sourceware.org/gdb/current/onlinedocs/gdb.html/Memory.html"
+
+[[lessons.exercises]]
+id = "s03-l07-e1"
+type = "mc"
+required = true
+capabilities = ["language-data-layout-and-integer-state", "language-observable-debugging-and-verification"]
+mechanisms = ["responsive-loop-check-gdb-and-live-proof"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "loop-proof-lab"
+aidPolicy = "learning"
+points = 15
+prompt = "At controls_sampled GDB shows west_axis=-1 and east_axis=1. Starting y values are 30 and 60 with speed 5 and no clamp reached. What should positions_updated show?"
+choices = ["west y=25, east y=65", "west y=35, east y=55", "west y=-1, east y=1", "west y=30, east y=60"]
+answer = 0
+whyWrong = "The axes are signed directions multiplied by speed and applied to the prior y values; they are not stored directly as positions."
+hint = "Apply axis times five to each starting y."
+explain = "West applies -5 to 30 and east applies +5 to 60, so the observable y values are 25 and 65."
+
+[[lessons.exercises]]
+id = "s03-l07-e2"
+type = "text"
+required = true
+capabilities = ["language-data-layout-and-integer-state", "language-observable-debugging-and-verification"]
+mechanisms = ["responsive-loop-check-gdb-and-live-proof"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "prior-proof-retrieval"
+aidPolicy = "learning"
+points = 20
+prompt = "Run make check-s02, then use the existing debug route to inspect x/4dw &left_paddle. Report the four field roles in order and explain why the second observed word is the y coordinate."
+answer = "The fields are x, y, w, h; each is one four-byte dd, so x/4dw starts at x and the second consecutive word is y at byte offset 4."
+hint = "Use the SDL_Rect-compatible order established in the court section."
+
+[[lessons.exercises]]
+id = "s03-l07-e3"
+type = "fill"
+required = true
+capabilities = ["language-data-layout-and-integer-state", "language-observable-debugging-and-verification"]
+mechanisms = ["responsive-loop-check-gdb-and-live-proof"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "loop-proof-lab"
+aidPolicy = "learning"
+points = 20
+prompt = "Complete the GDB expression that inspects a rectangle's y field as one signed four-byte word."
+code = 'x/dw &west_marker+____'
+answer = "4"
+hint = "One dword x field precedes y."
+
+[[lessons.exercises]]
+id = "s03-l07-d1"
+type = "type"
+required = true
+capabilities = ["language-data-layout-and-integer-state", "language-observable-debugging-and-verification"]
+mechanisms = []
+cognitiveTask = "recall"
+scaffold = "worked"
+contextFamily = "loop-proof-lab"
+aidPolicy = "learning"
+points = 12
+reps = 2
+prompt = "Retype the ordered boundary setup exactly. (Ctrl+Enter submits.)"
+code = '''break controls_sampled
+break positions_updated
+break frame_committed'''
+
+[[lessons.exercises]]
+id = "s03-l07-w1"
+type = "mc"
+required = true
+capabilities = ["language-data-layout-and-integer-state", "language-observable-debugging-and-verification"]
+mechanisms = ["responsive-loop-check-gdb-and-live-proof"]
+cognitiveTask = "test-design"
+scaffold = "independent"
+contextFamily = "proof-coverage-review"
+aidPolicy = "learning"
+points = 30
+prompt = "Which live test adds evidence that the deterministic replay and a one-player visual test both lack?"
+choices = ["Open and close the terminal without launching the program", "Hold one paddle's down key for one frame", "Hold one control for each paddle simultaneously, reverse both, then close the window while a key remains held", "Read the fixed success token twice"]
+answer = 2
+whyWrong = "Only the simultaneous, reversing, close-under-input procedure exercises independent two-player sampling and responsive quit under active input."
+hint = "Look for an interaction that combines both players with the close path."
+explain = "That sequence checks independent simultaneous sampling, direction changes, and whether quit remains responsive while input is active."

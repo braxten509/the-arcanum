@@ -1,0 +1,183 @@
+[[lessons]]
+id = "s02-l04"
+title = "Decompose the Draw Path"
+teaches = ["court-render-procedures"]
+introduces = ["abi-safe-render-procedure-decomposition"]
+validationDependencies = []
+body = '''
+<p>Repeating a set-color-then-fill pair inline for every shape works for one rectangle. It breaks down for several: every copy risks drifting out of sync, and a bug fix has to be repeated by hand everywhere. The fix is a small reusable procedure that takes a rectangle pointer and a color, and does the set-color-then-fill work once, called as many times as there are shapes.</p>
+<p>The tricky part is not the drawing — it is the ABI. <code>SDL_SetRenderDrawColor</code> wants <code>(renderer, r, g, b, a)</code> as its first five arguments. <code>SDL_RenderFillRect</code> wants <code>(renderer, rect)</code>. Your own helper's caller only wants to hand over <code>(rect, r, g, b, a)</code>, since the renderer is already known globally. Three different argument shapes, one procedure, no wasted register shuffling if you place the pieces carefully.</p>
+<pre><code data-kind="runnable">draw_dash_rect:                     ; rdi=rect ptr, esi=r, edx=g, ecx=b, r8d=a
+    push rbx                        ; preserve rbx and align rsp before nested calls
+    mov rbx, rdi                    ; stash the rect pointer in a callee-saved register
+    mov rdi, [rel dash_renderer]    ; renderer becomes SetRenderDrawColor's first argument
+    call SDL_SetRenderDrawColor     ; r, g, b, a already occupy arguments two through five
+    cmp eax, 0
+    jl .draw_failed
+    mov rdi, [rel dash_renderer]
+    mov rsi, rbx
+    call SDL_RenderFillRect
+    cmp eax, 0
+    jl .draw_failed
+    xor eax, eax
+    jmp .draw_done
+.draw_failed:
+    call dash_report_error
+    mov eax, 1
+.draw_done:
+    pop rbx
+    ret</code></pre>
+<p>Read the register moves closely. On entry, the four color values already sit in <code>esi</code>, <code>edx</code>, <code>ecx</code>, and <code>r8d</code>—exactly where <code>SDL_SetRenderDrawColor</code> expects arguments two through five. Only <code>rdi</code> must change from “rect pointer” to “renderer pointer.” The rect pointer would be lost, so the helper copies it into <code>rbx</code>, a callee-saved register that the nested SDL call must preserve.</p>
+<p>The one <code>push rbx</code> does two jobs. It saves the caller's value so this helper can restore it, and—given the System V entry alignment you traced earlier—moves <code>rsp</code> to the required 16-byte call boundary before either nested call. Adding another unmatched push would break that alignment. Every exit converges on <code>pop rbx</code>, so both success and failure restore the caller's register and stack position.</p>
+<p>After the color call succeeds, <code>rdi</code> is reloaded with the renderer and <code>rsi</code> is loaded from <code>rbx</code>, matching <code>SDL_RenderFillRect</code>'s <code>(renderer, rect)</code> shape. Both calls funnel failure into one shared branch, just like the frame-level draw calls in the previous lesson.</p>
+<pre><code data-kind="runnable">paint_dash_panels:
+    push rbp
+    mov rbp, rsp
+    lea rdi, [rel warning_zone]
+    mov esi, 220
+    mov edx, 40
+    mov ecx, 40
+    mov r8d, 255
+    call draw_dash_rect
+    cmp eax, 0
+    jne .panels_done
+    lea rdi, [rel status_zone]
+    mov esi, 40
+    mov edx, 200
+    mov ecx, 90
+    mov r8d, 255
+    call draw_dash_rect
+.panels_done:
+    leave
+    ret</code></pre>
+<p>The caller never touches either SDL drawing call directly. It loads a rect pointer and four color values, calls <code>draw_dash_rect</code>, checks the returned status, and proceeds only after success. The second helper's result becomes <code>paint_dash_panels</code>' result, so a failure at either shape reaches its caller instead of being overwritten by later work.</p>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // WHY RBX AND NOT RCX</div><p>rcx is caller-saved: a call is free to overwrite it, so anything stored there before SDL_SetRenderDrawColor could be gone afterward. rbx is callee-saved, meaning SDL's own implementation is obligated to restore it before returning to you. That guarantee is exactly what makes it safe to hold the rect pointer across the nested call.</p></div>
+'''
+
+[[lessons.concepts]]
+id = "court-render-procedures"
+purpose = "Turns a repeated set-color-then-fill pattern into one reusable procedure callable once per shape."
+anatomy = "A procedure taking a rect pointer and four color values, internally calling SDL_SetRenderDrawColor then SDL_RenderFillRect with the shared renderer handle and returning one status."
+example = "draw_dash_rect is called twice from paint_dash_panels with different rect pointers and colors."
+observable = "Each call to draw_dash_rect paints exactly one shape in its own color, with no duplicated inline SDL calls at the call site."
+failure = "Inlining the color-and-fill pair separately for every shape instead of calling one shared procedure risks the copies drifting apart after an edit."
+practice = "s02-l04-e1"
+
+[[lessons.concepts]]
+id = "abi-safe-render-procedure-decomposition"
+purpose = "Lets one procedure satisfy two different nested calls' argument shapes without losing data it still needs."
+anatomy = "Stash an incoming value in a saved register, align the stack for nested calls, remap each callee's arguments, propagate status, and restore the saved register on every exit."
+example = "draw_dash_rect copies its incoming rect pointer from rdi into rbx before rdi is repurposed as SDL_SetRenderDrawColor's renderer argument."
+observable = "rbx still holds the correct rect pointer immediately after SDL_SetRenderDrawColor returns, even though rdi's value changed."
+failure = "Stashing the rect pointer in a caller-saved register instead of a callee-saved one risks the nested call silently overwriting it."
+practice = "s02-l04-e3"
+
+[[lessons.readings]]
+label = "System V AMD64 ABI"
+url = "https://gitlab.com/x86-psABIs/x86-64-ABI"
+
+[[lessons.readings]]
+label = "SDL2: SDL_SetRenderDrawColor"
+url = "https://wiki.libsdl.org/SDL2/SDL_SetRenderDrawColor"
+
+[[lessons.exercises]]
+id = "s02-l04-e1"
+type = "mc"
+required = true
+capabilities = ["language-abi-procedures-and-register-discipline"]
+mechanisms = ["abi-safe-render-procedure-decomposition"]
+cognitiveTask = "predict"
+scaffold = "guided"
+contextFamily = "dash-decompose-lab"
+aidPolicy = "learning"
+points = 15
+prompt = "In draw_dash_rect, why do esi, edx, ecx, and r8d need no adjustment before calling SDL_SetRenderDrawColor?"
+choices = ["SDL_SetRenderDrawColor ignores those arguments entirely", "NASM automatically reorders arguments to match any callee", "Those registers are callee-saved, so their values are protected regardless of position", "They already sit in the exact registers that argument positions two through five require"]
+answer = 3
+whyWrong = "SDL_SetRenderDrawColor does use r, g, b, a; NASM performs no automatic argument reordering; and being callee-saved is unrelated to whether a value is already in the correct argument slot."
+hint = "Compare draw_dash_rect's own parameter registers against SDL_SetRenderDrawColor's parameter positions two through five."
+explain = "draw_dash_rect's incoming color values already occupy esi, edx, ecx, and r8d—the same argument registers SDL_SetRenderDrawColor uses for r, g, b, and a—so only rdi changes from rect pointer to renderer pointer."
+
+[[lessons.exercises]]
+id = "s02-l04-e2"
+type = "text"
+required = true
+capabilities = ["language-abi-procedures-and-register-discipline"]
+mechanisms = ["abi-safe-render-procedure-decomposition"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "dash-decompose-lab"
+aidPolicy = "learning"
+points = 20
+prompt = "Explain why rbx is used to hold the rect pointer across the call to SDL_SetRenderDrawColor instead of simply leaving it in rdi."
+answer = "rdi must be overwritten with the renderer pointer to satisfy SDL_SetRenderDrawColor's first argument, so the rect pointer would be lost if it stayed there; rbx is callee-saved, meaning the call is obligated to leave it unchanged, so moving the rect pointer there first preserves it across the call."
+hint = "Ask what value rdi needs to hold for the call that comes next, and whether that conflicts with what it currently holds."
+
+[[lessons.exercises]]
+id = "s02-l04-e3"
+type = "fill"
+required = true
+capabilities = ["language-abi-procedures-and-register-discipline"]
+mechanisms = ["abi-safe-render-procedure-decomposition"]
+cognitiveTask = "complete"
+scaffold = "completion"
+contextFamily = "dash-decompose-lab"
+aidPolicy = "learning"
+points = 20
+prompt = "Complete the reload that prepares SDL_RenderFillRect's second argument from the stashed rect pointer."
+code = '''mov rdi, [rel dash_renderer]
+mov rsi, ____'''
+answer = "rbx"
+hint = "The rect pointer was stashed in a callee-saved register earlier in the procedure."
+
+[[lessons.exercises]]
+id = "s02-l04-e4"
+type = "mc"
+required = true
+capabilities = ["language-abi-procedures-and-register-discipline"]
+mechanisms = ["abi-safe-render-procedure-decomposition"]
+cognitiveTask = "explain"
+scaffold = "guided"
+contextFamily = "dash-decompose-lab"
+aidPolicy = "learning"
+points = 20
+prompt = "At draw_dash_rect entry, rsp is eight bytes away from a 16-byte call boundary. Why is one push rbx sufficient before its nested SDL calls?"
+choices = ["SDL calls ignore stack alignment", "The eight-byte push both saves rbx and moves rsp onto the required 16-byte boundary", "push rbx changes only rbx, not rsp", "NASM inserts an invisible alignment instruction"]
+answer = 1
+whyWrong = "A push changes rsp by eight bytes, SDL calls still follow the ABI, and NASM does not add hidden prologue instructions."
+hint = "Track rsp modulo 16 before and after one eight-byte push."
+explain = "The return address leaves rsp eight bytes off the call boundary at entry. Pushing one eight-byte register moves rsp onto that boundary while also preserving rbx; pop rbx reverses both effects before return."
+
+[[lessons.exercises]]
+id = "s02-l04-d1"
+type = "type"
+required = true
+capabilities = ["language-abi-procedures-and-register-discipline"]
+mechanisms = []
+cognitiveTask = "recall"
+scaffold = "worked"
+contextFamily = "dash-decompose-lab"
+aidPolicy = "learning"
+points = 12
+reps = 2
+prompt = "Retype the register stash that preserves the rect pointer exactly. (Ctrl+Enter submits.)"
+code = '''push rbx
+mov rbx, rdi'''
+
+[[lessons.exercises]]
+id = "s02-l04-w1"
+type = "mc"
+required = true
+capabilities = ["language-abi-procedures-and-register-discipline"]
+mechanisms = ["abi-safe-render-procedure-decomposition"]
+cognitiveTask = "predict"
+scaffold = "independent"
+contextFamily = "dash-decompose-lab"
+aidPolicy = "learning"
+points = 30
+prompt = "A trainee rewrites draw_dash_rect to stash the rect pointer in rcx instead of rbx, leaving everything else unchanged. What is the most likely outcome?"
+choices = ["No difference; both registers behave identically for this purpose", "SDL_SetRenderDrawColor may overwrite rcx internally, so the rect pointer read afterward can be corrupted", "The procedure fails to assemble because rcx cannot hold a pointer", "SDL_RenderFillRect will read the color bytes instead of the rect pointer"]
+answer = 1
+whyWrong = "rcx is a valid general register for pointers at the assembler level, and SDL_RenderFillRect's arguments are unrelated to this substitution; the real issue is the ABI's caller/callee-saved contract, not syntax."
+hint = "Recall which registers a called procedure is allowed to change freely versus which ones it must restore."
+explain = "rcx is caller-saved, so SDL_SetRenderDrawColor's own implementation is free to overwrite it without restoring it; reading the rect pointer back out of rcx afterward is not guaranteed to give the original value, unlike the callee-saved rbx."

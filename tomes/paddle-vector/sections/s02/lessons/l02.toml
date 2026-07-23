@@ -1,152 +1,123 @@
 [[lessons]]
 id = "s02-l02"
-title = "Model the Court as Rectangles"
+title = "TODO: Model the Court as Rectangles"
 teaches = ["court-rectangle-state"]
 introduces = ["sdl-rect-compatible-integer-layout"]
 validationDependencies = []
 body = '''
-<p><code>SDL_RenderFillRect</code> and its relatives expect a pointer to an <code>SDL_Rect</code>: a C struct whose fields are <code>int x</code>, <code>int y</code>, <code>int w</code>, and <code>int h</code>, in that exact order. On this course's Linux x86-64 ABI, each C <code>int</code> is four bytes, so the block is sixteen bytes total. SDL never asks NASM for a struct definition; it reads the bytes at the pointer you hand it as x, then y, then w, then h. Four consecutive <code>dd</code> values therefore form the compatible layout without special struct syntax.</p>
-<pre><code data-kind="runnable">section .data
-    warning_zone:
-        dd 40      ; x
-        dd 40      ; y
-        dd 120     ; w
-        dd 30      ; h</code></pre>
-<p><code>warning_zone</code> now names the address of the first <code>dd</code>. Passing that address anywhere SDL expects <code>SDL_Rect*</code> is enough; SDL reads the next sixteen bytes as x, y, w, h without ever knowing NASM built them.</p>
-<p>You already know <code>[rel label]</code> for a whole label and <code>[reg+disp]</code> for an offset from a register. A struct field needs a third, combined form: an offset added directly onto a label. <code>[rel warning_zone + 8]</code> means "the address of <code>warning_zone</code>, plus eight bytes" — which lands exactly on the <code>w</code> field, since x and y each take four bytes ahead of it.</p>
-<pre><code data-kind="runnable">read_warning_width:
-    mov eax, [rel warning_zone + 8]     ; loads w
-    ret
-
-grow_warning_height:
-    mov dword [rel warning_zone + 12], 40   ; overwrites h
-    ret</code></pre>
-<p>Trace the offsets like a table: <code>+0</code> is x, <code>+4</code> is y, <code>+8</code> is w, <code>+12</code> is h. Each <code>dd</code> defines and emits one initialized four-byte doubleword, matching the C <code>int</code> that <code>SDL_Rect</code> declares for every field. Nothing pads the struct, because four four-byte fields already land on four-byte boundaries without help.</p>
-<p>A real court needs several of these blocks — one label per rectangle, each with its own four <code>dd</code> lines in x, y, w, h order. There is no array syntax required yet; separately labeled blocks are enough, and you decide in your own project how many rectangles a court needs and what to name each one.</p>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // WHEN THE LAYOUT LIES</div><p>Two mistakes make a rectangle silently wrong instead of visibly broken. Declaring a field with <code>db</code> instead of <code>dd</code> shrinks it to one byte, so SDL reads three unrelated bytes past it as part of the same field — the shape comes out enormous or negative. Swapping the order of two <code>dd</code> lines, say w and h, still assembles cleanly; SDL just paints a rectangle stretched the wrong way, because it never checks which field is which, only where each one sits.</p></div>
+<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
+<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
+<p>TODO: an optional deeper-cut appendix.</p></div>
 '''
 
 [[lessons.concepts]]
 id = "court-rectangle-state"
-purpose = "Represents a drawable shape's position and size as plain, correctly-ordered integer data SDL can read directly."
-anatomy = "Four consecutive dd values in x, y, w, h order under one label, with no padding and no NASM-side struct declaration needed."
-example = "warning_zone reserves sixteen bytes as x=40, y=40, w=120, h=30."
-observable = "Sixteen bytes at the label's address decode as four correct 32-bit fields when read back in x, y, w, h order."
-failure = "Using db for a field or reordering the four lines corrupts the shape without producing an assembler error."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s02-l02-e1"
 
 [[lessons.concepts]]
 id = "sdl-rect-compatible-integer-layout"
-purpose = "Lets a label plus a byte offset address one field inside a struct-shaped block without a register or a struct keyword."
-anatomy = "[rel label + N] combines relative addressing with a constant displacement, where N is the byte offset of the target field."
-example = "[rel warning_zone + 8] addresses the w field; [rel warning_zone + 12] addresses h."
-observable = "Reading or writing at +0/+4/+8/+12 affects exactly x/y/w/h and no other field."
-failure = "Using the wrong displacement, or one not a multiple of four, reads across a field boundary instead of inside one field."
-practice = "s02-l02-e3"
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
+practice = "s02-l02-e1"
 
-[[lessons.readings]]
-label = "SDL2: SDL_Rect"
-url = "https://wiki.libsdl.org/SDL2/SDL_Rect"
+[[lessons.readings]]               # optional: 1-2 high-quality official docs
+label = "TODO: official docs"
+url = "https://example.com/TODO"
 
 [[lessons.exercises]]
 id = "s02-l02-e1"
 type = "mc"
 required = true
-capabilities = ["language-data-layout-and-integer-state"]
+capabilities = ["court-rectangle-state"]
 mechanisms = ["sdl-rect-compatible-integer-layout"]
 cognitiveTask = "predict"
 scaffold = "guided"
-contextFamily = "dash-rect-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 15
-prompt = "A teammate declares a rectangle as `dd 10` / `db 20` / `dd 30` / `dd 5` for x/y/w/h. What happens when SDL reads it as an SDL_Rect?"
-choices = ["The assembler rejects the mismatched sizes", "Every field reads as zero", "SDL automatically widens the db field to four bytes", "Only x remains correctly aligned; SDL combines y's byte with following bytes, and the later fields are read from shifted boundaries"]
-answer = 3
-whyWrong = "NASM accepts any mix of directives without checking struct compatibility, does not zero unrelated fields, and never widens a directive on your behalf."
-hint = "Count bytes: db reserves one, not four, so everything after it lands one byte too early."
-explain = "The db gives y only one byte, but SDL still reads four bytes beginning at offset +4. That read consumes y plus three bytes of w, and the fixed +8 and +12 reads no longer begin at the declared w and h values. Only x remains correctly aligned."
+prompt = "TODO: a multiple-choice question?"
+choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
+answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
+whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
+hint = "TODO: an exercise-specific hint."
+explain = "TODO: shown after solving."
 
 [[lessons.exercises]]
 id = "s02-l02-e2"
 type = "text"
 required = true
-capabilities = ["language-data-layout-and-integer-state"]
-mechanisms = ["sdl-rect-compatible-integer-layout"]
+capabilities = ["court-rectangle-state"]
+mechanisms = []
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "dash-rect-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 20
-prompt = "Explain why warning_zone needs no NASM struct declaration for SDL to treat it as a valid SDL_Rect."
-answer = "SDL only reads sixteen bytes at the given pointer as four 32-bit fields in order; it never inspects how NASM declared them, so any correctly-sized and correctly-ordered dd values already satisfy the layout."
-hint = "Think about what information actually crosses the call boundary: a pointer, or a type."
+prompt = "TODO: a free-text question."
+answer = "TODO"
+# accept = ["TODO alternate"]      # optional true alternates only
+hint = "TODO: an exercise-specific hint."
 
 [[lessons.exercises]]
 id = "s02-l02-e3"
 type = "fill"
 required = true
-capabilities = ["language-data-layout-and-integer-state"]
-mechanisms = ["sdl-rect-compatible-integer-layout"]
+capabilities = ["court-rectangle-state"]
+mechanisms = []
 cognitiveTask = "complete"
 scaffold = "completion"
-contextFamily = "dash-rect-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 20
-prompt = "Complete the displacement that addresses warning_zone's h field."
-code = 'mov eax, [rel warning_zone + ____]'
-answer = "12"
-hint = "x is +0, y is +4, w is +8; h is one field further."
+prompt = "TODO: fill the blank."
+code = 'answer = ____'             # the ____ marks where the answer goes
+answer = "TODO"
+hint = "TODO: an exercise-specific hint."
 
 [[lessons.exercises]]
 id = "s02-l02-d1"
-type = "type"
+type = "type"                      # typing drill: retype the code; no point decay
 required = true
-capabilities = ["language-data-layout-and-integer-state"]
+capabilities = ["court-rectangle-state"]
 mechanisms = []
 cognitiveTask = "recall"
 scaffold = "worked"
-contextFamily = "dash-rect-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 12
 reps = 2
-prompt = "Retype the four-field rectangle layout exactly, in order. (Ctrl+Enter submits.)"
-code = '''dd 40
-dd 40
-dd 120
-dd 30'''
+prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
+code = 'print("TODO")'
 
 [[lessons.exercises]]
 id = "s02-l02-w1"
-type = "mc"
+type = "write"                     # CODE LAB: runs on the real runtime; no point decay
 required = true
-capabilities = ["language-data-layout-and-integer-state"]
-mechanisms = ["sdl-rect-compatible-integer-layout"]
-cognitiveTask = "predict"
-scaffold = "independent"
-contextFamily = "dash-rect-lab"
+capabilities = ["court-rectangle-state"]
+mechanisms = []
+cognitiveTask = "build"
+scaffold = "guided"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 30
-prompt = "You need a second rectangle, status_zone, near warning_zone. What is the most direct way to declare it, consistent with how SDL reads SDL_Rect data?"
-choices = ["Reuse warning_zone's label with a different offset for every field", "Declare a second label, status_zone, with its own four dd lines in x, y, w, h order", "Store status_zone's values inside warning_zone's unused padding bytes", "Declare status_zone with dq values so it holds more precision than warning_zone"]
-answer = 1
-whyWrong = "SDL_Rect has no padding to borrow, reusing one label for two shapes conflates their data, and dq fields would double every offset and no longer match SDL_Rect's 32-bit layout."
-hint = "Each rectangle needs its own sixteen bytes; nothing about SDL_Rect lets two shapes share one block."
-explain = "A second independently labeled block of four dd values, in the same x, y, w, h order, is both the simplest and the only layout-correct choice; SDL_Rect defines no padding to exploit and no wider field width to switch to."
-
-[[lessons.exercises]]
-id = "s02-l02-w2"
-type = "text"
-required = true
-capabilities = ["language-data-layout-and-integer-state"]
-mechanisms = ["sdl-rect-compatible-integer-layout"]
-cognitiveTask = "modify"
-scaffold = "independent"
-contextFamily = "dash-rect-lab"
-aidPolicy = "learning"
-points = 30
-prompt = "status_zone is a valid four-dd SDL_Rect. Write four NASM instructions that swap only its w and h fields using eax and edx, leaving x and y unchanged."
-answer = '''mov eax, [rel status_zone + 8]
-mov edx, [rel status_zone + 12]
-mov [rel status_zone + 8], edx
-mov [rel status_zone + 12], eax'''
-hint = "Load both old values before either store; w starts at +8 and h starts at +12."
+prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
+# starter = '''
+# TODO: prefilled editor code / the exercise's data
+# '''
+expect = '''
+TODO EXACT OUTPUT'''
+# REQUIRED before shipping: a complete program that passes. Never shown to the
+# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
+# solution = '''
+# TODO
+# '''
+hint = "TODO: an exercise-specific hint."

@@ -1,64 +1,37 @@
 [[lessons]]
 id = "s01-l05"
-title = "Call Across the System V ABI"
+title = "TODO: Call Across the System V ABI"
 teaches = ["language-abi-procedures-and-register-discipline"]
 introduces = ["sysv-abi-procedure-discipline"]
 validationDependencies = []
 body = '''
-<p>An ABI is the meeting protocol between separately built code. On 64-bit Linux, the System V AMD64 ABI says where integer and pointer arguments arrive, where results return, which registers a callee must preserve, and how the stack is aligned. Without that agreement, an SDL call would receive unrelated bits.</p>
-<p>The first six integer or pointer arguments use <code>RDI, RSI, RDX, RCX, R8, R9</code>. An integer or pointer result returns in <code>RAX</code>. Registers <code>RAX, RCX, RDX, RSI, RDI, R8-R11</code> are caller-saved: a call may replace them. <code>RBX, RBP, R12-R15</code> are callee-saved: a procedure that changes one must restore it before <code>ret</code>.</p>
-<pre><code data-kind="pseudocode">add_badges:
-    push rbp
-    mov rbp, rsp
-    mov eax, edi
-    add eax, esi
-    pop rbp
-    ret
-
-main:
-    push rbp
-    mov rbp, rsp
-    mov edi, 7
-    mov esi, 5
-    call add_badges
-    pop rbp
-    ret</code></pre>
-<p>The caller places 7 and 5 in the first two argument registers. <code>call</code> pushes a return address and transfers control. The callee's prologue saves <code>RBP</code>; its epilogue restores it. <code>EAX</code> returns 12. On entry to an ordinary C-compatible function, the pushed return address leaves <code>RSP</code> eight bytes away from a 16-byte boundary. <code>push rbp</code> realigns it before any nested call. Every push or subtraction must be paired on every return path.</p>
-<p>NASM's <code>leave</code> instruction is a second, equivalent epilogue spelling: it copies <code>RBP</code> back into <code>RSP</code> and then pops the saved <code>RBP</code>, the same two effects <code>mov rsp, rbp</code> followed by <code>pop rbp</code> would produce by hand. It still pairs with a <code>push rbp / mov rbp, rsp</code> prologue and must still be followed by <code>ret</code>.</p>
-<pre><code data-kind="pseudocode">scale_meter:
-    push rbp
-    mov rbp, rsp
-    mov eax, edi
-    imul eax, esi
-    leave
-    ret</code></pre>
-<p>Trace it the same way: <code>leave</code> resets <code>RSP</code> to the value saved in <code>RBP</code>, pops that saved <code>RBP</code>, and only then does <code>ret</code> pop the return address. Skipping either <code>leave</code> or a manual <code>pop rbp</code> leaves the caller's <code>RBP</code> overwritten and <code>ret</code> popping the wrong value; both spellings owe the same balanced pair as <code>push rbp / pop rbp</code>.</p>
-<p>Variadic C functions such as <code>printf</code> add one rule: before the call, <code>AL</code> reports how many vector registers carry floating-point arguments. With only integer/pointer arguments, <code>xor eax, eax</code> sets that count to zero. Do this after preparing any return value because it overwrites <code>EAX</code>.</p>
-<p>A classic failure stores live state only in <code>RDI</code>, calls a library function, and expects <code>RDI</code> to survive. Move long-lived state to memory or a properly saved callee-saved register. Another failure pushes one extra register and forgets the matching pop, shifting the return address. Diagnose ABI trouble with a register ownership table: value, owner, lifetime, and whether a call may clobber it.</p>
-<div class="field-notes"><div class="fn-head">FIELD NOTES // NARROW WRITES</div><p>Writing a 32-bit register such as <code>EDI</code> zeroes the upper half of <code>RDI</code>. That is suitable for C <code>int</code> arguments. Pointers require the full 64-bit register.</p></div>
+<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
+<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
+<p>TODO: an optional deeper-cut appendix.</p></div>
 '''
 
 [[lessons.concepts]]
 id = "language-abi-procedures-and-register-discipline"
-purpose = "Lets learner-authored procedures and external C libraries exchange values safely."
-anatomy = "Place arguments, align the stack, call, read RAX, and preserve every callee-saved register you change."
-example = "main calls add_badges with 7 and 5 and receives 12 in EAX."
-observable = "A register trace shows arguments in EDI/ESI, an aligned nested-call point, and 12 returned."
-failure = "Keeping live state in caller-saved registers across a call or unbalancing the stack produces corrupted values or crashes."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s01-l05-e1"
 
 [[lessons.concepts]]
 id = "sysv-abi-procedure-discipline"
-purpose = "Applies the concrete System V AMD64 register, return, preservation, alignment, and variadic rules."
-anatomy = "Use RDI through R9 for six integer/pointer arguments, RAX for results, a balanced prologue/epilogue (pop rbp/ret or the equivalent leave/ret), and AL=0 for non-vector variadic calls."
-example = "The add_badges procedure preserves RBP and returns through EAX."
-observable = "The trace reaches ret with the original RBP/RSP restored and EAX equal to 12."
-failure = "One unmatched push changes where ret finds its address; stale RDI after a library call violates caller-save ownership."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s01-l05-e1"
 
 [[lessons.readings]]               # optional: 1-2 high-quality official docs
-label = "System V AMD64 ABI"
-url = "https://gitlab.com/x86-psABIs/x86-64-ABI"
+label = "TODO: official docs"
+url = "https://example.com/TODO"
 
 [[lessons.exercises]]
 id = "s01-l05-e1"
@@ -71,28 +44,28 @@ scaffold = "guided"
 contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 15
-prompt = "main puts a pointer in RDI, calls printf, then reuses RDI without saving it. Which diagnosis is correct?"
-choices = ["RDI is callee-saved", "printf must return the pointer in RBP", "RDI is caller-saved, so the pointer's lifetime crosses an unsafe call", "Pointers belong in EAX"]
-answer = 2
-whyWrong = "The alternatives assign the wrong preservation class, return location, or width."
-hint = "Ask who promises to preserve the first argument register."
-explain = "The caller owns RDI across a call; keep long-lived data in memory or preserve it appropriately."
+prompt = "TODO: a multiple-choice question?"
+choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
+answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
+whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
+hint = "TODO: an exercise-specific hint."
+explain = "TODO: shown after solving."
 
 [[lessons.exercises]]
 id = "s01-l05-e2"
-type = "fill"
+type = "text"
 required = true
 capabilities = ["language-abi-procedures-and-register-discipline"]
 mechanisms = []
-cognitiveTask = "complete"
-scaffold = "completion"
+cognitiveTask = "explain"
+scaffold = "guided"
 contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 20
-prompt = "Complete the traced return value after add_badges receives EDI=9 and ESI=4."
-code = 'EAX = ____'
-answer = "13"
-hint = "The procedure copies its first argument, then adds its second."
+prompt = "TODO: a free-text question."
+answer = "TODO"
+# accept = ["TODO alternate"]      # optional true alternates only
+hint = "TODO: an exercise-specific hint."
 
 [[lessons.exercises]]
 id = "s01-l05-e3"
@@ -105,11 +78,10 @@ scaffold = "completion"
 contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 20
-prompt = "Complete the preparation for a variadic call with no vector arguments."
-code = '''____ eax, eax
-call printf'''
-answer = "xor"
-hint = "Zero AL by zeroing its containing 32-bit register."
+prompt = "TODO: fill the blank."
+code = 'answer = ____'             # the ____ marks where the answer goes
+answer = "TODO"
+hint = "TODO: an exercise-specific hint."
 
 [[lessons.exercises]]
 id = "s01-l05-d1"
@@ -123,24 +95,29 @@ contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 12
 reps = 2
-prompt = "Retype the first two integer argument moves exactly. (Ctrl+Enter submits.)"
-code = '''mov edi, 7
-mov esi, 5'''
+prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
+code = 'print("TODO")'
 
 [[lessons.exercises]]
 id = "s01-l05-w1"
-type = "mc"
+type = "write"                     # CODE LAB: runs on the real runtime; no point decay
 required = true
 capabilities = ["language-abi-procedures-and-register-discipline"]
 mechanisms = []
-cognitiveTask = "predict"
-scaffold = "independent"
+cognitiveTask = "build"
+scaffold = "guided"
 contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 30
-prompt = "A procedure saves the frame pointer and RBX, but restores only RBX before ret. Which saved register value still occupies the stack?"
-choices = ["RSP", "RBP", "RAX", "RDI"]
-answer = 1
-whyWrong = "The omitted restoration corresponds to the saved frame pointer; the other listed registers were not the unmatched push."
-hint = "Match each save to its restoration in reverse order."
-explain = "RBP was pushed first and remains on top of the return address after only RBX is popped."
+prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
+# starter = '''
+# TODO: prefilled editor code / the exercise's data
+# '''
+expect = '''
+TODO EXACT OUTPUT'''
+# REQUIRED before shipping: a complete program that passes. Never shown to the
+# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
+# solution = '''
+# TODO
+# '''
+hint = "TODO: an exercise-specific hint."

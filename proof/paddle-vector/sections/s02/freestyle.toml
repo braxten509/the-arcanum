@@ -1,0 +1,471 @@
+[freestyle]
+title = "THE WORKING: RENDER THE COURT"
+brief = '''
+<p><strong>Outcome:</strong> Extend your learner-owned <code>src/pong.asm</code> and <code>Makefile</code> so the existing native window renders one complete Pong court: a background, center line, two paddles, and a ball. Keep your section-one files and choices; author every addition yourself rather than transplanting a lesson lab.</p>
+<ul>
+<li>Create one renderer after the validated window store. Check its pointer immediately. A null renderer must log the current SDL diagnostic, preserve a nonzero result, and reach shared cleanup. Every path that owns a renderer must destroy it exactly once, clear its stored handle, and only then release the window and call <code>SDL_Quit</code>.</li>
+<li>Define one writable, contiguous four-<code>dd</code> rectangle record for the center line, each paddle, and the ball, in <code>x, y, w, h</code> order. Before the first frame, populate every field through learner-authored addressed dword stores rather than leaving the rendered geometry initialized only by declarations. Choose your own integer dimensions and positions so all four shapes are visible inside your existing window, the paddles sit on opposite sides, and the center line and ball read clearly. Keep at least a two-pixel margin around each paddle and record a short source comment explaining one spatial choice.</li>
+<li>Build an ABI-safe frame procedure that sets a learner-chosen background color, clears the target, switches to a contrasting court color, fills the center line, both paddles, and ball through a reusable rectangle helper, then presents once. Check every status-returning render call before advancing; a negative status must log SDL's current error and use the same cleanup path. Do not treat the void present call as a status.</li>
+<li>Preserve <code>make check-s01</code> and its exact <code>INIT_OK</code> route. Add an exact <code>--arcanum-court-check</code> mode and <code>check-s02</code> target. Under <code>SDL_VIDEODRIVER=dummy</code>, this mode must create and store the renderer, complete and present the whole frame, print exactly <code>COURT_OK</code>, clean up, and exit zero. Any renderer or render failure must print no success token and exit nonzero.</li>
+</ul>
+<p><strong>Commands and diagnosis:</strong> Run <code>make clean</code>, <code>make</code>, <code>make check-s01</code>, and <code>make check-s02</code>. If the build fails, inspect the first assembler or linker diagnostic. If SDL reports a null renderer or negative draw status, use the immediately captured SDL message and the last successful stage to locate the fault. If the check reports a byte mismatch, run the court mode directly under the dummy driver and distinguish extra output from a missing token; never make the target echo the answer.</p>
+<p><strong>Observable acceptance:</strong> Add a repeatable GDB replay target that runs court-check mode with the dummy driver, stops immediately after the renderer store, displays the nonzero eight-byte handle and all four initialized words of at least two rectangle records, continues to a label immediately after present, then continues to a post-destruction label and displays the cleared renderer handle before normal exit. The inspected rectangle values must come from your addressed stores executed before this stop and must be the same values consumed by the fill calls. Also run <code>make debug</code> with the desktop driver, break at the post-present label, run <code>--arcanum-court-check</code>, and visually confirm all five court regions and your chosen contrast before continuing. Submit the four command results, the inspected values, your source comment rationale, and one diagnosed failure or explain which first symptom you would use if every run succeeded. Do not add event polling, frame pacing, movement, collision, scoring, or delays yet.</p>
+'''
+requires = ["language-data-layout-and-integer-state", "language-abi-procedures-and-register-discipline", "language-observable-debugging-and-verification", "sdl-renderer-lifecycle", "court-rectangle-state", "sdl-rectangle-rendering", "court-render-procedures", "court-rendering", "court-verification"]
+mechanisms = ["debian-toolchain-install", "toolchain-version-diagnostics", "workspace-directory-creation", "tool-edit-save", "nasm-source-layout", "makefile-authorship", "nasm-integer-data-and-addressed-state", "nasm-static-cstring-pointer-and-sdl-error-output", "nasm-compare-branch-loop-control", "sysv-abi-procedure-discipline", "nasm-elf64-dwarf-object-build", "gcc-sdl2-link-and-make-targets", "sdl-init-status-observation", "sdl-init-failure-branch", "sdl-init-error-diagnostic", "sdl-init-failure-cleanup", "sdl-window-status-observation", "sdl-window-failure-branch", "sdl-window-error-diagnostic", "sdl-window-failure-cleanup", "sdl-window-normal-cleanup", "deterministic-init-check", "gdb-state-inspection", "process-entry-argument-access", "sdl-renderer-status-observation", "sdl-renderer-failure-branch", "sdl-renderer-error-diagnostic", "sdl-renderer-failure-cleanup", "sdl-renderer-normal-cleanup", "sdl-rect-compatible-integer-layout", "sdl-clear-fill-present-sequence", "render-status-observation", "render-failure-branch", "render-error-diagnostic", "render-failure-cleanup", "abi-safe-render-procedure-decomposition", "deterministic-court-check-and-gdb-proof"]
+validationDependencies = []
+masteryPerformances = []
+reward = 150
+xray = "Inspect only the learner-authored extension of src/pong.asm and Makefile. Reward explicit SDL_Rect-compatible state, a checked renderer lifetime nested inside the existing window lifetime, one clear/fill/present frame owner, an ABI-safe reusable fill helper, exact real-path checks, and debugger evidence at truthful boundaries. Dock copied lesson coordinates, renderer creation before a valid window, unchecked or inverted returns, SDL_GetError on success, treating SDL_RenderPresent as status-returning, duplicate or out-of-order destruction, a COURT_OK echo detached from the rendered path, rectangle values outside the chosen window, unaligned helper calls, or a GDB transcript that inspects state before its store or after it is already discarded."
+
+[[freestyle.requirements]]
+id = "s02-renderer-lifetime"
+text = "Create and validate one SDL renderer only after the window is valid; diagnose null creation, preserve truthful exit status, and make all owning paths destroy and clear the renderer before window destruction and the single SDL_Quit."
+essential = true
+capabilities = ["language-abi-procedures-and-register-discipline", "sdl-renderer-lifecycle"]
+
+[[freestyle.requirements]]
+id = "s02-court-state"
+text = "Author writable SDL_Rect-compatible x, y, w, h integer records for the center line, two opposite paddles, and ball; populate every rendered field through addressed dword stores before painting, using learner-chosen in-bounds geometry and a source comment justifying one spatial choice."
+essential = true
+capabilities = ["language-data-layout-and-integer-state", "court-rectangle-state"]
+
+[[freestyle.requirements]]
+id = "s02-frame-procedures"
+text = "Use ABI-safe frame and rectangle procedures to set two learner-chosen contrasting colors, clear, fill every court shape with immediate status checks, present once, and route every confirmed render failure through current SDL diagnostics and shared cleanup."
+essential = true
+capabilities = ["language-abi-procedures-and-register-discipline", "sdl-rectangle-rendering", "court-render-procedures", "court-rendering"]
+
+[[freestyle.requirements]]
+id = "s02-court-proof"
+text = "Preserve the section-one check, add a real dummy-driver check that emits only COURT_OK after a completed frame, and replay GDB inspection of the live renderer, rectangle words, post-present boundary, cleared renderer, and normal exit before visually checking the graphical court."
+essential = true
+capabilities = ["language-observable-debugging-and-verification", "court-verification"]
+
+[[freestyle.referenceSteps]]        # hidden from learners; validator replays a real solution
+id = "s02-reference-source"
+path = "src/pong.asm"
+mode = "rewrite"
+preserves = "all-active"
+mechanisms = ["tool-edit-save", "nasm-source-layout", "nasm-integer-data-and-addressed-state", "nasm-static-cstring-pointer-and-sdl-error-output", "nasm-compare-branch-loop-control", "sysv-abi-procedure-discipline", "sdl-init-status-observation", "sdl-init-failure-branch", "sdl-init-error-diagnostic", "sdl-init-failure-cleanup", "sdl-window-status-observation", "sdl-window-failure-branch", "sdl-window-error-diagnostic", "sdl-window-failure-cleanup", "sdl-window-normal-cleanup", "deterministic-init-check", "process-entry-argument-access", "sdl-renderer-status-observation", "sdl-renderer-failure-branch", "sdl-renderer-error-diagnostic", "sdl-renderer-failure-cleanup", "sdl-renderer-normal-cleanup", "sdl-rect-compatible-integer-layout", "sdl-clear-fill-present-sequence", "render-status-observation", "render-failure-branch", "render-error-diagnostic", "render-failure-cleanup", "abi-safe-render-procedure-decomposition", "deterministic-court-check-and-gdb-proof"]
+instruction = "Private replay preserves the section-one contracts while rewriting the cumulative source with independently chosen rectangle geometry populated through addressed dword stores before painting, contrasting colors, checked renderer creation, checked clear/fill calls, one present, ABI-safe frame decomposition, distinct init and court modes, and renderer-before-window cleanup boundaries."
+content = '''
+SDL_INIT_VIDEO equ 0x20
+SDL_RENDERER_SOFTWARE equ 0x1
+
+global main
+global window_ready
+global renderer_ready
+global court_rendered
+global renderer_released
+
+extern SDL_Init
+extern SDL_CreateWindow
+extern SDL_CreateRenderer
+extern SDL_SetRenderDrawColor
+extern SDL_RenderClear
+extern SDL_RenderFillRect
+extern SDL_RenderPresent
+extern SDL_GetError
+extern SDL_Log
+extern SDL_DestroyRenderer
+extern SDL_DestroyWindow
+extern SDL_Quit
+extern puts
+
+section .rodata
+    init_token db "--arcanum-acceptance", 0
+    court_token db "--arcanum-court-check", 0
+    window_title db "Vector Rally", 0
+    error_format db "SDL failure: %s", 0
+    init_text db "INIT_OK", 0
+    court_text db "COURT_OK", 0
+
+section .data
+    window_width dd 880
+    window_height dd 500
+    exit_code dd 1
+    check_mode db 0
+
+    align 4
+    ; A narrow midfield stripe leaves open space around both paddles.
+    center_line times 4 dd 0
+    left_paddle times 4 dd 0
+    right_paddle times 4 dd 0
+    ball_rect times 4 dd 0
+
+section .bss
+    window_handle resq 1
+    renderer_handle resq 1
+    argument_value resq 1
+
+section .text
+main:
+    push rbp
+    mov rbp, rsp
+
+    cmp edi, 2
+    jne start_sdl
+    mov rdi, [rsi + 8]
+    mov [rel argument_value], rdi
+    lea rsi, [rel init_token]
+    call strings_equal
+    cmp eax, 1
+    jne try_court_token
+    mov byte [rel check_mode], 1
+    jmp start_sdl
+
+try_court_token:
+    mov rdi, [rel argument_value]
+    lea rsi, [rel court_token]
+    call strings_equal
+    cmp eax, 1
+    jne start_sdl
+    mov byte [rel check_mode], 2
+
+start_sdl:
+    call initialize_court_rects
+    mov edi, SDL_INIT_VIDEO
+    call SDL_Init
+    cmp eax, 0
+    jl init_failure
+
+    lea rdi, [rel window_title]
+    mov esi, 140
+    mov edx, 110
+    mov ecx, [rel window_width]
+    mov r8d, [rel window_height]
+    xor r9d, r9d
+    call SDL_CreateWindow
+    cmp rax, 0
+    je window_failure
+    mov [rel window_handle], rax
+
+window_ready:
+    cmp byte [rel check_mode], 1
+    jne create_renderer
+    lea rdi, [rel init_text]
+    call puts
+    mov dword [rel exit_code], 0
+    jmp main_cleanup
+
+create_renderer:
+    mov rdi, [rel window_handle]
+    mov esi, -1
+    mov edx, SDL_RENDERER_SOFTWARE
+    call SDL_CreateRenderer
+    cmp rax, 0
+    je renderer_failure
+    mov [rel renderer_handle], rax
+
+renderer_ready:
+    call paint_court
+    cmp eax, 0
+    jl render_failure
+
+    cmp byte [rel check_mode], 2
+    jne frame_success
+    lea rdi, [rel court_text]
+    call puts
+
+frame_success:
+    mov dword [rel exit_code], 0
+    jmp main_cleanup
+
+init_failure:
+    call report_sdl_error
+    jmp main_cleanup
+
+window_failure:
+    call report_sdl_error
+    jmp main_cleanup
+
+renderer_failure:
+    call report_sdl_error
+    jmp main_cleanup
+
+render_failure:
+    call report_sdl_error
+
+main_cleanup:
+    mov rdi, [rel renderer_handle]
+    cmp rdi, 0
+    je renderer_released
+    call SDL_DestroyRenderer
+    mov qword [rel renderer_handle], 0
+
+renderer_released:
+    mov rdi, [rel window_handle]
+    cmp rdi, 0
+    je quit_sdl
+    call SDL_DestroyWindow
+    mov qword [rel window_handle], 0
+
+quit_sdl:
+    call SDL_Quit
+    mov eax, [rel exit_code]
+    leave
+    ret
+
+initialize_court_rects:
+    lea rax, [rel center_line]
+    mov dword [rax], 438
+    mov dword [rax + 4], 0
+    mov dword [rax + 8], 4
+    mov dword [rax + 12], 500
+
+    lea rax, [rel left_paddle]
+    mov dword [rax], 42
+    mov dword [rax + 4], 195
+    mov dword [rax + 8], 14
+    mov dword [rax + 12], 110
+
+    lea rax, [rel right_paddle]
+    mov dword [rax], 824
+    mov dword [rax + 4], 195
+    mov dword [rax + 8], 14
+    mov dword [rax + 12], 110
+
+    lea rax, [rel ball_rect]
+    mov dword [rax], 431
+    mov dword [rax + 4], 241
+    mov dword [rax + 8], 18
+    mov dword [rax + 12], 18
+    ret
+
+paint_court:
+    push rbp
+    mov rbp, rsp
+
+    mov rdi, [rel renderer_handle]
+    mov esi, 12
+    mov edx, 20
+    mov ecx, 32
+    mov r8d, 255
+    call SDL_SetRenderDrawColor
+    cmp eax, 0
+    jl paint_court_done
+
+    mov rdi, [rel renderer_handle]
+    call SDL_RenderClear
+    cmp eax, 0
+    jl paint_court_done
+
+    mov rdi, [rel renderer_handle]
+    mov esi, 232
+    mov edx, 238
+    mov ecx, 224
+    mov r8d, 255
+    call SDL_SetRenderDrawColor
+    cmp eax, 0
+    jl paint_court_done
+
+    lea rsi, [rel center_line]
+    call fill_court_rect
+    cmp eax, 0
+    jl paint_court_done
+
+    lea rsi, [rel left_paddle]
+    call fill_court_rect
+    cmp eax, 0
+    jl paint_court_done
+
+    lea rsi, [rel right_paddle]
+    call fill_court_rect
+    cmp eax, 0
+    jl paint_court_done
+
+    lea rsi, [rel ball_rect]
+    call fill_court_rect
+    cmp eax, 0
+    jl paint_court_done
+
+    mov rdi, [rel renderer_handle]
+    call SDL_RenderPresent
+court_rendered:
+    xor eax, eax
+
+paint_court_done:
+    leave
+    ret
+
+fill_court_rect:
+    push rbx
+    mov rbx, rsi
+    mov rdi, [rel renderer_handle]
+    mov rsi, rbx
+    call SDL_RenderFillRect
+    pop rbx
+    ret
+
+strings_equal:
+.next_byte:
+    mov al, [rdi]
+    cmp al, [rsi]
+    jne .different
+    cmp al, 0
+    je .equal
+    inc rdi
+    inc rsi
+    jmp .next_byte
+.equal:
+    mov eax, 1
+    ret
+.different:
+    xor eax, eax
+    ret
+
+report_sdl_error:
+    push rbp
+    mov rbp, rsp
+    call SDL_GetError
+    mov rsi, rax
+    lea rdi, [rel error_format]
+    xor eax, eax
+    call SDL_Log
+    leave
+    ret
+'''
+
+[[freestyle.referenceSteps]]
+id = "s02-reference-makefile"
+path = "Makefile"
+mode = "rewrite"
+preserves = "all-active"
+mechanisms = ["tool-edit-save", "makefile-authorship", "nasm-elf64-dwarf-object-build", "gcc-sdl2-link-and-make-targets", "deterministic-init-check", "gdb-state-inspection", "deterministic-court-check-and-gdb-proof"]
+instruction = "Private replay rewrites the cumulative Makefile, retains every section-one target, adds a byte-exact real-path court check, and adds a dummy-driver GDB replay that observes the live renderer and rectangle state, post-present control boundary, cleared renderer, and normal exit. It then runs clean, build, check-s01, check-s02, and debug-replay-s02."
+content = '''
+NASM := nasm
+CC := gcc
+TARGET := build/paddle-vector
+SOURCE := src/pong.asm
+BUILD_DIR := build
+OBJECT := $(BUILD_DIR)/pong.o
+SDL_LIBS := $(shell pkg-config --libs sdl2)
+
+.PHONY: all build run check-s01 check-s02 debug debug-replay debug-replay-graphical debug-replay-s02 clean
+
+all: $(TARGET)
+
+build: $(TARGET)
+
+$(OBJECT): $(SOURCE)
+	mkdir -p $(BUILD_DIR)
+	$(NASM) -f elf64 -g -F dwarf $< -o $@
+
+$(TARGET): $(OBJECT)
+	$(CC) -no-pie $< -o $@ $(SDL_LIBS)
+
+run: $(TARGET)
+	./$(TARGET)
+
+check-s01: $(TARGET)
+	SDL_VIDEODRIVER=dummy ./$(TARGET) --arcanum-acceptance > $(BUILD_DIR)/check-s01.out
+	printf 'INIT_OK\n' > $(BUILD_DIR)/check-s01.expected
+	cmp $(BUILD_DIR)/check-s01.out $(BUILD_DIR)/check-s01.expected
+
+check-s02: $(TARGET)
+	SDL_VIDEODRIVER=dummy ./$(TARGET) --arcanum-court-check > $(BUILD_DIR)/check-s02.out
+	printf 'COURT_OK\n' > $(BUILD_DIR)/check-s02.expected
+	cmp $(BUILD_DIR)/check-s02.out $(BUILD_DIR)/check-s02.expected
+
+debug: $(TARGET)
+	gdb -q ./$(TARGET)
+
+debug-replay: $(TARGET)
+	gdb -q -batch ./$(TARGET) \
+	 -ex 'set environment SDL_VIDEODRIVER dummy' \
+	 -ex 'break window_ready' \
+	 -ex 'break quit_sdl' \
+	 -ex 'run' \
+	 -ex 'x/gx &window_handle' \
+	 -ex 'info registers rax rsp eflags' \
+	 -ex 'stepi' \
+	 -ex 'info registers eflags' \
+	 -ex 'continue' \
+	 -ex 'x/gx &window_handle' \
+	 -ex 'continue'
+
+debug-replay-graphical: $(TARGET)
+	gdb -q -batch ./$(TARGET) \
+	 -ex 'break window_ready' \
+	 -ex 'break quit_sdl' \
+	 -ex 'run' \
+	 -ex 'x/gx &window_handle' \
+	 -ex 'info registers rax rsp eflags' \
+	 -ex 'stepi' \
+	 -ex 'info registers eflags' \
+	 -ex 'continue' \
+	 -ex 'x/gx &window_handle' \
+	 -ex 'continue'
+
+debug-replay-s02: $(TARGET)
+	gdb -q -batch ./$(TARGET) \
+	 -ex 'set environment SDL_VIDEODRIVER dummy' \
+	 -ex 'break renderer_ready' \
+	 -ex 'break court_rendered' \
+	 -ex 'break renderer_released' \
+	 -ex 'run --arcanum-court-check' \
+	 -ex 'x/gx &renderer_handle' \
+	 -ex 'x/4dw &left_paddle' \
+	 -ex 'x/4dw &ball_rect' \
+	 -ex 'continue' \
+	 -ex 'x/4dw &center_line' \
+	 -ex 'continue' \
+	 -ex 'x/gx &renderer_handle' \
+	 -ex 'continue'
+
+clean:
+	$(RM) $(OBJECT) $(TARGET) $(BUILD_DIR)/check-s01.out $(BUILD_DIR)/check-s01.expected $(BUILD_DIR)/check-s02.out $(BUILD_DIR)/check-s02.expected
+	-rmdir $(BUILD_DIR)
+'''
+
+[freestyle.badge]
+id = "badge-s02"
+name = "COURT RENDERER"
+desc = "Modeled, rendered, checked, and debugger-proved a complete learner-designed Pong court."
+
+[[freestyle.rubric]]               # weights MUST sum to exactly 100
+id = "s02-cumulative-build"
+criterion = "Cumulative source and build integrity"
+weight = 20
+kind = "deterministic"
+mechanisms = ["debian-toolchain-install", "toolchain-version-diagnostics", "workspace-directory-creation", "tool-edit-save", "nasm-source-layout", "makefile-authorship", "nasm-elf64-dwarf-object-build", "gcc-sdl2-link-and-make-targets"]
+assessmentIds = ["s02-clean-build"]
+desc = "The learner-owned cumulative source and Makefile rebuild cleanly while retaining the section-one check and adding the real court route."
+
+[[freestyle.rubric]]
+id = "s02-renderer-contract"
+criterion = "Checked renderer lifetime"
+weight = 20
+kind = "deterministic"
+mechanisms = ["sdl-renderer-status-observation", "sdl-renderer-failure-branch", "sdl-renderer-error-diagnostic", "sdl-renderer-failure-cleanup", "sdl-renderer-normal-cleanup"]
+assessmentIds = ["s02-court-check"]
+desc = "Renderer creation is checked before use; failures retain current diagnostics and nonzero status; every owned renderer is destroyed and cleared before the window lifetime ends."
+
+[[freestyle.rubric]]
+id = "s02-court-frame"
+criterion = "Complete checked court frame"
+weight = 25
+kind = "deterministic"
+mechanisms = ["sdl-rect-compatible-integer-layout", "sdl-clear-fill-present-sequence", "render-status-observation", "render-failure-branch", "render-error-diagnostic", "render-failure-cleanup"]
+assessmentIds = ["s02-court-check"]
+desc = "Addressed dword stores populate four correct x, y, w, h records before those records drive one cleared background, four visible filled rectangle regions, and one present, with every status-returning operation checked before the exact success token."
+
+[[freestyle.rubric]]
+id = "s02-procedure-and-proof"
+criterion = "ABI-safe decomposition and state proof"
+weight = 20
+kind = "deterministic"
+mechanisms = ["sysv-abi-procedure-discipline", "abi-safe-render-procedure-decomposition", "gdb-state-inspection", "deterministic-court-check-and-gdb-proof"]
+assessmentIds = ["s02-court-check"]
+desc = "A reusable fill helper and frame owner obey call alignment and preservation rules; the dummy replay observes live renderer and rectangle state, the post-present boundary, cleared storage, and normal exit."
+
+[[freestyle.rubric]]
+id = "s02-learner-court-choice"
+criterion = "Exercised visual choice and diagnosis"
+weight = 15
+kind = "qualitative"
+mechanisms = ["sdl-rect-compatible-integer-layout", "deterministic-court-check-and-gdb-proof"]
+assessmentIds = []
+desc = "The graphical proof shows the learner's own in-bounds geometry and contrasting colors, the source comment explains one spatial choice, and the learner classifies a real or anticipated failure from its first actionable symptom."

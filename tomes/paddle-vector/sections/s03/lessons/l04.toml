@@ -1,157 +1,123 @@
 [[lessons]]
 id = "s03-l04"
-title = "Pace Frames by a Deadline"
+title = "TODO: Pace Frames by a Deadline"
 teaches = ["frame-clock-pacing"]
 introduces = ["sdl-ticks-deadline-and-delay-pacing"]
 validationDependencies = []
 body = '''
-<p>An unpaced loop runs as fast as one machine permits. That wastes a CPU core and makes fixed-per-frame movement faster on a powerful computer. A frame budget gives the loop a target duration. At roughly 60 frames per second, a practical integer budget is 16 milliseconds. Work uses part of that budget; only the remainder should be delayed.</p>
-<p><code>SDL_GetTicks</code> returns an unsigned 32-bit millisecond count since SDL initialization. <code>SDL_Delay</code> accepts an unsigned millisecond duration and waits at least that long, though the operating-system scheduler may make the wait longer. This disposable status-panel procedure starts a deadline and finishes the frame without unsigned underflow:</p>
-<pre><code data-kind="runnable">FRAME_MS equ 16
-
-section .bss
-    panel_started: resd 1
-    panel_deadline: resd 1
-
-section .text
-extern SDL_GetTicks
-extern SDL_Delay
-
-begin_panel_frame:
-    push rbp
-    mov rbp, rsp
-    call SDL_GetTicks
-    mov [rel panel_started], eax
-    add eax, FRAME_MS
-    mov [rel panel_deadline], eax
-    leave
-    ret
-
-finish_panel_frame:
-    push rbp
-    mov rbp, rsp
-    call SDL_GetTicks
-    sub eax, [rel panel_started]
-    cmp eax, FRAME_MS
-    jae .finished
-    mov edi, FRAME_MS
-    sub edi, eax
-    call SDL_Delay
-.finished:
-    leave
-    ret</code></pre>
-<p>The beginning records both the start and the target deadline, making the intended boundary visible in a debugger. The finishing subtraction computes elapsed time modulo 2<sup>32</sup>. For a short frame interval, that remains correct even if the tick counter wraps between the two readings. If work took 9 ms, <code>16-9</code> passes 7 in <code>edi</code>. If work took 19 ms, <code>jae</code> skips delay entirely. Subtracting before that comparison would wrap <code>16-19</code> into a huge unsigned delay.</p>
-<p>SDL2's 32-bit tick count wraps after about 49 days; SDL recommends <code>SDL_GetTicks64</code> for general long-running timing on SDL 2.0.18 or later. The bounded subtraction here is deliberate for a short, fixed frame interval and broad SDL2 compatibility. It is not a general calendar or multi-day deadline technique. The stored <code>panel_deadline</code> may wrap too, so direct unsigned <code>now &gt;= deadline</code> is not a safe comparison across wrap; the short elapsed subtraction avoids that trap.</p>
-<p>A delay is pacing, not precision scheduling. Seeing an occasional 17- or 18-ms frame is consistent with SDL's “at least” guarantee. Diagnose a program that always sleeps 16 ms by measuring from one frame start to the next: if rendering already took 5 ms, that broken route produces about 21 ms. Recover by measuring work first and delaying only the remaining budget.</p>
+<p>TODO: 340-500 meaningful visible words of code-first teaching, leaving margin above the 300-word cumulative median gate.</p>
+<pre><code data-kind="runnable"><span class="k">print</span>(<span class="s">"TODO"</span>)</code></pre>
+<div class="field-notes"><div class="fn-head">FIELD NOTES // TODO</div>
+<p>TODO: an optional deeper-cut appendix.</p></div>
 '''
 
 [[lessons.concepts]]
 id = "frame-clock-pacing"
-purpose = "Limits loop speed by making each short frame consume at least a chosen millisecond budget."
-anatomy = "Record a start tick and visible deadline, perform the frame work, measure elapsed time, skip delay when late, otherwise delay only the remaining budget."
-example = "begin_panel_frame and finish_panel_frame surround disposable panel work with a 16-ms target."
-observable = "A 9-ms work interval requests a 7-ms delay, while a 19-ms interval requests none; frame starts advance near the target instead of at maximum CPU speed."
-failure = "Always delaying the full budget adds work time on top and makes every nonempty frame slower than intended."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s03-l04-e1"
 
 [[lessons.concepts]]
 id = "sdl-ticks-deadline-and-delay-pacing"
-purpose = "Uses SDL's millisecond clock and delay call without late-frame underflow or short-interval wrap errors."
-anatomy = "Capture SDL_GetTicks in a dword, derive a deadline, subtract start from the later tick in 32 bits, compare elapsed with the budget, then place only a positive remainder in EDI for SDL_Delay."
-example = "finish_panel_frame checks elapsed before subtracting it from FRAME_MS."
-observable = "GDB can show panel_deadline exactly 16 ticks after panel_started modulo 2^32 and a requested delay no greater than 16."
-failure = "Computing budget-minus-elapsed before checking a late frame can turn a negative remainder into a multibillion-millisecond unsigned delay."
+purpose = "TODO: plain-language purpose."
+anatomy = "TODO: read its parts or procedure in order."
+example = "TODO: point to the complete worked example in this lesson."
+observable = "TODO: what the learner sees when the example works."
+failure = "TODO: one likely failure and how to recognize it."
 practice = "s03-l04-e1"
 
-[[lessons.readings]]
-label = "SDL2: SDL_GetTicks"
-url = "https://wiki.libsdl.org/SDL2/SDL_GetTicks"
-
-[[lessons.readings]]
-label = "SDL2: SDL_Delay"
-url = "https://wiki.libsdl.org/SDL2/SDL_Delay"
+[[lessons.readings]]               # optional: 1-2 high-quality official docs
+label = "TODO: official docs"
+url = "https://example.com/TODO"
 
 [[lessons.exercises]]
 id = "s03-l04-e1"
 type = "mc"
 required = true
-capabilities = ["language-data-layout-and-integer-state", "language-branch-loop-control"]
+capabilities = ["frame-clock-pacing"]
 mechanisms = ["sdl-ticks-deadline-and-delay-pacing"]
 cognitiveTask = "predict"
 scaffold = "guided"
-contextFamily = "panel-clock-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 15
-prompt = "FRAME_MS is 16, the stored start is 1000, and the finishing SDL_GetTicks returns 1011. What argument reaches SDL_Delay?"
-choices = ["11", "5", "16", "1016"]
-answer = 1
-whyWrong = "The delay is the budget's remainder after 11 ms of work, not the elapsed time, full budget, or absolute deadline."
-hint = "First subtract start from finish, then subtract that elapsed value from 16."
-explain = "The work consumed 11 ms, leaving a 5-ms request."
+prompt = "TODO: a multiple-choice question?"
+choices = ["TODO correct answer", "TODO distractor A", "TODO distractor B", "TODO distractor C"]
+answer = 0                         # 0-based index of the correct choice (vary across 0–3, not always 0)
+whyWrong = "TODO: name the misconception the wrong choices betray."   # required on every mc
+hint = "TODO: an exercise-specific hint."
+explain = "TODO: shown after solving."
 
 [[lessons.exercises]]
 id = "s03-l04-e2"
 type = "text"
 required = true
-capabilities = ["language-data-layout-and-integer-state", "language-branch-loop-control"]
-mechanisms = ["sdl-ticks-deadline-and-delay-pacing"]
+capabilities = ["frame-clock-pacing"]
+mechanisms = []
 cognitiveTask = "explain"
 scaffold = "guided"
-contextFamily = "panel-clock-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 20
-prompt = "Explain why finish_panel_frame compares elapsed with FRAME_MS before computing FRAME_MS-elapsed."
-answer = "A late frame has elapsed greater than the budget; subtracting first would wrap the negative remainder as a huge unsigned delay, so the comparison must skip SDL_Delay."
-hint = "Interpret SDL_Delay's argument as an unsigned 32-bit duration."
+prompt = "TODO: a free-text question."
+answer = "TODO"
+# accept = ["TODO alternate"]      # optional true alternates only
+hint = "TODO: an exercise-specific hint."
 
 [[lessons.exercises]]
 id = "s03-l04-e3"
 type = "fill"
 required = true
-capabilities = ["language-data-layout-and-integer-state", "language-branch-loop-control"]
-mechanisms = ["sdl-ticks-deadline-and-delay-pacing"]
+capabilities = ["frame-clock-pacing"]
+mechanisms = []
 cognitiveTask = "complete"
 scaffold = "completion"
-contextFamily = "panel-clock-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 20
-prompt = "Complete the unsigned branch that skips delay when elapsed is equal to or above the budget."
-code = '''cmp eax, FRAME_MS
-____ .finished'''
-answer = "jae"
-hint = "Use the unsigned above-or-equal condition after cmp."
+prompt = "TODO: fill the blank."
+code = 'answer = ____'             # the ____ marks where the answer goes
+answer = "TODO"
+hint = "TODO: an exercise-specific hint."
 
 [[lessons.exercises]]
 id = "s03-l04-d1"
-type = "type"
+type = "type"                      # typing drill: retype the code; no point decay
 required = true
-capabilities = ["language-data-layout-and-integer-state", "language-branch-loop-control"]
+capabilities = ["frame-clock-pacing"]
 mechanisms = []
 cognitiveTask = "recall"
 scaffold = "worked"
-contextFamily = "panel-clock-lab"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 12
 reps = 2
-prompt = "Retype the safe remainder calculation exactly. (Ctrl+Enter submits.)"
-code = '''mov edi, FRAME_MS
-sub edi, eax
-call SDL_Delay'''
+prompt = "TODO: retype this exactly. (Ctrl+Enter submits.)"
+code = 'print("TODO")'
 
 [[lessons.exercises]]
 id = "s03-l04-w1"
-type = "mc"
+type = "write"                     # CODE LAB: runs on the real runtime; no point decay
 required = true
-capabilities = ["language-data-layout-and-integer-state", "language-branch-loop-control"]
-mechanisms = ["sdl-ticks-deadline-and-delay-pacing"]
-cognitiveTask = "debug"
-scaffold = "independent"
-contextFamily = "timing-diagnosis"
+capabilities = ["frame-clock-pacing"]
+mechanisms = []
+cognitiveTask = "build"
+scaffold = "guided"
+contextFamily = "replace-context"
 aidPolicy = "learning"
 points = 30
-prompt = "A trace shows 6 ms of update/render work followed by SDL_Delay(16), and frame starts about 22 ms apart. Which change preserves a 16-ms budget?"
-choices = ["Call SDL_Delay(22)", "Remove all clock reads and render twice", "Delay only 10 ms because 16-6 remains", "Treat the 6-ms elapsed value as a quit event"]
-answer = 2
-whyWrong = "The target is a total frame duration, so work time must be deducted rather than added, ignored, or interpreted as input."
-hint = "The work already consumed part of the target interval."
-explain = "A 16-ms total budget minus 6 ms of work leaves a 10-ms delay request."
+prompt = "TODO: a CONCRETE task — name the exact values and the exact required output."
+# starter = '''
+# TODO: prefilled editor code / the exercise's data
+# '''
+expect = '''
+TODO EXACT OUTPUT'''
+# REQUIRED before shipping: a complete program that passes. Never shown to the
+# student; the validator RUNS it to prove expect is achievable (tome-authoring §3).
+# solution = '''
+# TODO
+# '''
+hint = "TODO: an exercise-specific hint."
